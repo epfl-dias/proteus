@@ -56,6 +56,11 @@ enum ExpressionId {
 class Expression {
  public:
   Expression(const ExpressionType *type) : type(type), registered(false) {}
+
+  template <typename T>
+  friend class ExpressionCRTP;
+
+ public:
   virtual ~Expression() = default;
 
   const ExpressionType *getExpressionType() const { return type; }
@@ -87,6 +92,12 @@ class Expression {
     registerAs(attr->getRelationName(), attr->getAttrName());
   }
 
+ protected:
+  virtual inline Expression &as_expr(string relName, string attrName) = 0;
+
+  virtual inline Expression &as_expr(RecordAttribute *attr) = 0;
+
+ public:
   virtual inline string getRegisteredAttrName() const {
     if (!registered) {
       string error_msg = string("Expression not registered");
@@ -124,6 +135,36 @@ class Expression {
   string attrName;
 };
 
+template <typename T>
+class ExpressionCRTP : public Expression {
+ private:
+  ExpressionCRTP(const ExpressionType *type) : Expression(type) {}
+
+ protected:
+  virtual inline Expression &as_expr(string relName, string attrName) override {
+    registerAs(relName, attrName);
+    return *this;
+  }
+
+  virtual inline Expression &as_expr(RecordAttribute *attr) override {
+    registerAs(attr);
+    return *this;
+  }
+
+ public:
+  virtual inline T &as(string relName, string attrName) {
+    return static_cast<T &>(
+        static_cast<decltype(*this)>(as_expr(relName, attrName)));
+  }
+
+  virtual inline T &as(RecordAttribute *attr) {
+    return static_cast<T &>(
+        static_cast<decltype(*this)>(as_expr(relName, attrName)));
+  }
+
+  friend T;
+};
+
 struct less_map
     : std::binary_function<const Expression *, const Expression *, bool> {
   bool operator()(const Expression *a, const Expression *b) const {
@@ -135,7 +176,7 @@ class RecordProjection;
 
 }  // namespace expressions
 
-class expression_t final : public expressions::Expression {
+class expression_t final : public expressions::ExpressionCRTP<expression_t> {
  public:
   typedef expressions::Expression concept_t;
 
@@ -146,45 +187,36 @@ class expression_t final : public expressions::Expression {
             typename std::enable_if<!std::is_base_of_v<
                 expressions::RecordProjection, T>>::type * = nullptr>
   expression_t(std::shared_ptr<T> &&ptr)
-      : expressions::Expression(ptr->getExpressionType()), data(ptr) {}
+      : expressions::ExpressionCRTP<expression_t>(ptr->getExpressionType()),
+        data(ptr) {
+    if (data->isRegistered()) {
+      registerAs(data->getRegisteredRelName(), data->getRegisteredAttrName());
+    }
+  }
 
   template <typename T,
             typename std::enable_if<std::is_base_of_v<
                 expressions::RecordProjection, T>>::type * = nullptr>
   expression_t(std::shared_ptr<T> &&ptr)
-      : expressions::Expression(ptr->getExpressionType()), data(ptr) {
+      : expressions::ExpressionCRTP<expression_t>(ptr->getExpressionType()),
+        data(ptr) {
     registerAs(data->getRegisteredRelName(), data->getRegisteredAttrName());
   }
 
  public:
   [[deprecated]] expression_t(const expressions::Expression *ptr)
-      : expressions::Expression(ptr->getExpressionType()), data(ptr) {
+      : ExpressionCRTP(ptr->getExpressionType()), data(ptr) {
     // not very correct (=who has the ownership?) but should work for now
+    if (data->isRegistered()) {
+      registerAs(data->getRegisteredRelName(), data->getRegisteredAttrName());
+    }
   }
 
   template <typename T,
-            typename std::enable_if<std::is_base_of_v<expressions::Expression,
-                                                      T>>::type * = nullptr,
-            typename std::enable_if<!std::is_base_of_v<
-                expressions::RecordProjection, T>>::type * = nullptr,
-            typename std::enable_if<!std::is_same_v<expression_t, T>>::type * =
-                nullptr>
-  expression_t(T v)
-      : expressions::Expression(v.getExpressionType()),
-        data(std::make_shared<T>(v)) {}
-
-  template <typename T,
-            typename std::enable_if<std::is_base_of_v<expressions::Expression,
-                                                      T>>::type * = nullptr,
-            typename std::enable_if<std::is_base_of_v<
-                expressions::RecordProjection, T>>::type * = nullptr,
-            typename std::enable_if<!std::is_same_v<expression_t, T>>::type * =
-                nullptr>
-  expression_t(T v)
-      : expressions::Expression(v.getExpressionType()),
-        data(std::make_shared<T>(v)) {
-    registerAs(data->getRegisteredRelName(), data->getRegisteredAttrName());
-  }
+            typename =
+                std::enable_if_t<std::is_base_of_v<expressions::Expression, T>>,
+            typename = std::enable_if_t<!std::is_same_v<expression_t, T>>>
+  expression_t(T v) : expression_t(std::make_shared<T>(v)) {}
 
   expression_t(bool v);
   expression_t(int32_t v);
@@ -224,16 +256,16 @@ class expression_t final : public expressions::Expression {
 
   [[deprecated]] operator const concept_t *() const { return data.get(); }
 
-  expressions::RecordProjection operator[](RecordAttribute proj);
+  expressions::RecordProjection operator[](RecordAttribute proj) const;
 };
 
 // Careful: Using a namespace to avoid conflicts witfh LLVM namespace
 namespace expressions {
 
-class Constant : public Expression {
+class Constant : public ExpressionCRTP<Constant> {
  public:
   enum ConstantType { INT, INT64, BOOL, FLOAT, STRING, DSTRING, DATE };
-  Constant(const ExpressionType *type) : Expression(type) {}
+  Constant(const ExpressionType *type) : ExpressionCRTP(type) {}
   ~Constant() {}
   virtual ConstantType getConstantType() const = 0;
 };
@@ -353,11 +385,11 @@ class DStringConstant
  *
  * XXX How do we specify the schema of the last expression?
  */
-class InputArgument : public Expression {
+class InputArgument : public ExpressionCRTP<InputArgument> {
  public:
   InputArgument(const ExpressionType *type, int argNo = 0,
                 list<RecordAttribute> projections = {})
-      : Expression(type), argNo(argNo), projections(projections) {}
+      : ExpressionCRTP(type), argNo(argNo), projections(projections) {}
 
   ~InputArgument() {}
 
@@ -409,6 +441,8 @@ class InputArgument : public Expression {
     }
   }
 
+  inline expressions::RecordProjection operator[](RecordAttribute proj) const;
+
  private:
   /**
    * ArgumentNo is meant to represent e.g. the left or right child of a Join,
@@ -426,27 +460,27 @@ class InputArgument : public Expression {
   list<RecordAttribute> projections;
 };
 
-class RecordProjection : public Expression {
+class RecordProjection : public ExpressionCRTP<RecordProjection> {
  public:
   [[deprecated]] RecordProjection(ExpressionType *type, Expression *expr,
                                   RecordAttribute attribute)
-      : Expression(type), expr(expr), attribute(attribute) {
-    assert(type->getTypeID() == attribute.getOriginalType()->getTypeID());
+      : ExpressionCRTP(type), expr(expr), attribute(attribute) {
+    assert(type->getTypeID() == this->attribute.getOriginalType()->getTypeID());
     registerAs(getRelationName(), getProjectionName());
   }
   [[deprecated]] RecordProjection(const ExpressionType *type, Expression *expr,
                                   RecordAttribute attribute)
-      : Expression(type), expr(expr), attribute(attribute) {
-    assert(type->getTypeID() == attribute.getOriginalType()->getTypeID());
+      : ExpressionCRTP(type), expr(expr), attribute(attribute) {
+    assert(type->getTypeID() == this->attribute.getOriginalType()->getTypeID());
     registerAs(getRelationName(), getProjectionName());
   }
   RecordProjection(expression_t expr, RecordAttribute attribute)
-      : Expression(attribute.getOriginalType()),
+      : ExpressionCRTP(attribute.getOriginalType()),
         expr(std::move(expr)),
         attribute(attribute) {
     registerAs(getRelationName(), getProjectionName());
   }
-  ~RecordProjection() {}
+  ~RecordProjection() override = default;
 
   expression_t getExpr() const { return expr; }
   string getOriginalRelationName() const {
@@ -455,11 +489,11 @@ class RecordProjection : public Expression {
   string getRelationName() const { return attribute.getRelationName(); }
   string getProjectionName() const { return attribute.getAttrName(); }
   RecordAttribute getAttribute() const { return attribute; }
-  ProteusValue accept(ExprVisitor &v) const;
+  ProteusValue accept(ExprVisitor &v) const override;
   ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
-  ExpressionId getTypeID() const { return RECORD_PROJECTION; }
-  inline bool operator<(const expressions::Expression &r) const {
+                            const expressions::Expression *) const override;
+  ExpressionId getTypeID() const override { return RECORD_PROJECTION; }
+  inline bool operator<(const expressions::Expression &r) const override {
     //        if (this->getTypeID() == r.getTypeID()) {
     //            cout << "Record Proj Hashing" << endl;
     //            const RecordProjection& rProj =
@@ -521,10 +555,10 @@ class RecordProjection : public Expression {
   RecordAttribute attribute;
 };
 
-class HashExpression : public Expression {
+class HashExpression : public ExpressionCRTP<HashExpression> {
  public:
   HashExpression(expression_t expr)
-      : Expression(new Int64Type()), expr(std::move(expr)) {}
+      : ExpressionCRTP(new Int64Type()), expr(std::move(expr)) {}
 
   ~HashExpression() {}
 
@@ -546,10 +580,10 @@ class HashExpression : public Expression {
   expression_t expr;
 };
 
-class ProteusValueExpression : public Expression {
+class ProteusValueExpression : public ExpressionCRTP<ProteusValueExpression> {
  public:
   ProteusValueExpression(const ExpressionType *type, ProteusValue expr)
-      : Expression(type), expr(expr) {}
+      : ExpressionCRTP(type), expr(expr) {}
   ~ProteusValueExpression() {}
 
   ProteusValue getValue() const { return expr; }
@@ -590,16 +624,16 @@ class AttributeConstruction {
  * XXX
  * I think that unless it belongs to the final result, it is desugarized!!
  */
-class RecordConstruction : public Expression {
+class RecordConstruction : public ExpressionCRTP<RecordConstruction> {
  public:
   [[deprecated]] RecordConstruction(const ExpressionType *type,
                                     const list<AttributeConstruction> &atts)
-      : Expression(type), atts(atts) {
+      : ExpressionCRTP(type), atts(atts) {
     assert(type->getTypeID() == RECORD);
   }
 
   RecordConstruction(const list<AttributeConstruction> &atts)
-      : Expression(constructRecordType(atts)), atts(atts) {}
+      : ExpressionCRTP(constructRecordType(atts)), atts(atts) {}
   ~RecordConstruction() {}
 
   ProteusValue accept(ExprVisitor &v) const;
@@ -648,13 +682,13 @@ class RecordConstruction : public Expression {
   const list<AttributeConstruction> atts;
 };
 
-class IfThenElse : public Expression {
+class IfThenElse : public ExpressionCRTP<IfThenElse> {
  public:
   [[deprecated]] IfThenElse(const ExpressionType *type, Expression *expr1,
                             Expression *expr2, Expression *expr3)
-      : Expression(type), expr1(expr1), expr2(expr2), expr3(expr3) {}
+      : ExpressionCRTP(type), expr1(expr1), expr2(expr2), expr3(expr3) {}
   IfThenElse(expression_t expr1, expression_t expr2, expression_t expr3)
-      : Expression(expr2.getExpressionType()),
+      : ExpressionCRTP(expr2.getExpressionType()),
         expr1(std::move(expr1)),
         expr2(std::move(expr2)),
         expr3(std::move(expr3)) {
@@ -714,22 +748,16 @@ class IfThenElse : public Expression {
 
 class BinaryExpression : public Expression {
  public:
-  [[deprecated]] BinaryExpression(const ExpressionType *type,
-                                  expressions::BinaryOperator *op,
-                                  const Expression *lhs, const Expression *rhs)
-      : Expression(type), lhs(lhs), rhs(rhs), op(op) {}
   BinaryExpression(const ExpressionType *type, expressions::BinaryOperator *op,
                    expression_t lhs, expression_t rhs)
       : Expression(type), lhs(std::move(lhs)), rhs(std::move(rhs)), op(op) {}
+
   virtual expression_t getLeftOperand() const { return lhs; }
   virtual expression_t getRightOperand() const { return rhs; }
   expressions::BinaryOperator *getOp() const { return op; }
 
-  virtual ProteusValue accept(ExprVisitor &v) const = 0;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const = 0;
   virtual ExpressionId getTypeID() const { return BINARY; }
-  ~BinaryExpression() = 0;
+  // ~BinaryExpression() = 0;
   virtual inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
       const BinaryExpression &rBin = dynamic_cast<const BinaryExpression &>(r);
@@ -752,12 +780,48 @@ class BinaryExpression : public Expression {
   BinaryOperator *op;
 };
 
-template <typename Top>
-class TBinaryExpression : public BinaryExpression {
+template <typename T>
+class BinaryExpressionCRTP : public BinaryExpression {
+ public:
+  BinaryExpressionCRTP(const ExpressionType *type,
+                       expressions::BinaryOperator *op, expression_t lhs,
+                       expression_t rhs)
+      : BinaryExpression(type, op, std::move(lhs), std::move(rhs)) {}
+
+  virtual ~BinaryExpressionCRTP() override = default;
+
+ protected:
+  virtual inline Expression &as_expr(string relName, string attrName) override {
+    registerAs(relName, attrName);
+    return *this;
+  }
+
+  virtual inline Expression &as_expr(RecordAttribute *attr) override {
+    registerAs(attr);
+    return *this;
+  }
+
+ public:
+  virtual inline T &as(string relName, string attrName) {
+    return static_cast<T &>(
+        static_cast<decltype(*this)>(as_expr(relName, attrName)));
+  }
+
+  virtual inline T &as(RecordAttribute *attr) {
+    return static_cast<T &>(static_cast<decltype(*this)>(as_expr(attr)));
+  }
+
+  friend T;
+};
+
+template <typename T, typename Top>
+class TBinaryExpression : public BinaryExpressionCRTP<T> {
+  typedef BinaryExpressionCRTP<T> Tparent;
+
  protected:
   TBinaryExpression(const ExpressionType *type, expression_t lhs,
                     expression_t rhs)
-      : BinaryExpression(type, new Top(), std::move(lhs), std::move(rhs)) {}
+      : Tparent(type, new Top(), std::move(lhs), std::move(rhs)) {}
 
  public:
   ~TBinaryExpression() {}
@@ -771,8 +835,7 @@ class TBinaryExpression : public BinaryExpression {
     if (this->getTypeID() == r.getTypeID()) {
       const BinaryExpression &rBin = dynamic_cast<const BinaryExpression &>(r);
       if (this->getOp()->getID() == rBin.getOp()->getID()) {
-        const TBinaryExpression<Top> &rOp =
-            dynamic_cast<const TBinaryExpression<Top> &>(r);
+        const Tparent &rOp = dynamic_cast<const Tparent &>(r);
         auto l1 = this->getLeftOperand();
         auto l2 = this->getRightOperand();
 
@@ -799,11 +862,8 @@ class TBinaryExpression : public BinaryExpression {
   }
 };
 
-class EqExpression : public TBinaryExpression<Eq> {
+class EqExpression : public TBinaryExpression<EqExpression, Eq> {
  public:
-  // [[deprecated]]
-  // EqExpression(const ExpressionType* type, Expression* lhs, Expression* rhs):
-  //     TBinaryExpression(type, lhs, rhs){}
   EqExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
   ~EqExpression() {}
@@ -813,7 +873,7 @@ class EqExpression : public TBinaryExpression<Eq> {
                             const expressions::Expression *) const;
 };
 
-class NeExpression : public TBinaryExpression<Neq> {
+class NeExpression : public TBinaryExpression<NeExpression, Neq> {
  public:
   NeExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
@@ -824,7 +884,7 @@ class NeExpression : public TBinaryExpression<Neq> {
                             const expressions::Expression *) const;
 };
 
-class GeExpression : public TBinaryExpression<Ge> {
+class GeExpression : public TBinaryExpression<GeExpression, Ge> {
  public:
   GeExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
@@ -835,7 +895,7 @@ class GeExpression : public TBinaryExpression<Ge> {
                             const expressions::Expression *) const;
 };
 
-class GtExpression : public TBinaryExpression<Gt> {
+class GtExpression : public TBinaryExpression<GtExpression, Gt> {
  public:
   GtExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
@@ -846,7 +906,7 @@ class GtExpression : public TBinaryExpression<Gt> {
                             const expressions::Expression *) const;
 };
 
-class LeExpression : public TBinaryExpression<Le> {
+class LeExpression : public TBinaryExpression<LeExpression, Le> {
  public:
   LeExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
@@ -857,7 +917,7 @@ class LeExpression : public TBinaryExpression<Le> {
                             const expressions::Expression *) const;
 };
 
-class LtExpression : public TBinaryExpression<Lt> {
+class LtExpression : public TBinaryExpression<LtExpression, Lt> {
  public:
   LtExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
@@ -868,7 +928,7 @@ class LtExpression : public TBinaryExpression<Lt> {
                             const expressions::Expression *) const;
 };
 
-class AddExpression : public TBinaryExpression<Add> {
+class AddExpression : public TBinaryExpression<AddExpression, Add> {
  public:
   AddExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
@@ -880,7 +940,7 @@ class AddExpression : public TBinaryExpression<Add> {
                             const expressions::Expression *) const;
 };
 
-class SubExpression : public TBinaryExpression<Sub> {
+class SubExpression : public TBinaryExpression<SubExpression, Sub> {
  public:
   SubExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
@@ -891,7 +951,7 @@ class SubExpression : public TBinaryExpression<Sub> {
                             const expressions::Expression *) const;
 };
 
-class MultExpression : public TBinaryExpression<Mult> {
+class MultExpression : public TBinaryExpression<MultExpression, Mult> {
  public:
   MultExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
@@ -902,7 +962,7 @@ class MultExpression : public TBinaryExpression<Mult> {
                             const expressions::Expression *) const;
 };
 
-class DivExpression : public TBinaryExpression<Div> {
+class DivExpression : public TBinaryExpression<DivExpression, Div> {
  public:
   DivExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
@@ -913,7 +973,7 @@ class DivExpression : public TBinaryExpression<Div> {
                             const expressions::Expression *) const;
 };
 
-class ModExpression : public TBinaryExpression<Mod> {
+class ModExpression : public TBinaryExpression<ModExpression, Mod> {
  public:
   ModExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(rhs.getExpressionType(), lhs, rhs) {}
@@ -925,7 +985,7 @@ class ModExpression : public TBinaryExpression<Mod> {
                             const expressions::Expression *) const;
 };
 
-class AndExpression : public TBinaryExpression<And> {
+class AndExpression : public TBinaryExpression<AndExpression, And> {
  public:
   AndExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
@@ -936,7 +996,7 @@ class AndExpression : public TBinaryExpression<And> {
                             const expressions::Expression *) const;
 };
 
-class OrExpression : public TBinaryExpression<Or> {
+class OrExpression : public TBinaryExpression<OrExpression, Or> {
  public:
   OrExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
@@ -947,10 +1007,10 @@ class OrExpression : public TBinaryExpression<Or> {
                             const expressions::Expression *) const;
 };
 
-class MaxExpression : public BinaryExpression {
+class MaxExpression : public BinaryExpressionCRTP<MaxExpression> {
  public:
   MaxExpression(expression_t lhs, expression_t rhs)
-      : BinaryExpression(lhs.getExpressionType(), new Max(), lhs, rhs),
+      : BinaryExpressionCRTP(lhs.getExpressionType(), new Max(), lhs, rhs),
         cond(expression_t::make<GtExpression>(lhs, rhs), lhs, rhs) {}
   ~MaxExpression() {}
 
@@ -960,7 +1020,8 @@ class MaxExpression : public BinaryExpression {
   const IfThenElse *getCond() const { return &cond; };
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
-      const BinaryExpression &rBin = dynamic_cast<const BinaryExpression &>(r);
+      const BinaryExpressionCRTP &rBin =
+          dynamic_cast<const BinaryExpressionCRTP &>(r);
       if (this->getOp()->getID() == rBin.getOp()->getID()) {
         const MaxExpression &rMax = dynamic_cast<const MaxExpression &>(r);
         return this->cond < rMax.cond;
@@ -975,10 +1036,10 @@ class MaxExpression : public BinaryExpression {
   IfThenElse cond;
 };
 
-class MinExpression : public BinaryExpression {
+class MinExpression : public BinaryExpressionCRTP<MinExpression> {
  public:
   MinExpression(expression_t lhs, expression_t rhs)
-      : BinaryExpression(lhs.getExpressionType(), new Min(), lhs, rhs),
+      : BinaryExpressionCRTP(lhs.getExpressionType(), new Min(), lhs, rhs),
         cond(expression_t::make<LtExpression>(lhs, rhs), lhs, rhs) {}
   ~MinExpression() {}
 
@@ -988,7 +1049,8 @@ class MinExpression : public BinaryExpression {
   const IfThenElse *getCond() const { return &cond; };
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
-      const BinaryExpression &rBin = dynamic_cast<const BinaryExpression &>(r);
+      const BinaryExpressionCRTP &rBin =
+          dynamic_cast<const BinaryExpressionCRTP &>(r);
       if (this->getOp()->getID() == rBin.getOp()->getID()) {
         const MinExpression &rMin = dynamic_cast<const MinExpression &>(r);
         return this->cond < rMin.cond;
@@ -1003,10 +1065,10 @@ class MinExpression : public BinaryExpression {
   IfThenElse cond;
 };
 
-class NegExpression : public Expression {
+class NegExpression : public ExpressionCRTP<NegExpression> {
  public:
   NegExpression(expression_t expr)
-      : Expression(expr.getExpressionType()), expr(expr) {}
+      : ExpressionCRTP(expr.getExpressionType()), expr(expr) {}
 
   ~NegExpression() {}
 
@@ -1028,10 +1090,12 @@ class NegExpression : public Expression {
   expression_t expr;
 };
 
-class TestNullExpression : public Expression {
+class TestNullExpression : public ExpressionCRTP<TestNullExpression> {
  public:
   TestNullExpression(expression_t expr, bool nullTest = true)
-      : Expression(new BoolType()), expr(std::move(expr)), nullTest(nullTest) {}
+      : ExpressionCRTP(new BoolType()),
+        expr(std::move(expr)),
+        nullTest(nullTest) {}
 
   ~TestNullExpression() {}
 
@@ -1075,10 +1139,12 @@ enum class extract_unit {
   MILLENNIUM
 };
 
-class ExtractExpression : public Expression {
+class ExtractExpression : public ExpressionCRTP<ExtractExpression> {
  public:
   ExtractExpression(expression_t expr, extract_unit unit)
-      : Expression(createReturnType(unit)), expr(std::move(expr)), unit(unit) {
+      : ExpressionCRTP(createReturnType(unit)),
+        expr(std::move(expr)),
+        unit(unit) {
     assert(this->expr.getExpressionType()->getTypeID() == DATE);
   }
 
@@ -1107,10 +1173,10 @@ class ExtractExpression : public Expression {
   extract_unit unit;
 };
 
-class CastExpression : public Expression {
+class CastExpression : public ExpressionCRTP<CastExpression> {
  public:
   CastExpression(ExpressionType *cast_to, expression_t expr)
-      : Expression(cast_to), expr(std::move(expr)) {}
+      : ExpressionCRTP(cast_to), expr(std::move(expr)) {}
 
   ~CastExpression() {}
 
@@ -1321,72 +1387,89 @@ expression_t toExpression(Monoid m, expression_t lhs, expression_t rhs);
 llvm::Constant *getIdentityElementIfSimple(Monoid m, const ExpressionType *type,
                                            Context *context);
 
-inline expression_t eq(const expression_t &lhs, const expression_t &rhs) {
-  return expression_t::make<expressions::EqExpression>(lhs, rhs);
+inline expressions::EqExpression eq(const expression_t &lhs,
+                                    const expression_t &rhs) {
+  return {lhs, rhs};
 }
 
-inline expression_t ne(const expression_t &lhs, const expression_t &rhs) {
-  return expression_t::make<expressions::NeExpression>(lhs, rhs);
+inline expressions::NeExpression ne(const expression_t &lhs,
+                                    const expression_t &rhs) {
+  return {lhs, rhs};
 }
 
-inline expression_t le(const expression_t &lhs, const expression_t &rhs) {
-  return expression_t::make<expressions::LeExpression>(lhs, rhs);
+inline expressions::LeExpression le(const expression_t &lhs,
+                                    const expression_t &rhs) {
+  return {lhs, rhs};
 }
 
-inline expression_t lt(const expression_t &lhs, const expression_t &rhs) {
-  return expression_t::make<expressions::LtExpression>(lhs, rhs);
+inline expressions::LtExpression lt(const expression_t &lhs,
+                                    const expression_t &rhs) {
+  return {lhs, rhs};
 }
 
-inline expression_t ge(const expression_t &lhs, const expression_t &rhs) {
-  return expression_t::make<expressions::GeExpression>(lhs, rhs);
+inline expressions::GeExpression ge(const expression_t &lhs,
+                                    const expression_t &rhs) {
+  return {lhs, rhs};
 }
 
-inline expression_t gt(const expression_t &lhs, const expression_t &rhs) {
-  return expression_t::make<expressions::GtExpression>(lhs, rhs);
+inline expressions::GtExpression gt(const expression_t &lhs,
+                                    const expression_t &rhs) {
+  return {lhs, rhs};
 }
 
-inline expression_t operator|(const expression_t &lhs,
-                              const expression_t &rhs) {
-  return expression_t::make<expressions::OrExpression>(lhs, rhs);
+inline expressions::OrExpression operator|(const expression_t &lhs,
+                                           const expression_t &rhs) {
+  return {lhs, rhs};
 }
 
-inline expression_t operator&(const expression_t &lhs,
-                              const expression_t &rhs) {
-  return expression_t::make<expressions::AndExpression>(lhs, rhs);
+inline expressions::AndExpression operator&(const expression_t &lhs,
+                                            const expression_t &rhs) {
+  return {lhs, rhs};
 }
 
-inline expression_t operator+(const expression_t &lhs,
-                              const expression_t &rhs) {
-  return expression_t::make<expressions::AddExpression>(lhs, rhs);
+inline expressions::AddExpression operator+(const expression_t &lhs,
+                                            const expression_t &rhs) {
+  return {lhs, rhs};
 }
 
-inline expression_t operator-(const expression_t &lhs,
-                              const expression_t &rhs) {
-  return expression_t::make<expressions::SubExpression>(lhs, rhs);
+inline expressions::SubExpression operator-(const expression_t &lhs,
+                                            const expression_t &rhs) {
+  return {lhs, rhs};
 }
 
-inline expression_t operator-(const expression_t &v) {
-  return expression_t::make<expressions::NegExpression>(v);
+inline expressions::NegExpression operator-(const expression_t &v) { return v; }
+
+inline expressions::MultExpression operator*(const expression_t &lhs,
+                                             const expression_t &rhs) {
+  return {lhs, rhs};
 }
 
-inline expression_t operator*(const expression_t &lhs,
-                              const expression_t &rhs) {
-  return expression_t::make<expressions::MultExpression>(lhs, rhs);
+inline expressions::DivExpression operator/(const expression_t &lhs,
+                                            const expression_t &rhs) {
+  return {lhs, rhs};
 }
 
-inline expression_t operator/(const expression_t &lhs,
-                              const expression_t &rhs) {
-  return expression_t::make<expressions::DivExpression>(lhs, rhs);
-}
-
-inline expression_t operator%(const expression_t &lhs,
-                              const expression_t &rhs) {
-  return expression_t::make<expressions::ModExpression>(lhs, rhs);
+inline expressions::ModExpression operator%(const expression_t &lhs,
+                                            const expression_t &rhs) {
+  return {lhs, rhs};
 }
 
 inline expressions::RecordProjection expression_t::operator[](
-    RecordAttribute proj) {
+    RecordAttribute proj) const {
   return {*this, proj};
+}
+
+inline expressions::RecordProjection expressions::InputArgument::operator[](
+    RecordAttribute proj) const {
+  // for (const auto &attr : projections) {
+  //   if (attr.getAttrName() == proj.getAttrName()) {
+  //     return {expression_t{*this}, attr};
+  //   }
+  // }
+  // string error_msg = "[InputArgument: ] unknown projection";
+  // LOG(ERROR) << error_msg;
+  // throw runtime_error(error_msg);
+  return expression_t{*this}[proj];
 }
 
 inline expression_t::expression_t(bool v)

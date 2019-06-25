@@ -25,8 +25,6 @@
 
 namespace expressions {
 
-BinaryExpression::~BinaryExpression() {}
-
 ProteusValue IntConstant::accept(ExprVisitor &v) const { return v.visit(this); }
 
 ProteusValue Int64Constant::accept(ExprVisitor &v) const {
