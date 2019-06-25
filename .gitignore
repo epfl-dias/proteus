@@ -67,3 +67,6 @@ scratchpad/**
 cmake-build-debug
 .idea
 *.sublime-workspace
+
+#Documentation
+docs/**
