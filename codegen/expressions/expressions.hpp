@@ -416,14 +416,52 @@ class DStringConstant
  */
 class InputArgument : public ExpressionCRTP<InputArgument> {
  public:
-  InputArgument(const ExpressionType *type, int argNo = 0,
-                list<RecordAttribute> projections = {})
-      : ExpressionCRTP(type), argNo(argNo), projections(projections) {}
+  InputArgument(const RecordType *type, int argNo = 0)
+      : ExpressionCRTP(type), argNo(argNo) {}
+
+  [[deprecated]] InputArgument(const ExpressionType *type, int argNo,
+                               list<RecordAttribute> projections)
+      : ExpressionCRTP(type), argNo(argNo) {  //, projections(projections) {
+    assert(dynamic_cast<const RecordType *>(type) && "Expected Record Type");
+
+    // FIXME: we should be able to remove this constructor, but for now it's
+    // used for the case that projections contains activeLoop, while the type
+    // does not. I believe that this originates from legacy code
+
+    // Due to the above, the following sentence is wrong:
+    // projections should be a subpart of type->getProjections()
+    //     assert(projections.size() <= getProjections().size() &&
+    //            "Type mismatches projections");
+    // #ifndef NDEBUG
+    //     std::cout << type->getType() << std::endl;
+    //     // for (const auto &arg :
+    //     //      RecordType(*dynamic_cast<const RecordType
+    //     *>(type)).getArgsMap()) {
+    //     //   std::cout << arg.first << std::endl;
+    //     // }
+
+    //     for (const auto &proj : projections) {
+    //       std::cout << proj.getAttrName() << std::endl;
+    //       assert((proj.getAttrName() == "activeTuple" ||
+    //               dynamic_cast<const RecordType *>(type)->getArg(
+    //                   proj.getAttrName())) &&
+    //              "Attribute not found in RecordType");
+    //     }
+    // #endif
+  }
 
   ~InputArgument() {}
 
   int getArgNo() const { return argNo; }
-  list<RecordAttribute> getProjections() const { return projections; }
+  // list<RecordAttribute> getProjections() const { return projections; }
+  list<RecordAttribute> getProjections() const {
+    auto rec = dynamic_cast<const RecordType *>(getExpressionType());
+    std::list<RecordAttribute> largs;
+    for (const auto &attr : rec->getArgs()) {
+      largs.emplace_back(*attr);
+    }
+    return largs;
+  }
   ExpressionId getTypeID() const { return ARGUMENT; }
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -483,7 +521,7 @@ class InputArgument : public ExpressionCRTP<InputArgument> {
    * Treated as record fields
    * NOTE: One of them (activeLoop) is virtual
    */
-  list<RecordAttribute> projections;
+  // list<RecordAttribute> projections;
 };
 
 class RecordProjection : public ExpressionCRTP<RecordProjection> {
@@ -769,7 +807,7 @@ class BinaryExpression : public Expression {
   expressions::BinaryOperator *getOp() const { return op; }
 
   virtual ExpressionId getTypeID() const { return BINARY; }
-  // ~BinaryExpression() = 0;
+
   virtual inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
       const BinaryExpression &rBin = dynamic_cast<const BinaryExpression &>(r);
@@ -975,7 +1013,7 @@ class MaxExpression : public BinaryExpressionCRTP<MaxExpression> {
         cond(expression_t::make<GtExpression>(lhs, rhs), lhs, rhs) {}
   ~MaxExpression() {}
 
-  const IfThenElse *getCond() const { return &cond; };
+  const IfThenElse *getCond() const { return &cond; }
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
       const BinaryExpressionCRTP &rBin =
@@ -1001,7 +1039,7 @@ class MinExpression : public BinaryExpressionCRTP<MinExpression> {
         cond(expression_t::make<LtExpression>(lhs, rhs), lhs, rhs) {}
   ~MinExpression() {}
 
-  const IfThenElse *getCond() const { return &cond; };
+  const IfThenElse *getCond() const { return &cond; }
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
       const BinaryExpressionCRTP &rBin =

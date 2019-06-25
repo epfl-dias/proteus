@@ -46,7 +46,7 @@ class BinaryOperator {
     MOD
   };
   virtual opID getID() = 0;
-  virtual ~BinaryOperator() = 0;
+  virtual ~BinaryOperator();
 };
 
 class Eq : public BinaryOperator {

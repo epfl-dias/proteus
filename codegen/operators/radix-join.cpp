@@ -760,16 +760,13 @@ void RadixJoin::consume(Context *const context,
 }
 
 /**
- * @param rel the materialized input relation
- * @param ht  the htEntries corresp. to the relation
+ * @param mem_tuplesNo  the htEntries corresp. to the relation
+ * @param mem_kv_id     the materialized input relation
  *
  * @return item count per resulting cluster
  */
 Value *RadixJoinBuild::radix_cluster_nopadding(Value *mem_tuplesNo,
                                                Value *mem_kv_id) const {
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Catalog &catalog = Catalog::getInstance();
-  Function *F = context->getGlobalFunction();
   IRBuilder<> *Builder = context->getBuilder();
 
   Function *partitionHT =

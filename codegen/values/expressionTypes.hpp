@@ -457,6 +457,10 @@ inline bool operator<(const RecordAttribute &l, const RecordAttribute &r) {
     return l.getRelationName() < r.getRelationName();
   }
 }
+inline bool operator==(const RecordAttribute &l, const RecordAttribute &r) {
+  return (l.getRelationName() == r.getRelationName()) &&
+         (l.getAttrName() == r.getAttrName());
+}
 //
 //
 // inline bool operator<(const RecordType& l, const RecordType& r) {

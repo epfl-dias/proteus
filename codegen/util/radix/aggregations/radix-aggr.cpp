@@ -51,12 +51,6 @@
 /**
  * Radix clustering algorithm which does not put padding in between
  * clusters.
- *
- * @param outRel
- * @param inRel
- * @param hist
- * @param R
- * @param D
  */
 void radix_cluster_nopadding(agg::relation_t *outRel, agg::relation_t *inRel,
                              int R, int D) {

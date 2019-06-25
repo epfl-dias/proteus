@@ -60,7 +60,7 @@ class ExpressionParser {
 
  public:
   ExpressionParser(CatalogParser &catalogParser)
-      : catalogParser(catalogParser){};
+      : catalogParser(catalogParser) {}
   expression_t parseExpression(const rapidjson::Value &val, Context *ctx);
   ExpressionType *parseExpressionType(const rapidjson::Value &val);
   RecordAttribute *parseRecordAttr(const rapidjson::Value &val,

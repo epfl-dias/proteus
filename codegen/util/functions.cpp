@@ -60,7 +60,7 @@ void printBoolean(bool in) {
   }
 }
 
-/// printd - printf that takes a double prints it as "%f\n", returning 0.
+// printd - printf that takes a double prints it as "%f\n", returning 0.
 int printi(int X) {
 #ifdef DEBUG
   printf("[printi:] Generated code called %d\n", X);
