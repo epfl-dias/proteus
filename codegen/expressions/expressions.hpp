@@ -162,6 +162,11 @@ class ExpressionCRTP : public Expression {
         static_cast<decltype(*this)>(as_expr(relName, attrName)));
   }
 
+  virtual ProteusValue accept(ExprVisitor &v) const override;
+
+  virtual ProteusValue acceptTandem(
+      ExprTandemVisitor &v, const expressions::Expression *expr) const override;
+
   friend T;
 };
 
@@ -262,21 +267,59 @@ class expression_t final : public expressions::ExpressionCRTP<expression_t> {
 // Careful: Using a namespace to avoid conflicts witfh LLVM namespace
 namespace expressions {
 
-class Constant : public ExpressionCRTP<Constant> {
+class Constant : public Expression {
  public:
   enum ConstantType { INT, INT64, BOOL, FLOAT, STRING, DSTRING, DATE };
-  Constant(const ExpressionType *type) : ExpressionCRTP(type) {}
+  Constant(const ExpressionType *type) : Expression(type) {}
   ~Constant() {}
   virtual ConstantType getConstantType() const = 0;
 };
 
-template <typename T, typename Tproteus, Constant::ConstantType TcontType>
-class TConstant : public Constant {
+template <typename T>
+class ConstantExpressionCRTP : public Constant {
+ public:
+  ConstantExpressionCRTP(const ExpressionType *type) : Constant(type) {}
+
+  virtual ~ConstantExpressionCRTP() override = default;
+
+ protected:
+  virtual inline Expression &as_expr(string relName, string attrName) override {
+    registerAs(relName, attrName);
+    return *this;
+  }
+
+  virtual inline Expression &as_expr(RecordAttribute *attr) override {
+    registerAs(attr);
+    return *this;
+  }
+
+ public:
+  virtual inline T &as(string relName, string attrName) {
+    return static_cast<T &>(
+        static_cast<decltype(*this)>(as_expr(relName, attrName)));
+  }
+
+  virtual inline T &as(RecordAttribute *attr) {
+    return static_cast<T &>(static_cast<decltype(*this)>(as_expr(attr)));
+  }
+
+  ProteusValue accept(ExprVisitor &v) const override;
+
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *expr) const override;
+
+  friend T;
+};
+
+template <typename T, typename Tproteus, Constant::ConstantType TcontType,
+          typename Texpr>
+class TConstant : public ConstantExpressionCRTP<Texpr> {
  private:
   T val;
 
  protected:
-  TConstant(T val, const ExpressionType *type) : Constant(type), val(val) {}
+  TConstant(T val, const ExpressionType *type)
+      : ConstantExpressionCRTP<Texpr>(type), val(val) {}
 
  public:
   TConstant(T val) : TConstant(val, new Tproteus()) {}
@@ -284,20 +327,16 @@ class TConstant : public Constant {
 
   T getVal() const { return val; }
 
-  ProteusValue accept(ExprVisitor &v) const = 0;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const = 0;
-
   ExpressionId getTypeID() const { return CONSTANT; }
 
-  ConstantType getConstantType() const { return TcontType; }
+  Constant::ConstantType getConstantType() const { return TcontType; }
 
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
       const Constant &rConst = dynamic_cast<const Constant &>(r);
       if (rConst.getConstantType() == getConstantType()) {
         const auto &r2 =
-            dynamic_cast<const TConstant<T, Tproteus, TcontType> &>(r);
+            dynamic_cast<const TConstant<T, Tproteus, TcontType, Texpr> &>(r);
         return this->getVal() < r2.getVal();
       } else {
         return this->getConstantType() < rConst.getConstantType();
@@ -309,71 +348,61 @@ class TConstant : public Constant {
 };
 
 class IntConstant
-    : public TConstant<int, IntType, Constant::ConstantType::INT> {
+    : public TConstant<int, IntType, Constant::ConstantType::INT, IntConstant> {
  public:
-  using TConstant::TConstant;
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
+  using TConstant<int, IntType, Constant::ConstantType::INT,
+                  IntConstant>::TConstant;
 };
 
-class StringConstant : public TConstant<std::string, StringType,
-                                        Constant::ConstantType::STRING> {
+class StringConstant
+    : public TConstant<std::string, StringType, Constant::ConstantType::STRING,
+                       StringConstant> {
  public:
-  using TConstant::TConstant;
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
+  using TConstant<std::string, StringType, Constant::ConstantType::STRING,
+                  StringConstant>::TConstant;
 };
 
 class Int64Constant
-    : public TConstant<int64_t, Int64Type, Constant::ConstantType::INT64> {
+    : public TConstant<int64_t, Int64Type, Constant::ConstantType::INT64,
+                       Int64Constant> {
  public:
-  using TConstant::TConstant;
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
+  using TConstant<int64_t, Int64Type, Constant::ConstantType::INT64,
+                  Int64Constant>::TConstant;
 };
 
 class DateConstant
-    : public TConstant<int64_t, DateType, Constant::ConstantType::DATE> {
+    : public TConstant<int64_t, DateType, Constant::ConstantType::DATE,
+                       DateConstant> {
   static_assert(sizeof(time_t) == sizeof(int64_t), "expected 64bit time_t");
 
  public:
-  using TConstant::TConstant;
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
+  using TConstant<int64_t, DateType, Constant::ConstantType::DATE,
+                  DateConstant>::TConstant;
 };
 
 class BoolConstant
-    : public TConstant<bool, BoolType, Constant::ConstantType::BOOL> {
+    : public TConstant<bool, BoolType, Constant::ConstantType::BOOL,
+                       BoolConstant> {
  public:
-  using TConstant::TConstant;
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
+  using TConstant<bool, BoolType, Constant::ConstantType::BOOL,
+                  BoolConstant>::TConstant;
 };
 
 class FloatConstant
-    : public TConstant<double, FloatType, Constant::ConstantType::FLOAT> {
+    : public TConstant<double, FloatType, Constant::ConstantType::FLOAT,
+                       FloatConstant> {
  public:
-  using TConstant::TConstant;
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
+  using TConstant<double, FloatType, Constant::ConstantType::FLOAT,
+                  FloatConstant>::TConstant;
 };
 
 class DStringConstant
-    : public TConstant<int, DStringType, Constant::ConstantType::FLOAT> {
+    : public TConstant<int, DStringType, Constant::ConstantType::FLOAT,
+                       DStringConstant> {
  public:
   DStringConstant(int val, void *dictionary)
       : TConstant(val, new DStringType(dictionary)) {}
-  ~DStringConstant() {}
-
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
+  ~DStringConstant() = default;
 };
 
 /*
@@ -395,9 +424,6 @@ class InputArgument : public ExpressionCRTP<InputArgument> {
 
   int getArgNo() const { return argNo; }
   list<RecordAttribute> getProjections() const { return projections; }
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return ARGUMENT; }
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -489,9 +515,7 @@ class RecordProjection : public ExpressionCRTP<RecordProjection> {
   string getRelationName() const { return attribute.getRelationName(); }
   string getProjectionName() const { return attribute.getAttrName(); }
   RecordAttribute getAttribute() const { return attribute; }
-  ProteusValue accept(ExprVisitor &v) const override;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const override;
+
   ExpressionId getTypeID() const override { return RECORD_PROJECTION; }
   inline bool operator<(const expressions::Expression &r) const override {
     //        if (this->getTypeID() == r.getTypeID()) {
@@ -563,9 +587,6 @@ class HashExpression : public ExpressionCRTP<HashExpression> {
   ~HashExpression() {}
 
   expression_t getExpr() const { return expr; }
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return EXPRESSION_HASHER; }
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -587,9 +608,6 @@ class ProteusValueExpression : public ExpressionCRTP<ProteusValueExpression> {
   ~ProteusValueExpression() {}
 
   ProteusValue getValue() const { return expr; }
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return RAWVALUE; }
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -636,9 +654,6 @@ class RecordConstruction : public ExpressionCRTP<RecordConstruction> {
       : ExpressionCRTP(constructRecordType(atts)), atts(atts) {}
   ~RecordConstruction() {}
 
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return RECORD_CONSTRUCTION; }
   const list<AttributeConstruction> &getAtts() const { return atts; }
   inline bool operator<(const expressions::Expression &r) const {
@@ -697,9 +712,6 @@ class IfThenElse : public ExpressionCRTP<IfThenElse> {
   }
   ~IfThenElse() {}
 
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return IF_THEN_ELSE; }
   expression_t getIfCond() const { return expr1; }
   expression_t getIfResult() const { return expr2; }
@@ -811,6 +823,10 @@ class BinaryExpressionCRTP : public BinaryExpression {
     return static_cast<T &>(static_cast<decltype(*this)>(as_expr(attr)));
   }
 
+  ProteusValue accept(ExprVisitor &v) const override;
+  ProteusValue acceptTandem(ExprTandemVisitor &v,
+                            const expressions::Expression *) const override;
+
   friend T;
 };
 
@@ -826,9 +842,6 @@ class TBinaryExpression : public BinaryExpressionCRTP<T> {
  public:
   ~TBinaryExpression() {}
 
-  ProteusValue accept(ExprVisitor &v) const = 0;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const = 0;
   ExpressionId getTypeID() const { return BINARY; }
 
   inline bool operator<(const expressions::Expression &r) const {
@@ -867,10 +880,6 @@ class EqExpression : public TBinaryExpression<EqExpression, Eq> {
   EqExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
   ~EqExpression() {}
-
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
 };
 
 class NeExpression : public TBinaryExpression<NeExpression, Neq> {
@@ -878,10 +887,6 @@ class NeExpression : public TBinaryExpression<NeExpression, Neq> {
   NeExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
   ~NeExpression() {}
-
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
 };
 
 class GeExpression : public TBinaryExpression<GeExpression, Ge> {
@@ -889,10 +894,6 @@ class GeExpression : public TBinaryExpression<GeExpression, Ge> {
   GeExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
   ~GeExpression() {}
-
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
 };
 
 class GtExpression : public TBinaryExpression<GtExpression, Gt> {
@@ -900,10 +901,6 @@ class GtExpression : public TBinaryExpression<GtExpression, Gt> {
   GtExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
   ~GtExpression() {}
-
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
 };
 
 class LeExpression : public TBinaryExpression<LeExpression, Le> {
@@ -911,10 +908,6 @@ class LeExpression : public TBinaryExpression<LeExpression, Le> {
   LeExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
   ~LeExpression() {}
-
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
 };
 
 class LtExpression : public TBinaryExpression<LtExpression, Lt> {
@@ -922,10 +915,6 @@ class LtExpression : public TBinaryExpression<LtExpression, Lt> {
   LtExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
   ~LtExpression() {}
-
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
 };
 
 class AddExpression : public TBinaryExpression<AddExpression, Add> {
@@ -934,10 +923,6 @@ class AddExpression : public TBinaryExpression<AddExpression, Add> {
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
 
   ~AddExpression() {}
-
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
 };
 
 class SubExpression : public TBinaryExpression<SubExpression, Sub> {
@@ -945,10 +930,6 @@ class SubExpression : public TBinaryExpression<SubExpression, Sub> {
   SubExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
   ~SubExpression() {}
-
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
 };
 
 class MultExpression : public TBinaryExpression<MultExpression, Mult> {
@@ -956,10 +937,6 @@ class MultExpression : public TBinaryExpression<MultExpression, Mult> {
   MultExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
   ~MultExpression() {}
-
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
 };
 
 class DivExpression : public TBinaryExpression<DivExpression, Div> {
@@ -967,10 +944,6 @@ class DivExpression : public TBinaryExpression<DivExpression, Div> {
   DivExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
   ~DivExpression() {}
-
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
 };
 
 class ModExpression : public TBinaryExpression<ModExpression, Mod> {
@@ -979,10 +952,6 @@ class ModExpression : public TBinaryExpression<ModExpression, Mod> {
       : TBinaryExpression(rhs.getExpressionType(), lhs, rhs) {}
 
   ~ModExpression() {}
-
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
 };
 
 class AndExpression : public TBinaryExpression<AndExpression, And> {
@@ -990,10 +959,6 @@ class AndExpression : public TBinaryExpression<AndExpression, And> {
   AndExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
   ~AndExpression() {}
-
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
 };
 
 class OrExpression : public TBinaryExpression<OrExpression, Or> {
@@ -1001,10 +966,6 @@ class OrExpression : public TBinaryExpression<OrExpression, Or> {
   OrExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
   ~OrExpression() {}
-
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
 };
 
 class MaxExpression : public BinaryExpressionCRTP<MaxExpression> {
@@ -1014,9 +975,6 @@ class MaxExpression : public BinaryExpressionCRTP<MaxExpression> {
         cond(expression_t::make<GtExpression>(lhs, rhs), lhs, rhs) {}
   ~MaxExpression() {}
 
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
   const IfThenElse *getCond() const { return &cond; };
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -1043,9 +1001,6 @@ class MinExpression : public BinaryExpressionCRTP<MinExpression> {
         cond(expression_t::make<LtExpression>(lhs, rhs), lhs, rhs) {}
   ~MinExpression() {}
 
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
   const IfThenElse *getCond() const { return &cond; };
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -1073,9 +1028,6 @@ class NegExpression : public ExpressionCRTP<NegExpression> {
   ~NegExpression() {}
 
   expression_t getExpr() const { return expr; }
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return NEG_EXPRESSION; }
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -1101,9 +1053,6 @@ class TestNullExpression : public ExpressionCRTP<TestNullExpression> {
 
   bool isNullTest() const { return nullTest; }
   expression_t getExpr() const { return expr; }
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return TESTNULL_EXPRESSION; }
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -1152,9 +1101,6 @@ class ExtractExpression : public ExpressionCRTP<ExtractExpression> {
 
   extract_unit getExtractUnit() const { return unit; }
   expression_t getExpr() const { return expr; }
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return EXTRACT; }
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -1181,9 +1127,6 @@ class CastExpression : public ExpressionCRTP<CastExpression> {
   ~CastExpression() {}
 
   expression_t getExpr() const { return expr; }
-  ProteusValue accept(ExprVisitor &v) const;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const;
   ExpressionId getTypeID() const { return CAST_EXPRESSION; }
   inline bool operator<(const expressions::Expression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
@@ -1486,5 +1429,75 @@ inline expression_t::expression_t(double v)
 
 inline expression_t::expression_t(std::string v)
     : expression_t(expressions::StringConstant{v}) {}
+
+template <typename T>
+ProteusValue expressions::ExpressionCRTP<T>::accept(ExprVisitor &v) const {
+  std::enable_if_t<!std::is_same_v<expression_t, T>> *__unused;
+  return v.visit(static_cast<const T *>(this));
+}
+
+template <typename T>
+ProteusValue expressions::ExpressionCRTP<T>::acceptTandem(
+    ExprTandemVisitor &v, const expressions::Expression *expr) const {
+  std::enable_if_t<!std::is_same_v<expression_t, T>> *__unused;
+  if (getTypeID() == expr->getTypeID()) {
+    auto r = dynamic_cast<const T *>(expr);
+    return v.visit(static_cast<const T *>(this), r);
+  }
+  string error_msg{"[Tandem Visitor: ] Incompatible Pair"};
+  LOG(ERROR) << error_msg;
+  throw runtime_error(error_msg);
+}
+
+template <>
+inline ProteusValue expressions::ExpressionCRTP<expression_t>::accept(
+    ExprVisitor &v) const {
+  return static_cast<const expression_t *>(this)->accept(v);
+}
+
+template <>
+inline ProteusValue expressions::ExpressionCRTP<expression_t>::acceptTandem(
+    ExprTandemVisitor &v, const expressions::Expression *expr) const {
+  return static_cast<const expression_t *>(this)->acceptTandem(v, expr);
+}
+
+template <typename T>
+inline ProteusValue expressions::BinaryExpressionCRTP<T>::accept(
+    ExprVisitor &v) const {
+  return v.visit(static_cast<const T *>(this));
+}
+
+template <typename T>
+ProteusValue expressions::BinaryExpressionCRTP<T>::acceptTandem(
+    ExprTandemVisitor &v, const expressions::Expression *expr) const {
+  if (getTypeID() == expr->getTypeID()) {
+    auto r = dynamic_cast<const T *>(expr);
+    return v.visit(static_cast<const T *>(this), r);
+  }
+  string error_msg{"[Tandem Visitor: ] Incompatible Pair"};
+  LOG(ERROR) << error_msg;
+  throw runtime_error(error_msg);
+}
+
+template <typename T>
+ProteusValue expressions::ConstantExpressionCRTP<T>::accept(
+    ExprVisitor &v) const {
+  return v.visit(static_cast<const T *>(this));
+}
+
+template <typename T>
+ProteusValue expressions::ConstantExpressionCRTP<T>::acceptTandem(
+    ExprTandemVisitor &v, const expressions::Expression *expr) const {
+  if (getTypeID() == expr->getTypeID()) {
+    auto rConst = dynamic_cast<const Constant *>(expr);
+    if (getConstantType() == rConst->getConstantType()) {
+      auto r = dynamic_cast<const T *>(expr);
+      return v.visit(static_cast<const T *>(this), r);
+    }
+  }
+  string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
+  LOG(ERROR) << error_msg;
+  throw runtime_error(string(error_msg));
+}
 
 #endif /* EXPRESSIONS_HPP_ */
