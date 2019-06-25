@@ -345,25 +345,25 @@ else()
 endif()
 
 #-----------------------------------------------------------------------
+# Setup the library list, as the order is important do it last
+
+# `codegen` needs to be unquoted to be replaced, as CMake controls the build of
+# that library
+set(default_libs ${default_libs} codegen )
+set(default_libs ${default_libs} ${LLVM_LIBS})
+set(default_libs ${default_libs} ${CUDA_LIBS})
+set(default_libs ${default_libs} gflags::gflags ${GLOG} gflags::gflags)
+set(default_libs ${default_libs} -lc++abi -lpthread -lrt)
+
+#-----------------------------------------------------------------------
 # Intel VTune profile support
 find_library(VTUNE ittnotify HINTS "/opt/intel/vtune_amplifier/lib64")
 if(VTUNE AND VTUNE_ENABLE)
 	include_directories(
 		"/opt/intel/vtune_amplifier/include"
 		)
-	set(default_libs ${VTUNE} -ldl ${default_libs})
+	set(default_libs ${default_libs} ${VTUNE} -ldl)
 endif()
-
-#-----------------------------------------------------------------------
-# Setup the library list, as the order is important do it last
-
-# `codegen` needs to be unquoted to be replaced, as CMake controls the build of
-# that library
-set(default_libs ${default_libs} codegen )
-set(default_libs ${default_libs} ${LLVM_LIBS} -lLLVMSupport -lLLVMPasses) # FIXME: use LLVM_LIBS instead
-set(default_libs ${default_libs} ${CUDA_LIBS})
-set(default_libs ${default_libs} gflags::gflags ${GLOG} gflags::gflags)
-set(default_libs ${default_libs} -lc++abi -lpthread -lrt)
 
 #-----------------------------------------------------------------------
 # Define path to installed resources
