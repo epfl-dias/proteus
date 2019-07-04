@@ -29,15 +29,27 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "indexes/hash_index.hpp"
 #include "storage/delta_storage.hpp"
 
+#define HTAP_UPD_BIT_MASK true
+
 /*
 
   TODO:
     - resizeable columns
     - partitionable columns
+    - dont create meta for each master version. uneecary
 */
 
 namespace storage {
 
+static inline void set_upd_bit(const void* data){
+   uint8_t *p = (uint8_t*) data;
+    *p = (*p) | (1 << 7);
+}
+
+
+std::vector<Table*> Schema::getAllTable(){
+  return tables;
+}
 void Schema::initiate_gc(ushort ver) {  // deltaStore[ver]->try_reset_gc();
 }
 
@@ -147,7 +159,7 @@ ColumnStore::ColumnStore(
   // std::cout << "Create meta-column" << std::endl;
   // std::cout << "size of hash_val: " << sizeof(global_conf::IndexVal)
   //         << std::endl;
-  meta_column = new Column("meta", initial_num_records, META,
+  meta_column = new Column(name + "_meta", initial_num_records, META,
                            sizeof(global_conf::IndexVal));
   // create columns
   for (const auto& t : columns) {
@@ -192,7 +204,6 @@ ColumnStore::ColumnStore(
  */
 void* ColumnStore::insertRecord(void* rec, uint64_t xid, short master_ver) {
   uint64_t curr_vid = vid.fetch_add(1);
-  // Schema::getInstance().get_next_vid();  //
 
   global_conf::IndexVal hash_val(xid, curr_vid, master_ver);
   void* hash_ptr =
@@ -208,7 +219,7 @@ void* ColumnStore::insertRecord(void* rec, uint64_t xid, short master_ver) {
 
 uint64_t ColumnStore::insertRecord(void* rec, short master_ver) {
   uint64_t curr_vid = vid.fetch_add(1);
-  // Schema::getInstance().get_next_vid();  //
+
   char* rec_ptr = (char*)rec;
   for (auto& col : columns) {
     col->insertElem(curr_vid, rec_ptr, master_ver);
@@ -376,8 +387,9 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
   //          << "| num_r: " << initial_num_records << std::endl;
 
   for (short i = 0; i < global_conf::num_master_versions; i++) {
-    //void* mem = MemoryManager::alloc(size, numa_id);
-    void* mem = MemoryManager::alloc_shm(std::to_string(i)+"__" +name,size,numa_id);
+    //void* mem = MemoryManager::alloc(size, i);
+    //void* mem = MemoryManager::alloc_shm(std::to_string(i)+"__" +name,size,numa_id);
+    void* mem = MemoryManager::alloc_shm(std::to_string(i)+"__" +name,size, i);
 
     uint64_t* pt = (uint64_t*)mem;
     int warmup_max = size / sizeof(uint64_t);
@@ -390,7 +402,7 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
   if (build_index) this->buildIndex();
 }
 
-void* Column::getElem(uint64_t vid, short master_ver) {
+void* Column::getElem(uint64_t vid, ushort master_ver) {
   // master_versions[master_ver];
   assert(master_versions[master_ver].size() != 0);
   // std::cout << "getElem -> " << vid << " | master:" << master_ver <<
@@ -403,7 +415,7 @@ void* Column::getElem(uint64_t vid, short master_ver) {
   }
   return nullptr;
 }
-void Column::touchElem(uint64_t vid, short master_ver) {
+void Column::touchElem(uint64_t vid, ushort master_ver) {
   // master_versions[master_ver];
   assert(master_versions[master_ver].size() != 0);
   // std::cout << "getElem -> " << vid << " | master:" << master_ver <<
@@ -412,6 +424,9 @@ void Column::touchElem(uint64_t vid, short master_ver) {
   for (const auto& chunk : master_versions[master_ver]) {
     if (chunk->size >= ((size_t)data_idx + elem_size)) {
       char* loc = ((char*)chunk->data) + data_idx;
+#if HTAP_UPD_BIT_MASK
+ set_upd_bit(loc);
+#endif
       volatile char tmp = 'a';
       for (int i = 0; i < elem_size; i++) {
         tmp += *loc;
@@ -420,7 +435,7 @@ void Column::touchElem(uint64_t vid, short master_ver) {
   }
 }
 
-void Column::getElem(uint64_t vid, short master_ver, void* copy_location) {
+void Column::getElem(uint64_t vid, ushort master_ver, void* copy_location) {
   // master_versions[master_ver];
   assert(master_versions[master_ver].size() != 0);
   int data_idx = vid * elem_size;
@@ -435,27 +450,43 @@ void Column::getElem(uint64_t vid, short master_ver, void* copy_location) {
   assert(false);  // as control should never reach here.
 }
 
-void* Column::insertElem(uint64_t offset, void* elem, short master_ver) {
+void* Column::insertElem(uint64_t offset, void* elem, ushort master_ver) {
+// TODO: insert in both masters but set upd bit only in curr master.
   uint64_t data_idx = offset * this->elem_size;
-  for (const auto& chunk : master_versions[master_ver]) {
-    if (chunk->size >= (data_idx + elem_size)) {
-      // insert elem here
-      void* dst = (void*)(((char*)chunk->data) + data_idx);
-      if (elem == nullptr) {
-        uint64_t* tptr = (uint64_t*)dst;
-        (*tptr)++;
-        // std::cout << "old:" << *((uint64_t*)dst) << "|new:" << *tptr
-        //         << std::endl;
-      } else {
-        std::memcpy(dst, elem, this->elem_size);
-      }
+  void* ret = nullptr;
+  for(ushort i = 0; i < global_conf::num_master_versions; i++){
+      bool ins = false;
+    for (const auto& chunk : master_versions[i]) {
+      if (chunk->size >= (data_idx + elem_size)){
+        // insert elem here
+        void* dst = (void*)(((char*)chunk->data) + data_idx);
+        if (elem == nullptr) {
+          uint64_t* tptr = (uint64_t*)dst;
+          (*tptr)++;
 
-      return dst;
+          *tptr = (*tptr) | ((uint64_t)1 << 63);
+          // std::cout << "old:" << *((uint64_t*)dst) << "|new:" << *tptr
+          //         << std::endl;
+        } else {
+          std::memcpy(dst, elem, this->elem_size);
+          if(i == master_ver){
+            ret = dst;
+            char *tt = (char*) dst;
+            *tt = *tt | (1 << 7);
+          }
+        }
+        ins = true;
+        break;
+        
+      }
+    }
+    if(ins == false){
+        std::cout << "FUCK. ALLOCATE MOTE MEMORY:\t" << this->name << std::endl;
     }
   }
 
-  std::cout << "FUCK. ALLOCATE MOTE MEMORY:\t" << this->name << std::endl;
-  return nullptr;
+  
+  return ret;
   // exit(-1);
 }
 
@@ -465,6 +496,36 @@ Column::~Column() {
       MemoryManager::free(chunk->data, chunk->size);
     }
   }
+}
+
+
+void ColumnStore::num_upd_tuples(){
+  for( auto& col : this->columns){
+    col->num_upd_tuples();
+  }
+}
+
+void Column::num_upd_tuples() {
+  
+  for (uint master_ver = 0; master_ver < global_conf::num_master_versions ; master_ver++){
+    uint64_t counter = 0;
+    for (const auto& chunk : master_versions[master_ver]) {
+
+
+      for (uint i = 0 ; i < (chunk->size / elem_size) ; i++){
+
+
+        uint8_t *p = ((uint8_t*) chunk->data)+i;
+        if(*p >> 7 == 1){
+          counter++;
+        }
+      }
+    }
+
+    std::cout << "UPD[" << master_ver <<"]: COL:" << this->name << " | #num_upd: " << counter << std::endl;
+    counter = 0;
+  }
+  
 }
 
 };  // namespace storage

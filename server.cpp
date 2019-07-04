@@ -25,12 +25,14 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <iostream>
 #include <thread>
 #include <tuple>
+#include <limits>
 #include "benchmarks/bench.hpp"
 #include "benchmarks/tpcc.hpp"
 #include "benchmarks/ycsb.hpp"
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
 #include "scheduler/affinity_manager.hpp"
+#include "scheduler/comm_manager.hpp"
 #include "scheduler/topology.hpp"
 #include "scheduler/worker.hpp"
 #include "storage/memory_manager.hpp"
@@ -47,7 +49,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define __itt_pause() ((void)0)
 #endif
 
-#define RUNTIME 60  // seconds
+#define RUNTIME 300  // seconds
+
+#define HTAP true
 
 // TODO: a race condition exists in acquiring write lock and updating the
 // version, a read might read at the same time as readers are not blocked in any
@@ -73,6 +77,9 @@ std::ostream& operator<<(std::ostream& os, uint64_t i) {
 }*/
 
 // TODO: Add warm-code!!
+
+
+void check_num_upd_by_bits();
 
 int main(int argc, char** argv) {
   cxxopts::Options options("AEOLUS", "Column-major, Elastic OLTP Engine");
@@ -132,6 +139,7 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "------- AELOUS ------" << std::endl;
+  std::cout << "sizeof(char): " << sizeof(char) << std::endl;
   std::cout << "# Workers: " << num_workers << std::endl;
   std::cout << "---------------------" << std::endl;
 
@@ -142,6 +150,11 @@ int main(int argc, char** argv) {
   std::cout << scheduler::Topology::getInstance() << std::endl;
 
   std::cout << "------------------------------------" << std::endl;
+
+  if (HTAP) {
+    std::cout << "\tInitializing communication manager..." << std::endl;
+    scheduler::CommManager::getInstance().init();
+  }
 
   // txn::TransactionManager::getInstance().init();
 
@@ -164,8 +177,8 @@ int main(int argc, char** argv) {
     bench = new bench::TPCC("TPCC", num_workers);
     
   } else if (bechnmark == 2) {
-    bench = new bench::TPCC("TPCC", num_workers, 0,
-                            "/home/raza/local/chBenchmark_1_0/w72");
+    bench = new bench::TPCC("TPCC", 100, 0,
+                            "/home/raza/local/chBenchmark_1_0/w100/raw");
   } else {  // Defult YCSB
 
     std::cout << "Write Threshold: " << write_threshold << std::endl;
@@ -175,6 +188,10 @@ int main(int argc, char** argv) {
                             write_threshold, num_workers, num_workers);
   }
   bench->load_data(num_workers);
+
+
+  
+
 
   /* As soon as worker starts, they start transactions. so make sure you setup
    * everything needed for benchmark transactions before hand.
@@ -202,15 +219,30 @@ int main(int argc, char** argv) {
 
   usleep(RUNTIME * 1000000);
 
+  // usleep((RUNTIME/2) * 1000000);
+  
+  // uint64_t last_epoch = txn::TransactionManager::getInstance().switch_master(curr_master);
+
+  // usleep((RUNTIME/2) * 1000000);
+
   /* TODO: gather stats about every thread or something*/
   // scheduler::WorkerPool::getInstance().print_worker_stats();
 
   std::cout << "Tear Down Inititated" << std::endl;
   scheduler::WorkerPool::getInstance().shutdown(true);
-  std::cout << "\tShutting  down memory manager" << std::endl;
-
   __itt_pause();
 
+
+  
+  std::cout << "\tShutting down memory manager" << std::endl;
+  if (HTAP) {
+    std::cout << "\thutting down communication manager..." << std::endl;
+    scheduler::CommManager::getInstance().shutdown();
+  }
+  
+  // std::cout << "----" << std::endl;
+  // check_num_upd_by_bits();
+  
   std::cout << "----" << std::endl;
   storage::Schema::getInstance().teardown();
   std::cout << "----" << std::endl;
@@ -218,4 +250,21 @@ int main(int argc, char** argv) {
   // storage::MemoryManager::destroy();
 
   return 0;
+}
+
+
+
+void check_num_upd_by_bits(){
+
+  std::vector<storage::Table*> tables = storage::Schema::getInstance().getAllTable();
+
+  for (auto& tbl : tables) {
+
+    storage::ColumnStore *tmp = (storage::ColumnStore *)tbl;
+
+    tmp->num_upd_tuples();
+
+  }
+  
+
 }

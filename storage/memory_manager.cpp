@@ -68,14 +68,14 @@ void MemoryManager::remove_shm(const std::string &key){
 }
 
 void* MemoryManager::alloc_shm(const std::string &key, const size_t size_bytes, const int numa_memset_id) {
-  std::cout << "[MemoryManager::alloc_shm] key: "<< key << std::endl;
-  std::cout << "[MemoryManager::alloc_shm] size_bytes: "<< size_bytes << std::endl;
-  std::cout << "[MemoryManager::alloc_shm] numa_memset_id: "<< numa_memset_id << std::endl;
+  //std::cout << "[MemoryManager::alloc_shm] key: "<< key << std::endl;
+  //std::cout << "[MemoryManager::alloc_shm] size_bytes: "<< size_bytes << std::endl;
+  //std::cout << "[MemoryManager::alloc_shm] numa_memset_id: "<< numa_memset_id << std::endl;
 
 
   assert(key.length() <=255);
 
-  int shm_fd = shm_open(key.c_str(), O_CREAT | O_EXCL | O_RDWR, 0666);
+  int shm_fd = shm_open(key.c_str(), O_CREAT | O_TRUNC | O_RDWR, 0666);
   if (shm_fd == -1)
   {
     fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno)); 
@@ -83,7 +83,7 @@ void* MemoryManager::alloc_shm(const std::string &key, const size_t size_bytes, 
 
   }
 
-  if(ftruncate(shm_fd, size_bytes) == -1){
+  if(ftruncate(shm_fd, size_bytes) < 0){//== -1){
     shm_unlink(key.c_str()); 
     fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno)); 
     return nullptr;
@@ -91,7 +91,7 @@ void* MemoryManager::alloc_shm(const std::string &key, const size_t size_bytes, 
 
 
 void *mem_addr = mmap(NULL, size_bytes, PROT_WRITE | PROT_READ , MAP_SHARED, shm_fd, 0);
-  if (mem_addr == MAP_FAILED)
+  if (!mem_addr)
   {
     fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno)); 
     return nullptr;

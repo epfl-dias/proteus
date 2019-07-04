@@ -25,37 +25,54 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 namespace txn {
 
+
+
+
+
+/*
+  static inline uint64_t __attribute__((always_inline)) read_tsc(uint8_t wid) {
+    uint32_t a, d;
+    __asm __volatile("rdtsc" : "=a"(a), "=d"(d));
+
+    return ((((uint64_t)a) | (((uint64_t)d) << 32)) & 0x00FFFFFFFFFFFFFF) |
+           (((uint64_t)wid) << 56);
+
+    // return (((uint64_t)((d & 0x00FFFFFF) | (((uint32_t)wid) << 24))) << 32) |
+    //       ((uint64_t)a);
+  }
+  
+inline uint64_t __attribute__((always_inline)) get_next_xid(uint8_t wid) {
+  // Global Atomic
+  // return ++g_xid;
+
+  // WorkerID + timestamp
+  // thread_local std::chrono::time_point<std::chrono::system_clock,
+  //                                     std::chrono::nanoseconds>
+  //    curr;
+
+  // curr = std::chrono::system_clock::now().time_since_epoch().count();
+
+  // uint64_t now = std::chrono::duration_cast<std::chrono::nanoseconds>(
+  //                   std::chrono::system_clock::now().time_since_epoch())
+  //                   .count();
+  // uint64_t cc = ((now << 8) >> 8) + (((uint64_t)wid) << 56);
+  // uint64_t cc = (now & 0x00FFFFFFFFFFFFFF) + (((uint64_t)wid) << 56);
+
+  uint64_t now = read_tsc(wid);
+  // uint64_t cc = now + (((uint64_t)wid) << 56);
+
+  // std::cout << "NOW:" << now << "|cc:" << cc << std::endl;
+  return now;
+
+  // return 0;
+}
+
 uint64_t rdtscl() {
   unsigned int lo, hi;
   __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
   return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
-}
+}*/
 
-// void TransactionManager::init() {
-//   std::cout << "Initializing Txn Manager..." << std::endl;
 
-//   // template <class Duration>
-//   // using sys_time = std::chrono::time_point<std::chrono::system_clock,
-//   // Duration>; using sys_nanoseconds = sys_time<std::chrono::nanoseconds>;
-
-//   // timed_func::interval_runner([this] { this->switch_master(); },
-//   //                            global_conf::time_master_switch_ms);
-
-//   // timed_func::interval_runner(switch_master, )
-// }
-
-// void TransactionManager::switch_master() {
-//   // TODO: Master as the most significant short of the TXN ID.
-
-//   // ushort curr_master = g_xid.load() >> 48;
-//   // uint64_t new_master = (curr_master + 1) %
-//   global_conf::num_master_versions;
-//   // ushort neww = g_xid.fetch_and(new_master << 48) >> 48;
-//   // ushort bc = g_xid.load() >> 48;
-//   // std::cout << "Old Master: " << curr_master << "| New Master: " <<
-//   // new_master
-//   //           << "| Actual New: " << bc << std::endl;
-// }
-// void TransactionManager::gc() {}
 
 }  // namespace txn

@@ -1173,7 +1173,7 @@ void TPCC::load_stock(int w_id) {
 void TPCC::load_item() {
   // Primary Key: I_ID
 
-  struct tpcc_item *item_temp = new struct tpcc_item;
+  struct tpcc_item item_temp;;
 
   int orig[TPCC_MAX_ITEMS], pos;
 
@@ -1186,24 +1186,23 @@ void TPCC::load_item() {
   }
 
   for (uint32_t key = 0; key < TPCC_MAX_ITEMS; key++) {
-    item_temp->i_id = key;
-    item_temp->i_im_id = URand(&this->seed, 0L, TPCC_MAX_ITEMS - 1);
+    item_temp.i_id = key;
+    item_temp.i_im_id = URand(&this->seed, 0L, TPCC_MAX_ITEMS - 1);
 
-    make_alpha_string(&this->seed, 14, 24, item_temp->i_name);
+    make_alpha_string(&this->seed, 14, 24, item_temp.i_name);
 
-    item_temp->i_price = ((float)URand(&this->seed, 100L, 10000L)) / 100.0;
+    item_temp.i_price = ((float)URand(&this->seed, 100L, 10000L)) / 100.0;
 
-    int data_len = make_alpha_string(&this->seed, 26, 50, item_temp->i_data);
+    int data_len = make_alpha_string(&this->seed, 26, 50, item_temp.i_data);
     if (orig[key]) {
       int idx = URand(&this->seed, 0, data_len - 8);
-      memcpy(&item_temp->i_data[idx], "original", 8);
+      memcpy(&item_temp.i_data[idx], "original", 8);
     }
 
     // txn_id = 0, master_ver = 0
-    void *hash_ptr = table_item->insertRecord(item_temp, 0, 0);
+    void *hash_ptr = table_item->insertRecord(&item_temp, 0, 0);
     this->table_item->p_index->insert(key, hash_ptr);
   }
-  delete item_temp;
 }
 
 /* A/C TPCC Specs*/
