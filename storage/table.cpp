@@ -163,7 +163,8 @@ ColumnStore::ColumnStore(
   this->num_columns = columns.size();
   this->name = name;
   // build index over the first column
-  this->p_index = new global_conf::PrimaryIndex<uint64_t>(initial_num_records+1);
+  this->p_index =
+      new global_conf::PrimaryIndex<uint64_t>(initial_num_records + 1);
   this->columns.at(0)->buildIndex();
 
   // Secondary Indexes
@@ -219,7 +220,7 @@ uint64_t ColumnStore::insertRecord(void* rec, short master_ver) {
 
 void ColumnStore::deleteRecord(uint64_t vid, short master_ver) {}
 
-void ColumnStore::touchRecordByKey(uint64_t vid, short master_ver) {
+void ColumnStore::touchRecordByKey(uint64_t vid, ushort master_ver) {
   for (auto& col : columns) {
     col->touchElem(vid, master_ver);
   }
@@ -376,8 +377,9 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
   //          << "| num_r: " << initial_num_records << std::endl;
 
   for (short i = 0; i < global_conf::num_master_versions; i++) {
-    //void* mem = MemoryManager::alloc(size, numa_id);
-    void* mem = MemoryManager::alloc_shm(std::to_string(i)+"__" +name,size,numa_id);
+    // void* mem = MemoryManager::alloc(size, numa_id);
+    void* mem = MemoryManager::alloc_shm(std::to_string(i) + "__" + name, size,
+                                         numa_id);
 
     uint64_t* pt = (uint64_t*)mem;
     int warmup_max = size / sizeof(uint64_t);

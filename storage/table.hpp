@@ -130,10 +130,10 @@ class Table {
 
   virtual void getRecordByKey(uint64_t vid, short master_ver,
                               std::vector<int>* col_idx, void* loc) = 0;
-  virtual void touchRecordByKey(uint64_t vid, short master_ver) = 0;
+  virtual void touchRecordByKey(uint64_t vid, ushort master_ver) = 0;
 
   virtual global_conf::mv_version_list* getVersions(uint64_t vid,
-                                                    short master_ver) = 0;
+                                                    short delta_ver) = 0;
 
   void printDetails() {
     std::cout << "Number of Columns:\t" << num_columns << std::endl;
@@ -154,42 +154,6 @@ class Table {
   // int primary_index_col_idx;
 
   friend class Schema;
-};
-
-/*  DATA LAYOUT -- ROW STORE
- */
-
-class Row {
-  std::string name;
-  size_t elem_size;
-  bool is_indexed;
-  data_type type;
-  std::vector<mem_chunk*> master_versions[global_conf::num_master_versions];
-
-  void* getRow(int idx);
-  void* getRange(int start_idx, int end_idx);
-};
-
-class rowStore : public Table {
- public:
-  uint64_t insertRecord(void* rec, short master_ver) { return -1; };
-  void* insertRecord(void* rec, uint64_t xid, short master_ver) {
-    return nullptr;
-  };
-
-  void updateRecord(uint64_t vid, void* data, short ins_master_ver,
-                    short prev_master_ver, short delta_ver, uint64_t tmin,
-                    uint64_t tmax, int pid) {}
-  void updateRecord(uint64_t vid, void* rec, short ins_master_ver,
-                    short prev_master_ver, short delta_ver, uint64_t tmin,
-                    uint64_t tmax, int pid, std::vector<int>* col_idx) {}
-  void deleteRecord(uint64_t vid, short master_ver) {}
-
-  global_conf::mv_version_list* getVersions(uint64_t vid, short master_ver) {
-    return nullptr;
-  }
-
- private:
 };
 
 /*  DATA LAYOUT -- COLUMN STORE
@@ -214,9 +178,9 @@ class ColumnStore : public Table {
 
   void getRecordByKey(uint64_t vid, short master_ver, std::vector<int>* col_idx,
                       void* loc);
-  void touchRecordByKey(uint64_t vid, short master_ver);
+  void touchRecordByKey(uint64_t vid, ushort master_ver);
 
-  global_conf::mv_version_list* getVersions(uint64_t vid, short master_ver);
+  global_conf::mv_version_list* getVersions(uint64_t vid, short delta_ver);
 
   /*
     No secondary indexes supported as of yet so dont need the following
@@ -249,6 +213,8 @@ class Column {
   void* insertElem(uint64_t offset, void* elem, short master_ver);
   void updateElem(uint64_t offset, void* elem, short master_ver);
   void deleteElem(uint64_t offset, short master_ver);
+
+  size_t getSize() { return this->total_mem_reserved; }
 
  private:
   std::string name;
