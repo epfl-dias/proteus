@@ -102,6 +102,7 @@ void Worker::run() {
     // std::cout << "[WORKER] Worker --" << (int)(this->id) << std::endl;
 
     // check which master i should be on.
+    this->curr_master = txnManager->current_master;
     this->curr_txn = txnManager->get_next_xid(this->id);
     this->prev_delta = this->curr_delta;
     this->curr_delta = calculate_delta_ver(this->curr_txn, tx_st);
@@ -138,7 +139,7 @@ void Worker::run() {
 
     // if (txnManager->executor.execute_txn(
     //         c, curr_txn, txnManager->current_master, curr_delta_id))
-    if (pool->txn_bench->exec_txn(txn_mem, curr_txn, txnManager->current_master,
+    if (pool->txn_bench->exec_txn(txn_mem, curr_txn, this->curr_master,
                                   curr_delta_id))
       num_commits++;
     else
@@ -171,6 +172,28 @@ uint64_t WorkerPool::get_min_active_txn() {
   }
 
   return min_epoch;
+}
+
+uint64_t WorkerPool::get_max_active_txn() {
+  uint64_t max_epoch = std::numeric_limits<uint64_t>::min();
+
+  for (auto& wr : workers) {
+    if (wr.second.second->curr_delta > max_epoch) {
+      max_epoch = wr.second.second->curr_delta;
+    }
+  }
+
+  return max_epoch;
+}
+
+
+bool WorkerPool::is_all_worker_on_master_id(ushort master_id) {
+  for (auto& wr : workers) {
+    if(wr.second.second->curr_master != master_id)
+      return false;
+  }
+
+  return true;
 }
 
 void WorkerPool::print_worker_stats(bool global_only) {

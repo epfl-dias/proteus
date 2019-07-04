@@ -299,23 +299,23 @@ class TPCC : public Benchmark {
 
   //CSV Loaders
 
-  void load_stock_csv(std::string filename = "STOCK.tbl", char delim = '|');
-  void load_item_csv(std::string filename = "ITEM.tbl", char delim = '|');
-  void load_warehouse_csv(std::string filename = "WAREHOUSE.tbl",
+  void load_stock_csv(std::string filename = "stock.tbl", char delim = '|');
+  void load_item_csv(std::string filename = "item.tbl", char delim = '|');
+  void load_warehouse_csv(std::string filename = "warehouse.tbl",
                           char delim = '|');
-  void load_district_csv(std::string filename = "DISTRICT.tbl",
+  void load_district_csv(std::string filename = "district.tbl",
                          char delim = '|');
-  void load_history_csv(std::string filename = "HISTORY.tbl", char delim = '|');
-  void load_order_csv(std::string filename = "ORDER.tbl", char delim = '|');
-  void load_customer_csv(std::string filename = "CUSTOMER.tbl",
+  void load_history_csv(std::string filename = "history.tbl", char delim = '|');
+  void load_order_csv(std::string filename = "order.tbl", char delim = '|');
+  void load_customer_csv(std::string filename = "customer.tbl",
                          char delim = '|');
-  void load_nation_csv(std::string filename = "NATION.tbl", char delim = '|');
-  void load_neworder_csv(std::string filename = "NEWORDER.tbl",
+  void load_nation_csv(std::string filename = "nation.tbl", char delim = '|');
+  void load_neworder_csv(std::string filename = "neworder.tbl",
                          char delim = '|');
-  void load_orderline_csv(std::string filename = "ORDERLINE.tbl",
+  void load_orderline_csv(std::string filename = "orderline.tbl",
                           char delim = '|');
-  void load_region_csv(std::string filename = "REGION.tbl", char delim = '|');
-  void load_supplier_csv(std::string filename = "SUPPLIER.tbl",
+  void load_region_csv(std::string filename = "region.tbl", char delim = '|');
+  void load_supplier_csv(std::string filename = "supplier.tbl",
                          char delim = '|');
   void load_customer_secondary_index(struct tpcc_customer &r);
 

@@ -30,6 +30,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "glo.hpp"
 #include "transactions/cc.hpp"
 #include "transactions/txn_utils.hpp"
+#include "scheduler/worker.hpp"
 //#include "utils/utils.hpp"
 
 namespace txn {
@@ -46,60 +47,46 @@ class TransactionManager {
   TransactionManager(TransactionManager const &) = delete;  // Don't Implement
   void operator=(TransactionManager const &) = delete;      // Don't implement
 
-  static inline uint64_t __attribute__((always_inline)) read_tsc(uint8_t wid) {
+
+
+  uint64_t switch_master(uint8_t &curr_master){
+
+    assert(global_conf::num_master_versions > 1);
+
+    std::cout << "Master switch request" << std::endl;
+    curr_master = this->current_master;
+    /* 
+          - switch master_id
+          - clear the update bits of the new master. ( keep a seperate column or bit per column?)
+    */
+
+    // Before switching, clear up the new master. OR proteus do it.
+
+    uint64_t epoch_num = scheduler::WorkerPool::getInstance().get_max_active_txn();
+
+    ushort tmp = (current_master.load() + 1) % global_conf::num_master_versions;
+    current_master.store(tmp);
+
+    while(scheduler::WorkerPool::getInstance().is_all_worker_on_master_id(tmp) == false);
+
+    std::cout << "Master switch completed" << std::endl;
+    return epoch_num;
+
+  }
+
+  inline uint64_t __attribute__((always_inline)) get_next_xid(uint8_t wid) {
+    
     uint32_t a, d;
     __asm __volatile("rdtsc" : "=a"(a), "=d"(d));
 
     return ((((uint64_t)a) | (((uint64_t)d) << 32)) & 0x00FFFFFFFFFFFFFF) |
            (((uint64_t)wid) << 56);
-
-    // return (((uint64_t)((d & 0x00FFFFFF) | (((uint32_t)wid) << 24))) << 32) |
-    //       ((uint64_t)a);
   }
-  inline uint64_t __attribute__((always_inline)) get_next_xid(uint8_t wid) {
-    // Global Atomic
-    // return ++g_xid;
-
-    // WorkerID + timestamp
-    // thread_local std::chrono::time_point<std::chrono::system_clock,
-    //                                     std::chrono::nanoseconds>
-    //    curr;
-
-    // curr = std::chrono::system_clock::now().time_since_epoch().count();
-
-    // uint64_t now = std::chrono::duration_cast<std::chrono::nanoseconds>(
-    //                   std::chrono::system_clock::now().time_since_epoch())
-    //                   .count();
-    // uint64_t cc = ((now << 8) >> 8) + (((uint64_t)wid) << 56);
-    // uint64_t cc = (now & 0x00FFFFFFFFFFFFFF) + (((uint64_t)wid) << 56);
-
-    uint64_t now = read_tsc(wid);
-    // uint64_t cc = now + (((uint64_t)wid) << 56);
-
-    // std::cout << "NOW:" << now << "|cc:" << cc << std::endl;
-    return now;
-
-    // return 0;
-  }
-
-  // void init();
-
-  // bool execute_txn(void *stmts, uint64_t xid) {
-  //   return executor.execute_txn(stmts, xid);
-  //   // ,std::chrono::duration_cast<std::chrono::nanoseconds>(
-  //   //     txn_start_time.time_since_epoch())
-  //   //     .count());
-  // }
-
-  // void switch_master();
-  // void gc();
+  
 
   global_conf::ConcurrencyControl executor;
-  // std::atomic<ushort> curr_master;
-  // const std::chrono::time_point<std::chrono::system_clock,
-  //                             std::chrono::nanoseconds>
   uint64_t txn_start_time;
-  std::atomic<int> current_master;
+  std::atomic<ushort> current_master;
 
  private:
   TransactionManager()
@@ -108,7 +95,7 @@ class TransactionManager {
                            .count()) {
     // curr_master = 0;
     current_master = 0;
-    txn_start_time = read_tsc(0);
+    txn_start_time = get_next_xid(0);
   }
 };
 

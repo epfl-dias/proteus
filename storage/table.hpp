@@ -62,6 +62,7 @@ class Schema {
 
   Table* getTable(int idx);
   Table* getTable(std::string name);
+  std::vector<Table*> getAllTable();
 
   /* returns pointer to the table */
   Table* create_table(
@@ -182,6 +183,9 @@ class ColumnStore : public Table {
 
   global_conf::mv_version_list* getVersions(uint64_t vid, short delta_ver);
 
+
+  void num_upd_tuples();
+
   /*
     No secondary indexes supported as of yet so dont need the following
     void createIndex(int col_idx);
@@ -205,14 +209,17 @@ class Column {
   ~Column();
 
   void buildIndex();
-  void* getRange(uint64_t start_idx, uint64_t end_idx, short master_ver);
-  void* getElem(uint64_t idx, short master_ver);
-  void touchElem(uint64_t idx, short master_ver);
-  void getElem(uint64_t vid, short master_ver, void* copy_location);
+  void* getRange(uint64_t start_idx, uint64_t end_idx, ushort master_ver);
+  void* getElem(uint64_t idx, ushort master_ver);
+  void touchElem(uint64_t idx, ushort master_ver);
+  void getElem(uint64_t vid, ushort master_ver, void* copy_location);
 
-  void* insertElem(uint64_t offset, void* elem, short master_ver);
-  void updateElem(uint64_t offset, void* elem, short master_ver);
-  void deleteElem(uint64_t offset, short master_ver);
+  void* insertElem(uint64_t offset, void* elem, ushort master_ver);
+  void updateElem(uint64_t offset, void* elem, ushort master_ver);
+  void deleteElem(uint64_t offset, ushort master_ver);
+
+
+  void num_upd_tuples();
 
   size_t getSize() { return this->total_mem_reserved; }
 

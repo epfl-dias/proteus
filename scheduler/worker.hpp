@@ -59,9 +59,10 @@ class Worker {
 
   core *exec_core;
 
-  uint64_t curr_delta;
-  uint64_t prev_delta;
   uint64_t curr_txn;
+  uint64_t prev_delta;
+  uint64_t curr_delta;
+  ushort curr_master;
 
   // STATS
   uint64_t num_txns;
@@ -114,6 +115,8 @@ class WorkerPool {
 
   std::vector<uint64_t> get_active_txns();
   uint64_t get_min_active_txn();
+  uint64_t get_max_active_txn();
+  bool is_all_worker_on_master_id(ushort master_id); 
 
   template <class F, class... Args>
   std::future<typename std::result_of<F(Args...)>::type> enqueueTask(

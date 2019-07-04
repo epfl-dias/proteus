@@ -27,9 +27,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "indexes/hash_index.hpp"
 #include "transactions/cc.hpp"
 
-#define NUM_SOCKETS 4
+#define NUM_SOCKETS 2
 #define NUM_CORE_PER_SOCKET 18
-#define MAX_WORKERS 72
+#define MAX_WORKERS 36
 #define DELTA_SIZE 4  // 2G // 6442450944 6G
 
 // typedef cuckoohash_map<std::string, std::string> HashIndex;
@@ -51,13 +51,14 @@ template <class T_KEY>
 // using PrimaryIndex = indexes::HashIndex<T_KEY>;
 using PrimaryIndex = indexes::HashArray<T_KEY>;
 
-const uint time_master_switch_ms = 200;
+//const uint time_master_switch_ms = 200;
 
 /* # of Snapshots*/
-const short num_master_versions = 1;
+const short num_master_versions = 2;
 const short num_delta_storages = 2;
 
 const int master_col_numa_id = 0;
+
 
 }  // namespace global_conf
 
