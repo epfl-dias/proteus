@@ -41,8 +41,6 @@ namespace storage {
 class Schema;
 class Table;
 class ColumnStore;
-class RowStore;
-class Row;
 class Column;
 class DeltaStore;
 
@@ -115,26 +113,29 @@ class Schema {
 
 class Table {
  public:
-  virtual uint64_t insertRecord(void* rec, short master_ver) = 0;
-  virtual void* insertRecord(void* rec, uint64_t xid, short master_ver) = 0;
+  virtual uint64_t insertRecord(void* rec) = 0;
+  virtual void* insertRecord(void* rec, uint64_t xid, ushort master_ver) = 0;
 
-  virtual void updateRecord(uint64_t vid, void* data, short ins_master_ver,
-                            short prev_master_ver, short delta_ver,
-                            uint64_t tmin, uint64_t tmax, int pid) = 0;
-  virtual void updateRecord(uint64_t vid, void* rec, short ins_master_ver,
-                            short prev_master_ver, short delta_ver,
-                            uint64_t tmin, uint64_t tmax, int pid,
-                            std::vector<int>* col_idx) = 0;
-  virtual void deleteRecord(uint64_t vid, short master_ver) = 0;
+  virtual void updateRecord(uint64_t vid, const void* data,
+                            ushort ins_master_ver, ushort prev_master_ver,
+                            ushort delta_ver, uint64_t tmin, uint64_t tmax,
+                            ushort pid) = 0;
+  virtual void updateRecord(uint64_t vid, const void* rec,
+                            ushort ins_master_ver, ushort prev_master_ver,
+                            ushort delta_ver, uint64_t tmin, uint64_t tmax,
+                            ushort pid, std::vector<ushort>* col_idx) = 0;
+  virtual void deleteRecord(uint64_t vid, ushort master_ver) = 0;
   virtual std::vector<const void*> getRecordByKey(
-      uint64_t vid, short master_ver, std::vector<int>* col_idx = nullptr) = 0;
+      uint64_t vid, ushort master_ver,
+      const std::vector<ushort>* col_idx = nullptr) = 0;
 
-  virtual void getRecordByKey(uint64_t vid, short master_ver,
-                              std::vector<int>* col_idx, void* loc) = 0;
+  virtual void getRecordByKey(uint64_t vid, ushort master_ver,
+                              const std::vector<ushort>* col_idx,
+                              void* loc) = 0;
   virtual void touchRecordByKey(uint64_t vid, ushort master_ver) = 0;
 
   virtual global_conf::mv_version_list* getVersions(uint64_t vid,
-                                                    short delta_ver) = 0;
+                                                    ushort delta_ver) = 0;
 
   void printDetails() {
     std::cout << "Number of Columns:\t" << num_columns << std::endl;
@@ -165,24 +166,24 @@ class ColumnStore : public Table {
   ColumnStore(uint8_t table_id, std::string name,
               std::vector<std::tuple<std::string, data_type, size_t>> columns,
               uint64_t initial_num_records = 10000000);
-  uint64_t insertRecord(void* rec, short master_ver);
-  void* insertRecord(void* rec, uint64_t xid, short master_ver);
-  void updateRecord(uint64_t vid, void* data, short ins_master_ver,
-                    short prev_master_ver, short delta_ver, uint64_t tmin,
-                    uint64_t tmax, int pid);
-  void updateRecord(uint64_t vid, void* rec, short ins_master_ver,
-                    short prev_master_ver, short delta_ver, uint64_t tmin,
-                    uint64_t tmax, int pid, std::vector<int>* col_idx);
-  void deleteRecord(uint64_t vid, short master_ver);
-  std::vector<const void*> getRecordByKey(uint64_t vid, short master_ver,
-                                          std::vector<int>* col_idx = nullptr);
+  uint64_t insertRecord(void* rec);
+  void* insertRecord(void* rec, uint64_t xid, ushort master_ver);
+  void updateRecord(uint64_t vid, const void* data, ushort ins_master_ver,
+                    ushort prev_master_ver, ushort delta_ver, uint64_t tmin,
+                    uint64_t tmax, ushort pid);
+  void updateRecord(uint64_t vid, const void* rec, ushort ins_master_ver,
+                    ushort prev_master_ver, ushort delta_ver, uint64_t tmin,
+                    uint64_t tmax, ushort pid, std::vector<ushort>* col_idx);
+  void deleteRecord(uint64_t vid, ushort master_ver);
+  std::vector<const void*> getRecordByKey(
+      uint64_t vid, ushort master_ver,
+      const std::vector<ushort>* col_idx = nullptr);
 
-  void getRecordByKey(uint64_t vid, short master_ver, std::vector<int>* col_idx,
-                      void* loc);
+  void getRecordByKey(uint64_t vid, ushort master_ver,
+                      const std::vector<ushort>* col_idx, void* loc);
   void touchRecordByKey(uint64_t vid, ushort master_ver);
 
-  global_conf::mv_version_list* getVersions(uint64_t vid, short delta_ver);
-
+  global_conf::mv_version_list* getVersions(uint64_t vid, ushort delta_ver);
 
   void num_upd_tuples();
 
@@ -217,7 +218,6 @@ class Column {
   void* insertElem(uint64_t offset, void* elem, ushort master_ver);
   void updateElem(uint64_t offset, void* elem, ushort master_ver);
   void deleteElem(uint64_t offset, ushort master_ver);
-
 
   void num_upd_tuples();
 

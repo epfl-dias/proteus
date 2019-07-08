@@ -200,7 +200,7 @@ ColumnStore::ColumnStore(
 /* Following function assumes that the  void* rec has columns in the same order
  * as the actual columns
  */
-void* ColumnStore::insertRecord(void* rec, uint64_t xid, short master_ver) {
+void* ColumnStore::insertRecord(void* rec, uint64_t xid, ushort master_ver) {
   uint64_t curr_vid = vid.fetch_add(1);
 
   global_conf::IndexVal hash_val(xid, curr_vid, master_ver);
@@ -215,7 +215,7 @@ void* ColumnStore::insertRecord(void* rec, uint64_t xid, short master_ver) {
   return hash_ptr;
 }
 
-uint64_t ColumnStore::insertRecord(void* rec, short master_ver) {
+uint64_t ColumnStore::insertRecord(void* rec, ushort master_ver) {
   uint64_t curr_vid = vid.fetch_add(1);
 
   char* rec_ptr = (char*)rec;
@@ -226,7 +226,7 @@ uint64_t ColumnStore::insertRecord(void* rec, short master_ver) {
   return curr_vid;
 }
 
-void ColumnStore::deleteRecord(uint64_t vid, short master_ver) {}
+void ColumnStore::deleteRecord(uint64_t vid, ushort master_ver) {}
 
 void ColumnStore::touchRecordByKey(uint64_t vid, ushort master_ver) {
   for (auto& col : columns) {
@@ -234,7 +234,7 @@ void ColumnStore::touchRecordByKey(uint64_t vid, ushort master_ver) {
   }
 }
 
-void ColumnStore::getRecordByKey(uint64_t vid, short master_ver,
+void ColumnStore::getRecordByKey(uint64_t vid, ushort master_ver,
                                  std::vector<int>* col_idx, void* loc) {
   char* write_loc = (char*)loc;
   if (col_idx == nullptr) {
@@ -253,7 +253,7 @@ void ColumnStore::getRecordByKey(uint64_t vid, short master_ver,
 }
 
 std::vector<const void*> ColumnStore::getRecordByKey(
-    uint64_t vid, short master_ver, std::vector<int>* col_idx) {
+    uint64_t vid, ushort master_ver, std::vector<int>* col_idx) {
   if (col_idx == nullptr) {
     std::vector<const void*> record(columns.size());
     for (auto& col : columns) {
@@ -276,14 +276,14 @@ vid_to_uuid(uint8_t tbl_id, uint64_t vid) {
 }
 
 global_conf::mv_version_list* ColumnStore::getVersions(uint64_t vid,
-                                                       short delta_ver) {
+                                                       ushort delta_ver) {
   assert(global_conf::cc_ismv);
   return this->deltaStore[delta_ver]->getVersionList(
       vid_to_uuid(this->table_id, vid));
 }
 
-void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
-                               short prev_master_ver, short delta_ver,
+void ColumnStore::updateRecord(uint64_t vid, void* rec, ushort ins_master_ver,
+                               ushort prev_master_ver, ushort delta_ver,
                                uint64_t tmin, uint64_t tmax, int pid) {
   // if(ins_master_ver == prev_master_ver) need version ELSE update the master
   // one.
@@ -311,7 +311,7 @@ void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
       // std::cout << "val:" << *((uint64_t*)col->getElem(vid, prev_master_ver))
       //          << std::endl;
       // memcpy((void*)ver, &c, elem_size);
-      ver += (int)elem_size;
+      ver += elem_size;
     }
     assert(this->rec_size == total_rec_size);
     // std::cout << "updated column" << std::endl;
@@ -328,8 +328,8 @@ void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
   }
 }
 
-void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
-                               short prev_master_ver, short delta_ver,
+void ColumnStore::updateRecord(uint64_t vid, void* rec, ushort ins_master_ver,
+                               ushort prev_master_ver, ushort delta_ver,
                                uint64_t tmin, uint64_t tmax, int pid,
                                std::vector<int>* col_idx) {
   if (global_conf::cc_ismv) {
@@ -344,7 +344,7 @@ void ColumnStore::updateRecord(uint64_t vid, void* rec, short ins_master_ver,
       total_rec_size += elem_size;
       assert(ver != nullptr);
       memcpy((void*)ver, col->getElem(vid, prev_master_ver), elem_size);
-      ver += (int)elem_size;
+      ver += elem_size;
     }
     assert(this->rec_size == total_rec_size);
     // std::cout << "updated column" << std::endl;
@@ -384,7 +384,7 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
   // std::cout << "Column--" << name << "| size: " << size
   //          << "| num_r: " << initial_num_records << std::endl;
 
-  for (short i = 0; i < global_conf::num_master_versions; i++) {
+  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     // void* mem = MemoryManager::alloc(size, i);
     // void* mem = MemoryManager::alloc_shm(std::to_string(i)+"__"
     // +name,size,numa_id);
@@ -489,7 +489,7 @@ void* Column::insertElem(uint64_t offset, void* elem, ushort master_ver) {
 }
 
 Column::~Column() {
-  for (short i = 0; i < global_conf::num_master_versions; i++) {
+  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     for (auto& chunk : master_versions[i]) {
       MemoryManager::free(chunk->data, chunk->size);
     }

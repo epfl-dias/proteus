@@ -103,15 +103,15 @@ void rowStore::touchRecordByKey(uint64_t vid, ushort master_ver) {
 }
 
 global_conf::mv_version_list* rowStore::getVersions(uint64_t vid,
-                                                    short delta_ver) {
+                                                    ushort delta_ver) {
   assert(global_conf::cc_ismv);
   return this->deltaStore[delta_ver]->getVersionList(
       vid_to_uuid(this->table_id, vid));
 }
 
 void rowStore::updateRecord(uint64_t vid, const void* data,
-                            ushort prev_master_ver, ushort curr_master_ver,
-                            short delta_ver, uint64_t tmin, uint64_t tmax,
+                            ushort ins_master_ver, ushort prev_master_ver,
+                            ushort delta_ver, uint64_t tmin, uint64_t tmax,
                             ushort pid) {
   if (global_conf::cc_ismv) {
     // create_version
@@ -122,12 +122,12 @@ void rowStore::updateRecord(uint64_t vid, const void* data,
     memcpy((void*)ver, this->getRow(vid, prev_master_ver), this->rec_size);
   }
 
-  this->insert_or_update(vid, data, curr_master_ver);
+  this->insert_or_update(vid, data, ins_master_ver);
 }
 void rowStore::updateRecord(uint64_t vid, const void* data,
-                            short prev_master_ver, ushort curr_master_ver,
-                            short delta_ver, uint64_t tmin, uint64_t tmax,
-                            ushort pid, std::vector<ushort>& col_idx) {
+                            ushort ins_master_ver, ushort prev_master_ver,
+                            ushort delta_ver, uint64_t tmin, uint64_t tmax,
+                            ushort pid, std::vector<ushort>* col_idx) {
   if (global_conf::cc_ismv) {
     // create_version
     char* ver = (char*)this->deltaStore[delta_ver]->insert_version(
@@ -137,11 +137,11 @@ void rowStore::updateRecord(uint64_t vid, const void* data,
     memcpy((void*)ver, this->getRow(vid, prev_master_ver), this->rec_size);
   }
 
-  this->update_partial(vid, data, curr_master_ver, col_idx);
+  this->update_partial(vid, data, ins_master_ver, col_idx);
 }
 
 void rowStore::update_partial(uint64_t vid, const void* data, ushort master_ver,
-                              std::vector<ushort>& col_idx) {
+                              const std::vector<ushort>* col_idx) {
   uint64_t data_idx = vid * this->rec_size;
 
   for (const auto& chunk : master_versions[master_ver]) {
@@ -150,7 +150,7 @@ void rowStore::update_partial(uint64_t vid, const void* data, ushort master_ver,
       char* dst = ((char*)chunk->data) + data_idx;
       if (data == nullptr) {
         size_t offset = 0;
-        for (auto& c_idx : col_idx) {
+        for (auto& c_idx : *col_idx) {
           std::pair<size_t, size_t> sz = column_width.at(c_idx);
 
           uint64_t* tptr = (uint64_t*)((char*)data + offset);
@@ -159,7 +159,7 @@ void rowStore::update_partial(uint64_t vid, const void* data, ushort master_ver,
         }
       } else {
         size_t offset = 0;
-        for (auto& c_idx : col_idx) {
+        for (auto& c_idx : *col_idx) {
           std::pair<size_t, size_t> sz = column_width.at(c_idx);
           memcpy(dst + sz.second, (char*)data + offset, sz.first);
           offset += sz.first;

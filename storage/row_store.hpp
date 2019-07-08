@@ -84,23 +84,25 @@ class rowStore : public Table {
   uint64_t insertRecord(void* rec);
   void* insertRecord(void* rec, uint64_t xid, ushort master_ver);
 
-  void updateRecord(uint64_t vid, const void* data, ushort prev_master_ver,
-                    ushort curr_master_ver, short delta_ver, uint64_t tmin,
+  void updateRecord(uint64_t vid, const void* data, ushort ins_master_ver,
+                    ushort prev_master_ver, ushort delta_ver, uint64_t tmin,
                     uint64_t tmax, ushort pid);
-  void updateRecord(uint64_t vid, const void* data, short prev_master_ver,
-                    ushort curr_master_ver, short delta_ver, uint64_t tmin,
-                    uint64_t tmax, ushort pid, std::vector<ushort>& col_idx);
-  void deleteRecord(uint64_t vid, short master_ver) {}
 
-  global_conf::mv_version_list* getVersions(uint64_t vid, short delta_ver);
+  void updateRecord(uint64_t vid, const void* data, ushort ins_master_ver,
+                    ushort prev_master_ver, ushort delta_ver, uint64_t tmin,
+                    uint64_t tmax, ushort pid, std::vector<ushort>* col_idx);
+
+  void deleteRecord(uint64_t vid, ushort master_ver) {}
+
+  global_conf::mv_version_list* getVersions(uint64_t vid, ushort delta_ver);
 
   void touchRecordByKey(uint64_t vid, ushort master_ver);
 
-  std::vector<const void*> getRecordByKey(uint64_t vid, short master_ver,
-                                          const std::vector<int>* col_idx);
+  std::vector<const void*> getRecordByKey(uint64_t vid, ushort master_ver,
+                                          const std::vector<ushort>* col_idx);
 
   void getRecordByKey(uint64_t vid, ushort master_ver,
-                      const std::vector<int>* col_idx, void* loc);
+                      const std::vector<ushort>* col_idx, void* loc);
 
  private:
   size_t rec_size;
@@ -116,7 +118,7 @@ class rowStore : public Table {
 
   void insert_or_update(uint64_t vid, const void* rec, ushort master_ver);
   void update_partial(uint64_t vid, const void* data, ushort master_ver,
-                      std::vector<ushort>& col_idx);
+                      const std::vector<ushort>* col_idx);
 };
 
 };  // namespace storage
