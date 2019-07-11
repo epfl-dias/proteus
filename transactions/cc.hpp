@@ -83,6 +83,14 @@ class CC_MV2PL {
     uint64_t w_tmin = tmin & 0x00FFFFFFFFFFFFFF;
     uint64_t w_tmax = tmax & 0x00FFFFFFFFFFFFFF;
 
+    // if (w_tmax != 0 && w_tid > w_tmax){
+    //   return -1;
+    // } else if (w_tid >= w_tmin) && (w_tmax == 0 || w_tid < w_tmax){
+    //   return 1;
+    // } else {
+    //   return 0;
+    // }
+
     if ((w_tid >= w_tmin) && (w_tmax == 0 || w_tid < w_tmax)) {
       return true;
     } else {

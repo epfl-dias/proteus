@@ -38,6 +38,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #define TPCC_MAX_ORDER_INITIAL_CAP 50000000
 
+#define MAX_OPS_PER_QUERY 255
+
 #define NO_MIX 45
 #define P_MIX 43
 #define OS_MIX 4
@@ -104,7 +106,6 @@ class TPCC : public Benchmark {
   bool is_ch_benchmark;
 
  public:
-
   struct ch_nation {
     ushort n_nationkey;
     char n_name[16];  // var
@@ -149,7 +150,7 @@ class TPCC : public Benchmark {
   };
 
   struct tpcc_warehouse {
-    short w_id;
+    ushort w_id;
     char w_name[11];
     char w_street[2][21];
     char w_city[21];
@@ -241,6 +242,14 @@ class TPCC : public Benchmark {
 #define NDEFAULT_RIDS 16
   };
 
+  struct cust_read {
+    uint32_t c_id;
+    ushort c_d_id;
+    ushort c_w_id;
+    char c_first[FIRST_NAME_LEN + 1];
+    char c_last[LAST_NAME_LEN + 1];
+  };
+
   struct item {
     int ol_i_id;
     int ol_supply_w_id;
@@ -250,22 +259,22 @@ class TPCC : public Benchmark {
   // neworder tpcc query
   struct tpcc_query {
     TPCC_QUERY_TYPE query_type;
-    int w_id;
-    int d_id;
-    int c_id;
+    ushort w_id;
+    ushort d_id;
+    uint32_t c_id;
     int threshold;
     int o_carrier_id;
-    int d_w_id;
-    int c_w_id;
-    int c_d_id;
+    ushort d_w_id;
+    ushort c_w_id;
+    ushort c_d_id;
     char c_last[LAST_NAME_LEN];
-    double h_amount;
-    char by_last_name;
+    float h_amount;
+    uint8_t by_last_name;
     struct item item[TPCC_MAX_OL_PER_ORDER];
     char rbk;
     char remote;
-    int ol_cnt;
-    int o_entry_d;
+    ushort ol_cnt;
+    uint32_t o_entry_d;
   };
 
   // fucking shortcut
@@ -296,8 +305,7 @@ class TPCC : public Benchmark {
   void load_order(int w_id);
   void load_customer(int w_id);
 
-
-  //CSV Loaders
+  // CSV Loaders
 
   void load_stock_csv(std::string filename = "stock.tbl", char delim = '|');
   void load_item_csv(std::string filename = "item.tbl", char delim = '|');
@@ -324,7 +332,8 @@ class TPCC : public Benchmark {
   // cust_utils
   uint64_t cust_derive_key(char *c_last, int c_d_id, int c_w_id);
   int set_last_name(int num, char *name);
-  void print_tpcc_query(void *arg);
+  uint fetch_cust_records(const struct secondary_record &sr,
+                          struct cust_read *c_recs, uint64_t xid);
 
   // get queries
   void tpcc_get_next_payment_query(int wid, void *arg);
@@ -352,6 +361,9 @@ class TPCC : public Benchmark {
                          ushort master_ver, ushort delta_ver);
   bool exec_stocklevel_txn(struct tpcc_query *stmts, uint64_t xid,
                            ushort master_ver, ushort delta_ver);
+  void print_tpcc_query(void *arg);
+
+  void verify_consistency(uint wid);
 
   // TODO: clean-up
   ~TPCC() {}

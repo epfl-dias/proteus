@@ -49,9 +49,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define __itt_pause() ((void)0)
 #endif
 
-#define RUNTIME 300  // seconds
+#define RUNTIME 60  // seconds
 
-#define HTAP true
+#define HTAP false
 
 // TODO: a race condition exists in acquiring write lock and updating the
 // version, a read might read at the same time as readers are not blocked in any
@@ -99,8 +99,7 @@ int main(int argc, char** argv) {
   // cxxopts::value<std::string>()->implicit_value("implicit")
 
   // conf
-  int num_workers =
-      72;  // NUM_SOCKETS * 18;  // std::thread::hardware_concurrency();
+  int num_workers = MAX_WORKERS;  // std::thread::hardware_concurrency();
   uint gc_mode = 1;
   uint bechnmark = 0;  // default: YCSB
 

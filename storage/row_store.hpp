@@ -81,7 +81,7 @@ class rowStore : public Table {
   size_t rec_size;
   */
  public:
-  uint64_t insertRecord(void* rec);
+  uint64_t insertRecord(void* rec, ushort master_ver);
   void* insertRecord(void* rec, uint64_t xid, ushort master_ver);
 
   void updateRecord(uint64_t vid, const void* data, ushort ins_master_ver,

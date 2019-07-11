@@ -39,8 +39,13 @@ class HashArray {
   char **arr;
   uint64_t capacity;
   HashArray(int num_obj = 72000000) : capacity(num_obj) {
-    //*arr = (char *)storage::MemoryManager::alloc(num_obj * sizeof(char *), 1);
-    arr = new char *[num_obj];
+    size_t size = num_obj * sizeof(char *);
+    arr = (char **)storage::MemoryManager::alloc(size, 0);
+
+    uint64_t *pt = (uint64_t *)arr;
+    int warmup_max = size / sizeof(uint64_t);
+    for (int i = 0; i < warmup_max; i++) pt[i] = 0;
+    // arr = new char *[num_obj];
   }
   //~HashArray() { storage::MemoryManager::free(arr, capacity * sizeof(V)); }
   V find(K key) {
@@ -53,11 +58,10 @@ class HashArray {
   inline bool find(K key, V &value) {
     // find(op.key, tmp)
 
-    if (key >= capacity){
+    if (key >= capacity) {
       assert(false);
       return false;
-    }
-    else {
+    } else {
       value = (void *)arr[key];
       return true;
     }
@@ -65,11 +69,10 @@ class HashArray {
 
   inline bool insert(K key, V &value) {
     // insert(op.key, hash_ptr)
-    if (key >= capacity){
-      //assert(false);
+    if (key >= capacity) {
+      // assert(false);
       return false;
-    }
-    else {
+    } else {
       arr[key] = (char *)value;
       return true;
     }

@@ -113,7 +113,7 @@ class Schema {
 
 class Table {
  public:
-  virtual uint64_t insertRecord(void* rec) = 0;
+  virtual uint64_t insertRecord(void* rec, ushort master_ver) = 0;
   virtual void* insertRecord(void* rec, uint64_t xid, ushort master_ver) = 0;
 
   virtual void updateRecord(uint64_t vid, const void* data,
@@ -166,7 +166,7 @@ class ColumnStore : public Table {
   ColumnStore(uint8_t table_id, std::string name,
               std::vector<std::tuple<std::string, data_type, size_t>> columns,
               uint64_t initial_num_records = 10000000);
-  uint64_t insertRecord(void* rec);
+  uint64_t insertRecord(void* rec, ushort master_ver);
   void* insertRecord(void* rec, uint64_t xid, ushort master_ver);
   void updateRecord(uint64_t vid, const void* data, ushort ins_master_ver,
                     ushort prev_master_ver, ushort delta_ver, uint64_t tmin,

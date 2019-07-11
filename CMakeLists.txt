@@ -27,6 +27,7 @@ set(SOURCES
     scheduler/comm_manager.cpp
     storage/memory_manager.cpp
     storage/table.cpp
+    #storage/row_store.cpp
     storage/delta_storage.cpp
     transactions/transaction_manager.cpp
     transactions/cc.cpp

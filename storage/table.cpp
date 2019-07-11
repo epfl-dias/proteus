@@ -29,8 +29,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "indexes/hash_index.hpp"
 #include "storage/delta_storage.hpp"
 
-#define HTAP_UPD_BIT_MASK true
-
 /*
 
   TODO:
@@ -235,7 +233,8 @@ void ColumnStore::touchRecordByKey(uint64_t vid, ushort master_ver) {
 }
 
 void ColumnStore::getRecordByKey(uint64_t vid, ushort master_ver,
-                                 std::vector<int>* col_idx, void* loc) {
+                                 const std::vector<ushort>* col_idx,
+                                 void* loc) {
   char* write_loc = (char*)loc;
   if (col_idx == nullptr) {
     for (auto& col : columns) {
@@ -253,7 +252,7 @@ void ColumnStore::getRecordByKey(uint64_t vid, ushort master_ver,
 }
 
 std::vector<const void*> ColumnStore::getRecordByKey(
-    uint64_t vid, ushort master_ver, std::vector<int>* col_idx) {
+    uint64_t vid, ushort master_ver, const std::vector<ushort>* col_idx) {
   if (col_idx == nullptr) {
     std::vector<const void*> record(columns.size());
     for (auto& col : columns) {
@@ -282,9 +281,10 @@ global_conf::mv_version_list* ColumnStore::getVersions(uint64_t vid,
       vid_to_uuid(this->table_id, vid));
 }
 
-void ColumnStore::updateRecord(uint64_t vid, void* rec, ushort ins_master_ver,
-                               ushort prev_master_ver, ushort delta_ver,
-                               uint64_t tmin, uint64_t tmax, int pid) {
+void ColumnStore::updateRecord(uint64_t vid, const void* rec,
+                               ushort ins_master_ver, ushort prev_master_ver,
+                               ushort delta_ver, uint64_t tmin, uint64_t tmax,
+                               ushort pid) {
   // if(ins_master_ver == prev_master_ver) need version ELSE update the master
   // one.
   // uint64_t c = 4;
@@ -328,10 +328,10 @@ void ColumnStore::updateRecord(uint64_t vid, void* rec, ushort ins_master_ver,
   }
 }
 
-void ColumnStore::updateRecord(uint64_t vid, void* rec, ushort ins_master_ver,
-                               ushort prev_master_ver, ushort delta_ver,
-                               uint64_t tmin, uint64_t tmax, int pid,
-                               std::vector<int>* col_idx) {
+void ColumnStore::updateRecord(uint64_t vid, const void* rec,
+                               ushort ins_master_ver, ushort prev_master_ver,
+                               ushort delta_ver, uint64_t tmin, uint64_t tmax,
+                               ushort pid, std::vector<ushort>* col_idx) {
   if (global_conf::cc_ismv) {
     // create_version
     // std::cout << "UPD TBL: " << this->name << std::endl;
@@ -385,11 +385,13 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
   //          << "| num_r: " << initial_num_records << std::endl;
 
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
-    // void* mem = MemoryManager::alloc(size, i);
-    // void* mem = MemoryManager::alloc_shm(std::to_string(i)+"__"
-    // +name,size,numa_id);
+#if SHARED_MEMORY
     void* mem =
         MemoryManager::alloc_shm(std::to_string(i) + "__" + name, size, i);
+
+#else
+    void* mem = MemoryManager::alloc(size, i);
+#endif
 
     uint64_t* pt = (uint64_t*)mem;
     int warmup_max = size / sizeof(uint64_t);
@@ -469,11 +471,13 @@ void* Column::insertElem(uint64_t offset, void* elem, ushort master_ver) {
           //         << std::endl;
         } else {
           std::memcpy(dst, elem, this->elem_size);
+#if HTAP_UPD_BIT_MASK
           if (i == master_ver) {
             ret = dst;
             char* tt = (char*)dst;
             *tt = *tt | (1 << 7);
           }
+#endif
         }
         ins = true;
         break;

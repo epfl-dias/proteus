@@ -39,7 +39,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "transactions/transaction_manager.hpp"
 //#include <thread
 
-#define YCSB_MIXED_OPS 1
+#define YCSB_MIXED_OPS 0
 
 namespace bench {
 
@@ -201,7 +201,7 @@ class YCSB : public Benchmark {
 #else
 
     txn::OP_TYPE op;
-    wid_n = wid % num_active_workers;
+    ushort wid_n = wid % num_active_workers;
 
     if (wid_n >= (write_threshold * (double)num_active_workers)) {
       op = txn::OPTYPE_LOOKUP;

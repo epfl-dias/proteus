@@ -45,7 +45,9 @@ vid_to_uuid(uint8_t tbl_id, uint64_t vid) {
 }
 
 std::vector<const void*> rowStore::getRecordByKey(
-    uint64_t vid, short master_ver, const std::vector<int>* col_idx) {
+    uint64_t vid, ushort master_ver, const std::vector<ushort>* col_idx) {
+  
+
   std::vector<const void*> ret;
 
   char* rw = (char*)this->getRow(vid, master_ver);
@@ -66,7 +68,7 @@ std::vector<const void*> rowStore::getRecordByKey(
 }
 
 void rowStore::getRecordByKey(uint64_t vid, ushort master_ver,
-                              const std::vector<int>* col_idx, void* loc) {
+                              const std::vector<ushort>* col_idx, void* loc) {
   char* rw = (char*)this->getRow(vid, master_ver);
   char* wloc = (char*)loc;
 
@@ -194,7 +196,8 @@ void rowStore::insert_or_update(uint64_t vid, const void* rec,
   assert(false && "Memory limit exceeded, allocate more memory for storage");
 }
 
-uint64_t rowStore::insertRecord(void* rec) {
+uint64_t rowStore::insertRecord(void* rec, ushort master_ver) {
+  // TODO: update bit for snapshotting
   uint64_t curr_vid = vid.fetch_add(1);
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     this->insert_or_update(curr_vid, rec, i);

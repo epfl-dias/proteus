@@ -30,7 +30,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <limits>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <thread>
+#include "benchmarks/tpcc.hpp"
 #include "scheduler/affinity_manager.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
@@ -150,6 +152,11 @@ void Worker::run() {
     num_txns++;
   }
   txn_end_time = std::chrono::system_clock::now();
+
+  if (pool->txn_bench->name.compare("TPCC") == 0) {
+    bench::TPCC* tpcc_bench = (bench::TPCC*)pool->txn_bench;
+    tpcc_bench->verify_consistency((uint)this->id);
+  }
 }
 
 std::vector<uint64_t> WorkerPool::get_active_txns() {
@@ -186,11 +193,9 @@ uint64_t WorkerPool::get_max_active_txn() {
   return max_epoch;
 }
 
-
 bool WorkerPool::is_all_worker_on_master_id(ushort master_id) {
   for (auto& wr : workers) {
-    if(wr.second.second->curr_master != master_id)
-      return false;
+    if (wr.second.second->curr_master != master_id) return false;
   }
 
   return true;

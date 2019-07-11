@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <ctime>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -12,8 +13,8 @@
 
 /*
 
-  Note: There are aborts when reading from CSV, there is something wrong 
-  there for sure. the issue intially was that every ID was starting 
+  Note: There are aborts when reading from CSV, there is something wrong
+  there for sure. the issue intially was that every ID was starting
   from 1 for the chBenchmark generator.
 
 
@@ -21,6 +22,8 @@
 */
 
 namespace bench {
+
+#define tpcc_dist_txns true
 
 bool TPCC::exec_txn(void *stmts, uint64_t xid, ushort master_ver,
                     ushort delta_ver) {
@@ -48,8 +51,6 @@ bool TPCC::exec_txn(void *stmts, uint64_t xid, ushort master_ver,
 }
 
 void TPCC::gen_txn(int wid, void *q) {
-  tpcc_get_next_neworder_query(wid, q);
-  return;
   static thread_local uint sequence_counter = 0;
 
   switch (sequence[sequence_counter++ % MIX_COUNT]) {
@@ -68,8 +69,69 @@ void TPCC::gen_txn(int wid, void *q) {
     case STOCK_LEVEL:
       tpcc_get_next_stocklevel_query(wid, q);
     default:
+      tpcc_get_next_neworder_query(wid, q);
       return;
   }
+}
+
+void TPCC::init_tpcc_seq_array() {
+  int total = 0;
+  for (int i = 0; i < NO_MIX; ++i) {
+    sequence[i] = NEW_ORDER;
+  }
+  total = NO_MIX;
+  for (int i = 0; i < P_MIX; ++i) {
+    sequence[i + total] = PAYMENT;
+  }
+  total = total + P_MIX;
+  for (int i = 0; i < OS_MIX; ++i) {
+    sequence[i + total] = ORDER_STATUS;
+  }
+  total = total + OS_MIX;
+  for (int i = 0; i < D_MIX; ++i) {
+    sequence[i + total] = DELIVERY;
+  }
+  total = total + D_MIX;
+  for (int i = 0; i < SL_MIX; ++i) {
+    sequence[i + total] = STOCK_LEVEL;
+  }
+  // shuffle elements of the sequence array
+  srand(time(NULL));
+  for (int i = MIX_COUNT - 1; i > 0; i--) {
+    int j = rand() % (i + 1);
+    TPCC_QUERY_TYPE temp = sequence[i];
+    sequence[i] = sequence[j];
+    sequence[j] = temp;
+  }
+}
+
+void TPCC::print_tpcc_query(void *arg) {
+  struct tpcc_query *q = (struct tpcc_query *)arg;
+  std::cout << "-------TPCC QUERY------" << std::endl;
+  switch (q->query_type) {
+    case NEW_ORDER:
+      std::cout << "\tType: NEW_ORDER" << std::endl;
+      break;
+    case PAYMENT:
+      std::cout << "\tType: PAYMENT" << std::endl;
+      break;
+    case ORDER_STATUS:
+      std::cout << "\tType: ORDER_STATUS" << std::endl;
+      break;
+    case DELIVERY:
+      std::cout << "\tType: DELIVERY" << std::endl;
+      break;
+    case STOCK_LEVEL:
+      std::cout << "\tType: STOCK_LEVEL" << std::endl;
+    default:
+      break;
+  }
+  std::cout << "\tw_id: " << q->w_id << std::endl;
+  std::cout << "\td_id: " << q->d_id << std::endl;
+  std::cout << "\tc_id: " << q->c_id << std::endl;
+  std::cout << "\tol_cnt: " << q->ol_cnt << std::endl;
+
+  std::cout << "-----------------------" << std::endl;
 }
 
 bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
@@ -111,7 +173,7 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
     // attempt to acquire a write lock
     // txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired);
     // std::cout << "Abort-1-" << w_id << std::endl;
-    
+
     return false;
   }
 
@@ -132,7 +194,7 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
       hash_ptrs_lock_acquired.emplace_back(st_idx_ptr);
     } else {
       // ABORT
-      
+
       txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired);
       return false;
     }
@@ -162,8 +224,8 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
      */
     uint32_t stock_key = MAKE_STOCK_KEY(ol_supply_w_id, ol_i_id);
 
-    std::vector<int> st_col = {2, TPCC_NDIST_PER_WH + 3, TPCC_NDIST_PER_WH + 4,
-                               TPCC_NDIST_PER_WH + 5};
+    std::vector<ushort> st_col = {2, TPCC_NDIST_PER_WH + 3,
+                                  TPCC_NDIST_PER_WH + 4, TPCC_NDIST_PER_WH + 5};
     struct st_read {
       short s_quantity;
       ushort s_ytd;
@@ -247,8 +309,8 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
    * EXEC SQL UPDATE district SET d _next_o_id = :d _next_o_id + 1
    * WHERE d _id = :d_id AN D d _w _id = :w _id ;
    */
-  std::vector<int> dist_col_scan = {8, 10};
-  std::vector<int> dist_col_upd = {10};
+  std::vector<ushort> dist_col_scan = {8, 10};
+  std::vector<ushort> dist_col_upd = {10};
   struct dist_read {
     float d_tax;
     uint64_t d_next_o_id;
@@ -311,7 +373,7 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
   //   (struct tpcc_warehouse *)txn_op(ctask, hash_table, id, &op, w_id - 1);
 
   float w_tax = 0.0;
-  std::vector<int> w_col_scan = {7};  // position in columns
+  std::vector<ushort> w_col_scan = {6};  // position in columns
 
   global_conf::IndexVal *w_idx_ptr =
       (global_conf::IndexVal *)table_warehouse->p_index->find(w_id);
@@ -337,7 +399,7 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
   // Here too, reading shit not required anywhere
 
   uint32_t cust_key = MAKE_CUST_KEY(w_id, d_id, c_id);
-  std::vector<int> cust_col_scan = {5, 13, 15};
+  std::vector<ushort> cust_col_scan = {5, 13, 15};
 
   struct cust_read {
     char c_last[LAST_NAME_LEN + 1];
@@ -418,7 +480,7 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
      */
 
     float i_price;
-    std::vector<int> i_col_scan = {3};
+    std::vector<ushort> i_col_scan = {3};
 
     global_conf::IndexVal *item_idx_ptr =
         (global_conf::IndexVal *)table_item->p_index->find(ol_i_id);
@@ -484,43 +546,734 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
 
   return true;
 }
-inline bool TPCC::exec_payment_txn(struct tpcc_query *stmts, uint64_t xid,
-                                   ushort master_ver, ushort delta_ver) {
-  return false;
+
+inline uint TPCC::fetch_cust_records(const struct secondary_record &sr,
+                                     struct cust_read *c_recs, uint64_t xid) {
+  uint nmatch = 0;
+
+  // struct cust_read {
+  //   uint32_t c_id;
+  //   ushort c_d_id;
+  //   ushort c_w_id;
+  //   char c_first[FIRST_NAME_LEN + 1];
+  //   char c_last[LAST_NAME_LEN + 1];
+  // };
+
+  const std::vector<ushort> c_col_scan = {0, 1, 2, 3,
+                                          5};  // position in columns
+
+  for (int i = 0; i < sr.sr_nids; i++) {
+    global_conf::IndexVal *c_idx_ptr =
+        (global_conf::IndexVal *)table_customer->p_index->find(sr.sr_rids[i]);
+
+    assert(c_idx_ptr != nullptr || c_idx_ptr != NULL);
+
+    c_idx_ptr->latch.acquire();
+
+    if (txn::CC_MV2PL::is_readable(c_idx_ptr->t_min, c_idx_ptr->t_max, xid)) {
+      table_customer->getRecordByKey(c_idx_ptr->VID, c_idx_ptr->last_master_ver,
+                                     &c_col_scan, &c_recs[nmatch]);
+      c_idx_ptr->latch.release();
+    } else {
+      struct tpcc_customer *c_r =
+          (struct tpcc_customer *)table_customer
+              ->getVersions(c_idx_ptr->VID, c_idx_ptr->delta_id)
+              ->get_readable_ver(xid);
+      assert(c_r != nullptr || c_r != NULL);
+      c_idx_ptr->latch.release();
+
+      strcpy(c_recs[nmatch].c_first, c_r->c_first);
+      strcpy(c_recs[nmatch].c_last, c_r->c_last);
+      c_recs[nmatch].c_id = c_r->c_id;
+      c_recs[nmatch].c_d_id = c_r->c_d_id;
+      c_recs[nmatch].c_w_id = c_r->c_w_id;
+    }
+
+    nmatch++;
+  }
+
+  return nmatch;
 }
-inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *stmts, uint64_t xid,
+
+inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
+                                   ushort master_ver, ushort delta_ver) {
+  // Updates..
+
+  // update warehouse (ytd) / district (ytd),
+  // update customer (balance/c_data)
+  // insert history
+
+  ushort w_id = q->w_id;
+  ushort d_id = q->d_id;
+  ushort c_w_id = q->c_w_id;
+  ushort c_d_id = q->c_d_id;
+  uint32_t c_id = q->c_id;
+  float h_amount = q->h_amount;
+
+  std::vector<global_conf::IndexVal *>
+      hash_ptrs_lock_acquired;  // reserve space
+
+  /*====================================================+
+      Acquire Locks for Warehouse, District, Customer
+  +====================================================*/
+
+  // Lock Warehouse
+  global_conf::IndexVal *w_idx_ptr =
+      (global_conf::IndexVal *)table_warehouse->p_index->find(w_id);
+
+  assert(w_idx_ptr != NULL || w_idx_ptr != nullptr);
+  bool e_false = false;
+  if (w_idx_ptr->write_lck.compare_exchange_strong(e_false, true)) {
+    hash_ptrs_lock_acquired.emplace_back(w_idx_ptr);
+  } else {
+    return false;
+  }
+
+  // Lock District
+  global_conf::IndexVal *d_idx_ptr =
+      (global_conf::IndexVal *)table_district->p_index->find(
+          MAKE_DIST_KEY(w_id, d_id));
+
+  assert(d_idx_ptr != NULL || d_idx_ptr != nullptr);
+  e_false = false;
+  if (d_idx_ptr->write_lck.compare_exchange_strong(e_false, true)) {
+    hash_ptrs_lock_acquired.emplace_back(d_idx_ptr);
+  } else {
+    // ABORT
+    txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired);
+    return false;
+  }
+
+  // Lock Customer
+
+  // some logic is required here as customer can be by name or by id..
+
+  uint32_t cust_id = std::numeric_limits<uint32_t>::max();
+
+  if (q->by_last_name) {
+    /*==========================================================+
+      EXEC SQL SELECT count(c_id) INTO :namecnt
+      FROM customer
+      WHERE c_last=:c_last AND c_d_id=:c_d_id AND c_w_id=:c_w_id;
+      +==========================================================*/
+
+    struct secondary_record sr;
+
+    if (!this->cust_sec_index->find(cust_derive_key(q->c_last, c_d_id, c_w_id),
+                                    sr)) {
+      // ABORT
+      txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired);
+      return false;
+    }
+
+    assert(sr.sr_idx < MAX_OPS_PER_QUERY);
+
+    struct cust_read c_recs[MAX_OPS_PER_QUERY];
+
+    uint nmatch = fetch_cust_records(sr, c_recs, xid);
+
+    assert(nmatch > 0);
+
+    /*============================================================================+
+        for (n=0; n<namecnt/2; n++) {
+            EXEC SQL FETCH c_byname
+            INTO :c_first, :c_middle, :c_id,
+                 :c_street_1, :c_street_2, :c_city, :c_state, :c_zip,
+                 :c_phone, :c_credit, :c_credit_lim, :c_discount, :c_balance,
+    :c_since;
+            }
+        EXEC SQL CLOSE c_byname;
+    +=============================================================================*/
+    // now sort based on first name and get middle element
+    // XXX: Inefficient bubble sort for now. Also the strcmp below has a huge
+    // overhead. We need some sorted secondary index structure
+    for (int i = 0; i < nmatch; i++) {
+      for (int j = i + 1; j < nmatch; j++) {
+        if (strcmp(c_recs[i].c_first, c_recs[j].c_first) > 0) {
+          struct cust_read tmp = c_recs[i];
+          c_recs[i] = c_recs[j];
+          c_recs[j] = tmp;
+        }
+      }
+    }
+
+    cust_id = MAKE_CUST_KEY(c_recs[nmatch / 2].c_w_id,
+                            c_recs[nmatch / 2].c_d_id, c_recs[nmatch / 2].c_id);
+
+  } else {  // by cust_id
+    cust_id = MAKE_CUST_KEY(c_w_id, c_d_id, c_id);
+  }
+
+  assert(cust_id != std::numeric_limits<uint32_t>::max());
+
+  global_conf::IndexVal *c_idx_ptr =
+      (global_conf::IndexVal *)table_customer->p_index->find(cust_id);
+
+  assert(c_idx_ptr != NULL || c_idx_ptr != nullptr);
+  e_false = false;
+  if (c_idx_ptr->write_lck.compare_exchange_strong(e_false, true)) {
+    hash_ptrs_lock_acquired.emplace_back(c_idx_ptr);
+  } else {
+    // ABORT
+    txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired);
+    return false;
+  }
+
+  // -------------  ALL LOCKS ACQUIRED
+
+  /*====================================================+
+      EXEC SQL UPDATE warehouse SET w_ytd = w_ytd + :h_amount
+      WHERE w_id=:w_id;
+  +====================================================*/
+  /*===================================================================+
+      EXEC SQL SELECT w_street_1, w_street_2, w_city, w_state, w_zip, w_name
+      INTO :w_street_1, :w_street_2, :w_city, :w_state, :w_zip, :w_name
+      FROM warehouse
+      WHERE w_id=:w_id;
+  +===================================================================*/
+
+  // update warehouse and then release the write lock
+
+  float w_ytd = 0.0;
+  std::vector<ushort> wh_col_scan_upd = {7};
+  w_idx_ptr->latch.acquire();
+
+  if (txn::CC_MV2PL::is_readable(w_idx_ptr->t_min, w_idx_ptr->t_max, xid)) {
+    table_warehouse->getRecordByKey(w_idx_ptr->VID, w_idx_ptr->last_master_ver,
+                                    &wh_col_scan_upd, &w_ytd);
+  } else {
+    struct tpcc_warehouse *w_r =
+        (struct tpcc_warehouse *)table_warehouse
+            ->getVersions(w_idx_ptr->VID, w_idx_ptr->delta_id)
+            ->get_readable_ver(xid);
+    assert(w_r != nullptr || w_r != NULL);
+    w_ytd = w_r->w_ytd;
+  }
+
+  w_ytd += h_amount;
+
+  table_warehouse->updateRecord(
+      w_idx_ptr->VID, &w_ytd, master_ver, w_idx_ptr->last_master_ver, delta_ver,
+      w_idx_ptr->t_min, w_idx_ptr->t_max, (xid >> 56) / NUM_CORE_PER_SOCKET,
+      &wh_col_scan_upd);
+
+  w_idx_ptr->t_min = xid;
+  w_idx_ptr->last_master_ver = master_ver;
+  w_idx_ptr->delta_id = delta_ver;
+  w_idx_ptr->write_lck.store(false);
+  w_idx_ptr->latch.release();
+
+  /*=====================================================+
+      EXEC SQL UPDATE district SET d_ytd = d_ytd + :h_amount
+      WHERE d_w_id=:w_id AND d_id=:d_id;
+  =====================================================*/
+  /*====================================================================+
+      EXEC SQL SELECT d_street_1, d_street_2, d_city, d_state, d_zip, d_name
+      INTO :d_street_1, :d_street_2, :d_city, :d_state, :d_zip, :d_name
+      FROM district
+      WHERE d_w_id=:w_id AND d_id=:d_id;
+  +====================================================================*/
+
+  float d_ytd = 0.0;
+  std::vector<ushort> d_col_scan_upd = {8};
+  d_idx_ptr->latch.acquire();
+
+  if (txn::CC_MV2PL::is_readable(d_idx_ptr->t_min, d_idx_ptr->t_max, xid)) {
+    table_district->getRecordByKey(d_idx_ptr->VID, d_idx_ptr->last_master_ver,
+                                   &d_col_scan_upd, &d_ytd);
+  } else {
+    struct tpcc_district *d_r =
+        (struct tpcc_district *)table_district
+            ->getVersions(d_idx_ptr->VID, d_idx_ptr->delta_id)
+            ->get_readable_ver(xid);
+    assert(d_r != nullptr || d_r != NULL);
+    d_ytd = d_r->d_ytd;
+  }
+
+  d_ytd += h_amount;
+
+  table_district->updateRecord(
+      d_idx_ptr->VID, &d_ytd, master_ver, d_idx_ptr->last_master_ver, delta_ver,
+      d_idx_ptr->t_min, d_idx_ptr->t_max, (xid >> 56) / NUM_CORE_PER_SOCKET,
+      &d_col_scan_upd);
+
+  d_idx_ptr->t_min = xid;
+  d_idx_ptr->last_master_ver = master_ver;
+  d_idx_ptr->delta_id = delta_ver;
+  d_idx_ptr->write_lck.store(false);
+  d_idx_ptr->latch.release();
+
+  //---
+
+  /*======================================================================+
+    EXEC SQL UPDATE customer SET c_balance = :c_balance, c_data = :c_new_data
+    WHERE c_w_id = :c_w_id AND c_d_id = :c_d_id AND c_id = :c_id;
+    +======================================================================*/
+
+  struct cust_read_t {
+    char c_credit[2];
+    float c_balance;
+    float c_ytd_payment;
+    ushort c_payment_cnt;
+    char c_data[501];
+  };
+
+  struct cust_upd {
+    float c_balance;
+    float c_ytd_payment;
+    ushort c_payment_cnt;
+    char c_data[501];
+  };
+
+  const std::vector<ushort> cust_col_scan_read = {12, 15, 16, 17, 19};
+  std::vector<ushort> cust_col_scan_upd = {15, 16, 17};
+  struct cust_read_t c_r;
+  struct cust_upd c_upd;
+
+  c_idx_ptr->latch.acquire();
+
+  if (txn::CC_MV2PL::is_readable(c_idx_ptr->t_min, c_idx_ptr->t_max, xid)) {
+    table_customer->getRecordByKey(c_idx_ptr->VID, c_idx_ptr->last_master_ver,
+                                   &cust_col_scan_read, &c_r);
+
+    c_upd.c_balance = c_r.c_balance - h_amount;
+    c_upd.c_ytd_payment = c_r.c_ytd_payment + h_amount;
+    c_upd.c_payment_cnt = c_r.c_payment_cnt + 1;
+
+  } else {
+    struct tpcc_customer *c_rr =
+        (struct tpcc_customer *)table_customer
+            ->getVersions(c_idx_ptr->VID, c_idx_ptr->delta_id)
+            ->get_readable_ver(xid);
+    assert(c_rr != nullptr || c_rr != NULL);
+
+    c_upd.c_balance = c_rr->c_balance - h_amount;
+    c_upd.c_ytd_payment = c_rr->c_ytd_payment + h_amount;
+    c_upd.c_payment_cnt = c_rr->c_payment_cnt + 1;
+
+    strcpy(c_r.c_data, c_rr->c_data);
+  }
+
+  if (c_r.c_credit[0] == 'B' && c_r.c_credit[1] == 'C') {
+    // strstr(c_r.c_credit, "BC")) {
+
+    cust_col_scan_upd.push_back(19);  // c_data idx
+
+    /*=====================================================+
+      EXEC SQL SELECT c_data
+            INTO :c_data
+            FROM customer
+            WHERE c_w_id=:c_w_id AND c_d_id=:c_d_id AND c_id=:c_id;
+            +=====================================================*/
+    // char c_new_data[501];
+    sprintf(c_upd.c_data, "| %4d %2d %4d %2d %4d $%7.2f", c_id, c_d_id, c_w_id,
+            d_id, w_id, h_amount);
+    strncat(c_upd.c_data, c_r.c_data, 500 - strlen(c_upd.c_data));
+  }
+
+  table_customer->updateRecord(
+      c_idx_ptr->VID, &c_upd, master_ver, c_idx_ptr->last_master_ver, delta_ver,
+      c_idx_ptr->t_min, c_idx_ptr->t_max, (xid >> 56) / NUM_CORE_PER_SOCKET,
+      &cust_col_scan_upd);
+
+  c_idx_ptr->t_min = xid;
+  c_idx_ptr->last_master_ver = master_ver;
+  c_idx_ptr->delta_id = delta_ver;
+  c_idx_ptr->write_lck.store(false);
+  c_idx_ptr->latch.release();
+
+  /*
+      char h_data[25];
+      char * w_name = r_wh_local->get_value("W_NAME");
+      char * d_name = r_dist_local->get_value("D_NAME");
+      strncpy(h_data, w_name, 10);
+      int length = strlen(h_data);
+      if (length > 10) length = 10;
+      strcpy(&h_data[length], "    ");
+      strncpy(&h_data[length + 4], d_name, 10);
+      h_data[length+14] = '\0';
+  */
+
+  /*=============================================================================+
+    EXEC SQL INSERT INTO
+    history (h_c_d_id, h_c_w_id, h_c_id, h_d_id, h_w_id, h_date, h_amount,
+    h_data) VALUES (:c_d_id, :c_w_id, :c_id, :d_id, :w_id, :datetime, :h_amount,
+    :h_data);
+    +=============================================================================*/
+
+  struct tpcc_history h_ins;
+  h_ins.h_c_id = c_id;
+  h_ins.h_c_d_id = c_d_id;
+  h_ins.h_c_w_id = c_w_id;
+  h_ins.h_d_id = d_id;
+  h_ins.h_w_id = w_id;
+  h_ins.h_date = std::time(0);  // this might be very slow.
+  h_ins.h_amount = h_amount;
+
+  void *hist_idx_ptr = table_history->insertRecord(&h_ins, xid, master_ver);
+  table_history->p_index->insert(MAKE_CUST_KEY(w_id, d_id, c_id), hist_idx_ptr);
+
+  return true;
+}
+inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *q, uint64_t xid,
                                        ushort master_ver, ushort delta_ver) {
-  return false;
+  int ol_number = 1;
+  ushort w_id = q->w_id;
+  ushort d_id = q->d_id;
+  // uint32_t c_id = q->c_id;
+  // ushort c_w_id = q->c_w_id;
+
+  uint32_t cust_id = std::numeric_limits<uint32_t>::max();
+
+  if (q->by_last_name) {
+    /*
+      EXEC SQL SELECT count(c_id) INTO :namecnt
+            FROM customer
+            WHERE c_last=:c_last AND c_d_id=:d_id AND c_w_id=:w_id;
+
+      EXEC SQL DECLARE c_name CURSOR FOR
+          SELECT c_balance, c_first, c_middle, c_id
+          FROM customer
+          WHERE c_last=:c_last AND c_d_id=:d_id AND c_w_id=:w_id
+          ORDER BY c_first;
+      EXEC SQL OPEN c_name;
+
+      if (namecnt%2) namecnt++; / / Locate midpoint customer
+
+      for (n=0; n<namecnt/ 2; n++)
+      {
+        EXEC SQL FETCH c_name
+        INTO :c_balance, :c_first, :c_middle, :c_id;
+      }
+
+
+      EXEC SQL CLOSE c_name;
+     */
+
+    struct secondary_record sr;
+
+    if (!this->cust_sec_index->find(
+            cust_derive_key(q->c_last, q->c_d_id, q->c_w_id), sr)) {
+      assert(false && "read_txn aborted! how!");
+      return false;
+    }
+
+    assert(sr.sr_idx < MAX_OPS_PER_QUERY);
+
+    struct cust_read c_recs[MAX_OPS_PER_QUERY];
+
+    uint nmatch = fetch_cust_records(sr, c_recs, xid);
+
+    assert(nmatch > 0);
+
+    // now sort based on first name and get middle element
+    // XXX: Inefficient bubble sort for now. Also the strcmp below has a huge
+    // overhead. We need some sorted secondary index structure
+    for (int i = 0; i < nmatch; i++) {
+      for (int j = i + 1; j < nmatch; j++) {
+        if (strcmp(c_recs[i].c_first, c_recs[j].c_first) > 0) {
+          struct cust_read tmp = c_recs[i];
+          c_recs[i] = c_recs[j];
+          c_recs[j] = tmp;
+        }
+      }
+    }
+
+    cust_id = MAKE_CUST_KEY(c_recs[nmatch / 2].c_w_id,
+                            c_recs[nmatch / 2].c_d_id, c_recs[nmatch / 2].c_id);
+
+  } else {  // by cust_id
+
+    /*
+     * EXEC SQL SELECT c_balance, c_first, c_middle, c_last
+     * INTO :c_balance, :c_first, :c_middle, :c_last
+     * FROM customer
+     *  WHERE c_id=:c_id AND c_d_id=:d_id AND c_w_id=:w_id;
+     */
+
+    cust_id = MAKE_CUST_KEY(q->c_w_id, q->c_d_id, q->c_id);
+
+    assert(cust_id != std::numeric_limits<uint32_t>::max());
+
+    global_conf::IndexVal *c_idx_ptr =
+        (global_conf::IndexVal *)table_customer->p_index->find(cust_id);
+
+    assert(c_idx_ptr != nullptr || c_idx_ptr != NULL);
+
+    struct cust_read_t {
+      char c_first[FIRST_NAME_LEN + 1];
+      char c_middle[2];
+      char c_last[LAST_NAME_LEN + 1];
+      float c_balance;
+    };
+
+    const std::vector<ushort> cust_col_scan_read = {3, 4, 5, 15};
+    struct cust_read_t c_r;
+
+    c_idx_ptr->latch.acquire();
+
+    if (txn::CC_MV2PL::is_readable(c_idx_ptr->t_min, c_idx_ptr->t_max, xid)) {
+      table_customer->getRecordByKey(c_idx_ptr->VID, c_idx_ptr->last_master_ver,
+                                     &cust_col_scan_read, &c_r);
+
+    } else {
+      struct tpcc_customer *c_rr =
+          (struct tpcc_customer *)table_customer
+              ->getVersions(c_idx_ptr->VID, c_idx_ptr->delta_id)
+              ->get_readable_ver(xid);
+      assert(c_rr != nullptr || c_rr != NULL);
+    }
+    c_idx_ptr->latch.release();
+
+    /*
+     * EXEC SQL SELECT o_id, o_carrier_id, o_entry_d
+     * INTO :o_id, :o_carrier_id, :entdate
+     * FROM orders
+     *  ORDER BY o_id DESC;
+     */
+    /*
+     * EXEC SQL DECLARE c_line CURSOR FOR
+     * SELECT ol_i_id, ol_supply_w_id, ol_quantity,
+         ol_amount, ol_delivery_d
+     * FROM order_line
+     *  WHERE ol_o_id=:o_id AND ol_d_id=:d_id AND ol_w_id=:w_id;
+     */
+
+    int counter1 = 0;
+
+    struct p_order_read {
+      uint64_t o_id;
+      short o_carrier_id;
+      uint32_t entdate;
+      ushort o_ol_cnt;
+    } p_or[TPCC_NCUST_PER_DIST];
+
+    struct p_orderline_read {
+      uint64_t ol_o_id;
+      ushort ol_supply_w_id;
+      uint32_t ol_delivery_d;
+      ushort ol_quantity;
+      float ol_amount;
+    } p_ol_r;
+
+    const std::vector<ushort> o_col_scan = {0, 4, 5, 6};
+    const std::vector<ushort> ol_col_scan = {0, 5, 6, 7, 8};
+
+    for (int o = TPCC_NCUST_PER_DIST, i = 0; o > 0; o--, i++) {
+      // key = MAKE_CUST_KEY(w_id, d_id, o);
+      // pkey = MAKE_HASH_KEY(ORDER_TID, key);
+      // MAKE_OP(op, OPTYPE_LOOKUP, 0, pkey);
+      // assert(op.optype == 0x00000000);
+
+      global_conf::IndexVal *o_idx_ptr =
+          (global_conf::IndexVal *)table_order->p_index->find(
+              MAKE_CUST_KEY(w_id, d_id, o));
+
+      assert(o_idx_ptr != nullptr || o_idx_ptr != NULL);
+
+      o_idx_ptr->latch.acquire();
+      if (txn::CC_MV2PL::is_readable(o_idx_ptr->t_min, o_idx_ptr->t_max, xid)) {
+        table_order->getRecordByKey(o_idx_ptr->VID, o_idx_ptr->last_master_ver,
+                                    &o_col_scan, &p_or[i]);
+      } else {
+        struct tpcc_order *c_r =
+            (struct tpcc_order *)table_order
+                ->getVersions(o_idx_ptr->VID, o_idx_ptr->delta_id)
+                ->get_readable_ver(xid);
+        assert(c_r != nullptr || c_r != NULL);
+        p_or[i].o_id = c_r->o_id;
+        p_or[i].o_carrier_id = c_r->o_carrier_id;
+        p_or[i].entdate = c_r->o_entry_d;
+        p_or[i].o_ol_cnt = c_r->o_ol_cnt;
+      }
+      o_idx_ptr->latch.release();
+
+      for (ushort ol_number = 0; ol_number < p_or[i].o_ol_cnt; ++ol_number) {
+        global_conf::IndexVal *ol_idx_ptr =
+            (global_conf::IndexVal *)table_order_line->p_index->find(
+                MAKE_OL_KEY(w_id, d_id, p_or[i].o_id, ol_number));
+
+        assert(ol_idx_ptr != nullptr || ol_idx_ptr != NULL);
+
+        ol_idx_ptr->latch.acquire();
+        if (txn::CC_MV2PL::is_readable(ol_idx_ptr->t_min, ol_idx_ptr->t_max,
+                                       xid)) {
+          table_order_line->getRecordByKey(ol_idx_ptr->VID,
+                                           ol_idx_ptr->last_master_ver,
+                                           &ol_col_scan, &p_ol_r);
+        } else {
+          struct tpcc_order_line *ol_r =
+              (struct tpcc_order_line *)table_order_line
+                  ->getVersions(ol_idx_ptr->VID, ol_idx_ptr->delta_id)
+                  ->get_readable_ver(xid);
+          assert(ol_r != nullptr || ol_r != NULL);
+
+          p_ol_r.ol_o_id = ol_r->ol_o_id;
+          p_ol_r.ol_supply_w_id = ol_r->ol_supply_w_id;
+          p_ol_r.ol_delivery_d = ol_r->ol_delivery_d;
+          p_ol_r.ol_quantity = ol_r->ol_quantity;
+          p_ol_r.ol_amount = ol_r->ol_amount;
+          //
+        }
+        ol_idx_ptr->latch.release();
+      }
+    }
+  }
+
+  return true;
 }
 inline bool TPCC::exec_delivery_txn(struct tpcc_query *stmts, uint64_t xid,
                                     ushort master_ver, ushort delta_ver) {
-  return false;
+  return true;
 }
-inline bool TPCC::exec_stocklevel_txn(struct tpcc_query *stmts, uint64_t xid,
+
+inline bool TPCC::exec_stocklevel_txn(struct tpcc_query *q, uint64_t xid,
                                       ushort master_ver, ushort delta_ver) {
-  return false;
+  /*
+  This transaction accesses
+  order_line,
+  stock,
+  district
+  */
+  ushort w_id = q->w_id;
+  ushort d_id = q->d_id;
+
+  /*
+   * EXEC SQL SELECT d_next_o_id INTO :o_id
+   * FROM district
+   * WHERE d_w_id=:w_id AND d_id=:d_id;
+   */
+
+  global_conf::IndexVal *d_idx_ptr =
+      (global_conf::IndexVal *)table_district->p_index->find(
+          MAKE_DIST_KEY(w_id, d_id));
+
+  assert(d_idx_ptr != nullptr || d_idx_ptr != NULL);
+
+  const std::vector<ushort> dist_col_scan_read = {9};
+  uint64_t o_id;
+
+  d_idx_ptr->latch.acquire();
+
+  if (txn::CC_MV2PL::is_readable(d_idx_ptr->t_min, d_idx_ptr->t_max, xid)) {
+    table_district->getRecordByKey(d_idx_ptr->VID, d_idx_ptr->last_master_ver,
+                                   &dist_col_scan_read, &o_id);
+
+  } else {
+    struct tpcc_district *d_r =
+        (struct tpcc_district *)table_district
+            ->getVersions(d_idx_ptr->VID, d_idx_ptr->delta_id)
+            ->get_readable_ver(xid);
+    assert(d_r != nullptr || d_r != NULL);
+
+    o_id = d_r->d_next_o_id;
+  }
+  d_idx_ptr->latch.release();
+
+  /*
+   * EXEC SQL SELECT COUNT(DISTINCT (s_i_id)) INTO :stock_count
+   * FROM order_line, stock
+   * WHERE ol_w_id=:w_id AND
+   * ol_d_id=:d_id AND ol_o_id<:o_id AND
+   * ol_o_id>=:o_id-20 AND s_w_id=:w_id AND
+   * s_i_id=ol_i_id AND s_quantity < :threshold;
+   */
+
+  uint64_t ol_o_id = o_id - 20;
+  ushort ol_number = 1;
+  uint32_t stock_count = 0;
+  ushort ol_i_id;
+  const std::vector<ushort> ol_col_scan_read = {4};
+  const std::vector<ushort> st_col_scan_read = {2};
+
+  while (ol_o_id < o_id) {
+    while (ol_number < 21) {
+      // orderline first
+      global_conf::IndexVal *ol_idx_ptr =
+          (global_conf::IndexVal *)table_order_line->p_index->find(
+              MAKE_OL_KEY(w_id, d_id, ol_o_id, ol_number));
+
+      assert(ol_idx_ptr != nullptr || ol_idx_ptr != NULL);
+
+      ushort ol_i_id;
+
+      ol_idx_ptr->latch.acquire();
+
+      if (txn::CC_MV2PL::is_readable(ol_idx_ptr->t_min, ol_idx_ptr->t_max,
+                                     xid)) {
+        table_order_line->getRecordByKey(ol_idx_ptr->VID,
+                                         ol_idx_ptr->last_master_ver,
+                                         &ol_col_scan_read, &ol_i_id);
+
+      } else {
+        struct tpcc_order_line *ol_r =
+            (struct tpcc_order_line *)table_order_line
+                ->getVersions(ol_idx_ptr->VID, ol_idx_ptr->delta_id)
+                ->get_readable_ver(xid);
+        assert(ol_r != nullptr || ol_r != NULL);
+        ol_i_id = ol_r->ol_i_id;
+      }
+      ol_idx_ptr->latch.release();
+
+      // stock
+      global_conf::IndexVal *st_idx_ptr =
+          (global_conf::IndexVal *)table_stock->p_index->find(
+              MAKE_STOCK_KEY(w_id, ol_i_id));
+
+      assert(st_idx_ptr != nullptr || st_idx_ptr != NULL);
+
+      short s_quantity;
+
+      st_idx_ptr->latch.acquire();
+
+      if (txn::CC_MV2PL::is_readable(st_idx_ptr->t_min, st_idx_ptr->t_max,
+                                     xid)) {
+        table_stock->getRecordByKey(st_idx_ptr->VID,
+                                    st_idx_ptr->last_master_ver,
+                                    &st_col_scan_read, &s_quantity);
+
+      } else {
+        struct tpcc_stock *st_r =
+            (struct tpcc_stock *)table_stock
+                ->getVersions(st_idx_ptr->VID, st_idx_ptr->delta_id)
+                ->get_readable_ver(xid);
+        assert(st_r != nullptr || st_r != NULL);
+        s_quantity = st_r->s_quantity;
+      }
+      st_idx_ptr->latch.release();
+
+      if (s_quantity < q->threshold) {
+        stock_count++;
+      }
+
+      ol_number = ol_number + 1;
+    }
+    ol_o_id = ol_o_id + 1;
+  }
+
+  return true;
 }
 
 inline void TPCC::tpcc_get_next_payment_query(int wid, void *arg) {
   // struct partition *p = &hash_table->partitions[s];
   struct tpcc_query *q = (struct tpcc_query *)arg;
 
-  q->w_id = (wid) + 1;
+  q->w_id = wid;
   ;
-  q->d_w_id = (wid) + 1;
+  q->d_w_id = wid;
   ;
   q->d_id = URand(&this->seed, 0, TPCC_NDIST_PER_WH - 1);
   q->h_amount = URand(&this->seed, 1, 5000);
   int x = URand(&this->seed, 1, 100);
-  int y = URand(&this->seed, 1, 100);
 
+#if tpcc_dist_txns
   if (x <= 85 || g_dist_threshold == 100) {
     // home warehouse
     q->c_d_id = q->d_id;
     q->c_w_id = wid;
-    ;
+
   } else {
-    q->c_d_id = URand(&this->seed, 0, TPCC_NDIST_PER_WH);
+    q->c_d_id = URand(&this->seed, 0, TPCC_NDIST_PER_WH - 1);
 
     // remote warehouse if we have >1 wh
     if (num_warehouse > 1) {
@@ -529,10 +1282,15 @@ inline void TPCC::tpcc_get_next_payment_query(int wid, void *arg) {
 
     } else {
       q->c_w_id = wid;
-      ;
     }
   }
 
+#else
+  q->c_d_id = q->d_id;
+  q->c_w_id = wid;
+#endif
+
+  int y = URand(&this->seed, 1, 100);
   if (y <= 60) {
     // by last name
     q->by_last_name = TRUE;
@@ -577,64 +1335,35 @@ void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
         }
     } while (dup);
 
+#if tpcc_dist_txns
+
     int x = URand(&this->seed, 0, 100);
-    // if (g_dist_threshold == 100) x = 2;
+    if (g_dist_threshold == 100) x = 2;
+    if (x > 1 || num_warehouse == 1) {
+      i->ol_supply_w_id = wid;
 
+    } else {
+      while ((i->ol_supply_w_id = URand(&this->seed, 0, num_warehouse - 1)) ==
+             q->w_id)
+        ;
+
+      q->remote = 1;
+    }
+#else
     i->ol_supply_w_id = wid;
+#endif
 
-    // if (x > 1 || num_warehouse == 1) {
-    //   // if (1) {
-    //   i->ol_supply_w_id = wid;
-    //   ;
-    // } else {
-    //   while ((i->ol_supply_w_id = URand(&this->seed, 0, num_warehouse - 1))
-    //   ==
-    //          q->w_id)
-    //     ;
-
-    //   q->remote = 1;
-    // }
     assert(i->ol_supply_w_id < num_warehouse);
-
     i->ol_quantity = URand(&this->seed, 1, 10);
   }
 
   // print_tpcc_query(arg);
 }
 
-void TPCC::print_tpcc_query(void *arg) {
-  struct tpcc_query *q = (struct tpcc_query *)arg;
-  std::cout << "-------TPCC QUERY------" << std::endl;
-  switch (q->query_type) {
-    case NEW_ORDER:
-      std::cout << "\tType: NEW_ORDER" << std::endl;
-      break;
-    case PAYMENT:
-      std::cout << "\tType: PAYMENT" << std::endl;
-      break;
-    case ORDER_STATUS:
-      std::cout << "\tType: ORDER_STATUS" << std::endl;
-      break;
-    case DELIVERY:
-      std::cout << "\tType: DELIVERY" << std::endl;
-      break;
-    case STOCK_LEVEL:
-      std::cout << "\tType: STOCK_LEVEL" << std::endl;
-    default:
-      break;
-  }
-  std::cout << "\tw_id: " << q->w_id << std::endl;
-  std::cout << "\td_id: " << q->d_id << std::endl;
-  std::cout << "\tc_id: " << q->c_id << std::endl;
-  std::cout << "\tol_cnt: " << q->ol_cnt << std::endl;
-
-  std::cout << "-----------------------" << std::endl;
-}
-
 inline void TPCC::tpcc_get_next_orderstatus_query(int wid, void *arg) {
   struct tpcc_query *q = (struct tpcc_query *)arg;
-  q->w_id = (wid) + 1;
-  q->d_id = URand(&this->seed, 1, TPCC_NDIST_PER_WH);
+  q->w_id = wid;
+  q->d_id = URand(&this->seed, 0, TPCC_NDIST_PER_WH - 1);
 
   int y = URand(&this->seed, 1, 100);
   if (y <= 60) {
@@ -644,63 +1373,32 @@ inline void TPCC::tpcc_get_next_orderstatus_query(int wid, void *arg) {
   } else {
     // by cust id
     q->by_last_name = FALSE;
-    q->c_id = NURand(&this->seed, 1023, 1, TPCC_NCUST_PER_DIST);
+    q->c_id = NURand(&this->seed, 1023, 0, TPCC_NCUST_PER_DIST - 1);
   }
-  q->c_w_id = (wid) + 1;
+  q->c_w_id = wid;
 }
 
 inline void TPCC::tpcc_get_next_delivery_query(int wid, void *arg) {
   struct tpcc_query *q = (struct tpcc_query *)arg;
-  q->w_id = (wid) + 1;
-  q->d_id = URand(&this->seed, 1, TPCC_NDIST_PER_WH);
+  q->w_id = wid;
+  q->d_id = URand(&this->seed, 0, TPCC_NDIST_PER_WH - 1);
   q->o_carrier_id = URand(&this->seed, 1, 10);
 }
 
 inline void TPCC::tpcc_get_next_stocklevel_query(int wid, void *arg) {
   struct tpcc_query *q = (struct tpcc_query *)arg;
-  q->w_id = (wid) + 1;
-  q->d_id = URand(&this->seed, 1, TPCC_NDIST_PER_WH);
+  q->w_id = wid;
+  q->d_id = URand(&this->seed, 0, TPCC_NDIST_PER_WH - 1);
   q->threshold = URand(&this->seed, 10, 20);
 }
 
-void TPCC::init_tpcc_seq_array() {
-  int total = 0;
-  for (int i = 0; i < NO_MIX; ++i) {
-    sequence[i] = NEW_ORDER;
-  }
-  total = NO_MIX;
-  for (int i = 0; i < P_MIX; ++i) {
-    sequence[i + total] = PAYMENT;
-  }
-  total = total + P_MIX;
-  for (int i = 0; i < OS_MIX; ++i) {
-    sequence[i + total] = ORDER_STATUS;
-  }
-  total = total + OS_MIX;
-  for (int i = 0; i < D_MIX; ++i) {
-    sequence[i + total] = DELIVERY;
-  }
-  total = total + D_MIX;
-  for (int i = 0; i < SL_MIX; ++i) {
-    sequence[i + total] = STOCK_LEVEL;
-  }
-  // shuffle elements of the sequence array
-  srand(time(NULL));
-  for (int i = MIX_COUNT - 1; i > 0; i--) {
-    int j = rand() % (i + 1);
-    TPCC_QUERY_TYPE temp = sequence[i];
-    sequence[i] = sequence[j];
-    sequence[j] = temp;
-  }
-}
-
-TPCC::TPCC(std::string name, int num_warehouses, int g_dist_threshold, std::string csv_path,
-       bool is_ch_benchmark)
+TPCC::TPCC(std::string name, int num_warehouses, int g_dist_threshold,
+           std::string csv_path, bool is_ch_benchmark)
     : Benchmark(name),
       num_warehouse(num_warehouses),
       g_dist_threshold(g_dist_threshold),
       csv_path(csv_path),
-      is_ch_benchmark(is_ch_benchmark)  {
+      is_ch_benchmark(is_ch_benchmark) {
   this->schema = &storage::Schema::getInstance();
   this->seed = rand();
 
@@ -728,12 +1426,10 @@ TPCC::TPCC(std::string name, int num_warehouses, int g_dist_threshold, std::stri
 
   this->create_tbl_stock(max_stock);
 
-  if(is_ch_benchmark){
+  if (is_ch_benchmark) {
     this->create_tbl_supplier(10000);
     this->create_tbl_nation(150);
     this->create_tbl_region(5);
-    
-
   }
 
   std::cout << "Total Memory Reserved for Tables: "
@@ -751,7 +1447,7 @@ TPCC::TPCC(std::string name, int num_warehouses, int g_dist_threshold, std::stri
 
 void TPCC::create_tbl_warehouse(uint64_t num_warehouses) {
   // Primary Key: W_ID
-  std::vector<std::tuple<std::string, storage::data_type, size_t> > columns;
+  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "w_id", storage::INTEGER, sizeof(short)));
@@ -781,7 +1477,7 @@ void TPCC::create_tbl_warehouse(uint64_t num_warehouses) {
 void TPCC::create_tbl_district(uint64_t num_districts) {
   // Primary Key: (D_W_ID, D_ID) D_W_ID
   // Foreign Key, references W_ID
-  std::vector<std::tuple<std::string, storage::data_type, size_t> > columns;
+  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "d_id", storage::INTEGER, sizeof(ushort)));
@@ -812,7 +1508,7 @@ void TPCC::create_tbl_district(uint64_t num_districts) {
 
 void TPCC::create_tbl_item(uint64_t num_item) {
   // Primary Key: I_ID
-  std::vector<std::tuple<std::string, storage::data_type, size_t> > columns;
+  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "i_id", storage::INTEGER, sizeof(uint32_t)));
@@ -833,7 +1529,7 @@ void TPCC::create_tbl_stock(uint64_t num_stock) {
   // Primary Key: (S_W_ID, S_I_ID)
   // S_W_ID Foreign Key, references W_ID
   // S_I_ID Foreign Key, references I_ID
-  std::vector<std::tuple<std::string, storage::data_type, size_t> > columns;
+  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "s_i_id", storage::INTEGER, sizeof(uint32_t)));
@@ -882,7 +1578,7 @@ void TPCC::create_tbl_history(uint64_t num_history) {
   // (H_C_W_ID, H_C_D_ID, H_C_ID) Foreign Key, references (C_W_ID, C_D_ID,
   // C_ID)
   // (H_W_ID, H_D_ID) Foreign Key, references (D_W_ID, D_ID)
-  std::vector<std::tuple<std::string, storage::data_type, size_t> > columns;
+  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "h_c_id", storage::INTEGER, sizeof(uint32_t)));
@@ -909,7 +1605,7 @@ void TPCC::create_tbl_history(uint64_t num_history) {
 void TPCC::create_tbl_customer(uint64_t num_cust) {
   // Primary Key: (C_W_ID, C_D_ID, C_ID)
   // (C_W_ID, C_D_ID) Foreign Key, references (D_W_ID, D_ID)
-  std::vector<std::tuple<std::string, storage::data_type, size_t> > columns;
+  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "c_id", storage::INTEGER, sizeof(uint32_t)));
@@ -969,7 +1665,7 @@ void TPCC::create_tbl_new_order(uint64_t num_new_order) {
   // Primary Key: (NO_W_ID, NO_D_ID, NO_O_ID)
   // (NO_W_ID, NO_D_ID, NO_O_ID) Foreign Key, references (O_W_ID, O_D_ID,
   // O_ID)
-  std::vector<std::tuple<std::string, storage::data_type, size_t> > columns;
+  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "no_o_id", storage::INTEGER, sizeof(uint64_t)));
@@ -986,7 +1682,7 @@ void TPCC::create_tbl_new_order(uint64_t num_new_order) {
 void TPCC::create_tbl_order(uint64_t num_order) {
   // Primary Key: (O_W_ID, O_D_ID, O_ID)
   // (O_W_ID, O_D_ID, O_C_ID) Foreign Key, references (C_W_ID, C_D_ID, C_ID)
-  std::vector<std::tuple<std::string, storage::data_type, size_t> > columns;
+  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "o_id", storage::INTEGER, sizeof(uint64_t)));
@@ -1015,7 +1711,7 @@ void TPCC::create_tbl_order_line(uint64_t num_order_line) {
   // O_ID)
 
   // (OL_SUPPLY_W_ID, OL_I_ID) Foreign Key, references (S_W_ID, S_I_ID)
-  std::vector<std::tuple<std::string, storage::data_type, size_t> > columns;
+  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "ol_o_id", storage::INTEGER, sizeof(uint64_t)));
@@ -1173,7 +1869,8 @@ void TPCC::load_stock(int w_id) {
 void TPCC::load_item() {
   // Primary Key: I_ID
 
-  struct tpcc_item item_temp;;
+  struct tpcc_item item_temp;
+  ;
 
   int orig[TPCC_MAX_ITEMS], pos;
 
@@ -1554,50 +2251,47 @@ void TPCC::load_customer(int w_id) {
 }
 
 void TPCC::load_data(int num_threads) {
-  
   if (this->csv_path.size() > 1) {
-      std::cout << "[TPCC] Load data from CSV: " << csv_path << std::endl;
+    std::cout << "[TPCC] Load data from CSV: " << csv_path << std::endl;
 
+    // load_district_csv();
+    // load_nation_csv();
 
-      // load_district_csv();
-      // load_nation_csv();
-      
-      // load_order_csv();
-      // load_warehouse_csv();
-      
-      // load_stock_csv();
-      // load_customer_csv();
-      // load_history_csv();
-      
-      // load_neworder_csv();
-      // load_orderline_csv();
-      // load_item_csv();
-      // load_supplier_csv();
-      
-      // load_region_csv();
-      std::vector<std::thread> loaders;
+    // load_order_csv();
+    // load_warehouse_csv();
 
-      loaders.emplace_back([this]() { this->load_warehouse_csv(); });
-      loaders.emplace_back([this]() { this->load_district_csv(); });
-      loaders.emplace_back([this]() { this->load_stock_csv(); });
-      loaders.emplace_back([this]() { this->load_customer_csv(); });
-      loaders.emplace_back([this]() { this->load_history_csv(); });
-      loaders.emplace_back([this]() { this->load_order_csv(); });
-      loaders.emplace_back([this]() { this->load_neworder_csv(); });
-      loaders.emplace_back([this]() { this->load_orderline_csv(); });
-      loaders.emplace_back([this]() { this->load_item_csv(); });
+    // load_stock_csv();
+    // load_customer_csv();
+    // load_history_csv();
 
-      loaders.emplace_back([this]() { this->load_supplier_csv(); });
-      loaders.emplace_back([this]() { this->load_nation_csv(); });
-      loaders.emplace_back([this]() { this->load_region_csv(); });
+    // load_neworder_csv();
+    // load_orderline_csv();
+    // load_item_csv();
+    // load_supplier_csv();
 
-      int i = 0;
-      for (auto &th : loaders) {
-        th.join();
-      }
+    // load_region_csv();
+    std::vector<std::thread> loaders;
 
-  } else{
+    loaders.emplace_back([this]() { this->load_warehouse_csv(); });
+    loaders.emplace_back([this]() { this->load_district_csv(); });
+    loaders.emplace_back([this]() { this->load_stock_csv(); });
+    loaders.emplace_back([this]() { this->load_customer_csv(); });
+    loaders.emplace_back([this]() { this->load_history_csv(); });
+    loaders.emplace_back([this]() { this->load_order_csv(); });
+    loaders.emplace_back([this]() { this->load_neworder_csv(); });
+    loaders.emplace_back([this]() { this->load_orderline_csv(); });
+    loaders.emplace_back([this]() { this->load_item_csv(); });
 
+    loaders.emplace_back([this]() { this->load_supplier_csv(); });
+    loaders.emplace_back([this]() { this->load_nation_csv(); });
+    loaders.emplace_back([this]() { this->load_region_csv(); });
+
+    int i = 0;
+    for (auto &th : loaders) {
+      th.join();
+    }
+
+  } else {
     std::cout << "[TPCC] Load data" << std::endl;
     std::cout << "[TPCC] Loading Items: " << TPCC_MAX_ITEMS << std::endl;
     load_item();
@@ -1622,8 +2316,8 @@ void TPCC::load_data(int num_threads) {
   }
 }
 
-
-static std::string concat_path(const std::string &first, const std::string &second) {
+static std::string concat_path(const std::string &first,
+                               const std::string &second) {
   std::string ret = first;
 
   if (ret.back() != '/') {
@@ -1652,7 +2346,6 @@ static inline void trim(std::string &s) {
   ltrim(s);
   rtrim(s);
 }
-
 
 // CSV Loaders
 
@@ -1692,7 +2385,7 @@ void TPCC::load_warehouse_csv(std::string filename, char delim) {
     // std::cout << "-line-" << line << "-field#-" << field_cursor << std::endl;
     if (field_cursor == 1) {  // W_ID
       // std::cout << "--" << line << "--" << std::endl;
-      w_temp.w_id = std::stoi(line, nullptr)-1;
+      w_temp.w_id = std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 2) {  // W_NAME
 
@@ -1793,11 +2486,11 @@ void TPCC::load_stock_csv(std::string filename, char delim) {
     field_cursor++;
 
     if (field_cursor == 1) {  // S_I_ID
-      temp.s_i_id = std::stoi(line, nullptr)-1;
+      temp.s_i_id = std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 2) {  // S_W_ID
 
-      temp.s_w_id = std::stoi(line, nullptr)-1;
+      temp.s_w_id = std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 3) {  // S_QUANTITY
 
@@ -1815,11 +2508,11 @@ void TPCC::load_stock_csv(std::string filename, char delim) {
 
     } else if (field_cursor == 15) {  // S_ORDER_CNT
 
-      temp.s_order_cnt = (ushort)std::stoi(line, nullptr)-1;
+      temp.s_order_cnt = (ushort)std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 16) {  // S_REMOTE_CNT
 
-      temp.s_remote_cnt = (ushort)std::stoi(line, nullptr)-1;
+      temp.s_remote_cnt = (ushort)std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 17) {  // S_DATA
 
@@ -1876,11 +2569,11 @@ void TPCC::load_item_csv(std::string filename, char delim) {
     field_cursor++;
 
     if (field_cursor == 1) {  // I_ID
-      temp.i_id = std::stoi(line, nullptr)-1;
+      temp.i_id = std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 2) {  // I_IM_ID
 
-      temp.i_im_id = std::stoi(line, nullptr)-1;
+      temp.i_im_id = std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 3) {  // I_NAME
 
@@ -1942,10 +2635,10 @@ void TPCC::load_district_csv(std::string filename, char delim) {
     field_cursor++;
 
     if (field_cursor == 1) {  // D_ID
-      temp.d_id = std::stoi(line, nullptr)-1;
+      temp.d_id = std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 2) {
-      temp.d_w_id = std::stoi(line, nullptr)-1;
+      temp.d_w_id = std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 3) {
       strncpy(temp.d_name, line.c_str(), line.length());
@@ -1976,15 +2669,14 @@ void TPCC::load_district_csv(std::string filename, char delim) {
       temp.d_ytd = std::stof(line, nullptr);
 
     } else if (field_cursor == 11) {
-      temp.d_next_o_id = std::stoi(line, nullptr)-1;
+      temp.d_next_o_id = std::stoi(line, nullptr) - 1;
 
       // insert record
       void *hash_ptr = table_district->insertRecord(&temp, 0, 0);
-      if(!this->table_district->p_index->insert(
-          MAKE_DIST_KEY(temp.d_w_id, temp.d_id), hash_ptr)  ){
+      if (!this->table_district->p_index->insert(
+              MAKE_DIST_KEY(temp.d_w_id, temp.d_id), hash_ptr)) {
         std::cout << "d_w_id: " << temp.d_w_id << std::endl;
-      std::cout << "d_id: " << temp.d_id << std::endl;
-
+        std::cout << "d_id: " << temp.d_id << std::endl;
       }
 
       // reset cursor
@@ -2039,12 +2731,11 @@ void TPCC::load_nation_csv(std::string filename, char delim) {
 
       // insert record
       void *hash_ptr = table_nation->insertRecord(&temp, 0, 0);
-      if(!this->table_nation->p_index->insert(temp.n_nationkey, hash_ptr)){
-
-        std::cout << "n_nationkey: "<< temp.n_nationkey<<std::endl;
-        std::cout << "n_name: "<< temp.n_name<<std::endl;
-        std::cout << "n_regionkey: "<< temp.n_regionkey<<std::endl;
-        std::cout << "n_comment: "<< temp.n_comment<<std::endl;
+      if (!this->table_nation->p_index->insert(temp.n_nationkey, hash_ptr)) {
+        std::cout << "n_nationkey: " << temp.n_nationkey << std::endl;
+        std::cout << "n_name: " << temp.n_name << std::endl;
+        std::cout << "n_regionkey: " << temp.n_regionkey << std::endl;
+        std::cout << "n_comment: " << temp.n_comment << std::endl;
       }
 
       // reset cursor
@@ -2201,13 +2892,13 @@ void TPCC::load_neworder_csv(std::string filename, char delim) {
     field_cursor++;
 
     if (field_cursor == 1) {
-      temp.no_o_id = std::stoull(line, nullptr)-1;
+      temp.no_o_id = std::stoull(line, nullptr) - 1;
 
     } else if (field_cursor == 2) {
-      temp.no_d_id = (ushort)std::stoi(line, nullptr)-1;
+      temp.no_d_id = (ushort)std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 3) {
-      temp.no_w_id = (ushort)std::stoi(line, nullptr)-1;
+      temp.no_w_id = (ushort)std::stoi(line, nullptr) - 1;
 
       // insert record
       void *hash_ptr = table_new_order->insertRecord(&temp, 0, 0);
@@ -2254,22 +2945,22 @@ void TPCC::load_history_csv(std::string filename, char delim) {
     field_cursor++;
 
     if (field_cursor == 1) {
-      temp.h_c_id = std::stoi(line, nullptr)-1;
+      temp.h_c_id = std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 2) {
-      temp.h_c_d_id = (ushort)std::stoi(line, nullptr)-1;
+      temp.h_c_d_id = (ushort)std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 3) {
-      temp.h_c_w_id = (ushort)std::stoi(line, nullptr)-1;
+      temp.h_c_w_id = (ushort)std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 4) {
-      temp.h_d_id = (ushort)std::stoi(line, nullptr)-1;
+      temp.h_d_id = (ushort)std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 5) {
-      temp.h_w_id = (ushort)std::stoi(line, nullptr)-1;
+      temp.h_w_id = (ushort)std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 6) {
-      temp.h_date = 12345657;//std::stoi(line, nullptr);
+      temp.h_date = 12345657;  // std::stoi(line, nullptr);
 
     } else if (field_cursor == 7) {
       temp.h_amount = std::stof(line, nullptr);
@@ -2317,37 +3008,36 @@ void TPCC::load_order_csv(std::string filename, char delim) {
   struct tpcc_order temp;
 
   while (std::getline(csv, line, delim)) {
-    //trim(line);
-    //if (line.length() == 0) continue;
+    // trim(line);
+    // if (line.length() == 0) continue;
     if (line == "\n" || line == "\r\n") continue;
 
     field_cursor++;
 
     if (field_cursor == 1) {
-      //std::cout << "o_i_id:" << line << std::endl;
-      temp.o_id = std::stoull(line, nullptr)-1;
+      // std::cout << "o_i_id:" << line << std::endl;
+      temp.o_id = std::stoull(line, nullptr) - 1;
 
     } else if (field_cursor == 2) {
-      //std::cout << "o_d_id:" << line << std::endl;
-      temp.o_d_id = (ushort)std::stoi(line, nullptr)-1;
+      // std::cout << "o_d_id:" << line << std::endl;
+      temp.o_d_id = (ushort)std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 3) {
-      //std::cout << "order_id:" << line << std::endl;
-      temp.o_w_id = (ushort)std::stoi(line, nullptr)-1;
+      // std::cout << "order_id:" << line << std::endl;
+      temp.o_w_id = (ushort)std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 4) {
-      temp.o_c_id = std::stoi(line, nullptr)-1;
+      temp.o_c_id = std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 5) {
-      temp.o_entry_d =123456789; //std::stoi(line, nullptr);
+      temp.o_entry_d = 123456789;  // std::stoi(line, nullptr);
 
     } else if (field_cursor == 6) {
       if (line.length() != 0) {
-          temp.o_carrier_id = (short)std::stoi(line, nullptr);
-        } else {
-          temp.o_carrier_id = 0;
-        }
-      
+        temp.o_carrier_id = (short)std::stoi(line, nullptr);
+      } else {
+        temp.o_carrier_id = 0;
+      }
 
     } else if (field_cursor == 7) {
       temp.o_ol_cnt = (ushort)std::stoi(line, nullptr);
@@ -2357,15 +3047,13 @@ void TPCC::load_order_csv(std::string filename, char delim) {
 
       // insert record
       void *hash_ptr = table_order->insertRecord(&temp, 0, 0);
-      if(!this->table_order->p_index->insert(
-          MAKE_ORDER_KEY(temp.o_w_id, temp.o_d_id, temp.o_id), hash_ptr)) {
-      
-        std::cout << "n_rec: "<< n_records << std::endl;
-        std::cout << "o_w_id: "<< temp.o_w_id << std::endl;
-        std::cout << "o_d_id: "<< temp.o_d_id << std::endl;
-        std::cout << "o_id: "<< temp.o_id << std::endl;
+      if (!this->table_order->p_index->insert(
+              MAKE_ORDER_KEY(temp.o_w_id, temp.o_d_id, temp.o_id), hash_ptr)) {
+        std::cout << "n_rec: " << n_records << std::endl;
+        std::cout << "o_w_id: " << temp.o_w_id << std::endl;
+        std::cout << "o_d_id: " << temp.o_d_id << std::endl;
+        std::cout << "o_id: " << temp.o_id << std::endl;
         assert(false);
-
       }
       // reset cursor
       field_cursor = 0;
@@ -2413,26 +3101,26 @@ void TPCC::load_orderline_csv(std::string filename, char delim) {
       //         << n_records << std::endl;
 
       if (field_cursor == 1) {
-        temp.ol_o_id = std::stoull(line, nullptr)-1;
+        temp.ol_o_id = std::stoull(line, nullptr) - 1;
 
       } else if (field_cursor == 2) {
-        temp.ol_d_id = (ushort)std::stoi(line, nullptr)-1;
+        temp.ol_d_id = (ushort)std::stoi(line, nullptr) - 1;
 
       } else if (field_cursor == 3) {
-        temp.ol_w_id = (ushort)std::stoi(line, nullptr)-1;
+        temp.ol_w_id = (ushort)std::stoi(line, nullptr) - 1;
 
       } else if (field_cursor == 4) {
-        temp.ol_number = (ushort)std::stoi(line, nullptr)-1;
+        temp.ol_number = (ushort)std::stoi(line, nullptr) - 1;
 
       } else if (field_cursor == 5) {
-        temp.ol_i_id = (ushort)std::stoi(line, nullptr)-1;
+        temp.ol_i_id = (ushort)std::stoi(line, nullptr) - 1;
 
       } else if (field_cursor == 6) {
-        temp.ol_supply_w_id = (ushort)std::stoi(line, nullptr)-1;
+        temp.ol_supply_w_id = (ushort)std::stoi(line, nullptr) - 1;
 
       } else if (field_cursor == 7) {
         if (line.length() != 0) {
-          temp.ol_delivery_d = 12345678;//std::stoi(line, nullptr);
+          temp.ol_delivery_d = 12345678;  // std::stoi(line, nullptr);
         } else {
           temp.ol_delivery_d = 0;
         }
@@ -2514,13 +3202,13 @@ void TPCC::load_customer_csv(std::string filename, char delim) {
     // std::cout << "LINE:-" << line << "--" << field_cursor << std::endl;
 
     if (field_cursor == 1) {
-      temp.c_id = std::stoi(line, nullptr)-1;
+      temp.c_id = std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 2) {
-      temp.c_d_id = (ushort)std::stoi(line, nullptr)-1;
+      temp.c_d_id = (ushort)std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 3) {
-      temp.c_w_id = (ushort)std::stoi(line, nullptr)-1;
+      temp.c_w_id = (ushort)std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 4) {
       strncpy(temp.c_first, line.c_str(), line.length());
@@ -2643,5 +3331,7 @@ void TPCC::load_customer_secondary_index(struct tpcc_customer &r) {
 
   cust_sec_index->update(sr_dkey, sr);
 }
+
+void TPCC::verify_consistency(uint wid) {}
 
 }  // namespace bench
