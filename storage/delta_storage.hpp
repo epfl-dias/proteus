@@ -68,8 +68,8 @@ class DeltaStore {
     ver_list_capacity = ver_list_capacity * (1024 * 1024 * 1024);  // GB
     ver_data_capacity = ver_data_capacity * (1024 * 1024 * 1024);  // GB
     for (int i = 0; i < num_partitions; i++) {
-      uint list_numa_id = i % NUM_SOCKETS;
-      uint data_numa_id = i % NUM_SOCKETS;
+      uint list_numa_id = 0;  // i % NUM_SOCKETS;
+      uint data_numa_id = 0;  // i % NUM_SOCKETS;
 
       // std::cout << "PID-" << i << " - memset: " << data_numa_id << std::endl;
 

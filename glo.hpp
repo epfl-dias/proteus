@@ -27,10 +27,10 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "indexes/hash_index.hpp"
 #include "transactions/cc.hpp"
 
-#define NUM_SOCKETS 4
-#define NUM_CORE_PER_SOCKET 18
-#define MAX_WORKERS 72
-#define DELTA_SIZE 4  // 2G // 6442450944 6G
+#define NUM_SOCKETS 2
+#define NUM_CORE_PER_SOCKET 64
+#define MAX_WORKERS 128
+#define DELTA_SIZE 8  // 2G // 6442450944 6G
 #define SHARED_MEMORY false
 #define HTAP_UPD_BIT_MASK true
 
@@ -56,7 +56,7 @@ using PrimaryIndex = indexes::HashArray<T_KEY>;
 // const uint time_master_switch_ms = 200;
 
 /* # of Snapshots*/
-const short num_master_versions = 2;
+const short num_master_versions = 1;
 const short num_delta_storages = 2;
 
 const int master_col_numa_id = 0;

@@ -90,6 +90,7 @@ class CC_MV2PL {
     // } else {
     //   return 0;
     // }
+    assert(w_tmin != w_tid);
 
     if ((w_tid >= w_tmin) && (w_tmax == 0 || w_tid < w_tmax)) {
       return true;
@@ -139,7 +140,8 @@ struct VERSION_LIST {
     VERSION *tmp = nullptr;
     {
       tmp = head;
-      while (tmp != nullptr) {
+
+      while (tmp != nullptr || tmp != NULL) {
         if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
           return tmp->data;
         } else {

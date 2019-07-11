@@ -213,6 +213,11 @@ void WorkerPool::print_worker_stats(bool global_only) {
   double socket_3_tps = 0.0;
   double socket_4_tps = 0.0;
 
+  const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
+  int num_sockets = vec.size();
+
+  std::vector<double> socket_tps(num_sockets, 0.0);
+
   for (auto it = workers.begin(); it != workers.end(); ++it) {
     // std::cout << " " << it->first << ":" << it->second;
     Worker* tmp = it->second.second;
@@ -231,15 +236,8 @@ void WorkerPool::print_worker_stats(bool global_only) {
       std::cout << "\tTPS\t\t" << (tmp->num_txns / 1000000.0) / diff.count()
                 << " mTPS" << std::endl;
     }
-    if (tmp->id < 18) {
-      socket_1_tps += (tmp->num_txns / 1000000.0) / diff.count();
-    } else if (tmp->id < 36) {
-      socket_2_tps += (tmp->num_txns / 1000000.0) / diff.count();
-    } else if (tmp->id < 54) {
-      socket_3_tps += (tmp->num_txns / 1000000.0) / diff.count();
-    } else {
-      socket_4_tps += (tmp->num_txns / 1000000.0) / diff.count();
-    }
+    socket_tps[tmp->id / NUM_CORE_PER_SOCKET] +=
+        (tmp->num_txns / 1000000.0) / diff.count();
 
     tps += (tmp->num_txns / 1000000.0) / diff.count();
     num_commits += (tmp->num_commits / 1000000.0);
@@ -248,10 +246,11 @@ void WorkerPool::print_worker_stats(bool global_only) {
   }
 
   std::cout << "---- SOCKET ----" << std::endl;
-  std::cout << "\tSocket-1: TPS\t\t" << socket_1_tps << " mTPS" << std::endl;
-  std::cout << "\tSocket-2: TPS\t\t" << socket_2_tps << " mTPS" << std::endl;
-  std::cout << "\tSocket-3: TPS\t\t" << socket_3_tps << " mTPS" << std::endl;
-  std::cout << "\tSocket-4: TPS\t\t" << socket_4_tps << " mTPS" << std::endl;
+  int i = 0;
+  for (const auto& stps : socket_tps) {
+    std::cout << "\tSocket-" << i++ << ": TPS\t\t" << stps << " mTPS"
+              << std::endl;
+  }
 
   std::cout << "---- GLOBAL ----" << std::endl;
   std::cout << "\t# of txns\t" << num_txns << " M" << std::endl;
@@ -340,9 +339,9 @@ std::future<typename std::result_of<F(Args...)>::type> WorkerPool::enqueueTask(
 << operator for Worker pool to print stats of worker pool.
 format:
 */
-std::ostream& operator<<(std::ostream& out, const WorkerPool& topo) {
-  out << "NOT IMPLEMENTED\n";
-  return out;
-}
+// std::ostream& operator<<(std::ostream& out, const WorkerPool& topo) {
+//   out << "NOT IMPLEMENTED\n";
+//   return out;
+// }
 
 }  // namespace scheduler

@@ -89,24 +89,30 @@ class TransactionManager {
     return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
   }
 
-#elif defined(__powerpc__)
+// #elif defined(__powerpc__)
 
-  static __inline__ uint64_t rdtsc(void) {
-    unsigned long long int result = 0;
-    unsigned long int upper, lower, tmp;
-    __asm__ volatile(
-        "0:                  \n"
-        "\tmftbu   %0           \n"
-        "\tmftb    %1           \n"
-        "\tmftbu   %2           \n"
-        "\tcmpw    %2,%0        \n"
-        "\tbne     0b         \n"
-        : "=r"(upper), "=r"(lower), "=r"(tmp));
-    result = upper;
-    result = result << 32;
-    result = result | lower;
+//   static __inline__ uint64_t rdtsc(void) {
+//     unsigned long long int result = 0;
+//     unsigned long int upper, lower, tmp;
+//     __asm__ volatile(
+//         "0:                  \n"
+//         "\tmftbu   %0           \n"
+//         "\tmftb    %1           \n"
+//         "\tmftbu   %2           \n"
+//         "\tcmpw    %2,%0        \n"
+//         "\tbne     0b         \n"
+//         : "=r"(upper), "=r"(lower), "=r"(tmp));
+//     result = upper;
+//     result = result << 32;
+//     result = result | lower;
 
-    return (result);
+//     return (result);
+//   }
+#elif defined(__powerpc64__) || defined(__ppc64__)
+  static __inline__ uint64_t rdtsc() {
+    uint64_t c;
+    asm volatile("mfspr %0, 268" : "=r"(c));
+    return c;
   }
 
 #endif

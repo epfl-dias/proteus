@@ -51,6 +51,8 @@ bool TPCC::exec_txn(void *stmts, uint64_t xid, ushort master_ver,
 }
 
 void TPCC::gen_txn(int wid, void *q) {
+  tpcc_get_next_neworder_query(wid, q);
+  return;
   static thread_local uint sequence_counter = 0;
 
   switch (sequence[sequence_counter++ % MIX_COUNT]) {
