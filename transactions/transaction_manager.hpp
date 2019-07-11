@@ -28,9 +28,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <iostream>
 
 #include "glo.hpp"
+#include "scheduler/worker.hpp"
 #include "transactions/cc.hpp"
 #include "transactions/txn_utils.hpp"
-#include "scheduler/worker.hpp"
 //#include "utils/utils.hpp"
 
 namespace txn {
@@ -47,42 +47,79 @@ class TransactionManager {
   TransactionManager(TransactionManager const &) = delete;  // Don't Implement
   void operator=(TransactionManager const &) = delete;      // Don't implement
 
-
-
-  uint64_t switch_master(uint8_t &curr_master){
-
+  uint64_t switch_master(uint8_t &curr_master) {
     assert(global_conf::num_master_versions > 1);
 
     std::cout << "Master switch request" << std::endl;
     curr_master = this->current_master;
-    /* 
+    /*
           - switch master_id
-          - clear the update bits of the new master. ( keep a seperate column or bit per column?)
+          - clear the update bits of the new master. ( keep a seperate column or
+       bit per column?)
     */
 
     // Before switching, clear up the new master. OR proteus do it.
 
-    uint64_t epoch_num = scheduler::WorkerPool::getInstance().get_max_active_txn();
+    uint64_t epoch_num =
+        scheduler::WorkerPool::getInstance().get_max_active_txn();
 
     ushort tmp = (current_master.load() + 1) % global_conf::num_master_versions;
     current_master.store(tmp);
 
-    while(scheduler::WorkerPool::getInstance().is_all_worker_on_master_id(tmp) == false);
+    while (scheduler::WorkerPool::getInstance().is_all_worker_on_master_id(
+               tmp) == false)
+      ;
 
     std::cout << "Master switch completed" << std::endl;
     return epoch_num;
-
   }
+
+#if defined(__i386__)
+
+  static __inline__ uint64_t rdtsc(void) {
+    uint64_t x;
+    __asm__ volatile(".byte 0x0f, 0x31" : "=A"(x));
+    return x;
+  }
+#elif defined(__x86_64__)
+
+  static __inline__ uint64_t rdtsc(void) {
+    uint32_t hi, lo;
+    __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
+    return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
+  }
+
+#elif defined(__powerpc__)
+
+  static __inline__ uint64_t rdtsc(void) {
+    unsigned long long int result = 0;
+    unsigned long int upper, lower, tmp;
+    __asm__ volatile(
+        "0:                  \n"
+        "\tmftbu   %0           \n"
+        "\tmftb    %1           \n"
+        "\tmftbu   %2           \n"
+        "\tcmpw    %2,%0        \n"
+        "\tbne     0b         \n"
+        : "=r"(upper), "=r"(lower), "=r"(tmp));
+    result = upper;
+    result = result << 32;
+    result = result | lower;
+
+    return (result);
+  }
+
+#endif
 
   inline uint64_t __attribute__((always_inline)) get_next_xid(uint8_t wid) {
-    
-    uint32_t a, d;
-    __asm __volatile("rdtsc" : "=a"(a), "=d"(d));
+    // uint32_t a, d;
+    // __asm __volatile("rdtsc" : "=a"(a), "=d"(d));
 
-    return ((((uint64_t)a) | (((uint64_t)d) << 32)) & 0x00FFFFFFFFFFFFFF) |
-           (((uint64_t)wid) << 56);
+    // return ((((uint64_t)a) | (((uint64_t)d) << 32)) & 0x00FFFFFFFFFFFFFF) |
+    //        (((uint64_t)wid) << 56);
+
+    return (rdtsc() & 0x00FFFFFFFFFFFFFF) | (((uint64_t)wid) << 56);
   }
-  
 
   global_conf::ConcurrencyControl executor;
   uint64_t txn_start_time;

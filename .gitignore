@@ -62,6 +62,7 @@ Makefile
 TODO.txt
 tests/results*
 CHANGELOG
+report.txt
 
 #TextEditor
 aeolus.sublime-project
