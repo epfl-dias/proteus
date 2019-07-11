@@ -94,7 +94,8 @@ void* MemoryManager::alloc_shm(const std::string& key, const size_t size_bytes,
     // move memory pages to that location.
 
     // numa_get_mems_allowed
-    numa_tonode_memory(mem_addr, size_bytes, numa_memset_id);
+    const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
+    numa_tonode_memory(mem_addr, size_bytes, vec[numa_memset_id].id);
     ;
   }
 
@@ -112,7 +113,9 @@ void MemoryManager::destroy() {
 }
 void* MemoryManager::alloc(size_t bytes, int numa_memset_id) {
   // std::cout << "[MemoryManager::alloc] --BEGIN--" << std::endl;
-  return numa_alloc_onnode(bytes, numa_memset_id);
+  const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
+
+  return numa_alloc_onnode(bytes, vec[numa_memset_id].id);
   // return numa_alloc_interleaved(bytes);
 }
 void MemoryManager::free(void* mem, size_t bytes) {
