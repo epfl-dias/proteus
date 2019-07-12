@@ -308,9 +308,6 @@ Value *ScanToBlockSMPlugin::getValueSize(ProteusValueMemory mem_value,
 
 void ScanToBlockSMPlugin::skipLLVM(RecordAttribute attName, Value *offset) {
   // Prepare
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
-  Type *int64Type = Type::getInt64Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
 
   // Fetch values from symbol table
@@ -335,8 +332,6 @@ void ScanToBlockSMPlugin::skipLLVM(RecordAttribute attName, Value *offset) {
 void ScanToBlockSMPlugin::nextEntry() {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
-  Type *int64Type = Type::getInt64Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = Builder->GetInsertBlock()->getParent();
 
@@ -419,10 +414,7 @@ void ScanToBlockSMPlugin::readAsIntLLVM(
     map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int32Type = Type::getInt32Ty(llvmContext);
-  Type *int64Type = Type::getInt64Ty(llvmContext);
-  PointerType *ptrType_int32 = PointerType::get(int32Type, 0);
 
   IRBuilder<> *Builder = context->getBuilder();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
@@ -482,7 +474,6 @@ void ScanToBlockSMPlugin::readAsInt64LLVM(
     map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int64Type = Type::getInt64Ty(llvmContext);
   PointerType *ptrType_int64 = PointerType::get(int64Type, 0);
 
@@ -535,12 +526,10 @@ void ScanToBlockSMPlugin::readAsInt64LLVM(
 Value *ScanToBlockSMPlugin::readAsInt64LLVM(RecordAttribute attName) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int64Type = Type::getInt64Ty(llvmContext);
   PointerType *ptrType_int64 = PointerType::get(int64Type, 0);
 
   IRBuilder<> *Builder = context->getBuilder();
-  Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
   string posVarStr = string(posVar);
   string currPosVar = posVarStr + "." + attName.getAttrName();
@@ -593,7 +582,6 @@ void ScanToBlockSMPlugin::readAsBooleanLLVM(
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int1Type = Type::getInt1Ty(llvmContext);
-  PointerType *ptrType_bool = PointerType::get(int1Type, 0);
 
   IRBuilder<> *Builder = context->getBuilder();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
@@ -645,7 +633,6 @@ void ScanToBlockSMPlugin::readAsFloatLLVM(
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *doubleType = Type::getDoubleTy(llvmContext);
-  PointerType *ptrType_double = PointerType::get(doubleType, 0);
 
   IRBuilder<> *Builder = context->getBuilder();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
@@ -693,14 +680,10 @@ void ScanToBlockSMPlugin::readAsFloatLLVM(
 
 void ScanToBlockSMPlugin::prepareArray(RecordAttribute attName) {
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   //  Type* floatPtrType = Type::getFloatPtrTy(llvmContext);
   Type *doublePtrType = Type::getDoublePtrTy(llvmContext);
-  Type *int64Type = Type::getInt64Ty(llvmContext);
   Type *int32PtrType = Type::getInt32PtrTy(llvmContext);
   Type *int64PtrType = Type::getInt64PtrTy(llvmContext);
-  Type *int8PtrType = Type::getInt8PtrTy(llvmContext);
-
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = Builder->GetInsertBlock()->getParent();
 
@@ -814,16 +797,11 @@ void ScanToBlockSMPlugin::scan(const ::Operator &producer) {
     assert(false);
 
   IntegerType *int64Type = Type::getInt64Ty(llvmContext);
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
-
   // Container for the variable bindings
   map<RecordAttribute, ProteusValueMemory> variableBindings;
 
   // Get the ENTRY BLOCK
   context->setCurrentEntryBlock(Builder->GetInsertBlock());
-
-  Value *file_parts_ptr =
-      context->CreateEntryBlockAlloca(F, "file_parts_ptr", parts_arrays_type);
 
   std::vector<Value *> parts_ptrs;
 
