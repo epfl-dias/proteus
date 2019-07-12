@@ -97,16 +97,7 @@ void GpuModule::init() {
   cudaDeviceProp deviceProp;
   gpu_run(cudaGetDeviceProperties(&deviceProp, dev));
   auto GPU = "sm_" + std::to_string(deviceProp.major * 10 + deviceProp.minor);
-
-  // SubtargetFeatures Features;
-  // StringMap<bool> HostFeatures;
-  // if (sys::getHostCPUFeatures(HostFeatures)){
-  //   for (auto &F : HostFeatures) Features.AddFeature(F.first(), F.second);
-  // }
-
-  // std::cout << GPU.str()            << std::endl;
-  // std::cout << Features.getString() << std::endl;
-
+  
   llvm::TargetOptions opt;
   opt.DisableIntegratedAS = 1;
   opt.MCOptions.ShowMCEncoding = 1;
@@ -119,7 +110,7 @@ void GpuModule::init() {
   auto RM = llvm::Optional<llvm::Reloc::Model>();
   TheTargetMachine = (llvm::LLVMTargetMachine *)Target->createTargetMachine(
       TargetTriple, GPU,
-      "+ptx60",  // PTX 6.0 + Scoped Atomics
+      "+ptx64",  // PTX 6.4 + Scoped Atomics
       //"+ptx60,+satom", //for V100
       opt, RM,
       llvm::Optional<llvm::CodeModel::Model>{},  // CodeModel::Model::Default,

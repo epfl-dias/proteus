@@ -28,6 +28,17 @@
 
 namespace gpu_intrinsic {
 
+llvm::Value *activemask(ParallelContext *const context) {
+  auto Builder = context->getBuilder();
+  auto mask_sig = llvm::FunctionType::get(Builder->getInt32Ty(),
+                                          std::vector<llvm::Type *>{}, false);
+
+  auto mask_fun =
+      llvm::InlineAsm::get(mask_sig, "activemask.b32 $0;", "=r", true);
+
+  return Builder->CreateCall(mask_fun, std::vector<llvm::Value *>{}, "mask");
+}
+
 llvm::Value *load_ca(ParallelContext *const context, llvm::Value *address) {
   auto Builder = context->getBuilder();
 
@@ -120,14 +131,9 @@ void store_wb16(ParallelContext *const context, llvm::Value *address,
                                 llvm::Value *val_in) {
   auto Builder = context->getBuilder();
 
-  auto all_sig = llvm::FunctionType::get(
-      val_in->getType(), std::vector<llvm::Type *>{val_in->getType()}, false);
-
-  auto all_fun =
-      llvm::InlineAsm::get(all_sig, "vote.all.pred $0, $1;", "=b,b", true);
-
-  llvm::Value *all =
-      Builder->CreateCall(all_fun, std::vector<llvm::Value *>{val_in}, "all");
+  auto all_fun = context->getFunction("llvm.nvvm.vote.all.sync");
+  llvm::Value *all = Builder->CreateCall(
+      all_fun, std::vector<llvm::Value *>{activemask(context), val_in}, "all");
 
   return all;
 }
@@ -136,14 +142,10 @@ void store_wb16(ParallelContext *const context, llvm::Value *address,
                                 llvm::Value *val_in) {
   auto Builder = context->getBuilder();
 
-  auto any_sig = llvm::FunctionType::get(
-      val_in->getType(), std::vector<llvm::Type *>{val_in->getType()}, false);
+  auto any_fun = context->getFunction("llvm.nvvm.vote.any.sync");
 
-  auto any_fun =
-      llvm::InlineAsm::get(any_sig, "vote.any.pred $0, $1;", "=b,b", true);
-
-  llvm::Value *any =
-      Builder->CreateCall(any_fun, std::vector<llvm::Value *>{val_in}, "any");
+  llvm::Value *any = Builder->CreateCall(
+      any_fun, std::vector<llvm::Value *>{activemask(context), val_in}, "any");
 
   return any;
 }
@@ -151,17 +153,12 @@ void store_wb16(ParallelContext *const context, llvm::Value *address,
 [[deprecated]] llvm::Value *ballot(ParallelContext *const context,
                                    llvm::Value *val_in) {
   auto Builder = context->getBuilder();
-  auto &llvmContext = context->getLLVMContext();
-  auto int32_type = llvm::Type::getInt32Ty(llvmContext);
 
-  auto ballot_sig = llvm::FunctionType::get(
-      int32_type, std::vector<llvm::Type *>{val_in->getType()}, false);
-
-  auto ballot_fun =
-      llvm::InlineAsm::get(ballot_sig, "vote.ballot.b32 $0, $1;", "=r,b", true);
+  auto ballot_fun = context->getFunction("llvm.nvvm.vote.ballot.sync");
 
   llvm::Value *ballot = Builder->CreateCall(
-      ballot_fun, std::vector<llvm::Value *>{val_in}, "ballot");
+      ballot_fun, std::vector<llvm::Value *>{activemask(context), val_in},
+      "ballot");
 
   return ballot;
 }
@@ -174,10 +171,8 @@ llvm::Value *shfl_bfly(ParallelContext *const context, llvm::Value *val_in,
 llvm::Value *shfl_bfly(ParallelContext *const context, llvm::Value *val_in,
                        llvm::Value *vxor, llvm::Value *mask) {
   auto Builder = context->getBuilder();
-  auto mod = context->getModule();
   auto &llvmContext = context->getLLVMContext();
   auto int32_type = llvm::Type::getInt32Ty(llvmContext);
-  auto int1_type = llvm::Type::getInt1Ty(llvmContext);
 
   // Aggregate internally to each warp
   auto shfl_bfly = context->getFunction("llvm.nvvm.shfl.sync.bfly.i32");
@@ -246,3 +241,4 @@ llvm::Value *shfl_bfly(ParallelContext *const context, llvm::Value *val_in,
 }
 
 }  // namespace gpu_intrinsic
+

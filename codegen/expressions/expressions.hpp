@@ -254,7 +254,7 @@ class expression_t final : public expressions::ExpressionCRTP<expression_t> {
 
   [[deprecated]] const concept_t *getUnderlyingExpression() const {
     /* by definition this function leaks data... */
-    (void)(new std::shared_ptr(data));
+    (void)(new std::shared_ptr<const concept_t>(data));
     // we cannot safely delete the shared_ptr
     return data.get();
   }

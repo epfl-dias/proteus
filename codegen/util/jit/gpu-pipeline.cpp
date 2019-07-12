@@ -103,6 +103,31 @@ GpuPipelineGen::GpuPipelineGen(Context *context, std::string pipName,
       "llvm.nvvm.shfl.idx.i32",
       Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_shfl_idx_i32));
 
+  registerFunction(
+      "atomicAdd_double",
+      Intrinsic::getDeclaration(
+          getModule(), Intrinsic::nvvm_atomic_load_add_f64, f64PtrType));
+  registerFunction(
+      "atomicAdd_float",
+      Intrinsic::getDeclaration(
+          getModule(), Intrinsic::nvvm_atomic_load_add_f32, f32PtrType));
+
+  registerFunction(
+      "llvm.nvvm.vote.all.sync",
+      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_vote_all_sync));
+
+  registerFunction(
+      "llvm.nvvm.vote.any.sync",
+      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_vote_any_sync));
+
+  registerFunction(
+      "llvm.nvvm.vote.ballot.sync",
+      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_vote_ballot_sync));
+
+  registerFunction(
+      "llvm.nvvm.vote.uni.sync",
+      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_vote_uni_sync));
+
   registerFunction("llvm.nvvm.read.ptx.sreg.ntid.x",
                    Intrinsic::getDeclaration(
                        getModule(), Intrinsic::nvvm_read_ptx_sreg_ntid_x));

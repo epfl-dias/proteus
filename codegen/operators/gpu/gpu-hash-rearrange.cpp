@@ -453,11 +453,11 @@ void GpuHashRearrange::consume(ParallelContext *const context,
       h_leader, ConstantInt::get((IntegerType *)(h_leader->getType()), 1));
   Value *leader_id = Builder->CreateCall(popc, h_leader_lt);
 
-  Function *shfl = context->getFunction("llvm.nvvm.shfl.idx.i32");
+  Function *shfl = context->getFunction("llvm.nvvm.shfl.sync.idx.i32");
   Function *lanemask_lt =
       context->getFunction("llvm.nvvm.read.ptx.sreg.lanemask.lt");
 
-  std::vector<Value *> args{Builder->CreateLoad(indx_ptr), leader_id,
+  std::vector<Value *> args{gpu_intrinsic::activemask(context), Builder->CreateLoad(indx_ptr), leader_id,
                             context->createInt32(warp_size - 1)};
   Value *idx_g = Builder->CreateAdd(
       Builder->CreateCall(shfl, args),

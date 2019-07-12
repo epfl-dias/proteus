@@ -173,7 +173,8 @@ extern "C" {
 __device__ void dprinti64(int64_t x) { printf("%" PRId64 "\n", x); }
 
 __device__ int32_t *get_buffers() {
-  uint32_t b = __ballot(1);
+  uint32_t mask = __activemask();
+  uint32_t b = __ballot_sync(mask, 1);
   uint32_t m = 1 << get_laneid();
   int32_t *ret;
   do {
@@ -183,6 +184,7 @@ __device__ int32_t *get_buffers() {
 
     b ^= leader;
   } while (b);
+  __syncwarp(mask);
   return ret;
 }
 
@@ -192,7 +194,8 @@ void *get_dev_buffer() {
 }
 
 __device__ void release_buffers(int32_t *buff) {
-  uint32_t b = __ballot(buff != NULL);
+  uint32_t mask = __activemask();
+  uint32_t b = __ballot_sync(mask, buff != NULL);
   uint32_t m = 1 << get_laneid();
   do {
     uint32_t leader = b & -b;
@@ -201,6 +204,7 @@ __device__ void release_buffers(int32_t *buff) {
 
     b ^= leader;
   } while (b);
+  __syncwarp(mask);
 }
 
 __device__ void dprinti(int32_t x) { printf("%d\n", x); }

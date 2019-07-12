@@ -313,15 +313,15 @@ __global__ void build_partitions(const int32_t *__restrict__ S,
         uint32_t next_buck;
 
         // assert(cnt <= bucket_size);
-
         bool repeat = true;
+        uint32_t thrdmask = __activemask();
 
-        while (
-            __any(repeat)) {  // without the "repeat" variable, the compiler
-                              // probably moves the "if(pcnt < bucket_size)"
-                              // block out of the loop, which creates a
-                              // deadlock using the repeat variable, it should
-                              // convince the compiler that it should not
+        while (__any_sync(
+            repeat, thrdmask)) {  // without the "repeat" variable, the compiler
+                                  // probably moves the "if(pcnt < bucket_size)"
+                                  // block out of the loop, which creates a
+          // deadlock using the repeat variable, it should
+          // convince the compiler that it should not
           if (repeat) {
             uint64_t old_heads = __atomic_fetch_add(
                 heads + (pid << log_parts) + j, ((uint64_t)cnt) << 32,
@@ -374,6 +374,8 @@ __global__ void build_partitions(const int32_t *__restrict__ S,
               repeat = false;
             }
           }
+
+          __syncwarp(thrdmask);
         }
 
         // NOTE shared memory requirements can be relaxed, but when moving the
