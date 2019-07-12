@@ -33,14 +33,13 @@
 // __device__ __constant__ void * buff_start;
 // __device__ __constant__ void * buff_end  ;
 
-#include "common/gpu/gpu-common.hpp"
+#include <thread>
 
 #include "buffer-manager.cuh"
 #include "codegen/memory/memory-manager.hpp"
+#include "common/gpu/gpu-common.hpp"
 #include "topology/affinity_manager.hpp"
 #include "util/threadsafe_device_stack.cuh"
-
-#include <thread>
 // #include <utmpx.h>
 // #include <unistd.h>
 

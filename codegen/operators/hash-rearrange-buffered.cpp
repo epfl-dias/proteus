@@ -22,7 +22,9 @@
 */
 
 #include "operators/hash-rearrange-buffered.hpp"
+
 #include <cstdlib>
+
 #include "expressions/expressions-generator.hpp"
 
 #define CACHE_CAP 1024

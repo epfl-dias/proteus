@@ -25,11 +25,10 @@
 // test logic needs is declared.
 //
 // Don't forget gtest.h, which declares the testing framework.
-#include "gtest/gtest.h"
-
 #include "common/common.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
+#include "gtest/gtest.h"
 #include "operators/join.hpp"
 #include "operators/print.hpp"
 #include "operators/root.hpp"

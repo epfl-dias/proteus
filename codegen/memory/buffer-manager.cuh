@@ -25,6 +25,7 @@
 #define BUFFER_MANAGER_CUH_
 
 #include <sched.h>
+
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -32,6 +33,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
+
 #include "topology/affinity_manager.hpp"
 #include "util/threadsafe_stack.cuh"
 

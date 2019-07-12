@@ -21,12 +21,10 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "gtest/gtest.h"
-#include "test-utils.hpp"
-
 #include "common/common.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
+#include "gtest/gtest.h"
 #include "operators/flush.hpp"
 #include "operators/join.hpp"
 #include "operators/outer-unnest.hpp"
@@ -39,6 +37,7 @@
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-plugin.hpp"
+#include "test-utils.hpp"
 #include "util/context.hpp"
 #include "util/functions.hpp"
 #include "values/expressionTypes.hpp"

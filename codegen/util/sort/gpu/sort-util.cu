@@ -25,12 +25,11 @@
 
 // NOTE: Clang fails to compile thrust, but that is fine if we call this part
 // only from generated code
-#include "common/gpu/gpu-common.hpp"
-
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
-
 #include <thrust/system/cuda/execution_policy.h>
+
+#include "common/gpu/gpu-common.hpp"
 
 template <typename T, typename... Trest>
 struct minalignof {

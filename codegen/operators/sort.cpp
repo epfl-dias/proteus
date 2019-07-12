@@ -22,6 +22,7 @@
 */
 
 #include "operators/sort.hpp"
+
 #include "expressions/expressions-flusher.hpp"
 #include "expressions/expressions-generator.hpp"
 

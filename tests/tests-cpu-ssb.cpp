@@ -67,10 +67,10 @@
 // #include "util/functions.hpp"
 // #include "util/jit/pipeline.hpp"
 // #include <cuda_profiler_api.h>
-#include "test-utils.hpp"
-
 #include <thread>
 #include <vector>
+
+#include "test-utils.hpp"
 
 using namespace llvm;
 

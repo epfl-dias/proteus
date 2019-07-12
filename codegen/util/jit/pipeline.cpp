@@ -22,7 +22,9 @@
 */
 
 #include "pipeline.hpp"
+
 #include <thread>
+
 #include "codegen/memory/memory-manager.hpp"
 #include "codegen/util/parallel-context.hpp"
 #include "common/gpu/gpu-common.hpp"

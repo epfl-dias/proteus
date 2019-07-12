@@ -25,14 +25,12 @@
 // test logic needs is declared.
 //
 // Don't forget gtest.h, which declares the testing framework.
-#include "gtest/gtest.h"
-#include "test-utils.hpp"
-
 #include "common/common.hpp"
-#include "plan/plan-parser.hpp"
-
+#include "gtest/gtest.h"
 #include "memory/memory-manager.hpp"
+#include "plan/plan-parser.hpp"
 #include "storage/storage-manager.hpp"
+#include "test-utils.hpp"
 
 // Step 2. Use the TEST macro to define your tests.
 //

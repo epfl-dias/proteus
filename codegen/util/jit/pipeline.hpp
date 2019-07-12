@@ -25,11 +25,13 @@
 #define PIPELINE_HPP_
 
 #include <vector>
+
 #include "util/context.hpp"
 
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
 #include <utility>
+
 #include "common/gpu/gpu-common.hpp"
 
 class Pipeline;

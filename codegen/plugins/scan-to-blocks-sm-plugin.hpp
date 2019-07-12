@@ -25,6 +25,7 @@
 #define SCAN_TO_BLOCKS_SM_PLUGIN_HPP_
 
 #include <memory>
+
 #include "codegen/util/parallel-context.hpp"
 #include "plugins/plugins.hpp"
 #include "storage/storage-manager.hpp"

@@ -22,7 +22,9 @@
 */
 
 #include "operators/gpu/gpu-hash-rearrange.hpp"
+
 #include <algorithm>
+
 #include "codegen/memory/buffer-manager.cuh"
 #include "codegen/memory/memory-manager.hpp"
 #include "common/gpu/gpu-common.hpp"
@@ -457,7 +459,8 @@ void GpuHashRearrange::consume(ParallelContext *const context,
   Function *lanemask_lt =
       context->getFunction("llvm.nvvm.read.ptx.sreg.lanemask.lt");
 
-  std::vector<Value *> args{gpu_intrinsic::activemask(context), Builder->CreateLoad(indx_ptr), leader_id,
+  std::vector<Value *> args{gpu_intrinsic::activemask(context),
+                            Builder->CreateLoad(indx_ptr), leader_id,
                             context->createInt32(warp_size - 1)};
   Value *idx_g = Builder->CreateAdd(
       Builder->CreateCall(shfl, args),

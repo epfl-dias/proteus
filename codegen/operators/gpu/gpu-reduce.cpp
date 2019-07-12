@@ -22,6 +22,7 @@
 */
 
 #include "operators/gpu/gpu-reduce.hpp"
+
 #include "operators/gpu/gmonoids.hpp"
 
 using namespace llvm;

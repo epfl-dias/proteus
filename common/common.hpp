@@ -31,8 +31,10 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+
 #include <cfloat>
 #include <chrono>
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -44,9 +46,6 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
-
-#include <cstddef>
-#include <cstdlib>
 
 //#JSON
 #define JSMN_STRICT

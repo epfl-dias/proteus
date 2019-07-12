@@ -22,6 +22,10 @@
 */
 
 #include "topology/topology.hpp"
+
+#include <numa.h>
+#include <numaif.h>
+
 #include <cmath>
 #include <iomanip>
 #include <map>
@@ -32,13 +36,8 @@
 #include "cuda_profiler_api.h"
 #include "cuda_runtime_api.h"
 #include "nvToolsExt.h"
-
-#include "topology/affinity_manager.hpp"
-
 #include "nvml.h"
-
-#include <numa.h>
-#include <numaif.h>
+#include "topology/affinity_manager.hpp"
 
 // template<typename T>
 const topology::cpunumanode *topology::getCpuNumaNodeAddressed(

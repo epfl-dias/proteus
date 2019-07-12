@@ -29,6 +29,7 @@
  */
 
 #include "util/atois.hpp"
+
 #include "parallel-context.hpp"
 
 using namespace llvm;

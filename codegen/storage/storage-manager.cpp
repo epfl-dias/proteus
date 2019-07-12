@@ -22,8 +22,10 @@
 */
 
 #include "storage/storage-manager.hpp"
+
 #include <algorithm>
 #include <fstream>
+
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 

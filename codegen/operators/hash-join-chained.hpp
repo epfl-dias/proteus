@@ -25,6 +25,7 @@
 #define HASH_JOIN_CHAINED_HPP_
 
 #include <unordered_map>
+
 #include "codegen/util/parallel-context.hpp"
 #include "operators/gpu/gpu-materializer-expr.hpp"
 #include "operators/operators.hpp"

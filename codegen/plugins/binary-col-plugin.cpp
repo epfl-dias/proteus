@@ -22,6 +22,7 @@
 */
 
 #include "plugins/binary-col-plugin.hpp"
+
 #include "storage/storage-manager.hpp"
 
 using namespace llvm;

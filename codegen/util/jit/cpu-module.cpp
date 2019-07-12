@@ -20,6 +20,8 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
+#include "util/jit/cpu-module.hpp"
+
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
@@ -27,8 +29,6 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/TargetRegistry.h"
-
-#include "util/jit/cpu-module.hpp"
 
 using namespace llvm;
 

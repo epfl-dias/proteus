@@ -22,6 +22,7 @@
 */
 
 #include "operators/hash-rearrange.hpp"
+
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-hasher.hpp"
 

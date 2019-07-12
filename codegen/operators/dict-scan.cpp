@@ -22,9 +22,10 @@
 */
 
 #include "operators/dict-scan.hpp"
-#include "storage/storage-manager.hpp"
 
 #include <regex>
+
+#include "storage/storage-manager.hpp"
 
 using namespace llvm;
 

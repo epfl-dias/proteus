@@ -22,6 +22,7 @@
 */
 
 #include "gpu-pipeline.hpp"
+
 #include "codegen/util/parallel-context.hpp"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
@@ -29,7 +30,6 @@
 // #include "llvm/Target/TargetSubtargetInfo.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/Passes/PassBuilder.h"
-
 #include "topology/topology.hpp"
 #include "util/jit/cpu-pipeline.hpp"
 

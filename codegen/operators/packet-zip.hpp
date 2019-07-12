@@ -25,6 +25,7 @@
 #define PACKET_ZIP_HPP_
 
 #include <unordered_map>
+
 #include "codegen/util/parallel-context.hpp"
 #include "expressions/expressions.hpp"
 #include "operators/gpu/gpu-materializer-expr.hpp"

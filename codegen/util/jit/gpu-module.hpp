@@ -24,12 +24,10 @@
 #ifndef GPU_MODULE_HPP_
 #define GPU_MODULE_HPP_
 
+#include "common/gpu/gpu-common.hpp"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Target/TargetMachine.h"
-
-#include "common/gpu/gpu-common.hpp"
-
 #include "util/jit/jit-module.hpp"
 
 class GpuModule : public JITModule {

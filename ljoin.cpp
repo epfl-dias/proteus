@@ -22,11 +22,6 @@
 */
 
 #include "codegen/util/parallel-context.hpp"
-#include "plan/plan-parser.hpp"
-#include "storage/raw-storage-manager.hpp"
-#include "util/raw-memory-manager.hpp"
-#include "util/raw-pipeline.hpp"
-
 #include "operators/block-to-tuples.hpp"
 #include "operators/cpu-to-gpu.hpp"
 #include "operators/flush.hpp"
@@ -45,9 +40,13 @@
 #include "operators/split-opt.hpp"
 #include "operators/split.hpp"
 #include "operators/unionall.hpp"
+#include "plan/plan-parser.hpp"
 #include "plugins/gpu-col-scan-plugin.hpp"
 #include "plugins/gpu-col-scan-to-blocks-plugin.hpp"
 #include "plugins/scan-to-blocks-sm-plugin.hpp"
+#include "storage/raw-storage-manager.hpp"
+#include "util/raw-memory-manager.hpp"
+#include "util/raw-pipeline.hpp"
 
 void Query() {
   {

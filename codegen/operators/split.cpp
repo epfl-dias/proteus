@@ -22,7 +22,9 @@
 */
 
 #include "operators/split.hpp"
+
 #include <cstring>
+
 #include "expressions/expressions-generator.hpp"
 
 void Split::produce() {

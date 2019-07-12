@@ -29,7 +29,6 @@
 #include <vector>
 
 #include "common/gpu/gpu-common.hpp"
-
 #include "nvml.h"
 
 /**

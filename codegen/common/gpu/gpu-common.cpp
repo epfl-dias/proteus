@@ -22,8 +22,10 @@
 */
 
 #include "common/gpu/gpu-common.hpp"
+
 #include <cassert>
 #include <cstdlib>
+
 #include "codegen/memory/memory-manager.hpp"
 #include "common/common.hpp"
 #include "topology/topology.hpp"

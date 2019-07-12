@@ -29,6 +29,7 @@
 #include <limits>
 #include <type_traits>
 #include <vector>
+
 #include "common/gpu/gpu-common.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"

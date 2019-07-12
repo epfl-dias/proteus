@@ -25,6 +25,7 @@
 #define MEMORY_ALLOCATOR_HPP_
 
 #include <mutex>
+
 #include "common/common.hpp"
 
 /**

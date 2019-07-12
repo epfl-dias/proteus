@@ -22,6 +22,7 @@
 */
 
 #include "topology/affinity_manager.hpp"
+
 #include "topology/topology.hpp"
 
 static thread_local cpu_set_t thread_core_affinity = cpu_set_t{1};

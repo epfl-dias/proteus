@@ -25,16 +25,12 @@
 // test logic needs is declared.
 //
 // Don't forget gtest.h, which declares the testing framework.
-#include "gtest/gtest.h"
-#include "test-utils.hpp"
-
-#include "storage/storage-manager.hpp"
-
 #include "codegen/util/parallel-context.hpp"
 #include "common/common.hpp"
 #include "common/tpch-config.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
+#include "gtest/gtest.h"
 #include "operators/flush.hpp"
 #include "operators/join.hpp"
 #include "operators/outer-unnest.hpp"
@@ -48,6 +44,8 @@
 #include "operators/unnest.hpp"
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
+#include "storage/storage-manager.hpp"
+#include "test-utils.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 #include "util/functions.hpp"

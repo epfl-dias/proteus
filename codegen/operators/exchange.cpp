@@ -22,7 +22,9 @@
 */
 
 #include "operators/exchange.hpp"
+
 #include <cstring>
+
 #include "expressions/expressions-generator.hpp"
 
 using namespace llvm;

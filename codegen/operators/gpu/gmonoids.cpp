@@ -22,6 +22,7 @@
 */
 
 #include "operators/gpu/gmonoids.hpp"
+
 #include "llvm/IR/InlineAsm.h"
 #include "util/gpu/gpu-intrinsics.hpp"
 

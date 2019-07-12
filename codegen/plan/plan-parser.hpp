@@ -35,13 +35,12 @@
 #include "plugins/binary-row-plugin.hpp"
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/caching.hpp"
-#include "util/functions.hpp"
-#include "values/expressionTypes.hpp"
-
 #include "rapidjson/document.h"
 #include "rapidjson/reader.h"
 #include "rapidjson/stringbuffer.h"
+#include "util/caching.hpp"
+#include "util/functions.hpp"
+#include "values/expressionTypes.hpp"
 
 using namespace rapidjson;
 using namespace std;

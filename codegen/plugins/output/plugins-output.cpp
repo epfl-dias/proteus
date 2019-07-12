@@ -22,6 +22,7 @@
 */
 
 #include "plugins/output/plugins-output.hpp"
+
 #include "expressions/expressions-generator.hpp"
 
 Materializer::Materializer(

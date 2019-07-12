@@ -63,12 +63,12 @@
 #include "plan/plan-parser.hpp"
 #include "storage/storage-manager.hpp"
 // #include <cuda_profiler_api.h>
+#include <thread>
+#include <vector>
+
 #include "test-utils.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
-
-#include <thread>
-#include <vector>
 
 using namespace llvm;
 

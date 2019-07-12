@@ -22,6 +22,7 @@
 */
 
 #include "memory-manager.hpp"
+
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 

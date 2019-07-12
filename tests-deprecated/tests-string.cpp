@@ -21,12 +21,11 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "gtest/gtest.h"
-
 #include "common/common.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions-hasher.hpp"
 #include "expressions/expressions.hpp"
+#include "gtest/gtest.h"
 #include "operators/join.hpp"
 #include "operators/nest-opt.hpp"
 #include "operators/nest.hpp"

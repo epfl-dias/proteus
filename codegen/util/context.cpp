@@ -22,11 +22,11 @@
 */
 
 #include "util/context.hpp"
+
+#include "expressions/expressions-generator.hpp"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/IR/Verifier.h"
-
-#include "expressions/expressions-generator.hpp"
 
 bool print_generated_code = true;
 

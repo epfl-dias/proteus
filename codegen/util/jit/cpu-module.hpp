@@ -27,7 +27,6 @@
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Target/TargetMachine.h"
-
 #include "util/jit/jit-module.hpp"
 
 class CpuModule : public JITModule {

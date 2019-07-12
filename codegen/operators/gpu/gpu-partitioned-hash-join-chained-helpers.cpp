@@ -30,7 +30,6 @@
 #include <cassert>
 
 #include "common/gpu/gpu-common.hpp"
-
 #include "cuda.h"
 #include "cuda_runtime.h"
 

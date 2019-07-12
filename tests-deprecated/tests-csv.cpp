@@ -21,11 +21,10 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "gtest/gtest.h"
-
 #include "common/common.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
+#include "gtest/gtest.h"
 #include "operators/join.hpp"
 #include "operators/outer-unnest.hpp"
 #include "operators/print.hpp"

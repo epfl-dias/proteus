@@ -22,6 +22,7 @@
 */
 
 #include "operators/flush.hpp"
+
 #include "codegen/memory/memory-manager.hpp"
 #include "codegen/util/parallel-context.hpp"
 

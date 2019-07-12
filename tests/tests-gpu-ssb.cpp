@@ -56,6 +56,9 @@
 //
 // </TechnicalDetails>
 
+#include <thread>
+#include <vector>
+
 #include "codegen/util/parallel-context.hpp"
 #include "common/common.hpp"
 #include "common/gpu/gpu-common.hpp"
@@ -65,9 +68,6 @@
 #include "test-utils.hpp"
 #include "topology/topology.hpp"
 #include "util/jit/pipeline.hpp"
-
-#include <thread>
-#include <vector>
 
 using namespace llvm;
 

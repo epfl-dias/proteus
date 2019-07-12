@@ -25,17 +25,16 @@
 // test logic needs is declared.
 //
 // Don't forget gtest.h, which declares the testing framework.
-#include "gtest/gtest.h"
-#include "test-utils.hpp"
-
 #include "common/common.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
+#include "gtest/gtest.h"
 #include "operators/radix-join.hpp"
 #include "operators/reduce-opt.hpp"
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
 #include "plugins/csv-plugin-pm.hpp"
+#include "test-utils.hpp"
 #include "util/context.hpp"
 #include "util/functions.hpp"
 #include "values/expressionTypes.hpp"

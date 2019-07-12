@@ -22,6 +22,7 @@
 */
 
 #include "util/gpu/gpu-intrinsics.hpp"
+
 #include "common/gpu/gpu-common.hpp"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/IR/InlineAsm.h"
@@ -241,4 +242,3 @@ llvm::Value *shfl_bfly(ParallelContext *const context, llvm::Value *val_in,
 }
 
 }  // namespace gpu_intrinsic
-

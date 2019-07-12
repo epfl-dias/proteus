@@ -24,8 +24,6 @@
 #ifndef THREADPOOL_HPP_
 #define THREADPOOL_HPP_
 
-#include "common/common.hpp"
-
 #include <atomic>
 #include <condition_variable>
 #include <deque>
@@ -34,6 +32,8 @@
 #include <mutex>
 #include <queue>
 #include <thread>
+
+#include "common/common.hpp"
 
 /*
  * Based on: https://github.com/progschj/ThreadPool

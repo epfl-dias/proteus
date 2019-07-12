@@ -33,9 +33,6 @@
 #define CONTEXT_HPP_
 
 #include "common/common.hpp"
-#include "memory/memory-allocator.hpp"
-#include "values/expressionTypes.hpp"
-
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/LinkAllPasses.h"
@@ -44,6 +41,8 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Vectorize.h"
+#include "memory/memory-allocator.hpp"
+#include "values/expressionTypes.hpp"
 
 #define MODULEPASS 0
 

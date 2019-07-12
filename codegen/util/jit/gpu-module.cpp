@@ -20,6 +20,8 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
+#include "util/jit/gpu-module.hpp"
+
 #include <dlfcn.h>
 
 #include "llvm/Analysis/BasicAliasAnalysis.h"
@@ -30,7 +32,6 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "topology/affinity_manager.hpp"
-#include "util/jit/gpu-module.hpp"
 
 void initializeModule(CUmodule &cudaModule);
 
@@ -97,7 +98,7 @@ void GpuModule::init() {
   cudaDeviceProp deviceProp;
   gpu_run(cudaGetDeviceProperties(&deviceProp, dev));
   auto GPU = "sm_" + std::to_string(deviceProp.major * 10 + deviceProp.minor);
-  
+
   llvm::TargetOptions opt;
   opt.DisableIntegratedAS = 1;
   opt.MCOptions.ShowMCEncoding = 1;

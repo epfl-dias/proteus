@@ -22,6 +22,7 @@
 */
 
 #include "operators/hash-group-by-chained.hpp"
+
 #include "codegen/memory/memory-manager.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-hasher.hpp"

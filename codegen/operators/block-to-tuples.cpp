@@ -22,6 +22,7 @@
 */
 
 #include "operators/block-to-tuples.hpp"
+
 #include "codegen/memory/buffer-manager.cuh"
 #include "codegen/memory/memory-manager.hpp"
 

@@ -22,6 +22,7 @@
 */
 
 #include "plugins/scan-to-blocks-sm-plugin.hpp"
+
 #include "expressions/expressions-hasher.hpp"
 
 using namespace llvm;

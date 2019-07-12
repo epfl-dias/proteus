@@ -23,14 +23,13 @@
 
 #include "test-utils.hpp"
 
+#include "codegen/util/parallel-context.hpp"
+#include "memory/memory-manager.hpp"
+#include "plan/plan-parser.hpp"
 #include "rapidjson/error/en.h"
 #include "rapidjson/schema.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
-
-#include "codegen/util/parallel-context.hpp"
-#include "memory/memory-manager.hpp"
-#include "plan/plan-parser.hpp"
 #include "storage/storage-manager.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"

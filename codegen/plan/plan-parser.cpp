@@ -22,6 +22,7 @@
 */
 
 #include "plan/plan-parser.hpp"
+
 #include "plugins/scan-to-blocks-sm-plugin.hpp"
 #ifndef NCUDA
 #include "operators/cpu-to-gpu.hpp"
@@ -58,7 +59,6 @@
 #include "operators/split.hpp"
 #include "operators/unionall.hpp"
 #include "operators/unnest.hpp"
-
 #include "rapidjson/error/en.h"
 /* too primitive */
 struct PlanHandler {

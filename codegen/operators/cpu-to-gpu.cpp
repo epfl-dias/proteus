@@ -22,6 +22,7 @@
 */
 
 #include "operators/cpu-to-gpu.hpp"
+
 #include "topology/topology.hpp"
 #include "util/jit/cpu-pipeline.hpp"
 
