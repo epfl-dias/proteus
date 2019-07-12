@@ -86,6 +86,7 @@ class StorageManager {
   static std::vector<mem_file> getFile(std::string name);
   static std::vector<mem_file> getOrLoadFile(std::string name, size_t type_size,
                                              data_loc loc = PINNED);
+  static void unloadFile(std::string name);
 };
 
 #endif /* STORAGE_MANAGER_HPP_ */

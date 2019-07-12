@@ -36,6 +36,7 @@ target/
 *cachegrind*
 *.out
 *.si
+._*
 
 #Eclipse
 *.class
@@ -58,6 +59,7 @@ genetic*.csv
 inputs/json/spam/*.json
 inputs/ssbm**
 inputs/tpch**
+inputs/ch**
 
 #Generated code folder
 generated_code/**

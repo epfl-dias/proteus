@@ -94,9 +94,9 @@ using std::vector;
 
 double diff(struct timespec st, struct timespec end);
 
-[[noreturn]] void fatal(const char *err);
+[[noreturn, deprecated]] void fatal(const char *err);
 
-[[noreturn]] void exception(const char *err);
+[[noreturn, deprecated]] void exception(const char *err);
 
 namespace llvm {
 // forward declaration to avoid including the whole header

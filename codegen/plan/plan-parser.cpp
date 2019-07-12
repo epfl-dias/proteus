@@ -23,6 +23,7 @@
 
 #include "plan/plan-parser.hpp"
 
+#include "plugins/aeolus-plugin.hpp"
 #include "plugins/scan-to-blocks-sm-plugin.hpp"
 #ifndef NCUDA
 #include "operators/cpu-to-gpu.hpp"
@@ -2358,10 +2359,16 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       cpu_targets = val["cpu_targets"].GetBool();
     }
 
+    int numa_socket_id = -1;
+    if (val.HasMember("numa_socket_id")) {
+      assert(val["numa_socket_id"].IsInt());
+      numa_socket_id = val["numa_socket_id"].GetInt();
+    }
+
     assert(dynamic_cast<ParallelContext *>(this->ctx));
     newOp = new Exchange(childOp, ((ParallelContext *)this->ctx), numOfParents,
                          projections, slack, hash, numa_local, rand_local_cpu,
-                         producers, cpu_targets);
+                         producers, cpu_targets, numa_socket_id);
     childOp->setParent(newOp);
   } else if (strcmp(opName, "union-all") == 0) {
     /* parse operator input */
@@ -3387,7 +3394,9 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
     }
     newPg = new BinaryColPlugin(this->ctx, *pathDynamicCopy, *recType,
                                 *projections, sizeInFile);
-  } else if (strcmp(pgType, "block") == 0) {
+  } else if (strcmp(pgType, "block") == 0 ||
+             strcmp(pgType, "block-remote") == 0 ||
+             strcmp(pgType, "block-snapshot") == 0) {
     assert(val.HasMember(keyProjectionsGPU));
     assert(val[keyProjectionsGPU].IsArray());
 
@@ -3400,8 +3409,14 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
     }
     assert(dynamic_cast<ParallelContext *>(this->ctx));
 
-    newPg = new ScanToBlockSMPlugin(dynamic_cast<ParallelContext *>(this->ctx),
-                                    *pathDynamicCopy, *recType, projections);
+    if (strcmp(pgType, "block") == 0) {
+      newPg =
+          new ScanToBlockSMPlugin(dynamic_cast<ParallelContext *>(this->ctx),
+                                  *pathDynamicCopy, *recType, projections);
+    } else {
+      newPg = new AeolusPlugin(dynamic_cast<ParallelContext *>(this->ctx),
+                               *pathDynamicCopy, *recType, projections, pgType);
+    }
   } else {
     string err = string("Unknown Plugin Type: ") + pgType;
     LOG(ERROR) << err;

@@ -30,6 +30,12 @@ using namespace llvm;
 ScanToBlockSMPlugin::ScanToBlockSMPlugin(ParallelContext *const context,
                                          string fnamePrefix, RecordType rec,
                                          vector<RecordAttribute *> &whichFields)
+    : ScanToBlockSMPlugin(context, fnamePrefix, rec, whichFields, true) {}
+
+ScanToBlockSMPlugin::ScanToBlockSMPlugin(ParallelContext *const context,
+                                         string fnamePrefix, RecordType rec,
+                                         vector<RecordAttribute *> &whichFields,
+                                         bool load)
     : fnamePrefix(fnamePrefix),
       rec(rec),
       wantedFields(whichFields),
@@ -45,30 +51,37 @@ ScanToBlockSMPlugin::ScanToBlockSMPlugin(ParallelContext *const context,
 
   LLVMContext &llvmContext = context->getLLVMContext();
 
-  // std::vector<Type *> parts_array;
-  for (const auto &in : wantedFields) {
-    string fileName = fnamePrefix + "." + in->getAttrName();
+  if (load) {
+    // std::vector<Type *> parts_array;
+    for (const auto &in : wantedFields) {
+      string fileName = fnamePrefix + "." + in->getAttrName();
 
-    const auto llvm_type = in->getOriginalType()->getLLVMType(llvmContext);
-    size_t type_size = context->getSizeOf(llvm_type);
+      const auto llvm_type = in->getOriginalType()->getLLVMType(llvmContext);
+      size_t type_size = context->getSizeOf(llvm_type);
 
-    wantedFieldsFiles.emplace_back(
-        StorageManager::getOrLoadFile(fileName, type_size, ALLSOCKETS));
-    // wantedFieldsFiles.emplace_back(StorageManager::getFile(fileName));
-    // FIXME: consider if address space should be global memory rather than
-    // generic
-    // Type * t = PointerType::get(((const PrimitiveType *)
-    // tin)->getLLVMType(llvmContext), /* address space */ 0);
+      wantedFieldsFiles.emplace_back(
+          StorageManager::getOrLoadFile(fileName, type_size, ALLSOCKETS));
+      // wantedFieldsFiles.emplace_back(StorageManager::getFile(fileName));
+      // FIXME: consider if address space should be global memory rather than
+      // generic
+      // Type * t = PointerType::get(((const PrimitiveType *)
+      // tin)->getLLVMType(llvmContext), /* address space */ 0);
 
-    // wantedFieldsArg_id.push_back(context->appendParameter(t, true, true));
+      // wantedFieldsArg_id.push_back(context->appendParameter(t, true, true));
 
-    if (in->getOriginalType()->getTypeID() == DSTRING) {
-      // fetch the dictionary
-      void *dict = StorageManager::getDictionaryOf(fileName);
-      ((DStringType *)(in->getOriginalType()))->setDictionary(dict);
+      if (in->getOriginalType()->getTypeID() == DSTRING) {
+        // fetch the dictionary
+        void *dict = StorageManager::getDictionaryOf(fileName);
+        ((DStringType *)(in->getOriginalType()))->setDictionary(dict);
+      }
     }
-  }
 
+    finalize_data();
+  }
+}
+
+void ScanToBlockSMPlugin::finalize_data() {
+  LLVMContext &llvmContext = context->getLLVMContext();
   Nparts = wantedFieldsFiles[0].size();
   for (size_t i = 1; i < wantedFields.size(); ++i) {
     size_t Nparts_loc = wantedFieldsFiles[i].size();
@@ -241,6 +254,7 @@ ProteusValue ScanToBlockSMPlugin::hashValueEager(ProteusValue valWrapper,
 }
 
 void ScanToBlockSMPlugin::finish() {
+  LOG(INFO) << "[ScanToBlockSMPlugin] Finish";
   vector<RecordAttribute *>::iterator it;
   int cnt = 0;
   for (it = wantedFields.begin(); it != wantedFields.end(); it++) {

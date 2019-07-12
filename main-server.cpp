@@ -21,6 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include "codegen/communication/comm-manager.hpp"
 #include "codegen/memory/block-manager.hpp"
 #include "codegen/memory/memory-manager.hpp"
 #include "codegen/topology/affinity_manager.hpp"
@@ -296,6 +297,10 @@ int main(int argc, char *argv[]) {
 
   // Initialize Google's logging library.
   LOG(INFO) << "Starting up server...";
+
+  // Force initialization of communcation manager by getting the instance
+  LOG(INFO) << "Initializing communication manager...";
+  communication::CommManager::getInstance();
 
   bool echo = false;
 

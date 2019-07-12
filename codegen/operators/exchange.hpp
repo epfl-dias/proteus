@@ -50,7 +50,7 @@ class Exchange : public UnaryOperator {
            int numOfParents, const vector<RecordAttribute *> &wantedFields,
            int slack, std::optional<expression_t> hash = std::nullopt,
            bool numa_local = true, bool rand_local_cpu = false,
-           int producers = 1, bool cpu_targets = false)
+           int producers = 1, bool cpu_targets = false, int numa_socket_id = -1)
       : UnaryOperator(child),
         context(context),
         numOfParents(numOfParents),
@@ -78,10 +78,18 @@ class Exchange : public UnaryOperator {
 
     if (cpu_targets) {
       const auto &vec = topology::getInstance().getCpuNumaNodes();
+      if (numa_socket_id >= 0 && numa_socket_id < vec.size()) {
+        const auto &numaSocket = vec[numa_socket_id];
+        for (int i = 0; i < numOfParents; ++i) {
+          target_processors.emplace_back(numaSocket);
+        }
 
-      for (int i = 0; i < numOfParents; ++i) {
-        target_processors.emplace_back(vec[i % vec.size()]);
+      } else {
+        for (int i = 0; i < numOfParents; ++i) {
+          target_processors.emplace_back(vec[i % vec.size()]);
+        }
       }
+
     } else {
       assert(topology::getInstance().getGpuCount() > 0 &&
              "Are you using an outdated plan?");

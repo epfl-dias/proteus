@@ -31,7 +31,6 @@
 #include "storage/storage-manager.hpp"
 
 class ScanToBlockSMPlugin : public Plugin {
- public:
   /**
    * Plugin for scanning columns on the gpu side.
    *
@@ -46,10 +45,16 @@ class ScanToBlockSMPlugin : public Plugin {
    * -> varchars are not yet supported
    * -> dates require more sophisticated serialization (boost?)
    */
+ protected:
+  ScanToBlockSMPlugin(ParallelContext *const context, string fnamePrefix,
+                      RecordType rec,
+                      std::vector<RecordAttribute *> &whichFields, bool load);
 
+ public:
   ScanToBlockSMPlugin(ParallelContext *const context, string fnamePrefix,
                       RecordType rec,
                       std::vector<RecordAttribute *> &whichFields);
+
   ScanToBlockSMPlugin(ParallelContext *const context, string fnamePrefix,
                       RecordType rec);
   //  ScanToBlockSMPlugin(ParallelContext* const context,
@@ -183,15 +188,19 @@ class ScanToBlockSMPlugin : public Plugin {
     throw runtime_error(error_msg);
   }
 
+ protected:
+  void finalize_data();
+
+  std::vector<RecordAttribute *> wantedFields;
+  std::vector<std::vector<mem_file>> wantedFieldsFiles;
+
  private:
   // Schema info provided
   RecordType rec;
-  std::vector<RecordAttribute *> wantedFields;
   std::vector<int> wantedFieldsArg_id;
   // llvm::Value *               tupleCnt;
   llvm::Value *blockSize;
 
-  std::vector<std::vector<mem_file>> wantedFieldsFiles;
   std::vector<size_t> wantedFieldsWidth;
 
   std::vector<llvm::Type *> parts_array;

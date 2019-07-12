@@ -4,6 +4,7 @@ set(codegen_cxx
     common/llvm-dump.cpp
     common/gpu/gpu-common.cpp
     common/symantec-config.cpp
+    communication/comm-manager.cpp
     expressions/binary-operators.cpp
     expressions/expressions-dot-evaluator.cpp
     expressions/expressions-flusher.cpp
@@ -47,6 +48,7 @@ set(codegen_cxx
     operators/unionall.cpp
     operators/unnest.cpp
     plan/plan-parser.cpp
+    plugins/aeolus-plugin.cpp
     plugins/binary-col-plugin.cpp
     plugins/binary-internal-plugin.cpp
     plugins/binary-row-plugin.cpp
