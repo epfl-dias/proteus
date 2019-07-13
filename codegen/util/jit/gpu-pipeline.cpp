@@ -96,6 +96,14 @@ GpuPipelineGen::GpuPipelineGen(Context *context, std::string pipName,
           getModule(), Intrinsic::nvvm_atomic_load_add_f32, f32PtrType));
 
   registerFunction(
+      "__syncwarp",
+      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_bar_warp_sync));
+
+  registerFunction(
+      "llvm.nvvm.bar.warp.sync",
+      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_bar_warp_sync));
+
+  registerFunction(
       "llvm.nvvm.shfl.bfly.i32",
       Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_shfl_bfly_i32));
 
