@@ -3043,6 +3043,8 @@ ExpressionType *ExpressionParser::parseExpressionType(
     return new FloatType();
   } else if (strcmp(valExprType, "date") == 0) {
     return new DateType();
+  } else if (strcmp(valExprType, "datetime") == 0) {
+    return new DateType();
   } else if (strcmp(valExprType, "string") == 0) {
     return new StringType();
   } else if (strcmp(valExprType, "dstring") == 0) {
