@@ -246,7 +246,6 @@ SingleDeviceMemoryManager<allocator, unit_cap>::~SingleDeviceMemoryManager() {
   assert(units.empty());
   assert(big_units.empty());
   assert(free_cache.empty());
-  exit(0);
 }
 
 template <typename allocator, size_t unit_cap>
