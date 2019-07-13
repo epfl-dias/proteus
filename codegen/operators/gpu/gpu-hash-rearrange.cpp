@@ -103,8 +103,6 @@ void GpuHashRearrange::consume(ParallelContext *const context,
   BasicBlock *insBB = Builder->GetInsertBlock();
   Function *F = insBB->getParent();
 
-  map<RecordAttribute, ProteusValueMemory> bindings{childState.getBindings()};
-
   Plugin *pg =
       Catalog::getInstance().getPlugin(matExpr[0].getRegisteredRelName());
   Type *oid_type = pg->getOIDType()->getLLVMType(llvmContext);
@@ -219,15 +217,10 @@ void GpuHashRearrange::consume(ParallelContext *const context,
 
   assert(numOfBuckets < 32);
 
-  Value *zero_oid = ConstantInt::get(idx_type, 0);
-
   cap = blockSize / max_width;
 
   Value *capacity = ConstantInt::get(idx_type, cap);
   Value *last_index = ConstantInt::get(idx_type, cap - 1);
-
-  BasicBlock *initBB = BasicBlock::Create(llvmContext, "init", F);
-  BasicBlock *endIBB = BasicBlock::Create(llvmContext, "endI", F);
 
   // if (threadIdx.x < parts){
   //     buff[threadIdx.x] = (uint32_t *) get_buffers();
@@ -244,50 +237,47 @@ void GpuHashRearrange::consume(ParallelContext *const context,
   std::vector<Value *> idx{context->createInt32(0), thrd};
   std::vector<Value *> idxStored{context->blockId(), thrd};
 
-  Builder->CreateCondBr(cond, initBB, endIBB);
-
-  Builder->SetInsertPoint(initBB);
-
   Function *get_buffers = context->getFunction("get_buffers");
   Function *syncthreads = context->getFunction("syncthreads");
 
-  for (size_t i = 0; i < buffs.size(); ++i) {
-    Value *buff_thrd = Builder->CreateInBoundsGEP(buffs[i], idx);
-    Value *stored_buff_thrd = Builder->CreateInBoundsGEP(
-        context->getStateVar(buffVar_id[i]), idxStored);
+  expressions::ProteusValueExpression condExpr{new BoolType(),
+                                               {cond, context->createFalse()}};
 
-    // Value * new_buff  = Builder->CreateCall(get_buffers);
+  auto activemask = gpu_intrinsic::activemask(context);
+  context->gen_if(condExpr, childState)([&] {
+    for (size_t i = 0; i < buffs.size(); ++i) {
+      Value *buff_thrd = Builder->CreateInBoundsGEP(buffs[i], idx);
+      Value *stored_buff_thrd = Builder->CreateInBoundsGEP(
+          context->getStateVar(buffVar_id[i]), idxStored);
 
-    // new_buff          = Builder->CreateBitCast(new_buff,
-    // buff_thrd->getType()->getPointerElementType());
-    Value *stored_buff = Builder->CreateLoad(stored_buff_thrd);
-    Builder->CreateStore(stored_buff, buff_thrd, true);
-  }
+      // Value * new_buff  = Builder->CreateCall(get_buffers);
 
-  Value *cnt__thrd = Builder->CreateInBoundsGEP(cnt, idx);
-  Value *stored_cnt_ptr =
-      Builder->CreateInBoundsGEP(context->getStateVar(cntVar_id), idxStored);
-  Value *stored_cnt = Builder->CreateLoad(stored_cnt_ptr);
-  Builder->CreateStore(stored_cnt, cnt__thrd, true);
+      // new_buff          = Builder->CreateBitCast(new_buff,
+      // buff_thrd->getType()->getPointerElementType());
+      Value *stored_buff = Builder->CreateLoad(stored_buff_thrd);
+      Builder->CreateStore(stored_buff, buff_thrd, true);
+    }
 
-  Value *wcnt_thrd = Builder->CreateInBoundsGEP(wcnt, idx);
-  Value *stored_wcnt_ptr =
-      Builder->CreateInBoundsGEP(context->getStateVar(wcntVar_id), idxStored);
-  Value *stored_wcnt = Builder->CreateLoad(stored_wcnt_ptr);
-  Builder->CreateStore(stored_wcnt, wcnt_thrd, true);
+    Value *cnt__thrd = Builder->CreateInBoundsGEP(cnt, idx);
+    Value *stored_cnt_ptr =
+        Builder->CreateInBoundsGEP(context->getStateVar(cntVar_id), idxStored);
+    Value *stored_cnt = Builder->CreateLoad(stored_cnt_ptr);
+    Builder->CreateStore(stored_cnt, cnt__thrd, true);
 
-  Builder->CreateBr(endIBB);
-
-  Builder->SetInsertPoint(endIBB);
+    Value *wcnt_thrd = Builder->CreateInBoundsGEP(wcnt, idx);
+    Value *stored_wcnt_ptr =
+        Builder->CreateInBoundsGEP(context->getStateVar(wcntVar_id), idxStored);
+    Value *stored_wcnt = Builder->CreateLoad(stored_wcnt_ptr);
+    Builder->CreateStore(stored_wcnt, wcnt_thrd, true);
+  });
+  auto warpsync = context->getFunction("llvm.nvvm.bar.warp.sync");
+  Builder->CreateCall(warpsync, {activemask});
 
   Builder->CreateCall(syncthreads);
 
-  context->setCurrentEntryBlock(endIBB);
+  context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
   Builder->SetInsertPoint(context->getEndingBlock());
-
-  BasicBlock *save_initBB = BasicBlock::Create(llvmContext, "save_init", F);
-  BasicBlock *save_endIBB = BasicBlock::Create(llvmContext, "save_endI", F);
 
   // __syncthreads();
   // if (threadIdx.x < parts){
@@ -297,43 +287,38 @@ void GpuHashRearrange::consume(ParallelContext *const context,
   //     wcnt[threadIdx.x] = 0;
   // }
 
-  // Value * thrd = context->threadIdInBlock();
-  // Value * numOfBucketsT = ConstantInt::get(thrd->getType(), numOfBuckets);
-  // Value * cond = Builder->CreateICmpULT(thrd, numOfBucketsT);
-
   Builder->CreateCall(syncthreads);
-  Builder->CreateCondBr(cond, save_initBB, save_endIBB);
 
-  Builder->SetInsertPoint(save_initBB);
+  activemask = gpu_intrinsic::activemask(context);
+  context->gen_if(condExpr, childState)([&] {
+    for (size_t i = 0; i < buffs.size(); ++i) {
+      Value *buff_thrd = Builder->CreateInBoundsGEP(buffs[i], idx);
+      Value *stored_buff_thrd = Builder->CreateInBoundsGEP(
+          context->getStateVar(buffVar_id[i]), idxStored);
 
-  for (size_t i = 0; i < buffs.size(); ++i) {
-    Value *buff_thrd = Builder->CreateInBoundsGEP(buffs[i], idx);
-    Value *stored_buff_thrd = Builder->CreateInBoundsGEP(
-        context->getStateVar(buffVar_id[i]), idxStored);
+      // Value * new_buff  = Builder->CreateCall(get_buffers);
 
-    // Value * new_buff  = Builder->CreateCall(get_buffers);
+      // new_buff          = Builder->CreateBitCast(new_buff,
+      // buff_thrd->getType()->getPointerElementType());
+      Value *stored_buff = Builder->CreateLoad(buff_thrd, true);
+      Builder->CreateStore(stored_buff, stored_buff_thrd);
+    }
 
-    // new_buff          = Builder->CreateBitCast(new_buff,
-    // buff_thrd->getType()->getPointerElementType());
-    Value *stored_buff = Builder->CreateLoad(buff_thrd, true);
-    Builder->CreateStore(stored_buff, stored_buff_thrd);
-  }
+    auto cnt__thrd = Builder->CreateInBoundsGEP(cnt, idx);
+    auto stored_cnt_ptr =
+        Builder->CreateInBoundsGEP(context->getStateVar(cntVar_id), idxStored);
+    auto stored_cnt = Builder->CreateLoad(cnt__thrd, true);
+    Builder->CreateStore(stored_cnt, stored_cnt_ptr);
 
-  cnt__thrd = Builder->CreateInBoundsGEP(cnt, idx);
-  stored_cnt_ptr =
-      Builder->CreateInBoundsGEP(context->getStateVar(cntVar_id), idxStored);
-  stored_cnt = Builder->CreateLoad(cnt__thrd, true);
-  Builder->CreateStore(stored_cnt, stored_cnt_ptr);
+    auto wcnt_thrd = Builder->CreateInBoundsGEP(wcnt, idx);
+    auto stored_wcnt_ptr =
+        Builder->CreateInBoundsGEP(context->getStateVar(wcntVar_id), idxStored);
+    auto stored_wcnt = Builder->CreateLoad(wcnt_thrd, true);
+    Builder->CreateStore(stored_wcnt, stored_wcnt_ptr);
+  });
+  Builder->CreateCall(warpsync, {activemask});
 
-  wcnt_thrd = Builder->CreateInBoundsGEP(wcnt, idx);
-  stored_wcnt_ptr =
-      Builder->CreateInBoundsGEP(context->getStateVar(wcntVar_id), idxStored);
-  stored_wcnt = Builder->CreateLoad(wcnt_thrd, true);
-  Builder->CreateStore(stored_wcnt, stored_wcnt_ptr);
-
-  Builder->CreateBr(save_endIBB);
-
-  context->setEndingBlock(save_endIBB);
+  context->setEndingBlock(Builder->GetInsertBlock());
 
   Builder->SetInsertPoint(insBB);
 
@@ -379,7 +364,7 @@ void GpuHashRearrange::consume(ParallelContext *const context,
       context->CreateEntryBlockAlloca(F, "mask_ptr", int32_type);
   Builder->CreateStore(UndefValue::get(int32_type), mask_ptr);
 
-  Value *laneid = context->laneId();
+  Value *mask = UndefValue::get(int32_type);
 
   // uint32_t mask;
   // #pragma unroll
@@ -392,21 +377,8 @@ void GpuHashRearrange::consume(ParallelContext *const context,
         Builder->CreateICmpEQ(target, ConstantInt::get(target_type, i));
     Value *vote = gpu_intrinsic::ballot(
         context, Builder->CreateAnd(comp, Builder->CreateLoad(not_done_ptr)));
-
-    BasicBlock *stBB = BasicBlock::Create(llvmContext, "st", F);
-    BasicBlock *mgBB = BasicBlock::Create(llvmContext, "mg", F);
-
-    Builder->CreateCondBr(comp, stBB, mgBB);
-
-    Builder->SetInsertPoint(stBB);
-    Builder->CreateStore(vote, mask_ptr);
-    Builder->CreateBr(mgBB);
-
-    Builder->SetInsertPoint(mgBB);
+    mask = Builder->CreateSelect(comp, vote, mask);
   }
-
-  BasicBlock *incIdxBB = BasicBlock::Create(llvmContext, "incIdx", F);
-  BasicBlock *mgiIdxBB = BasicBlock::Create(llvmContext, "mgiIdx", F);
 
   AllocaInst *indx_ptr = context->CreateEntryBlockAlloca(
       F, "indx_ptr", idx_type);  // consider lowering it into 32bit
@@ -416,7 +388,6 @@ void GpuHashRearrange::consume(ParallelContext *const context,
 
   // uint32_t h_leader    = mask & -mask;
   // uint32_t lanemask_eq = 1 << get_laneid();
-  Value *mask = Builder->CreateLoad(mask_ptr);
   Value *h_leader = Builder->CreateAnd(mask, Builder->CreateNeg(mask));
 
   Function *f_lanemask_eq =
@@ -425,28 +396,25 @@ void GpuHashRearrange::consume(ParallelContext *const context,
 
   // if (lanemask_eq == h_leader) idx = atomicAdd_block(cnt + h, __popc(mask));
   Value *inc_cond = Builder->CreateICmpEQ(lanemask_eq, h_leader);
-  Builder->CreateCondBr(inc_cond, incIdxBB, mgiIdxBB);
-
-  // SmallVectorImpl< StringRef > SSNs{100};
-  // llvmContext.getSyncScopeNames(SSNs);
-  // for (const auto &t: SSNs) std::cout << t << std::endl;
 
   Function *popc = context->getFunction("llvm.ctpop");
 
-  Builder->SetInsertPoint(incIdxBB);
+  expressions::ProteusValueExpression incCondExpr{
+      new BoolType(), {inc_cond, context->createFalse()}};
 
-  idx[1] = target;
-  Value *cnt_ptr = Builder->CreateInBoundsGEP(cnt, idx);
-  Value *pop = Builder->CreateCall(popc, mask);
-  // TODO: make it block atomic! but it is on shared memory, so it does not
-  // matter :P
-  Value *new_idx = Builder->CreateAtomicRMW(AtomicRMWInst::BinOp::Add, cnt_ptr,
-                                            Builder->CreateZExt(pop, idx_type),
-                                            AtomicOrdering::Monotonic);
-  Builder->CreateStore(new_idx, indx_ptr);
-  Builder->CreateBr(mgiIdxBB);
-
-  Builder->SetInsertPoint(mgiIdxBB);
+  activemask = gpu_intrinsic::activemask(context);
+  context->gen_if(incCondExpr, childState)([&]() {
+    idx[1] = target;
+    Value *cnt_ptr = Builder->CreateInBoundsGEP(cnt, idx);
+    Value *pop = Builder->CreateCall(popc, mask);
+    // TODO: make it block atomic! but it is on shared memory, so it does not
+    // matter :P
+    Value *new_idx = Builder->CreateAtomicRMW(
+        AtomicRMWInst::BinOp::Add, cnt_ptr, Builder->CreateZExt(pop, idx_type),
+        AtomicOrdering::Monotonic);
+    Builder->CreateStore(new_idx, indx_ptr);
+  });
+  Builder->CreateCall(warpsync, {activemask});
 
   // idx  = __shfl(idx, __popc(h_leader - 1)) + __popc(mask & ((1 <<
   // get_laneid()) - 1));
@@ -467,143 +435,137 @@ void GpuHashRearrange::consume(ParallelContext *const context,
       Builder->CreateCall(popc, std::vector<Value *>{Builder->CreateAnd(
                                     mask, Builder->CreateCall(lanemask_lt))}));
 
-  BasicBlock *storeBB = BasicBlock::Create(llvmContext, "store", F);
-  BasicBlock *mergeBB = BasicBlock::Create(llvmContext, "merge", F);
-
   Value *storeCond =
       Builder->CreateAnd(Builder->CreateLoad(not_done_ptr),
                          Builder->CreateICmpULT(idx_g, capacity));
+  expressions::ProteusValueExpression storeCondExpr{
+      new BoolType(), {storeCond, context->createFalse()}};
+
   // if (!done){
   //    if (idx < h_vector_size/4){
-  Builder->CreateCondBr(storeCond, storeBB, mergeBB);
+  activemask = gpu_intrinsic::activemask(context);
+  context->gen_if(storeCondExpr, childState)([&]() {
+    //        uint32_t * b_old = buff[h];
+    //        reinterpret_cast<int4 *>(b_old)[idx] = tmp.vec;
+    //        __threadfence_block(); //even safer and with the same
+    //        performance!!!! : __threadfence();
+    std::vector<Value *> buff_ptrs;
+    // std::vector<Value *> out_ptrs;
+    // std::vector<Value *> out_vals;
 
-  Builder->SetInsertPoint(storeBB);
+    idx[1] = target;
+    for (size_t i = 0; i < buffs.size(); ++i) {
+      // out_vals.push_back(UndefValue::get(b->getType()->getPointerElementType()->getPointerElementType()));
+      buff_ptrs.push_back(
+          Builder->CreateLoad(Builder->CreateInBoundsGEP(buffs[i], idx), true));
+      Value *out_ptr = Builder->CreateInBoundsGEP(buff_ptrs.back(), idx_g);
 
-  //        uint32_t * b_old = buff[h];
-  //        reinterpret_cast<int4 *>(b_old)[idx] = tmp.vec;
-  //        __threadfence_block(); //even safer and with the same
-  //        performance!!!! : __threadfence();
-  std::vector<Value *> buff_ptrs;
-  // std::vector<Value *> out_ptrs;
-  // std::vector<Value *> out_vals;
+      ExpressionGeneratorVisitor exprGenerator(context, childState);
+      ProteusValue valWrapper = matExpr[i].accept(exprGenerator);
+      Builder->CreateStore(valWrapper.value, out_ptr);
+    }
 
-  idx[1] = target;
-  for (size_t i = 0; i < buffs.size(); ++i) {
-    // out_vals.push_back(UndefValue::get(b->getType()->getPointerElementType()->getPointerElementType()));
-    buff_ptrs.push_back(
-        Builder->CreateLoad(Builder->CreateInBoundsGEP(buffs[i], idx), true));
-    Value *out_ptr = Builder->CreateInBoundsGEP(buff_ptrs.back(), idx_g);
+    // for (const GpuMatExpr &mexpr: matExpr){
+    //     ExpressionGeneratorVisitor exprGenerator(context, childState);
+    //     ProteusValue valWrapper = mexpr.expr->accept(exprGenerator);
 
-    ExpressionGeneratorVisitor exprGenerator(context, childState);
-    ProteusValue valWrapper = matExpr[i].accept(exprGenerator);
-    Builder->CreateStore(valWrapper.value, out_ptr);
-  }
+    //     out_vals[mexpr.packet] =
+    //     Builder->CreateInsertValue(out_vals[mexpr.packet], valWrapper.value,
+    //     mexpr.packind);
+    // }
 
-  // for (const GpuMatExpr &mexpr: matExpr){
-  //     ExpressionGeneratorVisitor exprGenerator(context, childState);
-  //     ProteusValue valWrapper = mexpr.expr->accept(exprGenerator);
+    // for (size_t i = 0 ; i < out_ptrs.size() ; ++i){
+    //     // Builder->CreateStore(out_vals[i], out_ptrs[i]);
+    // }
 
-  //     out_vals[mexpr.packet] =
-  //     Builder->CreateInsertValue(out_vals[mexpr.packet], valWrapper.value,
-  //     mexpr.packind);
-  // }
+    Function *threadfence = context->getFunction("threadfence");
+    Builder->CreateCall(threadfence);
 
-  // for (size_t i = 0 ; i < out_ptrs.size() ; ++i){
-  //     // Builder->CreateStore(out_vals[i], out_ptrs[i]);
-  // }
+    Value *w = Builder->CreateAtomicRMW(
+        AtomicRMWInst::BinOp::Add, Builder->CreateInBoundsGEP(wcnt, idx),
+        ConstantInt::get(idx_type, 1), AtomicOrdering::Monotonic);
 
-  Function *threadfence = context->getFunction("threadfence");
-  Builder->CreateCall(threadfence);
+    expressions::ProteusValueExpression cExpr{
+        new BoolType(),
+        {Builder->CreateICmpEQ(w, last_index), context->createFalse()}};
 
-  Value *w = Builder->CreateAtomicRMW(
-      AtomicRMWInst::BinOp::Add, Builder->CreateInBoundsGEP(wcnt, idx),
-      ConstantInt::get(idx_type, 1), AtomicOrdering::Monotonic);
+    auto activemask = gpu_intrinsic::activemask(context);
+    context->gen_if(cExpr, childState)([&] {
+      for (size_t i = 0; i < buffs.size(); ++i) {
+        Value *buff_thrd = Builder->CreateInBoundsGEP(buffs[i], idx);
+        Value *new_buff = Builder->CreateCall(get_buffers);
+        new_buff = Builder->CreateBitCast(
+            new_buff, buff_thrd->getType()->getPointerElementType());
+        Builder->CreateStore(new_buff, buff_thrd, true);
+      }
 
-  BasicBlock *replaceBB = BasicBlock::Create(llvmContext, "replace", F);
-  BasicBlock *remergeBB = BasicBlock::Create(llvmContext, "remerge", F);
+      Function *threadfence_block = context->getFunction("threadfence_block");
+      Builder->CreateCall(threadfence_block);
 
-  Builder->CreateCondBr(Builder->CreateICmpEQ(w, last_index), replaceBB,
-                        remergeBB);
+      Builder->CreateAtomicRMW(
+          AtomicRMWInst::BinOp::Xchg, Builder->CreateInBoundsGEP(wcnt, idx),
+          ConstantInt::get(idx_type, 0), AtomicOrdering::Monotonic);
 
-  Builder->SetInsertPoint(replaceBB);
+      Builder->CreateAtomicRMW(
+          AtomicRMWInst::BinOp::Xchg, Builder->CreateInBoundsGEP(cnt, idx),
+          ConstantInt::get(idx_type, 0), AtomicOrdering::Monotonic);
 
-  for (size_t i = 0; i < buffs.size(); ++i) {
-    Value *buff_thrd = Builder->CreateInBoundsGEP(buffs[i], idx);
-    Value *new_buff = Builder->CreateCall(get_buffers);
-    new_buff = Builder->CreateBitCast(
-        new_buff, buff_thrd->getType()->getPointerElementType());
-    Builder->CreateStore(new_buff, buff_thrd, true);
-  }
+      // call parent
+      RecordAttribute tupCnt =
+          RecordAttribute(matExpr[0].getRegisteredRelName(), "activeCnt",
+                          pg->getOIDType());  // FIXME: OID type for blocks ?
 
-  Function *threadfence_block = context->getFunction("threadfence_block");
-  Builder->CreateCall(threadfence_block);
+      AllocaInst *blockN_ptr =
+          context->CreateEntryBlockAlloca(F, "blockN_ptr", oid_type);
+      Builder->CreateStore(ConstantInt::get(oid_type, cap), blockN_ptr);
 
-  Builder->CreateAtomicRMW(
-      AtomicRMWInst::BinOp::Xchg, Builder->CreateInBoundsGEP(wcnt, idx),
-      ConstantInt::get(idx_type, 0), AtomicOrdering::Monotonic);
+      ProteusValueMemory mem_cntWrapper;
+      mem_cntWrapper.mem = blockN_ptr;
+      mem_cntWrapper.isNull = context->createFalse();
+      variableBindings[tupCnt] = mem_cntWrapper;
 
-  Builder->CreateAtomicRMW(
-      AtomicRMWInst::BinOp::Xchg, Builder->CreateInBoundsGEP(cnt, idx),
-      ConstantInt::get(idx_type, 0), AtomicOrdering::Monotonic);
+      Value *new_oid = Builder->CreateAtomicRMW(
+          AtomicRMWInst::BinOp::Add,
+          ((ParallelContext *)context)->getStateVar(oidVar_id),
+          ConstantInt::get(oid_type, cap), AtomicOrdering::Monotonic);
+      new_oid->setName("oid");
 
-  // call parent
-  RecordAttribute tupCnt =
-      RecordAttribute(matExpr[0].getRegisteredRelName(), "activeCnt",
-                      pg->getOIDType());  // FIXME: OID type for blocks ?
+      AllocaInst *new_oid_ptr =
+          context->CreateEntryBlockAlloca(F, "new_oid_ptr", oid_type);
+      Builder->CreateStore(new_oid, new_oid_ptr);
 
-  AllocaInst *blockN_ptr =
-      context->CreateEntryBlockAlloca(F, "blockN_ptr", oid_type);
-  Builder->CreateStore(ConstantInt::get(oid_type, cap), blockN_ptr);
+      RecordAttribute tupleIdentifier = RecordAttribute(
+          matExpr[0].getRegisteredRelName(), activeLoop, pg->getOIDType());
 
-  ProteusValueMemory mem_cntWrapper;
-  mem_cntWrapper.mem = blockN_ptr;
-  mem_cntWrapper.isNull = context->createFalse();
-  variableBindings[tupCnt] = mem_cntWrapper;
+      ProteusValueMemory mem_oidWrapper;
+      mem_oidWrapper.mem = new_oid_ptr;
+      mem_oidWrapper.isNull = context->createFalse();
+      variableBindings[tupleIdentifier] = mem_oidWrapper;
 
-  Value *new_oid = Builder->CreateAtomicRMW(
-      AtomicRMWInst::BinOp::Add,
-      ((ParallelContext *)context)->getStateVar(oidVar_id),
-      ConstantInt::get(oid_type, cap), AtomicOrdering::Monotonic);
-  new_oid->setName("oid");
+      for (size_t i = 0; i < matExpr.size(); ++i) {
+        AllocaInst *mem_arg = context->CreateEntryBlockAlloca(
+            F, "mem_" + matExpr[i].getRegisteredAttrName(),
+            buff_ptrs[i]->getType());
 
-  AllocaInst *new_oid_ptr =
-      context->CreateEntryBlockAlloca(F, "new_oid_ptr", oid_type);
-  Builder->CreateStore(new_oid, new_oid_ptr);
+        Builder->CreateStore(buff_ptrs[i], mem_arg);
 
-  RecordAttribute tupleIdentifier = RecordAttribute(
-      matExpr[0].getRegisteredRelName(), activeLoop, pg->getOIDType());
+        ProteusValueMemory mem_valWrapper;
+        mem_valWrapper.mem = mem_arg;
+        mem_valWrapper.isNull = context->createFalse();
 
-  ProteusValueMemory mem_oidWrapper;
-  mem_oidWrapper.mem = new_oid_ptr;
-  mem_oidWrapper.isNull = context->createFalse();
-  variableBindings[tupleIdentifier] = mem_oidWrapper;
+        RecordAttribute battr(matExpr[i].getRegisteredAs(), true);
 
-  for (size_t i = 0; i < matExpr.size(); ++i) {
-    AllocaInst *mem_arg = context->CreateEntryBlockAlloca(
-        F, "mem_" + matExpr[i].getRegisteredAttrName(),
-        buff_ptrs[i]->getType());
+        variableBindings[battr] = mem_valWrapper;
+      }
 
-    Builder->CreateStore(buff_ptrs[i], mem_arg);
+      OperatorState state{*this, variableBindings};
+      getParent()->consume(context, state);
+    });
+    Builder->CreateCall(warpsync, {activemask});
 
-    ProteusValueMemory mem_valWrapper;
-    mem_valWrapper.mem = mem_arg;
-    mem_valWrapper.isNull = context->createFalse();
-
-    RecordAttribute battr(matExpr[i].getRegisteredAs(), true);
-
-    variableBindings[battr] = mem_valWrapper;
-  }
-
-  OperatorState state{*this, variableBindings};
-  getParent()->consume(context, state);
-
-  Builder->CreateBr(remergeBB);
-  Builder->SetInsertPoint(remergeBB);
-
-  Builder->CreateStore(context->createFalse(), not_done_ptr);
-
-  Builder->CreateBr(mergeBB);
-  Builder->SetInsertPoint(mergeBB);
+    Builder->CreateStore(context->createFalse(), not_done_ptr);
+  });
+  Builder->CreateCall(warpsync, {activemask});
 
   Value *any = gpu_intrinsic::any(context, Builder->CreateLoad(not_done_ptr));
 
@@ -679,7 +641,6 @@ void GpuHashRearrange::consume_flush(IntegerType *target_type) {
     IntegerType *int32_type = Type::getInt32Ty(llvmContext);
     IntegerType *int64_type = Type::getInt64Ty(llvmContext);
     Type *charPtrType = Type::getInt8PtrTy(llvmContext);
-    Type *bool_type = context->createTrue()->getType();
 
     IntegerType *size_type;
     if (sizeof(size_t) == 4)
@@ -702,12 +663,11 @@ void GpuHashRearrange::consume_flush(IntegerType *target_type) {
     Value *numOfBucketsT = ConstantInt::get(target_type, numOfBuckets);
     Value *cond = Builder->CreateICmpULT(target, numOfBucketsT);
 
-    Builder->CreateCondBr(cond, initBB, endIBB);
+    BasicBlock *endJBB = BasicBlock::Create(llvmContext, "endJ", F);
+    auto activemask = gpu_intrinsic::activemask(context);
+    Builder->CreateCondBr(cond, initBB, endJBB);
 
     Builder->SetInsertPoint(initBB);
-
-    Function *get_buffers = context->getFunction("get_buffers");
-    Function *syncthreads = context->getFunction("syncthreads");
 
     std::vector<Value *> idx{context->createInt32(0), thrd};
     std::vector<Value *> idxStored{context->blockId(), thrd};
@@ -743,7 +703,7 @@ void GpuHashRearrange::consume_flush(IntegerType *target_type) {
                                  buff_ptrs[i], charPtrType)});
     }
 
-    Builder->CreateBr(endIBB);
+    Builder->CreateBr(endJBB);
 
     Builder->SetInsertPoint(non_emptyBB);
 
@@ -815,6 +775,10 @@ void GpuHashRearrange::consume_flush(IntegerType *target_type) {
     OperatorState state{*this, variableBindings};
     getParent()->consume(context, state);
 
+    Builder->CreateBr(endJBB);
+    Builder->SetInsertPoint(endJBB);
+    auto warpsync = context->getFunction("llvm.nvvm.bar.warp.sync");
+    Builder->CreateCall(warpsync, {activemask});
     Builder->CreateBr(endIBB);
 
     Builder->SetInsertPoint(context->getCurrentEntryBlock());
@@ -940,7 +904,7 @@ void GpuHashRearrange::close(Pipeline *pip) {
   size_t grid_size = ec.gridSize();
 
   void **buffs = pip->getStateVar<void **>(buffVar_id[0]);
-  int32_t *cnts = pip->getStateVar<int32_t *>(cntVar_id);
+  // int32_t *cnts = pip->getStateVar<int32_t *>(cntVar_id);
 
   void **h_buffs;
   int32_t *h_cnts;
