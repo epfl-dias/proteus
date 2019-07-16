@@ -139,6 +139,20 @@ topology::topology() {
     }
   }
 }
+std::ostream &operator<<(std::ostream &out, const cpu_set_t &cpus) {
+  long cores = sysconf(_SC_NPROCESSORS_ONLN);
+
+  bool printed = false;
+
+  for (int i = 0; i < cores; ++i)
+    if (CPU_ISSET(i, &cpus)) {
+      if (printed) out << ",";
+      printed = true;
+      out << i;
+    }
+
+  return out;
+}
 
 std::ostream &operator<<(std::ostream &out, const topology &topo) {
   out << "numa nodes: " << topo.getCpuNumaNodeCount() << "\n";

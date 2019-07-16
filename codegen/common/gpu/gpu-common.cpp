@@ -68,21 +68,6 @@ void launch_kernel_strm_single(CUfunction function, void **args,
 }
 }
 
-std::ostream &operator<<(std::ostream &out, const cpu_set_t &cpus) {
-  long cores = sysconf(_SC_NPROCESSORS_ONLN);
-
-  bool printed = false;
-
-  for (int i = 0; i < cores; ++i)
-    if (CPU_ISSET(i, &cpus)) {
-      if (printed) out << ",";
-      printed = true;
-      out << i;
-    }
-
-  return out;
-}
-
 // Disable by default, as, active, it does not guarantee NUMA locality!
 bool allow_readwrite = false;
 
