@@ -190,6 +190,7 @@ class ScanToBlockSMPlugin : public Plugin {
 
  protected:
   void finalize_data();
+  virtual RecordType getRowType() const;
 
   std::vector<RecordAttribute *> wantedFields;
   std::vector<std::vector<mem_file>> wantedFieldsFiles;

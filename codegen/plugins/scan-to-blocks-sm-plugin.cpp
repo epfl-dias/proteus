@@ -1033,3 +1033,16 @@ void ScanToBlockSMPlugin::scan(const ::Operator &producer) {
   Builder->SetInsertPoint(context->getEndingBlock());
   // Builder->SetInsertPoint(AfterBB);
 }
+
+RecordType ScanToBlockSMPlugin::getRowType() const {
+  std::vector<RecordAttribute *> rec;
+  for (const auto &attr : this->wantedFields) {
+    auto ptr = attr;
+    // This plugin outputs blocks, so let's convert any attribute to a BlockType
+    // if (!dynamic_cast<const BlockType *>(ptr->getOriginalType())) {
+    //   ptr = new RecordAttribute(*attr, true);
+    // }
+    rec.emplace_back(ptr);
+  }
+  return rec;
+}

@@ -53,6 +53,17 @@ class GpuHashRearrange : public UnaryOperator {
                        const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
+  virtual RecordType getRowType() const {
+    std::vector<RecordAttribute *> attr;
+    for (const auto &t : matExpr) {
+      attr.emplace_back(new RecordAttribute(t.getRegisteredAs(), true));
+    }
+    if (hashExpr.isRegistered()) {
+      attr.emplace_back(new RecordAttribute(hashExpr.getRegisteredAs()));
+    }
+    return attr;
+  }
+
  protected:
   virtual void consume_flush(llvm::IntegerType *target_type);
 

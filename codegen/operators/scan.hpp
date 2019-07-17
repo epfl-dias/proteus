@@ -42,6 +42,8 @@ class Scan : public UnaryOperator {
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
+  virtual RecordType getRowType() const;
+
   virtual DeviceType getDeviceType() const { return DeviceType::CPU; }
 
  private:

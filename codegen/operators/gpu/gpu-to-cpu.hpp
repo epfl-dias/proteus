@@ -44,6 +44,8 @@ class GpuToCpu : public DeviceCross {
   virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
 
+  virtual RecordType getRowType() const { return wantedFields; }
+
   virtual DeviceType getDeviceType() const {
     assert(getChild()->getDeviceType() == DeviceType::GPU);
     return DeviceType::CPU;

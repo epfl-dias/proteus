@@ -51,6 +51,21 @@ class BlockToTuples : public UnaryOperator {
                        const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
+  virtual RecordType getRowType() const {
+    std::vector<RecordAttribute *> attrs;
+    for (const auto &attr : wantedFields) {
+      auto a = attr.getRegisteredAs();
+      auto type = a.getOriginalType();
+      if (dynamic_cast<const BlockType *>(type)) {
+        type = &(dynamic_cast<const BlockType *>(type)->getNestedType());
+      }
+      auto rec =
+          new RecordAttribute(a.getRelationName(), a.getAttrName(), type);
+      attrs.emplace_back(rec);
+    }
+    return attrs;
+  }
+
  private:
   void nextEntry();
   virtual void open(Pipeline *pip);

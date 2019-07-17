@@ -49,6 +49,14 @@ class Reduce : public UnaryOperator {
     return context->getStateVar(mem_accumulators[index]);
   }
 
+  virtual RecordType getRowType() const {
+    std::vector<RecordAttribute *> attrs;
+    for (const auto &attr : outputExprs) {
+      attrs.emplace_back(new RecordAttribute{attr.getRegisteredAs()});
+    }
+    return attrs;
+  }
+
  protected:
   Context *context;
 

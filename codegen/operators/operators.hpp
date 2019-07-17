@@ -57,6 +57,12 @@ class Operator {
    */
   virtual void consume(Context *const context,
                        const OperatorState &childState) = 0;
+
+  virtual RecordType getRowType() const {
+    // FIXME: throw an exception for now, but as soon as existing classes
+    // implementat it, we should mark it function abstract
+    throw runtime_error("unimplemented");
+  }
   /* Used by caching service. Aim is finding whether data to be cached has been
    * filtered by some of the children operators of the plan */
   virtual bool isFiltering() const = 0;

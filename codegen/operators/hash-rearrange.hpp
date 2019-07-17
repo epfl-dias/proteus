@@ -49,6 +49,17 @@ class HashRearrange : public UnaryOperator {
   llvm::Value *hash(const std::vector<expression_t> &exprs,
                     Context *const context, const OperatorState &childState);
 
+  virtual RecordType getRowType() const {
+    std::vector<RecordAttribute *> attr;
+    for (const auto &t : wantedFields) {
+      attr.emplace_back(new RecordAttribute(t.getRegisteredAs(), true));
+    }
+    if (hashExpr.isRegistered()) {
+      attr.emplace_back(new RecordAttribute(hashExpr.getRegisteredAs()));
+    }
+    return attr;
+  }
+
  protected:
   virtual void consume_flush();
 

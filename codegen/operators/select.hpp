@@ -34,6 +34,8 @@ class Select : public UnaryOperator {
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return true; }
 
+  virtual RecordType getRowType() const { return getChild()->getRowType(); }
+
  private:
   expression_t expr;
   void generate(Context *const context, const OperatorState &childState) const;

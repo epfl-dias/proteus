@@ -34,3 +34,5 @@ void Scan::consume(Context *const context, const OperatorState &childState) {
   // throw runtime_error(string("Scan operator cannot consume"));     //FIXME:
   // this should in general be true, but not for the block2tuple scan
 }
+
+RecordType Scan::getRowType() const { return pg.getRowType(); }
