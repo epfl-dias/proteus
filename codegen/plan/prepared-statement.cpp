@@ -22,6 +22,7 @@
 */
 
 #include "plan/prepared-statement.hpp"
+
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 

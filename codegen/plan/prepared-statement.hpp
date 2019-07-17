@@ -24,9 +24,9 @@
 #ifndef PREPARED_STATEMENT_HPP_
 #define PREPARED_STATEMENT_HPP_
 
-#include "util/jit/pipeline.hpp"
-
 #include <vector>
+
+#include "util/jit/pipeline.hpp"
 
 class PreparedStatement {
  private:

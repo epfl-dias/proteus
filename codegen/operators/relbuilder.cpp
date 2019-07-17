@@ -22,6 +22,9 @@
 */
 
 #include "operators/relbuilder.hpp"
+
+#include <iomanip>
+
 #include "operators/block-to-tuples.hpp"
 #include "operators/cpu-to-gpu.hpp"
 #include "operators/flush.hpp"
@@ -33,8 +36,6 @@
 #include "operators/reduce-opt.hpp"
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
-
-#include <iomanip>
 #if __has_include("ittnotify.h")
 #include <ittnotify.h>
 #else
