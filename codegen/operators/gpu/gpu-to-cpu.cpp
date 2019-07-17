@@ -286,6 +286,7 @@ void GpuToCpu::consume(ParallelContext *const context,
     Builder->SetInsertPoint(readLastBB);
     auto warpsync = context->getFunction("llvm.nvvm.bar.warp.sync");
     Builder->CreateCall(warpsync, {activemask});
+
     // Builder->SetInsertPoint(preAfterBB);
     // Builder->CreateBr(afterBB);
   }

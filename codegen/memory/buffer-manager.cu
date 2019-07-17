@@ -40,8 +40,6 @@
 #include "common/gpu/gpu-common.hpp"
 #include "topology/affinity_manager.hpp"
 #include "util/threadsafe_device_stack.cuh"
-// #include <utmpx.h>
-// #include <unistd.h>
 
 #ifndef NCUDA
 __device__ __constant__
@@ -546,11 +544,11 @@ __host__ void buffer_manager<T>::destroy() {
   }
 
   for (const auto &cpu : topo.getCpuNumaNodes()) {
-    //    buffer_pool_constrs.emplace_back([cpu] {
-    set_exec_location_on_scope cu{cpu};
-    MemoryManager::freePinned(h_h_buff_start[cpu.id]);
-    delete h_pool_numa[cpu.id];
-    //    });
+    buffer_pool_constrs.emplace_back([cpu] {
+      set_exec_location_on_scope cu{cpu};
+      MemoryManager::freePinned(h_h_buff_start[cpu.id]);
+      delete h_pool_numa[cpu.id];
+    });
   }
 
   for (auto &t : buffer_pool_constrs) t.join();
