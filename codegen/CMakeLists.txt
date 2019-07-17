@@ -40,6 +40,7 @@ set(codegen_cxx
     operators/radix-join.cpp
     operators/radix-nest.cpp
     operators/reduce-opt.cpp
+    operators/relbuilder.cpp
     operators/root.cpp
     operators/scan.cpp
     operators/select.cpp
@@ -48,6 +49,7 @@ set(codegen_cxx
     operators/unionall.cpp
     operators/unnest.cpp
     plan/plan-parser.cpp
+    plan/prepared-statement.cpp
     plugins/aeolus-plugin.cpp
     plugins/binary-col-plugin.cpp
     plugins/binary-internal-plugin.cpp
