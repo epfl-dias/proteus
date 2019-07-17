@@ -41,6 +41,11 @@ class CpuToGpu : public DeviceCross {
 
   virtual void generateGpuSide();
 
+  virtual DeviceType getDeviceType() const {
+    assert(getChild()->getDeviceType() == DeviceType::CPU);
+    return DeviceType::GPU;
+  }
+
  private:
   const vector<RecordAttribute *> wantedFields;
 

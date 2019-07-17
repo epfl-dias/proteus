@@ -34,6 +34,8 @@
 class Plugin;
 class OperatorState;
 
+enum class DeviceType { CPU, GPU };
+
 class Operator {
  public:
   Operator() : parent(NULL) {}
@@ -59,6 +61,8 @@ class Operator {
    * filtered by some of the children operators of the plan */
   virtual bool isFiltering() const = 0;
 
+  virtual DeviceType getDeviceType() const = 0;
+
  private:
   Operator *parent;
 };
@@ -70,6 +74,10 @@ class UnaryOperator : public Operator {
 
   Operator *const getChild() const { return child; }
   void setChild(Operator *const child) { this->child = child; }
+
+  virtual DeviceType getDeviceType() const {
+    return getChild()->getDeviceType();
+  }
 
  private:
   Operator *child;
@@ -83,10 +91,16 @@ class BinaryOperator : public Operator {
                  Plugin *const leftPlugin, Plugin *const rightPlugin)
       : Operator(), leftChild(leftChild), rightChild(rightChild) {}
   virtual ~BinaryOperator() { LOG(INFO) << "Collapsing binary operator"; }
-  Operator *getLeftChild() { return leftChild; }
-  Operator *getRightChild() { return rightChild; }
+  Operator *getLeftChild() const { return leftChild; }
+  Operator *getRightChild() const { return rightChild; }
   void setLeftChild(Operator *leftChild) { this->leftChild = leftChild; }
   void setRightChild(Operator *rightChild) { this->rightChild = rightChild; }
+
+  virtual DeviceType getDeviceType() const {
+    auto dev = getLeftChild()->getDeviceType();
+    assert(dev == getRightChild()->getDeviceType());
+    return dev;
+  }
 
  protected:
   Operator *leftChild;
