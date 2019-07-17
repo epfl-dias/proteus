@@ -25,6 +25,7 @@
 
 #include "expressions/expressions-flusher.hpp"
 #include "expressions/expressions-generator.hpp"
+#include "util/gpu/gpu-intrinsics.hpp"
 
 using namespace llvm;
 
@@ -371,7 +372,13 @@ void GpuSort::flush_sorted() {
   else
     cond = Builder->CreateICmpEQ(indx, ConstantInt::get(indx->getType(), 0));
   // Insert the conditional branch into the end of CondBB.
+
+  auto activemask = gpu_intrinsic::activemask(context);
   Builder->CreateCondBr(cond, LoopBB, AfterBB);
+
+  Builder->SetInsertPoint(AfterBB);
+  auto warpsync = context->getFunction("llvm.nvvm.bar.warp.sync");
+  Builder->CreateCall(warpsync, {activemask});
 
   // Start insertion in LoopBB.
   Builder->SetInsertPoint(LoopBB);
@@ -447,7 +454,6 @@ void GpuSort::flush_sorted() {
 
   // Insert an explicit fall through from the current (body) block to IncBB.
   Builder->CreateBr(AfterBB);
-
   // Builder->SetInsertPoint(IncBB);
 
   // Value * next = Builder->CreateAdd(indx, ConstantInt::get(oid_type, 1));

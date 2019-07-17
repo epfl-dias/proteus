@@ -28,6 +28,7 @@
 #include "expressions/expressions-hasher.hpp"
 #include "operators/gpu/gmonoids.hpp"
 #include "topology/topology.hpp"
+#include "util/gpu/gpu-intrinsics.hpp"
 
 using namespace llvm;
 
@@ -68,6 +69,7 @@ void GpuHashGroupByChained::generate_build(ParallelContext *const context,
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
+  auto activemask_all = gpu_intrinsic::activemask(context);
   // PointerType *charPtrType = Type::getInt8PtrTy(llvmContext);
   // Type *int8_type = Type::getInt8Ty(llvmContext);
   // PointerType *void_ptr_type = PointerType::get(int8_type, 0);
@@ -143,10 +145,10 @@ void GpuHashGroupByChained::generate_build(ParallelContext *const context,
 
   // BasicBlock *InitCondBB  = BasicBlock::Create(llvmContext, "setHeadCond",
   // TheFunction);
-  BasicBlock *InitThenBB =
-      BasicBlock::Create(llvmContext, "setHead", TheFunction);
-  BasicBlock *InitMergeBB =
-      BasicBlock::Create(llvmContext, "cont", TheFunction);
+  // BasicBlock *InitThenBB =
+  //     BasicBlock::Create(llvmContext, "setHead", TheFunction);
+  // BasicBlock *InitMergeBB =
+  //     BasicBlock::Create(llvmContext, "cont", TheFunction);
 
   BasicBlock *ThenBB =
       BasicBlock::Create(llvmContext, "chainFollow", TheFunction);
@@ -156,53 +158,54 @@ void GpuHashGroupByChained::generate_build(ParallelContext *const context,
       Builder->CreateICmpEQ(Builder->CreateLoad(mem_current), eochain);
 
   // if (current == ((uint32_t) -1)){
-  Builder->CreateCondBr(init_cond, InitThenBB, InitMergeBB);
 
-  Builder->SetInsertPoint(InitThenBB);
+  expressions::ProteusValueExpression initCondExpr{
+      new BoolType(), ProteusValue{init_cond, context->createFalse()}};
 
-  // index
-  Value *old_cnt = context->workerScopedAtomicAdd(
-      out_cnt,
-      ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1));
-  old_cnt->setName("index");
-  Builder->CreateStore(old_cnt, mem_idx);
+  auto activemask = gpu_intrinsic::activemask(context);
+  context->gen_if(initCondExpr, childState)([&]() {
+    // index
+    Value *old_cnt = context->workerScopedAtomicAdd(
+        out_cnt,
+        ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1));
+    old_cnt->setName("index");
+    Builder->CreateStore(old_cnt, mem_idx);
 
-  // next[idx].sum  = val;
-  // next[idx].key  = key;
-  // next[idx].next =  -1;
-  context->workerScopedAtomicXchg(
-      Builder->CreateBitCast(
-          Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0]),
-                                     old_cnt),
-          PointerType::getInt32PtrTy(llvmContext)),
-      eochain);
+    // next[idx].sum  = val;
+    // next[idx].key  = key;
+    // next[idx].next =  -1;
+    context->workerScopedAtomicXchg(
+        Builder->CreateBitCast(
+            Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0]),
+                                       old_cnt),
+            PointerType::getInt32PtrTy(llvmContext)),
+        eochain);
 
-  for (size_t i = 1; i < out_param_ids.size(); ++i) {
-    Value *out_ptr = context->getStateVar(out_param_ids[i]);
+    for (size_t i = 1; i < out_param_ids.size(); ++i) {
+      Value *out_ptr = context->getStateVar(out_param_ids[i]);
 
-    Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
-    Builder->CreateAlignedStore(out_vals[i], out_ptr_i, packet_widths[i] / 8,
-                                true);
-  }
+      Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
+      Builder->CreateAlignedStore(out_vals[i], out_ptr_i, packet_widths[i] / 8,
+                                  true);
+    }
 
-  // written = true;
-  Builder->CreateStore(v_true, mem_written);
+    // written = true;
+    Builder->CreateStore(v_true, mem_written);
 
-  context->workerScopedMembar();
+    context->workerScopedMembar();
 
-  // current = atomicCAS(&(first[bucket]), -1, idx);
-  Value *old_current = Builder->CreateAtomicCmpXchg(
-      head_w_hash_ptr, eochain, old_cnt, llvm::AtomicOrdering::Monotonic,
-      llvm::AtomicOrdering::Monotonic);
+    // current = atomicCAS(&(first[bucket]), -1, idx);
+    Value *old_current = Builder->CreateAtomicCmpXchg(
+        head_w_hash_ptr, eochain, old_cnt, llvm::AtomicOrdering::Monotonic,
+        llvm::AtomicOrdering::Monotonic);
 
-  Builder->CreateStore(Builder->CreateExtractValue(old_current, 0),
-                       mem_current);
-  Value *suc = Builder->CreateICmpEQ(Builder->CreateLoad(mem_current), eochain);
+    Builder->CreateStore(Builder->CreateExtractValue(old_current, 0),
+                         mem_current);
+  });
+  auto warpsync = context->getFunction("llvm.nvvm.bar.warp.sync");
+  Builder->CreateCall(warpsync, {activemask});
 
-  Builder->CreateCondBr(suc, MergeBB, InitMergeBB);
-  // }
-  // Builder->CreateBr(InitMergeBB);
-  Builder->SetInsertPoint(InitMergeBB);
+  Value *gactivemask = activemask;
 
   // if (current != ((uint32_t) -1)){
   //     while (true) {
@@ -211,6 +214,9 @@ void GpuHashGroupByChained::generate_build(ParallelContext *const context,
       Builder->CreateICmpNE(Builder->CreateLoad(mem_current), eochain);
 
   Builder->CreateCondBr(chain_cond, ThenBB, MergeBB);
+
+  Builder->SetInsertPoint(MergeBB);
+  Builder->CreateCall(warpsync, {gactivemask});
 
   Builder->SetInsertPoint(ThenBB);
   current = Builder->CreateLoad(mem_current);
@@ -265,9 +271,6 @@ void GpuHashGroupByChained::generate_build(ParallelContext *const context,
 
   Builder->SetInsertPoint(BucketFoundBB);
 
-  BasicBlock *InvalidateEntryBB =
-      BasicBlock::Create(llvmContext, "InvalidateEntry", TheFunction);
-
   // atomicAdd(&(next[current].sum), val);
   for (size_t i = 0; i < agg_exprs.size(); ++i) {
     if (agg_exprs[i].is_aggregation()) {
@@ -286,22 +289,25 @@ void GpuHashGroupByChained::generate_build(ParallelContext *const context,
     }
   }
 
-  Builder->CreateCondBr(Builder->CreateLoad(mem_written), InvalidateEntryBB,
-                        MergeBB);
+  activemask = gpu_intrinsic::activemask(context);
   // if (written) next[idx].next = idx;
+  expressions::ProteusValueExpression writtenExpr{
+      new BoolType(),
+      ProteusValue{Builder->CreateLoad(mem_written), context->createFalse()}};
+  context->gen_if(writtenExpr, childState)([&] {
+    // Value * str = UndefValue::get(((const ParallelContext *)
+    // context)->getStateVar(out_param_ids[0])->getType()->getPointerElementType());
+    // str = Builder->CreateInsertValue(str, Builder->CreateLoad(mem_idx), 0);
+    Value *inv_ptr = Builder->CreateInBoundsGEP(
+        context->getStateVar(out_param_ids[0]),
+        std::vector<Value *>{Builder->CreateLoad(mem_idx),
+                             context->createInt32(0)});
+
+    context->workerScopedAtomicXchg(inv_ptr, Builder->CreateLoad(mem_idx));
+    // Builder->CreateAlignedStore(str, , packet_widths[0]/8);
+  });
+  Builder->CreateCall(warpsync, {activemask});
   // break;
-  Builder->SetInsertPoint(InvalidateEntryBB);
-
-  // Value * str = UndefValue::get(((const ParallelContext *)
-  // context)->getStateVar(out_param_ids[0])->getType()->getPointerElementType());
-  // str = Builder->CreateInsertValue(str, Builder->CreateLoad(mem_idx), 0);
-  Value *inv_ptr = Builder->CreateInBoundsGEP(
-      context->getStateVar(out_param_ids[0]),
-      std::vector<Value *>{Builder->CreateLoad(mem_idx),
-                           context->createInt32(0)});
-
-  context->workerScopedAtomicXchg(inv_ptr, Builder->CreateLoad(mem_idx));
-  // Builder->CreateAlignedStore(str, , packet_widths[0]/8);
 
   Builder->CreateBr(MergeBB);
 
@@ -318,65 +324,70 @@ void GpuHashGroupByChained::generate_build(ParallelContext *const context,
 
   Builder->SetInsertPoint(EndFoundBB);
 
-  BasicBlock *CreateBucketBB =
-      BasicBlock::Create(llvmContext, "CreateBucket", TheFunction);
-  BasicBlock *ContLinkingBB =
-      BasicBlock::Create(llvmContext, "ContLinking", TheFunction);
+  // BasicBlock *CreateBucketBB =
+  //     BasicBlock::Create(llvmContext, "CreateBucket", TheFunction);
+  // BasicBlock *ContLinkingBB =
+  //     BasicBlock::Create(llvmContext, "ContLinking", TheFunction);
 
+  expressions::ProteusValueExpression condExpr{
+      new BoolType(),
+      {Builder->CreateNot(Builder->CreateLoad(mem_written)),
+       context->createFalse()}};
+
+  activemask = gpu_intrinsic::activemask(context);
   // if (!written){
-  Builder->CreateCondBr(Builder->CreateLoad(mem_written), ContLinkingBB,
-                        CreateBucketBB);
+  context->gen_if(condExpr, childState)([&]() {
+    // index
+    Value *old_cnt = context->workerScopedAtomicAdd(
+        out_cnt,
+        ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1));
+    Builder->CreateStore(old_cnt, mem_idx);
 
-  Builder->SetInsertPoint(CreateBucketBB);
+    // next[idx].sum  = val;
+    // next[idx].key  = key;
+    // next[idx].next =  -1;
+    context->workerScopedAtomicXchg(
+        Builder->CreateBitCast(
+            Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0]),
+                                       old_cnt),
+            PointerType::getInt32PtrTy(llvmContext)),
+        eochain);
 
-  // index
-  old_cnt = context->workerScopedAtomicAdd(
-      out_cnt,
-      ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1));
-  Builder->CreateStore(old_cnt, mem_idx);
+    for (size_t i = 1; i < out_param_ids.size(); ++i) {
+      Value *out_ptr = context->getStateVar(out_param_ids[i]);
 
-  // next[idx].sum  = val;
-  // next[idx].key  = key;
-  // next[idx].next =  -1;
-  context->workerScopedAtomicXchg(
-      Builder->CreateBitCast(
-          Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0]),
-                                     old_cnt),
-          PointerType::getInt32PtrTy(llvmContext)),
-      eochain);
+      Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
+      Builder->CreateAlignedStore(out_vals[i], out_ptr_i, packet_widths[i] / 8,
+                                  true);
+    }
 
-  for (size_t i = 1; i < out_param_ids.size(); ++i) {
-    Value *out_ptr = context->getStateVar(out_param_ids[i]);
+    // written = true;
+    Builder->CreateStore(v_true, mem_written);
 
-    Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
-    Builder->CreateAlignedStore(out_vals[i], out_ptr_i, packet_widths[i] / 8,
-                                true);
-  }
+    // __threadfence();
+    // }
+    context->workerScopedMembar();
+  });
+  Builder->CreateCall(warpsync, {activemask});
 
-  // written = true;
-  Builder->CreateStore(v_true, mem_written);
-
-  // __threadfence();
-  // }
-  context->workerScopedMembar();
-  Builder->CreateBr(ContLinkingBB);
-
-  Builder->SetInsertPoint(ContLinkingBB);
   // new_next = atomicCAS(&(next[current].next), -1, idx);
   std::vector<Value *> tmp{current, context->createInt32(0)};
+  auto activemask3 = gpu_intrinsic::activemask(context);
   Value *new_next = Builder->CreateAtomicCmpXchg(
       Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0]), tmp),
       eochain, Builder->CreateLoad(mem_idx), llvm::AtomicOrdering::Monotonic,
       llvm::AtomicOrdering::Monotonic);
+  Builder->CreateCall(warpsync, {activemask3});
   context->workerScopedMembar();
   // current = new_next;
   Builder->CreateStore(Builder->CreateExtractValue(new_next, 0), mem_current);
-  // if (new_next == ((uint32_t) -1))
+  // if (new_next == ((uint32_t) -1)) break;
   // Value * valid_insert = Builder->CreateICmpEQ(new_next, eochain);
   Builder->CreateCondBr(Builder->CreateExtractValue(new_next, 1), MergeBB,
                         ThenBB);
 
   Builder->SetInsertPoint(MergeBB);
+  Builder->CreateCall(warpsync, {activemask_all});
 }
 
 void GpuHashGroupByChained::open(Pipeline *pip) {

@@ -31,6 +31,7 @@
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "topology/topology.hpp"
+#include "util/gpu/gpu-intrinsics.hpp"
 #include "util/jit/cpu-pipeline.hpp"
 
 using namespace llvm;
@@ -95,21 +96,26 @@ GpuPipelineGen::GpuPipelineGen(Context *context, std::string pipName,
       Intrinsic::getDeclaration(
           getModule(), Intrinsic::nvvm_atomic_load_add_f32, f32PtrType));
 
-  registerFunction(
-      "__syncwarp",
-      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_bar_warp_sync));
 
   registerFunction(
       "llvm.nvvm.bar.warp.sync",
       Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_bar_warp_sync));
 
   registerFunction(
-      "llvm.nvvm.shfl.bfly.i32",
-      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_shfl_bfly_i32));
+      "llvm.nvvm.vote.all.sync",
+      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_vote_all_sync));
 
   registerFunction(
-      "llvm.nvvm.shfl.idx.i32",
-      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_shfl_idx_i32));
+      "llvm.nvvm.vote.any.sync",
+      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_vote_any_sync));
+
+  registerFunction(
+      "llvm.nvvm.vote.ballot.sync",
+      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_vote_ballot_sync));
+
+  registerFunction(
+      "llvm.nvvm.vote.uni.sync",
+      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_vote_uni_sync));
 
   registerFunction(
       "atomicAdd_double",
@@ -190,10 +196,6 @@ GpuPipelineGen::GpuPipelineGen(Context *context, std::string pipName,
   registerFunction(
       "llvm.ctpop",
       Intrinsic::getDeclaration(getModule(), Intrinsic::ctpop, int32_type));
-
-  registerFunction(
-      "llvm.nvvm.bar.warp.sync",
-      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_bar_warp_sync));
 
   registerFunction("llvm.nvvm.shfl.sync.bfly.i32",
                    Intrinsic::getDeclaration(
@@ -787,16 +789,22 @@ Function *const GpuPipelineGen::getFunction(string funcName) const {
 }
 
 Value *GpuPipelineGen::workerScopedAtomicAdd(Value *ptr, Value *inc) {
+  auto activemask = gpu_intrinsic::activemask((ParallelContext *)context);
   IRBuilder<> *Builder = context->getBuilder();
   Value *old = Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, ptr,
                                         inc, llvm::AtomicOrdering::Monotonic);
+  auto warpsync = context->getFunction("llvm.nvvm.bar.warp.sync");
+  Builder->CreateCall(warpsync, {activemask});
   return old;
 }
 
 Value *GpuPipelineGen::workerScopedAtomicXchg(Value *ptr, Value *val) {
+  auto activemask = gpu_intrinsic::activemask((ParallelContext *)context);
   IRBuilder<> *Builder = context->getBuilder();
   Value *old = Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Xchg, ptr,
                                         val, llvm::AtomicOrdering::Monotonic);
+  auto warpsync = context->getFunction("llvm.nvvm.bar.warp.sync");
+  Builder->CreateCall(warpsync, {activemask});
   return old;
 }
 

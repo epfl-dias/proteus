@@ -868,8 +868,6 @@ void ScanToBlockSMPlugin::scan(const ::Operator &producer) {
       const auto &t = files[i];
       assert((t.size % size) == 0);
       size_t pack_N = t.size / size;
-      std::cout << j << " " << pack_N << " " << i << " ";
-      std::cout << t.size << " " << size << std::endl;
       assert(pack_N == N_parts_init_sizes[i]);
     }
   }

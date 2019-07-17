@@ -158,6 +158,7 @@ void GpuToCpu::consume(ParallelContext *const context,
   BasicBlock *acquireLockBB = BasicBlock::Create(llvmContext, "acquireLock", F);
   BasicBlock *readLastBB = BasicBlock::Create(llvmContext, "readLast", F);
   BasicBlock *waitSlotBB = BasicBlock::Create(llvmContext, "waitSlot", F);
+  BasicBlock *preWaitSlotBB = BasicBlock::Create(llvmContext, "preWaitSlot", F);
   BasicBlock *saveItemBB = BasicBlock::Create(llvmContext, "saveItem", F);
   BasicBlock *afterBB = BasicBlock::Create(llvmContext, "after", F);
   // BasicBlock * preAfterBB    = BasicBlock::Create(llvmContext, "preAfter"   ,
@@ -179,6 +180,7 @@ void GpuToCpu::consume(ParallelContext *const context,
     lock_cond = context->createTrue();
     cnt = context->createInt32(1);
 
+    assert(false && "Needs maintenance for CUDA >= 9");
     Builder->CreateCondBr(cond, acquireLockBB, afterBB);
 
     Builder->SetInsertPoint(acquireLockBB);
@@ -266,6 +268,8 @@ void GpuToCpu::consume(ParallelContext *const context,
     // Value * got_lock_ptr = context->CreateEntryBlockAlloca(F, "got_lock_ptr",
     // context->createFalse()->getType());
     // Builder->CreateStore(context->createFalse(), got_lock_ptr);
+
+    auto activemask = gpu_intrinsic::activemask(context);
     Builder->CreateCondBr(lock_cond, acquireLockBB, readLastBB);
 
     Builder->SetInsertPoint(acquireLockBB);
@@ -279,6 +283,9 @@ void GpuToCpu::consume(ParallelContext *const context,
 
     Builder->CreateCondBr(got_lock, readLastBB, acquireLockBB);
 
+    Builder->SetInsertPoint(readLastBB);
+    auto warpsync = context->getFunction("llvm.nvvm.bar.warp.sync");
+    Builder->CreateCall(warpsync, {activemask});
     // Builder->SetInsertPoint(preAfterBB);
     // Builder->CreateBr(afterBB);
   }
@@ -298,6 +305,13 @@ void GpuToCpu::consume(ParallelContext *const context,
       F, "got_slot_ptr", context->createFalse()->getType());
   Builder->CreateStore(context->createFalse(), got_slot_ptr);
 
+  auto activemask = gpu_intrinsic::activemask(context);
+  auto warpsync = context->getFunction("llvm.nvvm.bar.warp.sync");
+
+  Builder->CreateBr(preWaitSlotBB);
+  Builder->SetInsertPoint(preWaitSlotBB);
+
+  // auto activemask2 = gpu_intrinsic::activemask(context);
   Builder->CreateBr(waitSlotBB);
 
   BasicBlock *get_slot_lockBB =
@@ -306,6 +320,7 @@ void GpuToCpu::consume(ParallelContext *const context,
 
   // while (*(flags+end) != 0);
   Builder->SetInsertPoint(waitSlotBB);
+  // auto activemask2 = gpu_intrinsic::activemask(context);
 
   Builder->CreateCondBr(Builder->CreateLoad(got_slot_ptr), test_lockBB,
                         get_slot_lockBB);
@@ -317,6 +332,7 @@ void GpuToCpu::consume(ParallelContext *const context,
   Builder->CreateBr(test_lockBB);
 
   Builder->SetInsertPoint(test_lockBB);
+  // Builder->CreateCall(warpsync, {activemask2});
 
   Value *got_slot = Builder->CreateLoad(got_slot_ptr);
 
@@ -324,12 +340,15 @@ void GpuToCpu::consume(ParallelContext *const context,
   if (granularity == gran_t::GRID || granularity == gran_t::BLOCK) {
     all_got_slot = got_slot;
   } else {
-    all_got_slot = gpu_intrinsic::all(context, got_slot);
+    all_got_slot = got_slot;  // gpu_intrinsic::all(context, got_slot);
   }
 
   Builder->CreateCondBr(all_got_slot, saveItemBB, waitSlotBB);
 
   Builder->SetInsertPoint(saveItemBB);
+  if (granularity == gran_t::THREAD) {
+    Builder->CreateCall(warpsync, {activemask});
+  }
 
   Function *threadfence_system = context->getFunction("llvm.nvvm.membar.sys");
 
@@ -345,6 +364,7 @@ void GpuToCpu::consume(ParallelContext *const context,
   // __threadfence_system();
   Builder->CreateCall(threadfence_system);
 
+  Builder->CreateCall(warpsync, {activemask});
   // FIXME: __sync_warp();
 
   BasicBlock *releaseBB = BasicBlock::Create(llvmContext, "release", F);
@@ -358,6 +378,7 @@ void GpuToCpu::consume(ParallelContext *const context,
       new_end, ConstantInt::get((IntegerType *)end->getType(), size));
 
   Builder->CreateStore(new_end, last_ptr, true);
+  Builder->CreateCall(threadfence_system);
 
   // lock = 0;
   Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Xchg, lock_ptr, zero,
@@ -366,6 +387,7 @@ void GpuToCpu::consume(ParallelContext *const context,
   Builder->CreateBr(afterBB);
 
   Builder->SetInsertPoint(afterBB);
+  Builder->CreateCall(warpsync, {activemask});
 }
 
 void GpuToCpu::generate_catch() {
@@ -541,7 +563,6 @@ void kick_start(Pipeline *cpip, int device) {
 }
 
 void GpuToCpu::open(Pipeline *pip) {
-  std::cout << "Gpu2Cpu:open" << std::endl;
   int64_t *store;  // volatile
   int32_t *flags;  // volatile
   int32_t *eof;    // volatile
@@ -599,7 +620,6 @@ void GpuToCpu::open(Pipeline *pip) {
 // }
 
 void GpuToCpu::close(Pipeline *pip) {
-  std::cout << "Gpu2Cpu:close" << pip << std::endl;
   volatile int32_t *eof = pip->getStateVar<volatile int32_t *>(eofVar_id);
   assert(*eof == 0);
   *eof = 1;

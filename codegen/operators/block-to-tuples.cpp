@@ -26,6 +26,9 @@
 #include "codegen/memory/buffer-manager.cuh"
 #include "codegen/memory/memory-manager.hpp"
 
+// #include "util/gpu/gpu-intrinsics.hpp"
+// #include "util/jit/gpu-pipeline.hpp"
+
 using namespace llvm;
 
 void BlockToTuples::produce() {
@@ -96,6 +99,12 @@ void BlockToTuples::consume(ParallelContext *const context,
   Value *tId = context->threadId();
   Value *is_leader =
       Builder->CreateICmpEQ(tId, ConstantInt::get(tId->getType(), 0));
+
+  // FIXME: do we need that?
+  // Value *activemask;
+  // if (dynamic_cast<GpuPipelineGen *>(context->getCurrentPipeline())) {
+  //   activemask = gpu_intrinsic::activemask(context);
+  // }
   Builder->CreateCondBr(
       is_leader, releaseBB,
       rlAfterBB);  // FIXME: assumes thread 0 gets to execute block2tuples
@@ -119,6 +128,11 @@ void BlockToTuples::consume(ParallelContext *const context,
   Builder->CreateBr(rlAfterBB);
 
   Builder->SetInsertPoint(rlAfterBB);
+  // FIXME: do we need that?
+  // if (dynamic_cast<GpuPipelineGen *>(context->getCurrentPipeline())) {
+  //   auto warpsync = context->getFunction("llvm.nvvm.bar.warp.sync");
+  //   Builder->CreateCall(warpsync, {activemask});
+  // }
 
   // Get the ENTRY BLOCK
   // context->setCurrentEntryBlock(Builder->GetInsertBlock());

@@ -79,6 +79,8 @@ class MemMoveDevice : public UnaryOperator {
   virtual bool isFiltering() const { return false; }
 
  private:
+  ParallelContext *const context;
+
   const vector<RecordAttribute *> wantedFields;
   size_t device_id_var;
   size_t memmvconf_var;
@@ -88,8 +90,6 @@ class MemMoveDevice : public UnaryOperator {
 
   size_t slack;
   bool to_cpu;
-
-  ParallelContext *const context;
 
   void open(Pipeline *pip);
   void close(Pipeline *pip);
