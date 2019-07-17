@@ -271,7 +271,7 @@ class Constant : public Expression {
  public:
   enum ConstantType { INT, INT64, BOOL, FLOAT, STRING, DSTRING, DATE };
   Constant(const ExpressionType *type) : Expression(type) {}
-  ~Constant() {}
+
   virtual ConstantType getConstantType() const = 0;
 };
 
@@ -279,8 +279,6 @@ template <typename T>
 class ConstantExpressionCRTP : public Constant {
  public:
   ConstantExpressionCRTP(const ExpressionType *type) : Constant(type) {}
-
-  virtual ~ConstantExpressionCRTP() override = default;
 
  protected:
   virtual inline Expression &as_expr(string relName, string attrName) override {
@@ -323,7 +321,6 @@ class TConstant : public ConstantExpressionCRTP<Texpr> {
 
  public:
   TConstant(T val) : TConstant(val, new Tproteus()) {}
-  ~TConstant() {}
 
   T getVal() const { return val; }
 
@@ -449,8 +446,6 @@ class InputArgument : public ExpressionCRTP<InputArgument> {
     //     }
     // #endif
   }
-
-  ~InputArgument() {}
 
   int getArgNo() const { return argNo; }
   // list<RecordAttribute> getProjections() const { return projections; }
@@ -622,8 +617,6 @@ class HashExpression : public ExpressionCRTP<HashExpression> {
   HashExpression(expression_t expr)
       : ExpressionCRTP(new Int64Type()), expr(std::move(expr)) {}
 
-  ~HashExpression() {}
-
   expression_t getExpr() const { return expr; }
   ExpressionId getTypeID() const { return EXPRESSION_HASHER; }
   inline bool operator<(const expressions::Expression &r) const {
@@ -643,7 +636,6 @@ class ProteusValueExpression : public ExpressionCRTP<ProteusValueExpression> {
  public:
   ProteusValueExpression(const ExpressionType *type, ProteusValue expr)
       : ExpressionCRTP(type), expr(expr) {}
-  ~ProteusValueExpression() {}
 
   ProteusValue getValue() const { return expr; }
   ExpressionId getTypeID() const { return RAWVALUE; }
@@ -667,7 +659,6 @@ class AttributeConstruction {
  public:
   AttributeConstruction(string name, expression_t expr)
       : name(name), expr(std::move(expr)) {}
-  ~AttributeConstruction() {}
   string getBindingName() const { return name; }
   expression_t getExpression() const { return expr; }
   /* Don't need explicit op. overloading */
@@ -690,7 +681,6 @@ class RecordConstruction : public ExpressionCRTP<RecordConstruction> {
 
   RecordConstruction(const list<AttributeConstruction> &atts)
       : ExpressionCRTP(constructRecordType(atts)), atts(atts) {}
-  ~RecordConstruction() {}
 
   ExpressionId getTypeID() const { return RECORD_CONSTRUCTION; }
   const list<AttributeConstruction> &getAtts() const { return atts; }
@@ -748,7 +738,6 @@ class IfThenElse : public ExpressionCRTP<IfThenElse> {
     assert(expr2.getExpressionType()->getTypeID() ==
            expr3.getExpressionType()->getTypeID());
   }
-  ~IfThenElse() {}
 
   ExpressionId getTypeID() const { return IF_THEN_ELSE; }
   expression_t getIfCond() const { return expr1; }
@@ -878,8 +867,6 @@ class TBinaryExpression : public BinaryExpressionCRTP<T> {
       : Tparent(type, new Top(), std::move(lhs), std::move(rhs)) {}
 
  public:
-  ~TBinaryExpression() {}
-
   ExpressionId getTypeID() const { return BINARY; }
 
   inline bool operator<(const expressions::Expression &r) const {
@@ -917,93 +904,78 @@ class EqExpression : public TBinaryExpression<EqExpression, Eq> {
  public:
   EqExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
-  ~EqExpression() {}
 };
 
 class NeExpression : public TBinaryExpression<NeExpression, Neq> {
  public:
   NeExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
-  ~NeExpression() {}
 };
 
 class GeExpression : public TBinaryExpression<GeExpression, Ge> {
  public:
   GeExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
-  ~GeExpression() {}
 };
 
 class GtExpression : public TBinaryExpression<GtExpression, Gt> {
  public:
   GtExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
-  ~GtExpression() {}
 };
 
 class LeExpression : public TBinaryExpression<LeExpression, Le> {
  public:
   LeExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
-  ~LeExpression() {}
 };
 
 class LtExpression : public TBinaryExpression<LtExpression, Lt> {
  public:
   LtExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(new BoolType(), lhs, rhs) {}
-  ~LtExpression() {}
 };
 
 class AddExpression : public TBinaryExpression<AddExpression, Add> {
  public:
   AddExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
-
-  ~AddExpression() {}
 };
 
 class SubExpression : public TBinaryExpression<SubExpression, Sub> {
  public:
   SubExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
-  ~SubExpression() {}
 };
 
 class MultExpression : public TBinaryExpression<MultExpression, Mult> {
  public:
   MultExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
-  ~MultExpression() {}
 };
 
 class DivExpression : public TBinaryExpression<DivExpression, Div> {
  public:
   DivExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
-  ~DivExpression() {}
 };
 
 class ModExpression : public TBinaryExpression<ModExpression, Mod> {
  public:
   ModExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(rhs.getExpressionType(), lhs, rhs) {}
-
-  ~ModExpression() {}
 };
 
 class AndExpression : public TBinaryExpression<AndExpression, And> {
  public:
   AndExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
-  ~AndExpression() {}
 };
 
 class OrExpression : public TBinaryExpression<OrExpression, Or> {
  public:
   OrExpression(expression_t lhs, expression_t rhs)
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
-  ~OrExpression() {}
 };
 
 class MaxExpression : public BinaryExpressionCRTP<MaxExpression> {
@@ -1011,7 +983,6 @@ class MaxExpression : public BinaryExpressionCRTP<MaxExpression> {
   MaxExpression(expression_t lhs, expression_t rhs)
       : BinaryExpressionCRTP(lhs.getExpressionType(), new Max(), lhs, rhs),
         cond(expression_t::make<GtExpression>(lhs, rhs), lhs, rhs) {}
-  ~MaxExpression() {}
 
   const IfThenElse *getCond() const { return &cond; }
   inline bool operator<(const expressions::Expression &r) const {
@@ -1037,7 +1008,6 @@ class MinExpression : public BinaryExpressionCRTP<MinExpression> {
   MinExpression(expression_t lhs, expression_t rhs)
       : BinaryExpressionCRTP(lhs.getExpressionType(), new Min(), lhs, rhs),
         cond(expression_t::make<LtExpression>(lhs, rhs), lhs, rhs) {}
-  ~MinExpression() {}
 
   const IfThenElse *getCond() const { return &cond; }
   inline bool operator<(const expressions::Expression &r) const {
@@ -1063,8 +1033,6 @@ class NegExpression : public ExpressionCRTP<NegExpression> {
   NegExpression(expression_t expr)
       : ExpressionCRTP(expr.getExpressionType()), expr(expr) {}
 
-  ~NegExpression() {}
-
   expression_t getExpr() const { return expr; }
   ExpressionId getTypeID() const { return NEG_EXPRESSION; }
   inline bool operator<(const expressions::Expression &r) const {
@@ -1086,8 +1054,6 @@ class TestNullExpression : public ExpressionCRTP<TestNullExpression> {
       : ExpressionCRTP(new BoolType()),
         expr(std::move(expr)),
         nullTest(nullTest) {}
-
-  ~TestNullExpression() {}
 
   bool isNullTest() const { return nullTest; }
   expression_t getExpr() const { return expr; }
@@ -1134,8 +1100,6 @@ class ExtractExpression : public ExpressionCRTP<ExtractExpression> {
         unit(unit) {
     assert(this->expr.getExpressionType()->getTypeID() == DATE);
   }
-
-  ~ExtractExpression() {}
 
   extract_unit getExtractUnit() const { return unit; }
   expression_t getExpr() const { return expr; }
