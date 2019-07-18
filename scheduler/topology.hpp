@@ -20,8 +20,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#ifndef TOPOLOGY_HPP_
-#define TOPOLOGY_HPP_
+#ifndef SCHEDULER_TOPOLOGY_HPP_
+#define SCHEDULER_TOPOLOGY_HPP_
 
 #include <sched.h>
 #include <iostream>
@@ -114,4 +114,4 @@ class core {
 
 }  // namespace scheduler
 
-#endif /* TOPOLOGY_HPP_ */
+#endif /* SCHEDULER_TOPOLOGY_HPP_ */

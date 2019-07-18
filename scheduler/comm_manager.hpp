@@ -20,68 +20,49 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#ifndef COMM_MANAGER_HPP_
-#define COMM_MANAGER_HPP_
+#ifndef SCHEDULER_COMM_MANAGER_HPP_
+#define SCHEDULER_COMM_MANAGER_HPP_
 
-#include <map>
-#include <vector>
+#include <errno.h>
 #include <fcntl.h>
 #include <mqueue.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <errno.h>
-#include <signal.h>
-#include <sys/time.h>
+#include <map>
+#include <vector>
 
-
-
-#define INCOMING_QUEUE_AEOLUS_NAME  "/rm_to_aeolus"
-#define OUTGOING_QUEUE_AEOLUS_NAME  "/aeolus_to_rm"
-
+#define INCOMING_QUEUE_AEOLUS_NAME "/rm_to_aeolus"
+#define OUTGOING_QUEUE_AEOLUS_NAME "/htap_mqueue"
 
 #define QUEUE_PERMISSIONS 0600
 #define MAX_MESSAGES 10
 #define MAX_MSG_SIZE 500
 #define MSG_BUFFER_SIZE MAX_MSG_SIZE + 1
 
-
 namespace scheduler {
 
-
 enum communicatin_msg_type {
+  SUCCESS = 01,
+  FAILURE = 02,
+  REGISTER_OLTP = 11,
+  REGISTER_OLAP = 12,
+  MEMORY_REQUEST = 21,
 
-  SNAPSHOT_REQUEST = 10,
-  SNAPSHOT_RESPONSE_POSITIVE = 11,
-  SNAPSHOT_RESPONSE_NEGATIVE = 12,
-  SNAPSHOT_NUM_RECORD = 13,
+  SNAPSHOT_REQUEST = 30,
+  SNAPSHOT_NUM_RECORD = 31,
 
+  READ_TXN_REQUEST = 40,
 
-  READ_TXN_REQUEST = 20,
-
-
-
-  /* old trireme ones*/
-  
-  // CORE_REQUEST_TO_RM = 10,
-  // CORE_GRANT_FROM_RM = 11,
-  // CORE_REQUEST_FROM_RM = 12,
-  // MEMORY_REQUEST_TO_RM = 20,
-  // MEMORY_GRANT_FROM_RM = 21,
-  // MEMORY_REQUEST_FROM_RM = 22,
-  // READ_TXN_REQUEST = 30,
-  // READ_TXN_RESPONSE = 31,
-  // SHUTDOWN_NOTIFICATION_TO_RM = 90,
 };
 
-
 class CommManager {
-
-
  protected:
  public:
   // Singleton
@@ -100,21 +81,30 @@ class CommManager {
   void init();
   void shutdown();
 
+  // memory allocations
+  bool request_memory_alloc(const std::string &key, const size_t size_bytes,
+                            const size_t unit_size);
+  bool request_memory_free(const std::string &key);
+
+  // elasticity
+  void scale_up();
+  void scale_down();
+
+  // snapshot
+  void snaphsot();
 
  private:
-
   mqd_t recv_mq;
 
-
-  static void respond(const char* response_msg);
+  static void send_msg(const char *response_msg);
   static void process_msg(union sigval sv);
 
-  CommManager() {  }
+  ssize_t get_response(const std::string &queue_name,
+                       char (&array)[MSG_BUFFER_SIZE]);
+  CommManager() {}
   ~CommManager();
-  
 };
 
-}
+}  // namespace scheduler
 
-
-#endif /* COMM_MANAGER_HPP_ */
+#endif /* SCHEDULER_COMM_MANAGER_HPP_ */

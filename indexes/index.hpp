@@ -20,8 +20,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#ifndef INDEX_HPP_
-#define INDEX_HPP_
+#ifndef INDEXES_INDEX_HPP_
+#define INDEXES_INDEX_HPP_
 
 #include <iostream>
 
@@ -39,4 +39,4 @@ class Index {
 
 };  // namespace indexes
 
-#endif /* INDEX_HPP_ */
+#endif /* INDEXES_INDEX_HPP_ */

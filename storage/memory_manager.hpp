@@ -20,8 +20,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#ifndef MEMORY_MANAGER_HPP_
-#define MEMORY_MANAGER_HPP_
+#ifndef STORAGE_MEMORY_MANAGER_HPP_
+#define STORAGE_MEMORY_MANAGER_HPP_
 
 #include <map>
 #include <vector>
@@ -43,6 +43,10 @@ class MemoryManager {
  public:
   static void init();
   static void destroy();
+
+  static void* alloc_shm_htap(const std::string& key, const size_t size_bytes,
+                              const size_t unit_size, const int numa_memset_id);
+  static void remove_shm_htap(const std::string& key);
 
   // Allocation should be managed  and linked with affinities and topology
   static void* alloc_shm(const std::string& key, const size_t size_bytes,
@@ -68,4 +72,4 @@ class NUMAPinnedMemAllocator {};
 
 };  // namespace storage
 
-#endif /* MEMORY_MANAGER_HPP_ */
+#endif /* STORAGE_MEMORY_MANAGER_HPP_ */

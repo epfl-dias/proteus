@@ -20,8 +20,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#ifndef AFFINITY_MANAGER_HPP_
-#define AFFINITY_MANAGER_HPP_
+#ifndef SCHEDULER_AFFINITY_MANAGER_HPP_
+#define SCHEDULER_AFFINITY_MANAGER_HPP_
 
 #include "scheduler/topology.hpp"
 
@@ -109,4 +109,4 @@ class set_exec_location_on_scope {
 
 }  // namespace scheduler
 
-#endif /* AFFINITY_MANAGER_HPP_ */
+#endif /* SCHEDULER_AFFINITY_MANAGER_HPP_ */

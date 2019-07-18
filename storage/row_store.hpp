@@ -20,8 +20,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#ifndef ROW_STORE_HPP_
-#define ROW_STORE_HPP_
+#ifndef STORAGE_ROW_STORE_HPP_
+#define STORAGE_ROW_STORE_HPP_
 
 #include <assert.h>
 #include <iostream>
@@ -123,4 +123,4 @@ class rowStore : public Table {
 
 };  // namespace storage
 
-#endif /* ROW_STORE_HPP_ */
+#endif /* STORAGE_ROW_STORE_HPP_ */

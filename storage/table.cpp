@@ -385,7 +385,14 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
   //          << "| num_r: " << initial_num_records << std::endl;
 
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
-#if SHARED_MEMORY
+#if HTAP
+    std::cout << "HTAP REMOTE ALLOCATION: " << (std::to_string(i) + "__" + name)
+              << std::endl;
+    std::cout << "TABLE UNIT SIZE: " << unit_size << std::endl;
+    void* mem = MemoryManager::alloc_shm_htap(std::to_string(i) + "__" + name,
+                                              size, unit_size, i);
+
+#elif SHARED_MEMORY
     void* mem =
         MemoryManager::alloc_shm(std::to_string(i) + "__" + name, size, i);
 

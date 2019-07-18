@@ -20,8 +20,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#ifndef TABLE_HPP_
-#define TABLE_HPP_
+#ifndef STORAGE_TABLE_HPP_
+#define STORAGE_TABLE_HPP_
 
 #include <assert.h>
 #include <iostream>
@@ -242,4 +242,4 @@ class Column {
 
 };  // namespace storage
 
-#endif /* TABLE_HPP_ */
+#endif /* STORAGE_TABLE_HPP_ */

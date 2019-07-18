@@ -33,6 +33,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <unistd.h>
 #include <cstdlib>
 #include <iostream>
+#include "scheduler/comm_manager.hpp"
 #include "scheduler/topology.hpp"
 
 /*
@@ -52,6 +53,53 @@ namespace storage {
 //   return 0; /*Make compiler happy */
 // }
 
+// FIXME: numa_memset_id should be retereived through the current affinity, not
+// just hardcoded by default. and numa_get_mems_allowed
+void* MemoryManager::alloc_shm_htap(const std::string& key,
+                                    const size_t size_bytes,
+                                    const size_t unit_size,
+                                    const int numa_memset_id) {
+  // assert(key.length() <= 255 && key[0] == '/');
+
+  if (scheduler::CommManager::getInstance().request_memory_alloc(
+          key, size_bytes, unit_size)) {
+    int shm_fd = shm_open(key.c_str(), O_TRUNC | O_RDWR, 0666);
+    if (shm_fd == -1) {
+      fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno));
+      return nullptr;
+    }
+
+    if (ftruncate(shm_fd, size_bytes) < 0) {  //== -1){
+      shm_unlink(key.c_str());
+      fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno));
+      return nullptr;
+    }
+
+    void* mem_addr =
+        mmap(NULL, size_bytes, PROT_WRITE | PROT_READ, MAP_SHARED, shm_fd, 0);
+    if (!mem_addr) {
+      fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno));
+      return nullptr;
+    }
+
+    if (numa_memset_id != -1) {
+      const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
+      numa_tonode_memory(mem_addr, size_bytes, vec[numa_memset_id].id);
+      ;
+    }
+
+    close(shm_fd);
+    return mem_addr;
+  }
+  assert(false && "Memmory allocation failed");
+}
+
+void MemoryManager::remove_shm_htap(const std::string& key) {
+  if (scheduler::CommManager::getInstance().request_memory_free(key)) {
+    MemoryManager::remove_shm(key);
+  }
+}
+
 void MemoryManager::remove_shm(const std::string& key) {
   // int munmap(void *addr, size_t length);
 
@@ -69,7 +117,7 @@ void* MemoryManager::alloc_shm(const std::string& key, const size_t size_bytes,
   // std::endl; std::cout << "[MemoryManager::alloc_shm] numa_memset_id: "<<
   // numa_memset_id << std::endl;
 
-  assert(key.length() <= 255);
+  assert(key.length() <= 255 && key[0] == '/');
 
   int shm_fd = shm_open(key.c_str(), O_CREAT | O_TRUNC | O_RDWR, 0666);
   if (shm_fd == -1) {
@@ -112,16 +160,10 @@ void MemoryManager::destroy() {
   std::cout << "[MemoryManager::destroy] --END--" << std::endl;
 }
 void* MemoryManager::alloc(size_t bytes, int numa_memset_id) {
-  // std::cout << "[MemoryManager::alloc] --BEGIN--" << std::endl;
   const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
-
   return numa_alloc_onnode(bytes, vec[numa_memset_id].id);
   // return numa_alloc_interleaved(bytes);
 }
-void MemoryManager::free(void* mem, size_t bytes) {
-  // std::cout << "[MemoryManager::free] --BEGIN--" << std::endl;
-  numa_free(mem, bytes);
-  // std::cout << "[MemoryManager::free] --END--" << std::endl;
-}
+void MemoryManager::free(void* mem, size_t bytes) { numa_free(mem, bytes); }
 
 };  // namespace storage

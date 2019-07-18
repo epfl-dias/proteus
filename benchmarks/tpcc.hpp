@@ -20,8 +20,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#ifndef TPCC_HPP_
-#define TPCC_HPP_
+#ifndef BENCH_TPCC_HPP_
+#define BENCH_TPCC_HPP_
 
 #include <cassert>
 #include <cmath>
@@ -374,4 +374,4 @@ class TPCC : public Benchmark {
 
 }  // namespace bench
 
-#endif /* TPCC_HPP_ */
+#endif /* BENCH_TPCC_HPP_ */

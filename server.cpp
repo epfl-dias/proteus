@@ -20,12 +20,14 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
+#define RUNTIME 60  // seconds
+
 #include <unistd.h>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <thread>
 #include <tuple>
-#include <limits>
 #include "benchmarks/bench.hpp"
 #include "benchmarks/tpcc.hpp"
 #include "benchmarks/ycsb.hpp"
@@ -48,10 +50,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define __itt_resume() ((void)0)
 #define __itt_pause() ((void)0)
 #endif
-
-#define RUNTIME 60  // seconds
-
-#define HTAP false
 
 // TODO: a race condition exists in acquiring write lock and updating the
 // version, a read might read at the same time as readers are not blocked in any
@@ -78,7 +76,6 @@ std::ostream& operator<<(std::ostream& os, uint64_t i) {
 
 // TODO: Add warm-code!!
 
-
 void check_num_upd_by_bits();
 
 int main(int argc, char** argv) {
@@ -89,8 +86,9 @@ int main(int argc, char** argv) {
       "r,write_ratio", "Reader to writer ratio", cxxopts::value<double>())(
       "t,theta", "Zipf theta", cxxopts::value<double>())(
       //"g,gc_mode", "GC Mode: 1-Snapshot, 2-TupleGC", cxxopts::value<uint>())(
-      "b,benchmark", "Benchmark: 0:YCSB, 1:TPC-C (gen),  2:TPC-C (csv)", cxxopts::value<uint>())(
-      "c,ycsb_num_cols", "Number of YCSB Columns", cxxopts::value<uint>());
+      "b,benchmark", "Benchmark: 0:YCSB, 1:TPC-C (gen),  2:TPC-C (csv)",
+      cxxopts::value<uint>())("c,ycsb_num_cols", "Number of YCSB Columns",
+                              cxxopts::value<uint>());
 
   auto result = options.parse(argc, argv);
   // result.count("option")
@@ -138,7 +136,6 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "------- AELOUS ------" << std::endl;
-  std::cout << "sizeof(char): " << sizeof(char) << std::endl;
   std::cout << "# Workers: " << num_workers << std::endl;
   std::cout << "---------------------" << std::endl;
 
@@ -146,7 +143,10 @@ int main(int argc, char** argv) {
   std::cout << "Initializing..." << std::endl;
   std::cout << "\tInitializing memory manager..." << std::endl;
   storage::MemoryManager::init();
-  std::cout << scheduler::Topology::getInstance() << std::endl;
+
+  if (!HTAP) {
+    std::cout << scheduler::Topology::getInstance() << std::endl;
+  }
 
   std::cout << "------------------------------------" << std::endl;
 
@@ -161,8 +161,6 @@ int main(int argc, char** argv) {
 
   // TODO: set affinity for the master server thread.
 
-  
-
   // std::cout << "hardcoding execution location to NUMA node ID: 0" <<
   // std::endl; topology::getInstance().getCpuNumaNodes()[0] const auto
   // &exec_node =
@@ -174,7 +172,7 @@ int main(int argc, char** argv) {
   bench::Benchmark* bench = nullptr;
   if (bechnmark == 1) {
     bench = new bench::TPCC("TPCC", num_workers);
-    
+
   } else if (bechnmark == 2) {
     bench = new bench::TPCC("TPCC", 100, 0,
                             "/home/raza/local/chBenchmark_1_0/w100/raw");
@@ -186,11 +184,8 @@ int main(int argc, char** argv) {
                             num_iterations_per_worker, num_ops_per_txn,
                             write_threshold, num_workers, num_workers);
   }
+
   bench->load_data(num_workers);
-
-
-  
-
 
   /* As soon as worker starts, they start transactions. so make sure you setup
    * everything needed for benchmark transactions before hand.
@@ -219,8 +214,9 @@ int main(int argc, char** argv) {
   usleep(RUNTIME * 1000000);
 
   // usleep((RUNTIME/2) * 1000000);
-  
-  // uint64_t last_epoch = txn::TransactionManager::getInstance().switch_master(curr_master);
+
+  // uint64_t last_epoch =
+  // txn::TransactionManager::getInstance().switch_master(curr_master);
 
   // usleep((RUNTIME/2) * 1000000);
 
@@ -231,17 +227,15 @@ int main(int argc, char** argv) {
   scheduler::WorkerPool::getInstance().shutdown(true);
   __itt_pause();
 
-
-  
   std::cout << "\tShutting down memory manager" << std::endl;
   if (HTAP) {
     std::cout << "\thutting down communication manager..." << std::endl;
     scheduler::CommManager::getInstance().shutdown();
   }
-  
+
   // std::cout << "----" << std::endl;
   // check_num_upd_by_bits();
-  
+
   std::cout << "----" << std::endl;
   storage::Schema::getInstance().teardown();
   std::cout << "----" << std::endl;
@@ -251,19 +245,13 @@ int main(int argc, char** argv) {
   return 0;
 }
 
-
-
-void check_num_upd_by_bits(){
-
-  std::vector<storage::Table*> tables = storage::Schema::getInstance().getAllTable();
+void check_num_upd_by_bits() {
+  std::vector<storage::Table*> tables =
+      storage::Schema::getInstance().getAllTable();
 
   for (auto& tbl : tables) {
-
-    storage::ColumnStore *tmp = (storage::ColumnStore *)tbl;
+    storage::ColumnStore* tmp = (storage::ColumnStore*)tbl;
 
     tmp->num_upd_tuples();
-
   }
-  
-
 }

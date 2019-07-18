@@ -20,8 +20,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#ifndef YCSB_HPP_
-#define YCSB_HPP_
+#ifndef BENCH_YCSB_HPP_
+#define BENCH_YCSB_HPP_
 
 // extern "C" {
 //#include "stdlib.h"
@@ -437,4 +437,4 @@ class YCSB : public Benchmark {
 
 }  // namespace bench
 
-#endif /* YCSB_HPP_ */
+#endif /* BENCH_YCSB_HPP_ */

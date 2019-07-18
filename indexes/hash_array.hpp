@@ -20,8 +20,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#ifndef HASH_ARRAY_HPP_
-#define HASH_ARRAY_HPP_
+#ifndef INDEXES_HASH_ARRAY_HPP_
+#define INDEXES_HASH_ARRAY_HPP_
 
 #include <iostream>
 #include "storage/memory_manager.hpp"
@@ -101,4 +101,4 @@ bool delete_fn(const K &key, F fn) {
 
 };  // namespace indexes
 
-#endif /* HASH_ARRAY_HPP_ */
+#endif /* INDEXES_HASH_ARRAY_HPP_ */

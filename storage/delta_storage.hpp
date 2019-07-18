@@ -20,8 +20,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#ifndef DELTA_STORAGE_HPP_
-#define DELTA_STORAGE_HPP_
+#ifndef STORAGE_DELTA_STORAGE_HPP_
+#define STORAGE_DELTA_STORAGE_HPP_
 
 #include <sys/mman.h>
 #include <cstdlib>
@@ -519,4 +519,4 @@ std::chrono::time_point<std::chrono::system_clock,
 
 };  // namespace storage
 
-#endif /* DELTA_STORAGE_HPP_ */
+#endif /* STORAGE_DELTA_STORAGE_HPP_ */

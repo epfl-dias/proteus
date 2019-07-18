@@ -7,7 +7,7 @@ project(aeolus)
 #-----------------------------------------------------------------------
 # Simply comment the lines of this section to skip some of the binaries
 # to build.
-set(MAINS server) # Interface to the executor
+set(MAINS server htap-cow) # Interface to the executor
 
 # Tests
 # not too sure if we should build "main", it looks like it has the same
@@ -31,7 +31,6 @@ set(SOURCES
     storage/delta_storage.cpp
     transactions/transaction_manager.cpp
     transactions/cc.cpp
-    server.cpp
     )
 
 #-----------------------------------------------------------------------
@@ -85,7 +84,7 @@ string(STRIP "${COMPILER_FLAGS} -fvisibility-inlines-hidden" COMPILER_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Werror" WARNING_FLAGS)
 
 # LLVM Code generates the following warnings
-string(STRIP "${WARNING_FLAGS} -Wno-c++2a-compat -Wno-atomic-implicit-seq-cst -Wno-extra-semi-stmt" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-c++2a-compat -Wno-atomic-implicit-seq-cst -Wno-extra-semi-stmt -Wno-unused-template" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-unused-parameter" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-padded" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-missing-noreturn" WARNING_FLAGS)
@@ -160,6 +159,8 @@ string(STRIP "${CMAKE_C_FLAGS} ${WARNING_FLAGS}" CMAKE_C_FLAGS)
 
 include_directories(
 	"${PROJECT_SOURCE_DIR}"
+	"${PROTEUS_SOURCE_DIR}"
+	"${PROTEUS_SOURCE_DIR}/codegen"
 	)
 
 include_directories(
@@ -197,92 +198,82 @@ execute_process(COMMAND ${CMAKE_INSTALL_PREFIX}/bin/llvm-config --libs ${LLVM_CO
 # Various dependencies
 #-----------------------------------------------------------------------
 # CUDA
-# find_program(HAS_NVCC nvcc)
-# if(HAS_NVCC)
-# 	# Detect and setup the NVCC architectures
-# 	execute_process(COMMAND nvidia-smi --query-gpu=index,gpu_name --format=csv OUTPUT_VARIABLE _NVIDIA_SMI OUTPUT_STRIP_TRAILING_WHITESPACE)
+find_package(CUDA)
+if(CUDA_FOUND)
+	# TODO: the CUDA package has been deprecated and replaced by native support for the language.
+	# 		We should consider replacing it with the correct usage of enable_language(CUDA),
+	# 		CMAKE_CUDA_COMPILER, CMAKE_CUDA_FLAGS etc
+	if(DEFINED _NVCC_ARCHS)
+		list(REMOVE_DUPLICATES _NVCC_ARCHS)
 
-# 	# Transform the multiline string into a list
-# 	string(REGEX REPLACE "[\n]" ";" _NVIDIA_SMI "${_NVIDIA_SMI}")
+		CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_CU_ARCHS ${_NVCC_ARCHS})
+	else(DEFINED _NVCC_ARCHS)
+		CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_CU_ARCHS Auto)
+	endif(DEFINED _NVCC_ARCHS)
 
-# 	# Remove the table header from the list
-# 	string(REGEX REPLACE [[[^;]*name[^;]*;]] ";" _NVIDIA_SMI "${_NVIDIA_SMI}")
+	# Create arguments for nvcc and clang
+	string(REGEX REPLACE " " [[;]] CUDA_CU_ARCHS_readable "${CUDA_CU_ARCHS_readable}")
+	foreach(line ${CUDA_CU_ARCHS_readable})
+		# Clang always includes PTX in the generated library for forward compatibility.
+		# On the other hand, in nvcc it's optional.
+		# So, if CUDA_CU_ARCHS contains a directive to include the PTX we should ignore it,
+		# otherwise, clang complains.
+		# DO NOT remove them from nvcc's flags!
 
-# 	# Create list of GPUs names
-# 	foreach(line ${_NVIDIA_SMI})
-# 		string(REGEX REPLACE [[^[^,]*, ]] "" line "${line}")
-# 		list(APPEND _NVCC_GPUS ${line})
-# 	endforeach(line)
+		# Architecture names that start with "compute_" are nvcc directives to generate PTX
+		if (NOT ${line} MATCHES "compute_*")
+			list(APPEND CUDA_CXX_ARCHS "--cuda-gpu-arch=${line}")
+		endif()
+	endforeach(line)
 
-# 	# Create list of unique architetures
-# 	# See https://developer.nvidia.com/cuda-gpus for a reference table
-# 	foreach(line ${_NVCC_GPUS})
-# 		set(tmp "${line}")
-# 		string(REGEX REPLACE [[GeForce GTX 980]] "52" tmp "${tmp}")
-# 		string(REGEX REPLACE [[GeForce GTX 1080]] "61" tmp "${tmp}")
-# 		#string(REGEX REPLACE [[Tesla V100-SXM2-32GB]] "70" line "${tmp}")
+	# C++ & CUDA hybrid files
+	string(STRIP "${CUDA_CXXFLAGS} -Wno-format-pedantic" CUDA_CXXFLAGS)
+	string(STRIP "${CUDA_CXXFLAGS} -x cuda" CUDA_CXXFLAGS)
+	string(STRIP "${CUDA_CXXFLAGS} --cuda-path=${CUDA_TOOLKIT_ROOT_DIR}" CUDA_CXXFLAGS)
+	# Enable llvm::*->dump()
+	string(STRIP "${CUDA_CXXFLAGS} -DLLVM_ENABLE_DUMP" CUDA_CXXFLAGS)
 
-# 		# If no match for the replace is found, tmp equals line.
-# 		# When this the case, tmp does not contain a GPU architecture code.
-# 		if("${tmp}" STREQUAL "${line}")
-# 			message(FATAL_ERROR "Unsupported GPU detected: ${line}")
-# 		endif()
+	# Convert the list to a string
+	string(REGEX REPLACE [[;]] " " CUDA_CXX_ARCHS "${CUDA_CXX_ARCHS}")
+	string(STRIP "${CUDA_CXXFLAGS} ${CUDA_CXX_ARCHS}" CUDA_CXXFLAGS)
 
-# 		list(APPEND _NVCC_ARCHS ${tmp})
-# 	endforeach(line)
+	# Because of how the "command" function works, we have to use a
+	# CMAKE list, and not a string for CUDA_CUFLAGS
 
-# 	list(REMOVE_DUPLICATES _NVCC_ARCHS)
+	# CUDA-only flags, used with nvcc
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem ${CMAKE_INSTALL_PREFIX}/include)
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem ${LLVM_INCLUDEDIR})
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${PROJECT_SOURCE_DIR})
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${PROJECT_SOURCE_DIR}/codegen)
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} ${CUDA_CU_ARCHS})
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} --std=c++11)
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -Xcompiler -fPIC)
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} --expt-relaxed-constexpr)
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -O3)
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} --generate-line-info -line-info)
 
-# 	# Create arguments for nvcc and clang
-# 	foreach(line ${_NVCC_ARCHS})
-# 		list(APPEND CUDA_CXX_ARCHS "--cuda-gpu-arch=sm_${line}")
-# 		list(APPEND CUDA_CU_ARCHS -gencode arch=compute_${line},\\"code=sm_${line},compute_${line}\\")
-# 	endforeach(line)
+	set(CUDA_LIBS -lnvToolsExt -lcuda -lcudart -lnvidia-ml -lcudadevrt -lnvvm)
 
-# 	# C++ & CUDA hybrid files
-# 	string(STRIP "${CUDA_CXXFLAGS} -Wno-format-pedantic" CUDA_CXXFLAGS)
-# 	string(STRIP "${CUDA_CXXFLAGS} -x cuda" CUDA_CXXFLAGS)
+	include_directories(
+		SYSTEM ${CUDA_INCLUDE_DIRS}
+		)
 
-# 	# Convert the list to a string
-# 	string(REGEX REPLACE [[;]] " " CUDA_CXX_ARCHS "${CUDA_CXX_ARCHS}")
-# 	string(STRIP "${CUDA_CXXFLAGS} ${CUDA_CXX_ARCHS}" CUDA_CXXFLAGS)
+	link_directories(
+		"${CUDA_TOOLKIT_ROOT_DIR}/lib64"
+		"${CUDA_TOOLKIT_ROOT_DIR}/lib64/stubs"
+		"${CUDA_TOOLKIT_ROOT_DIR}/nvvm/lib64"
+		)
 
-# 	# Because of how the "command" function works, we have to use a
-# 	# CMAKE list, and not a string for CUDA_CUFLAGS
+	set(CUDA "CUDA-FOUND")
+else()
+	message("Warning: Building without support for GPUs (nvcc not detected)")
 
-# 	# CUDA-only flags, used with nvcc
-# 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem ${CMAKE_INSTALL_PREFIX}/include)
-# 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${PROJECT_SOURCE_DIR})
-# 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${PROJECT_SOURCE_DIR}/codegen)
-# 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} ${CUDA_CU_ARCHS})
-# 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} --std=c++11)
-# 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -Xcompiler -fPIC)
-# 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} --expt-relaxed-constexpr)
-# 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -O3)
-# 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} --generate-line-info -line-info)
+	set(CUDA_CXXFLAGS -x c++ -DNCUDA)
+	set(CUDA_CUFLAGS "")
+	set(CUDA_LIBS "")
 
-# 	set(CUDA_LIBS -lnvToolsExt -lcuda -lcudart -lnvidia-ml -lcudadevrt -lnvvm)
-
-# 	include_directories(
-# 		"/usr/local/cuda/include"
-# 		)
-
-# 	link_directories(
-# 		"/usr/local/cuda/lib64"
-# 		"/usr/local/cuda/lib64/stubs"
-# 		"/usr/local/cuda/nvvm/lib64"
-# 		)
-
-# 	set(CUDA "CUDA-FOUND")
-# else()
-# 	message("Warning: Building without support for GPUs (nvcc not detected)")
-
-# 	set(CUDA_CXXFLAGS -x c++ -DNCUDA)
-# 	set(CUDA_CUFLAGS "")
-# 	set(CUDA_LIBS "")
-
-# 	set(CUDA "CUDA-NOTFOUND")
-# endif()
+	set(CUDA "CUDA-NOTFOUND")
+endif()
 
 #-----------------------------------------------------------------------
 # GoogleLog
@@ -320,6 +311,7 @@ endif()
 # that library
 #set(default_libs ${default_libs} codegen )
 set(default_libs ${default_libs} -lnuma )
+set(default_libs ${default_libs} -lcodegen )
 set(default_libs ${default_libs} ${LLVM_LIBS} -lLLVMSupport)
 set(default_libs ${default_libs} ${CUDA_LIBS})
 set(default_libs ${default_libs} ${GLOG})
@@ -354,7 +346,7 @@ set(default_libs ${default_libs} -lc++abi -lpthread -lrt)
 # Build our executables
 #-----------------------------------------------------------------------
 foreach(target ${MAINS})
-	add_executable(aeolus-${target} ${SOURCES})
+	add_executable(aeolus-${target} ${SOURCES} ${target}.cpp)
 	target_link_libraries(aeolus-${target} ${default_libs})
 	install(TARGETS aeolus-${target}
 		RUNTIME DESTINATION aeolus

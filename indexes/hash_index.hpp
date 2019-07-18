@@ -20,8 +20,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#ifndef HASH_INDEX_HPP_
-#define HASH_INDEX_HPP_
+#ifndef INDEXES_HASH_INDEX_HPP_
+#define INDEXES_HASH_INDEX_HPP_
 
 #include <iostream>
 #include "lib/libcuckoo/cuckoohash_map.hh"
@@ -59,4 +59,4 @@ bool delete_fn(const K &key, F fn) {
 
 };  // namespace indexes
 
-#endif /* HASH_INDEX_HPP_ */
+#endif /* INDEXES_HASH_INDEX_HPP_ */

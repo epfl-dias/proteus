@@ -20,8 +20,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#ifndef WORKER_POOL_HPP_
-#define WORKER_POOL_HPP_
+#ifndef SCHEDULER_WORKER_POOL_HPP_
+#define SCHEDULER_WORKER_POOL_HPP_
 
 #include <atomic>
 #include <chrono>
@@ -116,7 +116,7 @@ class WorkerPool {
   std::vector<uint64_t> get_active_txns();
   uint64_t get_min_active_txn();
   uint64_t get_max_active_txn();
-  bool is_all_worker_on_master_id(ushort master_id); 
+  bool is_all_worker_on_master_id(ushort master_id);
 
   template <class F, class... Args>
   std::future<typename std::result_of<F(Args...)>::type> enqueueTask(
@@ -159,4 +159,4 @@ class WorkerPool {
 
 }  // namespace scheduler
 
-#endif /* WORKER_POOL_HPP_ */
+#endif /* SCHEDULER_WORKER_POOL_HPP_ */
