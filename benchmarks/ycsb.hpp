@@ -32,16 +32,16 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <cstdlib>
 #include <iostream>
 #include <thread>
-#include "benchmarks/bench.hpp"
+#include "interfaces/bench.hpp"
 #include "scheduler/topology.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
 //#include <thread
 
-#define YCSB_MIXED_OPS 0
-
 namespace bench {
+
+#define YCSB_MIXED_OPS 0
 
 /*
 

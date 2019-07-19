@@ -28,8 +28,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <cstdlib>
 #include <iostream>
 #include <thread>
-#include "benchmarks/bench.hpp"
-//#include "benchmarks/bench_utils.hpp"
+#include "interfaces/bench.hpp"
 #include "indexes/hash_index.hpp"
 #include "scheduler/topology.hpp"
 #include "storage/table.hpp"

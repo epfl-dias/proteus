@@ -35,7 +35,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "scheduler/topology.hpp"
 
-#include "benchmarks/bench.hpp"
+#include "interfaces/bench.hpp"
 #include "glo.hpp"
 
 namespace scheduler {

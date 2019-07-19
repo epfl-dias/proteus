@@ -21,16 +21,6 @@ set(TPCH FALSE)
 # C++ Source files
 set(SOURCES
 	benchmarks/tpcc.cpp
-    scheduler/worker.cpp
-    scheduler/topology.cpp
-    scheduler/affinity_manager.cpp
-    scheduler/comm_manager.cpp
-    storage/memory_manager.cpp
-    storage/table.cpp
-    #storage/row_store.cpp
-    storage/delta_storage.cpp
-    transactions/transaction_manager.cpp
-    transactions/cc.cpp
     )
 
 #-----------------------------------------------------------------------
@@ -84,7 +74,7 @@ string(STRIP "${COMPILER_FLAGS} -fvisibility-inlines-hidden" COMPILER_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Werror" WARNING_FLAGS)
 
 # LLVM Code generates the following warnings
-string(STRIP "${WARNING_FLAGS} -Wno-c++2a-compat -Wno-atomic-implicit-seq-cst -Wno-extra-semi-stmt -Wno-unused-template" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unused-function -Wno-c++2a-compat -Wno-atomic-implicit-seq-cst -Wno-extra-semi-stmt -Wno-unused-template" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-unused-parameter" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-padded" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-missing-noreturn" WARNING_FLAGS)
@@ -156,23 +146,6 @@ string(STRIP "${CMAKE_C_FLAGS} ${COMPILER_FLAGS}" CMAKE_C_FLAGS)
 # Add the warning flags
 string(STRIP "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS}" CMAKE_CXX_FLAGS)
 string(STRIP "${CMAKE_C_FLAGS} ${WARNING_FLAGS}" CMAKE_C_FLAGS)
-
-include_directories(
-	"${PROJECT_SOURCE_DIR}"
-	"${PROTEUS_SOURCE_DIR}"
-	"${PROTEUS_SOURCE_DIR}/codegen"
-	)
-
-include_directories(
-	#"${PROTEUS_SOURCE_DIR}"
-	#"${PROTEUS_SOURCE_DIR}/codegen"
-	#"${PROJECT_SOURCE_DIR}"
-
-	# Let's see if we pull in headers which requires this, if not let's drop the whole block
-	# FIXME: system libraries should not be included with quotes...
-	# Add local (for use with ""-style includes) path to the sysroot
-	"${CMAKE_INSTALL_PREFIX}/include"
-	)
 
 #-----------------------------------------------------------------------
 # Look for LLVM related compilation flags in a slightly complicated way,
@@ -309,7 +282,8 @@ endif()
 
 # `codegen` needs to be unquoted to be replaced, as CMake controls the build of
 # that library
-#set(default_libs ${default_libs} codegen )
+set(default_libs ${default_libs} aeolus_engine )
+set(default_libs ${default_libs} aeolus_bench )
 set(default_libs ${default_libs} -lnuma )
 set(default_libs ${default_libs} -lcodegen )
 set(default_libs ${default_libs} ${LLVM_LIBS} -lLLVMSupport)
@@ -341,10 +315,25 @@ set(default_libs ${default_libs} -lc++abi -lpthread -lrt)
 #----------------------------a-------------------------------------------
 #file(GLOB_RECURSE SOURCES RELATIVE ${CMAKE_SOURCE_DIR} "[^.]*.cpp")
 
+include_directories(
+	"${PROJECT_SOURCE_DIR}"
+	"${PROJECT_SOURCE_DIR}/engine"
+	"${PROJECT_SOURCE_DIR}/benchmarks"
+	"${PROTEUS_SOURCE_DIR}"
+	"${PROTEUS_SOURCE_DIR}/codegen"
+
+	# Let's see if we pull in headers which requires this, if not let's drop the whole block
+	# FIXME: system libraries should not be included with quotes...
+	# Add local (for use with ""-style includes) path to the sysroot
+	"${CMAKE_INSTALL_PREFIX}/include"
+	)
 
 #-----------------------------------------------------------------------
 # Build our executables
 #-----------------------------------------------------------------------
+add_subdirectory(engine)
+add_subdirectory(benchmarks)
+
 foreach(target ${MAINS})
 	add_executable(aeolus-${target} ${SOURCES} ${target}.cpp)
 	target_link_libraries(aeolus-${target} ${default_libs})

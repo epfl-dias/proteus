@@ -1,5 +1,5 @@
 #include "benchmarks/tpcc.hpp"
-#include "benchmarks/bench_utils.hpp"
+#include "utils/utils.hpp"
 
 #include <algorithm>
 #include <cctype>

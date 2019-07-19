@@ -32,7 +32,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <queue>
 #include <string>
 #include <thread>
-#include "benchmarks/tpcc.hpp"
 #include "scheduler/affinity_manager.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
@@ -153,10 +152,10 @@ void Worker::run() {
   }
   txn_end_time = std::chrono::system_clock::now();
 
-  if (pool->txn_bench->name.compare("TPCC") == 0) {
+  /*if (pool->txn_bench && pool->txn_bench->name.compare("TPCC") == 0) {
     bench::TPCC* tpcc_bench = (bench::TPCC*)pool->txn_bench;
     tpcc_bench->verify_consistency((uint)this->id);
-  }
+  }*/
 }
 
 std::vector<uint64_t> WorkerPool::get_active_txns() {

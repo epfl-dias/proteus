@@ -28,7 +28,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <limits>
 #include <thread>
 #include <tuple>
-#include "benchmarks/bench.hpp"
+#include "interfaces/bench.hpp"
 #include "benchmarks/tpcc.hpp"
 #include "benchmarks/ycsb.hpp"
 #include "glo.hpp"

@@ -28,7 +28,7 @@
 #define NUM_TPCH_QUERIES 22
 
 
-#include "benchmarks/bench.hpp"
+#include "interfaces/bench.hpp"
 #include "benchmarks/tpcc.hpp"
 #include "scheduler/affinity_manager.hpp"
 #include "scheduler/comm_manager.hpp"
