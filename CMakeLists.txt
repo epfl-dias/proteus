@@ -7,7 +7,7 @@ project(aeolus)
 #-----------------------------------------------------------------------
 # Simply comment the lines of this section to skip some of the binaries
 # to build.
-set(MAINS server htap-cow) # Interface to the executor
+set(MAINS server) # Interface to the executor
 
 # Tests
 # not too sure if we should build "main", it looks like it has the same
