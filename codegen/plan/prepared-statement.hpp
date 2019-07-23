@@ -30,11 +30,12 @@
 
 class PreparedStatement {
  private:
-  // std::vector<Pipeline*> pipelines;
+  std::vector<Pipeline*> pipelines;
+
+ protected:
+  PreparedStatement(const std::vector<Pipeline*>& pips) : pipelines(pips) {}
 
  public:
-  std::vector<Pipeline*> pipelines;
-  PreparedStatement(const std::vector<Pipeline*>& pips) : pipelines(pips) {}
   void execute();
 
   friend class RelBuilder;
