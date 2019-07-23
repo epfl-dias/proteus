@@ -102,16 +102,26 @@ enum class gran_t { GRID, BLOCK, THREAD };
       gpuAssert((ans), __FILE__, __LINE__);        \
   } while (0)
 
+[[noreturn]] __host__ inline void gpuAssert(std::string str, const char *file,
+                                            int line) {
+  auto msg = std::string{"GPUassert: "} + str;
+  google::LogMessage(file, line, google::GLOG_ERROR).stream() << msg;
+  throw std::runtime_error{msg};
+}
+
 __host__ __device__ inline void gpuAssert(cudaError_t code, const char *file,
                                           int line, bool doAbort = true) {
   if (code != cudaSuccess) {
 #ifndef __CUDA_ARCH__
-    fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file,
-            line);
+    try {
+      gpuAssert(cudaGetErrorString(code), file, line);
+    } catch (std::runtime_error e) {
+      if (doAbort) throw;
+    }
 #else
     printf("GPUassert: %s %s %d\n", "error", file, line);
-#endif
     if (doAbort) exit(code);
+#endif
   }
 }
 
@@ -119,26 +129,34 @@ __host__ __device__ inline void gpuAssert(CUresult code, const char *file,
                                           int line, bool doAbort = true) {
   if (code != CUDA_SUCCESS) {
 #ifndef __CUDA_ARCH__
-    const char *msg;
-    cuGetErrorString(code, &msg);
-    fprintf(stderr, "GPUassert: %s %s %d\n", msg, file, line);
+    try {
+      const char *msg;
+      cuGetErrorString(code, &msg);
+      gpuAssert(msg, file, line);
+    } catch (std::runtime_error e) {
+      if (doAbort) throw;
+    }
 #else
     printf("GPUassert: %s %s %d\n", "error", file, line);
-#endif
     if (doAbort) exit(code);
+#endif
   }
 }
 
-__host__ __device__ inline void gpuAssert(nvmlReturn_t code, const char *file,
-                                          int line, bool doAbort = true) {
+__host__ __device__ inline void gpuAssert(nvmlReturn_enum code,
+                                          const char *file, int line,
+                                          bool doAbort = true) {
   if (code != NVML_SUCCESS) {
 #ifndef __CUDA_ARCH__
-    const char *msg = nvmlErrorString(code);
-    fprintf(stderr, "GPUassert: %s %s %d\n", msg, file, line);
+    try {
+      gpuAssert(nvmlErrorString(code), file, line);
+    } catch (std::runtime_error e) {
+      if (doAbort) throw;
+    }
 #else
     printf("GPUassert: %s %s %d\n", "error", file, line);
-#endif
     if (doAbort) exit(code);
+#endif
   }
 }
 
