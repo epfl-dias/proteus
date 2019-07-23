@@ -194,6 +194,7 @@ int main(int argc, char *argv[]) {
   FLAGS_logtostderr = 1;  // FIXME: the command line flags/defs seem to fail...
 
   google::InstallFailureSignalHandler();
+  topology::init();
 
   if (FLAGS_query_topology) {
     std::cout << topology::getInstance() << std::endl;
@@ -219,7 +220,6 @@ int main(int argc, char *argv[]) {
   bool echo = false;
 
   LOG(INFO) << "Warming up GPUs...";
-  uint32_t devices = topology::getInstance().getGpuCount();
   for (const auto &gpu : topology::getInstance().getGpus()) {
     set_exec_location_on_scope d{gpu};
     gpu_run(cudaFree(0));

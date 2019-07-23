@@ -108,6 +108,7 @@ class topology {
 
    public:
     gpunode(uint32_t id, uint32_t index_in_topo,
+            const std::vector<topology::core> &all_cores,
             // do not remove argument!!!
             topologyonly_construction = {});
   };
@@ -125,11 +126,17 @@ class topology {
 
  protected:
   topology();
+  void init_();
 
   static topology instance;
 
  public:
-  static inline const topology &getInstance() { return instance; }
+  static void init();
+
+  static inline const topology &getInstance() {
+    assert(instance.getCoreCount() > 0 && "Is topology initialized?");
+    return instance;
+  }
 
   inline uint32_t getGpuCount() const { return gpu_cnt; }
 

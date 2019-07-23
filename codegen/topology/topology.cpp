@@ -56,9 +56,16 @@ void topology::cpunumanode::free(void *mem, size_t bytes) {
   numa_free(mem, bytes);
 }
 
-topology::topology() {
+void topology::init() {
+  instance.init_();
+  std::cout << topology::getInstance() << std::endl;
+}
+
+void topology::init_() {
   unsigned int gpus = 0;
   auto nvml_res = nvmlInit();
+  assert(cpu_info.size() == 0 && "Is topology already initialized?");
+  assert(core_info.size() == 0 && "Is topology already initialized?");
   if (nvml_res == NVML_SUCCESS) {
     // We can not use gpu_run(...) before we set gpu_cnt, call gpuAssert
     // directly.
@@ -106,7 +113,7 @@ topology::topology() {
 
   // Now create the GPU nodes
   for (uint32_t i = 0; i < gpu_cnt; ++i) {
-    gpu_info.emplace_back(i, i);
+    gpu_info.emplace_back(i, i, core_info);
     const auto &ind = cpunuma_index[gpu_info.back().local_cpu];
     cpu_info[ind].local_gpus.push_back(i);
   }
@@ -121,7 +128,8 @@ topology::topology() {
   for (auto &gpu : gpu_info) {
     gpu.connectivity.resize(gpu_cnt);
 
-    set_device_on_scope d(gpu.id);
+    gpu_run(cudaSetDevice(gpu.id));
+    // set_device_on_scope d(gpu);
     for (const auto &gpu2 : gpu_info) {
       if (gpu2.id != gpu.id) {
         int t = 0;
@@ -139,6 +147,9 @@ topology::topology() {
     }
   }
 }
+
+topology::topology() {}
+
 std::ostream &operator<<(std::ostream &out, const cpu_set_t &cpus) {
   long cores = sysconf(_SC_NPROCESSORS_ONLN);
 
@@ -252,13 +263,13 @@ std::ostream &operator<<(std::ostream &out, const topology &topo) {
 }
 
 topology::gpunode::gpunode(uint32_t id, uint32_t index_in_topo,
+                           const std::vector<topology::core> &all_cores,
                            topologyonly_construction)
     : id(id), handle(getGPUHandle(id)), index_in_topo(index_in_topo) {
 #ifndef NCUDA
   gpu_run(cudaGetDeviceProperties(&properties, id));
 
-  const auto &topo = topology::getInstance();
-  uint32_t sets = ((topo.getCoreCount() + 63) / 64);
+  uint32_t sets = ((all_cores.size() + 63) / 64);
   uint64_t cpuSet[sets];
   for (uint32_t i = 0; i < sets; ++i) cpuSet[i] = 0;
 
@@ -274,7 +285,7 @@ topology::gpunode::gpunode(uint32_t id, uint32_t index_in_topo,
   uint32_t invalid = ~((uint32_t)0);
   uint32_t tmp_cpu = invalid;
 
-  for (const auto &c : topo.getCores()) {
+  for (const auto &c : all_cores) {
     if (CPU_ISSET(c.id, &(local_cpu_set))) {
       local_cores.push_back(c.id);
 
@@ -297,8 +308,8 @@ topology::cpunumanode::cpunumanode(uint32_t id,
                                    topologyonly_construction)
     : id(id),
       // distance(b.distance),
-      local_cores(local_cores),
-      index_in_topo(index_in_topo) {
+      index_in_topo(index_in_topo),
+      local_cores(local_cores) {
   CPU_ZERO(&local_cpu_set);
   for (const auto &c : local_cores) CPU_SET(c, &local_cpu_set);
 }

@@ -55,7 +55,6 @@ void buffer_manager_destroy();
 
 void MemoryManager::init(size_t gpu_buffers, size_t cpu_buffers) {
   const topology &topo = topology::getInstance();
-  std::cout << topo << std::endl;
 
   gpu_managers = new SingleGpuMemoryManager *[topo.getGpuCount()];
   for (const auto &gpu : topo.getGpus()) {

@@ -49,6 +49,8 @@ void TestEnvironment::SetUp() {
 
   set_trace_allocations(true, true);
 
+  topology::init();
+
   // int devCount;
 
   // gpu_run(cuInit(0));
