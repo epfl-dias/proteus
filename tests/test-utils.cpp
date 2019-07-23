@@ -23,6 +23,7 @@
 
 #include "test-utils.hpp"
 
+#include "codegen/plan/prepared-statement.hpp"
 #include "codegen/util/parallel-context.hpp"
 #include "memory/memory-manager.hpp"
 #include "plan/plan-parser.hpp"
@@ -198,73 +199,7 @@ bool verifyTestResult(const char *testsPath, const char *testLabel,
 void runAndVerify(const char *testLabel, const char *planPath,
                   const char *testPath, const char *catalogJSON,
                   bool unordered) {
-  uint32_t devices = topology::getInstance().getGpuCount();
-  for (uint32_t i = 0; i < devices; ++i) {
-    gpu_run(cudaSetDevice(i));
-    gpu_run(cudaProfilerStart());
-  }
-  __itt_resume();
-
-  gpu_run(cudaSetDevice(0));
-
-  ParallelContext *ctx;
-
-  std::vector<Pipeline *> pipelines;
-  {
-    time_block t("Tcodegen: ");
-
-    ctx = new ParallelContext(testLabel, false);
-    CatalogParser catalog = CatalogParser(catalogJSON, ctx);
-    PlanExecutor exec = PlanExecutor(planPath, catalog, testLabel, ctx);
-
-    ctx->compileAndLoad();
-
-    pipelines = ctx->getPipelines();
-  }
-
-  // just to be sure...
-  for (uint32_t i = 0; i < devices; ++i) {
-    gpu_run(cudaSetDevice(i));
-    gpu_run(cudaDeviceSynchronize());
-  }
-
-  {
-    time_block t("Texecute w sync: ");
-
-    {
-      time_block t("Texecute       : ");
-
-      for (Pipeline *p : pipelines) {
-        nvtxRangePushA("pip");
-        {
-          time_block t("T: ");
-
-          p->open();
-          p->consume(0);
-          p->close();
-
-          std::cout << dec;
-        }
-        nvtxRangePop();
-      }
-
-      std::cout << dec;
-    }
-
-    // just to be sure...
-    for (uint32_t i = 0; i < devices; ++i) {
-      gpu_run(cudaSetDevice(i));
-      gpu_run(cudaDeviceSynchronize());
-    }
-  }
-
-  __itt_pause();
-  for (uint32_t i = 0; i < devices; ++i) {
-    gpu_run(cudaSetDevice(i));
-    gpu_run(cudaProfilerStop());
-  }
-
-  gpu_run(cudaSetDevice(0));
+  PreparedStatement::from(planPath, testLabel, catalogJSON).execute();
 
   EXPECT_TRUE(
       verifyTestResult(testPath, testLabel, unordered));  // FIXME:!!!!!!!!!!!!!

@@ -53,13 +53,6 @@
 //
 // </TechnicalDetails>
 
-#if __has_include("ittnotify.h")
-#include <ittnotify.h>
-#else
-#define __itt_resume() ((void)0)
-#define __itt_pause() ((void)0)
-#endif
-
 class TestEnvironment : public ::testing::Environment {
   bool is_noop;
   static bool has_already_been_setup;

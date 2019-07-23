@@ -23,6 +23,7 @@
 
 #include "plan/prepared-statement.hpp"
 
+#include "plan/plan-parser.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 
@@ -33,14 +34,31 @@
 #define __itt_pause() ((void)0)
 #endif
 
-void PreparedStatement::execute() {
+static constexpr auto defaultCatalogJSON = "inputs";
+
+void PreparedStatement::execute(bool deterministic_affinity) {
+  auto &topo = topology::getInstance();
+
   // just to be sure...
   for (const auto &gpu : topology::getInstance().getGpus()) {
     set_device_on_scope d{gpu};
     gpu_run(cudaDeviceSynchronize());
   }
 
+  for (const auto &gpu : topo.getGpus()) {
+    set_exec_location_on_scope d{gpu};
+    gpu_run(cudaProfilerStart());
+  }
   __itt_resume();
+
+  if (deterministic_affinity) {
+    // Make affinity deterministic
+    if (topo.getGpuCount() > 0) {
+      exec_location{topo.getGpus()[0]}.activate();
+    } else {
+      exec_location{topo.getCpuNumaNodes()[0]}.activate();
+    }
+  }
 
   {
     time_block t("Texecute w sync: ");
@@ -73,8 +91,38 @@ void PreparedStatement::execute() {
   }
 
   __itt_pause();
-  for (const auto &gpu : topology::getInstance().getGpus()) {
+  for (const auto &gpu : topo.getGpus()) {
     set_device_on_scope d{gpu};
     gpu_run(cudaProfilerStop());
+  }
+}
+
+PreparedStatement PreparedStatement::from(const std::string &planPath,
+                                          const std::string &label) {
+  return from(planPath, label, defaultCatalogJSON);
+}
+
+PreparedStatement PreparedStatement::from(const std::string &planPath,
+                                          const std::string &label,
+                                          const std::string &catalogJSON) {
+  {
+    Catalog *catalog = &Catalog::getInstance();
+    CachingService *caches = &CachingService::getInstance();
+    catalog->clear();
+    caches->clear();
+  }
+
+  std::vector<Pipeline *> pipelines;
+  {
+    time_block t("Tcodegen: ");
+
+    ParallelContext *ctx = new ParallelContext(label, false);
+    CatalogParser catalog{catalogJSON.c_str(), ctx};
+    auto label_ptr = new std::string{label};
+    PlanExecutor exec{planPath.c_str(), catalog, label_ptr->c_str(), ctx};
+
+    ctx->compileAndLoad();
+
+    return {ctx->getPipelines()};
   }
 }

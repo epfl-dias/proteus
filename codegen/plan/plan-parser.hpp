@@ -111,11 +111,12 @@ class CatalogParser {
 };
 
 class PlanExecutor {
- public:
+ private:
   PlanExecutor(const char *planPath, CatalogParser &cat,
                const char *moduleName = "llvmModule");
   PlanExecutor(const char *planPath, CatalogParser &cat, const char *moduleName,
                Context *ctx);
+  friend class PreparedStatement;
 
  private:
   ExpressionParser exprParser;

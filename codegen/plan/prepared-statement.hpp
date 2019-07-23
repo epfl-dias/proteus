@@ -36,7 +36,13 @@ class PreparedStatement {
   PreparedStatement(const std::vector<Pipeline*>& pips) : pipelines(pips) {}
 
  public:
-  void execute();
+  void execute(bool deterministic_affinity = true);
+
+  static PreparedStatement from(const std::string& planPath,
+                                const std::string& label);
+  static PreparedStatement from(const std::string& planPath,
+                                const std::string& catalogJSON,
+                                const std::string& label);
 
   friend class RelBuilder;
 };

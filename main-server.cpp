@@ -21,23 +21,18 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include <gflags/gflags.h>
+
 #include "codegen/communication/comm-manager.hpp"
 #include "codegen/memory/block-manager.hpp"
 #include "codegen/memory/memory-manager.hpp"
+#include "codegen/plan/prepared-statement.hpp"
 #include "codegen/topology/affinity_manager.hpp"
 #include "codegen/util/jit/pipeline.hpp"
 #include "codegen/util/parallel-context.hpp"
 #include "plan/plan-parser.hpp"
 #include "storage/storage-manager.hpp"
 #include "topology/topology.hpp"
-#if __has_include("ittnotify.h")
-#include <ittnotify.h>
-#else
-#define __itt_resume() ((void)0)
-#define __itt_pause() ((void)0)
-#endif
-
-#include <gflags/gflags.h>
 
 // https://stackoverflow.com/a/25829178/1237824
 std::string trim(const std::string &str) {
@@ -60,88 +55,7 @@ const char *catalogJSON = "inputs";
 
 void executePlan(const char *label, const char *planPath,
                  const char *catalogJSON) {
-  auto &topo = topology::getInstance();
-  {
-    Catalog *catalog = &Catalog::getInstance();
-    CachingService *caches = &CachingService::getInstance();
-    catalog->clear();
-    caches->clear();
-  }
-
-  // gpu_run(cudaSetDevice(0));
-
-  std::vector<Pipeline *> pipelines;
-  {
-    time_block t("Tcodegen: ");
-
-    ParallelContext *ctx = new ParallelContext(label, false);
-    CatalogParser catalog = CatalogParser(catalogJSON, ctx);
-    PlanExecutor exec = PlanExecutor(planPath, catalog, label, ctx);
-
-    ctx->compileAndLoad();
-
-    pipelines = ctx->getPipelines();
-  }
-
-  // just to be sure...
-  for (const auto &gpu : topo.getGpus()) {
-    set_exec_location_on_scope d{gpu};
-    gpu_run(cudaDeviceSynchronize());
-  }
-
-  for (const auto &gpu : topo.getGpus()) {
-    set_exec_location_on_scope d{gpu};
-    gpu_run(cudaProfilerStart());
-  }
-  __itt_resume();
-
-  // Make affinity deterministic
-  if (topo.getGpuCount() > 0) {
-    exec_location{topo.getGpus()[0]}.activate();
-  } else {
-    exec_location{topo.getCpuNumaNodes()[0]}.activate();
-  }
-
-  {
-    time_block t("Texecute w sync: ");
-
-    {
-      time_block t("Texecute       : ");
-
-      for (Pipeline *p : pipelines) {
-        nvtxRangePushA("pip");
-        {
-          time_block t("T: ");
-
-          p->open();
-          p->consume(0);
-          p->close();
-        }
-        nvtxRangePop();
-      }
-
-      std::cout << dec;
-    }
-
-    // just to be sure...
-    for (const auto &gpu : topo.getGpus()) {
-      set_exec_location_on_scope d{gpu};
-      gpu_run(cudaDeviceSynchronize());
-    }
-  }
-
-  __itt_pause();
-  for (const auto &gpu : topo.getGpus()) {
-    set_exec_location_on_scope d{gpu};
-    gpu_run(cudaProfilerStop());
-  }
-
-  // Make affinity deterministic
-  if (topo.getGpuCount() > 0) {
-    exec_location{topo.getGpus()[0]}.activate();
-  } else {
-    exec_location{topo.getCpuNumaNodes()[0]}.activate();
-  }
+  PreparedStatement::from(planPath, label, catalogJSON).execute();
 }
 
 void executePlan(const char *label, const char *planPath) {

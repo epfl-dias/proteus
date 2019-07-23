@@ -70,47 +70,14 @@ class PlanTest : public ::testing::Test {
 
   virtual void TearDown() { StorageManager::unloadAll(); }
 
-  bool executePlan(const char *planPath, const char *testLabel,
-                   const char *catalogJSON) {
-    std::vector<Pipeline *> pipelines;
-    {
-      time_block t("Tcodegen: ");
-
-      ParallelContext *ctx = new ParallelContext(testLabel, false);
-      CatalogParser catalog = CatalogParser(catalogJSON, ctx);
-      PlanExecutor exec = PlanExecutor(planPath, catalog, testLabel, ctx);
-
-      ctx->compileAndLoad();
-
-      pipelines = ctx->getPipelines();
-    }
-
-    {
-      time_block t("Texecute       : ");
-
-      for (Pipeline *p : pipelines) {
-        {
-          time_block t("T: ");
-
-          p->open();
-          p->consume(0);
-          p->close();
-        }
-      }
-    }
-
-    bool res = verifyTestResult(testPath, testLabel, true);
-    shm_unlink(testLabel);
-    return res;
-  }
-
-  bool executePlan(const char *planPath, const char *testLabel) {
-    return executePlan(planPath, testLabel, catalogJSON);
-  }
-
   bool flushResults = true;
   const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
   const char *catalogJSON = "inputs";
+
+  void runAndVerify(const char *testLabel, const char *planPath,
+                    bool unordered = true) {
+    ::runAndVerify(testLabel, planPath, testPath, catalogJSON, unordered);
+  }
 
  private:
   Catalog *catalog;
@@ -122,7 +89,7 @@ TEST_F(PlanTest, Scan) {
   const char *planPath = "inputs/plans/reduce-scan.json";
   const char *testLabel = "reduce-scan-log.json";
 
-  EXPECT_TRUE(executePlan(planPath, testLabel));
+  runAndVerify(testLabel, planPath);
 }
 
 /* SELECT COUNT(*) as cnt, MAX(age) as max_age FROM SAILORS s; */
@@ -130,7 +97,7 @@ TEST_F(PlanTest, ScanTwoFields) {
   const char *planPath = "inputs/plans/reduce-twofields-scan.json";
   const char *testLabel = "reduce-twofields-scan-log.json";
 
-  EXPECT_TRUE(executePlan(planPath, testLabel));
+  runAndVerify(planPath, testLabel);
 }
 
 /* SELECT COUNT(*) as cnt FROM employees e, unnest(e.children); */
@@ -138,7 +105,7 @@ TEST_F(PlanTest, Unnest) {
   const char *planPath = "inputs/plans/reduce-unnest-scan.json";
   const char *testLabel = "reduce-unnest-scan-log.json";
 
-  EXPECT_TRUE(executePlan(planPath, testLabel));
+  runAndVerify(testLabel, planPath);
 }
 
 /* SELECT COUNT(*) FROM SAILORS s JOIN RESERVES r ON s.sid = r.sid; */
@@ -146,7 +113,7 @@ TEST_F(PlanTest, Join) {
   const char *planPath = "inputs/plans/reduce-join.json";
   const char *testLabel = "reduce-join-log.json";
 
-  EXPECT_TRUE(executePlan(planPath, testLabel));
+  runAndVerify(testLabel, planPath);
 }
 
 /* SELECT COUNT(*) as count FROM RESERVES GROUP BY sid; */
@@ -154,7 +121,7 @@ TEST_F(PlanTest, Nest) {
   const char *planPath = "inputs/plans/reduce-nest.json";
   const char *testLabel = "reduce-nest-log.json";
 
-  EXPECT_TRUE(executePlan(planPath, testLabel));
+  runAndVerify(testLabel, planPath);
 }
 
 /* SELECT COUNT(*) FROM RESERVES WHERE sid = 22; */
@@ -162,7 +129,7 @@ TEST_F(PlanTest, Select) {
   const char *planPath = "inputs/plans/reduce-select.json";
   const char *testLabel = "reduce-select-log.json";
 
-  EXPECT_TRUE(executePlan(planPath, testLabel));
+  runAndVerify(testLabel, planPath);
 }
 
 /* Project out multiple cols:
@@ -172,7 +139,7 @@ TEST_F(PlanTest, MultiNest) {
   const char *planPath = "inputs/plans/reduce-multinest.json";
   const char *testLabel = "reduce-multinest-log.json";
 
-  EXPECT_TRUE(executePlan(planPath, testLabel));
+  runAndVerify(testLabel, planPath);
 }
 
 /*
@@ -184,7 +151,7 @@ TEST_F(PlanTest, JoinRecord) {
   const char *planPath = "inputs/plans/reduce-join-record.json";
   const char *testLabel = "reduce-join-record-log.json";
 
-  EXPECT_TRUE(executePlan(planPath, testLabel));
+  runAndVerify(testLabel, planPath);
 }
 
 /*
@@ -202,12 +169,12 @@ TEST_F(PlanTest, JoinRecordBNonselective) {
   const char *planPath = "inputs/plans/reduce-join-record-nonselective.json";
   const char *testLabel = "reduce-join-record-nonselective-log.json";
 
-  EXPECT_TRUE(executePlan(planPath, testLabel, catalogJSON));
+  ::runAndVerify(testLabel, planPath, testPath, catalogJSON, true);
 }
 
 TEST_F(PlanTest, ScanBin) {
   const char *planPath = "inputs/plans/reduce-scan-bin.json";
   const char *testLabel = "reduce-scan-bin-log.json";
 
-  EXPECT_TRUE(executePlan(planPath, testLabel));
+  runAndVerify(testLabel, planPath);
 }
