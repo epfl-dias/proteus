@@ -41,8 +41,8 @@ class PreparedStatement {
   static PreparedStatement from(const std::string& planPath,
                                 const std::string& label);
   static PreparedStatement from(const std::string& planPath,
-                                const std::string& catalogJSON,
-                                const std::string& label);
+                                const std::string& label,
+                                const std::string& catalogJSON);
 
   friend class RelBuilder;
 };
