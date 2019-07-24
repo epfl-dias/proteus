@@ -1,7 +1,41 @@
-cmake_minimum_required(VERSION 2.8)
-project(htap)
+cmake_minimum_required(VERSION 3.10.2)
 
-#set(PROTEUS_SOURCE_DIR "/cloud_store/raza/htap/src/executor")
+# Set LLVM suffix for systems with multiple LLVM installed to request
+# a specific version using -DLLVM_VERSION_SUFFIX=7
+
+# Flag to control whether we should build the dependencies
+option(STANDALONE "If ON, installs required subprojects. Otherwise the parent project should provide them" ON)
+
+#-----------------------------------------------------------------------
+# Start by looking for the compilers.
+# This should be done before any project(.) or enable_language(.) calls
+
+# Look for LLVM related compilation flags in a slightly complicated way,
+# the Ubuntu cmake module file is incorrect for our use case.
+
+if (DEFINED LLVM_VERSION_SUFFIX)
+	set(LLVM_VERSION_SUFFIX "-${LLVM_VERSION_SUFFIX}")
+endif()
+
+# NOTE: If we find llvm-config, we assume clang and clang++ are visible
+#       in the PATH
+find_program(LLVM_CONFIG "llvm-config${LLVM_VERSION_SUFFIX}")
+if(${LLVM_CONFIG} STREQUAL "LLVM_CONFIG-NOTFOUND")
+	message(FATAL_ERROR "LLVM not found")
+endif()
+
+find_program(CLANG_CXX_COMPILER "clang++${LLVM_VERSION_SUFFIX}")
+set(CMAKE_CXX_COMPILER "${CLANG_CXX_COMPILER}")
+find_program(CLANG_C_COMPILER "clang${LLVM_VERSION_SUFFIX}")
+set(CMAKE_C_COMPILER "${CLANG_C_COMPILER}")
+
+if (POLICY CMP0048)
+	cmake_policy(SET CMP0048 NEW)
+endif (POLICY CMP0048)
+
+# Now that the compilers are set, define project name and version
+project(htap VERSION 0.1)
+
 #-----------------------------------------------------------------------
 # Which binaries to build:
 #-----------------------------------------------------------------------
@@ -37,11 +71,11 @@ set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 # which point to directories outside the build tree to the install RPATH
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-#set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 # Otherwise the -std=gnu++XX is used instead of the -std=c++XX, as one
 # would expect from the property above
-#set(CMAKE_CXX_EXTENSIONS FALSE)
-#set(CXX_STANDARD_REQUIRED TRUE)
+set(CMAKE_CXX_EXTENSIONS FALSE)
+set(CXX_STANDARD_REQUIRED TRUE)
 
 # Whether to enable or not VTune support, if available
 set(VTUNE_ENABLE TRUE)
@@ -52,9 +86,6 @@ set(VTUNE_ENABLE TRUE)
 
 # Setup Compilation and link flags
 #-----------------------------------------------------------------------
-# Turn on maximum code compliance and all the warnings
-string(STRIP "${COMPILER_FLAGS} --std=c++17 -pedantic -g3 -Weverything" COMPILER_FLAGS)
-
 # Place each function and data in its own section
 string(STRIP "${COMPILER_FLAGS} -ffunction-sections -fdata-sections" COMPILER_FLAGS)
 
@@ -64,124 +95,88 @@ string(STRIP "${COMPILER_FLAGS} -march=native -mtune=native" COMPILER_FLAGS)
 # Hide inline methods by default
 string(STRIP "${COMPILER_FLAGS} -fvisibility-inlines-hidden" COMPILER_FLAGS)
 
-# Use -DCMAKE_BUILD_TYPE=RelWithDebInfo to get a release with debug symbols 
-# or -DCMAKE_BUILD_TYPE=Debug / -DCMAKE_BUILD_TYPE=Release to control
-# default optimisation flags.
+# By default add debug symbols, we are not yet ready for production releases
+string(STRIP "${COMPILER_FLAGS} -g" COMPILER_FLAGS)
+
+# Currently our code fails to link for -O0, -O1
+string(STRIP "${COMPILER_FLAGS} -O2" COMPILER_FLAGS)
+
+# Turn on maximum code compliance and all the warnings
+string(STRIP "${WARNING_FLAGS} -pedantic -Weverything" WARNING_FLAGS)
 
 # Turn warnings into errors
 string(STRIP "${WARNING_FLAGS} -Werror" WARNING_FLAGS)
+# Disable warning-as-error for deprecated calls
+# string(STRIP "${WARNING_FLAGS} -Wno-error=deprecated" WARNING_FLAGS)
 
-# LLVM Code generates the following warnings
-string(STRIP "${WARNING_FLAGS} -Wno-unused-template -Wno-disabled-macro-expansion -Wno-c++2a-compat -Wno-atomic-implicit-seq-cst -Wno-extra-semi-stmt" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-unused-parameter" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-padded" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-missing-noreturn" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-shadow-field-in-constructor" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-shadow" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-conversion" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-redundant-parens" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-old-style-cast" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-undef" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-documentation-unknown-command" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-comma" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-switch-enum" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-signed-enum-bitfield" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-missing-variable-declarations" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-extra-semi" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-undefined-func-template" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-weak-vtables" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-attributes" WARNING_FLAGS)
-
-# CUDA Code generates the following warnings
-string(STRIP "${WARNING_FLAGS} -Wno-documentation-deprecated-sync" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-documentation" WARNING_FLAGS)
-
-# Our code generates the following warnigns
-string(STRIP "${WARNING_FLAGS} -Wno-unused-command-line-argument" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat-pedantic" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat" WARNING_FLAGS)
-
-# Copied from PROTEUS to make shared codegen work
-string(STRIP "${WARNING_FLAGS} -Wno-unused-variable" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-unused-private-field" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-reorder"  WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-ignored-qualifiers" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-deprecated" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-cast-qual" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-sign-compare" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-sign-conversion" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-vla-extension" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-unused-command-line-argument" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat-pedantic" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat" WARNING_FLAGS)
+# Our Code generates the following warnings:
 string(STRIP "${WARNING_FLAGS} -Wno-assign-enum" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-reserved-id-macro" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-shorten-64-to-32" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-zero-as-null-pointer-constant" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-header-hygiene" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat-pedantic" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-cast-align" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-cast-qual" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-conditional-uninitialized" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-conversion" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-covered-switch-default" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-deprecated" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-double-promotion" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-exit-time-destructors" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-global-constructors" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-missing-prototypes" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-unreachable-code" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-unreachable-code-return" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-conditional-uninitialized" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-covered-switch-default" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-double-promotion" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-cast-align" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-shadow-field" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-used-but-marked-unused" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-unreachable-code-break" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-header-hygiene" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-ignored-qualifiers" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-implicit-fallthrough" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-unused-macros" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-vla" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-missing-prototypes" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-missing-variable-declarations" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-old-style-cast" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-padded" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-reorder"  WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-reserved-id-macro" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-shadow" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-shadow-field" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-shadow-field-in-constructor" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-shorten-64-to-32" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-sign-compare" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-sign-conversion" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-switch-enum" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-tautological-compare" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-undefined-func-template" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unreachable-code" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unreachable-code-break" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unreachable-code-return" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unused-command-line-argument" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unused-macros" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unused-parameter" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unused-private-field" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unused-variable" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-used-but-marked-unused" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-vla" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-vla-extension" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-weak-vtables" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-zero-as-null-pointer-constant" WARNING_FLAGS)
+
+# Unit-tests:
+string(STRIP "${WARNING_FLAGS} -Wno-shift-sign-overflow" WARNING_FLAGS)
 
 #-----------------------------------------------------------------------
 # Add the compiler flags
 string(STRIP "${CMAKE_CXX_FLAGS} ${COMPILER_FLAGS}" CMAKE_CXX_FLAGS)
 string(STRIP "${CMAKE_C_FLAGS} ${COMPILER_FLAGS}" CMAKE_C_FLAGS)
 
-# Add the warning flags
-string(STRIP "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS}" CMAKE_CXX_FLAGS)
-string(STRIP "${CMAKE_C_FLAGS} ${WARNING_FLAGS}" CMAKE_C_FLAGS)
-
-include_directories(
-	"${PROJECT_SOURCE_DIR}"
-	"${PROTEUS_SOURCE_DIR}"
-	"${PROTEUS_SOURCE_DIR}/codegen"
-	"${AEOLUS_SOURCE_DIR}"
-	"${AEOLUS_SOURCE_DIR}/benchmarks"
-	"${AEOLUS_SOURCE_DIR}/engine"
-	)
-
-include_directories(
-	#"${PROJECT_SOURCE_DIR}"
-
-	# Let's see if we pull in headers which requires this, if not let's drop the whole block
-	# FIXME: system libraries should not be included with quotes...
-	# Add local (for use with ""-style includes) path to the sysroot
-	"${CMAKE_INSTALL_PREFIX}/include"
-	)
-
-#-----------------------------------------------------------------------
-# Look for LLVM related compilation flags in a slightly complicated way,
-# the Ubuntu cmake module file is incorrect for our use case.
-# NOTE: If we find llvm-config, we assume clang and clang++ are visible
-#       in the PATH
-find_program(LLVM_CONFIG "llvm-config")
-if(${LLVM_CONFIG} STREQUAL "LLVM_CONFIG-NOTFOUND")
-    message(FATAL_ERROR "LLVM not found")
-endif()
-
-find_program(CLANG_CXX_COMPILER "clang++")
-set(CMAKE_CXX_COMPILER "${CLANG_CXX_COMPILER}")
-find_program(CLANG_C_COMPILER "clang")
-set(CMAKE_C_COMPILER "${CLANG_C_COMPILER}")
-
 # LLVM APIs we use
 set(LLVM_COMPONENTS "aggressiveinstcombine all all-targets analysis asmparser asmprinter binaryformat bitreader bitwriter codegen core coroutines coverage debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb demangle dlltooldriver engine executionengine fuzzmutate globalisel instcombine instrumentation inteljitevents interpreter ipo irreader libdriver lineeditor linker lto mc mcdisassembler mcjit mcparser mirparser native nativecodegen nvptx nvptxasmprinter nvptxcodegen nvptxdesc nvptxinfo objcarcopts object objectyaml option orcjit passes profiledata runtimedyld scalaropts selectiondag support symbolize tablegen target transformutils vectorize windowsmanifest x86 x86asmparser x86asmprinter x86codegen x86desc x86disassembler x86info x86utils")
 set(LLVM_COMPONENTS "")
-execute_process(COMMAND ${CMAKE_INSTALL_PREFIX}/bin/llvm-config --libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE LLVM_LIBS OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND ${LLVM_CONFIG} --libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE LLVM_LIBS OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+execute_process(COMMAND ${LLVM_CONFIG} --includedir ${LLVM_COMPONENTS} OUTPUT_VARIABLE LLVM_INCLUDEDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND ${LLVM_CONFIG} --libdir ${LLVM_COMPONENTS} OUTPUT_VARIABLE LLVM_LINKDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+include_directories(
+	SYSTEM ${LLVM_INCLUDEDIR}
+)
+
+link_directories(
+	${LLVM_LINKDIR}
+)
 
 #-----------------------------------------------------------------------
 # Various dependencies
@@ -264,6 +259,31 @@ else()
 	set(CUDA "CUDA-NOTFOUND")
 endif()
 
+# GFlags
+if (TRUE)
+	# Add google test here, so that we do not propagate to it the WARNING_FLAGS
+	configure_file(CMakeLists.txt.gflags.in gflags-download/CMakeLists.txt)
+	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+		RESULT_VARIABLE result
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/gflags-download )
+	if(result)
+		message(FATAL_ERROR "CMake step for gflags failed: ${result}")
+	endif()
+
+	execute_process(COMMAND ${CMAKE_COMMAND} --build .
+		RESULT_VARIABLE result
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/gflags-download )
+	if(result)
+		message(FATAL_ERROR "Build step for gflags failed: ${result}")
+	endif()
+
+	# Add gflags directly to our build. This defines
+	# the gtest and gtest_main targets.
+	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/gflags-src
+		${CMAKE_CURRENT_BINARY_DIR}/gflags-build
+		EXCLUDE_FROM_ALL)
+endif()
+
 #-----------------------------------------------------------------------
 # GoogleLog
 find_library(GLOG NAMES glog)
@@ -273,24 +293,41 @@ endif()
 
 #-----------------------------------------------------------------------
 # GoogleTest
-find_library(GTEST NAMES gtest)
-if(${GTEST} STREQUAL "GTEST-NOTFOUND")
-	message(FATAL_ERROR "GoogleTest not found!")
-endif()
+if (STANDALONE)
+	# Add google test here, so that we do not propagate to it the WARNING_FLAGS
+	configure_file(CMakeLists.txt.gtest.in googletest-download/CMakeLists.txt)
+	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+		RESULT_VARIABLE result
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
+	if(result)
+		message(FATAL_ERROR "CMake step for googletest failed: ${result}")
+	endif()
 
-find_library(GTEST_MAIN NAMES gtest_main)
-if(${GTEST_MAIN} STREQUAL "GTEST_MAIN-NOTFOUND")
-	message(FATAL_ERROR "GoogleTest main not found!")
-endif()
+	execute_process(COMMAND ${CMAKE_COMMAND} --build .
+		RESULT_VARIABLE result
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
+	if(result)
+		message(FATAL_ERROR "Build step for googletest failed: ${result}")
+	endif()
 
-#-----------------------------------------------------------------------
-# Intel VTune profile support
-find_library(VTUNE ittnotify HINTS "/opt/intel/vtune_amplifier/lib64")
-if(VTUNE AND VTUNE_ENABLE)
-	include_directories(
-		"/opt/intel/vtune_amplifier/include"
-		)
-	set(default_libs ${VTUNE} -ldl ${default_libs})
+	# Add googletest directly to our build. This defines
+	# the gtest and gtest_main targets.
+	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
+		${CMAKE_CURRENT_BINARY_DIR}/googletest-build
+		EXCLUDE_FROM_ALL)
+
+	set(GTEST gtest)
+	set(GTEST_MAIN gtest_main)
+else()
+	find_library(GTEST NAMES gtest)
+	if(${GTEST} STREQUAL "GTEST-NOTFOUND")
+		message(FATAL_ERROR "GoogleTest not found!")
+	endif()
+
+	find_library(GTEST_MAIN NAMES gtest_main)
+	if(${GTEST_MAIN} STREQUAL "GTEST_MAIN-NOTFOUND")
+		message(FATAL_ERROR "GoogleTest main not found!")
+	endif()
 endif()
 
 #-----------------------------------------------------------------------
@@ -303,10 +340,41 @@ set(default_libs ${default_libs} -lnuma )
 set(default_libs ${default_libs} -lcodegen )
 set(default_libs ${default_libs} -laeolus_engine )
 set(default_libs ${default_libs} -laeolus_bench )
-set(default_libs ${default_libs} ${LLVM_LIBS} -lLLVMSupport)
+set(default_libs ${default_libs} ${LLVM_LIBS})
 set(default_libs ${default_libs} ${CUDA_LIBS})
-set(default_libs ${default_libs} ${GLOG})
+set(default_libs ${default_libs} gflags::gflags ${GLOG} gflags::gflags)
 set(default_libs ${default_libs} -lc++abi -lpthread -lrt)
+
+#-----------------------------------------------------------------------
+# Intel VTune profile support
+find_library(VTUNE ittnotify HINTS "/opt/intel/vtune_amplifier/lib64")
+if(VTUNE AND VTUNE_ENABLE)
+	include_directories(
+		SYSTEM "/opt/intel/vtune_amplifier/include"
+		)
+	set(default_libs ${default_libs} ${VTUNE} -ldl)
+endif()
+
+#-----------------------------------------------------------------------
+# Build our libraries
+#-----------------------------------------------------------------------
+
+include_directories(
+	"${PROJECT_SOURCE_DIR}"
+	SYSTEM "${PROTEUS_SOURCE_DIR}"
+	SYSTEM "${PROTEUS_SOURCE_DIR}/codegen"
+	SYSTEM "${AEOLUS_SOURCE_DIR}"
+	SYSTEM "${AEOLUS_SOURCE_DIR}/benchmarks"
+	SYSTEM "${AEOLUS_SOURCE_DIR}/engine"
+	# Let's see if we pull in headers which requires this, if not let's drop the whole block
+	# FIXME: system libraries should not be included with quotes...
+	# Add local (for use with ""-style includes) path to the sysroot
+	"${CMAKE_INSTALL_PREFIX}/include"
+	)
+
+# Add the warning flags
+string(STRIP "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS}" CMAKE_CXX_FLAGS)
+string(STRIP "${CMAKE_C_FLAGS} ${WARNING_FLAGS}" CMAKE_C_FLAGS)
 
 #-----------------------------------------------------------------------
 # Define path to installed resources
@@ -340,7 +408,7 @@ foreach(target ${MAINS})
 	add_executable(htap-${target} ${target}.cpp ${SOURCES})
 	target_link_libraries(htap-${target} ${default_libs})
 	install(TARGETS htap-${target}
-		RUNTIME DESTINATION htap
+		RUNTIME DESTINATION pelago
 		LIBRARY DESTINATION lib
 		ARCHIVE DESTINATION lib
 		)
