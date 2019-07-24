@@ -487,6 +487,10 @@ void Exchange::open(Pipeline *pip) {
   std::lock_guard<std::mutex> guard(init_mutex);
 
   if (firers.empty()) {
+    for (int i = 0; i < numOfParents; ++i) {
+      ready_fifo[i].reset();
+    }
+
     eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_START);
     remaining_producers = producers;
     for (int i = 0; i < numOfParents; ++i) {
