@@ -416,7 +416,6 @@ void MemBroadcastDevice::consume(Context *const context,
 }
 
 void MemBroadcastDevice::open(Pipeline *pip) {
-  std::cout << "MemBroadcastDevice:open" << std::endl;
   nvtxRangePushA("memmove::open");
   // cudaStream_t strm2;
   // gpu_run(cudaStreamCreateWithFlags(&strm2, cudaStreamNonBlocking));

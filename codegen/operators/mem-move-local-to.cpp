@@ -309,8 +309,6 @@ void MemMoveLocalTo::consume(Context *const context,
 void MemMoveLocalTo::open(Pipeline *pip) {
   int device = topology::getInstance().getActiveGpu().id;
 
-  std::cout << "MemMoveLocalTo::Open" << std::endl;
-
   // set_device_on_scope d(1-device);
 
   cudaStream_t strm = createNonBlockingStream();
@@ -353,8 +351,6 @@ void MemMoveLocalTo::open(Pipeline *pip) {
 }
 
 void MemMoveLocalTo::close(Pipeline *pip) {
-  std::cout << "MemMoveLocalTo::Close" << std::endl;
-
   // int device = topology::getInstance().getActiveGpu().id;
   // cudaStream_t strm = pip->getStateVar<cudaStream_t>(cu_stream_var);
   MemMoveConf *mmc = pip->getStateVar<MemMoveConf *>(memmvconf_var);
