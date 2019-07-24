@@ -119,6 +119,11 @@ class AsyncQueueSPSC {
  public:
   AsyncQueueSPSC() : terminating(false), cache_size(0) {}
 
+  void reset() {
+    terminating = false;
+    cache_size = 0;
+  }
+
   void close() {
     // push(NULL);
     nvtxRangePushA("AsyncQueue_o");
