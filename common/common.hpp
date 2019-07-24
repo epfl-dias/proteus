@@ -279,4 +279,8 @@ class logger {
 
 extern thread_local logger eventlogger;
 
+namespace proteus {
+void init(bool inc_buffers = false);
+}
+
 #endif /* COMMON_HPP_ */

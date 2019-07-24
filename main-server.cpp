@@ -123,8 +123,6 @@ std::string runPlanFile(std::string plan, unlink_upon_exit &uue,
   return label;
 }
 
-void thread_warm_up() {}
-
 DEFINE_bool(query_topology, false, "Print the system topology and exit");
 DEFINE_bool(trace_allocations, false,
             "Trace memory allocation and leaks (requires a build with "
@@ -194,63 +192,18 @@ int main(int argc, char *argv[]) {
   FLAGS_logtostderr = 1;  // FIXME: the command line flags/defs seem to fail...
 
   google::InstallFailureSignalHandler();
-  topology::init();
 
   if (FLAGS_query_topology) {
+    topology::init();
     std::cout << topology::getInstance() << std::endl;
     return 0;
   }
 
   set_trace_allocations(FLAGS_trace_allocations);
 
-  size_t cpu_buffers = 1024;
-  size_t gpu_buffers = 512;
-  if (FLAGS_inc_buffers) {
-    cpu_buffers = 16 * 1024;
-    gpu_buffers = 1024;
-  }
-
-  // Initialize Google's logging library.
-  LOG(INFO) << "Starting up server...";
-
-  // Force initialization of communcation manager by getting the instance
-  LOG(INFO) << "Initializing communication manager...";
-  communication::CommManager::getInstance();
+  proteus::init(FLAGS_inc_buffers);
 
   bool echo = false;
-
-  LOG(INFO) << "Warming up GPUs...";
-  for (const auto &gpu : topology::getInstance().getGpus()) {
-    set_exec_location_on_scope d{gpu};
-    gpu_run(cudaFree(0));
-  }
-
-  gpu_run(cudaFree(0));
-
-  // gpu_run(cudaDeviceSetLimit(cudaLimitStackSize, 40960));
-
-  LOG(INFO) << "Warming up threads...";
-
-  std::vector<std::thread> thrds;
-  for (int i = 0; i < 1024; ++i) thrds.emplace_back(thread_warm_up);
-  for (auto &t : thrds) t.join();
-
-  // srand(time(0));
-
-  LOG(INFO) << "Initializing codegen...";
-
-  PipelineGen::init();
-
-  LOG(INFO) << "Initializing memory manager...";
-  MemoryManager::init(gpu_buffers, cpu_buffers);
-
-  // Make affinity deterministic
-  auto &topo = topology::getInstance();
-  if (topo.getGpuCount() > 0) {
-    exec_location{topo.getGpus()[0]}.activate();
-  } else {
-    exec_location{topo.getCpuNumaNodes()[0]}.activate();
-  }
 
   LOG(INFO) << "Eagerly loading files in memory...";
 
