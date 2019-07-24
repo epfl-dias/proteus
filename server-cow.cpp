@@ -22,14 +22,13 @@
 */
 
 #define RUNTIME_SECONDS 60
-#define NUM_OLAP_CLIENTS 1
-#define NUM_OLTP_CLIENTS 64
 #define NUM_TPCH_QUERIES 22
 #define NUM_OLAP_REPEAT 2
-#define PLAN_DIR "/scratch/raza/htap/opt/pelago/inputs/plans/cpu-ssb"
 
 #include <filesystem>
 #include <unistd.h>
+
+#include <gflags/gflags.h>
 
 #include "benchmarks/tpcc.hpp"
 #include "interfaces/bench.hpp"
@@ -47,7 +46,7 @@
 #include "codegen/topology/affinity_manager.hpp"
 #include "codegen/util/jit/pipeline.hpp"
 #include "codegen/util/parallel-context.hpp"
-#include "plan/plan-parser.hpp"
+#include "codegen/plan/prepared-statement.hpp"
 #include "storage/storage-manager.hpp"
 
 #if __has_include("ittnotify.h")
@@ -57,83 +56,25 @@
 #define __itt_pause() ((void)0)
 #endif
 
+DEFINE_bool(query_topology, false, "Print the system topology and exit");
+DEFINE_bool(trace_allocations, false,
+            "Trace memory allocation and leaks (requires a build with "
+            "undefined NDEBUG)");
+DEFINE_bool(inc_buffers, false, "Use bigger block pools");
+DEFINE_uint64(num_olap_clients, 1, "Number of OLAP clients");
+DEFINE_uint64(num_oltp_clients, 1, "Number of OLTP clients");
+DEFINE_string(plan_dir, "inputs/plans/cpu-ssb", "Directory with plans to be executed");
+DEFINE_string(inputs_dir, "inputs/", "Data and catalog directory");
+DEFINE_uint64(olap_repeat, 2, "Repetition of OLAP query sequence");
+
 struct OLAP_STATS {
   uint64_t tpch_runtimes[NUM_TPCH_QUERIES * NUM_OLAP_REPEAT];
 };
 
 std::vector<pid_t> children;
 
-// https://stackoverflow.com/a/25829178/1237824
-std::string trim(const std::string &str) {
-  size_t first = str.find_first_not_of(' ');
-  if (std::string::npos == first)
-    return str;
-  size_t last = str.find_last_not_of(' ');
-  return str.substr(first, (last - first + 1));
-}
-
-// https://stackoverflow.com/a/7756105/1237824
-bool starts_with(const std::string &s1, const std::string &s2) {
-  return s2.size() <= s1.size() && s1.compare(0, s2.size(), s2) == 0;
-}
-
-constexpr size_t clen(const char *str) {
-  return (*str == 0) ? 0 : clen(str + 1) + 1;
-}
-
-const char *catalogJSON = "inputs";
-
-void thread_warm_up() {}
-
-void init_olap_warmup(const topology::cpunumanode &numa_node) {
-  time_block t("Tolap init: ");
-  LOG(INFO) << "[OLAP] Initializing ...";
-
-  bool FLAGS_trace_allocations = false;
-  bool FLAGS_inc_buffers = false;
-
-  srand(time(NULL));
-
-  FLAGS_logtostderr = 1; // FIXME: the command line flags/defs seem to fail...
-
-  google::InstallFailureSignalHandler();
-
-  set_trace_allocations(FLAGS_trace_allocations);
-
-  size_t cpu_buffers = 1024;
-  size_t gpu_buffers = 512;
-  if (FLAGS_inc_buffers) {
-    cpu_buffers = 16 * 1024;
-    gpu_buffers = 1024;
-  }
-
-  LOG(INFO) << "[OLAP] Warming up threads...";
-
-  std::vector<std::thread> thrds;
-  for (int i = 0; i < 1024; ++i)
-    thrds.emplace_back(thread_warm_up);
-  for (auto &t : thrds)
-    t.join();
-
-  // srand(time(0));
-
-  LOG(INFO) << "[OLAP] Initializing codegen...";
-
-  PipelineGen::init();
-
-  LOG(INFO) << "[OLAP] Initializing memory manager...";
-  MemoryManager::init(gpu_buffers, cpu_buffers);
-
-  // Make affinity deterministic
-  // exec_location{numa_node}.activate();
-  auto &topo = topology::getInstance();
-  if (topo.getGpuCount() > 0) {
-    exec_location{topo.getGpus()[0]}.activate();
-  } else {
-    exec_location{topo.getCpuNumaNodes()[0]}.activate();
-  }
-
-  LOG(INFO) << "Finished initialization";
+void init_olap_warmup(){
+  proteus::init(FLAGS_inc_buffers);
 }
 
 std::vector<PreparedStatement>
@@ -149,10 +90,6 @@ init_olap_sequence(const topology::cpunumanode &numa_node,
   // on runtime?
 
   std::vector<PreparedStatement> stmts;
-  Catalog *catalog = &Catalog::getInstance();
-  CachingService *caches = &CachingService::getInstance();
-  catalog->clear();
-  caches->clear();
 
   std::string label_prefix("htap_server_" + std::to_string(getpid()) + "_q");
   uint i = 0;
@@ -163,18 +100,9 @@ init_olap_sequence(const topology::cpunumanode &numa_node,
       std::string plan_path = entry.path().string();
       std::string label = label_prefix + std::to_string(i++);
 
-      time_block t("Tcodegen_" + label + ": ");
+      LOG(INFO) << "Compiling Query:" << plan_path << std::endl;
 
-      std::cout << "Compiling Query:" << plan_path << std::endl;
-
-      ParallelContext *ctx = new ParallelContext(label, false);
-      CatalogParser catalog = CatalogParser(catalogJSON, ctx);
-      PlanExecutor exec =
-          PlanExecutor(plan_path.c_str(), catalog, label.c_str(), ctx);
-
-      ctx->compileAndLoad();
-
-      stmts.emplace_back(ctx->getPipelines());
+      stmts.emplace_back(PreparedStatement::from(plan_path, label, FLAGS_inputs_dir));
     }
   }
 
@@ -198,7 +126,7 @@ void run_olap_sequence(std::vector<PreparedStatement> &olap_queries,
   // Make affinity deterministic
   exec_location{numa_node}.activate();
 
-  for (ushort i = 0, j = 0; i < NUM_OLAP_REPEAT; i++) {
+  for (size_t i = 0, j = 0; i < FLAGS_olap_repeat; i++) {
 
     for (auto &q : olap_queries) {
 
@@ -283,7 +211,7 @@ void *get_shm(std::string name, size_t size) {
   return mem;
 }
 
-void kill_orphans_and_widows(int s) {
+[[noreturn]] void kill_orphans_and_widows(int s) {
   for (auto &pid : children) {
     kill(pid, SIGTERM);
   }
@@ -293,36 +221,45 @@ void kill_orphans_and_widows(int s) {
 void register_handler() { signal(SIGINT, kill_orphans_and_widows); }
 
 int main(int argc, char *argv[]) {
+  gflags::SetUsageMessage("Simple command line interface for proteus");
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   google::InitGoogleLogging(argv[0]);
+  FLAGS_logtostderr = 1;  // FIXME: the command line flags/defs seem to fail...
 
-  auto &topo = topology::getInstance();
-  auto &nodes = topo.getCpuNumaNodes();
+  // google::InstallFailureSignalHandler();
 
-  assert(nodes.size() >= 2);
-  assert(NUM_OLTP_CLIENTS <= nodes[0].local_cores.size());
+  set_trace_allocations(FLAGS_trace_allocations);
 
   // INIT
   struct OLAP_STATS *analytical_stats = (struct OLAP_STATS *)get_shm(
-      "olap_stats", sizeof(struct OLAP_STATS) * NUM_OLAP_CLIENTS);
+      "olap_stats", sizeof(struct OLAP_STATS) * FLAGS_num_olap_clients);
 
   // bench::Benchmark *oltp_bench = init_oltp(nodes[0].local_cores.size(), "");
 
   // RUNOLTP
   // run_oltp(nodes[0], nodes[0].local_cores.size(), oltp_bench);
 
-  for (int i = 0; i < NUM_OLAP_CLIENTS; i++) {
-
+  for (int i = 0; i < FLAGS_num_olap_clients; i++) {
     pid_t tmp = fork();
 
     if (tmp == 0) {
       // run olap stuff
       // warmup should be inside or outside? cpu can be outside but dont know
       // about gpu init stuff can be forked or not.
-      init_olap_warmup(nodes[1]);
+      init_olap_warmup();
+
+      auto &topo = topology::getInstance();
+      auto &nodes = topo.getCpuNumaNodes();
+
+      assert(nodes.size() >= 2);
+      assert(FLAGS_num_oltp_clients <= nodes[0].local_cores.size());
+
+      exec_location{nodes[1]}.activate();
+
 
       std::vector<PreparedStatement> olap_queries =
-          init_olap_sequence(nodes[1], PLAN_DIR);
+          init_olap_sequence(nodes[1], FLAGS_plan_dir);
 
       run_olap_sequence(olap_queries, i, analytical_stats + i, nodes[1]);
 
@@ -334,7 +271,7 @@ int main(int argc, char *argv[]) {
   }
 
   // some child process
-  if (children.size() != NUM_OLAP_CLIENTS)
+  if (children.size() != FLAGS_num_olap_clients)
     return 0;
 
   register_handler();
