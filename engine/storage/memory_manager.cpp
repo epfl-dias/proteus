@@ -161,6 +161,12 @@ void MemoryManager::destroy() {
 }
 void* MemoryManager::alloc(size_t bytes, int numa_memset_id) {
   const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
+  // if (numa_memset_id == 18) {
+  //   numa_memset_id = 252;
+  //   std::cout << "SPECIAL NUMA" << std::endl;
+  //   return numa_alloc_onnode(bytes, numa_memset_id);
+  // }
+  // std::cout << "Allocating on NUMA #" << vec[numa_memset_id].id << std::endl;
   return numa_alloc_onnode(bytes, vec[numa_memset_id].id);
   // return numa_alloc_interleaved(bytes);
 }

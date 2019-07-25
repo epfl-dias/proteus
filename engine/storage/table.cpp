@@ -201,16 +201,24 @@ ColumnStore::ColumnStore(
 void* ColumnStore::insertRecord(void* rec, uint64_t xid, ushort master_ver) {
   uint64_t curr_vid = vid.fetch_add(1);
 
-  global_conf::IndexVal hash_val(xid, curr_vid, master_ver);
-  void* hash_ptr =
-      this->meta_column->insertElem(curr_vid, &hash_val, master_ver);
+  void* pano = this->meta_column->insertElem(curr_vid);
+
+  global_conf::IndexVal* hash_ptr =
+      new (pano) global_conf::IndexVal(xid, curr_vid, master_ver);
+
+  // s = new (pano) std::atomic<uint64_t>;
+  // void *insertElem(uint64_t offset);
+
+  // global_conf::IndexVal hash_val(xid, curr_vid, master_ver);
+  // void* hash_ptr =
+  //    this->meta_column->insertElem(curr_vid, &hash_val, master_ver);
 
   char* rec_ptr = (char*)rec;
   for (auto& col : columns) {
     col->insertElem(curr_vid, rec_ptr, master_ver);
     rec_ptr += col->elem_size;
   }
-  return hash_ptr;
+  return (void*)hash_ptr;
 }
 
 uint64_t ColumnStore::insertRecord(void* rec, ushort master_ver) {
@@ -366,7 +374,7 @@ void Column::buildIndex() {
 }
 
 Column::Column(std::string name, uint64_t initial_num_records, data_type type,
-               size_t unit_size, bool build_index)
+               size_t unit_size, bool build_index, bool single_version_only)
     : name(name), elem_size(unit_size), type(type) {
   /*
   ALGO:
@@ -397,6 +405,13 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
         MemoryManager::alloc_shm(std::to_string(i) + "__" + name, size, i);
 
 #else
+    // void* mem = nullptr;
+    // if (name.find("_meta") == std::string::npos) {
+    //   std::cout << "Special Column: " << name << std::endl;
+    //   mem = MemoryManager::alloc(size, 18);
+    // } else
+    //   mem = MemoryManager::alloc(size, i);
+
     void* mem = MemoryManager::alloc(size, i);
 #endif
 
@@ -404,9 +419,9 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
     int warmup_max = size / sizeof(uint64_t);
     for (int i = 0; i < warmup_max; i++) pt[i] = 0;
     master_versions[i].emplace_back(new mem_chunk(mem, size, numa_id));
-  }
 
-  // TODO: Allocate column memory and pointers
+    if (single_version_only) break;
+  }
 
   if (build_index) this->buildIndex();
 }
@@ -459,10 +474,9 @@ void Column::getElem(uint64_t vid, ushort master_ver, void* copy_location) {
   assert(false);  // as control should never reach here.
 }
 
-void* Column::insertElem(uint64_t offset, void* elem, ushort master_ver) {
+void Column::insertElem(uint64_t offset, void* elem, ushort master_ver) {
   // TODO: insert in both masters but set upd bit only in curr master.
   uint64_t data_idx = offset * this->elem_size;
-  void* ret = nullptr;
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     bool ins = false;
     for (const auto& chunk : master_versions[i]) {
@@ -480,7 +494,6 @@ void* Column::insertElem(uint64_t offset, void* elem, ushort master_ver) {
           std::memcpy(dst, elem, this->elem_size);
 #if HTAP_UPD_BIT_MASK
           if (i == master_ver) {
-            ret = dst;
             char* tt = (char*)dst;
             *tt = *tt | (1 << 7);
           }
@@ -494,9 +507,28 @@ void* Column::insertElem(uint64_t offset, void* elem, ushort master_ver) {
       std::cout << "FUCK. ALLOCATE MOTE MEMORY:\t" << this->name << std::endl;
     }
   }
-
-  return ret;
   // exit(-1);
+}
+
+// For index/meta column
+void* Column::insertElem(uint64_t offset) {
+  uint64_t data_idx = offset * this->elem_size;
+
+  bool ins = false;
+  for (const auto& chunk : master_versions[0]) {
+    if (chunk->size >= (data_idx + elem_size)) {
+      // insert elem here
+      return (void*)(((char*)chunk->data) + data_idx);
+    }
+  }
+
+  if (ins == false) {
+    std::cout << "FUCK. ALLOCATE MOTE MEMORY:\t" << this->name << std::endl;
+  }
+
+  assert(false && "Out Of Memory Error");
+
+  return nullptr;
 }
 
 Column::~Column() {

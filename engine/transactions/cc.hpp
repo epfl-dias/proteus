@@ -57,7 +57,7 @@ class CC_MV2PL {
     PRIMARY_INDEX_VAL();
     PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid, ushort master_ver)
         : t_min(tid), t_max(0), VID(vid), last_master_ver(master_ver) {
-      write_lck = 0;
+      write_lck.store(0);
     }
   } __attribute__((aligned(64)));
 

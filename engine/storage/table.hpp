@@ -213,7 +213,7 @@ class Column {
  public:
   Column(std::string name, uint64_t initial_num_records,
          data_type type = INTEGER, size_t unit_size = sizeof(uint64_t),
-         bool build_index = false);
+         bool build_index = false, bool single_version_only = false);
   ~Column();
 
   void buildIndex();
@@ -222,7 +222,8 @@ class Column {
   void touchElem(uint64_t idx, ushort master_ver);
   void getElem(uint64_t vid, ushort master_ver, void *copy_location);
 
-  void *insertElem(uint64_t offset, void *elem, ushort master_ver);
+  void insertElem(uint64_t offset, void *elem, ushort master_ver);
+  void *insertElem(uint64_t offset);
   void updateElem(uint64_t offset, void *elem, ushort master_ver);
   void deleteElem(uint64_t offset, ushort master_ver);
 

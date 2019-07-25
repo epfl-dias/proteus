@@ -10,7 +10,7 @@ set(txn_bench_cxx
 add_library(aeolus_bench SHARED
         ${txn_bench_cxx}
     )
-target_link_libraries(aeolus_bench ${LLVM_LIBS} jsmn -lnuma)
+target_link_libraries(aeolus_bench ${LLVM_LIBS} -lnuma)
 install(TARGETS aeolus_bench
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib

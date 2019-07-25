@@ -19,7 +19,7 @@ set(txn_engine_cxx
 add_library(aeolus_engine SHARED
         ${txn_engine_cxx}
     )
-target_link_libraries(aeolus_engine ${LLVM_LIBS} jsmn -lnuma)
+target_link_libraries(aeolus_engine ${LLVM_LIBS} -lnuma)
 install(TARGETS aeolus_engine
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
