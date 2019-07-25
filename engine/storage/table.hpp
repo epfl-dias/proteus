@@ -51,19 +51,19 @@ enum data_type { META, INTEGER, STRING, FLOAT, VARCHAR, DATE };
 class Schema {
  public:
   // Singleton
-  static inline Schema& getInstance() {
+  static inline Schema &getInstance() {
     static Schema instance;
     return instance;
   }
-  Schema(Schema const&) = delete;          // Don't Implement
-  void operator=(Schema const&) = delete;  // Don't implement
+  Schema(Schema const &) = delete;          // Don't Implement
+  void operator=(Schema const &) = delete;  // Don't implement
 
-  Table* getTable(int idx);
-  Table* getTable(std::string name);
-  std::vector<Table*> getAllTable();
+  Table *getTable(int idx);
+  Table *getTable(std::string name);
+  std::vector<Table *> getAllTable();
 
   /* returns pointer to the table */
-  Table* create_table(
+  Table *create_table(
       std::string name, layout_type layout,
       std::vector<std::tuple<std::string, data_type, size_t>> columns,
       uint64_t initial_num_records = 10000000);
@@ -78,10 +78,11 @@ class Schema {
                     uint8_t worker_id);
 
   void teardown();
+  std::vector<Table *> getTables() { return tables; }
   uint64_t total_mem_reserved;
   uint64_t total_delta_mem_reserved;
 
-  DeltaStore* deltaStore[global_conf::num_delta_storages];
+  DeltaStore *deltaStore[global_conf::num_delta_storages];
 
   volatile std::atomic<uint64_t> rid;
   inline uint64_t __attribute__((always_inline)) get_next_rid() {
@@ -90,7 +91,7 @@ class Schema {
 
  private:
   uint8_t num_tables;
-  std::vector<Table*> tables;
+  std::vector<Table *> tables;
 
   // MultiVersioning
 
@@ -113,46 +114,51 @@ class Schema {
 
 class Table {
  public:
-  virtual uint64_t insertRecord(void* rec, ushort master_ver) = 0;
-  virtual void* insertRecord(void* rec, uint64_t xid, ushort master_ver) = 0;
+  virtual uint64_t insertRecord(void *rec, ushort master_ver) = 0;
+  virtual void *insertRecord(void *rec, uint64_t xid, ushort master_ver) = 0;
 
-  virtual void updateRecord(uint64_t vid, const void* data,
+  virtual void updateRecord(uint64_t vid, const void *data,
                             ushort ins_master_ver, ushort prev_master_ver,
                             ushort delta_ver, uint64_t tmin, uint64_t tmax,
                             ushort pid) = 0;
-  virtual void updateRecord(uint64_t vid, const void* rec,
+  virtual void updateRecord(uint64_t vid, const void *rec,
                             ushort ins_master_ver, ushort prev_master_ver,
                             ushort delta_ver, uint64_t tmin, uint64_t tmax,
-                            ushort pid, std::vector<ushort>* col_idx) = 0;
+                            ushort pid, std::vector<ushort> *col_idx) = 0;
   virtual void deleteRecord(uint64_t vid, ushort master_ver) = 0;
-  virtual std::vector<const void*> getRecordByKey(
+  virtual std::vector<const void *> getRecordByKey(
       uint64_t vid, ushort master_ver,
-      const std::vector<ushort>* col_idx = nullptr) = 0;
+      const std::vector<ushort> *col_idx = nullptr) = 0;
 
   virtual void getRecordByKey(uint64_t vid, ushort master_ver,
-                              const std::vector<ushort>* col_idx,
-                              void* loc) = 0;
+                              const std::vector<ushort> *col_idx,
+                              void *loc) = 0;
   virtual void touchRecordByKey(uint64_t vid, ushort master_ver) = 0;
 
-  virtual global_conf::mv_version_list* getVersions(uint64_t vid,
+  virtual global_conf::mv_version_list *getVersions(uint64_t vid,
                                                     ushort delta_ver) = 0;
 
   void printDetails() {
     std::cout << "Number of Columns:\t" << num_columns << std::endl;
   }
-  Table() {}
+
+  uint64_t getNumRecords() { return vid.load(); }
+
+  Table(std::string name, uint8_t table_id)
+      : name(name), table_id(table_id), vid(0), total_mem_reserved(0) {}
   virtual ~Table();
 
-  global_conf::PrimaryIndex<uint64_t>* p_index;
-  global_conf::PrimaryIndex<uint64_t>** s_index;
+  global_conf::PrimaryIndex<uint64_t> *p_index;
+  global_conf::PrimaryIndex<uint64_t> **s_index;
   uint64_t total_mem_reserved;
   volatile std::atomic<uint64_t> vid;
+  const std::string name;
+  const uint8_t table_id;
 
  protected:
-  std::string name;
   int num_columns;
-  DeltaStore** deltaStore;
-  uint8_t table_id;
+  DeltaStore **deltaStore;
+
   // int primary_index_col_idx;
 
   friend class Schema;
@@ -166,26 +172,27 @@ class ColumnStore : public Table {
   ColumnStore(uint8_t table_id, std::string name,
               std::vector<std::tuple<std::string, data_type, size_t>> columns,
               uint64_t initial_num_records = 10000000);
-  uint64_t insertRecord(void* rec, ushort master_ver);
-  void* insertRecord(void* rec, uint64_t xid, ushort master_ver);
-  void updateRecord(uint64_t vid, const void* data, ushort ins_master_ver,
+  uint64_t insertRecord(void *rec, ushort master_ver);
+  void *insertRecord(void *rec, uint64_t xid, ushort master_ver);
+  void updateRecord(uint64_t vid, const void *data, ushort ins_master_ver,
                     ushort prev_master_ver, ushort delta_ver, uint64_t tmin,
                     uint64_t tmax, ushort pid);
-  void updateRecord(uint64_t vid, const void* rec, ushort ins_master_ver,
+  void updateRecord(uint64_t vid, const void *rec, ushort ins_master_ver,
                     ushort prev_master_ver, ushort delta_ver, uint64_t tmin,
-                    uint64_t tmax, ushort pid, std::vector<ushort>* col_idx);
+                    uint64_t tmax, ushort pid, std::vector<ushort> *col_idx);
   void deleteRecord(uint64_t vid, ushort master_ver);
-  std::vector<const void*> getRecordByKey(
+  std::vector<const void *> getRecordByKey(
       uint64_t vid, ushort master_ver,
-      const std::vector<ushort>* col_idx = nullptr);
+      const std::vector<ushort> *col_idx = nullptr);
 
   void getRecordByKey(uint64_t vid, ushort master_ver,
-                      const std::vector<ushort>* col_idx, void* loc);
+                      const std::vector<ushort> *col_idx, void *loc);
   void touchRecordByKey(uint64_t vid, ushort master_ver);
 
-  global_conf::mv_version_list* getVersions(uint64_t vid, ushort delta_ver);
+  global_conf::mv_version_list *getVersions(uint64_t vid, ushort delta_ver);
 
   void num_upd_tuples();
+  const std::vector<Column *> &getColumns() { return columns; }
 
   /*
     No secondary indexes supported as of yet so dont need the following
@@ -196,9 +203,9 @@ class ColumnStore : public Table {
   ~ColumnStore();
 
  private:
-  std::vector<Column*> columns;
-  Column* meta_column;
-  Column** secondary_index_vals;
+  std::vector<Column *> columns;
+  Column *meta_column;
+  Column **secondary_index_vals;
   size_t rec_size;
 };
 
@@ -210,29 +217,36 @@ class Column {
   ~Column();
 
   void buildIndex();
-  void* getRange(uint64_t start_idx, uint64_t end_idx, ushort master_ver);
-  void* getElem(uint64_t idx, ushort master_ver);
+  void *getRange(uint64_t start_idx, uint64_t end_idx, ushort master_ver);
+  void *getElem(uint64_t idx, ushort master_ver);
   void touchElem(uint64_t idx, ushort master_ver);
-  void getElem(uint64_t vid, ushort master_ver, void* copy_location);
+  void getElem(uint64_t vid, ushort master_ver, void *copy_location);
 
-  void* insertElem(uint64_t offset, void* elem, ushort master_ver);
-  void updateElem(uint64_t offset, void* elem, ushort master_ver);
+  void *insertElem(uint64_t offset, void *elem, ushort master_ver);
+  void updateElem(uint64_t offset, void *elem, ushort master_ver);
   void deleteElem(uint64_t offset, ushort master_ver);
 
   void num_upd_tuples();
 
   size_t getSize() { return this->total_mem_reserved; }
 
+  const std::vector<mem_chunk *> get_data(ushort master_version = 0) {
+    assert(master_version <= global_conf::num_master_versions);
+    return master_versions[master_version];
+  }
+
+  const std::string name;
+  const size_t elem_size;
+  const data_type type;
+
  private:
-  std::string name;
   size_t total_mem_reserved;
-  size_t elem_size;
   bool is_indexed;
-  data_type type;
+
   // indexes::Index* index_ptr;
   // we need data structure for # number of master versions and delta storage
   // for MVCC.
-  std::vector<mem_chunk*> master_versions[global_conf::num_master_versions];
+  std::vector<mem_chunk *> master_versions[global_conf::num_master_versions];
 
   // std::vector<std::pair<int, std::vector<mem_chunk*>>> master_ver;
   // std::vector<mem_chunk*> data_ptr;

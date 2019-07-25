@@ -1738,7 +1738,7 @@ void TPCC::create_tbl_order_line(uint64_t num_order_line) {
       "ol_dist_info", storage::STRING, 24));
 
   table_order_line = schema->create_table(
-      "tpcc_order_line", storage::COLUMN_STORE, columns, num_order_line);
+      "tpcc_orderline", storage::COLUMN_STORE, columns, num_order_line);
 }
 
 void TPCC::create_tbl_supplier(uint64_t num_supp) {

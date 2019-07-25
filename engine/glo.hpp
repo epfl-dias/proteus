@@ -30,7 +30,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define NUM_SOCKETS 2
 #define NUM_CORE_PER_SOCKET 64
 #define MAX_WORKERS 128
-#define DELTA_SIZE 1  // 2G // 6442450944 6G
+#define DELTA_SIZE 4  // 2G // 6442450944 6G
 #define HTAP false
 #define HTAP_UPD_BIT_MASK true
 #define SHARED_MEMORY false  // if htap=false, then shm or numa_alloc

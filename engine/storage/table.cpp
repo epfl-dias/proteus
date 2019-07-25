@@ -139,13 +139,14 @@ ColumnStore::~ColumnStore() {
 ColumnStore::ColumnStore(
     uint8_t table_id, std::string name,
     std::vector<std::tuple<std::string, data_type, size_t>> columns,
-    uint64_t initial_num_records) {
+    uint64_t initial_num_records)
+    : Table(name, table_id) {
   /*
           TODO: take an argument for column_index or maybe a flag in the tuple
      for the indexed columns. Currently, by default, the first column would be
      considered as key and will be indexed.
   */
-  this->table_id = table_id;
+
   this->total_mem_reserved = 0;
   this->vid = 0;
   this->deltaStore = storage::Schema::getInstance().deltaStore;
@@ -168,7 +169,6 @@ ColumnStore::ColumnStore(
   }
 
   this->num_columns = columns.size();
-  this->name = name;
   // build index over the first column
   this->p_index =
       new global_conf::PrimaryIndex<uint64_t>(initial_num_records + 1);
