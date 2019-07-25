@@ -25,6 +25,8 @@
 
 #include "communication/comm-manager.hpp"
 #include "expressions/expressions-hasher.hpp"
+#include "storage/memory_manager.hpp"
+#include "storage/table.hpp"
 
 using namespace llvm;
 
@@ -42,179 +44,85 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
 
   LLVMContext &llvmContext = context->getLLVMContext();
 
-  // std::vector<Type *> parts_array;
-  for (const auto &in : wantedFields) {
-    string fileName = fnamePrefix + "." + in->getAttrName();
+  size_t pos_path = fnamePrefix.find_last_of("/");
+  size_t pos_suffix = fnamePrefix.find_last_of(".csv");
+  if (pos_path == std::string::npos) pos_path = 0;
 
-    const auto llvm_type = in->getOriginalType()->getLLVMType(llvmContext);
-    size_t type_size = context->getSizeOf(llvm_type);
+  std::string aeolus_rel_name = "tpcc_" + fnamePrefix.substr(pos_path + 1);
+  aeolus_rel_name = aeolus_rel_name.substr(0, aeolus_rel_name.length() - 4);
 
-    std::cout << "[AUNN][Plugin-block-remote] type: " << in->getType()
-              << std::endl;
+  if (pgType.compare("block-cow") == 0) {
+    time_block t("TpgBlockCOW: ");
 
-    if (strcmp(pgType.c_str(), "block-remote") == 0) {
-      time_block t("TpgBlockRemote: ");
-      std::cout << "[AUNN][Plugin-block-remote] filename: " << fileName
-                << std::endl;
+    auto &txn_storage = storage::Schema::getInstance();
+    storage::ColumnStore *tbl = nullptr;
 
-      uint64_t snapshot_epoch;
-      ushort master_ver;
-      {
-        time_block t("TcommSnapshot: ");
-        if (communication::CommManager::getInstance().reqeust_snapshot(
-                master_ver, snapshot_epoch)) {
-          std::cout << "[scan-to-blocks-sm-plugin][block-remote] epoch: "
-                    << snapshot_epoch << std::endl;
-          std::cout << "[scan-to-blocks-sm-plugin][block-remote] master_ver: "
-                    << master_ver << std::endl;
+    std::cout << "Finding Table: " << aeolus_rel_name << std::endl;
 
-        } else {
-          throw new std::runtime_error(
-              "[scan-to-blocks-sm-plugin][block-remote] Snapshot request "
-              "failed");
-        }
+    for (auto &tb : txn_storage.getTables()) {
+      std::cout << "TableI: " << tb->name << std::endl;
+      if (aeolus_rel_name.compare(tb->name) == 0) {
+        tbl = (storage::ColumnStore *)tb;
+        std::cout << "TableMATCH: " << tb->name << std::endl;
+        std::cout << "TableMATCH: " << tbl->name << std::endl;
+        break;
       }
+    }
+    assert(tbl != nullptr);
 
-      fileName =
-          "/dev/shm/" + std::to_string(master_ver) + "__" + in->getAttrName();
-      std::cout << fileName << std::endl;
-      wantedFieldsFiles.emplace_back(
-          StorageManager::getOrLoadFile(fileName, type_size, PAGEABLE));
+    uint64_t num_records = tbl->getNumRecords();
 
-      // format filename here and then try proteus storage manager loader..
+    std::cout << "# Records " << num_records << std::endl;
 
-      // name format: master_version + __  + column.name
+    for (const auto &in : wantedFields) {
+      const auto llvm_type = in->getOriginalType()->getLLVMType(llvmContext);
+      size_t type_size = context->getSizeOf(llvm_type);
 
-      // std::vector<mem_file> mfiles{1};
+      // wantedFieldsFiles.emplace_back(StorageManager::getOrLoadFile(fileName,
+      // type_size, PAGEABLE));
 
-      // if(n_recs_fetch != 0 ){
-      //     mfiles[0].size = sizeof(int) * n_recs_fetch;
-      // } else {
-      //     mfiles[0].size = getFileSize_t(fileName.c_str()); //8224;//
-      // }
+      for (auto &c : tbl->getColumns()) {
+        if (c->name.compare(in->getAttrName()) == 0) {
+          const std::vector<storage::mem_chunk *> d = c->get_data();
 
-      // mfiles[0].data = getSHMPtr(fileName.c_str(), mfiles[0].size);
-      // usleep(read_txn_wait_usec);
+          std::vector<mem_file> mfiles{d.size()};
 
-      //          wantedFieldsFiles.emplace_back(mfiles);
+          for (size_t i = 0; i < mfiles.size(); ++i) {
+            mfiles[i].data = d[i]->data;
 
-      std::cout << "[AUNN][Plugin-block-remote] filename: " << in->getAttrName()
-                << std::endl;
-
-    } else if (strcmp(pgType.c_str(), "block-snapshot") == 0) {
-      time_block t("TpgBlockSnapshot: ");
-      // In this mode, take and update snapshot of local storage. yes, we do
-      // need to lock the storage too but as proteus is single-query, we dont
-      // need to locl it for now.
-
-      // communication::CommManager::getInstance().reqeust_snapshot();
-
-      uint64_t snapshot_epoch;
-      ushort master_ver;
-      {
-        time_block t("TcommSnapshot: ");
-        if (communication::CommManager::getInstance().reqeust_snapshot(
-                master_ver, snapshot_epoch)) {
-          std::cout << "[scan-to-blocks-sm-plugin][block-remote] epoch: "
-                    << snapshot_epoch << std::endl;
-          std::cout << "[scan-to-blocks-sm-plugin][block-remote] master_ver: "
-                    << master_ver << std::endl;
-
-        } else {
-          throw new std::runtime_error(
-              "[scan-to-blocks-sm-plugin][block-remote] Snapshot request "
-              "failed");
-        }
-      }
-
-      // Update the snapshot
-
-      std::string shmfileName =
-          "/dev/shm/" + std::to_string(master_ver) + "__" + in->getAttrName();
-      fileName = fnamePrefix + "." + in->getAttrName();
-
-      std::vector<mem_file> proteus_file =
-          StorageManager::getOrLoadFile(fileName, type_size, PINNED);
-
-      std::vector<mem_file> snapshot_file =
-          StorageManager::getOrLoadFile(shmfileName, type_size, PAGEABLE);
-
-      // update the snapshot through bit mask.
-
-      // Assumption here is snapshot is pre-allocated and non-extendible.
-      // not for strings.
-      // assert(proteus_file.size() == snapshot_file.size());
-
-      // assert((in->getType().find("Int") != std::string::npos) &&
-      // in->getType().c_str());
-
-      // assert(proteus_file.size() == snapshot_file.size());
-
-      vector<mem_file>::iterator pt, st;
-      int cnt = 0;
-      {
-        time_block t("TpgBlockSnapshotUpd: ");
-        std::cout << "here1" << std::endl;
-        for (pt = proteus_file.begin(), st = snapshot_file.begin();
-             pt != proteus_file.end(); pt++, st++) {
-          // type_size
-          // pt->size
-          // pt->data
-          // iterate over tuples
-
-          //   uint8_t *p = ((uint8_t*) chunk->data)+i;
-          // if(*p >> 7 == 1){
-          //   counter++;
-          // }
-
-          // uint8_t
-          // uint16_t
-          // uint32_t
-          // uint64_t
-          std::cout << "here" << std::endl;
-          for (uint i = 0; i < (pt->size) / 8; i++) {
-            size_t offset = i * type_size;
-            uint8_t *data_st = ((uint8_t *)st->data) + offset;
-            // if(*data_st >> 7 == 1){
-            // updated tuple
-            uint8_t *data_pt = ((uint8_t *)pt->data) + offset;
-            *data_pt = *data_st;
-            // *data_st = *data_st & (01111111);
-
-            cnt++;
-            //}
+            if (d[i]->size >= (c->elem_size * num_records)) {
+              mfiles[i].size = d[i]->size;
+            } else {
+              // to be fixed but for now, Aeolus doesnt expand beyond single
+              // chunk so it will be ok.
+              assert(false && "FIX ME");
+            }
           }
+          wantedFieldsFiles.emplace_back(mfiles);
+          break;
         }
       }
-      // add the file to list
-      wantedFieldsFiles.emplace_back(proteus_file);
 
-      // unload the snapshot file
-      // StorageManager::unloadFile(shmfileName);
+      // wantedFieldsFiles.emplace_back(StorageManager::getFile(fileName));
+      // FIXME: consider if address space should be global memory rather than
+      // generic
+      // Type * t = PointerType::get(((const PrimitiveType *)
+      // tin)->getLLVMType(llvmContext), /* address space */ 0);
 
-      std::cout << "[scan-to-blocks-sm-plugin][block-snapshot] file: "
-                << in->getAttrName() << " -- update counter: " << cnt
-                << std::endl;
+      // wantedFieldsArg_id.push_back(context->appendParameter(t, true, true));
 
-    } else {
-      time_block t("TpgBlock: ");
-
-      wantedFieldsFiles.emplace_back(
-          StorageManager::getOrLoadFile(fileName, type_size, PAGEABLE));
+      if (in->getOriginalType()->getTypeID() == DSTRING) {
+        // fetch the dictionary
+        string fileName = fnamePrefix + "." + in->getAttrName();
+        void *dict = StorageManager::getDictionaryOf(fileName);
+        ((DStringType *)(in->getOriginalType()))->setDictionary(dict);
+      }
     }
-    // wantedFieldsFiles.emplace_back(StorageManager::getFile(fileName));
-    // FIXME: consider if address space should be global memory rather than
-    // generic
-    // Type * t = PointerType::get(((const PrimitiveType *)
-    // tin)->getLLVMType(llvmContext), /* address space */ 0);
 
-    // wantedFieldsArg_id.push_back(context->appendParameter(t, true, true));
+    std::cout << "[AEOLUS PLUGIN DONE]" << std::endl;
 
-    if (in->getOriginalType()->getTypeID() == DSTRING) {
-      // fetch the dictionary
-      void *dict = StorageManager::getDictionaryOf(fileName);
-      ((DStringType *)(in->getOriginalType()))->setDictionary(dict);
-    }
+  } else {
+    assert(false && "Not Implemented");
   }
 
   finalize_data();

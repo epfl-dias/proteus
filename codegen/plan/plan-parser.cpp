@@ -3398,6 +3398,7 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
                                 *projections, sizeInFile);
   } else if (strcmp(pgType, "block") == 0 ||
              strcmp(pgType, "block-remote") == 0 ||
+             strcmp(pgType, "block-cow") == 0 ||
              strcmp(pgType, "block-snapshot") == 0) {
     assert(val.HasMember(keyProjectionsGPU));
     assert(val[keyProjectionsGPU].IsArray());

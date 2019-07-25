@@ -109,6 +109,7 @@ string(STRIP "${WARNING_FLAGS} -Werror" WARNING_FLAGS)
 # string(STRIP "${WARNING_FLAGS} -Wno-error=deprecated" WARNING_FLAGS)
 
 # Our Code generates the following warnings:
+string(STRIP "${WARNING_FLAGS} -Wno-extra-semi -Wno-documentation -Wno-unused-function -Wno-c++2a-compat -Wno-atomic-implicit-seq-cst -Wno-extra-semi-stmt -Wno-unused-template" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-assign-enum" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat-pedantic" WARNING_FLAGS)
@@ -335,10 +336,12 @@ endif()
 # `codegen` needs to be unquoted to be replaced, as CMake controls the build of
 # that library
 set(default_libs ${default_libs} codegen )
+set(default_libs ${default_libs} -laeolus_engine )
 set(default_libs ${default_libs} ${LLVM_LIBS})
 set(default_libs ${default_libs} ${CUDA_LIBS})
 set(default_libs ${default_libs} gflags::gflags ${GLOG} gflags::gflags)
 set(default_libs ${default_libs} -lc++abi -lpthread -lrt)
+
 
 #-----------------------------------------------------------------------
 # Intel VTune profile support
@@ -371,6 +374,8 @@ include_directories(
 		# FIXME: system libraries should not be included with quotes...
 		# Add local (for use with ""-style includes) path to the sysroot
 		"${CMAKE_INSTALL_PREFIX}/include"
+		"${AEOLUS_SOURCE_DIR}"
+		"${AEOLUS_SOURCE_DIR}/engine"
 )
 
 # Add the warning flags
