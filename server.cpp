@@ -28,11 +28,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <limits>
 #include <thread>
 #include <tuple>
-#include "interfaces/bench.hpp"
 #include "benchmarks/tpcc.hpp"
 #include "benchmarks/ycsb.hpp"
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
+#include "interfaces/bench.hpp"
 #include "scheduler/affinity_manager.hpp"
 #include "scheduler/comm_manager.hpp"
 #include "scheduler/topology.hpp"
@@ -91,6 +91,7 @@ int main(int argc, char** argv) {
                               cxxopts::value<uint>());
 
   auto result = options.parse(argc, argv);
+
   // result.count("option")
   // result["opt"].as<type>()
   // cxxopts::value<std::string>()->default_value("value")
@@ -229,7 +230,7 @@ int main(int argc, char** argv) {
 
   std::cout << "\tShutting down memory manager" << std::endl;
   if (HTAP) {
-    std::cout << "\thutting down communication manager..." << std::endl;
+    std::cout << "\tShutting down communication manager..." << std::endl;
     scheduler::CommManager::getInstance().shutdown();
   }
 

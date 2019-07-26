@@ -35,8 +35,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "scheduler/topology.hpp"
 
-#include "interfaces/bench.hpp"
 #include "glo.hpp"
+#include "interfaces/bench.hpp"
 
 namespace scheduler {
 
@@ -53,9 +53,28 @@ namespace scheduler {
   CUSTOM  // custom function on threads (data_load, etc.)
 };*/
 
+struct STATS {
+  double id;
+  double tps;
+  double num_commits;
+  double num_aborts;
+  double num_txns;
+  double runtime_duration;
+};
+
+struct GLOBAL_STATS {
+  std::vector<struct STATS> global_stats;
+  std::vector<struct STATS> worker_stats;
+  std::vector<struct STATS> socket_stats;
+};
+
+enum WORKER_STATE { READY, RUNNING, PAUSED, TERMINATED };
+
 class Worker {
   uint8_t id;
   volatile bool terminate;
+  volatile bool pause;
+  volatile WORKER_STATE state;
 
   core *exec_core;
 
@@ -83,7 +102,8 @@ class Worker {
         exec_core(exec_core),
         num_txns(0),
         num_commits(0),
-        num_aborts(0) {}
+        num_aborts(0),
+        state(READY) {}
 
   void run();
   friend class WorkerPool;
@@ -124,6 +144,9 @@ class WorkerPool {
 
   uint8_t size() { return workers.size(); }
 
+  void pause();
+  void resume();
+
  private:
   WorkerPool() { worker_counter = 0; }
 
@@ -138,9 +161,6 @@ class WorkerPool {
   std::queue<std::function<bool(uint64_t)> > tasks;
   std::mutex m;
   std::condition_variable cv;
-
-  // Global Snapshotting
-  // std::vector<std::vector<int> > active_worker_per_master;
 
   ~WorkerPool() {
     if (terminate) return;

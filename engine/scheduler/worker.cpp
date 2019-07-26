@@ -92,17 +92,20 @@ void Worker::run() {
   schema->add_active_txn(curr_delta % global_conf::num_delta_storages,
                          this->curr_delta, this->id);
 
-  // std::cout << "t1: "
-  //           << std::chrono::duration_cast<std::chrono::nanoseconds>(
-  //                  std::chrono::system_clock::now().time_since_epoch())
-  //                  .count()
-  //           << std::endl;
-
+  state = RUNNING;
   while (!terminate) {
-    // std::this_thread::sleep_for (std::chrono::seconds(1));
-    // std::cout << "[WORKER] Worker --" << (int)(this->id) << std::endl;
-
     // check which master i should be on.
+
+    if (pause) {
+      state = PAUSED;
+
+      while (pause && !terminate) {
+        std::this_thread::sleep_for(std::chrono::microseconds(50));
+      }
+      state = RUNNING;
+      continue;
+    }
+
     this->curr_master = txnManager->current_master;
     this->curr_txn = txnManager->get_next_xid(this->id);
     this->prev_delta = this->curr_delta;
@@ -150,6 +153,7 @@ void Worker::run() {
 
     num_txns++;
   }
+  state = TERMINATED;
   txn_end_time = std::chrono::system_clock::now();
 
   /*if (pool->txn_bench && pool->txn_bench->name.compare("TPCC") == 0) {
@@ -200,17 +204,35 @@ bool WorkerPool::is_all_worker_on_master_id(ushort master_id) {
   return true;
 }
 
+void WorkerPool::pause() {
+  for (auto& wr : workers) {
+    wr.second.second->pause = true;
+  }
+
+  for (auto& wr : workers) {
+    while (wr.second.second->state != PAUSED) {
+      std::this_thread::sleep_for(std::chrono::microseconds(10));
+    }
+  }
+}
+void WorkerPool::resume() {
+  for (auto& wr : workers) {
+    wr.second.second->pause = false;
+  }
+
+  for (auto& wr : workers) {
+    while (wr.second.second->state == PAUSED) {
+      std::this_thread::sleep_for(std::chrono::microseconds(10));
+    }
+  }
+}
+
 void WorkerPool::print_worker_stats(bool global_only) {
   std::cout << "------------ WORKER STATS ------------" << std::endl;
   double tps = 0;
   double num_commits = 0;
   double num_aborts = 0;
   double num_txns = 0;
-
-  double socket_1_tps = 0.0;
-  double socket_2_tps = 0.0;
-  double socket_3_tps = 0.0;
-  double socket_4_tps = 0.0;
 
   const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
   int num_sockets = vec.size();
