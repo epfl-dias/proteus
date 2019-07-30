@@ -109,7 +109,6 @@ string(STRIP "${WARNING_FLAGS} -Werror" WARNING_FLAGS)
 # string(STRIP "${WARNING_FLAGS} -Wno-error=deprecated" WARNING_FLAGS)
 
 # Our Code generates the following warnings:
-string(STRIP "${WARNING_FLAGS} -Wno-extra-semi -Wno-documentation -Wno-unused-function -Wno-c++2a-compat -Wno-atomic-implicit-seq-cst -Wno-extra-semi-stmt -Wno-unused-template" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-assign-enum" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat-pedantic" WARNING_FLAGS)
