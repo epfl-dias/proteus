@@ -374,9 +374,14 @@ include_directories(
 		# FIXME: system libraries should not be included with quotes...
 		# Add local (for use with ""-style includes) path to the sysroot
 		"${CMAKE_INSTALL_PREFIX}/include"
-		"${AEOLUS_SOURCE_DIR}"
-		"${AEOLUS_SOURCE_DIR}/engine"
 )
+
+if (DEFINED AEOLUS_SOURCE_DIR)
+	include_directories(
+		SYSTEM "${AEOLUS_SOURCE_DIR}"
+		SYSTEM "${AEOLUS_SOURCE_DIR}/engine"
+	)
+endif()
 
 # Add the warning flags
 string(STRIP "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS}" CMAKE_CXX_FLAGS)
