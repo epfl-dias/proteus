@@ -1,6 +1,6 @@
 #############################################################################
 # gitlab-runner:docker executor options
-image: chapeiro/pelago-build:8
+image: chapeiro/pelago-build:cuda10.1-llvm8
 
 #############################################################################
 variables:
@@ -112,10 +112,10 @@ after_script:
 codestyle:
  stage: Code quality
  script:
- # clang-format-8 comes from the llvm repo: https://apt.llvm.org/
+ # clang-format comes from the llvm repo: https://apt.llvm.org/
  # remember to update it every time we pop the LLVM version!
  # if grep returns an error, it didn't find a match, which is OK for us
- - find . \( -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' -o -name '*.cuh' \) | xargs -n1 clang-format-8 -output-replacements-xml --style=file | grep "replacement " || exit 0
+ - find . \( -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' -o -name '*.cuh' \) | xargs -n1 clang-format -output-replacements-xml --style=file | grep "replacement " || exit 0
  # otherwise, print message and exist with error code
  - echo "Non conforming format"
  - exit 1
@@ -132,8 +132,20 @@ licenses:
 configure:
  stage: Configure
  script:
-  - cd cmake-build-debug && cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=opt -DLLVM_VERSION_SUFFIX=8 -G "CodeBlocks - Unix Makefiles" ..
+  - cd cmake-build-debug && cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=opt -G "CodeBlocks - Unix Makefiles" ..
   - echo "Configure... done"
+ <<: *cache
+ <<: *restrict_precommit
+
+#----------------------------------------------------------------------------
+# Setup test environment
+test-configuration:
+ stage: Configure
+ script:
+  - clang++ --verbose
+  - clang++ --verbose 2>&1 > /dev/null | grep "Found CUDA installation"
+  - clang++ --verbose 2>&1 > /dev/null | grep "Found CUDA installation" | grep "version unknown" || exit 0
+  - exit 1
  <<: *cache
  <<: *restrict_precommit
 
