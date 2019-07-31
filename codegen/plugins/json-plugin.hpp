@@ -264,7 +264,7 @@ class JSONPlugin : public Plugin {
   Context *const context;
 
   // Assumption (1) applies here
-  ExpressionType *__attribute__((unused)) schema;
+  ExpressionType *schema;
 
   /* Remember: token != OID */
   llvm::StructType *getOIDLLVMType() {

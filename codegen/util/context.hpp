@@ -53,8 +53,7 @@
 // Forward Declaration
 class JSONObject;
 
-void __attribute__((unused))
-addOptimizerPipelineDefault(llvm::legacy::FunctionPassManager *TheFPM);
+void addOptimizerPipelineDefault(llvm::legacy::FunctionPassManager *TheFPM);
 
 #if MODULEPASS
 void __attribute__((unused))

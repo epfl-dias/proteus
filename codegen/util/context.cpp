@@ -56,8 +56,7 @@ void Context::createJITEngine() {
   }
 }
 
-void __attribute__((unused))
-addOptimizerPipelineDefault(legacy::FunctionPassManager *TheFPM) {
+void addOptimizerPipelineDefault(legacy::FunctionPassManager *TheFPM) {
   // Provide basic AliasAnalysis support for GVN.
   TheFPM->add(createBasicAAWrapperPass());
   // Promote allocas to registers.
