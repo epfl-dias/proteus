@@ -334,8 +334,12 @@ endif()
 
 # `codegen` needs to be unquoted to be replaced, as CMake controls the build of
 # that library
-set(default_libs ${default_libs} codegen )
-set(default_libs ${default_libs} -laeolus_engine )
+set(default_libs ${default_libs} codegen)
+
+if (DEFINED AEOLUS_SOURCE_DIR)
+set(default_libs ${default_libs} -laeolus_engine)
+endif()
+
 set(default_libs ${default_libs} ${LLVM_LIBS})
 set(default_libs ${default_libs} ${CUDA_LIBS})
 set(default_libs ${default_libs} gflags::gflags ${GLOG} gflags::gflags)

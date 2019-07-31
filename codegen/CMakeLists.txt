@@ -50,7 +50,6 @@ set(codegen_cxx
     operators/unnest.cpp
     plan/plan-parser.cpp
     plan/prepared-statement.cpp
-    plugins/aeolus-plugin.cpp
     plugins/binary-col-plugin.cpp
     plugins/binary-internal-plugin.cpp
     plugins/binary-row-plugin.cpp
@@ -86,6 +85,13 @@ set(codegen_cxx
     operators/gpu/gpu-hash-rearrange.cpp
     operators/gpu/gpu-partitioned-hash-join-chained.cpp
     )
+
+if (DEFINED AEOLUS_SOURCE_DIR)
+    set(codegen_cxx 
+        ${codegen_cxx}
+        plugins/aeolus-plugin.cpp
+        )
+endif()
 
 # C++ files requiring CUDA headers
 set(codegen_cxx_cu
