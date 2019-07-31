@@ -87,6 +87,7 @@ GpuPipelineGen::GpuPipelineGen(Context *context, std::string pipName,
         getBuilder()->CreateCall(f, strm);
       });
 
+#if LLVM_VERSION_MAJOR <= 8
   registerFunction(
       "atomicAdd_double",
       Intrinsic::getDeclaration(
@@ -95,35 +96,11 @@ GpuPipelineGen::GpuPipelineGen(Context *context, std::string pipName,
       "atomicAdd_float",
       Intrinsic::getDeclaration(
           getModule(), Intrinsic::nvvm_atomic_load_add_f32, f32PtrType));
+#endif
 
   registerFunction(
       "llvm.nvvm.bar.warp.sync",
       Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_bar_warp_sync));
-
-  registerFunction(
-      "llvm.nvvm.vote.all.sync",
-      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_vote_all_sync));
-
-  registerFunction(
-      "llvm.nvvm.vote.any.sync",
-      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_vote_any_sync));
-
-  registerFunction(
-      "llvm.nvvm.vote.ballot.sync",
-      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_vote_ballot_sync));
-
-  registerFunction(
-      "llvm.nvvm.vote.uni.sync",
-      Intrinsic::getDeclaration(getModule(), Intrinsic::nvvm_vote_uni_sync));
-
-  registerFunction(
-      "atomicAdd_double",
-      Intrinsic::getDeclaration(
-          getModule(), Intrinsic::nvvm_atomic_load_add_f64, f64PtrType));
-  registerFunction(
-      "atomicAdd_float",
-      Intrinsic::getDeclaration(
-          getModule(), Intrinsic::nvvm_atomic_load_add_f32, f32PtrType));
 
   registerFunction(
       "llvm.nvvm.vote.all.sync",

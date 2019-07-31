@@ -126,6 +126,7 @@ void SumMonoid::createAtomicUpdate(Context *const context,
           ->isIntegerTy()) {  // FIXME : llvm does not like non integer atomics
     context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add,
                                            accumulator_ptr, val_in, order);
+#if LLVM_VERSION_MAJOR <= 8
   } else if (val_in->getType()->isDoubleTy()) {
     llvm::Function *f = context->getFunction("atomicAdd_double");
     context->getBuilder()->CreateCall(
@@ -134,6 +135,11 @@ void SumMonoid::createAtomicUpdate(Context *const context,
     llvm::Function *f = context->getFunction("atomicAdd_float");
     context->getBuilder()->CreateCall(
         f, std::vector<llvm::Value *>{accumulator_ptr, val_in});
+#else
+  } else if (val_in->getType()->isFloatingPointTy()) {
+    context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::FAdd,
+                                           accumulator_ptr, val_in, order);
+#endif
   } else {
     string error_msg = string("[gpu::SumMonoid: ] Unimplemented atomic update");
     LOG(ERROR) << error_msg;
