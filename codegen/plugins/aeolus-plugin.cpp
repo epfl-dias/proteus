@@ -127,3 +127,25 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
 
   finalize_data();
 }
+
+extern "C" {
+Plugin *createBlockCowPlugin(ParallelContext *context, std::string fnamePrefix,
+                             RecordType rec,
+                             std::vector<RecordAttribute *> &whichFields) {
+  return new AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-cow");
+}
+
+Plugin *createBlockSnapshotPlugin(ParallelContext *context,
+                                  std::string fnamePrefix, RecordType rec,
+                                  std::vector<RecordAttribute *> &whichFields) {
+  return new AeolusPlugin(context, fnamePrefix, rec, whichFields,
+                          "block-snapshot");
+}
+
+Plugin *createBlockRemotePlugin(ParallelContext *context,
+                                std::string fnamePrefix, RecordType rec,
+                                std::vector<RecordAttribute *> &whichFields) {
+  return new AeolusPlugin(context, fnamePrefix, rec, whichFields,
+                          "block-remote");
+}
+}

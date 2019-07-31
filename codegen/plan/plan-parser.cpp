@@ -23,7 +23,7 @@
 
 #include "plan/plan-parser.hpp"
 
-#include "plugins/aeolus-plugin.hpp"
+#include <dlfcn.h>
 #include "plugins/scan-to-blocks-sm-plugin.hpp"
 #ifndef NCUDA
 #include "operators/cpu-to-gpu.hpp"
@@ -61,70 +61,33 @@
 #include "operators/unionall.hpp"
 #include "operators/unnest.hpp"
 #include "rapidjson/error/en.h"
-/* too primitive */
-struct PlanHandler {
-  bool Null() {
-    cout << "Null()" << endl;
-    return true;
+
+std::string hyphenatedPluginToCamel(const char *name) {
+  size_t len = strlen(name);
+  bool make_capital = true;
+  char conv[len + 1];
+  size_t j = 0;
+  for (size_t i = 0; i < len - 1; ++i) {
+    if (name[i] == '-') {
+      ++i;
+      make_capital = true;
+    }
+    if (make_capital) {
+      conv[j++] = name[i];
+    }
+    make_capital = false;
   }
-  bool Bool(bool b) {
-    cout << "Bool(" << std::boolalpha << b << ")" << endl;
-    return true;
-  }
-  bool Int(int i) {
-    cout << "Int(" << i << ")" << endl;
-    return true;
-  }
-  bool Uint(unsigned u) {
-    cout << "Uint(" << u << ")" << endl;
-    return true;
-  }
-  bool Int64(int64_t i) {
-    cout << "Int64(" << i << ")" << endl;
-    return true;
-  }
-  bool Uint64(uint64_t u) {
-    cout << "Uint64(" << u << ")" << endl;
-    return true;
-  }
-  bool Double(double d) {
-    cout << "Double(" << d << ")" << endl;
-    return true;
-  }
-  bool String(const char *str, SizeType length, bool copy) {
-    cout << "String(" << str << ", " << length << ", " << std::boolalpha << copy
-         << ")" << std::endl;
-    return true;
-  }
-  bool StartObject() {
-    cout << "StartObject()" << endl;
-    return true;
-  }
-  bool Key(const char *str, SizeType length, bool copy) {
-    cout << "Key(" << str << ", " << length << ", " << std::boolalpha << copy
-         << ")" << std::endl;
-    return true;
-  }
-  bool EndObject(SizeType memberCount) {
-    cout << "EndObject(" << memberCount << ")" << endl;
-    return true;
-  }
-  bool StartArray() {
-    cout << "StartArray()" << endl;
-    return true;
-  }
-  bool EndArray(SizeType elementCount) {
-    cout << "EndArray(" << elementCount << ")" << endl;
-    return true;
-  }
-};
+  conv[j] = '\0';
+  return {conv};
+}
 
 PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
                            const char *moduleName)
     : exprParser(cat),
       planPath(planPath),
       moduleName(moduleName),
-      catalogParser(cat) {
+      catalogParser(cat),
+      handle(dlopen(NULL, 0)) {
   /* Init LLVM Context and catalog */
   ctx = prepareContext(this->moduleName);
 
@@ -3131,6 +3094,7 @@ const RecordAttribute *ExpressionParser::getAttribute(string relName,
 
 RecordAttribute *ExpressionParser::parseRecordAttr(
     const rapidjson::Value &val, const ExpressionType *defaultType) {
+  assert(val.IsObject());
   const char *keyRecAttrType = "type";
   const char *keyRelName = "relName";
   const char *keyAttrName = "attrName";
@@ -3396,10 +3360,7 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
     }
     newPg = new BinaryColPlugin(this->ctx, *pathDynamicCopy, *recType,
                                 *projections, sizeInFile);
-  } else if (strcmp(pgType, "block") == 0 ||
-             strcmp(pgType, "block-remote") == 0 ||
-             strcmp(pgType, "block-cow") == 0 ||
-             strcmp(pgType, "block-snapshot") == 0) {
+  } else if (strcmp(pgType, "block") == 0) {
     assert(val.HasMember(keyProjectionsGPU));
     assert(val[keyProjectionsGPU].IsArray());
 
@@ -3412,18 +3373,37 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
     }
     assert(dynamic_cast<ParallelContext *>(this->ctx));
 
-    if (strcmp(pgType, "block") == 0) {
-      newPg =
-          new ScanToBlockSMPlugin(dynamic_cast<ParallelContext *>(this->ctx),
-                                  *pathDynamicCopy, *recType, projections);
-    } else {
-      newPg = new AeolusPlugin(dynamic_cast<ParallelContext *>(this->ctx),
-                               *pathDynamicCopy, *recType, projections, pgType);
-    }
+    newPg = new ScanToBlockSMPlugin(dynamic_cast<ParallelContext *>(this->ctx),
+                                    *pathDynamicCopy, *recType, projections);
   } else {
-    string err = string("Unknown Plugin Type: ") + pgType;
-    LOG(ERROR) << err;
-    throw runtime_error(err);
+    assert(dynamic_cast<ParallelContext *>(this->ctx));
+
+    typedef Plugin *(*plugin_creator_t)(ParallelContext *, std::string,
+                                        RecordType,
+                                        std::vector<RecordAttribute *> &);
+
+    auto conv = "create" + hyphenatedPluginToCamel(pgType) + "Plugin";
+
+    plugin_creator_t create = (plugin_creator_t)dlsym(handle, conv.c_str());
+
+    if (!create) {
+      string err = string("Unknown Plugin Type: ") + pgType;
+      LOG(ERROR) << err;
+      throw runtime_error(err);
+    }
+
+    assert(val.HasMember(keyProjectionsGPU));
+    assert(val[keyProjectionsGPU].IsArray());
+
+    vector<RecordAttribute *> projections;
+    for (const auto &attr : val[keyProjectionsGPU].GetArray()) {
+      projections.push_back(parseRecordAttr(attr));
+    }
+
+    newPg = create(dynamic_cast<ParallelContext *>(this->ctx), *pathDynamicCopy,
+                   *recType, projections /*, const rapidjson::Value &val */);
+    // FIXME: a better interface would be to also pass the current json value,
+    // so that plugins can read their own attributes.
   }
 
   activePlugins.push_back(newPg);

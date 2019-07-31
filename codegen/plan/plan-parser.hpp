@@ -118,6 +118,8 @@ class PlanExecutor {
                Context *ctx);
   friend class PreparedStatement;
 
+  void *handle;  // FIXME: when can we release the handle ?
+
  private:
   ExpressionParser exprParser;
   const char *__attribute__((unused)) planPath;

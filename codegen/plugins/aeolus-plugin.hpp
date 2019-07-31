@@ -28,12 +28,24 @@
 
 class AeolusPlugin : public ScanToBlockSMPlugin {
  public:
-  AeolusPlugin(ParallelContext *const context, string fnamePrefix,
+  AeolusPlugin(ParallelContext *const context, std::string fnamePrefix,
                RecordType rec, std::vector<RecordAttribute *> &whichFields,
-               string pgType);
+               std::string pgType);
 
  private:
-  string pgType;
+  std::string pgType;
 };
+
+extern "C" {
+Plugin *createBlockCowPlugin(ParallelContext *context, std::string fnamePrefix,
+                             RecordType rec,
+                             std::vector<RecordAttribute *> &whichFields);
+Plugin *createBlockSnapshotPlugin(ParallelContext *context,
+                                  std::string fnamePrefix, RecordType rec,
+                                  std::vector<RecordAttribute *> &whichFields);
+Plugin *createBlockRemotePlugin(ParallelContext *context,
+                                std::string fnamePrefix, RecordType rec,
+                                std::vector<RecordAttribute *> &whichFields);
+}
 
 #endif /* AEOLUS_PLUGIN_HPP_ */
