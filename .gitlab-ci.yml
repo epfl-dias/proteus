@@ -155,7 +155,7 @@ test-configuration:
 build:
  stage: Build
  script:
-  - cmake --build cmake-build-debug --target all
+  - cmake --build cmake-build-debug --target all -- -j`nproc --all`
   - echo "Building... done"
  <<: *cache
  <<: *restrict_precommit
