@@ -74,7 +74,7 @@ void Exchange::generate_catch() {
   std::vector<Type *> param_typelist;
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     Type *wtype = wantedFields[i]->getLLVMType(llvmContext);
-    if (wtype == NULL)
+    if (wtype == nullptr)
       wtype = oidType;  // FIXME: dirty hack for JSON inner lists
 
     param_typelist.push_back(wtype);
@@ -131,7 +131,7 @@ void Exchange::generate_catch() {
     ProteusValueMemory mem_valWrapper;
 
     Type *wtype = wantedFields[i]->getLLVMType(llvmContext);
-    if (wtype == NULL)
+    if (wtype == nullptr)
       wtype = oidType;  // FIXME: dirty hack for JSON inner lists
 
     mem_valWrapper.mem = context->CreateEntryBlockAlloca(
@@ -193,7 +193,7 @@ void *Exchange::acquireBuffer(int target, bool polling) {
 
   if (free_pool[target].empty() && polling) {
     nvtxRangePop();
-    return NULL;
+    return nullptr;
   }
 
   std::unique_lock<std::mutex> lock(free_pool_mutex[target]);
@@ -202,7 +202,7 @@ void *Exchange::acquireBuffer(int target, bool polling) {
     if (polling) {
       lock.unlock();
       nvtxRangePop();
-      return NULL;
+      return nullptr;
     }
     nvtxRangePushA("cv_buff");
     // std::cout << "Blocking" << std::endl;
@@ -306,10 +306,9 @@ void Exchange::fire(int target, PipelineGen *pipGen) {
 
       // if (numOfParents > 1){
       //     int node;
-      //     int r = move_pages(0, 1, (void **) p, NULL, &node, MPOL_MF_MOVE);
-      //     assert((target & 1) == node);
-      //     assert((target & 1) == (sched_getcpu() & 1));
-      //     if (r != 0 || node < 0) {
+      //     int r = move_pages(0, 1, (void **) p, nullptr, &node,
+      //     MPOL_MF_MOVE); assert((target & 1) == node); assert((target & 1) ==
+      //     (sched_getcpu() & 1)); if (r != 0 || node < 0) {
       //         std::cout << *((void **)p) << " " << target << " " << node << "
       //         " << r << " " << strerror(-node); std::cout << std::endl;
       //     }

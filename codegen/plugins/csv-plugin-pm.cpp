@@ -47,7 +47,7 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
   IRBuilder<> *Builder = context->getBuilder();
 
   fd = -1;
-  buf = NULL;
+  buf = nullptr;
   std::sort(wantedFields.begin(), wantedFields.end());
 
   LOG(INFO) << "[CSVPlugin: ] " << fname;
@@ -69,11 +69,11 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
   CachingService &cache = CachingService::getInstance();
 
   char *pmCast = cache.getPM(fname);
-  if (pmCast == NULL) {
+  if (pmCast == nullptr) {
     // cout << "NEW (CSV) PM" << endl;
     hasPM = false;
     newlines = (size_t *)malloc(lines * sizeof(size_t));
-    if (newlines == NULL) {
+    if (newlines == nullptr) {
       string error_msg = "[CSVPlugin: ] Malloc Failure";
       LOG(ERROR) << error_msg;
       throw runtime_error(error_msg);
@@ -132,7 +132,7 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
   IRBuilder<> *Builder = context->getBuilder();
 
   fd = -1;
-  buf = NULL;
+  buf = nullptr;
 
   struct {
     bool operator()(RecordAttribute *a, RecordAttribute *b) {
@@ -159,11 +159,11 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
   CachingService &cache = CachingService::getInstance();
 
   char *pmCast = cache.getPM(fname);
-  if (pmCast == NULL) {
+  if (pmCast == nullptr) {
     cout << "NEW (CSV) PM" << endl;
     hasPM = false;
     newlines = (size_t *)malloc(lines * sizeof(size_t));
-    if (newlines == NULL) {
+    if (newlines == nullptr) {
       string error_msg = "[CSVPlugin: ] Malloc Failure";
       LOG(ERROR) << error_msg;
       throw runtime_error(error_msg);
@@ -219,7 +219,7 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
   IRBuilder<> *Builder = context->getBuilder();
 
   fd = -1;
-  buf = NULL;
+  buf = nullptr;
   std::sort(wantedFields.begin(), wantedFields.end());
 
   LOG(INFO) << "[CSVPlugin: ] " << fname;
@@ -260,7 +260,7 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
   IRBuilder<> *Builder = context->getBuilder();
 
   fd = -1;
-  buf = NULL;
+  buf = nullptr;
   std::sort(wantedFields.begin(), wantedFields.end());
 
   LOG(INFO) << "[CSVPlugin: ] " << fname;
@@ -316,13 +316,13 @@ void CSVPlugin::init() {
 
   /* Pages may be read AND WRITTEN (to compute hashes in-place when needed) */
   if (fd != -1) {
-    buf = (char *)mmap(NULL, fsize, PROT_READ | PROT_WRITE,
+    buf = (char *)mmap(nullptr, fsize, PROT_READ | PROT_WRITE,
                        MAP_PRIVATE /*| MAP_POPULATE*/, fd, 0);
     if (buf == MAP_FAILED) {
       throw runtime_error(string("csv.mmap"));
     }
   } else {
-    buf = NULL;
+    buf = nullptr;
   }
 
   // Allocating memory
@@ -1600,8 +1600,8 @@ void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
   Function *debugInt = context->getFunction("printi");
   Function *debugFloat = context->getFunction("printFloat");
 
-  if (atoi_ == 0 || atof_ == 0 || debugChar == 0 || debugInt == 0 ||
-      debugFloat == 0) {
+  if (atoi_ == nullptr || atof_ == nullptr || debugChar == nullptr ||
+      debugInt == nullptr || debugFloat == nullptr) {
     LOG(ERROR) << "One of the functions needed not found!";
     throw runtime_error(string("One of the functions needed not found!"));
   }

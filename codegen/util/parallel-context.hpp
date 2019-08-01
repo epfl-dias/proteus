@@ -50,8 +50,8 @@ class ParallelContext : public Context {
   void registerClose(const void *owner,
                      std::function<void(Pipeline *pip)> close);
 
-  // void pushNewPipeline    (PipelineGen *copyStateFrom = NULL);
-  // void pushNewCpuPipeline (PipelineGen *copyStateFrom = NULL);
+  // void pushNewPipeline    (PipelineGen *copyStateFrom = nullptr);
+  // void pushNewCpuPipeline (PipelineGen *copyStateFrom = nullptr);
 
  private:
   void pushDeviceProvider(PipelineGenFactory *factory);
@@ -68,7 +68,7 @@ class ParallelContext : public Context {
   friend class GpuToCpu;
 
  public:
-  void pushPipeline(PipelineGen *copyStateFrom = NULL);
+  void pushPipeline(PipelineGen *copyStateFrom = nullptr);
   void popPipeline();
 
   PipelineGen *removeLatestPipeline();

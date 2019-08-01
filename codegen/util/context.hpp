@@ -186,18 +186,18 @@ class Context {
                      const string &end, llvm::BasicBlock **cond_block,
                      llvm::BasicBlock **body_block,
                      llvm::BasicBlock **inc_block, llvm::BasicBlock **end_block,
-                     llvm::BasicBlock *insert_before = NULL);
+                     llvm::BasicBlock *insert_before = nullptr);
 
   void CreateIfElseBlocks(llvm::Function *fn, const string &if_name,
                           const string &else_name, llvm::BasicBlock **if_block,
                           llvm::BasicBlock **else_block,
-                          llvm::BasicBlock *insert_before = NULL);
+                          llvm::BasicBlock *insert_before = nullptr);
   void CreateIfBlock(llvm::Function *fn, const string &if_name,
                      llvm::BasicBlock **if_block,
-                     llvm::BasicBlock *insert_before = NULL);
+                     llvm::BasicBlock *insert_before = nullptr);
 
   llvm::BasicBlock *CreateIfBlock(llvm::Function *fn, const string &if_label,
-                                  llvm::BasicBlock *insert_before = NULL);
+                                  llvm::BasicBlock *insert_before = nullptr);
 
   llvm::Value *CastPtrToLlvmPtr(llvm::PointerType *type, const void *ptr);
   llvm::Value *getArrayElem(llvm::AllocaInst *mem_ptr, llvm::Value *offset);

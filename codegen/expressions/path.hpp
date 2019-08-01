@@ -33,7 +33,7 @@ class Path {
   Path(string nestedName, const expressions::RecordProjection *desugarizedPath)
       : desugarizedPath(desugarizedPath),
         nestedName(nestedName),
-        val_parentColl(NULL) {
+        val_parentColl(nullptr) {
     Catalog &catalog = Catalog::getInstance();
     string originalRelation = desugarizedPath->getOriginalRelationName();
     pg = catalog.getPlugin(originalRelation);

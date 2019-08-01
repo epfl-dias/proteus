@@ -402,7 +402,7 @@ void hashConstants() {
   Context &ctx = *prepareContext("HashConstants");
   Catalog &catalog = Catalog::getInstance();
 
-  Root rootOp = Root(NULL);
+  Root rootOp = Root(nullptr);
   map<RecordAttribute, ProteusValueMemory> varPlaceholder;
   OperatorState statePlaceholder = OperatorState(rootOp, varPlaceholder);
   ExpressionHasherVisitor hasher =
@@ -444,7 +444,7 @@ void hashBinaryExpressions() {
   Context &ctx = *prepareContext("HashBinaryExpressions");
   Catalog &catalog = Catalog::getInstance();
 
-  Root rootOp = Root(NULL);
+  Root rootOp = Root(nullptr);
   map<RecordAttribute, ProteusValueMemory> varPlaceholder;
   OperatorState statePlaceholder = OperatorState(rootOp, varPlaceholder);
   ExpressionHasherVisitor hasher =
@@ -496,7 +496,7 @@ void hashIfThenElse() {
   Context &ctx = *prepareContext("HashIfThenElse");
   Catalog &catalog = Catalog::getInstance();
 
-  Root rootOp = Root(NULL);
+  Root rootOp = Root(nullptr);
   map<RecordAttribute, ProteusValueMemory> varPlaceholder;
   OperatorState statePlaceholder = OperatorState(rootOp, varPlaceholder);
   ExpressionHasherVisitor hasher =
@@ -3835,7 +3835,7 @@ void cidrBin() {
   int fieldCount = 1;
   list<RecordAttribute *> attrListBin;
   while (fieldCount <= 5) {
-    RecordAttribute *attr = NULL;
+    RecordAttribute *attr = nullptr;
 
     stringstream ss;
     ss << fieldCount;
@@ -3900,7 +3900,7 @@ void cidrBinStrConstant() {
   int fieldCount = 1;
   list<RecordAttribute *> attrListBin;
   while (fieldCount <= 5) {
-    RecordAttribute *attr = NULL;
+    RecordAttribute *attr = nullptr;
 
     stringstream ss;
     ss << fieldCount;
@@ -3981,7 +3981,7 @@ void cidrBinStr() {
   int fieldCount = 1;
   list<RecordAttribute *> attrListBin;
   while (fieldCount <= 5) {
-    RecordAttribute *attr = NULL;
+    RecordAttribute *attr = nullptr;
 
     stringstream ss;
     ss << fieldCount;
@@ -4083,7 +4083,7 @@ void cidrQuery3() {
   list<RecordAttribute *> attrListClinical;
 
   while (getline(fsClinicalSchema, line2)) {
-    RecordAttribute *attr = NULL;
+    RecordAttribute *attr = nullptr;
     if (fieldCount2 < 2) {
       attr = new RecordAttribute(fieldCount2 + 1, filenameClinical, line2,
                                  intType);
@@ -4137,7 +4137,7 @@ void cidrQuery3() {
   int fieldCount = 0;
   list<RecordAttribute *> attrListGenetic;
   while (getline(fsGeneticSchema, line)) {
-    RecordAttribute *attr = NULL;
+    RecordAttribute *attr = nullptr;
     if (fieldCount != 0) {
       attr =
           new RecordAttribute(fieldCount + 1, filenameGenetic, line, intType);
@@ -4251,7 +4251,7 @@ void cidrQuery3Radix() {
   list<RecordAttribute *> attrListClinical;
 
   while (getline(fsClinicalSchema, line2)) {
-    RecordAttribute *attr = NULL;
+    RecordAttribute *attr = nullptr;
     if (fieldCount2 < 2) {
       attr = new RecordAttribute(fieldCount2 + 1, filenameClinical, line2,
                                  intType);
@@ -4305,7 +4305,7 @@ void cidrQuery3Radix() {
   int fieldCount = 0;
   list<RecordAttribute *> attrListGenetic;
   while (getline(fsGeneticSchema, line)) {
-    RecordAttribute *attr = NULL;
+    RecordAttribute *attr = nullptr;
     if (fieldCount != 0) {
       attr =
           new RecordAttribute(fieldCount + 1, filenameGenetic, line, intType);
@@ -4437,7 +4437,7 @@ void cidrQuery3RadixMax() {
   list<RecordAttribute *> attrListClinical;
 
   while (getline(fsClinicalSchema, line2)) {
-    RecordAttribute *attr = NULL;
+    RecordAttribute *attr = nullptr;
     if (fieldCount2 < 2) {
       attr = new RecordAttribute(fieldCount2 + 1, filenameClinical, line2,
                                  intType);
@@ -4491,7 +4491,7 @@ void cidrQuery3RadixMax() {
   int fieldCount = 0;
   list<RecordAttribute *> attrListGenetic;
   while (getline(fsGeneticSchema, line)) {
-    RecordAttribute *attr = NULL;
+    RecordAttribute *attr = nullptr;
     if (fieldCount != 0) {
       attr =
           new RecordAttribute(fieldCount + 1, filenameGenetic, line, intType);
@@ -4622,7 +4622,7 @@ void cidrQueryCount() {
   int fieldCount = 0;
   list<RecordAttribute *> attrListGenetic;
   while (getline(fsGeneticSchema, line)) {
-    RecordAttribute *attr = NULL;
+    RecordAttribute *attr = nullptr;
     if (fieldCount != 0) {
       attr =
           new RecordAttribute(fieldCount + 1, filenameGenetic, line, intType);
@@ -5121,7 +5121,7 @@ void columnarMax1() {
   list<RecordAttribute *> attrListRegions;
 
   ostringstream sstream;
-  RecordAttribute *toProject = NULL;
+  RecordAttribute *toProject = nullptr;
   for (int i = 1; i <= 30; i++) {
     sstream.str("");
     sstream << "field" << fieldCount;
@@ -5197,8 +5197,8 @@ void columnarMax2() {
   list<RecordAttribute *> attrListRegions;
 
   ostringstream sstream;
-  RecordAttribute *selectProj = NULL;
-  RecordAttribute *toProject = NULL;
+  RecordAttribute *selectProj = nullptr;
+  RecordAttribute *toProject = nullptr;
   for (int i = 1; i <= 30; i++) {
     sstream.str("");
     sstream << "field" << fieldCount;
@@ -5284,9 +5284,9 @@ void columnarMax3() {
   list<RecordAttribute *> attrListRegions;
 
   ostringstream sstream;
-  RecordAttribute *selectProj1 = NULL;
-  RecordAttribute *selectProj2 = NULL;
-  RecordAttribute *toProject = NULL;
+  RecordAttribute *selectProj1 = nullptr;
+  RecordAttribute *selectProj2 = nullptr;
+  RecordAttribute *toProject = nullptr;
   for (int i = 1; i <= 30; i++) {
     sstream.str("");
     sstream << "field" << fieldCount;
@@ -5407,9 +5407,9 @@ void columnarJoin1() {
   list<RecordAttribute *> attrListLeft;
 
   ostringstream sstream;
-  RecordAttribute *selectProjLeft1 = NULL;
-  RecordAttribute *selectProjLeft2 = NULL;
-  RecordAttribute *toProjectLeft = NULL;
+  RecordAttribute *selectProjLeft1 = nullptr;
+  RecordAttribute *selectProjLeft2 = nullptr;
+  RecordAttribute *toProjectLeft = nullptr;
   for (int i = 1; i <= 30; i++) {
     sstream.str("");
     sstream << "field" << fieldCount;
@@ -5468,9 +5468,9 @@ void columnarJoin1() {
   fieldCount = 1;
   list<RecordAttribute *> attrListRight;
 
-  RecordAttribute *selectProjRight1 = NULL;
-  RecordAttribute *selectProjRight2 = NULL;
-  RecordAttribute *toProjectRight = NULL;
+  RecordAttribute *selectProjRight1 = nullptr;
+  RecordAttribute *selectProjRight2 = nullptr;
+  RecordAttribute *toProjectRight = nullptr;
   for (int i = 1; i <= 30; i++) {
     sstream.str("");
     sstream << "field" << fieldCount;
@@ -5627,9 +5627,9 @@ void columnarCachedJoin1() {
   list<RecordAttribute *> attrListLeft;
 
   ostringstream sstream;
-  RecordAttribute *selectProjLeft1 = NULL;
-  RecordAttribute *selectProjLeft2 = NULL;
-  RecordAttribute *toProjectLeft = NULL;
+  RecordAttribute *selectProjLeft1 = nullptr;
+  RecordAttribute *selectProjLeft2 = nullptr;
+  RecordAttribute *toProjectLeft = nullptr;
   for (int i = 1; i <= 30; i++) {
     sstream.str("");
     sstream << "field" << fieldCount;
@@ -5688,9 +5688,9 @@ void columnarCachedJoin1() {
   fieldCount = 1;
   list<RecordAttribute *> attrListRight;
 
-  RecordAttribute *selectProjRight1 = NULL;
-  RecordAttribute *selectProjRight2 = NULL;
-  RecordAttribute *toProjectRight = NULL;
+  RecordAttribute *selectProjRight1 = nullptr;
+  RecordAttribute *selectProjRight2 = nullptr;
+  RecordAttribute *toProjectRight = nullptr;
   for (int i = 1; i <= 30; i++) {
     sstream.str("");
     sstream << "field" << fieldCount;

@@ -62,7 +62,7 @@ buff_pair make_mem_move_device(char *src, size_t bytes, int target_device,
   //     size_t curr_e  = mmc->next_e;
   //     cudaEvent_t e  = mmc->events   [curr_e];
   //     void * old_ptr = mmc->old_buffs[curr_e];
-  //     // mmc->old_buffs[curr_e] = NULL;
+  //     // mmc->old_buffs[curr_e] = nullptr;
 
   //     if (old_ptr) buffer-manager<int32_t>::release_buffer((int32_t *)
   //     old_ptr); //FIXME: cannot release it yet!
@@ -391,7 +391,7 @@ void MemMoveDevice::open(Pipeline *pip) {
 
     // gpu_run(cudaEventCreateWithFlags(mmc->events + i, cudaEventDisableTiming
     // | cudaEventBlockingSync)); gpu_run(cudaEventCreate(mmc->events + i));
-    // mmc->old_buffs[i] = NULL;
+    // mmc->old_buffs[i] = nullptr;
   }
   eventlogger.log(this, log_op::MEMMOVE_OPEN_END);
   // nvtxRangePushA("memmove::open2");
@@ -405,7 +405,7 @@ void MemMoveDevice::open(Pipeline *pip) {
 
     // gpu_run(cudaEventCreateWithFlags(mmc->events + i, cudaEventDisableTiming
     // | cudaEventBlockingSync)); gpu_run(cudaEventCreate(mmc->events + i));
-    // mmc->old_buffs[i] = NULL;
+    // mmc->old_buffs[i] = nullptr;
   }
   // nvtxRangePop();
 

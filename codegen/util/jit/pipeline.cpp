@@ -72,7 +72,7 @@ void PipelineGen::registerOpen(const void *owner,
         Value *this_opener = context->createSizeT(indx);
         getBuilder()->CreateCall(
             f, std::vector<Value *>{this_ptr, this_opener, pip});
-        return (Value *)NULL;
+        return (Value *)nullptr;
       },
       ~((size_t)0));
 }
@@ -270,14 +270,14 @@ PipelineGen::PipelineGen(Context *context, std::string pipName,
       pipName(pipName),
       context(context),
       copyStateFrom(copyStateFrom),
-      execute_after_close(NULL) {
+      execute_after_close(nullptr) {
   // TheModule  = new Module(pipName, context->getLLVMContext());
   TheBuilder = new IRBuilder<>(context->getLLVMContext());
 
   maxBlockSize = 1;
   maxGridSize = 1;
 
-  state = NULL;
+  state = nullptr;
 
   if (copyStateFrom) {
     Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
@@ -396,7 +396,7 @@ void PipelineGen::prepareInitDeinit() {
     state = getBuilder()->CreateLoad(args[1]);
 
     for (size_t i = close_var.size(); i > 0; --i) {
-      Value *var = NULL;
+      Value *var = nullptr;
       if (close_var[i - 1].second != ~((size_t)0)) {
         var = getBuilder()->CreateExtractValue(state, --s);
       }
@@ -507,7 +507,8 @@ Pipeline *PipelineGen::getPipeline(int group_id) {
       func, getModule()->getDataLayout().getTypeAllocSize(state_type), this,
       state_type, openers, closers, getCompiledFunction(open__function),
       getCompiledFunction(close_function), group_id,
-      execute_after_close ? execute_after_close->getPipeline(group_id) : NULL);
+      execute_after_close ? execute_after_close->getPipeline(group_id)
+                          : nullptr);
 }
 
 llvm::Value *PipelineGen::workerScopedAtomicAdd(llvm::Value *ptr,
@@ -1024,7 +1025,7 @@ void PipelineGen::registerFunctions() {
   Type *types[] = {void_ptr_type, void_ptr_type, Type::getInt32Ty(ctx)};
   Function *memcpy_ =
       Intrinsic::getDeclaration(TheModule, Intrinsic::memcpy, types);
-  if (memcpy_ == NULL) {
+  if (memcpy_ == nullptr) {
     throw runtime_error(string("Could not find memcpy intrinsic"));
   }
 

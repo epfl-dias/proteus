@@ -81,8 +81,8 @@ void verifyResult_(const char *testLabel) {
   if (fd1 == -1) {
     throw runtime_error(string("csv.open: ") + correctResult);
   }
-  char *correctBuf =
-      (char *)mmap(NULL, fsize1, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd1, 0);
+  char *correctBuf = (char *)mmap(nullptr, fsize1, PROT_READ | PROT_WRITE,
+                                  MAP_PRIVATE, fd1, 0);
 
   /* current */
   stat(testLabel, &statbuf);
@@ -91,8 +91,8 @@ void verifyResult_(const char *testLabel) {
   if (fd2 == -1) {
     throw runtime_error(string("csv.open: ") + testLabel);
   }
-  char *currResultBuf =
-      (char *)mmap(NULL, fsize2, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd2, 0);
+  char *currResultBuf = (char *)mmap(nullptr, fsize2, PROT_READ | PROT_WRITE,
+                                     MAP_PRIVATE, fd2, 0);
   cout << correctBuf << endl;
   cout << currResultBuf << endl;
   bool areEqual = (strcmp(correctBuf, currResultBuf) == 0) ? true : false;

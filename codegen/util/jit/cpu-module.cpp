@@ -236,7 +236,7 @@ void CpuModule::compileAndLoad() {
   // assert(func);
 
   // F->eraseFromParent();
-  // F = NULL;
+  // F = nullptr;
 }
 
 void *CpuModule::getCompiledFunction(Function *f) const {

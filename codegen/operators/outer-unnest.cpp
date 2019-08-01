@@ -44,7 +44,7 @@ void OuterUnnest::generate(Context *const context,
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
   Type *boolType = Type::getInt1Ty(llvmContext);
-  Type *type_w = NULL;
+  Type *type_w = nullptr;
   vector<Value *> ArgsV;
 
   /**
@@ -78,7 +78,7 @@ void OuterUnnest::generate(Context *const context,
    * (re-)check for v being NULL..
    */
   BasicBlock *loopCond, *loopBody, *loopInc, *loopEnd;
-  AllocaInst *mem_accumulating = NULL;
+  AllocaInst *mem_accumulating = nullptr;
   ProteusValueMemory nestedValueItem;
   Plugin *pg = path.getRelevantPlugin();
   {

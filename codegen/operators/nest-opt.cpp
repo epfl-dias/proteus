@@ -59,7 +59,7 @@ Nest::Nest(vector<Monoid> accs, vector<expression_t> outputExprs,
       pred(pred),
       mat(mat),
       htName(opLabel),
-      context(NULL),
+      context(nullptr),
       f_grouping(buildRecord(f_grouping)) {
   if (accs.size() != outputExprs.size() || accs.size() != aggrLabels.size()) {
     string error_msg = string("[NEST: ] Erroneous constructor args");
@@ -169,7 +169,7 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
     map<RecordAttribute, ProteusValueMemory>::const_iterator memSearch =
         bindings.find(*(*it));
 
-    Value *llvmCurrVal = NULL;
+    Value *llvmCurrVal = nullptr;
     if (memSearch != bindings.end()) {
       ProteusValueMemory currValMem = memSearch->second;
       llvmCurrVal = Builder->CreateLoad(currValMem.mem);
@@ -378,8 +378,8 @@ void Nest::generateProbe(Context *const context) const {
       new map<RecordAttribute, ProteusValueMemory>();
   int i = 0;
   // Retrieving activeTuple(s) from HT
-  AllocaInst *mem_activeTuple = NULL;
-  Value *activeTuple = NULL;
+  AllocaInst *mem_activeTuple = nullptr;
+  Value *activeTuple = nullptr;
   //    const set<RecordAttribute>& tuplesIdentifiers =
   //    mat.getTupleIdentifiers();
   const vector<RecordAttribute *> &tuplesIdentifiers = mat.getWantedOIDs();
@@ -400,7 +400,7 @@ void Nest::generateProbe(Context *const context) const {
   }
 
   const vector<RecordAttribute *> &wantedFields = mat.getWantedFields();
-  Value *field = NULL;
+  Value *field = nullptr;
   for (vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
        it != wantedFields.end(); ++it) {
     string currField = (*it)->getName();
@@ -933,7 +933,7 @@ void Nest::generateAnd(expression_t outputExpr, Context *const context,
 }
 
 AllocaInst *Nest::resetAccumulator(expression_t outputExpr, Monoid acc) const {
-  AllocaInst *mem_accumulating = NULL;
+  AllocaInst *mem_accumulating = nullptr;
 
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();

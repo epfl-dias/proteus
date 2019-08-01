@@ -338,7 +338,7 @@ void MemMoveLocalTo::open(Pipeline *pip) {
 
     gpu_run(cudaEventCreateWithFlags(
         mmc->events + i, cudaEventDisableTiming | cudaEventBlockingSync));
-    mmc->old_buffs[i] = NULL;
+    mmc->old_buffs[i] = nullptr;
   }
 
   mmc->worker = ThreadPool::getInstance().enqueue(

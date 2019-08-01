@@ -42,7 +42,7 @@ class GpuPipelineGen : public PipelineGen {
 
  protected:
   GpuPipelineGen(Context *context, std::string pipName = "pip",
-                 PipelineGen *copyStateFrom = NULL);
+                 PipelineGen *copyStateFrom = nullptr);
 
   friend class GpuPipelineGenFactory;
 

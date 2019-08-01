@@ -66,7 +66,7 @@ namespace jsonPipelined {
 //    {
 //        throw runtime_error(string("json.open"));
 //    }
-//    buf = (const char*) mmap(NULL, fsize, PROT_READ | PROT_WRITE ,
+//    buf = (const char*) mmap(nullptr, fsize, PROT_READ | PROT_WRITE ,
 //    MAP_PRIVATE, fd, 0); if (buf == MAP_FAILED)
 //    {
 //        throw runtime_error(string("json.mmap"));
@@ -98,14 +98,14 @@ namespace jsonPipelined {
 //    CachingService& cache = CachingService::getInstance();
 //
 //    char* pmCast = cache.getPM(fname);
-//    Value *cast_tokenArray = NULL;
-//    Value *cast_newlineArray = NULL;
+//    Value *cast_tokenArray = nullptr;
+//    Value *cast_newlineArray = nullptr;
 //    cout << "JSON CONSTRUCTOR 1" << endl;
-//    if (pmCast == NULL) {
+//    if (pmCast == nullptr) {
 //        cout << "NEW (JSON) PM" << endl;
 //        tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
 //        newLines = (size_t*) malloc(lines * sizeof(size_t));
-//        if (tokenBuf == NULL) {
+//        if (tokenBuf == nullptr) {
 //            string msg = string(
 //                    "[JSON Plugin: ]: Failed to allocate token arena");
 //            LOG(ERROR)<< msg;
@@ -135,7 +135,7 @@ namespace jsonPipelined {
 //        size_t *newlines = pm->newlines;
 //        this->tokens = tokens;
 //        this->newLines = newlines;
-//        tokenBuf = NULL;
+//        tokenBuf = nullptr;
 //
 //        mem_tokenArray = context->CreateEntryBlockAlloca(F, "jsTokenArray",
 //                token2DPtrType);
@@ -165,7 +165,7 @@ JSONPlugin::JSONPlugin(Context *const context, string fname,
       var_tokenOffsetHash("tokenOffsetHash"),
       staticSchema(staticSchema),
       cache(false),
-      tokens(NULL),
+      tokens(nullptr),
       lines(linehint) {
   tokenType = context->CreateJSMNStruct();
 }
@@ -192,12 +192,12 @@ JSONPlugin::JSONPlugin(Context *const context, string fname,
   PointerType *token2DPtrType = PointerType::get(tokenPtrType, 0);
 
   /* XXX */
-  this->newLines = NULL;
+  this->newLines = nullptr;
   // TODO Include support for more sophisticated PM, storing newlines too
   // Default constructor already supports it
   this->cacheNewlines = false;
-  this->mem_newlineArray = NULL;
-  tokenBuf = NULL;
+  this->mem_newlineArray = nullptr;
+  tokenBuf = nullptr;
 }
 
 void JSONPlugin::initPM() {
@@ -226,7 +226,7 @@ void JSONPlugin::initPM() {
 
     char *pmCast = cache.getPM(fname);
 
-    if (pmCast == NULL) {
+    if (pmCast == nullptr) {
       if (pmStored == 0)
         loadPMfromDisk(pmPath, pmStatBuffer);
       else
@@ -259,7 +259,7 @@ void JSONPlugin::reusePM(pmJSON *pm) {
   this->newLines = newlines;
   this->cache = true;
   this->cacheNewlines = true;
-  tokenBuf = NULL;
+  tokenBuf = nullptr;
 
   /* Flush PM to disk too if need be */
   // cout << "Does pm exist? " << pmStored << endl;
@@ -267,7 +267,7 @@ void JSONPlugin::reusePM(pmJSON *pm) {
   if (pmStored != 0) {
     FILE *f;
     f = fopen(pmPath, "wb");
-    if (f == NULL) {
+    if (f == nullptr) {
       fatal("fopen");
     }
     // cout << "Peek before writing: " << tokens[0][0].start << " to " <<
@@ -291,7 +291,7 @@ void JSONPlugin::reusePM(pmJSON *pm) {
 void JSONPlugin::createPM() {
   cout << "NEW (JSON) PM" << endl;
   //            tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
-  //            if (tokenBuf == NULL) {
+  //            if (tokenBuf == nullptr) {
   //                string msg = string(
   //                        "[JSON Plugin: ]: Failed to allocate token arena");
   //                LOG(ERROR)<< msg;
@@ -312,7 +312,7 @@ void JSONPlugin::createPM() {
 #else
   jsmntok_t *tokenBuf_ =
       (jsmntok_t *)malloc(lines * MAXTOKENS * sizeof(jsmntok_t));
-  if (tokenBuf_ == NULL) {
+  if (tokenBuf_ == nullptr) {
     throw runtime_error(string("new() of tokens failed"));
   }
   for (int i = 0; i < lines; i++) {
@@ -344,7 +344,7 @@ void JSONPlugin::loadPMfromDisk(const char *pmPath, struct stat &pmStatBuffer) {
   tokenBuf = (char *)malloc(lines * sizeof(jsmntok_t *));
   this->tokens = (jsmntok_t **)tokenBuf;
   this->newLines = (size_t *)malloc(lines * sizeof(size_t));
-  char *pmraw = (char *)mmap(NULL, pmsize, PROT_READ, MAP_PRIVATE, fdPM, 0);
+  char *pmraw = (char *)mmap(nullptr, pmsize, PROT_READ, MAP_PRIVATE, fdPM, 0);
   if (pmraw == MAP_FAILED) {
     string msg = string("[JSON Plugin: ]: Failed to mmap JSON pm");
     LOG(ERROR) << msg;
@@ -382,8 +382,8 @@ void JSONPlugin::init() {
   if (fd == -1) {
     throw runtime_error(string("json.open"));
   }
-  buf = (const char *)mmap(NULL, fsize, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd,
-                           0);
+  buf = (const char *)mmap(nullptr, fsize, PROT_READ | PROT_WRITE, MAP_PRIVATE,
+                           fd, 0);
   if (buf == MAP_FAILED) {
     throw runtime_error(string("json.mmap"));
   }
@@ -931,14 +931,14 @@ void JSONPlugin::scanObjects(const ::Operator &producer, Function *debug) {
   /* Find newline -> AVX */
   /* Is it worth the function call?
    * Y, there are some savings, even for short(ish) entries */
-  Value *idx_newlineRelative = NULL;
+  Value *idx_newlineRelative = nullptr;
   if (!this->cacheNewlines) {
     ArgsV.clear();
     ArgsV.push_back(val_shiftedBuf);
     ArgsV.push_back(val_fsize);
     idx_newlineRelative = Builder->CreateCall(newLine, ArgsV);
     // save it at newline 'PM' too
-    if (mem_newlineArray != NULL) {
+    if (mem_newlineArray != nullptr) {
       Value *val_newlineArray = Builder->CreateLoad(mem_newlineArray);
       Value *mem_currLinePM =
           context->getArrayElemMem(val_newlineArray, val_lineCnt);
@@ -950,7 +950,7 @@ void JSONPlugin::scanObjects(const ::Operator &producer, Function *debug) {
     //        ArgsV.push_back(val_shiftedBuf);
     //        ArgsV.push_back(val_fsize);
     //        idx_newlineRelative = Builder->CreateCall(newLine, ArgsV);
-    if (mem_newlineArray != NULL) {
+    if (mem_newlineArray != nullptr) {
       Value *val_newlineArray = Builder->CreateLoad(mem_newlineArray);
       idx_newlineRelative =
           context->getArrayElem(val_newlineArray, val_lineCnt);
@@ -1899,11 +1899,11 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
 
   Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, token_start);
 
-  Function *conversionFunc = NULL;
+  Function *conversionFunc = nullptr;
 
-  AllocaInst *mem_convertedValue = NULL;
-  AllocaInst *mem_convertedValue_isNull = NULL;
-  Value *convertedValue = NULL;
+  AllocaInst *mem_convertedValue = nullptr;
+  AllocaInst *mem_convertedValue_isNull = nullptr;
+  Value *convertedValue = nullptr;
 
   mem_convertedValue_isNull =
       context->CreateEntryBlockAlloca(F, string("value_isNull"), int1Type);
@@ -2082,10 +2082,10 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
 
   /**
    * ELSE BLOCK
-   * return "(NULL)"
+   * return "(nullptr)"
    */
   Builder->SetInsertPoint(elseBlock);
-#ifdef DEBUG  // Invalid / NULL!
+#ifdef DEBUG  // Invalid / nullptr!
 //    ArgsV.clear();
 //    Function* debugInt = context->getFunction("printi");
 //    Value *tmp = context->createInt32(-111);
@@ -2103,7 +2103,7 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
   ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_convertedValue;
   mem_valWrapper.isNull = Builder->CreateLoad(mem_convertedValue_isNull);
-#ifdef DEBUG  // Invalid / NULL!
+#ifdef DEBUG  // Invalid / nullptr!
 //    ArgsV.clear();
 //    Function* debugBoolean = context->getFunction("printBoolean");
 //    ArgsV.push_back(mem_valWrapper.isNull);
@@ -2212,12 +2212,12 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
 
   Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, token_start);
 
-  Function *conversionFunc = NULL;
-  Function *hashFunc = NULL;
-  AllocaInst *mem_hashedValue = NULL;
-  AllocaInst *mem_hashedValue_isNull = NULL;
-  Value *hashedValue = NULL;
-  Value *convertedValue = NULL;
+  Function *conversionFunc = nullptr;
+  Function *hashFunc = nullptr;
+  AllocaInst *mem_hashedValue = nullptr;
+  AllocaInst *mem_hashedValue_isNull = nullptr;
+  Value *hashedValue = nullptr;
+  Value *convertedValue = nullptr;
 
   // Preparing hasher state
   NamedValuesJSON[var_tokenOffsetHash] = mem_value.mem;
@@ -2493,7 +2493,7 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
 
   /**
    * ELSE BLOCK
-   * "NULL" case
+   * "nullptr" case
    * TODO What should the behavior be in this case?
    *
    * c-p from Sybase manual: If the grouping column contains a null value,

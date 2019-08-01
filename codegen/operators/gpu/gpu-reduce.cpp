@@ -121,7 +121,7 @@ void GpuReduce::consume(ParallelContext *const context,
   for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
     auto acc = *itAcc;
     auto outputExpr = *itExpr;
-    Value *mem_accumulating = NULL;
+    Value *mem_accumulating = nullptr;
 
     switch (acc) {
       case SUM:
@@ -213,7 +213,7 @@ void GpuReduce::consume(ParallelContext *const context,
 //     for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++, ++itID) {
 //         Monoid                      acc                     = *itAcc ;
 //         expressions::Expression *   outputExpr              = *itExpr;
-//         Value                   *   mem_accumulating        = NULL   ;
+//         Value                   *   mem_accumulating        = nullptr   ;
 
 //         BasicBlock* insBlock = Builder->GetInsertBlock();
 
@@ -409,7 +409,7 @@ size_t GpuReduce::resetAccumulator(expression_t outputExpr, Monoid acc,
               for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
                 auto acc = *itAcc;
                 auto outputExpr = *itExpr;
-                Value *mem_accumulating = NULL;
+                Value *mem_accumulating = nullptr;
 
                 if (*itMem == ~((size_t)0)) continue;
 

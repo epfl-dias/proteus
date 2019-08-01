@@ -231,7 +231,7 @@ void Join::consume(Context *const context, const OperatorState &childState) {
     LoadInst *arrayShifted = new LoadInst(ptr_arrayidx, "", false);
     arrayShifted->setAlignment(8);
     loopCond->getInstList().push_back(arrayShifted);
-    // Ending condition: current position in result array is NULL
+    // Ending condition: current position in result array is nullptr
     ICmpInst *int_cmp = new ICmpInst(*loopCond, ICmpInst::ICMP_NE, arrayShifted,
                                      const_null, "cmpMatchesEnd");
     BranchInst::Create(loopBody, loopEnd, int_cmp, loopCond);
@@ -272,7 +272,7 @@ void Join::consume(Context *const context, const OperatorState &childState) {
 
     int i = 0;
     // Retrieving activeTuple(s) from HT
-    AllocaInst *mem_activeTuple = NULL;
+    AllocaInst *mem_activeTuple = nullptr;
     const vector<RecordAttribute *> &tuplesIdentifiers = mat.getWantedOIDs();
     for (vector<RecordAttribute *>::const_iterator it =
              tuplesIdentifiers.begin();

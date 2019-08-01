@@ -312,9 +312,9 @@ void tpchMatJSON(map<string, dataset> datasetCatalog, int predicate,
 
   RecordAttribute *orderkey = argsLineitem["orderkey"];
   RecordAttribute *linenumber = argsLineitem["linenumber"];
-  RecordAttribute *quantity = NULL;
-  RecordAttribute *extendedprice = NULL;
-  RecordAttribute *tax = NULL;
+  RecordAttribute *quantity = nullptr;
+  RecordAttribute *extendedprice = nullptr;
+  RecordAttribute *tax = nullptr;
 
   ListType *documentType = new ListType(rec);
   jsonPipelined::JSONPlugin *pg =

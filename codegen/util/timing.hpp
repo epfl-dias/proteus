@@ -70,7 +70,7 @@ class stopwatch_t {
   double time_ms() { return ((double)(time_us() * 1e-3)); }
   double time() { return ((double)(time_us() * 1e-6)); }
   long long now() {
-    gettimeofday(&tv, NULL);
+    gettimeofday(&tv, nullptr);
     return tv.tv_usec + tv.tv_sec * 1000000ll;
   }
   void reset() { mark = now(); }

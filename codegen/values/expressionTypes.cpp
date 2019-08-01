@@ -29,13 +29,13 @@ bool recordComparator(RecordAttribute *x, RecordAttribute *y) {
 
 llvm::Value *RecordType::projectArg(llvm::Value *record, RecordAttribute *attr,
                                     llvm::IRBuilder<> *const Builder) const {
-  if (!(record->getType()->isStructTy())) return NULL;
+  if (!(record->getType()->isStructTy())) return nullptr;
   if (!(((llvm::StructType *)record->getType())
             ->isLayoutIdentical(
                 (llvm::StructType *)getLLVMType(record->getContext()))))
-    return NULL;
+    return nullptr;
   int index = getIndex(attr);
-  if (index < 0) return NULL;
+  if (index < 0) return nullptr;
   return Builder->CreateExtractValue(record, index);
 }
 

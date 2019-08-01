@@ -72,7 +72,7 @@ ExprMaterializer::ExprMaterializer(expressions::Expression *toMat,
 
   /* Note: In principle, it's not necessary to store payload as struct.
    * This way, however, it is uniform across all caching cases. */
-  toMatType = NULL;
+  toMatType = nullptr;
 }
 
 ExprMaterializer::ExprMaterializer(expressions::Expression *toMat, int linehint,
@@ -162,7 +162,7 @@ ExprMaterializer::ExprMaterializer(expressions::Expression *toMat, int linehint,
 
   /* Note: In principle, it's not necessary to store payload as struct.
    * This way, however, it is uniform across all caching cases. */
-  toMatType = NULL;
+  toMatType = nullptr;
 }
 
 ExprMaterializer::~ExprMaterializer() {
@@ -191,7 +191,7 @@ void ExprMaterializer::freeArenas() const {
   Value *val_arena = Builder->CreateLoad(opBuffer.mem_buffer);
   vector<Value *> ArgsFree;
   AllocaInst *mem_arena_void =
-      Builder->CreateAlloca(void_ptr_type, 0, "voidArenaPtr");
+      Builder->CreateAlloca(void_ptr_type, nullptr, "voidArenaPtr");
   Builder->CreateStore(val_arena, mem_arena_void);
   Value *val_arena_void = Builder->CreateLoad(mem_arena_void);
   ArgsFree.push_back(val_arena_void);
@@ -282,7 +282,7 @@ void ExprMaterializer::consume(Context *const context,
   vector<Value *> ArgsRealloc;
   Function *reallocLLVM = context->getFunction("increaseMemoryChunk");
   AllocaInst *mem_arena_void =
-      Builder->CreateAlloca(void_ptr_type, 0, "voidArenaPtr");
+      Builder->CreateAlloca(void_ptr_type, nullptr, "voidArenaPtr");
   Builder->CreateStore(val_arena, mem_arena_void);
   Value *val_arena_void = Builder->CreateLoad(mem_arena_void);
   ArgsRealloc.push_back(val_arena_void);

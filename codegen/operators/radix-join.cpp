@@ -42,7 +42,7 @@ RadixJoinBuild::RadixJoinBuild(expression_t keyExpr, Operator *child,
       is_agg(is_agg) {
   // TODO initializations
 
-  pg = new OutputPlugin(context, mat, NULL);
+  pg = new OutputPlugin(context, mat, nullptr);
 
   /* What (ht* + payload) points to: TBD */
   /* Result type specified during output plugin construction */
@@ -57,7 +57,7 @@ RadixJoinBuild::~RadixJoinBuild() {
 void RadixJoinBuild::produce() {
   initializeState();
 
-  Operator *newChild = NULL;
+  Operator *newChild = nullptr;
 
   // TODO: enable cache
   // if (!this->child->isFiltering()) {
@@ -284,7 +284,7 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     vector<Value *> ArgsRealloc;
     Function *reallocLLVM = context->getFunction("increaseMemoryChunk");
     AllocaInst *mem_arena_void =
-        Builder->CreateAlloca(void_ptr_type, 0, "voidArenaPtr");
+        Builder->CreateAlloca(void_ptr_type, nullptr, "voidArenaPtr");
     Builder->CreateStore(val_arena, mem_arena_void);
     Value *val_arena_void = Builder->CreateLoad(mem_arena_void);
     ArgsRealloc.push_back(val_arena_void);
@@ -351,7 +351,7 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     /* XXX Careful: Cache-aware */
     int offsetInWanted = 0;
     for (const auto &we : mat.getWantedExpressions()) {
-      Value *valToMaterialize = NULL;
+      Value *valToMaterialize = nullptr;
       // Check if cached - already done in output pg..
       bool isCached = false;
       CacheInfo info;
@@ -938,11 +938,11 @@ void RadixJoin::runRadix() const {
   IntegerType *llvm_oid_type =
       (IntegerType *)oid_type->getLLVMType(llvmContext);
   AllocaInst *mem_outCount =
-      Builder->CreateAlloca(llvm_oid_type, 0, "join_oid");
-  AllocaInst *mem_rCount = Builder->CreateAlloca(int32_type, 0, "rCount");
-  AllocaInst *mem_sCount = Builder->CreateAlloca(int32_type, 0, "sCount");
+      Builder->CreateAlloca(llvm_oid_type, nullptr, "join_oid");
+  AllocaInst *mem_rCount = Builder->CreateAlloca(int32_type, nullptr, "rCount");
+  AllocaInst *mem_sCount = Builder->CreateAlloca(int32_type, nullptr, "sCount");
   AllocaInst *mem_clusterCount =
-      Builder->CreateAlloca(int32_type, 0, "clusterCount");
+      Builder->CreateAlloca(int32_type, nullptr, "clusterCount");
   Builder->CreateStore(ConstantInt::get(llvm_oid_type, 0), mem_outCount);
   Builder->CreateStore(val_zero, mem_rCount);
   Builder->CreateStore(val_zero, mem_sCount);
@@ -955,7 +955,7 @@ void RadixJoin::runRadix() const {
   /* Note: Does not allocate mem. for buckets too */
   size_t htSize = (1 << NUM_RADIX_BITS) * sizeof(HT);
 
-  Builder->CreateAlloca(htClusterType, 0, "HTimpl");
+  Builder->CreateAlloca(htClusterType, nullptr, "HTimpl");
   PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
   Function *f_getMemoryChunk = context->getFunction("getMemoryChunk");
   Value *HT_mem = Builder->CreateCall(
@@ -963,7 +963,7 @@ void RadixJoin::runRadix() const {
   Value *val_htPerCluster = Builder->CreateBitCast(HT_mem, htClusterPtrType);
 
   AllocaInst *mem_probesNo =
-      Builder->CreateAlloca(int32_type, 0, "mem_counter");
+      Builder->CreateAlloca(int32_type, nullptr, "mem_counter");
   Builder->CreateStore(val_zero, mem_probesNo);
 
   /**
@@ -1062,7 +1062,7 @@ void RadixJoin::runRadix() const {
     context->CreateForLoop("sLoopCond", "sLoopBody", "sLoopInc", "sLoopEnd",
                            &sLoopCond, &sLoopBody, &sLoopInc, &sLoopEnd);
     {
-      AllocaInst *mem_j = Builder->CreateAlloca(int32_type, 0, "j_cnt");
+      AllocaInst *mem_j = Builder->CreateAlloca(int32_type, nullptr, "j_cnt");
       Builder->CreateStore(val_zero, mem_j);
       Builder->CreateBr(sLoopCond);
 
@@ -1116,7 +1116,7 @@ void RadixJoin::runRadix() const {
                              &hitLoopInc, &hitLoopEnd);
 
       {
-        AllocaInst *mem_hit = Builder->CreateAlloca(int32_type, 0, "hit");
+        AllocaInst *mem_hit = Builder->CreateAlloca(int32_type, nullptr, "hit");
         //(ht->bucket)
         Value *val_bucket =
             context->getStructElem(val_htPerClusterShiftedPtr, 0);
@@ -1210,7 +1210,7 @@ void RadixJoin::runRadix() const {
           /* LEFT SIDE (RELATION R)*/
           // Retrieving activeTuple(s) from HT
           {
-            //                         AllocaInst *mem_activeTuple = NULL;
+            //                         AllocaInst *mem_activeTuple = nullptr;
             int i = 0;
             // //                      const set<RecordAttribute>&
             // tuplesIdentifiers =
@@ -1286,7 +1286,7 @@ void RadixJoin::runRadix() const {
 #endif
           /* RIGHT SIDE (RELATION S) */
           {
-            // AllocaInst *mem_activeTuple = NULL;
+            // AllocaInst *mem_activeTuple = nullptr;
             int i = 0;
             //                         for (RecordAttribute *attr:
             //                         getMaterializerRight().getWantedOIDs()) {

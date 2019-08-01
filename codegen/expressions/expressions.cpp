@@ -129,7 +129,7 @@ llvm::Constant *getIdentityElementIfSimple(Monoid m, const ExpressionType *type,
       }
     }
     default: {
-      return NULL;
+      return nullptr;
     }
   }
 }

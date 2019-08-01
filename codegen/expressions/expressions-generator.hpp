@@ -53,12 +53,12 @@ class ExpressionGeneratorVisitor : public ExprVisitor {
   ProteusValue visit(const expressions::InputArgument *e);
   ProteusValue visit(const expressions::RecordProjection *e);
   /*
-   * XXX How is NULL propagated? What if one of the attributes is NULL;
+   * XXX How is nullptr propagated? What if one of the attributes is nullptr;
    * XXX Did not have to test it yet -> Applicable to output only
    */
   ProteusValue visit(const expressions::RecordConstruction *e);
   ProteusValue visit(const expressions::IfThenElse *e);
-  // XXX Do binary operators require explicit handling of NULL?
+  // XXX Do binary operators require explicit handling of nullptr?
   ProteusValue visit(const expressions::EqExpression *e);
   ProteusValue visit(const expressions::NeExpression *e);
   ProteusValue visit(const expressions::GeExpression *e);

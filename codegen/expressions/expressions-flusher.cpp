@@ -151,7 +151,7 @@ ProteusValue ExpressionFlusherVisitor::visit(
           ProteusValueMemory mem_activeTuple = itBindings->second;
 
           Plugin *plugin = catalog.getPlugin(currAttr.getRelationName());
-          if (plugin == NULL) {
+          if (plugin == nullptr) {
             string error_msg =
                 string("[Expression Flusher: ] No plugin provided");
             LOG(ERROR) << error_msg;
@@ -175,7 +175,7 @@ ProteusValue ExpressionFlusherVisitor::visit(
 
   // Resetting activeRelation here would break nested-record-projections
   // activeRelation = "";
-  if (plugin == NULL) {
+  if (plugin == nullptr) {
     string error_msg = string("[Expression Generator: ] No plugin provided");
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
@@ -247,7 +247,7 @@ ProteusValue ExpressionFlusherVisitor::visit(
   }
   // Resetting activeRelation here would break nested-record-projections
   // activeRelation = "";
-  if (plugin == NULL) {
+  if (plugin == nullptr) {
     string error_msg = string("[Expression Generator: ] No plugin provided");
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
@@ -266,7 +266,7 @@ ProteusValue ExpressionFlusherVisitor::visit(
           ProteusValue valWrapper;
           valWrapper.value = val;
           valWrapper.isNull =
-              record.isNull;  // FIXME: what if only one attribute is NULL?
+              record.isNull;  // FIXME: what if only one attribute is nullptr?
 
           plugin->flushValueEager(valWrapper, e->getExpressionType(),
                                   outputFileLLVM);
@@ -456,7 +456,7 @@ ProteusValue ExpressionFlusherVisitor::visit(
   ProteusValue exprResult = e->accept(exprGenerator);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
-  Function *flushFunc = NULL;
+  Function *flushFunc = nullptr;
   string instructionLabel;
 
   if (childType->isPrimitive()) {
@@ -517,7 +517,7 @@ ProteusValue ExpressionFlusherVisitor::visit(
   ProteusValue exprResult = e->accept(exprGenerator);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
-  Function *flushFunc = NULL;
+  Function *flushFunc = nullptr;
   string instructionLabel;
 
   if (childType->isPrimitive()) {
@@ -578,7 +578,7 @@ ProteusValue ExpressionFlusherVisitor::visit(
   ProteusValue exprResult = e->accept(exprGenerator);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
-  Function *flushFunc = NULL;
+  Function *flushFunc = nullptr;
   string instructionLabel;
 
   if (childType->isPrimitive()) {
@@ -639,7 +639,7 @@ ProteusValue ExpressionFlusherVisitor::visit(
   ProteusValue exprResult = e->accept(exprGenerator);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
-  Function *flushFunc = NULL;
+  Function *flushFunc = nullptr;
   string instructionLabel;
 
   if (childType->isPrimitive()) {
@@ -697,7 +697,7 @@ ProteusValue ExpressionFlusherVisitor::visit(
   ProteusValue exprResult = e->accept(exprGenerator);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
-  Function *flushFunc = NULL;
+  Function *flushFunc = nullptr;
   string instructionLabel;
 
   if (childType->isPrimitive()) {
@@ -902,7 +902,7 @@ ProteusValue ExpressionFlusherVisitor::visit(
   ProteusValue exprResult = e->accept(exprGenerator);
 
   const ExpressionType *childType = e->getExpr().getExpressionType();
-  Function *flushFunc = NULL;
+  Function *flushFunc = nullptr;
   string instructionLabel;
 
   if (childType->isPrimitive()) {
@@ -962,7 +962,7 @@ ProteusValue ExpressionFlusherVisitor::visit(
   ProteusValue exprResult = e->accept(exprGenerator);
 
   const ExpressionType *type = e->getExpressionType();
-  Function *flushFunc = NULL;
+  Function *flushFunc = nullptr;
   string instructionLabel;
 
   if (type->isPrimitive()) {
@@ -1037,7 +1037,7 @@ ProteusValue ExpressionFlusherVisitor::visit(
   ProteusValue exprResult = e->accept(exprGenerator);
 
   const ExpressionType *childType = e->getExpr().getExpressionType();
-  Function *flushFunc = NULL;
+  Function *flushFunc = nullptr;
   string instructionLabel;
 
   if (childType->isPrimitive()) {

@@ -381,10 +381,11 @@ struct execution_conf {
 };
 
 void launch_kernel(CUfunction function, void **args, dim3 gridDim,
-                   dim3 blockDim, cudaStream_t strm = 0);
+                   dim3 blockDim, cudaStream_t strm = nullptr);
 void launch_kernel(CUfunction function, void **args, dim3 gridDim,
-                   cudaStream_t strm = 0);
-void launch_kernel(CUfunction function, void **args, cudaStream_t strm = 0);
+                   cudaStream_t strm = nullptr);
+void launch_kernel(CUfunction function, void **args,
+                   cudaStream_t strm = nullptr);
 
 extern "C" {
 int get_ptr_device(const void *p);

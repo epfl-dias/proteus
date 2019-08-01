@@ -34,7 +34,7 @@ void launch_kernel(CUfunction function, void **args, dim3 gridDim,
                    dim3 blockDim, cudaStream_t strm) {
   gpu_run(cuLaunchKernel(function, gridDim.x, gridDim.y, gridDim.z, blockDim.x,
                          blockDim.y, blockDim.z, 0, (CUstream)strm, args,
-                         NULL));
+                         nullptr));
 }
 
 void launch_kernel(CUfunction function, void **args, dim3 gridDim,
@@ -48,7 +48,7 @@ void launch_kernel(CUfunction function, void **args, cudaStream_t strm) {
 
 extern "C" {
 void launch_kernel(CUfunction function, void **args) {
-  launch_kernel(function, args, defaultGridDim, defaultBlockDim, 0);
+  launch_kernel(function, args, defaultGridDim, defaultBlockDim, nullptr);
 }
 
 void launch_kernel_strm(CUfunction function, void **args, cudaStream_t strm) {
@@ -103,7 +103,7 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
   {
     time_block t("Tmmap: ");
     data =
-        mmap(NULL, filesize, PROT_READ | (readonly ? 0 : PROT_WRITE),
+        mmap(nullptr, filesize, PROT_READ | (readonly ? 0 : PROT_WRITE),
              (readonly ? MAP_PRIVATE : MAP_SHARED) | MAP_POPULATE, fd, offset);
     assert(data != MAP_FAILED);
   }

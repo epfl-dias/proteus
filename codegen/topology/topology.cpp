@@ -43,7 +43,7 @@
 const topology::cpunumanode *topology::getCpuNumaNodeAddressed(
     const void *m) const {
   int numa_id = -1;
-  get_mempolicy(&numa_id, NULL, 0, const_cast<void *>(m),
+  get_mempolicy(&numa_id, nullptr, 0, const_cast<void *>(m),
                 MPOL_F_NODE | MPOL_F_ADDR);
   return (cpu_info.data() + cpunuma_index[numa_id]);
 }
@@ -121,7 +121,7 @@ void topology::init_() {
   // warp-up GPUs
   for (const auto &gpu : gpu_info) {
     gpu_run(cudaSetDevice(gpu.id));
-    gpu_run(cudaFree(0));
+    gpu_run(cudaFree(nullptr));
   }
 
   // P2P check & enable

@@ -58,8 +58,8 @@ class [[deprecated("Access through BlockManager")]] buffer_manager {
 
  public:
   typedef T *buffer_t;
-  typedef threadsafe_device_stack<T *, (T *)NULL> pool_t;
-  typedef threadsafe_stack<T *, (T *)NULL> h_pool_t;
+  typedef threadsafe_device_stack<T *, (T *)nullptr> pool_t;
+  typedef threadsafe_stack<T *, (T *)nullptr> h_pool_t;
 
   static constexpr size_t buffer_size = h_vector_size * sizeof(T);
 
@@ -80,8 +80,8 @@ class [[deprecated("Access through BlockManager")]] buffer_manager {
   static cudaStream_t *release_streams;
 
   static pool_t **h_d_pool;
-  static threadsafe_stack<T *, (T *)NULL> **h_pool;
-  static threadsafe_stack<T *, (T *)NULL> **h_pool_numa;
+  static threadsafe_stack<T *, (T *)nullptr> **h_pool;
+  static threadsafe_stack<T *, (T *)nullptr> **h_pool_numa;
 
   static std::unordered_map<T *, std::atomic<int>> buffer_cache;
 
@@ -190,10 +190,10 @@ __device__ void release_buffers(int32_t *buff);
 }
 
 template <typename T>
-threadsafe_stack<T *, (T *)NULL> **buffer_manager<T>::h_pool;
+threadsafe_stack<T *, (T *)nullptr> **buffer_manager<T>::h_pool;
 
 template <typename T>
-threadsafe_stack<T *, (T *)NULL> **buffer_manager<T>::h_pool_numa;
+threadsafe_stack<T *, (T *)nullptr> **buffer_manager<T>::h_pool_numa;
 
 template <typename T>
 std::unordered_map<T *, std::atomic<int>> buffer_manager<T>::buffer_cache;

@@ -28,9 +28,9 @@
 class Scan : public UnaryOperator {
  public:
   Scan(Context *const context, Plugin &pg)
-      : UnaryOperator(NULL), context(context), pg(pg) {}
+      : UnaryOperator(nullptr), context(context), pg(pg) {}
   //    Scan(Context* const context, Plugin& pg, Operator* parent) :
-  //            UnaryOperator(NULL), context(context), pg(pg) {
+  //            UnaryOperator(nullptr), context(context), pg(pg) {
   //        this->setParent(parent);
   //    }
   virtual ~Scan() { LOG(INFO) << "Collapsing scan operator"; }

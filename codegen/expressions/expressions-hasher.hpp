@@ -58,7 +58,7 @@ class ExpressionHasherVisitor : public ExprVisitor {
   ProteusValue visit(const expressions::InputArgument *e);
   ProteusValue visit(const expressions::RecordProjection *e);
   ProteusValue visit(const expressions::IfThenElse *e);
-  // XXX Do binary operators require explicit handling of NULL?
+  // XXX Do binary operators require explicit handling of nullptr?
   ProteusValue visit(const expressions::EqExpression *e);
   ProteusValue visit(const expressions::NeExpression *e);
   ProteusValue visit(const expressions::GeExpression *e);

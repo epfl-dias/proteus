@@ -222,7 +222,7 @@ ParallelContext::~ParallelContext() {
 }
 
 void ParallelContext::setGlobalFunction(bool leaf) {
-  setGlobalFunction(NULL, leaf);
+  setGlobalFunction(nullptr, leaf);
 }
 
 void ParallelContext::setGlobalFunction(llvm::Function *F, bool leaf) {

@@ -32,7 +32,7 @@ class DictScan : public UnaryOperator {
  public:
   DictScan(Context *const context, RecordAttribute attr, std::string rex,
            RecordAttribute regAs)
-      : UnaryOperator(NULL),
+      : UnaryOperator(nullptr),
         context(dynamic_cast<ParallelContext *const>(context)),
         attr(attr),
         regex(rex),

@@ -196,7 +196,7 @@ void Context::prepareFunction(Function *F) {
   printf("(Already compiled) Execution took %f seconds\n", diff(t0, t1));
   cout << "Return flag: " << jitFuncResult << endl;
 
-  TheFPM = 0;
+  TheFPM = nullptr;
   // Dump to see final (optimized) form
 #ifdef DEBUGCTX
 //    F->dump();
@@ -241,7 +241,7 @@ void Context::CodegenMemcpy(Value *dst, Value *src, Value *size) {
 
   // Get intrinsic function.
   Function *memcpy_fn = getFunction("memcpy");
-  if (memcpy_fn == NULL) {
+  if (memcpy_fn == nullptr) {
     throw runtime_error(string("Could not load memcpy intrinsic"));
   }
 
@@ -276,7 +276,7 @@ void Context::CodegenMemset(Value *dst, Value *bytes, Value *size) {
 
   // Get intrinsic function.
   Function *memset_fn = getFunction("memset");
-  if (memset_fn == NULL) {
+  if (memset_fn == nullptr) {
     throw runtime_error(string("Could not load memset intrinsic"));
   }
 
@@ -451,7 +451,7 @@ AllocaInst *Context::CreateEntryBlockAlloca(const string &VarName,
 AllocaInst *Context::createAlloca(BasicBlock *InsertAtBB, const string &VarName,
                                   Type *varType) {
   IRBuilder<> TmpBuilder(InsertAtBB, InsertAtBB->begin());
-  return TmpBuilder.CreateAlloca(varType, 0, VarName.c_str());
+  return TmpBuilder.CreateAlloca(varType, nullptr, VarName.c_str());
 }
 
 Value *Context::CreateGlobalString(char *str) {
@@ -459,13 +459,13 @@ Value *Context::CreateGlobalString(char *str) {
   ArrayType *ArrayTy_0 =
       ArrayType::get(IntegerType::get(ctx, 8), strlen(str) + 1);
 
-  GlobalVariable *gvar_array__str =
-      new GlobalVariable(*getModule(),
-                         /*Type=*/ArrayTy_0,
-                         /*isConstant=*/true,
-                         /*Linkage=*/GlobalValue::PrivateLinkage,
-                         /*Initializer=*/0,  // has initializer, specified below
-                         /*Name=*/".str");
+  GlobalVariable *gvar_array__str = new GlobalVariable(
+      *getModule(),
+      /*Type=*/ArrayTy_0,
+      /*isConstant=*/true,
+      /*Linkage=*/GlobalValue::PrivateLinkage,
+      /*Initializer=*/nullptr,  // has initializer, specified below
+      /*Name=*/".str");
 
   Constant *tmpHTname = ConstantDataArray::getString(ctx, str, true);
   PointerType *charPtrType = PointerType::get(IntegerType::get(ctx, 8), 0);
@@ -490,13 +490,13 @@ Value *Context::CreateGlobalString(const char *str) {
   ArrayType *ArrayTy_0 =
       ArrayType::get(IntegerType::get(ctx, 8), strlen(str) + 1);
 
-  GlobalVariable *gvar_array__str =
-      new GlobalVariable(*getModule(),
-                         /*Type=*/ArrayTy_0,
-                         /*isConstant=*/true,
-                         /*Linkage=*/GlobalValue::PrivateLinkage,
-                         /*Initializer=*/0,  // has initializer, specified below
-                         /*Name=*/".str");
+  GlobalVariable *gvar_array__str = new GlobalVariable(
+      *getModule(),
+      /*Type=*/ArrayTy_0,
+      /*isConstant=*/true,
+      /*Linkage=*/GlobalValue::PrivateLinkage,
+      /*Initializer=*/nullptr,  // has initializer, specified below
+      /*Name=*/".str");
 
   Constant *tmpHTname = ConstantDataArray::getString(ctx, str, true);
   PointerType *charPtrType = PointerType::get(IntegerType::get(ctx, 8), 0);
@@ -641,7 +641,7 @@ size_t Context::appendStateVar(llvm::Type *ptype,
 
   if (getGlobalFunction()) {
     // FIXME: deprecated path...  remove
-    Value *pip = NULL;  // FIXME should introduce a pipeline ptr
+    Value *pip = nullptr;  // FIXME should introduce a pipeline ptr
 
     // save current block
     BasicBlock *currBlock = getBuilder()->GetInsertBlock();
@@ -684,7 +684,7 @@ void Context::prepareStateVars() {
   // //restore insert point
   // getBuilder()->SetInsertPoint(currBlock);
   for (size_t i = 0; i < to_prepare_state_vars.size(); ++i) {
-    Value *var = NULL;  // FIXME should introduce a pipeline ptr
+    Value *var = nullptr;  // FIXME should introduce a pipeline ptr
     var = std::get<2>(to_prepare_state_vars[i])(var);
     var->setName(std::get<1>(to_prepare_state_vars[i]));
     state_vars.emplace_back(var);
@@ -726,7 +726,7 @@ void Context::endStateVars() {
   // //restore insert point
   // getBuilder()->SetInsertPoint(currBlock);
   for (size_t i = 0; i < to_prepare_state_vars.size(); ++i) {
-    Value *pip = NULL;  // FIXME should introduce a pipeline ptr
+    Value *pip = nullptr;  // FIXME should introduce a pipeline ptr
     std::get<3>(to_prepare_state_vars[i])(pip, state_vars[i]);
   }
   // size_t id = state_vars.size();

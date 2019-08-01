@@ -36,7 +36,7 @@ BinaryRowPlugin::BinaryRowPlugin(Context *const context, string &fname,
       bufVar("buf"),
       fsizeVar("fileSize") {
   fd = -1;
-  buf = NULL;
+  buf = nullptr;
 
   LOG(INFO) << "[BinaryRowPlugin: ] " << fname;
   struct stat statbuf;
@@ -53,7 +53,8 @@ BinaryRowPlugin::BinaryRowPlugin(Context *const context, string &fname,
 BinaryRowPlugin::~BinaryRowPlugin() {}
 
 void BinaryRowPlugin::init() {
-  buf = (char *)mmap(NULL, fsize, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd, 0);
+  buf = (char *)mmap(nullptr, fsize, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd,
+                     0);
   if (buf == MAP_FAILED) {
     throw runtime_error(string("csv.mmap"));
   }

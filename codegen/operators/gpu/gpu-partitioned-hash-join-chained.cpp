@@ -64,9 +64,9 @@ HashPartitioner::HashPartitioner(RecordAttribute *targetAttr,
   //     expr.push_back(parts_mat_exprs[i].expr);
   // mat = new Materializer(expr);
 
-  // pg_out = new OutputPlugin(context, *mat, NULL);
+  // pg_out = new OutputPlugin(context, *mat, nullptr);
 
-  payloadType = NULL;  // pg_out->getPayloadType();
+  payloadType = nullptr;  // pg_out->getPayloadType();
 
   // log_parts = 15;
   log_parts2 = log_parts / 2;
@@ -174,7 +174,7 @@ void HashPartitioner::consume(Context *const context,
   int offsetInStruct = 0;
 
   for (const auto &we : mat->getWantedExpressions()) {
-      Value* valToMaterialize = NULL;
+      Value* valToMaterialize = nullptr;
 
           ExpressionGeneratorVisitor exprGen{context, childState};
           ProteusValue currVal = we->accept(exprGen);
@@ -493,7 +493,7 @@ void GpuPartitionedHashJoinChained::produce() {
   buildHashTableFormat();
   probeHashTableFormat();
 
-  if (caller != NULL) {
+  if (caller != nullptr) {
     ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
       this->allocate(pip);
     });
@@ -513,7 +513,7 @@ void GpuPartitionedHashJoinChained::produce() {
 
   context->pushPipeline();
 
-  if (caller == NULL) {
+  if (caller == nullptr) {
     ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
       this->allocate(pip);
     });
@@ -1239,8 +1239,8 @@ void GpuPartitionedHashJoinChained::generate_probe(
   Value *build_idx =
       Builder->CreateLoad(Builder->CreateInBoundsGEP(idxs_cache, current_v));
 
-  Value *minor_probe = NULL;
-  Value *minor_build = NULL;
+  Value *minor_probe = nullptr;
+  Value *minor_build = nullptr;
 
   if (probe_minor_keyexpr.has_value() && build_minor_keyexpr.has_value()) {
     for (size_t i = 1; i < probe_mat_exprs.size(); i++) {

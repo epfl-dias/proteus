@@ -125,7 +125,7 @@ class AsyncQueueSPSC {
   }
 
   void close() {
-    // push(NULL);
+    // push(nullptr);
     nvtxRangePushA("AsyncQueue_o");
     std::unique_lock<std::mutex> lock(m);
     terminating = true;
@@ -190,13 +190,13 @@ class AsyncQueueSPSC {
       data.pop();
     }
 
-    // assert(x != NULL || data.empty());
+    // assert(x != nullptr || data.empty());
 
     lock.unlock();
     // nvtxRangePop();
     // nvtxRangePop();
     return true;
-    // return x != NULL;
+    // return x != nullptr;
   }
 
   T pop_unsafe() {
@@ -280,7 +280,7 @@ class AsyncQueueSPSC_lockfree {
   AsyncQueueSPSC_lockfree() : terminating(false), _tail(0), _head(0) {}
 
   void close(bool wait = true) {
-    // push(NULL);
+    // push(nullptr);
     nvtxRangePushA("AsyncQueue_o");
     // std::unique_lock<std::mutex> lock(m);
     // terminating = true;
@@ -363,13 +363,13 @@ class AsyncQueueSPSC_lockfree {
   //     nvtxRangePushA(("AsyncQueue_pop" + std::to_string((uint64_t)
   //     x)).c_str()); data.pop();
 
-  //     // assert(x != NULL || data.empty());
+  //     // assert(x != nullptr || data.empty());
 
   //     lock.unlock();
   //     nvtxRangePop();
   //     nvtxRangePop();
   //     return true;
-  //     // return x != NULL;
+  //     // return x != nullptr;
   // }
 
   // T pop_unsafe(){

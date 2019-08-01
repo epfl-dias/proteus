@@ -29,11 +29,11 @@ BinaryInternalPlugin::BinaryInternalPlugin(Context *const context,
                                            string structName)
     : context(context), structName(structName) {
   val_entriesNo = context->createInt64(0);
-  mem_cnt = NULL;
-  mem_buffer = NULL;
-  mem_pos = NULL;
-  val_structBufferPtr = NULL;
-  payloadType = NULL;
+  mem_cnt = nullptr;
+  mem_buffer = nullptr;
+  mem_pos = nullptr;
+  val_structBufferPtr = nullptr;
+  payloadType = nullptr;
 }
 
 BinaryInternalPlugin::BinaryInternalPlugin(
@@ -85,7 +85,7 @@ BinaryInternalPlugin::~BinaryInternalPlugin() {}
 void BinaryInternalPlugin::init(){};
 
 void BinaryInternalPlugin::generate(const ::Operator &producer) {
-  if (mem_pos == NULL || mem_buffer == NULL) {
+  if (mem_pos == nullptr || mem_buffer == nullptr) {
     /* XXX Later on, populate this function to simplify Nest */
     string error_msg = string("[BinaryInternalPlugin: ] Unexpected use of pg.");
     LOG(ERROR) << error_msg;

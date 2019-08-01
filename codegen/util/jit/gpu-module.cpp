@@ -257,14 +257,14 @@ void GpuModule::compileAndLoad() {
   //     time_block t("Tcuda_comp: ");
   //     CUlinkState linkState;
 
-  //     gpu_run(cuLinkCreate  (0, NULL, NULL, &linkState));
+  //     gpu_run(cuLinkCreate  (0, nullptr, nullptr, &linkState));
   //     gpu_run(cuLinkAddData (linkState, CU_JIT_INPUT_PTX, (void *)
   //     ptx.c_str(), ptx.length() + 1, 0, 0, 0, 0)); gpu_run(cuLinkAddFile
   //     (linkState, CU_JIT_INPUT_LIBRARY,
-  //     "/usr/local/cuda/lib64/libcudadevrt.a", 0, NULL, NULL));
+  //     "/usr/local/cuda/lib64/libcudadevrt.a", 0, nullptr, nullptr));
   //     gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_PTX,
   //     "/home/chrysoge/Documents/pelago/src/raw-jit-executor/codegen/device_funcs.ptx",
-  //     0, NULL, NULL)); gpu_run(cuLinkComplete(linkState, &cubin,
+  //     0, nullptr, nullptr)); gpu_run(cuLinkComplete(linkState, &cubin,
   //     &cubinSize)); gpu_run(cuLinkDestroy (linkState));
   // }
   {
@@ -282,7 +282,7 @@ void GpuModule::compileAndLoad() {
     void *values[opt_size];
 
     options[0] = CU_JIT_TARGET_FROM_CUCONTEXT;
-    values[0] = 0;
+    values[0] = nullptr;
     options[1] = CU_JIT_ERROR_LOG_BUFFER;
     values[1] = (void *)error_log;
     options[2] = CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES;
@@ -384,22 +384,23 @@ void GpuModule::compileAndLoad() {
 
     gpu_run(cuLinkCreate(opt_size, options, values, &linkState));
     // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_LIBRARY,
-    // "/usr/local/cuda/lib64/libcudadevrt.a", 0, NULL, NULL));
+    // "/usr/local/cuda/lib64/libcudadevrt.a", 0, nullptr, nullptr));
     // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN,
-    // "/home/chrysoge/Documents/pelago/opt/res/device_funcs.cubin", 0, NULL,
-    // NULL)); auto x = (cuLinkAddData (linkState, CU_JIT_INPUT_CUBIN,
-    // _binary_device_funcs_cubin_start, size, NULL, 0, NULL, NULL));
+    // "/home/chrysoge/Documents/pelago/opt/res/device_funcs.cubin", 0, nullptr,
+    // nullptr)); auto x = (cuLinkAddData (linkState, CU_JIT_INPUT_CUBIN,
+    // _binary_device_funcs_cubin_start, size, nullptr, 0, nullptr, nullptr));
     auto x = (cuLinkAddData(linkState, CU_JIT_INPUT_CUBIN,
-                            _binary_buffer_manager_cubin_start, size, NULL, 0,
-                            NULL, NULL));
+                            _binary_buffer_manager_cubin_start, size, nullptr,
+                            0, nullptr, nullptr));
 
     // the strange file name comes from FindCUDA... hopefully there is way to
     // change it...
     // auto x = (cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN,
     // "/home/chrysoge/Documents/pelago/build/raw-jit-executor/codegen/multigpu/CMakeFiles/multigpu.dir/multigpu_generated_buffer_manager.cu.o.cubin.txt",
-    // 0, NULL, NULL)); auto x = (cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN,
-    // "/home/chrysoge/Documents/pelago/opt/res/buffer-manager.cubin", 0, NULL,
-    // NULL)); libmultigpu.a", 0, NULL, NULL));
+    // 0, nullptr, nullptr)); auto x = (cuLinkAddFile (linkState,
+    // CU_JIT_INPUT_CUBIN,
+    // "/home/chrysoge/Documents/pelago/opt/res/buffer-manager.cubin", 0,
+    // nullptr, nullptr)); libmultigpu.a", 0, nullptr, nullptr));
     if (x != CUDA_SUCCESS) {
       // If you get an error message similar to "no kernel image is available
       // for execution on the device" it usually means that the target sm_xy in
@@ -410,10 +411,11 @@ void GpuModule::compileAndLoad() {
     }
     // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_PTX,
     // "/home/chrysoge/Documents/pelago/src/raw-jit-executor/codegen/device_funcs.ptx",
-    // 0, NULL, NULL)); gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_PTX,
-    // ("generated_code/" + pipName + ".ptx").c_str(), 0, NULL, NULL));
+    // 0, nullptr, nullptr)); gpu_run(cuLinkAddFile (linkState,
+    // CU_JIT_INPUT_PTX,
+    // ("generated_code/" + pipName + ".ptx").c_str(), 0, nullptr, nullptr));
     x = cuLinkAddData(linkState, CU_JIT_INPUT_PTX, (void *)ptx.c_str(),
-                      ptx.length() + 1, NULL, 0, NULL, NULL);
+                      ptx.length() + 1, nullptr, 0, nullptr, nullptr);
     if (x != CUDA_SUCCESS) {
       printf("[CUcompile: ] %s\n", info_log);
       printf("[CUcompile: ] %s\n", error_log);
@@ -456,6 +458,6 @@ void *GpuModule::getCompiledFunction(Function *f) const {
   return (void *)func;
 #else
   assert(false);
-  return NULL;
+  return nullptr;
 #endif
 }

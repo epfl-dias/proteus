@@ -38,7 +38,7 @@ enum class DeviceType { CPU, GPU };
 
 class Operator {
  public:
-  Operator() : parent(NULL) {}
+  Operator() : parent(nullptr) {}
   virtual ~Operator() { LOG(INFO) << "Collapsing operator"; }
   virtual void setParent(Operator *parent) { this->parent = parent; }
   Operator *const getParent() const { return parent; }

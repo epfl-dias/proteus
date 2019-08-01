@@ -30,8 +30,8 @@ class UnionAll : public Exchange {
  public:
   UnionAll(vector<Operator *> &children, ParallelContext *const context,
            const vector<RecordAttribute *> &wantedFields)
-      : Exchange(NULL, context, 1, wantedFields, 8, std::nullopt, false, false,
-                 children.size(), true),
+      : Exchange(nullptr, context, 1, wantedFields, 8, std::nullopt, false,
+                 false, children.size(), true),
         children(children) {}
 
   virtual ~UnionAll() { LOG(INFO) << "Collapsing UnionAll operator"; }

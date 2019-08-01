@@ -112,7 +112,7 @@ TEST(Hashing, Constants) {
   Context &ctx = *prepareContext("HashConstants");
   Catalog &catalog = Catalog::getInstance();
 
-  Root rootOp = Root(NULL);
+  Root rootOp = Root(nullptr);
   map<RecordAttribute, ProteusValueMemory> varPlaceholder;
   OperatorState statePlaceholder = OperatorState(rootOp, varPlaceholder);
   ExpressionHasherVisitor hasher =
@@ -156,7 +156,7 @@ TEST(Hashing, BinaryExpressions) {
   Context &ctx = *prepareContext("HashBinaryExpressions");
   Catalog &catalog = Catalog::getInstance();
 
-  Root rootOp = Root(NULL);
+  Root rootOp = Root(nullptr);
   map<RecordAttribute, ProteusValueMemory> varPlaceholder;
   OperatorState statePlaceholder = OperatorState(rootOp, varPlaceholder);
   ExpressionHasherVisitor hasher =
@@ -209,7 +209,7 @@ TEST(Hashing, IfThenElse) {
   Context &ctx = *prepareContext("HashIfThenElse");
   Catalog &catalog = Catalog::getInstance();
 
-  Root rootOp = Root(NULL);
+  Root rootOp = Root(nullptr);
   map<RecordAttribute, ProteusValueMemory> varPlaceholder;
   OperatorState statePlaceholder = OperatorState(rootOp, varPlaceholder);
   ExpressionHasherVisitor hasher =

@@ -27,7 +27,8 @@
 
 // #include <cinttypes>
 
-// __device__ __constant__ threadsafe_device_stack<int32_t *, (int32_t *) NULL>
+// __device__ __constant__ threadsafe_device_stack<int32_t *, (int32_t *)
+// nullptr>
 // * pool;
 // __device__ __constant__ int deviceId;
 // __device__ __constant__ void * buff_start;
@@ -43,12 +44,13 @@
 
 #ifndef NCUDA
 __device__ __constant__
-    threadsafe_device_stack<int32_t *, (int32_t *)NULL> *pool;
+    threadsafe_device_stack<int32_t *, (int32_t *)nullptr> *pool;
 __device__ __constant__ int deviceId;
 __device__ __constant__ void *buff_start;
 __device__ __constant__ void *buff_end;
 #else
-constexpr threadsafe_device_stack<int32_t *, (int32_t *)NULL> *pool = nullptr;
+constexpr threadsafe_device_stack<int32_t *, (int32_t *)nullptr> *pool =
+    nullptr;
 constexpr int deviceId = 0;
 constexpr void *buff_start = nullptr;
 constexpr void *buff_end = nullptr;
@@ -192,7 +194,7 @@ void *get_dev_buffer() {
 
 __device__ void release_buffers(int32_t *buff) {
   uint32_t mask = __activemask();
-  uint32_t b = __ballot_sync(mask, buff != NULL);
+  uint32_t b = __ballot_sync(mask, buff != nullptr);
   uint32_t m = 1 << get_laneid();
   do {
     uint32_t leader = b & -b;
@@ -288,10 +290,10 @@ __device__ T *buffer_manager<T>::try_get_buffer() {
 #ifndef NCUDA
   T *b;
   bool got = pool->pop_if_nonempty(&b);
-  if (!got) b = NULL;
+  if (!got) b = nullptr;
   return b;
 #else
-  return NULL;
+  return nullptr;
 #endif
 }
 
@@ -441,7 +443,7 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size,
 
   // h_pool_t **numa_h_pools = new h_pool_t *[cpu_numa_nodes];
 
-  // for (int i = 0 ; i < cores ; ++i) numa_node_inited[i] = NULL;
+  // for (int i = 0 ; i < cores ; ++i) numa_node_inited[i] = nullptr;
 
   // for (int i = 0 ; i < cores ; ++i){
   //     int numa_node = numa_node_of_cpu(i);

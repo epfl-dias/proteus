@@ -32,7 +32,8 @@ class GpuHashRearrange : public UnaryOperator {
  public:
   GpuHashRearrange(Operator *const child, ParallelContext *const context,
                    int numOfBuckets, const std::vector<expression_t> &matExpr,
-                   expression_t hashExpr, RecordAttribute *hashProject = NULL)
+                   expression_t hashExpr,
+                   RecordAttribute *hashProject = nullptr)
       : UnaryOperator(child),
         context(context),
         numOfBuckets(numOfBuckets),

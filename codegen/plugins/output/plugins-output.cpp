@@ -52,7 +52,7 @@ Materializer::Materializer(std::vector<expression_t> wantedExpressions) {
   for (; it != wantedExpressions.end(); it++) {
     auto proj = dynamic_cast<const expressions::RecordProjection *>(
         it->getUnderlyingExpression());
-    if (proj != NULL) {
+    if (proj != nullptr) {
       RecordAttribute *recAttr = new RecordAttribute(proj->getAttribute());
       if (recAttr->getAttrName() == activeLoop) {
         wantedOIDs.push_back(recAttr);
@@ -245,7 +245,7 @@ llvm::Value *OutputPlugin::getRuntimePayloadTypeSize() {
     // Field needed
     if (itSearch != currentBindings->end()) {
       materialization_mode mode = (materializer.getOutputMode()).at(attrNo);
-      llvm::Value *val_attr_size = NULL;
+      llvm::Value *val_attr_size = nullptr;
       if (mode == EAGER) {
         RecordAttribute currAttr = itSearch->first;
         Plugin *inputPg = catalog.getPlugin(currAttr.getOriginalRelationName());

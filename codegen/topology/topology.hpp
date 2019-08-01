@@ -167,15 +167,15 @@ class topology {
   template <typename T>
   const gpunode *getGpuAddressed(const T *p) const {
 #ifndef NCUDA
-    if (getGpuCount() == 0) return NULL;
+    if (getGpuCount() == 0) return nullptr;
     cudaPointerAttributes attrs;
     cudaError_t error = cudaPointerGetAttributes(&attrs, p);
-    if (error == cudaErrorInvalidValue) return NULL;
+    if (error == cudaErrorInvalidValue) return nullptr;
     gpu_run(error);
-    if (attrs.memoryType == cudaMemoryTypeHost) return NULL;
+    if (attrs.memoryType == cudaMemoryTypeHost) return nullptr;
     return &(getGpuByIndex(attrs.device));
 #else
-    return NULL;
+    return nullptr;
 #endif
   }
 

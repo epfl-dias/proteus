@@ -87,7 +87,7 @@ PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
 
 PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
                            const char *moduleName, Context *ctx)
-    : handle(dlopen(NULL, 0)),
+    : handle(dlopen(nullptr, 0)),
       exprParser(cat),
       planPath(planPath),
       moduleName(moduleName),
@@ -106,7 +106,7 @@ PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
   }
 
   const char *bufJSON =
-      (const char *)mmap(NULL, fsize, PROT_READ, MAP_PRIVATE, fd, 0);
+      (const char *)mmap(nullptr, fsize, PROT_READ, MAP_PRIVATE, fd, 0);
   if (bufJSON == MAP_FAILED) {
     const char *err = "json.mmap";
     LOG(ERROR) << err;
@@ -172,7 +172,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
   assert(val[keyOp].IsString());
   const char *opName = val["operator"].GetString();
 
-  Operator *newOp = NULL;
+  Operator *newOp = nullptr;
 
   if (strcmp(opName, "reduce") == 0) {
     /* "Multi - reduce"! */
@@ -363,7 +363,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     auto exprToUnnest = parseExpression(val["path"]["e"]);
     auto proj = dynamic_cast<const expressions::RecordProjection *>(
         exprToUnnest.getUnderlyingExpression());
-    if (proj == NULL) {
+    if (proj == nullptr) {
       string error_msg = string("[Unnest: ] Cannot cast to record projection");
       LOG(ERROR) << error_msg;
       throw runtime_error(string(error_msg));
@@ -401,7 +401,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     auto exprToUnnest = parseExpression(val["path"]["e"]);
     auto proj = dynamic_cast<const expressions::RecordProjection *>(
         exprToUnnest.getUnderlyingExpression());
-    if (proj == NULL) {
+    if (proj == nullptr) {
       string error_msg = string("[Unnest: ] Cannot cast to record projection");
       LOG(ERROR) << error_msg;
       throw runtime_error(string(error_msg));
@@ -536,7 +536,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     //                     dynamic_cast<expressions::RecordProjection
     //                     *>(outExpr);
 
-    //             if (proj == NULL) {
+    //             if (proj == nullptr) {
     //                 if (outExpr->getTypeID() != expressions::CONSTANT){
     //                     string error_msg = string(
     //                             "[Nest: ] Cannot cast to rec projection.
@@ -615,7 +615,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     //             projection! expressions::RecordProjection *proj =
     //                     dynamic_cast<expressions::RecordProjection *>(e);
 
-    //             if (proj == NULL) {
+    //             if (proj == nullptr) {
     //                 if (e->getTypeID() != expressions::CONSTANT){
     //                     string error_msg = string(
     //                             "[Nest: ] Cannot cast to rec projection.
@@ -662,7 +662,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     //         // assert(val.HasMember(keyNull));
     //         // assert(val[keyNull].IsObject());
     //         expressions::Expression *nullsToZerosExpr =
-    //         NULL;//parseExpression(val[keyNull]);
+    //         nullptr;//parseExpression(val[keyNull]);
 
     //         /* Output aggregate expression(s) */
     //         // assert(val.HasMember(keyExprs));
@@ -1039,7 +1039,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
         hpart1, probe_join_expr, probe_widths, probe_join_expr[0].expr,
         std::nullopt, hpart2, hpart1->getState(), hpart2->getState(),
         maxBuildInputSize, maxProbeInputSize, 13, (ParallelContext *)ctx,
-        "hj_part", pip_rcv, NULL);
+        "hj_part", pip_rcv, nullptr);
     hpart1->setParent(newOp);
     hpart2->setParent(newOp);
   } else if (strcmp(opName, "partitioned-hashjoin-chained") == 0) {
@@ -1143,12 +1143,12 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     int log_parts = 13;
 
     HashPartitioner *part_left = new HashPartitioner(
-        NULL, build_e, build_widths, build_key_expr, build_op,
+        nullptr, build_e, build_widths, build_key_expr, build_op,
         dynamic_cast<ParallelContext *>(this->ctx), maxBuildInputSize,
         log_parts, "part1");
 
     HashPartitioner *part_right = new HashPartitioner(
-        NULL, probe_e, probe_widths, probe_key_expr, probe_op,
+        nullptr, probe_e, probe_widths, probe_key_expr, probe_op,
         dynamic_cast<ParallelContext *>(this->ctx), maxProbeInputSize,
         log_parts, "part1");
 
@@ -1157,7 +1157,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
         probe_e, probe_widths, probe_key_expr, probe_minorkey_expr, part_right,
         part_left->getState(), part_right->getState(), maxBuildInputSize,
         maxProbeInputSize, log_parts,
-        dynamic_cast<ParallelContext *>(this->ctx), "phjc", NULL, NULL);
+        dynamic_cast<ParallelContext *>(this->ctx), "phjc", nullptr, nullptr);
 
     build_op->setParent(part_left);
     probe_op->setParent(part_right);
@@ -1306,7 +1306,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     //                 expressions::RecordProjection *projBuild =
     //                         dynamic_cast<expressions::RecordProjection
     //                         *>(exprR);
-    //                 if(projBuild == NULL)
+    //                 if(projBuild == nullptr)
     //                 {
     //                     string error_msg = string(
     //                             "[Join: ] Cannot cast to rec projection.
@@ -1361,7 +1361,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     //                 expressions::RecordProjection *projBuild =
     //                         dynamic_cast<expressions::RecordProjection
     //                         *>(exprR);
-    //                 if(projBuild == NULL)
+    //                 if(projBuild == nullptr)
     //                 {
     //                     string error_msg = string(
     //                             "[Join: ] Cannot cast to rec projection.
@@ -1426,7 +1426,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     //                 expressions::RecordProjection *projProbe =
     //                         dynamic_cast<expressions::RecordProjection
     //                         *>(exprR);
-    //                 if(projProbe == NULL)
+    //                 if(projProbe == nullptr)
     //                 {
     //                     string error_msg = string(
     //                             "[Join: ] Cannot cast to rec projection.
@@ -1482,7 +1482,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     //                 expressions::RecordProjection *projProbe =
     //                         dynamic_cast<expressions::RecordProjection
     //                         *>(exprR);
-    //                 if(projProbe == NULL)
+    //                 if(projProbe == nullptr)
     //                 {
     //                     string error_msg = string(
     //                             "[Join: ] Cannot cast to rec projection.
@@ -1552,7 +1552,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     const expressions::BinaryExpression *pred =
         dynamic_cast<const expressions::BinaryExpression *>(
             predExpr.getUnderlyingExpression());
-    if (pred == NULL) {
+    if (pred == nullptr) {
       string error_msg =
           string("[JOIN: ] Cannot cast to binary predicate. Original: ") +
           predExpr.getExpressionType()->getType();
@@ -1590,7 +1590,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       const expressions::RecordProjection *projL =
           dynamic_cast<const expressions::RecordProjection *>(
               exprL.getUnderlyingExpression());
-      if (projL == NULL) {
+      if (projL == nullptr) {
         string error_msg =
             string("[Join: ] Cannot cast to rec projection. Original: ") +
             exprL.getExpressionType()->getType();
@@ -1636,7 +1636,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       // XXX STRONG ASSUMPTION: Expression is actually a record projection!
       auto projR = dynamic_cast<const expressions::RecordProjection *>(
           exprR.getUnderlyingExpression());
-      if (projR == NULL) {
+      if (projR == nullptr) {
         string error_msg =
             string("[Join: ] Cannot cast to rec projection. Original: ") +
             exprR.getExpressionType()->getType();
@@ -1754,7 +1754,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       // XXX STRONG ASSUMPTION: Expression is actually a record projection!
       auto proj = dynamic_cast<const expressions::RecordProjection *>(
           expr.getUnderlyingExpression());
-      if (proj == NULL) {
+      if (proj == nullptr) {
         string error_msg =
             string("[Nest: ] Cannot cast to rec projection. Original: ") +
             expr.getExpressionType()->getType();
@@ -2010,7 +2010,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       numOfBuckets = val["buckets"].GetInt();
     }
 
-    RecordAttribute *hashAttr = NULL;
+    RecordAttribute *hashAttr = nullptr;
     // register hash as an attribute
     if (val.HasMember("hashProject")) {
       assert(val["hashProject"].IsObject());
@@ -2385,7 +2385,7 @@ int lookupInDictionary(string s, const rapidjson::Value &val) {
     }
 
     const char *bufJSON =
-        (const char *)mmap(NULL, fsize, PROT_READ, MAP_PRIVATE, fd, 0);
+        (const char *)mmap(nullptr, fsize, PROT_READ, MAP_PRIVATE, fd, 0);
     if (bufJSON == MAP_FAILED) {
       const char *err = "json.dict.mmap";
       LOG(ERROR) << err;
@@ -2510,7 +2510,7 @@ expression_t ExpressionParser::parseExpressionWithoutRegistering(
   assert(val[keyExpression].IsString());
   const char *valExpression = val[keyExpression].GetString();
 
-  expressions::Expression *retValue = NULL;
+  expressions::Expression *retValue = nullptr;
 
   assert(!val.HasMember("isNull") || val["isNull"].IsBool());
   bool isNull = val.HasMember("isNull") && val["isNull"].GetBool();
@@ -2909,7 +2909,7 @@ ExpressionType *ExpressionParser::parseExpressionType(
   } else if (strcmp(valExprType, "string") == 0) {
     return new StringType();
   } else if (strcmp(valExprType, "dstring") == 0) {
-    return new DStringType(NULL);
+    return new DStringType(nullptr);
   } else if (strcmp(valExprType, "set") == 0) {
     assert(val.HasMember("inner"));
     assert(val["inner"].IsObject());
@@ -2956,13 +2956,13 @@ ExpressionType *ExpressionParser::parseExpressionType(
 RecordType *ExpressionParser::getRecordType(string relName) {
   // Lookup in catalog based on name
   InputInfo *datasetInfo = (this->catalogParser).getInputInfoIfKnown(relName);
-  if (datasetInfo == NULL) return NULL;
+  if (datasetInfo == nullptr) return nullptr;
 
   /* Retrieve RecordType */
   /* Extract inner type of collection */
   CollectionType *collType =
       dynamic_cast<CollectionType *>(datasetInfo->exprType);
-  if (collType == NULL) {
+  if (collType == nullptr) {
     string error_msg = string(
                            "[Type Parser: ] Cannot cast to collection type. "
                            "Original intended type: ") +
@@ -2979,7 +2979,7 @@ RecordType *ExpressionParser::getRecordType(string relName) {
 const RecordAttribute *ExpressionParser::getAttribute(string relName,
                                                       string attrName) {
   RecordType *recType = getRecordType(relName);
-  if (recType == NULL) return NULL;
+  if (recType == nullptr) return nullptr;
 
   return recType->getArg(attrName);
 }
@@ -3068,7 +3068,7 @@ Monoid ExpressionParser::parseAccumulator(const char *acc) {
  * FIXME / TODO If we introduce more plugins, this code must be extended
  */
 Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
-  Plugin *newPg = NULL;
+  Plugin *newPg = nullptr;
 
   const char *keyInputName = "name";
   const char *keyPgType = "type";
@@ -3136,7 +3136,7 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
 
     if (val.HasMember("schema")) {
       // Register it to make it visible to the plugin
-      datasetInfo->oidType = NULL;
+      datasetInfo->oidType = nullptr;
       (this->catalogParser).setInputInfo(datasetName, datasetInfo);
     }
 
@@ -3150,7 +3150,7 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
   /* Extract inner type of collection */
   CollectionType *collType =
       dynamic_cast<CollectionType *>(datasetInfo->exprType);
-  if (collType == NULL) {
+  if (collType == nullptr) {
     string error_msg = string(
                            "[Plugin Parser: ] Cannot cast to collection "
                            "type. Original intended type: ") +
@@ -3311,7 +3311,7 @@ void CatalogParser::parseCatalogFile(std::string file) {
     throw runtime_error(err);
   }
   const char *bufJSON =
-      (const char *)mmap(NULL, fsize, PROT_READ, MAP_PRIVATE, fd, 0);
+      (const char *)mmap(nullptr, fsize, PROT_READ, MAP_PRIVATE, fd, 0);
   if (bufJSON == MAP_FAILED) {
     std::string err = "json.mmap";
     LOG(ERROR) << err;
@@ -3346,7 +3346,7 @@ void CatalogParser::parseCatalogFile(std::string file) {
     info->exprType = exprType;
     info->path = inputPath;
     // Initialized by parsePlugin() later on
-    info->oidType = NULL;
+    info->oidType = nullptr;
     //            (this->inputs)[itr->name.GetString()] = info;
     (this->inputs)[info->path] = info;
 
@@ -3367,7 +3367,7 @@ void CatalogParser::parseDir(std::string dir) {
   }
 
   dirent *entry;
-  while ((entry = readdir(d)) != NULL) {
+  while ((entry = readdir(d)) != nullptr) {
     std::string fname{entry->d_name};
 
     if (strcmp(entry->d_name, "..") == 0) continue;
@@ -3375,7 +3375,7 @@ void CatalogParser::parseDir(std::string dir) {
 
     std::string origd{dir + "/" + fname};
     // Use this to canonicalize paths:
-    // std::string pathd{realpath(origd.c_str(), NULL)};
+    // std::string pathd{realpath(origd.c_str(), nullptr)};
     std::string pathd{origd};
 
     struct stat s;

@@ -61,10 +61,10 @@ llvm::Value *all(ParallelContext *const context, llvm::Value *val_in);
 llvm::Value *any(ParallelContext *const context, llvm::Value *val_in);
 
 llvm::Value *shfl_bfly(ParallelContext *const context, llvm::Value *val_in,
-                       uint32_t vxor, llvm::Value *mask = NULL);
+                       uint32_t vxor, llvm::Value *mask = nullptr);
 
 llvm::Value *shfl_bfly(ParallelContext *const context, llvm::Value *val_in,
-                       llvm::Value *vxor, llvm::Value *mask = NULL);
+                       llvm::Value *vxor, llvm::Value *mask = nullptr);
 
 llvm::Value *ballot(ParallelContext *const context, llvm::Value *val_in);
 

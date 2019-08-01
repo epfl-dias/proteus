@@ -258,7 +258,7 @@ map<RecordAttribute, ProteusValueMemory> *Nest::reconstructResults(
 
   {
     // Retrieving activeTuple(s) from HT
-    // AllocaInst *mem_activeTuple = NULL;
+    // AllocaInst *mem_activeTuple = nullptr;
     int i = 0;
     // //        const set<RecordAttribute>& tuplesIdentifiers =
     // //                mat.getTupleIdentifiers();
@@ -291,7 +291,7 @@ map<RecordAttribute, ProteusValueMemory> *Nest::reconstructResults(
     //             i++;
     //         }
 
-    // AllocaInst *mem_field = NULL;
+    // AllocaInst *mem_field = nullptr;
     //         const vector<RecordAttribute*>& wantedFields =
     //         mat.getWantedFields(); vector<RecordAttribute*>::const_iterator
     //         it2 = wantedFields.begin(); for (; it2 != wantedFields.end();
@@ -413,9 +413,9 @@ void Nest::probeHT() const {
   context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
   /* Bookkeeping for next steps - not sure which ones we will end up using */
-  AllocaInst *mem_rCount = Builder->CreateAlloca(int32_type, 0, "rCount");
+  AllocaInst *mem_rCount = Builder->CreateAlloca(int32_type, nullptr, "rCount");
   AllocaInst *mem_clusterCount =
-      Builder->CreateAlloca(int32_type, 0, "clusterCount");
+      Builder->CreateAlloca(int32_type, nullptr, "clusterCount");
   Builder->CreateStore(val_zero, mem_rCount);
   Builder->CreateStore(val_zero, mem_clusterCount);
 
@@ -428,7 +428,7 @@ void Nest::probeHT() const {
   // HT * HT_per_cluster = (HT *) getMemoryChunk(htSize); //FIXME: do in
   // codegen, otherwise it prevent parallelization!!!!
 
-  Builder->CreateAlloca(htClusterType, 0, "HTimpl");
+  Builder->CreateAlloca(htClusterType, nullptr, "HTimpl");
   PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
   // Value *val_htPerCluster = context->CastPtrToLlvmPtr(htClusterPtrType,
   //         HT_per_cluster);
@@ -438,7 +438,7 @@ void Nest::probeHT() const {
   Value *val_htPerCluster = Builder->CreateBitCast(HT_mem, htClusterPtrType);
 
   AllocaInst *mem_probesNo =
-      Builder->CreateAlloca(int32_type, 0, "mem_counter");
+      Builder->CreateAlloca(int32_type, nullptr, "mem_counter");
   Builder->CreateStore(val_zero, mem_probesNo);
 
   vector<Monoid>::const_iterator itAcc;
@@ -546,10 +546,10 @@ void Nest::probeHT() const {
       // void*
       Value *val_array_marked = Builder->CreateCall(func_getMemory, ArgsV);
 
-      AllocaInst *mem_j = Builder->CreateAlloca(int32_type, 0, "j_cnt");
+      AllocaInst *mem_j = Builder->CreateAlloca(int32_type, nullptr, "j_cnt");
       /* A consecutive identifier, to act as OID later on */
       AllocaInst *mem_groupCnt =
-          Builder->CreateAlloca(int32_type, 0, "group_cnt");
+          Builder->CreateAlloca(int32_type, nullptr, "group_cnt");
       Builder->CreateStore(val_zero, mem_j);
       Builder->CreateStore(val_zero, mem_groupCnt);
       Builder->CreateBr(rLoopCond);
@@ -625,7 +625,7 @@ void Nest::probeHT() const {
                              &hitLoopInc, &hitLoopEnd);
 
       {
-        AllocaInst *mem_hit = Builder->CreateAlloca(int32_type, 0, "hit");
+        AllocaInst *mem_hit = Builder->CreateAlloca(int32_type, nullptr, "hit");
         //(ht->bucket)
         Value *val_bucket =
             context->getStructElem(val_htPerClusterShiftedPtr, 0);

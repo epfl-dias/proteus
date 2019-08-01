@@ -77,7 +77,7 @@ bool CommManager::reqeust_snapshot(ushort &master_ver, uint64_t &epoch_num) {
 
   linux_run(mq_send(send_mq, request_buffer, MAX_MSG_SIZE, 0));
 
-  auto bytes_read = mq_receive(recv_mq, response_buffer, MAX_MSG_SIZE, NULL);
+  auto bytes_read = mq_receive(recv_mq, response_buffer, MAX_MSG_SIZE, nullptr);
   if (bytes_read >= 0) {
     LOG(INFO) << "[CommManager: ] Received message: " << response_buffer;
 

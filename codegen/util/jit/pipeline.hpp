@@ -107,7 +107,7 @@ class PipelineGen {
 
  protected:
   PipelineGen(Context *context, std::string pipName = "pip",
-              PipelineGen *copyStateFrom = NULL);
+              PipelineGen *copyStateFrom = nullptr);
 
   virtual ~PipelineGen() {}
 
@@ -231,7 +231,7 @@ class Pipeline {
            void *init_state, void *deinit_state,
            int32_t group_id = 0,  // FIXME: group id should be handled to comply
                                   // with the requirements!
-           Pipeline *execute_after_close = NULL);
+           Pipeline *execute_after_close = nullptr);
 
   // void copyStateFrom  (Pipeline * p){
   //     std::cout << p->state_size << std::endl;
@@ -303,7 +303,7 @@ class PipelineGenFactory {
 
  public:
   virtual PipelineGen *create(Context *context, std::string pipName = "pip",
-                              PipelineGen *copyStateFrom = NULL) = 0;
+                              PipelineGen *copyStateFrom = nullptr) = 0;
 };
 
 #endif /* PIPELINE_HPP_ */

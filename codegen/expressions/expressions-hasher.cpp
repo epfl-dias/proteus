@@ -201,7 +201,7 @@ ProteusValue ExpressionHasherVisitor::visit(
           ProteusValueMemory mem_activeTuple = itBindings->second;
 
           Plugin *plugin = catalog.getPlugin(currAttr.getRelationName());
-          if (plugin == NULL) {
+          if (plugin == nullptr) {
             string error_msg =
                 string("[Expression Hasher: ] No plugin provided");
             LOG(ERROR) << error_msg;
@@ -243,7 +243,7 @@ ProteusValue ExpressionHasherVisitor::visit(
 
   // Resetting activeRelation here would break nested-record-projections
   // activeRelation = "";
-  if (plugin == NULL) {
+  if (plugin == nullptr) {
     string error_msg = string("[Expression Generator: ] No plugin provided");
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
@@ -311,7 +311,7 @@ ProteusValue ExpressionHasherVisitor::visit(
 
   // Resetting activeRelation here would break nested-record-projections
   // activeRelation = "";
-  if (plugin == NULL) {
+  if (plugin == nullptr) {
     string error_msg = string("[Expression Generator: ] No plugin provided");
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
@@ -330,7 +330,7 @@ ProteusValue ExpressionHasherVisitor::visit(
           ProteusValue valWrapper;
           valWrapper.value = val;
           valWrapper.isNull =
-              record.isNull;  // FIXME: what if only one attribute is NULL?
+              record.isNull;  // FIXME: what if only one attribute is nullptr?
 
           return plugin->hashValueEager(valWrapper, attr.getOriginalType());
         }

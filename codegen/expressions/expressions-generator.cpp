@@ -126,7 +126,7 @@ ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::InputArgument *e) {
   IRBuilder<> *const Builder = context->getBuilder();
   Catalog &catalog = Catalog::getInstance();
-  AllocaInst *argMem = NULL;
+  AllocaInst *argMem = nullptr;
   Value *isNull;
 
   /* No caching logic here, because InputArgument generally
@@ -239,7 +239,7 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 
   Plugin *plugin = catalog.getPlugin(activeRelation);
 
-  if (plugin != NULL) {
+  if (plugin != nullptr) {
     /* Cache Logic */
     /* XXX Apply in other visitors too! */
     CachingService &cache = CachingService::getInstance();
@@ -280,7 +280,7 @@ ProteusValue ExpressionGeneratorVisitor::visit(
   ProteusValue record = e->getExpr().accept(*this);
 
   // Resetting activeRelation here would break nested-record-projections
-  if (plugin == NULL) {
+  if (plugin == nullptr) {
     string error_msg = string("[Expression Generator: ] No plugin provided");
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
@@ -300,7 +300,7 @@ ProteusValue ExpressionGeneratorVisitor::visit(
           ProteusValue valWrapper;
           valWrapper.value = val;
           valWrapper.isNull =
-              record.isNull;  // FIXME: what if only one attribute is NULL?
+              record.isNull;  // FIXME: what if only one attribute is nullptr?
           return valWrapper;
         }
       }
@@ -398,7 +398,7 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 //    ProteusValue record                    = e->getExpr()->accept(*this);
 //    //Resetting activeRelation here would break nested-record-projections
 //    //activeRelation = "";
-//    if(plugin == NULL)    {
+//    if(plugin == nullptr)    {
 //        string error_msg = string("[Expression Generator: ] No plugin
 //        provided"); LOG(ERROR) << error_msg; throw runtime_error(error_msg);
 //    }    else    {
@@ -483,8 +483,8 @@ ProteusValue ExpressionGeneratorVisitor::visit(
   //    "ifElseResult", (ifResult.value)->getType()); AllocaInst*
   //    mem_result_isNull = context->CreateEntryBlockAlloca(F,
   //    "ifElseResultIsNull", (ifResult.isNull)->getType());
-  AllocaInst *mem_result = NULL;
-  AllocaInst *mem_result_isNull = NULL;
+  AllocaInst *mem_result = nullptr;
+  AllocaInst *mem_result_isNull = nullptr;
 
   // Prepare blocks
   BasicBlock *ThenBB;
@@ -745,32 +745,32 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
     Value *int32_n2 = &(*++args);
     int32_n2->setName("n2");
 
-    BasicBlock *label_entry =
-        BasicBlock::Create(mod->getContext(), "entry", func_mystrncmpllvm, 0);
-    BasicBlock *label_if_then =
-        BasicBlock::Create(mod->getContext(), "if.then", func_mystrncmpllvm, 0);
-    BasicBlock *label_if_end =
-        BasicBlock::Create(mod->getContext(), "if.end", func_mystrncmpllvm, 0);
+    BasicBlock *label_entry = BasicBlock::Create(mod->getContext(), "entry",
+                                                 func_mystrncmpllvm, nullptr);
+    BasicBlock *label_if_then = BasicBlock::Create(mod->getContext(), "if.then",
+                                                   func_mystrncmpllvm, nullptr);
+    BasicBlock *label_if_end = BasicBlock::Create(mod->getContext(), "if.end",
+                                                  func_mystrncmpllvm, nullptr);
     BasicBlock *label_for_cond = BasicBlock::Create(
-        mod->getContext(), "for.cond", func_mystrncmpllvm, 0);
+        mod->getContext(), "for.cond", func_mystrncmpllvm, nullptr);
     BasicBlock *label_for_body = BasicBlock::Create(
-        mod->getContext(), "for.body", func_mystrncmpllvm, 0);
+        mod->getContext(), "for.body", func_mystrncmpllvm, nullptr);
     BasicBlock *label_if_then5 = BasicBlock::Create(
-        mod->getContext(), "if.then5", func_mystrncmpllvm, 0);
-    BasicBlock *label_if_else =
-        BasicBlock::Create(mod->getContext(), "if.else", func_mystrncmpllvm, 0);
+        mod->getContext(), "if.then5", func_mystrncmpllvm, nullptr);
+    BasicBlock *label_if_else = BasicBlock::Create(mod->getContext(), "if.else",
+                                                   func_mystrncmpllvm, nullptr);
     BasicBlock *label_if_then13 = BasicBlock::Create(
-        mod->getContext(), "if.then13", func_mystrncmpllvm, 0);
+        mod->getContext(), "if.then13", func_mystrncmpllvm, nullptr);
     BasicBlock *label_if_end14 = BasicBlock::Create(
-        mod->getContext(), "if.end14", func_mystrncmpllvm, 0);
+        mod->getContext(), "if.end14", func_mystrncmpllvm, nullptr);
     BasicBlock *label_if_end15 = BasicBlock::Create(
-        mod->getContext(), "if.end15", func_mystrncmpllvm, 0);
-    BasicBlock *label_for_inc =
-        BasicBlock::Create(mod->getContext(), "for.inc", func_mystrncmpllvm, 0);
-    BasicBlock *label_for_end =
-        BasicBlock::Create(mod->getContext(), "for.end", func_mystrncmpllvm, 0);
-    BasicBlock *label_return =
-        BasicBlock::Create(mod->getContext(), "return", func_mystrncmpllvm, 0);
+        mod->getContext(), "if.end15", func_mystrncmpllvm, nullptr);
+    BasicBlock *label_for_inc = BasicBlock::Create(mod->getContext(), "for.inc",
+                                                   func_mystrncmpllvm, nullptr);
+    BasicBlock *label_for_end = BasicBlock::Create(mod->getContext(), "for.end",
+                                                   func_mystrncmpllvm, nullptr);
+    BasicBlock *label_return = BasicBlock::Create(mod->getContext(), "return",
+                                                  func_mystrncmpllvm, nullptr);
 
     // Block entry (label_entry)
     AllocaInst *ptr_retval =
@@ -970,24 +970,30 @@ ProteusValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
   ConstantInt *const_int32_7 =
       ConstantInt::get(llvmContext, APInt(32, StringRef("-1"), 10));
 
-  BasicBlock *label_entry = BasicBlock::Create(llvmContext, "entry", F, 0);
+  BasicBlock *label_entry =
+      BasicBlock::Create(llvmContext, "entry", F, nullptr);
   BasicBlock *label_for_cond =
-      BasicBlock::Create(llvmContext, "for.cond", F, 0);
+      BasicBlock::Create(llvmContext, "for.cond", F, nullptr);
   BasicBlock *label_for_body =
-      BasicBlock::Create(llvmContext, "for.body", F, 0);
-  BasicBlock *label_if_then = BasicBlock::Create(llvmContext, "if.then", F, 0);
-  BasicBlock *label_if_else = BasicBlock::Create(llvmContext, "if.else", F, 0);
+      BasicBlock::Create(llvmContext, "for.body", F, nullptr);
+  BasicBlock *label_if_then =
+      BasicBlock::Create(llvmContext, "if.then", F, nullptr);
+  BasicBlock *label_if_else =
+      BasicBlock::Create(llvmContext, "if.else", F, nullptr);
   BasicBlock *label_if_then11 =
-      BasicBlock::Create(llvmContext, "if.then11", F, 0);
-  BasicBlock *label_if_end = BasicBlock::Create(llvmContext, "if.end", F, 0);
+      BasicBlock::Create(llvmContext, "if.then11", F, nullptr);
+  BasicBlock *label_if_end =
+      BasicBlock::Create(llvmContext, "if.end", F, nullptr);
   BasicBlock *label_if_end12 =
-      BasicBlock::Create(llvmContext, "if.end12", F, 0);
-  BasicBlock *label_for_inc = BasicBlock::Create(llvmContext, "for.inc", F, 0);
-  BasicBlock *label_for_end = BasicBlock::Create(llvmContext, "for.end", F, 0);
+      BasicBlock::Create(llvmContext, "if.end12", F, nullptr);
+  BasicBlock *label_for_inc =
+      BasicBlock::Create(llvmContext, "for.inc", F, nullptr);
+  BasicBlock *label_for_end =
+      BasicBlock::Create(llvmContext, "for.end", F, nullptr);
   BasicBlock *label_if_then16 =
-      BasicBlock::Create(llvmContext, "if.then16", F, 0);
+      BasicBlock::Create(llvmContext, "if.then16", F, nullptr);
   BasicBlock *label_if_end17 =
-      BasicBlock::Create(llvmContext, "if.end17", F, 0);
+      BasicBlock::Create(llvmContext, "if.end17", F, nullptr);
 
   /* Connect w. previous */
   Builder->CreateBr(label_entry);
@@ -1161,13 +1167,13 @@ ProteusValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
   //    BasicBlock *label_size_entry = BasicBlock::Create(llvmContext,
   //    "sizeEntry", F, 0);
   BasicBlock *label_size_cond =
-      BasicBlock::Create(llvmContext, "sizeCond", F, 0);
+      BasicBlock::Create(llvmContext, "sizeCond", F, nullptr);
   BasicBlock *label_size_then =
-      BasicBlock::Create(llvmContext, "sizeThen", F, 0);
+      BasicBlock::Create(llvmContext, "sizeThen", F, nullptr);
   BasicBlock *label_size_else =
-      BasicBlock::Create(llvmContext, "sizeElse", F, 0);
+      BasicBlock::Create(llvmContext, "sizeElse", F, nullptr);
   BasicBlock *label_size_merge =
-      BasicBlock::Create(llvmContext, "sizeMerge", F, 0);
+      BasicBlock::Create(llvmContext, "sizeMerge", F, nullptr);
 
   /* Connect w. previous */
   Builder->CreateBr(label_size_cond);
@@ -1183,24 +1189,30 @@ ProteusValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
 
   Builder->SetInsertPoint(label_size_else);
 
-  BasicBlock *label_entry = BasicBlock::Create(llvmContext, "entry", F, 0);
+  BasicBlock *label_entry =
+      BasicBlock::Create(llvmContext, "entry", F, nullptr);
   BasicBlock *label_for_cond =
-      BasicBlock::Create(llvmContext, "for.cond", F, 0);
+      BasicBlock::Create(llvmContext, "for.cond", F, nullptr);
   BasicBlock *label_for_body =
-      BasicBlock::Create(llvmContext, "for.body", F, 0);
-  BasicBlock *label_if_then = BasicBlock::Create(llvmContext, "if.then", F, 0);
-  BasicBlock *label_if_else = BasicBlock::Create(llvmContext, "if.else", F, 0);
+      BasicBlock::Create(llvmContext, "for.body", F, nullptr);
+  BasicBlock *label_if_then =
+      BasicBlock::Create(llvmContext, "if.then", F, nullptr);
+  BasicBlock *label_if_else =
+      BasicBlock::Create(llvmContext, "if.else", F, nullptr);
   BasicBlock *label_if_then11 =
-      BasicBlock::Create(llvmContext, "if.then11", F, 0);
-  BasicBlock *label_if_end = BasicBlock::Create(llvmContext, "if.end", F, 0);
+      BasicBlock::Create(llvmContext, "if.then11", F, nullptr);
+  BasicBlock *label_if_end =
+      BasicBlock::Create(llvmContext, "if.end", F, nullptr);
   BasicBlock *label_if_end12 =
-      BasicBlock::Create(llvmContext, "if.end12", F, 0);
-  BasicBlock *label_for_inc = BasicBlock::Create(llvmContext, "for.inc", F, 0);
-  BasicBlock *label_for_end = BasicBlock::Create(llvmContext, "for.end", F, 0);
+      BasicBlock::Create(llvmContext, "if.end12", F, nullptr);
+  BasicBlock *label_for_inc =
+      BasicBlock::Create(llvmContext, "for.inc", F, nullptr);
+  BasicBlock *label_for_end =
+      BasicBlock::Create(llvmContext, "for.end", F, nullptr);
   BasicBlock *label_if_then16 =
-      BasicBlock::Create(llvmContext, "if.then16", F, 0);
+      BasicBlock::Create(llvmContext, "if.then16", F, nullptr);
   BasicBlock *label_if_end17 =
-      BasicBlock::Create(llvmContext, "if.end17", F, 0);
+      BasicBlock::Create(llvmContext, "if.end17", F, nullptr);
 
   /* Connect w. previous */
   Builder->CreateBr(label_entry);

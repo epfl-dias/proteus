@@ -25,7 +25,7 @@
 
 void *allocateFromRegion(size_t regionSize) {
   char *arenaChunk = (char *)calloc(regionSize, sizeof(char));
-  if (arenaChunk == NULL) {
+  if (arenaChunk == nullptr) {
     string error_msg = string("[Memory Allocator: ] new() failed");
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
@@ -43,7 +43,7 @@ void *increaseRegion(void *region, size_t currSize) {
   LOG(INFO) << "Realloc()";
   currSize <<= 1;
   void *newRegion = realloc(region, currSize);
-  if (newRegion != NULL) {
+  if (newRegion != nullptr) {
     MemoryService &mem = MemoryService::getInstance();
     mem.updateChunk(region, newRegion);
     return newRegion;

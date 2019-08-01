@@ -116,7 +116,7 @@ Value *HashRearrangeBuffered::hash(const std::vector<expression_t> &exprs,
                                    Context *const context,
                                    const OperatorState &childState) {
   ExpressionGeneratorVisitor exprGenerator(context, childState);
-  Value *hash = NULL;
+  Value *hash = nullptr;
 
   for (const auto &e : exprs) {
     if (e.getTypeID() == expressions::RECORD_CONSTRUCTION) {

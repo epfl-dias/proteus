@@ -70,8 +70,8 @@ class CachingService {
     auto it = pmCaches.find(fileName);
     if (it == pmCaches.end()) {
       LOG(INFO) << "No PM found for " << fileName;
-      /* NULL is a valid value (PM not found) */
-      return NULL;
+      /* nullptr is a valid value (PM not found) */
+      return nullptr;
     }
     return it->second;
   }

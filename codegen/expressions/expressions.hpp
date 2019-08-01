@@ -643,7 +643,7 @@ class ProteusValueExpression : public ExpressionCRTP<ProteusValueExpression> {
     if (this->getTypeID() == r.getTypeID()) {
       const ProteusValueExpression &rProj =
           dynamic_cast<const ProteusValueExpression &>(r);
-      return (expr.value == NULL && rProj.expr.value == NULL)
+      return (expr.value == nullptr && rProj.expr.value == nullptr)
                  ? (expr.isNull < rProj.expr.isNull)
                  : (expr.value < rProj.expr.value);
     } else {

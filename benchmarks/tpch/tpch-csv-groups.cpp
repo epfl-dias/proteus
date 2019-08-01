@@ -151,11 +151,11 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate,
   int lineHint = lineitem.linehint;
   char delimInner = '|';
   vector<RecordAttribute *> projections;
-  RecordAttribute *l_orderkey = argsLineitem["l_orderkey"];  // NULL;
+  RecordAttribute *l_orderkey = argsLineitem["l_orderkey"];  // nullptr;
   RecordAttribute *l_linenumber = argsLineitem["l_linenumber"];
-  RecordAttribute *l_quantity = NULL;
-  RecordAttribute *l_extendedprice = NULL;
-  RecordAttribute *l_tax = NULL;
+  RecordAttribute *l_quantity = nullptr;
+  RecordAttribute *l_extendedprice = nullptr;
+  RecordAttribute *l_tax = nullptr;
 
   //    l_orderkey = argsLineitem["l_orderkey"];
   projections.push_back(l_orderkey);

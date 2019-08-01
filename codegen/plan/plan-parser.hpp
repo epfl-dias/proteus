@@ -60,7 +60,7 @@ class ExpressionParser {
   expression_t parseExpression(const rapidjson::Value &val, Context *ctx);
   ExpressionType *parseExpressionType(const rapidjson::Value &val);
   RecordAttribute *parseRecordAttr(const rapidjson::Value &val,
-                                   const ExpressionType *defaultType = NULL);
+                                   const ExpressionType *defaultType = nullptr);
   Monoid parseAccumulator(const char *acc);
 
  private:
@@ -76,12 +76,12 @@ class CatalogParser {
   ParallelContext *context;
 
  public:
-  CatalogParser(const char *catalogPath, ParallelContext *context = NULL);
+  CatalogParser(const char *catalogPath, ParallelContext *context = nullptr);
 
   InputInfo *getInputInfoIfKnown(std::string inputName) {
     map<std::string, InputInfo *>::iterator it;
     it = inputs.find(inputName);
-    if (it == inputs.end()) return NULL;
+    if (it == inputs.end()) return nullptr;
     return it->second;
   }
 
@@ -128,7 +128,7 @@ class PlanExecutor {
 
   Context *ctx;
   void parsePlan(const rapidjson::Document &doc, bool execute = false);
-  /* When processing tree root, parent will be NULL */
+  /* When processing tree root, parent will be nullptr */
   Operator *parseOperator(const rapidjson::Value &val);
   expression_t parseExpression(const rapidjson::Value &val) {
     return exprParser.parseExpression(val, ctx);

@@ -214,7 +214,7 @@ TEST_F(ThreadTest, fork_cow_test) {
     EXPECT_TRUE(false);
   }
 
-  int *flag = (int *)mmap(NULL, sizeof(int) * 3, PROT_WRITE | PROT_READ,
+  int *flag = (int *)mmap(nullptr, sizeof(int) * 3, PROT_WRITE | PROT_READ,
                           MAP_SHARED, shm_fd_flag, 0);
   if (!flag) {
     fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno));
@@ -236,8 +236,8 @@ TEST_F(ThreadTest, fork_cow_test) {
     EXPECT_TRUE(false);
   }
 
-  int *arr = (int *)mmap(NULL, size_bytes, PROT_WRITE | PROT_READ, MAP_PRIVATE,
-                         shm_fd, 0);
+  int *arr = (int *)mmap(nullptr, size_bytes, PROT_WRITE | PROT_READ,
+                         MAP_PRIVATE, shm_fd, 0);
 
   // initializations
   for (int i = 0; i < 100; i++) arr[i] = 1;

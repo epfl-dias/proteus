@@ -32,7 +32,7 @@ class HashRearrangeBuffered : public UnaryOperator {
                         int numOfBuckets,
                         const vector<expressions::Expression *> &wantedFields,
                         expression_t hashExpr,
-                        RecordAttribute *hashProject = NULL)
+                        RecordAttribute *hashProject = nullptr)
       : UnaryOperator(child),
         context(context),
         numOfBuckets(numOfBuckets),
@@ -50,7 +50,7 @@ class HashRearrangeBuffered : public UnaryOperator {
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
-  llvm::Value *hash(llvm::Value *key, llvm::Value *old_seed = NULL);
+  llvm::Value *hash(llvm::Value *key, llvm::Value *old_seed = nullptr);
   llvm::Value *hash(const std::vector<expression_t> &exprs,
                     Context *const context, const OperatorState &childState);
 

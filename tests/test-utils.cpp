@@ -43,7 +43,7 @@ void TestEnvironment::SetUp() {
     return;
   }
 
-  setbuf(stdout, NULL);
+  setbuf(stdout, nullptr);
 
   google::InstallFailureSignalHandler();
 
@@ -103,8 +103,8 @@ bool verifyTestResult(const char *testsPath, const char *testLabel,
     throw runtime_error(string(__func__) + string(".open (verification): ") +
                         correctResult);
   }
-  char *correctBuf =
-      (char *)mmap(NULL, fsize1, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd1, 0);
+  char *correctBuf = (char *)mmap(nullptr, fsize1, PROT_READ | PROT_WRITE,
+                                  MAP_PRIVATE, fd1, 0);
 
   /* current */
   // if (unordered){
@@ -122,8 +122,8 @@ bool verifyTestResult(const char *testsPath, const char *testLabel,
     return false;
   }
   size_t fsize2 = statbuf.st_size;
-  char *currResultBuf =
-      (char *)mmap(NULL, fsize2, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd2, 0);
+  char *currResultBuf = (char *)mmap(nullptr, fsize2, PROT_READ | PROT_WRITE,
+                                     MAP_PRIVATE, fd2, 0);
   bool areEqual = (fsize1 == fsize2);
   if (areEqual) {
     if (unordered) {

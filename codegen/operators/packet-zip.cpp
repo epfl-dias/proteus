@@ -806,7 +806,7 @@ void ZipCollect::close_cache_left(Pipeline *pip) {
   for (int i = 0; i < sum; i++) {
     if (state_left.cnts[0][i] > max) max = state_left.cnts[0][i];
     for (int j = 0; j < wantedFieldsLeft.size(); j++)
-      if (state_left.blocks[0] == NULL) printf("i=%d empty\n", i);
+      if (state_left.blocks[0] == nullptr) printf("i=%d empty\n", i);
   }
 
   std::cout << "max partitioned" << max << std::endl;
@@ -861,7 +861,7 @@ void ZipCollect::close_cache_right(Pipeline *pip) {
   for (int i = 0; i < sum; i++) {
     if (state_right.cnts[0][i] > max) max = state_right.cnts[0][i];
     for (int j = 0; j < wantedFieldsRight.size(); j++)
-      if (state_right.blocks[0] == NULL) printf("i=%d empty\n", i);
+      if (state_right.blocks[0] == nullptr) printf("i=%d empty\n", i);
   }
 
   std::cout << "max partitioned" << max << std::endl;

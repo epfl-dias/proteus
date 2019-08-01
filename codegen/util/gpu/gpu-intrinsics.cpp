@@ -217,7 +217,7 @@ llvm::Value *shfl_bfly(ParallelContext *const context, llvm::Value *val_in,
   // For whatever reason, LLVM has the membermask first,
   // instead of last, as in PTX...
   ArgsV.push_back(context->createInt32(~0));
-  ArgsV.push_back(NULL);
+  ArgsV.push_back(nullptr);
   ArgsV.push_back(vxor);
   ArgsV.push_back(mask);
 

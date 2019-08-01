@@ -726,7 +726,8 @@ Pipeline *GpuPipelineGen::getPipeline(int group_id) {
       state_type, openers, closers,
       wrapper_module.getCompiledFunction(open__function),
       wrapper_module.getCompiledFunction(close_function), group_id,
-      execute_after_close ? execute_after_close->getPipeline(group_id) : NULL);
+      execute_after_close ? execute_after_close->getPipeline(group_id)
+                          : nullptr);
 }
 
 void *GpuPipelineGen::getCompiledFunction(Function *f) {

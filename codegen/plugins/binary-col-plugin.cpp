@@ -42,7 +42,7 @@ BinaryColPlugin::BinaryColPlugin(Context *const context, string fnamePrefix,
       sizeVar("size"),
       itemCtrVar("itemCtr") {
   isCached = false;
-  val_size = NULL;
+  val_size = nullptr;
   int fieldsNumber = wantedFields.size();
   if (fieldsNumber <= 0) {
     string error_msg = string("[Binary Col Plugin]: Invalid number of fields");
@@ -51,14 +51,14 @@ BinaryColPlugin::BinaryColPlugin(Context *const context, string fnamePrefix,
   }
 
   buf = (const void **)malloc(fieldsNumber * sizeof(void *));
-  if (buf == NULL) {
+  if (buf == nullptr) {
     string error_msg = string("[Binary Col Plugin]: Malloc Failed");
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
   colFilesize = (off_t *)malloc(fieldsNumber * sizeof(off_t));
-  if (colFilesize == NULL) {
+  if (colFilesize == nullptr) {
     string error_msg = string("[Binary Col Plugin]: Malloc Failed");
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
@@ -97,7 +97,7 @@ BinaryColPlugin::BinaryColPlugin(Context *const context, string fnamePrefix,
     cnt++;
   }
   //    dictionariesBuf = (char*) malloc(dictionaries.size() * sizeof(char*));
-  //    if(dictionariesBuf == NULL)    {
+  //    if(dictionariesBuf == nullptr)    {
   //        string error_msg = string("[Binary Col Plugin]: Malloc Failed");
   //        LOG(ERROR) << error_msg;
   //        throw runtime_error(error_msg);
@@ -113,7 +113,7 @@ BinaryColPlugin::BinaryColPlugin(Context *const context, string fnamePrefix,
 //      itemCtrVar("itemCtr") {
 //
 //    isCached = true;
-//    val_size = NULL;
+//    val_size = nullptr;
 //    int fieldsNumber = wantedFields.size();
 //    if(fieldsNumber <= 0)    {
 //        string error_msg = string("[Binary Col Plugin]: Invalid number of
@@ -250,7 +250,7 @@ void BinaryColPlugin::init() {
 
     if (wantedFields.at(cnt)->getOriginalType()->getTypeID() == STRING) {
       char *dictBuf =
-          (char *)mmap(NULL, colFilesize[cnt], PROT_READ,
+          (char *)mmap(nullptr, colFilesize[cnt], PROT_READ,
                        MAP_PRIVATE /*| MAP_POPULATE*/, dictionaries[cnt], 0);
       dictionariesBuf[cnt] = dictBuf;
 

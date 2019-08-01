@@ -149,9 +149,9 @@ void tpchGroup(map<string, dataset> datasetCatalog, int predicate,
   vector<RecordAttribute *> projections;
   RecordAttribute *orderkey = argsLineitem["orderkey"];
   RecordAttribute *linenumber = argsLineitem["linenumber"];
-  RecordAttribute *quantity = NULL;
-  RecordAttribute *extendedprice = NULL;
-  RecordAttribute *tax = NULL;
+  RecordAttribute *quantity = nullptr;
+  RecordAttribute *extendedprice = nullptr;
+  RecordAttribute *tax = nullptr;
 
   projections.push_back(orderkey);
   projections.push_back(linenumber);

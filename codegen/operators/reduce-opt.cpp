@@ -161,7 +161,7 @@ void Reduce::generate(Context *const context,
   for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
     auto acc = *itAcc;
     auto outputExpr = *itExpr;
-    Value *mem_accumulating = NULL;
+    Value *mem_accumulating = nullptr;
 
     switch (acc) {
       case SUM:
@@ -403,7 +403,7 @@ void Reduce::generate_flush() {
     for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
       auto acc = *itAcc;
       auto outputExpr = *itExpr;
-      Value *mem_accumulating = NULL;
+      Value *mem_accumulating = nullptr;
 
       if (*itMem == ~((size_t)0) || acc == BAGUNION) {
         string error_msg = string("[Reduce: ] Not implemented yet");
@@ -446,7 +446,7 @@ void Reduce::generate_flush() {
     for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
       auto acc = *itAcc;
       auto outputExpr = *itExpr;
-      Value *mem_accumulating = NULL;
+      Value *mem_accumulating = nullptr;
 
       if (*itMem == ~((size_t)0) || acc == BAGUNION) continue;
 
@@ -535,7 +535,7 @@ size_t Reduce::resetAccumulator(expression_t outputExpr, Monoid acc,
               for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
                 auto acc = *itAcc;
                 auto outputExpr = *itExpr;
-                Value *mem_accumulating = NULL;
+                Value *mem_accumulating = nullptr;
 
                 if (*itMem == ~((size_t)0) || acc == BAGUNION) continue;
 

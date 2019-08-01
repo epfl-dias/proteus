@@ -49,12 +49,12 @@ class ExpressionFlusherVisitor : public ExprVisitor {
         currState(currState),
         outputFile(outputFile),
         activeRelation(""),
-        pg(NULL) {
+        pg(nullptr) {
     // Only used as a token return value that is passed along by each visitor
     placeholder.isNull = context->createTrue();
-    placeholder.value = NULL;
-    outputFileLLVM = NULL;
-    pg = new jsonPipelined::JSONPlugin(context, outputFile, NULL);
+    placeholder.value = nullptr;
+    outputFileLLVM = nullptr;
+    pg = new jsonPipelined::JSONPlugin(context, outputFile, nullptr);
   }
   ExpressionFlusherVisitor(Context *const context,
                            const OperatorState &currState,
@@ -64,8 +64,8 @@ class ExpressionFlusherVisitor : public ExprVisitor {
         outputFile(outputFile),
         activeRelation(activeRelation) {
     placeholder.isNull = context->createTrue();
-    placeholder.value = NULL;
-    outputFileLLVM = NULL;
+    placeholder.value = nullptr;
+    outputFileLLVM = nullptr;
     pg = Catalog::getInstance().getPlugin(activeRelation);
   }
   ProteusValue visit(const expressions::IntConstant *e);
@@ -78,7 +78,7 @@ class ExpressionFlusherVisitor : public ExprVisitor {
   ProteusValue visit(const expressions::InputArgument *e);
   ProteusValue visit(const expressions::RecordProjection *e);
   ProteusValue visit(const expressions::IfThenElse *e);
-  // XXX Do binary operators require explicit handling of NULL?
+  // XXX Do binary operators require explicit handling of nullptr?
   ProteusValue visit(const expressions::EqExpression *e);
   ProteusValue visit(const expressions::NeExpression *e);
   ProteusValue visit(const expressions::GeExpression *e);

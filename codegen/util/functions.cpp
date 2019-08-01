@@ -150,17 +150,17 @@ void **probeHT(char *HTname, size_t key) {
       results;
   results = HT->equal_range(key);
 
-  void **bindings = 0;
+  void **bindings = nullptr;
   int count = HT->count(key);
   LOG(INFO) << "[PROBE:] There are " << HT->count(key)
             << " elements with hash key " << key;
   if (count) {
     //+1 used to set last position to null and know when to terminate
     bindings = new void *[count + 1];
-    bindings[count] = NULL;
+    bindings[count] = nullptr;
   } else {
     bindings = new void *[1];
-    bindings[0] = NULL;
+    bindings[0] = nullptr;
     return bindings;
   }
 
@@ -240,16 +240,16 @@ void **probeIntHT(int htIdentifier, int key, int typeIndex) {
       results;
   results = HT->equal_range(key);
 
-  void **bindings = 0;
+  void **bindings = nullptr;
   int count = HT->count(key);
 
   if (count) {
     //+1 used to set last position to null and know when to terminate
     bindings = new void *[count + 1];
-    bindings[count] = NULL;
+    bindings[count] = nullptr;
   } else {
     bindings = new void *[1];
-    bindings[0] = NULL;
+    bindings[0] = nullptr;
     return bindings;
   }
 
@@ -795,7 +795,7 @@ size_t newlineAVX(const char *const target, size_t targetLength) {
 //
 //    //Populating our json 'positional index'
 //    jsmntok_t* tokenArray = (jsmntok_t*) calloc(MAXTOKENS,sizeof(jsmntok_t));
-//    if(tokens == NULL)
+//    if(tokens == nullptr)
 //    {
 //        throw runtime_error(string("new() of tokens failed"));
 //    }

@@ -123,8 +123,8 @@ class GpuPartitionedHashJoinChained : public BinaryOperator {
       size_t maxBuildInputSize, size_t maxProbeInputSize,
 
       int log_parts, ParallelContext *context,
-      std::string opLabel = "hj_chained", PipelineGen **caller = NULL,
-      Operator *const unionop = NULL);
+      std::string opLabel = "hj_chained", PipelineGen **caller = nullptr,
+      Operator *const unionop = nullptr);
   virtual ~GpuPartitionedHashJoinChained() {
     LOG(INFO) << "Collapsing GpuOptJoin operator";
   }

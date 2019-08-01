@@ -36,7 +36,7 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
       fsizeVar("fileSize") {
   pos = 0;
   fd = -1;
-  buf = NULL;
+  buf = nullptr;
   fsize = 0;
 
   LOG(INFO) << "[CSVPlugin: ] " << fname;
@@ -56,7 +56,8 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
 CSVPlugin::~CSVPlugin() {}
 
 void CSVPlugin::init() {
-  buf = (char *)mmap(NULL, fsize, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd, 0);
+  buf = (char *)mmap(nullptr, fsize, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd,
+                     0);
   if (buf == MAP_FAILED) {
     throw runtime_error(string("csv.mmap"));
   }
@@ -985,8 +986,8 @@ void CSVPlugin::scanCSV(const ::Operator &producer, Function *debug) {
   Function *debugInt = context->getFunction("printi");
   Function *debugFloat = context->getFunction("printFloat");
 
-  if (atoi_ == 0 || atof_ == 0 || debugChar == 0 || debugInt == 0 ||
-      debugFloat == 0) {
+  if (atoi_ == nullptr || atof_ == nullptr || debugChar == nullptr ||
+      debugInt == nullptr || debugFloat == nullptr) {
     LOG(ERROR) << "One of the functions needed not found!";
     throw runtime_error(string("One of the functions needed not found!"));
   }

@@ -175,10 +175,10 @@ void init(bool inc_buffers) {
   LOG(INFO) << "Warming up GPUs...";
   for (const auto &gpu : topology::getInstance().getGpus()) {
     set_exec_location_on_scope d{gpu};
-    gpu_run(cudaFree(0));
+    gpu_run(cudaFree(nullptr));
   }
 
-  gpu_run(cudaFree(0));
+  gpu_run(cudaFree(nullptr));
 
   // gpu_run(cudaDeviceSetLimit(cudaLimitStackSize, 40960));
 

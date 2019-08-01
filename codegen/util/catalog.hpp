@@ -164,7 +164,7 @@ class Catalog {
   }
 
   map<int, llvm::Value *> *getReduceHT() {
-    if (reduceSetHT == NULL) {
+    if (reduceSetHT == nullptr) {
       string error_msg =
           string("[Catalog: ] HT to be used in Reduce not initialized");
       LOG(ERROR) << error_msg;
@@ -246,11 +246,11 @@ class Catalog {
   // when using tableTypes
   llvm::Type **tableTypes;
   // Is maxTables enough????
-  Catalog() : uniqueTableId(1), maxTables(1000), reduceSetHT(NULL) {
+  Catalog() : uniqueTableId(1), maxTables(1000), reduceSetHT(nullptr) {
     tableTypes = new llvm::Type *[maxTables];
   }
   ~Catalog() {
-    if (reduceSetHT != NULL) {
+    if (reduceSetHT != nullptr) {
       delete reduceSetHT;
     }
   }

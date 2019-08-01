@@ -40,7 +40,7 @@ Nest::Nest(Monoid acc, expressions::Expression *outputExpr,
       pred(pred),
       mat(mat),
       htName(opLabel),
-      context(NULL) {
+      context(nullptr) {
   // Prepare 'f' -> Turn it into expression (record construction)
   list<expressions::InputArgument>::const_iterator it;
   list<expressions::AttributeConstruction> *atts =
@@ -176,7 +176,7 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
     map<RecordAttribute, ProteusValueMemory>::const_iterator memSearch =
         bindings.find(*(*it));
 
-    Value *llvmCurrVal = NULL;
+    Value *llvmCurrVal = nullptr;
     if (memSearch != bindings.end()) {
       ProteusValueMemory currValMem = memSearch->second;
       llvmCurrVal = Builder->CreateLoad(currValMem.mem);
@@ -376,8 +376,8 @@ void Nest::generateProbe(Context *const context) const {
       new map<RecordAttribute, ProteusValueMemory>();
   int i = 0;
   // Retrieving activeTuple(s) from HT
-  AllocaInst *mem_activeTuple = NULL;
-  Value *activeTuple = NULL;
+  AllocaInst *mem_activeTuple = nullptr;
+  Value *activeTuple = nullptr;
   const vector<RecordAttribute *> &tuplesIdentifiers = mat.getWantedOIDs();
   for (vector<RecordAttribute *>::const_iterator it = tuplesIdentifiers.begin();
        it != tuplesIdentifiers.end(); it++) {
@@ -396,7 +396,7 @@ void Nest::generateProbe(Context *const context) const {
   }
 
   const vector<RecordAttribute *> &wantedFields = mat.getWantedFields();
-  Value *field = NULL;
+  Value *field = nullptr;
   for (vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
        it != wantedFields.end(); ++it) {
     string currField = (*it)->getName();
@@ -607,7 +607,7 @@ void Nest::generateSum(Context *const context, const OperatorState &state,
 }
 
 AllocaInst *Nest::resetAccumulator() const {
-  AllocaInst *mem_accumulating = NULL;
+  AllocaInst *mem_accumulating = nullptr;
 
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();

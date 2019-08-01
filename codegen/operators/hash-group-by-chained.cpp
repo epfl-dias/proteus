@@ -686,7 +686,8 @@ void HashGroupByChained::generate_scan() {
     // itr_en[] = {itr_st, count}; MDNode * interleave_count =
     // MDNode::get(llvmContext, itr_en);
 
-    llvm::Metadata *Args[] = {NULL};  //, vectorize_enable, interleave_count};
+    llvm::Metadata *Args[] = {
+        nullptr};  //, vectorize_enable, interleave_count};
     LoopID = MDNode::get(llvmContext, Args);
     LoopID->replaceOperandWith(0, LoopID);
 

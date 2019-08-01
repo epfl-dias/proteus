@@ -39,8 +39,8 @@ extern "C" {
 void step_mmc_mem_move_broadcast_device(MemBroadcastDevice::MemMoveConf *mmc) {
   if (!mmc->to_cpu) return;
   for (size_t i = 0; i < 16; ++i)
-    mmc->targetbuffer[i] =
-        NULL;  // FIXME: can be much much more simple and optimal if codegen'ed
+    mmc->targetbuffer[i] = nullptr;  // FIXME: can be much much more simple and
+                                     // optimal if codegen'ed
 }
 
 buff_pair_brdcst make_mem_move_broadcast_device(
@@ -54,7 +54,7 @@ buff_pair_brdcst make_mem_move_broadcast_device(
     // assert(bytes <= sizeof(int32_t) * h_vector_size); //FIMXE: buffer manager
     // should be able to provide blocks of arbitary size
     if (!disable_noop && dev == target_device)
-      return buff_pair_brdcst{src, NULL};  // block already in correct device
+      return buff_pair_brdcst{src, nullptr};  // block already in correct device
     // set_device_on_scope d(dev);
 
     // std::cout << target_device << std::endl;
@@ -90,7 +90,7 @@ buff_pair_brdcst make_mem_move_broadcast_device(
       if (mmc->always_share || node_index == target_node_index) {
         if (!disable_noop) {
           mmc->targetbuffer[target_node_index] = src;
-          return buff_pair_brdcst{src, NULL};
+          return buff_pair_brdcst{src, nullptr};
         }
         if (buffer_manager<int32_t>::share_host_buffer((int32_t *)src)) {
           mmc->targetbuffer[target_node_index] = src;
@@ -452,7 +452,7 @@ void MemBroadcastDevice::open(Pipeline *pip) {
 
     // gpu_run(cudaEventCreateWithFlags(mmc->events + i, cudaEventDisableTiming
     // | cudaEventBlockingSync)); gpu_run(cudaEventCreate(mmc->events + i));
-    // mmc->old_buffs[i] = NULL;
+    // mmc->old_buffs[i] = nullptr;
   }
   nvtxRangePop();
 

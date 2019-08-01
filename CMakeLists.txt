@@ -149,7 +149,6 @@ string(STRIP "${WARNING_FLAGS} -Wno-unused-variable" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-vla" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-vla-extension" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-weak-vtables" WARNING_FLAGS)
-string(STRIP "${WARNING_FLAGS} -Wno-zero-as-null-pointer-constant" WARNING_FLAGS)
 
 # Unit-tests:
 string(STRIP "${WARNING_FLAGS} -Wno-shift-sign-overflow" WARNING_FLAGS)

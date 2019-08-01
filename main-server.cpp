@@ -112,8 +112,8 @@ std::string runPlanFile(std::string plan, unlink_upon_exit &uue,
       assert(false);
     }
     size_t fsize2 = statbuf.st_size;
-    char *currResultBuf =
-        (char *)mmap(NULL, fsize2, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd2, 0);
+    char *currResultBuf = (char *)mmap(nullptr, fsize2, PROT_READ | PROT_WRITE,
+                                       MAP_PRIVATE, fd2, 0);
     fwrite(currResultBuf, sizeof(char), fsize2, stdout);
     std::cout << std::endl;
 
@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
   gflags::SetUsageMessage("Simple command line interface for proteus");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  srand(time(NULL));
+  srand(time(nullptr));
 
   google::InitGoogleLogging(argv[0]);
   FLAGS_logtostderr = 1;  // FIXME: the command line flags/defs seem to fail...

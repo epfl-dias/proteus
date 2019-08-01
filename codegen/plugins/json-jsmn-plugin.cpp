@@ -57,8 +57,8 @@ JSONPlugin::JSONPlugin(Context *const context, string &fname,
   if (fd == -1) {
     throw runtime_error(string("json.open"));
   }
-  buf = (const char *)mmap(NULL, fsize, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd,
-                           0);
+  buf = (const char *)mmap(nullptr, fsize, PROT_READ | PROT_WRITE, MAP_PRIVATE,
+                           fd, 0);
   if (buf == MAP_FAILED) {
     throw runtime_error(string("json.mmap"));
   }
@@ -73,7 +73,7 @@ JSONPlugin::JSONPlugin(Context *const context, string &fname,
 
   // Populating our json 'positional index'
   tokens = new jsmntok_t[MAXTOKENS];
-  if (tokens == NULL) {
+  if (tokens == nullptr) {
     throw runtime_error(string("new() of tokens failed"));
   }
   for (int i = 0; i < MAXTOKENS; i++) {
@@ -936,11 +936,11 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
   Value *bufPtr = Builder->CreateLoad(NamedValuesJSON[var_buf]);
   Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, token_start);
 
-  Function *conversionFunc = NULL;
+  Function *conversionFunc = nullptr;
 
-  AllocaInst *mem_convertedValue = NULL;
-  AllocaInst *mem_convertedValue_isNull = NULL;
-  Value *convertedValue = NULL;
+  AllocaInst *mem_convertedValue = nullptr;
+  AllocaInst *mem_convertedValue_isNull = nullptr;
+  Value *convertedValue = nullptr;
 
   mem_convertedValue_isNull =
       context->CreateEntryBlockAlloca(F, string("value_isNull"), int1Type);
@@ -1110,10 +1110,10 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
 
   /**
    * ELSE BLOCK
-   * return "(NULL)"
+   * return "(nullptr)"
    */
   Builder->SetInsertPoint(elseBlock);
-#ifdef DEBUG  // Invalid / NULL!
+#ifdef DEBUG  // Invalid / nullptr!
 //    ArgsV.clear();
 //    Function* debugInt = context->getFunction("printi");
 //    Value *tmp = context->createInt32(-111);
@@ -1131,7 +1131,7 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
   ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_convertedValue;
   mem_valWrapper.isNull = Builder->CreateLoad(mem_convertedValue_isNull);
-#ifdef DEBUG  // Invalid / NULL!
+#ifdef DEBUG  // Invalid / nullptr!
 //    ArgsV.clear();
 //    Function* debugBoolean = context->getFunction("printBoolean");
 //    ArgsV.push_back(mem_valWrapper.isNull);
@@ -1169,12 +1169,12 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
   Value *bufPtr = Builder->CreateLoad(NamedValuesJSON[var_buf]);
   Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, token_start);
 
-  Function *conversionFunc = NULL;
-  Function *hashFunc = NULL;
-  AllocaInst *mem_hashedValue = NULL;
-  AllocaInst *mem_hashedValue_isNull = NULL;
-  Value *hashedValue = NULL;
-  Value *convertedValue = NULL;
+  Function *conversionFunc = nullptr;
+  Function *hashFunc = nullptr;
+  AllocaInst *mem_hashedValue = nullptr;
+  AllocaInst *mem_hashedValue_isNull = nullptr;
+  Value *hashedValue = nullptr;
+  Value *convertedValue = nullptr;
 
   // Preparing hasher state
   NamedValuesJSON[var_tokenOffsetHash] = mem_value.mem;
@@ -1445,7 +1445,7 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
 
   /**
    * ELSE BLOCK
-   * "NULL" case
+   * "nullptr" case
    * TODO What should the behavior be in this case?
    *
    * c-p from Sybase manual: If the grouping column contains a null value,
@@ -1506,13 +1506,13 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
 //    Value* bufPtr = Builder->CreateLoad(NamedValuesJSON[var_buf]);
 //    Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, token_start);
 //
-//    Function* conversionFunc = NULL;
-//    Function* hashFunc = NULL;
+//    Function* conversionFunc = nullptr;
+//    Function* hashFunc = nullptr;
 //
-//    AllocaInst* mem_hashedValue = NULL;
-//    AllocaInst* mem_hashedValue_isNull = NULL;
-//    Value* hashedValue = NULL;
-//    Value* convertedValue = NULL;
+//    AllocaInst* mem_hashedValue = nullptr;
+//    AllocaInst* mem_hashedValue_isNull = nullptr;
+//    Value* hashedValue = nullptr;
+//    Value* convertedValue = nullptr;
 //
 //    mem_hashedValue = context->CreateEntryBlockAlloca(F,
 //                    std::string("hashValue"), int64Type);
@@ -1565,7 +1565,7 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
 //
 //    /**
 //     * ELSE BLOCK
-//     * "NULL" case
+//     * "nullptr" case
 //     * TODO What should the behavior be in this case?
 //     *
 //     * c-p from Sybase manual: If the grouping column contains a null value,

@@ -57,7 +57,7 @@ class ExpressionType {
         string("Type " + getType() + " is not mapped into an LLVM-type.");
     LOG(INFO) << error_msg;
     // throw runtime_error(error_msg);
-    return NULL;
+    return nullptr;
   }
 };
 
@@ -91,13 +91,13 @@ class StringType : public PrimitiveType {
 
 class DStringType : public PrimitiveType {
  public:
-  DStringType(void *dictionary = NULL) : dictionary(dictionary) {}
   string getType() const { return string("DString"); }
   typeID getTypeID() const { return DSTRING; }
   bool isPrimitive() const { return true; }
   llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
     return llvm::Type::getInt32Ty(ctx);
   }
+  DStringType(void *dictionary = nullptr) : dictionary(dictionary) {}
 
   void *getDictionary() const {
     assert(dictionary);
@@ -224,7 +224,7 @@ class SetType : public CollectionType {
 class RecordAttribute {
  public:
   RecordAttribute()
-      : relName(""), attrName(""), type(NULL), attrNo(-1), projected(false) {
+      : relName(""), attrName(""), type(nullptr), attrNo(-1), projected(false) {
     cout << "ANONYMOUS CONSTRUCTOR!!" << endl;
   }
   RecordAttribute(int no, string relName, string attrName,
@@ -283,8 +283,8 @@ class RecordAttribute {
 
   // Constructor used STRICTLY for comparisons in maps
   //    RecordAttribute(string relName, string attrName)
-  //            : attrNo(-1), relName(relName), attrName(attrName), type(NULL),
-  //            projected(false)     {}
+  //            : attrNo(-1), relName(relName), attrName(attrName),
+  //            type(nullptr), projected(false)     {}
 
   /* OID Type needed so that we know what we materialize
    * => Subsequent functions / programs use info to parse caches */
@@ -415,7 +415,7 @@ class RecordType : public ExpressionType {
 
   const RecordAttribute *getArg(string name) const {
     auto r = argsMap.find(name);
-    if (r == argsMap.end()) return NULL;
+    if (r == argsMap.end()) return nullptr;
     return r->second;
   }
 

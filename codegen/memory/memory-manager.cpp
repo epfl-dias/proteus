@@ -110,14 +110,14 @@ void MemoryManager::destroy() {
 constexpr inline size_t fixSize(size_t bytes) { return (bytes + 0xF) & ~0xF; }
 
 void *MemoryManager::mallocGpu(size_t bytes) {
-  eventlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_GPU_START);
+  eventlogger.log(nullptr, log_op::MEMORY_MANAGER_ALLOC_GPU_START);
   nvtxRangePushA("mallocGpu");
   bytes = fixSize(bytes);
   const auto &dev = topology::getInstance().getActiveGpu();
   void *ptr = gpu_managers[dev.id]->malloc(bytes);
   assert(ptr);
   nvtxRangePop();
-  eventlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_GPU_END);
+  eventlogger.log(nullptr, log_op::MEMORY_MANAGER_ALLOC_GPU_END);
   return ptr;
 }
 
@@ -132,7 +132,7 @@ void MemoryManager::freeGpu(void *ptr) {
 
 void *MemoryManager::mallocPinned(size_t bytes) {
   const auto &topo = topology::getInstance();
-  eventlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_PINNED_START);
+  eventlogger.log(nullptr, log_op::MEMORY_MANAGER_ALLOC_PINNED_START);
   nvtxRangePushA("mallocPinned");
   bytes = fixSize(bytes);
   const auto &cpu = affinity::get();
@@ -140,7 +140,7 @@ void *MemoryManager::mallocPinned(size_t bytes) {
   void *ptr = cpu_managers[node]->malloc(bytes);
   assert(ptr);
   nvtxRangePop();
-  eventlogger.log(NULL, log_op::MEMORY_MANAGER_ALLOC_PINNED_END);
+  eventlogger.log(nullptr, log_op::MEMORY_MANAGER_ALLOC_PINNED_END);
   // std::cout << "Alloc: " << node << " " << ptr << " " << bytes << " " <<
   // topo.getCpuNumaNodeAddressed(ptr)->id; //std::endl;
   return ptr;
@@ -164,7 +164,7 @@ void *GpuMemAllocator::malloc(size_t bytes) {
   return ptr;
 #else
   assert(false);
-  return NULL;
+  return nullptr;
 #endif
 }
 
