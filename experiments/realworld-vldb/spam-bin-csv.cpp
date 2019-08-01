@@ -82,21 +82,12 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
    * st.id > 70000000  and st.id < 80000000 and (p_event > 0.7 OR value > 0.5)
    * and cluster > 400
    */
-  expressions::Expression *predicateBin;
-  {
-    list<RecordAttribute> argProjectionsBin;
-    argProjectionsBin.push_back(*idBin);
-    argProjectionsBin.push_back(*p_event);
-    expressions::Expression *arg =
-        new expressions::InputArgument(&recBin, 0, argProjectionsBin);
-    expressions::Expression *selID = new expressions::RecordProjection(
-        idBin->getOriginalType(), arg, *idBin);
-    expressions::Expression *selEvent = new expressions::RecordProjection(
-        p_event->getOriginalType(), arg, *p_event);
-    expressions::Expression *selCluster = new expressions::RecordProjection(
-        cluster->getOriginalType(), arg, *cluster);
-    expressions::Expression *selValue = new expressions::RecordProjection(
-        value->getOriginalType(), arg, *value);
+  auto predicateBin = [&]() {
+    expressions::InputArgument arg{&recBin, 0};
+    auto selID = arg[*idBin];
+    auto selEvent = arg[*p_event];
+    auto selCluster = arg[*cluster];
+    auto selValue = arg[*value];
 
     //        expressions::Expression* predExpr1 = new expressions::IntConstant(
     //                idLow);
@@ -112,27 +103,14 @@ void symantecBinCSV1(map<string, dataset> datasetCatalog) {
     //        expressions::AndExpression(
     //                predicate1, predicate2);
 
-    expressions::Expression *predExpr3 =
-        new expressions::FloatConstant(p_eventLow);
-    expressions::Expression *predExpr4 =
-        new expressions::FloatConstant(valueHigh);
-    expressions::Expression *predicate3 =
-        new expressions::GtExpression(selEvent, predExpr3);
-    expressions::Expression *predicate4 =
-        new expressions::LtExpression(selValue, predExpr4);
-    expressions::Expression *predicateAnd =
-        new expressions::AndExpression(predicate3, predicate4);
+    auto predicate3 = gt(selEvent, p_eventLow);
+    auto predicate4 = lt(selValue, valueHigh);
+    auto predicateAnd = predicate3 & predicate4;
 
-    expressions::Expression *predExpr5 =
-        new expressions::IntConstant(clusterLow);
-    expressions::Expression *predicate5 =
-        new expressions::GtExpression(selCluster, predExpr5);
+    auto predicate5 = gt(selCluster, clusterLow);
 
-    expressions::Expression *predicateAnd2 =
-        new expressions::AndExpression(predicateAnd, predicate5);
-
-    predicateBin = predicateAnd2;
-  }
+    return predicateAnd & predicate5;
+  }();
 
   Select *selBin = new Select(predicateBin, scanBin);
   scanBin->setParent(selBin);

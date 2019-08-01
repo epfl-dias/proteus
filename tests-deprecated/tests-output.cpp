@@ -141,37 +141,27 @@ TEST(Output, ReduceNumeric) {
 
   int linehint = 10;
   int policy = 2;
-  pm::CSVPlugin *pg = new pm::CSVPlugin(&ctx, filename, rec1, whichFields, ';',
-                                        linehint, policy, false);
-  catalog.registerPlugin(filename, pg);
-  Scan scan = Scan(&ctx, *pg);
+  pm::CSVPlugin pg{&ctx, filename, rec1,   whichFields,
+                   ';',  linehint, policy, false};
+  catalog.registerPlugin(filename, &pg);
+  Scan scan{&ctx, pg};
 
   /**
    * REDUCE
    */
-  RecordAttribute projTuple =
-      RecordAttribute(filename, activeLoop, pg->getOIDType());
-  list<RecordAttribute> projections = list<RecordAttribute>();
-  projections.push_back(projTuple);
-  projections.push_back(*sid);
-  projections.push_back(*age);
+  RecordAttribute projTuple{filename, activeLoop, pg.getOIDType()};
 
-  expressions::Expression *arg =
-      new expressions::InputArgument(&rec1, 0, projections);
-  expressions::Expression *outputExpr =
-      new expressions::RecordProjection(intType, arg, *sid);
+  expressions::InputArgument arg{&rec1, 0};
+  auto outputExpr = arg[*sid];
 
-  expressions::Expression *lhs =
-      new expressions::RecordProjection(floatType, arg, *age);
-  expressions::Expression *rhs = new expressions::FloatConstant(40.0);
-  expressions::Expression *predicate = new expressions::GtExpression(lhs, rhs);
+  auto predicate = gt(arg[*age], 40.0);
 
   vector<Monoid> accs;
   vector<expression_t> exprs;
   accs.push_back(MAX);
   exprs.push_back(outputExpr);
-  opt::Reduce reduce =
-      opt::Reduce(accs, exprs, predicate, &scan, &ctx, flushResults, testLabel);
+  opt::Reduce reduce{accs, exprs,        predicate, &scan,
+                     &ctx, flushResults, testLabel};
   scan.setParent(&reduce);
 
   reduce.produce();
@@ -179,7 +169,7 @@ TEST(Output, ReduceNumeric) {
   // Run function
   ctx.prepareFunction(ctx.getGlobalFunction());
 
-  pg->finish();
+  pg.finish();
   catalog.clear();
 
   verifyResult_(testLabel);
@@ -219,30 +209,19 @@ TEST(Output, MultiReduceNumeric) {
 
   int linehint = 10;
   int policy = 2;
-  pm::CSVPlugin *pg = new pm::CSVPlugin(&ctx, filename, rec1, whichFields, ';',
-                                        linehint, policy, false);
-  catalog.registerPlugin(filename, pg);
-  Scan scan = Scan(&ctx, *pg);
+  pm::CSVPlugin pg{&ctx, filename, rec1,   whichFields,
+                   ';',  linehint, policy, false};
+  catalog.registerPlugin(filename, &pg);
+  Scan scan = Scan(&ctx, pg);
 
   /**
    * REDUCE
    */
-  RecordAttribute projTuple =
-      RecordAttribute(filename, activeLoop, pg->getOIDType());
-  list<RecordAttribute> projections = list<RecordAttribute>();
-  projections.push_back(projTuple);
-  projections.push_back(*sid);
-  projections.push_back(*age);
+  RecordAttribute projTuple{filename, activeLoop, pg.getOIDType()};
 
-  expressions::Expression *arg =
-      new expressions::InputArgument(&rec1, 0, projections);
-  expressions::Expression *outputExpr =
-      new expressions::RecordProjection(intType, arg, *sid);
-
-  expressions::Expression *lhs =
-      new expressions::RecordProjection(floatType, arg, *age);
-  expressions::Expression *rhs = new expressions::FloatConstant(40.0);
-  expressions::Expression *predicate = new expressions::GtExpression(lhs, rhs);
+  expressions::InputArgument arg{&rec1, 0};
+  auto outputExpr = arg[*sid];
+  auto predicate = gt(arg[*age], 40.0);
 
   vector<Monoid> accs;
   vector<expression_t> exprs;
@@ -250,8 +229,8 @@ TEST(Output, MultiReduceNumeric) {
   accs.push_back(MAX);
   exprs.push_back(outputExpr);
   exprs.push_back(outputExpr);
-  opt::Reduce reduce =
-      opt::Reduce(accs, exprs, predicate, &scan, &ctx, flushResults, testLabel);
+  opt::Reduce reduce{accs, exprs,        predicate, &scan,
+                     &ctx, flushResults, testLabel};
   scan.setParent(&reduce);
 
   reduce.produce();
@@ -259,7 +238,7 @@ TEST(Output, MultiReduceNumeric) {
   // Run function
   ctx.prepareFunction(ctx.getGlobalFunction());
 
-  pg->finish();
+  pg.finish();
   catalog.clear();
 
   verifyResult_(testLabel);
