@@ -170,6 +170,14 @@ inline void my_hash_combine(std::size_t &seed, const T &v) {
   seed ^= hasher(v);
 }
 
+struct less_map : std::binary_function<const expressions::Expression *,
+                                       const expressions::Expression *, bool> {
+  bool operator()(const expressions::Expression *a,
+                  const expressions::Expression *b) const {
+    return *a < *b;
+  }
+};
+
 int main(int argc, char *argv[]) {
   // Initialize Google's logging library.
   google::InitGoogleLogging(argv[0]);

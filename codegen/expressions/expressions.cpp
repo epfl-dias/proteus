@@ -160,3 +160,195 @@ ExpressionType *expressions::ExtractExpression::createReturnType(
     }
   }
 }
+
+template <>
+ProteusValue expressions::
+    ExprVisitorVisitable<expression_t, expressions::Expression>::acceptTandem(
+        ExprTandemVisitor &v, const expressions::Expression *expr) const {
+  return static_cast<const expression_t *>(this)->acceptTandem(v, expr);
+}
+
+template <>
+ProteusValue expressions::ExprVisitorVisitable<
+    expression_t, expressions::Expression>::accept(ExprVisitor &v) const {
+  return static_cast<const expression_t *>(this)->accept(v);
+}
+
+template <template <typename> class C = std::less, typename Tret = bool>
+class ExpressionComparatorVisitor : public ExprTandemVisitor {
+ public:
+  Tret res;
+  ExpressionComparatorVisitor() {}
+
+  ProteusValue visit(const expressions::IntConstant *e1,
+                     const expressions::IntConstant *e2) {
+    res = C<expressions::IntConstant>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::Int64Constant *e1,
+                     const expressions::Int64Constant *e2) {
+    res = C<expressions::Int64Constant>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::DateConstant *e1,
+                     const expressions::DateConstant *e2) {
+    res = C<expressions::DateConstant>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::FloatConstant *e1,
+                     const expressions::FloatConstant *e2) {
+    res = C<expressions::FloatConstant>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::BoolConstant *e1,
+                     const expressions::BoolConstant *e2) {
+    res = C<expressions::BoolConstant>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::StringConstant *e1,
+                     const expressions::StringConstant *e2) {
+    res = C<expressions::StringConstant>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::DStringConstant *e1,
+                     const expressions::DStringConstant *e2) {
+    res = C<expressions::DStringConstant>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::InputArgument *e1,
+                     const expressions::InputArgument *e2) {
+    res = C<expressions::InputArgument>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::RecordProjection *e1,
+                     const expressions::RecordProjection *e2) {
+    res = C<expressions::RecordProjection>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::RecordConstruction *e1,
+                     const expressions::RecordConstruction *e2) {
+    res = C<expressions::RecordConstruction>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::IfThenElse *e1,
+                     const expressions::IfThenElse *e2) {
+    res = C<expressions::IfThenElse>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::EqExpression *e1,
+                     const expressions::EqExpression *e2) {
+    res = C<expressions::EqExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::NeExpression *e1,
+                     const expressions::NeExpression *e2) {
+    res = C<expressions::NeExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::GeExpression *e1,
+                     const expressions::GeExpression *e2) {
+    res = C<expressions::GeExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::GtExpression *e1,
+                     const expressions::GtExpression *e2) {
+    res = C<expressions::GtExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::LeExpression *e1,
+                     const expressions::LeExpression *e2) {
+    res = C<expressions::LeExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::LtExpression *e1,
+                     const expressions::LtExpression *e2) {
+    res = C<expressions::LtExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::AddExpression *e1,
+                     const expressions::AddExpression *e2) {
+    res = C<expressions::AddExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::SubExpression *e1,
+                     const expressions::SubExpression *e2) {
+    res = C<expressions::SubExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::MultExpression *e1,
+                     const expressions::MultExpression *e2) {
+    res = C<expressions::MultExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::DivExpression *e1,
+                     const expressions::DivExpression *e2) {
+    res = C<expressions::DivExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::ModExpression *e1,
+                     const expressions::ModExpression *e2) {
+    res = C<expressions::ModExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::AndExpression *e1,
+                     const expressions::AndExpression *e2) {
+    res = C<expressions::AndExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::OrExpression *e1,
+                     const expressions::OrExpression *e2) {
+    res = C<expressions::OrExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::ProteusValueExpression *e1,
+                     const expressions::ProteusValueExpression *e2) {
+    res = C<expressions::ProteusValueExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::MinExpression *e1,
+                     const expressions::MinExpression *e2) {
+    res = C<expressions::MinExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::MaxExpression *e1,
+                     const expressions::MaxExpression *e2) {
+    res = C<expressions::MaxExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::HashExpression *e1,
+                     const expressions::HashExpression *e2) {
+    res = C<expressions::HashExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::NegExpression *e1,
+                     const expressions::NegExpression *e2) {
+    res = C<expressions::NegExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::ExtractExpression *e1,
+                     const expressions::ExtractExpression *e2) {
+    res = C<expressions::ExtractExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::TestNullExpression *e1,
+                     const expressions::TestNullExpression *e2) {
+    res = C<expressions::TestNullExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::CastExpression *e1,
+                     const expressions::CastExpression *e2) {
+    res = C<expressions::CastExpression>{}(*e1, *e2);
+    return {};
+  }
+};
+
+bool expressions::Expression::operator<(
+    const expressions::Expression &r) const {
+  if (getTypeID() == r.getTypeID()) {
+    ExpressionComparatorVisitor<std::less> v;
+    acceptTandem(v, &r);
+    return v.res;
+  } else {
+    return getTypeID() < r.getTypeID();
+  }
+}

@@ -69,16 +69,7 @@ class Expression {
                                     const expressions::Expression *) const = 0;
   virtual ExpressionId getTypeID() const = 0;
 
-  virtual inline bool operator<(const expressions::Expression &r) const {
-    if (this->getTypeID() == r.getTypeID()) {
-      string error_msg =
-          string("[This operator is NOT responsible for this case!]");
-      LOG(ERROR) << error_msg;
-      throw runtime_error(error_msg);
-    } else {
-      return this->getTypeID() < r.getTypeID();
-    }
-  }
+  virtual bool operator<(const expressions::Expression &r) const final;
 
   virtual inline bool isRegistered() const { return registered; }
 
@@ -135,19 +126,24 @@ class Expression {
   string attrName;
 };
 
-template <typename T>
-class ExpressionCRTP : public Expression {
- private:
-  ExpressionCRTP(const ExpressionType *type) : Expression(type) {}
+template <typename T, typename Interface = Expression>
+class ExprVisitorVisitable : public Interface {
+ protected:
+  using Interface::Interface;
+
+ public:
+  virtual ProteusValue accept(ExprVisitor &v) const override;
+  virtual ProteusValue acceptTandem(
+      ExprTandemVisitor &v, const expressions::Expression *expr) const override;
 
  protected:
   virtual inline Expression &as_expr(string relName, string attrName) override {
-    registerAs(relName, attrName);
+    ExprVisitorVisitable<T, Expression>::registerAs(relName, attrName);
     return *this;
   }
 
   virtual inline Expression &as_expr(RecordAttribute *attr) override {
-    registerAs(attr);
+    ExprVisitorVisitable<T, Expression>::registerAs(attr);
     return *this;
   }
 
@@ -158,23 +154,20 @@ class ExpressionCRTP : public Expression {
   }
 
   virtual inline T &as(RecordAttribute *attr) {
-    return static_cast<T &>(
-        static_cast<decltype(*this)>(as_expr(relName, attrName)));
+    return static_cast<T &>(static_cast<decltype(*this)>(
+        as_expr(ExprVisitorVisitable<T, Expression>::relName,
+                ExprVisitorVisitable<T, Expression>::attrName)));
   }
-
-  virtual ProteusValue accept(ExprVisitor &v) const override;
-
-  virtual ProteusValue acceptTandem(
-      ExprTandemVisitor &v, const expressions::Expression *expr) const override;
 
   friend T;
 };
 
-struct less_map
-    : std::binary_function<const Expression *, const Expression *, bool> {
-  bool operator()(const Expression *a, const Expression *b) const {
-    return *a < *b;
-  }
+template <typename T>
+class ExpressionCRTP : public ExprVisitorVisitable<T, Expression> {
+ protected:
+  using ExprVisitorVisitable<T, Expression>::ExprVisitorVisitable;
+
+  virtual inline bool operator<(const T &r) const = 0;
 };
 
 class RecordProjection;
@@ -262,6 +255,10 @@ class expression_t final : public expressions::ExpressionCRTP<expression_t> {
   [[deprecated]] operator const concept_t *() const { return data.get(); }
 
   expressions::RecordProjection operator[](RecordAttribute proj) const;
+
+  virtual inline bool operator<(const expression_t &r) const override final {
+    return *data < *(r.data);
+  }
 };
 
 // Careful: Using a namespace to avoid conflicts witfh LLVM namespace
@@ -276,37 +273,9 @@ class Constant : public Expression {
 };
 
 template <typename T>
-class ConstantExpressionCRTP : public Constant {
- public:
-  ConstantExpressionCRTP(const ExpressionType *type) : Constant(type) {}
-
+class ConstantExpressionCRTP : public ExprVisitorVisitable<T, Constant> {
  protected:
-  virtual inline Expression &as_expr(string relName, string attrName) override {
-    registerAs(relName, attrName);
-    return *this;
-  }
-
-  virtual inline Expression &as_expr(RecordAttribute *attr) override {
-    registerAs(attr);
-    return *this;
-  }
-
- public:
-  virtual inline T &as(string relName, string attrName) {
-    return static_cast<T &>(
-        static_cast<decltype(*this)>(as_expr(relName, attrName)));
-  }
-
-  virtual inline T &as(RecordAttribute *attr) {
-    return static_cast<T &>(static_cast<decltype(*this)>(as_expr(attr)));
-  }
-
-  ProteusValue accept(ExprVisitor &v) const override;
-
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *expr) const override;
-
-  friend T;
+  using ExprVisitorVisitable<T, Constant>::ExprVisitorVisitable;
 };
 
 template <typename T, typename Tproteus, Constant::ConstantType TcontType,
@@ -328,18 +297,14 @@ class TConstant : public ConstantExpressionCRTP<Texpr> {
 
   Constant::ConstantType getConstantType() const { return TcontType; }
 
-  inline bool operator<(const expressions::Expression &r) const {
+  inline bool operator<(const Texpr &r) const {
     if (this->getTypeID() == r.getTypeID()) {
-      const Constant &rConst = dynamic_cast<const Constant &>(r);
-      if (rConst.getConstantType() == getConstantType()) {
-        const auto &r2 =
-            dynamic_cast<const TConstant<T, Tproteus, TcontType, Texpr> &>(r);
-        return this->getVal() < r2.getVal();
+      if (getConstantType() == r.getConstantType()) {
+        return this->getVal() < r.getVal();
       } else {
-        return this->getConstantType() < rConst.getConstantType();
+        return this->getConstantType() < r.getConstantType();
       }
     }
-    cout << "Not compatible" << endl;
     return this->getTypeID() < r.getTypeID();
   }
 };
@@ -458,20 +423,18 @@ class InputArgument : public ExpressionCRTP<InputArgument> {
     return largs;
   }
   ExpressionId getTypeID() const { return ARGUMENT; }
-  inline bool operator<(const expressions::Expression &r) const {
+  inline bool operator<(const InputArgument &r) const {
     if (this->getTypeID() == r.getTypeID()) {
-      cout << "next thing" << endl;
-      const InputArgument &rInputArg = dynamic_cast<const InputArgument &>(r);
       /* Is it the same record? */
       const ExpressionType *lExpr = this->getExpressionType();
-      const ExpressionType *rExpr = rInputArg.getExpressionType();
+      const ExpressionType *rExpr = r.getExpressionType();
       bool cmpExprType1 = *lExpr < *rExpr;
       bool cmpExprType2 = *rExpr < *rExpr;
       bool eqExprType = !cmpExprType1 && !cmpExprType2;
       /* Does this make sense? Do I need equality? */
       if (eqExprType) {
         list<RecordAttribute> lProj = this->getProjections();
-        list<RecordAttribute> rProj = rInputArg.getProjections();
+        list<RecordAttribute> rProj = r.getProjections();
         if (lProj.size() != rProj.size()) {
           return lProj.size() < rProj.size();
         }
@@ -495,7 +458,6 @@ class InputArgument : public ExpressionCRTP<InputArgument> {
         return cmpExprType1;
       }
     } else {
-      cout << "InputArg: Not compatible" << endl;
       return this->getTypeID() < r.getTypeID();
     }
   }
@@ -539,7 +501,7 @@ class RecordProjection : public ExpressionCRTP<RecordProjection> {
         attribute(attribute) {
     registerAs(getRelationName(), getProjectionName());
   }
-  ~RecordProjection() override = default;
+  ~RecordProjection() = default;
 
   expression_t getExpr() const { return expr; }
   string getOriginalRelationName() const {
@@ -549,8 +511,8 @@ class RecordProjection : public ExpressionCRTP<RecordProjection> {
   string getProjectionName() const { return attribute.getAttrName(); }
   RecordAttribute getAttribute() const { return attribute; }
 
-  ExpressionId getTypeID() const override { return RECORD_PROJECTION; }
-  inline bool operator<(const expressions::Expression &r) const override {
+  ExpressionId getTypeID() const { return RECORD_PROJECTION; }
+  inline bool operator<(const RecordProjection &r) const {
     //        if (this->getTypeID() == r.getTypeID()) {
     //            cout << "Record Proj Hashing" << endl;
     //            const RecordProjection& rProj =
@@ -580,18 +542,15 @@ class RecordProjection : public ExpressionCRTP<RecordProjection> {
     //            return this->getTypeID() < r.getTypeID();
     //        }
     if (this->getTypeID() == r.getTypeID()) {
-      // cout << "Record Proj Hashing" << endl;
-      const RecordProjection &rProj = dynamic_cast<const RecordProjection &>(r);
-
       string n1 = this->getRelationName();
-      string n2 = rProj.getRelationName();
+      string n2 = r.getRelationName();
 
-      bool cmpRel1 = this->getRelationName() < rProj.getRelationName();
-      bool cmpRel2 = rProj.getRelationName() < this->getRelationName();
+      bool cmpRel1 = this->getRelationName() < r.getRelationName();
+      bool cmpRel2 = r.getRelationName() < this->getRelationName();
       bool eqRelation = !cmpRel1 && !cmpRel2;
       if (eqRelation) {
-        bool cmpAttribute1 = this->getAttribute() < rProj.getAttribute();
-        bool cmpAttribute2 = rProj.getAttribute() < this->getAttribute();
+        bool cmpAttribute1 = this->getAttribute() < r.getAttribute();
+        bool cmpAttribute2 = r.getAttribute() < this->getAttribute();
         bool eqAttribute = !cmpAttribute1 && !cmpAttribute2;
         if (eqAttribute) {
           return false;
@@ -619,10 +578,9 @@ class HashExpression : public ExpressionCRTP<HashExpression> {
 
   expression_t getExpr() const { return expr; }
   ExpressionId getTypeID() const { return EXPRESSION_HASHER; }
-  inline bool operator<(const expressions::Expression &r) const {
+  inline bool operator<(const HashExpression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
-      const HashExpression &rHash = dynamic_cast<const HashExpression &>(r);
-      return this->getExpr() < rHash.getExpr();
+      return this->getExpr() < r.getExpr();
     } else {
       return this->getTypeID() < r.getTypeID();
     }
@@ -639,13 +597,11 @@ class ProteusValueExpression : public ExpressionCRTP<ProteusValueExpression> {
 
   ProteusValue getValue() const { return expr; }
   ExpressionId getTypeID() const { return RAWVALUE; }
-  inline bool operator<(const expressions::Expression &r) const {
+  inline bool operator<(const ProteusValueExpression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
-      const ProteusValueExpression &rProj =
-          dynamic_cast<const ProteusValueExpression &>(r);
-      return (expr.value == nullptr && rProj.expr.value == nullptr)
-                 ? (expr.isNull < rProj.expr.isNull)
-                 : (expr.value < rProj.expr.value);
+      return (expr.value == nullptr && r.expr.value == nullptr)
+                 ? (expr.isNull < r.expr.isNull)
+                 : (expr.value < r.expr.value);
     } else {
       return this->getTypeID() < r.getTypeID();
     }
@@ -684,13 +640,10 @@ class RecordConstruction : public ExpressionCRTP<RecordConstruction> {
 
   ExpressionId getTypeID() const { return RECORD_CONSTRUCTION; }
   const list<AttributeConstruction> &getAtts() const { return atts; }
-  inline bool operator<(const expressions::Expression &r) const {
+  inline bool operator<(const RecordConstruction &r) const {
     if (this->getTypeID() == r.getTypeID()) {
-      const RecordConstruction &rCons =
-          dynamic_cast<const RecordConstruction &>(r);
-
       list<AttributeConstruction> lAtts = this->getAtts();
-      list<AttributeConstruction> rAtts = rCons.getAtts();
+      list<AttributeConstruction> rAtts = r.getAtts();
 
       if (lAtts.size() != rAtts.size()) {
         return lAtts.size() < rAtts.size();
@@ -743,17 +696,15 @@ class IfThenElse : public ExpressionCRTP<IfThenElse> {
   expression_t getIfCond() const { return expr1; }
   expression_t getIfResult() const { return expr2; }
   expression_t getElseResult() const { return expr3; }
-  inline bool operator<(const expressions::Expression &r) const {
+  virtual inline bool operator<(const expressions::IfThenElse &r) const {
     if (this->getTypeID() == r.getTypeID()) {
-      const IfThenElse &rIf = dynamic_cast<const IfThenElse &>(r);
-
       expression_t lCond = this->getIfCond();
       expression_t lIfResult = this->getIfResult();
       expression_t lElseResult = this->getElseResult();
 
-      expression_t rCond = rIf.getIfCond();
-      expression_t rIfResult = rIf.getIfResult();
-      expression_t rElseResult = rIf.getElseResult();
+      expression_t rCond = r.getIfCond();
+      expression_t rIfResult = r.getIfResult();
+      expression_t rElseResult = r.getElseResult();
 
       bool eqCond = !(lCond < rCond) && !(rCond < lCond);
       bool eqIfResult = !(lIfResult < rIfResult) && !(rIfResult < lIfResult);
@@ -773,7 +724,6 @@ class IfThenElse : public ExpressionCRTP<IfThenElse> {
       } else {
         return lCond < rCond;
       }
-
     } else {
       return this->getTypeID() < r.getTypeID();
     }
@@ -797,21 +747,22 @@ class BinaryExpression : public Expression {
 
   virtual ExpressionId getTypeID() const { return BINARY; }
 
-  virtual inline bool operator<(const expressions::Expression &r) const {
-    if (this->getTypeID() == r.getTypeID()) {
-      const BinaryExpression &rBin = dynamic_cast<const BinaryExpression &>(r);
-      if (this->getOp()->getID() == rBin.getOp()->getID()) {
-        string error_msg = string(
-            "[This abstract bin. operator is NOT responsible for this case!]");
-        LOG(ERROR) << error_msg;
-        throw runtime_error(error_msg);
-      } else {
-        return this->getOp()->getID() < rBin.getOp()->getID();
-      }
-    } else {
-      return this->getTypeID() < r.getTypeID();
-    }
-  }
+  // virtual inline bool operator<(const BinaryExpression &r) const {
+  //   if (this->getTypeID() == r.getTypeID()) {
+  //     const BinaryExpression &rBin = dynamic_cast<const BinaryExpression
+  //     &>(r); if (this->getOp()->getID() == rBin.getOp()->getID()) {
+  //       string error_msg = string(
+  //           "[This abstract bin. operator is NOT responsible for this
+  //           case!]");
+  //       LOG(ERROR) << error_msg;
+  //       throw runtime_error(error_msg);
+  //     } else {
+  //       return this->getOp()->getID() < rBin.getOp()->getID();
+  //     }
+  //   } else {
+  //     return this->getTypeID() < r.getTypeID();
+  //   }
+  // }
 
  private:
   const expression_t lhs;
@@ -820,41 +771,11 @@ class BinaryExpression : public Expression {
 };
 
 template <typename T>
-class BinaryExpressionCRTP : public BinaryExpression {
+class BinaryExpressionCRTP : public ExprVisitorVisitable<T, BinaryExpression> {
  public:
-  BinaryExpressionCRTP(const ExpressionType *type,
-                       expressions::BinaryOperator *op, expression_t lhs,
-                       expression_t rhs)
-      : BinaryExpression(type, op, std::move(lhs), std::move(rhs)) {}
+  using ExprVisitorVisitable<T, BinaryExpression>::ExprVisitorVisitable;
 
   virtual ~BinaryExpressionCRTP() override = default;
-
- protected:
-  virtual inline Expression &as_expr(string relName, string attrName) override {
-    registerAs(relName, attrName);
-    return *this;
-  }
-
-  virtual inline Expression &as_expr(RecordAttribute *attr) override {
-    registerAs(attr);
-    return *this;
-  }
-
- public:
-  virtual inline T &as(string relName, string attrName) {
-    return static_cast<T &>(
-        static_cast<decltype(*this)>(as_expr(relName, attrName)));
-  }
-
-  virtual inline T &as(RecordAttribute *attr) {
-    return static_cast<T &>(static_cast<decltype(*this)>(as_expr(attr)));
-  }
-
-  ProteusValue accept(ExprVisitor &v) const override;
-  ProteusValue acceptTandem(ExprTandemVisitor &v,
-                            const expressions::Expression *) const override;
-
-  friend T;
 };
 
 template <typename T, typename Top>
@@ -869,16 +790,14 @@ class TBinaryExpression : public BinaryExpressionCRTP<T> {
  public:
   ExpressionId getTypeID() const { return BINARY; }
 
-  inline bool operator<(const expressions::Expression &r) const {
+  inline bool operator<(const T &r) const {
     if (this->getTypeID() == r.getTypeID()) {
-      const BinaryExpression &rBin = dynamic_cast<const BinaryExpression &>(r);
-      if (this->getOp()->getID() == rBin.getOp()->getID()) {
-        const Tparent &rOp = dynamic_cast<const Tparent &>(r);
+      if (this->getOp()->getID() == r.getOp()->getID()) {
         auto l1 = this->getLeftOperand();
         auto l2 = this->getRightOperand();
 
-        auto r1 = rOp.getLeftOperand();
-        auto r2 = rOp.getRightOperand();
+        auto r1 = r.getLeftOperand();
+        auto r2 = r.getRightOperand();
 
         bool eq1 = l1 < r1;
         bool eq2 = l2 < r2;
@@ -893,7 +812,7 @@ class TBinaryExpression : public BinaryExpressionCRTP<T> {
           return l1 < r1;
         }
       } else {
-        return this->getOp()->getID() < rBin.getOp()->getID();
+        return this->getOp()->getID() < r.getOp()->getID();
       }
     }
     return this->getTypeID() < r.getTypeID();
@@ -985,15 +904,12 @@ class MaxExpression : public BinaryExpressionCRTP<MaxExpression> {
         cond(expression_t::make<GtExpression>(lhs, rhs), lhs, rhs) {}
 
   const IfThenElse *getCond() const { return &cond; }
-  inline bool operator<(const expressions::Expression &r) const {
+  inline bool operator<(const MaxExpression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
-      const BinaryExpressionCRTP &rBin =
-          dynamic_cast<const BinaryExpressionCRTP &>(r);
-      if (this->getOp()->getID() == rBin.getOp()->getID()) {
-        const MaxExpression &rMax = dynamic_cast<const MaxExpression &>(r);
-        return this->cond < rMax.cond;
+      if (this->getOp()->getID() == r.getOp()->getID()) {
+        return this->cond < r.cond;
       } else {
-        return this->getOp()->getID() < rBin.getOp()->getID();
+        return this->getOp()->getID() < r.getOp()->getID();
       }
     }
     return this->getTypeID() < r.getTypeID();
@@ -1010,15 +926,12 @@ class MinExpression : public BinaryExpressionCRTP<MinExpression> {
         cond(expression_t::make<LtExpression>(lhs, rhs), lhs, rhs) {}
 
   const IfThenElse *getCond() const { return &cond; }
-  inline bool operator<(const expressions::Expression &r) const {
+  inline bool operator<(const MinExpression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
-      const BinaryExpressionCRTP &rBin =
-          dynamic_cast<const BinaryExpressionCRTP &>(r);
-      if (this->getOp()->getID() == rBin.getOp()->getID()) {
-        const MinExpression &rMin = dynamic_cast<const MinExpression &>(r);
-        return this->cond < rMin.cond;
+      if (this->getOp()->getID() == r.getOp()->getID()) {
+        return this->cond < r.cond;
       } else {
-        return this->getOp()->getID() < rBin.getOp()->getID();
+        return this->getOp()->getID() < r.getOp()->getID();
       }
     }
     return this->getTypeID() < r.getTypeID();
@@ -1035,10 +948,9 @@ class NegExpression : public ExpressionCRTP<NegExpression> {
 
   expression_t getExpr() const { return expr; }
   ExpressionId getTypeID() const { return NEG_EXPRESSION; }
-  inline bool operator<(const expressions::Expression &r) const {
+  inline bool operator<(const NegExpression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
-      const NegExpression &rHash = dynamic_cast<const NegExpression &>(r);
-      return this->getExpr() < rHash.getExpr();
+      return this->getExpr() < r.getExpr();
     } else {
       return this->getTypeID() < r.getTypeID();
     }
@@ -1058,11 +970,9 @@ class TestNullExpression : public ExpressionCRTP<TestNullExpression> {
   bool isNullTest() const { return nullTest; }
   expression_t getExpr() const { return expr; }
   ExpressionId getTypeID() const { return TESTNULL_EXPRESSION; }
-  inline bool operator<(const expressions::Expression &r) const {
+  inline bool operator<(const TestNullExpression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
-      const TestNullExpression &rHash =
-          dynamic_cast<const TestNullExpression &>(r);
-      return this->getExpr() < rHash.getExpr();
+      return this->getExpr() < r.getExpr();
     } else {
       return this->getTypeID() < r.getTypeID();
     }
@@ -1104,11 +1014,9 @@ class ExtractExpression : public ExpressionCRTP<ExtractExpression> {
   extract_unit getExtractUnit() const { return unit; }
   expression_t getExpr() const { return expr; }
   ExpressionId getTypeID() const { return EXTRACT; }
-  inline bool operator<(const expressions::Expression &r) const {
+  inline bool operator<(const ExtractExpression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
-      const ExtractExpression &rHash =
-          dynamic_cast<const ExtractExpression &>(r);
-      return this->getExpr() < rHash.getExpr();
+      return this->getExpr() < r.getExpr();
     } else {
       return this->getTypeID() < r.getTypeID();
     }
@@ -1130,10 +1038,9 @@ class CastExpression : public ExpressionCRTP<CastExpression> {
 
   expression_t getExpr() const { return expr; }
   ExpressionId getTypeID() const { return CAST_EXPRESSION; }
-  inline bool operator<(const expressions::Expression &r) const {
+  inline bool operator<(const CastExpression &r) const {
     if (this->getTypeID() == r.getTypeID()) {
-      const CastExpression &rHash = dynamic_cast<const CastExpression &>(r);
-      return this->getExpr() < rHash.getExpr();
+      return this->getExpr() < r.getExpr();
     } else {
       return this->getTypeID() < r.getTypeID();
     }
@@ -1143,76 +1050,6 @@ class CastExpression : public ExpressionCRTP<CastExpression> {
   expression_t expr;
 };
 
-inline bool operator<(const expressions::BinaryExpression &l,
-                      const expressions::BinaryExpression &r) {
-  expressions::BinaryOperator *lOp = l.getOp();
-  expressions::BinaryOperator *rOp = r.getOp();
-
-  bool sameOp =
-      !(lOp->getID() < rOp->getID()) && !(rOp->getID() < lOp->getID());
-  if (sameOp) {
-    auto l1 = l.getLeftOperand();
-    auto l2 = l.getRightOperand();
-
-    auto r1 = r.getLeftOperand();
-    auto r2 = r.getRightOperand();
-
-    bool eq1;
-    if (l1.getTypeID() == r1.getTypeID()) {
-      eq1 = !(l1 < r1) && !(r1 < l1);
-    } else {
-      eq1 = false;
-    }
-
-    bool eq2;
-    if (l2.getTypeID() == r2.getTypeID()) {
-      eq2 = !(l2 < r2) && !(r2 < l2);
-    } else {
-      eq2 = false;
-    }
-
-    if (eq1) {
-      if (eq2) {
-        return false;
-      } else {
-        return l2 < r2;
-      }
-    } else {
-      return l1 < r1;
-    }
-  } else {
-    return lOp->getID() < rOp->getID();
-  }
-}
-
-/* (Hopefully) won't be needed */
-// inline bool operator<(const expressions::EqExpression& l,
-//        const expressions::EqExpression& r)    {
-//
-//    Expression *l1 = l.getLeftOperand();
-//    Expression *l2 = l.getRightOperand();
-//
-//    Expression *r1 = r.getLeftOperand();
-//    Expression *r2 = r.getRightOperand();
-//
-//    bool eq1 = !(*l1 < *r1) && !(*r1 < *l1);
-//    bool eq2 = !(*l2 < *r2) && !(*r2 < *l2);
-//
-//    if(eq1)    {
-//        if(eq2)
-//        {
-//            return false;
-//        }
-//        else
-//        {
-//            return *l2 < *r2;
-//        }
-//    }
-//    else
-//    {
-//        return *l1 < *r1;
-//    }
-//}
 }  // namespace expressions
 
 //===----------------------------------------------------------------------===//
@@ -1433,17 +1270,21 @@ inline expression_t::expression_t(std::string v)
     : expression_t(expressions::StringConstant{v}) {}
 
 template <typename T>
-ProteusValue expressions::ExpressionCRTP<T>::accept(ExprVisitor &v) const {
-  std::enable_if_t<!std::is_same_v<expression_t, T>> *__unused;
-  return v.visit(static_cast<const T *>(this));
+constexpr bool compatibleExpr(const T *o1, const T *o2) {
+  return true;
 }
 
-template <typename T>
-ProteusValue expressions::ExpressionCRTP<T>::acceptTandem(
+template <>
+constexpr bool compatibleExpr<expressions::Constant>(
+    const expressions::Constant *o1, const expressions::Constant *o2) {
+  return o1->getConstantType() == o2->getConstantType();
+}
+
+template <typename T, typename Interface>
+ProteusValue expressions::ExprVisitorVisitable<T, Interface>::acceptTandem(
     ExprTandemVisitor &v, const expressions::Expression *expr) const {
-  std::enable_if_t<!std::is_same_v<expression_t, T>> *__unused;
-  if (getTypeID() == expr->getTypeID()) {
-    auto r = dynamic_cast<const T *>(expr);
+  auto r = dynamic_cast<const T *>(expr);
+  if (r && compatibleExpr<Interface>(this, r)) {
     return v.visit(static_cast<const T *>(this), r);
   }
   string error_msg{"[Tandem Visitor: ] Incompatible Pair"};
@@ -1452,54 +1293,18 @@ ProteusValue expressions::ExpressionCRTP<T>::acceptTandem(
 }
 
 template <>
-inline ProteusValue expressions::ExpressionCRTP<expression_t>::accept(
+ProteusValue expressions::
+    ExprVisitorVisitable<expression_t, expressions::Expression>::acceptTandem(
+        ExprTandemVisitor &v, const expressions::Expression *expr) const;
+
+template <typename T, typename Interface>
+ProteusValue expressions::ExprVisitorVisitable<T, Interface>::accept(
     ExprVisitor &v) const {
-  return static_cast<const expression_t *>(this)->accept(v);
+  return v.visit(static_cast<const T *>(this));
 }
 
 template <>
-inline ProteusValue expressions::ExpressionCRTP<expression_t>::acceptTandem(
-    ExprTandemVisitor &v, const expressions::Expression *expr) const {
-  return static_cast<const expression_t *>(this)->acceptTandem(v, expr);
-}
-
-template <typename T>
-inline ProteusValue expressions::BinaryExpressionCRTP<T>::accept(
-    ExprVisitor &v) const {
-  return v.visit(static_cast<const T *>(this));
-}
-
-template <typename T>
-ProteusValue expressions::BinaryExpressionCRTP<T>::acceptTandem(
-    ExprTandemVisitor &v, const expressions::Expression *expr) const {
-  if (getTypeID() == expr->getTypeID()) {
-    auto r = dynamic_cast<const T *>(expr);
-    return v.visit(static_cast<const T *>(this), r);
-  }
-  string error_msg{"[Tandem Visitor: ] Incompatible Pair"};
-  LOG(ERROR) << error_msg;
-  throw runtime_error(error_msg);
-}
-
-template <typename T>
-ProteusValue expressions::ConstantExpressionCRTP<T>::accept(
-    ExprVisitor &v) const {
-  return v.visit(static_cast<const T *>(this));
-}
-
-template <typename T>
-ProteusValue expressions::ConstantExpressionCRTP<T>::acceptTandem(
-    ExprTandemVisitor &v, const expressions::Expression *expr) const {
-  if (getTypeID() == expr->getTypeID()) {
-    auto rConst = dynamic_cast<const Constant *>(expr);
-    if (getConstantType() == rConst->getConstantType()) {
-      auto r = dynamic_cast<const T *>(expr);
-      return v.visit(static_cast<const T *>(this), r);
-    }
-  }
-  string error_msg = string("[Tandem Visitor: ] Incompatible Pair");
-  LOG(ERROR) << error_msg;
-  throw runtime_error(string(error_msg));
-}
+ProteusValue expressions::ExprVisitorVisitable<
+    expression_t, expressions::Expression>::accept(ExprVisitor &v) const;
 
 #endif /* EXPRESSIONS_HPP_ */

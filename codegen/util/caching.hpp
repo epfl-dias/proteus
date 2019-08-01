@@ -30,8 +30,6 @@
 #define CACHING_ON
 //#define DEBUGCACHING
 
-using expressions::less_map;
-
 typedef struct CacheInfo {
   /* XXX Issue: Types depend on context
    * Do I need to share the context for this to work?
@@ -150,6 +148,14 @@ class CachingService {
   void clearPM();
 
  private:
+  struct less_map
+      : std::binary_function<const expressions::Expression *,
+                             const expressions::Expression *, bool> {
+    bool operator()(const expressions::Expression *a,
+                    const expressions::Expression *b) const {
+      return *a < *b;
+    }
+  };
   /*
    * From expressions::Expression to (cast) cache.
    * Binary cache only probed at time of scan.

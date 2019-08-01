@@ -69,6 +69,14 @@ int main() {
   materializer();
 }
 
+struct less_map : std::binary_function<const expressions::Expression *,
+                                       const expressions::Expression *, bool> {
+  bool operator()(const expressions::Expression *a,
+                  const expressions::Expression *b) const {
+    return *a < *b;
+  }
+};
+
 void expressionMap() {
   map<expressions::Expression *, int, less_map> mapTest;
 
