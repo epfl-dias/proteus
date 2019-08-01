@@ -83,71 +83,12 @@ std::string hyphenatedPluginToCamel(const char *name) {
 
 PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
                            const char *moduleName)
-    : exprParser(cat),
-      planPath(planPath),
-      moduleName(moduleName),
-      catalogParser(cat),
-      handle(dlopen(NULL, 0)) {
-  /* Init LLVM Context and catalog */
-  ctx = prepareContext(this->moduleName);
-
-  // Input Path
-  const char *nameJSON = planPath;
-  // Prepare Input
-  struct stat statbuf;
-  stat(nameJSON, &statbuf);
-  size_t fsize = statbuf.st_size;
-
-  int fd = open(nameJSON, O_RDONLY);
-  if (fd == -1) {
-    throw runtime_error(string("json.open"));
-  }
-
-  const char *bufJSON =
-      (const char *)mmap(NULL, fsize, PROT_READ, MAP_PRIVATE, fd, 0);
-  if (bufJSON == MAP_FAILED) {
-    const char *err = "json.mmap";
-    LOG(ERROR) << err;
-    throw runtime_error(err);
-  }
-
-  Document document;  // Default template parameter uses UTF8 and
-                      // MemoryPoolAllocator.
-  auto &parsed = document.Parse(bufJSON);
-  if (parsed.HasParseError()) {
-    ParseResult ok = (ParseResult)parsed;
-    fprintf(stderr, "JSON parse error: %s (%lu)",
-            RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
-    const char *err =
-        "[PlanExecutor: ] Error parsing physical plan (JSON parsing error)";
-    LOG(ERROR) << err;
-    throw runtime_error(err);
-  }
-
-  /* Start plan traversal. */
-  printf("\nParsing physical plan:\n");
-  assert(document.IsObject());
-
-  assert(document.HasMember("operator"));
-  assert(document["operator"].IsString());
-  printf("operator = %s\n", document["operator"].GetString());
-
-  parsePlan(document);
-
-  vector<Plugin *>::iterator pgIter = activePlugins.begin();
-
-  /* Cleanup */
-  for (; pgIter != activePlugins.end(); pgIter++) {
-    Plugin *currPg = *pgIter;
-    currPg->finish();
-  }
-
-  return;
-}
+    : PlanExecutor(planPath, cat, moduleName, prepareContext(moduleName)) {}
 
 PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
                            const char *moduleName, Context *ctx)
-    : exprParser(cat),
+    : handle(dlopen(NULL, 0)),
+      exprParser(cat),
       planPath(planPath),
       moduleName(moduleName),
       catalogParser(cat),
@@ -172,11 +113,11 @@ PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
     throw runtime_error(err);
   }
 
-  Document document;  // Default template parameter uses UTF8 and
-                      // MemoryPoolAllocator.
+  rapidjson::Document document;  // Default template parameter uses UTF8 and
+                                 // MemoryPoolAllocator.
   auto &parsed = document.Parse(bufJSON);
   if (parsed.HasParseError()) {
-    ParseResult ok = (ParseResult)parsed;
+    auto ok = (rapidjson::ParseResult)parsed;
     fprintf(stderr, "JSON parse error: %s (%lu)",
             RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
     const char *err =
@@ -194,16 +135,6 @@ PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
   printf("operator = %s\n", document["operator"].GetString());
 
   parsePlan(document, false);
-
-  // vector<Plugin*>::iterator pgIter = activePlugins.begin();
-
-  // /* Cleanup */
-  // for(; pgIter != activePlugins.end(); pgIter++)    {
-  //     Plugin *currPg = *pgIter;
-  //     currPg->finish();
-  // }
-
-  return;
 }
 
 void PlanExecutor::parsePlan(const rapidjson::Document &doc, bool execute) {
@@ -227,11 +158,8 @@ void PlanExecutor::cleanUp() {
   /* XXX Remove when testing caches (?) */
   catalog.clear();
 
-  vector<Plugin *>::iterator pgIter = activePlugins.begin();
-
   /* Cleanup */
-  for (; pgIter != activePlugins.end(); pgIter++) {
-    Plugin *currPg = *pgIter;
+  for (const auto &currPg : activePlugins) {
     currPg->finish();
   }
 }
@@ -255,12 +183,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val.HasMember("accumulator"));
     assert(val["accumulator"].IsArray());
     vector<Monoid> accs;
-    const rapidjson::Value &accsJSON = val["accumulator"];
-    for (SizeType i = 0; i < accsJSON.Size();
-         i++)  // rapidjson uses SizeType instead of size_t.
-    {
-      assert(accsJSON[i].IsString());
-      Monoid acc = parseAccumulator(accsJSON[i].GetString());
+    for (const auto &accm : val["accumulator"].GetArray()) {
+      assert(accm.IsString());
+      Monoid acc = parseAccumulator(accm.GetString());
       accs.push_back(acc);
     }
 
@@ -835,52 +760,50 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     vector<RecordAttribute *> build_join_attr_block;
     vector<GpuMatExpr> build_join_expr;
 
-    for (SizeType i = 0; i < val["build_e"].Size(); i++) {
-      assert(val["build_e"][i].IsObject());
+    for (const auto &e : val["build_e"].GetArray()) {
+      assert(e.IsObject());
 
-      assert(val["build_e"][i]["original"].IsObject());
-      auto outExpr = parseExpression(val["build_e"][i]["original"]);
+      assert(e["original"].IsObject());
+      auto outExpr = parseExpression(e["original"]);
       build_expr.emplace_back(outExpr);
 
-      assert(val["build_e"][i]["original"]["attribute"].IsObject());
+      assert(e["original"]["attribute"].IsObject());
       RecordAttribute *recAttr =
-          this->parseRecordAttr(val["build_e"][i]["original"]["attribute"]);
+          this->parseRecordAttr(e["original"]["attribute"]);
       build_attr.push_back(recAttr);
       build_attr_block.push_back(new RecordAttribute(*recAttr, true));
 
-      assert(val["build_e"][i]["hashed"].IsObject());
-      auto outHashedExpr = parseExpression(val["build_e"][i]["hashed"]);
+      assert(e["hashed"].IsObject());
+      auto outHashedExpr = parseExpression(e["hashed"]);
       build_hashed_expr.emplace_back(outHashedExpr);
 
-      assert(val["build_e"][i]["hashed-block"].IsObject());
-      auto outHashedBlockExpr =
-          parseExpression(val["build_e"][i]["hashed-block"]);
+      assert(e["hashed-block"].IsObject());
+      auto outHashedBlockExpr = parseExpression(e["hashed-block"]);
       build_hashed_expr_block.emplace_back(outHashedBlockExpr);
 
-      assert(val["build_e"][i]["hashed"]["attribute"].IsObject());
+      assert(e["hashed"]["attribute"].IsObject());
       RecordAttribute *recHashedAttr =
-          this->parseRecordAttr(val["build_e"][i]["hashed"]["register_as"]);
+          this->parseRecordAttr(e["hashed"]["register_as"]);
       build_hashed_attr.push_back(recHashedAttr);
       build_hashed_attr_block.push_back(
           new RecordAttribute(*recHashedAttr, true));
 
-      assert(val["build_e"][i]["join"].IsObject());
-      assert(val["build_e"][i]["join"].HasMember("e"));
-      assert(val["build_e"][i]["join"].HasMember("packet"));
-      assert(val["build_e"][i]["join"]["packet"].IsInt());
-      assert(val["build_e"][i]["join"].HasMember("offset"));
-      assert(val["build_e"][i]["join"]["offset"].IsInt());
-      auto outJoinExpr = parseExpression(val["build_e"][i]["join"]["e"]);
-      build_join_expr.emplace_back(
-          outJoinExpr, val["build_e"][i]["join"]["packet"].GetInt(),
-          val["build_e"][i]["join"]["offset"].GetInt());
+      assert(e["join"].IsObject());
+      assert(e["join"].HasMember("e"));
+      assert(e["join"].HasMember("packet"));
+      assert(e["join"]["packet"].IsInt());
+      assert(e["join"].HasMember("offset"));
+      assert(e["join"]["offset"].IsInt());
+      auto outJoinExpr = parseExpression(e["join"]["e"]);
+      build_join_expr.emplace_back(outJoinExpr, e["join"]["packet"].GetInt(),
+                                   e["join"]["offset"].GetInt());
 
-      assert(val["build_e"][i]["join"]["e"]["attribute"].IsObject());
+      assert(e["join"]["e"]["attribute"].IsObject());
       RecordAttribute *recJoinAttr =
-          this->parseRecordAttr(val["build_e"][i]["join"]["e"]["attribute"]);
+          this->parseRecordAttr(e["join"]["e"]["attribute"]);
       build_join_attr.push_back(recJoinAttr);
       build_join_attr_block.push_back(new RecordAttribute(*recJoinAttr, true));
-      auto outPreJoinExpr = parseExpression(val["build_e"][i]["join"]["e"]);
+      auto outPreJoinExpr = parseExpression(e["join"]["e"]);
       outPreJoinExpr.registerAs(recJoinAttr);
       build_prejoin_expr.push_back(outPreJoinExpr);
     }
@@ -893,10 +816,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val["build_w"].IsArray());
     vector<size_t> build_widths;
 
-    const rapidjson::Value &build_wJSON = val["build_w"];
-    for (SizeType i = 0; i < build_wJSON.Size(); i++) {
-      assert(build_wJSON[i].IsInt());
-      build_widths.push_back(build_wJSON[i].GetInt());
+    for (const auto &w : val["build_w"].GetArray()) {
+      assert(w.IsInt());
+      build_widths.push_back(w.GetInt());
     }
 
     assert(val["probe_e"].IsArray());
@@ -912,52 +834,50 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     vector<RecordAttribute *> probe_join_attr_block;
     vector<GpuMatExpr> probe_join_expr;
 
-    for (SizeType i = 0; i < val["probe_e"].Size(); i++) {
-      assert(val["probe_e"][i].IsObject());
+    for (const auto &e : val["probe_e"].GetArray()) {
+      assert(e.IsObject());
 
-      assert(val["probe_e"][i]["original"].IsObject());
-      auto outExpr = parseExpression(val["probe_e"][i]["original"]);
+      assert(e["original"].IsObject());
+      auto outExpr = parseExpression(e["original"]);
       probe_expr.emplace_back(outExpr);
 
-      assert(val["probe_e"][i]["original"]["attribute"].IsObject());
+      assert(e["original"]["attribute"].IsObject());
       RecordAttribute *recAttr =
-          this->parseRecordAttr(val["probe_e"][i]["original"]["attribute"]);
+          this->parseRecordAttr(e["original"]["attribute"]);
       probe_attr.push_back(recAttr);
       probe_attr_block.push_back(new RecordAttribute(*recAttr, true));
 
-      assert(val["probe_e"][i]["hashed"].IsObject());
-      auto outHashedExpr = parseExpression(val["probe_e"][i]["hashed"]);
+      assert(e["hashed"].IsObject());
+      auto outHashedExpr = parseExpression(e["hashed"]);
       probe_hashed_expr.emplace_back(outHashedExpr);
 
-      assert(val["probe_e"][i]["hashed-block"].IsObject());
-      auto outHashedBlockExpr =
-          parseExpression(val["probe_e"][i]["hashed-block"]);
+      assert(e["hashed-block"].IsObject());
+      auto outHashedBlockExpr = parseExpression(e["hashed-block"]);
       probe_hashed_expr_block.emplace_back(outHashedBlockExpr);
 
-      assert(val["probe_e"][i]["hashed"]["attribute"].IsObject());
+      assert(e["hashed"]["attribute"].IsObject());
       RecordAttribute *recHashedAttr =
-          this->parseRecordAttr(val["probe_e"][i]["hashed"]["register_as"]);
+          this->parseRecordAttr(e["hashed"]["register_as"]);
       probe_hashed_attr.push_back(recHashedAttr);
       probe_hashed_attr_block.push_back(
           new RecordAttribute(*recHashedAttr, true));
 
-      assert(val["probe_e"][i]["join"].IsObject());
-      assert(val["probe_e"][i]["join"].HasMember("e"));
-      assert(val["probe_e"][i]["join"].HasMember("packet"));
-      assert(val["probe_e"][i]["join"]["packet"].IsInt());
-      assert(val["probe_e"][i]["join"].HasMember("offset"));
-      assert(val["probe_e"][i]["join"]["offset"].IsInt());
-      auto outJoinExpr = parseExpression(val["probe_e"][i]["join"]["e"]);
-      probe_join_expr.emplace_back(
-          outJoinExpr, val["probe_e"][i]["join"]["packet"].GetInt(),
-          val["probe_e"][i]["join"]["offset"].GetInt());
+      assert(e["join"].IsObject());
+      assert(e["join"].HasMember("e"));
+      assert(e["join"].HasMember("packet"));
+      assert(e["join"]["packet"].IsInt());
+      assert(e["join"].HasMember("offset"));
+      assert(e["join"]["offset"].IsInt());
+      auto outJoinExpr = parseExpression(e["join"]["e"]);
+      probe_join_expr.emplace_back(outJoinExpr, e["join"]["packet"].GetInt(),
+                                   e["join"]["offset"].GetInt());
 
-      assert(val["probe_e"][i]["join"]["e"]["attribute"].IsObject());
+      assert(e["join"]["e"]["attribute"].IsObject());
       RecordAttribute *recJoinAttr =
-          this->parseRecordAttr(val["probe_e"][i]["join"]["e"]["attribute"]);
+          this->parseRecordAttr(e["join"]["e"]["attribute"]);
       probe_join_attr.push_back(recJoinAttr);
       probe_join_attr_block.push_back(new RecordAttribute(*recJoinAttr, true));
-      auto outPreJoinExpr = parseExpression(val["probe_e"][i]["join"]["e"]);
+      auto outPreJoinExpr = parseExpression(e["join"]["e"]);
       outPreJoinExpr.registerAs(recJoinAttr);
       probe_prejoin_expr.push_back(outPreJoinExpr);
     }
@@ -970,10 +890,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val["probe_w"].IsArray());
     vector<size_t> probe_widths;
 
-    const rapidjson::Value &probe_wJSON = val["probe_w"];
-    for (SizeType i = 0; i < probe_wJSON.Size(); i++) {
-      assert(probe_wJSON[i].IsInt());
-      probe_widths.push_back(probe_wJSON[i].GetInt());
+    for (const auto &w : val["build_w"].GetArray()) {
+      assert(w.IsInt());
+      probe_widths.push_back(w.GetInt());
     }
 
     Exchange *xch_build =
@@ -1116,11 +1035,11 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     btt_probe2->setParent(hpart2);
 
     newOp = new GpuPartitionedHashJoinChained(
-        build_join_expr, build_widths, build_join_expr[0].expr, nullopt, hpart1,
-        probe_join_expr, probe_widths, probe_join_expr[0].expr, nullopt, hpart2,
-        hpart1->getState(), hpart2->getState(), maxBuildInputSize,
-        maxProbeInputSize, 13, (ParallelContext *)ctx, "hj_part", pip_rcv,
-        NULL);
+        build_join_expr, build_widths, build_join_expr[0].expr, std::nullopt,
+        hpart1, probe_join_expr, probe_widths, probe_join_expr[0].expr,
+        std::nullopt, hpart2, hpart1->getState(), hpart2->getState(),
+        maxBuildInputSize, maxProbeInputSize, 13, (ParallelContext *)ctx,
+        "hj_part", pip_rcv, NULL);
     hpart1->setParent(newOp);
     hpart2->setParent(newOp);
   } else if (strcmp(opName, "partitioned-hashjoin-chained") == 0) {
@@ -1142,12 +1061,12 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     std::optional<expression_t> build_minorkey_expr{
         (val.HasMember("build_k_minor"))
             ? std::make_optional(parseExpression(val["build_k_minor"]))
-            : nullopt};
+            : std::nullopt};
 
     std::optional<expression_t> probe_minorkey_expr{
         (val.HasMember("probe_k_minor"))
             ? std::make_optional(parseExpression(val["probe_k_minor"]))
-            : nullopt};
+            : std::nullopt};
 
     // #ifndef NCUDA
     //         if (val.HasMember("gpu") && val["gpu"].GetBool()){
@@ -1159,10 +1078,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val["build_w"].IsArray());
     vector<size_t> build_widths;
 
-    const rapidjson::Value &build_wJSON = val["build_w"];
-    for (SizeType i = 0; i < build_wJSON.Size(); i++) {
-      assert(build_wJSON[i].IsInt());
-      build_widths.push_back(build_wJSON[i].GetInt());
+    for (const auto &w : val["build_w"].GetArray()) {
+      assert(w.IsInt());
+      build_widths.push_back(w.GetInt());
     }
 
     /*
@@ -1172,27 +1090,24 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val.HasMember("build_e"));
     assert(val["build_e"].IsArray());
     vector<GpuMatExpr> build_e;
-    const rapidjson::Value &build_exprsJSON = val["build_e"];
-    for (SizeType i = 0; i < build_exprsJSON.Size(); i++) {
-      assert(build_exprsJSON[i].HasMember("e"));
-      assert(build_exprsJSON[i].HasMember("packet"));
-      assert(build_exprsJSON[i]["packet"].IsInt());
-      assert(build_exprsJSON[i].HasMember("offset"));
-      assert(build_exprsJSON[i]["offset"].IsInt());
-      auto outExpr = parseExpression(build_exprsJSON[i]["e"]);
+    for (const auto &e : val["build_e"].GetArray()) {
+      assert(e.HasMember("e"));
+      assert(e.HasMember("packet"));
+      assert(e["packet"].IsInt());
+      assert(e.HasMember("offset"));
+      assert(e["offset"].IsInt());
+      auto outExpr = parseExpression(e["e"]);
 
-      build_e.emplace_back(outExpr, build_exprsJSON[i]["packet"].GetInt(),
-                           build_exprsJSON[i]["offset"].GetInt());
+      build_e.emplace_back(outExpr, e["packet"].GetInt(), e["offset"].GetInt());
     }
 
     assert(val.HasMember("probe_w"));
     assert(val["probe_w"].IsArray());
     vector<size_t> probe_widths;
 
-    const rapidjson::Value &probe_wJSON = val["probe_w"];
-    for (SizeType i = 0; i < probe_wJSON.Size(); i++) {
-      assert(probe_wJSON[i].IsInt());
-      probe_widths.push_back(probe_wJSON[i].GetInt());
+    for (const auto &w : val["probe_w"].GetArray()) {
+      assert(w.IsInt());
+      probe_widths.push_back(w.GetInt());
     }
 
     /*
@@ -1202,17 +1117,15 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val.HasMember("probe_e"));
     assert(val["probe_e"].IsArray());
     vector<GpuMatExpr> probe_e;
-    const rapidjson::Value &probe_exprsJSON = val["probe_e"];
-    for (SizeType i = 0; i < probe_exprsJSON.Size(); i++) {
-      assert(probe_exprsJSON[i].HasMember("e"));
-      assert(probe_exprsJSON[i].HasMember("packet"));
-      assert(probe_exprsJSON[i]["packet"].IsInt());
-      assert(probe_exprsJSON[i].HasMember("offset"));
-      assert(probe_exprsJSON[i]["offset"].IsInt());
-      auto outExpr = parseExpression(probe_exprsJSON[i]["e"]);
+    for (const auto &e : val["probe_e"].GetArray()) {
+      assert(e.HasMember("e"));
+      assert(e.HasMember("packet"));
+      assert(e["packet"].IsInt());
+      assert(e.HasMember("offset"));
+      assert(e["offset"].IsInt());
+      auto outExpr = parseExpression(e["e"]);
 
-      probe_e.emplace_back(outExpr, probe_exprsJSON[i]["packet"].GetInt(),
-                           probe_exprsJSON[i]["offset"].GetInt());
+      probe_e.emplace_back(outExpr, e["packet"].GetInt(), e["offset"].GetInt());
     }
 
     assert(val.HasMember("maxBuildInputSize"));
@@ -1281,10 +1194,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val["build_w"].IsArray());
     vector<size_t> build_widths;
 
-    const rapidjson::Value &build_wJSON = val["build_w"];
-    for (SizeType i = 0; i < build_wJSON.Size(); i++) {
-      assert(build_wJSON[i].IsInt());
-      build_widths.push_back(build_wJSON[i].GetInt());
+    for (const auto &w : val["build_w"].GetArray()) {
+      assert(w.IsInt());
+      build_widths.push_back(w.GetInt());
     }
 
     /*
@@ -1294,27 +1206,24 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val.HasMember("build_e"));
     assert(val["build_e"].IsArray());
     vector<GpuMatExpr> build_e;
-    const rapidjson::Value &build_exprsJSON = val["build_e"];
-    for (SizeType i = 0; i < build_exprsJSON.Size(); i++) {
-      assert(build_exprsJSON[i].HasMember("e"));
-      assert(build_exprsJSON[i].HasMember("packet"));
-      assert(build_exprsJSON[i]["packet"].IsInt());
-      assert(build_exprsJSON[i].HasMember("offset"));
-      assert(build_exprsJSON[i]["offset"].IsInt());
-      auto outExpr = parseExpression(build_exprsJSON[i]["e"]);
+    for (const auto &e : val["build_e"].GetArray()) {
+      assert(e.HasMember("e"));
+      assert(e.HasMember("packet"));
+      assert(e["packet"].IsInt());
+      assert(e.HasMember("offset"));
+      assert(e["offset"].IsInt());
+      auto outExpr = parseExpression(e["e"]);
 
-      build_e.emplace_back(outExpr, build_exprsJSON[i]["packet"].GetInt(),
-                           build_exprsJSON[i]["offset"].GetInt());
+      build_e.emplace_back(outExpr, e["packet"].GetInt(), e["offset"].GetInt());
     }
 
     assert(val.HasMember("probe_w"));
     assert(val["probe_w"].IsArray());
     vector<size_t> probe_widths;
 
-    const rapidjson::Value &probe_wJSON = val["probe_w"];
-    for (SizeType i = 0; i < probe_wJSON.Size(); i++) {
-      assert(probe_wJSON[i].IsInt());
-      probe_widths.push_back(probe_wJSON[i].GetInt());
+    for (const auto &w : val["probe_w"].GetArray()) {
+      assert(w.IsInt());
+      probe_widths.push_back(w.GetInt());
     }
 
     /*
@@ -1324,17 +1233,15 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val.HasMember("probe_e"));
     assert(val["probe_e"].IsArray());
     vector<GpuMatExpr> probe_e;
-    const rapidjson::Value &probe_exprsJSON = val["probe_e"];
-    for (SizeType i = 0; i < probe_exprsJSON.Size(); i++) {
-      assert(probe_exprsJSON[i].HasMember("e"));
-      assert(probe_exprsJSON[i].HasMember("packet"));
-      assert(probe_exprsJSON[i]["packet"].IsInt());
-      assert(probe_exprsJSON[i].HasMember("offset"));
-      assert(probe_exprsJSON[i]["offset"].IsInt());
-      auto outExpr = parseExpression(probe_exprsJSON[i]["e"]);
+    for (const auto &e : val["probe_e"].GetArray()) {
+      assert(e.HasMember("e"));
+      assert(e.HasMember("packet"));
+      assert(e["packet"].IsInt());
+      assert(e.HasMember("offset"));
+      assert(e["offset"].IsInt());
+      auto outExpr = parseExpression(e["e"]);
 
-      probe_e.emplace_back(outExpr, probe_exprsJSON[i]["packet"].GetInt(),
-                           probe_exprsJSON[i]["offset"].GetInt());
+      probe_e.emplace_back(outExpr, e["packet"].GetInt(), e["offset"].GetInt());
     }
 
     assert(val.HasMember("maxBuildInputSize"));
@@ -1673,8 +1580,8 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
         map<string, RecordAttribute *>();
     vector<RecordAttribute *> fieldsLeft = vector<RecordAttribute *>();
     vector<materialization_mode> outputModesLeft;
-    for (SizeType i = 0; i < val[keyMatLeft].Size(); i++) {
-      auto exprL = parseExpression(val[keyMatLeft][i]);
+    for (const auto &keyMat : val[keyMatLeft].GetArray()) {
+      auto exprL = parseExpression(keyMat);
 
       exprsLeft.push_back(exprL);
       outputModesLeft.insert(outputModesLeft.begin(), EAGER);
@@ -1720,8 +1627,8 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
         map<string, RecordAttribute *>();
     vector<RecordAttribute *> fieldsRight = vector<RecordAttribute *>();
     vector<materialization_mode> outputModesRight;
-    for (SizeType i = 0; i < val[keyMatRight].Size(); i++) {
-      auto exprR = parseExpression(val[keyMatRight][i]);
+    for (const auto &keyMat : val[keyMatRight].GetArray()) {
+      auto exprR = parseExpression(keyMat);
 
       exprsRight.push_back(exprR);
       outputModesRight.insert(outputModesRight.begin(), EAGER);
@@ -1783,20 +1690,18 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val.HasMember(keyAccum));
     assert(val[keyAccum].IsArray());
     vector<Monoid> accs;
-    const rapidjson::Value &accsJSON = val[keyAccum];
-    for (SizeType i = 0; i < accsJSON.Size(); i++) {
-      assert(accsJSON[i].IsString());
-      Monoid acc = parseAccumulator(accsJSON[i].GetString());
+    for (const auto &accm : val[keyAccum].GetArray()) {
+      assert(accm.IsString());
+      Monoid acc = parseAccumulator(accm.GetString());
       accs.push_back(acc);
     }
     /* get label for each of the aggregate values */
     vector<string> aggrLabels;
     assert(val.HasMember(keyAggrNames));
     assert(val[keyAggrNames].IsArray());
-    const rapidjson::Value &labelsJSON = val[keyAggrNames];
-    for (SizeType i = 0; i < labelsJSON.Size(); i++) {
-      assert(labelsJSON[i].IsString());
-      aggrLabels.push_back(labelsJSON[i].GetString());
+    for (const auto &label : val[keyAggrNames].GetArray()) {
+      assert(label.IsString());
+      aggrLabels.push_back(label.GetString());
     }
 
     /* Predicate */
@@ -1954,9 +1859,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val["projections"].IsArray());
 
     vector<RecordAttribute *> projections;
-    for (SizeType i = 0; i < val["projections"].Size(); i++) {
-      assert(val["projections"][i].IsObject());
-      RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+    for (const auto &proj : val["projections"].GetArray()) {
+      assert(proj.IsObject());
+      RecordAttribute *recAttr = this->parseRecordAttr(proj);
       projections.push_back(recAttr);
     }
 
@@ -2017,9 +1922,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val["projections"].IsArray());
 
     vector<RecordAttribute *> projections;
-    for (SizeType i = 0; i < val["projections"].Size(); i++) {
-      assert(val["projections"][i].IsObject());
-      RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+    for (const auto &proj : val["projections"].GetArray()) {
+      assert(proj.IsObject());
+      RecordAttribute *recAttr = this->parseRecordAttr(proj);
       projections.push_back(recAttr);
     }
 
@@ -2158,9 +2063,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val["projections"].IsArray());
 
     vector<RecordAttribute *> projections;
-    for (SizeType i = 0; i < val["projections"].Size(); i++) {
-      assert(val["projections"][i].IsObject());
-      RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+    for (const auto &proj : val["projections"].GetArray()) {
+      assert(proj.IsObject());
+      RecordAttribute *recAttr = this->parseRecordAttr(proj);
       projections.push_back(recAttr);
     }
 
@@ -2190,9 +2095,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val["projections"].IsArray());
 
     vector<RecordAttribute *> projections;
-    for (SizeType i = 0; i < val["projections"].Size(); i++) {
-      assert(val["projections"][i].IsObject());
-      RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+    for (const auto &proj : val["projections"].GetArray()) {
+      assert(proj.IsObject());
+      RecordAttribute *recAttr = this->parseRecordAttr(proj);
       projections.push_back(recAttr);
     }
 
@@ -2244,9 +2149,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val["projections"].IsArray());
 
     vector<RecordAttribute *> projections;
-    for (SizeType i = 0; i < val["projections"].Size(); i++) {
-      assert(val["projections"][i].IsObject());
-      RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+    for (const auto &proj : val["projections"].GetArray()) {
+      assert(proj.IsObject());
+      RecordAttribute *recAttr = this->parseRecordAttr(proj);
       projections.push_back(recAttr);
     }
 
@@ -2270,9 +2175,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val["projections"].IsArray());
 
     vector<RecordAttribute *> projections;
-    for (SizeType i = 0; i < val["projections"].Size(); i++) {
-      assert(val["projections"][i].IsObject());
-      RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+    for (const auto &proj : val["projections"].GetArray()) {
+      assert(proj.IsObject());
+      RecordAttribute *recAttr = this->parseRecordAttr(proj);
       projections.push_back(recAttr);
     }
 
@@ -2338,18 +2243,18 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val.HasMember("input"));
     assert(val["input"].IsArray());
     std::vector<Operator *> children;
-    for (SizeType i = 0; i < val["input"].Size(); ++i) {
-      assert(val["input"][i].IsObject());
-      children.push_back(parseOperator(val["input"][i]));
+    for (const auto &child : val["input"].GetArray()) {
+      assert(child.IsObject());
+      children.push_back(parseOperator(child));
     }
 
     assert(val.HasMember("projections"));
     assert(val["projections"].IsArray());
 
     vector<RecordAttribute *> projections;
-    for (SizeType i = 0; i < val["projections"].Size(); i++) {
-      assert(val["projections"][i].IsObject());
-      RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+    for (const auto &proj : val["projections"].GetArray()) {
+      assert(proj.IsObject());
+      RecordAttribute *recAttr = this->parseRecordAttr(proj);
       projections.push_back(recAttr);
     }
 
@@ -2375,9 +2280,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       assert(val["projections"].IsArray());
 
       vector<RecordAttribute *> projections;
-      for (SizeType i = 0; i < val["projections"].Size(); i++) {
-        assert(val["projections"][i].IsObject());
-        RecordAttribute *recAttr = this->parseRecordAttr(val["projections"][i]);
+      for (const auto &proj : val["projections"].GetArray()) {
+        assert(proj.IsObject());
+        RecordAttribute *recAttr = this->parseRecordAttr(proj);
         projections.push_back(recAttr);
       }
 
@@ -2487,8 +2392,8 @@ int lookupInDictionary(string s, const rapidjson::Value &val) {
       throw runtime_error(err);
     }
 
-    Document document;  // Default template parameter uses UTF8 and
-                        // MemoryPoolAllocator.
+    rapidjson::Document document;  // Default template parameter uses UTF8 and
+                                   // MemoryPoolAllocator.
     if (document.Parse(bufJSON).HasParseError()) {
       const char *err = (string("[CatalogParser: ] Error parsing dictionary ") +
                          string(val["path"].GetString()))
@@ -2737,27 +2642,20 @@ expression_t ExpressionParser::parseExpressionWithoutRegistering(
     assert(val.HasMember(keyAttsConstruction));
     assert(val[keyAttsConstruction].IsArray());
 
-    list<expressions::AttributeConstruction> *newAtts =
-        new list<expressions::AttributeConstruction>();
-    const rapidjson::Value &attributeConstructs =
-        val[keyAttsConstruction];  // Using a reference for consecutive access
-                                   // is handy and faster.
-    for (SizeType i = 0; i < attributeConstructs.Size();
-         i++)  // rapidjson uses SizeType instead of size_t.
-    {
-      assert(attributeConstructs[i].HasMember(keyAttrName));
-      assert(attributeConstructs[i][keyAttrName].IsString());
-      string newAttrName = attributeConstructs[i][keyAttrName].GetString();
+    list<expressions::AttributeConstruction> newAtts;
+    for (const auto &attrConst : val[keyAttsConstruction].GetArray()) {
+      assert(attrConst.HasMember(keyAttrName));
+      assert(attrConst[keyAttrName].IsString());
+      string newAttrName = attrConst[keyAttrName].GetString();
 
-      assert(attributeConstructs[i].HasMember(keyAttrExpr));
-      expression_t newAttrExpr =
-          parseExpression(attributeConstructs[i][keyAttrExpr], ctx);
+      assert(attrConst.HasMember(keyAttrExpr));
+      expression_t newAttrExpr = parseExpression(attrConst[keyAttrExpr], ctx);
 
       expressions::AttributeConstruction *newAttr =
           new expressions::AttributeConstruction(newAttrName, newAttrExpr);
-      newAtts->push_back(*newAttr);
+      newAtts.push_back(*newAttr);
     }
-    return expression_t::make<expressions::RecordConstruction>(*newAtts);
+    return expression_t::make<expressions::RecordConstruction>(newAtts);
   } else if (strcmp(valExpression, "extract") == 0) {
     assert(val.HasMember("unitrange"));
     assert(val["unitrange"].IsString());
@@ -3031,15 +2929,9 @@ ExpressionType *ExpressionParser::parseExpressionType(
     if (val.HasMember("attributes")) {
       assert(val["attributes"].IsArray());
 
-      list<RecordAttribute *> atts = list<RecordAttribute *>();
-      const rapidjson::Value &attributes =
-          val["attributes"];  // Using a reference for consecutive access is
-                              // handy and faster.
-      for (SizeType i = 0; i < attributes.Size();
-           i++)  // rapidjson uses SizeType instead of size_t.
-      {
-        // Starting from 1
-        RecordAttribute *recAttr = parseRecordAttr(attributes[i]);
+      list<RecordAttribute *> atts;
+      for (const auto &attr : val["attributes"].GetArray()) {
+        RecordAttribute *recAttr = parseRecordAttr(attr);
         atts.push_back(recAttr);
       }
       return new RecordType(atts);
@@ -3227,12 +3119,9 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
     RecordType *rec = new RecordType();
 
     if (val.HasMember("schema")) {
-      const auto &schema = val["schema"];
-      assert(schema.IsArray());
-
-      for (SizeType i = 0; i < schema.Size(); i++) {
-        assert(schema[i].IsObject());
-        RecordAttribute *recAttr = parseRecordAttr(schema[i]);
+      for (const auto &attr : val["schema"].GetArray()) {
+        assert(attr.IsObject());
+        RecordAttribute *recAttr = parseRecordAttr(attr);
 
         std::cout << "Plugin Registered: " << recAttr->getRelationName() << "."
                   << recAttr->getAttrName() << std::endl;
@@ -3285,11 +3174,8 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
     assert(val[keyProjectionsCSV].IsArray());
 
     vector<RecordAttribute *> projections;
-    for (SizeType i = 0; i < val[keyProjectionsCSV].Size(); i++) {
-      assert(val[keyProjectionsCSV][i].IsObject());
-      RecordAttribute *recAttr =
-          this->parseRecordAttr(val[keyProjectionsCSV][i]);
-      projections.push_back(recAttr);
+    for (const auto &attr : val[keyProjectionsCSV].GetArray()) {
+      projections.push_back(parseRecordAttr(attr));
     }
 
     assert(val.HasMember(keyLineHint));
@@ -3323,7 +3209,6 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
   } else if (strcmp(pgType, "json") == 0) {
     assert(val.HasMember(keyLineHint));
     assert(val[keyLineHint].IsInt());
-    int linehint = val[keyLineHint].GetInt();
 
     newPg = new jsonPipelined::JSONPlugin(this->ctx, *pathDynamicCopy,
                                           datasetInfo->exprType);
@@ -3331,26 +3216,20 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
     assert(val.HasMember(keyProjectionsBinRow));
     assert(val[keyProjectionsBinRow].IsArray());
 
-    vector<RecordAttribute *> *projections = new vector<RecordAttribute *>();
-    for (SizeType i = 0; i < val[keyProjectionsBinRow].Size(); i++) {
-      assert(val[keyProjectionsBinRow][i].IsObject());
-      RecordAttribute *recAttr =
-          this->parseRecordAttr(val[keyProjectionsBinRow][i]);
-      projections->push_back(recAttr);
+    vector<RecordAttribute *> projections;
+    for (const auto &attr : val[keyProjectionsBinRow].GetArray()) {
+      projections.push_back(parseRecordAttr(attr));
     }
 
-    newPg = new BinaryRowPlugin(this->ctx, *pathDynamicCopy, *recType,
-                                *projections);
+    newPg =
+        new BinaryRowPlugin(this->ctx, *pathDynamicCopy, *recType, projections);
   } else if (strcmp(pgType, "bincol") == 0) {
     assert(val.HasMember(keyProjectionsBinCol));
     assert(val[keyProjectionsBinCol].IsArray());
 
-    vector<RecordAttribute *> *projections = new vector<RecordAttribute *>();
-    for (SizeType i = 0; i < val[keyProjectionsBinCol].Size(); i++) {
-      assert(val[keyProjectionsBinCol][i].IsObject());
-      RecordAttribute *recAttr =
-          this->parseRecordAttr(val[keyProjectionsBinCol][i]);
-      projections->push_back(recAttr);
+    vector<RecordAttribute *> projections;
+    for (const auto &attr : val[keyProjectionsBinCol].GetArray()) {
+      projections.push_back(parseRecordAttr(attr));
     }
 
     bool sizeInFile = true;
@@ -3359,18 +3238,16 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
       sizeInFile = val["sizeInFile"].GetBool();
     }
     newPg = new BinaryColPlugin(this->ctx, *pathDynamicCopy, *recType,
-                                *projections, sizeInFile);
+                                projections, sizeInFile);
   } else if (strcmp(pgType, "block") == 0) {
     assert(val.HasMember(keyProjectionsGPU));
     assert(val[keyProjectionsGPU].IsArray());
 
     vector<RecordAttribute *> projections;
-    for (SizeType i = 0; i < val[keyProjectionsGPU].Size(); i++) {
-      assert(val[keyProjectionsGPU][i].IsObject());
-      RecordAttribute *recAttr =
-          this->parseRecordAttr(val[keyProjectionsGPU][i]);
-      projections.push_back(recAttr);
+    for (const auto &attr : val[keyProjectionsGPU].GetArray()) {
+      projections.push_back(parseRecordAttr(attr));
     }
+
     assert(dynamic_cast<ParallelContext *>(this->ctx));
 
     newPg = new ScanToBlockSMPlugin(dynamic_cast<ParallelContext *>(this->ctx),
@@ -3441,11 +3318,11 @@ void CatalogParser::parseCatalogFile(std::string file) {
     throw runtime_error(err);
   }
 
-  Document document;  // Default template parameter uses UTF8 and
-                      // MemoryPoolAllocator.
+  rapidjson::Document document;  // Default template parameter uses UTF8 and
+                                 // MemoryPoolAllocator.
   auto &parsed = document.Parse(bufJSON);
   if (parsed.HasParseError()) {
-    ParseResult ok = (ParseResult)parsed;
+    auto ok = (rapidjson::ParseResult)parsed;
     fprintf(stderr, "[CatalogParser: ] Error parsing physical plan: %s (%lu)",
             RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
     const char *err = "[CatalogParser: ] Error parsing physical plan";
@@ -3458,16 +3335,13 @@ void CatalogParser::parseCatalogFile(std::string file) {
   // Start plan traversal.
   assert(document.IsObject());
 
-  for (rapidjson::Value::ConstMemberIterator itr = document.MemberBegin();
-       itr != document.MemberEnd(); ++itr) {
-    // printf("Key of member is %s\n", itr->name.GetString());
-
-    assert(itr->value.IsObject());
-    assert((itr->value)[keyInputPath].IsString());
-    string inputPath = ((itr->value)[keyInputPath]).GetString();
-    assert((itr->value)[keyExprType].IsObject());
+  for (const auto &member : document.GetObject()) {
+    assert(member.value.IsObject());
+    assert((member.value)[keyInputPath].IsString());
+    string inputPath = ((member.value)[keyInputPath]).GetString();
+    assert((member.value)[keyExprType].IsObject());
     ExpressionType *exprType =
-        exprParser.parseExpressionType((itr->value)[keyExprType]);
+        exprParser.parseExpressionType((member.value)[keyExprType]);
     InputInfo *info = new InputInfo();
     info->exprType = exprType;
     info->path = inputPath;

@@ -42,11 +42,8 @@
 #include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
-using namespace rapidjson;
-using namespace std;
-
 typedef struct InputInfo {
-  string path;
+  std::string path;
   ExpressionType *exprType;
   // Used by materializing operations
   ExpressionType *oidType;
@@ -70,8 +67,9 @@ class ExpressionParser {
   expression_t parseExpressionWithoutRegistering(const rapidjson::Value &val,
                                                  Context *ctx);
   expressions::extract_unit parseUnitRange(std::string range, Context *ctx);
-  RecordType *getRecordType(string relName);
-  const RecordAttribute *getAttribute(string relName, string attrName);
+  RecordType *getRecordType(std::string relName);
+  const RecordAttribute *getAttribute(std::string relName,
+                                      std::string attrName);
 };
 
 class CatalogParser {
@@ -80,25 +78,25 @@ class CatalogParser {
  public:
   CatalogParser(const char *catalogPath, ParallelContext *context = NULL);
 
-  InputInfo *getInputInfoIfKnown(string inputName) {
-    map<string, InputInfo *>::iterator it;
+  InputInfo *getInputInfoIfKnown(std::string inputName) {
+    map<std::string, InputInfo *>::iterator it;
     it = inputs.find(inputName);
     if (it == inputs.end()) return NULL;
     return it->second;
   }
 
-  InputInfo *getInputInfo(string inputName) {
+  InputInfo *getInputInfo(std::string inputName) {
     InputInfo *ret = getInputInfoIfKnown(inputName);
     if (ret) return ret;
 
-    string err = string("Unknown Input: ") + inputName;
+    std::string err = std::string("Unknown Input: ") + inputName;
     LOG(ERROR) << err;
     throw runtime_error(err);
   }
 
-  InputInfo *getOrCreateInputInfo(string inputName);
+  InputInfo *getOrCreateInputInfo(std::string inputName);
 
-  void setInputInfo(string inputName, InputInfo *info) {
+  void setInputInfo(std::string inputName, InputInfo *info) {
     inputs[inputName] = info;
   }
 
@@ -107,7 +105,7 @@ class CatalogParser {
   void parseDir(std::string dir);
 
   ExpressionParser exprParser;
-  map<string, InputInfo *> inputs;
+  map<std::string, InputInfo *> inputs;
 };
 
 class PlanExecutor {
@@ -150,6 +148,6 @@ class PlanExecutor {
   void cleanUp();
 };
 
-int lookupInDictionary(string s, const rapidjson::Value &val);
+int lookupInDictionary(std::string s, const rapidjson::Value &val);
 
 #endif /* PLAN_PARSER_HPP_ */
