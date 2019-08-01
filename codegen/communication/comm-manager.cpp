@@ -35,7 +35,7 @@
 #define INCOMING_QUEUE_AEOLUS_NAME "/rm_to_aeolus"
 #define OUTGOING_QUEUE_AEOLUS_NAME "/aeolus_to_rm"
 
-#define QUEUE_PERMISSIONS 0600
+// #define QUEUE_PERMISSIONS 0600
 #define MAX_MESSAGES 10
 #define MAX_MSG_SIZE 500
 #define MSG_BUFFER_SIZE MAX_MSG_SIZE + 1

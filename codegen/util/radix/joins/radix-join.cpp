@@ -21,33 +21,6 @@
   } while (0)
 #endif
 
-#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
-
-/** Debug msg logging method */
-#ifdef DEBUG
-#define DEBUGMSG(COND, MSG, ...)                    \
-  if (COND) {                                       \
-    fprintf(stdout, "[DEBUG] " MSG, ##__VA_ARGS__); \
-  }
-#else
-#define DEBUGMSG(COND, MSG, ...)
-#endif
-
-/* just to enable compilation with g++ */
-#if defined(__cplusplus)
-#define restrict __restrict__
-#endif
-
-/** checks malloc() result */
-#ifndef MALLOC_CHECK
-#define MALLOC_CHECK(M)                                            \
-  if (!M) {                                                        \
-    printf("[ERROR] MALLOC_CHECK: %s : %d\n", __FILE__, __LINE__); \
-    perror(": malloc() failed!\n");                                \
-    exit(EXIT_FAILURE);                                            \
-  }
-#endif
-
 /**
  * Radix clustering algorithm which does not put padding in between
  * clusters.

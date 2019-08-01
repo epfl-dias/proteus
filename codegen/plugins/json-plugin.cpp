@@ -30,14 +30,6 @@ using namespace llvm;
 
 namespace jsonPipelined {
 
-#define TOKEN_PRINT(t)                                                   \
-  printf("start: %d, end: %d, type: %d, size: %d\n", (t).start, (t).end, \
-         (t).type, (t).size)
-
-#define TOKEN_STRING(js, t, s)                             \
-  (strncmp(js + (t).start, s, (t).end - (t).start) == 0 && \
-   strlen(s) == (t).end - (t).start)
-
 /* Deprecated. Dealt with it using default argument in other constructor */
 // JSONPlugin::JSONPlugin(Context* const context, string& fname,
 //        ExpressionType* schema) :

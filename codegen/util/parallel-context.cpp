@@ -34,8 +34,6 @@
 #include "util/jit/cpu-pipeline.hpp"
 #include "util/jit/gpu-pipeline.hpp"
 
-#define DEBUGCTX
-
 void ParallelContext::createJITEngine() {
   //     LLVMLinkInMCJIT();
   //     LLVMInitializeNativeTarget();

@@ -33,11 +33,11 @@
 #include "cuda.h"
 #include "cuda_runtime.h"
 
-#define COMPACT_OFFSETS_
-//#define PARTITION_PAYLOAD
+// #define COMPACT_OFFSETS_
+// //#define PARTITION_PAYLOAD
 
-#define SHMEM_SIZE 4096
-#define HT_LOGSIZE 10
+// #define SHMEM_SIZE 4096
+// #define HT_LOGSIZE 10
 
 extern __shared__ int int_shared[];
 

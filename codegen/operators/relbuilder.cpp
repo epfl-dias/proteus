@@ -36,12 +36,6 @@
 #include "operators/reduce-opt.hpp"
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
-#if __has_include("ittnotify.h")
-#include <ittnotify.h>
-#else
-#define __itt_resume() ((void)0)
-#define __itt_pause() ((void)0)
-#endif
 
 RelBuilder RelBuilder::apply(Operator *op) const { return {*this, op}; }
 
