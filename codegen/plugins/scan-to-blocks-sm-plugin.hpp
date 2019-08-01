@@ -72,12 +72,6 @@ class ScanToBlockSMPlugin : public Plugin {
                                        const ExpressionType *type);
   virtual ProteusValue readCachedValue(CacheInfo info,
                                        const OperatorState &currState);
-  //  {
-  //      string error_msg = "[ScanToBlockSMPlugin: ] No caching support should
-  //      be needed"; LOG(ERROR) << error_msg; throw runtime_error(error_msg);
-  //  }
-  virtual ProteusValue readCachedValue(
-      CacheInfo info, const map<RecordAttribute, ProteusValueMemory> &bindings);
 
   virtual ProteusValue hashValue(ProteusValueMemory mem_value,
                                  const ExpressionType *type);
@@ -244,11 +238,15 @@ class ScanToBlockSMPlugin : public Plugin {
   void prepareArray(RecordAttribute attName);
 
   void nextEntry();
+
+  void readAsLLVM(RecordAttribute attName,
+                  std::map<RecordAttribute, ProteusValueMemory> &variables);
+
   /* Operate over char* */
   void readAsInt64LLVM(
       RecordAttribute attName,
       std::map<RecordAttribute, ProteusValueMemory> &variables);
-  llvm::Value *readAsInt64LLVM(RecordAttribute attName);
+
   /* Operates over int* */
   void readAsIntLLVM(RecordAttribute attName,
                      std::map<RecordAttribute, ProteusValueMemory> &variables);

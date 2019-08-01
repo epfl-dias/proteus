@@ -131,31 +131,9 @@ ProteusValueMemory ScanToBlockSMPlugin::readPath(string activeRelation,
                                                  Bindings bindings,
                                                  const char *pathVar,
                                                  RecordAttribute attr) {
-  ProteusValueMemory mem_projection;
-  {
-    const OperatorState *state = bindings.state;
-    const map<RecordAttribute, ProteusValueMemory> &binProjections =
-        state->getBindings();
-    // XXX Make sure that using fnamePrefix in this search does not cause issues
-    RecordAttribute tmpKey =
-        RecordAttribute(fnamePrefix, pathVar, this->getOIDType());
-    map<RecordAttribute, ProteusValueMemory>::const_iterator it;
-    it = binProjections.find(tmpKey);
-    if (it == binProjections.end()) {
-      string error_msg =
-          string("[Binary Col. plugin - readPath ]: Unknown variable name ") +
-          pathVar;
-      for (it = binProjections.begin(); it != binProjections.end(); it++) {
-        RecordAttribute attr = it->first;
-        cout << attr.getRelationName() << "_" << attr.getAttrName() << endl;
-      }
-      cout << "How many bindings? " << binProjections.size();
-      LOG(ERROR) << error_msg;
-      throw runtime_error(error_msg);
-    }
-    mem_projection = it->second;
-  }
-  return mem_projection;
+  // XXX Make sure that using fnamePrefix in this search does not cause issues
+  RecordAttribute tmpKey{fnamePrefix, pathVar, this->getOIDType()};
+  return (*(bindings.state))[tmpKey];
 }
 
 /* FIXME Differentiate between operations that need the code and the ones
@@ -167,26 +145,12 @@ ProteusValueMemory ScanToBlockSMPlugin::readValue(ProteusValueMemory mem_value,
 
 ProteusValue ScanToBlockSMPlugin::readCachedValue(
     CacheInfo info, const OperatorState &currState) {
-  return readCachedValue(info, currState.getBindings());
-}
-
-ProteusValue ScanToBlockSMPlugin::readCachedValue(
-    CacheInfo info, const map<RecordAttribute, ProteusValueMemory> &bindings) {
   IRBuilder<> *const Builder = context->getBuilder();
   Function *F = context->getGlobalFunction();
 
   /* Need OID to retrieve corresponding value from bin. cache */
-  RecordAttribute tupleIdentifier =
-      RecordAttribute(fnamePrefix, activeLoop, getOIDType());
-  map<RecordAttribute, ProteusValueMemory>::const_iterator it =
-      bindings.find(tupleIdentifier);
-  if (it == bindings.end()) {
-    string error_msg =
-        "[Expression Generator: ] Current tuple binding / OID not found";
-    LOG(ERROR) << error_msg;
-    throw runtime_error(error_msg);
-  }
-  ProteusValueMemory mem_oidWrapper = it->second;
+  RecordAttribute tupleIdentifier{fnamePrefix, activeLoop, getOIDType()};
+  ProteusValueMemory mem_oidWrapper = currState[tupleIdentifier];
   /* OID is a plain integer - starts from 1!!! */
   Value *val_oid = Builder->CreateLoad(mem_oidWrapper.mem);
   val_oid = Builder->CreateSub(val_oid, context->createInt64(1));
@@ -249,19 +213,18 @@ ProteusValue ScanToBlockSMPlugin::hashValueEager(ProteusValue valWrapper,
   AllocaInst *mem_tmp =
       context->CreateEntryBlockAlloca(F, "mem_cachedToHash", tmp->getType());
   Builder->CreateStore(tmp, mem_tmp);
-  ProteusValueMemory mem_tmpWrapper = {mem_tmp, valWrapper.isNull};
+  ProteusValueMemory mem_tmpWrapper{mem_tmp, valWrapper.isNull};
   return hashValue(mem_tmpWrapper, type);
 }
 
 void ScanToBlockSMPlugin::finish() {
   LOG(INFO) << "[ScanToBlockSMPlugin] Finish";
-  vector<RecordAttribute *>::iterator it;
   int cnt = 0;
-  for (it = wantedFields.begin(); it != wantedFields.end(); it++) {
+  for (const auto &attr : wantedFields) {
     close(fd[cnt]);
     munmap(buf[cnt], colFilesize[cnt]);
 
-    if ((*it)->getOriginalType()->getTypeID() == STRING) {
+    if (attr->getOriginalType()->getTypeID() == STRING) {
       int dictionaryFd = dictionaries[cnt];
       close(dictionaryFd);
       munmap(dictionariesBuf[cnt], dictionaryFilesizes[cnt]);
@@ -336,39 +299,15 @@ void ScanToBlockSMPlugin::nextEntry() {
   Function *F = Builder->GetInsertBlock()->getParent();
 
   // Necessary because it's the itemCtr that affects the scan loop
-  AllocaInst *mem_itemCtr;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesBinaryCol.find(itemCtrVar);
-    if (it == NamedValuesBinaryCol.end()) {
-      throw runtime_error(string("Unknown variable name: ") + itemCtrVar);
-    }
-    mem_itemCtr = it->second;
-  }
+  auto mem_itemCtr = NamedValuesBinaryCol.at(itemCtrVar);
 
   // Necessary because it's the itemCtr that affects the scan loop
-  AllocaInst *part_i_ptr;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesBinaryCol.find("part_i_ptr");
-    if (it == NamedValuesBinaryCol.end()) {
-      throw runtime_error(string("Unknown variable name: part_i_ptr"));
-    }
-    part_i_ptr = it->second;
-  }
+  auto part_i_ptr = NamedValuesBinaryCol.at("part_i_ptr");
 
   // Necessary because it's the itemCtr that affects the scan loop
-  AllocaInst *block_i_ptr;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesBinaryCol.find("block_i_ptr");
-    if (it == NamedValuesBinaryCol.end()) {
-      throw runtime_error(string("Unknown variable name: block_i_ptr"));
-    }
-    block_i_ptr = it->second;
-  }
+  auto block_i_ptr = NamedValuesBinaryCol.at("block_i_ptr");
+
   // Increment and store back
-
   BasicBlock *wrapBB = BasicBlock::Create(llvmContext, "incWrap", F);
   BasicBlock *stepBB = BasicBlock::Create(llvmContext, "incStep", F);
   BasicBlock *afterBB = BasicBlock::Create(llvmContext, "incAfter", F);
@@ -412,10 +351,14 @@ void ScanToBlockSMPlugin::nextEntry() {
 void ScanToBlockSMPlugin::readAsIntLLVM(
     RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
-  // Prepare
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Type *int32Type = Type::getInt32Ty(llvmContext);
+  readAsLLVM(attName, variables);
+}
 
+/* Operates over char*! */
+void ScanToBlockSMPlugin::readAsLLVM(
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
+  // Prepare
   IRBuilder<> *Builder = context->getBuilder();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
@@ -425,144 +368,29 @@ void ScanToBlockSMPlugin::readAsIntLLVM(
   string currBufVar = bufVarStr + "." + attName.getAttrName();
 
   // Fetch values from symbol table
-  AllocaInst *mem_pos;
-  {
-    map<std::string, AllocaInst *>::iterator it;
-    it = NamedValuesBinaryCol.find(currPosVar);
-    if (it == NamedValuesBinaryCol.end()) {
-      throw runtime_error(string("Unknown variable name: ") + currPosVar);
-    }
-    mem_pos = it->second;
-  }
+  auto mem_pos = NamedValuesBinaryCol.at(currPosVar);
   Value *val_pos = Builder->CreateLoad(mem_pos);
 
-  AllocaInst *buf;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesBinaryCol.find(currBufVar);
-    if (it == NamedValuesBinaryCol.end()) {
-      throw runtime_error(string("Unknown variable name: ") + currBufVar);
-    }
-    buf = it->second;
-  }
+  auto buf = NamedValuesBinaryCol.at(currBufVar);
   Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
   Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
   Value *parsedInt = Builder->CreateLoad(bufShiftedPtr);
 
-  AllocaInst *mem_currResult =
-      context->CreateEntryBlockAlloca(TheFunction, "currResult", int32Type);
+  AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(
+      TheFunction, "currResult", parsedInt->getType());
   Builder->CreateStore(parsedInt, mem_currResult);
-  LOG(INFO) << "[BINARYCOL - READ INT: ] Read Successful";
 
   ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_currResult;
   mem_valWrapper.isNull = context->createFalse();
   variables[attName] = mem_valWrapper;
-
-#ifdef DEBUGBINCOL
-//      vector<Value*> ArgsV;
-//      ArgsV.clear();
-//      ArgsV.push_back(parsedInt);
-//      Function* debugInt = context->getFunction("printi");
-//      Builder->CreateCall(debugInt, ArgsV, "printi");
-#endif
 }
 
 /* Operates over char*! */
 void ScanToBlockSMPlugin::readAsInt64LLVM(
     RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
-  // Prepare
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Type *int64Type = Type::getInt64Ty(llvmContext);
-  PointerType *ptrType_int64 = PointerType::get(int64Type, 0);
-
-  IRBuilder<> *Builder = context->getBuilder();
-  Function *TheFunction = Builder->GetInsertBlock()->getParent();
-
-  string posVarStr = string(posVar);
-  string currPosVar = posVarStr + "." + attName.getAttrName();
-  string bufVarStr = string(bufVar);
-  string currBufVar = bufVarStr + "." + attName.getAttrName();
-
-  // Fetch values from symbol table
-  AllocaInst *mem_pos;
-  {
-    map<std::string, AllocaInst *>::iterator it;
-    it = NamedValuesBinaryCol.find(currPosVar);
-    if (it == NamedValuesBinaryCol.end()) {
-      throw runtime_error(string("Unknown variable name: ") + currPosVar);
-    }
-    mem_pos = it->second;
-  }
-  Value *val_pos = Builder->CreateLoad(mem_pos);
-
-  AllocaInst *buf;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesBinaryCol.find(currBufVar);
-    if (it == NamedValuesBinaryCol.end()) {
-      throw runtime_error(string("Unknown variable name: ") + currBufVar);
-    }
-    buf = it->second;
-  }
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-  Value *mem_result = Builder->CreateBitCast(bufShiftedPtr, ptrType_int64);
-  Value *parsedInt = Builder->CreateLoad(mem_result);
-
-  AllocaInst *mem_currResult =
-      context->CreateEntryBlockAlloca(TheFunction, "currResult", int64Type);
-  Builder->CreateStore(parsedInt, mem_currResult);
-  LOG(INFO) << "[BINARYCOL - READ INT64: ] Read Successful";
-
-  ProteusValueMemory mem_valWrapper;
-  mem_valWrapper.mem = mem_currResult;
-  mem_valWrapper.isNull = context->createFalse();
-  variables[attName] = mem_valWrapper;
-}
-
-/* Operates over char*! */
-Value *ScanToBlockSMPlugin::readAsInt64LLVM(RecordAttribute attName) {
-  // Prepare
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Type *int64Type = Type::getInt64Ty(llvmContext);
-  PointerType *ptrType_int64 = PointerType::get(int64Type, 0);
-
-  IRBuilder<> *Builder = context->getBuilder();
-
-  string posVarStr = string(posVar);
-  string currPosVar = posVarStr + "." + attName.getAttrName();
-  string bufVarStr = string(bufVar);
-  string currBufVar = bufVarStr + "." + attName.getAttrName();
-
-  // Fetch values from symbol table
-  AllocaInst *mem_pos;
-  {
-    map<std::string, AllocaInst *>::iterator it;
-    it = NamedValuesBinaryCol.find(currPosVar);
-    if (it == NamedValuesBinaryCol.end()) {
-      throw runtime_error(string("Unknown variable name: ") + currPosVar);
-    }
-    mem_pos = it->second;
-  }
-  Value *val_pos = Builder->CreateLoad(mem_pos);
-
-  AllocaInst *buf;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesBinaryCol.find(currBufVar);
-    if (it == NamedValuesBinaryCol.end()) {
-      throw runtime_error(string("Unknown variable name: ") + currBufVar);
-    }
-    buf = it->second;
-  }
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-  Value *mem_result = Builder->CreateBitCast(bufShiftedPtr, ptrType_int64);
-  Value *parsedInt64 = Builder->CreateLoad(mem_result);
-
-  return parsedInt64;
+  readAsLLVM(attName, variables);
 }
 
 /*
@@ -579,111 +407,17 @@ void ScanToBlockSMPlugin::readAsStringLLVM(
 void ScanToBlockSMPlugin::readAsBooleanLLVM(
     RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
-  // Prepare
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Type *int1Type = Type::getInt1Ty(llvmContext);
-
-  IRBuilder<> *Builder = context->getBuilder();
-  Function *TheFunction = Builder->GetInsertBlock()->getParent();
-
-  string posVarStr = string(posVar);
-  string currPosVar = posVarStr + "." + attName.getAttrName();
-  string bufVarStr = string(bufVar);
-  string currBufVar = bufVarStr + "." + attName.getAttrName();
-
-  // Fetch values from symbol table
-  AllocaInst *mem_pos;
-  {
-    map<std::string, AllocaInst *>::iterator it;
-    it = NamedValuesBinaryCol.find(currPosVar);
-    if (it == NamedValuesBinaryCol.end()) {
-      throw runtime_error(string("Unknown variable name: ") + currPosVar);
-    }
-    mem_pos = it->second;
-  }
-  Value *val_pos = Builder->CreateLoad(mem_pos);
-
-  AllocaInst *buf;
-  {
-    map<std::string, AllocaInst *>::iterator it;
-    it = NamedValuesBinaryCol.find(currBufVar);
-    if (it == NamedValuesBinaryCol.end()) {
-      throw runtime_error(string("Unknown variable name: ") + currBufVar);
-    }
-    buf = it->second;
-  }
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-  Value *parsedInt = Builder->CreateLoad(bufShiftedPtr);
-
-  AllocaInst *currResult =
-      context->CreateEntryBlockAlloca(TheFunction, "currResult", int1Type);
-  Builder->CreateStore(parsedInt, currResult);
-  LOG(INFO) << "[BINARYCOL - READ BOOL: ] Read Successful";
-
-  ProteusValueMemory mem_valWrapper;
-  mem_valWrapper.mem = currResult;
-  mem_valWrapper.isNull = context->createFalse();
-  variables[attName] = mem_valWrapper;
+  readAsLLVM(attName, variables);
 }
 
 void ScanToBlockSMPlugin::readAsFloatLLVM(
     RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
-  // Prepare
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Type *doubleType = Type::getDoubleTy(llvmContext);
-
-  IRBuilder<> *Builder = context->getBuilder();
-  Function *TheFunction = Builder->GetInsertBlock()->getParent();
-
-  string posVarStr = string(posVar);
-  string currPosVar = posVarStr + "." + attName.getAttrName();
-  string bufVarStr = string(bufVar);
-  string currBufVar = bufVarStr + "." + attName.getAttrName();
-
-  // Fetch values from symbol table
-  AllocaInst *mem_pos;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesBinaryCol.find(currPosVar);
-    if (it == NamedValuesBinaryCol.end()) {
-      throw runtime_error(string("Unknown variable name: ") + currPosVar);
-    }
-    mem_pos = it->second;
-  }
-  Value *val_pos = Builder->CreateLoad(mem_pos);
-
-  AllocaInst *buf;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesBinaryCol.find(currBufVar);
-    if (it == NamedValuesBinaryCol.end()) {
-      throw runtime_error(string("Unknown variable name: ") + currBufVar);
-    }
-    buf = it->second;
-  }
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-  Value *parsedFloat = Builder->CreateLoad(bufShiftedPtr);
-
-  AllocaInst *currResult =
-      context->CreateEntryBlockAlloca(TheFunction, "currResult", doubleType);
-  Builder->CreateStore(parsedFloat, currResult);
-  LOG(INFO) << "[BINARYCOL - READ FLOAT: ] Read Successful";
-
-  ProteusValueMemory mem_valWrapper;
-  mem_valWrapper.mem = currResult;
-  mem_valWrapper.isNull = context->createFalse();
-  variables[attName] = mem_valWrapper;
+  readAsLLVM(attName, variables);
 }
 
 void ScanToBlockSMPlugin::prepareArray(RecordAttribute attName) {
   LLVMContext &llvmContext = context->getLLVMContext();
-  //  Type* floatPtrType = Type::getFloatPtrTy(llvmContext);
-  Type *doublePtrType = Type::getDoublePtrTy(llvmContext);
-  Type *int32PtrType = Type::getInt32PtrTy(llvmContext);
-  Type *int64PtrType = Type::getInt64PtrTy(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = Builder->GetInsertBlock()->getParent();
 
@@ -694,17 +428,7 @@ void ScanToBlockSMPlugin::prepareArray(RecordAttribute attName) {
 
   /* Code equivalent to skip(size_t) */
   Value *val_offset = context->createInt64(sizeof(size_t));
-  AllocaInst *mem_pos;
-  {
-    map<string, AllocaInst *>::iterator it;
-    string posVarStr = string(posVar);
-    string currPosVar = posVarStr + "." + attName.getAttrName();
-    it = NamedValuesBinaryCol.find(currPosVar);
-    if (it == NamedValuesBinaryCol.end()) {
-      throw runtime_error(string("Unknown variable name: ") + currPosVar);
-    }
-    mem_pos = it->second;
-  }
+  auto mem_pos = NamedValuesBinaryCol.at(currPosVar);
 
   // Increment and store back
   Value *val_curr_pos = Builder->CreateLoad(mem_pos);
@@ -714,69 +438,15 @@ void ScanToBlockSMPlugin::prepareArray(RecordAttribute attName) {
   //  Builder->CreateStore(val_new_pos,mem_pos);
 
   /* Get relevant char* rawBuf */
-  AllocaInst *buf;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesBinaryCol.find(currBufVar);
-    if (it == NamedValuesBinaryCol.end()) {
-      throw runtime_error(string("Unknown variable name: ") + currBufVar);
-    }
-    buf = it->second;
-  }
+  auto buf = NamedValuesBinaryCol.at(currBufVar);
   Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
   Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_new_pos);
 
-  /* Cast to appropriate form */
-  typeID id = attName.getOriginalType()->getTypeID();
-  switch (id) {
-    case BOOL: {
-      // No need to do sth - char* and int8* are interchangeable
-      break;
-    }
-    case FLOAT: {
-      AllocaInst *mem_bufPtr = context->CreateEntryBlockAlloca(
-          F, string("mem_bufPtr"), doublePtrType);
-      Value *val_bufPtr = Builder->CreateBitCast(bufShiftedPtr, doublePtrType);
-      Builder->CreateStore(val_bufPtr, mem_bufPtr);
-      NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
-      break;
-    }
-    case INT: {
-      AllocaInst *mem_bufPtr = context->CreateEntryBlockAlloca(
-          F, string("mem_bufPtr"), int32PtrType);
-      Value *val_bufPtr = Builder->CreateBitCast(bufShiftedPtr, int32PtrType);
-      Builder->CreateStore(val_bufPtr, mem_bufPtr);
-      NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
-      break;
-    }
-    case INT64: {
-      AllocaInst *mem_bufPtr = context->CreateEntryBlockAlloca(
-          F, string("mem_bufPtr"), int64PtrType);
-      Value *val_bufPtr = Builder->CreateBitCast(bufShiftedPtr, int64PtrType);
-      Builder->CreateStore(val_bufPtr, mem_bufPtr);
-      NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
-      break;
-    }
-    case STRING: {
-      /* String representation comprises the code and the dictionary
-       * Codes are (will be) int32, so can again treat like int32* */
-      AllocaInst *mem_bufPtr = context->CreateEntryBlockAlloca(
-          F, string("mem_bufPtr"), int32PtrType);
-      Value *val_bufPtr = Builder->CreateBitCast(bufShiftedPtr, int32PtrType);
-      Builder->CreateStore(val_bufPtr, mem_bufPtr);
-      NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
-      break;
-    }
-    case RECORD:
-    case LIST:
-    case BAG:
-    case SET:
-    default: {
-      string error_msg = string("[Binary Col PG: ] Unsupported Record");
-      LOG(ERROR) << error_msg;
-      throw runtime_error(error_msg);
-    }
-  }
+  auto type = PointerType::getUnqual(attName.getLLVMType(llvmContext));
+  auto mem_bufPtr = context->CreateEntryBlockAlloca(F, "mem_bufPtr", type);
+  Value *val_bufPtr = Builder->CreateBitCast(bufShiftedPtr, type);
+  Builder->CreateStore(val_bufPtr, mem_bufPtr);
+  NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
 }
 
 void ScanToBlockSMPlugin::scan(const ::Operator &producer) {
@@ -788,13 +458,7 @@ void ScanToBlockSMPlugin::scan(const ::Operator &producer) {
   IRBuilder<> *Builder = context->getBuilder();
 
   // Prepare
-  IntegerType *size_type;
-  if (sizeof(size_t) == 4)
-    size_type = Type::getInt32Ty(llvmContext);
-  else if (sizeof(size_t) == 8)
-    size_type = Type::getInt64Ty(llvmContext);
-  else
-    assert(false);
+  IntegerType *size_type = context->createSizeType();
 
   IntegerType *int64Type = Type::getInt64Ty(llvmContext);
   // Container for the variable bindings
@@ -911,7 +575,8 @@ void ScanToBlockSMPlugin::scan(const ::Operator &producer) {
   BasicBlock *LoopBB = BasicBlock::Create(llvmContext, "scanBody", F);
   BasicBlock *MainBB = BasicBlock::Create(llvmContext, "scanMain", F);
 
-  // Make the new basic block for the increment, inserting after current block.
+  // Make the new basic block for the increment, inserting after current
+  // block.
   BasicBlock *IncBB = BasicBlock::Create(llvmContext, "scanInc", F);
 
   // Create the "AFTER LOOP" block and insert it.
@@ -1038,8 +703,9 @@ RecordType ScanToBlockSMPlugin::getRowType() const {
   std::vector<RecordAttribute *> rec;
   for (const auto &attr : this->wantedFields) {
     auto ptr = attr;
-    // This plugin outputs blocks, so let's convert any attribute to a BlockType
-    // if (!dynamic_cast<const BlockType *>(ptr->getOriginalType())) {
+    // This plugin outputs blocks, so let's convert any attribute to a
+    // BlockType if (!dynamic_cast<const BlockType *>(ptr->getOriginalType()))
+    // {
     //   ptr = new RecordAttribute(*attr, true);
     // }
     rec.emplace_back(ptr);

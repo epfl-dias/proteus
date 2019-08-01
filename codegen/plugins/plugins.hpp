@@ -78,9 +78,6 @@ class Plugin {
                                        const ExpressionType *type) = 0;
   virtual ProteusValue readCachedValue(CacheInfo info,
                                        const OperatorState &currState) = 0;
-  virtual ProteusValue readCachedValue(
-      CacheInfo info,
-      const map<RecordAttribute, ProteusValueMemory> &bindings) = 0;
 
   // Relevant for hashing visitors
   virtual ProteusValue hashValue(ProteusValueMemory mem_value,
