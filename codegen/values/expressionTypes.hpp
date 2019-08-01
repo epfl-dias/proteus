@@ -46,6 +46,8 @@ enum typeID {
   BLOCK
 };
 
+class ExprTypeVisitor;
+
 class ExpressionType {
  public:
   virtual string getType() const = 0;
@@ -59,6 +61,14 @@ class ExpressionType {
     // throw runtime_error(error_msg);
     return nullptr;
   }
+
+  virtual void accept(ExprTypeVisitor &v) const = 0;
+};
+
+template <typename T, typename Interface = ExpressionType>
+class ExpressionTypeVisitable : public Interface {
+  using Interface::Interface;
+  virtual void accept(ExprTypeVisitor &v) const;
 };
 
 class PrimitiveType : public ExpressionType {
@@ -69,34 +79,36 @@ class PrimitiveType : public ExpressionType {
   }
 };
 
-class BoolType : public PrimitiveType {
+template <typename T, typeID id>
+class PrimitiveTypeCRTP : public ExpressionTypeVisitable<T, PrimitiveType> {
  public:
-  string getType() const { return string("Bool"); }
-  typeID getTypeID() const { return BOOL; }
+  std::string getType() const { return T::name; }
+  typeID getTypeID() const { return id; }
   bool isPrimitive() const { return true; }
+};
+
+class BoolType : public PrimitiveTypeCRTP<BoolType, BOOL> {
+ public:
+  static constexpr auto name = "Bool";
+
   llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
     return llvm::Type::getInt1Ty(ctx);
   }
 };
 
-class StringType : public PrimitiveType {
+class StringType : public PrimitiveTypeCRTP<StringType, STRING> {
  public:
-  string getType() const { return string("String"); }
-  typeID getTypeID() const { return STRING; }
-  bool isPrimitive() const { return true; }
+  static constexpr auto name = "String";
+
   llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
     return llvm::Type::getInt8PtrTy(ctx);
   }
 };
 
-class DStringType : public PrimitiveType {
+class DStringType : public PrimitiveTypeCRTP<DStringType, DSTRING> {
  public:
-  string getType() const { return string("DString"); }
-  typeID getTypeID() const { return DSTRING; }
-  bool isPrimitive() const { return true; }
-  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
-    return llvm::Type::getInt32Ty(ctx);
-  }
+  static constexpr auto name = "DString";
+
   DStringType(void *dictionary = nullptr) : dictionary(dictionary) {}
 
   void *getDictionary() const {
@@ -109,35 +121,36 @@ class DStringType : public PrimitiveType {
     dictionary = dict;
   }
 
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
+    return llvm::Type::getInt32Ty(ctx);
+  }
+
  private:
   void *dictionary;
 };
 
-class FloatType : public PrimitiveType {
+class FloatType : public PrimitiveTypeCRTP<FloatType, FLOAT> {
  public:
-  string getType() const { return string("Float"); }
-  typeID getTypeID() const { return FLOAT; }
-  bool isPrimitive() const { return true; }
+  static constexpr auto name = "Float";
+
   llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
     return llvm::Type::getDoubleTy(ctx);
   }
 };
 
-class IntType : public PrimitiveType {
+class IntType : public PrimitiveTypeCRTP<IntType, INT> {
  public:
-  string getType() const { return string("Int"); }
-  typeID getTypeID() const { return INT; }
-  bool isPrimitive() const { return true; }
+  static constexpr auto name = "Int";
+
   llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
     return llvm::Type::getInt32Ty(ctx);
   }
 };
 
-class Int64Type : public PrimitiveType {
+class Int64Type : public PrimitiveTypeCRTP<Int64Type, INT64> {
  public:
-  string getType() const { return string("Int64"); }
-  typeID getTypeID() const { return INT64; }
-  bool isPrimitive() const { return true; }
+  static constexpr auto name = "Int64";
+
   llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
     return llvm::Type::getInt64Ty(ctx);
   }
@@ -149,11 +162,10 @@ class Int64Type : public PrimitiveType {
  * Conversion in locale should be handled by the plugin during reading and by
  * the query parser!
  */
-class DateType : public PrimitiveType {
+class DateType : public PrimitiveTypeCRTP<DateType, DATE> {
  public:
-  string getType() const { return string("Date"); }
-  typeID getTypeID() const { return DATE; }
-  bool isPrimitive() const { return true; }
+  static constexpr auto name = "Date";
+
   llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
     return llvm::Type::getInt64Ty(ctx);
   }
@@ -162,63 +174,55 @@ class DateType : public PrimitiveType {
 class CollectionType : public ExpressionType {
  public:
   CollectionType(const ExpressionType &type) : type(type) {}
-  virtual string getType() const {
-    return string("CollectionType(") + type.getType() + string(")");
-  }
-  virtual typeID getTypeID() const = 0;
-  virtual bool isPrimitive() const { return false; }
+
+  virtual bool isPrimitive() const final { return false; }
   const ExpressionType &getNestedType() const { return type; }
-  virtual ~CollectionType() {}
+  virtual ~CollectionType() = default;
 
  private:
   const ExpressionType &type;
 };
 
-class BlockType : public CollectionType {
+template <typename T, typeID id>
+class CollectionTypeCRTP : public ExpressionTypeVisitable<T, CollectionType> {
+ protected:
+  using ExpressionTypeVisitable<T, CollectionType>::ExpressionTypeVisitable;
+
  public:
-  BlockType(const ExpressionType &type) : CollectionType(type) {}
-  string getType() const {
-    return string("BlockType(") + this->getNestedType().getType() + string(")");
+  virtual typeID getTypeID() const { return id; }
+
+  virtual string getType() const {
+    return T::name + std::string("(") + this->getNestedType().getType() +
+           string(")");
   }
-  typeID getTypeID() const { return BLOCK; }
-  bool isPrimitive() const { return false; }
-  ~BlockType() {}
+};
+
+class BlockType : public CollectionTypeCRTP<BlockType, BLOCK> {
+ public:
+  static constexpr auto name = "Block";
+  using CollectionTypeCRTP::CollectionTypeCRTP;
+
   llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
     return llvm::PointerType::get(getNestedType().getLLVMType(ctx), 0);
   }
 };
 
-class ListType : public CollectionType {
+class ListType : public CollectionTypeCRTP<ListType, LIST> {
  public:
-  ListType(const ExpressionType &type) : CollectionType(type) {}
-  string getType() const {
-    return string("ListType(") + this->getNestedType().getType() + string(")");
-  }
-  typeID getTypeID() const { return LIST; }
-  bool isPrimitive() const { return false; }
-  ~ListType() {}
+  static constexpr auto name = "List";
+  using CollectionTypeCRTP::CollectionTypeCRTP;
 };
 
-class BagType : public CollectionType {
+class BagType : public CollectionTypeCRTP<BagType, BAG> {
  public:
-  BagType(const ExpressionType &type) : CollectionType(type) {}
-  string getType() const {
-    return string("BagType(") + this->getNestedType().getType() + string(")");
-  }
-  typeID getTypeID() const { return BAG; }
-  bool isPrimitive() const { return false; }
-  ~BagType() {}
+  static constexpr auto name = "Bag";
+  using CollectionTypeCRTP::CollectionTypeCRTP;
 };
 
-class SetType : public CollectionType {
+class SetType : public CollectionTypeCRTP<SetType, SET> {
  public:
-  SetType(const ExpressionType &type) : CollectionType(type) {}
-  string getType() const {
-    return string("SetType(") + this->getNestedType().getType() + string(")");
-  }
-  typeID getTypeID() const { return SET; }
-  bool isPrimitive() const { return false; }
-  ~SetType() {}
+  static constexpr auto name = "Set";
+  using CollectionTypeCRTP::CollectionTypeCRTP;
 };
 
 class RecordAttribute {
@@ -345,7 +349,7 @@ class RecordAttribute {
   bool projected;
 };
 
-class RecordType : public ExpressionType {
+class RecordType : public ExpressionTypeVisitable<RecordType, ExpressionType> {
  public:
   RecordType() {}
   RecordType(list<RecordAttribute *> args) : args(args) {
@@ -431,14 +435,25 @@ class RecordType : public ExpressionType {
 
 class ExprTypeVisitor {
  public:
-  virtual void visit(IntType type) = 0;
-  virtual void visit(BoolType type) = 0;
-  virtual void visit(FloatType type) = 0;
-  virtual void visit(DateType type) = 0;
-  virtual void visit(StringType type) = 0;
-  virtual void visit(RecordType type) = 0;
-  virtual ~ExprTypeVisitor();
+  virtual void visit(const IntType &type) = 0;
+  virtual void visit(const Int64Type &type) = 0;
+  virtual void visit(const BoolType &type) = 0;
+  virtual void visit(const FloatType &type) = 0;
+  virtual void visit(const DateType &type) = 0;
+  virtual void visit(const StringType &type) = 0;
+  virtual void visit(const DStringType &type) = 0;
+  virtual void visit(const RecordType &type) = 0;
+  virtual void visit(const SetType &type) = 0;
+  virtual void visit(const BlockType &type) = 0;
+  virtual void visit(const BagType &type) = 0;
+  virtual void visit(const ListType &type) = 0;
+  virtual ~ExprTypeVisitor() = default;
 };
+
+template <typename T, typename Interface>
+void ExpressionTypeVisitable<T, Interface>::accept(ExprTypeVisitor &v) const {
+  v.visit(*static_cast<const T *>(this));
+}
 
 /* XXX Not too sure these comparators make sense.
  * If difference between hashed expressions boils down to this
