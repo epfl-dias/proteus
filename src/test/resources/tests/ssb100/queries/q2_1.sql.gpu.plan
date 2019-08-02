@@ -14,11 +14,12 @@ PelagoToEnumerableConverter
                           PelagoProject
                             PelagoProject
                               PelagoJoin
-                                PelagoFilter
-                                  PelagoUnpack
-                                    PelagoDeviceCross
-                                      PelagoRouter
-                                        PelagoTableScan
+                                PelagoProject
+                                  PelagoFilter
+                                    PelagoUnpack
+                                      PelagoDeviceCross
+                                        PelagoRouter
+                                          PelagoTableScan
                                 PelagoProject
                                   PelagoProject
                                     PelagoJoin
@@ -39,3 +40,4 @@ PelagoToEnumerableConverter
                                               PelagoDeviceCross
                                                 PelagoRouter
                                                   PelagoTableScan
+

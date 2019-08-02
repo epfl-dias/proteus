@@ -102,7 +102,7 @@ public class PelagoResultTable extends AbstractTable implements ScannableTable {
         final AtomicBoolean cancelFlag = DataContext.Variable.CANCEL_FLAG.get(root);
         return new AbstractEnumerable<Object[]>() {
             public Enumerator<Object[]> enumerator() {
-                return new PelagoEnumerator<>(source, cancelFlag, rowType.getFieldList(), fields, mock);
+                return new PelagoEnumerator<>(source, cancelFlag, rowType.getFieldList(), fields, root.getTypeFactory(), mock);
 //                return new PelagoEnumerator<>(source, cancelFlag, false, null,
 //                        new PelagoEnumerator.ArrayRowConverter(rowType.getFieldList(), fields, mock));
             }

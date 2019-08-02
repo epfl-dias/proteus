@@ -1,6 +1,5 @@
 package ch.epfl.dias.calcite.adapter.pelago;
 
-import org.apache.calcite.rel.core.Calc;
 import org.apache.calcite.test.CalciteAssert;
 
 import com.google.common.collect.ImmutableList;
@@ -15,7 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.lang.management.ManagementFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -24,7 +22,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.function.BiConsumer;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static java.time.Duration.ofSeconds;
@@ -83,16 +80,31 @@ public class PelagoQueryTest {
     CalciteAssert.AssertQuery q = testParseAndExecute(sql);
 
     String explainContains = "PLAN=PelagoToEnumerableConverter";
-    if (resultFile != null && false) {
+    if (resultFile != null) {
       final String suffix = ".resultset";
-      assert(resultFile.endsWith(suffix));
       String filename = resultFile.toString();
+      assert(filename.endsWith(suffix));
       filename = filename.substring(0, filename.length() - suffix.length());
-      Path p = Paths.get(filename + "." + getModeAsString() + ".plan");
+      final Path p = Paths.get(filename + "." + getModeAsString() + ".plan");
       if (Files.exists(p) && Files.isRegularFile(p)){
         String plan = new String(Files.readAllBytes(p)).trim();
         plan = plan.replaceAll("\\s*--[^\n]*", "");
-        explainContains = plan;
+        explainContains = "PLAN=" + plan;
+//      } else {
+//        q = q.explainMatches("EXCLUDING ATTRIBUTES ", (rs) -> {
+//          ResultSetMetaData metaData = null;
+//          try {
+//            rs.next();
+//            String s = rs.getString(1);
+//            System.out.println(resultFile);
+//            System.out.println(p);
+//            Files.write(p, ImmutableList.of(s));
+//          } catch (SQLException e) {
+//            e.printStackTrace();
+//          } catch (IOException e) {
+//            e.printStackTrace();
+//          }
+//        });
       }
     }
     assert(explainContains.startsWith("PLAN=PelagoToEnumerableConverter"));
@@ -160,7 +172,7 @@ public class PelagoQueryTest {
             // find file containing the verification set: same path/filename but extended with .resultset
             Path rFile = Paths.get(file.toString() + ".resultset");
             final Path resultFile = (Files.exists(rFile) && Files.isRegularFile(rFile)) ? rFile : null;
-
+//            if (resultFile == null) return null;
             // clean the sql command from comments and final ';'
             String sql = new String(Files.readAllBytes(file)).trim();
             sql = sql.replaceAll("--[^\n]*", "");

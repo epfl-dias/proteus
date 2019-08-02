@@ -17,20 +17,20 @@
 package ch.epfl.dias.calcite.adapter.pelago;
 
 import au.com.bytecode.opencsv.CSVReader;
+
+import org.apache.calcite.adapter.enumerable.JavaRowFormat;
+import org.apache.calcite.adapter.enumerable.PhysType;
+import org.apache.calcite.adapter.enumerable.PhysTypeImpl;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.avatica.util.DateTimeUtils;
 import org.apache.calcite.linq4j.Enumerator;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Source;
-import org.apache.commons.lang3.time.FastDateFormat;
 
 import java.io.IOException;
 import java.io.Reader;
 import java.math.BigDecimal;
-import java.text.ParseException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -45,32 +45,17 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
   private final RowConverter<E> rowConverter;
   private E current;
 
-  private static final FastDateFormat TIME_FORMAT_DATE;
-  private static final FastDateFormat TIME_FORMAT_TIME;
-  private static final FastDateFormat TIME_FORMAT_TIMESTAMP;
-
-  static {
-    final TimeZone gmt = TimeZone.getTimeZone("GMT");
-    TIME_FORMAT_DATE = FastDateFormat.getInstance("yyyy-MM-dd", gmt);
-    TIME_FORMAT_TIME = FastDateFormat.getInstance("HH:mm:ss", gmt);
-    TIME_FORMAT_TIMESTAMP =
-        FastDateFormat.getInstance("yyyy-MM-dd HH:mm:ss", gmt);
-  }
-
-  PelagoEnumerator(Source source, AtomicBoolean cancelFlag,
-                   List<RelDataTypeField> fieldTypes, boolean mock) {
-    this(source, cancelFlag, fieldTypes, identityList(fieldTypes.size()), mock);
-  }
-
   public PelagoEnumerator(Source source, AtomicBoolean cancelFlag,
-                   List<RelDataTypeField> fieldTypes, int[] fields, boolean mock) {
+                  List<RelDataTypeField> fieldTypes, int[] fields,
+                  JavaTypeFactory typeFactory, boolean mock) {
     //noinspection unchecked
-    this(source, cancelFlag, false, null,
+    this(source, cancelFlag, false, typeFactory, null,
         (RowConverter<E>) converter(fieldTypes, fields, mock));
   }
 
   public PelagoEnumerator(Source source, AtomicBoolean cancelFlag, boolean stream,
-                          String[] filterValues, RowConverter<E> rowConverter) {
+      JavaTypeFactory typeFactory,
+      String[] filterValues, RowConverter<E> rowConverter) {
     this.cancelFlag = cancelFlag;
     this.rowConverter = rowConverter;
     this.filterValues = filterValues;
@@ -95,78 +80,6 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
       return new ArrayRowConverter(fieldTypes, fields, mock);
     }
   }
-
-//  /** Deduces the names and types of a table's columns by reading the first line
-//   * of a CSV file. */
-//  static RelDataType deduceRowType(JavaTypeFactory typeFactory, Source source,
-//      List<RelDataType> fieldTypes) {
-//    return deduceRowType(typeFactory, source, fieldTypes, false);
-//  }
-//
-//  /** Deduces the names and types of a table's columns by reading the first line
-//  * of a CSV file. */
-//  static RelDataType deduceRowType(JavaTypeFactory typeFactory, Source source,
-//      List<RelDataType> fieldTypes, Boolean stream) {
-//    final List<RelDataType> types = new ArrayList<>();
-//    final List<String> names = new ArrayList<>();
-//    CSVReader reader = null;
-//    if (stream) {
-//      names.add(CsvSchemaFactory.ROWTIME_COLUMN_NAME);
-//      types.add(typeFactory.createSqlType(SqlTypeName.TIMESTAMP));
-//    }
-//    try {
-//      reader = openCsv(source);
-//      String[] strings = reader.readNext();
-//      if (strings == null) {
-//        strings = new String[] {"EmptyFileHasNoColumns:boolean"};
-//      }
-//      for (String string : strings) {
-//        final String name;
-//        final RelDataType fieldType;
-//        final int colon = string.indexOf(':');
-//        if (colon >= 0) {
-//          name = string.substring(0, colon);
-//          String typeString = string.substring(colon + 1);
-//          fieldType = CsvFieldType.of(typeString);
-//          if (fieldType == null) {
-//            System.out.println("WARNING: Found unknown type: "
-//                + typeString + " in file: " + source.path()
-//                + " for column: " + name
-//                + ". Will assume the type of column is string");
-//          }
-//        } else {
-//          name = string;
-//          fieldType = null;
-//        }
-//        final RelDataType type;
-//        if (fieldType == null) {
-//          type = typeFactory.createSqlType(SqlTypeName.VARCHAR);
-//        } else {
-//          type = fieldType.toType(typeFactory);
-//        }
-//        names.add(name);
-//        types.add(type);
-//        if (fieldTypes != null) {
-//          fieldTypes.add(fieldType);
-//        }
-//      }
-//    } catch (IOException e) {
-//      // ignore
-//    } finally {
-//      if (reader != null) {
-//        try {
-//          reader.close();
-//        } catch (IOException e) {
-//          // ignore
-//        }
-//      }
-//    }
-//    if (names.isEmpty()) {
-//      names.add("line");
-//      types.add(typeFactory.createSqlType(SqlTypeName.VARCHAR));
-//    }
-//    return typeFactory.createStructType(Pair.zip(names, types));
-//  }
 
   public static CSVReader openCsv(Source source) throws IOException {
     final Reader fileReader = source.reader();
@@ -339,6 +252,36 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
 //      this.fieldTypes = fieldTypes.toArray(new RelDataTypeField[fieldTypes.size()]);
 //      this.fields = fields;
 //      this.stream = stream;
+//    }
+
+    private static Class convertSqlTypeToJavaType(SqlTypeName sqlType) {
+      if (sqlType == SqlTypeName.BOOLEAN) {
+        return Boolean.class;
+      } else if (sqlType == SqlTypeName.INTEGER) {
+        return Integer.class;
+      } else if (sqlType == SqlTypeName.BIGINT) {
+        return Long.class;
+      } else if (sqlType == SqlTypeName.FLOAT) {
+        return Double.class;
+      } else if (sqlType == SqlTypeName.DOUBLE) {
+        return Double.class;
+      } else if (sqlType == SqlTypeName.DECIMAL) {
+        return BigDecimal.class;
+      } else if (sqlType == SqlTypeName.VARCHAR) {
+        return String.class;
+      } else if (sqlType == SqlTypeName.DATE) {
+        return Integer.class;
+      } else {
+        throw new AssertionError("unrecognized fieldtype: " + sqlType);
+      }
+    }
+
+//    public static ArrayRowConverter<?> of(List<RelDataTypeField> fieldTypes){
+//      ImmutableList.Builder builder = ImmutableList.builder();
+//      for (RelDataTypeField f: fieldTypes) {
+//        builder.add(convertSqlTypeToJavaType(f.getType().getSqlTypeName()));
+//      }
+//      return new ArrayRowConverter<builder.build()>()
 //    }
 
     public Object[] convertRow(String[] strings) {

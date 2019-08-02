@@ -25,6 +25,9 @@ class PelagoUnion protected
   }
 
   override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    if (!getInput(0).getTraitSet.containsIfApplicable(RelComputeDevice.X86_64)) return planner.getCostFactory.makeInfiniteCost()
+    if (!getInput(1).getTraitSet.containsIfApplicable(RelComputeDevice.NVPTX )) return planner.getCostFactory.makeInfiniteCost()
+
     if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) super.computeSelfCost(planner, mq).multiplyBy(0.001)
     else super.computeSelfCost(planner, mq).multiplyBy(10)
   }

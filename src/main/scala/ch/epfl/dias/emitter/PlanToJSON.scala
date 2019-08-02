@@ -247,6 +247,16 @@ object PlanToJSON {
             right = emitCast      (args.get(1), emitType(ltype, f), f)
           }
         }
+          //otherwise, cast to the bigger integer
+          if (castLeft(ltype, rtype)){
+            System.out.println("Cast: " + ltype + "->" + rtype)
+            left  = emitCast      (args.get(0), emitType(rtype, f), f)
+            right = emitExpression(args.get(1), f, args.get(0))
+          } else {
+            System.out.println("Cast: " + rtype + "->" + ltype)
+            left  = emitExpression(args.get(0), f, args.get(1))
+            right = emitCast      (args.get(1), emitType(ltype, f), f)
+          }
       } else if (notnums || SqlTypeUtil.sameNamedType(ltype, rtype)) {
         left  = emitExpression(args.get(0), f, args.get(1))
         right = emitExpression(args.get(1), f, args.get(0))

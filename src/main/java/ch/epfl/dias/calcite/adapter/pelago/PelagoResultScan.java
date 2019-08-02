@@ -1,6 +1,8 @@
 package ch.epfl.dias.calcite.adapter.pelago;
 
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules;
+import scala.Immutable;
+
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.EnumerableRel.Result;
 import org.apache.calcite.adapter.enumerable.EnumerableRel.Prefer;
@@ -23,6 +25,9 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.schema.*;
 import org.apache.calcite.util.BuiltInMethod;
 
+import com.google.common.collect.ImmutableList;
+
+import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,7 +52,6 @@ public class PelagoResultScan extends TableScan implements EnumerableRel {
     super(cluster, cluster.traitSet().plus(PelagoRel.CONVENTION).plus(RelDistributions.RANDOM_DISTRIBUTED), table);
     this.pelagoTable = pelagoTable;
     this.fields = fields;
-
     assert pelagoTable != null;
   }
 
@@ -57,41 +61,14 @@ public class PelagoResultScan extends TableScan implements EnumerableRel {
     return new PelagoResultScan(getCluster(), null, pelagoTable, fields);
   }
 
-//  @Override public RelWriter explainTerms(RelWriter pw) {
-//    return super.explainTerms(pw)
-//        .item("fields", Primitive.asList(fields));
-//  }
-//
-//  @Override public RelDataType deriveRowType() {
-//    final List<RelDataTypeField> fieldList = table.getRowType().getFieldList();
-//    final RelDataTypeFactory.Builder builder =
-//        getCluster().getTypeFactory().builder();
-//    for (int field : fields) {
-//      builder.add(fieldList.get(field));
-//    }
-//    return builder.build();
-//  }
-
-//  @Override public void register(RelOptPlanner planner) {
-//    for (RelOptRule rule : PelagoRules.RULES) planner.addRule(rule);
-//    planner.addRule(PelagoProjectTableScanRule.INSTANCE);
-//  }
-//
   @Override public RelOptCost computeSelfCost(RelOptPlanner planner,
       RelMetadataQuery mq) {
-    // Multiply the cost by a factor that makes a scan more attractive if it
-    // has significantly fewer fields than the original scan.
-    //
-    // The "+ 2D" on top and bottom keeps the function fairly smooth.
-    //
-    // For example, if table has 3 fields, project has 1 field,
-    // then factor = (1 + 2) / (3 + 2) = 0.6
-//    return super.computeSelfCost(planner, mq)
-//        .multiplyBy(((double) fields.length + 2D)
-//            / ((double) table.getRowType().getFieldCount() + 2D));
     return planner.getCostFactory().makeTinyCost();
   }
   public Result implement(EnumerableRelImplementor implementor, Prefer pref) {
+    final PhysType elementPhysType = PhysTypeImpl.of(
+        implementor.getTypeFactory(), getRowType(), JavaRowFormat.CUSTOM);
+//    this.elementType = elementPhysType.
     // Note that representation is ARRAY. This assumes that the table
     // returns a Object[] for each record. Actually a Table<T> can
     // return any type T. And, if it is a JdbcTable, we'd like to be
@@ -167,7 +144,7 @@ public class PelagoResultScan extends TableScan implements EnumerableRel {
   private Expression fieldExpression(ParameterExpression row_, int i,
                                      PhysType physType, JavaRowFormat format) {
     final Expression e =
-            format.field(row_, i, null, physType.getJavaFieldType(i));
+            format.field(row_, i, null, physType.fieldClass(i));
     final RelDataType relFieldType =
             physType.getRowType().getFieldList().get(i).getType();
     switch (relFieldType.getSqlTypeName()) {
