@@ -7,6 +7,9 @@ lib
 target
 current.json
 plan.json
+project/.ivy
+project/.boot
+project/.sbtboot
 src/main/resources/ssb_schema/catalog.json
 /inputs
 /Test Results - *
