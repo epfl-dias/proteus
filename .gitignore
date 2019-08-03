@@ -1,6 +1,7 @@
 .classpath
 .project
 .idea
+.cache
 .fuse_*
 classes
 lib

@@ -59,14 +59,24 @@ def listFilesRecursively(dir: File): Seq[File] = {
   list.filter(_.isFile) ++ list.filter(_.isDirectory).flatMap(listFilesRecursively)
 }
 
-sourceGenerators in Compile += Def.taskDyn {
-  val fmppFolder = (sourceManaged in Compile).value / "fmpp"
-  val javaccFolder = (sourceManaged in Compile).value / "javacc"
-  Def.task {
+sourceGenerators in Compile += Def.task{
+  val codegenDir = baseDirectory.value / "src" / "main" / "codegen"
+  // * Create a cached function which generates the output files
+  //   only if the input files have changed.
+  // * The first parameter is a file instance of the path to
+  //   the cache folder
+  // * The second parameter is the function to process the input
+  //   files and return the output files
+  val cached = FileFunction.cached(
+     baseDirectory.value / ".cache" / "codegen"
+  ) { (in: Set[File]) =>
+    val fmppFolder = (sourceManaged in Compile).value / "fmpp"
+    val javaccFolder = (sourceManaged in Compile).value / "javacc"
+    //  Def.task {
     fmpp.tools.CommandLine.execute(Array(
-      "-C", "src/main/codegen/config.fmpp",
-      "-O", fmppFolder.toString,
-      "-S", "src/main/codegen/templates/"
+      "-C", (codegenDir / "config.fmpp").toString,
+      "-S",(codegenDir / "templates").toString,
+      "-O", fmppFolder.toString
     ), null, null)
     org.javacc.parser.Main.mainProgram(Array(
       "-STATIC=false",
@@ -74,9 +84,11 @@ sourceGenerators in Compile += Def.taskDyn {
       "-OUTPUT_DIRECTORY=" + javaccFolder.toString,
       (fmppFolder / "javacc" / "Parser.jj").toString
     ))
-    listFilesRecursively(javaccFolder)
+    listFilesRecursively(javaccFolder).toSet
   }
+  cached(listFilesRecursively(codegenDir).toSet + baseDirectory.value / "build.sbt").toSeq
 }.taskValue
+
 
 resolvers += Resolver.jcenterRepo
 testOptions += Tests.Argument(jupiterTestFramework, "-q")
