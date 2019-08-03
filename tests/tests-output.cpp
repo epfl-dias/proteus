@@ -687,7 +687,9 @@ TEST_F(OutputTest, JoinLeft3) {
   sailorAttsForArg.push_back(*sid);
   sailorAttsForArg.push_back(*age);
   expression_t sailorArg{
-      expressions::InputArgument{intType, 0, sailorAttsForArg}};
+      expressions::InputArgument{new RecordType{std::vector<RecordAttribute *>{
+                                     new RecordAttribute{sailorOID}, sid, age}},
+                                 0}};
   expression_t sailorOIDProj = sailorArg[sailorOID];
   expression_t sailorSIDProj = sailorArg[*sid];
   expression_t sailorAgeProj = sailorArg[*age];
@@ -699,10 +701,10 @@ TEST_F(OutputTest, JoinLeft3) {
   /* Reserves: Right-side fields for materialization etc. */
   RecordAttribute reservesOID(reservesPath, activeLoop,
                               pgReserves->getOIDType());
-  list<RecordAttribute> reserveAttsForArg{reservesOID, *sidReserves,
-                                          *bidReserves};
-  expression_t reservesArg{
-      expressions::InputArgument{intType, 1, reserveAttsForArg}};
+  expression_t reservesArg{expressions::InputArgument{
+      new RecordType{std::vector<RecordAttribute *>{
+          new RecordAttribute{reservesOID}, sidReserves, bidReserves}},
+      1}};
   expression_t reservesOIDProj = reservesArg[reservesOID];
   expression_t reservesSIDProj = reservesArg[*sidReserves];
   expression_t reservesBIDProj = reservesArg[*bidReserves];
@@ -749,8 +751,10 @@ TEST_F(OutputTest, JoinLeft3) {
   /**
    * JOIN2: BOATS
    */
-  auto previousJoinArg =
-      expression_t{expressions::InputArgument(intType, 0, reserveAttsForArg)};
+  auto previousJoinArg = expression_t{expressions::InputArgument(
+      new RecordType{std::vector<RecordAttribute *>{
+          new RecordAttribute{reservesOID}, sidReserves, bidReserves}},
+      0)};
   auto previousJoinBIDProj = previousJoinArg[*bidReserves];
   vector<expression_t> exprsToMatPreviousJoin;
   exprsToMatPreviousJoin.push_back(sailorOIDProj);
@@ -763,13 +767,21 @@ TEST_F(OutputTest, JoinLeft3) {
   list<RecordAttribute> fieldsBoats;
   fieldsBoats.push_back(projTupleBoat);
   fieldsBoats.push_back(*bidBoats);
-  auto boatsArg =
-      expression_t{expressions::InputArgument(intType, 1, fieldsBoats)};
+  auto boatsArg = expression_t{expressions::InputArgument(
+      new RecordType{std::vector<RecordAttribute *>{
+          new RecordAttribute{projTupleBoat}, bidBoats}},
+      1)};
   auto boatsOIDProj = boatsArg[projTupleBoat];
   auto boatsBIDProj = boatsArg[*bidBoats];
 
+  assert(boatsBIDProj.isRegistered());
+
   vector<expression_t> exprsToMatBoats{boatsOIDProj, boatsBIDProj};
+  assert(exprsToMatBoats.back().isRegistered());
+
   Materializer matBoats(exprsToMatBoats);
+  std::cout << matBoats.getWantedExpressions().size() << std::endl;
+  assert(matBoats.getWantedExpressions().back().isRegistered());
 
   expressions::BinaryExpression *joinPred2 =
       new expressions::EqExpression(previousJoinBIDProj, boatsBIDProj);
@@ -974,19 +986,13 @@ TEST_F(OutputTest, MultiNestReservesStaticAlloc) {
   reserveAttsForArg.push_back(*sidReserves);
 
   /* constructing recType */
-  list<RecordAttribute *> reserveAttsForRec = list<RecordAttribute *>();
-  reserveAttsForRec.push_back(reservesOID);
-  reserveAttsForRec.push_back(sidReserves);
-  RecordType reserveRecType = RecordType(reserveAttsForRec);
+  list<RecordAttribute *> reserveAttsForRec{reservesOID, sidReserves};
+  RecordType reserveRecType(reserveAttsForRec);
 
-  expressions::Expression *reservesArg =
-      new expressions::InputArgument(&reserveRecType, 1, reserveAttsForArg);
-  expressions::Expression *reservesOIDProj = new expressions::RecordProjection(
-      pgReserves->getOIDType(), reservesArg, *reservesOID);
-  expressions::Expression *reservesSIDProj =
-      new expressions::RecordProjection(intType, reservesArg, *sidReserves);
-  expressions::Expression *reservesBIDProj =
-      new expressions::RecordProjection(intType, reservesArg, *bidReserves);
+  expressions::InputArgument reservesArg{&reserveRecType, 1};
+  auto reservesOIDProj = reservesArg[*reservesOID];
+  auto reservesSIDProj = reservesArg[*sidReserves];
+  auto reservesBIDProj = reservesArg[*bidReserves];
   vector<expression_t> exprsToMatReserves;
   exprsToMatReserves.push_back(reservesOIDProj);
   exprsToMatReserves.push_back(reservesSIDProj);
@@ -994,28 +1000,18 @@ TEST_F(OutputTest, MultiNestReservesStaticAlloc) {
   Materializer *matReserves = new Materializer(exprsToMatReserves);
 
   /* group-by expr */
-  expressions::Expression *f = reservesSIDProj;
+  auto f = reservesArg[*sidReserves];
   /* null handling */
-  expressions::Expression *g = reservesSIDProj;
-
-  expressions::Expression *nestPred = new expressions::BoolConstant(true);
+  auto g = reservesArg[*sidReserves];
 
   /* output of nest */
-  vector<Monoid> accsNest;
-  vector<expression_t> exprsNest;
-  vector<string> aggrLabels;
-  expressions::Expression *one = new expressions::IntConstant(1);
-  accsNest.push_back(SUM);
-  exprsNest.push_back(one);
-  accsNest.push_back(MAX);
-  exprsNest.push_back(reservesBIDProj);
-  aggrLabels.push_back("_groupCount");
-  aggrLabels.push_back("_groupMax");
+  vector<Monoid> accsNest{SUM, MAX};
+  vector<expression_t> exprsNest{1, reservesBIDProj};
+  vector<string> aggrLabels{"_groupCount", "_groupMax"};
 
   char nestLabel[] = "nest_reserves";
-  radix::Nest nest =
-      radix::Nest(&ctx, accsNest, exprsNest, aggrLabels, nestPred, f, g,
-                  &scanReserves, nestLabel, *matReserves);
+  radix::Nest nest = radix::Nest(&ctx, accsNest, exprsNest, aggrLabels, true, f,
+                                 g, &scanReserves, nestLabel, *matReserves);
   scanReserves.setParent(&nest);
 
   /* REDUCE */
@@ -1034,38 +1030,16 @@ TEST_F(OutputTest, MultiNestReservesStaticAlloc) {
   RecordAttribute *max =
       new RecordAttribute(2, nestLabel, string("_groupMax"), intType);
 
-  list<RecordAttribute> projections = list<RecordAttribute>();
-  projections.push_back(*cnt);
-  projections.push_back(*max);
+  expressions::InputArgument arg{&newRecType, 0};
 
-  expressions::Expression *arg =
-      new expressions::InputArgument(&newRecType, 0, projections);
-  expressions::Expression *outputExpr1 =
-      new expressions::RecordProjection(intType, arg, *cnt);
-  expressions::Expression *outputExpr2 =
-      new expressions::RecordProjection(intType, arg, *max);
+  expressions::AttributeConstruction constr1{"_outCount", arg[*cnt]};
+  expressions::AttributeConstruction constr2{"_outMax", arg[*max]};
 
-  list<expressions::AttributeConstruction> *newAtts =
-      new list<expressions::AttributeConstruction>();
+  expression_t newRec = expressions::RecordConstruction{{constr1, constr2}};
+  newRec.registerAs(nestLabel, "_rec");
 
-  expressions::AttributeConstruction constr1 =
-      expressions::AttributeConstruction(string("_outCount"), outputExpr1);
-  expressions::AttributeConstruction constr2 =
-      expressions::AttributeConstruction(string("_outMax"), outputExpr2);
-  newAtts->push_back(constr1);
-  newAtts->push_back(constr2);
-
-  expressions::RecordConstruction *newRec =
-      new expressions::RecordConstruction(&newRecType, *newAtts);
-
-  expressions::Expression *predicate = new expressions::BoolConstant(true);
-
-  vector<Monoid> accs;
-  vector<expression_t> exprs;
-  accs.push_back(BAGUNION);
-  exprs.push_back(newRec);
-  opt::Reduce reduce =
-      opt::Reduce(accs, exprs, predicate, &nest, &ctx, flushResults, testLabel);
+  opt::Reduce reduce({BAGUNION}, {newRec}, true, &nest, &ctx, flushResults,
+                     testLabel);
   nest.setParent(&reduce);
   reduce.produce();
 
@@ -1083,7 +1057,6 @@ TEST_F(OutputTest, MultiNestReservesDynAlloc) {
   ParallelContext &ctx = *prepareContext(testLabel);
 
   PrimitiveType *intType = new IntType();
-  PrimitiveType *floatType = new FloatType();
   PrimitiveType *stringType = new StringType();
 
   /**
@@ -1130,14 +1103,10 @@ TEST_F(OutputTest, MultiNestReservesDynAlloc) {
   reserveAttsForRec.push_back(sidReserves);
   RecordType reserveRecType = RecordType(reserveAttsForRec);
 
-  expressions::Expression *reservesArg =
-      new expressions::InputArgument(&reserveRecType, 1, reserveAttsForArg);
-  expressions::Expression *reservesOIDProj = new expressions::RecordProjection(
-      pgReserves->getOIDType(), reservesArg, *reservesOID);
-  expressions::Expression *reservesSIDProj =
-      new expressions::RecordProjection(intType, reservesArg, *sidReserves);
-  expressions::Expression *reservesBIDProj =
-      new expressions::RecordProjection(intType, reservesArg, *bidReserves);
+  expressions::InputArgument reservesArg{&reserveRecType, 1};
+  auto reservesOIDProj = reservesArg[*reservesOID];
+  auto reservesSIDProj = reservesArg[*sidReserves];
+  auto reservesBIDProj = reservesArg[*bidReserves];
   vector<expression_t> exprsToMatReserves;
   exprsToMatReserves.push_back(reservesOIDProj);
   exprsToMatReserves.push_back(reservesSIDProj);
@@ -1145,28 +1114,18 @@ TEST_F(OutputTest, MultiNestReservesDynAlloc) {
   Materializer *matReserves = new Materializer(exprsToMatReserves);
 
   /* group-by expr */
-  expressions::Expression *f = reservesSIDProj;
+  auto f = reservesSIDProj;
   /* null handling */
-  expressions::Expression *g = reservesSIDProj;
-
-  expressions::Expression *nestPred = new expressions::BoolConstant(true);
+  auto g = reservesSIDProj;
 
   /* output of nest */
-  vector<Monoid> accsNest;
-  vector<expression_t> exprsNest;
-  vector<string> aggrLabels;
-  expressions::Expression *one = new expressions::IntConstant(1);
-  accsNest.push_back(SUM);
-  exprsNest.push_back(one);
-  accsNest.push_back(MAX);
-  exprsNest.push_back(reservesBIDProj);
-  aggrLabels.push_back("_groupCount");
-  aggrLabels.push_back("_groupMax");
+  vector<Monoid> accsNest{SUM, MAX};
+  vector<expression_t> exprsNest{1, reservesBIDProj};
+  vector<string> aggrLabels{"_groupCount", "_groupMax"};
 
   char nestLabel[] = "nest_reserves";
-  radix::Nest nest =
-      radix::Nest(&ctx, accsNest, exprsNest, aggrLabels, nestPred, f, g,
-                  &scanReserves, nestLabel, *matReserves);
+  radix::Nest nest = radix::Nest(&ctx, accsNest, exprsNest, aggrLabels, true, f,
+                                 g, &scanReserves, nestLabel, *matReserves);
   scanReserves.setParent(&nest);
 
   /* REDUCE */
@@ -1180,43 +1139,21 @@ TEST_F(OutputTest, MultiNestReservesDynAlloc) {
   newAttrTypes->push_back(newMax);
   RecordType *newRecType = new RecordType(*newAttrTypes);
 
-  RecordAttribute *cnt =
-      new RecordAttribute(1, nestLabel, string("_groupCount"), intType);
-  RecordAttribute *max =
-      new RecordAttribute(2, nestLabel, string("_groupMax"), intType);
+  RecordAttribute cnt{1, nestLabel, string("_groupCount"), intType};
+  RecordAttribute max{2, nestLabel, string("_groupMax"), intType};
 
-  list<RecordAttribute> projections = list<RecordAttribute>();
-  projections.push_back(*cnt);
-  projections.push_back(*max);
+  expressions::InputArgument arg{newRecType, 0};
+  auto outputExpr1 = arg[cnt];
+  auto outputExpr2 = arg[max];
 
-  expressions::Expression *arg =
-      new expressions::InputArgument(newRecType, 0, projections);
-  expressions::Expression *outputExpr1 =
-      new expressions::RecordProjection(intType, arg, *cnt);
-  expressions::Expression *outputExpr2 =
-      new expressions::RecordProjection(intType, arg, *max);
+  expressions::AttributeConstruction constr1{"_outCount", outputExpr1};
+  expressions::AttributeConstruction constr2{"_outMax", outputExpr2};
+  list<expressions::AttributeConstruction> newAtts{constr1, constr2};
 
-  list<expressions::AttributeConstruction> *newAtts =
-      new list<expressions::AttributeConstruction>();
+  expressions::RecordConstruction newRec{newAtts};
 
-  expressions::AttributeConstruction constr1 =
-      expressions::AttributeConstruction(string("_outCount"), outputExpr1);
-  expressions::AttributeConstruction constr2 =
-      expressions::AttributeConstruction(string("_outMax"), outputExpr2);
-  newAtts->push_back(constr1);
-  newAtts->push_back(constr2);
-
-  expressions::RecordConstruction *newRec =
-      new expressions::RecordConstruction(newRecType, *newAtts);
-
-  expressions::Expression *predicate = new expressions::BoolConstant(true);
-
-  vector<Monoid> accs;
-  vector<expression_t> exprs;
-  accs.push_back(BAGUNION);
-  exprs.push_back(newRec);
-  opt::Reduce reduce =
-      opt::Reduce(accs, exprs, predicate, &nest, &ctx, flushResults, testLabel);
+  opt::Reduce reduce({BAGUNION}, {newRec}, true, &nest, &ctx, flushResults,
+                     testLabel);
   nest.setParent(&reduce);
   reduce.produce();
 

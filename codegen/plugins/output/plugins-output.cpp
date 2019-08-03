@@ -46,12 +46,12 @@ Materializer::Materializer(std::vector<RecordAttribute *> whichFields,
   oidsProvided = true;
 }
 
-Materializer::Materializer(std::vector<expression_t> wantedExpressions) {
+Materializer::Materializer(std::vector<expression_t> wantedExpressions)
+    : wantedExpressions(wantedExpressions) {
   oidsProvided = true;
-  std::vector<expression_t>::const_iterator it = wantedExpressions.begin();
-  for (; it != wantedExpressions.end(); it++) {
+  for (const auto &e : wantedExpressions) {
     auto proj = dynamic_cast<const expressions::RecordProjection *>(
-        it->getUnderlyingExpression());
+        e.getUnderlyingExpression());
     if (proj != nullptr) {
       RecordAttribute *recAttr = new RecordAttribute(proj->getAttribute());
       if (recAttr->getAttrName() == activeLoop) {
