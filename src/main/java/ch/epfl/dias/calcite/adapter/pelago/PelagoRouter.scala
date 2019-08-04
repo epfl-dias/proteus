@@ -80,7 +80,7 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
 
     val projs = getRowType.getFieldList.asScala.zipWithIndex.map{
       f => {
-        emitExpression(RexInputRef.of(f._2, getInput.getRowType), List(childBinding)).asInstanceOf[JObject]
+        emitExpression(RexInputRef.of(f._2, getInput.getRowType), List(childBinding), this).asInstanceOf[JObject]
       }
     }
 
@@ -101,15 +101,15 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
             ("argNo", -1) ~
             ("type",
               ("type", "record") ~
-              ("relName", childBinding.rel)
+              ("relName", childBinding.rel.getPelagoRelName)
             ) ~
             ("attributes", List(
-              ("relName", childBinding.rel) ~
+              ("relName", childBinding.rel.getPelagoRelName) ~
               ("attrName", "__broadcastTarget")
             ))
           ) ~
           ("attribute",
-            ("relName", childBinding.rel) ~
+            ("relName", childBinding.rel.getPelagoRelName) ~
             ("attrName", "__broadcastTarget")
           )
         )

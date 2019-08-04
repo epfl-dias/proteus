@@ -65,7 +65,7 @@ class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: R
 
     val projs = getRowType.getFieldList.asScala.zipWithIndex.map{
       f => {
-        emitExpression(RexInputRef.of(f._2, getInput.getRowType), List(childBinding)).asInstanceOf[JObject]
+        emitExpression(RexInputRef.of(f._2, getInput.getRowType), List(childBinding), this).asInstanceOf[JObject]
       }
     }
 

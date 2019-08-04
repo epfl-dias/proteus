@@ -39,8 +39,10 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.NumberUtil;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Source;
+import org.apache.calcite.util.Sources;
 import org.apache.calcite.util.mapping.IntPair;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.math.BigInteger;
@@ -55,7 +57,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class PelagoTable extends AbstractTable implements TranslatableTable {
     protected final RelProtoDataType    protoRowType;
+    protected final RelDataType         rowType;
     protected final Source              source      ;
+    protected final String              name        ;
 //    protected RelDataType               rowType     ;
     protected Map<String, ?>            type        ;
     protected Map<String, ?>            plugin      ;
@@ -73,11 +77,29 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
     private PelagoTable(Source source, RelProtoDataType protoRowType, Map<String, ?> plugin, long linehint, List<Map<String, ?>> constraints) {
         this.source         = source    ;
         this.type           = null      ;
-//        this.rowType        = null      ;
+        this.rowType        = null      ;
         this.linehint       = linehint  ;
         this.plugin         = plugin    ;
+        this.name           = source.path();
 
         this.protoRowType   = protoRowType;
+
+        if (constraints != null) {
+            this.constraints = constraints;
+        } else {
+            this.constraints = new ArrayList<>();
+        }
+    }
+
+    private PelagoTable(String name, RelDataType rowType, List<Map<String, ?>> constraints) {
+        this.source         = null;
+        this.name           = name;
+        this.type           = null      ;
+        this.linehint       = Long.MAX_VALUE;
+        this.plugin         = Map.of("type", "intermediate");
+
+        this.protoRowType   = null;
+        this.rowType        = rowType;
 
         if (constraints != null) {
             this.constraints = constraints;
@@ -89,9 +111,10 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
     private PelagoTable(Source source, Map<String, ?> type, Map<String, ?> plugin, long linehint, List<Map<String, ?>> constraints) {
         this.source     = source    ;
         this.type       = type      ;
-//        this.rowType    = null      ;
+        this.rowType    = null      ;
         this.linehint   = linehint  ;
         this.plugin     = plugin    ;
+        this.name       = source.path();
 
         this.protoRowType = null;
 
@@ -103,6 +126,7 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
     }
 
     public RelDataType getRowType(RelDataTypeFactory typeFactory) {
+        if (rowType != null && typeFactory == null) return rowType;
         if (protoRowType == null && typeFactory == null) typeFactory = new JavaTypeFactoryImpl();
 
         if (protoRowType != null) return protoRowType.apply(typeFactory);
@@ -240,7 +264,7 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
     }
 
     public String getPelagoRelName(){
-        return source.path();
+        return name;
     }
 
     public Map<String, ?> getPluginInfo(){
@@ -290,6 +314,10 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
 
     public static PelagoTable create(Source source, String name, Map<String, ?> plugin, RelProtoDataType lineType) throws MalformedPlugin {
         return new PelagoTable(source, lineType, plugin, getLineHintFromPlugin(name, plugin), null);
+    }
+
+    public static PelagoTable create(String name, RelDataType lineType) throws MalformedPlugin {
+        return new PelagoTable(name, lineType, null);
     }
 
     public RelPacking getPacking() {

@@ -67,7 +67,8 @@ class PelagoUnnest protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
 
-  override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
+  override def implement(target: RelDeviceType, alias2: String): (Binding, JValue) = {
+    val alias = PelagoTable.create(alias2, getRowType)
     val op    = ("operator" , "project")
 
     val unnest = implementUnnest
@@ -76,8 +77,8 @@ class PelagoUnnest protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
 
     val proj_exprs = input.getRowType.getFieldList.asScala.map {
       f => {
-        emitExpression(RexInputRef.of(f.getIndex, input.getRowType), List(inputBinding), true).asInstanceOf[JObject] ~
-          ("register_as", ("attrName", f.getName) ~ ("relName", alias))
+        emitExpression(RexInputRef.of(f.getIndex, input.getRowType), List(inputBinding), true, this).asInstanceOf[JObject] ~
+          ("register_as", ("attrName", f.getName) ~ ("relName", alias.getPelagoRelName))
       }
     }
 
@@ -89,19 +90,19 @@ class PelagoUnnest protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
                                                                     )
 
     assert(namedProjections.size == 1)
-    val unnestBinding = Binding(inputBinding.rel + "." + namedProjections.head.right, getFields(unnestedRowType))
+    val unnestBinding = Binding(PelagoTable.create(inputBinding.rel + "." + namedProjections.head.right, unnestedRowType), getFields(unnestedRowType))
 
     val nested_exprs = unnestRowTypeSlice.zipWithIndex.map {
       p => {//this binding is actually the input binding
-        emitExpression(RexInputRef.of(p._2, unnestedRowType), List(unnestBinding), true).asInstanceOf[JObject] ~
-          ("register_as", ("attrName", p._1.getName) ~ ("relName", alias))
+        emitExpression(RexInputRef.of(p._2, unnestedRowType), List(unnestBinding), true, this).asInstanceOf[JObject] ~
+          ("register_as", ("attrName", p._1.getName) ~ ("relName", alias.getPelagoRelName))
       }
     }
 
     val json = op ~
       ("gpu"    , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
       ("e"      , proj_exprs ++ nested_exprs                            ) ~
-      ("relName", alias                                                 ) ~
+      ("relName", alias.getPelagoRelName                                ) ~
       ("input"  , unnestdOp                                             )
 
     val binding: Binding = Binding(alias, getFields(getRowType))
@@ -125,7 +126,7 @@ class PelagoUnnest protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
 
     val expr = p.left.asInstanceOf[RexFieldAccess]
     assert(expr.getReferenceExpr().asInstanceOf[RexCorrelVariable].id == correlationId)
-    val f = emitExpression(RexInputRef.of(p.left.asInstanceOf[RexFieldAccess].getField.getIndex, input.getRowType), List(childBinding), true)
+    val f = emitExpression(RexInputRef.of(p.left.asInstanceOf[RexFieldAccess].getField.getIndex, input.getRowType), List(childBinding), true, this)
 
     val unnest_exprs = ("e", f) ~ ("name", "__" + alias + "_" + f.\("attribute").\("attrName").extract[String])
 

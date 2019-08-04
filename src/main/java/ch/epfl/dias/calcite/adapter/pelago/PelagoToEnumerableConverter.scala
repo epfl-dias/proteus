@@ -48,7 +48,7 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
 
   def getPlan: JValue = {
     val op = ("operator" , "print")
-    val alias = "print" + getId
+    val alias = PelagoTable.create("print" + getId, getRowType)
     val rowType = emitSchema(alias, getRowType)
     val child = getInput.asInstanceOf[PelagoRel].implement(RelDeviceType.X86_64)
     val childBinding: Binding = child._1
@@ -57,8 +57,8 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
     val exprs = getRowType
     val exprsJS: JValue = exprs.getFieldList.asScala.zipWithIndex.map {
       e => {
-        val reg_as = ("attrName", getRowType.getFieldNames.get(e._2)) ~ ("relName", alias)
-        emitExpression(RexInputRef.of(e._1.getIndex, getRowType), List(childBinding)).asInstanceOf[JObject] ~ ("register_as", reg_as)
+        val reg_as = ("attrName", getRowType.getFieldNames.get(e._2)) ~ ("relName", alias.getPelagoRelName)
+        emitExpression(RexInputRef.of(e._1.getIndex, getRowType), List(childBinding), this).asInstanceOf[JObject] ~ ("register_as", reg_as)
       }
     }
 

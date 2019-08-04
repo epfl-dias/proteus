@@ -1,6 +1,6 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
-import ch.epfl.dias.emitter.Binding
+import ch.epfl.dias.emitter.{Binding, PlanToJSON}
 import org.apache.calcite.linq4j.tree.Primitive
 import org.apache.calcite.plan._
 import org.apache.calcite.rel._
@@ -120,10 +120,11 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
     //TODO Cross-check: 0: schemaName, 1: tableName (?)
     val srcName  = getPelagoRelName //s.getTable.getQualifiedName.get(1)
 
-    val rowType  = emitSchema(srcName, getRowType)
+    PlanToJSON.dictEncoded = getPluginInfo.get("type").toString().equalsIgnoreCase("block")
+    val rowType  = emitSchema(pelagoTable, getRowType)
     val linehint = getLineHint.longValue
 
-    val tableBinding: Binding = Binding(srcName, table.getRowType.getFieldList.asScala.toList)
+    val tableBinding: Binding = Binding(pelagoTable, table.getRowType.getFieldList.asScala.toList)
 
 //    val projs = fields.map{
 //      f => {
@@ -141,13 +142,14 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
     val plugin = Extraction.decompose(getPluginInfo.asScala).asInstanceOf[JObject] ~
       ("name"       , srcName) ~
       ("projections", rowType) ~
-      ("schema"     , emitSchema(srcName, table.getRowType, true, false, true))
+      ("schema"     , emitSchema(pelagoTable, table.getRowType, true, false, true))
 
     val json : JValue = op ~
       ("gpu"      , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX))       ~
       ("plugin"   , plugin  )
+    PlanToJSON.dictEncoded = false
 
-    val binding: Binding = Binding(srcName, getFields(getRowType))
+    val binding: Binding = Binding(pelagoTable, getFields(getRowType))
     val ret: (Binding, JValue) = (binding,json)
     ret
   }

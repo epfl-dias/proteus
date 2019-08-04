@@ -44,7 +44,8 @@ class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: 
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
 
-  override def implement(target: RelDeviceType, alias: String): (Binding, JsonAST.JValue) = {
+  override def implement(target: RelDeviceType, alias2: String): (Binding, JsonAST.JValue) = {
+    val alias = PelagoTable.create(alias2, getRowType)
     val op = ("operator", "project")
     val rowType = emitSchema(alias, getRowType)
     val child = implementUnpack
@@ -67,7 +68,7 @@ class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: 
         ("attribute"  , ("attrName", f.getName) ~ ("relName", "__sort" + getId)) ~
         ("register_as",
           ("attrName", f.getName) ~
-          ("relName", alias)
+          ("relName", alias.getPelagoRelName)
         )
       }
     }
@@ -75,7 +76,7 @@ class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: 
     val json = op ~
       ("gpu"        , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
       ("e"          , projs                                                 ) ~
-      ("relName"    , alias                                                 ) ~
+      ("relName"    , alias.getPelagoRelName                                ) ~
       ("input"      , childOp                                               )
     val binding: Binding = Binding(alias, getFields(getRowType))
     val ret: (Binding, JValue) = (binding, json)
@@ -84,7 +85,7 @@ class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: 
 
   def implementUnpack: (Binding, JsonAST.JValue) = {
     val op = ("operator", "unpack")
-    val alias = "__sort_unpack" + getId
+    val alias = PelagoTable.create("__sort_unpack" + getId, getRowType)
     val child = implementSort
     val childOp = child._2
 
@@ -110,7 +111,7 @@ class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: 
 
   def implementSort: (Binding, JsonAST.JValue) = {
     val op = ("operator", "sort")
-    val alias = "__sort" + getId
+    val alias = PelagoTable.create("__sort" + getId, getRowType)
     val rowType = emitSchema(alias, getRowType)
     val child = getInput.asInstanceOf[PelagoRel].implement(getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE))
     val childBinding: Binding = child._1
@@ -121,9 +122,9 @@ class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: 
       f => {
         ("direction", f.direction.shortString) ~
         ("expression",
-          emitExpression(RexInputRef.of(f.getFieldIndex, getInput.getRowType), List(childBinding)).asInstanceOf[JObject] ~
+          emitExpression(RexInputRef.of(f.getFieldIndex, getInput.getRowType), List(childBinding), this).asInstanceOf[JObject] ~
           ("register_as",
-            ("attrName", getRowType.getFieldNames.get(f.getFieldIndex)) ~ ("relName", alias)
+            ("attrName", getRowType.getFieldNames.get(f.getFieldIndex)) ~ ("relName", alias.getPelagoRelName)
           )
         )
       }
@@ -136,9 +137,9 @@ class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: 
           List(
             ("direction", "NONE") ~
             ("expression",
-              emitExpression(RexInputRef.of(f.getIndex, getInput.getRowType), List(childBinding)).asInstanceOf[JObject] ~
+              emitExpression(RexInputRef.of(f.getIndex, getInput.getRowType), List(childBinding), this).asInstanceOf[JObject] ~
               ("register_as",
-                ("attrName", f.getName) ~ ("relName", alias)
+                ("attrName", f.getName) ~ ("relName", alias.getPelagoRelName)
               )
             )
           )

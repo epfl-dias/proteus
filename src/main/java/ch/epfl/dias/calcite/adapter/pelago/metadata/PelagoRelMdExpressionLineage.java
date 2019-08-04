@@ -15,6 +15,7 @@ import com.google.common.collect.ImmutableList;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoPack;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoRouter;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoUnpack;
 
 import java.util.Set;
@@ -42,6 +43,10 @@ public class PelagoRelMdExpressionLineage implements MetadataHandler<BuiltInMeta
   }
 
   public Set<RexNode> getExpressionLineage(PelagoDeviceCross rel, RelMetadataQuery mq, RexNode outputExpression){
+    return mq.getExpressionLineage(rel.getInput(), outputExpression);
+  }
+
+  public Set<RexNode> getExpressionLineage(PelagoRouter rel, RelMetadataQuery mq, RexNode outputExpression){
     return mq.getExpressionLineage(rel.getInput(), outputExpression);
   }
 }

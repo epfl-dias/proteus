@@ -59,7 +59,8 @@ class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, in
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
 
   //almost 0 cost in Pelago
-  override def implement(target: RelDeviceType, alias: String): (Binding, JsonAST.JValue) = {
+  override def implement(target: RelDeviceType, alias2: String): (Binding, JsonAST.JValue) = {
+    val alias   = PelagoTable.create(alias2, getRowType)
     val op      = ("operator" , "project")
     val rowType = emitSchema(alias, getRowType)
     val child   = getInput.asInstanceOf[PelagoRel].implement(target)
@@ -68,12 +69,12 @@ class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, in
     //TODO Could also use p.getNamedProjects
     val exprs = getNamedProjects
     val exprsJS: JValue = exprs.asScala.map {
-      e => emitExpression(e.left,List(childBinding)).asInstanceOf[JsonAST.JObject] ~ ("register_as", ("attrName", e.right) ~ ("relName", alias))
+      e => emitExpression(e.left,List(childBinding), this).asInstanceOf[JsonAST.JObject] ~ ("register_as", ("attrName", e.right) ~ ("relName", alias.getPelagoRelName))
     }
 
     val json = op ~
       ("gpu"          , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
-      ("relName"      , alias                                                 ) ~
+      ("relName"      , alias.getPelagoRelName                                ) ~
       ("e"            , exprsJS                                               ) ~
       ("input"        , childOp          ) // ~ ("tupleType", rowType)
     val binding: Binding = Binding(alias,getFields(getRowType))

@@ -123,7 +123,8 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         rules.add(new TableScanRule(PelagoRelFactories.PELAGO_BUILDER));
         // push and merge filter rules
         rules.add(new FilterAggregateTransposeRule(Filter.class, PelagoRelFactories.PELAGO_BUILDER, Aggregate.class));
-//        rules.add(new FilterProjectTransposeRule  (Filter.class, Project.class, true, true, PelagoRelFactories.PELAGO_BUILDER));
+        rules.add(FilterProjectTransposeRule.INSTANCE);
+//        rules.add(SubstitutionVisitor.FilterOnProjectRule.INSTANCE);
 //        rules.add(new FilterMergeRule(PelagoRelFactories.PELAGO_BUILDER));
         rules.add(FilterJoinRule.FILTER_ON_JOIN);
         rules.add(FilterJoinRule.JOIN);

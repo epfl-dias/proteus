@@ -68,7 +68,8 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
     super.explainTerms(pw).item("trait", getTraitSet.toString)
   }
 
-  override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
+  override def implement(target: RelDeviceType, alias2: String): (Binding, JValue) = {
+    val alias = PelagoTable.create(alias2, getRowType)
     val op = ("operator", if (getGroupCount == 0) "reduce" else "groupby")
     val child = getInput.asInstanceOf[PelagoRel].implement(target)
     val childBinding: Binding = child._1
@@ -83,13 +84,13 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
 
     val offset = getGroupCount
 
-    val aggsExpr = aggs.zipWithIndex.map {
+    val aggsExpr: List[JValue] = aggs.zipWithIndex.map {
       //        agg => emitAggExpression(agg, List(childBinding))
       agg => {
         val arg    = agg._1.getArgList
-        val reg_as = ("attrName", getRowType.getFieldNames.get(agg._2 + offset)) ~ ("relName", alias)
+        val reg_as = ("attrName", getRowType.getFieldNames.get(agg._2 + offset)) ~ ("relName", alias.getPelagoRelName)
         if (arg.size() == 1 && agg._1.getAggregation.getKind != SqlKind.COUNT) {
-          emitExpression(RexInputRef.of(arg.get(0), getInput.getRowType), List(childBinding)).asInstanceOf[JsonAST.JObject] ~ ("register_as", reg_as)
+          emitExpression(RexInputRef.of(arg.get(0), getInput.getRowType), List(childBinding), this).asInstanceOf[JsonAST.JObject] ~ ("register_as", reg_as)
           //            emitArg(arg.get(0), List(childBinding)).asInstanceOf[JsonAST.JObject] ~ ("register_as", reg_as)
         } else if (arg.size() <= 1 && agg._1.getAggregation.getKind == SqlKind.COUNT) {
           //FIXME: currently, count(A) ignores NULLs, so it is the same as count(*)
@@ -121,8 +122,8 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
       ret
     } else {
       val aggK = getGroupSet.asScala.zipWithIndex.map(f => {
-        val reg_as = ("attrName", getRowType.getFieldNames.get(f._2)) ~ ("relName", alias)
-        emitExpression(RexInputRef.of(f._1, getInput.getRowType), List(childBinding)).asInstanceOf[JsonAST.JObject] ~ ("register_as", reg_as)
+        val reg_as = ("attrName", getRowType.getFieldNames.get(f._2)) ~ ("relName", alias.getPelagoRelName)
+        emitExpression(RexInputRef.of(f._1, getInput.getRowType), List(childBinding), this).asInstanceOf[JsonAST.JObject] ~ ("register_as", reg_as)
       })
 
       val aggE =  aggsJS.zip(aggsExpr).zipWithIndex.map {

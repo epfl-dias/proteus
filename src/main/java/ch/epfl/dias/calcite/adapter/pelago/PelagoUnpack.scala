@@ -83,7 +83,7 @@ class PelagoUnpack protected(cluster: RelOptCluster, traits: RelTraitSet, input:
 
     val projs = getRowType.getFieldList.asScala.zipWithIndex.map {
       f => {
-        emitExpression(RexInputRef.of(f._2, getInput.getRowType), List(childBinding))
+        emitExpression(RexInputRef.of(f._2, getInput.getRowType), List(childBinding), this)
       }
     }
     val json = op ~

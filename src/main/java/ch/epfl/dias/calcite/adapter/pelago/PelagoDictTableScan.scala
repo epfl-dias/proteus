@@ -67,7 +67,7 @@ class PelagoDictTableScan protected (cluster: RelOptCluster, traitSet: RelTraitS
       ("attrName"       , fieldName   ) ~
       ("regex"          , regex       )
 
-    val binding: Binding = Binding(dictPath + "$dict$" + fieldName, getFields(getRowType))
+    val binding: Binding = Binding(PelagoTable.create(dictPath + "$dict$" + fieldName, getRowType), getFields(getRowType))
     val ret: (Binding, JValue) = (binding, op)
     ret
   }

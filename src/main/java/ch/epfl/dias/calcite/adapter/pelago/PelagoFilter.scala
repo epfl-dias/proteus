@@ -42,7 +42,7 @@ class PelagoFilter protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
     val childBinding: Binding = child._1
     val childOp = child._2
     val rowType = emitSchema(childBinding.rel, getRowType)
-    val cond = emitExpression(getCondition, List(childBinding))
+    val cond = emitExpression(getCondition, List(childBinding), this)
 
     val json : JValue = op ~
       ("gpu"      , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~

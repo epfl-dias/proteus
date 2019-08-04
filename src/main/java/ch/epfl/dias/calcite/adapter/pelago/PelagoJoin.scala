@@ -151,7 +151,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
           size += s
           maxsize = Math.max(maxsize, s)
           val name = if (op.isInstanceOf[RexInputRef]) op.asInstanceOf[RexInputRef].getName else p._2.toString
-          val je = emitExpression(op, bindings).asInstanceOf[JsonAST.JObject]
+          val je = emitExpression(op, bindings, this).asInstanceOf[JsonAST.JObject]
           (
             "name",
             name
@@ -173,7 +173,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
       val rt = inp.getIndex
       val ro = inp_other.getIndex
       (
-        emitExpression(operands.get(if ((arg == 0) == (rt < ro)) arg else (1 - arg)), bindings).asInstanceOf[JObject],
+        emitExpression(operands.get(if ((arg == 0) == (rt < ro)) arg else (1 - arg)), bindings, this).asInstanceOf[JObject],
         inp,
         getTypeSize(inp.getType)
       )
@@ -183,7 +183,8 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     }
   }
 
-  override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
+  override def implement(target: RelDeviceType, alias2: String): (Binding, JValue) = {
+    val alias = PelagoTable.create(alias2, getRowType);
     val op = ("operator" , "hashjoin-chained")
     val build = getLeft.asInstanceOf[PelagoRel].implement(target)
     val build_binding: Binding = build._1
@@ -194,8 +195,8 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
 
     //FIXME: joinCondOperands does not always belong to the probe side
 //    val cond = emitExpression(getCondition, List(leftBinding,rightBinding))
-    val (probe_k, probe_keyRexInputRef, pk_size) = getKeyExpr(getCondition, 1, List(build_binding, probe_binding), alias)
-    val (build_k, build_keyRexInputRef, bk_size) = getKeyExpr(getCondition, 0, List(build_binding, probe_binding), alias)
+    val (probe_k, probe_keyRexInputRef, pk_size) = getKeyExpr(getCondition, 1, List(build_binding, probe_binding), alias.getPelagoRelName)
+    val (build_k, build_keyRexInputRef, bk_size) = getKeyExpr(getCondition, 0, List(build_binding, probe_binding), alias.getPelagoRelName)
     val rowType = emitSchema(alias, getRowType)
 //    ("attrName", joinCondOperands.get(1).asInstanceOf[RexInputRef].getName) ~ ("relName", alias)
 
@@ -210,9 +211,9 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
         if (f._2 != build_keyIndex && f._2 < getLeft.getRowType.getFieldCount) {
           build_w += getTypeSize(f._1.getType)
           List(
-            emitExpression(RexInputRef.of(f._2, getRowType), List(build_binding, probe_binding))
+            emitExpression(RexInputRef.of(f._2, getRowType), List(build_binding, probe_binding), this)
               .asInstanceOf[JsonAST.JObject] ~
-            ("register_as", ("attrName", f._1.getName) ~ ("relName", alias))
+            ("register_as", ("attrName", f._1.getName) ~ ("relName", alias.getPelagoRelName))
           )
 //          List(("relName", alias) ~ ("attrName", f._1.getName) ~ ("type", f._1.getType.toString))
         } else {
@@ -230,9 +231,9 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
         if (f._2 != probe_keyRexInputRef.asInstanceOf[RexInputRef].getIndex && f._2 >= getLeft.getRowType.getFieldCount) {
           probe_w += getTypeSize(f._1.getType)
           List(
-            emitExpression(RexInputRef.of(f._2, getRowType), List(build_binding, probe_binding))
+            emitExpression(RexInputRef.of(f._2, getRowType), List(build_binding, probe_binding), this)
               .asInstanceOf[JsonAST.JObject] ~
-              ("register_as", ("attrName", f._1.getName) ~ ("relName", alias))
+              ("register_as", ("attrName", f._1.getName) ~ ("relName", alias.getPelagoRelName))
           )
 //          List(("relName", alias) ~ ("attrName", f._1.getName) ~ ("type", f._1.getType.toString))
         } else {
@@ -251,11 +252,11 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     val json = op ~
 //      ("tupleType"        , rowType     ) ~
       ("gpu"              , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)                       ) ~
-      ("build_k"          , build_k ~ ("register_as", ("attrName", build_keyName) ~ ("relName", alias)) ) ~
+      ("build_k"          , build_k ~ ("register_as", ("attrName", build_keyName) ~ ("relName", alias.getPelagoRelName)) ) ~
       ("build_e"          , build_e                                                                     ) ~
       ("build_w"          , build_w                                                                     ) ~
       ("build_input"      , build_child                                                                 ) ~
-      ("probe_k"          , probe_k ~ ("register_as", ("attrName", probe_keyName) ~ ("relName", alias)) ) ~
+      ("probe_k"          , probe_k ~ ("register_as", ("attrName", probe_keyName) ~ ("relName", alias.getPelagoRelName)) ) ~
       ("probe_e"          , probe_e                                                                     ) ~
       ("probe_w"          , probe_w                                                                     ) ~
       ("hash_bits"        , hash_bits                                                                   ) ~

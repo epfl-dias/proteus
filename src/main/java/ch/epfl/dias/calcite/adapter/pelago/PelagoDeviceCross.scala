@@ -21,7 +21,7 @@ import org.json4s.JsonDSL._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import org.json4s.jackson.Serialization
-import ch.epfl.dias.emitter.PlanToJSON.{emitAggExpression, emitArg, emitExpression, emitSchema, emit_, getFields}
+import ch.epfl.dias.emitter.PlanToJSON.{emitAggExpression, emitArg, emitExpression, emitSchema, getFields}
 import ch.epfl.dias.emitter.Binding
 import org.apache.calcite.rel.convert.Converter
 import org.apache.calcite.rel.core.Exchange

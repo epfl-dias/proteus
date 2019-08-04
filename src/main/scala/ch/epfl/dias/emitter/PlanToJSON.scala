@@ -1,8 +1,11 @@
 package ch.epfl.dias.emitter
 
 import java.io.{PrintWriter, StringWriter}
+import java.nio.charset.Charset
+import java.util
+import java.util.Set
 
-import ch.epfl.dias.calcite.adapter.pelago.PelagoTableScan
+import ch.epfl.dias.calcite.adapter.pelago.{PelagoTable, PelagoTableScan}
 import ch.epfl.dias.emitter.PlanToJSON.emitPrimitiveType
 import com.google.common.collect.ImmutableList
 import org.apache.calcite.adapter.enumerable._
@@ -14,9 +17,10 @@ import org.apache.calcite.rex._
 import org.apache.calcite.sql.fun.{SqlCaseOperator, SqlCastFunction, SqlLikeOperator, SqlStdOperatorTable}
 import org.apache.calcite.sql.{pretty => _, _}
 import org.apache.calcite.interpreter.Bindables.BindableTableScan
-import org.apache.calcite.plan.RelOptUtil
+import org.apache.calcite.plan.{RelOptTable, RelOptUtil}
 import org.apache.calcite.plan.RelOptUtil.InputFinder
 import org.apache.calcite.sql.`type`.{ArraySqlType, SqlTypeName, SqlTypeUtil}
+import org.apache.calcite.util.NlsString
 import org.json4s.JsonAST.JValue
 import org.json4s.JsonDSL._
 import org.json4s._
@@ -28,10 +32,11 @@ import scala.collection.mutable.Buffer
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.Breaks._
 
-case class Binding(rel: String, fields: List[RelDataTypeField])
+case class Binding(rel: PelagoTable, fields: List[RelDataTypeField])
 
 object PlanToJSON {
   implicit val formats = DefaultFormats
+  var dictEncoded = false;
 
   //-> TODO What about degree of materialization for joins?
   //---> Join behavior can be handled implicitly by executor:
@@ -62,23 +67,23 @@ object PlanToJSON {
     }
   }
 
-  def emitExpression(e: RexNode, f: List[Binding]) : JValue = {
-    emitExpression(e, f, false)
+  def emitExpression(e: RexNode, f: List[Binding], input: RelNode) : JValue = {
+    emitExpression(e, f, false, input)
   }
 
-  def emitExpression(e: RexNode, f: List[Binding], other: RexNode) : JValue = {
-    emitExpression(e, f, other, false)
+  def emitExpression(e: RexNode, f: List[Binding], other: RexNode, input: RelNode) : JValue = {
+    emitExpression(e, f, other, false, input)
   }
 
-  def emitExpression(e: RexNode, f: List[Binding], arg_with_type: Boolean) : JValue = {
-    emitExpression(e, f, null, arg_with_type)
+  def emitExpression(e: RexNode, f: List[Binding], arg_with_type: Boolean, input: RelNode) : JValue = {
+    emitExpression(e, f, null, arg_with_type, input)
   }
 
-  def emitExpression(e: RexNode, f: List[Binding], other: RexNode, arg_with_type: Boolean) : JValue = {
+  def emitExpression(e: RexNode, f: List[Binding], other: RexNode, arg_with_type: Boolean, input: RelNode) : JValue = {
     val exprType : JValue = emitType(e.getType, f)
     val json : JValue = e match {
       case call: RexCall => {
-        emitOp(call.op, call.operands, exprType, f)
+        emitOp(call.op, call.operands, exprType, f, input)
       }
       case inputRef: RexInputRef => {
         val arg = emitArg(inputRef,f, arg_with_type)
@@ -108,10 +113,26 @@ object PlanToJSON {
             // Only comparisons of input fields with string constants are supported
             // otherwise, which dictionary should we use?
 
-            val info = findAttrInfo(other.asInstanceOf[RexInputRef], f)
-            val path = info._2 + "." + info._1 + ".dict"
+            val ref = input.getCluster.getMetadataQuery.getExpressionLineage(input, other)
+            assert(ref != null, "Have you forgot to add an operator in the expression lineage metadata provider?")
+            assert(ref.size == 1)
+            // NOTE: ok! that's a good sign!
+            val table = ref.iterator.next.asInstanceOf[RexTableInputRef].getTableRef.getTable
+            System.out.println("=+==" + table)
+            System.out.println(table.getQualifiedName)
+            System.out.println("====" + table.getRelOptSchema.getTableForMember(table.getQualifiedName))
+            System.out.println("====" + table.unwrap(classOf[PelagoTable]).getPelagoRelName)
+            System.out.println()
 
-            ("expression", exprType \ "type") ~ ("v", v) ~ ("dict", ("path", path))
+            val info = findAttrInfo(other.asInstanceOf[RexInputRef], f)
+            val path = table.unwrap(classOf[PelagoTable]).getPelagoRelName + "." + info._1 + ".dict"
+
+            val old = PlanToJSON.dictEncoded
+            PlanToJSON.dictEncoded = table.unwrap(classOf[PelagoTable]).getPluginInfo.get("type").toString().equalsIgnoreCase("block")
+            val exprType2 : JValue = emitType(e.getType, f)
+            PlanToJSON.dictEncoded = old
+
+            ("expression", exprType2 \ "type") ~ ("v", v) ~ ("dict", ("path", path))
           } else {
             ("expression", exprType \ "type") ~ ("v", v)
           }
@@ -162,23 +183,23 @@ object PlanToJSON {
     }
   }
 
-  def emitOp(op: SqlOperator, args: ImmutableList[RexNode], dataType: JValue, f: List[Binding] ) : JValue = op match   {
-    case binOp: SqlBinaryOperator => emitBinaryOp(binOp, args, dataType, f)
-    case func: SqlFunction => emitFunc(func, args, dataType, f)
-    case caseOp: SqlCaseOperator => emitCaseOp(caseOp, args, dataType, f)
-    case postOp: SqlPostfixOperator => emitPostfixOp(postOp, args, dataType, f)
+  def emitOp(op: SqlOperator, args: ImmutableList[RexNode], dataType: JValue, f: List[Binding], input: RelNode) : JValue = op match   {
+    case binOp: SqlBinaryOperator => emitBinaryOp(binOp, args, dataType, f, input)
+    case func: SqlFunction => emitFunc(func, args, dataType, f, input)
+    case caseOp: SqlCaseOperator => emitCaseOp(caseOp, args, dataType, f, input)
+    case postOp: SqlPostfixOperator => emitPostfixOp(postOp, args, dataType, f, input)
     case likeOp: SqlLikeOperator => throw new PlanConversionException("Unconverted like operation!")
     case _ => throw new PlanConversionException("Unknown operator: "+op.getKind.sql)
   }
 
-  def emitCast(arg: RexNode, retType: JValue, f: List[Binding]): JValue = {
-    ("expression", "cast") ~ ("type", retType) ~ ("e", emitExpression(arg, f))
+  def emitCast(arg: RexNode, retType: JValue, f: List[Binding], input: RelNode): JValue = {
+    ("expression", "cast") ~ ("type", retType) ~ ("e", emitExpression(arg, f, input))
   }
 
-  def emitPostfixOp(op: SqlPostfixOperator, args: ImmutableList[RexNode], opType: JValue, f: List[Binding]) : JValue = {
+  def emitPostfixOp(op: SqlPostfixOperator, args: ImmutableList[RexNode], opType: JValue, f: List[Binding], input: RelNode) : JValue = {
     op.getKind match {
-      case SqlKind.IS_NOT_NULL => ("expression", "is_not_null") ~ ("e", emitExpression(args.get(0), f))
-      case SqlKind.IS_NULL     => ("expression", "is_null"    ) ~ ("e", emitExpression(args.get(0), f))
+      case SqlKind.IS_NOT_NULL => ("expression", "is_not_null") ~ ("e", emitExpression(args.get(0), f, input))
+      case SqlKind.IS_NULL     => ("expression", "is_null"    ) ~ ("e", emitExpression(args.get(0), f, input))
       case _ => throw new PlanConversionException("Unknown sql operator: "+op.getKind.sql)
     }
   }
@@ -200,7 +221,7 @@ object PlanToJSON {
     }
   }
 
-  def emitBinaryOp(op: SqlBinaryOperator, args: ImmutableList[RexNode], opType: JValue, f: List[Binding]) : JValue =  {
+  def emitBinaryOp(op: SqlBinaryOperator, args: ImmutableList[RexNode], opType: JValue, f: List[Binding], input: RelNode) : JValue =  {
     var left : JValue = null;
     var right: JValue = null;
 
@@ -220,56 +241,56 @@ object PlanToJSON {
       if (op == SqlStdOperatorTable.DIVIDE) {
         // Make sure that both sides are doubles
         if (ltype.getSqlTypeName != SqlTypeName.DOUBLE) {
-          left = emitCast(args.get(0), emitPrimitiveType(SqlTypeName.DOUBLE), f)
+          left = emitCast(args.get(0), emitPrimitiveType(SqlTypeName.DOUBLE), f, input)
         } else {
-          left  = emitExpression(args.get(0), f, args.get(1))
+          left  = emitExpression(args.get(0), f, args.get(1), input)
         }
 
         if (rtype.getSqlTypeName != SqlTypeName.DOUBLE) {
-          right = emitCast(args.get(1), emitPrimitiveType(SqlTypeName.DOUBLE), f)
+          right = emitCast(args.get(1), emitPrimitiveType(SqlTypeName.DOUBLE), f, input)
         } else {
-          right = emitExpression(args.get(1), f, args.get(0))
+          right = emitExpression(args.get(1), f, args.get(0), input)
         }
       } else if (op == SqlStdOperatorTable.DIVIDE_INTEGER) {
         if (!l_isInt || !r_isInt){
           // If any input is not int, cast both to int(64)
-          left  = emitCast(args.get(0), emitPrimitiveType(SqlTypeName.BIGINT), f)
-          right = emitCast(args.get(1), emitPrimitiveType(SqlTypeName.BIGINT), f)
+          left  = emitCast(args.get(0), emitPrimitiveType(SqlTypeName.BIGINT), f, input)
+          right = emitCast(args.get(1), emitPrimitiveType(SqlTypeName.BIGINT), f, input)
         } else {
           //otherwise, cast to the bigger integer
           if (castLeft(ltype, rtype)){
             System.out.println("Cast: " + ltype + "->" + rtype)
-            left  = emitCast      (args.get(0), emitType(rtype, f), f)
-            right = emitExpression(args.get(1), f, args.get(0))
+            left  = emitCast      (args.get(0), emitType(rtype, f), f, input)
+            right = emitExpression(args.get(1), f, args.get(0), input)
           } else {
             System.out.println("Cast: " + rtype + "->" + ltype)
-            left  = emitExpression(args.get(0), f, args.get(1))
-            right = emitCast      (args.get(1), emitType(ltype, f), f)
+            left  = emitExpression(args.get(0), f, args.get(1), input)
+            right = emitCast      (args.get(1), emitType(ltype, f), f, input)
           }
         }
           //otherwise, cast to the bigger integer
           if (castLeft(ltype, rtype)){
             System.out.println("Cast: " + ltype + "->" + rtype)
-            left  = emitCast      (args.get(0), emitType(rtype, f), f)
-            right = emitExpression(args.get(1), f, args.get(0))
+            left  = emitCast      (args.get(0), emitType(rtype, f), f, input)
+            right = emitExpression(args.get(1), f, args.get(0), input)
           } else {
             System.out.println("Cast: " + rtype + "->" + ltype)
-            left  = emitExpression(args.get(0), f, args.get(1))
-            right = emitCast      (args.get(1), emitType(ltype, f), f)
+            left  = emitExpression(args.get(0), f, args.get(1), input)
+            right = emitCast      (args.get(1), emitType(ltype, f), f, input)
           }
       } else if (notnums || SqlTypeUtil.sameNamedType(ltype, rtype)) {
-        left  = emitExpression(args.get(0), f, args.get(1))
-        right = emitExpression(args.get(1), f, args.get(0))
+        left  = emitExpression(args.get(0), f, args.get(1), input)
+        right = emitExpression(args.get(1), f, args.get(0), input)
       } else {
 //        assert(SqlTypeUtil.comparePrecision(ltype.getPrecision, rtype.getPrecision) != 0) //FIXME: !!! have to be similar, but from proteus side!
         if (castLeft(ltype, rtype)){
           System.out.println("Cast: " + ltype + "->" + rtype)
-          left  = emitCast      (args.get(0), emitType(rtype, f), f)
-          right = emitExpression(args.get(1), f, args.get(0))
+          left  = emitCast      (args.get(0), emitType(rtype, f), f, input)
+          right = emitExpression(args.get(1), f, args.get(0), input)
         } else {
           System.out.println("Cast: " + rtype + "->" + ltype)
-          left  = emitExpression(args.get(0), f, args.get(1))
-          right = emitCast      (args.get(1), emitType(ltype, f), f)
+          left  = emitExpression(args.get(0), f, args.get(1), input)
+          right = emitCast      (args.get(1), emitType(ltype, f), f, input)
         }
       }
     } else {
@@ -278,12 +299,12 @@ object PlanToJSON {
       val left_args = args.subList(0, subSize)
       val right_args = args.subList(subSize, args.size)
 
-      left = emitBinaryOp(op, left_args, opType, f)
+      left = emitBinaryOp(op, left_args, opType, f, input)
 
       if (right_args.size == 1){
-        right = emitExpression(right_args.get(0), f)
+        right = emitExpression(right_args.get(0), f, input)
       } else {
-        right = emitBinaryOp(op, right_args, opType, f)
+        right = emitBinaryOp(op, right_args, opType, f, input)
       }
     }
 
@@ -311,7 +332,7 @@ object PlanToJSON {
   }
   
 
-  def emitFunc(func: SqlFunction, args: ImmutableList[RexNode], retType: JValue, f: List[Binding]) : JValue =  {
+  def emitFunc(func: SqlFunction, args: ImmutableList[RexNode], retType: JValue, f: List[Binding], input: RelNode) : JValue =  {
     val json = func.getKind match  {
       case SqlKind.MOD => {
         assert(args.size == 2)
@@ -332,29 +353,29 @@ object PlanToJSON {
         val l_isInt   = SqlTypeUtil.isIntType(ltype)
         val r_isInt   = SqlTypeUtil.isIntType(rtype)
         if (notnums || SqlTypeUtil.sameNamedType(ltype, rtype)) {
-          left  = emitExpression(args.get(0), f, args.get(1))
-          right = emitExpression(args.get(1), f, args.get(0))
+          left  = emitExpression(args.get(0), f, args.get(1), input)
+          right = emitExpression(args.get(1), f, args.get(0), input)
         } else {
           //        assert(SqlTypeUtil.comparePrecision(ltype.getPrecision, rtype.getPrecision) != 0) //FIXME: !!! have to be similar, but from proteus side!
           if (castLeft(ltype, rtype)){
             System.out.println("Cast: " + ltype + "->" + rtype)
-            left  = emitCast      (args.get(0), emitType(rtype, f), f)
-            right = emitExpression(args.get(1), f, args.get(0))
+            left  = emitCast      (args.get(0), emitType(rtype, f), f, input)
+            right = emitExpression(args.get(1), f, args.get(0), input)
           } else {
             System.out.println("Cast: " + rtype + "->" + ltype)
-            left  = emitExpression(args.get(0), f, args.get(1))
-            right = emitCast      (args.get(1), emitType(ltype, f), f)
+            left  = emitExpression(args.get(0), f, args.get(1), input)
+            right = emitCast      (args.get(1), emitType(ltype, f), f, input)
           }
         }
         ("expression", "mod") ~ ("left", left) ~ ("right", right)
       }
       case SqlKind.CAST => {
         assert(args.size == 1)
-        emitCast(args.get(0), retType, f)
+        emitCast(args.get(0), retType, f, input)
       }
       case SqlKind.EXTRACT => {
         val range = args.get(0).asInstanceOf[RexLiteral].getValue.asInstanceOf[TimeUnitRange]
-        ("expression", "extract") ~ ("unitrange", range.name()) ~ ("e", emitExpression(args.get(1), f))
+        ("expression", "extract") ~ ("unitrange", range.name()) ~ ("e", emitExpression(args.get(1), f, input))
       }
       case _ => throw new PlanConversionException("Unsupported function: "+func.getKind.sql)
     }
@@ -363,15 +384,15 @@ object PlanToJSON {
 
   //First n-1 args: Consecutive if-then pairs
   //Last arg: 'Else' clause
-  def emitCaseOp(op: SqlCaseOperator, args: ImmutableList[RexNode], opType: JValue, f: List[Binding]) : JValue =  {
-    buildCaseExpr(args.asScala.dropRight(1).grouped(2).toList, args.get(args.size() - 1), f)
+  def emitCaseOp(op: SqlCaseOperator, args: ImmutableList[RexNode], opType: JValue, f: List[Binding], input: RelNode) : JValue =  {
+    buildCaseExpr(args.asScala.dropRight(1).grouped(2).toList, args.get(args.size() - 1), f, input)
   }
 
-  def buildCaseExpr(args: List[Buffer[RexNode]], elseNode: RexNode, f: List[Binding]): JValue = {
+  def buildCaseExpr(args: List[Buffer[RexNode]], elseNode: RexNode, f: List[Binding], input: RelNode): JValue = {
     ("expression", "if") ~
-      ("cond", emitExpression(args(0)(0), f)) ~
-      ("then", emitExpression(args(0)(1), f)) ~
-      ("else", if (args.size == 1) emitExpression(elseNode, f) else buildCaseExpr(args.tail, elseNode, f))
+      ("cond", emitExpression(args(0)(0), f, input)) ~
+      ("then", emitExpression(args(0)(1), f, input)) ~
+      ("else", if (args.size == 1) emitExpression(elseNode, f, input) else buildCaseExpr(args.tail, elseNode, f, input))
   }
 
   def emitArg(arg: RexInputRef, f: List[Binding]) : JValue = {
@@ -379,7 +400,7 @@ object PlanToJSON {
   }
 
   def findAttrInfo(arg: RexInputRef, f: List[Binding]) = {
-    var rel : String = ""
+    var rel : PelagoTable = null
     var attr : String = ""
     var fieldCount = 0
     var fieldCountCurr = 0
@@ -401,7 +422,7 @@ object PlanToJSON {
     val rel  = info._2
 
     val jsonAttr: JObject = {
-      val json = ("attrName", attr) ~ ("relName", rel)
+      val json = ("attrName", attr) ~ ("relName", rel.getPelagoRelName)
 
       if (with_type){
         json ~ ("type", emitType(arg.getType, f))
@@ -413,7 +434,7 @@ object PlanToJSON {
     val jsonArg: JObject =
       ("expression" , "argument"                            ) ~
       ("attributes" , List(jsonAttr)                        ) ~
-      ("type"       , ("relName", rel) ~ ("type", "record") ) ~
+      ("type"       , ("relName", rel.getPelagoRelName) ~ ("type", "record") ) ~
       ("argNo"      , -1                                    )
 
 
@@ -427,8 +448,8 @@ object PlanToJSON {
   def emitPrimitiveType(k: SqlTypeName): JValue = k match {
     case SqlTypeName.INTEGER  => ("type", "int"     )
     case SqlTypeName.BIGINT   => ("type", "int64"   )
-    case SqlTypeName.VARCHAR  => ("type", "dstring" )
-    case SqlTypeName.CHAR     => ("type", "dstring" )
+    case SqlTypeName.VARCHAR  => ("type", if (dictEncoded) "dstring" else "string" )
+    case SqlTypeName.CHAR     => ("type", if (dictEncoded) "dstring" else "string" )
     case SqlTypeName.BOOLEAN  => ("type", "bool"    )
     case SqlTypeName.DATE     => ("type", "date"    )
     case SqlTypeName.DOUBLE   => ("type", "float"   ) // proteu's float is a c++ double
@@ -456,7 +477,7 @@ object PlanToJSON {
   }
 
   def emitArg(arg: Integer, f: List[Binding], with_type: Boolean) : JValue = {
-    var rel : String = ""
+    var rel : PelagoTable = null
     var attr : String = ""
     var t : JValue = null
     var fieldCount = 0
@@ -472,7 +493,7 @@ object PlanToJSON {
       fieldCountCurr += b.fields.size
     } }
 
-    val json : JObject = ("relName",rel) ~ ("attrName",attr)
+    val json : JObject = ("relName",rel.getPelagoRelName) ~ ("attrName",attr)
     if (with_type){
       json ~ ("type", t)
     } else {
@@ -480,28 +501,28 @@ object PlanToJSON {
     }
   }
 
-  def emitSchema(relName: String, t: RelDataType): JValue = {
+  def emitSchema(relName: PelagoTable, t: RelDataType): JValue = {
     emitSchema(relName, t, false, false, false)
   }
 
-  def emitSchema(relName: String, t: RelDataType, with_attrNo: Boolean, is_packed: Boolean): JValue = {
+  def emitSchema(relName: PelagoTable, t: RelDataType, with_attrNo: Boolean, is_packed: Boolean): JValue = {
     emitSchema(relName, t, with_attrNo, is_packed, false)
   }
 
-  def emitSchema(relName: String, t: RelDataType, with_attrNo: Boolean, is_packed: Boolean, with_type: Boolean): JValue = t match {
+  def emitSchema(relName: PelagoTable, t: RelDataType, with_attrNo: Boolean, is_packed: Boolean, with_type: Boolean): JValue = t match {
     case recType : RelRecordType => emitRowType(relName, recType, with_attrNo, is_packed, with_type)
     case _ => throw new PlanConversionException("Unknown schema type (non-record one)")
   }
 
-  def emitRowType(relName: String, t: RelRecordType): JValue = {
+  def emitRowType(relName: PelagoTable, t: RelRecordType): JValue = {
     emitRowType(relName, t, false, false, false)
   }
 
-  def emitRowType(relName: String, t: RelRecordType, with_attrNo: Boolean, is_packed: Boolean, with_type: Boolean): JValue = {
+  def emitRowType(relName: PelagoTable, t: RelRecordType, with_attrNo: Boolean, is_packed: Boolean, with_type: Boolean): JValue = {
     val bindings = List(Binding(relName, getFields(t)))
     val fields = t.getFieldList.asScala.zipWithIndex.map {
       f => {
-        var t = ("relName", relName) ~ ("attrName", f._1.getName)
+        var t = ("relName", relName.getPelagoRelName) ~ ("attrName", f._1.getName)
         if (with_type) {
 //          var ty = emitType(f._1.getType, bindings)
 //          if (f._1.getType.getSqlTypeName == SqlTypeName.VARCHAR || f._1.getType.getSqlTypeName == SqlTypeName.CHAR){
@@ -517,201 +538,201 @@ object PlanToJSON {
     fields
   }
 
-  def emit(n: RelNode) : JValue = {
-    emit_(n)._2
-  }
+//  def emit(n: RelNode) : JValue = {
+//    emit_(n)._2
+//  }
 
-  def emit_(n: RelNode) : (Binding, JValue) = n match {
-    //Note: Project can appear in multiple parts of a plan!
-    //For example: if we use 'GROUP BY id+9, a Project operator will put the new bindings together
-//    case p: EnumerableProject => {
-//      val op = ("operator" , "projection")
-//      val alias = "projection"+p.getId
-//      val rowType = emitSchema(alias, p.getRowType)
-//      val child = emit_(p.getInput)
+//  def emit_(n: RelNode) : (Binding, JValue) = n match {
+//    //Note: Project can appear in multiple parts of a plan!
+//    //For example: if we use 'GROUP BY id+9, a Project operator will put the new bindings together
+////    case p: EnumerableProject => {
+////      val op = ("operator" , "projection")
+////      val alias = "projection"+p.getId
+////      val rowType = emitSchema(alias, p.getRowType)
+////      val child = emit_(p.getInput)
+////      val childBinding: Binding = child._1
+////      val childOp = child._2
+////      //TODO Could also use p.getNamedProjects
+////      val exprs = p.getProjects
+////      val exprsJS: JValue = exprs.asScala.map {
+////        e => emitExpression(e,List(childBinding))
+////      }
+////
+////      val json = op ~ ("tupleType", rowType) ~ ("e", exprsJS) ~ ("input" , childOp)
+////      val binding: Binding = Binding(alias,getFields(p.getRowType))
+////      val ret: (Binding, JValue) = (binding,json)
+////      ret
+////    }
+////    case a: EnumerableAggregate => {
+////      val op = ("operator" , "agg")
+////      val child = emit_(a.getInput)
+////      val childBinding: Binding = child._1
+////      val childOp = child._2
+////
+////      val groups: List[Integer] = a.getGroupSet.toList.asScala.toList
+////      val groupsJS: JValue = groups.map {
+////        g => emitArg(g,List(childBinding))
+////      }
+////
+////      val aggs: List[AggregateCall] = a.getAggCallList.asScala.toList
+////      val aggsJS = aggs.map {
+////        agg => emitAggExpression(agg,List(childBinding))
+////      }
+////      val alias = "agg"+a.getId
+////      val rowType = emitSchema(alias, a.getRowType)
+////
+////      val json = op ~ ("tupleType", rowType) ~ ("groups", groupsJS) ~ ("aggs", aggsJS) ~ ("input" , childOp)
+////      val binding: Binding = Binding(alias,getFields(a.getRowType))
+////      val ret: (Binding, JValue) = (binding,json)
+////      ret
+////    }
+////    case j: EnumerableJoin => {
+////      val op = ("operator" , "join")
+////      val l = emit_(j.getLeft)
+////      val leftBinding: Binding = l._1
+////      val leftChildOp = l._2
+////      val r = emit_(j.getRight)
+////      val rightBinding: Binding = r._1
+////      val rightChildOp = r._2
+////      val cond = emitExpression(j.getCondition,List(leftBinding,rightBinding))
+////      val alias = "join"+j.getId
+////      val rowType = emitSchema(alias, j.getRowType)
+////
+////      val json = op ~ ("tupleType", rowType) ~ ("cond", cond) ~ ("left" , leftChildOp) ~ ("right" , rightChildOp)
+////      val binding: Binding = Binding(alias,leftBinding.fields ++ rightBinding.fields)
+////      val ret: (Binding, JValue) = (binding,json)
+////      ret
+////    }
+////    case f: EnumerableFilter => {
+////      val op = ("operator" , "select")
+////      val child = emit_(f.getInput)
+////      val childBinding: Binding = child._1
+////      val childOp = child._2
+////      val rowType = emitSchema(childBinding.rel, f.getRowType)
+////      val cond = emitExpression(f.getCondition,List(childBinding))
+////
+////      val json = op ~ ("tupleType", rowType) ~ ("cond", cond) ~ ("input", childOp)
+////      val ret: (Binding, JValue) = (childBinding,json)
+////      ret
+////    }
+////    case s : EnumerableTableScan => {
+////      val op = ("operator" , "scan")
+////      //TODO Cross-check: 0: schemaName, 1: tableName (?)
+////      val srcName = s.getTable.getQualifiedName.get(1)
+////      val rowType = emitSchema(srcName, s.getRowType)
+////
+////      val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName)
+////      val binding: Binding = Binding(srcName,getFields(s.getRowType))
+////      val ret: (Binding, JValue) = (binding,json)
+////      ret
+////    }
+////    case s : PelagoTableScan => {
+////      val op = ("operator" , "scan")
+////      //TODO Cross-check: 0: schemaName, 1: tableName (?)
+////      val srcName  = s.getPelagoRelName //s.getTable.getQualifiedName.get(1)
+////      val rowType  = emitSchema(srcName, s.getRowType)
+////      val plugin   = Extraction.decompose(s.getPluginInfo.asScala)
+////      val linehint = s.getLineHint.longValue
+////
+////      val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName) ~ ("plugin", plugin) ~ ("linehint", linehint)
+////      val binding: Binding = Binding(srcName,getFields(s.getRowType))
+////      val ret: (Binding, JValue) = (binding,json)
+////      ret
+////    }
+////    case s : BindableTableScan => {
+////      val op = ("operator" , "scan")
+////      //TODO Cross-check: 0: schemaName, 1: tableName (?)
+////      val srcName = s.getTable.getQualifiedName.get(1)
+////      val rowType = emitSchema(srcName, s.getRowType)
+////
+////      val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName)
+////      val binding: Binding = Binding(srcName,getFields(s.getRowType))
+////      val ret: (Binding, JValue) = (binding,json)
+////      ret
+////    }
+//    case i : EnumerableInterpreter => {
+//      emit_(i.getInput)
+//    }
+//    case sort: EnumerableSort => {
+//      val op = ("operator" , "sort")
+//      val child = emit_(sort.getInput)
 //      val childBinding: Binding = child._1
 //      val childOp = child._2
-//      //TODO Could also use p.getNamedProjects
-//      val exprs = p.getProjects
-//      val exprsJS: JValue = exprs.asScala.map {
-//        e => emitExpression(e,List(childBinding))
+//      val rowType = emitSchema("sort"+sort.getId, sort.getRowType)
+//
+//      val args : JValue =
+//      sort.getCollation.getFieldCollations.asScala.map {
+//        col => {
+//          val arg = emitArg(col.getFieldIndex,List(childBinding))
+//          val regas = ("rel", "sort"+sort.getId) ~ ("attr", arg.\("attr"))
+//          ("expression", arg) ~ ("direction", col.getDirection.shortString) ~ ("register_as", regas)
+//        }
 //      }
 //
-//      val json = op ~ ("tupleType", rowType) ~ ("e", exprsJS) ~ ("input" , childOp)
-//      val binding: Binding = Binding(alias,getFields(p.getRowType))
+//      val keyIndexes =
+//      sort.getCollation.getFieldCollations.asScala.map {
+//       col => col.getFieldIndex
+//      }
+//
+//      val args2: JValue =
+//      sort.getRowType.getFieldList.asScala.filter(p => !keyIndexes.contains(p.getIndex)).map{
+//        col => {
+//          val arg = emitArg(col.getIndex,List(childBinding))
+//          val regas = ("rel", "sort"+sort.getId) ~ ("attr", arg.\("attr"))
+//          ("expression", arg) ~ ("direction", "NONE") ~ ("register_as", regas)
+//        }
+//      }
+//
+//      val json : JValue = op ~ ("tupleType", rowType) ~ ("args", args ++ args2) ~ ("input", childOp)
+//      val binding: Binding = Binding("sort"+sort.getId,getFields(sort.getRowType))
 //      val ret: (Binding, JValue) = (binding,json)
 //      ret
 //    }
-//    case a: EnumerableAggregate => {
-//      val op = ("operator" , "agg")
-//      val child = emit_(a.getInput)
-//      val childBinding: Binding = child._1
-//      val childOp = child._2
-//
-//      val groups: List[Integer] = a.getGroupSet.toList.asScala.toList
-//      val groupsJS: JValue = groups.map {
-//        g => emitArg(g,List(childBinding))
-//      }
-//
-//      val aggs: List[AggregateCall] = a.getAggCallList.asScala.toList
-//      val aggsJS = aggs.map {
-//        agg => emitAggExpression(agg,List(childBinding))
-//      }
-//      val alias = "agg"+a.getId
-//      val rowType = emitSchema(alias, a.getRowType)
-//
-//      val json = op ~ ("tupleType", rowType) ~ ("groups", groupsJS) ~ ("aggs", aggsJS) ~ ("input" , childOp)
-//      val binding: Binding = Binding(alias,getFields(a.getRowType))
-//      val ret: (Binding, JValue) = (binding,json)
-//      ret
-//    }
-//    case j: EnumerableJoin => {
-//      val op = ("operator" , "join")
-//      val l = emit_(j.getLeft)
+//    case c: EnumerableCorrelate => {
+//      val op = ("operator" , "unnest")
+//      val l = emit_(c.getLeft)
 //      val leftBinding: Binding = l._1
 //      val leftChildOp = l._2
-//      val r = emit_(j.getRight)
-//      val rightBinding: Binding = r._1
-//      val rightChildOp = r._2
-//      val cond = emitExpression(j.getCondition,List(leftBinding,rightBinding))
-//      val alias = "join"+j.getId
-//      val rowType = emitSchema(alias, j.getRowType)
+//      val proj = c.getRight.asInstanceOf[EnumerableUncollect].getInput.asInstanceOf[EnumerableProject]
 //
-//      val json = op ~ ("tupleType", rowType) ~ ("cond", cond) ~ ("left" , leftChildOp) ~ ("right" , rightChildOp)
-//      val binding: Binding = Binding(alias,leftBinding.fields ++ rightBinding.fields)
+//      val unnest_exprs = proj.getNamedProjects.asScala.map {
+//        p => {
+//          val expr = p.left.asInstanceOf[RexFieldAccess]
+//          assert(expr.getReferenceExpr().asInstanceOf[RexCorrelVariable].id == c.getCorrelationId)
+//          val f = emitArg(p.left.asInstanceOf[RexFieldAccess].getField.getIndex, List(leftBinding))
+//
+//          ("e", f) ~ ("name", "__unnest".concat(c.getId.toString).concat("_").concat(f.\("attr").extract[String]))
+//        }
+//      }
+//      val alias = "unnest"+c.getId
+//      val rowType = emitSchema("unnest"+c.getId, c.getRowType)
+//
+//      val proj_exprs = leftChildOp\"tupleType"
+//      val nested_exprs = unnest_exprs.map{
+//        p => {
+//          ("attr", p\"name") ~ ("rel", (p\"e"\"rel").extract[String].concat(".").concat((p\"e"\"attr").extract[String]))
+//        }
+//      }
+//
+//      val unnest_json = op ~ ("tupleType", proj_exprs ++ nested_exprs) ~ ("input" , leftChildOp) ~ ("path" , unnest_exprs)
+//
+//      val unnest_attr = (nested_exprs.head\"rel").extract[String]
+//      val tmpBinding: Binding = Binding(unnest_attr, getFields(c.getRowType))
+//
+//      val unnest_e: JValue = getFields(c.getRowType).slice(c.getLeft.getRowType.getFieldCount, getFields(c.getRowType).size).map{
+//        p => {
+//          emitArg(p.getIndex, List(tmpBinding), true) // ~ ("rel", (p\"e"\"rel").extract[String].concat(".").concat((p\"e"\"attr").extract[String]))
+//        }
+//      }
+//
+//      val json = ("operator", "projection") ~ ("tupleType", rowType) ~ ("e", proj_exprs ++ unnest_e) ~ ("input" , unnest_json)
+//
+//      val binding: Binding = Binding("unnest"+c.getId,getFields(c.getRowType))
 //      val ret: (Binding, JValue) = (binding,json)
 //      ret
 //    }
-//    case f: EnumerableFilter => {
-//      val op = ("operator" , "select")
-//      val child = emit_(f.getInput)
-//      val childBinding: Binding = child._1
-//      val childOp = child._2
-//      val rowType = emitSchema(childBinding.rel, f.getRowType)
-//      val cond = emitExpression(f.getCondition,List(childBinding))
-//
-//      val json = op ~ ("tupleType", rowType) ~ ("cond", cond) ~ ("input", childOp)
-//      val ret: (Binding, JValue) = (childBinding,json)
-//      ret
+//    case _  => {
+//      throw new PlanConversionException("Unknown algebraic operator: "+n.getRelTypeName)
 //    }
-//    case s : EnumerableTableScan => {
-//      val op = ("operator" , "scan")
-//      //TODO Cross-check: 0: schemaName, 1: tableName (?)
-//      val srcName = s.getTable.getQualifiedName.get(1)
-//      val rowType = emitSchema(srcName, s.getRowType)
-//
-//      val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName)
-//      val binding: Binding = Binding(srcName,getFields(s.getRowType))
-//      val ret: (Binding, JValue) = (binding,json)
-//      ret
-//    }
-//    case s : PelagoTableScan => {
-//      val op = ("operator" , "scan")
-//      //TODO Cross-check: 0: schemaName, 1: tableName (?)
-//      val srcName  = s.getPelagoRelName //s.getTable.getQualifiedName.get(1)
-//      val rowType  = emitSchema(srcName, s.getRowType)
-//      val plugin   = Extraction.decompose(s.getPluginInfo.asScala)
-//      val linehint = s.getLineHint.longValue
-//
-//      val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName) ~ ("plugin", plugin) ~ ("linehint", linehint)
-//      val binding: Binding = Binding(srcName,getFields(s.getRowType))
-//      val ret: (Binding, JValue) = (binding,json)
-//      ret
-//    }
-//    case s : BindableTableScan => {
-//      val op = ("operator" , "scan")
-//      //TODO Cross-check: 0: schemaName, 1: tableName (?)
-//      val srcName = s.getTable.getQualifiedName.get(1)
-//      val rowType = emitSchema(srcName, s.getRowType)
-//
-//      val json : JValue = op ~ ("tupleType", rowType) ~ ("name", srcName)
-//      val binding: Binding = Binding(srcName,getFields(s.getRowType))
-//      val ret: (Binding, JValue) = (binding,json)
-//      ret
-//    }
-    case i : EnumerableInterpreter => {
-      emit_(i.getInput)
-    }
-    case sort: EnumerableSort => {
-      val op = ("operator" , "sort")
-      val child = emit_(sort.getInput)
-      val childBinding: Binding = child._1
-      val childOp = child._2
-      val rowType = emitSchema("sort"+sort.getId, sort.getRowType)
-
-      val args : JValue =
-      sort.getCollation.getFieldCollations.asScala.map {
-        col => {
-          val arg = emitArg(col.getFieldIndex,List(childBinding))
-          val regas = ("rel", "sort"+sort.getId) ~ ("attr", arg.\("attr"))
-          ("expression", arg) ~ ("direction", col.getDirection.shortString) ~ ("register_as", regas)
-        }
-      }
-
-      val keyIndexes =
-      sort.getCollation.getFieldCollations.asScala.map {
-       col => col.getFieldIndex
-      }
-
-      val args2: JValue =
-      sort.getRowType.getFieldList.asScala.filter(p => !keyIndexes.contains(p.getIndex)).map{
-        col => {
-          val arg = emitArg(col.getIndex,List(childBinding))
-          val regas = ("rel", "sort"+sort.getId) ~ ("attr", arg.\("attr"))
-          ("expression", arg) ~ ("direction", "NONE") ~ ("register_as", regas)
-        }
-      }
-
-      val json : JValue = op ~ ("tupleType", rowType) ~ ("args", args ++ args2) ~ ("input", childOp)
-      val binding: Binding = Binding("sort"+sort.getId,getFields(sort.getRowType))
-      val ret: (Binding, JValue) = (binding,json)
-      ret
-    }
-    case c: EnumerableCorrelate => {
-      val op = ("operator" , "unnest")
-      val l = emit_(c.getLeft)
-      val leftBinding: Binding = l._1
-      val leftChildOp = l._2
-      val proj = c.getRight.asInstanceOf[EnumerableUncollect].getInput.asInstanceOf[EnumerableProject]
-
-      val unnest_exprs = proj.getNamedProjects.asScala.map {
-        p => {
-          val expr = p.left.asInstanceOf[RexFieldAccess]
-          assert(expr.getReferenceExpr().asInstanceOf[RexCorrelVariable].id == c.getCorrelationId)
-          val f = emitArg(p.left.asInstanceOf[RexFieldAccess].getField.getIndex, List(leftBinding))
-
-          ("e", f) ~ ("name", "__unnest".concat(c.getId.toString).concat("_").concat(f.\("attr").extract[String]))
-        }
-      }
-      val alias = "unnest"+c.getId
-      val rowType = emitSchema("unnest"+c.getId, c.getRowType)
-
-      val proj_exprs = leftChildOp\"tupleType"
-      val nested_exprs = unnest_exprs.map{
-        p => {
-          ("attr", p\"name") ~ ("rel", (p\"e"\"rel").extract[String].concat(".").concat((p\"e"\"attr").extract[String]))
-        }
-      }
-
-      val unnest_json = op ~ ("tupleType", proj_exprs ++ nested_exprs) ~ ("input" , leftChildOp) ~ ("path" , unnest_exprs)
-
-      val unnest_attr = (nested_exprs.head\"rel").extract[String]
-      val tmpBinding: Binding = Binding(unnest_attr, getFields(c.getRowType))
-
-      val unnest_e: JValue = getFields(c.getRowType).slice(c.getLeft.getRowType.getFieldCount, getFields(c.getRowType).size).map{
-        p => {
-          emitArg(p.getIndex, List(tmpBinding), true) // ~ ("rel", (p\"e"\"rel").extract[String].concat(".").concat((p\"e"\"attr").extract[String]))
-        }
-      }
-
-      val json = ("operator", "projection") ~ ("tupleType", rowType) ~ ("e", proj_exprs ++ unnest_e) ~ ("input" , unnest_json)
-
-      val binding: Binding = Binding("unnest"+c.getId,getFields(c.getRowType))
-      val ret: (Binding, JValue) = (binding,json)
-      ret
-    }
-    case _  => {
-      throw new PlanConversionException("Unknown algebraic operator: "+n.getRelTypeName)
-    }
-  }
+//  }
 }
