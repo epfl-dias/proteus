@@ -9,5 +9,6 @@ License: What license is it under?
 Encoding: UTF-8
 LazyData: true
 Imports: DBI(>= 0.6.0), methods, codetools, jsonlite, dbplyr, dplyr, rlang, RJDBC
+LinkingTo: Rcpp
 Enhances: dplyr (>= 0.7.0), RJDBC, dbplyr
 Suggests: DBItest, testthat

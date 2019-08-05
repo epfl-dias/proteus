@@ -51,7 +51,7 @@ sql_select.ViDaRConnection <- function(con, select, from, where = NULL,
   # Limits are not supported (yet)
   #out$limit <- dbplyr:::sql_clause_limit(limit, con)
 
-  dbplyr::escape(unname(dbplyr:::compact(out)), collapse = " ", parens = FALSE, con = con)
+  escape(unname(purrr::compact(out)), collapse = " ", parens = FALSE, con = con)
 }
 
 # Future use - checking for presence of certain vector functions in parts of queries

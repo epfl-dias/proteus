@@ -38,7 +38,7 @@ sql_unnest <- function(con, select, from, unnest, ...) {
 
   out$from <- sql_clause_unnest(from, unnest, con)
 
-  dbplyr::escape(unname(dbplyr:::compact(out)), collapse = " ", parens = FALSE, con = con)
+  escape(unname(purrr::compact(out)), collapse = " ", parens = FALSE, con = con)
 }
 
 
