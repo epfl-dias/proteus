@@ -171,7 +171,7 @@ object PelagoTableScan {
         .replace(pelagoTable.getHomDistribution)
         .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => pelagoTable.getDeviceType)
         .replaceIf(RelPackingTraitDef.INSTANCE, () => pelagoTable.getPacking)
-        .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => if (pelagoTable.getPacking == RelPacking.UnPckd) RelComputeDevice.NONE else RelComputeDevice.from(pelagoTable.getDeviceType));
+        .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => if (pelagoTable.getPacking == RelPacking.Packed) RelComputeDevice.NONE else RelComputeDevice.from(pelagoTable.getDeviceType));
     new PelagoTableScan(cluster, traitSet, table, pelagoTable, fields)
   }
 }
