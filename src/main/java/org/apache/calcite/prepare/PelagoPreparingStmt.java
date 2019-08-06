@@ -9,7 +9,6 @@ import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.linq4j.function.Function2;
 import org.apache.calcite.plan.*;
-import org.apache.calcite.plan.hep.HepMatchOrder;
 import org.apache.calcite.plan.hep.HepPlanner;
 import org.apache.calcite.plan.hep.HepProgram;
 import org.apache.calcite.plan.hep.HepProgramBuilder;
@@ -17,16 +16,11 @@ import org.apache.calcite.plan.volcano.AbstractConverter;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.core.RelFactories;
-import org.apache.calcite.rel.metadata.DefaultRelMetadataProvider;
-import org.apache.calcite.rel.rules.FilterJoinRule;
-import org.apache.calcite.rel.rules.JoinAssociateRule;
-import org.apache.calcite.rel.rules.JoinCommuteRule;
+import org.apache.calcite.rel.rules.FilterProjectTransposeRule;
 import org.apache.calcite.rel.rules.JoinProjectTransposeRule;
-import org.apache.calcite.rel.rules.JoinToMultiJoinRule;
-import org.apache.calcite.rel.rules.ProjectJoinTransposeRule;
 import org.apache.calcite.rel.rules.ProjectMergeRule;
-import org.apache.calcite.rel.rules.ProjectMultiJoinMergeRule;
 import org.apache.calcite.rel.rules.ProjectRemoveRule;
+import org.apache.calcite.rel.rules.PruneEmptyRules;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.sql.SqlExplainLevel;
@@ -39,7 +33,6 @@ import org.apache.calcite.tools.Programs;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.Holder;
 
-import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.RelComputeDevice;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.RelHomDistribution;
@@ -50,7 +43,6 @@ import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushDeviceCrossDown;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushDeviceCrossNSplitDown;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushRouterDown;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushSplitDown;
-import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules;
 import ch.epfl.dias.repl.Repl;
 
 import java.util.List;
@@ -236,7 +228,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
 
         ImmutableList.Builder<RelOptRule> hetRuleBuilder = ImmutableList.builder();
 
-        hetRuleBuilder.add(PelagoRules.RULES);
+//        hetRuleBuilder.add(PelagoRules.RULES);
 
         if (!cpu_only) hetRuleBuilder.add(PelagoPushDeviceCrossDown.RULES);
         if (hybrid) hetRuleBuilder.add(PelagoPushDeviceCrossNSplitDown.RULES);
@@ -248,15 +240,21 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
 
         hetRuleBuilder.add(AbstractConverter.ExpandConversionRule.INSTANCE);
 
-        HepProgram hepCleanUpProjects = new HepProgramBuilder()
-            .addRuleInstance(ProjectMergeRule.INSTANCE)
+        // To allow the join ordering program to proceed, we need to pull all
+        // Project operators up (and anything else that is not a filter).
+        // Operators between the joins (with the exception of Filters) do not
+        // allow joins to be combined into a single MultiJoin and thus such
+        // such operators create hard boundaries for the join ordering program.
+        HepProgram hepPullUpProjects = new HepProgramBuilder()
+            .addRuleInstance(PruneEmptyRules.PROJECT_INSTANCE)
+            .addRuleInstance(ProjectRemoveRule.INSTANCE)
+            .addRuleInstance(FilterProjectTransposeRule.INSTANCE)
             .addRuleInstance(JoinProjectTransposeRule.BOTH_PROJECT)
             .addRuleInstance(JoinProjectTransposeRule.LEFT_PROJECT)
             .addRuleInstance(JoinProjectTransposeRule.RIGHT_PROJECT)
             .addRuleInstance(JoinProjectTransposeRule.BOTH_PROJECT)
             .addRuleInstance(ProjectMergeRule.INSTANCE)
-//                .addRuleInstance(ProjectJoinTransposeRule.INSTANCE)
-            .addRuleInstance(ProjectMultiJoinMergeRule.INSTANCE).build();
+            .build();
 
         return Programs.sequence(timedSequence("Optimization time: ",
                 Programs.subQuery(PelagoRelMetadataProvider.INSTANCE),
@@ -265,7 +263,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                 new PelagoProgram(),
                 new DeLikeProgram(),
                 new PelagoProgram(),
-                Programs.of(hepCleanUpProjects, false, PelagoRelMetadataProvider.INSTANCE),
+                Programs.of(hepPullUpProjects, false, PelagoRelMetadataProvider.INSTANCE),
                 new PelagoProgram(),
                 Programs.heuristicJoinOrder(planner.getRules(), false, 2), //planner.getRules()
                 new PelagoProgram(),
