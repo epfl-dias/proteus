@@ -10,6 +10,7 @@ import org.apache.calcite.rel.logical.*;
 import org.apache.calcite.rel.rules.JoinCommuteRule;
 import org.apache.calcite.rex.*;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.tools.RelBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -365,6 +366,22 @@ public class PelagoRules {
 
             RelNode  swapped = (swap) ? JoinCommuteRule.swap(join, false, call.builder()) : join;
             if (swapped == null) return null;
+
+            if (swap){
+                final Join newJoin =
+                    swapped instanceof Join
+                        ? (Join) swapped
+                        : (Join) swapped.getInput(0);
+
+                final RelBuilder relBuilder = call.builder();
+                final List<RexNode> exps =
+                    RelOptUtil.createSwappedJoinExprs(newJoin, join, false);
+                relBuilder.push(swapped)
+                    .project(exps, newJoin.getRowType().getFieldNames());
+
+                call.getPlanner().ensureRegistered(relBuilder.build(), newJoin);
+            }
+
             swapped = convert(swapped, PelagoRel.CONVENTION);
 
             if (rest.isEmpty()) return swapped;
