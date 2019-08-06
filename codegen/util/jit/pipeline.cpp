@@ -786,8 +786,8 @@ void PipelineGen::registerFunctions() {
   ArgsFlushStringObj.insert(ArgsFlushStringObj.begin(), strObjType);
 
   vector<Type *> ArgsFlushBoolean;
-  ArgsFlushBoolean.insert(ArgsFlushBoolean.begin(), int1_bool_type);
   ArgsFlushBoolean.insert(ArgsFlushBoolean.begin(), char_ptr_type);
+  ArgsFlushBoolean.insert(ArgsFlushBoolean.begin(), int1_bool_type);
 
   vector<Type *> ArgsFlushStartEnd;
   ArgsFlushStartEnd.insert(ArgsFlushStartEnd.begin(), char_ptr_type);
