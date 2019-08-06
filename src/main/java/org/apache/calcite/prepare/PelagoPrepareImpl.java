@@ -164,15 +164,15 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
             "AggregateProjectPullUpConstantsRule"));
         rules.add(new AggregateExpandDistinctAggregatesRule(Aggregate.class, true, PelagoRelFactories.PELAGO_BUILDER));
         //join rules
-//                                                                                                                rules.add(JoinToMultiJoinRule.INSTANCE);
-//                                                                                                                rules.add(LoptOptimizeJoinRule.INSTANCE);
-//                                                                                                              rules.add(MultiJoinOptimizeBushyRule.INSTANCE);//,
-                                                                                                                rules.add(JoinPushThroughJoinRule.LEFT );
-                                                                                                                rules.add(JoinPushThroughJoinRule.RIGHT);
-                                                                                                                /*choose between right and left*/
-                                                                                                                rules.add(JoinPushExpressionsRule.INSTANCE);
-                                                                                                                rules.add(JoinAssociateRule.INSTANCE);
-                                                                                                                rules.add(JoinCommuteRule.INSTANCE);
+////                                                                                                                rules.add(JoinToMultiJoinRule.INSTANCE);
+////                                                                                                                rules.add(LoptOptimizeJoinRule.INSTANCE);
+////                                                                                                              rules.add(MultiJoinOptimizeBushyRule.INSTANCE);//,
+//                                                                                                                rules.add(JoinPushThroughJoinRule.LEFT );
+//                                                                                                                rules.add(JoinPushThroughJoinRule.RIGHT);
+//                                                                                                                /*choose between right and left*/
+//                                                                                                                rules.add(JoinPushExpressionsRule.INSTANCE);
+//                                                                                                                rules.add(JoinAssociateRule.INSTANCE);
+//                                                                                                                rules.add(JoinCommuteRule.INSTANCE);
         // simplify expressions rules
         rules.add(ReduceExpressionsRule.CALC_INSTANCE);
         rules.add(ReduceExpressionsRule.FILTER_INSTANCE);
