@@ -101,7 +101,8 @@ class StringType : public PrimitiveTypeCRTP<StringType, STRING> {
   static constexpr auto name = "String";
 
   llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
-    return llvm::Type::getInt8PtrTy(ctx);
+    return llvm::StructType::get(
+        ctx, {llvm::Type::getInt8PtrTy(ctx), llvm::Type::getInt32Ty(ctx)});
   }
 };
 
