@@ -173,19 +173,12 @@ install:
 1/8 test - Threads:
  <<: *test
  script:
- - pwd
  - cmake --build cmake-build-debug --target install
  - export CWD=$(pwd)
- - echo gtest_output="xml:$CWD/report-threads.xml"
- - cd cmake-build-debug/opt/pelago && ./unit-tests-threads --gtest_output=xml:report-threads.xml && ls -lah
- - cd $CWD
- - ls -lah
- - ls -lah cmake-build-debug
- - ls -lah /
- - find . -name "report-threads.xml"
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-threads --gtest_output=xml:$CWD/report-threads.xml
  artifacts:
   reports:
-   junit: cmake-build-debug/report-threads.xml
+   junit: report-threads.xml
 
 2/8 test - Plan Parsing:
  <<: *test
