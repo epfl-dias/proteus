@@ -10,9 +10,9 @@ import ch.epfl.dias.emitter.PlanToJSON.emitPrimitiveType
 import com.google.common.collect.ImmutableList
 import org.apache.calcite.adapter.enumerable._
 import org.apache.calcite.avatica.util.{DateTimeUtils, TimeUnit, TimeUnitRange}
-import org.apache.calcite.rel.RelNode
+import org.apache.calcite.rel.{RelNode, SingleRel}
 import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeFactory, RelDataTypeField, RelRecordType}
-import org.apache.calcite.rel.core.AggregateCall
+import org.apache.calcite.rel.core.{AggregateCall, Filter}
 import org.apache.calcite.rex._
 import org.apache.calcite.sql.fun.{SqlCaseOperator, SqlCastFunction, SqlLikeOperator, SqlStdOperatorTable}
 import org.apache.calcite.sql.{pretty => _, _}
@@ -113,7 +113,8 @@ object PlanToJSON {
             // Only comparisons of input fields with string constants are supported
             // otherwise, which dictionary should we use?
 
-            val ref = input.getCluster.getMetadataQuery.getExpressionLineage(input, other)
+            // Also, input should be a filter operator
+            val ref = input.getCluster.getMetadataQuery.getExpressionLineage(input.asInstanceOf[SingleRel].getInput(), other)
             assert(ref != null, "Have you forgot to add an operator in the expression lineage metadata provider?")
             assert(ref.size == 1)
             // NOTE: ok! that's a good sign!

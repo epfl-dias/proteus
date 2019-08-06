@@ -66,7 +66,6 @@ public class LikeToJoinRule extends RelOptRule {
         System.out.println(name);
 //        System.out.println(input.getTable().getQualifiedName());
 
-        // FIXME: here we use "input", but "this" should be better
         Set<RexNode> ref = input.getCluster().getMetadataQuery().getExpressionLineage(input, call.getOperands().get(0));
         assert(ref != null) : "Have you forgot to add an operator in the expression lineage metadata provider?";
         assert(ref.size() == 1);
