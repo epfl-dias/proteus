@@ -318,10 +318,12 @@ int compareTokenString64(const char *buf, size_t start, size_t end,
 
 bool convertBoolean(const char *buf, int start, int end) {
   if (compareTokenString(buf, start, end, "true") == 1 ||
-      compareTokenString(buf, start, end, "TRUE") == 1) {
+      compareTokenString(buf, start, end, "TRUE") == 1 ||
+      compareTokenString(buf, start, end, "1") == 1) {
     return true;
   } else if (compareTokenString(buf, start, end, "false") == 1 ||
-             compareTokenString(buf, start, end, "FALSE") == 1) {
+             compareTokenString(buf, start, end, "FALSE") == 1 ||
+             compareTokenString(buf, start, end, "0") == 1) {
     return false;
   } else {
     string error_msg = string("[convertBoolean: Error - unknown input]");
@@ -332,10 +334,12 @@ bool convertBoolean(const char *buf, int start, int end) {
 
 bool convertBoolean64(const char *buf, size_t start, size_t end) {
   if (compareTokenString64(buf, start, end, "true") == 1 ||
-      compareTokenString64(buf, start, end, "TRUE") == 1) {
+      compareTokenString64(buf, start, end, "TRUE") == 1 ||
+      compareTokenString64(buf, start, end, "1") == 1) {
     return true;
   } else if (compareTokenString64(buf, start, end, "false") == 1 ||
-             compareTokenString64(buf, start, end, "FALSE") == 1) {
+             compareTokenString64(buf, start, end, "FALSE") == 1 ||
+             compareTokenString64(buf, start, end, "0") == 1) {
     return false;
   } else {
     string error_msg = string("[convertBoolean64: Error - unknown input]");
