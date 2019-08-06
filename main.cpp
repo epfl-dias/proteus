@@ -1746,8 +1746,8 @@ void scanCsvWideUsePM_(size_t *newline, short **offsets) {
   whichFields.push_back(attr26);
 
   /* 1 every 5 fields indexed in PM */
-  pm::CSVPlugin *pg = new pm::CSVPlugin(&ctx, filename, rec1, whichFields, 10,
-                                        6, newline, offsets);
+  pm::CSVPlugin *pg = new pm::CSVPlugin(&ctx, filename, rec1, whichFields, ';',
+                                        10, 6, newline, offsets);
   catalog.registerPlugin(filename, pg);
   Scan scan = Scan(&ctx, *pg);
 

@@ -51,9 +51,6 @@ class CSVPlugin : public Plugin {
             int lineHint, int policy, bool stringBrackets = true);
   /* PM Ready */
   CSVPlugin(Context *const context, string &fname, RecordType &rec,
-            vector<RecordAttribute *> whichFields, int lineHint, int policy,
-            size_t *newlines, short **offsets, bool stringBrackets = true);
-  CSVPlugin(Context *const context, string &fname, RecordType &rec,
             vector<RecordAttribute *> whichFields, char delimInner,
             int lineHint, int policy, size_t *newlines, short **offsets,
             bool stringBrackets = true);
@@ -210,8 +207,6 @@ class CSVPlugin : public Plugin {
   const char *fsizeVar;  // = "fileSize";
 
   // Used to generate code
-  void skipDelimLLVM(llvm::Value *delim, llvm::Function *debugChar,
-                     llvm::Function *debugInt);
   void skipDelimLLVM(llvm::Value *delim);
   void skipDelimBackwardsLLVM(llvm::Value *delim);
   void skipLLVM();

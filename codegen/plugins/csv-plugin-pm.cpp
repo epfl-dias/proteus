@@ -201,47 +201,6 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
 }
 
 CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
-                     vector<RecordAttribute *> whichFields, int lineHint,
-                     int policy, size_t *newlines, short **offsets,
-                     bool stringBrackets)
-    : fname(fname),
-      rec(rec),
-      wantedFields(whichFields),
-      context(context),
-      posVar("offset"),
-      bufVar("buf"),
-      fsizeVar("fileSize"),
-      lines(lineHint),
-      policy(policy),
-      stringBrackets(stringBrackets) {
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Function *F = context->getGlobalFunction();
-  IRBuilder<> *Builder = context->getBuilder();
-
-  fd = -1;
-  buf = nullptr;
-  std::sort(wantedFields.begin(), wantedFields.end());
-
-  LOG(INFO) << "[CSVPlugin: ] " << fname;
-  struct stat statbuf;
-  const char *name_c = fname.c_str();
-  stat(name_c, &statbuf);
-  fsize = statbuf.st_size;
-
-  fd = open(name_c, O_RDONLY);
-  if (fd == -1 && whichFields.size() > 0) {
-    throw runtime_error(string("csv.open"));
-  }
-
-  /* PM */
-  hasPM = true;
-  this->newlines = newlines;
-  this->pm = offsets;
-  this->delimInner = ';';
-  this->delimEnd = '\n';
-}
-
-CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
                      vector<RecordAttribute *> whichFields, char delimInner,
                      int lineHint, int policy, size_t *newlines,
                      short **offsets, bool stringBrackets)
@@ -628,88 +587,6 @@ Value *CSVPlugin::getValueSize(ProteusValueMemory mem_value,
       throw runtime_error(error_msg);
     }
   }
-}
-
-void CSVPlugin::skipDelimLLVM(Value *delim, Function *debugChar,
-                              Function *debugInt) {
-  // Prepare
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
-  Type *int64Type = Type::getInt64Ty(llvmContext);
-  IRBuilder<> *Builder = context->getBuilder();
-
-  // Fetch values from symbol table
-  AllocaInst *pos;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesCSV.find(posVar);
-    if (it == NamedValuesCSV.end()) {
-      throw runtime_error(string("Unknown variable name: ") + posVar);
-    }
-    pos = it->second;
-  }
-  AllocaInst *buf;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesCSV.find(bufVar);
-    if (it == NamedValuesCSV.end()) {
-      throw runtime_error(string("Unknown variable name: ") + bufVar);
-    }
-    buf = it->second;
-  }
-
-  Function *TheFunction = Builder->GetInsertBlock()->getParent();
-  // Create an alloca for the variable in the entry block.
-  AllocaInst *Alloca =
-      context->CreateEntryBlockAlloca(TheFunction, "cur_pos", int64Type);
-  // Store the value into the alloca.
-  Builder->CreateStore(Builder->CreateLoad(pos, "start_pos"), Alloca);
-
-  // Make the new basic block for the loop header, inserting after current
-  // block.
-  BasicBlock *LoopBB =
-      BasicBlock::Create(llvmContext, "skipDelimLoop", TheFunction);
-
-  // Insert an explicit fall through from the current block to the LoopBB.
-  Builder->CreateBr(LoopBB);
-
-  // Start insertion in LoopBB.
-  Builder->SetInsertPoint(LoopBB);
-
-  // Emit the body of the loop.
-  // Here we essentially have no body; we only need to take care of the 'step'
-  // Emit the step value. (+1)
-  Value *StepVal = Builder->getInt64(1);
-
-  // Compute the end condition.
-  // Involves pointer arithmetics
-  Value *index = Builder->CreateLoad(Alloca);
-  Value *lhsPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *lhsShiftedPtr = Builder->CreateInBoundsGEP(lhsPtr, index);
-  Value *lhs = Builder->CreateLoad(lhsShiftedPtr, "bufVal");
-  Value *rhs = delim;
-  Value *EndCond = Builder->CreateICmpNE(lhs, rhs);
-
-  // Reload, increment, and restore the alloca.
-  // This handles the case where the body of the loop mutates the variable.
-  Value *CurVar = Builder->CreateLoad(Alloca);
-  Value *NextVar = Builder->CreateAdd(CurVar, StepVal, "new_pos");
-  Builder->CreateStore(NextVar, Alloca);
-
-  // Create the "after loop" block and insert it.
-  BasicBlock *AfterBB =
-      BasicBlock::Create(llvmContext, "afterSkipDelimLoop", TheFunction);
-
-  // Insert the conditional branch into the end of LoopEndBB.
-  Builder->CreateCondBr(EndCond, LoopBB, AfterBB);
-
-  // Any new code will be inserted in AfterBB.
-  Builder->SetInsertPoint(AfterBB);
-  ////////////////////////////////
-
-  //'return' pos value
-  Value *finalVar = Builder->CreateLoad(Alloca);
-  Builder->CreateStore(finalVar, NamedValuesCSV[posVar]);
 }
 
 void CSVPlugin::skipDelimLLVM(Value *delim) {
@@ -1327,24 +1204,8 @@ void CSVPlugin::readAsBooleanLLVM(
   Type *int1Type = Type::getInt1Ty(llvmContext);
 
   // Fetch values from symbol table
-  AllocaInst *pos;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesCSV.find(posVar);
-    if (it == NamedValuesCSV.end()) {
-      throw runtime_error(string("Unknown variable name: ") + posVar);
-    }
-    pos = it->second;
-  }
-  AllocaInst *buf;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesCSV.find(bufVar);
-    if (it == NamedValuesCSV.end()) {
-      throw runtime_error(string("Unknown variable name: ") + bufVar);
-    }
-    buf = it->second;
-  }
+  auto pos = NamedValuesCSV.at(posVar);
+  auto buf = NamedValuesCSV.at(bufVar);
   Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
   Value *start = Builder->CreateLoad(pos, "start_pos_atob");
   getFieldEndLLVM();
@@ -1356,10 +1217,7 @@ void CSVPlugin::readAsBooleanLLVM(
   Value *pos_inc = Builder->CreateAdd(index, val_1);
   Builder->CreateStore(pos_inc, pos);
 
-  vector<Value *> ArgsV;
-  ArgsV.push_back(bufPtr);
-  ArgsV.push_back(start);
-  ArgsV.push_back(index);
+  vector<Value *> ArgsV{bufPtr, start, index};
   Function *conversionFunc = context->getFunction("convertBoolean64");
 
   Value *convertedValue =
@@ -1388,24 +1246,8 @@ void CSVPlugin::readAsFloatLLVM(
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
   // Fetch values from symbol table
-  AllocaInst *pos;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesCSV.find(posVar);
-    if (it == NamedValuesCSV.end()) {
-      throw runtime_error(string("Unknown variable name: ") + posVar);
-    }
-    pos = it->second;
-  }
-  AllocaInst *buf;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesCSV.find(bufVar);
-    if (it == NamedValuesCSV.end()) {
-      throw runtime_error(string("Unknown variable name: ") + bufVar);
-    }
-    buf = it->second;
-  }
+  AllocaInst *pos = NamedValuesCSV.at(posVar);
+  AllocaInst *buf = NamedValuesCSV.at(bufVar);
 
   Value *start = Builder->CreateLoad(pos, "start_pos_atoi");
   skipLLVM();
@@ -1637,7 +1479,7 @@ void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
     LOG(INFO) << "Considering field " << i;
     if (pmFieldsNo.empty() && wantedFields.empty() &&
         lastFieldNo < rec.getArgsNo()) {
-      skipDelimLLVM(delimEnd, debugChar, debugInt);
+      skipDelimLLVM(delimEnd);
       LOG(INFO) << "(All empty) Skip field " << i;
       break;
     }
@@ -1713,10 +1555,10 @@ void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
     }
     if (!fieldNeeded) {
       if (i != rec.getArgsNo()) {
-        skipDelimLLVM(delimInner, debugChar, debugInt);
+        skipDelimLLVM(delimInner);
         LOG(INFO) << "Skip internal field " << i;
       } else {
-        skipDelimLLVM(delimEnd, debugChar, debugInt);
+        skipDelimLLVM(delimEnd);
         LOG(INFO) << "Skip final field " << i;
       }
     }
@@ -2054,9 +1896,9 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
   /* Inc: callParent; lineCtr++ */
   Builder->SetInsertPoint(pmScanInc);
   //    cout << "Forwarding " << (*variableBindings).size() << endl;
-  OperatorState *state = new OperatorState(producer, *variableBindings);
+  OperatorState state(producer, *variableBindings);
   ::Operator *const opParent = producer.getParent();
-  opParent->consume(context, *state);
+  opParent->consume(context, state);
   Value *val_1 = context->createInt32(1);
   val_lineCtr = Builder->CreateLoad(mem_lineCtr);
   val_lineCtr = Builder->CreateAdd(val_lineCtr, val_1);
