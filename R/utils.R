@@ -3,10 +3,11 @@
 # Utility function for preprocessing the text of the query -
 # escaped quotes are deletd from the query
 # WARNING: MAKE SURE THE QUERY IS PREPROCESSED ONLY ONCE!
-textProcessQuery <- function(query, quoteChar = "`") {
-  ret_query <- gsub("\"", quoteChar, query)
+textProcessQuery <- function(query, quoteChar = "") {
+  ret_query <- query
+  ret_query <- gsub("\"", quoteChar, ret_query)
   ret_query <- gsub("%", "\\\"", ret_query)
-  ret_query <- gsub("\\\n", "", ret_query)
+  ret_query <- gsub("\\\n", " ", ret_query)
   ret_query <- gsub("\\(\\)","\\(*\\)", ret_query)
   #ret_query <- gsub("\\(\\)","\\(*\\)", ret_query)
   ret_query <- gsub("LIMIT 0", "", ret_query)
@@ -22,7 +23,7 @@ random_table_name <- function(n = 10) {
 }
 
 # Util function for extracting the table name in FROM clause
-extractFrom <- function(query, quoteChar = "`") {
+extractFrom <- function(query, quoteChar = "") {
   from <- strsplit(textProcessQuery(query, quoteChar), "FROM ")[[1]][2]
   from <- strsplit(from, " ")[[1]][1]
   from <- gsub("`", "", from)
