@@ -15,14 +15,14 @@ connectionString <- "jdbc:avatica:remote:url=http://diascld36.epfl.ch:8081;seria
 con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation), connectionString = connectionString)
 
 # creating table only from csv, linehint still necessary
-test_noheader <- readcsv(connection = con, path = "demo-test/test.csv", linehint = 5, header = FALSE)
+test_noheader <- readcsv(connection = con, path = "../../src/frontends/R/demo-test/test.csv", lines = 5, header = FALSE)
 test_noheader
 
-test_header <- readcsv(connection = con, name="test_header", path = "demo-test/test_header.csv", linehint = 5)
+test_header <- readcsv(connection = con, name="test_header", path = "../../src/frontends/R/demo-test/test_header.csv", lines = 5, policy=3, delimiter=',')
 test_header
 
 # creating from specified column classes
-test_fields <- readcsv(connection = con, name="test_fields", path = "/random_path/test_header.csv", linehint = 5, colClasses = c("integer", "varchar"))
+test_fields <- readcsv(connection = con, name="test_fields", path = "../../src/frontends/R/demo-test/test_header.csv", lines = 5, colClasses = c("integer", "varchar"))
 test_fields
 
 # creating if there exists an external file specification
@@ -32,7 +32,7 @@ test_string <- paste0("d_datekey:int,d_date:string,d_dayofweek:string,d_month:st
                     "d_sellingseason:string,d_lastdayinweekfl:boolean,d_lastdayinmonthfl:boolean,",
                     "d_holidayfl:boolean,d_weekdayfl:boolean")
 
-test_sch <- readcsv(connection = con, fields = test_string, path = "/path/to/dates.csv", linehint = 5000, name = "test_sch")
+test_sch <- readcsv(connection = con, fields = test_string, path = "inputs/ssbm100/raw/date2.tbl", lines = 2556, policy=10, delimiter='|', name = "test_sch")
 test_sch
 
 # creating table from json specification, this needs to be wrapped with something more convenient
@@ -55,15 +55,15 @@ lineorder <- tbl(con, "ssbm_lineorder")
 supplier <- tbl(con, "ssbm_supplier")
 
 # loading from "csv", in this case the difference is that the csv has trailing separator, requiring additional column (marked as "nl"- newline)
-customer <-  readcsv(connection = con, name="ssbm_customer1", path = "~/data/customer.tbl", linehint = 5,
+customer <-  readcsv(connection = con, name="ssbm_customer1", path = "inputs/ssbm100/raw/customer.tbl", lines = 3000000, policy = 4, delimiter = '|',
                      colNames = c("c_custkey", "c_name", "c_address", "c_city", "c_nation", "c_region", "c_phone", "c_mktsegment", "nl"), header = FALSE, sep = '|')
 
-part <-  readcsv(connection = con, name="ssbm_part1", path = "~/data/part.tbl", linehint = 5,
+part <-  readcsv(connection = con, name="ssbm_part1", path = "inputs/ssbm100/raw/part.tbl", lines = 1400000, policy = 4, delimiter = '|',
                  colNames = c("p_partkey", "p_name", "p_mfgr", "p_category", "p_brand1", "p_color", "p_type", "p_size", "p_container", "nl"), header = FALSE, sep = '|')
 
 ### read.csv (default R implementation) - reminder, this takes quite a long time to execute ###
-customer_csv <- read.csv("~/data/customer.tbl", header = FALSE, sep = '|', col.names = c("c_custkey", "c_name", "c_address", "c_city", "c_nation", "c_region", "c_phone", "c_mktsegment", "nl"))
-part_csv <- read.csv("~/data/part.tbl", header = FALSE, sep = '|', col.names = c("p_partkey", "p_name", "p_mfgr", "p_category", "p_brand1", "p_color", "p_type", "p_size", "p_container", "nl"))
+customer_csv <- read.csv("inputs/ssbm100/raw/customer.tbl", header = FALSE, sep = '|', col.names = c("c_custkey", "c_name", "c_address", "c_city", "c_nation", "c_region", "c_phone", "c_mktsegment", "nl"))
+part_csv <- read.csv("inputs/ssbm100/raw/part.tbl", header = FALSE, sep = '|', col.names = c("p_partkey", "p_name", "p_mfgr", "p_category", "p_brand1", "p_color", "p_type", "p_size", "p_container", "nl"))
 
 customer_csv %>% filter(c_nation=='MOROCCO') %>% select(c_name, c_phone)
 customer %>% filter(c_nation=='MOROCCO') %>% select(c_name, c_phone)
@@ -144,7 +144,7 @@ result <- inner_join(lineorder, customer, by=c("lo_custkey"="c_custkey")) %>%
   inner_join(., part, c("lo_partkey"="p_partkey")) %>%
   inner_join(., dates, by=c("lo_orderdate"="d_datekey")) %>%
   filter(c_region=='AMERICA' & s_region=='AMERICA' & (p_mfgr=='MFGR#1' | p_mfgr=='MFGR#2')) %>%
-  summarize(sumY=sum(d_year, na.rm = TRUE), cnt=count(), profit=sum(lo_revenue-lo_supplycost, na.rm = TRUE))
+  summarize(sumY=sum(d_year, na.rm = TRUE), cnt=n(), profit=sum(lo_revenue-lo_supplycost, na.rm = TRUE))
 
 result
 
