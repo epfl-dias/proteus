@@ -34,7 +34,6 @@ ZipInitiate::ZipInitiate(RecordAttribute *ptrAttr, RecordAttribute *splitter,
                          ParallelContext *const context, int numOfBuckets,
                          ZipState &state1, ZipState &state2, string opLabel)
     : ptrAttr(ptrAttr),
-      splitter(splitter),
       targetAttr(targetAttr),
       UnaryOperator(child),
       context(context),
@@ -645,27 +644,7 @@ void ZipCollect::generate_send() {
   BasicBlock *SendMergeBB =
       BasicBlock::Create(llvmContext, "SendMerge", TheFunction);
 
-  Value *mem_heads1 =
-      ((const ParallelContext *)context)->getStateVar(pipe_left_p.heads_id);
-  Value *mem_sizes1 =
-      ((const ParallelContext *)context)->getStateVar(pipe_left_p.sizes_id);
-  Value *mem_oids1 =
-      ((const ParallelContext *)context)->getStateVar(pipe_left_p.oids_id);
-  Value *mem_blocks1 =
-      ((const ParallelContext *)context)->getStateVar(pipe_left_p.blocks_id);
-  Value *mem_chains1 =
-      ((const ParallelContext *)context)->getStateVar(pipe_left_p.chains_id);
-
-  Value *mem_heads2 =
-      ((const ParallelContext *)context)->getStateVar(pipe_right_p.heads_id);
-  Value *mem_sizes2 =
-      ((const ParallelContext *)context)->getStateVar(pipe_right_p.sizes_id);
-  Value *mem_oids2 =
-      ((const ParallelContext *)context)->getStateVar(pipe_right_p.oids_id);
-  Value *mem_blocks2 =
-      ((const ParallelContext *)context)->getStateVar(pipe_right_p.blocks_id);
-  Value *mem_chains2 =
-      ((const ParallelContext *)context)->getStateVar(pipe_right_p.chains_id);
+  Value *mem_blocks2 = gpu_context->getStateVar(pipe_right_p.blocks_id);
 
   Value *mem_current =
       context->CreateEntryBlockAlloca(TheFunction, "mem_current", int32_type);
@@ -901,19 +880,15 @@ void ZipCollect::close_pipe(Pipeline *pip) {
   std::cout << "close pipe left" << std::endl;
 }
 
-ZipForward::ZipForward(RecordAttribute *splitter, RecordAttribute *targetAttr,
-                       RecordAttribute *inputAttr, Operator *const child,
-                       ParallelContext *const context, int numOfBuckets,
+ZipForward::ZipForward(RecordAttribute *targetAttr, Operator *const child,
+                       ParallelContext *const context,
                        const vector<expression_t> &wantedFields, string opLabel,
                        ZipState &state)
-    : splitter(splitter),
-      targetAttr(targetAttr),
-      inputAttr(inputAttr),
-      UnaryOperator(child),
+    : UnaryOperator(child),
       context(context),
-      numOfBuckets(numOfBuckets),
-      wantedFields(wantedFields),
       opLabel(opLabel),
+      wantedFields(wantedFields),
+      targetAttr(targetAttr),
       state(state) {}
 
 void ZipForward::produce() {
@@ -932,17 +907,13 @@ void ZipForward::produce() {
 void ZipForward::cacheFormat() {
   LLVMContext &llvmContext = context->getLLVMContext();
 
-  Plugin *pg =
-      Catalog::getInstance().getPlugin(wantedFields[0].getRegisteredRelName());
-
-  Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
-  Type *int64_type = Type::getInt64Ty(context->getLLVMContext());
-  Type *char_type = Type::getInt8Ty(context->getLLVMContext());
+  Type *int32_type = Type::getInt32Ty(llvmContext);
+  Type *int64_type = Type::getInt64Ty(llvmContext);
+  Type *char_type = Type::getInt8Ty(llvmContext);
 
   Type *t_cnt = PointerType::get(int32_type, 0);
   Type *t2_cnt = PointerType::get(int64_type, 0);
   Type *c_cnt = PointerType::get(PointerType::get(char_type, 0), 0);
-  Type *o_cnt = PointerType::get(pg->getOIDType()->getLLVMType(llvmContext), 0);
 
   p.heads_id = context->appendStateVar(t_cnt);
   p.sizes_id = context->appendStateVar(t2_cnt);
@@ -959,8 +930,6 @@ void ZipForward::consume(Context *const context,
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
-
-  ParallelContext *const gpu_context = (ParallelContext *const)context;
 
   Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
 
@@ -981,11 +950,7 @@ void ZipForward::consume(Context *const context,
   Value *mem_chains =
       ((const ParallelContext *)context)->getStateVar(p.chains_id);
 
-  const map<RecordAttribute, ProteusValueMemory> &child_bindings =
-      childState.getBindings();
-
-  RecordAttribute target_attr = *targetAttr;
-  Value *mem_partition = ((child_bindings.find(target_attr))->second).mem;
+  Value *mem_partition = childState[*targetAttr].mem;
 
   /*RecordAttribute splitter_attr = *splitter;
   Value* mem_hash = ((child_bindings.find(splitter_attr))->second).mem;;*/

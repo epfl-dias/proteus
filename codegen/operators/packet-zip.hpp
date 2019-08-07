@@ -176,9 +176,8 @@ class ZipInitiate : public UnaryOperator {
 
 class ZipForward : public UnaryOperator {
  public:
-  ZipForward(RecordAttribute *splitter, RecordAttribute *targetAttr,
-             RecordAttribute *inputAttr, Operator *const child,
-             ParallelContext *const context, int numOfBuckets,
+  ZipForward(RecordAttribute *targetAttr, Operator *const child,
+             ParallelContext *const context,
              const vector<expression_t> &wantedFields, string opLabel,
              ZipState &state);
 
@@ -197,18 +196,9 @@ class ZipForward : public UnaryOperator {
   ParallelContext *context;
   string opLabel;
   vector<expression_t> wantedFields;
-  RecordAttribute *inputAttr;
   RecordAttribute *targetAttr;
-  RecordAttribute *splitter;
-  int numOfBuckets;
-
-  int *partition_ptr[128];
-  int *partitions[128];
 
   ZipState &state;
-
-  int partition_alloc;
-  int partition_cnt;
 
   ZipParam p;
 };

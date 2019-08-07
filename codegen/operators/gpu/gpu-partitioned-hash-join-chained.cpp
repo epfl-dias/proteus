@@ -43,21 +43,18 @@ const size_t log2_bucket_size = 12;
 const size_t bucket_size = 1 << log2_bucket_size;
 const size_t bucket_size_mask = bucket_size - 1;
 
-HashPartitioner::HashPartitioner(RecordAttribute *targetAttr,
-                                 const std::vector<GpuMatExpr> &parts_mat_exprs,
+HashPartitioner::HashPartitioner(const std::vector<GpuMatExpr> &parts_mat_exprs,
                                  const std::vector<size_t> &parts_packet_widths,
                                  expression_t parts_keyexpr,
                                  Operator *const parts_child,
                                  ParallelContext *context, size_t maxInputSize,
                                  int log_parts, string opLabel)
-    : targetAttr(targetAttr),
-      parts_mat_exprs(parts_mat_exprs),
+    : parts_mat_exprs(parts_mat_exprs),
       parts_packet_widths(parts_packet_widths),
       parts_keyexpr(parts_keyexpr),
       UnaryOperator(parts_child),
       context(context),
       maxInputSize(maxInputSize),
-      log_parts(log_parts),
       opLabel(opLabel) {
   // vector<expressions::Expression*> expr;
   // for (size_t i = 0; i < parts_mat_exprs.size(); i++)

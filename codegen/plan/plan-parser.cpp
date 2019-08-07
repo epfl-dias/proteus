@@ -933,8 +933,6 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
         new RecordAttribute(1, "coordinator", "ptr", new IntType(), true);
     RecordAttribute *attr_target =
         new RecordAttribute(1, "coordinator", "target", new IntType(), false);
-    RecordAttribute *attr_target_block =
-        new RecordAttribute(*attr_target, true);
     RecordAttribute *attr_splitter =
         new RecordAttribute(2, "coordinator", "splitter", new IntType(), false);
 
@@ -986,10 +984,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     xch_proc->setParent(initiator);
     PipelineGen **pip_rcv = initiator->pipeSocket();
 
-    ZipForward *fwd_build = new ZipForward(
-        attr_splitter, attr_target, new RecordAttribute(*build_attr[0], true),
-        initiator, (ParallelContext *)ctx, numOfBuckets, build_hashed_expr,
-        "forwarder", coord->getStateLeft());
+    ZipForward *fwd_build =
+        new ZipForward(attr_target, initiator, (ParallelContext *)ctx,
+                       build_hashed_expr, "forwarder", coord->getStateLeft());
 
     Operator *mml_build = new MemMoveLocalTo(fwd_build, (ParallelContext *)ctx,
                                              build_hashed_attr_block, 4);
@@ -1005,15 +1002,13 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
                           true, gran_t::GRID);
     ctg_build->setParent(btt_build2);
     HashPartitioner *hpart1 = new HashPartitioner(
-        attr_target, build_join_expr, build_widths, build_prejoin_expr[0],
-        btt_build2, (ParallelContext *)ctx, maxBuildInputSize, 13,
-        "partition_hash_1");
+        build_join_expr, build_widths, build_prejoin_expr[0], btt_build2,
+        (ParallelContext *)ctx, maxBuildInputSize, 13, "partition_hash_1");
     btt_build2->setParent(hpart1);
 
-    ZipForward *fwd_probe = new ZipForward(
-        attr_splitter, attr_target, new RecordAttribute(*probe_attr[0], true),
-        initiator, (ParallelContext *)ctx, numOfBuckets, probe_hashed_expr,
-        "forwarder", coord->getStateRight());
+    ZipForward *fwd_probe =
+        new ZipForward(attr_target, initiator, (ParallelContext *)ctx,
+                       probe_hashed_expr, "forwarder", coord->getStateRight());
 
     Operator *mml_probe = new MemMoveLocalTo(fwd_probe, (ParallelContext *)ctx,
                                              probe_hashed_attr_block, 4);
@@ -1029,9 +1024,8 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
                           true, gran_t::GRID);
     ctg_probe->setParent(btt_probe2);
     HashPartitioner *hpart2 = new HashPartitioner(
-        attr_target, probe_join_expr, probe_widths, probe_prejoin_expr[0],
-        btt_probe2, (ParallelContext *)ctx, maxProbeInputSize, 13,
-        "partition_hash_2");
+        probe_join_expr, probe_widths, probe_prejoin_expr[0], btt_probe2,
+        (ParallelContext *)ctx, maxProbeInputSize, 13, "partition_hash_2");
     btt_probe2->setParent(hpart2);
 
     newOp = new GpuPartitionedHashJoinChained(
@@ -1067,12 +1061,6 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
         (val.HasMember("probe_k_minor"))
             ? std::make_optional(parseExpression(val["probe_k_minor"]))
             : std::nullopt};
-
-    // #ifndef NCUDA
-    //         if (val.HasMember("gpu") && val["gpu"].GetBool()){
-    assert(val.HasMember("hash_bits"));
-    assert(val["hash_bits"].IsInt());
-    int hash_bits = val["hash_bits"].GetInt();
 
     assert(val.HasMember("build_w"));
     assert(val["build_w"].IsArray());
@@ -1142,15 +1130,15 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
 
     int log_parts = 13;
 
-    HashPartitioner *part_left = new HashPartitioner(
-        nullptr, build_e, build_widths, build_key_expr, build_op,
-        dynamic_cast<ParallelContext *>(this->ctx), maxBuildInputSize,
-        log_parts, "part1");
+    HashPartitioner *part_left =
+        new HashPartitioner(build_e, build_widths, build_key_expr, build_op,
+                            dynamic_cast<ParallelContext *>(this->ctx),
+                            maxBuildInputSize, log_parts, "part1");
 
-    HashPartitioner *part_right = new HashPartitioner(
-        nullptr, probe_e, probe_widths, probe_key_expr, probe_op,
-        dynamic_cast<ParallelContext *>(this->ctx), maxProbeInputSize,
-        log_parts, "part1");
+    HashPartitioner *part_right =
+        new HashPartitioner(probe_e, probe_widths, probe_key_expr, probe_op,
+                            dynamic_cast<ParallelContext *>(this->ctx),
+                            maxProbeInputSize, log_parts, "part1");
 
     newOp = new GpuPartitionedHashJoinChained(
         build_e, build_widths, build_key_expr, build_minorkey_expr, part_left,

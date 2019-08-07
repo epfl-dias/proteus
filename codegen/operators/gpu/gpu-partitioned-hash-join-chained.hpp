@@ -50,8 +50,7 @@ struct PartitionState {
 
 class HashPartitioner : public UnaryOperator {
  public:
-  HashPartitioner(RecordAttribute *targetAttr,
-                  const std::vector<GpuMatExpr> &parts_mat_exprs,
+  HashPartitioner(const std::vector<GpuMatExpr> &parts_mat_exprs,
                   const std::vector<size_t> &parts_packet_widths,
                   expression_t parts_keyexpr, Operator *const parts_child,
                   ParallelContext *context, size_t maxInputSize, int log_parts,
@@ -76,11 +75,8 @@ class HashPartitioner : public UnaryOperator {
 
   size_t maxInputSize;
 
-  int log_parts;
   int log_parts1;
   int log_parts2;
-
-  OutputPlugin *pg_out;
 
   llvm::StructType *payloadType;
 
@@ -97,8 +93,6 @@ class HashPartitioner : public UnaryOperator {
   int cnt_pipe;
 
   ParallelContext *context;
-
-  RecordAttribute *targetAttr;
 
   std::string opLabel;
 };

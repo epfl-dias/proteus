@@ -70,8 +70,6 @@ class CommManager {
   bool reqeust_snapshot(unsigned short &master_ver, uint64_t &epoch_num);
 
  private:
-  mqd_t recv_mq;
-
   CommManager();
   ~CommManager() = default;
 };
