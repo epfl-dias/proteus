@@ -1,3 +1,4 @@
+#!/usr/bin/env Rscript
 library(ViDaR)
 library(DBI)
 library(dbplyr)
@@ -5,11 +6,26 @@ library(dplyr)
 library(ggplot2)
 library(rlang)
 library(jsonlite)
+library(optparse)
+
+option_list = list(
+  make_option(c("-d", "--driverClass"), type="character", default="org.apache.calcite.avatica.remote.Driver", 
+              help="jdbc driver", metavar="character"),
+  make_option(c("-j", "--driverJar"), type="character", default="opt/lib/avatica-1.13.0.jar", 
+              help="jdbc driver jar", metavar="character"),
+  make_option(c("-s", "--server"), type="character", default="localhost", 
+              help="server url", metavar="character"),
+  make_option(c("-p", "--port"), type="character", default="8081", 
+              help="server port", metavar="character")
+); 
+
+opt_parser = OptionParser(option_list=option_list);
+opt = parse_args(opt_parser);
 
 # connection parameters
-driverClass <- "org.apache.calcite.avatica.remote.Driver"
-driverLocation <- "src/avatica-1.11.0.jar"
-connectionString <- "jdbc:avatica:remote:url=http://diascld36.epfl.ch:8081;serialization=PROTOBUF"
+driverClass <- opt$driverClass
+driverLocation <- opt$driverJar
+connectionString <- paste("jdbc:avatica:remote:url=http://", opt$server, ":", opt$port, ";serialization=PROTOBUF", sep="")
 
 # establishing the connection
 con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation), connectionString = connectionString)
