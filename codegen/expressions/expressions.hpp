@@ -155,8 +155,7 @@ class ExprVisitorVisitable : public Interface {
 
   virtual inline T &as(RecordAttribute *attr) {
     return static_cast<T &>(static_cast<decltype(*this)>(
-        as_expr(ExprVisitorVisitable<T, Expression>::relName,
-                ExprVisitorVisitable<T, Expression>::attrName)));
+        as_expr(attr->getRelationName(), attr->getAttrName())));
   }
 
   friend T;
