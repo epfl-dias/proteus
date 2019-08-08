@@ -6,28 +6,24 @@ PelagoToEnumerableConverter
           PelagoPack
             PelagoAggregate
               PelagoProject
-                PelagoProject
-                  PelagoJoin
-                    PelagoFilter
-                      PelagoUnpack
-                        PelagoRouter
-                          PelagoTableScan
-                    PelagoProject
+                PelagoJoin
+                  PelagoFilter
+                    PelagoUnpack
+                      PelagoRouter
+                        PelagoTableScan
+                  PelagoProject
+                    PelagoJoin
+                      PelagoFilter
+                        PelagoUnpack
+                          PelagoRouter
+                            PelagoTableScan
                       PelagoProject
                         PelagoJoin
-                          PelagoFilter
-                            PelagoUnpack
-                              PelagoRouter
-                                PelagoTableScan
                           PelagoProject
-                            PelagoProject
-                              PelagoJoin
-                                PelagoProject
-                                  PelagoFilter
-                                    PelagoUnpack
-                                      PelagoRouter
-                                        PelagoTableScan
-                                PelagoUnpack
-                                  PelagoRouter
-                                    PelagoTableScan
-
+                            PelagoFilter
+                              PelagoUnpack
+                                PelagoRouter
+                                  PelagoTableScan
+                          PelagoUnpack
+                            PelagoRouter
+                              PelagoTableScan

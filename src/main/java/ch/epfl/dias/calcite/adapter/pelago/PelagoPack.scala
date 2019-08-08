@@ -42,18 +42,13 @@ class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: R
   }
 
   override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
-    // exchange.
     val rf = {
       if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 1e3
       else 1e4
     }
     val rowCount = mq.getRowCount(this)
     val bytesPerRow = getRowType.getFieldCount * 4
-    planner.getCostFactory.makeCost(rowCount * bytesPerRow, rowCount * bytesPerRow, 0).multiplyBy(rf * 1e2)
-
-//    if (input.getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == toDevice) planner.getCostFactory.makeHugeCost()
-//    else planner.getCostFactory.makeTinyCost
-//    planner.getCostFactory.makeZeroCost
+    planner.getCostFactory.makeCost(rowCount, rowCount * bytesPerRow * 1e15, 0)
   }
 
   override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {

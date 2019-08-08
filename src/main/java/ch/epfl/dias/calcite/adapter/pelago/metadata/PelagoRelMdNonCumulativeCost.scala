@@ -64,9 +64,9 @@ class PelagoRelMdNonCumulativeCost protected() extends MetadataHandler[BuiltInMe
   def getNonCumulativeCost(rel: PelagoRel, mq: RelMetadataQuery): RelOptCost = {
     val base = rel.computeBaseSelfCost(rel.getCluster.getPlanner, mq)
     if (rel.getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)){
-      rel.getCluster.getPlanner.getCostFactory.makeCost(base.getRows, base.getCpu * 1e-3, base.getIo)
-    } else {
       base
+    } else {
+      rel.getCluster.getPlanner.getCostFactory.makeCost(base.getRows, base.getCpu * 1e3, base.getIo)
     }
   }
 }

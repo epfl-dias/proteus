@@ -6,14 +6,19 @@ PelagoToEnumerableConverter
           PelagoPack
             PelagoAggregate
               PelagoProject
-                PelagoProject
-                  PelagoJoin
-                    PelagoProject
-                      PelagoFilter
-                        PelagoUnpack
-                          PelagoRouter
-                            PelagoTableScan
-                    PelagoProject
+                PelagoJoin
+                  PelagoProject
+                    PelagoFilter
+                      PelagoUnpack
+                        PelagoRouter
+                          PelagoTableScan
+                  PelagoProject
+                    PelagoJoin
+                      PelagoProject
+                        PelagoFilter
+                          PelagoUnpack
+                            PelagoRouter
+                              PelagoTableScan
                       PelagoProject
                         PelagoJoin
                           PelagoProject
@@ -22,21 +27,11 @@ PelagoToEnumerableConverter
                                 PelagoRouter
                                   PelagoTableScan
                           PelagoProject
-                            PelagoProject
-                              PelagoJoin
-                                PelagoProject
-                                  PelagoFilter
-                                    PelagoUnpack
-                                      PelagoRouter
-                                        PelagoTableScan
-                                PelagoProject
-                                  PelagoProject
-                                    PelagoJoin
-                                      PelagoUnpack
-                                        PelagoRouter
-                                          PelagoTableScan
-                                      PelagoProject
-                                        PelagoUnpack
-                                          PelagoRouter
-                                            PelagoTableScan
-
+                            PelagoJoin
+                              PelagoUnpack
+                                PelagoRouter
+                                  PelagoTableScan
+                              PelagoProject
+                                PelagoUnpack
+                                  PelagoRouter
+                                    PelagoTableScan

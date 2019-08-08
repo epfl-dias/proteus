@@ -16,6 +16,7 @@ import org.json4s.JsonAST
 import scala.collection.JavaConverters._
 import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdHomDistribution, PelagoRelMetadataQuery}
 import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema, getFields}
+import org.apache.calcite.util.Util
 
 /**
   * Implementation of {@link org.apache.calcite.rel.core.Sort}
@@ -35,11 +36,10 @@ class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: 
   }
 
   override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
-    if (getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) != null && getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE) == RelDeviceType.NVPTX) {
-      super.computeSelfCost(planner, mq).multiplyBy(0.001)
-    } else {
-      super.computeSelfCost(planner, mq).multiplyBy(1000)
-    }
+    val rowCount = mq.getRowCount(this)
+    val bytesPerRow = getRowType.getFieldCount * 4
+    val cpu = Util.nLogN(Math.max(rowCount, 1024)) * bytesPerRow * 1e20
+    return planner.getCostFactory.makeCost(rowCount, cpu, 0)
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)

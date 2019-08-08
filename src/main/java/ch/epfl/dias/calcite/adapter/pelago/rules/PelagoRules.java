@@ -7,10 +7,15 @@ import org.apache.calcite.rel.*;
 import org.apache.calcite.rel.convert.ConverterRule;
 import org.apache.calcite.rel.core.*;
 import org.apache.calcite.rel.logical.*;
+import org.apache.calcite.rel.metadata.BuiltInMetadata;
 import org.apache.calcite.rel.rules.JoinCommuteRule;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.*;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.tools.RelBuilder;
+
+import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -62,8 +67,8 @@ public class PelagoRules {
      * Rule to convert a {@link org.apache.calcite.rel.logical.LogicalProject}
      * to a {@link PelagoProject}.
      */
-    private static class PelagoProjectRule extends PelagoConverterRule {
-        private static final PelagoProjectRule INSTANCE = new PelagoProjectRule();
+    public static class PelagoProjectRule extends PelagoConverterRule {
+        public static final PelagoProjectRule INSTANCE = new PelagoProjectRule();
 
         private PelagoProjectRule() {
             super(LogicalProject.class, "PelagoProjectRule");
@@ -291,6 +296,7 @@ public class PelagoRules {
 
         public RelNode convert(RelNode rel, RelOptRuleCall call) {
             Join join = (Join) rel;
+            final Join origJoin = join;
 
             RexNode cond = join.getCondition();
 
@@ -351,10 +357,10 @@ public class PelagoRules {
 
 
             RelNode preLeft  = convert(join.getLeft (), leftTraitSet );
-            RelNode left     = (!rest0.isEmpty()) ? PelagoFilter.create(preLeft , leftCond ) : preLeft ;
+            RelNode left     = (!rest0.isEmpty()) ? convert(PelagoFilter.create(preLeft , leftCond ), leftTraitSet ) : preLeft ;
 
             RelNode preRight = convert(join.getRight(), rightTraitSet);
-            RelNode right    = (!rest1.isEmpty()) ? PelagoFilter.create(preRight, rightCond) : preRight;
+            RelNode right    = (!rest1.isEmpty()) ? convert(PelagoFilter.create(preRight, rightCond), rightTraitSet) : preRight;
 
             join = PelagoJoin.create(
                 left                  ,
@@ -386,13 +392,12 @@ public class PelagoRules {
 
             if (rest.isEmpty()) return swapped;
 
-
             RelNode root = PelagoFilter.create(
                 swapped,
                 aboveCond
             );
 
-            rel.getCluster().getPlanner().ensureRegistered(root, join);
+            rel.getCluster().getPlanner().ensureRegistered(root, origJoin);
             return root;
         }
     }
