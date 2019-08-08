@@ -180,24 +180,13 @@ class expression_t final : public expressions::ExpressionCRTP<expression_t> {
  private:
   std::shared_ptr<const concept_t> data;
 
-  template <typename T,
-            typename std::enable_if<!std::is_base_of_v<
-                expressions::RecordProjection, T>>::type * = nullptr>
+  template <typename T>
   expression_t(std::shared_ptr<T> &&ptr)
       : expressions::ExpressionCRTP<expression_t>(ptr->getExpressionType()),
         data(ptr) {
     if (data->isRegistered()) {
       registerAs(data->getRegisteredRelName(), data->getRegisteredAttrName());
     }
-  }
-
-  template <typename T,
-            typename std::enable_if<std::is_base_of_v<
-                expressions::RecordProjection, T>>::type * = nullptr>
-  expression_t(std::shared_ptr<T> &&ptr)
-      : expressions::ExpressionCRTP<expression_t>(ptr->getExpressionType()),
-        data(ptr) {
-    registerAs(data->getRegisteredRelName(), data->getRegisteredAttrName());
   }
 
  public:
