@@ -29,17 +29,17 @@
 using namespace llvm;
 
 namespace opt {
-Reduce::Reduce(vector<Monoid> accs, vector<expression_t> outputExprs,
+Reduce::Reduce(std::vector<Monoid> accs, std::vector<expression_t> outputExprs,
                expression_t pred, Operator *const child, Context *context,
                bool flushResults, const char *outPath)
     : UnaryOperator(child),
-      accs(accs),
-      outputExprs(outputExprs),
+      accs(std::move(accs)),
+      outputExprs(std::move(outputExprs)),
       pred(std::move(pred)),
       context(context),
       flushResults(flushResults),
       outPath(outPath) {
-  if (accs.size() != outputExprs.size()) {
+  if (this->accs.size() != this->outputExprs.size()) {
     string error_msg = string("[REDUCE: ] Erroneous constructor args");
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
