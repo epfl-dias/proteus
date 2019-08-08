@@ -598,17 +598,12 @@ void flushStringReady(char *toFlush, char *fileName) {
 }
 
 void flushStringObject(StringObject obj, char *fileName) {
-  char tmp = obj.start[obj.len + 1];
-  obj.start[obj.len + 1] = '\0';
-
   Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
   (*strBuffer) << "\"";
-  (*strBuffer) << obj.start;
+  (*strBuffer).write(obj.start, obj.len);
   (*strBuffer) << "\"";
-
-  obj.start[obj.len + 1] = tmp;
 }
 
 void flushObjectStart(char *fileName) {
