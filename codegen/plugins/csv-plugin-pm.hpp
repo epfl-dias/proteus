@@ -48,12 +48,13 @@ class CSVPlugin : public Plugin {
             bool stringBrackets = true);
   CSVPlugin(Context *const context, string &fname, RecordType &rec,
             vector<RecordAttribute *> whichFields, char delimInner,
-            int lineHint, int policy, bool stringBrackets = true);
+            int lineHint, int policy, bool stringBrackets = true,
+            bool hasHeader = false);
   /* PM Ready */
   CSVPlugin(Context *const context, string &fname, RecordType &rec,
             vector<RecordAttribute *> whichFields, char delimInner,
             int lineHint, int policy, size_t *newlines, short **offsets,
-            bool stringBrackets = true);
+            bool stringBrackets = true, bool hasHeader = false);
   ~CSVPlugin();
   virtual string &getName() { return fname; }
   void init();
@@ -189,6 +190,8 @@ class CSVPlugin : public Plugin {
   size_t *newlines;
   /* All pm entries are relevant to linesStart!!! */
   short **pm;
+
+  const bool hasHeader;
 
   llvm::AllocaInst *mem_newlines;
   llvm::AllocaInst *mem_pm;

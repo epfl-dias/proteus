@@ -41,7 +41,8 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
       fsizeVar("fileSize"),
       lines(lineHint),
       policy(policy),
-      stringBrackets(stringBrackets) {
+      stringBrackets(stringBrackets),
+      hasHeader(false) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *F = context->getGlobalFunction();
   IRBuilder<> *Builder = context->getBuilder();
@@ -116,7 +117,8 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
 
 CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
                      vector<RecordAttribute *> whichFields, char delimInner,
-                     int lineHint, int policy, bool stringBrackets)
+                     int lineHint, int policy, bool stringBrackets,
+                     bool hasHeader)
     : fname(fname),
       rec(rec),
       wantedFields(whichFields),
@@ -126,7 +128,8 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
       fsizeVar("fileSize"),
       lines(lineHint),
       policy(policy),
-      stringBrackets(stringBrackets) {
+      stringBrackets(stringBrackets),
+      hasHeader(hasHeader) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *F = context->getGlobalFunction();
   IRBuilder<> *Builder = context->getBuilder();
@@ -203,7 +206,7 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
 CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
                      vector<RecordAttribute *> whichFields, char delimInner,
                      int lineHint, int policy, size_t *newlines,
-                     short **offsets, bool stringBrackets)
+                     short **offsets, bool stringBrackets, bool hasHeader)
     : fname(fname),
       rec(rec),
       wantedFields(whichFields),
@@ -213,7 +216,8 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
       fsizeVar("fileSize"),
       lines(lineHint),
       policy(policy),
-      stringBrackets(stringBrackets) {
+      stringBrackets(stringBrackets),
+      hasHeader(hasHeader) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *F = context->getGlobalFunction();
   IRBuilder<> *Builder = context->getBuilder();
@@ -307,6 +311,11 @@ void CSVPlugin::init() {
   Value *unshiftedPtr = Builder->CreateIntToPtr(ptrVal, charPtrType);
   Builder->CreateStore(unshiftedPtr, bufMem);
   NamedValuesCSV[bufVar] = bufMem;
+
+  if (hasHeader) {
+    Value *delimEnd = ConstantInt::get(llvmContext, APInt(8, this->delimEnd));
+    skipDelimLLVM(delimEnd);
+  }
 };
 
 void CSVPlugin::generate(const ::Operator &producer) {
@@ -1394,6 +1403,8 @@ void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
   // Get the ENTRY BLOCK
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
   context->setCurrentEntryBlock(Builder->GetInsertBlock());
+  Value *delimInner = ConstantInt::get(llvmContext, APInt(8, this->delimInner));
+  Value *delimEnd = ConstantInt::get(llvmContext, APInt(8, this->delimEnd));
 
   BasicBlock *CondBB =
       BasicBlock::Create(llvmContext, "csvScanCond", TheFunction);
@@ -1434,8 +1445,6 @@ void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
 
   /* Actual Work (Loop through attributes etc.) */
   int cur_col = 0;
-  Value *delimInner = ConstantInt::get(llvmContext, APInt(8, this->delimInner));
-  Value *delimEnd = ConstantInt::get(llvmContext, APInt(8, this->delimEnd));
   Function *atoi_ = context->getFunction("atoi");
   Function *atof_ = context->getFunction("atof");
   Function *debugChar = context->getFunction("printc");
@@ -1602,10 +1611,6 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
   Function *F = context->getGlobalFunction();
   context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
-  // Util.
-  Value *delimInner = ConstantInt::get(llvmContext, APInt(8, this->delimInner));
-  Value *delimEnd = ConstantInt::get(llvmContext, APInt(8, this->delimEnd));
-
   // Container for the variable bindings
   map<RecordAttribute, ProteusValueMemory> *variableBindings =
       new map<RecordAttribute, ProteusValueMemory>();
@@ -1638,6 +1643,10 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
   mem_posWrapper.mem = mem_lineCtr;
   mem_posWrapper.isNull = context->createFalse();
   (*variableBindings)[tupleIdentifier] = mem_posWrapper;
+
+  // Util.
+  Value *delimInner = ConstantInt::get(llvmContext, APInt(8, this->delimInner));
+  Value *delimEnd = ConstantInt::get(llvmContext, APInt(8, this->delimEnd));
 
   /**
    * LOOP BLOCKS

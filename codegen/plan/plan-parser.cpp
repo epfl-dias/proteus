@@ -3191,9 +3191,15 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
       stringBrackets = val[keyBrackets].GetBool();
     }
 
+    bool hasHeader = false;
+    if (val.HasMember("hasHeader")) {
+      assert(val["hasHeader"].IsBool());
+      hasHeader = val["hasHeader"].GetBool();
+    }
+
     newPg =
         new pm::CSVPlugin(this->ctx, *pathDynamicCopy, *recType, projections,
-                          delim, linehint, policy, stringBrackets);
+                          delim, linehint, policy, stringBrackets, hasHeader);
   } else if (strcmp(pgType, "json") == 0) {
     assert(val.HasMember(keyLineHint));
     assert(val[keyLineHint].IsInt());
