@@ -40,6 +40,7 @@
 #include "codegen/memory/memory-manager.hpp"
 #include "common/gpu/gpu-common.hpp"
 #include "topology/affinity_manager.hpp"
+#include "util/context.hpp"
 #include "util/threadsafe_device_stack.cuh"
 
 #ifndef NCUDA
@@ -789,3 +790,35 @@ size_t buffer_manager<T>::h_size;
 
 template <typename T>
 std::thread *buffer_manager<T>::buffer_logger;
+
+bool __equalStringObjs_host(StringObject o1, StringObject o2) {
+  return o1.len == o2.len && strncmp(o1.start, o2.start, o1.len) == 0;
+}
+
+__device__ bool __equalStringObjs_dev(StringObject o1, StringObject o2) {
+  if (o1.len != o2.len) return false;
+  for (size_t i = 0; i < o1.len; ++i) {
+    if (o1.start[i] != o2.start[i]) return false;
+  }
+  return true;
+}
+
+extern "C" {
+#if defined(__clang__) && defined(__CUDA__)
+__device__ bool equalStringObjs(StringObject o1, StringObject o2) {
+  return __equalStringObjs_dev(o1, o2);
+}
+
+__host__ bool equalStringObjs(StringObject o1, StringObject o2) {
+  return __equalStringObjs_host(o1, o2);
+}
+#else
+__host__ __device__ bool equalStringObjs(StringObject o1, StringObject o2) {
+#ifdef __CUDA_ARCH__
+  return __equalStringObjs_dev(o1, o2);
+#else
+  return __equalStringObjs_host(o1, o2);
+#endif
+}
+#endif
+}
