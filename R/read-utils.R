@@ -9,7 +9,7 @@ getLastChars <- function(string, n)
 # Fields - example: list(a="integer", b="varchar")
 readcsv <- function(connection, fields = NULL, path, linehint = NULL, local = TRUE, name = NULL, remotePath = NULL,
                     sep = ',', header = TRUE, colClasses = NULL, colNames = NULL, lines = NULL, policy = NULL,
-                    delimiter = NULL, brackets = NULL) {
+                    delimiter = NULL, brackets = TRUE) {
   if(is.null(path))
     stop("Path cannot be undefined")
 
@@ -17,8 +17,7 @@ readcsv <- function(connection, fields = NULL, path, linehint = NULL, local = TR
     stop("Either linehint or lines has to be defined")
 
   # if name is not specified, extract it from path
-  if(is.null(name))
-    name = getLastChars(path,10)
+  if(is.null(name)) name = path
 
   # if fields are specified
   if(!is.null(fields)){
@@ -37,14 +36,12 @@ readcsv <- function(connection, fields = NULL, path, linehint = NULL, local = TR
       # if column names are undefined, then generate them, else use the ones in colNames list
       if(is.null(colNames)){
         colNames <- paste0("V", as.character(c(1:length(colClasses))))
-        fields <- string2list(paste0(colNames, ":", colClasses, collapse = ","), delimiter = ":")
-      } else {
-        if(length(colNames)!=length(colClasses))
-          stop("colNames and colClasses must be of same length")
-
-        # create list of fields from colNames and colClasses
-        fields <- string2list(paste0(colNames, ":", colClasses, collapse = ","), delimiter = ":")
       }
+      if(length(colNames)!=length(colClasses))
+        stop("colNames and colClasses must be of same length")
+
+      # create list of fields from colNames and colClasses
+      fields <- string2list(paste0(colNames, ":", colClasses, collapse = ","), delimiter = ":")
     }
 
   }
@@ -56,11 +53,11 @@ readcsv <- function(connection, fields = NULL, path, linehint = NULL, local = TR
       print("Some logic to transfer the file to a remote")
 
       dbCreateTable(conn = con, name = name, fields = fields, path = remotePath, linehint = linehint, lines = lines, type = "csv",
-                    policy = policy, delimiter = delimiter, brackets = brackets)
+                    policy = policy, delimiter = delimiter, brackets = brackets, hasHeader = header)
     }
   } else {
     dbCreateTable(conn = con, name = name, fields = fields, path = path, linehint = linehint, lines = lines, type = "csv",
-                  policy = policy, delimiter = delimiter, brackets = brackets)
+                  policy = policy, delimiter = delimiter, brackets = brackets, hasHeader = header)
   }
 
   return(tbl(connection, name))
@@ -70,7 +67,8 @@ readcsv <- function(connection, fields = NULL, path, linehint = NULL, local = TR
 string2list <- function(str, delimiter = ":") {
 
   # quote the strings - a:b -> 'a':'b'
-  repl <- gsub("([a-zA-z._0-9]+)","'\\1'", str)
+  repl <- str
+  repl <- gsub(paste0(delimiter, "([a-zA-z._0-9]+)"),"='\\1'", repl)
   repl <- gsub(delimiter, "=", repl)
 
   return(lazyeval::lazy_eval(paste0("list(",repl,")")))

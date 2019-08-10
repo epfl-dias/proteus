@@ -28,17 +28,17 @@ driverLocation <- opt$driverJar
 connectionString <- paste("jdbc:avatica:remote:url=http://", opt$server, ":", opt$port, ";serialization=PROTOBUF", sep="")
 
 # establishing the connection
-con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation), connectionString = connectionString)
+con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation), connectionString = connectionString, debug=TRUE)
 
 # creating table only from csv, linehint still necessary
-test_noheader <- readcsv(connection = con, path = "../../src/frontends/R/demo-test/test.csv", lines = 5, header = FALSE)
+test_noheader <- readcsv(connection = con, path = "../../src/frontends/R/demo-test/test.csv", lines = 3, header = TRUE, policy=3, delimiter=',')
 test_noheader
 
-test_header <- readcsv(connection = con, name="test_header", path = "../../src/frontends/R/demo-test/test_header.csv", lines = 5, policy=3, delimiter=',')
+test_header <- readcsv(connection = con, name="test_header", path = "../../src/frontends/R/demo-test/test_header.csv", lines = 3, policy=3, delimiter=',', brackets=TRUE)
 test_header
 
 # creating from specified column classes
-test_fields <- readcsv(connection = con, name="test_fields", path = "../../src/frontends/R/demo-test/test_header.csv", lines = 5, colClasses = c("integer", "varchar"))
+test_fields <- readcsv(connection = con, name="test_fields", path = "../../src/frontends/R/demo-test/test_header.csv", lines = 3, policy=3, colClasses = c("integer", "integer", "varchar", "boolean"), brackets=TRUE)
 test_fields
 
 # creating if there exists an external file specification
@@ -72,16 +72,16 @@ supplier <- tbl(con, "ssbm_supplier")
 
 # loading from "csv", in this case the difference is that the csv has trailing separator, requiring additional column (marked as "nl"- newline)
 customer <-  readcsv(connection = con, name="ssbm_customer1", path = "inputs/ssbm100/raw/customer.tbl", lines = 3000000, policy = 4, delimiter = '|',
-                     colNames = c("c_custkey", "c_name", "c_address", "c_city", "c_nation", "c_region", "c_phone", "c_mktsegment", "nl"), header = FALSE, sep = '|')
+                     colNames = c("c_custkey", "c_name", "c_address", "c_city", "c_nation", "c_region", "c_phone", "c_mktsegment", "nl"), header = FALSE, sep = '|', brackets=FALSE)
 
 part <-  readcsv(connection = con, name="ssbm_part1", path = "inputs/ssbm100/raw/part.tbl", lines = 1400000, policy = 4, delimiter = '|',
-                 colNames = c("p_partkey", "p_name", "p_mfgr", "p_category", "p_brand1", "p_color", "p_type", "p_size", "p_container", "nl"), header = FALSE, sep = '|')
+                 colNames = c("p_partkey", "p_name", "p_mfgr", "p_category", "p_brand1", "p_color", "p_type", "p_size", "p_container", "nl"), header = FALSE, sep = '|', brackets=FALSE)
 
 ### read.csv (default R implementation) - reminder, this takes quite a long time to execute ###
-customer_csv <- read.csv("inputs/ssbm100/raw/customer.tbl", header = FALSE, sep = '|', col.names = c("c_custkey", "c_name", "c_address", "c_city", "c_nation", "c_region", "c_phone", "c_mktsegment", "nl"))
-part_csv <- read.csv("inputs/ssbm100/raw/part.tbl", header = FALSE, sep = '|', col.names = c("p_partkey", "p_name", "p_mfgr", "p_category", "p_brand1", "p_color", "p_type", "p_size", "p_container", "nl"))
+# customer_csv <- read.csv("inputs/ssbm100/raw/customer.tbl", header = FALSE, sep = '|', col.names = c("c_custkey", "c_name", "c_address", "c_city", "c_nation", "c_region", "c_phone", "c_mktsegment", "nl"))
+# part_csv <- read.csv("inputs/ssbm100/raw/part.tbl", header = FALSE, sep = '|', col.names = c("p_partkey", "p_name", "p_mfgr", "p_category", "p_brand1", "p_color", "p_type", "p_size", "p_container", "nl"))
 
-customer_csv %>% filter(c_nation=='MOROCCO') %>% select(c_name, c_phone)
+# customer_csv %>% filter(c_nation=='MOROCCO') %>% select(c_name, c_phone)
 customer %>% filter(c_nation=='MOROCCO') %>% select(c_name, c_phone)
 
 

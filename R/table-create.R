@@ -26,12 +26,20 @@ create_table_level <- function(list, parent_name){
 }
 
 # jplugin `{\'plugin\':{ \'type\':\'block\', \'linehint\':200000 }, \'file\':\'/inputs/csv.csv\'}`
+setMethod("dbQuoteIdentifier", signature("ViDaRConnection", "character"),
+  function(conn, x){
+    return(ifelse(grepl("^([A-Za-z][A-Za-z0-9_]*)?$", x), x, paste0("`", x, "`")))
+  }
+)
+
+# jplugin `{\'plugin\':{ \'type\':\'block\', \'linehint\':200000 }, \'file\':\'/inputs/csv.csv\'}`
 setMethod("sqlCreateTable", signature("ViDaRConnection"),
           function(con, table, fields,  temporary = FALSE, path = NULL, type = NULL, linehint = NULL,
-                   lines = NULL, policy= NULL, delimiter = NULL, brackets = NULL,
+                   lines = NULL, policy= NULL, delimiter = NULL, brackets = NULL, hasHeader = FALSE,
                    ...) {
 
             table <- dbQuoteIdentifier(con, table)
+            print(table)
 
             # TODO: Cover the JSON case and add the information about path and/or other options.
             # In general JSON is a nested list - so recursive calls will be necessary while building
@@ -75,13 +83,14 @@ setMethod("sqlCreateTable", signature("ViDaRConnection"),
             # appending plugin info - % will be replaced by \\\" in query text processing
             metadata <- ""
             if(!is.null(path) || !is.null(type) || !is.null(linehint) || !is.null(lines) || !is.null(policy) || !is.null(delimiter)
-               || !is.null(brackets)){
+               || !is.null(brackets) || hasHeader){
               metadata <- paste0(metadata, " JPLUGIN `{%plugin%:{",
                                  if(!is.null(lines)) paste0("%lines%: ", toString(as.integer(lines)), ","),
                                  if(!is.null(linehint)) paste0("%linehint%: ", toString(as.integer(linehint)), ","),
                                  if(!is.null(policy)) paste0("%policy%: ", toString(as.integer(policy)), ","),
                                  if(!is.null(delimiter)) paste0("%delimiter%: %", delimiter, "% ,"),
                                  if(!is.null(brackets)) paste0("%brackets%: ", if(brackets) "true" else "false", ","),
+                                 if(hasHeader) "%hasHeader%: true,",
 
                                  "%type%: %", if(!is.null(type)) type else "block", "%",
                                  "}, ",
@@ -95,7 +104,7 @@ setMethod("sqlCreateTable", signature("ViDaRConnection"),
 )
 
 setMethod("dbCreateTable", signature("ViDaRConnection"),
-          def = function(conn, name, fields, ..., path = NULL, type = NULL, linehint = NULL, lines = NULL, policy = NULL, delimiter = NULL, brackets = NULL,
+          def = function(conn, name, fields, ..., path = NULL, type = NULL, linehint = NULL, lines = NULL, policy = NULL, delimiter = NULL, brackets = NULL, hasHeader = FALSE,
                          row.names = NULL, temporary = FALSE # rownames and temporary always in the end per contract
                          ) {
 
@@ -111,6 +120,7 @@ setMethod("dbCreateTable", signature("ViDaRConnection"),
               policy = policy,
               delimiter = delimiter,
               brackets = brackets,
+              hasHeader = hasHeader,
               ...
             )
 
