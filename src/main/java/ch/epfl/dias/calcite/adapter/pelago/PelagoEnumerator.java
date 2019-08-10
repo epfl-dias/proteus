@@ -181,7 +181,7 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
         if (string.length() == 0) {
           return null;
         }
-        return Boolean.parseBoolean(string);
+        return "true".equalsIgnoreCase(string) || "1".equalsIgnoreCase(string);
       } else if (fieldType.getType().getSqlTypeName() == SqlTypeName.INTEGER) {
         if (mock) return (rand.nextInt() % 2);
         if (string.length() == 0) {
