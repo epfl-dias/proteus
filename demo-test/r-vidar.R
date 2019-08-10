@@ -28,7 +28,7 @@ driverLocation <- opt$driverJar
 connectionString <- paste("jdbc:avatica:remote:url=http://", opt$server, ":", opt$port, ";serialization=PROTOBUF", sep="")
 
 # establishing the connection
-con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation), connectionString = connectionString, debug=TRUE)
+con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation), connectionString = connectionString)
 
 # creating table only from csv, linehint still necessary
 test_noheader <- readcsv(connection = con, path = "../../src/frontends/R/demo-test/test.csv", lines = 3, header = TRUE, policy=3, delimiter=',')
@@ -48,7 +48,7 @@ test_string <- paste0("d_datekey:int,d_date:string,d_dayofweek:string,d_month:st
                     "d_sellingseason:string,d_lastdayinweekfl:boolean,d_lastdayinmonthfl:boolean,",
                     "d_holidayfl:boolean,d_weekdayfl:boolean")
 
-test_sch <- readcsv(connection = con, fields = test_string, path = "inputs/ssbm100/raw/date2.tbl", lines = 2556, policy=10, delimiter='|', name = "test_sch")
+test_sch <- readcsv(connection = con, fields = test_string, path = "inputs/ssbm100/raw/date2.tbl", lines = 2556, policy=10, delimiter='|', name = "test_sch", header = FALSE, brackets=FALSE)
 test_sch
 
 # creating table from json specification, this needs to be wrapped with something more convenient
