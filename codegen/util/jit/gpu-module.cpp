@@ -37,6 +37,12 @@ void initializeModule(CUmodule &cudaModule);
 
 using namespace llvm;
 
+#ifndef NVPTX_MAX_REGS
+#define NVPTX_MAX_REGS (32)
+#endif
+
+constexpr uint64_t nvptx_max_regs = NVPTX_MAX_REGS;
+
 LLVMTargetMachine *GpuModule::TheTargetMachine = nullptr;
 legacy::PassManager GpuModule::Passes;
 PassManagerBuilder GpuModule::Builder;
@@ -288,7 +294,7 @@ void GpuModule::compileAndLoad() {
     options[2] = CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES;
     values[2] = (void *)BUFFER_SIZE;
     options[3] = CU_JIT_MAX_REGISTERS;
-    values[3] = (void *)((uint64_t)32);
+    values[3] = (void *)nvptx_max_regs;
     options[4] = CU_JIT_INFO_LOG_BUFFER;
     values[4] = (void *)info_log;
     options[5] = CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;

@@ -214,6 +214,8 @@ if(CUDA_FOUND)
 	# Convert the list to a string
 	string(REGEX REPLACE [[;]] " " CUDA_CXX_ARCHS "${CUDA_CXX_ARCHS}")
 	string(STRIP "${CUDA_CXXFLAGS} ${CUDA_CXX_ARCHS}" CUDA_CXXFLAGS)
+	string(STRIP "${CUDA_CXXFLAGS} -DMAXRREGCOUNT=32" CUDA_CXXFLAGS)
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -DMAXRREGCOUNT=32 --maxrregcount=32)
 
 	# Because of how the "command" function works, we have to use a
 	# CMAKE list, and not a string for CUDA_CUFLAGS
