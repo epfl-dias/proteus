@@ -8,7 +8,7 @@ textProcessQuery <- function(query, quoteChar = "") {
   # ret_query <- gsub("\"", quoteChar, ret_query)
   ret_query <- gsub("%", "\\\"", ret_query)
   ret_query <- gsub("\\\n", " ", ret_query)
-  ret_query <- gsub("\\(\\)","\\(*\\)", ret_query)
+  # ret_query <- gsub("\\(\\)","\\(*\\)", ret_query)
   #ret_query <- gsub("\\(\\)","\\(*\\)", ret_query)
   ret_query <- gsub("LIMIT 0", "", ret_query)
 
