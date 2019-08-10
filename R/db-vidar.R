@@ -76,7 +76,9 @@ sql_translate_env.ViDaRConnection <- function(con) {
                    #kmeans1 = function(data, k=10, max.iter=5) {
                   #  build_sql(sql("KMEANS") , sql("k = "), sql(k))
     ),
-    sql_translator(.parent = base_agg
+    sql_translator(.parent = base_agg,
+                   n = function() sql("COUNT(*)"),
+                   count = function() sql("COUNT(*)"),
                    #collect = sql_prefix("collect")
                    #for_all = sql_aggregate_2("unnest")
     ),
