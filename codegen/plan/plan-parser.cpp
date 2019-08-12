@@ -2943,7 +2943,7 @@ ExpressionType *ExpressionParser::parseExpressionType(
 
 RecordType *ExpressionParser::getRecordType(string relName) {
   // Lookup in catalog based on name
-  InputInfo *datasetInfo = (this->catalogParser).getInputInfoIfKnown(relName);
+  InputInfo *datasetInfo = (this->catalogParser).getOrCreateInputInfo(relName);
   if (datasetInfo == nullptr) return nullptr;
 
   /* Retrieve RecordType */
