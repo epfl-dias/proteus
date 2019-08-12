@@ -15,11 +15,11 @@ sql_clause_unnest <- function(from, unnest, con){
     from_name <- random_table_name()
 
     build_sql(
-      sql("FROM"), " ",
+      "FROM ",
       sql(paste(from, from_name)),
-      sql(", UNNEST ("),
-      sql(paste0(from_name, ".", ident(unnest), collapse = ", ")),
-      ") "
+      ", ",
+      sql(paste0("UNNEST (", ident(from_name), ".", ident(unnest), ") AS ", ident(unnest), collapse = ", ")),
+      con = con
     )
   }
 }
