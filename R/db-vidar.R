@@ -19,17 +19,16 @@ sql_select.ViDaRConnection <- function(con, select, from, where = NULL,
 
   if(!is.null(con@env$name_map)){
     if(!is.null(con@env$name_map[[from_chr]])) {
+      new_select <- c()
 
-      # new_select <- c()
+      for(el in select){
+        if(!is.null(con@env$name_map[[from_chr]][[el]]))
+          new_select <- c(new_select, ident(con@env$name_map[[from_chr]][[el]]))
+        else
+          new_select <- c(new_select, el)
+      }
 
-      # for(el in select){
-      #   if(!is.null(con@env$name_map[[from_chr]][[el]]))
-      #     new_select <- c(new_select, con@env$name_map[[from_chr]][[el]])
-      #   else
-      #     new_select <- c(new_select, el)
-      # }
-
-      # select <- new_select
+      select <- ident(new_select)
     }
   }
 
