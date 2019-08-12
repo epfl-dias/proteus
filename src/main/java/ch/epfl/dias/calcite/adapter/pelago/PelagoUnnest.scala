@@ -71,7 +71,7 @@ class PelagoUnnest protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
     val alias = PelagoTable.create(alias2, getRowType)
     val op    = ("operator" , "project")
 
-    val unnest = implementUnnest
+    val unnest = implementUnnest(alias2)
     val inputBinding: Binding = unnest._1
     val unnestdOp = unnest._2
 
@@ -90,7 +90,7 @@ class PelagoUnnest protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
                                                                     )
 
     assert(namedProjections.size == 1)
-    val unnestBinding = Binding(PelagoTable.create(inputBinding.rel + "." + namedProjections.head.right, unnestedRowType), getFields(unnestedRowType))
+    val unnestBinding = Binding(PelagoTable.create(inputBinding.rel.getPelagoRelName + "." + namedProjections.head.right, unnestedRowType), getFields(unnestedRowType))
 
     val nested_exprs = unnestRowTypeSlice.zipWithIndex.map {
       p => {//this binding is actually the input binding
@@ -111,10 +111,10 @@ class PelagoUnnest protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
   }
 
 
-  def implementUnnest(): (Binding, JValue) = {
+  def implementUnnest(alias2: String): (Binding, JValue) = {
+    val alias = PelagoTable.create(alias2, getRowType)
     val op    = ("operator" , "unnest")
-    val alias = "__unnest" + getId
-    val child = input.asInstanceOf[PelagoRel].implement(getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE))
+    val child = input.asInstanceOf[PelagoRel].implement(getTraitSet.getTrait(RelDeviceTypeTraitDef.INSTANCE), alias2)
     val childBinding: Binding = child._1
     val childOp = child._2
 //    val rowType = emitSchema(childBinding.rel, getRowType)
@@ -128,7 +128,7 @@ class PelagoUnnest protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
     assert(expr.getReferenceExpr().asInstanceOf[RexCorrelVariable].id == correlationId)
     val f = emitExpression(RexInputRef.of(p.left.asInstanceOf[RexFieldAccess].getField.getIndex, input.getRowType), List(childBinding), true, this)
 
-    val unnest_exprs = ("e", f) ~ ("name", "__" + alias + "_" + f.\("attribute").\("attrName").extract[String])
+    val unnest_exprs = ("e", f) ~ ("name", "__" + alias.getPelagoRelName + "_" + f.\("attribute").\("attrName").extract[String])
 
     val json : JValue = op ~
       ("gpu"      , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~

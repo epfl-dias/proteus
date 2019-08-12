@@ -55,7 +55,7 @@ class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, in
     val alias   = PelagoTable.create(alias2, getRowType)
     val op      = ("operator" , "project")
     val rowType = emitSchema(alias, getRowType)
-    val child   = getInput.asInstanceOf[PelagoRel].implement(target)
+    val child   = getInput.asInstanceOf[PelagoRel].implement(target, alias2)
     val childBinding: Binding = child._1
     val childOp = child._2
     //TODO Could also use p.getNamedProjects
