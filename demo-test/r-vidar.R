@@ -5,7 +5,6 @@ library(dbplyr)
 library(dplyr)
 library(ggplot2)
 library(rlang)
-library(jsonlite)
 library(optparse)
 
 option_list = list(
@@ -30,40 +29,48 @@ connectionString <- paste("jdbc:avatica:remote:url=http://", opt$server, ":", op
 # establishing the connection
 con <- dbConnect(ViDaR(driverClass = driverClass, driverLocation = driverLocation), connectionString = connectionString)
 
+vidar.default.connection(con)
+
 # creating table only from csv, linehint still necessary
-test_noheader <- readcsv(connection = con, path = "../../src/frontends/R/demo-test/test.csv", lines = 3, header = TRUE, policy=3, delimiter=',')
+test_noheader <- read.csv("../../src/frontends/R/demo-test/test.csv", nrows = 3, policy = 3, header = FALSE, sep = ',', conn = con)
 test_noheader
 
-test_header <- readcsv(connection = con, name="test_header", path = "../../src/frontends/R/demo-test/test_header.csv", lines = 3, policy=3, delimiter=',', brackets=TRUE)
+test_header <- read.csv("../../src/frontends/R/demo-test/test_header.csv", nrows = 3, policy = 3, sep=',', quote="'", conn = con)
 test_header
 
 # creating from specified column classes
-test_fields <- readcsv(connection = con, name="test_fields", path = "../../src/frontends/R/demo-test/test_header.csv", lines = 3, policy=3, colClasses = c("integer", "integer", "varchar", "boolean"), brackets=TRUE)
+test_fields <- read.csv("../../src/frontends/R/demo-test/test_header.csv", nrows = 3, policy = 3, colClasses = c("integer", "integer", "character", "logical"), quote="'", conn = con)
 test_fields
 
 # creating if there exists an external file specification
-test_string <- paste0("d_datekey:int,d_date:string,d_dayofweek:string,d_month:string,",
-                    "d_year:int,d_yearmonthnum:int,d_yearmonth:string,d_daynuminweek:int,",
-                    "d_daynuminmonth:int,d_daynuminyear:int,d_monthnuminyear:int,d_weeknuminyear:int,",
-                    "d_sellingseason:string,d_lastdayinweekfl:boolean,d_lastdayinmonthfl:boolean,",
-                    "d_holidayfl:boolean,d_weekdayfl:boolean")
+col.names <- c("d_datekey", "d_date", "d_dayofweek", "d_month", "d_year", 
+  "d_yearmonthnum", "d_yearmonth", "d_daynuminweek", "d_daynuminmonth", 
+  "d_daynuminyear", "d_monthnuminyear", "d_weeknuminyear", "d_sellingseason", 
+  "d_lastdayinweekfl", "d_lastdayinmonthfl", "d_holidayfl", "d_weekdayfl")
 
-test_sch <- readcsv(connection = con, fields = test_string, path = "inputs/ssbm100/raw/date2.tbl", lines = 2556, policy=10, delimiter='|', name = "test_sch", header = FALSE, brackets=FALSE)
+colClasses <- c("integer", "character", "character", "character", "integer",
+  "integer", "character", "integer", "integer",
+  "integer", "integer", "integer", "character",
+  "integer", "integer", "integer", "integer")
+  # "logical", "logical", "logical", "logical")
+
+test_sch <- read.csv("inputs/ssbm100/raw/date2.tbl", col.names = col.names, colClasses = colClasses, nrows = 2556, policy = 10, sep='|', header = FALSE, quote="", conn = con)
 test_sch
 
-# creating table from json specification, this needs to be wrapped with something more convenient
-json <- paste0('{"employees": { "path": "inputs/json/employees-flat.json",',
-               ' "type": { "type": "bag", "inner": { "type": "record", "attributes":',
+# creating table from json type specification, this needs to be wrapped with something more convenient
+json_type <- paste0('{"type": "bag", "inner": { "type": "record", "attributes":',
                ' [{ "type": { "type": "string" }, "relName": "inputs/json/employees-flat.json",',
                ' "attrName": "name", "attrNo": 1 }, { "type": { "type": "int" }, "relName": "inputs/json/employees-flat.json",',
                ' "attrName": "age", "attrNo": 2 }, { "type": { "type": "list", "inner": { "type": "record",',
                ' "attributes": [ { "type": { "type": "string" }, "relName": "inputs/json/employees-flat.json",',
                ' "attrName": "name2", "attrNo": 1 }, { "type": { "type": "int" }, "relName": "inputs/json/employees-flat.json",',
                ' "attrName": "age2", "attrNo": 2 } ] } }, "relName": "inputs/json/employees-flat.json",',
-               ' "attrName": "children", "attrNo": 3 }] } }, "plugin": { "type": "json", "lines": 3, "policy": 2 } } }')
+               ' "attrName": "children", "attrNo": 3 }] } }')
 
-test_json <- readjson2(connection = con, name = "test_json", json = json)
+test_json <- fromJSON("inputs/json/employees-flat.json", ndjson=TRUE, fields=json_type, conn = con)
 test_json %>% select (name, age)
+
+q()
 
 # creating placeholder tables
 dates <- tbl(con, "ssbm_date")
@@ -71,14 +78,14 @@ lineorder <- tbl(con, "ssbm_lineorder")
 supplier <- tbl(con, "ssbm_supplier")
 
 # loading from "csv", in this case the difference is that the csv has trailing separator, requiring additional column (marked as "nl"- newline)
-customer <-  readcsv(connection = con, name="ssbm_customer1", path = "inputs/ssbm100/raw/customer.tbl", lines = 3000000, policy = 4, delimiter = '|',
-                     colNames = c("c_custkey", "c_name", "c_address", "c_city", "c_nation", "c_region", "c_phone", "c_mktsegment", "nl"), header = FALSE, sep = '|', brackets=FALSE)
+customer <- read.csv("inputs/ssbm100/raw/customer.tbl", name="ssbm_customer1", nrows = 3000000, policy = 4,
+                     colNames = c("c_custkey", "c_name", "c_address", "c_city", "c_nation", "c_region", "c_phone", "c_mktsegment", "nl"), header = FALSE, sep = '|', quote="", conn = con)
 
-part <-  readcsv(connection = con, name="ssbm_part1", path = "inputs/ssbm100/raw/part.tbl", lines = 1400000, policy = 4, delimiter = '|',
-                 colNames = c("p_partkey", "p_name", "p_mfgr", "p_category", "p_brand1", "p_color", "p_type", "p_size", "p_container", "nl"), header = FALSE, sep = '|', brackets=FALSE)
+part <- read.csv("inputs/ssbm100/raw/part.tbl", name="ssbm_part1", nrows = 1400000, policy = 4
+                 colNames = c("p_partkey", "p_name", "p_mfgr", "p_category", "p_brand1", "p_color", "p_type", "p_size", "p_container", "nl"), header = FALSE, sep = '|', brackets=FALSE, quote="", conn = con)
 
 ### read.csv (default R implementation) - reminder, this takes quite a long time to execute ###
-# customer_csv <- read.csv("inputs/ssbm100/raw/customer.tbl", header = FALSE, sep = '|', col.names = c("c_custkey", "c_name", "c_address", "c_city", "c_nation", "c_region", "c_phone", "c_mktsegment", "nl"))
+# customer_csv <- read.csv("inputs/ssbm100/raw/customer.tbl", header = FALSE, sep = '|', col.names = c("c_custkey", "c_name", "c_address", "c_city", "c_nation", "c_region", "c_phone", "c_mktsegment", "nl"), quote="")
 # part_csv <- read.csv("inputs/ssbm100/raw/part.tbl", header = FALSE, sep = '|', col.names = c("p_partkey", "p_name", "p_mfgr", "p_category", "p_brand1", "p_color", "p_type", "p_size", "p_container", "nl"))
 
 # customer_csv %>% filter(c_nation=='MOROCCO') %>% select(c_name, c_phone)

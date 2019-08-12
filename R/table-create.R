@@ -36,6 +36,7 @@ setMethod("dbQuoteIdentifier", signature("ViDaRConnection", "character"),
 setMethod("sqlCreateTable", signature("ViDaRConnection"),
           function(con, table, fields,  temporary = FALSE, path = NULL, type = NULL, linehint = NULL,
                    lines = NULL, policy= NULL, delimiter = NULL, brackets = NULL, hasHeader = FALSE,
+                   plugin.metadata,
                    ...) {
 
             table <- dbQuoteIdentifier(con, table)
@@ -64,7 +65,6 @@ setMethod("sqlCreateTable", signature("ViDaRConnection"),
               query <- SQL(paste0(query, "\n)\n"))
 
             } else {
-
               if (is.data.frame(fields)) {
                 fields <- sqlRownamesToColumn(fields, NULL)
                 fields <- vapply(fields, function(x) DBI::dbDataType(con, x), character(1))
@@ -82,7 +82,9 @@ setMethod("sqlCreateTable", signature("ViDaRConnection"),
 
             # appending plugin info - % will be replaced by \\\" in query text processing
             metadata <- ""
-            if(!is.null(path) || !is.null(type) || !is.null(linehint) || !is.null(lines) || !is.null(policy) || !is.null(delimiter)
+            if (!missing(plugin.metadata)){
+              metadata <- plugin.metadata
+            } else if(!is.null(path) || !is.null(type) || !is.null(linehint) || !is.null(lines) || !is.null(policy) || !is.null(delimiter)
                || !is.null(brackets) || hasHeader){
               metadata <- paste0(metadata, " JPLUGIN `{%plugin%:{",
                                  if(!is.null(lines)) paste0("%lines%: ", toString(as.integer(lines)), ","),
@@ -105,6 +107,7 @@ setMethod("sqlCreateTable", signature("ViDaRConnection"),
 
 setMethod("dbCreateTable", signature("ViDaRConnection"),
           def = function(conn, name, fields, ..., path = NULL, type = NULL, linehint = NULL, lines = NULL, policy = NULL, delimiter = NULL, brackets = NULL, hasHeader = FALSE,
+                         plugin.metadata,
                          row.names = NULL, temporary = FALSE # rownames and temporary always in the end per contract
                          ) {
 
@@ -121,6 +124,7 @@ setMethod("dbCreateTable", signature("ViDaRConnection"),
               delimiter = delimiter,
               brackets = brackets,
               hasHeader = hasHeader,
+              plugin.metadata = plugin.metadata,
               ...
             )
 

@@ -30,6 +30,7 @@ setMethod("dbConnect", "ViDaRDriver", def = function(drv, connectionString = "jd
 
   conn <- new("ViDaRConnection", jc = jdbcconn@jc , identifier.quote = jdbcconn@identifier.quote, env=connenv)
   conn@env$debug = debug
+  conn@env$tables = new.env(parent = emptyenv())
 
   return(conn)
 },
