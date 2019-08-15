@@ -828,7 +828,7 @@ __host__ __device__ bool equalStringObjs(StringObject o1, StringObject o2) {
 template <typename T>
 __host__ __device__ void log_impl(const T &x, decltype(__builtin_FILE()) file = __builtin_FILE(),
               decltype(__builtin_LINE()) line = __builtin_LINE()) {
-#if defined(__CUDA_ARCH__) || (defined(__clang__) && defined(__CUDA__))
+#ifdef __CUDA_ARCH__
   static_assert(sizeof(T) <= sizeof(int64_t));
   printf("I %s:%u] %" PRId64 "\n", file, line, static_cast<int64_t>(x));
 #else
@@ -839,7 +839,7 @@ __host__ __device__ void log_impl(const T &x, decltype(__builtin_FILE()) file = 
 template <>
 __host__ __device__ void log_impl<const char *>(const char * const &x, decltype(__builtin_FILE()) file,
               decltype(__builtin_LINE()) line) {
-#if defined(__CUDA_ARCH__) || (defined(__clang__) && defined(__CUDA__))
+#ifdef __CUDA_ARCH__
   printf("I %s:%u] %s\n", file, line, x);
 #else
   google::LogMessage(file, line, google::GLOG_INFO).stream() << x;
