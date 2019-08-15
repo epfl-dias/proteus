@@ -381,6 +381,14 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
 
     newOp = new Unnest(p, projPath, childOp);
     childOp->setParent(newOp);
+
+    auto inputInfo = new InputInfo();
+    inputInfo->exprType = new BagType(
+        dynamic_cast<const CollectionType &>(*proj->getExpressionType())
+            .getNestedType());
+    inputInfo->path = projPath.toString();
+    inputInfo->oidType = projPath.getRelevantPlugin()->getOIDType();
+    catalogParser.setInputInfo(projPath.toString(), inputInfo);
   } else if (strcmp(opName, "outer_unnest") == 0) {
     /* parse operator input */
     Operator *childOp = parseOperator(val["input"]);

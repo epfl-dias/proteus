@@ -124,6 +124,39 @@ class Context {
   llvm::StructType *CreateJSONPosStruct();
   llvm::StructType *CreateCustomStruct(vector<llvm::Type *> innerTypes);
   llvm::StructType *ReproduceCustomStruct(list<typeID> innerTypes);
+
+  template <typename InputIt>
+  llvm::Value *constructStruct(InputIt begin, InputIt end) {
+    std::vector<llvm::Type *> types;
+    types.reserve(end - begin);
+    for (auto it = begin; it != end; ++it) {
+      types.emplace_back((*it)->getType());
+    }
+    return constructStruct(begin, end,
+                           llvm::StructType::get(getLLVMContext(), types));
+  }
+
+  template <typename InputIt>
+  llvm::Value *constructStruct(InputIt begin, InputIt end,
+                               llvm::StructType *structType) {
+    llvm::Value *agg = llvm::UndefValue::get(structType);
+    size_t i = 0;
+    for (auto it = begin; it != end; ++it) {
+      agg = getBuilder()->CreateInsertValue(agg, *it, i++);
+    }
+    return agg;
+  }
+
+  inline llvm::Value *constructStruct(
+      std::initializer_list<llvm::Value *> elems) {
+    return constructStruct(elems.begin(), elems.end());
+  }
+
+  inline llvm::Value *constructStruct(
+      std::initializer_list<llvm::Value *> elems, llvm::StructType *type) {
+    return constructStruct(elems.begin(), elems.end(), type);
+  }
+
   /**
    * Does not involve AllocaInst, but still is a memory position
    * NOTE: 1st elem of Struct is 0!!
