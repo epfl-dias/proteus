@@ -209,6 +209,7 @@ class expression_t final : public expressions::ExpressionCRTP<expression_t> {
   expression_t(int64_t v);
   expression_t(double v);
   expression_t(std::string v);
+  expression_t(const char *v);
 
   inline ProteusValue accept(ExprVisitor &v) const override {
     return data->accept(v);
@@ -1253,6 +1254,9 @@ inline expression_t::expression_t(int64_t v)
 
 inline expression_t::expression_t(double v)
     : expression_t(expressions::FloatConstant{v}) {}
+
+inline expression_t::expression_t(const char *v)
+    : expression_t(std::string{v}) {}
 
 inline expression_t::expression_t(std::string v)
     : expression_t(expressions::StringConstant{v}) {}
