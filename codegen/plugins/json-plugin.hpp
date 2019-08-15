@@ -233,6 +233,11 @@ class JSONPlugin : public Plugin {
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
+  virtual RecordType getRowType() const {
+    return {dynamic_cast<const RecordType &>(
+        dynamic_cast<CollectionType &>(*schema).getNestedType())};
+  }
+
  private:
   string fname;
   size_t fsize;
@@ -300,6 +305,9 @@ class JSONPlugin : public Plugin {
 
   virtual void flushDString(ProteusValueMemory mem_value,
                             const ExpressionType *type, llvm::Value *fileName);
+
+  llvm::Value *getStart(llvm::Value *jsmnToken);
+  llvm::Value *getEnd(llvm::Value *jsmnToken);
 };
 
 }  // namespace jsonPipelined

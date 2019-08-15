@@ -22,6 +22,7 @@
 */
 
 #include "plugins/json-plugin.hpp"
+#include "expressions/expressions-flusher.hpp"
 
 //"Should" be enough on a per-row basis
 //#define MAXTOKENS 1000
@@ -226,13 +227,13 @@ void JSONPlugin::initPM() {
     } else {
       reusePM((pmJSON *)pmCast);
     }
-
-    mem_tokenArray =
-        context->CreateEntryBlockAlloca("jsTokenArray", token2DPtrType);
-
-    mem_newlineArray =
-        context->CreateEntryBlockAlloca("newlinePMArray", int64PtrType);
   }
+
+  mem_tokenArray =
+      context->CreateEntryBlockAlloca("jsTokenArray", token2DPtrType);
+
+  mem_newlineArray =
+      context->CreateEntryBlockAlloca("newlinePMArray", int64PtrType);
 
   Value *cast_tokenArray =
       context->CastPtrToLlvmPtr(token2DPtrType, this->tokens);
@@ -295,19 +296,23 @@ void JSONPlugin::createPM() {
   this->newLines = (size_t *)malloc(lines * sizeof(size_t));
   this->cacheNewlines = false;
 
+  // FIXME: if we do not zero initialize the tokens, then we end up with
+  // getting out of bounds and SEGFAULTS. Can we initialize them lazily?
+  // For example by setting the 1-2-after-the-last values to 0?
 #if defined(JSON_TPCH_WIDE) || defined(JSON_SYMANTEC_WIDE)
   for (size_t i = 0; i < lines; i++) {
     //                tokens[i] = (jsmntok_t*) malloc(MAXTOKENS *
     //                sizeof(jsmntok_t));
-    tokens[i] = new jsmntok_t[MAXTOKENS];
+    tokens[i] = new jsmntok_t[MAXTOKENS]{/*zero initialization*/};
   }
 #else
   jsmntok_t *tokenBuf_ =
       (jsmntok_t *)malloc(lines * MAXTOKENS * sizeof(jsmntok_t));
+  std::memset(tokenBuf, 0, lines * MAXTOKENS * sizeof(jsmntok_t));
   if (tokenBuf_ == nullptr) {
     throw runtime_error(string("new() of tokens failed"));
   }
-  for (int i = 0; i < lines; i++) {
+  for (size_t i = 0; i < lines; i++) {
     tokens[i] = (tokenBuf_ + i * MAXTOKENS);
   }
 #endif
@@ -387,6 +392,8 @@ void JSONPlugin::init() {
 
   initPM();
 
+  assert(context->getSizeOf(context->CreateJSMNStruct()) == sizeof(jsmntok_t));
+
   // Preparing structures and variables for codegen part
   Function *F = context->getGlobalFunction();
   IRBuilder<> *Builder = context->getBuilder();
@@ -405,73 +412,31 @@ void JSONPlugin::init() {
 
 ProteusValueMemory JSONPlugin::initCollectionUnnest(
     ProteusValue parentTokenId) {
-  Function *F = context->getGlobalFunction();
   IRBuilder<> *Builder = context->getBuilder();
-  LLVMContext &llvmContext = context->getLLVMContext();
-  vector<Value *> ArgsV;
-  Value *val_parentTokenId = parentTokenId.value;
-  AllocaInst *mem_parentTokenId = context->CreateEntryBlockAlloca(
-      F, "mem_parentTokenTmp", val_parentTokenId->getType());
-  Builder->CreateStore(val_parentTokenId, mem_parentTokenId);
 
-  Value *val_offset = context->getStructElem(mem_parentTokenId, 0);
-  Value *val_rowId = context->getStructElem(mem_parentTokenId, 1);
-  Value *val_parentTokenNo = context->getStructElem(mem_parentTokenId, 2);
+  Value *offset = Builder->CreateExtractValue(parentTokenId.value, 0);
+  Value *rowId = Builder->CreateExtractValue(parentTokenId.value, 1);
+  Value *parentTokenNo = Builder->CreateExtractValue(parentTokenId.value, 2);
 
 #ifdef DEBUGJSON
-//    {
-//    vector<Value*> ArgsV;
-//    Function* debugInt = context->getFunction("printi64");
-//
-//    ArgsV.push_back(val_parentTokenNo);
-//    Builder->CreateCall(debugInt, ArgsV);
-//    }
+  context->log(offset);
+  context->log(rowId);
+  context->log(parentTokenNo);
 #endif
 
-  AllocaInst *mem_currentTokenId = context->CreateEntryBlockAlloca(
-      F, string("currentTokenUnnested"), val_parentTokenId->getType());
   Value *val_1 = Builder->getInt64(1);
-  Value *val_currentTokenNo = Builder->CreateAdd(val_parentTokenNo, val_1);
+  Value *currentTokenNo = Builder->CreateAdd(parentTokenNo, val_1);
 
   /* Populating 'activeTuple'/oid struct */
-  vector<Value *> idxList = vector<Value *>();
-  idxList.push_back(context->createInt32(0));
-  idxList.push_back(context->createInt32(0));
-  // Shift in struct ptr
-  Value *structPtr = Builder->CreateGEP(mem_currentTokenId, idxList);
-  StoreInst *store_offset = Builder->CreateStore(val_offset, structPtr);
-
-  idxList.clear();
-  idxList.push_back(context->createInt32(0));
-  idxList.push_back(context->createInt32(1));
-  // Shift in struct ptr
-  structPtr = Builder->CreateGEP(mem_currentTokenId, idxList);
-  StoreInst *store_rowId = Builder->CreateStore(val_rowId, structPtr);
-
-  idxList.clear();
-  idxList.push_back(context->createInt32(0));
-  idxList.push_back(context->createInt32(2));
-  // Shift in struct ptr
-  structPtr = Builder->CreateGEP(mem_currentTokenId, idxList);
-  StoreInst *store_currentToken =
-      Builder->CreateStore(val_currentTokenNo, structPtr);
+  auto agg = context->constructStruct({offset, rowId, currentTokenNo});
 
 #ifdef DEBUGJSON
-  {
-    //    vector<Value*> ArgsV;
-    //    Function* debugInt = context->getFunction("printi64");
-    //
-    //    ArgsV.push_back(val_parentTokenNo);
-    //    Builder->CreateCall(debugInt, ArgsV);
-    //    ArgsV.clear();
-    //    ArgsV.push_back(val_currentTokenNo);
-    //    Builder->CreateCall(debugInt, ArgsV);
-  }
+  context->log(offset);
+  context->log(rowId);
+  context->log(currentTokenNo);
 #endif
-  ProteusValueMemory mem_valWrapper;
-  mem_valWrapper.mem = mem_currentTokenId;
-  mem_valWrapper.isNull = parentTokenId.isNull;
-  return mem_valWrapper;
+
+  return context->toMem(agg, parentTokenId.isNull, "currentTokenUnnested");
 }
 
 /**
@@ -481,7 +446,6 @@ ProteusValue JSONPlugin::collectionHasNext(
     ProteusValue parentTokenId, ProteusValueMemory mem_currentTokenId) {
   // Type *int64Type = Type::getInt64Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
-  Function *F = context->getGlobalFunction();
 
 #ifndef JSON_TIGHT
   Value *val_0 = Builder->getInt32(0);
@@ -491,13 +455,8 @@ ProteusValue JSONPlugin::collectionHasNext(
 #endif
 
   /* Parent Token */
-  vector<Value *> ArgsV;
   Value *val_parentTokenId = parentTokenId.value;
-  AllocaInst *mem_parentTokenId = context->CreateEntryBlockAlloca(
-      F, "mem_parentTokenTmp", val_parentTokenId->getType());
-  Builder->CreateStore(val_parentTokenId, mem_parentTokenId);
-  Value *val_rowId = context->getStructElem(mem_parentTokenId, 1);
-  Value *val_parentTokenNo = context->getStructElem(mem_parentTokenId, 2);
+  Value *val_rowId = Builder->CreateExtractValue(val_parentTokenId, 1);
 
   // tokens**
   Value *val_token2DArray = Builder->CreateLoad(mem_tokenArray);
@@ -506,11 +465,12 @@ ProteusValue JSONPlugin::collectionHasNext(
       Builder->CreateInBoundsGEP(val_token2DArray, val_rowId);
   // tokens*
   Value *mem_tokens = Builder->CreateLoad(mem_tokenArrayShift);
-  AllocaInst *mem_tokens_shifted = context->CreateEntryBlockAlloca(
-      F, string(var_tokenPtr), context->CreateJSMNStruct());
+  assert(context->getSizeOf(context->CreateJSMNStruct()) == sizeof(jsmntok_t));
+
+  Value *val_parentTokenNo = Builder->CreateExtractValue(val_parentTokenId, 2);
+
   Value *parentToken = context->getArrayElem(mem_tokens, val_parentTokenNo);
-  Builder->CreateStore(parentToken, mem_tokens_shifted);
-  Value *parent_token_end_rel = context->getStructElem(mem_tokens_shifted, 2);
+  Value *parent_token_end_rel = Builder->CreateExtractValue(parentToken, 2);
   //    Value* parent_token_end_rel64 =
   //                    Builder->CreateSExt(parent_token_end_rel,int64Type);
   //    Value* parent_token_end =
@@ -521,8 +481,7 @@ ProteusValue JSONPlugin::collectionHasNext(
   Value *val_currentTokenNo = context->getStructElem(mem_currentTokenId.mem, 2);
 
   Value *currentToken = context->getArrayElem(mem_tokens, val_currentTokenNo);
-  Builder->CreateStore(currentToken, mem_tokens_shifted);
-  Value *current_token_end_rel = context->getStructElem(mem_tokens_shifted, 2);
+  Value *current_token_end_rel = Builder->CreateExtractValue(currentToken, 2);
   //    Value* current_token_end_rel64 =
   //    Builder->CreateSExt(current_token_end_rel,
   //            int64Type);
@@ -864,9 +823,6 @@ void JSONPlugin::scanObjects(const ::Operator &producer, Function *debug) {
 
   Value *val_zero = context->createInt64(0);
   Value *val_one = context->createInt64(1);
-  // Container for the variable bindings
-  map<RecordAttribute, ProteusValueMemory> *variableBindings =
-      new map<RecordAttribute, ProteusValueMemory>();
 
   AllocaInst *mem_buf = NamedValuesJSON[var_buf];
   Value *val_buf = Builder->CreateLoad(mem_buf);
@@ -906,15 +862,9 @@ void JSONPlugin::scanObjects(const ::Operator &producer, Function *debug) {
   Builder->SetInsertPoint(jsonScanBody);
 #ifdef DEBUGJSON
   {
-    ArgsV.clear();
-    ArgsV.push_back(Builder->getInt64(4444));
-    Builder->CreateCall(debugInt64, ArgsV);
-    ArgsV.clear();
-    ArgsV.push_back(val_offset);
-    Builder->CreateCall(debugInt64, ArgsV);
-    ArgsV.clear();
-    ArgsV.push_back(val_fsize);
-    Builder->CreateCall(debugInt64, ArgsV);
+    context->log(Builder->getInt64(4444));
+    context->log(val_offset);
+    context->log(val_fsize);
   }
 #endif
   Value *val_shiftedBuf = Builder->CreateInBoundsGEP(val_buf, val_offset);
@@ -971,16 +921,9 @@ void JSONPlugin::scanObjects(const ::Operator &producer, Function *debug) {
     Builder->CreateCall(parseLineJSON, ArgsV);
   }
 #ifdef DEBUGJSON
-  {
-    ArgsV.clear();
-    ArgsV.push_back(Builder->getInt64(5555));
-    Builder->CreateCall(debugInt64, ArgsV);
-  }
+  context->log(Builder->getInt64(5555));
 #endif
   /* Triggering Parent */
-  RecordAttribute tupleIdentifier =
-      RecordAttribute(fname, activeLoop, this->getOIDType());
-  ProteusValueMemory mem_tokenWrapper;
 
   /* Struct forwarded: (offsetInFile, rowId, tokenNo)*/
   //    vector<Type*> tokenIdMembers;
@@ -991,47 +934,30 @@ void JSONPlugin::scanObjects(const ::Operator &producer, Function *debug) {
   //    StructType::get(context->getLLVMContext(),tokenIdMembers);
   StructType *tokenIdType = this->getOIDLLVMType();
 
+  // Store in struct ptr
+  Value *oid = llvm::UndefValue::get(tokenIdType);
+  oid = Builder->CreateInsertValue(oid, val_offset, 0);
+  oid = Builder->CreateInsertValue(oid, val_lineCnt, 1);
+  oid = Builder->CreateInsertValue(oid, val_zero, 2);
+
   AllocaInst *mem_tokenId =
-      context->CreateEntryBlockAlloca(F, "tokenId", tokenIdType);
+      context->CreateEntryBlockAlloca(F, "tokenId", oid->getType());
+  Builder->CreateStore(oid, mem_tokenId);
 
-  vector<Value *> idxList = vector<Value *>();
-  idxList.push_back(context->createInt32(0));
-  idxList.push_back(context->createInt32(0));
-  // Shift in struct ptr
-  Value *structPtr = Builder->CreateGEP(mem_tokenId, idxList);
-  Builder->CreateStore(val_offset, structPtr);
+  // Container for the variable bindings
+  ProteusValueMemory mem_tokenWrapper{mem_tokenId, context->createFalse()};
+  RecordAttribute tupleIdentifier{fname, activeLoop, this->getOIDType()};
 
-  idxList.clear();
-  idxList.push_back(context->createInt32(0));
-  idxList.push_back(context->createInt32(1));
-  structPtr = Builder->CreateGEP(mem_tokenId, idxList);
-  Builder->CreateStore(val_lineCnt, structPtr);
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
+  variableBindings[tupleIdentifier] = mem_tokenWrapper;
 
-  idxList.clear();
-  idxList.push_back(context->createInt32(0));
-  idxList.push_back(context->createInt32(2));
-  structPtr = Builder->CreateGEP(mem_tokenId, idxList);
-  Builder->CreateStore(val_zero, structPtr);
-
-  mem_tokenWrapper.mem = mem_tokenId;
-  mem_tokenWrapper.isNull = context->createFalse();
-  (*variableBindings)[tupleIdentifier] = mem_tokenWrapper;
 #ifdef DEBUGJSON
-  {
-    ArgsV.clear();
-    ArgsV.push_back(Builder->getInt64(6666));
-    Builder->CreateCall(debugInt64, ArgsV);
-  }
+  context->log(Builder->getInt64(6666));
 #endif
-  OperatorState *state = new OperatorState(producer, *variableBindings);
   ::Operator *const opParent = producer.getParent();
-  opParent->consume(context, *state);
+  opParent->consume(context, {producer, variableBindings});
 #ifdef DEBUGJSON
-  {
-    ArgsV.clear();
-    ArgsV.push_back(Builder->getInt64(7777));
-    Builder->CreateCall(debugInt64, ArgsV);
-  }
+  context->log(Builder->getInt64(7777));
 #endif
 
   /* Beginning of next JSON object */
@@ -1152,6 +1078,14 @@ void JSONPlugin::skipToEnd() {
   LOG(INFO) << "[Scan - JSON: ] End of skiptoEnd()";
 }
 
+llvm::Value *JSONPlugin::getStart(llvm::Value *jsmnToken) {
+  return context->getBuilder()->CreateExtractValue(jsmnToken, 1);
+}
+
+llvm::Value *JSONPlugin::getEnd(llvm::Value *jsmnToken) {
+  return context->getBuilder()->CreateExtractValue(jsmnToken, 2);
+}
+
 ProteusValueMemory JSONPlugin::readPath(string activeRelation,
                                         Bindings wrappedBindings,
                                         const char *path,
@@ -1204,13 +1138,11 @@ ProteusValueMemory JSONPlugin::readPath(string activeRelation,
 
   // XXX Careful - needs more testing
   ProteusValue tokenIdWrapper = wrappedBindings.record;
-  AllocaInst *mem_tokenID = context->CreateEntryBlockAlloca(
-      F, string("mem_pathToken"), tokenIdWrapper.value->getType());
-  Builder->CreateStore(tokenIdWrapper.value, mem_tokenID);
+
   // tokenIdWrapper.value->getType()->dump();
-  Value *val_offset = context->getStructElem(mem_tokenID, 0);
-  Value *val_rowId = context->getStructElem(mem_tokenID, 1);
-  Value *parentTokenNo = context->getStructElem(mem_tokenID, 2);
+  Value *val_offset = Builder->CreateExtractValue(tokenIdWrapper.value, 0);
+  Value *val_rowId = Builder->CreateExtractValue(tokenIdWrapper.value, 1);
+  Value *parentTokenNo = Builder->CreateExtractValue(tokenIdWrapper.value, 2);
 
   // Preparing default return value (i.e., path not found)
   AllocaInst *mem_return =
@@ -1226,13 +1158,8 @@ ProteusValueMemory JSONPlugin::readPath(string activeRelation,
   // tokens*
   Value *mem_tokens = Builder->CreateLoad(mem_tokenArrayShift);
 
-  AllocaInst *mem_tokens_parent_shifted = context->CreateEntryBlockAlloca(
-      F, string(var_tokenPtr), context->CreateJSMNStruct());
-
   Value *token_parent = context->getArrayElem(mem_tokens, parentTokenNo);
-  Builder->CreateStore(token_parent, mem_tokens_parent_shifted);
-  Value *token_parent_end_rel =
-      context->getStructElem(mem_tokens_parent_shifted, 2);
+  Value *token_parent_end_rel = getEnd(token_parent);
   //    Value* token_parent_end_rel64 =
   //                Builder->CreateSExt(token_parent_end_rel,int64Type);
   //    Value* token_parent_end =
@@ -1240,20 +1167,11 @@ ProteusValueMemory JSONPlugin::readPath(string activeRelation,
 
 #ifdef DEBUGJSON
   {
-    Function *debugInt = context->getFunction("printi64");
-    vector<Value *> ArgsV;
-    ArgsV.push_back(val_offset);
-    Builder->CreateCall(debugInt, ArgsV);
-
-    ArgsV.clear();
-    ArgsV.push_back(val_rowId);
-    Builder->CreateCall(debugInt, ArgsV);
-
-    ArgsV.clear();
-    Value *tmp = context->createInt64(10001);
-    ArgsV.push_back(tmp);
-    Builder->CreateCall(debugInt, ArgsV);
-    ArgsV.clear();
+    context->log(val_offset);
+    context->log(val_rowId);
+    context->log(parentTokenNo);
+    context->log(token_parent_end_rel);
+    context->log(context->createInt64(10001));
   }
 #endif
 
@@ -1289,6 +1207,12 @@ ProteusValueMemory JSONPlugin::readPath(string activeRelation,
 
   Value *token_i = context->getArrayElem(mem_tokens, val_i);
   Builder->CreateStore(token_i, mem_tokens_i_shifted);
+#ifdef DEBUGJSON
+  context->log(Builder->CreateExtractValue(token_i, 0));
+  context->log(Builder->CreateExtractValue(token_i, 1));
+  context->log(Builder->CreateExtractValue(token_i, 2));
+  context->log(val_i);
+#endif
 
   // 0: jsmntype_t type;
   // 1: int start;
@@ -1299,7 +1223,7 @@ ProteusValueMemory JSONPlugin::readPath(string activeRelation,
   Value *token_i_end = Builder->CreateAdd(token_i_end_rel64, val_offset);
   Value *endCond =
       Builder->CreateICmpSLE(token_i_end_rel, token_parent_end_rel);
-  BranchInst::Create(tokenSkipBody, tokenSkipEnd, endCond, tokenSkipCond);
+  Builder->CreateCondBr(endCond, tokenSkipBody, tokenSkipEnd);
 
   /**
    * BODY:
@@ -1307,12 +1231,7 @@ ProteusValueMemory JSONPlugin::readPath(string activeRelation,
   Builder->SetInsertPoint(tokenSkipBody);
 
 #ifdef DEBUGJSON
-  {
-    Function *debugInt = context->getFunction("printi64");
-    vector<Value *> ArgsV;
-    ArgsV.push_back(val_i);
-    Builder->CreateCall(debugInt, ArgsV);
-  }
+  context->log(val_i);
 #endif
   /**
    * IF-ELSE inside body:
@@ -1363,17 +1282,8 @@ ProteusValueMemory JSONPlugin::readPath(string activeRelation,
 
 #ifdef DEBUGJSON
   {
-    vector<Value *> argsV;
-    Function *debugInt64 = context->getFunction("printi64");
-    argsV.push_back(val_i_1);
-    Builder->CreateCall(debugInt64, argsV);
-    argsV.clear();
-
-    Function *debugShort = context->getFunction("printShort");
-
-    Value *token_i_1_start = context->getStructElem(mem_tokens_i_1_shifted, 1);
-    argsV.push_back(token_i_1_start);
-    Builder->CreateCall(debugShort, argsV);
+    context->log(val_i_1);
+    context->log(context->getStructElem(mem_tokens_i_1_shifted, 1));
   }
 #endif
 
@@ -1402,13 +1312,9 @@ ProteusValueMemory JSONPlugin::readPath(string activeRelation,
 
 #ifdef DEBUGJSON
   {
-    vector<Value *> ArgsV;
-    Function *debugInt = context->getFunction("printi64");
-    ArgsV.push_back(val_i_1);
-    Builder->CreateCall(debugInt, ArgsV);
-    ArgsV.clear();
-    ArgsV.push_back(token_i_1_size64);
-    Builder->CreateCall(debugInt, ArgsV);
+    context->log(val_i_1);
+    context->log(token_i_1_size);
+    context->log(token_i_1_size64);
   }
 #endif
   Value *val_i_inc = Builder->CreateAdd(val_i_2, token_i_1_size64);
@@ -1426,8 +1332,6 @@ ProteusValueMemory JSONPlugin::readPath(string activeRelation,
   Builder->SetInsertPoint(tokenSkipEnd);
   LOG(INFO) << "[Scan - JSON: ] End of readPath()";
 
-  ProteusValueMemory mem_valWrapper;
-
   /* Struct returned: (offsetInFile, rowId, tokenId)*/
   //    vector<Type*> tokenIdMembers;
   //    tokenIdMembers.push_back(int64Type);
@@ -1436,41 +1340,12 @@ ProteusValueMemory JSONPlugin::readPath(string activeRelation,
   //    StructType::get(context->getLLVMContext(),tokenIdMembers);
 
   StructType *tokenIdType = this->getOIDLLVMType();
-  AllocaInst *mem_tokenId =
-      context->CreateEntryBlockAlloca(F, "tokenId", tokenIdType);
-
-  vector<Value *> idxList = vector<Value *>();
-  idxList.push_back(context->createInt32(0));
-  idxList.push_back(context->createInt32(0));
-  // Shift in struct ptr
-  Value *structPtr = Builder->CreateGEP(mem_tokenId, idxList);
-  Builder->CreateStore(val_offset, structPtr);
-
-  idxList.clear();
-  idxList.push_back(context->createInt32(0));
-  idxList.push_back(context->createInt32(1));
-  structPtr = Builder->CreateGEP(mem_tokenId, idxList);
-  Builder->CreateStore(val_rowId, structPtr);
-
   Value *val_return = Builder->CreateLoad(mem_return);
-#ifdef DEBUGJSON
-  {
-    // tokenNo returned
-    vector<Value *> ArgsV;
-    Function *debugInt = context->getFunction("printi64");
-    ArgsV.push_back(val_return);
-    Builder->CreateCall(debugInt, ArgsV);
-  }
-#endif
-  idxList.clear();
-  idxList.push_back(context->createInt32(0));
-  idxList.push_back(context->createInt32(2));
-  structPtr = Builder->CreateGEP(mem_tokenId, idxList);
-  Builder->CreateStore(val_return, structPtr);
 
-  mem_valWrapper.mem = mem_tokenId;
-  mem_valWrapper.isNull = context->createFalse();
-  return mem_valWrapper;
+  auto agg = context->constructStruct({val_offset, val_rowId, val_return},
+                                      tokenIdType);
+
+  return context->toMem(agg, context->createFalse(), "tokenId");
 }
 
 ProteusValueMemory JSONPlugin::readPredefinedPath(string activeRelation,
@@ -1552,20 +1427,12 @@ ProteusValueMemory JSONPlugin::readPredefinedPath(string activeRelation,
 #ifdef DEBUGJSON
   {
     cout << attr.getAttrNo() << ". " << attr.getAttrName() << endl;
-    Function *debugInt = context->getFunction("printi64");
-    vector<Value *> ArgsV;
-    Value *tmp = context->createInt64(10006);
-    Value *tmp2 = context->createInt64(10007);
     if (attr.getAttrNo() == 1) {
-      ArgsV.push_back(tmp);
+      context->log(context->createInt64(10006));
     } else {
-      ArgsV.push_back(tmp2);
+      context->log(context->createInt64(10007));
     }
-    Builder->CreateCall(debugInt, ArgsV);
-
-    ArgsV.clear();
-    ArgsV.push_back(val_wantedAttrNo);
-    Builder->CreateCall(debugInt, ArgsV);
+    context->log(val_wantedAttrNo);
   }
 #endif
   Builder->CreateBr(tokenSkipCond);
