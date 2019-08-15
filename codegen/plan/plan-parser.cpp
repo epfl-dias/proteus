@@ -2988,17 +2988,12 @@ RecordAttribute *ExpressionParser::parseRecordAttr(
   assert(val[keyAttrName].IsString());
   string attrName = val[keyAttrName].GetString();
 
-  const RecordAttribute *attr = getAttribute(relName, attrName);
-
   int attrNo;
   if (val.HasMember(keyAttrNo)) {
     assert(val[keyAttrNo].IsInt());
     attrNo = val[keyAttrNo].GetInt();
   } else {
-    if (!attr)
-      attrNo = -1;
-    else
-      attrNo = attr->getAttrNo();
+    attrNo = -1;
   }
 
   const ExpressionType *recArgType;
@@ -3006,6 +3001,7 @@ RecordAttribute *ExpressionParser::parseRecordAttr(
     assert(val[keyRecAttrType].IsObject());
     recArgType = parseExpressionType(val[keyRecAttrType]);
   } else {
+    const RecordAttribute *attr = getAttribute(relName, attrName);
     if (attr) {
       recArgType = attr->getOriginalType();
     } else {
