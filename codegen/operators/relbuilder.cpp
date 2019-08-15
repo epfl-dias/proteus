@@ -138,7 +138,7 @@ RelBuilder RelBuilder::reduce(const vector<expression_t> &e,
 }
 
 RelBuilder RelBuilder::print(const vector<expression_t> &e) const {
-  auto op = new Flush(e, root, ctx, "test3");
+  auto op = new Flush(e, root, ctx);
   return apply(op);
 }
 
