@@ -314,17 +314,10 @@ ProteusValue ExpressionGeneratorVisitor::visit(
       //(e.g., the result of unnesting a list of primitives)
       // cout << "PROJ: " << activeRelation << endl;
       Plugin *pg = catalog.getPlugin(activeRelation);
-      RecordAttribute tupleIdentifier =
-          RecordAttribute(activeRelation, activeLoop, pg->getOIDType());
-      map<RecordAttribute, ProteusValueMemory>::const_iterator it =
-          currState.getBindings().find(tupleIdentifier);
-      if (it == currState.getBindings().end()) {
-        string error_msg =
-            "[Expression Generator: ] Current tuple binding not found";
-        LOG(ERROR) << error_msg;
-        throw runtime_error(error_msg);
-      }
-      mem_path = it->second;
+      RecordAttribute tupleIdentifier(activeRelation, activeLoop,
+                                      pg->getOIDType());
+
+      mem_path = currState[tupleIdentifier];
     }
     mem_val = plugin->readValue(mem_path, e->getExpressionType());
     Value *val = Builder->CreateLoad(mem_val.mem);
@@ -550,12 +543,9 @@ ProteusValue ExpressionGeneratorVisitor::visit(
     // XXX Does this code work if we are iterating over a json primitive array?
     // Example: ["alpha","beta","gamma"]
     case STRING: {
-      vector<Value *> ArgsV;
-      ArgsV.push_back(left.value);
-      ArgsV.push_back(right.value);
       Function *stringEquality = context->getFunction("equalStringObjs");
-      valWrapper.value =
-          TheBuilder->CreateCall(stringEquality, ArgsV, "equalStringObjsCall");
+      valWrapper.value = TheBuilder->CreateCall(
+          stringEquality, {left.value, right.value}, "equalStringObjsCall");
       return valWrapper;
     }
     case RECORD: {
