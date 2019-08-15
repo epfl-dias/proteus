@@ -61,6 +61,8 @@
 #include "operators/unionall.hpp"
 #include "operators/unnest.hpp"
 #include "rapidjson/error/en.h"
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/writer.h"
 
 std::string hyphenatedPluginToCamel(const char *name) {
   size_t len = strlen(name);
@@ -3422,4 +3424,12 @@ InputInfo *CatalogParser::getOrCreateInputInfo(string inputName) {
   }
 
   return ret;
+}
+
+std::ostream &operator<<(std::ostream &out, const rapidjson::Value &val) {
+  rapidjson::StringBuffer buffer;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+  val.Accept(writer);
+  out << buffer.GetString();
+  return out;
 }

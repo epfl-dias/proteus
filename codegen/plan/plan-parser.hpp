@@ -150,4 +150,6 @@ class PlanExecutor {
 
 int lookupInDictionary(std::string s, const rapidjson::Value &val);
 
+std::ostream &operator<<(std::ostream &out, const rapidjson::Value &val);
+
 #endif /* PLAN_PARSER_HPP_ */
