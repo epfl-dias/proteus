@@ -175,7 +175,7 @@ install:
  script:
  - cmake --build cmake-build-debug --target install
  - export CWD=$(pwd)
- - cd cmake-build-debug/opt/pelago && ./unit-tests-threads --gtest_output=xml:$CWD/report-threads.xml
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-threads --gtest_output="xml:$CWD/report-threads.xml"
  artifacts:
   reports:
    junit: report-threads.xml
@@ -197,7 +197,6 @@ install:
  - cmake --build cmake-build-debug --target install
  - export CWD=$(pwd)
  - cd cmake-build-debug/opt/pelago && ./unit-tests-json --gtest_output="xml:$CWD/report-json.xml"
- allow_failure: true
  artifacts:
   reports:
    junit: report-json.xml
