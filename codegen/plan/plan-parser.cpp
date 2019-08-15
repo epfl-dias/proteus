@@ -3199,9 +3199,10 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
   } else if (strcmp(pgType, "json") == 0) {
     assert(val.HasMember(keyLineHint));
     assert(val[keyLineHint].IsInt());
+    int linehint = val[keyLineHint].GetInt();
 
     newPg = new jsonPipelined::JSONPlugin(this->ctx, *pathDynamicCopy,
-                                          datasetInfo->exprType);
+                                          datasetInfo->exprType, linehint);
   } else if (strcmp(pgType, "binrow") == 0) {
     assert(val.HasMember(keyProjectionsBinRow));
     assert(val[keyProjectionsBinRow].IsArray());
