@@ -208,6 +208,21 @@ class Context {
    */
   llvm::Value *getArrayElemMem(llvm::Value *val_ptr, llvm::Value *offset);
 
+  inline ProteusValueMemory toMem(llvm::Value *val, llvm::Value *isNull,
+                                  const std::string &name) {
+    auto mem = CreateEntryBlockAlloca(name, val->getType());
+    getBuilder()->CreateStore(val, mem);
+    return {mem, isNull};
+  }
+
+  inline ProteusValueMemory toMem(
+      llvm::Value *val, llvm::Value *isNull,
+      /* The weird argument order is to avoid conflicts with the above def */
+      decltype(__builtin_LINE()) line = __builtin_LINE(),
+      decltype(__builtin_FILE()) file = __builtin_FILE()) {
+    return toMem(val, isNull, std::string{file} + std::to_string(line));
+  }
+
   // Not used atm
   void CodegenMemcpy(llvm::Value *dst, llvm::Value *src, int size);
   void CodegenMemcpy(llvm::Value *dst, llvm::Value *src, llvm::Value *size);
