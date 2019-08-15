@@ -36,7 +36,7 @@ void Unnest::generate(Context *const context,
   // Generate path. Value returned must be a collection
   ExpressionGeneratorVisitor pathExprGenerator =
       ExpressionGeneratorVisitor(context, childState);
-  const expressions::RecordProjection *pathProj = path.get();
+  auto pathProj = path.get();
   ProteusValue nestedValueAll = pathProj->accept(pathExprGenerator);
 
   /**
@@ -84,17 +84,15 @@ void Unnest::generate(Context *const context,
   ProteusValueMemory nestedValueItem = pg->collectionGetNext(mem_currentObjId);
   // #ifdef DEBUGUNNEST
   {
-    auto debugInt = context->getFunction("printi64");
-
     auto val_offset = context->getStructElem(nestedValueItem.mem, 0);
     auto val_rowId = context->getStructElem(nestedValueItem.mem, 1);
     auto val_currentTokenNo = context->getStructElem(nestedValueItem.mem, 2);
     // Printing the active token that will be forwarded
-    Builder->CreateCall(debugInt, {val_offset});
+    context->log(val_offset);
 
-    Builder->CreateCall(debugInt, {val_rowId});
+    context->log(val_rowId);
 
-    Builder->CreateCall(debugInt, {val_currentTokenNo});
+    context->log(val_currentTokenNo);
   }
   // #endif
 
@@ -108,8 +106,8 @@ void Unnest::generate(Context *const context,
   catalog.registerPlugin(path.toString(), pg);
 
   // attrNo does not make a difference
-  RecordAttribute unnestedAttr = RecordAttribute(2, path.toString(), activeLoop,
-                                                 pathProj->getExpressionType());
+  RecordAttribute unnestedAttr(2, path.toString(), activeLoop,
+                               pathProj->getExpressionType());
 
   unnestBindings[unnestedAttr] = nestedValueItem;
   OperatorState newState{*this, unnestBindings};
@@ -117,30 +115,11 @@ void Unnest::generate(Context *const context,
   /**
    * Predicate Evaluation:
    */
-  llvm::BasicBlock *ifBlock, *elseBlock;
-  context->CreateIfElseBlocks(context->getGlobalFunction(), "ifUnnestCond",
-                              "elseUnnestCond", &ifBlock, &elseBlock, loopInc);
+  context->gen_if(pred, newState)([&]() {
+    // Triggering parent
+    getParent()->consume(context, newState);
+  });
 
-  // Generate condition
-  ExpressionGeneratorVisitor predExprGenerator =
-      ExpressionGeneratorVisitor(context, newState);
-  ProteusValue condition = pred.accept(predExprGenerator);
-  Builder->CreateCondBr(condition.value, ifBlock, elseBlock);
-
-  /*
-   * IF BLOCK
-   * CALL NEXT OPERATOR, ADDING nestedValueItem binding
-   */
-  Builder->SetInsertPoint(ifBlock);
-  // Triggering parent
-  getParent()->consume(context, newState);
-  Builder->CreateBr(loopInc);
-
-  /**
-   * ELSE BLOCK
-   * Just branch to the INC part of unnest loop
-   */
-  Builder->SetInsertPoint(elseBlock);
   Builder->CreateBr(loopInc);
 
   Builder->SetInsertPoint(loopInc);
@@ -154,4 +133,13 @@ void Unnest::generate(Context *const context,
     Builder->CreateCall(debugInt, {context->createInt64(222)});
   }
 #endif
+}
+
+RecordType Unnest::getRowType() const {
+  RecordType rec{getChild()->getRowType()};
+  auto *unnestedAttr =
+      new RecordAttribute(rec.getArgs().size(), path.toString(), activeLoop,
+                          path.get()->getExpressionType());
+  rec.appendAttribute(unnestedAttr);
+  return rec;
 }

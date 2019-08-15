@@ -34,6 +34,7 @@ class Path {
       : desugarizedPath(desugarizedPath),
         nestedName(nestedName),
         val_parentColl(nullptr) {
+    assert(desugarizedPath && "Projection should be non-null");
     Catalog &catalog = Catalog::getInstance();
     string originalRelation = desugarizedPath->getOriginalRelationName();
     pg = catalog.getPlugin(originalRelation);

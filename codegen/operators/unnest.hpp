@@ -41,15 +41,23 @@ class Unnest : public UnaryOperator {
     Catalog &catalog = Catalog::getInstance();
     catalog.registerPlugin(path.toString(), path.getRelevantPlugin());
   }
+  Unnest(expression_t pred, expression_t path, Operator *const child)
+      : Unnest(pred,
+               Path(path.getRegisteredRelName(),
+                    dynamic_cast<const expressions::RecordProjection *>(
+                        path.getUnderlyingExpression())),
+               child) {}
   virtual ~Unnest() { LOG(INFO) << "Collapsing Unnest operator"; }
   virtual void produce();
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return true; }
 
+  virtual RecordType getRowType() const;
+
  private:
   void generate(Context *const context, const OperatorState &childState) const;
-  expression_t pred;
   Path path;
+  expression_t pred;
 };
 
 #endif /* UNNEST_HPP_ */
