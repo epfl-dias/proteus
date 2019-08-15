@@ -40,10 +40,22 @@ llvm::Value *RecordType::projectArg(llvm::Value *record, RecordAttribute *attr,
 }
 
 int RecordType::getIndex(RecordAttribute *x) const {
+#ifndef NDEBUG
+  size_t cnt = 0;
+#endif
+  int maybe_index = -1;
   int index = 0;
   for (const auto &attr : args) {
-    if (x->getAttrName() == attr->getAttrName()) return index;
+    if (x->getAttrName() == attr->getAttrName()) {
+      if (x->getRelationName() == attr->getRelationName()) return index;
+      maybe_index = index;
+#ifndef NDEBUG
+      ++cnt;
+#endif
+    }
     ++index;
   }
-  return -1;
+  std::cout << this->getType() << std::endl;
+  assert(cnt <= 1 && "Multiple matches for attribute name, but none with rel");
+  return maybe_index;
 }
