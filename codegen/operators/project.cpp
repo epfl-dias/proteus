@@ -57,7 +57,6 @@ void Project::consume(Context *const context, const OperatorState &childState) {
 void Project::generate(Context *const context,
                        const OperatorState &childState) const {
   auto Builder = context->getBuilder();
-  auto &llvmContext = context->getLLVMContext();
   auto TheFunction = Builder->GetInsertBlock()->getParent();
 
   auto cBB = Builder->GetInsertBlock();
