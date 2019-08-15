@@ -108,6 +108,11 @@ class RelBuilder {
     return print(expr(getOutputArg()));
   }
 
+  template <typename T>
+  RelBuilder unnest(T expr) const {
+    return unnest(expr(getOutputArg()));
+  }
+
   Operator* operator->() { return root; }
 
   PreparedStatement prepare();
@@ -136,6 +141,8 @@ class RelBuilder {
                     const vector<Monoid>& accs) const;
 
   RelBuilder print(const vector<expression_t>& e) const;
+
+  RelBuilder unnest(expression_t e) const;
 };
 
 #endif /* RELBUILDER_HPP_ */

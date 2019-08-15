@@ -36,6 +36,7 @@
 #include "operators/reduce-opt.hpp"
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
+#include "operators/unnest.hpp"
 
 RelBuilder RelBuilder::apply(Operator *op) const { return {*this, op}; }
 
@@ -139,6 +140,11 @@ RelBuilder RelBuilder::reduce(const vector<expression_t> &e,
 
 RelBuilder RelBuilder::print(const vector<expression_t> &e) const {
   auto op = new Flush(e, root, ctx);
+  return apply(op);
+}
+
+RelBuilder RelBuilder::unnest(expression_t e) const {
+  auto op = new Unnest(true, e, root);
   return apply(op);
 }
 
