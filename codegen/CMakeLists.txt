@@ -68,6 +68,7 @@ set(codegen_cxx
     util/context.cpp
     util/functions.cpp
     util/gpu/gpu-intrinsics.cpp
+    util/jit/control-flow/if-statement.cpp
     util/jit/cpu-module.cpp
     util/jit/cpu-pipeline.cpp
     util/jit/gpu-module.cpp

@@ -42,6 +42,7 @@
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Vectorize.h"
 #include "memory/memory-allocator.hpp"
+#include "util/jit/control-flow/if-statement.hpp"
 #include "values/expressionTypes.hpp"
 
 #define MODULEPASS 0
@@ -65,43 +66,10 @@ addOptimizerPipelineVectorization(llvm::legacy::FunctionPassManager *TheFPM);
 
 extern bool print_generated_code;
 
-class Context;
-
-class if_then;
-
-namespace expressions {
-class Expression;
-}
-class expression_t;
-class ExpressionGeneratorVisitor;
-class OperatorState;
-
-class if_branch {
- private:
-  ProteusValue condition;
-  Context *const context;
-
- private:
-  inline constexpr if_branch(ProteusValue condition, Context *context)
-      : condition(condition), context(context) {}
-
-  // inline constexpr if_branch(    expressions::Expression *expr    ,
-  //                             const OperatorState     &state    ,
-  //                             Context                 *context);
-
-  if_branch(const expression_t &expr, const OperatorState &state,
-            Context *context);
-
- public:
-  template <typename Fthen>
-  void operator()(Fthen then) {
-    if_then{condition, then, context};
-  }
-
-  friend class Context;
-};
-
 class Context {
+ private:
+  const std::string moduleName;
+
  public:
   typedef llvm::Value *(init_func_t)(llvm::Value *);
   typedef void(deinit_func_t)(llvm::Value *, llvm::Value *);
@@ -118,13 +86,13 @@ class Context {
     //            delete TheFunction;
   }
 
+  std::string getModuleName() const { return moduleName; }
+
   llvm::LLVMContext &getLLVMContext() { return TheContext; }
 
   virtual void prepareFunction(llvm::Function *F);
 
-  llvm::ExecutionEngine const *const getExecEngine() {
-    return TheExecutionEngine;
-  }
+  llvm::ExecutionEngine const *getExecEngine() { return TheExecutionEngine; }
 
   virtual void setGlobalFunction(bool leaf);
   virtual void setGlobalFunction(llvm::Function *F = nullptr,
@@ -132,7 +100,7 @@ class Context {
   llvm::Function *getGlobalFunction() const { return TheFunction; }
   virtual llvm::Module *getModule() const { return TheModule; }
   virtual llvm::IRBuilder<> *getBuilder() const { return TheBuilder; }
-  virtual llvm::Function *const getFunction(string funcName) const;
+  virtual llvm::Function *getFunction(string funcName) const;
 
   llvm::ConstantInt *createInt8(char val);
   llvm::ConstantInt *createInt32(int val);
@@ -253,7 +221,7 @@ class Context {
     return llvm::StructType::get(getLLVMContext(), types_htMetadata);
   }
 
-  llvm::Value *const getMemResultCtr() { return mem_resultCtr; }
+  llvm::Value *getMemResultCtr() { return mem_resultCtr; }
 
   const char *getName();
 
@@ -290,9 +258,11 @@ class Context {
   llvm::Function *TheFunction;
   map<string, llvm::Function *> availableFunctions;
 
-  // Last (current) basic block. This changes every time a new scan is triggered
+  // Last (current) basic block. This changes every time a new scan is
+  // triggered
   llvm::BasicBlock *codeEnd;
-  // Current entry basic block. This changes every time a new scan is triggered
+  // Current entry basic block. This changes every time a new scan is
+  // triggered
   llvm::BasicBlock *currentCodeEntry;
 
   /**
@@ -341,81 +311,6 @@ class save_current_blocks_and_restore_at_exit_scope {
     context->setCurrentEntryBlock(entry);
     context->setEndingBlock(ending);
     context->getBuilder()->SetInsertPoint(current);
-  }
-};
-
-class if_then {
- public:
-  // template<typename Fcond, typename Fthen>
-  // if_then_else(Fcond cond, Fthen then, const Context *context){
-
-  // }
-
-  // template<typename Fthen>
-  // if_then_else(llvm::Value * cond, Fthen then, const Context *context){
-  //     llvm::BasicBlock *ThenBB  = llvm::BasicBlock::Create(llvmContext,
-  //     "IfThen" ); llvm::BasicBlock *AfterBB =
-  //     llvm::BasicBlock::Create(llvmContext, "IfAfter");
-  // }
-
-  template <typename Fthen>
-  if_then(ProteusValue cond, Fthen then, Context *context) {
-    llvm::IRBuilder<> *Builder = context->getBuilder();
-    llvm::LLVMContext &llvmContext = context->getLLVMContext();
-    llvm::Function *F = Builder->GetInsertBlock()->getParent();
-
-    auto ThenBB = llvm::BasicBlock::Create(llvmContext, "IfThen", F);
-    auto AfterBB = llvm::BasicBlock::Create(llvmContext, "IfAfter", F);
-
-    // if (cond.value) {
-    Builder->CreateCondBr(cond.value, ThenBB, AfterBB);
-
-    Builder->SetInsertPoint(ThenBB);
-    then();
-    Builder->CreateBr(AfterBB);
-
-    // }
-    Builder->SetInsertPoint(AfterBB);
-  }
-};
-
-class if_then_else {
- public:
-  // template<typename Fcond, typename Fthen>
-  // if_then_else(Fcond cond, Fthen then, const Context *context){
-
-  // }
-
-  // template<typename Fthen>
-  // if_then_else(llvm::Value * cond, Fthen then, const Context *context){
-  //     BasicBlock *ThenBB  = BasicBlock::Create(llvmContext, "IfThen" );
-  //     BasicBlock *AfterBB = BasicBlock::Create(llvmContext, "IfAfter");
-  // }
-
-  template <typename Fthen, typename Felse>
-  if_then_else(ProteusValue cond, Fthen then, Felse el, Context *context) {
-    llvm::IRBuilder<> *Builder = context->getBuilder();
-    llvm::LLVMContext &llvmContext = context->getLLVMContext();
-    llvm::Function *F = Builder->GetInsertBlock()->getParent();
-
-    auto ThenBB = llvm::BasicBlock::Create(llvmContext, "IfThen", F);
-    auto ElseBB = llvm::BasicBlock::Create(llvmContext, "IfElse", F);
-    auto AfterBB = llvm::BasicBlock::Create(llvmContext, "IfAfter", F);
-
-    // if (cond.value) {
-    Builder->CreateCondBr(cond.value, ThenBB, ElseBB);
-
-    Builder->SetInsertPoint(ThenBB);
-    then();
-    Builder->CreateBr(AfterBB);
-
-    // } else {
-
-    Builder->SetInsertPoint(ElseBB);
-    el();
-    Builder->CreateBr(AfterBB);
-    // }
-    Builder->SetInsertPoint(AfterBB);
   }
 };
 

@@ -32,13 +32,6 @@ bool print_generated_code = true;
 
 using namespace llvm;
 
-if_branch::if_branch(const expression_t &expr, const OperatorState &state,
-                     Context *context)
-    : context(context) {
-  ExpressionGeneratorVisitor egv{context, state};
-  condition = expr.accept(egv);
-}
-
 void Context::createJITEngine() {
   LLVMLinkInMCJIT();
   LLVMInitializeNativeTarget();
@@ -93,7 +86,8 @@ addOptimizerPipelineVectorization(legacy::FunctionPassManager *TheFPM) {
 
 const char *Context::getName() { return TheModule->getName().str().c_str(); }
 
-Context::Context(const string &moduleName, bool setGlobFunction) {
+Context::Context(const string &moduleName, bool setGlobFunction)
+    : moduleName(moduleName) {
   TheModule = new Module(moduleName, getLLVMContext());
   TheBuilder = new IRBuilder<>(getLLVMContext());
 
@@ -168,7 +162,7 @@ void Context::prepareFunction(Function *F) {
 
   LOG(INFO) << "[Prepare Function: ] Exit";  // and dump code so far";
 #ifdef DEBUGCTX
-//    getModule()->dump();
+  //    getModule()->dump();
 #endif
   // Validate the generated code, checking for consistency.
   verifyFunction(*F);
@@ -199,11 +193,11 @@ void Context::prepareFunction(Function *F) {
   TheFPM = nullptr;
   // Dump to see final (optimized) form
 #ifdef DEBUGCTX
-//    F->dump();
+  //    F->dump();
 #endif
 }
 
-Function *const Context::getFunction(string funcName) const {
+Function *Context::getFunction(string funcName) const {
   map<string, Function *>::const_iterator it;
   it = availableFunctions.find(funcName);
   if (it == availableFunctions.end()) {
@@ -229,7 +223,8 @@ void Context::CodegenMemcpy(Value *dst, Value *src, int size) {
 
 void Context::CodegenMemcpy(Value *dst, Value *src, Value *size) {
   LLVMContext &ctx = getLLVMContext();
-  // Cast src/dst to int8_t*.  If they already are, this will get optimized away
+  // Cast src/dst to int8_t*.  If they already are, this will get optimized
+  // away
   //  DCHECK(PointerType::classof(dst->getType()));
   //  DCHECK(PointerType::classof(src->getType()));
   Value *false_value_ = ConstantInt::get(ctx, APInt(1, false, true));
@@ -264,7 +259,8 @@ void Context::CodegenMemset(Value *dst, Value *byte, int size) {
 
 void Context::CodegenMemset(Value *dst, Value *bytes, Value *size) {
   LLVMContext &ctx = getLLVMContext();
-  // Cast src/dst to int8_t*.  If they already are, this will get optimized away
+  // Cast src/dst to int8_t*.  If they already are, this will get optimized
+  // away
   //  DCHECK(PointerType::classof(dst->getType()));
   //  DCHECK(PointerType::classof(src->getType()));
   Value *false_value_ = ConstantInt::get(ctx, APInt(1, false, true));
@@ -291,8 +287,8 @@ void Context::CodegenMemset(Value *dst, Value *bytes, Value *size) {
   // aligned.
   std::vector<Value *> args = {dst, byte, size};
   if (memset_fn->getFunctionType()->getNumParams() == 4) {
-    // FIXME: for now assume CPU side if 4 attributes, in which case the fourth
-    // argume is `isvolatiles`
+    // FIXME: for now assume CPU side if 4 attributes, in which case the
+    // fourth argume is `isvolatiles`
     args.push_back(createFalse());
   }
   for (const auto &t : args) t->getType()->dump();

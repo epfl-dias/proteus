@@ -83,7 +83,7 @@ class ParallelContext : public Context {
     return generators.back()->getBuilder();
   }
 
-  llvm::Function *const getFunction(string funcName) const {
+  llvm::Function *getFunction(string funcName) const {
     return generators.back()->getFunction(funcName);
   }
 
