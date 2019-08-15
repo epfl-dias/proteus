@@ -58,8 +58,20 @@ object PlanToJSON {
     sw.toString
   }
 
-  def getFields(t: RelDataType) : List[RelDataTypeField] = t match {
-    case recType : RelRecordType => recType.getFieldList.asScala.toList
+  case class ProjectedRelDataTypeField(actual: RelDataTypeField, orig: String) extends RelDataTypeField {
+    override def getType = actual.getType
+    override def getIndex = actual.getIndex
+    override def getName = actual.getName
+    override def isDynamicStar = actual.isDynamicStar
+    override def getKey = actual.getKey
+    override def getValue = actual.getValue
+    override def setValue(v: RelDataType) = actual.setValue(v)
+
+    def getOrigin = orig
+  }
+
+  def getFields(t: RelDataType, origin: String = null) : List[ProjectedRelDataTypeField] = t match {
+    case recType : RelRecordType => recType.getFieldList.asScala.map(f => ProjectedRelDataTypeField(f, origin)).toList
     case _ => {
       val msg : String = "getFields() assumes RecordType as default input"
       throw new PlanConversionException(msg)
@@ -400,30 +412,53 @@ object PlanToJSON {
     emitArg(arg, f, true) // FIXME: this is confusing, the default case changes based on the overload!
   }
 
-  def findAttrInfo(arg: RexInputRef, f: List[Binding]) = {
-    var rel : PelagoTable = null
-    var attr : String = ""
-    var fieldCount = 0
-    var fieldCountCurr = 0
-    breakable { for(b <- f) {
-      fieldCount += b.fields.size
-      if(arg.getIndex < fieldCount)  {
-      rel = b.rel
-      attr = b.fields(arg.getIndex - fieldCountCurr).getName
-      break
+  def flatten(f: RelDataTypeField): List[RelDataTypeField] = {
+    if (f.getType.isStruct) {
+      flatten(f.getType.getFieldList.asScala.toList)
+    } else {
+      List(f)
     }
-      fieldCountCurr += b.fields.size
-    } }
-    (attr, rel)
+  }
+
+  def flatten(fields: List[RelDataTypeField]): List[RelDataTypeField] = {
+    fields.flatMap(f => flatten(f));
+  }
+
+  def findAttrInfo(arg: RexInputRef, f: List[Binding]): (RelDataTypeField, PelagoTable) = {
+    var fieldCount = 0
+    for (b <- f) {
+      val fields = b.fields //flatten(b.fields)
+      fieldCount += fields.size
+      if(arg.getIndex < fieldCount)  {
+        return (fields(arg.getIndex - (fieldCount - fields.size)), b.rel)
+      }
+    }
+    assert(false)
+    (null, null)
   }
 
   def emitArg(arg: RexInputRef, f: List[Binding], with_type: Boolean) : JValue = {
     val info = findAttrInfo(arg, f)
-    val attr = info._1
+    val orig = if (info._1.isInstanceOf[ProjectedRelDataTypeField]){
+      val conv = info._1.asInstanceOf[ProjectedRelDataTypeField]
+      if (conv == null) null
+      else conv.orig
+    } else {
+      null
+    }
+    val attr = info._1.getName
     val rel  = info._2
 
+    val finalRel: String = {
+      if (orig == null) {
+        rel.getPelagoRelName
+      } else {
+        orig
+      }
+    }
+
     val jsonAttr: JObject = {
-      val json = ("attrName", attr) ~ ("relName", rel.getPelagoRelName)
+      val json = ("attrName", attr) ~ ("relName", finalRel)
 
       if (with_type){
         json ~ ("type", emitType(arg.getType, f))
@@ -435,7 +470,7 @@ object PlanToJSON {
     val jsonArg: JObject =
       ("expression" , "argument"                            ) ~
       ("attributes" , List(jsonAttr)                        ) ~
-      ("type"       , ("relName", rel.getPelagoRelName) ~ ("type", "record") ) ~
+      ("type"       , ("relName", finalRel) ~ ("type", "record") ) ~
       ("argNo"      , -1                                    )
 
 
@@ -465,9 +500,10 @@ object PlanToJSON {
       ("type", "list") ~ ("inner", emitType(arg.getComponentType, binding))
     }
     case SqlTypeName.ROW     => {
+      val rel = binding.head.rel
+      val b = List(Binding(rel, arg.asInstanceOf[RelRecordType].getFieldList.asScala.toList))
       ("type", "record") ~ ("attributes",
-        arg.getFieldList.asScala.map{ f =>
-          emitArg(f.getIndex, binding, true)
+        arg.getFieldList.asScala.map{ f => emitArg(f.getIndex, b, true)
         }
       )
     }
