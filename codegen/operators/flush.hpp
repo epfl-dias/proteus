@@ -33,7 +33,10 @@
 class Flush : public UnaryOperator {
  public:
   Flush(vector<expression_t> outputExprs, Operator *const child,
-        Context *context, const char *outPath = "out.json");
+        Context *context, std::string outPath);
+  Flush(vector<expression_t> outputExprs, Operator *const child,
+        Context *context)
+      : Flush(outputExprs, child, context, context->getModuleName()) {}
   virtual ~Flush() { LOG(INFO) << "Collapsing Flush operator"; }
   virtual void produce();
   virtual void consume(Context *const context, const OperatorState &childState);
@@ -46,7 +49,7 @@ class Flush : public UnaryOperator {
   expression_t outputExpr;
   vector<expression_t> outputExprs_v;
 
-  const char *outPath;
+  std::string outPath;
   std::string relName;
 
  private:

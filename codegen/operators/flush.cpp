@@ -44,7 +44,7 @@ expression_t buildOutputExpression(const vector<expression_t> &outputExprs) {
 }
 
 Flush::Flush(vector<expression_t> outputExprs_v, Operator *const child,
-             Context *context, const char *outPath)
+             Context *context, std::string outPath)
     : UnaryOperator(child),
       context(context),
       outPath(outPath),
@@ -65,7 +65,8 @@ void Flush::produce() {
 
         OperatorState childState{*this,
                                  map<RecordAttribute, ProteusValueMemory>{}};
-        ExpressionFlusherVisitor flusher{context, childState, outPath, relName};
+        ExpressionFlusherVisitor flusher{context, childState, outPath.c_str(),
+                                         relName};
         flusher.beginList();
 
         return mem_acc;
@@ -74,7 +75,8 @@ void Flush::produce() {
       [=](llvm::Value *, llvm::Value *s) {
         OperatorState childState{*this,
                                  map<RecordAttribute, ProteusValueMemory>{}};
-        ExpressionFlusherVisitor flusher{context, childState, outPath, relName};
+        ExpressionFlusherVisitor flusher{context, childState, outPath.c_str(),
+                                         relName};
         flusher.endList();
         flusher.flushOutput();
         context->deallocateStateVar(s);
@@ -90,10 +92,9 @@ void Flush::consume(Context *const context, const OperatorState &childState) {
 void Flush::generate(Context *const context,
                      const OperatorState &childState) const {
   IRBuilder<> *Builder = context->getBuilder();
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-  ExpressionFlusherVisitor flusher{context, childState, outPath, relName};
+  ExpressionFlusherVisitor flusher{context, childState, outPath.c_str(),
+                                   relName};
 
   // results so far
   Value *mem_resultCtr = context->getStateVar(result_cnt_id);
