@@ -281,17 +281,9 @@ ProteusValue ExpressionFlusherVisitor::visit(
       // Path involves a primitive datatype
       //(e.g., the result of unnesting a list of primitives)
       Plugin *pg = catalog.getPlugin(activeRelation);
-      RecordAttribute tupleIdentifier =
-          RecordAttribute(activeRelation, activeLoop, pg->getOIDType());
-      map<RecordAttribute, ProteusValueMemory>::const_iterator it =
-          currState.getBindings().find(tupleIdentifier);
-      if (it == currState.getBindings().end()) {
-        string error_msg =
-            "[Expression Generator: ] Current tuple binding not found";
-        LOG(ERROR) << error_msg;
-        throw runtime_error(error_msg);
-      }
-      mem_path = it->second;
+      RecordAttribute tupleIdentifier(activeRelation, activeLoop,
+                                      pg->getOIDType());
+      mem_path = currState[tupleIdentifier];
     }
     std::cout << e->getExpressionType()->getType() << std::endl;
     plugin->flushValue(mem_path, e->getExpressionType(), outputFileLLVM);
