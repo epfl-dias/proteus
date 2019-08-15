@@ -1192,6 +1192,20 @@ void PipelineGen::registerFunctions() {
   else
     assert(false);
 
+  for (auto t :
+       std::vector<llvm::Type *>{int1_bool_type, int8_type, int16_type,
+                                 int32_type, int64_type, char_ptr_type}) {
+    auto fName = "log" + convertTypeToFuncSuffix(t);
+
+    auto fType =
+        FunctionType::get(void_type, {t, char_ptr_type, int32_type}, false);
+
+    auto f =
+        Function::Create(fType, Function::ExternalLinkage, fName, TheModule);
+
+    registerFunction(fName, f);
+  }
+
   FunctionType *intrcallPipRegistered = FunctionType::get(
       void_type, std::vector<Type *>{char_ptr_type, size_type, char_ptr_type},
       false);

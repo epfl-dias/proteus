@@ -822,3 +822,51 @@ __host__ __device__ bool equalStringObjs(StringObject o1, StringObject o2) {
 }
 #endif
 }
+
+
+
+template <typename T>
+__host__ __device__ void log_impl(const T &x, decltype(__builtin_FILE()) file = __builtin_FILE(),
+              decltype(__builtin_LINE()) line = __builtin_LINE()) {
+#if defined(__CUDA_ARCH__) || (defined(__clang__) && defined(__CUDA__))
+  static_assert(sizeof(T) <= sizeof(int64_t));
+  printf("I %s:%u] %" PRId64 "\n", file, line, static_cast<int64_t>(x));
+#else
+  google::LogMessage(file, line, google::GLOG_INFO).stream() << x;
+#endif
+}
+
+template <>
+__host__ __device__ void log_impl<const char *>(const char * const &x, decltype(__builtin_FILE()) file,
+              decltype(__builtin_LINE()) line) {
+#if defined(__CUDA_ARCH__) || (defined(__clang__) && defined(__CUDA__))
+  printf("I %s:%u] %s\n", file, line, x);
+#else
+  google::LogMessage(file, line, google::GLOG_INFO).stream() << x;
+#endif
+}
+
+extern "C" __host__ __device__ void logi1(bool x, decltype(__builtin_FILE()) file,
+                      decltype(__builtin_LINE()) line) {
+  log_impl(x, file, line);
+}
+extern "C" __host__ __device__ void logi8(int8_t x, decltype(__builtin_FILE()) file,
+                      decltype(__builtin_LINE()) line) {
+  log_impl(x, file, line);
+}
+extern "C" __host__ __device__ void logi16(int16_t x, decltype(__builtin_FILE()) file,
+                       decltype(__builtin_LINE()) line) {
+  log_impl(x, file, line);
+}
+extern "C" __host__ __device__ void logi32(int32_t x, decltype(__builtin_FILE()) file,
+                       decltype(__builtin_LINE()) line) {
+  log_impl(x, file, line);
+}
+extern "C" __host__ __device__ void logi64(int64_t x, decltype(__builtin_FILE()) file,
+                       decltype(__builtin_LINE()) line) {
+  log_impl(x, file, line);
+}
+extern "C" __host__ __device__ void logi8ptr(const char *x, decltype(__builtin_FILE()) file,
+                         decltype(__builtin_LINE()) line) {
+  log_impl(x, file, line);
+}

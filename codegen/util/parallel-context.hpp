@@ -102,6 +102,10 @@ class ParallelContext : public Context {
   virtual void createMembar_gl();
   virtual void workerScopedMembar();
 
+  virtual void log(llvm::Value *out,
+                   decltype(__builtin_FILE()) file = __builtin_FILE(),
+                   decltype(__builtin_LINE()) line = __builtin_LINE());
+
   virtual llvm::BasicBlock *getEndingBlock() {
     return generators.back()->getEndingBlock();
   }

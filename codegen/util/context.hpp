@@ -208,6 +208,13 @@ class Context {
    */
   llvm::Value *getArrayElemMem(llvm::Value *val_ptr, llvm::Value *offset);
 
+  virtual void log(llvm::Value *out,
+                   decltype(__builtin_FILE()) file = __builtin_FILE(),
+                   decltype(__builtin_LINE()) line = __builtin_LINE()) {
+    google::LogMessage(file, line, google::GLOG_INFO).stream()
+        << "Unimplemented";
+  }
+
   inline ProteusValueMemory toMem(llvm::Value *val, llvm::Value *isNull,
                                   const std::string &name) {
     auto mem = CreateEntryBlockAlloca(name, val->getType());

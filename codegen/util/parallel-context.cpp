@@ -500,3 +500,10 @@ llvm::Value *ParallelContext::workerScopedAtomicXchg(llvm::Value *ptr,
                                                      llvm::Value *val) {
   return generators.back()->workerScopedAtomicXchg(ptr, val);
 }
+
+void ParallelContext::log(llvm::Value *out, decltype(__builtin_FILE()) file,
+                          decltype(__builtin_LINE()) line) {
+  auto f = (*this)->getFunctionOverload("log", out->getType());
+  getBuilder()->CreateCall(f,
+                           {out, CreateGlobalString(file), createInt32(line)});
+}

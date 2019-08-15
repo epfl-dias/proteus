@@ -137,6 +137,7 @@ class PipelineGen {
   virtual std::string convertTypeToFuncSuffix(llvm::Type *type);
   virtual llvm::Function *getFunctionOverload(std::string name,
                                               llvm::Type *type);
+
   virtual void setChainedPipeline(PipelineGen *next) {
     assert(
         !execute_after_close &&
