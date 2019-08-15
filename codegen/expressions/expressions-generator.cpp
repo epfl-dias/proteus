@@ -338,21 +338,18 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::RecordConstruction *e) {
   IRBuilder<> *const Builder = context->getBuilder();
-  Function *F = Builder->GetInsertBlock()->getParent();
-  LLVMContext &llvmContext = context->getLLVMContext();
 
-  Type *recType = e->getExpressionType()->getLLVMType(llvmContext);
-  auto mem_struct = context->CreateEntryBlockAlloca(F, "recConstr", recType);
-
-  recType->dump();
-  int i = 0;
+  std::vector<llvm::Value *> vals;
+  llvm::Value *isNull = context->createFalse();
   for (const auto &attr : e->getAtts()) {
-    ProteusValue val = attr.getExpression().accept(*this);
-    val.value->dump();
-    context->updateStructElem(val.value, mem_struct, i++);
+    auto v = attr.getExpression().accept(*this);
+    vals.emplace_back(v.value);
+    isNull = Builder->CreateOr(isNull, v.isNull);
   }
 
-  return ProteusValue{Builder->CreateLoad(mem_struct), context->createFalse()};
+  llvm::Value *v = context->constructStruct(vals.begin(), vals.end());
+
+  return {v, isNull};
 }
 
 // ProteusValue ExpressionGeneratorVisitor::visit(const
