@@ -65,7 +65,7 @@ class GpuPipelineGen : public PipelineGen {
   virtual void *getConsume() const;
   virtual llvm::Function *getLLVMConsume() const { return Fconsume; }
 
-  virtual void registerFunction(const char *, llvm::Function *);
+  virtual void registerFunction(std::string, llvm::Function *);
   virtual llvm::Function *const getFunction(std::string funcName) const;
 
   virtual llvm::Function *const createHelperFunction(

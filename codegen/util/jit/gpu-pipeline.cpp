@@ -742,7 +742,7 @@ void GpuPipelineGen::compileAndLoad() {
   func = getCompiledFunction(F);
 }
 
-void GpuPipelineGen::registerFunction(const char *funcName, Function *f) {
+void GpuPipelineGen::registerFunction(std::string funcName, Function *f) {
   if (wrapperModuleActive) {
     availableWrapperFunctions[funcName] = f;
   } else {

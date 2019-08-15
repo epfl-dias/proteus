@@ -134,6 +134,9 @@ class PipelineGen {
   virtual Pipeline *getPipeline(int group_id = 0);
   virtual void *getKernel() const;
 
+  virtual std::string convertTypeToFuncSuffix(llvm::Type *type);
+  virtual llvm::Function *getFunctionOverload(std::string name,
+                                              llvm::Type *type);
   virtual void setChainedPipeline(PipelineGen *next) {
     assert(
         !execute_after_close &&
@@ -171,7 +174,7 @@ class PipelineGen {
   virtual llvm::Module *getModule() const = 0;  //{return TheModule ;}
   virtual llvm::IRBuilder<> *getBuilder() const { return TheBuilder; }
 
-  virtual void registerFunction(const char *, llvm::Function *);
+  virtual void registerFunction(std::string, llvm::Function *);
 
   virtual llvm::Function *const getFunction(string funcName) const;
 

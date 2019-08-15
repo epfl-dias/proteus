@@ -307,11 +307,11 @@ void PipelineGen::registerSubPipeline() {
   }
 }
 
-void PipelineGen::registerFunction(const char *funcName, Function *func) {
+void PipelineGen::registerFunction(std::string funcName, Function *func) {
   availableFunctions[funcName] = func;
 }
 
-Function *const PipelineGen::getFunction(string funcName) const {
+Function *const PipelineGen::getFunction(std::string funcName) const {
   map<string, Function *>::const_iterator it;
   it = availableFunctions.find(funcName);
   if (it == availableFunctions.end()) {
@@ -654,6 +654,29 @@ void Pipeline::close() {
     execute_after_close->consume(0);
     execute_after_close->close();
   }
+}
+
+std::string PipelineGen::convertTypeToFuncSuffix(llvm::Type *type) {
+  if (type->isIntegerTy()) {
+    return "i" + std::to_string(type->getIntegerBitWidth());
+  }
+  if (type->isPointerTy()) {
+    return convertTypeToFuncSuffix(type->getPointerElementType()) + "ptr";
+  }
+  {
+    auto msg = std::string{"Unexpected type: "};
+    {
+      llvm::raw_string_ostream ostr{msg};
+      type->print(ostr);
+    }
+    LOG(ERROR) << msg;
+    throw std::runtime_error(msg);
+  }
+}
+
+llvm::Function *PipelineGen::getFunctionOverload(std::string name,
+                                                 llvm::Type *type) {
+  return getFunction(name + convertTypeToFuncSuffix(type));
 }
 
 /*
