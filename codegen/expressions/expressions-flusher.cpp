@@ -796,8 +796,18 @@ ProteusValue ExpressionFlusherVisitor::visit(
   // like that ?! NEED TO TEST
   RecordType recType = *((const RecordType *)e->getExpressionType());
 
+  // FIXME: this is a very quick and dirty hack in order to propagate all
+  // the necessary information to the JSON plugin in order to allow it to
+  // print the Value. We should find either the correct way to do it, or
+  // update the interfaces to also accept the bindings (or a visitor)
+  struct tmpstruct {
+    const expressions::Expression *e;
+    ExpressionFlusherVisitor *v;
+  };
+
   ExpressionGeneratorVisitor exprGen(context, currState);
   ProteusValue recValue = e->accept(exprGen);
+  recValue.isNull = (llvm::Value *)new tmpstruct{e, this};
   pg->flushValueEager(recValue, e->getExpressionType(), outputFileLLVM);
 
   return placeholder;

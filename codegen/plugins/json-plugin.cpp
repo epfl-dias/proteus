@@ -2492,7 +2492,6 @@ void JSONPlugin::flushChunk(ProteusValueMemory mem_value, Value *fileName) {
 
 void JSONPlugin::flushValueEager(ProteusValue valWrapper,
                                  const ExpressionType *type, Value *fileName) {
-  IRBuilder<> *Builder = context->getBuilder();
   Function *flushFunc;
   Value *val_attr = valWrapper.value;
   switch (type->getTypeID()) {
@@ -2567,6 +2566,16 @@ void JSONPlugin::flushValueEager(ProteusValue valWrapper,
       ArgsV.push_back(fileName);
       context->getBuilder()->CreateCall(flushFunc, ArgsV);
 
+      struct tmpstruct {
+        expressions::RecordConstruction *e;
+        ExpressionFlusherVisitor *v;
+      };
+
+      tmpstruct *z = (tmpstruct *)valWrapper.isNull;
+
+      expressions::RecordConstruction *e = z->e;
+      ExpressionFlusherVisitor *v = z->v;
+      auto l = e->getAtts().begin();
       size_t i = 0;
       for (const auto &attr : attrs) {
         // attrName
@@ -2584,10 +2593,17 @@ void JSONPlugin::flushValueEager(ProteusValue valWrapper,
         context->getBuilder()->CreateCall(flushFunc, ArgsV);
 
         // value
-        ProteusValue partialFlush;
-        partialFlush.value = Builder->CreateExtractValue(val_attr, i);
-        partialFlush.isNull = valWrapper.isNull;
-        flushValueEager(partialFlush, attr->getOriginalType(), fileName);
+        // ProteusValue partialFlush;
+        // val_attr->dump();
+        // partialFlush.value = Builder->CreateExtractValue(val_attr, i);
+        // partialFlush.value->dump();
+        // std::cout << type->getType() << " " << i << " " << attrs.size() << "
+        // "
+        //           << attr->getOriginalType()->getType() << std::endl;
+        // partialFlush.isNull = valWrapper.isNull;
+        // flushValueEager(partialFlush, attr->getOriginalType(), fileName);
+
+        (l++)->getExpression().accept(*v);
 
         // comma, if needed
         ++i;
