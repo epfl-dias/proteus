@@ -550,15 +550,12 @@ void flushBoolean(bool toFlush, char *fileName) {
   (*strBuffer) << toFlush;
 }
 
-// FIXME Bug here
 void flushStringC(char *toFlush, size_t start, size_t end, char *fileName) {
   Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
-  char tmp = toFlush[end];
-  toFlush[end] = '\0';
-  (*strBuffer) << (toFlush + start);
-  toFlush[end] = tmp;
+  assert(start <= end);
+  (*strBuffer).write(toFlush + start, end - start);
 }
 
 void flushStringReady(char *toFlush, char *fileName) {
