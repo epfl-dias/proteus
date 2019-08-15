@@ -22,6 +22,7 @@
 */
 
 #include "plugins/json-plugin.hpp"
+
 #include "expressions/expressions-flusher.hpp"
 
 //"Should" be enough on a per-row basis

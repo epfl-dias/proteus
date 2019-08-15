@@ -24,6 +24,7 @@
 #include "plan/plan-parser.hpp"
 
 #include <dlfcn.h>
+
 #include "plugins/scan-to-blocks-sm-plugin.hpp"
 #ifndef NCUDA
 #include "operators/cpu-to-gpu.hpp"
