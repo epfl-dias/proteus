@@ -60,16 +60,17 @@ class ExpressionParser {
   expression_t parseExpression(const rapidjson::Value &val, Context *ctx);
   ExpressionType *parseExpressionType(const rapidjson::Value &val);
   RecordAttribute *parseRecordAttr(const rapidjson::Value &val,
-                                   const ExpressionType *defaultType = nullptr);
+                                   const ExpressionType *defaultType = nullptr,
+                                   int defaultAttrNo = -1);
   Monoid parseAccumulator(const char *acc);
 
  private:
   expression_t parseExpressionWithoutRegistering(const rapidjson::Value &val,
                                                  Context *ctx);
   expressions::extract_unit parseUnitRange(std::string range, Context *ctx);
-  RecordType *getRecordType(std::string relName);
-  const RecordAttribute *getAttribute(std::string relName,
-                                      std::string attrName);
+  RecordType *getRecordType(std::string relName, bool createIfNeeded = true);
+  const RecordAttribute *getAttribute(std::string relName, std::string attrName,
+                                      bool createIfNeeded = true);
 };
 
 class CatalogParser {
@@ -136,8 +137,10 @@ class PlanExecutor {
   ExpressionType *parseExpressionType(const rapidjson::Value &val) {
     return exprParser.parseExpressionType(val);
   }
-  RecordAttribute *parseRecordAttr(const rapidjson::Value &val) {
-    return exprParser.parseRecordAttr(val);
+  RecordAttribute *parseRecordAttr(const rapidjson::Value &val,
+                                   const ExpressionType *defaultType = nullptr,
+                                   int defaultAttrNo = -1) {
+    return exprParser.parseRecordAttr(val, defaultType, defaultAttrNo);
   }
   Monoid parseAccumulator(const char *acc) {
     return exprParser.parseAccumulator(acc);

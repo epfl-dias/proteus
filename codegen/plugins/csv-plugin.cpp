@@ -883,33 +883,14 @@ void CSVPlugin::readAsFloatLLVM(
 void CSVPlugin::scanCSV(const ::Operator &producer, Function *debug) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
-  Type *int64Type = Type::getInt64Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
 
   // Container for the variable bindings
-  map<RecordAttribute, ProteusValueMemory> *variableBindings =
-      new map<RecordAttribute, ProteusValueMemory>();
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
 
   // Fetch value from symbol table
-  AllocaInst *pos;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesCSV.find(posVar);
-    if (it == NamedValuesCSV.end()) {
-      throw runtime_error(string("Unknown variable name: ") + posVar);
-    }
-    pos = it->second;
-  }
-  AllocaInst *fsizePtr;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesCSV.find(fsizeVar);
-    if (it == NamedValuesCSV.end()) {
-      throw runtime_error(string("Unknown variable name: ") + fsizeVar);
-    }
-    fsizePtr = it->second;
-  }
+  auto pos = NamedValuesCSV.at(posVar);
+  auto fsizePtr = NamedValuesCSV.at(fsizeVar);
 
   //  BYTECODE
   //    entry:
@@ -969,7 +950,7 @@ void CSVPlugin::scanCSV(const ::Operator &producer, Function *debug) {
   ProteusValueMemory mem_posWrapper;
   mem_posWrapper.mem = pos;
   mem_posWrapper.isNull = context->createFalse();
-  (*variableBindings)[tupleIdentifier] = mem_posWrapper;
+  variableBindings[tupleIdentifier] = mem_posWrapper;
 
   //    BYTECODE
   //    for.body:                                         ; preds = %for.cond
@@ -1003,17 +984,17 @@ void CSVPlugin::scanCSV(const ::Operator &producer, Function *debug) {
     RecordAttribute attr = *(*it);
     switch ((*it)->getOriginalType()->getTypeID()) {
       case BOOL:
-        readAsBooleanLLVM(attr, *variableBindings);
+        readAsBooleanLLVM(attr, variableBindings);
         break;
       case STRING:
         LOG(ERROR) << "[CSV PLUGIN: ] String datatypes not supported yet";
         throw runtime_error(
             string("[CSV PLUGIN: ] String datatypes not supported yet"));
       case FLOAT:
-        readAsFloatLLVM(attr, *variableBindings, atof_, debugChar, debugFloat);
+        readAsFloatLLVM(attr, variableBindings, atof_, debugChar, debugFloat);
         break;
       case INT:
-        readAsIntLLVM(attr, *variableBindings);
+        readAsIntLLVM(attr, variableBindings);
         break;
       case BAG:
       case LIST:
@@ -1051,7 +1032,7 @@ void CSVPlugin::scanCSV(const ::Operator &producer, Function *debug) {
   Builder->SetInsertPoint(IncBB);
 
   // Triggering parent
-  OperatorState *state = new OperatorState(producer, *variableBindings);
+  OperatorState *state = new OperatorState(producer, variableBindings);
   ::Operator *const opParent = producer.getParent();
   opParent->consume(context, *state);
 

@@ -1366,28 +1366,11 @@ void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
   IRBuilder<> *Builder = context->getBuilder();
 
   // Container for the variable bindings
-  map<RecordAttribute, ProteusValueMemory> *variableBindings =
-      new map<RecordAttribute, ProteusValueMemory>();
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
 
   // Fetch value from symbol table
-  AllocaInst *pos;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesCSV.find(posVar);
-    if (it == NamedValuesCSV.end()) {
-      throw runtime_error(string("Unknown variable name: ") + posVar);
-    }
-    pos = it->second;
-  }
-  AllocaInst *fsizePtr;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesCSV.find(fsizeVar);
-    if (it == NamedValuesCSV.end()) {
-      throw runtime_error(string("Unknown variable name: ") + fsizeVar);
-    }
-    fsizePtr = it->second;
-  }
+  auto pos = NamedValuesCSV.at(posVar);
+  auto fsizePtr = NamedValuesCSV.at(fsizeVar);
 
   //  BYTECODE
   //    entry:
@@ -1441,10 +1424,9 @@ void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
   // mem_posWrapper.mem = pos;
   mem_posWrapper.mem = mem_lineCtr;
   mem_posWrapper.isNull = context->createFalse();
-  (*variableBindings)[tupleIdentifier] = mem_posWrapper;
+  variableBindings[tupleIdentifier] = mem_posWrapper;
 
   /* Actual Work (Loop through attributes etc.) */
-  int cur_col = 0;
   Function *atoi_ = context->getFunction("atoi");
   Function *atof_ = context->getFunction("atof");
   Function *debugChar = context->getFunction("printc");
@@ -1458,15 +1440,7 @@ void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
   }
 
   /* Store (current) newline position */
-  AllocaInst *mem_pos;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesCSV.find(posVar);
-    if (it == NamedValuesCSV.end()) {
-      throw runtime_error(string("Unknown variable name: ") + posVar);
-    }
-    mem_pos = it->second;
-  }
+  auto mem_pos = NamedValuesCSV.at(posVar);
   Value *val_posNewline = Builder->CreateLoad(mem_pos);
   Value *val_newlines = Builder->CreateLoad(mem_newlines);
   Value *val_lineCtr = Builder->CreateLoad(mem_lineCtr);
@@ -1501,16 +1475,8 @@ void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
       //            cout << "Place field " << i << ") in PM"<<endl;
 
       /* What to store: offset */
-      AllocaInst *mem_pos;
-      {
-        map<string, AllocaInst *>::iterator it;
-        it = NamedValuesCSV.find(posVar);
-        if (it == NamedValuesCSV.end()) {
-          string msg = string("Unknown variable name: ") + posVar;
-          throw runtime_error(msg);
-        }
-        mem_pos = it->second;
-      }
+      auto mem_pos = NamedValuesCSV.at(posVar);
+
       Value *val_pos = Builder->CreateLoad(mem_pos);
       Value *val_offset = Builder->CreateSub(val_pos, val_posNewline);
       Value *val_offset16 = Builder->CreateTrunc(val_offset, int16Type);
@@ -1553,7 +1519,7 @@ void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
 
         /* Codegen: Convert Field */
         typeID id = (*it)->getOriginalType()->getTypeID();
-        readField(id, attr, *variableBindings);
+        readField(id, attr, variableBindings);
 
         /* Control Logic */
         fieldNeeded = true;
@@ -1582,10 +1548,9 @@ void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
   Builder->SetInsertPoint(IncBB);
 
   // Triggering parent
-  OperatorState *state = new OperatorState(producer, *variableBindings);
   ::Operator *const opParent = producer.getParent();
   //    cout << "Forwarding " << (*variableBindings).size() << endl;
-  opParent->consume(context, *state);
+  opParent->consume(context, {producer, variableBindings});
   Value *val_1 = context->createInt32(1);
   val_lineCtr = Builder->CreateAdd(val_lineCtr, val_1);
   Builder->CreateStore(val_lineCtr, mem_lineCtr);

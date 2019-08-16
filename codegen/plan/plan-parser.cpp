@@ -2952,9 +2952,12 @@ ExpressionType *ExpressionParser::parseExpressionType(
   }
 }
 
-RecordType *ExpressionParser::getRecordType(string relName) {
+RecordType *ExpressionParser::getRecordType(string relName,
+                                            bool createIfNeeded) {
   // Lookup in catalog based on name
-  InputInfo *datasetInfo = (this->catalogParser).getOrCreateInputInfo(relName);
+  InputInfo *datasetInfo =
+      (createIfNeeded) ? (this->catalogParser).getOrCreateInputInfo(relName)
+                       : (this->catalogParser).getInputInfoIfKnown(relName);
   if (datasetInfo == nullptr) return nullptr;
 
   /* Retrieve RecordType */
@@ -2976,15 +2979,17 @@ RecordType *ExpressionParser::getRecordType(string relName) {
 }
 
 const RecordAttribute *ExpressionParser::getAttribute(string relName,
-                                                      string attrName) {
-  RecordType *recType = getRecordType(relName);
+                                                      string attrName,
+                                                      bool createIfNeeded) {
+  RecordType *recType = getRecordType(relName, createIfNeeded);
   if (recType == nullptr) return nullptr;
 
   return recType->getArg(attrName);
 }
 
 RecordAttribute *ExpressionParser::parseRecordAttr(
-    const rapidjson::Value &val, const ExpressionType *defaultType) {
+    const rapidjson::Value &val, const ExpressionType *defaultType,
+    int defaultAttrNo) {
   assert(val.IsObject());
   const char *keyRecAttrType = "type";
   const char *keyRelName = "relName";
@@ -2999,12 +3004,14 @@ RecordAttribute *ExpressionParser::parseRecordAttr(
   assert(val[keyAttrName].IsString());
   string attrName = val[keyAttrName].GetString();
 
+  const RecordAttribute *attr = getAttribute(relName, attrName, false);
+
   int attrNo;
   if (val.HasMember(keyAttrNo)) {
     assert(val[keyAttrNo].IsInt());
     attrNo = val[keyAttrNo].GetInt();
   } else {
-    attrNo = -1;
+    attrNo = (attr) ? attr->getAttrNo() : defaultAttrNo;
   }
 
   const ExpressionType *recArgType;
@@ -3012,7 +3019,6 @@ RecordAttribute *ExpressionParser::parseRecordAttr(
     assert(val[keyRecAttrType].IsObject());
     recArgType = parseExpressionType(val[keyRecAttrType]);
   } else {
-    const RecordAttribute *attr = getAttribute(relName, attrName);
     if (attr) {
       recArgType = attr->getOriginalType();
     } else {
@@ -3114,9 +3120,10 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
     RecordType *rec = new RecordType();
 
     if (val.HasMember("schema")) {
+      size_t attrNo = 1;
       for (const auto &attr : val["schema"].GetArray()) {
         assert(attr.IsObject());
-        RecordAttribute *recAttr = parseRecordAttr(attr);
+        RecordAttribute *recAttr = parseRecordAttr(attr, nullptr, attrNo++);
 
         std::cout << "Plugin Registered: " << recAttr->getRelationName() << "."
                   << recAttr->getAttrName() << std::endl;
