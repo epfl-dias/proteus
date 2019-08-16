@@ -59,10 +59,10 @@
  * with VLOGs
  * as well as INFO log statements. Setting it to two removes WARNING log
  * statements too. */
-#undef GOOGLE_STRIP_LOG
-#undef STRIP_LOG
+#ifdef NDEBUG
 #define GOOGLE_STRIP_LOG 2
 #define STRIP_LOG 2
+#endif
 
 #define TIMING
 
