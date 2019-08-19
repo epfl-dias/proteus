@@ -10,6 +10,9 @@ set(txn_engine_cxx
     storage/delta_storage.cpp
     transactions/transaction_manager.cpp
     transactions/cc.cpp
+    snapshot/cor_arena.cpp
+    snapshot/cow_arena.cpp
+    snapshot/cor_const_arena.cpp
     )
 
 

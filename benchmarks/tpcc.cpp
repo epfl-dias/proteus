@@ -1,4 +1,4 @@
-#include "benchmarks/tpcc.hpp"
+#include "tpcc.hpp"
 #include "utils/utils.hpp"
 
 #include <algorithm>
@@ -98,7 +98,7 @@ void TPCC::init_tpcc_seq_array() {
     sequence[i + total] = STOCK_LEVEL;
   }
   // shuffle elements of the sequence array
-  srand(time(NULL));
+  srand(time(nullptr));
   for (int i = MIX_COUNT - 1; i > 0; i--) {
     int j = rand() % (i + 1);
     TPCC_QUERY_TYPE temp = sequence[i];
@@ -909,7 +909,7 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
   h_ins.h_c_w_id = c_w_id;
   h_ins.h_d_id = d_id;
   h_ins.h_w_id = w_id;
-  h_ins.h_date = std::time(0);  // this might be very slow.
+  h_ins.h_date = std::time(nullptr);  // this might be very slow.
   h_ins.h_amount = h_amount;
 
   void *hist_idx_ptr = table_history->insertRecord(&h_ins, xid, master_ver);

@@ -25,7 +25,7 @@
 // test logic needs is declared.
 //
 // Don't forget gtest.h, which declares the testing framework.
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
 
@@ -74,6 +74,9 @@
 #include "common/gpu/gpu-common.hpp"
 #include "memory/memory-manager.hpp"
 #include "plan/plan-parser.hpp"
+#include "snapshot/cor_arena.hpp"
+#include "snapshot/cor_const_arena.hpp"
+#include "snapshot/cow_arena.hpp"
 #include "storage/storage-manager.hpp"
 
 #include <numeric>
@@ -483,11 +486,11 @@ TEST_F(SnapshottingTest, cor2) {
   size_t num_of_pages = 1024;
   page_size = sysconf(_SC_PAGE_SIZE);
   size_t size_bytes = num_of_pages * page_size;
-  cor_arenas_t::init(size_bytes);
+  aeolus::snapshot::CORArena::init(size_bytes);
 
   size_t N = size_bytes / sizeof(int);
 
-  cor_arenas_t arenas{};
+  aeolus::snapshot::CORArena arenas{};
   arenas.create_snapshot();
   // gpu_run(cudaHostRegister(olap_arena, size_bytes, 0));
 
@@ -539,7 +542,7 @@ TEST_F(SnapshottingTest, cor2) {
   // benchmark_writeall_sequencial(oltp_arena, N, create_snapshot,
   //                               destroy_snapshot);
 
-  benchmark_writeall_sequencial<cor_arenas_t>(N);
+  benchmark_writeall_sequencial<aeolus::snapshot::CORArena>(N);
 }
 
 TEST_F(SnapshottingTest, cor) {
@@ -548,7 +551,7 @@ TEST_F(SnapshottingTest, cor) {
   page_size = sysconf(_SC_PAGE_SIZE);
   size_t size_bytes = num_of_pages * page_size;
   size_t N = size_bytes / sizeof(int);
-  benchmark_writeall_sequencial<cor_arenas_t>(N);
+  benchmark_writeall_sequencial<aeolus::snapshot::CORArena>(N);
 }
 
 TEST_F(SnapshottingTest, cow) {
@@ -557,7 +560,7 @@ TEST_F(SnapshottingTest, cow) {
   page_size = sysconf(_SC_PAGE_SIZE);
   size_t size_bytes = num_of_pages * page_size;
   size_t N = size_bytes / sizeof(int);
-  benchmark_writeall_sequencial<cow_arenas_t>(N);
+  benchmark_writeall_sequencial<aeolus::snapshot::COWArena>(N);
 }
 
 TEST_F(SnapshottingTest, cor_const) {
@@ -566,7 +569,7 @@ TEST_F(SnapshottingTest, cor_const) {
   page_size = sysconf(_SC_PAGE_SIZE);
   size_t size_bytes = num_of_pages * page_size;
   size_t N = size_bytes / sizeof(int);
-  benchmark_writeall_sequencial<cor_const_arenas_t>(N);
+  benchmark_writeall_sequencial<aeolus::snapshot::CORArena>(N);
 }
 
 template <typename arenas_t>
@@ -621,7 +624,7 @@ TEST_F(SnapshottingTest, cor_random) {
   page_size = sysconf(_SC_PAGE_SIZE);
   size_t size_bytes = num_of_pages * page_size;
   size_t N = size_bytes / sizeof(int);
-  benchmark_writeone_random<cor_arenas_t>(N);
+  benchmark_writeone_random<aeolus::snapshot::CORArena>(N);
 }
 
 TEST_F(SnapshottingTest, cow_random) {
@@ -630,12 +633,12 @@ TEST_F(SnapshottingTest, cow_random) {
   page_size = sysconf(_SC_PAGE_SIZE);
   size_t size_bytes = num_of_pages * page_size;
   size_t N = size_bytes / sizeof(int);
-  benchmark_writeone_random<cow_arenas_t>(N);
+  benchmark_writeone_random<aeolus::snapshot::COWArena>(N);
 }
 
 TEST_F(SnapshottingTest, cor_const_random) {
   std::string testLabel = "cor_const_random";
-  benchmark_writeone_random<cor_const_arenas_t>(N);
+  benchmark_writeone_random<aeolus::snapshot::CORArena>(N);
 }
 
 template <typename arenas_t, bool cuda = false>
@@ -747,20 +750,15 @@ void benchmark_writeone_random_readsome(size_t N) {
 
 TEST_F(SnapshottingTest, cor_random_readsome) {
   std::string testLabel = "cor_random_readsome";
-  benchmark_writeone_random_readsome<cor_arenas_t>(N);
+  benchmark_writeone_random_readsome<aeolus::snapshot::CORArena>(N);
 }
 
 TEST_F(SnapshottingTest, cow_random_readsome) {
   std::string testLabel = "cow_random_readsome";
-  benchmark_writeone_random_readsome<cow_arenas_t>(N);
+  benchmark_writeone_random_readsome<aeolus::snapshot::COWArena>(N);
 }
 
 TEST_F(SnapshottingTest, cor_const_random_readsome) {
   std::string testLabel = "cor_const_random_readsome";
-  benchmark_writeone_random_readsome<cor_const_arenas_t>(N);
-}
-
-TEST_F(SnapshottingTest, cuda_cor_const_random_readsome) {
-  std::string testLabel = "cuda_cor_const_random_readsome";
-  benchmark_writeone_random_readsome<cuda_cor_const_arenas_t, true>(N);
+  benchmark_writeone_random_readsome<aeolus::snapshot::CORArena>(N);
 }

@@ -65,7 +65,7 @@ class YCSB : public Benchmark {
   const int num_fields;
   const int num_records;
   const double theta;
-  const int num_iterations_per_worker;
+  // const int num_iterations_per_worker;
   const int num_ops_per_txn;
   const double write_threshold;
   int num_max_workers;
@@ -151,7 +151,7 @@ class YCSB : public Benchmark {
     }
     std::cout << "[YCSB] inserted records: " << num_records << std::endl;
     initialized = true;
-  };
+  }
 
   struct YCSB_TXN gen_insert_txn(uint64_t key, void *rec) {
     struct YCSB_TXN txn;
@@ -343,7 +343,7 @@ class YCSB : public Benchmark {
         num_fields(num_fields),
         num_records(num_records),
         theta(theta),
-        num_iterations_per_worker(num_iterations_per_worker),
+        // num_iterations_per_worker(num_iterations_per_worker),
         num_ops_per_txn(num_ops_per_txn),
         write_threshold(write_threshold),
         num_max_workers(num_max_workers),
@@ -370,7 +370,7 @@ class YCSB : public Benchmark {
     // }
 
     this->schema = &storage::Schema::getInstance();
-  };
+  }
 
   struct drand48_data *rand_buffer;
   double g_zetan;

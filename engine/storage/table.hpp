@@ -205,7 +205,7 @@ class ColumnStore : public Table {
  private:
   std::vector<Column *> columns;
   Column *meta_column;
-  Column **secondary_index_vals;
+  // Column **secondary_index_vals;
   size_t rec_size;
 };
 

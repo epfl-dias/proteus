@@ -48,7 +48,7 @@ class Topology {
   void operator=(Topology const &) = delete;  // Don't implement
 
   int get_num_worker_cores() { return core_info.size(); }
-  std::vector<core> *get_worker_cores(int num = -1) { return &core_info; };
+  std::vector<core> *get_worker_cores(int num = -1) { return &core_info; }
 
   inline uint32_t getCoreCount() const { return core_cnt; }
 

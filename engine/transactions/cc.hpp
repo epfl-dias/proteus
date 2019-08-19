@@ -140,8 +140,8 @@ struct VERSION_LIST {
     VERSION *tmp = nullptr;
     {
       tmp = head;
-
-      while (tmp != nullptr || tmp != NULL) {
+      // C++ standard says that (x == NULL) <=> (x==nullptr)
+      while (tmp != nullptr) {
         if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
           return tmp->data;
         } else {

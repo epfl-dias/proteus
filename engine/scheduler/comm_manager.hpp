@@ -87,11 +87,11 @@ class CommManager {
   bool request_memory_free(const std::string &key);
 
   // elasticity
-  void scale_up();
-  void scale_down();
+  [[noreturn]] void scale_up();
+  [[noreturn]] void scale_down();
 
   // snapshot
-  void snaphsot();
+  [[noreturn]] void snaphsot();
 
  private:
   mqd_t recv_mq;

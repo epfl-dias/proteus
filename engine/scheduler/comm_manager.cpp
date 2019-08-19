@@ -48,7 +48,8 @@ ssize_t CommManager::get_response(const std::string& queue_name,
   }
 
   char temp_buffer[MSG_BUFFER_SIZE];
-  ssize_t recv_sz = mq_receive(mem_recv_queue, temp_buffer, MAX_MSG_SIZE, NULL);
+  ssize_t recv_sz =
+      mq_receive(mem_recv_queue, temp_buffer, MAX_MSG_SIZE, nullptr);
 
   if (recv_sz < 0) {
     std::cerr << "[CommManager][request_memory_alloc] Error in mq_recieve: "
@@ -121,7 +122,7 @@ bool CommManager::request_memory_alloc(const std::string& key,
 
   // char temp_buffer[MSG_BUFFER_SIZE];
   // ssize_t recv_sz = mq_receive(mem_recv_queue, temp_buffer, MAX_MSG_SIZE,
-  // NULL);
+  // nullptr);
 
   // if (recv_sz < 0) {
   //   std::cerr << "[CommManager][request_memory_alloc] Error in mq_recieve: "
@@ -145,11 +146,17 @@ bool CommManager::request_memory_alloc(const std::string& key,
 bool CommManager::request_memory_free(const std::string& key) { return true; }
 
 // elasticity
-void CommManager::scale_up() { assert(false && "Not Implemeneted"); }
-void CommManager::scale_down() { assert(false && "Not Implemeneted"); }
+[[noreturn]] void CommManager::scale_up() {
+  assert(false && "Not Implemeneted");
+}
+[[noreturn]] void CommManager::scale_down() {
+  assert(false && "Not Implemeneted");
+}
 
 // snapshot
-void CommManager::snaphsot() { assert(false && "Not Implemeneted"); }
+[[noreturn]] void CommManager::snaphsot() {
+  assert(false && "Not Implemeneted");
+}
 
 void CommManager::shutdown() { this->~CommManager(); }
 
@@ -173,7 +180,7 @@ void CommManager::process_msg(union sigval sv) {
   static CommManager* ref = &scheduler::CommManager::getInstance();
 
   struct timeval tp;
-  gettimeofday(&tp, NULL);
+  gettimeofday(&tp, nullptr);
   long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
 
   // fprintf(stdout, "Message recieved at: %lu\n", ms);
@@ -186,7 +193,7 @@ void CommManager::process_msg(union sigval sv) {
   struct sigevent sev;
   sev.sigev_notify = SIGEV_THREAD;
   sev.sigev_notify_function = &process_msg;
-  sev.sigev_notify_attributes = NULL;
+  sev.sigev_notify_attributes = nullptr;
   // sev.sigev_value.sival_ptr = sv.sival_ptr;
   if (mq_notify(ref->recv_mq, &sev) < 0) {
     std::cerr << "[CommManager][process_msg] Error during re-registering the "
@@ -195,7 +202,7 @@ void CommManager::process_msg(union sigval sv) {
     // exit(EXIT_FAILURE);
   }
 
-  if (mq_receive(ref->recv_mq, in_buffer, MAX_MSG_SIZE, NULL) < 0 &&
+  if (mq_receive(ref->recv_mq, in_buffer, MAX_MSG_SIZE, nullptr) < 0 &&
       errno != EAGAIN) {
     std::cerr << "[CommManager][process_msg] Error in mq_recieve: "
               << strerror(errno) << std::endl;
@@ -324,7 +331,7 @@ void CommManager::init() {
   struct sigevent sev;
   sev.sigev_notify = SIGEV_THREAD;
   sev.sigev_notify_function = &process_msg;
-  sev.sigev_notify_attributes = NULL;
+  sev.sigev_notify_attributes = nullptr;
   // sev.sigev_value.sival_ptr = &recv_mq;
 
   struct mq_attr attr;
@@ -347,10 +354,10 @@ void CommManager::init() {
     attr.mq_flags = O_NONBLOCK;
     mq_setattr(recv_mq, &attr, &old_attr);
     char temp_buffer[MSG_BUFFER_SIZE];
-    while (mq_receive(recv_mq, temp_buffer, MAX_MSG_SIZE, NULL) != -1)
+    while (mq_receive(recv_mq, temp_buffer, MAX_MSG_SIZE, nullptr) != -1)
       ;
 
-    mq_setattr(recv_mq, &old_attr, 0);
+    mq_setattr(recv_mq, &old_attr, nullptr);
   }
 
   if (mq_notify(recv_mq, &sev) == -1) {

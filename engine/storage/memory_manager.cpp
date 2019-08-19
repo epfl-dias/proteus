@@ -75,8 +75,8 @@ void* MemoryManager::alloc_shm_htap(const std::string& key,
       return nullptr;
     }
 
-    void* mem_addr =
-        mmap(NULL, size_bytes, PROT_WRITE | PROT_READ, MAP_SHARED, shm_fd, 0);
+    void* mem_addr = mmap(nullptr, size_bytes, PROT_WRITE | PROT_READ,
+                          MAP_SHARED, shm_fd, 0);
     if (!mem_addr) {
       fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno));
       return nullptr;
@@ -132,7 +132,7 @@ void* MemoryManager::alloc_shm(const std::string& key, const size_t size_bytes,
   }
 
   void* mem_addr =
-      mmap(NULL, size_bytes, PROT_WRITE | PROT_READ, MAP_SHARED, shm_fd, 0);
+      mmap(nullptr, size_bytes, PROT_WRITE | PROT_READ, MAP_SHARED, shm_fd, 0);
   if (!mem_addr) {
     fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno));
     return nullptr;

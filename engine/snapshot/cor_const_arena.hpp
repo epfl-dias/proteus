@@ -1,7 +1,7 @@
 /*
                   AEOLUS - In-Memory HTAP-Ready OLTP Engine
 
-                              Copyright (c) 2019-2019
+                             Copyright (c) 2019-2019
            Data Intensive Applications and Systems Laboratory (DIAS)
                    Ecole Polytechnique Federale de Lausanne
 
@@ -20,36 +20,46 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#ifndef BENCH_HPP_
-#define BENCH_HPP_
+#ifndef AEOLUS_SNAPSHOT_COR_CONST_ARENA_HPP_
+#define AEOLUS_SNAPSHOT_COR_CONST_ARENA_HPP_
 
-#include <iostream>
-#include <string>
+#include <signal.h>
+#include <cstdint>
+#include "arena.hpp"
 
-namespace bench {
+namespace aeolus {
+namespace snapshot {
 
-// enum OP_TYPE { OPTYPE_LOOKUP, OPTYPE_UPDATE }; done in txn_manager
+class CORConstArena : public Arena<CORConstArena> {
+ protected:
+  static uint64_t *dirty;
+  static uint64_t *new_dirty;
+  static int8_t **find_at;
+  static int8_t *olap_start;
+  static size_t size_bytes;
+  static size_t page_size;
 
-class Benchmark {
+  static int *oltp_arena;
+  static int *olap_arena;
+  static int shm_fd;
+  static size_t dirty_segs;
+  static int8_t *start;
+
  public:
-  virtual void init() {
-  }  // who will init the bench? the main session or in worker's init?
-  virtual void load_data(int num_threads = 1) {}
-  virtual void gen_txn(int wid, void *txn_ptr) {}
-  virtual bool exec_txn(void *stmts, uint64_t xid, ushort master_ver,
-                        ushort delta_ver) {
-    return true;
-  }
-  virtual void *get_query_struct_ptr() { return nullptr; }
+  static void handler(int sig, siginfo_t *siginfo, void *uap);
 
-  std::string name;
+ public:
+  static void init(size_t size_bytes);
 
-  // private:
-  Benchmark(std::string name = "DUMMY") : name(name) {}
+  int *oltp() { return oltp_arena; }
+  int *olap() { return olap_arena; }
 
-  virtual ~Benchmark() { std::cout << "destructor of Benchmark" << std::endl; }
+  void create_snapshot(void *place_at = nullptr);
+
+  void destroy_snapshot() {}
 };
 
-}  // namespace bench
+}  // namespace snapshot
+}  // namespace aeolus
 
-#endif /* BENCH_HPP_ */
+#endif /* AEOLUS_SNAPSHOT_COR_CONST_ARENA_HPP_ */

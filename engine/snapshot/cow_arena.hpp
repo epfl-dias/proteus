@@ -21,11 +21,40 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-class cuda_cor_const_arenas_t : public cor_const_arenas_t {
+#ifndef AEOLUS_SNAPSHOT_COW_ARENA_HPP_
+#define AEOLUS_SNAPSHOT_COW_ARENA_HPP_
+
+#include <signal.h>
+#include <cstdint>
+#include "arena.hpp"
+
+namespace aeolus {
+namespace snapshot {
+
+class COWArena : public Arena<COWArena> {
+  static int shm_fd;
+  static size_t size_bytes;
+  static int8_t *save_to;
+  static int8_t *start;
+  static size_t page_size;
+
  public:
-  static void init(size_t size_bytes) {
-    cor_const_arenas_t::init(size_bytes);
-    // gpu_run(cudaHostRegister(cor_const_arenas_t::olap_arena, size_bytes, 0));
-    // gpu_run(cudaHostRegister(cor_const_arenas_t::oltp_arena, size_bytes, 0));
-  }
+  static void handler(int sig, siginfo_t *siginfo, void *uap);
+
+  static int *oltp_arena;
+  int *olap_arena;
+
+  static void init(size_t size_bytes);
+
+  int *oltp() { return oltp_arena; }
+  int *olap() { return olap_arena; }
+
+  void create_snapshot(void *place_at = nullptr);
+
+  void destroy_snapshot();
 };
+
+}  // namespace snapshot
+}  // namespace aeolus
+
+#endif /* AEOLUS_SNAPSHOT_COW_ARENA_HPP_ */
