@@ -9,7 +9,6 @@ set(gtest_src
 	tests-output
 	tests-plan-parsing
 	tests-threads
-	tests-snapshotting
 	)
 
 foreach(target ${gtest_src})
