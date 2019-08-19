@@ -46,7 +46,7 @@ set(MAINS server-cow) #server-multimaster) # Interface to the executor
 # Tests
 # not too sure if we should build "main", it looks like it has the same
 # test cases as the gtests
-set(UNIT_TESTS FALSE)
+set(UNIT_TESTS TRUE)
 
 
 # C++ Source files
@@ -337,9 +337,10 @@ endif()
 # that library
 #set(default_libs ${default_libs} codegen )
 set(default_libs ${default_libs} -lnuma )
-set(default_libs ${default_libs} -lcodegen )
-set(default_libs ${default_libs} -laeolus_engine )
-set(default_libs ${default_libs} -laeolus_bench )
+set(default_libs ${default_libs} codegen )
+set(default_libs ${default_libs} aeolus_engine )
+set(default_libs ${default_libs} aeolus_plugin )
+set(default_libs ${default_libs} aeolus_bench )
 set(default_libs ${default_libs} ${LLVM_LIBS})
 set(default_libs ${default_libs} ${CUDA_LIBS})
 set(default_libs ${default_libs} gflags::gflags ${GLOG} gflags::gflags)
@@ -363,9 +364,11 @@ include_directories(
 	"${PROJECT_SOURCE_DIR}"
 	SYSTEM "${PROTEUS_SOURCE_DIR}"
 	SYSTEM "${PROTEUS_SOURCE_DIR}/codegen"
+	SYSTEM "${PROTEUS_SOURCE_DIR}/tests"
 	SYSTEM "${AEOLUS_SOURCE_DIR}"
 	SYSTEM "${AEOLUS_SOURCE_DIR}/benchmarks"
 	SYSTEM "${AEOLUS_SOURCE_DIR}/engine"
+	SYSTEM "${AEOLUS_SOURCE_DIR}/lib"
 	# Let's see if we pull in headers which requires this, if not let's drop the whole block
 	# FIXME: system libraries should not be included with quotes...
 	# Add local (for use with ""-style includes) path to the sysroot
@@ -413,6 +416,12 @@ foreach(target ${MAINS})
 		ARCHIVE DESTINATION lib
 		)
 endforeach(target)
+
+#-----------------------------------------------------------------------
+# Define path to installed resources
+add_definitions(-DTEST_INPUTS="inputs")
+add_definitions(-DTEST_OUTPUTS="outputs")
+
 
 # Unit-tests
 if(UNIT_TESTS)
