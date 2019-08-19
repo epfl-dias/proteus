@@ -24,6 +24,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define STORAGE_TABLE_HPP_
 
 #include <assert.h>
+
 #include <iostream>
 #include <map>
 #include <stdexcept>

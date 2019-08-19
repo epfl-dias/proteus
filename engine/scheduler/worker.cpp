@@ -21,7 +21,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 */
 
 #include "scheduler/worker.hpp"
+
 #include <assert.h>
+
 #include <atomic>
 #include <condition_variable>
 #include <deque>
@@ -32,6 +34,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <queue>
 #include <string>
 #include <thread>
+
 #include "scheduler/affinity_manager.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"

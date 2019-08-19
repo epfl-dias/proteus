@@ -32,6 +32,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <cstdlib>
 #include <iostream>
 #include <thread>
+
 #include "interfaces/bench.hpp"
 #include "scheduler/topology.hpp"
 #include "storage/memory_manager.hpp"

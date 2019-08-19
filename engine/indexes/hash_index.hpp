@@ -24,7 +24,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define INDEXES_HASH_INDEX_HPP_
 
 #include <iostream>
-#include "libcuckoo/cuckoohash_map.hh"
+#include <libcuckoo/cuckoohash_map.hh>
 
 namespace indexes {
 

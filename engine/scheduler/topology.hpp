@@ -24,6 +24,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define SCHEDULER_TOPOLOGY_HPP_
 
 #include <sched.h>
+
 #include <iostream>
 #include <thread>
 #include <vector>

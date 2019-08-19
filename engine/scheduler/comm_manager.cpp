@@ -21,9 +21,12 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 */
 
 #include "scheduler/comm_manager.hpp"
+
 #include <mqueue.h>
+
 #include <cstdlib>
 #include <iostream>
+
 #include "transactions/transaction_manager.hpp"
 
 namespace scheduler {

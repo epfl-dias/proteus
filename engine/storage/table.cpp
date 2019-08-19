@@ -21,6 +21,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 */
 
 #include "storage/table.hpp"
+
 #include <cassert>
 #include <iostream>
 #include <string>

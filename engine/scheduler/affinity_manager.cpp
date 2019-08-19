@@ -21,6 +21,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 */
 
 #include "scheduler/affinity_manager.hpp"
+
 #include "scheduler/topology.hpp"
 
 namespace scheduler {

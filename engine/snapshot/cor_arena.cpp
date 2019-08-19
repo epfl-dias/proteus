@@ -21,9 +21,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 */
 
 #include "cor_arena.hpp"
+
 #include <glog/logging.h>
 #include <signal.h>
 #include <sys/mman.h>
+
 #include <cassert>
 #include <cstring>
 #include <stdexcept>

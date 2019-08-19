@@ -31,8 +31,10 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+
 #include <cstdlib>
 #include <iostream>
+
 #include "scheduler/comm_manager.hpp"
 #include "scheduler/topology.hpp"
 

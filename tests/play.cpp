@@ -21,20 +21,18 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 */
 
 #include <unistd.h>
+
 #include <functional>
 #include <iostream>
 #include <tuple>
-#include "storage/memory_manager.hpp"
-#include "storage/table.hpp"
-
-#include "scheduler/topology.hpp"
-#include "scheduler/worker.hpp"
 
 #include "benchmarks/ycsb.hpp"
-#include "transactions/transaction_manager.hpp"
-
 #include "indexes/hash_index.hpp"
-
+#include "scheduler/topology.hpp"
+#include "scheduler/worker.hpp"
+#include "storage/memory_manager.hpp"
+#include "storage/table.hpp"
+#include "transactions/transaction_manager.hpp"
 #include "utils/utils.hpp"
 
 int main() {

@@ -20,15 +20,16 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
+#include "storage/row_store.hpp"
+
 #include <cassert>
 #include <iostream>
 #include <string>
-#include "storage/table.hpp"
 
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
 #include "storage/delta_storage.hpp"
-#include "storage/row_store.hpp"
+#include "storage/table.hpp"
 
 /*
 

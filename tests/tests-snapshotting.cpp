@@ -69,6 +69,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include <numeric>
+#include <thread>
+#include <vector>
+
 #include "common/common.hpp"
 #include "common/gpu/gpu-common.hpp"
 #include "memory/memory-manager.hpp"
@@ -77,11 +82,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "snapshot/cor_const_arena.hpp"
 #include "snapshot/cow_arena.hpp"
 #include "storage/storage-manager.hpp"
-
-#include <numeric>
-#include <thread>
-#include <vector>
-
 #include "test-utils.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"

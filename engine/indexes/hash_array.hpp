@@ -24,6 +24,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define INDEXES_HASH_ARRAY_HPP_
 
 #include <iostream>
+
 #include "storage/memory_manager.hpp"
 
 namespace indexes {

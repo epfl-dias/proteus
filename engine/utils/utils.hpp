@@ -24,6 +24,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define TXN_ENGINE_UTILS_HPP_
 
 #include <unistd.h>
+
 #include <cassert>
 #include <chrono>
 #include <cmath>

@@ -24,7 +24,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define AEOLUS_SNAPSHOT_COR_ARENA_HPP_
 
 #include <signal.h>
+
 #include <cstdint>
+
 #include "arena.hpp"
 
 namespace aeolus {

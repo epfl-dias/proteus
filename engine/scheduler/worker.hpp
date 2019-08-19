@@ -33,10 +33,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <unordered_map>
 //#include "scheduler/affinity_manager.hpp"
 
-#include "scheduler/topology.hpp"
-
 #include "glo.hpp"
 #include "interfaces/bench.hpp"
+#include "scheduler/topology.hpp"
 
 namespace scheduler {
 

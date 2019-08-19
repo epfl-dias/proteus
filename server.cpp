@@ -23,11 +23,13 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define RUNTIME 60  // seconds
 
 #include <unistd.h>
+
 #include <functional>
 #include <iostream>
 #include <limits>
 #include <thread>
 #include <tuple>
+
 #include "benchmarks/tpcc.hpp"
 #include "benchmarks/ycsb.hpp"
 #include "glo.hpp"

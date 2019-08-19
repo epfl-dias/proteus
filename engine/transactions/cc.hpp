@@ -26,6 +26,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <iostream>
 #include <mutex>
 #include <vector>
+
 #include "transactions/txn_utils.hpp"
 #include "utils/spinlock.h"
 

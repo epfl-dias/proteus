@@ -24,10 +24,12 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define STORAGE_DELTA_STORAGE_HPP_
 
 #include <sys/mman.h>
+
 #include <cstdlib>
 #include <iostream>
 #include <limits>
 #include <mutex>
+
 #include "glo.hpp"
 //#include "indexes/hash_index.hpp"
 #include "scheduler/worker.hpp"

@@ -21,7 +21,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 */
 
 #include "tpcc.hpp"
-#include "utils/utils.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -32,6 +31,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <locale>
 #include <string>
 #include <thread>
+
+#include "utils/utils.hpp"
 
 /*
 

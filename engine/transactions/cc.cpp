@@ -23,6 +23,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "transactions/cc.hpp"
 
 #include <limits>
+
 #include "storage/table.hpp"
 
 namespace txn {

@@ -21,7 +21,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 */
 
 #include "scheduler/topology.hpp"
+
 #include <unistd.h>
+
 #include <cmath>
 #include <iomanip>
 #include <map>

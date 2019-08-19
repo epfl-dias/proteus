@@ -21,6 +21,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 */
 
 #include "transactions/transaction_manager.hpp"
+
 #include "utils/utils.hpp"
 
 namespace txn {
