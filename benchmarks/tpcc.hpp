@@ -1,7 +1,7 @@
 /*
                   AEOLUS - In-Memory HTAP-Ready OLTP Engine
 
-                              Copyright (c) 2019-2019
+                             Copyright (c) 2019-2019
            Data Intensive Applications and Systems Laboratory (DIAS)
                    Ecole Polytechnique Federale de Lausanne
 
@@ -28,8 +28,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <cstdlib>
 #include <iostream>
 #include <thread>
-#include "interfaces/bench.hpp"
 #include "indexes/hash_index.hpp"
+#include "interfaces/bench.hpp"
 #include "scheduler/topology.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"

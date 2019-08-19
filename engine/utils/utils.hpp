@@ -1,7 +1,7 @@
 /*
                   AEOLUS - In-Memory HTAP-Ready OLTP Engine
 
-                              Copyright (c) 2019-2019
+                             Copyright (c) 2019-2019
            Data Intensive Applications and Systems Laboratory (DIAS)
                    Ecole Polytechnique Federale de Lausanne
 
@@ -24,18 +24,17 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define TXN_ENGINE_UTILS_HPP_
 
 #include <unistd.h>
+#include <cassert>
 #include <chrono>
+#include <cmath>
+#include <cstdlib>
 #include <functional>
 #include <future>
 #include <iostream>
 #include <thread>
 #include <tuple>
-#include <cassert>
-#include <cmath>
-#include <cstdlib>
 
-
-//namespace utils {
+// namespace utils {
 
 #define FALSE 0
 #define TRUE 1
@@ -76,7 +75,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
   Calls a function every x(ms) intervals
 
 */
-
 
 template <class Duration>
 using sys_time = std::chrono::time_point<std::chrono::system_clock, Duration>;
@@ -132,7 +130,6 @@ class timed_func {
 
 bool timed_func::terminate = false;
 int timed_func::num_active_runners = 0;
-
 
 static int RAND(unsigned int *seed, int max) { return rand_r(seed) % max; }
 

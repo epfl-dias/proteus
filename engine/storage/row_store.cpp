@@ -1,7 +1,7 @@
 /*
                   AEOLUS - In-Memory HTAP-Ready OLTP Engine
 
-                              Copyright (c) 2019-2019
+                             Copyright (c) 2019-2019
            Data Intensive Applications and Systems Laboratory (DIAS)
                    Ecole Polytechnique Federale de Lausanne
 
@@ -46,8 +46,6 @@ vid_to_uuid(uint8_t tbl_id, uint64_t vid) {
 
 std::vector<const void*> rowStore::getRecordByKey(
     uint64_t vid, ushort master_ver, const std::vector<ushort>* col_idx) {
-  
-
   std::vector<const void*> ret;
 
   char* rw = (char*)this->getRow(vid, master_ver);

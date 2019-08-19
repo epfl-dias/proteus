@@ -1,7 +1,7 @@
 /*
                   AEOLUS - In-Memory HTAP-Ready OLTP Engine
 
-                              Copyright (c) 2019-2019
+                             Copyright (c) 2019-2019
            Data Intensive Applications and Systems Laboratory (DIAS)
                    Ecole Polytechnique Federale de Lausanne
 

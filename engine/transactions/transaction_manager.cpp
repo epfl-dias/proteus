@@ -1,7 +1,7 @@
 /*
                   AEOLUS - In-Memory HTAP-Ready OLTP Engine
 
-                              Copyright (c) 2019-2019
+                             Copyright (c) 2019-2019
            Data Intensive Applications and Systems Laboratory (DIAS)
                    Ecole Polytechnique Federale de Lausanne
 
@@ -25,10 +25,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 namespace txn {
 
-
-
-
-
 /*
   static inline uint64_t __attribute__((always_inline)) read_tsc(uint8_t wid) {
     uint32_t a, d;
@@ -40,7 +36,7 @@ namespace txn {
     // return (((uint64_t)((d & 0x00FFFFFF) | (((uint32_t)wid) << 24))) << 32) |
     //       ((uint64_t)a);
   }
-  
+
 inline uint64_t __attribute__((always_inline)) get_next_xid(uint8_t wid) {
   // Global Atomic
   // return ++g_xid;
@@ -72,7 +68,5 @@ uint64_t rdtscl() {
   __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
   return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
 }*/
-
-
 
 }  // namespace txn

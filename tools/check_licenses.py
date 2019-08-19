@@ -27,19 +27,18 @@ def check(root):
     copyright_match = r"""Copyright \(c\) \d+-\d+"""
     copyright_insert = r"""Copyright (c) \d+-\d+"""
     header = re.sub(copyright_match, copyright_insert, header)
-
-    # Reconstruct C++ header
-    header = r"""^/\*
-.*\n?""" + header + r""" \*/\n"""
     header = re.sub(r"([()])", r"\\\g<1>", header)
 
+    # Reconstruct C++ header
+    header = r"""^/\*\n(.*\n\n)?""" + header + r"""\*/\n"""
+
     header = re.compile(header, re.MULTILINE)
-    print header
     exts = [".cpp", ".hpp", ".cu", ".cuh", ".c", ".h"]
 
     # Files that should not contain the header (usually files from external
     # projects)
     external_files = [
+    "lib/cxxopts.hpp"
     ]
 
     found_bad = False
