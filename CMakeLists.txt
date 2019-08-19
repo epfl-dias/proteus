@@ -381,10 +381,9 @@ add_definitions(-DTEST_OUTPUTS="outputs")
 include_directories(
 	"${PROJECT_SOURCE_DIR}/engine"
 	"${PROJECT_SOURCE_DIR}/benchmarks"
-	SYSTEM "${PROTEUS_SOURCE_DIR}"
 	SYSTEM "${PROJECT_SOURCE_DIR}/lib"
+	SYSTEM "${PROTEUS_SOURCE_DIR}"
 	SYSTEM "${PROTEUS_SOURCE_DIR}/codegen"
-
 
 	# Let's see if we pull in headers which requires this, if not let's drop the whole block
 	# FIXME: system libraries should not be included with quotes...

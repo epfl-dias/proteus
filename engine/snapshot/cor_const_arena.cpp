@@ -22,6 +22,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "cor_const_arena.hpp"
 
+#include "common/common.hpp"
+
 #include <glog/logging.h>
 #include <sys/mman.h>
 
@@ -78,6 +80,7 @@ void CORConstArena::handler(int sig, siginfo_t *siginfo, void *uap) {
 }
 
 void CORConstArena::init(size_t size_bytes) {
+  page_size = getpagesize();
   CORConstArena::size_bytes = size_bytes;
   shm_fd = memfd_create("CORConstArena", 0);
   if (shm_fd < 0) {
@@ -100,7 +103,7 @@ void CORConstArena::init(size_t size_bytes) {
 
   // Mark MAP_SHARED so that we can map the same memory multiple times
   olap_arena = (int *)mmap(nullptr, size_bytes, PROT_WRITE | PROT_READ,
-                           MAP_SHARED, shm_fd, 0);
+                           MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   olap_start = (int8_t *)olap_arena;
   assert(olap_arena != MAP_FAILED);
 

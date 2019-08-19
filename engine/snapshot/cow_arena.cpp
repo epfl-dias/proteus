@@ -60,6 +60,7 @@ void COWArena::handler(int sig, siginfo_t *siginfo, void *uap) {
 }
 
 void COWArena::init(size_t size_bytes) {
+  page_size = getpagesize();
   COWArena::size_bytes = size_bytes;
   shm_fd = memfd_create("cow", 0);
   if (shm_fd < 0) {
