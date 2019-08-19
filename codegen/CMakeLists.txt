@@ -87,13 +87,6 @@ set(codegen_cxx
     operators/gpu/gpu-partitioned-hash-join-chained.cpp
     )
 
-if (DEFINED AEOLUS_SOURCE_DIR)
-    set(codegen_cxx 
-        ${codegen_cxx}
-        plugins/aeolus-plugin.cpp
-        )
-endif()
-
 # C++ files requiring CUDA headers
 set(codegen_cxx_cu
     operators/gpu/gpu-partitioned-hash-join-chained-helpers.cpp

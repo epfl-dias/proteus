@@ -333,10 +333,6 @@ endif()
 # that library
 set(default_libs ${default_libs} codegen)
 
-if (DEFINED AEOLUS_SOURCE_DIR)
-set(default_libs ${default_libs} -laeolus_engine)
-endif()
-
 set(default_libs ${default_libs} ${LLVM_LIBS})
 set(default_libs ${default_libs} ${CUDA_LIBS})
 set(default_libs ${default_libs} gflags::gflags ${GLOG} gflags::gflags)
@@ -375,13 +371,6 @@ include_directories(
 		# Add local (for use with ""-style includes) path to the sysroot
 		"${CMAKE_INSTALL_PREFIX}/include"
 )
-
-if (DEFINED AEOLUS_SOURCE_DIR)
-	include_directories(
-		SYSTEM "${AEOLUS_SOURCE_DIR}"
-		SYSTEM "${AEOLUS_SOURCE_DIR}/engine"
-	)
-endif()
 
 # Add the warning flags
 string(STRIP "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS}" CMAKE_CXX_FLAGS)
