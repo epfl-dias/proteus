@@ -12,7 +12,7 @@ set(MAINS server) # Interface to the executor
 # Tests
 # not too sure if we should build "main", it looks like it has the same
 # test cases as the gtests
-set(UNIT_TESTS FALSE)
+set(UNIT_TESTS TRUE)
 
 # Benchmarks
 set(TPCH FALSE)
@@ -343,6 +343,11 @@ foreach(target ${MAINS})
 		ARCHIVE DESTINATION lib
 		)
 endforeach(target)
+
+#-----------------------------------------------------------------------
+# Define path to installed resources
+add_definitions(-DTEST_INPUTS="inputs")
+add_definitions(-DTEST_OUTPUTS="outputs")
 
 # Unit-tests
 if(UNIT_TESTS)
