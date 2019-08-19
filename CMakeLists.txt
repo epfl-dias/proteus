@@ -413,9 +413,9 @@ foreach(target ${MAINS})
 		)
 endforeach(target)
 
-if (STANDALONE)
+if (NOT STANDALONE)
 add_subdirectory(adaptors)
-endif(STANDALONE)
+endif(NOT STANDALONE)
 
 #-----------------------------------------------------------------------
 # Define path to installed resources

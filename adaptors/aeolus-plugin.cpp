@@ -20,7 +20,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#include "plugins/aeolus-plugin.hpp"
+#include "aeolus-plugin.hpp"
 
 #include "communication/comm-manager.hpp"
 #include "expressions/expressions-hasher.hpp"
