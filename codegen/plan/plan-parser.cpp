@@ -65,22 +65,44 @@
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 
-std::string hyphenatedPluginToCamel(const char *name) {
-  size_t len = strlen(name);
-  bool make_capital = true;
+// std::string hyphenatedPluginToCamel(const char *name) {
+//   size_t len = strlen(name);
+//   bool make_capital = true;
+//   char conv[len + 1];
+//   size_t j = 0;
+//   for (size_t i = 0; i < len - 1; ++i) {
+//     if (name[i] == '-') {
+//       ++i;
+//       make_capital = true;
+//     }
+//     if (make_capital) {
+//       conv[j++] = name[i];
+//     }
+//     make_capital = false;
+//   }
+//   conv[j] = '\0';
+//   return {conv};
+// }
+
+std::string hyphenatedPluginToCamel(const char *line) {
+  size_t len = strlen(line);
   char conv[len + 1];
-  size_t j = 0;
-  for (size_t i = 0; i < len - 1; ++i) {
-    if (name[i] == '-') {
-      ++i;
-      make_capital = true;
+  bool active = true;
+
+  for (int i = 0, j = 0; line[i] != '\0'; i++) {
+    if (std::isalpha(line[i])) {
+      if (active) {
+        conv[j] = std::toupper(line[i]);
+        active = false;
+      } else {
+        conv[j] = std::tolower(line[i]);
+      }
+      j++;
+    } else if (line[i] == '-') {
+      active = true;
     }
-    if (make_capital) {
-      conv[j++] = name[i];
-    }
-    make_capital = false;
   }
-  conv[j] = '\0';
+
   return {conv};
 }
 
@@ -3268,7 +3290,9 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
                                         RecordType,
                                         std::vector<RecordAttribute *> &);
 
-    auto conv = "create" + hyphenatedPluginToCamel(pgType) + "Plugin";
+    std::string conv = "create" + hyphenatedPluginToCamel(pgType) + "Plugin";
+
+    std::cout << "PluginName: " << hyphenatedPluginToCamel(pgType) << std::endl;
 
     plugin_creator_t create = (plugin_creator_t)dlsym(handle, conv.c_str());
 
