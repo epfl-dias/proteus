@@ -48,7 +48,7 @@ class TransactionManager {
   TransactionManager(TransactionManager const &) = delete;  // Don't Implement
   void operator=(TransactionManager const &) = delete;      // Don't implement
 
-  void snapshot_cow() {
+  void snapshot() {
     storage::Schema::getInstance().snapshot(this->get_next_xid(0));
   }
 

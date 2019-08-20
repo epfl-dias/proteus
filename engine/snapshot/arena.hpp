@@ -33,8 +33,8 @@ namespace snapshot {
 template <typename T>
 class Arena {
   struct metadata {
-    size_t numOfRecords;
-    size_t epoch_id;
+    uint64_t numOfRecords;
+    uint64_t epoch_id;
   };
 
  protected:

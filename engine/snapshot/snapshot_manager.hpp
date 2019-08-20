@@ -24,6 +24,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define AEOLUS_SNAPSHOT_SNAPSHOT_MANAGER_HPP_
 
 #include <cstdlib>
+#include "cor_const_arena.hpp"
 #include "cow_arena.hpp"
 
 namespace aeolus {

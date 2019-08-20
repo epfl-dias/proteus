@@ -69,9 +69,9 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
     }
     assert(tbl != nullptr);
 
-    uint64_t num_records = tbl->getNumRecords();
+    // uint64_t num_records = tbl->getNumRecords();
 
-    std::cout << "# Records " << num_records << std::endl;
+    // std::cout << "# Records " << num_records << std::endl;
 
     for (const auto &in : wantedFields) {
       const auto llvm_type = in->getOriginalType()->getLLVMType(llvmContext);
@@ -82,20 +82,25 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
 
       for (auto &c : tbl->getColumns()) {
         if (c->name.compare(in->getAttrName()) == 0) {
-          const std::vector<storage::mem_chunk *> d = c->get_data();
+          uint64_t num_records = c->snapshot_get_num_records();
+          std::cout << "NUM RECORDS:" << num_records << std::endl;
+
+          std::vector<storage::mem_chunk> d = c->snapshot_get_data();
 
           std::vector<mem_file> mfiles{d.size()};
 
           for (size_t i = 0; i < mfiles.size(); ++i) {
-            mfiles[i].data = d[i]->data;
+            mfiles[i].data = d[i].data;
 
-            if (d[i]->size >= (c->elem_size * num_records)) {
-              mfiles[i].size = d[i]->size;
-            } else {
-              // to be fixed but for now, Aeolus doesnt expand beyond single
-              // chunk so it will be ok.
-              assert(false && "FIX ME");
-            }
+            mfiles[i].size = c->elem_size * num_records;  // d[i].size;
+
+            // if (d[i].size >= (c->elem_size * num_records)) {
+            //   mfiles[i].size = d[i].size;
+            // } else {
+            //   // to be fixed but for now, Aeolus doesnt expand beyond single
+            //   // chunk so it will be ok.
+            //   assert(false && "FIX ME");
+            // }
           }
           wantedFieldsFiles.emplace_back(mfiles);
           break;

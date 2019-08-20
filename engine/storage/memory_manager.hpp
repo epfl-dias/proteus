@@ -35,6 +35,7 @@ struct mem_chunk {
 
   // latching or locking here?
   mem_chunk() : data(nullptr), size(0), numa_id(-1) {}
+
   mem_chunk(void* data, size_t size, int numa_id)
       : data(data), size(size), numa_id(numa_id) {}
 };

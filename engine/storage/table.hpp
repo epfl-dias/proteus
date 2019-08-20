@@ -240,10 +240,13 @@ class Column {
 
   size_t getSize() { return this->total_mem_reserved; }
 
-  const std::vector<mem_chunk *> get_data(ushort master_version = 0) {
-    assert(master_version <= global_conf::num_master_versions);
-    return master_versions[master_version];
-  }
+  // const std::vector<mem_chunk *> get_data(ushort master_version = 0) {
+  //   assert(master_version <= global_conf::num_master_versions);
+  //   return master_versions[master_version];
+  // }
+
+  std::vector<mem_chunk> snapshot_get_data();
+  uint64_t snapshot_get_num_records();
 
   const std::string name;
   const size_t elem_size;

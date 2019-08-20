@@ -45,7 +45,7 @@ static inline void set_upd_bit(const void* data) {
   *p = (*p) | (1 << 7);
 }
 
-inline void Schema::snapshot(uint64_t epoch) {
+void Schema::snapshot(uint64_t epoch) {
   for (auto& tbl : tables) {
     tbl->snapshot(epoch);
   }
@@ -58,8 +58,18 @@ inline void ColumnStore::snapshot(uint64_t epoch) {
 }
 
 inline void Column::snapshot(uint64_t num_records, uint64_t epoch) {
+#if HTAP_COW
   arena->destroy_snapshot();
   arena->create_snapshot({num_records, epoch});
+
+  this->master_versions[0][0]->data = arena->oltp();
+#endif
+  return;
+
+  // for (auto& ar : arena) {
+  //   ar->destroy_snapshot();
+  //   ar->create_snapshot({num_records, epoch});
+  // }
 }
 
 std::vector<Table*> Schema::getAllTable() { return tables; }
@@ -392,6 +402,27 @@ void Column::buildIndex() {
   this->is_indexed = true;
 }
 
+// struct snapshot_chunk {
+//   void* data;
+//   uint64_t num_records;
+// };
+
+std::vector<mem_chunk> Column::snapshot_get_data() {
+  // TODO: return
+  // return this->arena->olap();
+
+  std::vector<mem_chunk> ret;
+  ret.emplace_back(
+      arena->olap(),
+      (this->total_mem_reserved / global_conf::num_master_versions), 0);
+
+  return ret;
+}
+
+uint64_t Column::snapshot_get_num_records() {
+  return this->arena->getMetadata().numOfRecords;
+}
+
 Column::Column(std::string name, uint64_t initial_num_records, data_type type,
                size_t unit_size, bool build_index, bool single_version_only)
     : name(name),
@@ -411,15 +442,40 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
   int numa_id = global_conf::master_col_numa_id;
   size_t size = initial_num_records * unit_size;
   this->total_mem_reserved = size * global_conf::num_master_versions;
+
+#if HTAP_COW
+
   arena->create_snapshot({0, 0});
+  void* mem = arena->oltp();
+  uint64_t* pt = (uint64_t*)mem;
+  int warmup_max = size / sizeof(uint64_t);
+  for (int j = 0; j < warmup_max; j++) pt[j] = 0;
+  master_versions[0].emplace_back(new mem_chunk(mem, size, 0));
+
+  // for (ushort i = 0; i < NUM_SOCKETS; i++) {
+  //   auto tmp_arena =
+  //       global_conf::SnapshotManager::create(initial_num_records *
+  //       unit_size);
+  //   tmp_arena->create_snapshot({0, 0});
+  //   arena.push_back(tmp_arena);
+  //   void* mem = arena->oltp();
+
+  //   uint64_t* pt = (uint64_t*)mem;
+  //   int warmup_max = size / sizeof(uint64_t);
+  //   for (int j = 0; j < warmup_max; i++) pt[j] = 0;
+  //   master_versions[0].emplace_back(new mem_chunk(mem, size, i));
+  // }
+
+  // arena->create_snapshot({0, 0});
+
+#else
+
   // std::cout << "Column--" << name << "| size: " << size
   //          << "| num_r: " << initial_num_records << std::endl;
 
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
-#if HTAP_COW
-    void* mem = arena->oltp();
 
-#elif HTAP
+#if HTAP
     std::cout << "HTAP REMOTE ALLOCATION: " << (std::to_string(i) + "__" + name)
               << std::endl;
     std::cout << "TABLE UNIT SIZE: " << unit_size << std::endl;
@@ -444,11 +500,13 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
 
     uint64_t* pt = (uint64_t*)mem;
     int warmup_max = size / sizeof(uint64_t);
-    for (int i = 0; i < warmup_max; i++) pt[i] = 0;
+    for (int j = 0; j < warmup_max; j++) pt[j] = 0;
     master_versions[i].emplace_back(new mem_chunk(mem, size, numa_id));
 
     if (single_version_only) break;
   }
+
+#endif
 
   if (build_index) this->buildIndex();
 }

@@ -35,7 +35,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define MAX_WORKERS 128
 #define DELTA_SIZE 2  // 2G // 6442450944 6G
 #define HTAP false
-#define HTAP_COW true
+#define HTAP_COW false
 #define HTAP_UPD_BIT_MASK false
 #define SHARED_MEMORY false  // if htap=false, then shm or numa_alloc
 
