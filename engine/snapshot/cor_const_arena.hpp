@@ -34,31 +34,41 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 namespace aeolus {
 namespace snapshot {
 
-class CORConstArena {
- public:
+class CORConstArena : public Arena<CORConstArena> {
+ protected:
   size_t size_bytes;
 
- protected:
   int *const olap_arena;
   int *const oltp_arena;
   int shm_fd;
 
- public:
   int8_t *olap_start;
   int8_t *start;
   uint64_t *dirty;
   uint64_t *new_dirty;
   size_t dirty_segs;
 
+ protected:
+  class guard {
+   private:
+    guard(int) {}
+
+    friend class CORConstProvider;
+  };
+
  public:
-  CORConstArena(size_t size);
+  CORConstArena(size_t size, guard g);
   ~CORConstArena();
 
   int *oltp() const { return oltp_arena; }
   int *olap() const { return olap_arena; }
 
-  void create_snapshot();
-  void destroy_snapshot() {}
+ protected:
+  void create_snapshot_();
+  void destroy_snapshot_() {}
+
+  friend class Arena<CORConstArena>;
+  friend class CORConstProvider;
 };
 
 class CORConstProvider {
@@ -82,7 +92,7 @@ class CORConstProvider {
   static void deinit();
 
   static std::unique_ptr<CORConstArena> create(size_t size) {
-    auto ptr = std::make_unique<CORConstArena>(size);
+    auto ptr = std::make_unique<CORConstArena>(size, CORConstArena::guard{5});
     instances.emplace(ptr->olap(), ptr.get());
     return ptr;
   }

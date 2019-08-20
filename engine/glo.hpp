@@ -46,7 +46,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 namespace global_conf {
 
-using SnapshotManager = aeolus::snapshot::SnapshotManager_impl<>;
+using SnapshotManager = aeolus::snapshot::SnapshotManager;
 
 using ConcurrencyControl = txn::CC_MV2PL;  // CC_GlobalLock;
 using IndexVal = ConcurrencyControl::PRIMARY_INDEX_VAL;

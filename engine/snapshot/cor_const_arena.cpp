@@ -83,7 +83,7 @@ void CORConstProvider::handler(int sig, siginfo_t *siginfo, void *uap) {
 #pragma clang diagnostic pop
 }
 
-CORConstArena::CORConstArena(size_t size)
+CORConstArena::CORConstArena(size_t size, guard g)
     : size_bytes(size),
       olap_arena((int *)MemoryManager::mallocPinned(2 * size)),
       oltp_arena((int *)(((int8_t *)olap_arena) + size)) {
@@ -130,7 +130,7 @@ void CORConstProvider::init() {
   sigaction(SIGSEGV, &act, nullptr);
 }
 
-void CORConstArena::create_snapshot() {
+void CORConstArena::create_snapshot_() {
   // Should we mprotect before or after?
   // ANSWER:
   //    If we mprotect after, we may loose some updates!

@@ -127,7 +127,7 @@ void benchmark_writeall_sequencial(int *oltp_arena, size_t N,
     EXPECT_EQ(std::accumulate(oltp_arena, oltp_arena + N, 0), (int)(0 * N));
 
     for (size_t i = 0; i < 10; ++i) {
-      int *olap_arena = create_snapshot();
+      int *olap_arena = create_snapshot({});
       // gpu_run(cudaHostRegister(olap_arena, size_bytes, 0));
 
       // Try to write something from the OLTP side:
@@ -208,7 +208,7 @@ void benchmark_writeall_sequencial(int *oltp_arena, size_t N,
 //     munmap(olap_arena, size_bytes);
 //   };
 
-//   int *olap_arena = create_snapshot();
+//   int *olap_arena = create_snapshot({});
 //   // gpu_run(cudaHostRegister(olap_arena, size_bytes, 0));
 
 //   // Try to write something from the OLTP side:
@@ -225,7 +225,7 @@ void benchmark_writeall_sequencial(int *oltp_arena, size_t N,
 //   // we may have to update multiple ones upon a OLTP write.
 //   destroy_snapshot(olap_arena);
 
-//   olap_arena = create_snapshot();
+//   olap_arena = create_snapshot({});
 
 //   // Try to write something from the OLTP side:
 //   for (size_t i = 0; i < N; ++i) {
@@ -399,7 +399,7 @@ void benchmark_writeall_sequencial(int *oltp_arena, size_t N,
 //     // Throw away snapshot munmap(oltp_arena, size_bytes);
 //   };
 
-//   auto arenas = create_snapshot();
+//   auto arenas = create_snapshot({});
 //   // gpu_run(cudaHostRegister(olap_arena, size_bytes, 0));
 
 //   // Try to write something from the OLTP side:
@@ -416,7 +416,7 @@ void benchmark_writeall_sequencial(int *oltp_arena, size_t N,
 //   // we may have to update multiple ones upon a OLTP write.
 //   destroy_snapshot(arenas);
 
-//   arenas = create_snapshot();
+//   arenas = create_snapshot({});
 
 //   // EXPECT_EQ(std::accumulate(arenas.olap, arenas.olap + N, 0), (int)N);
 
@@ -433,7 +433,7 @@ void benchmark_writeall_sequencial(int *oltp_arena, size_t N,
 //   // we may have to update multiple ones upon a OLTP write.
 //   destroy_snapshot(arenas);
 
-//   arenas = create_snapshot();
+//   arenas = create_snapshot({});
 
 //   // Try to write something from the OLTP side:
 //   for (size_t i = 0; i < N; ++i) {
@@ -454,7 +454,7 @@ void benchmark_writeall_sequencial(size_t N) {
   auto arenas = arenas_t::create(N * sizeof(int));
   for (size_t j = 0; j < ITERS; ++j) {
     time_block t{"T: "};
-    arenas->create_snapshot();
+    arenas->create_snapshot({});
     // Put some data
     int *oltp_arena = arenas->oltp();
     for (size_t k = 0; k < N; ++k) {
@@ -465,7 +465,7 @@ void benchmark_writeall_sequencial(size_t N) {
 
     arenas->destroy_snapshot();
     for (size_t i = 0; i < 10; ++i) {
-      arenas->create_snapshot();
+      arenas->create_snapshot({});
       int *olap_arena = arenas->olap();
       int *oltp_arena = arenas->oltp();
       // gpu_run(cudaHostRegister(olap_arena, size_bytes, 0));
@@ -494,7 +494,7 @@ TEST_F(SnapshottingTest, cor2) {
   size_t N = size_bytes / sizeof(int);
 
   aeolus::snapshot::CORArena arenas{};
-  arenas.create_snapshot();
+  arenas.create_snapshot({});
   // gpu_run(cudaHostRegister(olap_arena, size_bytes, 0));
 
   int *olap_arena = arenas.olap();
@@ -510,7 +510,7 @@ TEST_F(SnapshottingTest, cor2) {
   // we may have to update multiple ones upon a OLTP write.
   arenas.destroy_snapshot();
 
-  arenas.create_snapshot();
+  arenas.create_snapshot({});
   olap_arena = arenas.olap();
   oltp_arena = arenas.oltp();
 
@@ -528,7 +528,7 @@ TEST_F(SnapshottingTest, cor2) {
   // we may have to update multiple ones upon a OLTP write.
   arenas.destroy_snapshot();
 
-  arenas.create_snapshot();
+  arenas.create_snapshot({});
   olap_arena = arenas.olap();
   oltp_arena = arenas.oltp();
 
@@ -569,7 +569,7 @@ void benchmark_writeone_random(size_t N) {
   const auto &arenas = arenas_t::create(N * sizeof(int));
   for (size_t j = 0; j < ITERS; ++j) {
     time_block t{"T: "};
-    arenas->create_snapshot();
+    arenas->create_snapshot({});
     // Put some data
     int *oltp_arena = arenas->oltp();
     for (size_t k = 0; k < N; ++k) {
@@ -580,7 +580,7 @@ void benchmark_writeone_random(size_t N) {
 
     arenas->destroy_snapshot();
     {
-      arenas->create_snapshot();
+      arenas->create_snapshot({});
       int *olap_arena = arenas->olap();
       int *oltp_arena = arenas->oltp();
       EXPECT_EQ(std::accumulate(oltp_arena, oltp_arena + N, 0), (int)(0 * 4));
@@ -588,7 +588,7 @@ void benchmark_writeone_random(size_t N) {
       arenas->destroy_snapshot();
     }
     for (size_t i = 0; i < 10; ++i) {
-      arenas->create_snapshot();
+      arenas->create_snapshot({});
       int *olap_arena = arenas->olap();
       int *oltp_arena = arenas->oltp();
       // gpu_run(cudaHostRegister(olap_arena, size_bytes, 0));
@@ -638,7 +638,7 @@ void benchmark_writeone_random_readsome(size_t N) {
   for (size_t j = 0; j < ITERS; ++j) {
     time_block t{"T: "};
     if (cuda) {
-      arenas->create_snapshot();
+      arenas->create_snapshot({});
       // Put some data
       int *oltp_arena = arenas->oltp();
       for (size_t k = 0; k < N; ++k) {
@@ -650,7 +650,7 @@ void benchmark_writeone_random_readsome(size_t N) {
 
       arenas->destroy_snapshot();
       {
-        arenas->create_snapshot();
+        arenas->create_snapshot({});
         int *olap_arena = arenas->olap();
         int *oltp_arena = arenas->oltp();
 
@@ -669,7 +669,7 @@ void benchmark_writeone_random_readsome(size_t N) {
         arenas->destroy_snapshot();
       }
       {
-        arenas->create_snapshot();
+        arenas->create_snapshot({});
         int *olap_arena = arenas->olap();
         int *oltp_arena = arenas->oltp();
         EXPECT_EQ(std::accumulate(oltp_arena, oltp_arena + N, 0),
@@ -680,7 +680,7 @@ void benchmark_writeone_random_readsome(size_t N) {
       }
     }
     {
-      arenas->create_snapshot();
+      arenas->create_snapshot({});
 
       int *oltp_arena = arenas->oltp();
       for (size_t k = 0; k < N; ++k) {
@@ -690,7 +690,7 @@ void benchmark_writeone_random_readsome(size_t N) {
       arenas->destroy_snapshot();
     }
     {
-      arenas->create_snapshot();
+      arenas->create_snapshot({});
       int *olap_arena = arenas->olap();
       int *oltp_arena = arenas->oltp();
       EXPECT_EQ(std::accumulate(oltp_arena, oltp_arena + N, 0), (int)0);
@@ -698,7 +698,7 @@ void benchmark_writeone_random_readsome(size_t N) {
       arenas->destroy_snapshot();
     }
     for (size_t i = 0; i < 10; ++i) {
-      arenas->create_snapshot();
+      arenas->create_snapshot({});
       int *olap_arena = arenas->olap();
       int *oltp_arena = arenas->oltp();
       // gpu_run(cudaHostRegister(olap_arena, size_bytes, 0));
@@ -742,4 +742,15 @@ TEST_F(SnapshottingTest, cow_random_readsome) {
 TEST_F(SnapshottingTest, cor_const_random_readsome) {
   std::string testLabel = "cor_const_random_readsome";
   benchmark_writeone_random_readsome<aeolus::snapshot::CORConstProvider>(N);
+}
+
+TEST_F(SnapshottingTest, cow_random_readsome2) {
+  std::string testLabel = "cow_random_readsome2";
+  benchmark_writeone_random_readsome<aeolus::snapshot::COWProvider, true>(N);
+}
+
+TEST_F(SnapshottingTest, cor_const_random_readsome2) {
+  std::string testLabel = "cor_const_random_readsome2";
+  benchmark_writeone_random_readsome<aeolus::snapshot::CORConstProvider, true>(
+      N);
 }

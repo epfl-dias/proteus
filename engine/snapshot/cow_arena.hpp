@@ -33,28 +33,40 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 namespace aeolus {
 namespace snapshot {
 
-class COWArena {
- public:
+class COWArena : public Arena<COWArena> {
+ protected:
   int shm_fd;
   size_t size_bytes;
   int8_t *save_to;
   int8_t *start;
 
- public:
   int *oltp_arena;
   int *olap_arena;
 
-  COWArena(size_t size);
+ protected:
+  class guard {
+  private:
+    guard(int){}
+
+    friend class COWProvider;
+  };
+
+ public:
+  COWArena(size_t size, guard g);
   ~COWArena();
 
   int *oltp() const { return oltp_arena; }
   int *olap() const { return olap_arena; }
 
-  void create_snapshot();
-  void destroy_snapshot();
+ protected:
+  void create_snapshot_();
+  void destroy_snapshot_();
+
+  friend class Arena<COWArena>;
+  friend class COWProvider;
 };
 
-class COWProvider : public Arena<COWProvider> {
+class COWProvider {
  public:
   static size_t page_size;
   static std::map<void *, COWArena *, std::greater<>> instances;
@@ -75,7 +87,7 @@ class COWProvider : public Arena<COWProvider> {
   static void deinit();
 
   static std::unique_ptr<COWArena> create(size_t size) {
-    auto ptr = std::make_unique<COWArena>(size);
+    auto ptr = std::make_unique<COWArena>(size, COWArena::guard{5});
     instances.emplace(ptr->oltp(), ptr.get());
     return ptr;
   }

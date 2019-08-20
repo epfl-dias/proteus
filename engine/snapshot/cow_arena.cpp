@@ -61,7 +61,8 @@ void COWProvider::handler(int sig, siginfo_t *siginfo, void *uap) {
 #pragma clang diagnostic pop
 }
 
-COWArena::COWArena(size_t size) : size_bytes(size) {
+COWArena::COWArena(size_t size, guard) : size_bytes(size) {
+  assert(size_bytes && "Requested empty arena");
   shm_fd = memfd_create("cow", 0);
   if (shm_fd < 0) {
     auto msg = std::string{"memfd failed"};
@@ -103,7 +104,7 @@ void COWProvider::init() {
   sigaction(SIGSEGV, &act, nullptr);
 }
 
-void COWArena::create_snapshot() {
+void COWArena::create_snapshot_() {
   // Should we mprotect before or after?
   // ANSWER:
   //    If we mprotect after, we may loose some updates!
@@ -127,7 +128,7 @@ void COWArena::create_snapshot() {
   // return olap_arena;
 }
 
-void COWArena::destroy_snapshot() {
+void COWArena::destroy_snapshot_() {
   // time_block t{"T2: "};
   // Throw away snapshot
   munmap(olap_arena, size_bytes);

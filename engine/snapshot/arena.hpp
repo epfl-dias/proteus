@@ -25,25 +25,37 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include <cstddef>
 #include <cstdlib>
+#include <utility>
 
 namespace aeolus {
 namespace snapshot {
 
 template <typename T>
 class Arena {
- public:
-  Arena() = default;
+  struct metadata {
+    size_t numOfRecords;
+    size_t epoch_id;
+  };
 
  protected:
+  metadata duringSnapshot;
+
+  Arena() = default;
+
   Arena(const Arena&) = delete;
   Arena(Arena&&) = delete;
   Arena& operator=(const Arena&) = delete;
   Arena& operator=(Arena&&) = delete;
 
  public:
-  void create_snapshot() { T::create_snapshot(); }
+  void create_snapshot(metadata save) {
+    duringSnapshot = std::move(save);
+    static_cast<T&>(*this).create_snapshot_();
+  }
 
-  void destroy_snapshot() { T::destroy_snapshot(); }
+  const metadata& getMetadata() const { return duringSnapshot; }
+
+  void destroy_snapshot() { static_cast<T&>(*this).destroy_snapshot_(); }
 
   void* oltp() const { return T::oltp(); }
   void* olap() const { return T::olap(); }

@@ -32,7 +32,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 namespace aeolus {
 namespace snapshot {
 
-class CORArena : public Arena<CORArena> {
+class CORArena {
  private:
   static uint64_t *dirty;
   static uint64_t *new_dirty;

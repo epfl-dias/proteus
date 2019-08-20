@@ -59,7 +59,7 @@ inline void ColumnStore::snapshot(uint64_t epoch) {
 
 inline void Column::snapshot(uint64_t num_records, uint64_t epoch) {
   arena->destroy_snapshot();
-  arena->create_snapshot();  //(num_records, epoch);
+  arena->create_snapshot({num_records, epoch});
 }
 
 std::vector<Table*> Schema::getAllTable() { return tables; }
@@ -411,7 +411,7 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
   int numa_id = global_conf::master_col_numa_id;
   size_t size = initial_num_records * unit_size;
   this->total_mem_reserved = size * global_conf::num_master_versions;
-  // arena->create_snapshot();
+  arena->create_snapshot({0, 0});
   // std::cout << "Column--" << name << "| size: " << size
   //          << "| num_r: " << initial_num_records << std::endl;
 
