@@ -45,8 +45,8 @@ class COWArena : public Arena<COWArena> {
 
  protected:
   class guard {
-  private:
-    guard(int){}
+   private:
+    guard(int) {}
 
     friend class COWProvider;
   };
@@ -87,6 +87,7 @@ class COWProvider {
   static void deinit();
 
   static std::unique_ptr<COWArena> create(size_t size) {
+    size = ((size + page_size - 1) / page_size) * page_size;
     auto ptr = std::make_unique<COWArena>(size, COWArena::guard{5});
     instances.emplace(ptr->oltp(), ptr.get());
     return ptr;

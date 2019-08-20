@@ -92,6 +92,7 @@ class CORConstProvider {
   static void deinit();
 
   static std::unique_ptr<CORConstArena> create(size_t size) {
+    size = ((size + page_size - 1) / page_size) * page_size;
     auto ptr = std::make_unique<CORConstArena>(size, CORConstArena::guard{5});
     instances.emplace(ptr->olap(), ptr.get());
     return ptr;
