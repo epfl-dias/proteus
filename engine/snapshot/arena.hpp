@@ -47,8 +47,8 @@ class Arena {
   void* oltp() const { return T::oltp(); }
   void* olap() const { return T::olap(); }
 
-  void init(size_t size) { T::init(size); }
-  void destroy(size_t size) {}
+  static void init(size_t size) { T::init(size); }
+  static void deinit() { T::deinit(); }
 };
 
 }  // namespace snapshot

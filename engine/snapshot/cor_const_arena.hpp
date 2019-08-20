@@ -24,41 +24,70 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define AEOLUS_SNAPSHOT_COR_CONST_ARENA_HPP_
 
 #include <signal.h>
-
+#include <cassert>
 #include <cstdint>
-
+#include <iostream>
+#include <map>
+#include <memory>
 #include "arena.hpp"
 
 namespace aeolus {
 namespace snapshot {
 
-class CORConstArena : public Arena<CORConstArena> {
- protected:
-  static uint64_t *dirty;
-  static uint64_t *new_dirty;
-  static int8_t **find_at;
-  static int8_t *olap_start;
-  static size_t size_bytes;
-  static size_t page_size;
+class CORConstArena {
+ public:
+  size_t size_bytes;
 
-  static int *oltp_arena;
-  static int *olap_arena;
-  static int shm_fd;
-  static size_t dirty_segs;
-  static int8_t *start;
+ protected:
+  int *const olap_arena;
+  int *const oltp_arena;
+  int shm_fd;
+
+ public:
+  int8_t *olap_start;
+  int8_t *start;
+  uint64_t *dirty;
+  uint64_t *new_dirty;
+  size_t dirty_segs;
+
+ public:
+  CORConstArena(size_t size);
+  ~CORConstArena();
+
+  int *oltp() const { return oltp_arena; }
+  int *olap() const { return olap_arena; }
+
+  void create_snapshot();
+  void destroy_snapshot() {}
+};
+
+class CORConstProvider {
+ public:
+  static size_t page_size;
+  static std::map<void *, CORConstArena *, std::greater<>> instances;
+
+ private:
+  static CORConstArena *getInstance(void *addr) {
+    return instances.lower_bound(addr)->second;
+  }
+
+ private:
+  static void remove(void *olap) { instances.erase(olap); }
 
  public:
   static void handler(int sig, siginfo_t *siginfo, void *uap);
 
  public:
-  static void init(size_t size_bytes);
+  static void init();
+  static void deinit();
 
-  int *oltp() { return oltp_arena; }
-  int *olap() { return olap_arena; }
+  static std::unique_ptr<CORConstArena> create(size_t size) {
+    auto ptr = std::make_unique<CORConstArena>(size);
+    instances.emplace(ptr->olap(), ptr.get());
+    return ptr;
+  }
 
-  void create_snapshot(void *place_at = nullptr);
-
-  void destroy_snapshot() {}
+  friend class CORConstArena;
 };
 
 }  // namespace snapshot

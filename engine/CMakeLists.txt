@@ -15,7 +15,9 @@ set(txn_engine_cxx
     snapshot/cor_const_arena.cpp
     )
 
-
+foreach(target ${txn_engine_cxx})
+    set_source_files_properties(${target} PROPERTIES COMPILE_FLAGS ${CUDA_CXXFLAGS})
+endforeach()
 
 #-----------------------------------------------------------------------------
 

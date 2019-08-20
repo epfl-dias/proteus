@@ -20,6 +20,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
+#ifndef AEOLUS_SNAPSHOT_SNAPSHOT_MANAGER_HPP_
+#define AEOLUS_SNAPSHOT_SNAPSHOT_MANAGER_HPP_
+
 #include "arena.hpp"
 
 namespace aeolus {
@@ -28,14 +31,15 @@ namespace snapshot {
 template <typename T>
 class SnapshotManager_impl {
  public:
-  static void init(size_t size) { T::init(size); }
-  static void destroy() { T::destroy(); }
+  static void init() { T::init(); }
+  static void deinit() { T::deinit(); }
 
-  static T create(size_t bytes) { return {}; }
-  static void destroy(Arena<T>&& arena) {}
+  static auto create(size_t bytes) { return T::create(bytes); }
 
  private:
 };
 
 }  // namespace snapshot
 }  // namespace aeolus
+
+#endif /* AEOLUS_SNAPSHOT_SNAPSHOT_MANAGER_HPP_ */

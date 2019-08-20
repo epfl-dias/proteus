@@ -64,7 +64,7 @@ void CORArena::handler2(int sig, siginfo_t *siginfo, void *uap) {
   } else {
     auto offset = (((int8_t *)addr) - start) / page_size;
     uint64_t mask = ((uint64_t)1) << (offset % 64);
-    assert(offset / 64 <= dirty_segs);
+    assert(offset / 64 < dirty_segs);
     if (dirty[offset / 64] & mask) {
       fix_olap(((int8_t *)olap_start) + offset * page_size);
       mprotect(addr, page_size, PROT_READ);
@@ -96,7 +96,7 @@ void CORArena::handler(int sig, siginfo_t *siginfo, void *uap) {
   } else {
     auto offset = (((int8_t *)addr) - start) / page_size;
     uint64_t mask = ((uint64_t)1) << (offset % 64);
-    assert(offset / 64 <= dirty_segs);
+    assert(offset / 64 < dirty_segs);
     new_dirty[offset / 64] |= mask;
     if (dirty[offset / 64] & mask) {
       {

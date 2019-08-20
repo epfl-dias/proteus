@@ -23,6 +23,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "cor_const_arena.hpp"
 
 #include "common/common.hpp"
+#include "memory/memory-manager.hpp"
 
 #include <glog/logging.h>
 #include <sys/mman.h>
@@ -35,7 +36,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 namespace aeolus {
 namespace snapshot {
 
-void CORConstArena::handler(int sig, siginfo_t *siginfo, void *uap) {
+void CORConstProvider::handler(int sig, siginfo_t *siginfo, void *uap) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
   // printf("\nAttempt to access memory at address %p\n", siginfo->si_addr);
@@ -49,40 +50,44 @@ void CORConstArena::handler(int sig, siginfo_t *siginfo, void *uap) {
 
   void *addr = (void *)(((uintptr_t)siginfo->si_addr) & ~(page_size - 1));
 
-  if (addr >= olap_start && addr < olap_start + size_bytes) {
-    auto offset = (((int8_t *)addr) - olap_start) / page_size;
+  const auto &instance = getInstance(addr);
+
+  if (addr >= instance->olap_start &&
+      addr < instance->olap_start + instance->size_bytes) {
+    auto offset = (((int8_t *)addr) - instance->olap_start) / page_size;
 
     mprotect(addr, page_size, PROT_READ | PROT_WRITE);
-    mprotect(start + offset * page_size, page_size, PROT_READ);
+    mprotect(instance->start + offset * page_size, page_size, PROT_READ);
 
-    std::memcpy(addr, start + offset * page_size, page_size);
+    std::memcpy(addr, instance->start + offset * page_size, page_size);
     uint64_t mask = ((uint64_t)1) << (offset % 64);
-    assert(offset / 64 <= dirty_segs);
-    dirty[offset / 64] &= ~mask;
-    new_dirty[offset / 64] |= mask;
+    assert(offset / 64 < instance->dirty_segs);
+    instance->dirty[offset / 64] &= ~mask;
+    instance->new_dirty[offset / 64] |= mask;
 
     // fix_olap((int8_t *)addr);
   } else {
-    auto offset = (((int8_t *)addr) - start) / page_size;
+    auto offset = (((int8_t *)addr) - instance->start) / page_size;
 
-    mprotect(olap_start + offset * page_size, page_size,
+    mprotect(instance->olap_start + offset * page_size, page_size,
              PROT_READ | PROT_WRITE);
     mprotect(addr, page_size, PROT_READ | PROT_WRITE);
 
     uint64_t mask = ((uint64_t)1) << (offset % 64);
-    assert(offset / 64 <= dirty_segs);
-    if (!(new_dirty[offset / 64] & mask)) {
-      std::memcpy(olap_start + offset * page_size, addr, page_size);
+    assert(offset / 64 < instance->dirty_segs);
+    if (!(instance->new_dirty[offset / 64] & mask)) {
+      std::memcpy(instance->olap_start + offset * page_size, addr, page_size);
     }
-    dirty[offset / 64] |= mask;
+    instance->dirty[offset / 64] |= mask;
   }
 #pragma clang diagnostic pop
 }
 
-void CORConstArena::init(size_t size_bytes) {
-  page_size = getpagesize();
-  CORConstArena::size_bytes = size_bytes;
-  shm_fd = memfd_create("CORConstArena", 0);
+CORConstArena::CORConstArena(size_t size)
+    : size_bytes(size),
+      olap_arena((int *)MemoryManager::mallocPinned(2 * size)),
+      oltp_arena((int *)(((int8_t *)olap_arena) + size)) {
+  shm_fd = memfd_create("CORConstProvider", 0);
   if (shm_fd < 0) {
     auto msg = std::string{"memfd failed"};
     LOG(ERROR) << msg;
@@ -93,25 +98,25 @@ void CORConstArena::init(size_t size_bytes) {
     LOG(ERROR) << msg;
     throw std::runtime_error(msg);
   }
-  size_t N = size_bytes / sizeof(int);
-  size_t num_of_pages = size_bytes / page_size;
+  size_t num_of_pages = size_bytes / CORConstProvider::page_size;
 
   dirty_segs = (num_of_pages + 63) / 64;
   dirty = (uint64_t *)calloc(dirty_segs, sizeof(int64_t));
   new_dirty = (uint64_t *)calloc(dirty_segs, sizeof(int64_t));
-  find_at = (int8_t **)calloc(num_of_pages, sizeof(void *));
 
-  // Mark MAP_SHARED so that we can map the same memory multiple times
-  olap_arena = (int *)mmap(nullptr, size_bytes, PROT_WRITE | PROT_READ,
-                           MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   olap_start = (int8_t *)olap_arena;
-  assert(olap_arena != MAP_FAILED);
 
-  oltp_arena = (int *)mmap(nullptr, size_bytes, PROT_WRITE | PROT_READ,
-                           MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   start = (int8_t *)oltp_arena;
-  assert(oltp_arena != MAP_FAILED);
   // Create snapshot
+}
+
+CORConstArena::~CORConstArena() {
+  CORConstProvider::remove(olap_arena);
+  MemoryManager::freePinned(olap_arena);
+}
+
+void CORConstProvider::init() {
+  page_size = getpagesize();
 
   // 0. Install handler to lazily steal and save data to-be-overwritten by
   // OLTP
@@ -119,13 +124,13 @@ void CORConstArena::init(size_t size_bytes) {
   sigemptyset(&act.sa_mask);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
-  act.sa_sigaction = CORConstArena::handler;
+  act.sa_sigaction = CORConstProvider::handler;
 #pragma clang diagnostic pop
   act.sa_flags = SA_SIGINFO | SA_ONSTACK;
   sigaction(SIGSEGV, &act, nullptr);
 }
 
-void CORConstArena::create_snapshot(void *place_at) {
+void CORConstArena::create_snapshot() {
   // Should we mprotect before or after?
   // ANSWER:
   //    If we mprotect after, we may loose some updates!
@@ -153,8 +158,9 @@ void CORConstArena::create_snapshot(void *place_at) {
       d ^= bit;
       size_t bit_index = __builtin_popcountll(bit - 1);
       size_t page_offset = i * 64 + bit_index;
-      size_t offset = page_offset * page_size;
-      assert(mprotect(((int8_t *)olap_arena) + offset, page_size,
+      size_t offset = page_offset * CORConstProvider::page_size;
+      assert(mprotect(((int8_t *)olap_arena) + offset,
+                      CORConstProvider::page_size,
                       // PROT_WRITE would be sufficient and prefered, but on
                       // some architectures in also implies PROT_READ!
                       PROT_NONE) >= 0);
@@ -169,45 +175,8 @@ void CORConstArena::create_snapshot(void *place_at) {
   // return {olap_arena, oltp_arena};
 }
 
-void destroy_snapshot() {
-  // // time_block t{"T2: "};
-  // // TODO the eager version: instead of the code below, apply the changes
-  // assert(mprotect(oltp_arena, size_bytes, PROT_WRITE | PROT_READ) >= 0);
-  // for (size_t i = 0; i < dirty_segs; ++i) {
-  //   dirty[i] |= new_dirty[i];
-  //   uint64_t d = dirty[i];
-  //   while (d) {
-  //     uint64_t bit = d & -d;
-  //     d ^= bit;
-  //     size_t bit_index = __builtin_popcountll(bit - 1);
-  //     size_t page_offset = i * 64 + bit_index;
-  //     size_t offset = page_offset * page_size;
-  //     if (new_dirty[i] & bit) {
-  //       find_at[page_offset] = ((int8_t *)oltp_arena) + offset;
-  //     }
-  //     assert(mprotect(((int8_t *)olap_arena) + offset, page_size,
-  //                     // PROT_WRITE would be sufficient and prefered, but
-  //                     on
-  //                     // some architectures in also implies PROT_READ!
-  //                     PROT_NONE) >= 0);
-  //   }
-  //   new_dirty[i] = 0;
-}
-// If we do not mremap oltp_arena, then the next oltp_arena will be in a
-// different virtual address
-
-uint64_t *CORConstArena::dirty;
-uint64_t *CORConstArena::new_dirty;
-int8_t **CORConstArena::find_at;
-int8_t *CORConstArena::olap_start;
-size_t CORConstArena::size_bytes;
-size_t CORConstArena::page_size;
-
-int *CORConstArena::olap_arena;
-int *CORConstArena::oltp_arena;
-int CORConstArena::shm_fd;
-size_t CORConstArena::dirty_segs;
-int8_t *CORConstArena::start;
+size_t CORConstProvider::page_size;
+std::map<void *, CORConstArena *, std::greater<>> CORConstProvider::instances;
 
 }  // namespace snapshot
 }  // namespace aeolus

@@ -33,7 +33,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 namespace aeolus {
 namespace snapshot {
 
-void COWArena::handler(int sig, siginfo_t *siginfo, void *uap) {
+void COWProvider::handler(int sig, siginfo_t *siginfo, void *uap) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
   //   printf("\nAttempt to access memory at address %p\n", siginfo->si_addr);
@@ -45,13 +45,15 @@ void COWArena::handler(int sig, siginfo_t *siginfo, void *uap) {
   //          (((ucontext_t *)uap)->uc_mcontext.gregs[14]));
   // #endif
   void *addr = (void *)(((uintptr_t)siginfo->si_addr) & ~(page_size - 1));
-  auto offset = ((int8_t *)addr) - start;
+
+  const auto &instance = getInstance(addr);
+  auto offset = ((int8_t *)addr) - instance->start;
 
   // auto f = mremap(src2 + offset, page_size, page_size,
   //                 MREMAP_FIXED | MREMAP_MAYMOVE, addr);
   // assert(f != MAP_FAILED);
   // assert(f == addr);
-  std::memcpy(save_to + offset, addr, page_size);
+  std::memcpy(instance->save_to + offset, addr, page_size);
 
   mprotect(addr, page_size, PROT_READ | PROT_WRITE);
   // signal(sig, SIG_DFL);
@@ -59,9 +61,7 @@ void COWArena::handler(int sig, siginfo_t *siginfo, void *uap) {
 #pragma clang diagnostic pop
 }
 
-void COWArena::init(size_t size_bytes) {
-  page_size = getpagesize();
-  COWArena::size_bytes = size_bytes;
+COWArena::COWArena(size_t size) : size_bytes(size) {
   shm_fd = memfd_create("cow", 0);
   if (shm_fd < 0) {
     auto msg = std::string{"memfd failed"};
@@ -75,12 +75,20 @@ void COWArena::init(size_t size_bytes) {
   }
   size_t N = size_bytes / sizeof(int);
 
+  // preallocate some consecutive memory so that we can overwrite it
+  void *prealloc = mmap(nullptr, 2 * size_bytes, PROT_WRITE | PROT_READ,
+                        MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   // Mark MAP_SHARED so that we can map the same memory multiple times
-  oltp_arena = (int *)mmap(nullptr, size_bytes, PROT_WRITE | PROT_READ,
-                           MAP_SHARED, shm_fd, 0);
+  oltp_arena = (int *)mmap(prealloc, size_bytes, PROT_WRITE | PROT_READ,
+                           MAP_SHARED | MAP_FIXED, shm_fd, 0);
   assert(oltp_arena != MAP_FAILED);
   start = (int8_t *)oltp_arena;
+}
 
+COWArena::~COWArena() { COWProvider::remove(oltp_arena); }
+
+void COWProvider::init() {
+  page_size = getpagesize();
   // Create snapshot
 
   // 0. Install handler to lazily steal and save data to-be-overwritten by
@@ -89,13 +97,13 @@ void COWArena::init(size_t size_bytes) {
   sigemptyset(&act.sa_mask);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
-  act.sa_sigaction = COWArena::handler;
+  act.sa_sigaction = COWProvider::handler;
 #pragma clang diagnostic pop
   act.sa_flags = SA_SIGINFO | SA_ONSTACK;
   sigaction(SIGSEGV, &act, nullptr);
 }
 
-void COWArena::create_snapshot(void *place_at) {
+void COWArena::create_snapshot() {
   // Should we mprotect before or after?
   // ANSWER:
   //    If we mprotect after, we may loose some updates!
@@ -111,8 +119,9 @@ void COWArena::create_snapshot(void *place_at) {
   // 2.ii  In addition, as we want to hide the OLTP changes from the OLAP
   // side, we have to catch OLTP writes, still the underlying data and
   // replicate the, to the OLAP side.
-  olap_arena = (int *)mmap(place_at, size_bytes, PROT_WRITE | PROT_READ,
-                           MAP_PRIVATE | (place_at ? MAP_FIXED : 0), shm_fd, 0);
+  olap_arena =
+      (int *)mmap(start + size_bytes, size_bytes, PROT_WRITE | PROT_READ,
+                  MAP_PRIVATE | MAP_FIXED, shm_fd, 0);
   assert(olap_arena != MAP_FAILED);
   save_to = (int8_t *)olap_arena;
   // return olap_arena;
@@ -124,11 +133,8 @@ void COWArena::destroy_snapshot() {
   munmap(olap_arena, size_bytes);
 }
 
-int COWArena::shm_fd;
-size_t COWArena::size_bytes;
-int8_t *COWArena::save_to;
-int8_t *COWArena::start;
-int *COWArena::oltp_arena;
-size_t COWArena::page_size;
+size_t COWProvider::page_size;
+std::map<void *, COWArena *, std::greater<>> COWProvider::instances;
+
 }  // namespace snapshot
 }  // namespace aeolus

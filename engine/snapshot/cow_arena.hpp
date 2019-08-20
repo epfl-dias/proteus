@@ -24,35 +24,63 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define AEOLUS_SNAPSHOT_COW_ARENA_HPP_
 
 #include <signal.h>
-
 #include <cstdint>
+#include <map>
+#include <memory>
 
 #include "arena.hpp"
 
 namespace aeolus {
 namespace snapshot {
 
-class COWArena : public Arena<COWArena> {
-  static int shm_fd;
-  static size_t size_bytes;
-  static int8_t *save_to;
-  static int8_t *start;
+class COWArena {
+ public:
+  int shm_fd;
+  size_t size_bytes;
+  int8_t *save_to;
+  int8_t *start;
+
+ public:
+  int *oltp_arena;
+  int *olap_arena;
+
+  COWArena(size_t size);
+  ~COWArena();
+
+  int *oltp() const { return oltp_arena; }
+  int *olap() const { return olap_arena; }
+
+  void create_snapshot();
+  void destroy_snapshot();
+};
+
+class COWProvider : public Arena<COWProvider> {
+ public:
   static size_t page_size;
+  static std::map<void *, COWArena *, std::greater<>> instances;
+
+ private:
+  static COWArena *getInstance(void *addr) {
+    return instances.lower_bound(addr)->second;
+  }
+
+ private:
+  static void remove(void *oltp) { instances.erase(oltp); }
 
  public:
   static void handler(int sig, siginfo_t *siginfo, void *uap);
 
-  static int *oltp_arena;
-  int *olap_arena;
+ public:
+  static void init();
+  static void deinit();
 
-  static void init(size_t size_bytes);
+  static std::unique_ptr<COWArena> create(size_t size) {
+    auto ptr = std::make_unique<COWArena>(size);
+    instances.emplace(ptr->oltp(), ptr.get());
+    return ptr;
+  }
 
-  int *oltp() { return oltp_arena; }
-  int *olap() { return olap_arena; }
-
-  void create_snapshot(void *place_at = nullptr);
-
-  void destroy_snapshot();
+  friend class COWArena;
 };
 
 }  // namespace snapshot
