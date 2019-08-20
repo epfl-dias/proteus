@@ -29,6 +29,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "glo.hpp"
 #include "scheduler/worker.hpp"
+#include "storage/table.hpp"
 #include "transactions/cc.hpp"
 #include "transactions/txn_utils.hpp"
 //#include "utils/utils.hpp"
@@ -46,6 +47,10 @@ class TransactionManager {
   }
   TransactionManager(TransactionManager const &) = delete;  // Don't Implement
   void operator=(TransactionManager const &) = delete;      // Don't implement
+
+  void snapshot_cow() {
+    storage::Schema::getInstance().snapshot(this->get_next_xid(0));
+  }
 
   uint64_t switch_master(uint8_t &curr_master) {
     assert(global_conf::num_master_versions > 1);

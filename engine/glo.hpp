@@ -27,11 +27,15 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "indexes/hash_index.hpp"
 #include "transactions/cc.hpp"
 
+#include "snapshot/arena.hpp"
+#include "snapshot/snapshot_manager.hpp"
+
 #define NUM_SOCKETS 2
 #define NUM_CORE_PER_SOCKET 64
 #define MAX_WORKERS 128
 #define DELTA_SIZE 2  // 2G // 6442450944 6G
 #define HTAP false
+#define HTAP_COW true
 #define HTAP_UPD_BIT_MASK false
 #define SHARED_MEMORY false  // if htap=false, then shm or numa_alloc
 
@@ -41,6 +45,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 // using HashIndex = cuckoohash_map<key, hash_val>;
 
 namespace global_conf {
+
+using SnapshotManager = aeolus::snapshot::SnapshotManager_impl<>;
 
 using ConcurrencyControl = txn::CC_MV2PL;  // CC_GlobalLock;
 using IndexVal = ConcurrencyControl::PRIMARY_INDEX_VAL;

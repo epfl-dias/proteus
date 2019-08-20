@@ -45,7 +45,25 @@ static inline void set_upd_bit(const void* data) {
   *p = (*p) | (1 << 7);
 }
 
+inline void Schema::snapshot(uint64_t epoch) {
+  for (auto& tbl : tables) {
+    tbl->snapshot(epoch);
+  }
+}
+inline void ColumnStore::snapshot(uint64_t epoch) {
+  uint64_t num_records = this->vid.load() - 1;
+  for (auto& col : columns) {
+    col->snapshot(epoch, num_records);
+  }
+}
+
+inline void Column::snapshot(uint64_t num_records, uint64_t epoch) {
+  arena->destroy_snapshot();
+  arena->create_snapshot();  //(num_records, epoch);
+}
+
 std::vector<Table*> Schema::getAllTable() { return tables; }
+
 void Schema::initiate_gc(ushort ver) {  // deltaStore[ver]->try_reset_gc();
 }
 
@@ -376,7 +394,11 @@ void Column::buildIndex() {
 
 Column::Column(std::string name, uint64_t initial_num_records, data_type type,
                size_t unit_size, bool build_index, bool single_version_only)
-    : name(name), elem_size(unit_size), type(type) {
+    : name(name),
+      elem_size(unit_size),
+      type(type),
+      arena(global_conf::SnapshotManager::create(initial_num_records *
+                                                 unit_size)) {
   /*
   ALGO:
           - Allocate memory for that column with default start number of records
@@ -389,12 +411,15 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
   int numa_id = global_conf::master_col_numa_id;
   size_t size = initial_num_records * unit_size;
   this->total_mem_reserved = size * global_conf::num_master_versions;
-
+  // arena->create_snapshot();
   // std::cout << "Column--" << name << "| size: " << size
   //          << "| num_r: " << initial_num_records << std::endl;
 
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
-#if HTAP
+#if HTAP_COW
+    void* mem = arena->oltp();
+
+#elif HTAP
     std::cout << "HTAP REMOTE ALLOCATION: " << (std::to_string(i) + "__" + name)
               << std::endl;
     std::cout << "TABLE UNIT SIZE: " << unit_size << std::endl;
@@ -414,6 +439,7 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
     //   mem = MemoryManager::alloc(size, i);
 
     void* mem = MemoryManager::alloc(size, i);
+
 #endif
 
     uint64_t* pt = (uint64_t*)mem;

@@ -79,6 +79,7 @@ class Schema {
                     uint8_t worker_id);
 
   void teardown();
+  void snapshot(uint64_t epoch);
   std::vector<Table *> getTables() { return tables; }
   uint64_t total_mem_reserved;
   uint64_t total_delta_mem_reserved;
@@ -97,6 +98,8 @@ class Schema {
   // MultiVersioning
 
   Schema() {
+    global_conf::SnapshotManager::init();
+
     total_mem_reserved = 0;
     total_delta_mem_reserved = 0;
     rid = 0;
@@ -110,6 +113,7 @@ class Schema {
       }
     }
   }
+
   friend class Table;
 };
 
@@ -139,11 +143,12 @@ class Table {
   virtual global_conf::mv_version_list *getVersions(uint64_t vid,
                                                     ushort delta_ver) = 0;
 
+  virtual void snapshot(uint64_t epoch) = 0;
   void printDetails() {
     std::cout << "Number of Columns:\t" << num_columns << std::endl;
   }
 
-  uint64_t getNumRecords() { return vid.load(); }
+  uint64_t getNumRecords() { return (vid.load() - 1); }
 
   Table(std::string name, uint8_t table_id)
       : name(name), table_id(table_id), vid(0), total_mem_reserved(0) {}
@@ -192,6 +197,7 @@ class ColumnStore : public Table {
 
   global_conf::mv_version_list *getVersions(uint64_t vid, ushort delta_ver);
 
+  void snapshot(uint64_t epoch);
   void num_upd_tuples();
   const std::vector<Column *> &getColumns() { return columns; }
 
@@ -228,6 +234,8 @@ class Column {
   void updateElem(uint64_t offset, void *elem, ushort master_ver);
   void deleteElem(uint64_t offset, ushort master_ver);
 
+  void snapshot(uint64_t num_records, uint64_t epoch);
+
   void num_upd_tuples();
 
   size_t getSize() { return this->total_mem_reserved; }
@@ -245,13 +253,10 @@ class Column {
   size_t total_mem_reserved;
   bool is_indexed;
 
-  // indexes::Index* index_ptr;
-  // we need data structure for # number of master versions and delta storage
-  // for MVCC.
   std::vector<mem_chunk *> master_versions[global_conf::num_master_versions];
 
-  // std::vector<std::pair<int, std::vector<mem_chunk*>>> master_ver;
-  // std::vector<mem_chunk*> data_ptr;
+  // Insert snapshotting manager here.
+  decltype(global_conf::SnapshotManager::create(0)) arena;
 
   friend class ColumnStore;
 };

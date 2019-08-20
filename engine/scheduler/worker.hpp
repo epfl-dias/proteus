@@ -72,7 +72,7 @@ enum WORKER_STATE { READY, RUNNING, PAUSED, TERMINATED };
 class Worker {
   uint8_t id;
   volatile bool terminate;
-  volatile bool pause;
+  bool pause;
   volatile WORKER_STATE state;
 
   core *exec_core;
@@ -99,6 +99,7 @@ class Worker {
       : id(id),
         terminate(false),
         exec_core(exec_core),
+        pause(false),
         num_txns(0),
         num_commits(0),
         num_aborts(0),

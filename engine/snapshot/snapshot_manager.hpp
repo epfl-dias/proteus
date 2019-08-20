@@ -24,11 +24,12 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define AEOLUS_SNAPSHOT_SNAPSHOT_MANAGER_HPP_
 
 #include "arena.hpp"
+#include "snapshot/cow_arena.hpp"
 
 namespace aeolus {
 namespace snapshot {
 
-template <typename T>
+template <typename T = COWProvider>
 class SnapshotManager_impl {
  public:
   static void init() { T::init(); }
