@@ -27,6 +27,7 @@
 
 #include "operators/block-to-tuples.hpp"
 #include "operators/cpu-to-gpu.hpp"
+#include "operators/exchange.hpp"
 #include "operators/flush.hpp"
 #include "operators/gpu/gpu-hash-rearrange.hpp"
 #include "operators/gpu/gpu-reduce.hpp"
@@ -153,4 +154,15 @@ PreparedStatement RelBuilder::prepare() {
   ctx->prepareFunction(ctx->getGlobalFunction());
   ctx->compileAndLoad();
   return {ctx->getPipelines()};
+}
+
+RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
+                              std::optional<expression_t> hash, size_t fanout,
+                              size_t fanin, size_t slack, bool numa_local,
+                              bool rand_local_cpu, bool cpu_targets,
+                              int numa_socket_id) const {
+  auto op =
+      new Exchange(root, ctx, fanout, wantedFields, slack, hash, numa_local,
+                   rand_local_cpu, fanin, cpu_targets, numa_socket_id);
+  return apply(op);
 }

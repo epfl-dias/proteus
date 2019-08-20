@@ -107,6 +107,11 @@ class Exchange : public UnaryOperator {
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
+  virtual RecordType getRowType() const {
+    assert(hashExpr != std::nullopt && "Unimplemented");
+    return wantedFields;
+  }
+
  protected:
   virtual void generate_catch();
 

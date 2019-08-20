@@ -56,6 +56,16 @@ class RelBuilder {
     return memmove(attr(getOutputArg()), slack, to_cpu);
   }
 
+  template <typename T, typename Thash>
+  RelBuilder router(T attr, Thash hash, size_t fanout, size_t fanin,
+                    size_t slack, bool numa_local = true,
+                    bool rand_local_cpu = false, bool cpu_targets = false,
+                    int numa_socket_id = -1) const {
+    return router(attr(getOutputArg()), hash(attr(getOutputArg())), fanout,
+                  fanin, slack, numa_local, rand_local_cpu, cpu_targets,
+                  numa_socket_id);
+  }
+
   RelBuilder to_gpu() const;
 
   template <typename T>
@@ -143,6 +153,12 @@ class RelBuilder {
   RelBuilder print(const vector<expression_t>& e) const;
 
   RelBuilder unnest(expression_t e) const;
+
+  RelBuilder router(const vector<RecordAttribute*>& wantedFields,
+                    std::optional<expression_t> hash, size_t fanout,
+                    size_t fanin, size_t slack, bool numa_local,
+                    bool rand_local_cpu, bool cpu_targets,
+                    int numa_socket_id) const;
 };
 
 #endif /* RELBUILDER_HPP_ */
