@@ -34,7 +34,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define NUM_CORE_PER_SOCKET 64
 #define MAX_WORKERS 128
 #define DELTA_SIZE 2  // 2G // 6442450944 6G
-#define HTAP false
+#define HTAP_RM_SERVER false
+#define HTAP_DOUBLE_MASTER true
 #define HTAP_COW false
 #define HTAP_UPD_BIT_MASK false
 #define SHARED_MEMORY false  // if htap=false, then shm or numa_alloc
@@ -63,7 +64,7 @@ using PrimaryIndex = indexes::HashArray<T_KEY>;
 // const uint time_master_switch_ms = 200;
 
 /* # of Snapshots*/
-const short num_master_versions = 1;
+const short num_master_versions = 2;
 const short num_delta_storages = 2;
 
 const int master_col_numa_id = 0;

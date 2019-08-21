@@ -35,6 +35,7 @@ class Arena {
   struct metadata {
     uint64_t numOfRecords;
     uint64_t epoch_id;
+    uint8_t master_ver;
   };
 
  protected:

@@ -79,7 +79,7 @@ class Schema {
                     uint8_t worker_id);
 
   void teardown();
-  void snapshot(uint64_t epoch);
+  void snapshot(uint64_t epoch, uint8_t snapshot_master_ver);
   std::vector<Table *> getTables() { return tables; }
   uint64_t total_mem_reserved;
   uint64_t total_delta_mem_reserved;
@@ -143,7 +143,7 @@ class Table {
   virtual global_conf::mv_version_list *getVersions(uint64_t vid,
                                                     ushort delta_ver) = 0;
 
-  virtual void snapshot(uint64_t epoch) = 0;
+  virtual void snapshot(uint64_t epoch, uint8_t snapshot_master_ver) = 0;
   void printDetails() {
     std::cout << "Number of Columns:\t" << num_columns << std::endl;
   }
@@ -197,7 +197,7 @@ class ColumnStore : public Table {
 
   global_conf::mv_version_list *getVersions(uint64_t vid, ushort delta_ver);
 
-  void snapshot(uint64_t epoch);
+  void snapshot(uint64_t epoch, uint8_t snapshot_master_ver);
   void num_upd_tuples();
   const std::vector<Column *> &getColumns() { return columns; }
 
@@ -224,17 +224,17 @@ class Column {
   ~Column();
 
   void buildIndex();
-  void *getRange(uint64_t start_idx, uint64_t end_idx, ushort master_ver);
   void *getElem(uint64_t idx, ushort master_ver);
   void touchElem(uint64_t idx, ushort master_ver);
-  void getElem(uint64_t vid, ushort master_ver, void *copy_location);
+  void getElem(uint64_t idx, ushort master_ver, void *copy_location);
 
   void insertElem(uint64_t offset, void *elem, ushort master_ver);
   void *insertElem(uint64_t offset);
   void updateElem(uint64_t offset, void *elem, ushort master_ver);
   void deleteElem(uint64_t offset, ushort master_ver);
 
-  void snapshot(uint64_t num_records, uint64_t epoch);
+  void snapshot(uint64_t num_records, uint64_t epoch,
+                uint8_t snapshot_master_ver);
 
   void num_upd_tuples();
 
@@ -245,6 +245,7 @@ class Column {
   //   return master_versions[master_version];
   // }
 
+  // snapshot stuff
   std::vector<mem_chunk> snapshot_get_data();
   uint64_t snapshot_get_num_records();
 
@@ -256,7 +257,7 @@ class Column {
   size_t total_mem_reserved;
   bool is_indexed;
 
-  std::vector<mem_chunk *> master_versions[global_conf::num_master_versions];
+  std::vector<mem_chunk> master_versions[global_conf::num_master_versions];
 
   // Insert snapshotting manager here.
   decltype(global_conf::SnapshotManager::create(0)) arena;

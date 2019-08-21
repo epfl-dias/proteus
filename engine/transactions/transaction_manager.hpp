@@ -48,13 +48,34 @@ class TransactionManager {
   TransactionManager(TransactionManager const &) = delete;  // Don't Implement
   void operator=(TransactionManager const &) = delete;      // Don't implement
 
-  void snapshot() {
-    storage::Schema::getInstance().snapshot(this->get_next_xid(0));
+  bool snapshot() {
+    // FIXME: why get max active txn for double master while a new txn id for
+    // cow-snapshot. i guess this is because for switching master we dont need
+    // to pause the workers. it can happend on the fly.
+
+#if HTAP_DOUBLE_MASTER
+    uint64_t epoch_num =
+        scheduler::WorkerPool::getInstance().get_max_active_txn();
+
+    uint8_t snapshot_master_ver =
+        txn::TransactionManager::getInstance().switch_master();
+
+    storage::Schema::getInstance().snapshot(epoch_num, snapshot_master_ver);
+
+#elif HTAP_COW
+    storage::Schema::getInstance().snapshot(this->get_next_xid(0), 0);
+
+#else
+    assert(false && "Undefined snapshotting mechanism.");
+#endif
+    return true;
   }
 
-  uint64_t switch_master(uint8_t &curr_master) {
-    assert(global_conf::num_master_versions > 1);
+  uint8_t switch_master() {
+    assert(global_conf::num_master_versions > 1 &&
+           "cannot switch master with master_version <= 1");
 
+    uint8_t curr_master;
     std::cout << "Master switch request" << std::endl;
     curr_master = this->current_master;
     /*
@@ -65,9 +86,6 @@ class TransactionManager {
 
     // Before switching, clear up the new master. OR proteus do it.
 
-    uint64_t epoch_num =
-        scheduler::WorkerPool::getInstance().get_max_active_txn();
-
     ushort tmp = (current_master.load() + 1) % global_conf::num_master_versions;
     current_master.store(tmp);
 
@@ -76,7 +94,7 @@ class TransactionManager {
       ;
 
     std::cout << "Master switch completed" << std::endl;
-    return epoch_num;
+    return curr_master;
   }
 
 #if defined(__i386__)

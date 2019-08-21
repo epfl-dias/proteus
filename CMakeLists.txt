@@ -335,10 +335,10 @@ endif()
 
 # `codegen` needs to be unquoted to be replaced, as CMake controls the build of
 # that library
+set(default_libs ${default_libs} codegen )
 set(default_libs ${default_libs} aeolus_engine )
 set(default_libs ${default_libs} aeolus_bench )
 set(default_libs ${default_libs} -lnuma )
-set(default_libs ${default_libs} codegen )
 set(default_libs ${default_libs} ${LLVM_LIBS} -lLLVMSupport)
 set(default_libs ${default_libs} ${CUDA_LIBS})
 set(default_libs ${default_libs} gflags::gflags ${GLOG} gflags::gflags)
@@ -401,6 +401,7 @@ string(STRIP "${CMAKE_C_FLAGS} ${WARNING_FLAGS}" CMAKE_C_FLAGS)
 #-----------------------------------------------------------------------
 add_subdirectory(engine)
 add_subdirectory(benchmarks)
+
 
 foreach(target ${MAINS})
 	add_executable(aeolus-${target} ${target}.cpp)

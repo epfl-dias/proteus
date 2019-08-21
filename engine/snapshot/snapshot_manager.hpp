@@ -24,6 +24,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define AEOLUS_SNAPSHOT_SNAPSHOT_MANAGER_HPP_
 
 #include <cstdlib>
+#include "circular_master_arena.hpp"
 #include "cor_const_arena.hpp"
 #include "cow_arena.hpp"
 
@@ -41,7 +42,7 @@ class SnapshotManager_impl {
  private:
 };
 
-typedef SnapshotManager_impl<COWProvider> SnapshotManager;
+typedef SnapshotManager_impl<CircularMasterProvider> SnapshotManager;
 
 }  // namespace snapshot
 }  // namespace aeolus

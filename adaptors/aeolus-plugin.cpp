@@ -26,6 +26,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "expressions/expressions-hasher.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
+#include "transactions/transaction_manager.hpp"
 
 using namespace llvm;
 
@@ -50,7 +51,7 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
   std::string aeolus_rel_name = "tpcc_" + fnamePrefix.substr(pos_path + 1);
   aeolus_rel_name = aeolus_rel_name.substr(0, aeolus_rel_name.length() - 4);
 
-  if (pgType.compare("block-cow") == 0) {
+  if (pgType.compare("block-cow") == 0 || pgType.compare("block-remote") == 0) {
     time_block t("TpgBlockCOW: ");
 
     auto &txn_storage = storage::Schema::getInstance();
@@ -86,21 +87,11 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
           std::cout << "NUM RECORDS:" << num_records << std::endl;
 
           std::vector<storage::mem_chunk> d = c->snapshot_get_data();
-
           std::vector<mem_file> mfiles{d.size()};
 
           for (size_t i = 0; i < mfiles.size(); ++i) {
             mfiles[i].data = d[i].data;
-
-            mfiles[i].size = c->elem_size * num_records;  // d[i].size;
-
-            // if (d[i].size >= (c->elem_size * num_records)) {
-            //   mfiles[i].size = d[i].size;
-            // } else {
-            //   // to be fixed but for now, Aeolus doesnt expand beyond single
-            //   // chunk so it will be ok.
-            //   assert(false && "FIX ME");
-            // }
+            mfiles[i].size = c->elem_size * num_records;
           }
           wantedFieldsFiles.emplace_back(mfiles);
           break;
@@ -113,7 +104,8 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
       // Type * t = PointerType::get(((const PrimitiveType *)
       // tin)->getLLVMType(llvmContext), /* address space */ 0);
 
-      // wantedFieldsArg_id.push_back(context->appendParameter(t, true, true));
+      // wantedFieldsArg_id.push_back(context->appendParameter(t, true,
+      // true));
 
       if (in->getOriginalType()->getTypeID() == DSTRING) {
         // fetch the dictionary
@@ -124,7 +116,6 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
     }
 
     std::cout << "[AEOLUS PLUGIN DONE]" << std::endl;
-
   } else {
     assert(false && "Not Implemented");
   }

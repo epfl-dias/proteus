@@ -53,6 +53,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define __itt_pause() ((void)0)
 #endif
 
+// proteus
+#include "common/common.hpp"
+
 // TODO: a race condition exists in acquiring write lock and updating the
 // version, a read might read at the same time as readers are not blocked in any
 // manner. for this, read andy pavlos paper on MVCC and see how to do it
@@ -147,15 +150,16 @@ int main(int argc, char** argv) {
   std::cout << "\tInitializing memory manager..." << std::endl;
   storage::MemoryManager::init();
 
-  if (!HTAP) {
-    std::cout << scheduler::Topology::getInstance() << std::endl;
+  if (HTAP_DOUBLE_MASTER) {
+    proteus::init(false);
   }
 
-  std::cout << "------------------------------------" << std::endl;
-
-  if (HTAP) {
+  if (HTAP_RM_SERVER) {
     std::cout << "\tInitializing communication manager..." << std::endl;
     scheduler::CommManager::getInstance().init();
+  } else {
+    std::cout << scheduler::Topology::getInstance() << std::endl;
+    std::cout << "------------------------------------" << std::endl;
   }
 
   // txn::TransactionManager::getInstance().init();
@@ -231,7 +235,8 @@ int main(int argc, char** argv) {
   __itt_pause();
 
   std::cout << "\tShutting down memory manager" << std::endl;
-  if (HTAP) {
+
+  if (HTAP_RM_SERVER) {
     std::cout << "\tShutting down communication manager..." << std::endl;
     scheduler::CommManager::getInstance().shutdown();
   }

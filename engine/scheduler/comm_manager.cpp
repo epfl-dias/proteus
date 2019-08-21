@@ -228,9 +228,9 @@ void CommManager::process_msg(union sigval sv) {
 
     if (in_buffer[0] == '1' && in_buffer[1] == '0') {
       // Snapshot request
-      uint8_t last_master = -1;
-      uint64_t last_epoch =
-          txn::TransactionManager::getInstance().switch_master(last_master);
+      uint8_t last_master =
+          txn::TransactionManager::getInstance().switch_master();
+      uint64_t last_epoch = 0;  // BROKEN
 
       char response_msg[MSG_BUFFER_SIZE];
 
