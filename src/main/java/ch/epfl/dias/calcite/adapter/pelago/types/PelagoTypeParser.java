@@ -28,6 +28,8 @@ public class PelagoTypeParser {
                 return parseDString(typeFactory, type);
             case "date":
                 return parseDate(typeFactory, type);
+            case "datetime":
+                return parseDatetime(typeFactory, type);
             case "string":
                 return parseString(typeFactory, type);
             case "set":
@@ -67,6 +69,12 @@ public class PelagoTypeParser {
     public static RelDataType parseDate(RelDataTypeFactory typeFactory, Map<String, ?> type){
         assert(type.getOrDefault("type", null).equals("date"));
         RelDataType sqlType = typeFactory.createSqlType(SqlTypeName.DATE);
+        return typeFactory.createTypeWithNullability(sqlType, true);
+    }
+
+    public static RelDataType parseDatetime(RelDataTypeFactory typeFactory, Map<String, ?> type){
+        assert(type.getOrDefault("type", null).equals("datetime"));
+        RelDataType sqlType = typeFactory.createSqlType(SqlTypeName.TIMESTAMP);
         return typeFactory.createTypeWithNullability(sqlType, true);
     }
 

@@ -124,12 +124,13 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
 //  override def estimateRowCount(mq: RelMetadataQuery): Double = mq.getRowCount(getRight) * mq.getPercentageOriginalRows(getLeft);//Math.max(mq.getRowCount(getLeft), mq.getRowCount(getRight))
 
   def getTypeSize(t: RelDataType) = t.getSqlTypeName match {
-    case SqlTypeName.INTEGER => 32
-    case SqlTypeName.BIGINT  => 64
-    case SqlTypeName.BOOLEAN => 1  //TODO: check this
-    case SqlTypeName.VARCHAR => 32
-    case SqlTypeName.DOUBLE  => 64
-    case SqlTypeName.DATE    => 64
+    case SqlTypeName.INTEGER    => 32
+    case SqlTypeName.BIGINT     => 64
+    case SqlTypeName.BOOLEAN    => 1  //TODO: check this
+    case SqlTypeName.VARCHAR    => 32
+    case SqlTypeName.DOUBLE     => 64
+    case SqlTypeName.DATE       => 64
+    case SqlTypeName.TIMESTAMP  => 64
     case _ => throw new PlanConversionException("Unsupported type: " + t)
   }
 
@@ -262,7 +263,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
       ("hash_bits"        , hash_bits                                                                   ) ~
       ("maxBuildInputSize", maxEst.asInstanceOf[Int]                                                    ) ~
       ("probe_input"      , probe_child                                                                 )
-    val binding: Binding = Binding(alias,build_binding.fields ++ probe_binding.fields)
+    val binding: Binding = Binding(alias, getFields(getRowType))
     val ret: (Binding, JValue) = (binding,json)
     ret
   }

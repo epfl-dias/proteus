@@ -228,6 +228,13 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
 //        } catch (ParseException e) {
 //          return null;
 //        }
+      } else if (fieldType.getType().getSqlTypeName() == SqlTypeName.TIMESTAMP) {
+        if (mock) string = Long.toString(rand.nextLong());
+        if (string.length() == 0) {
+          return null;
+        }
+        System.out.println(string);
+        return Long.parseLong(string);
       } else {
         throw new AssertionError("unrecognized type, value: "+string+", fieldtype: "+fieldType.getName());
       }

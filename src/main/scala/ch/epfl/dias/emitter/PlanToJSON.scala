@@ -113,6 +113,7 @@ object PlanToJSON {
             case SqlTypeName.DOUBLE => new java.lang.Double(lit.toString).asInstanceOf[Double]
             case SqlTypeName.DECIMAL => new java.lang.Double(lit.toString).asInstanceOf[Double]
             case SqlTypeName.DATE => new java.lang.Long(DateTimeUtils.timestampStringToUnixDate(lit.toString)).asInstanceOf[Long]
+            case SqlTypeName.TIMESTAMP => new java.lang.Long(DateTimeUtils.timestampStringToUnixDate(lit.toString)).asInstanceOf[Long]
             case SqlTypeName.VARCHAR => lit.getValueAs(classOf[String]) //.toString.substring(1, lit.to)
             case SqlTypeName.CHAR => lit.getValueAs(classOf[String])
             case _ => {
@@ -482,15 +483,16 @@ object PlanToJSON {
   }
 
   def emitPrimitiveType(k: SqlTypeName): JValue = k match {
-    case SqlTypeName.INTEGER  => ("type", "int"     )
-    case SqlTypeName.BIGINT   => ("type", "int64"   )
-    case SqlTypeName.VARCHAR  => ("type", if (dictEncoded) "dstring" else "string" )
-    case SqlTypeName.CHAR     => ("type", if (dictEncoded) "dstring" else "string" )
-    case SqlTypeName.BOOLEAN  => ("type", "bool"    )
-    case SqlTypeName.DATE     => ("type", "date"    )
-    case SqlTypeName.DOUBLE   => ("type", "float"   ) // proteu's float is a c++ double
-    case SqlTypeName.FLOAT    => ("type", "float"   ) // proteu's float is a c++ double
-    case SqlTypeName.DECIMAL  => ("type", "float"   )
+    case SqlTypeName.INTEGER    => ("type", "int"     )
+    case SqlTypeName.BIGINT     => ("type", "int64"   )
+    case SqlTypeName.VARCHAR    => ("type", if (dictEncoded) "dstring" else "string" )
+    case SqlTypeName.CHAR       => ("type", if (dictEncoded) "dstring" else "string" )
+    case SqlTypeName.BOOLEAN    => ("type", "bool"    )
+    case SqlTypeName.DATE       => ("type", "date"    )
+    case SqlTypeName.TIMESTAMP  => ("type", "datetime")
+    case SqlTypeName.DOUBLE     => ("type", "float"   ) // proteu's float is a c++ double
+    case SqlTypeName.FLOAT      => ("type", "float"   ) // proteu's float is a c++ double
+    case SqlTypeName.DECIMAL    => ("type", "float"   )
     case _ => throw new PlanConversionException("Unknown type: " + k)
   }
 
