@@ -724,11 +724,15 @@ void Sort::call_sort(Value *mem, Value *N) {
       BasicBlock *eqPreBB = BasicBlock::Create(llvmContext, "eqPre", F);
       BasicBlock *notGTBB = BasicBlock::Create(llvmContext, "notGT", F);
 
-      Value *condG = Builder->CreateICmpSGT(arg0, arg1);
+      Value *condG = (arg0->getType()->isIntegerTy())
+                         ? Builder->CreateICmpSGT(arg0, arg1)
+                         : Builder->CreateFCmpOGT(arg0, arg1);
       Builder->CreateCondBr(condG, greaterBB, notGTBB);
 
       Builder->SetInsertPoint(notGTBB);
-      Value *condL = Builder->CreateICmpSLT(arg0, arg1);
+      Value *condL = (arg0->getType()->isIntegerTy())
+                         ? Builder->CreateICmpSLT(arg0, arg1)
+                         : Builder->CreateFCmpOLT(arg0, arg1);
       Builder->CreateCondBr(condL, lessBB, eqPreBB);
 
       Builder->SetInsertPoint(eqPreBB);

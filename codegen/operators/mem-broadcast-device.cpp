@@ -282,14 +282,11 @@ void MemBroadcastDevice::consume(Context *const context,
 
   auto charPtrType = Type::getInt8PtrTy(llvmContext);
 
-  auto cpp_bool_type = Type::getInt8Ty(llvmContext);
+  // auto cpp_bool_type = Type::getInt8Ty(llvmContext);
   static_assert(sizeof(bool) == 1, "Fix type above");
 
   auto workunit_type = StructType::get(
       llvmContext, std::vector<llvm::Type *>{charPtrType, charPtrType});
-
-  map<RecordAttribute, ProteusValueMemory> old_bindings{
-      childState.getBindings()};
 
   // Find block size
   Plugin *pg =
@@ -298,16 +295,13 @@ void MemBroadcastDevice::consume(Context *const context,
       RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt",
                       pg->getOIDType());  // FIXME: OID type for blocks ?
 
-  auto it = old_bindings.find(tupleCnt);
-  assert(it != old_bindings.end());
-
-  ProteusValueMemory mem_cntWrapper = it->second;
+  ProteusValueMemory mem_cntWrapper = childState[tupleCnt];
 
   auto make_mem_move = context->getFunction("make_mem_move_broadcast_device");
 
   Builder->SetInsertPoint(context->getCurrentEntryBlock());
 
-  auto device_id = ((ParallelContext *)context)->getStateVar(device_id_var);
+  // auto device_id = ((ParallelContext *)context)->getStateVar(device_id_var);
   // auto  cu_stream       = ((ParallelContext *)
   // context)->getStateVar(cu_stream_var);
 
@@ -316,9 +310,7 @@ void MemBroadcastDevice::consume(Context *const context,
 
   RecordAttribute tupleIdentifier = RecordAttribute(
       wantedFields[0]->getRelationName(), activeLoop, pg->getOIDType());
-  it = old_bindings.find(tupleIdentifier);
-  assert(it != old_bindings.end());
-  ProteusValueMemory mem_oidWrapper = it->second;
+  ProteusValueMemory mem_oidWrapper = childState[tupleIdentifier];
   auto oid = Builder->CreateLoad(mem_oidWrapper.mem);
 
   auto memmv = ((ParallelContext *)context)->getStateVar(memmvconf_var);
@@ -332,9 +324,7 @@ void MemBroadcastDevice::consume(Context *const context,
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     RecordAttribute block_attr(*(wantedFields[i]), true);
 
-    auto it = old_bindings.find(block_attr);
-    assert(it != old_bindings.end());
-    ProteusValueMemory mem_valWrapper = it->second;
+    ProteusValueMemory mem_valWrapper = childState[block_attr];
 
     auto block = Builder->CreateLoad(mem_valWrapper.mem);
     auto mv = Builder->CreateBitCast(block, charPtrType);

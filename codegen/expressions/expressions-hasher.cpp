@@ -43,13 +43,38 @@ ProteusValue hashInt32(ProteusValue v, Context *context) {
   Value *key = v.value;
   Value *hash = Builder->CreateSExt(key, int64Type);
 
-  const auto type = key->getType();
-
   hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
   hash = Builder->CreateMul(hash, context->createInt64(0x85ebca6b));
   hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 13));
   hash = Builder->CreateMul(hash, context->createInt64(0xc2b2ae35));
   hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 16));
+
+  return ProteusValue{hash, v.isNull};
+}
+
+ProteusValue ExpressionHasherVisitor::hashInt64(
+    const expressions::Expression *e) {
+  ExpressionGeneratorVisitor exprGenerator{context, currState};
+  return ::hashInt64(e->accept(exprGenerator), context);
+}
+
+ProteusValue hashInt64(ProteusValue v, Context *context) {
+  IRBuilder<> *Builder = context->getBuilder();
+
+  // FIXME: hash-function (single step murmur) is designed for 32bit inputs
+
+  assert(v.value->getType()->isIntegerTy(64));
+
+  Type *int64Type = Type::getInt64Ty(context->getLLVMContext());
+
+  Value *key = v.value;
+  Value *hash = Builder->CreateSExt(key, int64Type);
+
+  hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 33));
+  hash = Builder->CreateMul(hash, context->createInt64(0xff51afd7ed558ccd));
+  hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 33));
+  hash = Builder->CreateMul(hash, context->createInt64(0xc4ceb9fe1a85ec53));
+  hash = Builder->CreateXor(hash, Builder->CreateLShr(hash, 33));
 
   return ProteusValue{hash, v.isNull};
 }
@@ -76,7 +101,7 @@ ProteusValue hashPrimitive(ProteusValue v, typeID type, Context *context) {
     }
     case INT64:
     case DATE:
-      instructionLabel = "hashInt64";
+      return hashInt64(v, context);
       break;
     case FLOAT:
       instructionLabel = "hashDouble";

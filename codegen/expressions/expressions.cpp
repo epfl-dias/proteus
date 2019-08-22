@@ -104,6 +104,28 @@ llvm::Constant *getIdentityElementIfSimple(Monoid m, const ExpressionType *type,
         }
       }
     }
+    case MIN: {
+      switch (outputType) {
+        case DATE:
+        case INT64: {
+          return llvm::ConstantInt::get((llvm::IntegerType *)llvmType,
+                                        std::numeric_limits<int64_t>::max());
+        }
+        case INT: {
+          return llvm::ConstantInt::get((llvm::IntegerType *)llvmType,
+                                        std::numeric_limits<int32_t>::max());
+        }
+        case FLOAT: {
+          return llvm::ConstantFP::getInfinity(llvmType, false);
+        }
+        default: {
+          string error_msg =
+              string("[Monoid: ] Sum/Multiply/Max operate on numerics");
+          LOG(ERROR) << error_msg;
+          throw runtime_error(error_msg);
+        }
+      }
+    }
     case OR: {
       switch (outputType) {
         case BOOL: {

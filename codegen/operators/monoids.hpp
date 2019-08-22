@@ -24,6 +24,6 @@
 #ifndef MONOIDS_HPP_
 #define MONOIDS_HPP_
 
-enum Monoid { SUM, MULTIPLY, MAX, OR, AND, UNION, BAGUNION, APPEND };
+enum Monoid { SUM, MULTIPLY, MAX, MIN, OR, AND, UNION, BAGUNION, APPEND };
 
 #endif /* MONOIDS_HPP_ */

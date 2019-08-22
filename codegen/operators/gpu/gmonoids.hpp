@@ -70,6 +70,26 @@ class MaxMonoid : public Monoid {
   inline std::string to_string() const { return "max"; }
 };
 
+class MinMonoid : public Monoid {
+ private:
+  llvm::Value *evalCondition(Context *const context,
+                             llvm::Value *val_accumulating,
+                             llvm::Value *val_in);
+
+ public:
+  llvm::Value *create(Context *const context, llvm::Value *val_accumulating,
+                      llvm::Value *val_in);
+
+  void createUpdate(Context *const context, llvm::Value *val_accumulating,
+                    llvm::Value *val_in);
+
+  void createAtomicUpdate(
+      Context *const context, llvm::Value *accumulator_ptr, llvm::Value *val_in,
+      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic);
+
+  inline std::string to_string() const { return "min"; }
+};
+
 class SumMonoid : public Monoid {
   llvm::Value *create(Context *const context, llvm::Value *val_accumulating,
                       llvm::Value *val_in);

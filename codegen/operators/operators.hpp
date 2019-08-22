@@ -130,7 +130,17 @@ class OperatorState {
   const Operator &getProducer() const { return producer; }
 
   const ProteusValueMemory &operator[](const RecordAttribute &key) const {
-    return activeVariables.at(key);
+    try {
+      return activeVariables.at(key);
+    } catch (std::out_of_range) {
+      LOG(INFO) << "Looking for: " << key.getRelationName() << "."
+                << key.getAttrName();
+      for (auto v : activeVariables) {
+        LOG(INFO) << "  Active binding: " << v.first.getRelationName() << "."
+                  << v.first.getAttrName();
+      }
+      throw;
+    }
   }
 
  private:

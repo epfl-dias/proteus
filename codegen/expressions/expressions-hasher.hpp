@@ -92,10 +92,12 @@ class ExpressionHasherVisitor : public ExprVisitor {
   string activeRelation;
 
   ProteusValue hashInt32(const expressions::Expression *e);
+  ProteusValue hashInt64(const expressions::Expression *e);
   ProteusValue hashPrimitive(const expressions::Expression *e);
 };
 
 ProteusValue hashInt32(ProteusValue v, Context *context);
+ProteusValue hashInt64(ProteusValue v, Context *context);
 ProteusValue hashPrimitive(ProteusValue v, typeID type, Context *context);
 
 #endif /* EXPRESSIONS_HASHER_VISITOR_HPP_ */

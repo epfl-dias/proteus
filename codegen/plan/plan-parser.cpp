@@ -2584,6 +2584,14 @@ expression_t ExpressionParser::parseExpressionWithoutRegistering(
       assert(val["v"].IsInt64());
       retValue = new expressions::DateConstant(val["v"].GetInt64());
     }
+  } else if (strcmp(valExpression, "datetime") == 0) {
+    if (isNull) {
+      retValue = createNull(new DateType());
+    } else {
+      assert(val.HasMember("v"));
+      assert(val["v"].IsInt64());
+      retValue = new expressions::DateConstant(val["v"].GetInt64());
+    }
   } else if (strcmp(valExpression, "string") == 0) {
     if (isNull) {
       retValue = createNull(new StringType());
@@ -3067,6 +3075,8 @@ Monoid ExpressionParser::parseAccumulator(const char *acc) {
     return SUM;
   } else if (strcmp(acc, "max") == 0) {
     return MAX;
+  } else if (strcmp(acc, "min") == 0) {
+    return MIN;
   } else if (strcmp(acc, "multiply") == 0) {
     return MULTIPLY;
   } else if (strcmp(acc, "or") == 0) {

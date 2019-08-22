@@ -104,7 +104,67 @@ void MaxMonoid::createAtomicUpdate(Context *const context,
                                    llvm::Value *accumulator_ptr,
                                    llvm::Value *val_in,
                                    llvm::AtomicOrdering order) {
-  context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Max,
+  auto type = llvm::Type::getIntNTy(context->getLLVMContext(),
+                                    context->getSizeOf(val_in) * 8);
+  val_in = context->getBuilder()->CreateBitCast(val_in, type);
+  context->getBuilder()->CreateAtomicRMW(
+      llvm::AtomicRMWInst::BinOp::Max,
+      context->getBuilder()->CreateBitCast(accumulator_ptr,
+                                           llvm::PointerType::getUnqual(type)),
+      val_in, order);
+}
+
+llvm::Value *MinMonoid::evalCondition(Context *const context,
+                                      llvm::Value *val_accumulating,
+                                      llvm::Value *val_in) {
+  auto Builder = context->getBuilder();
+
+  if (val_accumulating->getType()->isIntegerTy()) {
+    return Builder->CreateICmpSGT(val_in, val_accumulating);
+  } else if (val_accumulating->getType()->isFloatingPointTy()) {
+    return Builder->CreateFCmpOGT(val_in, val_accumulating);
+  } else {
+    string error_msg =
+        string("[MinMonoid: ] Min accumulator operates on numerics");
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
+}
+
+llvm::Value *MinMonoid::create(Context *const context,
+                               llvm::Value *val_accumulating,
+                               llvm::Value *val_in) {
+  auto Builder = context->getBuilder();
+
+  auto minCondition = evalCondition(context, val_accumulating, val_in);
+  return Builder->CreateSelect(minCondition, val_in, val_accumulating);
+}
+
+void MinMonoid::createUpdate(Context *const context,
+                             llvm::Value *mem_accumulating,
+                             llvm::Value *val_in) {
+  auto Builder = context->getBuilder();
+
+  bool setEnding = (Builder->GetInsertBlock() == context->getEndingBlock());
+
+  auto curr = Builder->CreateLoad(mem_accumulating);
+
+  auto minCondition = evalCondition(context, curr, val_in);
+
+  /**
+   * if(curr > min) min = curr;
+   */
+  context->gen_if({minCondition, context->createFalse()})(
+      [&]() { Builder->CreateStore(val_in, mem_accumulating); });
+
+  if (setEnding) context->setEndingBlock(Builder->GetInsertBlock());
+}  // namespace gpu
+
+void MinMonoid::createAtomicUpdate(Context *const context,
+                                   llvm::Value *accumulator_ptr,
+                                   llvm::Value *val_in,
+                                   llvm::AtomicOrdering order) {
+  context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Min,
                                          accumulator_ptr, val_in, order);
 }
 
@@ -260,6 +320,8 @@ Monoid *Monoid::get(::Monoid m) {
   switch (m) {
     case MAX:
       return new MaxMonoid;
+    case MIN:
+      return new MinMonoid;
     case SUM:
       return new SumMonoid;
     case OR:
