@@ -99,7 +99,7 @@ void Router::generate_catch() {
                                   activeLoop, pg->getOIDType());
 
   // Generate catch code
-  int p =
+  auto p =
       context->appendParameter(PointerType::get(params_type, 0), true, true);
   context->setGlobalFunction();
 
@@ -121,48 +121,20 @@ void Router::generate_catch() {
   map<RecordAttribute, ProteusValueMemory> variableBindings;
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
-    ProteusValueMemory mem_valWrapper;
-
-    Type *wtype = wantedFields[i]->getLLVMType(llvmContext);
-    if (wtype == nullptr)
-      wtype = oidType;  // FIXME: dirty hack for JSON inner lists
-
-    mem_valWrapper.mem = context->CreateEntryBlockAlloca(
-        F, wantedFields[i]->getAttrName() + "_ptr", wtype);
-    mem_valWrapper.isNull =
-        context->createFalse();  // FIMXE: should we alse transfer this
-                                 // information ?
-
     Value *param = Builder->CreateExtractValue(params, i);
 
-    Builder->CreateStore(param, mem_valWrapper.mem);
-
-    variableBindings[*(wantedFields[i])] = mem_valWrapper;
+    // FIMXE: should we alse transfer this information ?
+    variableBindings[*(wantedFields[i])] =
+        context->toMem(param, context->createFalse());
   }
-
-  ProteusValueMemory mem_oidWrapper;
-  mem_oidWrapper.mem = context->CreateEntryBlockAlloca(F, activeLoop, oidType);
-  mem_oidWrapper.isNull =
-      context
-          ->createFalse();  // FIMXE: should we alse transfer this information ?
-
   Value *oid = Builder->CreateExtractValue(params, wantedFields.size());
-  Builder->CreateStore(oid, mem_oidWrapper.mem);
-
-  variableBindings[tupleIdentifier] = mem_oidWrapper;
+  variableBindings[tupleIdentifier] =
+      context->toMem(oid, context->createFalse());
 
   if (need_cnt) {
-    ProteusValueMemory mem_cntWrapper;
-    mem_cntWrapper.mem =
-        context->CreateEntryBlockAlloca(F, "activeCnt", oidType);
-    mem_cntWrapper.isNull =
-        context->createFalse();  // FIMXE: should we alse transfer this
-                                 // information ?
-
     Value *cnt = Builder->CreateExtractValue(params, wantedFields.size() + 1);
-    Builder->CreateStore(cnt, mem_cntWrapper.mem);
 
-    variableBindings[tupleCnt] = mem_cntWrapper;
+    variableBindings[tupleCnt] = context->toMem(cnt, context->createFalse());
   }
 
   Builder->SetInsertPoint(mainBB);

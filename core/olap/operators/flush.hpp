@@ -46,7 +46,7 @@ class Flush : public UnaryOperator {
 
  protected:
   Context *context;
-  size_t result_cnt_id;
+  StateVar result_cnt_id;
 
   expression_t outputExpr;
   vector<expression_t> outputExprs_v;

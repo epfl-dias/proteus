@@ -90,9 +90,9 @@ class HashPartitioner : public UnaryOperator {
   std::vector<size_t> parts_packet_widths;
   expression_t parts_keyexpr;
 
-  std::vector<int> param_pipe_ids;
+  std::vector<StateVar> param_pipe_ids;
 
-  int cnt_pipe;
+  StateVar cnt_pipe;
 
   ParallelContext *context;
 
@@ -172,35 +172,35 @@ class GpuPartitionedHashJoinChained : public BinaryOperator {
 
   std::vector<size_t> packet_widths;
 
-  int head_id;
+  StateVar head_id;
 
-  std::vector<int> build_param_pipe_ids;
-  std::vector<int> probe_param_pipe_ids;
+  std::vector<StateVar> build_param_pipe_ids;
+  std::vector<StateVar> probe_param_pipe_ids;
 
-  std::vector<int> build_param_join_ids;
-  std::vector<int> probe_param_join_ids;
+  std::vector<StateVar> build_param_join_ids;
+  std::vector<StateVar> probe_param_join_ids;
 
-  int cnt_left_pipe;
-  int cnt_right_pipe;
+  StateVar cnt_left_pipe;
+  StateVar cnt_right_pipe;
 
-  int cnt_left_join;
-  int cnt_right_join;
+  StateVar cnt_left_join;
+  StateVar cnt_right_join;
 
-  int chains_left_join;
-  int chains_right_join;
+  StateVar chains_left_join;
+  StateVar chains_right_join;
 
-  int keys_partitioned_probe_id;
-  int idxs_partitioned_probe_id;
+  StateVar keys_partitioned_probe_id;
+  StateVar idxs_partitioned_probe_id;
 
-  int keys_partitioned_build_id;
-  int idxs_partitioned_build_id;
+  StateVar keys_partitioned_build_id;
+  StateVar idxs_partitioned_build_id;
 
-  int keys_cache_id;
-  int next_cache_id;
-  int idxs_cache_id;
+  StateVar keys_cache_id;
+  StateVar next_cache_id;
+  StateVar idxs_cache_id;
 
   int32_t *buffer[128];
-  int buffer_id;
+  StateVar buffer_id;
 
   llvm::BasicBlock *boot;
   llvm::BasicBlock *start;
@@ -221,8 +221,8 @@ class GpuPartitionedHashJoinChained : public BinaryOperator {
   cudaEvent_t jstart[128];
   cudaEvent_t jstop[128];
 
-  int bucket_info_id;
-  int buckets_used_id;
+  StateVar bucket_info_id;
+  StateVar buckets_used_id;
 
   // OperatorState childState;
   // OperatorState leftState;

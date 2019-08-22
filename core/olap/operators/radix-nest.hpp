@@ -118,7 +118,7 @@ class Nest : public UnaryOperator {
 
   std::map<RecordAttribute, ProteusValueMemory> *reconstructResults(
       llvm::Value *htBuffer, llvm::Value *idx,
-      size_t relR_mem_relation_id) const;
+      const StateVar &relR_mem_relation_id) const;
   /**
    * We need a new accumulator for every resulting bucket of the HT
    */

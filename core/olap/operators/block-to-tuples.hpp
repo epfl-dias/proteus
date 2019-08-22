@@ -73,7 +73,7 @@ class BlockToTuples : public UnaryOperator {
   virtual void close(Pipeline *pip);
 
   const std::vector<expression_t> wantedFields;
-  std::vector<size_t> old_buffs;
+  std::vector<StateVar> old_buffs;
   ParallelContext *const context;
   llvm::AllocaInst *mem_itemCtr;
   gran_t granularity;

@@ -114,16 +114,16 @@ class PipelineGen {
  public:
   virtual size_t appendParameter(llvm::Type *ptype, bool noalias = false,
                                  bool readonly = false);
-  virtual size_t appendStateVar(llvm::Type *ptype);
-  virtual size_t appendStateVar(llvm::Type *ptype,
-                                std::function<init_func_t> init,
-                                std::function<deinit_func_t> deinit);
+  virtual StateVar appendStateVar(llvm::Type *ptype);
+  virtual StateVar appendStateVar(llvm::Type *ptype,
+                                  std::function<init_func_t> init,
+                                  std::function<deinit_func_t> deinit);
 
   void callPipRegisteredOpen(size_t indx, Pipeline *pip);
   void callPipRegisteredClose(size_t indx, Pipeline *pip);
 
   virtual llvm::Argument *getArgument(size_t id) const;
-  virtual llvm::Value *getStateVar(size_t id) const;
+  virtual llvm::Value *getStateVar(StateVar id) const;
   virtual llvm::Value *getStateVar() const;
   virtual llvm::Value *getSubStateVar() const;
 
@@ -266,17 +266,17 @@ class Pipeline {
   size_t getSizeOf(llvm::Type *t) const;
 
   template <typename T>
-  void setStateVar(size_t state_id, const T &value) {
-    size_t offset =
-        layout.getStructLayout(state_type)->getElementOffset(state_id);
+  void setStateVar(StateVar state_id, const T &value) {
+    size_t offset = layout.getStructLayout(state_type)
+                        ->getElementOffset(state_id.getIndex());
 
     *((T *)(((char *)state) + offset)) = value;
   }
 
   template <typename T>
-  T getStateVar(size_t state_id) {
-    size_t offset =
-        layout.getStructLayout(state_type)->getElementOffset(state_id);
+  T getStateVar(StateVar state_id) {
+    size_t offset = layout.getStructLayout(state_type)
+                        ->getElementOffset(state_id.getIndex());
 
     return *((T *)(((char *)state) + offset));
   }

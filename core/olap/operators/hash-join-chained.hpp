@@ -124,12 +124,12 @@ class HashJoinChained : public BinaryOperator {
 
   std::vector<size_t> packet_widths;
 
-  int head_param_id;
-  std::vector<int> out_param_ids;
-  std::vector<int> in_param_ids;
-  int cnt_param_id;
+  StateVar head_param_id;
+  std::vector<StateVar> out_param_ids;
+  std::vector<StateVar> in_param_ids;
+  StateVar cnt_param_id;
 
-  int probe_head_param_id;
+  StateVar probe_head_param_id;
 
   int hash_bits;
   size_t maxBuildInputSize;
@@ -141,7 +141,7 @@ class HashJoinChained : public BinaryOperator {
   string opLabel;
 
   // std::unordered_map<int32_t, std::vector<void *>> confs;
-  std::vector<void *> confs[128];
+  std::vector<void *> confs[256];
 };
 
 #endif /* HASH_JOIN_CHAINED_HPP_ */

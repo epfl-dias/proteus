@@ -54,8 +54,8 @@ class CpuToGpu : public DeviceCross {
   ParallelContext *const context;
 
   PipelineGen *gpu_pip;
-  size_t childVar_id;
-  size_t strmVar_id;
+  StateVar childVar_id;
+  StateVar strmVar_id;
 };
 
 #endif /* CPU_TO_GPU_HPP_ */

@@ -791,7 +791,7 @@ void RadixJoin::runRadix() const {
   Type *int32_type = Type::getInt32Ty(llvmContext);
   PointerType *char_ptr_type = Type::getInt8PtrTy(llvmContext);
 
-  size_t clusterCountR_id = context->appendStateVar(
+  auto clusterCountR_id = context->appendStateVar(
       PointerType::getUnqual(int32_type),
       [=](llvm::Value *pip) {
         LLVMContext &llvmContext = context->getLLVMContext();
@@ -808,7 +808,7 @@ void RadixJoin::runRadix() const {
       },
       "clusterCountR");
 
-  size_t clusterCountS_id = context->appendStateVar(
+  auto clusterCountS_id = context->appendStateVar(
       PointerType::getUnqual(int32_type),
       [=](llvm::Value *pip) {
         LLVMContext &llvmContext = context->getLLVMContext();
@@ -826,7 +826,7 @@ void RadixJoin::runRadix() const {
       "clusterCountS");  // FIXME: read-only, we do not even have to maintain it
                          // as state variable, but where do we get pip from ?
 
-  size_t htR_mem_kv_id = context->appendStateVar(
+  auto htR_mem_kv_id = context->appendStateVar(
       PointerType::getUnqual(htEntryType),
       [=](llvm::Value *pip) {
         LLVMContext &llvmContext = context->getLLVMContext();
@@ -847,7 +847,7 @@ void RadixJoin::runRadix() const {
       "htR_mem_kv");  // FIXME: read-only, we do not even have to maintain it as
                       // state variable
 
-  size_t htS_mem_kv_id = context->appendStateVar(
+  auto htS_mem_kv_id = context->appendStateVar(
       PointerType::getUnqual(htEntryType),
       [=](llvm::Value *pip) {
         LLVMContext &llvmContext = context->getLLVMContext();
@@ -868,7 +868,7 @@ void RadixJoin::runRadix() const {
       "htS_mem_kv");  // FIXME: read-only, we do not even have to maintain it as
                       // state variable
 
-  size_t relR_mem_relation_id = context->appendStateVar(
+  auto relR_mem_relation_id = context->appendStateVar(
       char_ptr_type,
       [=](llvm::Value *pip) {
         LLVMContext &llvmContext = context->getLLVMContext();
@@ -886,7 +886,7 @@ void RadixJoin::runRadix() const {
       "relR_mem_relation");  // FIXME: read-only, we do not even have to
                              // maintain it as state variable
 
-  size_t relS_mem_relation_id = context->appendStateVar(
+  auto relS_mem_relation_id = context->appendStateVar(
       char_ptr_type,
       [=](llvm::Value *pip) {
         LLVMContext &llvmContext = context->getLLVMContext();

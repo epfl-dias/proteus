@@ -67,8 +67,8 @@ class Sort : public UnaryOperator {
 
   // size_t                          width       ;
 
-  size_t cntVar_id;
-  size_t memVar_id;
+  StateVar cntVar_id;
+  StateVar memVar_id;
 
   llvm::Type *mem_type;
 

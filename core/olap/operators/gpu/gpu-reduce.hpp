@@ -54,9 +54,9 @@ class GpuReduce : public Reduce {
   // virtual void close(Pipeline * pip) const;
 
  protected:
-  virtual size_t resetAccumulator(expression_t outputExpr, Monoid acc,
-                                  bool flushDelim, bool is_first,
-                                  bool is_last) const;
+  virtual StateVar resetAccumulator(expression_t outputExpr, Monoid acc,
+                                    bool flushDelim, bool is_first,
+                                    bool is_last) const;
 
  private:
   void generate(Context *const context, const OperatorState &childState) const;
@@ -67,7 +67,7 @@ class GpuReduce : public Reduce {
 
   std::vector<llvm::Value *> global_acc_ptr;
 
-  std::vector<int> out_ids;
+  std::vector<StateVar> out_ids;
 };
 }  // namespace opt
 

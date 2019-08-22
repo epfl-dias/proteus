@@ -85,10 +85,10 @@ class GpuHashRearrange : public UnaryOperator {
   PipelineGen *closingPip;
   llvm::Function *flushingFunc;
 
-  std::vector<size_t> buffVar_id;
-  size_t cntVar_id;
-  size_t oidVar_id;
-  size_t wcntVar_id;
+  std::vector<StateVar> buffVar_id;
+  StateVar cntVar_id;
+  StateVar oidVar_id;
+  StateVar wcntVar_id;
 
   size_t blockSize;  // bytes
 

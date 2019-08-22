@@ -37,14 +37,14 @@ class ParallelContext : public Context {
 
   virtual size_t appendParameter(llvm::Type *ptype, bool noalias = false,
                                  bool readonly = false);
-  virtual size_t appendStateVar(llvm::Type *ptype, std::string name = "");
-  virtual size_t appendStateVar(llvm::Type *ptype,
-                                std::function<init_func_t> init,
-                                std::function<deinit_func_t> deinit,
-                                std::string name = "");
+  virtual StateVar appendStateVar(llvm::Type *ptype, std::string name = "");
+  virtual StateVar appendStateVar(llvm::Type *ptype,
+                                  std::function<init_func_t> init,
+                                  std::function<deinit_func_t> deinit,
+                                  std::string name = "");
 
   virtual llvm::Argument *getArgument(size_t id) const;
-  virtual llvm::Value *getStateVar(size_t id) const;
+  virtual llvm::Value *getStateVar(const StateVar &id) const;
   virtual llvm::Value *getStateVar() const;
   virtual llvm::Value *getSubStateVar() const;
   virtual std::vector<llvm::Type *> getStateVars() const;

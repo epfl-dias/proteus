@@ -156,7 +156,7 @@ void MemBroadcastDevice::produce() {
                               "__broadcastTarget", new IntType()};
 
   // Generate catch code
-  int p = context->appendParameter(PointerType::get(data_type, 0), true, true);
+  auto p = context->appendParameter(PointerType::get(data_type, 0), true, true);
   context->setGlobalFunction();
 
   auto Builder = context->getBuilder();
@@ -177,71 +177,29 @@ void MemBroadcastDevice::produce() {
   auto release = context->getFunction("release_buffer");
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
-    ProteusValueMemory mem_valWrapper;
-
-    mem_valWrapper.mem = context->CreateEntryBlockAlloca(
-        F, wantedFields[i]->getAttrName() + "_ptr",
-        wantedFields[i]->getOriginalType()->getLLVMType(llvmContext));
-    mem_valWrapper.isNull =
-        context->createFalse();  // FIMXE: should we alse transfer this
-                                 // information ?
-
     auto param = Builder->CreateExtractValue(params, 2 * i);
 
     auto src = Builder->CreateExtractValue(params, 2 * i + 1);
 
-    // auto relBB = BasicBlock::Create(llvmContext, "rel", F);
-    // auto merBB = BasicBlock::Create(llvmContext, "mer", F);
-
-    // auto  do_rel = Builder->CreateICmpEQ(param, src);
-    // Builder->CreateCondBr(do_rel, merBB, relBB);
-
-    // Builder->SetInsertPoint(relBB);
-
     Builder->CreateCall(release, Builder->CreateBitCast(src, charPtrType));
 
-    // Builder->CreateBr(merBB);
-
-    // Builder->SetInsertPoint(merBB);
-
-    Builder->CreateStore(param, mem_valWrapper.mem);
-
-    variableBindings[*(wantedFields[i])] = mem_valWrapper;
+    // FIMXE: should we alse transfer this information ?
+    variableBindings[*(wantedFields[i])] =
+        context->toMem(param, context->createFalse());
   }
 
-  ProteusValueMemory mem_targetWrapper;
-  mem_targetWrapper.mem = context->CreateEntryBlockAlloca(
-      F, "__broadcastTarget", tupleTarget.getLLVMType(llvmContext));
-  mem_targetWrapper.isNull =
-      context
-          ->createFalse();  // FIMXE: should we alse transfer this information ?
-
   auto target = Builder->CreateExtractValue(params, 2 * wantedFields.size());
-  Builder->CreateStore(target, mem_targetWrapper.mem);
+  variableBindings[tupleTarget] =
+      context->toMem(target, context->createFalse());
 
-  variableBindings[tupleTarget] = mem_targetWrapper;
-
-  ProteusValueMemory mem_cntWrapper;
-  mem_cntWrapper.mem = context->CreateEntryBlockAlloca(F, "activeCnt", oidType);
-  mem_cntWrapper.isNull =
-      context
-          ->createFalse();  // FIMXE: should we alse transfer this information ?
-
+  // FIMXE: should we alse transfer this information ?
   auto cnt = Builder->CreateExtractValue(params, 2 * wantedFields.size() + 1);
-  Builder->CreateStore(cnt, mem_cntWrapper.mem);
+  variableBindings[tupleCnt] = context->toMem(cnt, context->createFalse());
 
-  variableBindings[tupleCnt] = mem_cntWrapper;
-
-  ProteusValueMemory mem_oidWrapper;
-  mem_oidWrapper.mem = context->CreateEntryBlockAlloca(F, activeLoop, oidType);
-  mem_oidWrapper.isNull =
-      context
-          ->createFalse();  // FIMXE: should we alse transfer this information ?
-
+  // FIMXE: should we alse transfer this information ?
   auto oid = Builder->CreateExtractValue(params, 2 * wantedFields.size() + 2);
-  Builder->CreateStore(oid, mem_oidWrapper.mem);
-
-  variableBindings[tupleIdentifier] = mem_oidWrapper;
+  variableBindings[tupleIdentifier] =
+      context->toMem(oid, context->createFalse());
 
   context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
@@ -298,9 +256,8 @@ void MemBroadcastDevice::consume(Context *const context,
   // Find block size
   Plugin *pg =
       Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
-  RecordAttribute tupleCnt =
-      RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt",
-                      pg->getOIDType());  // FIXME: OID type for blocks ?
+  RecordAttribute tupleCnt{wantedFields[0]->getRelationName(), "activeCnt",
+                           pg->getOIDType()};  // FIXME: OID type for blocks ?
 
   ProteusValueMemory mem_cntWrapper = childState[tupleCnt];
 
@@ -315,8 +272,9 @@ void MemBroadcastDevice::consume(Context *const context,
   Builder->SetInsertPoint(insBB);
   auto N = Builder->CreateLoad(mem_cntWrapper.mem);
 
-  RecordAttribute tupleIdentifier(wantedFields[0]->getRelationName(),
-                                  activeLoop, pg->getOIDType());
+  RecordAttribute tupleIdentifier{wantedFields[0]->getRelationName(),
+                                  activeLoop, pg->getOIDType()};
+
   ProteusValueMemory mem_oidWrapper = childState[tupleIdentifier];
   auto oid = Builder->CreateLoad(mem_oidWrapper.mem);
 

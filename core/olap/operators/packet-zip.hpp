@@ -32,12 +32,12 @@
 #include "util/parallel-context.hpp"
 
 struct ZipParam {
-  int heads_id;
-  int sizes_id;
-  int oids_id;
-  int blocks_id;
-  int chains_id;
-  int offset_id;
+  StateVar heads_id;
+  StateVar sizes_id;
+  StateVar oids_id;
+  StateVar blocks_id;
+  StateVar chains_id;
+  StateVar offset_id;
 };
 
 struct ZipState {
@@ -113,7 +113,7 @@ class ZipCollect : public BinaryOperator {
   int *offset_left[128];
   int *offset_right[128];
 
-  int partition_id;
+  StateVar partition_id;
 
   ZipParam cache_left_p;
   ZipParam cache_right_p;
@@ -157,13 +157,13 @@ class ZipInitiate : public UnaryOperator {
   int *partition_ptr[128];
   int *partitions[128];
 
-  int partition_alloc_cache;
-  int partition_cnt_cache;
+  StateVar partition_alloc_cache;
+  StateVar partition_cnt_cache;
 
-  int right_blocks_id;
-  int left_blocks_id;
+  StateVar right_blocks_id;
+  StateVar left_blocks_id;
 
-  int partition_fwd;
+  StateVar partition_fwd;
 
   int calls;
 

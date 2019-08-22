@@ -227,9 +227,7 @@ void Nest::consume(Context *const context, const OperatorState &childState) {
 }
 
 map<RecordAttribute, ProteusValueMemory> *Nest::reconstructResults(
-    Value *htBuffer, Value *idx, size_t relR_mem_relation_id) const {
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Catalog &catalog = Catalog::getInstance();
+    Value *htBuffer, Value *idx, const StateVar &relR_mem_relation_id) const {
   Function *F = context->getGlobalFunction();
   IRBuilder<> *Builder = context->getBuilder();
   /*************************************/
@@ -254,7 +252,6 @@ map<RecordAttribute, ProteusValueMemory> *Nest::reconstructResults(
       Builder->CreateInBoundsGEP(val_relR, val_payload_r_offset);
 
   Value *mem_payload = Builder->CreateBitCast(val_ptr_payloadR, payloadPtrType);
-  Value *val_payload_r = Builder->CreateLoad(mem_payload);
 
   {
     // Retrieving activeTuple(s) from HT
@@ -337,7 +334,7 @@ void Nest::probeHT() const {
   Type *int32_type = Type::getInt32Ty(llvmContext);
   PointerType *char_ptr_type = Type::getInt8PtrTy(llvmContext);
 
-  size_t clusterCountR_id = context->appendStateVar(
+  auto clusterCountR_id = context->appendStateVar(
       PointerType::getUnqual(int32_type),
       [=](llvm::Value *pip) {
         LLVMContext &llvmContext = context->getLLVMContext();
@@ -354,7 +351,7 @@ void Nest::probeHT() const {
       },
       "clusterCountR");
 
-  size_t htR_mem_kv_id = context->appendStateVar(
+  auto htR_mem_kv_id = context->appendStateVar(
       PointerType::getUnqual(htEntryType),
       [=](llvm::Value *pip) {
         LLVMContext &llvmContext = context->getLLVMContext();
@@ -375,7 +372,7 @@ void Nest::probeHT() const {
       "htR_mem_kv");  // FIXME: read-only, we do not even have to maintain it as
                       // state variable
 
-  size_t relR_mem_relation_id = context->appendStateVar(
+  auto relR_mem_relation_id = context->appendStateVar(
       char_ptr_type,
       [=](llvm::Value *pip) {
         LLVMContext &llvmContext = context->getLLVMContext();

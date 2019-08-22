@@ -34,8 +34,8 @@ class GpuPipelineGen : public PipelineGen {
   CpuModule wrapper_module;
 
   bool wrapperModuleActive;
-  size_t kernel_id;
-  size_t strm_id;
+  StateVar kernel_id;
+  StateVar strm_id;
 
   llvm::Function *Fconsume;
   std::map<std::string, llvm::Function *> availableWrapperFunctions;

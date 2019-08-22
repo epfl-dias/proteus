@@ -74,9 +74,9 @@ void Reduce::produce() {
       bool flushDelim = (aggsNo > 1) && (itAcc != accs.end() - 1);
       bool is_first = (itAcc == accs.begin());
       bool is_last = (itAcc == accs.end() - 1);
-      size_t mem_accumulator =
+      auto mem_accumulator =
           resetAccumulator(outputExpr, acc, flushDelim, is_first, is_last);
-      mem_accumulators.push_back(mem_accumulator);
+      mem_accumulators.emplace_back(mem_accumulator);
     }
   }
 
@@ -440,14 +440,13 @@ void Reduce::generate_flush() {
 
     if (accs.size() > 1) flusher.beginList();
 
-    itAcc = accs.begin();
-    itExpr = outputExprs.begin();
-    itMem = params.begin();
+    auto itAcc = accs.begin();
+    auto itExpr = outputExprs.begin();
+    auto itMem = params.begin();
 
     for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
       auto acc = *itAcc;
       auto outputExpr = *itExpr;
-      Value *mem_accumulating = nullptr;
 
       if (*itMem == ~((size_t)0) || acc == BAGUNION) continue;
 
@@ -480,11 +479,9 @@ void Reduce::generate_flush() {
   Builder->SetInsertPoint(context->getEndingBlock());
 }
 
-size_t Reduce::resetAccumulator(expression_t outputExpr, Monoid acc,
-                                bool flushDelim, bool is_first,
-                                bool is_last) const {
-  size_t mem_accum_id = ~((size_t)0);
-
+StateVar Reduce::resetAccumulator(expression_t outputExpr, Monoid acc,
+                                  bool flushDelim, bool is_first,
+                                  bool is_last) const {
   // Deal with 'memory allocations' as per monoid type requested
   switch (acc) {
     case SUM:
@@ -495,7 +492,7 @@ size_t Reduce::resetAccumulator(expression_t outputExpr, Monoid acc,
       Type *t = outputExpr.getExpressionType()->getLLVMType(
           context->getLLVMContext());
 
-      mem_accum_id = context->appendStateVar(
+      return context->appendStateVar(
           PointerType::getUnqual(t),
 
           [=](llvm::Value *) {
@@ -538,7 +535,7 @@ size_t Reduce::resetAccumulator(expression_t outputExpr, Monoid acc,
                 auto outputExpr = *itExpr;
                 Value *mem_accumulating = nullptr;
 
-                if (*itMem == ~((size_t)0) || acc == BAGUNION) continue;
+                if (*itMem == StateVar{} || acc == BAGUNION) continue;
 
                 args.emplace_back(context->getStateVar(*itMem));
               }
@@ -571,7 +568,6 @@ size_t Reduce::resetAccumulator(expression_t outputExpr, Monoid acc,
 
             // if (flushResults && is_last  ) flusher->flushOutput();
           });
-      break;
     }
     case UNION: {
       string error_msg = string("[Reduce: ] Not implemented yet");
@@ -581,7 +577,7 @@ size_t Reduce::resetAccumulator(expression_t outputExpr, Monoid acc,
     case BAGUNION: {
       Type *t = Type::getInt64Ty(context->getLLVMContext());
 
-      mem_accum_id = context->appendStateVar(
+      return context->appendStateVar(
           PointerType::getUnqual(t),
 
           [=](llvm::Value *) {
@@ -594,7 +590,6 @@ size_t Reduce::resetAccumulator(expression_t outputExpr, Monoid acc,
           [=](llvm::Value *, llvm::Value *s) {
             context->deallocateStateVar(s);
           });
-      break;
     }
     case APPEND: {
       /*XXX Bags and Lists can be processed in streaming fashion -> No
@@ -608,7 +603,7 @@ size_t Reduce::resetAccumulator(expression_t outputExpr, Monoid acc,
     }
   }
 
-  return mem_accum_id;
+  return {};
 }
 
 }  // namespace opt

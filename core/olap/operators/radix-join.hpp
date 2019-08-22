@@ -53,14 +53,14 @@ struct relationBuf {
   // /* (Current) Offset in bytes */
   // AllocaInst *mem_offset;
   // AllocaInst *mem_cachedTuplesNo;
-  size_t mem_relation_id;
+  StateVar mem_relation_id;
   /* Size in bytes */
-  size_t mem_tuplesNo_id;
+  StateVar mem_tuplesNo_id;
   /* Size in bytes */
-  size_t mem_size_id;
+  StateVar mem_size_id;
   /* (Current) Offset in bytes */
-  size_t mem_offset_id;
-  size_t mem_cachedTuplesNo_id;
+  StateVar mem_offset_id;
+  StateVar mem_cachedTuplesNo_id;
 };
 
 struct kvBuf {
@@ -77,13 +77,13 @@ struct kvBuf {
   /* Mem layout:
    * Pairs of (int32 key, size_t payloadPtr)
    */
-  size_t mem_kv_id;
+  StateVar mem_kv_id;
   /* Size in bytes */
-  size_t mem_tuplesNo_id;
+  StateVar mem_tuplesNo_id;
   /* Size in bytes */
-  size_t mem_size_id;
+  StateVar mem_size_id;
   /* (Current) Offset in bytes */
-  size_t mem_offset_id;
+  StateVar mem_offset_id;
 };
 
 class RadixJoinBuild : public UnaryOperator {

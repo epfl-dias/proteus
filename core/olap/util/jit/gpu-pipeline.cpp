@@ -437,9 +437,10 @@ Function *GpuPipelineGen::prepareConsumeWrapper() {
   }
   mems.push_back(args);
 
-  Value *entry =
-      Builder->CreateExtractValue(Builder->CreateLoad(args), kernel_id);
-  Value *strm = Builder->CreateExtractValue(Builder->CreateLoad(args), strm_id);
+  Value *entry = Builder->CreateExtractValue(Builder->CreateLoad(args),
+                                             kernel_id.getIndex());
+  Value *strm = Builder->CreateExtractValue(Builder->CreateLoad(args),
+                                            strm_id.getIndex());
 
   vector<Type *> types;
   for (auto &m : mems) types.push_back(m->getType());
@@ -687,9 +688,9 @@ Pipeline *GpuPipelineGen::getPipeline(int group_id) {
     Pipeline *copyFrom = copyStateFrom->getPipeline(group_id);
 
     openers.insert(openers.begin(),
-                   std::make_pair(this, [copyFrom](Pipeline *pip) {
+                   std::make_pair(this, [copyFrom, this](Pipeline *pip) {
                      copyFrom->open();
-                     pip->setStateVar(0, copyFrom->state);
+                     pip->setStateVar({0, this}, copyFrom->state);
                    }));
     // closers.emplace_back([copyFrom](Pipeline *
     // pip){pip->copyStateBackTo(copyFrom);});

@@ -63,7 +63,7 @@ class Reduce : public UnaryOperator {
   std::vector<Monoid> accs;
   std::vector<expression_t> outputExprs;
   expression_t pred;
-  std::vector<size_t> mem_accumulators;
+  std::vector<StateVar> mem_accumulators;
 
   const char *outPath;
   bool flushResults;
@@ -74,10 +74,10 @@ class Reduce : public UnaryOperator {
 
   virtual void generate_flush();
 
-  virtual size_t resetAccumulator(expression_t outputExpr, Monoid acc,
-                                  bool flushDelim = false,
-                                  bool is_first = false,
-                                  bool is_last = false) const;
+  virtual StateVar resetAccumulator(expression_t outputExpr, Monoid acc,
+                                    bool flushDelim = false,
+                                    bool is_first = false,
+                                    bool is_last = false) const;
 
  private:
   void generate(Context *const context, const OperatorState &childState) const;

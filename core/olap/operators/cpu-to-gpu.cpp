@@ -72,7 +72,7 @@ void CpuToGpu::generateGpuSide() {
   for (const auto &tin : wantedFields) {
     Type *t = tin->getOriginalType()->getLLVMType(llvmContext);
 
-    wantedFieldsArg_id.push_back(context->appendParameter(t, true, true));
+    wantedFieldsArg_id.emplace_back(context->appendParameter(t, true, true));
   }
 
   Type *size_type;

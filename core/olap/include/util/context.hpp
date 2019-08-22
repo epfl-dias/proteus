@@ -62,6 +62,39 @@ addOptimizerPipelineVectorization(llvm::legacy::FunctionPassManager *TheFPM);
 
 extern bool print_generated_code;
 
+class StateVar {
+ private:
+  size_t index_in_pip;
+  const void *pip;
+
+ public:
+  constexpr StateVar() : index_in_pip(~size_t{0}), pip(nullptr) {}
+  // constexpr StateVar(StateVar &&) = default;
+  // constexpr StateVar(const StateVar &) = default;
+  // StateVar &operator=(StateVar &&) = default;
+  StateVar &operator=(const StateVar &o) {
+    assert(index_in_pip == ~size_t{0} || pip == o.pip);
+    index_in_pip = o.index_in_pip;
+    pip = o.pip;
+    return *this;
+  }
+
+  inline bool operator==(const StateVar &o) const {
+    return index_in_pip == o.index_in_pip && pip == o.pip;
+  }
+
+ private:
+  constexpr StateVar(size_t index, const void *pip)
+      : index_in_pip(index), pip(pip) {}
+
+ private:
+  size_t getIndex() const { return index_in_pip; }
+  friend class Context;
+  friend class Pipeline;
+  friend class PipelineGen;
+  friend class GpuPipelineGen;
+};
+
 class Context {
  private:
   const std::string moduleName;
@@ -278,16 +311,16 @@ class Context {
 
   const char *getName();
 
-  virtual size_t appendStateVar(llvm::Type *ptype, std::string name = "");
-  virtual size_t appendStateVar(llvm::Type *ptype,
-                                std::function<init_func_t> init,
-                                std::function<deinit_func_t> deinit,
-                                std::string name = "");
+  virtual StateVar appendStateVar(llvm::Type *ptype, std::string name = "");
+  virtual StateVar appendStateVar(llvm::Type *ptype,
+                                  std::function<init_func_t> init,
+                                  std::function<deinit_func_t> deinit,
+                                  std::string name = "");
 
   virtual llvm::Value *allocateStateVar(llvm::Type *t);
   virtual void deallocateStateVar(llvm::Value *v);
 
-  virtual llvm::Value *getStateVar(size_t id) const;
+  virtual llvm::Value *getStateVar(const StateVar &id) const;
 
  protected:
   virtual void prepareStateVars();

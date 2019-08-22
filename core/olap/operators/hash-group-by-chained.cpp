@@ -195,8 +195,6 @@ void HashGroupByChained::buildHashTableFormat() {
 
         IRBuilder<> *Builder = context->getBuilder();
 
-        Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
-
         Function *f = context->getFunction("subpipeline_consume");
         FunctionType *f_t = f->getFunctionType();
 

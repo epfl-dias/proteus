@@ -106,9 +106,9 @@ class HashGroupByChained : public UnaryOperator {
   std::vector<expression_t> key_expr;
   std::vector<llvm::Type *> ptr_types;
 
-  int head_param_id;
-  std::vector<int> out_param_ids;
-  int cnt_param_id;
+  StateVar head_param_id;
+  std::vector<StateVar> out_param_ids;
+  StateVar cnt_param_id;
 
   int hash_bits;
   size_t maxInputSize;

@@ -73,8 +73,8 @@ class MemMoveLocalTo : public UnaryOperator {
 
  private:
   const vector<RecordAttribute *> wantedFields;
-  size_t device_id_var;
-  size_t memmvconf_var;
+  StateVar device_id_var;
+  StateVar memmvconf_var;
 
   PipelineGen *catch_pip;
   llvm::Type *data_type;

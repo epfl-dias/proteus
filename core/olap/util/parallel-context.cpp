@@ -121,23 +121,23 @@ size_t ParallelContext::appendParameter(llvm::Type *ptype, bool noalias,
   return getCurrentPipeline()->appendParameter(ptype, noalias, readonly);
 }
 
-size_t ParallelContext::appendStateVar(llvm::Type *ptype, std::string name) {
-  return getCurrentPipeline()->appendStateVar(ptype);
+StateVar ParallelContext::appendStateVar(llvm::Type *ptype, std::string name) {
+  return generators.back()->appendStateVar(ptype);
 }
 
-size_t ParallelContext::appendStateVar(llvm::Type *ptype,
-                                       std::function<init_func_t> init,
-                                       std::function<deinit_func_t> deinit,
-                                       std::string name) {
-  return getCurrentPipeline()->appendStateVar(ptype, init, deinit);
+StateVar ParallelContext::appendStateVar(llvm::Type *ptype,
+                                         std::function<init_func_t> init,
+                                         std::function<deinit_func_t> deinit,
+                                         std::string name) {
+  return generators.back()->appendStateVar(ptype, init, deinit);
 }
 
 llvm::Argument *ParallelContext::getArgument(size_t id) const {
   return getCurrentPipeline()->getArgument(id);
 }
 
-llvm::Value *ParallelContext::getStateVar(size_t id) const {
-  return getCurrentPipeline()->getStateVar(id);
+llvm::Value *ParallelContext::getStateVar(const StateVar &id) const {
+  return generators.back()->getStateVar(id);
 }
 
 llvm::Value *ParallelContext::getStateVar() const {

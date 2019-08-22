@@ -113,9 +113,6 @@ void HashPartitioner::matFormat() {
 
   Type *t_cnt = PointerType::get(int32_type, 1);
   cnt_pipe = context->appendStateVar(t_cnt);
-
-  std::cout << "REGISTERED " << cnt_pipe << " " << param_pipe_ids[0] << " "
-            << param_pipe_ids[1] << std::endl;
   // std::cout << cnt_right_param_id << std::endl;
 }
 
@@ -191,9 +188,6 @@ void HashPartitioner::consume(Context *const context,
 }
 
 void HashPartitioner::open(Pipeline *pip) {
-  std::cout << "Partition::probe_" << std::endl;
-  std::cout << "HI" << cnt_pipe << std::endl;
-
   vector<void *> param_ptr = state.cols[pip->getGroup()];
 
   int device;
@@ -202,25 +196,16 @@ void HashPartitioner::open(Pipeline *pip) {
 
   int32_t *cnt_ptr = (int32_t *)MemoryManager::mallocGpu(sizeof(int32_t));
 
-  uint32_t parts2 = 1 << (log_parts1 + log_parts2);
-  size_t buckets_num_max =
-      (((maxInputSize + parts2 - 1) / parts2 + bucket_size - 1) / bucket_size) *
-      parts2;
-
   cudaStream_t strm = createNonBlockingStream();
   gpu_run(cudaMemsetAsync(cnt_ptr, 0, sizeof(int32_t), strm));
   syncAndDestroyStream(strm);
 
-  std::cout << "at0 " << cnt_pipe << std::endl;
   pip->setStateVar(cnt_pipe, cnt_ptr);
   for (size_t i = 0; i < param_pipe_ids.size(); i++) {
-    std::cout << "at " << i << " " << param_pipe_ids[i] << std::endl;
     pip->setStateVar(param_pipe_ids[i], param_ptr[i]);
   }
 
   cnts_ptr[pip->getGroup()] = cnt_ptr;
-
-  // std::cout << "GpuOptJoin::open::probe2" << std::endl;
 }
 
 void call_init_first(size_t grid, size_t block, size_t shmem, cudaStream_t strm,

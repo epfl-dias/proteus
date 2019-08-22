@@ -69,9 +69,9 @@ void GpuReduce::produce() {
       bool flushDelim = (aggsNo > 1) && (itAcc != accs.end() - 1);
       bool is_first = (itAcc == accs.begin());
       bool is_last = (itAcc == accs.end() - 1);
-      size_t mem_accumulator =
+      auto mem_accumulator =
           resetAccumulator(*itExpr, acc, flushDelim, is_first, is_last);
-      mem_accumulators.push_back(mem_accumulator);
+      mem_accumulators.emplace_back(mem_accumulator);
     }
   }
 
@@ -341,11 +341,9 @@ void GpuReduce::generate(const Monoid &m, expression_t outputExpr,
 //     // }
 // }
 
-size_t GpuReduce::resetAccumulator(expression_t outputExpr, Monoid acc,
-                                   bool flushDelim, bool is_first,
-                                   bool is_last) const {
-  size_t mem_accum_id = ~((size_t)0);
-
+StateVar GpuReduce::resetAccumulator(expression_t outputExpr, Monoid acc,
+                                     bool flushDelim, bool is_first,
+                                     bool is_last) const {
   // Deal with 'memory allocations' as per monoid type requested
   switch (acc) {
     case SUM:
@@ -356,7 +354,7 @@ size_t GpuReduce::resetAccumulator(expression_t outputExpr, Monoid acc,
       Type *t = outputExpr.getExpressionType()->getLLVMType(
           context->getLLVMContext());
 
-      mem_accum_id = context->appendStateVar(
+      return context->appendStateVar(
           PointerType::getUnqual(t),
 
           [=](llvm::Value *) {
@@ -407,7 +405,7 @@ size_t GpuReduce::resetAccumulator(expression_t outputExpr, Monoid acc,
               for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
                 auto outputExpr = *itExpr;
 
-                if (*itMem == ~((size_t)0)) continue;
+                if (*itMem == StateVar{}) continue;
 
                 args.emplace_back(context->getStateVar(*itMem));
               }
@@ -459,7 +457,7 @@ size_t GpuReduce::resetAccumulator(expression_t outputExpr, Monoid acc,
     }
   }
 
-  return mem_accum_id;
+  return {};
 }
 
 }  // namespace opt

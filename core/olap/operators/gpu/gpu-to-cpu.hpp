@@ -66,16 +66,16 @@ class GpuToCpu : public DeviceCross {
 
   llvm::Type *params_type;
 
-  size_t lockVar_id;
-  size_t lastVar_id;
-  size_t flagsVar_id;
-  size_t storeVar_id;
-  size_t threadVar_id;
-  size_t eofVar_id;
+  StateVar lockVar_id;
+  StateVar lastVar_id;
+  StateVar flagsVar_id;
+  StateVar storeVar_id;
+  StateVar threadVar_id;
+  StateVar eofVar_id;
 
-  size_t flagsVar_id_catch;
-  size_t storeVar_id_catch;
-  size_t eofVar_id_catch;
+  StateVar flagsVar_id_catch;
+  StateVar storeVar_id_catch;
+  StateVar eofVar_id_catch;
 
   size_t size;
 

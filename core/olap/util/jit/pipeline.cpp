@@ -43,20 +43,20 @@ size_t PipelineGen::appendParameter(llvm::Type *ptype, bool noalias,
   return inputs.size() - 1;
 }
 
-size_t PipelineGen::appendStateVar(llvm::Type *ptype) {
+StateVar PipelineGen::appendStateVar(llvm::Type *ptype) {
   return appendStateVar(
       ptype, [ptype](Value *) { return UndefValue::get(ptype); },
       [](Value *, Value *) {});
 }
 
-size_t PipelineGen::appendStateVar(llvm::Type *ptype,
-                                   std::function<init_func_t> init,
-                                   std::function<deinit_func_t> deinit) {
+StateVar PipelineGen::appendStateVar(llvm::Type *ptype,
+                                     std::function<init_func_t> init,
+                                     std::function<deinit_func_t> deinit) {
   state_vars.push_back(ptype);
   size_t var_id = state_vars.size() - 1;
   open_var.emplace_back(init, var_id);
   close_var.emplace_back(deinit, var_id);
-  return var_id;
+  return {var_id, this};
 }
 
 void PipelineGen::registerOpen(const void *owner,
@@ -163,15 +163,16 @@ Value *PipelineGen::getStateVar() const {
   return state;  // getArgument(args.size() - 1);
 }
 
-Value *PipelineGen::getStateVar(size_t id) const {
+Value *PipelineGen::getStateVar(StateVar id) const {
   Value *arg = getStateVar();
-  assert(id < state_vars.size());
-  return context->getBuilder()->CreateExtractValue(arg, id);
+  assert(id.pip == this);
+  assert(id.getIndex() < state_vars.size());
+  return context->getBuilder()->CreateExtractValue(arg, id.getIndex());
 }
 
 Value *PipelineGen::getSubStateVar() const {
   assert(copyStateFrom);
-  Value *subState = getStateVar(0);
+  Value *subState = getStateVar(StateVar{0, this});
   subState->setName("subState");
   return subState;
 }
@@ -487,9 +488,9 @@ Pipeline *PipelineGen::getPipeline(int group_id) {
     Pipeline *copyFrom = copyStateFrom->getPipeline(group_id);
 
     openers.insert(openers.begin(),
-                   std::make_pair(this, [copyFrom](Pipeline *pip) {
+                   std::make_pair(this, [copyFrom, this](Pipeline *pip) {
                      copyFrom->open();
-                     pip->setStateVar(0, copyFrom->state);
+                     pip->setStateVar({0, this}, copyFrom->state);
                    }));
     // closers.emplace_back([copyFrom](Pipeline *
     // pip){pip->copyStateBackTo(copyFrom);});

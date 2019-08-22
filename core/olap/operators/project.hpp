@@ -49,7 +49,7 @@ class Project : public UnaryOperator {
 
  protected:
   Context *context;
-  size_t oid_id;
+  StateVar oid_id;
   string relName;
 
   vector<expression_t> outputExprs;

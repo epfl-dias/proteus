@@ -615,22 +615,22 @@ void Context::registerFunction(const char *funcName, Function *func) {
   availableFunctions[funcName] = func;
 }
 
-size_t Context::appendStateVar(llvm::Type *ptype, std::string name) {
+StateVar Context::appendStateVar(llvm::Type *ptype, std::string name) {
   return appendStateVar(
       ptype, [ptype](llvm::Value *) { return UndefValue::get(ptype); },
       [](llvm::Value *, llvm::Value *) {}, name);
 }
 
-llvm::Value *Context::getStateVar(size_t id) const {
-  assert(state_vars.size() > id &&
+llvm::Value *Context::getStateVar(const StateVar &id) const {
+  assert(state_vars.size() > id.getIndex() &&
          "Has the function been created? Is it a valid ID?");
-  return state_vars[id];
+  return state_vars[id.getIndex()];
 }
 
-size_t Context::appendStateVar(llvm::Type *ptype,
-                               std::function<init_func_t> init,
-                               std::function<deinit_func_t> deinit,
-                               std::string name) {
+StateVar Context::appendStateVar(llvm::Type *ptype,
+                                 std::function<init_func_t> init,
+                                 std::function<deinit_func_t> deinit,
+                                 std::string name) {
   size_t id = to_prepare_state_vars.size();
 
   if (getGlobalFunction()) {
@@ -657,7 +657,7 @@ size_t Context::appendStateVar(llvm::Type *ptype,
   to_prepare_state_vars.emplace_back(
       ptype, name + "_statevar" + std::to_string(id), init, deinit);
 
-  return id;
+  return {id, nullptr};
 }
 
 llvm::Value *Context::allocateStateVar(llvm::Type *t) {

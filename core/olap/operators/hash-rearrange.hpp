@@ -74,9 +74,9 @@ class HashRearrange : public UnaryOperator {
 
   // void *                          flushFunc   ;
 
-  size_t blkVar_id;
-  size_t cntVar_id;
-  size_t oidVar_id;
+  StateVar blkVar_id;
+  StateVar cntVar_id;
+  StateVar oidVar_id;
 
   size_t blockSize;  // bytes
 
