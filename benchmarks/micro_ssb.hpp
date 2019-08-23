@@ -46,7 +46,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #endif
 
-#define LINEORDER_EXTRA_RESERVE 50000000
+#define LINEORDER_EXTRA_RESERVE 0
 
 namespace bench {
 
@@ -71,8 +71,8 @@ class MicroSSB : public Benchmark {
     uint32_t lo_partkey;
     uint32_t lo_suppkey;
     uint32_t lo_orderdate;
-    char lo_orderpriority[12];
-    char lo_shippriority[12];
+    // char lo_orderpriority[12];
+    // char lo_shippriority[12];
     uint32_t lo_quantity;
     uint32_t lo_extendedprice;
     uint32_t lo_ordtotalprice;
@@ -81,7 +81,7 @@ class MicroSSB : public Benchmark {
     uint32_t lo_supplycost;
     uint32_t lo_tax;
     uint32_t lo_commitdate;
-    char lo_shipmode[12];
+    // char lo_shipmode[12];
   };
 
   struct part {

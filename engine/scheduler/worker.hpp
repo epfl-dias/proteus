@@ -143,7 +143,7 @@ class WorkerPool {
       F &&f, Args &&... args);
 
   uint8_t size() { return workers.size(); }
-
+  std::string get_benchmark_name() { return this->txn_bench->name; }
   void pause();
   void resume();
 

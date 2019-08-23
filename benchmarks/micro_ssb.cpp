@@ -76,7 +76,7 @@ void MicroSSB::load_data(int num_threads) {
   std::cout << "[TPCC] Load data from : " << data_path << std::endl;
   std::vector<std::thread> loaders;
 
-  // loaders.emplace_back([this]() { this->load_lineorder(); });
+  loaders.emplace_back([this]() { this->load_lineorder(); });
   loaders.emplace_back([this]() { this->load_part(); });
 
   int i = 0;
@@ -85,40 +85,70 @@ void MicroSSB::load_data(int num_threads) {
   }
 }
 void MicroSSB::load_lineorder(uint64_t num_lineorder) {
-  // std::ifstream binFile(concat_path(this->csv_path, filename).c_str(),
-  // std::ifstream::binary); if(binFile) {
-  //   // get length of file
-  //   binFile.seekg(0, binFile.end);
-  //   size_t length = static_cast<size_t>(binFile.tellg());
-  //   binFile.seekg(0, binFile.beg);
-
-  //   // read whole contents of the file to a buffer at once
-  //   char *buffer = new char[length];
-  //   binFile.read(buffer, length);
-  //   binFile.close();
+  ((storage::ColumnStore *)this->table_lineorder)
+      ->load_data_from_binary(
+          "lo_orderkey",
+          concat_path(this->data_path, "lineorder.csv.lo_orderkey").c_str());
+  ((storage::ColumnStore *)this->table_lineorder)
+      ->load_data_from_binary(
+          "lo_linenumber",
+          concat_path(this->data_path, "lineorder.csv.lo_linenumber").c_str());
+  ((storage::ColumnStore *)this->table_lineorder)
+      ->load_data_from_binary(
+          "lo_custkey",
+          concat_path(this->data_path, "lineorder.csv.lo_custkey").c_str());
+  ((storage::ColumnStore *)this->table_lineorder)
+      ->load_data_from_binary(
+          "lo_partkey",
+          concat_path(this->data_path, "lineorder.csv.lo_partkey").c_str());
+  ((storage::ColumnStore *)this->table_lineorder)
+      ->load_data_from_binary(
+          "lo_suppkey",
+          concat_path(this->data_path, "lineorder.csv.lo_suppkey").c_str());
+  ((storage::ColumnStore *)this->table_lineorder)
+      ->load_data_from_binary(
+          "lo_orderdate",
+          concat_path(this->data_path, "lineorder.csv.lo_orderdate").c_str());
+  ((storage::ColumnStore *)this->table_lineorder)
+      ->load_data_from_binary(
+          "lo_quantity",
+          concat_path(this->data_path, "lineorder.csv.lo_quantity").c_str());
+  ((storage::ColumnStore *)this->table_lineorder)
+      ->load_data_from_binary(
+          "lo_extendedprice",
+          concat_path(this->data_path, "lineorder.csv.lo_extendedprice")
+              .c_str());
+  ((storage::ColumnStore *)this->table_lineorder)
+      ->load_data_from_binary(
+          "lo_ordtotalprice",
+          concat_path(this->data_path, "lineorder.csv.lo_ordtotalprice")
+              .c_str());
+  ((storage::ColumnStore *)this->table_lineorder)
+      ->load_data_from_binary(
+          "lo_discount",
+          concat_path(this->data_path, "lineorder.csv.lo_discount").c_str());
+  ((storage::ColumnStore *)this->table_lineorder)
+      ->load_data_from_binary(
+          "lo_revenue",
+          concat_path(this->data_path, "lineorder.csv.lo_revenue").c_str());
+  ((storage::ColumnStore *)this->table_lineorder)
+      ->load_data_from_binary(
+          "lo_supplycost",
+          concat_path(this->data_path, "lineorder.csv.lo_supplycost").c_str());
+  ((storage::ColumnStore *)this->table_lineorder)
+      ->load_data_from_binary(
+          "lo_tax",
+          concat_path(this->data_path, "lineorder.csv.lo_tax").c_str());
+  ((storage::ColumnStore *)this->table_lineorder)
+      ->load_data_from_binary(
+          "lo_commitdate",
+          concat_path(this->data_path, "lineorder.csv.lo_commitdate").c_str());
 
   for (uint64_t i = 0; i < num_lineorder; i++) {
     this->table_part->insertIndexRecord(0, 0);
   }
 }
 void MicroSSB::load_part(uint64_t num_parts) {
-  // map the column..
-  //
-
-  // p_stocklevel .. URand(&this->seed, 1000, 10000);
-
-  // std::ifstream binFile(concat_path(this->csv_path, filename).c_str(),
-  // std::ifstream::binary); if(binFile) {
-  //   // get length of file
-  //   binFile.seekg(0, binFile.end);
-  //   size_t length = static_cast<size_t>(binFile.tellg());
-  //   binFile.seekg(0, binFile.beg);
-
-  //   // read whole contents of the file to a buffer at once
-  //   char *buffer = new char[length];
-  //   binFile.read(buffer, length);
-  //   binFile.close();
-
   // insert records
 
   // p_partkey
@@ -134,14 +164,11 @@ void MicroSSB::load_part(uint64_t num_parts) {
   ((storage::ColumnStore *)this->table_part)
       ->load_data_from_binary(
           "p_size", concat_path(this->data_path, "part.csv.p_size").c_str());
-  // p_stocklevel
-  // ((storage::ColumnStore *)this->table_part)
-  //     ->load_data_from_binary(
-  //         "p_stocklevel",
-  //         concat_path(this->data_path, "part.csv.p_stocklevel").c_str());
-
-  // uint64_t load_data_from_binary(std::string col_name, std::string
-  // file_path);
+  // // p_stocklevel
+  ((storage::ColumnStore *)this->table_part)
+      ->load_data_from_binary(
+          "p_stocklevel",
+          concat_path(this->data_path, "part.csv.p_stocklevel").c_str());
 
   for (uint64_t i = 0; i < num_parts; i++) {
     this->table_part->insertIndexRecord(0, 0);
@@ -189,10 +216,10 @@ void MicroSSB::create_tbl_lineorder(uint64_t num_lineorder) {
       "lo_suppkey", storage::INTEGER, sizeof(tmp.lo_suppkey)));
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "lo_orderdate", storage::INTEGER, sizeof(tmp.lo_orderdate)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "lo_orderpriority", storage::STRING, sizeof(tmp.lo_orderpriority)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "lo_shippriority", storage::STRING, sizeof(tmp.lo_shippriority)));
+  // columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+  //     "lo_orderpriority", storage::STRING, sizeof(tmp.lo_orderpriority)));
+  // columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+  //     "lo_shippriority", storage::STRING, sizeof(tmp.lo_shippriority)));
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "lo_quantity", storage::INTEGER, sizeof(tmp.lo_quantity)));
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
@@ -210,8 +237,8 @@ void MicroSSB::create_tbl_lineorder(uint64_t num_lineorder) {
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "lo_commitdate", storage::INTEGER, sizeof(tmp.lo_commitdate)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "lo_shipmode", storage::STRING, sizeof(tmp.lo_shipmode)));
+  // columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+  //     "lo_shipmode", storage::STRING, sizeof(tmp.lo_shipmode)));
 
   table_lineorder =
       schema->create_table("ssbm_lineorder", storage::COLUMN_STORE, columns,
@@ -271,8 +298,6 @@ MicroSSB::MicroSSB(std::string name, std::string binary_path_root)
   this->schema = &storage::Schema::getInstance();
   create_tbl_part();
   create_tbl_lineorder();
-  // this->load_part();
-  // this->load_lineorder();
 
   std::cout << "Total Memory Reserved for Tables: "
             << (double)this->schema->total_mem_reserved / (1024 * 1024 * 1024)
