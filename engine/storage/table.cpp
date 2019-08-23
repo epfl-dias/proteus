@@ -35,6 +35,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #if HTAP_DOUBLE_MASTER
 #include "codegen/memory/memory-manager.hpp"
 #include "codegen/topology/affinity_manager.hpp"
+#include "codegen/topology/topology.hpp"
 #endif
 
 /*
@@ -63,8 +64,18 @@ inline void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
 
 inline void Column::snapshot(uint64_t num_records, uint64_t epoch,
                              uint8_t snapshot_master_ver) {
-  arena->destroy_snapshot();
-  arena->create_snapshot({num_records, epoch, snapshot_master_ver});
+  // arena->destroy_snapshot();
+  // arena->create_snapshot({num_records, epoch, snapshot_master_ver});
+
+  uint i = 0;
+  for (auto& ar : arena) {
+    uint64_t partition_recs = (num_records / NUM_SOCKETS) + (num_records % i);
+
+    ar->destroy_snapshot();
+    ar->create_snapshot({partition_recs, epoch, snapshot_master_ver});
+    i++;
+  }
+  assert(i == NUM_SOCKETS);
 
 #if HTAP_COW
   this->master_versions[0][0]->data = arena->oltp();
@@ -406,39 +417,51 @@ void Column::buildIndex() {
   this->is_indexed = true;
 }
 
-// struct snapshot_chunk {
-//   void* data;
-//   uint64_t num_records;
-// };
-
-std::vector<mem_chunk> Column::snapshot_get_data() {
-#if HTAP_COW
-  std::vector<mem_chunk> ret;
-  ret.emplace_back(
-      arena->olap(),
-      (this->total_mem_reserved / global_conf::num_master_versions), 0);
-  return ret;
-
-#elif HTAP_DOUBLE_MASTER
-
+std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data() {
   // assert(master_version <= global_conf::num_master_versions);
-  return master_versions[this->arena->getMetadata().master_ver];
+  // return master_versions[this->arena->getMetadata().master_ver];
+
+  std::vector<std::pair<mem_chunk, uint64_t>> ret;
+
+  for (auto& ar : arena) {
+    uint i = 0;
+    for (const auto& chunk : master_versions[ar->getMetadata().master_ver][i]) {
+#if HTAP_DOUBLE_MASTER
+
+      ret.emplace_back(
+          std::make_pair(mem_chunk(chunk.data, chunk.size, chunk.numa_id),
+                         ar->getMetadata().numOfRecords));
+
+#elif HTAP_COW
+
+      ret.emplace_back(std::make_pair(
+          mem_chunk(
+              ar->olap(),
+              (this->total_mem_reserved / global_conf::num_master_versions), 0),
+          ar->getMetadata().numOfRecords));
+
 #else
-  assert(false && "Undefined snapshot mechanism");
+      assert(false && "Undefined snapshot mechanism");
 #endif
+    }
+    i++;
+    assert(i == NUM_SOCKETS);
+  }
+
+  // for (const auto& chunk :
+  //      master_versions[this->arena->getMetadata().master_ver]) {
+  //   ret.push_back(chunk);
+  // }
+  return ret;
 }
 
-uint64_t Column::snapshot_get_num_records() {
-  return this->arena->getMetadata().numOfRecords;
-}
+// uint64_t Column::snapshot_get_num_records() {
+//   return this->arena->getMetadata().numOfRecords;
+// }
 
 Column::Column(std::string name, uint64_t initial_num_records, data_type type,
                size_t unit_size, bool build_index, bool single_version_only)
-    : name(name),
-      elem_size(unit_size),
-      type(type),
-      arena(global_conf::SnapshotManager::create(initial_num_records *
-                                                 unit_size)) {
+    : name(name), elem_size(unit_size), type(type) {
   /*
   ALGO:
           - Allocate memory for that column with default start number of records
@@ -448,18 +471,27 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
   // TODO: Allocating memory in the current socket.
   // size: initial_num_recs * unit_size
   // std::cout << "INITIAL NUM REC: " << initial_num_records << std::endl;
-  int numa_id = global_conf::master_col_numa_id;
+  // int numa_id = global_conf::master_col_numa_id;
   size_t size = initial_num_records * unit_size;
+  size_t size_per_partition =
+      (((initial_num_records * unit_size) / NUM_SOCKETS) + 1);
   this->total_mem_reserved = size * global_conf::num_master_versions;
+
+  for (uint i = 0; i < NUM_SOCKETS; i++) {
+    arena.emplace_back(
+        global_conf::SnapshotManager::create(size_per_partition));
+  }
 
 #if HTAP_COW
 
-  arena->create_snapshot({0, 0});
-  void* mem = arena->oltp();
-  uint64_t* pt = (uint64_t*)mem;
-  int warmup_max = size / sizeof(uint64_t);
-  for (int j = 0; j < warmup_max; j++) pt[j] = 0;
-  master_versions[0].emplace_back(mem, size, 0);
+  for (ushort i = 0; i < NUM_SOCKETS, i++) {
+    ar[i]->create_snapshot({0, 0});
+    void* mem = ar->oltp();
+    uint64_t* pt = (uint64_t*)mem;
+    int warmup_max = size_per_partition / sizeof(uint64_t);
+    for (int j = 0; j < warmup_max; j++) pt[j] = 0;
+    master_versions[0].emplace_back(mem, size_per_partition, 0);
+  }
 
   // for (ushort i = 0; i < NUM_SOCKETS; i++) {
   //   auto tmp_arena =
@@ -482,36 +514,42 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
   // std::cout << "Column--" << name << "| size: " << size
   //          << "| num_r: " << initial_num_records << std::endl;
 
-  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
-
-#if HTAP_RM_SERVER
-    std::cout << "HTAP REMOTE ALLOCATION: " << (std::to_string(i) + "__" + name)
-              << std::endl;
-    std::cout << "TABLE UNIT SIZE: " << unit_size << std::endl;
-    void* mem = MemoryManager::alloc_shm_htap(std::to_string(i) + "__" + name,
-                                              size, unit_size, i);
-
-#elif SHARED_MEMORY
-    void* mem =
-        MemoryManager::alloc_shm(std::to_string(i) + "__" + name, size, i);
-#elif HTAP_DOUBLE_MASTER
-
-    // auto &topo = topology::getInstance();
-    // auto &nodes = topo.getCpuNumaNodes();
-    // exec_location{numa_node}.activate();
-    // topology::getInstance().getCpuNumaNodes()
-    // set_exec_location_on_scope d{gpu};
-    void* mem = ::MemoryManager::mallocPinned(size);
-
-#else
-    void* mem = MemoryManager::alloc(size, i);
+#if HTAP_DOUBLE_MASTER
+  // auto &topo = topology::getInstance();
+  // auto &nodes = topo.getCpuNumaNodes();
+  // exec_location{numa_node}.activate();
+  auto& cpunumanodes = ::topology::getInstance().getCpuNumaNodes();
 #endif
 
-    uint64_t* pt = (uint64_t*)mem;
-    int warmup_max = size / sizeof(uint64_t);
-    for (int j = 0; j < warmup_max; j++) pt[j] = 0;
-    master_versions[i].emplace_back(mem, size, numa_id);
+  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
+    for (ushort j = 0; j < NUM_SOCKETS; j++) {
 
+#if HTAP_RM_SERVER
+      std::cout << "HTAP REMOTE ALLOCATION: "
+                << (std::to_string(i) + "__" + name) << std::endl;
+      std::cout << "TABLE UNIT SIZE: " << unit_size << std::endl;
+      void* mem = MemoryManager::alloc_shm_htap(
+          std::to_string(i) + "__" + std::to_string(j) + "__" + name,
+          size_per_partition, unit_size, j);
+
+#elif SHARED_MEMORY
+      void* mem = MemoryManager::alloc_shm(
+          std::to_string(i) + "__" + std::to_string(j) + "__" + name,
+          size_per_partition, j);
+#elif HTAP_DOUBLE_MASTER
+
+      set_exec_location_on_scope d{cpunumanodes[j]};
+      void* mem = ::MemoryManager::mallocPinned(size_per_partition);
+
+#else
+      void* mem = MemoryManager::alloc(size_per_partition, j);
+#endif
+
+      uint64_t* pt = (uint64_t*)mem;
+      int warmup_max = size_per_partition / sizeof(uint64_t);
+      for (int j = 0; j < warmup_max; j++) pt[j] = 0;
+      master_versions[i][j].emplace_back(mem, size_per_partition, j);
+    }
     if (single_version_only) break;
   }
 
@@ -521,12 +559,12 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
 }
 
 void* Column::getElem(uint64_t vid, ushort master_ver) {
-  // master_versions[master_ver];
-  assert(master_versions[master_ver].size() != 0);
-  // std::cout << "getElem -> " << vid << " | master:" << master_ver <<
-  // std::endl;
-  int data_idx = vid * elem_size;
-  for (const auto& chunk : master_versions[master_ver]) {
+  uint pid = vid % NUM_SOCKETS;
+  uint64_t idx = vid / NUM_SOCKETS;
+  assert(master_versions[master_ver][pid].size() != 0);
+
+  int data_idx = idx * elem_size;
+  for (const auto& chunk : master_versions[master_ver][pid]) {
     if (chunk.size >= ((size_t)data_idx + elem_size)) {
       return ((char*)chunk.data) + data_idx;
     }
@@ -534,12 +572,12 @@ void* Column::getElem(uint64_t vid, ushort master_ver) {
   return nullptr;
 }
 void Column::touchElem(uint64_t vid, ushort master_ver) {
-  // master_versions[master_ver];
-  assert(master_versions[master_ver].size() != 0);
-  // std::cout << "getElem -> " << vid << " | master:" << master_ver <<
-  // std::endl;
-  int data_idx = vid * elem_size;
-  for (const auto& chunk : master_versions[master_ver]) {
+  uint pid = vid % NUM_SOCKETS;
+  uint64_t idx = vid / NUM_SOCKETS;
+  assert(master_versions[master_ver][pid].size() != 0);
+
+  int data_idx = idx * elem_size;
+  for (const auto& chunk : master_versions[master_ver][pid]) {
     if (chunk.size >= ((size_t)data_idx + elem_size)) {
       char* loc = ((char*)chunk.data) + data_idx;
 #if HTAP_DOUBLE_MASTER
@@ -554,11 +592,13 @@ void Column::touchElem(uint64_t vid, ushort master_ver) {
 }
 
 void Column::getElem(uint64_t vid, ushort master_ver, void* copy_location) {
-  // master_versions[master_ver];
-  assert(master_versions[master_ver].size() != 0);
-  int data_idx = vid * elem_size;
+  uint pid = vid % NUM_SOCKETS;
+  uint64_t idx = vid / NUM_SOCKETS;
+  assert(master_versions[master_ver][pid].size() != 0);
+
+  int data_idx = idx * elem_size;
   // std::cout << "GetElem-" << this->name << std::endl;
-  for (const auto& chunk : master_versions[master_ver]) {
+  for (const auto& chunk : master_versions[master_ver][pid]) {
     if (chunk.size >= ((size_t)data_idx + elem_size)) {
       std::memcpy(copy_location, ((char*)chunk.data) + data_idx,
                   this->elem_size);
@@ -568,12 +608,16 @@ void Column::getElem(uint64_t vid, ushort master_ver, void* copy_location) {
   assert(false);  // as control should never reach here.
 }
 
-void Column::insertElem(uint64_t offset, void* elem, ushort master_ver) {
+void Column::insertElem(uint64_t vid, void* elem, ushort master_ver) {
   // TODO: insert in both masters but set upd bit only in curr master.
-  uint64_t data_idx = offset * this->elem_size;
+
+  uint pid = vid % NUM_SOCKETS;
+  uint64_t idx = vid / NUM_SOCKETS;
+
+  uint64_t data_idx = idx * this->elem_size;
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     bool ins = false;
-    for (const auto& chunk : master_versions[i]) {
+    for (const auto& chunk : master_versions[i][pid]) {
       if (chunk.size >= (data_idx + elem_size)) {
         // insert elem here
         void* dst = (void*)(((char*)chunk.data) + data_idx);
@@ -606,11 +650,14 @@ void Column::insertElem(uint64_t offset, void* elem, ushort master_ver) {
 }
 
 // For index/meta column
-void* Column::insertElem(uint64_t offset) {
-  uint64_t data_idx = offset * this->elem_size;
+void* Column::insertElem(uint64_t vid) {
+  uint pid = vid % NUM_SOCKETS;
+  uint64_t idx = vid / NUM_SOCKETS;
+
+  uint64_t data_idx = idx * this->elem_size;
 
   bool ins = false;
-  for (const auto& chunk : master_versions[0]) {
+  for (const auto& chunk : master_versions[0][pid]) {
     if (chunk.size >= (data_idx + elem_size)) {
       // insert elem here
       return (void*)(((char*)chunk.data) + data_idx);
@@ -628,8 +675,15 @@ void* Column::insertElem(uint64_t offset) {
 
 Column::~Column() {
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
-    for (auto& chunk : master_versions[i]) {
-      MemoryManager::free(chunk.data, chunk.size);
+    for (ushort j = 0; j < NUM_SOCKETS; j++) {
+      for (auto& chunk : master_versions[i][j]) {
+#if HTAP_DOUBLE_MASTER
+        ::MemoryManager::freePinned(chunk.data);
+#else
+        MemoryManager::free(chunk.data, chunk.size);
+#endif
+      }
+      master_versions[i][j].clear();
     }
   }
 }
@@ -641,19 +695,19 @@ void ColumnStore::num_upd_tuples() {
 }
 
 void Column::num_upd_tuples() {
-  for (uint master_ver = 0; master_ver < global_conf::num_master_versions;
-       master_ver++) {
+  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     uint64_t counter = 0;
-    for (const auto& chunk : master_versions[master_ver]) {
-      for (uint i = 0; i < (chunk.size / elem_size); i++) {
-        uint8_t* p = ((uint8_t*)chunk.data) + i;
-        if (*p >> 7 == 1) {
-          counter++;
+    for (ushort j = 0; j < NUM_SOCKETS; j++) {
+      for (auto& chunk : master_versions[i][j]) {
+        for (uint i = 0; i < (chunk.size / elem_size); i++) {
+          uint8_t* p = ((uint8_t*)chunk.data) + i;
+          if (*p >> 7 == 1) {
+            counter++;
+          }
         }
       }
     }
-
-    std::cout << "UPD[" << master_ver << "]: COL:" << this->name
+    std::cout << "UPD[" << i << "]: COL:" << this->name
               << " | #num_upd: " << counter << std::endl;
     counter = 0;
   }

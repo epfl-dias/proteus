@@ -55,8 +55,8 @@ DeltaStore::DeltaStore(uint delta_id, uint64_t ver_list_capacity,
 
     // std::cout << "PID-" << i << " - memset: " << data_numa_id << std::endl;
 
-    void* mem_list = MemoryManager::alloc(ver_list_capacity, list_numa_id);
-    void* mem_data = MemoryManager::alloc(ver_data_capacity, data_numa_id);
+    void* mem_list = MemoryManager::alloc(ver_list_capacity, i);
+    void* mem_data = MemoryManager::alloc(ver_data_capacity, i);
     assert(mem_list != NULL);
     assert(mem_data != NULL);
 
@@ -67,9 +67,8 @@ DeltaStore::DeltaStore(uint delta_id, uint64_t ver_list_capacity,
     assert(mem_data != nullptr);
 
     partitions.push_back(new DeltaPartition(
-        (char*)mem_list, mem_chunk(mem_list, ver_list_capacity, list_numa_id),
-        (char*)mem_data, mem_chunk(mem_data, ver_data_capacity, data_numa_id),
-        i));
+        (char*)mem_list, mem_chunk(mem_list, ver_list_capacity, i),
+        (char*)mem_data, mem_chunk(mem_data, ver_data_capacity, i), i));
   }
 
   if (DELTA_DEBUG) {

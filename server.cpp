@@ -152,9 +152,7 @@ int main(int argc, char** argv) {
 
   if (HTAP_DOUBLE_MASTER) {
     proteus::init(false);
-  }
-
-  if (HTAP_RM_SERVER) {
+  } else if (HTAP_RM_SERVER) {
     std::cout << "\tInitializing communication manager..." << std::endl;
     scheduler::CommManager::getInstance().init();
   } else {

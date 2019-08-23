@@ -246,7 +246,7 @@ class Column {
   // }
 
   // snapshot stuff
-  std::vector<mem_chunk> snapshot_get_data();
+  std::vector<std::pair<mem_chunk, uint64_t>> snapshot_get_data();
   uint64_t snapshot_get_num_records();
 
   const std::string name;
@@ -257,10 +257,11 @@ class Column {
   size_t total_mem_reserved;
   bool is_indexed;
 
-  std::vector<mem_chunk> master_versions[global_conf::num_master_versions];
+  std::vector<mem_chunk> master_versions[global_conf::num_master_versions]
+                                        [NUM_SOCKETS];
 
   // Insert snapshotting manager here.
-  decltype(global_conf::SnapshotManager::create(0)) arena;
+  std::vector<decltype(global_conf::SnapshotManager::create(0))> arena;
 
   friend class ColumnStore;
 };

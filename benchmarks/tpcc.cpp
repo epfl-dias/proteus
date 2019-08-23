@@ -24,6 +24,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <ctime>
 #include <fstream>
 #include <functional>
@@ -47,6 +48,12 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 namespace bench {
 
 #define tpcc_dist_txns true
+
+static inline uint64_t get_timestamp() {
+  return std::chrono::duration_cast<std::chrono::milliseconds>(
+             std::chrono::system_clock::now().time_since_epoch())
+      .count();
+}
 
 bool TPCC::exec_txn(void *stmts, uint64_t xid, ushort master_ver,
                     ushort delta_ver) {
@@ -551,7 +558,7 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
     ol_ins.ol_number = ol_number;
     ol_ins.ol_i_id = ol_i_id;
     ol_ins.ol_supply_w_id = ol_supply_w_id;
-    // ol_ins.ol_delivery_d;  //
+    ol_ins.ol_delivery_d = 0;  //
     ol_ins.ol_quantity = ol_quantity;
     ol_ins.ol_amount = ol_amount;
     // ol_ins.ol_dist_info[24];  //
@@ -932,7 +939,7 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
   h_ins.h_c_w_id = c_w_id;
   h_ins.h_d_id = d_id;
   h_ins.h_w_id = w_id;
-  h_ins.h_date = std::time(nullptr);  // this might be very slow.
+  h_ins.h_date = get_timestamp();
   h_ins.h_amount = h_amount;
 
   void *hist_idx_ptr = table_history->insertRecord(&h_ins, xid, master_ver);
@@ -1340,7 +1347,7 @@ void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
   q->c_id = NURand(&this->seed, 1023, 0, TPCC_NCUST_PER_DIST - 1);
   q->rbk = URand(&this->seed, 1, 100);
   q->ol_cnt = URand(&this->seed, 5, TPCC_MAX_OL_PER_ORDER);
-  q->o_entry_d = 2013;
+  q->o_entry_d = get_timestamp();
   q->remote = 0;
 
   ol_cnt = q->ol_cnt;
@@ -1617,7 +1624,7 @@ void TPCC::create_tbl_history(uint64_t num_history) {
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "h_w_id", storage::INTEGER, sizeof(ushort)));
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "h_date", storage::DATE, sizeof(uint32_t)));
+      "h_date", storage::DATE, sizeof(uint64_t)));
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "h_amount", storage::FLOAT, sizeof(float)));
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
@@ -1661,7 +1668,7 @@ void TPCC::create_tbl_customer(uint64_t num_cust) {
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "c_phone", storage::STRING, 16));
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_since", storage::DATE, sizeof(uint32_t)));
+      "c_since", storage::DATE, sizeof(uint64_t)));
 
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "c_credit", storage::STRING, 2));
@@ -1719,7 +1726,7 @@ void TPCC::create_tbl_order(uint64_t num_order) {
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "o_c_id", storage::INTEGER, sizeof(uint32_t)));
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "o_entry_date", storage::DATE, sizeof(uint32_t)));
+      "o_entry_date", storage::DATE, sizeof(uint64_t)));
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "o_carrier_id", storage::INTEGER, sizeof(short)));
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
@@ -1752,7 +1759,7 @@ void TPCC::create_tbl_order_line(uint64_t num_order_line) {
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "ol_supply_w_id", storage::INTEGER, sizeof(ushort)));
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "ol_delivery_d", storage::DATE, sizeof(uint32_t)));
+      "ol_delivery_d", storage::DATE, sizeof(uint64_t)));
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "ol_quantity", storage::INTEGER, sizeof(ushort)));
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
@@ -1997,7 +2004,7 @@ void TPCC::load_history(int w_id) {
       r->h_c_w_id = w_id;
       r->h_d_id = d;
       r->h_w_id = w_id;
-      r->h_date = 0;
+      r->h_date = get_timestamp();
       r->h_amount = 10.0;
       make_alpha_string(&this->seed, 12, 24, r->h_data);
 
@@ -2065,8 +2072,9 @@ void TPCC::load_order(int w_id) {
       r->o_c_id = c_id;
       r->o_d_id = d;
       r->o_w_id = w_id;
-      int o_entry = 2013;
-      r->o_entry_d = 2013;
+      // int o_entry = 2013;
+
+      r->o_entry_d = get_timestamp();
       if (o < 2100)
         r->o_carrier_id = URand(&this->seed, 1, 10);
       else
@@ -2100,7 +2108,7 @@ void TPCC::load_order(int w_id) {
         r_ol->ol_supply_w_id = w_id;
 
         if (o < 2100) {
-          r_ol->ol_delivery_d = o_entry;
+          r_ol->ol_delivery_d = get_timestamp();  // o_entry;
           r_ol->ol_amount = 0;
         } else {
           r_ol->ol_delivery_d = 0;
@@ -2202,7 +2210,7 @@ void TPCC::load_customer(int w_id) {
       make_alpha_string(&this->seed, 2, 2, r->c_state);     /* State */
       make_numeric_string(&this->seed, 9, 9, r->c_zip);     /* Zip */
       make_numeric_string(&this->seed, 16, 16, r->c_phone); /* Zip */
-      r->c_since = 0;
+      r->c_since = get_timestamp();
       r->c_credit_lim = 50000;
       r->c_delivery_cnt = 0;
       make_alpha_string(&this->seed, 300, 500, r->c_data);
@@ -2962,6 +2970,8 @@ void TPCC::load_history_csv(std::string filename, char delim) {
 
   uint field_cursor = 0;
   struct tpcc_history temp;
+  struct tm tm;
+  time_t ts = 0;
 
   while (std::getline(csv, line, delim)) {
     trim(line);
@@ -2985,7 +2995,12 @@ void TPCC::load_history_csv(std::string filename, char delim) {
       temp.h_w_id = (ushort)std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 6) {
-      temp.h_date = 12345657;  // std::stoi(line, nullptr);
+      // temp.h_date = 12345657;  // std::stoi(line, nullptr);
+
+      memset(&tm, 0, sizeof(struct tm));
+      strptime(line.c_str(), "%Y-%m-%d %H:%M:%S", &tm);
+      ts = mktime(&tm);
+      temp.h_date = (uint64_t)ts;
 
     } else if (field_cursor == 7) {
       temp.h_amount = std::stof(line, nullptr);
@@ -3031,6 +3046,8 @@ void TPCC::load_order_csv(std::string filename, char delim) {
 
   uint field_cursor = 0;
   struct tpcc_order temp;
+  struct tm tm;
+  time_t ts = 0;
 
   while (std::getline(csv, line, delim)) {
     // trim(line);
@@ -3055,7 +3072,11 @@ void TPCC::load_order_csv(std::string filename, char delim) {
       temp.o_c_id = std::stoi(line, nullptr) - 1;
 
     } else if (field_cursor == 5) {
-      temp.o_entry_d = 123456789;  // std::stoi(line, nullptr);
+      // temp.o_entry_d = 123456789;  // std::stoi(line, nullptr);
+      memset(&tm, 0, sizeof(struct tm));
+      strptime(line.c_str(), "%Y-%m-%d %H:%M:%S", &tm);
+      ts = mktime(&tm);
+      temp.o_entry_d = (uint64_t)ts;
 
     } else if (field_cursor == 6) {
       if (line.length() != 0) {
@@ -3088,6 +3109,18 @@ void TPCC::load_order_csv(std::string filename, char delim) {
   std::cout << "\t loaded orders: " << n_records << std::endl;
 
   csv.close();
+
+  // std::ifstream binFile(concat_path(this->csv_path, filename).c_str(),
+  // std::ifstream::binary); if(binFile) {
+  //   // get length of file
+  //   binFile.seekg(0, binFile.end);
+  //   size_t length = static_cast<size_t>(binFile.tellg());
+  //   binFile.seekg(0, binFile.beg);
+
+  //   // read whole contents of the file to a buffer at once
+  //   char *buffer = new char[length];
+  //   binFile.read(buffer, length);
+  //   binFile.close();
 }
 void TPCC::load_orderline_csv(std::string filename, char delim) {
   /*
@@ -3114,6 +3147,8 @@ void TPCC::load_orderline_csv(std::string filename, char delim) {
 
   uint field_cursor = 0;
   struct tpcc_order_line temp;
+  struct tm tm;
+  time_t ts = 0;
 
   while (std::getline(csv, line, delim)) {
     try {
@@ -3145,7 +3180,13 @@ void TPCC::load_orderline_csv(std::string filename, char delim) {
 
       } else if (field_cursor == 7) {
         if (line.length() != 0) {
-          temp.ol_delivery_d = 12345678;  // std::stoi(line, nullptr);
+          // temp.ol_delivery_d = 12345678;  // std::stoi(line, nullptr);
+
+          memset(&tm, 0, sizeof(struct tm));
+          strptime(line.c_str(), "%Y-%m-%d %H:%M:%S", &tm);
+          ts = mktime(&tm);
+          temp.ol_delivery_d = (uint64_t)ts;
+
         } else {
           temp.ol_delivery_d = 0;
         }
@@ -3219,6 +3260,9 @@ void TPCC::load_customer_csv(std::string filename, char delim) {
   uint field_cursor = 0;
   struct tpcc_customer temp;
 
+  struct tm tm;
+  time_t ts = 0;
+
   while (std::getline(csv, line, delim)) {
     trim(line);
     if (line.length() == 0) continue;
@@ -3268,7 +3312,12 @@ void TPCC::load_customer_csv(std::string filename, char delim) {
       strncpy(temp.c_phone, line.c_str(), line.length());
 
     } else if (field_cursor == 13) {
-      temp.c_since = 123456789;  //(uint32_t)std::stoull(line, nullptr);
+      // temp.c_since = 123456789;  //(uint32_t)std::stoull(line, nullptr);
+
+      memset(&tm, 0, sizeof(struct tm));
+      strptime(line.c_str(), "%Y-%m-%d %H:%M:%S", &tm);
+      ts = mktime(&tm);
+      temp.c_since = (uint64_t)ts;
 
     } else if (field_cursor == 14) {
       strncpy(temp.c_credit, line.c_str(), line.length());

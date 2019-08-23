@@ -178,7 +178,7 @@ class TPCC : public Benchmark {
     ushort h_c_w_id;
     ushort h_d_id;
     ushort h_w_id;
-    uint32_t h_date;
+    uint64_t h_date;
     float h_amount;
     char h_data[25];
   };
@@ -194,7 +194,7 @@ class TPCC : public Benchmark {
     char c_state[2];
     char c_zip[9];
     char c_phone[16];
-    uint32_t c_since;
+    uint64_t c_since;
     char c_credit[2];
     float c_credit_lim;
     float c_discount;
@@ -211,7 +211,7 @@ class TPCC : public Benchmark {
     ushort o_d_id;
     ushort o_w_id;
     uint32_t o_c_id;
-    uint32_t o_entry_d;
+    uint64_t o_entry_d;
     short o_carrier_id;
     ushort o_ol_cnt;
     ushort o_all_local;
@@ -224,7 +224,7 @@ class TPCC : public Benchmark {
     ushort ol_number;
     ushort ol_i_id;
     ushort ol_supply_w_id;
-    uint32_t ol_delivery_d;
+    uint64_t ol_delivery_d;
     ushort ol_quantity;
     float ol_amount;
     char ol_dist_info[24];
@@ -274,7 +274,7 @@ class TPCC : public Benchmark {
     char rbk;
     char remote;
     ushort ol_cnt;
-    uint32_t o_entry_d;
+    uint64_t o_entry_d;
   };
 
   // fucking shortcut

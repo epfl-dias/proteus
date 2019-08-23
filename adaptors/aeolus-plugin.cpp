@@ -83,15 +83,17 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
 
       for (auto &c : tbl->getColumns()) {
         if (c->name.compare(in->getAttrName()) == 0) {
-          uint64_t num_records = c->snapshot_get_num_records();
-          std::cout << "NUM RECORDS:" << num_records << std::endl;
+          // uint64_t num_records = c->snapshot_get_num_records();
+          // std::cout << "NUM RECORDS:" << num_records << std::endl;
 
-          std::vector<storage::mem_chunk> d = c->snapshot_get_data();
+          auto d = c->snapshot_get_data();
+
+          // std::vector<storage::mem_chunk> d = c->snapshot_get_data();
           std::vector<mem_file> mfiles{d.size()};
 
           for (size_t i = 0; i < mfiles.size(); ++i) {
-            mfiles[i].data = d[i].data;
-            mfiles[i].size = c->elem_size * num_records;
+            mfiles[i].data = d[i].first.data;
+            mfiles[i].size = c->elem_size * d[i].second;  // num_records
           }
           wantedFieldsFiles.emplace_back(mfiles);
           break;
