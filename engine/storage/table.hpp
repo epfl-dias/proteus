@@ -140,6 +140,9 @@ class Table {
                               void *loc) = 0;
   virtual void touchRecordByKey(uint64_t vid, ushort master_ver) = 0;
 
+  virtual void insertIndexRecord(
+      uint64_t xid, ushort master_ver) = 0;  // hack for loading binary files
+
   virtual global_conf::mv_version_list *getVersions(uint64_t vid,
                                                     ushort delta_ver) = 0;
 
@@ -191,6 +194,11 @@ class ColumnStore : public Table {
       uint64_t vid, ushort master_ver,
       const std::vector<ushort> *col_idx = nullptr);
 
+  void insertIndexRecord(uint64_t xid,
+                         ushort master_ver);  // hack for loading binary files
+
+  uint64_t load_data_from_binary(std::string col_name, std::string file_path);
+
   void getRecordByKey(uint64_t vid, ushort master_ver,
                       const std::vector<ushort> *col_idx, void *loc);
   void touchRecordByKey(uint64_t vid, ushort master_ver);
@@ -235,6 +243,8 @@ class Column {
 
   void snapshot(uint64_t num_records, uint64_t epoch,
                 uint8_t snapshot_master_ver);
+
+  uint64_t load_from_binary(std::string file_path);
 
   void num_upd_tuples();
 

@@ -266,14 +266,14 @@ void DeltaStore::gc_with_counter_arr(int wrk_id) {
   if (gc_lock.compare_exchange_strong(e, -1)) {
     bool go = true;
 
-// for (int i = 0; i < MAX_WORKERS / 8; i += 8) {
-//   uint64_t* t = (uint64_t*)(read_ctr + (i * 8));
-//   if (*t != 0) {
-//     go = false;
-//     // break;
-//   }
-// }
-#pragma clang loop vectorize(enable)
+    // for (int i = 0; i < MAX_WORKERS / 8; i += 8) {
+    //   uint64_t* t = (uint64_t*)(read_ctr + (i * 8));
+    //   if (*t != 0) {
+    //     go = false;
+    //     // break;
+    //   }
+    // }
+    //#pragma clang loop vectorize(enable)
     for (int i = 0; i < MAX_WORKERS; i++) {
       if (read_ctr[i] != 0) {
         go = false;

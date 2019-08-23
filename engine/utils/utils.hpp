@@ -81,7 +81,7 @@ template <class Duration>
 using sys_time = std::chrono::time_point<std::chrono::system_clock, Duration>;
 using sys_nanoseconds = sys_time<std::chrono::nanoseconds>;
 
-sys_nanoseconds now = std::chrono::system_clock::now();
+// sys_nanoseconds now = std::chrono::system_clock::now();
 
 class timed_func {
   static bool terminate;
@@ -129,8 +129,9 @@ class timed_func {
   }*/
 };
 
-bool timed_func::terminate = false;
-int timed_func::num_active_runners = 0;
+// FIX and put following in a cpp file.
+// bool timed_func::terminate = false;
+// int timed_func::num_active_runners = 0;
 
 static int RAND(unsigned int *seed, int max) { return rand_r(seed) % max; }
 

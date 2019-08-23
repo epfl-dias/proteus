@@ -179,6 +179,18 @@ ColumnStore::~ColumnStore() {
   }
   delete meta_column;
 }
+uint64_t ColumnStore::load_data_from_binary(std::string col_name,
+                                            std::string file_path) {
+  std::cout << col_name << std::endl;
+
+  for (auto& c : this->columns) {
+    std::cout << c->name << std::endl;
+    if (c->name.compare(col_name) == 0) {
+      return c->load_from_binary(file_path);
+    }
+  }
+  assert(false && "Column not found: ");
+}
 
 ColumnStore::ColumnStore(
     uint8_t table_id, std::string name,
@@ -238,6 +250,15 @@ ColumnStore::ColumnStore(
 
 // void* ColumnStore::insertMeta(uint64_t vid, global_conf::IndexVal& hash_val)
 // {}
+
+void ColumnStore::insertIndexRecord(uint64_t xid, ushort master_ver) {
+  uint64_t curr_vid = vid.fetch_add(1);
+
+  void* pano = this->meta_column->insertElem(curr_vid);
+
+  global_conf::IndexVal* hash_ptr =
+      new (pano) global_conf::IndexVal(xid, curr_vid, master_ver);
+}
 
 /* Following function assumes that the  void* rec has columns in the same order
  * as the actual columns
@@ -472,6 +493,8 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
   // size: initial_num_recs * unit_size
   // std::cout << "INITIAL NUM REC: " << initial_num_records << std::endl;
   // int numa_id = global_conf::master_col_numa_id;
+  std::cout << "Creating column: " << name << ", size:" << unit_size
+            << std::endl;
   size_t size = initial_num_records * unit_size;
   size_t size_per_partition =
       (((initial_num_records * unit_size) / NUM_SOCKETS) + 1);
@@ -643,7 +666,7 @@ void Column::insertElem(uint64_t vid, void* elem, ushort master_ver) {
       }
     }
     if (ins == false) {
-      std::cout << "FUCK. ALLOCATE MOTE MEMORY:\t" << this->name << std::endl;
+      std::cout << "FUCK. ALLOCATE MORE MEMORY:\t" << this->name << std::endl;
     }
   }
   // exit(-1);
@@ -711,6 +734,43 @@ void Column::num_upd_tuples() {
               << " | #num_upd: " << counter << std::endl;
     counter = 0;
   }
+}
+
+uint64_t Column::load_from_binary(std::string file_path) {
+  std::ifstream binFile(file_path.c_str(), std::ifstream::binary);
+  std::cout << "Loading binary file: " << file_path << std::endl;
+  if (binFile) {
+    // get length of file
+    binFile.seekg(0, binFile.end);
+    size_t length = static_cast<size_t>(binFile.tellg());
+    std::cout << "\tContains " << (length / this->elem_size) << " elements."
+              << std::endl;
+
+    for (ushort i = 0; i < global_conf::num_master_versions; i++) {
+      binFile.seekg(0, binFile.beg);
+      std::cout << "\tloading master version: " << i << std::endl;
+
+      for (ushort j = 0; j < NUM_SOCKETS; j++) {
+        size_t part_size = length / NUM_SOCKETS;
+        if (j == (NUM_SOCKETS - 1)) {
+          // remaining shit.
+          part_size += part_size % NUM_SOCKETS;
+        }
+        std::cout << "Part-" << j
+                  << "contains: " << (part_size / this->elem_size)
+                  << " elements, total size: " << part_size << std::endl;
+
+        // assumes first memory chunk is big enough.
+        assert(master_versions[i][j][0].size > part_size);
+        char* tmp = (char*)master_versions[i][j][0].data;
+        binFile.read(tmp, part_size);
+      }
+    }
+
+    binFile.close();
+    return (length / this->elem_size);
+  }
+  assert(false);
 }
 
 };  // namespace storage

@@ -30,6 +30,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <thread>
 #include <tuple>
 
+#include "benchmarks/micro_ssb.hpp"
 #include "benchmarks/tpcc.hpp"
 #include "benchmarks/ycsb.hpp"
 #include "glo.hpp"
@@ -91,7 +92,8 @@ int main(int argc, char** argv) {
       "r,write_ratio", "Reader to writer ratio", cxxopts::value<double>())(
       "t,theta", "Zipf theta", cxxopts::value<double>())(
       //"g,gc_mode", "GC Mode: 1-Snapshot, 2-TupleGC", cxxopts::value<uint>())(
-      "b,benchmark", "Benchmark: 0:YCSB, 1:TPC-C (gen),  2:TPC-C (csv)",
+      "b,benchmark",
+      "Benchmark: 0:YCSB, 1:TPC-C (gen),  2:TPC-C (csv), 3:Micro-SSB",
       cxxopts::value<uint>())("c,ycsb_num_cols", "Number of YCSB Columns",
                               cxxopts::value<uint>());
 
@@ -173,6 +175,14 @@ int main(int argc, char** argv) {
 
   // set_exec_location_on_scope d(exec_node);
 
+  //---------------
+  bench::Benchmark* benchm = new bench::MicroSSB();
+  std::cout << "creation done" << std::endl;
+  benchm->load_data(num_workers);
+
+  return 0;
+  //---------------
+
   // init benchmark
   bench::Benchmark* bench = nullptr;
   if (bechnmark == 1) {
@@ -181,6 +191,9 @@ int main(int argc, char** argv) {
   } else if (bechnmark == 2) {
     bench = new bench::TPCC("TPCC", 100, 0,
                             "/home/raza/local/chBenchmark_1_0/w100/raw");
+  } else if (bechnmark == 3) {
+    bench = new bench::MicroSSB();
+
   } else {  // Defult YCSB
 
     std::cout << "Write Threshold: " << write_threshold << std::endl;

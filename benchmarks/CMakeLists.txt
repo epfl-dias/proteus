@@ -1,6 +1,7 @@
 # Pure, regular C++ files
 set(txn_bench_cxx
     tpcc.cpp
+    micro_ssb.cpp
     )
 
 
