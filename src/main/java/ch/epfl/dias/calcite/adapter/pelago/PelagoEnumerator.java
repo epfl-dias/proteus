@@ -220,7 +220,6 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
         if (string.length() == 0) {
           return null;
         }
-        System.out.println(string);
         return (int) (Long.parseLong(string) / DateTimeUtils.MILLIS_PER_DAY);
 //        try {
 //          Date date = TIME_FORMAT_DATE.parse(string);
@@ -233,7 +232,6 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
         if (string.length() == 0) {
           return null;
         }
-        System.out.println(string);
         return Long.parseLong(string);
       } else {
         throw new AssertionError("unrecognized type, value: "+string+", fieldtype: "+fieldType.getName());

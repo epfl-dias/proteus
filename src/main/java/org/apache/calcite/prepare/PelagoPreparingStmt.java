@@ -229,7 +229,9 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
         PelagoTimeInterval tm = new PelagoTimeInterval();
 
         boolean cpu_only = Repl.isCpuonly();
+        boolean gpu_only = Repl.isGpuonly();
         int     cpudop   = Repl.cpudop();
+        int     gpudop   = Repl.gpudop();
         boolean hybrid   = Repl.isHybrid();
 
         ImmutableList.Builder<RelOptRule> hetRuleBuilder = ImmutableList.builder();
@@ -239,7 +241,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
         if (!cpu_only) hetRuleBuilder.add(PelagoPushDeviceCrossDown.RULES);
         if (hybrid) hetRuleBuilder.add(PelagoPushDeviceCrossNSplitDown.RULES);
 
-        if (!(cpu_only && cpudop == 1)) hetRuleBuilder.add(PelagoPushRouterDown.RULES);
+        if (!(cpu_only && cpudop == 1) && !(gpu_only && gpudop == 1)) hetRuleBuilder.add(PelagoPushRouterDown.RULES);
         if (hybrid) hetRuleBuilder.add(PelagoPushSplitDown.RULES);
 
         hetRuleBuilder.add(PelagoPackTransfers.RULES);
