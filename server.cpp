@@ -176,11 +176,11 @@ int main(int argc, char** argv) {
   // set_exec_location_on_scope d(exec_node);
 
   //---------------
-  bench::Benchmark* benchm = new bench::MicroSSB();
-  std::cout << "creation done" << std::endl;
-  benchm->load_data(num_workers);
+  // bench::Benchmark* benchm = new bench::MicroSSB();
+  // std::cout << "creation done" << std::endl;
+  // benchm->load_data(num_workers);
 
-  return 0;
+  // return 0;
   //---------------
 
   // init benchmark

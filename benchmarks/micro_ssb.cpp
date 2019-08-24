@@ -65,25 +65,148 @@ static std::string concat_path(const std::string &first,
   return ret;
 }
 
-void MicroSSB::get_next_neworder_query(void *arg) {}
 bool MicroSSB::exec_txn(void *stmts, uint64_t xid, ushort master_ver,
                         ushort delta_ver) {
+  struct ssb_query *q = (struct ssb_query *)stmts;
+  int ol_cnt = q->ol_cnt;
+  uint32_t custkey = q->custkey;
+  uint32_t suppkey = q->suppkey;
+
+  std::vector<global_conf::IndexVal *> hash_ptrs_lock_acquired;
+
+  // acquire lock on all part keys
+  for (int ol_number = 0; ol_number < ol_cnt; ol_number++) {
+    uint32_t partkey = q->parts[ol_number].partkey;
+
+    // ACQUIRE WRITE_LOCK FOR DISTRICT
+    global_conf::IndexVal *part_idx_ptr =
+        (global_conf::IndexVal *)table_part->p_index->find(partkey);
+
+    assert(part_idx_ptr != NULL || part_idx_ptr != nullptr);
+    bool e_false_s = false;
+    if (part_idx_ptr->write_lck.compare_exchange_strong(e_false_s, true)) {
+      hash_ptrs_lock_acquired.emplace_back(part_idx_ptr);
+      q->parts[ol_number].idx_ptr = (void *)part_idx_ptr;
+    } else {
+      // ABORT
+      txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired);
+      return false;
+    }
+  }
+
+  // update part key
+  // insert into lineorder (insert together as ssb is denormalized)
+
+  std::vector<ushort> pt_col = {1};
+
+  for (int ol_number = 0; ol_number < ol_cnt; ol_number++) {
+    uint32_t partkey = q->parts[ol_number].partkey;
+    uint ol_quantity = q->parts[ol_number].quantity;
+
+    uint32_t p_stocklevel;
+
+    // update part table
+
+    global_conf::IndexVal *part_idx_ptr =
+        (global_conf::IndexVal *)q->parts[ol_number].idx_ptr;
+
+    assert(part_idx_ptr != NULL || part_idx_ptr != nullptr);
+    part_idx_ptr->latch.acquire();
+
+    if (txn::CC_MV2PL::is_readable(part_idx_ptr->t_min, part_idx_ptr->t_max,
+                                   xid)) {
+      table_part->getRecordByKey(part_idx_ptr->VID,
+                                 part_idx_ptr->last_master_ver, &pt_col,
+                                 &p_stocklevel);
+    } else {
+      // std::cout << "not readable 1" << std::endl;
+      // std::cout << "t_min: " << st_idx_ptr->t_min << std::endl;
+      // std::cout << "t_max: " << st_idx_ptr->t_max << std::endl;
+      // std::cout << "xid: " << xid << std::endl;
+
+      // std::cout << "------" << std::endl;
+      // std::cout << "t_min: " << (st_idx_ptr->t_min & 0x00FFFFFFFFFFFFFF)
+      //           << std::endl;
+
+      // std::cout << "xid: " << (xid & 0x00FFFFFFFFFFFFFF) << std::endl;
+
+      p_stocklevel =
+          ((struct part *)table_part
+               ->getVersions(part_idx_ptr->VID, part_idx_ptr->delta_id)
+               ->get_readable_ver(xid))
+              ->p_stocklevel;
+    }
+
+    // NOW UPDATE
+
+    uint32_t quantity;
+    if (p_stocklevel > ol_quantity + 10)
+      quantity = p_stocklevel - ol_quantity;
+    else
+      quantity = p_stocklevel - ol_quantity + 91;
+
+    p_stocklevel = quantity;
+
+    table_part->updateRecord(part_idx_ptr->VID, &p_stocklevel, master_ver,
+                             part_idx_ptr->last_master_ver, delta_ver,
+                             part_idx_ptr->t_min, part_idx_ptr->t_max,
+                             (xid >> 56) / NUM_CORE_PER_SOCKET, &pt_col);
+
+    part_idx_ptr->t_min = xid;
+    part_idx_ptr->last_master_ver = master_ver;
+    part_idx_ptr->delta_id = delta_ver;
+    part_idx_ptr->write_lck.store(false);
+    part_idx_ptr->latch.release();
+
+    // insert lineorder
+  }
+
   return true;
 }
-void MicroSSB::gen_txn(int wid, void *txn_ptr) {}
+void MicroSSB::gen_txn(int wid, void *txn_ptr) {
+  struct ssb_query *q = (struct ssb_query *)txn_ptr;
+  int dup;
+  /*
+    struct ssb_query_part {
+      uint32_t partkey;
+      uint32_t quantity;
+    };
+    struct ssb_query {
+      uint32_t custkey;
+      uint32_t suppkey;
+      uint32_t ol_cnt;
+      struct part parts[MICRO_SBB_MAX_PART_PER_ORDER];
 
-void MicroSSB::load_data(int num_threads) {
-  std::cout << "[TPCC] Load data from : " << data_path << std::endl;
-  std::vector<std::thread> loaders;
+      // uint32_t orderpriority;
+      // uint32_t shippriority;
+    };
+  */
 
-  loaders.emplace_back([this]() { this->load_lineorder(); });
-  loaders.emplace_back([this]() { this->load_part(); });
+  q->custkey = NURand(&this->seed, 1023, 0, NUM_CUSTOMERS - 1);
+  q->suppkey = URand(&this->seed, 0, NUM_SUPPLIERS - 1);
 
-  int i = 0;
-  for (auto &th : loaders) {
-    th.join();
+  // Parts
+  q->ol_cnt = URand(&this->seed, 5, MICRO_SSB_MAX_PART_PER_ORDER);
+  for (int o = 0; o < q->ol_cnt; o++) {
+    struct ssb_query_part *i = &q->parts[o];
+
+    do {
+      i->partkey = NURand(&this->seed, 8191, 0, NUM_PARTS - 1);
+
+      // no duplicates
+      dup = 0;
+      for (int j = 0; j < o; j++)
+        if (q->parts[j].partkey == i->partkey) {
+          dup = 1;
+          break;
+        }
+    } while (dup);
+
+    i->quantity = URand(&this->seed, 1, 10);
+    assert(i->partkey < NUM_PARTS);
   }
 }
+
 void MicroSSB::load_lineorder(uint64_t num_lineorder) {
   ((storage::ColumnStore *)this->table_lineorder)
       ->load_data_from_binary(
@@ -170,6 +293,7 @@ void MicroSSB::load_part(uint64_t num_parts) {
           "p_stocklevel",
           concat_path(this->data_path, "part.csv.p_stocklevel").c_str());
 
+  std::cout << "Inserting index: " << num_parts << std::endl;
   for (uint64_t i = 0; i < num_parts; i++) {
     this->table_part->insertIndexRecord(0, 0);
   }
@@ -288,7 +412,7 @@ void MicroSSB::create_tbl_part(uint64_t num_parts) {
       "p_container", storage::STRING, 25));*/
 
   table_part = schema->create_table("ssbm_part", storage::COLUMN_STORE, columns,
-                                    num_parts);
+                                    num_parts + 10);
 }
 
 MicroSSB::~MicroSSB() {}
@@ -296,6 +420,7 @@ MicroSSB::MicroSSB(std::string name, std::string binary_path_root)
     : Benchmark(name), data_path(binary_path_root) {
   std::cout << "Benchmark Init: " << name << std::endl;
   this->schema = &storage::Schema::getInstance();
+  this->seed = rand();
   create_tbl_part();
   create_tbl_lineorder();
 
@@ -306,6 +431,18 @@ MicroSSB::MicroSSB(std::string name, std::string binary_path_root)
             << (double)this->schema->total_delta_mem_reserved /
                    (1024 * 1024 * 1024)
             << " GB" << std::endl;
+}
+void MicroSSB::load_data(int num_threads) {
+  std::cout << "[TPCC] Load data from : " << data_path << std::endl;
+  std::vector<std::thread> loaders;
+
+  loaders.emplace_back([this]() { this->load_lineorder(); });
+  loaders.emplace_back([this]() { this->load_part(); });
+
+  int i = 0;
+  for (auto &th : loaders) {
+    th.join();
+  }
 }
 
 };  // namespace bench

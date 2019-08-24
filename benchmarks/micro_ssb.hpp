@@ -43,10 +43,16 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define DATA_PATH "/scratch/data/ssbm100/"
 #define NUM_PARTS 1400000
 #define INITAL_NUM_LINEORDER 600038145
+#define NUM_CUSTOMERS 89031
+#define NUM_SUPPLIERS 1806
 
 #endif
 
 #define LINEORDER_EXTRA_RESERVE 0
+
+// Query semantics
+
+#define MICRO_SSB_MAX_PART_PER_ORDER 15
 
 namespace bench {
 
@@ -62,6 +68,7 @@ class MicroSSB : public Benchmark {
   // storage::Table *table_date;
 
   std::string data_path;
+  unsigned int seed;
 
  public:
   struct lineorder {
@@ -121,7 +128,20 @@ class MicroSSB : public Benchmark {
   // struct date {};
 
   // neworder ssb query
-  struct ssb_query {};
+  struct ssb_query_part {
+    uint32_t partkey;
+    uint32_t quantity;
+    void *idx_ptr;
+  };
+  struct ssb_query {
+    uint32_t custkey;
+    uint32_t suppkey;
+    uint32_t ol_cnt;
+    struct ssb_query_part parts[MICRO_SSB_MAX_PART_PER_ORDER];
+
+    // uint32_t orderpriority;
+    // uint32_t shippriority;
+  };
 
   void create_tbl_part(uint64_t num_part = NUM_PARTS);
   void create_tbl_lineorder(uint64_t num_lo = INITAL_NUM_LINEORDER);
@@ -132,8 +152,6 @@ class MicroSSB : public Benchmark {
   void load_lineorder(uint64_t num_lo = INITAL_NUM_LINEORDER);
 
   void *get_query_struct_ptr() { return new struct ssb_query; }  // interface
-
-  void get_next_neworder_query(void *arg);
 
   bool exec_txn(void *stmts, uint64_t xid, ushort master_ver, ushort delta_ver);
   void gen_txn(int wid, void *txn_ptr);

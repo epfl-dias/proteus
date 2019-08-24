@@ -256,8 +256,9 @@ void ColumnStore::insertIndexRecord(uint64_t xid, ushort master_ver) {
 
   void* pano = this->meta_column->insertElem(curr_vid);
 
-  global_conf::IndexVal* hash_ptr =
-      new (pano) global_conf::IndexVal(xid, curr_vid, master_ver);
+  void* hash_ptr = new (pano) global_conf::IndexVal(xid, curr_vid, master_ver);
+
+  this->p_index->insert(curr_vid, hash_ptr);
 }
 
 /* Following function assumes that the  void* rec has columns in the same order
@@ -501,9 +502,9 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
   this->total_mem_reserved = size * global_conf::num_master_versions;
 
   std::cout << "Col:" << name
-            << ", Size required:" << (double)(size / (1024 * 1024 * 1024))
+            << ", Size required:" << ((double)size / (1024 * 1024 * 1024))
             << ", total: "
-            << (double)(total_mem_reserved / (1024 * 1024 * 1024)) << std::endl;
+            << ((double)total_mem_reserved / (1024 * 1024 * 1024)) << std::endl;
 
   for (uint i = 0; i < NUM_SOCKETS; i++) {
     arena.emplace_back(
@@ -686,6 +687,9 @@ void* Column::insertElem(uint64_t vid) {
 
   bool ins = false;
   for (const auto& chunk : master_versions[0][pid]) {
+    std::cout << "chunksize: " << chunk.size << std::endl;
+    std::cout << "dataidx: " << data_idx << std::endl;
+    std::cout << "elemsize: " << elem_size << std::endl;
     if (chunk.size >= (data_idx + elem_size)) {
       // insert elem here
       return (void*)(((char*)chunk.data) + data_idx);
@@ -693,6 +697,9 @@ void* Column::insertElem(uint64_t vid) {
   }
 
   if (ins == false) {
+    std::cout << "res: " << this->total_mem_reserved << std::endl;
+    std::cout << "VID: " << vid << std::endl;
+    std::cout << "pid: " << pid << ", idx: " << idx << std::endl;
     std::cout << "FUCK. ALLOCATE MOTE MEMORY:\t" << this->name << std::endl;
   }
 
