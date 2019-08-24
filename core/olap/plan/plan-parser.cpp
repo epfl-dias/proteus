@@ -2110,9 +2110,24 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       slack = val["slack"].GetInt();
     }
 
+    std::vector<bool> do_transfer;
+    if (val.HasMember("do_transfer")) {
+      assert(val["do_transfer"].IsArray());
+      assert(val["do_transfer"].Size() == projections.size());
+      const auto &arr = val["do_transfer"].GetArray();
+      for (size_t i = 0; i < projections.size(); ++i) {
+        assert(arr[i].IsBool());
+        do_transfer.emplace_back(arr[i].GetBool());
+      }
+    } else {
+      for (size_t i = 0; i < projections.size(); ++i) {
+        do_transfer.emplace_back(true);
+      }
+    }
+
     assert(dynamic_cast<ParallelContext *>(this->ctx));
     newOp = new MemMoveDevice(childOp, ((ParallelContext *)this->ctx),
-                              projections, slack, to_cpu);
+                              projections, slack, to_cpu, do_transfer);
     childOp->setParent(newOp);
   } else if (strcmp(opName, "mem-broadcast-device") == 0) {
     /* parse operator input */
@@ -2364,6 +2379,10 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       childOp->setParent(newOp);
     } else {
       newOp = splitOps[split_id];
+      // Splits from common subtrees may have the same split_id, but subtrees
+      // will, at least with the current planner, not be nested, so cleanup
+      // the list to avoid Splits with 4 parents.
+      splitOps.erase(split_id);
     }
   } else {
     string err = string("Unknown Operator: ") + opName;

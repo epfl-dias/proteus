@@ -63,7 +63,7 @@ addOptimizerPipelineVectorization(llvm::legacy::FunctionPassManager *TheFPM);
 extern bool print_generated_code;
 
 class StateVar {
- private:
+ public:
   size_t index_in_pip;
   const void *pip;
 

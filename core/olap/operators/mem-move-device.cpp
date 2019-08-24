@@ -273,13 +273,19 @@ void MemMoveDevice::consume(Context *const context,
         llvmContext, llvm::APInt(64, context->getSizeOf(mv_block_type)));
     auto Nloc = Builder->CreateZExtOrBitCast(N, size->getType());
     size = Builder->CreateMul(size, Nloc);
+    llvm::Value *moved = mv;
+    llvm::Value *to_release = mv;
+    if (do_transfer[i]) {
+      vector<llvm::Value *> mv_args{mv, size, device_id, memmv};
 
-    vector<llvm::Value *> mv_args{mv, size, device_id, memmv};
-
-    // Do actual mem move
-    auto moved_buffpair = Builder->CreateCall(make_mem_move, mv_args);
-    auto moved = Builder->CreateExtractValue(moved_buffpair, 0);
-    auto to_release = Builder->CreateExtractValue(moved_buffpair, 1);
+      // Do actual mem move
+      auto moved_buffpair = Builder->CreateCall(make_mem_move, mv_args);
+      moved = Builder->CreateExtractValue(moved_buffpair, 0);
+      to_release = Builder->CreateExtractValue(moved_buffpair, 1);
+    } else {
+      LOG(INFO) << "Lazy: " << wantedFields[i]->getRelationName() << "."
+                << wantedFields[i]->getAttrName();
+    }
 
     pushed.push_back(Builder->CreateBitCast(
         moved, mem_valWrapper.mem->getType()->getPointerElementType()));

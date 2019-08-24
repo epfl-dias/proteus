@@ -83,12 +83,19 @@ class MemMoveDevice : public UnaryOperator {
 
   MemMoveDevice(Operator *const child, ParallelContext *const context,
                 const vector<RecordAttribute *> &wantedFields, size_t slack,
-                bool to_cpu)
+                bool to_cpu, std::vector<bool> do_transfer)
       : UnaryOperator(child),
         context(context),
         wantedFields(wantedFields),
         slack(slack),
-        to_cpu(to_cpu) {}
+        to_cpu(to_cpu),
+        do_transfer(do_transfer) {}
+
+  MemMoveDevice(Operator *const child, ParallelContext *const context,
+                const vector<RecordAttribute *> &wantedFields, size_t slack,
+                bool to_cpu)
+      : MemMoveDevice(child, context, wantedFields, slack, to_cpu,
+                      std::vector<bool>(wantedFields.size(), false)) {}
 
   virtual ~MemMoveDevice() { LOG(INFO) << "Collapsing MemMoveDevice operator"; }
 
@@ -113,6 +120,8 @@ class MemMoveDevice : public UnaryOperator {
 
   size_t slack;
   bool to_cpu;
+
+  std::vector<bool> do_transfer;
 
   void catcher(MemMoveConf *conf, int group_id, exec_location target_dev);
 
