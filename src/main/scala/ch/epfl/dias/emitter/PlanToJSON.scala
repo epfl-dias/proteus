@@ -139,7 +139,7 @@ object PlanToJSON {
             System.out.println()
 
             val info = findAttrInfo(other.asInstanceOf[RexInputRef], f)
-            val path = table.unwrap(classOf[PelagoTable]).getPelagoRelName + "." + info._1 + ".dict"
+            val path = table.unwrap(classOf[PelagoTable]).getPelagoRelName + "." + info._1.getName + ".dict"
 
             val old = PlanToJSON.dictEncoded
             PlanToJSON.dictEncoded = table.unwrap(classOf[PelagoTable]).getPluginInfo.get("type").toString().equalsIgnoreCase("block")
