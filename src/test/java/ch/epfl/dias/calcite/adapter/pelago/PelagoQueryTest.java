@@ -174,8 +174,8 @@ public class PelagoQueryTest {
             final Path resultFile = (Files.exists(rFile) && Files.isRegularFile(rFile)) ? rFile : null;
 //            if (resultFile == null) return null;
             // clean the sql command from comments and final ';'
-            String sql = new String(Files.readAllBytes(file)).trim();
-            sql = sql.replaceAll("--[^\n]*", "");
+            String sql = new String(Files.readAllBytes(file));
+            sql = sql.replaceAll("--[^\n]*", "").trim();
             assert(sql.lastIndexOf(';') == sql.length() - 1);
             final String q = sql.substring(0, sql.length() - 1);
 
