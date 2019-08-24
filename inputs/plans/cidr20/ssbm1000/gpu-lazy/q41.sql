@@ -2403,8 +2403,8 @@
                                                 "offset" : 0
                                               } ],
                                               "probe_w" : [ 64, 32, 32, 32, 32 ],
-                                              "hash_bits" : 28,
-                                              "maxBuildInputSize" : 30000000,
+                                              "hash_bits" : 27,
+                                              "maxBuildInputSize" : 8000000,
                                               "probe_input" : {
                                                 "operator" : "project",
                                                 "gpu" : true,
@@ -2524,34 +2524,8 @@
                                                       "relName" : "subsetPelagoProject#44247"
                                                     }
                                                   },
-                                                  "build_e" : [ {
-                                                    "e" : {
-                                                      "expression" : "recordProjection",
-                                                      "e" : {
-                                                        "expression" : "argument",
-                                                        "attributes" : [ {
-                                                          "attrName" : "s_suppkey",
-                                                          "relName" : "subsetPelagoProject#44241"
-                                                        } ],
-                                                        "type" : {
-                                                          "relName" : "subsetPelagoProject#44241",
-                                                          "type" : "record"
-                                                        },
-                                                        "argNo" : -1
-                                                      },
-                                                      "attribute" : {
-                                                        "attrName" : "s_suppkey",
-                                                        "relName" : "subsetPelagoProject#44241"
-                                                      },
-                                                      "register_as" : {
-                                                        "attrName" : "s_suppkey",
-                                                        "relName" : "subsetPelagoProject#44247"
-                                                      }
-                                                    },
-                                                    "packet" : 1,
-                                                    "offset" : 0
-                                                  } ],
-                                                  "build_w" : [ 64, 32 ],
+                                                  "build_e" : [ ],
+                                                  "build_w" : [ 64 ],
                                                   "build_input" : {
                                                     "operator" : "project",
                                                     "gpu" : true,
@@ -2939,8 +2913,8 @@
                                                     "offset" : 0
                                                   } ],
                                                   "probe_w" : [ 64, 32, 32, 32, 32, 32 ],
-                                                  "hash_bits" : 28,
-                                                  "maxBuildInputSize" : 2000000,
+                                                  "hash_bits" : 19,
+                                                  "maxBuildInputSize" : 500000,
                                                   "probe_input" : {
                                                     "operator" : "project",
                                                     "gpu" : true,
@@ -3246,14 +3220,6 @@
                                                             "attrName" : "lo_supplycost",
                                                             "isBlock" : true
                                                           } ],
-                                                          "do_transfer": [
-                                                            false,
-                                                            false,
-                                                            false,
-                                                            false,
-                                                            false,
-                                                            false
-                                                          ],
                                                           "input" : {
                                                             "operator" : "router",
                                                             "gpu" : false,
@@ -3282,6 +3248,14 @@
                                                               "attrName" : "lo_supplycost",
                                                               "isBlock" : true
                                                             } ],
+                                                            "do_transfer": [
+                                                              false,
+                                                              false,
+                                                              false,
+                                                              false,
+                                                              false,
+                                                              false
+                                                            ],
                                                             "numOfParents" : 2,
                                                             "producers" : 1,
                                                             "slack" : 8,

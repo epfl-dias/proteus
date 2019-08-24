@@ -1441,34 +1441,8 @@
                                                 "relName" : "subsetPelagoProject#11096"
                                               }
                                             },
-                                            "build_e" : [ {
-                                              "e" : {
-                                                "expression" : "recordProjection",
-                                                "e" : {
-                                                  "expression" : "argument",
-                                                  "attributes" : [ {
-                                                    "attrName" : "s_suppkey",
-                                                    "relName" : "subsetPelagoProject#11085"
-                                                  } ],
-                                                  "type" : {
-                                                    "relName" : "subsetPelagoProject#11085",
-                                                    "type" : "record"
-                                                  },
-                                                  "argNo" : -1
-                                                },
-                                                "attribute" : {
-                                                  "attrName" : "s_suppkey",
-                                                  "relName" : "subsetPelagoProject#11085"
-                                                },
-                                                "register_as" : {
-                                                  "attrName" : "s_suppkey",
-                                                  "relName" : "subsetPelagoProject#11096"
-                                                }
-                                              },
-                                              "packet" : 1,
-                                              "offset" : 0
-                                            } ],
-                                            "build_w" : [ 64, 32 ],
+                                            "build_e" : [ ],
+                                            "build_w" : [ 64 ],
                                             "build_input" : {
                                               "operator" : "project",
                                               "gpu" : true,
@@ -1830,7 +1804,7 @@
                                               "offset" : 0
                                             } ],
                                             "probe_w" : [ 64, 32, 32, 32, 32 ],
-                                            "hash_bits" : 28,
+                                            "hash_bits" : 20,
                                             "maxBuildInputSize" : 2000000,
                                             "probe_input" : {
                                               "operator" : "project",
@@ -2384,8 +2358,8 @@
                                                   "offset" : 0
                                                 } ],
                                                 "probe_w" : [ 64, 32, 32, 32, 32 ],
-                                                "hash_bits" : 10,
-                                                "maxBuildInputSize" : 2000000,
+                                                "hash_bits" : 16,
+                                                "maxBuildInputSize" : 320000,
                                                 "probe_input" : {
                                                   "operator" : "unpack",
                                                   "gpu" : true,

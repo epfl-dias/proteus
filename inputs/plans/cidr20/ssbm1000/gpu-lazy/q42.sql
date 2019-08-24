@@ -2238,7 +2238,7 @@
                                             "offset" : 0
                                           } ],
                                           "probe_w" : [ 64, 32, 32, 32, 32 ],
-                                          "hash_bits" : 22,
+                                          "hash_bits" : 19,
                                           "maxBuildInputSize" : 2556,
                                           "probe_input" : {
                                             "operator" : "project",
@@ -2781,7 +2781,7 @@
                                                 "offset" : 0
                                               } ],
                                               "probe_w" : [ 64, 32, 32, 32, 32, 32 ],
-                                              "hash_bits" : 28,
+                                              "hash_bits" : 25,
                                               "maxBuildInputSize" : 30000000,
                                               "probe_input" : {
                                                 "operator" : "project",
@@ -3420,7 +3420,7 @@
                                                     "offset" : 0
                                                   } ],
                                                   "probe_w" : [ 64, 32, 32, 32, 32, 32 ],
-                                                  "hash_bits" : 28,
+                                                  "hash_bits" : 19,
                                                   "maxBuildInputSize" : 2000000,
                                                   "probe_input" : {
                                                     "operator" : "project",

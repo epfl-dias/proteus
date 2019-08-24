@@ -1728,32 +1728,6 @@
                                               "e" : {
                                                 "expression" : "argument",
                                                 "attributes" : [ {
-                                                  "attrName" : "c_custkey",
-                                                  "relName" : "subsetPelagoProject#27874"
-                                                } ],
-                                                "type" : {
-                                                  "relName" : "subsetPelagoProject#27874",
-                                                  "type" : "record"
-                                                },
-                                                "argNo" : -1
-                                              },
-                                              "attribute" : {
-                                                "attrName" : "c_custkey",
-                                                "relName" : "subsetPelagoProject#27874"
-                                              },
-                                              "register_as" : {
-                                                "attrName" : "c_custkey",
-                                                "relName" : "subsetPelagoProject#27886"
-                                              }
-                                            },
-                                            "packet" : 1,
-                                            "offset" : 0
-                                          }, {
-                                            "e" : {
-                                              "expression" : "recordProjection",
-                                              "e" : {
-                                                "expression" : "argument",
-                                                "attributes" : [ {
                                                   "attrName" : "c_city",
                                                   "relName" : "subsetPelagoProject#27874"
                                                 } ],
@@ -1772,10 +1746,10 @@
                                                 "relName" : "subsetPelagoProject#27886"
                                               }
                                             },
-                                            "packet" : 2,
+                                            "packet" : 1,
                                             "offset" : 0
                                           } ],
-                                          "build_w" : [ 64, 32, 32 ],
+                                          "build_w" : [ 64, 32 ],
                                           "build_input" : {
                                             "operator" : "project",
                                             "gpu" : true,
@@ -2199,7 +2173,7 @@
                                             "offset" : 0
                                           } ],
                                           "probe_w" : [ 64, 32, 32, 32, 32 ],
-                                          "hash_bits" : 28,
+                                          "hash_bits" : 25,
                                           "maxBuildInputSize" : 30000000,
                                           "probe_input" : {
                                             "operator" : "project",
@@ -2790,8 +2764,8 @@
                                                 "offset" : 0
                                               } ],
                                               "probe_w" : [ 64, 32, 32, 32, 32 ],
-                                              "hash_bits" : 28,
-                                              "maxBuildInputSize" : 2000000,
+                                              "hash_bits" : 17,
+                                              "maxBuildInputSize" : 1000000,
                                               "probe_input" : {
                                                 "operator" : "unpack",
                                                 "gpu" : true,

@@ -2144,7 +2144,7 @@
                                             "offset" : 0
                                           } ],
                                           "probe_w" : [ 64, 32, 32, 32, 32, 32 ],
-                                          "hash_bits" : 28,
+                                          "hash_bits" : 24,
                                           "maxBuildInputSize" : 30000000,
                                           "probe_input" : {
                                             "operator" : "project",
@@ -2797,8 +2797,8 @@
                                                 "offset" : 0
                                               } ],
                                               "probe_w" : [ 64, 32, 32, 32, 32, 32 ],
-                                              "hash_bits" : 28,
-                                              "maxBuildInputSize" : 2000000,
+                                              "hash_bits" : 20,
+                                              "maxBuildInputSize" : 100000,
                                               "probe_input" : {
                                                 "operator" : "project",
                                                 "gpu" : true,
@@ -3436,8 +3436,8 @@
                                                     "offset" : 0
                                                   } ],
                                                   "probe_w" : [ 64, 32, 32, 32, 32, 32 ],
-                                                  "hash_bits" : 28,
-                                                  "maxBuildInputSize" : 2000000,
+                                                  "hash_bits" : 15,
+                                                  "maxBuildInputSize" : 100000,
                                                   "probe_input" : {
                                                     "operator" : "project",
                                                     "gpu" : true,
