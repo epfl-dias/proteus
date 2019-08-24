@@ -34,6 +34,7 @@ public class PelagoRelMetadataProvider extends ChainedRelMetadataProvider {
             PelagoRelMdTableReferences  .SOURCE,
             PelagoRelMdSelectivity      .SOURCE,
             PelagoRelMdNonCumulativeCost.SOURCE(),
+            PelagoRelMdPercentageOriginalRows.SOURCE,
             DefaultRelMetadataProvider  .INSTANCE));
   }
 }

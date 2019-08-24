@@ -1,7 +1,9 @@
 package ch.epfl.dias.calcite.adapter.pelago.metadata;
 
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.EquiJoin;
+import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.metadata.BuiltInMetadata;
 import org.apache.calcite.rel.metadata.ChainedRelMetadataProvider;
 import org.apache.calcite.rel.metadata.MetadataDef;
@@ -76,7 +78,12 @@ public class PelagoRelMdRowCount implements MetadataHandler<BuiltInMetadata.RowC
     return rc;
   }
 
-  public Double getRowCount(EquiJoin rel, RelMetadataQuery mq) {
-    return Math.max(mq.getRowCount(rel.getLeft()), mq.getRowCount(rel.getRight()));
+  public Double getRowCount(Join rel, RelMetadataQuery mq) {
+    Double leftRows = mq.getRowCount(rel.getLeft());
+    Double rightRows = mq.getRowCount(rel.getRight());
+    Double rows = Math.max(leftRows, rightRows);
+    RelNode small = (leftRows < rightRows) ? rel.getLeft() : rel.getRight();
+    Double sel = mq.getPercentageOriginalRows(small);
+    return rows * sel;
   }
 }
