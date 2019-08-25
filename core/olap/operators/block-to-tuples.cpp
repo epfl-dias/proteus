@@ -20,11 +20,11 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
-
 #include "operators/block-to-tuples.hpp"
 
 #include "memory/buffer-manager.cuh"
 #include "memory/memory-manager.hpp"
+#include "plugins/plugins.hpp"
 #include "util/catalog.hpp"
 #include "util/jit/pipeline.hpp"
 #include "util/logging.hpp"
@@ -283,18 +283,16 @@ void BlockToTuples::consume(ParallelContext *const context,
     //     ins->setMetadata("llvm.mem.parallel_loop_access", LoopID);
     // }
 
-    Instruction *parsed =
-        Builder->CreateLoad(ptr);  // TODO : use CreateAllignedLoad
-    { parsed->setMetadata("llvm.mem.parallel_loop_access", LoopID); }
+    if (!pg->isLazy()) {
+      // If not lazy, load the data now
+      Instruction *parsed =
+          Builder->CreateLoad(ptr);  // TODO : use CreateAlignedLoad
+      { parsed->setMetadata("llvm.mem.parallel_loop_access", LoopID); }
+      ptr = parsed;
+    }
 
-    AllocaInst *mem_currResult =
-        context->CreateEntryBlockAlloca(F, currBufVar, parsed->getType());
-    Builder->CreateStore(parsed, mem_currResult);
-
-    ProteusValueMemory mem_valWrapper;
-    mem_valWrapper.mem = mem_currResult;
-    mem_valWrapper.isNull = context->createFalse();
-    variableBindings[wantedFields[i].getRegisteredAs()] = mem_valWrapper;
+    variableBindings[wantedFields[i].getRegisteredAs()] =
+        context->toMem(ptr, context->createFalse());
   }
 
   // Start insertion in IncBB.

@@ -1601,7 +1601,7 @@
                                         "offset" : 0
                                       } ],
                                       "probe_w" : [ 64, 32, 32, 32, 32 ],
-                                      "hash_bits" : 22,
+                                      "hash_bits" : 16,
                                       "maxBuildInputSize" : 2556,
                                       "probe_input" : {
                                         "operator" : "project",
@@ -1728,32 +1728,6 @@
                                               "e" : {
                                                 "expression" : "argument",
                                                 "attributes" : [ {
-                                                  "attrName" : "c_custkey",
-                                                  "relName" : "subsetPelagoProject#22643"
-                                                } ],
-                                                "type" : {
-                                                  "relName" : "subsetPelagoProject#22643",
-                                                  "type" : "record"
-                                                },
-                                                "argNo" : -1
-                                              },
-                                              "attribute" : {
-                                                "attrName" : "c_custkey",
-                                                "relName" : "subsetPelagoProject#22643"
-                                              },
-                                              "register_as" : {
-                                                "attrName" : "c_custkey",
-                                                "relName" : "subsetPelagoProject#22655"
-                                              }
-                                            },
-                                            "packet" : 1,
-                                            "offset" : 0
-                                          }, {
-                                            "e" : {
-                                              "expression" : "recordProjection",
-                                              "e" : {
-                                                "expression" : "argument",
-                                                "attributes" : [ {
                                                   "attrName" : "c_nation",
                                                   "relName" : "subsetPelagoProject#22643"
                                                 } ],
@@ -1772,10 +1746,10 @@
                                                 "relName" : "subsetPelagoProject#22655"
                                               }
                                             },
-                                            "packet" : 2,
+                                            "packet" : 1,
                                             "offset" : 0
                                           } ],
-                                          "build_w" : [ 64, 32, 32 ],
+                                          "build_w" : [ 64, 32 ],
                                           "build_input" : {
                                             "operator" : "project",
                                             "gpu" : true,
@@ -2199,8 +2173,8 @@
                                             "offset" : 0
                                           } ],
                                           "probe_w" : [ 64, 32, 32, 32, 32 ],
-                                          "hash_bits" : 28,
-                                          "maxBuildInputSize" : 30000000,
+                                          "hash_bits" : 26,
+                                          "maxBuildInputSize" : 8000000,
                                           "probe_input" : {
                                             "operator" : "project",
                                             "gpu" : true,
@@ -2326,32 +2300,6 @@
                                                   "e" : {
                                                     "expression" : "argument",
                                                     "attributes" : [ {
-                                                      "attrName" : "s_suppkey",
-                                                      "relName" : "subsetPelagoProject#22648"
-                                                    } ],
-                                                    "type" : {
-                                                      "relName" : "subsetPelagoProject#22648",
-                                                      "type" : "record"
-                                                    },
-                                                    "argNo" : -1
-                                                  },
-                                                  "attribute" : {
-                                                    "attrName" : "s_suppkey",
-                                                    "relName" : "subsetPelagoProject#22648"
-                                                  },
-                                                  "register_as" : {
-                                                    "attrName" : "s_suppkey",
-                                                    "relName" : "subsetPelagoProject#22653"
-                                                  }
-                                                },
-                                                "packet" : 1,
-                                                "offset" : 0
-                                              }, {
-                                                "e" : {
-                                                  "expression" : "recordProjection",
-                                                  "e" : {
-                                                    "expression" : "argument",
-                                                    "attributes" : [ {
                                                       "attrName" : "s_nation",
                                                       "relName" : "subsetPelagoProject#22648"
                                                     } ],
@@ -2370,10 +2318,10 @@
                                                     "relName" : "subsetPelagoProject#22653"
                                                   }
                                                 },
-                                                "packet" : 2,
+                                                "packet" : 1,
                                                 "offset" : 0
                                               } ],
-                                              "build_w" : [ 64, 32, 32 ],
+                                              "build_w" : [ 64, 32 ],
                                               "build_input" : {
                                                 "operator" : "project",
                                                 "gpu" : true,
@@ -2790,8 +2738,8 @@
                                                 "offset" : 0
                                               } ],
                                               "probe_w" : [ 64, 32, 32, 32, 32 ],
-                                              "hash_bits" : 28,
-                                              "maxBuildInputSize" : 2000000,
+                                              "hash_bits" : 22,
+                                              "maxBuildInputSize" : 2400000,
                                               "probe_input" : {
                                                 "operator" : "unpack",
                                                 "gpu" : true,

@@ -3287,17 +3287,17 @@
                                                       "expression" : "argument",
                                                       "attributes" : [ {
                                                         "attrName" : "lo_suppkey",
-                                                        "relName" : "subsetPelagoProject#57464"
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
                                                       } ],
                                                       "type" : {
-                                                        "relName" : "subsetPelagoProject#57464",
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv",
                                                         "type" : "record"
                                                       },
                                                       "argNo" : -1
                                                     },
                                                     "attribute" : {
                                                       "attrName" : "lo_suppkey",
-                                                      "relName" : "subsetPelagoProject#57464"
+                                                      "relName" : "inputs/ssbm1000/lineorder.csv"
                                                     },
                                                     "register_as" : {
                                                       "attrName" : "$0",
@@ -3311,17 +3311,17 @@
                                                         "expression" : "argument",
                                                         "attributes" : [ {
                                                           "attrName" : "lo_custkey",
-                                                          "relName" : "subsetPelagoProject#57464"
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
                                                         } ],
                                                         "type" : {
-                                                          "relName" : "subsetPelagoProject#57464",
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
                                                           "type" : "record"
                                                         },
                                                         "argNo" : -1
                                                       },
                                                       "attribute" : {
                                                         "attrName" : "lo_custkey",
-                                                        "relName" : "subsetPelagoProject#57464"
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
                                                       },
                                                       "register_as" : {
                                                         "attrName" : "lo_custkey",
@@ -3337,17 +3337,17 @@
                                                         "expression" : "argument",
                                                         "attributes" : [ {
                                                           "attrName" : "lo_partkey",
-                                                          "relName" : "subsetPelagoProject#57464"
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
                                                         } ],
                                                         "type" : {
-                                                          "relName" : "subsetPelagoProject#57464",
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
                                                           "type" : "record"
                                                         },
                                                         "argNo" : -1
                                                       },
                                                       "attribute" : {
                                                         "attrName" : "lo_partkey",
-                                                        "relName" : "subsetPelagoProject#57464"
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
                                                       },
                                                       "register_as" : {
                                                         "attrName" : "lo_partkey",
@@ -3363,17 +3363,17 @@
                                                         "expression" : "argument",
                                                         "attributes" : [ {
                                                           "attrName" : "lo_suppkey",
-                                                          "relName" : "subsetPelagoProject#57464"
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
                                                         } ],
                                                         "type" : {
-                                                          "relName" : "subsetPelagoProject#57464",
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
                                                           "type" : "record"
                                                         },
                                                         "argNo" : -1
                                                       },
                                                       "attribute" : {
                                                         "attrName" : "lo_suppkey",
-                                                        "relName" : "subsetPelagoProject#57464"
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
                                                       },
                                                       "register_as" : {
                                                         "attrName" : "lo_suppkey",
@@ -3389,17 +3389,17 @@
                                                         "expression" : "argument",
                                                         "attributes" : [ {
                                                           "attrName" : "lo_orderdate",
-                                                          "relName" : "subsetPelagoProject#57464"
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
                                                         } ],
                                                         "type" : {
-                                                          "relName" : "subsetPelagoProject#57464",
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
                                                           "type" : "record"
                                                         },
                                                         "argNo" : -1
                                                       },
                                                       "attribute" : {
                                                         "attrName" : "lo_orderdate",
-                                                        "relName" : "subsetPelagoProject#57464"
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
                                                       },
                                                       "register_as" : {
                                                         "attrName" : "lo_orderdate",
@@ -3410,127 +3410,6 @@
                                                     "offset" : 0
                                                   }, {
                                                     "e" : {
-                                                      "expression" : "recordProjection",
-                                                      "e" : {
-                                                        "expression" : "argument",
-                                                        "attributes" : [ {
-                                                          "attrName" : "-",
-                                                          "relName" : "subsetPelagoProject#57464"
-                                                        } ],
-                                                        "type" : {
-                                                          "relName" : "subsetPelagoProject#57464",
-                                                          "type" : "record"
-                                                        },
-                                                        "argNo" : -1
-                                                      },
-                                                      "attribute" : {
-                                                        "attrName" : "-",
-                                                        "relName" : "subsetPelagoProject#57464"
-                                                      },
-                                                      "register_as" : {
-                                                        "attrName" : "-",
-                                                        "relName" : "subsetPelagoProject#57466"
-                                                      }
-                                                    },
-                                                    "packet" : 5,
-                                                    "offset" : 0
-                                                  } ],
-                                                  "probe_w" : [ 64, 32, 32, 32, 32, 32 ],
-                                                  "hash_bits" : 15,
-                                                  "maxBuildInputSize" : 100000,
-                                                  "probe_input" : {
-                                                    "operator" : "project",
-                                                    "gpu" : true,
-                                                    "relName" : "subsetPelagoProject#57464",
-                                                    "e" : [ {
-                                                      "expression" : "recordProjection",
-                                                      "e" : {
-                                                        "expression" : "argument",
-                                                        "attributes" : [ {
-                                                          "attrName" : "lo_custkey",
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                        } ],
-                                                        "type" : {
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                          "type" : "record"
-                                                        },
-                                                        "argNo" : -1
-                                                      },
-                                                      "attribute" : {
-                                                        "attrName" : "lo_custkey",
-                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                      },
-                                                      "register_as" : {
-                                                        "attrName" : "lo_custkey",
-                                                        "relName" : "subsetPelagoProject#57464"
-                                                      }
-                                                    }, {
-                                                      "expression" : "recordProjection",
-                                                      "e" : {
-                                                        "expression" : "argument",
-                                                        "attributes" : [ {
-                                                          "attrName" : "lo_partkey",
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                        } ],
-                                                        "type" : {
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                          "type" : "record"
-                                                        },
-                                                        "argNo" : -1
-                                                      },
-                                                      "attribute" : {
-                                                        "attrName" : "lo_partkey",
-                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                      },
-                                                      "register_as" : {
-                                                        "attrName" : "lo_partkey",
-                                                        "relName" : "subsetPelagoProject#57464"
-                                                      }
-                                                    }, {
-                                                      "expression" : "recordProjection",
-                                                      "e" : {
-                                                        "expression" : "argument",
-                                                        "attributes" : [ {
-                                                          "attrName" : "lo_suppkey",
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                        } ],
-                                                        "type" : {
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                          "type" : "record"
-                                                        },
-                                                        "argNo" : -1
-                                                      },
-                                                      "attribute" : {
-                                                        "attrName" : "lo_suppkey",
-                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                      },
-                                                      "register_as" : {
-                                                        "attrName" : "lo_suppkey",
-                                                        "relName" : "subsetPelagoProject#57464"
-                                                      }
-                                                    }, {
-                                                      "expression" : "recordProjection",
-                                                      "e" : {
-                                                        "expression" : "argument",
-                                                        "attributes" : [ {
-                                                          "attrName" : "lo_orderdate",
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                        } ],
-                                                        "type" : {
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                          "type" : "record"
-                                                        },
-                                                        "argNo" : -1
-                                                      },
-                                                      "attribute" : {
-                                                        "attrName" : "lo_orderdate",
-                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                      },
-                                                      "register_as" : {
-                                                        "attrName" : "lo_orderdate",
-                                                        "relName" : "subsetPelagoProject#57464"
-                                                      }
-                                                    }, {
                                                       "expression" : "sub",
                                                       "left" : {
                                                         "expression" : "recordProjection",
@@ -3572,10 +3451,16 @@
                                                       },
                                                       "register_as" : {
                                                         "attrName" : "-",
-                                                        "relName" : "subsetPelagoProject#57464"
+                                                        "relName" : "subsetPelagoProject#57466"
                                                       }
-                                                    } ],
-                                                    "input" : {
+                                                    },
+                                                    "packet" : 5,
+                                                    "offset" : 0
+                                                  } ],
+                                                  "probe_w" : [ 64, 32, 32, 32, 32, 32 ],
+                                                  "hash_bits" : 15,
+                                                  "maxBuildInputSize" : 100000,
+                                                  "probe_input" : {
                                                       "operator" : "unpack",
                                                       "gpu" : true,
                                                       "projections" : [ {
@@ -3936,7 +3821,6 @@
                                                           "to_cpu" : false
                                                         }
                                                       }
-                                                    }
                                                   }
                                                 }
                                               }

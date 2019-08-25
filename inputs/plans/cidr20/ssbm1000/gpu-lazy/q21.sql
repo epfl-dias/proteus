@@ -2383,8 +2383,8 @@
                                                   "offset" : 0
                                                 } ],
                                                 "probe_w" : [ 64, 32, 32, 32, 32 ],
-                                                "hash_bits" : 16,
-                                                "maxBuildInputSize" : 2000000,
+                                                "hash_bits" : 17,
+                                                "maxBuildInputSize" : 2400000,
                                                 "probe_input" : {
                                                   "operator" : "unpack",
                                                   "gpu" : true,

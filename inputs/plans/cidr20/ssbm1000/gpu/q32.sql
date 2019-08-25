@@ -2765,7 +2765,7 @@
                                               } ],
                                               "probe_w" : [ 64, 32, 32, 32, 32 ],
                                               "hash_bits" : 17,
-                                              "maxBuildInputSize" : 1000000,
+                                              "maxBuildInputSize" : 1500000,
                                               "probe_input" : {
                                                 "operator" : "unpack",
                                                 "gpu" : true,

@@ -2764,17 +2764,17 @@
                                                       "expression" : "argument",
                                                       "attributes" : [ {
                                                         "attrName" : "lo_suppkey",
-                                                        "relName" : "subsetPelagoProject#44245"
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
                                                       } ],
                                                       "type" : {
-                                                        "relName" : "subsetPelagoProject#44245",
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv",
                                                         "type" : "record"
                                                       },
                                                       "argNo" : -1
                                                     },
                                                     "attribute" : {
                                                       "attrName" : "lo_suppkey",
-                                                      "relName" : "subsetPelagoProject#44245"
+                                                      "relName" : "inputs/ssbm1000/lineorder.csv"
                                                     },
                                                     "register_as" : {
                                                       "attrName" : "$0",
@@ -2788,17 +2788,17 @@
                                                         "expression" : "argument",
                                                         "attributes" : [ {
                                                           "attrName" : "lo_custkey",
-                                                          "relName" : "subsetPelagoProject#44245"
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
                                                         } ],
                                                         "type" : {
-                                                          "relName" : "subsetPelagoProject#44245",
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
                                                           "type" : "record"
                                                         },
                                                         "argNo" : -1
                                                       },
                                                       "attribute" : {
                                                         "attrName" : "lo_custkey",
-                                                        "relName" : "subsetPelagoProject#44245"
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
                                                       },
                                                       "register_as" : {
                                                         "attrName" : "lo_custkey",
@@ -2814,17 +2814,17 @@
                                                         "expression" : "argument",
                                                         "attributes" : [ {
                                                           "attrName" : "lo_partkey",
-                                                          "relName" : "subsetPelagoProject#44245"
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
                                                         } ],
                                                         "type" : {
-                                                          "relName" : "subsetPelagoProject#44245",
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
                                                           "type" : "record"
                                                         },
                                                         "argNo" : -1
                                                       },
                                                       "attribute" : {
                                                         "attrName" : "lo_partkey",
-                                                        "relName" : "subsetPelagoProject#44245"
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
                                                       },
                                                       "register_as" : {
                                                         "attrName" : "lo_partkey",
@@ -2840,17 +2840,17 @@
                                                         "expression" : "argument",
                                                         "attributes" : [ {
                                                           "attrName" : "lo_suppkey",
-                                                          "relName" : "subsetPelagoProject#44245"
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
                                                         } ],
                                                         "type" : {
-                                                          "relName" : "subsetPelagoProject#44245",
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
                                                           "type" : "record"
                                                         },
                                                         "argNo" : -1
                                                       },
                                                       "attribute" : {
                                                         "attrName" : "lo_suppkey",
-                                                        "relName" : "subsetPelagoProject#44245"
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
                                                       },
                                                       "register_as" : {
                                                         "attrName" : "lo_suppkey",
@@ -2866,17 +2866,17 @@
                                                         "expression" : "argument",
                                                         "attributes" : [ {
                                                           "attrName" : "lo_orderdate",
-                                                          "relName" : "subsetPelagoProject#44245"
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
                                                         } ],
                                                         "type" : {
-                                                          "relName" : "subsetPelagoProject#44245",
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
                                                           "type" : "record"
                                                         },
                                                         "argNo" : -1
                                                       },
                                                       "attribute" : {
                                                         "attrName" : "lo_orderdate",
-                                                        "relName" : "subsetPelagoProject#44245"
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
                                                       },
                                                       "register_as" : {
                                                         "attrName" : "lo_orderdate",
@@ -2887,127 +2887,6 @@
                                                     "offset" : 0
                                                   }, {
                                                     "e" : {
-                                                      "expression" : "recordProjection",
-                                                      "e" : {
-                                                        "expression" : "argument",
-                                                        "attributes" : [ {
-                                                          "attrName" : "-",
-                                                          "relName" : "subsetPelagoProject#44245"
-                                                        } ],
-                                                        "type" : {
-                                                          "relName" : "subsetPelagoProject#44245",
-                                                          "type" : "record"
-                                                        },
-                                                        "argNo" : -1
-                                                      },
-                                                      "attribute" : {
-                                                        "attrName" : "-",
-                                                        "relName" : "subsetPelagoProject#44245"
-                                                      },
-                                                      "register_as" : {
-                                                        "attrName" : "-",
-                                                        "relName" : "subsetPelagoProject#44247"
-                                                      }
-                                                    },
-                                                    "packet" : 5,
-                                                    "offset" : 0
-                                                  } ],
-                                                  "probe_w" : [ 64, 32, 32, 32, 32, 32 ],
-                                                  "hash_bits" : 19,
-                                                  "maxBuildInputSize" : 500000,
-                                                  "probe_input" : {
-                                                    "operator" : "project",
-                                                    "gpu" : true,
-                                                    "relName" : "subsetPelagoProject#44245",
-                                                    "e" : [ {
-                                                      "expression" : "recordProjection",
-                                                      "e" : {
-                                                        "expression" : "argument",
-                                                        "attributes" : [ {
-                                                          "attrName" : "lo_custkey",
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                        } ],
-                                                        "type" : {
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                          "type" : "record"
-                                                        },
-                                                        "argNo" : -1
-                                                      },
-                                                      "attribute" : {
-                                                        "attrName" : "lo_custkey",
-                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                      },
-                                                      "register_as" : {
-                                                        "attrName" : "lo_custkey",
-                                                        "relName" : "subsetPelagoProject#44245"
-                                                      }
-                                                    }, {
-                                                      "expression" : "recordProjection",
-                                                      "e" : {
-                                                        "expression" : "argument",
-                                                        "attributes" : [ {
-                                                          "attrName" : "lo_partkey",
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                        } ],
-                                                        "type" : {
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                          "type" : "record"
-                                                        },
-                                                        "argNo" : -1
-                                                      },
-                                                      "attribute" : {
-                                                        "attrName" : "lo_partkey",
-                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                      },
-                                                      "register_as" : {
-                                                        "attrName" : "lo_partkey",
-                                                        "relName" : "subsetPelagoProject#44245"
-                                                      }
-                                                    }, {
-                                                      "expression" : "recordProjection",
-                                                      "e" : {
-                                                        "expression" : "argument",
-                                                        "attributes" : [ {
-                                                          "attrName" : "lo_suppkey",
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                        } ],
-                                                        "type" : {
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                          "type" : "record"
-                                                        },
-                                                        "argNo" : -1
-                                                      },
-                                                      "attribute" : {
-                                                        "attrName" : "lo_suppkey",
-                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                      },
-                                                      "register_as" : {
-                                                        "attrName" : "lo_suppkey",
-                                                        "relName" : "subsetPelagoProject#44245"
-                                                      }
-                                                    }, {
-                                                      "expression" : "recordProjection",
-                                                      "e" : {
-                                                        "expression" : "argument",
-                                                        "attributes" : [ {
-                                                          "attrName" : "lo_orderdate",
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                        } ],
-                                                        "type" : {
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                          "type" : "record"
-                                                        },
-                                                        "argNo" : -1
-                                                      },
-                                                      "attribute" : {
-                                                        "attrName" : "lo_orderdate",
-                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                      },
-                                                      "register_as" : {
-                                                        "attrName" : "lo_orderdate",
-                                                        "relName" : "subsetPelagoProject#44245"
-                                                      }
-                                                    }, {
                                                       "expression" : "sub",
                                                       "left" : {
                                                         "expression" : "recordProjection",
@@ -3049,123 +2928,158 @@
                                                       },
                                                       "register_as" : {
                                                         "attrName" : "-",
-                                                        "relName" : "subsetPelagoProject#44245"
+                                                        "relName" : "subsetPelagoProject#44247"
+                                                      }
+                                                    },
+                                                    "packet" : 5,
+                                                    "offset" : 0
+                                                  } ],
+                                                  "probe_w" : [ 64, 32, 32, 32, 32, 32 ],
+                                                  "hash_bits" : 19,
+                                                  "maxBuildInputSize" : 1000000,
+                                                  "probe_input" : {
+                                                    "operator" : "unpack",
+                                                    "gpu" : true,
+                                                    "projections" : [ {
+                                                      "expression" : "recordProjection",
+                                                      "e" : {
+                                                        "expression" : "argument",
+                                                        "attributes" : [ {
+                                                          "attrName" : "lo_custkey",
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
+                                                        } ],
+                                                        "type" : {
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                          "type" : "record"
+                                                        },
+                                                        "argNo" : -1
+                                                      },
+                                                      "attribute" : {
+                                                        "attrName" : "lo_custkey",
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
+                                                      }
+                                                    }, {
+                                                      "expression" : "recordProjection",
+                                                      "e" : {
+                                                        "expression" : "argument",
+                                                        "attributes" : [ {
+                                                          "attrName" : "lo_partkey",
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
+                                                        } ],
+                                                        "type" : {
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                          "type" : "record"
+                                                        },
+                                                        "argNo" : -1
+                                                      },
+                                                      "attribute" : {
+                                                        "attrName" : "lo_partkey",
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
+                                                      }
+                                                    }, {
+                                                      "expression" : "recordProjection",
+                                                      "e" : {
+                                                        "expression" : "argument",
+                                                        "attributes" : [ {
+                                                          "attrName" : "lo_suppkey",
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
+                                                        } ],
+                                                        "type" : {
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                          "type" : "record"
+                                                        },
+                                                        "argNo" : -1
+                                                      },
+                                                      "attribute" : {
+                                                        "attrName" : "lo_suppkey",
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
+                                                      }
+                                                    }, {
+                                                      "expression" : "recordProjection",
+                                                      "e" : {
+                                                        "expression" : "argument",
+                                                        "attributes" : [ {
+                                                          "attrName" : "lo_orderdate",
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
+                                                        } ],
+                                                        "type" : {
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                          "type" : "record"
+                                                        },
+                                                        "argNo" : -1
+                                                      },
+                                                      "attribute" : {
+                                                        "attrName" : "lo_orderdate",
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
+                                                      }
+                                                    }, {
+                                                      "expression" : "recordProjection",
+                                                      "e" : {
+                                                        "expression" : "argument",
+                                                        "attributes" : [ {
+                                                          "attrName" : "lo_revenue",
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
+                                                        } ],
+                                                        "type" : {
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                          "type" : "record"
+                                                        },
+                                                        "argNo" : -1
+                                                      },
+                                                      "attribute" : {
+                                                        "attrName" : "lo_revenue",
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
+                                                      }
+                                                    }, {
+                                                      "expression" : "recordProjection",
+                                                      "e" : {
+                                                        "expression" : "argument",
+                                                        "attributes" : [ {
+                                                          "attrName" : "lo_supplycost",
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
+                                                        } ],
+                                                        "type" : {
+                                                          "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                          "type" : "record"
+                                                        },
+                                                        "argNo" : -1
+                                                      },
+                                                      "attribute" : {
+                                                        "attrName" : "lo_supplycost",
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv"
                                                       }
                                                     } ],
                                                     "input" : {
-                                                      "operator" : "unpack",
-                                                      "gpu" : true,
+                                                      "operator" : "cpu-to-gpu",
                                                       "projections" : [ {
-                                                        "expression" : "recordProjection",
-                                                        "e" : {
-                                                          "expression" : "argument",
-                                                          "attributes" : [ {
-                                                            "attrName" : "lo_custkey",
-                                                            "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                          } ],
-                                                          "type" : {
-                                                            "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                            "type" : "record"
-                                                          },
-                                                          "argNo" : -1
-                                                        },
-                                                        "attribute" : {
-                                                          "attrName" : "lo_custkey",
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                        }
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                        "attrName" : "lo_custkey",
+                                                        "isBlock" : true
                                                       }, {
-                                                        "expression" : "recordProjection",
-                                                        "e" : {
-                                                          "expression" : "argument",
-                                                          "attributes" : [ {
-                                                            "attrName" : "lo_partkey",
-                                                            "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                          } ],
-                                                          "type" : {
-                                                            "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                            "type" : "record"
-                                                          },
-                                                          "argNo" : -1
-                                                        },
-                                                        "attribute" : {
-                                                          "attrName" : "lo_partkey",
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                        }
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                        "attrName" : "lo_partkey",
+                                                        "isBlock" : true
                                                       }, {
-                                                        "expression" : "recordProjection",
-                                                        "e" : {
-                                                          "expression" : "argument",
-                                                          "attributes" : [ {
-                                                            "attrName" : "lo_suppkey",
-                                                            "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                          } ],
-                                                          "type" : {
-                                                            "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                            "type" : "record"
-                                                          },
-                                                          "argNo" : -1
-                                                        },
-                                                        "attribute" : {
-                                                          "attrName" : "lo_suppkey",
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                        }
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                        "attrName" : "lo_suppkey",
+                                                        "isBlock" : true
                                                       }, {
-                                                        "expression" : "recordProjection",
-                                                        "e" : {
-                                                          "expression" : "argument",
-                                                          "attributes" : [ {
-                                                            "attrName" : "lo_orderdate",
-                                                            "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                          } ],
-                                                          "type" : {
-                                                            "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                            "type" : "record"
-                                                          },
-                                                          "argNo" : -1
-                                                        },
-                                                        "attribute" : {
-                                                          "attrName" : "lo_orderdate",
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                        }
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                        "attrName" : "lo_orderdate",
+                                                        "isBlock" : true
                                                       }, {
-                                                        "expression" : "recordProjection",
-                                                        "e" : {
-                                                          "expression" : "argument",
-                                                          "attributes" : [ {
-                                                            "attrName" : "lo_revenue",
-                                                            "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                          } ],
-                                                          "type" : {
-                                                            "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                            "type" : "record"
-                                                          },
-                                                          "argNo" : -1
-                                                        },
-                                                        "attribute" : {
-                                                          "attrName" : "lo_revenue",
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                        }
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                        "attrName" : "lo_revenue",
+                                                        "isBlock" : true
                                                       }, {
-                                                        "expression" : "recordProjection",
-                                                        "e" : {
-                                                          "expression" : "argument",
-                                                          "attributes" : [ {
-                                                            "attrName" : "lo_supplycost",
-                                                            "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                          } ],
-                                                          "type" : {
-                                                            "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                            "type" : "record"
-                                                          },
-                                                          "argNo" : -1
-                                                        },
-                                                        "attribute" : {
-                                                          "attrName" : "lo_supplycost",
-                                                          "relName" : "inputs/ssbm1000/lineorder.csv"
-                                                        }
+                                                        "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                        "attrName" : "lo_supplycost",
+                                                        "isBlock" : true
                                                       } ],
+                                                      "queueSize" : 262144,
+                                                      "granularity" : "thread",
                                                       "input" : {
-                                                        "operator" : "cpu-to-gpu",
+                                                        "operator" : "mem-move-device",
                                                         "projections" : [ {
                                                           "relName" : "inputs/ssbm1000/lineorder.csv",
                                                           "attrName" : "lo_custkey",
@@ -3191,10 +3105,9 @@
                                                           "attrName" : "lo_supplycost",
                                                           "isBlock" : true
                                                         } ],
-                                                        "queueSize" : 262144,
-                                                        "granularity" : "thread",
                                                         "input" : {
-                                                          "operator" : "mem-move-device",
+                                                          "operator" : "router",
+                                                          "gpu" : false,
                                                           "projections" : [ {
                                                             "relName" : "inputs/ssbm1000/lineorder.csv",
                                                             "attrName" : "lo_custkey",
@@ -3220,186 +3133,157 @@
                                                             "attrName" : "lo_supplycost",
                                                             "isBlock" : true
                                                           } ],
+                                                          "numOfParents" : 2,
+                                                          "producers" : 1,
+                                                          "slack" : 8,
+                                                          "cpu_targets" : false,
+                                                          "numa_local" : true,
                                                           "input" : {
-                                                            "operator" : "router",
+                                                            "operator" : "scan",
                                                             "gpu" : false,
-                                                            "projections" : [ {
-                                                              "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                              "attrName" : "lo_custkey",
-                                                              "isBlock" : true
-                                                            }, {
-                                                              "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                              "attrName" : "lo_partkey",
-                                                              "isBlock" : true
-                                                            }, {
-                                                              "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                              "attrName" : "lo_suppkey",
-                                                              "isBlock" : true
-                                                            }, {
-                                                              "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                              "attrName" : "lo_orderdate",
-                                                              "isBlock" : true
-                                                            }, {
-                                                              "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                              "attrName" : "lo_revenue",
-                                                              "isBlock" : true
-                                                            }, {
-                                                              "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                              "attrName" : "lo_supplycost",
-                                                              "isBlock" : true
-                                                            } ],
-                                                            "numOfParents" : 2,
-                                                            "producers" : 1,
-                                                            "slack" : 8,
-                                                            "cpu_targets" : false,
-                                                            "numa_local" : true,
-                                                            "input" : {
-                                                              "operator" : "scan",
-                                                              "gpu" : false,
-                                                              "plugin" : {
-                                                                "type" : "block",
-                                                                "linehint" : 5999989813,
-                                                                "name" : "inputs/ssbm1000/lineorder.csv",
-                                                                "projections" : [ {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_custkey"
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_partkey"
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_suppkey"
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_orderdate"
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_revenue"
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_supplycost"
-                                                                } ],
-                                                                "schema" : [ {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_orderkey",
-                                                                  "type" : {
-                                                                    "type" : "int"
-                                                                  },
-                                                                  "attrNo" : 1
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_linenumber",
-                                                                  "type" : {
-                                                                    "type" : "int"
-                                                                  },
-                                                                  "attrNo" : 2
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_custkey",
-                                                                  "type" : {
-                                                                    "type" : "int"
-                                                                  },
-                                                                  "attrNo" : 3
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_partkey",
-                                                                  "type" : {
-                                                                    "type" : "int"
-                                                                  },
-                                                                  "attrNo" : 4
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_suppkey",
-                                                                  "type" : {
-                                                                    "type" : "int"
-                                                                  },
-                                                                  "attrNo" : 5
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_orderdate",
-                                                                  "type" : {
-                                                                    "type" : "int"
-                                                                  },
-                                                                  "attrNo" : 6
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_orderpriority",
-                                                                  "type" : {
-                                                                    "type" : "dstring"
-                                                                  },
-                                                                  "attrNo" : 7
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_shippriority",
-                                                                  "type" : {
-                                                                    "type" : "dstring"
-                                                                  },
-                                                                  "attrNo" : 8
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_quantity",
-                                                                  "type" : {
-                                                                    "type" : "int"
-                                                                  },
-                                                                  "attrNo" : 9
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_extendedprice",
-                                                                  "type" : {
-                                                                    "type" : "int"
-                                                                  },
-                                                                  "attrNo" : 10
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_ordtotalprice",
-                                                                  "type" : {
-                                                                    "type" : "int"
-                                                                  },
-                                                                  "attrNo" : 11
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_discount",
-                                                                  "type" : {
-                                                                    "type" : "int"
-                                                                  },
-                                                                  "attrNo" : 12
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_revenue",
-                                                                  "type" : {
-                                                                    "type" : "int"
-                                                                  },
-                                                                  "attrNo" : 13
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_supplycost",
-                                                                  "type" : {
-                                                                    "type" : "int"
-                                                                  },
-                                                                  "attrNo" : 14
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_tax",
-                                                                  "type" : {
-                                                                    "type" : "int"
-                                                                  },
-                                                                  "attrNo" : 15
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_commitdate",
-                                                                  "type" : {
-                                                                    "type" : "int"
-                                                                  },
-                                                                  "attrNo" : 16
-                                                                }, {
-                                                                  "relName" : "inputs/ssbm1000/lineorder.csv",
-                                                                  "attrName" : "lo_shipmode",
-                                                                  "type" : {
-                                                                    "type" : "dstring"
-                                                                  },
-                                                                  "attrNo" : 17
-                                                                } ]
-                                                              }
+                                                            "plugin" : {
+                                                              "type" : "block",
+                                                              "linehint" : 5999989813,
+                                                              "name" : "inputs/ssbm1000/lineorder.csv",
+                                                              "projections" : [ {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_custkey"
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_partkey"
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_suppkey"
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_orderdate"
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_revenue"
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_supplycost"
+                                                              } ],
+                                                              "schema" : [ {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_orderkey",
+                                                                "type" : {
+                                                                  "type" : "int"
+                                                                },
+                                                                "attrNo" : 1
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_linenumber",
+                                                                "type" : {
+                                                                  "type" : "int"
+                                                                },
+                                                                "attrNo" : 2
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_custkey",
+                                                                "type" : {
+                                                                  "type" : "int"
+                                                                },
+                                                                "attrNo" : 3
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_partkey",
+                                                                "type" : {
+                                                                  "type" : "int"
+                                                                },
+                                                                "attrNo" : 4
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_suppkey",
+                                                                "type" : {
+                                                                  "type" : "int"
+                                                                },
+                                                                "attrNo" : 5
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_orderdate",
+                                                                "type" : {
+                                                                  "type" : "int"
+                                                                },
+                                                                "attrNo" : 6
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_orderpriority",
+                                                                "type" : {
+                                                                  "type" : "dstring"
+                                                                },
+                                                                "attrNo" : 7
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_shippriority",
+                                                                "type" : {
+                                                                  "type" : "dstring"
+                                                                },
+                                                                "attrNo" : 8
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_quantity",
+                                                                "type" : {
+                                                                  "type" : "int"
+                                                                },
+                                                                "attrNo" : 9
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_extendedprice",
+                                                                "type" : {
+                                                                  "type" : "int"
+                                                                },
+                                                                "attrNo" : 10
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_ordtotalprice",
+                                                                "type" : {
+                                                                  "type" : "int"
+                                                                },
+                                                                "attrNo" : 11
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_discount",
+                                                                "type" : {
+                                                                  "type" : "int"
+                                                                },
+                                                                "attrNo" : 12
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_revenue",
+                                                                "type" : {
+                                                                  "type" : "int"
+                                                                },
+                                                                "attrNo" : 13
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_supplycost",
+                                                                "type" : {
+                                                                  "type" : "int"
+                                                                },
+                                                                "attrNo" : 14
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_tax",
+                                                                "type" : {
+                                                                  "type" : "int"
+                                                                },
+                                                                "attrNo" : 15
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_commitdate",
+                                                                "type" : {
+                                                                  "type" : "int"
+                                                                },
+                                                                "attrNo" : 16
+                                                              }, {
+                                                                "relName" : "inputs/ssbm1000/lineorder.csv",
+                                                                "attrName" : "lo_shipmode",
+                                                                "type" : {
+                                                                  "type" : "dstring"
+                                                                },
+                                                                "attrNo" : 17
+                                                              } ]
                                                             }
                                                           },
                                                           "to_cpu" : false

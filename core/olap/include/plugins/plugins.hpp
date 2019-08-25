@@ -152,5 +152,7 @@ class Plugin {
   virtual void flushDelim(llvm::Value *fileName, int depth = 0) = 0;
   virtual void flushDelim(llvm::Value *resultCtr, llvm::Value *fileName,
                           int depth = 0) = 0;
+
+  virtual bool isLazy() { return false; }
 };
 #endif /* PLUGINS_LLVM_HPP_ */

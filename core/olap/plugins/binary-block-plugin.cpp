@@ -127,6 +127,21 @@ void BinaryBlockPlugin::generate(const ::Operator &producer) {
   return scan(producer);
 }
 
+ProteusValueMemory BinaryBlockPlugin::readProteusValue(
+    ProteusValueMemory val, const ExpressionType *type) {
+  type->getLLVMType(context->getLLVMContext())->dump();
+  if (val.mem->getType()->getPointerElementType()->isPointerTy() &&
+      val.mem->getType()
+              ->getPointerElementType()
+              ->getPointerElementType()
+              ->getTypeID() ==
+          type->getLLVMType(context->getLLVMContext())->getTypeID()) {
+    auto v = context->getBuilder()->CreateLoad(val.mem);
+    val = context->toMem(context->getBuilder()->CreateLoad(v), val.isNull);
+  }
+  return val;
+}
+
 /**
  * The work of readPath() and readValue() has been taken care of scanCSV()
  */
@@ -136,7 +151,7 @@ ProteusValueMemory BinaryBlockPlugin::readPath(string activeRelation,
                                                RecordAttribute attr) {
   // XXX Make sure that using fnamePrefix in this search does not cause issues
   RecordAttribute tmpKey{fnamePrefix, pathVar, this->getOIDType()};
-  return (*(bindings.state))[tmpKey];
+  return readProteusValue((*(bindings.state))[tmpKey], attr.getOriginalType());
 }
 
 /* FIXME Differentiate between operations that need the code and the ones
@@ -204,7 +219,8 @@ ProteusValue BinaryBlockPlugin::readCachedValue(
 ProteusValue BinaryBlockPlugin::hashValue(ProteusValueMemory mem_value,
                                           const ExpressionType *type) {
   IRBuilder<> *Builder = context->getBuilder();
-  ProteusValue v{Builder->CreateLoad(mem_value.mem), mem_value.isNull};
+  auto mem = readProteusValue(mem_value, type);
+  ProteusValue v{Builder->CreateLoad(mem.mem), mem.isNull};
   return hashPrimitive(v, type->getTypeID(), context);
 }
 

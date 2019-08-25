@@ -198,6 +198,8 @@ class BinaryBlockPlugin : public Plugin {
 
   virtual void releaseSession(llvm::Value *) const {}
 
+  virtual bool isLazy() { return true; }
+
   std::vector<RecordAttribute *> wantedFields;
   std::vector<std::vector<mem_file>> wantedFieldsFiles;
 
@@ -278,6 +280,9 @@ class BinaryBlockPlugin : public Plugin {
   void readAsStringLLVM(
       RecordAttribute attName,
       std::map<RecordAttribute, ProteusValueMemory> &variables);
+
+  ProteusValueMemory readProteusValue(ProteusValueMemory val,
+                                      const ExpressionType *type);
 
   // Generates a for loop that performs the file scan
   void scan(const Operator &producer);
