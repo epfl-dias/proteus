@@ -256,7 +256,7 @@ void MicroSSB::gen_txn(int wid, void *txn_ptr) {
 
   int dup;
   static thread_local uint32_t orderkey_gen = 600000000 + (wid * 10000000);
-
+  static thread_local unsigned int seed = rand();
   /*
     struct ssb_query_part {
       uint32_t partkey;
@@ -274,16 +274,18 @@ void MicroSSB::gen_txn(int wid, void *txn_ptr) {
   */
 
   q->orderkey = orderkey_gen++;
-  q->custkey = NURand(&this->seed, 1023, 1, NUM_CUSTOMERS);
-  q->suppkey = URand(&this->seed, 1, NUM_SUPPLIERS);
+  q->custkey = NURand(&seed, 1023, 1, NUM_CUSTOMERS);
+  q->suppkey = URand(&seed, 1, NUM_SUPPLIERS);
 
   // Parts
-  q->ol_cnt = URand(&this->seed, 1, MICRO_SSB_MAX_PART_PER_ORDER);
+  q->ol_cnt = URand(&seed, 1, MICRO_SSB_MAX_PART_PER_ORDER);
   for (int o = 0; o < q->ol_cnt; o++) {
     struct ssb_query_part *i = &q->parts[o];
 
     do {
-      i->partkey = NURand(&this->seed, 8191, 1, NUM_PARTS);
+      i->partkey = URand(&seed, 3, NUM_PARTS);
+
+      // zipf_val(wid, &txn->ops[i]);
 
       // no duplicates
       dup = 0;
@@ -294,7 +296,7 @@ void MicroSSB::gen_txn(int wid, void *txn_ptr) {
         }
     } while (dup);
 
-    i->quantity = URand(&this->seed, 1, 10);
+    i->quantity = URand(&seed, 1, 10);
     assert(i->partkey <= NUM_PARTS && i->partkey > 0);
   }
 
@@ -505,6 +507,14 @@ void MicroSSB::load_part(uint64_t num_parts) {
             concat_path(this->data_path, "part.csv.p_partkey").c_str());
   });
 
+  // p_brand
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_part)
+        ->load_data_from_binary(
+            "p_brand1",
+            concat_path(this->data_path, "part.csv.p_brand1").c_str());
+  });
+
   // p_size
   loaders.emplace_back([this]() {
     ((storage::ColumnStore *)this->table_part)
@@ -632,6 +642,9 @@ void MicroSSB::create_tbl_part(uint64_t num_parts) {
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "p_size", storage::INTEGER, sizeof(tmp.p_size)));
 
+  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+      "p_brand1", storage::INTEGER, sizeof(tmp.p_brand)));
+
   /*
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "p_name", storage::STRING, 25));
@@ -679,6 +692,10 @@ void MicroSSB::load_data(int num_threads) {
   for (auto &th : loaders) {
     th.join();
   }
+
+  num_max_workers = std::thread::hardware_concurrency();
+  num_records = NUM_PARTS;
+  // init();
   std::cout << "Done loading.." << std::endl;
 }
 

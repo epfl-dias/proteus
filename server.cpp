@@ -43,7 +43,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
-//#include "utils/utils.hpp"
+#include "utils/utils.hpp"
 
 #include "lib/cxxopts.hpp"
 
@@ -85,6 +85,20 @@ std::ostream& operator<<(std::ostream& os, uint64_t i) {
 void check_num_upd_by_bits();
 
 int main(int argc, char** argv) {
+  // std::fstream myfile;
+  // myfile = std::fstream("part.csv.p_stocklevel_uniform",
+  //                       std::ios::out | std::ios::binary);
+  // // Here would be some error handling
+  // unsigned int seed = rand();
+
+  // for (uint i = 0; i < 1400000; ++i) {
+  //   // Some calculations to fill a[]
+  //   uint32_t a = URand(&seed, 1000, 10000);
+  //   myfile.write((char*)&a, sizeof(uint32_t));
+  // }
+  // myfile.close();
+  // return 0;
+
   cxxopts::Options options("AEOLUS", "Column-major, Elastic OLTP Engine");
 
   options.add_options()("d,debug", "Enable debugging")(

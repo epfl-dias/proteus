@@ -121,6 +121,11 @@ void Worker::run() {
       state = RUNNING;
       continue;
     }
+    if (this->curr_master != txnManager->current_master) {
+      std::cout << "Worker->" << (uint)this->id
+                << " : switching master from: " << this->curr_master << " to "
+                << txnManager->current_master << std::endl;
+    }
 
     this->curr_master = txnManager->current_master;
     this->curr_txn = txnManager->get_next_xid(this->id);
@@ -215,7 +220,9 @@ uint64_t WorkerPool::get_max_active_txn() {
 
 bool WorkerPool::is_all_worker_on_master_id(ushort master_id) {
   for (auto& wr : workers) {
-    if (wr.second.second->curr_master != master_id) return false;
+    if (wr.second.second->curr_master != master_id) {
+      return false;
+    }
   }
 
   return true;
@@ -344,16 +351,37 @@ void WorkerPool::start_workers(int num_workers) {
    * then, just manually limit the number of wokrers
    */
 
+  // interleave
   int i = 0;
+  int j = 0;
   for (auto& exec_core : *worker_cores) {
-    Worker* wrkr = new Worker(worker_counter++, &exec_core);
-    std::thread* thd = new std::thread(&Worker::run, wrkr);
+    if (j % 2 == 1) {
+      Worker* wrkr = new Worker(worker_counter++, &exec_core);
+      std::thread* thd = new std::thread(&Worker::run, wrkr);
 
-    workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
-    if (++i == num_workers) {
-      break;
+      workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
+      if (++i == num_workers) {
+        break;
+      }
     }
+    j++;
   }
+
+  // second socket ibm machine
+  // int i = 0;
+  // int j = 0;
+  // for (auto& exec_core : *worker_cores) {
+  //   ++j;
+  //   // FIXME
+  //   if (j < 64) continue;
+  //   Worker* wrkr = new Worker(worker_counter++, &exec_core);
+  //   std::thread* thd = new std::thread(&Worker::run, wrkr);
+
+  //   workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
+  //   if (++i == num_workers) {
+  //     break;
+  //   }
+  // }
 }
 
 template <class F, class... Args>

@@ -57,7 +57,7 @@ class TransactionManager {
     uint64_t epoch_num =
         scheduler::WorkerPool::getInstance().get_max_active_txn();
 
-    uint8_t snapshot_master_ver =
+    ushort snapshot_master_ver =
         txn::TransactionManager::getInstance().switch_master();
 
     storage::Schema::getInstance().snapshot(epoch_num, snapshot_master_ver);
@@ -71,13 +71,16 @@ class TransactionManager {
     return true;
   }
 
-  uint8_t switch_master() {
+  ushort switch_master() {
     assert(global_conf::num_master_versions > 1 &&
            "cannot switch master with master_version <= 1");
 
-    uint8_t curr_master;
-    std::cout << "Master switch request" << std::endl;
+    ushort curr_master;
+
     curr_master = this->current_master;
+
+    std::cout << "Master switch request, curr: " << (uint)curr_master
+              << std::endl;
     /*
           - switch master_id
           - clear the update bits of the new master. ( keep a seperate column or
@@ -86,9 +89,9 @@ class TransactionManager {
 
     // Before switching, clear up the new master. OR proteus do it.
 
-    ushort tmp = (current_master.load() + 1) % global_conf::num_master_versions;
+    ushort tmp = (curr_master + 1) % global_conf::num_master_versions;
     current_master.store(tmp);
-
+    std::cout << "All should be on master: " << tmp << std::endl;
     while (scheduler::WorkerPool::getInstance().is_all_worker_on_master_id(
                tmp) == false)
       ;

@@ -80,7 +80,7 @@ class Worker {
   uint64_t curr_txn;
   uint64_t prev_delta;
   uint64_t curr_delta;
-  ushort curr_master;
+  volatile ushort curr_master;
 
   // STATS
   uint64_t num_txns;

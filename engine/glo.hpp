@@ -30,10 +30,10 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "snapshot/arena.hpp"
 #include "snapshot/snapshot_manager.hpp"
 
-#define NUM_SOCKETS 4
-#define NUM_CORE_PER_SOCKET 36
-#define MAX_WORKERS 144
-#define DELTA_SIZE 2  // 2G // 6442450944 6G
+#define NUM_SOCKETS 2
+#define NUM_CORE_PER_SOCKET 64
+#define MAX_WORKERS 128
+#define DELTA_SIZE 4  // Gigabytes
 #define HTAP_RM_SERVER false
 #define HTAP_DOUBLE_MASTER true
 #define HTAP_COW false

@@ -48,12 +48,12 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
   size_t pos_suffix = fnamePrefix.find_last_of(".csv");
   if (pos_path == std::string::npos) pos_path = 0;
 
-  std::string txn_bench_name =
-      scheduler::WorkerPool::getInstance().get_benchmark_name();
-  std::string extra_prefix = "";
-  if (txn_bench_name.compare("TPCC") == 0) {
-    extra_prefix = "tpcc_";
-  }
+  // std::string txn_bench_name =
+  // scheduler::WorkerPool::getInstance().get_benchmark_name();
+  std::string extra_prefix = "ssbm_";
+  // if (txn_bench_name.compare("TPCC") == 0) {
+  //   extra_prefix = "tpcc_";
+  // }
 
   std::string aeolus_rel_name = extra_prefix + fnamePrefix.substr(pos_path + 1);
   aeolus_rel_name = aeolus_rel_name.substr(0, aeolus_rel_name.length() - 4);
@@ -87,47 +87,32 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
 
       // wantedFieldsFiles.emplace_back(StorageManager::getOrLoadFile(fileName,
       // type_size, PAGEABLE));
-      if (!(in->getOriginalType()->getTypeID() == DSTRING)) {
-        for (auto &c : tbl->getColumns()) {
-          if (c->name.compare(in->getAttrName()) == 0) {
-            // uint64_t num_records = c->snapshot_get_num_records();
-            // std::cout << "NUM RECORDS:" << num_records << std::endl;
 
-            auto d = c->snapshot_get_data();
+      for (auto &c : tbl->getColumns()) {
+        if (c->name.compare(in->getAttrName()) == 0) {
+          // uint64_t num_records = c->snapshot_get_num_records();
+          // std::cout << "NUM RECORDS:" << num_records << std::endl;
 
-            // std::vector<storage::mem_chunk> d = c->snapshot_get_data();
-            std::vector<mem_file> mfiles{d.size()};
+          auto d = c->snapshot_get_data();
 
-            for (size_t i = 0; i < mfiles.size(); ++i) {
-              mfiles[i].data = d[i].first.data;
-              mfiles[i].size = c->elem_size * d[i].second;  // num_records
-            }
-            wantedFieldsFiles.emplace_back(mfiles);
-            break;
+          // std::vector<storage::mem_chunk> d = c->snapshot_get_data();
+          std::vector<mem_file> mfiles{d.size()};
+
+          for (size_t i = 0; i < mfiles.size(); ++i) {
+            std::cout << "AEO name: " << c->name << std::endl;
+            std::cout << "AEO size: " << (d[i].second) << std::endl;
+
+            mfiles[i].data = d[i].first.data;
+            mfiles[i].size = c->elem_size * d[i].second;  // num_records
           }
+          wantedFieldsFiles.emplace_back(mfiles);
+          break;
         }
-      } else {
-        string fileName = fnamePrefix + "." + in->getAttrName();
-
-        const auto llvm_type = in->getOriginalType()->getLLVMType(llvmContext);
-        size_t type_size = context->getSizeOf(llvm_type);
-
-        wantedFieldsFiles.emplace_back(
-            StorageManager::getOrLoadFile(fileName, type_size, ALLSOCKETS));
       }
 
-      // wantedFieldsFiles.emplace_back(StorageManager::getFile(fileName));
-      // FIXME: consider if address space should be global memory rather than
-      // generic
-      // Type * t = PointerType::get(((const PrimitiveType *)
-      // tin)->getLLVMType(llvmContext), /* address space */ 0);
-
-      // wantedFieldsArg_id.push_back(context->appendParameter(t, true,
-      // true));
-
       if (in->getOriginalType()->getTypeID() == DSTRING) {
-        // fetch the dictionary
         string fileName = fnamePrefix + "." + in->getAttrName();
+        // fetch the dictionary
         void *dict = StorageManager::getDictionaryOf(fileName);
         ((DStringType *)(in->getOriginalType()))->setDictionary(dict);
       }

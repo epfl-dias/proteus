@@ -60,9 +60,11 @@ void Schema::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
   }
 }
 inline void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
-  uint64_t num_records = this->vid.load() - 1;
+  uint64_t num_records = this->vid.load();
+
+  std::cout << this->name << ":: " << num_records << std::endl;
   for (auto& col : columns) {
-    col->snapshot(epoch, num_records, snapshot_master_ver);
+    col->snapshot(num_records, epoch, snapshot_master_ver);
   }
 }
 
@@ -72,9 +74,15 @@ inline void Column::snapshot(uint64_t num_records, uint64_t epoch,
   // arena->create_snapshot({num_records, epoch, snapshot_master_ver});
 
   uint i = 0;
+  // FIXME:
   for (auto& ar : arena) {
-    uint64_t partition_recs = (num_records / NUM_SOCKETS) + (num_records % i);
-
+    uint64_t partition_recs =
+        (num_records / NUM_SOCKETS);  //+ (num_records % i);
+    // std::cout << "a_" << this->name << ", rec: " << (num_records /
+    // NUM_SOCKETS)
+    //           << std::endl;
+    // std::cout << "b_" << this->name << ", rec: " << (num_records % i)
+    //           << std::endl;
     ar->destroy_snapshot();
     ar->create_snapshot({partition_recs, epoch, snapshot_master_ver});
     i++;
@@ -456,12 +464,12 @@ std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data() {
   // return master_versions[this->arena->getMetadata().master_ver];
 
   std::vector<std::pair<mem_chunk, uint64_t>> ret;
-
+  uint i = 0;
   for (auto& ar : arena) {
-    uint i = 0;
     for (const auto& chunk : master_versions[ar->getMetadata().master_ver][i]) {
 #if HTAP_DOUBLE_MASTER
-
+      std::cout << "SNAPD COL: " << this->name << std::endl;
+      std::cout << "AR:" << ar->getMetadata().numOfRecords << std::endl;
       ret.emplace_back(
           std::make_pair(mem_chunk(chunk.data, chunk.size, chunk.numa_id),
                          ar->getMetadata().numOfRecords));
@@ -479,9 +487,8 @@ std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data() {
 #endif
     }
     i++;
-    assert(i == NUM_SOCKETS);
   }
-
+  assert(i == NUM_SOCKETS);
   // for (const auto& chunk :
   //      master_versions[this->arena->getMetadata().master_ver]) {
   //   ret.push_back(chunk);

@@ -48,7 +48,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #endif
 
-#define LINEORDER_EXTRA_RESERVE 100000000
+#define LINEORDER_EXTRA_RESERVE 300000000
 
 // Query semantics
 
@@ -98,6 +98,7 @@ class MicroSSB : public Benchmark {
     // char p_mfgr[12];
     // char p_category[12];
     // char p_brand1[12];
+    uint32_t p_brand;
     // char p_color[12];
     // char p_type[12];
     uint32_t p_size;
@@ -144,6 +145,15 @@ class MicroSSB : public Benchmark {
     // uint32_t shippriority;
   };
 
+  struct drand48_data *rand_buffer;
+  double g_zetan;
+  double g_zeta2;
+  double g_eta;
+  double g_alpha_half_pow;
+  double theta;
+  int num_max_workers;
+  uint num_records;
+
   void create_tbl_part(uint64_t num_part = NUM_PARTS);
   void create_tbl_lineorder(uint64_t num_lo = INITAL_NUM_LINEORDER);
 
@@ -161,6 +171,62 @@ class MicroSSB : public Benchmark {
   ~MicroSSB();
   MicroSSB(std::string name = "MicroSSB",
            std::string binary_path_root = DATA_PATH);
+
+  void init() {
+    printf("Initializing zipf\n");
+    rand_buffer = (struct drand48_data *)calloc(num_max_workers,
+                                                sizeof(struct drand48_data));
+
+    for (int i = 0; i < num_max_workers; i++) {
+      srand48_r(i + 1, &rand_buffer[i]);
+    }
+
+    uint64_t n = num_records - 1;
+    g_zetan = zeta(n, theta);
+    g_zeta2 = zeta(2, theta);
+
+    g_eta = (1 - pow(2.0 / n, 1 - theta)) / (1 - g_zeta2 / g_zetan);
+    g_alpha_half_pow = 1 + pow(0.5, theta);
+    printf("n = %lu\n", n);
+    printf("theta = %.2f\n", theta);
+  }
+
+  inline void zipf_val(int wid, uint32_t &key) {
+    uint64_t n = num_records - 1;
+
+    // elasticity hack when we will increase num_server on runtime
+    // wid = wid % num_workers;
+
+    double alpha = 1 / (1 - theta);
+
+    double u;
+    drand48_r(&rand_buffer[wid], &u);
+    double uz = u * g_zetan;
+
+    if (uz < 1) {
+      key = 0;
+    } else if (uz < g_alpha_half_pow) {
+      key = 1;
+    } else {
+      key = (uint64_t)(n * pow(g_eta * u - g_eta + 1, alpha));
+    }
+
+    // get the server id for the key
+    int tserver = key % num_max_workers;
+    // get the key count for the key
+    uint64_t key_cnt = key / num_max_workers;
+
+    uint64_t recs_per_server = num_records / num_max_workers;
+    key = tserver * recs_per_server + key_cnt;
+
+    assert(key < num_records);
+  }
+
+  inline double zeta(uint64_t n, double theta) {
+    double sum = 0;
+    for (uint64_t i = 1; i <= n; i++) sum += std::pow(1.0 / i, theta);
+    return sum;
+  }
 };
 
 }  // namespace bench
