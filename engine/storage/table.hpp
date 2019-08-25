@@ -67,7 +67,7 @@ class Schema {
   Table *create_table(
       std::string name, layout_type layout,
       std::vector<std::tuple<std::string, data_type, size_t>> columns,
-      uint64_t initial_num_records = 10000000);
+      uint64_t initial_num_records = 10000000, bool indexed = true);
 
   void drop_table(std::string name);
   void drop_table(int idx);
@@ -180,7 +180,7 @@ class ColumnStore : public Table {
  public:
   ColumnStore(uint8_t table_id, std::string name,
               std::vector<std::tuple<std::string, data_type, size_t>> columns,
-              uint64_t initial_num_records = 10000000);
+              uint64_t initial_num_records = 10000000, bool indexed = true);
   uint64_t insertRecord(void *rec, ushort master_ver);
   void *insertRecord(void *rec, uint64_t xid, ushort master_ver);
   void updateRecord(uint64_t vid, const void *data, ushort ins_master_ver,
@@ -196,6 +196,7 @@ class ColumnStore : public Table {
 
   void insertIndexRecord(uint64_t xid,
                          ushort master_ver);  // hack for loading binary files
+  void offsetVID(uint64_t offset);
 
   uint64_t load_data_from_binary(std::string col_name, std::string file_path);
 
@@ -222,6 +223,9 @@ class ColumnStore : public Table {
   Column *meta_column;
   // Column **secondary_index_vals;
   size_t rec_size;
+  uint64_t offset;
+  uint64_t initial_num_recs;
+  bool indexed;
 };
 
 class Column {

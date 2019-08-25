@@ -35,6 +35,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "utils/utils.hpp"
 
+#define INDEX_LO false
+#define OFFSET_LO_INDEX true
+
+#define SINGLE_THREAD_LOADING false
+
 /*
 
   Note: There are aborts when reading from CSV, there is something wrong
@@ -71,6 +76,7 @@ bool MicroSSB::exec_txn(void *stmts, uint64_t xid, ushort master_ver,
   int ol_cnt = q->ol_cnt;
   uint32_t custkey = q->custkey;
   uint32_t suppkey = q->suppkey;
+  uint32_t orderkey = q->orderkey;
 
   std::vector<global_conf::IndexVal *> hash_ptrs_lock_acquired;
 
@@ -78,9 +84,10 @@ bool MicroSSB::exec_txn(void *stmts, uint64_t xid, ushort master_ver,
   for (int ol_number = 0; ol_number < ol_cnt; ol_number++) {
     uint32_t partkey = q->parts[ol_number].partkey;
 
+    assert(partkey > 0 && partkey <= NUM_PARTS);
     // ACQUIRE WRITE_LOCK FOR DISTRICT
     global_conf::IndexVal *part_idx_ptr =
-        (global_conf::IndexVal *)table_part->p_index->find(partkey);
+        (global_conf::IndexVal *)table_part->p_index->find(partkey - 1);
 
     assert(part_idx_ptr != NULL || part_idx_ptr != nullptr);
     bool e_false_s = false;
@@ -112,6 +119,12 @@ bool MicroSSB::exec_txn(void *stmts, uint64_t xid, ushort master_ver,
 
     assert(part_idx_ptr != NULL || part_idx_ptr != nullptr);
     part_idx_ptr->latch.acquire();
+    if (part_idx_ptr->t_min == xid) {
+      std::cout << "xid: " << xid << std::endl;
+      std::cout << "vid: " << part_idx_ptr->VID << std::endl;
+      std::cout << "tmin: " << part_idx_ptr->t_min << std::endl;
+      print_query(q);
+    }
 
     if (txn::CC_MV2PL::is_readable(part_idx_ptr->t_min, part_idx_ptr->t_max,
                                    xid)) {
@@ -159,13 +172,91 @@ bool MicroSSB::exec_txn(void *stmts, uint64_t xid, ushort master_ver,
     part_idx_ptr->latch.release();
 
     // insert lineorder
+
+    /*
+  struct lineorder {
+    uint32_t lo_orderkey;
+    uint32_t lo_linenumber;
+    uint32_t lo_custkey;
+    uint32_t lo_partkey;
+    uint32_t lo_suppkey;
+    uint32_t lo_orderdate;
+    // char lo_orderpriority[12];
+    // char lo_shippriority[12];
+    uint32_t lo_quantity;
+    uint32_t lo_extendedprice;
+    uint32_t lo_ordtotalprice;
+    uint32_t lo_discount;
+    uint32_t lo_revenue;
+    uint32_t lo_supplycost;
+    uint32_t lo_tax;
+    uint32_t lo_commitdate;
+    // char lo_shipmode[12];
+  };
+    */
+    struct lineorder lo_ins;
+
+    lo_ins.lo_orderkey = orderkey;
+    lo_ins.lo_linenumber = ol_number;
+    lo_ins.lo_partkey = partkey;
+    lo_ins.lo_custkey = custkey;
+    lo_ins.lo_suppkey = suppkey;
+    lo_ins.lo_orderdate = get_timestamp();
+    lo_ins.lo_quantity = ol_quantity;
+
+    lo_ins.lo_extendedprice = 0;
+    lo_ins.lo_ordtotalprice = 0;
+    lo_ins.lo_discount = 0;
+    lo_ins.lo_revenue = 0;
+    lo_ins.lo_supplycost = 0;
+    lo_ins.lo_tax = 0;
+
+    lo_ins.lo_commitdate = get_timestamp();
+
+    uint32_t lo_key = (lo_ins.lo_orderkey - 1) + (lo_ins.lo_linenumber - 1);
+
+    void *ol_idx_ptr = table_lineorder->insertRecord(&lo_ins, xid, master_ver);
+
+#if INDEX_LO
+
+#if OFFSET_LO_INDEX
+    lo_key -= INITAL_NUM_LINEORDER;
+#endif
+
+    table_lineorder->p_index->insert(lo_key, ol_idx_ptr);
+
+#endif
   }
 
   return true;
 }
+
+void MicroSSB::print_query(struct ssb_query *q) {
+  std::cout << "----------" << std::endl;
+  std::cout << "SSB Query" << std::endl;
+
+  std::cout << "OrderKey: " << q->orderkey << std::endl;
+  std::cout << "CustKey: " << q->custkey << std::endl;
+  std::cout << "SuppKey: " << q->suppkey << std::endl;
+  std::cout << "OlCount: " << q->ol_cnt << std::endl;
+
+  for (uint i = 0; i < q->ol_cnt; i++) {
+    struct ssb_query_part *qp = &q->parts[i];
+    std::cout << "\t OL: " << i << std::endl;
+    std::cout << "\tpartkey: " << qp->partkey << std::endl;
+    std::cout << "\tquantity: " << qp->quantity << std::endl;
+    std::cout << "\t--" << std::endl;
+  }
+
+  std::cout << "----------" << std::endl;
+}
+
 void MicroSSB::gen_txn(int wid, void *txn_ptr) {
   struct ssb_query *q = (struct ssb_query *)txn_ptr;
+
   int dup;
+  static thread_local uint32_t orderkey_gen = 600000000 + (wid * 10000000);
+
   /*
     struct ssb_query_part {
       uint32_t partkey;
@@ -182,16 +273,17 @@ void MicroSSB::gen_txn(int wid, void *txn_ptr) {
     };
   */
 
-  q->custkey = NURand(&this->seed, 1023, 0, NUM_CUSTOMERS - 1);
-  q->suppkey = URand(&this->seed, 0, NUM_SUPPLIERS - 1);
+  q->orderkey = orderkey_gen++;
+  q->custkey = NURand(&this->seed, 1023, 1, NUM_CUSTOMERS);
+  q->suppkey = URand(&this->seed, 1, NUM_SUPPLIERS);
 
   // Parts
-  q->ol_cnt = URand(&this->seed, 5, MICRO_SSB_MAX_PART_PER_ORDER);
+  q->ol_cnt = URand(&this->seed, 1, MICRO_SSB_MAX_PART_PER_ORDER);
   for (int o = 0; o < q->ol_cnt; o++) {
     struct ssb_query_part *i = &q->parts[o];
 
     do {
-      i->partkey = NURand(&this->seed, 8191, 0, NUM_PARTS - 1);
+      i->partkey = NURand(&this->seed, 8191, 1, NUM_PARTS);
 
       // no duplicates
       dup = 0;
@@ -203,11 +295,15 @@ void MicroSSB::gen_txn(int wid, void *txn_ptr) {
     } while (dup);
 
     i->quantity = URand(&this->seed, 1, 10);
-    assert(i->partkey < NUM_PARTS);
+    assert(i->partkey <= NUM_PARTS && i->partkey > 0);
   }
+
+  // print_query(q);
 }
 
 void MicroSSB::load_lineorder(uint64_t num_lineorder) {
+#if SINGLE_THREAD_LOADING
+
   ((storage::ColumnStore *)this->table_lineorder)
       ->load_data_from_binary(
           "lo_orderkey",
@@ -267,34 +363,169 @@ void MicroSSB::load_lineorder(uint64_t num_lineorder) {
           "lo_commitdate",
           concat_path(this->data_path, "lineorder.csv.lo_commitdate").c_str());
 
-  for (uint64_t i = 0; i < num_lineorder; i++) {
-    this->table_part->insertIndexRecord(0, 0);
+#else
+
+  std::vector<std::thread> loaders;
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_lineorder)
+        ->load_data_from_binary(
+            "lo_orderkey",
+            concat_path(this->data_path, "lineorder.csv.lo_orderkey").c_str());
+  });
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_lineorder)
+        ->load_data_from_binary(
+            "lo_linenumber",
+            concat_path(this->data_path, "lineorder.csv.lo_linenumber")
+                .c_str());
+  });
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_lineorder)
+        ->load_data_from_binary(
+            "lo_custkey",
+            concat_path(this->data_path, "lineorder.csv.lo_custkey").c_str());
+  });
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_lineorder)
+        ->load_data_from_binary(
+            "lo_partkey",
+            concat_path(this->data_path, "lineorder.csv.lo_partkey").c_str());
+  });
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_lineorder)
+        ->load_data_from_binary(
+            "lo_suppkey",
+            concat_path(this->data_path, "lineorder.csv.lo_suppkey").c_str());
+  });
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_lineorder)
+        ->load_data_from_binary(
+            "lo_orderdate",
+            concat_path(this->data_path, "lineorder.csv.lo_orderdate").c_str());
+  });
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_lineorder)
+        ->load_data_from_binary(
+            "lo_quantity",
+            concat_path(this->data_path, "lineorder.csv.lo_quantity").c_str());
+  });
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_lineorder)
+        ->load_data_from_binary(
+            "lo_extendedprice",
+            concat_path(this->data_path, "lineorder.csv.lo_extendedprice")
+                .c_str());
+  });
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_lineorder)
+        ->load_data_from_binary(
+            "lo_ordtotalprice",
+            concat_path(this->data_path, "lineorder.csv.lo_ordtotalprice")
+                .c_str());
+  });
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_lineorder)
+        ->load_data_from_binary(
+            "lo_discount",
+            concat_path(this->data_path, "lineorder.csv.lo_discount").c_str());
+  });
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_lineorder)
+        ->load_data_from_binary(
+            "lo_revenue",
+            concat_path(this->data_path, "lineorder.csv.lo_revenue").c_str());
+  });
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_lineorder)
+        ->load_data_from_binary(
+            "lo_supplycost",
+            concat_path(this->data_path, "lineorder.csv.lo_supplycost")
+                .c_str());
+  });
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_lineorder)
+        ->load_data_from_binary(
+            "lo_tax",
+            concat_path(this->data_path, "lineorder.csv.lo_tax").c_str());
+  });
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_lineorder)
+        ->load_data_from_binary(
+            "lo_commitdate",
+            concat_path(this->data_path, "lineorder.csv.lo_commitdate")
+                .c_str());
+  });
+
+  for (auto &th : loaders) {
+    th.join();
   }
+#endif
+
+#if OFFSET_LO_INDEX
+  uint64_t off = num_lineorder;
+  std::cout << "offsetting vid by: " << off << std::endl;
+  ((storage::ColumnStore *)this->table_lineorder)->offsetVID(off);
+
+#else
+#if INDEX_LO
+  std::cout << "Inserting lineorder index: " << num_lineorder << std::endl;
+  for (uint64_t i = 0; i < num_lineorder; i++) {
+    this->table_lineorder->insertIndexRecord(0, 0);
+    if ((i % 1000000) == 0)
+      std::cout << "inserted " << i << " index recs" << std::endl;
+  }
+#endif
+#endif
 }
 void MicroSSB::load_part(uint64_t num_parts) {
   // insert records
+#if SINGLE_THREAD_LOADING
 
-  // p_partkey
-  std::cout << "loading p_partkey from "
-            << concat_path(this->data_path, "part.csv.p_partkey") << std::endl;
   ((storage::ColumnStore *)this->table_part)
       ->load_data_from_binary(
           "p_partkey",
           concat_path(this->data_path, "part.csv.p_partkey").c_str());
-  // p_size
-  std::cout << "loading p_size from "
-            << concat_path(this->data_path, "part.csv.p_size") << std::endl;
+
   ((storage::ColumnStore *)this->table_part)
       ->load_data_from_binary(
           "p_size", concat_path(this->data_path, "part.csv.p_size").c_str());
-  // // p_stocklevel
+
   ((storage::ColumnStore *)this->table_part)
       ->load_data_from_binary(
           "p_stocklevel",
           concat_path(this->data_path, "part.csv.p_stocklevel").c_str());
+#else
 
-  std::cout << "Inserting index: " << num_parts << std::endl;
-  for (uint64_t i = 0; i < num_parts; i++) {
+  std::vector<std::thread> loaders;
+  // p_partkey
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_part)
+        ->load_data_from_binary(
+            "p_partkey",
+            concat_path(this->data_path, "part.csv.p_partkey").c_str());
+  });
+
+  // p_size
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_part)
+        ->load_data_from_binary(
+            "p_size", concat_path(this->data_path, "part.csv.p_size").c_str());
+  });
+
+  // p_stocklevel
+  loaders.emplace_back([this]() {
+    ((storage::ColumnStore *)this->table_part)
+        ->load_data_from_binary(
+            "p_stocklevel",
+            concat_path(this->data_path, "part.csv.p_stocklevel").c_str());
+  });
+
+  for (auto &th : loaders) {
+    th.join();
+  }
+#endif
+  std::cout << "Inserting index (ssbm_part): " << num_parts << std::endl;
+  for (uint32_t i = 0; i < num_parts; i++) {
     this->table_part->insertIndexRecord(0, 0);
   }
   // void *hash_ptr = table_item->insertRecord(&temp, 0, 0);
@@ -364,9 +595,15 @@ void MicroSSB::create_tbl_lineorder(uint64_t num_lineorder) {
   // columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
   //     "lo_shipmode", storage::STRING, sizeof(tmp.lo_shipmode)));
 
+#if INDEX_LO
   table_lineorder =
       schema->create_table("ssbm_lineorder", storage::COLUMN_STORE, columns,
                            num_lineorder + LINEORDER_EXTRA_RESERVE);
+#else
+  table_lineorder =
+      schema->create_table("ssbm_lineorder", storage::COLUMN_STORE, columns,
+                           num_lineorder + LINEORDER_EXTRA_RESERVE, false);
+#endif
 }
 
 void MicroSSB::create_tbl_part(uint64_t num_parts) {
@@ -435,7 +672,6 @@ MicroSSB::MicroSSB(std::string name, std::string binary_path_root)
 void MicroSSB::load_data(int num_threads) {
   std::cout << "[TPCC] Load data from : " << data_path << std::endl;
   std::vector<std::thread> loaders;
-
   loaders.emplace_back([this]() { this->load_lineorder(); });
   loaders.emplace_back([this]() { this->load_part(); });
 
@@ -443,6 +679,7 @@ void MicroSSB::load_data(int num_threads) {
   for (auto &th : loaders) {
     th.join();
   }
+  std::cout << "Done loading.." << std::endl;
 }
 
 };  // namespace bench

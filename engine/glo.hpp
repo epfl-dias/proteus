@@ -30,9 +30,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "snapshot/arena.hpp"
 #include "snapshot/snapshot_manager.hpp"
 
-#define NUM_SOCKETS 2
-#define NUM_CORE_PER_SOCKET 24
-#define MAX_WORKERS 48
+#define NUM_SOCKETS 4
+#define NUM_CORE_PER_SOCKET 36
+#define MAX_WORKERS 144
 #define DELTA_SIZE 2  // 2G // 6442450944 6G
 #define HTAP_RM_SERVER false
 #define HTAP_DOUBLE_MASTER true
@@ -58,8 +58,8 @@ using mv_version_list = txn::VERSION_LIST;
 using mv_version = txn::VERSION;
 
 template <class T_KEY>
-// using PrimaryIndex = indexes::HashIndex<T_KEY>;
-using PrimaryIndex = indexes::HashArray<T_KEY>;
+using PrimaryIndex = indexes::HashIndex<T_KEY>;
+// using PrimaryIndex = indexes::HashArray<T_KEY>;
 
 // const uint time_master_switch_ms = 200;
 

@@ -91,7 +91,12 @@ class CC_MV2PL {
     // } else {
     //   return 0;
     // }
-    assert(w_tmin != w_tid);
+
+    // FIXME: this is when two txn get the same timestamp (xid).
+    // assert(w_tmin != w_tid);
+    if (w_tmin == w_tid) {
+      return false;
+    }
 
     if ((w_tid >= w_tmin) && (w_tmax == 0 || w_tid < w_tmax)) {
       return true;

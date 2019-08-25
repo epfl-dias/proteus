@@ -39,7 +39,9 @@ class HashArray {
  public:
   char **arr;
   uint64_t capacity;
-  HashArray(int num_obj = 72000000) : capacity(num_obj) {
+  HashArray(uint64_t num_obj = 72000000) : capacity(num_obj) {
+    std::cout << "Creating a hashindex of size: " << num_obj << std::endl;
+
     size_t size = num_obj * sizeof(char *);
     arr = (char **)storage::MemoryManager::alloc(size, 0);
 

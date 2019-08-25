@@ -127,6 +127,7 @@ class WorkerPool {
 
   void init(bench::Benchmark *txn_bench = nullptr);
   void shutdown(bool print_stats = false) { this->~WorkerPool(); }
+  void shutdown_manual();
 
   void start_workers(int num_workers = 1);
   void add_worker(core *exec_location);
@@ -148,10 +149,15 @@ class WorkerPool {
   void resume();
 
  private:
-  WorkerPool() { worker_counter = 0; }
+  WorkerPool() {
+    worker_counter = 0;
+    terminate = false;
+    proc_completed = false;
+  }
 
   int worker_counter;
   std::atomic<bool> terminate;
+  std::atomic<bool> proc_completed;
   std::unordered_map<uint8_t, std::pair<std::thread *, Worker *> > workers;
 
   // TXN benchmark
@@ -163,16 +169,28 @@ class WorkerPool {
   std::condition_variable cv;
 
   ~WorkerPool() {
-    if (terminate) return;
-    std::cout << "[destructor] shutting down workers" << std::endl;
-    terminate = true;
-    // cv.notify_all();
-    for (auto &worker : workers) {
-      worker.second.second->terminate = true;
-      worker.second.first->join();
+    if (terminate == true) {
+      std::cout << "here" << std::endl;
+      if (!proc_completed) {
+        std::cout << "here2" << std::endl;
+        print_worker_stats();
+      }
+
+      return;
+    } else {
+      std::cout << "here3" << std::endl;
+      std::cout << "[destructor] shutting down workers" << std::endl;
+      terminate = true;
+      // cv.notify_all();
+      for (auto &worker : workers) {
+        if (!worker.second.second->terminate) {
+          worker.second.second->terminate = true;
+          worker.second.first->join();
+        }
+      }
+      print_worker_stats();
+      workers.clear();
     }
-    print_worker_stats();
-    workers.clear();
   }
   friend class Worker;
 };

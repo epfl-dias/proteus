@@ -103,7 +103,7 @@ string(STRIP "${WARNING_FLAGS} -Werror" WARNING_FLAGS)
 # string(STRIP "${WARNING_FLAGS} -Wno-error=deprecated" WARNING_FLAGS)
 
 # Our Code generates the following warnings:
-string(STRIP "${WARNING_FLAGS} -Wno-assign-enum" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unused-macros -Wno-assign-enum" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat-pedantic" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-cast-align" WARNING_FLAGS)

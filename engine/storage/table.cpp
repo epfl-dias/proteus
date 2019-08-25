@@ -28,7 +28,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
+#include "scheduler/worker.hpp"
 #include "storage/delta_storage.hpp"
+
+#define MEMORY_SLACK 1000
+#define CIDR_HACK true
 
 // Proteus includes
 
@@ -137,12 +141,12 @@ Table* Schema::getTable(std::string name) {
 Table* Schema::create_table(
     std::string name, layout_type layout,
     std::vector<std::tuple<std::string, data_type, size_t>> columns,
-    uint64_t initial_num_records) {
+    uint64_t initial_num_records, bool indexed) {
   Table* tbl = nullptr;
 
   if (layout == COLUMN_STORE) {
     tbl = new ColumnStore((this->num_tables + 1), name, columns,
-                          initial_num_records);
+                          initial_num_records, indexed);
 
   } else if (layout == ROW_STORE) {
     throw new std::runtime_error("ROW STORE NOT IMPLEMENTED");
@@ -181,10 +185,7 @@ ColumnStore::~ColumnStore() {
 }
 uint64_t ColumnStore::load_data_from_binary(std::string col_name,
                                             std::string file_path) {
-  std::cout << col_name << std::endl;
-
   for (auto& c : this->columns) {
-    std::cout << c->name << std::endl;
     if (c->name.compare(col_name) == 0) {
       return c->load_from_binary(file_path);
     }
@@ -195,8 +196,8 @@ uint64_t ColumnStore::load_data_from_binary(std::string col_name,
 ColumnStore::ColumnStore(
     uint8_t table_id, std::string name,
     std::vector<std::tuple<std::string, data_type, size_t>> columns,
-    uint64_t initial_num_records)
-    : Table(name, table_id) {
+    uint64_t initial_num_records, bool indexed)
+    : Table(name, table_id), indexed(indexed) {
   /*
           TODO: take an argument for column_index or maybe a flag in the tuple
      for the indexed columns. Currently, by default, the first column would be
@@ -207,12 +208,20 @@ ColumnStore::ColumnStore(
   this->vid = 0;
   this->deltaStore = storage::Schema::getInstance().deltaStore;
 
-  // create meta_data column.
-  // std::cout << "Create meta-column" << std::endl;
-  // std::cout << "size of hash_val: " << sizeof(global_conf::IndexVal)
-  //         << std::endl;
-  meta_column = new Column(name + "_meta", initial_num_records, META,
-                           sizeof(global_conf::IndexVal));
+  if (indexed) {
+    // create meta_data column.
+    // std::cout << "Create meta-column" << std::endl;
+    // std::cout << "size of hash_val: " << sizeof(global_conf::IndexVal)
+    //         << std::endl;
+    meta_column = new Column(name + "_meta", initial_num_records, META,
+                             sizeof(global_conf::IndexVal));
+
+    // build index over the first column
+    // this->p_index =
+    //     new global_conf::PrimaryIndex<uint64_t>(initial_num_records + 1);
+    this->p_index = new global_conf::PrimaryIndex<uint64_t>();
+  }
+
   // create columns
   for (const auto& t : columns) {
     // std::cout << "Creating Column: " << std::get<0>(t) << std::endl;
@@ -225,24 +234,21 @@ ColumnStore::ColumnStore(
   }
 
   this->num_columns = columns.size();
-  // build index over the first column
-  this->p_index =
-      new global_conf::PrimaryIndex<uint64_t>(initial_num_records + 1);
-  this->columns.at(0)->buildIndex();
 
-  // Secondary Indexes
-  // this->s_index = new
-  // global_conf::PrimaryIndex<uint64_t>()[num_secondary_indexes];
   size_t rec_size = 0;
   for (auto& co : this->columns) {
     rec_size += co->elem_size;
   }
   this->rec_size = rec_size;
+  this->offset = 0;
+  this->initial_num_recs = initial_num_records - (NUM_SOCKETS * MEMORY_SLACK);
 
   std::cout << "Table: " << name << std::endl;
   std::cout << "\trecord size: " << rec_size << " bytes" << std::endl;
   std::cout << "\tnum_records: " << initial_num_records << std::endl;
-  total_mem_reserved += meta_column->total_mem_reserved;
+
+  if (indexed) total_mem_reserved += meta_column->total_mem_reserved;
+
   std::cout << "\tMem reserved: "
             << (double)total_mem_reserved / (1024 * 1024 * 1024) << "GB"
             << std::endl;
@@ -251,7 +257,12 @@ ColumnStore::ColumnStore(
 // void* ColumnStore::insertMeta(uint64_t vid, global_conf::IndexVal& hash_val)
 // {}
 
+void ColumnStore::offsetVID(uint64_t offset) {
+  vid.store(offset);
+  this->offset = offset;
+}
 void ColumnStore::insertIndexRecord(uint64_t xid, ushort master_ver) {
+  assert(this->indexed);
   uint64_t curr_vid = vid.fetch_add(1);
 
   void* pano = this->meta_column->insertElem(curr_vid);
@@ -266,18 +277,19 @@ void ColumnStore::insertIndexRecord(uint64_t xid, ushort master_ver) {
  */
 void* ColumnStore::insertRecord(void* rec, uint64_t xid, ushort master_ver) {
   uint64_t curr_vid = vid.fetch_add(1);
+  global_conf::IndexVal* hash_ptr = nullptr;
 
-  void* pano = this->meta_column->insertElem(curr_vid);
+#if CIDR_HACK
+  if (curr_vid >= initial_num_recs) {
+    scheduler::WorkerPool::getInstance().shutdown_manual();
+  }
 
-  global_conf::IndexVal* hash_ptr =
-      new (pano) global_conf::IndexVal(xid, curr_vid, master_ver);
+#endif
 
-  // s = new (pano) std::atomic<uint64_t>;
-  // void *insertElem(uint64_t offset);
-
-  // global_conf::IndexVal hash_val(xid, curr_vid, master_ver);
-  // void* hash_ptr =
-  //    this->meta_column->insertElem(curr_vid, &hash_val, master_ver);
+  if (indexed) {
+    void* pano = this->meta_column->insertElem(curr_vid);
+    hash_ptr = new (pano) global_conf::IndexVal(xid, curr_vid, master_ver);
+  }
 
   char* rec_ptr = (char*)rec;
   for (auto& col : columns) {
@@ -687,9 +699,9 @@ void* Column::insertElem(uint64_t vid) {
 
   bool ins = false;
   for (const auto& chunk : master_versions[0][pid]) {
-    std::cout << "chunksize: " << chunk.size << std::endl;
-    std::cout << "dataidx: " << data_idx << std::endl;
-    std::cout << "elemsize: " << elem_size << std::endl;
+    // std::cout << "chunksize: " << chunk.size << std::endl;
+    // std::cout << "dataidx: " << data_idx << std::endl;
+    // std::cout << "elemsize: " << elem_size << std::endl;
     if (chunk.size >= (data_idx + elem_size)) {
       // insert elem here
       return (void*)(((char*)chunk.data) + data_idx);
@@ -697,10 +709,11 @@ void* Column::insertElem(uint64_t vid) {
   }
 
   if (ins == false) {
-    std::cout << "res: " << this->total_mem_reserved << std::endl;
-    std::cout << "VID: " << vid << std::endl;
-    std::cout << "pid: " << pid << ", idx: " << idx << std::endl;
-    std::cout << "FUCK. ALLOCATE MOTE MEMORY:\t" << this->name << std::endl;
+    // std::cout << "res: " << this->total_mem_reserved << std::endl;
+    // std::cout << "VID: " << vid << std::endl;
+    // std::cout << "pid: " << pid << ", idx: " << idx << std::endl;
+    std::cout << "FUCK. ALLOCATE MOTE MEMORY:\t" << this->name
+              << ",vid: " << vid << ", idx:" << idx << std::endl;
   }
 
   assert(false && "Out Of Memory Error");
@@ -750,13 +763,13 @@ void Column::num_upd_tuples() {
 
 uint64_t Column::load_from_binary(std::string file_path) {
   std::ifstream binFile(file_path.c_str(), std::ifstream::binary);
-  std::cout << "Loading binary file: " << file_path << std::endl;
+  // std::cout << "Loading binary file: " << file_path << std::endl;
   if (binFile) {
     // get length of file
     binFile.seekg(0, binFile.end);
     size_t length = static_cast<size_t>(binFile.tellg());
-    std::cout << "\tContains " << (length / this->elem_size) << " elements."
-              << std::endl;
+    // std::cout << "\tContains " << (length / this->elem_size) << " elements."
+    //           << std::endl;
 
     for (ushort i = 0; i < global_conf::num_master_versions; i++) {
       binFile.seekg(0, binFile.beg);
@@ -769,6 +782,13 @@ uint64_t Column::load_from_binary(std::string file_path) {
         }
 
         // assumes first memory chunk is big enough.
+        if (master_versions[i][j][0].size <= part_size) {
+          std::cout << "Failed loading binary file: " << file_path << std::endl;
+          std::cout << "\tpart_size " << part_size << std::endl;
+          std::cout << "\tchunk_size: " << master_versions[i][j][0].size
+                    << std::endl;
+        }
+
         assert(master_versions[i][j][0].size > part_size);
         char* tmp = (char*)master_versions[i][j][0].data;
         binFile.read(tmp, part_size);

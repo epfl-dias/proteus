@@ -39,7 +39,20 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
 
+#define NUM_ITER 5000000
+
 namespace scheduler {
+
+void WorkerPool::shutdown_manual() {
+  bool e_false_s = false;
+  if (this->terminate.compare_exchange_strong(e_false_s, true)) {
+    // cv.notify_all();
+    std::cout << "Manual worker shutdown." << std::endl;
+    for (auto& worker : workers) {
+      worker.second.second->terminate = true;
+    }
+  }
+}
 
 // TODO: check the reader lock on master and fall back thingy
 inline uint64_t __attribute__((always_inline))
@@ -152,13 +165,14 @@ void Worker::run() {
     else
       num_aborts++;
 
-    // delete (struct txn::TXN*)c;
-
     num_txns++;
+
+    if (num_txns == NUM_ITER) break;
   }
   state = TERMINATED;
-  txn_end_time = std::chrono::system_clock::now();
 
+  txn_end_time = std::chrono::system_clock::now();
+  // std::cout << "Worker exited: " << (int)(this->id) << std::endl;
   /*if (pool->txn_bench && pool->txn_bench->name.compare("TPCC") == 0) {
     bench::TPCC* tpcc_bench = (bench::TPCC*)pool->txn_bench;
     tpcc_bench->verify_consistency((uint)this->id);
@@ -283,6 +297,7 @@ void WorkerPool::print_worker_stats(bool global_only) {
   std::cout << "\tTPS\t\t" << tps << " mTPS" << std::endl;
 
   std::cout << "------------ END WORKER STATS ------------" << std::endl;
+  proc_completed = true;
 }
 
 void WorkerPool::init(bench::Benchmark* txn_bench) {
@@ -312,6 +327,7 @@ void WorkerPool::remove_worker(core* exec_location) {
   auto get = workers.find(exec_location->id);
   assert(get != workers.end());
   get->second.second->terminate = true;
+  // TODO: remove from the vector too?
 }
 
 void WorkerPool::start_workers(int num_workers) {

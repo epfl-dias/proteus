@@ -48,11 +48,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #endif
 
-#define LINEORDER_EXTRA_RESERVE 0
+#define LINEORDER_EXTRA_RESERVE 100000000
 
 // Query semantics
 
-#define MICRO_SSB_MAX_PART_PER_ORDER 15
+#define MICRO_SSB_MAX_PART_PER_ORDER 10
 
 namespace bench {
 
@@ -134,6 +134,7 @@ class MicroSSB : public Benchmark {
     void *idx_ptr;
   };
   struct ssb_query {
+    uint32_t orderkey;
     uint32_t custkey;
     uint32_t suppkey;
     uint32_t ol_cnt;
@@ -150,6 +151,7 @@ class MicroSSB : public Benchmark {
 
   void load_part(uint64_t num_part = NUM_PARTS);
   void load_lineorder(uint64_t num_lo = INITAL_NUM_LINEORDER);
+  void print_query(struct ssb_query *q);
 
   void *get_query_struct_ptr() { return new struct ssb_query; }  // interface
 

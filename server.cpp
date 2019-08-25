@@ -162,6 +162,8 @@ int main(int argc, char** argv) {
     std::cout << "------------------------------------" << std::endl;
   }
 
+  storage::Schema* schema = &storage::Schema::getInstance();
+
   // txn::TransactionManager::getInstance().init();
 
   /* ------------------------------------ */
