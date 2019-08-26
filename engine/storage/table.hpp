@@ -217,6 +217,7 @@ class ColumnStore : public Table {
   */
 
   ~ColumnStore();
+  uint64_t *plugin_ptr[global_conf::num_master_versions][NUM_SOCKETS];
 
  private:
   std::vector<Column *> columns;
@@ -230,7 +231,7 @@ class ColumnStore : public Table {
 
 class Column {
  public:
-  Column(std::string name, uint64_t initial_num_records,
+  Column(std::string name, uint64_t initial_num_records, ColumnStore *parent,
          data_type type = INTEGER, size_t unit_size = sizeof(uint64_t),
          bool build_index = false, bool single_version_only = false);
   ~Column();
@@ -260,12 +261,15 @@ class Column {
   // }
 
   // snapshot stuff
-  std::vector<std::pair<mem_chunk, uint64_t>> snapshot_get_data();
+  std::vector<std::pair<mem_chunk, uint64_t>> snapshot_get_data(
+      uint64_t *save_the_ptr);
   uint64_t snapshot_get_num_records();
 
   const std::string name;
   const size_t elem_size;
   const data_type type;
+
+  ColumnStore *parent;
 
  private:
   size_t total_mem_reserved;

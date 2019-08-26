@@ -57,7 +57,7 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
 
   std::string aeolus_rel_name = extra_prefix + fnamePrefix.substr(pos_path + 1);
   aeolus_rel_name = aeolus_rel_name.substr(0, aeolus_rel_name.length() - 4);
-
+  std::vector<storage::Column *> colss;
   if (pgType.compare("block-cow") == 0 || pgType.compare("block-remote") == 0) {
     time_block t("TpgBlockCOW: ");
 
@@ -93,7 +93,8 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
           // uint64_t num_records = c->snapshot_get_num_records();
           // std::cout << "NUM RECORDS:" << num_records << std::endl;
 
-          auto d = c->snapshot_get_data();
+          auto d = c->snapshot_get_data(this->getHackBuf());
+          colss.push_back(c);
 
           // std::vector<storage::mem_chunk> d = c->snapshot_get_data();
           std::vector<mem_file> mfiles{d.size()};
@@ -101,6 +102,7 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
           for (size_t i = 0; i < mfiles.size(); ++i) {
             std::cout << "AEO name: " << c->name << std::endl;
             std::cout << "AEO size: " << (d[i].second) << std::endl;
+            //*(ptr + i) = c->elem_size * d[i].second;
 
             mfiles[i].data = d[i].first.data;
             mfiles[i].size = c->elem_size * d[i].second;  // num_records
@@ -121,6 +123,17 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
     std::cout << "[AEOLUS PLUGIN DONE]" << std::endl;
   } else {
     assert(false && "Not Implemented");
+  }
+  std::cout << "PANO ALLOCATED:::" << wantedFieldsFiles[0].size() << std::endl;
+  hackbuf = (uint64_t *)malloc(
+      wantedFieldsFiles[0].size() *
+      sizeof(uint64_t));  // new uint64_t[wantedFieldsFiles[0].size()];
+  for (int i = 0; i < wantedFieldsFiles[0].size(); i++) {
+    *(hackbuf + i) = wantedFieldsFiles[0][i].size;
+  }
+
+  for (auto &c : colss) {
+    c->snapshot_get_data(hackbuf);
   }
 
   finalize_data();

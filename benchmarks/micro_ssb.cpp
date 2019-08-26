@@ -496,6 +496,7 @@ void MicroSSB::load_part(uint64_t num_parts) {
       ->load_data_from_binary(
           "p_stocklevel",
           concat_path(this->data_path, "part.csv.p_stocklevel").c_str());
+
 #else
 
   std::vector<std::thread> loaders;
@@ -523,11 +524,17 @@ void MicroSSB::load_part(uint64_t num_parts) {
   });
 
   // p_stocklevel
+  // loaders.emplace_back([this]() {
+  //   ((storage::ColumnStore *)this->table_part)
+  //       ->load_data_from_binary(
+  //           "p_stocklevel",
+  //           concat_path(this->data_path, "part.csv.p_stocklevel").c_str());
+  // });
+
   loaders.emplace_back([this]() {
+    std::string hack_path = "/home/raza/part.csv.p_stocklevel";
     ((storage::ColumnStore *)this->table_part)
-        ->load_data_from_binary(
-            "p_stocklevel",
-            concat_path(this->data_path, "part.csv.p_stocklevel").c_str());
+        ->load_data_from_binary("p_stocklevel", hack_path.c_str());
   });
 
   for (auto &th : loaders) {

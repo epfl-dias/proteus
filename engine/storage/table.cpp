@@ -63,6 +63,20 @@ inline void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
   uint64_t num_records = this->vid.load();
 
   std::cout << this->name << ":: " << num_records << std::endl;
+  std::cout << "MasterVer:: " << (int)snapshot_master_ver << std::endl;
+
+  if (this->name.compare("ssbm_part") == 0) {
+    uint64_t partition_recs =
+        (num_records / NUM_SOCKETS);  //+ (num_records % i);
+    for (int j = 0; j < NUM_SOCKETS; j++) {
+      if (plugin_ptr[(int)snapshot_master_ver][j] != nullptr) {
+        std::cout << "WRITE DONE!!!!!::" << j << std::endl;
+
+        *plugin_ptr[(int)snapshot_master_ver][j] = partition_recs;
+      }
+    }
+  }
+
   for (auto& col : columns) {
     col->snapshot(num_records, epoch, snapshot_master_ver);
   }
@@ -85,6 +99,7 @@ inline void Column::snapshot(uint64_t num_records, uint64_t epoch,
     //           << std::endl;
     ar->destroy_snapshot();
     ar->create_snapshot({partition_recs, epoch, snapshot_master_ver});
+
     i++;
   }
   assert(i == NUM_SOCKETS);
@@ -221,7 +236,7 @@ ColumnStore::ColumnStore(
     // std::cout << "Create meta-column" << std::endl;
     // std::cout << "size of hash_val: " << sizeof(global_conf::IndexVal)
     //         << std::endl;
-    meta_column = new Column(name + "_meta", initial_num_records, META,
+    meta_column = new Column(name + "_meta", initial_num_records, this, META,
                              sizeof(global_conf::IndexVal));
 
     // build index over the first column
@@ -234,7 +249,7 @@ ColumnStore::ColumnStore(
   for (const auto& t : columns) {
     // std::cout << "Creating Column: " << std::get<0>(t) << std::endl;
     this->columns.emplace_back(new Column(std::get<0>(t), initial_num_records,
-                                          std::get<1>(t), std::get<2>(t),
+                                          this, std::get<1>(t), std::get<2>(t),
                                           false));
   }
   for (const auto& t : this->columns) {
@@ -260,6 +275,12 @@ ColumnStore::ColumnStore(
   std::cout << "\tMem reserved: "
             << (double)total_mem_reserved / (1024 * 1024 * 1024) << "GB"
             << std::endl;
+
+  for (int i = 0; i < global_conf::num_master_versions; i++) {
+    for (int j = 0; j < NUM_SOCKETS; j++) {
+      plugin_ptr[i][j] = nullptr;
+    }
+  }
 }
 
 // void* ColumnStore::insertMeta(uint64_t vid, global_conf::IndexVal& hash_val)
@@ -459,7 +480,8 @@ void Column::buildIndex() {
   this->is_indexed = true;
 }
 
-std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data() {
+std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data(
+    uint64_t* save_the_ptr) {
   // assert(master_version <= global_conf::num_master_versions);
   // return master_versions[this->arena->getMetadata().master_ver];
 
@@ -470,9 +492,15 @@ std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data() {
 #if HTAP_DOUBLE_MASTER
       std::cout << "SNAPD COL: " << this->name << std::endl;
       std::cout << "AR:" << ar->getMetadata().numOfRecords << std::endl;
+      std::cout << "AR:MA: " << (uint)ar->getMetadata().master_ver << std::endl;
       ret.emplace_back(
           std::make_pair(mem_chunk(chunk.data, chunk.size, chunk.numa_id),
                          ar->getMetadata().numOfRecords));
+
+      for (int j = 0; j < NUM_SOCKETS; j++) {
+        this->parent->plugin_ptr[(int)ar->getMetadata().master_ver][j] =
+            (save_the_ptr + i);
+      }
 
 #elif HTAP_COW
 
@@ -500,9 +528,10 @@ std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data() {
 //   return this->arena->getMetadata().numOfRecords;
 // }
 
-Column::Column(std::string name, uint64_t initial_num_records, data_type type,
-               size_t unit_size, bool build_index, bool single_version_only)
-    : name(name), elem_size(unit_size), type(type) {
+Column::Column(std::string name, uint64_t initial_num_records,
+               ColumnStore* parent, data_type type, size_t unit_size,
+               bool build_index, bool single_version_only)
+    : name(name), parent(parent), elem_size(unit_size), type(type) {
   /*
   ALGO:
           - Allocate memory for that column with default start number of records

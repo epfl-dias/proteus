@@ -46,7 +46,7 @@ set(MAINS server)
 # Tests
 # not too sure if we should build "main", it looks like it has the same
 # test cases as the gtests
-set(UNIT_TESTS TRUE)
+set(UNIT_TESTS FALSE)
 
 #-----------------------------------------------------------------------
 # Setup environment for the project

@@ -101,7 +101,7 @@ void Worker::run() {
 
   this->txn_start_tsc = txnManager->get_next_xid(this->id);
   uint64_t tx_st = txnManager->txn_start_time;
-
+  this->curr_master = txnManager->current_master;
   this->curr_txn = txnManager->get_next_xid(this->id);
   this->prev_delta = this->curr_delta;
   this->curr_delta = calculate_delta_ver(this->curr_txn, tx_st);
@@ -120,11 +120,6 @@ void Worker::run() {
       }
       state = RUNNING;
       continue;
-    }
-    if (this->curr_master != txnManager->current_master) {
-      std::cout << "Worker->" << (uint)this->id
-                << " : switching master from: " << this->curr_master << " to "
-                << txnManager->current_master << std::endl;
     }
 
     this->curr_master = txnManager->current_master;

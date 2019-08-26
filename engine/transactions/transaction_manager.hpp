@@ -23,6 +23,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #ifndef TRANSACTION_MANAGER_HPP_
 #define TRANSACTION_MANAGER_HPP_
 
+#include <unistd.h>
 #include <atomic>
 #include <chrono>
 #include <iostream>
@@ -90,6 +91,13 @@ class TransactionManager {
     // Before switching, clear up the new master. OR proteus do it.
 
     ushort tmp = (curr_master + 1) % global_conf::num_master_versions;
+
+    // if (current_master.compare_exchange_strong(curr_master, tmp)) {
+    //   std::cout << "SUCESS CHANGING" << std::endl;
+    // } else {
+    //   std::cout << "fuck CHANGING" << std::endl;
+    // }
+
     current_master.store(tmp);
     std::cout << "All should be on master: " << tmp << std::endl;
     while (scheduler::WorkerPool::getInstance().is_all_worker_on_master_id(

@@ -100,10 +100,12 @@ class Worker {
         terminate(false),
         exec_core(exec_core),
         pause(false),
+        state(READY),
         num_txns(0),
         num_commits(0),
-        num_aborts(0),
-        state(READY) {}
+        num_aborts(0) {
+    pause = false;
+  }
 
   void run();
   friend class WorkerPool;

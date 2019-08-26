@@ -25,6 +25,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include <cstddef>
 #include <cstdlib>
+#include <iostream>
 #include <utility>
 
 namespace aeolus {
@@ -40,6 +41,8 @@ class Arena {
 
  protected:
   metadata duringSnapshot;
+  // int64_t* ptr_to_plugin_m1 = nullptr;
+  // int64_t* ptr_to_plugin_m0 = nullptr;
 
   Arena() = default;
 
@@ -51,10 +54,28 @@ class Arena {
  public:
   void create_snapshot(metadata save) {
     duringSnapshot = std::move(save);
+
+    // std::cout << "ARENA: NUM RECORDS:" << num_records << std::endl;
+
+    // if (duringSnapshot.master_ver == 0) {
+    //   if (ptr_to_plugin_m0 != nullptr) *ptr_to_plugin_m0 = num_records;
+    // } else {
+    //   if (ptr_to_plugin_m1 != nullptr) *ptr_to_plugin_m1 = num_records;
+    // }
+
     static_cast<T&>(*this).create_snapshot_();
   }
 
-  const metadata& getMetadata() const { return duringSnapshot; }
+  const metadata& getMetadata() {
+    // if (duringSnapshot.master_ver == 0) {
+    //   ptr_to_plugin_m0 = upd;
+
+    // } else {
+    //   ptr_to_plugin_m1 = upd;
+    // }
+
+    return duringSnapshot;
+  }
 
   void destroy_snapshot() { static_cast<T&>(*this).destroy_snapshot_(); }
 
