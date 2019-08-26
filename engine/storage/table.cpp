@@ -65,17 +65,19 @@ inline void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
   std::cout << this->name << ":: " << num_records << std::endl;
   std::cout << "MasterVer:: " << (int)snapshot_master_ver << std::endl;
 
-  if (this->name.compare("ssbm_part") == 0) {
-    uint64_t partition_recs =
-        (num_records / NUM_SOCKETS);  //+ (num_records % i);
+  // if (this->name.compare("ssbm_part") == 0) {
+  uint64_t partition_recs = (num_records / NUM_SOCKETS);  //+ (num_records % i);
+  for (int c = 0; c < global_conf::num_master_versions; c++) {
     for (int j = 0; j < NUM_SOCKETS; j++) {
-      if (plugin_ptr[(int)snapshot_master_ver][j] != nullptr) {
-        std::cout << "WRITE DONE!!!!!::" << j << std::endl;
+      if (plugin_ptr[c][j] != nullptr) {
+        std::cout << "WRITE DONE!!!!!::" << j
+                  << ", part_recs: " << partition_recs << std::endl;
 
-        *plugin_ptr[(int)snapshot_master_ver][j] = partition_recs;
+        *plugin_ptr[c][j] = partition_recs;
       }
     }
   }
+  //  }
 
   for (auto& col : columns) {
     col->snapshot(num_records, epoch, snapshot_master_ver);
@@ -499,7 +501,7 @@ std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data(
 
       for (int j = 0; j < NUM_SOCKETS; j++) {
         this->parent->plugin_ptr[(int)ar->getMetadata().master_ver][j] =
-            (save_the_ptr + i);
+            (save_the_ptr + j);
       }
 
 #elif HTAP_COW
