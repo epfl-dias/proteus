@@ -35,12 +35,27 @@ class Benchmark {
   virtual void init() {
   }  // who will init the bench? the main session or in worker's init?
   virtual void load_data(int num_threads = 1) {}
-  virtual void gen_txn(int wid, void *txn_ptr) {}
+  virtual void gen_txn(int wid, void *txn_ptr, ushort partition_id) {}
   virtual bool exec_txn(void *stmts, uint64_t xid, ushort master_ver,
-                        ushort delta_ver) {
+                        ushort delta_ver, ushort partition_id) {
     return true;
   }
+
+  // Should return a memory pointer which will be used to describe a query.
   virtual void *get_query_struct_ptr() { return nullptr; }
+
+  // NOTE: Following will run before/after the workers starts the execution. it
+  // will be synchorinized, i.e., worker will not start transaction until all
+  // workers finish the pre-run and a worker will not start post-run unless all
+  // workers are ready to start the post run. Morever, this will not apply to
+  // the hotplugged workers.
+
+  // TODO: not implemented in the worker pool as of yet.
+
+  virtual void post_run(int wid, uint64_t xid, ushort partition_id,
+                        ushort master_ver) {}
+  virtual void pre_run(int wid, uint64_t xid, ushort partition_id,
+                       ushort master_ver) {}
 
   std::string name;
 

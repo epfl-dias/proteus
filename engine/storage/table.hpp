@@ -61,7 +61,7 @@ class Schema {
 
   Table *getTable(int idx);
   Table *getTable(std::string name);
-  std::vector<Table *> getAllTable();
+  std::vector<Table *> getAllTables();
 
   /* returns pointer to the table */
   Table *create_table(
@@ -119,8 +119,10 @@ class Schema {
 
 class Table {
  public:
-  virtual uint64_t insertRecord(void *rec, ushort master_ver) = 0;
-  virtual void *insertRecord(void *rec, uint64_t xid, ushort master_ver) = 0;
+  virtual uint64_t insertRecord(void *rec, ushort partition_id,
+                                ushort master_ver) = 0;
+  virtual void *insertRecord(void *rec, uint64_t xid, ushort partition_id,
+                             ushort master_ver) = 0;
 
   virtual void updateRecord(uint64_t vid, const void *data,
                             ushort ins_master_ver, ushort prev_master_ver,
@@ -141,7 +143,8 @@ class Table {
   virtual void touchRecordByKey(uint64_t vid, ushort master_ver) = 0;
 
   virtual void insertIndexRecord(
-      uint64_t xid, ushort master_ver) = 0;  // hack for loading binary files
+      uint64_t rid, uint64_t xid, ushort partition_id,
+      ushort master_ver) = 0;  // hack for loading binary files
 
   virtual global_conf::mv_version_list *getVersions(uint64_t vid,
                                                     ushort delta_ver) = 0;
@@ -151,16 +154,18 @@ class Table {
     std::cout << "Number of Columns:\t" << num_columns << std::endl;
   }
 
-  uint64_t getNumRecords() { return (vid.load() - 1); }
+  // uint64_t getNumRecords() { return (vid.load() - 1); }
 
   Table(std::string name, uint8_t table_id)
-      : name(name), table_id(table_id), vid(0), total_mem_reserved(0) {}
+      : name(name), table_id(table_id), total_mem_reserved(0) {
+    for (int i = 0; i < NUM_SOCKETS; i++) vid[i] = 0;
+  }
   virtual ~Table();
 
   global_conf::PrimaryIndex<uint64_t> *p_index;
   global_conf::PrimaryIndex<uint64_t> **s_index;
   uint64_t total_mem_reserved;
-  volatile std::atomic<uint64_t> vid;
+  volatile std::atomic<uint64_t> vid[NUM_SOCKETS];
   const std::string name;
   const uint8_t table_id;
 
@@ -181,8 +186,9 @@ class ColumnStore : public Table {
   ColumnStore(uint8_t table_id, std::string name,
               std::vector<std::tuple<std::string, data_type, size_t>> columns,
               uint64_t initial_num_records = 10000000, bool indexed = true);
-  uint64_t insertRecord(void *rec, ushort master_ver);
-  void *insertRecord(void *rec, uint64_t xid, ushort master_ver);
+  uint64_t insertRecord(void *rec, ushort partition_id, ushort master_ver);
+  void *insertRecord(void *rec, uint64_t xid, ushort partition_id,
+                     ushort master_ver);
   void updateRecord(uint64_t vid, const void *data, ushort ins_master_ver,
                     ushort prev_master_ver, ushort delta_ver, uint64_t tmin,
                     uint64_t tmax, ushort pid);
@@ -194,7 +200,7 @@ class ColumnStore : public Table {
       uint64_t vid, ushort master_ver,
       const std::vector<ushort> *col_idx = nullptr);
 
-  void insertIndexRecord(uint64_t xid,
+  void insertIndexRecord(uint64_t rid, uint64_t xid, ushort partition_id,
                          ushort master_ver);  // hack for loading binary files
   void offsetVID(uint64_t offset);
 

@@ -348,19 +348,25 @@ class TPCC : public Benchmark {
   // void *gen_txn(int wid) {}
 
   // void exec_txn(void *stmts) { return; }
-  bool exec_txn(void *stmts, uint64_t xid, ushort master_ver, ushort delta_ver);
-  void gen_txn(int wid, void *txn_ptr);
+  bool exec_txn(void *stmts, uint64_t xid, ushort master_ver, ushort delta_ver,
+                ushort partition_id);
+  void gen_txn(int wid, void *txn_ptr, ushort partition_id);
 
   bool exec_neworder_txn(struct tpcc_query *stmts, uint64_t xid,
-                         ushort master_ver, ushort delta_ver);
+                         ushort master_ver, ushort delta_ver,
+                         ushort partition_id);
   bool exec_payment_txn(struct tpcc_query *stmts, uint64_t xid,
-                        ushort master_ver, ushort delta_ver);
+                        ushort master_ver, ushort delta_ver,
+                        ushort partition_id);
   bool exec_orderstatus_txn(struct tpcc_query *stmts, uint64_t xid,
-                            ushort master_ver, ushort delta_ver);
+                            ushort master_ver, ushort delta_ver,
+                            ushort partition_id);
   bool exec_delivery_txn(struct tpcc_query *stmts, uint64_t xid,
-                         ushort master_ver, ushort delta_ver);
+                         ushort master_ver, ushort delta_ver,
+                         ushort partition_id);
   bool exec_stocklevel_txn(struct tpcc_query *stmts, uint64_t xid,
-                           ushort master_ver, ushort delta_ver);
+                           ushort master_ver, ushort delta_ver,
+                           ushort partition_id);
   void print_tpcc_query(void *arg);
 
   void verify_consistency(uint wid);

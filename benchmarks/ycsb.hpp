@@ -33,6 +33,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <iostream>
 #include <thread>
 
+#include "glo.hpp"
 #include "interfaces/bench.hpp"
 #include "scheduler/topology.hpp"
 #include "storage/memory_manager.hpp"
@@ -138,14 +139,24 @@ class YCSB : public Benchmark {
 
     // txn::TransactionManager *txnManager =
     //    &txn::TransactionManager::getInstance();
-
+    uint pid = 0;
     for (int i = 0; i < num_records; i++) {
       std::vector<uint64_t> tmp(num_fields, i);
 
       struct YCSB_TXN insert_txn = gen_insert_txn(i, &tmp);
       // txnManager->executor.execute_txn(
-      this->exec_txn(&insert_txn, 0, 0,
-                     0);  // txn_id = 0; master= 0; delta_ver = 0;
+      this->exec_txn(
+          &insert_txn, 0, 0, 0,
+          i / (num_records / NUM_SOCKETS));  // txn_id = 0; master= 0; delta_ver
+
+      // = 0; parition_id = 0;
+      if (pid != (i / (num_records / NUM_SOCKETS))) {
+        std::cout << "PID SHifted from  " << pid << " to "
+                  << (i / (num_records / NUM_SOCKETS)) << std::endl;
+        std::cout << "at rec: " << i << std::endl;
+        pid = i / (num_records / NUM_SOCKETS);
+      }
+
       // txnManager->get_next_xid(0),txnManager->curr_master);
       if (i % 1000000 == 0)
         std::cout << "[YCSB] inserted records: " << i << std::endl;
@@ -192,7 +203,7 @@ class YCSB : public Benchmark {
     return txn;
   }
 
-  void gen_txn(int wid, void *txn_ptr) {
+  void gen_txn(int wid, void *txn_ptr, ushort partition_id) {
     struct YCSB_TXN *txn = (struct YCSB_TXN *)txn_ptr;
 
 #if YCSB_MIXED_OPS
@@ -248,8 +259,8 @@ class YCSB : public Benchmark {
     txn->n_ops = num_ops_per_txn;
   }
 
-  bool exec_txn(void *stmts, uint64_t xid, ushort master_ver,
-                ushort delta_ver) {
+  bool exec_txn(void *stmts, uint64_t xid, ushort master_ver, ushort delta_ver,
+                ushort partition_id) {
     struct YCSB_TXN *txn_stmts = (struct YCSB_TXN *)stmts;
     int n = txn_stmts->n_ops;
 
@@ -309,8 +320,7 @@ class YCSB : public Benchmark {
           ycsb_tbl->updateRecord(
               hash_ptr->VID, op.rec, master_ver, hash_ptr->last_master_ver,
               delta_ver, hash_ptr->t_min, hash_ptr->t_max,
-              (xid >> 56) /
-                  NUM_CORE_PER_SOCKET);  // this is the number of sockets
+              partition_id);  // this is the number of sockets
           hash_ptr->t_min = xid;
           hash_ptr->last_master_ver = master_ver;
           hash_ptr->delta_id = delta_ver;
@@ -318,7 +328,8 @@ class YCSB : public Benchmark {
           break;
         }
         case txn::OPTYPE_INSERT: {
-          void *hash_ptr = ycsb_tbl->insertRecord(op.rec, xid, master_ver);
+          void *hash_ptr =
+              ycsb_tbl->insertRecord(op.rec, xid, partition_id, master_ver);
           ycsb_tbl->p_index->insert(op.key, hash_ptr);
           break;
         }

@@ -32,7 +32,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/delta_storage.hpp"
 
 #define MEMORY_SLACK 1000
-#define CIDR_HACK true
+#define CIDR_HACK false
 
 // Proteus includes
 
@@ -47,12 +47,33 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
   TODO:
     - resizeable columns
     - partitionable columns
-    - dont create meta for each master version. uneecary
 */
 
 namespace storage {
 
-static inline void set_upd_bit(char* data) { *data = *data | (1 << 7); }
+static inline void __attribute__((always_inline)) set_upd_bit(char* data) {
+  *data = *data | (1 << 7);
+}
+
+static inline uint64_t __attribute__((always_inline))
+merge_vid_parition_id(uint64_t vid, uint8_t partition_id) {
+  return (vid & 0x00FFFFFFFFFFFFFF) | (((uint64_t)partition_id) << 56);
+}
+
+static inline uint64_t __attribute__((always_inline))
+extract_vid(uint64_t vid_pid) {
+  return (vid_pid & 0x00FFFFFFFFFFFFFF);
+}
+
+static inline ushort __attribute__((always_inline))
+extract_pid(uint64_t vid_pid) {
+  return (ushort)(vid_pid >> 56);
+}
+
+inline uint64_t __attribute__((always_inline))
+vid_to_uuid(uint8_t tbl_id, uint64_t vid) {
+  return (vid & 0x00FFFFFFFFFFFFFF) | (((uint64_t)tbl_id) << 56);
+}
 
 void Schema::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
   for (auto& tbl : tables) {
@@ -60,28 +81,29 @@ void Schema::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
   }
 }
 inline void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
-  uint64_t num_records = this->vid.load();
+  assert(false);
+  // uint64_t num_records = this->vid.load();
 
-  std::cout << this->name << ":: " << num_records << std::endl;
-  std::cout << "MasterVer:: " << (int)snapshot_master_ver << std::endl;
+  // std::cout << this->name << ":: " << num_records << std::endl;
+  // std::cout << "MasterVer:: " << (int)snapshot_master_ver << std::endl;
 
-  // if (this->name.compare("ssbm_part") == 0) {
-  uint64_t partition_recs = (num_records / NUM_SOCKETS);  //+ (num_records % i);
-  for (int c = 0; c < global_conf::num_master_versions; c++) {
-    for (int j = 0; j < NUM_SOCKETS; j++) {
-      if (plugin_ptr[c][j] != nullptr) {
-        std::cout << "WRITE DONE!!!!!::" << j
-                  << ", part_recs: " << partition_recs << std::endl;
+  // // if (this->name.compare("ssbm_part") == 0) {
+  // uint64_t partition_recs = (num_records / NUM_SOCKETS);  //+ (num_records %
+  // i); for (int c = 0; c < global_conf::num_master_versions; c++) {
+  //   for (int j = 0; j < NUM_SOCKETS; j++) {
+  //     if (plugin_ptr[c][j] != nullptr) {
+  //       std::cout << "WRITE DONE!!!!!::" << j
+  //                 << ", part_recs: " << partition_recs << std::endl;
 
-        *plugin_ptr[c][j] = partition_recs;
-      }
-    }
-  }
-  //  }
+  //       *plugin_ptr[c][j] = partition_recs;
+  //     }
+  //   }
+  // }
+  // //  }
 
-  for (auto& col : columns) {
-    col->snapshot(num_records, epoch, snapshot_master_ver);
-  }
+  // for (auto& col : columns) {
+  //   col->snapshot(num_records, epoch, snapshot_master_ver);
+  // }
 }
 
 inline void Column::snapshot(uint64_t num_records, uint64_t epoch,
@@ -116,8 +138,6 @@ inline void Column::snapshot(uint64_t num_records, uint64_t epoch,
   // }
 }
 
-std::vector<Table*> Schema::getAllTable() { return tables; }
-
 void Schema::initiate_gc(ushort ver) {  // deltaStore[ver]->try_reset_gc();
 }
 
@@ -149,6 +169,8 @@ void Schema::teardown() {
     }
   }
 }
+
+std::vector<Table*> Schema::getAllTables() { return tables; }
 
 Table* Schema::getTable(const int idx) { return tables.at(idx); }
 
@@ -197,6 +219,7 @@ void Schema::drop_table(std::string name) {
 }
 
 void Schema::drop_table(int idx) {
+  // TODO: drop table impl
   std::cout << "[Schema][drop_table] Not Implemented" << std::endl;
 }
 
@@ -230,26 +253,19 @@ ColumnStore::ColumnStore(
   */
 
   this->total_mem_reserved = 0;
-  this->vid = 0;
   this->deltaStore = storage::Schema::getInstance().deltaStore;
 
+  for (int i = 0; i < NUM_SOCKETS; i++) this->vid[i] = 0;
+
   if (indexed) {
-    // create meta_data column.
-    // std::cout << "Create meta-column" << std::endl;
-    // std::cout << "size of hash_val: " << sizeof(global_conf::IndexVal)
-    //         << std::endl;
     meta_column = new Column(name + "_meta", initial_num_records, this, META,
                              sizeof(global_conf::IndexVal));
-
-    // build index over the first column
-    // this->p_index =
-    //     new global_conf::PrimaryIndex<uint64_t>(initial_num_records + 1);
     this->p_index = new global_conf::PrimaryIndex<uint64_t>();
+    std::cout << "Index done" << std::endl;
   }
 
   // create columns
   for (const auto& t : columns) {
-    // std::cout << "Creating Column: " << std::get<0>(t) << std::endl;
     this->columns.emplace_back(new Column(std::get<0>(t), initial_num_records,
                                           this, std::get<1>(t), std::get<2>(t),
                                           false));
@@ -266,8 +282,12 @@ ColumnStore::ColumnStore(
   }
   this->rec_size = rec_size;
   this->offset = 0;
+#if CIDR_HACK
   this->initial_num_recs = initial_num_records - (NUM_SOCKETS * MEMORY_SLACK);
+#else
+  this->initial_num_recs = initial_num_records;
 
+#endif
   std::cout << "Table: " << name << std::endl;
   std::cout << "\trecord size: " << rec_size << " bytes" << std::endl;
   std::cout << "\tnum_records: " << initial_num_records << std::endl;
@@ -289,59 +309,72 @@ ColumnStore::ColumnStore(
 // {}
 
 void ColumnStore::offsetVID(uint64_t offset) {
-  vid.store(offset);
+  for (int i = 0; i < NUM_SOCKETS; i++) vid[i].store(offset);
   this->offset = offset;
 }
-void ColumnStore::insertIndexRecord(uint64_t xid, ushort master_ver) {
+
+void ColumnStore::insertIndexRecord(uint64_t rid, uint64_t xid,
+                                    ushort partition_id, ushort master_ver) {
   assert(this->indexed);
-  uint64_t curr_vid = vid.fetch_add(1);
+  uint64_t curr_vid = vid[partition_id].fetch_add(1);
 
-  void* pano = this->meta_column->insertElem(curr_vid);
+  void* pano = this->meta_column->insertElem(
+      merge_vid_parition_id(curr_vid, partition_id));
 
-  void* hash_ptr = new (pano) global_conf::IndexVal(xid, curr_vid, master_ver);
+  void* hash_ptr = new (pano) global_conf::IndexVal(
+      xid, merge_vid_parition_id(curr_vid, partition_id), master_ver);
 
-  this->p_index->insert(curr_vid, hash_ptr);
+  this->p_index->insert(rid, hash_ptr);
 }
 
 /* Following function assumes that the  void* rec has columns in the same order
  * as the actual columns
  */
-void* ColumnStore::insertRecord(void* rec, uint64_t xid, ushort master_ver) {
-  uint64_t curr_vid = vid.fetch_add(1);
+void* ColumnStore::insertRecord(void* rec, uint64_t xid, ushort partition_id,
+                                ushort master_ver) {
+  uint64_t curr_vid = vid[partition_id].fetch_add(1);
+  // std::cout << "vID: " << curr_vid << std::endl;
   global_conf::IndexVal* hash_ptr = nullptr;
 
 #if CIDR_HACK
-  if (curr_vid >= initial_num_recs) {
+  if (curr_vid >= (initial_num_recs / NUM_SOCKETS)) {
     scheduler::WorkerPool::getInstance().shutdown_manual();
   }
 
 #endif
 
   if (indexed) {
-    void* pano = this->meta_column->insertElem(curr_vid);
-    hash_ptr = new (pano) global_conf::IndexVal(xid, curr_vid, master_ver);
+    void* pano = this->meta_column->insertElem(
+        merge_vid_parition_id(curr_vid, partition_id));
+    hash_ptr = new (pano) global_conf::IndexVal(
+        xid, merge_vid_parition_id(curr_vid, partition_id), master_ver);
   }
 
   char* rec_ptr = (char*)rec;
   for (auto& col : columns) {
-    col->insertElem(curr_vid, rec_ptr, master_ver);
+    col->insertElem(merge_vid_parition_id(curr_vid, partition_id), rec_ptr,
+                    master_ver);
     rec_ptr += col->elem_size;
   }
   return (void*)hash_ptr;
 }
 
-uint64_t ColumnStore::insertRecord(void* rec, ushort master_ver) {
-  uint64_t curr_vid = vid.fetch_add(1);
+uint64_t ColumnStore::insertRecord(void* rec, ushort partition_id,
+                                   ushort master_ver) {
+  uint64_t curr_vid = vid[partition_id].fetch_add(1);
 
   char* rec_ptr = (char*)rec;
   for (auto& col : columns) {
-    col->insertElem(curr_vid, rec_ptr, master_ver);
+    col->insertElem(merge_vid_parition_id(curr_vid, partition_id), rec_ptr,
+                    master_ver);
     rec_ptr += col->elem_size;
   }
   return curr_vid;
 }
 
-void ColumnStore::deleteRecord(uint64_t vid, ushort master_ver) {}
+void ColumnStore::deleteRecord(uint64_t vid, ushort master_ver) {
+  assert(false && "Not implemented");
+}
 
 void ColumnStore::touchRecordByKey(uint64_t vid, ushort master_ver) {
   for (auto& col : columns) {
@@ -384,11 +417,6 @@ std::vector<const void*> ColumnStore::getRecordByKey(
     }
     return record;
   }
-}
-
-inline uint64_t __attribute__((always_inline))
-vid_to_uuid(uint8_t tbl_id, uint64_t vid) {
-  return (vid & 0x00FFFFFFFFFFFFFF) | (tbl_id < 56);
 }
 
 global_conf::mv_version_list* ColumnStore::getVersions(uint64_t vid,
@@ -638,8 +666,11 @@ Column::Column(std::string name, uint64_t initial_num_records,
 }
 
 void* Column::getElem(uint64_t vid, ushort master_ver) {
-  uint pid = vid % NUM_SOCKETS;
-  uint64_t idx = vid / NUM_SOCKETS;
+  // ushort pid = vid % NUM_SOCKETS;
+  // uint64_t idx = vid / NUM_SOCKETS;
+
+  ushort pid = extract_pid(vid);
+  uint64_t idx = extract_vid(vid);
   assert(master_versions[master_ver][pid].size() != 0);
 
   int data_idx = idx * elem_size;
@@ -651,8 +682,10 @@ void* Column::getElem(uint64_t vid, ushort master_ver) {
   return nullptr;
 }
 void Column::touchElem(uint64_t vid, ushort master_ver) {
-  uint pid = vid % NUM_SOCKETS;
-  uint64_t idx = vid / NUM_SOCKETS;
+  // uint pid = vid % NUM_SOCKETS;
+  // uint64_t idx = vid / NUM_SOCKETS;
+  ushort pid = extract_pid(vid);
+  uint64_t idx = extract_vid(vid);
   assert(master_versions[master_ver][pid].size() != 0);
 
   int data_idx = idx * elem_size;
@@ -671,8 +704,10 @@ void Column::touchElem(uint64_t vid, ushort master_ver) {
 }
 
 void Column::getElem(uint64_t vid, ushort master_ver, void* copy_location) {
-  uint pid = vid % NUM_SOCKETS;
-  uint64_t idx = vid / NUM_SOCKETS;
+  // uint pid = vid % NUM_SOCKETS;
+  // uint64_t idx = vid / NUM_SOCKETS;
+  ushort pid = extract_pid(vid);
+  uint64_t idx = extract_vid(vid);
   assert(master_versions[master_ver][pid].size() != 0);
 
   int data_idx = idx * elem_size;
@@ -690,8 +725,10 @@ void Column::getElem(uint64_t vid, ushort master_ver, void* copy_location) {
 void Column::insertElem(uint64_t vid, void* elem, ushort master_ver) {
   // TODO: insert in both masters but set upd bit only in curr master.
 
-  uint pid = vid % NUM_SOCKETS;
-  uint64_t idx = vid / NUM_SOCKETS;
+  // uint pid = vid % NUM_SOCKETS;
+  // uint64_t idx = vid / NUM_SOCKETS;
+  ushort pid = extract_pid(vid);
+  uint64_t idx = extract_vid(vid);
 
   uint64_t data_idx = idx * this->elem_size;
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
@@ -711,10 +748,6 @@ void Column::insertElem(uint64_t vid, void* elem, ushort master_ver) {
           std::memcpy(dst, elem, this->elem_size);
 #if HTAP_DOUBLE_MASTER
           if (i == master_ver) set_upd_bit((char*)dst);
-            // if (i == master_ver) {
-            //   char* tt = (char*)dst;
-            //   *tt = *tt | (1 << 7);
-            // }
 #endif
         }
         ins = true;
@@ -730,8 +763,11 @@ void Column::insertElem(uint64_t vid, void* elem, ushort master_ver) {
 
 // For index/meta column
 void* Column::insertElem(uint64_t vid) {
-  uint pid = vid % NUM_SOCKETS;
-  uint64_t idx = vid / NUM_SOCKETS;
+  // uint pid = vid % NUM_SOCKETS;
+  // uint64_t idx = vid / NUM_SOCKETS;
+
+  ushort pid = extract_pid(vid);
+  uint64_t idx = extract_vid(vid);
 
   uint64_t data_idx = idx * this->elem_size;
 
@@ -751,7 +787,8 @@ void* Column::insertElem(uint64_t vid) {
     // std::cout << "VID: " << vid << std::endl;
     // std::cout << "pid: " << pid << ", idx: " << idx << std::endl;
     std::cout << "FUCK. ALLOCATE MOTE MEMORY:\t" << this->name
-              << ",vid: " << vid << ", idx:" << idx << std::endl;
+              << ",vid: " << vid << ", idx:" << idx << ", pid: " << pid
+              << std::endl;
   }
 
   assert(false && "Out Of Memory Error");

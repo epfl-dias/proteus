@@ -95,6 +95,8 @@ class CC_MV2PL {
     // FIXME: this is when two txn get the same timestamp (xid).
     if (w_tmin == w_tid) {
       std::cout << "FAILED CC" << std::endl;
+      std::cout << "orig_w_id: " << (tmin >> 56)
+                << ", updater_wid: " << (tid >> 56) << std::endl;
       std::cout << "tmin: " << w_tmin << ", w_tid: " << w_tid << std::endl;
     }
     assert(w_tmin != w_tid);

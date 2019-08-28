@@ -92,12 +92,6 @@ class TransactionManager {
 
     ushort tmp = (curr_master + 1) % global_conf::num_master_versions;
 
-    // if (current_master.compare_exchange_strong(curr_master, tmp)) {
-    //   std::cout << "SUCESS CHANGING" << std::endl;
-    // } else {
-    //   std::cout << "fuck CHANGING" << std::endl;
-    // }
-
     current_master.store(tmp);
     std::cout << "All should be on master: " << tmp << std::endl;
     while (scheduler::WorkerPool::getInstance().is_all_worker_on_master_id(
@@ -123,25 +117,6 @@ class TransactionManager {
     return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
   }
 
-// #elif defined(__powerpc__)
-
-//   static __inline__ uint64_t rdtsc(void) {
-//     unsigned long long int result = 0;
-//     unsigned long int upper, lower, tmp;
-//     __asm__ volatile(
-//         "0:                  \n"
-//         "\tmftbu   %0           \n"
-//         "\tmftb    %1           \n"
-//         "\tmftbu   %2           \n"
-//         "\tcmpw    %2,%0        \n"
-//         "\tbne     0b         \n"
-//         : "=r"(upper), "=r"(lower), "=r"(tmp));
-//     result = upper;
-//     result = result << 32;
-//     result = result | lower;
-
-//     return (result);
-//   }
 #elif defined(__powerpc64__) || defined(__ppc64__)
   static __inline__ uint64_t rdtsc() {
     uint64_t c;

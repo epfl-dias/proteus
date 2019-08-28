@@ -25,6 +25,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <future>
 #include <iostream>
 #include <memory>
@@ -67,7 +68,7 @@ struct GLOBAL_STATS {
   std::vector<struct STATS> socket_stats;
 };
 
-enum WORKER_STATE { READY, RUNNING, PAUSED, TERMINATED };
+enum WORKER_STATE { READY, RUNNING, PAUSED, TERMINATED, PRERUN, POSTRUN };
 
 class Worker {
   uint8_t id;
@@ -75,12 +76,15 @@ class Worker {
   bool pause;
   volatile WORKER_STATE state;
 
+  ushort partition_id;
+
   core *exec_core;
 
   uint64_t curr_txn;
   uint64_t prev_delta;
   uint64_t curr_delta;
   volatile ushort curr_master;
+  bool is_hotplugged;
 
   // STATS
   uint64_t num_txns;
@@ -95,18 +99,21 @@ class Worker {
       txn_end_time;
 
  public:
-  Worker(uint8_t id, core *exec_core)
+  Worker(uint8_t id, core *exec_core, ushort partition_id = 0)
       : id(id),
         terminate(false),
         exec_core(exec_core),
         pause(false),
         state(READY),
+        partition_id(partition_id),
+        is_hotplugged(false),
         num_txns(0),
         num_commits(0),
         num_aborts(0) {
     pause = false;
   }
 
+ private:
   void run();
   friend class WorkerPool;
 };
@@ -128,11 +135,11 @@ class WorkerPool {
   WorkerPool &operator=(WorkerPool &&) = delete;
 
   void init(bench::Benchmark *txn_bench = nullptr);
-  void shutdown(bool print_stats = false) { this->~WorkerPool(); }
+  void shutdown(bool print_stats = false);
   void shutdown_manual();
 
   void start_workers(int num_workers = 1);
-  void add_worker(core *exec_location);
+  void add_worker(core *exec_location, ushort partition_id = 0);
   void remove_worker(core *exec_location);
   void print_worker_stats(bool global_only = true);
 
@@ -155,11 +162,17 @@ class WorkerPool {
     worker_counter = 0;
     terminate = false;
     proc_completed = false;
+    pre_barrier = false;
   }
 
   int worker_counter;
   std::atomic<bool> terminate;
   std::atomic<bool> proc_completed;
+
+  std::atomic<uint> pre_barrier;
+  std::condition_variable pre_cv;
+  std::mutex pre_m;
+
   std::unordered_map<uint8_t, std::pair<std::thread *, Worker *> > workers;
 
   // TXN benchmark

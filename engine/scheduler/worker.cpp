@@ -96,8 +96,6 @@ void Worker::run() {
 
   curr_delta = 0;
   prev_delta = 0;
-  this->txn_start_time =
-      std::chrono::system_clock::now();  // txnManager->txn_start_time;
 
   this->txn_start_tsc = txnManager->get_next_xid(this->id);
   uint64_t tx_st = txnManager->txn_start_time;
@@ -108,21 +106,47 @@ void Worker::run() {
   schema->add_active_txn(curr_delta % global_conf::num_delta_storages,
                          this->curr_delta, this->id);
 
-  state = RUNNING;
-  while (!terminate) {
-    // check which master i should be on.
+  if (!is_hotplugged) {
+    this->state = PRERUN;
 
+    pool->txn_bench->pre_run(this->id, curr_txn, this->partition_id,
+                             this->curr_master);
+
+    {
+      std::unique_lock<std::mutex> lk(pool->pre_m);
+      pool->pre_barrier++;
+      pool->pre_cv.wait(lk, [pool, this] {
+        return pool->pre_barrier == pool->workers.size() + 1 || terminate;
+      });
+    }
+  }
+  this->txn_start_time = std::chrono::system_clock::now();
+  this->state = RUNNING;
+
+  while (!terminate) {
     if (pause) {
       state = PAUSED;
 
+      // FIXME: TODO:
+      // while paused, remove itself from the delta versioning, and when
+      // continuing back, add itself. otherwise, until paused, it will block the
+      // garbage collection for no reason.
+      // schema->remove_active_txn( this->curr_delta %
+      // global_conf::num_delta_storages, this->curr_delta, this->id );
+
       while (pause && !terminate) {
-        std::this_thread::sleep_for(std::chrono::microseconds(50));
+        // std::this_thread::sleep_for(std::chrono::microseconds(50));
+        std::this_thread::yield();
+        this->curr_master = txnManager->current_master;
       }
       state = RUNNING;
       continue;
     }
 
+    // Master-version upd
     this->curr_master = txnManager->current_master;
+
+    // Delta versioning
     this->curr_txn = txnManager->get_next_xid(this->id);
     this->prev_delta = this->curr_delta;
     this->curr_delta = calculate_delta_ver(this->curr_txn, tx_st);
@@ -155,12 +179,12 @@ void Worker::run() {
     //   }
     // }
 
-    pool->txn_bench->gen_txn((uint)this->id, txn_mem);
+    pool->txn_bench->gen_txn((uint)this->id, txn_mem, this->partition_id);
 
     // if (txnManager->executor.execute_txn(
     //         c, curr_txn, txnManager->current_master, curr_delta_id))
     if (pool->txn_bench->exec_txn(txn_mem, curr_txn, this->curr_master,
-                                  curr_delta_id))
+                                  curr_delta_id, this->partition_id))
       num_commits++;
     else
       num_aborts++;
@@ -169,14 +193,22 @@ void Worker::run() {
 
     if (num_txns == NUM_ITER) break;
   }
-  state = TERMINATED;
 
   txn_end_time = std::chrono::system_clock::now();
-  // std::cout << "Worker exited: " << (int)(this->id) << std::endl;
-  /*if (pool->txn_bench && pool->txn_bench->name.compare("TPCC") == 0) {
-    bench::TPCC* tpcc_bench = (bench::TPCC*)pool->txn_bench;
-    tpcc_bench->verify_consistency((uint)this->id);
-  }*/
+
+  schema->remove_active_txn(this->curr_delta % global_conf::num_delta_storages,
+                            this->curr_delta, this->id);
+
+  // POST RUN
+  if (!is_hotplugged) {
+    this->state = POSTRUN;
+    this->curr_txn = txnManager->get_next_xid(this->id);
+    this->curr_master = txnManager->current_master;
+
+    pool->txn_bench->post_run(this->id, curr_txn, this->partition_id,
+                              this->curr_master);
+  }
+  state = TERMINATED;
 }
 
 std::vector<uint64_t> WorkerPool::get_active_txns() {
@@ -215,7 +247,8 @@ uint64_t WorkerPool::get_max_active_txn() {
 
 bool WorkerPool::is_all_worker_on_master_id(ushort master_id) {
   for (auto& wr : workers) {
-    if (wr.second.second->curr_master != master_id) {
+    if (wr.second.second->state == RUNNING &&
+        wr.second.second->curr_master != master_id) {
       return false;
     }
   }
@@ -316,9 +349,11 @@ void WorkerPool::init(bench::Benchmark* txn_bench) {
 }
 
 // Hot Plug
-void WorkerPool::add_worker(core* exec_location) {
+void WorkerPool::add_worker(core* exec_location, ushort partition_id) {
   assert(workers.find(exec_location->id) == workers.end());
   Worker* wrkr = new Worker(worker_counter++, exec_location);
+  wrkr->partition_id = partition_id;
+  wrkr->is_hotplugged = true;
   std::thread* thd = new std::thread(&Worker::run, wrkr);
 
   workers.emplace(std::make_pair(exec_location->id, std::make_pair(thd, wrkr)));
@@ -346,21 +381,51 @@ void WorkerPool::start_workers(int num_workers) {
    * then, just manually limit the number of wokrers
    */
 
-  // interleave
   int i = 0;
-  int j = 0;
-  for (auto& exec_core : *worker_cores) {
-    if (j % 2 == 1) {
-      Worker* wrkr = new Worker(worker_counter++, &exec_core);
-      std::thread* thd = new std::thread(&Worker::run, wrkr);
+  std::cout << "[WorkerPool] " << num_workers << " Workers starting pre-run.."
+            << std::endl;
 
-      workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
-      if (++i == num_workers) {
-        break;
-      }
+  pre_barrier.store(0);
+  for (auto& exec_core : *worker_cores) {
+    Worker* wrkr = new Worker(worker_counter++, &exec_core);
+    wrkr->partition_id = ((uint)wrkr->id) / NUM_CORE_PER_SOCKET;
+    std::cout << "Worker-" << (uint)wrkr->id << ": Allocated partition # "
+              << wrkr->partition_id << std::endl;
+    std::thread* thd = new std::thread(&Worker::run, wrkr);
+
+    workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
+    if (++i == num_workers) {
+      break;
     }
-    j++;
   }
+
+  while (pre_barrier != num_workers) {
+    std::this_thread::yield();
+  }
+
+  {
+    std::lock_guard<std::mutex> lk(pre_m);
+    std::cout << "[WorkerPool] " << num_workers << " Workers starting txn.."
+              << std::endl;
+    pre_barrier++;
+  }
+  pre_cv.notify_all();
+
+  // // interleave
+  // int i = 0;
+  // int j = 0;
+  // for (auto& exec_core : *worker_cores) {
+  //   if (j % 2 == 1) {
+  //     Worker* wrkr = new Worker(worker_counter++, &exec_core);
+  //     std::thread* thd = new std::thread(&Worker::run, wrkr);
+
+  //     workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd,
+  //     wrkr))); if (++i == num_workers) {
+  //       break;
+  //     }
+  //   }
+  //   j++;
+  // }
 
   // second socket ibm machine
   // int i = 0;
@@ -378,6 +443,8 @@ void WorkerPool::start_workers(int num_workers) {
   //   }
   // }
 }
+
+void WorkerPool::shutdown(bool print_stats) { this->~WorkerPool(); }
 
 template <class F, class... Args>
 std::future<typename std::result_of<F(Args...)>::type> WorkerPool::enqueueTask(

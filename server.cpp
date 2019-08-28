@@ -282,7 +282,7 @@ int main(int argc, char** argv) {
 
 void check_num_upd_by_bits() {
   std::vector<storage::Table*> tables =
-      storage::Schema::getInstance().getAllTable();
+      storage::Schema::getInstance().getAllTables();
 
   for (auto& tbl : tables) {
     storage::ColumnStore* tmp = (storage::ColumnStore*)tbl;

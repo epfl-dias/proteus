@@ -165,8 +165,9 @@ class MicroSSB : public Benchmark {
 
   void *get_query_struct_ptr() { return new struct ssb_query; }  // interface
 
-  bool exec_txn(void *stmts, uint64_t xid, ushort master_ver, ushort delta_ver);
-  void gen_txn(int wid, void *txn_ptr);
+  bool exec_txn(void *stmts, uint64_t xid, ushort master_ver, ushort delta_ver,
+                ushort partition_id);
+  void gen_txn(int wid, void *txn_ptr, ushort partition_id);
 
   ~MicroSSB();
   MicroSSB(std::string name = "MicroSSB",

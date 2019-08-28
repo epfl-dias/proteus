@@ -140,56 +140,56 @@ bool CC_MV2PL::execute_txn(void *stmts, uint64_t xid, ushort master_ver,
 // Following implementation using global locks is wrong as it doesnt care about
 // seriazability
 bool CC_GlobalLock::execute_txn(void *stmts, uint64_t xid) {
-  struct TXN *txn_stmts = (struct TXN *)stmts;
-  short txn_master_ver = this->curr_master;
-  int n = txn_stmts->n_ops;
-  {
-    std::unique_lock<std::mutex> lock(global_lock);
-    for (int i = 0; i < n; i++) {
-      struct TXN_OP op = txn_stmts->ops[i];
-      storage::Table *tbl_ptr = (storage::Table *)op.data_table;
-      switch (op.op_type) {
-        case OPTYPE_LOOKUP: {
-          /* basically, lookup just touches everything. */
-          /* FIXME: there should be someway to recognize the query, project
-          the
-           * appropriate columns and then return the result. maybe a class
-           * ResultParser and Result which knows the data type of returning
-           * query. for now, lets hardcode to touching the columns only.
-           * However, TPC-C will need this because it works on basis of
-           values,
-           * YCSB only touches stuff in lookup */
+  // struct TXN *txn_stmts = (struct TXN *)stmts;
+  // short txn_master_ver = this->curr_master;
+  // int n = txn_stmts->n_ops;
+  // {
+  //   std::unique_lock<std::mutex> lock(global_lock);
+  //   for (int i = 0; i < n; i++) {
+  //     struct TXN_OP op = txn_stmts->ops[i];
+  //     storage::Table *tbl_ptr = (storage::Table *)op.data_table;
+  //     switch (op.op_type) {
+  //       case OPTYPE_LOOKUP: {
+  //         /* basically, lookup just touches everything. */
+  //         /* FIXME: there should be someway to recognize the query, project
+  //         the
+  //          * appropriate columns and then return the result. maybe a class
+  //          * ResultParser and Result which knows the data type of returning
+  //          * query. for now, lets hardcode to touching the columns only.
+  //          * However, TPC-C will need this because it works on basis of
+  //          values,
+  //          * YCSB only touches stuff in lookup */
 
-          void *tmp;
-          if (tbl_ptr->p_index->find(op.key, tmp)) {
-            PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
-            tbl_ptr->getRecordByKey(hash_ptr->VID, hash_ptr->last_master_ver);
-          }
-          break;
-        }
+  //         void *tmp;
+  //         if (tbl_ptr->p_index->find(op.key, tmp)) {
+  //           PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
+  //           tbl_ptr->getRecordByKey(hash_ptr->VID,
+  //           hash_ptr->last_master_ver);
+  //         }
+  //         break;
+  //       }
 
-        case OPTYPE_UPDATE: {
-          void *tmp;
-          if (tbl_ptr->p_index->find(op.key, tmp)) {
-            PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
-            // tbl_ptr->updateRecord(val.VID, op.rec);
-            tbl_ptr->updateRecord(hash_ptr->VID, op.rec, txn_master_ver,
-                                  hash_ptr->last_master_ver, 0, xid,
-                                  curr_master, xid >> 56);
-          }
-          break;
-        }
-        case OPTYPE_INSERT: {
-          void *hash_ptr = tbl_ptr->insertRecord(op.rec, xid, txn_master_ver);
-          tbl_ptr->p_index->insert(op.key, hash_ptr);
-          break;
-        }
+  //       case OPTYPE_UPDATE: {
+  //         void *tmp;
+  //         if (tbl_ptr->p_index->find(op.key, tmp)) {
+  //           PRIMARY_INDEX_VAL *hash_ptr = (PRIMARY_INDEX_VAL *)tmp;
+  //           // tbl_ptr->updateRecord(val.VID, op.rec);
+  //           tbl_ptr->updateRecord(hash_ptr->VID, op.rec, txn_master_ver,
+  //                                 hash_ptr->last_master_ver, 0, xid,
+  //                                 curr_master, xid >> 56);
+  //         }
+  //         break;
+  //       }
+  //       case OPTYPE_INSERT: {
+  //         void *hash_ptr = tbl_ptr->insertRecord(op.rec, xid,
+  //         txn_master_ver); tbl_ptr->p_index->insert(op.key, hash_ptr); break;
+  //       }
 
-        default:
-          break;
-      }
-    }
-  }
+  //       default:
+  //         break;
+  //     }
+  //   }
+  // }
   return true;
 }
 }  // namespace txn

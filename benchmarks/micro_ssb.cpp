@@ -71,7 +71,7 @@ static std::string concat_path(const std::string &first,
 }
 
 bool MicroSSB::exec_txn(void *stmts, uint64_t xid, ushort master_ver,
-                        ushort delta_ver) {
+                        ushort delta_ver, ushort partition_id) {
   struct ssb_query *q = (struct ssb_query *)stmts;
   int ol_cnt = q->ol_cnt;
   uint32_t custkey = q->custkey;
@@ -215,7 +215,8 @@ bool MicroSSB::exec_txn(void *stmts, uint64_t xid, ushort master_ver,
 
     uint32_t lo_key = (lo_ins.lo_orderkey - 1) + (lo_ins.lo_linenumber - 1);
 
-    void *ol_idx_ptr = table_lineorder->insertRecord(&lo_ins, xid, master_ver);
+    void *ol_idx_ptr =
+        table_lineorder->insertRecord(&lo_ins, xid, partition_id, master_ver);
 
 #if INDEX_LO
 
@@ -251,7 +252,7 @@ void MicroSSB::print_query(struct ssb_query *q) {
   std::cout << "----------" << std::endl;
 }
 
-void MicroSSB::gen_txn(int wid, void *txn_ptr) {
+void MicroSSB::gen_txn(int wid, void *txn_ptr, ushort partition_id) {
   struct ssb_query *q = (struct ssb_query *)txn_ptr;
 
   int dup;
@@ -472,7 +473,7 @@ void MicroSSB::load_lineorder(uint64_t num_lineorder) {
 #if INDEX_LO
   std::cout << "Inserting lineorder index: " << num_lineorder << std::endl;
   for (uint64_t i = 0; i < num_lineorder; i++) {
-    this->table_lineorder->insertIndexRecord(0, 0);
+    this->table_lineorder->insertIndexRecord(i, 0, 0, 0);
     if ((i % 1000000) == 0)
       std::cout << "inserted " << i << " index recs" << std::endl;
   }
@@ -543,7 +544,7 @@ void MicroSSB::load_part(uint64_t num_parts) {
 #endif
   std::cout << "Inserting index (ssbm_part): " << num_parts << std::endl;
   for (uint32_t i = 0; i < num_parts; i++) {
-    this->table_part->insertIndexRecord(0, 0);
+    this->table_part->insertIndexRecord(i, 0, 0, 0);
   }
   // void *hash_ptr = table_item->insertRecord(&temp, 0, 0);
   // assert(this->table_item->p_index->insert(temp.i_id, hash_ptr));

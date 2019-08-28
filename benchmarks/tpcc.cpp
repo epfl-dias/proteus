@@ -56,23 +56,23 @@ static inline uint64_t get_timestamp() {
 }
 
 bool TPCC::exec_txn(void *stmts, uint64_t xid, ushort master_ver,
-                    ushort delta_ver) {
+                    ushort delta_ver, ushort partition_id) {
   struct tpcc_query *q = (struct tpcc_query *)stmts;
   switch (q->query_type) {
     case NEW_ORDER:
-      return exec_neworder_txn(q, xid, master_ver, delta_ver);
+      return exec_neworder_txn(q, xid, partition_id, master_ver, delta_ver);
       break;
     case PAYMENT:
-      return exec_payment_txn(q, xid, master_ver, delta_ver);
+      return exec_payment_txn(q, xid, partition_id, master_ver, delta_ver);
       break;
     case ORDER_STATUS:
-      return exec_orderstatus_txn(q, xid, master_ver, delta_ver);
+      return exec_orderstatus_txn(q, xid, partition_id, master_ver, delta_ver);
       break;
     case DELIVERY:
-      return exec_delivery_txn(q, xid, master_ver, delta_ver);
+      return exec_delivery_txn(q, xid, partition_id, master_ver, delta_ver);
       break;
     case STOCK_LEVEL:
-      return exec_stocklevel_txn(q, xid, master_ver, delta_ver);
+      return exec_stocklevel_txn(q, xid, partition_id, master_ver, delta_ver);
     default:
       return false;
       break;
@@ -80,7 +80,7 @@ bool TPCC::exec_txn(void *stmts, uint64_t xid, ushort master_ver,
   return true;
 }
 
-void TPCC::gen_txn(int wid, void *q) {
+void TPCC::gen_txn(int wid, void *q, ushort partition_id) {
   tpcc_get_next_neworder_query(wid, q);
   return;
   static thread_local uint sequence_counter = 0;
@@ -167,7 +167,8 @@ void TPCC::print_tpcc_query(void *arg) {
 }
 
 bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
-                             ushort master_ver, ushort delta_ver) {
+                             ushort partition_id, ushort master_ver,
+                             ushort delta_ver) {
   char remote = q->remote;
   uint w_id = q->w_id;
   int d_id = q->d_id;
@@ -325,10 +326,9 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
 
     st_rec.s_quantity = quantity;
 
-    table_stock->updateRecord(st_idx_ptr->VID, &st_rec, master_ver,
-                              st_idx_ptr->last_master_ver, delta_ver,
-                              st_idx_ptr->t_min, st_idx_ptr->t_max,
-                              (xid >> 56) / NUM_CORE_PER_SOCKET, &st_col);
+    table_stock->updateRecord(
+        st_idx_ptr->VID, &st_rec, master_ver, st_idx_ptr->last_master_ver,
+        delta_ver, st_idx_ptr->t_min, st_idx_ptr->t_max, partition_id, &st_col);
 
     st_idx_ptr->t_min = xid;
     st_idx_ptr->last_master_ver = master_ver;
@@ -377,10 +377,10 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
   // NOW UPDATE
 
   uint64_t d_next_o_id_upd = dist_no_read.d_next_o_id + 1;
-  table_district->updateRecord(
-      d_idx_ptr->VID, &d_next_o_id_upd, master_ver, d_idx_ptr->last_master_ver,
-      delta_ver, d_idx_ptr->t_min, d_idx_ptr->t_max,
-      (xid >> 56) / NUM_CORE_PER_SOCKET, &dist_col_upd);
+  table_district->updateRecord(d_idx_ptr->VID, &d_next_o_id_upd, master_ver,
+                               d_idx_ptr->last_master_ver, delta_ver,
+                               d_idx_ptr->t_min, d_idx_ptr->t_max, partition_id,
+                               &dist_col_upd);
 
   d_idx_ptr->t_min = xid;
   d_idx_ptr->last_master_ver = master_ver;
@@ -483,7 +483,8 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
   // for now only local
   o_r.o_all_local = !remote;
 
-  void *o_idx_ptr = table_order->insertRecord(&o_r, xid, master_ver);
+  void *o_idx_ptr =
+      table_order->insertRecord(&o_r, xid, partition_id, master_ver);
   table_order->p_index->insert(order_key, o_idx_ptr);
 
   /*
@@ -497,7 +498,8 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
   no_r.no_d_id = d_id;
   no_r.no_w_id = w_id;
 
-  void *no_idx_ptr = table_new_order->insertRecord(&no_r, xid, master_ver);
+  void *no_idx_ptr =
+      table_new_order->insertRecord(&no_r, xid, partition_id, master_ver);
   table_new_order->p_index->insert(order_key, no_idx_ptr);
 
   for (int ol_number = 0; ol_number < ol_cnt; ol_number++) {
@@ -563,7 +565,8 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
     ol_ins.ol_amount = ol_amount;
     // ol_ins.ol_dist_info[24];  //
 
-    void *ol_idx_ptr = table_order_line->insertRecord(&ol_ins, xid, master_ver);
+    void *ol_idx_ptr =
+        table_order_line->insertRecord(&ol_ins, xid, partition_id, master_ver);
     table_order_line->p_index->insert(ol_key, ol_idx_ptr);
 
     /*MAKE_OP(op, OPTYPE_INSERT, (sizeof(struct tpcc_order_line)), pkey);
@@ -628,7 +631,8 @@ inline uint TPCC::fetch_cust_records(const struct secondary_record &sr,
 }
 
 inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
-                                   ushort master_ver, ushort delta_ver) {
+                                   ushort partition_id, ushort master_ver,
+                                   ushort delta_ver) {
   // Updates..
 
   // update warehouse (ytd) / district (ytd),
@@ -786,8 +790,7 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
 
   table_warehouse->updateRecord(
       w_idx_ptr->VID, &w_ytd, master_ver, w_idx_ptr->last_master_ver, delta_ver,
-      w_idx_ptr->t_min, w_idx_ptr->t_max, (xid >> 56) / NUM_CORE_PER_SOCKET,
-      &wh_col_scan_upd);
+      w_idx_ptr->t_min, w_idx_ptr->t_max, partition_id, &wh_col_scan_upd);
 
   w_idx_ptr->t_min = xid;
   w_idx_ptr->last_master_ver = master_ver;
@@ -826,8 +829,7 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
 
   table_district->updateRecord(
       d_idx_ptr->VID, &d_ytd, master_ver, d_idx_ptr->last_master_ver, delta_ver,
-      d_idx_ptr->t_min, d_idx_ptr->t_max, (xid >> 56) / NUM_CORE_PER_SOCKET,
-      &d_col_scan_upd);
+      d_idx_ptr->t_min, d_idx_ptr->t_max, partition_id, &d_col_scan_upd);
 
   d_idx_ptr->t_min = xid;
   d_idx_ptr->last_master_ver = master_ver;
@@ -905,8 +907,7 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
 
   table_customer->updateRecord(
       c_idx_ptr->VID, &c_upd, master_ver, c_idx_ptr->last_master_ver, delta_ver,
-      c_idx_ptr->t_min, c_idx_ptr->t_max, (xid >> 56) / NUM_CORE_PER_SOCKET,
-      &cust_col_scan_upd);
+      c_idx_ptr->t_min, c_idx_ptr->t_max, partition_id, &cust_col_scan_upd);
 
   c_idx_ptr->t_min = xid;
   c_idx_ptr->last_master_ver = master_ver;
@@ -942,13 +943,15 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
   h_ins.h_date = get_timestamp();
   h_ins.h_amount = h_amount;
 
-  void *hist_idx_ptr = table_history->insertRecord(&h_ins, xid, master_ver);
+  void *hist_idx_ptr =
+      table_history->insertRecord(&h_ins, xid, partition_id, master_ver);
   table_history->p_index->insert(MAKE_CUST_KEY(w_id, d_id, c_id), hist_idx_ptr);
 
   return true;
 }
 inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *q, uint64_t xid,
-                                       ushort master_ver, ushort delta_ver) {
+                                       ushort partition_id, ushort master_ver,
+                                       ushort delta_ver) {
   int ol_number = 1;
   ushort w_id = q->w_id;
   ushort d_id = q->d_id;
@@ -1155,12 +1158,14 @@ inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *q, uint64_t xid,
   return true;
 }
 inline bool TPCC::exec_delivery_txn(struct tpcc_query *stmts, uint64_t xid,
-                                    ushort master_ver, ushort delta_ver) {
+                                    ushort partition_id, ushort master_ver,
+                                    ushort delta_ver) {
   return true;
 }
 
 inline bool TPCC::exec_stocklevel_txn(struct tpcc_query *q, uint64_t xid,
-                                      ushort master_ver, ushort delta_ver) {
+                                      ushort partition_id, ushort master_ver,
+                                      ushort delta_ver) {
   /*
   This transaction accesses
   order_line,
@@ -1890,7 +1895,8 @@ void TPCC::load_stock(int w_id) {
     }
 
     // txn_id = 0, master_ver = 0
-    void *hash_ptr = table_stock->insertRecord(stock_tmp, 0, 0);
+    void *hash_ptr =
+        table_stock->insertRecord(stock_tmp, 0, w_id / NUM_CORE_PER_SOCKET, 0);
     this->table_stock->p_index->insert(sid, hash_ptr);
   }
 
@@ -1928,8 +1934,8 @@ void TPCC::load_item() {
       memcpy(&item_temp.i_data[idx], "original", 8);
     }
 
-    // txn_id = 0, master_ver = 0
-    void *hash_ptr = table_item->insertRecord(&item_temp, 0, 0);
+    void *hash_ptr = table_item->insertRecord(
+        &item_temp, 0, key / (TPCC_MAX_ITEMS / NUM_SOCKETS), 0);
     this->table_item->p_index->insert(key, hash_ptr);
   }
 }
@@ -1956,7 +1962,8 @@ void TPCC::load_district(int w_id) {
     r->d_ytd = 30000.0;
     r->d_next_o_id = 3000;
 
-    void *hash_ptr = table_district->insertRecord(r, 0, 0);
+    void *hash_ptr =
+        table_district->insertRecord(r, 0, w_id / NUM_CORE_PER_SOCKET, 0);
     this->table_district->p_index->insert(dkey, hash_ptr);
   }
 
@@ -1979,7 +1986,8 @@ void TPCC::load_warehouse(int w_id) {
   w_temp->w_ytd = 3000000.00;
 
   // txn_id = 0, master_ver = 0
-  void *hash_ptr = table_warehouse->insertRecord(w_temp, 0, 0);
+  void *hash_ptr =
+      table_warehouse->insertRecord(w_temp, 0, w_id / NUM_CORE_PER_SOCKET, 0);
   this->table_warehouse->p_index->insert(w_id, hash_ptr);
   delete w_temp;
 }
@@ -2008,7 +2016,8 @@ void TPCC::load_history(int w_id) {
       r->h_amount = 10.0;
       make_alpha_string(&this->seed, 12, 24, r->h_data);
 
-      void *hash_ptr = table_history->insertRecord(r, 0, 0);
+      void *hash_ptr =
+          table_history->insertRecord(r, 0, w_id / NUM_CORE_PER_SOCKET, 0);
       this->table_history->p_index->insert(key, hash_ptr);
     }
   }
@@ -2084,7 +2093,8 @@ void TPCC::load_order(int w_id) {
       r->o_all_local = 1;
 
       // insert order here
-      void *hash_ptr = table_order->insertRecord(r, 0, 0);
+      void *hash_ptr =
+          table_order->insertRecord(r, 0, w_id / NUM_CORE_PER_SOCKET, 0);
       this->table_order->p_index->insert(ckey, hash_ptr);
 
       for (int ol = 0; ol < o_ol_cnt; ol++) {
@@ -2124,7 +2134,8 @@ void TPCC::load_order(int w_id) {
         //          index_insert(i_orderline_wd, key, row, wh_to_part(wid));
 
         // insert orderline here
-        void *hash_ptr = table_order_line->insertRecord(r_ol, 0, 0);
+        void *hash_ptr = table_order_line->insertRecord(
+            r_ol, 0, w_id / NUM_CORE_PER_SOCKET, 0);
         this->table_order_line->p_index->insert(ol_pkey, hash_ptr);
       }
 
@@ -2144,7 +2155,8 @@ void TPCC::load_order(int w_id) {
         r_no->no_w_id = w_id;
         // insert new order here
 
-        void *hash_ptr = table_new_order->insertRecord(r_no, 0, 0);
+        void *hash_ptr = table_new_order->insertRecord(
+            r_no, 0, w_id / NUM_CORE_PER_SOCKET, 0);
         this->table_new_order->p_index->insert(ckey, hash_ptr);
       }
     }
@@ -2226,7 +2238,8 @@ void TPCC::load_customer(int w_id) {
       r->c_ytd_payment = 10.0;
       r->c_payment_cnt = 1;
 
-      void *hash_ptr = table_customer->insertRecord(r, 0, 0);
+      void *hash_ptr =
+          table_customer->insertRecord(r, 0, w_id / NUM_CORE_PER_SOCKET, 0);
       this->table_customer->p_index->insert(ckey, hash_ptr);
 
       /* create secondary index using the main hash table itself.
@@ -2453,7 +2466,8 @@ void TPCC::load_warehouse_csv(std::string filename, char delim) {
 
       //(field_cusor == num_fields)
       // insert record
-      void *hash_ptr = table_warehouse->insertRecord(&w_temp, 0, 0);
+      void *hash_ptr = table_warehouse->insertRecord(
+          &w_temp, 0, w_temp.w_id / NUM_CORE_PER_SOCKET, 0);
       assert(this->table_warehouse->p_index->insert(w_temp.w_id, hash_ptr));
 
       // reset cursor
@@ -2560,7 +2574,8 @@ void TPCC::load_stock_csv(std::string filename, char delim) {
     if ((!is_ch_benchmark && field_cursor == 17) ||
         (is_ch_benchmark && field_cursor == 18)) {
       // insert record
-      void *hash_ptr = table_stock->insertRecord(&temp, 0, 0);
+      void *hash_ptr = table_stock->insertRecord(
+          &temp, 0, temp.s_w_id / NUM_CORE_PER_SOCKET, 0);
       assert(this->table_stock->p_index->insert(
           MAKE_STOCK_KEY(temp.s_w_id, temp.s_i_id), hash_ptr));
 
@@ -2622,7 +2637,8 @@ void TPCC::load_item_csv(std::string filename, char delim) {
       temp.i_data[line.length()] = '\0';
 
       // insert record
-      void *hash_ptr = table_item->insertRecord(&temp, 0, 0);
+      void *hash_ptr = table_item->insertRecord(
+          &temp, 0, temp.i_id / NUM_CORE_PER_SOCKET, 0);
       assert(this->table_item->p_index->insert(temp.i_id, hash_ptr));
 
       // reset cursor
@@ -2705,7 +2721,8 @@ void TPCC::load_district_csv(std::string filename, char delim) {
       temp.d_next_o_id = std::stoi(line, nullptr) - 1;
 
       // insert record
-      void *hash_ptr = table_district->insertRecord(&temp, 0, 0);
+      void *hash_ptr = table_district->insertRecord(
+          &temp, 0, temp.d_w_id / NUM_CORE_PER_SOCKET, 0);
       if (!this->table_district->p_index->insert(
               MAKE_DIST_KEY(temp.d_w_id, temp.d_id), hash_ptr)) {
         std::cout << "d_w_id: " << temp.d_w_id << std::endl;
@@ -2763,7 +2780,7 @@ void TPCC::load_nation_csv(std::string filename, char delim) {
       temp.n_comment[line.length()] = '\0';
 
       // insert record
-      void *hash_ptr = table_nation->insertRecord(&temp, 0, 0);
+      void *hash_ptr = table_nation->insertRecord(&temp, 0, 0, 0);
       if (!this->table_nation->p_index->insert(temp.n_nationkey, hash_ptr)) {
         std::cout << "n_nationkey: " << temp.n_nationkey << std::endl;
         std::cout << "n_name: " << temp.n_name << std::endl;
@@ -2818,7 +2835,7 @@ void TPCC::load_region_csv(std::string filename, char delim) {
       temp.r_comment[line.length()] = '\0';
 
       // insert record
-      void *hash_ptr = table_region->insertRecord(&temp, 0, 0);
+      void *hash_ptr = table_region->insertRecord(&temp, 0, 0, 0);
       assert(this->table_region->p_index->insert(temp.r_regionkey, hash_ptr));
 
       // reset cursor
@@ -2885,7 +2902,7 @@ void TPCC::load_supplier_csv(std::string filename, char delim) {
       temp.s_comment[line.length()] = '\0';
 
       // insert record
-      void *hash_ptr = table_supplier->insertRecord(&temp, 0, 0);
+      void *hash_ptr = table_supplier->insertRecord(&temp, 0, 0, 0);
       assert(this->table_supplier->p_index->insert(temp.suppkey, hash_ptr));
 
       // reset cursor
@@ -2934,7 +2951,8 @@ void TPCC::load_neworder_csv(std::string filename, char delim) {
       temp.no_w_id = (ushort)std::stoi(line, nullptr) - 1;
 
       // insert record
-      void *hash_ptr = table_new_order->insertRecord(&temp, 0, 0);
+      void *hash_ptr = table_new_order->insertRecord(
+          &temp, 0, temp.no_w_id / NUM_CORE_PER_SOCKET, 0);
       assert(this->table_new_order->p_index->insert(
           MAKE_CUST_KEY(temp.no_w_id, temp.no_d_id, temp.no_o_id), hash_ptr));
 
@@ -3010,7 +3028,8 @@ void TPCC::load_history_csv(std::string filename, char delim) {
       temp.h_data[line.length()] = '\0';
 
       // insert record
-      void *hash_ptr = table_history->insertRecord(&temp, 0, 0);
+      void *hash_ptr = table_history->insertRecord(
+          &temp, 0, temp.h_w_id / NUM_CORE_PER_SOCKET, 0);
       assert(this->table_history->p_index->insert(
           MAKE_CUST_KEY(temp.h_w_id, temp.h_d_id, temp.h_c_id), hash_ptr));
 
@@ -3092,7 +3111,8 @@ void TPCC::load_order_csv(std::string filename, char delim) {
       temp.o_all_local = (ushort)std::stoi(line, nullptr);
 
       // insert record
-      void *hash_ptr = table_order->insertRecord(&temp, 0, 0);
+      void *hash_ptr = table_order->insertRecord(
+          &temp, 0, temp.o_w_id / NUM_CORE_PER_SOCKET, 0);
       if (!this->table_order->p_index->insert(
               MAKE_ORDER_KEY(temp.o_w_id, temp.o_d_id, temp.o_id), hash_ptr)) {
         std::cout << "n_rec: " << n_records << std::endl;
@@ -3201,7 +3221,8 @@ void TPCC::load_orderline_csv(std::string filename, char delim) {
         strncpy(temp.ol_dist_info, line.c_str(), line.length());
 
         // insert record
-        void *hash_ptr = table_order_line->insertRecord(&temp, 0, 0);
+        void *hash_ptr = table_order_line->insertRecord(
+            &temp, 0, temp.ol_w_id / NUM_CORE_PER_SOCKET, 0);
         assert(this->table_order_line->p_index->insert(
             MAKE_OL_KEY(temp.ol_w_id, temp.ol_d_id, temp.ol_o_id,
                         temp.ol_number),
@@ -3348,7 +3369,8 @@ void TPCC::load_customer_csv(std::string filename, char delim) {
       temp.c_n_nationkey = (ushort)std::stoi(line, nullptr);
 
       // insert record
-      void *hash_ptr = table_customer->insertRecord(&temp, 0, 0);
+      void *hash_ptr = table_customer->insertRecord(
+          &temp, 0, temp.c_w_id / NUM_CORE_PER_SOCKET, 0);
       assert(this->table_customer->p_index->insert(
           MAKE_CUST_KEY(temp.c_w_id, temp.c_d_id, temp.c_id), hash_ptr));
 

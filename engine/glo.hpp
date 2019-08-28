@@ -40,6 +40,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define HTAP_UPD_BIT_MASK false
 #define SHARED_MEMORY false  // if htap=false, then shm or numa_alloc
 
+#define OLTP_PARTITIONED true
+
 // typedef cuckoohash_map<std::string, std::string> HashIndex;
 
 // template <class hash_val, class key = uint64_t>
