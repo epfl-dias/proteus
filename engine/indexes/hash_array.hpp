@@ -45,9 +45,12 @@ class HashArray {
   size_t capacity_per_partition;
   uint partitions;
 
-  HashArray(uint partitions = 1, uint64_t num_obj = 72000000)
-      : capacity(num_obj), partitions(partitions) {
-    std::cout << "Creating a hashindex of size: " << num_obj << std::endl;
+  std::string name;
+
+  HashArray(std::string name, uint partitions = 1, uint64_t num_obj = 72000000)
+      : capacity(num_obj), partitions(partitions), name(name) {
+    std::cout << "Creating a hashindex of size: " << num_obj
+              << " with partitions:" << partitions << std::endl;
 
     size_t size = num_obj * sizeof(char *);
     arr = (char ***)malloc(sizeof(char *) * partitions);
@@ -76,8 +79,8 @@ class HashArray {
   V find(K key) {
 #if PARTITIONED_INDEX
 
-    ushort pid = key / partitions;
-    K idx = key % capacity_per_partition;
+    ushort pid = key / capacity_per_partition;
+    uint64_t idx = key % capacity_per_partition;
 
     if (pid < partitions && idx < capacity_per_partition) {
       return (void *)arr[pid][idx];
@@ -93,8 +96,8 @@ class HashArray {
   inline bool find(K key, V &value) {
 #if PARTITIONED_INDEX
 
-    ushort pid = key / partitions;
-    K idx = key % capacity_per_partition;
+    ushort pid = key / capacity_per_partition;
+    uint64_t idx = key % capacity_per_partition;
 
     if (pid < partitions && idx < capacity_per_partition) {
       value = (void *)arr[pid][idx];
@@ -119,10 +122,16 @@ class HashArray {
   inline bool insert(K key, V &value) {
 #if PARTITIONED_INDEX
 
-    ushort pid = key / partitions;
-    K idx = key % capacity_per_partition;
+    ushort pid = key / capacity_per_partition;
+    uint64_t idx = key % capacity_per_partition;
 
     if (pid < partitions && idx < capacity_per_partition) {
+      // std::cout << "key: " << key << std::endl;
+      // std::cout << "pid: " << pid << std::endl;
+      // std::cout << "idx: " << idx << std::endl;
+      // std::cout << "capacity_per_partition: " << capacity_per_partition
+      //           << std::endl;
+      // std::cout << "partitions: " << partitions << std::endl;
       arr[pid][idx] = (char *)value;
       return true;
     } else {
@@ -132,6 +141,7 @@ class HashArray {
       std::cout << "capacity_per_partition: " << capacity_per_partition
                 << std::endl;
       std::cout << "partitions: " << partitions << std::endl;
+      std::cout << name << std::endl;
       assert(false);
       return false;
     }

@@ -15,6 +15,10 @@ set(txn_engine_cxx
     snapshot/cor_const_arena.cpp
     )
 
+
+set(engine_libs ${engine_libs} -lnuma )
+set(engine_libs ${engine_libs} gflags::gflags ${GLOG} gflags::gflags)
+
 foreach(target ${txn_engine_cxx})
     set_source_files_properties(${target} PROPERTIES COMPILE_FLAGS ${CUDA_CXXFLAGS})
 endforeach()
@@ -24,7 +28,7 @@ endforeach()
 add_library(aeolus_engine SHARED
         ${txn_engine_cxx}
     )
-target_link_libraries(aeolus_engine ${LLVM_LIBS} -lnuma)
+target_link_libraries(aeolus_engine ${LLVM_LIBS} ${engine_libs})
 install(TARGETS aeolus_engine
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib

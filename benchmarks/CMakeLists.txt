@@ -5,13 +5,14 @@ set(txn_bench_cxx
     )
 
 
-
+set(bench_libs ${bench_libs} -lnuma )
+set(bench_libs ${bench_libs} gflags::gflags ${GLOG} gflags::gflags)
 #-----------------------------------------------------------------------------
 
 add_library(aeolus_bench SHARED
         ${txn_bench_cxx}
     )
-target_link_libraries(aeolus_bench ${LLVM_LIBS} -lnuma)
+target_link_libraries(aeolus_bench ${LLVM_LIBS} ${bench_libs})
 install(TARGETS aeolus_bench
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib

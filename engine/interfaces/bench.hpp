@@ -23,8 +23,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #ifndef BENCH_HPP_
 #define BENCH_HPP_
 
+#include <gflags/gflags.h>
 #include <iostream>
 #include <string>
+
+DECLARE_uint64(num_partitions);
 
 namespace bench {
 

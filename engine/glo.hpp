@@ -23,12 +23,15 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #ifndef GLO_HPP_
 #define GLO_HPP_
 
+#include <gflags/gflags.h>
 #include "indexes/hash_array.hpp"
 #include "indexes/hash_index.hpp"
 #include "transactions/cc.hpp"
 
 #include "snapshot/arena.hpp"
 #include "snapshot/snapshot_manager.hpp"
+
+DECLARE_uint64(num_partitions);
 
 #define NUM_SOCKETS 2
 #define NUM_CORE_PER_SOCKET 64
@@ -39,8 +42,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define HTAP_COW false
 #define HTAP_UPD_BIT_MASK false
 #define SHARED_MEMORY false  // if htap=false, then shm or numa_alloc
-
-#define OLTP_PARTITIONED true
 
 // typedef cuckoohash_map<std::string, std::string> HashIndex;
 

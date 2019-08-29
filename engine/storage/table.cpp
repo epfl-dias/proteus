@@ -188,12 +188,12 @@ Table* Schema::getTable(std::string name) {
 Table* Schema::create_table(
     std::string name, layout_type layout,
     std::vector<std::tuple<std::string, data_type, size_t>> columns,
-    uint64_t initial_num_records, bool indexed) {
+    uint64_t initial_num_records, bool indexed, bool partitioned) {
   Table* tbl = nullptr;
 
   if (layout == COLUMN_STORE) {
     tbl = new ColumnStore((this->num_tables + 1), name, columns,
-                          initial_num_records, indexed);
+                          initial_num_records, indexed, partitioned);
 
   } else if (layout == ROW_STORE) {
     throw new std::runtime_error("ROW STORE NOT IMPLEMENTED");
@@ -244,7 +244,7 @@ uint64_t ColumnStore::load_data_from_binary(std::string col_name,
 ColumnStore::ColumnStore(
     uint8_t table_id, std::string name,
     std::vector<std::tuple<std::string, data_type, size_t>> columns,
-    uint64_t initial_num_records, bool indexed)
+    uint64_t initial_num_records, bool indexed, bool partitioned)
     : Table(name, table_id), indexed(indexed) {
   /*
           TODO: take an argument for column_index or maybe a flag in the tuple
@@ -255,12 +255,19 @@ ColumnStore::ColumnStore(
   this->total_mem_reserved = 0;
   this->deltaStore = storage::Schema::getInstance().deltaStore;
 
-  for (int i = 0; i < NUM_SOCKETS; i++) this->vid[i] = 0;
+  for (int i = 0; i < FLAGS_num_partitions; i++) this->vid[i] = 0;
 
   if (indexed) {
     meta_column = new Column(name + "_meta", initial_num_records, this, META,
                              sizeof(global_conf::IndexVal));
+
+    // if (partitioned)
+    //   this->p_index =
+    //       new global_conf::PrimaryIndex<uint64_t>(name, NUM_SOCKETS);
+    // else
+    //   this->p_index = new global_conf::PrimaryIndex<uint64_t>(name);
     this->p_index = new global_conf::PrimaryIndex<uint64_t>();
+
     std::cout << "Index done" << std::endl;
   }
 
@@ -574,9 +581,11 @@ Column::Column(std::string name, uint64_t initial_num_records,
   // int numa_id = global_conf::master_col_numa_id;
   // std::cout << "Creating column: " << name << ", size:" << unit_size
   //          << std::endl;
+
+  assert(FLAGS_num_partitions <= NUM_SOCKETS);
   size_t size = initial_num_records * unit_size;
   size_t size_per_partition =
-      (((initial_num_records * unit_size) / NUM_SOCKETS) + 1);
+      (((initial_num_records * unit_size) / FLAGS_num_partitions) + 1);
   this->total_mem_reserved = size * global_conf::num_master_versions;
 
   std::cout << "Col:" << name
@@ -584,7 +593,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
             << ", total: "
             << ((double)total_mem_reserved / (1024 * 1024 * 1024)) << std::endl;
 
-  for (uint i = 0; i < NUM_SOCKETS; i++) {
+  for (uint i = 0; i < FLAGS_num_partitions; i++) {
     arena.emplace_back(
         global_conf::SnapshotManager::create(size_per_partition));
   }
@@ -629,7 +638,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
 #endif
 
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
-    for (ushort j = 0; j < NUM_SOCKETS; j++) {
+    for (ushort j = 0; j < FLAGS_num_partitions; j++) {
 
 #if HTAP_RM_SERVER
       std::cout << "HTAP REMOTE ALLOCATION: "
@@ -655,6 +664,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
       uint64_t* pt = (uint64_t*)mem;
       int warmup_max = size_per_partition / sizeof(uint64_t);
       for (int j = 0; j < warmup_max; j++) pt[j] = 0;
+
       master_versions[i][j].emplace_back(mem, size_per_partition, j);
     }
     if (single_version_only) break;
@@ -798,7 +808,7 @@ void* Column::insertElem(uint64_t vid) {
 
 Column::~Column() {
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
-    for (ushort j = 0; j < NUM_SOCKETS; j++) {
+    for (ushort j = 0; j < FLAGS_num_partitions; j++) {
       for (auto& chunk : master_versions[i][j]) {
 #if HTAP_DOUBLE_MASTER
         ::MemoryManager::freePinned(chunk.data);
@@ -820,7 +830,7 @@ void ColumnStore::num_upd_tuples() {
 void Column::num_upd_tuples() {
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     uint64_t counter = 0;
-    for (ushort j = 0; j < NUM_SOCKETS; j++) {
+    for (ushort j = 0; j < FLAGS_num_partitions; j++) {
       for (auto& chunk : master_versions[i][j]) {
         for (uint i = 0; i < (chunk.size / elem_size); i++) {
           uint8_t* p = ((uint8_t*)chunk.data) + i;
@@ -849,11 +859,11 @@ uint64_t Column::load_from_binary(std::string file_path) {
     for (ushort i = 0; i < global_conf::num_master_versions; i++) {
       binFile.seekg(0, binFile.beg);
 
-      for (ushort j = 0; j < NUM_SOCKETS; j++) {
-        size_t part_size = length / NUM_SOCKETS;
-        if (j == (NUM_SOCKETS - 1)) {
+      for (ushort j = 0; j < FLAGS_num_partitions; j++) {
+        size_t part_size = length / FLAGS_num_partitions;
+        if (j == (FLAGS_num_partitions - 1)) {
           // remaining shit.
-          part_size += part_size % NUM_SOCKETS;
+          part_size += part_size % FLAGS_num_partitions;
         }
 
         // assumes first memory chunk is big enough.

@@ -515,7 +515,27 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
 
     float i_price;
     std::vector<ushort> i_col_scan = {3};
+#if REPLICATED_ITEM_TABLE
+    global_conf::IndexVal *item_idx_ptr =
+        (global_conf::IndexVal *)table_item[partition_id]->p_index->find(
+            ol_i_id);
+    item_idx_ptr->latch.acquire();
+    if (txn::CC_MV2PL::is_readable(item_idx_ptr->t_min, item_idx_ptr->t_max,
+                                   xid)) {
+      table_item[partition_id]->getRecordByKey(item_idx_ptr->VID,
+                                               item_idx_ptr->last_master_ver,
+                                               &i_col_scan, &i_price);
+    } else {
+      std::cout << "not readable 5" << std::endl;
+      struct tpcc_item *i_r =
+          (struct tpcc_item *)table_item[partition_id]
+              ->getVersions(item_idx_ptr->VID, item_idx_ptr->delta_id)
+              ->get_readable_ver(xid);
+      i_price = i_r->i_price;
+    }
+    item_idx_ptr->latch.release();
 
+#else
     global_conf::IndexVal *item_idx_ptr =
         (global_conf::IndexVal *)table_item->p_index->find(ol_i_id);
     item_idx_ptr->latch.acquire();
@@ -533,6 +553,8 @@ bool TPCC::exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
       i_price = i_r->i_price;
     }
     item_idx_ptr->latch.release();
+
+#endif
 
     // char *i_name = i_r->i_name;
     // char *i_data = i_r->i_data;
@@ -1558,8 +1580,16 @@ void TPCC::create_tbl_item(uint64_t num_item) {
   columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
       "i_data", storage::VARCHAR, 51));
 
+#if REPLICATED_ITEM_TABLE
+  for (int i = 0; i < NUM_SOCKETS; i++) {
+    table_item[i] = schema->create_table("tpcc_item_" + std::to_string(i),
+                                         storage::COLUMN_STORE, columns,
+                                         num_item * NUM_SOCKETS, true, false);
+  }
+#else
   table_item = schema->create_table("tpcc_item", storage::COLUMN_STORE, columns,
                                     num_item);
+#endif
 }
 
 void TPCC::create_tbl_stock(uint64_t num_stock) {
@@ -1908,7 +1938,6 @@ void TPCC::load_item() {
   // Primary Key: I_ID
 
   struct tpcc_item item_temp;
-  ;
 
   int orig[TPCC_MAX_ITEMS], pos;
 
@@ -1933,10 +1962,18 @@ void TPCC::load_item() {
       int idx = URand(&this->seed, 0, data_len - 8);
       memcpy(&item_temp.i_data[idx], "original", 8);
     }
+#if REPLICATED_ITEM_TABLE
 
+    for (int sc = 0; sc < NUM_SOCKETS; sc++) {
+      void *hash_ptr = table_item[sc]->insertRecord(&item_temp, 0, sc, 0);
+      this->table_item[sc]->p_index->insert(key, hash_ptr);
+    }
+
+#else
     void *hash_ptr = table_item->insertRecord(
         &item_temp, 0, key / (TPCC_MAX_ITEMS / NUM_SOCKETS), 0);
     this->table_item->p_index->insert(key, hash_ptr);
+#endif
   }
 }
 
@@ -2317,7 +2354,7 @@ void TPCC::load_data(int num_threads) {
 
     // load_region_csv();
     std::vector<std::thread> loaders;
-
+#if !REPLICATED_ITEM_TABLE
     loaders.emplace_back([this]() { this->load_warehouse_csv(); });
     loaders.emplace_back([this]() { this->load_district_csv(); });
     loaders.emplace_back([this]() { this->load_stock_csv(); });
@@ -2336,6 +2373,7 @@ void TPCC::load_data(int num_threads) {
     for (auto &th : loaders) {
       th.join();
     }
+#endif
 
   } else {
     std::cout << "[TPCC] Load data" << std::endl;
@@ -2394,7 +2432,7 @@ static inline void trim(std::string &s) {
 }
 
 // CSV Loaders
-
+#if !REPLICATED_ITEM_TABLE
 void TPCC::load_warehouse_csv(std::string filename, char delim) {
   /*
       path = ${csv_path}/WAREHOUSE.tbl
@@ -3385,6 +3423,8 @@ void TPCC::load_customer_csv(std::string filename, char delim) {
 
   csv.close();
 }
+
+#endif
 
 void TPCC::load_customer_secondary_index(struct tpcc_customer &r) {
   uint64_t sr_dkey = cust_derive_key(r.c_last, r.c_d_id, r.c_w_id);

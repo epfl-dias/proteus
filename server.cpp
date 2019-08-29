@@ -22,8 +22,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #define RUNTIME 60  // seconds
 
+#include <gflags/gflags.h>
 #include <unistd.h>
-
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -82,6 +82,31 @@ std::ostream& operator<<(std::ostream& os, uint64_t i) {
 
 // TODO: Add warm-code!!
 
+DEFINE_uint64(num_workers, 0, "Number of txn-workers");
+DEFINE_uint64(benchmark, 0,
+              "Benchmark: 0:YCSB, 1:TPC-C (gen),  2:TPC-C (csv), 3:Micro-SSB");
+DEFINE_uint64(num_partitions, 1,
+              "Number of storage partitions ( round robin NUMA nodes)");
+DEFINE_int64(num_iter_per_worker, -1, "# of iterations per worker");
+DEFINE_uint64(runtime, 60, "Duration of experiments in seconds");
+
+DEFINE_uint64(worker_sched_mode, 0,
+              "Scheduling of worker: 0-default, 1-interleaved-even, "
+              "2-interleaved-odd, 3-reversed.");
+
+// YCSB
+DEFINE_double(ycsb_write_ratio, 0.5, "Writer to reader ratio");
+DEFINE_double(ycsb_zipf_theta, 0.5, "YCSB - Zipfian theta");
+DEFINE_uint64(ycsb_num_cols, 1, "YCSB - # Columns");
+DEFINE_uint64(ycsb_num_ops_per_txn, 10, "YCSB - # ops / txn");
+DEFINE_uint64(ycsb_num_records, 72000000, "YCSB - # records");
+
+// TPC-C
+DEFINE_uint64(tpcc_num_wh, 0, "TPC-C - # of Warehouses ( 0 = one per worker");
+DEFINE_uint64(tpcc_dist_threshold, 0, "TPC-C - Distributed txn threshold");
+DEFINE_string(tpcc_csv_dir, "/scratch/data/ch100w/raw",
+              "CSV Dir for loading tpc-c data (bench-2)");
+
 void check_num_upd_by_bits();
 
 int main(int argc, char** argv) {
@@ -99,66 +124,20 @@ int main(int argc, char** argv) {
   // myfile.close();
   // return 0;
 
-  cxxopts::Options options("AEOLUS", "Column-major, Elastic OLTP Engine");
+  gflags::SetUsageMessage("Simple command line interface for aeolus");
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  options.add_options()("d,debug", "Enable debugging")(
-      "w,workers", "Number of Workers", cxxopts::value<uint>())(
-      "r,write_ratio", "Reader to writer ratio", cxxopts::value<double>())(
-      "t,theta", "Zipf theta", cxxopts::value<double>())(
-      //"g,gc_mode", "GC Mode: 1-Snapshot, 2-TupleGC", cxxopts::value<uint>())(
-      "b,benchmark",
-      "Benchmark: 0:YCSB, 1:TPC-C (gen),  2:TPC-C (csv), 3:Micro-SSB",
-      cxxopts::value<uint>())("c,ycsb_num_cols", "Number of YCSB Columns",
-                              cxxopts::value<uint>());
+  // google::InitGoogleLogging(argv[0]);
+  // FLAGS_logtostderr = 1; // FIXME: the command line flags/defs seem to
+  // fail...
 
-  auto result = options.parse(argc, argv);
+  if (FLAGS_num_workers == 0)
+    FLAGS_num_workers = scheduler::Topology::getInstance().getCoreCount();
 
-  // result.count("option")
-  // result["opt"].as<type>()
-  // cxxopts::value<std::string>()->default_value("value")
-  // cxxopts::value<std::string>()->implicit_value("implicit")
-
-  // conf
-  int num_workers = MAX_WORKERS;  // std::thread::hardware_concurrency();
-  uint gc_mode = 1;
-  uint bechnmark = 0;  // default: YCSB
-
-  // TPC-C vars
-
-  // ycsb vars
-  // (10-G * (1024^3))/(8*10-num_field)
-  int num_fields = 1;  // 2;
-  // int num_records = 134217728;  // 10GB
-  // int num_records = 268435456;  // 20GB
-  int num_records = 72000000;
-  // int num_records = 1000000;
-  double theta = 0.5;
-  int num_iterations_per_worker = 1000000;
-  int num_ops_per_txn = 10;
-  double write_threshold = 0.5;
-
-  if (result.count("w") > 0) {
-    num_workers = result["w"].as<uint>();
-  }
-  if (result.count("b") > 0) {
-    bechnmark = result["b"].as<uint>();
-  }
-
-  if (result.count("r") > 0) {
-    write_threshold = result["r"].as<double>();
-  }
-  if (result.count("t") > 0) {
-    theta = result["t"].as<double>();
-  }
-  if (result.count("g") > 0) {
-    gc_mode = result["g"].as<uint>();
-  }
-  if (result.count("c") > 0) {
-    num_fields = result["c"].as<uint>();
-  }
+  if (FLAGS_tpcc_num_wh == 0) FLAGS_tpcc_num_wh = FLAGS_num_workers;
 
   std::cout << "------- AELOUS ------" << std::endl;
-  std::cout << "# Workers: " << num_workers << std::endl;
+  std::cout << "# Workers: " << FLAGS_num_workers << std::endl;
   std::cout << "---------------------" << std::endl;
 
   // INIT
@@ -201,25 +180,26 @@ int main(int argc, char** argv) {
 
   // init benchmark
   bench::Benchmark* bench = nullptr;
-  if (bechnmark == 1) {
-    bench = new bench::TPCC("TPCC", num_workers);
+  if (FLAGS_benchmark == 1) {
+    bench = new bench::TPCC("TPCC", FLAGS_tpcc_num_wh);
+    bench->load_data(FLAGS_num_workers);
 
-  } else if (bechnmark == 2) {
-    bench = new bench::TPCC("TPCC", 100, 0,
-                            "/home/raza/local/chBenchmark_1_0/w100/raw");
-  } else if (bechnmark == 3) {
+  } else if (FLAGS_benchmark == 2) {
+    bench = new bench::TPCC("TPCC", FLAGS_tpcc_num_wh,
+                            FLAGS_tpcc_dist_threshold, FLAGS_tpcc_csv_dir);
+  } else if (FLAGS_benchmark == 3) {
     bench = new bench::MicroSSB();
 
   } else {  // Defult YCSB
 
-    std::cout << "Write Threshold: " << write_threshold << std::endl;
-    std::cout << "Theta: " << theta << std::endl;
-    bench = new bench::YCSB("YCSB", num_fields, num_records, theta,
-                            num_iterations_per_worker, num_ops_per_txn,
-                            write_threshold, num_workers, num_workers);
+    std::cout << "Write Threshold: " << FLAGS_ycsb_write_ratio << std::endl;
+    std::cout << "Theta: " << FLAGS_ycsb_zipf_theta << std::endl;
+    bench = new bench::YCSB("YCSB", FLAGS_ycsb_num_cols, FLAGS_ycsb_num_records,
+                            FLAGS_ycsb_zipf_theta, FLAGS_num_iter_per_worker,
+                            FLAGS_ycsb_num_ops_per_txn, FLAGS_ycsb_write_ratio,
+                            FLAGS_num_workers,
+                            scheduler::Topology::getInstance().getCoreCount());
   }
-
-  bench->load_data(num_workers);
 
   /* As soon as worker starts, they start transactions. so make sure you setup
    * everything needed for benchmark transactions before hand.
@@ -230,10 +210,15 @@ int main(int argc, char** argv) {
    */
 
   scheduler::AffinityManager::getInstance().set(
-      &scheduler::Topology::getInstance().get_worker_cores()->front());
+      &scheduler::Topology::getInstance().getCores().front());
+
   scheduler::WorkerPool::getInstance().init(bench);
+
   __itt_resume();
-  scheduler::WorkerPool::getInstance().start_workers(num_workers);
+
+  scheduler::WorkerPool::getInstance().start_workers(
+      FLAGS_num_workers, FLAGS_num_partitions, FLAGS_worker_sched_mode,
+      FLAGS_num_iter_per_worker);
 
   /* Report stats every 1 sec */
   // timed_func::interval_runner(
@@ -245,7 +230,7 @@ int main(int argc, char** argv) {
    * worker executes transaction forever (using a benchmark) or finished after
    * executing certain number of txns/iterations. */
 
-  usleep(RUNTIME * 1000000);
+  usleep(FLAGS_runtime * 1000000);
 
   // usleep((RUNTIME/2) * 1000000);
 

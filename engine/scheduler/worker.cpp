@@ -39,8 +39,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
 
-#define NUM_ITER 5000000
-
 namespace scheduler {
 
 void WorkerPool::shutdown_manual() {
@@ -191,7 +189,11 @@ void Worker::run() {
 
     num_txns++;
 
-    if (num_txns == NUM_ITER) break;
+    // if (num_txns == num_iters) {
+    //   std::cout << "Worker-" << (uint)this->id
+    //             << " : Completed number of iterations" << std::endl;
+    //   break;
+    // }
   }
 
   txn_end_time = std::chrono::system_clock::now();
@@ -353,6 +355,7 @@ void WorkerPool::add_worker(core* exec_location, ushort partition_id) {
   assert(workers.find(exec_location->id) == workers.end());
   Worker* wrkr = new Worker(worker_counter++, exec_location);
   wrkr->partition_id = partition_id;
+  wrkr->num_iters = this->num_iter_per_worker;
   wrkr->is_hotplugged = true;
   std::thread* thd = new std::thread(&Worker::run, wrkr);
 
@@ -367,36 +370,70 @@ void WorkerPool::remove_worker(core* exec_location) {
   // TODO: remove from the vector too?
 }
 
-void WorkerPool::start_workers(int num_workers) {
+void WorkerPool::start_workers(uint num_workers, uint num_partitions,
+                               uint worker_sched_mode,
+                               int num_iter_per_worker) {
+  this->num_iter_per_worker = num_iter_per_worker;
+  this->worker_sched_mode = worker_sched_mode;
+  this->num_partitions = num_partitions;
+
   std::cout << "[WorkerPool] start_workers -- requested_num_workers: "
             << num_workers << std::endl;
-  std::vector<core>* worker_cores =
-      Topology::getInstance().get_worker_cores(num_workers);
 
-  std::cout << "[WorkerPool] Number of Workers (AUTO) " << num_workers
-            << std::endl;
+  std::cout << "[WorkerPool] Number of Workers " << num_workers << std::endl;
 
   /* FIX ME:HACKED because we dont have topology returning specific number of
    * cores, this will be fixed when the elasticity and container stuff. until
    * then, just manually limit the number of wokrers
    */
 
-  int i = 0;
-  std::cout << "[WorkerPool] " << num_workers << " Workers starting pre-run.."
-            << std::endl;
-
+  std::vector<core> worker_cores = Topology::getInstance().getCores();
   pre_barrier.store(0);
-  for (auto& exec_core : *worker_cores) {
-    Worker* wrkr = new Worker(worker_counter++, &exec_core);
-    wrkr->partition_id = ((uint)wrkr->id) / NUM_CORE_PER_SOCKET;
-    std::cout << "Worker-" << (uint)wrkr->id << ": Allocated partition # "
-              << wrkr->partition_id << std::endl;
-    std::thread* thd = new std::thread(&Worker::run, wrkr);
+  int i = 0;
 
-    workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
-    if (++i == num_workers) {
-      break;
+  if (worker_sched_mode <= 2) {  // default / inteleave
+
+    for (auto& exec_core : worker_cores) {
+      if (worker_sched_mode == 1) {  // interleave - even
+        if (exec_core.index_in_topo % 2 != 0) continue;
+      } else if (worker_sched_mode == 2) {  // interleave - odd
+        if (exec_core.index_in_topo % 2 == 0) continue;
+      }
+
+      Worker* wrkr = new Worker(worker_counter++, &exec_core);
+      wrkr->partition_id = (exec_core.local_cpu_index % num_partitions);
+      wrkr->num_iters = num_iter_per_worker;
+
+      std::cout << "Worker-" << (uint)wrkr->id << ": Allocated partition # "
+                << wrkr->partition_id << std::endl;
+      std::thread* thd = new std::thread(&Worker::run, wrkr);
+
+      workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
+      if (++i == num_workers) {
+        break;
+      }
     }
+
+  } else if (worker_sched_mode == 3) {  // reversed
+
+    for (std::vector<core>::reverse_iterator c = worker_cores.rbegin();
+         c != worker_cores.rend(); ++c) {
+      Worker* wrkr = new Worker(worker_counter++, &(*c));
+      wrkr->partition_id = (c->local_cpu_index % num_partitions);
+      wrkr->num_iters = num_iter_per_worker;
+
+      std::cout << "Worker-" << (uint)wrkr->id << ": Allocated partition # "
+                << wrkr->partition_id << std::endl;
+      std::thread* thd = new std::thread(&Worker::run, wrkr);
+
+      workers.emplace(std::make_pair(c->id, std::make_pair(thd, wrkr)));
+      if (++i == num_workers) {
+        break;
+      }
+    }
+
+  } else {
+    assert(false && "Unknown scheduling mode.");
   }
 
   while (pre_barrier != num_workers) {
@@ -410,38 +447,6 @@ void WorkerPool::start_workers(int num_workers) {
     pre_barrier++;
   }
   pre_cv.notify_all();
-
-  // // interleave
-  // int i = 0;
-  // int j = 0;
-  // for (auto& exec_core : *worker_cores) {
-  //   if (j % 2 == 1) {
-  //     Worker* wrkr = new Worker(worker_counter++, &exec_core);
-  //     std::thread* thd = new std::thread(&Worker::run, wrkr);
-
-  //     workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd,
-  //     wrkr))); if (++i == num_workers) {
-  //       break;
-  //     }
-  //   }
-  //   j++;
-  // }
-
-  // second socket ibm machine
-  // int i = 0;
-  // int j = 0;
-  // for (auto& exec_core : *worker_cores) {
-  //   ++j;
-  //   // FIXME
-  //   if (j < 64) continue;
-  //   Worker* wrkr = new Worker(worker_counter++, &exec_core);
-  //   std::thread* thd = new std::thread(&Worker::run, wrkr);
-
-  //   workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
-  //   if (++i == num_workers) {
-  //     break;
-  //   }
-  // }
 }
 
 void WorkerPool::shutdown(bool print_stats) { this->~WorkerPool(); }

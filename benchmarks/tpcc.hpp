@@ -36,6 +36,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "transactions/transaction_manager.hpp"
 //#include <thread
 
+#define REPLICATED_ITEM_TABLE true
+
 #define TPCC_MAX_ORDER_INITIAL_CAP 50000000
 
 #define MAX_OPS_PER_QUERY 255
@@ -91,8 +93,13 @@ class TPCC : public Benchmark {
   storage::Table *table_new_order;
   storage::Table *table_order;
   storage::Table *table_order_line;
-  storage::Table *table_item;
   storage::Table *table_stock;
+
+#if REPLICATED_ITEM_TABLE
+  storage::Table *table_item[NUM_SOCKETS];
+#else
+  storage::Table *table_item;
+#endif
 
   storage::Table *table_region;
   storage::Table *table_nation;

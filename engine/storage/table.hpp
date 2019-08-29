@@ -67,7 +67,8 @@ class Schema {
   Table *create_table(
       std::string name, layout_type layout,
       std::vector<std::tuple<std::string, data_type, size_t>> columns,
-      uint64_t initial_num_records = 10000000, bool indexed = true);
+      uint64_t initial_num_records = 10000000, bool indexed = true,
+      bool partitioned = true);
 
   void drop_table(std::string name);
   void drop_table(int idx);
@@ -185,7 +186,8 @@ class ColumnStore : public Table {
  public:
   ColumnStore(uint8_t table_id, std::string name,
               std::vector<std::tuple<std::string, data_type, size_t>> columns,
-              uint64_t initial_num_records = 10000000, bool indexed = true);
+              uint64_t initial_num_records = 10000000, bool indexed = true,
+              bool partitioned = true);
   uint64_t insertRecord(void *rec, ushort partition_id, ushort master_ver);
   void *insertRecord(void *rec, uint64_t xid, ushort partition_id,
                      ushort master_ver);

@@ -31,6 +31,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <mutex>
 #include <thread>
 
 #include "glo.hpp"
@@ -76,9 +77,6 @@ class YCSB : public Benchmark {
   storage::Schema *schema;
   storage::Table *ycsb_tbl;
 
-  std::atomic<bool> initialized;  // so that nobody calls load twice
-                                  // std::atomic<uint64_t> key_gen;
-
   struct YCSB_TXN_OP {
     uint64_t key;
     txn::OP_TYPE op_type;
@@ -93,61 +91,38 @@ class YCSB : public Benchmark {
   };  // __attribute__((aligned(64)));
 
  public:
-  void load_data(int num_threads = 1) {
-    std::cout << "[YCSB] Loading data.." << std::endl;
-    std::vector<std::tuple<std::string, storage::data_type, size_t> > columns;
-    for (int i = 0; i < num_fields; i++) {
-      columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-          "col_" + std::to_string(i + 1), storage::INTEGER, sizeof(uint64_t)));
-    }
-    ycsb_tbl = schema->create_table("ycsb_tbl", storage::COLUMN_STORE, columns,
-                                    num_records);
+  void pre_run(int wid, uint64_t xid, ushort partition_id, ushort master_ver) {
+    static std::mutex out_lk;
 
+    uint64_t to_ins = num_records / num_active_workers;
+    uint64_t start = to_ins * wid;
+
+    {
+      std::unique_lock<std::mutex> lk(out_lk);
+      std::cout << "Worker-" << wid << " : Inserting records" << std::endl;
+    }
+
+    for (int i = start; i < (start + to_ins); i++) {
+      std::vector<uint64_t> tmp(num_fields, i);
+      struct YCSB_TXN insert_txn = gen_insert_txn(i, &tmp);
+      this->exec_txn(&insert_txn, xid, master_ver, 0, partition_id);
+    }
+    {
+      std::unique_lock<std::mutex> lk(out_lk);
+      std::cout << "Worker-" << wid << " : Inserted " << to_ins << " records."
+                << std::endl;
+    }
+  }
+
+  void load_data(int num_threads = 1) {
     /* Load data into tables*/
 
-    // multi-thread is broken
-    /*uint64_t block_size = num_records / num_threads;
-    std::cout << "-------------" << std::endl;
-    std::cout << "------YCSB LOAD-------" << std::endl;
-    std::cout << "Total Records: " << num_records << std::endl;
-    std::cout << "Total Threads: " << num_threads << std::endl;
-    std::cout << "Block size: " << block_size << std::endl;
-
-    std::thread *thd_arr[num_threads];
-
-    for (int i = 0; i < num_threads; i++) {
-      uint64_t start = block_size * i;
-      uint64_t end = (block_size * (i + 1)) - 1;
-
-      uint64_t args[3];
-      args[0] = start;
-      args[1] = end;
-
-      if (end > num_records) {
-        end = num_records;
-      }
-      std::cout << "Block-" << i << " | start: " << start << ", end: " << end
-                << std::endl;
-
-      thd_arr[i] = new std::thread(&YCSB::load_data_thread, this, &args);
-    }
-
-    for (int i = 0; i < num_threads; i++) {
-      thd_arr[i]->join();
-      delete thd_arr[i];
-    }*/
-
-    // txn::TransactionManager *txnManager =
-    //    &txn::TransactionManager::getInstance();
     uint pid = 0;
     for (int i = 0; i < num_records; i++) {
       std::vector<uint64_t> tmp(num_fields, i);
-
       struct YCSB_TXN insert_txn = gen_insert_txn(i, &tmp);
-      // txnManager->executor.execute_txn(
-      this->exec_txn(
-          &insert_txn, 0, 0, 0,
-          i / (num_records / NUM_SOCKETS));  // txn_id = 0; master= 0; delta_ver
+
+      this->exec_txn(&insert_txn, 0, 0, 0, i / (num_records / NUM_SOCKETS));
 
       // = 0; parition_id = 0;
       if (pid != (i / (num_records / NUM_SOCKETS))) {
@@ -157,12 +132,10 @@ class YCSB : public Benchmark {
         pid = i / (num_records / NUM_SOCKETS);
       }
 
-      // txnManager->get_next_xid(0),txnManager->curr_master);
       if (i % 1000000 == 0)
         std::cout << "[YCSB] inserted records: " << i << std::endl;
     }
     std::cout << "[YCSB] inserted records: " << num_records << std::endl;
-    initialized = true;
   }
 
   struct YCSB_TXN gen_insert_txn(uint64_t key, void *rec) {
@@ -195,11 +168,6 @@ class YCSB : public Benchmark {
   void *get_query_struct_ptr() {
     struct YCSB_TXN *txn = new struct YCSB_TXN;
     txn->ops = new struct YCSB_TXN_OP[num_ops_per_txn];
-
-    // struct YCSB_TXN *txn = (struct YCSB_TXN *)malloc(sizeof(struct
-    // YCSB_TXN)); txn->ops = (struct YCSB_TXN_OP *)calloc(num_ops_per_txn,
-    //                                         sizeof(struct YCSB_TXN_OP));
-    // new YCSB_TXN_OP[num_ops_per_txn];
     return txn;
   }
 
@@ -360,7 +328,6 @@ class YCSB : public Benchmark {
         write_threshold(write_threshold),
         num_max_workers(num_max_workers),
         num_active_workers(num_active_workers) {
-    initialized = false;
     // num_workers = scheduler::Topology::getInstance().get_num_worker_cores();
     if (num_max_workers == -1)
       num_max_workers = std::thread::hardware_concurrency();
@@ -382,6 +349,15 @@ class YCSB : public Benchmark {
     // }
 
     this->schema = &storage::Schema::getInstance();
+
+    std::cout << "[YCSB] Loading data.." << std::endl;
+    std::vector<std::tuple<std::string, storage::data_type, size_t> > columns;
+    for (int i = 0; i < num_fields; i++) {
+      columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
+          "col_" + std::to_string(i + 1), storage::INTEGER, sizeof(uint64_t)));
+    }
+    ycsb_tbl = schema->create_table("ycsb_tbl", storage::COLUMN_STORE, columns,
+                                    num_records);
   }
 
   struct drand48_data *rand_buffer;
