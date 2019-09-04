@@ -78,7 +78,7 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
         this.name           = name;
         this.type           = null      ;
         this.linehint       = Long.MAX_VALUE;
-        this.plugin         = Map.of("type", "intermediate");
+        this.plugin         = ImmutableMap.of("type", "intermediate");
 
         this.protoRowType   = null;
         this.rowType        = rowType;
