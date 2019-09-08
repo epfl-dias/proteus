@@ -56,13 +56,19 @@ class RelBuilder {
     return memmove(attr(getOutputArg()), slack, to_cpu);
   }
 
+  template <typename T>
+  RelBuilder membrdcst(T attr, size_t fanout, bool to_cpu,
+                       bool always_share = false) const {
+    return membrdcst(attr(getOutputArg()), fanout, to_cpu, always_share);
+  }
+
   template <typename T, typename Thash>
   RelBuilder router(T attr, Thash hash, size_t fanout, size_t fanin,
                     size_t slack, bool numa_local = true,
                     bool rand_local_cpu = false, bool cpu_targets = false,
                     int numa_socket_id = -1) const {
-    return router(attr(getOutputArg()), hash(attr(getOutputArg())), fanout,
-                  fanin, slack, numa_local, rand_local_cpu, cpu_targets,
+    return router(attr(getOutputArg()), hash(getOutputArg()), fanout, fanin,
+                  slack, numa_local, rand_local_cpu, cpu_targets,
                   numa_socket_id);
   }
 
@@ -159,6 +165,10 @@ class RelBuilder {
                     size_t fanin, size_t slack, bool numa_local,
                     bool rand_local_cpu, bool cpu_targets,
                     int numa_socket_id) const;
+
+  RelBuilder membrdcst(const vector<RecordAttribute*>& wantedFields,
+                       size_t fanout, bool to_cpu,
+                       bool always_share = false) const;
 };
 
 #endif /* RELBUILDER_HPP_ */

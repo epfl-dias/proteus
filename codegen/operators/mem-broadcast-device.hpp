@@ -90,6 +90,21 @@ class MemBroadcastDevice : public UnaryOperator {
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
+  virtual RecordType getRowType() const {
+    std::string relName = wantedFields[0]->getRelationName();
+
+    std::vector<RecordAttribute *> ret;
+    ret.reserve(wantedFields.size() + 1);
+    for (const auto &f : wantedFields) {
+      ret.emplace_back(new RecordAttribute{*f});
+    }
+
+    RecordAttribute *reg_as =
+        new RecordAttribute(relName, "__broadcastTarget", new IntType());
+    ret.emplace_back(reg_as);
+    return ret;
+  }
+
  private:
   const vector<RecordAttribute *> wantedFields;
   size_t device_id_var;

@@ -33,6 +33,7 @@
 #include "operators/gpu/gpu-reduce.hpp"
 #include "operators/gpu/gpu-to-cpu.hpp"
 #include "operators/hash-rearrange.hpp"
+#include "operators/mem-broadcast-device.hpp"
 #include "operators/mem-move-device.hpp"
 #include "operators/reduce-opt.hpp"
 #include "operators/scan.hpp"
@@ -48,6 +49,14 @@ RelBuilder RelBuilder::scan(Plugin &pg) const {
 RelBuilder RelBuilder::memmove(const vector<RecordAttribute *> &wantedFields,
                                size_t slack, bool to_cpu) const {
   auto op = new MemMoveDevice(root, ctx, wantedFields, slack, to_cpu);
+  return apply(op);
+}
+
+RelBuilder RelBuilder::membrdcst(const vector<RecordAttribute *> &wantedFields,
+                                 size_t fanout, bool to_cpu,
+                                 bool always_share) const {
+  auto op = new MemBroadcastDevice(root, ctx, wantedFields, fanout, to_cpu,
+                                   always_share);
   return apply(op);
 }
 
