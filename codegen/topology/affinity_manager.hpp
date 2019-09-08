@@ -42,9 +42,14 @@ class affinity_cpu_set {
 };
 
 class affinity {
+ public:
+  static int32_t get_server();
+
  private:
   static void set(const topology::cpunumanode &cpu);
   static void set(const topology::core &core);
+
+  static void set_server(int32_t server);
 
   static const topology::cpunumanode &get();
 

@@ -27,6 +27,7 @@
 
 static thread_local cpu_set_t thread_core_affinity = cpu_set_t{1};
 static thread_local uint32_t thread_cpu_numa_node_affinity = 0;
+static thread_local uint32_t thread_server_affinity = 0;
 
 exec_location::exec_location(int gpu)
     : exec_location(topology::getInstance().getGpuByIndex(gpu)) {}
@@ -58,6 +59,9 @@ void affinity::set(const topology::core &core) {
                              &(thread_core_affinity));
   assert(!err);
 }
+
+void affinity::set_server(int32_t server) { thread_server_affinity = server; }
+int32_t affinity::get_server() { return thread_server_affinity; }
 
 const topology::cpunumanode &affinity::get() {
   const auto &topo = topology::getInstance();
