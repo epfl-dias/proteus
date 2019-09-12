@@ -53,6 +53,8 @@ class threadsafe_stack {
   }
 
  public:
+  __host__ size_t size_unsafe() const { return data.size(); }
+
   __host__ void push(T v) {
     std::unique_lock<std::mutex> lock(m);
     data.push_back(v);

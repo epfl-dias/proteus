@@ -672,6 +672,9 @@ __host__ void buffer_manager<T>::log_buffers() {
     out << "\rBuffers on device: ";
     for (uint32_t i = 0; i < devices; ++i)
       out << cnts[i] << "(+" << device_buffs_pool[i].size() << ") ";
+    for (const auto &s : topo.getCpuNumaNodes()) {
+      out << h_pool_numa[s.id]->size_unsafe() << " ";
+    }
     out << "\t\t"
         << progress[(iter++) % (sizeof(progress) - 1)];  // for null character
     out << "\0338";
