@@ -704,10 +704,11 @@ RecordType ScanToBlockSMPlugin::getRowType() const {
   for (const auto &attr : this->wantedFields) {
     auto ptr = attr;
     // This plugin outputs blocks, so let's convert any attribute to a
-    // BlockType if (!dynamic_cast<const BlockType *>(ptr->getOriginalType()))
-    // {
-    //   ptr = new RecordAttribute(*attr, true);
-    // }
+    // BlockType
+    if (!dynamic_cast<const BlockType *>(ptr->getOriginalType())) {
+      ptr = new RecordAttribute(*attr, true);
+    }
+    assert(!dynamic_cast<const BlockType *>(attr->getOriginalType()));
     rec.emplace_back(ptr);
   }
   return rec;

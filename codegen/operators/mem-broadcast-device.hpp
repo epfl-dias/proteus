@@ -97,6 +97,7 @@ class MemBroadcastDevice : public UnaryOperator {
     ret.reserve(wantedFields.size() + 1);
     for (const auto &f : wantedFields) {
       ret.emplace_back(new RecordAttribute{*f});
+      assert(dynamic_cast<const BlockType *>(ret.back()->getOriginalType()));
     }
 
     RecordAttribute *reg_as =

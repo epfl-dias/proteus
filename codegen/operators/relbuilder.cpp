@@ -67,6 +67,9 @@ RelBuilder RelBuilder::scan(Plugin &pg) const {
 
 RelBuilder RelBuilder::memmove(const vector<RecordAttribute *> &wantedFields,
                                size_t slack, bool to_cpu) const {
+  for (const auto &attr : wantedFields) {
+    assert(dynamic_cast<const BlockType *>(attr->getOriginalType()));
+  }
   auto op = new MemMoveDevice(root, ctx, wantedFields, slack, to_cpu);
   return apply(op);
 }
@@ -74,9 +77,43 @@ RelBuilder RelBuilder::memmove(const vector<RecordAttribute *> &wantedFields,
 RelBuilder RelBuilder::membrdcst(const vector<RecordAttribute *> &wantedFields,
                                  size_t fanout, bool to_cpu,
                                  bool always_share) const {
+  for (const auto &attr : wantedFields) {
+    assert(dynamic_cast<const BlockType *>(attr->getOriginalType()));
+  }
   auto op = new MemBroadcastDevice(root, ctx, wantedFields, fanout, to_cpu,
                                    always_share);
   return apply(op);
+}
+
+RelBuilder RelBuilder::membrdcst(size_t fanout, bool to_cpu,
+                                 bool always_share) const {
+  return membrdcst(
+      [&](const auto &arg) -> std::vector<RecordAttribute *> {
+        std::vector<RecordAttribute *> ret;
+        for (const auto &attr : arg.getProjections()) {
+          if (dynamic_cast<const BlockType *>(attr.getOriginalType())) {
+            ret.emplace_back(new RecordAttribute{attr});
+          }
+        }
+        assert(ret.size() != 0);
+        return ret;
+      },
+      fanout, to_cpu, always_share);
+}
+
+RelBuilder RelBuilder::memmove(size_t slack, bool to_cpu) const {
+  return memmove(
+      [&](const auto &arg) -> std::vector<RecordAttribute *> {
+        std::vector<RecordAttribute *> ret;
+        for (const auto &attr : arg.getProjections()) {
+          if (dynamic_cast<const BlockType *>(attr.getOriginalType())) {
+            ret.emplace_back(new RecordAttribute{attr});
+          }
+        }
+        assert(ret.size() != 0);
+        return ret;
+      },
+      slack, to_cpu);
 }
 
 RelBuilder RelBuilder::to_gpu() const {

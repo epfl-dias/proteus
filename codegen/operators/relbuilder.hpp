@@ -50,6 +50,24 @@ class RelBuilder {
     return new RecordType(root->getRowType());
   }
 
+  expressions::InputArgument getOutputArgUnnested() const {
+    auto args = root->getRowType().getArgs();
+    std::vector<RecordAttribute*> attrs;
+    attrs.reserve(args.size());
+    for (const auto& arg : args) {
+      const BlockType* block =
+          dynamic_cast<const BlockType*>(arg->getOriginalType());
+      if (block) {
+        attrs.emplace_back(
+            new RecordAttribute(arg->getAttrNo(), arg->getRelationName(),
+                                arg->getAttrName(), &(block->getNestedType())));
+      } else {
+        attrs.emplace_back(arg);
+      }
+    }
+    return new RecordType(attrs);
+  }
+
   const RecordType& getRecordType(CatalogParser& catalog,
                                   std::string relName) const;
   void setOIDType(CatalogParser& catalog, std::string relName,
@@ -81,6 +99,8 @@ class RelBuilder {
     return scan(*pg);
   }
 
+  RelBuilder memmove(size_t slack, bool to_cpu) const;
+
   template <typename T>
   RelBuilder memmove(T attr, size_t slack, bool to_cpu) const {
     return memmove(attr(getOutputArg()), slack, to_cpu);
@@ -91,6 +111,9 @@ class RelBuilder {
                        bool always_share = false) const {
     return membrdcst(attr(getOutputArg()), fanout, to_cpu, always_share);
   }
+
+  RelBuilder membrdcst(size_t fanout, bool to_cpu,
+                       bool always_share = false) const;
 
   template <typename T, typename Thash>
   RelBuilder router(T attr, Thash hash, size_t fanout, size_t fanin,
@@ -118,7 +141,7 @@ class RelBuilder {
 
   template <typename T>
   RelBuilder unpack(T expr) const {
-    return unpack(expr(getOutputArg()));
+    return unpack(expr(getOutputArgUnnested()));
   }
 
   template <typename T>
@@ -138,7 +161,7 @@ class RelBuilder {
 
   template <typename T>
   RelBuilder unpack(T expr, gran_t granularity) const {
-    return unpack(expr(getOutputArg()), granularity);
+    return unpack(expr(getOutputArgUnnested()), granularity);
   }
 
   template <typename T, typename Th>
