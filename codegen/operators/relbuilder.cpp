@@ -41,6 +41,23 @@
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
 #include "operators/unnest.hpp"
+#include "plan/plan-parser.hpp"
+
+const RecordType &RelBuilder::getRecordType(CatalogParser &catalog,
+                                            std::string relName) const {
+  auto inputInfo = catalog.getInputInfoIfKnown(relName);
+
+  CollectionType &collType =
+      dynamic_cast<CollectionType &>(*(inputInfo->exprType));
+
+  const ExpressionType &nestedType = collType.getNestedType();
+  return dynamic_cast<const RecordType &>(nestedType);
+}
+
+void RelBuilder::setOIDType(CatalogParser &catalog, std::string relName,
+                            ExpressionType *type) const {
+  catalog.getInputInfo(relName)->oidType = type;
+}
 
 RelBuilder RelBuilder::apply(Operator *op) const { return {*this, op}; }
 

@@ -31,6 +31,8 @@
 
 enum class RoutingPolicy { RANDOM, GPU_NUMA_LOCAL, RAND_LOCAL_CPU, HASH_BASED };
 
+class CatalogParser;
+
 class RelBuilder {
  private:
   ParallelContext* ctx;
@@ -48,11 +50,36 @@ class RelBuilder {
     return new RecordType(root->getRowType());
   }
 
+  const RecordType& getRecordType(CatalogParser& catalog,
+                                  std::string relName) const;
+  void setOIDType(CatalogParser& catalog, std::string relName,
+                  ExpressionType* type) const;
+
  public:
   RelBuilder() : RelBuilder(new ParallelContext("main", false)) {}
   RelBuilder(ParallelContext* ctx) : RelBuilder(ctx, nullptr) {}
 
   RelBuilder scan(Plugin& pg) const;
+
+  template <typename Tplugin>
+  RelBuilder scan(std::string relName, std::vector<std::string> relAttrs,
+                  CatalogParser& catalog) const {
+    const RecordType& recType_ = getRecordType(catalog, relName);
+
+    std::vector<RecordAttribute*> v;
+
+    for (const auto& s : relAttrs) {
+      auto attr = (new RecordType(recType_.getArgs()))->getArg(s);
+      v.emplace_back(new RecordAttribute(*attr));
+    }
+
+    Plugin* pg = new Tplugin(ctx, relName, recType_, v);
+
+    setOIDType(catalog, relName, pg->getOIDType());
+    Catalog::getInstance().registerPlugin(relName, pg);
+
+    return scan(*pg);
+  }
 
   template <typename T>
   RelBuilder memmove(T attr, size_t slack, bool to_cpu) const {

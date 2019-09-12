@@ -452,6 +452,7 @@ class InputArgument : public ExpressionCRTP<InputArgument> {
   }
 
   inline expressions::RecordProjection operator[](RecordAttribute proj) const;
+  inline expressions::RecordProjection operator[](std::string attr) const;
 
  private:
   /**
@@ -1241,6 +1242,12 @@ inline expressions::RecordProjection expressions::InputArgument::operator[](
   // LOG(ERROR) << error_msg;
   // throw runtime_error(error_msg);
   return expression_t{*this}[proj];
+}
+
+inline expressions::RecordProjection expressions::InputArgument::operator[](
+    std::string attr) const {
+  auto &type = dynamic_cast<const RecordType &>(*getExpressionType());
+  return (*this)[*(type.getArg(attr))];
 }
 
 inline expression_t::expression_t(bool v)
