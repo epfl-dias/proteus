@@ -29,6 +29,8 @@
 #include "plan/prepared-statement.hpp"
 #include "util/parallel-context.hpp"
 
+enum class RoutingPolicy { RANDOM, GPU_NUMA_LOCAL, RAND_LOCAL_CPU, HASH_BASED };
+
 class RelBuilder {
  private:
   ParallelContext* ctx;
@@ -65,12 +67,10 @@ class RelBuilder {
 
   template <typename T, typename Thash>
   RelBuilder router(T attr, Thash hash, size_t fanout, size_t fanin,
-                    size_t slack, bool numa_local = true,
-                    bool rand_local_cpu = false, bool cpu_targets = false,
+                    size_t slack, RoutingPolicy p, bool cpu_targets = false,
                     int numa_socket_id = -1) const {
     return router(attr(getOutputArg()), hash(getOutputArg()), fanout, fanin,
-                  slack, numa_local, rand_local_cpu, cpu_targets,
-                  numa_socket_id);
+                  slack, p, cpu_targets, numa_socket_id);
   }
 
   RelBuilder to_gpu() const;
@@ -173,9 +173,8 @@ class RelBuilder {
 
   RelBuilder router(const vector<RecordAttribute*>& wantedFields,
                     std::optional<expression_t> hash, size_t fanout,
-                    size_t fanin, size_t slack, bool numa_local,
-                    bool rand_local_cpu, bool cpu_targets,
-                    int numa_socket_id) const;
+                    size_t fanin, size_t slack, RoutingPolicy p,
+                    bool cpu_targets, int numa_socket_id) const;
 
   RelBuilder membrdcst(const vector<RecordAttribute*>& wantedFields,
                        size_t fanout, bool to_cpu,

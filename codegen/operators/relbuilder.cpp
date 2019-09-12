@@ -169,12 +169,14 @@ PreparedStatement RelBuilder::prepare() {
 
 RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
                               std::optional<expression_t> hash, size_t fanout,
-                              size_t fanin, size_t slack, bool numa_local,
-                              bool rand_local_cpu, bool cpu_targets,
-                              int numa_socket_id) const {
-  auto op =
-      new Exchange(root, ctx, fanout, wantedFields, slack, hash, numa_local,
-                   rand_local_cpu, fanin, cpu_targets, numa_socket_id);
+                              size_t fanin, size_t slack, RoutingPolicy p,
+                              bool cpu_targets, int numa_socket_id) const {
+  assert((p == RoutingPolicy::HASH_BASED) == (hash.has_value()));
+  assert((p == RoutingPolicy::RANDOM) == (!hash.has_value()));
+  auto op = new Exchange(root, ctx, fanout, wantedFields, slack, hash,
+                         p == RoutingPolicy::GPU_NUMA_LOCAL,
+                         p == RoutingPolicy::RAND_LOCAL_CPU, fanin, cpu_targets,
+                         numa_socket_id);
   return apply(op);
 }
 
