@@ -29,9 +29,11 @@
 #include "operators/cpu-to-gpu.hpp"
 #include "operators/exchange.hpp"
 #include "operators/flush.hpp"
+#include "operators/gpu/gpu-hash-join-chained.hpp"
 #include "operators/gpu/gpu-hash-rearrange.hpp"
 #include "operators/gpu/gpu-reduce.hpp"
 #include "operators/gpu/gpu-to-cpu.hpp"
+#include "operators/hash-join-chained.hpp"
 #include "operators/hash-rearrange.hpp"
 #include "operators/mem-broadcast-device.hpp"
 #include "operators/mem-move-device.hpp"
@@ -174,4 +176,26 @@ RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
       new Exchange(root, ctx, fanout, wantedFields, slack, hash, numa_local,
                    rand_local_cpu, fanin, cpu_targets, numa_socket_id);
   return apply(op);
+}
+
+RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
+                            const std::vector<GpuMatExpr> &build_e,
+                            const std::vector<size_t> &build_w,
+                            expression_t probe_k,
+                            const std::vector<GpuMatExpr> &probe_e,
+                            const std::vector<size_t> &probe_w, int hash_bits,
+                            size_t maxBuildInputSize) const {
+  if (root->getDeviceType() == DeviceType::GPU) {
+    auto op = new GpuHashJoinChained(build_e, build_w, build_k, build.root,
+                                     probe_e, probe_w, probe_k, root, hash_bits,
+                                     ctx, maxBuildInputSize);
+    build.apply(op);
+    return apply(op);
+  } else {
+    auto op = new HashJoinChained(build_e, build_w, build_k, build.root,
+                                  probe_e, probe_w, probe_k, root, hash_bits,
+                                  ctx, maxBuildInputSize);
+    build.apply(op);
+    return apply(op);
+  }
 }

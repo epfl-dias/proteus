@@ -56,6 +56,53 @@ class HashJoinChained : public BinaryOperator {
 
   virtual bool isFiltering() const { return true; }
 
+  virtual RecordType getRowType() const {
+    std::vector<RecordAttribute *> ret;
+    if (probe_keyexpr.isRegistered()) {
+      ret.emplace_back(new RecordAttribute(probe_keyexpr.getRegisteredAs()));
+    }
+
+    if (probe_keyexpr.getExpressionType()->getTypeID() == RECORD) {
+      auto rc = dynamic_cast<const expressions::RecordConstruction *>(
+          probe_keyexpr.getUnderlyingExpression());
+
+      for (const auto &a : rc->getAtts()) {
+        auto e = a.getExpression();
+        if (e.isRegistered()) {
+          ret.emplace_back(new RecordAttribute(e.getRegisteredAs()));
+        }
+      }
+    }
+
+    if (build_keyexpr.isRegistered()) {
+      ret.emplace_back(new RecordAttribute(build_keyexpr.getRegisteredAs()));
+    }
+
+    if (build_keyexpr.getExpressionType()->getTypeID() == RECORD) {
+      auto rc = dynamic_cast<const expressions::RecordConstruction *>(
+          build_keyexpr.getUnderlyingExpression());
+
+      for (const auto &a : rc->getAtts()) {
+        auto e = a.getExpression();
+        if (e.isRegistered()) {
+          ret.emplace_back(new RecordAttribute(e.getRegisteredAs()));
+        }
+      }
+    }
+
+    for (const GpuMatExpr &mexpr : probe_mat_exprs) {
+      if (mexpr.packet == 0 && mexpr.packind == 0) continue;
+      ret.emplace_back(new RecordAttribute(mexpr.expr.getRegisteredAs()));
+    }
+
+    for (const GpuMatExpr &mexpr : build_mat_exprs) {
+      if (mexpr.packet == 0 && mexpr.packind == 0) continue;
+      ret.emplace_back(new RecordAttribute(mexpr.expr.getRegisteredAs()));
+    }
+
+    return ret;
+  }
+
  protected:
   void generate_build(ParallelContext *context,
                       const OperatorState &childState);
