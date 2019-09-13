@@ -38,9 +38,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "interfaces/bench.hpp"
 #include "scheduler/topology.hpp"
 
-
-
-
 namespace scheduler {
 
 /*
@@ -88,7 +85,7 @@ class Worker {
   uint64_t curr_delta;
   volatile ushort curr_master;
   bool is_hotplugged;
-  int64_t num_iters;
+  volatile int64_t num_iters;
 
   // STATS
   uint64_t num_txns;
@@ -103,9 +100,10 @@ class Worker {
       txn_end_time;
 
  public:
-  Worker(uint8_t id, core *exec_core, int64_t num_iters = -1, uint partition_id = 0)
+  Worker(uint8_t id, core *exec_core, int64_t num_iters = -1,
+         uint partition_id = 0)
       : id(id),
-      	num_iters(num_iters),
+        num_iters(num_iters),
         terminate(false),
         exec_core(exec_core),
         pause(false),
@@ -143,9 +141,8 @@ class WorkerPool {
   void shutdown(bool print_stats = false);
   void shutdown_manual();
 
-
-
-  void start_workers(uint num_workers = 1, uint num_partitions = 1, uint worker_sched_mode =0, int num_iter_per_worker = -1 );
+  void start_workers(uint num_workers = 1, uint num_partitions = 1,
+                     uint worker_sched_mode = 0, int num_iter_per_worker = -1);
   void add_worker(core *exec_location, ushort partition_id = 0);
   void remove_worker(core *exec_location);
   void print_worker_stats(bool global_only = true);

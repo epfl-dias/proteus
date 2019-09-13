@@ -24,6 +24,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define SPIN_LOCK_HPP_
 
 #include <sched.h>
+#include <atomic>
+#include <cassert>
 
 namespace lock {
 
@@ -46,6 +48,45 @@ struct Spinlock {
   }
 
   volatile int value;
+};
+
+struct Spinlock_Weak {
+  Spinlock_Weak() { lk.store(false); }
+
+  void acquire() {
+    for (int tries = 0; true; ++tries) {
+      bool e_false = false;
+      if (lk.compare_exchange_weak(e_false, true)) return;
+      if (tries == 100) {
+        tries = 0;
+        sched_yield();
+      }
+    }
+  }
+
+  void release() { lk.store(false); }
+
+  std::atomic<bool> lk;
+};
+
+struct Spinlock_Strong {
+  Spinlock_Strong() { lk.store(false); }
+
+  void acquire() {
+    for (int tries = 0; true; ++tries) {
+      bool e_false = false;
+      if (lk.compare_exchange_strong(e_false, true)) return;
+      // assert(false && "Shouldnt fail in TPCC-partition workload!!");
+      if (tries == 100) {
+        tries = 0;
+        sched_yield();
+      }
+    }
+  }
+
+  void release() { lk.store(false); }
+
+  std::atomic<bool> lk;
 };
 
 }  // namespace lock

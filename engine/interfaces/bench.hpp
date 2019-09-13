@@ -39,13 +39,14 @@ class Benchmark {
   }  // who will init the bench? the main session or in worker's init?
   virtual void load_data(int num_threads = 1) {}
   virtual void gen_txn(int wid, void *txn_ptr, ushort partition_id) {}
-  virtual bool exec_txn(void *stmts, uint64_t xid, ushort master_ver,
+  virtual bool exec_txn(const void *stmts, uint64_t xid, ushort master_ver,
                         ushort delta_ver, ushort partition_id) {
     return true;
   }
 
   // Should return a memory pointer which will be used to describe a query.
-  virtual void *get_query_struct_ptr() { return nullptr; }
+  virtual void *get_query_struct_ptr(ushort pid = 0) { return nullptr; }
+  virtual void free_query_struct_ptr(void *ptr) {}
 
   // NOTE: Following will run before/after the workers starts the execution. it
   // will be synchorinized, i.e., worker will not start transaction until all

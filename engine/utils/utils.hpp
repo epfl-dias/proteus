@@ -133,17 +133,21 @@ class timed_func {
 // bool timed_func::terminate = false;
 // int timed_func::num_active_runners = 0;
 
-static int RAND(unsigned int *seed, int max) { return rand_r(seed) % max; }
+static inline int __attribute__((always_inline))
+RAND(unsigned int *seed, int max) {
+  return rand_r(seed) % max;
+}
 
-static int URand(unsigned int *seed, int x, int y) {
+static inline int __attribute__((always_inline))
+URand(unsigned int *seed, int x, int y) {
   return x + RAND(seed, y - x + 1);
 }
 
-static int NURand(unsigned int *seed, int A, int x, int y) {
-  static char C_255_init = FALSE;
-  static char C_1023_init = FALSE;
-  static char C_8191_init = FALSE;
-  static int C_255, C_1023, C_8191;
+static inline int NURand(unsigned int *seed, int A, int x, int y) {
+  static thread_local char C_255_init = FALSE;
+  static thread_local char C_1023_init = FALSE;
+  static thread_local char C_8191_init = FALSE;
+  static thread_local int C_255, C_1023, C_8191;
   int C = 0;
   switch (A) {
     case 255:
@@ -174,13 +178,14 @@ static int NURand(unsigned int *seed, int A, int x, int y) {
   return (((URand(seed, 0, A) | URand(seed, x, y)) + C) % (y - x + 1)) + x;
 }
 
-static int make_alpha_string(unsigned int *seed, int min, int max, char *str) {
-  char char_list[] = {'1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b',
-                      'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-                      'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x',
-                      'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I',
-                      'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
-                      'U', 'V', 'W', 'X', 'Y', 'Z'};
+static inline int make_alpha_string(unsigned int *seed, int min, int max,
+                                    char *str) {
+  const char char_list[] = {
+      '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd',
+      'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q',
+      'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D',
+      'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q',
+      'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'};
   int cnt = URand(seed, min, max);
   for (uint32_t i = 0; i < cnt; i++) str[i] = char_list[URand(seed, 0L, 60L)];
 
@@ -189,8 +194,8 @@ static int make_alpha_string(unsigned int *seed, int min, int max, char *str) {
   return cnt;
 }
 
-static int make_numeric_string(unsigned int *seed, int min, int max,
-                               char *str) {
+static inline int make_numeric_string(unsigned int *seed, int min, int max,
+                                      char *str) {
   int cnt = URand(seed, min, max);
 
   for (int i = 0; i < cnt; i++) {

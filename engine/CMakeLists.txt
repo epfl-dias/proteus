@@ -6,10 +6,11 @@ set(txn_engine_cxx
     scheduler/comm_manager.cpp
     storage/memory_manager.cpp
     storage/table.cpp
-    #storage/row_store.cpp
+    storage/row_store.cpp
+    storage/column_store.cpp
     storage/delta_storage.cpp
     transactions/transaction_manager.cpp
-    transactions/cc.cpp
+    #transactions/cc.cpp
     snapshot/cor_arena.cpp
     snapshot/cow_arena.cpp
     snapshot/cor_const_arena.cpp
@@ -24,6 +25,12 @@ foreach(target ${txn_engine_cxx})
 endforeach()
 
 #-----------------------------------------------------------------------------
+
+# grep -c ^processor /proc/cpuinfo 
+#execute_process(
+#    COMMAND bash "-c" "echo -n hello | sed 's/hello/world/;'" 
+#    OUTPUT_VARIABLE FOO
+#)
 
 add_library(aeolus_engine SHARED
         ${txn_engine_cxx}

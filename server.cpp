@@ -20,7 +20,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#define RUNTIME 60  // seconds
+#define RUNTIME 30  // seconds
 
 #include <gflags/gflags.h>
 #include <unistd.h>
@@ -30,10 +30,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <thread>
 #include <tuple>
 
-#include "benchmarks/micro_ssb.hpp"
+#include "glo.hpp"
+
+// #include "benchmarks/micro_ssb.hpp"
 #include "benchmarks/tpcc.hpp"
 #include "benchmarks/ycsb.hpp"
-#include "glo.hpp"
 #include "indexes/hash_index.hpp"
 #include "interfaces/bench.hpp"
 #include "scheduler/affinity_manager.hpp"
@@ -44,8 +45,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
 #include "utils/utils.hpp"
-
-#include "lib/cxxopts.hpp"
 
 #if __has_include("ittnotify.h")
 #include <ittnotify.h>
@@ -82,6 +81,7 @@ std::ostream& operator<<(std::ostream& os, uint64_t i) {
 
 // TODO: Add warm-code!!
 
+DEFINE_bool(debug, false, "Debug mode");
 DEFINE_uint64(num_workers, 0, "Number of txn-workers");
 DEFINE_uint64(benchmark, 0,
               "Benchmark: 0:YCSB, 1:TPC-C (gen),  2:TPC-C (csv), 3:Micro-SSB");
@@ -89,6 +89,8 @@ DEFINE_uint64(num_partitions, 1,
               "Number of storage partitions ( round robin NUMA nodes)");
 DEFINE_int64(num_iter_per_worker, -1, "# of iterations per worker");
 DEFINE_uint64(runtime, 60, "Duration of experiments in seconds");
+DEFINE_uint64(delta_size, 8, "Size of delta storage in GBs.");
+DEFINE_bool(layout_column_store, true, "True: ColumnStore / False: RowStore");
 
 DEFINE_uint64(worker_sched_mode, 0,
               "Scheduling of worker: 0-default, 1-interleaved-even, "
@@ -107,7 +109,7 @@ DEFINE_uint64(tpcc_dist_threshold, 0, "TPC-C - Distributed txn threshold");
 DEFINE_string(tpcc_csv_dir, "/scratch/data/ch100w/raw",
               "CSV Dir for loading tpc-c data (bench-2)");
 
-void check_num_upd_by_bits();
+// void check_num_upd_by_bits();
 
 int main(int argc, char** argv) {
   // std::fstream myfile;
@@ -157,39 +159,20 @@ int main(int argc, char** argv) {
 
   storage::Schema* schema = &storage::Schema::getInstance();
 
-  // txn::TransactionManager::getInstance().init();
-
-  /* ------------------------------------ */
-
-  // TODO: set affinity for the master server thread.
-
-  // std::cout << "hardcoding execution location to NUMA node ID: 0" <<
-  // std::endl; topology::getInstance().getCpuNumaNodes()[0] const auto
-  // &exec_node =
-  //   scheduler::Topology::getInstance().getCpuNumaNodeById(0);
-
-  // set_exec_location_on_scope d(exec_node);
-
-  //---------------
-  // bench::Benchmark* benchm = new bench::MicroSSB();
-  // std::cout << "creation done" << std::endl;
-  // benchm->load_data(num_workers);
-
-  // return 0;
-  //---------------
-
   // init benchmark
   bench::Benchmark* bench = nullptr;
   if (FLAGS_benchmark == 1) {
-    bench = new bench::TPCC("TPCC", FLAGS_tpcc_num_wh);
-    bench->load_data(FLAGS_num_workers);
+    bench = new bench::TPCC("TPCC", FLAGS_tpcc_num_wh, FLAGS_num_workers,
+                            FLAGS_layout_column_store);
 
   } else if (FLAGS_benchmark == 2) {
-    bench = new bench::TPCC("TPCC", FLAGS_tpcc_num_wh,
+    bench = new bench::TPCC("TPCC", FLAGS_tpcc_num_wh, FLAGS_num_workers,
+                            FLAGS_layout_column_store,
                             FLAGS_tpcc_dist_threshold, FLAGS_tpcc_csv_dir);
-  } else if (FLAGS_benchmark == 3) {
-    bench = new bench::MicroSSB();
 
+  } else if (FLAGS_benchmark == 3) {
+    // bench = new bench::MicroSSB();
+    ;
   } else {  // Defult YCSB
 
     std::cout << "Write Threshold: " << FLAGS_ycsb_write_ratio << std::endl;
@@ -198,23 +181,17 @@ int main(int argc, char** argv) {
                             FLAGS_ycsb_zipf_theta, FLAGS_num_iter_per_worker,
                             FLAGS_ycsb_num_ops_per_txn, FLAGS_ycsb_write_ratio,
                             FLAGS_num_workers,
-                            scheduler::Topology::getInstance().getCoreCount());
+                            scheduler::Topology::getInstance().getCoreCount(),
+                            FLAGS_num_partitions, FLAGS_layout_column_store);
   }
 
   /* As soon as worker starts, they start transactions. so make sure you setup
    * everything needed for benchmark transactions before hand.
    */
 
-  /* Currently, worker looks for the tasks(TXN func pointers) in the queue, if
-   * the queue has nothing, it will get and execute a txn from the benchmark
-   */
-
-  scheduler::AffinityManager::getInstance().set(
-      &scheduler::Topology::getInstance().getCores().front());
-
   scheduler::WorkerPool::getInstance().init(bench);
 
-  __itt_resume();
+  //  __itt_resume();
 
   scheduler::WorkerPool::getInstance().start_workers(
       FLAGS_num_workers, FLAGS_num_partitions, FLAGS_worker_sched_mode,
@@ -232,46 +209,15 @@ int main(int argc, char** argv) {
 
   usleep(FLAGS_runtime * 1000000);
 
-  // usleep((RUNTIME/2) * 1000000);
-
-  // uint64_t last_epoch =
-  // txn::TransactionManager::getInstance().switch_master(curr_master);
-
-  // usleep((RUNTIME/2) * 1000000);
-
-  /* TODO: gather stats about every thread or something*/
-  // scheduler::WorkerPool::getInstance().print_worker_stats();
-
   std::cout << "Tear Down Inititated" << std::endl;
   scheduler::WorkerPool::getInstance().shutdown(true);
-  __itt_pause();
-
-  std::cout << "\tShutting down memory manager" << std::endl;
 
   if (HTAP_RM_SERVER) {
     std::cout << "\tShutting down communication manager..." << std::endl;
     scheduler::CommManager::getInstance().shutdown();
   }
 
-  // std::cout << "----" << std::endl;
-  // check_num_upd_by_bits();
-
-  std::cout << "----" << std::endl;
   storage::Schema::getInstance().teardown();
-  std::cout << "----" << std::endl;
-
-  // storage::MemoryManager::destroy();
 
   return 0;
-}
-
-void check_num_upd_by_bits() {
-  std::vector<storage::Table*> tables =
-      storage::Schema::getInstance().getAllTables();
-
-  for (auto& tbl : tables) {
-    storage::ColumnStore* tmp = (storage::ColumnStore*)tbl;
-
-    tmp->num_upd_tuples();
-  }
 }

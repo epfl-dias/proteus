@@ -31,243 +31,416 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/delta_storage.hpp"
 #include "storage/table.hpp"
 
-/*
-
-  TODO:
-    - resizeable storage
-    - partitionable storage
-*/
+#if HTAP_DOUBLE_MASTER
+#include "codegen/memory/memory-manager.hpp"
+#include "codegen/topology/affinity_manager.hpp"
+#include "codegen/topology/topology.hpp"
+#endif
 
 namespace storage {
 
-inline uint64_t __attribute__((always_inline))
+std::mutex row_store_print_mutex;
+
+static inline void __attribute__((always_inline)) set_upd_bit(char* data) {
+  *data = *data | (1 << 7);
+}
+
+static inline uint64_t __attribute__((always_inline))
+CC_gen_vid(uint64_t vid, ushort partition_id, ushort master_ver,
+           ushort delta_version) {
+  return ((vid & 0x000000FFFFFFFFFF) |
+          ((uint64_t)(partition_id & 0x00FF) << 40) |
+          ((uint64_t)(master_ver & 0x00FF) << 48) |
+          ((uint64_t)(delta_version & 0x00FF) << 56));
+}
+
+static inline uint64_t __attribute__((always_inline))
+CC_upd_vid(uint64_t vid, ushort master_ver, ushort delta_version) {
+  return ((vid & 0x0000FFFFFFFFFFFF) | ((uint64_t)(master_ver & 0x00FF) << 48) |
+          ((uint64_t)(delta_version & 0x00FF) << 56));
+}
+
+static inline uint64_t __attribute__((always_inline))
 vid_to_uuid(uint8_t tbl_id, uint64_t vid) {
-  return (vid & 0x00FFFFFFFFFFFFFF) | (tbl_id < 56);
+  return (vid & 0x00FFFFFFFFFFFFFF) | (((uint64_t)tbl_id) << 56);
 }
 
-std::vector<const void*> rowStore::getRecordByKey(
-    uint64_t vid, ushort master_ver, const std::vector<ushort>* col_idx) {
-  std::vector<const void*> ret;
+void RowStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
+                            ushort curr_master, ushort curr_delta,
+                            const ushort* col_idx, short num_cols) {
+  ushort pid = CC_extract_pid(hash_ptr->VID);
+  ushort m_ver = CC_extract_m_ver(hash_ptr->VID);
+  uint64_t data_idx = CC_extract_offset(hash_ptr->VID) * this->rec_size;
 
-  char* rw = (char*)this->getRow(vid, master_ver);
+  assert(data_idx <= this->data[m_ver][pid][0].size);
+  // assert(CC_extract_offset(hash_ptr->VID) < initial_num_records_per_part);
+  // assert(m_ver < global_conf::num_master_versions);
+  // assert(curr_delta < global_conf::num_delta_storages);
 
-  if (col_idx == nullptr) {
-    for (auto& cw : this->column_width) {
-      ret.emplace_back(rw + cw.second);
-    }
+  // char* limit =
+  //     (char*)(this->data[m_ver][pid][0].data) +
+  //     this->data[m_ver][pid][0].size;
 
-  } else {
-    for (auto& c_idx : *col_idx) {
-      std::pair<size_t, size_t> sz = column_width.at(c_idx);
-      ret.emplace_back(rw + sz.second);
-    }
-  }
+  char* rec_ptr = ((char*)(this->data[m_ver][pid][0].data)) + data_idx;
 
-  return ret;
-}
+  // delta versioning
 
-void rowStore::getRecordByKey(uint64_t vid, ushort master_ver,
-                              const std::vector<ushort>* col_idx, void* loc) {
-  char* rw = (char*)this->getRow(vid, master_ver);
-  char* wloc = (char*)loc;
+  char* ver = (char*)this->deltaStore[curr_delta]->insert_version(
+      hash_ptr, this->rec_size - HTAP_UPD_BIT_COUNT, pid);  // tmax==0
 
-  if (col_idx == nullptr) {
-    memcpy(loc, rw, this->rec_size);
-  } else {
-    size_t offset = 0;
-    for (auto& c_idx : *col_idx) {
-      std::pair<size_t, size_t> sz = column_width.at(c_idx);
-      memcpy(wloc + offset, rw + sz.second, sz.first);
-      offset += sz.first;
-    }
-  }
-}
+  // char* ver = (char*)this->deltaStore[curr_delta]->insert_version(
+  //     vid_to_uuid(this->table_id, hash_ptr->VID), hash_ptr->t_min, 0,
+  //     this->rec_size,
+  //     pid);  // tmax==0
+  assert(ver != nullptr);
 
-void rowStore::touchRecordByKey(uint64_t vid, ushort master_ver) {
-  uint64_t data_idx = vid * this->rec_size;
+  memcpy(ver, rec_ptr + HTAP_UPD_BIT_COUNT,
+         this->rec_size - HTAP_UPD_BIT_COUNT);
+  // end--delta versioning
 
-  for (const auto& chunk : master_versions[master_ver]) {
-    if (chunk->size >= (data_idx + this->rec_size)) {
-      // insert elem here
-      void* dst = (void*)(((char*)chunk->data) + data_idx);
+  hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
+  // assert(CC_extract_offset(hash_ptr->VID) < initial_num_records_per_part);
 
-      uint64_t* tptr = (uint64_t*)dst;
-      for (ushort i = 0; i < this->num_columns; i++) {
-        tptr += i;
+#if HTAP_DOUBLE_MASTER
+  set_upd_bit(rec_ptr);
+#endif
+
+  if (unlikely(num_cols <= 0)) {
+    if (likely(rec == nullptr || rec == NULL)) {
+      for (ushort i = 0; i < columns.size(); i++) {
+        uint64_t* tptr = (uint64_t*)(rec_ptr + column_width.at(i).second);
         (*tptr)++;
       }
 
-      return;
+    } else {
+      memcpy(rec_ptr + HTAP_UPD_BIT_COUNT, rec,
+             this->rec_size - HTAP_UPD_BIT_COUNT);
+    }
+
+  } else {
+    char* write_loc = (char*)rec_ptr;
+    char* read_loc = (char*)rec;
+
+    for (int i = 0; i < num_cols; i++) {
+      memcpy(write_loc, read_loc + column_width.at(col_idx[i]).second,
+             column_width.at(col_idx[i]).first);
+
+      write_loc += column_width.at(col_idx[i]).first;
+      // assert(write_loc <= limit);
     }
   }
-  assert(false && "Record does not exists");
 }
 
-global_conf::mv_version_list* rowStore::getVersions(uint64_t vid,
-                                                    ushort delta_ver) {
-  assert(global_conf::cc_ismv);
-  return this->deltaStore[delta_ver]->getVersionList(
-      vid_to_uuid(this->table_id, vid));
-}
+void RowStore::getRecordByKey(uint64_t vid, const ushort* col_idx,
+                              ushort num_cols, void* loc) {
+  ushort pid = CC_extract_pid(vid);
+  ushort m_ver = CC_extract_m_ver(vid);
+  uint64_t data_idx = CC_extract_offset(vid) * this->rec_size;
+  // std::cout << "TBL: " << name << " -- " << num_cols << std::endl;
 
-void rowStore::updateRecord(uint64_t vid, const void* data,
-                            ushort ins_master_ver, ushort prev_master_ver,
-                            ushort delta_ver, uint64_t tmin, uint64_t tmax,
-                            ushort pid) {
-  if (global_conf::cc_ismv) {
-    // create_version
-    char* ver = (char*)this->deltaStore[delta_ver]->insert_version(
-        vid_to_uuid(this->table_id, vid), tmin, tmax, this->rec_size, pid);
-    assert(ver != nullptr);
+  char* src = ((char*)(this->data[m_ver][pid][0].data) + data_idx);
 
-    memcpy((void*)ver, this->getRow(vid, prev_master_ver), this->rec_size);
+  if (unlikely(col_idx == nullptr)) {
+    memcpy(loc, src + HTAP_UPD_BIT_COUNT, this->rec_size - HTAP_UPD_BIT_COUNT);
+
+  } else {
+    // std::cout << name << " : " << this->columns.size() << std::endl;
+
+    char* write_loc = (char*)loc;
+    for (ushort i = 0; i < num_cols; i++) {
+      // std::cout << i << " :+: " << col_idx[i] << std::endl;
+      // std::cout << columns.at(i) << " ::: " <<
+      // column_width.at(col_idx[i]).first
+      //           << " zz " << column_width.at(col_idx[i]).second << std::endl;
+      // // std::cout << columns.at(col_idx[i])
+      // //           << " w: " << column_width.at(col_idx[i]).first <<
+      // std::endl;
+      memcpy(write_loc, src + column_width.at(col_idx[i]).second,
+             column_width.at(col_idx[i]).first);
+      write_loc += column_width.at(col_idx[i]).first;
+    }
   }
-
-  this->insert_or_update(vid, data, ins_master_ver);
-}
-void rowStore::updateRecord(uint64_t vid, const void* data,
-                            ushort ins_master_ver, ushort prev_master_ver,
-                            ushort delta_ver, uint64_t tmin, uint64_t tmax,
-                            ushort pid, std::vector<ushort>* col_idx) {
-  if (global_conf::cc_ismv) {
-    // create_version
-    char* ver = (char*)this->deltaStore[delta_ver]->insert_version(
-        vid_to_uuid(this->table_id, vid), tmin, tmax, this->rec_size, pid);
-    assert(ver != nullptr);
-
-    memcpy((void*)ver, this->getRow(vid, prev_master_ver), this->rec_size);
-  }
-
-  this->update_partial(vid, data, ins_master_ver, col_idx);
 }
 
-void rowStore::update_partial(uint64_t vid, const void* data, ushort master_ver,
-                              const std::vector<ushort>* col_idx) {
-  uint64_t data_idx = vid * this->rec_size;
+void RowStore::touchRecordByKey(uint64_t vid) {
+  ushort pid = CC_extract_pid(vid);
+  ushort m_ver = CC_extract_m_ver(vid);
+  uint64_t data_idx = CC_extract_offset(vid) * this->rec_size;
 
-  for (const auto& chunk : master_versions[master_ver]) {
-    if (chunk->size >= (data_idx + this->rec_size)) {
-      // insert elem here
-      char* dst = ((char*)chunk->data) + data_idx;
-      if (data == nullptr) {
-        size_t offset = 0;
-        for (auto& c_idx : *col_idx) {
-          std::pair<size_t, size_t> sz = column_width.at(c_idx);
+  assert(data[m_ver][pid].size() != 0);
 
-          uint64_t* tptr = (uint64_t*)((char*)data + offset);
-          (*tptr)++;
-          offset += sz.first;
-        }
-      } else {
-        size_t offset = 0;
-        for (auto& c_idx : *col_idx) {
-          std::pair<size_t, size_t> sz = column_width.at(c_idx);
-          memcpy(dst + sz.second, (char*)data + offset, sz.first);
-          offset += sz.first;
-        }
+  for (const auto& chunk : data[m_ver][pid]) {
+    if (likely(chunk.size >= ((size_t)data_idx + this->rec_size))) {
+      char* loc = ((char*)chunk.data) + data_idx;
+
+#if HTAP_DOUBLE_MASTER
+      set_upd_bit(loc);
+#endif
+      loc += HTAP_UPD_BIT_COUNT;
+
+      volatile char tmp = 'a';
+      for (int i = 1; i < this->rec_size; i++) {
+        tmp += *loc;
       }
-      return;
     }
   }
-  assert(false && "Memory limit exceeded, allocate more memory for storage");
 }
 
-void rowStore::insert_or_update(uint64_t vid, const void* rec,
+void* RowStore::insertRecordBatch(void* rec_batch, uint recs_to_ins,
+                                  uint capacity_offset, uint64_t xid,
+                                  ushort partition_id, ushort master_ver) {
+  uint64_t idx_st = vid[partition_id].fetch_add(recs_to_ins);
+  // get batch from meta column
+  uint64_t st_vid = CC_gen_vid(idx_st, partition_id, master_ver, 0);
+
+  // meta stuff
+  global_conf::IndexVal* hash_ptr =
+      (global_conf::IndexVal*)((char*)(this->metadata[partition_id][0].data) +
+                               (idx_st * sizeof(global_conf::IndexVal)));
+  assert(hash_ptr != nullptr);
+  for (uint i = 0; i < recs_to_ins; i++) {
+    hash_ptr->t_min = xid;
+    hash_ptr->VID = CC_gen_vid(idx_st + i, partition_id, master_ver, 0);
+    hash_ptr += 1;
+  }
+
+  for (uint i = 0; i < recs_to_ins; i++) {
+    char* dst = ((char*)(this->data[master_ver][partition_id][0].data) +
+                 (idx_st + (i * this->rec_size)) + HTAP_UPD_BIT_COUNT);
+
+#if HTAP_DOUBLE_MASTER
+    set_upd_bit(dst - HTAP_UPD_BIT_COUNT);
+#endif
+
+    void* src = (char*)rec_batch + (i * this->rec_size);
+
+    memcpy(dst, src, this->rec_size - HTAP_UPD_BIT_COUNT);
+  }
+
+  return (void*)hash_ptr;
+
+  // return starting address of batch meta.
+}
+
+void* RowStore::insertRecord(void* rec, uint64_t xid, ushort partition_id,
+                             ushort master_ver) {
+  uint64_t idx = vid[partition_id].fetch_add(1);
+
+  uint64_t curr_vid = CC_gen_vid(idx, partition_id, master_ver, 0);
+
+  global_conf::IndexVal* hash_ptr = nullptr;
+
+  assert(idx <= this->initial_num_records_per_part);
+
+  // copy meta
+  if (indexed) {
+    // void* pano = ((char*)(this->metadata[partition_id][0].data) +
+    //               (idx * sizeof(global_conf::IndexVal)));
+    // hash_ptr = new (pano) global_conf::IndexVal(xid, curr_vid);
+
+    hash_ptr =
+        (global_conf::IndexVal*)((char*)(this->metadata[partition_id][0].data) +
+                                 (idx * sizeof(global_conf::IndexVal)));
+
+    assert(hash_ptr != nullptr);
+    hash_ptr->t_min = xid;
+    hash_ptr->VID = curr_vid;
+  }
+
+  // Copy data
+  char* dst = ((char*)(this->data[master_ver][partition_id][0].data) +
+               (idx * this->rec_size) + HTAP_UPD_BIT_COUNT);
+#if HTAP_DOUBLE_MASTER
+  set_upd_bit(dst - HTAP_UPD_BIT_COUNT);
+#endif
+  memcpy(dst, rec, this->rec_size - HTAP_UPD_BIT_COUNT);
+
+  return (void*)hash_ptr;
+}
+
+uint64_t RowStore::insertRecord(void* rec, ushort partition_id,
                                 ushort master_ver) {
-  uint64_t data_idx = vid * this->rec_size;
+  uint64_t idx = vid[partition_id].fetch_add(1);
 
-  for (const auto& chunk : master_versions[master_ver]) {
-    if (chunk->size >= (data_idx + this->rec_size)) {
-      // insert elem here
-      void* dst = (void*)(((char*)chunk->data) + data_idx);
-      if (rec == nullptr) {
-        uint64_t* tptr = (uint64_t*)dst;
-        for (ushort i = 0; i < this->num_columns; i++) {
-          tptr += i;
-          (*tptr)++;
-        }
-      } else {
-        std::memcpy(dst, rec, this->rec_size);
-      }
-      return;
-    }
-  }
-  assert(false && "Memory limit exceeded, allocate more memory for storage");
-}
+  uint64_t curr_vid = CC_gen_vid(idx, partition_id, master_ver, 0);
 
-uint64_t rowStore::insertRecord(void* rec, ushort master_ver) {
-  // TODO: update bit for snapshotting
-  uint64_t curr_vid = vid.fetch_add(1);
-  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
-    this->insert_or_update(curr_vid, rec, i);
-  }
+  // Copy data
+  char* dst = ((char*)(this->data[master_ver][partition_id][0].data) +
+               (idx * this->rec_size) + HTAP_UPD_BIT_COUNT);
+
+#if HTAP_DOUBLE_MASTER
+  set_upd_bit(dst - HTAP_UPD_BIT_COUNT);
+#endif
+
+  memcpy(dst, rec, this->rec_size - HTAP_UPD_BIT_COUNT);
 
   return curr_vid;
 }
 
-void* rowStore::insertRecord(void* rec, uint64_t xid, ushort master_ver) {
-  uint64_t curr_vid = vid.fetch_add(1);
+// global_conf::mv_version_list* RowStore::getVersions(uint64_t vid) {
+//   assert(CC_extract_delta_id(vid) < global_conf::num_delta_storages);
+//   return this->deltaStore[CC_extract_delta_id(vid)]->getVersionList(
+//       vid_to_uuid(this->table_id, vid));
+// }
 
-  global_conf::IndexVal hash_val(xid, curr_vid, master_ver);
-  void* hash_ptr =
-      this->meta_column->insertElem(curr_vid, &hash_val, master_ver);
+void RowStore::initializeMetaColumn() {
+  std::vector<std::thread> loaders;
+  size_t elem_size = sizeof(global_conf::IndexVal);
 
-  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
-    this->insert_or_update(curr_vid, rec, i);
+  for (ushort j = 0; j < this->num_partitions; j++) {
+    for (const auto& chunk : metadata[j]) {
+      char* ptr = (char*)chunk.data;
+      assert(chunk.size % elem_size == 0);
+      loaders.emplace_back([chunk, j, ptr, elem_size]() {
+        for (uint64_t i = 0; i < (chunk.size / elem_size); i++) {
+          void* c = new (ptr + (i * elem_size))
+              global_conf::IndexVal(0, CC_gen_vid(i, j, 0, 0));
+        }
+      });
+    }
   }
-  return hash_ptr;
+  for (auto& th : loaders) {
+    th.join();
+  }
 }
 
-rowStore::rowStore(
+RowStore::RowStore(
     uint8_t table_id, std::string name,
     std::vector<std::tuple<std::string, data_type, size_t>> columns,
-    uint64_t initial_num_records) {
-  this->table_id = table_id;
+    uint64_t initial_num_records, bool indexed, bool partitioned, int numa_idx)
+    : Table(name, table_id),
+      indexed(indexed),
+      initial_num_records(initial_num_records) {
+  this->rec_size = HTAP_UPD_BIT_COUNT;  // upd bit
   this->total_mem_reserved = 0;
-  this->vid = 0;
   this->deltaStore = storage::Schema::getInstance().deltaStore;
-  this->rec_size = 0;
-  int numa_id = global_conf::master_col_numa_id;
+  this->vid_offset = 0;
 
-  meta_column = new Column("meta", initial_num_records, META,
-                           sizeof(global_conf::IndexVal));
-  this->total_mem_reserved += meta_column->getSize();
+  for (int i = 0; i < FLAGS_num_partitions; i++) this->vid[i] = 0;
+
+  if (indexed) {
+    // this->rec_size += sizeof(global_conf::IndexVal);
+    // meta_column = new Column(name + "_meta", initial_num_records, this, META,
+    //                          sizeof(global_conf::IndexVal), 0, true,
+    //                          partitioned, numa_idx);
+
+    void* obj_data = MemoryManager::alloc(
+        sizeof(global_conf::PrimaryIndex<uint64_t>), DEFAULT_MEM_NUMA_SOCKET);
+
+    this->p_index = new (obj_data)
+        global_conf::PrimaryIndex<uint64_t>(name, initial_num_records);
+  }
+
+  // create columns
+  size_t col_offset = 0;
   for (const auto& t : columns) {
     this->columns.emplace_back(std::get<0>(t));
-    this->column_data_types.emplace_back(std::get<1>(t));
-
     this->column_width.emplace_back(
-        std::pair<size_t, size_t>(std::get<2>(t), this->rec_size));
+        std::make_pair(std::get<2>(t), this->rec_size));
+    // std::cout << "C: " << std::get<0>(t) << " -- " << std::get<2>(t)
+    //           << " == " << this->rec_size << std::endl;
 
     this->rec_size += std::get<2>(t);
+    this->column_data_types.emplace_back(std::get<1>(t));
   }
-
   this->num_columns = columns.size();
-  this->name = name;
-  size_t size = this->rec_size * initial_num_records;
 
-  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
-    // void* mem = MemoryManager::alloc(size, numa_id);
-    void* mem = MemoryManager::alloc_shm(name, size, numa_id);
+  if (partitioned)
+    this->num_partitions = FLAGS_num_partitions;
+  else
+    this->num_partitions = 1;
 
-    uint64_t* pt = (uint64_t*)mem;
-    int warmup_max = size / sizeof(uint64_t);
-    for (uint i = 0; i < warmup_max; i++) pt[i] = 0;
-    master_versions[i].emplace_back(new mem_chunk(mem, size, numa_id));
+  assert(FLAGS_num_partitions <= NUM_SOCKETS);
+  size_t tsize = initial_num_records * this->rec_size;
+  this->size_per_part = tsize / this->num_partitions;
+  this->initial_num_records_per_part =
+      initial_num_records / this->num_partitions;
 
-    this->total_mem_reserved += size;
+#if PROTEUS_MEM_MANAGER
+  auto& cpunumanodes = ::topology::getInstance().getCpuNumaNodes();
+#endif
+
+  // Memory Allocation
+  std::vector<std::thread> loaders;
+
+  // meta-data
+
+  size_t meta_tsize = initial_num_records * sizeof(global_conf::IndexVal);
+  size_t meta_size_per_part = meta_tsize / num_partitions;
+
+  for (ushort j = 0; j < this->num_partitions; j++) {
+#if PROTEUS_MEM_MANAGER
+
+    set_exec_location_on_scope d{cpunumanodes[j]};
+    void* mem = ::MemoryManager::mallocPinned(meta_size_per_part);
+
+#else
+
+    void* mem = MemoryManager::alloc(meta_size_per_part, j);
+
+#endif
+
+    assert(mem != nullptr || mem != NULL);
+    //     loaders.emplace_back([mem, meta_size_per_part]() {
+    //       uint64_t* pt = (uint64_t*)mem;
+    //       uint64_t warmup_max = meta_size_per_part / sizeof(uint64_t);
+    // #pragma clang loop vectorize(enable)
+    //       for (uint64_t j = 0; j < warmup_max; j++) pt[j] = 0;
+    //     });
+
+    metadata[j].emplace_back(mem, meta_size_per_part, j);
   }
 
-  // build index over the first column
-  this->p_index =
-      new global_conf::PrimaryIndex<uint64_t>(initial_num_records + 1);
+  loaders.emplace_back([this]() { this->initializeMetaColumn(); });
 
-  std::cout << "Table: " << name << std::endl;
-  std::cout << "\trecord size: " << rec_size << " bytes" << std::endl;
-  std::cout << "\tnum_records: " << initial_num_records << std::endl;
-  std::cout << "\tMem reserved: "
-            << (double)total_mem_reserved / (1024 * 1024 * 1024) << "GB"
-            << std::endl;
+  // data
+  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
+    for (ushort j = 0; j < this->num_partitions; j++) {
+#if PROTEUS_MEM_MANAGER
+
+      set_exec_location_on_scope d{cpunumanodes[j]};
+      void* mem = ::MemoryManager::mallocPinned(size_per_part);
+
+#else
+
+      void* mem = MemoryManager::alloc(size_per_part, j);
+
+#endif
+
+      assert(mem != nullptr || mem != NULL);
+      loaders.emplace_back([mem, this]() {
+        uint64_t* pt = (uint64_t*)mem;
+        uint64_t warmup_max = size_per_part / sizeof(uint64_t);
+#pragma clang loop vectorize(enable)
+        for (uint64_t j = 0; j < warmup_max; j++) pt[j] = 0;
+      });
+
+      data[i][j].emplace_back(mem, size_per_part, j);
+    }
+  }
+
+  for (auto& th : loaders) {
+    th.join();
+  }
+
+  total_mem_reserved += tsize;
+
+  {
+    std::unique_lock<std::mutex> lk(row_store_print_mutex);
+    std::cout << "Table: " << name << std::endl;
+    std::cout << "\trecord size: " << rec_size << " bytes" << std::endl;
+    std::cout << "\tnum_records: " << this->initial_num_records << std::endl;
+    std::cout << "\tMem reserved (Data): "
+              << (double)total_mem_reserved / (1024 * 1024 * 1024) << "GB"
+              << std::endl;
+    std::cout << "\tMem reserved (Meta): "
+              << (double)meta_tsize / (1024 * 1024 * 1024) << "GB" << std::endl;
+
+    total_mem_reserved += meta_tsize;
+    std::cout << "\tMem reserved (Total): "
+              << (double)total_mem_reserved / (1024 * 1024 * 1024) << "GB"
+              << std::endl;
+  }
 }
 
 };  // namespace storage

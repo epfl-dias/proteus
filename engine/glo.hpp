@@ -28,25 +28,67 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "indexes/hash_index.hpp"
 #include "transactions/cc.hpp"
 
+#include <mutex>
 #include "snapshot/arena.hpp"
 #include "snapshot/snapshot_manager.hpp"
 
-DECLARE_uint64(num_partitions);
+#include "scheduler/topology.hpp"
 
-#define NUM_SOCKETS 2
-#define NUM_CORE_PER_SOCKET 64
-#define MAX_WORKERS 128
-#define DELTA_SIZE 4  // Gigabytes
-#define HTAP_RM_SERVER false
-#define HTAP_DOUBLE_MASTER true
+#define diascld33 true
+#define diascld40 false
+
+#define DEFAULT_MEM_NUMA_SOCKET 0
+
+#define HTAP_DOUBLE_MASTER false
 #define HTAP_COW false
 #define HTAP_UPD_BIT_MASK false
+
+// Memory Allocators
+#define HTAP_RM_SERVER false
+#define PROTEUS_MEM_MANAGER false
 #define SHARED_MEMORY false  // if htap=false, then shm or numa_alloc
 
-// typedef cuckoohash_map<std::string, std::string> HashIndex;
+#if diascld33
+#define NUM_SOCKETS 4
+#define NUM_CORE_PER_SOCKET 18
+//#define MAX_WORKERS 72
+#endif
 
-// template <class hash_val, class key = uint64_t>
-// using HashIndex = cuckoohash_map<key, hash_val>;
+#if diascld40
+#define NUM_SOCKETS 2
+#define NUM_CORE_PER_SOCKET 64
+//#define MAX_WORKERS 128
+#endif
+
+#if HTAP_DOUBLE_MASTER
+#define HTAP_UPD_BIT_COUNT 1
+#else
+#define HTAP_UPD_BIT_COUNT 0
+#endif
+
+DECLARE_bool(debug);
+DECLARE_uint64(num_workers);
+DECLARE_uint64(benchmark);
+DECLARE_uint64(num_partitions);
+DECLARE_int64(num_iter_per_worker);
+DECLARE_uint64(runtime);
+DECLARE_uint64(delta_size);
+DECLARE_uint64(worker_sched_mode);
+
+// YCSB
+DECLARE_double(ycsb_write_ratio);
+DECLARE_double(ycsb_zipf_theta);
+DECLARE_uint64(ycsb_num_cols);
+DECLARE_uint64(ycsb_num_ops_per_txn);
+DECLARE_uint64(ycsb_num_records);
+
+// TPC-C
+DECLARE_uint64(tpcc_num_wh);
+DECLARE_uint64(tpcc_dist_threshold);
+DECLARE_string(tpcc_csv_dir);
+
+#define likely(x) __builtin_expect(x, 1)
+#define unlikely(x) __builtin_expect(x, 0)
 
 namespace global_conf {
 
@@ -61,13 +103,21 @@ using mv_version_list = txn::VERSION_LIST;
 using mv_version = txn::VERSION;
 
 template <class T_KEY>
-using PrimaryIndex = indexes::HashIndex<T_KEY>;
-// using PrimaryIndex = indexes::HashArray<T_KEY>;
+// using PrimaryIndex = indexes::HashIndex<T_KEY>;
+using PrimaryIndex = indexes::HashArray<T_KEY>;
+
+// const ushort NUM_SOCKETS =
+//     scheduler::Topology::getInstance().getCpuNumaNodeCount();
+// const ushort NUM_CORE_PER_SOCKET = scheduler::Topology::getInstance()
+//                                        .getCpuNumaNodes()
+//                                        .front()
+//                                        .local_cores.size();
+// const ushort MAX_WORKERS = scheduler::Topology::getInstance().getCoreCount();
 
 // const uint time_master_switch_ms = 200;
 
 /* # of Snapshots*/
-const short num_master_versions = 2;
+const short num_master_versions = 1;
 const short num_delta_storages = 2;
 
 const int master_col_numa_id = 0;

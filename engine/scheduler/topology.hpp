@@ -48,24 +48,22 @@ class Topology {
   Topology(Topology const &) = delete;        // Don't Implement
   void operator=(Topology const &) = delete;  // Don't implement
 
-  int get_num_worker_cores() { return core_info.size(); }
-  std::vector<core> *get_worker_cores(int num = -1) { return &core_info; }
-
   inline uint32_t getCoreCount() const { return core_cnt; }
 
   inline uint32_t getCpuNumaNodeCount() const { return cpu_info.size(); }
 
   inline const std::vector<core> &getCores() const { return core_info; }
 
-  inline const cpunumanode &getCpuNumaNodeById(uint32_t id) const {
-    return cpu_info[cpunuma_index[id]];
-  }
   inline const std::vector<cpunumanode> &getCpuNumaNodes() const {
     return cpu_info;
   }
 
  private:
   Topology();
+
+  inline const cpunumanode &getCpuNumaNodeById(uint32_t id) const {
+    return cpu_info[cpunuma_index[id]];
+  }
 
   std::vector<cpunumanode> cpu_info;
   std::vector<core> core_info;
@@ -101,8 +99,12 @@ class core {
   const uint32_t index_in_topo;
 
  public:
-  core(uint32_t id, uint32_t local_cpu, uint32_t index_in_topo, uint32_t local_cpu_index)
-      : id(id), local_cpu(local_cpu), index_in_topo(index_in_topo), local_cpu_index(local_cpu_index) {}
+  core(uint32_t id, uint32_t local_cpu, uint32_t index_in_topo,
+       uint32_t local_cpu_index)
+      : id(id),
+        local_cpu(local_cpu),
+        index_in_topo(index_in_topo),
+        local_cpu_index(local_cpu_index) {}
 
   // const cpunumanode &getNumaNode() const;
  private:

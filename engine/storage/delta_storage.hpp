@@ -36,7 +36,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define DELTA_DEBUG 1
 #define GC_ATOMIC 1
 #define GC_CAPCITY_MIN_PERCENT 75
-#define VER_CLEAR_ITER 25000
+#define VER_CLEAR_ITER 100000
 
 namespace storage {
 /*
@@ -56,18 +56,22 @@ that if this list is the valid version or not.
 */
 class DeltaStore {
  public:
-  DeltaStore(uint delta_id, uint64_t ver_list_capacity = DELTA_SIZE,
-             uint64_t ver_data_capacity = DELTA_SIZE, int num_partitions = -1);
+  DeltaStore(uint delta_id, uint64_t ver_list_capacity = FLAGS_delta_size,
+             uint64_t ver_data_capacity = FLAGS_delta_size,
+             int num_partitions = FLAGS_num_partitions);
   ~DeltaStore();
 
   void print_info();
 
-  void* insert_version(uint64_t vid, uint64_t tmin, uint64_t tmax,
-                       ushort rec_size, int parition_id);
+  // void* insert_version(uint64_t vid, uint64_t tmin, uint64_t tmax,
+  //                      ushort rec_size, ushort parition_id);
 
-  bool getVersionList(uint64_t vid, global_conf::mv_version_list*& vlst);
+  void* insert_version(global_conf::IndexVal* idx_ptr, uint rec_size,
+                       ushort parition_id);
 
-  global_conf::mv_version_list* getVersionList(uint64_t vid);
+  // bool getVersionList(uint64_t vid, global_conf::mv_version_list*& vlst);
+
+  // global_conf::mv_version_list* getVersionList(uint64_t vid);
 
   void gc();
   void gc_with_counter_arr(int wrk_id);
@@ -131,13 +135,13 @@ class DeltaStore {
  private:
   // indexes::HashIndex<uint64_t, global_conf::mv_version_list*>
   // vid_version_map;
-  char read_ctr[MAX_WORKERS];
+  // char read_ctr[MAX_WORKERS];
 
   // hash table optimizations
 
   std::atomic<uint> tag;
-  indexes::HashIndex<uint64_t, std::pair<int, global_conf::mv_version_list*>>
-      vid_version_map;
+  // indexes::HashIndex<uint64_t, std::pair<int, global_conf::mv_version_list*>>
+  //     vid_version_map;
 
   uint64_t max_active_epoch;
   uint delta_id;
@@ -150,6 +154,8 @@ class DeltaStore {
     bool touched;
 
     int pid;
+    std::mutex print_lock;
+    std::atomic<bool> printed;
 
    public:
     DeltaPartition(char* ver_list_cursor, mem_chunk ver_list_mem,
@@ -160,6 +166,7 @@ class DeltaStore {
           ver_data_cursor(ver_data_cursor),
           touched(false),
           pid(pid) {
+      printed = false;
       // warm-up mem-list
       if (DELTA_DEBUG)
         std::cout << "\t warming up delta storage P" << pid << std::endl;
@@ -216,6 +223,18 @@ class DeltaStore {
       // ver_data_cursor += rec_size + sizeof(global_conf::mv_version);
       void* tmp = (void*)ver_data_cursor.fetch_add(
           rec_size + sizeof(global_conf::mv_version));
+
+      if (((((int*)tmp - (int*)this->ver_data_mem.data) * sizeof(int)) >
+           this->ver_data_mem.size) &&
+          !printed) {
+        std::unique_lock<std::mutex> lk(print_lock);
+
+        std::cout << "#######" << std::endl;
+        std::cout << "PID: " << pid << std::endl;
+        report();
+        std::cout << "#######" << std::endl;
+        printed = true;
+      }
 
       assert((((int*)tmp - (int*)this->ver_data_mem.data) * sizeof(int)) <=
              this->ver_data_mem.size);

@@ -39,6 +39,17 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
 
+#if __has_include("ittnotify.h")
+#include <ittnotify.h>
+#else
+#define __itt_resume() ((void)0)
+#define __itt_pause() ((void)0)
+#endif
+
+#define HT false
+
+#define RUN_WORKER 0
+
 namespace scheduler {
 
 void WorkerPool::shutdown_manual() {
@@ -78,7 +89,7 @@ calculate_delta_ver(uint64_t txn_id, uint64_t start_time) {
   // std::cout << duration << std::endl;
   // return duration >> 6;  //(duration / global_conf::num_delta_storages);
 
-  return duration >> 20;  // 1000000L;
+  return duration >> 20;  // Magic Number
 }
 
 void Worker::run() {
@@ -118,6 +129,7 @@ void Worker::run() {
       });
     }
   }
+
   this->txn_start_time = std::chrono::system_clock::now();
   this->state = RUNNING;
 
@@ -189,11 +201,11 @@ void Worker::run() {
 
     num_txns++;
 
-    // if (num_txns == num_iters) {
-    //   std::cout << "Worker-" << (uint)this->id
-    //             << " : Completed number of iterations" << std::endl;
-    //   break;
-    // }
+    if (num_txns == num_iters) {
+      std::cout << "Worker-" << (uint)this->id
+                << " : Completed number of iterations" << std::endl;
+      break;
+    }
   }
 
   txn_end_time = std::chrono::system_clock::now();
@@ -211,13 +223,15 @@ void Worker::run() {
                               this->curr_master);
   }
   state = TERMINATED;
+  pool->txn_bench->free_query_struct_ptr(txn_mem);
 }
 
 std::vector<uint64_t> WorkerPool::get_active_txns() {
   std::vector<uint64_t> ret = std::vector<uint64_t>(this->size());
 
   for (auto& wr : workers) {
-    ret.push_back(wr.second.second->curr_txn);
+    if (wr.second.second->state == RUNNING)
+      ret.push_back(wr.second.second->curr_txn);
   }
 
   return ret;
@@ -227,7 +241,8 @@ uint64_t WorkerPool::get_min_active_txn() {
   uint64_t min_epoch = std::numeric_limits<uint64_t>::max();
 
   for (auto& wr : workers) {
-    if (wr.second.second->curr_delta < min_epoch) {
+    if (wr.second.second->state == RUNNING &&
+        wr.second.second->curr_delta < min_epoch) {
       min_epoch = wr.second.second->curr_delta;
     }
   }
@@ -239,7 +254,8 @@ uint64_t WorkerPool::get_max_active_txn() {
   uint64_t max_epoch = std::numeric_limits<uint64_t>::min();
 
   for (auto& wr : workers) {
-    if (wr.second.second->curr_delta > max_epoch) {
+    if (wr.second.second->state == RUNNING &&
+        wr.second.second->curr_delta > max_epoch) {
       max_epoch = wr.second.second->curr_delta;
     }
   }
@@ -293,6 +309,9 @@ void WorkerPool::print_worker_stats(bool global_only) {
 
   std::vector<double> socket_tps(num_sockets, 0.0);
 
+  double duration = 0;
+  uint duration_ctr = 0;
+
   for (auto it = workers.begin(); it != workers.end(); ++it) {
     // std::cout << " " << it->first << ":" << it->second;
     Worker* tmp = it->second.second;
@@ -302,6 +321,9 @@ void WorkerPool::print_worker_stats(bool global_only) {
     if (!global_only) {
       std::cout << "Worker-" << (int)(tmp->id)
                 << "(core_id: " << tmp->exec_core->id << ")" << std::endl;
+
+      std::cout << "\tDuration\t" << diff.count() << " sec" << std::endl;
+
       std::cout << "\t# of txns\t" << (tmp->num_txns / 1000000.0) << " M"
                 << std::endl;
       std::cout << "\t# of commits\t" << (tmp->num_commits / 1000000.0) << " M"
@@ -311,8 +333,9 @@ void WorkerPool::print_worker_stats(bool global_only) {
       std::cout << "\tTPS\t\t" << (tmp->num_txns / 1000000.0) / diff.count()
                 << " mTPS" << std::endl;
     }
-    socket_tps[tmp->id / NUM_CORE_PER_SOCKET] +=
-        (tmp->num_txns / 1000000.0) / diff.count();
+    socket_tps[tmp->partition_id] += (tmp->num_txns / 1000000.0) / diff.count();
+    duration += diff.count();
+    duration_ctr += 1;
 
     tps += (tmp->num_txns / 1000000.0) / diff.count();
     num_commits += (tmp->num_commits / 1000000.0);
@@ -327,7 +350,10 @@ void WorkerPool::print_worker_stats(bool global_only) {
               << std::endl;
   }
 
+  duration = duration / duration_ctr;
+
   std::cout << "---- GLOBAL ----" << std::endl;
+  std::cout << "\tDuration\t" << duration << " sec" << std::endl;
   std::cout << "\t# of txns\t" << num_txns << " M" << std::endl;
   std::cout << "\t# of commits\t" << num_commits << " M" << std::endl;
   std::cout << "\t# of aborts\t" << num_aborts << " M" << std::endl;
@@ -353,11 +379,16 @@ void WorkerPool::init(bench::Benchmark* txn_bench) {
 // Hot Plug
 void WorkerPool::add_worker(core* exec_location, ushort partition_id) {
   assert(workers.find(exec_location->id) == workers.end());
-  Worker* wrkr = new Worker(worker_counter++, exec_location);
+  void* obj_ptr = storage::MemoryManager::alloc(sizeof(Worker),
+                                                exec_location->local_cpu_index);
+  void* thd_ptr = storage::MemoryManager::alloc(sizeof(std::thread),
+                                                exec_location->local_cpu_index);
+
+  Worker* wrkr = new (obj_ptr) Worker(worker_counter++, exec_location);
   wrkr->partition_id = partition_id;
   wrkr->num_iters = this->num_iter_per_worker;
   wrkr->is_hotplugged = true;
-  std::thread* thd = new std::thread(&Worker::run, wrkr);
+  std::thread* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
 
   workers.emplace(std::make_pair(exec_location->id, std::make_pair(thd, wrkr)));
 }
@@ -395,18 +426,27 @@ void WorkerPool::start_workers(uint num_workers, uint num_partitions,
 
     for (auto& exec_core : worker_cores) {
       if (worker_sched_mode == 1) {  // interleave - even
-        if (exec_core.index_in_topo % 2 != 0) continue;
+        if (worker_counter % 2 != 0) continue;
       } else if (worker_sched_mode == 2) {  // interleave - odd
-        if (exec_core.index_in_topo % 2 == 0) continue;
+        if (worker_counter % 2 == 0) continue;
       }
 
-      Worker* wrkr = new Worker(worker_counter++, &exec_core);
+      void* obj_ptr = storage::MemoryManager::alloc(sizeof(Worker),
+                                                    exec_core.local_cpu_index);
+      void* thd_ptr = storage::MemoryManager::alloc(sizeof(std::thread),
+                                                    exec_core.local_cpu_index);
+
+      Worker* wrkr = new (obj_ptr) Worker(worker_counter++, &exec_core);
+      // Worker* wrkr = new Worker(exec_core.id, &exec_core);
+      // worker_counter++;
+
       wrkr->partition_id = (exec_core.local_cpu_index % num_partitions);
       wrkr->num_iters = num_iter_per_worker;
 
-      std::cout << "Worker-" << (uint)wrkr->id << ": Allocated partition # "
-                << wrkr->partition_id << std::endl;
-      std::thread* thd = new std::thread(&Worker::run, wrkr);
+      std::cout << "Worker-" << (uint)wrkr->id << "(" << exec_core.id
+                << "): Allocated partition # " << wrkr->partition_id
+                << std::endl;
+      std::thread* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
 
       workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
       if (++i == num_workers) {
@@ -418,13 +458,18 @@ void WorkerPool::start_workers(uint num_workers, uint num_partitions,
 
     for (std::vector<core>::reverse_iterator c = worker_cores.rbegin();
          c != worker_cores.rend(); ++c) {
-      Worker* wrkr = new Worker(worker_counter++, &(*c));
+      void* obj_ptr =
+          storage::MemoryManager::alloc(sizeof(Worker), c->local_cpu_index);
+      void* thd_ptr = storage::MemoryManager::alloc(sizeof(std::thread),
+                                                    c->local_cpu_index);
+
+      Worker* wrkr = new (obj_ptr) Worker(worker_counter++, &(*c));
       wrkr->partition_id = (c->local_cpu_index % num_partitions);
       wrkr->num_iters = num_iter_per_worker;
 
       std::cout << "Worker-" << (uint)wrkr->id << ": Allocated partition # "
                 << wrkr->partition_id << std::endl;
-      std::thread* thd = new std::thread(&Worker::run, wrkr);
+      std::thread* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
 
       workers.emplace(std::make_pair(c->id, std::make_pair(thd, wrkr)));
       if (++i == num_workers) {
@@ -444,12 +489,19 @@ void WorkerPool::start_workers(uint num_workers, uint num_partitions,
     std::lock_guard<std::mutex> lk(pre_m);
     std::cout << "[WorkerPool] " << num_workers << " Workers starting txn.."
               << std::endl;
+
+    storage::Schema::getInstance().report();
     pre_barrier++;
   }
+
+  __itt_resume();
   pre_cv.notify_all();
 }
 
-void WorkerPool::shutdown(bool print_stats) { this->~WorkerPool(); }
+void WorkerPool::shutdown(bool print_stats) {
+  __itt_pause();
+  this->~WorkerPool();
+}
 
 template <class F, class... Args>
 std::future<typename std::result_of<F(Args...)>::type> WorkerPool::enqueueTask(

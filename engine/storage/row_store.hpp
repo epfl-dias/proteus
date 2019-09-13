@@ -45,81 +45,82 @@ class RowStore;
 /*  DATA LAYOUT -- ROW STORE
  */
 
-class rowStore : public Table {
-  rowStore(uint8_t table_id, std::string name,
-           std::vector<std::tuple<std::string, data_type, size_t>> columns,
-           uint64_t initial_num_records = 10000000);
-  /*
-  public:
-  ColumnStore(uint8_t table_id, std::string name,
-              std::vector<std::tuple<std::string, data_type, size_t>> columns,
-              uint64_t initial_num_records = 10000000);
-  uint64_t insertRecord(void* rec, short master_ver);
-  void* insertRecord(void* rec, uint64_t xid, short master_ver);
-  void updateRecord(uint64_t vid, void* data, short ins_master_ver,
-                    short prev_master_ver, short delta_ver, uint64_t tmin,
-                    uint64_t tmax, int pid);
-  void updateRecord(uint64_t vid, void* rec, short ins_master_ver,
-                    short prev_master_ver, short delta_ver, uint64_t tmin,
-                    uint64_t tmax, int pid, std::vector<int>* col_idx);
-  void deleteRecord(uint64_t vid, short master_ver);
-  std::vector<const void*> getRecordByKey(uint64_t vid, short master_ver,
-                                          std::vector<int>* col_idx = nullptr);
-
-  void getRecordByKey(uint64_t vid, short master_ver, std::vector<int>* col_idx,
-                      void* loc);
-  void touchRecordByKey(uint64_t vid, short master_ver);
-
-  global_conf::mv_version_list* getVersions(uint64_t vid, short master_ver);
-
-
-  ~ColumnStore();
-
- private:
-  std::vector<Column*> columns;
-  Column* meta_column;
-  Column** secondary_index_vals;
-  size_t rec_size;
-  */
+class RowStore : public Table {
  public:
-  uint64_t insertRecord(void* rec, ushort master_ver);
-  void* insertRecord(void* rec, uint64_t xid, ushort master_ver);
+  RowStore(uint8_t table_id, std::string name,
+           std::vector<std::tuple<std::string, data_type, size_t>> columns,
+           uint64_t initial_num_records = 10000000, bool indexed = true,
+           bool partitioned = true, int numa_idx = -1);
 
-  void updateRecord(uint64_t vid, const void* data, ushort ins_master_ver,
-                    ushort prev_master_ver, ushort delta_ver, uint64_t tmin,
-                    uint64_t tmax, ushort pid);
+  uint64_t insertRecord(void *rec, ushort partition_id, ushort master_ver);
+  void *insertRecord(void *rec, uint64_t xid, ushort partition_id,
+                     ushort master_ver);
+  void *insertRecordBatch(void *rec_batch, uint recs_to_ins,
+                          uint capacity_offset, uint64_t xid,
+                          ushort partition_id, ushort master_ver);
 
-  void updateRecord(uint64_t vid, const void* data, ushort ins_master_ver,
-                    ushort prev_master_ver, ushort delta_ver, uint64_t tmin,
-                    uint64_t tmax, ushort pid, std::vector<ushort>* col_idx);
+  void updateRecord(global_conf::IndexVal *hash_ptr, const void *rec,
+                    ushort curr_master, ushort curr_delta,
+                    const ushort *col_idx = nullptr, short num_cols = -1);
 
-  void deleteRecord(uint64_t vid, ushort master_ver) {}
+  void getRecordByKey(uint64_t vid, const ushort *col_idx, ushort num_cols,
+                      void *loc);
 
-  global_conf::mv_version_list* getVersions(uint64_t vid, ushort delta_ver);
+  void touchRecordByKey(uint64_t vid);
 
-  void touchRecordByKey(uint64_t vid, ushort master_ver);
+  global_conf::mv_version_list *getVersions(uint64_t vid);
 
-  std::vector<const void*> getRecordByKey(uint64_t vid, ushort master_ver,
-                                          const std::vector<ushort>* col_idx);
+  void deleteRecord(uint64_t vid, ushort master_ver) {
+    assert(false && "Not implemented");
+  }
 
-  void getRecordByKey(uint64_t vid, ushort master_ver,
-                      const std::vector<ushort>* col_idx, void* loc);
+  [[noreturn]] std::vector<const void *> getRecordByKey(uint64_t vid,
+                                                        const ushort *col_idx,
+                                                        ushort num_cols) {
+    assert(false && "Not implemented");
+  }
+
+  [[noreturn]] void getRecordByKey(uint64_t vid, ushort master_ver,
+                                   const std::vector<ushort> *col_idx,
+                                   void *loc) {
+    assert(false && "Not implemented");
+  }
+
+  [[noreturn]] void insertIndexRecord(uint64_t rid, uint64_t xid,
+                                      ushort partition_id, ushort master_ver) {
+    assert(false && "Not implemented");
+  }
+
+  [[noreturn]] void snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
+    assert(false && "Not implemented");
+  }
 
  private:
   size_t rec_size;
-  Column* meta_column;
   std::vector<std::string> columns;
-  std::vector<std::pair<size_t, size_t>>
-      column_width;  // 1-size, 2-cumm size until that col
+  // 1-size, 2-cumm size until that col
+  std::vector<std::pair<size_t, size_t>> column_width;
   std::vector<data_type> column_data_types;
-  std::vector<mem_chunk*> master_versions[global_conf::num_master_versions];
+  std::vector<mem_chunk> data[global_conf::num_master_versions][NUM_SOCKETS];
 
-  void* getRow(uint64_t idx, ushort master_ver);
-  void* getRange(int start_idx, int end_idx);
+  std::vector<mem_chunk> metadata[NUM_SOCKETS];
 
-  void insert_or_update(uint64_t vid, const void* rec, ushort master_ver);
-  void update_partial(uint64_t vid, const void* data, ushort master_ver,
-                      const std::vector<ushort>* col_idx);
+  bool indexed;
+  uint64_t vid_offset;
+  uint num_partitions;
+  size_t total_mem_reserved;
+  size_t size_per_part;
+  uint64_t initial_num_records;
+  uint64_t initial_num_records_per_part;
+
+  void initializeMetaColumn();
+
+  // void *getRow(uint64_t idx, ushort master_ver);
+  // void *getRange(int start_idx, int end_idx);
+
+  // void insert_or_update(uint64_t vid, const void *rec, ushort master_ver);
+  // void update_partial(uint64_t vid, const void *data, ushort master_ver,
+  //                     const std::vector<ushort> *col_idx);
 };
 
 };  // namespace storage

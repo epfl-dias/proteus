@@ -32,22 +32,31 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "indexes/hash_index.hpp"
 #include "interfaces/bench.hpp"
 #include "scheduler/topology.hpp"
+#include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
-//#include <thread
 
-#define REPLICATED_ITEM_TABLE true
-
-#define TPCC_MAX_ORDER_INITIAL_CAP 50000000
+#define REPLICATED_ITEM_TABLE false  // broken, not tested
+#define PARTITION_LOCAL_ITEM_TABLE true
+#define tpcc_dist_txns false
+#define tpcc_cust_sec_idx false
+#define batch_insert_no_ol true
 
 #define MAX_OPS_PER_QUERY 255
 
-#define NO_MIX 45
-#define P_MIX 43
-#define OS_MIX 4
-#define D_MIX 4
-#define SL_MIX 4
+#define NO_MIX 100
+#define P_MIX 0
+#define OS_MIX 0
+#define D_MIX 0
+#define SL_MIX 0
 #define MIX_COUNT 100
+
+// #define NO_MIX 45
+// #define P_MIX 43
+// #define OS_MIX 4
+// #define D_MIX 4
+// #define SL_MIX 4
+// #define MIX_COUNT 100
 
 #define FIRST_NAME_MIN_LEN 8
 #define FIRST_NAME_LEN 16
@@ -55,19 +64,25 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define TPCC_MAX_OL_PER_ORDER 15
 
 // From TPCC-SPEC
-#define TPCC_MAX_ITEMS 100000
+#define TPCC_MAX_ITEMS 100000  // 100000
 #define TPCC_NCUST_PER_DIST 3000
 #define TPCC_NDIST_PER_WH 10
 #define TPCC_ORD_PER_DIST 3000
+
+#define TPCC_MAX_ORD_PER_DIST 400000
+#define TPCC_MAX_ORDER_INITIAL_CAP_PER_PARTITION \
+  (TPCC_MAX_ORD_PER_DIST * TPCC_NDIST_PER_WH * NUM_CORE_PER_SOCKET)
+#define TPCC_MAX_ORDER_INITIAL_CAP \
+  (TPCC_MAX_ORDER_INITIAL_CAP_PER_PARTITION * NUM_SOCKETS)
 
 #define MAKE_STOCK_KEY(w, s) (w * TPCC_MAX_ITEMS + s)
 #define MAKE_DIST_KEY(w, d) (w * TPCC_NDIST_PER_WH + d)
 #define MAKE_CUST_KEY(w, d, c) (MAKE_DIST_KEY(w, d) * TPCC_NCUST_PER_DIST + c)
 
-#define MAKE_ORDER_KEY(w, d, o) (MAKE_DIST_KEY(w, d) * TPCC_ORD_PER_DIST + o)
+#define MAKE_ORDER_KEY(w, d, o) \
+  ((MAKE_DIST_KEY(w, d) * TPCC_MAX_ORD_PER_DIST) + o)
 #define MAKE_OL_KEY(w, d, o, ol) \
   (MAKE_ORDER_KEY(w, d, o) * TPCC_MAX_OL_PER_ORDER + ol)
-//#define MAKE_STOCK_KEY(w,s) (w * TPCC_MAX_ITEMS + s)
 
 namespace bench {
 
@@ -75,6 +90,7 @@ namespace bench {
   Benchmark: TPC-C
   Spec: http://www.tpc.org/tpc_documents_current_versions/pdf/tpc-c_v5.11.0.pdf
 */
+
 enum TPCC_QUERY_TYPE {
   NEW_ORDER,
   PAYMENT,
@@ -110,23 +126,25 @@ class TPCC : public Benchmark {
   unsigned int seed;
   TPCC_QUERY_TYPE sequence[MIX_COUNT];
   std::string csv_path;
-  bool is_ch_benchmark;
+  const bool is_ch_benchmark;
+  const bool layout_column_store;
+  const ushort active_warehouse;
 
  public:
-  struct ch_nation {
+  struct __attribute__((packed)) ch_nation {
     ushort n_nationkey;
     char n_name[16];  // var
     ushort n_regionkey;
     char n_comment[115];  // var
   };
 
-  struct ch_region {
+  struct __attribute__((packed)) ch_region {
     ushort r_regionkey;
     char r_name[12];      // var
     char r_comment[115];  // var
   };
 
-  struct ch_supplier {
+  struct __attribute__((packed)) ch_supplier {
     uint32_t suppkey;
     char s_name[18];     // fix
     char s_address[41];  // var
@@ -136,7 +154,7 @@ class TPCC : public Benchmark {
     char s_comment[101];  // var
   };
 
-  struct tpcc_stock {
+  struct __attribute__((packed)) tpcc_stock {
     uint32_t s_i_id;
     ushort s_w_id;
     short s_quantity;
@@ -148,7 +166,7 @@ class TPCC : public Benchmark {
     uint32_t s_su_suppkey;  // ch-specific
   };
 
-  struct tpcc_item {
+  struct __attribute__((packed)) tpcc_item {
     uint32_t i_id;
     uint32_t i_im_id;
     char i_name[25];
@@ -156,7 +174,7 @@ class TPCC : public Benchmark {
     char i_data[51];
   };
 
-  struct tpcc_warehouse {
+  struct __attribute__((packed)) tpcc_warehouse {
     ushort w_id;
     char w_name[11];
     char w_street[2][21];
@@ -167,7 +185,7 @@ class TPCC : public Benchmark {
     float w_ytd;
   };
 
-  struct tpcc_district {
+  struct __attribute__((packed)) tpcc_district {
     ushort d_id;
     ushort d_w_id;
     char d_name[11];
@@ -179,7 +197,7 @@ class TPCC : public Benchmark {
     float d_ytd;
     uint64_t d_next_o_id;
   };
-  struct tpcc_history {
+  struct __attribute__((packed)) tpcc_history {
     uint32_t h_c_id;
     ushort h_c_d_id;
     ushort h_c_w_id;
@@ -189,10 +207,10 @@ class TPCC : public Benchmark {
     float h_amount;
     char h_data[25];
   };
-  struct tpcc_customer {
+  struct __attribute__((packed)) tpcc_customer {
     uint32_t c_id;
-    ushort c_d_id;
     ushort c_w_id;
+    ushort c_d_id;
     char c_first[FIRST_NAME_LEN + 1];
     char c_middle[2];
     char c_last[LAST_NAME_LEN + 1];
@@ -213,30 +231,44 @@ class TPCC : public Benchmark {
     ushort c_n_nationkey;
   };
 
-  struct tpcc_order {
+  struct __attribute__((packed)) tpcc_order {
     uint64_t o_id;
     ushort o_d_id;
     ushort o_w_id;
     uint32_t o_c_id;
-    uint64_t o_entry_d;
+    uint32_t o_entry_d;  // TODO: MAKE IT 64 BIT
     short o_carrier_id;
     ushort o_ol_cnt;
     ushort o_all_local;
   };
 
-  struct tpcc_order_line {
+  struct __attribute__((packed)) tpcc_order_line {
     uint64_t ol_o_id;
     ushort ol_d_id;
     ushort ol_w_id;
     ushort ol_number;
-    ushort ol_i_id;
+    uint32_t ol_i_id;
     ushort ol_supply_w_id;
-    uint64_t ol_delivery_d;
+    uint32_t ol_delivery_d;  // TODO: MAKE IT 64 BIT
     ushort ol_quantity;
     float ol_amount;
-    char ol_dist_info[24];
+    // char ol_dist_info[24]; // TODO: uncomment
   };
-  struct tpcc_new_order {
+
+  struct __attribute__((packed)) tpcc_order_line_batch {
+    uint64_t ol_o_id[TPCC_MAX_OL_PER_ORDER];
+    ushort ol_d_id[TPCC_MAX_OL_PER_ORDER];
+    ushort ol_w_id[TPCC_MAX_OL_PER_ORDER];
+    ushort ol_number[TPCC_MAX_OL_PER_ORDER];
+    uint32_t ol_i_id[TPCC_MAX_OL_PER_ORDER];
+    ushort ol_supply_w_id[TPCC_MAX_OL_PER_ORDER];
+    uint32_t ol_delivery_d[TPCC_MAX_OL_PER_ORDER];  // TODO: MAKE IT 64 BIT
+    ushort ol_quantity[TPCC_MAX_OL_PER_ORDER];
+    float ol_amount[TPCC_MAX_OL_PER_ORDER];
+    // char ol_dist_info[TPCC_MAX_OL_PER_ORDER][24]; // TODO: uncomment
+  };
+
+  struct __attribute__((packed)) tpcc_new_order {
     uint64_t no_o_id;
     ushort no_d_id;
     ushort no_w_id;
@@ -258,9 +290,9 @@ class TPCC : public Benchmark {
   };
 
   struct item {
-    int ol_i_id;
-    int ol_supply_w_id;
-    int ol_quantity;
+    uint32_t ol_i_id;
+    ushort ol_supply_w_id;
+    ushort ol_quantity;
   };
 
   // neworder tpcc query
@@ -281,7 +313,7 @@ class TPCC : public Benchmark {
     char rbk;
     char remote;
     ushort ol_cnt;
-    uint64_t o_entry_d;
+    uint32_t o_entry_d;  // 64bit please
   };
 
   // fucking shortcut
@@ -304,13 +336,29 @@ class TPCC : public Benchmark {
   void create_tbl_nation(uint64_t num_nation);
 
   void load_data(int num_threads = 1);
-  void load_stock(int w_id);
-  void load_item();
-  void load_warehouse(int w_id);
-  void load_district(int w_id);
-  void load_history(int w_id);
-  void load_order(int w_id);
-  void load_customer(int w_id);
+  void load_stock(int w_id, uint64_t xid, ushort partition_id,
+                  ushort master_ver);
+  void load_item(int w_id, uint64_t xid, ushort partition_id,
+                 ushort master_ver);
+  void load_warehouse(int w_id, uint64_t xid, ushort partition_id,
+                      ushort master_ver);
+  void load_district(int w_id, uint64_t xid, ushort partition_id,
+                     ushort master_ver);
+  void load_history(int w_id, uint64_t xid, ushort partition_id,
+                    ushort master_ver);
+  void load_order(int w_id, uint64_t xid, ushort partition_id,
+                  ushort master_ver);
+  void load_customer(int w_id, uint64_t xid, ushort partition_id,
+                     ushort master_ver);
+
+  void pre_run(int wid, uint64_t xid, ushort partition_id, ushort master_ver);
+  void post_run(int wid, uint64_t xid, ushort partition_id, ushort master_ver) {
+    if (wid == 0) {
+      table_order->reportUsage();
+      table_new_order->reportUsage();
+      table_order_line->reportUsage();
+    }
+  }
 
   // CSV Loaders
 
@@ -334,7 +382,12 @@ class TPCC : public Benchmark {
                          char delim = '|');
   void load_customer_secondary_index(struct tpcc_customer &r);
 
-  void *get_query_struct_ptr() { return new struct tpcc_query; }
+  void *get_query_struct_ptr(ushort pid) {
+    return storage::MemoryManager::alloc(sizeof(struct tpcc_query), pid);
+  }
+  void free_query_struct_ptr(void *ptr) {
+    storage::MemoryManager::free(ptr, sizeof(struct tpcc_query));
+  }
 
   // cust_utils
   uint64_t cust_derive_key(char *c_last, int c_d_id, int c_w_id);
@@ -349,17 +402,15 @@ class TPCC : public Benchmark {
   void tpcc_get_next_delivery_query(int wid, void *arg);
   void tpcc_get_next_stocklevel_query(int wid, void *arg);
 
-  // struct txn::TXN gen_insert_txn(uint64_t key, void *rec) {}
-  // struct txn::TXN gen_upd_txn(uint64_t key, void *rec) {}
+  bool dummy_exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
+                               ushort partition_id, ushort master_ver,
+                               ushort delta_ver);
 
-  // void *gen_txn(int wid) {}
-
-  // void exec_txn(void *stmts) { return; }
-  bool exec_txn(void *stmts, uint64_t xid, ushort master_ver, ushort delta_ver,
-                ushort partition_id);
+  bool exec_txn(const void *stmts, uint64_t xid, ushort master_ver,
+                ushort delta_ver, ushort partition_id);
   void gen_txn(int wid, void *txn_ptr, ushort partition_id);
 
-  bool exec_neworder_txn(struct tpcc_query *stmts, uint64_t xid,
+  bool exec_neworder_txn(const struct tpcc_query *stmts, uint64_t xid,
                          ushort master_ver, ushort delta_ver,
                          ushort partition_id);
   bool exec_payment_txn(struct tpcc_query *stmts, uint64_t xid,
@@ -378,11 +429,11 @@ class TPCC : public Benchmark {
 
   void verify_consistency(uint wid);
 
-  // TODO: clean-up
   ~TPCC() {}
   TPCC(std::string name = "TPCC", int num_warehouses = 1,
+       int active_warehouse = 1, bool layout_column_store = true,
        int g_dist_threshold = 0, std::string csv_path = "",
-       bool is_ch_benchmark = true);
+       bool is_ch_benchmark = false);
 };
 
 }  // namespace bench

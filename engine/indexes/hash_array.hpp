@@ -20,22 +20,22 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
+// THIS IS BROKEN. AS WE DONT KNOW WHICH KEY TO PLACE WHERE.
+
 #ifndef INDEXES_HASH_ARRAY_HPP_
 #define INDEXES_HASH_ARRAY_HPP_
 
+#include <gflags/gflags.h>
 #include <iostream>
-
 #include "storage/memory_manager.hpp"
 
 namespace indexes {
 
-// TODO: Partition the index.
+#define IDX_SLACK 0
 #define PARTITIONED_INDEX true
+#define debug_idx false
 
-// typedef cuckoohash_map<std::string, std::string> HashIndex;
-
-// template <class key, class hash_val>
-// using HashIndex = cuckoohash_map<key, hash_val>;
+// DECLARE_uint64(num_partitions);
 
 template <class K = uint64_t, class V = void *>
 class HashArray {
@@ -44,45 +44,61 @@ class HashArray {
   uint64_t capacity;
   size_t capacity_per_partition;
   uint partitions;
+  std::atomic<uint64_t> filler[4];
 
   std::string name;
 
-  HashArray(std::string name, uint partitions = 1, uint64_t num_obj = 72000000)
-      : capacity(num_obj), partitions(partitions), name(name) {
-    std::cout << "Creating a hashindex of size: " << num_obj
-              << " with partitions:" << partitions << std::endl;
+  HashArray(std::string name = "", uint64_t num_obj = 72000000)
+      : capacity(num_obj), name(name) {
+    uint FLAGS_num_partitions = 4;
 
-    size_t size = num_obj * sizeof(char *);
+    this->partitions = FLAGS_num_partitions;
+
+    capacity_per_partition = (num_obj / partitions) + IDX_SLACK;
+    capacity = capacity_per_partition * partitions;
+
+    std::cout << "Creating a hashindex[" << name << "] of size: " << num_obj
+              << " with partitions:" << FLAGS_num_partitions
+              << " each with: " << capacity_per_partition << std::endl;
+
     arr = (char ***)malloc(sizeof(char *) * partitions);
 
-#if PARTITIONED_INDEX
-    size_t size_per_partition = ((size / partitions) + 1);
-    capacity_per_partition = num_obj / partitions;
+    size_t size_per_part = capacity_per_partition * sizeof(char *);
 
     for (int i = 0; i < partitions; i++) {
-      arr[i] = (char **)storage::MemoryManager::alloc(size_per_partition, i);
+      arr[i] = (char **)storage::MemoryManager::alloc(size_per_part, i);
+      assert(arr[i] != nullptr);
+      filler[i] = 0;
     }
-#else
-
-    arr[0] = (char **)storage::MemoryManager::alloc(size, 0);
-    capacity_per_partition = capacity;
-#endif
 
     for (int i = 0; i < partitions; i++) {
       uint64_t *pt = (uint64_t *)arr[i];
-      int warmup_max =
-          (capacity_per_partition * sizeof(char *)) / sizeof(uint64_t);
-      for (int i = 0; i < warmup_max; i++) pt[i] = 0;
+      uint64_t warmup_max = size_per_part / sizeof(uint64_t);
+#pragma clang loop vectorize(enable)
+      for (uint64_t j = 0; j < warmup_max; j++) pt[j] = 0;
     }
   }
+
   //~HashArray() { storage::MemoryManager::free(arr, capacity * sizeof(V)); }
+
+  void report() {
+#if debug_idx
+    std::cout << "Index: " << name << std::endl;
+    std::cout << "PID0: " << filler[0] << std::endl;
+    std::cout << "PID1: " << filler[1] << std::endl;
+    std::cout << "PID2: " << filler[2] << std::endl;
+    std::cout << "PID3: " << filler[3] << std::endl;
+#endif
+  }
+
   V find(K key) {
 #if PARTITIONED_INDEX
 
     ushort pid = key / capacity_per_partition;
     uint64_t idx = key % capacity_per_partition;
 
-    if (pid < partitions && idx < capacity_per_partition) {
+    if (__builtin_expect((pid < partitions && idx < capacity_per_partition),
+                         1)) {
       return (void *)arr[pid][idx];
     } else {
       assert(false);
@@ -99,7 +115,8 @@ class HashArray {
     ushort pid = key / capacity_per_partition;
     uint64_t idx = key % capacity_per_partition;
 
-    if (pid < partitions && idx < capacity_per_partition) {
+    if (__builtin_expect((pid < partitions && idx < capacity_per_partition),
+                         1)) {
       value = (void *)arr[pid][idx];
       return true;
     } else {
@@ -124,8 +141,12 @@ class HashArray {
 
     ushort pid = key / capacity_per_partition;
     uint64_t idx = key % capacity_per_partition;
+#if debug_idx
+    filler[pid]++;
+#endif
 
-    if (pid < partitions && idx < capacity_per_partition) {
+    if (__builtin_expect((pid < partitions && idx < capacity_per_partition),
+                         1)) {
       // std::cout << "key: " << key << std::endl;
       // std::cout << "pid: " << pid << std::endl;
       // std::cout << "idx: " << idx << std::endl;

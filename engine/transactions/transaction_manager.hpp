@@ -127,12 +127,6 @@ class TransactionManager {
 #endif
 
   inline uint64_t __attribute__((always_inline)) get_next_xid(uint8_t wid) {
-    // uint32_t a, d;
-    // __asm __volatile("rdtsc" : "=a"(a), "=d"(d));
-
-    // return ((((uint64_t)a) | (((uint64_t)d) << 32)) & 0x00FFFFFFFFFFFFFF) |
-    //        (((uint64_t)wid) << 56);
-
     return (rdtsc() & 0x00FFFFFFFFFFFFFF) | (((uint64_t)wid) << 56);
   }
 
