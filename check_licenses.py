@@ -3,12 +3,36 @@
 import re
 import os
 import sys
+import argparse
+import datetime
 
-header = r"""/\*(
-    [^\n]+
-)?
-                            Copyright \(c\) (\d+)
-        Data Intensive Applications and Systems Laboratory \(DIAS\)
+parser = argparse.ArgumentParser(description='Check licenses.')
+parser.add_argument('--print-license', action='store_true',
+                   help='print suggested license')
+parser.add_argument('file', type=str, nargs='*',
+                   help='files to check for correct license')
+
+args = parser.parse_args()
+
+
+projectline = r"""[^\n]+"""
+year = r"""(\d+)"""
+escchar = "\\"
+optstart = r"""("""
+optend = r""")?"""
+
+if args.print_license:
+    projectline = r"""Proteus -- High-performance query processing on heterogeneous hardware."""
+    year = str(datetime.datetime.now().year)
+    escchar = ""
+    optstart = ""
+    optend = ""
+
+header = r"""/""" + escchar + r"""*""" + optstart + r"""
+    """ + projectline + r"""
+""" + optend + r"""
+                            Copyright """ + escchar + r"""(c""" + escchar + r""") """ + year + r"""
+        Data Intensive Applications and Systems Laboratory """ + escchar + r"""(DIAS""" + escchar + r""")
                 École Polytechnique Fédérale de Lausanne
 
                             All Rights Reserved.
@@ -25,7 +49,7 @@ header = r"""/\*(
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
-\*/
+""" + escchar + r"""*/
 """
 
 exts = [".cpp", ".hpp", ".cu", ".cuh", ".c", ".h"]
@@ -43,13 +67,18 @@ external_files = [
     "codegen/util/radix/aggregations/radix-aggr.cpp",
     "codegen/util/radix/aggregations/radix-aggr.hpp",
     "jsmn/jsmn.c",
-    "jsmn/jsmn.h",
+    "jsmn/jsmn.h"
+]
+
+exclude_dirs = [
+    "cmake-build-debug"
 ]
 
 root = os.path.dirname(os.path.realpath(__file__))
 found_bad = False
 
-for d, subdirs, files in os.walk(root, followlinks=False):
+def check_files(files, d):
+    global found_bad
     for f in files:
         for ext in exts:
             if (f.endswith(ext)):
@@ -66,6 +95,19 @@ for d, subdirs, files in os.walk(root, followlinks=False):
                         if (not re.match(header, file.read())):
                             print("Missing license: " + str(relpath))
                             found_bad = True
+
+if args.print_license:
+    if len(args.file) > 0:
+        print("WARNING: Ignoring passed files")
+    sys.stdout.write(header)
+elif len(args.file) > 0:
+    check_files(args.file, root)
+else:
+    for d, subdirs, files in os.walk(root, followlinks=False):
+        reldir = os.path.relpath(d, root)
+        if reldir in exclude_dirs: continue
+        if any([reldir.startswith(exclude + os.path.sep) for exclude in exclude_dirs]): continue
+        check_files(files, d)
 
 if found_bad:
     sys.exit(-1)
