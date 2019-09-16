@@ -3,6 +3,7 @@ set(gtest_libs ${GTEST_MAIN} ${GTEST} ${default_libs})
 set(gtest_src
 	tests-joins
 	tests-json
+	tests-cow
 	tests-cpu-ssb
 	tests-gpu-ssb
 	tests-hyb-ssb

@@ -170,7 +170,7 @@ install:
 
 #----------------------------------------------------------------------------
 # Functional Tests
-1/8 test - Threads:
+1/9 test - Threads:
  <<: *test
  script:
  - cmake --build cmake-build-debug --target install
@@ -180,7 +180,7 @@ install:
   reports:
    junit: report-threads.xml
 
-2/8 test - Plan Parsing:
+2/9 test - Plan Parsing:
  <<: *test
  script:
  - cmake --build cmake-build-debug --target install
@@ -191,7 +191,7 @@ install:
   reports:
    junit: report-plan-parsing.xml
 
-3/8 test - JSON:
+3/9 test - JSON:
  <<: *test
  script:
  - cmake --build cmake-build-debug --target install
@@ -201,7 +201,7 @@ install:
   reports:
    junit: report-json.xml
 
-4/8 test - Joins:
+4/9 test - Joins:
  <<: *test
  script:
  - cmake --build cmake-build-debug --target install
@@ -212,7 +212,7 @@ install:
   reports:
    junit: report-joins.xml
 
-5/8 test - Output:
+5/9 test - Output:
  <<: *test
  script:
  - cmake --build cmake-build-debug --target install
@@ -223,7 +223,7 @@ install:
   reports:
    junit: report-output.xml
 
-6/8 test - GPU SSB SF100:
+6/9 test - GPU SSB SF100:
  <<: *test
  script:
  - cmake --build cmake-build-debug --target install
@@ -233,7 +233,7 @@ install:
   reports:
    junit: report-gpu.xml
 
-7/8 test - CPU SSB SF100:
+7/9 test - CPU SSB SF100:
  <<: *test
  script:
  - cmake --build cmake-build-debug --target install
@@ -243,7 +243,7 @@ install:
   reports:
    junit: report-cpu.xml
 
-8/8 test - Hybrid SSB SF100:
+8/9 test - Hybrid SSB SF100:
  <<: *test
  script:
  - cmake --build cmake-build-debug --target install
@@ -252,6 +252,16 @@ install:
  artifacts:
   reports:
    junit: report-hyb.xml
+
+8/9 test - COW:
+ <<: *test
+ script:
+ - cmake --build cmake-build-debug --target install
+ - export CWD=$(pwd)
+ - cd cmake-build-debug/opt/pelago && ./unit-tests-cow --gtest_output="xml:$CWD/report-cow.xml"
+ artifacts:
+  reports:
+   junit: report-cow.xml
 
 #----------------------------------------------------------------------------
 # Performance Tests

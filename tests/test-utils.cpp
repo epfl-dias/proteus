@@ -49,35 +49,7 @@ void TestEnvironment::SetUp() {
 
   set_trace_allocations(true, true);
 
-  topology::init();
-
-  // int devCount;
-
-  // gpu_run(cuInit(0));
-  // gpu_run(cuDeviceGetCount(&devCount));
-
-  // device  = new CUdevice [devCount];
-  // context = new CUcontext[devCount];
-
-  // for (int i = 0 ; i < devCount ; ++i){
-  //     gpu_run(cuDeviceGet(device  + i, i));
-  //     gpu_run(cuCtxCreate(context + i, 0, device[i]));
-  // }
-
-  // gpu_run(cudaSetDeviceFlags(cudaDeviceScheduleYield));
-
-  // gpu_run(cudaDeviceSetLimit(cudaLimitStackSize, 40960));
-
-  std::vector<std::thread> thrds;
-  for (int i = 0; i < 32; ++i) thrds.emplace_back([] {});
-  for (auto &t : thrds) t.join();
-
-  // srand(time(0));
-
-  PipelineGen::init();
-  MemoryManager::init();
-
-  gpu_run(cudaSetDevice(0));
+  proteus::init();
 
   has_already_been_setup = true;
 }
