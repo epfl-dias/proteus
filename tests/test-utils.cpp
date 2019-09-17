@@ -55,7 +55,10 @@ void TestEnvironment::SetUp() {
 }
 
 void TestEnvironment::TearDown() {
-  if (!is_noop) MemoryManager::destroy();
+  if (!is_noop) {
+    MemoryManager::destroy();
+    has_already_been_setup = false;
+  }
 }
 
 bool verifyTestResult(const char *testsPath, const char *testLabel,

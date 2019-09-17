@@ -62,10 +62,20 @@ void topology::init() {
 }
 
 void topology::init_() {
-  unsigned int gpus = 0;
-  auto nvml_res = nvmlInit();
+  // Check if topology is already initialized and if yes, return early
+  // This should only happen when a unit-test is reinitializing proteus but it
+  // should not happen in normal execution, except if we "restart" proteus
+  if (core_info.size() > 0) {
+#ifndef NDEBUG
+    auto core_cnt = sysconf(_SC_NPROCESSORS_ONLN);
+    assert(core_info.size() == core_cnt);
+#endif
+    return;
+  }
   assert(cpu_info.size() == 0 && "Is topology already initialized?");
   assert(core_info.size() == 0 && "Is topology already initialized?");
+  unsigned int gpus = 0;
+  auto nvml_res = nvmlInit();
   if (nvml_res == NVML_SUCCESS) {
     // We can not use gpu_run(...) before we set gpu_cnt, call gpuAssert
     // directly.
