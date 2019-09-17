@@ -7,10 +7,11 @@ PelagoToEnumerableConverter
             PelagoAggregate
               PelagoProject
                 PelagoJoin
-                  PelagoFilter
-                    PelagoUnpack
-                      PelagoRouter
-                        PelagoTableScan
+                  PelagoProject
+                    PelagoFilter
+                      PelagoUnpack
+                        PelagoRouter
+                          PelagoTableScan
                   PelagoProject
                     PelagoJoin
                       PelagoFilter
@@ -19,11 +20,10 @@ PelagoToEnumerableConverter
                             PelagoTableScan
                       PelagoProject
                         PelagoJoin
-                          PelagoProject
-                            PelagoFilter
-                              PelagoUnpack
-                                PelagoRouter
-                                  PelagoTableScan
+                          PelagoFilter
+                            PelagoUnpack
+                              PelagoRouter
+                                PelagoTableScan
                           PelagoUnpack
                             PelagoRouter
                               PelagoTableScan
