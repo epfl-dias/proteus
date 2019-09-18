@@ -44,6 +44,10 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 namespace bench {
 
+/*
+  FIXME: zipfian is broken in YCSB.
+*/
+
 #define YCSB_MIXED_OPS 1
 
 /*
@@ -71,9 +75,6 @@ class YCSB : public Benchmark {
   // const int num_iterations_per_worker;
   const int num_ops_per_txn;
   const double write_threshold;
-  int num_max_workers;
-  int num_active_workers;
-  ushort num_partitions;
   uint64_t recs_per_server;
   storage::Schema *schema;
   storage::Table *ycsb_tbl;
@@ -113,12 +114,13 @@ class YCSB : public Benchmark {
       gen_insert_txn(i, &tmp, q_ptr);
       this->exec_txn(q_ptr, xid, master_ver, 0, partition_id);
     }
-    {
-      std::unique_lock<std::mutex> lk(out_lk);
-      std::cout << "Worker-" << wid << " : Inserted[" << partition_id << "] "
-                << to_ins << " records (" << start << " -- " << (start + to_ins)
-                << ")" << std::endl;
-    }
+    // {
+    //   std::unique_lock<std::mutex> lk(out_lk);
+    //   std::cout << "Worker-" << wid << " : Inserted[" << partition_id << "] "
+    //             << to_ins << " records (" << start << " -- " << (start +
+    //             to_ins)
+    //             << ")" << std::endl;
+    // }
 
     free_query_struct_ptr(q_ptr);
   }
@@ -308,16 +310,13 @@ class YCSB : public Benchmark {
        int num_ops_per_txn = 2, double write_threshold = 0.5,
        int num_active_workers = -1, int num_max_workers = -1,
        ushort num_partitions = 1, bool layout_column_store = true)
-      : Benchmark(name),
+      : Benchmark(name, num_active_workers, num_max_workers, num_partitions),
         num_fields(num_fields),
         num_records(num_records),
         theta(theta),
         // num_iterations_per_worker(num_iterations_per_worker),
         num_ops_per_txn(num_ops_per_txn),
-        write_threshold(write_threshold),
-        num_max_workers(num_max_workers),
-        num_active_workers(num_active_workers),
-        num_partitions(num_partitions) {
+        write_threshold(write_threshold) {
     // num_workers = scheduler::Topology::getInstance().get_num_worker_cores();
     if (num_max_workers == -1)
       num_max_workers = std::thread::hardware_concurrency();

@@ -36,13 +36,13 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
 
-#define REPLICATED_ITEM_TABLE false  // broken, not tested
+// FIXME: REPLICATED_ITEM_TABLE - broken, incomplete stuff.
+#define REPLICATED_ITEM_TABLE false
+
 #define PARTITION_LOCAL_ITEM_TABLE true
 #define tpcc_dist_txns false
 #define tpcc_cust_sec_idx false
 #define batch_insert_no_ol true
-
-#define MAX_OPS_PER_QUERY 255
 
 #define NO_MIX 100
 #define P_MIX 0
@@ -62,6 +62,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define FIRST_NAME_LEN 16
 #define LAST_NAME_LEN 16
 #define TPCC_MAX_OL_PER_ORDER 15
+#define MAX_OPS_PER_QUERY 255
 
 // From TPCC-SPEC
 #define TPCC_MAX_ITEMS 100000  // 100000
@@ -128,7 +129,6 @@ class TPCC : public Benchmark {
   std::string csv_path;
   const bool is_ch_benchmark;
   const bool layout_column_store;
-  const ushort active_warehouse;
 
  public:
   struct __attribute__((packed)) ch_nation {
@@ -358,6 +358,8 @@ class TPCC : public Benchmark {
       table_new_order->reportUsage();
       table_order_line->reportUsage();
     }
+
+    // TODO: Implement verify consistency after txn run.
   }
 
   // CSV Loaders
@@ -402,10 +404,6 @@ class TPCC : public Benchmark {
   void tpcc_get_next_delivery_query(int wid, void *arg);
   void tpcc_get_next_stocklevel_query(int wid, void *arg);
 
-  bool dummy_exec_neworder_txn(struct tpcc_query *q, uint64_t xid,
-                               ushort partition_id, ushort master_ver,
-                               ushort delta_ver);
-
   bool exec_txn(const void *stmts, uint64_t xid, ushort master_ver,
                 ushort delta_ver, ushort partition_id);
   void gen_txn(int wid, void *txn_ptr, ushort partition_id);
@@ -426,8 +424,6 @@ class TPCC : public Benchmark {
                            ushort master_ver, ushort delta_ver,
                            ushort partition_id);
   void print_tpcc_query(void *arg);
-
-  void verify_consistency(uint wid);
 
   ~TPCC() {}
   TPCC(std::string name = "TPCC", int num_warehouses = 1,

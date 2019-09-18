@@ -21,6 +21,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 */
 
 #include "storage/delta_storage.hpp"
+
+#include <sys/mman.h>
+
 #include "scheduler/worker.hpp"
 
 namespace storage {
@@ -53,8 +56,10 @@ DeltaStore::DeltaStore(uint delta_id, uint64_t ver_list_capacity,
 
     // std::cout << "PID-" << i << " - memset: " << data_numa_id << std::endl;
 
-    void* mem_list = MemoryManager::alloc(ver_list_capacity, i);
-    void* mem_data = MemoryManager::alloc(ver_data_capacity, i);
+    void* mem_list = MemoryManager::alloc(ver_list_capacity, i,
+                                          MADV_DONTFORK | MADV_HUGEPAGE);
+    void* mem_data = MemoryManager::alloc(ver_data_capacity, i,
+                                          MADV_DONTFORK | MADV_HUGEPAGE);
     assert(mem_list != NULL);
     assert(mem_data != NULL);
 

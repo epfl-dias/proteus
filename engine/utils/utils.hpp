@@ -77,10 +77,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 */
 
-template <class Duration>
-using sys_time = std::chrono::time_point<std::chrono::system_clock, Duration>;
-using sys_nanoseconds = sys_time<std::chrono::nanoseconds>;
-
+// template <class Duration>
+// using sys_time = std::chrono::time_point<std::chrono::system_clock,
+// Duration>; using sys_nanoseconds = sys_time<std::chrono::nanoseconds>;
 // sys_nanoseconds now = std::chrono::system_clock::now();
 
 class timed_func {
@@ -95,6 +94,7 @@ class timed_func {
                               unsigned int interval) {
     std::thread([func, interval]() {
       while (true) {
+        // std::cout << "HE" << std::endl;
         if (terminate) break;
         auto x = std::chrono::steady_clock::now() +
                  std::chrono::milliseconds(interval);
@@ -128,10 +128,6 @@ class timed_func {
     num_active_runners++;
   }*/
 };
-
-// FIX and put following in a cpp file.
-// bool timed_func::terminate = false;
-// int timed_func::num_active_runners = 0;
 
 static inline int __attribute__((always_inline))
 RAND(unsigned int *seed, int max) {

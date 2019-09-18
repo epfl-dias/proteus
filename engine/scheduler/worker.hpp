@@ -143,7 +143,7 @@ class WorkerPool {
 
   void start_workers(uint num_workers = 1, uint num_partitions = 1,
                      uint worker_sched_mode = 0, int num_iter_per_worker = -1);
-  void add_worker(core *exec_location, ushort partition_id = 0);
+  void add_worker(core *exec_location, short partition_id = -1);
   void remove_worker(core *exec_location);
   void print_worker_stats(bool global_only = true);
 
@@ -177,7 +177,7 @@ class WorkerPool {
   std::condition_variable pre_cv;
   std::mutex pre_m;
 
-  std::unordered_map<uint8_t, std::pair<std::thread *, Worker *> > workers;
+  std::unordered_map<uint, std::pair<std::thread *, Worker *> > workers;
   uint num_iter_per_worker;
   uint worker_sched_mode;
   uint num_partitions;
@@ -192,15 +192,10 @@ class WorkerPool {
 
   ~WorkerPool() {
     if (terminate == true) {
-      std::cout << "here" << std::endl;
       if (!proc_completed) {
-        std::cout << "here2" << std::endl;
         print_worker_stats();
       }
-
-      return;
     } else {
-      std::cout << "here3" << std::endl;
       std::cout << "[destructor] shutting down workers" << std::endl;
       terminate = true;
       // cv.notify_all();

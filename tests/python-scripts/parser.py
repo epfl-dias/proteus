@@ -6,6 +6,7 @@ import datetime
 import subprocess
 import shlex
 import time
+import multiprocessing
 
 # Google
 # from __future__ import print_function
@@ -27,23 +28,25 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SERVICE_ACCOUNT_FILE = "/home/raza/gcred.json"
 
 
-aeoulus_exe = "./../../../opt/aeolus/aeolus-server"
+aeoulus_exe = "./../../../../opt/aeolus/aeolus-server"
 DEBUG = False
 GSHEET = True
-FILE = True
-STDOUT = False
+FILE = False
+STDOUT = True
 result_dir = "./results"
 
-repeat_expr_times = 5
+repeat_expr_times = 3
 
 AEOLUS_SPREADSHEET = '1OtICMs90trphneA7rFLWx3S3XVyzzp_Z9QGXuA8UqDs'
 
-ycsb_range = 'ycsb!A1:R1'
-tpcc_range = 'tpcc!A1:U1'
+ycsb_range = 'ycsb_new!A1:T1'
+tpcc_range = 'tpcc_new!A1:O1'
 
-workers = [1, 2, 4, 8, 16, 18, 36, 54, 72]
-# zipf Theta
 
+# General
+workers = [1, 2, 4, 8, 16, 18, 32, 36, 54, 64, 72]
+num_partitions = [1, 2, 3, 4]
+layout_column_store = ["true", "false"]
 
 # YCSB
 # theta_range = [0, 1]
@@ -52,12 +55,15 @@ theta_step = 0.25
 
 # Write Threshold
 # write_thresh_range = [0, 1]
-write_thresh_range = [0, 0.5]
-write_thresh_step = 0.5
+write_thresh_range = [0.0, 1.0]
+write_thresh_step = 0.25
 # Columns
-num_cols_range = [0, 12]
-num_cols_step = 4
+num_cols = [1, 2, 4, 8, 16]
+#num_cols_range = [0, 12]
+#num_cols_step = 4
 # --------------
+
+# TPCC
 
 
 def gsheet_init2(default_token_file="/home/raza/gtoken.pickle"):
@@ -155,60 +161,61 @@ def format_metrics_gsheet(out, err):
     tps_end = stats[tps_st:].find('\n')
     s4_tps = float(stats[tps_st: tps_st + tps_end].split(' ')[0])
 
-    # Delta 0
-    delta_0_st = out.find("[DeltaStore # 0]") + len("[DeltaStore # 0]")
-    delta_0_end = out.find("[DeltaStore # 1]")
-    delta_0_stats = out[delta_0_st + 1:delta_0_end]
+    # # Delta 0
+    # delta_0_st = out.find("[DeltaStore # 0]") + len("[DeltaStore # 0]")
+    # delta_0_end = out.find("[DeltaStore # 1]")
+    # delta_0_stats = out[delta_0_st + 1:delta_0_end]
 
-    # [DeltaStore # 0] Number of GC Requests: 13361
-    # [DeltaStore # 0] Number of Successful GC Resets: 13360
-    # [DeltaStore # 0] Number of Operations: 1595390
+    # # [DeltaStore # 0] Number of GC Requests: 13361
+    # # [DeltaStore # 0] Number of Successful GC Resets: 13360
+    # # [DeltaStore # 0] Number of Operations: 1595390
 
-    d0_req_st = delta_0_stats.find(
-        "Number of GC Requests:") + len("Number of GC Requests:") + 1
-    d0_req_end = delta_0_stats[d0_req_st:].find('\n')
-    d0_req = int(
-        delta_0_stats[d0_req_st: d0_req_st + d0_req_end].split(' ')[0])
+    # d0_req_st = delta_0_stats.find(
+    #     "Number of GC Requests:") + len("Number of GC Requests:") + 1
+    # d0_req_end = delta_0_stats[d0_req_st:].find('\n')
+    # d0_req = int(
+    #     delta_0_stats[d0_req_st: d0_req_st + d0_req_end].split(' ')[0])
 
-    d0_suc_st = delta_0_stats.find(
-        "Number of Successful GC Resets:") + len("Number of Successful GC Resets:") + 1
-    d0_suc_end = delta_0_stats[d0_suc_st:].find('\n')
-    d0_suc = int(
-        delta_0_stats[d0_suc_st: d0_suc_st + d0_suc_end].split(' ')[0])
+    # d0_suc_st = delta_0_stats.find(
+    #     "Number of Successful GC Resets:") + len("Number of Successful GC Resets:") + 1
+    # d0_suc_end = delta_0_stats[d0_suc_st:].find('\n')
+    # d0_suc = int(
+    #     delta_0_stats[d0_suc_st: d0_suc_st + d0_suc_end].split(' ')[0])
 
-    d0_op_st = delta_0_stats.find(
-        "Number of Operations:") + len("Number of Operations:") + 1
-    d0_op_end = delta_0_stats[d0_op_st:].find('\n')
-    d0_op = int(delta_0_stats[d0_op_st: d0_op_st + d0_op_end].split(' ')[0])
+    # d0_op_st = delta_0_stats.find(
+    #     "Number of Operations:") + len("Number of Operations:") + 1
+    # d0_op_end = delta_0_stats[d0_op_st:].find('\n')
+    # d0_op = int(delta_0_stats[d0_op_st: d0_op_st + d0_op_end].split(' ')[0])
 
-    # Delta 1
-    delta_1_st = out.find("[DeltaStore # 1]") + len("[DeltaStore # 1]")
-    out_inter = out[delta_1_st + 1:]
-    delta_1_end = out_inter.find("Memory Consumption:")
-    delta_1_stats = out_inter[:delta_1_end]
+    # # Delta 1
+    # delta_1_st = out.find("[DeltaStore # 1]") + len("[DeltaStore # 1]")
+    # out_inter = out[delta_1_st + 1:]
+    # delta_1_end = out_inter.find("Memory Consumption:")
+    # delta_1_stats = out_inter[:delta_1_end]
 
-    d1_req_st = delta_1_stats.find(
-        "Number of GC Requests:") + len("Number of GC Requests:") + 1
-    d1_req_end = delta_1_stats[d1_req_st:].find('\n')
-    d1_req = int(
-        delta_1_stats[d1_req_st: d1_req_st + d1_req_end].split(' ')[0])
+    # d1_req_st = delta_1_stats.find(
+    #     "Number of GC Requests:") + len("Number of GC Requests:") + 1
+    # d1_req_end = delta_1_stats[d1_req_st:].find('\n')
+    # d1_req = int(
+    #     delta_1_stats[d1_req_st: d1_req_st + d1_req_end].split(' ')[0])
 
-    d1_suc_st = delta_1_stats.find(
-        "Number of Successful GC Resets:") + len("Number of Successful GC Resets:") + 1
-    d1_suc_end = delta_1_stats[d1_suc_st:].find('\n')
-    d1_suc = int(
-        delta_1_stats[d1_suc_st: d1_suc_st + d1_suc_end].split(' ')[0])
+    # d1_suc_st = delta_1_stats.find(
+    #     "Number of Successful GC Resets:") + len("Number of Successful GC Resets:") + 1
+    # d1_suc_end = delta_1_stats[d1_suc_st:].find('\n')
+    # d1_suc = int(
+    #     delta_1_stats[d1_suc_st: d1_suc_st + d1_suc_end].split(' ')[0])
 
-    d1_op_st = delta_1_stats.find(
-        "Number of Operations:") + len("Number of Operations:") + 1
-    d1_op_end = delta_1_stats[d1_op_st:].find('\n')
-    d1_op = int(delta_1_stats[d1_op_st: d1_op_st + d1_op_end].split(' ')[0])
+    # d1_op_st = delta_1_stats.find(
+    #     "Number of Operations:") + len("Number of Operations:") + 1
+    # d1_op_end = delta_1_stats[d1_op_st:].find('\n')
+    # d1_op = int(delta_1_stats[d1_op_st: d1_op_st + d1_op_end].split(' ')[0])
 
     # DateTime   Commit ID   Commit Message  #Cores Zipf Theta  Write Threshold
     # Benchmark   Comments    Runtime (sec)   #Commits   #Aborts
     #   #Txns  Throughput (mTPS)
     # socket_1_tps    socket_2_tps    socket_3_tps    socket_4_tps
-    return [cmt, abrt, txn, tps, s1_tps, s2_tps, s3_tps, s4_tps, d0_req, d0_suc, d0_op, d1_req, d1_suc, d1_op]
+    # , d0_req, d0_suc, d0_op, d1_req, d1_suc, d1_op]
+    return [cmt, abrt, txn, tps, s1_tps, s2_tps, s3_tps, s4_tps]
 
 
 def frange(start, stop, step):
@@ -218,102 +225,120 @@ def frange(start, stop, step):
         x += step
 
 
-def test_ycsb(comments="", runtime=60):
+def test_ycsb(layout_col="true", num_partitions=1, num_workers=1, comments="", runtime=60):
     exp_counter = 0
     for num_exp in xrange(0, repeat_expr_times):
-        for col in frange(num_cols_range[0], num_cols_range[1], num_cols_step):
-            if col == 0:
-                col = 1
-            for w in workers:
-                exe = aeoulus_exe + " " + "-w " + \
-                    str(w) + " " + "-c " + str(col)
-                # for r in xrange(int(write_thresh_range[0]*10),
-                #                int((write_thresh_range[1]*10)+1), 2):
-                # for r in write_thresh:
-                for r in frange(write_thresh_range[0], write_thresh_range[1],
-                                write_thresh_step):
-                    r_exe = exe + " -r " + str(r)
-                    for t in frange(theta_range[0], theta_range[1], theta_step):
-                        t_exe = r_exe + " -t " + str(t)
-                        print num_exp, "--", t_exe
-                        if not DEBUG:
-                            args = shlex.split(t_exe)
-                            proc = subprocess.Popen(
-                                args, stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE)
-                            output, err = proc.communicate()
-                            if GSHEET:
-                                val = [expr_time, "-", "-",
-                                       str(w), str(t), str(
-                                           r), "YCSB", col, comments,
-                                       runtime]
-                                gsheet_init2()
+        for col in num_cols:
+            exe = aeoulus_exe + " --benchmark=0"
+            exe += " --layout_column_store=" + layout_col
+            exe += " --delta-size=4"
+            exe += " --runtime=" + str(runtime)
+            exe += " --num-partitions=" + str(num_partitions)
+            exe += " --num-workers=" + str(num_workers)
+
+            exe += " --ycsb_num_cols=" + str(col)
+            for r in frange(write_thresh_range[0], write_thresh_range[1],
+                            write_thresh_step):
+                r_exe = exe + " --ycsb_write_ratio=" + str(r)
+                for t in frange(theta_range[0], theta_range[1], theta_step):
+                    t_exe = r_exe + " --ycsb_zipf_theta=" + str(t)
+
+                    comment_w_exe = comments + " \n"
+                    print num_exp, "--", t_exe
+                    if not DEBUG:
+                        args = shlex.split(t_exe)
+                        proc = subprocess.Popen(
+                            args, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+                        output, err = proc.communicate()
+                        if GSHEET:
+                            val = [expr_time, "-", "-",
+                                   str(num_workers), str(t), str(
+                                       r), "YCSB", col, "SUCCESS", comment_w_exe,
+                                   runtime]
+                            if len(err) > 10:
+                                val[8] = "FAILED"
+                                val[9] += "\n " + str(err)
+                            else:
                                 val += format_metrics_gsheet(output, err)
-                                append_to_gsheet(
-                                    val, spreadsheet_id=AEOLUS_SPREADSHEET, range=ycsb_range)
-                            if STDOUT:
-                                print "---------------stdout------------"
-                                print output
-                                if err and len(err) > 0:
-                                    print "---------------stderr------------"
-                                    print err
-                            if FILE:
-                                out_file_path = os.path.join(
-                                    result_dir, expr_time_epoch + "_ycsb_" + str(col) + "_" +
-                                    str(w) + "_" + str(r) + "_" + str(t) + "_"
-                                    + str(num_exp))
-                                out_file = open(out_file_path, 'w')
+                                val += [exe]
+                            gsheet_init2()
+                            append_to_gsheet(
+                                val, spreadsheet_id=AEOLUS_SPREADSHEET, range=ycsb_range)
+                        if STDOUT:
+                            print "---------------stdout------------"
+                            print output
+                            if err and len(err) > 0:
+                                print "---------------stderr------------"
+                                print err
+                        if FILE:
+                            out_file_path = os.path.join(
+                                result_dir, expr_time_epoch + "_ycsb_" + str(col) + "_" +
+                                str(w) + "_" + str(r) + "_" + str(t) + "_"
+                                + str(num_exp))
+                            out_file = open(out_file_path, 'w')
+                            out_file.write(
+                                "---------------stdout------------")
+                            out_file.write(output)
+                            if err and len(err) > 0:
                                 out_file.write(
-                                    "---------------stdout------------")
-                                out_file.write(output)
-                                if err and len(err) > 0:
-                                    out_file.write(
-                                        "---------------stderr------------")
-                                    out_file.write(err)
-                                out_file.close()
-                        exp_counter += 1
+                                    "---------------stderr------------")
+                                out_file.write(err)
+                            out_file.close()
+                    exp_counter += 1
     print "Total Experiements completed:", exp_counter
 
 
-def test_tpcc(comments="", runtime=60):
+def test_tpcc(layout_col="true", num_partitions=1, num_workers=1, comments="", runtime=60):
     exp_counter = 0
     for num_exp in xrange(0, repeat_expr_times):
-        for w in workers:
-            exe = aeoulus_exe + " -b 1 " + "-w " + str(w)
-            print num_exp, "--", exe
-            if not DEBUG:
-                args = shlex.split(exe)
-                proc = subprocess.Popen(
-                    args, stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE)
-                output, err = proc.communicate()
-                if GSHEET:
-                    val = [expr_time, "-", "-",
-                           str(w), "TPCC", comments, runtime]
-                    gsheet_init2()
+        exe = aeoulus_exe + " --benchmark=1"
+        exe += "  --tpcc_num_wh=" + str(multiprocessing.cpu_count())
+        exe += " --layout_column_store=" + layout_col
+        exe += " --delta-size=4"
+        exe += " --runtime=" + str(runtime)
+        exe += " --num-partitions=" + str(num_partitions)
+        exe += " --num-workers=" + str(num_workers)
+        comment_w_exe = comments + " \n"
+        print num_exp, "--", exe
+        if not DEBUG:
+            args = shlex.split(exe)
+            proc = subprocess.Popen(
+                args, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+            output, err = proc.communicate()
+            if GSHEET:
+                val = [expr_time, "-", "-",
+                       str(num_workers), "TPCC", "SUCCESS", comment_w_exe, runtime]
+                gsheet_init2()
+                if len(err) > 10:
+                    val[5] = "FAILED"
+                    val[6] += "\n " + str(err)
+                else:
                     val += format_metrics_gsheet(output, err)
-                    append_to_gsheet(
-                        val, spreadsheet_id=AEOLUS_SPREADSHEET,
-                        range=tpcc_range)
-                if STDOUT:
-                    print "---------------stdout------------"
-                    print output
-                    if err and len(err) > 0:
-                        print "---------------stderr------------"
-                        print err
-                if FILE:
-                    out_file_path = os.path.join(
-                        result_dir, expr_time_epoch + "_tpcc_" + str(w) + "_" + str(num_exp))
-                    out_file = open(out_file_path, 'w')
+                    val += [exe]
+                append_to_gsheet(
+                    val, spreadsheet_id=AEOLUS_SPREADSHEET,
+                    range=tpcc_range)
+            if STDOUT:
+                print "---------------stdout------------"
+                print output
+                if err and len(err) > 0:
+                    print "---------------stderr------------"
+                    print err
+            if FILE:
+                out_file_path = os.path.join(
+                    result_dir, expr_time_epoch + "_tpcc_" + str(w) + "_" + str(num_exp))
+                out_file = open(out_file_path, 'w')
+                out_file.write(
+                    "---------------stdout------------")
+                out_file.write(output)
+                if err and len(err) > 0:
                     out_file.write(
-                        "---------------stdout------------")
-                    out_file.write(output)
-                    if err and len(err) > 0:
-                        out_file.write(
-                            "---------------stderr------------")
-                        out_file.write(err)
-                    out_file.close()
-            exp_counter += 1
+                        "---------------stderr------------")
+                    out_file.write(err)
+                out_file.close()
+        exp_counter += 1
     print "Total Experiements completed:", exp_counter
 
 
@@ -323,7 +348,24 @@ def test():
     print format_metrics_gsheet(inn.read(), "")
 
 
+def test_all_tpcc():
+
+    for layout in layout_column_store:
+        for wrkr in workers:
+            test_tpcc(layout_col=layout, num_partitions=4, num_workers=wrkr,
+                      comments="neworder txn", runtime=30)
+
+
+def test_all_ycsb():
+
+    for layout in layout_column_store:
+        for n_part in num_partitions:
+            for wrkr in workers:
+                test_ycsb(layout_col=layout, num_partitions=n_part, num_workers=wrkr,
+                          comments="partition_local_zipf", runtime=30)
+
+
 if __name__ == "__main__":
     gsheet_init2()
-    # test_ycsb(comments="delta switch on", runtime=60)
-    test_tpcc(comments="new order", runtime=60)
+    test_all_tpcc()
+    test_all_ycsb()

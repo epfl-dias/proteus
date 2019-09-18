@@ -140,19 +140,27 @@ Table* Schema::create_table(
 }
 
 void Schema::drop_table(std::string name) {
-  int index = -1;
-  /*for (const auto &t : tables) {
-          if(name.compare(t->name) == 0) {
-                  index = std::distance(tables.begin(), &t);
-          }
-  }*/
+  assert(false && "Not Implemented");
+  // int index = -1;
+  // for (const auto& t : tables) {
+  //   if (name.compare(t->name) == 0) {
+  //     index = std::distance(tables.begin(), &t);
+  //   }
+  // }
 
-  if (index != -1) this->drop_table(index);
+  // if (index != -1) this->drop_table(index);
 }
 
 void Schema::drop_table(int idx) {
   // TODO: drop table impl
-  std::cout << "[Schema][drop_table] Not Implemented" << std::endl;
+  assert(false && "Not Implemented");
+}
+
+void Table::reportUsage() {
+  std::cout << "Table: " << this->name << std::endl;
+  for (int i = 0; i < NUM_SOCKETS; i++) {
+    std::cout << "P" << i << ": " << vid[i].load() << std::endl;
+  }
 }
 
 Table::~Table() {}

@@ -90,11 +90,11 @@ ColumnStore::ColumnStore(
     uint8_t table_id, std::string name,
     std::vector<std::tuple<std::string, data_type, size_t>> columns,
     uint64_t initial_num_records, bool indexed, bool partitioned, int numa_idx)
-    : Table(name, table_id), indexed(indexed) {
+    : Table(name, table_id, COLUMN_STORE), indexed(indexed) {
   this->total_mem_reserved = 0;
   this->deltaStore = storage::Schema::getInstance().deltaStore;
 
-  for (int i = 0; i < FLAGS_num_partitions; i++) this->vid[i] = 0;
+  for (int i = 0; i < g_num_partitions; i++) this->vid[i] = 0;
 
   if (indexed) {
     meta_column = new Column(name + "_meta", initial_num_records, this, META,
@@ -299,7 +299,7 @@ void ColumnStore::touchRecordByKey(uint64_t vid) {
 void ColumnStore::getRecordByKey(uint64_t vid, const ushort* col_idx,
                                  ushort num_cols, void* loc) {
   char* write_loc = (char*)loc;
-  if (unlikely(col_idx == nullptr)) {
+  if (__unlikely(col_idx == nullptr)) {
     for (auto& col : columns) {
       col->getElem(vid, write_loc);
       write_loc += col->elem_size;
@@ -370,7 +370,7 @@ void ColumnStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
   hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
   char* cursor = (char*)rec;
 
-  if (unlikely(num_cols <= 0)) {
+  if (__unlikely(num_cols <= 0)) {
     for (auto& col : columns) {
       col->insertElem(
           hash_ptr->VID,
@@ -384,6 +384,31 @@ void ColumnStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
       cursor += col->elem_size;
     }
   }
+}
+
+std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data() {
+  std::vector<std::pair<mem_chunk, uint64_t>> ret;
+
+#if HTAP_COW
+
+  for (uint i = 0; i < num_partitions; i++) {
+    for (const auto& chunk : master_versions[0][i]) {
+      // ret.emplace_back(std::make_pair(
+      //     mem_chunk(
+      //         ar->olap(),
+      //         (this->total_mem_reserved / global_conf::num_master_versions),
+      //         0),
+      //     ar->getMetadata().numOfRecords));
+
+      ret.emplace_back(std::make_pair(chunk, this->parent->vid[i].load() - 1));
+    }
+  }
+
+#else
+  assert(false && "Undefined snapshot mechanism");
+#endif
+
+  return ret;
 }
 
 // std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data(
@@ -446,11 +471,11 @@ Column::Column(std::string name, uint64_t initial_num_records,
       cummulative_offset(cummulative_offset),
       type(type) {
   if (partitioned)
-    this->num_partitions = FLAGS_num_partitions;
+    this->num_partitions = g_num_partitions;
   else
     this->num_partitions = 1;
 
-  assert(FLAGS_num_partitions <= NUM_SOCKETS);
+  assert(g_num_partitions <= NUM_SOCKETS);
 
   size_t size = initial_num_records * unit_size;
 
@@ -469,21 +494,21 @@ Column::Column(std::string name, uint64_t initial_num_records,
   //           << ((double)total_mem_reserved / (1024 * 1024 * 1024)) <<
   //           std::endl;
 
-  // for (uint i = 0; i < FLAGS_num_partitions; i++) {
+  // for (uint i = 0; i < g_num_partitions; i++) {
   //   arena.emplace_back(
   //       global_conf::SnapshotManager::create(size_per_partition));
   // }
 
-#if HTAP_COW
+  // #if HTAP_COW
 
-  for (ushort i = 0; i < NUM_SOCKETS, i++) {
-    ar[i]->create_snapshot({0, 0});
-    void* mem = ar->oltp();
-    uint64_t* pt = (uint64_t*)mem;
-    uint64_t warmup_max = size_per_partition / sizeof(uint64_t);
-    for (uint64_t j = 0; j < warmup_max; j++) pt[j] = 0;
-    master_versions[0].emplace_back(mem, size_per_partition, 0);
-  }
+  //   for (ushort i = 0; i < NUM_SOCKETS, i++) {
+  //     ar[i]->create_snapshot({0, 0});
+  //     void* mem = ar->oltp();
+  //     uint64_t* pt = (uint64_t*)mem;
+  //     uint64_t warmup_max = size_per_partition / sizeof(uint64_t);
+  //     for (uint64_t j = 0; j < warmup_max; j++) pt[j] = 0;
+  //     master_versions[0].emplace_back(mem, size_per_partition, 0);
+  //   }
 
   // for (ushort i = 0; i < NUM_SOCKETS; i++) {
   //   auto tmp_arena =
@@ -501,7 +526,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
 
   // arena->create_snapshot({0, 0});
 
-#else
+  //#else
 
   // std::cout << "Column--" << name << "| size: " << size
   //          << "| num_r: " << initial_num_records << std::endl;
@@ -514,7 +539,6 @@ Column::Column(std::string name, uint64_t initial_num_records,
 
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     for (ushort j = 0; j < this->num_partitions; j++) {
-
 #if HTAP_RM_SERVER
       // std::cout << "HTAP REMOTE ALLOCATION: "
       //           << (std::to_string(i) + "__" + name) << std::endl;
@@ -558,7 +582,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
     th.join();
   }
 
-#endif
+  //#endif
 }
 
 void Column::touchElem(uint64_t vid) {
@@ -569,7 +593,7 @@ void Column::touchElem(uint64_t vid) {
   assert(master_versions[m_ver][pid].size() != 0);
 
   for (const auto& chunk : master_versions[m_ver][pid]) {
-    if (likely(chunk.size >= ((size_t)data_idx + elem_size))) {
+    if (__likely(chunk.size >= ((size_t)data_idx + elem_size))) {
       char* loc = ((char*)chunk.data) + data_idx;
 #if HTAP_DOUBLE_MASTER
       set_upd_bit(loc);
@@ -590,7 +614,7 @@ void Column::getElem(uint64_t vid, void* copy_location) {
   assert(master_versions[m_ver][pid].size() != 0);
 
   for (const auto& chunk : master_versions[m_ver][pid]) {
-    if (likely(chunk.size >= ((size_t)data_idx + elem_size))) {
+    if (__likely(chunk.size >= ((size_t)data_idx + elem_size))) {
       std::memcpy(copy_location, ((char*)chunk.data) + data_idx,
                   this->elem_size);
       return;
@@ -632,7 +656,7 @@ void* Column::getElem(uint64_t vid) {
   assert(master_versions[m_ver][pid].size() != 0);
 
   for (const auto& chunk : master_versions[m_ver][pid]) {
-    if (likely(chunk.size >= ((size_t)data_idx + elem_size))) {
+    if (__likely(chunk.size >= ((size_t)data_idx + elem_size))) {
       return ((char*)chunk.data) + data_idx;
     }
   }
@@ -645,7 +669,7 @@ void Column::insertElem(uint64_t vid, void* elem) {
   ushort pid = CC_extract_pid(vid);
   uint64_t data_idx = CC_extract_offset(vid) * elem_size;
 
-  assert(pid < FLAGS_num_partitions);
+  assert(pid < g_num_partitions);
   // assert(idx < initial_num_records_per_part);
   assert(data_idx < size_per_part);
 
@@ -654,9 +678,9 @@ void Column::insertElem(uint64_t vid, void* elem) {
     for (const auto& chunk : master_versions[i][pid]) {
       assert(pid == chunk.numa_id);
 
-      if (likely(chunk.size >= (data_idx + elem_size))) {
+      if (__likely(chunk.size >= (data_idx + elem_size))) {
         void* dst = (void*)(((char*)chunk.data) + data_idx);
-        if (unlikely(elem == nullptr)) {
+        if (__unlikely(elem == nullptr)) {
           uint64_t* tptr = (uint64_t*)dst;
           (*tptr)++;
         } else {
@@ -676,7 +700,7 @@ void Column::insertElem(uint64_t vid, void* elem) {
         break;
       }
     }
-    if (unlikely(ins == false)) {
+    if (__unlikely(ins == false)) {
       std::cout << "(1) ALLOCATE MORE MEMORY:\t" << this->name
                 << ",vid: " << vid << ", idx:" << (data_idx / elem_size)
                 << ", pid: " << pid << std::endl;
@@ -691,13 +715,13 @@ void* Column::insertElem(uint64_t vid) {
   uint64_t data_idx = CC_extract_offset(vid) * elem_size;
   ushort mver = CC_extract_m_ver(vid);
 
-  assert(pid < FLAGS_num_partitions);
+  assert(pid < g_num_partitions);
   assert((data_idx / elem_size) < initial_num_records_per_part);
   assert(data_idx < size_per_part);
 
   bool ins = false;
   for (const auto& chunk : master_versions[mver][pid]) {
-    if (likely(chunk.size >= (data_idx + elem_size))) {
+    if (__likely(chunk.size >= (data_idx + elem_size))) {
       return (void*)(((char*)chunk.data) + data_idx);
     }
   }
@@ -712,13 +736,13 @@ void* Column::insertElemBatch(uint64_t vid, uint64_t num_elem) {
   uint64_t data_idx_en = data_idx_st + (num_elem * elem_size);
   ushort mver = CC_extract_m_ver(vid);
 
-  assert(pid < FLAGS_num_partitions);
+  assert(pid < g_num_partitions);
   assert((data_idx_en / elem_size) < initial_num_records_per_part);
   assert(data_idx_en < size_per_part);
 
   bool ins = false;
   for (const auto& chunk : master_versions[mver][pid]) {
-    if (likely(chunk.size >= (data_idx_en + elem_size))) {
+    if (__likely(chunk.size >= (data_idx_en + elem_size))) {
       return (void*)(((char*)chunk.data) + data_idx_st);
     }
   }
@@ -735,7 +759,7 @@ void Column::insertElemBatch(uint64_t vid, uint64_t num_elem, void* data) {
 
   // uint64_t data_idx = CC_extract_offset(vid) * elem_size;
 
-  assert(pid < FLAGS_num_partitions);
+  assert(pid < g_num_partitions);
   assert((data_idx_en / elem_size) < initial_num_records_per_part);
   assert(data_idx_en < size_per_part);
 
@@ -744,7 +768,7 @@ void Column::insertElemBatch(uint64_t vid, uint64_t num_elem, void* data) {
     for (const auto& chunk : master_versions[i][pid]) {
       assert(pid == chunk.numa_id);
 
-      if (likely(chunk.size >= (data_idx_en + elem_size))) {
+      if (__likely(chunk.size >= (data_idx_en + elem_size))) {
         void* dst = (void*)(((char*)chunk.data) + data_idx_st);
 
         std::memcpy(dst, data, copy_size);
@@ -756,7 +780,7 @@ void Column::insertElemBatch(uint64_t vid, uint64_t num_elem, void* data) {
         break;
       }
     }
-    if (unlikely(ins == false)) {
+    if (__unlikely(ins == false)) {
       assert(false && "Out Of Memory Error");
     }
   }
@@ -764,7 +788,7 @@ void Column::insertElemBatch(uint64_t vid, uint64_t num_elem, void* data) {
 
 Column::~Column() {
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
-    for (ushort j = 0; j < FLAGS_num_partitions; j++) {
+    for (ushort j = 0; j < g_num_partitions; j++) {
       for (auto& chunk : master_versions[i][j]) {
 #if PROTEUS_MEM_MANAGER
         ::MemoryManager::freePinned(chunk.data);
@@ -786,7 +810,7 @@ void ColumnStore::num_upd_tuples() {
 void Column::num_upd_tuples() {
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     uint64_t counter = 0;
-    for (ushort j = 0; j < FLAGS_num_partitions; j++) {
+    for (ushort j = 0; j < g_num_partitions; j++) {
       for (auto& chunk : master_versions[i][j]) {
         for (uint i = 0; i < (chunk.size / elem_size); i++) {
           uint8_t* p = ((uint8_t*)chunk.data) + i;
@@ -815,11 +839,11 @@ uint64_t Column::load_from_binary(std::string file_path) {
     for (ushort i = 0; i < global_conf::num_master_versions; i++) {
       binFile.seekg(0, binFile.beg);
 
-      for (ushort j = 0; j < FLAGS_num_partitions; j++) {
-        size_t part_size = length / FLAGS_num_partitions;
-        if (j == (FLAGS_num_partitions - 1)) {
+      for (ushort j = 0; j < g_num_partitions; j++) {
+        size_t part_size = length / g_num_partitions;
+        if (j == (g_num_partitions - 1)) {
           // remaining shit.
-          part_size += part_size % FLAGS_num_partitions;
+          part_size += part_size % g_num_partitions;
         }
 
         // assumes first memory chunk is big enough.
@@ -843,7 +867,11 @@ uint64_t Column::load_from_binary(std::string file_path) {
 }
 
 inline void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
+#if HTAP_COW
+  return;
+#else
   assert(false);
+#endif
   // uint64_t num_records = this->vid.load();
 
   // std::cout << this->name << ":: " << num_records << std::endl;

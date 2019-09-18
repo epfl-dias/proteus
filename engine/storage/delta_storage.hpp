@@ -56,9 +56,9 @@ that if this list is the valid version or not.
 */
 class DeltaStore {
  public:
-  DeltaStore(uint delta_id, uint64_t ver_list_capacity = FLAGS_delta_size,
-             uint64_t ver_data_capacity = FLAGS_delta_size,
-             int num_partitions = FLAGS_num_partitions);
+  DeltaStore(uint delta_id, uint64_t ver_list_capacity = g_delta_size,
+             uint64_t ver_data_capacity = g_delta_size,
+             int num_partitions = g_num_partitions);
   ~DeltaStore();
 
   void print_info();

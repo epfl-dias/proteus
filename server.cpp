@@ -20,8 +20,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#define RUNTIME 30  // seconds
-
 #include <gflags/gflags.h>
 #include <unistd.h>
 #include <functional>
@@ -91,10 +89,11 @@ DEFINE_int64(num_iter_per_worker, -1, "# of iterations per worker");
 DEFINE_uint64(runtime, 60, "Duration of experiments in seconds");
 DEFINE_uint64(delta_size, 8, "Size of delta storage in GBs.");
 DEFINE_bool(layout_column_store, true, "True: ColumnStore / False: RowStore");
-
 DEFINE_uint64(worker_sched_mode, 0,
               "Scheduling of worker: 0-default, 1-interleaved-even, "
               "2-interleaved-odd, 3-reversed.");
+DEFINE_uint64(report_stat_sec, 0, "Report stats every x secs");
+DEFINE_uint64(elastic_workload, 0, "if > 0, add a worker every x seconds");
 
 // YCSB
 DEFINE_double(ycsb_write_ratio, 0.5, "Writer to reader ratio");
@@ -138,6 +137,9 @@ int main(int argc, char** argv) {
 
   if (FLAGS_tpcc_num_wh == 0) FLAGS_tpcc_num_wh = FLAGS_num_workers;
 
+  g_num_partitions = FLAGS_num_partitions;
+  g_delta_size = FLAGS_delta_size;
+
   std::cout << "------- AELOUS ------" << std::endl;
   std::cout << "# Workers: " << FLAGS_num_workers << std::endl;
   std::cout << "---------------------" << std::endl;
@@ -162,13 +164,17 @@ int main(int argc, char** argv) {
   // init benchmark
   bench::Benchmark* bench = nullptr;
   if (FLAGS_benchmark == 1) {
-    bench = new bench::TPCC("TPCC", FLAGS_tpcc_num_wh, FLAGS_num_workers,
-                            FLAGS_layout_column_store);
+    bench =
+        new bench::TPCC("TPCC", FLAGS_tpcc_num_wh,
+                        (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
+                        FLAGS_layout_column_store);
 
   } else if (FLAGS_benchmark == 2) {
-    bench = new bench::TPCC("TPCC", FLAGS_tpcc_num_wh, FLAGS_num_workers,
-                            FLAGS_layout_column_store,
-                            FLAGS_tpcc_dist_threshold, FLAGS_tpcc_csv_dir);
+    bench =
+        new bench::TPCC("TPCC", FLAGS_tpcc_num_wh,
+                        (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
+                        FLAGS_layout_column_store, FLAGS_tpcc_dist_threshold,
+                        FLAGS_tpcc_csv_dir);
 
   } else if (FLAGS_benchmark == 3) {
     // bench = new bench::MicroSSB();
@@ -177,12 +183,13 @@ int main(int argc, char** argv) {
 
     std::cout << "Write Threshold: " << FLAGS_ycsb_write_ratio << std::endl;
     std::cout << "Theta: " << FLAGS_ycsb_zipf_theta << std::endl;
-    bench = new bench::YCSB("YCSB", FLAGS_ycsb_num_cols, FLAGS_ycsb_num_records,
-                            FLAGS_ycsb_zipf_theta, FLAGS_num_iter_per_worker,
-                            FLAGS_ycsb_num_ops_per_txn, FLAGS_ycsb_write_ratio,
-                            FLAGS_num_workers,
-                            scheduler::Topology::getInstance().getCoreCount(),
-                            FLAGS_num_partitions, FLAGS_layout_column_store);
+    bench =
+        new bench::YCSB("YCSB", FLAGS_ycsb_num_cols, FLAGS_ycsb_num_records,
+                        FLAGS_ycsb_zipf_theta, FLAGS_num_iter_per_worker,
+                        FLAGS_ycsb_num_ops_per_txn, FLAGS_ycsb_write_ratio,
+                        (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
+                        scheduler::Topology::getInstance().getCoreCount(),
+                        FLAGS_num_partitions, FLAGS_layout_column_store);
   }
 
   /* As soon as worker starts, they start transactions. so make sure you setup
@@ -194,13 +201,42 @@ int main(int argc, char** argv) {
   //  __itt_resume();
 
   scheduler::WorkerPool::getInstance().start_workers(
-      FLAGS_num_workers, FLAGS_num_partitions, FLAGS_worker_sched_mode,
-      FLAGS_num_iter_per_worker);
+      (FLAGS_elastic_workload ? 1 : FLAGS_num_workers), FLAGS_num_partitions,
+      FLAGS_worker_sched_mode, FLAGS_num_iter_per_worker);
+
+  // Problem: every worker does a pre-run, hotplugging means there will still be
+  // a pre-run.
+
+  if (FLAGS_elastic_workload > 0) {
+    uint curr_active_worker = 1;
+    bool removal = false;
+    const uint max_worker = scheduler::Topology::getInstance().getCoreCount();
+    timed_func::interval_runner(
+        [curr_active_worker, max_worker, removal]() mutable {
+          std::vector<scheduler::core> worker_cores =
+              scheduler::Topology::getInstance().getCores();
+
+          if (curr_active_worker < max_worker && !removal) {
+            scheduler::WorkerPool::getInstance().add_worker(
+                &worker_cores.at(curr_active_worker));
+            curr_active_worker++;
+          } else if (curr_active_worker > 2 && removal) {
+            scheduler::WorkerPool::getInstance().remove_worker(
+                &worker_cores.at(curr_active_worker - 1));
+            curr_active_worker--;
+          } else {
+            removal = true;
+          }
+        },
+        (FLAGS_elastic_workload * 1000));
+  }
 
   /* Report stats every 1 sec */
-  // timed_func::interval_runner(
-  //    [] { scheduler::WorkerPool::getInstance().print_worker_stats(); },
-  //    1000);
+  if (FLAGS_report_stat_sec > 0) {
+    timed_func::interval_runner(
+        [] { scheduler::WorkerPool::getInstance().print_worker_stats(); },
+        (FLAGS_report_stat_sec * 1000));
+  }
 
   /* This shouldnt be a sleep, but this thread should sleep until all workers
    * finished required number of txns. but dilemma here is that either the

@@ -22,8 +22,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "aeolus-plugin.hpp"
 
+#include <string>
+
 #include "communication/comm-manager.hpp"
 #include "expressions/expressions-hasher.hpp"
+#include "storage/column_store.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
@@ -45,19 +48,24 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
   LLVMContext &llvmContext = context->getLLVMContext();
 
   size_t pos_path = fnamePrefix.find_last_of("/");
-  size_t pos_suffix = fnamePrefix.find_last_of(".csv");
   if (pos_path == std::string::npos) pos_path = 0;
+  std::string extra_prefix = "";
+  std::string txn_schema =
+      scheduler::WorkerPool::getInstance().get_benchmark_name();
+  // convert to lower case
+  std::transform(txn_schema.begin(), txn_schema.end(), txn_schema.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
 
-  // std::string txn_bench_name =
-  // scheduler::WorkerPool::getInstance().get_benchmark_name();
-  std::string extra_prefix = "ssbm_";
-  // if (txn_bench_name.compare("TPCC") == 0) {
-  //   extra_prefix = "tpcc_";
-  // }
+  if (txn_schema.compare("tpcc") == 0) {
+    extra_prefix = "tpcc_";
+  } else if (txn_schema.compare("tpcc") == 0) {
+    extra_prefix = "ssbm_";
+  }
 
   std::string aeolus_rel_name = extra_prefix + fnamePrefix.substr(pos_path + 1);
-  aeolus_rel_name = aeolus_rel_name.substr(0, aeolus_rel_name.length() - 4);
-  std::vector<storage::Column *> colss;
+  aeolus_rel_name = aeolus_rel_name.substr(
+      0, aeolus_rel_name.length() - 4);  // remove the trailing .csv
+
   if (pgType.compare("block-cow") == 0 || pgType.compare("block-remote") == 0) {
     time_block t("TpgBlockCOW: ");
 
@@ -67,11 +75,9 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
     std::cout << "Finding Table: " << aeolus_rel_name << std::endl;
 
     for (auto &tb : txn_storage.getTables()) {
-      std::cout << "TableI: " << tb->name << std::endl;
       if (aeolus_rel_name.compare(tb->name) == 0) {
+        assert(tb->storage_layout == storage::COLUMN_STORE);
         tbl = (storage::ColumnStore *)tb;
-        std::cout << "TableMATCH: " << tb->name << std::endl;
-        std::cout << "TableMATCH: " << tbl->name << std::endl;
         break;
       }
     }
@@ -93,15 +99,14 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
           // uint64_t num_records = c->snapshot_get_num_records();
           // std::cout << "NUM RECORDS:" << num_records << std::endl;
 
-          auto d = c->snapshot_get_data(this->getHackBuf());
-          colss.push_back(c);
+          auto d = c->snapshot_get_data();
 
           // std::vector<storage::mem_chunk> d = c->snapshot_get_data();
           std::vector<mem_file> mfiles{d.size()};
 
           for (size_t i = 0; i < mfiles.size(); ++i) {
             std::cout << "AEO name: " << c->name << std::endl;
-            std::cout << "AEO size: " << (d[i].second) << std::endl;
+            std::cout << "AEO #-records: " << (d[i].second) << std::endl;
             //*(ptr + i) = c->elem_size * d[i].second;
 
             mfiles[i].data = d[i].first.data;
@@ -120,20 +125,9 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
       }
     }
 
-    std::cout << "[AEOLUS PLUGIN DONE]" << std::endl;
+    std::cout << "[AEOLUS PLUGIN DONE] " << fnamePrefix << std::endl;
   } else {
     assert(false && "Not Implemented");
-  }
-  std::cout << "PANO ALLOCATED:::" << wantedFieldsFiles[0].size() << std::endl;
-  hackbuf = (uint64_t *)malloc(
-      wantedFieldsFiles[0].size() *
-      sizeof(uint64_t));  // new uint64_t[wantedFieldsFiles[0].size()];
-  for (int i = 0; i < wantedFieldsFiles[0].size(); i++) {
-    *(hackbuf + i) = wantedFieldsFiles[0][i].size;
-  }
-
-  for (auto &c : colss) {
-    c->snapshot_get_data(hackbuf);
   }
 
   finalize_data();

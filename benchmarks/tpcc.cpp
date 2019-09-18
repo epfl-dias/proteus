@@ -214,7 +214,9 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
   assert(idx_w_locks[num_locks] != NULL || idx_w_locks[num_locks] != nullptr);
   if (idx_w_locks[num_locks]->write_lck.compare_exchange_strong(e_false,
                                                                 true)) {
+#if !tpcc_dist_txns
     assert(extract_pid(idx_w_locks[num_locks]->VID) == partition_id);
+#endif
     num_locks++;
   } else {
     return false;
@@ -232,7 +234,10 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
     bool e_false_s = false;
     if (idx_w_locks[num_locks]->write_lck.compare_exchange_strong(e_false_s,
                                                                   true)) {
+#if !tpcc_dist_txns
       assert(extract_pid(idx_w_locks[num_locks]->VID) == partition_id);
+#endif
+
       num_locks++;
     } else {
       txn::CC_MV2PL::release_locks(idx_w_locks, num_locks);
@@ -375,8 +380,10 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
   global_conf::IndexVal *w_idx_ptr =
       (global_conf::IndexVal *)table_warehouse->p_index->find(
           (uint64_t)q->w_id);
-
+#if !tpcc_dist_txns
   assert(extract_pid(w_idx_ptr->VID) == partition_id);
+#endif
+
   w_idx_ptr->latch.acquire();
   if (txn::CC_MV2PL::is_readable(w_idx_ptr->t_min, xid)) {
     table_warehouse->getRecordByKey(w_idx_ptr->VID, w_col_scan, 1, &w_tax);
@@ -417,7 +424,9 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
   //   table_customer->reportUsage();
   // }
 
+#if !tpcc_dist_txns
   assert(extract_pid(c_idx_ptr->VID) == partition_id);
+#endif
 
   if (txn::CC_MV2PL::is_readable(c_idx_ptr->t_min, xid)) {
     table_customer->getRecordByKey(c_idx_ptr->VID, cust_col_scan, 1,
@@ -1296,7 +1305,7 @@ inline void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
   // mprotect(arg, sizeof(struct tpcc_query), PROT_WRITE);
   static thread_local unsigned int seed_t = this->seed;
   static thread_local unsigned int n_wh = this->num_warehouse;
-  static thread_local unsigned int actv_wh = this->active_warehouse;
+
 #if PARTITION_LOCAL_ITEM_TABLE
   static thread_local uint64_t start = wid * (TPCC_MAX_ITEMS / n_wh);
   static thread_local uint64_t end = start + (TPCC_MAX_ITEMS / n_wh);
@@ -1343,11 +1352,12 @@ inline void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
 
     int x = URand(&seed_t, 0, 100);
     if (g_dist_threshold == 100) x = 2;
-    if (x > 1 || actv_wh == 1) {
+    if (x > 1 || this->num_active_workers == 1) {
       i->ol_supply_w_id = wid;
 
     } else {
-      while ((i->ol_supply_w_id = URand(&seed_t, 0, actv_wh - 1)) == q->w_id)
+      while ((i->ol_supply_w_id =
+                  URand(&seed_t, 0, this->num_active_workers - 1)) == q->w_id)
         ;
 
       q->remote = 1;
@@ -1365,7 +1375,6 @@ inline void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
 
 inline void TPCC::tpcc_get_next_payment_query(int wid, void *arg) {
   static thread_local unsigned int seed_t = this->seed;
-  static thread_local ushort actv_wh = this->active_warehouse;
   struct tpcc_query *q = (struct tpcc_query *)arg;
   q->query_type = PAYMENT;
   q->w_id = wid;
@@ -1385,8 +1394,9 @@ inline void TPCC::tpcc_get_next_payment_query(int wid, void *arg) {
     q->c_d_id = URand(&seed_t, 0, TPCC_NDIST_PER_WH - 1);
 
     // remote warehouse if we have >1 wh
-    if (actv_wh > 1) {
-      while ((q->c_w_id = URand(&seed_t, 0, actv_wh - 1)) == wid)
+    if (this->num_active_workers > 1) {
+      while ((q->c_w_id = URand(&seed_t, 0, this->num_active_workers - 1)) ==
+             wid)
         ;
 
     } else {
@@ -1462,9 +1472,9 @@ inline void TPCC::tpcc_get_next_stocklevel_query(int wid, void *arg) {
 TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
            bool layout_column_store, int g_dist_threshold, std::string csv_path,
            bool is_ch_benchmark)
-    : Benchmark(name),
+    : Benchmark(name, active_warehouse, std::thread::hardware_concurrency(),
+                g_num_partitions),
       num_warehouse(num_warehouses),
-      active_warehouse(active_warehouse),
       g_dist_threshold(g_dist_threshold),
       csv_path(csv_path),
       is_ch_benchmark(is_ch_benchmark),
@@ -1633,7 +1643,7 @@ void TPCC::create_tbl_item(uint64_t num_item) {
       "i_data", storage::VARCHAR, sizeof(tmp.i_data)));
 
 #if REPLICATED_ITEM_TABLE
-  for (int i = 0; i < FLAGS_num_partitions; i++) {
+  for (int i = 0; i < g_num_partitions; i++) {
     table_item[i] = schema->create_table(
         "tpcc_item_" + std::to_string(i),
         (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
@@ -2057,7 +2067,7 @@ void TPCC::load_item(int w_id, uint64_t xid, ushort partition_id,
     }
 #if REPLICATED_ITEM_TABLE
 
-    for (int sc = 0; sc < FLAGS_num_partitions; sc++) {
+    for (int sc = 0; sc < g_num_partitions; sc++) {
       void *hash_ptr =
           table_item[sc]->insertRecord(&item_temp, xid, sc, master_ver);
       this->table_item[sc]->p_index->insert(key, hash_ptr);
@@ -2065,7 +2075,7 @@ void TPCC::load_item(int w_id, uint64_t xid, ushort partition_id,
 
 #else
     void *hash_ptr = table_item->insertRecord(
-        &item_temp, 0, key / (TPCC_MAX_ITEMS / FLAGS_num_partitions), 0);
+        &item_temp, 0, key / (TPCC_MAX_ITEMS / g_num_partitions), 0);
     this->table_item->p_index->insert(key, hash_ptr);
 #endif
   }
@@ -2462,7 +2472,7 @@ void TPCC::pre_run(int wid, uint64_t xid, ushort partition_id,
   //   std::cout << "wid: " << wid << std::endl;
   // }
 
-  assert(partition_id < FLAGS_num_partitions);
+  assert(partition_id < g_num_partitions);
 
 #if REPLICATED_ITEM_TABLE
   if (wid == partition_id) load_item(wid, xid, partition_id, master_ver);

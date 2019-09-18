@@ -105,8 +105,8 @@ void RowStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
   set_upd_bit(rec_ptr);
 #endif
 
-  if (unlikely(num_cols <= 0)) {
-    if (likely(rec == nullptr || rec == NULL)) {
+  if (__unlikely(num_cols <= 0)) {
+    if (__likely(rec == nullptr || rec == NULL)) {
       for (ushort i = 0; i < columns.size(); i++) {
         uint64_t* tptr = (uint64_t*)(rec_ptr + column_width.at(i).second);
         (*tptr)++;
@@ -140,7 +140,7 @@ void RowStore::getRecordByKey(uint64_t vid, const ushort* col_idx,
 
   char* src = ((char*)(this->data[m_ver][pid][0].data) + data_idx);
 
-  if (unlikely(col_idx == nullptr)) {
+  if (__unlikely(col_idx == nullptr)) {
     memcpy(loc, src + HTAP_UPD_BIT_COUNT, this->rec_size - HTAP_UPD_BIT_COUNT);
 
   } else {
@@ -170,7 +170,7 @@ void RowStore::touchRecordByKey(uint64_t vid) {
   assert(data[m_ver][pid].size() != 0);
 
   for (const auto& chunk : data[m_ver][pid]) {
-    if (likely(chunk.size >= ((size_t)data_idx + this->rec_size))) {
+    if (__likely(chunk.size >= ((size_t)data_idx + this->rec_size))) {
       char* loc = ((char*)chunk.data) + data_idx;
 
 #if HTAP_DOUBLE_MASTER
@@ -308,7 +308,7 @@ RowStore::RowStore(
     uint8_t table_id, std::string name,
     std::vector<std::tuple<std::string, data_type, size_t>> columns,
     uint64_t initial_num_records, bool indexed, bool partitioned, int numa_idx)
-    : Table(name, table_id),
+    : Table(name, table_id, ROW_STORE),
       indexed(indexed),
       initial_num_records(initial_num_records) {
   this->rec_size = HTAP_UPD_BIT_COUNT;  // upd bit
@@ -316,7 +316,7 @@ RowStore::RowStore(
   this->deltaStore = storage::Schema::getInstance().deltaStore;
   this->vid_offset = 0;
 
-  for (int i = 0; i < FLAGS_num_partitions; i++) this->vid[i] = 0;
+  for (int i = 0; i < g_num_partitions; i++) this->vid[i] = 0;
 
   if (indexed) {
     // this->rec_size += sizeof(global_conf::IndexVal);
@@ -346,11 +346,11 @@ RowStore::RowStore(
   this->num_columns = columns.size();
 
   if (partitioned)
-    this->num_partitions = FLAGS_num_partitions;
+    this->num_partitions = g_num_partitions;
   else
     this->num_partitions = 1;
 
-  assert(FLAGS_num_partitions <= NUM_SOCKETS);
+  assert(g_num_partitions <= NUM_SOCKETS);
   size_t tsize = initial_num_records * this->rec_size;
   this->size_per_part = tsize / this->num_partitions;
   this->initial_num_records_per_part =

@@ -34,6 +34,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
+#include "snapshot/snapshot_manager.hpp"
 #include "storage/delta_storage.hpp"
 #include "storage/memory_manager.hpp"
 
@@ -71,8 +72,8 @@ class Schema {
       uint64_t initial_num_records = 10000000, bool indexed = true,
       bool partitioned = true, int numa_idx = -1);
 
-  void drop_table(std::string name);
-  void drop_table(int idx);
+  [[noreturn]] void drop_table(std::string name);
+  [[noreturn]] void drop_table(int idx);
 
   void initiate_gc(ushort ver);
   void add_active_txn(ushort ver, uint64_t epoch, uint8_t worker_id);
@@ -91,10 +92,10 @@ class Schema {
 
   DeltaStore *deltaStore[global_conf::num_delta_storages];
 
-  volatile std::atomic<uint64_t> rid;
-  inline uint64_t __attribute__((always_inline)) get_next_rid() {
-    return rid.fetch_add(1);
-  }
+  // volatile std::atomic<uint64_t> rid;
+  // inline uint64_t __attribute__((always_inline)) get_next_rid() {
+  //   return rid.fetch_add(1);
+  // }
 
  private:
   uint8_t num_tables;
@@ -103,11 +104,11 @@ class Schema {
   // MultiVersioning
 
   Schema() {
-    global_conf::SnapshotManager::init();
+    aeolus::snapshot::SnapshotManager::init();
 
     total_mem_reserved = 0;
     total_delta_mem_reserved = 0;
-    rid = 0;
+    // rid = 0;
 
     if (global_conf::cc_ismv) {
       // init delta store
@@ -155,22 +156,16 @@ class Table {
   virtual void insertIndexRecord(uint64_t rid, uint64_t xid,
                                  ushort partition_id, ushort master_ver) = 0;
 
-  void reportUsage() {
-    std::cout << "Table: " << this->name << std::endl;
-    for (int i = 0; i < NUM_SOCKETS; i++) {
-      std::cout << "P" << i << ": " << vid[i].load() << std::endl;
-    }
-  }
-
   virtual void snapshot(uint64_t epoch, uint8_t snapshot_master_ver) = 0;
-  void printDetails() {
-    std::cout << "Number of Columns:\t" << num_columns << std::endl;
-  }
 
   // uint64_t getNumRecords() { return (vid.load() - 1); }
 
-  Table(std::string name, uint8_t table_id)
-      : name(name), table_id(table_id), total_mem_reserved(0) {
+  void reportUsage();
+  Table(std::string name, uint8_t table_id, layout_type storage_layout)
+      : name(name),
+        table_id(table_id),
+        total_mem_reserved(0),
+        storage_layout(storage_layout) {
     for (int i = 0; i < NUM_SOCKETS; i++) vid[i] = 0;
   }
   virtual ~Table();
@@ -182,11 +177,11 @@ class Table {
   const std::string name;
   const uint8_t table_id;
 
+  const layout_type storage_layout;
+
  protected:
   int num_columns;
   DeltaStore **deltaStore;
-
-  // int primary_index_col_idx;
 
   friend class Schema;
 };

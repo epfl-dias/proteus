@@ -66,7 +66,8 @@ class HashArray {
     size_t size_per_part = capacity_per_partition * sizeof(char *);
 
     for (int i = 0; i < partitions; i++) {
-      arr[i] = (char **)storage::MemoryManager::alloc(size_per_part, i);
+      arr[i] = (char **)storage::MemoryManager::alloc(
+          size_per_part, i, MADV_DONTFORK | MADV_HUGEPAGE);
       assert(arr[i] != nullptr);
       filler[i] = 0;
     }

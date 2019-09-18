@@ -62,9 +62,17 @@ class Benchmark {
                        ushort master_ver) {}
 
   std::string name;
+  ushort num_active_workers;
+  const ushort num_max_workers;
+  const ushort num_partitions;
 
   // private:
-  Benchmark(std::string name = "DUMMY") : name(name) {}
+  Benchmark(std::string name = "DUMMY", ushort num_active_workers = 1,
+            ushort num_max_workers = 1, ushort num_partitions = 1)
+      : name(name),
+        num_active_workers(num_active_workers),
+        num_max_workers(num_max_workers),
+        num_partitions(num_partitions) {}
 
   virtual ~Benchmark() { std::cout << "destructor of Benchmark" << std::endl; }
 };

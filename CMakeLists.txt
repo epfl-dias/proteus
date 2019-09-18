@@ -91,8 +91,8 @@ string(STRIP "${COMPILER_FLAGS} -fvisibility-inlines-hidden" COMPILER_FLAGS)
 # By default add debug symbols, we are not yet ready for production releases
 string(STRIP "${COMPILER_FLAGS} -g" COMPILER_FLAGS)
 
-# Currently our code fails to link for -O0, -O1
-string(STRIP "${COMPILER_FLAGS} -O2" COMPILER_FLAGS)
+# Currently our code fails to link for -O0, -O1 -fsanitize=address
+string(STRIP "${COMPILER_FLAGS} -O3" COMPILER_FLAGS) 
 
 # Turn on maximum code compliance and all the warnings
 string(STRIP "${WARNING_FLAGS} -pedantic -Weverything" WARNING_FLAGS)

@@ -29,8 +29,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "transactions/cc.hpp"
 
 #include <mutex>
-#include "snapshot/arena.hpp"
-#include "snapshot/snapshot_manager.hpp"
+//#include "snapshot/arena.hpp"
+//#include "snapshot/snapshot_manager.hpp"
 
 #include "scheduler/topology.hpp"
 
@@ -40,7 +40,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define DEFAULT_MEM_NUMA_SOCKET 0
 
 #define HTAP_DOUBLE_MASTER false
-#define HTAP_COW false
+#define HTAP_COW true
 #define HTAP_UPD_BIT_MASK false
 
 // Memory Allocators
@@ -66,33 +66,15 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define HTAP_UPD_BIT_COUNT 0
 #endif
 
-DECLARE_bool(debug);
-DECLARE_uint64(num_workers);
-DECLARE_uint64(benchmark);
-DECLARE_uint64(num_partitions);
-DECLARE_int64(num_iter_per_worker);
-DECLARE_uint64(runtime);
-DECLARE_uint64(delta_size);
-DECLARE_uint64(worker_sched_mode);
+extern uint g_num_partitions;
+extern uint g_delta_size;
 
-// YCSB
-DECLARE_double(ycsb_write_ratio);
-DECLARE_double(ycsb_zipf_theta);
-DECLARE_uint64(ycsb_num_cols);
-DECLARE_uint64(ycsb_num_ops_per_txn);
-DECLARE_uint64(ycsb_num_records);
-
-// TPC-C
-DECLARE_uint64(tpcc_num_wh);
-DECLARE_uint64(tpcc_dist_threshold);
-DECLARE_string(tpcc_csv_dir);
-
-#define likely(x) __builtin_expect(x, 1)
-#define unlikely(x) __builtin_expect(x, 0)
+#define __likely(x) __builtin_expect(x, 1)
+#define __unlikely(x) __builtin_expect(x, 0)
 
 namespace global_conf {
 
-using SnapshotManager = aeolus::snapshot::SnapshotManager;
+// using SnapshotManager = aeolus::snapshot::SnapshotManager;
 
 using ConcurrencyControl = txn::CC_MV2PL;  // CC_GlobalLock;
 using IndexVal = ConcurrencyControl::PRIMARY_INDEX_VAL;
@@ -119,8 +101,6 @@ using PrimaryIndex = indexes::HashArray<T_KEY>;
 /* # of Snapshots*/
 const short num_master_versions = 1;
 const short num_delta_storages = 2;
-
-const int master_col_numa_id = 0;
 
 }  // namespace global_conf
 

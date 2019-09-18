@@ -1,5 +1,6 @@
 # Pure, regular C++ files
 set(txn_engine_cxx
+    glo.cpp
     scheduler/worker.cpp
     scheduler/topology.cpp
     scheduler/affinity_manager.cpp

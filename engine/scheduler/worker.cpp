@@ -315,8 +315,11 @@ void WorkerPool::print_worker_stats(bool global_only) {
   for (auto it = workers.begin(); it != workers.end(); ++it) {
     // std::cout << " " << it->first << ":" << it->second;
     Worker* tmp = it->second.second;
+    if (tmp->is_hotplugged && tmp->terminate) continue;
     std::chrono::duration<double> diff =
-        tmp->txn_end_time - tmp->txn_start_time;
+        (this->terminate ? tmp->txn_end_time
+                         : std::chrono::system_clock::now()) -
+        tmp->txn_start_time;
 
     if (!global_only) {
       std::cout << "Worker-" << (int)(tmp->id)
@@ -360,7 +363,7 @@ void WorkerPool::print_worker_stats(bool global_only) {
   std::cout << "\tTPS\t\t" << tps << " mTPS" << std::endl;
 
   std::cout << "------------ END WORKER STATS ------------" << std::endl;
-  proc_completed = true;
+  // if (this->terminate) proc_completed = true;
 }
 
 void WorkerPool::init(bench::Benchmark* txn_bench) {
@@ -377,17 +380,21 @@ void WorkerPool::init(bench::Benchmark* txn_bench) {
 }
 
 // Hot Plug
-void WorkerPool::add_worker(core* exec_location, ushort partition_id) {
-  assert(workers.find(exec_location->id) == workers.end());
+void WorkerPool::add_worker(core* exec_location, short partition_id) {
+  // assert(workers.find(exec_location->id) == workers.end());
   void* obj_ptr = storage::MemoryManager::alloc(sizeof(Worker),
                                                 exec_location->local_cpu_index);
   void* thd_ptr = storage::MemoryManager::alloc(sizeof(std::thread),
                                                 exec_location->local_cpu_index);
 
   Worker* wrkr = new (obj_ptr) Worker(worker_counter++, exec_location);
-  wrkr->partition_id = partition_id;
+  wrkr->partition_id =
+      (partition_id == -1
+           ? (exec_location->local_cpu_index % this->num_partitions)
+           : partition_id);
   wrkr->num_iters = this->num_iter_per_worker;
   wrkr->is_hotplugged = true;
+  txn_bench->num_active_workers++;
   std::thread* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
 
   workers.emplace(std::make_pair(exec_location->id, std::make_pair(thd, wrkr)));
@@ -396,6 +403,7 @@ void WorkerPool::add_worker(core* exec_location, ushort partition_id) {
 // Hot Plug
 void WorkerPool::remove_worker(core* exec_location) {
   auto get = workers.find(exec_location->id);
+  txn_bench->num_active_workers--;
   assert(get != workers.end());
   get->second.second->terminate = true;
   // TODO: remove from the vector too?
@@ -479,6 +487,24 @@ void WorkerPool::start_workers(uint num_workers, uint num_partitions,
 
   } else {
     assert(false && "Unknown scheduling mode.");
+  }
+
+  // hack: initiate pre-run for hotplugged workers
+  std::vector<std::thread> loaders;
+  auto curr_master =
+      txn::TransactionManager::getInstance().current_master.load();
+  std::vector<core> wrks_crs = Topology::getInstance().getCores();
+  for (int i = txn_bench->num_active_workers; i < txn_bench->num_max_workers;
+       i++) {
+    loaders.emplace_back([this, i, wrks_crs, curr_master, num_partitions]() {
+      auto tid = txn::TransactionManager::getInstance().get_next_xid(i);
+      this->txn_bench->pre_run(
+          i, tid, wrks_crs.at(i).local_cpu_index % num_partitions, curr_master);
+    });
+  }
+
+  for (auto& th : loaders) {
+    th.join();
   }
 
   while (pre_barrier != num_workers) {

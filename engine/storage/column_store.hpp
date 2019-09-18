@@ -142,9 +142,7 @@ class Column {
   // }
 
   // snapshot stuff
-  std::vector<std::pair<mem_chunk, uint64_t>> snapshot_get_data(
-      uint64_t *save_the_ptr);
-  uint64_t snapshot_get_num_records();
+  std::vector<std::pair<mem_chunk, uint64_t>> snapshot_get_data();
 
   const std::string name;
   const size_t elem_size;
