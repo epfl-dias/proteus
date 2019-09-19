@@ -357,7 +357,7 @@ RowStore::RowStore(
       initial_num_records / this->num_partitions;
 
 #if PROTEUS_MEM_MANAGER
-  auto& cpunumanodes = ::topology::getInstance().getCpuNumaNodes();
+  const auto& cpunumanodes = ::topology::getInstance().getCpuNumaNodes();
 #endif
 
   // Memory Allocation

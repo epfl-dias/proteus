@@ -101,8 +101,6 @@ class YCSB : public Benchmark {
 
  public:
   void pre_run(int wid, uint64_t xid, ushort partition_id, ushort master_ver) {
-    static std::mutex out_lk;
-
     uint64_t to_ins = num_records / num_max_workers;
     uint64_t start = to_ins * wid;
 
@@ -114,6 +112,8 @@ class YCSB : public Benchmark {
       gen_insert_txn(i, &tmp, q_ptr);
       this->exec_txn(q_ptr, xid, master_ver, 0, partition_id);
     }
+
+    // static std::mutex out_lk;
     // {
     //   std::unique_lock<std::mutex> lk(out_lk);
     //   std::cout << "Worker-" << wid << " : Inserted[" << partition_id << "] "

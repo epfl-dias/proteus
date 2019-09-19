@@ -532,7 +532,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
   //          << "| num_r: " << initial_num_records << std::endl;
 
 #if PROTEUS_MEM_MANAGER
-  auto& cpunumanodes = ::topology::getInstance().getCpuNumaNodes();
+  const auto& cpunumanodes = ::topology::getInstance().getCpuNumaNodes();
 #endif
 
   std::vector<std::thread> loaders;

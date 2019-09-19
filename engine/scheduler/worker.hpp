@@ -78,7 +78,7 @@ class Worker {
 
   uint partition_id;
 
-  core *exec_core;
+  const core *exec_core;
 
   uint64_t curr_txn;
   uint64_t prev_delta;
@@ -100,7 +100,7 @@ class Worker {
       txn_end_time;
 
  public:
-  Worker(uint8_t id, core *exec_core, int64_t num_iters = -1,
+  Worker(uint8_t id, const core *exec_core, int64_t num_iters = -1,
          uint partition_id = 0)
       : id(id),
         num_iters(num_iters),
@@ -137,14 +137,15 @@ class WorkerPool {
   WorkerPool(WorkerPool &&) = delete;
   WorkerPool &operator=(WorkerPool &&) = delete;
 
-  void init(bench::Benchmark *txn_bench = nullptr);
+  void init(bench::Benchmark *txn_bench = nullptr, uint num_workers = 1,
+            uint num_partitions = 1, uint worker_sched_mode = 0,
+            int num_iter_per_worker = -1, bool elastic_workload = false);
   void shutdown(bool print_stats = false);
   void shutdown_manual();
 
-  void start_workers(uint num_workers = 1, uint num_partitions = 1,
-                     uint worker_sched_mode = 0, int num_iter_per_worker = -1);
-  void add_worker(core *exec_location, short partition_id = -1);
-  void remove_worker(core *exec_location);
+  void start_workers();
+  void add_worker(const core *exec_location, short partition_id = -1);
+  void remove_worker(const core *exec_location);
   void print_worker_stats(bool global_only = true);
 
   std::vector<uint64_t> get_active_txns();
@@ -181,6 +182,7 @@ class WorkerPool {
   uint num_iter_per_worker;
   uint worker_sched_mode;
   uint num_partitions;
+  bool elastic_workload;
 
   // TXN benchmark
   bench::Benchmark *txn_bench;
@@ -191,23 +193,23 @@ class WorkerPool {
   std::condition_variable cv;
 
   ~WorkerPool() {
-    if (terminate == true) {
-      if (!proc_completed) {
-        print_worker_stats();
-      }
-    } else {
-      std::cout << "[destructor] shutting down workers" << std::endl;
-      terminate = true;
-      // cv.notify_all();
-      for (auto &worker : workers) {
-        if (!worker.second.second->terminate) {
-          worker.second.second->terminate = true;
-          worker.second.first->join();
-        }
-      }
-      print_worker_stats();
-      workers.clear();
-    }
+    // if (terminate == true) {
+    //   if (!proc_completed) {
+    //     print_worker_stats();
+    //   }
+    // } else {
+    //   std::cout << "[destructor] shutting down workers" << std::endl;
+    //   terminate = true;
+    //   // cv.notify_all();
+    //   for (auto &worker : workers) {
+    //     if (!worker.second.second->terminate) {
+    //       worker.second.second->terminate = true;
+    //       worker.second.first->join();
+    //     }
+    //   }
+    //   print_worker_stats();
+    //   workers.clear();
+    // }
   }
   friend class Worker;
 };

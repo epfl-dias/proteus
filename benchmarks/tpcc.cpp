@@ -1336,7 +1336,7 @@ inline void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
 
       i->ol_i_id = NURand(&seed_t, 8191, start, end - 1);
 #else
-      i->ol_i_id = NURand(&this->seed, 8191, 0, TPCC_MAX_ITEMS - 1);
+      i->ol_i_id = NURand(&seed_t, 8191, 0, TPCC_MAX_ITEMS - 1);
 #endif
 
       // no duplicates

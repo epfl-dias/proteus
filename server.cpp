@@ -52,17 +52,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #endif
 
 // proteus
+#if HTAP_DOUBLE_MASTER
 #include "common/common.hpp"
-
-// TODO: a race condition exists in acquiring write lock and updating the
-// version, a read might read at the same time as readers are not blocked in any
-// manner. for this, read andy pavlos paper on MVCC and see how to do it
-// otherwise use a spinlock when actually modifying the index val.
-
-// From PROTEUS
-//#include <codegen/memory/memory-manager.hpp>
-//#include <codegen/topology/affinity_manager.hpp>
-//#include <codegen/topology/topology.hpp>
+#endif
 
 /*std::ostream& operator<<(std::ostream& os, int64_t i) {
   char buf[20];
@@ -76,8 +68,6 @@ std::ostream& operator<<(std::ostream& os, uint64_t i) {
   os << buf;
   return os;
 }*/
-
-// TODO: Add warm-code!!
 
 DEFINE_bool(debug, false, "Debug mode");
 DEFINE_uint64(num_workers, 0, "Number of txn-workers");
@@ -100,7 +90,7 @@ DEFINE_double(ycsb_write_ratio, 0.5, "Writer to reader ratio");
 DEFINE_double(ycsb_zipf_theta, 0.5, "YCSB - Zipfian theta");
 DEFINE_uint64(ycsb_num_cols, 1, "YCSB - # Columns");
 DEFINE_uint64(ycsb_num_ops_per_txn, 10, "YCSB - # ops / txn");
-DEFINE_uint64(ycsb_num_records, 72000000, "YCSB - # records");
+DEFINE_uint64(ycsb_num_records, 0, "YCSB - # records");
 
 // TPC-C
 DEFINE_uint64(tpcc_num_wh, 0, "TPC-C - # of Warehouses ( 0 = one per worker");
@@ -135,8 +125,6 @@ int main(int argc, char** argv) {
   if (FLAGS_num_workers == 0)
     FLAGS_num_workers = scheduler::Topology::getInstance().getCoreCount();
 
-  if (FLAGS_tpcc_num_wh == 0) FLAGS_tpcc_num_wh = FLAGS_num_workers;
-
   g_num_partitions = FLAGS_num_partitions;
   g_delta_size = FLAGS_delta_size;
 
@@ -149,27 +137,30 @@ int main(int argc, char** argv) {
   std::cout << "\tInitializing memory manager..." << std::endl;
   storage::MemoryManager::init();
 
-  if (HTAP_DOUBLE_MASTER) {
-    proteus::init(false);
-  } else if (HTAP_RM_SERVER) {
-    std::cout << "\tInitializing communication manager..." << std::endl;
-    scheduler::CommManager::getInstance().init();
-  } else {
-    std::cout << scheduler::Topology::getInstance() << std::endl;
-    std::cout << "------------------------------------" << std::endl;
-  }
+#if HTAP_DOUBLE_MASTER
+  proteus::init(false);
+
+#elif HTAP_RM_SERVER
+  std::cout << "\tInitializing communication manager..." << std::endl;
+  scheduler::CommManager::getInstance().init();
+#else
+  std::cout << scheduler::Topology::getInstance() << std::endl;
+  std::cout << "------------------------------------" << std::endl;
+#endif
 
   storage::Schema* schema = &storage::Schema::getInstance();
 
   // init benchmark
   bench::Benchmark* bench = nullptr;
   if (FLAGS_benchmark == 1) {
+    if (FLAGS_tpcc_num_wh == 0) FLAGS_tpcc_num_wh = FLAGS_num_workers;
     bench =
         new bench::TPCC("TPCC", FLAGS_tpcc_num_wh,
                         (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
                         FLAGS_layout_column_store);
 
   } else if (FLAGS_benchmark == 2) {
+    if (FLAGS_tpcc_num_wh == 0) FLAGS_tpcc_num_wh = FLAGS_num_workers;
     bench =
         new bench::TPCC("TPCC", FLAGS_tpcc_num_wh,
                         (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
@@ -183,6 +174,10 @@ int main(int argc, char** argv) {
 
     std::cout << "Write Threshold: " << FLAGS_ycsb_write_ratio << std::endl;
     std::cout << "Theta: " << FLAGS_ycsb_zipf_theta << std::endl;
+    if (FLAGS_ycsb_num_records == 0) {
+      FLAGS_ycsb_num_records = FLAGS_num_workers * 1000000;
+    }
+
     bench =
         new bench::YCSB("YCSB", FLAGS_ycsb_num_cols, FLAGS_ycsb_num_records,
                         FLAGS_ycsb_zipf_theta, FLAGS_num_iter_per_worker,
@@ -192,31 +187,21 @@ int main(int argc, char** argv) {
                         FLAGS_num_partitions, FLAGS_layout_column_store);
   }
 
-  /* As soon as worker starts, they start transactions. so make sure you setup
-   * everything needed for benchmark transactions before hand.
-   */
+  scheduler::WorkerPool::getInstance().init(
+      bench, (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
+      FLAGS_num_partitions, FLAGS_worker_sched_mode, FLAGS_num_iter_per_worker);
 
-  scheduler::WorkerPool::getInstance().init(bench);
-
-  //  __itt_resume();
-
-  scheduler::WorkerPool::getInstance().start_workers(
-      (FLAGS_elastic_workload ? 1 : FLAGS_num_workers), FLAGS_num_partitions,
-      FLAGS_worker_sched_mode, FLAGS_num_iter_per_worker);
-
-  // Problem: every worker does a pre-run, hotplugging means there will still be
-  // a pre-run.
+  scheduler::WorkerPool::getInstance().start_workers();
 
   if (FLAGS_elastic_workload > 0) {
     uint curr_active_worker = 1;
     bool removal = false;
-    const uint max_worker = scheduler::Topology::getInstance().getCoreCount();
     timed_func::interval_runner(
-        [curr_active_worker, max_worker, removal]() mutable {
-          std::vector<scheduler::core> worker_cores =
+        [curr_active_worker, removal]() mutable {
+          const auto& worker_cores =
               scheduler::Topology::getInstance().getCores();
 
-          if (curr_active_worker < max_worker && !removal) {
+          if (curr_active_worker < FLAGS_num_workers && !removal) {
             scheduler::WorkerPool::getInstance().add_worker(
                 &worker_cores.at(curr_active_worker));
             curr_active_worker++;

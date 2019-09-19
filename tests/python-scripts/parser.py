@@ -16,6 +16,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+import platform
 
 gsheet_creds = None
 gsheet_service = None
@@ -35,7 +36,7 @@ FILE = False
 STDOUT = True
 result_dir = "./results"
 
-repeat_expr_times = 3
+repeat_expr_times = 5
 
 AEOLUS_SPREADSHEET = '1OtICMs90trphneA7rFLWx3S3XVyzzp_Z9QGXuA8UqDs'
 
@@ -142,22 +143,22 @@ def format_metrics_gsheet(out, err):
     stats = out[sock_st + 1:sock_end]
 
     # sock1
-    tps_st = stats.find("Socket-1: TPS") + len("Socket-1: TPS") + 1
+    tps_st = stats.find("Socket-0: TPS") + len("Socket-1: TPS") + 1
     tps_end = stats[tps_st:].find('\n')
     s1_tps = float(stats[tps_st: tps_st + tps_end].split(' ')[0])
 
     # sock2
-    tps_st = stats.find("Socket-2: TPS") + len("Socket-2: TPS") + 1
+    tps_st = stats.find("Socket-1: TPS") + len("Socket-2: TPS") + 1
     tps_end = stats[tps_st:].find('\n')
     s2_tps = float(stats[tps_st: tps_st + tps_end].split(' ')[0])
 
     # sock3
-    tps_st = stats.find("Socket-3: TPS") + len("Socket-3: TPS") + 1
+    tps_st = stats.find("Socket-2: TPS") + len("Socket-3: TPS") + 1
     tps_end = stats[tps_st:].find('\n')
     s3_tps = float(stats[tps_st: tps_st + tps_end].split(' ')[0])
 
     # sock4
-    tps_st = stats.find("Socket-4: TPS") + len("Socket-4: TPS") + 1
+    tps_st = stats.find("Socket-3: TPS") + len("Socket-4: TPS") + 1
     tps_end = stats[tps_st:].find('\n')
     s4_tps = float(stats[tps_st: tps_st + tps_end].split(' ')[0])
 
@@ -252,13 +253,16 @@ def test_ycsb(layout_col="true", num_partitions=1, num_workers=1, comments="", r
                             stderr=subprocess.PIPE)
                         output, err = proc.communicate()
                         if GSHEET:
-                            val = [expr_time, "-", "-",
-                                   str(num_workers), str(t), str(
+                            layout_str = "COLUMNAR"
+                            if(layout_col != "true"):
+                                layout_str = "ROW"
+                            val = [expr_time, platform.uname()[1], "-", "-",
+                                   str(num_workers), layout_str, str(t), str(
                                        r), "YCSB", col, "SUCCESS", comment_w_exe,
                                    runtime]
                             if len(err) > 10:
-                                val[8] = "FAILED"
-                                val[9] += "\n " + str(err)
+                                val[10] = "FAILED"
+                                val[11] += "\n " + str(err)
                             else:
                                 val += format_metrics_gsheet(output, err)
                                 val += [exe]
@@ -308,12 +312,15 @@ def test_tpcc(layout_col="true", num_partitions=1, num_workers=1, comments="", r
                 stderr=subprocess.PIPE)
             output, err = proc.communicate()
             if GSHEET:
-                val = [expr_time, "-", "-",
-                       str(num_workers), "TPCC", "SUCCESS", comment_w_exe, runtime]
+                layout_str = "COLUMNAR"
+                if(layout_col != "true"):
+                    layout_str = "ROW"
+                val = [expr_time, platform.uname()[1], "-", "-",
+                       str(num_workers), layout_str, "TPCC", "SUCCESS", comment_w_exe, runtime]
                 gsheet_init2()
                 if len(err) > 10:
-                    val[5] = "FAILED"
-                    val[6] += "\n " + str(err)
+                    val[7] = "FAILED"
+                    val[8] += "\n " + str(err)
                 else:
                     val += format_metrics_gsheet(output, err)
                     val += [exe]
@@ -349,23 +356,30 @@ def test():
 
 
 def test_all_tpcc():
+    num_p = 2
+    if(platform.uname()[1] == "diascld33"):
+        num_p = 4
+    print "Setting # of Partitions to", num_p
 
     for layout in layout_column_store:
         for wrkr in workers:
-            test_tpcc(layout_col=layout, num_partitions=4, num_workers=wrkr,
+            test_tpcc(layout_col=layout, num_partitions=num_p, num_workers=wrkr,
                       comments="neworder txn", runtime=30)
 
 
 def test_all_ycsb():
-
+    num_p = 2
+    if(platform.uname()[1] == "diascld33"):
+        num_p = 4
+    print "Setting # of Partitions to", num_p
     for layout in layout_column_store:
-        for n_part in num_partitions:
-            for wrkr in workers:
-                test_ycsb(layout_col=layout, num_partitions=n_part, num_workers=wrkr,
-                          comments="partition_local_zipf", runtime=30)
+        # for n_part in num_partitions:
+        for wrkr in workers:
+            test_ycsb(layout_col=layout, num_partitions=num_p, num_workers=wrkr,
+                      comments="partition_local_zipf", runtime=30)
 
 
 if __name__ == "__main__":
     gsheet_init2()
     test_all_tpcc()
-    test_all_ycsb()
+    # test_all_ycsb()
