@@ -26,13 +26,7 @@
 #include "plan/plan-parser.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
-
-#if __has_include("ittnotify.h")
-#include <ittnotify.h>
-#else
-#define __itt_resume() ((void)0)
-#define __itt_pause() ((void)0)
-#endif
+#include "util/profiling.hpp"
 
 static constexpr auto defaultCatalogJSON = "inputs";
 
@@ -45,11 +39,7 @@ void PreparedStatement::execute(bool deterministic_affinity) {
     gpu_run(cudaDeviceSynchronize());
   }
 
-  for (const auto &gpu : topo.getGpus()) {
-    set_exec_location_on_scope d{gpu};
-    gpu_run(cudaProfilerStart());
-  }
-  __itt_resume();
+  profiling::resume();
 
   if (deterministic_affinity) {
     // Make affinity deterministic
@@ -90,11 +80,7 @@ void PreparedStatement::execute(bool deterministic_affinity) {
     }
   }
 
-  __itt_pause();
-  for (const auto &gpu : topo.getGpus()) {
-    set_device_on_scope d{gpu};
-    gpu_run(cudaProfilerStop());
-  }
+  profiling::pause();
 }
 
 PreparedStatement PreparedStatement::from(const std::string &planPath,

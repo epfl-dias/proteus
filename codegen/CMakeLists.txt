@@ -76,6 +76,7 @@ set(codegen_cxx
     util/jit/jit-module.cpp
     util/jit/pipeline.cpp
     util/parallel-context.cpp
+    util/profiling.cpp
     util/radix/aggregations/radix-aggr.cpp
     util/radix/joins/radix-join.cpp
     values/expressionTypes.cpp
