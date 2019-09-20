@@ -69,7 +69,8 @@ DeltaStore::DeltaStore(uint delta_id, uint64_t ver_list_capacity,
     assert(mem_list != nullptr);
     assert(mem_data != nullptr);
 
-    void* obj_data = MemoryManager::alloc(sizeof(DeltaPartition), i);
+    void* obj_data =
+        MemoryManager::alloc(sizeof(DeltaPartition), i, MADV_DONTFORK);
 
     partitions.emplace_back(new (obj_data) DeltaPartition(
         (char*)mem_list, mem_chunk(mem_list, ver_list_capacity, i),

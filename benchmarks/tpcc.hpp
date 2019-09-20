@@ -70,7 +70,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define TPCC_NDIST_PER_WH 10
 #define TPCC_ORD_PER_DIST 3000
 
-#define TPCC_MAX_ORD_PER_DIST 400000
+#define TPCC_MAX_ORD_PER_DIST 100000
 #define TPCC_MAX_ORDER_INITIAL_CAP_PER_PARTITION \
   (TPCC_MAX_ORD_PER_DIST * TPCC_NDIST_PER_WH * NUM_CORE_PER_SOCKET)
 #define TPCC_MAX_ORDER_INITIAL_CAP \
@@ -385,7 +385,8 @@ class TPCC : public Benchmark {
   void load_customer_secondary_index(struct tpcc_customer &r);
 
   void *get_query_struct_ptr(ushort pid) {
-    return storage::MemoryManager::alloc(sizeof(struct tpcc_query), pid);
+    return storage::MemoryManager::alloc(sizeof(struct tpcc_query), pid,
+                                         MADV_DONTFORK);
   }
   void free_query_struct_ptr(void *ptr) {
     storage::MemoryManager::free(ptr, sizeof(struct tpcc_query));

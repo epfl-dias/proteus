@@ -403,10 +403,10 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
         if (worker_counter % 2 == 0) continue;
       }
 
-      void* obj_ptr = storage::MemoryManager::alloc(sizeof(Worker),
-                                                    exec_core.local_cpu_index);
-      void* thd_ptr = storage::MemoryManager::alloc(sizeof(std::thread),
-                                                    exec_core.local_cpu_index);
+      void* obj_ptr = storage::MemoryManager::alloc(
+          sizeof(Worker), exec_core.local_cpu_index, MADV_DONTFORK);
+      void* thd_ptr = storage::MemoryManager::alloc(
+          sizeof(std::thread), exec_core.local_cpu_index, MADV_DONTFORK);
 
       Worker* wrkr = new (obj_ptr) Worker(worker_counter++, &exec_core);
       // Worker* wrkr = new Worker(exec_core.id, &exec_core);
@@ -480,10 +480,10 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
 // Hot Plug
 void WorkerPool::add_worker(const core* exec_location, short partition_id) {
   // assert(workers.find(exec_location->id) == workers.end());
-  void* obj_ptr = storage::MemoryManager::alloc(sizeof(Worker),
-                                                exec_location->local_cpu_index);
-  void* thd_ptr = storage::MemoryManager::alloc(sizeof(std::thread),
-                                                exec_location->local_cpu_index);
+  void* obj_ptr = storage::MemoryManager::alloc(
+      sizeof(Worker), exec_location->local_cpu_index, MADV_DONTFORK);
+  void* thd_ptr = storage::MemoryManager::alloc(
+      sizeof(std::thread), exec_location->local_cpu_index, MADV_DONTFORK);
 
   Worker* wrkr = new (obj_ptr) Worker(worker_counter++, exec_location);
   wrkr->partition_id =

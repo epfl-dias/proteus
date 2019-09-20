@@ -324,8 +324,9 @@ RowStore::RowStore(
     //                          sizeof(global_conf::IndexVal), 0, true,
     //                          partitioned, numa_idx);
 
-    void* obj_data = MemoryManager::alloc(
-        sizeof(global_conf::PrimaryIndex<uint64_t>), DEFAULT_MEM_NUMA_SOCKET);
+    void* obj_data =
+        MemoryManager::alloc(sizeof(global_conf::PrimaryIndex<uint64_t>),
+                             DEFAULT_MEM_NUMA_SOCKET, MADV_DONTFORK);
 
     this->p_index = new (obj_data)
         global_conf::PrimaryIndex<uint64_t>(name, initial_num_records);
@@ -376,7 +377,7 @@ RowStore::RowStore(
 
 #else
 
-    void* mem = MemoryManager::alloc(meta_size_per_part, j);
+    void* mem = MemoryManager::alloc(meta_size_per_part, j, MADV_DONTFORK);
 
 #endif
 

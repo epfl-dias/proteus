@@ -155,9 +155,9 @@ class YCSB : public Benchmark {
     // return txn;
 
     struct YCSB_TXN *txn = (struct YCSB_TXN *)storage::MemoryManager::alloc(
-        sizeof(struct YCSB_TXN), pid);
+        sizeof(struct YCSB_TXN), pid, MADV_DONTFORK);
     txn->ops = (struct YCSB_TXN_OP *)storage::MemoryManager::alloc(
-        sizeof(struct YCSB_TXN_OP) * num_ops_per_txn, pid);
+        sizeof(struct YCSB_TXN_OP) * num_ops_per_txn, pid, MADV_DONTFORK);
     return txn;
   }
 
@@ -349,7 +349,8 @@ class YCSB : public Benchmark {
                                                  sizeof(struct drand48_data *));
     for (ushort i = 0; i < num_partitions; i++) {
       rand_buffer[i] = (struct drand48_data *)storage::MemoryManager::alloc(
-          (num_max_workers / num_partitions) * sizeof(struct drand48_data), i);
+          (num_max_workers / num_partitions) * sizeof(struct drand48_data), i,
+          MADV_DONTFORK);
 
       // rand_buffer[i] = (struct drand48_data *)calloc(
       //   num_max_workers / num_partitions, sizeof(struct drand48_data));
