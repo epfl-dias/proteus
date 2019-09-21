@@ -147,16 +147,17 @@ class [[deprecated("Access through BlockManager")]] buffer_manager {
     return true;
   }
 
+ private:
 #if defined(__clang__) && defined(__CUDA__)
-  static __device__ __forceinline__ void release_buffer(T * buff) {
+  static __device__ __forceinline__ void release_buffer_int(T * buff) {
     __release_buffer_device(buff);
   }
 
-  static __host__ __forceinline__ void release_buffer(T * buff) {
+  static __host__ __forceinline__ void release_buffer_int(T * buff) {
     __release_buffer_host(buff);
   }
 #else
-  static __host__ __device__ __forceinline__ void release_buffer(T * buff) {
+  static __host__ __device__ __forceinline__ void release_buffer_int(T * buff) {
 #ifdef __CUDA_ARCH__
     __release_buffer_device(buff);
 #else
@@ -164,6 +165,11 @@ class [[deprecated("Access through BlockManager")]] buffer_manager {
 #endif
   }
 #endif
+
+ public:
+  static __host__ __device__ __forceinline__ void release_buffer(T * buff) {
+    return release_buffer_int(buff);
+  }
 
   static __host__ void overwrite_bytes(void *buff, const void *data,
                                        size_t bytes, cudaStream_t strm,

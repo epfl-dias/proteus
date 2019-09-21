@@ -26,6 +26,11 @@
 
 #include "buffer-manager.cuh"
 
-class BlockManager : public buffer_manager<int32_t> {};
+class BlockManager : public buffer_manager<int32_t> {
+ public:
+  static __host__ __device__ __forceinline__ void release_buffer(void* buff) {
+    buffer_manager<int32_t>::release_buffer((int32_t*)buff);
+  }
+};
 
 #endif /* BLOCK_MANAGER_HPP */
