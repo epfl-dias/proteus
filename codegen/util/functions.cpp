@@ -106,17 +106,6 @@ int printc(char *X) {
   return 0;
 }
 
-void resetTime() {
-  stopwatch_t &timer = stopwatch_t::getInstance();
-  timer.reset();
-}
-
-void calculateTime() {
-  stopwatch_t &timer = stopwatch_t::getInstance();
-  double elapsedTime = timer.time_ms();
-  printf("Operation took %f msec\n", elapsedTime);
-}
-
 // int s(const char* X) {
 //    //printf("Generated code -- char read: %c\n", X[0]);
 //    return atoi(X);

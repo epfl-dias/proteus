@@ -21,59 +21,32 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-/*
- * raw-timing.hpp
- *
- *  Created on: Apr 20, 2015
- *      Author: manolee
- */
-
 #ifndef TIMING_HPP_
 #define TIMING_HPP_
 
-#include "common/common.hpp"
+#include <sys/time.h>
 
-/**
- *  @brief a timer (singleton) object.
- *
- *  XXX getInstance() does returns an unitialized object!
- *  => Use:
- *  Step 1. reset();
- *  Step 2. time_ms();
- */
-class stopwatch_t {
+#include <chrono>
+#include <iostream>
+#include <string>
+
+class [[nodiscard]] time_block {
  private:
-  struct timeval tv;
-  long long mark;
+  std::chrono::time_point<std::chrono::system_clock> start;
+  std::string text;
 
-  stopwatch_t() {}
-  ~stopwatch_t() {}
-
-  // Not implementing; stopwatch_t is a singleton
-  stopwatch_t(stopwatch_t const &);     // Don't Implement.
-  void operator=(stopwatch_t const &);  // Don't implement.
  public:
-  static stopwatch_t &getInstance() {
-    static stopwatch_t instance;
-    // instance.reset();
-    return instance;
-  }
+  inline time_block(std::string text = "")
+      : text(text), start(std::chrono::system_clock::now()) {}
 
-  //    stopwatch_t() {
-  //        reset();
-  //    }
-  long long time_us() {
-    long long old_mark = mark;
-    reset();
-    return mark - old_mark;
+  inline ~time_block() {
+    auto end = std::chrono::system_clock::now();
+    std::cout << text;
+    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end -
+                                                                       start)
+                     .count()
+              << "ms" << std::endl;
   }
-  double time_ms() { return ((double)(time_us() * 1e-3)); }
-  double time() { return ((double)(time_us() * 1e-6)); }
-  long long now() {
-    gettimeofday(&tv, nullptr);
-    return tv.tv_usec + tv.tv_sec * 1000000ll;
-  }
-  void reset() { mark = now(); }
 };
 
 #endif /* TIMING_HPP_ */

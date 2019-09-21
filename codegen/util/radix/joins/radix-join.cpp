@@ -1,5 +1,7 @@
 #include "util/radix/joins/radix-join.hpp"
 
+#include "util/timing.hpp"
+
 /* #define RADIX_HASH(V)  ((V>>7)^(V>>13)^(V>>21)^V) */
 #define HASH_BIT_MODULO(K, MASK, NBITS) (((K)&MASK) >> NBITS)
 

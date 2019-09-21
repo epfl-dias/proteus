@@ -28,6 +28,7 @@
 
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
+#include "util/timing.hpp"
 
 std::map<std::string, std::vector<std::unique_ptr<mmap_file>>>
     StorageManager::files;

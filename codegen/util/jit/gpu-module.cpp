@@ -32,6 +32,7 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "topology/affinity_manager.hpp"
+#include "util/timing.hpp"
 
 void initializeModule(CUmodule &cudaModule);
 

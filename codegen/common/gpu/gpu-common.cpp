@@ -29,6 +29,7 @@
 #include "codegen/memory/memory-manager.hpp"
 #include "common/common.hpp"
 #include "topology/topology.hpp"
+#include "util/timing.hpp"
 
 void launch_kernel(CUfunction function, void **args, dim3 gridDim,
                    dim3 blockDim, cudaStream_t strm) {

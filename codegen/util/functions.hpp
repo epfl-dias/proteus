@@ -167,11 +167,4 @@ extern "C" size_t newlineAVX(const char *const target, size_t targetLength);
 extern "C" void parseLineJSON(char *buf, size_t start, size_t end,
                               jsmntok_t **tokens, size_t line);
 
-/**
- * Timing
- */
-extern "C" void resetTime();
-
-extern "C" void calculateTime();
-
 #endif /* FUNCTIONS_HPP_ */

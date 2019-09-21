@@ -30,6 +30,7 @@
 #include <thrust/system/cuda/execution_policy.h>
 
 #include "common/gpu/gpu-common.hpp"
+#include "util/timing.hpp"
 
 template <typename T, typename... Trest>
 struct minalignof {

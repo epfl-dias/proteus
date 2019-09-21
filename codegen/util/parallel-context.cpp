@@ -33,6 +33,7 @@
 // #include "llvm/Target/TargetSubtargetInfo.h"
 #include "util/jit/cpu-pipeline.hpp"
 #include "util/jit/gpu-pipeline.hpp"
+#include "util/timing.hpp"
 
 void ParallelContext::createJITEngine() {
   //     LLVMLinkInMCJIT();

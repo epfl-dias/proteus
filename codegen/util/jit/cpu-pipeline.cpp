@@ -27,6 +27,7 @@
 #include "llvm/ExecutionEngine/JITEventListener.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "util/timing.hpp"
 
 using namespace llvm;
 

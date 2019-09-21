@@ -909,8 +909,6 @@ void PipelineGen::registerFunctions() {
   FunctionType *FTreleaseMemoryChunk =
       FunctionType::get(void_type, ArgsRelMemoryChunk, false);
 
-  FunctionType *FTtiming = FunctionType::get(void_type, ArgsTiming, false);
-
   Function *printi_ =
       Function::Create(FTint, Function::ExternalLinkage, "printi", TheModule);
   Function *printi64_ = Function::Create(FTint64, Function::ExternalLinkage,
@@ -1037,12 +1035,6 @@ void PipelineGen::registerFunctions() {
   Function *releaseMemoryChunk_ =
       Function::Create(FTreleaseMemoryChunk, Function::ExternalLinkage,
                        "releaseMemoryChunk", TheModule);
-
-  /* Timing */
-  Function *resetTime_ = Function::Create(FTtiming, Function::ExternalLinkage,
-                                          "resetTime", TheModule);
-  Function *calculateTime_ = Function::Create(
-      FTtiming, Function::ExternalLinkage, "calculateTime", TheModule);
 
   // Memcpy - not used (yet)
   Type *types[] = {void_ptr_type, void_ptr_type, Type::getInt32Ty(ctx)};
@@ -1287,9 +1279,6 @@ void PipelineGen::registerFunctions() {
   registerFunction("increaseMemoryChunk", increaseMemoryChunk_);
   registerFunction("releaseMemoryChunk", releaseMemoryChunk_);
   registerFunction("memcpy", memcpy_);
-
-  registerFunction("resetTime", resetTime_);
-  registerFunction("calculateTime", calculateTime_);
 
   registerFunction("partitionHT", radix_partition);
   registerFunction("bucketChainingPrepare", bucket_chaining_join_prepare);

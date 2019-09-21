@@ -33,7 +33,6 @@
 #include <unistd.h>
 
 #include <cfloat>
-#include <chrono>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
@@ -45,7 +44,6 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
-#include <string>
 
 //#JSON
 #define JSMN_STRICT
@@ -134,25 +132,6 @@ typedef size_t vid_t;
 typedef uint32_t cid_t;
 typedef uint32_t sel_t;
 typedef uint32_t cnt_t;
-
-class time_block {
- private:
-  std::chrono::time_point<std::chrono::system_clock> start;
-  std::string text;
-
- public:
-  inline time_block(std::string text = "")
-      : text(text), start(std::chrono::system_clock::now()) {}
-
-  inline ~time_block() {
-    auto end = std::chrono::system_clock::now();
-    std::cout << text;
-    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                       start)
-                     .count()
-              << "ms" << std::endl;
-  }
-};
 
 size_t getFileSize(const char *filename);
 
