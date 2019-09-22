@@ -31,6 +31,7 @@
 #include "codegen/topology/affinity_manager.hpp"
 #include "codegen/util/jit/pipeline.hpp"
 #include "topology/topology.hpp"
+#include "util/logging.hpp"
 
 double diff(struct timespec st, struct timespec end) {
   struct timespec tmp;

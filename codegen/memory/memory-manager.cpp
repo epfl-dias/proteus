@@ -25,6 +25,7 @@
 
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
+#include "util/logging.hpp"
 
 #ifndef NDEBUG
 #include <execinfo.h>

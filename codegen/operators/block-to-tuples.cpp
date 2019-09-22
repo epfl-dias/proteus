@@ -25,6 +25,7 @@
 
 #include "codegen/memory/buffer-manager.cuh"
 #include "codegen/memory/memory-manager.hpp"
+#include "util/logging.hpp"
 
 // #include "util/gpu/gpu-intrinsics.hpp"
 // #include "util/jit/gpu-pipeline.hpp"

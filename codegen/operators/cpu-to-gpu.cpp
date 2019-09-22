@@ -25,6 +25,7 @@
 
 #include "topology/topology.hpp"
 #include "util/jit/cpu-pipeline.hpp"
+#include "util/logging.hpp"
 
 using namespace llvm;
 

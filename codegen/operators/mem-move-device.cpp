@@ -25,9 +25,10 @@
 // #include "common/gpu/gpu-common.hpp"
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
-#include "codegen/memory/buffer-manager.cuh"
+#include "codegen/memory/block-manager.hpp"
 #include "codegen/memory/memory-manager.hpp"
 #include "threadpool/threadpool.hpp"
+#include "util/logging.hpp"
 
 struct buff_pair {
   char *new_buff;
@@ -51,7 +52,7 @@ buff_pair make_mem_move_device(char *src, size_t bytes, int target_device,
                       h_vector_size);  // FIMXE: buffer manager should be able
                                        // to provide blocks of arbitary size
   // std::cout << "MemMoveTarget: " << target_device << std::endl;
-  char *buff = (char *)buffer_manager<int32_t>::h_get_buffer(target_device);
+  char *buff = (char *)BlockManager::h_get_buffer(target_device);
 
   // int numa_target = numa_node_of_gpu(target_device);
   // if (dev >= 0 && (numa_node_of_gpu(dev) != numa_target)){
@@ -80,9 +81,9 @@ buff_pair make_mem_move_device(char *src, size_t bytes, int target_device,
   //     gpu_run(cudaStreamWaitEvent(mmc->strm, e, 0));
   // }
 
-  if (bytes > 0)
-    buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes, mmc->strm,
-                                             false);
+  if (bytes > 0) {
+    BlockManager::overwrite_bytes(buff, src, bytes, mmc->strm, false);
+  }
   // assert(bytes == sizeof(int32_t) * h_vector_size);
   // std::cout << bytes << " " << sizeof(int32_t) * h_vector_size << std::endl;
   // cudaStream_t strm;

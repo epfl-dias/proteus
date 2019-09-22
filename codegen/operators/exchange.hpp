@@ -34,6 +34,7 @@
 #include "operators/operators.hpp"
 #include "topology/affinity_manager.hpp"
 #include "util/async_containers.hpp"
+#include "util/logging.hpp"
 
 class Exchange;
 
