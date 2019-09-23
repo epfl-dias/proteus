@@ -56,13 +56,16 @@ enum ExpressionId {
 class Expression {
  public:
   Expression(const ExpressionType *type) : type(type), registered(false) {}
+  Expression(const Expression &) = default;
+  Expression(Expression &&) = default;
+  Expression &operator=(const Expression &) = default;
+  Expression &operator=(Expression &&) = default;
+  virtual ~Expression() = default;
 
   template <typename T>
   friend class ExpressionCRTP;
 
  public:
-  virtual ~Expression() = default;
-
   const ExpressionType *getExpressionType() const { return type; }
   virtual ProteusValue accept(ExprVisitor &v) const = 0;
   virtual ProteusValue acceptTandem(ExprTandemVisitor &v,
@@ -353,7 +356,6 @@ class DStringConstant
  public:
   DStringConstant(int val, void *dictionary)
       : TConstant(val, new DStringType(dictionary)) {}
-  ~DStringConstant() = default;
 };
 
 /*
@@ -491,7 +493,6 @@ class RecordProjection : public ExpressionCRTP<RecordProjection> {
         attribute(attribute) {
     registerAs(getRelationName(), getProjectionName());
   }
-  ~RecordProjection() = default;
 
   expression_t getExpr() const { return expr; }
   string getOriginalRelationName() const {
@@ -764,8 +765,6 @@ template <typename T>
 class BinaryExpressionCRTP : public ExprVisitorVisitable<T, BinaryExpression> {
  public:
   using ExprVisitorVisitable<T, BinaryExpression>::ExprVisitorVisitable;
-
-  virtual ~BinaryExpressionCRTP() override = default;
 };
 
 template <typename T, typename Top>
@@ -1024,8 +1023,6 @@ class CastExpression : public ExpressionCRTP<CastExpression> {
   CastExpression(ExpressionType *cast_to, expression_t expr)
       : ExpressionCRTP(cast_to), expr(std::move(expr)) {}
 
-  ~CastExpression() {}
-
   expression_t getExpr() const { return expr; }
   ExpressionId getTypeID() const { return CAST_EXPRESSION; }
   inline bool operator<(const CastExpression &r) const {
@@ -1048,6 +1045,13 @@ class CastExpression : public ExpressionCRTP<CastExpression> {
 //===----------------------------------------------------------------------===//
 class ExprVisitor {
  public:
+  ExprVisitor() = default;
+  ExprVisitor(const ExprVisitor &) = default;
+  ExprVisitor(ExprVisitor &&) = default;
+  ExprVisitor &operator=(const ExprVisitor &) = default;
+  ExprVisitor &operator=(ExprVisitor &&) = default;
+  virtual ~ExprVisitor() = default;
+
   virtual ProteusValue visit(const expressions::IntConstant *e) = 0;
   virtual ProteusValue visit(const expressions::Int64Constant *e) = 0;
   virtual ProteusValue visit(const expressions::DateConstant *e) = 0;
@@ -1082,11 +1086,17 @@ class ExprVisitor {
   virtual ProteusValue visit(const expressions::CastExpression *e1) = 0;
   //    virtual ProteusValue visit(const expressions::MergeExpression *e)      =
   //    0;
-  virtual ~ExprVisitor() {}
 };
 
 class ExprTandemVisitor {
  public:
+  ExprTandemVisitor() = default;
+  ExprTandemVisitor(const ExprTandemVisitor &) = default;
+  ExprTandemVisitor(ExprTandemVisitor &&) = default;
+  ExprTandemVisitor &operator=(const ExprTandemVisitor &) = default;
+  ExprTandemVisitor &operator=(ExprTandemVisitor &&) = default;
+  virtual ~ExprTandemVisitor() = default;
+
   virtual ProteusValue visit(const expressions::IntConstant *e1,
                              const expressions::IntConstant *e2) = 0;
   virtual ProteusValue visit(const expressions::Int64Constant *e1,
@@ -1151,7 +1161,6 @@ class ExprTandemVisitor {
                              const expressions::TestNullExpression *e2) = 0;
   virtual ProteusValue visit(const expressions::CastExpression *e1,
                              const expressions::CastExpression *e2) = 0;
-  virtual ~ExprTandemVisitor() {}
 };
 
 expression_t toExpression(Monoid m, expression_t lhs, expression_t rhs);
