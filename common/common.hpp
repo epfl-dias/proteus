@@ -174,6 +174,10 @@ class bytes {
   friend std::ostream &operator<<(std::ostream &out, const bytes &b);
 };
 
+namespace std {
+std::string to_string(const bytes &b);
+}
+
 template <class T>
 inline void hash_combine(std::size_t &seed, const T &v) {
   std::hash<T> hasher;

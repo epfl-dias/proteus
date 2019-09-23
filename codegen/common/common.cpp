@@ -78,6 +78,14 @@ std::ostream &operator<<(std::ostream &out, const bytes &b) {
   return out;
 }
 
+namespace std {
+std::string to_string(const bytes &b) {
+  std::stringstream ss;
+  ss << b;
+  return ss.str();
+}
+};  // namespace std
+
 #ifndef NLOG
 
 struct log_info {
