@@ -11,6 +11,8 @@ def usage(progname, retval=0):
     print("\t-r <folder>           \tBase folder for which to check the licenses,"
           "\r\t                    \tby default the current working "
           "directory.")
+    print("\t--print-license       \tPrint suggested license"
+          "directory.")
     print("")
 
     sys.exit(retval)
@@ -64,13 +66,20 @@ def check(root):
     if found_bad:
         sys.exit(-1)
 
+def print_license():
+    print(r"""/*
+                  AEOLUS - In-Memory HTAP-Ready OLTP Engine
+""")
+    with open("LICENSE") as file_name:
+        header = file_name.read()
+    print(header + r"""*/""")
 
 def main(argv):
     progname = argv[0]
     root = os.getcwd()
 
     try:
-        opts, args = getopt.getopt(argv[1:], 'r:')
+        opts, args = getopt.getopt(argv[1:], 'r:', ['print-license'])
     except getopt.GetoptError:
         usage(progname, 1)
 
@@ -79,6 +88,8 @@ def main(argv):
             root = arg
         elif opt == '-h':
             usage(progname)
+        elif opt == '--print-license':
+            print_license()
         else:
             usage(progname, 1)
 

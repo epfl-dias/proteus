@@ -1,0 +1,30 @@
+#!/bin/bash
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+
+RETVAL=0
+
+format_file() {
+  file="${1}"
+  if [ -f $file ]; then
+    clang-format-9 -i ${1}
+    ${PROJECT_ROOT}/check_licenses.py ${1} || RETVAL=1
+    git add ${1}
+  fi
+}
+
+for file in $(git diff-index --cached --name-only HEAD *.{cpp,hpp,cu,cuh}) ; do
+  format_file "${file}"
+done
+
+if [ $RETVAL -ne 0 ]; then
+  echo "************************************************************"
+  echo "*                                                          *"
+  echo "*             Fix licensing before committing!             *"
+  echo "*                                                          *"
+  echo "************************************************************"
+  echo "You should only commit files that conform to our license!"
+  printf "\nFor new files you may use the following header:\n"
+  ${PROJECT_ROOT}/check_licenses.py --print-license
+fi
+
+exit $RETVAL
