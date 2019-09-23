@@ -34,7 +34,7 @@ class Scan : public UnaryOperator {
   //        this->setParent(parent);
   //    }
   virtual ~Scan() { LOG(INFO) << "Collapsing scan operator"; }
-  Operator *const getChild() const {
+  virtual Operator *const getChild() const final {
     throw runtime_error(string("Scan operator has no children"));
   }
 

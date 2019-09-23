@@ -207,7 +207,7 @@ class PipelineGen {
   virtual void *getCompiledFunction(llvm::Function *f) = 0;
 
  protected:
-  void registerFunctions();
+  virtual void registerFunctions();
 };
 
 class Pipeline {
