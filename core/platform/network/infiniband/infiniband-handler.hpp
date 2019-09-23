@@ -26,6 +26,8 @@
 #include <map>
 
 #include "infiniband-manager.hpp"
+#include "topology/topology.hpp"
+#include "util/memory-registry.hpp"
 
 struct ib_addr {
   ibv_gid gid;
@@ -37,7 +39,7 @@ struct ib_addr {
 std::ostream &operator<<(std::ostream &out, const ibv_gid &gid);
 std::ostream &operator<<(std::ostream &out, const ib_addr &addr);
 
-class IBHandler {
+class IBHandler : public MemoryRegistry {
  protected:
   subscription sub;
 
@@ -61,12 +63,14 @@ class IBHandler {
 
   size_t pending;
 
-  void *recv_region;
-
   bool saidGoodBye = false;
+
+  int dev_cnt;
 
   // New attributes
   ibv_context *context;
+  const topology::cpunumanode &local_cpu;
+
   ibv_qp *qp;
 
   // ibv_pd *pd;
@@ -79,6 +83,13 @@ class IBHandler {
   uint8_t ib_gidx;
 
   ib_addr rem_addr;
+
+  std::deque<void *> b;
+  std::deque<buffkey> pend_buffers;
+  std::mutex pend_buffers_m;
+  std::condition_variable pend_buffers_cv;
+
+  subscription buffers;
 
  protected:
   void post_recv(ibv_qp *qp);
@@ -111,11 +122,18 @@ class IBHandler {
 
   void sendGoodBye();
 
+  void flush_write(ibv_sge *sge_ptr);
+
   void send_sge(uintptr_t wr_id, ibv_sge *sg_list, size_t sge_cnt,
                 decltype(ibv_send_wr::imm_data) imm);
 
  public:
   void send(void *data, size_t bytes, decltype(ibv_send_wr::imm_data) imm = 5);
+
+  void write(void *data, size_t bytes, decltype(ibv_send_wr::imm_data) imm = 7);
+
+  typedef std::pair<void *, decltype(ibv_send_wr::wr.rdma.rkey)> buffkey;
+  buffkey get_buffer();
 
   void disconnect();
 };

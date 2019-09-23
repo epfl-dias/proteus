@@ -41,6 +41,7 @@
 #include "storage/storage-manager.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
+#include "util/logging.hpp"
 #include "util/profiling.hpp"
 
 extern bool print_generated_code;
@@ -181,8 +182,9 @@ int main(int argc, char *argv[]) {
 
   bool echo = false;
 
-  set_exec_location_on_scope affg{topology::getInstance().getGpus()[1]};
-  set_exec_location_on_scope aff{topology::getInstance().getCpuNumaNodes()[1]};
+  // set_exec_location_on_scope affg{topology::getInstance().getGpus()[1]};
+  set_exec_location_on_scope aff{
+      topology::getInstance().getCpuNumaNodes()[FLAGS_primary ? 0 : 1]};
 
   if (FLAGS_primary || FLAGS_secondary) {
     assert(FLAGS_port <= std::numeric_limits<uint16_t>::max());
@@ -230,33 +232,35 @@ int main(int argc, char *argv[]) {
     if (FLAGS_primary) {
       auto x = sub.wait();
       BlockManager::release_buffer((int32_t *)x.data);
-      auto f = BlockManager::get_buffer();
       int32_t j = 0;
-      for (size_t s : {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024}) {
-        time_block t{"Tg:" + std::to_string(s) + ": "};
+      for (size_t buff_size = BlockManager::block_size; buff_size >= 4 * 1024;
+           buff_size /= 2) {
+        time_block t{"Tg:" + std::to_string(bytes{buff_size}) + ": "};
         int32_t sum = 0;
 
-        nvtxRangePushA("reading");
-        do {
-          nvtxRangePushA("waiting");
-          auto x = sub.wait();
-          nvtxRangePop();
-          if (x.size == 0) break;
-          if (++j % rlimit == 0) {
-            InfiniBandManager::send(f, 4);
-            j = 0;
-          }
-          assert(x.size % 4 == 0);
-          size_t size = x.size / 4;
-          int32_t *data = (int32_t *)x.data;
-          for (size_t i = 0; i < std::min(size_t{1}, size); ++i) {
-            sum += data[i];
-          }
-          // MemoryManager::freePinned(sub.wait().data);
-          BlockManager::release_buffer(data);
-        } while (true);
+        {
+          time_block t{"Tg-nosend:" + std::to_string(bytes{buff_size}) + ": "};
+          nvtxRangePushA("reading");
+          do {
+            eventlogger.log(nullptr, IB_WAITING_DATA_START);
+            nvtxRangePushA("waiting");
+            auto x = sub.wait();
+            nvtxRangePop();
+            eventlogger.log(nullptr, IB_WAITING_DATA_END);
+            if (x.size == 0) break;
+            assert(x.size % 4 == 0);
+            size_t size = x.size / 4;
+            int32_t *data = (int32_t *)x.data;
+            for (size_t i = 0; i < std::min(size_t{0x1}, size); ++i) {
+              sum += data[i];
+            }
+            // MemoryManager::freePinned(sub.wait().data);
+            BlockManager::release_buffer(data);
+          } while (true);
+        }
         nvtxRangePop();
         std::cout << sum << std::endl;
+        auto f = BlockManager::get_buffer();
         f[0] = sum;
         InfiniBandManager::send(f, 4);
         std::cout << sum << std::endl;
@@ -270,26 +274,22 @@ int main(int argc, char *argv[]) {
       InfiniBandManager::reg((void *)v[0].data, v[0].size);
       profiling::resume();
       InfiniBandManager::send((char *)v[0].data, 0);
-      int32_t j = 0;
+      // int32_t j = 0;
       assert(v.size() == 1);
-      for (size_t s : {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024}) {
-        time_block t{"Tg:" + std::to_string(s) + ": "};
+      for (size_t buff_size = BlockManager::block_size; buff_size >= 4 * 1024;
+           buff_size /= 2) {
+        size_t write_cnt = 0;
+        time_block t{"Tg:" + std::to_string(bytes{buff_size}) + ": "};
 
         {
           // constexpr size_t buff_size = ((size_t)16) * 1024 * 1024 * 1024;
-          size_t buff_size = BlockManager::buffer_size / s;
+          LOG(INFO) << "Packet size: " << bytes{buff_size};
           time_block t{"T: "};
           for (size_t i = 0; i < v[0].size; i += buff_size) {
             // LOG(INFO) << std::min(buff_size, v[0].size - i);
-            InfiniBandManager::send(((char *)v[0].data) + i,
-                                    std::min(buff_size, v[0].size - i));
-            // std::cout << (i * 100 / v[0].size) << std::endl;
-            if (++j % rlimit == 0) {
-              BlockManager::release_buffer((int32_t *)sub.wait().data);
-              j = 0;
-            }
-            // MemoryManager::freePinned(sub.wait().data);
-            //        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            if (i + buff_size >= v[0].size) write_cnt = 0x1000000 - 1;
+            InfiniBandManager::write(((char *)v[0].data) + i,
+                                     std::min(buff_size, v[0].size - i));
           }
           // auto x = sub.wait();
           // assert(x.size == 4);

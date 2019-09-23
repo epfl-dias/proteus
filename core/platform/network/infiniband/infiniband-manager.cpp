@@ -64,6 +64,12 @@ void InfiniBandManager::send(void *data, size_t bytes) {
   ib->send(data, bytes);
 }
 
+void InfiniBandManager::write(void *data, size_t bytes) {
+  ib->write(data, bytes);
+}
+
+buffkey InfiniBandManager::get_buffer() { return ib->get_buffer(); }
+
 void InfiniBandManager::deinit() { delete ib; }
 
 subscription &InfiniBandManager::subscribe() {
@@ -77,9 +83,9 @@ void InfiniBandManager::unsubscribe(subscription &sub) {
 void InfiniBandManager::disconnectAll() { ib->disconnect(); }
 
 IBHandler *createServer(uint16_t port, bool ipv4,
-                        int cq_backlog = /* arbitrary */ 16);
+                        int cq_backlog = /* arbitrary */ cq_ack_backlog);
 IBHandler *createClient(const std::string &url, uint16_t port, bool ipv4,
-                        int cq_backlog = /* arbitrary */ 16);
+                        int cq_backlog = /* arbitrary */ cq_ack_backlog);
 
 void InfiniBandManager::init(const std::string &url, uint16_t port,
                              bool primary, bool ipv4) {

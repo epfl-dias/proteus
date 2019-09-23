@@ -7,6 +7,7 @@ find_package(RDMA REQUIRED)
 set(codegen_cxx
     common/common.cpp
     common/gpu/gpu-common.cpp
+    memory/block-manager.cpp
     memory/memory-allocator.cpp
     memory/memory-manager.cpp
     network/infiniband/infiniband-client.cpp

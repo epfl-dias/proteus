@@ -189,7 +189,8 @@ static ib_addr get_client_addr(ibv_qp *qp, uint16_t port, const ib_addr &loc,
 
 class IBHandlerServer : public IBHandler {
  public:
-  IBHandlerServer(uint16_t port, bool ipv4, int cq_backlog = /* arbitrary */ 16)
+  IBHandlerServer(uint16_t port, bool ipv4,
+                  int cq_backlog = /* arbitrary */ cq_ack_backlog)
       : IBHandler(cq_backlog) {
     rem_addr = get_client_addr(qp, port, addr, ib_port, addr.psn, IBV_MTU_4096,
                                ib_sl, ib_gidx);
@@ -199,6 +200,6 @@ class IBHandlerServer : public IBHandler {
 };
 
 IBHandler *createServer(uint16_t port, bool ipv4,
-                        int cq_backlog = /* arbitrary */ 16) {
+                        int cq_backlog = /* arbitrary */ cq_ack_backlog) {
   return new IBHandlerServer(port, ipv4, cq_backlog);
 }

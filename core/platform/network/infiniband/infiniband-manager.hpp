@@ -80,6 +80,10 @@ inline T *assertRDMARun(T *x, const char *str, const char *file, int line) {
 
 class IBHandler;
 
+typedef std::pair<void *, int32_t> buffkey;
+
+constexpr size_t cq_ack_backlog = 1024;
+
 class subscription {
   class value_type {
    public:
@@ -107,6 +111,8 @@ class InfiniBandManager {
   static void init(const std::string &url, uint16_t port = 12345,
                    bool primary = false, bool ipv4 = false);
   static void send(void *data, size_t bytes);
+  static void write(void *data, size_t bytes);
+  static buffkey get_buffer();
   static void disconnectAll();
   static void deinit();
 

@@ -149,11 +149,11 @@ class [[nodiscard]] set_exec_location_on_scope {
 
   inline set_exec_location_on_scope(int gpu) { exec_location{gpu}.activate(); }
 
-  inline set_exec_location_on_scope(int gpu, cpu_set_t cpus) {
+  [[deprecated]] inline set_exec_location_on_scope(int gpu, cpu_set_t cpus) {
     exec_location{gpu, cpus}.activate();
   }
 
-  inline set_exec_location_on_scope(cpu_set_t cpus) {
+  [[deprecated]] inline set_exec_location_on_scope(cpu_set_t cpus) {
     exec_location{cpus}.activate();
   }
 
