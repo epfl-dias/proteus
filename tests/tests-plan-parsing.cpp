@@ -97,7 +97,7 @@ TEST_F(PlanTest, ScanTwoFields) {
   const char *planPath = "inputs/plans/reduce-twofields-scan.json";
   const char *testLabel = "reduce-twofields-scan-log.json";
 
-  runAndVerify(planPath, testLabel);
+  runAndVerify(testLabel, planPath);
 }
 
 /* SELECT COUNT(*) as cnt FROM employees e, unnest(e.children); */
