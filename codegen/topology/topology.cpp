@@ -56,6 +56,10 @@ void topology::cpunumanode::free(void *mem, size_t bytes) {
   numa_free(mem, bytes);
 }
 
+size_t topology::cpunumanode::getMemorySize() const {
+  return numa_node_size64(id, nullptr);
+}
+
 void topology::init() {
   instance.init_();
   std::cout << topology::getInstance() << std::endl;
@@ -310,6 +314,10 @@ topology::gpunode::gpunode(uint32_t id, uint32_t index_in_topo,
 #else
   assert(false);
 #endif
+}
+
+size_t topology::gpunode::getMemorySize() const {
+  return properties.totalGlobalMem;
 }
 
 topology::cpunumanode::cpunumanode(uint32_t id,

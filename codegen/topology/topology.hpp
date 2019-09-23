@@ -31,6 +31,8 @@
 #include "common/gpu/gpu-common.hpp"
 #include "nvml.h"
 
+struct ibv_device;
+
 /**
  * A describing the system topology of a single server.
  */
@@ -62,6 +64,7 @@ class topology {
 
     void *alloc(size_t bytes) const;
     static void free(void *mem, size_t bytes);
+    size_t getMemorySize() const;
   };
 
   class core {
@@ -111,6 +114,7 @@ class topology {
             const std::vector<topology::core> &all_cores,
             // do not remove argument!!!
             topologyonly_construction = {});
+    size_t getMemorySize() const;
   };
 
  private:
@@ -172,12 +176,14 @@ class topology {
     cudaError_t error = cudaPointerGetAttributes(&attrs, p);
     if (error == cudaErrorInvalidValue) return nullptr;
     gpu_run(error);
-    if (attrs.memoryType == cudaMemoryTypeHost) return nullptr;
+    if (attrs.type != cudaMemoryTypeDevice) return nullptr;
     return &(getGpuByIndex(attrs.device));
 #else
     return nullptr;
 #endif
   }
+
+  const topology::cpunumanode &findLocalCPUNumaNode(ibv_device *ib_dev) const;
 
  private:
   [[deprecated]] inline const cpunumanode &findCpuNumaNodes(
