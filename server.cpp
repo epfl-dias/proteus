@@ -138,8 +138,7 @@ int main(int argc, char** argv) {
   storage::MemoryManager::init();
 
 #if HTAP_DOUBLE_MASTER
-  proteus::init(false);
-
+  proteus::init();
 #elif HTAP_RM_SERVER
   std::cout << "\tInitializing communication manager..." << std::endl;
   scheduler::CommManager::getInstance().init();
