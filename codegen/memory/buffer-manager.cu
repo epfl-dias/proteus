@@ -57,8 +57,10 @@ constexpr void *buff_start = nullptr;
 constexpr void *buff_end = nullptr;
 #endif
 
-void buffer_manager_init(size_t gpu_buffs, size_t cpu_buffs) {
-  buffer_manager<int32_t>::init(gpu_buffs, cpu_buffs, 256, 512);
+void buffer_manager_init(float gpu_mem_pool_percentage = 0.25,
+                         float cpu_mem_pool_percentage = 0.25) {
+  buffer_manager<int32_t>::init(gpu_mem_pool_percentage,
+                                cpu_mem_pool_percentage, 256, 512);
 }
 
 template <typename T>
@@ -302,14 +304,12 @@ __device__ T *buffer_manager<T>::try_get_buffer() {
 #include <topology/topology.hpp>
 
 template <typename T>
-__host__ void buffer_manager<T>::init(size_t size, size_t h_size,
+__host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
+                                      float cpu_mem_pool_percentage,
                                       size_t buff_buffer_size,
                                       size_t buff_keep_threshold) {
   const topology &topo = topology::getInstance();
   // std::cout << topo << std::endl;
-
-  float gpu_mem_pool_percentage = 0.25;
-  float cpu_mem_pool_percentage = 0.25;
 
   uint32_t devices = topo.getGpuCount();
   buffer_manager<T>::h_size =
@@ -356,6 +356,9 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size,
                                       &buff_cache] {
       size_t size =
           gpu_mem_pool_percentage * (gpu.getMemorySize() / buffer_size);
+      LOG(INFO) << "Using " << size << " " << bytes{buffer_size}
+                << "-buffers in GPU " << gpu.id
+                << " (Total: " << bytes{size * buffer_size} << ")";
 
       uint32_t j = gpu.id;
 
@@ -415,6 +418,9 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size,
               cpu_mem_pool_percentage * (cpu.getMemorySize() / buffer_size);
           assert(buffer_manager<T>::h_size == h_size &&
                  "TODO: fix case with different NUMA sizes");
+          LOG(INFO) << "Using " << h_size << " " << bytes{buffer_size}
+                    << "-buffers in CPU " << cpu.id
+                    << " (Total: " << bytes{h_size * buffer_size} << ")";
           set_exec_location_on_scope cu{cpu};
           const auto &topo = topology::getInstance();
 

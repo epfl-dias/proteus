@@ -89,7 +89,8 @@ class [[deprecated("Access through BlockManager")]] buffer_manager {
 
   static std::thread *buffer_logger;
 
-  static __host__ void init(size_t size = 64, size_t h_size = 64,
+  static __host__ void init(float gpu_mem_pool_percentage = 0.25,
+                            float cpu_mem_pool_percentage = 0.25,
                             size_t buff_buffer_size = 8,
                             size_t buff_keep_threshold = 16);
 

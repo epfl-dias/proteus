@@ -164,15 +164,8 @@ namespace proteus {
 
 void thread_warm_up() {}
 
-void init(bool inc_buffers) {
+void init(float gpu_mem_pool_percentage, float cpu_mem_pool_percentage) {
   topology::init();
-
-  size_t cpu_buffers = 1024;
-  size_t gpu_buffers = 512;
-  if (inc_buffers) {
-    cpu_buffers = 16 * 1024;
-    gpu_buffers = 1024;
-  }
 
   // Initialize Google's logging library.
   LOG(INFO) << "Starting up server...";
@@ -204,7 +197,7 @@ void init(bool inc_buffers) {
   PipelineGen::init();
 
   LOG(INFO) << "Initializing memory manager...";
-  MemoryManager::init(gpu_buffers, cpu_buffers);
+  MemoryManager::init(gpu_mem_pool_percentage, cpu_mem_pool_percentage);
 
   // Make affinity deterministic
   auto &topo = topology::getInstance();
