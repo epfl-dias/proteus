@@ -75,10 +75,6 @@ inline void nvtxRangePop() {}
 #define WARPSIZE (32)
 #endif
 
-#ifndef DEFAULT_BUFF_CAP
-#define DEFAULT_BUFF_CAP (1024 * 1024 / 4)
-#endif
-
 // extern int                                                 cpu_cnt;
 // extern cpu_set_t                                          *gpu_affinity;
 // extern cpu_set_t                                          *cpu_numa_affinity;
@@ -90,8 +86,6 @@ typedef uint32_t sel_t;
 typedef uint32_t cnt_t;
 
 constexpr uint32_t warp_size = WARPSIZE;
-constexpr cnt_t vector_size = 32 * 4 * warp_size;
-constexpr cnt_t h_vector_size = DEFAULT_BUFF_CAP;
 
 enum class gran_t { GRID, BLOCK, THREAD };
 

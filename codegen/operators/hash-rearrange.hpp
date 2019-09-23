@@ -24,6 +24,7 @@
 #define HASH_REARRANGE_HPP_
 
 #include "codegen/util/parallel-context.hpp"
+#include "memory/block-manager.hpp"
 #include "operators/operators.hpp"
 
 class HashRearrange : public UnaryOperator {
@@ -37,8 +38,7 @@ class HashRearrange : public UnaryOperator {
         wantedFields(wantedFields),
         hashExpr(std::move(hashExpr)),
         hashProject(hashProject),
-        blockSize(h_vector_size * sizeof(int32_t)) {
-  }  // FIMXE: default blocksize...
+        blockSize(BlockManager::block_size) {}  // FIMXE: default blocksize...
 
   virtual ~HashRearrange() { LOG(INFO) << "Collapsing HashRearrange operator"; }
 

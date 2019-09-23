@@ -25,6 +25,7 @@
 
 #include "expressions/expressions-flusher.hpp"
 #include "expressions/expressions-generator.hpp"
+#include "memory/block-manager.hpp"
 #include "util/gpu/gpu-intrinsics.hpp"
 
 using namespace llvm;
@@ -107,8 +108,8 @@ void GpuSort::produce() {
   // numOfBuckets)));
 
   auto elemPointer = outputExpr.getExpressionType()->getLLVMType(llvmContext);
-  mem_type = ArrayType::get(elemPointer, h_vector_size * sizeof(int32_t) /
-                                             context->getSizeOf(elemPointer));
+  mem_type = ArrayType::get(
+      elemPointer, BlockManager::block_size / context->getSizeOf(elemPointer));
 
   flush_sorted();
 

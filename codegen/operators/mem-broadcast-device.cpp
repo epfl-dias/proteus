@@ -25,7 +25,7 @@
 // #include "common/gpu/gpu-common.hpp"
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
-#include "codegen/memory/buffer-manager.cuh"
+#include "memory/block-manager.hpp"
 #include "threadpool/threadpool.hpp"
 
 struct buff_pair_brdcst {
@@ -60,9 +60,9 @@ buff_pair_brdcst make_mem_move_broadcast_device(
     // std::cout << target_device << std::endl;
 
     // if (dev >= 0) set_affinity_local_to_gpu(dev);
-    assert(bytes <= sizeof(int32_t) *
-                        h_vector_size);  // FIMXE: buffer manager should be able
-                                         // to provide blocks of arbitary size
+    assert(bytes <=
+           BlockManager::block_size);  // FIMXE: buffer manager should be able
+                                       // to provide blocks of arbitary size
     char *buff = (char *)buffer_manager<int32_t>::h_get_buffer(target_device);
 
     assert(target_device >= 0);

@@ -21,24 +21,31 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef BLOCK_MANAGER_HPP
-#define BLOCK_MANAGER_HPP
+#include "memory/block-manager.hpp"
 
-#include "buffer-manager.cuh"
-#include "util/memory-registry.hpp"
+template <>
+size_t buffer_manager<int32_t>::h_size;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-class BlockManager : public buffer_manager<int32_t> {
- public:
-  static constexpr size_t block_size = buffer_manager<int32_t>::buffer_size;
+template <>
+void **buffer_manager<int32_t>::h_h_buff_start;
 
-  static __host__ __device__ __forceinline__ void release_buffer(void* buff) {
-    buffer_manager<int32_t>::release_buffer((int32_t*)buff);
+void BlockManager::reg(MemoryRegistry &registry) {
+  size_t bytes = block_size * h_size;
+  for (const auto &cpu : topology::getInstance().getCpuNumaNodes()) {
+#ifndef NDEBUG
+    auto ptr =
+#endif
+        registry.reg(h_h_buff_start[cpu.id], bytes);
+    assert(ptr == h_h_buff_start[cpu.id]);
   }
-#pragma clang diagnostic pop
 
-  static void reg(MemoryRegistry&);
-  static void unreg(MemoryRegistry& registry);
-};
-#endif /* BLOCK_MANAGER_HPP */
+  // TODO: also register GPU memory
+}
+
+void BlockManager::unreg(MemoryRegistry &registry) {
+  for (const auto &cpu : topology::getInstance().getCpuNumaNodes()) {
+    registry.unreg(BlockManager::h_h_buff_start[cpu.id]);
+  }
+
+  // TODO: also unregister GPU memory
+}

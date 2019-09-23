@@ -24,6 +24,7 @@
 #define GPU_HASH_REARRANGE_HPP_
 
 #include "codegen/util/parallel-context.hpp"
+#include "memory/block-manager.hpp"
 #include "operators/operators.hpp"
 // #include "operators/hash-rearrange.hpp"
 // #include "operators/gpu/gpu-materializer-expr.hpp"
@@ -40,7 +41,7 @@ class GpuHashRearrange : public UnaryOperator {
         matExpr(matExpr),
         hashExpr(std::move(hashExpr)),
         hashProject(hashProject),
-        blockSize(h_vector_size * sizeof(int32_t)) {
+        blockSize(BlockManager::block_size) {
     // packet_widths(packet_widths){
   }  // FIMXE: default blocksize...
 

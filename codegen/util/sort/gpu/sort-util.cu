@@ -29,7 +29,7 @@
 #include <thrust/sort.h>
 #include <thrust/system/cuda/execution_policy.h>
 
-#include "common/gpu/gpu-common.hpp"
+#include "memory/block-manager-conf.hpp"
 #include "util/timing.hpp"
 
 template <typename T, typename... Trest>
@@ -181,7 +181,7 @@ void gpu_qsort(void *ptr, size_t N) {
   time_block t{"Tsort: "};
   typedef qsort_t<T...> to_sort_t;
   thrust::device_ptr<to_sort_t> mem{(to_sort_t *)ptr};
-  assert(N * sizeof(to_sort_t) <= h_vector_size * sizeof(int32_t) &&
+  assert(N * sizeof(to_sort_t) <= (DEFAULT_BUFF_CAP * sizeof(int32_t)) &&
          "Overflow in GPUSort's buffer");
   std::cout << "Sorting started..." << sizeof...(T) << " " << sizeof(to_sort_t)
             << " " << N << std::endl;

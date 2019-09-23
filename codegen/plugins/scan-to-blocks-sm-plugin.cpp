@@ -24,6 +24,7 @@
 #include "plugins/scan-to-blocks-sm-plugin.hpp"
 
 #include "expressions/expressions-hasher.hpp"
+#include "memory/block-manager.hpp"
 
 using namespace llvm;
 
@@ -562,8 +563,8 @@ void ScanToBlockSMPlugin::scan(const ::Operator &producer) {
   Builder->CreateStore(zero_idx, mem_itemCtr);
   NamedValuesBinaryCol[itemCtrVar] = mem_itemCtr;
 
-  blockSize = ConstantInt::get(
-      size_type, (h_vector_size * sizeof(int32_t)) / max_field_size);
+  blockSize =
+      ConstantInt::get(size_type, BlockManager::block_size / max_field_size);
 
   BasicBlock *CondBB = BasicBlock::Create(llvmContext, "scanCond", F);
 

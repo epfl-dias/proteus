@@ -27,6 +27,7 @@
 #include "llvm/ExecutionEngine/JITEventListener.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "memory/block-manager.hpp"
 #include "util/timing.hpp"
 
 using namespace llvm;
@@ -146,8 +147,8 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
     std::vector<std::pair<unsigned, Attribute>> attrs;
     Attribute def = Attribute::getWithDereferenceableBytes(
         context->getLLVMContext(),
-        h_vector_size *
-            sizeof(int32_t));  // FIXME: at some point this should change...
+        BlockManager::block_size);  // FIXME: at some point this should
+                                    // change...
     attrs.emplace_back(0, def);
     facquireBuffer->setAttributes(
         AttributeList::get(context->getLLVMContext(), attrs));
@@ -163,8 +164,8 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
     std::vector<std::pair<unsigned, Attribute>> attrs;
     Attribute def = Attribute::getWithDereferenceableOrNullBytes(
         context->getLLVMContext(),
-        h_vector_size *
-            sizeof(int32_t));  // FIXME: at some point this should change...
+        BlockManager::block_size);  // FIXME: at some point this should
+                                    // change...
     attrs.emplace_back(0, def);
     ftry_acquireBuffer->setAttributes(
         AttributeList::get(context->getLLVMContext(), attrs));

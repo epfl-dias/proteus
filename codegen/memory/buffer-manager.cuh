@@ -34,6 +34,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "memory/block-manager-conf.hpp"
 #include "topology/affinity_manager.hpp"
 #include "util/threadsafe_stack.cuh"
 
@@ -61,6 +62,7 @@ class [[deprecated("Access through BlockManager")]] buffer_manager {
   typedef threadsafe_device_stack<T *, (T *)nullptr> pool_t;
   typedef threadsafe_stack<T *, (T *)nullptr> h_pool_t;
 
+  static constexpr uint32_t h_vector_size = DEFAULT_BUFF_CAP;
   static constexpr size_t buffer_size = h_vector_size * sizeof(T);
 
   static bool terminating;
@@ -109,7 +111,8 @@ class [[deprecated("Access through BlockManager")]] buffer_manager {
     int old =
 #endif
         buffer_cache[b]++;
-    assert(old == 0);
+    assert(old <= 0 && "Buffer already acquired!");
+    assert(old >= 0 && "Buffer has been freed multiple times!");
     return b;
   }
 

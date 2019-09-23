@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <fstream>
 
+#include "memory/block-manager.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 #include "util/timing.hpp"
@@ -74,8 +75,7 @@ void StorageManager::loadToGpus(std::string name, size_t type_size) {
   // in order to do that without the schema, we have to take the worst case
   // of a file with a single-byte column and a 64bit column and align based
   // on that. Otherwise, the segments may be misaligned
-  pack_alignment =
-      std::max(pack_alignment, (size_t)h_vector_size * sizeof(int32_t));
+  pack_alignment = std::max(pack_alignment, BlockManager::block_size);
 
   size_t part_size =
       (((filesize + pack_alignment - 1) / pack_alignment + devices - 1) /
@@ -112,8 +112,7 @@ void StorageManager::loadToCpus(std::string name, size_t type_size) {
   // in order to do that without the schema, we have to take the worst case
   // of a file with a single-byte column and a 64bit column and align based
   // on that. Otherwise, the segments may be misaligned
-  pack_alignment =
-      std::max(pack_alignment, (size_t)h_vector_size * sizeof(int32_t));
+  pack_alignment = std::max(pack_alignment, BlockManager::block_size);
 
   size_t part_size =
       (((filesize + pack_alignment - 1) / pack_alignment + devices - 1) /
@@ -152,8 +151,7 @@ void StorageManager::loadEverywhere(std::string name, size_t type_size,
   // in order to do that without the schema, we have to take the worst case
   // of a file with a single-byte column and a 64bit column and align based
   // on that. Otherwise, the segments may be misaligned
-  pack_alignment =
-      std::max(pack_alignment, (size_t)h_vector_size * sizeof(int32_t));
+  pack_alignment = std::max(pack_alignment, BlockManager::block_size);
 
   size_t part_size =
       (((filesize + pack_alignment - 1) / pack_alignment + devices - 1) /

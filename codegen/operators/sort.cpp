@@ -25,6 +25,7 @@
 
 #include "expressions/expressions-flusher.hpp"
 #include "expressions/expressions-generator.hpp"
+#include "memory/block-manager.hpp"
 
 using namespace llvm;
 
@@ -103,7 +104,7 @@ void Sort::produce() {
         Function *gb = context->getFunction("get_buffer");
         IRBuilder<> *Builder = context->getBuilder();
         Value *mem = Builder->CreateCall(
-            gb, context->createSizeT(sizeof(int32_t) * h_vector_size));
+            gb, context->createSizeT(BlockManager::block_size));
         mem = Builder->CreateBitCast(mem, PointerType::getUnqual(mem_type));
         return mem;  // context->allocateStateVar(mem_type);
       },

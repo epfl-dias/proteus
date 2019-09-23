@@ -118,6 +118,7 @@ __host__ void buffer_manager<T>::__release_buffer_host(T *buff) {
     }
     nvtxRangePushA("release_buffer_host_actual_release");
     int occ = (it->second)--;
+    assert(occ >= 1 && "Buffer is already released");
     if (occ == 1) {
       // assert(buff->device < 0);
       // assert(get_device(buff->data) < 0);
@@ -307,8 +308,13 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size,
   const topology &topo = topology::getInstance();
   // std::cout << topo << std::endl;
 
+  float gpu_mem_pool_percentage = 0.25;
+  float cpu_mem_pool_percentage = 0.25;
+
   uint32_t devices = topo.getGpuCount();
-  buffer_manager<T>::h_size = h_size;
+  buffer_manager<T>::h_size =
+      cpu_mem_pool_percentage *
+      (topo.getCpuNumaNodes()[0].getMemorySize() / buffer_size);
 
   uint32_t cores = topo.getCoreCount();
 
@@ -346,7 +352,11 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size,
 
   std::vector<std::thread> buffer_pool_constrs;
   for (const auto &gpu : topo.getGpus()) {
-    buffer_pool_constrs.emplace_back([gpu, size, &buff_cache] {
+    buffer_pool_constrs.emplace_back([gpu, gpu_mem_pool_percentage,
+                                      &buff_cache] {
+      size_t size =
+          gpu_mem_pool_percentage * (gpu.getMemorySize() / buffer_size);
+
       uint32_t j = gpu.id;
 
       set_exec_location_on_scope d(gpu);
@@ -399,47 +409,53 @@ __host__ void buffer_manager<T>::init(size_t size, size_t h_size,
   }
 
   for (const auto &cpu : topo.getCpuNumaNodes()) {
-    buffer_pool_constrs.emplace_back([cpu, h_size, &buff_cache] {
-      set_exec_location_on_scope cu{cpu};
-      const auto &topo = topology::getInstance();
+    buffer_pool_constrs.emplace_back(
+        [cpu, cpu_mem_pool_percentage, &buff_cache] {
+          size_t h_size =
+              cpu_mem_pool_percentage * (cpu.getMemorySize() / buffer_size);
+          assert(buffer_manager<T>::h_size == h_size &&
+                 "TODO: fix case with different NUMA sizes");
+          set_exec_location_on_scope cu{cpu};
+          const auto &topo = topology::getInstance();
 
-      size_t bytes = h_vector_size * sizeof(T) * h_size;
-      T *mem = (T *)MemoryManager::mallocPinned(bytes);
-      assert(mem);
+          size_t bytes = h_vector_size * sizeof(T) * h_size;
+          T *mem = (T *)MemoryManager::mallocPinned(bytes);
+          assert(mem);
 
-      // T * mem;
-      // gpu_run(cudaMallocHost(&mem, h_vector_size*sizeof(T)*h_size));
-      printf("Memory at %p is at node %d (expected: %d)\n", mem,
-             topo.getCpuNumaNodeAddressed(mem)->id, affinity::get().id);
-      // assert(topo.getCpuNumaNodeAddressed(mem)->id == cpu.id); //FIXME: fails
-      // on power9, should reenable after we fix it
+          // T * mem;
+          // gpu_run(cudaMallocHost(&mem, h_vector_size*sizeof(T)*h_size));
+          printf("Memory at %p is at node %d (expected: %d)\n", mem,
+                 topo.getCpuNumaNodeAddressed(mem)->id, affinity::get().id);
+          // assert(topo.getCpuNumaNodeAddressed(mem)->id == cpu.id); //FIXME:
+          // fails on power9, should reenable after we fix it
 
-      h_h_buff_start[cpu.id] = mem;
+          h_h_buff_start[cpu.id] = mem;
 
-      vector<T *> buffs;
-      buffs.reserve(h_size);
-      for (size_t j = 0; j < h_size; ++j) {
-        T *m = mem + j * h_vector_size;
-        // buffer_t * b = cuda_new<buffer_t>(-1, m, -1);
-        buffs.push_back(m);
+          vector<T *> buffs;
+          buffs.reserve(h_size);
+          for (size_t j = 0; j < h_size; ++j) {
+            T *m = mem + j * h_vector_size;
+            // buffer_t * b = cuda_new<buffer_t>(-1, m, -1);
+            buffs.push_back(m);
 
-        m[0] = 0;  // force allocation of first page of each buffer
-        // cout << "NUMA " << topo.getCpuNumaNodeAddressed(m)->id << " : data =
-        // " << m << endl; assert(topo.getCpuNumaNodeAddressed(m)->id ==
-        // cpu.id); //FIXME: fails on power9, should reenable after we fix it
-      }
+            m[0] = 0;  // force allocation of first page of each buffer
+            // cout << "NUMA " << topo.getCpuNumaNodeAddressed(m)->id << " :
+            // data = " << m << endl; assert(topo.getCpuNumaNodeAddressed(m)->id
+            // == cpu.id); //FIXME: fails on power9, should reenable after we
+            // fix it
+          }
 
-      {
-        std::lock_guard<std::mutex> guard(buff_cache);
-        for (const auto b : buffs) buffer_cache[b] = 0;
-      }
+          {
+            std::lock_guard<std::mutex> guard(buff_cache);
+            for (const auto b : buffs) buffer_cache[b] = 0;
+          }
 
-      h_pool_t *p = new h_pool_t(h_size, buffs);
+          h_pool_t *p = new h_pool_t(h_size, buffs);
 
-      h_pool_numa[cpu.id] = p;
+          h_pool_numa[cpu.id] = p;
 
-      for (const auto &core : cpu.local_cores) h_pool[core] = p;
-    });
+          for (const auto &core : cpu.local_cores) h_pool[core] = p;
+        });
   }
 
   // h_pool_t **numa_h_pools = new h_pool_t *[cpu_numa_nodes];
@@ -580,9 +596,12 @@ __host__ void buffer_manager<T>::destroy() {
 
 extern "C" {
 void *get_buffer(size_t bytes) {
-  assert(bytes <= sizeof(int32_t) *
-                      h_vector_size);  // FIMXE: buffer manager should be able
-                                       // to allocate blocks of arbitary size
+  assert(
+      bytes <=
+      sizeof(int32_t) *
+          buffer_manager<
+              int32_t>::h_vector_size);  // FIMXE: buffer manager should be able
+                                         // to allocate blocks of arbitary size
   return (void *)buffer_manager<int32_t>::h_get_buffer(-1);
 }
 

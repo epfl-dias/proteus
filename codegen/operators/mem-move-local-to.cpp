@@ -27,7 +27,7 @@
 // #include "cuda_runtime_api.h"
 #include <future>
 
-#include "codegen/memory/buffer-manager.cuh"
+#include "memory/block-manager.hpp"
 #include "threadpool/threadpool.hpp"
 #include "topology/affinity_manager.hpp"
 
@@ -50,9 +50,9 @@ buff_pair make_mem_move_local_to(char *src, size_t bytes, int target_device,
 
   set_exec_location_on_scope d(*d2);
 
-  assert(bytes <= sizeof(int32_t) *
-                      h_vector_size);  // FIMXE: buffer manager should be able
-                                       // to provide blocks of arbitary size
+  assert(bytes <=
+         BlockManager::block_size);  // FIMXE: buffer manager should be able
+                                     // to provide blocks of arbitary size
   char *buff = (char *)buffer_manager<int32_t>::get_buffer_numa(
       numa_node_of_gpu(target_device));
 

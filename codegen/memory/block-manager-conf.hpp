@@ -21,24 +21,11 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef BLOCK_MANAGER_HPP
-#define BLOCK_MANAGER_HPP
+#ifndef BLOCK_MANAGER_CONF_HPP
+#define BLOCK_MANAGER_CONF_HPP
 
-#include "buffer-manager.cuh"
-#include "util/memory-registry.hpp"
+#ifndef DEFAULT_BUFF_CAP
+#define DEFAULT_BUFF_CAP (1024 * 1024 / 4)
+#endif
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-class BlockManager : public buffer_manager<int32_t> {
- public:
-  static constexpr size_t block_size = buffer_manager<int32_t>::buffer_size;
-
-  static __host__ __device__ __forceinline__ void release_buffer(void* buff) {
-    buffer_manager<int32_t>::release_buffer((int32_t*)buff);
-  }
-#pragma clang diagnostic pop
-
-  static void reg(MemoryRegistry&);
-  static void unreg(MemoryRegistry& registry);
-};
-#endif /* BLOCK_MANAGER_HPP */
+#endif /* BLOCK_MANAGER_CONF_HPP */
