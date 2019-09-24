@@ -313,9 +313,9 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
   // std::cout << topo << std::endl;
 
   uint32_t devices = topo.getGpuCount();
-  buffer_manager<T>::h_size =
-      cpu_mem_pool_percentage *
-      (topo.getCpuNumaNodes()[0].getMemorySize() / buffer_size);
+  // buffer_manager<T>::h_size =
+  //     cpu_mem_pool_percentage *
+  //     (topo.getCpuNumaNodes()[0].getMemorySize() / buffer_size);
 
   uint32_t cores = topo.getCoreCount();
 
@@ -341,6 +341,7 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
     h_buff_end = new void *[devices];
 
     h_h_buff_start = new void *[max_numa_id + 1];
+    h_size = new size_t[max_numa_id + 1];
 
     device_buff = new T **[devices];
     device_buff_size = buff_buffer_size;
@@ -418,8 +419,7 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
         [cpu, cpu_mem_pool_percentage, &buff_cache] {
           size_t h_size =
               cpu_mem_pool_percentage * (cpu.getMemorySize() / buffer_size);
-          assert(buffer_manager<T>::h_size == h_size &&
-                 "TODO: fix case with different NUMA sizes");
+          buffer_manager<T>::h_size[cpu.id] = h_size;
           LOG(INFO) << "Using " << h_size << " " << bytes{buffer_size}
                     << "-buffers in CPU " << cpu.id
                     << " (Total: " << bytes{h_size * buffer_size} << "/"
@@ -601,6 +601,7 @@ __host__ void buffer_manager<T>::destroy() {
   delete[] h_buff_end;
 
   delete[] h_h_buff_start;
+  delete[] h_size;
 
   delete[] device_buff;
 
@@ -820,7 +821,7 @@ template <typename T>
 void **buffer_manager<T>::h_h_buff_start;
 
 template <typename T>
-size_t buffer_manager<T>::h_size;
+size_t *buffer_manager<T>::h_size;
 
 template <typename T>
 std::thread *buffer_manager<T>::buffer_logger;

@@ -24,14 +24,14 @@
 #include "memory/block-manager.hpp"
 
 template <>
-size_t buffer_manager<int32_t>::h_size;
+size_t *buffer_manager<int32_t>::h_size;
 
 template <>
 void **buffer_manager<int32_t>::h_h_buff_start;
 
 void BlockManager::reg(MemoryRegistry &registry) {
-  size_t bytes = block_size * h_size;
   for (const auto &cpu : topology::getInstance().getCpuNumaNodes()) {
+    size_t bytes = block_size * h_size[cpu.id];
 #ifndef NDEBUG
     auto ptr =
 #endif

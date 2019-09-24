@@ -77,7 +77,7 @@ class [[deprecated("Access through BlockManager")]] buffer_manager {
   static void **h_buff_end;
 
   static void **h_h_buff_start;
-  static size_t h_size;
+  static size_t *h_size;
 
   static cudaStream_t *release_streams;
 
