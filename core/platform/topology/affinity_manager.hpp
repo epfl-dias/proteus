@@ -118,7 +118,7 @@ class exec_location {
   }
 };
 
-class set_device_on_scope {
+class [[nodiscard]] set_device_on_scope {
  private:
   const topology::gpunode &device;
 
@@ -136,7 +136,7 @@ class set_device_on_scope {
   inline ~set_device_on_scope() { gpu_run(cudaSetDevice(device.id)); }
 };
 
-class set_exec_location_on_scope {
+class [[nodiscard]] set_exec_location_on_scope {
  private:
   exec_location old{};
 

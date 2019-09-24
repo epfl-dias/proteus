@@ -1,6 +1,7 @@
 project(codegen VERSION 0.1 LANGUAGES CXX)
 
 find_package(NUMA REQUIRED)
+find_package(RDMA REQUIRED)
 
 # Pure, regular C++ files
 set(codegen_cxx
@@ -8,6 +9,10 @@ set(codegen_cxx
     common/gpu/gpu-common.cpp
     memory/memory-allocator.cpp
     memory/memory-manager.cpp
+    network/infiniband/infiniband-client.cpp
+    network/infiniband/infiniband-handler.cpp
+    network/infiniband/infiniband-manager.cpp
+    network/infiniband/infiniband-server.cpp
     storage/storage-manager.cpp
     topology/affinity_manager.cpp
     topology/device-manager.cpp
@@ -111,6 +116,7 @@ target_link_libraries(codegen
         PUBLIC
             glog::glog
             NUMA::NUMA
+            RDMA::RDMA
             -lc++abi
             ${CUDA_LIBS}
             cli-flags)

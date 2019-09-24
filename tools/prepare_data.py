@@ -293,6 +293,58 @@ ddl = {
         h_amount        float,
         h_data          string
     """
+},
+"genom": {
+    "broad": r"""
+        filename        string,
+        chrom           string,
+        start           int64,
+        stop            int64,
+        name            string,
+        score           int,
+        strand          string,
+        signal          float,
+        pvalue          float,
+        qvalue          float
+    """,
+        "broad2": r"""
+        filename2       string,
+        chrom2          string,
+        start2          int64,
+        stop2           int64,
+        name2           string,
+        score2          int,
+        strand2         string,
+        signal2         float,
+        pvalue2         float,
+        qvalue2         float
+    """
+},
+"genom_32b": {
+    "broad": r"""
+        filename        string,
+        chrom           string,
+        start           int,
+        stop            int,
+        name            string,
+        score           int,
+        strand          string,
+        signal          float,
+        pvalue          float,
+        qvalue          float
+    """,
+        "broad2": r"""
+        filename2       string,
+        chrom2          string,
+        start2          int,
+        stop2           int,
+        name2           string,
+        score2          int,
+        strand2         string,
+        signal2         float,
+        pvalue2         float,
+        qvalue2         float
+    """
 }
 }
 
