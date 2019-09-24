@@ -163,7 +163,7 @@ build:
 install:
  stage: Install
  script:
-  - cmake --build cmake-build-debug --target install
+  - cmake --build cmake-build-debug --target install -- -j`nproc --all`
   - echo "Installing... done"
  <<: *cache
  <<: *restrict_precommit
