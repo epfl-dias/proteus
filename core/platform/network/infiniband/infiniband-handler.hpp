@@ -91,6 +91,11 @@ class IBHandler : public MemoryRegistry {
 
   subscription buffers;
 
+  size_t write_cnt;
+  size_t *cnts;
+
+  bool has_requested_buffers;
+
  protected:
   void post_recv(ibv_qp *qp);
 
@@ -117,15 +122,20 @@ class IBHandler : public MemoryRegistry {
   virtual void *reg(void *mem, size_t bytes) final;
   virtual void unreg(void *mem) final;
 
+  void flush();
+
  private:
   void poll_cq();
 
   void sendGoodBye();
 
   void flush_write(ibv_sge *sge_ptr);
+  void flush_write();
 
   void send_sge(uintptr_t wr_id, ibv_sge *sg_list, size_t sge_cnt,
                 decltype(ibv_send_wr::imm_data) imm);
+
+  void request_buffers_unsafe();
 
  public:
   void send(void *data, size_t bytes, decltype(ibv_send_wr::imm_data) imm = 5);

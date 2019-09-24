@@ -68,6 +68,8 @@ void InfiniBandManager::write(void *data, size_t bytes) {
   ib->write(data, bytes);
 }
 
+void InfiniBandManager::flush() { ib->flush(); }
+
 buffkey InfiniBandManager::get_buffer() { return ib->get_buffer(); }
 
 void InfiniBandManager::deinit() { delete ib; }

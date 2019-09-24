@@ -43,13 +43,8 @@
 #include "memory/memory-manager.hpp"
 #include "util/logging.hpp"
 
-template <>
-void **buffer_manager<int32_t>::h_h_buff_start;
-template <>
-size_t *buffer_manager<int32_t>::h_size;
-
-constexpr size_t packNotifications = 256;
-constexpr size_t buffnum = 256;
+constexpr size_t packNotifications = 32;
+constexpr size_t buffnum = 64;
 
 std::ostream &operator<<(std::ostream &out, const ib_addr &addr) {
   out << "LID 0x" << std::setfill('0') << std::setw(4) << std::hex << addr.lid
@@ -223,7 +218,10 @@ IBHandler::IBHandler(int cq_backlog)
     : pending(0),
       dev_cnt(0),
       context(getIBdev(&dev_cnt)),
-      local_cpu(topology::getInstance().findLocalCPUNumaNode(context->device)) {
+      local_cpu(topology::getInstance().findLocalCPUNumaNode(context->device)),
+      write_cnt(0),
+      cnts((size_t *)BlockManager::get_buffer()),
+      has_requested_buffers(false) {
   ib_port = 1;  // TODO: parameter
   ib_gidx = 0;  // strtol(optarg, nullptr, 0);   // TODO: parameter
   ib_sl = 0;    // TODO: parameter
@@ -442,14 +440,14 @@ void IBHandler::poll_cq() {
         } else {
           if (wc.opcode == IBV_WC_RECV_RDMA_WITH_IMM) {
             BlockManager::release_buffer(data);
-            size_t buffcnt = wc.imm_data - 3;
-            // LOG(INFO) << "received " << buffcnt << "x" << bytes{wc.byte_len}
-            //           << " buffers";
-
+            size_t buffcnt = wc.byte_len / sizeof(size_t);
+            size_t *sizes = (size_t *)b[buffcnt];
             for (size_t i = 0; i < buffcnt; ++i) {
-              sub.publish(b.front(), wc.byte_len);
+              sub.publish(b.front(), sizes[i]);
               b.pop_front();
             }
+            BlockManager::release_buffer(sizes);
+            b.pop_front();
           } else {
             sub.publish(data, wc.byte_len);
           }
@@ -545,14 +543,50 @@ void IBHandler::sendGoodBye() {
   send_sge(0, nullptr, 0, 0);
 }
 
-size_t write_cnt = 0;
-size_t c = 0;
+void IBHandler::flush() { flush_write(); }
+
+void IBHandler::flush_write() {
+  size_t *data = cnts;
+  size_t bytes = write_cnt * sizeof(size_t);
+  eventlogger.log(this, IB_RDMA_WAIT_BUFFER_START);
+  auto buff = get_buffer();
+  cnts = (size_t *)BlockManager::get_buffer();
+  eventlogger.log(this, IB_RDMA_WAIT_BUFFER_END);
+  ibv_mr *send_reg = (--reged_mem.upper_bound(data))->second;
+
+  ibv_sge sge{/* 0 everything out via value initialization */};
+
+  static_assert(sizeof(void *) == sizeof(decltype(ibv_sge::addr)));
+  // super dangerous cast, do not remove above static_assert!
+  sge.addr = reinterpret_cast<decltype(ibv_sge::addr)>(data);
+  assert(bytes <= std::numeric_limits<decltype(ibv_sge::length)>::max());
+  sge.length = static_cast<decltype(ibv_sge::length)>(bytes);
+  sge.lkey = send_reg->lkey;
+
+  ibv_send_wr wr{/* 0 everything out via value initialization */};
+
+  wr.wr_id = (uintptr_t)data;  // readable locally on work completion
+  wr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
+  wr.sg_list = &sge;
+  wr.num_sge = 1;
+  wr.send_flags = IBV_SEND_SIGNALED;
+  wr.imm_data = 4;  // Unused
+  write_cnt = 0;
+
+  wr.wr.rdma.remote_addr =
+      reinterpret_cast<decltype(wr.wr.rdma.remote_addr)>(buff.first);
+  wr.wr.rdma.rkey = buff.second;
+
+  linux_run(send(wr));
+  // TODO: save_on_error contains a pointer to the "bad" request, handle
+  // more gracefully
+}
 
 void IBHandler::write(void *data, size_t bytes,
                       decltype(ibv_send_wr::imm_data) imm) {
   eventlogger.log(this, IB_RDMA_WAIT_BUFFER_START);
   auto buff = get_buffer();
-  write_cnt++;
+  cnts[write_cnt++] = bytes;
   eventlogger.log(this, IB_RDMA_WAIT_BUFFER_END);
   ibv_mr *send_reg = (--reged_mem.upper_bound(data))->second;
 
@@ -570,36 +604,35 @@ void IBHandler::write(void *data, size_t bytes,
 
   ibv_send_wr wr{/* 0 everything out via value initialization */};
 
-  bool lastwrite = write_cnt == 0x1000000;
-  bool signaled = write_cnt == 1 || lastwrite;
-  //  ((++write_cnt % packNotifications) == 0);
-  bool sigoverflow = lastwrite || ((write_cnt % packNotifications) == 0);
-  ++c;
-
   wr.wr_id = (uintptr_t)data;  // readable locally on work completion
-  wr.opcode = (sigoverflow) ? IBV_WR_RDMA_WRITE_WITH_IMM : IBV_WR_RDMA_WRITE;
+  wr.opcode = IBV_WR_RDMA_WRITE;
   wr.sg_list = &sge;
   wr.num_sge = 1;
-  wr.send_flags = signaled ? IBV_SEND_SIGNALED : 0;
+  wr.send_flags = IBV_SEND_SIGNALED;
   // assert(!sigoverflow || (c > 2));
-  wr.imm_data = c + 3;  // NOTE: only sent when singaled == true
+  // wr.imm_data = c + 3;  // NOTE: only sent when singaled == true
   // Can pass an arbitrary value to receiver, consider for
   // the consumed buffer
-  if (sigoverflow) c = 0;
-
   wr.wr.rdma.remote_addr =
       reinterpret_cast<decltype(wr.wr.rdma.remote_addr)>(buff.first);
   wr.wr.rdma.rkey = buff.second;
 
+  // LOG(INFO) << bytes << " " << buff.first;
   linux_run(send(wr));
   // TODO: save_on_error contains a pointer to the "bad" request, handle
   // more gracefully
+
+  if ((write_cnt % packNotifications) == 0) flush_write();
 }
+
+void IBHandler::request_buffers_unsafe() { send_sge(0, nullptr, 0, 1); }
 
 IBHandler::buffkey IBHandler::get_buffer() {
   std::unique_lock<std::mutex> lock{pend_buffers_m};
-  if (pend_buffers.size() == ((size_t)(buffnum * 0.1)) || write_cnt == 0) {
-    send_sge(0, nullptr, 0, 1);
+  if (pend_buffers.size() == ((size_t)(buffnum * 0.1)) ||
+      !has_requested_buffers) {
+    request_buffers_unsafe();
+    has_requested_buffers = true;
   }
 
   if (pend_buffers.empty()) {

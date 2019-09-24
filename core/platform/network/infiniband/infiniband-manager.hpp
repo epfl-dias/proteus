@@ -112,6 +112,7 @@ class InfiniBandManager {
                    bool primary = false, bool ipv4 = false);
   static void send(void *data, size_t bytes);
   static void write(void *data, size_t bytes);
+  static void flush();
   static buffkey get_buffer();
   static void disconnectAll();
   static void deinit();

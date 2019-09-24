@@ -190,9 +190,6 @@ int main(int argc, char *argv[]) {
     assert(FLAGS_port <= std::numeric_limits<uint16_t>::max());
     InfiniBandManager::init(FLAGS_url, static_cast<uint16_t>(FLAGS_port),
                             FLAGS_primary, FLAGS_ipv4);
-
-    std::cout << "AsdADA" << std::endl;
-
     void *ptr = BlockManager::get_buffer();
     ((int *)ptr)[0] = 42 + FLAGS_primary;
 
@@ -228,42 +225,43 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    constexpr size_t rlimit = 0x1000000000000;
     if (FLAGS_primary) {
       auto x = sub.wait();
       BlockManager::release_buffer((int32_t *)x.data);
-      int32_t j = 0;
       for (size_t buff_size = BlockManager::block_size; buff_size >= 4 * 1024;
            buff_size /= 2) {
-        time_block t{"Tg:" + std::to_string(bytes{buff_size}) + ": "};
-        int32_t sum = 0;
+        for (size_t k = 0; k < 5; ++k) {
+          time_block t{"Tg:" + std::to_string(bytes{buff_size}) + ": "};
+          int32_t sum = 0;
 
-        {
-          time_block t{"Tg-nosend:" + std::to_string(bytes{buff_size}) + ": "};
-          nvtxRangePushA("reading");
-          do {
-            eventlogger.log(nullptr, IB_WAITING_DATA_START);
-            nvtxRangePushA("waiting");
-            auto x = sub.wait();
-            nvtxRangePop();
-            eventlogger.log(nullptr, IB_WAITING_DATA_END);
-            if (x.size == 0) break;
-            assert(x.size % 4 == 0);
-            size_t size = x.size / 4;
-            int32_t *data = (int32_t *)x.data;
-            for (size_t i = 0; i < std::min(size_t{0x1}, size); ++i) {
-              sum += data[i];
-            }
-            // MemoryManager::freePinned(sub.wait().data);
-            BlockManager::release_buffer(data);
-          } while (true);
+          {
+            time_block t{"Tg-nosend:" + std::to_string(bytes{buff_size}) +
+                         ": "};
+            nvtxRangePushA("reading");
+            do {
+              eventlogger.log(nullptr, IB_WAITING_DATA_START);
+              nvtxRangePushA("waiting");
+              auto x = sub.wait();
+              nvtxRangePop();
+              eventlogger.log(nullptr, IB_WAITING_DATA_END);
+              if (x.size == 0) break;
+              assert(x.size % 4 == 0);
+              size_t size = x.size / 4;
+              int32_t *data = (int32_t *)x.data;
+              for (size_t i = 0; i < size; ++i) {
+                sum += data[i];
+              }
+              // MemoryManager::freePinned(sub.wait().data);
+              BlockManager::release_buffer(data);
+            } while (true);
+          }
+          nvtxRangePop();
+          std::cout << sum << std::endl;
+          auto f = BlockManager::get_buffer();
+          f[0] = sum;
+          InfiniBandManager::send(f, 4);
+          std::cout << sum << std::endl;
         }
-        nvtxRangePop();
-        std::cout << sum << std::endl;
-        auto f = BlockManager::get_buffer();
-        f[0] = sum;
-        InfiniBandManager::send(f, 4);
-        std::cout << sum << std::endl;
       }
     } else {
       auto v = StorageManager::getInstance()
@@ -278,28 +276,24 @@ int main(int argc, char *argv[]) {
       assert(v.size() == 1);
       for (size_t buff_size = BlockManager::block_size; buff_size >= 4 * 1024;
            buff_size /= 2) {
-        size_t write_cnt = 0;
-        time_block t{"Tg:" + std::to_string(bytes{buff_size}) + ": "};
+        for (size_t k = 0; k < 5; ++k) {
+          time_block t{"Tg:" + std::to_string(bytes{buff_size}) + ": "};
 
-        {
-          // constexpr size_t buff_size = ((size_t)16) * 1024 * 1024 * 1024;
-          LOG(INFO) << "Packet size: " << bytes{buff_size};
-          time_block t{"T: "};
-          for (size_t i = 0; i < v[0].size; i += buff_size) {
-            // LOG(INFO) << std::min(buff_size, v[0].size - i);
-            if (i + buff_size >= v[0].size) write_cnt = 0x1000000 - 1;
-            InfiniBandManager::write(((char *)v[0].data) + i,
-                                     std::min(buff_size, v[0].size - i));
+          {
+            LOG(INFO) << "Packet size: " << bytes{buff_size};
+            time_block t{"T: "};
+            for (size_t i = 0; i < v[0].size; i += buff_size) {
+              InfiniBandManager::write(((char *)v[0].data) + i,
+                                       std::min(buff_size, v[0].size - i));
+            }
           }
-          // auto x = sub.wait();
-          // assert(x.size == 4);
-          // std::cout << ((int32_t *)x.data)[0] << std::endl;
-        }
-        InfiniBandManager::send((char *)v[0].data, 0);
+          InfiniBandManager::write((char *)v[0].data, 0);
+          InfiniBandManager::flush();
 
-        auto x = sub.wait();
-        std::cout << ((int32_t *)x.data)[0] << std::endl;
-        BlockManager::release_buffer((int32_t *)x.data);
+          auto x = sub.wait();
+          std::cout << ((int32_t *)x.data)[0] << std::endl;
+          BlockManager::release_buffer((int32_t *)x.data);
+        }
       }
       profiling::pause();
 
@@ -309,20 +303,8 @@ int main(int argc, char *argv[]) {
       StorageManager::getInstance().unloadAll();
     }
 
-    //    if (FLAGS_primary) {
-    //      void * ptr = BlockManager::get_buffer();
-    //      ((int *) ptr)[0] = 42;
-    //      InfiniBandManager::send(ptr, 1024);
-    //    } else {
-    //      sub.wait();
-    ////      auto v = sub.wait();
-    ////      BlockManager::release_buffer((int32_t *) v.data);
-    //      InfiniBandManager::disconnectAll();
-    //    }
-
-    //    if (FLAGS_primary) InfiniBandManager::disconnectAll();
-
     InfiniBandManager::deinit();
+    StorageManager::getInstance().unloadAll();
     return 0;
   }
 
