@@ -33,17 +33,12 @@ stages:
 # Helper Templates
 
 before_script:
- - cache_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}
- - mkdir -p ${cache_path}/cmake-build-debug
- - mv ${cache_path}/cmake-build-debug .
  # TODO: we should probably remove the next lines and fix that in executor
  - ln -s /data/ssbm100 inputs/ssbm100
  - ln -s /data/tpch1 inputs/tpch1
 
 after_script:
- - cache_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}
- # we have to recalculate cache_path here
- - mv cmake-build-debug ${cache_path}/
+ - true
 
 
 #----------------------------------------------------------------------------
@@ -132,7 +127,10 @@ licenses:
 configure:
  stage: Configure
  script:
-  - cd cmake-build-debug && cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=opt -G "CodeBlocks - Unix Makefiles" ..
+  - cache_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}
+  - mkdir -p ${cache_path}/cmake-build-debug
+  - export CWD=$(pwd)
+  - cd ${cache_path}/cmake-build-debug && cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=opt -G "CodeBlocks - Unix Makefiles" $CWD
   - echo "Configure... done"
  <<: *cache
  <<: *restrict_precommit
@@ -155,7 +153,9 @@ test-configuration:
 build:
  stage: Build
  script:
-  - cmake --build cmake-build-debug --target all -- -j`nproc --all`
+  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+  - mkdir -p ${build_path}
+  - cmake --build ${build_path} --target all -- -j`nproc --all`
   - echo "Building... done"
  <<: *cache
  <<: *restrict_precommit
@@ -163,7 +163,9 @@ build:
 install:
  stage: Install
  script:
-  - cmake --build cmake-build-debug --target install -- -j`nproc --all`
+  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+  - mkdir -p ${build_path}
+  - cmake --build ${build_path} --target install
   - echo "Installing... done"
  <<: *cache
  <<: *restrict_precommit
@@ -173,9 +175,11 @@ install:
 1/9 test - Threads:
  <<: *test
  script:
- - cmake --build cmake-build-debug --target install
- - export CWD=$(pwd)
- - cd cmake-build-debug/opt/pelago && ./unit-tests-threads --gtest_output="xml:$CWD/report-threads.xml"
+  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+  - mkdir -p ${build_path}
+  - cmake --build ${build_path} --target install
+  - export CWD=$(pwd)
+  - cd ${build_path}/opt/pelago && ./unit-tests-threads --gtest_output="xml:$CWD/report-threads.xml"
  artifacts:
   reports:
    junit: report-threads.xml
@@ -183,9 +187,11 @@ install:
 2/9 test - Plan Parsing:
  <<: *test
  script:
- - cmake --build cmake-build-debug --target install
- - export CWD=$(pwd)
- - cd cmake-build-debug/opt/pelago && ./unit-tests-plan-parsing --gtest_output="xml:$CWD/report-plan-parsing.xml"
+  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+  - mkdir -p ${build_path}
+  - cmake --build ${build_path} --target install
+  - export CWD=$(pwd)
+  - cd ${build_path}/opt/pelago && ./unit-tests-plan-parsing --gtest_output="xml:$CWD/report-plan-parsing.xml"
  allow_failure: true
  artifacts:
   reports:
@@ -194,9 +200,11 @@ install:
 3/9 test - JSON:
  <<: *test
  script:
- - cmake --build cmake-build-debug --target install
- - export CWD=$(pwd)
- - cd cmake-build-debug/opt/pelago && ./unit-tests-json --gtest_output="xml:$CWD/report-json.xml"
+  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+  - mkdir -p ${build_path}
+  - cmake --build ${build_path} --target install
+  - export CWD=$(pwd)
+  - cd ${build_path}/opt/pelago && ./unit-tests-json --gtest_output="xml:$CWD/report-json.xml"
  allow_failure: true
  artifacts:
   reports:
@@ -205,9 +213,11 @@ install:
 4/9 test - Joins:
  <<: *test
  script:
- - cmake --build cmake-build-debug --target install
- - export CWD=$(pwd)
- - cd cmake-build-debug/opt/pelago && ./unit-tests-joins --gtest_output="xml:$CWD/report-joins.xml"
+  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+  - mkdir -p ${build_path}
+  - cmake --build ${build_path} --target install
+  - export CWD=$(pwd)
+  - cd ${build_path}/opt/pelago && ./unit-tests-joins --gtest_output="xml:$CWD/report-joins.xml"
  allow_failure: true
  artifacts:
   reports:
@@ -216,9 +226,11 @@ install:
 5/9 test - Output:
  <<: *test
  script:
- - cmake --build cmake-build-debug --target install
- - export CWD=$(pwd)
- - cd cmake-build-debug/opt/pelago && ./unit-tests-output --gtest_output="xml:$CWD/report-output.xml"
+  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+  - mkdir -p ${build_path}
+  - cmake --build ${build_path} --target install
+  - export CWD=$(pwd)
+  - cd ${build_path}/opt/pelago && ./unit-tests-output --gtest_output="xml:$CWD/report-output.xml"
  allow_failure: true
  artifacts:
   reports:
@@ -227,9 +239,11 @@ install:
 6/9 test - GPU SSB SF100:
  <<: *test
  script:
- - cmake --build cmake-build-debug --target install
- - export CWD=$(pwd)
- - cd cmake-build-debug/opt/pelago && ./unit-tests-gpu-ssb --gtest_output="xml:$CWD/report-gpu.xml"
+  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+  - mkdir -p ${build_path}
+  - cmake --build ${build_path} --target install
+  - export CWD=$(pwd)
+  - cd ${build_path}/opt/pelago && ./unit-tests-gpu-ssb --gtest_output="xml:$CWD/report-gpu.xml"
  artifacts:
   reports:
    junit: report-gpu.xml
@@ -237,9 +251,11 @@ install:
 7/9 test - CPU SSB SF100:
  <<: *test
  script:
- - cmake --build cmake-build-debug --target install
- - export CWD=$(pwd)
- - cd cmake-build-debug/opt/pelago && ./unit-tests-cpu-ssb --gtest_output="xml:$CWD/report-cpu.xml"
+  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+  - mkdir -p ${build_path}
+  - cmake --build ${build_path} --target install
+  - export CWD=$(pwd)
+  - cd ${build_path}/opt/pelago && ./unit-tests-cpu-ssb --gtest_output="xml:$CWD/report-cpu.xml"
  artifacts:
   reports:
    junit: report-cpu.xml
@@ -247,19 +263,23 @@ install:
 8/9 test - Hybrid SSB SF100:
  <<: *test
  script:
- - cmake --build cmake-build-debug --target install
- - export CWD=$(pwd)
- - cd cmake-build-debug/opt/pelago && ./unit-tests-hyb-ssb --gtest_output="xml:$CWD/report-hyb.xml"
+  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+  - mkdir -p ${build_path}
+  - cmake --build ${build_path} --target install
+  - export CWD=$(pwd)
+  - cd ${build_path}/opt/pelago && ./unit-tests-hyb-ssb --gtest_output="xml:$CWD/report-hyb.xml"
  artifacts:
   reports:
    junit: report-hyb.xml
 
-8/9 test - COW:
+9/9 test - COW:
  <<: *test
  script:
- - cmake --build cmake-build-debug --target install
- - export CWD=$(pwd)
- - cd cmake-build-debug/opt/pelago && ./unit-tests-cow --gtest_output="xml:$CWD/report-cow.xml"
+  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+  - mkdir -p ${build_path}
+  - cmake --build ${build_path} --target install
+  - export CWD=$(pwd)
+  - cd ${build_path}/opt/pelago && ./unit-tests-cow --gtest_output="xml:$CWD/report-cow.xml"
  artifacts:
   reports:
    junit: report-cow.xml
