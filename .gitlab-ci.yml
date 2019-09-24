@@ -37,8 +37,8 @@ before_script:
  - ln -s /data/ssbm100 inputs/ssbm100
  - ln -s /data/tpch1 inputs/tpch1
 
-after_script:
- - true
+# after_script:
+#  - true
 
 
 #----------------------------------------------------------------------------
