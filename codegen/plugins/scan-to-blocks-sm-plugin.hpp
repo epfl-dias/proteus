@@ -186,6 +186,12 @@ class ScanToBlockSMPlugin : public Plugin {
   void finalize_data();
   virtual RecordType getRowType() const;
 
+  virtual std::pair<llvm::Value *, llvm::Value *> getPartitionSizes() const;
+  virtual void freePartitionSizes(llvm::Value *) const;
+
+  virtual llvm::Value *getDataPointersForFile(size_t i) const;
+  virtual void freeDataPointersForFile(size_t i, llvm::Value *) const;
+
   std::vector<RecordAttribute *> wantedFields;
   std::vector<std::vector<mem_file>> wantedFieldsFiles;
 

@@ -275,17 +275,8 @@ void ScanToBlockSMPlugin::skipLLVM(RecordAttribute attName, Value *offset) {
   IRBuilder<> *Builder = context->getBuilder();
 
   // Fetch values from symbol table
-  AllocaInst *mem_pos;
-  {
-    map<string, AllocaInst *>::iterator it;
-    string posVarStr = string(posVar);
-    string currPosVar = posVarStr + "." + attName.getAttrName();
-    it = NamedValuesBinaryCol.find(currPosVar);
-    if (it == NamedValuesBinaryCol.end()) {
-      throw runtime_error(string("Unknown variable name: ") + currPosVar);
-    }
-    mem_pos = it->second;
-  }
+  string currPosVar = std::string{posVar} + "." + attName.getAttrName();
+  auto mem_pos = NamedValuesBinaryCol.at(currPosVar);
 
   // Increment and store back
   Value *val_curr_pos = Builder->CreateLoad(mem_pos);
@@ -450,63 +441,50 @@ void ScanToBlockSMPlugin::prepareArray(RecordAttribute attName) {
   NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
 }
 
-void ScanToBlockSMPlugin::scan(const ::Operator &producer) {
+Value *ScanToBlockSMPlugin::getDataPointersForFile(size_t i) const {
   LLVMContext &llvmContext = context->getLLVMContext();
-
-  context->setGlobalFunction(true);
 
   Function *F = context->getGlobalFunction();
   IRBuilder<> *Builder = context->getBuilder();
 
-  // Prepare
-  IntegerType *size_type = context->createSizeType();
+  std::vector<Constant *> part_ptrs;
 
-  IntegerType *int64Type = Type::getInt64Ty(llvmContext);
-  // Container for the variable bindings
-  map<RecordAttribute, ProteusValueMemory> variableBindings;
+  Type *col_type = wantedFields[i]->getLLVMType(llvmContext);
+  Type *col_ptr_type = PointerType::getUnqual(col_type);
 
-  // Get the ENTRY BLOCK
-  context->setCurrentEntryBlock(Builder->GetInsertBlock());
+  for (const auto &t : wantedFieldsFiles[i]) {
+    Constant *constaddr = context->createInt64((int64_t)(t.data));
+    Constant *constptr = ConstantExpr::getIntToPtr(constaddr, col_ptr_type);
 
-  std::vector<Value *> parts_ptrs;
-
-  // std::vector<Constant *> file_parts_init;
-  for (size_t i = 0; i < wantedFieldsFiles.size(); ++i) {
-    std::vector<Constant *> part_ptrs;
-
-    Type *col_type = wantedFields[i]->getLLVMType(llvmContext);
-    Type *col_ptr_type = PointerType::getUnqual(col_type);
-
-    for (const auto &t : wantedFieldsFiles[i]) {
-      Constant *constaddr = ConstantInt::get(int64Type, (int64_t)(t.data));
-      Constant *constptr = ConstantExpr::getIntToPtr(constaddr, col_ptr_type);
-
-      part_ptrs.emplace_back(constptr);
-    }
-
-    // file_parts_init.emplace_back(
-    Value *const_parts = ConstantArray::get(
-        ArrayType::get(RecordAttribute{*(wantedFields[i]), true}.getLLVMType(
-                           context->getLLVMContext()),
-                       Nparts),
-        part_ptrs);
-
-    parts_ptrs.emplace_back(context->CreateEntryBlockAlloca(
-        F, wantedFields[i]->getAttrName() + "_parts_ptr",
-        const_parts->getType()));
-
-    Builder->CreateStore(const_parts, parts_ptrs.back());
-    // );
+    part_ptrs.emplace_back(constptr);
   }
 
-  // Constant * file_parts = ConstantStruct::get(parts_arrays_type,
-  // file_parts_init); Builder->CreateStore(file_parts, file_parts_ptr);
+  // file_parts_init.emplace_back(
+  Value *const_parts = ConstantArray::get(
+      ArrayType::get(RecordAttribute{*(wantedFields[i]), true}.getLLVMType(
+                         context->getLLVMContext()),
+                     Nparts),
+      part_ptrs);
 
-  ArrayType *arr_type = ArrayType::get(int64Type, Nparts);
-  Value *N_parts_ptr =
-      context->CreateEntryBlockAlloca(F, "N_parts_ptr", arr_type);
+  auto ptr = context->CreateEntryBlockAlloca(
+      F, wantedFields[i]->getAttrName() + "_parts_ptr", const_parts->getType());
+
+  Builder->CreateStore(const_parts, ptr);
+
+  return ptr;
+}
+
+void ScanToBlockSMPlugin::freeDataPointersForFile(size_t i, Value *v) const {}
+
+std::pair<Value *, Value *> ScanToBlockSMPlugin::getPartitionSizes() const {
+  LLVMContext &llvmContext = context->getLLVMContext();
+
+  Function *F = context->getGlobalFunction();
+  IRBuilder<> *Builder = context->getBuilder();
+
+  IntegerType *sizeType = context->createSizeType();
+
   std::vector<Constant *> N_parts_init;
-
 #ifndef NDEBUG
   std::vector<size_t> N_parts_init_sizes;
 #endif
@@ -538,13 +516,53 @@ void ScanToBlockSMPlugin::scan(const ::Operator &producer) {
   }
 #endif
 
+  ArrayType *arr_type = ArrayType::get(sizeType, Nparts);
+  Value *N_parts_ptr =
+      context->CreateEntryBlockAlloca(F, "N_parts_ptr", arr_type);
+  Builder->CreateStore(ConstantArray::get(arr_type, N_parts_init), N_parts_ptr);
+
+  return {N_parts_ptr, ConstantInt::get(sizeType, max_pack_size)};
+}
+
+void ScanToBlockSMPlugin::freePartitionSizes(Value *) const {}
+
+void ScanToBlockSMPlugin::scan(const ::Operator &producer) {
+  LLVMContext &llvmContext = context->getLLVMContext();
+
+  context->setGlobalFunction(true);
+
+  Function *F = context->getGlobalFunction();
+  IRBuilder<> *Builder = context->getBuilder();
+
+  // Prepare
+  IntegerType *size_type = context->createSizeType();
+
+  // Container for the variable bindings
+  map<RecordAttribute, ProteusValueMemory> variableBindings;
+
+  // Get the ENTRY BLOCK
+  context->setCurrentEntryBlock(Builder->GetInsertBlock());
+
+  std::vector<Value *> parts_ptrs;
+
+  // std::vector<Constant *> file_parts_init;
+  for (size_t i = 0; i < wantedFieldsFiles.size(); ++i) {
+    parts_ptrs.emplace_back(getDataPointersForFile(i));
+  }
+
+  // Constant * file_parts = ConstantStruct::get(parts_arrays_type,
+  // file_parts_init); Builder->CreateStore(file_parts, file_parts_ptr);
+
+  auto partsizes = getPartitionSizes();
+  Value *N_parts_ptr = partsizes.first;
+  Value *maxPackCnt = partsizes.second;
+  maxPackCnt->setName("maxPackCnt");
+
   size_t max_field_size = 0;
   for (const auto &f : wantedFields) {
     size_t field_size = context->getSizeOf(f->getLLVMType(llvmContext));
     max_field_size = std::max(field_size, max_field_size);
   }
-
-  Builder->CreateStore(ConstantArray::get(arr_type, N_parts_init), N_parts_ptr);
 
   ConstantInt *zero_idx = ConstantInt::get(size_type, 0);
 
@@ -592,9 +610,6 @@ void ScanToBlockSMPlugin::scan(const ::Operator &producer) {
   //  */
 
   Value *block_i = Builder->CreateLoad(block_i_ptr, "block_i");
-
-  Value *maxPackCnt = ConstantInt::get(size_type, max_pack_size);
-  maxPackCnt->setName("maxPackCnt");
 
   Value *cond = Builder->CreateICmpULT(block_i, maxPackCnt);
 
@@ -697,6 +712,11 @@ void ScanToBlockSMPlugin::scan(const ::Operator &producer) {
   //  Finish up with end (the AfterLoop)
   //  Any new code will be inserted in AfterBB.
   Builder->SetInsertPoint(context->getEndingBlock());
+
+  freePartitionSizes(N_parts_ptr);
+  for (size_t i = 0; i < wantedFieldsFiles.size(); ++i) {
+    freeDataPointersForFile(i, parts_ptrs[i]);
+  }
   // Builder->SetInsertPoint(AfterBB);
 }
 
