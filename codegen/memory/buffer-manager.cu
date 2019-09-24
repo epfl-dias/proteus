@@ -58,9 +58,10 @@ constexpr void *buff_end = nullptr;
 #endif
 
 void buffer_manager_init(float gpu_mem_pool_percentage = 0.25,
-                         float cpu_mem_pool_percentage = 0.25) {
+                         float cpu_mem_pool_percentage = 0.25,
+                         bool log_buffers = false) {
   buffer_manager<int32_t>::init(gpu_mem_pool_percentage,
-                                cpu_mem_pool_percentage, 256, 512);
+                                cpu_mem_pool_percentage, log_buffers, 256, 512);
 }
 
 template <typename T>
@@ -306,7 +307,7 @@ __device__ T *buffer_manager<T>::try_get_buffer() {
 template <typename T>
 __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
                                       float cpu_mem_pool_percentage,
-                                      size_t buff_buffer_size,
+                                      bool log_buffers, size_t buff_buffer_size,
                                       size_t buff_keep_threshold) {
   const topology &topo = topology::getInstance();
   // std::cout << topo << std::endl;
@@ -358,7 +359,8 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
           gpu_mem_pool_percentage * (gpu.getMemorySize() / buffer_size);
       LOG(INFO) << "Using " << size << " " << bytes{buffer_size}
                 << "-buffers in GPU " << gpu.id
-                << " (Total: " << bytes{size * buffer_size} << ")";
+                << " (Total: " << bytes{size * buffer_size} << "/"
+                << bytes{gpu.getMemorySize()} << ")";
 
       uint32_t j = gpu.id;
 
@@ -420,7 +422,8 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
                  "TODO: fix case with different NUMA sizes");
           LOG(INFO) << "Using " << h_size << " " << bytes{buffer_size}
                     << "-buffers in CPU " << cpu.id
-                    << " (Total: " << bytes{h_size * buffer_size} << ")";
+                    << " (Total: " << bytes{h_size * buffer_size} << "/"
+                    << bytes{cpu.getMemorySize()} << ")";
           set_exec_location_on_scope cu{cpu};
           const auto &topo = topology::getInstance();
 
@@ -497,7 +500,11 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
 
   for (auto &t : buffer_pool_constrs) t.join();
 
-  buffer_logger = new std::thread{buffer_manager<T>::log_buffers};
+  if (log_buffers) {
+    buffer_logger = new std::thread{buffer_manager<T>::log_buffers};
+  } else {
+    buffer_logger = nullptr;
+  }
 }
 
 template <typename T>
@@ -512,7 +519,7 @@ __host__ void buffer_manager<T>::destroy() {
 
   terminating = true;
 
-  buffer_logger->join();
+  if (buffer_logger) buffer_logger->join();
   // device_buffs_mutex = new mutex              [devices];
   // device_buffs_pool  = new vector<buffer_t *> [devices];
   // release_streams    = new cudaStream_t       [devices];
@@ -665,7 +672,6 @@ void buffer_manager<T>::dev_buff_manager(int dev) {
 
 template <typename T>
 __host__ void buffer_manager<T>::log_buffers() {
-  return;
   const auto &topo = topology::getInstance();
   uint32_t devices = topo.getGpuCount();
   if (devices <= 0) return;

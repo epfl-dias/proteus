@@ -52,11 +52,11 @@ void set_trace_allocations(bool val, bool silent_set_fail) {
 constexpr size_t freed_cache_cap = 16;
 
 void buffer_manager_init(float gpu_mem_pool_percentage,
-                         float cpu_mem_pool_percentage);
+                         float cpu_mem_pool_percentage, bool log_buffers);
 void buffer_manager_destroy();
 
 void MemoryManager::init(float gpu_mem_pool_percentage,
-                         float cpu_mem_pool_percentage) {
+                         float cpu_mem_pool_percentage, bool log_buffers) {
   const topology &topo = topology::getInstance();
 
   gpu_managers = new SingleGpuMemoryManager *[topo.getGpuCount()];
@@ -92,7 +92,8 @@ void MemoryManager::init(float gpu_mem_pool_percentage,
     }
   }
 
-  buffer_manager_init(gpu_mem_pool_percentage, cpu_mem_pool_percentage);
+  buffer_manager_init(gpu_mem_pool_percentage, cpu_mem_pool_percentage,
+                      log_buffers);
 }
 
 void MemoryManager::destroy() {

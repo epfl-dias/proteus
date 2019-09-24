@@ -122,7 +122,8 @@ class MemoryManager {
   static SingleGpuMemoryManager **gpu_managers;
   static SingleCpuMemoryManager **cpu_managers;
   static void init(float gpu_mem_pool_percentage = 0.25,
-                   float cpu_mem_pool_percentage = 0.25);
+                   float cpu_mem_pool_percentage = 0.25,
+                   bool log_buffers = false);
   static void destroy();
 
   static void *mallocGpu(size_t bytes);

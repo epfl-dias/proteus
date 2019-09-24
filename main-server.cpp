@@ -141,6 +141,8 @@ DEFINE_double(cpu_buffers, 0.25,
               "Percentage (0.0-1.0) of CPU memory to dedicate for buffer "
               "management (per CPU)");
 DEFINE_validator(cpu_buffers, &validatePercentage);
+DEFINE_bool(log_buffer_usage, false,
+            "Periodically print buffer usage in stderr");
 
 /**
  * Protocol:
@@ -215,7 +217,7 @@ int main(int argc, char *argv[]) {
 
   set_trace_allocations(FLAGS_trace_allocations);
 
-  proteus::init(FLAGS_gpu_buffers, FLAGS_cpu_buffers);
+  proteus::init(FLAGS_gpu_buffers, FLAGS_cpu_buffers, FLAGS_log_buffer_usage);
 
   bool echo = false;
 
