@@ -17,7 +17,6 @@
  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  A PARTICULAR PURPOSE. THE AUTHORS AND ECOLE POLYTECHNIQUE FEDERALE DE LAUSANNE
 DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
-                             USE OF THIS SOFTWARE.
 */
 
 #include "tpcc.hpp"
@@ -1305,6 +1304,7 @@ inline void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
   // mprotect(arg, sizeof(struct tpcc_query), PROT_WRITE);
   static thread_local unsigned int seed_t = this->seed;
   static thread_local unsigned int n_wh = this->num_warehouse;
+  static thread_local unsigned int n_actv_wh = this->num_active_workers;
 
 #if PARTITION_LOCAL_ITEM_TABLE
   static thread_local uint64_t start = wid * (TPCC_MAX_ITEMS / n_wh);
@@ -1315,7 +1315,7 @@ inline void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
   struct tpcc_query *q = (struct tpcc_query *)arg;
 
   q->query_type = NEW_ORDER;
-  q->w_id = wid;
+  q->w_id = wid % n_actv_wh;
 
   // q->w_id = URand(&p->seed, 1, g_nservers);
   q->d_id = URand(&seed_t, 0, TPCC_NDIST_PER_WH - 1);
