@@ -27,7 +27,6 @@
 
 #include "operators/block-to-tuples.hpp"
 #include "operators/cpu-to-gpu.hpp"
-#include "operators/exchange.hpp"
 #include "operators/flush.hpp"
 #include "operators/gpu/gpu-hash-join-chained.hpp"
 #include "operators/gpu/gpu-hash-rearrange.hpp"
@@ -38,6 +37,7 @@
 #include "operators/mem-broadcast-device.hpp"
 #include "operators/mem-move-device.hpp"
 #include "operators/reduce-opt.hpp"
+#include "operators/router.hpp"
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
 #include "operators/unnest.hpp"
@@ -227,10 +227,10 @@ RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
                               bool cpu_targets, int numa_socket_id) const {
   assert((p == RoutingPolicy::HASH_BASED) == (hash.has_value()));
   assert((p == RoutingPolicy::RANDOM) == (!hash.has_value()));
-  auto op = new Exchange(root, ctx, fanout, wantedFields, slack, hash,
-                         p == RoutingPolicy::GPU_NUMA_LOCAL,
-                         p == RoutingPolicy::RAND_LOCAL_CPU, fanin, cpu_targets,
-                         numa_socket_id);
+  auto op = new Router(root, ctx, fanout, wantedFields, slack, hash,
+                       p == RoutingPolicy::GPU_NUMA_LOCAL,
+                       p == RoutingPolicy::RAND_LOCAL_CPU, fanin, cpu_targets,
+                       numa_socket_id);
   return apply(op);
 }
 

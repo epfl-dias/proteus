@@ -20,8 +20,8 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
-#ifndef EXCHANGE_HPP_
-#define EXCHANGE_HPP_
+#ifndef ROUTER_HPP_
+#define ROUTER_HPP_
 
 #include <atomic>
 #include <condition_variable>
@@ -36,22 +36,22 @@
 #include "util/async_containers.hpp"
 #include "util/logging.hpp"
 
-class Exchange;
+class Router;
 
 extern "C" {
-void *acquireBuffer(int target, Exchange *xch);
-void *try_acquireBuffer(int target, Exchange *xch);
-void releaseBuffer(int target, Exchange *xch, void *buff);
-void freeBuffer(int target, Exchange *xch, void *buff);
+void *acquireBuffer(int target, Router *xch);
+void *try_acquireBuffer(int target, Router *xch);
+void releaseBuffer(int target, Router *xch, void *buff);
+void freeBuffer(int target, Router *xch, void *buff);
 }
 
-class Exchange : public UnaryOperator {
+class Router : public UnaryOperator {
  public:
-  Exchange(Operator *const child, ParallelContext *const context,
-           int numOfParents, const vector<RecordAttribute *> &wantedFields,
-           int slack, std::optional<expression_t> hash = std::nullopt,
-           bool numa_local = true, bool rand_local_cpu = false,
-           int producers = 1, bool cpu_targets = false, int numa_socket_id = -1)
+  Router(Operator *const child, ParallelContext *const context,
+         int numOfParents, const vector<RecordAttribute *> &wantedFields,
+         int slack, std::optional<expression_t> hash = std::nullopt,
+         bool numa_local = true, bool rand_local_cpu = false, int producers = 1,
+         bool cpu_targets = false, int numa_socket_id = -1)
       : UnaryOperator(child),
         context(context),
         numOfParents(numOfParents),
@@ -102,7 +102,7 @@ class Exchange : public UnaryOperator {
     }
   }
 
-  virtual ~Exchange() { LOG(INFO) << "Collapsing Exchange operator"; }
+  virtual ~Router() { LOG(INFO) << "Collapsing Router operator"; }
 
   virtual void produce();
   virtual void consume(Context *const context, const OperatorState &childState);
@@ -121,10 +121,10 @@ class Exchange : public UnaryOperator {
   void freeBuffer(int target, void *buff);
   bool get_ready(int target, void *&buff);
 
-  friend void *acquireBuffer(int target, Exchange *xch);
-  friend void *try_acquireBuffer(int target, Exchange *xch);
-  friend void releaseBuffer(int target, Exchange *xch, void *buff);
-  friend void freeBuffer(int target, Exchange *xch, void *buff);
+  friend void *acquireBuffer(int target, Router *xch);
+  friend void *try_acquireBuffer(int target, Router *xch);
+  friend void releaseBuffer(int target, Router *xch, void *buff);
+  friend void freeBuffer(int target, Router *xch, void *buff);
 
  protected:
   void open(Pipeline *pip);
@@ -164,4 +164,4 @@ class Exchange : public UnaryOperator {
   bool need_cnt;
 };
 
-#endif /* EXCHANGE_HPP_ */
+#endif /* ROUTER_HPP_ */

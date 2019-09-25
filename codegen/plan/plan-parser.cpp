@@ -37,7 +37,6 @@
 #endif
 #include "operators/block-to-tuples.hpp"
 #include "operators/dict-scan.hpp"
-#include "operators/exchange.hpp"
 #include "operators/flush.hpp"
 #include "operators/gpu/gpu-materializer-expr.hpp"
 #include "operators/gpu/gpu-sort.hpp"
@@ -55,6 +54,7 @@
 #include "operators/radix-nest.hpp"
 #include "operators/reduce-opt.hpp"
 #include "operators/root.hpp"
+#include "operators/router.hpp"
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
 #include "operators/sort.hpp"
@@ -928,9 +928,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       probe_widths.push_back(w.GetInt());
     }
 
-    Exchange *xch_build =
-        new Exchange(build_op, (ParallelContext *)ctx, numPartitioners,
-                     build_attr_block, slack, std::nullopt, false, true);
+    Router *xch_build =
+        new Router(build_op, (ParallelContext *)ctx, numPartitioners,
+                   build_attr_block, slack, std::nullopt, false, true);
     build_op->setParent(xch_build);
     Operator *btt_build = new BlockToTuples(xch_build, (ParallelContext *)ctx,
                                             build_expr, false, gran_t::THREAD);
@@ -940,14 +940,14 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
                           build_expr, build_expr[0], build_hash_attr);
     btt_build->setParent(part_build);
     build_attr_block.push_back(build_hash_attr);
-    Exchange *xch_build2 =
-        new Exchange(part_build, (ParallelContext *)ctx, 1, build_attr_block,
-                     slack, std::nullopt, true, false, numPartitioners);
+    Router *xch_build2 =
+        new Router(part_build, (ParallelContext *)ctx, 1, build_attr_block,
+                   slack, std::nullopt, true, false, numPartitioners);
     part_build->setParent(xch_build2);
 
-    Exchange *xch_probe =
-        new Exchange(probe_op, (ParallelContext *)ctx, numPartitioners,
-                     probe_attr_block, slack, std::nullopt, false, true);
+    Router *xch_probe =
+        new Router(probe_op, (ParallelContext *)ctx, numPartitioners,
+                   probe_attr_block, slack, std::nullopt, false, true);
     probe_op->setParent(xch_probe);
     Operator *btt_probe = new BlockToTuples(xch_probe, (ParallelContext *)ctx,
                                             probe_expr, false, gran_t::THREAD);
@@ -957,9 +957,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
                           probe_expr, probe_expr[0], probe_hash_attr);
     btt_probe->setParent(part_probe);
     probe_attr_block.push_back(probe_hash_attr);
-    Exchange *xch_probe2 =
-        new Exchange(part_probe, (ParallelContext *)ctx, 1, probe_attr_block,
-                     slack, std::nullopt, true, false, numPartitioners);
+    Router *xch_probe2 =
+        new Router(part_probe, (ParallelContext *)ctx, 1, probe_attr_block,
+                   slack, std::nullopt, true, false, numPartitioners);
     part_probe->setParent(xch_probe2);
 
     RecordAttribute *attr_ptr =
@@ -1006,9 +1006,8 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     xch_build2->setParent(coord);
     xch_probe2->setParent(coord);
 
-    Exchange *xch_proc =
-        new Exchange(coord, (ParallelContext *)ctx, numConcurrent,
-                     f_atts_target_v, slack, expr_target, false);
+    Router *xch_proc = new Router(coord, (ParallelContext *)ctx, numConcurrent,
+                                  f_atts_target_v, slack, expr_target, false);
     coord->setParent(xch_proc);
     ZipInitiate *initiator = new ZipInitiate(
         attr_ptr, attr_splitter, attr_target, xch_proc, (ParallelContext *)ctx,
@@ -2255,9 +2254,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     }
 
     assert(dynamic_cast<ParallelContext *>(this->ctx));
-    newOp = new Exchange(childOp, ((ParallelContext *)this->ctx), numOfParents,
-                         projections, slack, hash, numa_local, rand_local_cpu,
-                         producers, cpu_targets, numa_socket_id);
+    newOp = new Router(childOp, ((ParallelContext *)this->ctx), numOfParents,
+                       projections, slack, hash, numa_local, rand_local_cpu,
+                       producers, cpu_targets, numa_socket_id);
     childOp->setParent(newOp);
   } else if (strcmp(opName, "union-all") == 0) {
     /* parse operator input */

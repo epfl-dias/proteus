@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "operators/exchange.hpp"
+#include "operators/router.hpp"
 
 #include <cstring>
 
@@ -29,7 +29,7 @@
 
 using namespace llvm;
 
-void Exchange::produce() {
+void Router::produce() {
   generate_catch();
 
   context->popPipeline();
@@ -49,7 +49,7 @@ void Exchange::produce() {
   getChild()->produce();
 }
 
-void Exchange::generate_catch() {
+void Router::generate_catch() {
   LLVMContext &llvmContext = context->getLLVMContext();
   // IRBuilder<> * Builder       = context->getBuilder    ();
   // BasicBlock  * insBB         = Builder->GetInsertBlock();
@@ -188,7 +188,7 @@ void Exchange::generate_catch() {
   // Builder->CreateRetVoid();
 }
 
-void *Exchange::acquireBuffer(int target, bool polling) {
+void *Router::acquireBuffer(int target, bool polling) {
   nvtxRangePushA("acq_buff");
 
   if (free_pool[target].empty() && polling) {
@@ -223,7 +223,7 @@ void *Exchange::acquireBuffer(int target, bool polling) {
   return buff;
 }
 
-void Exchange::releaseBuffer(int target, void *buff) {
+void Router::releaseBuffer(int target, void *buff) {
   eventlogger.log(this, log_op::EXCHANGE_PRODUCE_PUSH_START);
   nvtxRangePop();
   // std::unique_lock<std::mutex> lock(ready_pool_mutex[target]);
@@ -236,7 +236,7 @@ void Exchange::releaseBuffer(int target, void *buff) {
   eventlogger.log(this, log_op::EXCHANGE_PRODUCE_PUSH_END);
 }
 
-void Exchange::freeBuffer(int target, void *buff) {
+void Router::freeBuffer(int target, void *buff) {
   nvtxRangePushA("waiting_to_release");
   std::unique_lock<std::mutex> lock(free_pool_mutex[target]);
   nvtxRangePop();
@@ -245,7 +245,7 @@ void Exchange::freeBuffer(int target, void *buff) {
   lock.unlock();
 }
 
-bool Exchange::get_ready(int target, void *&buff) {
+bool Router::get_ready(int target, void *&buff) {
   // // while (ready_pool[target].empty() && remaining_producers > 0);
 
   // std::unique_lock<std::mutex> lock(ready_pool_mutex[target]);
@@ -273,7 +273,7 @@ bool Exchange::get_ready(int target, void *&buff) {
   return ready_fifo[target].pop(buff);
 }
 
-void Exchange::fire(int target, PipelineGen *pipGen) {
+void Router::fire(int target, PipelineGen *pipGen) {
   nvtxRangePushA((pipGen->getName() + ":" + std::to_string(target)).c_str());
 
   eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_START);
@@ -338,25 +338,24 @@ void Exchange::fire(int target, PipelineGen *pipGen) {
 }
 
 extern "C" {
-void *acquireBuffer(int target, Exchange *xch) {
+void *acquireBuffer(int target, Router *xch) {
   return xch->acquireBuffer(target, false);
 }
 
-void *try_acquireBuffer(int target, Exchange *xch) {
+void *try_acquireBuffer(int target, Router *xch) {
   return xch->acquireBuffer(target, true);
 }
 
-void releaseBuffer(int target, Exchange *xch, void *buff) {
+void releaseBuffer(int target, Router *xch, void *buff) {
   return xch->releaseBuffer(target, buff);
 }
 
-void freeBuffer(int target, Exchange *xch, void *buff) {
+void freeBuffer(int target, Router *xch, void *buff) {
   return xch->freeBuffer(target, buff);
 }
 }
 
-void Exchange::consume(Context *const context,
-                       const OperatorState &childState) {
+void Router::consume(Context *const context, const OperatorState &childState) {
   // Generate throw code
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
@@ -480,7 +479,7 @@ void Exchange::consume(Context *const context,
   Builder->CreateCall(releaseBuffer, kernel_args);
 }
 
-void Exchange::open(Pipeline *pip) {
+void Router::open(Pipeline *pip) {
   // time_block t("Tinit_exchange: ");
 
   std::lock_guard<std::mutex> guard(init_mutex);
@@ -493,13 +492,13 @@ void Exchange::open(Pipeline *pip) {
     eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_START);
     remaining_producers = producers;
     for (int i = 0; i < numOfParents; ++i) {
-      firers.emplace_back(&Exchange::fire, this, i, catch_pip);
+      firers.emplace_back(&Router::fire, this, i, catch_pip);
     }
     eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_END);
   }
 }
 
-void Exchange::close(Pipeline *pip) {
+void Router::close(Pipeline *pip) {
   // time_block t("Tterm_exchange: ");
 
   int rem = --remaining_producers;

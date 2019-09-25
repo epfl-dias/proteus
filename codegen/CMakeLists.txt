@@ -16,7 +16,6 @@ set(codegen_cxx
     memory/memory-manager.cpp
     operators/cpu-to-gpu.cpp
     operators/dict-scan.cpp
-    operators/exchange.cpp
     operators/flush.cpp
     operators/gpu/gmonoids.cpp
     operators/gpu/gpu-hash-group-by-chained.cpp
@@ -42,6 +41,7 @@ set(codegen_cxx
     operators/reduce-opt.cpp
     operators/relbuilder.cpp
     operators/root.cpp
+    operators/router.cpp
     operators/scan.cpp
     operators/select.cpp
     operators/sort.cpp

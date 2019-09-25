@@ -24,14 +24,14 @@
 #define UNIONALL_HPP_
 
 #include "codegen/util/parallel-context.hpp"
-#include "operators/exchange.hpp"
+#include "operators/router.hpp"
 
-class UnionAll : public Exchange {
+class UnionAll : public Router {
  public:
   UnionAll(vector<Operator *> &children, ParallelContext *const context,
            const vector<RecordAttribute *> &wantedFields)
-      : Exchange(nullptr, context, 1, wantedFields, 8, std::nullopt, false,
-                 false, children.size(), true),
+      : Router(nullptr, context, 1, wantedFields, 8, std::nullopt, false, false,
+               children.size(), true),
         children(children) {}
 
   virtual ~UnionAll() { LOG(INFO) << "Collapsing UnionAll operator"; }

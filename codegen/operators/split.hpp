@@ -23,16 +23,16 @@
 #ifndef SPLIT_HPP_
 #define SPLIT_HPP_
 
-#include "operators/exchange.hpp"
+#include "operators/router.hpp"
 
-class Split : public Exchange {
+class Split : public Router {
  public:
   Split(Operator *const child, ParallelContext *const context, int numOfParents,
         const vector<RecordAttribute *> &wantedFields, int slack,
         std::optional<expression_t> hash = std::nullopt, bool numa_local = true,
         bool rand_local_cpu = false)
-      : Exchange(child, context, numOfParents, wantedFields, slack, hash,
-                 numa_local, rand_local_cpu, 1, true),
+      : Router(child, context, numOfParents, wantedFields, slack, hash,
+               numa_local, rand_local_cpu, 1, true),
         produce_calls(0) {
     assert(
         (!hash || !numa_local) &&
