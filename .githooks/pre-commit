@@ -7,7 +7,7 @@ format_file() {
   file="${1}"
   if [ -f $file ]; then
     clang-format-9 -i ${1}
-    ${PROJECT_ROOT}/check_licenses.py ${1} || RETVAL=1
+    ${PROJECT_ROOT}/tools/check_licenses.py ${1} || RETVAL=1
     git add ${1}
   fi
 }
@@ -24,7 +24,7 @@ if [ $RETVAL -ne 0 ]; then
   echo "************************************************************"
   echo "You should only commit files that conform to our license!"
   printf "\nFor new files you may use the following header:\n"
-  ${PROJECT_ROOT}/check_licenses.py --print-license
+  ${PROJECT_ROOT}/tools/check_licenses.py --print-license
 fi
 
 exit $RETVAL
