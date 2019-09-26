@@ -22,6 +22,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include <gflags/gflags.h>
 #include <unistd.h>
+
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -73,7 +74,7 @@ DEFINE_bool(debug, false, "Debug mode");
 DEFINE_uint64(num_workers, 0, "Number of txn-workers");
 DEFINE_uint64(benchmark, 0,
               "Benchmark: 0:YCSB, 1:TPC-C (gen),  2:TPC-C (csv), 3:Micro-SSB");
-DEFINE_uint64(num_partitions, 1,
+DEFINE_uint64(num_partitions, 0,
               "Number of storage partitions ( round robin NUMA nodes)");
 DEFINE_int64(num_iter_per_worker, -1, "# of iterations per worker");
 DEFINE_uint64(runtime, 60, "Duration of experiments in seconds");
@@ -125,7 +126,12 @@ int main(int argc, char** argv) {
   if (FLAGS_num_workers == 0)
     FLAGS_num_workers = scheduler::Topology::getInstance().getCoreCount();
 
-  g_num_partitions = FLAGS_num_partitions;
+  if (FLAGS_num_partitions == 0) {
+    g_num_partitions = scheduler::Topology::getInstance().getCpuNumaNodeCount();
+  } else {
+    g_num_partitions = FLAGS_num_partitions;
+  }
+
   g_delta_size = FLAGS_delta_size;
 
   std::cout << "------- AELOUS ------" << std::endl;

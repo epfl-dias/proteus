@@ -30,6 +30,7 @@ SERVICE_ACCOUNT_FILE = "/home/raza/gcred.json"
 
 
 aeoulus_exe = "./../../../../opt/aeolus/aeolus-server"
+htap_fork_exe = "./../../../../opt/pelago/htap-server-fork"
 DEBUG = False
 GSHEET = True
 FILE = False
@@ -47,7 +48,7 @@ tpcc_range = 'tpcc_new!A1:O1'
 # General
 workers = [1, 2, 4, 8, 16, 18, 32, 36, 54, 64, 72]
 num_partitions = [1, 2, 3, 4]
-layout_column_store = ["true", "false"]
+layout_column_store = ["true"]  # , "false"]
 
 # YCSB
 # theta_range = [0, 1]
@@ -57,9 +58,10 @@ theta_step = 0.25
 # Write Threshold
 # write_thresh_range = [0, 1]
 write_thresh_range = [0.0, 1.0]
-write_thresh_step = 0.25
+write_thresh_step = 0.5
 # Columns
-num_cols = [1, 2, 4, 8, 16]
+num_cols = [1]
+#num_cols = [1, 2, 4, 8, 16]
 #num_cols_range = [0, 12]
 #num_cols_step = 4
 # --------------
@@ -236,7 +238,7 @@ def test_ycsb(layout_col="true", num_partitions=1, num_workers=1, comments="", r
             exe += " --runtime=" + str(runtime)
             exe += " --num-partitions=" + str(num_partitions)
             exe += " --num-workers=" + str(num_workers)
-
+            exe += " --ycsb-num-records=72000000"
             exe += " --ycsb_num_cols=" + str(col)
             for r in frange(write_thresh_range[0], write_thresh_range[1],
                             write_thresh_step):
@@ -349,10 +351,180 @@ def test_tpcc(layout_col="true", num_partitions=1, num_workers=1, comments="", r
     print "Total Experiements completed:", exp_counter
 
 
+def test_tpcc_contention(layout_col="true", num_partitions=1, num_workers=1, comments="", runtime=60):
+    exp_counter = 0
+    for num_exp in xrange(0, repeat_expr_times):
+        exe = aeoulus_exe + " --benchmark=1"
+        exe += "  --tpcc_num_wh=" + str(num_workers)
+        exe += " --layout_column_store=" + layout_col
+        exe += " --delta-size=4"
+        exe += " --runtime=" + str(runtime)
+        exe += " --num-partitions=" + str(num_partitions)
+        exe += " --num-workers=" + str(multiprocessing.cpu_count())
+        comment_w_exe = comments + " \n"
+        print num_exp, "--", exe
+        if not DEBUG:
+            args = shlex.split(exe)
+            proc = subprocess.Popen(
+                args, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+            output, err = proc.communicate()
+            if GSHEET:
+                layout_str = "COLUMNAR"
+                if(layout_col != "true"):
+                    layout_str = "ROW"
+                val = [expr_time, platform.uname()[1], "-", "-",
+                       str(num_workers), layout_str, "TPCC", "SUCCESS", comment_w_exe, runtime]
+                gsheet_init2()
+                if len(err) > 10:
+                    val[7] = "FAILED"
+                    val[8] += "\n " + str(err)
+                else:
+                    val += format_metrics_gsheet(output, err)
+                    val += [exe]
+                append_to_gsheet(
+                    val, spreadsheet_id=AEOLUS_SPREADSHEET,
+                    range=tpcc_range)
+            if STDOUT:
+                print "---------------stdout------------"
+                print output
+                if err and len(err) > 0:
+                    print "---------------stderr------------"
+                    print err
+            if FILE:
+                out_file_path = os.path.join(
+                    result_dir, expr_time_epoch + "_tpcc_" + str(w) + "_" + str(num_exp))
+                out_file = open(out_file_path, 'w')
+                out_file.write(
+                    "---------------stdout------------")
+                out_file.write(output)
+                if err and len(err) > 0:
+                    out_file.write(
+                        "---------------stderr------------")
+                    out_file.write(err)
+                out_file.close()
+        exp_counter += 1
+    print "Total Experiements completed:", exp_counter
+
+
 def test():
     path = os.path.join("./results.o", "ycsb_1_1_0_5")
     inn = open(path, 'r')
     print format_metrics_gsheet(inn.read(), "")
+
+
+def test_ycsb_fork(layout_col="true", num_partitions=1, num_workers=1, comments="", runtime=60):
+    exp_counter = 0
+    for num_exp in xrange(0, repeat_expr_times):
+        for col in num_cols:
+
+            exe = htap_fork_exe + " --run-olap=false --bench-ycsb=true"
+            exe += " --num-oltp-clients=" + str(num_workers)
+
+            for r in frange(write_thresh_range[0], write_thresh_range[1],
+                            write_thresh_step):
+                r_exe = exe + " --ycsb_write_ratio=" + str(r)
+                for t in frange(theta_range[0], theta_range[1], theta_step):
+                    t_exe = r_exe
+
+                    comment_w_exe = comments + " \n"
+                    print num_exp, "--", t_exe
+                    if not DEBUG:
+                        args = shlex.split(t_exe)
+                        proc = subprocess.Popen(
+                            args, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+                        output, err = proc.communicate()
+                        if GSHEET:
+                            layout_str = "COLUMNAR"
+                            if(layout_col != "true"):
+                                layout_str = "ROW"
+                            val = [expr_time, platform.uname()[1], "-", "-",
+                                   str(num_workers), layout_str, str(t), str(
+                                       r), "YCSB", col, "SUCCESS", comment_w_exe,
+                                   runtime]
+                            if len(err) > 10:
+                                val[10] = "FAILED"
+                                val[11] += "\n " + str(err)
+                            else:
+                                val += format_metrics_gsheet(output, err)
+                                val += [exe]
+                            gsheet_init2()
+                            append_to_gsheet(
+                                val, spreadsheet_id=AEOLUS_SPREADSHEET, range=ycsb_range)
+                        if STDOUT:
+                            print "---------------stdout------------"
+                            print output
+                            if err and len(err) > 0:
+                                print "---------------stderr------------"
+                                print err
+                        if FILE:
+                            out_file_path = os.path.join(
+                                result_dir, expr_time_epoch + "_ycsb_" + str(col) + "_" +
+                                str(w) + "_" + str(r) + "_" + str(t) + "_"
+                                + str(num_exp))
+                            out_file = open(out_file_path, 'w')
+                            out_file.write(
+                                "---------------stdout------------")
+                            out_file.write(output)
+                            if err and len(err) > 0:
+                                out_file.write(
+                                    "---------------stderr------------")
+                                out_file.write(err)
+                            out_file.close()
+                    exp_counter += 1
+    print "Total Experiements completed:", exp_counter
+
+
+def test_tpcc_fork(layout_col="true", num_partitions=1, num_workers=1, comments="", runtime=60):
+    exp_counter = 0
+    for num_exp in xrange(0, repeat_expr_times):
+        exe = htap_fork_exe + " --run-olap=false"
+        exe += " --num-oltp-clients=" + str(num_workers)
+        comment_w_exe = comments + " \n"
+        print num_exp, "--", exe
+        if not DEBUG:
+            args = shlex.split(exe)
+            proc = subprocess.Popen(
+                args, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+            output, err = proc.communicate()
+            if GSHEET:
+                layout_str = "COLUMNAR"
+                if(layout_col != "true"):
+                    layout_str = "ROW"
+                val = [expr_time, platform.uname()[1], "-", "-",
+                       str(num_workers), layout_str, "TPCC", "SUCCESS", comment_w_exe, runtime]
+                gsheet_init2()
+                if len(err) > 10:
+                    val[7] = "FAILED"
+                    val[8] += "\n " + str(err)
+                else:
+                    val += format_metrics_gsheet(output, err)
+                    val += [exe]
+                append_to_gsheet(
+                    val, spreadsheet_id=AEOLUS_SPREADSHEET,
+                    range=tpcc_range)
+            if STDOUT:
+                print "---------------stdout------------"
+                print output
+                if err and len(err) > 0:
+                    print "---------------stderr------------"
+                    print err
+            if FILE:
+                out_file_path = os.path.join(
+                    result_dir, expr_time_epoch + "_tpcc_" + str(w) + "_" + str(num_exp))
+                out_file = open(out_file_path, 'w')
+                out_file.write(
+                    "---------------stdout------------")
+                out_file.write(output)
+                if err and len(err) > 0:
+                    out_file.write(
+                        "---------------stderr------------")
+                    out_file.write(err)
+                out_file.close()
+        exp_counter += 1
+    print "Total Experiements completed:", exp_counter
 
 
 def test_all_tpcc():
@@ -362,9 +534,32 @@ def test_all_tpcc():
     print "Setting # of Partitions to", num_p
 
     for layout in layout_column_store:
-        for wrkr in workers:
+        for wrkr in xrange(2, 73, 2):  # workers:
             test_tpcc(layout_col=layout, num_partitions=num_p, num_workers=wrkr,
-                      comments="neworder txn", runtime=30)
+                      comments="double-master-neworder txn", runtime=30)
+
+
+def test_all_tpcc_contention():
+    num_p = 2
+    if(platform.uname()[1] == "diascld33"):
+        num_p = 4
+    print "Setting # of Partitions to", num_p
+
+    for wrkr in xrange(4, 73, 2):  # workers:
+        test_tpcc_contention(layout_col="true", num_partitions=num_p, num_workers=wrkr,
+                             comments="contention-neworder txn", runtime=30)
+
+
+def test_all_tpcc_fork():
+    for wrkr in [2, 4, 8, 16, 18, 32, 36, 54, 64, 72]:
+        test_tpcc_fork(layout_col="true", num_partitions=1, num_workers=wrkr,
+                       comments="htap-server-fork", runtime=30)
+
+
+def test_all_ycsb_fork():
+    for wrkr in [2, 4, 8, 16, 18, 32, 36, 54, 64, 72]:
+        test_ycsb_fork(layout_col="true", num_partitions=1, num_workers=wrkr,
+                       comments="htap-server-fork", runtime=30)
 
 
 def test_all_ycsb():
@@ -374,12 +569,18 @@ def test_all_ycsb():
     print "Setting # of Partitions to", num_p
     for layout in layout_column_store:
         # for n_part in num_partitions:
-        for wrkr in workers:
+        # for wrkr in workers:
+        # for wrkr in xrange(2, 73, 2):  # workers:
+        for wrkr in [1, 2, 4, 8, 16, 18, 32, 36, 54, 64, 72]:
             test_ycsb(layout_col=layout, num_partitions=num_p, num_workers=wrkr,
                       comments="partition_local_zipf", runtime=30)
 
 
 if __name__ == "__main__":
     gsheet_init2()
-    test_all_tpcc()
+    # test_all_tpcc()
+    # test_all_tpcc_fork()
+    # test_all_tpcc_contention()
+    # test_all_tpcc_fork()
     # test_all_ycsb()
+    test_all_ycsb_fork()

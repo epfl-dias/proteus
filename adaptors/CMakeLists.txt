@@ -10,7 +10,7 @@ set(adaptors_cxx
 add_library(aeolus_plugin SHARED
         ${adaptors_cxx}
     )
-target_link_libraries(aeolus_plugin ${LLVM_LIBS} aeolus_engine)
+target_link_libraries(aeolus_plugin ${LLVM_LIBS} -laeolus_engine)
 install(TARGETS aeolus_plugin
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib

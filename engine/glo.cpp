@@ -23,8 +23,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "glo.hpp"
 #include "utils/utils.hpp"
 
-uint g_num_partitions = 1;
-uint g_delta_size = 8;
+uint g_num_partitions = 4;
+uint g_delta_size = 4;
 
 bool timed_func::terminate = false;
 int timed_func::num_active_runners = 0;

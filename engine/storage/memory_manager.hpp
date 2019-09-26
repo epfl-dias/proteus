@@ -24,6 +24,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define STORAGE_MEMORY_MANAGER_HPP_
 
 #include <sys/mman.h>
+
 #include <map>
 #include <vector>
 
@@ -56,7 +57,7 @@ class MemoryManager {
   static void remove_shm(const std::string& key);
 
   static void* alloc(size_t bytes, int numa_memset_id,
-                     int mem_advice = MADV_DOFORK | MADV_HUGEPAGE);
+                     int mem_advice = MADV_DOFORK);
   static void free(void* mem, size_t bytes);
 };
 

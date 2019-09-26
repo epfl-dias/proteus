@@ -377,7 +377,7 @@ RowStore::RowStore(
 
 #else
 
-    void* mem = MemoryManager::alloc(meta_size_per_part, j, MADV_DONTFORK);
+    void* mem = MemoryManager::alloc(meta_size_per_part, j);
 
 #endif
 

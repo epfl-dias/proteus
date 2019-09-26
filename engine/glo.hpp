@@ -23,12 +23,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #ifndef GLO_HPP_
 #define GLO_HPP_
 
-#include <gflags/gflags.h>
+#include <mutex>
+
 #include "indexes/hash_array.hpp"
 #include "indexes/hash_index.hpp"
 #include "transactions/cc.hpp"
-
-#include <mutex>
 //#include "snapshot/arena.hpp"
 //#include "snapshot/snapshot_manager.hpp"
 

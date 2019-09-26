@@ -562,7 +562,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
       // std::cout << "\t\tAllocating "
       //           << ((double)size_per_partition / (1024 * 1024 * 1024))
       //           << " - on node " << j << std::endl;
-      void* mem = MemoryManager::alloc(size_per_partition, j, MADV_DONTFORK);
+      void* mem = MemoryManager::alloc(size_per_partition, j);
 
 #endif
       assert(mem != nullptr || mem != NULL);

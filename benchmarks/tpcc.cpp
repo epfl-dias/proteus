@@ -17,6 +17,7 @@
  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
  A PARTICULAR PURPOSE. THE AUTHORS AND ECOLE POLYTECHNIQUE FEDERALE DE LAUSANNE
 DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
+                             USE OF THIS SOFTWARE.
 */
 
 #include "tpcc.hpp"
@@ -452,7 +453,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
 
   uint64_t order_key =
       MAKE_ORDER_KEY(q->w_id, q->d_id, dist_no_read.d_next_o_id);
-  assert(order_key < TPCC_MAX_ORDER_INITIAL_CAP);
+  // assert(order_key < TPCC_MAX_ORDER_INITIAL_CAP);
 
   // if (order_key / 72000000 != partition_id) {
   //   std::unique_lock<std::mutex> lk(print_mutex);
@@ -467,7 +468,8 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
   //   table_order->reportUsage();
   //   table_order_line->reportUsage();
   // }
-  assert(order_key / TPCC_MAX_ORDER_INITIAL_CAP_PER_PARTITION == partition_id);
+  // assert(order_key / TPCC_MAX_ORDER_INITIAL_CAP_PER_PARTITION ==
+  // partition_id);
 
   struct tpcc_order o_r = {};
 
@@ -609,9 +611,10 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
 
     ol_key_batch[ol_number] =
         MAKE_OL_KEY(q->w_id, q->d_id, dist_no_read.d_next_o_id, ol_number);
-    assert(ol_key_batch[ol_number] / (TPCC_MAX_ORDER_INITIAL_CAP_PER_PARTITION *
-                                      TPCC_MAX_OL_PER_ORDER) ==
-           partition_id);
+    // assert(ol_key_batch[ol_number] /
+    // (TPCC_MAX_ORDER_INITIAL_CAP_PER_PARTITION *
+    //                                   TPCC_MAX_OL_PER_ORDER) ==
+    //        partition_id);
 
 #else
 
@@ -631,9 +634,9 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
     uint64_t ol_key =
         MAKE_OL_KEY(q->w_id, q->d_id, dist_no_read.d_next_o_id, ol_number);
 
-    assert(ol_key / (TPCC_MAX_ORDER_INITIAL_CAP_PER_PARTITION *
-                     TPCC_MAX_OL_PER_ORDER) ==
-           partition_id);
+    // assert(ol_key / (TPCC_MAX_ORDER_INITIAL_CAP_PER_PARTITION *
+    //                  TPCC_MAX_OL_PER_ORDER) ==
+    //        partition_id);
 
     void *ol_idx_ptr =
         table_order_line->insertRecord(&ol_ins, xid, partition_id, master_ver);
@@ -1304,7 +1307,7 @@ inline void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
   // mprotect(arg, sizeof(struct tpcc_query), PROT_WRITE);
   static thread_local unsigned int seed_t = this->seed;
   static thread_local unsigned int n_wh = this->num_warehouse;
-  static thread_local unsigned int n_actv_wh = this->num_active_workers;
+  // static thread_local unsigned int n_actv_wh = this->num_active_workers;
 
 #if PARTITION_LOCAL_ITEM_TABLE
   static thread_local uint64_t start = wid * (TPCC_MAX_ITEMS / n_wh);
@@ -1315,7 +1318,7 @@ inline void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
   struct tpcc_query *q = (struct tpcc_query *)arg;
 
   q->query_type = NEW_ORDER;
-  q->w_id = wid % n_actv_wh;
+  q->w_id = wid % n_wh;
 
   // q->w_id = URand(&p->seed, 1, g_nservers);
   q->d_id = URand(&seed_t, 0, TPCC_NDIST_PER_WH - 1);
@@ -1485,6 +1488,10 @@ TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
   uint64_t total_districts = TPCC_NDIST_PER_WH * (this->num_warehouse);
   uint64_t max_customers = TPCC_NCUST_PER_DIST * total_districts;
   uint64_t max_orders = TPCC_MAX_ORDER_INITIAL_CAP;
+
+  max_orders = (max_orders / NUM_SOCKETS) * g_num_partitions;
+  std::cout << "MAX ORDERS: " << max_orders << std::endl;
+  std::cout << "g_num_partitions: " << g_num_partitions << std::endl;
   uint64_t max_order_line = TPCC_MAX_OL_PER_ORDER * max_orders;
   uint64_t max_stock = TPCC_MAX_ITEMS * (this->num_warehouse);
 
@@ -2471,6 +2478,7 @@ void TPCC::pre_run(int wid, uint64_t xid, ushort partition_id,
   //   std::cout << "pid: " << partition_id << std::endl;
   //   std::cout << "wid: " << wid << std::endl;
   // }
+  if (wid >= this->num_warehouse) return;
 
   assert(partition_id < g_num_partitions);
 

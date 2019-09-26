@@ -15,6 +15,7 @@ set(txn_engine_cxx
     snapshot/cor_arena.cpp
     snapshot/cow_arena.cpp
     snapshot/cor_const_arena.cpp
+    indexes/hash_array.cpp
     )
 
 

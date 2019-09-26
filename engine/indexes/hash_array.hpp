@@ -25,8 +25,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #ifndef INDEXES_HASH_ARRAY_HPP_
 #define INDEXES_HASH_ARRAY_HPP_
 
-#include <gflags/gflags.h>
 #include <iostream>
+
 #include "storage/memory_manager.hpp"
 
 namespace indexes {
@@ -48,37 +48,7 @@ class HashArray {
 
   std::string name;
 
-  HashArray(std::string name = "", uint64_t num_obj = 72000000)
-      : capacity(num_obj), name(name) {
-    uint FLAGS_num_partitions = 4;
-
-    this->partitions = FLAGS_num_partitions;
-
-    capacity_per_partition = (num_obj / partitions) + IDX_SLACK;
-    capacity = capacity_per_partition * partitions;
-
-    std::cout << "Creating a hashindex[" << name << "] of size: " << num_obj
-              << " with partitions:" << FLAGS_num_partitions
-              << " each with: " << capacity_per_partition << std::endl;
-
-    arr = (char ***)malloc(sizeof(char *) * partitions);
-
-    size_t size_per_part = capacity_per_partition * sizeof(char *);
-
-    for (int i = 0; i < partitions; i++) {
-      arr[i] = (char **)storage::MemoryManager::alloc(
-          size_per_part, i, MADV_DONTFORK | MADV_HUGEPAGE);
-      assert(arr[i] != nullptr);
-      filler[i] = 0;
-    }
-
-    for (int i = 0; i < partitions; i++) {
-      uint64_t *pt = (uint64_t *)arr[i];
-      uint64_t warmup_max = size_per_part / sizeof(uint64_t);
-#pragma clang loop vectorize(enable)
-      for (uint64_t j = 0; j < warmup_max; j++) pt[j] = 0;
-    }
-  }
+  HashArray(std::string name = "", uint64_t num_obj = 72000000);
 
   //~HashArray() { storage::MemoryManager::free(arr, capacity * sizeof(V)); }
 
