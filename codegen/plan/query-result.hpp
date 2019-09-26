@@ -21,34 +21,28 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef PREPARED_STATEMENT_HPP_
-#define PREPARED_STATEMENT_HPP_
+#ifndef QUERY_RESULT_HPP_
+#define QUERY_RESULT_HPP_
 
-#include <vector>
+#include <iostream>
+#include <string>
 
-#include "plan/query-result.hpp"
-#include "util/jit/pipeline.hpp"
-
-class PreparedStatement {
+class QueryResult {
  private:
-  std::vector<Pipeline*> pipelines;
-  std::string outputFile;
-
- protected:
-  PreparedStatement(const std::vector<Pipeline*>& pips,
-                    const std::string& outputFile)
-      : pipelines(pips), outputFile(outputFile) {}
+  size_t fsize;
+  char *resultBuf;
 
  public:
-  QueryResult execute(bool deterministic_affinity = true);
+  QueryResult(const std::string &query_name);
+  QueryResult(const QueryResult &) = delete;
+  QueryResult(QueryResult &&) = delete;
+  QueryResult &operator=(const QueryResult &) = delete;
+  QueryResult &operator=(QueryResult &&) = delete;
+  ~QueryResult();
 
-  static PreparedStatement from(const std::string& planPath,
-                                const std::string& label);
-  static PreparedStatement from(const std::string& planPath,
-                                const std::string& label,
-                                const std::string& catalogJSON);
-
-  friend class RelBuilder;
+  friend std::ostream &operator<<(std::ostream &out, const QueryResult &qr);
 };
 
-#endif /* PREPARED_STATEMENT_HPP_ */
+std::ostream &operator<<(std::ostream &out, const QueryResult &qr);
+
+#endif /* QUERY_RESULT_HPP_ */

@@ -30,7 +30,7 @@
 
 static constexpr auto defaultCatalogJSON = "inputs";
 
-void PreparedStatement::execute(bool deterministic_affinity) {
+QueryResult PreparedStatement::execute(bool deterministic_affinity) {
   auto &topo = topology::getInstance();
 
   // just to be sure...
@@ -81,6 +81,8 @@ void PreparedStatement::execute(bool deterministic_affinity) {
   }
 
   profiling::pause();
+
+  return {outputFile};
 }
 
 PreparedStatement PreparedStatement::from(const std::string &planPath,
@@ -109,6 +111,6 @@ PreparedStatement PreparedStatement::from(const std::string &planPath,
 
     ctx->compileAndLoad();
 
-    return {ctx->getPipelines()};
+    return {ctx->getPipelines(), ctx->getModuleName()};
   }
 }

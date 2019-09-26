@@ -218,7 +218,7 @@ PreparedStatement RelBuilder::prepare() {
   root->produce();
   ctx->prepareFunction(ctx->getGlobalFunction());
   ctx->compileAndLoad();
-  return {ctx->getPipelines()};
+  return {ctx->getPipelines(), ctx->getModuleName()};
 }
 
 RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,

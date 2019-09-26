@@ -50,6 +50,7 @@ set(codegen_cxx
     operators/unnest.cpp
     plan/plan-parser.cpp
     plan/prepared-statement.cpp
+    plan/query-result.cpp
     plugins/binary-col-plugin.cpp
     plugins/binary-internal-plugin.cpp
     plugins/binary-row-plugin.cpp

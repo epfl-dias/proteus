@@ -21,34 +21,33 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef PREPARED_STATEMENT_HPP_
-#define PREPARED_STATEMENT_HPP_
-
-#include <vector>
-
 #include "plan/query-result.hpp"
-#include "util/jit/pipeline.hpp"
 
-class PreparedStatement {
- private:
-  std::vector<Pipeline*> pipelines;
-  std::string outputFile;
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 
- protected:
-  PreparedStatement(const std::vector<Pipeline*>& pips,
-                    const std::string& outputFile)
-      : pipelines(pips), outputFile(outputFile) {}
+#include <iostream>
 
- public:
-  QueryResult execute(bool deterministic_affinity = true);
+#include "common/error-handling.hpp"
 
-  static PreparedStatement from(const std::string& planPath,
-                                const std::string& label);
-  static PreparedStatement from(const std::string& planPath,
-                                const std::string& label,
-                                const std::string& catalogJSON);
+QueryResult::QueryResult(const std::string &q) {
+  int fd = shm_open(q.c_str(), O_RDONLY, S_IRWXU);
 
-  friend class RelBuilder;
-};
+  struct stat statbuf;
+  fstat(fd, &statbuf);
 
-#endif /* PREPARED_STATEMENT_HPP_ */
+  fsize = statbuf.st_size;
+  resultBuf =
+      (char *)mmap(nullptr, fsize, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+
+  // we can now free the pointer, mmap will keep the file open
+  shm_unlink(q.c_str());
+}
+
+QueryResult::~QueryResult() { munmap(resultBuf, fsize); }
+
+std::ostream &operator<<(std::ostream &out, const QueryResult &qr) {
+  out.write(qr.resultBuf, sizeof(char) * qr.fsize);
+  return out;
+}
