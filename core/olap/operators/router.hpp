@@ -118,10 +118,11 @@ class Router : public experimental::UnaryOperator {
 
   PipelineGen *catch_pip;
 
+  std::atomic<int> remaining_producers;
+
  private:
   const int slack;
   size_t buf_size;
-  std::atomic<int> remaining_producers;
 
   const vector<RecordAttribute *> wantedFields;
 

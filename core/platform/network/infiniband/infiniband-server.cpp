@@ -26,6 +26,7 @@
 
 #include <iostream>
 
+#include "common/error-handling.hpp"
 #include "infiniband-handler.hpp"
 #include "infiniband-manager.hpp"
 

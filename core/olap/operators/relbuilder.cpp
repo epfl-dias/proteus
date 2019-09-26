@@ -54,6 +54,7 @@
 #include "operators/unionall.hpp"
 #include "operators/unnest.hpp"
 #include "plan/catalog-parser.hpp"
+#include "router-scaleout.hpp"
 #include "util/parallel-context.hpp"
 
 RelBuilder::RelBuilder(ParallelContext *ctx, Operator *root)
@@ -369,6 +370,17 @@ RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
     auto op = new Router(root, fanout, wantedFields, slack, hash, p, target);
     return apply(op);
   }
+}
+
+RelBuilder RelBuilder::router_scaleout(
+    const vector<RecordAttribute *> &wantedFields,
+    std::optional<expression_t> hash, DegreeOfParallelism fanout, size_t slack,
+    RoutingPolicy p, DeviceType targets) const {
+  assert((p == RoutingPolicy::HASH_BASED) == (hash.has_value()));
+  assert((p != RoutingPolicy::RANDOM) || (!hash.has_value()));
+  auto op = new RouterScaleOut(root, DegreeOfParallelism{fanout}, wantedFields,
+                               slack, std::move(hash), p, targets);
+  return apply(op);
 }
 
 RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,

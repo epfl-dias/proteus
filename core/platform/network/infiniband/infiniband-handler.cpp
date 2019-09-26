@@ -39,12 +39,13 @@
 #include <mutex>
 #include <thread>
 
+#include "common/error-handling.hpp"
 #include "memory/block-manager.hpp"
 #include "memory/memory-manager.hpp"
 #include "util/logging.hpp"
 
 constexpr size_t packNotifications = 32;
-constexpr size_t buffnum = 64;
+constexpr size_t buffnum = 2 * packNotifications;
 
 std::ostream &operator<<(std::ostream &out, const ib_addr &addr) {
   out << "LID 0x" << std::setfill('0') << std::setw(4) << std::hex << addr.lid

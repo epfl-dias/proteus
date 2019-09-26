@@ -40,23 +40,6 @@
 #include "common/common.hpp"
 
 namespace errorhanding {
-[[noreturn]] inline void failedLinuxRun(const char *str, const char *file,
-                                        int line) {
-  auto msg = std::string{str} + " failed (" + strerror(errno) + ")";
-  google::LogMessage(file, line, google::GLOG_ERROR).stream() << msg;
-  throw std::runtime_error{msg};
-}
-
-inline void assertLinuxRun(int x, const char *str, const char *file, int line) {
-  if (unlikely(x)) failedLinuxRun(str, file, line);
-}
-
-template <typename T>
-inline T *assertLinuxRun(T *x, const char *str, const char *file, int line) {
-  if (unlikely(x == nullptr)) failedLinuxRun(str, file, line);
-  return x;
-}
-
 [[noreturn]] inline void failedRDMARun(const char *str, const char *file,
                                        int line, int x) {
   auto msg = std::string{str} + " failed (" + gai_strerror(x) + ")";
@@ -75,7 +58,6 @@ inline T *assertRDMARun(T *x, const char *str, const char *file, int line) {
 }
 }  // namespace errorhanding
 
-#define linux_run(x) (errorhanding::assertLinuxRun(x, #x, __FILE__, __LINE__))
 #define rdma_run(x) (errorhanding::assertRDMARun(x, #x, __FILE__, __LINE__))
 
 class IBHandler;

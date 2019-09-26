@@ -32,9 +32,14 @@
 #include <common/olap-common.hpp>
 #include <cstring>
 #include <network/infiniband/infiniband-manager.hpp>
+#include <operators/relbuilder-factory.hpp>
+#include <operators/relbuilder.hpp>
+#include <plan/catalog-parser.hpp>
+#include <util/parallel-context.hpp>
 #include <util/timing.hpp>
 
 #include "cli-flags.hpp"
+#include "common/error-handling.hpp"
 #include "memory/block-manager.hpp"
 #include "memory/memory-manager.hpp"
 #include "plan/prepared-statement.hpp"
@@ -190,6 +195,133 @@ int main(int argc, char *argv[]) {
     assert(FLAGS_port <= std::numeric_limits<uint16_t>::max());
     InfiniBandManager::init(FLAGS_url, static_cast<uint16_t>(FLAGS_port),
                             FLAGS_primary, FLAGS_ipv4);
+
+    auto ctx = new ParallelContext("main2", false);
+    CatalogParser catalog("inputs", ctx);
+
+    std::string d_datekey = "d_datekey";
+    std::string d_year = "d_year";
+
+    std::string lo_suppkey = "lo_suppkey";
+    std::string lo_orderdate = "lo_orderdate";
+
+    auto rel =
+        RelBuilderFactory{"main"}
+            .getBuilder()
+            .scan("inputs/ssbm1000/lineorder.csv", {lo_orderdate}, catalog,
+                  pg{"pm-csv"})
+            .router(8, RoutingPolicy::RANDOM, DeviceType::CPU)
+            .unpack()
+            .reduce(
+                [&](const auto &arg) -> std::vector<expression_t> {
+                  return {arg[lo_orderdate]};
+                },
+                {SUM})
+            .router(DegreeOfParallelism{1}, 8, RoutingPolicy::RANDOM,
+                    DeviceType::CPU)
+            .reduce(
+                [&](const auto &arg) -> std::vector<expression_t> {
+                  return {arg[lo_orderdate]};
+                },
+                {SUM})
+            .router_scaleout(
+                [&](const auto &arg) -> std::vector<RecordAttribute *> {
+                  return {new RecordAttribute{
+                      arg[lo_orderdate].getRegisteredAs(), false}};
+                },
+                [&](const auto &arg) -> std::optional<expression_t> {
+                  return std::nullopt;
+                },
+                DegreeOfParallelism{1}, 8, RoutingPolicy::RANDOM,
+                DeviceType::CPU)
+            .print([&](const auto &arg) -> std::vector<expression_t> {
+              auto reg_as2 = new RecordAttribute(
+                  0, "t2", lo_orderdate, arg[lo_orderdate].getExpressionType());
+              assert(reg_as2 && "Error registering expression as attribute");
+
+              InputInfo *datasetInfo =
+                  catalog.getOrCreateInputInfo(reg_as2->getRelationName());
+              datasetInfo->exprType = new BagType{
+                  RecordType{std::vector<RecordAttribute *>{reg_as2}}};
+
+              return {arg[lo_orderdate].as(reg_as2)};
+            });
+
+    auto statement = rel.prepare();
+
+    for (int i = 0; i < 1; ++i) {
+      auto &sub = InfiniBandManager::subscribe();
+      if (FLAGS_primary) {
+        std::cout << "send" << std::endl;
+        void *ptr = BlockManager::get_buffer();
+        ((int *)ptr)[0] = 45;
+        InfiniBandManager::send(ptr, 4);
+        std::cout << "send done" << std::endl;
+      } else {
+        sleep(2);
+        std::cout << "wait" << std::endl;
+        sub.wait();
+        std::cout << "wait done" << std::endl;
+        //      auto v = sub.wait();
+        //      BlockManager::release_buffer((int32_t *) v.data);
+      }
+
+      if (FLAGS_primary) {
+        sub.wait();
+        //      auto v = sub.wait();
+        //      BlockManager::release_buffer((int32_t *) v.data);
+      } else {
+        std::cout << "send" << std::endl;
+        void *ptr = BlockManager::get_buffer();
+        ((int *)ptr)[0] = 44;
+        InfiniBandManager::send(ptr, 4);
+        std::cout << "send done" << std::endl;
+      }
+    }
+
+    for (size_t i = 0; i < 5; ++i) {
+      statement.execute();
+
+      {
+        int fd2 = shm_open(ctx->getModuleName().c_str(), O_RDONLY, S_IRWXU);
+        linux_run(fd2);
+        // if (fd2 == -1) {
+        //   LOG(INFO) << errno << str_e
+        //   throw runtime_error(string(__func__) + string(".open (output): ") +
+        //                       ctx->getModuleName().c_str());
+        // }
+        struct stat statbuf;
+        if (fstat(fd2, &statbuf)) {
+          fprintf(stderr, "FAILURE to stat test results! (%s)\n",
+                  std::strerror(errno));
+        }
+        size_t fsize2 = statbuf.st_size;
+        char *currResultBuf = (char *)mmap(
+            nullptr, fsize2, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd2, 0);
+
+        // printf("result is %d\n", *(int*)currResultBuf);
+        LOG(INFO) << "start of result";
+        LOG(INFO) << currResultBuf;
+        LOG(INFO) << "end of result";
+
+        shm_unlink(ctx->getModuleName().c_str());
+        munmap(currResultBuf, fsize2);
+      }
+    }
+
+    if (FLAGS_primary) {
+    } else {
+      InfiniBandManager::disconnectAll();
+    }
+    InfiniBandManager::deinit();
+    StorageManager::getInstance().unloadAll();
+    return 0;
+  }
+
+  if (FLAGS_primary || FLAGS_secondary) {
+    assert(FLAGS_port <= std::numeric_limits<uint16_t>::max());
+    InfiniBandManager::init(FLAGS_url, static_cast<uint16_t>(FLAGS_port),
+                            FLAGS_primary, FLAGS_ipv4);
     void *ptr = BlockManager::get_buffer();
     ((int *)ptr)[0] = 42 + FLAGS_primary;
 
@@ -246,7 +378,7 @@ int main(int argc, char *argv[]) {
               eventlogger.log(nullptr, IB_WAITING_DATA_END);
               if (x.size == 0) break;
               assert(x.size % 4 == 0);
-              size_t size = x.size / 4;
+              size_t size = (x.size / 4) ? 1 : 0;
               int32_t *data = (int32_t *)x.data;
               for (size_t i = 0; i < size; ++i) {
                 sum += data[i];

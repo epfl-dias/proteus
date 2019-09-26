@@ -49,6 +49,7 @@ set(olap_cxx
         operators/relbuilder-factory.cpp
         operators/root.cpp
         operators/router.cpp
+        operators/router-scaleout.cpp
         operators/scan.cpp
         operators/select.cpp
         operators/sort.cpp
