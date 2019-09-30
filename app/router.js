@@ -8,7 +8,9 @@ const Router = EmberRouter.extend({
 
 Router.map(function() {
   this.route('timeline');
-  this.route('plan');
+  this.route('plan', function() {
+    this.route('show', { path: '/:plan_id' });
+  });
   this.route('sqltab');
 });
 

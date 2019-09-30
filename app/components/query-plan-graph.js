@@ -336,10 +336,12 @@ export default Component.extend({
                     var d = v.data;
                     if (!($.isEmptyObject(d.value))) {
                       // d3.select(this).select("text").style("visibility", "hidden") 
+                        var s = JSON.stringify(d.value, null, 2)
+                        console.log(s)
                         div.transition()        
                             .duration(200)      
                             .style("opacity", .9);      
-                        div.html("<pre>" + JSON.stringify(d.value, null, 2) + "</pre>")
+                        div.html("<pre>" + s + "</pre>")
                             .style("left", (event.pageX) + "px")     
                             .style("top", (event.pageY - 28) + "px");    
                     }
