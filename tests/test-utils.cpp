@@ -176,7 +176,7 @@ bool verifyTestResult(const char *testsPath, const char *testLabel,
 void runAndVerify(const char *testLabel, const char *planPath,
                   const char *testPath, const char *catalogJSON,
                   bool unordered) {
-  PreparedStatement::from(planPath, testLabel, catalogJSON).execute();
+  auto qr = PreparedStatement::from(planPath, testLabel, catalogJSON).execute();
 
   EXPECT_TRUE(
       verifyTestResult(testPath, testLabel, unordered));  // FIXME:!!!!!!!!!!!!!

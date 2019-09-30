@@ -31,7 +31,7 @@
 
 #include "common/error-handling.hpp"
 
-QueryResult::QueryResult(const std::string &q) {
+QueryResult::QueryResult(const std::string &q) : q(q) {
   int fd = shm_open(q.c_str(), O_RDONLY, S_IRWXU);
 
   struct stat statbuf;
@@ -40,12 +40,13 @@ QueryResult::QueryResult(const std::string &q) {
   fsize = statbuf.st_size;
   resultBuf =
       (char *)mmap(nullptr, fsize, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+}
 
+QueryResult::~QueryResult() {
+  munmap(resultBuf, fsize);
   // we can now free the pointer, mmap will keep the file open
   shm_unlink(q.c_str());
 }
-
-QueryResult::~QueryResult() { munmap(resultBuf, fsize); }
 
 std::ostream &operator<<(std::ostream &out, const QueryResult &qr) {
   out.write(qr.resultBuf, sizeof(char) * qr.fsize);

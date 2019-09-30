@@ -32,6 +32,8 @@ class QueryResult {
   size_t fsize;
   char *resultBuf;
 
+  const std::string q;
+
  public:
   QueryResult(const std::string &query_name);
   QueryResult(const QueryResult &) = delete;
