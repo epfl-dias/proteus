@@ -105,7 +105,7 @@ static ib_addr get_server_addr(const std::string &server, ibv_qp *qp,
 class IBHandlerClient : public IBHandler {
  public:
   IBHandlerClient(const std::string &url, uint16_t port, bool ipv4,
-                  int cq_backlog = /* arbitrary */ 16)
+                  int cq_backlog = /* arbitrary */ cq_ack_backlog)
       : IBHandler(cq_backlog) {
     rem_addr = get_server_addr(url, qp, port, addr, ib_port, addr.psn,
                                IBV_MTU_4096, ib_sl, ib_gidx);
@@ -116,6 +116,6 @@ class IBHandlerClient : public IBHandler {
 };
 
 IBHandler *createClient(const std::string &url, uint16_t port, bool ipv4,
-                        int cq_backlog = /* arbitrary */ 16) {
+                        int cq_backlog) {
   return new IBHandlerClient(url, port, ipv4, cq_backlog);
 }

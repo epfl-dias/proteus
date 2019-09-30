@@ -33,6 +33,7 @@
 
 #include <condition_variable>
 #include <cstdint>
+#include <future>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -82,6 +83,7 @@ class subscription {
 
  public:
   subscription() = default;
+  subscription(int) {}
 
   value_type wait();
 
@@ -94,7 +96,9 @@ class InfiniBandManager {
                    bool primary = false, bool ipv4 = false);
   static void send(void *data, size_t bytes);
   static void write(void *data, size_t bytes);
+  static subscription *read(void *data, size_t bytes);
   static void flush();
+  static void flush_read();
   static buffkey get_buffer();
   static void disconnectAll();
   static void deinit();

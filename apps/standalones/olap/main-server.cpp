@@ -28,7 +28,6 @@
 #include <rdma/rdma_cma.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-
 #include <common/olap-common.hpp>
 #include <cstring>
 #include <network/infiniband/infiniband-manager.hpp>
@@ -37,7 +36,8 @@
 #include <plan/catalog-parser.hpp>
 #include <util/parallel-context.hpp>
 #include <util/timing.hpp>
-
+#include <network/infiniband/infiniband-manager.hpp>
+#include <type_traits>
 #include "cli-flags.hpp"
 #include "common/error-handling.hpp"
 #include "memory/block-manager.hpp"
@@ -205,20 +205,75 @@ int main(int argc, char *argv[]) {
     std::string lo_suppkey = "lo_suppkey";
     std::string lo_orderdate = "lo_orderdate";
 
+    // auto rel =
+    //     RelBuilder{ctx}
+    //         .scan<ScanToBlockSMPlugin>("inputs/ssbm1000/lineorder.csv",
+    //                                    {lo_orderdate}, catalog)
+    //         .router(
+    //             [&](const auto &arg) -> std::vector<RecordAttribute *> {
+    //               return {new RecordAttribute{
+    //                   arg[lo_orderdate].getRegisteredAs(), false}};
+    //             },
+    //             [&](const auto &arg) -> std::optional<expression_t> {
+    //               return std::nullopt;
+    //             },
+    //             DegreeOfParallelism{topology::getInstance().getGpuCount()},
+    //             8, RoutingPolicy::LOCAL, DeviceType::GPU)
+    //         .memmove(8, false)
+    //         .to_gpu()
+    //         .unpack([&](const auto &arg) -> std::vector<expression_t> {
+    //           return {arg[lo_orderdate]};
+    //         })
+    //         .reduce(
+    //             [&](const auto &arg) -> std::vector<expression_t> {
+    //               return {arg[lo_orderdate]};
+    //             },
+    //             {SUM})
+    //         .to_cpu()
+    //         .router(
+    //             [&](const auto &arg) -> std::vector<RecordAttribute *> {
+    //               return {new RecordAttribute{
+    //                   arg[lo_orderdate].getRegisteredAs(), false}};
+    //             },
+    //             [&](const auto &arg) -> std::optional<expression_t> {
+    //               return std::nullopt;
+    //             },
+    //             DegreeOfParallelism{1}, 8, RoutingPolicy::RANDOM,
+    //             DeviceType::CPU)
+    //         .reduce(
+    //             [&](const auto &arg) -> std::vector<expression_t> {
+    //               return {arg[lo_orderdate]};
+    //             },
+    //             {SUM})
+    //         .router_scaleout(
+    //             [&](const auto &arg) -> std::vector<RecordAttribute *> {
+    //               return {new RecordAttribute{
+    //                   arg[lo_orderdate].getRegisteredAs(), false}};
+    //             },
+    //             [&](const auto &arg) -> std::optional<expression_t> {
+    //               return std::nullopt;
+    //             },
+    //             1, 1, 8, RoutingPolicy::RANDOM, DeviceType::CPU, -1)
+    //         .print([&](const auto &arg) -> std::vector<expression_t> {
+    //           auto reg_as2 = new RecordAttribute(
+    //               0, "t2", lo_orderdate,
+    //               arg[lo_orderdate].getExpressionType());
+    //           assert(reg_as2 && "Error registering expression as attribute");
+
+    //           InputInfo *datasetInfo =
+    //               catalog.getOrCreateInputInfo(reg_as2->getRelationName());
+    //           datasetInfo->exprType = new BagType{
+    //               RecordType{std::vector<RecordAttribute *>{reg_as2}}};
+
+    //           return {arg[lo_orderdate].as(reg_as2)};
+    //         });
+
     auto rel =
         RelBuilderFactory{"main"}
             .getBuilder()
             .scan("inputs/ssbm1000/lineorder.csv", {lo_orderdate}, catalog,
-                  pg{"pm-csv"})
-            .router(8, RoutingPolicy::RANDOM, DeviceType::CPU)
+                  pg{"block"})
             .unpack()
-            .reduce(
-                [&](const auto &arg) -> std::vector<expression_t> {
-                  return {arg[lo_orderdate]};
-                },
-                {SUM})
-            .router(DegreeOfParallelism{1}, 8, RoutingPolicy::RANDOM,
-                    DeviceType::CPU)
             .reduce(
                 [&](const auto &arg) -> std::vector<expression_t> {
                   return {arg[lo_orderdate]};
@@ -362,13 +417,14 @@ int main(int argc, char *argv[]) {
       BlockManager::release_buffer((int32_t *)x.data);
       for (size_t buff_size = BlockManager::block_size; buff_size >= 4 * 1024;
            buff_size /= 2) {
-        for (size_t k = 0; k < 5; ++k) {
-          time_block t{"Tg:" + std::to_string(bytes{buff_size}) + ": "};
+        LOG(INFO) << "Packet size: " << bytes{buff_size};
+        for (size_t k = 0; k < 1; ++k) {
+          time_block t{"Tg:w:" + std::to_string(bytes{buff_size}) + ": "};
           int32_t sum = 0;
 
           {
-            time_block t{"Tg-nosend:" + std::to_string(bytes{buff_size}) +
-                         ": "};
+            // time_block t{"Tg-nosend:" + std::to_string(bytes{buff_size}) +
+            //              ": "};
             nvtxRangePushA("reading");
             do {
               eventlogger.log(nullptr, IB_WAITING_DATA_START);
@@ -378,7 +434,7 @@ int main(int argc, char *argv[]) {
               eventlogger.log(nullptr, IB_WAITING_DATA_END);
               if (x.size == 0) break;
               assert(x.size % 4 == 0);
-              size_t size = (x.size / 4) ? 1 : 0;
+              size_t size = x.size / 4;
               int32_t *data = (int32_t *)x.data;
               for (size_t i = 0; i < size; ++i) {
                 sum += data[i];
@@ -388,11 +444,77 @@ int main(int argc, char *argv[]) {
             } while (true);
           }
           nvtxRangePop();
-          std::cout << sum << std::endl;
+          // std::cout << sum << std::endl;
           auto f = BlockManager::get_buffer();
           f[0] = sum;
           InfiniBandManager::send(f, 4);
-          std::cout << sum << std::endl;
+          // std::cout << sum << std::endl;
+        }
+        for (size_t k = 0; k < 1; ++k) {
+          time_block t{"Tg:r:" + std::to_string(bytes{buff_size}) + ": "};
+          int32_t sum = 0;
+          auto x = sub.wait();
+          auto v = ((std::pair<int32_t *, size_t> *)x.data)[0];
+          auto data = v.first;
+          auto size = v.second;
+
+          {
+            std::deque<typename std::result_of<decltype (
+                &InfiniBandManager::read)(void *, size_t)>::type>
+                futures;
+            size_t slack = 1024;
+            // {
+            //   time_block t{"T: "};
+
+            //   for (size_t i = 0; i < size; i += buff_size) {
+            //     futures.emplace_back(InfiniBandManager::read(
+            //         ((char *)data) + i, std::min(buff_size, size - i)));
+            //   }
+            //   InfiniBandManager::flush_read();
+            // }
+            // for (auto &t : futures) {
+            //   BlockManager::release_buffer(t->wait().data);
+            // }
+            for (size_t i = 0; i < std::min(slack * buff_size, size);
+                 i += buff_size) {
+              futures.emplace_back(InfiniBandManager::read(
+                  ((char *)data) + i, std::min(buff_size, size - i)));
+            }
+            bool flushed = slack * buff_size >= size;
+            if (flushed) {
+              InfiniBandManager::flush_read();
+            }
+            for (size_t i = 0; i < size; i += buff_size) {
+              size_t i_next = i + buff_size * slack;
+              if (i_next < size) {
+                futures.emplace_back(InfiniBandManager::read(
+                    ((char *)data) + i_next,
+                    std::min(buff_size, size - i_next)));
+              } else {
+                if (!flushed) InfiniBandManager::flush_read();
+                flushed = true;
+              }
+              assert(!futures.empty());
+              // auto x = futures.front().get();
+              auto x = futures.front()->wait().data;
+              futures.pop_front();
+              {
+                int32_t *data = (int32_t *)x;
+                size_t s = std::min(size_t{1}, size - i) / 4;
+                for (size_t i = 0; i < s; ++i) {
+                  sum += data[i];
+                }
+                BlockManager::release_buffer(data);
+              }
+            }
+          }
+          InfiniBandManager::flush();
+
+          // std::cout << sum << std::endl;
+          auto f = BlockManager::get_buffer();
+          f[0] = sum;
+          InfiniBandManager::send(f, 4);
+          // std::cout << sum << std::endl;
         }
       }
     } else {
@@ -408,11 +530,11 @@ int main(int argc, char *argv[]) {
       assert(v.size() == 1);
       for (size_t buff_size = BlockManager::block_size; buff_size >= 4 * 1024;
            buff_size /= 2) {
-        for (size_t k = 0; k < 5; ++k) {
+        LOG(INFO) << "Packet size: " << bytes{buff_size};
+        for (size_t k = 0; k < 1; ++k) {
           time_block t{"Tg:" + std::to_string(bytes{buff_size}) + ": "};
 
           {
-            LOG(INFO) << "Packet size: " << bytes{buff_size};
             time_block t{"T: "};
             for (size_t i = 0; i < v[0].size; i += buff_size) {
               InfiniBandManager::write(((char *)v[0].data) + i,
@@ -420,6 +542,18 @@ int main(int argc, char *argv[]) {
             }
           }
           InfiniBandManager::write((char *)v[0].data, 0);
+          InfiniBandManager::flush();
+
+          auto x = sub.wait();
+          std::cout << ((int32_t *)x.data)[0] << std::endl;
+          BlockManager::release_buffer((int32_t *)x.data);
+        }
+        for (size_t k = 0; k < 1; ++k) {
+          time_block t{"Tg:read:" + std::to_string(bytes{buff_size}) + ": "};
+          auto f = BlockManager::get_buffer();
+          auto p = std::make_pair(v[0].data, v[0].size);
+          ((decltype(&p))f)[0] = p;
+          InfiniBandManager::write(f, sizeof(p));
           InfiniBandManager::flush();
 
           auto x = sub.wait();
@@ -492,8 +626,8 @@ int main(int argc, char *argv[]) {
 
     sock = sd;
     //
-    //    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) <
-    //    0)
+    //    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr))
+    //    < 0)
     //    {
     //      printf("\nConnection Failed \n");
     //      return -1;

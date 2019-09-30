@@ -34,6 +34,7 @@
 
 #include <cassert>
 #include <condition_variable>
+#include <future>
 #include <iomanip>
 #include <iostream>
 #include <mutex>
@@ -43,6 +44,7 @@
 #include "memory/block-manager.hpp"
 #include "memory/memory-manager.hpp"
 #include "util/logging.hpp"
+#include "util/timing.hpp"
 
 constexpr size_t packNotifications = 32;
 constexpr size_t buffnum = 2 * packNotifications;
@@ -346,6 +348,7 @@ void IBHandler::poll_cq() {
   // void *ctx;  // used to return consumer-supplied CQ context
 
   size_t i = 0;
+  size_t IBV_WC_RDMA_READ_cnt = 0;
 
   while (true) {
     // linux_run(ibv_get_cq_event(comp_channel, &cq, &ctx));
@@ -359,6 +362,12 @@ void IBHandler::poll_cq() {
 
     ibv_wc wc{};
     while (ibv_poll_cq(cq, 1, &wc)) {
+      // ibv_wc wc_arr[16]{};
+      // int cnt = 0;
+      // while ((cnt = ibv_poll_cq(cq, 16, wc_arr))) {
+      // LOG(INFO) << cnt;
+      // for (size_t i = 0; i < cnt && !ready2exit; ++i) {
+      //   auto &wc = wc_arr[i];
       eventlogger.log(this, IB_CQ_PROCESSING_EVENT_START);
       if (wc.status != IBV_WC_SUCCESS) {
         if (wc.status == IBV_WC_RNR_RETRY_EXC_ERR) {
@@ -438,6 +447,11 @@ void IBHandler::poll_cq() {
           BlockManager::release_buffer(data);
 
           pend_buffers_cv.notify_one();
+        } else if (wc.imm_data == 13) {
+          auto h = (std::pair<decltype(reged_remote_mem)::key_type,
+                              decltype(reged_remote_mem)::mapped_type> *)data;
+          reged_remote_mem.emplace(h->first, h->second);
+          BlockManager::release_buffer(data);
         } else {
           if (wc.opcode == IBV_WC_RECV_RDMA_WITH_IMM) {
             BlockManager::release_buffer(data);
@@ -474,7 +488,8 @@ void IBHandler::poll_cq() {
         if (data) {
           BlockManager::release_buffer(data);
           // LOG(INFO) << "out "
-          //           << std::chrono::duration_cast<std::chrono::milliseconds>(
+          //           <<
+          //           std::chrono::duration_cast<std::chrono::milliseconds>(
           //                  std::chrono::system_clock::now() - ::start)
           //                  .count();
           // recv_mr = (--reged_mem.upper_bound(data))->second;
@@ -490,10 +505,23 @@ void IBHandler::poll_cq() {
           // }
         }
         // LOG(INFO) << "send completed successfully";
+      } else if (wc.opcode == IBV_WC_RDMA_READ) {
+        std::unique_lock<std::mutex> lock{read_promises_m};
+        for (size_t i = 0; i < (size_t)wc.wr_id; ++i) {
+          assert(!read_promises.empty());
+          auto &p = read_promises[IBV_WC_RDMA_READ_cnt++];  //.front();
+          // auto &p = read_promises.front();
+          // LOG(INFO) << "read completed successfull_y";
+          // BlockManager::release_buffer(p.second);
+          p.first.publish(p.second, 0);
+          // p.first.set_value(p.second);
+          // read_promises.pop_front();
+        }
       } else {
         LOG(FATAL) << "Unknown: " << wc.opcode;
       }
       eventlogger.log(this, IB_CQ_PROCESSING_EVENT_END);
+      // }
     }
 
     if (ready2exit) {
@@ -546,6 +574,51 @@ void IBHandler::sendGoodBye() {
 
 void IBHandler::flush() { flush_write(); }
 
+size_t reads = 0;
+
+void IBHandler::flush_read() {
+  // auto buff = BlockManager::get_buffer();
+
+  // auto p = new std::promise<void *>;
+  // auto d = new std::pair<decltype(p), void *>;
+  // d->first = p;
+  // d->second = buff;
+
+  // LOG(INFO) << 0 << " " << (void *)nullptr << " " << (void *)nullptr;
+  // auto &p = create_promise(buff);
+
+  // ibv_mr *send_reg = (--reged_mem.upper_bound(buff))->second;
+
+  // ibv_sge sge{/* 0 everything out via value initialization */};
+
+  // static_assert(sizeof(void *) == sizeof(decltype(ibv_sge::addr)));
+  // // super dangerous cast, do not remove above static_assert!
+  // sge.addr = reinterpret_cast<decltype(ibv_sge::addr)>(buff);
+  // assert(bytes <= std::numeric_limits<decltype(ibv_sge::length)>::max());
+  // sge.length = static_cast<decltype(ibv_sge::length)>(bytes);
+  // sge.lkey = send_reg->lkey;
+
+  ibv_send_wr wr{/* 0 everything out via value initialization */};
+
+  wr.wr_id = (uintptr_t)reads;  // readable locally on work completion
+  wr.opcode = IBV_WR_RDMA_READ;
+  wr.sg_list = nullptr;
+  wr.num_sge = 0;
+  wr.send_flags = IBV_SEND_SIGNALED;  //(++reads % 64) ? 0 : IBV_SEND_SIGNALED;
+  // assert(!sigoverflow || (c > 2));
+  // wr.imm_data = c + 3;  // NOTE: only sent when singaled == true
+  // Can pass an arbitrary value to receiver, consider for
+  // the consumed buffer
+  wr.wr.rdma.remote_addr =
+      reinterpret_cast<decltype(wr.wr.rdma.remote_addr)>(nullptr);
+  wr.wr.rdma.rkey = 0;
+
+  if (wr.send_flags & IBV_SEND_SIGNALED) reads = 0;
+
+  // LOG(INFO) << bytes << " " << buff << " " << data;
+  linux_run(send(wr));
+}
+
 void IBHandler::flush_write() {
   size_t *data = cnts;
   size_t bytes = write_cnt * sizeof(size_t);
@@ -581,6 +654,62 @@ void IBHandler::flush_write() {
   linux_run(send(wr));
   // TODO: save_on_error contains a pointer to the "bad" request, handle
   // more gracefully
+}
+
+decltype(IBHandler::read_promises)::value_type &IBHandler::create_promise(
+    void *buff) {
+  std::unique_lock<std::mutex> lock{read_promises_m};
+  read_promises.emplace_back(5, buff);
+  return read_promises.back();
+}
+
+subscription *IBHandler::read(void *data, size_t bytes) {
+  eventlogger.log(this, IB_CREATE_RDMA_READ_START);
+  auto buff = BlockManager::get_buffer();
+
+  // auto p = new std::promise<void *>;
+  // auto d = new std::pair<decltype(p), void *>;
+  // d->first = p;
+  // d->second = buff;
+
+  // LOG(INFO) << bytes << " " << (void *)nullptr << " " << data;
+  auto &p = create_promise(buff);
+
+  ibv_mr *send_reg = (--reged_mem.upper_bound(buff))->second;
+
+  ibv_sge sge{/* 0 everything out via value initialization */};
+
+  static_assert(sizeof(void *) == sizeof(decltype(ibv_sge::addr)));
+  // super dangerous cast, do not remove above static_assert!
+  sge.addr = reinterpret_cast<decltype(ibv_sge::addr)>(buff);
+  assert(bytes <= std::numeric_limits<decltype(ibv_sge::length)>::max());
+  sge.length = static_cast<decltype(ibv_sge::length)>(bytes);
+  sge.lkey = send_reg->lkey;
+
+  ibv_send_wr wr{/* 0 everything out via value initialization */};
+
+  ++reads;
+
+  wr.wr_id = (uintptr_t)reads;  // readable locally on work completion
+  wr.opcode = IBV_WR_RDMA_READ;
+  wr.sg_list = &sge;
+  wr.num_sge = 1;
+  wr.send_flags = (reads % 512) ? 0 : IBV_SEND_SIGNALED;
+  // assert(!sigoverflow || (c > 2));
+  // wr.imm_data = c + 3;  // NOTE: only sent when singaled == true
+  // Can pass an arbitrary value to receiver, consider for
+  // the consumed buffer
+  wr.wr.rdma.remote_addr =
+      reinterpret_cast<decltype(wr.wr.rdma.remote_addr)>(data);
+  wr.wr.rdma.rkey = (--reged_remote_mem.upper_bound(data))->second;
+
+  if (wr.send_flags & IBV_SEND_SIGNALED) reads = 0;
+
+  // LOG(INFO) << bytes << " " << buff << " " << data;
+  linux_run(send(wr));
+
+  eventlogger.log(this, IB_CREATE_RDMA_READ_END);
+  return &p.first;
 }
 
 void IBHandler::write(void *data, size_t bytes,
@@ -703,14 +832,38 @@ void IBHandler::disconnect() {
 void *IBHandler::reg(void *mem, size_t bytes) {
   LOG(INFO) << "reg: " << mem << "-" << ((void *)(((char *)mem) + bytes));
 
-  ibv_mr *mr = linux_run(ibv_reg_mr(
-      pd, mem, bytes, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE));
+  ibv_mr *mr =
+      linux_run(ibv_reg_mr(pd, mem, bytes,
+                           IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE |
+                               IBV_ACCESS_REMOTE_READ));
   assert(mr->addr == mem);
 
   {
     std::unique_lock<std::mutex> lock{m_reg};
     reged_mem.emplace(mem, mr);
   }
+
+  return mem;
+}
+
+void *IBHandler::reg2(void *mem, size_t bytes) {
+  LOG(INFO) << "reg2: " << mem << "-" << ((void *)(((char *)mem) + bytes));
+
+  ibv_mr *mr =
+      linux_run(ibv_reg_mr(pd, mem, bytes,
+                           IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE |
+                               IBV_ACCESS_REMOTE_READ));
+  assert(mr->addr == mem);
+
+  {
+    std::unique_lock<std::mutex> lock{m_reg};
+    reged_mem.emplace(mem, mr);
+  }
+
+  auto x = std::make_pair(mem, mr->rkey);
+  auto f = (decltype(&x))BlockManager::get_buffer();
+  *f = x;
+  send(f, sizeof(x), 13);
 
   return mem;
 }

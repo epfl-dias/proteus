@@ -68,7 +68,12 @@ void InfiniBandManager::write(void *data, size_t bytes) {
   ib->write(data, bytes);
 }
 
+subscription *InfiniBandManager::read(void *data, size_t bytes) {
+  return ib->read(data, bytes);
+}
+
 void InfiniBandManager::flush() { ib->flush(); }
+void InfiniBandManager::flush_read() { ib->flush_read(); }
 
 buffkey InfiniBandManager::get_buffer() { return ib->get_buffer(); }
 
@@ -138,7 +143,7 @@ void gid_to_wire_gid(const union ibv_gid *gid, char wgid[]) {
 }
 
 void *InfiniBandManager::reg(void *mem, size_t bytes) {
-  return ib->reg(mem, bytes);
+  return ib->reg2(mem, bytes);
 }
 
 void InfiniBandManager::unreg(void *mem) { ib->unreg(mem); }

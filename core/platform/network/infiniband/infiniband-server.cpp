@@ -200,7 +200,6 @@ class IBHandlerServer : public IBHandler {
   }
 };
 
-IBHandler *createServer(uint16_t port, bool ipv4,
-                        int cq_backlog = /* arbitrary */ cq_ack_backlog) {
+IBHandler *createServer(uint16_t port, bool ipv4, int cq_backlog) {
   return new IBHandlerServer(port, ipv4, cq_backlog);
 }
