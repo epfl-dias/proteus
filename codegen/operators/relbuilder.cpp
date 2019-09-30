@@ -222,15 +222,16 @@ PreparedStatement RelBuilder::prepare() {
 }
 
 RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
-                              std::optional<expression_t> hash, size_t fanout,
-                              size_t fanin, size_t slack, RoutingPolicy p,
-                              bool cpu_targets, int numa_socket_id) const {
+                              std::optional<expression_t> hash,
+                              DegreeOfParallelism fanout, size_t slack,
+                              RoutingPolicy p, DeviceType target,
+                              int numa_socket_id) const {
   assert((p == RoutingPolicy::HASH_BASED) == (hash.has_value()));
   assert((p == RoutingPolicy::RANDOM) == (!hash.has_value()));
   auto op = new Router(root, ctx, fanout, wantedFields, slack, hash,
-                       p == RoutingPolicy::GPU_NUMA_LOCAL,
-                       p == RoutingPolicy::RAND_LOCAL_CPU, fanin, cpu_targets,
-                       numa_socket_id);
+                       p == RoutingPolicy::LOCAL && target == DeviceType::GPU,
+                       p == RoutingPolicy::LOCAL && target == DeviceType::CPU,
+                       target == DeviceType::CPU, numa_socket_id);
   return apply(op);
 }
 

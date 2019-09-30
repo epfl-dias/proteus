@@ -33,9 +33,7 @@ void Split::produce() {
 
   catch_pip.push_back(context->operator->());
 
-  std::cout << produce_calls << " " << numOfParents << " oaisdajdhakjsdhajsdh"
-            << std::endl;
-  if (++produce_calls != numOfParents) return;
+  if (++produce_calls != fanout) return;
 
   context->popPipeline();
 
@@ -55,7 +53,7 @@ void Split::open(Pipeline *pip) {
 
   if (firers.empty()) {
     remaining_producers = producers;
-    for (int i = 0; i < numOfParents; ++i) {
+    for (int i = 0; i < fanout; ++i) {
       firers.emplace_back(&Split::fire, this, i, catch_pip[i]);
     }
   }

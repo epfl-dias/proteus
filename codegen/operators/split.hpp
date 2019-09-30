@@ -27,13 +27,14 @@
 
 class Split : public Router {
  public:
-  Split(Operator *const child, ParallelContext *const context, int numOfParents,
-        const vector<RecordAttribute *> &wantedFields, int slack,
-        std::optional<expression_t> hash = std::nullopt, bool numa_local = true,
-        bool rand_local_cpu = false)
-      : Router(child, context, numOfParents, wantedFields, slack, hash,
-               numa_local, rand_local_cpu, 1, true),
+  Split(Operator *const child, ParallelContext *const context,
+        size_t numOfParents, const vector<RecordAttribute *> &wantedFields,
+        int slack, std::optional<expression_t> hash = std::nullopt,
+        bool numa_local = true, bool rand_local_cpu = false)
+      : Router(child, context, DegreeOfParallelism{numOfParents}, wantedFields,
+               slack, hash, numa_local, rand_local_cpu, true),
         produce_calls(0) {
+    producers = 1;  // Set so that it does not get overwritten by Routers' cnstr
     assert(
         (!hash || !numa_local) &&
         "Just to make it more clear that hash has precedence over numa_local");
@@ -48,6 +49,8 @@ class Split : public Router {
 
     this->parent.emplace_back(parent);
   }
+
+  virtual DegreeOfParallelism getDOP() const { return getChild()->getDOP(); }
 
  protected:
   void open(Pipeline *pip);

@@ -757,15 +757,15 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     /*number of cpu partitions*/
     assert(val.HasMember("numOfBuckets"));
     assert(val["numOfBuckets"].IsInt());
-    int numOfBuckets = val["numOfBuckets"].GetInt();
+    size_t numOfBuckets = val["numOfBuckets"].GetInt();
     /*number of cpu threads in partitioning*/
     assert(val.HasMember("numPartitioners"));
     assert(val["numPartitioners"].IsInt());
-    int numPartitioners = val["numPartitioners"].GetInt();
+    size_t numPartitioners = val["numPartitioners"].GetInt();
     /*number of tasks running concurrently in join phase*/
     assert(val.HasMember("numConcurrent"));
     assert(val["numConcurrent"].IsInt());
-    int numConcurrent = val["numConcurrent"].GetInt();
+    size_t numConcurrent = val["numConcurrent"].GetInt();
 
     /*parameters for join buffers*/
     assert(val.HasMember("maxBuildInputSize"));
@@ -928,9 +928,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       probe_widths.push_back(w.GetInt());
     }
 
-    Router *xch_build =
-        new Router(build_op, (ParallelContext *)ctx, numPartitioners,
-                   build_attr_block, slack, std::nullopt, false, true);
+    Router *xch_build = new Router(
+        build_op, (ParallelContext *)ctx, DegreeOfParallelism{numPartitioners},
+        build_attr_block, slack, std::nullopt, false, true);
     build_op->setParent(xch_build);
     Operator *btt_build = new BlockToTuples(xch_build, (ParallelContext *)ctx,
                                             build_expr, false, gran_t::THREAD);
@@ -941,13 +941,13 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     btt_build->setParent(part_build);
     build_attr_block.push_back(build_hash_attr);
     Router *xch_build2 =
-        new Router(part_build, (ParallelContext *)ctx, 1, build_attr_block,
-                   slack, std::nullopt, true, false, numPartitioners);
+        new Router(part_build, (ParallelContext *)ctx, DegreeOfParallelism{1},
+                   build_attr_block, slack, std::nullopt, true, false);
     part_build->setParent(xch_build2);
 
-    Router *xch_probe =
-        new Router(probe_op, (ParallelContext *)ctx, numPartitioners,
-                   probe_attr_block, slack, std::nullopt, false, true);
+    Router *xch_probe = new Router(
+        probe_op, (ParallelContext *)ctx, DegreeOfParallelism{numPartitioners},
+        probe_attr_block, slack, std::nullopt, false, true);
     probe_op->setParent(xch_probe);
     Operator *btt_probe = new BlockToTuples(xch_probe, (ParallelContext *)ctx,
                                             probe_expr, false, gran_t::THREAD);
@@ -958,8 +958,8 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     btt_probe->setParent(part_probe);
     probe_attr_block.push_back(probe_hash_attr);
     Router *xch_probe2 =
-        new Router(part_probe, (ParallelContext *)ctx, 1, probe_attr_block,
-                   slack, std::nullopt, true, false, numPartitioners);
+        new Router(part_probe, (ParallelContext *)ctx, DegreeOfParallelism{1},
+                   probe_attr_block, slack, std::nullopt, true, false);
     part_probe->setParent(xch_probe2);
 
     RecordAttribute *attr_ptr =
@@ -1006,7 +1006,8 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     xch_build2->setParent(coord);
     xch_probe2->setParent(coord);
 
-    Router *xch_proc = new Router(coord, (ParallelContext *)ctx, numConcurrent,
+    Router *xch_proc = new Router(coord, (ParallelContext *)ctx,
+                                  DegreeOfParallelism{numConcurrent},
                                   f_atts_target_v, slack, expr_target, false);
     coord->setParent(xch_proc);
     ZipInitiate *initiator = new ZipInitiate(
@@ -2203,7 +2204,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
 
     assert(val.HasMember("numOfParents"));
     assert(val["numOfParents"].IsInt());
-    int numOfParents = val["numOfParents"].GetInt();
+    size_t numOfParents = val["numOfParents"].GetInt();
 
     int slack = 8;
     if (val.HasMember("slack")) {
@@ -2211,11 +2212,13 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       slack = val["slack"].GetInt();
     }
 
-    int producers = 1;
+#ifndef NDEBUG
     if (val.HasMember("producers")) {
       assert(val["producers"].IsInt());
-      producers = val["producers"].GetInt();
+      assert(childOp->getDOP() ==
+             DegreeOfParallelism{(size_t)val["producers"].GetInt()});
     }
+#endif
 
     bool numa_local = true;
     bool rand_local_cpu = false;
@@ -2254,9 +2257,10 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     }
 
     assert(dynamic_cast<ParallelContext *>(this->ctx));
-    newOp = new Router(childOp, ((ParallelContext *)this->ctx), numOfParents,
-                       projections, slack, hash, numa_local, rand_local_cpu,
-                       producers, cpu_targets, numa_socket_id);
+    newOp =
+        new Router(childOp, ((ParallelContext *)this->ctx),
+                   DegreeOfParallelism{numOfParents}, projections, slack, hash,
+                   numa_local, rand_local_cpu, cpu_targets, numa_socket_id);
     childOp->setParent(newOp);
   } else if (strcmp(opName, "union-all") == 0) {
     /* parse operator input */

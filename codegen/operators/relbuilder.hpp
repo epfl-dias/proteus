@@ -29,7 +29,7 @@
 #include "plan/prepared-statement.hpp"
 #include "util/parallel-context.hpp"
 
-enum class RoutingPolicy { RANDOM, GPU_NUMA_LOCAL, RAND_LOCAL_CPU, HASH_BASED };
+enum class RoutingPolicy { RANDOM, LOCAL, HASH_BASED };
 
 class CatalogParser;
 
@@ -116,11 +116,12 @@ class RelBuilder {
                        bool always_share = false) const;
 
   template <typename T, typename Thash>
-  RelBuilder router(T attr, Thash hash, size_t fanout, size_t fanin,
-                    size_t slack, RoutingPolicy p, bool cpu_targets = false,
+  RelBuilder router(T attr, Thash hash, DegreeOfParallelism fanout,
+                    size_t slack, RoutingPolicy p,
+                    DeviceType target = DeviceType::GPU,
                     int numa_socket_id = -1) const {
-    return router(attr(getOutputArg()), hash(getOutputArg()), fanout, fanin,
-                  slack, p, cpu_targets, numa_socket_id);
+    return router(attr(getOutputArg()), hash(getOutputArg()), fanout, slack, p,
+                  target, numa_socket_id);
   }
 
   RelBuilder to_gpu() const;
@@ -222,9 +223,9 @@ class RelBuilder {
   RelBuilder unnest(expression_t e) const;
 
   RelBuilder router(const vector<RecordAttribute*>& wantedFields,
-                    std::optional<expression_t> hash, size_t fanout,
-                    size_t fanin, size_t slack, RoutingPolicy p,
-                    bool cpu_targets, int numa_socket_id) const;
+                    std::optional<expression_t> hash,
+                    DegreeOfParallelism fanout, size_t slack, RoutingPolicy p,
+                    DeviceType target, int numa_socket_id) const;
 
   RelBuilder membrdcst(const vector<RecordAttribute*>& wantedFields,
                        size_t fanout, bool to_cpu,

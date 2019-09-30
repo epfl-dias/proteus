@@ -30,9 +30,12 @@ class UnionAll : public Router {
  public:
   UnionAll(vector<Operator *> &children, ParallelContext *const context,
            const vector<RecordAttribute *> &wantedFields)
-      : Router(nullptr, context, 1, wantedFields, 8, std::nullopt, false, false,
-               children.size(), true),
-        children(children) {}
+      : Router(children[0], context, DegreeOfParallelism{1}, wantedFields, 8,
+               std::nullopt, false, false, true),
+        children(children) {
+    setChild(nullptr);
+    producers = children.size();
+  }
 
   virtual ~UnionAll() { LOG(INFO) << "Collapsing UnionAll operator"; }
 
@@ -44,6 +47,16 @@ class UnionAll : public Router {
 
   // protected:
   //     virtual void generate_catch();
+
+  virtual DegreeOfParallelism getDOP() const {
+    auto dop = children[0]->getDOP();
+#ifdef NDEBUG
+    for (const auto &op : children) {
+      assert(dop == op->getDOP());
+    }
+#endif
+    return dop;
+  }
 
  private:
   vector<Operator *> children;

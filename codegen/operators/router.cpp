@@ -39,12 +39,8 @@ void Router::produce() {
   // push new pipeline for the throw part
   context->pushPipeline();
 
-  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
-    this->open(pip);
-  });
-  ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
-    this->close(pip);
-  });
+  context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
+  context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
   getChild()->produce();
 }
@@ -58,10 +54,6 @@ void Router::generate_catch() {
   // Builder->SetInsertPoint(context->getCurrentEntryBlock());
   Plugin *pg =
       Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
-
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
-  Type *int64Type = Type::getInt64Ty(llvmContext);
-  Type *ptr_t = PointerType::get(charPtrType, 0);
 
   const ExpressionType *ptoid = pg->getOIDType();
 
@@ -90,7 +82,7 @@ void Router::generate_catch() {
   params_type = StructType::get(llvmContext, param_typelist);
 
   size_t buf_size = context->getSizeOf(params_type);
-  for (int i = 0; i < numOfParents; ++i) {
+  for (int i = 0; i < fanout; ++i) {
     for (int j = 0; j < slack; ++j) {
       free_pool[i].push(malloc(buf_size));
     }
@@ -99,11 +91,10 @@ void Router::generate_catch() {
 
   // context->SetInsertPoint(insBB);
 
-  RecordAttribute tupleCnt =
-      RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt",
-                      pg->getOIDType());  // FIXME: OID type for blocks ?
-  RecordAttribute tupleIdentifier = RecordAttribute(
-      wantedFields[0]->getRelationName(), activeLoop, pg->getOIDType());
+  RecordAttribute tupleCnt(wantedFields[0]->getRelationName(), "activeCnt",
+                           pg->getOIDType());  // FIXME: OID type for blocks ?
+  RecordAttribute tupleIdentifier(wantedFields[0]->getRelationName(),
+                                  activeLoop, pg->getOIDType());
 
   // Generate catch code
   int p =
@@ -304,7 +295,7 @@ void Router::fire(int target, PipelineGen *pipGen) {
       // ++packets;
       nvtxRangePushA((pipGen->getName() + ":cons").c_str());
 
-      // if (numOfParents > 1){
+      // if (fanout > 1){
       //     int node;
       //     int r = move_pages(0, 1, (void **) p, nullptr, &node,
       //     MPOL_MF_MOVE); assert((target & 1) == node); assert((target & 1) ==
@@ -364,18 +355,13 @@ void Router::consume(Context *const context, const OperatorState &childState) {
 
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
 
-  const map<RecordAttribute, ProteusValueMemory> &activeVars =
-      childState.getBindings();
-
   Value *params = UndefValue::get(params_type);
 
   Plugin *pg =
       Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
-    auto it = activeVars.find(*(wantedFields[i]));
-    assert(it != activeVars.end());
-    ProteusValueMemory mem_valWrapper = it->second;
+    ProteusValueMemory mem_valWrapper = childState[*(wantedFields[i])];
 
     params = Builder->CreateInsertValue(
         params, Builder->CreateLoad(mem_valWrapper.mem), i);
@@ -392,20 +378,16 @@ void Router::consume(Context *const context, const OperatorState &childState) {
     target = hashExpr->accept(exprGenerator).value;
     retry = false;
   } else if (numa_local) {  // GPU local
-    auto it = activeVars.find(*(wantedFields[0]));
-    assert(it != activeVars.end());
     Function *getdev = context->getFunction("get_ptr_device_or_rand_for_host");
 
-    Value *ptr = Builder->CreateLoad(it->second.mem);
+    Value *ptr = Builder->CreateLoad(childState[*(wantedFields[0])].mem);
     ptr = Builder->CreateBitCast(ptr, charPtrType);
     target = Builder->CreateCall(getdev, vector<Value *>{ptr});
     retry = false;  // FIXME: Should we retry ?
   } else if (rand_local_cpu) {
-    auto it = activeVars.find(*(wantedFields[0]));
-    assert(it != activeVars.end());
     Function *getdev = context->getFunction("get_rand_core_local_to_ptr");
 
-    Value *ptr = Builder->CreateLoad(it->second.mem);
+    Value *ptr = Builder->CreateLoad(childState[*(wantedFields[0])].mem);
     ptr = Builder->CreateBitCast(ptr, charPtrType);
     target = Builder->CreateCall(getdev, vector<Value *>{ptr});
     retry = true;
@@ -415,31 +397,25 @@ void Router::consume(Context *const context, const OperatorState &childState) {
     retry = true;
   }
 
-  Value *numOfParentsV = ConstantInt::get((IntegerType *)target->getType(),
-                                          ((uint64_t)numOfParents));
+  Value *fanoutV =
+      ConstantInt::get((IntegerType *)target->getType(), ((uint64_t)fanout));
 
-  target = Builder->CreateURem(target, numOfParentsV);
+  target = Builder->CreateURem(target, fanoutV);
   target->setName("target");
   target = Builder->CreateTruncOrBitCast(target, Type::getInt32Ty(llvmContext));
 
-  RecordAttribute tupleIdentifier = RecordAttribute(
-      wantedFields[0]->getRelationName(), activeLoop, pg->getOIDType());
+  RecordAttribute tupleIdentifier(wantedFields[0]->getRelationName(),
+                                  activeLoop, pg->getOIDType());
 
-  auto it = activeVars.find(tupleIdentifier);
-  assert(it != activeVars.end());
-
-  ProteusValueMemory mem_oidWrapper = it->second;
+  ProteusValueMemory mem_oidWrapper = childState[tupleIdentifier];
   params = Builder->CreateInsertValue(
       params, Builder->CreateLoad(mem_oidWrapper.mem), wantedFields.size());
 
   if (need_cnt) {
-    RecordAttribute tupleCnt =
-        RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt",
-                        pg->getOIDType());  // FIXME: OID type for blocks ?
-    it = activeVars.find(tupleCnt);
-    assert(it != activeVars.end());
+    RecordAttribute tupleCnt(wantedFields[0]->getRelationName(), "activeCnt",
+                             pg->getOIDType());  // FIXME: OID type for blocks ?
 
-    ProteusValueMemory mem_cntWrapper = it->second;
+    ProteusValueMemory mem_cntWrapper = childState[tupleCnt];
     params = Builder->CreateInsertValue(params,
                                         Builder->CreateLoad(mem_cntWrapper.mem),
                                         wantedFields.size() + 1);
@@ -485,13 +461,13 @@ void Router::open(Pipeline *pip) {
   std::lock_guard<std::mutex> guard(init_mutex);
 
   if (firers.empty()) {
-    for (int i = 0; i < numOfParents; ++i) {
+    for (int i = 0; i < fanout; ++i) {
       ready_fifo[i].reset();
     }
 
     eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_START);
     remaining_producers = producers;
-    for (int i = 0; i < numOfParents; ++i) {
+    for (int i = 0; i < fanout; ++i) {
       firers.emplace_back(&Router::fire, this, i, catch_pip);
     }
     eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_END);
@@ -504,10 +480,10 @@ void Router::close(Pipeline *pip) {
   int rem = --remaining_producers;
   assert(rem >= 0);
 
-  // for (int i = 0 ; i < numOfParents ; ++i) ready_pool_cv[i].notify_all();
+  // for (int i = 0 ; i < fanout ; ++i) ready_pool_cv[i].notify_all();
 
   if (rem == 0) {
-    for (int i = 0; i < numOfParents; ++i) ready_fifo[i].close();
+    for (int i = 0; i < fanout; ++i) ready_fifo[i].close();
 
     eventlogger.log(this, log_op::EXCHANGE_JOIN_START);
     nvtxRangePushA("Exchange_waiting_to_close");

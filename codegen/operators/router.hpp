@@ -48,45 +48,46 @@ void freeBuffer(int target, Router *xch, void *buff);
 class Router : public UnaryOperator {
  public:
   Router(Operator *const child, ParallelContext *const context,
-         int numOfParents, const vector<RecordAttribute *> &wantedFields,
-         int slack, std::optional<expression_t> hash = std::nullopt,
-         bool numa_local = true, bool rand_local_cpu = false, int producers = 1,
+         DegreeOfParallelism numOfParents,
+         const vector<RecordAttribute *> &wantedFields, int slack,
+         std::optional<expression_t> hash = std::nullopt,
+         bool numa_local = true, bool rand_local_cpu = false,
          bool cpu_targets = false, int numa_socket_id = -1)
       : UnaryOperator(child),
-        context(context),
-        numOfParents(numOfParents),
         wantedFields(wantedFields),
         slack(slack),
+        fanout(numOfParents.dop),
+        producers(child->getDOP().dop),
+        remaining_producers(producers),
+        context(context),
         hashExpr(std::move(hash)),
         numa_local(numa_local),
         rand_local_cpu(rand_local_cpu),
-        producers(producers),
-        remaining_producers(producers),
         need_cnt(false) {
     assert(
-        (!hash || !numa_local) &&
+        (!hashExpr || !numa_local) &&
         "Just to make it more clear that hash has precedence over numa_local");
 
-    free_pool = new std::stack<void *>[numOfParents];
-    free_pool_mutex = new std::mutex[numOfParents];
-    free_pool_cv = new std::condition_variable[numOfParents];
+    free_pool = new std::stack<void *>[fanout];
+    free_pool_mutex = new std::mutex[fanout];
+    free_pool_cv = new std::condition_variable[fanout];
 
-    // ready_pool          = new std::queue<void *>     [numOfParents];
-    // ready_pool_mutex    = new std::mutex             [numOfParents];
-    // ready_pool_cv       = new std::condition_variable[numOfParents];
+    // ready_pool          = new std::queue<void *>     [fanout];
+    // ready_pool_mutex    = new std::mutex             [fanout];
+    // ready_pool_cv       = new std::condition_variable[fanout];
 
-    ready_fifo = new AsyncQueueMPSC<void *>[numOfParents];
+    ready_fifo = new AsyncQueueMPSC<void *>[fanout];
 
     if (cpu_targets) {
       const auto &vec = topology::getInstance().getCpuNumaNodes();
       if (numa_socket_id >= 0 && numa_socket_id < vec.size()) {
         const auto &numaSocket = vec[numa_socket_id];
-        for (int i = 0; i < numOfParents; ++i) {
+        for (size_t i = 0; i < fanout; ++i) {
           target_processors.emplace_back(numaSocket);
         }
 
       } else {
-        for (int i = 0; i < numOfParents; ++i) {
+        for (size_t i = 0; i < fanout; ++i) {
           target_processors.emplace_back(vec[i % vec.size()]);
         }
       }
@@ -96,7 +97,7 @@ class Router : public UnaryOperator {
              "Are you using an outdated plan?");
       const auto &vec = topology::getInstance().getGpus();
 
-      for (int i = 0; i < numOfParents; ++i) {
+      for (size_t i = 0; i < fanout; ++i) {
         target_processors.emplace_back(vec[i % vec.size()]);
       }
     }
@@ -109,6 +110,9 @@ class Router : public UnaryOperator {
   virtual bool isFiltering() const { return false; }
 
   virtual RecordType getRowType() const { return wantedFields; }
+  virtual DegreeOfParallelism getDOP() const {
+    return DegreeOfParallelism{fanout};
+  }
 
  protected:
   virtual void generate_catch();
@@ -126,6 +130,11 @@ class Router : public UnaryOperator {
   friend void releaseBuffer(int target, Router *xch, void *buff);
   friend void freeBuffer(int target, Router *xch, void *buff);
 
+  inline void setProducers(int producers) {
+    this->producers = producers;
+    remaining_producers = producers;
+  }
+
  protected:
   void open(Pipeline *pip);
   void close(Pipeline *pip);
@@ -133,7 +142,7 @@ class Router : public UnaryOperator {
   const vector<RecordAttribute *> wantedFields;
 
   const int slack;
-  const int numOfParents;
+  const size_t fanout;
   int producers;
   std::atomic<int> remaining_producers;
   ParallelContext *const context;

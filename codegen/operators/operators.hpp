@@ -36,6 +36,18 @@ class OperatorState;
 
 enum class DeviceType { CPU, GPU };
 
+class DegreeOfParallelism {
+ private:
+  size_t dop;
+
+  friend class Router;
+
+ public:
+  explicit DegreeOfParallelism(size_t dop) : dop(dop) {}
+
+  inline bool operator==(const DegreeOfParallelism &o) { return dop == o.dop; }
+};
+
 class Operator {
  public:
   Operator() : parent(nullptr) {}
@@ -68,6 +80,7 @@ class Operator {
   virtual bool isFiltering() const = 0;
 
   virtual DeviceType getDeviceType() const = 0;
+  virtual DegreeOfParallelism getDOP() const = 0;
 
  private:
   Operator *parent;
@@ -84,6 +97,8 @@ class UnaryOperator : public Operator {
   virtual DeviceType getDeviceType() const {
     return getChild()->getDeviceType();
   }
+
+  virtual DegreeOfParallelism getDOP() const { return getChild()->getDOP(); }
 
  private:
   Operator *child;
@@ -106,6 +121,12 @@ class BinaryOperator : public Operator {
     auto dev = getLeftChild()->getDeviceType();
     assert(dev == getRightChild()->getDeviceType());
     return dev;
+  }
+
+  virtual DegreeOfParallelism getDOP() const {
+    auto dop = getLeftChild()->getDOP();
+    assert(dop == getRightChild()->getDOP());
+    return dop;
   }
 
  protected:

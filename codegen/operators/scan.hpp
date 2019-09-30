@@ -45,6 +45,7 @@ class Scan : public UnaryOperator {
   virtual RecordType getRowType() const;
 
   virtual DeviceType getDeviceType() const { return DeviceType::CPU; }
+  virtual DegreeOfParallelism getDOP() const { return DegreeOfParallelism{1}; }
 
  private:
   Context *const __attribute__((unused)) context;
