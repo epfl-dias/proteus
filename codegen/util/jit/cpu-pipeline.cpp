@@ -111,6 +111,13 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
                        "make_mem_move_device", getModule());
   registerFunction("make_mem_move_device", fmake_mem_move_device);
 
+  FunctionType *MemMoveConf_pull = FunctionType::get(
+      charPtrType, std::vector<Type *>{charPtrType, charPtrType}, false);
+  Function *fMemMoveConf_pull =
+      Function::Create(MemMoveConf_pull, Function::ExternalLinkage,
+                       "MemMoveConf_pull", getModule());
+  registerFunction("MemMoveConf_pull", fMemMoveConf_pull);
+
   FunctionType *make_mem_move_broadcast_device =
       FunctionType::get(pair_type,
                         std::vector<Type *>{charPtrType, size_type, int32_type,

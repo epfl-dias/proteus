@@ -31,18 +31,23 @@
 #include "topology/affinity_manager.hpp"
 #include "util/async_containers.hpp"
 
-// void * make_mem_move_device(char * src, size_t bytes, int target_device,
-// cudaStream_t strm);
+struct buff_pair {
+  void *new_buff;
+  void *old_buff;
+
+  static buff_pair not_moved(void *buff);
+};
 
 class MemMoveDevice : public UnaryOperator {
  public:
   struct workunit {
     void *data;
     cudaEvent_t event;
-    cudaStream_t strm;
+    // cudaStream_t strm;
   };
 
-  struct MemMoveConf {
+  class MemMoveConf {
+   public:
     AsyncQueueSPSC<workunit *>
         idle;  //_lockfree is slower and seems to have a bug
     AsyncQueueSPSC<workunit *> tran;
@@ -58,9 +63,22 @@ class MemMoveDevice : public UnaryOperator {
     // cudaEvent_t               * events   ;
     // void                     ** old_buffs;
     size_t next_e;
+    size_t cnt = 0;
 
     void *data_buffs;
     workunit *wus;
+
+   public:
+    virtual ~MemMoveConf() = default;
+
+    virtual MemMoveDevice::workunit *acquire();
+    virtual void propagate(MemMoveDevice::workunit *buff, bool is_noop);
+
+    virtual buff_pair push(void *src, size_t bytes, int target_device);
+    virtual void *pull(void *buff) { return buff; }
+
+    virtual bool getPropagated(MemMoveDevice::workunit **ret);
+    virtual void release(MemMoveDevice::workunit *buff);
   };
 
   MemMoveDevice(Operator *const child, ParallelContext *const context,
@@ -80,7 +98,10 @@ class MemMoveDevice : public UnaryOperator {
 
   virtual RecordType getRowType() const { return wantedFields; }
 
- private:
+ protected:
+  virtual MemMoveConf *createMoveConf() const;
+  virtual void destroyMoveConf(MemMoveConf *mmc) const;
+
   ParallelContext *const context;
 
   const vector<RecordAttribute *> wantedFields;
@@ -93,10 +114,11 @@ class MemMoveDevice : public UnaryOperator {
   size_t slack;
   bool to_cpu;
 
-  void open(Pipeline *pip);
-  void close(Pipeline *pip);
-
   void catcher(MemMoveConf *conf, int group_id, exec_location target_dev);
+
+ protected:
+  virtual void open(Pipeline *pip);
+  virtual void close(Pipeline *pip);
 };
 
 #endif /* MEM_MOVE_DEVICE_HPP_ */

@@ -30,76 +30,37 @@
 #include "threadpool/threadpool.hpp"
 #include "util/logging.hpp"
 
-struct buff_pair {
-  char *new_buff;
-  char *old_buff;
-};
+buff_pair buff_pair::not_moved(void *buff) { return {buff, buff}; }
 
-extern "C" {
-buff_pair make_mem_move_device(char *src, size_t bytes, int target_device,
-                               MemMoveDevice::MemMoveConf *mmc) {
+buff_pair MemMoveDevice::MemMoveConf::push(void *src, size_t bytes,
+                                           int target_device) {
   const auto *d = topology::getInstance().getGpuAddressed(src);
   int dev = d ? d->id : -1;
 
-  if (dev == target_device)
-    return buff_pair{src, src};  // block already in correct device
-
-  // set_device_on_scope d(dev);
-
-  // if (dev >= 0) set_affinity_local_to_gpu(dev);
+  if (dev == target_device) {
+    return buff_pair::not_moved(src);  // block in correct device
+  }
 
   assert(bytes <=
          BlockManager::block_size);  // FIMXE: buffer manager should be able
                                      // to provide blocks of arbitary size
-  // std::cout << "MemMoveTarget: " << target_device << std::endl;
   char *buff = (char *)BlockManager::h_get_buffer(target_device);
 
-  // int numa_target = numa_node_of_gpu(target_device);
-  // if (dev >= 0 && (numa_node_of_gpu(dev) != numa_target)){
-  //     set_device_on_scope d(dev);
-
-  //     if (dev >= 0) set_affinity_local_to_gpu(dev);
-
-  //     size_t curr_e  = mmc->next_e;
-  //     cudaEvent_t e  = mmc->events   [curr_e];
-  //     void * old_ptr = mmc->old_buffs[curr_e];
-  //     // mmc->old_buffs[curr_e] = nullptr;
-
-  //     if (old_ptr) buffer-manager<int32_t>::release_buffer((int32_t *)
-  //     old_ptr); //FIXME: cannot release it yet!
-  //     gpu_run(cudaEventSynchronize(e));
-  //     mmc->next_e = (curr_e + 1) % mmc->slack;
-
-  //     char * interbuff = (char *)
-  //     buffer-manager<int32_t>::get_buffer_numa(numa_target);
-  //     mmc->old_buffs[curr_e] = src;
-
-  //     buffer-manager<int32_t>::overwrite_bytes(interbuff, src, bytes,
-  //     mmc->strm2, false); gpu_run(cudaEventRecord(e, mmc->strm2)); src =
-  //     interbuff;
-
-  //     gpu_run(cudaStreamWaitEvent(mmc->strm, e, 0));
-  // }
-
   if (bytes > 0) {
-    BlockManager::overwrite_bytes(buff, src, bytes, mmc->strm, false);
+    BlockManager::overwrite_bytes(buff, src, bytes, strm, false);
   }
-  // assert(bytes == sizeof(int32_t) * h_vector_size);
-  // std::cout << bytes << " " << sizeof(int32_t) * h_vector_size << std::endl;
-  // cudaStream_t strm;
-  // gpu_run(cudaStreamCreate(&(wu->strm)));
-  // gpu_run(cudaMemcpyAsync(buff, src, bytes, cudaMemcpyDefault, wu->strm));
-  // gpu_run(cudaMemcpyAsync(buff2, buff, bytes, cudaMemcpyDefault, wu->strm));
-  // std::cout << "alloc" << (void *) buff2 << std::endl;
-
-  // gpu_run(cudaMemcpy(buff, src, bytes, cudaMemcpyDefault));
-  // buffer-manager<int32_t>::overwrite_bytes(buff, src, bytes, wu->strm,
-  // false); buffer-manager<int32_t>::overwrite_bytes(buff2, buff, bytes,
-  // wu->strm, false); gpu_run(cudaStreamSynchronize(mmc->strm));
-  // gpu_run(cudaStreamSynchronize(wu->strm));
-  // buffer-manager<int32_t>::release_buffer ((int32_t *) src );
 
   return buff_pair{buff, src};
+}
+
+extern "C" {
+buff_pair make_mem_move_device(char *src, size_t bytes, int target_device,
+                               MemMoveDevice::MemMoveConf *mmc) {
+  return mmc->push(src, bytes, target_device);
+}
+
+void *MemMoveConf_pull(void *buff, MemMoveDevice::MemMoveConf *mmc) {
+  return mmc->pull(buff);
 }
 }
 
@@ -353,6 +314,16 @@ void MemMoveDevice::consume(Context *const context,
       propagate, std::vector<llvm::Value *>{memmv, workunit_ptr8, is_noop});
 }
 
+MemMoveDevice::MemMoveConf *MemMoveDevice::createMoveConf() const {
+  void *pmmc = MemoryManager::mallocPinned(sizeof(MemMoveConf));
+  return new (pmmc) MemMoveConf;
+}
+
+void MemMoveDevice::destroyMoveConf(MemMoveDevice::MemMoveConf *mmc) const {
+  mmc->~MemMoveConf();
+  MemoryManager::freePinned(mmc);
+}
+
 void MemMoveDevice::open(Pipeline *pip) {
   workunit *wu =
       (workunit *)MemoryManager::mallocPinned(sizeof(workunit) * slack);
@@ -366,8 +337,7 @@ void MemMoveDevice::open(Pipeline *pip) {
   eventlogger.log(this, log_op::MEMMOVE_OPEN_START);
   size_t data_size = (pip->getSizeOf(data_type) + 16 - 1) & ~((size_t)0xF);
 
-  void *pmmc = MemoryManager::mallocPinned(sizeof(MemMoveConf));
-  MemMoveConf *mmc = new (pmmc) MemMoveConf;
+  MemMoveConf *mmc = createMoveConf();
 
   eventlogger.log(this, log_op::MEMMOVE_OPEN_END);
 #ifndef NCUDA
@@ -487,74 +457,55 @@ void MemMoveDevice::close(Pipeline *pip) {
 
   // delete mmc->worker;
   // delete mmc;
-  mmc->~MemMoveConf();
-  MemoryManager::freePinned(mmc);
+  destroyMoveConf(mmc);
   eventlogger.log(this, log_op::MEMMOVE_CLOSE_CLEAN_UP_END);
 }
 
-extern "C" {
-MemMoveDevice::workunit *acquireWorkUnit(MemMoveDevice::MemMoveConf *mmc) {
+void MemMoveDevice::MemMoveConf::propagate(MemMoveDevice::workunit *buff,
+                                           bool is_noop) {
+  if (!is_noop) gpu_run(cudaEventRecord(buff->event, strm));
+
+  tran.push(buff);
+}
+
+MemMoveDevice::workunit *MemMoveDevice::MemMoveConf::acquire() {
   MemMoveDevice::workunit *ret = nullptr;
 #ifndef NDEBUG
   bool popres =
 #endif
-      mmc->idle.pop(ret);
+      idle.pop(ret);
   assert(popres);
   return ret;
 }
 
+bool MemMoveDevice::MemMoveConf::getPropagated(MemMoveDevice::workunit **ret) {
+  if (!tran.pop(*ret)) return false;
+  gpu_run(cudaEventSynchronize((*ret)->event));
+  return true;
+}
+
+void MemMoveDevice::MemMoveConf::release(MemMoveDevice::workunit *buff) {
+  idle.push(buff);
+}
+
+extern "C" {
+MemMoveDevice::workunit *acquireWorkUnit(MemMoveDevice::MemMoveConf *mmc) {
+  return mmc->acquire();
+}
+
 void propagateWorkUnit(MemMoveDevice::MemMoveConf *mmc,
                        MemMoveDevice::workunit *buff, bool is_noop) {
-  // if (!is_noop)
-  // gpu_run(cudaEventRecord(buff->event, mmc->strm));
-  // gpu_run(cudaEventDestroy(buff->event));
-  // gpu_run(cudaEventCreate(&(buff->event)));
-  // gpu_run(cudaEventRecord(buff->event, mmc->strm));
-  // gpu_run(cudaStreamSynchronize(mmc->strm));
-  // std::cout << (void *) buff->event << " " << (void *) mmc->strm <<
-  // std::endl;
-  // std::cout << "rec" << (void *) buff->event << std::endl;
-
-  // gpu_run(cudaEventSynchronize(buff->event));
-  // gpu_run(cudaEventDestroy(buff->event));
-  // gpu_run(cudaEventRecord(buff->event, mmc->strm));
-  // gpu_run(cudaEventSynchronize(buff->event));
-  // gpu_run(cudaEventSynchronize(buff->event));
-  // gpu_run(cudaEventRecord(buff->event, mmc->strm));
-  // gpu_run(cudaStreamWaitEvent(buff->strm, buff->event, 0));
-  // std::cout << "asdasdasD" << __rdtsc() << " " << (void *) buff->event <<
-  // std::endl; gpu_run(cudaStreamSynchronize(buff->strm));
-  // gpu_run(cudaStreamSynchronize(buff->strm));
-  // gpu_run(cudaStreamSynchronize(buff->strm));
-  // gpu_run(cudaStreamDestroy(buff->strm));
-  if (!is_noop) gpu_run(cudaEventRecord(buff->event, mmc->strm));
-
-  mmc->tran.push(buff);
+  mmc->propagate(buff, is_noop);
 }
 
 bool acquirePendingWorkUnit(MemMoveDevice::MemMoveConf *mmc,
                             MemMoveDevice::workunit **ret) {
-  if (!mmc->tran.pop(*ret)) return false;
-  gpu_run(cudaEventSynchronize((*ret)->event));
-  // gpu_run(cudaStreamSynchronize((*ret)->strm));
-  // gpu_run(cudaStreamDestroy((*ret)->strm));
-  // gpu_run(cudaStreamSynchronize((*ret)->strm));
-  // gpu_run(cudaEventSynchronize((*ret)->event));
-  // gpu_run(cudaEventDestroy((*ret)->event));
-  // gpu_run(cudaStreamSynchronize((*ret)->strm));
-  // gpu_run(cudaStreamSynchronize((*ret)->strm));
-  // gpu_run(cudaEventRecord((*ret)->event, mmc->strm));
-  // gpu_run(cudaStreamWaitEvent((*ret)->strm, (*ret)->event, 0));
-  // gpu_run(cudaStreamSynchronize((*ret)->strm));
-  // std::cout << "asdasdasD" << __rdtsc() << " " << (void *) (*ret)->event <<
-  // std::endl; gpu_run(cudaStreamSynchronize(mmc->strm)); std::cout <<
-  // "asdasdasD" << __rdtsc() << " " << (void *) (*ret)->event << std::endl;
-  return true;
+  return mmc->getPropagated(ret);
 }
 
 void releaseWorkUnit(MemMoveDevice::MemMoveConf *mmc,
                      MemMoveDevice::workunit *buff) {
-  mmc->idle.push(buff);
+  mmc->release(buff);
 }
 }
 
@@ -575,35 +526,17 @@ void MemMoveDevice::catcher(MemMoveConf *mmc, int group_id,
   {
     do {
       MemMoveDevice::workunit *p = nullptr;
-      // eventlogger.log(this, log_op::MEMMOVE_CONSUME_WAIT_START);
-      if (!acquirePendingWorkUnit(mmc, &p)) break;
-      // eventlogger.log(this, log_op::MEMMOVE_CONSUME_WAIT_END  );
-      // ++cnt;
-      // std::cout << (void *) p->event << " " << (void *) mmc->strm <<
-      // std::endl; gpu_run(cudaStreamSynchronize(mmc->strm));
+      if (!mmc->getPropagated(&p)) break;
+      for (size_t i = 0; i < wantedFields.size(); ++i) {
+        ((void **)(p->data))[i * 2] =
+            MemMoveConf_pull(((void **)(p->data))[i * 2], mmc);
+      }
+
       nvtxRangePushA("memmove::catch_cons");
-      // N += ((int64_t *) p->data)[2];
-      // std::cout << *((void **) p->data) << " " << get_device(*((void **)
-      // p->data)) << " Started.............................." << std::endl;
-      // size_t x = ((int64_t *) p->data)[2];
-      // int32_t k = 0;
-      // for (size_t i = 0 ; i < x ; ++i){
-      //     k += ((int32_t **) p->data)[1][i];
-      // }
-      // sum2 += k;
-      // std::cout << "s" << ((int32_t **) p->data)[0] << " " << k << std::endl;
-      // eventlogger.log(this, log_op::MEMMOVE_CONSUME_START);
       pip->consume(0, p->data);
-      // eventlogger.log(this, log_op::MEMMOVE_CONSUME_END);
-      // // size_t x = ((int64_t *) p->data)[2];
-      // for (size_t i = 0 ; i < x ; ++i){
-      //     sum += ((int32_t **) p->data)[1][i];
-      // }
-      // std::cout << *((void **) p->data) << " " << get_device(*((void **)
-      // p->data)) << " Finished............................." << std::endl;
       nvtxRangePop();
 
-      releaseWorkUnit(mmc, p);  // FIXME: move this inside the generated code
+      mmc->release(p);  // FIXME: move this inside the generated code
     } while (true);
   }
 
