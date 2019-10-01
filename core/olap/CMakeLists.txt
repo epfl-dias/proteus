@@ -59,6 +59,7 @@ set(olap_cxx
         operators/mem-broadcast-device.cpp
         operators/mem-move-device.cpp
         operators/mem-move-local-to.cpp
+        operators/mem-move-scaleout.cpp
         operators/block-to-tuples.cpp
         operators/gpu/gpu-hash-rearrange.cpp
         operators/gpu/gpu-partitioned-hash-join-chained.cpp
