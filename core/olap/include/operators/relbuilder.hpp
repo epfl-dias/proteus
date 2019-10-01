@@ -175,6 +175,13 @@ class RelBuilder {
 
   [[nodiscard]] RelBuilder memmove(size_t slack, DeviceType to) const;
 
+  [[nodiscard]] RelBuilder memmove_scaleout(size_t slack) const;
+
+  template <typename T>
+  RelBuilder memmove_scaleout(T attr, size_t slack) const {
+    return memmove_scaleout(attr(getOutputArg()), slack);
+  }
+
   template <typename T>
   RelBuilder membrdcst(T attr, DegreeOfParallelism fanout, bool to_cpu,
                        bool always_share = false) const {
@@ -376,6 +383,9 @@ class RelBuilder {
  private:
   [[nodiscard]] RelBuilder memmove(const vector<RecordAttribute*>& wantedFields,
                                    size_t slack, DeviceType to) const;
+
+  [[nodiscard]] RelBuilder memmove_scaleout(
+      const vector<RecordAttribute*>& wantedFields, size_t slack) const;
 
   RelBuilder to_gpu(const vector<RecordAttribute*>& wantedFields) const;
 

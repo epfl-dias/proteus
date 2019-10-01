@@ -32,6 +32,7 @@
 #include <util/flush-operator-tree.hpp>
 
 #include "hash-join-chained-morsel.hpp"
+#include "mem-move-scaleout.hpp"
 #include "operators/block-to-tuples.hpp"
 #include "operators/cpu-to-gpu.hpp"
 #include "operators/flush.hpp"
@@ -133,6 +134,15 @@ RelBuilder RelBuilder::memmove(const vector<RecordAttribute *> &wantedFields,
   return apply(op);
 }
 
+RelBuilder RelBuilder::memmove_scaleout(
+    const vector<RecordAttribute *> &wantedFields, size_t slack) const {
+  for (const auto &attr : wantedFields) {
+    assert(dynamic_cast<const BlockType *>(attr->getOriginalType()));
+  }
+  auto op = new MemMoveScaleOut(root, ctx, wantedFields, slack);
+  return apply(op);
+}
+
 RelBuilder RelBuilder::membrdcst(const vector<RecordAttribute *> &wantedFields,
                                  DegreeOfParallelism fanout, bool to_cpu,
                                  bool always_share) const {
@@ -169,6 +179,21 @@ RelBuilder RelBuilder::memmove(size_t slack, DeviceType to) const {
   }
   assert(!ret.empty());
   return memmove(ret, slack, to);
+}
+
+RelBuilder RelBuilder::memmove_scaleout(size_t slack) const {
+  return memmove_scaleout(
+      [&](const auto &arg) -> std::vector<RecordAttribute *> {
+        std::vector<RecordAttribute *> ret;
+        for (const auto &attr : arg.getProjections()) {
+          if (dynamic_cast<const BlockType *>(attr.getOriginalType())) {
+            ret.emplace_back(new RecordAttribute{attr});
+          }
+        }
+        assert(ret.size() != 0);
+        return ret;
+      },
+      slack);
 }
 
 RelBuilder RelBuilder::to_gpu() const {
