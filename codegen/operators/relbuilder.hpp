@@ -124,6 +124,32 @@ class RelBuilder {
                   target, numa_socket_id);
   }
 
+  template <typename Thash>
+  RelBuilder router(Thash hash, DegreeOfParallelism fanout, size_t slack,
+                    RoutingPolicy p, DeviceType target = DeviceType::GPU,
+                    int numa_socket_id = -1) const {
+    return router(
+        [&](const auto& arg) -> std::vector<RecordAttribute*> {
+          std::vector<RecordAttribute*> attrs;
+          for (const auto& attr : arg.getProjections()) {
+            attrs.emplace_back(new RecordAttribute{attr});
+          }
+          return attrs;
+        },
+        hash, fanout, slack, p, target, numa_socket_id);
+  }
+
+  RelBuilder router(DegreeOfParallelism fanout, size_t slack, RoutingPolicy p,
+                    DeviceType target = DeviceType::GPU,
+                    int numa_socket_id = -1) const {
+    assert(p != RoutingPolicy::HASH_BASED);
+    return router(
+        [&](const auto& arg) -> std::optional<expression_t> {
+          return std::nullopt;
+        },
+        fanout, slack, p, target, numa_socket_id);
+  }
+
   RelBuilder to_gpu() const;
 
   template <typename T>
@@ -143,6 +169,16 @@ class RelBuilder {
   template <typename T>
   RelBuilder unpack(T expr) const {
     return unpack(expr(getOutputArgUnnested()));
+  }
+
+  RelBuilder unpack() const {
+    return unpack([&](const auto& arg) -> std::vector<expression_t> {
+      std::vector<expression_t> attrs;
+      for (const auto& attr : arg.getProjections()) {
+        attrs.emplace_back(arg[attr]);
+      }
+      return attrs;
+    });
   }
 
   template <typename T>
