@@ -38,6 +38,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 
+#define BIT_PACK_SIZE 1024
+
 namespace storage {
 
 class Column;
@@ -83,6 +85,7 @@ class ColumnStore : public Table {
 
   // global_conf::mv_version_list *getVersions(uint64_t vid);
 
+  void sync_master_snapshots(ushort master_ver_idx);
   void snapshot(uint64_t epoch, uint8_t snapshot_master_ver);
   void num_upd_tuples();
   const std::vector<Column *> &getColumns() { return columns; }
@@ -117,7 +120,7 @@ class Column {
   void *getElem(uint64_t vid);
   void touchElem(uint64_t vid);
   void getElem(uint64_t vid, void *copy_location);
-
+  void updateElem(uint64_t vid, void *elem);
   void insertElem(uint64_t vid, void *elem);
   void *insertElem(uint64_t vid);
   void *insertElemBatch(uint64_t vid, uint64_t num_elem);
@@ -127,7 +130,8 @@ class Column {
   // void updateElem(uint64_t offset, void *elem, ushort master_ver);
   // void deleteElem(uint64_t offset, ushort master_ver);
 
-  void snapshot(uint64_t num_records, uint64_t epoch,
+  void sync_master_snapshots(ushort master_ver_idx);
+  void snapshot(const uint64_t *n_recs_part, uint64_t epoch,
                 uint8_t snapshot_master_ver);
 
   uint64_t load_from_binary(std::string file_path);
@@ -153,6 +157,7 @@ class Column {
 
  private:
   uint num_partitions;
+  bool touched;
 
   size_t total_mem_reserved;
   size_t size_per_part;
@@ -162,8 +167,12 @@ class Column {
   std::vector<mem_chunk> master_versions[global_conf::num_master_versions]
                                         [NUM_SOCKETS];
 
+  std::vector<std::bitset<BIT_PACK_SIZE>>
+      upd_bit_masks[global_conf::num_master_versions][NUM_SOCKETS];
+
   // Insert snapshotting manager here.
-  // std::vector<decltype(global_conf::SnapshotManager::create(0))> arena;
+  std::vector<decltype(global_conf::SnapshotManager::create(0))>
+      snapshot_arenas[global_conf::num_master_versions][NUM_SOCKETS];
 
   friend class ColumnStore;
 };

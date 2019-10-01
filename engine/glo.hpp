@@ -27,9 +27,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "indexes/hash_array.hpp"
 #include "indexes/hash_index.hpp"
+#include "snapshot/arena.hpp"
+#include "snapshot/snapshot_manager.hpp"
 #include "transactions/cc.hpp"
-//#include "snapshot/arena.hpp"
-//#include "snapshot/snapshot_manager.hpp"
 
 #include "scheduler/topology.hpp"
 
@@ -38,9 +38,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #define DEFAULT_MEM_NUMA_SOCKET 0
 
-#define HTAP_DOUBLE_MASTER false
-#define HTAP_COW true
-#define HTAP_UPD_BIT_MASK false
+#define HTAP_DOUBLE_MASTER true
+#define HTAP_COW false
 
 // Memory Allocators
 #define HTAP_RM_SERVER false
@@ -73,7 +72,7 @@ extern uint g_delta_size;
 
 namespace global_conf {
 
-// using SnapshotManager = aeolus::snapshot::SnapshotManager;
+using SnapshotManager = aeolus::snapshot::SnapshotManager;
 
 using ConcurrencyControl = txn::CC_MV2PL;  // CC_GlobalLock;
 using IndexVal = ConcurrencyControl::PRIMARY_INDEX_VAL;
@@ -98,7 +97,7 @@ using PrimaryIndex = indexes::HashArray<T_KEY>;
 // const uint time_master_switch_ms = 200;
 
 /* # of Snapshots*/
-const short num_master_versions = 1;
+const short num_master_versions = 2;
 const short num_delta_storages = 2;
 
 }  // namespace global_conf

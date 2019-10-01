@@ -24,21 +24,26 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include <cassert>
 #include <fstream>
+#include <future>
 #include <iostream>
 #include <mutex>
 #include <string>
 
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
+#include "scheduler/threadpool.hpp"
 #include "scheduler/worker.hpp"
 #include "storage/column_store.hpp"
 #include "storage/delta_storage.hpp"
 #include "storage/row_store.hpp"
 
+#include "codegen/util/timing.hpp"
+
 #if HTAP_DOUBLE_MASTER
 #include "codegen/memory/memory-manager.hpp"
 #include "codegen/topology/affinity_manager.hpp"
 #include "codegen/topology/topology.hpp"
+
 #endif
 
 /*
@@ -51,9 +56,62 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 namespace storage {
 
 void Schema::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
+  // check if prev sync is in progress, if yes, wait for that too complete.
+  std::cout << "------------------------" << std::endl;
+  std::cout << "epoch: " << epoch << std::endl;
+
+  if (snapshot_sync_in_progress.load()) {
+    std::cout << "Already in progress: " << epoch << std::endl;
+    // snapshot_sync.get();
+    while (snapshot_sync_in_progress.load())
+      ;
+    std::cout << "Done - snap_mver: " << (uint)snapshot_master_ver << std::endl;
+  }
+
   for (auto& tbl : tables) {
     tbl->snapshot(epoch, snapshot_master_ver);
   }
+
+#if HTAP_DOUBLE_MASTER
+  // start an async task (threadpool) to sync master..
+
+  this->snapshot_sync = scheduler::ThreadPool::getInstance().enqueue(
+      &Schema::sync_master_ver_schema, this, snapshot_master_ver);
+
+#endif
+}
+
+bool Schema::sync_master_ver_schema(const uint8_t snapshot_master_ver) {
+  // add arg: const scheduler::cpunumanode &exec_numanode
+  snapshot_sync_in_progress.store(true);
+  time_block t("TsyncMasterVersions_: ");
+  std::vector<std::future<bool>> sync_tasks;  // pre-allocation
+  sync_tasks.reserve(50);
+
+  // start
+  for (auto& tbl : tables) {
+    sync_tasks.emplace_back(scheduler::ThreadPool::getInstance().enqueue(
+        &Schema::sync_master_ver_tbl, this, tbl, snapshot_master_ver));
+  }
+
+  // wait for finish
+  for (auto& task : sync_tasks) {
+    task.get();
+  }
+  this->snapshot_sync_in_progress.store(false);
+  return true;
+}
+
+bool Schema::sync_master_ver_tbl(const storage::Table* tbl,
+                                 const uint8_t snapshot_master_ver) {
+  // TODO: set exec location
+  // add arg: const scheduler::cpunumanode &exec_numanode
+
+  // sync
+  assert(tbl->storage_layout == COLUMN_STORE);
+  ((storage::ColumnStore*)tbl)->sync_master_snapshots(snapshot_master_ver);
+
+  return true;
 }
 
 void Schema::report() {

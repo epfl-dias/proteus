@@ -25,6 +25,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include <assert.h>
 
+#include <future>
 #include <iostream>
 #include <map>
 #include <stdexcept>
@@ -50,6 +51,48 @@ class DeltaStore;
 enum layout_type { ROW_STORE, COLUMN_STORE };
 
 enum data_type { META, INTEGER, STRING, FLOAT, VARCHAR, DATE };
+
+// template <uint8_t T>
+// class BitMask_T {
+//   // unsigned char b1 : 1;
+//   // unsigned char b2 : 1;
+//   // unsigned char b3 : 1;
+//   // unsigned char b4 : 1;
+//   // unsigned char b5 : 1;
+//   // unsigned char b6 : 1;
+//   // unsigned char b7 : 1;
+//   // unsigned char b8 : 1;
+
+//  private:
+//   unsigned char bt_msk[T];
+//   inline void updBit(ushort p, ushort b) {
+//     int mask = 1 << p;
+
+//     ushort offset = T % p;
+
+//     bt_msk[offset] = (bt_msk[offset] & ~mask) | ((b << p) & mask);
+//   }
+
+//  public:
+//   BitMask_T() { clearAll(); }
+
+//   inline void setBit(ushort pos) { updBit(pos, 1); }
+
+//   inline void clearBit(ushort pos) { updBit(pos, 0); }
+
+//   inline void setAll() {
+//     for (ushort i = 0; i < T; i++) bt_msk[i] = 0xFF;
+//   }
+
+//   inline void clearAll() {
+//     for (ushort i = 0; i < T; i++) bt_msk[i] = 0x00;
+//   }
+// };
+
+// using BitMask_8 = BitMask_T<1>;
+// using BitMask_16 = BitMask_T<2>;
+// using BitMask_32 = BitMask_T<4>;
+// using BitMask_64 = BitMask_T<8>;
 
 class Schema {
  public:
@@ -101,13 +144,19 @@ class Schema {
   uint8_t num_tables;
   std::vector<Table *> tables;
 
-  // MultiVersioning
+  // snapshotting
+  std::future<bool> snapshot_sync;
+  std::atomic<bool> snapshot_sync_in_progress;
+  bool sync_master_ver_tbl(const storage::Table *tbl,
+                           const uint8_t snapshot_master_ver);
+  bool sync_master_ver_schema(const uint8_t snapshot_master_ver);
 
   Schema() {
     aeolus::snapshot::SnapshotManager::init();
 
     total_mem_reserved = 0;
     total_delta_mem_reserved = 0;
+    snapshot_sync_in_progress = false;
     // rid = 0;
 
     if (global_conf::cc_ismv) {

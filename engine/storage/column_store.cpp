@@ -22,6 +22,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "storage/column_store.hpp"
 
+#include <sched.h>
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -32,7 +33,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/delta_storage.hpp"
 #include "storage/table.hpp"
 
-#if HTAP_DOUBLE_MASTER
+#if PROTEUS_MEM_MANAGER
 #include "codegen/memory/memory-manager.hpp"
 #include "codegen/topology/affinity_manager.hpp"
 #include "codegen/topology/topology.hpp"
@@ -46,8 +47,21 @@ namespace storage {
 
 std::mutex print_mutex;
 
-static inline void __attribute__((always_inline)) set_upd_bit(char* data) {
-  *data = *data | (1 << 7);
+// static inline void __attribute__((always_inline)) set_upd_bit(char* data) {
+//   //*data = *data | (1 << 7);
+//   *data = *data | (static_cast<unsigned char>(128));
+// }
+// static inline void __attribute__((always_inline)) clear_upd_bit(char* data) {
+//   //*data = *data & 0x7F;
+//   *data = *data & (static_cast<unsigned char>(127));
+// }
+
+static inline bool __attribute__((always_inline))
+get_upd_bit(const uint8_t* data) {
+  if (__unlikely(((*data) >> 7) == 1))
+    return true;
+  else
+    return false;
 }
 
 static inline uint64_t __attribute__((always_inline))
@@ -69,6 +83,266 @@ CC_upd_vid(uint64_t vid, ushort master_ver, ushort delta_version) {
 // vid_to_uuid(uint8_t tbl_id, uint64_t vid) {
 //   return (vid & 0x00FFFFFFFFFFFFFF) | (((uint64_t)tbl_id) << 56);
 // }
+
+void ColumnStore::sync_master_snapshots(ushort master_ver_idx) {
+  assert(global_conf::num_master_versions > 1);
+  for (auto& col : this->columns) {
+    col->sync_master_snapshots(master_ver_idx);
+  }
+}
+
+// master_ver_idx is the inactive master, that is the snapshot.
+void Column::sync_master_snapshots(ushort master_ver_idx) {
+  // TODO: I need number of records per partitions at the time of switching or
+  // we dont inserts on both end. for now, lets remove inserting on both masters
+  // and copy the inserts too (sync updates and insert both).
+
+  assert(global_conf::num_master_versions > 1);
+  //  static std::mutex mtx;
+
+  if (this->type == STRING || this->type == VARCHAR) return;
+  if (this->touched == false) return;
+
+  // {
+  //   std::unique_lock<std::mutex> lk(mtx);
+  //   std::cout << "Sync: " << this->name << std::endl;
+  // }
+
+  uint64_t num_recs_synced = 0;
+
+  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
+    if (i == master_ver_idx) continue;
+    for (ushort j = 0; j < g_num_partitions; j++) {
+      assert(master_versions[master_ver_idx][j].size() ==
+             master_versions[i][j].size());
+
+      assert(upd_bit_masks[master_ver_idx][j].size() ==
+             upd_bit_masks[i][j].size());
+
+      assert(master_versions[i][j].size() == 1 &&
+             "Expandable memory not supported");
+      assert(snapshot_arenas[i][j].size() == 1 &&
+             "Expandable memory not supported");
+
+      const auto& dst = master_versions[i][j][0];
+      const auto& src = master_versions[master_ver_idx][j][0];
+      assert(dst.size == src.size);
+
+      const auto& snap_arena =
+          snapshot_arenas[master_ver_idx][j][0]->getMetadata();
+
+      if (snap_arena.numOfRecords == 0) continue;
+
+      const uint8_t* actv_ptr = (uint8_t*)dst.data;
+      const uint8_t* src_ptr = (uint8_t*)src.data;
+
+      bool end = false;
+      for (size_t msk = 0; msk < upd_bit_masks[master_ver_idx][j].size();
+           msk++) {
+        const auto& src_msk = upd_bit_masks[master_ver_idx][j][msk];
+        const auto& actv_msk = upd_bit_masks[i][j][msk];
+
+        if (!src_msk.any()) continue;
+
+        for (size_t bb = 0; bb < BIT_PACK_SIZE; ++i) {
+          size_t data_idx = (msk * BIT_PACK_SIZE) + bb;
+
+          // scan only the records snapshotted, not everything.
+          if (data_idx > snap_arena.numOfRecords) {
+            end = true;
+            break;
+          }
+
+          if (src_msk.test(bb) && !actv_msk.test(bb)) {
+            // do the sync
+
+            size_t mem_idx = data_idx * elem_size;
+
+            // for (const auto& chunk : master_versions[m_ver][pid]) {
+            //   if (__likely(chunk.size >= ((size_t)data_idx + elem_size))) {
+            //     return ((char*)chunk.data) + data_idx;
+            //   }
+            // }
+
+            assert(mem_idx < dst.size);
+            assert(mem_idx < src.size);
+
+            switch (this->elem_size) {
+              case 1: {  // uint8_t
+                uint8_t old_val = (*(actv_ptr + mem_idx));
+                uint8_t new_val = (*(src_ptr + mem_idx));
+                // clear_upd_bit((char*)&new_val);
+
+                uint8_t* dst = (uint8_t*)(actv_ptr + mem_idx);
+                __sync_bool_compare_and_swap(dst, old_val, new_val);
+                // if (!__sync_bool_compare_and_swap(dst, old_val,
+                // new_val)) {
+                //   std::cout << "uint8_t failed:" << std::endl;
+                // }
+
+                break;
+              }
+              case 2: {  // uint16_t
+                uint16_t old_val = *((uint16_t*)(actv_ptr + mem_idx));
+                uint16_t new_val = *((uint16_t*)(src_ptr + mem_idx));
+                // clear_upd_bit((char*)&new_val);
+
+                uint16_t* dst = (uint16_t*)(actv_ptr + mem_idx);
+                __sync_bool_compare_and_swap(dst, old_val, new_val);
+                // if (!__sync_bool_compare_and_swap(dst, old_val,
+                // new_val)) {
+                //   std::cout << "uint16_t failed:" << std::endl;
+                // }
+                break;
+              }
+              case 4: {  // uint32_t
+                uint32_t old_val = *((uint32_t*)(actv_ptr + mem_idx));
+                uint32_t new_val = *((uint32_t*)(src_ptr + mem_idx));
+                // clear_upd_bit((char*)&new_val);
+
+                uint32_t* dst = (uint32_t*)(actv_ptr + mem_idx);
+                __sync_bool_compare_and_swap(dst, old_val, new_val);
+                // if (!__sync_bool_compare_and_swap(dst, old_val,
+                // new_val)) {
+                //   std::cout << "uint32_t failed:" << std::endl;
+                // }
+                break;
+              }
+              case 8: {  // uint64_t
+                uint64_t old_val = *((uint64_t*)(actv_ptr + mem_idx));
+                uint64_t new_val = *((uint64_t*)(src_ptr + mem_idx));
+                // clear_upd_bit((char*)&new_val);
+
+                uint64_t* dst = (uint64_t*)(actv_ptr + mem_idx);
+                __sync_bool_compare_and_swap(dst, old_val, new_val);
+                // if (!__sync_bool_compare_and_swap(dst, old_val,
+                // new_val)) {
+                //   std::cout << "uint64_t failed:" << std::endl;
+                // }
+                break;
+              }
+              default: {
+                // std::unique_lock<std::mutex> lk(print_mutex);
+                std::cout << "col fucked: " << this->name << std::endl;
+                assert(false && "unsupported for now");
+              }
+            }
+          }
+        }
+
+        if (end) break;
+      }
+
+      // for (uint k = 0; k < master_versions[i][j].size(); k++) {
+      //   const auto& chunk = master_versions[i][j][k];
+      //   const auto& src = master_versions[master_ver_idx][j][k];
+      //   assert(chunk.size == src.size);
+
+      //   // traverse the src and if there is a upd bit on, move that to actv
+      //   // storage atomically.
+      //   const uint8_t* actv_ptr = (uint8_t*)chunk.data;
+      //   const uint8_t* src_ptr = (uint8_t*)src.data;
+
+      //   // snap_area:
+      //   //  struct metadata {
+      //   //   uint64_t numOfRecords;
+      //   //   uint64_t epoch_id;
+      //   //   uint8_t master_ver;
+      //   // };
+
+      //   const auto& snap_arena =
+      //       snapshot_arenas[master_ver_idx][j][k]->getMetadata();
+
+      //   uint64_t num_bytes_to_scan = snap_arena.numOfRecords *
+      //   this->elem_size; assert(num_bytes_to_scan <= chunk.size &&
+      //   num_bytes_to_scan > 0);
+
+      //   for (uint64_t l = 0; l < num_bytes_to_scan; l += this->elem_size) {
+      //     if (get_upd_bit(src_ptr + l)) {
+      //       if (!get_upd_bit(actv_ptr + l)) {
+      //         num_recs_synced++;
+      //         // update
+      //         // bool __sync_bool_compare_and_swap ( type *ptr, type oldval,
+      //         // type newval, ...)
+
+      //         // need a switch case here, as for different datatype, we need
+      //         to
+      //         // cast to types.
+
+      //         switch (this->elem_size) {
+      //           case 1: {  // uint8_t
+      //             uint8_t old_val = (*(actv_ptr + l));
+      //             uint8_t new_val = (*(src_ptr + l));
+      //             // clear_upd_bit((char*)&new_val);
+
+      //             uint8_t* dst = (uint8_t*)(actv_ptr + l);
+      //             __sync_bool_compare_and_swap(dst, old_val, new_val);
+      //             // if (!__sync_bool_compare_and_swap(dst, old_val,
+      //             // new_val)) {
+      //             //   std::cout << "uint8_t failed:" << std::endl;
+      //             // }
+
+      //             break;
+      //           }
+      //           case 2: {  // uint16_t
+      //             uint16_t old_val = *((uint16_t*)(actv_ptr + l));
+      //             uint16_t new_val = *((uint16_t*)(src_ptr + l));
+      //             // clear_upd_bit((char*)&new_val);
+
+      //             uint16_t* dst = (uint16_t*)(actv_ptr + l);
+      //             __sync_bool_compare_and_swap(dst, old_val, new_val);
+      //             // if (!__sync_bool_compare_and_swap(dst, old_val,
+      //             // new_val)) {
+      //             //   std::cout << "uint16_t failed:" << std::endl;
+      //             // }
+      //             break;
+      //           }
+      //           case 4: {  // uint32_t
+      //             uint32_t old_val = *((uint32_t*)(actv_ptr + l));
+      //             uint32_t new_val = *((uint32_t*)(src_ptr + l));
+      //             // clear_upd_bit((char*)&new_val);
+
+      //             uint32_t* dst = (uint32_t*)(actv_ptr + l);
+      //             __sync_bool_compare_and_swap(dst, old_val, new_val);
+      //             // if (!__sync_bool_compare_and_swap(dst, old_val,
+      //             // new_val)) {
+      //             //   std::cout << "uint32_t failed:" << std::endl;
+      //             // }
+      //             break;
+      //           }
+      //           case 8: {  // uint64_t
+      //             uint64_t old_val = *((uint64_t*)(actv_ptr + l));
+      //             uint64_t new_val = *((uint64_t*)(src_ptr + l));
+      //             // clear_upd_bit((char*)&new_val);
+
+      //             uint64_t* dst = (uint64_t*)(actv_ptr + l);
+      //             __sync_bool_compare_and_swap(dst, old_val, new_val);
+      //             // if (!__sync_bool_compare_and_swap(dst, old_val,
+      //             // new_val)) {
+      //             //   std::cout << "uint64_t failed:" << std::endl;
+      //             // }
+      //             break;
+      //           }
+      //           default: {
+      //             // std::unique_lock<std::mutex> lk(print_mutex);
+      //             std::cout << "col fucked: " << this->name << std::endl;
+      //             assert(false && "unsupported for now");
+      //           }
+      //         }
+      //       }
+      //     }
+      //   }
+      // }
+    }
+  }
+
+  // {
+  //   std::unique_lock<std::mutex> lk(mtx);
+  //   std::cout << "Col: " << this->name << " -- synced_recs: " <<
+  //   num_recs_synced
+  //             << std::endl;
+  // }
+}
 
 ColumnStore::~ColumnStore() {
   for (auto& col : columns) {
@@ -365,6 +639,10 @@ void ColumnStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
   for (auto& col : columns) {
     memcpy(ver + col->cummulative_offset, col->getElem(hash_ptr->VID),
            col->elem_size);
+
+    // #if HTAP_DOUBLE_MASTER
+    //     clear_upd_bit(ver + col->cummulative_offset);
+    // #endif
   }
 
   hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
@@ -372,16 +650,18 @@ void ColumnStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
 
   if (__unlikely(num_cols <= 0)) {
     for (auto& col : columns) {
-      col->insertElem(
+      col->updateElem(
           hash_ptr->VID,
           (rec == nullptr ? nullptr : cursor + col->cummulative_offset));
+      if (!col->touched) col->touched = true;
     }
   } else {
     for (int i = 0; i < num_cols; i++) {
       Column* col = columns.at(col_idx[i]);
-      col->insertElem(hash_ptr->VID,
+      col->updateElem(hash_ptr->VID,
                       (rec == nullptr ? nullptr : (void*)cursor));
       cursor += col->elem_size;
+      if (!col->touched) col->touched = true;
     }
   }
 }
@@ -477,16 +757,16 @@ Column::Column(std::string name, uint64_t initial_num_records,
 
   assert(g_num_partitions <= NUM_SOCKETS);
 
-  size_t size = initial_num_records * unit_size;
+  this->initial_num_records = initial_num_records;
+  this->initial_num_records_per_part =
+      (initial_num_records / this->num_partitions) +
+      initial_num_records % this->num_partitions;
 
-  size_t size_per_partition =
-      (initial_num_records * unit_size) / this->num_partitions;
+  size_t size_per_partition = initial_num_records_per_part * unit_size;
+  size_t size = size_per_partition * this->num_partitions;
   this->total_mem_reserved = size * global_conf::num_master_versions;
 
   this->size_per_part = size_per_partition;
-  this->initial_num_records = initial_num_records;
-  this->initial_num_records_per_part =
-      initial_num_records / this->num_partitions;
 
   // std::cout << "Col:" << name
   //           << ", Size required:" << ((double)size / (1024 * 1024 * 1024))
@@ -494,10 +774,15 @@ Column::Column(std::string name, uint64_t initial_num_records,
   //           << ((double)total_mem_reserved / (1024 * 1024 * 1024)) <<
   //           std::endl;
 
-  // for (uint i = 0; i < g_num_partitions; i++) {
-  //   arena.emplace_back(
-  //       global_conf::SnapshotManager::create(size_per_partition));
-  // }
+#if HTAP_DOUBLE_MASTER
+  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
+    for (uint j = 0; j < g_num_partitions; j++) {
+      snapshot_arenas[i][j].emplace_back(
+          global_conf::SnapshotManager::create(size_per_partition));
+    }
+  }
+
+#endif
 
   // #if HTAP_COW
 
@@ -574,6 +859,25 @@ Column::Column(std::string name, uint64_t initial_num_records,
       });
 
       master_versions[i][j].emplace_back(mem, size_per_partition, j);
+
+      uint num_bit_packs = (initial_num_records_per_part / BIT_PACK_SIZE) +
+                           (initial_num_records_per_part % BIT_PACK_SIZE);
+
+      for (uint64_t bb = 0; bb < num_bit_packs; bb++) {
+        upd_bit_masks[i][j].emplace_back();
+      }
+      for (auto& bb : upd_bit_masks[i][j]) {
+        bb.reset();
+      }
+
+      // std::cout << "###########3" << std::endl;
+      // std::cout << "COL: " << this->name << std::endl;
+      // std::cout << "M: " << i << std::endl;
+      // std::cout << "P: " << j << std::endl;
+      // std::cout << "P-s: " << master_versions[i][j].back().size << std::endl;
+      // std::cout << "T-P: " << master_versions[i][j].size() << std::endl;
+
+      // std::cout << "###########3" << std::endl;
     }
     if (single_version_only) break;
   }
@@ -581,6 +885,8 @@ Column::Column(std::string name, uint64_t initial_num_records,
   for (auto& th : loaders) {
     th.join();
   }
+
+  this->touched = false;
 
   //#endif
 }
@@ -596,7 +902,9 @@ void Column::touchElem(uint64_t vid) {
     if (__likely(chunk.size >= ((size_t)data_idx + elem_size))) {
       char* loc = ((char*)chunk.data) + data_idx;
 #if HTAP_DOUBLE_MASTER
-      set_upd_bit(loc);
+      // set_upd_bit(loc);
+      upd_bit_masks[m_ver][pid][data_idx / BIT_PACK_SIZE].set(data_idx %
+                                                              BIT_PACK_SIZE);
 #endif
       volatile char tmp = 'a';
       for (int i = 0; i < elem_size; i++) {
@@ -617,6 +925,10 @@ void Column::getElem(uint64_t vid, void* copy_location) {
     if (__likely(chunk.size >= ((size_t)data_idx + elem_size))) {
       std::memcpy(copy_location, ((char*)chunk.data) + data_idx,
                   this->elem_size);
+
+      // #if HTAP_DOUBLE_MASTER
+      //       //clear_upd_bit((char*)copy_location);
+      // #endif
       return;
     }
   }
@@ -693,9 +1005,9 @@ void Column::insertElem(uint64_t vid, void* elem) {
           std::memcpy(dst, elem, this->elem_size);
         }
 
-#if HTAP_DOUBLE_MASTER
-        if (i == CC_extract_m_ver(vid)) set_upd_bit((char*)dst);
-#endif
+        // #if HTAP_DOUBLE_MASTER
+        //         if (i == CC_extract_m_ver(vid)) set_upd_bit((char*)dst);
+        // #endif
         ins = true;
         break;
       }
@@ -708,6 +1020,45 @@ void Column::insertElem(uint64_t vid, void* elem) {
       assert(false && "Out Of Memory Error");
     }
   }
+}
+
+void Column::updateElem(uint64_t vid, void* elem) {
+  ushort pid = CC_extract_pid(vid);
+  uint64_t data_idx = CC_extract_offset(vid) * elem_size;
+  uint8_t mver = CC_extract_m_ver(vid);
+
+  assert(pid < g_num_partitions);
+  // assert(idx < initial_num_records_per_part);
+  assert(data_idx < size_per_part);
+
+  for (const auto& chunk : master_versions[mver][pid]) {
+    assert(pid == chunk.numa_id);
+
+    if (__likely(chunk.size >= (data_idx + elem_size))) {
+      void* dst = (void*)(((char*)chunk.data) + data_idx);
+      if (__unlikely(elem == nullptr)) {
+        uint64_t* tptr = (uint64_t*)dst;
+        (*tptr)++;
+      } else {
+        char* src_t = (char*)chunk.data;
+        char* dst_t = (char*)dst;
+
+        assert(src_t <= dst_t);
+        assert((src_t + chunk.size) >= (dst_t + this->elem_size));
+
+        std::memcpy(dst, elem, this->elem_size);
+      }
+
+#if HTAP_DOUBLE_MASTER
+      // set_upd_bit((char*)dst);
+      upd_bit_masks[mver][pid][data_idx / BIT_PACK_SIZE].set(data_idx %
+                                                             BIT_PACK_SIZE);
+#endif
+      return;
+    }
+  }
+
+  assert(false && "Out Of Memory Error");
 }
 
 void* Column::insertElem(uint64_t vid) {
@@ -773,9 +1124,9 @@ void Column::insertElemBatch(uint64_t vid, uint64_t num_elem, void* data) {
 
         std::memcpy(dst, data, copy_size);
 
-#if HTAP_DOUBLE_MASTER
-        if (i == CC_extract_m_ver(vid)) set_upd_bit((char*)dst);
-#endif
+        // #if HTAP_DOUBLE_MASTER
+        //         if (i == CC_extract_m_ver(vid)) set_upd_bit((char*)dst);
+        // #endif
         ins = true;
         break;
       }
@@ -808,20 +1159,40 @@ void ColumnStore::num_upd_tuples() {
 }
 
 void Column::num_upd_tuples() {
-  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
+  for (uint i = 0; i < global_conf::num_master_versions; i++) {
     uint64_t counter = 0;
-    for (ushort j = 0; j < g_num_partitions; j++) {
-      for (auto& chunk : master_versions[i][j]) {
-        for (uint i = 0; i < (chunk.size / elem_size); i++) {
-          uint8_t* p = ((uint8_t*)chunk.data) + i;
-          if (*p >> 7 == 1) {
-            counter++;
-          }
-        }
+    bool printed_first = false;
+    for (uint j = 0; j < g_num_partitions; j++) {
+      for (auto& chunk : upd_bit_masks[i][j]) {
+        counter += chunk.count();
+        // for (uint64_t k = 0; k < (chunk.size / elem_size); k++) {
+        //   uint8_t* p = ((uint8_t*)chunk.data) + (k * elem_size);
+        //   if (*p >> 7 == 1) {
+        //     counter++;
+        //     // if (!printed_first) {
+        //     //   switch (elem_size) {
+        //     //     case 4: {
+        //     //       if (type == INTEGER || type == DATE)
+        //     //         std::cout << "val: " << (uint32_t*)p << std::endl;
+        //     //       if (type == FLOAT)
+        //     //         std::cout << "val: " << (float*)p << std::endl;
+        //     //       break;
+        //     //     }
+        //     //     case 8:
+        //     //       std::cout << "val: " << (uint64_t*)p << std::endl;
+        //     //       break;
+        //     //     default:
+        //     //       break;
+        //     //   }
+        //     //   printed_first = true;
+        //     // }
+        //   }
+        // }
       }
     }
-    std::cout << "UPD[" << i << "]: COL:" << this->name
-              << " | #num_upd: " << counter << std::endl;
+    if (counter > 0)
+      std::cout << "UPD[" << i << "]: COL:" << this->name
+                << " | #num_upd: " << counter << std::endl;
     counter = 0;
   }
 }
@@ -866,66 +1237,43 @@ uint64_t Column::load_from_binary(std::string file_path) {
   assert(false);
 }
 
-inline void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
+void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
 #if HTAP_COW
   return;
+
+#elif HTAP_DOUBLE_MASTER
+
+  uint64_t partitions_n_recs[NUM_SOCKETS];
+
+  for (uint i = 0; i < g_num_partitions; i++) {
+    partitions_n_recs[i] = this->vid[i].load() - 1;
+  }
+
+  for (auto& col : this->columns) {
+    col->snapshot(partitions_n_recs, epoch, snapshot_master_ver);
+  }
+
 #else
-  assert(false);
+  assert(false && "Unknown snapshotting mechanism");
 #endif
-  // uint64_t num_records = this->vid.load();
-
-  // std::cout << this->name << ":: " << num_records << std::endl;
-  // std::cout << "MasterVer:: " << (int)snapshot_master_ver << std::endl;
-
-  // // if (this->name.compare("ssbm_part") == 0) {
-  // uint64_t partition_recs = (num_records / NUM_SOCKETS);  //+ (num_records %
-  // i); for (int c = 0; c < global_conf::num_master_versions; c++) {
-  //   for (int j = 0; j < NUM_SOCKETS; j++) {
-  //     if (plugin_ptr[c][j] != nullptr) {
-  //       std::cout << "WRITE DONE!!!!!::" << j
-  //                 << ", part_recs: " << partition_recs << std::endl;
-
-  //       *plugin_ptr[c][j] = partition_recs;
-  //     }
-  //   }
-  // }
-  // //  }
-
-  // for (auto& col : columns) {
-  //   col->snapshot(num_records, epoch, snapshot_master_ver);
-  // }
+  return;
 }
 
-// inline void Column::snapshot(uint64_t num_records, uint64_t epoch,
-//                              uint8_t snapshot_master_ver) {
-//   // arena->destroy_snapshot();
-//   // arena->create_snapshot({num_records, epoch, snapshot_master_ver});
+void Column::snapshot(const uint64_t* n_recs_part, uint64_t epoch,
+                      uint8_t snapshot_master_ver) {
+#if HTAP_COW
+  ;
+#elif HTAP_DOUBLE_MASTER
 
-//   uint i = 0;
-//   // FIXME:
-//   for (auto& ar : arena) {
-//     uint64_t partition_recs =
-//         (num_records / NUM_SOCKETS);  //+ (num_records % i);
-//     // std::cout << "a_" << this->name << ", rec: " << (num_records /
-//     // NUM_SOCKETS)
-//     //           << std::endl;
-//     // std::cout << "b_" << this->name << ", rec: " << (num_records % i)
-//     //           << std::endl;
-//     ar->destroy_snapshot();
-//     ar->create_snapshot({partition_recs, epoch, snapshot_master_ver});
-
-//     i++;
-//   }
-//   assert(i == NUM_SOCKETS);
-
-// #if HTAP_COW
-//   this->master_versions[0][0]->data = arena->oltp();
-// #endif
-
-//   // for (auto& ar : arena) {
-//   //   ar->destroy_snapshot();
-//   //   ar->create_snapshot({num_records, epoch});
-//   // }
-// }
-
+  for (uint i = 0; i < g_num_partitions; i++) {
+    assert(snapshot_arenas[snapshot_master_ver][i].size() == 1);
+    snapshot_arenas[snapshot_master_ver][i][0]->create_snapshot(
+        {n_recs_part[i], epoch, snapshot_master_ver, static_cast<uint8_t>(i)});
+    this->touched = false;
+  }
+#else
+  assert(false && "Unknown snapshotting mechanism");
+#endif
+  return;
+}
 };  // namespace storage

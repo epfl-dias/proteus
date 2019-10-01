@@ -23,6 +23,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <gflags/gflags.h>
 #include <unistd.h>
 
+#include <bitset>
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -40,6 +41,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "scheduler/comm_manager.hpp"
 #include "scheduler/topology.hpp"
 #include "scheduler/worker.hpp"
+#include "storage/column_store.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
@@ -53,7 +55,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #endif
 
 // proteus
-#if HTAP_DOUBLE_MASTER
+#if PROTEUS_MEM_MANAGER
 #include "common/common.hpp"
 #endif
 
@@ -85,6 +87,7 @@ DEFINE_uint64(worker_sched_mode, 0,
               "2-interleaved-odd, 3-reversed.");
 DEFINE_uint64(report_stat_sec, 0, "Report stats every x secs");
 DEFINE_uint64(elastic_workload, 0, "if > 0, add a worker every x seconds");
+DEFINE_uint64(switch_master_sec, 0, "if > 0, add a worker every x seconds");
 
 // YCSB
 DEFINE_double(ycsb_write_ratio, 0.5, "Writer to reader ratio");
@@ -102,6 +105,13 @@ DEFINE_string(tpcc_csv_dir, "/scratch/data/ch100w/raw",
 // void check_num_upd_by_bits();
 
 int main(int argc, char** argv) {
+  // uint64_t c = 1000000;
+
+  // std::bitset<64000000> b1;
+  // b1.flip();
+  // std::cout << "b: " << b1.count() << std::endl;
+
+  // return 0;
   // std::fstream myfile;
   // myfile = std::fstream("part.csv.p_stocklevel_uniform",
   //                       std::ios::out | std::ios::binary);
@@ -143,7 +153,7 @@ int main(int argc, char** argv) {
   std::cout << "\tInitializing memory manager..." << std::endl;
   storage::MemoryManager::init();
 
-#if HTAP_DOUBLE_MASTER
+#if PROTEUS_MEM_MANAGER
   proteus::init();
 #elif HTAP_RM_SERVER
   std::cout << "\tInitializing communication manager..." << std::endl;
@@ -196,6 +206,11 @@ int main(int argc, char** argv) {
       bench, (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
       FLAGS_num_partitions, FLAGS_worker_sched_mode, FLAGS_num_iter_per_worker);
 
+  std::cout << "BEFORE" << std::endl;
+  for (auto& tb : storage::Schema::getInstance().getAllTables()) {
+    ((storage::ColumnStore*)tb)->num_upd_tuples();
+  }
+
   scheduler::WorkerPool::getInstance().start_workers();
 
   if (FLAGS_elastic_workload > 0) {
@@ -228,12 +243,24 @@ int main(int argc, char** argv) {
         (FLAGS_report_stat_sec * 1000));
   }
 
+  if (FLAGS_switch_master_sec > 0) {
+    timed_func::interval_runner(
+        [] { txn::TransactionManager::getInstance().snapshot(); },
+        (FLAGS_switch_master_sec * 1000));
+  }
+
+  // timed_func::interval_runner(
+  //     [] { txn::TransactionManager::getInstance().snapshot(); }, (5 * 1000));
+
   /* This shouldnt be a sleep, but this thread should sleep until all workers
    * finished required number of txns. but dilemma here is that either the
    * worker executes transaction forever (using a benchmark) or finished after
    * executing certain number of txns/iterations. */
 
-  usleep(FLAGS_runtime * 1000000);
+  usleep((FLAGS_runtime - 1) * 1000000);
+
+  timed_func::terminate_all_timed();
+  usleep(1000000);  // sanity sleep so that async threads can exit gracefully.
 
   std::cout << "Tear Down Inititated" << std::endl;
   scheduler::WorkerPool::getInstance().shutdown(true);
@@ -241,6 +268,11 @@ int main(int argc, char** argv) {
   if (HTAP_RM_SERVER) {
     std::cout << "\tShutting down communication manager..." << std::endl;
     scheduler::CommManager::getInstance().shutdown();
+  }
+
+  std::cout << "AFTER" << std::endl;
+  for (auto& tb : storage::Schema::getInstance().getAllTables()) {
+    ((storage::ColumnStore*)tb)->num_upd_tuples();
   }
 
   storage::Schema::getInstance().teardown();

@@ -39,6 +39,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
 
+#include "codegen/util/timing.hpp"
+
 #if __has_include("ittnotify.h")
 #include <ittnotify.h>
 #else
@@ -270,24 +272,28 @@ bool WorkerPool::is_all_worker_on_master_id(ushort master_id) {
 }
 
 void WorkerPool::pause() {
+  time_block t("TworkerPool_pause_: ");
   for (auto& wr : workers) {
     wr.second.second->pause = true;
   }
 
   for (auto& wr : workers) {
     while (wr.second.second->state != PAUSED) {
-      std::this_thread::sleep_for(std::chrono::microseconds(10));
+      // std::this_thread::sleep_for(std::chrono::microseconds(10));
+      std::this_thread::yield();
     }
   }
 }
 void WorkerPool::resume() {
+  time_block t("TworkerPool_resume_: ");
   for (auto& wr : workers) {
     wr.second.second->pause = false;
   }
 
   for (auto& wr : workers) {
     while (wr.second.second->state == PAUSED) {
-      std::this_thread::sleep_for(std::chrono::microseconds(10));
+      // std::this_thread::sleep_for(std::chrono::microseconds(10));
+      std::this_thread::yield();
     }
   }
 }

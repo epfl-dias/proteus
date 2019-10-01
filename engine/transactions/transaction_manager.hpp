@@ -35,9 +35,10 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "transactions/txn_utils.hpp"
 //#include "utils/utils.hpp"
 
+#include "codegen/util/timing.hpp"
+
 namespace txn {
 
-// template <class CC = CC_GlobalLock>
 class TransactionManager {
  protected:
  public:
@@ -49,26 +50,36 @@ class TransactionManager {
   TransactionManager(TransactionManager const &) = delete;  // Don't Implement
   void operator=(TransactionManager const &) = delete;      // Don't implement
 
+  // TODO: move the following to snapshot manager
   bool snapshot() {
+    time_block t("TtxnManger_snapshot_: ");
     // FIXME: why get max active txn for double master while a new txn id for
     // cow-snapshot. i guess this is because for switching master we dont need
     // to pause the workers. it can happend on the fly.
 
+    // Full barrier ( we need barier to get num_records in that snapshot)
+    scheduler::WorkerPool::getInstance().pause();
+
 #if HTAP_DOUBLE_MASTER
-    uint64_t epoch_num =
-        scheduler::WorkerPool::getInstance().get_max_active_txn();
 
-    ushort snapshot_master_ver =
-        txn::TransactionManager::getInstance().switch_master();
+    ushort snapshot_master_ver = this->switch_master();
 
-    storage::Schema::getInstance().snapshot(epoch_num, snapshot_master_ver);
+    storage::Schema::getInstance().snapshot(this->get_next_xid(0),
+                                            snapshot_master_ver);
 
 #elif HTAP_COW
     storage::Schema::getInstance().snapshot(this->get_next_xid(0), 0);
-
 #else
-    assert(false && "Undefined snapshotting mechanism.");
+    assert(false && "Unknown snapshotting mechanism");
 #endif
+
+    scheduler::WorkerPool::getInstance().resume();
+
+    // storage::Schema::getInstance().snapshot(epoch_num, snapshot_master_ver);
+
+    // uint64_t epoch_num =
+    //     scheduler::WorkerPool::getInstance().get_max_active_txn();
+
     return true;
   }
 
@@ -76,12 +87,8 @@ class TransactionManager {
     assert(global_conf::num_master_versions > 1 &&
            "cannot switch master with master_version <= 1");
 
-    ushort curr_master;
+    ushort curr_master = this->current_master.load();
 
-    curr_master = this->current_master;
-
-    std::cout << "Master switch request, curr: " << (uint)curr_master
-              << std::endl;
     /*
           - switch master_id
           - clear the update bits of the new master. ( keep a seperate column or
@@ -92,11 +99,14 @@ class TransactionManager {
 
     ushort tmp = (curr_master + 1) % global_conf::num_master_versions;
 
+    std::cout << "Master switch request, from: " << (uint)curr_master
+              << " to: " << (uint)tmp << std::endl;
+
     current_master.store(tmp);
-    std::cout << "All should be on master: " << tmp << std::endl;
-    while (scheduler::WorkerPool::getInstance().is_all_worker_on_master_id(
-               tmp) == false)
-      ;
+
+    // while (scheduler::WorkerPool::getInstance().is_all_worker_on_master_id(
+    //            tmp) == false)
+    //   ;
 
     std::cout << "Master switch completed" << std::endl;
     return curr_master;

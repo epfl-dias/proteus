@@ -31,7 +31,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/delta_storage.hpp"
 #include "storage/table.hpp"
 
-#if HTAP_DOUBLE_MASTER
+#if PROTEUS_MEM_MANAGER
 #include "codegen/memory/memory-manager.hpp"
 #include "codegen/topology/affinity_manager.hpp"
 #include "codegen/topology/topology.hpp"

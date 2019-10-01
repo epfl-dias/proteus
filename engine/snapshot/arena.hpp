@@ -37,6 +37,7 @@ class Arena {
     uint64_t numOfRecords;
     uint64_t epoch_id;
     uint8_t master_ver;
+    uint8_t partition_id;
   };
 
  protected:
