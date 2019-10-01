@@ -72,6 +72,8 @@ subscription *InfiniBandManager::read(void *data, size_t bytes) {
   return ib->read(data, bytes);
 }
 
+subscription *InfiniBandManager::read_event() { return ib->read_event(); }
+
 void InfiniBandManager::flush() { ib->flush(); }
 void InfiniBandManager::flush_read() { ib->flush_read(); }
 

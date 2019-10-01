@@ -119,11 +119,10 @@ class Router : public experimental::UnaryOperator {
   PipelineGen *catch_pip;
 
   std::atomic<int> remaining_producers;
-
- private:
   const int slack;
   size_t buf_size;
 
+ private:
   const vector<RecordAttribute *> wantedFields;
 
   llvm::Type *params_type;

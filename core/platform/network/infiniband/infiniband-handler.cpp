@@ -663,6 +663,44 @@ decltype(IBHandler::read_promises)::value_type &IBHandler::create_promise(
   return read_promises.back();
 }
 
+subscription *IBHandler::read_event() {
+  eventlogger.log(this, IB_CREATE_RDMA_READ_START);
+  auto buff = BlockManager::get_buffer();
+
+  // auto p = new std::promise<void *>;
+  // auto d = new std::pair<decltype(p), void *>;
+  // d->first = p;
+  // d->second = buff;
+
+  // LOG(INFO) << bytes << " " << (void *)nullptr << " " << data;
+  auto &p = create_promise(nullptr);
+
+  ibv_send_wr wr{/* 0 everything out via value initialization */};
+
+  ++reads;
+
+  wr.wr_id = (uintptr_t)reads;  // readable locally on work completion
+  wr.opcode = IBV_WR_RDMA_READ;
+  wr.sg_list = nullptr;
+  wr.num_sge = 0;
+  wr.send_flags = (reads % 512) ? 0 : IBV_SEND_SIGNALED;
+  // assert(!sigoverflow || (c > 2));
+  // wr.imm_data = c + 3;  // NOTE: only sent when singaled == true
+  // Can pass an arbitrary value to receiver, consider for
+  // the consumed buffer
+  wr.wr.rdma.remote_addr =
+      reinterpret_cast<decltype(wr.wr.rdma.remote_addr)>(nullptr);
+  wr.wr.rdma.rkey = 0;
+
+  if (wr.send_flags & IBV_SEND_SIGNALED) reads = 0;
+
+  // LOG(INFO) << bytes << " " << buff << " " << data;
+  linux_run(send(wr));
+
+  eventlogger.log(this, IB_CREATE_RDMA_READ_END);
+  return &p.first;
+}
+
 subscription *IBHandler::read(void *data, size_t bytes) {
   eventlogger.log(this, IB_CREATE_RDMA_READ_START);
   auto buff = BlockManager::get_buffer();

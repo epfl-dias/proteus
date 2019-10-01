@@ -28,6 +28,9 @@
 
 using namespace llvm;
 
+std::queue<void *> pending;
+std::mutex pending_m;
+
 void *RouterScaleOut::acquireBuffer(int target, bool polling) {
   return BlockManager::get_buffer();
 }
@@ -35,9 +38,9 @@ void *RouterScaleOut::acquireBuffer(int target, bool polling) {
 void RouterScaleOut::releaseBuffer(int target, void *buff) {
   // FIXME: we do not have to send the whole block. Usually we will have to send
   // just a couple of bytes. Use that instead
-  LOG(INFO) << "writing" << buff;
-  InfiniBandManager::write(buff, BlockManager::block_size);
-  InfiniBandManager::flush();
+  InfiniBandManager::write(buff, buf_size);
+  ++cnt;
+  if (cnt % (slack / 2) == 0) InfiniBandManager::flush();
 }
 
 void RouterScaleOut::freeBuffer(int target, void *buff) {
@@ -51,12 +54,10 @@ void RouterScaleOut::freeBuffer(int target, void *buff) {
 }
 
 bool RouterScaleOut::get_ready(int target, void *&buff) {
-  LOG(INFO) << "waiting";
   auto &sub = InfiniBandManager::subscribe();
   auto x = sub.wait();
   if (x.size == 0) BlockManager::release_buffer(x.data);
   buff = x.data;
-  LOG(INFO) << "received closed " << bytes{x.size};
   return x.size != 0;
 }
 
@@ -166,4 +167,6 @@ void RouterScaleOut::close(Pipeline *pip) {
   auto &sub = InfiniBandManager::subscribe();
   auto x = sub.wait();
   LOG(INFO) << "received closed " << x.size;
+  LOG(INFO) << "data: " << (bytes{buf_size * cnt});
+  cnt = 0;
 }

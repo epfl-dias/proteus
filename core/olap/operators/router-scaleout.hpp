@@ -47,6 +47,8 @@ void freeBuffer(int target, Router *xch, void *buff);
 }
 
 class RouterScaleOut : public Router {
+  size_t cnt = 0;
+
  public:
   RouterScaleOut(Operator *const child, DegreeOfParallelism numOfParents,
                  const std::vector<RecordAttribute *> &wantedFields, int slack,
