@@ -28,33 +28,27 @@
 #include "memory/block-manager.hpp"
 #include "threadpool/threadpool.hpp"
 
-struct buff_pair_brdcst {
-  char *new_buff;
-  char *to_release;
-};
-
 using namespace llvm;
 
-extern "C" {
-void step_mmc_mem_move_broadcast_device(MemBroadcastDevice::MemMoveConf *mmc) {
-  if (!mmc->to_cpu) return;
-  for (size_t i = 0; i < 16; ++i)
-    mmc->targetbuffer[i] = nullptr;  // FIXME: can be much much more simple and
-                                     // optimal if codegen'ed
+void MemBroadcastDevice::MemBroadcastConf::prepareNextBatch() {
+  if (!to_cpu) return;
+  for (size_t i = 0; i < 16; ++i) {
+    targetbuffer[i] = nullptr;  // FIXME: can be much much more simple and
+                                // optimal if codegen'ed
+  }
 }
 
-buff_pair_brdcst make_mem_move_broadcast_device(
-    char *src, size_t bytes, int target_device,
-    MemBroadcastDevice::MemMoveConf *mmc, bool disable_noop) {
+buff_pair MemBroadcastDevice::MemBroadcastConf::pushBroadcast(
+    void *src, size_t bytes, int target_device, bool disable_noop) {
   const auto &topo = topology::getInstance();
-  if (!(mmc->to_cpu)) {
+  if (!(to_cpu)) {
     const auto &dev_ptr = topo.getGpuAddressed(src);
     int dev = (dev_ptr) ? dev_ptr->id : -1;
 
     // assert(bytes <= sizeof(int32_t) * h_vector_size); //FIMXE: buffer manager
     // should be able to provide blocks of arbitary size
     if (!disable_noop && dev == target_device)
-      return buff_pair_brdcst{src, nullptr};  // block already in correct device
+      return buff_pair{src, nullptr};  // block already in correct device
     // set_device_on_scope d(dev);
 
     // std::cout << target_device << std::endl;
@@ -63,59 +57,70 @@ buff_pair_brdcst make_mem_move_broadcast_device(
     assert(bytes <=
            BlockManager::block_size);  // FIMXE: buffer manager should be able
                                        // to provide blocks of arbitary size
-    char *buff = (char *)buffer_manager<int32_t>::h_get_buffer(target_device);
+    char *buff = (char *)BlockManager::h_get_buffer(target_device);
 
     assert(target_device >= 0);
     if (bytes > 0)
-      buffer_manager<int32_t>::overwrite_bytes(buff, src, bytes,
-                                               mmc->strm[target_device], false);
+      BlockManager::overwrite_bytes(buff, src, bytes, strm[target_device],
+                                    false);
 
-    return buff_pair_brdcst{buff, src};
+    return buff_pair{buff, src};
   } else { /* CPU targets! */
     const auto &cpus = topo.getCpuNumaNodes();
-    const auto &gpus = topo.getGpus();
     const auto &numa = cpus[target_device % cpus.size()];
     if (topo.getGpuAddressed(src)) {
-      char *buff = (char *)buffer_manager<int32_t>::get_buffer_numa(numa);
+      char *buff = (char *)BlockManager::get_buffer_numa(numa);
       assert(target_device >= 0);
       if (bytes > 0)
-        buffer_manager<int32_t>::overwrite_bytes(
-            buff, src, bytes, mmc->strm[target_device], false);
+        BlockManager::overwrite_bytes(buff, src, bytes, strm[target_device],
+                                      false);
 
-      return buff_pair_brdcst{buff, src};
+      return buff_pair{buff, src};
     } else {
       int node_index = topo.getCpuNumaNodeAddressed(src)->index_in_topo;
 
-      int target_node_index = mmc->always_share ? 0 : numa.index_in_topo;
-      if (mmc->always_share || node_index == target_node_index) {
+      int target_node_index = always_share ? 0 : numa.index_in_topo;
+      if (always_share || node_index == target_node_index) {
         if (!disable_noop) {
-          mmc->targetbuffer[target_node_index] = src;
-          return buff_pair_brdcst{src, nullptr};
+          targetbuffer[target_node_index] = src;
+          return buff_pair{src, nullptr};
         }
-        if (buffer_manager<int32_t>::share_host_buffer((int32_t *)src)) {
-          mmc->targetbuffer[target_node_index] = src;
-          return buff_pair_brdcst{src, src};
+        if (BlockManager::share_host_buffer((int32_t *)src)) {
+          targetbuffer[target_node_index] = src;
+          return buff_pair{src, src};
         }
       } else {
-        char *dst = (char *)mmc->targetbuffer[target_node_index];
+        char *dst = (char *)targetbuffer[target_node_index];
         if (dst) {
-          if (buffer_manager<int32_t>::share_host_buffer((int32_t *)dst)) {
-            mmc->targetbuffer[target_node_index] = dst;
-            return buff_pair_brdcst{dst, dst};
+          if (BlockManager::share_host_buffer((int32_t *)dst)) {
+            targetbuffer[target_node_index] = dst;
+            return buff_pair{dst, dst};
           }
         }
       }
 
-      char *buff = (char *)buffer_manager<int32_t>::get_buffer_numa(numa);
+      char *buff = (char *)BlockManager::get_buffer_numa(numa);
       assert(target_device >= 0);
       if (bytes > 0)
-        buffer_manager<int32_t>::overwrite_bytes(
-            buff, src, bytes, mmc->strm[target_device], false);
+        BlockManager::overwrite_bytes(buff, src, bytes, strm[target_device],
+                                      false);
 
-      mmc->targetbuffer[target_node_index] = buff;
-      return buff_pair_brdcst{buff, src};
+      targetbuffer[target_node_index] = buff;
+      return buff_pair{buff, src};
     }
   }
+}
+
+extern "C" {
+void step_mmc_mem_move_broadcast_device(
+    MemBroadcastDevice::MemBroadcastConf *mmc) {
+  mmc->prepareNextBatch();
+}
+
+buff_pair make_mem_move_broadcast_device(
+    char *src, size_t bytes, int target_device,
+    MemBroadcastDevice::MemBroadcastConf *mmc, bool disable_noop) {
+  return mmc->pushBroadcast(src, bytes, target_device, disable_noop);
 }
 }
 
@@ -278,7 +283,6 @@ void MemBroadcastDevice::consume(Context *const context,
   auto &llvmContext = context->getLLVMContext();
   auto Builder = context->getBuilder();
   auto insBB = Builder->GetInsertBlock();
-  auto F = insBB->getParent();
 
   auto charPtrType = Type::getInt8PtrTy(llvmContext);
 
@@ -308,16 +312,14 @@ void MemBroadcastDevice::consume(Context *const context,
   Builder->SetInsertPoint(insBB);
   auto N = Builder->CreateLoad(mem_cntWrapper.mem);
 
-  RecordAttribute tupleIdentifier = RecordAttribute(
-      wantedFields[0]->getRelationName(), activeLoop, pg->getOIDType());
+  RecordAttribute tupleIdentifier(wantedFields[0]->getRelationName(),
+                                  activeLoop, pg->getOIDType());
   ProteusValueMemory mem_oidWrapper = childState[tupleIdentifier];
   auto oid = Builder->CreateLoad(mem_oidWrapper.mem);
 
   auto memmv = ((ParallelContext *)context)->getStateVar(memmvconf_var);
 
-  std::vector<std::vector<Value *>> pushed;
-
-  for (const auto &t : targets) pushed.emplace_back();
+  std::vector<std::vector<Value *>> pushed{targets.size()};
 
   auto null_ptr =
       llvm::ConstantPointerNull::get((llvm::PointerType *)charPtrType);
@@ -385,7 +387,7 @@ void MemBroadcastDevice::consume(Context *const context,
       d = Builder->CreateInsertValue(d, pushed[t_i][i], i);
     }
 
-    auto acquire = context->getFunction("acquireWorkUnitBroadcast");
+    auto acquire = context->getFunction("acquireWorkUnit");
 
     // acquire->getFunctionType()->dump();
     auto workunit_ptr8 = Builder->CreateCall(acquire, memmv);
@@ -410,7 +412,7 @@ void MemBroadcastDevice::open(Pipeline *pip) {
   // cudaStream_t strm2;
   // gpu_run(cudaStreamCreateWithFlags(&strm2, cudaStreamNonBlocking));
 
-  MemMoveConf *mmc = new MemMoveConf;
+  MemBroadcastConf *mmc = new MemBroadcastConf;
 #ifndef NCUDA
   for (const auto &t : targets) mmc->strm[t] = createNonBlockingStream();
     // mmc->strm2          = strm2;
@@ -462,7 +464,7 @@ void MemBroadcastDevice::open(Pipeline *pip) {
 void MemBroadcastDevice::close(Pipeline *pip) {
   // int device = get_device();
   // cudaStream_t strm = pip->getStateVar<cudaStream_t>(cu_stream_var);
-  MemMoveConf *mmc = pip->getStateVar<MemMoveConf *>(memmvconf_var);
+  MemBroadcastConf *mmc = pip->getStateVar<MemBroadcastConf *>(memmvconf_var);
 
   mmc->tran.close();
 
@@ -523,68 +525,17 @@ void MemBroadcastDevice::close(Pipeline *pip) {
   delete mmc;
 }
 
-extern "C" {
-MemBroadcastDevice::workunit *acquireWorkUnitBroadcast(
-    MemBroadcastDevice::MemMoveConf *mmc) {
-  MemBroadcastDevice::workunit *ret = nullptr;
-#ifndef NDEBUG
-  bool popres =
-#endif
-      mmc->idle.pop(ret);
-  assert(popres);
-  return ret;
+void MemBroadcastDevice::MemBroadcastConf::propagateBroadcast(
+    MemMoveDevice::workunit *buff, int target_device) {
+  gpu_run(cudaEventRecord(buff->event, strm[target_device]));
+
+  tran.push(buff);
 }
 
-void propagateWorkUnitBroadcast(MemBroadcastDevice::MemMoveConf *mmc,
+extern "C" {
+void propagateWorkUnitBroadcast(MemBroadcastDevice::MemBroadcastConf *mmc,
                                 MemBroadcastDevice::workunit *buff,
                                 int target_device) {
-  gpu_run(cudaEventRecord(buff->event, mmc->strm[target_device]));
-
-  mmc->tran.push(buff);
+  mmc->propagateBroadcast(buff, target_device);
 }
-
-bool acquirePendingWorkUnitBroadcast(MemBroadcastDevice::MemMoveConf *mmc,
-                                     MemBroadcastDevice::workunit **ret) {
-  if (!mmc->tran.pop(*ret)) return false;
-  gpu_run(cudaEventSynchronize((*ret)->event));
-  return true;
-}
-
-void releaseWorkUnitBroadcast(MemBroadcastDevice::MemMoveConf *mmc,
-                              MemBroadcastDevice::workunit *buff) {
-  mmc->idle.push(buff);
-}
-}
-
-void MemBroadcastDevice::catcher(MemMoveConf *mmc, int group_id,
-                                 const exec_location &target_dev) {
-  set_exec_location_on_scope d(target_dev);
-
-  nvtxRangePushA("memmove::catch");
-
-  Pipeline *pip = catch_pip->getPipeline(group_id);
-
-  nvtxRangePushA("memmove::catch_open");
-  pip->open();
-  nvtxRangePop();
-  {
-    do {
-      MemBroadcastDevice::workunit *p = nullptr;
-      if (!acquirePendingWorkUnitBroadcast(mmc, &p)) break;
-
-      nvtxRangePushA("memmove::catch_cons");
-      pip->consume(0, p->data);
-      nvtxRangePop();
-
-      releaseWorkUnitBroadcast(
-          mmc,
-          p);  // FIXME: move this inside the generated code
-    } while (true);
-  }
-
-  nvtxRangePushA("memmove::catch_close");
-  pip->close();
-  nvtxRangePop();
-
-  nvtxRangePop();
 }
