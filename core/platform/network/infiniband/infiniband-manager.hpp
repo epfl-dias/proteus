@@ -97,6 +97,7 @@ class InfiniBandManager {
   static void send(void *data, size_t bytes);
   static void write(void *data, size_t bytes);
   static subscription *read(void *data, size_t bytes);
+  static subscription *read_event();
   static void flush();
   static void flush_read();
   static buffkey get_buffer();
@@ -106,8 +107,8 @@ class InfiniBandManager {
   static subscription &subscribe();
   static void unsubscribe(subscription &);
 
-  static void *reg(void *mem, size_t bytes);
-  static void unreg(void *mem);
+  static void reg(const void *mem, size_t bytes);
+  static void unreg(const void *mem);
 
  private:
   static IBHandler *ib;

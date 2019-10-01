@@ -829,11 +829,11 @@ void IBHandler::disconnect() {
   // linux_run(rdma_disconnect(active_connections[0]));
 }
 
-void *IBHandler::reg(void *mem, size_t bytes) {
+void IBHandler::reg(const void *mem, size_t bytes) {
   LOG(INFO) << "reg: " << mem << "-" << ((void *)(((char *)mem) + bytes));
 
   ibv_mr *mr =
-      linux_run(ibv_reg_mr(pd, mem, bytes,
+      linux_run(ibv_reg_mr(pd, const_cast<void *>(mem), bytes,
                            IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE |
                                IBV_ACCESS_REMOTE_READ));
   assert(mr->addr == mem);
@@ -842,33 +842,18 @@ void *IBHandler::reg(void *mem, size_t bytes) {
     std::unique_lock<std::mutex> lock{m_reg};
     reged_mem.emplace(mem, mr);
   }
-
-  return mem;
 }
 
-void *IBHandler::reg2(void *mem, size_t bytes) {
-  LOG(INFO) << "reg2: " << mem << "-" << ((void *)(((char *)mem) + bytes));
+void IBHandler::reg2(const void *mem, size_t bytes) {
+  reg(mem, bytes);
 
-  ibv_mr *mr =
-      linux_run(ibv_reg_mr(pd, mem, bytes,
-                           IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE |
-                               IBV_ACCESS_REMOTE_READ));
-  assert(mr->addr == mem);
-
-  {
-    std::unique_lock<std::mutex> lock{m_reg};
-    reged_mem.emplace(mem, mr);
-  }
-
-  auto x = std::make_pair(mem, mr->rkey);
+  auto x = std::make_pair(mem, reged_mem.find(mem)->second->rkey);
   auto f = (decltype(&x))BlockManager::get_buffer();
   *f = x;
   send(f, sizeof(x), 13);
-
-  return mem;
 }
 
-void IBHandler::unreg(void *mem) {
+void IBHandler::unreg(const void *mem) {
   ibv_mr *mr;
   {
     std::unique_lock<std::mutex> lock{m_reg};

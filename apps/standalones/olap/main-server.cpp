@@ -28,16 +28,17 @@
 #include <rdma/rdma_cma.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+
 #include <common/olap-common.hpp>
 #include <cstring>
 #include <network/infiniband/infiniband-manager.hpp>
 #include <operators/relbuilder-factory.hpp>
 #include <operators/relbuilder.hpp>
 #include <plan/catalog-parser.hpp>
+#include <type_traits>
 #include <util/parallel-context.hpp>
 #include <util/timing.hpp>
-#include <network/infiniband/infiniband-manager.hpp>
-#include <type_traits>
+
 #include "cli-flags.hpp"
 #include "common/error-handling.hpp"
 #include "memory/block-manager.hpp"

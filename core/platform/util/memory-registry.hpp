@@ -35,8 +35,8 @@ class MemoryRegistry {
   MemoryRegistry &operator=(MemoryRegistry &&) = default;
   virtual ~MemoryRegistry() = default;
 
-  virtual void *reg(void *mem, size_t bytes) = 0;
-  virtual void unreg(void *mem) = 0;
+  virtual void reg(const void *mem, size_t bytes) = 0;
+  virtual void unreg(const void *mem) = 0;
 };
 
 #endif /* MEMORY_REGISTRY_HPP_ */

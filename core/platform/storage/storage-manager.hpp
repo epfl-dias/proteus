@@ -78,6 +78,7 @@ class FileRecord {
   FileRecord &operator=(const FileRecord &) = delete;
   FileRecord(FileRecord &&) = default;
   FileRecord &operator=(FileRecord &&) = default;
+  ~FileRecord();
 
   static FileRecord loadToGpus(const std::string &name, size_t type_size);
   static FileRecord loadToCpus(const std::string &name, size_t type_size);

@@ -58,7 +58,7 @@ void subscription::publish(void *data, size_t size) {
   cv.notify_one();
 }
 
-IBHandler *InfiniBandManager::ib;
+IBHandler *InfiniBandManager::ib = nullptr;
 
 void InfiniBandManager::send(void *data, size_t bytes) {
   ib->send(data, bytes);
@@ -142,8 +142,10 @@ void gid_to_wire_gid(const union ibv_gid *gid, char wgid[]) {
   for (i = 0; i < 4; ++i) sprintf(&wgid[i * 8], "%08x", htobe32(tmp_gid[i]));
 }
 
-void *InfiniBandManager::reg(void *mem, size_t bytes) {
-  return ib->reg2(mem, bytes);
+void InfiniBandManager::reg(const void *mem, size_t bytes) {
+  if (ib) ib->reg2(mem, bytes);
 }
 
-void InfiniBandManager::unreg(void *mem) { ib->unreg(mem); }
+void InfiniBandManager::unreg(const void *mem) {
+  if (ib) ib->unreg(mem);
+}

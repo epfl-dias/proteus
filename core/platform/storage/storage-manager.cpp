@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <network/infiniband/infiniband-manager.hpp>
 #include <threadpool/threadpool.hpp>
 
 #include "memory/block-manager.hpp"
@@ -40,7 +41,17 @@ StorageManager &StorageManager::getInstance() {
 StorageManager::~StorageManager() { assert(files.empty()); }
 
 FileRecord::FileRecord(std::vector<std::unique_ptr<mmap_file>> data)
-    : data(std::move(data)) {}
+    : data(std::move(data)) {
+  for (const auto &s : this->data) {
+    InfiniBandManager::reg(s->getData(), s->getFileSize());
+  }
+}
+
+FileRecord::~FileRecord() {
+  for (const auto &s : this->data) {
+    InfiniBandManager::unreg(s->getData());
+  }
+}
 
 FileRecord FileRecord::load(const std::string &name, size_t type_size,
                             data_loc loc) {

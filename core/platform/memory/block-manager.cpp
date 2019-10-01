@@ -32,11 +32,7 @@ void **buffer_manager<int32_t>::h_h_buff_start;
 void BlockManager::reg(MemoryRegistry &registry) {
   for (const auto &cpu : topology::getInstance().getCpuNumaNodes()) {
     size_t bytes = block_size * h_size[cpu.id];
-#ifndef NDEBUG
-    auto ptr =
-#endif
-        registry.reg(h_h_buff_start[cpu.id], bytes);
-    assert(ptr == h_h_buff_start[cpu.id]);
+    registry.reg(h_h_buff_start[cpu.id], bytes);
   }
 
   // TODO: also register GPU memory

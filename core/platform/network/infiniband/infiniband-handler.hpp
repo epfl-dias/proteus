@@ -51,8 +51,8 @@ class IBHandler : public MemoryRegistry {
 
   std::mutex m_reg;
   std::condition_variable cv_reg;
-  std::map<void *, ibv_mr *> reged_mem;
-  std::map<void *, decltype(ibv_mr::rkey)> reged_remote_mem;
+  std::map<const void *, ibv_mr *> reged_mem;
+  std::map<const void *, decltype(ibv_mr::rkey)> reged_remote_mem;
 
   std::thread listener;
 
@@ -125,9 +125,9 @@ class IBHandler : public MemoryRegistry {
    *
    * Notes: Do not overwrite as its called from constructor
    */
-  virtual void *reg(void *mem, size_t bytes) final;
-  virtual void *reg2(void *mem, size_t bytes) final;
-  virtual void unreg(void *mem) final;
+  virtual void reg(const void *mem, size_t bytes) final;
+  virtual void reg2(const void *mem, size_t bytes) final;
+  virtual void unreg(const void *mem) final;
 
   void flush();
   void flush_read();
@@ -151,6 +151,7 @@ class IBHandler : public MemoryRegistry {
 
   void write(void *data, size_t bytes, decltype(ibv_send_wr::imm_data) imm = 7);
   subscription *read(void *data, size_t bytes);
+  subscription *read_event();
 
   typedef std::pair<void *, decltype(ibv_send_wr::wr.rdma.rkey)> buffkey;
   buffkey get_buffer();
