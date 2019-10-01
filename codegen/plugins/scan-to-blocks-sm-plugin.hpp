@@ -207,8 +207,10 @@ class ScanToBlockSMPlugin : public Plugin {
   std::vector<llvm::Type *> parts_array;
   llvm::StructType *parts_arrays_type;
 
+ protected:
   size_t Nparts;
 
+ private:
   /* Used when we treat the col. files as internal caches! */
   std::vector<CacheInfo> whichCaches;
 
@@ -233,8 +235,11 @@ class ScanToBlockSMPlugin : public Plugin {
   // Used to store memory positions of offset, buf and filesize in the generated
   // code
   std::map<string, llvm::AllocaInst *> NamedValuesBinaryCol;
+
+ protected:
   ParallelContext *const context;
 
+ private:
   const char *posVar;      // = "offset";
   const char *bufVar;      // = "fileBuffer";
   const char *itemCtrVar;  // = "itemCtr";
