@@ -94,7 +94,7 @@ class Router : public experimental::UnaryOperator {
 
   virtual std::unique_ptr<routing::RoutingPolicy> getPolicy() const;
 
- private:
+ protected:
   [[nodiscard]] void *acquireBuffer(int target, bool polling = false);
   void releaseBuffer(int target, void *buff);
   void freeBuffer(int target, void *buff);

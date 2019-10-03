@@ -38,27 +38,41 @@ void *RouterScaleOut::acquireBuffer(int target, bool polling) {
 void RouterScaleOut::releaseBuffer(int target, void *buff) {
   // FIXME: we do not have to send the whole block. Usually we will have to send
   // just a couple of bytes. Use that instead
-  InfiniBandManager::write(buff, buf_size);
-  ++cnt;
-  if (cnt % (slack / 2) == 0) InfiniBandManager::flush();
+  if (target == 0) {
+    Router::releaseBuffer(target, buff);
+  } else {
+    BlockManager::share_host_buffer((int32_t *)buff);
+    InfiniBandManager::write(buff, buf_size);
+    ++cnt;
+    if (cnt % (slack / 2) == 0) InfiniBandManager::flush();
+  }
 }
 
 void RouterScaleOut::freeBuffer(int target, void *buff) {
-  // nvtxRangePushA("waiting_to_release");
-  // std::unique_lock<std::mutex> lock(free_pool_mutex[target]);
-  // nvtxRangePop();
-  // free_pool[target].emplace(buff);
-  // free_pool_cv[target].notify_one();
-  // lock.unlock();
-  BlockManager::release_buffer(buff);
+  if (target == 0) {
+    Router::freeBuffer(target, buff);
+  } else {
+    // nvtxRangePushA("waiting_to_release");
+    // std::unique_lock<std::mutex> lock(free_pool_mutex[target]);
+    // nvtxRangePop();
+    // free_pool[target].emplace(buff);
+    // free_pool_cv[target].notify_one();
+    // lock.unlock();
+    BlockManager::release_buffer(buff);
+  }
 }
 
 bool RouterScaleOut::get_ready(int target, void *&buff) {
-  auto &sub = InfiniBandManager::subscribe();
-  auto x = sub.wait();
-  if (x.size == 0) BlockManager::release_buffer(x.data);
-  buff = x.data;
-  return x.size != 0;
+  if (target == 0) {
+    return Router::get_ready(target, buff);
+  } else {
+    auto &sub = InfiniBandManager::subscribe();
+    auto x = sub.wait();
+    LOG(INFO) << x.size;
+    if (x.size == 3) BlockManager::release_buffer(x.data);
+    buff = x.data;
+    return x.size != 3;
+  }
 }
 
 // void RouterScaleOut::fire(int target, PipelineGen *pipGen) {
@@ -143,7 +157,7 @@ void RouterScaleOut::close(Pipeline *pip) {
   // time_block t("Tterm_exchange: ");
   LOG(INFO) << "close";
   // Send msg: "You are now allowed to proceed to your close statement"
-  InfiniBandManager::write(BlockManager::get_buffer(), 0);
+  InfiniBandManager::write(BlockManager::get_buffer(), 3);
   InfiniBandManager::flush();
 
   int rem = --remaining_producers;
