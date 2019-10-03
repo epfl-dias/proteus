@@ -32,6 +32,7 @@
 #include <util/flush-operator-tree.hpp>
 
 #include "hash-join-chained-morsel.hpp"
+#include "mem-broadcast-scaleout.hpp"
 #include "mem-move-scaleout.hpp"
 #include "operators/block-to-tuples.hpp"
 #include "operators/cpu-to-gpu.hpp"
@@ -157,6 +158,33 @@ RelBuilder RelBuilder::membrdcst(const vector<RecordAttribute *> &wantedFields,
 RelBuilder RelBuilder::membrdcst(DegreeOfParallelism fanout, bool to_cpu,
                                  bool always_share) const {
   return membrdcst(
+      [&](const auto &arg) -> std::vector<RecordAttribute *> {
+        std::vector<RecordAttribute *> ret;
+        for (const auto &attr : arg.getProjections()) {
+          if (dynamic_cast<const BlockType *>(attr.getOriginalType())) {
+            ret.emplace_back(new RecordAttribute{attr});
+          }
+        }
+        assert(ret.size() != 0);
+        return ret;
+      },
+      fanout, to_cpu, always_share);
+}
+
+RelBuilder RelBuilder::membrdcst_scaleout(
+    const vector<RecordAttribute *> &wantedFields, size_t fanout, bool to_cpu,
+    bool always_share) const {
+  for (const auto &attr : wantedFields) {
+    assert(dynamic_cast<const BlockType *>(attr->getOriginalType()));
+  }
+  auto op = new MemBroadcastScaleOut(root, ctx, wantedFields, fanout, to_cpu,
+                                     always_share);
+  return apply(op);
+}
+
+RelBuilder RelBuilder::membrdcst_scaleout(size_t fanout, bool to_cpu,
+                                          bool always_share) const {
+  return membrdcst_scaleout(
       [&](const auto &arg) -> std::vector<RecordAttribute *> {
         std::vector<RecordAttribute *> ret;
         for (const auto &attr : arg.getProjections()) {

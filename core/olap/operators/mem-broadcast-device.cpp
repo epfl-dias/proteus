@@ -368,12 +368,18 @@ void MemBroadcastDevice::consume(Context *const context,
   }
 }
 
+MemBroadcastDevice::MemBroadcastConf *MemBroadcastDevice::createMoveConf()
+    const {
+  return new MemBroadcastDevice::MemBroadcastConf;
+}
+
 void MemBroadcastDevice::open(Pipeline *pip) {
   nvtxRangePushA("memmove::open");
   // cudaStream_t strm2;
   // gpu_run(cudaStreamCreateWithFlags(&strm2, cudaStreamNonBlocking));
 
-  auto mmc = new MemBroadcastConf;
+  MemBroadcastConf *mmc = createMoveConf();
+
 #ifndef NCUDA
   if (!always_share) {
     for (const auto &t : targets) mmc->strm[t] = createNonBlockingStream();

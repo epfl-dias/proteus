@@ -191,6 +191,16 @@ class RelBuilder {
   RelBuilder membrdcst(DegreeOfParallelism fanout, bool to_cpu,
                        bool always_share = false) const;
 
+  template <typename T>
+  RelBuilder membrdcst_scaleout(T attr, size_t fanout, bool to_cpu,
+                                bool always_share = false) const {
+    return membrdcst_scaleout(attr(getOutputArg()), fanout, to_cpu,
+                              always_share);
+  }
+
+  RelBuilder membrdcst_scaleout(size_t fanout, bool to_cpu,
+                                bool always_share = false) const;
+
   template <typename T, typename Thash>
   RelBuilder router(T attr, Thash hash, DegreeOfParallelism fanout,
                     size_t slack, RoutingPolicy p, DeviceType target,
@@ -465,6 +475,10 @@ class RelBuilder {
                          const std::vector<GpuMatExpr>& probe_e,
                          const std::vector<size_t>& probe_w, int hash_bits,
                          size_t maxBuildInputSize) const;
+
+  RelBuilder membrdcst_scaleout(const vector<RecordAttribute*>& wantedFields,
+                                size_t fanout, bool to_cpu,
+                                bool always_share = false) const;
 
   RelBuilder join(RelBuilder build, expression_t build_k, expression_t probe_k,
                   int hash_bits, size_t maxBuildInputSize) const;

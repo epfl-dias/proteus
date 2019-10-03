@@ -96,8 +96,9 @@ class InfiniBandManager {
                    bool primary = false, bool ipv4 = false);
   static void send(void *data, size_t bytes);
   static void write(void *data, size_t bytes);
-  static subscription *read(void *data, size_t bytes);
-  static subscription *read_event();
+  [[nodiscard]] static subscription *write_silent(void *data, size_t bytes);
+  [[nodiscard]] static subscription *read(void *data, size_t bytes);
+  [[nodiscard]] static subscription *read_event();
   static void flush();
   static void flush_read();
   static buffkey get_buffer();

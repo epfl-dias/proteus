@@ -97,6 +97,9 @@ class IBHandler : public MemoryRegistry {
   std::deque<std::pair<subscription, void *>> read_promises;
   std::mutex read_promises_m;
 
+  std::deque<std::pair<subscription, void *>> write_promises;
+  std::mutex write_promises_m;
+
   size_t write_cnt;
   size_t *cnts;
 
@@ -137,6 +140,7 @@ class IBHandler : public MemoryRegistry {
 
   void sendGoodBye();
   decltype(read_promises)::value_type &create_promise(void *buff);
+  decltype(write_promises)::value_type &create_write_promise(void *buff);
 
   void flush_write(ibv_sge *sge_ptr);
   void flush_write();
@@ -150,8 +154,9 @@ class IBHandler : public MemoryRegistry {
   void send(void *data, size_t bytes, decltype(ibv_send_wr::imm_data) imm = 5);
 
   void write(void *data, size_t bytes, decltype(ibv_send_wr::imm_data) imm = 7);
-  subscription *read(void *data, size_t bytes);
-  subscription *read_event();
+  [[nodiscard]] subscription *write_silent(void *data, size_t bytes);
+  [[nodiscard]] subscription *read(void *data, size_t bytes);
+  [[nodiscard]] subscription *read_event();
 
   typedef std::pair<void *, decltype(ibv_send_wr::wr.rdma.rkey)> buffkey;
   buffkey get_buffer();

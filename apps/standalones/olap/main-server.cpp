@@ -369,8 +369,9 @@ int main(int argc, char *argv[]) {
     } else {
       InfiniBandManager::disconnectAll();
     }
-    InfiniBandManager::deinit();
+
     StorageManager::getInstance().unloadAll();
+    InfiniBandManager::deinit();
     return 0;
   }
 

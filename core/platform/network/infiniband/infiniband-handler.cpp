@@ -349,6 +349,7 @@ void IBHandler::poll_cq() {
 
   size_t i = 0;
   size_t IBV_WC_RDMA_READ_cnt = 0;
+  size_t IBV_WC_RDMA_WRITE_cnt = 0;
 
   while (true) {
     // linux_run(ibv_get_cq_event(comp_channel, &cq, &ctx));
@@ -371,6 +372,7 @@ void IBHandler::poll_cq() {
       eventlogger.log(this, IB_CQ_PROCESSING_EVENT_START);
       if (wc.status != IBV_WC_SUCCESS) {
         if (wc.status == IBV_WC_RNR_RETRY_EXC_ERR) {
+          LOG(INFO) << "Retry exceeded";
           sleep(1);
           eventlogger.log(this, IB_CQ_PROCESSING_EVENT_END);
           continue;
@@ -458,7 +460,8 @@ void IBHandler::poll_cq() {
             size_t buffcnt = wc.byte_len / sizeof(size_t);
             size_t *sizes = (size_t *)b[buffcnt];
             for (size_t i = 0; i < buffcnt; ++i) {
-              sub.publish(b.front(), sizes[i]);
+              // LOG(INFO) << sizes[i];
+              if (sizes[i] != (-1)) sub.publish(b.front(), sizes[i]);
               b.pop_front();
             }
             BlockManager::release_buffer(sizes);
@@ -484,7 +487,7 @@ void IBHandler::poll_cq() {
           // eventlogger.log(this, IBV_DEREG_END);
         }
         // LOG(INFO) << "notification completed";
-      } else if (wc.opcode == IBV_WC_SEND || wc.opcode == IBV_WC_RDMA_WRITE) {
+      } else if (wc.opcode == IBV_WC_SEND) {
         if (data) {
           BlockManager::release_buffer(data);
           // LOG(INFO) << "out "
@@ -505,6 +508,27 @@ void IBHandler::poll_cq() {
           // }
         }
         // LOG(INFO) << "send completed successfully";
+      } else if (wc.opcode == IBV_WC_RDMA_WRITE) {
+        if (data) {
+          {
+            std::lock_guard<std::mutex> lock{write_promises_m};
+            for (size_t i = 0; i < 1; ++i) {
+              assert(!write_promises.empty());
+              assert(write_promises.size() > IBV_WC_RDMA_WRITE_cnt);
+              auto &p = write_promises[IBV_WC_RDMA_WRITE_cnt++];
+              // //.front();
+              if (p.second) {
+                // auto &p = read_promises.front();
+                // LOG(INFO) << "read completed successfull_y";
+                // BlockManager::release_buffer(p.second);
+                p.first.publish(p.second, 0);
+                // p.first.set_value(p.second);
+                // read_promises.pop_front();
+              }
+            }
+          }
+          BlockManager::release_buffer(data);
+        }
       } else if (wc.opcode == IBV_WC_RDMA_READ) {
         std::unique_lock<std::mutex> lock{read_promises_m};
         for (size_t i = 0; i < (size_t)wc.wr_id; ++i) {
@@ -525,6 +549,7 @@ void IBHandler::poll_cq() {
     }
 
     if (ready2exit) {
+      LOG(INFO) << "Bailing out...";
       ibv_ack_cq_events(cq, i);
       LOG(INFO) << "Bailing out";
       return;
@@ -619,16 +644,25 @@ void IBHandler::flush_read() {
   linux_run(send(wr));
 }
 
+void *old_cnts = nullptr;
+
 void IBHandler::flush_write() {
+  auto buff = get_buffer();
+
+  std::unique_lock<std::mutex> lock{write_promises_m};
+
   size_t *data = cnts;
+  // BlockManager::release_buffer(old_cnts);
+  // old_cnts = cnts;
   size_t bytes = write_cnt * sizeof(size_t);
   eventlogger.log(this, IB_RDMA_WAIT_BUFFER_START);
-  auto buff = get_buffer();
   cnts = (size_t *)BlockManager::get_buffer();
   eventlogger.log(this, IB_RDMA_WAIT_BUFFER_END);
   ibv_mr *send_reg = (--reged_mem.upper_bound(data))->second;
 
   ibv_sge sge{/* 0 everything out via value initialization */};
+
+  create_write_promise(nullptr);
 
   static_assert(sizeof(void *) == sizeof(decltype(ibv_sge::addr)));
   // super dangerous cast, do not remove above static_assert!
@@ -663,9 +697,15 @@ decltype(IBHandler::read_promises)::value_type &IBHandler::create_promise(
   return read_promises.back();
 }
 
+decltype(IBHandler::write_promises)::value_type &
+IBHandler::create_write_promise(void *buff) {
+  write_promises.emplace_back(5, buff);
+  return write_promises.back();
+}
+
 subscription *IBHandler::read_event() {
   eventlogger.log(this, IB_CREATE_RDMA_READ_START);
-  auto buff = BlockManager::get_buffer();
+  // auto buff = BlockManager::get_buffer();
 
   // auto p = new std::promise<void *>;
   // auto d = new std::pair<decltype(p), void *>;
@@ -752,45 +792,105 @@ subscription *IBHandler::read(void *data, size_t bytes) {
 
 void IBHandler::write(void *data, size_t bytes,
                       decltype(ibv_send_wr::imm_data) imm) {
-  eventlogger.log(this, IB_RDMA_WAIT_BUFFER_START);
-  auto buff = get_buffer();
-  cnts[write_cnt++] = bytes;
-  eventlogger.log(this, IB_RDMA_WAIT_BUFFER_END);
-  ibv_mr *send_reg = (--reged_mem.upper_bound(data))->second;
+  bool should_flush = false;
+  {
+    eventlogger.log(this, IB_RDMA_WAIT_BUFFER_START);
+    auto buff = get_buffer();
+    cnts[write_cnt++] = bytes;
+    std::unique_lock<std::mutex> lock{write_promises_m};
+    eventlogger.log(this, IB_RDMA_WAIT_BUFFER_END);
+    ibv_mr *send_reg = (--reged_mem.upper_bound(data))->second;
 
-  // Find connection for target node
-  // rdma_cm_id *conn = active_connections.at(0);
+    create_write_promise(nullptr);
 
-  ibv_sge sge{/* 0 everything out via value initialization */};
+    // Find connection for target node
+    // rdma_cm_id *conn = active_connections.at(0);
 
-  static_assert(sizeof(void *) == sizeof(decltype(ibv_sge::addr)));
-  // super dangerous cast, do not remove above static_assert!
-  sge.addr = reinterpret_cast<decltype(ibv_sge::addr)>(data);
-  assert(bytes <= std::numeric_limits<decltype(ibv_sge::length)>::max());
-  sge.length = static_cast<decltype(ibv_sge::length)>(bytes);
-  sge.lkey = send_reg->lkey;
+    ibv_sge sge{/* 0 everything out via value initialization */};
 
-  ibv_send_wr wr{/* 0 everything out via value initialization */};
+    static_assert(sizeof(void *) == sizeof(decltype(ibv_sge::addr)));
+    // super dangerous cast, do not remove above static_assert!
+    sge.addr = reinterpret_cast<decltype(ibv_sge::addr)>(data);
+    assert(bytes <= std::numeric_limits<decltype(ibv_sge::length)>::max());
+    sge.length = static_cast<decltype(ibv_sge::length)>(bytes);
+    sge.lkey = send_reg->lkey;
 
-  wr.wr_id = (uintptr_t)data;  // readable locally on work completion
-  wr.opcode = IBV_WR_RDMA_WRITE;
-  wr.sg_list = &sge;
-  wr.num_sge = 1;
-  wr.send_flags = IBV_SEND_SIGNALED;
-  // assert(!sigoverflow || (c > 2));
-  // wr.imm_data = c + 3;  // NOTE: only sent when singaled == true
-  // Can pass an arbitrary value to receiver, consider for
-  // the consumed buffer
-  wr.wr.rdma.remote_addr =
-      reinterpret_cast<decltype(wr.wr.rdma.remote_addr)>(buff.first);
-  wr.wr.rdma.rkey = buff.second;
+    ibv_send_wr wr{/* 0 everything out via value initialization */};
 
-  // LOG(INFO) << bytes << " " << buff.first;
-  linux_run(send(wr));
-  // TODO: save_on_error contains a pointer to the "bad" request, handle
-  // more gracefully
+    wr.wr_id = (uintptr_t)data;  // readable locally on work completion
+    wr.opcode = IBV_WR_RDMA_WRITE;
+    wr.sg_list = &sge;
+    wr.num_sge = 1;
+    wr.send_flags = IBV_SEND_SIGNALED;
+    // assert(!sigoverflow || (c > 2));
+    // wr.imm_data = c + 3;  // NOTE: only sent when singaled == true
+    // Can pass an arbitrary value to receiver, consider for
+    // the consumed buffer
+    wr.wr.rdma.remote_addr =
+        reinterpret_cast<decltype(wr.wr.rdma.remote_addr)>(buff.first);
+    wr.wr.rdma.rkey = buff.second;
 
-  if ((write_cnt % packNotifications) == 0) flush_write();
+    // LOG(INFO) << bytes << " " << buff.first;
+    linux_run(send(wr));
+    // TODO: save_on_error contains a pointer to the "bad" request, handle
+    // more gracefully
+
+    should_flush = ((write_cnt % packNotifications) == 0);
+  }
+  if (should_flush) flush_write();
+}
+
+subscription *IBHandler::write_silent(void *data, size_t bytes) {
+  bool should_flush = false;
+  subscription *ret;
+  {
+    eventlogger.log(this, IB_RDMA_WAIT_BUFFER_START);
+    auto buff = get_buffer();
+    cnts[write_cnt++] = -1;
+    std::unique_lock<std::mutex> lock{write_promises_m};
+    eventlogger.log(this, IB_RDMA_WAIT_BUFFER_END);
+    ibv_mr *send_reg = (--reged_mem.upper_bound(data))->second;
+
+    auto &p = create_write_promise(buff.first);
+    // Find connection for target node
+    // rdma_cm_id *conn = active_connections.at(0);
+
+    ibv_sge sge{/* 0 everything out via value initialization */};
+
+    static_assert(sizeof(void *) == sizeof(decltype(ibv_sge::addr)));
+    // super dangerous cast, do not remove above static_assert!
+    sge.addr = reinterpret_cast<decltype(ibv_sge::addr)>(data);
+    assert(bytes <= std::numeric_limits<decltype(ibv_sge::length)>::max());
+    sge.length = static_cast<decltype(ibv_sge::length)>(bytes);
+    sge.lkey = send_reg->lkey;
+
+    ibv_send_wr wr{/* 0 everything out via value initialization */};
+
+    wr.wr_id = (uintptr_t)data;  // readable locally on work completion
+    wr.opcode = IBV_WR_RDMA_WRITE;
+    wr.sg_list = &sge;
+    wr.num_sge = 1;
+    wr.send_flags = IBV_SEND_SIGNALED;
+    // assert(!sigoverflow || (c > 2));
+    // wr.imm_data = c + 3;  // NOTE: only sent when singaled == true
+    // Can pass an arbitrary value to receiver, consider for
+    // the consumed buffer
+    wr.wr.rdma.remote_addr =
+        reinterpret_cast<decltype(wr.wr.rdma.remote_addr)>(buff.first);
+    wr.wr.rdma.rkey = buff.second;
+
+    // LOG(INFO) << bytes << " " << buff.first;
+    linux_run(send(wr));
+    // TODO: save_on_error contains a pointer to the "bad" request, handle
+    // more gracefully
+
+    should_flush = ((write_cnt % packNotifications) == 0);
+    ret = &p.first;
+  }
+
+  if (should_flush) flush_write();
+
+  return ret;
 }
 
 void IBHandler::request_buffers_unsafe() { send_sge(0, nullptr, 0, 1); }

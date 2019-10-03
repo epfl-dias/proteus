@@ -57,6 +57,7 @@ set(olap_cxx
         operators/unionall.cpp
         operators/unnest.cpp
         operators/mem-broadcast-device.cpp
+        operators/mem-broadcast-scaleout.cpp
         operators/mem-move-device.cpp
         operators/mem-move-local-to.cpp
         operators/mem-move-scaleout.cpp

@@ -89,6 +89,8 @@ class MemBroadcastDevice : public MemMoveDevice {
     return ret;
   }
 
+  virtual MemBroadcastConf *createMoveConf() const;
+
  private:
   std::vector<int> targets;
 

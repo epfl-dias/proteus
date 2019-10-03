@@ -68,6 +68,10 @@ void InfiniBandManager::write(void *data, size_t bytes) {
   ib->write(data, bytes);
 }
 
+subscription *InfiniBandManager::write_silent(void *data, size_t bytes) {
+  return ib->write_silent(data, bytes);
+}
+
 subscription *InfiniBandManager::read(void *data, size_t bytes) {
   return ib->read(data, bytes);
 }
