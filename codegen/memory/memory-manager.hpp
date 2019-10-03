@@ -121,8 +121,8 @@ class MemoryManager {
  public:
   static SingleGpuMemoryManager **gpu_managers;
   static SingleCpuMemoryManager **cpu_managers;
-  static void init(float gpu_mem_pool_percentage = 0.25,
-                   float cpu_mem_pool_percentage = 0.25,
+  static void init(float gpu_mem_pool_percentage = 0.1,
+                   float cpu_mem_pool_percentage = 0.1,
                    bool log_buffers = false);
   static void destroy();
 

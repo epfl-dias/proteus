@@ -57,8 +57,8 @@ constexpr void *buff_start = nullptr;
 constexpr void *buff_end = nullptr;
 #endif
 
-void buffer_manager_init(float gpu_mem_pool_percentage = 0.25,
-                         float cpu_mem_pool_percentage = 0.25,
+void buffer_manager_init(float gpu_mem_pool_percentage = 0.1,
+                         float cpu_mem_pool_percentage = 0.1,
                          bool log_buffers = false) {
   buffer_manager<int32_t>::init(gpu_mem_pool_percentage,
                                 cpu_mem_pool_percentage, log_buffers, 256, 512);
