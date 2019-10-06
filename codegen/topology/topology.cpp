@@ -48,12 +48,65 @@ const topology::cpunumanode *topology::getCpuNumaNodeAddressed(
   return (cpu_info.data() + cpunuma_index[numa_id]);
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
+extern "C" void numa_error(char *where) { LOG(FATAL) << where; }
+extern "C" void numa_warn(int num, char *fmt, ...) { LOG(WARNING) << fmt; }
+#pragma clang diagnostic pop
+
 void *topology::cpunumanode::alloc(size_t bytes) const {
-  return numa_alloc_onnode(bytes, id);
+  constexpr size_t hugepage = 2 * 1024 * 1024;
+  bytes = ((bytes + hugepage - 1) / hugepage) * hugepage;
+  void *mem = mmap(nullptr, bytes, PROT_READ | PROT_WRITE,
+                   MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+  assert(mem != MAP_FAILED);
+  assert((((uintptr_t)mem) % hugepage) == 0);
+#ifndef NDEBUG
+  {
+    int status;
+    // use move_pages as getCpuNumaNodeAddressed checks only the policy
+    assert(move_pages(0, 1, &mem, nullptr, &status, 0) == 0);
+    // check that page has not been prefaulted (status should be -ENOENT)!
+    // otherwise, setting the numa policy will not be effective
+    assert(status == -ENOENT);
+  }
+#endif
+
+  // TODO: consider using numa_set_strict
+  numa_tonode_memory(mem, bytes, id);
+
+#ifndef NDEBUG
+  {
+    int status;
+    // use move_pages as getCpuNumaNodeAddressed checks only the policy
+    assert(move_pages(0, 1, &mem, nullptr, &status, 0) == 0);
+    // That check is not critical but only a sanity check, consider removing
+    assert(status == -ENOENT);
+  }
+
+  if (bytes >= sizeof(int)) {
+    // fault first page to check it's allocated on the correct node
+    ((int *)mem)[0] = 0;
+    // check using the policy
+    assert(topology::getInstance().getCpuNumaNodeAddressed(mem) == this);
+
+    {
+      // now the first page should have been prefaulted, verify using move_pages
+      int status;
+      assert(move_pages(0, 1, &mem, nullptr, &status, 0) == 0);
+      // the faulted page should be on the correct socket now
+      assert(status == id);
+    }
+  }
+#endif
+
+  return mem;
+  //  return numa_alloc_onnode(bytes, id);
 }
 
 void topology::cpunumanode::free(void *mem, size_t bytes) {
-  numa_free(mem, bytes);
+  // numa_free(mem, bytes);
+  munmap(mem, bytes);
 }
 
 size_t topology::cpunumanode::getMemorySize() const {
