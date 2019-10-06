@@ -19,7 +19,7 @@
     {
         "ClangFormat":
         {
-            "binary": "clang-format-8",
+            "binary": "clang-format-9",
             "format_on_save": true,
             "languages":
             [
@@ -33,7 +33,7 @@
             ],
             "style": "file"
         },
-        "ecc_clang_binary": "clang++-8",
+        "ecc_clang_binary": "clang++-9",
         "ecc_common_flags":
         [
             "-pedantic",
