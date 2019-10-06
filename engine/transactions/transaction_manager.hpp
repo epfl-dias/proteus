@@ -52,41 +52,31 @@ class TransactionManager {
 
   // TODO: move the following to snapshot manager
   bool snapshot() {
-    time_block t("TtxnManger_snapshot_: ");
+    time_block t("[TransactionManger] snapshot_: ");
     // FIXME: why get max active txn for double master while a new txn id for
     // cow-snapshot. i guess this is because for switching master we dont need
     // to pause the workers. it can happend on the fly.
 
     // Full barrier ( we need barier to get num_records in that snapshot)
-    scheduler::WorkerPool::getInstance().pause();
 
-#if HTAP_DOUBLE_MASTER
+    // std::cout << "pausing" << std::endl;
+    scheduler::WorkerPool::getInstance().pause();
+    //::cout << "paused" << std::endl;
 
     ushort snapshot_master_ver = this->switch_master();
 
     storage::Schema::getInstance().snapshot(this->get_next_xid(0),
                                             snapshot_master_ver);
 
-#elif HTAP_COW
-    storage::Schema::getInstance().snapshot(this->get_next_xid(0), 0);
-#else
-    assert(false && "Unknown snapshotting mechanism");
-#endif
+    // storage::Schema::getInstance().snapshot(this->get_next_xid(0), 0);
 
+    // std::cout << "resuming" << std::endl;
     scheduler::WorkerPool::getInstance().resume();
-
-    // storage::Schema::getInstance().snapshot(epoch_num, snapshot_master_ver);
-
-    // uint64_t epoch_num =
-    //     scheduler::WorkerPool::getInstance().get_max_active_txn();
-
+    // std::cout << "resumed" << std::endl;
     return true;
   }
 
   ushort switch_master() {
-    assert(global_conf::num_master_versions > 1 &&
-           "cannot switch master with master_version <= 1");
-
     ushort curr_master = this->current_master.load();
 
     /*
@@ -99,8 +89,8 @@ class TransactionManager {
 
     ushort tmp = (curr_master + 1) % global_conf::num_master_versions;
 
-    std::cout << "Master switch request, from: " << (uint)curr_master
-              << " to: " << (uint)tmp << std::endl;
+    // std::cout << "Master switch request, from: " << (uint)curr_master
+    //           << " to: " << (uint)tmp << std::endl;
 
     current_master.store(tmp);
 
@@ -108,7 +98,7 @@ class TransactionManager {
     //            tmp) == false)
     //   ;
 
-    std::cout << "Master switch completed" << std::endl;
+    // std::cout << "Master switch completed" << std::endl;
     return curr_master;
   }
 

@@ -126,6 +126,7 @@ class Schema {
 
   void teardown();
   void snapshot(uint64_t epoch, uint8_t snapshot_master_ver);
+  void ETL(uint numa_node_idx);
 
   void report();
 
@@ -206,6 +207,8 @@ class Table {
                                  ushort partition_id, ushort master_ver) = 0;
 
   virtual void snapshot(uint64_t epoch, uint8_t snapshot_master_ver) = 0;
+
+  virtual void ETL(uint numa_node_idx) = 0;
 
   // uint64_t getNumRecords() { return (vid.load() - 1); }
 

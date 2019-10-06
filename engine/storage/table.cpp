@@ -46,19 +46,24 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #endif
 
-/*
-
-  TODO:
-    - resizeable columns
-    - batch insert/upd
-*/
-
 namespace storage {
+
+void Schema::ETL(uint numa_node_idx) {
+  std::vector<std::thread> workers;
+
+  for (const auto& tbl : tables) {
+    workers.emplace_back([tbl, numa_node_idx]() { tbl->ETL(numa_node_idx); });
+  }
+
+  for (auto& th : workers) {
+    th.join();
+  }
+}
 
 void Schema::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
   // check if prev sync is in progress, if yes, wait for that too complete.
   std::cout << "------------------------" << std::endl;
-  std::cout << "epoch: " << epoch << std::endl;
+  std::cout << "snap_epoch: " << epoch << std::endl;
 
   if (snapshot_sync_in_progress.load()) {
     std::cout << "Already in progress: " << epoch << std::endl;
@@ -77,6 +82,7 @@ void Schema::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
 
   this->snapshot_sync = scheduler::ThreadPool::getInstance().enqueue(
       &Schema::sync_master_ver_schema, this, snapshot_master_ver);
+  // this->sync_master_ver_schema(snapshot_master_ver);
 
 #endif
 }
@@ -84,9 +90,9 @@ void Schema::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
 bool Schema::sync_master_ver_schema(const uint8_t snapshot_master_ver) {
   // add arg: const scheduler::cpunumanode &exec_numanode
   snapshot_sync_in_progress.store(true);
-  time_block t("TsyncMasterVersions_: ");
+  time_block t("[Schema]syncMasterVersions_: ");
   std::vector<std::future<bool>> sync_tasks;  // pre-allocation
-  sync_tasks.reserve(50);
+  sync_tasks.reserve(this->num_tables);
 
   // start
   for (auto& tbl : tables) {
@@ -98,6 +104,12 @@ bool Schema::sync_master_ver_schema(const uint8_t snapshot_master_ver) {
   for (auto& task : sync_tasks) {
     task.get();
   }
+
+  // for (auto& tbl : tables) {
+  //   std::cout << "[Table] Sync: " << tbl->name << std::endl;
+  //   this->sync_master_ver_tbl(tbl, snapshot_master_ver);
+  // }
+
   this->snapshot_sync_in_progress.store(false);
   return true;
 }
@@ -106,7 +118,6 @@ bool Schema::sync_master_ver_tbl(const storage::Table* tbl,
                                  const uint8_t snapshot_master_ver) {
   // TODO: set exec location
   // add arg: const scheduler::cpunumanode &exec_numanode
-
   // sync
   assert(tbl->storage_layout == COLUMN_STORE);
   ((storage::ColumnStore*)tbl)->sync_master_snapshots(snapshot_master_ver);
@@ -185,8 +196,9 @@ Table* Schema::create_table(
     // void* obj_ptr =
     //     MemoryManager::alloc(sizeof(RowStore), DEFAULT_MEM_NUMA_SOCKET);
 
-    tbl = new RowStore((this->num_tables + 1), name, columns,
-                       initial_num_records, indexed, partitioned, numa_idx);
+    // tbl = new RowStore((this->num_tables + 1), name, columns,
+    //                    initial_num_records, indexed, partitioned, numa_idx);
+    assert(false);
   } else {
     throw new std::runtime_error("Unknown layout type");
   }

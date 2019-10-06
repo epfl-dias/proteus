@@ -66,27 +66,26 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
   aeolus_rel_name = aeolus_rel_name.substr(
       0, aeolus_rel_name.length() - 4);  // remove the trailing .csv
 
-  if (pgType.compare("block-cow") == 0 || pgType.compare("block-remote") == 0) {
-    time_block t("TpgBlockCOW: ");
+  time_block t("TpgBlockCOW: ");
 
-    auto &txn_storage = storage::Schema::getInstance();
-    storage::ColumnStore *tbl = nullptr;
+  auto &txn_storage = storage::Schema::getInstance();
+  storage::ColumnStore *tbl = nullptr;
 
-    std::cout << "Finding Table: " << aeolus_rel_name << std::endl;
+  std::cout << "Finding Table: " << aeolus_rel_name << std::endl;
 
-    for (auto &tb : txn_storage.getTables()) {
-      if (aeolus_rel_name.compare(tb->name) == 0) {
-        assert(tb->storage_layout == storage::COLUMN_STORE);
-        tbl = (storage::ColumnStore *)tb;
-        break;
-      }
+  for (auto &tb : txn_storage.getTables()) {
+    if (aeolus_rel_name.compare(tb->name) == 0) {
+      assert(tb->storage_layout == storage::COLUMN_STORE);
+      tbl = (storage::ColumnStore *)tb;
+      break;
     }
-    assert(tbl != nullptr);
+  }
+  assert(tbl != nullptr);
 
-    // uint64_t num_records = tbl->getNumRecords();
+  // uint64_t num_records = tbl->getNumRecords();
 
-    // std::cout << "# Records " << num_records << std::endl;
-
+  // std::cout << "# Records " << num_records << std::endl;
+  if (pgType.compare("block-cow") == 0) {
     for (const auto &in : wantedFields) {
       const auto llvm_type = in->getOriginalType()->getLLVMType(llvmContext);
       size_t type_size = context->getSizeOf(llvm_type);
@@ -125,11 +124,12 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
       }
     }
 
-    std::cout << "[AEOLUS PLUGIN DONE] " << fnamePrefix << std::endl;
+  } else if (pgType.compare("block-etl") == 0) {
   } else {
     assert(false && "Not Implemented");
   }
 
+  std::cout << "[AEOLUS PLUGIN DONE] " << fnamePrefix << std::endl;
   finalize_data();
 }
 

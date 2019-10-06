@@ -25,6 +25,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include <assert.h>
 
+#include <deque>
 #include <iostream>
 #include <map>
 #include <stdexcept>
@@ -38,7 +39,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 
-#define BIT_PACK_SIZE 1024
+#include "utils/atomic_bit_set.hpp"
+
+#define BIT_PACK_SIZE 512
 
 namespace storage {
 
@@ -87,6 +90,7 @@ class ColumnStore : public Table {
 
   void sync_master_snapshots(ushort master_ver_idx);
   void snapshot(uint64_t epoch, uint8_t snapshot_master_ver);
+  void ETL(uint numa_node_idx);
   void num_upd_tuples();
   const std::vector<Column *> &getColumns() { return columns; }
 
@@ -134,9 +138,13 @@ class Column {
   void snapshot(const uint64_t *n_recs_part, uint64_t epoch,
                 uint8_t snapshot_master_ver);
 
+  void ETL(uint numa_node_idx);
+
   uint64_t load_from_binary(std::string file_path);
 
-  void num_upd_tuples();
+  uint64_t num_upd_tuples(const ushort master_ver = 0,
+                          const uint64_t *num_records = nullptr,
+                          bool print = false);
 
   size_t getSize() { return this->total_mem_reserved; }
 
@@ -157,7 +165,7 @@ class Column {
 
  private:
   uint num_partitions;
-  bool touched;
+  bool touched[NUM_SOCKETS];
 
   size_t total_mem_reserved;
   size_t size_per_part;
@@ -167,12 +175,14 @@ class Column {
   std::vector<mem_chunk> master_versions[global_conf::num_master_versions]
                                         [NUM_SOCKETS];
 
-  std::vector<std::bitset<BIT_PACK_SIZE>>
+  std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>>
       upd_bit_masks[global_conf::num_master_versions][NUM_SOCKETS];
 
   // Insert snapshotting manager here.
   std::vector<decltype(global_conf::SnapshotManager::create(0))>
-      snapshot_arenas[global_conf::num_master_versions][NUM_SOCKETS];
+      snapshot_arenas[NUM_SOCKETS];
+
+  void *etl_mem[NUM_SOCKETS];
 
   friend class ColumnStore;
 };

@@ -122,6 +122,8 @@ void Worker::run() {
     pool->txn_bench->pre_run(this->id, curr_txn, this->partition_id,
                              this->curr_master);
 
+    this->state = READY;
+
     {
       std::unique_lock<std::mutex> lk(pool->pre_m);
       pool->pre_barrier++;
@@ -272,12 +274,14 @@ bool WorkerPool::is_all_worker_on_master_id(ushort master_id) {
 }
 
 void WorkerPool::pause() {
-  time_block t("TworkerPool_pause_: ");
+  time_block t("[WorkerPool] pause_: ");
   for (auto& wr : workers) {
     wr.second.second->pause = true;
   }
 
   for (auto& wr : workers) {
+    if (wr.second.second->state != RUNNING && wr.second.second->state != PRERUN)
+      continue;
     while (wr.second.second->state != PAUSED) {
       // std::this_thread::sleep_for(std::chrono::microseconds(10));
       std::this_thread::yield();
@@ -285,7 +289,7 @@ void WorkerPool::pause() {
   }
 }
 void WorkerPool::resume() {
-  time_block t("TworkerPool_resume_: ");
+  time_block t("[WorkerPool] resume_: ");
   for (auto& wr : workers) {
     wr.second.second->pause = false;
   }
@@ -480,6 +484,10 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
     for (auto& th : loaders) {
       th.join();
     }
+  }
+
+  while (pre_barrier != workers.size()) {
+    std::this_thread::yield();
   }
 }
 
