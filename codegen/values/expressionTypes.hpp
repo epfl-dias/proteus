@@ -354,19 +354,16 @@ class RecordType : public ExpressionTypeVisitable<RecordType, ExpressionType> {
  public:
   RecordType() {}
   RecordType(list<RecordAttribute *> args) : args(args) {
-    list<RecordAttribute *>::const_iterator it = args.begin();
-    for (; it != args.end(); it++) {
-      RecordAttribute *arg = *it;
+    for (const auto &arg : this->args) {
       argsMap[arg->getAttrName()] = arg;
     }
   }
 
   RecordType(vector<RecordAttribute *> args) {
-    vector<RecordAttribute *>::iterator it = args.begin();
-    for (; it != args.end(); it++) {
-      RecordAttribute *arg = *it;
-      this->args.push_back(arg);
-      argsMap[arg->getAttrName()] = arg;
+    for (const auto &arg : args) {
+      auto new_arg = new RecordAttribute{*arg};
+      this->args.push_back(new_arg);
+      argsMap[arg->getAttrName()] = new_arg;
     }
   }
 
