@@ -5,10 +5,13 @@ RETVAL=0
 
 format_file() {
   file="${1}"
-  if [ -f $file ]; then
-    ./../../clang-format-9 -i ${1}
-    ${PROJECT_ROOT}/tools/check_licenses.py ${1} || RETVAL=1
-    git add ${1}
+  echo $file
+  if [ "$file" == "check_licenses.py" ]; then
+    if [ -f $file ]; then
+      $PROJECT_ROOT/../../opt/bin/clang-format-9 -i ${1}
+      ${PROJECT_ROOT}/tools/check_licenses.py ${1} || RETVAL=1
+      git add ${1}
+    fi
   fi
 }
 

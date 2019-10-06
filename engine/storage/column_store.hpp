@@ -38,7 +38,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/delta_storage.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
-
 #include "utils/atomic_bit_set.hpp"
 
 #define BIT_PACK_SIZE 512

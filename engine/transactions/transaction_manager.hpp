@@ -24,6 +24,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define TRANSACTION_MANAGER_HPP_
 
 #include <unistd.h>
+
 #include <atomic>
 #include <chrono>
 #include <iostream>

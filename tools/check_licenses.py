@@ -40,7 +40,7 @@ def check(root):
     # Files that should not contain the header (usually files from external
     # projects)
     external_files = [
-    "lib/cxxopts.hpp"
+        "lib/cxxopts.hpp"
     ]
 
     found_bad = False
@@ -49,6 +49,8 @@ def check(root):
         for file_name in files:
             for ext in exts:
                 if file_name.endswith(ext):
+                    if file_name.startswith("._"):
+                        continue
                     p = os.path.join(d, file_name)
                     relpath = os.path.relpath(p, root)
                     with open(p) as file_handle:
@@ -66,6 +68,7 @@ def check(root):
     if found_bad:
         sys.exit(-1)
 
+
 def print_license():
     print(r"""/*
                   AEOLUS - In-Memory HTAP-Ready OLTP Engine
@@ -73,6 +76,7 @@ def print_license():
     with open("LICENSE") as file_name:
         header = file_name.read()
     print(header + r"""*/""")
+
 
 def main(argv):
     progname = argv[0]
