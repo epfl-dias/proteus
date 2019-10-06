@@ -41,6 +41,10 @@ std::ostream &operator<<(std::ostream &out, const ibv_gid &gid);
 std::ostream &operator<<(std::ostream &out, const ib_addr &addr);
 
 class IBHandler : public MemoryRegistry {
+  static_assert(
+      std::is_same_v<buffkey::second_type, decltype(ibv_send_wr::wr.rdma.rkey)>,
+      "wrong buffkey type");
+
  protected:
   subscription sub;
 
@@ -91,7 +95,7 @@ class IBHandler : public MemoryRegistry {
   std::mutex pend_buffers_m;
   std::condition_variable pend_buffers_cv;
 
-  subscription buffers;
+  // subscription buffers;
 
   // std::deque<std::pair<std::promise<void *>, void *>> read_promises;
   std::deque<std::pair<subscription, void *>> read_promises;
@@ -101,6 +105,7 @@ class IBHandler : public MemoryRegistry {
   std::mutex write_promises_m;
 
   size_t write_cnt;
+  size_t actual_writes;
   size_t *cnts;
 
   bool has_requested_buffers;
@@ -129,7 +134,7 @@ class IBHandler : public MemoryRegistry {
    * Notes: Do not overwrite as its called from constructor
    */
   virtual void reg(const void *mem, size_t bytes) final;
-  virtual void reg2(const void *mem, size_t bytes) final;
+  virtual buffkey reg2(const void *mem, size_t bytes) final;
   virtual void unreg(const void *mem) final;
 
   void flush();
@@ -153,12 +158,13 @@ class IBHandler : public MemoryRegistry {
  public:
   void send(void *data, size_t bytes, decltype(ibv_send_wr::imm_data) imm = 5);
 
-  void write(void *data, size_t bytes, decltype(ibv_send_wr::imm_data) imm = 7);
+  void write(void *data, size_t bytes);
+  void write_to(void *data, size_t bytes, buffkey dst);
+  void write_to_int(void *data, size_t bytes, buffkey dst);
   [[nodiscard]] subscription *write_silent(void *data, size_t bytes);
   [[nodiscard]] subscription *read(void *data, size_t bytes);
   [[nodiscard]] subscription *read_event();
 
-  typedef std::pair<void *, decltype(ibv_send_wr::wr.rdma.rkey)> buffkey;
   buffkey get_buffer();
 
   void disconnect();

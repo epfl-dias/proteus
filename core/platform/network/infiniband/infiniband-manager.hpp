@@ -63,7 +63,7 @@ inline T *assertRDMARun(T *x, const char *str, const char *file, int line) {
 
 class IBHandler;
 
-typedef std::pair<void *, int32_t> buffkey;
+typedef std::pair<void *, uint32_t> buffkey;
 
 constexpr size_t cq_ack_backlog = 1024;
 
@@ -72,8 +72,32 @@ class subscription {
    public:
     void *data;
     size_t size;
+#ifndef NDEBUG
+    decltype(__builtin_FILE()) file;
+    decltype(__builtin_LINE()) line;
+#endif
 
-    value_type(void *data, size_t size) : data(data), size(size) {}
+    value_type(void *data, size_t size
+#ifndef NDEBUG
+               ,
+               decltype(__builtin_FILE()) file, decltype(__builtin_LINE()) line
+#endif
+               )
+        : data(data), size(size), file(file), line(line) {
+    }
+    value_type(const value_type &) = delete;
+    value_type &operator=(const value_type &) = delete;
+    value_type &operator=(value_type &&) = delete;
+    value_type(value_type &&other)
+        : value_type(other.data, other.size
+#ifndef NDEBUG
+                     ,
+                     other.file, other.line
+#endif
+          ) {
+      other.data = nullptr;
+    }
+    ~value_type();
   };
 
   std::mutex m;
@@ -87,7 +111,13 @@ class subscription {
 
   value_type wait();
 
-  void publish(void *data, size_t size);
+  void publish(void *data, size_t size
+#ifndef NDEBUG
+               ,
+               decltype(__builtin_FILE()) file = __builtin_FILE(),
+               decltype(__builtin_LINE()) line = __builtin_LINE()
+#endif
+  );
 };
 
 class InfiniBandManager {
@@ -96,6 +126,7 @@ class InfiniBandManager {
                    bool primary = false, bool ipv4 = false);
   static void send(void *data, size_t bytes);
   static void write(void *data, size_t bytes);
+  static void write_to(void *data, size_t bytes, buffkey b);
   [[nodiscard]] static subscription *write_silent(void *data, size_t bytes);
   [[nodiscard]] static subscription *read(void *data, size_t bytes);
   [[nodiscard]] static subscription *read_event();
@@ -108,7 +139,7 @@ class InfiniBandManager {
   static subscription &subscribe();
   static void unsubscribe(subscription &);
 
-  static void reg(const void *mem, size_t bytes);
+  static buffkey reg(const void *mem, size_t bytes);
   static void unreg(const void *mem);
 
  private:

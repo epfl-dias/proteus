@@ -47,14 +47,25 @@
 subscription::value_type subscription::wait() {
   std::unique_lock<std::mutex> lk{m};
   cv.wait(lk, [this] { return !q.empty(); });
-  auto ret = q.front();
+  auto ret = std::move(q.front());
   q.pop();
   return ret;
 }
 
-void subscription::publish(void *data, size_t size) {
+void subscription::publish(void *data, size_t size
+#ifndef NDEBUG
+                           ,
+                           decltype(__builtin_FILE()) file,
+                           decltype(__builtin_LINE()) line
+#endif
+) {
   std::unique_lock<std::mutex> lk{m};
-  q.emplace(data, size);
+  q.emplace(data, size
+#ifndef NDEBUG
+            ,
+            file, line
+#endif
+  );
   cv.notify_one();
 }
 
@@ -66,6 +77,10 @@ void InfiniBandManager::send(void *data, size_t bytes) {
 
 void InfiniBandManager::write(void *data, size_t bytes) {
   ib->write(data, bytes);
+}
+
+void InfiniBandManager::write_to(void *data, size_t bytes, buffkey b) {
+  ib->write_to(data, bytes, b);
 }
 
 subscription *InfiniBandManager::write_silent(void *data, size_t bytes) {
@@ -148,10 +163,16 @@ void gid_to_wire_gid(const union ibv_gid *gid, char wgid[]) {
   for (i = 0; i < 4; ++i) sprintf(&wgid[i * 8], "%08x", htobe32(tmp_gid[i]));
 }
 
-void InfiniBandManager::reg(const void *mem, size_t bytes) {
-  if (ib) ib->reg2(mem, bytes);
+buffkey InfiniBandManager::reg(const void *mem, size_t bytes) {
+  if (ib) return ib->reg2(mem, bytes);
+  return {nullptr, 0};
 }
 
 void InfiniBandManager::unreg(const void *mem) {
   if (ib) ib->unreg(mem);
+}
+
+subscription::value_type::~value_type() {
+  if (line == 441) LOG(INFO) << file << " " << line;
+  BlockManager::release_buffer(data);
 }
