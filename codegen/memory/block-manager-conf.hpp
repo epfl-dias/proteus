@@ -25,7 +25,7 @@
 #define BLOCK_MANAGER_CONF_HPP
 
 #ifndef DEFAULT_BUFF_CAP
-#define DEFAULT_BUFF_CAP (1024 * 1024 / 4)
+#define DEFAULT_BUFF_CAP (1024 * 1024 * 2 / 4)
 #endif
 
 #endif /* BLOCK_MANAGER_CONF_HPP */
