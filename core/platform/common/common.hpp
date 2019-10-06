@@ -140,37 +140,6 @@ typedef uint32_t cid_t;
 typedef uint32_t sel_t;
 typedef uint32_t cnt_t;
 
-size_t getFileSize(const char *filename);
-
-enum data_loc {
-  GPU_RESIDENT,
-  PINNED,
-  PAGEABLE,
-  ALLSOCKETS,
-  ALLGPUS,
-  EVERYWHERE,
-};
-
-struct mmap_file {
- private:
-  int fd;
-
-  size_t filesize;
-  void *data;
-  void *gpu_data;
-  data_loc loc;
-
-  bool readonly;
-
- public:
-  mmap_file(std::string name, data_loc loc = GPU_RESIDENT);
-  mmap_file(std::string name, data_loc loc, size_t bytes, size_t offset);
-  ~mmap_file();
-
-  const void *getData() const;
-  size_t getFileSize() const;
-};
-
 class bytes {
  private:
   size_t b;

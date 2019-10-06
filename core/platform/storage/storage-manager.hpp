@@ -30,6 +30,7 @@
 
 #include "common/common.hpp"
 #include "common/gpu/gpu-common.hpp"
+#include "mmap-file.hpp"
 
 // class StorageManager;
 

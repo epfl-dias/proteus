@@ -56,12 +56,6 @@ void exception(const char *err) {
   exit(1);
 }
 
-size_t getFileSize(const char *filename) {
-  struct stat st;
-  stat(filename, &st);
-  return st.st_size;
-}
-
 std::ostream &operator<<(std::ostream &out, const bytes &b) {
   const char *units[]{"B", "KB", "MB", "GB", "TB", "ZB"};
   constexpr size_t max_i = sizeof(units) / sizeof(units[0]);

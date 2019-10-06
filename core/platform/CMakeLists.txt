@@ -14,6 +14,7 @@ set(codegen_cxx
     network/infiniband/infiniband-handler.cpp
     network/infiniband/infiniband-manager.cpp
     network/infiniband/infiniband-server.cpp
+    storage/mmap-file.cpp
     storage/storage-manager.cpp
     topology/affinity_manager.cpp
     topology/device-manager.cpp
