@@ -1,7 +1,8 @@
 set(gtest_libs ${GTEST_MAIN} ${GTEST} ${default_libs} codegen)
 
 set(gtest_src
-    tests-snapshotting
+    #tests-snapshotting
+    tests-atomic-bit-set
     )
 
 foreach(target ${gtest_src})
