@@ -50,21 +50,7 @@
 //
 //#define JSON_TIGHT
 #include "jsmn/jsmn.h"
-
-// Used to remove all logging messages at compile time and not affect
-// performance Must be placed before glog include
-/*Setting GOOGLE_STRIP_LOG to 1 or greater removes all log messages associated
- * with VLOGs
- * as well as INFO log statements. Setting it to two removes WARNING log
- * statements too. */
-#ifdef NDEBUG
-#define GOOGLE_STRIP_LOG 2
-#define STRIP_LOG 2
-#endif
-
-#define TIMING
-
-#include <glog/logging.h>
+#include "util/glog.hpp"
 
 //#define DEBUG
 // #define LOCAL_EXEC
