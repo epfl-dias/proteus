@@ -386,7 +386,7 @@ add_subdirectory(codegen)
 # Build our executables
 #-----------------------------------------------------------------------
 foreach(target ${MAINS})
-	add_executable(proteus${target} ${target}.cpp)
+	add_executable(proteus${target} ${target}.cpp cli-flags.cpp)
 	target_link_libraries(proteus${target} ${default_libs})
 	install(TARGETS proteus${target}
 		RUNTIME DESTINATION pelago

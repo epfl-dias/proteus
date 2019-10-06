@@ -23,6 +23,7 @@
 
 #include <gflags/gflags.h>
 
+#include "cli-flags.hpp"
 #include "codegen/communication/comm-manager.hpp"
 #include "codegen/memory/block-manager.hpp"
 #include "codegen/memory/memory-manager.hpp"
@@ -122,27 +123,6 @@ std::string runPlanFile(std::string plan, unlink_upon_exit &uue,
 
   return label;
 }
-
-static bool validatePercentage(const char *flagname, double value) {
-  if (value >= 0.0 && value <= 1.0) return true;
-  std::cerr << "Invalid value for --" << flagname << ": " << value << std::endl;
-  return false;
-}
-
-DEFINE_bool(query_topology, false, "Print the system topology and exit");
-DEFINE_bool(trace_allocations, false,
-            "Trace memory allocation and leaks (requires a build with "
-            "undefined NDEBUG)");
-DEFINE_double(gpu_buffers, 0.1,
-              "Percentage (0.0-1.0) of GPU memory to dedicate for buffer "
-              "management (per GPU)");
-DEFINE_validator(gpu_buffers, &validatePercentage);
-DEFINE_double(cpu_buffers, 0.1,
-              "Percentage (0.0-1.0) of CPU memory to dedicate for buffer "
-              "management (per CPU)");
-DEFINE_validator(cpu_buffers, &validatePercentage);
-DEFINE_bool(log_buffer_usage, false,
-            "Periodically print buffer usage in stderr");
 
 /**
  * Protocol:
