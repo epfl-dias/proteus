@@ -885,7 +885,7 @@ uint64_t Column::num_upd_tuples(const ushort master_ver,
     if (__likely(num_records != nullptr)) {
       uint64_t recs_scanned = 0;
       for (auto& chunk : upd_bit_masks[master_ver][j]) {
-        counter += chunk.count();
+        counter += chunk.count(std::memory_order::memory_order_acquire);
         recs_scanned += BIT_PACK_SIZE;
         if (recs_scanned >= num_records[j]) {
           break;
@@ -967,11 +967,17 @@ void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
 
 void Column::snapshot(const uint64_t* n_recs_part, uint64_t epoch,
                       uint8_t snapshot_master_ver) {
-  num_upd_tuples(snapshot_master_ver, n_recs_part, true);
+  if (this->name.compare("d_next_o_id") == 0 ||
+      this->name.compare("s_quantity") == 0 ||
+      this->name.compare("s_order_cnt") == 0 ||
+      this->name.compare("s_ytd") == 0)
+    num_upd_tuples(snapshot_master_ver, n_recs_part, true);
   for (uint i = 0; i < g_num_partitions; i++) {
     assert(snapshot_arenas[i].size() == 1);
+
     snapshot_arenas[i][0]->create_snapshot(
-        {n_recs_part[i], epoch, snapshot_master_ver, static_cast<uint8_t>(i),
+        {n_recs_part[i], snapshot_arenas[i][0]->getMetadata().numOfRecords,
+         epoch, snapshot_master_ver, static_cast<uint8_t>(i),
          this->touched[i]});
     this->touched[i] = false;
   }
@@ -1034,15 +1040,44 @@ void Column::ETL(uint numa_node_index) {
   for (uint i = 0; i < this->num_partitions; i++) {
     // zero assume no runtime column expansion
     const auto& snap_arena = snapshot_arenas[i][0]->getMetadata();
-    // assert(master_versions[snap_arena.master_ver][i].size() == 0);
+    const auto& chunk = master_versions[snap_arena.master_ver][i][0];
 
-    for (const auto& chunk : master_versions[snap_arena.master_ver][i]) {
-      // ret.emplace_back(std::make_pair(chunk, snap_arena.numOfRecords));
-      if (snap_arena.upd_since_last_snapshot) {
-        memcpy(etl_mem[i], chunk.data,
-               snap_arena.numOfRecords * this->elem_size);
+    if (snap_arena.upd_since_last_snapshot) {
+      for (size_t msk = 0; msk < upd_bit_masks[snap_arena.master_ver][i].size();
+           msk++) {
+        if (msk * BIT_PACK_SIZE >= snap_arena.prev_numOfRecords) break;
+
+        if (upd_bit_masks[snap_arena.master_ver][i][msk].any(
+                std::memory_order::memory_order_acquire)) {
+          size_t to_cpy = BIT_PACK_SIZE * this->elem_size;
+          size_t st = msk * to_cpy;
+
+          if (__likely(st + to_cpy <= chunk.size)) {
+            memcpy((char*)(etl_mem[i]) + st, (char*)chunk.data + st, to_cpy);
+          } else {
+            memcpy((char*)(etl_mem[i]) + st, (char*)chunk.data + st,
+                   chunk.size - st);
+          }
+
+          upd_bit_masks[snap_arena.master_ver][i][msk].reset(
+              std::memory_order::memory_order_release);
+        }
       }
     }
+
+    if (__likely(snap_arena.numOfRecords > snap_arena.prev_numOfRecords)) {
+      size_t st = snap_arena.prev_numOfRecords * this->elem_size;
+      size_t to_cpy = (snap_arena.numOfRecords - snap_arena.prev_numOfRecords) *
+                      this->elem_size;
+      memcpy(((char*)(etl_mem[i])) + st, ((char*)chunk.data) + st, to_cpy);
+    }
+
+    // for (const auto& chunk : master_versions[snap_arena.master_ver][i]) {
+    //   if (snap_arena.upd_since_last_snapshot) {
+    //     memcpy(etl_mem[i], chunk.data,
+    //            snap_arena.numOfRecords * this->elem_size);
+    //   }
+    // }
   }
 }
 };  // namespace storage

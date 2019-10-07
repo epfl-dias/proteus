@@ -38,8 +38,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #define DEFAULT_MEM_NUMA_SOCKET 0
 
-#define HTAP_DOUBLE_MASTER true
+#define HTAP_DOUBLE_MASTER false
 #define HTAP_COW false
+#define HTAP_ETL false  // for this, double master should be turned on too.
 
 // Memory Allocators
 #define HTAP_RM_SERVER false
@@ -97,8 +98,8 @@ using PrimaryIndex = indexes::HashArray<T_KEY>;
 // const uint time_master_switch_ms = 200;
 
 /* # of Snapshots*/
-const short num_master_versions = 2;
-const short num_delta_storages = 2;
+constexpr short num_master_versions = 2;
+constexpr short num_delta_storages = 2;
 
 }  // namespace global_conf
 

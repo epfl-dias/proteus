@@ -119,7 +119,7 @@ void* MemoryManager::alloc_shm(const std::string& key, const size_t size_bytes,
   // std::endl; std::cout << "[MemoryManager::alloc_shm] numa_memset_id: "<<
   // numa_memset_id << std::endl;
 
-  assert(key.length() <= 255 && key[0] == '/');
+  // assert(key.length() <= 255 && key[0] == '/');
 
   int shm_fd = shm_open(key.c_str(), O_CREAT | O_TRUNC | O_RDWR, 0666);
   if (shm_fd == -1) {

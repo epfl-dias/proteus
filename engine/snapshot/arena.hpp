@@ -35,6 +35,7 @@ template <typename T>
 class Arena {
   struct metadata {
     uint64_t numOfRecords;
+    uint64_t prev_numOfRecords;
     uint64_t epoch_id;
     // uint64_t num_updated_records;
     uint8_t master_ver;

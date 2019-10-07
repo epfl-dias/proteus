@@ -40,7 +40,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/table.hpp"
 #include "utils/atomic_bit_set.hpp"
 
-#define BIT_PACK_SIZE 512
+#define BIT_PACK_SIZE 8192
 
 namespace storage {
 

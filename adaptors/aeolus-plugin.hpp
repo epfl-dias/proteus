@@ -37,6 +37,15 @@ class AeolusPlugin : public ScanToBlockSMPlugin {
 
 extern "C" {
 
+void **getDataPointerForFile(const char *relName, const char *attrName,
+                             void *session);
+
+void freeDataPointerForFile(void **inn);
+
+int64_t *getNumOfTuplesPerPartition(const char *relName, void *session);
+
+void freeNumOfTuplesPerPartition(int64_t *inn);
+
 Plugin *createBlockCowPlugin(ParallelContext *context, std::string fnamePrefix,
                              RecordType rec,
                              std::vector<RecordAttribute *> &whichFields);

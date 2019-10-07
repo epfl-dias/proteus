@@ -53,6 +53,7 @@ class Topology {
   inline uint32_t getCpuNumaNodeCount() const { return cpu_info.size(); }
 
   inline const std::vector<core> &getCores() const { return core_info; }
+  inline std::vector<core> getCoresCopy() const { return core_info; }
 
   inline const std::vector<cpunumanode> &getCpuNumaNodes() const {
     return cpu_info;
