@@ -87,6 +87,7 @@ DEFINE_uint64(worker_sched_mode, 0,
               "2-interleaved-odd, 3-reversed.");
 DEFINE_uint64(report_stat_sec, 0, "Report stats every x secs");
 DEFINE_uint64(elastic_workload, 0, "if > 0, add a worker every x seconds");
+DEFINE_uint64(migrate_worker, 0, "if > 0, migrate worker to other side");
 DEFINE_uint64(switch_master_sec, 0, "if > 0, add a worker every x seconds");
 
 // YCSB
@@ -204,28 +205,35 @@ int main(int argc, char** argv) {
 
   scheduler::WorkerPool::getInstance().init(
       bench, (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
-      FLAGS_num_partitions, FLAGS_worker_sched_mode, FLAGS_num_iter_per_worker);
-
-  std::cout << "BEFORE" << std::endl;
-  for (auto& tb : storage::Schema::getInstance().getAllTables()) {
-    ((storage::ColumnStore*)tb)->num_upd_tuples();
-  }
+      FLAGS_num_partitions, FLAGS_worker_sched_mode, FLAGS_num_iter_per_worker,
+      (FLAGS_elastic_workload > 0 ? true : false));
 
   scheduler::WorkerPool::getInstance().start_workers();
+
+  if (FLAGS_migrate_worker > 0) {
+    timed_func::interval_runner(
+        [] {
+          scheduler::WorkerPool::getInstance().print_worker_stats();
+          scheduler::WorkerPool::getInstance().migrate_worker();
+        },
+        (FLAGS_migrate_worker * 1000));
+  }
 
   if (FLAGS_elastic_workload > 0) {
     uint curr_active_worker = 1;
     bool removal = false;
+    const auto& worker_cores = scheduler::Topology::getInstance().getCores();
     timed_func::interval_runner(
-        [curr_active_worker, removal]() mutable {
-          const auto& worker_cores =
-              scheduler::Topology::getInstance().getCores();
-
+        [curr_active_worker, removal, worker_cores]() mutable {
           if (curr_active_worker < FLAGS_num_workers && !removal) {
+            std::cout << "Adding Worker: " << (curr_active_worker + 1)
+                      << std::endl;
             scheduler::WorkerPool::getInstance().add_worker(
                 &worker_cores.at(curr_active_worker));
             curr_active_worker++;
           } else if (curr_active_worker > 2 && removal) {
+            std::cout << "Removing Worker: " << (curr_active_worker - 1)
+                      << std::endl;
             scheduler::WorkerPool::getInstance().remove_worker(
                 &worker_cores.at(curr_active_worker - 1));
             curr_active_worker--;
@@ -270,12 +278,13 @@ int main(int argc, char** argv) {
     scheduler::CommManager::getInstance().shutdown();
   }
 
-  std::cout << "AFTER" << std::endl;
-  for (auto& tb : storage::Schema::getInstance().getAllTables()) {
-    ((storage::ColumnStore*)tb)->num_upd_tuples();
-  }
+  // std::cout << "AFTER" << std::endl;
+  // for (auto& tb : storage::Schema::getInstance().getAllTables()) {
+  //   ((storage::ColumnStore*)tb)->num_upd_tuples();
+  // }
 
-  storage::Schema::getInstance().teardown();
+  // TODO: cleanup
+  // storage::Schema::getInstance().teardown();
 
   return 0;
 }

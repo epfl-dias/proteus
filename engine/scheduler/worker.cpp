@@ -137,6 +137,10 @@ void Worker::run() {
   this->state = RUNNING;
 
   while (!terminate) {
+    if (change_affinity) {
+      AffinityManager::getInstance().set(this->affinity_core);
+      change_affinity = false;
+    }
     if (pause) {
       state = PAUSED;
 
@@ -301,6 +305,31 @@ void WorkerPool::resume() {
     }
   }
 }
+
+// double get_tps_diff_currently_active(struct hash_table *hash_table)
+// {
+// //  printf("Have %d active servers\n", g_active_servers);
+// //  double avg_latch_wait = 0;
+//   double tps = 0;
+//   for (int i = 0; i < g_active_servers; i++) {
+//     struct partition *p = &hash_table->partitions[i];
+//     double cur_time = now();
+//     if (prev_time_tps[i] == 0) {
+//       prev_time_tps[i] = p->txn_start_time;
+//     }
+//     tps += ((double) (p->q_idx - prev_sum_tps[i])) / (cur_time -
+//     prev_time_tps[i]); prev_sum_tps[i] = p->q_idx; prev_time_tps[i] =
+//     cur_time;
+// //#if SE_LATCH
+// //    avg_latch_wait += p->avg_latch_wait_time;
+// //#endif
+// //    printf("srv %d has executed %ld queries so far\n", i, p->q_idx);
+//   }
+
+// //  avg_latch_wait = avg_latch_wait / g_active_servers;
+// //  printf("The average latch wait time is %.9f\n", avg_latch_wait);
+//   return tps / 1000000;
+// }
 
 void WorkerPool::print_worker_stats(bool global_only) {
   std::cout << "------------ WORKER STATS ------------" << std::endl;
@@ -484,11 +513,31 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
     for (auto& th : loaders) {
       th.join();
     }
+
+    std::cout << "Elastic Workload: Worker-group-size: " << workers.size()
+              << std::endl;
   }
 
   while (pre_barrier != workers.size()) {
     std::this_thread::yield();
   }
+}
+
+void WorkerPool::migrate_worker() {
+  static std::vector<scheduler::core> worker_cores =
+      Topology::getInstance().getCoresCopy();
+  static const uint pool_size = workers.size();
+  assert(worker_cores.size() == (pool_size * 2));
+
+  static uint worker_num = 0;
+
+  auto get = workers.find(worker_cores[worker_num].id);
+  assert(get != workers.end());
+
+  get->second.second->affinity_core = &(worker_cores[pool_size + worker_num]);
+  get->second.second->change_affinity = true;
+
+  worker_num++;
 }
 
 // Hot Plug

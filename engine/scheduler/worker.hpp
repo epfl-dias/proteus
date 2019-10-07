@@ -74,11 +74,13 @@ class Worker {
   uint8_t id;
   volatile bool terminate;
   bool pause;
+  bool change_affinity;
   volatile WORKER_STATE state;
 
   uint partition_id;
 
   const core *exec_core;
+  core *affinity_core;
 
   uint64_t curr_txn;
   uint64_t prev_delta;
@@ -107,6 +109,7 @@ class Worker {
         terminate(false),
         exec_core(exec_core),
         pause(false),
+        change_affinity(false),
         state(READY),
         partition_id(partition_id),
         is_hotplugged(false),
@@ -146,6 +149,7 @@ class WorkerPool {
   void start_workers();
   void add_worker(const core *exec_location, short partition_id = -1);
   void remove_worker(const core *exec_location);
+  void migrate_worker();
   void print_worker_stats(bool global_only = true);
 
   std::vector<uint64_t> get_active_txns();
