@@ -53,20 +53,20 @@ namespace scheduler {
   CUSTOM  // custom function on threads (data_load, etc.)
 };*/
 
-struct STATS {
-  double id;
-  double tps;
-  double num_commits;
-  double num_aborts;
-  double num_txns;
-  double runtime_duration;
-};
+// struct STATS {
+//   double id;
+//   double tps;
+//   double num_commits;
+//   double num_aborts;
+//   double num_txns;
+//   double runtime_duration;
+// };
 
-struct GLOBAL_STATS {
-  std::vector<struct STATS> global_stats;
-  std::vector<struct STATS> worker_stats;
-  std::vector<struct STATS> socket_stats;
-};
+// struct GLOBAL_STATS {
+//   std::vector<struct STATS> global_stats;
+//   std::vector<struct STATS> worker_stats;
+//   std::vector<struct STATS> socket_stats;
+// };
 
 enum WORKER_STATE { READY, RUNNING, PAUSED, TERMINATED, PRERUN, POSTRUN };
 
@@ -151,6 +151,7 @@ class WorkerPool {
   void remove_worker(const core *exec_location);
   void migrate_worker();
   void print_worker_stats(bool global_only = true);
+  void print_worker_stats_diff();
 
   std::vector<uint64_t> get_active_txns();
   uint64_t get_min_active_txn();
@@ -182,17 +183,25 @@ class WorkerPool {
   std::condition_variable pre_cv;
   std::mutex pre_m;
 
-  std::unordered_map<uint, std::pair<std::thread *, Worker *> > workers;
+  std::unordered_map<uint, std::pair<std::thread *, Worker *>> workers;
   uint num_iter_per_worker;
   uint worker_sched_mode;
   uint num_partitions;
   bool elastic_workload;
 
+  // Stats
+
+  std::vector<std::chrono::time_point<std::chrono::system_clock,
+                                      std::chrono::nanoseconds>>
+      prev_time_tps;
+
+  std::vector<double> prev_sum_tps;
+
   // TXN benchmark
   bench::Benchmark *txn_bench;
 
   // External TXN Queue
-  std::queue<std::function<bool(uint64_t)> > tasks;
+  std::queue<std::function<bool(uint64_t)>> tasks;
   std::mutex m;
   std::condition_variable cv;
 

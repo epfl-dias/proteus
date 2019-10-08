@@ -306,30 +306,67 @@ void WorkerPool::resume() {
   }
 }
 
-// double get_tps_diff_currently_active(struct hash_table *hash_table)
-// {
-// //  printf("Have %d active servers\n", g_active_servers);
-// //  double avg_latch_wait = 0;
+// double get_tps_diff_currently_active(struct hash_table* hash_table) {
+//   //  printf("Have %d active servers\n", g_active_servers);
+//   //  double avg_latch_wait = 0;
 //   double tps = 0;
 //   for (int i = 0; i < g_active_servers; i++) {
-//     struct partition *p = &hash_table->partitions[i];
+//     struct partition* p = &hash_table->partitions[i];
 //     double cur_time = now();
 //     if (prev_time_tps[i] == 0) {
 //       prev_time_tps[i] = p->txn_start_time;
 //     }
-//     tps += ((double) (p->q_idx - prev_sum_tps[i])) / (cur_time -
-//     prev_time_tps[i]); prev_sum_tps[i] = p->q_idx; prev_time_tps[i] =
-//     cur_time;
-// //#if SE_LATCH
-// //    avg_latch_wait += p->avg_latch_wait_time;
-// //#endif
-// //    printf("srv %d has executed %ld queries so far\n", i, p->q_idx);
+//     tps +=
+//         ((double)(p->q_idx - prev_sum_tps[i])) / (cur_time -
+//         prev_time_tps[i]);
+
+//     prev_sum_tps[i] = p->q_idx;
+//     prev_time_tps[i] = cur_time;
 //   }
 
-// //  avg_latch_wait = avg_latch_wait / g_active_servers;
-// //  printf("The average latch wait time is %.9f\n", avg_latch_wait);
 //   return tps / 1000000;
 // }
+void WorkerPool::print_worker_stats_diff() {
+  static const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
+  static uint num_sockets = vec.size();
+
+  constexpr auto min_point =
+      std::chrono::time_point<std::chrono::system_clock,
+                              std::chrono::nanoseconds>::min();
+
+  double tps = 0;
+  double duration = 0;
+  uint duration_ctr = 0;
+
+  uint wl = 0;
+  for (auto it = workers.begin(); it != workers.end(); ++it, wl++) {
+    Worker* tmp = it->second.second;
+    if (tmp->terminate) continue;
+
+    std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>
+        curr_time = std::chrono::system_clock::now();
+
+    std::chrono::duration<double> diff =
+        curr_time - (prev_time_tps[wl] == min_point ? tmp->txn_start_time
+                                                    : prev_time_tps[wl]);
+
+    duration += diff.count();
+    duration_ctr += 1;
+    tps += ((tmp->num_txns - prev_sum_tps[wl]) / 1000000.0) / diff.count();
+    prev_sum_tps[wl] = tmp->num_txns;
+    prev_time_tps[wl] = curr_time;
+
+    // tps += ((double) (p->q_idx - prev_sum_tps[i])) / (cur_time -
+    // prev_time_tps[i]);
+  }
+
+  std::cout << "---- DIFF WORKER STATS ----" << std::endl;
+  std::cout << "\tDuration\t" << (duration / duration_ctr) << " sec"
+            << std::endl;
+  std::cout << "\tTPS\t\t" << tps << " mTPS" << std::endl;
+
+  std::cout << "------------ END ------------" << std::endl;
+}
 
 void WorkerPool::print_worker_stats(bool global_only) {
   std::cout << "------------ WORKER STATS ------------" << std::endl;
@@ -338,8 +375,8 @@ void WorkerPool::print_worker_stats(bool global_only) {
   double num_aborts = 0;
   double num_txns = 0;
 
-  const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
-  int num_sockets = vec.size();
+  static const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
+  static uint num_sockets = vec.size();
 
   std::vector<double> socket_tps(num_sockets, 0.0);
 
@@ -418,6 +455,9 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
   this->num_partitions = num_partitions;
   this->elastic_workload = elastic_workload;
 
+  prev_time_tps.reserve(Topology::getInstance().getCoreCount());
+  prev_sum_tps.reserve(Topology::getInstance().getCoreCount());
+
   std::cout << "[WorkerPool] start_workers -- requested_num_workers: "
             << num_workers << std::endl;
 
@@ -460,6 +500,11 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
       std::thread* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
 
       workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
+      prev_time_tps.emplace_back(
+          std::chrono::time_point<std::chrono::system_clock,
+                                  std::chrono::nanoseconds>::min());
+      prev_sum_tps.emplace_back(0);
+
       if (++i == num_workers) {
         break;
       }
@@ -559,6 +604,10 @@ void WorkerPool::add_worker(const core* exec_location, short partition_id) {
   std::thread* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
 
   workers.emplace(std::make_pair(exec_location->id, std::make_pair(thd, wrkr)));
+  prev_time_tps.emplace_back(
+      std::chrono::time_point<std::chrono::system_clock,
+                              std::chrono::nanoseconds>::min());
+  prev_sum_tps.emplace_back(0);
 }
 
 // Hot Plug

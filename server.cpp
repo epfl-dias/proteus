@@ -247,7 +247,7 @@ int main(int argc, char** argv) {
   /* Report stats every 1 sec */
   if (FLAGS_report_stat_sec > 0) {
     timed_func::interval_runner(
-        [] { scheduler::WorkerPool::getInstance().print_worker_stats(); },
+        [] { scheduler::WorkerPool::getInstance().print_worker_stats_diff(); },
         (FLAGS_report_stat_sec * 1000));
   }
 
