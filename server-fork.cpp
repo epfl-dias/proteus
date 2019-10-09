@@ -22,7 +22,7 @@
 */
 
 #define NUM_TPCH_QUERIES 1
-#define NUM_OLAP_REPEAT 100
+#define NUM_OLAP_REPEAT 16
 
 #include "glo.hpp"
 #include <iostream>
@@ -44,6 +44,7 @@
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
+#include "utils/utils.hpp"
 
 #include "codegen/communication/comm-manager.hpp"
 #include "codegen/memory/block-manager.hpp"
@@ -68,6 +69,7 @@ DEFINE_bool(trace_allocations, false,
             "undefined NDEBUG)");
 DEFINE_bool(inc_buffers, false, "Use bigger block pools");
 DEFINE_uint64(num_olap_clients, 1, "Number of OLAP clients");
+DEFINE_uint64(num_olap_repeat, 1, "Number of OLAP clients");
 DEFINE_uint64(num_oltp_clients, 1, "Number of OLTP clients");
 DEFINE_string(plan_json, "", "Plan to execute, takes priority over plan_dir");
 DEFINE_string(plan_dir, "inputs/plans/cpu-ssb",
@@ -82,9 +84,9 @@ DEFINE_double(ycsb_write_ratio, 0.5, "Writer to reader ratio");
 std::vector<pid_t> children;
 
 struct OLAP_STATS {
-  bool shutdown;
+  std::atomic<bool> shutdown;
   bool begin;
-  uint64_t runtime_stats[NUM_TPCH_QUERIES][NUM_OLAP_REPEAT];
+  // uint64_t runtime_stats[NUM_TPCH_QUERIES][NUM_OLAP_REPEAT];
 };
 
 void init_olap_warmup() { proteus::init(FLAGS_inc_buffers); }
@@ -152,20 +154,26 @@ void run_olap_sequence(int &client_id,
   // Make affinity deterministic
   exec_location{numa_node}.activate();
 
-  for (uint i = 0; i < NUM_OLAP_REPEAT; i++) {
-    uint j = 0;
-    for (auto &q : olap_queries) {
+  olap_queries[0].execute();
 
-      std::chrono::time_point<std::chrono::system_clock> start =
-          std::chrono::system_clock::now();
+  {
+    time_block t("T_OLAP: ");
 
-      q.execute();
+    for (uint i = 0; i < FLAGS_num_olap_repeat; i++) {
+      uint j = 0;
+      for (auto &q : olap_queries) {
 
-      olap_stats->runtime_stats[j][i] =
-          std::chrono::duration_cast<std::chrono::milliseconds>(
-              std::chrono::system_clock::now() - start)
-              .count();
-      j++;
+        // std::chrono::time_point<std::chrono::system_clock> start =
+        //     std::chrono::system_clock::now();
+
+        q.execute();
+
+        // olap_stats->runtime_stats[j][i] =
+        //     std::chrono::duration_cast<std::chrono::milliseconds>(
+        //         std::chrono::system_clock::now() - start)
+        //         .count();
+        j++;
+      }
     }
   }
 }
@@ -249,13 +257,59 @@ void register_handler() { signal(SIGINT, kill_orphans_and_widows); }
 
 void snapshot_oltp() { txn::TransactionManager::getInstance().snapshot(); }
 
+[[noreturn]] void fly_olap(struct OLAP_STATS *olap_stats, int i) {
+
+  init_olap_warmup();
+
+  auto &topo = topology::getInstance();
+  auto &nodes = topo.getCpuNumaNodes();
+  exec_location{nodes[3]}.activate();
+
+  // assert(nodes.size() >= 2);
+  // assert(FLAGS_num_oltp_clients <= nodes[0].local_cores.size());
+
+  LOG(INFO) << "[SERVER-COW] OLAP Client #" << i << ": Compiling OLAP Sequence";
+  std::vector<PreparedStatement> olap_queries;
+  {
+    time_block t("T_init_olap_sequence_: ");
+    olap_queries = init_olap_sequence(i, nodes[3]);
+  }
+  // while (olap_stats[0].begin == false)
+  //   ;
+
+  LOG(INFO) << "[SERVER-COW] OLAP Client #" << i << ": Running OLAP Sequence";
+  std::chrono::time_point<std::chrono::system_clock> start =
+      std::chrono::system_clock::now();
+  {
+    time_block t("T_run_olap_sequence_: ");
+    run_olap_sequence(i, olap_queries, olap_stats + i, nodes[3]);
+  }
+
+  // double duration = (std::chrono::duration_cast<std::chrono::milliseconds>(
+  //                        std::chrono::system_clock::now() - start)
+  //                        .count()) /
+  //                   1000.0; // in seconds
+
+  // double thrughput = (NUM_TPCH_QUERIES * NUM_OLAP_REPEAT) / duration;
+  // std::cout << "Duration[" << getpid() << "] : " << duration << std::endl;
+  // std::cout << "Queries[" << getpid()
+  //           << "] : " << (NUM_TPCH_QUERIES * NUM_OLAP_REPEAT) << std::endl;
+  // std::cout << "Throughput[" << getpid() << "] : " << thrughput << std::endl;
+
+  LOG(INFO) << "[SERVER-COW] OLAP Client #" << i << ": Shutdown";
+  olap_stats[i].shutdown = true;
+  exit(0);
+  shutdown_olap();
+  exit(0);
+}
+
 int main(int argc, char *argv[]) {
   assert(HTAP_COW && "OLTP not set to COW mode");
   gflags::SetUsageMessage("Simple command line interface for proteus");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   google::InitGoogleLogging(argv[0]);
-  FLAGS_logtostderr = 1; // FIXME: the command line flags/defs seem to fail...
+  FLAGS_logtostderr = 0; // FIXME: the command line flags/defs seem to fail...
 
   // google::InstallFailureSignalHandler();
 
@@ -263,21 +317,26 @@ int main(int argc, char *argv[]) {
 
   register_handler();
 
+  FLAGS_num_olap_repeat = (NUM_OLAP_REPEAT / FLAGS_num_olap_clients); // warmmup
+
+  std::cout << "QUERIES_PER_SESSION: " << (FLAGS_num_olap_repeat) << std::endl;
+  std::cout << "OLAP Clients: " << FLAGS_num_olap_clients << std::endl;
+
   g_num_partitions = 2;
 
   std::cout << "Num Partitions: " << g_num_partitions << std::endl;
 
-  struct OLAP_STATS *olap_stats = (struct OLAP_STATS *)get_shm(
+  struct OLAP_STATS *olap_stats = (struct OLAP_STATS *)new (get_shm(
       "olap_stats_" + std::to_string(getpid()),
-      sizeof(struct OLAP_STATS) * FLAGS_num_olap_clients);
+      sizeof(struct OLAP_STATS) * FLAGS_num_olap_clients)) struct OLAP_STATS();
 
   for (int i = 0; i < FLAGS_num_olap_clients; i++) {
 
-    olap_stats[i].shutdown = true;
-    for (int j = 0; j < NUM_TPCH_QUERIES; j++) {
-      for (int k = 0; k < NUM_OLAP_REPEAT; k++)
-        olap_stats[i].runtime_stats[j][k] = 0;
-    }
+    olap_stats[i].shutdown = false;
+    // for (int j = 0; j < NUM_TPCH_QUERIES; j++) {
+    //   for (int k = 0; k < NUM_OLAP_REPEAT; k++)
+    //     olap_stats[i].runtime_stats[j][k] = 0;
+    // }
   }
 
   auto &txn_topo = scheduler::Topology::getInstance();
@@ -288,153 +347,199 @@ int main(int argc, char *argv[]) {
 
   // bench::Benchmark *oltp_bench = init_oltp(4, "");
   snapshot_oltp();
+
+  if (FLAGS_run_oltp && FLAGS_num_oltp_clients > 0) {
+    // timed_func::interval_runner(
+    //     [] { scheduler::WorkerPool::getInstance().print_worker_stats(); },
+    //     (5 * 1000));
+
+    run_oltp(txn_nodes[0]);
+  }
+  usleep(2000000);
+
   __itt_resume();
+  std::cout << "Starting now.." << std::endl;
 
-  for (int i = 0; i < FLAGS_num_olap_clients; i++) {
-    olap_stats[i].shutdown = false;
-    olap_stats[i].begin = false;
-
-    pid_t tmp = fork();
-
-    if (tmp == 0) {
-
-      // run olap stuff
-      // warmup should be inside or outside? cpu can be outside but dont know
-      // about gpu init stuff can be forked or not.
+  std::thread t([olap_stats, txn_nodes]() {
+    for (int i = 0; i < FLAGS_num_olap_clients; i++) {
+      scheduler::WorkerPool::getInstance().print_worker_stats_diff();
       std::cout << "Snapshot Request" << std::endl;
       snapshot_oltp();
       std::cout << "Snapshot Done" << std::endl;
-
-      if (FLAGS_run_olap) {
-        init_olap_warmup();
-
-        auto &topo = topology::getInstance();
-        auto &nodes = topo.getCpuNumaNodes();
-        exec_location{nodes[3]}.activate();
-
-        // assert(nodes.size() >= 2);
-        // assert(FLAGS_num_oltp_clients <= nodes[0].local_cores.size());
-
-        LOG(INFO) << "[SERVER-COW] OLAP Client #" << i
-                  << ": Compiling OLAP Sequence";
-        std::vector<PreparedStatement> olap_queries;
-        {
-          time_block t("T_init_olap_sequence_: ");
-          olap_queries = init_olap_sequence(i, nodes[3]);
-        }
-        // while (olap_stats[0].begin == false)
-        //   ;
-
-        LOG(INFO) << "[SERVER-COW] OLAP Client #" << i
-                  << ": Running OLAP Sequence";
-        std::chrono::time_point<std::chrono::system_clock> start =
-            std::chrono::system_clock::now();
-        {
-          time_block t("T_run_olap_sequence_: ");
-          run_olap_sequence(i, olap_queries, olap_stats + i, nodes[3]);
-        }
-
-        double duration =
-            (std::chrono::duration_cast<std::chrono::milliseconds>(
-                 std::chrono::system_clock::now() - start)
-                 .count()) /
-            1000.0; // in seconds
-
-        double thrughput = (NUM_TPCH_QUERIES * NUM_OLAP_REPEAT) / duration;
-        std::cout << "Duration[" << getpid() << "] : " << duration << std::endl;
-        std::cout << "Queries[" << getpid()
-                  << "] : " << (NUM_TPCH_QUERIES * NUM_OLAP_REPEAT)
-                  << std::endl;
-        std::cout << "Throughput[" << getpid() << "] : " << thrughput
-                  << std::endl;
-
-        LOG(INFO) << "[SERVER-COW] OLAP Client #" << i << ": Shutdown";
-        olap_stats[i].shutdown = true;
-        shutdown_olap();
-        break;
-      } else {
-
-        while (true) {
-          usleep(1000000);
-        }
-
-        // storage::ColumnStore *tbl = nullptr;
-
-        // auto &txn_storage = storage::Schema::getInstance();
-
-        // std::string aeolus_rel_name = "tpcc_orderline";
-        // std::string col_name = "ol_o_id";
-
-        // for (auto &tb : txn_storage.getTables()) {
-        //   if (aeolus_rel_name.compare(tb->name) == 0) {
-        //     assert(tb->storage_layout == storage::COLUMN_STORE);
-        //     tbl = (storage::ColumnStore *)tb;
-        //     break;
-        //   }
-        // }
-        // assert(tbl != nullptr);
-
-        // uint64_t *data = nullptr;
-        // uint64_t num_recs = 0;
-
-        // std::vector<std::pair<void *, uint64_t>> mfiles;
-
-        // for (auto &c : tbl->getColumns()) {
-        //   if (c->name.compare(col_name) == 0) {
-        //     auto d = c->snapshot_get_data();
-
-        //     for (size_t i = 0; i < d.size(); ++i) {
-        //       std::cout << "AEO name: " << c->name << std::endl;
-        //       std::cout << "AEO #-records: "
-        //                 << (d[i].first.size / sizeof(uint64_t)) << std::endl;
-
-        //       mfiles.emplace_back(std::make_pair(
-        //           d[i].first.data, (d[i].first.size / sizeof(uint64_t))));
-        //     }
-        //   }
-        // }
-
-        // uint64_t sum = 0;
-        // while (true) {
-
-        //   for (const auto &clr : mfiles) {
-        //     uint64_t *dt_ptr = (uint64_t *)clr.first;
-        //     uint64_t num_recs = clr.second;
-
-        //     for (uint64_t i = 0; i < num_recs; i++) {
-        //       sum += dt_ptr[i];
-        //     }
-        //   }
-        // }
+      pid_t tmp = fork();
+      if (tmp == 0) {
+        fly_olap(olap_stats, i);
+        exit(0);
       }
-    } else {
-      children.emplace_back(tmp);
-    }
-  }
+      scheduler::WorkerPool::getInstance().print_worker_stats_diff();
 
-  // some child process
-  if (children.size() != FLAGS_num_olap_clients)
-    return 0;
-  register_handler();
-  if (FLAGS_run_oltp && FLAGS_num_oltp_clients > 0)
-    run_oltp(txn_nodes[0]);
+      while (olap_stats[i].shutdown != true)
+        ;
 
-  if (FLAGS_run_olap) {
-    olap_stats[0].begin = true;
-    // Termination Condition.
-    uint client_ctr = 0;
-    while (true) {
-      if (client_ctr == FLAGS_num_olap_clients)
-        break;
-      else if (olap_stats[client_ctr].shutdown)
-        client_ctr++;
-      else
-        usleep(500000);
+      scheduler::WorkerPool::getInstance().print_worker_stats_diff();
+      std::cout << "exited: " << i << std::endl;
     }
-  } else if (FLAGS_run_oltp && FLAGS_num_oltp_clients > 0) {
-    std::cout << "OLTP STANDALONE RUNTIME" << std::endl;
-    usleep(30000000);
-  }
+  });
+
+  t.join();
+
+  // for (int i = 0; i < FLAGS_num_olap_clients; i++) {
+  //   olap_stats[i].shutdown = false;
+  //   olap_stats[i].begin = false;
+
+  //   pid_t tmp = fork();
+
+  //   if (tmp == 0) {
+
+  //     // run olap stuff
+  //     // warmup should be inside or outside? cpu can be outside but dont know
+  //     // about gpu init stuff can be forked or not.
+  //     std::cout << "Snapshot Request" << std::endl;
+  //     snapshot_oltp();
+  //     std::cout << "Snapshot Done" << std::endl;
+
+  //     if (FLAGS_run_olap) {
+  //       init_olap_warmup();
+
+  //       auto &topo = topology::getInstance();
+  //       auto &nodes = topo.getCpuNumaNodes();
+  //       exec_location{nodes[3]}.activate();
+
+  //       // assert(nodes.size() >= 2);
+  //       // assert(FLAGS_num_oltp_clients <= nodes[0].local_cores.size());
+
+  //       LOG(INFO) << "[SERVER-COW] OLAP Client #" << i
+  //                 << ": Compiling OLAP Sequence";
+  //       std::vector<PreparedStatement> olap_queries;
+  //       {
+  //         time_block t("T_init_olap_sequence_: ");
+  //         olap_queries = init_olap_sequence(i, nodes[3]);
+  //       }
+  //       while (olap_stats[0].begin == false)
+  //         ;
+
+  //       LOG(INFO) << "[SERVER-COW] OLAP Client #" << i
+  //                 << ": Running OLAP Sequence";
+  //       std::chrono::time_point<std::chrono::system_clock> start =
+  //           std::chrono::system_clock::now();
+  //       {
+  //         time_block t("T_run_olap_sequence_: ");
+  //         run_olap_sequence(i, olap_queries, olap_stats + i, nodes[3]);
+  //       }
+
+  //       double duration =
+  //           (std::chrono::duration_cast<std::chrono::milliseconds>(
+  //                std::chrono::system_clock::now() - start)
+  //                .count()) /
+  //           1000.0; // in seconds
+
+  //       double thrughput = (NUM_TPCH_QUERIES * NUM_OLAP_REPEAT) / duration;
+  //       std::cout << "Duration[" << getpid() << "] : " << duration <<
+  //       std::endl; std::cout << "Queries[" << getpid()
+  //                 << "] : " << (NUM_TPCH_QUERIES * NUM_OLAP_REPEAT)
+  //                 << std::endl;
+  //       std::cout << "Throughput[" << getpid() << "] : " << thrughput
+  //                 << std::endl;
+
+  //       LOG(INFO) << "[SERVER-COW] OLAP Client #" << i << ": Shutdown";
+  //       olap_stats[i].shutdown = true;
+  //       shutdown_olap();
+  //       break;
+  //     } else {
+
+  //       while (true) {
+  //         usleep(1000000);
+  //       }
+
+  //       // storage::ColumnStore *tbl = nullptr;
+
+  //       // auto &txn_storage = storage::Schema::getInstance();
+
+  //       // std::string aeolus_rel_name = "tpcc_orderline";
+  //       // std::string col_name = "ol_o_id";
+
+  //       // for (auto &tb : txn_storage.getTables()) {
+  //       //   if (aeolus_rel_name.compare(tb->name) == 0) {
+  //       //     assert(tb->storage_layout == storage::COLUMN_STORE);
+  //       //     tbl = (storage::ColumnStore *)tb;
+  //       //     break;
+  //       //   }
+  //       // }
+  //       // assert(tbl != nullptr);
+
+  //       // uint64_t *data = nullptr;
+  //       // uint64_t num_recs = 0;
+
+  //       // std::vector<std::pair<void *, uint64_t>> mfiles;
+
+  //       // for (auto &c : tbl->getColumns()) {
+  //       //   if (c->name.compare(col_name) == 0) {
+  //       //     auto d = c->snapshot_get_data();
+
+  //       //     for (size_t i = 0; i < d.size(); ++i) {
+  //       //       std::cout << "AEO name: " << c->name << std::endl;
+  //       //       std::cout << "AEO #-records: "
+  //       //                 << (d[i].first.size / sizeof(uint64_t)) <<
+  //       std::endl;
+
+  //       //       mfiles.emplace_back(std::make_pair(
+  //       //           d[i].first.data, (d[i].first.size / sizeof(uint64_t))));
+  //       //     }
+  //       //   }
+  //       // }
+
+  //       // uint64_t sum = 0;
+  //       // while (true) {
+
+  //       //   for (const auto &clr : mfiles) {
+  //       //     uint64_t *dt_ptr = (uint64_t *)clr.first;
+  //       //     uint64_t num_recs = clr.second;
+
+  //       //     for (uint64_t i = 0; i < num_recs; i++) {
+  //       //       sum += dt_ptr[i];
+  //       //     }
+  //       //   }
+  //       // }
+  //     }
+  //   } else {
+  //     children.emplace_back(tmp);
+  //   }
+  // }
+
+  // // some child process
+  // if (children.size() != FLAGS_num_olap_clients)
+  //   exit(1);
+
+  // if (FLAGS_run_oltp && FLAGS_num_oltp_clients > 0)
+  //   run_oltp(txn_nodes[0]);
+
+  // std::cout << "Total Children: " << children.size() << std::endl;
+  // std::cout << "Total OLAP Clients: " << FLAGS_num_olap_clients << std::endl;
+
+  // if (FLAGS_run_olap) {
+  //   std::cout << "HERE" << std::endl;
+  //   olap_stats[0].begin = true;
+
+  //   usleep(7000000);
+  //   // Termination Condition.
+  //   // uint client_ctr = 0;
+  //   // while (true) {
+  //   //   if (client_ctr == FLAGS_num_olap_clients) {
+  //   //     std::cout << "All Done: " << client_ctr << std::endl;
+  //   //     break;
+  //   //   } else if (olap_stats[client_ctr].shutdown) {
+  //   //     std::cout << "Children merger: " << client_ctr << std::endl;
+  //   //     client_ctr++;
+  //   //   } else {
+  //   //     // std::this_thread::yield();
+  //   //     std::cout << "Children wait: " << client_ctr << std::endl;
+  //   //     usleep(1000000);
+  //   //   }
+  //   // }
+  // } else if (FLAGS_run_oltp && FLAGS_num_oltp_clients > 0) {
+  //   std::cout << "OLTP STANDALONE RUNTIME" << std::endl;
+  //   usleep(30000000);
+  // }
 
   std::cout << "[Master] Shutting down everything" << std::endl;
   shutdown_oltp(true);
