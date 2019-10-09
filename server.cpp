@@ -33,7 +33,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "glo.hpp"
 
 // #include "benchmarks/micro_ssb.hpp"
-#include "benchmarks/tpcc.hpp"
+#include "benchmarks/tpcc_64.hpp"
 #include "benchmarks/ycsb.hpp"
 #include "indexes/hash_index.hpp"
 #include "interfaces/bench.hpp"
@@ -213,7 +213,7 @@ int main(int argc, char** argv) {
   if (FLAGS_migrate_worker > 0) {
     timed_func::interval_runner(
         [] {
-          scheduler::WorkerPool::getInstance().print_worker_stats();
+          scheduler::WorkerPool::getInstance().print_worker_stats_diff();
           scheduler::WorkerPool::getInstance().migrate_worker();
         },
         (FLAGS_migrate_worker * 1000));
