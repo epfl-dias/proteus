@@ -27,6 +27,7 @@
 #include "operators/gpu/gpu-materializer-expr.hpp"
 #include "operators/operators.hpp"
 #include "plan/prepared-statement.hpp"
+#include "topology/topology.hpp"
 #include "util/parallel-context.hpp"
 
 enum class RoutingPolicy { RANDOM, LOCAL, HASH_BASED };
@@ -148,6 +149,14 @@ class RelBuilder {
           return std::nullopt;
         },
         fanout, slack, p, target, numa_socket_id);
+  }
+
+  RelBuilder router(size_t slack, RoutingPolicy p,
+                    DeviceType target = DeviceType::GPU) const {
+    size_t dop = (target == DeviceType::CPU)
+                     ? topology::getInstance().getCoreCount()
+                     : topology::getInstance().getGpuCount();
+    return router(DegreeOfParallelism{dop}, slack, p, target);
   }
 
   RelBuilder to_gpu() const;
