@@ -72,3 +72,6 @@ cmake-build-debug
 
 #Documentation
 docs/**
+
+#Temporary files
+*.fuse_hidden*
