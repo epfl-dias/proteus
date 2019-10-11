@@ -51,6 +51,7 @@ set(codegen_cxx
     plan/plan-parser.cpp
     plan/prepared-statement.cpp
     plan/query-result.cpp
+    plugins/binary-block-plugin.cpp
     plugins/binary-col-plugin.cpp
     plugins/binary-internal-plugin.cpp
     plugins/binary-row-plugin.cpp
@@ -59,7 +60,6 @@ set(codegen_cxx
     plugins/json-jsmn-plugin.cpp
     plugins/json-plugin.cpp
     plugins/output/plugins-output.cpp
-    plugins/scan-to-blocks-sm-plugin.cpp
     storage/storage-manager.cpp
     topology/affinity_manager.cpp
     topology/topology.cpp

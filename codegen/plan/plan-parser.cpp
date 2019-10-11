@@ -25,7 +25,7 @@
 
 #include <dlfcn.h>
 
-#include "plugins/scan-to-blocks-sm-plugin.hpp"
+#include "plugins/binary-block-plugin.hpp"
 #ifndef NCUDA
 #include "operators/cpu-to-gpu.hpp"
 #include "operators/gpu/gpu-hash-group-by-chained.hpp"
@@ -3294,8 +3294,8 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
 
     assert(dynamic_cast<ParallelContext *>(this->ctx));
 
-    newPg = new ScanToBlockSMPlugin(dynamic_cast<ParallelContext *>(this->ctx),
-                                    *pathDynamicCopy, *recType, projections);
+    newPg = new BinaryBlockPlugin(dynamic_cast<ParallelContext *>(this->ctx),
+                                  *pathDynamicCopy, *recType, projections);
   } else {
     assert(dynamic_cast<ParallelContext *>(this->ctx));
 

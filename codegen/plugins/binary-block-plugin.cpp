@@ -21,22 +21,22 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "plugins/scan-to-blocks-sm-plugin.hpp"
+#include "plugins/binary-block-plugin.hpp"
 
 #include "expressions/expressions-hasher.hpp"
 #include "memory/block-manager.hpp"
 
 using namespace llvm;
 
-ScanToBlockSMPlugin::ScanToBlockSMPlugin(ParallelContext *const context,
-                                         string fnamePrefix, RecordType rec,
-                                         vector<RecordAttribute *> &whichFields)
-    : ScanToBlockSMPlugin(context, fnamePrefix, rec, whichFields, true) {}
+BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
+                                     string fnamePrefix, RecordType rec,
+                                     vector<RecordAttribute *> &whichFields)
+    : BinaryBlockPlugin(context, fnamePrefix, rec, whichFields, true) {}
 
-ScanToBlockSMPlugin::ScanToBlockSMPlugin(ParallelContext *const context,
-                                         string fnamePrefix, RecordType rec,
-                                         vector<RecordAttribute *> &whichFields,
-                                         bool load)
+BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
+                                     string fnamePrefix, RecordType rec,
+                                     vector<RecordAttribute *> &whichFields,
+                                     bool load)
     : fnamePrefix(fnamePrefix),
       rec(rec),
       wantedFields(whichFields),
@@ -45,7 +45,7 @@ ScanToBlockSMPlugin::ScanToBlockSMPlugin(ParallelContext *const context,
       bufVar("buf"),
       itemCtrVar("itemCtr") {
   if (wantedFields.size() == 0) {
-    string error_msg{"[ScanToBlockSMPlugin: ] Invalid number of fields"};
+    string error_msg{"[BinaryBlockPlugin: ] Invalid number of fields"};
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
@@ -81,14 +81,14 @@ ScanToBlockSMPlugin::ScanToBlockSMPlugin(ParallelContext *const context,
   }
 }
 
-void ScanToBlockSMPlugin::finalize_data() {
+void BinaryBlockPlugin::finalize_data() {
   LLVMContext &llvmContext = context->getLLVMContext();
   Nparts = wantedFieldsFiles[0].size();
   for (size_t i = 1; i < wantedFields.size(); ++i) {
     size_t Nparts_loc = wantedFieldsFiles[i].size();
     if (Nparts_loc != Nparts) {
       string error_msg{
-          "[ScanToBlockSMPlugin: ] Columns do not have the same "
+          "[BinaryBlockPlugin: ] Columns do not have the same "
           "number of partitions"};
       LOG(ERROR) << error_msg;
       throw runtime_error(error_msg);
@@ -104,8 +104,8 @@ void ScanToBlockSMPlugin::finalize_data() {
   parts_arrays_type = StructType::get(llvmContext, parts_array);
 }
 
-ScanToBlockSMPlugin::ScanToBlockSMPlugin(ParallelContext *const context,
-                                         string fnamePrefix, RecordType rec)
+BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
+                                     string fnamePrefix, RecordType rec)
     : fnamePrefix(fnamePrefix),
       rec(rec),
       context(context),
@@ -115,23 +115,23 @@ ScanToBlockSMPlugin::ScanToBlockSMPlugin(ParallelContext *const context,
   Nparts = 0;
 }
 
-ScanToBlockSMPlugin::~ScanToBlockSMPlugin() {
+BinaryBlockPlugin::~BinaryBlockPlugin() {
   std::cout << "freeing plugin..." << std::endl;
 }
 
-void ScanToBlockSMPlugin::init() {}
+void BinaryBlockPlugin::init() {}
 
-void ScanToBlockSMPlugin::generate(const ::Operator &producer) {
+void BinaryBlockPlugin::generate(const ::Operator &producer) {
   return scan(producer);
 }
 
 /**
  * The work of readPath() and readValue() has been taken care of scanCSV()
  */
-ProteusValueMemory ScanToBlockSMPlugin::readPath(string activeRelation,
-                                                 Bindings bindings,
-                                                 const char *pathVar,
-                                                 RecordAttribute attr) {
+ProteusValueMemory BinaryBlockPlugin::readPath(string activeRelation,
+                                               Bindings bindings,
+                                               const char *pathVar,
+                                               RecordAttribute attr) {
   // XXX Make sure that using fnamePrefix in this search does not cause issues
   RecordAttribute tmpKey{fnamePrefix, pathVar, this->getOIDType()};
   return (*(bindings.state))[tmpKey];
@@ -139,12 +139,12 @@ ProteusValueMemory ScanToBlockSMPlugin::readPath(string activeRelation,
 
 /* FIXME Differentiate between operations that need the code and the ones
  * needing the materialized string */
-ProteusValueMemory ScanToBlockSMPlugin::readValue(ProteusValueMemory mem_value,
-                                                  const ExpressionType *type) {
+ProteusValueMemory BinaryBlockPlugin::readValue(ProteusValueMemory mem_value,
+                                                const ExpressionType *type) {
   return mem_value;
 }
 
-ProteusValue ScanToBlockSMPlugin::readCachedValue(
+ProteusValue BinaryBlockPlugin::readCachedValue(
     CacheInfo info, const OperatorState &currState) {
   IRBuilder<> *const Builder = context->getBuilder();
   Function *F = context->getGlobalFunction();
@@ -199,15 +199,15 @@ ProteusValue ScanToBlockSMPlugin::readCachedValue(
   return valWrapper;
 }
 
-ProteusValue ScanToBlockSMPlugin::hashValue(ProteusValueMemory mem_value,
-                                            const ExpressionType *type) {
+ProteusValue BinaryBlockPlugin::hashValue(ProteusValueMemory mem_value,
+                                          const ExpressionType *type) {
   IRBuilder<> *Builder = context->getBuilder();
   ProteusValue v{Builder->CreateLoad(mem_value.mem), mem_value.isNull};
   return hashPrimitive(v, type->getTypeID(), context);
 }
 
-ProteusValue ScanToBlockSMPlugin::hashValueEager(ProteusValue valWrapper,
-                                                 const ExpressionType *type) {
+ProteusValue BinaryBlockPlugin::hashValueEager(ProteusValue valWrapper,
+                                               const ExpressionType *type) {
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = Builder->GetInsertBlock()->getParent();
   Value *tmp = valWrapper.value;
@@ -218,8 +218,8 @@ ProteusValue ScanToBlockSMPlugin::hashValueEager(ProteusValue valWrapper,
   return hashValue(mem_tmpWrapper, type);
 }
 
-void ScanToBlockSMPlugin::finish() {
-  LOG(INFO) << "[ScanToBlockSMPlugin] Finish";
+void BinaryBlockPlugin::finish() {
+  LOG(INFO) << "[BinaryBlockPlugin] Finish";
   int cnt = 0;
   for (const auto &attr : wantedFields) {
     close(fd[cnt]);
@@ -234,8 +234,8 @@ void ScanToBlockSMPlugin::finish() {
   }
 }
 
-Value *ScanToBlockSMPlugin::getValueSize(ProteusValueMemory mem_value,
-                                         const ExpressionType *type) {
+Value *BinaryBlockPlugin::getValueSize(ProteusValueMemory mem_value,
+                                       const ExpressionType *type) {
   switch (type->getTypeID()) {
     case BOOL:
     case INT:
@@ -270,7 +270,7 @@ Value *ScanToBlockSMPlugin::getValueSize(ProteusValueMemory mem_value,
   }
 }
 
-void ScanToBlockSMPlugin::skipLLVM(RecordAttribute attName, Value *offset) {
+void BinaryBlockPlugin::skipLLVM(RecordAttribute attName, Value *offset) {
   // Prepare
   IRBuilder<> *Builder = context->getBuilder();
 
@@ -284,7 +284,7 @@ void ScanToBlockSMPlugin::skipLLVM(RecordAttribute attName, Value *offset) {
   Builder->CreateStore(val_new_pos, mem_pos);
 }
 
-void ScanToBlockSMPlugin::nextEntry() {
+void BinaryBlockPlugin::nextEntry() {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
@@ -340,14 +340,14 @@ void ScanToBlockSMPlugin::nextEntry() {
 }
 
 /* Operates over int*! */
-void ScanToBlockSMPlugin::readAsIntLLVM(
+void BinaryBlockPlugin::readAsIntLLVM(
     RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
   readAsLLVM(attName, variables);
 }
 
 /* Operates over char*! */
-void ScanToBlockSMPlugin::readAsLLVM(
+void BinaryBlockPlugin::readAsLLVM(
     RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
@@ -379,7 +379,7 @@ void ScanToBlockSMPlugin::readAsLLVM(
 }
 
 /* Operates over char*! */
-void ScanToBlockSMPlugin::readAsInt64LLVM(
+void BinaryBlockPlugin::readAsInt64LLVM(
     RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
   readAsLLVM(attName, variables);
@@ -390,25 +390,25 @@ void ScanToBlockSMPlugin::readAsInt64LLVM(
  * Probably readValue() is the appropriate place for this.
  * I think forwarding the dict. code (int32) is sufficient here.
  */
-void ScanToBlockSMPlugin::readAsStringLLVM(
+void BinaryBlockPlugin::readAsStringLLVM(
     RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
   readAsIntLLVM(attName, variables);
 }
 
-void ScanToBlockSMPlugin::readAsBooleanLLVM(
+void BinaryBlockPlugin::readAsBooleanLLVM(
     RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
   readAsLLVM(attName, variables);
 }
 
-void ScanToBlockSMPlugin::readAsFloatLLVM(
+void BinaryBlockPlugin::readAsFloatLLVM(
     RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
   readAsLLVM(attName, variables);
 }
 
-void ScanToBlockSMPlugin::prepareArray(RecordAttribute attName) {
+void BinaryBlockPlugin::prepareArray(RecordAttribute attName) {
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = Builder->GetInsertBlock()->getParent();
@@ -441,7 +441,7 @@ void ScanToBlockSMPlugin::prepareArray(RecordAttribute attName) {
   NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
 }
 
-Value *ScanToBlockSMPlugin::getDataPointersForFile(size_t i) const {
+Value *BinaryBlockPlugin::getDataPointersForFile(size_t i) const {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Function *F = context->getGlobalFunction();
@@ -474,9 +474,9 @@ Value *ScanToBlockSMPlugin::getDataPointersForFile(size_t i) const {
   return ptr;
 }
 
-void ScanToBlockSMPlugin::freeDataPointersForFile(size_t i, Value *v) const {}
+void BinaryBlockPlugin::freeDataPointersForFile(size_t i, Value *v) const {}
 
-std::pair<Value *, Value *> ScanToBlockSMPlugin::getPartitionSizes() const {
+std::pair<Value *, Value *> BinaryBlockPlugin::getPartitionSizes() const {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Function *F = context->getGlobalFunction();
@@ -524,9 +524,9 @@ std::pair<Value *, Value *> ScanToBlockSMPlugin::getPartitionSizes() const {
   return {N_parts_ptr, ConstantInt::get(sizeType, max_pack_size)};
 }
 
-void ScanToBlockSMPlugin::freePartitionSizes(Value *) const {}
+void BinaryBlockPlugin::freePartitionSizes(Value *) const {}
 
-void ScanToBlockSMPlugin::scan(const ::Operator &producer) {
+void BinaryBlockPlugin::scan(const ::Operator &producer) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   context->setGlobalFunction(true);
@@ -720,7 +720,7 @@ void ScanToBlockSMPlugin::scan(const ::Operator &producer) {
   // Builder->SetInsertPoint(AfterBB);
 }
 
-RecordType ScanToBlockSMPlugin::getRowType() const {
+RecordType BinaryBlockPlugin::getRowType() const {
   std::vector<RecordAttribute *> rec;
   for (const auto &attr : this->wantedFields) {
     auto ptr = attr;

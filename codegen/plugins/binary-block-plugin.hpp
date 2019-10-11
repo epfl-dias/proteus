@@ -21,8 +21,8 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef SCAN_TO_BLOCKS_SM_PLUGIN_HPP_
-#define SCAN_TO_BLOCKS_SM_PLUGIN_HPP_
+#ifndef BINARY_BLOCK_PLUGIN_HPP_
+#define BINARY_BLOCK_PLUGIN_HPP_
 
 #include <memory>
 
@@ -30,7 +30,7 @@
 #include "plugins/plugins.hpp"
 #include "storage/storage-manager.hpp"
 
-class ScanToBlockSMPlugin : public Plugin {
+class BinaryBlockPlugin : public Plugin {
   /**
    * Plugin for scanning columns on the gpu side.
    *
@@ -46,20 +46,20 @@ class ScanToBlockSMPlugin : public Plugin {
    * -> dates require more sophisticated serialization (boost?)
    */
  protected:
-  ScanToBlockSMPlugin(ParallelContext *const context, string fnamePrefix,
-                      RecordType rec,
-                      std::vector<RecordAttribute *> &whichFields, bool load);
+  BinaryBlockPlugin(ParallelContext *const context, string fnamePrefix,
+                    RecordType rec, std::vector<RecordAttribute *> &whichFields,
+                    bool load);
 
  public:
-  ScanToBlockSMPlugin(ParallelContext *const context, string fnamePrefix,
-                      RecordType rec,
-                      std::vector<RecordAttribute *> &whichFields);
+  BinaryBlockPlugin(ParallelContext *const context, string fnamePrefix,
+                    RecordType rec,
+                    std::vector<RecordAttribute *> &whichFields);
 
-  ScanToBlockSMPlugin(ParallelContext *const context, string fnamePrefix,
-                      RecordType rec);
-  //  ScanToBlockSMPlugin(ParallelContext* const context,
+  BinaryBlockPlugin(ParallelContext *const context, string fnamePrefix,
+                    RecordType rec);
+  //  BinaryBlockPlugin(ParallelContext* const context,
   //  vector<RecordAttribute*>& whichFields, vector<CacheInfo> whichCaches);
-  ~ScanToBlockSMPlugin();
+  ~BinaryBlockPlugin();
   virtual string &getName() { return fnamePrefix; }
   void init();
   //  void initCached();
@@ -81,47 +81,47 @@ class ScanToBlockSMPlugin : public Plugin {
   virtual ProteusValueMemory initCollectionUnnest(
       ProteusValue val_parentObject) {
     string error_msg =
-        "[ScanToBlockSMPlugin: ] Binary col. files do not contain collections";
+        "[BinaryBlockPlugin: ] Binary col. files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
   virtual ProteusValue collectionHasNext(ProteusValue val_parentObject,
                                          ProteusValueMemory mem_currentChild) {
     string error_msg =
-        "[ScanToBlockSMPlugin: ] Binary col. files do not contain collections";
+        "[BinaryBlockPlugin: ] Binary col. files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
   virtual ProteusValueMemory collectionGetNext(
       ProteusValueMemory mem_currentChild) {
     string error_msg =
-        "[ScanToBlockSMPlugin: ] Binary col. files do not contain collections";
+        "[BinaryBlockPlugin: ] Binary col. files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
   virtual void flushTuple(ProteusValueMemory mem_value, llvm::Value *fileName) {
-    string error_msg = "[ScanToBlockSMPlugin: ] Flush not implemented yet";
+    string error_msg = "[BinaryBlockPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
   virtual void flushValue(ProteusValueMemory mem_value,
                           const ExpressionType *type, llvm::Value *fileName) {
-    string error_msg = "[ScanToBlockSMPlugin: ] Flush not implemented yet";
+    string error_msg = "[BinaryBlockPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
   virtual void flushValueEager(ProteusValue value, const ExpressionType *type,
                                llvm::Value *fileName) {
-    string error_msg = "[ScanToBlockSMPlugin: ] Flush not implemented yet";
+    string error_msg = "[BinaryBlockPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
   virtual void flushChunk(ProteusValueMemory mem_value, llvm::Value *fileName) {
-    string error_msg = "[ScanToBlockSMPlugin: ] Flush not implemented yet";
+    string error_msg = "[BinaryBlockPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
@@ -278,4 +278,4 @@ class ScanToBlockSMPlugin : public Plugin {
   void scan(const Operator &producer);
 };
 
-#endif /* SCAN_TO_BLOCKS_SM_PLUGIN_HPP_ */
+#endif /* BINARY_BLOCK_PLUGIN_HPP_ */
