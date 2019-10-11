@@ -38,7 +38,8 @@ class MemMoveScaleOut : public MemMoveDevice {
    public:
     virtual void propagate(MemMoveDevice::workunit *buff, bool is_noop);
 
-    virtual buff_pair push(void *src, size_t bytes, int target_device);
+    virtual buff_pair push(void *src, size_t bytes, int target_device,
+                           uint64_t srcServer);
     virtual void *pull(void *buff);
 
     virtual bool getPropagated(MemMoveDevice::workunit **ret);

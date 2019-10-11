@@ -70,13 +70,16 @@ void subscription::publish(void *data, size_t size
 }
 
 IBHandler *InfiniBandManager::ib = nullptr;
+uint64_t InfiniBandManager::srv_id;
+
+uint64_t InfiniBandManager::server_id() { return srv_id; }
 
 void InfiniBandManager::send(void *data, size_t bytes) {
   ib->send(data, bytes);
 }
 
-void InfiniBandManager::write(void *data, size_t bytes) {
-  ib->write(data, bytes);
+void InfiniBandManager::write(void *data, size_t bytes, size_t sub_id) {
+  ib->write(data, bytes, sub_id);
 }
 
 void InfiniBandManager::write_to(void *data, size_t bytes, buffkey b) {
@@ -104,6 +107,10 @@ subscription &InfiniBandManager::subscribe() {
   return ib->register_subscriber();
 }
 
+subscription &InfiniBandManager::create_subscription() {
+  return ib->create_subscription();
+}
+
 void InfiniBandManager::unsubscribe(subscription &sub) {
   ib->unregister_subscriber(sub);
 }
@@ -127,8 +134,10 @@ void InfiniBandManager::init(const std::string &url, uint16_t port,
   // }
   // rdma_free_devices(devs);
   if (primary) {
+    srv_id = 0;
     ib = createServer(port, ipv4);
   } else {
+    srv_id = 1;
     ib = createClient(url, port, ipv4);
   }
 

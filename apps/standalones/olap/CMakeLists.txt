@@ -1,6 +1,9 @@
 project(olap-apps VERSION 0.1 LANGUAGES CXX)
 
 set(MAINS
+        main-scaleout-brdcst
+        main-scaleout-pingpong
+        main-scaleout-ssb
         main-server  # Interface to the executor
         )
 

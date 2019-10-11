@@ -105,6 +105,9 @@ class AsyncStackSPSC {
 
 template <typename T>
 class AsyncQueueSPSC {
+ public:
+  typedef T value_type;
+
  private:
   std::mutex m;
   std::condition_variable cv;

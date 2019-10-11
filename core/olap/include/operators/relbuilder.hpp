@@ -211,10 +211,10 @@ class RelBuilder {
 
   template <typename T, typename Thash>
   RelBuilder router_scaleout(T attr, Thash hash, DegreeOfParallelism fanout,
-                             size_t slack, RoutingPolicy p,
-                             DeviceType targets) const {
+                             size_t slack, RoutingPolicy p, DeviceType targets,
+                             int producers) const {
     return router_scaleout(attr(getOutputArg()), hash(getOutputArg()), fanout,
-                           slack, p, targets);
+                           slack, p, targets, producers);
   }
 
   template <typename Thash>
@@ -452,7 +452,8 @@ class RelBuilder {
   RelBuilder router_scaleout(const vector<RecordAttribute*>& wantedFields,
                              std::optional<expression_t> hash,
                              DegreeOfParallelism fanout, size_t slack,
-                             RoutingPolicy p, DeviceType cpu_targets) const;
+                             RoutingPolicy p, DeviceType cpu_targets,
+                             int producers) const;
 
   RelBuilder unionAll(const std::vector<RelBuilder>& children,
                       const vector<RecordAttribute*>& wantedFields) const;

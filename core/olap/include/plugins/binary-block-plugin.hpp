@@ -205,7 +205,7 @@ class BinaryBlockPlugin : public Plugin {
 
   std::vector<RecordAttribute *> wantedFields;
 
- private:
+ protected:
   std::vector<FileRequest> wantedFieldsFiles;
   std::vector<size_t> fieldSizes;
 

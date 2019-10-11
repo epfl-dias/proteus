@@ -69,6 +69,34 @@ FileRecord FileRecord::load(const std::string &name, size_t type_size,
   return FileRecord{std::move(p)};
 }
 
+FileRecord FileRecord::loadDistributed(const std::string &name,
+                                       size_t type_size) {
+  time_block t("Topen distributed (" + name + "): ");
+  size_t factor = type_size / sizeof(int32_t);
+
+  auto devices = 2;
+
+  size_t filesize = ::getFileSize(name.c_str()) / factor;
+
+  size_t pack_alignment = sysconf(_SC_PAGE_SIZE);  // required by mmap
+  // in order to do that without the schema, we have to take the worst case
+  // of a file with a single-byte column and a 64bit column and align based
+  // on that. Otherwise, the segments may be misaligned
+  pack_alignment = std::max(pack_alignment, BlockManager::block_size);
+
+  size_t part_size =
+      (((filesize + pack_alignment - 1) / pack_alignment + devices - 1) /
+       devices) *
+      pack_alignment;  // FIXME: assumes maximum record size of 128Bytes
+
+  size_t d = InfiniBandManager::server_id();
+
+  // Protect from the underflow:
+  size_t rem = part_size * d < filesize ? filesize - part_size * d : 0;
+  return loadToCpus(name, type_size, std::min(part_size, rem) * factor,
+                    part_size * d * factor);
+}
+
 FileRecord FileRecord::loadToGpus(const std::string &name, size_t type_size) {
   time_block t("Topen (" + name + "): ",
                TimeRegistry::Key{"Data loading (GPUs)"});
@@ -108,6 +136,11 @@ FileRecord FileRecord::loadToGpus(const std::string &name, size_t type_size) {
 }
 
 FileRecord FileRecord::loadToCpus(const std::string &name, size_t type_size) {
+  return loadToCpus(name, type_size, ::getFileSize(name.c_str()), 0);
+}
+
+FileRecord FileRecord::loadToCpus(const std::string &name, size_t type_size,
+                                  size_t psize, size_t offset) {
   time_block t("Topen (" + name + "): ",
                TimeRegistry::Key{"Data loading (CPUs)"});
   const auto &topo = topology::getInstance();
@@ -116,7 +149,7 @@ FileRecord FileRecord::loadToCpus(const std::string &name, size_t type_size) {
 
   auto devices = topo.getCpuNumaNodeCount();
 
-  size_t filesize = ::getFileSize(name.c_str()) / factor;
+  size_t filesize = psize / factor;
 
   size_t pack_alignment = sysconf(_SC_PAGE_SIZE);  // required by mmap
   // in order to do that without the schema, we have to take the worst case
@@ -137,7 +170,7 @@ FileRecord FileRecord::loadToCpus(const std::string &name, size_t type_size) {
       set_exec_location_on_scope cd(cpu);
       partitions.emplace_back(std::make_unique<mmap_file>(
           name, PINNED, std::min(part_size, filesize - part_size * d) * factor,
-          part_size * d * factor));
+          part_size * d * factor + offset));
     }
     ++d;
   }

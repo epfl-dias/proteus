@@ -43,11 +43,14 @@
 #include "common/error-handling.hpp"
 #include "memory/block-manager.hpp"
 #include "memory/memory-manager.hpp"
+#include "operators/relbuilder.hpp"
 #include "plan/prepared-statement.hpp"
+#include "plugins/binary-block-plugin.hpp"
 #include "storage/storage-manager.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 #include "util/logging.hpp"
+#include "util/parallel-context.hpp"
 #include "util/profiling.hpp"
 
 extern bool print_generated_code;
@@ -203,12 +206,16 @@ int main(int argc, char *argv[]) {
     std::string d_datekey = "d_datekey";
     std::string d_year = "d_year";
 
-    std::string lo_suppkey = "lo_suppkey";
+    std::string lineorder = "inputs/ssbm100/lineorder.csv";
+
+    std::string lo_quantity = "lo_quantity";
+    std::string lo_discount = "lo_discount";
+    std::string lo_extendedprice = "lo_extendedprice";
     std::string lo_orderdate = "lo_orderdate";
 
     // auto rel =
     //     RelBuilder{ctx}
-    //         .scan<ScanToBlockSMPlugin>("inputs/ssbm1000/lineorder.csv",
+    //         .scan<BinaryBlockPlugin>("inputs/ssbm1000/lineorder.csv",
     //                                    {lo_orderdate}, catalog)
     //         .router(
     //             [&](const auto &arg) -> std::vector<RecordAttribute *> {
@@ -269,27 +276,100 @@ int main(int argc, char *argv[]) {
     //           return {arg[lo_orderdate].as(reg_as2)};
     //         });
 
+    size_t slack = 1024;
+    // auto rel =
+    //     RelBuilder{ctx}
+    //         .scan<BinaryBlockPlugin>(
+    //             lineorder,
+    //             {lo_orderdate, lo_extendedprice, lo_discount, lo_quantity},
+    //             catalog)
+    //         .router_scaleout(1, 1, slack, RoutingPolicy::RANDOM,
+    //                          DeviceType::CPU)
+    //         .memmove_scaleout(slack)
+    //         .unpack()
+    //         .filter([&](const auto &arg) -> expression_t {
+    //           return ge(arg[lo_discount], 1) & le(arg[lo_discount], 3) &
+    //                  lt(arg[lo_quantity], 25);
+    //         })
+    //         .reduce(
+    //             [&](const auto &arg) -> std::vector<expression_t> {
+    //               return {(arg[lo_discount] * arg[lo_extendedprice] *
+    //                        arg[lo_orderdate])
+    //                           .as(lineorder, lo_orderdate)};
+    //             },
+    //             {SUM})
+    //         .print([&](const auto &arg) -> std::vector<expression_t> {
+    //           auto reg_as2 = new RecordAttribute(
+    //               0, "t2", lo_orderdate,
+    //               arg[lo_orderdate].getExpressionType());
+    //           assert(reg_as2 && "Error registering expression as attribute");
+
+    //           InputInfo *datasetInfo =
+    //               catalog.getOrCreateInputInfo(reg_as2->getRelationName());
+    //           datasetInfo->exprType = new BagType{
+    //               RecordType{std::vector<RecordAttribute *>{reg_as2}}};
+
+    //           return {arg[lo_orderdate].as(reg_as2)};
+    //         });
+
+    // auto rel =
+    //     RelBuilder{ctx}
+    //         .scan<BinaryBlockPlugin>(lineorder, {lo_orderdate}, catalog)
+    //         .membrdcst_scaleout(2, false)
+    //         .router_scaleout( [&](const auto &arg) ->
+    //         std::vector<RecordAttribute *> {
+    //               return {new RecordAttribute{
+    //                   arg[lo_orderdate].getRegisteredAs(), false}};
+    //             },
+    //             [&](const auto &arg) -> std::optional<expression_t> {
+    //               return std::nullopt;
+    //             },
+    //           2, 1, slack, RoutingPolicy::RANDOM,
+    //                          DeviceType::CPU)
+    //         // .memmove_scaleout(slack)
+    //         .unpack()
+    //         .reduce(
+    //             [&](const auto &arg) -> std::vector<expression_t> {
+    //               return {arg[lo_orderdate]};
+    //             },
+    //             {SUM})
+    //         .print([&](const auto &arg) -> std::vector<expression_t> {
+    //           auto reg_as2 = new RecordAttribute(
+    //               0, "t2", lo_orderdate,
+    //               arg[lo_orderdate].getExpressionType());
+    //           assert(reg_as2 && "Error registering expression as attribute");
+
+    //           InputInfo *datasetInfo =
+    //               catalog.getOrCreateInputInfo(reg_as2->getRelationName());
+    //           datasetInfo->exprType = new BagType{
+    //               RecordType{std::vector<RecordAttribute *>{reg_as2}}};
+
+    //           return {arg[lo_orderdate].as(reg_as2)};
+    //         });
+
     auto rel =
         RelBuilderFactory{"main"}
             .getBuilder()
             .scan("inputs/ssbm1000/lineorder.csv", {lo_orderdate}, catalog,
                   pg{"block"})
+            .membrdcst_scaleout(2, false)
+            .router_scaleout(
+                [&](const auto &arg) -> std::vector<RecordAttribute *> {
+                  return {
+                      new RecordAttribute{arg[lo_orderdate].getRegisteredAs()}};
+                },
+                [&](const auto &arg) -> std::optional<expression_t> {
+                  return arg["__broadcastTarget"];
+                },
+                DegreeOfParallelism{2}, slack, RoutingPolicy::HASH_BASED,
+                DeviceType::CPU, 1)
+            // .memmove_scaleout(slack)
             .unpack()
             .reduce(
                 [&](const auto &arg) -> std::vector<expression_t> {
                   return {arg[lo_orderdate]};
                 },
                 {SUM})
-            .router_scaleout(
-                [&](const auto &arg) -> std::vector<RecordAttribute *> {
-                  return {new RecordAttribute{
-                      arg[lo_orderdate].getRegisteredAs(), false}};
-                },
-                [&](const auto &arg) -> std::optional<expression_t> {
-                  return std::nullopt;
-                },
-                DegreeOfParallelism{1}, 8, RoutingPolicy::RANDOM,
-                DeviceType::CPU)
             .print([&](const auto &arg) -> std::vector<expression_t> {
               auto reg_as2 = new RecordAttribute(
                   0, "t2", lo_orderdate, arg[lo_orderdate].getExpressionType());
@@ -335,34 +415,11 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    for (size_t i = 0; i < 5; ++i) {
-      statement.execute();
-
-      {
-        int fd2 = shm_open(ctx->getModuleName().c_str(), O_RDONLY, S_IRWXU);
-        linux_run(fd2);
-        // if (fd2 == -1) {
-        //   LOG(INFO) << errno << str_e
-        //   throw runtime_error(string(__func__) + string(".open (output): ") +
-        //                       ctx->getModuleName().c_str());
-        // }
-        struct stat statbuf;
-        if (fstat(fd2, &statbuf)) {
-          fprintf(stderr, "FAILURE to stat test results! (%s)\n",
-                  std::strerror(errno));
-        }
-        size_t fsize2 = statbuf.st_size;
-        char *currResultBuf = (char *)mmap(
-            nullptr, fsize2, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd2, 0);
-
-        // printf("result is %d\n", *(int*)currResultBuf);
-        LOG(INFO) << "start of result";
-        LOG(INFO) << currResultBuf;
-        LOG(INFO) << "end of result";
-
-        shm_unlink(ctx->getModuleName().c_str());
-        munmap(currResultBuf, fsize2);
-      }
+    for (size_t i = 0; i < FLAGS_repeat; ++i) {
+      auto qr = statement.execute();
+      LOG(INFO) << "start of result";
+      LOG(INFO) << qr;
+      LOG(INFO) << "end of result";
     }
 
     if (FLAGS_primary) {
@@ -438,6 +495,7 @@ int main(int argc, char *argv[]) {
               assert(x.size % 4 == 0);
               size_t size = x.size / 4;
               int32_t *data = (int32_t *)x.data;
+
               for (size_t i = 0; i < size; ++i) {
                 sum += data[i];
               }

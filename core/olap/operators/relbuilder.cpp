@@ -428,11 +428,11 @@ RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
 RelBuilder RelBuilder::router_scaleout(
     const vector<RecordAttribute *> &wantedFields,
     std::optional<expression_t> hash, DegreeOfParallelism fanout, size_t slack,
-    RoutingPolicy p, DeviceType targets) const {
+    RoutingPolicy p, DeviceType targets, int producers) const {
   assert((p == RoutingPolicy::HASH_BASED) == (hash.has_value()));
   assert((p != RoutingPolicy::RANDOM) || (!hash.has_value()));
   auto op = new RouterScaleOut(root, DegreeOfParallelism{fanout}, wantedFields,
-                               slack, std::move(hash), p, targets);
+                               slack, std::move(hash), p, targets, producers);
   return apply(op);
 }
 

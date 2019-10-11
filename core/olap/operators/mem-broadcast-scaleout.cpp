@@ -29,15 +29,13 @@
 
 buff_pair MemBroadcastScaleOut::MemBroadcastConf::pushBroadcast(
     void *src, size_t bytes, int target_device, bool disable_noop) {
-  BlockManager::share_host_buffer((int32_t *)src);
-  if (target_device == 0) {
+  if (target_device == InfiniBandManager::server_id()) {
     return buff_pair{new std::pair(src, false),
                      nullptr};  // block already in correct device
   }
 
+  // BlockManager::share_host_buffer((int32_t *)src);
   auto x = InfiniBandManager::write_silent(src, bytes);
-  InfiniBandManager::flush();
-  LOG(INFO) << "send " << src;
   return buff_pair{new std::pair(x, true), src};
 }
 
@@ -45,7 +43,7 @@ void MemBroadcastScaleOut::MemBroadcastConf::propagateBroadcast(
     MemMoveDevice::workunit *buff, int target_device) {
   tran.push(buff);
 
-  if (target_device == 0) return;
+  if (target_device == InfiniBandManager::server_id()) return;
 
   ++cnt;
   if (cnt % (slack / 2) == 0) InfiniBandManager::flush();
@@ -56,11 +54,8 @@ void *MemBroadcastScaleOut::MemBroadcastConf::pull(void *buff) {
   auto p = *ptr;
   delete ptr;
   if (p.second) {
-    time_block t{"waiting done."};
-    LOG(INFO) << "waiting...";
     auto x = ((subscription *)p.first)->wait();
-    LOG(INFO) << "got " << x.data << " " << bytes{x.size};
-    return x.data;
+    return x.release();
   } else {
     return p.first;
   }

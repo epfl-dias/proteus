@@ -50,13 +50,29 @@ void MemMoveScaleOut::MemMoveConf::propagate(MemMoveDevice::workunit *buff,
 }
 
 buff_pair MemMoveScaleOut::MemMoveConf::push(void *src, size_t bytes,
-                                             int target_device) {
+                                             int target_device,
+                                             uint64_t srcServer) {
+  if (srcServer == InfiniBandManager::server_id()) {
+    return {new std::pair(src, false), nullptr};
+  }
+
+  BlockManager::share_host_buffer((int32_t *)src);
   auto x = InfiniBandManager::read(src, bytes);
-  return buff_pair{x, src};
+  // InfiniBandManager::flush_read();
+  return buff_pair{new std::pair(x, true), src};
 }
 
 void *MemMoveScaleOut::MemMoveConf::pull(void *buff) {
-  return ((subscription *)buff)->wait().data;
+  // LOG(INFO) << buff;
+  // return buff;
+  auto ptr = ((std::pair<void *, bool> *)buff);
+  auto p = *ptr;
+  delete ptr;
+  if (p.second) {
+    return ((subscription *)p.first)->wait().release();
+  } else {
+    return p.first;
+  }
 }
 
 bool MemMoveScaleOut::MemMoveConf::getPropagated(

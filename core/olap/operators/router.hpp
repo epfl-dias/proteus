@@ -105,6 +105,11 @@ class Router : public experimental::UnaryOperator {
   friend void releaseBuffer(int target, Router *xch, void *buff);
   friend void freeBuffer(int target, Router *xch, void *buff);
 
+  inline void setProducers(int producers) {
+    this->producers = producers;
+    remaining_producers = producers;
+  }
+
  protected:
   void open(Pipeline *pip);
   void close(Pipeline *pip);
@@ -122,26 +127,25 @@ class Router : public experimental::UnaryOperator {
   const int slack;
   size_t buf_size;
 
+  AsyncQueueMPSC<void *> *ready_fifo;
+
+  std::unique_ptr<Affinitizer> aff;
+  std::mutex init_mutex;
+
  private:
   const vector<RecordAttribute *> wantedFields;
 
   llvm::Type *params_type;
 
-  AsyncQueueMPSC<void *> *ready_fifo;
-
   std::stack<void *> *free_pool;
   std::mutex *free_pool_mutex;
   std::condition_variable *free_pool_cv;
-
-  std::mutex init_mutex;
 
   std::optional<expression_t> hashExpr;
 
   bool need_cnt;
 
   const RoutingPolicy policy_type;
-
-  std::unique_ptr<Affinitizer> aff;
 };
 
 #endif /* ROUTER_HPP_ */

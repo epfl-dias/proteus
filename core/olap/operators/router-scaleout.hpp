@@ -31,6 +31,7 @@
 #include <thread>
 #include <utility>
 
+#include "network/infiniband/infiniband-manager.hpp"
 #include "operators/router.hpp"
 #include "topology/affinity_manager.hpp"
 #include "util/async_containers.hpp"
@@ -53,9 +54,13 @@ class RouterScaleOut : public Router {
   RouterScaleOut(Operator *const child, DegreeOfParallelism numOfParents,
                  const std::vector<RecordAttribute *> &wantedFields, int slack,
                  std::optional<expression_t> hash, RoutingPolicy policy_type,
-                 DeviceType targets)
+                 DeviceType targets, int producers)
       : Router(child, numOfParents, wantedFields, slack, std::move(hash),
-               policy_type, targets) {}
+               policy_type, targets) {
+    setProducers(producers);
+  }
+
+  virtual DegreeOfParallelism getDOP() const { return DegreeOfParallelism{1}; }
 
   // virtual void produce();
   // virtual void consume(Context *const context, const OperatorState
@@ -66,11 +71,17 @@ class RouterScaleOut : public Router {
 
   //  void fire(int target, PipelineGen *pipGen);
 
+  virtual void fire(int target, PipelineGen *pipGen);
+
  protected:
   void *acquireBuffer(int target, bool polling = false);
   void releaseBuffer(int target, void *buff);
   void freeBuffer(int target, void *buff);
   bool get_ready(int target, void *&buff);
+
+  std::atomic<size_t> closed = 0;
+  subscription *sub;
+  bool strmclosed = false;
 
   //  friend void *acquireBuffer(int target, Router *xch);
   //  friend void *try_acquireBuffer(int target, Router *xch);
@@ -79,6 +90,7 @@ class RouterScaleOut : public Router {
 
  protected:
   // void open(Pipeline *pip);
+  virtual void open(Pipeline *pip);
   virtual void close(Pipeline *pip);
   // void open(Pipeline *pip);
   virtual void fire_close(Pipeline *pip);

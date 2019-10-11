@@ -28,6 +28,7 @@
 
 #include "infiniband-manager.hpp"
 #include "topology/topology.hpp"
+#include "util/async_containers.hpp"
 #include "util/memory-registry.hpp"
 
 struct ib_addr {
@@ -40,6 +41,8 @@ struct ib_addr {
 std::ostream &operator<<(std::ostream &out, const ibv_gid &gid);
 std::ostream &operator<<(std::ostream &out, const ib_addr &addr);
 
+typedef std::pair<size_t, size_t> packet_t;
+
 class IBHandler : public MemoryRegistry {
   static_assert(
       std::is_same_v<buffkey::second_type, decltype(ibv_send_wr::wr.rdma.rkey)>,
@@ -47,6 +50,8 @@ class IBHandler : public MemoryRegistry {
 
  protected:
   subscription sub;
+  std::deque<subscription> sub_named;
+  std::atomic<size_t> subcnts = 1;
 
   std::map<uint64_t, void *> active_connections;
 
@@ -101,12 +106,13 @@ class IBHandler : public MemoryRegistry {
   std::deque<std::pair<subscription, void *>> read_promises;
   std::mutex read_promises_m;
 
-  std::deque<std::pair<subscription, void *>> write_promises;
+  AsyncQueueSPSC<std::pair<subscription, void *> *> write_promises;
+  // std::deque<std::pair<subscription, void *>> write_promises;
   std::mutex write_promises_m;
 
   size_t write_cnt;
   size_t actual_writes;
-  size_t *cnts;
+  packet_t *cnts;
 
   bool has_requested_buffers;
 
@@ -126,6 +132,7 @@ class IBHandler : public MemoryRegistry {
   void start();
 
   subscription &register_subscriber();
+  subscription &create_subscription();
 
   void unregister_subscriber(subscription &);
 
@@ -145,10 +152,12 @@ class IBHandler : public MemoryRegistry {
 
   void sendGoodBye();
   decltype(read_promises)::value_type &create_promise(void *buff);
-  decltype(write_promises)::value_type &create_write_promise(void *buff);
+  decltype(write_promises)::value_type create_write_promise(void *buff);
 
   void flush_write(ibv_sge *sge_ptr);
   void flush_write();
+  subscription *write_to_int(void *data, size_t bytes, buffkey dst,
+                             void *buffpromise = nullptr);
 
   void send_sge(uintptr_t wr_id, ibv_sge *sg_list, size_t sge_cnt,
                 decltype(ibv_send_wr::imm_data) imm);
@@ -158,9 +167,8 @@ class IBHandler : public MemoryRegistry {
  public:
   void send(void *data, size_t bytes, decltype(ibv_send_wr::imm_data) imm = 5);
 
-  void write(void *data, size_t bytes);
+  void write(void *data, size_t bytes, size_t sub_id = 0);
   void write_to(void *data, size_t bytes, buffkey dst);
-  void write_to_int(void *data, size_t bytes, buffkey dst);
   [[nodiscard]] subscription *write_silent(void *data, size_t bytes);
   [[nodiscard]] subscription *read(void *data, size_t bytes);
   [[nodiscard]] subscription *read_event();

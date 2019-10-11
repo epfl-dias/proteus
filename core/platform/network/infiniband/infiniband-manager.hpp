@@ -98,6 +98,12 @@ class subscription {
       other.data = nullptr;
     }
     ~value_type();
+
+    void *release() {
+      void *tmp = data;
+      data = nullptr;
+      return tmp;
+    }
   };
 
   std::mutex m;
@@ -106,8 +112,8 @@ class subscription {
   std::queue<value_type> q;
 
  public:
-  subscription() = default;
-  subscription(int) {}
+  size_t id;
+  subscription(size_t id = 0) : id(id) {}
 
   value_type wait();
 
@@ -125,7 +131,7 @@ class InfiniBandManager {
   static void init(const std::string &url, uint16_t port = 12345,
                    bool primary = false, bool ipv4 = false);
   static void send(void *data, size_t bytes);
-  static void write(void *data, size_t bytes);
+  static void write(void *data, size_t bytes, size_t sub_id = 0);
   static void write_to(void *data, size_t bytes, buffkey b);
   [[nodiscard]] static subscription *write_silent(void *data, size_t bytes);
   [[nodiscard]] static subscription *read(void *data, size_t bytes);
@@ -138,12 +144,16 @@ class InfiniBandManager {
 
   static subscription &subscribe();
   static void unsubscribe(subscription &);
+  static subscription &create_subscription();
 
   static buffkey reg(const void *mem, size_t bytes);
   static void unreg(const void *mem);
 
+  static uint64_t server_id();
+
  private:
   static IBHandler *ib;
+  static uint64_t srv_id;
 };
 
 #endif /* INFINIBAND_MANAGER_HPP_ */

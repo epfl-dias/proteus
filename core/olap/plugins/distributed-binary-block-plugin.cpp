@@ -21,41 +21,11 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef MMAP_FILE_HPP_
-#define MMAP_FILE_HPP_
+#include <plugins/distributed-binary-block-plugin.hpp>
 
-#include <string>
-
-enum data_loc {
-  GPU_RESIDENT,
-  PINNED,
-  PAGEABLE,
-  ALLSOCKETS,
-  ALLGPUS,
-  EVERYWHERE,
-  DISTRIBUTED,
-};
-
-struct mmap_file {
- private:
-  int fd;
-
-  size_t filesize;
-  void *data;
-  void *gpu_data;
-  data_loc loc;
-
-  bool readonly;
-
- public:
-  mmap_file(std::string name, data_loc loc = GPU_RESIDENT);
-  mmap_file(std::string name, data_loc loc, size_t bytes, size_t offset);
-  ~mmap_file();
-
-  const void *getData() const;
-  size_t getFileSize() const;
-};
-
-size_t getFileSize(const char *filename);
-
-#endif /* MMAP_FILE_HPP_ */
+extern "C" Plugin *createDistributedBlockPlugin(
+    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    std::vector<RecordAttribute *> &whichFields) {
+  return new DistributedBinaryBlockPlugin(context, fnamePrefix, rec,
+                                          whichFields);
+}

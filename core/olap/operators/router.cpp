@@ -25,6 +25,7 @@
 
 #include <cstring>
 #include <memory/memory-manager.hpp>
+#include <network/infiniband/infiniband-manager.hpp>
 #include <util/timing.hpp>
 
 #include "expressions/expressions-generator.hpp"
@@ -77,8 +78,9 @@ void Router::generate_catch(ParallelContext *context) {
     need_cnt = need_cnt || (field->getOriginalType()->getTypeID() == BLOCK);
   }
 
-  param_typelist.push_back(oidType);                // oid
-  if (need_cnt) param_typelist.push_back(oidType);  // cnt
+  param_typelist.push_back(oidType);                        // oid
+  param_typelist.push_back(Type::getInt64Ty(llvmContext));  // srcServer
+  if (need_cnt) param_typelist.push_back(oidType);          // cnt
 
   // param_typelist.push_back(subStatePtr->getType());
 
@@ -90,6 +92,8 @@ void Router::generate_catch(ParallelContext *context) {
                            pg->getOIDType());  // FIXME: OID type for blocks ?
   RecordAttribute tupleIdentifier(wantedFields[0]->getRelationName(),
                                   activeLoop, pg->getOIDType());
+  RecordAttribute srcServer{wantedFields[0]->getRelationName(), "srcServer",
+                            new Int64Type()};  // FIXME: OID type for blocks ?
 
   // Generate catch code
   auto p =
@@ -124,8 +128,12 @@ void Router::generate_catch(ParallelContext *context) {
   variableBindings[tupleIdentifier] =
       context->toMem(oid, context->createFalse());
 
+  Value *srv = Builder->CreateExtractValue(params, wantedFields.size() + 1);
+  variableBindings[srcServer] =
+      context->toMem(srv, context->createFalse(), "srcServer");
+
   if (need_cnt) {
-    Value *cnt = Builder->CreateExtractValue(params, wantedFields.size() + 1);
+    Value *cnt = Builder->CreateExtractValue(params, wantedFields.size() + 2);
 
     variableBindings[tupleCnt] = context->toMem(cnt, context->createFalse());
   }
@@ -393,6 +401,10 @@ void Router::consume(ParallelContext *const context,
   params = Builder->CreateInsertValue(
       params, Builder->CreateLoad(mem_oidWrapper.mem), wantedFields.size());
 
+  params = Builder->CreateInsertValue(
+      params, context->createInt64(InfiniBandManager::server_id()),
+      wantedFields.size() + 1);
+
   if (need_cnt) {
     RecordAttribute tupleCnt(wantedFields[0]->getRelationName(), "activeCnt",
                              pg->getOIDType());  // FIXME: OID type for blocks ?
@@ -400,7 +412,7 @@ void Router::consume(ParallelContext *const context,
     ProteusValueMemory mem_cntWrapper = childState[tupleCnt];
     params = Builder->CreateInsertValue(params,
                                         Builder->CreateLoad(mem_cntWrapper.mem),
-                                        wantedFields.size() + 1);
+                                        wantedFields.size() + 2);
   }
 
   Value *exchangePtr =

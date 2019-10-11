@@ -82,7 +82,10 @@ class FileRecord {
   ~FileRecord();
 
   static FileRecord loadToGpus(const std::string &name, size_t type_size);
+  static FileRecord loadDistributed(const std::string &name, size_t type_size);
   static FileRecord loadToCpus(const std::string &name, size_t type_size);
+  static FileRecord loadToCpus(const std::string &name, size_t type_size,
+                               size_t psize, size_t offset);
   static FileRecord loadEverywhere(const std::string &name, size_t type_size,
                                    int pref_gpu_weight, int pref_cpu_weight);
 

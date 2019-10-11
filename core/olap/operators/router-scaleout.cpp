@@ -25,6 +25,8 @@
 
 #include "memory/block-manager.hpp"
 #include "network/infiniband/infiniband-manager.hpp"
+#include "util/jit/pipeline.hpp"
+#include "util/timing.hpp"
 
 using namespace llvm;
 
@@ -32,132 +34,106 @@ std::queue<void *> pending;
 std::mutex pending_m;
 
 void *RouterScaleOut::acquireBuffer(int target, bool polling) {
-  return BlockManager::get_buffer();
+  if (target == InfiniBandManager::server_id()) {
+    return Router::acquireBuffer(target, polling);
+  } else {
+    if (fanout == 1) LOG(INFO) << "test";
+    return BlockManager::get_buffer();
+  }
 }
 
 void RouterScaleOut::releaseBuffer(int target, void *buff) {
   // FIXME: we do not have to send the whole block. Usually we will have to send
   // just a couple of bytes. Use that instead
-  if (target == 0) {
+  if (target == InfiniBandManager::server_id()) {
     Router::releaseBuffer(target, buff);
   } else {
-    BlockManager::share_host_buffer((int32_t *)buff);
-    InfiniBandManager::write(buff, buf_size);
+    // BlockManager::share_host_buffer((int32_t *)buff);
+    InfiniBandManager::write(buff, buf_size, sub->id);
     ++cnt;
     if (cnt % (slack / 2) == 0) InfiniBandManager::flush();
   }
 }
 
 void RouterScaleOut::freeBuffer(int target, void *buff) {
-  if (target == 0) {
+  if (target == InfiniBandManager::server_id()) {
     Router::freeBuffer(target, buff);
   } else {
-    // nvtxRangePushA("waiting_to_release");
-    // std::unique_lock<std::mutex> lock(free_pool_mutex[target]);
-    // nvtxRangePop();
-    // free_pool[target].emplace(buff);
-    // free_pool_cv[target].notify_one();
-    // lock.unlock();
     BlockManager::release_buffer(buff);
   }
 }
 
 bool RouterScaleOut::get_ready(int target, void *&buff) {
-  if (target == 0) {
+  if (target == InfiniBandManager::server_id()) {
     return Router::get_ready(target, buff);
   } else {
-    auto &sub = InfiniBandManager::subscribe();
-    auto x = sub.wait();
-    LOG(INFO) << x.size;
-    if (x.size == 3) BlockManager::release_buffer(x.data);
-    buff = x.data;
-    return x.size != 3;
+    while (true) {
+      // auto &sub = InfiniBandManager::subscribe();
+      auto x = sub->wait();
+      if (x.size == 3) {
+        if (++closed == 2) ready_fifo[InfiniBandManager::server_id()].close();
+        strmclosed = true;
+        return false;
+      }
+      assert(x.size != 2);
+      Router::releaseBuffer(InfiniBandManager::server_id(), x.release());
+    }
   }
 }
 
-// void RouterScaleOut::fire(int target, PipelineGen *pipGen) {
-//   nvtxRangePushA((pipGen->getName() + ":" + std::to_string(target)).c_str());
+void RouterScaleOut::fire(int target, PipelineGen *pipGen) {
+  if (target == InfiniBandManager::server_id()) {
+    return Router::fire(target, pipGen);
+  }
 
-//   eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_START);
+  nvtxRangePushA((pipGen->getName() + ":" + std::to_string(target)).c_str());
 
-//   // size_t packets = 0;
-//   // time_block t("Xchange pipeline (target=" + std::to_string(target) +
-//   "):");
+  const auto &cu = aff->getAvailableCU(target);
+  // set_exec_location_on_scope d(cu);
+  auto exec_affinity = cu.set_on_scope();
+  std::this_thread::yield();  // if we remove that, following opens may allocate
+                              // memory to wrong socket!
 
-//   eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_END);
-//   set_exec_location_on_scope d(target_processors[target]);
-//   Pipeline *pip = pipGen->getPipeline(target);
-//   std::this_thread::yield();  // if we remove that, following opens may
-//   allocate
-//   // memory to wrong socket!
-
-//   nvtxRangePushA(
-//       (pipGen->getName() + ":" + std::to_string(target) + "open").c_str());
-//   pip->open();
-//   nvtxRangePop();
-//   eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_START);
-
-//   eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_END);
-
-//   {
-//     do {
-//       void *p;
-//       if (!get_ready(target, p)) break;
-//       nvtxRangePushA((pipGen->getName() + ":cons").c_str());
-
-//       pip->consume(0, p);
-//       nvtxRangePop();
-
-//       freeBuffer(target, p);  // FIXME: move this inside the generated code
-
-//       // std::this_thread::yield();
-//     } while (true);
-//   }
-
-//   eventlogger.log(this, log_op::EXCHANGE_CONSUME_CLOSE_START);
-
-//   nvtxRangePushA(
-//       (pipGen->getName() + ":" + std::to_string(target) + "close").c_str());
-//   pip->close();
-//   nvtxRangePop();
-
-//   // std::cout << "Xchange pipeline packets (target=" << target << "): " <<
-//   // packets << std::endl;
-
-//   nvtxRangePop();
-
-//   eventlogger.log(this, log_op::EXCHANGE_CONSUME_CLOSE_END);
-// }
-
-// void RouterScaleOut::open(Pipeline *pip) {
-//   // time_block t("Tinit_exchange: ");
-
-//   std::lock_guard<std::mutex> guard(init_mutex);
-
-//   if (firers.empty()) {
-//     for (int i = 0; i < numOfParents; ++i) {
-//       ready_fifo[i].reset();
-//     }
-
-//     eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_START);
-//     remaining_producers = producers;
-//     for (int i = 0; i < numOfParents; ++i) {
-//       firers.emplace_back(&RouterScaleOut::fire, this, i, catch_pip);
-//     }
-//     eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_END);
-//   }
-// }
+  void *p;
+  while (get_ready(target, p)) {
+    freeBuffer(target, p);
+  }
+}
 
 void RouterScaleOut::fire_close(Pipeline *pip) {
   // time_block t("Tterm_exchange: ");
   LOG(INFO) << "closing";
 }
 
+void RouterScaleOut::open(Pipeline *pip) {
+  // time_block t("Tinit_exchange: ");
+
+  std::lock_guard<std::mutex> guard(init_mutex);
+
+  if (firers.empty()) {
+    for (int i = 0; i < 2; ++i) {
+      ready_fifo[i].reset();
+    }
+
+    sub = &InfiniBandManager::create_subscription();
+    strmclosed = false;
+
+    eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_START);
+    remaining_producers = 1;
+    for (int i = 0; i < 2; ++i) {
+      firers.emplace_back(&RouterScaleOut::fire, this, i, catch_pip);
+    }
+    eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_END);
+  }
+}
+
 void RouterScaleOut::close(Pipeline *pip) {
   // time_block t("Tterm_exchange: ");
-  LOG(INFO) << "close";
+  if (++closed == 2) {
+    ready_fifo[InfiniBandManager::server_id()].close();
+  }
   // Send msg: "You are now allowed to proceed to your close statement"
-  InfiniBandManager::write(BlockManager::get_buffer(), 3);
+  InfiniBandManager::write(BlockManager::get_buffer(), 3, sub->id);
   InfiniBandManager::flush();
 
   int rem = --remaining_producers;
@@ -174,13 +150,14 @@ void RouterScaleOut::close(Pipeline *pip) {
 
   // Send msg: I am done and I will exit as soon as you all tell me you are also
   // done
-  InfiniBandManager::write(BlockManager::get_buffer(), 2);
+  InfiniBandManager::write(BlockManager::get_buffer(), 2, sub->id);
   InfiniBandManager::flush();
 
   LOG(INFO) << "waiting for other end...";
-  auto &sub = InfiniBandManager::subscribe();
-  auto x = sub.wait();
+  // auto &sub = InfiniBandManager::subscribe();
+  auto x = sub->wait();
   LOG(INFO) << "received closed " << x.size;
   LOG(INFO) << "data: " << (bytes{buf_size * cnt});
   cnt = 0;
+  closed = 0;
 }

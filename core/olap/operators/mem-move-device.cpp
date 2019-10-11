@@ -29,11 +29,14 @@
 #include "util/catalog.hpp"
 #include "util/jit/pipeline.hpp"
 #include "util/logging.hpp"
+#include "util/timing.hpp"
 
 buff_pair buff_pair::not_moved(void *buff) { return {buff, buff}; }
 
 buff_pair MemMoveDevice::MemMoveConf::push(void *src, size_t bytes,
-                                           int target_device) {
+                                           int target_device,
+                                           uint64_t srcServer) {
+  assert(srcServer == 0);
   const auto *d = topology::getInstance().getGpuAddressed(src);
   int dev = d ? d->id : -1;
 
@@ -55,8 +58,9 @@ buff_pair MemMoveDevice::MemMoveConf::push(void *src, size_t bytes,
 
 extern "C" {
 buff_pair make_mem_move_device(char *src, size_t bytes, int target_device,
+                               uint64_t srcServer,
                                MemMoveDevice::MemMoveConf *mmc) {
-  return mmc->push(src, bytes, target_device);
+  return mmc->push(src, bytes, target_device, srcServer);
 }
 
 void *MemMoveConf_pull(void *buff, MemMoveDevice::MemMoveConf *mmc) {
@@ -211,27 +215,25 @@ void MemMoveDevice::consume(Context *const context,
   auto &llvmContext = context->getLLVMContext();
   auto Builder = context->getBuilder();
   auto insBB = Builder->GetInsertBlock();
-  auto F = insBB->getParent();
 
   auto charPtrType = llvm::Type::getInt8PtrTy(context->getLLVMContext());
 
   auto workunit_type = llvm::StructType::get(
       llvmContext, std::vector<llvm::Type *>{charPtrType, charPtrType});
 
-  map<RecordAttribute, ProteusValueMemory> old_bindings{
-      childState.getBindings()};
-
   // Find block size
   Plugin *pg =
       Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
-  RecordAttribute tupleCnt =
-      RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt",
-                      pg->getOIDType());  // FIXME: OID type for blocks ?
+  RecordAttribute tupleCnt{wantedFields[0]->getRelationName(), "activeCnt",
+                           pg->getOIDType()};  // FIXME: OID type for blocks ?
 
-  auto it = old_bindings.find(tupleCnt);
-  assert(it != old_bindings.end());
+  ProteusValueMemory mem_cntWrapper = childState[tupleCnt];
 
-  ProteusValueMemory mem_cntWrapper = it->second;
+  RecordAttribute srcServer{wantedFields[0]->getRelationName(), "srcServer",
+                            new Int64Type()};  // FIXME: OID type for blocks ?
+  ProteusValueMemory mem_srcServer = context->toMem(
+      context->createInt64(0),
+      context->createFalse());  //, llvm::Value *isNull)childState[srcServer];
 
   auto make_mem_move = context->getFunction("make_mem_move_device");
 
@@ -243,12 +245,12 @@ void MemMoveDevice::consume(Context *const context,
 
   Builder->SetInsertPoint(insBB);
   auto N = Builder->CreateLoad(mem_cntWrapper.mem);
+  auto srcS = Builder->CreateLoad(mem_srcServer.mem);
 
   RecordAttribute tupleIdentifier{wantedFields[0]->getRelationName(),
                                   activeLoop, pg->getOIDType()};
-  it = old_bindings.find(tupleIdentifier);
-  assert(it != old_bindings.end());
-  ProteusValueMemory mem_oidWrapper = it->second;
+
+  ProteusValueMemory mem_oidWrapper = childState[tupleIdentifier];
   llvm::Value *oid = Builder->CreateLoad(mem_oidWrapper.mem);
 
   llvm::Value *memmv = ((ParallelContext *)context)->getStateVar(memmvconf_var);
@@ -258,9 +260,7 @@ void MemMoveDevice::consume(Context *const context,
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     RecordAttribute block_attr(*(wantedFields[i]), true);
 
-    auto it = old_bindings.find(block_attr);
-    assert(it != old_bindings.end());
-    ProteusValueMemory mem_valWrapper = it->second;
+    ProteusValueMemory mem_valWrapper = childState[block_attr];
 
     auto mv = Builder->CreateBitCast(Builder->CreateLoad(mem_valWrapper.mem),
                                      charPtrType);
@@ -276,7 +276,7 @@ void MemMoveDevice::consume(Context *const context,
     llvm::Value *moved = mv;
     llvm::Value *to_release = mv;
     if (do_transfer[i]) {
-      vector<llvm::Value *> mv_args{mv, size, device_id, memmv};
+      vector<llvm::Value *> mv_args{mv, size, device_id, srcS, memmv};
 
       // Do actual mem move
       auto moved_buffpair = Builder->CreateCall(make_mem_move, mv_args);
@@ -475,6 +475,8 @@ void MemMoveDevice::MemMoveConf::propagate(MemMoveDevice::workunit *buff,
 }
 
 MemMoveDevice::workunit *MemMoveDevice::MemMoveConf::acquire() {
+  // time_block t{"pop: "};
+  // LOG(INFO) << "pop";
   MemMoveDevice::workunit *ret = nullptr;
 #ifndef NDEBUG
   bool popres =
@@ -491,6 +493,8 @@ bool MemMoveDevice::MemMoveConf::getPropagated(MemMoveDevice::workunit **ret) {
 }
 
 void MemMoveDevice::MemMoveConf::release(MemMoveDevice::workunit *buff) {
+  // LOG(INFO) << "pushed";
+  // time_block t{"pushed: "};
   idle.push(buff);
 }
 

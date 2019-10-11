@@ -74,6 +74,7 @@ set(olap_cxx
         plugins/binary-row-plugin.cpp
         plugins/csv-plugin-pm.cpp
         plugins/csv-plugin.cpp
+        plugins/distributed-binary-block-plugin.cpp
         plugins/json-jsmn-plugin.cpp
         plugins/json-plugin.cpp
         plugins/output/plugins-output.cpp

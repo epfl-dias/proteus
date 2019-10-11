@@ -103,10 +103,11 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
 
   Type *pair_type = StructType::get(
       getModule()->getContext(), std::vector<Type *>{charPtrType, charPtrType});
-  FunctionType *make_mem_move_device = FunctionType::get(
-      pair_type,
-      std::vector<Type *>{charPtrType, size_type, int32_type, charPtrType},
-      false);
+  FunctionType *make_mem_move_device =
+      FunctionType::get(pair_type,
+                        std::vector<Type *>{charPtrType, size_type, int32_type,
+                                            int64_type, charPtrType},
+                        false);
   Function *fmake_mem_move_device =
       Function::Create(make_mem_move_device, Function::ExternalLinkage,
                        "make_mem_move_device", getModule());
