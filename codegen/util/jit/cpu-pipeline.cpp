@@ -257,6 +257,12 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
                        "get_rand_core_local_to_ptr", getModule());
   registerFunction("get_rand_core_local_to_ptr", fget_rand_core_local_to_ptr);
 
+  FunctionType *rand_local_cpu = FunctionType::get(
+      int32_type, std::vector<Type *>{charPtrType, int64_type}, false);
+  Function *frand_local_cpu = Function::Create(
+      rand_local_cpu, Function::ExternalLinkage, "rand_local_cpu", getModule());
+  registerFunction("rand_local_cpu", frand_local_cpu);
+
   FunctionType *acquireWorkUnit =
       FunctionType::get(charPtrType, std::vector<Type *>{charPtrType}, false);
   Function *facquireWorkUnit =

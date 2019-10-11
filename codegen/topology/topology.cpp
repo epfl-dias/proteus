@@ -43,8 +43,13 @@
 const topology::cpunumanode *topology::getCpuNumaNodeAddressed(
     const void *m) const {
   int numa_id = -1;
-  get_mempolicy(&numa_id, nullptr, 0, const_cast<void *>(m),
-                MPOL_F_NODE | MPOL_F_ADDR);
+#ifndef NDEBUG
+  long ret =
+#endif
+      get_mempolicy(&numa_id, nullptr, 0, const_cast<void *>(m),
+                    MPOL_F_NODE | MPOL_F_ADDR);
+  assert(ret == 0);
+  assert(numa_id >= 0);
   return (cpu_info.data() + cpunuma_index[numa_id]);
 }
 
@@ -446,4 +451,16 @@ extern "C" int get_rand_core_local_to_ptr(const void *p) {
 
   const auto &sdev = local_gpus[rand() % local_gpu_count];
   return sdev + ((rand() / gpu_count) * gpu_count);
+}
+
+extern "C" int rand_local_cpu(const void *p, uint64_t fanout) {
+  const auto *g = topology::getInstance().getGpuAddressed(p);
+  if (g) assert(false && "TODO");
+  const auto *c = topology::getInstance().getCpuNumaNodeAddressed(p);
+  assert(c);
+  size_t socket = c->index_in_topo;
+  size_t nsockets = topology::getInstance().getCpuNumaNodeCount();
+  size_t ulimit = (fanout - 1 - socket) / nsockets;
+  size_t r = rand() % ulimit;
+  return socket + r * nsockets;
 }

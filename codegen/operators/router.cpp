@@ -385,11 +385,12 @@ void Router::consume(Context *const context, const OperatorState &childState) {
     target = Builder->CreateCall(getdev, vector<Value *>{ptr});
     retry = false;  // FIXME: Should we retry ?
   } else if (rand_local_cpu) {
-    Function *getdev = context->getFunction("get_rand_core_local_to_ptr");
+    Function *getdev = context->getFunction("rand_local_cpu");
 
     Value *ptr = Builder->CreateLoad(childState[*(wantedFields[0])].mem);
     ptr = Builder->CreateBitCast(ptr, charPtrType);
-    target = Builder->CreateCall(getdev, vector<Value *>{ptr});
+    target = Builder->CreateCall(
+        getdev, vector<Value *>{ptr, context->createInt64(fanout)});
     retry = true;
   } else {
     Function *crand = context->getFunction("rand");
