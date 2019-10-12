@@ -37,10 +37,10 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
                            RecordType rec,
                            vector<RecordAttribute *> &whichFields,
                            string pgType)
-    : ScanToBlockSMPlugin(context, fnamePrefix, rec, whichFields, false),
+    : BinaryBlockPlugin(context, fnamePrefix, rec, whichFields, false),
       pgType(pgType) {
   if (wantedFields.size() == 0) {
-    string error_msg{"[ScanToBlockSMPlugin: ] Invalid number of fields"};
+    string error_msg{"[BinaryBlockPlugin: ] Invalid number of fields"};
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }

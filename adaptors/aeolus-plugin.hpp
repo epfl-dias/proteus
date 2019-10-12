@@ -23,9 +23,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #ifndef AEOLUS_PLUGIN_HPP_
 #define AEOLUS_PLUGIN_HPP_
 
-#include "plugins/scan-to-blocks-sm-plugin.hpp"
+#include "plugins/binary-block-plugin.hpp"
 
-class AeolusPlugin : public ScanToBlockSMPlugin {
+class AeolusPlugin : public BinaryBlockPlugin {
  public:
   AeolusPlugin(ParallelContext *const context, std::string fnamePrefix,
                RecordType rec, std::vector<RecordAttribute *> &whichFields,
