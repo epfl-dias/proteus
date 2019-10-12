@@ -68,9 +68,11 @@ class CC_MV2PL {
 
     PRIMARY_INDEX_VAL();
     PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid)
-        : t_min(tid), VID(vid), delta_ver(nullptr), delta_ver_tag(0) {
-      write_lck.store(false);
-    }
+        : t_min(tid),
+          VID(vid),
+          write_lck(false),
+          delta_ver(nullptr),
+          delta_ver_tag(0) {}
   };  //__attribute__((aligned(64)));
 
   // TODO: this needs to be modified as we changed the format of TIDs
