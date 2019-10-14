@@ -3444,7 +3444,17 @@ CatalogParser::CatalogParser(const char *catalogPath, ParallelContext *context)
   parseDir(catalogPath);
 }
 
+CatalogParser &CatalogParser::getInstance() {
+  static CatalogParser instance{"inputs", nullptr};
+  return instance;
+}
+
 InputInfo *CatalogParser::getOrCreateInputInfo(string inputName) {
+  return getOrCreateInputInfo(inputName, context);
+}
+
+InputInfo *CatalogParser::getOrCreateInputInfo(string inputName,
+                                               ParallelContext *context) {
   InputInfo *ret = getInputInfoIfKnown(inputName);
 
   if (!ret) {

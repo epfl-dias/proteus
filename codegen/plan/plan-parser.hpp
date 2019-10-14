@@ -79,6 +79,8 @@ class CatalogParser {
  public:
   CatalogParser(const char *catalogPath, ParallelContext *context = nullptr);
 
+  static CatalogParser &getInstance();
+
   InputInfo *getInputInfoIfKnown(std::string inputName) {
     map<std::string, InputInfo *>::iterator it;
     it = inputs.find(inputName);
@@ -96,9 +98,19 @@ class CatalogParser {
   }
 
   InputInfo *getOrCreateInputInfo(std::string inputName);
+  InputInfo *getOrCreateInputInfo(std::string inputName,
+                                  ParallelContext *context);
 
   void setInputInfo(std::string inputName, InputInfo *info) {
     inputs[inputName] = info;
+  }
+
+  void registerInput(std::string inputName, ExpressionType *type) {
+    auto ii = new InputInfo;
+    ii->exprType = type;
+    ii->path = inputName;
+    ii->oidType = nullptr;
+    inputs[inputName] = ii;
   }
 
  private:
