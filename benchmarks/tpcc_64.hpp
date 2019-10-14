@@ -71,7 +71,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define TPCC_NDIST_PER_WH 10
 #define TPCC_ORD_PER_DIST 3000
 
-#define TPCC_MAX_ORD_PER_DIST 250000
+#define TPCC_MAX_ORD_PER_DIST 100000
 #define TPCC_MAX_ORDER_INITIAL_CAP_PER_PARTITION \
   (TPCC_MAX_ORD_PER_DIST * TPCC_NDIST_PER_WH * NUM_CORE_PER_SOCKET)
 #define TPCC_MAX_ORDER_INITIAL_CAP \
@@ -100,6 +100,8 @@ enum TPCC_QUERY_TYPE {
   DELIVERY,
   STOCK_LEVEL
 };
+
+typedef uint64_t date_t;
 
 class TPCC : public Benchmark {
  private:
@@ -237,8 +239,8 @@ class TPCC : public Benchmark {
     uint32_t o_d_id;
     uint32_t o_w_id;
     uint32_t o_c_id;
-    uint32_t o_entry_d;  // TODO: MAKE IT 64 BIT
-    short o_carrier_id;
+    date_t o_entry_d;  // TODO: MAKE IT 64 BIT
+    uint32_t o_carrier_id;
     uint32_t o_ol_cnt;
     uint32_t o_all_local;
   };
@@ -250,7 +252,7 @@ class TPCC : public Benchmark {
     uint32_t ol_number;
     uint32_t ol_i_id;
     uint32_t ol_supply_w_id;
-    uint32_t ol_delivery_d;  // TODO: MAKE IT 64 BIT
+    date_t ol_delivery_d;  // TODO: MAKE IT 64 BIT
     uint32_t ol_quantity;
     double ol_amount;
     // char ol_dist_info[24]; // TODO: uncomment
@@ -263,7 +265,7 @@ class TPCC : public Benchmark {
     uint32_t ol_number[TPCC_MAX_OL_PER_ORDER];
     uint32_t ol_i_id[TPCC_MAX_OL_PER_ORDER];
     uint32_t ol_supply_w_id[TPCC_MAX_OL_PER_ORDER];
-    uint32_t ol_delivery_d[TPCC_MAX_OL_PER_ORDER];  // TODO: MAKE IT 64 BIT
+    date_t ol_delivery_d[TPCC_MAX_OL_PER_ORDER];  // TODO: MAKE IT 64 BIT
     uint32_t ol_quantity[TPCC_MAX_OL_PER_ORDER];
     double ol_amount[TPCC_MAX_OL_PER_ORDER];
     // char ol_dist_info[TPCC_MAX_OL_PER_ORDER][24]; // TODO: uncomment
@@ -314,7 +316,7 @@ class TPCC : public Benchmark {
     char rbk;
     char remote;
     uint32_t ol_cnt;
-    uint32_t o_entry_d;  // 64bit please
+    date_t o_entry_d;  // 64bit please
   };
 
   // fucking shortcut

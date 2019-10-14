@@ -22,6 +22,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "tpcc_64.hpp"
 
+#include <sys/mman.h>
+
 #include <algorithm>
 #include <cctype>
 #include <chrono>
@@ -33,7 +35,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <string>
 #include <thread>
 
-#include <sys/mman.h>
 #include "utils/utils.hpp"
 
 /*
@@ -50,7 +51,7 @@ std::mutex print_mutex;
 
 #define debug_dont_load_order false
 
-inline uint64_t __attribute__((always_inline)) get_timestamp() {
+inline date_t __attribute__((always_inline)) get_timestamp() {
   return std::chrono::duration_cast<std::chrono::milliseconds>(
              std::chrono::system_clock::now().time_since_epoch())
       .count();
@@ -835,27 +836,18 @@ void TPCC::create_tbl_warehouse(uint64_t num_warehouses) {
 
   struct tpcc_warehouse tmp;
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "w_id", storage::INTEGER, sizeof(tmp.w_id)));
+  columns.emplace_back("w_id", storage::INTEGER, sizeof(tmp.w_id));
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "w_name", storage::VARCHAR,
-      sizeof(tmp.w_name)));  // size 10 +1 for null character
+  columns.emplace_back("w_name", storage::VARCHAR,
+                       sizeof(tmp.w_name));  // size 10 +1 for null character
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "w_street_1", storage::VARCHAR, sizeof(tmp.w_street[0])));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "w_street_2", storage::VARCHAR, sizeof(tmp.w_street[0])));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "w_city", storage::VARCHAR, sizeof(tmp.w_city)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "w_state", storage::STRING, sizeof(tmp.w_state)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "w_zip", storage::STRING, sizeof(tmp.w_zip)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "w_tax", storage::FLOAT, sizeof(tmp.w_tax)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "w_ytd", storage::FLOAT, sizeof(tmp.w_ytd)));
+  columns.emplace_back("w_street_1", storage::VARCHAR, sizeof(tmp.w_street[0]));
+  columns.emplace_back("w_street_2", storage::VARCHAR, sizeof(tmp.w_street[0]));
+  columns.emplace_back("w_city", storage::VARCHAR, sizeof(tmp.w_city));
+  columns.emplace_back("w_state", storage::STRING, sizeof(tmp.w_state));
+  columns.emplace_back("w_zip", storage::STRING, sizeof(tmp.w_zip));
+  columns.emplace_back("w_tax", storage::FLOAT, sizeof(tmp.w_tax));
+  columns.emplace_back("w_ytd", storage::FLOAT, sizeof(tmp.w_ytd));
 
   table_warehouse = schema->create_table(
       "tpcc_warehouse",
@@ -870,28 +862,18 @@ void TPCC::create_tbl_district(uint64_t num_districts) {
 
   struct tpcc_district tmp;
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "d_id", storage::INTEGER, sizeof(tmp.d_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "d_w_id", storage::INTEGER, sizeof(tmp.d_w_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "d_name", storage::VARCHAR, sizeof(tmp.d_name)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "d_street_1", storage::VARCHAR, sizeof(tmp.d_street[0])));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "d_street_2", storage::VARCHAR, sizeof(tmp.d_street[1])));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "d_city", storage::VARCHAR, sizeof(tmp.d_city)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "d_state", storage::STRING, sizeof(tmp.d_state)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "d_zip", storage::STRING, sizeof(tmp.d_zip)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "d_tax", storage::FLOAT, sizeof(tmp.d_tax)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "d_ytd", storage::FLOAT, sizeof(tmp.d_ytd)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "d_next_o_id", storage::INTEGER, sizeof(tmp.d_next_o_id)));
+  columns.emplace_back("d_id", storage::INTEGER, sizeof(tmp.d_id));
+  columns.emplace_back("d_w_id", storage::INTEGER, sizeof(tmp.d_w_id));
+  columns.emplace_back("d_name", storage::VARCHAR, sizeof(tmp.d_name));
+  columns.emplace_back("d_street_1", storage::VARCHAR, sizeof(tmp.d_street[0]));
+  columns.emplace_back("d_street_2", storage::VARCHAR, sizeof(tmp.d_street[1]));
+  columns.emplace_back("d_city", storage::VARCHAR, sizeof(tmp.d_city));
+  columns.emplace_back("d_state", storage::STRING, sizeof(tmp.d_state));
+  columns.emplace_back("d_zip", storage::STRING, sizeof(tmp.d_zip));
+  columns.emplace_back("d_tax", storage::FLOAT, sizeof(tmp.d_tax));
+  columns.emplace_back("d_ytd", storage::FLOAT, sizeof(tmp.d_ytd));
+  columns.emplace_back("d_next_o_id", storage::INTEGER,
+                       sizeof(tmp.d_next_o_id));
 
   table_district = schema->create_table(
       "tpcc_district",
@@ -905,16 +887,11 @@ void TPCC::create_tbl_item(uint64_t num_item) {
 
   struct tpcc_item tmp;
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "i_id", storage::INTEGER, sizeof(tmp.i_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "i_im_id", storage::INTEGER, sizeof(tmp.i_im_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "i_name", storage::VARCHAR, sizeof(tmp.i_name)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "i_price", storage::FLOAT, sizeof(tmp.i_price)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "i_data", storage::VARCHAR, sizeof(tmp.i_data)));
+  columns.emplace_back("i_id", storage::INTEGER, sizeof(tmp.i_id));
+  columns.emplace_back("i_im_id", storage::INTEGER, sizeof(tmp.i_im_id));
+  columns.emplace_back("i_name", storage::VARCHAR, sizeof(tmp.i_name));
+  columns.emplace_back("i_price", storage::FLOAT, sizeof(tmp.i_price));
+  columns.emplace_back("i_data", storage::VARCHAR, sizeof(tmp.i_data));
 
 #if REPLICATED_ITEM_TABLE
   for (int i = 0; i < g_num_partitions; i++) {
@@ -939,43 +916,28 @@ void TPCC::create_tbl_stock(uint64_t num_stock) {
 
   struct tpcc_stock tmp;
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_i_id", storage::INTEGER, sizeof(tmp.s_i_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_w_id", storage::INTEGER, sizeof(tmp.s_w_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_quantity", storage::FLOAT, sizeof(tmp.s_quantity)));
+  columns.emplace_back("s_i_id", storage::INTEGER, sizeof(tmp.s_i_id));
+  columns.emplace_back("s_w_id", storage::INTEGER, sizeof(tmp.s_w_id));
+  columns.emplace_back("s_quantity", storage::INTEGER, sizeof(tmp.s_quantity));
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_dist_01", storage::STRING, sizeof(tmp.s_dist[0])));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_dist_02", storage::STRING, sizeof(tmp.s_dist[0])));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_dist_03", storage::STRING, sizeof(tmp.s_dist[0])));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_dist_04", storage::STRING, sizeof(tmp.s_dist[0])));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_dist_05", storage::STRING, sizeof(tmp.s_dist[0])));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_dist_06", storage::STRING, sizeof(tmp.s_dist[0])));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_dist_07", storage::STRING, sizeof(tmp.s_dist[0])));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_dist_08", storage::STRING, sizeof(tmp.s_dist[0])));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_dist_09", storage::STRING, sizeof(tmp.s_dist[0])));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_dist_10", storage::STRING, sizeof(tmp.s_dist[0])));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_ytd", storage::INTEGER, sizeof(tmp.s_ytd)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_order_cnt", storage::INTEGER, sizeof(tmp.s_order_cnt)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_remote_cnt", storage::INTEGER, sizeof(tmp.s_remote_cnt)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_data", storage::VARCHAR, sizeof(tmp.s_data)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "s_su_suppkey", storage::INTEGER, sizeof(tmp.s_su_suppkey)));
+  columns.emplace_back("s_dist_01", storage::STRING, sizeof(tmp.s_dist[0]));
+  columns.emplace_back("s_dist_02", storage::STRING, sizeof(tmp.s_dist[0]));
+  columns.emplace_back("s_dist_03", storage::STRING, sizeof(tmp.s_dist[0]));
+  columns.emplace_back("s_dist_04", storage::STRING, sizeof(tmp.s_dist[0]));
+  columns.emplace_back("s_dist_05", storage::STRING, sizeof(tmp.s_dist[0]));
+  columns.emplace_back("s_dist_06", storage::STRING, sizeof(tmp.s_dist[0]));
+  columns.emplace_back("s_dist_07", storage::STRING, sizeof(tmp.s_dist[0]));
+  columns.emplace_back("s_dist_08", storage::STRING, sizeof(tmp.s_dist[0]));
+  columns.emplace_back("s_dist_09", storage::STRING, sizeof(tmp.s_dist[0]));
+  columns.emplace_back("s_dist_10", storage::STRING, sizeof(tmp.s_dist[0]));
+  columns.emplace_back("s_ytd", storage::INTEGER, sizeof(tmp.s_ytd));
+  columns.emplace_back("s_order_cnt", storage::INTEGER,
+                       sizeof(tmp.s_order_cnt));
+  columns.emplace_back("s_remote_cnt", storage::INTEGER,
+                       sizeof(tmp.s_remote_cnt));
+  columns.emplace_back("s_data", storage::VARCHAR, sizeof(tmp.s_data));
+  columns.emplace_back("s_su_suppkey", storage::INTEGER,
+                       sizeof(tmp.s_su_suppkey));
 
   table_stock = schema->create_table(
       "tpcc_stock",
@@ -992,23 +954,15 @@ void TPCC::create_tbl_history(uint64_t num_history) {
 
   struct tpcc_history tmp;
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "h_c_id", storage::INTEGER, sizeof(tmp.h_c_id)));
+  columns.emplace_back("h_c_id", storage::INTEGER, sizeof(tmp.h_c_id));
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "h_c_d_id", storage::INTEGER, sizeof(tmp.h_c_d_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "h_c_w_id", storage::INTEGER, sizeof(tmp.h_c_w_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "h_d_id", storage::INTEGER, sizeof(tmp.h_d_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "h_w_id", storage::INTEGER, sizeof(tmp.h_w_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "h_date", storage::DATE, sizeof(tmp.h_date)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "h_amount", storage::FLOAT, sizeof(tmp.h_amount)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "h_data", storage::VARCHAR, sizeof(tmp.h_data)));
+  columns.emplace_back("h_c_d_id", storage::INTEGER, sizeof(tmp.h_c_d_id));
+  columns.emplace_back("h_c_w_id", storage::INTEGER, sizeof(tmp.h_c_w_id));
+  columns.emplace_back("h_d_id", storage::INTEGER, sizeof(tmp.h_d_id));
+  columns.emplace_back("h_w_id", storage::INTEGER, sizeof(tmp.h_w_id));
+  columns.emplace_back("h_date", storage::DATE, sizeof(tmp.h_date));
+  columns.emplace_back("h_amount", storage::FLOAT, sizeof(tmp.h_amount));
+  columns.emplace_back("h_data", storage::VARCHAR, sizeof(tmp.h_data));
 
   table_history = schema->create_table(
       "tpcc_history",
@@ -1026,56 +980,39 @@ void TPCC::create_tbl_customer(uint64_t num_cust) {
 
   std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_id", storage::INTEGER, sizeof(tmp.c_id)));
+  columns.emplace_back("c_id", storage::INTEGER, sizeof(tmp.c_id));
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_w_id", storage::INTEGER, sizeof(tmp.c_w_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_d_id", storage::INTEGER, sizeof(tmp.c_d_id)));
+  columns.emplace_back("c_w_id", storage::INTEGER, sizeof(tmp.c_w_id));
+  columns.emplace_back("c_d_id", storage::INTEGER, sizeof(tmp.c_d_id));
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_first", storage::VARCHAR, 17));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_middle", storage::STRING, 2));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_last", storage::VARCHAR, 17));
+  columns.emplace_back("c_first", storage::VARCHAR, 17);
+  columns.emplace_back("c_middle", storage::STRING, 2);
+  columns.emplace_back("c_last", storage::VARCHAR, 17);
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_street_1", storage::VARCHAR, 21));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_street_2", storage::VARCHAR, 21));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_city", storage::VARCHAR, 21));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_state", storage::STRING, 2));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_zip", storage::STRING, 9));
+  columns.emplace_back("c_street_1", storage::VARCHAR, 21);
+  columns.emplace_back("c_street_2", storage::VARCHAR, 21);
+  columns.emplace_back("c_city", storage::VARCHAR, 21);
+  columns.emplace_back("c_state", storage::STRING, 2);
+  columns.emplace_back("c_zip", storage::STRING, 9);
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_phone", storage::STRING, 16));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_since", storage::DATE, sizeof(tmp.c_since)));
+  columns.emplace_back("c_phone", storage::STRING, 16);
+  columns.emplace_back("c_since", storage::DATE, sizeof(tmp.c_since));
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_credit", storage::STRING, 2));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_credit_lim", storage::FLOAT, sizeof(tmp.c_credit_lim)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_discount", storage::FLOAT, sizeof(tmp.c_discount)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_balance", storage::FLOAT, sizeof(tmp.c_balance)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_ytd_payment", storage::FLOAT, sizeof(tmp.c_ytd_payment)));
+  columns.emplace_back("c_credit", storage::STRING, 2);
+  columns.emplace_back("c_credit_lim", storage::FLOAT,
+                       sizeof(tmp.c_credit_lim));
+  columns.emplace_back("c_discount", storage::FLOAT, sizeof(tmp.c_discount));
+  columns.emplace_back("c_balance", storage::FLOAT, sizeof(tmp.c_balance));
+  columns.emplace_back("c_ytd_payment", storage::FLOAT,
+                       sizeof(tmp.c_ytd_payment));
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_payment_cnt", storage::INTEGER, sizeof(tmp.c_payment_cnt)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_delivery_cnt", storage::INTEGER, sizeof(tmp.c_delivery_cnt)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_data", storage::VARCHAR, 501));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "c_n_nationkey", storage::INTEGER, sizeof(tmp.c_n_nationkey)));
+  columns.emplace_back("c_payment_cnt", storage::INTEGER,
+                       sizeof(tmp.c_payment_cnt));
+  columns.emplace_back("c_delivery_cnt", storage::INTEGER,
+                       sizeof(tmp.c_delivery_cnt));
+  columns.emplace_back("c_data", storage::VARCHAR, 501);
+  columns.emplace_back("c_n_nationkey", storage::INTEGER,
+                       sizeof(tmp.c_n_nationkey));
   table_customer = schema->create_table(
       "tpcc_customer",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
@@ -1091,13 +1028,10 @@ void TPCC::create_tbl_new_order(uint64_t num_new_order) {
 
   std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "no_o_id", storage::INTEGER, sizeof(tmp.no_o_id)));
+  columns.emplace_back("no_o_id", storage::INTEGER, sizeof(tmp.no_o_id));
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "no_d_id", storage::INTEGER, sizeof(tmp.no_d_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "no_w_id", storage::INTEGER, sizeof(tmp.no_w_id)));
+  columns.emplace_back("no_d_id", storage::INTEGER, sizeof(tmp.no_d_id));
+  columns.emplace_back("no_w_id", storage::INTEGER, sizeof(tmp.no_w_id));
 
   table_new_order = schema->create_table(
       "tpcc_new_order",
@@ -1112,23 +1046,17 @@ void TPCC::create_tbl_order(uint64_t num_order) {
 
   struct tpcc_order tmp;
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "o_id", storage::INTEGER, sizeof(tmp.o_id)));
+  columns.emplace_back("o_id", storage::INTEGER, sizeof(tmp.o_id));
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "o_d_id", storage::INTEGER, sizeof(tmp.o_d_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "o_w_id", storage::INTEGER, sizeof(tmp.o_w_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "o_c_id", storage::INTEGER, sizeof(tmp.o_c_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "o_entry_date", storage::DATE, sizeof(tmp.o_entry_d)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "o_carrier_id", storage::INTEGER, sizeof(tmp.o_carrier_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "o_ol_cnt", storage::INTEGER, sizeof(tmp.o_ol_cnt)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "o_all_local", storage::INTEGER, sizeof(tmp.o_all_local)));
+  columns.emplace_back("o_d_id", storage::INTEGER, sizeof(tmp.o_d_id));
+  columns.emplace_back("o_w_id", storage::INTEGER, sizeof(tmp.o_w_id));
+  columns.emplace_back("o_c_id", storage::INTEGER, sizeof(tmp.o_c_id));
+  columns.emplace_back("o_entry_date", storage::DATE, sizeof(tmp.o_entry_d));
+  columns.emplace_back("o_carrier_id", storage::INTEGER,
+                       sizeof(tmp.o_carrier_id));
+  columns.emplace_back("o_ol_cnt", storage::INTEGER, sizeof(tmp.o_ol_cnt));
+  columns.emplace_back("o_all_local", storage::INTEGER,
+                       sizeof(tmp.o_all_local));
   table_order = schema->create_table(
       "tpcc_orders",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
@@ -1146,27 +1074,21 @@ void TPCC::create_tbl_order_line(uint64_t num_order_line) {
 
   std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "ol_o_id", storage::INTEGER, sizeof(tmp.ol_o_id)));
+  columns.emplace_back("ol_o_id", storage::INTEGER, sizeof(tmp.ol_o_id));
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "ol_d_id", storage::INTEGER, sizeof(tmp.ol_d_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "ol_w_id", storage::INTEGER, sizeof(tmp.ol_w_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "ol_number", storage::INTEGER, sizeof(tmp.ol_number)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "ol_i_id", storage::INTEGER, sizeof(tmp.ol_i_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "ol_supply_w_id", storage::INTEGER, sizeof(tmp.ol_supply_w_id)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "ol_delivery_d", storage::DATE, sizeof(tmp.ol_delivery_d)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "ol_quantity", storage::INTEGER, sizeof(tmp.ol_quantity)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "ol_amount", storage::FLOAT, sizeof(tmp.ol_amount)));
-  // columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-  //     "ol_dist_info", storage::STRING, sizeof(tmp.ol_dist_info)));
+  columns.emplace_back("ol_d_id", storage::INTEGER, sizeof(tmp.ol_d_id));
+  columns.emplace_back("ol_w_id", storage::INTEGER, sizeof(tmp.ol_w_id));
+  columns.emplace_back("ol_number", storage::INTEGER, sizeof(tmp.ol_number));
+  columns.emplace_back("ol_i_id", storage::INTEGER, sizeof(tmp.ol_i_id));
+  columns.emplace_back("ol_supply_w_id", storage::INTEGER,
+                       sizeof(tmp.ol_supply_w_id));
+  columns.emplace_back("ol_delivery_d", storage::DATE,
+                       sizeof(tmp.ol_delivery_d));
+  columns.emplace_back("ol_quantity", storage::INTEGER,
+                       sizeof(tmp.ol_quantity));
+  columns.emplace_back("ol_amount", storage::FLOAT, sizeof(tmp.ol_amount));
+  // columns.emplace_back(
+  //     "ol_dist_info", storage::STRING, sizeof(tmp.ol_dist_info));
 
   table_order_line = schema->create_table(
       "tpcc_orderline",
@@ -1189,26 +1111,20 @@ void TPCC::create_tbl_supplier(uint64_t num_supp) {
   struct ch_supplier tmp;
   std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "su_suppkey", storage::INTEGER, sizeof(tmp.suppkey)));
+  columns.emplace_back("su_suppkey", storage::INTEGER, sizeof(tmp.suppkey));
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "su_name", storage::STRING, sizeof(tmp.s_name)));
+  columns.emplace_back("su_name", storage::STRING, sizeof(tmp.s_name));
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "su_address", storage::VARCHAR, sizeof(tmp.s_address)));
+  columns.emplace_back("su_address", storage::VARCHAR, sizeof(tmp.s_address));
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "su_nationkey", storage::INTEGER, sizeof(tmp.s_nationkey)));
+  columns.emplace_back("su_nationkey", storage::INTEGER,
+                       sizeof(tmp.s_nationkey));
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "su_phone", storage::STRING, sizeof(tmp.s_phone)));
+  columns.emplace_back("su_phone", storage::STRING, sizeof(tmp.s_phone));
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "su_acctbal", storage::FLOAT, sizeof(tmp.s_acctbal)));
+  columns.emplace_back("su_acctbal", storage::FLOAT, sizeof(tmp.s_acctbal));
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "su_comment", storage::VARCHAR, sizeof(tmp.s_comment)));
+  columns.emplace_back("su_comment", storage::VARCHAR, sizeof(tmp.s_comment));
 
   table_supplier = schema->create_table(
       "ch_supplier",
@@ -1227,12 +1143,10 @@ void TPCC::create_tbl_region(uint64_t num_region) {
 
   std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "r_regionkey", storage::INTEGER, sizeof(tmp.r_regionkey)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "r_name", storage::VARCHAR, sizeof(tmp.r_name)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "r_comment", storage::VARCHAR, sizeof(tmp.r_comment)));
+  columns.emplace_back("r_regionkey", storage::INTEGER,
+                       sizeof(tmp.r_regionkey));
+  columns.emplace_back("r_name", storage::VARCHAR, sizeof(tmp.r_name));
+  columns.emplace_back("r_comment", storage::VARCHAR, sizeof(tmp.r_comment));
 
   table_region = schema->create_table(
       "ch_region",
@@ -1250,14 +1164,12 @@ void TPCC::create_tbl_nation(uint64_t num_nation) {
   struct ch_nation tmp;
   std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
 
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "n_nationkey", storage::INTEGER, sizeof(tmp.n_nationkey)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "n_name", storage::VARCHAR, sizeof(tmp.n_name)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "n_regionkey", storage::INTEGER, sizeof(tmp.n_regionkey)));
-  columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-      "n_comment", storage::VARCHAR, sizeof(tmp.n_comment)));
+  columns.emplace_back("n_nationkey", storage::INTEGER,
+                       sizeof(tmp.n_nationkey));
+  columns.emplace_back("n_name", storage::VARCHAR, sizeof(tmp.n_name));
+  columns.emplace_back("n_regionkey", storage::INTEGER,
+                       sizeof(tmp.n_regionkey));
+  columns.emplace_back("n_comment", storage::VARCHAR, sizeof(tmp.n_comment));
 
   table_nation = schema->create_table(
       "ch_nation",
