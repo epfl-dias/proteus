@@ -106,10 +106,7 @@ class ColumnStore : public Table {
   std::vector<Column *> columns;
   Column *meta_column;
   // Column **secondary_index_vals;
-  size_t rec_size;
   uint64_t offset;
-  uint64_t initial_num_recs;
-  bool indexed;
 };
 
 class Column {

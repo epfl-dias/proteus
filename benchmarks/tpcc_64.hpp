@@ -44,6 +44,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define tpcc_dist_txns false
 #define tpcc_cust_sec_idx false
 #define batch_insert_no_ol true
+#define debug_dont_load_order false
+
+// SIGMOD 20
+#define index_on_order_tbl false  // also cascade to orderlne, neworder table
+#define SF 100                    // set it to zero for default tpc-c specs
 
 #define NO_MIX 100
 #define P_MIX 0
@@ -71,7 +76,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define TPCC_NDIST_PER_WH 10
 #define TPCC_ORD_PER_DIST 3000
 
-#define TPCC_MAX_ORD_PER_DIST 100000
+#define TPCC_MAX_ORD_PER_DIST 400000
 #define TPCC_MAX_ORDER_INITIAL_CAP_PER_PARTITION \
   (TPCC_MAX_ORD_PER_DIST * TPCC_NDIST_PER_WH * NUM_CORE_PER_SOCKET)
 #define TPCC_MAX_ORDER_INITIAL_CAP \
@@ -235,7 +240,7 @@ class TPCC : public Benchmark {
   };
 
   struct __attribute__((packed)) tpcc_order {
-    uint64_t o_id;
+    uint32_t o_id;
     uint32_t o_d_id;
     uint32_t o_w_id;
     uint32_t o_c_id;
@@ -246,7 +251,7 @@ class TPCC : public Benchmark {
   };
 
   struct __attribute__((packed)) tpcc_order_line {
-    uint64_t ol_o_id;
+    uint32_t ol_o_id;
     uint32_t ol_d_id;
     uint32_t ol_w_id;
     uint32_t ol_number;
@@ -259,7 +264,7 @@ class TPCC : public Benchmark {
   };
 
   struct __attribute__((packed)) tpcc_order_line_batch {
-    uint64_t ol_o_id[TPCC_MAX_OL_PER_ORDER];
+    uint32_t ol_o_id[TPCC_MAX_OL_PER_ORDER];
     uint32_t ol_d_id[TPCC_MAX_OL_PER_ORDER];
     uint32_t ol_w_id[TPCC_MAX_OL_PER_ORDER];
     uint32_t ol_number[TPCC_MAX_OL_PER_ORDER];
@@ -272,7 +277,7 @@ class TPCC : public Benchmark {
   };
 
   struct __attribute__((packed)) tpcc_new_order {
-    uint64_t no_o_id;
+    uint32_t no_o_id;
     uint32_t no_d_id;
     uint32_t no_w_id;
   };

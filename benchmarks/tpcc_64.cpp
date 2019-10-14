@@ -37,19 +37,10 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "utils/utils.hpp"
 
-/*
-TODO CORRECTNESS:
-sometimes rarely there is a seg fault in NO_TXN, someone is overwriting the
-query struct itself.
-
-*/
-
 namespace bench {
 std::mutex print_mutex;
 
 #define extract_pid(v) CC_extract_pid(v)
-
-#define debug_dont_load_order false
 
 inline date_t __attribute__((always_inline)) get_timestamp() {
   return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -359,8 +350,11 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
 
   // if (dist_no_read.d_next_o_id >= TPCC_MAX_ORD_PER_DIST) {
   //   std::unique_lock<std::mutex> lk(print_mutex);
-  //   std::cout << "WID::" << w_id << std::endl;
-  //   std::cout << "DID::" << d_id << std::endl;
+  //   table_order->reportUsage();
+  //   std::cout << "---Overflow" << std::endl;
+
+  //   std::cout << "WID::" << q->w_id << std::endl;
+  //   std::cout << "DID::" << q->d_id << std::endl;
   //   std::cout << "dist_no_read.d_next_o_id::" << dist_no_read.d_next_o_id
   //             << std::endl;
   //   std::cout << "PID::" << partition_id << std::endl;
@@ -484,7 +478,10 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
 
   void *o_idx_ptr =
       table_order->insertRecord(&o_r, xid, partition_id, master_ver);
+
+#if index_on_order_tbl
   table_order->p_index->insert(order_key, o_idx_ptr);
+#endif
 
   /*
    * EXEC SQL INSERT IN TO NEW_ORDER (no_o_id , no_d_id , no_w _id )
@@ -499,7 +496,9 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
 
   void *no_idx_ptr =
       table_new_order->insertRecord(&no_r, xid, partition_id, master_ver);
+#if index_on_order_tbl
   table_new_order->p_index->insert(order_key, no_idx_ptr);
+#endif
 
   const ushort i_col_scan[] = {3};
 
@@ -641,8 +640,9 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
 
     void *ol_idx_ptr =
         table_order_line->insertRecord(&ol_ins, xid, partition_id, master_ver);
-
+#if index_on_order_tbl
     table_order_line->p_index->insert(ol_key, ol_idx_ptr);
+#endif
 
 #endif
   }
@@ -657,11 +657,12 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
       (global_conf::IndexVal *)table_order_line->insertRecordBatch(
           ol_ptr, q->ol_cnt, TPCC_MAX_OL_PER_ORDER, xid, partition_id,
           master_ver);
-
+#if index_on_order_tbl
   for (uint ol_number = 0; ol_number < q->ol_cnt; ol_number++) {
     void *pt = (void *)(ol_idx_ptr_batch + ol_number);
     table_order_line->p_index->insert(ol_key_batch[ol_number], pt);
   }
+#endif
 #endif
 
   return true;
@@ -685,6 +686,9 @@ inline void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
   q->w_id = wid % n_wh;
 
   // q->w_id = URand(&p->seed, 1, g_nservers);
+  // static thread_local uint did = 0;
+
+  // q->d_id = (did++ % TPCC_NDIST_PER_WH);
   q->d_id = URand(&seed_t, 0, TPCC_NDIST_PER_WH - 1);
   q->c_id = NURand(&seed_t, 1023, 0, TPCC_NCUST_PER_DIST - 1);
   q->rbk = URand(&seed_t, 1, 100);
@@ -1036,7 +1040,7 @@ void TPCC::create_tbl_new_order(uint64_t num_new_order) {
   table_new_order = schema->create_table(
       "tpcc_new_order",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_new_order);
+      columns, num_new_order, index_on_order_tbl);
 }
 
 void TPCC::create_tbl_order(uint64_t num_order) {
@@ -1057,10 +1061,11 @@ void TPCC::create_tbl_order(uint64_t num_order) {
   columns.emplace_back("o_ol_cnt", storage::INTEGER, sizeof(tmp.o_ol_cnt));
   columns.emplace_back("o_all_local", storage::INTEGER,
                        sizeof(tmp.o_all_local));
+
   table_order = schema->create_table(
       "tpcc_orders",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_order);
+      columns, num_order, index_on_order_tbl);
 }
 
 void TPCC::create_tbl_order_line(uint64_t num_order_line) {
@@ -1093,7 +1098,7 @@ void TPCC::create_tbl_order_line(uint64_t num_order_line) {
   table_order_line = schema->create_table(
       "tpcc_orderline",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_order_line);
+      columns, num_order_line, index_on_order_tbl);
 }
 
 void TPCC::create_tbl_supplier(uint64_t num_supp) {
@@ -1425,97 +1430,143 @@ void TPCC::load_order(int w_id, uint64_t xid, ushort partition_id,
 
   // (OL_SUPPLY_W_ID, OL_I_ID) Foreign Key, references (S_W_ID, S_I_ID)
 
+  uint64_t total_orderline_ins = 0;
+  uint64_t total_order = 0;
+  uint64_t order_per_wh = 0;
+  uint64_t order_per_dist = 0;
+
+  if (SF != 0) {
+    total_orderline_ins = 6001215 * SF;
+    total_order = total_orderline_ins / 15;
+    order_per_wh = total_order / this->num_warehouse;
+    order_per_dist = order_per_wh / TPCC_NDIST_PER_WH;
+  } else {
+    order_per_dist = TPCC_NCUST_PER_DIST;
+
+    // total_order = TPCC_NCUST_PER_DIST * TPCC_NDIST_PER_WH;
+    // order_per_wh = total_order / this->num_warehouses;
+    // order_per_dist = order_per_wh / TPCC_NDIST_PER_WH;
+    // total_orderline_ins = 6001215 * SF;
+  }
+
+  assert(order_per_dist < TPCC_MAX_ORD_PER_DIST);
+
+  uint64_t pre_orders = (uint64_t)((double)order_per_dist * 0.7);
+
   uint64_t *cperm = (uint64_t *)malloc(sizeof(uint64_t) * TPCC_NCUST_PER_DIST);
   assert(cperm);
 
+  std::vector<std::thread> loaders;
+
   for (int d = 0; d < TPCC_NDIST_PER_WH; d++) {
-    // init_permutation(&this->seed, cperm);
+    init_permutation(&this->seed, cperm);
 
-    for (int o = 0; o < TPCC_NCUST_PER_DIST; o++) {
-      struct tpcc_order r = {};  // new struct tpcc_order;
+    loaders.emplace_back([this, d, order_per_dist, cperm, pre_orders, w_id, xid,
+                          partition_id, master_ver]() {
+      for (uint64_t o = 0; o < order_per_dist; o++) {
+        struct tpcc_order r = {};  // new struct tpcc_order;
 
-      uint64_t ckey = MAKE_ORDER_KEY(w_id, d, o);
-      if (ckey >= TPCC_MAX_ORDER_INITIAL_CAP) {
-        std::cout << "w_id: " << w_id << std::endl;
-        std::cout << " d_id: " << d << std::endl;
-        std::cout << "o_id: " << o << std::endl;
-        std::cout << "partition_id: " << partition_id << std::endl;
-        std::cout << "ckey: " << ckey << std::endl;
+        uint64_t ckey = MAKE_ORDER_KEY(w_id, d, o);
 
-        std::cout << "distk: " << MAKE_DIST_KEY(w_id, d) << std::endl;
+        // if (ckey >= TPCC_MAX_ORDER_INITIAL_CAP) {
+        //   std::cout << "w_id: " << w_id << std::endl;
+        //   std::cout << " d_id: " << d << std::endl;
+        //   std::cout << "o_id: " << o << std::endl;
+        //   std::cout << "partition_id: " << partition_id << std::endl;
+        //   std::cout << "ckey: " << ckey << std::endl;
+        //   std::cout << "distk: " << MAKE_DIST_KEY(w_id, d) << std::endl;
+        //   std::cout << "TPCC_MAX_ORD_PER_DIST: " << TPCC_MAX_ORD_PER_DIST
+        //             << std::endl;
+        //   std::cout << "-----------------" << std::endl;
+        // }
 
-        std::cout << "TPCC_MAX_ORD_PER_DIST: " << TPCC_MAX_ORD_PER_DIST
-                  << std::endl;
-        std::cout << "-----------------" << std::endl;
-      }
+        int c_id = cperm[o % TPCC_NCUST_PER_DIST];
 
-      int c_id = cperm[o];
+        r.o_id = o;
+        r.o_c_id = c_id;
+        r.o_d_id = d;
+        r.o_w_id = w_id;
 
-      r.o_id = o;
-      r.o_c_id = c_id;
-      r.o_d_id = d;
-      r.o_w_id = w_id;
+        r.o_entry_d = get_timestamp();
 
-      r.o_entry_d = get_timestamp();
-      if (o < 2100) {
-        r.o_carrier_id = URand(&this->seed, 1, 10);
-      } else
-        r.o_carrier_id = 0;
-      int o_ol_cnt = URand(&this->seed, 5, 15);
-      r.o_ol_cnt = o_ol_cnt;
-      r.o_all_local = 1;
+        if (o < pre_orders) {
+          // if (o < 2100) {
+          r.o_carrier_id = URand(&this->seed, 1, 10);
+        } else
+          r.o_carrier_id = 0;
 
-      // insert order here
-      void *hash_ptr_o =
-          table_order->insertRecord(&r, xid, partition_id, master_ver);
-      assert(hash_ptr_o != nullptr || hash_ptr_o != NULL);
-      this->table_order->p_index->insert(ckey, hash_ptr_o);
+        int o_ol_cnt = URand(&this->seed, 5, 15);
 
-      for (int ol = 0; ol < o_ol_cnt; ol++) {
-        struct tpcc_order_line r_ol = {};  // new struct tpcc_order_line;
-
-        uint64_t ol_pkey = MAKE_OL_KEY(w_id, d, o, ol);
-
-        r_ol.ol_o_id = o;
-        r_ol.ol_d_id = d;
-        r_ol.ol_w_id = w_id;
-        r_ol.ol_number = ol;
-        r_ol.ol_i_id = URand(&this->seed, 0, TPCC_MAX_ITEMS - 1);
-        r_ol.ol_supply_w_id = w_id;
-
-        if (o < 2100) {
-          r_ol.ol_delivery_d = r.o_entry_d;
-          r_ol.ol_amount = 0;
-        } else {
-          r_ol.ol_delivery_d = 0;
-          r_ol.ol_amount = (double)URand(&this->seed, 1, 999999) / 100;
+        if (SF != 0) {
+          o_ol_cnt = 15;
         }
-        r_ol.ol_quantity = 5;
-        // make_alpha_string(&this->seed, 24, 24, r_ol.ol_dist_info);
 
-        // insert orderline here
-        void *hash_ptr_ol = table_order_line->insertRecord(
-            &r_ol, xid, partition_id, master_ver);
-        assert(hash_ptr_ol != nullptr || hash_ptr_ol != NULL);
-        this->table_order_line->p_index->insert(ol_pkey, hash_ptr_ol);
+        r.o_ol_cnt = o_ol_cnt;
+        r.o_all_local = 1;
+
+        // insert order here
+        void *hash_ptr_o =
+            table_order->insertRecord(&r, xid, partition_id, master_ver);
+#if index_on_order_tbl
+        assert(hash_ptr_o != nullptr || hash_ptr_o != NULL);
+        this->table_order->p_index->insert(ckey, hash_ptr_o);
+#endif
+
+        for (int ol = 0; ol < o_ol_cnt; ol++) {
+          struct tpcc_order_line r_ol = {};  // new struct tpcc_order_line;
+
+          uint64_t ol_pkey = MAKE_OL_KEY(w_id, d, o, ol);
+
+          r_ol.ol_o_id = o;
+          r_ol.ol_d_id = d;
+          r_ol.ol_w_id = w_id;
+          r_ol.ol_number = ol;
+          r_ol.ol_i_id = URand(&this->seed, 0, TPCC_MAX_ITEMS - 1);
+          r_ol.ol_supply_w_id = w_id;
+
+          if (o < pre_orders) {
+            r_ol.ol_delivery_d = r.o_entry_d;
+            r_ol.ol_amount = 0;
+          } else {
+            r_ol.ol_delivery_d = 0;
+            r_ol.ol_amount = (double)URand(&this->seed, 1, 999999) / 100;
+          }
+          r_ol.ol_quantity = 5;
+          // make_alpha_string(&this->seed, 24, 24, r_ol.ol_dist_info);
+
+          // insert orderline here
+          void *hash_ptr_ol = table_order_line->insertRecord(
+              &r_ol, xid, partition_id, master_ver);
+#if index_on_order_tbl
+          assert(hash_ptr_ol != nullptr || hash_ptr_ol != NULL);
+          this->table_order_line->p_index->insert(ol_pkey, hash_ptr_ol);
+#endif
+        }
+
+        // NEW ORDER
+        if (o >= pre_orders) {
+          struct tpcc_new_order r_no = {};  // new struct tpcc_new_order;
+
+          r_no.no_o_id = o;
+          r_no.no_d_id = d;
+          r_no.no_w_id = w_id;
+          // insert new order here
+
+          void *hash_ptr_no = table_new_order->insertRecord(
+              &r_no, xid, partition_id, master_ver);
+#if index_on_order_tbl
+          assert(hash_ptr_no != nullptr || hash_ptr_no != NULL);
+          this->table_new_order->p_index->insert(ckey, hash_ptr_no);
+#endif
+        }
       }
-
-      // NEW ORDER
-      if (o >= 2100) {
-        struct tpcc_new_order r_no = {};  // new struct tpcc_new_order;
-
-        r_no.no_o_id = o;
-        r_no.no_d_id = d;
-        r_no.no_w_id = w_id;
-        // insert new order here
-
-        void *hash_ptr_no =
-            table_new_order->insertRecord(&r_no, xid, partition_id, master_ver);
-        assert(hash_ptr_no != nullptr || hash_ptr_no != NULL);
-        this->table_new_order->p_index->insert(ckey, hash_ptr_no);
-      }
-    }
+    });
   }
+
+  for (auto &th : loaders) {
+    th.join();
+  }
+
   // delete r;
   // delete r_ol;
   // delete r_no;

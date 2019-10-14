@@ -230,6 +230,10 @@ class Table {
   int num_columns;
   DeltaStore **deltaStore;
 
+  size_t rec_size;
+  uint64_t initial_num_recs;
+  bool indexed;
+
   friend class Schema;
 };
 

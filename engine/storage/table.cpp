@@ -127,7 +127,8 @@ bool Schema::sync_master_ver_tbl(const storage::Table* tbl,
 
 void Schema::report() {
   for (auto& tbl : tables) {
-    tbl->p_index->report();
+    // tbl->p_index->report();
+    tbl->reportUsage();
   }
 }
 
@@ -229,7 +230,8 @@ void Schema::drop_table(int idx) {
 void Table::reportUsage() {
   std::cout << "Table: " << this->name << std::endl;
   for (int i = 0; i < NUM_SOCKETS; i++) {
-    std::cout << "P" << i << ": " << vid[i].load() << std::endl;
+    std::cout << "P" << i << ": " << vid[i].load() << " / "
+              << (initial_num_recs / g_num_partitions) << std::endl;
   }
 }
 
@@ -296,6 +298,8 @@ Table::Table(std::string name, uint8_t table_id, layout_type storage_layout,
       storage_layout(storage_layout) {
   for (int i = 0; i < NUM_SOCKETS; i++) vid[i] = 0;
 
+#ifdef HTAP
+#if HTAP
   LOG(INFO) << "Registering table to OLAP";
 
   std::vector<RecordAttribute*> attrs;
@@ -311,6 +315,8 @@ Table::Table(std::string name, uint8_t table_id, layout_type storage_layout,
 
   std::lock_guard<std::mutex> lock{m_catalog};
   CatalogParser::getInstance().registerInput(name, exprType);
+#endif
+#endif
 }
 
 Table::~Table() {}

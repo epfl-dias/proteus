@@ -59,6 +59,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "common/common.hpp"
 #endif
 
+#define HTAP false
+
 /*std::ostream& operator<<(std::ostream& os, int64_t i) {
   char buf[20];
   sprintf(buf, "%li", i);
@@ -207,6 +209,8 @@ int main(int argc, char** argv) {
       bench, (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
       FLAGS_num_partitions, FLAGS_worker_sched_mode, FLAGS_num_iter_per_worker,
       (FLAGS_elastic_workload > 0 ? true : false));
+
+  schema->report();
 
   scheduler::WorkerPool::getInstance().start_workers();
 

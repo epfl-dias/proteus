@@ -197,8 +197,9 @@ ColumnStore::ColumnStore(
     uint8_t table_id, std::string name,
     std::vector<std::tuple<std::string, data_type, size_t>> columns,
     uint64_t initial_num_records, bool indexed, bool partitioned, int numa_idx)
-    : Table(name, table_id, COLUMN_STORE, columns), indexed(indexed) {
+    : Table(name, table_id, COLUMN_STORE, columns) {
   this->total_mem_reserved = 0;
+  this->indexed = indexed;
   this->deltaStore = storage::Schema::getInstance().deltaStore;
 
   for (int i = 0; i < g_num_partitions; i++) this->vid[i] = 0;
@@ -300,16 +301,18 @@ void* ColumnStore::insertRecordBatch(void* rec_batch, uint recs_to_ins,
   uint64_t st_vid = CC_gen_vid(idx_st, partition_id, master_ver, 0);
   uint64_t st_vid_meta = CC_gen_vid(idx_st, partition_id, 0, 0);
 
-  // meta stuff
-  global_conf::IndexVal* hash_ptr =
-      (global_conf::IndexVal*)this->meta_column->insertElemBatch(st_vid_meta,
-                                                                 recs_to_ins);
-  assert(hash_ptr != nullptr);
+  global_conf::IndexVal* hash_ptr = nullptr;
+  if (this->indexed) {
+    // meta stuff
+    hash_ptr = (global_conf::IndexVal*)this->meta_column->insertElemBatch(
+        st_vid_meta, recs_to_ins);
+    assert(hash_ptr != nullptr);
 
-  for (uint i = 0; i < recs_to_ins; i++) {
-    hash_ptr->t_min = xid;
-    hash_ptr->VID = CC_gen_vid(idx_st + i, partition_id, master_ver, 0);
-    hash_ptr += 1;
+    for (uint i = 0; i < recs_to_ins; i++) {
+      hash_ptr->t_min = xid;
+      hash_ptr->VID = CC_gen_vid(idx_st + i, partition_id, master_ver, 0);
+      hash_ptr += 1;
+    }
   }
 
   // for loop to copy all columns.
@@ -670,13 +673,18 @@ void Column::insertElem(uint64_t vid, void* elem) {
   ushort mver = CC_extract_m_ver(vid);
   uint64_t offset = CC_extract_offset(vid);
   uint64_t data_idx = offset * elem_size;
-  // if (this->name[0] == 'd') {
-  //   std::cout << "pid: " << (uint)pid << std::endl;
-  //   std::cout << "mver: " << (uint)mver << std::endl;
-  //   std::cout << "offset: " << offset << std::endl;
-  // }
+
   assert(pid < g_num_partitions);
   // assert(idx < initial_num_records_per_part);
+
+  if (data_idx >= size_per_part) {
+    std::cout << "-----------" << std::endl;
+    std::cout << this->name << std::endl;
+    std::cout << "pid: " << (uint)pid << std::endl;
+    std::cout << "mver: " << (uint)mver << std::endl;
+    std::cout << "offset: " << offset << std::endl;
+  }
+
   assert(data_idx < size_per_part);
 
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {

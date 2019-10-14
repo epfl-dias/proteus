@@ -97,8 +97,6 @@ void Worker::run() {
   // std::cout << "[WORKER] Worker (TID:" << (int)(this->id)
   //          << "): Assigining Core ID:" << this->exec_core->id << std::endl;
 
-  AffinityManager::getInstance().set(this->exec_core);
-
   WorkerPool* pool = &WorkerPool::getInstance();
   txn::TransactionManager* txnManager = &txn::TransactionManager::getInstance();
   storage::Schema* schema = &storage::Schema::getInstance();
@@ -131,7 +129,7 @@ void Worker::run() {
       });
     }
   }
-
+  AffinityManager::getInstance().set(this->exec_core);
   this->txn_start_time = std::chrono::system_clock::now();
   this->state = RUNNING;
 
