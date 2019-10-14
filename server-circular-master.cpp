@@ -66,7 +66,6 @@ DEFINE_bool(query_topology, false, "Print the system topology and exit");
 DEFINE_bool(trace_allocations, false,
             "Trace memory allocation and leaks (requires a build with "
             "undefined NDEBUG)");
-DEFINE_bool(inc_buffers, false, "Use bigger block pools");
 DEFINE_uint64(num_olap_clients, 1, "Number of OLAP clients");
 DEFINE_uint64(num_olap_repeat, 1, "Number of OLAP clients");
 DEFINE_uint64(num_oltp_clients, 18, "Number of OLTP clients");
@@ -89,7 +88,7 @@ struct OLAP_STATS {
   // uint64_t runtime_stats[NUM_TPCH_QUERIES][NUM_OLAP_REPEAT];
 };
 
-void init_olap_warmup() { proteus::init(FLAGS_inc_buffers); }
+void init_olap_warmup() { proteus::init(); }
 
 std::vector<PreparedStatement>
 init_olap_sequence(int &client_id, const topology::cpunumanode &numa_node) {
