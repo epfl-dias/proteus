@@ -23,6 +23,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/column_store.hpp"
 
 #include <sched.h>
+
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -30,11 +31,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
-#include "storage/delta_storage.hpp"
-#include "storage/table.hpp"
-
 #include "scheduler/affinity_manager.hpp"
 #include "scheduler/topology.hpp"
+#include "storage/delta_storage.hpp"
+#include "storage/table.hpp"
+#include "util/timing.hpp"
 
 #if PROTEUS_MEM_MANAGER
 #include "codegen/memory/memory-manager.hpp"
@@ -196,7 +197,7 @@ ColumnStore::ColumnStore(
     uint8_t table_id, std::string name,
     std::vector<std::tuple<std::string, data_type, size_t>> columns,
     uint64_t initial_num_records, bool indexed, bool partitioned, int numa_idx)
-    : Table(name, table_id, COLUMN_STORE), indexed(indexed) {
+    : Table(name, table_id, COLUMN_STORE, columns), indexed(indexed) {
   this->total_mem_reserved = 0;
   this->deltaStore = storage::Schema::getInstance().deltaStore;
 

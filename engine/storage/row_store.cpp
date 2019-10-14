@@ -308,7 +308,7 @@ RowStore::RowStore(
     uint8_t table_id, std::string name,
     std::vector<std::tuple<std::string, data_type, size_t>> columns,
     uint64_t initial_num_records, bool indexed, bool partitioned, int numa_idx)
-    : Table(name, table_id, ROW_STORE),
+    : Table(name, table_id, ROW_STORE, columns),
       indexed(indexed),
       initial_num_records(initial_num_records) {
   this->rec_size = HTAP_UPD_BIT_COUNT;  // upd bit

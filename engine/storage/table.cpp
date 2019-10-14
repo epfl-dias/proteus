@@ -29,6 +29,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <mutex>
 #include <string>
 
+#include "codegen/plan/plan-parser.hpp"
+#include "codegen/util/timing.hpp"
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
 #include "scheduler/threadpool.hpp"
@@ -36,8 +38,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/column_store.hpp"
 #include "storage/delta_storage.hpp"
 #include "storage/row_store.hpp"
-
-#include "codegen/util/timing.hpp"
 
 #if HTAP_DOUBLE_MASTER
 #include "codegen/memory/memory-manager.hpp"
@@ -231,6 +231,86 @@ void Table::reportUsage() {
   for (int i = 0; i < NUM_SOCKETS; i++) {
     std::cout << "P" << i << ": " << vid[i].load() << std::endl;
   }
+}
+
+ExpressionType* getProteusType(
+    const std::tuple<std::string, data_type, size_t>& col) {
+  switch (std::get<1>(col)) {
+    case INTEGER: {
+      switch (std::get<2>(col)) {
+        case 4:
+          return new IntType();
+        case 8:
+          return new Int64Type();
+        default: {
+          auto msg = std::string{"Unknown integer type of size: "} +
+                     std::to_string(std::get<2>(col));
+          LOG(FATAL) << msg;
+          throw std::runtime_error(msg);
+        }
+      }
+    }
+    case FLOAT: {
+      switch (std::get<2>(col)) {
+        case 8:
+          return new FloatType();
+        default: {
+          auto msg = std::string{"Unknown float type of size: "} +
+                     std::to_string(std::get<2>(col));
+          LOG(FATAL) << msg;
+          throw std::runtime_error(msg);
+        }
+      }
+    }
+    case VARCHAR:
+    case STRING: {
+      return new StringType();
+    }
+    case DATE: {
+      switch (std::get<2>(col)) {
+        case 8:
+          return new DateType();
+        default: {
+          auto msg = std::string{"Unknown date type of size: "} +
+                     std::to_string(std::get<2>(col));
+          LOG(FATAL) << msg;
+          throw std::runtime_error(msg);
+        }
+      }
+    }
+    case META: {
+      auto msg = std::string{"Unknown META type"};
+      LOG(FATAL) << msg;
+      throw std::runtime_error(msg);
+    }
+  }
+}
+
+static std::mutex m_catalog;
+
+Table::Table(std::string name, uint8_t table_id, layout_type storage_layout,
+             std::vector<std::tuple<std::string, data_type, size_t>> columns)
+    : name(name),
+      table_id(table_id),
+      total_mem_reserved(0),
+      storage_layout(storage_layout) {
+  for (int i = 0; i < NUM_SOCKETS; i++) vid[i] = 0;
+
+  LOG(INFO) << "Registering table to OLAP";
+
+  std::vector<RecordAttribute*> attrs;
+  attrs.reserve(columns.size());
+  for (const auto& t : columns) {
+    attrs.emplace_back(
+        new RecordAttribute(name, std::get<0>(t), getProteusType(t)));
+  }
+
+  auto exprType = new BagType(
+      *(new RecordType(attrs)));  // new and derefernce is needed due to the
+                                  // BagType getting a reference
+
+  std::lock_guard<std::mutex> lock{m_catalog};
+  CatalogParser::getInstance().registerInput(name, exprType);
 }
 
 Table::~Table() {}

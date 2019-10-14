@@ -213,13 +213,8 @@ class Table {
   // uint64_t getNumRecords() { return (vid.load() - 1); }
 
   void reportUsage();
-  Table(std::string name, uint8_t table_id, layout_type storage_layout)
-      : name(name),
-        table_id(table_id),
-        total_mem_reserved(0),
-        storage_layout(storage_layout) {
-    for (int i = 0; i < NUM_SOCKETS; i++) vid[i] = 0;
-  }
+  Table(std::string name, uint8_t table_id, layout_type storage_layout,
+        std::vector<std::tuple<std::string, data_type, size_t>> columns);
   virtual ~Table();
 
   global_conf::PrimaryIndex<uint64_t> *p_index;
