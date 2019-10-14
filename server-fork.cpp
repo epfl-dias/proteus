@@ -23,6 +23,7 @@
 
 #define NUM_TPCH_QUERIES 1
 #define NUM_OLAP_REPEAT 16
+#define HTAP true
 
 #include "glo.hpp"
 #include <iostream>
@@ -200,14 +201,15 @@ void init_oltp(uint num_workers, std::string csv_path) {
                             4, true);
   } else {
     if (csv_path.length() < 2) {
-      bench = new bench::TPCC("TPCC", 36, num_workers, storage::COLUMN_STORE);
+      bench = new bench::TPCC("TPCC", num_workers, num_workers,
+                              storage::COLUMN_STORE);
 
     } else {
       bench = new bench::TPCC("TPCC", num_workers, num_workers,
                               storage::COLUMN_STORE, 0, csv_path);
     }
   }
-  scheduler::WorkerPool::getInstance().init(bench, num_workers, 4);
+  scheduler::WorkerPool::getInstance().init(bench, num_workers, 1);
 }
 
 void run_oltp(const scheduler::cpunumanode &numa_node) {
@@ -263,7 +265,8 @@ void snapshot_oltp() { txn::TransactionManager::getInstance().snapshot(); }
 
   auto &topo = topology::getInstance();
   auto &nodes = topo.getCpuNumaNodes();
-  exec_location{nodes[3]}.activate();
+  uint OLAP_SOCKET = nodes.size() / 2;
+  exec_location{nodes[OLAP_SOCKET]}.activate();
 
   // assert(nodes.size() >= 2);
   // assert(FLAGS_num_oltp_clients <= nodes[0].local_cores.size());
@@ -272,7 +275,7 @@ void snapshot_oltp() { txn::TransactionManager::getInstance().snapshot(); }
   std::vector<PreparedStatement> olap_queries;
   {
     time_block t("T_init_olap_sequence_: ");
-    olap_queries = init_olap_sequence(i, nodes[3]);
+    olap_queries = init_olap_sequence(i, nodes[OLAP_SOCKET]);
   }
   // while (olap_stats[0].begin == false)
   //   ;
@@ -282,7 +285,7 @@ void snapshot_oltp() { txn::TransactionManager::getInstance().snapshot(); }
       std::chrono::system_clock::now();
   {
     time_block t("T_run_olap_sequence_: ");
-    run_olap_sequence(i, olap_queries, olap_stats + i, nodes[3]);
+    run_olap_sequence(i, olap_queries, olap_stats + i, nodes[OLAP_SOCKET]);
   }
 
   // double duration = (std::chrono::duration_cast<std::chrono::milliseconds>(

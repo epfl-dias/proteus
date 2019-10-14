@@ -23,6 +23,7 @@
 
 #define NUM_TPCH_QUERIES 1
 #define NUM_OLAP_REPEAT 16
+#define HTAP true
 
 #include "glo.hpp"
 #include <filesystem>
@@ -199,14 +200,15 @@ void init_oltp(uint num_workers, std::string csv_path) {
                             4, true);
   } else {
     if (csv_path.length() < 2) {
-      bench = new bench::TPCC("TPCC", 36, num_workers, storage::COLUMN_STORE);
+      bench = new bench::TPCC("TPCC", num_workers, num_workers,
+                              storage::COLUMN_STORE);
 
     } else {
       bench = new bench::TPCC("TPCC", num_workers, num_workers,
                               storage::COLUMN_STORE, 0, csv_path);
     }
   }
-  scheduler::WorkerPool::getInstance().init(bench, num_workers, 4);
+  scheduler::WorkerPool::getInstance().init(bench, num_workers, 1);
 }
 
 void run_oltp(const scheduler::cpunumanode &numa_node) {
@@ -315,8 +317,9 @@ int main(int argc, char *argv[]) {
 
   // assert(nodes.size() >= 2);
   // assert(FLAGS_num_oltp_clients <= nodes[0].local_cores.size());
+  uint OLAP_SOCKET = nodes.size() / 2;
 
-  exec_location{nodes[3]}.activate();
+  exec_location{nodes[OLAP_SOCKET]}.activate();
 
   // std::vector<std::vector<PreparedStatement>> olap_queries;
 
@@ -340,16 +343,16 @@ int main(int argc, char *argv[]) {
     scheduler::WorkerPool::getInstance().print_worker_stats_diff();
     if (FLAGS_etl) {
       time_block t("T_ETL_: ");
-      storage::Schema::getInstance().ETL(3);
+      storage::Schema::getInstance().ETL(OLAP_SOCKET);
     }
     scheduler::WorkerPool::getInstance().print_worker_stats_diff();
 
     std::vector<PreparedStatement> olap_queries =
-        init_olap_sequence(i, nodes[3]);
+        init_olap_sequence(i, nodes[OLAP_SOCKET]);
 
     {
       time_block t("T_fly_olap_: ");
-      fly_olap(olap_stats, i, olap_queries, nodes[3]);
+      fly_olap(olap_stats, i, olap_queries, nodes[OLAP_SOCKET]);
     }
     // usleep(500000);
     std::cout << "exited: " << i << std::endl;
