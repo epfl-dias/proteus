@@ -31,21 +31,30 @@ class AeolusPlugin : public BinaryBlockPlugin {
                RecordType rec, std::vector<RecordAttribute *> &whichFields,
                std::string pgType);
 
+ protected:
+  virtual llvm::Value *getSession() const;
+
+  virtual llvm::Value *getDataPointersForFile(size_t i,
+                                              llvm::Value *session_ptr) const;
+  virtual void freeDataPointersForFile(size_t i, llvm::Value *v) const;
+  virtual std::pair<llvm::Value *, llvm::Value *> getPartitionSizes(
+      llvm::Value *session_ptr) const;
+  virtual void freePartitionSizes(llvm::Value *v) const;
+
+  virtual void releaseSession(llvm::Value *) const;
+
  private:
   std::string pgType;
 };
 
+class AeolusCowPlugin : public AeolusPlugin {
+ public:
+  AeolusCowPlugin(ParallelContext *const context, std::string fnamePrefix,
+                  RecordType rec, std::vector<RecordAttribute *> &whichFields)
+      : AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-cow") {}
+};
+
 extern "C" {
-
-void **getDataPointerForFile(const char *relName, const char *attrName,
-                             void *session);
-
-void freeDataPointerForFile(void **inn);
-
-int64_t *getNumOfTuplesPerPartition(const char *relName, void *session);
-
-void freeNumOfTuplesPerPartition(int64_t *inn);
-
 Plugin *createBlockCowPlugin(ParallelContext *context, std::string fnamePrefix,
                              RecordType rec,
                              std::vector<RecordAttribute *> &whichFields);

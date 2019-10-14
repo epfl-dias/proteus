@@ -33,130 +33,10 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 using namespace llvm;
 
-AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
-                           RecordType rec,
-                           vector<RecordAttribute *> &whichFields,
-                           string pgType)
-    : BinaryBlockPlugin(context, fnamePrefix, rec, whichFields, false),
-      pgType(pgType) {
-  if (wantedFields.size() == 0) {
-    string error_msg{"[BinaryBlockPlugin: ] Invalid number of fields"};
-    LOG(ERROR) << error_msg;
-    throw runtime_error(error_msg);
-  }
-
-  LLVMContext &llvmContext = context->getLLVMContext();
-
-  size_t pos_path = fnamePrefix.find_last_of("/");
-  if (pos_path == std::string::npos) pos_path = 0;
-  std::string extra_prefix = "";
-  std::string txn_schema =
-      scheduler::WorkerPool::getInstance().get_benchmark_name();
-  // convert to lower case
-  std::transform(txn_schema.begin(), txn_schema.end(), txn_schema.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
-
-  if (txn_schema.compare("tpcc") == 0) {
-    extra_prefix = "tpcc_";
-  } else if (txn_schema.compare("ssbm") == 0) {
-    extra_prefix = "ssbm_";
-  }
-
-  std::string aeolus_rel_name = extra_prefix + fnamePrefix.substr(pos_path + 1);
-  aeolus_rel_name = aeolus_rel_name.substr(
-      0, aeolus_rel_name.length() - 4);  // remove the trailing .csv
-
-  time_block t("TpgBlockCOW: ");
-
-  auto &txn_storage = storage::Schema::getInstance();
-  storage::ColumnStore *tbl = nullptr;
-
-  std::cout << "Finding Table: " << aeolus_rel_name << std::endl;
-
-  for (auto &tb : txn_storage.getTables()) {
-    if (aeolus_rel_name.compare(tb->name) == 0) {
-      assert(tb->storage_layout == storage::COLUMN_STORE);
-      tbl = (storage::ColumnStore *)tb;
-      break;
-    }
-  }
-  assert(tbl != nullptr);
-
-  // uint64_t num_records = tbl->getNumRecords();
-
-  // std::cout << "# Records " << num_records << std::endl;
-  if (pgType.compare("block-cow") == 0 ||
-      pgType.compare("block-snapshot") == 0) {
-    for (const auto &in : wantedFields) {
-      const auto llvm_type = in->getOriginalType()->getLLVMType(llvmContext);
-      size_t type_size = context->getSizeOf(llvm_type);
-
-      // wantedFieldsFiles.emplace_back(StorageManager::getOrLoadFile(fileName,
-      // type_size, PAGEABLE));
-
-      for (auto &c : tbl->getColumns()) {
-        if (c->name.compare(in->getAttrName()) == 0) {
-          // uint64_t num_records = c->snapshot_get_num_records();
-          // std::cout << "NUM RECORDS:" << num_records << std::endl;
-
-          auto d = c->snapshot_get_data();
-
-          // std::vector<storage::mem_chunk> d = c->snapshot_get_data();
-          std::vector<mem_file> mfiles{d.size()};
-
-          for (size_t i = 0; i < mfiles.size(); ++i) {
-            std::cout << "AEO name: " << c->name << std::endl;
-            std::cout << "AEO #-records: " << (d[i].second) << std::endl;
-            //*(ptr + i) = c->elem_size * d[i].second;
-
-            mfiles[i].data = d[i].first.data;
-            mfiles[i].size = c->elem_size * d[i].second;  // num_records
-          }
-          wantedFieldsFiles.emplace_back(mfiles);
-          break;
-        }
-      }
-
-      if (in->getOriginalType()->getTypeID() == DSTRING) {
-        string fileName = fnamePrefix + "." + in->getAttrName();
-        // fetch the dictionary
-        void *dict = StorageManager::getDictionaryOf(fileName);
-        ((DStringType *)(in->getOriginalType()))->setDictionary(dict);
-      }
-    }
-
-  } else {
-    assert(false && "Not Implemented");
-  }
-
-  std::cout << "[AEOLUS PLUGIN DONE] " << fnamePrefix << std::endl;
-  finalize_data();
-}
-
 extern "C" {
-
 storage::ColumnStore *getRelation(std::string fnamePrefix) {
-  size_t pos_path = fnamePrefix.find_last_of("/");
-  if (pos_path == std::string::npos) pos_path = 0;
-  std::string extra_prefix = "";
-  std::string txn_schema =
-      scheduler::WorkerPool::getInstance().get_benchmark_name();
-  // convert to lower case
-  std::transform(txn_schema.begin(), txn_schema.end(), txn_schema.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
-
-  if (txn_schema.compare("tpcc") == 0) {
-    extra_prefix = "tpcc_";
-  } else if (txn_schema.compare("ssbm") == 0) {
-    extra_prefix = "ssbm_";
-  }
-
-  std::string aeolus_rel_name = extra_prefix + fnamePrefix.substr(pos_path + 1);
-  aeolus_rel_name = aeolus_rel_name.substr(
-      0, aeolus_rel_name.length() - 4);  // remove the trailing .csv
-
   for (auto &tb : storage::Schema::getInstance().getTables()) {
-    if (aeolus_rel_name.compare(tb->name) == 0) {
+    if (fnamePrefix.compare(tb->name) == 0) {
       // assert(tb->storage_layout == storage::COLUMN_STORE);
       return (storage::ColumnStore *)tb;
     }
@@ -180,7 +60,11 @@ void **getDataPointerForFile(const char *relName, const char *attrName,
   }
   assert(false && "ERROR: getDataPointerForFile");
 }
+
 void freeDataPointerForFile(void **inn) { free(inn); }
+
+void *getSession() { return nullptr; }
+void releaseSession(void *session) {}
 
 int64_t *getNumOfTuplesPerPartition(const char *relName, void *session) {
   const auto &tbl = getRelation({relName});
@@ -191,11 +75,10 @@ int64_t *getNumOfTuplesPerPartition(const char *relName, void *session) {
   int64_t *arr = (int64_t *)malloc(sizeof(int64_t *) * data_arenas.size());
 
   for (uint i = 0; i < data_arenas.size(); i++) {
-    arr[i] = c->elem_size * data_arenas[i].second;
+    arr[i] = data_arenas[i].second;
   }
-  return arr;
 
-  assert(false && "ERROR: getNumOfTuplesPerPartition");
+  return arr;
 }
 
 void freeNumOfTuplesPerPartition(int64_t *inn) {
@@ -222,4 +105,107 @@ Plugin *createBlockRemotePlugin(ParallelContext *context,
   return new AeolusPlugin(context, fnamePrefix, rec, whichFields,
                           "block-remote");
 }
+}
+
+AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
+                           RecordType rec,
+                           vector<RecordAttribute *> &whichFields,
+                           string pgType)
+    : BinaryBlockPlugin(context, fnamePrefix, rec, whichFields, false),
+      pgType(pgType) {
+  Nparts =
+      getRelation(fnamePrefix)->getColumns()[0]->snapshot_get_data().size();
+}
+
+llvm::Value *createCall(std::string func,
+                        std::initializer_list<llvm::Value *> args,
+                        Context *context, llvm::Type *ret) {
+  Function *f;
+  try {
+    f = context->getFunction(func);
+    assert(ret == f->getReturnType());
+  } catch (std::runtime_error &) {
+    std::vector<llvm::Type *> v;
+    v.reserve(args.size());
+    for (const auto &arg : args) v.emplace_back(arg->getType());
+    FunctionType *FTfunc = llvm::FunctionType::get(ret, v, false);
+
+    f = Function::Create(FTfunc, Function::ExternalLinkage, func,
+                         context->getModule());
+
+    context->registerFunction((new std::string{func})->c_str(), f);
+  }
+
+  return context->getBuilder()->CreateCall(f, args);
+}
+
+void createCall2(std::string func, std::initializer_list<llvm::Value *> args,
+                 Context *context) {
+  createCall(func, args, context, Type::getVoidTy(context->getLLVMContext()));
+}
+
+llvm::Value *AeolusPlugin::getSession() const {
+  return createCall("getSession", {}, context,
+                    Type::getInt8PtrTy(context->getLLVMContext()));
+}
+
+void AeolusPlugin::releaseSession(llvm::Value *session_ptr) const {
+  createCall2("releaseSession", {session_ptr}, context);
+}
+
+Value *AeolusPlugin::getDataPointersForFile(size_t i,
+                                            llvm::Value *session_ptr) const {
+  LLVMContext &llvmContext = context->getLLVMContext();
+
+  Type *char8ptr = Type::getInt8PtrTy(llvmContext);
+
+  Value *N_parts_ptr = createCall(
+      "getDataPointerForFile",
+      {context->CreateGlobalString(wantedFields[i]->getRelationName().c_str()),
+       context->CreateGlobalString(wantedFields[i]->getAttrName().c_str()),
+       session_ptr},
+      context, PointerType::getUnqual(char8ptr));
+
+  auto data_type = PointerType::getUnqual(
+      ArrayType::get(RecordAttribute{*(wantedFields[i]), true}.getLLVMType(
+                         context->getLLVMContext()),
+                     Nparts));
+
+  return context->getBuilder()->CreatePointerCast(N_parts_ptr, data_type);
+  // return BinaryBlockPlugin::getDataPointersForFile(i);
+}
+
+void AeolusPlugin::freeDataPointersForFile(size_t i, Value *v) const {
+  LLVMContext &llvmContext = context->getLLVMContext();
+  auto data_type = PointerType::getUnqual(Type::getInt8PtrTy(llvmContext));
+  auto casted = context->getBuilder()->CreatePointerCast(v, data_type);
+  createCall2("freeDataPointerForFile", {casted}, context);
+}
+
+std::pair<Value *, Value *> AeolusPlugin::getPartitionSizes(
+    llvm::Value *session_ptr) const {
+  IRBuilder<> *Builder = context->getBuilder();
+
+  IntegerType *sizeType = context->createSizeType();
+
+  Value *N_parts_ptr = createCall(
+      "getNumOfTuplesPerPartition",
+      {context->CreateGlobalString(fnamePrefix.c_str()), session_ptr}, context,
+      PointerType::getUnqual(ArrayType::get(sizeType, Nparts)));
+
+  Value *max_pack_size = ConstantInt::get(sizeType, 0);
+  for (size_t i = 0; i < Nparts; ++i) {
+    auto v = Builder->CreateLoad(Builder->CreateInBoundsGEP(
+        N_parts_ptr, {context->createSizeT(0), context->createSizeT(i)}));
+    v->dump();
+    auto cond = Builder->CreateICmpUGT(max_pack_size, v);
+    max_pack_size = Builder->CreateSelect(cond, max_pack_size, v);
+  }
+
+  return {N_parts_ptr, max_pack_size};
+  // return BinaryBlockPlugin::getPartitionSizes();
+}
+
+void AeolusPlugin::freePartitionSizes(Value *v) const {
+  createCall2("freeNumOfTuplesPerPartition", {v}, context);
 }
