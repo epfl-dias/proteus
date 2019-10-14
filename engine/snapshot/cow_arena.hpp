@@ -24,6 +24,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define AEOLUS_SNAPSHOT_COW_ARENA_HPP_
 
 #include <signal.h>
+
 #include <cstdint>
 #include <map>
 #include <memory>

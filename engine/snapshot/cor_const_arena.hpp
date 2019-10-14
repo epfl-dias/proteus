@@ -24,11 +24,13 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define AEOLUS_SNAPSHOT_COR_CONST_ARENA_HPP_
 
 #include <signal.h>
+
 #include <cassert>
 #include <cstdint>
 #include <iostream>
 #include <map>
 #include <memory>
+
 #include "arena.hpp"
 
 namespace aeolus {

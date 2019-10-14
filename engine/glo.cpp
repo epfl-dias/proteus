@@ -21,6 +21,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 */
 
 #include "glo.hpp"
+
 #include "utils/utils.hpp"
 
 uint g_num_partitions = 4;

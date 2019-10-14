@@ -22,9 +22,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "cor_const_arena.hpp"
 
-#include "common/common.hpp"
-#include "memory/memory-manager.hpp"
-
 #include <glog/logging.h>
 #include <sys/mman.h>
 
@@ -32,6 +29,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <cstring>
 #include <stdexcept>
 #include <string>
+
+#include "common/common.hpp"
+#include "memory/memory-manager.hpp"
 
 namespace aeolus {
 namespace snapshot {

@@ -22,6 +22,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "tpcc.hpp"
 
+#include <sys/mman.h>
+
 #include <algorithm>
 #include <cctype>
 #include <chrono>
@@ -33,7 +35,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <string>
 #include <thread>
 
-#include <sys/mman.h>
 #include "utils/utils.hpp"
 
 /*

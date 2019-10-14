@@ -35,11 +35,10 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <string>
 #include <thread>
 
+#include "codegen/util/timing.hpp"
 #include "scheduler/affinity_manager.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
-
-#include "codegen/util/timing.hpp"
 
 #if __has_include("ittnotify.h")
 #include <ittnotify.h>
