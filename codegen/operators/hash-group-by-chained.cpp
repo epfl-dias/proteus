@@ -206,8 +206,8 @@ void HashGroupByChained::buildHashTableFormat() {
             ((ParallelContext *)context)->getSubStateVar(), substate_t);
         args.emplace_back(substate);
 
-        for (const auto &t : args) t->getType()->dump();
-        f->getFunctionType()->dump();
+        // for (const auto &t : args) t->getType()->dump();
+        // f->getFunctionType()->dump();
         Builder->CreateCall(f, args);
       });
 }
@@ -265,8 +265,8 @@ void HashGroupByChained::generate_build(ParallelContext *const context,
   // context->getSizeOf(head_ptr->getType()->getPointerElementType()));
   Value *head_w_hash_ptr =
       Builder->CreateInBoundsGEP(head_ptr, {context->createInt64(0), hash});
-  head_w_hash_ptr->dump();
-  head_w_hash_ptr->getType()->dump();
+  // head_w_hash_ptr->dump();
+  // head_w_hash_ptr->getType()->dump();
   // Value * current =
   // Builder->CreateExtractValue(Builder->CreateAtomicCmpXchg(head_w_hash_ptr,
   //                                             eochain,

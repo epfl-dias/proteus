@@ -315,9 +315,10 @@ Function *const PipelineGen::getFunction(std::string funcName) const {
   map<string, Function *>::const_iterator it;
   it = availableFunctions.find(funcName);
   if (it == availableFunctions.end()) {
-    for (auto &t : availableFunctions) std::cout << t.first << std::endl;
-    throw runtime_error(string("Unknown function name: ") + funcName + " (" +
-                        pipName + ")");
+    auto str = std::string("Unknown function name: ") + funcName + " (" +
+               pipName + ")\nAvailable functions: \n";
+    for (auto &t : availableFunctions) str += t.first + '\n';
+    throw std::runtime_error(str);
   }
   return it->second;
 }

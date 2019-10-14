@@ -95,13 +95,13 @@ void BinaryBlockPlugin::finalize_data() {
     }
   }
 
-  for (const auto &in : wantedFields) {
-    RecordAttribute bin(*in, true);
-    parts_array.emplace_back(
-        ArrayType::get(bin.getLLVMType(llvmContext), Nparts));
-  }
+  // for (const auto &in : wantedFields) {
+  //   RecordAttribute bin(*in, true);
+  //   parts_array.emplace_back(
+  //       ArrayType::get(bin.getLLVMType(llvmContext), Nparts));
+  // }
 
-  parts_arrays_type = StructType::get(llvmContext, parts_array);
+  // parts_arrays_type = StructType::get(llvmContext, parts_array);
 }
 
 BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
@@ -441,7 +441,8 @@ void BinaryBlockPlugin::prepareArray(RecordAttribute attName) {
   NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
 }
 
-Value *BinaryBlockPlugin::getDataPointersForFile(size_t i) const {
+Value *BinaryBlockPlugin::getDataPointersForFile(size_t i,
+                                                 llvm::Value *) const {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Function *F = context->getGlobalFunction();
@@ -476,7 +477,8 @@ Value *BinaryBlockPlugin::getDataPointersForFile(size_t i) const {
 
 void BinaryBlockPlugin::freeDataPointersForFile(size_t i, Value *v) const {}
 
-std::pair<Value *, Value *> BinaryBlockPlugin::getPartitionSizes() const {
+std::pair<Value *, Value *> BinaryBlockPlugin::getPartitionSizes(
+    llvm::Value *session) const {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Function *F = context->getGlobalFunction();
@@ -503,7 +505,7 @@ std::pair<Value *, Value *> BinaryBlockPlugin::getPartitionSizes() const {
   }
 
 #ifndef NDEBUG
-  for (size_t j = 0; j < wantedFieldsFiles.size(); ++j) {
+  for (size_t j = 0; j < wantedFields.size(); ++j) {
     const auto &files = wantedFieldsFiles[j];
     const size_t size =
         context->getSizeOf(wantedFields[j]->getLLVMType(llvmContext));
@@ -543,17 +545,19 @@ void BinaryBlockPlugin::scan(const ::Operator &producer) {
   // Get the ENTRY BLOCK
   context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
+  llvm::Value *session = getSession();
+
   std::vector<Value *> parts_ptrs;
 
   // std::vector<Constant *> file_parts_init;
-  for (size_t i = 0; i < wantedFieldsFiles.size(); ++i) {
-    parts_ptrs.emplace_back(getDataPointersForFile(i));
+  for (size_t i = 0; i < wantedFields.size(); ++i) {
+    parts_ptrs.emplace_back(getDataPointersForFile(i, session));
   }
 
   // Constant * file_parts = ConstantStruct::get(parts_arrays_type,
   // file_parts_init); Builder->CreateStore(file_parts, file_parts_ptr);
 
-  auto partsizes = getPartitionSizes();
+  auto partsizes = getPartitionSizes(session);
   Value *N_parts_ptr = partsizes.first;
   Value *maxPackCnt = partsizes.second;
   maxPackCnt->setName("maxPackCnt");
@@ -714,9 +718,11 @@ void BinaryBlockPlugin::scan(const ::Operator &producer) {
   Builder->SetInsertPoint(context->getEndingBlock());
 
   freePartitionSizes(N_parts_ptr);
-  for (size_t i = 0; i < wantedFieldsFiles.size(); ++i) {
+  for (size_t i = 0; i < wantedFields.size(); ++i) {
     freeDataPointersForFile(i, parts_ptrs[i]);
   }
+
+  releaseSession(session);
   // Builder->SetInsertPoint(AfterBB);
 }
 

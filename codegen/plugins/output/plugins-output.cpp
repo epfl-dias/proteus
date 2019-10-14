@@ -101,7 +101,7 @@ OutputPlugin::OutputPlugin(
       llvm::Type *currType = oid->getOriginalType()->getLLVMType(
           context
               ->getLLVMContext());  // currentBindings.find(*oid)->second.mem->getAllocatedType();
-      currType->dump();
+      // currType->dump();
       materializedTypes->push_back(currType);
       payload_type_size += (currType->getPrimitiveSizeInBits() / 8);
       // cout << "Active Tuple Size "<< (currType->getPrimitiveSizeInBits() / 8)
@@ -173,7 +173,7 @@ OutputPlugin::OutputPlugin(
       // }
       llvm::Type *requestedType =
           chooseType((*it)->getOriginalType(), currType, mode);
-      requestedType->dump();
+      // requestedType->dump();
       materializedTypes->push_back(requestedType);
       int fieldSize = requestedType->getPrimitiveSizeInBits() / 8;
       fieldSizes.push_back(fieldSize);

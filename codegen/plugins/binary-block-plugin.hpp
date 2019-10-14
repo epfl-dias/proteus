@@ -186,11 +186,16 @@ class BinaryBlockPlugin : public Plugin {
   void finalize_data();
   virtual RecordType getRowType() const;
 
-  virtual std::pair<llvm::Value *, llvm::Value *> getPartitionSizes() const;
+  virtual llvm::Value *getSession() const { return nullptr; }
+
+  virtual std::pair<llvm::Value *, llvm::Value *> getPartitionSizes(
+      llvm::Value *) const;
   virtual void freePartitionSizes(llvm::Value *) const;
 
-  virtual llvm::Value *getDataPointersForFile(size_t i) const;
+  virtual llvm::Value *getDataPointersForFile(size_t i, llvm::Value *) const;
   virtual void freeDataPointersForFile(size_t i, llvm::Value *) const;
+
+  virtual void releaseSession(llvm::Value *) const {}
 
   std::vector<RecordAttribute *> wantedFields;
   std::vector<std::vector<mem_file>> wantedFieldsFiles;
@@ -205,12 +210,11 @@ class BinaryBlockPlugin : public Plugin {
   std::vector<size_t> wantedFieldsWidth;
 
   std::vector<llvm::Type *> parts_array;
-  llvm::StructType *parts_arrays_type;
 
  protected:
   size_t Nparts;
 
- private:
+ protected:
   /* Used when we treat the col. files as internal caches! */
   std::vector<CacheInfo> whichCaches;
 
