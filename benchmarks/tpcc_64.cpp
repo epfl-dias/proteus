@@ -1055,7 +1055,7 @@ void TPCC::create_tbl_order(uint64_t num_order) {
   columns.emplace_back("o_d_id", storage::INTEGER, sizeof(tmp.o_d_id));
   columns.emplace_back("o_w_id", storage::INTEGER, sizeof(tmp.o_w_id));
   columns.emplace_back("o_c_id", storage::INTEGER, sizeof(tmp.o_c_id));
-  columns.emplace_back("o_entry_date", storage::DATE, sizeof(tmp.o_entry_d));
+  columns.emplace_back("o_entry_d", storage::DATE, sizeof(tmp.o_entry_d));
   columns.emplace_back("o_carrier_id", storage::INTEGER,
                        sizeof(tmp.o_carrier_id));
   columns.emplace_back("o_ol_cnt", storage::INTEGER, sizeof(tmp.o_ol_cnt));
@@ -1063,7 +1063,7 @@ void TPCC::create_tbl_order(uint64_t num_order) {
                        sizeof(tmp.o_all_local));
 
   table_order = schema->create_table(
-      "tpcc_orders",
+      "tpcc_order",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
       columns, num_order, index_on_order_tbl);
 }
