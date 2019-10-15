@@ -2250,17 +2250,12 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       cpu_targets = val["cpu_targets"].GetBool();
     }
 
-    int numa_socket_id = -1;
-    if (val.HasMember("numa_socket_id")) {
-      assert(val["numa_socket_id"].IsInt());
-      numa_socket_id = val["numa_socket_id"].GetInt();
-    }
+    assert(!val.HasMember("numa_socket_id"));
 
     assert(dynamic_cast<ParallelContext *>(this->ctx));
-    newOp =
-        new Router(childOp, ((ParallelContext *)this->ctx),
-                   DegreeOfParallelism{numOfParents}, projections, slack, hash,
-                   numa_local, rand_local_cpu, cpu_targets, numa_socket_id);
+    newOp = new Router(childOp, ((ParallelContext *)this->ctx),
+                       DegreeOfParallelism{numOfParents}, projections, slack,
+                       hash, numa_local, rand_local_cpu, cpu_targets);
     childOp->setParent(newOp);
   } else if (strcmp(opName, "union-all") == 0) {
     /* parse operator input */

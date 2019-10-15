@@ -53,7 +53,7 @@ class Router : public UnaryOperator {
          const vector<RecordAttribute *> &wantedFields, int slack,
          std::optional<expression_t> hash = std::nullopt,
          bool numa_local = true, bool rand_local_cpu = false,
-         bool cpu_targets = false, int numa_socket_id = -1)
+         bool cpu_targets = false)
       : UnaryOperator(child),
         wantedFields(wantedFields),
         slack(slack),
@@ -82,8 +82,6 @@ class Router : public UnaryOperator {
     auto &devmanager = DeviceManager::getInstance();
 
     if (cpu_targets) {
-      assert(numa_socket_id == -1 && "Update that thing...");
-
       for (size_t i = 0; i < fanout; ++i) {
         target_processors.emplace_back(devmanager.getAvailableCPUCore(this, i));
         // target_processors.emplace_back(vec[i % vec.size()]);

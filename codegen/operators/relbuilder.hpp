@@ -119,16 +119,15 @@ class RelBuilder {
   template <typename T, typename Thash>
   RelBuilder router(T attr, Thash hash, DegreeOfParallelism fanout,
                     size_t slack, RoutingPolicy p,
-                    DeviceType target = DeviceType::GPU,
-                    int numa_socket_id = -1) const {
+                    DeviceType target = DeviceType::GPU) const {
     return router(attr(getOutputArg()), hash(getOutputArg()), fanout, slack, p,
-                  target, numa_socket_id);
+                  target);
   }
 
   template <typename Thash>
   RelBuilder router(Thash hash, DegreeOfParallelism fanout, size_t slack,
-                    RoutingPolicy p, DeviceType target = DeviceType::GPU,
-                    int numa_socket_id = -1) const {
+                    RoutingPolicy p,
+                    DeviceType target = DeviceType::GPU) const {
     return router(
         [&](const auto& arg) -> std::vector<RecordAttribute*> {
           std::vector<RecordAttribute*> attrs;
@@ -137,18 +136,17 @@ class RelBuilder {
           }
           return attrs;
         },
-        hash, fanout, slack, p, target, numa_socket_id);
+        hash, fanout, slack, p, target);
   }
 
   RelBuilder router(DegreeOfParallelism fanout, size_t slack, RoutingPolicy p,
-                    DeviceType target = DeviceType::GPU,
-                    int numa_socket_id = -1) const {
+                    DeviceType target = DeviceType::GPU) const {
     assert(p != RoutingPolicy::HASH_BASED);
     return router(
         [&](const auto& arg) -> std::optional<expression_t> {
           return std::nullopt;
         },
-        fanout, slack, p, target, numa_socket_id);
+        fanout, slack, p, target);
   }
 
   RelBuilder router(size_t slack, RoutingPolicy p,
@@ -270,7 +268,7 @@ class RelBuilder {
   RelBuilder router(const vector<RecordAttribute*>& wantedFields,
                     std::optional<expression_t> hash,
                     DegreeOfParallelism fanout, size_t slack, RoutingPolicy p,
-                    DeviceType target, int numa_socket_id) const;
+                    DeviceType target) const;
 
   RelBuilder membrdcst(const vector<RecordAttribute*>& wantedFields,
                        size_t fanout, bool to_cpu,
