@@ -360,7 +360,7 @@ void WorkerPool::print_worker_stats_diff() {
   std::cout << "---- DIFF WORKER STATS ----" << std::endl;
   std::cout << "\tDuration\t" << (duration / duration_ctr) << " sec"
             << std::endl;
-  std::cout << "\tTPS\t\t" << tps << " mTPS" << std::endl;
+  std::cout << "\tTPS\t\t" << tps << " MTPS" << std::endl;
 
   std::cout << "------------ END ------------" << std::endl;
 }
@@ -402,7 +402,7 @@ void WorkerPool::print_worker_stats(bool global_only) {
       std::cout << "\t# of aborts\t" << (tmp->num_aborts / 1000000.0) << " M"
                 << std::endl;
       std::cout << "\tTPS\t\t" << (tmp->num_txns / 1000000.0) / diff.count()
-                << " mTPS" << std::endl;
+                << " MTPS" << std::endl;
     }
     socket_tps[tmp->exec_core->local_cpu_index] +=
         (tmp->num_txns / 1000000.0) / diff.count();
@@ -418,7 +418,7 @@ void WorkerPool::print_worker_stats(bool global_only) {
   std::cout << "---- SOCKET ----" << std::endl;
   int i = 0;
   for (const auto& stps : socket_tps) {
-    std::cout << "\tSocket-" << i++ << ": TPS\t\t" << stps << " mTPS"
+    std::cout << "\tSocket-" << i++ << ": TPS\t\t" << stps << " MTPS"
               << std::endl;
   }
 
@@ -429,7 +429,7 @@ void WorkerPool::print_worker_stats(bool global_only) {
   std::cout << "\t# of txns\t" << num_txns << " M" << std::endl;
   std::cout << "\t# of commits\t" << num_commits << " M" << std::endl;
   std::cout << "\t# of aborts\t" << num_aborts << " M" << std::endl;
-  std::cout << "\tTPS\t\t" << tps << " mTPS" << std::endl;
+  std::cout << "\tTPS\t\t" << tps << " MTPS" << std::endl;
 
   std::cout << "------------ END WORKER STATS ------------" << std::endl;
   // if (this->terminate) proc_completed = true;
@@ -580,6 +580,36 @@ void WorkerPool::migrate_worker() {
   get->second.second->change_affinity = true;
 
   worker_num++;
+}
+
+const std::vector<uint>& WorkerPool::scale_down(uint num_cores) {
+  // std::vector<uint> core_ids{num_cores};
+
+  uint ctr = 0;
+
+  for (auto it = workers.begin(); it != workers.end(); ++it) {
+    if (ctr == num_cores) {
+      break;
+    }
+
+    Worker* tmp = it->second.second;
+
+    if (tmp->state != PAUSED) {
+      tmp->state = PAUSED;
+      // core_ids[ctr] = tmp->exec_core->id;
+      elastic_set.push_back(tmp->exec_core->id);
+      ctr++;
+    }
+  }
+  return elastic_set;
+}
+void WorkerPool::scale_back() {
+  for (const auto& id : elastic_set) {
+    if (workers[id].second->state == PAUSED) {
+      workers[id].second->state = RUNNING;
+    }
+  }
+  elastic_set.clear();
 }
 
 // Hot Plug

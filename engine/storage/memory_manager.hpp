@@ -57,7 +57,7 @@ class MemoryManager {
   static void remove_shm(const std::string& key);
 
   static void* alloc(size_t bytes, int numa_memset_id,
-                     int mem_advice = MADV_DOFORK);
+                     int mem_advice = MADV_DOFORK | MADV_HUGEPAGE);
   static void free(void* mem, size_t bytes);
 };
 

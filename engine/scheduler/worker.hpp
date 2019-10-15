@@ -150,6 +150,10 @@ class WorkerPool {
   void add_worker(const core *exec_location, short partition_id = -1);
   void remove_worker(const core *exec_location);
   void migrate_worker();
+
+  const std::vector<uint> &scale_down(uint num_cores = 1);
+  void scale_back();
+
   void print_worker_stats(bool global_only = true);
   void print_worker_stats_diff();
 
@@ -184,6 +188,8 @@ class WorkerPool {
   std::mutex pre_m;
 
   std::unordered_map<uint, std::pair<std::thread *, Worker *>> workers;
+  std::vector<uint> elastic_set;
+
   uint num_iter_per_worker;
   uint worker_sched_mode;
   uint num_partitions;
