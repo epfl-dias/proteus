@@ -25,17 +25,19 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include <errno.h>
 #include <fcntl.h>
-#include <map>
 #include <mqueue.h>
 #include <pthread.h>
 #include <signal.h>
+
+#include <map>
 //#include <stdio.h>
-#include <cstdlib>
-#include <string>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include <cstdlib>
+#include <string>
 #include <vector>
 
 namespace CM {
@@ -75,9 +77,8 @@ struct client {
 };
 
 class CommManager {
-
-protected:
-public:
+ protected:
+ public:
   // Singleton
   static CommManager &getInstance() {
     static CommManager instance;
@@ -96,7 +97,7 @@ public:
 
   void process(char in_buffer[MAX_MSG_SIZE]);
 
-private:
+ private:
   mqd_t recv_mq;
   struct client oltp_client;
   bool oltp_connected;
@@ -112,6 +113,6 @@ private:
   ~CommManager();
 };
 
-} // namespace CM
+}  // namespace CM
 
 #endif /* COMM_MANAGER_HPP_ */

@@ -23,17 +23,18 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #ifndef RESOURCE_MANAGER_HPP_
 #define RESOURCE_MANAGER_HPP_
 
-#include "topology/topology.hpp"
 #include <iostream>
 #include <map>
 #include <string>
+
+#include "topology/topology.hpp"
 
 namespace RM {
 
 enum ENGINE_TYPE { OLTP, OLAP };
 
 class ExecutorEngine {
-public:
+ public:
   ENGINE_TYPE type;
   std::vector<cpunumanode> numa_nodes;
   std::vector<core> cpu_cores;
@@ -43,9 +44,8 @@ public:
 };
 
 class ResourceManager {
-
-protected:
-public:
+ protected:
+ public:
   // Singleton
   static ResourceManager &getInstance() {
     static ResourceManager instance;
@@ -62,13 +62,13 @@ public:
   void init();
   void shutdown();
 
-private:
+ private:
   std::map<std::string, struct mem_file> mappings;
 
   ResourceManager() {}
   ~ResourceManager();
 };
 
-} // namespace RM
+}  // namespace RM
 
 #endif /* RESOURCE_MANAGER_HPP_ */

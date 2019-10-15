@@ -1,19 +1,18 @@
 
 
 #include "sm/storage_manager.hpp"
+
 #include "cm/comm_manager.hpp"
-#include "topology/topology.hpp" // proteus
+#include "topology/topology.hpp"  // proteus
 
 namespace storage {
 
 void StorageManager::init() {}
 void StorageManager::shutdown() {
-
   // TODO: clear all the mappings, delete all shared-memory regions.
 }
 
 void StorageManager::snapshot() {
-
   /*
 
           Ask OLTP to stop.
@@ -29,7 +28,6 @@ void StorageManager::snapshot() {
 }
 
 bool StorageManager::remove_shm(const std::string &key) {
-
   int ret = shm_unlink(key.c_str());
   if (ret != 0) {
     fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno));
@@ -53,7 +51,7 @@ bool StorageManager::alloc_shm(const std::string &key, const size_t size_bytes,
     return false;
   }
 
-  if (ftruncate(shm_fd, size_bytes) < 0) { //== -1){
+  if (ftruncate(shm_fd, size_bytes) < 0) {  //== -1){
     shm_unlink(key.c_str());
     fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno));
     return false;
@@ -81,4 +79,4 @@ bool StorageManager::alloc_shm(const std::string &key, const size_t size_bytes,
   return true;
 }
 
-} // namespace storage
+}  // namespace storage

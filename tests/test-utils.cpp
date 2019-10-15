@@ -135,7 +135,8 @@ void TestEnvironment::TearDown() {
 //       ss.clear();
 //       for (const auto &s : lines) ss << s << '\n';
 //       areEqual =
-//           (fsize1 == 0) || (memcmp(correctBuf, ss.str().c_str(), fsize1) == 0);
+//           (fsize1 == 0) || (memcmp(correctBuf, ss.str().c_str(), fsize1) ==
+//           0);
 //     } else {
 //       areEqual =
 //           (fsize1 == 0) || (memcmp(correctBuf, currResultBuf, fsize1) == 0);
@@ -145,7 +146,8 @@ void TestEnvironment::TearDown() {
 //     // (parsed.HasParseError()) {
 //     //     ParseResult ok = (ParseResult) parsed;
 //     //     fprintf(stderr, "JSON parse error: %s (%lu)",
-//     //     RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset()); const
+//     //     RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
+//     const
 //     //     char *err = "[PlanExecutor: ] Error parsing physical plan (JSON
 //     //     parsing error)"; LOG(ERROR)<< err; throw runtime_error(err);
 //     // }
@@ -155,7 +157,8 @@ void TestEnvironment::TearDown() {
 //     // (parsed2.HasParseError()) {
 //     //     ParseResult ok = (ParseResult) parsed2;
 //     //     fprintf(stderr, "JSON parse error: %s (%lu)",
-//     //     RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset()); const
+//     //     RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
+//     const
 //     //     char *err = "[PlanExecutor: ] Error parsing physical plan (JSON
 //     //     parsing error)"; LOG(ERROR)<< err; throw runtime_error(err);
 //     // }
@@ -178,7 +181,8 @@ void TestEnvironment::TearDown() {
 //     else
 //       fprintf(stderr, "* Expected empty file\n");
 //     if (fsize2 > 0)
-//       fprintf(stderr, "* Obtained (size: %zu):\n%s\n", fsize2, currResultBuf);
+//       fprintf(stderr, "* Obtained (size: %zu):\n%s\n", fsize2,
+//       currResultBuf);
 //     else
 //       fprintf(stderr, "* Obtained empty file\n");
 //     fprintf(stderr,
@@ -204,9 +208,9 @@ void TestEnvironment::TearDown() {
 //   PreparedStatement::from(planPath, testLabel, catalogJSON).execute();
 
 //   EXPECT_TRUE(
-//       verifyTestResult(testPath, testLabel, unordered));  // FIXME:!!!!!!!!!!!!!
+//       verifyTestResult(testPath, testLabel, unordered));  //
+//       FIXME:!!!!!!!!!!!!!
 //   shm_unlink(testLabel);
 // }
 
 bool TestEnvironment::has_already_been_setup = false;
-

@@ -21,8 +21,9 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "codegen/plan/prepared-statement.hpp"
 #include <string>
+
+#include "codegen/plan/prepared-statement.hpp"
 
 extern std::string tpcc_orderline;
 extern std::string ol_o_id;

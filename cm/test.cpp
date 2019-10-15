@@ -6,6 +6,7 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
+
 #include <chrono>
 #include <cstdlib>
 #include <iostream>
@@ -29,7 +30,7 @@ int main() {
   return 0;
 }
 
-void* map(std::string key, size_t size_bytes) {
+void *map(std::string key, size_t size_bytes) {
   int shm_fd = shm_open(key.c_str(), O_CREAT | O_TRUNC | O_RDWR, 0666);
   if (shm_fd == -1) {
     fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno));
@@ -42,7 +43,7 @@ void* map(std::string key, size_t size_bytes) {
     assert(false);
   }
 
-  void* mem_addr =
+  void *mem_addr =
       mmap(NULL, size_bytes, PROT_WRITE | PROT_READ, MAP_SHARED, shm_fd, 0);
   if (!mem_addr) {
     fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno));

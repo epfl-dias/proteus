@@ -23,10 +23,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #ifndef STORAGE_MANAGER_HPP_
 #define STORAGE_MANAGER_HPP_
 
-#include <iostream>
-#include <map>
 #include <numa.h>
 #include <numaif.h>
+
+#include <iostream>
+#include <map>
 #include <string>
 
 namespace storage {
@@ -36,13 +37,12 @@ struct mem_file {
   size_t size;
   size_t unit_size;
   uint64_t num_records;
-  uint32_t snapshot_epoch; // for master-version based snapshotting
+  uint32_t snapshot_epoch;  // for master-version based snapshotting
 };
 
 class StorageManager {
-
-protected:
-public:
+ protected:
+ public:
   // Singleton
   static StorageManager &getInstance() {
     static StorageManager instance;
@@ -64,13 +64,13 @@ public:
                  const size_t unit_size);
   bool remove_shm(const std::string &key);
 
-private:
+ private:
   std::map<std::string, struct mem_file> mappings;
 
   StorageManager() {}
   ~StorageManager() {}
 };
 
-} // namespace storage
+}  // namespace storage
 
 #endif /* STORAGE_MANAGER_HPP_ */

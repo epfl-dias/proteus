@@ -21,9 +21,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 */
 
 #include "comm_manager.hpp"
+
+#include <mqueue.h>
+
 #include <cstdlib>
 #include <iostream>
-#include <mqueue.h>
 #include <string>
 
 #include "sm/storage_manager.hpp"
@@ -41,7 +43,6 @@ CommManager::~CommManager() {
 }
 
 void CommManager::process(char inn[MAX_MSG_SIZE]) {
-
   const communicatin_msg_type resp = SUCCESS;
   const communicatin_msg_type resp_fail = FAILURE;
   communicatin_msg_type *msg = (communicatin_msg_type *)inn;
@@ -50,104 +51,103 @@ void CommManager::process(char inn[MAX_MSG_SIZE]) {
   std::string queue_name(inn + sizeof(communicatin_msg_type));
 
   switch (*msg) {
-  case REGISTER_OLTP: {
-
-    assert(oltp_connected == false);
-    std::cout << "OLTP Queue Name:" << queue_name << std::endl;
-    oltp_client = {connected_olap_clients.fetch_add(1), OLTP, queue_name};
-    CommManager::respond((char *)&resp, sizeof(communicatin_msg_type),
-                         queue_name);
-    oltp_connected = true;
-    break;
-  }
-  case REGISTER_OLAP: {
-    struct client olap_client {
-      connected_olap_clients.fetch_add(1), OLTP, queue_name
-    };
-    olap_clients.push_back(olap_client);
-    CommManager::respond((char *)&resp, sizeof(communicatin_msg_type),
-                         queue_name);
-    break;
-  }
-  case MEMORY_REQUEST: {
-    // Message: |CODE|REPLY_QUEUE_NAME|KEY::BYTES::UNIT_SIZE|
-
-    std::string msg(inn + sizeof(communicatin_msg_type));
-
-    std::size_t one = msg.find("::");
-    assert(one != std::string::npos);
-    queue_name = msg.substr(0, one);
-
-    std::size_t two = msg.find("::", one + 2);
-    assert(two != std::string::npos);
-    // std::cout << "one:" << one << std::endl;
-    // std::cout << "two:" << two << std::endl;
-    std::string shm_key = msg.substr(one + 2, two - one - 2);
-
-    size_t *size_bytes =
-        (size_t *)(inn + sizeof(communicatin_msg_type) + (two + 2));
-
-    size_t *unit_size =
-        size_bytes + 1; //(size_t *)(inn + sizeof(communicatin_msg_type) +
-                        //           (two + 2) + sizeof(size_t));
-
-    std::cout << "queue_name: " << queue_name << std::endl;
-    std::cout << "shm_key: " << shm_key << std::endl;
-    std::cout << "size_bytes: " << *size_bytes << std::endl;
-    std::cout << "unit_bytes: " << *(size_bytes + 1) << std::endl;
-
-    if (storage::StorageManager::getInstance().alloc_shm(shm_key, *size_bytes,
-                                                         *unit_size)) {
-      // success
+    case REGISTER_OLTP: {
+      assert(oltp_connected == false);
+      std::cout << "OLTP Queue Name:" << queue_name << std::endl;
+      oltp_client = {connected_olap_clients.fetch_add(1), OLTP, queue_name};
       CommManager::respond((char *)&resp, sizeof(communicatin_msg_type),
                            queue_name);
-    } else {
-      // failure
-      CommManager::respond((char *)&resp_fail, sizeof(communicatin_msg_type),
+      oltp_connected = true;
+      break;
+    }
+    case REGISTER_OLAP: {
+      struct client olap_client {
+        connected_olap_clients.fetch_add(1), OLTP, queue_name
+      };
+      olap_clients.push_back(olap_client);
+      CommManager::respond((char *)&resp, sizeof(communicatin_msg_type),
+                           queue_name);
+      break;
+    }
+    case MEMORY_REQUEST: {
+      // Message: |CODE|REPLY_QUEUE_NAME|KEY::BYTES::UNIT_SIZE|
+
+      std::string msg(inn + sizeof(communicatin_msg_type));
+
+      std::size_t one = msg.find("::");
+      assert(one != std::string::npos);
+      queue_name = msg.substr(0, one);
+
+      std::size_t two = msg.find("::", one + 2);
+      assert(two != std::string::npos);
+      // std::cout << "one:" << one << std::endl;
+      // std::cout << "two:" << two << std::endl;
+      std::string shm_key = msg.substr(one + 2, two - one - 2);
+
+      size_t *size_bytes =
+          (size_t *)(inn + sizeof(communicatin_msg_type) + (two + 2));
+
+      size_t *unit_size =
+          size_bytes + 1;  //(size_t *)(inn + sizeof(communicatin_msg_type) +
+                           //           (two + 2) + sizeof(size_t));
+
+      std::cout << "queue_name: " << queue_name << std::endl;
+      std::cout << "shm_key: " << shm_key << std::endl;
+      std::cout << "size_bytes: " << *size_bytes << std::endl;
+      std::cout << "unit_bytes: " << *(size_bytes + 1) << std::endl;
+
+      if (storage::StorageManager::getInstance().alloc_shm(shm_key, *size_bytes,
+                                                           *unit_size)) {
+        // success
+        CommManager::respond((char *)&resp, sizeof(communicatin_msg_type),
+                             queue_name);
+      } else {
+        // failure
+        CommManager::respond((char *)&resp_fail, sizeof(communicatin_msg_type),
+                             queue_name);
+      }
+    }
+    case SNAPSHOT_REQUEST: {
+      // Proteus is gonna ask for snapshot
+      // htap layer will do the things
+
+      // Ask OLTP to stop.
+      // Ask OLTP for # of records for all columns, epoch #
+      // set. then fork.
+
+      // Parent: ask OLTP to resume it's shit.
+      // Parent: set snapshot/epoch_id to zero
+
+      // Child: communicate with proteus..
+      // Child: return proteus with queue handler for the child, epoch_id.
+
+      // Message: |CODE|REPLY_QUEUE_NAME|
+      // Response:
+
+      std::string msg(inn + sizeof(communicatin_msg_type));
+
+      std::size_t one = msg.find("::");
+      assert(one != std::string::npos);
+      queue_name = msg.substr(0, one);
+
+      const communicatin_msg_type txn_barrier = TXN_BARRIER;
+      std::string oltp_queue_name = "aaa";
+
+      // char *reg_msg =
+      //     new char[sizeof(communicatin_msg_type) + queue_name.length() +
+      //              key.length() + sizeof(size_t)];
+      // size_t offset = 0;
+
+      // memcpy(reg_msg, &reg, sizeof(communicatin_msg_type));
+      // offset += sizeof(communicatin_msg_type);
+
+      //    strcpy(reg_msg + offset, oltp_queue_name.c_str());
+
+      CommManager::respond((char *)&txn_barrier, sizeof(communicatin_msg_type),
                            queue_name);
     }
-  }
-  case SNAPSHOT_REQUEST: {
-    // Proteus is gonna ask for snapshot
-    // htap layer will do the things
-
-    // Ask OLTP to stop.
-    // Ask OLTP for # of records for all columns, epoch #
-    // set. then fork.
-
-    // Parent: ask OLTP to resume it's shit.
-    // Parent: set snapshot/epoch_id to zero
-
-    // Child: communicate with proteus..
-    // Child: return proteus with queue handler for the child, epoch_id.
-
-    // Message: |CODE|REPLY_QUEUE_NAME|
-    // Response:
-
-    std::string msg(inn + sizeof(communicatin_msg_type));
-
-    std::size_t one = msg.find("::");
-    assert(one != std::string::npos);
-    queue_name = msg.substr(0, one);
-
-    const communicatin_msg_type txn_barrier = TXN_BARRIER;
-    std::string oltp_queue_name = "aaa";
-
-    // char *reg_msg =
-    //     new char[sizeof(communicatin_msg_type) + queue_name.length() +
-    //              key.length() + sizeof(size_t)];
-    // size_t offset = 0;
-
-    // memcpy(reg_msg, &reg, sizeof(communicatin_msg_type));
-    // offset += sizeof(communicatin_msg_type);
-
-    //    strcpy(reg_msg + offset, oltp_queue_name.c_str());
-
-    CommManager::respond((char *)&txn_barrier, sizeof(communicatin_msg_type),
-                         queue_name);
-  }
-  default:
-    std::cout << "[HTAP][DEFAULT] Recieved msg type: " << *msg << std::endl;
+    default:
+      std::cout << "[HTAP][DEFAULT] Recieved msg type: " << *msg << std::endl;
   }
 
   // PROTOCOL
@@ -165,7 +165,6 @@ void CommManager::process(char inn[MAX_MSG_SIZE]) {
 // Possible BUG: first process messages and then set notifier. and i think it is
 // not thread safe.
 void CommManager::process_msg(union sigval sv) {
-
   static CommManager *ref = &CM::CommManager::getInstance();
 
   // struct timeval tp;
@@ -239,7 +238,6 @@ void CommManager::respond(const char *msg, size_t msg_len,
   }
 
   if (mq_send(mq, msg, msg_len, 0) == -1) {
-
     std::cerr << "[HTAP][CommManager] Cannot send message to server: "
               << strerror(errno) << std::endl;
   }
@@ -251,7 +249,6 @@ void CommManager::respond(const char *msg, size_t msg_len,
 }
 
 void CommManager::init() {
-
   struct sigevent sev;
   sev.sigev_notify = SIGEV_THREAD;
   sev.sigev_notify_function = &process_msg;
@@ -301,4 +298,4 @@ void CommManager::init() {
 
   std::cout << "[HTAP][CommManager] setup completed." << std::endl;
 }
-} // namespace CM
+}  // namespace CM

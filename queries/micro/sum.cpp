@@ -20,30 +20,17 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
-#include <iostream>
-#include <string>
-
-#include <filesystem>
 #include <gflags/gflags.h>
-
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "benchmarks/tpcc_64.hpp"
-#include "benchmarks/ycsb.hpp"
-#include "interfaces/bench.hpp"
-#include "scheduler/affinity_manager.hpp"
-#include "scheduler/comm_manager.hpp"
-#include "scheduler/topology.hpp"
-#include "scheduler/worker.hpp"
-#include "storage/column_store.hpp"
-#include "storage/memory_manager.hpp"
-#include "storage/table.hpp"
-#include "transactions/transaction_manager.hpp"
-#include "utils/utils.hpp"
+#include <filesystem>
+#include <iostream>
+#include <string>
 
 #include "adaptors/aeolus-plugin.hpp"
-
+#include "benchmarks/tpcc_64.hpp"
+#include "benchmarks/ycsb.hpp"
 #include "codegen/communication/comm-manager.hpp"
 #include "codegen/memory/block-manager.hpp"
 #include "codegen/memory/memory-manager.hpp"
@@ -55,12 +42,20 @@
 #include "codegen/topology/affinity_manager.hpp"
 #include "codegen/util/jit/pipeline.hpp"
 #include "codegen/util/parallel-context.hpp"
-#include "codegen/util/timing.hpp"
-
-#include "llvm/Support/DynamicLibrary.h"
-
 #include "codegen/util/profiling.hpp"
+#include "codegen/util/timing.hpp"
+#include "interfaces/bench.hpp"
+#include "llvm/Support/DynamicLibrary.h"
 #include "queries/queries.hpp"
+#include "scheduler/affinity_manager.hpp"
+#include "scheduler/comm_manager.hpp"
+#include "scheduler/topology.hpp"
+#include "scheduler/worker.hpp"
+#include "storage/column_store.hpp"
+#include "storage/memory_manager.hpp"
+#include "storage/table.hpp"
+#include "transactions/transaction_manager.hpp"
+#include "utils/utils.hpp"
 
 PreparedStatement q_sum_c1t() {
   auto ctx = new ParallelContext("main2", false);
