@@ -1,4 +1,5 @@
 set(codegen_cxx
+    ch/q1.cpp
     micro/sum.cpp
     queries.cpp
     )

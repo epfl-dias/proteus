@@ -26,6 +26,18 @@
 #include "codegen/plan/prepared-statement.hpp"
 
 extern std::string tpcc_orderline;
+
 extern std::string ol_o_id;
+extern std::string ol_d_id;
+extern std::string ol_w_id;
+extern std::string ol_number;
+extern std::string ol_i_id;
+extern std::string ol_supply_w_id;
+extern std::string ol_delivery_d;
+extern std::string ol_quantity;
+extern std::string ol_amount;
+extern std::string ol_dist_info;
 
 PreparedStatement q_sum_c1t();
+PreparedStatement q_ch_c1t();
+PreparedStatement q_ch2_c1t();

@@ -43,6 +43,7 @@
 #include "codegen/topology/affinity_manager.hpp"
 #include "codegen/util/jit/pipeline.hpp"
 #include "codegen/util/parallel-context.hpp"
+#include "codegen/util/profiling.hpp"
 #include "codegen/util/timing.hpp"
 #include "glo.hpp"
 #include "interfaces/bench.hpp"
@@ -54,13 +55,6 @@
 #include "storage/column_store.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
-
-#if __has_include("ittnotify.h")
-#include <ittnotify.h>
-#else
-#define __itt_resume() ((void)0)
-#define __itt_pause() ((void)0)
-#endif
 
 DEFINE_bool(query_topology, false, "Print the system topology and exit");
 DEFINE_bool(trace_allocations, false,
@@ -129,7 +123,7 @@ std::vector<PreparedStatement> init_olap_sequence(
   }
 
   return stmts;
-  // return {q_sum_c1t()};
+  // return {q_sum_c1t(), q_ch_c1t(), q_ch2_c1t()};
 }
 void run_olap_sequence(int &client_id,
                        std::vector<PreparedStatement> &olap_queries,
@@ -161,7 +155,7 @@ void run_olap_sequence(int &client_id,
         // std::chrono::time_point<std::chrono::system_clock> start =
         //     std::chrono::system_clock::now();
 
-        q.execute();
+        LOG(INFO) << q.execute();
 
         // olap_stats->runtime_stats[j][i] =
         //     std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -270,6 +264,7 @@ int main(int argc, char *argv[]) {
   google::InitGoogleLogging(argv[0]);
   FLAGS_logtostderr = 1;  // FIXME: the command line flags/defs seem to fail...
   g_num_partitions = 1;
+  google::InstallFailureSignalHandler();
 
   FLAGS_num_olap_repeat =
       (NUM_OLAP_REPEAT / FLAGS_num_olap_clients);  // warmmup
@@ -326,7 +321,7 @@ int main(int argc, char *argv[]) {
   //   olap_queries.push_back(init_olap_sequence(i, OLAP_SOCKET));
   // }
 
-  __itt_resume();
+  profiling::resume();
   if (FLAGS_run_oltp && FLAGS_num_oltp_clients > 0) run_oltp(txn_nodes[0]);
 
   usleep(2000000);
@@ -343,8 +338,7 @@ int main(int argc, char *argv[]) {
     }
     scheduler::WorkerPool::getInstance().print_worker_stats_diff();
 
-    std::vector<PreparedStatement> olap_queries =
-        init_olap_sequence(i, nodes[OLAP_SOCKET]);
+    auto olap_queries = init_olap_sequence(i, nodes[OLAP_SOCKET]);
 
     {
       time_block t("T_fly_olap_: ");

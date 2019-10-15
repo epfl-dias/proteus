@@ -24,4 +24,14 @@
 #include "queries.hpp"
 
 std::string tpcc_orderline = "tpcc_orderline";
+
 std::string ol_o_id = "ol_o_id";
+std::string ol_d_id = "ol_d_id";
+std::string ol_w_id = "ol_w_id";
+std::string ol_number = "ol_number";
+std::string ol_i_id = "ol_i_id";
+std::string ol_supply_w_id = "ol_supply_w_id";
+std::string ol_delivery_d = "ol_delivery_d";
+std::string ol_quantity = "ol_quantity";
+std::string ol_amount = "ol_amount";
+std::string ol_dist_info = "ol_dist_info";
