@@ -43,6 +43,18 @@ class AeolusPlugin : public BinaryBlockPlugin {
 
   virtual void releaseSession(llvm::Value *) const;
 
+ public:
+  virtual void **getDataPointerForFile_runtime(const char *relName,
+                                               const char *attrName,
+                                               void *session);
+
+  virtual void freeDataPointerForFile_runtime(void **inn);
+
+  virtual int64_t *getNumOfTuplesPerPartition_runtime(const char *relName,
+                                                      void *session);
+
+  virtual void freeNumOfTuplesPerPartition_runtime(int64_t *inn);
+
  private:
   std::string pgType;
 };

@@ -47,46 +47,25 @@ storage::ColumnStore *getRelation(std::string fnamePrefix) {
   throw std::runtime_error(msg);
 }
 
-void **getDataPointerForFile(const char *relName, const char *attrName,
-                             void *session) {
-  const auto &tbl = getRelation({relName});
-
-  for (auto &c : tbl->getColumns()) {
-    if (strcmp(c->name.c_str(), attrName) == 0) {
-      const auto &data_arenas = c->snapshot_get_data();
-      void **arr = (void **)malloc(sizeof(void *) * data_arenas.size());
-      for (uint i = 0; i < data_arenas.size(); i++) {
-        arr[i] = data_arenas[i].first.data;
-      }
-      return arr;
-    }
-  }
-  assert(false && "ERROR: getDataPointerForFile");
+void **getDataPointerForFile_runtime(const char *relName, const char *attrName,
+                                     void *session, AeolusPlugin *pg) {
+  return pg->getDataPointerForFile_runtime(relName, attrName, session);
 }
 
-void freeDataPointerForFile(void **inn) { free(inn); }
+void freeDataPointerForFile_runtime(void **inn, AeolusPlugin *pg) {
+  pg->freeDataPointerForFile_runtime(inn);
+}
 
 void *getSession() { return nullptr; }
 void releaseSession(void *session) {}
 
-int64_t *getNumOfTuplesPerPartition(const char *relName, void *session) {
-  const auto &tbl = getRelation({relName});
-
-  const auto &c = tbl->getColumns()[0];
-
-  const auto &data_arenas = c->snapshot_get_data();
-  int64_t *arr = (int64_t *)malloc(sizeof(int64_t *) * data_arenas.size());
-
-  for (uint i = 0; i < data_arenas.size(); i++) {
-    arr[i] = data_arenas[i].second;
-  }
-
-  return arr;
+int64_t *getNumOfTuplesPerPartition_runtime(const char *relName, void *session,
+                                            AeolusPlugin *pg) {
+  return pg->getNumOfTuplesPerPartition_runtime(relName, session);
 }
 
-void freeNumOfTuplesPerPartition(int64_t *inn) {
-  free(inn);
-  // TODO: bit-mast reset logic.
+void freeNumOfTuplesPerPartition_runtime(int64_t *inn, AeolusPlugin *pg) {
+  pg->freeNumOfTuplesPerPartition_runtime(inn);
 }
 
 Plugin *createBlockCowPlugin(ParallelContext *context, std::string fnamePrefix,
@@ -108,6 +87,47 @@ Plugin *createBlockRemotePlugin(ParallelContext *context,
   return new AeolusPlugin(context, fnamePrefix, rec, whichFields,
                           "block-remote");
 }
+}
+
+void **AeolusPlugin::getDataPointerForFile_runtime(const char *relName,
+                                                   const char *attrName,
+                                                   void *session) {
+  const auto &tbl = getRelation({relName});
+
+  for (auto &c : tbl->getColumns()) {
+    if (strcmp(c->name.c_str(), attrName) == 0) {
+      const auto &data_arenas = c->snapshot_get_data();
+      void **arr = (void **)malloc(sizeof(void *) * data_arenas.size());
+      for (uint i = 0; i < data_arenas.size(); i++) {
+        arr[i] = data_arenas[i].first.data;
+      }
+      return arr;
+    }
+  }
+  assert(false && "ERROR: getDataPointerForFile");
+}
+
+void AeolusPlugin::freeDataPointerForFile_runtime(void **inn) { free(inn); }
+
+int64_t *AeolusPlugin::getNumOfTuplesPerPartition_runtime(const char *relName,
+                                                          void *session) {
+  const auto &tbl = getRelation({relName});
+
+  const auto &c = tbl->getColumns()[0];
+
+  const auto &data_arenas = c->snapshot_get_data();
+  int64_t *arr = (int64_t *)malloc(sizeof(int64_t *) * data_arenas.size());
+
+  for (uint i = 0; i < data_arenas.size(); i++) {
+    arr[i] = data_arenas[i].second;
+  }
+
+  return arr;
+}
+
+void AeolusPlugin::freeNumOfTuplesPerPartition_runtime(int64_t *inn) {
+  free(inn);
+  // TODO: bit-mast reset logic.
 }
 
 AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
@@ -162,11 +182,14 @@ Value *AeolusPlugin::getDataPointersForFile(size_t i,
 
   Type *char8ptr = Type::getInt8PtrTy(llvmContext);
 
+  Value *this_ptr = context->getBuilder()->CreateIntToPtr(
+      context->createInt64((uintptr_t)this), char8ptr);
+
   Value *N_parts_ptr = createCall(
-      "getDataPointerForFile",
+      "getDataPointerForFile_runtime",
       {context->CreateGlobalString(wantedFields[i]->getRelationName().c_str()),
        context->CreateGlobalString(wantedFields[i]->getAttrName().c_str()),
-       session_ptr},
+       session_ptr, this_ptr},
       context, PointerType::getUnqual(char8ptr));
 
   auto data_type = PointerType::getUnqual(
@@ -182,7 +205,9 @@ void AeolusPlugin::freeDataPointersForFile(size_t i, Value *v) const {
   LLVMContext &llvmContext = context->getLLVMContext();
   auto data_type = PointerType::getUnqual(Type::getInt8PtrTy(llvmContext));
   auto casted = context->getBuilder()->CreatePointerCast(v, data_type);
-  createCall2("freeDataPointerForFile", {casted}, context);
+  Value *this_ptr = context->getBuilder()->CreateIntToPtr(
+      context->createInt64((uintptr_t)this), Type::getInt8PtrTy(llvmContext));
+  createCall2("freeDataPointerForFile_runtime", {casted, this_ptr}, context);
 }
 
 std::pair<Value *, Value *> AeolusPlugin::getPartitionSizes(
@@ -191,10 +216,14 @@ std::pair<Value *, Value *> AeolusPlugin::getPartitionSizes(
 
   IntegerType *sizeType = context->createSizeType();
 
+  Value *this_ptr = context->getBuilder()->CreateIntToPtr(
+      context->createInt64((uintptr_t)this),
+      Type::getInt8PtrTy(context->getLLVMContext()));
+
   Value *N_parts_ptr = createCall(
-      "getNumOfTuplesPerPartition",
-      {context->CreateGlobalString(fnamePrefix.c_str()), session_ptr}, context,
-      PointerType::getUnqual(ArrayType::get(sizeType, Nparts)));
+      "getNumOfTuplesPerPartition_runtime",
+      {context->CreateGlobalString(fnamePrefix.c_str()), session_ptr, this_ptr},
+      context, PointerType::getUnqual(ArrayType::get(sizeType, Nparts)));
 
   Value *max_pack_size = ConstantInt::get(sizeType, 0);
   for (size_t i = 0; i < Nparts; ++i) {
@@ -210,5 +239,8 @@ std::pair<Value *, Value *> AeolusPlugin::getPartitionSizes(
 }
 
 void AeolusPlugin::freePartitionSizes(Value *v) const {
-  createCall2("freeNumOfTuplesPerPartition", {v}, context);
+  Value *this_ptr = context->getBuilder()->CreateIntToPtr(
+      context->createInt64((uintptr_t)this),
+      Type::getInt8PtrTy(context->getLLVMContext()));
+  createCall2("freeNumOfTuplesPerPartition_runtime", {v, this_ptr}, context);
 }
