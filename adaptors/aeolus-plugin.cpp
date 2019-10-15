@@ -22,6 +22,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "aeolus-plugin.hpp"
 
+#include <exception>
 #include <string>
 
 #include "communication/comm-manager.hpp"
@@ -41,7 +42,9 @@ storage::ColumnStore *getRelation(std::string fnamePrefix) {
       return (storage::ColumnStore *)tb;
     }
   }
-  assert(false && "Relation not found.");
+  auto msg = std::string("Relation not found: ") + fnamePrefix;
+  LOG(INFO) << msg;
+  throw std::runtime_error(msg);
 }
 
 void **getDataPointerForFile(const char *relName, const char *attrName,
