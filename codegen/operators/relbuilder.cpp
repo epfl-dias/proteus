@@ -230,7 +230,7 @@ RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
   auto op = new Router(root, ctx, fanout, wantedFields, slack, hash,
                        p == RoutingPolicy::LOCAL && target == DeviceType::GPU,
                        p == RoutingPolicy::LOCAL && target == DeviceType::CPU,
-                       target == DeviceType::CPU);
+                       target);
   return apply(op);
 }
 

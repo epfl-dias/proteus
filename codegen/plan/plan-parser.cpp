@@ -2244,10 +2244,11 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       numa_local = val["numa_local"].GetBool();
     }
 
-    bool cpu_targets = false;
+    auto targets = DeviceType::GPU;
     if (val.HasMember("cpu_targets")) {
       assert(val["cpu_targets"].IsBool());
-      cpu_targets = val["cpu_targets"].GetBool();
+      targets =
+          val["cpu_targets"].GetBool() ? DeviceType::CPU : DeviceType::GPU;
     }
 
     assert(!val.HasMember("numa_socket_id"));
@@ -2255,7 +2256,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(dynamic_cast<ParallelContext *>(this->ctx));
     newOp = new Router(childOp, ((ParallelContext *)this->ctx),
                        DegreeOfParallelism{numOfParents}, projections, slack,
-                       hash, numa_local, rand_local_cpu, cpu_targets);
+                       hash, numa_local, rand_local_cpu, targets);
     childOp->setParent(newOp);
   } else if (strcmp(opName, "union-all") == 0) {
     /* parse operator input */

@@ -32,7 +32,7 @@ class Split : public Router {
         int slack, std::optional<expression_t> hash = std::nullopt,
         bool numa_local = true, bool rand_local_cpu = false)
       : Router(child, context, DegreeOfParallelism{numOfParents}, wantedFields,
-               slack, hash, numa_local, rand_local_cpu, true),
+               slack, hash, numa_local, rand_local_cpu, DeviceType::CPU),
         produce_calls(0) {
     producers = 1;  // Set so that it does not get overwritten by Routers' cnstr
     assert(
