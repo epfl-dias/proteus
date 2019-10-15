@@ -298,8 +298,6 @@ Table::Table(std::string name, uint8_t table_id, layout_type storage_layout,
       storage_layout(storage_layout) {
   for (int i = 0; i < NUM_SOCKETS; i++) vid[i] = 0;
 
-#ifdef HTAP
-#if HTAP
   LOG(INFO) << "Registering table to OLAP";
 
   std::vector<RecordAttribute*> attrs;
@@ -315,8 +313,6 @@ Table::Table(std::string name, uint8_t table_id, layout_type storage_layout,
 
   std::lock_guard<std::mutex> lock{m_catalog};
   CatalogParser::getInstance().registerInput(name, exprType);
-#endif
-#endif
 }
 
 Table::~Table() {}

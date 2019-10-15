@@ -59,8 +59,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "common/common.hpp"
 #endif
 
-#define HTAP false
-
 /*std::ostream& operator<<(std::ostream& os, int64_t i) {
   char buf[20];
   sprintf(buf, "%li", i);
