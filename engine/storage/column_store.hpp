@@ -150,7 +150,8 @@ class Column {
   // }
 
   // snapshot stuff
-  std::vector<std::pair<mem_chunk, uint64_t>> snapshot_get_data();
+  std::vector<std::pair<mem_chunk, uint64_t>> snapshot_get_data(
+      bool olap_local = false);
 
   const std::string name;
   const size_t elem_size;

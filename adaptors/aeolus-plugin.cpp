@@ -92,11 +92,18 @@ Plugin *createBlockRemotePlugin(ParallelContext *context,
 void **AeolusPlugin::getDataPointerForFile_runtime(const char *relName,
                                                    const char *attrName,
                                                    void *session) {
+  // TODO: add scale-up and scale-down logic here for elastic stuff.
+
   const auto &tbl = getRelation({relName});
 
   for (auto &c : tbl->getColumns()) {
     if (strcmp(c->name.c_str(), attrName) == 0) {
-      const auto &data_arenas = c->snapshot_get_data();
+      bool local_storage = false;
+      if (this->pgType.compare("block-etl") == 0) {
+        local_storage = true;
+      }
+
+      const auto &data_arenas = c->snapshot_get_data(local_storage);
       void **arr = (void **)malloc(sizeof(void *) * data_arenas.size());
       for (uint i = 0; i < data_arenas.size(); i++) {
         arr[i] = data_arenas[i].first.data;

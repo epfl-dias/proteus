@@ -510,9 +510,13 @@ Column::Column(std::string name, uint64_t initial_num_records,
   // and update its snapshots.
 
   // FIXME: hack for expr to make memory in proteus sockets
+  uint total_numa_nodes =
+      scheduler::Topology::getInstance().getCpuNumaNodeCount();
+
   for (ushort j = 0; j < this->num_partitions; j++) {
-    this->etl_mem[j] = MemoryManager::alloc_shm(name + "__" + std::to_string(j),
-                                                size_per_partition, j + 2);
+    this->etl_mem[j] =
+        MemoryManager::alloc_shm(name + "__" + std::to_string(j),
+                                 size_per_partition, total_numa_nodes - j - 1);
     assert(this->etl_mem[j] != nullptr || this->etl_mem[j] != NULL);
   }
 
@@ -1006,7 +1010,8 @@ void Column::snapshot(const uint64_t* n_recs_part, uint64_t epoch,
   // }
 }
 
-std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data() {
+std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data(
+    bool olap_local) {
   std::vector<std::pair<mem_chunk, uint64_t>> ret;
 
   for (uint i = 0; i < num_partitions; i++) {
@@ -1014,15 +1019,15 @@ std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data() {
     auto& snap_arena = snapshot_arenas[i][0]->getMetadata();
 
     for (const auto& chunk : master_versions[snap_arena.master_ver][i]) {
-#if HTAP_ETL
-
-      ret.emplace_back(std::make_pair(
-          mem_chunk(this->etl_mem[i], snap_arena.numOfRecords * this->elem_size,
-                    -1),
-          snap_arena.numOfRecords));
-#else
-      ret.emplace_back(std::make_pair(chunk, snap_arena.numOfRecords));
-#endif
+      if (olap_local) {
+        assert(HTAP_ETL && "OLAP local mode is not turned on");
+        ret.emplace_back(std::make_pair(
+            mem_chunk(this->etl_mem[i],
+                      snap_arena.numOfRecords * this->elem_size, -1),
+            snap_arena.numOfRecords));
+      } else {
+        ret.emplace_back(std::make_pair(chunk, snap_arena.numOfRecords));
+      }
     }
   }
 

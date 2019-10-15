@@ -229,7 +229,7 @@ void Schema::drop_table(int idx) {
 
 void Table::reportUsage() {
   std::cout << "Table: " << this->name << std::endl;
-  for (int i = 0; i < NUM_SOCKETS; i++) {
+  for (int i = 0; i < g_num_partitions; i++) {
     std::cout << "P" << i << ": " << vid[i].load() << " / "
               << (initial_num_recs / g_num_partitions) << std::endl;
   }
