@@ -45,7 +45,7 @@
 
 const RecordType &RelBuilder::getRecordType(CatalogParser &catalog,
                                             std::string relName) const {
-  auto inputInfo = catalog.getInputInfoIfKnown(relName);
+  auto inputInfo = catalog.getInputInfo(relName);
 
   CollectionType &collType =
       dynamic_cast<CollectionType &>(*(inputInfo->exprType));

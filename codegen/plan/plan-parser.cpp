@@ -3406,10 +3406,9 @@ void CatalogParser::parseDir(std::string dir) {
   // linking problems in machines with old gcc version
   DIR *d = opendir(dir.c_str());
   if (!d) {
-    std::string err =
-        "Failed to open dir: " + dir + " (" + strerror(errno) + ")";
-    LOG(ERROR) << err;
-    throw runtime_error(err);
+    LOG(WARNING) << "Open dir " << dir << " failed (" << strerror(errno) << ")";
+    LOG(WARNING) << "Ignoring directory: " << dir;
+    return;
   }
 
   dirent *entry;
