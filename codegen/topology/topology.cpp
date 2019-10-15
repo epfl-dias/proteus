@@ -32,6 +32,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include "common/error-handling.hpp"
 #include "cuda.h"
 #include "cuda_profiler_api.h"
 #include "cuda_runtime_api.h"
@@ -66,6 +67,7 @@ void *topology::cpunumanode::alloc(size_t bytes) const {
                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
   assert(mem != MAP_FAILED);
   assert((((uintptr_t)mem) % hugepage) == 0);
+  linux_run(madvise(mem, bytes, MADV_DONTFORK));
 #ifndef NDEBUG
   {
     int status;
