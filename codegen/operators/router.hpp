@@ -33,6 +33,7 @@
 #include "codegen/util/parallel-context.hpp"
 #include "operators/operators.hpp"
 #include "topology/affinity_manager.hpp"
+#include "topology/device-manager.hpp"
 #include "util/async_containers.hpp"
 #include "util/logging.hpp"
 
@@ -78,27 +79,22 @@ class Router : public UnaryOperator {
 
     ready_fifo = new AsyncQueueMPSC<void *>[fanout];
 
+    auto &devmanager = DeviceManager::getInstance();
+
     if (cpu_targets) {
-      const auto &vec = topology::getInstance().getCpuNumaNodes();
-      if (numa_socket_id >= 0 && numa_socket_id < vec.size()) {
-        const auto &numaSocket = vec[numa_socket_id];
-        for (size_t i = 0; i < fanout; ++i) {
-          target_processors.emplace_back(numaSocket);
-        }
+      assert(numa_socket_id == -1 && "Update that thing...");
 
-      } else {
-        for (size_t i = 0; i < fanout; ++i) {
-          target_processors.emplace_back(vec[i % vec.size()]);
-        }
+      for (size_t i = 0; i < fanout; ++i) {
+        target_processors.emplace_back(devmanager.getAvailableCPUCore(this, i));
+        // target_processors.emplace_back(vec[i % vec.size()]);
       }
-
     } else {
       assert(topology::getInstance().getGpuCount() > 0 &&
              "Are you using an outdated plan?");
-      const auto &vec = topology::getInstance().getGpus();
 
       for (size_t i = 0; i < fanout; ++i) {
-        target_processors.emplace_back(vec[i % vec.size()]);
+        target_processors.emplace_back(devmanager.getAvailableGPU(this, i));
+        // target_processors.emplace_back(vec[i % vec.size()]);
       }
     }
   }

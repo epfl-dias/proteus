@@ -62,6 +62,7 @@ set(codegen_cxx
     plugins/output/plugins-output.cpp
     storage/storage-manager.cpp
     topology/affinity_manager.cpp
+    topology/device-manager.cpp
     topology/topology.cpp
     util/atois.cpp
     util/caching.cpp
