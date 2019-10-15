@@ -88,8 +88,8 @@ std::string hyphenatedPluginToCamel(const char *line) {
   size_t len = strlen(line);
   char conv[len + 1];
   bool active = true;
-
-  for (int i = 0, j = 0; line[i] != '\0'; i++) {
+  int j = 0;
+  for (int i = 0; line[i] != '\0'; i++) {
     if (std::isalpha(line[i])) {
       if (active) {
         conv[j] = std::toupper(line[i]);
@@ -102,7 +102,7 @@ std::string hyphenatedPluginToCamel(const char *line) {
       active = true;
     }
   }
-
+  conv[j] = '\0';
   return {conv};
 }
 
