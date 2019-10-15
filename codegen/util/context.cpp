@@ -160,7 +160,6 @@ void Context::prepareFunction(Function *F) {
   // FIXME Have a (tmp) return value for now at this point
   getBuilder()->CreateRet(getBuilder()->getInt32(114));
 
-  LOG(INFO) << "[Prepare Function: ] Exit";  // and dump code so far";
 #ifdef DEBUGCTX
   //    getModule()->dump();
 #endif
@@ -475,7 +474,6 @@ Value *Context::CreateGlobalString(char *str) {
       ConstantExpr::getGetElementPtr(ArrayTy_0, gvar_array__str, idxList);
   gvar_array__str->setInitializer(tmpHTname);
 
-  LOG(INFO) << "[CreateGlobalString: ] " << str;
   getBuilder()->CreateStore(shifted, AllocaName);
   Value *globalStr = getBuilder()->CreateLoad(AllocaName);
   return globalStr;
@@ -506,7 +504,6 @@ Value *Context::CreateGlobalString(const char *str) {
       ConstantExpr::getGetElementPtr(ArrayTy_0, gvar_array__str, idxList);
   gvar_array__str->setInitializer(tmpHTname);
 
-  LOG(INFO) << "[CreateGlobalString: ] " << str;
   getBuilder()->CreateStore(shifted, AllocaName);
   Value *globalStr = getBuilder()->CreateLoad(AllocaName);
   return globalStr;

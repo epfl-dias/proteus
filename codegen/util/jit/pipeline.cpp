@@ -446,8 +446,6 @@ Value *PipelineGen::getStateLLVMValue() {
 
 Function *PipelineGen::prepare() {
   assert(!F);
-  std::cout << pipName << " prepare" << std::endl;
-
   size_t state_id = prepareStateArgument();
 
   prepareFunction();
