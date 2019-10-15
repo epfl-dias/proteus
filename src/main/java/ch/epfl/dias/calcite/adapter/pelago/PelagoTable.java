@@ -303,7 +303,7 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
     }
 
     public RelPacking getPacking() {
-        if (plugin.get("type").toString().equalsIgnoreCase("block")) return RelPacking.Packed;
+        if (plugin.get("type").toString().contains("block")) return RelPacking.Packed;
         return RelPacking.UnPckd;
     }
 
