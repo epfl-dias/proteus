@@ -129,6 +129,8 @@ class Expression {
   string attrName;
 };
 
+class CastExpression;
+
 template <typename T, typename Interface = Expression>
 class ExprVisitorVisitable : public Interface {
  protected:
@@ -151,6 +153,9 @@ class ExprVisitorVisitable : public Interface {
   }
 
  public:
+  template <typename Ttype>
+  inline CastExpression as();
+
   virtual inline T &as(string relName, string attrName) {
     return static_cast<T &>(
         static_cast<decltype(*this)>(as_expr(relName, attrName)));
@@ -1314,5 +1319,12 @@ ProteusValue expressions::ExprVisitorVisitable<T, Interface>::accept(
 template <>
 ProteusValue expressions::ExprVisitorVisitable<
     expression_t, expressions::Expression>::accept(ExprVisitor &v) const;
+
+template <typename T, typename Interface>
+template <typename Ttype>
+inline expressions::CastExpression
+expressions::ExprVisitorVisitable<T, Interface>::as() {
+  return {new Ttype(), static_cast<T &>(*this)};
+}
 
 #endif /* EXPRESSIONS_HPP_ */
