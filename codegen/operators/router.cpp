@@ -26,6 +26,7 @@
 #include <cstring>
 
 #include "expressions/expressions-generator.hpp"
+#include "routing/routing-policy.hpp"
 
 using namespace llvm;
 
@@ -346,7 +347,18 @@ void freeBuffer(int target, Router *xch, void *buff) {
 }
 }
 
-void Router::consume(Context *const context, const OperatorState &childState) {
+std::unique_ptr<routing::RoutingPolicy> Router::getPolicy() const {
+  if (hashExpr.has_value()) {
+    return std::make_unique<routing::HashBased>(fanout, hashExpr.value());
+  } else if (numa_local || rand_local_cpu) {
+    return std::make_unique<routing::Local>(fanout, targets, wantedFields);
+  } else {
+    return std::make_unique<routing::Random>(fanout);
+  }
+}
+
+void Router::consume(ParallelContext *const context,
+                     const OperatorState &childState) {
   // Generate throw code
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
@@ -371,39 +383,11 @@ void Router::consume(Context *const context, const OperatorState &childState) {
   Builder->CreateBr(tryBB);
   Builder->SetInsertPoint(tryBB);
 
-  Value *target;
-  bool retry = true;
-  if (hashExpr.has_value()) {
-    ExpressionGeneratorVisitor exprGenerator{context, childState};
-    target = hashExpr->accept(exprGenerator).value;
-    retry = false;
-  } else if (numa_local) {  // GPU local
-    Function *getdev = context->getFunction("get_ptr_device_or_rand_for_host");
+  auto r = getPolicy()->evaluate(context, childState);
 
-    Value *ptr = Builder->CreateLoad(childState[*(wantedFields[0])].mem);
-    ptr = Builder->CreateBitCast(ptr, charPtrType);
-    target = Builder->CreateCall(getdev, vector<Value *>{ptr});
-    retry = false;  // FIXME: Should we retry ?
-  } else if (rand_local_cpu) {
-    Function *getdev = context->getFunction("rand_local_cpu");
-
-    Value *ptr = Builder->CreateLoad(childState[*(wantedFields[0])].mem);
-    ptr = Builder->CreateBitCast(ptr, charPtrType);
-    target = Builder->CreateCall(
-        getdev, vector<Value *>{ptr, context->createInt64(fanout)});
-    retry = true;
-  } else {
-    Function *crand = context->getFunction("rand");
-    target = Builder->CreateCall(crand, vector<Value *>{});
-    retry = true;
-  }
-
-  Value *fanoutV =
-      ConstantInt::get((IntegerType *)target->getType(), ((uint64_t)fanout));
-
-  target = Builder->CreateURem(target, fanoutV);
-  target->setName("target");
-  target = Builder->CreateTruncOrBitCast(target, Type::getInt32Ty(llvmContext));
+  r.target->setName("target");
+  auto target =
+      Builder->CreateTruncOrBitCast(r.target, Type::getInt32Ty(llvmContext));
 
   RecordAttribute tupleIdentifier(wantedFields[0]->getRelationName(),
                                   activeLoop, pg->getOIDType());
@@ -429,7 +413,7 @@ void Router::consume(Context *const context, const OperatorState &childState) {
   vector<Value *> kernel_args{target, exchange};
 
   Function *acquireBuffer;
-  if (retry)
+  if (r.may_retry)
     acquireBuffer = context->getFunction("try_acquireBuffer");
   else
     acquireBuffer = context->getFunction("acquireBuffer");

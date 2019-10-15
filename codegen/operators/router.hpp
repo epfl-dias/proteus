@@ -32,6 +32,7 @@
 
 #include "codegen/util/parallel-context.hpp"
 #include "operators/operators.hpp"
+#include "routing/routing-policy.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/device-manager.hpp"
 #include "util/async_containers.hpp"
@@ -64,7 +65,8 @@ class Router : public UnaryOperator {
         hashExpr(std::move(hash)),
         numa_local(numa_local),
         rand_local_cpu(rand_local_cpu),
-        need_cnt(false) {
+        need_cnt(false),
+        targets(targets) {
     assert(
         (!hashExpr || !numa_local) &&
         "Just to make it more clear that hash has precedence over numa_local");
@@ -100,7 +102,20 @@ class Router : public UnaryOperator {
   virtual ~Router() { LOG(INFO) << "Collapsing Router operator"; }
 
   virtual void produce();
-  virtual void consume(Context *const context, const OperatorState &childState);
+  virtual void consume(ParallelContext *const context,
+                       const OperatorState &childState);
+  virtual void consume(Context *const context,
+                       const OperatorState &childState) {
+    ParallelContext *ctx = dynamic_cast<ParallelContext *>(context);
+    if (!ctx) {
+      string error_msg =
+          "[DeviceCross: ] Operator only supports code "
+          "generation using the ParallelContext";
+      LOG(ERROR) << error_msg;
+      throw runtime_error(error_msg);
+    }
+    consume(ctx, childState);
+  }
   virtual bool isFiltering() const { return false; }
 
   virtual RecordType getRowType() const { return wantedFields; }
@@ -112,6 +127,8 @@ class Router : public UnaryOperator {
   virtual void generate_catch();
 
   void fire(int target, PipelineGen *pipGen);
+
+  virtual std::unique_ptr<routing::RoutingPolicy> getPolicy() const;
 
  private:
   void *acquireBuffer(int target, bool polling = false);
@@ -165,6 +182,8 @@ class Router : public UnaryOperator {
   bool rand_local_cpu;
 
   bool need_cnt;
+
+  DeviceType targets;
 };
 
 #endif /* ROUTER_HPP_ */

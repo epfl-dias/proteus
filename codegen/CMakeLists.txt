@@ -60,6 +60,7 @@ set(codegen_cxx
     plugins/json-jsmn-plugin.cpp
     plugins/json-plugin.cpp
     plugins/output/plugins-output.cpp
+    routing/routing-policy.cpp
     storage/storage-manager.cpp
     topology/affinity_manager.cpp
     topology/device-manager.cpp

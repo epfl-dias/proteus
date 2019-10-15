@@ -29,12 +29,11 @@
 #include "llvm/IR/IRBuilder.h"
 #include "plugins/output/plugins-output.hpp"
 #include "plugins/plugins.hpp"
+#include "topology/device-types.hpp"
 
 // Fwd declaration
 class Plugin;
 class OperatorState;
-
-enum class DeviceType { CPU, GPU };
 
 class DegreeOfParallelism {
  private:
