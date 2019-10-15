@@ -36,8 +36,12 @@ const topology::cpunumanode &DeviceManager::getAvailableCPUNumaNode(
 
 const topology::core &DeviceManager::getAvailableCPUCore(void *,
                                                          size_t cpu_req) {
-  return topology::getInstance()
-      .getCores()[cpu_req % topology::getInstance().getCoreCount()];
+  size_t core_index = cpu_req % topology::getInstance().getCoreCount();
+  // NOTE: Assuming all CPUs have the same number of cores!
+  size_t cpunumacnt = topology::getInstance().getCpuNumaNodeCount();
+  size_t numanode = core_index % cpunumacnt;
+  const auto &cpunumanode = topology::getInstance().getCpuNumaNodes()[numanode];
+  return cpunumanode.getCore(core_index / cpunumacnt);
 }
 
 const topology::gpunode &DeviceManager::getAvailableGPU(void *,

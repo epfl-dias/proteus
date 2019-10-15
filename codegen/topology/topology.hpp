@@ -45,6 +45,8 @@ class topology {
   };
 
  public:
+  class core;
+
   class cpunumanode {
    public:
     const uint32_t id;
@@ -65,6 +67,11 @@ class topology {
     void *alloc(size_t bytes) const;
     static void free(void *mem, size_t bytes);
     size_t getMemorySize() const;
+
+    const core &getCore(size_t i) const {
+      assert(i < local_cores.size());
+      return topology::getInstance().getCores()[local_cores[i]];
+    }
   };
 
   class core {
