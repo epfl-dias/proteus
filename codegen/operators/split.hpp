@@ -30,14 +30,11 @@ class Split : public Router {
   Split(Operator *const child, ParallelContext *const context,
         size_t numOfParents, const vector<RecordAttribute *> &wantedFields,
         int slack, std::optional<expression_t> hash = std::nullopt,
-        bool numa_local = true, bool rand_local_cpu = false)
+        RoutingPolicy policy_type = RoutingPolicy::LOCAL)
       : Router(child, context, DegreeOfParallelism{numOfParents}, wantedFields,
-               slack, hash, numa_local, rand_local_cpu, DeviceType::CPU),
+               slack, hash, policy_type, DeviceType::CPU),
         produce_calls(0) {
     producers = 1;  // Set so that it does not get overwritten by Routers' cnstr
-    assert(
-        (!hash || !numa_local) &&
-        "Just to make it more clear that hash has precedence over numa_local");
   }
 
   virtual ~Split() { LOG(INFO) << "Collapsing Split operator"; }

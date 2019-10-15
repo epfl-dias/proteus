@@ -27,10 +27,9 @@
 #include "operators/gpu/gpu-materializer-expr.hpp"
 #include "operators/operators.hpp"
 #include "plan/prepared-statement.hpp"
+#include "routing/routing-policy.hpp"
 #include "topology/topology.hpp"
 #include "util/parallel-context.hpp"
-
-enum class RoutingPolicy { RANDOM, LOCAL, HASH_BASED };
 
 class CatalogParser;
 

@@ -225,12 +225,7 @@ RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
                               std::optional<expression_t> hash,
                               DegreeOfParallelism fanout, size_t slack,
                               RoutingPolicy p, DeviceType target) const {
-  assert((p == RoutingPolicy::HASH_BASED) == (hash.has_value()));
-  assert((p == RoutingPolicy::RANDOM) == (!hash.has_value()));
-  auto op = new Router(root, ctx, fanout, wantedFields, slack, hash,
-                       p == RoutingPolicy::LOCAL && target == DeviceType::GPU,
-                       p == RoutingPolicy::LOCAL && target == DeviceType::CPU,
-                       target);
+  auto op = new Router(root, ctx, fanout, wantedFields, slack, hash, p, target);
   return apply(op);
 }
 

@@ -33,6 +33,8 @@ struct routing_target {
   bool may_retry;
 };
 
+enum class RoutingPolicy { RANDOM, LOCAL, HASH_BASED };
+
 namespace routing {
 class RoutingPolicy {
  public:

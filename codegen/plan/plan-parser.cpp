@@ -928,9 +928,10 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       probe_widths.push_back(w.GetInt());
     }
 
-    Router *xch_build = new Router(
-        build_op, (ParallelContext *)ctx, DegreeOfParallelism{numPartitioners},
-        build_attr_block, slack, std::nullopt, false, true);
+    Router *xch_build =
+        new Router(build_op, (ParallelContext *)ctx,
+                   DegreeOfParallelism{numPartitioners}, build_attr_block,
+                   slack, std::nullopt, RoutingPolicy::LOCAL, DeviceType::CPU);
     build_op->setParent(xch_build);
     Operator *btt_build = new BlockToTuples(xch_build, (ParallelContext *)ctx,
                                             build_expr, false, gran_t::THREAD);
@@ -942,12 +943,14 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     build_attr_block.push_back(build_hash_attr);
     Router *xch_build2 =
         new Router(part_build, (ParallelContext *)ctx, DegreeOfParallelism{1},
-                   build_attr_block, slack, std::nullopt, true, false);
+                   build_attr_block, slack, std::nullopt, RoutingPolicy::LOCAL,
+                   DeviceType::GPU);
     part_build->setParent(xch_build2);
 
-    Router *xch_probe = new Router(
-        probe_op, (ParallelContext *)ctx, DegreeOfParallelism{numPartitioners},
-        probe_attr_block, slack, std::nullopt, false, true);
+    Router *xch_probe =
+        new Router(probe_op, (ParallelContext *)ctx,
+                   DegreeOfParallelism{numPartitioners}, probe_attr_block,
+                   slack, std::nullopt, RoutingPolicy::LOCAL, DeviceType::CPU);
     probe_op->setParent(xch_probe);
     Operator *btt_probe = new BlockToTuples(xch_probe, (ParallelContext *)ctx,
                                             probe_expr, false, gran_t::THREAD);
@@ -959,7 +962,8 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     probe_attr_block.push_back(probe_hash_attr);
     Router *xch_probe2 =
         new Router(part_probe, (ParallelContext *)ctx, DegreeOfParallelism{1},
-                   probe_attr_block, slack, std::nullopt, true, false);
+                   probe_attr_block, slack, std::nullopt, RoutingPolicy::LOCAL,
+                   DeviceType::GPU);
     part_probe->setParent(xch_probe2);
 
     RecordAttribute *attr_ptr =
@@ -1006,9 +1010,10 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     xch_build2->setParent(coord);
     xch_probe2->setParent(coord);
 
-    Router *xch_proc = new Router(coord, (ParallelContext *)ctx,
-                                  DegreeOfParallelism{numConcurrent},
-                                  f_atts_target_v, slack, expr_target, false);
+    Router *xch_proc =
+        new Router(coord, (ParallelContext *)ctx,
+                   DegreeOfParallelism{numConcurrent}, f_atts_target_v, slack,
+                   expr_target, RoutingPolicy::HASH_BASED, DeviceType::GPU);
     coord->setParent(xch_proc);
     ZipInitiate *initiator = new ZipInitiate(
         attr_ptr, attr_splitter, attr_target, xch_proc, (ParallelContext *)ctx,
@@ -2251,12 +2256,18 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
           val["cpu_targets"].GetBool() ? DeviceType::CPU : DeviceType::GPU;
     }
 
+    RoutingPolicy policy_type =
+        (numa_local || rand_local_cpu)
+            ? RoutingPolicy::LOCAL
+            : ((hash.has_value()) ? RoutingPolicy::HASH_BASED
+                                  : RoutingPolicy::RANDOM);
+
     assert(!val.HasMember("numa_socket_id"));
 
     assert(dynamic_cast<ParallelContext *>(this->ctx));
     newOp = new Router(childOp, ((ParallelContext *)this->ctx),
                        DegreeOfParallelism{numOfParents}, projections, slack,
-                       hash, numa_local, rand_local_cpu, targets);
+                       hash, policy_type, targets);
     childOp->setParent(newOp);
   } else if (strcmp(opName, "union-all") == 0) {
     /* parse operator input */
@@ -2337,9 +2348,15 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
         numa_local = val["numa_local"].GetBool();
       }
 
+      RoutingPolicy policy_type =
+          (numa_local || rand_local_cpu)
+              ? RoutingPolicy::LOCAL
+              : ((hash.has_value()) ? RoutingPolicy::HASH_BASED
+                                    : RoutingPolicy::RANDOM);
+
       assert(dynamic_cast<ParallelContext *>(this->ctx));
       newOp = new Split(childOp, ((ParallelContext *)this->ctx), numOfParents,
-                        projections, slack, hash, numa_local, rand_local_cpu);
+                        projections, slack, hash, policy_type);
       splitOps[split_id] = newOp;
       childOp->setParent(newOp);
     } else {

@@ -53,7 +53,7 @@ class Router : public UnaryOperator {
          DegreeOfParallelism numOfParents,
          const vector<RecordAttribute *> &wantedFields, int slack,
          std::optional<expression_t> hash = std::nullopt,
-         bool numa_local = true, bool rand_local_cpu = false,
+         RoutingPolicy policy_type = RoutingPolicy::LOCAL,
          DeviceType targets = DeviceType::GPU)
       : UnaryOperator(child),
         wantedFields(wantedFields),
@@ -63,13 +63,11 @@ class Router : public UnaryOperator {
         remaining_producers(producers),
         context(context),
         hashExpr(std::move(hash)),
-        numa_local(numa_local),
-        rand_local_cpu(rand_local_cpu),
         need_cnt(false),
-        targets(targets) {
-    assert(
-        (!hashExpr || !numa_local) &&
-        "Just to make it more clear that hash has precedence over numa_local");
+        targets(targets),
+        policy_type(policy_type) {
+    assert((policy_type == RoutingPolicy::HASH_BASED) == hash.has_value() &&
+           "hash should only contain a value for hash-based routing policies");
 
     free_pool = new std::stack<void *>[fanout];
     free_pool_mutex = new std::mutex[fanout];
@@ -178,12 +176,11 @@ class Router : public UnaryOperator {
   std::vector<exec_location> target_processors;
 
   std::optional<expression_t> hashExpr;
-  bool numa_local;
-  bool rand_local_cpu;
 
   bool need_cnt;
 
-  DeviceType targets;
+  const DeviceType targets;
+  const RoutingPolicy policy_type;
 };
 
 #endif /* ROUTER_HPP_ */

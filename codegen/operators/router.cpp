@@ -348,13 +348,19 @@ void freeBuffer(int target, Router *xch, void *buff) {
 }
 
 std::unique_ptr<routing::RoutingPolicy> Router::getPolicy() const {
-  if (hashExpr.has_value()) {
-    return std::make_unique<routing::HashBased>(fanout, hashExpr.value());
-  } else if (numa_local || rand_local_cpu) {
-    return std::make_unique<routing::Local>(fanout, targets, wantedFields);
-  } else {
-    return std::make_unique<routing::Random>(fanout);
+  switch (policy_type) {
+    case RoutingPolicy::HASH_BASED: {
+      assert(hashExpr.has_value());
+      return std::make_unique<routing::HashBased>(fanout, hashExpr.value());
+    }
+    case RoutingPolicy::LOCAL: {
+      return std::make_unique<routing::Local>(fanout, targets, wantedFields);
+    }
+    case RoutingPolicy::RANDOM: {
+      return std::make_unique<routing::Random>(fanout);
+    }
   }
+  assert(false);
 }
 
 void Router::consume(ParallelContext *const context,

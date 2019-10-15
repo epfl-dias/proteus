@@ -31,7 +31,7 @@ class UnionAll : public Router {
   UnionAll(vector<Operator *> &children, ParallelContext *const context,
            const vector<RecordAttribute *> &wantedFields)
       : Router(children[0], context, DegreeOfParallelism{1}, wantedFields, 8,
-               std::nullopt, false, false, DeviceType::CPU),
+               std::nullopt, RoutingPolicy::RANDOM, DeviceType::CPU),
         children(children) {
     setChild(nullptr);
     producers = children.size();
