@@ -23,6 +23,7 @@
 
 #include "memory-manager.hpp"
 
+#include "common/error-handling.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 #include "util/logging.hpp"
@@ -176,6 +177,7 @@ void GpuMemAllocator::free(void *ptr) { gpu_run(cudaFree(ptr)); }
 
 void *NUMAMemAllocator::malloc(size_t bytes) {
   void *ptr = affinity::get().alloc(bytes);
+  linux_run(madvise(ptr, bytes, MADV_DONTFORK));
   assert(ptr && "Memory allocation failed!");
   sizes.emplace(ptr, bytes);
   return ptr;
