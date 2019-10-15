@@ -333,6 +333,7 @@ endif()
 #-----------------------------------------------------------------------
 # Setup the library list, as the order is important do it last
 
+
 # `codegen` needs to be unquoted to be replaced, as CMake controls the build of
 # that library
 #set(default_libs ${default_libs} codegen )
@@ -375,6 +376,10 @@ include_directories(
 	"${CMAKE_INSTALL_PREFIX}/include"
 	)
 
+add_subdirectory(queries)
+
+set(default_libs ${default_libs} queries )
+
 # Add the warning flags
 string(STRIP "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS}" CMAKE_CXX_FLAGS)
 string(STRIP "${CMAKE_C_FLAGS} ${WARNING_FLAGS}" CMAKE_C_FLAGS)
@@ -402,7 +407,6 @@ string(STRIP "${CMAKE_C_FLAGS} ${WARNING_FLAGS}" CMAKE_C_FLAGS)
 # Source Files
 #----------------------------a-------------------------------------------
 #file(GLOB_RECURSE SOURCES RELATIVE ${CMAKE_SOURCE_DIR} "[^.]*.cpp")
-
 
 #-----------------------------------------------------------------------
 # Build our executables
