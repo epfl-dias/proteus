@@ -503,6 +503,9 @@ Column::Column(std::string name, uint64_t initial_num_records,
   for (uint j = 0; j < g_num_partitions; j++) {
     snapshot_arenas[j].emplace_back(
         global_conf::SnapshotManager::create(size_per_partition));
+
+    etl_arenas[j].emplace_back(
+        global_conf::SnapshotManager::create(size_per_partition));
   }
 
 #if HTAP_ETL
@@ -992,6 +995,9 @@ void Column::snapshot(const uint64_t* n_recs_part, uint64_t epoch,
         {n_recs_part[i], snapshot_arenas[i][0]->getMetadata().numOfRecords,
          epoch, snapshot_master_ver, static_cast<uint8_t>(i),
          this->touched[i]});
+
+    if (this->touched[i]) etl_arenas[i][0]->setUpdated();
+
     this->touched[i] = false;
   }
 
@@ -1011,24 +1017,108 @@ void Column::snapshot(const uint64_t* n_recs_part, uint64_t epoch,
 }
 
 std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data(
-    bool olap_local) {
+    bool olap_local, bool elastic_scan) {
   std::vector<std::pair<mem_chunk, uint64_t>> ret;
 
   for (uint i = 0; i < num_partitions; i++) {
     assert(master_versions[0][i].size() == 1);
-    auto& snap_arena = snapshot_arenas[i][0]->getMetadata();
+    const auto& snap_arena = snapshot_arenas[i][0]->getMetadata();
 
-    for (const auto& chunk : master_versions[snap_arena.master_ver][i]) {
-      if (olap_local) {
-        assert(HTAP_ETL && "OLAP local mode is not turned on");
-        ret.emplace_back(std::make_pair(
-            mem_chunk(this->etl_mem[i],
-                      snap_arena.numOfRecords * this->elem_size, -1),
-            snap_arena.numOfRecords));
+    if (elastic_scan) {
+      const auto& olap_arena = etl_arenas[i][0]->getMetadata();
+
+      if (snap_arena.upd_since_last_snapshot ||
+          olap_arena.upd_since_last_snapshot) {
+        // update-elastic-case
+        // second-cond: txn-snapshot was updated as somepoint so not safe to
+        // read from local storage In this case, all pointers should be txn.
+
+        assert(master_versions[snap_arena.master_ver][i].size() == 1 &&
+               "Memory expansion not supported yet.");
+
+        std::cout << "[SnapshotData][" << this->name << "][P:" << i
+                  << "] Mode: REMOTE" << std::endl;
+
+        ret.emplace_back(
+            std::make_pair(master_versions[snap_arena.master_ver][i][0],
+                           snap_arena.numOfRecords));
+
       } else {
-        ret.emplace_back(std::make_pair(chunk, snap_arena.numOfRecords));
+        if (snap_arena.numOfRecords == olap_arena.numOfRecords) {
+          // safe to read from local storage
+          assert(HTAP_ETL && "OLAP local mode is not turned on");
+
+          std::cout << "[SnapshotData][" << this->name << "][P:" << i
+                    << "] Mode: LOCAL" << std::endl;
+          ret.emplace_back(std::make_pair(
+              mem_chunk(this->etl_mem[i],
+                        olap_arena.numOfRecords * this->elem_size, -1),
+              olap_arena.numOfRecords));
+
+        } else if (snap_arena.numOfRecords > olap_arena.numOfRecords) {
+          std::cout << "[SnapshotData][" << this->name << "][P:" << i
+                    << "] Mode: HYBRID" << std::endl;
+
+          assert(HTAP_ETL && "OLAP local mode is not turned on");
+          // new records, safe to do local + tail
+
+          size_t diff = snap_arena.numOfRecords - olap_arena.numOfRecords;
+
+          // local-part
+          ret.emplace_back(std::make_pair(
+              mem_chunk(this->etl_mem[i],
+                        olap_arena.numOfRecords * this->elem_size, -1),
+              olap_arena.numOfRecords));
+
+          // tail-part
+          assert(diff <= master_versions[snap_arena.master_ver][i][0].size);
+
+          char* oltp_mem =
+              (char*)master_versions[snap_arena.master_ver][i][0].data;
+          oltp_mem += diff;
+
+          ret.emplace_back(std::make_pair(
+              mem_chunk(oltp_mem, diff * this->elem_size, -1), diff));
+
+        } else {
+          assert(false && "Delete now supported, how it can be here??");
+        }
       }
+
+    } else if (olap_local) {
+      assert(HTAP_ETL && "OLAP local mode is not turned on");
+      const auto& olap_arena = etl_arenas[i][0]->getMetadata();
+
+      std::cout << "[SnapshotData][" << this->name << "][P:" << i
+                << "] Mode: LOCAL" << std::endl;
+
+      ret.emplace_back(std::make_pair(
+          mem_chunk(this->etl_mem[i], olap_arena.numOfRecords * this->elem_size,
+                    -1),
+          olap_arena.numOfRecords));
+    } else {
+      assert(master_versions[snap_arena.master_ver][i].size() == 1 &&
+             "Memory expansion not supported yet.");
+
+      std::cout << "[SnapshotData][" << this->name << "][P:" << i
+                << "] Mode: REMOTE" << std::endl;
+
+      ret.emplace_back(
+          std::make_pair(master_versions[snap_arena.master_ver][i][0],
+                         snap_arena.numOfRecords));
     }
+
+    // for (const auto& chunk : master_versions[snap_arena.master_ver][i]) {
+    //   if (olap_local) {
+    //     assert(HTAP_ETL && "OLAP local mode is not turned on");
+    //     ret.emplace_back(std::make_pair(
+    //         mem_chunk(this->etl_mem[i],
+    //                   snap_arena.numOfRecords * this->elem_size, -1),
+    //         snap_arena.numOfRecords));
+    //   } else {
+    //     ret.emplace_back(std::make_pair(chunk, snap_arena.numOfRecords));
+    //   }
+    // }
   }
 
   return ret;
@@ -1054,6 +1144,13 @@ void Column::ETL(uint numa_node_index) {
   for (uint i = 0; i < this->num_partitions; i++) {
     // zero assume no runtime column expansion
     const auto& snap_arena = snapshot_arenas[i][0]->getMetadata();
+
+    // book-keeping for etl-data
+    etl_arenas[i][0]->create_snapshot(
+        {snap_arena.numOfRecords, snap_arena.prev_numOfRecords,
+         snap_arena.epoch_id, snap_arena.master_ver, snap_arena.partition_id,
+         false});
+
     const auto& chunk = master_versions[snap_arena.master_ver][i][0];
 
     if (snap_arena.upd_since_last_snapshot) {

@@ -70,6 +70,8 @@ class Arena {
     static_cast<T&>(*this).create_snapshot_();
   }
 
+  void setUpdated() { duringSnapshot.upd_since_last_snapshot = true; }
+
   const metadata& getMetadata() {
     // if (duringSnapshot.master_ver == 0) {
     //   ptr_to_plugin_m0 = upd;

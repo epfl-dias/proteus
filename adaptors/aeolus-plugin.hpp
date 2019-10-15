@@ -71,12 +71,15 @@ Plugin *createBlockCowPlugin(ParallelContext *context, std::string fnamePrefix,
                              RecordType rec,
                              std::vector<RecordAttribute *> &whichFields);
 
-Plugin *createBlockSnapshotPlugin(ParallelContext *context,
-                                  std::string fnamePrefix, RecordType rec,
-                                  std::vector<RecordAttribute *> &whichFields);
-Plugin *createBlockEtlPlugin(ParallelContext *context, std::string fnamePrefix,
-                             RecordType rec,
-                             std::vector<RecordAttribute *> &whichFields);
+Plugin *createBlockRemotePlugin(ParallelContext *context,
+                                std::string fnamePrefix, RecordType rec,
+                                std::vector<RecordAttribute *> &whichFields);
+Plugin *createBlockLocalPlugin(ParallelContext *context,
+                               std::string fnamePrefix, RecordType rec,
+                               std::vector<RecordAttribute *> &whichFields);
+Plugin *createBlockElasticPlugin(ParallelContext *context,
+                                 std::string fnamePrefix, RecordType rec,
+                                 std::vector<RecordAttribute *> &whichFields);
 }
 
 #endif /* AEOLUS_PLUGIN_HPP_ */

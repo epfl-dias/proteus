@@ -151,7 +151,7 @@ class Column {
 
   // snapshot stuff
   std::vector<std::pair<mem_chunk, uint64_t>> snapshot_get_data(
-      bool olap_local = false);
+      bool olap_local = false, bool elastic_scan = false);
 
   const std::string name;
   const size_t elem_size;
@@ -178,6 +178,9 @@ class Column {
   // Insert snapshotting manager here.
   std::vector<decltype(global_conf::SnapshotManager::create(0))>
       snapshot_arenas[NUM_SOCKETS];
+
+  std::vector<decltype(global_conf::SnapshotManager::create(0))>
+      etl_arenas[NUM_SOCKETS];
 
   void *etl_mem[NUM_SOCKETS];
 

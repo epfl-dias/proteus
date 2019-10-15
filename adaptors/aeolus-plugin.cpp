@@ -74,18 +74,24 @@ Plugin *createBlockCowPlugin(ParallelContext *context, std::string fnamePrefix,
   return new AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-cow");
 }
 
-Plugin *createBlockSnapshotPlugin(ParallelContext *context,
-                                  std::string fnamePrefix, RecordType rec,
-                                  std::vector<RecordAttribute *> &whichFields) {
-  return new AeolusPlugin(context, fnamePrefix, rec, whichFields,
-                          "block-snapshot");
-}
-
 Plugin *createBlockRemotePlugin(ParallelContext *context,
                                 std::string fnamePrefix, RecordType rec,
                                 std::vector<RecordAttribute *> &whichFields) {
   return new AeolusPlugin(context, fnamePrefix, rec, whichFields,
                           "block-remote");
+}
+
+Plugin *createBlockLocalPlugin(ParallelContext *context,
+                               std::string fnamePrefix, RecordType rec,
+                               std::vector<RecordAttribute *> &whichFields) {
+  return new AeolusPlugin(context, fnamePrefix, rec, whichFields,
+                          "block-local");
+}
+Plugin *createBlockElasticPlugin(ParallelContext *context,
+                                 std::string fnamePrefix, RecordType rec,
+                                 std::vector<RecordAttribute *> &whichFields) {
+  return new AeolusPlugin(context, fnamePrefix, rec, whichFields,
+                          "block-elastic");
 }
 }
 
@@ -98,12 +104,15 @@ void **AeolusPlugin::getDataPointerForFile_runtime(const char *relName,
 
   for (auto &c : tbl->getColumns()) {
     if (strcmp(c->name.c_str(), attrName) == 0) {
-      bool local_storage = false;
-      if (this->pgType.compare("block-etl") == 0) {
+      bool local_storage = false, elastic_scan = false;
+      if (this->pgType.compare("block-local") == 0) {
         local_storage = true;
+      } else if (this->pgType.compare("block-elastic") == 0) {
+        elastic_scan = true;
       }
 
-      const auto &data_arenas = c->snapshot_get_data(local_storage);
+      const auto &data_arenas =
+          c->snapshot_get_data(local_storage, elastic_scan);
       void **arr = (void **)malloc(sizeof(void *) * data_arenas.size());
       for (uint i = 0; i < data_arenas.size(); i++) {
         arr[i] = data_arenas[i].first.data;
