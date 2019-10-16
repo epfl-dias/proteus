@@ -1,0 +1,77 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+$.sh
+
+#Various
+*~
+*.mk
+bin/
+target/
+*cachegrind*
+*.out
+*.si
+._*
+
+#Eclipse
+*.class
+*.classpath
+*.project
+*.settings
+*.cache
+*.cproject
+/.cache
+/.classpath
+/.project
+
+#VTune
+r00*
+
+#Large mock test files
+inputs/CIDR15
+clinical*.csv
+genetic*.csv
+inputs/json/spam/*.json
+inputs/ssbm**
+inputs/tpch**
+inputs/ch**
+
+#Generated code folder
+generated_code/**
+
+#Scratchpad
+scratchpad/**
+cmake-build-debug
+.idea
+*.sublime-workspace
+
+#Documentation
+docs/**
+
+#Temporary files
+*.fuse_hidden*
