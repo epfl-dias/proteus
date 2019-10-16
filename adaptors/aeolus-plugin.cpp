@@ -101,14 +101,23 @@ void **AeolusPlugin::getDataPointerForFile_runtime(const char *relName,
   // TODO: add scale-up and scale-down logic here for elastic stuff.
 
   const auto &tbl = getRelation({relName});
-
   for (auto &c : tbl->getColumns()) {
     if (strcmp(c->name.c_str(), attrName) == 0) {
-      bool local_storage = false, elastic_scan = false;
+      bool local_storage = true, elastic_scan = false;
       if (this->pgType.compare("block-local") == 0) {
         local_storage = true;
+        elastic_scan = false;
       } else if (this->pgType.compare("block-elastic") == 0) {
         elastic_scan = true;
+        local_storage = false;
+      } else if (this->pgType.compare("block-cow") == 0) {
+        elastic_scan = false;
+        local_storage = false;
+      } else if (this->pgType.compare("block-remote") == 0) {
+        elastic_scan = false;
+        local_storage = false;
+      } else {
+        assert(false && "wtf");
       }
 
       const auto &data_arenas =
@@ -130,7 +139,7 @@ int64_t *AeolusPlugin::getNumOfTuplesPerPartition_runtime(const char *relName,
   const auto &tbl = getRelation({relName});
 
   const auto &c = tbl->getColumns()[0];
-
+  // FIXME: this should actually get pointer, just the number of records.
   const auto &data_arenas = c->snapshot_get_data();
   int64_t *arr = (int64_t *)malloc(sizeof(int64_t *) * data_arenas.size());
 
@@ -152,6 +161,8 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
                            string pgType)
     : BinaryBlockPlugin(context, fnamePrefix, rec, whichFields, false),
       pgType(pgType) {
+  assert(pgType == "block-local");
+
   Nparts =
       getRelation(fnamePrefix)->getColumns()[0]->snapshot_get_data().size();
 }

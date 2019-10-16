@@ -586,21 +586,43 @@ const std::vector<uint>& WorkerPool::scale_down(uint num_cores) {
   // std::vector<uint> core_ids{num_cores};
 
   uint ctr = 0;
+  const auto& cres = Topology::getInstance().getCores();
+  for (int ci = 23; ci >= 0; ci--) {
+    Worker* tmp = workers[cres[ci].id].second;
 
-  for (auto it = workers.begin(); it != workers.end(); ++it) {
     if (ctr == num_cores) {
       break;
     }
 
-    Worker* tmp = it->second.second;
+    std::cout << "Turning off core with id: " << cres[ci].id << " | "
+              << tmp->exec_core->id << std::endl;
 
-    if (tmp->state != PAUSED) {
-      tmp->state = PAUSED;
-      // core_ids[ctr] = tmp->exec_core->id;
-      elastic_set.push_back(tmp->exec_core->id);
-      ctr++;
-    }
+    // TODO : FIX!
+    tmp->terminate = true;
+    // core_ids[ctr] = tmp->exec_core->id;
+    elastic_set.push_back(tmp->exec_core->id);
+    ctr++;
   }
+
+  // for (auto it = workers.begin(); it != workers.end(); ++it) {
+
+  //   if (ctr == 0) {
+  //     size_t mv = workers.size() - num_cores;
+
+  //     for (uint c = 0; c < mv; c++) {
+  //       it++;
+  //     }
+  //   }
+
+  //   Worker* tmp = it->second.second;
+
+  //   if (tmp->state != PAUSED) {
+  //     tmp->state = PAUSED;
+  //     // core_ids[ctr] = tmp->exec_core->id;
+  //     elastic_set.push_back(tmp->exec_core->id);
+  //     ctr++;
+  //   }
+  // }
   return elastic_set;
 }
 void WorkerPool::scale_back() {
