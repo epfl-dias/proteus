@@ -70,7 +70,7 @@ class topology {
 
     const core &getCore(size_t i) const {
       assert(i < local_cores.size());
-      return topology::getInstance().getCores()[local_cores[i]];
+      return topology::getInstance().getCoreById(local_cores[i]);
     }
   };
 
@@ -134,6 +134,7 @@ class topology {
   std::vector<core> core_info;
 
   std::vector<uint32_t> cpunuma_index;
+  std::vector<uint32_t> cpucore_index;
 
   uint32_t gpu_cnt;
   uint32_t core_cnt;
@@ -214,6 +215,10 @@ class topology {
 
   inline const cpunumanode &getCpuNumaNodeById(uint32_t id) const {
     return cpu_info[cpunuma_index[id]];
+  }
+
+  inline const core &getCoreById(uint32_t id) const {
+    return core_info[cpucore_index[id]];
   }
 
   friend class exec_location;

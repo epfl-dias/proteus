@@ -106,6 +106,7 @@ extern "C" size_t random_local_cu(void *ptr, AffinityPolicy *aff) {
 namespace routing {
 ::routing_target Random::evaluate(ParallelContext *const context,
                                   const OperatorState &childState) {
+  if (fanout == 1) return {context->createInt64(0), false};
   auto Builder = context->getBuilder();
 
   auto crand = context->getFunction("rand");
