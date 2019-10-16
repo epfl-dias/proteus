@@ -111,8 +111,8 @@ PreparedStatement q_ch_cpar() {
       .scan<AeolusCowPlugin>(tpcc_orderline,
                              {ol_delivery_d, ol_number, ol_amount, ol_quantity},
                              catalog)
-      .unpack()
       .router(4, RoutingPolicy::RANDOM, DeviceType::CPU)
+      .unpack()
       .filter([&](const auto &arg) -> expression_t {
         return gt(arg[ol_delivery_d],
                   expressions::DateConstant(/*FIX*/ 904694400000));
