@@ -39,9 +39,10 @@ class DeviceManager {
  public:
   static DeviceManager &getInstance();
 
-  const topology::cpunumanode &getAvailableCPUNumaNode(void *, size_t cpu_req);
-  const topology::core &getAvailableCPUCore(void *, size_t cpu_req);
-  const topology::gpunode &getAvailableGPU(void *, size_t gpu_req);
+  const topology::cpunumanode &getAvailableCPUNumaNode(const void *,
+                                                       size_t cpu_req);
+  const topology::core &getAvailableCPUCore(const void *, size_t cpu_req);
+  const topology::gpunode &getAvailableGPU(const void *, size_t gpu_req);
 };
 
 #endif /* DEVICE_MANAGER_HPP_ */

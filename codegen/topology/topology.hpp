@@ -87,6 +87,8 @@ class topology {
         : id(id), local_cpu(local_cpu), index_in_topo(index_in_topo) {}
 
     // const cpunumanode &getNumaNode() const;
+    const cpunumanode &getLocalCPUNumaNode() const;
+
    private:
     operator cpu_set_t() const {
       cpu_set_t tmp;
@@ -122,6 +124,7 @@ class topology {
             // do not remove argument!!!
             topologyonly_construction = {});
     size_t getMemorySize() const;
+    const cpunumanode &getLocalCPUNumaNode() const;
   };
 
  private:
@@ -136,6 +139,10 @@ class topology {
   uint32_t core_cnt;
 
  protected:
+  topology(topology &&) = delete;
+  topology(const topology &) = delete;
+  topology &operator=(topology &&) = delete;
+  topology &operator=(const topology &) = delete;
   topology();
   void init_();
 

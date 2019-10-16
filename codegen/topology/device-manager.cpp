@@ -28,13 +28,13 @@ DeviceManager &DeviceManager::getInstance() {
 }
 
 const topology::cpunumanode &DeviceManager::getAvailableCPUNumaNode(
-    void *, size_t cpu_req) {
+    const void *, size_t cpu_req) {
   return topology::getInstance()
       .getCpuNumaNodes()[cpu_req %
                          topology::getInstance().getCpuNumaNodeCount()];
 }
 
-const topology::core &DeviceManager::getAvailableCPUCore(void *,
+const topology::core &DeviceManager::getAvailableCPUCore(const void *,
                                                          size_t cpu_req) {
   size_t core_index = cpu_req % topology::getInstance().getCoreCount();
   // NOTE: Assuming all CPUs have the same number of cores!
@@ -44,8 +44,32 @@ const topology::core &DeviceManager::getAvailableCPUCore(void *,
   return cpunumanode.getCore(core_index / cpunumacnt);
 }
 
-const topology::gpunode &DeviceManager::getAvailableGPU(void *,
+class gpu_index {
+ private:
+  std::vector<size_t> d;
+
+ private:
+  gpu_index() {
+    const auto &topo = topology::getInstance();
+    d.reserve(topo.getGpuCount());
+    size_t cpus = topo.getCpuNumaNodeCount();
+    for (size_t j = 0; d.size() < topo.getGpuCount(); ++j) {
+      size_t cpu = j % cpus;
+      size_t gpur = j / cpus;
+      const auto &numanode = topo.getCpuNumaNodes()[cpu];
+      const auto &gpus = numanode.local_gpus;
+      if (gpur >= gpus.size()) continue;
+      d.emplace_back(gpus[gpur]);
+    }
+  }
+
+  friend const topology::gpunode &DeviceManager::getAvailableGPU(
+      const void *, size_t gpu_req);
+};
+
+const topology::gpunode &DeviceManager::getAvailableGPU(const void *,
                                                         size_t gpu_req) {
-  return topology::getInstance()
-      .getGpus()[gpu_req % topology::getInstance().getGpuCount()];
+  static const gpu_index index;
+  size_t gpu_i = gpu_req % topology::getInstance().getGpuCount();
+  return topology::getInstance().getGpus()[index.d[gpu_i]];
 }

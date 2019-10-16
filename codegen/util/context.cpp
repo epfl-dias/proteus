@@ -747,3 +747,25 @@ void Context::endStateVars() {
   // getBuilder()->SetInsertPoint(currBlock);
   // return id;
 }
+
+llvm::Value *Context::gen_call(std::string func,
+                               std::initializer_list<llvm::Value *> args,
+                               llvm::Type *ret) {
+  llvm::Function *f;
+  try {
+    f = getFunction(func);
+    assert(ret == f->getReturnType());
+  } catch (std::runtime_error &) {
+    std::vector<llvm::Type *> v;
+    v.reserve(args.size());
+    for (const auto &arg : args) v.emplace_back(arg->getType());
+    auto FTfunc = llvm::FunctionType::get(ret, v, false);
+
+    f = llvm::Function::Create(FTfunc, llvm::Function::ExternalLinkage, func,
+                               getModule());
+
+    registerFunction((new std::string{func})->c_str(), f);
+  }
+
+  return getBuilder()->CreateCall(f, args);
+}

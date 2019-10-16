@@ -93,7 +93,8 @@ void *topology::cpunumanode::alloc(size_t bytes) const {
 
   if (bytes >= sizeof(int)) {
     // fault first page to check it's allocated on the correct node
-    ((int *)mem)[0] = 0;
+    ((int *)mem)[0] = 0;  // SIGBUS on this line means we run out of huge pafes
+                          // in that CPU numa node
     // check using the policy
     assert(topology::getInstance().getCpuNumaNodeAddressed(mem) == this);
 
@@ -465,4 +466,12 @@ extern "C" int rand_local_cpu(const void *p, uint64_t fanout) {
   size_t ulimit = (fanout - 1 - socket) / nsockets;
   size_t r = rand() % ulimit;
   return socket + r * nsockets;
+}
+
+const topology::cpunumanode &topology::gpunode::getLocalCPUNumaNode() const {
+  return topology::getInstance().getCpuNumaNodeById(local_cpu);
+}
+
+const topology::cpunumanode &topology::core::getLocalCPUNumaNode() const {
+  return topology::getInstance().getCpuNumaNodeById(local_cpu);
 }

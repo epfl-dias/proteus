@@ -259,6 +259,10 @@ class Context {
     return if_branch(expr, state, this);
   }
 
+  virtual llvm::Value *gen_call(std::string func,
+                                std::initializer_list<llvm::Value *> args,
+                                llvm::Type *ret);
+
   /**
    * Not sure the HT methods belong here
    */
