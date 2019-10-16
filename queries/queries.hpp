@@ -41,3 +41,6 @@ extern std::string ol_dist_info;
 PreparedStatement q_sum_c1t();
 PreparedStatement q_ch_c1t();
 PreparedStatement q_ch2_c1t();
+
+PreparedStatement q_sum_cpar();
+PreparedStatement q_ch_cpar();

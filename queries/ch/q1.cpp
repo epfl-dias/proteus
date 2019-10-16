@@ -103,6 +103,61 @@ PreparedStatement q_ch_c1t() {
       .prepare();
 }
 
+PreparedStatement q_ch_cpar() {
+  std::string count_order = "count_order";
+  auto ctx = new ParallelContext("main2", false);
+  CatalogParser &catalog = CatalogParser::getInstance();
+  return RelBuilder{ctx}
+      .scan<AeolusCowPlugin>(tpcc_orderline,
+                             {ol_delivery_d, ol_number, ol_amount, ol_quantity},
+                             catalog)
+      .unpack()
+      .router(4, RoutingPolicy::RANDOM, DeviceType::CPU)
+      .filter([&](const auto &arg) -> expression_t {
+        return gt(arg[ol_delivery_d],
+                  expressions::DateConstant(/*FIX*/ 904694400000));
+      })
+      .reduce(
+          [&](const auto &arg) -> std::vector<expression_t> {
+            return {arg[ol_number], arg[ol_quantity], arg[ol_amount],
+                    expression_t{1}.as(tpcc_orderline, count_order)};
+          },
+          {SUM /*fix*/, SUM, SUM, SUM})
+      .router(DegreeOfParallelism{1}, 1, RoutingPolicy::RANDOM, DeviceType::CPU)
+      .reduce(
+          [&](const auto &arg) -> std::vector<expression_t> {
+            return {arg[ol_number], arg[ol_quantity], arg[ol_amount],
+                    arg[count_order]};
+          },
+          {SUM /*fix*/, SUM, SUM, SUM})
+      .print([&](const auto &arg) -> std::vector<expression_t> {
+        std::string outrel = "out";
+
+        std::vector<expression_t> ret{
+            arg[ol_number].as(outrel, ol_number),
+            arg[ol_quantity].as(outrel, "sum_qty"),
+            arg[ol_amount].as(outrel, "sum_amount"),
+            (arg[ol_quantity] / arg[count_order]).as(outrel, "avg_qty"),
+            (arg[ol_amount] / arg[count_order].template as<FloatType>())
+                .as(outrel, "avg_amount"),
+            arg[count_order]};
+
+        std::vector<RecordAttribute *> args;
+        args.reserve(ret.size());
+
+        for (const auto &e : ret) {
+          args.emplace_back(new RecordAttribute{e.getRegisteredAs()});
+        }
+
+        InputInfo *datasetInfo = catalog.getOrCreateInputInfo(outrel, ctx);
+        datasetInfo->exprType =
+            new BagType{RecordType{std::vector<RecordAttribute *>{args}}};
+
+        return ret;
+      })
+      .prepare();
+}
+
 PreparedStatement q_ch2_c1t() {
   return PreparedStatement::from(
       "/scratch/chrysoge/pelago_sigmod2020_htap/src/htap/ch-plans/q1.json",

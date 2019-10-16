@@ -83,3 +83,38 @@ PreparedStatement q_sum_c1t() {
       })
       .prepare();
 }
+
+PreparedStatement q_sum_cpar() {
+  auto ctx = new ParallelContext("main3", false);
+  CatalogParser &catalog = CatalogParser::getInstance();
+  return RelBuilder{ctx}
+      .scan<AeolusCowPlugin>(tpcc_orderline, {ol_o_id}, catalog)
+      .router(1, RoutingPolicy::RANDOM, DeviceType::CPU)
+      .unpack()
+      .reduce(
+          [&](const auto &arg) -> std::vector<expression_t> {
+            // return {expression_t{1}.as(tpcc_orderline,ol_o_id)};
+            return {arg[ol_o_id]};
+          },
+          {SUM})
+      .router(DegreeOfParallelism{1}, 16, RoutingPolicy::LOCAL, DeviceType::CPU)
+      .reduce(
+          [&](const auto &arg) -> std::vector<expression_t> {
+            // return {expression_t{1}.as(tpcc_orderline,ol_o_id)};
+            return {arg[ol_o_id]};
+          },
+          {SUM})
+      .print([&](const auto &arg) -> std::vector<expression_t> {
+        auto reg_as2 = new RecordAttribute(0, "t2", ol_o_id,
+                                           arg[ol_o_id].getExpressionType());
+        assert(reg_as2 && "Error registering expression as attribute");
+
+        InputInfo *datasetInfo =
+            catalog.getOrCreateInputInfo(reg_as2->getRelationName(), ctx);
+        datasetInfo->exprType =
+            new BagType{RecordType{std::vector<RecordAttribute *>{reg_as2}}};
+
+        return {arg[ol_o_id].as(reg_as2)};
+      })
+      .prepare();
+}
