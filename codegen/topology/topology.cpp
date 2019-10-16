@@ -181,7 +181,7 @@ void topology::init_() {
   cpucore_index.resize(core_cnt);
   for (const auto &cpu : cpu_info) {
     for (const auto &core : cpu.local_cores) {
-      cpucore_index[cpu.id] = core_info.size();
+      cpucore_index[core] = core_info.size();
       core_info.emplace_back(core, cpu.id, core_info.size());
     }
   }
