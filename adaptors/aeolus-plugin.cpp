@@ -159,23 +159,7 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
 llvm::Value *createCall(std::string func,
                         std::initializer_list<llvm::Value *> args,
                         Context *context, llvm::Type *ret) {
-  Function *f;
-  try {
-    f = context->getFunction(func);
-    assert(ret == f->getReturnType());
-  } catch (std::runtime_error &) {
-    std::vector<llvm::Type *> v;
-    v.reserve(args.size());
-    for (const auto &arg : args) v.emplace_back(arg->getType());
-    FunctionType *FTfunc = llvm::FunctionType::get(ret, v, false);
-
-    f = Function::Create(FTfunc, Function::ExternalLinkage, func,
-                         context->getModule());
-
-    context->registerFunction((new std::string{func})->c_str(), f);
-  }
-
-  return context->getBuilder()->CreateCall(f, args);
+  return context->gen_call(func, args, ret);
 }
 
 void createCall2(std::string func, std::initializer_list<llvm::Value *> args,
