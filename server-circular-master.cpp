@@ -140,7 +140,7 @@ std::vector<PreparedStatement> init_olap_sequence(
 
   // return stmts;
   DegreeOfParallelism dop{coreids.size()};
-  for (const auto &q : {q_sum, q_ch}) {
+  for (const auto &q : {q_ch}) {
     // std::unique_ptr<Affinitizer> aff_parallel =
     //     std::make_unique<CpuCoreAffinitizer>();
 
@@ -221,7 +221,7 @@ void init_oltp(uint num_workers, std::string csv_path) {
                               storage::COLUMN_STORE, 0, csv_path);
     }
   }
-  scheduler::WorkerPool::getInstance().init(bench, num_workers, 1);
+  scheduler::WorkerPool::getInstance().init(bench, num_workers, 1, 3);
 }
 
 void run_oltp(const scheduler::cpunumanode &numa_node) {
@@ -439,6 +439,8 @@ int main(int argc, char *argv[]) {
     // FIXME: hack because it needs to run before it can be stopped
     run_oltp(txn_nodes[OLTP_SOCKET]);
   }
+
+  exit(0);
 
   shutdown_oltp(true);
 
