@@ -25,6 +25,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <exception>
 #include <string>
 
+#include "codegen/topology/topology.hpp"
 #include "communication/comm-manager.hpp"
 #include "expressions/expressions-hasher.hpp"
 #include "storage/column_store.hpp"
@@ -124,6 +125,8 @@ void **AeolusPlugin::getDataPointerForFile_runtime(const char *relName,
           c->snapshot_get_data(local_storage, elastic_scan);
       void **arr = (void **)malloc(sizeof(void *) * data_arenas.size());
       for (uint i = 0; i < data_arenas.size(); i++) {
+        LOG(INFO)
+            << topology::getInstance().getCpuNumaNodeAddressed(arr[i])->id;
         arr[i] = data_arenas[i].first.data;
       }
       return arr;
@@ -161,8 +164,6 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
                            string pgType)
     : BinaryBlockPlugin(context, fnamePrefix, rec, whichFields, false),
       pgType(pgType) {
-  assert(pgType == "block-local");
-
   Nparts =
       getRelation(fnamePrefix)->getColumns()[0]->snapshot_get_data().size();
 }

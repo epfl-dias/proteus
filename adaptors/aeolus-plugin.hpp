@@ -66,6 +66,29 @@ class AeolusCowPlugin : public AeolusPlugin {
       : AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-cow") {}
 };
 
+class AeolusLocalPlugin : public AeolusPlugin {
+ public:
+  AeolusLocalPlugin(ParallelContext *const context, std::string fnamePrefix,
+                    RecordType rec, std::vector<RecordAttribute *> &whichFields)
+      : AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-local") {}
+};
+
+class AeolusRemotePlugin : public AeolusPlugin {
+ public:
+  AeolusRemotePlugin(ParallelContext *const context, std::string fnamePrefix,
+                     RecordType rec,
+                     std::vector<RecordAttribute *> &whichFields)
+      : AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-remote") {}
+};
+
+class AeolusELasticPlugin : public AeolusPlugin {
+ public:
+  AeolusELasticPlugin(ParallelContext *const context, std::string fnamePrefix,
+                      RecordType rec,
+                      std::vector<RecordAttribute *> &whichFields)
+      : AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-elastic") {}
+};
+
 extern "C" {
 Plugin *createBlockCowPlugin(ParallelContext *context, std::string fnamePrefix,
                              RecordType rec,
