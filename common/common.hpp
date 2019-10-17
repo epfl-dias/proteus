@@ -174,7 +174,7 @@ std::ostream &operator<<(std::ostream &out, const bytes &b);
 
 namespace proteus {
 void init(float gpu_mem_pool_percentage = 0.1,
-          float cpu_mem_pool_percentage = 0.1, bool log_buffers = false);
+          float cpu_mem_pool_percentage = 0.1, size_t log_buffers = 0);
 }
 
 #endif /* COMMON_HPP_ */

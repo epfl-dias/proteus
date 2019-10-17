@@ -44,8 +44,10 @@ DEFINE_double(cpu_buffers, 0.1,
               "Percentage (0.0-1.0) of CPU memory to dedicate for buffer "
               "management (per CPU)");
 DEFINE_validator(cpu_buffers, &validatePercentage);
-DEFINE_bool(log_buffer_usage, false,
-            "Periodically print buffer usage in stderr");
+DEFINE_int64(
+    log_buffer_usage, 1000,
+    "Periodically print buffer usage in stderr, value is interval (in ms) "
+    "between prints, 0 to disable");
 DEFINE_bool(primary, false, "Make this instance a primary node");
 DEFINE_bool(secondary, false, "Connect to a primary node");
 DEFINE_bool(ipv4, false, "Use IPv4");

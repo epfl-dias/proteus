@@ -91,7 +91,7 @@ class [[deprecated("Access through BlockManager")]] buffer_manager {
 
   static __host__ void init(
       float gpu_mem_pool_percentage = 0.1, float cpu_mem_pool_percentage = 0.1,
-      bool log_buffers = false, size_t buff_buffer_size = 8,
+      size_t log_buffers = 250, size_t buff_buffer_size = 8,
       size_t buff_keep_threshold = 16);
 
   static void dev_buff_manager(int dev);
@@ -181,7 +181,7 @@ class [[deprecated("Access through BlockManager")]] buffer_manager {
 
   static __host__ void destroy();  // FIXME: cleanup...
 
-  static __host__ void log_buffers();
+  static __host__ void log_buffers(size_t freq);
 };
 
 extern "C" {

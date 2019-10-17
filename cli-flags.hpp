@@ -26,7 +26,7 @@ DECLARE_bool(query_topology);
 DECLARE_bool(trace_allocations);
 DECLARE_double(gpu_buffers);
 DECLARE_double(cpu_buffers);
-DECLARE_bool(log_buffer_usage);
+DECLARE_int64(log_buffer_usage);
 DECLARE_bool(primary);
 DECLARE_bool(secondary);
 DECLARE_bool(ipv4);

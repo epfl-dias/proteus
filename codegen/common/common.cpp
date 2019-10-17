@@ -165,7 +165,7 @@ namespace proteus {
 void thread_warm_up() {}
 
 void init(float gpu_mem_pool_percentage, float cpu_mem_pool_percentage,
-          bool log_buffers) {
+          size_t log_buffers) {
   topology::init();
 
   // Initialize Google's logging library.

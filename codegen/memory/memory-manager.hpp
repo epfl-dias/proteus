@@ -24,6 +24,7 @@
 #ifndef MEMORY_MANAGER_HPP_
 #define MEMORY_MANAGER_HPP_
 
+#include <atomic>
 #include <mutex>
 #include <stack>
 #include <unordered_map>
@@ -100,6 +101,8 @@ class SingleDeviceMemoryManager {
 
   std::stack<void *> free_cache;
 
+  std::atomic<size_t> active_bytes;
+
  protected:
   SingleDeviceMemoryManager();
   ~SingleDeviceMemoryManager();
@@ -110,6 +113,9 @@ class SingleDeviceMemoryManager {
   void free(void *ptr);
 
   friend class MemoryManager;
+
+ public:
+  size_t usage_unsafe() const { return active_bytes; }
 };
 
 typedef SingleDeviceMemoryManager<GpuMemAllocator, unit_capacity_gpu>
@@ -123,7 +129,7 @@ class MemoryManager {
   static SingleCpuMemoryManager **cpu_managers;
   static void init(float gpu_mem_pool_percentage = 0.1,
                    float cpu_mem_pool_percentage = 0.1,
-                   bool log_buffers = false);
+                   size_t log_buffers = 250);
   static void destroy();
 
   static void *mallocGpu(size_t bytes);

@@ -59,7 +59,7 @@ constexpr void *buff_end = nullptr;
 
 void buffer_manager_init(float gpu_mem_pool_percentage = 0.1,
                          float cpu_mem_pool_percentage = 0.1,
-                         bool log_buffers = false) {
+                         size_t log_buffers = false) {
   buffer_manager<int32_t>::init(gpu_mem_pool_percentage,
                                 cpu_mem_pool_percentage, log_buffers, 256, 512);
 }
@@ -307,7 +307,8 @@ __device__ T *buffer_manager<T>::try_get_buffer() {
 template <typename T>
 __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
                                       float cpu_mem_pool_percentage,
-                                      bool log_buffers, size_t buff_buffer_size,
+                                      size_t log_buffers,
+                                      size_t buff_buffer_size,
                                       size_t buff_keep_threshold) {
   const topology &topo = topology::getInstance();
   // std::cout << topo << std::endl;
@@ -501,7 +502,8 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
   for (auto &t : buffer_pool_constrs) t.join();
 
   if (log_buffers) {
-    buffer_logger = new std::thread{buffer_manager<T>::log_buffers};
+    buffer_logger =
+        new std::thread{buffer_manager<T>::log_buffers, log_buffers};
   } else {
     buffer_logger = nullptr;
   }
@@ -672,12 +674,12 @@ void buffer_manager<T>::dev_buff_manager(int dev) {
 }
 
 template <typename T>
-__host__ void buffer_manager<T>::log_buffers() {
+__host__ void buffer_manager<T>::log_buffers(size_t freq) {
   const auto &topo = topology::getInstance();
   uint32_t devices = topo.getGpuCount();
-  if (devices <= 0) return;
+  // if (devices <= 0) return;
 
-  std::ostream &out = std::cerr;
+  // std::ostream &out = std::cerr;
 
   uint32_t cnts[devices];
   cudaStream_t strs[devices];
@@ -691,26 +693,38 @@ __host__ void buffer_manager<T>::log_buffers() {
   size_t iter = 0;
 
   while (!terminating) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    std::this_thread::sleep_for(std::chrono::milliseconds{freq});
+    std::stringstream out;
     for (uint32_t i = 0; i < devices; ++i) {
       gpu_run(cudaMemcpyAsync(cnts + i, (void *)&(h_d_pool[i]->cnt),
                               sizeof(decltype(pool_t::cnt)), cudaMemcpyDefault,
                               strs[i]));
     }
+    out.clear();
     for (uint32_t i = 0; i < devices; ++i)
       gpu_run(cudaStreamSynchronize(strs[i]));
-    out << "\0337\033[H\r";
+    // out << "\0337\033[H\r";
     for (uint32_t i = 0; i < 80; ++i) out << ' ';
-    out << "\rBuffers on device: ";
+    // out << "\rBuffers on device: ";
+    out << "Buffers on device: ";
     for (uint32_t i = 0; i < devices; ++i)
       out << cnts[i] << "(+" << device_buffs_pool[i].size() << ") ";
     for (const auto &s : topo.getCpuNumaNodes()) {
       out << h_pool_numa[s.id]->size_unsafe() << " ";
     }
+    for (const auto &node : topo.getCpuNumaNodes()) {
+      out << bytes{MemoryManager::cpu_managers[node.index_in_topo]
+                       ->usage_unsafe()}
+          << " ";
+    }
+    for (uint32_t i = 0; i < devices; ++i) {
+      out << bytes{MemoryManager::gpu_managers[i]->usage_unsafe()} << " ";
+    }
     out << "\t\t"
         << progress[(iter++) % (sizeof(progress) - 1)];  // for null character
-    out << "\0338";
-    out.flush();
+    // out << "\0338";
+    // out.flush();
+    LOG(INFO) << out.str();
   }
 
   for (const auto &gpu : topo.getGpus()) {

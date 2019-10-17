@@ -52,11 +52,11 @@ void set_trace_allocations(bool val, bool silent_set_fail) {
 constexpr size_t freed_cache_cap = 16;
 
 void buffer_manager_init(float gpu_mem_pool_percentage,
-                         float cpu_mem_pool_percentage, bool log_buffers);
+                         float cpu_mem_pool_percentage, size_t log_buffers);
 void buffer_manager_destroy();
 
 void MemoryManager::init(float gpu_mem_pool_percentage,
-                         float cpu_mem_pool_percentage, bool log_buffers) {
+                         float cpu_mem_pool_percentage, size_t log_buffers) {
   const topology &topo = topology::getInstance();
 
   gpu_managers = new SingleGpuMemoryManager *[topo.getGpuCount()];
@@ -135,7 +135,7 @@ void MemoryManager::freeGpu(void *ptr) {
 }
 
 void *MemoryManager::mallocPinned(size_t bytes) {
-  const auto &topo = topology::getInstance();
+  // const auto &topo = topology::getInstance();
   eventlogger.log(nullptr, log_op::MEMORY_MANAGER_ALLOC_PINNED_START);
   nvtxRangePushA("mallocPinned");
   bytes = fixSize(bytes);
@@ -219,7 +219,8 @@ void NUMAPinnedMemAllocator::free(void *ptr) {
 }
 
 template <typename allocator, size_t unit_cap>
-SingleDeviceMemoryManager<allocator, unit_cap>::SingleDeviceMemoryManager() {}
+SingleDeviceMemoryManager<allocator, unit_cap>::SingleDeviceMemoryManager()
+    : active_bytes(0) {}
 
 template <typename allocator, size_t unit_cap>
 SingleDeviceMemoryManager<allocator, unit_cap>::~SingleDeviceMemoryManager() {
@@ -254,6 +255,8 @@ SingleDeviceMemoryManager<allocator, unit_cap>::~SingleDeviceMemoryManager() {
 template <typename allocator, size_t unit_cap>
 typename SingleDeviceMemoryManager<allocator, unit_cap>::alloc_unit_info &
 SingleDeviceMemoryManager<allocator, unit_cap>::create_allocation() {
+  active_bytes += unit_cap;
+
   void *ptr;
   if (free_cache.empty()) {
     ptr = allocator::malloc(unit_cap);
@@ -282,6 +285,8 @@ void *SingleDeviceMemoryManager<allocator, unit_cap>::malloc(size_t bytes) {
       std::lock_guard<std::mutex> lock(m_big_units);
       big_units.emplace(ptr);
     }
+
+    active_bytes += bytes;
 
     return ptr;
   }
@@ -355,6 +360,7 @@ void SingleDeviceMemoryManager<allocator, unit_cap>::free(void *ptr) {
             break;
         }
       }
+      active_bytes -= unit_cap;
       if (free_cache.size() < freed_cache_cap) {
         free_cache.push(base);
       } else {
