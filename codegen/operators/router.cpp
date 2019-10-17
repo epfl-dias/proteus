@@ -274,7 +274,10 @@ void Router::fire(int target, PipelineGen *pipGen) {
   // time_block t("Xchange pipeline (target=" + std::to_string(target) + "): ");
 
   eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_END);
-  set_exec_location_on_scope d(target_processors[target]);
+
+  const auto &cu = aff->getAvailableCU(target);
+  // set_exec_location_on_scope d(cu);
+  auto exec_affinity = cu.set_on_scope();
   Pipeline *pip = pipGen->getPipeline(target);
   std::this_thread::yield();  // if we remove that, following opens may allocate
                               // memory to wrong socket!
@@ -354,7 +357,8 @@ std::unique_ptr<routing::RoutingPolicy> Router::getPolicy() const {
       return std::make_unique<routing::HashBased>(fanout, hashExpr.value());
     }
     case RoutingPolicy::LOCAL: {
-      return std::make_unique<routing::Local>(fanout, targets, wantedFields);
+      return std::make_unique<routing::Local>(
+          fanout, wantedFields, new AffinityPolicy(fanout, aff.get()));
     }
     case RoutingPolicy::RANDOM: {
       return std::make_unique<routing::Random>(fanout);

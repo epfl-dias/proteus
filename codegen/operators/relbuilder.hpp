@@ -117,16 +117,16 @@ class RelBuilder {
 
   template <typename T, typename Thash>
   RelBuilder router(T attr, Thash hash, DegreeOfParallelism fanout,
-                    size_t slack, RoutingPolicy p,
-                    DeviceType target = DeviceType::GPU) const {
+                    size_t slack, RoutingPolicy p, DeviceType target,
+                    std::unique_ptr<Affinitizer> aff = nullptr) const {
     return router(attr(getOutputArg()), hash(getOutputArg()), fanout, slack, p,
-                  target);
+                  target, std::move(aff));
   }
 
   template <typename Thash>
   RelBuilder router(Thash hash, DegreeOfParallelism fanout, size_t slack,
-                    RoutingPolicy p,
-                    DeviceType target = DeviceType::GPU) const {
+                    RoutingPolicy p, DeviceType target,
+                    std::unique_ptr<Affinitizer> aff = nullptr) const {
     return router(
         [&](const auto& arg) -> std::vector<RecordAttribute*> {
           std::vector<RecordAttribute*> attrs;
@@ -135,25 +135,26 @@ class RelBuilder {
           }
           return attrs;
         },
-        hash, fanout, slack, p, target);
+        hash, fanout, slack, p, target, std::move(aff));
   }
 
   RelBuilder router(DegreeOfParallelism fanout, size_t slack, RoutingPolicy p,
-                    DeviceType target = DeviceType::GPU) const {
+                    DeviceType target,
+                    std::unique_ptr<Affinitizer> aff = nullptr) const {
     assert(p != RoutingPolicy::HASH_BASED);
     return router(
         [&](const auto& arg) -> std::optional<expression_t> {
           return std::nullopt;
         },
-        fanout, slack, p, target);
+        fanout, slack, p, target, std::move(aff));
   }
 
-  RelBuilder router(size_t slack, RoutingPolicy p,
-                    DeviceType target = DeviceType::GPU) const {
+  RelBuilder router(size_t slack, RoutingPolicy p, DeviceType target,
+                    std::unique_ptr<Affinitizer> aff = nullptr) const {
     size_t dop = (target == DeviceType::CPU)
                      ? topology::getInstance().getCoreCount()
                      : topology::getInstance().getGpuCount();
-    return router(DegreeOfParallelism{dop}, slack, p, target);
+    return router(DegreeOfParallelism{dop}, slack, p, target, std::move(aff));
   }
 
   RelBuilder to_gpu() const;
@@ -267,7 +268,7 @@ class RelBuilder {
   RelBuilder router(const vector<RecordAttribute*>& wantedFields,
                     std::optional<expression_t> hash,
                     DegreeOfParallelism fanout, size_t slack, RoutingPolicy p,
-                    DeviceType target) const;
+                    DeviceType target, std::unique_ptr<Affinitizer> aff) const;
 
   RelBuilder membrdcst(const vector<RecordAttribute*>& wantedFields,
                        size_t fanout, bool to_cpu,

@@ -69,7 +69,7 @@ class gpu_index {
 
 const topology::gpunode &DeviceManager::getAvailableGPU(const void *,
                                                         size_t gpu_req) {
-  static const gpu_index index;
+  static const gpu_index index;  // TODO: eager initialization
   size_t gpu_i = gpu_req % topology::getInstance().getGpuCount();
   return topology::getInstance().getGpus()[index.d[gpu_i]];
 }

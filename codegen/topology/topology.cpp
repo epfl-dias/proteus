@@ -477,3 +477,15 @@ const topology::cpunumanode &topology::gpunode::getLocalCPUNumaNode() const {
 const topology::cpunumanode &topology::core::getLocalCPUNumaNode() const {
   return topology::getInstance().getCpuNumaNodeById(local_cpu);
 }
+
+set_exec_location_on_scope topology::cpunumanode::set_on_scope() const {
+  return {*this};
+}
+
+set_exec_location_on_scope topology::core::set_on_scope() const {
+  return {*this};
+}
+
+set_exec_location_on_scope topology::gpunode::set_on_scope() const {
+  return {*this};
+}

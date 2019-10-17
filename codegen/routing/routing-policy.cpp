@@ -23,81 +23,10 @@
 
 #include "routing-policy.hpp"
 
+#include "affinitizers.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "topology/device-manager.hpp"
 #include "topology/topology.hpp"
-
-class CpuNumaNodeAffinitizer : public Affinitizer {
- public:
-  virtual size_t getAvailableCUIndex(size_t i) const override {
-    return DeviceManager::getInstance()
-        .getAvailableCPUNumaNode(this, i)
-        .index_in_topo;
-  }
-
-  virtual size_t size() const override {
-    return topology::getInstance().getCpuNumaNodeCount();
-  }
-
-  virtual size_t getLocalCUIndex(void *p) const override {
-    auto &topo = topology::getInstance();
-    const auto *g = topo.getGpuAddressed(p);
-    if (g) return g->getLocalCPUNumaNode().index_in_topo;
-    auto *c = topo.getCpuNumaNodeAddressed(p);
-    assert(c);
-    return c->index_in_topo;
-  }
-};
-
-class GPUAffinitizer : public Affinitizer {
- public:
-  virtual size_t getAvailableCUIndex(size_t i) const override {
-    return DeviceManager::getInstance().getAvailableGPU(this, i).index_in_topo;
-  }
-  virtual size_t size() const override {
-    return topology::getInstance().getGpuCount();
-  }
-  virtual size_t getLocalCUIndex(void *p) const override {
-    auto &topo = topology::getInstance();
-    const auto *g = topo.getGpuAddressed(p);
-    if (g) return g->index_in_topo;
-    auto *c = topo.getCpuNumaNodeAddressed(p);
-    assert(c);
-    const auto &gpus = c->local_gpus;
-    return gpus[rand() % gpus.size()];
-  }
-};
-
-class CpuCoreAffinitizer : public CpuNumaNodeAffinitizer {
- public:
-  virtual size_t getAvailableCUIndex(size_t i) const override {
-    return DeviceManager::getInstance()
-        .getAvailableCPUCore(this, i)
-        .getLocalCPUNumaNode()
-        .index_in_topo;
-  }
-};
-
-AffinityPolicy::AffinityPolicy(size_t fanout, const Affinitizer *aff)
-    : aff(aff) {
-  indexes.resize(aff->size());
-  for (size_t i = 0; i < fanout; ++i) {
-    indexes[aff->getAvailableCUIndex(i)].emplace_back(i);
-  }
-  for (auto &ind : indexes) {
-    if (!ind.empty()) continue;
-    for (size_t i = 0; i < fanout; ++i) ind.emplace_back(i);
-  }
-}
-
-size_t AffinityPolicy::getIndexOfRandLocalCU(void *p) const {
-  auto r = rand();
-
-  auto index_in_topo = aff->getLocalCUIndex(p);
-
-  const auto &ind = indexes[index_in_topo];
-  return ind[r % ind.size()];
-}
 
 extern "C" size_t random_local_cu(void *ptr, AffinityPolicy *aff) {
   return aff->getIndexOfRandLocalCU(ptr);
@@ -146,13 +75,8 @@ namespace routing {
   return {target, true};
 }
 
-Local::Local(size_t fanout, DeviceType dev,
-             const std::vector<RecordAttribute *> &wantedFields)
-    : fanout(fanout),
-      wantedField(*wantedFields[0]),
-      aff(new AffinityPolicy(
-          fanout, (dev == DeviceType::CPU)
-                      ? static_cast<Affinitizer *>(new CpuCoreAffinitizer)
-                      : static_cast<Affinitizer *>(new GPUAffinitizer))) {}
+Local::Local(size_t fanout, const std::vector<RecordAttribute *> &wantedFields,
+             const AffinityPolicy *aff)
+    : fanout(fanout), wantedField(*wantedFields[0]), aff(aff) {}
 
 }  // namespace routing

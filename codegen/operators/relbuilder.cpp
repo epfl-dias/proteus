@@ -224,8 +224,10 @@ PreparedStatement RelBuilder::prepare() {
 RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
                               std::optional<expression_t> hash,
                               DegreeOfParallelism fanout, size_t slack,
-                              RoutingPolicy p, DeviceType target) const {
-  auto op = new Router(root, ctx, fanout, wantedFields, slack, hash, p, target);
+                              RoutingPolicy p, DeviceType target,
+                              std::unique_ptr<Affinitizer> aff) const {
+  auto op = new Router(root, ctx, fanout, wantedFields, slack, hash, p, target,
+                       std::move(aff));
   return apply(op);
 }
 

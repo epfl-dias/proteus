@@ -32,6 +32,7 @@
 #include "nvml.h"
 
 struct ibv_device;
+class set_exec_location_on_scope;
 
 /**
  * A describing the system topology of a single server.
@@ -45,9 +46,17 @@ class topology {
   };
 
  public:
+  class cu {
+   public:
+    [[nodiscard]] virtual set_exec_location_on_scope set_on_scope() const = 0;
+    virtual ~cu() = default;
+  };
+
+  class numanode : public cu {};
+
   class core;
 
-  class cpunumanode {
+  class cpunumanode : public numanode {
    public:
     const uint32_t id;
     const uint32_t index_in_topo;
@@ -72,9 +81,12 @@ class topology {
       assert(i < local_cores.size());
       return topology::getInstance().getCoreById(local_cores[i]);
     }
+
+    [[nodiscard]] set_exec_location_on_scope set_on_scope()
+        const override final;
   };
 
-  class core {
+  class core : public cu {
    public:
     const uint32_t id;
     const uint32_t local_cpu;
@@ -89,6 +101,9 @@ class topology {
     // const cpunumanode &getNumaNode() const;
     const cpunumanode &getLocalCPUNumaNode() const;
 
+    [[nodiscard]] set_exec_location_on_scope set_on_scope()
+        const override final;
+
    private:
     operator cpu_set_t() const {
       cpu_set_t tmp;
@@ -100,7 +115,7 @@ class topology {
     friend class exec_location;
   };
 
-  class gpunode {
+  class gpunode : public numanode {
    public:
     const uint32_t id;
     const nvmlDevice_t handle;
@@ -125,6 +140,9 @@ class topology {
             topologyonly_construction = {});
     size_t getMemorySize() const;
     const cpunumanode &getLocalCPUNumaNode() const;
+
+    [[nodiscard]] set_exec_location_on_scope set_on_scope()
+        const override final;
   };
 
  private:
@@ -200,6 +218,10 @@ class topology {
 
   const topology::cpunumanode &findLocalCPUNumaNode(ibv_device *ib_dev) const;
 
+  inline const core &getCoreById(uint32_t id) const {
+    return core_info[cpucore_index[id]];
+  }
+
  private:
   [[deprecated]] inline const cpunumanode &findCpuNumaNodes(
       cpu_set_t cpus) const {
@@ -215,10 +237,6 @@ class topology {
 
   inline const cpunumanode &getCpuNumaNodeById(uint32_t id) const {
     return cpu_info[cpunuma_index[id]];
-  }
-
-  inline const core &getCoreById(uint32_t id) const {
-    return core_info[cpucore_index[id]];
   }
 
   friend class exec_location;

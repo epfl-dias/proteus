@@ -24,8 +24,10 @@
 #ifndef ROUTING_POLICY_HPP_
 #define ROUTING_POLICY_HPP_
 
+#include "affinitizers.hpp"
 #include "expressions/expressions.hpp"
 #include "topology/device-types.hpp"
+#include "topology/topology.hpp"
 #include "util/parallel-context.hpp"
 
 struct routing_target {
@@ -34,24 +36,6 @@ struct routing_target {
 };
 
 enum class RoutingPolicy { RANDOM, LOCAL, HASH_BASED };
-
-class Affinitizer {
- public:
-  virtual ~Affinitizer() = default;
-  virtual size_t getAvailableCUIndex(size_t i) const = 0;
-  virtual size_t size() const = 0;
-  virtual size_t getLocalCUIndex(void *) const = 0;
-};
-
-class AffinityPolicy {
- protected:
-  std::vector<std::vector<size_t>> indexes;
-  const Affinitizer *aff;
-
- public:
-  AffinityPolicy(size_t fanout, const Affinitizer *aff);
-  size_t getIndexOfRandLocalCU(void *ptr) const;
-};
 
 namespace routing {
 class RoutingPolicy {
@@ -86,8 +70,8 @@ class Local : public RoutingPolicy {
   const AffinityPolicy *aff;  // use pointer to satisfy lifetime requirements
 
  public:
-  Local(size_t fanout, DeviceType dev,
-        const std::vector<RecordAttribute *> &wantedFields);
+  Local(size_t fanout, const std::vector<RecordAttribute *> &wantedFields,
+        const AffinityPolicy *aff);
   routing_target evaluate(ParallelContext *const context,
                           const OperatorState &childState) override;
 };

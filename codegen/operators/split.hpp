@@ -32,7 +32,8 @@ class Split : public Router {
         int slack, std::optional<expression_t> hash = std::nullopt,
         RoutingPolicy policy_type = RoutingPolicy::LOCAL)
       : Router(child, context, DegreeOfParallelism{numOfParents}, wantedFields,
-               slack, hash, policy_type, DeviceType::CPU),
+               slack, hash, policy_type, DeviceType::CPU,
+               getDefaultAffinitizer(DeviceType::CPU)),
         produce_calls(0) {
     producers = 1;  // Set so that it does not get overwritten by Routers' cnstr
   }

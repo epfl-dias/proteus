@@ -29,23 +29,12 @@
 #include "llvm/IR/IRBuilder.h"
 #include "plugins/output/plugins-output.hpp"
 #include "plugins/plugins.hpp"
+#include "routing/degree-of-parallelism.hpp"
 #include "topology/device-types.hpp"
 
 // Fwd declaration
 class Plugin;
 class OperatorState;
-
-class DegreeOfParallelism {
- private:
-  size_t dop;
-
-  friend class Router;
-
- public:
-  explicit DegreeOfParallelism(size_t dop) : dop(dop) {}
-
-  inline bool operator==(const DegreeOfParallelism &o) { return dop == o.dop; }
-};
 
 class Operator {
  public:

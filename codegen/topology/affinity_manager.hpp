@@ -134,6 +134,12 @@ class set_exec_location_on_scope {
   exec_location old;
 
  public:
+  set_exec_location_on_scope(set_exec_location_on_scope &&) = delete;
+  set_exec_location_on_scope(const set_exec_location_on_scope &) = delete;
+  set_exec_location_on_scope &operator=(set_exec_location_on_scope &&) = delete;
+  set_exec_location_on_scope &operator=(const set_exec_location_on_scope &) =
+      delete;
+
   inline set_exec_location_on_scope(int gpu) { exec_location{gpu}.activate(); }
 
   inline set_exec_location_on_scope(int gpu, cpu_set_t cpus) {

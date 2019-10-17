@@ -52,9 +52,8 @@ class Router : public UnaryOperator {
   Router(Operator *const child, ParallelContext *const context,
          DegreeOfParallelism numOfParents,
          const vector<RecordAttribute *> &wantedFields, int slack,
-         std::optional<expression_t> hash = std::nullopt,
-         RoutingPolicy policy_type = RoutingPolicy::LOCAL,
-         DeviceType targets = DeviceType::GPU)
+         std::optional<expression_t> hash, RoutingPolicy policy_type,
+         DeviceType targets, std::unique_ptr<Affinitizer> aff = nullptr)
       : UnaryOperator(child),
         wantedFields(wantedFields),
         slack(slack),
@@ -65,7 +64,8 @@ class Router : public UnaryOperator {
         hashExpr(std::move(hash)),
         need_cnt(false),
         targets(targets),
-        policy_type(policy_type) {
+        policy_type(policy_type),
+        aff(aff ? std::move(aff) : getDefaultAffinitizer(targets)) {
     assert((policy_type == RoutingPolicy::HASH_BASED) == hash.has_value() &&
            "hash should only contain a value for hash-based routing policies");
 
@@ -78,23 +78,6 @@ class Router : public UnaryOperator {
     // ready_pool_cv       = new std::condition_variable[fanout];
 
     ready_fifo = new AsyncQueueMPSC<void *>[fanout];
-
-    auto &devmanager = DeviceManager::getInstance();
-
-    if (targets == DeviceType::CPU) {
-      for (size_t i = 0; i < fanout; ++i) {
-        target_processors.emplace_back(devmanager.getAvailableCPUCore(this, i));
-        // target_processors.emplace_back(vec[i % vec.size()]);
-      }
-    } else {
-      assert(topology::getInstance().getGpuCount() > 0 &&
-             "Are you using an outdated plan?");
-
-      for (size_t i = 0; i < fanout; ++i) {
-        target_processors.emplace_back(devmanager.getAvailableGPU(this, i));
-        // target_processors.emplace_back(vec[i % vec.size()]);
-      }
-    }
   }
 
   virtual ~Router() { LOG(INFO) << "Collapsing Router operator"; }
@@ -173,14 +156,14 @@ class Router : public UnaryOperator {
 
   std::mutex init_mutex;
 
-  std::vector<exec_location> target_processors;
-
   std::optional<expression_t> hashExpr;
 
   bool need_cnt;
 
   const DeviceType targets;
   const RoutingPolicy policy_type;
+
+  std::unique_ptr<Affinitizer> aff;
 };
 
 #endif /* ROUTER_HPP_ */
