@@ -35,7 +35,10 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #define diascld33 false
 #define diascld40 false
-#define diascld48 true
+#define diascld48 false
+
+#define icc148 true
+
 
 #define DEFAULT_MEM_NUMA_SOCKET 1
 #define DEFAULT_OLAP_SOCKET 0
@@ -48,6 +51,12 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define HTAP_RM_SERVER false
 #define PROTEUS_MEM_MANAGER false
 #define SHARED_MEMORY false  // if htap=false, then shm or numa_alloc
+
+#if icc148
+#define NUM_SOCKETS 2
+#define NUM_CORE_PER_SOCKET 28
+#endif
+
 
 #if diascld48
 #define NUM_SOCKETS 2

@@ -150,7 +150,10 @@ void Worker::run() {
 
   while (!terminate) {
     if (change_affinity) {
-      AffinityManager::getInstance().set(this->affinity_core);
+      set_exec_location_on_scope d{
+          topology::getInstance()
+              .getCores()[this->affinity_core->index_in_topo]};
+      // AffinityManager::getInstance().set(this->affinity_core);
       change_affinity = false;
     }
     if (pause) {

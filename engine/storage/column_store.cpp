@@ -202,13 +202,18 @@ ColumnStore::ColumnStore(
 
   for (int i = 0; i < g_num_partitions; i++) this->vid[i] = 0;
 
+  std::vector<std::thread> loaders;
+
   if (indexed) {
     void* obj_ptr =
         MemoryManager::alloc(sizeof(Column), DEFAULT_MEM_NUMA_SOCKET);
     meta_column = new (obj_ptr)
         Column(name + "_meta", initial_num_records, this, META,
                sizeof(global_conf::IndexVal), 0, true, partitioned, numa_idx);
-    meta_column->initializeMetaColumn();
+    // TODO: make it parallel. bottleneck now.
+
+    loaders.emplace_back(
+        [this]() { this->meta_column->initializeMetaColumn(); });
 
     this->p_index =
         new global_conf::PrimaryIndex<uint64_t>(name, initial_num_records);
@@ -257,6 +262,9 @@ ColumnStore::ColumnStore(
   this->initial_num_recs = initial_num_records;
 
 #endif
+  for (auto& th : loaders) {
+    th.join();
+  }
 
   {
     std::unique_lock<std::mutex> lk(print_mutex);

@@ -125,9 +125,9 @@ void **AeolusPlugin::getDataPointerForFile_runtime(const char *relName,
           c->snapshot_get_data(local_storage, elastic_scan);
       void **arr = (void **)malloc(sizeof(void *) * data_arenas.size());
       for (uint i = 0; i < data_arenas.size(); i++) {
+        arr[i] = data_arenas[i].first.data;
         LOG(INFO)
             << topology::getInstance().getCpuNumaNodeAddressed(arr[i])->id;
-        arr[i] = data_arenas[i].first.data;
       }
       return arr;
     }
@@ -148,6 +148,7 @@ int64_t *AeolusPlugin::getNumOfTuplesPerPartition_runtime(const char *relName,
 
   for (uint i = 0; i < data_arenas.size(); i++) {
     arr[i] = data_arenas[i].second;
+    LOG(INFO) << "NumberOfRecords:" << arr[i];
   }
 
   return arr;
