@@ -91,6 +91,7 @@ class ColumnStore : public Table {
   void snapshot(uint64_t epoch, uint8_t snapshot_master_ver);
   void ETL(uint numa_node_idx);
   void num_upd_tuples();
+  int64_t *snapshot_get_number_tuples();
   const std::vector<Column *> &getColumns() { return columns; }
 
   /*

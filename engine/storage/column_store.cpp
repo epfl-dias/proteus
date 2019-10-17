@@ -37,11 +37,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/table.hpp"
 #include "util/timing.hpp"
 
-#if PROTEUS_MEM_MANAGER
 #include "codegen/memory/memory-manager.hpp"
 #include "codegen/topology/affinity_manager.hpp"
 #include "codegen/topology/topology.hpp"
-#endif
 
 #define MEMORY_SLACK 1000
 #define CIDR_HACK false
@@ -205,9 +203,11 @@ ColumnStore::ColumnStore(
   for (int i = 0; i < g_num_partitions; i++) this->vid[i] = 0;
 
   if (indexed) {
-    meta_column = new Column(name + "_meta", initial_num_records, this, META,
-                             sizeof(global_conf::IndexVal), 0, true,
-                             partitioned, numa_idx);
+    void* obj_ptr =
+        MemoryManager::alloc(sizeof(Column), DEFAULT_MEM_NUMA_SOCKET);
+    meta_column = new (obj_ptr)
+        Column(name + "_meta", initial_num_records, this, META,
+               sizeof(global_conf::IndexVal), 0, true, partitioned, numa_idx);
     meta_column->initializeMetaColumn();
 
     this->p_index =
@@ -230,9 +230,11 @@ ColumnStore::ColumnStore(
   // create columns
   size_t col_offset = 0;
   for (const auto& t : columns) {
-    this->columns.emplace_back(
-        new Column(std::get<0>(t), initial_num_records, this, std::get<1>(t),
-                   std::get<2>(t), col_offset, false, partitioned, numa_idx));
+    void* obj_ptr =
+        MemoryManager::alloc(sizeof(Column), DEFAULT_MEM_NUMA_SOCKET);
+    this->columns.emplace_back(new (obj_ptr) Column(
+        std::get<0>(t), initial_num_records, this, std::get<1>(t),
+        std::get<2>(t), col_offset, false, partitioned, numa_idx));
     col_offset += std::get<2>(t);
   }
   for (const auto& t : this->columns) {
@@ -506,6 +508,12 @@ Column::Column(std::string name, uint64_t initial_num_records,
 
     etl_arenas[j].emplace_back(
         global_conf::SnapshotManager::create(size_per_partition));
+
+    snapshot_arenas[j][0]->create_snapshot(
+        {0, 0, 0, 0, static_cast<uint8_t>(j), false});
+
+    etl_arenas[j][0]->create_snapshot(
+        {0, 0, 0, 0, static_cast<uint8_t>(j), false});
   }
 
 #if HTAP_ETL
@@ -518,8 +526,10 @@ Column::Column(std::string name, uint64_t initial_num_records,
 
   for (ushort j = 0; j < this->num_partitions; j++) {
     this->etl_mem[j] =
-        MemoryManager::alloc_shm(name + "__" + std::to_string(j),
-                                 size_per_partition, total_numa_nodes - j - 1);
+        MemoryManager::alloc(size_per_partition, DEFAULT_OLAP_SOCKET);
+    // assert((total_numa_nodes - j - 1) == 1);
+    // MemoryManager::alloc_shm(name + "__" + std::to_string(j),
+    //                          size_per_partition, total_numa_nodes - j - 1);
     assert(this->etl_mem[j] != nullptr || this->etl_mem[j] != NULL);
   }
 
@@ -547,13 +557,16 @@ Column::Column(std::string name, uint64_t initial_num_records,
       set_exec_location_on_scope d{cpunumanodes[j]};
       void* mem = ::MemoryManager::mallocPinned(size_per_partition);
 #else
-      void* mem = MemoryManager::alloc(size_per_partition, j);
+      void* mem = MemoryManager::alloc(
+          size_per_partition,
+          storage::Schema::getInstance().getPartitionInfo(j).numa_idx);
 
 #endif
       assert(mem != nullptr || mem != NULL);
-      loaders.emplace_back([mem, size_per_partition, j]() {
-        const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
-        scheduler::AffinityManager::getInstance().set(&vec[j]);
+      loaders.emplace_back([mem, size_per_partition]() {
+        // const auto& vec =
+        // scheduler::Topology::getInstance().getCpuNumaNodes();
+        // scheduler::AffinityManager::getInstance().set(&vec[j]);
 
         uint64_t* pt = (uint64_t*)mem;
         uint64_t warmup_max = size_per_partition / sizeof(uint64_t);
@@ -561,7 +574,9 @@ Column::Column(std::string name, uint64_t initial_num_records,
         for (uint64_t j = 0; j < warmup_max; j++) pt[j] = 0;
       });
 
-      master_versions[i][j].emplace_back(mem, size_per_partition, j);
+      master_versions[i][j].emplace_back(
+          mem, size_per_partition,
+          storage::Schema::getInstance().getPartitionInfo(j).numa_idx);
 
       if (!single_version_only) {
         uint num_bit_packs = (initial_num_records_per_part / BIT_PACK_SIZE) +
@@ -569,9 +584,15 @@ Column::Column(std::string name, uint64_t initial_num_records,
 
         loaders.emplace_back([this, i, j, num_bit_packs]() {
           // set affinity to fault in the correct numa-memset
-          const auto& vec =
-              scheduler::Topology::getInstance().getCpuNumaNodes();
-          scheduler::AffinityManager::getInstance().set(&vec[j]);
+          // const auto& vec =
+          //     scheduler::Topology::getInstance().getCpuNumaNodes();
+          // scheduler::AffinityManager::getInstance().set(&vec[j]);
+
+          set_exec_location_on_scope d{
+              topology::getInstance()
+                  .getCpuNumaNodes()[storage::Schema::getInstance()
+                                         .getPartitionInfo(j)
+                                         .numa_idx]};
 
           for (uint64_t bb = 0; bb < num_bit_packs; bb++) {
             upd_bit_masks[i][j].emplace_back();
@@ -697,7 +718,7 @@ void Column::insertElem(uint64_t vid, void* elem) {
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     bool ins = false;
     for (const auto& chunk : master_versions[i][pid]) {
-      assert(pid == chunk.numa_id);
+      // assert(pid == chunk.numa_id);
 
       if (__likely(chunk.size >= (data_idx + elem_size))) {
         void* dst = (void*)(((char*)chunk.data) + data_idx);
@@ -752,7 +773,7 @@ void Column::updateElem(uint64_t vid, void* elem) {
   assert(data_idx < size_per_part);
 
   for (const auto& chunk : master_versions[mver][pid]) {
-    assert(pid == chunk.numa_id);
+    //    assert(pid == chunk.numa_id);
 
     if (__likely(chunk.size >= (data_idx + elem_size))) {
       void* dst = (void*)(((char*)chunk.data) + data_idx);
@@ -841,7 +862,7 @@ void Column::insertElemBatch(uint64_t vid, uint64_t num_elem, void* data) {
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     bool ins = false;
     for (const auto& chunk : master_versions[i][pid]) {
-      assert(pid == chunk.numa_id);
+      //      assert(pid == chunk.numa_id);
 
       if (__likely(chunk.size >= (data_idx_en + elem_size))) {
         void* dst = (void*)(((char*)chunk.data) + data_idx_st);
@@ -966,14 +987,11 @@ uint64_t Column::load_from_binary(std::string file_path) {
 
 void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
   uint64_t partitions_n_recs[NUM_SOCKETS];
-
-  //{
-  // std::unique_lock<std::mutex> lk(print_mutex);
-  std::cout << "SnapTable: " << this->name << std::endl;
-  //}
+  std::cout << "SnapTable -- " << this->name << std::endl;
   for (uint i = 0; i < g_num_partitions; i++) {
     partitions_n_recs[i] = this->vid[i].load();
-    std::cout << "NumRecords[" << i << "]" << this->vid[i].load() << std::endl;
+    std::cout << "\tNumRecords[" << i << "]" << this->vid[i].load()
+              << std::endl;
   }
 
   for (auto& col : this->columns) {
@@ -983,11 +1001,8 @@ void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
 
 void Column::snapshot(const uint64_t* n_recs_part, uint64_t epoch,
                       uint8_t snapshot_master_ver) {
-  if (this->name.compare("d_next_o_id") == 0 ||
-      this->name.compare("s_quantity") == 0 ||
-      this->name.compare("s_order_cnt") == 0 ||
-      this->name.compare("s_ytd") == 0)
-    num_upd_tuples(snapshot_master_ver, n_recs_part, true);
+  if (this->touched) num_upd_tuples(snapshot_master_ver, n_recs_part, true);
+
   for (uint i = 0; i < g_num_partitions; i++) {
     assert(snapshot_arenas[i].size() == 1);
 
@@ -1000,20 +1015,18 @@ void Column::snapshot(const uint64_t* n_recs_part, uint64_t epoch,
 
     this->touched[i] = false;
   }
+}
 
-  // for (uint j = 0; j < g_num_partitions; j++) {
-  //   const auto& snap_arena = snapshot_arenas[j][0]->getMetadata();
-  //   if (snap_arena.upd_since_last_snapshot == false) continue;
+int64_t* ColumnStore::snapshot_get_number_tuples() {
+  uint num_parts = this->columns[0]->num_partitions;
 
-  //   uint64_t recs_scanned = 0;
-  //   for (auto& chunk : upd_bit_masks[snapshot_master_ver][j]) {
-  //     chunk.reset();
-  //     recs_scanned += BIT_PACK_SIZE;
-  //     if (recs_scanned >= snap_arena.numOfRecords) {
-  //       break;
-  //     }
-  //   }
-  // }
+  int64_t* arr = (int64_t*)malloc(sizeof(int64_t*) * num_parts);
+
+  for (uint i = 0; i < num_parts; i++) {
+    arr[i] =
+        this->columns[0]->snapshot_arenas[i][0]->getMetadata().numOfRecords;
+  }
+  return arr;
 }
 
 std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data(
@@ -1037,7 +1050,7 @@ std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data(
                "Memory expansion not supported yet.");
 
         std::cout << "[SnapshotData][" << this->name << "][P:" << i
-                  << "] Mode: REMOTE" << std::endl;
+                  << "] Mode: ELASTIC-REMOTE" << std::endl;
 
         ret.emplace_back(
             std::make_pair(master_versions[snap_arena.master_ver][i][0],
@@ -1049,7 +1062,7 @@ std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data(
           assert(HTAP_ETL && "OLAP local mode is not turned on");
 
           std::cout << "[SnapshotData][" << this->name << "][P:" << i
-                    << "] Mode: LOCAL" << std::endl;
+                    << "] Mode: ELASTIC-LOCAL" << std::endl;
           ret.emplace_back(std::make_pair(
               mem_chunk(this->etl_mem[i],
                         olap_arena.numOfRecords * this->elem_size, -1),
@@ -1090,18 +1103,22 @@ std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data(
       const auto& olap_arena = etl_arenas[i][0]->getMetadata();
 
       std::cout << "[SnapshotData][" << this->name << "][P:" << i
-                << "] Mode: LOCAL" << std::endl;
+                << "] Mode: LOCAL "
+                << ((double)(olap_arena.numOfRecords * this->elem_size)) /
+                       (1024 * 1024 * 1024)
+                << std::endl;
 
       ret.emplace_back(std::make_pair(
           mem_chunk(this->etl_mem[i], olap_arena.numOfRecords * this->elem_size,
                     -1),
           olap_arena.numOfRecords));
+
     } else {
       assert(master_versions[snap_arena.master_ver][i].size() == 1 &&
              "Memory expansion not supported yet.");
 
       std::cout << "[SnapshotData][" << this->name << "][P:" << i
-                << "] Mode: REMOTE" << std::endl;
+                << "] Mode: REMOTE2" << std::endl;
 
       ret.emplace_back(
           std::make_pair(master_versions[snap_arena.master_ver][i][0],
@@ -1138,8 +1155,8 @@ void ColumnStore::ETL(uint numa_node_idx) {
 
 void Column::ETL(uint numa_node_index) {
   // TODO: ETL with respect to the bit-mask.
-  const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
-  scheduler::AffinityManager::getInstance().set(&vec[numa_node_index]);
+  // const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
+  // scheduler::AffinityManager::getInstance().set(&vec[numa_node_index]);
 
   for (uint i = 0; i < this->num_partitions; i++) {
     // zero assume no runtime column expansion
@@ -1177,6 +1194,9 @@ void Column::ETL(uint numa_node_index) {
     }
 
     if (__likely(snap_arena.numOfRecords > snap_arena.prev_numOfRecords)) {
+      // std::cout << this->name << " : new_records: " <<
+      // snap_arena.numOfRecords
+      //           << " | " << snap_arena.prev_numOfRecords << std::endl;
       size_t st = snap_arena.prev_numOfRecords * this->elem_size;
       size_t to_cpy = (snap_arena.numOfRecords - snap_arena.prev_numOfRecords) *
                       this->elem_size;

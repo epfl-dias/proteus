@@ -35,6 +35,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <cstdlib>
 #include <iostream>
 
+#include "codegen/memory/memory-manager.hpp"
+#include "codegen/topology/affinity_manager.hpp"
+#include "codegen/topology/topology.hpp"
 #include "scheduler/comm_manager.hpp"
 #include "scheduler/topology.hpp"
 
@@ -162,15 +165,20 @@ void MemoryManager::destroy() {
   std::cout << "[MemoryManager::destroy] --END--" << std::endl;
 }
 void* MemoryManager::alloc(size_t bytes, int numa_memset_id, int mem_advice) {
-  const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
-  assert(numa_memset_id < vec.size());
-  void* ret = numa_alloc_onnode(bytes, vec[numa_memset_id].id);
+  // const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
+  // assert(numa_memset_id < vec.size());
+  // void* ret = numa_alloc_onnode(bytes, vec[numa_memset_id].id);
 
-  if (madvise(ret, bytes, mem_advice) == -1) {
-    fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno));
-    assert(false);
-    return nullptr;
-  }
+  const auto& topo = topology::getInstance();
+  const auto& nodes = topo.getCpuNumaNodes();
+  set_exec_location_on_scope d{nodes[numa_memset_id]};
+  void* ret = ::MemoryManager::mallocPinned(bytes);
+
+  // if (madvise(ret, bytes, mem_advice) == -1) {
+  //   fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno));
+  //   assert(false);
+  //   return nullptr;
+  // }
 
   return ret;
   // return numa_alloc_interleaved(bytes);

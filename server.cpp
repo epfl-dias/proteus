@@ -55,9 +55,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #endif
 
 // proteus
-#if PROTEUS_MEM_MANAGER
+//#if PROTEUS_MEM_MANAGER
 #include "common/common.hpp"
-#endif
+//#endif
 
 /*std::ostream& operator<<(std::ostream& os, int64_t i) {
   char buf[20];
@@ -126,7 +126,7 @@ int main(int argc, char** argv) {
   // }
   // myfile.close();
   // return 0;
-
+  proteus::init();
   gflags::SetUsageMessage("Simple command line interface for aeolus");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
@@ -209,7 +209,7 @@ int main(int argc, char** argv) {
       (FLAGS_elastic_workload > 0 ? true : false));
 
   schema->report();
-
+  __itt_resume();
   scheduler::WorkerPool::getInstance().start_workers();
 
   if (FLAGS_migrate_worker > 0) {
@@ -273,6 +273,7 @@ int main(int argc, char** argv) {
   usleep(1000000);  // sanity sleep so that async threads can exit gracefully.
 
   std::cout << "Tear Down Inititated" << std::endl;
+  __itt_pause();
   scheduler::WorkerPool::getInstance().shutdown(true);
 
   if (HTAP_RM_SERVER) {

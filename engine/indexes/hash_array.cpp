@@ -21,6 +21,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 */
 
 #include "indexes/hash_array.hpp"
+#include "storage/table.hpp"
 
 #include "glo.hpp"
 
@@ -46,7 +47,9 @@ HashArray<K, V>::HashArray(std::string name, uint64_t num_obj)
 
   for (int i = 0; i < partitions; i++) {
     arr[i] = (char **)storage::MemoryManager::alloc(
-        size_per_part, i, MADV_DONTFORK | MADV_HUGEPAGE);
+        size_per_part,
+        storage::Schema::getInstance().getPartitionInfo(i).numa_idx,
+        MADV_DONTFORK | MADV_HUGEPAGE);
     assert(arr[i] != nullptr);
     filler[i] = 0;
   }

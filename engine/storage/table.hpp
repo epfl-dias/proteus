@@ -52,6 +52,20 @@ enum layout_type { ROW_STORE, COLUMN_STORE };
 
 enum data_type { META, INTEGER, STRING, FLOAT, VARCHAR, DATE };
 
+class TablePartition {
+ public:
+  const uint pid;
+  const uint numa_idx;
+
+ public:
+  explicit TablePartition(uint pid, uint numa_idx)
+      : pid(pid), numa_idx(numa_idx) {}
+
+  inline bool operator==(const TablePartition &o) {
+    return (pid == o.pid && numa_idx == o.numa_idx);
+  }
+};
+
 // template <uint8_t T>
 // class BitMask_T {
 //   // unsigned char b1 : 1;
@@ -136,6 +150,11 @@ class Schema {
 
   DeltaStore *deltaStore[global_conf::num_delta_storages];
 
+  const TablePartition &getPartitionInfo(uint pid) {
+    assert(pid < PartitionVector.size());
+    return PartitionVector[pid];
+  }
+
   // volatile std::atomic<uint64_t> rid;
   // inline uint64_t __attribute__((always_inline)) get_next_rid() {
   //   return rid.fetch_add(1);
@@ -144,6 +163,7 @@ class Schema {
  private:
   uint8_t num_tables;
   std::vector<Table *> tables;
+  std::vector<TablePartition> PartitionVector;
 
   // snapshotting
   std::future<bool> snapshot_sync;
@@ -168,6 +188,9 @@ class Schema {
         this->total_delta_mem_reserved += deltaStore[i]->total_mem_reserved;
       }
     }
+
+    PartitionVector.emplace_back(TablePartition{0, 1});
+    PartitionVector.emplace_back(TablePartition{1, 0});
   }
 
   friend class Table;

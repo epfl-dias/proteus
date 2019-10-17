@@ -56,10 +56,12 @@ DeltaStore::DeltaStore(uint delta_id, uint64_t ver_list_capacity,
 
     // std::cout << "PID-" << i << " - memset: " << data_numa_id << std::endl;
 
-    void* mem_list = MemoryManager::alloc(ver_list_capacity, i,
-                                          MADV_DONTFORK | MADV_HUGEPAGE);
-    void* mem_data = MemoryManager::alloc(ver_data_capacity, i,
-                                          MADV_DONTFORK | MADV_HUGEPAGE);
+    void* mem_list =
+        MemoryManager::alloc(ver_list_capacity, DEFAULT_MEM_NUMA_SOCKET,
+                             MADV_DONTFORK | MADV_HUGEPAGE);
+    void* mem_data =
+        MemoryManager::alloc(ver_data_capacity, DEFAULT_MEM_NUMA_SOCKET,
+                             MADV_DONTFORK | MADV_HUGEPAGE);
     assert(mem_list != NULL);
     assert(mem_data != NULL);
 
@@ -69,8 +71,8 @@ DeltaStore::DeltaStore(uint delta_id, uint64_t ver_list_capacity,
     assert(mem_list != nullptr);
     assert(mem_data != nullptr);
 
-    void* obj_data =
-        MemoryManager::alloc(sizeof(DeltaPartition), i, MADV_DONTFORK);
+    void* obj_data = MemoryManager::alloc(
+        sizeof(DeltaPartition), DEFAULT_MEM_NUMA_SOCKET, MADV_DONTFORK);
 
     partitions.emplace_back(new (obj_data) DeltaPartition(
         (char*)mem_list, mem_chunk(mem_list, ver_list_capacity, i),

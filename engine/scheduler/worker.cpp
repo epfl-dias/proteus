@@ -40,6 +40,10 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
 
+#include "codegen/memory/memory-manager.hpp"
+#include "codegen/topology/affinity_manager.hpp"
+#include "codegen/topology/topology.hpp"
+
 #if __has_include("ittnotify.h")
 #include <ittnotify.h>
 #else
@@ -96,6 +100,17 @@ calculate_delta_ver(uint64_t txn_id, uint64_t start_time) {
 void Worker::run() {
   // std::cout << "[WORKER] Worker (TID:" << (int)(this->id)
   //          << "): Assigining Core ID:" << this->exec_core->id << std::endl;
+  // AffinityManager::getInstance().set(this->exec_core);
+
+  //
+
+  // std::cout << exec_core->id << std::endl;
+  // std::cout << exec_core->local_cpu << std::endl;
+  // std::cout << exec_core->local_cpu_index << std::endl;
+  // std::cout << exec_core->index_in_topo << std::endl;
+
+  set_exec_location_on_scope d{
+      topology::getInstance().getCores()[exec_core->index_in_topo]};
 
   WorkerPool* pool = &WorkerPool::getInstance();
   txn::TransactionManager* txnManager = &txn::TransactionManager::getInstance();
@@ -129,7 +144,7 @@ void Worker::run() {
       });
     }
   }
-  AffinityManager::getInstance().set(this->exec_core);
+
   this->txn_start_time = std::chrono::system_clock::now();
   this->state = RUNNING;
 
@@ -508,27 +523,38 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
     }
 
   } else if (worker_sched_mode == 3) {  // reversed
-    assert(false && "Turned off due to buggy code");
-    // for (std::vector<core>::reverse_iterator c = worker_cores.rbegin();
-    //      c != worker_cores.rend(); ++c) {
-    //   void* obj_ptr =
-    //       storage::MemoryManager::alloc(sizeof(Worker), c->local_cpu_index);
-    //   void* thd_ptr = storage::MemoryManager::alloc(sizeof(std::thread),
-    //                                                 c->local_cpu_index);
+    // assert(false && "Turned off due to buggy code");
 
-    //   Worker* wrkr = new (obj_ptr) Worker(worker_counter++, &(*c));
-    //   wrkr->partition_id = (c->local_cpu_index % num_partitions);
-    //   wrkr->num_iters = num_iter_per_worker;
+    const auto& sys_cores = Topology::getInstance().getCores();
+    uint ctr = 0;
+    for (int i = sys_cores.size() - 1; i >= 0; i--) {
+      void* obj_ptr = storage::MemoryManager::alloc(
+          sizeof(Worker), sys_cores[i].local_cpu_index, MADV_DONTFORK);
+      void* thd_ptr = storage::MemoryManager::alloc(
+          sizeof(std::thread), sys_cores[i].local_cpu_index, MADV_DONTFORK);
 
-    //   std::cout << "Worker-" << (uint)wrkr->id << ": Allocated partition # "
-    //             << wrkr->partition_id << std::endl;
-    //   std::thread* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
+      Worker* wrkr = new (obj_ptr) Worker(worker_counter++, &(sys_cores[i]));
 
-    //   workers.emplace(std::make_pair(c->id, std::make_pair(thd, wrkr)));
-    //   if (++i == num_workers) {
-    //     break;
-    //   }
-    // }
+      wrkr->partition_id =
+          0;  //(sys_cores[i].local_cpu_index % num_partitions);
+      wrkr->num_iters = num_iter_per_worker;
+
+      std::cout << "Worker-" << (uint)wrkr->id << "(" << sys_cores[i].id
+                << "): Allocated partition # " << wrkr->partition_id
+                << std::endl;
+      std::thread* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
+
+      workers.emplace(
+          std::make_pair(sys_cores[i].id, std::make_pair(thd, wrkr)));
+      prev_time_tps.emplace_back(
+          std::chrono::time_point<std::chrono::system_clock,
+                                  std::chrono::nanoseconds>::min());
+      prev_sum_tps.emplace_back(0);
+
+      if (++ctr == num_workers) {
+        break;
+      }
+    }
 
   } else {
     assert(false && "Unknown scheduling mode.");

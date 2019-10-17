@@ -762,8 +762,8 @@ TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
   uint64_t max_orders = TPCC_MAX_ORDER_INITIAL_CAP;
 
   max_orders = (max_orders / NUM_SOCKETS) * g_num_partitions;
-  std::cout << "MAX ORDERS: " << max_orders << std::endl;
-  std::cout << "g_num_partitions: " << g_num_partitions << std::endl;
+  // std::cout << "MAX ORDERS: " << max_orders << std::endl;
+  // std::cout << "g_num_partitions: " << g_num_partitions << std::endl;
   uint64_t max_order_line = TPCC_MAX_OL_PER_ORDER * max_orders;
   uint64_t max_stock = TPCC_MAX_ITEMS * (this->num_warehouse);
 

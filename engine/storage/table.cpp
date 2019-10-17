@@ -186,12 +186,16 @@ Table* Schema::create_table(
     int numa_idx) {
   Table* tbl = nullptr;
 
-  if (layout == COLUMN_STORE) {
-    // void* obj_ptr =
-    //     MemoryManager::alloc(sizeof(ColumnStore), DEFAULT_MEM_NUMA_SOCKET);
+  if (numa_idx == -1) {
+    numa_idx = DEFAULT_MEM_NUMA_SOCKET;
+  }
 
-    tbl = new ColumnStore((this->num_tables + 1), name, columns,
-                          initial_num_records, indexed, partitioned, numa_idx);
+  if (layout == COLUMN_STORE) {
+    void* obj_ptr = MemoryManager::alloc(sizeof(ColumnStore), numa_idx);
+
+    tbl = new (obj_ptr)
+        ColumnStore((this->num_tables + 1), name, columns, initial_num_records,
+                    indexed, partitioned, numa_idx);
 
   } else if (layout == ROW_STORE) {
     // void* obj_ptr =
