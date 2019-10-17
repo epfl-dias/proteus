@@ -103,7 +103,9 @@ PreparedStatement q_ch_c1t() {
       .prepare();
 }
 
-PreparedStatement q_ch_cpar() {
+PreparedStatement q_ch_cpar(DegreeOfParallelism dop,
+                            std::unique_ptr<Affinitizer> aff_parallel,
+                            std::unique_ptr<Affinitizer> aff_reduce) {
   std::string count_order = "count_order";
   auto ctx = new ParallelContext("main2", false);
   CatalogParser &catalog = CatalogParser::getInstance();
@@ -111,7 +113,8 @@ PreparedStatement q_ch_cpar() {
       .scan<AeolusCowPlugin>(tpcc_orderline,
                              {ol_delivery_d, ol_number, ol_amount, ol_quantity},
                              catalog)
-      .router(4, RoutingPolicy::RANDOM, DeviceType::CPU)
+      .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
+              std::move(aff_parallel))
       .unpack()
       .filter([&](const auto &arg) -> expression_t {
         return gt(arg[ol_delivery_d],
@@ -123,7 +126,8 @@ PreparedStatement q_ch_cpar() {
                     expression_t{1}.as(tpcc_orderline, count_order)};
           },
           {SUM /*fix*/, SUM, SUM, SUM})
-      .router(DegreeOfParallelism{1}, 1, RoutingPolicy::RANDOM, DeviceType::CPU)
+      .router(DegreeOfParallelism{1}, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
+              std::move(aff_reduce))
       .reduce(
           [&](const auto &arg) -> std::vector<expression_t> {
             return {arg[ol_number], arg[ol_quantity], arg[ol_amount],
@@ -162,4 +166,11 @@ PreparedStatement q_ch2_c1t() {
   return PreparedStatement::from(
       "/scratch/chrysoge/pelago_sigmod2020_htap/src/htap/ch-plans/q1.json",
       "main2");
+}
+
+PreparedStatement q_ch(DegreeOfParallelism dop,
+                       std::unique_ptr<Affinitizer> aff_parallel,
+                       std::unique_ptr<Affinitizer> aff_reduce) {
+  if (dop == DegreeOfParallelism{1}) return q_ch_c1t();
+  return q_ch_cpar(dop, std::move(aff_parallel), std::move(aff_reduce));
 }

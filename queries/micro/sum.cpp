@@ -24,7 +24,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <filesystem>
 #include <iostream>
 #include <string>
 
@@ -84,12 +83,15 @@ PreparedStatement q_sum_c1t() {
       .prepare();
 }
 
-PreparedStatement q_sum_cpar() {
+PreparedStatement q_sum_cpar(DegreeOfParallelism dop,
+                             std::unique_ptr<Affinitizer> aff_parallel,
+                             std::unique_ptr<Affinitizer> aff_reduce) {
   auto ctx = new ParallelContext("main3", false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
       .scan<AeolusCowPlugin>(tpcc_orderline, {ol_o_id}, catalog)
-      .router(1, RoutingPolicy::RANDOM, DeviceType::CPU)
+      .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
+              std::move(aff_parallel))
       .unpack()
       .reduce(
           [&](const auto &arg) -> std::vector<expression_t> {
@@ -97,7 +99,8 @@ PreparedStatement q_sum_cpar() {
             return {arg[ol_o_id]};
           },
           {SUM})
-      .router(DegreeOfParallelism{1}, 16, RoutingPolicy::LOCAL, DeviceType::CPU)
+      .router(DegreeOfParallelism{1}, 16, RoutingPolicy::LOCAL, DeviceType::CPU,
+              std::move(aff_reduce))
       .reduce(
           [&](const auto &arg) -> std::vector<expression_t> {
             // return {expression_t{1}.as(tpcc_orderline,ol_o_id)};
@@ -117,4 +120,11 @@ PreparedStatement q_sum_cpar() {
         return {arg[ol_o_id].as(reg_as2)};
       })
       .prepare();
+}
+
+PreparedStatement q_sum(DegreeOfParallelism dop,
+                        std::unique_ptr<Affinitizer> aff_parallel,
+                        std::unique_ptr<Affinitizer> aff_reduce) {
+  if (dop == DegreeOfParallelism{1}) return q_sum_c1t();
+  return q_sum_cpar(dop, std::move(aff_parallel), std::move(aff_reduce));
 }

@@ -28,7 +28,6 @@
 #include <gflags/gflags.h>
 #include <unistd.h>
 
-#include <filesystem>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -96,34 +95,63 @@ std::vector<PreparedStatement> init_olap_sequence(
 
   std::vector<PreparedStatement> stmts;
 
-  std::string label_prefix("htap_" + std::to_string(getpid()) + "_c" +
-                           std::to_string(client_id) + "_q");
+  // std::string label_prefix("htap_" + std::to_string(getpid()) + "_c" +
+  //                          std::to_string(client_id) + "_q");
 
-  if (FLAGS_plan_json.length()) {
-    LOG(INFO) << "Compiling Plan:" << FLAGS_plan_json << std::endl;
+  // if (FLAGS_plan_json.length()) {
+  //   LOG(INFO) << "Compiling Plan:" << FLAGS_plan_json << std::endl;
 
-    stmts.emplace_back(PreparedStatement::from(
-        FLAGS_plan_json, label_prefix + std::to_string(0), FLAGS_inputs_dir));
-  } else {
-    uint i = 0;
-    for (const auto &entry :
-         std::filesystem::directory_iterator(FLAGS_plan_dir)) {
-      if (entry.path().filename().string()[0] == '.') continue;
+  //   stmts.emplace_back(PreparedStatement::from(
+  //       FLAGS_plan_json, label_prefix + std::to_string(0),
+  //       FLAGS_inputs_dir));
+  // } else {
+  //   uint i = 0;
+  //   for (const auto &entry :
+  //        std::filesystem::directory_iterator(FLAGS_plan_dir)) {
+  //     if (entry.path().filename().string()[0] == '.') continue;
 
-      if (entry.path().extension() == ".json") {
-        std::string plan_path = entry.path().string();
-        std::string label = label_prefix + std::to_string(i++);
+  //     if (entry.path().extension() == ".json") {
+  //       std::string plan_path = entry.path().string();
+  //       std::string label = label_prefix + std::to_string(i++);
 
-        LOG(INFO) << "Compiling Query:" << plan_path << std::endl;
+  //       LOG(INFO) << "Compiling Query:" << plan_path << std::endl;
 
-        stmts.emplace_back(
-            PreparedStatement::from(plan_path, label, FLAGS_inputs_dir));
-      }
-    }
+  //       stmts.emplace_back(
+  //           PreparedStatement::from(plan_path, label, FLAGS_inputs_dir));
+  //     }
+  //   }
+  // }
+
+  std::vector<SpecificCpuCoreAffinitizer::coreid_t> coreids;
+
+  for (auto id : numa_node.local_cores) {
+    coreids.emplace_back(id);
   }
 
-  return stmts;
-  // return {q_sum_c1t(), q_ch_c1t(), q_ch2_c1t()};
+  // {
+  //   for (const auto &n : topology::getInstance().getCpuNumaNodes()) {
+  //     if (n != numa_node) {
+  //       for (size_t i = 0; i < std::min(4, n.local_cores.size()); ++i) {
+  //         coreids.emplace_back(n.local_cores[i]);
+  //       }
+  //     }
+  //   }
+  // }
+
+  // return stmts;
+  DegreeOfParallelism dop{numa_node.local_cores.size()};
+  for (const auto &q : {q_sum, q_ch}) {
+    // std::unique_ptr<Affinitizer> aff_parallel =
+    //     std::make_unique<CpuCoreAffinitizer>();
+
+    std::unique_ptr<Affinitizer> aff_parallel =
+        std::make_unique<SpecificCpuCoreAffinitizer>(coreids);
+    std::unique_ptr<Affinitizer> aff_reduce =
+        std::make_unique<CpuCoreAffinitizer>();
+
+    stmts.emplace_back(q(dop, std::move(aff_parallel), std::move(aff_reduce)));
+  }
+  return stmts;  // q_sum_c1t(), q_ch_c1t(), q_ch2_c1t()};
 }
 void run_olap_sequence(int &client_id,
                        std::vector<PreparedStatement> &olap_queries,
@@ -238,6 +266,30 @@ void *get_shm(std::string name, size_t size) {
 //     kill(pid, SIGTERM);
 //   }
 //   exit(1);
+// }
+
+// void handle_child_termination(int sig) {
+//   pid_t p;
+//   int status;
+
+//   while ((p = waitpid(-1, &status, WNOHANG)) > 0) {
+//     LOG(INFO) << "Process " << p << " stopped or died.";
+//     exit(-1);
+//   }
+// }
+
+// void register_handler() {
+//   signal(SIGINT, kill_orphans_and_widows);
+
+//   {
+
+//     struct sigaction sa {};
+// #pragma clang diagnostic push
+// #pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
+//     sa.sa_handler = handle_child_termination;
+// #pragma clang diagnostic pop
+//     sigaction(SIGCHLD, &sa, NULL);
+//   }
 // }
 
 // void register_handler() { signal(SIGINT, kill_orphans_and_widows); }

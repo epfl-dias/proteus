@@ -24,6 +24,8 @@
 #include <string>
 
 #include "codegen/plan/prepared-statement.hpp"
+#include "routing/affinitizers.hpp"
+#include "routing/degree-of-parallelism.hpp"
 
 extern std::string tpcc_orderline;
 
@@ -42,5 +44,17 @@ PreparedStatement q_sum_c1t();
 PreparedStatement q_ch_c1t();
 PreparedStatement q_ch2_c1t();
 
-PreparedStatement q_sum_cpar();
-PreparedStatement q_ch_cpar();
+PreparedStatement q_sum_cpar(
+    DegreeOfParallelism dop,
+    std::unique_ptr<Affinitizer> aff_parallel = nullptr,
+    std::unique_ptr<Affinitizer> aff_reduce = nullptr);
+PreparedStatement q_ch_cpar(DegreeOfParallelism dop,
+                            std::unique_ptr<Affinitizer> aff_parallel = nullptr,
+                            std::unique_ptr<Affinitizer> aff_reduce = nullptr);
+
+PreparedStatement q_sum(DegreeOfParallelism dop,
+                        std::unique_ptr<Affinitizer> aff_parallel = nullptr,
+                        std::unique_ptr<Affinitizer> aff_reduce = nullptr);
+PreparedStatement q_ch(DegreeOfParallelism dop,
+                       std::unique_ptr<Affinitizer> aff_parallel = nullptr,
+                       std::unique_ptr<Affinitizer> aff_reduce = nullptr);
