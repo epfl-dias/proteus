@@ -25,17 +25,26 @@
 #define NUM_OLAP_REPEAT 16
 #define HTAP true
 
-#include "glo.hpp"
+#include <gflags/gflags.h>
+#include <unistd.h>
+
+#include <filesystem>
 #include <iostream>
 #include <string>
 
-#include <filesystem>
-#include <gflags/gflags.h>
-
-#include <unistd.h>
-
 #include "benchmarks/tpcc.hpp"
 #include "benchmarks/ycsb.hpp"
+#include "cli-flags.hpp"
+#include "codegen/communication/comm-manager.hpp"
+#include "codegen/memory/block-manager.hpp"
+#include "codegen/memory/memory-manager.hpp"
+#include "codegen/plan/prepared-statement.hpp"
+#include "codegen/storage/storage-manager.hpp"
+#include "codegen/topology/affinity_manager.hpp"
+#include "codegen/util/jit/pipeline.hpp"
+#include "codegen/util/parallel-context.hpp"
+#include "codegen/util/timing.hpp"
+#include "glo.hpp"
 #include "interfaces/bench.hpp"
 #include "scheduler/affinity_manager.hpp"
 #include "scheduler/comm_manager.hpp"
@@ -47,16 +56,6 @@
 #include "transactions/transaction_manager.hpp"
 #include "utils/utils.hpp"
 
-#include "codegen/communication/comm-manager.hpp"
-#include "codegen/memory/block-manager.hpp"
-#include "codegen/memory/memory-manager.hpp"
-#include "codegen/plan/prepared-statement.hpp"
-#include "codegen/storage/storage-manager.hpp"
-#include "codegen/topology/affinity_manager.hpp"
-#include "codegen/util/jit/pipeline.hpp"
-#include "codegen/util/parallel-context.hpp"
-#include "codegen/util/timing.hpp"
-
 #if __has_include("ittnotify.h")
 #include <ittnotify.h>
 #else
@@ -64,11 +63,6 @@
 #define __itt_pause() ((void)0)
 #endif
 
-DEFINE_bool(query_topology, false, "Print the system topology and exit");
-DEFINE_bool(trace_allocations, false,
-            "Trace memory allocation and leaks (requires a build with "
-            "undefined NDEBUG)");
-DEFINE_bool(inc_buffers, false, "Use bigger block pools");
 DEFINE_uint64(num_olap_clients, 1, "Number of OLAP clients");
 DEFINE_uint64(num_olap_repeat, 1, "Number of OLAP clients");
 DEFINE_uint64(num_oltp_clients, 1, "Number of OLTP clients");
@@ -90,10 +84,12 @@ struct OLAP_STATS {
   // uint64_t runtime_stats[NUM_TPCH_QUERIES][NUM_OLAP_REPEAT];
 };
 
-void init_olap_warmup() { proteus::init(FLAGS_inc_buffers); }
+void init_olap_warmup() {
+  proteus::init(FLAGS_gpu_buffers, FLAGS_cpu_buffers, FLAGS_log_buffer_usage);
+}
 
-std::vector<PreparedStatement>
-init_olap_sequence(int &client_id, const topology::cpunumanode &numa_node) {
+std::vector<PreparedStatement> init_olap_sequence(
+    int &client_id, const topology::cpunumanode &numa_node) {
   // chdir("/home/raza/local/htap/opt/pelago");
 
   time_block t("TcodegenTotal_: ");
@@ -117,12 +113,9 @@ init_olap_sequence(int &client_id, const topology::cpunumanode &numa_node) {
     uint i = 0;
     for (const auto &entry :
          std::filesystem::directory_iterator(FLAGS_plan_dir)) {
-
-      if (entry.path().filename().string()[0] == '.')
-        continue;
+      if (entry.path().filename().string()[0] == '.') continue;
 
       if (entry.path().extension() == ".json") {
-
         std::string plan_path = entry.path().string();
         std::string label = label_prefix + std::to_string(i++);
 
@@ -163,7 +156,6 @@ void run_olap_sequence(int &client_id,
     for (uint i = 0; i < FLAGS_num_olap_repeat; i++) {
       uint j = 0;
       for (auto &q : olap_queries) {
-
         // std::chrono::time_point<std::chrono::system_clock> start =
         //     std::chrono::system_clock::now();
 
@@ -194,7 +186,6 @@ void init_oltp(uint num_workers, std::string csv_path) {
 
   bench::Benchmark *bench = nullptr;
   if (FLAGS_bench_ycsb) {
-
     bench = new bench::YCSB("YCSB", 1, 72 * 1000000, 0.5, -1, 10,
                             FLAGS_ycsb_write_ratio, num_workers,
                             scheduler::Topology::getInstance().getCoreCount(),
@@ -213,7 +204,6 @@ void init_oltp(uint num_workers, std::string csv_path) {
 }
 
 void run_oltp(const scheduler::cpunumanode &numa_node) {
-
   scheduler::WorkerPool::getInstance().start_workers();
 }
 
@@ -230,7 +220,7 @@ void *get_shm(std::string name, size_t size) {
     assert(false);
   }
 
-  if (ftruncate(fd, size) < 0) { //== -1){
+  if (ftruncate(fd, size) < 0) {  //== -1){
     LOG(ERROR) << __FILE__ << ":" << __LINE__ << " " << strerror(errno)
                << std::endl;
     assert(false);
@@ -260,7 +250,6 @@ void register_handler() { signal(SIGINT, kill_orphans_and_widows); }
 void snapshot_oltp() { txn::TransactionManager::getInstance().snapshot(); }
 
 [[noreturn]] void fly_olap(struct OLAP_STATS *olap_stats, int i) {
-
   init_olap_warmup();
 
   auto &topo = topology::getInstance();
@@ -312,7 +301,7 @@ int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   google::InitGoogleLogging(argv[0]);
-  FLAGS_logtostderr = 0; // FIXME: the command line flags/defs seem to fail...
+  FLAGS_logtostderr = 0;  // FIXME: the command line flags/defs seem to fail...
 
   // google::InstallFailureSignalHandler();
 
@@ -320,7 +309,8 @@ int main(int argc, char *argv[]) {
 
   register_handler();
 
-  FLAGS_num_olap_repeat = (NUM_OLAP_REPEAT / FLAGS_num_olap_clients); // warmmup
+  FLAGS_num_olap_repeat =
+      (NUM_OLAP_REPEAT / FLAGS_num_olap_clients);  // warmmup
 
   std::cout << "QUERIES_PER_SESSION: " << (FLAGS_num_olap_repeat) << std::endl;
   std::cout << "OLAP Clients: " << FLAGS_num_olap_clients << std::endl;
@@ -334,7 +324,6 @@ int main(int argc, char *argv[]) {
       sizeof(struct OLAP_STATS) * FLAGS_num_olap_clients)) struct OLAP_STATS();
 
   for (int i = 0; i < FLAGS_num_olap_clients; i++) {
-
     olap_stats[i].shutdown = false;
     // for (int j = 0; j < NUM_TPCH_QUERIES; j++) {
     //   for (int k = 0; k < NUM_OLAP_REPEAT; k++)

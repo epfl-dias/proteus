@@ -53,6 +53,7 @@ set(UNIT_TESTS TRUE)
 set(SOURCES
     cm/comm_manager.cpp
     sm/storage_manager.cpp
+    ../executor/cli-flags.cpp
     )
 
 #-----------------------------------------------------------------------
