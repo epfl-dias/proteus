@@ -154,7 +154,7 @@ class CpuCoreAffinitizer : public CpuNumaNodeAffinitizer {
 
 class SpecificCpuCoreAffinitizer : public CpuCoreAffinitizer {
  public:
-  typedef decltype(topology::core::id) coreid_t;
+  typedef std::remove_cv_t<decltype(topology::core::id)> coreid_t;
 
  private:
   std::vector<coreid_t> core_ids;
