@@ -61,9 +61,9 @@ PreparedStatement q_ch_c1t() {
   auto ctx = new ParallelContext("main2", false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<AeolusCowPlugin>(tpcc_orderline,
-                             {ol_delivery_d, ol_number, ol_amount, ol_quantity},
-                             catalog)
+      .scan<AeolusLocalPlugin>(
+          tpcc_orderline, {ol_delivery_d, ol_number, ol_amount, ol_quantity},
+          catalog)
       .unpack()
       .filter([&](const auto &arg) -> expression_t {
         return gt(arg[ol_delivery_d],
@@ -110,9 +110,9 @@ PreparedStatement q_ch_cpar(DegreeOfParallelism dop,
   auto ctx = new ParallelContext("main2", false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<AeolusCowPlugin>(tpcc_orderline,
-                             {ol_delivery_d, ol_number, ol_amount, ol_quantity},
-                             catalog)
+      .scan<AeolusLocalPlugin>(
+          tpcc_orderline, {ol_delivery_d, ol_number, ol_amount, ol_quantity},
+          catalog)
       .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
               std::move(aff_parallel))
       .unpack()

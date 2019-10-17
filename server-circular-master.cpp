@@ -68,6 +68,7 @@ DEFINE_string(plan_dir, "inputs/plans/cpu-ssb",
 DEFINE_string(inputs_dir, "inputs/", "Data and catalog directory");
 DEFINE_bool(run_oltp, true, "Run OLTP");
 DEFINE_bool(run_olap, true, "Run OLAP");
+DEFINE_bool(elastic, false, "elastic_oltp");
 
 DEFINE_bool(etl, false, "ETL on snapshot");
 
@@ -139,7 +140,7 @@ std::vector<PreparedStatement> init_olap_sequence(
   // }
 
   // return stmts;
-  DegreeOfParallelism dop{numa_node.local_cores.size()};
+  DegreeOfParallelism dop{coreids.size()};
   for (const auto &q : {q_sum, q_ch}) {
     // std::unique_ptr<Affinitizer> aff_parallel =
     //     std::make_unique<CpuCoreAffinitizer>();
@@ -196,13 +197,10 @@ void run_olap_sequence(int &client_id,
 }
 
 void shutdown_olap() {
-  LOG(INFO) << "Unloading files...";
   StorageManager::unloadAll();
-
-  LOG(INFO) << "Shuting down memory manager...";
   MemoryManager::destroy();
 
-  LOG(INFO) << "Shut down finished";
+  LOG(INFO) << "OLAP Shutdown complete";
 }
 
 void init_oltp(uint num_workers, std::string csv_path) {
@@ -233,6 +231,8 @@ void run_oltp(const scheduler::cpunumanode &numa_node) {
 
 void shutdown_oltp(bool print_stat = true) {
   scheduler::WorkerPool::getInstance().shutdown(print_stat);
+  storage::Schema::getInstance().teardown();
+  LOG(INFO) << "OLTP Shutdown complete";
 }
 
 void *get_shm(std::string name, size_t size) {
@@ -351,6 +351,7 @@ int main(int argc, char *argv[]) {
   const auto &txn_nodes = txn_topo.getCpuNumaNodes();
   // init_oltp(txn_nodes[0].local_cores.size(), "");
   init_oltp(FLAGS_num_oltp_clients, "");
+  storage::Schema::getInstance().report();
 
   // bench::Benchmark *oltp_bench = init_oltp(4, "");
 
@@ -361,7 +362,8 @@ int main(int argc, char *argv[]) {
 
   // assert(nodes.size() >= 2);
   // assert(FLAGS_num_oltp_clients <= nodes[0].local_cores.size());
-  auto OLAP_SOCKET = nodes.size() - 1;
+  auto OLAP_SOCKET = 0;
+  auto OLTP_SOCKET = 1;
 
   exec_location{nodes[OLAP_SOCKET]}.activate();
 
@@ -373,24 +375,37 @@ int main(int argc, char *argv[]) {
   //   olap_queries.push_back(init_olap_sequence(i, OLAP_SOCKET));
   // }
 
+  {
+    time_block t("T_FIRST_SNAPSHOT_ETL_: ");
+    snapshot_oltp();
+    storage::Schema::getInstance().ETL(OLAP_SOCKET);
+  }
+  int client_id = 1;
+  auto olap_queries = init_olap_sequence(client_id, nodes[OLAP_SOCKET]);
+
   profiling::resume();
-  if (FLAGS_run_oltp && FLAGS_num_oltp_clients > 0) run_oltp(txn_nodes[0]);
+  if (FLAGS_run_oltp && FLAGS_num_oltp_clients > 0)
+    run_oltp(txn_nodes[OLTP_SOCKET]);
 
   usleep(2000000);
 
+  scheduler::WorkerPool::getInstance().print_worker_stats_diff();
+  if (FLAGS_elastic) {
+    std::cout << "Scale-down OLTP" << std::endl;
+    scheduler::WorkerPool::getInstance().scale_down(4);  // 4 core scale down
+  }
+
   for (int i = 0; i < FLAGS_num_olap_clients; i++) {
     scheduler::WorkerPool::getInstance().print_worker_stats_diff();
+
     std::cout << "Snapshot Request" << std::endl;
     snapshot_oltp();
     std::cout << "Snapshot Done" << std::endl;
-    scheduler::WorkerPool::getInstance().print_worker_stats_diff();
     if (FLAGS_etl) {
       time_block t("T_ETL_: ");
       storage::Schema::getInstance().ETL(OLAP_SOCKET);
     }
     scheduler::WorkerPool::getInstance().print_worker_stats_diff();
-
-    auto olap_queries = init_olap_sequence(i, nodes[OLAP_SOCKET]);
 
     {
       time_block t("T_fly_olap_: ");
@@ -420,6 +435,12 @@ int main(int argc, char *argv[]) {
   scheduler::WorkerPool::getInstance().print_worker_stats_diff();
   scheduler::WorkerPool::getInstance().print_worker_stats();
   std::cout << "[Master] Shutting down everything" << std::endl;
+
+  if (!FLAGS_run_oltp && FLAGS_num_oltp_clients > 0) {
+    // FIXME: hack because it needs to run before it can be stopped
+    run_oltp(txn_nodes[OLTP_SOCKET]);
+  }
+
   shutdown_oltp(true);
 
   // LOG(INFO) << "[SERVER-COW] OLAP Client #" << i << ": Shutdown";

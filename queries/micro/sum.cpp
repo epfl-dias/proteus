@@ -60,7 +60,7 @@ PreparedStatement q_sum_c1t() {
   auto ctx = new ParallelContext("main2", false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<AeolusCowPlugin>(tpcc_orderline, {ol_o_id}, catalog)
+      .scan<AeolusLocalPlugin>(tpcc_orderline, {ol_o_id}, catalog)
       .unpack()
       .reduce(
           [&](const auto &arg) -> std::vector<expression_t> {
@@ -89,7 +89,7 @@ PreparedStatement q_sum_cpar(DegreeOfParallelism dop,
   auto ctx = new ParallelContext("main3", false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<AeolusCowPlugin>(tpcc_orderline, {ol_o_id}, catalog)
+      .scan<AeolusLocalPlugin>(tpcc_orderline, {ol_o_id}, catalog)
       .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
               std::move(aff_parallel))
       .unpack()
