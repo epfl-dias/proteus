@@ -45,7 +45,7 @@ DEFINE_double(cpu_buffers, 0.1,
               "management (per CPU)");
 DEFINE_validator(cpu_buffers, &validatePercentage);
 DEFINE_int64(
-    log_buffer_usage, 1000,
+    log_buffer_usage, 0,
     "Periodically print buffer usage in stderr, value is interval (in ms) "
     "between prints, 0 to disable");
 DEFINE_bool(primary, false, "Make this instance a primary node");
