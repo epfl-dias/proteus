@@ -33,8 +33,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <iostream>
 #include <locale>
 #include <string>
-#include <thread>
 
+#include "threadpool/thread.hpp"
 #include "utils/utils.hpp"
 
 namespace bench {
@@ -747,7 +747,7 @@ inline void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
 TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
            bool layout_column_store, int g_dist_threshold, std::string csv_path,
            bool is_ch_benchmark)
-    : Benchmark(name, active_warehouse, std::thread::hardware_concurrency(),
+    : Benchmark(name, active_warehouse, proteus::thread::hardware_concurrency(),
                 g_num_partitions),
       num_warehouse(num_warehouses),
       g_dist_threshold(g_dist_threshold),
@@ -767,7 +767,7 @@ TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
   uint64_t max_order_line = TPCC_MAX_OL_PER_ORDER * max_orders;
   uint64_t max_stock = TPCC_MAX_ITEMS * (this->num_warehouse);
 
-  std::vector<std::thread> loaders;
+  std::vector<proteus::thread> loaders;
 
   loaders.emplace_back(
       [this]() { this->create_tbl_warehouse(this->num_warehouse); });
@@ -1456,7 +1456,7 @@ void TPCC::load_order(int w_id, uint64_t xid, ushort partition_id,
   uint64_t *cperm = (uint64_t *)malloc(sizeof(uint64_t) * TPCC_NCUST_PER_DIST);
   assert(cperm);
 
-  std::vector<std::thread> loaders;
+  std::vector<proteus::thread> loaders;
 
   for (int d = 0; d < TPCC_NDIST_PER_WH; d++) {
     init_permutation(&this->seed, cperm);

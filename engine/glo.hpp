@@ -27,18 +27,16 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "indexes/hash_array.hpp"
 #include "indexes/hash_index.hpp"
+#include "scheduler/topology.hpp"
 #include "snapshot/arena.hpp"
 #include "snapshot/snapshot_manager.hpp"
 #include "transactions/cc.hpp"
-
-#include "scheduler/topology.hpp"
 
 #define diascld33 false
 #define diascld40 false
 #define diascld48 false
 
 #define icc148 true
-
 
 #define DEFAULT_MEM_NUMA_SOCKET 1
 #define DEFAULT_OLAP_SOCKET 0
@@ -56,7 +54,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define NUM_SOCKETS 2
 #define NUM_CORE_PER_SOCKET 28
 #endif
-
 
 #if diascld48
 #define NUM_SOCKETS 2
