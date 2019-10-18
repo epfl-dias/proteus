@@ -658,8 +658,8 @@ void HashGroupByChained::generate_scan() {
    * while(itemCtr < size)
    */
   Value *lhs = Builder->CreateLoad(mem_itemCtr, "i");
-
-  Value *cond = Builder->CreateICmpSLT(lhs, cnt);
+  Value *cond =
+      Builder->CreateICmpSLT(lhs, Builder->CreateZExt(cnt, lhs->getType()));
 
   // Insert the conditional branch into the end of CondBB.
   BranchInst *loop_cond = Builder->CreateCondBr(cond, LoopBB, AfterBB);
@@ -723,7 +723,8 @@ void HashGroupByChained::generate_scan() {
 
   BasicBlock *groupProcessBB = BasicBlock::Create(llvmContext, "releaseIf", F);
 
-  Value *isGroup = Builder->CreateICmpNE(next, lhs);
+  Value *isGroup =
+      Builder->CreateICmpNE(Builder->CreateZExt(next, lhs->getType()), lhs);
   Builder->CreateCondBr(isGroup, groupProcessBB, IncBB);
 
   Builder->SetInsertPoint(groupProcessBB);

@@ -80,6 +80,17 @@ class HashGroupByChained : public UnaryOperator {
   virtual void open(Pipeline *pip);
   virtual void close(Pipeline *pip);
 
+  virtual RecordType getRowType() const {
+    std::vector<RecordAttribute *> attrs;
+    for (const auto &attr : key_expr) {
+      attrs.emplace_back(new RecordAttribute{attr.getRegisteredAs()});
+    }
+    for (const auto &attr : agg_exprs) {
+      attrs.emplace_back(new RecordAttribute{attr.expr.getRegisteredAs()});
+    }
+    return attrs;
+  }
+
  protected:
   void prepareDescription();
   virtual void generate_build(ParallelContext *const context,
