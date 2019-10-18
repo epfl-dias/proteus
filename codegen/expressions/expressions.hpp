@@ -1242,26 +1242,37 @@ inline expressions::ModExpression operator%(const expression_t &lhs,
 
 inline expressions::RecordProjection expression_t::operator[](
     RecordAttribute proj) const {
-  return {*this, proj};
+  auto rec = dynamic_cast<const RecordType *>(getExpressionType());
+  assert(rec);
+  auto p = rec->getArg(proj.getAttrName());
+  if (p) {
+    assert(p->getRelationName() == proj.getRelationName());
+    return {*this, *p};
+  }
+  for (const auto &e : rec->getArgs()) {
+    auto type = dynamic_cast<const RecordType *>(e->getOriginalType());
+    if (type) {
+      try {
+        return expression_t::make<expressions::RecordProjection>(*this,
+                                                                 *e)[proj];
+      } catch (std::runtime_error &) {
+      }
+    }
+  }
+  throw std::runtime_error("Invalid record projection");
 }
 
 inline expressions::RecordProjection expressions::InputArgument::operator[](
     RecordAttribute proj) const {
-  // for (const auto &attr : projections) {
-  //   if (attr.getAttrName() == proj.getAttrName()) {
-  //     return {expression_t{*this}, attr};
-  //   }
-  // }
-  // string error_msg = "[InputArgument: ] unknown projection";
-  // LOG(ERROR) << error_msg;
-  // throw runtime_error(error_msg);
   return expression_t{*this}[proj];
 }
 
 inline expressions::RecordProjection expressions::InputArgument::operator[](
     std::string attr) const {
-  auto &type = dynamic_cast<const RecordType &>(*getExpressionType());
-  return (*this)[*(type.getArg(attr))];
+  assert(this->getProjections().size() && "Empty input argument!");
+  return (*this)[RecordAttribute(
+      this->getProjections().front().getRelationName(), attr,
+      nullptr /*assuming that this null with note survive*/)];
 }
 
 inline expression_t::expression_t(bool v)
