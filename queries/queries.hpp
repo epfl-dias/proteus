@@ -44,6 +44,8 @@ PreparedStatement q_sum_c1t();
 PreparedStatement q_ch_c1t();
 PreparedStatement q_ch2_c1t();
 
+PreparedStatement q_ch1_c1t();
+
 PreparedStatement q_sum_cpar(
     DegreeOfParallelism dop,
     std::unique_ptr<Affinitizer> aff_parallel = nullptr,
@@ -51,6 +53,10 @@ PreparedStatement q_sum_cpar(
 PreparedStatement q_ch_cpar(DegreeOfParallelism dop,
                             std::unique_ptr<Affinitizer> aff_parallel = nullptr,
                             std::unique_ptr<Affinitizer> aff_reduce = nullptr);
+PreparedStatement q_ch1_cpar(
+    DegreeOfParallelism dop,
+    std::unique_ptr<Affinitizer> aff_parallel = nullptr,
+    std::unique_ptr<Affinitizer> aff_reduce = nullptr);
 
 PreparedStatement q_sum(DegreeOfParallelism dop,
                         std::unique_ptr<Affinitizer> aff_parallel = nullptr,
@@ -58,3 +64,6 @@ PreparedStatement q_sum(DegreeOfParallelism dop,
 PreparedStatement q_ch(DegreeOfParallelism dop,
                        std::unique_ptr<Affinitizer> aff_parallel = nullptr,
                        std::unique_ptr<Affinitizer> aff_reduce = nullptr);
+PreparedStatement q_ch1(DegreeOfParallelism dop,
+                        std::unique_ptr<Affinitizer> aff_parallel = nullptr,
+                        std::unique_ptr<Affinitizer> aff_reduce = nullptr);
