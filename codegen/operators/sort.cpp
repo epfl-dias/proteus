@@ -713,14 +713,14 @@ void Sort::call_sort(Value *mem, Value *N) {
     size_t i = 0;
     for (const auto &e : orderByFields) {
       const auto &d = dirs[i++];
-      if (d == NONE) continue;
+      if (d == direction::NONE) continue;
       RecordAttribute attr = e.getRegisteredAs();
 
       // FIXME: replace with expressions
       Value *arg0 = Builder->CreateLoad(bindings[0][attr].mem);
       Value *arg1 = Builder->CreateLoad(bindings[1][attr].mem);
 
-      if (d == DESC) std::swap(arg0, arg1);
+      if (d == direction::DESC) std::swap(arg0, arg1);
 
       BasicBlock *eqPreBB = BasicBlock::Create(llvmContext, "eqPre", F);
       BasicBlock *notGTBB = BasicBlock::Create(llvmContext, "notGT", F);

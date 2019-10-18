@@ -43,6 +43,14 @@ class GpuSort : public UnaryOperator {
                        const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
+  virtual RecordType getRowType() const {
+    std::vector<RecordAttribute *> attrs;
+    for (const auto &attr : orderByFields) {
+      attrs.emplace_back(new RecordAttribute{attr.getRegisteredAs()});
+    }
+    return attrs;
+  }
+
  protected:
   virtual void flush_sorted();
 

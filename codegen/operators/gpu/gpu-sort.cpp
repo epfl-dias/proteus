@@ -40,7 +40,7 @@ expressions::RecordConstruction buildSortOutputExpression(
     assert(expr.isRegistered() && "All expressions must be registered!");
 
     auto e = expr;
-    if (dirs[i++] == DESC) e = -e;
+    if (dirs[i++] == direction::DESC) e = -e;
 
     attrs.emplace_back(expr.getRegisteredAttrName(), e);
     // recattr.push_back(new RecordAttribute{expr->getRegisteredAs()});

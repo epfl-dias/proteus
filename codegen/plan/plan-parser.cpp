@@ -294,11 +294,11 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       assert(v["direction"].IsString());
       std::string dir = v["direction"].GetString();
       if (dir == "ASC")
-        d.emplace_back(ASC);
+        d.emplace_back(direction::ASC);
       else if (dir == "NONE")
-        d.emplace_back(NONE);
+        d.emplace_back(direction::NONE);
       else if (dir == "DESC")
-        d.emplace_back(DESC);
+        d.emplace_back(direction::DESC);
       else
         assert(false);
 

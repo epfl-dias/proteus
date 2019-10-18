@@ -26,8 +26,7 @@
 
 #include "codegen/util/parallel-context.hpp"
 #include "operators/operators.hpp"
-
-enum direction { ASC, NONE, DESC };
+#include "util/sort/sort-direction.hpp"
 
 class Sort : public UnaryOperator {
  public:
@@ -42,6 +41,15 @@ class Sort : public UnaryOperator {
   virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
+
+  virtual RecordType getRowType() const {
+    std::vector<RecordAttribute *> attrs;
+    for (const auto &attr : orderByFields) {
+      attrs.emplace_back(new RecordAttribute{attr.getRegisteredAs()});
+    }
+    return std::vector<RecordAttribute *>{new RecordAttribute{
+        attrs[0]->getRelationName(), "__sorted", new RecordType{attrs}}};
+  }
 
  protected:
   // virtual void open (Pipeline * pip);
