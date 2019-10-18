@@ -28,9 +28,11 @@
 #include "operators/block-to-tuples.hpp"
 #include "operators/cpu-to-gpu.hpp"
 #include "operators/flush.hpp"
+#include "operators/gpu/gpu-hash-group-by-chained.hpp"
 #include "operators/gpu/gpu-hash-join-chained.hpp"
 #include "operators/gpu/gpu-hash-rearrange.hpp"
 #include "operators/gpu/gpu-reduce.hpp"
+#include "operators/gpu/gpu-sort.hpp"
 #include "operators/gpu/gpu-to-cpu.hpp"
 #include "operators/hash-join-chained.hpp"
 #include "operators/hash-rearrange.hpp"
@@ -40,6 +42,7 @@
 #include "operators/router.hpp"
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
+#include "operators/sort.hpp"
 #include "operators/unnest.hpp"
 #include "plan/plan-parser.hpp"
 
@@ -201,6 +204,37 @@ RelBuilder RelBuilder::reduce(const vector<expression_t> &e,
     auto op =
         new opt::Reduce(accs, e, expression_t{true}, root, ctx, false, "");
     return apply(op);
+  }
+}
+
+RelBuilder RelBuilder::groupby(const std::vector<expression_t> &e,
+                               const std::vector<GpuAggrMatExpr> &agg_exprs,
+                               size_t hash_bits, size_t maxInputSize) const {
+  switch (root->getDeviceType()) {
+    case DeviceType::GPU: {
+      auto op = new GpuHashGroupByChained(agg_exprs, e, root, hash_bits, ctx,
+                                          maxInputSize);
+      return apply(op);
+    }
+    case DeviceType::CPU: {
+      auto op = new HashGroupByChained(agg_exprs, e, root, hash_bits, ctx,
+                                       maxInputSize);
+      return apply(op);
+    }
+  }
+}
+
+RelBuilder RelBuilder::sort(const vector<expression_t> &orderByFields,
+                            const vector<direction> &dirs) const {
+  switch (root->getDeviceType()) {
+    case DeviceType::GPU: {
+      auto op = new GpuSort(root, ctx, orderByFields, dirs);
+      return apply(op);
+    }
+    case DeviceType::CPU: {
+      auto op = new Sort(root, ctx, orderByFields, dirs);
+      return apply(op).unpack();
+    }
   }
 }
 

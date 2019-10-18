@@ -25,11 +25,13 @@
 #define RELBUILDER_HPP_
 
 #include "operators/gpu/gpu-materializer-expr.hpp"
+#include "operators/hash-group-by-chained.hpp"
 #include "operators/operators.hpp"
 #include "plan/prepared-statement.hpp"
 #include "routing/routing-policy.hpp"
 #include "topology/topology.hpp"
 #include "util/parallel-context.hpp"
+#include "util/sort/sort-direction.hpp"
 
 class CatalogParser;
 
@@ -224,6 +226,17 @@ class RelBuilder {
     return reduce(expr(getOutputArg()), accs);
   }
 
+  template <typename Tk, typename Te>
+  RelBuilder groupby(Tk k, Te e, size_t hash_bits, size_t maxInputSize) const {
+    return groupby(k(getOutputArg()), e(getOutputArg()), hash_bits,
+                   maxInputSize);
+  }
+
+  template <typename T>
+  RelBuilder sort(T e, const vector<direction>& dirs) const {
+    return sort(e(getOutputArg()), dirs);
+  }
+
   template <typename T>
   RelBuilder print(T expr) const {
     return print(expr(getOutputArg()));
@@ -260,6 +273,13 @@ class RelBuilder {
 
   RelBuilder reduce(const vector<expression_t>& e,
                     const vector<Monoid>& accs) const;
+
+  RelBuilder groupby(const std::vector<expression_t>& e,
+                     const std::vector<GpuAggrMatExpr>& agg_exprs,
+                     size_t hash_bits, size_t maxInputSize) const;
+
+  RelBuilder sort(const vector<expression_t>& orderByFields,
+                  const vector<direction>& dirs) const;
 
   RelBuilder print(const vector<expression_t>& e) const;
 
