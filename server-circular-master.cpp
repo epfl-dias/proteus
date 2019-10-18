@@ -140,7 +140,7 @@ std::vector<PreparedStatement> init_olap_sequence(
 
   // return stmts;
   DegreeOfParallelism dop{coreids.size()};
-  for (const auto &q : {q_ch1}) {
+  for (const auto &q : {q_ch1, q_ch6}) {
     // std::unique_ptr<Affinitizer> aff_parallel =
     //     std::make_unique<CpuCoreAffinitizer>();
 

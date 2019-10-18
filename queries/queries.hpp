@@ -67,3 +67,6 @@ PreparedStatement q_ch(DegreeOfParallelism dop,
 PreparedStatement q_ch1(DegreeOfParallelism dop,
                         std::unique_ptr<Affinitizer> aff_parallel = nullptr,
                         std::unique_ptr<Affinitizer> aff_reduce = nullptr);
+PreparedStatement q_ch6(DegreeOfParallelism dop,
+                        std::unique_ptr<Affinitizer> aff_parallel = nullptr,
+                        std::unique_ptr<Affinitizer> aff_reduce = nullptr);
