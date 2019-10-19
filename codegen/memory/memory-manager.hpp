@@ -39,6 +39,7 @@ class GpuMemAllocator {
 };
 
 class NUMAMemAllocator {
+  static std::mutex m_sizes;
   static std::unordered_map<void *, size_t> sizes;
 
  public:

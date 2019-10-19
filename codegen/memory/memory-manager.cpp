@@ -177,17 +177,25 @@ void GpuMemAllocator::free(void *ptr) { gpu_run(cudaFree(ptr)); }
 void *NUMAMemAllocator::malloc(size_t bytes) {
   void *ptr = affinity::get().alloc(bytes);
   assert(ptr && "Memory allocation failed!");
-  sizes.emplace(ptr, bytes);
+  {
+    std::lock_guard<std::mutex> lock{m_sizes};
+    sizes.emplace(ptr, bytes);
+  }
   return ptr;
 }
 
 void NUMAMemAllocator::free(void *ptr) {
-  auto it = sizes.find(ptr);
-  assert(
-      it != sizes.end() &&
-      "Memory did not originate from this allocator (or is already released)!");
-  topology::cpunumanode::free(ptr, it->second);
-  sizes.erase(it);
+  size_t bytes;
+  {
+    std::lock_guard<std::mutex> lock{m_sizes};
+    auto it = sizes.find(ptr);
+    bytes = it->second;
+    assert(it != sizes.end() &&
+           "Memory did not originate from this allocator (or is already "
+           "released)!");
+    sizes.erase(it);
+  }
+  topology::cpunumanode::free(ptr, bytes);
 }
 
 void *NUMAPinnedMemAllocator::reg(void *ptr, size_t bytes) {
@@ -374,4 +382,5 @@ void SingleDeviceMemoryManager<allocator, unit_cap>::free(void *ptr) {
 SingleGpuMemoryManager **MemoryManager::gpu_managers;
 SingleCpuMemoryManager **MemoryManager::cpu_managers;
 
+std::mutex NUMAMemAllocator::m_sizes;
 std::unordered_map<void *, size_t> NUMAMemAllocator::sizes;
