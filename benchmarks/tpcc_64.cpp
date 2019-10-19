@@ -745,15 +745,16 @@ inline void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
 }
 
 TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
-           bool layout_column_store, int g_dist_threshold, std::string csv_path,
-           bool is_ch_benchmark)
+           bool layout_column_store, uint tpch_scale_factor,
+           int g_dist_threshold, std::string csv_path, bool is_ch_benchmark)
     : Benchmark(name, active_warehouse, proteus::thread::hardware_concurrency(),
                 g_num_partitions),
       num_warehouse(num_warehouses),
       g_dist_threshold(g_dist_threshold),
       csv_path(csv_path),
       is_ch_benchmark(is_ch_benchmark),
-      layout_column_store(layout_column_store) {
+      layout_column_store(layout_column_store),
+      tpch_scale_factor(tpch_scale_factor) {
   this->schema = &storage::Schema::getInstance();
   this->seed = rand();
 
@@ -1435,8 +1436,8 @@ void TPCC::load_order(int w_id, uint64_t xid, ushort partition_id,
   uint64_t order_per_wh = 0;
   uint64_t order_per_dist = 0;
 
-  if (SF != 0) {
-    total_orderline_ins = 6001215 * SF;
+  if (tpch_scale_factor != 0) {
+    total_orderline_ins = 6001215 * tpch_scale_factor;
     total_order = total_orderline_ins / 15;
     order_per_wh = total_order / this->num_warehouse;
     order_per_dist = order_per_wh / TPCC_NDIST_PER_WH;
@@ -1497,7 +1498,7 @@ void TPCC::load_order(int w_id, uint64_t xid, ushort partition_id,
 
         int o_ol_cnt = URand(&this->seed, 5, 15);
 
-        if (SF != 0) {
+        if (tpch_scale_factor != 0) {
           o_ol_cnt = 15;
         }
 

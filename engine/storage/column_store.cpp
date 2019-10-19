@@ -41,6 +41,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "codegen/topology/affinity_manager.hpp"
 #include "codegen/topology/topology.hpp"
 
+#include "threadpool/thread.hpp"
+
 #define MEMORY_SLACK 1000
 #define CIDR_HACK false
 #define PARTITIONED_WORKLOAD false
@@ -202,7 +204,7 @@ ColumnStore::ColumnStore(
 
   for (int i = 0; i < g_num_partitions; i++) this->vid[i] = 0;
 
-  std::vector<std::thread> loaders;
+  std::vector<proteus::thread> loaders;
 
   if (indexed) {
     void* obj_ptr =
@@ -547,7 +549,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
   const auto& cpunumanodes = ::topology::getInstance().getCpuNumaNodes();
 #endif
 
-  std::vector<std::thread> loaders;
+  std::vector<proteus::thread> loaders;
 
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     for (ushort j = 0; j < this->num_partitions; j++) {
@@ -663,7 +665,7 @@ void Column::getElem(uint64_t vid, void* copy_location) {
 }
 
 void Column::initializeMetaColumn() {
-  std::vector<std::thread> loaders;
+  std::vector<proteus::thread> loaders;
   for (ushort j = 0; j < this->num_partitions; j++) {
     for (const auto& chunk : master_versions[0][j]) {
       char* ptr = (char*)chunk.data;
@@ -1150,7 +1152,7 @@ std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data(
 }
 
 void ColumnStore::ETL(uint numa_node_idx) {
-  std::vector<std::thread> workers;
+  std::vector<proteus::thread> workers;
 
   for (const auto& col : this->columns) {
     workers.emplace_back([col, numa_node_idx]() { col->ETL(numa_node_idx); });
@@ -1205,6 +1207,14 @@ void Column::ETL(uint numa_node_index) {
       // std::cout << this->name << " : new_records: " <<
       // snap_arena.numOfRecords
       //           << " | " << snap_arena.prev_numOfRecords << std::endl;
+
+      LOG(INFO) << "ETL-" << this->name << " | inserted records: "
+                << (snap_arena.numOfRecords - snap_arena.prev_numOfRecords)
+                << ", Size: "
+                << (double)((snap_arena.numOfRecords -
+                             snap_arena.prev_numOfRecords) *
+                            this->elem_size) /
+                       (1024 * 1024 * 1024);
       size_t st = snap_arena.prev_numOfRecords * this->elem_size;
       size_t to_cpy = (snap_arena.numOfRecords - snap_arena.prev_numOfRecords) *
                       this->elem_size;

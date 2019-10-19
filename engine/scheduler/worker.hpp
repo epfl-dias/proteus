@@ -73,8 +73,8 @@ enum WORKER_STATE { READY, RUNNING, PAUSED, TERMINATED, PRERUN, POSTRUN };
 class Worker {
   uint8_t id;
   volatile bool terminate;
-  bool pause;
-  bool change_affinity;
+  volatile bool pause;
+  volatile bool change_affinity;
   volatile WORKER_STATE state;
 
   uint partition_id;

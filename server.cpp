@@ -99,6 +99,7 @@ DEFINE_uint64(ycsb_num_records, 0, "YCSB - # records");
 
 // TPC-C
 DEFINE_uint64(tpcc_num_wh, 0, "TPC-C - # of Warehouses ( 0 = one per worker");
+DEFINE_uint64(ch_scale_factor, 0, "CH-Bench scale factor");
 DEFINE_uint64(tpcc_dist_threshold, 0, "TPC-C - Distributed txn threshold");
 DEFINE_string(tpcc_csv_dir, "/scratch/data/ch100w/raw",
               "CSV Dir for loading tpc-c data (bench-2)");
@@ -173,15 +174,15 @@ int main(int argc, char** argv) {
     bench =
         new bench::TPCC("TPCC", FLAGS_tpcc_num_wh,
                         (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
-                        FLAGS_layout_column_store);
+                        FLAGS_layout_column_store, FLAGS_ch_scale_factor);
 
   } else if (FLAGS_benchmark == 2) {
     if (FLAGS_tpcc_num_wh == 0) FLAGS_tpcc_num_wh = FLAGS_num_workers;
     bench =
         new bench::TPCC("TPCC", FLAGS_tpcc_num_wh,
                         (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
-                        FLAGS_layout_column_store, FLAGS_tpcc_dist_threshold,
-                        FLAGS_tpcc_csv_dir);
+                        FLAGS_layout_column_store, FLAGS_ch_scale_factor,
+                        FLAGS_tpcc_dist_threshold, FLAGS_tpcc_csv_dir);
 
   } else if (FLAGS_benchmark == 3) {
     // bench = new bench::MicroSSB();

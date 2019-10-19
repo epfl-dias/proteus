@@ -150,9 +150,16 @@ void Worker::run() {
 
   while (!terminate) {
     if (change_affinity) {
-      set_exec_location_on_scope d{
-          topology::getInstance()
-              .getCores()[this->affinity_core->index_in_topo]};
+      exec_location{topology::getInstance()
+                        .getCores()[this->affinity_core->index_in_topo]}
+          .activate();
+      // set_exec_location_on_scope d{
+      //     topology::getInstance()
+      //         .getCores()[this->affinity_core->index_in_topo]};
+      LOG(INFO) << "Migrating to core_id: "
+                << topology::getInstance()
+                       .getCores()[this->affinity_core->index_in_topo]
+                       .id;
       // AffinityManager::getInstance().set(this->affinity_core);
       change_affinity = false;
     }
@@ -301,6 +308,7 @@ void WorkerPool::pause() {
   for (auto& wr : workers) {
     if (wr.second.second->state != RUNNING && wr.second.second->state != PRERUN)
       continue;
+    if (wr.second.second->terminate) continue;
     while (wr.second.second->state != PAUSED) {
       // std::this_thread::sleep_for(std::chrono::microseconds(10));
       std::this_thread::yield();
@@ -314,6 +322,7 @@ void WorkerPool::resume() {
   }
 
   for (auto& wr : workers) {
+    if (wr.second.second->terminate) continue;
     while (wr.second.second->state == PAUSED) {
       // std::this_thread::sleep_for(std::chrono::microseconds(10));
       std::this_thread::yield();
@@ -602,11 +611,20 @@ void WorkerPool::migrate_worker() {
 
   static uint worker_num = 0;
 
-  auto get = workers.find(worker_cores[worker_num].id);
-  assert(get != workers.end());
+  if (worker_sched_mode == 3) {
+    auto get = workers.find(worker_cores[pool_size + worker_num].id);
 
-  get->second.second->affinity_core = &(worker_cores[pool_size + worker_num]);
-  get->second.second->change_affinity = true;
+    LOG(INFO) << "WM-Migrade: Old: " << worker_cores[pool_size + worker_num].id;
+    LOG(INFO) << "WM-Migrade: New: " << worker_cores[worker_num].id;
+    assert(get != workers.end());
+    get->second.second->affinity_core = &(worker_cores[worker_num]);
+    get->second.second->change_affinity = true;
+  } else {
+    auto get = workers.find(worker_cores[worker_num].id);
+    assert(get != workers.end());
+    get->second.second->affinity_core = &(worker_cores[pool_size + worker_num]);
+    get->second.second->change_affinity = true;
+  }
 
   worker_num++;
 }
@@ -616,7 +634,7 @@ const std::vector<uint>& WorkerPool::scale_down(uint num_cores) {
 
   uint ctr = 0;
   const auto& cres = Topology::getInstance().getCores();
-  for (int ci = 23; ci >= 0; ci--) {
+  for (int ci = 28; ci < cres.size(); ci++) {
     Worker* tmp = workers[cres[ci].id].second;
 
     if (ctr == num_cores) {

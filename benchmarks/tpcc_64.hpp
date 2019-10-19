@@ -48,7 +48,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 // SIGMOD 20
 #define index_on_order_tbl false  // also cascade to orderlne, neworder table
-#define SF 100                    // set it to zero for default tpc-c specs
 
 #define NO_MIX 100
 #define P_MIX 0
@@ -76,7 +75,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define TPCC_NDIST_PER_WH 10
 #define TPCC_ORD_PER_DIST 3000
 
-#define TPCC_MAX_ORD_PER_DIST 400000  // 1.5 TB Memory Server -- 1000000
+#define TPCC_MAX_ORD_PER_DIST 1000000  // 1.5 TB Memory Server -- 1000000
 #define TPCC_MAX_ORDER_INITIAL_CAP_PER_PARTITION \
   (TPCC_MAX_ORD_PER_DIST * TPCC_NDIST_PER_WH * NUM_CORE_PER_SOCKET)
 #define TPCC_MAX_ORDER_INITIAL_CAP \
@@ -110,6 +109,8 @@ typedef uint64_t date_t;
 
 class TPCC : public Benchmark {
  private:
+  const uint tpch_scale_factor;
+
   storage::Schema *schema;
   storage::Table *table_warehouse;
   storage::Table *table_district;
@@ -439,8 +440,8 @@ class TPCC : public Benchmark {
   ~TPCC() {}
   TPCC(std::string name = "TPCC", int num_warehouses = 1,
        int active_warehouse = 1, bool layout_column_store = true,
-       int g_dist_threshold = 0, std::string csv_path = "",
-       bool is_ch_benchmark = false);
+       uint tpch_scale_factor = 0, int g_dist_threshold = 0,
+       std::string csv_path = "", bool is_ch_benchmark = false);
 };
 
 }  // namespace bench
