@@ -183,6 +183,8 @@ void* MemoryManager::alloc(size_t bytes, int numa_memset_id, int mem_advice) {
   return ret;
   // return numa_alloc_interleaved(bytes);
 }
-void MemoryManager::free(void* mem, size_t bytes) { numa_free(mem, bytes); }
+void MemoryManager::free(void* mem) {  // numa_free(mem, bytes);
+  ::MemoryManager::freePinned(mem);
+}
 
 };  // namespace storage

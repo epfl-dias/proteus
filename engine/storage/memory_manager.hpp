@@ -58,7 +58,7 @@ class MemoryManager {
 
   static void* alloc(size_t bytes, int numa_memset_id,
                      int mem_advice = MADV_DOFORK | MADV_HUGEPAGE);
-  static void free(void* mem, size_t bytes);
+  static void free(void* mem);
 };
 
 /*class MemoryManager {

@@ -44,7 +44,7 @@ class AeolusPlugin : public BinaryBlockPlugin {
   virtual void releaseSession(llvm::Value *) const;
 
  public:
-  virtual void **getDataPointerForFile_runtime(const char *relName,
+  virtual void **getDataPointerForFile_runtime(size_t i, const char *relName,
                                                const char *attrName,
                                                void *session);
 
@@ -54,6 +54,9 @@ class AeolusPlugin : public BinaryBlockPlugin {
                                                       void *session);
 
   virtual void freeNumOfTuplesPerPartition_runtime(int64_t *inn);
+
+  bool local_storage;
+  bool elastic_scan;
 
  private:
   std::string pgType;
@@ -70,7 +73,10 @@ class AeolusLocalPlugin : public AeolusPlugin {
  public:
   AeolusLocalPlugin(ParallelContext *const context, std::string fnamePrefix,
                     RecordType rec, std::vector<RecordAttribute *> &whichFields)
-      : AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-local") {}
+      : AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-local") {
+    local_storage = true;
+    elastic_scan = false;
+  }
 };
 
 class AeolusRemotePlugin : public AeolusPlugin {
@@ -85,8 +91,7 @@ class AeolusELasticPlugin : public AeolusPlugin {
  public:
   AeolusELasticPlugin(ParallelContext *const context, std::string fnamePrefix,
                       RecordType rec,
-                      std::vector<RecordAttribute *> &whichFields)
-      : AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-elastic") {}
+                      std::vector<RecordAttribute *> &whichFields);
 };
 
 extern "C" {

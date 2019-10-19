@@ -144,9 +144,9 @@ class YCSB : public Benchmark {
 
   void free_query_struct_ptr(void *ptr) {
     struct YCSB_TXN *txn = (struct YCSB_TXN *)ptr;
-    storage::MemoryManager::free(txn->ops,
-                                 sizeof(struct YCSB_TXN_OP) * num_ops_per_txn);
-    storage::MemoryManager::free(txn, sizeof(struct YCSB_TXN));
+    storage::MemoryManager::free(txn->ops);
+    //,sizeof(struct YCSB_TXN_OP) * num_ops_per_txn);
+    storage::MemoryManager::free(txn);  //, sizeof(struct YCSB_TXN));
   }
 
   void *get_query_struct_ptr(ushort pid) {

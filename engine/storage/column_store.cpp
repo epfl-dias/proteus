@@ -25,6 +25,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <sched.h>
 
 #include <cassert>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -179,9 +180,13 @@ void Column::sync_master_snapshots(ushort master_ver_idx) {
 
 ColumnStore::~ColumnStore() {
   for (auto& col : columns) {
-    delete col;
+    col->~Column();
+    // MemoryManager::free(col);
+    // delete col;
   }
-  delete meta_column;
+  meta_column->~Column();
+  // MemoryManager::free(meta_column);
+  // delete meta_column;
 }
 uint64_t ColumnStore::load_data_from_binary(std::string col_name,
                                             std::string file_path) {
@@ -280,6 +285,8 @@ ColumnStore::ColumnStore(
               << (double)total_mem_reserved / (1024 * 1024 * 1024) << "GB"
               << std::endl;
   }
+
+  elastic_mappings.reserve(columns.size());
 }
 
 void ColumnStore::offsetVID(uint64_t offset) {
@@ -480,6 +487,27 @@ void ColumnStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
       col->updateElem(hash_ptr->VID,
                       (rec == nullptr ? nullptr : (void*)cursor));
       cursor += col->elem_size;
+    }
+  }
+}
+
+Column::~Column() {
+#if HTAP_ETL
+  for (ushort j = 0; j < this->num_partitions; j++) {
+    MemoryManager::free(this->etl_mem[j]);
+  }
+#endif
+
+  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
+    for (ushort j = 0; j < g_num_partitions; j++) {
+      for (auto& chunk : master_versions[i][j]) {
+#if PROTEUS_MEM_MANAGER
+        ::MemoryManager::freePinned(chunk.data);
+#else
+        MemoryManager::free(chunk.data);
+#endif
+      }
+      master_versions[i][j].clear();
     }
   }
 }
@@ -900,21 +928,6 @@ void Column::insertElemBatch(uint64_t vid, uint64_t num_elem, void* data) {
   }
 }
 
-Column::~Column() {
-  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
-    for (ushort j = 0; j < g_num_partitions; j++) {
-      for (auto& chunk : master_versions[i][j]) {
-#if PROTEUS_MEM_MANAGER
-        ::MemoryManager::freePinned(chunk.data);
-#else
-        MemoryManager::free(chunk.data, chunk.size);
-#endif
-      }
-      master_versions[i][j].clear();
-    }
-  }
-}
-
 void ColumnStore::num_upd_tuples() {
   for (uint i = 0; i < global_conf::num_master_versions; i++) {
     for (auto& col : this->columns) {
@@ -1012,7 +1025,13 @@ void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
 
 void Column::snapshot(const uint64_t* n_recs_part, uint64_t epoch,
                       uint8_t snapshot_master_ver) {
-  if (this->touched) num_upd_tuples(snapshot_master_ver, n_recs_part, true);
+  if (this->name.compare("d_next_o_id") == 0 ||
+      this->name.compare("s_quantity") == 0 ||
+      this->name.compare("s_order_cnt") == 0 ||
+      this->name.compare("s_ytd") == 0 ||
+      this->parent->name.compare("tpcc_order") == 0 ||
+      this->parent->name.compare("tpcc_orderline") == 0)
+    num_upd_tuples(snapshot_master_ver, n_recs_part, true);
 
   for (uint i = 0; i < g_num_partitions; i++) {
     assert(snapshot_arenas[i].size() == 1);
@@ -1028,88 +1047,251 @@ void Column::snapshot(const uint64_t* n_recs_part, uint64_t epoch,
   }
 }
 
-int64_t* ColumnStore::snapshot_get_number_tuples() {
-  uint num_parts = this->columns[0]->num_partitions;
+int64_t* ColumnStore::snapshot_get_number_tuples(bool olap_snapshot,
+                                                 bool elastic_scan) {
+  if (elastic_scan) {
+    assert(g_num_partitions == 1 &&
+           "cannot do it for more as of now due to static nParts");
 
-  int64_t* arr = (int64_t*)malloc(sizeof(int64_t*) * num_parts);
+    const auto& totalNumRecords =
+        columns[0]->snapshot_arenas[0][0]->getMetadata().numOfRecords;
 
-  for (uint i = 0; i < num_parts; i++) {
-    arr[i] =
-        this->columns[0]->snapshot_arenas[i][0]->getMetadata().numOfRecords;
+    int64_t* arr = (int64_t*)malloc(sizeof(int64_t*) * nParts);
+
+    size_t i = 0;
+    size_t sum = 0;
+    for (const auto& eoffs : elastic_offsets) {
+      arr[i] = eoffs;
+      sum += eoffs;
+      i++;
+    }
+
+    arr[i] = totalNumRecords - sum;
+    i++;
+
+    while (i < nParts) {
+      arr[i] = 0;
+      i++;
+    }
+
+    for (uint cc = 0; cc < nParts; cc++) {
+      LOG(INFO) << this->name << " " << cc << " - " << arr[cc];
+    }
+
+    return arr;
+  } else {
+    const uint num_parts = this->columns[0]->num_partitions;
+    int64_t* arr = (int64_t*)malloc(sizeof(int64_t*) * num_parts);
+
+    for (uint i = 0; i < num_parts; i++) {
+      if (__unlikely(olap_snapshot)) {
+        arr[i] = this->columns[0]->etl_arenas[i][0]->getMetadata().numOfRecords;
+        LOG(INFO) << this->name
+                  << " -- [OLAP-snapshot] NumberOfRecords:" << arr[i];
+      } else {
+        arr[i] =
+            this->columns[0]->snapshot_arenas[i][0]->getMetadata().numOfRecords;
+
+        LOG(INFO) << this->name
+                  << " -- [OLTP-snapshot] NumberOfRecords:" << arr[i];
+      }
+    }
+    return arr;
   }
-  return arr;
 }
 
-std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data(
+std::vector<std::pair<mem_chunk, size_t>> ColumnStore::snapshot_get_data(
+    size_t scan_idx, std::vector<RecordAttribute*>& wantedFields,
     bool olap_local, bool elastic_scan) {
-  std::vector<std::pair<mem_chunk, uint64_t>> ret;
+  assert(g_num_partitions == 1 &&
+         "cannot do it for more as of now due to static nParts");
+  if (elastic_scan) {
+    this->nParts = wantedFields.size() * wantedFields.size();
+    // std::pow(wantedFields.size(), wantedFields.size());
 
-  for (uint i = 0; i < num_partitions; i++) {
-    assert(master_versions[0][i].size() == 1);
-    const auto& snap_arena = snapshot_arenas[i][0]->getMetadata();
+    const auto& totalNumRecords =
+        columns[0]->snapshot_arenas[0][0]->getMetadata().numOfRecords;
 
-    if (elastic_scan) {
-      const auto& olap_arena = etl_arenas[i][0]->getMetadata();
+    if (scan_idx == 0) {
+      elastic_mappings.clear();
+      elastic_offsets.clear();
 
-      if (snap_arena.upd_since_last_snapshot ||
-          olap_arena.upd_since_last_snapshot) {
-        // update-elastic-case
-        // second-cond: txn-snapshot was updated as somepoint so not safe to
-        // read from local storage In this case, all pointers should be txn.
+      // restart
 
-        assert(master_versions[snap_arena.master_ver][i].size() == 1 &&
-               "Memory expansion not supported yet.");
-
-        std::cout << "[SnapshotData][" << this->name << "][P:" << i
-                  << "] Mode: ELASTIC-REMOTE" << std::endl;
-
-        ret.emplace_back(
-            std::make_pair(master_versions[snap_arena.master_ver][i][0],
-                           snap_arena.numOfRecords));
-
-      } else {
-        if (snap_arena.numOfRecords == olap_arena.numOfRecords) {
-          // safe to read from local storage
-          assert(HTAP_ETL && "OLAP local mode is not turned on");
-
-          std::cout << "[SnapshotData][" << this->name << "][P:" << i
-                    << "] Mode: ELASTIC-LOCAL" << std::endl;
-          ret.emplace_back(std::make_pair(
-              mem_chunk(this->etl_mem[i],
-                        olap_arena.numOfRecords * this->elem_size, -1),
-              olap_arena.numOfRecords));
-
-        } else if (snap_arena.numOfRecords > olap_arena.numOfRecords) {
-          std::cout << "[SnapshotData][" << this->name << "][P:" << i
-                    << "] Mode: HYBRID" << std::endl;
-
-          assert(HTAP_ETL && "OLAP local mode is not turned on");
-          // new records, safe to do local + tail
-
-          size_t diff = snap_arena.numOfRecords - olap_arena.numOfRecords;
-
-          // local-part
-          ret.emplace_back(std::make_pair(
-              mem_chunk(this->etl_mem[i],
-                        olap_arena.numOfRecords * this->elem_size, -1),
-              olap_arena.numOfRecords));
-
-          // tail-part
-          assert(diff <= master_versions[snap_arena.master_ver][i][0].size);
-
-          char* oltp_mem =
-              (char*)master_versions[snap_arena.master_ver][i][0].data;
-          oltp_mem += diff;
-
-          ret.emplace_back(std::make_pair(
-              mem_chunk(oltp_mem, diff * this->elem_size, -1), diff));
-
-        } else {
-          assert(false && "Delete now supported, how it can be here??");
+      for (size_t j = 0; j < wantedFields.size(); j++) {
+        for (const auto& cl : this->columns) {
+          if (cl->name.compare(wantedFields[j]->getAttrName()) == 0) {
+            // 0 partition id
+            elastic_mappings.emplace_back(
+                cl->elastic_partition(0, elastic_offsets));
+          }
         }
       }
 
-    } else if (olap_local) {
+      // assert(elastic_mappings.size() > scan_idx);
+      // return elastic_mappings[scan_idx];
+    }
+
+    assert(elastic_mappings.size() > scan_idx);
+
+    auto& getit = elastic_mappings[scan_idx];
+
+    size_t num_to_return = wantedFields.size();
+
+    std::vector<std::pair<mem_chunk, size_t>> ret;
+
+    for (uint xd = 0; xd < getit.size(); xd++) {
+      LOG(INFO) << "Part: " << xd << ": numa_loc: "
+                << topology::getInstance()
+                       .getCpuNumaNodeAddressed(getit[xd].first.data)
+                       ->id;
+    }
+
+    if (elastic_offsets.size() == 0) {
+      // add the remaining
+      ret.emplace_back(std::make_pair(getit[0].first, totalNumRecords));
+
+      for (size_t i = 1; i < num_to_return; i++) {
+        ret.emplace_back(std::make_pair(getit[0].first, 0));
+      }
+
+    } else if (getit.size() == elastic_offsets.size() + 1) {
+      size_t partitions_in_place = getit.size();
+      // just add others
+
+      for (size_t i = 0; i < num_to_return; i++) {
+        if (i < partitions_in_place) {
+          ret.emplace_back(std::make_pair(getit[i].first, getit[i].second));
+        } else {
+          ret.emplace_back(std::make_pair(getit[0].first, 0));
+        }
+      }
+
+    } else {
+      size_t elem_size = 0;
+      for (size_t j = 0; j < wantedFields.size(); j++) {
+        for (const auto& cl : this->columns) {
+          if (cl->name.compare(wantedFields[j]->getAttrName()) == 0) {
+            elem_size = cl->elem_size;
+          }
+        }
+      }
+
+      assert(elem_size != 0);
+      for (const auto& ofs : elastic_offsets) {
+        bool added = false;
+        for (auto& sy : getit) {
+          if (((char*)sy.first.data + (ofs * elem_size)) <=
+              ((char*)sy.first.data + sy.first.size)) {
+            ret.emplace_back(std::make_pair(sy.first, ofs));
+            added = true;
+          }
+        }
+        assert(added == true);
+      }
+      // added all offsets, now add extra
+      for (size_t i = ret.size() - 1; i < num_to_return; i++) {
+        ret.emplace_back(std::make_pair(getit[0].first, 0));
+      }
+    }
+    assert(ret.size() == num_to_return);
+    return ret;
+  }
+
+  else {
+    for (const auto& cl : this->columns) {
+      if (cl->name.compare(wantedFields[scan_idx]->getAttrName()) == 0) {
+        return cl->snapshot_get_data(olap_local, false);
+      }
+    }
+
+    assert(false && "Snapshot -- Unknown Column.");
+  }
+}
+
+std::vector<std::pair<mem_chunk, size_t>> Column::elastic_partition(
+    uint pid, std::set<size_t>& segment_boundaries) {
+  // tuple: <mem_chunk, num_records>, offset
+
+  std::vector<std::pair<mem_chunk, size_t>> ret;
+
+  assert(master_versions[0][pid].size() == 1);
+  assert(g_num_partitions == 1);
+
+  const auto& snap_arena = snapshot_arenas[pid][0]->getMetadata();
+  const auto& olap_arena = etl_arenas[pid][0]->getMetadata();
+
+  if (snap_arena.upd_since_last_snapshot ||
+      olap_arena.upd_since_last_snapshot) {
+    // update-elastic-case
+    // second-cond: txn-snapshot was updated as somepoint so not safe to
+    // read from local storage In this case, all pointers should be txn.
+
+    assert(master_versions[snap_arena.master_ver][pid].size() == 1 &&
+           "Memory expansion not supported yet.");
+
+    std::cout << "[SnapshotData][" << this->name << "][P:" << pid
+              << "] Mode: ELASTIC-REMOTE" << std::endl;
+
+    ret.emplace_back(
+        std::make_pair(master_versions[snap_arena.master_ver][pid][0],
+                       snap_arena.numOfRecords));
+
+  } else {
+    if (snap_arena.numOfRecords == olap_arena.numOfRecords) {
+      // safe to read from local storage
+      assert(HTAP_ETL && "OLAP local mode is not turned on");
+
+      std::cout << "[SnapshotData][" << this->name << "][P:" << pid
+                << "] Mode: ELASTIC-LOCAL" << std::endl;
+      ret.emplace_back(std::make_pair(
+          mem_chunk(this->etl_mem[pid],
+                    olap_arena.numOfRecords * this->elem_size, -1),
+          olap_arena.numOfRecords));
+
+    } else if (snap_arena.numOfRecords > olap_arena.numOfRecords) {
+      std::cout << "[SnapshotData][" << this->name << "][P:" << pid
+                << "] Mode: HYBRID" << std::endl;
+
+      assert(HTAP_ETL && "OLAP local mode is not turned on");
+      // new records, safe to do local + tail
+
+      size_t diff = snap_arena.numOfRecords - olap_arena.numOfRecords;
+
+      // local-part
+      ret.emplace_back(std::make_pair(
+          mem_chunk(this->etl_mem[pid],
+                    olap_arena.numOfRecords * this->elem_size, -1),
+          olap_arena.numOfRecords));
+
+      segment_boundaries.insert(olap_arena.numOfRecords);
+
+      // tail-part
+      assert(diff <= master_versions[snap_arena.master_ver][pid][0].size);
+
+      char* oltp_mem =
+          (char*)master_versions[snap_arena.master_ver][pid][0].data;
+      oltp_mem += diff;
+
+      ret.emplace_back(std::make_pair(
+          mem_chunk(oltp_mem, diff * this->elem_size, -1), diff));
+
+    } else {
+      assert(false && "Delete now supported, how it can be here??");
+    }
+  }
+
+  return ret;
+}
+
+std::vector<std::pair<mem_chunk, size_t>> Column::snapshot_get_data(
+    bool olap_local, bool elastic_scan) {
+  std::vector<std::pair<mem_chunk, size_t>> ret;
+
+  for (uint i = 0; i < num_partitions; i++) {
+    assert(master_versions[0][i].size() == 1);
+    if (olap_local) {
+      LOG(INFO) << "OLAP_LOCAL Requested: ";
       assert(HTAP_ETL && "OLAP local mode is not turned on");
       const auto& olap_arena = etl_arenas[i][0]->getMetadata();
 
@@ -1125,6 +1307,7 @@ std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data(
           olap_arena.numOfRecords));
 
     } else {
+      const auto& snap_arena = snapshot_arenas[i][0]->getMetadata();
       assert(master_versions[snap_arena.master_ver][i].size() == 1 &&
              "Memory expansion not supported yet.");
 

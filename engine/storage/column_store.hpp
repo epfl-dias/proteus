@@ -28,6 +28,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <deque>
 #include <iostream>
 #include <map>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -39,6 +40,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 #include "utils/atomic_bit_set.hpp"
+
+#include "codegen/plan/plan-parser.hpp"
 
 #define BIT_PACK_SIZE 8192
 
@@ -91,8 +94,13 @@ class ColumnStore : public Table {
   void snapshot(uint64_t epoch, uint8_t snapshot_master_ver);
   void ETL(uint numa_node_idx);
   void num_upd_tuples();
-  int64_t *snapshot_get_number_tuples();
+  int64_t *snapshot_get_number_tuples(bool olap_snapshot = false,
+                                      bool elastic_scan = false);
   const std::vector<Column *> &getColumns() { return columns; }
+
+  std::vector<std::pair<mem_chunk, size_t>> snapshot_get_data(
+      size_t scan_idx, std::vector<RecordAttribute *> &wantedFields,
+      bool olap_local, bool elastic_scan);
 
   /*
     No secondary indexes supported as of yet so dont need the following
@@ -102,12 +110,16 @@ class ColumnStore : public Table {
 
   ~ColumnStore();
   // uint64_t *plugin_ptr[global_conf::num_master_versions][NUM_SOCKETS];
+  std::vector<std::vector<std::pair<mem_chunk, size_t>>> elastic_mappings;
+  std::set<size_t> elastic_offsets;
 
  private:
   std::vector<Column *> columns;
   Column *meta_column;
   // Column **secondary_index_vals;
   uint64_t offset;
+
+  size_t nParts;
 };
 
 class Column {
@@ -151,8 +163,11 @@ class Column {
   // }
 
   // snapshot stuff
-  std::vector<std::pair<mem_chunk, uint64_t>> snapshot_get_data(
+  std::vector<std::pair<mem_chunk, size_t>> snapshot_get_data(
       bool olap_local = false, bool elastic_scan = false);
+
+  std::vector<std::pair<mem_chunk, size_t>> elastic_partition(
+      uint pid, std::set<size_t> &segment_boundaries);
 
   const std::string name;
   const size_t elem_size;
@@ -163,7 +178,7 @@ class Column {
 
  private:
   uint num_partitions;
-  bool touched[NUM_SOCKETS];
+  volatile bool touched[NUM_SOCKETS];
 
   size_t total_mem_reserved;
   size_t size_per_part;
@@ -176,10 +191,9 @@ class Column {
   std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>>
       upd_bit_masks[global_conf::num_master_versions][NUM_SOCKETS];
 
-  // Insert snapshotting manager here.
+  // Snapshotting Utils
   std::vector<decltype(global_conf::SnapshotManager::create(0))>
       snapshot_arenas[NUM_SOCKETS];
-
   std::vector<decltype(global_conf::SnapshotManager::create(0))>
       etl_arenas[NUM_SOCKETS];
 

@@ -22,6 +22,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "aeolus-plugin.hpp"
 
+#include <cmath>
 #include <exception>
 #include <string>
 
@@ -48,9 +49,10 @@ storage::ColumnStore *getRelation(std::string fnamePrefix) {
   throw std::runtime_error(msg);
 }
 
-void **getDataPointerForFile_runtime(const char *relName, const char *attrName,
-                                     void *session, AeolusPlugin *pg) {
-  return pg->getDataPointerForFile_runtime(relName, attrName, session);
+void **getDataPointerForFile_runtime(size_t i, const char *relName,
+                                     const char *attrName, void *session,
+                                     AeolusPlugin *pg) {
+  return pg->getDataPointerForFile_runtime(i, relName, attrName, session);
 }
 
 void freeDataPointerForFile_runtime(void **inn, AeolusPlugin *pg) {
@@ -72,67 +74,63 @@ void freeNumOfTuplesPerPartition_runtime(int64_t *inn, AeolusPlugin *pg) {
 Plugin *createBlockCowPlugin(ParallelContext *context, std::string fnamePrefix,
                              RecordType rec,
                              std::vector<RecordAttribute *> &whichFields) {
-  return new AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-cow");
+  return new AeolusCowPlugin(context, fnamePrefix, rec, whichFields);
 }
 
 Plugin *createBlockRemotePlugin(ParallelContext *context,
                                 std::string fnamePrefix, RecordType rec,
                                 std::vector<RecordAttribute *> &whichFields) {
-  return new AeolusPlugin(context, fnamePrefix, rec, whichFields,
-                          "block-remote");
+  return new AeolusRemotePlugin(context, fnamePrefix, rec, whichFields);
 }
 
 Plugin *createBlockLocalPlugin(ParallelContext *context,
                                std::string fnamePrefix, RecordType rec,
                                std::vector<RecordAttribute *> &whichFields) {
-  return new AeolusPlugin(context, fnamePrefix, rec, whichFields,
-                          "block-local");
+  return new AeolusLocalPlugin(context, fnamePrefix, rec, whichFields);
 }
 Plugin *createBlockElasticPlugin(ParallelContext *context,
                                  std::string fnamePrefix, RecordType rec,
                                  std::vector<RecordAttribute *> &whichFields) {
-  return new AeolusPlugin(context, fnamePrefix, rec, whichFields,
-                          "block-elastic");
+  return new AeolusELasticPlugin(context, fnamePrefix, rec, whichFields);
 }
 }
 
-void **AeolusPlugin::getDataPointerForFile_runtime(const char *relName,
+void **AeolusPlugin::getDataPointerForFile_runtime(size_t i,
+                                                   const char *relName,
                                                    const char *attrName,
                                                    void *session) {
   // TODO: add scale-up and scale-down logic here for elastic stuff.
 
   const auto &tbl = getRelation({relName});
-  for (auto &c : tbl->getColumns()) {
-    if (strcmp(c->name.c_str(), attrName) == 0) {
-      bool local_storage = true, elastic_scan = false;
-      if (this->pgType.compare("block-local") == 0) {
-        local_storage = true;
-        elastic_scan = false;
-      } else if (this->pgType.compare("block-elastic") == 0) {
-        elastic_scan = true;
-        local_storage = false;
-      } else if (this->pgType.compare("block-cow") == 0) {
-        elastic_scan = false;
-        local_storage = false;
-      } else if (this->pgType.compare("block-remote") == 0) {
-        elastic_scan = false;
-        local_storage = false;
-      } else {
-        assert(false && "wtf");
-      }
+  const auto &data_arenas =
+      tbl->snapshot_get_data(i, wantedFields, local_storage, elastic_scan);
 
-      const auto &data_arenas =
-          c->snapshot_get_data(local_storage, elastic_scan);
-      void **arr = (void **)malloc(sizeof(void *) * data_arenas.size());
-      for (uint i = 0; i < data_arenas.size(); i++) {
-        arr[i] = data_arenas[i].first.data;
-        LOG(INFO)
-            << topology::getInstance().getCpuNumaNodeAddressed(arr[i])->id;
-      }
-      return arr;
-    }
+  assert(data_arenas.size() > 0 && "ERROR: getDataPointerForFile");
+
+  void **arr = (void **)malloc(sizeof(void *) * data_arenas.size());
+  for (uint j = 0; j < data_arenas.size(); j++) {
+    arr[j] = data_arenas[j].first.data;
+    LOG(INFO) << topology::getInstance().getCpuNumaNodeAddressed(arr[j])->id;
   }
-  assert(false && "ERROR: getDataPointerForFile");
+  return arr;
+
+  // std::vector<std::pair<mem_chunk, uint64_t>> Column::snapshot_get_data(
+  //   size_t scan_idx, std::vector<RecordAttribute*>& wantedFields,
+  //   bool olap_local, bool elastic_scan)
+
+  // for (auto &c : tbl->getColumns()) {
+  //   if (strcmp(c->name.c_str(), attrName) == 0) {
+  //     const auto &data_arenas =
+  //         c->snapshot_get_data(i, local_storage, elastic_scan);
+  //     void **arr = (void **)malloc(sizeof(void *) * data_arenas.size());
+  //     for (uint i = 0; i < data_arenas.size(); i++) {
+  //       arr[i] = data_arenas[i].first.data;
+  //       LOG(INFO)
+  //           << topology::getInstance().getCpuNumaNodeAddressed(arr[i])->id;
+  //     }
+  //     return arr;
+  //   }
+  // }
 }
 
 void AeolusPlugin::freeDataPointerForFile_runtime(void **inn) { free(inn); }
@@ -141,17 +139,12 @@ int64_t *AeolusPlugin::getNumOfTuplesPerPartition_runtime(const char *relName,
                                                           void *session) {
   const auto &tbl = getRelation({relName});
 
-  const auto &c = tbl->getColumns()[0];
-  // FIXME: this should actually get pointer, just the number of records.
-  const auto &data_arenas = c->snapshot_get_data();
-  int64_t *arr = (int64_t *)malloc(sizeof(int64_t *) * data_arenas.size());
+  return tbl->snapshot_get_number_tuples(local_storage, elastic_scan);
 
-  for (uint i = 0; i < data_arenas.size(); i++) {
-    arr[i] = data_arenas[i].second;
-    LOG(INFO) << "NumberOfRecords:" << arr[i];
-  }
-
-  return arr;
+  // const auto &c = tbl->getColumns()[0];
+  // // FIXME: this should actually get pointer, just the number of records.
+  // const auto &data_arenas = c->snapshot_get_data();
+  // int64_t *arr = (int64_t *)malloc(sizeof(int64_t *) * data_arenas.size());
 }
 
 void AeolusPlugin::freeNumOfTuplesPerPartition_runtime(int64_t *inn) {
@@ -167,6 +160,21 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
       pgType(pgType) {
   Nparts =
       getRelation(fnamePrefix)->getColumns()[0]->snapshot_get_data().size();
+
+  local_storage = false;
+  elastic_scan = false;
+}
+
+AeolusELasticPlugin::AeolusELasticPlugin(
+    ParallelContext *const context, std::string fnamePrefix, RecordType rec,
+    std::vector<RecordAttribute *> &whichFields)
+    : AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-elastic") {
+  // 2  means that a partition can be split in max 2 more.
+  Nparts = std::pow(wantedFields.size(), 2);
+  LOG(INFO) << "Elastic Plugin- Nparts: " << Nparts;
+
+  elastic_scan = true;
+  local_storage = false;
 }
 
 llvm::Value *createCall(std::string func,
@@ -200,7 +208,8 @@ Value *AeolusPlugin::getDataPointersForFile(size_t i,
 
   Value *N_parts_ptr = createCall(
       "getDataPointerForFile_runtime",
-      {context->CreateGlobalString(wantedFields[i]->getRelationName().c_str()),
+      {context->createSizeT(i),
+       context->CreateGlobalString(wantedFields[i]->getRelationName().c_str()),
        context->CreateGlobalString(wantedFields[i]->getAttrName().c_str()),
        session_ptr, this_ptr},
       context, PointerType::getUnqual(char8ptr));

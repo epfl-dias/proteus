@@ -400,7 +400,7 @@ class TPCC : public Benchmark {
         MADV_DONTFORK);
   }
   void free_query_struct_ptr(void *ptr) {
-    storage::MemoryManager::free(ptr, sizeof(struct tpcc_query));
+    storage::MemoryManager::free(ptr);  //, sizeof(struct tpcc_query));
   }
 
   // cust_utils

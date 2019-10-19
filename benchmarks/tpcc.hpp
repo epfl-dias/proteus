@@ -45,10 +45,10 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define tpcc_cust_sec_idx false
 #define batch_insert_no_ol true
 
-#define NO_MIX 100
+#define NO_MIX 95
 #define P_MIX 0
 #define OS_MIX 0
-#define D_MIX 0
+#define D_MIX 5
 #define SL_MIX 0
 #define MIX_COUNT 100
 
