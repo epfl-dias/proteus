@@ -32,7 +32,7 @@
 #include <iostream>
 #include <string>
 
-#include "benchmarks/tpcc.hpp"
+#include "benchmarks/tpcc_64.hpp"
 #include "benchmarks/ycsb.hpp"
 #include "cli-flags.hpp"
 #include "codegen/communication/comm-manager.hpp"
@@ -72,6 +72,7 @@ DEFINE_string(plan_dir, "inputs/plans/cpu-ssb",
 DEFINE_string(inputs_dir, "inputs/", "Data and catalog directory");
 DEFINE_bool(run_oltp, true, "Run OLTP");
 DEFINE_bool(run_olap, true, "Run OLAP");
+DEFINE_uint64(ch_scale_factor, 0, "CH-Bench scale factor");
 
 DEFINE_bool(bench_ycsb, false, "OLTP Bench: true-ycsb, false-tpcc (default)");
 DEFINE_double(ycsb_write_ratio, 0.5, "Writer to reader ratio");
@@ -193,11 +194,12 @@ void init_oltp(uint num_workers, std::string csv_path) {
   } else {
     if (csv_path.length() < 2) {
       bench = new bench::TPCC("TPCC", num_workers, num_workers,
-                              storage::COLUMN_STORE);
+                              FLAGS_ch_scale_factor, storage::COLUMN_STORE);
 
     } else {
       bench = new bench::TPCC("TPCC", num_workers, num_workers,
-                              storage::COLUMN_STORE, 0, csv_path);
+                              FLAGS_ch_scale_factor, storage::COLUMN_STORE, 0,
+                              csv_path);
     }
   }
   scheduler::WorkerPool::getInstance().init(bench, num_workers, 1);

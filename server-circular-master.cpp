@@ -65,9 +65,11 @@ DEFINE_string(plan_dir, "inputs/plans/cpu-ssb",
 DEFINE_string(inputs_dir, "inputs/", "Data and catalog directory");
 DEFINE_bool(run_oltp, true, "Run OLTP");
 DEFINE_bool(run_olap, true, "Run OLAP");
-DEFINE_bool(elastic, false, "elastic_oltp");
+DEFINE_uint64(elastic, 0, "elastic_oltp cores");
 
+DEFINE_uint64(ch_scale_factor, 0, "CH-Bench scale factor");
 DEFINE_bool(etl, false, "ETL on snapshot");
+DEFINE_bool(trade_core, false, "trade case for elasticiy");
 
 DEFINE_bool(bench_ycsb, false, "OLTP Bench: true-ycsb, false-tpcc (default)");
 DEFINE_double(ycsb_write_ratio, 0.5, "Writer to reader ratio");
@@ -84,7 +86,8 @@ void init_olap_warmup() {
 }
 
 std::vector<PreparedStatement> init_olap_sequence(
-    int &client_id, const topology::cpunumanode &numa_node) {
+    int &client_id, const topology::cpunumanode &numa_node,
+    const topology::cpunumanode &oltp_node) {
   // chdir("/home/raza/local/htap/opt/pelago");
 
   time_block t("TcodegenTotal_: ");
@@ -124,8 +127,29 @@ std::vector<PreparedStatement> init_olap_sequence(
 
   std::vector<SpecificCpuCoreAffinitizer::coreid_t> coreids;
 
+  uint j = 0;
   for (auto id : numa_node.local_cores) {
+    if (FLAGS_trade_core && FLAGS_elastic > 0 && j < FLAGS_elastic) {
+      j++;
+      continue;
+    }
     coreids.emplace_back(id);
+  }
+
+  if (FLAGS_elastic > 0) {
+    uint i = 0;
+    for (auto id : oltp_node.local_cores) {
+      coreids.emplace_back(id);
+      if (++i >= FLAGS_elastic) {
+        break;
+      }
+    }
+
+    if (FLAGS_trade_core) {
+      for (auto id : numa_node.local_cores) {
+        coreids.emplace_back(id);
+      }
+    }
   }
 
   // {
@@ -140,7 +164,7 @@ std::vector<PreparedStatement> init_olap_sequence(
 
   // return stmts;
   DegreeOfParallelism dop{coreids.size()};
-  for (const auto &q : {q_ch1, q_ch6}) {
+  for (const auto &q : {q_ch1}) {  // q_ch6
     // std::unique_ptr<Affinitizer> aff_parallel =
     //     std::make_unique<CpuCoreAffinitizer>();
 
@@ -214,11 +238,12 @@ void init_oltp(uint num_workers, std::string csv_path) {
   } else {
     if (csv_path.length() < 2) {
       bench = new bench::TPCC("TPCC", num_workers, num_workers,
-                              storage::COLUMN_STORE);
+                              storage::COLUMN_STORE, FLAGS_ch_scale_factor);
 
     } else {
       bench = new bench::TPCC("TPCC", num_workers, num_workers,
-                              storage::COLUMN_STORE, 0, csv_path);
+                              FLAGS_ch_scale_factor, storage::COLUMN_STORE, 0,
+                              csv_path);
     }
   }
   scheduler::WorkerPool::getInstance().init(bench, num_workers, 1, 3);
@@ -380,19 +405,27 @@ int main(int argc, char *argv[]) {
     storage::Schema::getInstance().ETL(OLAP_SOCKET);
   }
   int client_id = 1;
-  auto olap_queries = init_olap_sequence(client_id, nodes[OLAP_SOCKET]);
+  auto olap_queries =
+      init_olap_sequence(client_id, nodes[OLAP_SOCKET], nodes[OLTP_SOCKET]);
 
   profiling::resume();
   if (FLAGS_run_oltp && FLAGS_num_oltp_clients > 0)
     run_oltp(txn_nodes[OLTP_SOCKET]);
 
-  usleep(2000000);
+  // usleep(2000000);
 
   scheduler::WorkerPool::getInstance().print_worker_stats_diff();
-  if (FLAGS_elastic) {
-    std::cout << "Scale-down OLTP" << std::endl;
-    scheduler::WorkerPool::getInstance().scale_down(4);  // 4 core scale down
+  if (FLAGS_elastic > 0) {
+    if (!FLAGS_trade_core) {
+      std::cout << "Scale-down OLTP" << std::endl;
+      scheduler::WorkerPool::getInstance().scale_down(FLAGS_elastic);
+    } else {
+      for (uint i = 0; i < FLAGS_elastic; i++) {
+        scheduler::WorkerPool::getInstance().migrate_worker();
+      }
+    }
   }
+  usleep(1000000);
 
   for (int i = 0; i < FLAGS_num_olap_clients; i++) {
     scheduler::WorkerPool::getInstance().print_worker_stats_diff();

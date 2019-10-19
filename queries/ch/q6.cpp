@@ -56,13 +56,15 @@
 #include "transactions/transaction_manager.hpp"
 #include "utils/utils.hpp"
 
+using plugin_t = AeolusLocalPlugin;
+
 PreparedStatement q_ch6_c1t() {
   std::string revenue = "revenue";
   auto ctx = new ParallelContext("q6", false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<AeolusLocalPlugin>(tpcc_orderline,
-                               {ol_delivery_d, ol_quantity, ol_amount}, catalog)
+      .scan<plugin_t>(tpcc_orderline, {ol_delivery_d, ol_quantity, ol_amount},
+                      catalog)
       .unpack()
       .filter([&](const auto &arg) -> expression_t {
         return ge(arg[ol_quantity], 1) & le(arg[ol_quantity], 100000) &
@@ -102,8 +104,8 @@ PreparedStatement q_ch6_cpar(DegreeOfParallelism dop,
   auto ctx = new ParallelContext("q6", false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<AeolusLocalPlugin>(tpcc_orderline,
-                               {ol_delivery_d, ol_quantity, ol_amount}, catalog)
+      .scan<plugin_t>(tpcc_orderline, {ol_delivery_d, ol_quantity, ol_amount},
+                      catalog)
       .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
               std::move(aff_parallel))
       .unpack()

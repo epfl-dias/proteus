@@ -56,14 +56,17 @@
 #include "transactions/transaction_manager.hpp"
 #include "utils/utils.hpp"
 
+using plugin_t = AeolusRemotePlugin;
+// using plugin_t = AeolusLocalPlugin;
+
 PreparedStatement q_ch_c1t() {
   std::string count_order = "count_order";
   auto ctx = new ParallelContext("main2", false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<AeolusLocalPlugin>(
-          tpcc_orderline, {ol_delivery_d, ol_number, ol_amount, ol_quantity},
-          catalog)
+      .scan<plugin_t>(tpcc_orderline,
+                      {ol_delivery_d, ol_number, ol_amount, ol_quantity},
+                      catalog)
       .unpack()
       .filter([&](const auto &arg) -> expression_t {
         return gt(arg[ol_delivery_d],
@@ -110,9 +113,9 @@ PreparedStatement q_ch_cpar(DegreeOfParallelism dop,
   auto ctx = new ParallelContext("main2", false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<AeolusLocalPlugin>(
-          tpcc_orderline, {ol_delivery_d, ol_number, ol_amount, ol_quantity},
-          catalog)
+      .scan<plugin_t>(tpcc_orderline,
+                      {ol_delivery_d, ol_number, ol_amount, ol_quantity},
+                      catalog)
       .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
               std::move(aff_parallel))
       .unpack()
@@ -180,9 +183,9 @@ PreparedStatement q_ch1_c1t() {
   auto ctx = new ParallelContext("main2", false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<AeolusLocalPlugin>(
-          tpcc_orderline, {ol_delivery_d, ol_number, ol_amount, ol_quantity},
-          catalog)
+      .scan<plugin_t>(tpcc_orderline,
+                      {ol_delivery_d, ol_number, ol_amount, ol_quantity},
+                      catalog)
       .unpack()
       .filter([&](const auto &arg) -> expression_t {
         return gt(arg[ol_delivery_d],
@@ -241,9 +244,9 @@ PreparedStatement q_ch1_cpar(DegreeOfParallelism dop,
   auto ctx = new ParallelContext("main2", false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<AeolusLocalPlugin>(
-          tpcc_orderline, {ol_delivery_d, ol_number, ol_amount, ol_quantity},
-          catalog)
+      .scan<plugin_t>(tpcc_orderline,
+                      {ol_delivery_d, ol_number, ol_amount, ol_quantity},
+                      catalog)
       .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
               std::move(aff_parallel))
       .unpack()
