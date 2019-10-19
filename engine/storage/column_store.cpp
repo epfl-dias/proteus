@@ -474,7 +474,8 @@ void ColumnStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
           (rec == nullptr ? nullptr : cursor + col->cummulative_offset));
     }
   } else {
-    for (int i = 0; i < num_cols; i++) {
+    for (ushort i = 0; i < num_cols; i++) {
+      assert(col_idx[i] < columns.size());
       Column* col = columns.at(col_idx[i]);
       col->updateElem(hash_ptr->VID,
                       (rec == nullptr ? nullptr : (void*)cursor));

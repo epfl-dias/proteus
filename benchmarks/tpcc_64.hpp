@@ -53,7 +53,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define P_MIX 0
 #define OS_MIX 0
 #define D_MIX 0
-#define SL_MIX 0
+#define SL_MIX 0  // DONT CHANGE, BROKEN
 #define MIX_COUNT 100
 
 // #define NO_MIX 45
@@ -311,7 +311,7 @@ class TPCC : public Benchmark {
     uint32_t d_id;
     uint32_t c_id;
     int threshold;
-    int o_carrier_id;
+    uint32_t o_carrier_id;
     uint32_t d_w_id;
     uint32_t c_w_id;
     uint32_t c_d_id;
@@ -442,6 +442,9 @@ class TPCC : public Benchmark {
        int active_warehouse = 1, bool layout_column_store = true,
        uint tpch_scale_factor = 0, int g_dist_threshold = 0,
        std::string csv_path = "", bool is_ch_benchmark = false);
+
+  static_assert(!(D_MIX > 0 && !index_on_order_tbl),
+                "Delivery Txn requires index on order tables");
 };
 
 }  // namespace bench
