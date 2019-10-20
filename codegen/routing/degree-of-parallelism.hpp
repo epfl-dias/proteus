@@ -35,6 +35,8 @@ class DegreeOfParallelism {
  public:
   explicit DegreeOfParallelism(size_t dop) : dop(dop) {}
 
+  operator size_t() const { return dop; }
+
   inline bool operator==(const DegreeOfParallelism &o) { return dop == o.dop; }
 };
 

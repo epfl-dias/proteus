@@ -58,20 +58,15 @@ class HashJoinChained : public BinaryOperator {
 
   virtual RecordType getRowType() const {
     std::vector<RecordAttribute *> ret;
-    if (probe_keyexpr.isRegistered()) {
-      ret.emplace_back(new RecordAttribute(probe_keyexpr.getRegisteredAs()));
+
+    for (const GpuMatExpr &mexpr : build_mat_exprs) {
+      if (mexpr.packet == 0 && mexpr.packind == 0) continue;
+      ret.emplace_back(new RecordAttribute(mexpr.expr.getRegisteredAs()));
     }
 
-    if (probe_keyexpr.getExpressionType()->getTypeID() == RECORD) {
-      auto rc = dynamic_cast<const expressions::RecordConstruction *>(
-          probe_keyexpr.getUnderlyingExpression());
-
-      for (const auto &a : rc->getAtts()) {
-        auto e = a.getExpression();
-        if (e.isRegistered()) {
-          ret.emplace_back(new RecordAttribute(e.getRegisteredAs()));
-        }
-      }
+    for (const GpuMatExpr &mexpr : probe_mat_exprs) {
+      if (mexpr.packet == 0 && mexpr.packind == 0) continue;
+      ret.emplace_back(new RecordAttribute(mexpr.expr.getRegisteredAs()));
     }
 
     if (build_keyexpr.isRegistered()) {
@@ -90,14 +85,20 @@ class HashJoinChained : public BinaryOperator {
       }
     }
 
-    for (const GpuMatExpr &mexpr : probe_mat_exprs) {
-      if (mexpr.packet == 0 && mexpr.packind == 0) continue;
-      ret.emplace_back(new RecordAttribute(mexpr.expr.getRegisteredAs()));
+    if (probe_keyexpr.isRegistered()) {
+      ret.emplace_back(new RecordAttribute(probe_keyexpr.getRegisteredAs()));
     }
 
-    for (const GpuMatExpr &mexpr : build_mat_exprs) {
-      if (mexpr.packet == 0 && mexpr.packind == 0) continue;
-      ret.emplace_back(new RecordAttribute(mexpr.expr.getRegisteredAs()));
+    if (probe_keyexpr.getExpressionType()->getTypeID() == RECORD) {
+      auto rc = dynamic_cast<const expressions::RecordConstruction *>(
+          probe_keyexpr.getUnderlyingExpression());
+
+      for (const auto &a : rc->getAtts()) {
+        auto e = a.getExpression();
+        if (e.isRegistered()) {
+          ret.emplace_back(new RecordAttribute(e.getRegisteredAs()));
+        }
+      }
     }
 
     return ret;

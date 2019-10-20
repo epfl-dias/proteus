@@ -1249,6 +1249,17 @@ inline expressions::RecordProjection expression_t::operator[](
     assert(p->getRelationName() == proj.getRelationName());
     return {*this, *p};
   }
+  if (proj.getAttrName().size() > 0 && proj.getAttrName()[0] == '$') {
+    try {
+      auto index = std::stoi(proj.getAttrName().substr(1));
+      if (index >= 0 && index < rec->getArgs().size()) {
+        auto it = rec->getArgs().begin();
+        std::advance(it, index);
+        return {*this, **it};
+      }
+    } catch (std::invalid_argument &) {
+    }
+  }
   for (const auto &e : rec->getArgs()) {
     auto type = dynamic_cast<const RecordType *>(e->getOriginalType());
     if (type) {

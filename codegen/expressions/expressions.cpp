@@ -59,7 +59,8 @@ llvm::Constant *getIdentityElementIfSimple(Monoid m, const ExpressionType *type,
         }
         default: {
           string error_msg =
-              string("[Monoid: ] Sum/Multiply/Max operate on numerics");
+              string("[Monoid: ] Sum/Multiply/Max operate on numerics (not " +
+                     type->getType() + ")");
           LOG(ERROR) << error_msg;
           throw runtime_error(error_msg);
         }

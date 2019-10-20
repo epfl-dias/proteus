@@ -595,8 +595,10 @@ TEST_F(JSONTest, jsonRelBuilder) {
                    .unnest([&](const auto &arg) -> expression_t {
                      return arg[attr3].as(&nestedAs);
                    })
-                   .print([&](const auto &arg) -> std::vector<expression_t> {
-                     return {arg[attr2], arg[age2]};
+                   .print([&](const auto &arg,
+                              std::string outrel) -> std::vector<expression_t> {
+                     return {arg[attr2].as(outrel, attr2.getAttrName()),
+                             arg[age2].as(outrel, age2.getAttrName())};
                    })
                    .prepare();
 

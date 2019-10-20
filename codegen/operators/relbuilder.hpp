@@ -109,12 +109,12 @@ class RelBuilder {
   }
 
   template <typename T>
-  RelBuilder membrdcst(T attr, size_t fanout, bool to_cpu,
+  RelBuilder membrdcst(T attr, DegreeOfParallelism fanout, bool to_cpu,
                        bool always_share = false) const {
     return membrdcst(attr(getOutputArg()), fanout, to_cpu, always_share);
   }
 
-  RelBuilder membrdcst(size_t fanout, bool to_cpu,
+  RelBuilder membrdcst(DegreeOfParallelism fanout, bool to_cpu,
                        bool always_share = false) const;
 
   template <typename T, typename Thash>
@@ -133,6 +133,10 @@ class RelBuilder {
         [&](const auto& arg) -> std::vector<RecordAttribute*> {
           std::vector<RecordAttribute*> attrs;
           for (const auto& attr : arg.getProjections()) {
+            if (p == RoutingPolicy::HASH_BASED &&
+                attr.getAttrName() == "__broadcastTarget") {
+              continue;
+            }
             attrs.emplace_back(new RecordAttribute{attr});
           }
           return attrs;
@@ -205,6 +209,13 @@ class RelBuilder {
                 probe_e(getOutputArg()), probe_w, hash_bits, maxBuildInputSize);
   }
 
+  template <typename Tbk, typename Tpk>
+  RelBuilder join(RelBuilder build, Tbk build_k, Tpk probe_k, int hash_bits,
+                  size_t maxBuildInputSize) const {
+    return join(build, build_k(build.getOutputArg()), probe_k(getOutputArg()),
+                hash_bits, maxBuildInputSize);
+  }
+
   template <typename T>
   RelBuilder unpack(T expr, gran_t granularity) const {
     return unpack(expr(getOutputArgUnnested()), granularity);
@@ -219,6 +230,11 @@ class RelBuilder {
   RelBuilder pack(T expr) const {
     return pack(
         expr, [](const auto& arg) { return expression_t{0}; }, 1);
+  }
+
+  template <typename T>
+  RelBuilder project(T expr) const {
+    return project(expr(getOutputArg()));
   }
 
   template <typename T>
@@ -238,8 +254,20 @@ class RelBuilder {
   }
 
   template <typename T>
+  RelBuilder print(T expr, std::string outrel) const {
+    const auto vec = expr(getOutputArg(), outrel);
+#ifndef NDEBUG
+    for (const auto& e : vec) {
+      assert(e.isRegistered());
+      assert(e.getRegisteredRelName() == outrel);
+    }
+#endif
+    return print(vec);
+  }
+
+  template <typename T>
   RelBuilder print(T expr) const {
-    return print(expr(getOutputArg()));
+    return print(expr, ctx->getModuleName());
   }
 
   template <typename T>
@@ -271,6 +299,8 @@ class RelBuilder {
 
   RelBuilder filter(expression_t pred) const;
 
+  RelBuilder project(const vector<expression_t>& e) const;
+
   RelBuilder reduce(const vector<expression_t>& e,
                     const vector<Monoid>& accs) const;
 
@@ -291,7 +321,7 @@ class RelBuilder {
                     DeviceType target, std::unique_ptr<Affinitizer> aff) const;
 
   RelBuilder membrdcst(const vector<RecordAttribute*>& wantedFields,
-                       size_t fanout, bool to_cpu,
+                       DegreeOfParallelism fanout, bool to_cpu,
                        bool always_share = false) const;
 
   RelBuilder join(RelBuilder build, expression_t build_k,
@@ -300,6 +330,9 @@ class RelBuilder {
                   const std::vector<GpuMatExpr>& probe_e,
                   const std::vector<size_t>& probe_w, int hash_bits,
                   size_t maxBuildInputSize) const;
+
+  RelBuilder join(RelBuilder build, expression_t build_k, expression_t probe_k,
+                  int hash_bits, size_t maxBuildInputSize) const;
 };
 
 #endif /* RELBUILDER_HPP_ */

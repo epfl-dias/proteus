@@ -42,6 +42,8 @@ class Flush : public UnaryOperator {
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return getChild()->isFiltering(); }
 
+  virtual RecordType getRowType() const { return {}; }
+
  protected:
   Context *context;
   size_t result_cnt_id;

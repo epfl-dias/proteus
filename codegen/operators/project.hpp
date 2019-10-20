@@ -39,6 +39,14 @@ class Project : public UnaryOperator {
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return getChild()->isFiltering(); }
 
+  virtual RecordType getRowType() const {
+    std::vector<RecordAttribute *> attrs;
+    for (const auto &attr : outputExprs) {
+      attrs.emplace_back(new RecordAttribute{attr.getRegisteredAs()});
+    }
+    return attrs;
+  }
+
  protected:
   Context *context;
   size_t oid_id;
