@@ -20,6 +20,10 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
+
+#ifndef HARMONIA_QUERIES_CH_Q6_HPP_
+#define HARMONIA_QUERIES_CH_Q6_HPP_
+
 #include <gflags/gflags.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -56,15 +60,14 @@
 #include "transactions/transaction_manager.hpp"
 #include "utils/utils.hpp"
 
-using plugin_t = AeolusLocalPlugin;
-
+template <typename Tplugin>
 PreparedStatement q_ch6_c1t() {
   std::string revenue = "revenue";
   auto ctx = new ParallelContext(__FUNCTION__, false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<plugin_t>(tpcc_orderline, {ol_delivery_d, ol_quantity, ol_amount},
-                      catalog)
+      .scan<Tplugin>(tpcc_orderline, {ol_delivery_d, ol_quantity, ol_amount},
+                     catalog)
       .unpack()
       .filter([&](const auto &arg) -> expression_t {
         return ge(arg[ol_quantity], 1) & le(arg[ol_quantity], 100000) &
@@ -82,7 +85,7 @@ PreparedStatement q_ch6_c1t() {
       })
       .prepare();
 }
-
+template <typename Tplugin>
 PreparedStatement q_ch6_cpar(DegreeOfParallelism dop,
                              std::unique_ptr<Affinitizer> aff_parallel,
                              std::unique_ptr<Affinitizer> aff_reduce) {
@@ -90,8 +93,8 @@ PreparedStatement q_ch6_cpar(DegreeOfParallelism dop,
   auto ctx = new ParallelContext(__FUNCTION__, false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<plugin_t>(tpcc_orderline, {ol_delivery_d, ol_quantity, ol_amount},
-                      catalog)
+      .scan<Tplugin>(tpcc_orderline, {ol_delivery_d, ol_quantity, ol_amount},
+                     catalog)
       .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
               std::move(aff_parallel))
       .unpack()
@@ -118,10 +121,13 @@ PreparedStatement q_ch6_cpar(DegreeOfParallelism dop,
       })
       .prepare();
 }
-
+template <typename Tplugin>
 PreparedStatement q_ch6(DegreeOfParallelism dop,
                         std::unique_ptr<Affinitizer> aff_parallel,
                         std::unique_ptr<Affinitizer> aff_reduce) {
-  if (dop == DegreeOfParallelism{1}) return q_ch6_c1t();
-  return q_ch6_cpar(dop, std::move(aff_parallel), std::move(aff_reduce));
+  if (dop == DegreeOfParallelism{1}) return q_ch6_c1t<Tplugin>();
+  return q_ch6_cpar<Tplugin>(dop, std::move(aff_parallel),
+                             std::move(aff_reduce));
 }
+
+#endif /* HARMONIA_QUERIES_CH_Q6_HPP_ */

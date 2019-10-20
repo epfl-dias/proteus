@@ -20,6 +20,10 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
+
+#ifndef HARMONIA_QUERIES_MICRO_SUM_HPP_
+#define HARMONIA_QUERIES_MICRO_SUM_HPP_
+
 #include <gflags/gflags.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -56,11 +60,12 @@
 #include "transactions/transaction_manager.hpp"
 #include "utils/utils.hpp"
 
+template <typename Tplugin>
 PreparedStatement q_sum_c1t() {
   auto ctx = new ParallelContext("main2", false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<AeolusLocalPlugin>(tpcc_orderline, {ol_o_id}, catalog)
+      .scan<Tplugin>(tpcc_orderline, {ol_o_id}, catalog)
       .unpack()
       .reduce(
           [&](const auto &arg) -> std::vector<expression_t> {
@@ -75,13 +80,14 @@ PreparedStatement q_sum_c1t() {
       .prepare();
 }
 
+template <typename Tplugin>
 PreparedStatement q_sum_cpar(DegreeOfParallelism dop,
                              std::unique_ptr<Affinitizer> aff_parallel,
                              std::unique_ptr<Affinitizer> aff_reduce) {
   auto ctx = new ParallelContext("main3", false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<AeolusLocalPlugin>(tpcc_orderline, {ol_o_id}, catalog)
+      .scan<Tplugin>(tpcc_orderline, {ol_o_id}, catalog)
       .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
               std::move(aff_parallel))
       .unpack()
@@ -106,9 +112,13 @@ PreparedStatement q_sum_cpar(DegreeOfParallelism dop,
       .prepare();
 }
 
+template <typename Tplugin>
 PreparedStatement q_sum(DegreeOfParallelism dop,
                         std::unique_ptr<Affinitizer> aff_parallel,
                         std::unique_ptr<Affinitizer> aff_reduce) {
-  if (dop == DegreeOfParallelism{1}) return q_sum_c1t();
-  return q_sum_cpar(dop, std::move(aff_parallel), std::move(aff_reduce));
+  if (dop == DegreeOfParallelism{1}) return q_sum_c1t<Tplugin>();
+  return q_sum_cpar<Tplugin>(dop, std::move(aff_parallel),
+                             std::move(aff_reduce));
 }
+
+#endif /* HARMONIA_QUERIES_MICRO_SUM_HPP_ */

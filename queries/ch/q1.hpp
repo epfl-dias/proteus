@@ -20,6 +20,10 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
+
+#ifndef HARMONIA_QUERIES_CH_Q1_HPP_
+#define HARMONIA_QUERIES_CH_Q1_HPP_
+
 #include <gflags/gflags.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -56,17 +60,15 @@
 #include "transactions/transaction_manager.hpp"
 #include "utils/utils.hpp"
 
-using plugin_t = AeolusRemotePlugin;
-// using plugin_t = AeolusLocalPlugin;
-
+template <typename Tplugin>
 PreparedStatement q_ch_c1t() {
   std::string count_order = "count_order";
   auto ctx = new ParallelContext(__FUNCTION__, false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<plugin_t>(tpcc_orderline,
-                      {ol_delivery_d, ol_number, ol_amount, ol_quantity},
-                      catalog)
+      .scan<Tplugin>(tpcc_orderline,
+                     {ol_delivery_d, ol_number, ol_amount, ol_quantity},
+                     catalog)
       .unpack()
       .filter([&](const auto &arg) -> expression_t {
         return gt(arg[ol_delivery_d],
@@ -93,6 +95,7 @@ PreparedStatement q_ch_c1t() {
       .prepare();
 }
 
+template <typename Tplugin>
 PreparedStatement q_ch_cpar(DegreeOfParallelism dop,
                             std::unique_ptr<Affinitizer> aff_parallel,
                             std::unique_ptr<Affinitizer> aff_reduce) {
@@ -100,9 +103,9 @@ PreparedStatement q_ch_cpar(DegreeOfParallelism dop,
   auto ctx = new ParallelContext(__FUNCTION__, false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<plugin_t>(tpcc_orderline,
-                      {ol_delivery_d, ol_number, ol_amount, ol_quantity},
-                      catalog)
+      .scan<Tplugin>(tpcc_orderline,
+                     {ol_delivery_d, ol_number, ol_amount, ol_quantity},
+                     catalog)
       .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
               std::move(aff_parallel))
       .unpack()
@@ -139,27 +142,30 @@ PreparedStatement q_ch_cpar(DegreeOfParallelism dop,
       .prepare();
 }
 
-PreparedStatement q_ch2_c1t() {
-  return PreparedStatement::from(
-      "/scratch/chrysoge/pelago_sigmod2020_htap/src/htap/ch-plans/q1.json",
-      __FUNCTION__);
-}
+// PreparedStatement q_ch2_c1t() {
+//   return PreparedStatement::from(
+//       "/scratch/chrysoge/pelago_sigmod2020_htap/src/htap/ch-plans/q1.json",
+//       __FUNCTION__);
+// }
 
+template <typename Tplugin>
 PreparedStatement q_ch(DegreeOfParallelism dop,
                        std::unique_ptr<Affinitizer> aff_parallel,
                        std::unique_ptr<Affinitizer> aff_reduce) {
-  if (dop == DegreeOfParallelism{1}) return q_ch_c1t();
-  return q_ch_cpar(dop, std::move(aff_parallel), std::move(aff_reduce));
+  if (dop == DegreeOfParallelism{1}) return q_ch_c1t<Tplugin>();
+  return q_ch_cpar<Tplugin>(dop, std::move(aff_parallel),
+                            std::move(aff_reduce));
 }
 
+template <typename Tplugin>
 PreparedStatement q_ch1_c1t() {
   std::string count_order = "count_order";
   auto ctx = new ParallelContext(__FUNCTION__, false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<plugin_t>(tpcc_orderline,
-                      {ol_delivery_d, ol_number, ol_amount, ol_quantity},
-                      catalog)
+      .scan<Tplugin>(tpcc_orderline,
+                     {ol_delivery_d, ol_number, ol_amount, ol_quantity},
+                     catalog)
       .unpack()
       .filter([&](const auto &arg) -> expression_t {
         return gt(arg[ol_delivery_d],
@@ -196,6 +202,7 @@ PreparedStatement q_ch1_c1t() {
       .prepare();
 }
 
+template <typename Tplugin>
 PreparedStatement q_ch1_cpar(DegreeOfParallelism dop,
                              std::unique_ptr<Affinitizer> aff_parallel,
                              std::unique_ptr<Affinitizer> aff_reduce) {
@@ -203,9 +210,9 @@ PreparedStatement q_ch1_cpar(DegreeOfParallelism dop,
   auto ctx = new ParallelContext(__FUNCTION__, false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<plugin_t>(tpcc_orderline,
-                      {ol_delivery_d, ol_number, ol_amount, ol_quantity},
-                      catalog)
+      .scan<Tplugin>(tpcc_orderline,
+                     {ol_delivery_d, ol_number, ol_amount, ol_quantity},
+                     catalog)
       .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
               std::move(aff_parallel))
       .unpack()
@@ -258,9 +265,13 @@ PreparedStatement q_ch1_cpar(DegreeOfParallelism dop,
       .prepare();
 }
 
+template <typename Tplugin>
 PreparedStatement q_ch1(DegreeOfParallelism dop,
                         std::unique_ptr<Affinitizer> aff_parallel,
                         std::unique_ptr<Affinitizer> aff_reduce) {
-  if (dop == DegreeOfParallelism{1}) return q_ch1_c1t();
-  return q_ch1_cpar(dop, std::move(aff_parallel), std::move(aff_reduce));
+  if (dop == DegreeOfParallelism{1}) return q_ch1_c1t<Tplugin>();
+  return q_ch1_cpar<Tplugin>(dop, std::move(aff_parallel),
+                             std::move(aff_reduce));
 }
+
+#endif /* HARMONIA_QUERIES_CH_Q1_HPP_ */

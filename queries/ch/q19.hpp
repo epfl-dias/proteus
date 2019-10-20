@@ -20,6 +20,10 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
+
+#ifndef HARMONIA_QUERIES_CH_Q19_HPP_
+#define HARMONIA_QUERIES_CH_Q19_HPP_
+
 #include <gflags/gflags.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -56,15 +60,14 @@
 #include "transactions/transaction_manager.hpp"
 #include "utils/utils.hpp"
 
-using plugin_t = AeolusLocalPlugin;
-
+template <typename Tplugin>
 PreparedStatement q_ch19_c1t() {
   std::string revenue = "revenue";
   auto ctx = new ParallelContext(__FUNCTION__, false);
   CatalogParser &catalog = CatalogParser::getInstance();
   auto rel2560 =
       RelBuilder{ctx}
-          .scan<plugin_t>("tpcc_item", {"i_id", "i_price"}, catalog)
+          .scan<Tplugin>("tpcc_item", {"i_id", "i_price"}, catalog)
           // (table=[[SSB, tpcc_item]], fields=[[0, 3]],
           // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle.none])
           .unpack()
@@ -85,9 +88,9 @@ PreparedStatement q_ch19_c1t() {
       // isS=[false])
       ;
   return RelBuilder{ctx}
-      .scan<plugin_t>("tpcc_orderline",
-                      {"ol_w_id", "ol_i_id", "ol_quantity", "ol_amount"},
-                      catalog)
+      .scan<Tplugin>("tpcc_orderline",
+                     {"ol_w_id", "ol_i_id", "ol_quantity", "ol_amount"},
+                     catalog)
       // (table=[[SSB, tpcc_orderline]], fields=[[2, 4, 7, 8]],
       // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle.none])
       .unpack()
@@ -149,6 +152,7 @@ PreparedStatement q_ch19_c1t() {
       .prepare();
 }
 
+template <typename Tplugin>
 PreparedStatement q_ch19_cpar(DegreeOfParallelism dop,
                               std::unique_ptr<Affinitizer> aff_parallel,
                               std::unique_ptr<Affinitizer> aff_parallel2,
@@ -157,7 +161,7 @@ PreparedStatement q_ch19_cpar(DegreeOfParallelism dop,
   CatalogParser &catalog = CatalogParser::getInstance();
   auto rel4073 =
       RelBuilder{ctx}
-          .scan<plugin_t>("tpcc_item", {"i_id", "i_price"}, catalog)
+          .scan<Tplugin>("tpcc_item", {"i_id", "i_price"}, catalog)
           // (table=[[SSB, tpcc_item]], fields=[[0, 3]],
           // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle.none])
           .membrdcst(dop, true, true)
@@ -186,9 +190,9 @@ PreparedStatement q_ch19_cpar(DegreeOfParallelism dop,
       // isS=[false])
       ;
   return RelBuilder{ctx}
-      .scan<plugin_t>("tpcc_orderline",
-                      {"ol_w_id", "ol_i_id", "ol_quantity", "ol_amount"},
-                      catalog)
+      .scan<Tplugin>("tpcc_orderline",
+                     {"ol_w_id", "ol_i_id", "ol_quantity", "ol_amount"},
+                     catalog)
       // (table=[[SSB, tpcc_orderline]], fields=[[2, 4, 7, 8]],
       // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle.none])
       .router(dop, 1, RoutingPolicy::LOCAL, DeviceType::CPU,
@@ -226,7 +230,7 @@ PreparedStatement q_ch19_cpar(DegreeOfParallelism dop,
           [&](const auto &probe_arg) -> expression_t {
             return probe_arg["$0"].as("PelagoJoin#4078", "pk_0");
           },
-          10, 1024 * 1024)
+          18, 1024 * 1024)
       // (condition=[=($3, $0)], joinType=[inner], rowcnt=[2.56E7],
       // maxrow=[100000.0], maxEst=[100000.0], h_bits=[27],
       // build=[RecordType(INTEGER i_id, BOOLEAN >=, BOOLEAN <=)],
@@ -268,3 +272,5 @@ PreparedStatement q_ch19_cpar(DegreeOfParallelism dop,
 //   if (dop == DegreeOfParallelism{1}) return q_ch19_c1t();
 //   return q_ch19_cpar(dop, aff_parallel(), aff_parallel(), aff_reduce());
 // }
+
+#endif /* HARMONIA_QUERIES_CH_Q19_HPP_ */

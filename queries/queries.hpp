@@ -21,8 +21,12 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#ifndef HARMONIA_QUERIES_HPP_
+#define HARMONIA_QUERIES_HPP_
+
 #include <string>
 
+#include "adaptors/aeolus-plugin.hpp"
 #include "codegen/plan/prepared-statement.hpp"
 #include "routing/affinitizers.hpp"
 #include "routing/degree-of-parallelism.hpp"
@@ -51,58 +55,97 @@ extern std::string o_carrier_id;
 extern std::string o_ol_cnt;
 extern std::string o_all_local;
 
-PreparedStatement q_sum_c1t();
-PreparedStatement q_ch_c1t();
-PreparedStatement q_ch2_c1t();
-PreparedStatement q_ch1_c1t();
-PreparedStatement q_ch6_c1t();
-PreparedStatement q_ch19_c1t();
+using default_plugin_t = AeolusRemotePlugin;
 
-PreparedStatement q_sum_cpar(
-    DegreeOfParallelism dop,
-    std::unique_ptr<Affinitizer> aff_parallel = nullptr,
-    std::unique_ptr<Affinitizer> aff_reduce = nullptr);
-PreparedStatement q_ch_cpar(DegreeOfParallelism dop,
-                            std::unique_ptr<Affinitizer> aff_parallel = nullptr,
-                            std::unique_ptr<Affinitizer> aff_reduce = nullptr);
-PreparedStatement q_ch1_cpar(
-    DegreeOfParallelism dop,
-    std::unique_ptr<Affinitizer> aff_parallel = nullptr,
-    std::unique_ptr<Affinitizer> aff_reduce = nullptr);
-PreparedStatement q_ch6_cpar(
-    DegreeOfParallelism dop,
-    std::unique_ptr<Affinitizer> aff_parallel = nullptr,
-    std::unique_ptr<Affinitizer> aff_reduce = nullptr);
-PreparedStatement q_ch19_cpar(DegreeOfParallelism dop,
-                              std::unique_ptr<Affinitizer> aff_parallel,
-                              std::unique_ptr<Affinitizer> aff_parallel2,
-                              std::unique_ptr<Affinitizer> aff_reduce);
+#include "ch/q1.hpp"
+#include "ch/q19.hpp"
+#include "ch/q4.hpp"
+#include "ch/q6.hpp"
 
-PreparedStatement q_sum(DegreeOfParallelism dop,
-                        std::unique_ptr<Affinitizer> aff_parallel = nullptr,
-                        std::unique_ptr<Affinitizer> aff_reduce = nullptr);
-PreparedStatement q_ch(DegreeOfParallelism dop,
-                       std::unique_ptr<Affinitizer> aff_parallel = nullptr,
-                       std::unique_ptr<Affinitizer> aff_reduce = nullptr);
+#include "micro/sum.hpp"
 
-template <typename Tp, typename Tr>
+// template <typename Tplugin = default_plugin_t>
+// PreparedStatement q_sum_c1t();
+
+// template <typename Tplugin = default_plugin_t>
+// PreparedStatement q_ch_c1t();
+
+// // template <typename Tplugin>
+// // PreparedStatement q_ch2_c1t();
+
+// template <typename Tplugin = default_plugin_t>
+// PreparedStatement q_ch1_c1t();
+
+// template <typename Tplugin = default_plugin_t>
+// PreparedStatement q_ch6_c1t();
+
+// template <typename Tplugin = default_plugin_t>
+// PreparedStatement q_ch19_c1t();
+
+// template <typename Tplugin = default_plugin_t>
+// PreparedStatement q_sum_cpar(
+//     DegreeOfParallelism dop,
+//     std::unique_ptr<Affinitizer> aff_parallel = nullptr,
+//     std::unique_ptr<Affinitizer> aff_reduce = nullptr);
+
+// template <typename Tplugin = default_plugin_t>
+// PreparedStatement q_ch_cpar(DegreeOfParallelism dop,
+//                             std::unique_ptr<Affinitizer> aff_parallel =
+//                             nullptr, std::unique_ptr<Affinitizer> aff_reduce
+//                             = nullptr);
+
+// template <typename Tplugin = default_plugin_t>
+// PreparedStatement q_ch1_cpar(
+//     DegreeOfParallelism dop,
+//     std::unique_ptr<Affinitizer> aff_parallel = nullptr,
+//     std::unique_ptr<Affinitizer> aff_reduce = nullptr);
+
+// template <typename Tplugin = default_plugin_t>
+// PreparedStatement q_ch6_cpar(
+//     DegreeOfParallelism dop,
+//     std::unique_ptr<Affinitizer> aff_parallel = nullptr,
+//     std::unique_ptr<Affinitizer> aff_reduce = nullptr);
+
+// template <typename Tplugin = default_plugin_t>
+// PreparedStatement q_ch19_cpar(DegreeOfParallelism dop,
+//                               std::unique_ptr<Affinitizer> aff_parallel,
+//                               std::unique_ptr<Affinitizer> aff_parallel2,
+//                               std::unique_ptr<Affinitizer> aff_reduce);
+
+// template <typename Tplugin = default_plugin_t>
+// PreparedStatement q_sum(DegreeOfParallelism dop,
+//                         std::unique_ptr<Affinitizer> aff_parallel = nullptr,
+//                         std::unique_ptr<Affinitizer> aff_reduce = nullptr);
+
+// template <typename Tplugin = default_plugin_t>
+// PreparedStatement q_ch(DegreeOfParallelism dop,
+//                        std::unique_ptr<Affinitizer> aff_parallel = nullptr,
+//                        std::unique_ptr<Affinitizer> aff_reduce = nullptr);
+
+// template <typename Tplugin = default_plugin_t>
+// PreparedStatement q_ch4(DegreeOfParallelism dop,
+//                         std::unique_ptr<Affinitizer> aff_parallel = nullptr,
+//                         std::unique_ptr<Affinitizer> aff_reduce = nullptr);
+
+template <typename Tp, typename Tr, typename Tplugin = default_plugin_t>
 PreparedStatement q_ch1(DegreeOfParallelism dop, Tp aff_parallel,
                         Tr aff_reduce) {
-  if (dop == DegreeOfParallelism{1}) return q_ch1_c1t();
-  return q_ch1_cpar(dop, aff_parallel(), aff_reduce());
+  if (dop == DegreeOfParallelism{1}) return q_ch1_c1t<Tplugin>();
+  return q_ch1_cpar<Tplugin>(dop, aff_parallel(), aff_reduce());
 }
-PreparedStatement q_ch4(DegreeOfParallelism dop,
-                        std::unique_ptr<Affinitizer> aff_parallel = nullptr,
-                        std::unique_ptr<Affinitizer> aff_reduce = nullptr);
-template <typename Tp, typename Tr>
+
+template <typename Tp, typename Tr, typename Tplugin = default_plugin_t>
 PreparedStatement q_ch6(DegreeOfParallelism dop, Tp aff_parallel,
                         Tr aff_reduce) {
-  if (dop == DegreeOfParallelism{1}) return q_ch6_c1t();
-  return q_ch6_cpar(dop, aff_parallel(), aff_reduce());
+  if (dop == DegreeOfParallelism{1}) return q_ch6_c1t<Tplugin>();
+  return q_ch6_cpar<Tplugin>(dop, aff_parallel(), aff_reduce());
 }
-template <typename Tp, typename Tr>
+template <typename Tp, typename Tr, typename Tplugin = default_plugin_t>
 PreparedStatement q_ch19(DegreeOfParallelism dop, Tp aff_parallel,
                          Tr aff_reduce) {
-  if (dop == DegreeOfParallelism{1}) return q_ch19_c1t();
-  return q_ch19_cpar(dop, aff_parallel(), aff_parallel(), aff_reduce());
+  if (dop == DegreeOfParallelism{1}) return q_ch19_c1t<Tplugin>();
+  return q_ch19_cpar<Tplugin>(dop, aff_parallel(), aff_parallel(),
+                              aff_reduce());
 }
+
+#endif /* HARMONIA_QUERIES_HPP_ */
