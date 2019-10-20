@@ -91,7 +91,7 @@ Plugin *createBlockLocalPlugin(ParallelContext *context,
 Plugin *createBlockElasticPlugin(ParallelContext *context,
                                  std::string fnamePrefix, RecordType rec,
                                  std::vector<RecordAttribute *> &whichFields) {
-  return new AeolusELasticPlugin(context, fnamePrefix, rec, whichFields);
+  return new AeolusElasticPlugin(context, fnamePrefix, rec, whichFields);
 }
 }
 
@@ -165,7 +165,7 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
   elastic_scan = false;
 }
 
-AeolusELasticPlugin::AeolusELasticPlugin(
+AeolusElasticPlugin::AeolusElasticPlugin(
     ParallelContext *const context, std::string fnamePrefix, RecordType rec,
     std::vector<RecordAttribute *> &whichFields)
     : AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-elastic") {

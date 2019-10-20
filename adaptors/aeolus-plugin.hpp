@@ -87,9 +87,9 @@ class AeolusRemotePlugin : public AeolusPlugin {
       : AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-remote") {}
 };
 
-class AeolusELasticPlugin : public AeolusPlugin {
+class AeolusElasticPlugin : public AeolusPlugin {
  public:
-  AeolusELasticPlugin(ParallelContext *const context, std::string fnamePrefix,
+  AeolusElasticPlugin(ParallelContext *const context, std::string fnamePrefix,
                       RecordType rec,
                       std::vector<RecordAttribute *> &whichFields);
 };
