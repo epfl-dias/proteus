@@ -8,10 +8,10 @@ import org.apache.calcite.plan._
 import org.apache.calcite.rel.{RelDistributionTraitDef, RelNode, RelWriter}
 import org.apache.calcite.rel.core.Filter
 import org.apache.calcite.rel.metadata.RelMetadataQuery
-import org.apache.calcite.rex.{RexNode, RexSimplify, RexUtil}
+import org.apache.calcite.rex.{RexBuilder, RexCall, RexNode, RexSimplify, RexUtil}
 import org.json4s.JsonDSL._
 import org.json4s._
-
+import scala.collection.JavaConverters._
 
 class PelagoFilter protected (cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode, condition: RexNode) extends Filter(cluster, traitSet, input, condition) with PelagoRel {
   assert(getConvention eq PelagoRel.CONVENTION)
@@ -55,6 +55,12 @@ class PelagoFilter protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
 }
 
 object PelagoFilter{
+  def recFlatten(rexBuilder: RexBuilder, e: RexNode): RexNode ={
+    if (!e.isInstanceOf[RexCall]) return e
+    RexUtil.flatten(rexBuilder, e.asInstanceOf[RexCall].clone(e.getType, e.asInstanceOf[RexCall].getOperands.asScala.map(e => recFlatten(rexBuilder, e)).asJava))
+  }
+
+
   def create(input: RelNode, condition: RexNode): PelagoFilter = {
     val cluster  = input.getCluster
     val mq       = cluster.getMetadataQuery
@@ -64,6 +70,6 @@ object PelagoFilter{
       .replace(mq.asInstanceOf[PelagoRelMetadataQuery].homDistribution(input))
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => dev);
     assert(traitSet.containsIfApplicable(RelPacking.UnPckd))
-    new PelagoFilter(input.getCluster, traitSet, input, condition)
+    new PelagoFilter(input.getCluster, traitSet, input, recFlatten(cluster.getRexBuilder, condition))
   }
 }

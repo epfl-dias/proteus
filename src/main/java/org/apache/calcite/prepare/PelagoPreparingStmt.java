@@ -16,7 +16,9 @@ import org.apache.calcite.plan.hep.HepProgramBuilder;
 import org.apache.calcite.plan.volcano.AbstractConverter;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.RelFactories;
+import org.apache.calcite.rel.externalize.RelWriterImpl;
 import org.apache.calcite.rel.rules.FilterJoinRule;
 import org.apache.calcite.rel.rules.FilterProjectTransposeRule;
 import org.apache.calcite.rel.rules.JoinProjectTransposeRule;
@@ -39,6 +41,7 @@ import org.apache.calcite.tools.Programs;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.Holder;
 
+import ch.epfl.dias.calcite.adapter.pelago.RelBuilderWriter;
 import ch.epfl.dias.calcite.adapter.pelago.RelComputeDevice;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.RelHomDistribution;
@@ -51,6 +54,8 @@ import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushRouterDown;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushSplitDown;
 import ch.epfl.dias.repl.Repl;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.List;
 import java.util.Map;
 
@@ -158,6 +163,21 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             List<RelOptMaterialization> materializations,
             List<RelOptLattice> lattices) {
             System.out.println(RelOptUtil.toString(rel, SqlExplainLevel.EXPPLAN_ATTRIBUTES));
+            return rel;
+        }
+    }
+
+    private static class PelagoProgram2 implements Program {
+        public RelNode run(RelOptPlanner planner, RelNode rel,
+            RelTraitSet requiredOutputTraits,
+            List<RelOptMaterialization> materializations,
+            List<RelOptLattice> lattices) {
+            final StringWriter sw = new StringWriter();
+            final RelWriter planWriter =
+                new RelBuilderWriter(
+                    new PrintWriter(sw), SqlExplainLevel.EXPPLAN_ATTRIBUTES, false);
+            rel.explain(planWriter);
+            System.out.println(sw.toString());
             return rel;
         }
     }
@@ -317,7 +337,9 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                 new PelagoProgram(),
                 Programs.ofRules(planner.getRules()),
                 new PelagoProgram(),
+                new PelagoProgram2(),
                 Programs.ofRules(hetRuleBuilder.build()),
+                new PelagoProgram2(),
                 new PelagoProgram()
                 ));
     }

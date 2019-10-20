@@ -84,6 +84,7 @@ public class PelagoRelMdRowCount implements MetadataHandler<BuiltInMetadata.RowC
     Double rows = Math.max(leftRows, rightRows);
     RelNode small = (leftRows < rightRows) ? rel.getLeft() : rel.getRight();
     Double sel = mq.getPercentageOriginalRows(small);
+    if (sel == null) return rows;
     return rows * sel;
   }
 }
