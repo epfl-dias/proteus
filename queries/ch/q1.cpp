@@ -61,7 +61,7 @@ using plugin_t = AeolusRemotePlugin;
 
 PreparedStatement q_ch_c1t() {
   std::string count_order = "count_order";
-  auto ctx = new ParallelContext("main2", false);
+  auto ctx = new ParallelContext(__FUNCTION__, false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
       .scan<plugin_t>(tpcc_orderline,
@@ -78,9 +78,8 @@ PreparedStatement q_ch_c1t() {
                     expression_t{1}.as(tpcc_orderline, count_order)};
           },
           {SUM /*fix*/, SUM, SUM, SUM})
-      .print([&](const auto &arg) -> std::vector<expression_t> {
-        std::string outrel = "out";
-
+      .print([&](const auto &arg,
+                 std::string outrel) -> std::vector<expression_t> {
         std::vector<expression_t> ret{
             arg[ol_number].as(outrel, ol_number),
             arg[ol_quantity].as(outrel, "sum_qty"),
@@ -88,19 +87,7 @@ PreparedStatement q_ch_c1t() {
             (arg[ol_quantity] / arg[count_order]).as(outrel, "avg_qty"),
             (arg[ol_amount] / arg[count_order].template as<FloatType>())
                 .as(outrel, "avg_amount"),
-            arg[count_order]};
-
-        std::vector<RecordAttribute *> args;
-        args.reserve(ret.size());
-
-        for (const auto &e : ret) {
-          args.emplace_back(new RecordAttribute{e.getRegisteredAs()});
-        }
-
-        InputInfo *datasetInfo = catalog.getOrCreateInputInfo(outrel, ctx);
-        datasetInfo->exprType =
-            new BagType{RecordType{std::vector<RecordAttribute *>{args}}};
-
+            arg[count_order].as(outrel, count_order)};
         return ret;
       })
       .prepare();
@@ -110,7 +97,7 @@ PreparedStatement q_ch_cpar(DegreeOfParallelism dop,
                             std::unique_ptr<Affinitizer> aff_parallel,
                             std::unique_ptr<Affinitizer> aff_reduce) {
   std::string count_order = "count_order";
-  auto ctx = new ParallelContext("main2", false);
+  auto ctx = new ParallelContext(__FUNCTION__, false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
       .scan<plugin_t>(tpcc_orderline,
@@ -137,9 +124,8 @@ PreparedStatement q_ch_cpar(DegreeOfParallelism dop,
                     arg[count_order]};
           },
           {SUM /*fix*/, SUM, SUM, SUM})
-      .print([&](const auto &arg) -> std::vector<expression_t> {
-        std::string outrel = "out";
-
+      .print([&](const auto &arg,
+                 std::string outrel) -> std::vector<expression_t> {
         std::vector<expression_t> ret{
             arg[ol_number].as(outrel, ol_number),
             arg[ol_quantity].as(outrel, "sum_qty"),
@@ -147,19 +133,7 @@ PreparedStatement q_ch_cpar(DegreeOfParallelism dop,
             (arg[ol_quantity] / arg[count_order]).as(outrel, "avg_qty"),
             (arg[ol_amount] / arg[count_order].template as<FloatType>())
                 .as(outrel, "avg_amount"),
-            arg[count_order]};
-
-        std::vector<RecordAttribute *> args;
-        args.reserve(ret.size());
-
-        for (const auto &e : ret) {
-          args.emplace_back(new RecordAttribute{e.getRegisteredAs()});
-        }
-
-        InputInfo *datasetInfo = catalog.getOrCreateInputInfo(outrel, ctx);
-        datasetInfo->exprType =
-            new BagType{RecordType{std::vector<RecordAttribute *>{args}}};
-
+            arg[count_order].as(outrel, count_order)};
         return ret;
       })
       .prepare();
@@ -168,7 +142,7 @@ PreparedStatement q_ch_cpar(DegreeOfParallelism dop,
 PreparedStatement q_ch2_c1t() {
   return PreparedStatement::from(
       "/scratch/chrysoge/pelago_sigmod2020_htap/src/htap/ch-plans/q1.json",
-      "main2");
+      __FUNCTION__);
 }
 
 PreparedStatement q_ch(DegreeOfParallelism dop,
@@ -180,7 +154,7 @@ PreparedStatement q_ch(DegreeOfParallelism dop,
 
 PreparedStatement q_ch1_c1t() {
   std::string count_order = "count_order";
-  auto ctx = new ParallelContext("main2", false);
+  auto ctx = new ParallelContext(__FUNCTION__, false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
       .scan<plugin_t>(tpcc_orderline,
@@ -209,30 +183,15 @@ PreparedStatement q_ch1_c1t() {
                     arg[count_order]};
           },
           {direction::ASC, direction::NONE, direction::NONE})
-      .print([&](const auto &arg) -> std::vector<expression_t> {
-        std::string outrel = "out";
-
-        std::vector<expression_t> ret{
-            arg[ol_number].as(outrel, ol_number),
-            arg[ol_quantity].as(outrel, "sum_qty"),
-            arg[ol_amount].as(outrel, "sum_amount"),
-            (arg[ol_quantity] / arg[count_order]).as(outrel, "avg_qty"),
-            (arg[ol_amount] / arg[count_order].template as<FloatType>())
-                .as(outrel, "avg_amount"),
-            arg[count_order]};
-
-        std::vector<RecordAttribute *> args;
-        args.reserve(ret.size());
-
-        for (const auto &e : ret) {
-          args.emplace_back(new RecordAttribute{e.getRegisteredAs()});
-        }
-
-        InputInfo *datasetInfo = catalog.getOrCreateInputInfo(outrel, ctx);
-        datasetInfo->exprType =
-            new BagType{RecordType{std::vector<RecordAttribute *>{args}}};
-
-        return ret;
+      .print([&](const auto &arg,
+                 std::string outrel) -> std::vector<expression_t> {
+        return {arg[ol_number].as(outrel, ol_number),
+                arg[ol_quantity].as(outrel, "sum_qty"),
+                arg[ol_amount].as(outrel, "sum_amount"),
+                (arg[ol_quantity] / arg[count_order]).as(outrel, "avg_qty"),
+                (arg[ol_amount] / arg[count_order].template as<FloatType>())
+                    .as(outrel, "avg_amount"),
+                arg[count_order].as(outrel, count_order)};
       })
       .prepare();
 }
@@ -241,7 +200,7 @@ PreparedStatement q_ch1_cpar(DegreeOfParallelism dop,
                              std::unique_ptr<Affinitizer> aff_parallel,
                              std::unique_ptr<Affinitizer> aff_reduce) {
   std::string count_order = "count_order";
-  auto ctx = new ParallelContext("main2", false);
+  auto ctx = new ParallelContext(__FUNCTION__, false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
       .scan<plugin_t>(tpcc_orderline,
@@ -286,30 +245,15 @@ PreparedStatement q_ch1_cpar(DegreeOfParallelism dop,
                     arg[count_order]};
           },
           {direction::ASC, direction::NONE, direction::NONE})
-      .print([&](const auto &arg) -> std::vector<expression_t> {
-        std::string outrel = "out";
-
-        std::vector<expression_t> ret{
-            arg[ol_number].as(outrel, ol_number),
-            arg[ol_quantity].as(outrel, "sum_qty"),
-            arg[ol_amount].as(outrel, "sum_amount"),
-            (arg[ol_quantity] / arg[count_order]).as(outrel, "avg_qty"),
-            (arg[ol_amount] / arg[count_order].template as<FloatType>())
-                .as(outrel, "avg_amount"),
-            arg[count_order]};
-
-        std::vector<RecordAttribute *> args;
-        args.reserve(ret.size());
-
-        for (const auto &e : ret) {
-          args.emplace_back(new RecordAttribute{e.getRegisteredAs()});
-        }
-
-        InputInfo *datasetInfo = catalog.getOrCreateInputInfo(outrel, ctx);
-        datasetInfo->exprType =
-            new BagType{RecordType{std::vector<RecordAttribute *>{args}}};
-
-        return ret;
+      .print([&](const auto &arg,
+                 std::string outrel) -> std::vector<expression_t> {
+        return {arg[ol_number].as(outrel, ol_number),
+                arg[ol_quantity].as(outrel, "sum_qty"),
+                arg[ol_amount].as(outrel, "sum_amount"),
+                (arg[ol_quantity] / arg[count_order]).as(outrel, "avg_qty"),
+                (arg[ol_amount] / arg[count_order].template as<FloatType>())
+                    .as(outrel, "avg_amount"),
+                arg[count_order].as(outrel, count_order)};
       })
       .prepare();
 }

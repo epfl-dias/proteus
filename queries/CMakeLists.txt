@@ -1,6 +1,7 @@
 set(codegen_cxx
     ch/q1.cpp
     ch/q6.cpp
+    ch/q19.cpp
     micro/sum.cpp
     queries.cpp
     )

@@ -164,16 +164,24 @@ std::vector<PreparedStatement> init_olap_sequence(
 
   // return stmts;
   DegreeOfParallelism dop{coreids.size()};
-  for (const auto &q : {q_ch1}) {  // q_ch6
+
+  auto aff_parallel = [&]() -> std::unique_ptr<Affinitizer> {
+    return std::make_unique<SpecificCpuCoreAffinitizer>(coreids);
+  };
+
+  auto aff_reduce = []() -> std::unique_ptr<Affinitizer> {
+    return std::make_unique<CpuCoreAffinitizer>();
+  };
+
+  typedef decltype(aff_parallel) aff_t;
+  typedef decltype(aff_reduce) red_t;
+
+  for (const auto &q : {q_ch1<aff_t, red_t>, q_ch6<aff_t, red_t>,
+                        q_ch19<aff_t, red_t>}) {  // q_ch6
     // std::unique_ptr<Affinitizer> aff_parallel =
     //     std::make_unique<CpuCoreAffinitizer>();
 
-    std::unique_ptr<Affinitizer> aff_parallel =
-        std::make_unique<SpecificCpuCoreAffinitizer>(coreids);
-    std::unique_ptr<Affinitizer> aff_reduce =
-        std::make_unique<CpuCoreAffinitizer>();
-
-    stmts.emplace_back(q(dop, std::move(aff_parallel), std::move(aff_reduce)));
+    stmts.emplace_back(q(dop, aff_parallel, aff_reduce));
   }
   return stmts;  // q_sum_c1t(), q_ch_c1t(), q_ch2_c1t()};
 }

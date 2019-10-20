@@ -35,3 +35,14 @@ std::string ol_delivery_d = "ol_delivery_d";
 std::string ol_quantity = "ol_quantity";
 std::string ol_amount = "ol_amount";
 std::string ol_dist_info = "ol_dist_info";
+
+std::string tpcc_order = "tpcc_order";
+
+std::string o_id = "o_id";
+std::string o_d_id = "o_d_id";
+std::string o_w_id = "o_w_id";
+std::string o_c_id = "o_c_id";
+std::string o_entry_d = "o_entry_d";
+std::string o_carrier_id = "o_carrier_id";
+std::string o_ol_cnt = "o_ol_cnt";
+std::string o_all_local = "o_all_local";

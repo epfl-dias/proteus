@@ -56,15 +56,13 @@
 #include "transactions/transaction_manager.hpp"
 #include "utils/utils.hpp"
 
-using plugin_t = AeolusLocalPlugin;
-
-PreparedStatement q_ch6_c1t() {
+PreparedStatement q_ch4_c1t() {
   std::string revenue = "revenue";
-  auto ctx = new ParallelContext(__FUNCTION__, false);
+  auto ctx = new ParallelContext("q4", false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
-      .scan<plugin_t>(tpcc_orderline, {ol_delivery_d, ol_quantity, ol_amount},
-                      catalog)
+      .scan<AeolusLocalPlugin>(tpcc_orderline,
+                               {ol_delivery_d, ol_quantity, ol_amount}, catalog)
       .unpack()
       .filter([&](const auto &arg) -> expression_t {
         return ge(arg[ol_quantity], 1) & le(arg[ol_quantity], 100000) &
@@ -83,45 +81,50 @@ PreparedStatement q_ch6_c1t() {
       .prepare();
 }
 
-PreparedStatement q_ch6_cpar(DegreeOfParallelism dop,
-                             std::unique_ptr<Affinitizer> aff_parallel,
-                             std::unique_ptr<Affinitizer> aff_reduce) {
-  std::string revenue = "revenue";
-  auto ctx = new ParallelContext(__FUNCTION__, false);
-  CatalogParser &catalog = CatalogParser::getInstance();
-  return RelBuilder{ctx}
-      .scan<plugin_t>(tpcc_orderline, {ol_delivery_d, ol_quantity, ol_amount},
-                      catalog)
-      .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
-              std::move(aff_parallel))
-      .unpack()
-      .filter([&](const auto &arg) -> expression_t {
-        return ge(arg[ol_quantity], 1) & le(arg[ol_quantity], 100000) &
-               ge(arg[ol_delivery_d], expressions::DateConstant(915148800000)) &
-               lt(arg[ol_delivery_d], expressions::DateConstant(1577836800000));
-      })
-      .reduce(
-          [&](const auto &arg) -> std::vector<expression_t> {
-            return {arg[ol_amount]};
-          },
-          {SUM})
-      .router(DegreeOfParallelism{1}, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
-              std::move(aff_reduce))
-      .reduce(
-          [&](const auto &arg) -> std::vector<expression_t> {
-            return {arg[ol_amount]};
-          },
-          {SUM})
-      .print([&](const auto &arg,
-                 std::string outrel) -> std::vector<expression_t> {
-        return {arg[ol_amount].as(outrel, revenue)};
-      })
-      .prepare();
-}
+// PreparedStatement q_ch4_cpar(DegreeOfParallelism dop,
+//                              std::unique_ptr<Affinitizer> aff_parallel,
+//                              std::unique_ptr<Affinitizer> aff_reduce) {
+//   std::string revenue = "revenue";
+//   auto ctx = new ParallelContext("q6", false);
+//   CatalogParser &catalog = CatalogParser::getInstance();
+//   return RelBuilder{ctx}
+//       .scan<AeolusLocalPlugin>(tpcc_orderline,
+//                                {ol_delivery_d, ol_quantity, ol_amount},
+//                                catalog)
+//       .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
+//               std::move(aff_parallel))
+//       .unpack()
+//       .filter([&](const auto &arg) -> expression_t {
+//         return ge(arg[ol_quantity], 1) & le(arg[ol_quantity], 100000) &
+//                ge(arg[ol_delivery_d],
+//                expressions::DateConstant(915148800000)) &
+//                lt(arg[ol_delivery_d],
+//                expressions::DateConstant(1577836800000));
+//       })
+//       .reduce(
+//           [&](const auto &arg) -> std::vector<expression_t> {
+//             return {arg[ol_amount]};
+//           },
+//           {SUM})
+//       .router(DegreeOfParallelism{1}, 1, RoutingPolicy::RANDOM,
+//       DeviceType::CPU,
+//               std::move(aff_reduce))
+//       .reduce(
+//           [&](const auto &arg) -> std::vector<expression_t> {
+//             return {arg[ol_amount]};
+//           },
+//           {SUM})
+// .print([&](const auto &arg,
+//            std::string outrel) -> std::vector<expression_t> {
+//   return {arg[ol_amount].as(outrel, revenue)};
+// })
+//       .prepare();
+// }
 
-PreparedStatement q_ch6(DegreeOfParallelism dop,
+PreparedStatement q_ch4(DegreeOfParallelism dop,
                         std::unique_ptr<Affinitizer> aff_parallel,
                         std::unique_ptr<Affinitizer> aff_reduce) {
-  if (dop == DegreeOfParallelism{1}) return q_ch6_c1t();
-  return q_ch6_cpar(dop, std::move(aff_parallel), std::move(aff_reduce));
+  // if (dop == DegreeOfParallelism{1})
+  return q_ch4_c1t();
+  // return q_ch4_cpar(dop, std::move(aff_parallel), std::move(aff_reduce));
 }
