@@ -360,6 +360,13 @@ class TPCC : public Benchmark {
   void load_customer(int w_id, uint64_t xid, ushort partition_id,
                      ushort master_ver);
 
+  void load_supplier(int w_id, uint64_t xid, ushort partition_id,
+                     ushort master_ver);
+  void load_nation(int w_id, uint64_t xid, ushort partition_id,
+                   ushort master_ver);
+  void load_region(int w_id, uint64_t xid, ushort partition_id,
+                   ushort master_ver);
+
   void pre_run(int wid, uint64_t xid, ushort partition_id, ushort master_ver);
   void post_run(int wid, uint64_t xid, ushort partition_id, ushort master_ver) {
     if (wid == 0) {
@@ -441,7 +448,7 @@ class TPCC : public Benchmark {
   TPCC(std::string name = "TPCC", int num_warehouses = 1,
        int active_warehouse = 1, bool layout_column_store = true,
        uint tpch_scale_factor = 0, int g_dist_threshold = 0,
-       std::string csv_path = "", bool is_ch_benchmark = false);
+       std::string csv_path = "", bool is_ch_benchmark = true);
 
   static_assert(!(D_MIX > 0 && !index_on_order_tbl),
                 "Delivery Txn requires index on order tables");

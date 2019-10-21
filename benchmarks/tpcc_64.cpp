@@ -27,9 +27,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <cstring>
 #include <ctime>
 #include <fstream>
 #include <functional>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <locale>
@@ -2642,6 +2644,127 @@ void TPCC::load_customer(int w_id, uint64_t xid, ushort partition_id,
   delete r;
 }
 
+void TPCC::load_nation(int w_id, uint64_t xid, ushort partition_id,
+                       ushort master_ver) {
+  struct Nation {
+    int id;
+    std::string name;
+    int rId;
+  };
+
+  const Nation nations[] = {{48, "ALGERIA", 0},       {49, "ARGENTINA", 1},
+                            {50, "BRAZIL", 1},        {51, "CANADA", 1},
+                            {52, "EGYPT", 4},         {53, "ETHIOPIA", 0},
+                            {54, "FRANCE", 3},        {55, "GERMANY", 3},
+                            {56, "INDIA", 2},         {57, "INDONESIA", 2},
+                            {65, "IRAN", 4},          {66, "IRAQ", 4},
+                            {67, "JAPAN", 2},         {68, "JORDAN", 4},
+                            {69, "KENYA", 0},         {70, "MOROCCO", 0},
+                            {71, "MOZAMBIQUE", 0},    {72, "PERU", 1},
+                            {73, "CHINA", 2},         {74, "ROMANIA", 3},
+                            {75, "SAUDI ARABIA", 4},  {76, "VIETNAM", 2},
+                            {77, "RUSSIA", 3},        {78, "UNITED KINGDOM", 3},
+                            {79, "UNITED STATES", 1}, {80, "CHINA", 2},
+                            {81, "PAKISTAN", 2},      {82, "BANGLADESH", 2},
+                            {83, "MEXICO", 1},        {84, "PHILIPPINES", 2},
+                            {85, "THAILAND", 2},      {86, "ITALY", 3},
+                            {87, "SOUTH AFRICA", 0},  {88, "SOUTH KOREA", 2},
+                            {89, "COLOMBIA", 1},      {90, "SPAIN", 3},
+                            {97, "UKRAINE", 3},       {98, "POLAND", 3},
+                            {99, "SUDAN", 0},         {100, "UZBEKISTAN", 2},
+                            {101, "MALAYSIA", 2},     {102, "VENEZUELA", 1},
+                            {103, "NEPAL", 2},        {104, "AFGHANISTAN", 2},
+                            {105, "NORTH KOREA", 2},  {106, "TAIWAN", 2},
+                            {107, "GHANA", 0},        {108, "IVORY COAST", 0},
+                            {109, "SYRIA", 4},        {110, "MADAGASCAR", 0},
+                            {111, "CAMEROON", 0},     {112, "SRI LANKA", 2},
+                            {113, "ROMANIA", 3},      {114, "NETHERLANDS", 3},
+                            {115, "CAMBODIA", 2},     {116, "BELGIUM", 3},
+                            {117, "GREECE", 3},       {118, "PORTUGAL", 3},
+                            {119, "ISRAEL", 4},       {120, "FINLAND", 3},
+                            {121, "SINGAPORE", 2},    {122, "NORWAY", 3}};
+
+  // Nation
+  for (int i = 0; i < 62; i++) {
+    struct ch_nation ins = {};
+
+    memcpy(ins.n_name, nations[i].name.c_str(), 16);
+    ins.n_nationkey = nations[i].id;
+    ins.n_regionkey = nations[i].rId;
+
+    // TODO: from ch-benchmark.
+    // ins.n_comment = ;
+
+    void *hash_ptr =
+        table_nation->insertRecord(&ins, xid, partition_id, master_ver);
+    this->table_nation->p_index->insert(ins.n_nationkey, hash_ptr);
+  }
+}
+
+void TPCC::load_region(int w_id, uint64_t xid, ushort partition_id,
+                       ushort master_ver) {
+  const char *regions[] = {"AFRICA", "AMERICA", "ASIA", "EUROPE",
+                           "MIDDLE EAST"};
+  // Region
+  for (int rId = 0; rId < 5; rId++) {
+    struct ch_region ins = {};
+
+    memcpy(ins.r_name, regions[rId], 12);
+    ins.r_regionkey = rId;
+
+    // TODO: from ch-benchmark.
+    // ins.r_comment;
+
+    void *hash_ptr =
+        table_region->insertRecord(&ins, xid, partition_id, master_ver);
+    this->table_region->p_index->insert(rId, hash_ptr);
+  }
+}
+
+void TPCC::load_supplier(int w_id, uint64_t xid, ushort partition_id,
+                         ushort master_ver) {
+  // Supplier
+  for (int suId = 0; suId < 10000; suId++) {
+    struct ch_supplier supp_ins = {};
+
+    supp_ins.suppkey = suId;
+
+    stringstream ss;
+    ss << "Supplier#" << std::setw(9) << std::setfill('0') << suId;
+
+    strcpy(supp_ins.s_name, ss.str().c_str());
+    make_alpha_string(&this->seed, 10, 40, supp_ins.s_address);
+
+    int rand = 0;
+    while (rand == 0 || (rand > '9' && rand < 'A') ||
+           (rand > 'Z' && rand < 'a')) {
+      rand = URand(&this->seed, '0', 'z');
+    }
+    supp_ins.s_nationkey = rand;
+
+    stringstream suPhn;
+
+    int country_code = (suId % 90) + 10;  // ensure length 2
+    suPhn << country_code << "-";
+    suPhn << URand(&this->seed, 100, 999);
+    suPhn << "-";
+    suPhn << URand(&this->seed, 100, 999);
+    suPhn << "-";
+    suPhn << URand(&this->seed, 100, 999);
+
+    strcpy(supp_ins.s_phone, suPhn.str().c_str());
+    make_alpha_string(&this->seed, 10, 40, supp_ins.s_address);
+    supp_ins.s_acctbal = (double)URand(&this->seed, -99999, 999999) / 100.0;
+
+    // TODO: from ch-benchmark.
+    // char s_comment[101];
+
+    void *hash_ptr =
+        table_supplier->insertRecord(&supp_ins, xid, partition_id, master_ver);
+    this->table_supplier->p_index->insert(suId, hash_ptr);
+  }
+}
+
 void TPCC::load_data(int num_threads) { assert(false && "Not Implemented"); }
 
 void TPCC::pre_run(int wid, uint64_t xid, ushort partition_id,
@@ -2663,6 +2786,12 @@ void TPCC::pre_run(int wid, uint64_t xid, ushort partition_id,
 #else
   if (wid == 0) load_item(wid, xid, partition_id, master_ver);
 #endif
+
+  if (wid == 0 && this->is_ch_benchmark) {
+    load_region(wid, xid, partition_id, master_ver);
+    load_supplier(wid, xid, partition_id, master_ver);
+    load_nation(wid, xid, partition_id, master_ver);
+  }
 
   load_warehouse(wid, xid, partition_id, master_ver);
 
