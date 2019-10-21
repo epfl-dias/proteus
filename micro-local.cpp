@@ -59,9 +59,6 @@
 DEFINE_uint64(num_olap_clients, 1, "Number of OLAP clients");
 DEFINE_uint64(num_olap_repeat, 1, "Number of OLAP clients");
 DEFINE_uint64(num_oltp_clients, 0, "Number of OLTP clients");
-DEFINE_string(plan_json, "", "Plan to execute, takes priority over plan_dir");
-DEFINE_string(plan_dir, "inputs/plans/cpu-ssb",
-              "Directory with plans to be executed");
 DEFINE_string(inputs_dir, "inputs/", "Data and catalog directory");
 DEFINE_bool(run_oltp, true, "Run OLTP");
 DEFINE_bool(run_olap, true, "Run OLAP");
@@ -71,9 +68,6 @@ DEFINE_uint64(ch_scale_factor, 0, "CH-Bench scale factor");
 DEFINE_bool(etl, false, "ETL on snapshot");
 DEFINE_bool(trade_core, false, "trade case for elasticiy");
 
-DEFINE_bool(bench_ycsb, false, "OLTP Bench: true-ycsb, false-tpcc (default)");
-DEFINE_double(ycsb_write_ratio, 0.5, "Writer to reader ratio");
-
 void init_olap_warmup() {
   proteus::init(FLAGS_gpu_buffers, FLAGS_cpu_buffers, FLAGS_log_buffer_usage);
 }
@@ -81,63 +75,24 @@ void init_olap_warmup() {
 std::vector<PreparedStatement> init_olap_sequence(
     int &client_id, const topology::cpunumanode &numa_node,
     const topology::cpunumanode &oltp_node) {
-  // chdir("/home/raza/local/htap/opt/pelago");
-
   time_block t("TcodegenTotal_: ");
 
   std::vector<PreparedStatement> stmts;
-
-  // std::string label_prefix("htap_" + std::to_string(getpid()) + "_c" +
-  //                          std::to_string(client_id) + "_q");
-
-  // if (FLAGS_plan_json.length()) {
-  //   LOG(INFO) << "Compiling Plan:" << FLAGS_plan_json << std::endl;
-
-  //   stmts.emplace_back(PreparedStatement::from(
-  //       FLAGS_plan_json, label_prefix + std::to_string(0),
-  //       FLAGS_inputs_dir));
-  // } else {
-  //   uint i = 0;
-  //   for (const auto &entry :
-  //        std::filesystem::directory_iterator(FLAGS_plan_dir)) {
-  //     if (entry.path().filename().string()[0] == '.') continue;
-
-  //     if (entry.path().extension() == ".json") {
-  //       std::string plan_path = entry.path().string();
-  //       std::string label = label_prefix + std::to_string(i++);
-
-  //       LOG(INFO) << "Compiling Query:" << plan_path << std::endl;
-
-  //       stmts.emplace_back(
-  //           PreparedStatement::from(plan_path, label, FLAGS_inputs_dir));
-  //     }
-  //   }
-  // }
-
   std::vector<SpecificCpuCoreAffinitizer::coreid_t> coreids;
 
   uint j = 0;
-  uint cc = 0;
   for (auto id : numa_node.local_cores) {
     if (FLAGS_trade_core && FLAGS_elastic > 0 && j < FLAGS_elastic) {
       j++;
       continue;
     }
     coreids.emplace_back(id);
-
-    cc++;
-    if (cc == numa_node.local_cores.size() / 2) break;
-  }
-
-  for (const auto &id : coreids) {
-    LOG(INFO) << "OLAP Cores: " << id;
   }
 
   if (FLAGS_elastic > 0) {
     uint i = 0;
     for (auto id : oltp_node.local_cores) {
       coreids.emplace_back(id);
-
       if (++i >= FLAGS_elastic) {
         break;
       }
@@ -161,9 +116,8 @@ std::vector<PreparedStatement> init_olap_sequence(
   // }
 
   DegreeOfParallelism dop{coreids.size()};
-  // DegreeOfParallelism dop{1};
 
-  auto aff_parallel = [=]() -> std::unique_ptr<Affinitizer> {
+  auto aff_parallel = [&]() -> std::unique_ptr<Affinitizer> {
     return std::make_unique<SpecificCpuCoreAffinitizer>(coreids);
   };
 
@@ -178,8 +132,8 @@ std::vector<PreparedStatement> init_olap_sequence(
   // plugin_t>,
   //                       q_ch19<aff_t, red_t, plugin_t>}) {
   // using plugin_t = AeolusLocalPlugin;
-  using plugin_t = AeolusElasticPlugin;
-  for (const auto &q : {q_ch1<aff_t, red_t, plugin_t>}) {
+  using plugin_t = AeolusLocalPlugin;
+  for (const auto &q : {q_ch6<aff_t, red_t, plugin_t>}) {
     // std::unique_ptr<Affinitizer> aff_parallel =
     //     std::make_unique<CpuCoreAffinitizer>();
 
@@ -201,9 +155,7 @@ void run_olap_sequence(int &client_id,
     for (uint i = 0; i < FLAGS_num_olap_repeat; i++) {
       uint j = 0;
       for (auto &q : olap_queries) {
-        profiling::resume();
         LOG(INFO) << q.execute();
-        profiling::pause();
         j++;
       }
     }
@@ -218,6 +170,20 @@ void shutdown_olap() {
 
 void init_oltp(uint num_workers, std::string csv_path) {
   // TODO: # warehouse for csv should will be variable.
+
+  bench::Benchmark *bench = nullptr;
+
+  if (csv_path.length() < 2) {
+    bench = new bench::TPCC("TPCC", num_workers, num_workers,
+                            storage::COLUMN_STORE, FLAGS_ch_scale_factor);
+
+  } else {
+    bench =
+        new bench::TPCC("TPCC", num_workers, num_workers, FLAGS_ch_scale_factor,
+                        storage::COLUMN_STORE, 0, csv_path);
+  }
+
+  scheduler::WorkerPool::getInstance().init(bench, num_workers, 1, 3);
 }
 
 void run_oltp(const scheduler::cpunumanode &numa_node) {
@@ -272,7 +238,9 @@ int main(int argc, char *argv[]) {
   const auto &txn_topo = scheduler::Topology::getInstance();
   const auto &txn_nodes = txn_topo.getCpuNumaNodes();
   // init_oltp(txn_nodes[0].local_cores.size(), "");
-  // init_oltp(FLAGS_num_oltp_clients, "");
+  init_oltp(FLAGS_num_oltp_clients, "");
+  storage::Schema::getInstance().report();
+
   // OLAP INIT
 
   const auto &topo = topology::getInstance();
@@ -281,20 +249,6 @@ int main(int argc, char *argv[]) {
   auto OLAP_SOCKET = 0;
   auto OLTP_SOCKET = 1;
 
-  bench::Benchmark *bench =
-      new bench::TPCC("TPCC", FLAGS_num_oltp_clients, FLAGS_num_oltp_clients,
-                      storage::COLUMN_STORE, FLAGS_ch_scale_factor);
-
-  snapshot_oltp();
-  int client_id = 1;
-  auto olap_queries =
-      init_olap_sequence(client_id, nodes[OLAP_SOCKET], nodes[OLTP_SOCKET]);
-
-  scheduler::WorkerPool::getInstance().init(bench, FLAGS_num_oltp_clients, 1,
-                                            3);
-
-  storage::Schema::getInstance().report();
-
   exec_location{nodes[OLAP_SOCKET]}.activate();
 
   {
@@ -302,6 +256,10 @@ int main(int argc, char *argv[]) {
     snapshot_oltp();
     storage::Schema::getInstance().ETL(OLAP_SOCKET);
   }
+
+  int client_id = 1;
+  auto olap_queries =
+      init_olap_sequence(client_id, nodes[OLAP_SOCKET], nodes[OLTP_SOCKET]);
 
   profiling::resume();
   if (FLAGS_run_oltp && FLAGS_num_oltp_clients > 0)
@@ -320,7 +278,6 @@ int main(int argc, char *argv[]) {
       }
     }
   }
-
   usleep(2000000);
 
   for (int i = 0; i < FLAGS_num_olap_clients; i++) {

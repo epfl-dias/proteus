@@ -41,7 +41,7 @@ project(htap VERSION 0.1)
 #-----------------------------------------------------------------------
 # Simply comment the lines of this section to skip some of the binaries
 # to build.
-set(MAINS server-fork server-circular-master) # Interface to the executor
+set(MAINS server-fork server-circular-master micro-hybrid micro-local micro-remote) # Interface to the executor
 
 # Tests
 # not too sure if we should build "main", it looks like it has the same

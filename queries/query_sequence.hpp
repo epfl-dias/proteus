@@ -63,18 +63,19 @@ class QuerySequence {
   // static const auto query_sequence{q_ch1};
 
  public:
-  QuerySequence(
-      const topology::cpunumanode &olap_node,
-      const topology::cpunumanode &oltp_node,
-      std::vector<std::function<PreparedStatement(
-          DegreeOfParallelism dop, std::unique_ptr<Affinitizer> aff_parallel,
-          std::unique_ptr<Affinitizer> aff_reduce)>>
-          query_builders,
-      std::function<void()> txn_snapshot_agent, std::function<void()> etl_agent,
-      uint elastic_resources = 0, bool trade_resources = false,
-      bool per_query_freshness = false);
-  void prepare();
+  // std::vector<std::function<PreparedStatement(
+  //        DegreeOfParallelism dop, std::unique_ptr<Affinitizer> aff_parallel,
+  //        std::unique_ptr<Affinitizer> aff_reduce)>>
+  //        query_builders,
+
+  QuerySequence(const topology::cpunumanode &olap_node,
+                const topology::cpunumanode &oltp_node,
+                std::function<void()> txn_snapshot_agent,
+                std::function<void()> etl_agent, uint elastic_resources = 0,
+                bool trade_resources = false, bool per_query_freshness = false);
   void execute(bool log_results = false, bool warmup = false);
+
+  static bool should_etl() { assert(false && "Not-implemented"); }
 };
 
 }  // namespace harmonia

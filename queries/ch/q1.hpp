@@ -213,13 +213,14 @@ PreparedStatement q_ch1_cpar(DegreeOfParallelism dop,
       .scan<Tplugin>(tpcc_orderline,
                      {ol_delivery_d, ol_number, ol_amount, ol_quantity},
                      catalog)
-      .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
+      .router(dop, 8, RoutingPolicy::RANDOM, DeviceType::CPU,
               std::move(aff_parallel))
+      //.memmove(8, true)
       .unpack()
-      .filter([&](const auto &arg) -> expression_t {
-        return gt(arg[ol_delivery_d],
-                  expressions::DateConstant(/*FIX*/ 904694400000));
-      })
+      // .filter([&](const auto &arg) -> expression_t {
+      //   return gt(arg[ol_delivery_d],
+      //             expressions::DateConstant(/*FIX*/ 904694400000));
+      // })
       .groupby(
           [&](const auto &arg) -> std::vector<expression_t> {
             return {arg[ol_number]};
@@ -227,25 +228,23 @@ PreparedStatement q_ch1_cpar(DegreeOfParallelism dop,
           [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
             return {
                 GpuAggrMatExpr{arg[ol_quantity], 1, 0, SUM},
-                GpuAggrMatExpr{arg[ol_amount], 2, 0, SUM},
                 GpuAggrMatExpr{expression_t{1}.as(tpcc_orderline, count_order),
-                               3, 0, SUM}};
+                               1, 32, SUM},
+                GpuAggrMatExpr{arg[ol_amount], 1, 64, SUM}};
           },
-          10, 1024 * 1024)
-      .router(DegreeOfParallelism{1}, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
-              std::move(aff_reduce))
+          5, 128)
+      .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
+              DeviceType::CPU, std::move(aff_reduce))
       .groupby(
           [&](const auto &arg) -> std::vector<expression_t> {
             return {arg[ol_number]};
           },
           [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
-            return {
-                GpuAggrMatExpr{arg[ol_quantity], 1, 0, SUM},
-                GpuAggrMatExpr{arg[ol_amount], 2, 0, SUM},
-                GpuAggrMatExpr{expression_t{1}.as(tpcc_orderline, count_order),
-                               3, 0, SUM}};
+            return {GpuAggrMatExpr{arg[ol_quantity], 1, 0, SUM},
+                    GpuAggrMatExpr{arg[ol_amount], 2, 0, SUM},
+                    GpuAggrMatExpr{arg[count_order], 3, 0, SUM}};
           },
-          10, 1024)
+          5, 128)
       .sort(
           [&](const auto &arg) -> std::vector<expression_t> {
             return {arg[ol_number], arg[ol_quantity], arg[ol_amount],
