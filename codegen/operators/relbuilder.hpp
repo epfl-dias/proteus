@@ -232,6 +232,16 @@ class RelBuilder {
         expr, [](const auto& arg) { return expression_t{0}; }, 1);
   }
 
+  RelBuilder pack() const {
+    return pack([&](const auto& arg) -> std::vector<expression_t> {
+      std::vector<expression_t> attrs;
+      for (const auto& attr : arg.getProjections()) {
+        attrs.emplace_back(arg[attr]);
+      }
+      return attrs;
+    });
+  }
+
   template <typename T>
   RelBuilder project(T expr) const {
     return project(expr(getOutputArg()));
