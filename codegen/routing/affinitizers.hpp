@@ -55,8 +55,7 @@ class AffinityPolicy {
 
 class CpuNumaNodeAffinitizer : public Affinitizer {
  protected:
-  virtual const topology::cpunumanode &getAvailableCU(
-      size_t cpu_req) const override {
+  virtual const topology::cu &getAvailableCU(size_t cpu_req) const override {
     return topology::getInstance()
         .getCpuNumaNodes()[cpu_req %
                            topology::getInstance().getCpuNumaNodeCount()];
@@ -64,7 +63,8 @@ class CpuNumaNodeAffinitizer : public Affinitizer {
 
  public:
   virtual size_t getAvailableCUIndex(size_t i) const override {
-    return getAvailableCU(i).index_in_topo;
+    return dynamic_cast<const topology::cpunumanode &>(getAvailableCU(i))
+        .index_in_topo;
   }
 
   virtual size_t size() const override {
@@ -81,30 +81,29 @@ class CpuNumaNodeAffinitizer : public Affinitizer {
   }
 };
 
-class GPUAffinitizer : public Affinitizer {
- private:
-  class gpu_index {
-   private:
-    std::vector<size_t> d;
+class gpu_index {
+ public:
+  std::vector<size_t> d;
 
-   private:
-    gpu_index() {
-      const auto &topo = topology::getInstance();
-      d.reserve(topo.getGpuCount());
-      size_t cpus = topo.getCpuNumaNodeCount();
-      for (size_t j = 0; d.size() < topo.getGpuCount(); ++j) {
-        size_t cpu = j % cpus;
-        size_t gpur = j / cpus;
-        const auto &numanode = topo.getCpuNumaNodes()[cpu];
-        const auto &gpus = numanode.local_gpus;
-        if (gpur >= gpus.size()) continue;
-        d.emplace_back(gpus[gpur]);
-      }
+ public:
+  gpu_index() {
+    const auto &topo = topology::getInstance();
+    d.reserve(topo.getGpuCount());
+    size_t cpus = topo.getCpuNumaNodeCount();
+    for (size_t j = 0; d.size() < topo.getGpuCount(); ++j) {
+      size_t cpu = j % cpus;
+      size_t gpur = j / cpus;
+      const auto &numanode = topo.getCpuNumaNodes()[cpu];
+      const auto &gpus = numanode.local_gpus;
+      if (gpur >= gpus.size()) continue;
+      d.emplace_back(gpus[gpur]);
     }
+  }
 
-    friend class GPUAffinitizer;
-  };
+  friend class GPUAffinitizer;
+};
 
+class GPUAffinitizer : public Affinitizer {
  protected:
   virtual const topology::gpunode &getAvailableCU(
       size_t gpu_req) const override {
@@ -146,9 +145,13 @@ class CpuCoreAffinitizer : public CpuNumaNodeAffinitizer {
   }
 
  protected:
-  virtual const topology::cpunumanode &getAvailableCU(
+  virtual const topology::cu &getAvailableCU(
       size_t cpu_req) const override final {
-    return getAvailableCore(cpu_req).getLocalCPUNumaNode();
+    return getAvailableCore(cpu_req);
+  }
+
+  virtual size_t getAvailableCUIndex(size_t i) const override {
+    return getAvailableCore(i).getLocalCPUNumaNode().index_in_topo;
   }
 };
 

@@ -22,6 +22,8 @@
 */
 #include "device-manager.hpp"
 
+#include "routing/affinitizers.hpp"
+
 DeviceManager &DeviceManager::getInstance() {
   static DeviceManager instance;
   return instance;
@@ -44,32 +46,9 @@ const topology::core &DeviceManager::getAvailableCPUCore(const void *,
   return cpunumanode.getCore(core_index / cpunumacnt);
 }
 
-class gpu_index {
- private:
-  std::vector<size_t> d;
-
- private:
-  gpu_index() {
-    const auto &topo = topology::getInstance();
-    d.reserve(topo.getGpuCount());
-    size_t cpus = topo.getCpuNumaNodeCount();
-    for (size_t j = 0; d.size() < topo.getGpuCount(); ++j) {
-      size_t cpu = j % cpus;
-      size_t gpur = j / cpus;
-      const auto &numanode = topo.getCpuNumaNodes()[cpu];
-      const auto &gpus = numanode.local_gpus;
-      if (gpur >= gpus.size()) continue;
-      d.emplace_back(gpus[gpur]);
-    }
-  }
-
-  friend const topology::gpunode &DeviceManager::getAvailableGPU(
-      const void *, size_t gpu_req);
-};
-
 const topology::gpunode &DeviceManager::getAvailableGPU(const void *,
                                                         size_t gpu_req) {
-  static const gpu_index index;  // TODO: eager initialization
+  static const gpu_index index;  // TODO: eager init
   size_t gpu_i = gpu_req % topology::getInstance().getGpuCount();
   return topology::getInstance().getGpus()[index.d[gpu_i]];
 }
