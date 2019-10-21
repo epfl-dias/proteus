@@ -58,10 +58,11 @@ extern std::string o_all_local;
 using default_plugin_t = AeolusRemotePlugin;
 
 #include "ch/q1.hpp"
+#include "ch/q12.hpp"
+#include "ch/q18.hpp"
 #include "ch/q19.hpp"
 #include "ch/q4.hpp"
 #include "ch/q6.hpp"
-
 #include "micro/sum.hpp"
 
 // template <typename Tplugin = default_plugin_t>
@@ -135,11 +136,27 @@ PreparedStatement q_ch1(DegreeOfParallelism dop, Tp aff_parallel,
 }
 
 template <typename Tp, typename Tr, typename Tplugin = default_plugin_t>
+PreparedStatement q_ch4(DegreeOfParallelism dop, Tp aff_parallel,
+                        Tr aff_reduce) {
+  if (dop == DegreeOfParallelism{1}) return q_ch4_c1t<Tplugin>();
+  return q_ch4_cpar<Tplugin>(dop, aff_parallel(), aff_parallel(), aff_reduce());
+}
+
+template <typename Tp, typename Tr, typename Tplugin = default_plugin_t>
 PreparedStatement q_ch6(DegreeOfParallelism dop, Tp aff_parallel,
                         Tr aff_reduce) {
   if (dop == DegreeOfParallelism{1}) return q_ch6_c1t<Tplugin>();
   return q_ch6_cpar<Tplugin>(dop, aff_parallel(), aff_reduce());
 }
+
+template <typename Tp, typename Tr, typename Tplugin = default_plugin_t>
+PreparedStatement q_ch12(DegreeOfParallelism dop, Tp aff_parallel,
+                         Tr aff_reduce) {
+  if (dop == DegreeOfParallelism{1}) return q_ch12_c1t<Tplugin>();
+  return q_ch12_cpar<Tplugin>(dop, aff_parallel(), aff_parallel(),
+                              aff_reduce());
+}
+
 template <typename Tp, typename Tr, typename Tplugin = default_plugin_t>
 PreparedStatement q_ch19(DegreeOfParallelism dop, Tp aff_parallel,
                          Tr aff_reduce) {

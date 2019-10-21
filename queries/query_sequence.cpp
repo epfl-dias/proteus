@@ -22,9 +22,9 @@
 */
 
 #include "query_sequence.hpp"
-#include "queries.hpp"
 
 #include "codegen/plan/prepared-statement.hpp"
+#include "queries.hpp"
 #include "routing/affinitizers.hpp"
 #include "routing/degree-of-parallelism.hpp"
 

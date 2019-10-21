@@ -266,11 +266,4 @@ PreparedStatement q_ch19_cpar(DegreeOfParallelism dop,
       .prepare();
 }
 
-// template <typename Tp, typename Tr>
-// PreparedStatement q_ch19(DegreeOfParallelism dop, Tp aff_parallel,
-//                          Tr aff_reduce) {
-//   if (dop == DegreeOfParallelism{1}) return q_ch19_c1t();
-//   return q_ch19_cpar(dop, aff_parallel(), aff_parallel(), aff_reduce());
-// }
-
 #endif /* HARMONIA_QUERIES_CH_Q19_HPP_ */
