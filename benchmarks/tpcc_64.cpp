@@ -2468,7 +2468,7 @@ void TPCC::load_order(int w_id, uint64_t xid, ushort partition_id,
             r_ol.ol_amount = 0;
           } else {
             r_ol.ol_delivery_d = 0;
-            r_ol.ol_amount = (double)URand(&this->seed, 1, 999999) / 100;
+            r_ol.ol_amount = ((double)URand(&this->seed, 1, 999999)) / 100.0;
           }
           r_ol.ol_quantity = 5;
           // make_alpha_string(&this->seed, 24, 24, r_ol.ol_dist_info);

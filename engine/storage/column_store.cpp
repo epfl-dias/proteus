@@ -521,6 +521,8 @@ Column::Column(std::string name, uint64_t initial_num_records,
       elem_size(unit_size),
       cummulative_offset(cummulative_offset),
       type(type) {
+  time_block t("T_ColumnCreate_: ");
+
   this->parent = parent;
 
   if (partitioned)
@@ -602,10 +604,11 @@ Column::Column(std::string name, uint64_t initial_num_records,
 
 #endif
       assert(mem != nullptr || mem != NULL);
-      loaders.emplace_back([mem, size_per_partition]() {
-        // const auto& vec =
-        // scheduler::Topology::getInstance().getCpuNumaNodes();
-        // scheduler::AffinityManager::getInstance().set(&vec[j]);
+      loaders.emplace_back([mem, size_per_partition, j]() {
+        time_block t("T_ColumnCreate_warmup_1: ");
+        set_exec_location_on_scope d{
+            topology::getInstance().getCpuNumaNodes()
+                [storage::Schema::getInstance().getPartitionInfo(j).numa_idx]};
 
         uint64_t* pt = (uint64_t*)mem;
         uint64_t warmup_max = size_per_partition / sizeof(uint64_t);
@@ -622,6 +625,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
                              (initial_num_records_per_part % BIT_PACK_SIZE);
 
         loaders.emplace_back([this, i, j, num_bit_packs]() {
+          time_block t("T_ColumnCreate_warmup_2: ");
           // set affinity to fault in the correct numa-memset
           // const auto& vec =
           //     scheduler::Topology::getInstance().getCpuNumaNodes();
@@ -636,6 +640,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
           for (uint64_t bb = 0; bb < num_bit_packs; bb++) {
             upd_bit_masks[i][j].emplace_back();
           }
+
           for (auto& bb : this->upd_bit_masks[i][j]) {
             bb.reset();
           }
@@ -906,6 +911,7 @@ void Column::insertElemBatch(uint64_t vid, uint64_t num_elem, void* data) {
       if (__likely(chunk.size >= (data_idx_en + elem_size))) {
         void* dst = (void*)(((char*)chunk.data) + data_idx_st);
         std::memcpy(dst, data, copy_size);
+
         ins = true;
         break;
       }
@@ -1231,7 +1237,10 @@ std::vector<std::pair<mem_chunk, size_t>> Column::elastic_partition(
            "Memory expansion not supported yet.");
 
     std::cout << "[SnapshotData][" << this->name << "][P:" << pid
-              << "] Mode: ELASTIC-REMOTE" << std::endl;
+              << "] Mode: ELASTIC-REMOTE "
+              << ((double)(snap_arena.numOfRecords * this->elem_size)) /
+                     (1024 * 1024 * 1024)
+              << std::endl;
 
     ret.emplace_back(
         std::make_pair(master_versions[snap_arena.master_ver][pid][0],
@@ -1243,7 +1252,10 @@ std::vector<std::pair<mem_chunk, size_t>> Column::elastic_partition(
       assert(HTAP_ETL && "OLAP local mode is not turned on");
 
       std::cout << "[SnapshotData][" << this->name << "][P:" << pid
-                << "] Mode: ELASTIC-LOCAL" << std::endl;
+                << "] Mode: ELASTIC-LOCAL "
+                << ((double)(olap_arena.numOfRecords * this->elem_size)) /
+                       (1024 * 1024 * 1024)
+                << std::endl;
       ret.emplace_back(std::make_pair(
           mem_chunk(this->etl_mem[pid],
                     olap_arena.numOfRecords * this->elem_size, -1),
@@ -1271,10 +1283,17 @@ std::vector<std::pair<mem_chunk, size_t>> Column::elastic_partition(
 
       char* oltp_mem =
           (char*)master_versions[snap_arena.master_ver][pid][0].data;
-      oltp_mem += diff;
+      oltp_mem += diff * this->elem_size;
 
       ret.emplace_back(std::make_pair(
           mem_chunk(oltp_mem, diff * this->elem_size, -1), diff));
+
+      // if (this->name.compare("ol_number") == 0) {
+      //    uint32_t* ls = (uint32_t*)data;
+      //    for (uint i = 0; i < num_elem; i++) {
+      //      assert(ls[i] < 15 && "FUCK ME");
+      //    }
+      //  }
 
     } else {
       assert(false && "Delete now supported, how it can be here??");
@@ -1312,7 +1331,10 @@ std::vector<std::pair<mem_chunk, size_t>> Column::snapshot_get_data(
              "Memory expansion not supported yet.");
 
       std::cout << "[SnapshotData][" << this->name << "][P:" << i
-                << "] Mode: REMOTE2" << std::endl;
+                << "] Mode: REMOTE2 "
+                << ((double)(snap_arena.numOfRecords * this->elem_size)) /
+                       (1024 * 1024 * 1024)
+                << std::endl;
 
       ret.emplace_back(
           std::make_pair(master_versions[snap_arena.master_ver][i][0],
