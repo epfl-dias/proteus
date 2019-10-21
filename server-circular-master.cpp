@@ -177,9 +177,12 @@ std::vector<PreparedStatement> init_olap_sequence(
   // for (const auto &q : {q_ch1<aff_t, red_t, plugin_t>, q_ch6<aff_t, red_t,
   // plugin_t>,
   //                       q_ch19<aff_t, red_t, plugin_t>}) {
-  // using plugin_t = AeolusLocalPlugin;
-  using plugin_t = AeolusElasticPlugin;
-  for (const auto &q : {q_ch1<aff_t, red_t, plugin_t>}) {
+
+  using plugin_t = AeolusLocalPlugin;
+  for (const auto &q :
+       {q_ch1<aff_t, red_t, plugin_t>, q_ch4<aff_t, red_t, plugin_t>,
+        q_ch6<aff_t, red_t, plugin_t>, q_ch12<aff_t, red_t, plugin_t>,
+        q_ch18<aff_t, red_t, plugin_t>, q_ch19<aff_t, red_t, plugin_t>}) {
     // std::unique_ptr<Affinitizer> aff_parallel =
     //     std::make_unique<CpuCoreAffinitizer>();
 
