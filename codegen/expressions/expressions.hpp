@@ -619,6 +619,15 @@ class AttributeConstruction {
   expression_t expr;
 };
 
+inline std::list<AttributeConstruction> toAttrConstr(
+    const std::initializer_list<expression_t> &atts) {
+  std::list<AttributeConstruction> l;
+  for (const auto &e : atts) {
+    l.emplace_back(e.getRegisteredAttrName(), e);
+  }
+  return l;
+}
+
 /*
  * XXX
  * I think that unless it belongs to the final result, it is desugarized!!
@@ -633,6 +642,9 @@ class RecordConstruction : public ExpressionCRTP<RecordConstruction> {
 
   RecordConstruction(const list<AttributeConstruction> &atts)
       : ExpressionCRTP(constructRecordType(atts)), atts(atts) {}
+
+  RecordConstruction(const std::initializer_list<expression_t> &atts)
+      : RecordConstruction(toAttrConstr(atts)) {}
 
   ExpressionId getTypeID() const { return RECORD_CONSTRUCTION; }
   const list<AttributeConstruction> &getAtts() const { return atts; }
@@ -1238,6 +1250,12 @@ inline expressions::DivExpression operator/(const expression_t &lhs,
 inline expressions::ModExpression operator%(const expression_t &lhs,
                                             const expression_t &rhs) {
   return {lhs, rhs};
+}
+
+inline expressions::IfThenElse cond(const expression_t cond,
+                                    const expression_t &lhs,
+                                    const expression_t &rhs) {
+  return {cond, lhs, rhs};
 }
 
 inline expressions::RecordProjection expression_t::operator[](
