@@ -72,19 +72,19 @@ class ParallelContext : public Context {
   void popPipeline();
 
   PipelineGen *removeLatestPipeline();
-  PipelineGen *getCurrentPipeline();
+  PipelineGen *getCurrentPipeline() const;
   void setChainedPipeline(PipelineGen *next);
 
   virtual llvm::Module *getModule() const {
-    return generators.back()->getModule();
+    return getCurrentPipeline()->getModule();
   }
 
   virtual llvm::IRBuilder<> *getBuilder() const {
-    return generators.back()->getBuilder();
+    return getCurrentPipeline()->getBuilder();
   }
 
   llvm::Function *getFunction(string funcName) const {
-    return generators.back()->getFunction(funcName);
+    return getCurrentPipeline()->getFunction(funcName);
   }
 
   virtual void setGlobalFunction(bool leaf);
@@ -107,16 +107,16 @@ class ParallelContext : public Context {
                    decltype(__builtin_LINE()) line = __builtin_LINE());
 
   virtual llvm::BasicBlock *getEndingBlock() {
-    return generators.back()->getEndingBlock();
+    return getCurrentPipeline()->getEndingBlock();
   }
   virtual void setEndingBlock(llvm::BasicBlock *codeEnd) {
-    generators.back()->setEndingBlock(codeEnd);
+    getCurrentPipeline()->setEndingBlock(codeEnd);
   }
   virtual llvm::BasicBlock *getCurrentEntryBlock() {
-    return generators.back()->getCurrentEntryBlock();
+    return getCurrentPipeline()->getCurrentEntryBlock();
   }
   virtual void setCurrentEntryBlock(llvm::BasicBlock *codeEntry) {
-    generators.back()->setCurrentEntryBlock(codeEntry);
+    getCurrentPipeline()->setCurrentEntryBlock(codeEntry);
   }
 
   virtual llvm::Value *workerScopedAtomicAdd(llvm::Value *ptr,
@@ -137,7 +137,7 @@ class ParallelContext : public Context {
   // Provide support for some extern functions
   virtual void registerFunction(const char *funcName, llvm::Function *func);
 
-  PipelineGen *operator->() const { return generators.back(); }
+  PipelineGen *operator->() const { return getCurrentPipeline(); }
 
  protected:
   virtual void createJITEngine();

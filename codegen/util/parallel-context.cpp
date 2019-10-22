@@ -122,38 +122,38 @@ void ParallelContext::createJITEngine() {
 
 size_t ParallelContext::appendParameter(llvm::Type *ptype, bool noalias,
                                         bool readonly) {
-  return generators.back()->appendParameter(ptype, noalias, readonly);
+  return getCurrentPipeline()->appendParameter(ptype, noalias, readonly);
 }
 
 size_t ParallelContext::appendStateVar(llvm::Type *ptype, std::string name) {
-  return generators.back()->appendStateVar(ptype);
+  return getCurrentPipeline()->appendStateVar(ptype);
 }
 
 size_t ParallelContext::appendStateVar(llvm::Type *ptype,
                                        std::function<init_func_t> init,
                                        std::function<deinit_func_t> deinit,
                                        std::string name) {
-  return generators.back()->appendStateVar(ptype, init, deinit);
+  return getCurrentPipeline()->appendStateVar(ptype, init, deinit);
 }
 
 llvm::Argument *ParallelContext::getArgument(size_t id) const {
-  return generators.back()->getArgument(id);
+  return getCurrentPipeline()->getArgument(id);
 }
 
 llvm::Value *ParallelContext::getStateVar(size_t id) const {
-  return generators.back()->getStateVar(id);
+  return getCurrentPipeline()->getStateVar(id);
 }
 
 llvm::Value *ParallelContext::getStateVar() const {
-  return generators.back()->getStateVar();
+  return getCurrentPipeline()->getStateVar();
 }
 
 std::vector<llvm::Type *> ParallelContext::getStateVars() const {
-  return generators.back()->getStateVars();
+  return getCurrentPipeline()->getStateVars();
 }
 
 llvm::Value *ParallelContext::getSubStateVar() const {
-  return generators.back()->getSubStateVar();
+  return getCurrentPipeline()->getSubStateVar();
 }
 
 // static void __attribute__((unused))
@@ -232,10 +232,10 @@ void ParallelContext::setGlobalFunction(llvm::Function *F, bool leaf) {
     throw runtime_error(error_msg);
   }
 
-  TheFunction = generators.back()->prepare();
+  TheFunction = getCurrentPipeline()->prepare();
   leafgen.push_back(leaf);
 
-  // Context::setGlobalFunction(generators.back()->prepare());
+  // Context::setGlobalFunction(getCurrentPipeline()->prepare());
 }
 
 // void ParallelContext::pushNewPipeline   (PipelineGen * copyStateFrom){
@@ -274,7 +274,7 @@ void ParallelContext::popPipeline() {
 
   generators.pop_back();
 
-  TheFunction = (generators.size() != 0) ? generators.back()->F : nullptr;
+  TheFunction = (generators.size() != 0) ? getCurrentPipeline()->F : nullptr;
 }
 
 PipelineGen *ParallelContext::removeLatestPipeline() {
@@ -285,10 +285,13 @@ PipelineGen *ParallelContext::removeLatestPipeline() {
   return p;
 }
 
-PipelineGen *ParallelContext::getCurrentPipeline() { return generators.back(); }
+PipelineGen *ParallelContext::getCurrentPipeline() const {
+  assert(!generators.empty());
+  return generators.back();
+}
 
 void ParallelContext::setChainedPipeline(PipelineGen *next) {
-  generators.back()->setChainedPipeline(next);
+  getCurrentPipeline()->setChainedPipeline(next);
 }
 
 void ParallelContext::compileAndLoad() {
@@ -310,12 +313,12 @@ std::vector<Pipeline *> ParallelContext::getPipelines() {
 
 void ParallelContext::registerOpen(const void *owner,
                                    std::function<void(Pipeline *pip)> open) {
-  generators.back()->registerOpen(owner, open);
+  getCurrentPipeline()->registerOpen(owner, open);
 }
 
 void ParallelContext::registerClose(const void *owner,
                                     std::function<void(Pipeline *pip)> close) {
-  generators.back()->registerClose(owner, close);
+  getCurrentPipeline()->registerClose(owner, close);
 }
 
 llvm::Value *ParallelContext::threadIdInBlock() {
@@ -475,36 +478,36 @@ llvm::Value *ParallelContext::laneId() {
 }
 
 void ParallelContext::workerScopedMembar() {
-  generators.back()->workerScopedMembar();
+  getCurrentPipeline()->workerScopedMembar();
 }
 
 // Provide support for some extern functions
 void ParallelContext::registerFunction(const char *funcName,
                                        llvm::Function *func) {
-  generators.back()->registerFunction(funcName, func);
+  getCurrentPipeline()->registerFunction(funcName, func);
 }
 
 llvm::Value *ParallelContext::allocateStateVar(llvm::Type *t) {
-  return generators.back()->allocateStateVar(t);
+  return getCurrentPipeline()->allocateStateVar(t);
 }
 
 void ParallelContext::deallocateStateVar(llvm::Value *v) {
-  return generators.back()->deallocateStateVar(v);
+  return getCurrentPipeline()->deallocateStateVar(v);
 }
 
 llvm::Value *ParallelContext::workerScopedAtomicAdd(llvm::Value *ptr,
                                                     llvm::Value *inc) {
-  return generators.back()->workerScopedAtomicAdd(ptr, inc);
+  return getCurrentPipeline()->workerScopedAtomicAdd(ptr, inc);
 }
 
 llvm::Value *ParallelContext::workerScopedAtomicXchg(llvm::Value *ptr,
                                                      llvm::Value *val) {
-  return generators.back()->workerScopedAtomicXchg(ptr, val);
+  return getCurrentPipeline()->workerScopedAtomicXchg(ptr, val);
 }
 
 void ParallelContext::log(llvm::Value *out, decltype(__builtin_FILE()) file,
                           decltype(__builtin_LINE()) line) {
-  auto f = (*this)->getFunctionOverload("log", out->getType());
+  auto f = getCurrentPipeline()->getFunctionOverload("log", out->getType());
   getBuilder()->CreateCall(f,
                            {out, CreateGlobalString(file), createInt32(line)});
 }

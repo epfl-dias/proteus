@@ -262,10 +262,9 @@ void Context::CodegenMemset(Value *dst, Value *bytes, Value *size) {
   // away
   //  DCHECK(PointerType::classof(dst->getType()));
   //  DCHECK(PointerType::classof(src->getType()));
-  Value *false_value_ = ConstantInt::get(ctx, APInt(1, false, true));
   PointerType *ptr_type = PointerType::getInt8PtrTy(ctx);
 
-  Value *zero = ConstantInt::get(ctx, APInt(32, 0));
+  // Value *zero = ConstantInt::get(ctx, APInt(32, 0));
 
   dst = getBuilder()->CreateBitCast(dst, ptr_type);
 
@@ -275,7 +274,7 @@ void Context::CodegenMemset(Value *dst, Value *bytes, Value *size) {
     throw runtime_error(string("Could not load memset intrinsic"));
   }
 
-  Type *int32_type = IntegerType::getInt32Ty(ctx);
+  // Type *int32_type = IntegerType::getInt32Ty(ctx);
   Value *byte = getBuilder()->CreateZExtOrTrunc(
       bytes, memset_fn->getFunctionType()->params()[1]);
 
@@ -290,8 +289,6 @@ void Context::CodegenMemset(Value *dst, Value *bytes, Value *size) {
     // fourth argume is `isvolatiles`
     args.push_back(createFalse());
   }
-  for (const auto &t : args) t->getType()->dump();
-  memset_fn->getFunctionType()->dump();
   getBuilder()->CreateCall(memset_fn, args);
 }
 
