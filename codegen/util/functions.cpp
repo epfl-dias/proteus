@@ -500,7 +500,13 @@ void flushDString(int toFlush, void *dict, char *fileName) {
   Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
   stringstream *strBuffer = catalog.getSerializer(name);
-  (*strBuffer) << '"' << actual_dict->at(toFlush) << '"';
+  (*strBuffer) << '"';
+  try {
+    (*strBuffer) << actual_dict->at(toFlush);
+  } catch (std::out_of_range &) {
+    (*strBuffer) << "unimplemented // TODO: oltp strings";
+  }
+  (*strBuffer) << '"';
 }
 
 void flushInt(int toFlush, char *fileName) {

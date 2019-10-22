@@ -375,3 +375,8 @@ bool expressions::Expression::operator<(
     return getTypeID() < r.getTypeID();
   }
 }
+
+expression_t::expression_t(std::string v, void *dict)
+    : expression_t(expressions::DStringConstant{0, dict}) {
+  LOG(WARNING) << "TODO: FIX THIS CONSTRUCTOR, IT'S COMPLETELY WRONG";
+}
