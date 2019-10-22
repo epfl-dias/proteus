@@ -117,7 +117,7 @@ PreparedStatement q_ch4_c1t() {
                     probe_arg["$3"].as("PelagoJoin#13553", "pk_3")}
                     .as("PelagoJoin#13553", "pk");
               },
-              10, 256 * 1024 * 1024)
+              28, 256 * 1024 * 1024)
           // (condition=[AND(=($4, $0), =($5, $1), =($6, $2), =($7, $3))],
           // joinType=[inner], rowcnt=[7.68E8], maxrow=[3000000.0],
           // maxEst=[3000000.0], h_bits=[28], build=[RecordType(BIGINT o_id,
@@ -159,7 +159,7 @@ PreparedStatement q_ch4_c1t() {
                 probe_arg["$1"].as("PelagoJoin#13556", "pk_1")}
                 .as("PelagoJoin#13556", "pk");
           },
-          10, 256 * 1024 * 1024)
+          28, 256 * 1024 * 1024)
       // (condition=[AND(=($1, $5), =($3, $7), =($2, $6))], joinType=[inner],
       // rowcnt=[1.92E8], maxrow=[9.0E12], maxEst=[6.7108864E7], h_bits=[28],
       // build=[RecordType(INTEGER o_ol_cnt, BIGINT o_id0, INTEGER o_d_id0,
@@ -219,6 +219,13 @@ PreparedStatement Q<4>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
                          {"o_id", "o_d_id", "o_w_id", "o_entry_d"}, catalog)
           // (table=[[SSB, tpcc_order]], fields=[[0, 1, 2, 4]],
           // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle.none])
+          .membrdcst(dop, true, true)
+          .router(
+              [&](const auto &arg) -> std::optional<expression_t> {
+                return arg["__broadcastTarget"];
+              },
+              dop, 1, RoutingPolicy::HASH_BASED, DeviceType::CPU,
+              aff_parallel())
           .unpack()
           // (trait=[Pelago.[].unpckd.X86_64.homSingle.hetSingle.cX86_64])
           .filter([&](const auto &arg) -> expression_t {
@@ -237,6 +244,8 @@ PreparedStatement Q<4>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
                          catalog)
           // (table=[[SSB, tpcc_order]], fields=[[0, 1, 2, 4, 6]],
           // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle.none])
+          .router(dop, 8, RoutingPolicy::RANDOM, DeviceType::CPU,
+                  aff_parallel())
           .unpack()
           // (trait=[Pelago.[].unpckd.X86_64.homSingle.hetSingle.cX86_64])
           .filter([&](const auto &arg) -> expression_t {
@@ -265,7 +274,7 @@ PreparedStatement Q<4>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
                     probe_arg["$3"].as("PelagoJoin#13951", "pk_3")}
                     .as("PelagoJoin#13951", "pk");
               },
-              24, 256 * 1024 * 1024)
+              30, 256 * 1024 * 1024)
           // (condition=[AND(=($4, $0), =($5, $1), =($6, $2), =($7, $3))],
           // joinType=[inner], rowcnt=[7.68E8], maxrow=[3000000.0],
           // maxEst=[3000000.0], h_bits=[28], build=[RecordType(BIGINT o_id,
@@ -323,7 +332,7 @@ PreparedStatement Q<4>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
                 probe_arg["$1"].as("PelagoJoin#13958", "pk_1")}
                 .as("PelagoJoin#13958", "bk");
           },
-          24, 256 * 1024 * 1024)
+          30, 256 * 1024 * 1024)
       // (condition=[AND(=($1, $5), =($3, $7), =($2, $6))], joinType=[inner],
       // rowcnt=[1.92937984E8], maxrow=[9.0E12], maxEst=[6.7108864E7],
       // h_bits=[28], build=[RecordType(INTEGER o_ol_cnt, BIGINT o_id0, INTEGER
