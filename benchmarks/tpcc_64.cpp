@@ -2074,7 +2074,7 @@ void TPCC::create_tbl_supplier(uint64_t num_supp) {
   columns.emplace_back("su_comment", storage::VARCHAR, sizeof(tmp.s_comment));
 
   table_supplier = schema->create_table(
-      "ch_supplier",
+      "tpcc_supplier",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
       columns, num_supp);
 }
@@ -2096,7 +2096,7 @@ void TPCC::create_tbl_region(uint64_t num_region) {
   columns.emplace_back("r_comment", storage::VARCHAR, sizeof(tmp.r_comment));
 
   table_region = schema->create_table(
-      "ch_region",
+      "tpcc_region",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
       columns, num_region);
 }
@@ -2119,7 +2119,7 @@ void TPCC::create_tbl_nation(uint64_t num_nation) {
   columns.emplace_back("n_comment", storage::VARCHAR, sizeof(tmp.n_comment));
 
   table_nation = schema->create_table(
-      "ch_nation",
+      "tpcc_nation",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
       columns, num_nation);
 }
