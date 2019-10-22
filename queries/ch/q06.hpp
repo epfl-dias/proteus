@@ -85,18 +85,19 @@ PreparedStatement q_ch6_c1t() {
       })
       .prepare();
 }
-template <typename Tplugin>
-PreparedStatement q_ch6_cpar(DegreeOfParallelism dop,
-                             std::unique_ptr<Affinitizer> aff_parallel,
-                             std::unique_ptr<Affinitizer> aff_reduce) {
-  std::string revenue = "revenue";
-  auto ctx = new ParallelContext(__FUNCTION__, false);
+
+template <>
+template <typename Tplugin, typename Tp, typename Tr>
+PreparedStatement Q<6>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
+                             Tr aff_reduce) {
+  auto ctx = new ParallelContext(
+      "ch_Q" + std::to_string(Qid) + "_" + typeid(Tplugin).name(), false);
   CatalogParser &catalog = CatalogParser::getInstance();
+  std::string revenue = "revenue";
   return RelBuilder{ctx}
       .scan<Tplugin>(tpcc_orderline, {ol_delivery_d, ol_quantity, ol_amount},
                      catalog)
-      .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
-              std::move(aff_parallel))
+      .router(dop, 1, RoutingPolicy::LOCAL, DeviceType::CPU, aff_parallel())
       .unpack()
       .filter([&](const auto &arg) -> expression_t {
         return ge(arg[ol_quantity], 1) & le(arg[ol_quantity], 100000) &
@@ -108,8 +109,8 @@ PreparedStatement q_ch6_cpar(DegreeOfParallelism dop,
             return {arg[ol_amount]};
           },
           {SUM})
-      .router(DegreeOfParallelism{1}, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
-              std::move(aff_reduce))
+      .router(DegreeOfParallelism{1}, 1024, RoutingPolicy::RANDOM,
+              DeviceType::CPU, aff_reduce())
       .reduce(
           [&](const auto &arg) -> std::vector<expression_t> {
             return {arg[ol_amount]};
@@ -121,13 +122,40 @@ PreparedStatement q_ch6_cpar(DegreeOfParallelism dop,
       })
       .prepare();
 }
-template <typename Tplugin>
-PreparedStatement q_ch6(DegreeOfParallelism dop,
-                        std::unique_ptr<Affinitizer> aff_parallel,
-                        std::unique_ptr<Affinitizer> aff_reduce) {
-  if (dop == DegreeOfParallelism{1}) return q_ch6_c1t<Tplugin>();
-  return q_ch6_cpar<Tplugin>(dop, std::move(aff_parallel),
-                             std::move(aff_reduce));
+template <>
+template <typename Tplugin, typename Tp, typename Tr>
+PreparedStatement Q<-6>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
+                              Tr aff_reduce) {
+  auto ctx = new ParallelContext(
+      "ch_Q" + std::to_string(Qid) + "_" + typeid(Tplugin).name(), false);
+  CatalogParser &catalog = CatalogParser::getInstance();
+  std::string revenue = "revenue";
+  return RelBuilder{ctx}
+      .scan<Tplugin>(tpcc_orderline, {ol_delivery_d, ol_quantity, ol_amount},
+                     catalog)
+      .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU, aff_parallel())
+      .unpack()
+      .filter([&](const auto &arg) -> expression_t {
+        return ge(arg[ol_quantity], 1) & le(arg[ol_quantity], 100000) &
+               ge(arg[ol_delivery_d], expressions::DateConstant(915148800000)) &
+               lt(arg[ol_delivery_d], expressions::DateConstant(1577836800000));
+      })
+      .reduce(
+          [&](const auto &arg) -> std::vector<expression_t> {
+            return {arg[ol_amount]};
+          },
+          {SUM})
+      .router(DegreeOfParallelism{1}, 1024, RoutingPolicy::RANDOM,
+              DeviceType::CPU, aff_reduce())
+      .reduce(
+          [&](const auto &arg) -> std::vector<expression_t> {
+            return {arg[ol_amount]};
+          },
+          {SUM})
+      .print([&](const auto &arg,
+                 std::string outrel) -> std::vector<expression_t> {
+        return {arg[ol_amount].as(outrel, revenue)};
+      })
+      .prepare();
 }
-
 #endif /* HARMONIA_QUERIES_CH_Q6_HPP_ */

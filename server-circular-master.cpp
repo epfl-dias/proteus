@@ -78,42 +78,10 @@ void init_olap_warmup() {
   proteus::init(FLAGS_gpu_buffers, FLAGS_cpu_buffers, FLAGS_log_buffer_usage);
 }
 
-std::vector<PreparedStatement> init_olap_sequence(
-    int &client_id, const topology::cpunumanode &numa_node,
-    const topology::cpunumanode &oltp_node) {
-  // chdir("/home/raza/local/htap/opt/pelago");
-
-  time_block t("TcodegenTotal_: ");
-
-  std::vector<PreparedStatement> stmts;
-
-  // std::string label_prefix("htap_" + std::to_string(getpid()) + "_c" +
-  //                          std::to_string(client_id) + "_q");
-
-  // if (FLAGS_plan_json.length()) {
-  //   LOG(INFO) << "Compiling Plan:" << FLAGS_plan_json << std::endl;
-
-  //   stmts.emplace_back(PreparedStatement::from(
-  //       FLAGS_plan_json, label_prefix + std::to_string(0),
-  //       FLAGS_inputs_dir));
-  // } else {
-  //   uint i = 0;
-  //   for (const auto &entry :
-  //        std::filesystem::directory_iterator(FLAGS_plan_dir)) {
-  //     if (entry.path().filename().string()[0] == '.') continue;
-
-  //     if (entry.path().extension() == ".json") {
-  //       std::string plan_path = entry.path().string();
-  //       std::string label = label_prefix + std::to_string(i++);
-
-  //       LOG(INFO) << "Compiling Query:" << plan_path << std::endl;
-
-  //       stmts.emplace_back(
-  //           PreparedStatement::from(plan_path, label, FLAGS_inputs_dir));
-  //     }
-  //   }
-  // }
-
+template <typename plugin_t>
+void create_q_seq(std::vector<PreparedStatement> &stmts,
+                  const topology::cpunumanode &numa_node,
+                  const topology::cpunumanode &oltp_node) {
   std::vector<SpecificCpuCoreAffinitizer::coreid_t> coreids;
 
   uint j = 0;
@@ -160,8 +128,16 @@ std::vector<PreparedStatement> init_olap_sequence(
   //   }
   // }
 
+  for (const auto &id : coreids) {
+    LOG(INFO) << "OLAP Cores: " << id;
+  }
+
   DegreeOfParallelism dop{coreids.size()};
   // DegreeOfParallelism dop{1};
+
+  // for (const auto &q : {q_ch1<aff_t, red_t, plugin_t>, q_ch6<aff_t, red_t,
+  // plugin_t>,
+  //                       q_ch19<aff_t, red_t, plugin_t>}) {
 
   auto aff_parallel = [=]() -> std::unique_ptr<Affinitizer> {
     return std::make_unique<SpecificCpuCoreAffinitizer>(coreids);
@@ -174,20 +150,84 @@ std::vector<PreparedStatement> init_olap_sequence(
   typedef decltype(aff_parallel) aff_t;
   typedef decltype(aff_reduce) red_t;
 
-  // for (const auto &q : {q_ch1<aff_t, red_t, plugin_t>, q_ch6<aff_t, red_t,
-  // plugin_t>,
-  //                       q_ch19<aff_t, red_t, plugin_t>}) {
+  CatalogParser::getInstance().clear();
 
-  using plugin_t = AeolusLocalPlugin;
-  for (const auto &q :
-       {q_ch1<aff_t, red_t, plugin_t>, q_ch4<aff_t, red_t, plugin_t>,
-        q_ch6<aff_t, red_t, plugin_t>, q_ch12<aff_t, red_t, plugin_t>,
-        q_ch18<aff_t, red_t, plugin_t>, q_ch19<aff_t, red_t, plugin_t>}) {
+  for (const auto &q : {
+           // Q<-1>::prepare<plugin_t, aff_t, red_t>,
+           // Q<1>::prepare<plugin_t, aff_t, red_t>,
+           // // Q<4>::prepare<plugin_t, aff_t, red_t>,
+           Q<6>::prepare<plugin_t, aff_t, red_t>,
+           Q<-6>::prepare<plugin_t, aff_t, red_t>,
+           // Q<12>::prepare<plugin_t, aff_t, red_t>,
+           // Q<19>::prepare<plugin_t, aff_t, red_t>,
+           // Q<8>::prepare<plugin_t, aff_t, red_t>,
+           // Q<18>::prepare<plugin_t, aff_t, red_t>,
+       }) {
     // std::unique_ptr<Affinitizer> aff_parallel =
     //     std::make_unique<CpuCoreAffinitizer>();
 
     stmts.emplace_back(q(dop, aff_parallel, aff_reduce));
   }
+}
+
+template <size_t I = 0, typename... T>
+inline typename std::enable_if<I == sizeof...(T), void>::type foreach_plugin_t(
+    std::vector<PreparedStatement> &stmts,
+    const topology::cpunumanode &numa_node,
+    const topology::cpunumanode &oltp_node) {}
+
+template <size_t I = 0, typename... T>
+    inline typename std::enable_if <
+    I<sizeof...(T), void>::type foreach_plugin_t(
+        std::vector<PreparedStatement> &stmts,
+        const topology::cpunumanode &numa_node,
+        const topology::cpunumanode &oltp_node) {
+  typedef typename std::tuple_element_t<I, std::tuple<T...>> plugin_t;
+
+  create_q_seq<plugin_t>(stmts, numa_node, oltp_node);
+
+  foreach_plugin_t<I + 1, T...>(stmts, numa_node, oltp_node);
+}
+
+std::vector<PreparedStatement> init_olap_sequence(
+    int &client_id, const topology::cpunumanode &numa_node,
+    const topology::cpunumanode &oltp_node) {
+  // chdir("/home/raza/local/htap/opt/pelago");
+
+  time_block t("TcodegenTotal_: ");
+
+  std::vector<PreparedStatement> stmts;
+
+  // std::string label_prefix("htap_" + std::to_string(getpid()) + "_c" +
+  //                          std::to_string(client_id) + "_q");
+
+  // if (FLAGS_plan_json.length()) {
+  //   LOG(INFO) << "Compiling Plan:" << FLAGS_plan_json << std::endl;
+
+  //   stmts.emplace_back(PreparedStatement::from(
+  //       FLAGS_plan_json, label_prefix + std::to_string(0),
+  //       FLAGS_inputs_dir));
+  // } else {
+  //   uint i = 0;
+  //   for (const auto &entry :
+  //        std::filesystem::directory_iterator(FLAGS_plan_dir)) {
+  //     if (entry.path().filename().string()[0] == '.') continue;
+
+  //     if (entry.path().extension() == ".json") {
+  //       std::string plan_path = entry.path().string();
+  //       std::string label = label_prefix + std::to_string(i++);
+
+  //       LOG(INFO) << "Compiling Query:" << plan_path << std::endl;
+
+  //       stmts.emplace_back(
+  //           PreparedStatement::from(plan_path, label, FLAGS_inputs_dir));
+  //     }
+  //   }
+  // }
+
+  foreach_plugin_t<0, /*AeolusRemotePlugin, AeolusLocalPlugin,*/
+                   AeolusElasticPlugin>(stmts, numa_node, oltp_node);
+
   return stmts;
 }
 void run_olap_sequence(int &client_id,
@@ -196,7 +236,7 @@ void run_olap_sequence(int &client_id,
   // Make affinity deterministic
   exec_location{numa_node}.activate();
 
-  olap_queries[0].execute();
+  olap_queries[0].execute(false);
 
   {
     time_block t("T_OLAP: ");
@@ -205,7 +245,7 @@ void run_olap_sequence(int &client_id,
       uint j = 0;
       for (auto &q : olap_queries) {
         profiling::resume();
-        LOG(INFO) << q.execute();
+        LOG(INFO) << q.execute(false);
         profiling::pause();
         j++;
       }

@@ -57,12 +57,37 @@ extern std::string o_all_local;
 
 using default_plugin_t = AeolusRemotePlugin;
 
-#include "ch/q1.hpp"
+template <int64_t id>
+struct Q {
+ private:
+  static constexpr int64_t Qid = id;
+
+  template <typename Tplugin>
+  static PreparedStatement c1t() {
+    throw std::runtime_error("unimplemented");
+  }
+
+  template <typename Tplugin, typename Tp, typename Tr>
+  inline static PreparedStatement cpar(DegreeOfParallelism dop, Tp aff_parallel,
+                                       Tr aff_reduce);
+
+ public:
+  template <typename Tplugin, typename Tp, typename Tr>
+  inline static PreparedStatement prepare(DegreeOfParallelism dop,
+                                          Tp aff_parallel, Tr aff_reduce) {
+    if (dop == DegreeOfParallelism{1}) return c1t<Tplugin>();
+    return cpar<Tplugin>(dop, aff_parallel, aff_reduce);
+  }
+};
+
+#include "ch/q01.hpp"
+#include "ch/q04.hpp"
+#include "ch/q06.hpp"
+#include "ch/q08.hpp"
 #include "ch/q12.hpp"
 #include "ch/q18.hpp"
 #include "ch/q19.hpp"
-#include "ch/q4.hpp"
-#include "ch/q6.hpp"
+#include "micro/qstock.hpp"
 #include "micro/sum.hpp"
 
 // template <typename Tplugin = default_plugin_t>
@@ -128,41 +153,10 @@ using default_plugin_t = AeolusRemotePlugin;
 //                         std::unique_ptr<Affinitizer> aff_parallel = nullptr,
 //                         std::unique_ptr<Affinitizer> aff_reduce = nullptr);
 
-template <typename Tp, typename Tr, typename Tplugin = default_plugin_t>
-PreparedStatement q_ch1(DegreeOfParallelism dop, Tp aff_parallel,
-                        Tr aff_reduce) {
-  if (dop == DegreeOfParallelism{1}) return q_ch1_c1t<Tplugin>();
-  return q_ch1_cpar<Tplugin>(dop, aff_parallel(), aff_reduce());
-}
-
-template <typename Tp, typename Tr, typename Tplugin = default_plugin_t>
-PreparedStatement q_ch4(DegreeOfParallelism dop, Tp aff_parallel,
-                        Tr aff_reduce) {
-  if (dop == DegreeOfParallelism{1}) return q_ch4_c1t<Tplugin>();
-  return q_ch4_cpar<Tplugin>(dop, aff_parallel(), aff_parallel(), aff_reduce());
-}
-
-template <typename Tp, typename Tr, typename Tplugin = default_plugin_t>
-PreparedStatement q_ch6(DegreeOfParallelism dop, Tp aff_parallel,
-                        Tr aff_reduce) {
-  if (dop == DegreeOfParallelism{1}) return q_ch6_c1t<Tplugin>();
-  return q_ch6_cpar<Tplugin>(dop, aff_parallel(), aff_reduce());
-}
-
-template <typename Tp, typename Tr, typename Tplugin = default_plugin_t>
-PreparedStatement q_ch12(DegreeOfParallelism dop, Tp aff_parallel,
-                         Tr aff_reduce) {
-  if (dop == DegreeOfParallelism{1}) return q_ch12_c1t<Tplugin>();
-  return q_ch12_cpar<Tplugin>(dop, aff_parallel(), aff_parallel(),
-                              aff_reduce());
-}
-
-template <typename Tp, typename Tr, typename Tplugin = default_plugin_t>
-PreparedStatement q_ch19(DegreeOfParallelism dop, Tp aff_parallel,
-                         Tr aff_reduce) {
-  if (dop == DegreeOfParallelism{1}) return q_ch19_c1t<Tplugin>();
-  return q_ch19_cpar<Tplugin>(dop, aff_parallel(), aff_parallel(),
-                              aff_reduce());
-}
+// template <>
+// template <typename Tplugin>
+// PreparedStatement Q<18>::c1t() {
+//   return q_ch18_c1t<Tplugin>();
+// }
 
 #endif /* HARMONIA_QUERIES_HPP_ */

@@ -202,19 +202,19 @@ PreparedStatement q_ch1_c1t() {
       .prepare();
 }
 
-template <typename Tplugin>
-PreparedStatement q_ch1_cpar(DegreeOfParallelism dop,
-                             std::unique_ptr<Affinitizer> aff_parallel,
-                             std::unique_ptr<Affinitizer> aff_reduce) {
+template <>
+template <typename Tplugin, typename Tp, typename Tr>
+PreparedStatement Q<1>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
+                             Tr aff_reduce) {
   std::string count_order = "count_order";
-  auto ctx = new ParallelContext(__FUNCTION__, false);
+  auto ctx = new ParallelContext(
+      "ch_Q" + std::to_string(Qid) + "_" + typeid(Tplugin).name(), false);
   CatalogParser &catalog = CatalogParser::getInstance();
   return RelBuilder{ctx}
       .scan<Tplugin>(tpcc_orderline,
                      {ol_delivery_d, ol_number, ol_amount, ol_quantity},
                      catalog)
-      .router(dop, 8, RoutingPolicy::RANDOM, DeviceType::CPU,
-              std::move(aff_parallel))
+      .router(dop, 8, RoutingPolicy::RANDOM, DeviceType::CPU, aff_parallel())
       //.memmove(8, true)
       .unpack()
       // .filter([&](const auto &arg) -> expression_t {
@@ -234,7 +234,7 @@ PreparedStatement q_ch1_cpar(DegreeOfParallelism dop,
           },
           5, 128)
       .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
-              DeviceType::CPU, std::move(aff_reduce))
+              DeviceType::CPU, aff_reduce())
       .groupby(
           [&](const auto &arg) -> std::vector<expression_t> {
             return {arg[ol_number]};
@@ -262,15 +262,6 @@ PreparedStatement q_ch1_cpar(DegreeOfParallelism dop,
                 arg[count_order].as(outrel, count_order)};
       })
       .prepare();
-}
-
-template <typename Tplugin>
-PreparedStatement q_ch1(DegreeOfParallelism dop,
-                        std::unique_ptr<Affinitizer> aff_parallel,
-                        std::unique_ptr<Affinitizer> aff_reduce) {
-  if (dop == DegreeOfParallelism{1}) return q_ch1_c1t<Tplugin>();
-  return q_ch1_cpar<Tplugin>(dop, std::move(aff_parallel),
-                             std::move(aff_reduce));
 }
 
 #endif /* HARMONIA_QUERIES_CH_Q1_HPP_ */

@@ -205,13 +205,13 @@ PreparedStatement q_ch4_c1t() {
       .prepare();
 }
 
-template <typename Tplugin>
-PreparedStatement q_ch4_cpar(DegreeOfParallelism dop,
-                             std::unique_ptr<Affinitizer> aff_parallel,
-                             std::unique_ptr<Affinitizer> aff_parallel2,
-                             std::unique_ptr<Affinitizer> aff_reduce) {
+template <>
+template <typename Tplugin, typename Tp, typename Tr>
+PreparedStatement Q<4>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
+                             Tr aff_reduce) {
   std::string revenue = "revenue";
-  auto ctx = new ParallelContext(__FUNCTION__, false);
+  auto ctx = new ParallelContext(
+      "ch_Q" + std::to_string(Qid) + "_" + typeid(Tplugin).name(), false);
   CatalogParser &catalog = CatalogParser::getInstance();
   auto rel13948 =
       RelBuilder{ctx}
@@ -292,7 +292,7 @@ PreparedStatement q_ch4_cpar(DegreeOfParallelism dop,
                 return arg["__broadcastTarget"];
               },
               dop, 1, RoutingPolicy::HASH_BASED, DeviceType::CPU,
-              std::move(aff_parallel))
+              aff_parallel())
           // (trait=[Pelago.[].packed.X86_64.homBrdcst.hetSingle.cX86_64])
           .unpack()
       // (trait=[Pelago.[].unpckd.X86_64.homBrdcst.hetSingle.cX86_64])
@@ -303,8 +303,7 @@ PreparedStatement q_ch4_cpar(DegreeOfParallelism dop,
                      catalog)
       // (table=[[SSB, tpcc_orderline]], fields=[[0, 1, 2, 6]],
       // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle.none])
-      .router(dop, 1, RoutingPolicy::LOCAL, DeviceType::CPU,
-              std::move(aff_parallel))
+      .router(dop, 1, RoutingPolicy::LOCAL, DeviceType::CPU, aff_parallel())
       // (trait=[Pelago.[].packed.X86_64.homRandom.hetSingle.none])
       .unpack()
       // (trait=[Pelago.[].unpckd.X86_64.homRandom.hetSingle.cX86_64])
@@ -360,7 +359,7 @@ PreparedStatement q_ch4_cpar(DegreeOfParallelism dop,
       // inputRows=[4.8E7], cost=[{36.836800000000004 rows, 36.800000000000004
       // cpu, 0.0 io}])
       .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
-              DeviceType::CPU, std::move(aff_reduce))
+              DeviceType::CPU, aff_reduce())
       // (trait=[Pelago.[].packed.X86_64.homSingle.hetSingle.cX86_64])
       .unpack()
       // (trait=[Pelago.[].unpckd.X86_64.homSingle.hetSingle.cX86_64])

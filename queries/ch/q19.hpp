@@ -152,12 +152,12 @@ PreparedStatement q_ch19_c1t() {
       .prepare();
 }
 
-template <typename Tplugin>
-PreparedStatement q_ch19_cpar(DegreeOfParallelism dop,
-                              std::unique_ptr<Affinitizer> aff_parallel,
-                              std::unique_ptr<Affinitizer> aff_parallel2,
-                              std::unique_ptr<Affinitizer> aff_reduce) {
-  auto ctx = new ParallelContext(__FUNCTION__, false);
+template <>
+template <typename Tplugin, typename Tp, typename Tr>
+PreparedStatement Q<19>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
+                              Tr aff_reduce) {
+  auto ctx = new ParallelContext(
+      "ch_Q" + std::to_string(Qid) + "_" + typeid(Tplugin).name(), false);
   CatalogParser &catalog = CatalogParser::getInstance();
   auto rel4073 =
       RelBuilder{ctx}
@@ -170,7 +170,7 @@ PreparedStatement q_ch19_cpar(DegreeOfParallelism dop,
                 return arg["__broadcastTarget"];
               },
               dop, 1, RoutingPolicy::HASH_BASED, DeviceType::CPU,
-              std::move(aff_parallel2))
+              aff_parallel())
           // (trait=[Pelago.[].packed.X86_64.homBrdcst.hetSingle.none])
           .unpack()
           // (trait=[Pelago.[].unpckd.X86_64.homBrdcst.hetSingle.cX86_64])
@@ -195,8 +195,7 @@ PreparedStatement q_ch19_cpar(DegreeOfParallelism dop,
                      catalog)
       // (table=[[SSB, tpcc_orderline]], fields=[[2, 4, 7, 8]],
       // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle.none])
-      .router(dop, 1, RoutingPolicy::LOCAL, DeviceType::CPU,
-              std::move(aff_parallel))
+      .router(dop, 1, RoutingPolicy::LOCAL, DeviceType::CPU, aff_parallel())
       // (trait=[Pelago.[].packed.X86_64.homRandom.hetSingle.none])
       .unpack()
       // (trait=[Pelago.[].unpckd.X86_64.homRandom.hetSingle.cX86_64])
@@ -249,7 +248,7 @@ PreparedStatement q_ch19_cpar(DegreeOfParallelism dop,
       // (group=[{}], revenue=[SUM($0)],
       // trait=[Pelago.[].unpckd.X86_64.homRandom.hetSingle.cX86_64])
       .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
-              DeviceType::CPU, std::move(aff_reduce))
+              DeviceType::CPU, aff_reduce())
       // (trait=[Pelago.[].unpckd.X86_64.homSingle.hetSingle.cX86_64])
       .reduce(
           [&](const auto &arg) -> std::vector<expression_t> {

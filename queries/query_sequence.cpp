@@ -112,9 +112,7 @@ QuerySequence::QuerySequence(const topology::cpunumanode &olap_node,
     typedef decltype(aff_parallel) aff_t;
     typedef decltype(aff_reduce) red_t;
 
-    for (const auto &q : {q_ch1<aff_t, red_t, AeolusLocalPlugin>,
-                          q_ch6<aff_t, red_t, AeolusLocalPlugin>,
-                          q_ch19<aff_t, red_t, AeolusLocalPlugin>}) {
+    for (const auto &q : {}) {
       this->queries.emplace_back(q(dop, aff_parallel, aff_reduce));
     }
   }

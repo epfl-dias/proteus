@@ -1,6 +1,5 @@
 set(codegen_cxx
     queries.cpp
-    query_sequence.cpp
     )
 
 add_library(queries SHARED

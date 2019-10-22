@@ -60,10 +60,11 @@
 #include "transactions/transaction_manager.hpp"
 #include "utils/utils.hpp"
 
+template <>
 template <typename Tplugin>
-PreparedStatement q_ch18_c1t() {
+PreparedStatement Q<18>::c1t() {
   std::string revenue = "revenue";
-  auto ctx = new ParallelContext(__FUNCTION__, false);
+  auto ctx = new ParallelContext("ch_Q" + std::to_string(Qid), false);
   CatalogParser &catalog = CatalogParser::getInstance();
   auto rel55895 =
       RelBuilder{ctx}
@@ -224,12 +225,12 @@ PreparedStatement q_ch18_c1t() {
       .prepare();
 }
 
-template <typename Tplugin>
-PreparedStatement q_ch18_cpar(DegreeOfParallelism dop,
-                              std::unique_ptr<Affinitizer> aff_parallel,
-                              std::unique_ptr<Affinitizer> aff_parallel2,
-                              std::unique_ptr<Affinitizer> aff_reduce) {
-  auto ctx = new ParallelContext(__FUNCTION__, false);
+template <>
+template <typename Tplugin, typename Tp, typename Tr>
+PreparedStatement Q<18>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
+                              Tr aff_reduce) {
+  auto ctx = new ParallelContext(
+      "ch_Q" + std::to_string(Qid) + "_" + typeid(Tplugin).name(), false);
   CatalogParser &catalog = CatalogParser::getInstance();
   auto rel56251 =
       RelBuilder{ctx}
@@ -266,7 +267,7 @@ PreparedStatement q_ch18_cpar(DegreeOfParallelism dop,
                     probe_arg["$1"].as("PelagoJoin#56253", "pk_1")}
                     .as("PelagoJoin#56253", "pk");
               },
-              10, 1024 * 1024)
+              24, 16 * 1024 * 1024)
           // (condition=[AND(=($0, $7), =($2, $6), =($1, $5))],
           // joinType=[inner], rowcnt=[3.072E9], maxrow=[3000000.0],
           // maxEst=[3000000.0], h_bits=[28], build=[RecordType(INTEGER c_id,
@@ -284,7 +285,7 @@ PreparedStatement q_ch18_cpar(DegreeOfParallelism dop,
                 return arg["__broadcastTarget"];
               },
               dop, 1, RoutingPolicy::HASH_BASED, DeviceType::CPU,
-              std::move(aff_parallel))
+              aff_parallel())
           // (trait=[Pelago.[].packed.X86_64.homBrdcst.hetSingle.cX86_64])
           .unpack()
           // (trait=[Pelago.[].unpckd.X86_64.homBrdcst.hetSingle.cX86_64])
@@ -306,8 +307,7 @@ PreparedStatement q_ch18_cpar(DegreeOfParallelism dop,
                      {"ol_o_id", "ol_d_id", "ol_w_id", "ol_amount"}, catalog)
       // (table=[[SSB, tpcc_orderline]], fields=[[0, 1, 2, 8]],
       // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle.none])
-      .router(dop, 1, RoutingPolicy::LOCAL, DeviceType::CPU,
-              std::move(aff_parallel))
+      .router(dop, 1, RoutingPolicy::LOCAL, DeviceType::CPU, aff_parallel())
       // (trait=[Pelago.[].packed.X86_64.homRandom.hetSingle.none])
       .unpack()
       // (trait=[Pelago.[].unpckd.X86_64.homRandom.hetSingle.cX86_64])
@@ -327,7 +327,7 @@ PreparedStatement q_ch18_cpar(DegreeOfParallelism dop,
                 probe_arg["$0"].as("PelagoJoin#56260", "pk_0")}
                 .as("PelagoJoin#56260", "pk");
           },
-          10, 1024 * 1024)
+          28, 1024 * 1024 * 1024)
       // (condition=[AND(=($9, $4), =($8, $3), =($7, $2))], joinType=[inner],
       // rowcnt=[3.07232768E9], maxrow=[9.0E12], maxEst=[6.7108864E7],
       // h_bits=[28], build=[RecordType(INTEGER c_id, VARCHAR c_last, BIGINT
@@ -361,7 +361,7 @@ PreparedStatement q_ch18_cpar(DegreeOfParallelism dop,
             return {GpuAggrMatExpr{
                 (arg["$7"]).as("PelagoAggregate#56262", "$7"), 1, 0, SUM}};
           },
-          10, 1024 * 1024)
+          20, 256 * 1024 * 1024)
       // (group=[{0, 1, 2, 3, 4, 5, 6}], EXPR$4=[SUM($7)],
       // trait=[Pelago.[].unpckd.X86_64.homRandom.hetSingle.cX86_64])
       .pack()
@@ -369,7 +369,7 @@ PreparedStatement q_ch18_cpar(DegreeOfParallelism dop,
       // intrait=[Pelago.[].unpckd.X86_64.homRandom.hetSingle.cX86_64],
       // inputRows=[1.536E9], cost=[{4692.688 rows, 4688.0 cpu, 0.0 io}])
       .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
-              DeviceType::CPU, std::move(aff_reduce))
+              DeviceType::CPU, aff_reduce())
       // (trait=[Pelago.[].packed.X86_64.homSingle.hetSingle.cX86_64])
       .unpack()
       // (trait=[Pelago.[].unpckd.X86_64.homSingle.hetSingle.cX86_64])
@@ -387,7 +387,7 @@ PreparedStatement q_ch18_cpar(DegreeOfParallelism dop,
             return {GpuAggrMatExpr{
                 (arg["$7"]).as("PelagoAggregate#56266", "$7"), 1, 0, SUM}};
           },
-          10, 1024 * 1024)
+          20, 1024 * 1024 * 1024)
       // (group=[{0, 1, 2, 3, 4, 5, 6}], EXPR$4=[SUM($7)],
       // trait=[Pelago.[].unpckd.X86_64.homSingle.hetSingle.cX86_64])
       .filter([&](const auto &arg) -> expression_t {
