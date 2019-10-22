@@ -3413,6 +3413,20 @@ void CatalogParser::parseCatalogFile(std::string file) {
   }
 }
 
+void CatalogParser::clear() {
+  auto it = inputs.begin();
+  while (it != inputs.end()) {
+    if (it->first.substr(0, 5) != "tpcc_") {
+      LOG(WARNING) << "FIXME: CLEANING TABLE " << it->first;
+      inputs.erase(it++);
+    } else {
+      LOG(WARNING) << "FIXME: KEEPING TABLE " << it->first;
+      ++it;
+    }
+  }
+  parseDir("inputs");
+}
+
 void CatalogParser::parseDir(std::string dir) {
   // FIXME: we can do that in a portable way with C++17, but for now because we
   // are using libstdc++, upgrading to C++17 and using <filesystem> causes

@@ -113,6 +113,8 @@ class CatalogParser {
     inputs[inputName] = ii;
   }
 
+  void clear();
+
  private:
   void parseCatalogFile(std::string file);
   void parseDir(std::string dir);
