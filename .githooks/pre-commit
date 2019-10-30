@@ -25,6 +25,7 @@ if [ $RETVAL -ne 0 ]; then
   echo "You should only commit files that conform to our license!"
   printf "\nFor new files you may use the following header:\n"
   ${PROJECT_ROOT}/check_licenses.py --print-license
+>>>>>>> f3d085313c1b6800d391ac66580a09c2994c4644
 fi
 
 exit $RETVAL
