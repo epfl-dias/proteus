@@ -69,6 +69,7 @@ set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 # Add the automatically determined parts of the RPATH
 # which point to directories outside the build tree to the install RPATH
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 
 set(CMAKE_CXX_STANDARD 17)
 # Otherwise the -std=gnu++XX is used instead of the -std=c++XX, as one
@@ -291,7 +292,7 @@ endif()
 
 #-----------------------------------------------------------------------
 # GoogleTest
-if (STANDALONE)
+if (TRUE)
 	# Add google test here, so that we do not propagate to it the WARNING_FLAGS
 	configure_file(CMakeLists.txt.gtest.in googletest-download/CMakeLists.txt)
 	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
@@ -316,16 +317,6 @@ if (STANDALONE)
 
 	set(GTEST gtest)
 	set(GTEST_MAIN gtest_main)
-else()
-	find_library(GTEST NAMES gtest)
-	if(${GTEST} STREQUAL "GTEST-NOTFOUND")
-		message(FATAL_ERROR "GoogleTest not found!")
-	endif()
-
-	find_library(GTEST_MAIN NAMES gtest_main)
-	if(${GTEST_MAIN} STREQUAL "GTEST_MAIN-NOTFOUND")
-		message(FATAL_ERROR "GoogleTest main not found!")
-	endif()
 endif()
 
 #-----------------------------------------------------------------------
@@ -335,9 +326,8 @@ endif()
 # that library
 set(default_libs ${default_libs} codegen)
 
-set(default_libs ${default_libs} ${LLVM_LIBS})
 set(default_libs ${default_libs} ${CUDA_LIBS})
-set(default_libs ${default_libs} gflags::gflags ${GLOG} gflags::gflags)
+set(default_libs ${default_libs} gflags::gflags glog gflags::gflags)
 set(default_libs ${default_libs} -lc++abi -lpthread -lrt)
 
 
@@ -365,7 +355,6 @@ install(DIRECTORY "testResults/" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/outp
 #-----------------------------------------------------------------------
 # Build our libraries
 #-----------------------------------------------------------------------
-
 include_directories(
 		"${PROJECT_SOURCE_DIR}"
 		"${PROJECT_SOURCE_DIR}/codegen"
@@ -398,7 +387,7 @@ foreach(target ${MAINS})
 endforeach(target)
 
 add_subdirectory(engines/oltp)
-#add_subdirectory(benchmarks/oltp)
+add_subdirectory(benchmarks/oltp)
 
 # Unit-tests
 if(UNIT_TESTS)

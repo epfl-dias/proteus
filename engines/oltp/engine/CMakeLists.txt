@@ -23,7 +23,7 @@ add_library(aeolus_engine SHARED
         ${txn_engine_cxx}
     )
 
-target_link_libraries(aeolus_engine)
+target_link_libraries(aeolus_engine gflags::gflags codegen)
 install(TARGETS aeolus_engine
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
