@@ -44,8 +44,10 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "threadpool/thread.hpp"
 
-#define MEMORY_SLACK 1000
 #define CIDR_HACK false
+#if CIDR_HACK
+#define MEMORY_SLACK 1000
+#endif
 #define PARTITIONED_WORKLOAD false
 
 #define HTAP_UPD_BIT_ON_INSERT false

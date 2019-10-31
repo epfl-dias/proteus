@@ -152,7 +152,7 @@ int main(int argc, char** argv) {
 
   } else if (FLAGS_benchmark == 3) {
     // bench = new bench::MicroSSB();
-    ;
+
   } else {  // Defult YCSB
 
     std::cout << "Write Threshold: " << FLAGS_ycsb_write_ratio << std::endl;

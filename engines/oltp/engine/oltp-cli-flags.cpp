@@ -24,15 +24,16 @@
 #include <iostream>
 
 
-DEFINE_uint64(num_workers, 0, "Number of txn-workers");
-DEFINE_uint64(num_partitions, 0,
+DEFINE_uint32(num_workers, 0, "Number of txn-workers");
+DEFINE_int32(num_iter_per_worker, -1, "Iterations per worker");
+DEFINE_uint32(num_partitions, 0,
               "Number of storage partitions ( round robin NUMA nodes)");
-DEFINE_uint64(delta_size, 8, "Size of delta storage in GBs.");
+DEFINE_uint32(delta_size, 8, "Size of delta storage in GBs.");
 DEFINE_bool(layout_column_store, true, "True: ColumnStore / False: RowStore");
-DEFINE_uint64(worker_sched_mode, 0,
+DEFINE_uint32(worker_sched_mode, 0,
               "Scheduling of worker: 0-default, 1-interleaved-even, "
               "2-interleaved-odd, 3-reversed.");
-DEFINE_uint64(report_stat_sec, 0, "Report stats every x secs");
-DEFINE_uint64(elastic_workload, 0, "if > 0, add a worker every x seconds");
-DEFINE_uint64(migrate_worker, 0, "if > 0, migrate worker to other side");
-DEFINE_uint64(switch_master_sec, 0, "if > 0, add a worker every x seconds");
+DEFINE_uint32(report_stat_sec, 0, "Report stats every x secs");
+DEFINE_uint32(elastic_workload, 0, "if > 0, add a worker every x seconds");
+DEFINE_uint32(migrate_worker, 0, "if > 0, migrate worker to other side");
+DEFINE_uint32(switch_master_sec, 0, "if > 0, add a worker every x seconds");

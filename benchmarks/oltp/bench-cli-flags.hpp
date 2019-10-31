@@ -35,3 +35,6 @@ DECLARE_uint32(tpcc_num_wh);
 DECLARE_uint32(ch_scale_factor);
 DECLARE_uint32(tpcc_dist_threshold);
 DECLARE_string(tpcc_csv_dir);
+
+DECLARE_uint32(benchmark);
+DECLARE_uint64(runtime);

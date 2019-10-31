@@ -124,7 +124,6 @@ class DeltaStore {
     // this->readers--;
     if (readers.fetch_sub(1) <= 1 && touched) {
       gc();
-      ;
     }
 #else
     read_ctr[id] = 0;

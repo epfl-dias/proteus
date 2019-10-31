@@ -90,7 +90,6 @@ void* MemoryManager::alloc_shm_htap(const std::string& key,
     if (numa_memset_id != -1) {
       const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
       numa_tonode_memory(mem_addr, size_bytes, vec[numa_memset_id].id);
-      ;
     }
 
     close(shm_fd);
@@ -149,7 +148,6 @@ void* MemoryManager::alloc_shm(const std::string& key, const size_t size_bytes,
     // numa_get_mems_allowed
     const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
     numa_tonode_memory(mem_addr, size_bytes, vec[numa_memset_id].id);
-    ;
   }
 
   close(shm_fd);

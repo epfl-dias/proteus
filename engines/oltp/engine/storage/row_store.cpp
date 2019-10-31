@@ -25,6 +25,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <cassert>
 #include <iostream>
 #include <string>
+#include <cstring>
 
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"

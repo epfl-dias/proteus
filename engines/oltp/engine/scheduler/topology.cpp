@@ -34,6 +34,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include <numa.h>
 #include <numaif.h>
+#include <cassert>
 
 namespace scheduler {
 

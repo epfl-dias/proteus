@@ -24,6 +24,7 @@
 
 DECLARE_uint32(num_workers);
 DECLARE_uint32(num_partitions);
+DECLARE_int32(num_iter_per_worker);
 DECLARE_uint32(delta_size);
 DECLARE_bool(layout_column_store);
 DECLARE_uint32(worker_sched_mode);
