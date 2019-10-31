@@ -20,45 +20,19 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
+#include <gflags/gflags.h>
+#include <iostream>
 
-#include "test-utils.hpp"
 
-#include "codegen/plan/prepared-statement.hpp"
-#include "codegen/util/parallel-context.hpp"
-#include "memory/memory-manager.hpp"
-#include "plan/plan-parser.hpp"
-#include "rapidjson/error/en.h"
-#include "rapidjson/schema.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
-#include "storage/storage-manager.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
-#include "util/functions.hpp"
-#include "util/jit/pipeline.hpp"
-
-void TestEnvironment::SetUp() {
-  if (has_already_been_setup) {
-    is_noop = true;
-    return;
-  }
-
-  setbuf(stdout, nullptr);
-
-  google::InstallFailureSignalHandler();
-
-  set_trace_allocations(true, true);
-
-  proteus::init();
-
-  has_already_been_setup = true;
-}
-
-void TestEnvironment::TearDown() {
-  if (!is_noop) {
-    MemoryManager::destroy();
-    has_already_been_setup = false;
-  }
-}
-
-bool TestEnvironment::has_already_been_setup = false;
+DEFINE_uint64(num_workers, 0, "Number of txn-workers");
+DEFINE_uint64(num_partitions, 0,
+              "Number of storage partitions ( round robin NUMA nodes)");
+DEFINE_uint64(delta_size, 8, "Size of delta storage in GBs.");
+DEFINE_bool(layout_column_store, true, "True: ColumnStore / False: RowStore");
+DEFINE_uint64(worker_sched_mode, 0,
+              "Scheduling of worker: 0-default, 1-interleaved-even, "
+              "2-interleaved-odd, 3-reversed.");
+DEFINE_uint64(report_stat_sec, 0, "Report stats every x secs");
+DEFINE_uint64(elastic_workload, 0, "if > 0, add a worker every x seconds");
+DEFINE_uint64(migrate_worker, 0, "if > 0, migrate worker to other side");
+DEFINE_uint64(switch_master_sec, 0, "if > 0, add a worker every x seconds");

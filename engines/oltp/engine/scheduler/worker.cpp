@@ -44,17 +44,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "codegen/topology/affinity_manager.hpp"
 #include "codegen/topology/topology.hpp"
 
-#if __has_include("ittnotify.h")
-#include <ittnotify.h>
-#else
-#define __itt_resume() ((void)0)
-#define __itt_pause() ((void)0)
-#endif
-
-#define HT false
-
-#define RUN_WORKER 0
-
 namespace scheduler {
 
 void WorkerPool::shutdown_manual() {
@@ -729,13 +718,10 @@ void WorkerPool::start_workers() {
     pre_barrier++;
   }
 
-  __itt_resume();
   pre_cv.notify_all();
 }
 
 void WorkerPool::shutdown(bool print_stats) {
-  __itt_pause();
-  // this->~WorkerPool();
 
   this->terminate.store(true);
   // cv.notify_all();

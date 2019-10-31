@@ -60,11 +60,6 @@ CC_upd_vid(uint64_t vid, ushort master_ver, ushort delta_version) {
           ((uint64_t)(delta_version & 0x00FF) << 56));
 }
 
-static inline uint64_t __attribute__((always_inline))
-vid_to_uuid(uint8_t tbl_id, uint64_t vid) {
-  return (vid & 0x00FFFFFFFFFFFFFF) | (((uint64_t)tbl_id) << 56);
-}
-
 void RowStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
                             ushort curr_master, ushort curr_delta,
                             const ushort* col_idx, short num_cols) {

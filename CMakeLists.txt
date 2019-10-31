@@ -109,6 +109,7 @@ string(STRIP "${WARNING_FLAGS} -Werror" WARNING_FLAGS)
 # string(STRIP "${WARNING_FLAGS} -Wno-error=deprecated" WARNING_FLAGS)
 
 # Our Code generates the following warnings:
+
 string(STRIP "${WARNING_FLAGS} -Wno-assign-enum" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-c++98-compat-pedantic" WARNING_FLAGS)
@@ -395,6 +396,9 @@ foreach(target ${MAINS})
 		)
 endforeach(target)
 
+add_subdirectory(engines/oltp)
+#add_subdirectory(benchmarks/oltp)
+
 # Unit-tests
 if(UNIT_TESTS)
 	add_subdirectory(tests)
@@ -407,7 +411,7 @@ endif()
 
 # Benchmarks
 if(TPCH)
-	add_subdirectory(benchmarks/tpch)
+	add_subdirectory(benchmarks/olap/tpch)
 endif()
 
 # real-world experiments

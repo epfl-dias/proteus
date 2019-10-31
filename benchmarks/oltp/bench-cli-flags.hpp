@@ -20,45 +20,18 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
+#include <gflags/gflags.h>
 
-#include "test-utils.hpp"
 
-#include "codegen/plan/prepared-statement.hpp"
-#include "codegen/util/parallel-context.hpp"
-#include "memory/memory-manager.hpp"
-#include "plan/plan-parser.hpp"
-#include "rapidjson/error/en.h"
-#include "rapidjson/schema.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
-#include "storage/storage-manager.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
-#include "util/functions.hpp"
-#include "util/jit/pipeline.hpp"
+// YCSB
+DECLARE_double(ycsb_write_ratio);
+DECLARE_double(ycsb_zipf_theta);
+DECLARE_uint32(ycsb_num_cols);
+DECLARE_uint32(ycsb_num_ops_per_txn);
+DECLARE_uint32(ycsb_num_records);
 
-void TestEnvironment::SetUp() {
-  if (has_already_been_setup) {
-    is_noop = true;
-    return;
-  }
-
-  setbuf(stdout, nullptr);
-
-  google::InstallFailureSignalHandler();
-
-  set_trace_allocations(true, true);
-
-  proteus::init();
-
-  has_already_been_setup = true;
-}
-
-void TestEnvironment::TearDown() {
-  if (!is_noop) {
-    MemoryManager::destroy();
-    has_already_been_setup = false;
-  }
-}
-
-bool TestEnvironment::has_already_been_setup = false;
+// TPC-C
+DECLARE_uint32(tpcc_num_wh);
+DECLARE_uint32(ch_scale_factor);
+DECLARE_uint32(tpcc_dist_threshold);
+DECLARE_string(tpcc_csv_dir);

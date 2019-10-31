@@ -20,45 +20,14 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
+#include <gflags/gflags.h>
 
-#include "test-utils.hpp"
-
-#include "codegen/plan/prepared-statement.hpp"
-#include "codegen/util/parallel-context.hpp"
-#include "memory/memory-manager.hpp"
-#include "plan/plan-parser.hpp"
-#include "rapidjson/error/en.h"
-#include "rapidjson/schema.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
-#include "storage/storage-manager.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
-#include "util/functions.hpp"
-#include "util/jit/pipeline.hpp"
-
-void TestEnvironment::SetUp() {
-  if (has_already_been_setup) {
-    is_noop = true;
-    return;
-  }
-
-  setbuf(stdout, nullptr);
-
-  google::InstallFailureSignalHandler();
-
-  set_trace_allocations(true, true);
-
-  proteus::init();
-
-  has_already_been_setup = true;
-}
-
-void TestEnvironment::TearDown() {
-  if (!is_noop) {
-    MemoryManager::destroy();
-    has_already_been_setup = false;
-  }
-}
-
-bool TestEnvironment::has_already_been_setup = false;
+DECLARE_uint32(num_workers);
+DECLARE_uint32(num_partitions);
+DECLARE_uint32(delta_size);
+DECLARE_bool(layout_column_store);
+DECLARE_uint32(worker_sched_mode);
+DECLARE_uint32(report_stat_sec);
+DECLARE_uint32(elastic_workload);
+DECLARE_uint32(migrate_worker);
+DECLARE_uint32(switch_master_sec);
