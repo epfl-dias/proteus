@@ -176,6 +176,7 @@ extern "C" {
 #ifndef NCUDA
 __device__ void dprinti64(int64_t x) { printf("%" PRId64 "\n", x); }
 
+namespace proteus {
 __device__ int32_t *get_buffers() {
   uint32_t mask = __activemask();
   uint32_t b = __ballot_sync(mask, 1);
@@ -191,12 +192,14 @@ __device__ int32_t *get_buffers() {
   __syncwarp(mask);
   return ret;
 }
+}
 
 void *get_dev_buffer() {
   return buffer_manager<int32_t>::h_get_buffer(
       topology::getInstance().getActiveGpu().id);
 }
 
+namespace proteus {
 __device__ void release_buffers(int32_t *buff) {
   uint32_t mask = __activemask();
   uint32_t b = __ballot_sync(mask, buff != nullptr);
@@ -209,6 +212,7 @@ __device__ void release_buffers(int32_t *buff) {
     b ^= leader;
   } while (b);
   __syncwarp(mask);
+}
 }
 
 __device__ void dprinti(int32_t x) { printf("%d\n", x); }
@@ -771,7 +775,7 @@ template class buffer_manager<int32_t>;
 
 #ifndef NCUDA
 __global__ void GpuHashRearrange_acq_buffs(void **buffs) {
-  buffs[blockIdx.x] = get_buffers();
+  buffs[blockIdx.x] = proteus::get_buffers();
 }
 
 #endif

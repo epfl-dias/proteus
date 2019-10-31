@@ -238,6 +238,7 @@ void call_decompose_chains(size_t grid, size_t block, size_t shmem,
                                                  log_parts, threshold);
 }
 
+namespace proteus {
 __global__ void build_partitions(const int32_t *__restrict__ S,
                                  const int32_t *__restrict__ P,
                                  const uint32_t *__restrict__ bucket_info,
@@ -478,6 +479,8 @@ __global__ void build_partitions(const int32_t *__restrict__ S,
   }
 }
 
+}
+
 void call_build_partitions(size_t grid, size_t block, size_t shmem,
                            cudaStream_t strm, const int32_t *__restrict__ S,
                            const int32_t *__restrict__ P,
@@ -489,7 +492,7 @@ void call_build_partitions(size_t grid, size_t block, size_t shmem,
                            int32_t *__restrict__ output_P, uint32_t S_log_parts,
                            uint32_t log_parts, uint32_t first_bit,
                            uint32_t *bucket_num_ptr) {
-  build_partitions<<<grid, block, shmem, strm>>>(
+  proteus::build_partitions<<<grid, block, shmem, strm>>>(
       S, P, bucket_info, buckets_used, heads, chains, out_cnts, output_S,
       output_P, S_log_parts, log_parts, first_bit, bucket_num_ptr);
 }
