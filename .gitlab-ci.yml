@@ -119,6 +119,7 @@ codestyle:
 
 licenses:
  stage: Code quality
+ allow_failure: true
  script:
  - python check_licenses.py
  <<: *cache
