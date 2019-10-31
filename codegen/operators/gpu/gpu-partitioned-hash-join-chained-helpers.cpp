@@ -479,7 +479,7 @@ __global__ void build_partitions(const int32_t *__restrict__ S,
   }
 }
 
-}
+}  // namespace proteus
 
 void call_build_partitions(size_t grid, size_t block, size_t shmem,
                            cudaStream_t strm, const int32_t *__restrict__ S,

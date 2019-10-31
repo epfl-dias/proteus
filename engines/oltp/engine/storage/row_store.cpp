@@ -23,9 +23,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/row_store.hpp"
 
 #include <cassert>
+#include <cstring>
 #include <iostream>
 #include <string>
-#include <cstring>
 
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"

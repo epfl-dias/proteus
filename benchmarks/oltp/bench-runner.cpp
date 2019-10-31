@@ -22,6 +22,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include <gflags/gflags.h>
 #include <unistd.h>
+
 #include <bitset>
 #include <functional>
 #include <iostream>
@@ -29,8 +30,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <thread>
 #include <tuple>
 
-
 // OLTP Engine
+#include "engines/oltp/engine/oltp-cli-flags.hpp"
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
 #include "interfaces/bench.hpp"
@@ -43,8 +44,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
 #include "utils/utils.hpp"
-#include "engines/oltp/engine/oltp-cli-flags.hpp"
-
 
 // Bench Includes
 
@@ -63,19 +62,18 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define __itt_pause() ((void)0)
 #endif
 
-
-
 // DEFINE_bool(debug, false, "Debug mode");
 // DEFINE_uint64(num_workers, 0, "Number of txn-workers");
 // DEFINE_uint64(benchmark, 0,
-//               "Benchmark: 0:YCSB, 1:TPC-C (gen),  2:TPC-C (csv), 3:Micro-SSB");
+//               "Benchmark: 0:YCSB, 1:TPC-C (gen),  2:TPC-C (csv),
+//               3:Micro-SSB");
 // DEFINE_uint64(num_partitions, 0,
 //               "Number of storage partitions ( round robin NUMA nodes)");
 // DEFINE_int64(num_iter_per_worker, -1, "# of iterations per worker");
 // DEFINE_uint64(runtime, 60, "Duration of experiments in seconds");
 // DEFINE_uint64(delta_size, 8, "Size of delta storage in GBs.");
-// DEFINE_bool(layout_column_store, true, "True: ColumnStore / False: RowStore");
-// DEFINE_uint64(worker_sched_mode, 0,
+// DEFINE_bool(layout_column_store, true, "True: ColumnStore / False:
+// RowStore"); DEFINE_uint64(worker_sched_mode, 0,
 //               "Scheduling of worker: 0-default, 1-interleaved-even, "
 //               "2-interleaved-odd, 3-reversed.");
 // DEFINE_uint64(report_stat_sec, 0, "Report stats every x secs");
@@ -91,8 +89,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 // DEFINE_uint64(ycsb_num_records, 0, "YCSB - # records");
 
 // // TPC-C
-// DEFINE_uint64(tpcc_num_wh, 0, "TPC-C - # of Warehouses ( 0 = one per worker");
-// DEFINE_uint64(ch_scale_factor, 0, "CH-Bench scale factor");
+// DEFINE_uint64(tpcc_num_wh, 0, "TPC-C - # of Warehouses ( 0 = one per
+// worker"); DEFINE_uint64(ch_scale_factor, 0, "CH-Bench scale factor");
 // DEFINE_uint64(tpcc_dist_threshold, 0, "TPC-C - Distributed txn threshold");
 // DEFINE_string(tpcc_csv_dir, "/scratch/data/ch100w/raw",
 //               "CSV Dir for loading tpc-c data (bench-2)");
@@ -100,7 +98,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 // void check_num_upd_by_bits();
 
 int main(int argc, char** argv) {
-
   proteus::init();
   gflags::SetUsageMessage("Simple command line interface for aeolus");
   gflags::ParseCommandLineFlags(&argc, &argv, true);

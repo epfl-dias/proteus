@@ -25,9 +25,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #ifndef INDEXES_HASH_ARRAY_HPP_
 #define INDEXES_HASH_ARRAY_HPP_
 
-#include <iostream>
 #include <atomic>
 #include <cassert>
+#include <iostream>
 
 #include "storage/memory_manager.hpp"
 

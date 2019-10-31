@@ -34,14 +34,13 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <tuple>
 #include <vector>
 
+#include "codegen/plan/plan-parser.hpp"
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
 #include "storage/delta_storage.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 #include "utils/atomic_bit_set.hpp"
-
-#include "codegen/plan/plan-parser.hpp"
 
 #define BIT_PACK_SIZE 8192
 

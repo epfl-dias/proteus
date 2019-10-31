@@ -21,9 +21,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 */
 
 #include "indexes/hash_array.hpp"
-#include "storage/table.hpp"
 
 #include "glo.hpp"
+#include "storage/table.hpp"
 
 namespace indexes {
 

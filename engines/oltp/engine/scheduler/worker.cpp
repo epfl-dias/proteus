@@ -35,14 +35,13 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <string>
 #include <thread>
 
+#include "codegen/memory/memory-manager.hpp"
+#include "codegen/topology/affinity_manager.hpp"
+#include "codegen/topology/topology.hpp"
 #include "codegen/util/timing.hpp"
 #include "scheduler/affinity_manager.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
-
-#include "codegen/memory/memory-manager.hpp"
-#include "codegen/topology/affinity_manager.hpp"
-#include "codegen/topology/topology.hpp"
 
 namespace scheduler {
 
@@ -722,7 +721,6 @@ void WorkerPool::start_workers() {
 }
 
 void WorkerPool::shutdown(bool print_stats) {
-
   this->terminate.store(true);
   // cv.notify_all();
   for (auto& worker : workers) {

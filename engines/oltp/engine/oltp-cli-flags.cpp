@@ -21,8 +21,8 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 #include <gflags/gflags.h>
-#include <iostream>
 
+#include <iostream>
 
 DEFINE_uint32(num_workers, 0, "Number of txn-workers");
 DEFINE_int32(num_iter_per_worker, -1, "Iterations per worker");

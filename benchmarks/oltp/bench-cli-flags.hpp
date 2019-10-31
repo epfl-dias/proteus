@@ -22,7 +22,6 @@
 */
 #include <gflags/gflags.h>
 
-
 // YCSB
 DECLARE_double(ycsb_write_ratio);
 DECLARE_double(ycsb_zipf_theta);

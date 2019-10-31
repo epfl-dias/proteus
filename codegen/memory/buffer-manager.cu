@@ -192,7 +192,7 @@ __device__ int32_t *get_buffers() {
   __syncwarp(mask);
   return ret;
 }
-}
+}  // namespace proteus
 
 void *get_dev_buffer() {
   return buffer_manager<int32_t>::h_get_buffer(
@@ -213,7 +213,7 @@ __device__ void release_buffers(int32_t *buff) {
   } while (b);
   __syncwarp(mask);
 }
-}
+}  // namespace proteus
 
 __device__ void dprinti(int32_t x) { printf("%d\n", x); }
 
