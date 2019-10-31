@@ -8,18 +8,17 @@ set(txn_bench_cxx
 
 
 include_directories(
-	"${PROJECT_SOURCE_DIR}"
-	SYSTEM "${PROJECT_SOURCE_DIR}/../../engines/oltp/engine"
-	SYSTEM "${PROJECT_SOURCE_DIR}/../../engines/oltp/lib"
-	SYSTEM "${PROJECT_SOURCE_DIR}/../../codegen"
-	"${CMAKE_INSTALL_PREFIX}/include"
+	"${CMAKE_CURRENT_SOURCE_DIR}"
+	SYSTEM "${PROJECT_SOURCE_DIR}/engines/oltp/engine"
+	SYSTEM "${PROJECT_SOURCE_DIR}/engines/oltp/lib"
+	SYSTEM "${PROJECT_SOURCE_DIR}/codegen"
 	)
 
 foreach(target
 	bench-runner
 	)
 	add_executable(${target} ${target}.cpp ${txn_bench_cxx})
-	target_link_libraries(${target} ${default_libs})
+	target_link_libraries(${target} ${default_libs} aeolus_engine)
 	install(TARGETS ${target}
 		RUNTIME DESTINATION pelago
 		LIBRARY DESTINATION lib

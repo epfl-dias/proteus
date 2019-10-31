@@ -19,28 +19,11 @@ set(txn_engine_cxx
     oltp-cli-flags.cpp
     )
 
-
-set(engine_libs ${engine_libs} -lnuma )
-set(engine_libs ${engine_libs} gflags::gflags ${GLOG} gflags::gflags)
-
-
-foreach(target ${txn_engine_cxx})
-    set_source_files_properties(${target} PROPERTIES COMPILE_FLAGS ${CUDA_CXXFLAGS})
-endforeach()
-
-#-----------------------------------------------------------------------------
-
-# grep -c ^processor /proc/cpuinfo 
-#execute_process(
-#    COMMAND bash "-c" "echo -n hello | sed 's/hello/world/;'" 
-#    OUTPUT_VARIABLE FOO
-#)
-
 add_library(aeolus_engine SHARED
         ${txn_engine_cxx}
     )
-set_property(TARGET aeolus_engine PROPERTY POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(aeolus_engine ${LLVM_LIBS} ${engine_libs})
+
+target_link_libraries(aeolus_engine)
 install(TARGETS aeolus_engine
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
