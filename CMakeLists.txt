@@ -324,7 +324,7 @@ endif()
 
 # `codegen` needs to be unquoted to be replaced, as CMake controls the build of
 # that library
-set(default_libs ${default_libs} codegen)
+
 
 set(default_libs ${default_libs} ${CUDA_LIBS})
 set(default_libs ${default_libs} gflags::gflags glog gflags::gflags)
@@ -372,6 +372,9 @@ add_subdirectory(jsmn)
 
 # code generation library
 add_subdirectory(codegen)
+
+# Add libcodegen to link
+set(default_libs ${default_libs} codegen)
 
 #-----------------------------------------------------------------------
 # Build our executables

@@ -169,7 +169,7 @@ add_library(codegen SHARED
         ${codegen_cu_objs}
         ${codegen_cxx}
     )
-target_link_libraries(codegen ${LLVM_LIBS} jsmn -lnuma)
+target_link_libraries(codegen ${LLVM_LIBS} ${default_libs} jsmn -lnuma)
 install(TARGETS codegen
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
