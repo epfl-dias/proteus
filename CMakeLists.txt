@@ -249,7 +249,8 @@ if(CUDA_FOUND)
 
 	set(CUDA "CUDA-FOUND")
 else()
-	message("Warning: Building without support for GPUs (nvcc not detected)")
+	message(FATAL_ERROR "Warning: Building without support for GPUs (nvcc not
+	detected)")
 
 	set(CUDA_CXXFLAGS -x c++ -DNCUDA)
 	set(CUDA_CUFLAGS "")
