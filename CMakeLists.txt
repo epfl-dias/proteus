@@ -319,6 +319,41 @@ if (TRUE)
 	set(GTEST_MAIN gtest_main)
 endif()
 
+# rapidjson
+if (TRUE)
+	set(RAPIDJSON_BUILD_DOC OFF)
+	set(RAPIDJSON_BUILD_EXAMPLES OFF)
+	set(RAPIDJSON_BUILD_TESTS OFF)
+	set(RAPIDJSON_BUILD_CXX11 ON)
+	set(RAPIDJSON_HAS_CXX11_RVALUE_REFS ON)
+
+	set(GTEST_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/googletest-src)
+
+	configure_file(CMakeLists.txt.rapidjson.in rapidjson-download/CMakeLists.txt)
+	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+			RESULT_VARIABLE result
+			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/rapidjson-download )
+	if(result)
+		message(FATAL_ERROR "CMake step for rapidjson failed: ${result}")
+	endif()
+
+	execute_process(COMMAND ${CMAKE_COMMAND} --build .
+			RESULT_VARIABLE result
+			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/rapidjson-download )
+	if(result)
+		message(FATAL_ERROR "CMake step for rapidjson failed: ${result}")
+	endif()
+
+	# RapidJSON does not set a version, disable the warning (policy)
+	# RapidJSON issue: https://github.com/Tencent/rapidjson/issues/1154
+	set(CMAKE_POLICY_DEFAULT_CMP0048 OLD)
+	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/rapidjson-src
+			${CMAKE_CURRENT_BINARY_DIR}/rapidjson-build
+			EXCLUDE_FROM_ALL)
+	# Reenable default behavior
+	set(CMAKE_POLICY_DEFAULT_CMP0048 NEW)
+endif()
+
 #-----------------------------------------------------------------------
 # Setup the library list, as the order is important do it last
 
@@ -358,6 +393,7 @@ install(DIRECTORY "testResults/" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/outp
 include_directories(
 		"${PROJECT_SOURCE_DIR}"
 		"${PROJECT_SOURCE_DIR}/codegen"
+		SYSTEM "${RapidJSON_SOURCE_DIR}/include"
 		# FIXME: system libraries should not be included with quotes...
 		# Add local (for use with ""-style includes) path to the sysroot
 		"${CMAKE_INSTALL_PREFIX}/include"
