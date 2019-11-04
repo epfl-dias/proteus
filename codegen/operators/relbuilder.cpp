@@ -45,7 +45,7 @@
 #include "operators/select.hpp"
 #include "operators/sort.hpp"
 #include "operators/unnest.hpp"
-#include "plan/plan-parser.hpp"
+#include "plan/catalog-parser.hpp"
 
 const RecordType &RelBuilder::getRecordType(CatalogParser &catalog,
                                             std::string relName) const {

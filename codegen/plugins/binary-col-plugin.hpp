@@ -20,6 +20,8 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
+#ifndef BINARY_COL_PLUGIN_HPP_
+#define BINARY_COL_PLUGIN_HPP_
 
 #include "plugins/plugins.hpp"
 
@@ -251,3 +253,5 @@ class BinaryColPlugin : public Plugin {
   // Generates a for loop that performs the file scan
   void scan(const Operator &producer);
 };
+
+#endif /* BINARY_COL_PLUGIN_HPP_ */

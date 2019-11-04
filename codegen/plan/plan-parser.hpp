@@ -24,6 +24,7 @@
 #ifndef PLAN_PARSER_HPP_
 #define PLAN_PARSER_HPP_
 
+#include "catalog-parser.hpp"
 #include "codegen/util/parallel-context.hpp"
 #include "common/common.hpp"
 #include "expressions/binary-operators.hpp"
@@ -41,15 +42,6 @@
 #include "util/caching.hpp"
 #include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
-
-typedef struct InputInfo {
-  std::string path;
-  ExpressionType *exprType;
-  // Used by materializing operations
-  ExpressionType *oidType;
-} InputInfo;
-
-class CatalogParser;
 
 class ExpressionParser {
   CatalogParser &catalogParser;
@@ -71,56 +63,6 @@ class ExpressionParser {
   RecordType *getRecordType(std::string relName, bool createIfNeeded = true);
   const RecordAttribute *getAttribute(std::string relName, std::string attrName,
                                       bool createIfNeeded = true);
-};
-
-class CatalogParser {
-  ParallelContext *context;
-
- public:
-  CatalogParser(const char *catalogPath, ParallelContext *context = nullptr);
-
-  static CatalogParser &getInstance();
-
-  InputInfo *getInputInfoIfKnown(std::string inputName) {
-    map<std::string, InputInfo *>::iterator it;
-    it = inputs.find(inputName);
-    if (it == inputs.end()) return nullptr;
-    return it->second;
-  }
-
-  InputInfo *getInputInfo(std::string inputName) {
-    InputInfo *ret = getInputInfoIfKnown(inputName);
-    if (ret) return ret;
-
-    std::string err = std::string("Unknown Input: ") + inputName;
-    LOG(ERROR) << err;
-    throw runtime_error(err);
-  }
-
-  InputInfo *getOrCreateInputInfo(std::string inputName);
-  InputInfo *getOrCreateInputInfo(std::string inputName,
-                                  ParallelContext *context);
-
-  void setInputInfo(std::string inputName, InputInfo *info) {
-    inputs[inputName] = info;
-  }
-
-  void registerInput(std::string inputName, ExpressionType *type) {
-    auto ii = new InputInfo;
-    ii->exprType = type;
-    ii->path = inputName;
-    ii->oidType = nullptr;
-    inputs[inputName] = ii;
-  }
-
-  void clear();
-
- private:
-  void parseCatalogFile(std::string file);
-  void parseDir(std::string dir);
-
-  ExpressionParser exprParser;
-  map<std::string, InputInfo *> inputs;
 };
 
 class PlanExecutor {

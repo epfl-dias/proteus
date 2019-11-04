@@ -8,6 +8,8 @@ ExternalProject_Add(rapidjson
   GIT_TAG           2bbd33b33217ff4a73434ebf10cdac41e2ef5e34
   SOURCE_DIR        "${CMAKE_CURRENT_BINARY_DIR}/rapidjson-src"
   BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/rapidjson-build"
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND     ""
   INSTALL_COMMAND   ""
   TEST_COMMAND      ""
 )

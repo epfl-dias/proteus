@@ -20,6 +20,8 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
+#ifndef CSV_PLUGIN_PM_HPP_
+#define CSV_PLUGIN_PM_HPP_
 
 #include "plugins/plugins.hpp"
 #include "util/atois.hpp"
@@ -245,3 +247,5 @@ class CSVPlugin : public Plugin {
 };
 
 }  // namespace pm
+
+#endif /* CSV_PLUGIN_PM_HPP_ */

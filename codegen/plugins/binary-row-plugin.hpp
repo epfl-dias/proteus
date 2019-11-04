@@ -21,6 +21,9 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#ifndef BINARY_ROW_PLUGIN_HPP_
+#define BINARY_ROW_PLUGIN_HPP_
+
 #include "plugins/plugins.hpp"
 
 // XXX Tmp Assumption: String are of length 5!
@@ -206,3 +209,5 @@ class BinaryRowPlugin : public Plugin {
   // Generates a for loop that performs the file scan
   void scan(const Operator &producer, llvm::Function *f);
 };
+
+#endif /* BINARY_ROW_PLUGIN_HPP_ */

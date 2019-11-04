@@ -3391,6 +3391,8 @@ void CatalogParser::parseCatalogFile(std::string file) {
     throw runtime_error(err);
   }
 
+  ExpressionParser exprParser{*this};
+
   // Start plan traversal.
   assert(document.IsObject());
 
@@ -3466,7 +3468,7 @@ void CatalogParser::parseDir(std::string dir) {
  * {"datasetname": {"path": "foo", "type": { ... } }
  */
 CatalogParser::CatalogParser(const char *catalogPath, ParallelContext *context)
-    : exprParser(*this), context(context) {
+    : context(context) {
   parseDir(catalogPath);
 }
 
