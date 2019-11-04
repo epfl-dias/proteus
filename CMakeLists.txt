@@ -261,6 +261,12 @@ endif()
 
 # GFlags
 if (TRUE)
+	set(GFLAGS_BUILD_SHARED_LIBS ON)
+	set(GFLAGS_BUILD_STATIC_LIBS ON)
+	set(GFLAGS_BUILD_gflags_LIB ON)
+	set(GFLAGS_INSTALL_SHARED_LIBS ON)
+	set(GFLAGS_INSTALL_STATIC_LIBS ON)
+
 	# Add google test here, so that we do not propagate to it the WARNING_FLAGS
 	configure_file(CMakeLists.txt.gflags.in gflags-download/CMakeLists.txt)
 	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
@@ -322,11 +328,12 @@ endif()
 
 # rapidjson
 if (TRUE)
-	set(RAPIDJSON_BUILD_DOC OFF)
-	set(RAPIDJSON_BUILD_EXAMPLES OFF)
-	set(RAPIDJSON_BUILD_TESTS OFF)
-	set(RAPIDJSON_BUILD_CXX11 ON)
-	set(RAPIDJSON_HAS_CXX11_RVALUE_REFS ON)
+	cmake_policy(SET CMP0077 NEW)
+	set(RAPIDJSON_BUILD_DOC OFF CACHE BOOL "")
+	set(RAPIDJSON_BUILD_EXAMPLES OFF CACHE BOOL "")
+	set(RAPIDJSON_BUILD_TESTS OFF CACHE BOOL "")
+	set(RAPIDJSON_BUILD_CXX11 ON CACHE BOOL "")
+	set(RAPIDJSON_HAS_CXX11_RVALUE_REFS ON CACHE BOOL "")
 
 	set(GTEST_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/googletest-src)
 
@@ -397,7 +404,7 @@ include_directories(
 		SYSTEM "${RapidJSON_SOURCE_DIR}/include"
 		# FIXME: system libraries should not be included with quotes...
 		# Add local (for use with ""-style includes) path to the sysroot
-		"${CMAKE_INSTALL_PREFIX}/include"
+#		"${CMAKE_INSTALL_PREFIX}/include"
 )
 
 # Add the warning flags
