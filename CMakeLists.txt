@@ -60,6 +60,8 @@ set(REALWORLD_EXPERIMENTS TRUE)
 # Make sure the libraries are found...
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
 
+set(CMAKE_BUILD_TYPE Debug)
+
 # Build with the install RPATH already
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 
@@ -292,7 +294,7 @@ endif()
 
 #-----------------------------------------------------------------------
 # GoogleLog
-find_library(GLOG NAMES glog)
+find_library(GLOG NAMES glog REQUIRED)
 if(${GLOG} STREQUAL "GLOG-NOTFOUND")
 	message(FATAL_ERROR "Glog not found!")
 endif()
