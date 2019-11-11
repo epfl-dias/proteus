@@ -7,6 +7,8 @@ project(aeolus VERSION 0.1)
 # to build.
 set(OLTP_MAINS server)
 
+set (OLTP_CLI_FLAGS engine/oltp-cli-flags.cpp)
+
 #-----------------------------------------------------------------------
 # Build our libraries
 #-----------------------------------------------------------------------
@@ -24,7 +26,7 @@ add_subdirectory(engine)
 
 set(default_libs ${default_libs} aeolus_engine )
 foreach(target ${OLTP_MAINS})
-	add_executable(aeolus-${target} ${target}.cpp)
+	add_executable(aeolus-${target} ${target}.cpp ${OLTP_CLI_FLAGS}) 
 	target_link_libraries(aeolus-${target} ${default_libs})
 	install(TARGETS aeolus-${target}
 		RUNTIME DESTINATION aeolus

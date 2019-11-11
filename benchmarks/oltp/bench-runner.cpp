@@ -48,9 +48,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 // Bench Includes
 
 //#include "benchmarks/micro_ssb.hpp"
-#include "benchmarks/oltp/bench-cli-flags.hpp"
-#include "benchmarks/oltp/tpcc_64.hpp"
-#include "benchmarks/oltp/ycsb.hpp"
+#include "bench-cli-flags.hpp"
+#include "bench/tpcc_64.hpp"
+#include "bench/ycsb.hpp"
 
 // Platform Includes
 #include "common/common.hpp"
