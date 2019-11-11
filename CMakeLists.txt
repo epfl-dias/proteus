@@ -355,12 +355,9 @@ if (TRUE)
 
 	# RapidJSON does not set a version, disable the warning (policy)
 	# RapidJSON issue: https://github.com/Tencent/rapidjson/issues/1154
-	set(CMAKE_POLICY_DEFAULT_CMP0048 OLD)
 	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/rapidjson-src
 			${CMAKE_CURRENT_BINARY_DIR}/rapidjson-build
 			EXCLUDE_FROM_ALL)
-	# Reenable default behavior
-	set(CMAKE_POLICY_DEFAULT_CMP0048 NEW)
 endif()
 
 #-----------------------------------------------------------------------
