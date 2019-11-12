@@ -30,10 +30,10 @@ install(DIRECTORY . DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 # This makes the project importable from the install directory
 # Put config file in per-project dir (name MUST match), can also
 # just go into 'cmake'.
-#install(EXPORT ${PROJECT_NAME}Config DESTINATION share/${PROJECT_NAME}/cmake)
+install(EXPORT ${PROJECT_NAME}Config DESTINATION share/${PROJECT_NAME}/cmake)
 
 # This makes the project importable from the build directory
-#export(TARGETS cuckoo FILE ${PROJECT_NAME}Config.cmake)
+export(TARGETS cuckoo FILE ${PROJECT_NAME}Config.cmake)
 
 #enable_testing()
 #add_test(UT cuckoo-tests) # Add codegen-specific tests?

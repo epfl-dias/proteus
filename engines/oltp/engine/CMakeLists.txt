@@ -30,10 +30,10 @@ add_library(aeolus_engine SHARED
 # paths.
 target_include_directories(aeolus_engine
         PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:include>
         PRIVATE
-        src)
+            ${CMAKE_CURRENT_SOURCE_DIR})
 
 # If we have compiler requirements for this library, list them
 # here
@@ -42,7 +42,10 @@ target_compile_features(aeolus_engine
 
 # Depend on a library that we defined in the top-level file
 target_link_libraries(aeolus_engine
-        gflags::gflags codegen cuckoo)
+        PUBLIC
+            cuckoo codegen
+        PRIVATE
+            gflags::gflags)
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
 install(TARGETS aeolus_engine EXPORT ${PROJECT_NAME}Config
@@ -54,10 +57,10 @@ install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 # This makes the project importable from the install directory
 # Put config file in per-project dir (name MUST match), can also
 # just go into 'cmake'.
-#install(EXPORT ${PROJECT_NAME}Config DESTINATION share/${PROJECT_NAME}/cmake)
+install(EXPORT ${PROJECT_NAME}Config DESTINATION share/${PROJECT_NAME}/cmake)
 
 # This makes the project importable from the build directory
-#export(TARGETS codegen FILE ${PROJECT_NAME}Config.cmake)
+export(TARGETS aeolus_engine FILE ${PROJECT_NAME}Config.cmake)
 
 #enable_testing()
 #add_test(UT codegen-tests) # Add codegen-specific tests?

@@ -19,7 +19,7 @@ set(gtest_src
 foreach(target ${gtest_src})
     get_filename_component(target_name ${target} NAME_WE)
     add_executable(unit-${target_name} ${target} test-utils.cpp)
-    target_link_libraries(unit-${target_name} ${gtest_libs})
+    target_link_libraries(unit-${target_name} ${gtest_libs} aeolus_engine)
     install(TARGETS unit-${target_name}
         RUNTIME DESTINATION pelago
         LIBRARY DESTINATION lib
@@ -30,7 +30,7 @@ endforeach(target)
 
 # One test to rule them all
 add_executable(unit-tests-oltp ${gtest_src} test-utils.cpp)
-target_link_libraries(unit-tests-oltp ${gtest_libs})
+target_link_libraries(unit-tests-oltp ${gtest_libs} aeolus_engine)
 install(TARGETS unit-tests-oltp
     RUNTIME DESTINATION pelago
     LIBRARY DESTINATION lib

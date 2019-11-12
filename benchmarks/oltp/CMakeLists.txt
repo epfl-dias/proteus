@@ -7,17 +7,14 @@ set(txn_bench_cxx
 	${PROJECT_SOURCE_DIR}/engines/oltp/engine/oltp-cli-flags.cpp
     )
 
-
-
-
-
-
+find_package(Threads REQUIRED)
 
 foreach(target
 	bench-runner
 	)
 	add_executable(${target} ${target}.cpp ${txn_bench_cxx})
-	target_link_libraries(${target} aeolus_engine aeolus_bench)
+	target_link_libraries(${target} aeolus_engine aeolus_bench gflags::gflags
+			Threads::Threads -lc++abi)
 	install(TARGETS ${target}
 		RUNTIME DESTINATION pelago
 		LIBRARY DESTINATION lib

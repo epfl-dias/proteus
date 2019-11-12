@@ -183,7 +183,7 @@ target_include_directories(codegen
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
             $<INSTALL_INTERFACE:include>
         PRIVATE
-            src)
+            ${CMAKE_CURRENT_SOURCE_DIR})
 
 # If we have compiler requirements for this library, list them
 # here
@@ -192,7 +192,14 @@ target_compile_features(codegen
 
 # Depend on a library that we defined in the top-level file
 target_link_libraries(codegen
-        ${LLVM_LIBS} ${default_libs} jsmn -lnuma)
+        PUBLIC
+            ${LLVM_LIBS} glog jsmn -lnuma -lc++abi ${CUDA_LIBRARIES}
+        PRIVATE
+            gflags::gflags ${CUDA_LIBS})
+
+if(VTUNE AND VTUNE_ENABLE)
+target_link_libraries(codegen ${VTUNE})
+endif()
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
 install(TARGETS codegen EXPORT ${PROJECT_NAME}Config
@@ -204,10 +211,10 @@ install(TARGETS codegen EXPORT ${PROJECT_NAME}Config
 # This makes the project importable from the install directory
 # Put config file in per-project dir (name MUST match), can also
 # just go into 'cmake'.
-#install(EXPORT ${PROJECT_NAME}Config DESTINATION share/${PROJECT_NAME}/cmake)
+install(EXPORT ${PROJECT_NAME}Config DESTINATION share/${PROJECT_NAME}/cmake)
 
 # This makes the project importable from the build directory
-#export(TARGETS codegen FILE ${PROJECT_NAME}Config.cmake)
+export(TARGETS codegen FILE ${PROJECT_NAME}Config.cmake)
 
 #enable_testing()
 #add_test(UT codegen-tests) # Add codegen-specific tests?

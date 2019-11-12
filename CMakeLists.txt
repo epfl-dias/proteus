@@ -237,7 +237,9 @@ if(CUDA_FOUND)
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -O3)
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} --generate-line-info -line-info)
 
-	set(CUDA_LIBS -lnvToolsExt -lcuda -lcudart -lnvidia-ml -lcudadevrt -lnvvm)
+	set(CUDA_LIBS -lnvToolsExt -lcuda ${CUDA_LIBRARIES}
+			-lnvidia-ml
+			${CUDA_cudadevrt_LIBRARY} -lnvvm)
 
 	include_directories(
 		SYSTEM ${CUDA_INCLUDE_DIRS}
@@ -263,12 +265,12 @@ endif()
 
 # GFlags
 if (TRUE)
-	set(GFLAGS_BUILD_SHARED_LIBS ON)
+#	set(GFLAGS_BUILD_SHARED_LIBS ON)
 	set(GFLAGS_BUILD_STATIC_LIBS ON)
 	set(GFLAGS_BUILD_gflags_LIB ON)
 	set(GFLAGS_BUILD_gflags_nothreads_LIB ON)
 	set(GFLAGS_INSTALL_SHARED_LIBS ON)
-	set(GFLAGS_INSTALL_STATIC_LIBS ON)
+#	set(GFLAGS_INSTALL_STATIC_LIBS ON)
 #	set(GFLAGS_INSTALL_HEADERS ON)
 #	set(GFLAGS_REGISTER_BUILD_DIR ON)
 #	SET(GFLAGS_REGISTER_INSTALL_PREFIX ON)
@@ -357,8 +359,6 @@ if (TRUE)
 		message(FATAL_ERROR "CMake step for rapidjson failed: ${result}")
 	endif()
 
-	# RapidJSON does not set a version, disable the warning (policy)
-	# RapidJSON issue: https://github.com/Tencent/rapidjson/issues/1154
 	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/rapidjson-src
 			${CMAKE_CURRENT_BINARY_DIR}/rapidjson-build
 			EXCLUDE_FROM_ALL)
@@ -369,7 +369,6 @@ endif()
 
 # `codegen` needs to be unquoted to be replaced, as CMake controls the build of
 # that library
-
 
 set(default_libs ${default_libs} ${CUDA_LIBS})
 set(default_libs ${default_libs} gflags::gflags glog gflags::gflags)

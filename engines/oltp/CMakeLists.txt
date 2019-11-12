@@ -12,12 +12,12 @@ set (OLTP_CLI_FLAGS engine/oltp-cli-flags.cpp)
 #-----------------------------------------------------------------------
 # Build our libraries
 #-----------------------------------------------------------------------
-
-include_directories(
-	"${CMAKE_CURRENT_SOURCE_DIR}"
-	"${CMAKE_CURRENT_SOURCE_DIR}/engine"
-	SYSTEM "${CMAKE_CURRENT_SOURCE_DIR}/lib"
-	)
+#
+#include_directories(
+#	"${CMAKE_CURRENT_SOURCE_DIR}"
+#	"${CMAKE_CURRENT_SOURCE_DIR}/engine"
+#	SYSTEM "${CMAKE_CURRENT_SOURCE_DIR}/lib"
+#	)
 
 #-----------------------------------------------------------------------
 # Build our executables
@@ -25,12 +25,11 @@ include_directories(
 add_subdirectory(lib/libcuckoo)
 add_subdirectory(engine)
 
-set(default_libs ${default_libs} aeolus_engine )
 foreach(target ${OLTP_MAINS})
 	add_executable(aeolus-${target} ${target}.cpp ${OLTP_CLI_FLAGS}) 
-	target_link_libraries(aeolus-${target} ${default_libs})
+	target_link_libraries(aeolus-${target} aeolus_engine gflags::gflags)
 	install(TARGETS aeolus-${target}
-		RUNTIME DESTINATION aeolus
+		RUNTIME DESTINATION pelago
 		LIBRARY DESTINATION lib
 		ARCHIVE DESTINATION lib
 		)
