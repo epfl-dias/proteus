@@ -198,7 +198,7 @@ target_link_libraries(codegen
             gflags::gflags ${CUDA_LIBS})
 
 if(VTUNE AND VTUNE_ENABLE)
-target_link_libraries(codegen ${VTUNE})
+target_link_libraries(codegen PUBLIC ${VTUNE})
 endif()
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
