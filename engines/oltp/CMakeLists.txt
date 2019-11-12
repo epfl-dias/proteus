@@ -22,6 +22,7 @@ include_directories(
 #-----------------------------------------------------------------------
 # Build our executables
 #-----------------------------------------------------------------------
+add_subdirectory(lib/libcuckoo)
 add_subdirectory(engine)
 
 set(default_libs ${default_libs} aeolus_engine )

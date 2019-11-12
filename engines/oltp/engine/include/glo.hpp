@@ -25,7 +25,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include <mutex>
 
-#include "indexes/hash_array.hpp"
+#include "engines/oltp/engine/include/indexes/hash_array.hpp"
 #include "indexes/hash_index.hpp"
 #include "scheduler/topology.hpp"
 #include "snapshot/arena.hpp"

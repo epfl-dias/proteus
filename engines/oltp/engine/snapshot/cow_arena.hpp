@@ -29,7 +29,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <map>
 #include <memory>
 
-#include "arena.hpp"
+#include "engines/oltp/engine/include/snapshot/arena.hpp"
 
 namespace aeolus {
 namespace snapshot {

@@ -454,7 +454,7 @@ class cuckoohash_map {
    *   the data is not nothrow-move-constructible.
    *   - Creating a locked_table or resizing within a locked_table.
    *
-   * @param num_threads the number of extra threads
+   * @param extra_threads the number of extra threads
    */
   void max_num_worker_threads(size_type extra_threads) {
     max_num_worker_threads_.store(extra_threads, std::memory_order_release);
@@ -2758,7 +2758,7 @@ namespace std {
  * lhs.swap(rhs).
  *
  * @param lhs the map on the left side to swap
- * @param lhs the map on the right side to swap
+ * @param rhs the map on the right side to swap
  */
 template <class Key, class T, class Hash, class KeyEqual, class Allocator,
           std::size_t SLOT_PER_BUCKET>

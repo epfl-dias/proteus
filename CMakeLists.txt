@@ -266,8 +266,12 @@ if (TRUE)
 	set(GFLAGS_BUILD_SHARED_LIBS ON)
 	set(GFLAGS_BUILD_STATIC_LIBS ON)
 	set(GFLAGS_BUILD_gflags_LIB ON)
+	set(GFLAGS_BUILD_gflags_nothreads_LIB ON)
 	set(GFLAGS_INSTALL_SHARED_LIBS ON)
 	set(GFLAGS_INSTALL_STATIC_LIBS ON)
+#	set(GFLAGS_INSTALL_HEADERS ON)
+#	set(GFLAGS_REGISTER_BUILD_DIR ON)
+#	SET(GFLAGS_REGISTER_INSTALL_PREFIX ON)
 
 	# Add google test here, so that we do not propagate to it the WARNING_FLAGS
 	configure_file(CMakeLists.txt.gflags.in gflags-download/CMakeLists.txt)
