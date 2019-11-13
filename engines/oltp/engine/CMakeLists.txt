@@ -52,7 +52,6 @@ install(TARGETS aeolus_engine EXPORT ${PROJECT_NAME}Config
         ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
         LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR})  # This is for Windows
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # This makes the project importable from the install directory
 # Put config file in per-project dir (name MUST match), can also
