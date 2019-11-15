@@ -10,3 +10,10 @@ To setup the git hooks run:
 ```
 git config core.hooksPath .githooks
 ```
+
+
+Allocate HugePages
+========
+```
+echo 32768 | sudo tee /sys/devices/system/node/node{0,1}/hugepages/hugepages-2048kB/nr_hugepages
+```
