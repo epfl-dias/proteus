@@ -33,7 +33,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <tuple>
 #include <vector>
 
-#include "glo.hpp"
 #include "indexes/hash_index.hpp"
 #include "snapshot/snapshot_manager.hpp"
 #include "storage/delta_storage.hpp"
@@ -52,61 +51,52 @@ enum layout_type { ROW_STORE, COLUMN_STORE };
 
 enum data_type { META, INTEGER, STRING, FLOAT, VARCHAR, DATE };
 
-class TablePartition {
+class NUMAPartitionPolicy {
  public:
-  const uint pid;
-  const uint numa_idx;
+  // Singleton
+  static inline NUMAPartitionPolicy &getInstance() {
+    static NUMAPartitionPolicy instance;
+    return instance;
+  }
+  NUMAPartitionPolicy(NUMAPartitionPolicy const &) = delete;  // Don't Implement
+  void operator=(NUMAPartitionPolicy const &) = delete;       // Don't implement
 
- public:
-  explicit TablePartition(uint pid, uint numa_idx)
-      : pid(pid), numa_idx(numa_idx) {}
+  class TablePartition {
+   public:
+    const uint pid;
+    const uint numa_idx;
 
-  inline bool operator==(const TablePartition &o) {
-    return (pid == o.pid && numa_idx == o.numa_idx);
+   public:
+    explicit TablePartition(uint pid, uint numa_idx)
+        : pid(pid), numa_idx(numa_idx) {}
+
+    inline bool operator==(const TablePartition &o) {
+      return (pid == o.pid && numa_idx == o.numa_idx);
+    }
+  };
+
+  const TablePartition &getPartitionInfo(uint pid) {
+    assert(pid < PartitionVector.size());
+    return PartitionVector[pid];
+  }
+
+  uint getDefaultPartition() {
+    assert(PartitionVector.size() > 0);
+    return PartitionVector[0].numa_idx;
+  }
+
+ private:
+  std::vector<TablePartition> PartitionVector;
+
+  NUMAPartitionPolicy() {
+    for (uint i = 0; i < NUM_SOCKETS; i++) {
+      if (global_conf::reverse_partition_numa_mapping)
+        PartitionVector.emplace_back(TablePartition{i, NUM_SOCKETS - i - 1});
+      else
+        PartitionVector.emplace_back(TablePartition{i, i});
+    }
   }
 };
-
-// template <uint8_t T>
-// class BitMask_T {
-//   // unsigned char b1 : 1;
-//   // unsigned char b2 : 1;
-//   // unsigned char b3 : 1;
-//   // unsigned char b4 : 1;
-//   // unsigned char b5 : 1;
-//   // unsigned char b6 : 1;
-//   // unsigned char b7 : 1;
-//   // unsigned char b8 : 1;
-
-//  private:
-//   unsigned char bt_msk[T];
-//   inline void updBit(ushort p, ushort b) {
-//     int mask = 1 << p;
-
-//     ushort offset = T % p;
-
-//     bt_msk[offset] = (bt_msk[offset] & ~mask) | ((b << p) & mask);
-//   }
-
-//  public:
-//   BitMask_T() { clearAll(); }
-
-//   inline void setBit(ushort pos) { updBit(pos, 1); }
-
-//   inline void clearBit(ushort pos) { updBit(pos, 0); }
-
-//   inline void setAll() {
-//     for (ushort i = 0; i < T; i++) bt_msk[i] = 0xFF;
-//   }
-
-//   inline void clearAll() {
-//     for (ushort i = 0; i < T; i++) bt_msk[i] = 0x00;
-//   }
-// };
-
-// using BitMask_8 = BitMask_T<1>;
-// using BitMask_16 = BitMask_T<2>;
-// using BitMask_32 = BitMask_T<4>;
-// using BitMask_64 = BitMask_T<8>;
 
 class Schema {
  public:
@@ -150,11 +140,6 @@ class Schema {
 
   DeltaStore *deltaStore[global_conf::num_delta_storages];
 
-  const TablePartition &getPartitionInfo(uint pid) {
-    assert(pid < PartitionVector.size());
-    return PartitionVector[pid];
-  }
-
   // volatile std::atomic<uint64_t> rid;
   // inline uint64_t __attribute__((always_inline)) get_next_rid() {
   //   return rid.fetch_add(1);
@@ -163,7 +148,6 @@ class Schema {
  private:
   uint8_t num_tables;
   std::vector<Table *> tables;
-  std::vector<TablePartition> PartitionVector;
 
   // snapshotting
   std::future<bool> snapshot_sync;
@@ -188,9 +172,6 @@ class Schema {
         this->total_delta_mem_reserved += deltaStore[i]->total_mem_reserved;
       }
     }
-
-    PartitionVector.emplace_back(TablePartition{0, 1});
-    PartitionVector.emplace_back(TablePartition{1, 0});
   }
 
   friend class Table;

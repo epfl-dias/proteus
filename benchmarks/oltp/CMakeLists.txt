@@ -12,10 +12,10 @@ find_package(Threads REQUIRED)
 foreach(target
 	bench-runner
 	)
-	add_executable(${target} ${target}.cpp ${txn_bench_cxx})
-	target_link_libraries(${target} aeolus_engine aeolus_bench gflags::gflags
+	add_executable(oltp-${target} ${target}.cpp ${txn_bench_cxx})
+	target_link_libraries(oltp-${target} aeolus_engine aeolus_bench gflags::gflags
 			Threads::Threads -lc++abi)
-	install(TARGETS ${target}
+	install(TARGETS oltp-${target}
 		RUNTIME DESTINATION pelago
 		LIBRARY DESTINATION lib
 		ARCHIVE DESTINATION lib

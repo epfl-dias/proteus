@@ -2076,7 +2076,7 @@ void TPCC::create_tbl_supplier(uint64_t num_supp) {
   table_supplier = schema->create_table(
       "tpcc_supplier",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_supp);
+      columns, num_supp, true, false);
 }
 void TPCC::create_tbl_region(uint64_t num_region) {
   // Primary Key: r_regionkey
@@ -2098,7 +2098,7 @@ void TPCC::create_tbl_region(uint64_t num_region) {
   table_region = schema->create_table(
       "tpcc_region",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_region);
+      columns, num_region, true, false);
 }
 void TPCC::create_tbl_nation(uint64_t num_nation) {
   // Primary Key: n_nationkey
@@ -2121,7 +2121,7 @@ void TPCC::create_tbl_nation(uint64_t num_nation) {
   table_nation = schema->create_table(
       "tpcc_nation",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_nation);
+      columns, num_nation, true, false);
 }
 
 /* A/C TPCC Specs*/

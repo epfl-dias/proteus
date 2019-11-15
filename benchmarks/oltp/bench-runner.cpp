@@ -53,6 +53,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "bench/ycsb.hpp"
 
 // Platform Includes
+#include "codegen/topology/affinity_manager.hpp"
+#include "codegen/topology/topology.hpp"
 #include "common/common.hpp"
 
 #if __has_include("ittnotify.h")
@@ -102,6 +104,10 @@ int main(int argc, char** argv) {
   gflags::SetUsageMessage("Simple command line interface for aeolus");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
+  const auto& topo = topology::getInstance();
+  const auto& nodes = topo.getCpuNumaNodes();
+  set_exec_location_on_scope d{nodes[0]};
+
   // google::InitGoogleLogging(argv[0]);
   // FLAGS_logtostderr = 1; // FIXME: the command line flags/defs seem to
   // fail...
@@ -115,18 +121,20 @@ int main(int argc, char** argv) {
     g_num_partitions = FLAGS_num_partitions;
   }
 
+  std::cout << "PARTITIONS: " << g_num_partitions << std::endl;
+
   g_delta_size = FLAGS_delta_size;
   storage::MemoryManager::init();
 
-#if PROTEUS_MEM_MANAGER
-  proteus::init();
-#elif HTAP_RM_SERVER
-  std::cout << "\tInitializing communication manager..." << std::endl;
-  scheduler::CommManager::getInstance().init();
-#else
-  std::cout << scheduler::Topology::getInstance() << std::endl;
-  std::cout << "------------------------------------" << std::endl;
-#endif
+  // #if PROTEUS_MEM_MANAGER
+  //   proteus::init();
+  // #elif HTAP_RM_SERVER
+  //   std::cout << "\tInitializing communication manager..." << std::endl;
+  //   scheduler::CommManager::getInstance().init();
+  // #else
+  //   std::cout << scheduler::Topology::getInstance() << std::endl;
+  //   std::cout << "------------------------------------" << std::endl;
+  // #endif
 
   storage::Schema* schema = &storage::Schema::getInstance();
 
@@ -164,12 +172,12 @@ int main(int argc, char** argv) {
                         FLAGS_ycsb_num_ops_per_txn, FLAGS_ycsb_write_ratio,
                         (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
                         scheduler::Topology::getInstance().getCoreCount(),
-                        FLAGS_num_partitions, FLAGS_layout_column_store);
+                        g_num_partitions, FLAGS_layout_column_store);
   }
 
   scheduler::WorkerPool::getInstance().init(
       bench, (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
-      FLAGS_num_partitions, FLAGS_worker_sched_mode, FLAGS_num_iter_per_worker,
+      g_num_partitions, FLAGS_worker_sched_mode, FLAGS_num_iter_per_worker,
       (FLAGS_elastic_workload > 0 ? true : false));
 
   schema->report();

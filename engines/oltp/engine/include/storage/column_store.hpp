@@ -48,7 +48,7 @@ namespace storage {
 
 class Column;
 
-class ColumnStore : public Table {
+class alignas(4096) ColumnStore : public Table {
  public:
   ColumnStore(uint8_t table_id, std::string name,
               std::vector<std::tuple<std::string, data_type, size_t>> columns,
@@ -89,7 +89,7 @@ class ColumnStore : public Table {
 
   // global_conf::mv_version_list *getVersions(uint64_t vid);
 
-  void sync_master_snapshots(ushort master_ver_idx);
+  [[noreturn]] void sync_master_snapshots(ushort master_ver_idx);
   void snapshot(uint64_t epoch, uint8_t snapshot_master_ver);
   void ETL(uint numa_node_idx);
   void num_upd_tuples();
@@ -121,7 +121,7 @@ class ColumnStore : public Table {
   size_t nParts;
 };
 
-class Column {
+class alignas(4096) Column {
  public:
   Column(std::string name, uint64_t initial_num_records, ColumnStore *parent,
          data_type type, size_t unit_size, size_t cummulative_offset,
@@ -142,7 +142,7 @@ class Column {
   // void updateElem(uint64_t offset, void *elem, ushort master_ver);
   // void deleteElem(uint64_t offset, ushort master_ver);
 
-  void sync_master_snapshots(ushort master_ver_idx);
+  [[noreturn]] void sync_master_snapshots(ushort master_ver_idx);
   void snapshot(const uint64_t *n_recs_part, uint64_t epoch,
                 uint8_t snapshot_master_ver);
 

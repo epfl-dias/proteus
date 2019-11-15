@@ -32,3 +32,5 @@ DECLARE_uint32(report_stat_sec);
 DECLARE_uint32(elastic_workload);
 DECLARE_uint32(migrate_worker);
 DECLARE_uint32(switch_master_sec);
+
+// DECLARE_bool(reverse_partition_numa_mapping);

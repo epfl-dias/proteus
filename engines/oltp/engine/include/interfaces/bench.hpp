@@ -45,7 +45,7 @@ class Benchmark {
   }
 
   // Should return a memory pointer which will be used to describe a query.
-  virtual void *get_query_struct_ptr(ushort pid = 0) { return nullptr; }
+  virtual void *get_query_struct_ptr(ushort pid) { return nullptr; }
   virtual void free_query_struct_ptr(void *ptr) {}
 
   // NOTE: Following will run before/after the workers starts the execution. it

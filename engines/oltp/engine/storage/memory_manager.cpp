@@ -172,6 +172,8 @@ void* MemoryManager::alloc(size_t bytes, int numa_memset_id, int mem_advice) {
   set_exec_location_on_scope d{nodes[numa_memset_id]};
   void* ret = ::MemoryManager::mallocPinned(bytes);
 
+  // assert(topo.getCpuNumaNodeAddressed(ret)->id == nodes[numa_memset_id].id);
+
   // if (madvise(ret, bytes, mem_advice) == -1) {
   //   fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno));
   //   assert(false);

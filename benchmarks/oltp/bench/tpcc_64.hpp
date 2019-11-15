@@ -75,7 +75,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define TPCC_NDIST_PER_WH 10
 #define TPCC_ORD_PER_DIST 3000
 
-#define TPCC_MAX_ORD_PER_DIST 1000000  // 1.5 TB Memory Server -- 1000000
+#define TPCC_MAX_ORD_PER_DIST 200000  // 1.5 TB Memory Server -- 1000000
 #define TPCC_MAX_ORDER_INITIAL_CAP_PER_PARTITION \
   (TPCC_MAX_ORD_PER_DIST * TPCC_NDIST_PER_WH * NUM_CORE_PER_SOCKET)
 #define TPCC_MAX_ORDER_INITIAL_CAP \
@@ -403,7 +403,9 @@ class TPCC : public Benchmark {
   void *get_query_struct_ptr(ushort pid) {
     return storage::MemoryManager::alloc(
         sizeof(struct tpcc_query),
-        storage::Schema::getInstance().getPartitionInfo(pid).numa_idx,
+        storage::NUMAPartitionPolicy::getInstance()
+            .getPartitionInfo(pid)
+            .numa_idx,
         MADV_DONTFORK);
   }
   void free_query_struct_ptr(void *ptr) {
@@ -448,7 +450,7 @@ class TPCC : public Benchmark {
   TPCC(std::string name = "TPCC", int num_warehouses = 1,
        int active_warehouse = 1, bool layout_column_store = true,
        uint tpch_scale_factor = 0, int g_dist_threshold = 0,
-       std::string csv_path = "", bool is_ch_benchmark = true);
+       std::string csv_path = "", bool is_ch_benchmark = false);
 
   static_assert(!(D_MIX > 0 && !index_on_order_tbl),
                 "Delivery Txn requires index on order tables");

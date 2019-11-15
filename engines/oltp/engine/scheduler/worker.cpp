@@ -103,7 +103,7 @@ void Worker::run() {
   WorkerPool* pool = &WorkerPool::getInstance();
   txn::TransactionManager* txnManager = &txn::TransactionManager::getInstance();
   storage::Schema* schema = &storage::Schema::getInstance();
-  void* txn_mem = pool->txn_bench->get_query_struct_ptr();
+  void* txn_mem = pool->txn_bench->get_query_struct_ptr(this->partition_id);
 
   curr_delta = 0;
   prev_delta = 0;

@@ -32,18 +32,17 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "snapshot/snapshot_manager.hpp"
 #include "transactions/cc.hpp"
 
-#define diascld33 false
+#define diascld33 true
 #define diascld40 false
 #define diascld48 false
 
-#define icc148 true
+#define icc148 false
 
-#define DEFAULT_MEM_NUMA_SOCKET 1
 #define DEFAULT_OLAP_SOCKET 0
 
 #define HTAP_DOUBLE_MASTER true
 #define HTAP_COW false
-#define HTAP_ETL true  // for this, double master should be turned on too.
+#define HTAP_ETL false  // for this, double master should be turned on too.
 
 // Memory Allocators
 #define HTAP_RM_SERVER false
@@ -111,8 +110,10 @@ using PrimaryIndex = indexes::HashArray<T_KEY>;
 // const uint time_master_switch_ms = 200;
 
 /* # of Snapshots*/
-constexpr short num_master_versions = 2;
+constexpr short num_master_versions = 1;
 constexpr short num_delta_storages = 2;
+
+constexpr bool reverse_partition_numa_mapping = false;
 
 }  // namespace global_conf
 

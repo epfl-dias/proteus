@@ -187,7 +187,8 @@ Table* Schema::create_table(
   Table* tbl = nullptr;
 
   if (numa_idx == -1) {
-    numa_idx = DEFAULT_MEM_NUMA_SOCKET;
+    numa_idx =
+        storage::NUMAPartitionPolicy::getInstance().getDefaultPartition();
   }
 
   if (layout == COLUMN_STORE) {
@@ -199,7 +200,8 @@ Table* Schema::create_table(
 
   } else if (layout == ROW_STORE) {
     // void* obj_ptr =
-    //     MemoryManager::alloc(sizeof(RowStore), DEFAULT_MEM_NUMA_SOCKET);
+    //     MemoryManager::alloc(sizeof(RowStore),
+    //     storage::NUMAPartitionPolicy::getInstance().getDefaultPartition());
 
     // tbl = new RowStore((this->num_tables + 1), name, columns,
     //                    initial_num_records, indexed, partitioned, numa_idx);

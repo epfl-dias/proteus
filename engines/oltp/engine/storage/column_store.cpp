@@ -212,8 +212,9 @@ ColumnStore::ColumnStore(
   std::vector<proteus::thread> loaders;
 
   if (indexed) {
-    void* obj_ptr =
-        MemoryManager::alloc(sizeof(Column), DEFAULT_MEM_NUMA_SOCKET);
+    void* obj_ptr = MemoryManager::alloc(
+        sizeof(Column),
+        storage::NUMAPartitionPolicy::getInstance().getDefaultPartition());
     meta_column = new (obj_ptr)
         Column(name + "_meta", initial_num_records, this, META,
                sizeof(global_conf::IndexVal), 0, true, partitioned, numa_idx);
@@ -242,8 +243,9 @@ ColumnStore::ColumnStore(
   // create columns
   size_t col_offset = 0;
   for (const auto& t : columns) {
-    void* obj_ptr =
-        MemoryManager::alloc(sizeof(Column), DEFAULT_MEM_NUMA_SOCKET);
+    void* obj_ptr = MemoryManager::alloc(
+        sizeof(Column),
+        storage::NUMAPartitionPolicy::getInstance().getDefaultPartition());
     this->columns.emplace_back(new (obj_ptr) Column(
         std::get<0>(t), initial_num_records, this, std::get<1>(t),
         std::get<2>(t), col_offset, false, partitioned, numa_idx));
@@ -482,7 +484,7 @@ void ColumnStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
     }
   } else {
     for (ushort i = 0; i < num_cols; i++) {
-      assert(col_idx[i] < columns.size());
+      // assert(col_idx[i] < columns.size());
       Column* col = columns.at(col_idx[i]);
       col->updateElem(hash_ptr->VID,
                       (rec == nullptr ? nullptr : (void*)cursor));
@@ -521,7 +523,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
       elem_size(unit_size),
       cummulative_offset(cummulative_offset),
       type(type) {
-  time_block t("T_ColumnCreate_: ");
+  // time_block t("T_ColumnCreate_: ");
 
   this->parent = parent;
 
@@ -599,16 +601,19 @@ Column::Column(std::string name, uint64_t initial_num_records,
       void* mem = ::MemoryManager::mallocPinned(size_per_partition);
 #else
       void* mem = MemoryManager::alloc(
-          size_per_partition,
-          storage::Schema::getInstance().getPartitionInfo(j).numa_idx);
+          size_per_partition, storage::NUMAPartitionPolicy::getInstance()
+                                  .getPartitionInfo(j)
+                                  .numa_idx);
 
 #endif
       assert(mem != nullptr || mem != NULL);
       loaders.emplace_back([mem, size_per_partition, j]() {
-        time_block t("T_ColumnCreate_warmup_1: ");
+        // time_block t("T_ColumnCreate_warmup_1: ");
         set_exec_location_on_scope d{
-            topology::getInstance().getCpuNumaNodes()
-                [storage::Schema::getInstance().getPartitionInfo(j).numa_idx]};
+            topology::getInstance()
+                .getCpuNumaNodes()[storage::NUMAPartitionPolicy::getInstance()
+                                       .getPartitionInfo(j)
+                                       .numa_idx]};
 
         uint64_t* pt = (uint64_t*)mem;
         uint64_t warmup_max = size_per_partition / sizeof(uint64_t);
@@ -618,14 +623,16 @@ Column::Column(std::string name, uint64_t initial_num_records,
 
       master_versions[i][j].emplace_back(
           mem, size_per_partition,
-          storage::Schema::getInstance().getPartitionInfo(j).numa_idx);
+          storage::NUMAPartitionPolicy::getInstance()
+              .getPartitionInfo(j)
+              .numa_idx);
 
       if (!single_version_only) {
         uint num_bit_packs = (initial_num_records_per_part / BIT_PACK_SIZE) +
                              (initial_num_records_per_part % BIT_PACK_SIZE);
 
         loaders.emplace_back([this, i, j, num_bit_packs]() {
-          time_block t("T_ColumnCreate_warmup_2: ");
+          // time_block t("T_ColumnCreate_warmup_2: ");
           // set affinity to fault in the correct numa-memset
           // const auto& vec =
           //     scheduler::Topology::getInstance().getCpuNumaNodes();
@@ -633,7 +640,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
 
           set_exec_location_on_scope d{
               topology::getInstance()
-                  .getCpuNumaNodes()[storage::Schema::getInstance()
+                  .getCpuNumaNodes()[storage::NUMAPartitionPolicy::getInstance()
                                          .getPartitionInfo(j)
                                          .numa_idx]};
 
@@ -735,6 +742,15 @@ void* Column::getElem(uint64_t vid) {
       return ((char*)chunk.data) + data_idx;
     }
   }
+
+  std::cout << "-----------" << std::endl;
+  std::cout << this->name << std::endl;
+
+  std::cout << "offset: " << (uint)CC_extract_offset(vid) << std::endl;
+  std::cout << "elem_size: " << (uint)this->elem_size << std::endl;
+  std::cout << "pid: " << (uint)pid << std::endl;
+  std::cout << "mver: " << (uint)m_ver << std::endl;
+  std::cout << "data_idx: " << data_idx << std::endl;
 
   assert(false && "Out of Memory");
   return nullptr;
