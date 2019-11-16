@@ -45,7 +45,7 @@ target_link_libraries(aeolus_engine
         PUBLIC
             cuckoo codegen
         PRIVATE
-            gflags::gflags)
+            cli-flags)
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
 install(TARGETS aeolus_engine EXPORT ${PROJECT_NAME}Config

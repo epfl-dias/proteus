@@ -5,9 +5,11 @@ project(gflags-download NONE)
 include(ExternalProject)
 ExternalProject_Add(gflags
   GIT_REPOSITORY    https://github.com/gflags/gflags.git
-  GIT_TAG           v2.2.2
+  GIT_TAG           6c8f50b567ece95ac5d7b3ebe80dc75b5c3e68bc
   SOURCE_DIR        "${CMAKE_CURRENT_BINARY_DIR}/gflags-src"
   BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/gflags-build"
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND     ""
   INSTALL_COMMAND   ""
   TEST_COMMAND      ""
 )

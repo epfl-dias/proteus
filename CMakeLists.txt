@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.10.2)
 
+include(GNUInstallDirs)
+
 # Set LLVM suffix for systems with multiple LLVM installed to request
 # a specific version using -DLLVM_VERSION_SUFFIX=7
 
@@ -17,16 +19,10 @@ if (DEFINED LLVM_VERSION_SUFFIX)
 	set(LLVM_VERSION_SUFFIX "-${LLVM_VERSION_SUFFIX}")
 endif()
 
-# NOTE: If we find llvm-config, we assume clang and clang++ are visible
-#       in the PATH
-find_program(LLVM_CONFIG "llvm-config${LLVM_VERSION_SUFFIX}")
-if(${LLVM_CONFIG} STREQUAL "LLVM_CONFIG-NOTFOUND")
-	message(FATAL_ERROR "LLVM not found")
-endif()
-
-find_program(CLANG_CXX_COMPILER "clang++${LLVM_VERSION_SUFFIX}")
+# FIXME: Should we use find_pacakge and ${LLVM_TOOLS_BINARY_DIR} to find clang?
+find_program(CLANG_CXX_COMPILER "clang++${LLVM_VERSION_SUFFIX}" REQUIRED)
 set(CMAKE_CXX_COMPILER "${CLANG_CXX_COMPILER}")
-find_program(CLANG_C_COMPILER "clang${LLVM_VERSION_SUFFIX}")
+find_program(CLANG_C_COMPILER "clang${LLVM_VERSION_SUFFIX}" REQUIRED)
 set(CMAKE_C_COMPILER "${CLANG_C_COMPILER}")
 
 if (POLICY CMP0048)
@@ -161,22 +157,16 @@ string(STRIP "${WARNING_FLAGS} -Wno-shift-sign-overflow" WARNING_FLAGS)
 string(STRIP "${CMAKE_CXX_FLAGS} ${COMPILER_FLAGS}" CMAKE_CXX_FLAGS)
 string(STRIP "${CMAKE_C_FLAGS} ${COMPILER_FLAGS}" CMAKE_C_FLAGS)
 
+find_package(LLVM REQUIRED VERSION 9 CONFIG)
+message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
+message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+
 # LLVM APIs we use
-set(LLVM_COMPONENTS "aggressiveinstcombine all all-targets analysis asmparser asmprinter binaryformat bitreader bitwriter codegen core coroutines coverage debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb demangle dlltooldriver engine executionengine fuzzmutate globalisel instcombine instrumentation inteljitevents interpreter ipo irreader libdriver lineeditor linker lto mc mcdisassembler mcjit mcparser mirparser native nativecodegen nvptx nvptxasmprinter nvptxcodegen nvptxdesc nvptxinfo objcarcopts object objectyaml option orcjit passes profiledata runtimedyld scalaropts selectiondag support symbolize tablegen target transformutils vectorize windowsmanifest x86 x86asmparser x86asmprinter x86codegen x86desc x86disassembler x86info x86utils")
-set(LLVM_COMPONENTS "")
-execute_process(COMMAND ${LLVM_CONFIG} --libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE LLVM_LIBS OUTPUT_STRIP_TRAILING_WHITESPACE)
+#set(LLVM_COMPONENTS aggressiveinstcombine all all-targets analysis asmparser asmprinter binaryformat bitreader bitwriter codegen core coroutines coverage debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb demangle dlltooldriver engine executionengine fuzzmutate globalisel instcombine instrumentation inteljitevents interpreter ipo irreader libdriver lineeditor linker lto mc mcdisassembler mcjit mcparser mirparser native nativecodegen nvptx nvptxasmprinter nvptxcodegen nvptxdesc nvptxinfo objcarcopts object objectyaml option orcjit passes profiledata runtimedyld scalaropts selectiondag support symbolize tablegen target transformutils vectorize windowsmanifest x86 x86asmparser x86asmprinter x86codegen x86desc x86disassembler x86info x86utils)
+set(LLVM_COMPONENTS all)
 
-execute_process(COMMAND ${LLVM_CONFIG} --includedir ${LLVM_COMPONENTS} OUTPUT_VARIABLE LLVM_INCLUDEDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND ${LLVM_CONFIG} --libdir ${LLVM_COMPONENTS} OUTPUT_VARIABLE LLVM_LINKDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
-
-include_directories(
-	SYSTEM ${LLVM_INCLUDEDIR}
-)
-
-link_directories(
-	${LLVM_LINKDIR}
-)
-
+llvm_map_components_to_libnames(llvm_libs ${LLVM_COMPONENTS})
+message(${llvm_libs})
 #-----------------------------------------------------------------------
 # Various dependencies
 #-----------------------------------------------------------------------
@@ -227,7 +217,7 @@ if(CUDA_FOUND)
 
 	# CUDA-only flags, used with nvcc
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem ${CMAKE_INSTALL_PREFIX}/include)
-	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem ${LLVM_INCLUDEDIR})
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem ${LLVM_INCLUDE_DIRS})
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${PROJECT_SOURCE_DIR})
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${PROJECT_SOURCE_DIR}/codegen)
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} ${CUDA_CU_ARCHS})
@@ -265,15 +255,15 @@ endif()
 
 # GFlags
 if (TRUE)
-#	set(GFLAGS_BUILD_SHARED_LIBS ON)
-	set(GFLAGS_BUILD_STATIC_LIBS ON)
+	set(GFLAGS_BUILD_SHARED_LIBS ON)
+	set(GFLAGS_BUILD_STATIC_LIBS OFF)
 	set(GFLAGS_BUILD_gflags_LIB ON)
-	set(GFLAGS_BUILD_gflags_nothreads_LIB ON)
+	set(GFLAGS_BUILD_gflags_nothreads_LIB OFF)
 	set(GFLAGS_INSTALL_SHARED_LIBS ON)
-#	set(GFLAGS_INSTALL_STATIC_LIBS ON)
-#	set(GFLAGS_INSTALL_HEADERS ON)
-#	set(GFLAGS_REGISTER_BUILD_DIR ON)
-#	SET(GFLAGS_REGISTER_INSTALL_PREFIX ON)
+	set(GFLAGS_INSTALL_STATIC_LIBS OFF)
+	set(GFLAGS_INSTALL_HEADERS OFF)
+	set(GFLAGS_REGISTER_BUILD_DIR OFF)
+	SET(GFLAGS_REGISTER_INSTALL_PREFIX OFF)
 
 	# Add google test here, so that we do not propagate to it the WARNING_FLAGS
 	configure_file(CMakeLists.txt.gflags.in gflags-download/CMakeLists.txt)
@@ -293,9 +283,14 @@ if (TRUE)
 
 	# Add gflags directly to our build. This defines
 	# the gtest and gtest_main targets.
-	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/gflags-src
-		${CMAKE_CURRENT_BINARY_DIR}/gflags-build
-		EXCLUDE_FROM_ALL)
+	add_subdirectory(
+			${CMAKE_CURRENT_BINARY_DIR}/gflags-src
+			${CMAKE_CURRENT_BINARY_DIR}/gflags-build
+			EXCLUDE_FROM_ALL)
+
+	# patch around gflags::gflags exporting their targets in two export sets
+	add_subdirectory(patches/cli-flags)
+#	export(TARGETS gflags_shared FILE gflagsConfig.cmake)
 endif()
 
 #-----------------------------------------------------------------------
@@ -402,6 +397,7 @@ install(DIRECTORY "testResults/" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/outp
 include_directories(
 		"${PROJECT_SOURCE_DIR}"
 		"${PROJECT_SOURCE_DIR}/codegen"
+		SYSTEM ${LLVM_INCLUDE_DIRS}
 		SYSTEM "${RapidJSON_SOURCE_DIR}/include"
 		# FIXME: system libraries should not be included with quotes...
 		# Add local (for use with ""-style includes) path to the sysroot

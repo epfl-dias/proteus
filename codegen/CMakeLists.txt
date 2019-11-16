@@ -193,16 +193,22 @@ target_compile_features(codegen
 # Depend on a library that we defined in the top-level file
 target_link_libraries(codegen
         PUBLIC
-            ${LLVM_LIBS} glog jsmn -lnuma -lc++abi ${CUDA_LIBRARIES}
+            ${llvm_libs}
+            glog
+            jsmn
+            -lnuma
+            -lc++abi
+            ${CUDA_LIBRARIES}
+            cli-flags
         PRIVATE
-            gflags::gflags ${CUDA_LIBS})
+            ${CUDA_LIBS})
 
 if(VTUNE AND VTUNE_ENABLE)
 target_link_libraries(codegen PUBLIC ${VTUNE})
 endif()
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
-install(TARGETS codegen EXPORT ${PROJECT_NAME}Config
+install(TARGETS codegen EXPORT ${PROJECT_NAME}Targets
         ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
         LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR})  # This is for Windows
@@ -210,7 +216,32 @@ install(TARGETS codegen EXPORT ${PROJECT_NAME}Config
 # This makes the project importable from the install directory
 # Put config file in per-project dir (name MUST match), can also
 # just go into 'cmake'.
-install(EXPORT ${PROJECT_NAME}Config DESTINATION share/${PROJECT_NAME}/cmake)
+install(EXPORT ${PROJECT_NAME}Targets
+        FILE ${PROJECT_NAME}Targets.cmake
+        NAMESPACE ${PROJECT_NAME}::
+        DESTINATION lib/cmake/${PROJECT_NAME})
+
+include(GNUInstallDirs)
+
+include(CMakePackageConfigHelpers)
+
+write_basic_package_version_file(
+        ${CMAKE_BINARY_DIR}/cmake/codegen-config-version.cmake
+        COMPATIBILITY AnyNewerVersion
+)
+
+configure_package_config_file(
+        ${CMAKE_SOURCE_DIR}/cmake/codegen-config.cmake.in
+        ${CMAKE_BINARY_DIR}/cmake/codegen-config.cmake
+        INSTALL_DESTINATION share/${PROJECT_NAME}/cmake
+)
+
+install(
+        FILES
+        ${CMAKE_BINARY_DIR}/cmake/codegen-config.cmake
+        ${CMAKE_BINARY_DIR}/cmake/codegen-config-version.cmake
+        DESTINATION lib/cmake/${PROJECT_NAME}
+)
 
 # This makes the project importable from the build directory
 export(TARGETS codegen FILE ${PROJECT_NAME}Config.cmake)
