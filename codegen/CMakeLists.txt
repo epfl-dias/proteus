@@ -194,7 +194,7 @@ target_compile_features(codegen
 target_link_libraries(codegen
         PUBLIC
             ${llvm_libs}
-            glog
+            glog::glog
             jsmn
             -lnuma
             -lc++abi

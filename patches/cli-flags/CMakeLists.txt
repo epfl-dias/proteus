@@ -4,7 +4,6 @@ install(EXPORT gflags-targets DESTINATION share/gflags/cmake)
 
 add_library(cli-flags SHARED empty.cpp)
 target_link_libraries(cli-flags PUBLIC gflags::gflags)
-set_target_properties(cli-flags PROPERTIES LINKER_LANGUAGE CXX)
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
 install(TARGETS cli-flags EXPORT ${PROJECT_NAME}Config.cmake

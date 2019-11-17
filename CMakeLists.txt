@@ -166,7 +166,7 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 set(LLVM_COMPONENTS all)
 
 llvm_map_components_to_libnames(llvm_libs ${LLVM_COMPONENTS})
-message(${llvm_libs})
+message(STATUS "Linking with LLVM components: ${llvm_libs}")
 #-----------------------------------------------------------------------
 # Various dependencies
 #-----------------------------------------------------------------------
@@ -263,8 +263,8 @@ if (TRUE)
 	set(GFLAGS_INSTALL_STATIC_LIBS OFF)
 	set(GFLAGS_INSTALL_HEADERS OFF)
 	set(GFLAGS_REGISTER_BUILD_DIR OFF)
-	SET(GFLAGS_REGISTER_INSTALL_PREFIX OFF)
-
+	set(GFLAGS_REGISTER_INSTALL_PREFIX OFF)
+	set(GFLAGS_LIBRARY_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR})
 	# Add google test here, so that we do not propagate to it the WARNING_FLAGS
 	configure_file(CMakeLists.txt.gflags.in gflags-download/CMakeLists.txt)
 	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
@@ -286,19 +286,62 @@ if (TRUE)
 	add_subdirectory(
 			${CMAKE_CURRENT_BINARY_DIR}/gflags-src
 			${CMAKE_CURRENT_BINARY_DIR}/gflags-build
-			EXCLUDE_FROM_ALL)
+			)
 
 	# patch around gflags::gflags exporting their targets in two export sets
 	add_subdirectory(patches/cli-flags)
-#	export(TARGETS gflags_shared FILE gflagsConfig.cmake)
 endif()
 
 #-----------------------------------------------------------------------
 # GoogleLog
-find_library(GLOG NAMES glog REQUIRED)
-if(${GLOG} STREQUAL "GLOG-NOTFOUND")
-	message(FATAL_ERROR "Glog not found!")
+if (TRUE)
+    set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+	set(WITH_THREADS ON CACHE BOOL "" FORCE)
+	set(WITH_GFLAGS ON CACHE BOOL "" FORCE)
+
+	# Fix glog's find_package(GFLAG) by disabling find_package for gflags and
+	# setting up the directory paths
+	get_target_property(gflags_INCLUDE_DIR gflags::gflags INTERFACE_INCLUDE_DIRECTORIES)
+	get_target_property(gflags_LIBRARIES gflags::gflags LIBRARIES)
+	macro(find_package)
+		set(as_subproject gflags)
+		if (NOT "${ARGV0}" IN_LIST as_subproject)
+			_find_package(${ARGV})
+		endif()
+	endmacro()
+
+	# Add glog here, so that we do not propagate to it the WARNING_FLAGS
+	configure_file(CMakeLists.txt.glog.in glog-download/CMakeLists.txt)
+	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+			RESULT_VARIABLE result
+			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/glog-download )
+	if(result)
+		message(FATAL_ERROR "CMake step for glog failed: ${result}")
+	endif()
+
+	execute_process(COMMAND ${CMAKE_COMMAND} --build .
+			RESULT_VARIABLE result
+			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/glog-download )
+	if(result)
+		message(FATAL_ERROR "Build step for glog failed: ${result}")
+	endif()
+
+	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/glog-src
+			${CMAKE_CURRENT_BINARY_DIR}/glog-build
+			EXCLUDE_FROM_ALL)
+
+	# Make glog appear as system library to avoid header warnings
+	get_target_property(glog_INCLUDE_DIR glog INTERFACE_INCLUDE_DIRECTORIES)
+	target_include_directories(glog SYSTEM PUBLIC ${glog_INCLUDE_DIR})
+#	message(FATAL_ERROR "${glog_INCLUDE_DIR}")
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem
+			${CMAKE_CURRENT_BINARY_DIR}/glog-build)
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem
+			${CMAKE_CURRENT_BINARY_DIR}/glog-src/src)
+
+	add_library(glog::glog ALIAS glog)
 endif()
+
 
 #-----------------------------------------------------------------------
 # GoogleTest
@@ -366,7 +409,7 @@ endif()
 # that library
 
 set(default_libs ${default_libs} ${CUDA_LIBS})
-set(default_libs ${default_libs} gflags::gflags glog gflags::gflags)
+set(default_libs ${default_libs} gflags::gflags glog::glog gflags::gflags)
 set(default_libs ${default_libs} -lc++abi -lpthread -lrt)
 
 
