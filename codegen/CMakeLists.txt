@@ -246,5 +246,6 @@ install(
 # This makes the project importable from the build directory
 export(TARGETS codegen FILE ${PROJECT_NAME}Config.cmake)
 
+add_library(codegen::codegen ALIAS codegen)
 #enable_testing()
 #add_test(UT codegen-tests) # Add codegen-specific tests?

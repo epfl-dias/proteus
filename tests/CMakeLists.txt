@@ -1,4 +1,4 @@
-set(gtest_libs ${GTEST_MAIN} ${GTEST} ${default_libs})
+set(gtest_libs ${GTEST_MAIN} ${GTEST} codegen::codegen)
 
 set(gtest_src
 	tests-joins
@@ -17,9 +17,9 @@ foreach(target ${gtest_src})
 	add_executable(unit-${target_name} ${target} test-utils.cpp)
 	target_link_libraries(unit-${target_name} ${gtest_libs})
 	install(TARGETS unit-${target_name}
-		RUNTIME DESTINATION pelago
-		LIBRARY DESTINATION lib
-		ARCHIVE DESTINATION lib
+		ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}
 		)
 endforeach(target)
 

@@ -478,7 +478,7 @@ add_subdirectory(jsmn)
 add_subdirectory(codegen)
 
 # Add libcodegen to link
-set(default_libs ${default_libs} codegen)
+set(default_libs ${default_libs} codegen::codegen)
 
 #-----------------------------------------------------------------------
 # Build our executables
