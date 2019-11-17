@@ -167,6 +167,10 @@ set(LLVM_COMPONENTS all)
 
 llvm_map_components_to_libnames(llvm_libs ${LLVM_COMPONENTS})
 message(STATUS "Linking with LLVM components: ${llvm_libs}")
+
+add_definitions(${LLVM_DEFINITIONS})
+message(STATUS "Using LLVM definitions: ${LLVM_DEFINITIONS}")
+
 #-----------------------------------------------------------------------
 # Various dependencies
 #-----------------------------------------------------------------------
