@@ -59,14 +59,18 @@ set(CMAKE_SKIP_BUILD_RPATH FALSE)
 set(CMAKE_BUILD_TYPE Debug)
 
 # Build with the install RPATH already
-set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 
 # Set the installation path of the libraries
-set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+#set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 
 # Add the automatically determined parts of the RPATH
 # which point to directories outside the build tree to the install RPATH
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+# If CMAKE >= 3.14, allow relative rpaths
+set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
+
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -161,11 +165,20 @@ find_package(LLVM REQUIRED VERSION 9 CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-# LLVM APIs we use
-#set(LLVM_COMPONENTS aggressiveinstcombine all all-targets analysis asmparser asmprinter binaryformat bitreader bitwriter codegen core coroutines coverage debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb demangle dlltooldriver engine executionengine fuzzmutate globalisel instcombine instrumentation inteljitevents interpreter ipo irreader libdriver lineeditor linker lto mc mcdisassembler mcjit mcparser mirparser native nativecodegen nvptx nvptxasmprinter nvptxcodegen nvptxdesc nvptxinfo objcarcopts object objectyaml option orcjit passes profiledata runtimedyld scalaropts selectiondag support symbolize tablegen target transformutils vectorize windowsmanifest x86 x86asmparser x86asmprinter x86codegen x86desc x86disassembler x86info x86utils)
-set(LLVM_COMPONENTS all)
+# Check if LLVM is build as a monolithic shared library
+if (${LLVM_LINK_LLVM_DYLIB}) # Usually in the CI and with pre-build	a LLVM
+	message(STATUS "Using monolithic libLLVM.so")
+	# If yes, then we should only build with libLLVM.so, to avoid double refers
+	set(llvm_libs LLVM)
+else() 						 # Usually in LLVM dev mode or Pelago
+	message(STATUS "Using component-based LLVM")
+	# If no, we can link with only the required components
+	# LLVM APIs we use
+	#set(LLVM_COMPONENTS aggressiveinstcombine all all-targets analysis asmparser asmprinter binaryformat bitreader bitwriter codegen core coroutines coverage debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb demangle dlltooldriver engine executionengine fuzzmutate globalisel instcombine instrumentation inteljitevents interpreter ipo irreader libdriver lineeditor linker lto mc mcdisassembler mcjit mcparser mirparser native nativecodegen nvptx nvptxasmprinter nvptxcodegen nvptxdesc nvptxinfo objcarcopts object objectyaml option orcjit passes profiledata runtimedyld scalaropts selectiondag support symbolize tablegen target transformutils vectorize windowsmanifest x86 x86asmparser x86asmprinter x86codegen x86desc x86disassembler x86info x86utils)
+	set(LLVM_COMPONENTS all)
 
-llvm_map_components_to_libnames(llvm_libs ${LLVM_COMPONENTS})
+	llvm_map_components_to_libnames(llvm_libs ${LLVM_COMPONENTS})
+endif()
 message(STATUS "Linking with LLVM components: ${llvm_libs}")
 
 add_definitions(${LLVM_DEFINITIONS})
@@ -173,8 +186,6 @@ message(STATUS "Using LLVM definitions: ${LLVM_DEFINITIONS}")
 
 link_directories(${LLVM_LIBRARY_DIR})
 message(STATUS "Using LLVM library dir: ${LLVM_LIBRARY_DIR}")
-set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "${LLVM_LIBRARY_DIR}")
-message(STATUS "Using rpath: ${CMAKE_INSTALL_RPATH}")
 
 #-----------------------------------------------------------------------
 # Various dependencies
