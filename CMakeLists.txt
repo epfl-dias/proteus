@@ -82,6 +82,9 @@ set(CXX_STANDARD_REQUIRED TRUE)
 # Whether to enable or not VTune support, if available
 set(VTUNE_ENABLE TRUE)
 
+# FIXME: Next command is used until we move the binaries to the bin folder
+set(CMAKE_INSTALL_BINDIR pelago)
+
 #-----------------------------------------------------------------------
 # Sanitize to comply with CMP0004
 # For CMAKE variables, we can use string(STRIP "" var) for this
