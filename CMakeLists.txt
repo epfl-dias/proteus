@@ -174,6 +174,7 @@ message(STATUS "Using LLVM definitions: ${LLVM_DEFINITIONS}")
 set(LLVM_LINK_DIR ${LLVM_DIR}/../lib)
 link_directories(${LLVM_LINK_DIR})
 message(STATUS "Using LLVM library dir: ${LLVM_LINK_DIR}")
+set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "${LLVM_LINK_DIR}/lib")
 
 #-----------------------------------------------------------------------
 # Various dependencies
