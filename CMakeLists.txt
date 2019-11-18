@@ -62,7 +62,7 @@ set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 
 # Set the installation path of the libraries
-#set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 
 # Add the automatically determined parts of the RPATH
 # which point to directories outside the build tree to the install RPATH
