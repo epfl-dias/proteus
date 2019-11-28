@@ -24,6 +24,7 @@
 #include "operators/gpu/gpu-reduce.hpp"
 
 #include "operators/gpu/gmonoids.hpp"
+#include "util/jit/pipeline.hpp"
 
 using namespace llvm;
 

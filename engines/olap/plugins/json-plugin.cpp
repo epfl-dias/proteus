@@ -24,6 +24,7 @@
 #include "plugins/json-plugin.hpp"
 
 #include "expressions/expressions-flusher.hpp"
+#include "operators/operators.hpp"
 
 //"Should" be enough on a per-row basis
 //#define MAXTOKENS 1000

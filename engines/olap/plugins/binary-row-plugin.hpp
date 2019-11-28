@@ -26,6 +26,8 @@
 
 #include "plugins/plugins.hpp"
 
+class Context;
+
 // XXX Tmp Assumption: String are of length 5!
 class BinaryRowPlugin : public Plugin {
  public:

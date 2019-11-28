@@ -1184,6 +1184,8 @@ class ExprTandemVisitor {
 
 expression_t toExpression(Monoid m, expression_t lhs, expression_t rhs);
 
+class Context;
+
 llvm::Constant *getIdentityElementIfSimple(Monoid m, const ExpressionType *type,
                                            Context *context);
 

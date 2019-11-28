@@ -26,13 +26,12 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <exception>
 #include <string>
 
-#include "codegen/topology/topology.hpp"
 #include "communication/comm-manager.hpp"
-#include "expressions/expressions-hasher.hpp"
 #include "storage/column_store.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
-#include "transactions/transaction_manager.hpp"
+#include "topology/topology.hpp"
+#include "util/parallel-context.hpp"
 
 using namespace llvm;
 

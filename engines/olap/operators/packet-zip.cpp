@@ -24,6 +24,7 @@
 #include "packet-zip.hpp"
 
 #include "expressions/expressions-generator.hpp"
+#include "util/jit/pipeline.hpp"
 
 using namespace llvm;
 

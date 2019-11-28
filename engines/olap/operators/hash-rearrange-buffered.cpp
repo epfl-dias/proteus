@@ -26,6 +26,7 @@
 #include <cstdlib>
 
 #include "expressions/expressions-generator.hpp"
+#include "util/jit/pipeline.hpp"
 
 #define CACHE_CAP 1024
 

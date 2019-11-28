@@ -25,6 +25,8 @@
 
 #include "expressions/expressions-hasher.hpp"
 #include "memory/block-manager.hpp"
+#include "operators/operators.hpp"
+#include "util/parallel-context.hpp"
 
 using namespace llvm;
 

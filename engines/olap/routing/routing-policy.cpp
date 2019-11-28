@@ -25,6 +25,7 @@
 
 #include "affinitizers.hpp"
 #include "expressions/expressions-generator.hpp"
+#include "operators/operators.hpp"
 #include "topology/device-manager.hpp"
 #include "topology/topology.hpp"
 

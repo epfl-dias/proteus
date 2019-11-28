@@ -27,6 +27,7 @@
 
 #include "expressions/expressions-generator.hpp"
 #include "routing/routing-policy.hpp"
+#include "util/jit/pipeline.hpp"
 
 using namespace llvm;
 

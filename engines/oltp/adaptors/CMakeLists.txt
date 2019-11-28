@@ -10,7 +10,7 @@ set(aeolus_plugin_cxx
 add_library(aeolus_plugin SHARED
         ${aeolus_plugin_cxx}
     )
-target_link_libraries(aeolus_plugin aeolus_engine codegen)
+target_link_libraries(aeolus_plugin aeolus_engine codegen::olap)
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
 install(TARGETS aeolus_plugin EXPORT ${PROJECT_NAME}Config

@@ -24,6 +24,7 @@
 #ifndef PLUGINS_OUTPUT_HPP_
 #define PLUGINS_OUTPUT_HPP_
 
+#include "expressions/expressions.hpp"
 #include "plugins/plugins.hpp"
 //#include "util/raw-catalog.hpp"
 

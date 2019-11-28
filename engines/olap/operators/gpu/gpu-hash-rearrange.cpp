@@ -32,6 +32,8 @@
 #include "memory/memory-manager.hpp"
 #include "topology/topology.hpp"
 #include "util/gpu/gpu-intrinsics.hpp"
+#include "util/jit/control-flow/if-statement.hpp"
+#include "util/jit/pipeline.hpp"
 
 using namespace llvm;
 

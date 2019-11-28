@@ -29,6 +29,8 @@
 #define DEBUGBINCOL
 //#endif
 
+class Context;
+
 class BinaryColPlugin : public Plugin {
  public:
   /**

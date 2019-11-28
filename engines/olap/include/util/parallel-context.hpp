@@ -25,7 +25,10 @@
 #define PARALLEL_CONTEXT_HPP_
 
 #include "util/context.hpp"
-#include "util/jit/pipeline.hpp"
+
+class PipelineGenFactory;
+class PipelineGen;
+class Pipeline;
 
 class ParallelContext : public Context {
  public:
@@ -75,17 +78,9 @@ class ParallelContext : public Context {
   PipelineGen *getCurrentPipeline() const;
   void setChainedPipeline(PipelineGen *next);
 
-  virtual llvm::Module *getModule() const {
-    return getCurrentPipeline()->getModule();
-  }
-
-  virtual llvm::IRBuilder<> *getBuilder() const {
-    return getCurrentPipeline()->getBuilder();
-  }
-
-  llvm::Function *getFunction(string funcName) const {
-    return getCurrentPipeline()->getFunction(funcName);
-  }
+  virtual llvm::Module *getModule() const;
+  virtual llvm::IRBuilder<> *getBuilder() const;
+  llvm::Function *getFunction(string funcName) const;
 
   virtual void setGlobalFunction(bool leaf);
   virtual void setGlobalFunction(llvm::Function *F = nullptr,
@@ -106,18 +101,10 @@ class ParallelContext : public Context {
                    decltype(__builtin_FILE()) file = __builtin_FILE(),
                    decltype(__builtin_LINE()) line = __builtin_LINE());
 
-  virtual llvm::BasicBlock *getEndingBlock() {
-    return getCurrentPipeline()->getEndingBlock();
-  }
-  virtual void setEndingBlock(llvm::BasicBlock *codeEnd) {
-    getCurrentPipeline()->setEndingBlock(codeEnd);
-  }
-  virtual llvm::BasicBlock *getCurrentEntryBlock() {
-    return getCurrentPipeline()->getCurrentEntryBlock();
-  }
-  virtual void setCurrentEntryBlock(llvm::BasicBlock *codeEntry) {
-    getCurrentPipeline()->setCurrentEntryBlock(codeEntry);
-  }
+  virtual llvm::BasicBlock *getEndingBlock();
+  virtual void setEndingBlock(llvm::BasicBlock *codeEnd);
+  virtual llvm::BasicBlock *getCurrentEntryBlock();
+  virtual void setCurrentEntryBlock(llvm::BasicBlock *codeEntry);
 
   virtual llvm::Value *workerScopedAtomicAdd(llvm::Value *ptr,
                                              llvm::Value *inc);

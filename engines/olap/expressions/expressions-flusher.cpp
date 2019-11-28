@@ -23,6 +23,8 @@
 
 #include "expressions/expressions-flusher.hpp"
 
+#include "operators/operators.hpp"
+
 using namespace llvm;
 
 ProteusValue ExpressionFlusherVisitor::visit(

@@ -122,41 +122,4 @@ class BinaryOperator : public Operator {
   Operator *rightChild;
 };
 
-class OperatorState {
- public:
-  OperatorState(const Operator &producer,
-                const map<RecordAttribute, ProteusValueMemory> &vars)
-      : producer(producer), activeVariables(vars) {}
-  OperatorState(const OperatorState &opState)
-      : producer(opState.producer), activeVariables(opState.activeVariables) {
-    LOG(INFO) << "[Operator State: ] Copy Constructor";
-  }
-
-  [[deprecated]] const map<RecordAttribute, ProteusValueMemory> &getBindings()
-      const {
-    return activeVariables;
-  }
-  const Operator &getProducer() const { return producer; }
-
-  const ProteusValueMemory &operator[](const RecordAttribute &key) const {
-    try {
-      return activeVariables.at(key);
-    } catch (std::out_of_range) {
-      LOG(INFO) << "Looking for: " << key.getRelationName() << "."
-                << key.getAttrName();
-      for (auto v : activeVariables) {
-        LOG(INFO) << "  Active binding: " << v.first.getRelationName() << "."
-                  << v.first.getAttrName();
-      }
-      throw;
-    }
-  }
-
- private:
-  const Operator &producer;
-  // Variable bindings produced by operator and provided to its parent
-  // const map<string, AllocaInst*>& activeVariables;
-  const map<RecordAttribute, ProteusValueMemory> &activeVariables;
-};
-
 #endif /* OPERATORS_HPP_ */

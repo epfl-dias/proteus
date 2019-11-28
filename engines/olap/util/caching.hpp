@@ -30,24 +30,8 @@
 #define CACHING_ON
 //#define DEBUGCACHING
 
-typedef struct CacheInfo {
-  /* XXX Issue: Types depend on context
-   * Do I need to share the context for this to work?
-   * One option is mapping LLVM Types to an enum -
-   * But what about custom types?
-   * An option is that everything considered
-   * a custom / structType will be stored in CATALOG too */
-  // StructType *objectType;
-  list<typeID> objectTypes;
-  /* Convention:
-   * Count begins from 1.
-   * Zero implies we're dealing with the whole obj. (activeLoop)
-   * Negative implies invalid entry */
-  int structFieldNo;
-  // Pointers to facilitate LLVM storing stuff in them
-  char **payloadPtr;
-  size_t *itemCount;
-} CacheInfo;
+#include "util/cache-info.hpp"
+
 class CachingService {
  public:
   static CachingService &getInstance() {

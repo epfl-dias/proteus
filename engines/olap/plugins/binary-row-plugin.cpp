@@ -23,6 +23,8 @@
 
 #include "plugins/binary-row-plugin.hpp"
 
+#include "operators/operators.hpp"
+
 using namespace llvm;
 
 BinaryRowPlugin::BinaryRowPlugin(Context *const context, string &fname,

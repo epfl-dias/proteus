@@ -29,6 +29,7 @@
 // #include "cuda_runtime_api.h"
 #include "memory/block-manager.hpp"
 #include "threadpool/threadpool.hpp"
+#include "util/jit/pipeline.hpp"
 
 using namespace llvm;
 

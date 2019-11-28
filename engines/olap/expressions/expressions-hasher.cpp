@@ -23,6 +23,8 @@
 
 #include "expressions/expressions-hasher.hpp"
 
+#include "operators/operators.hpp"
+
 using namespace llvm;
 
 ProteusValue ExpressionHasherVisitor::hashInt32(

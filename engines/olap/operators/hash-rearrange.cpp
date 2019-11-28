@@ -25,6 +25,7 @@
 
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-hasher.hpp"
+#include "util/jit/pipeline.hpp"
 
 extern "C" {
 void *get_buffer(size_t bytes);

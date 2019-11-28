@@ -26,6 +26,7 @@
 #include "plan/plan-parser.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
+#include "util/caching.hpp"
 #include "util/catalog.hpp"
 #include "util/jit/pipeline.hpp"
 #include "util/parallel-context.hpp"

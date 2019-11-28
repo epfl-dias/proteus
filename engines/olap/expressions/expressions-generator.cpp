@@ -24,6 +24,7 @@
 #include "expressions/expressions-generator.hpp"
 
 #include "expressions/expressions-hasher.hpp"
+#include "operators/operators.hpp"
 
 using namespace llvm;
 

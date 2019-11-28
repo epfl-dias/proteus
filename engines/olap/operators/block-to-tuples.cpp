@@ -26,6 +26,7 @@
 #include "memory/buffer-manager.cuh"
 #include "memory/memory-manager.hpp"
 #include "util/catalog.hpp"
+#include "util/jit/pipeline.hpp"
 #include "util/logging.hpp"
 
 using namespace llvm;

@@ -31,10 +31,10 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <tuple>
 
 // OLTP Engine
-#include "engines/oltp/engine/oltp-cli-flags.hpp"
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
 #include "interfaces/bench.hpp"
+#include "oltp-cli-flags.hpp"
 #include "scheduler/affinity_manager.hpp"
 #include "scheduler/comm_manager.hpp"
 #include "scheduler/topology.hpp"
@@ -53,9 +53,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "bench/ycsb.hpp"
 
 // Platform Includes
-#include "codegen/topology/affinity_manager.hpp"
-#include "codegen/topology/topology.hpp"
 #include "common/common.hpp"
+#include "topology/affinity_manager.hpp"
+#include "topology/topology.hpp"
 
 #if __has_include("ittnotify.h")
 #include <ittnotify.h>

@@ -27,8 +27,10 @@
 #include <optional>
 #include <unordered_map>
 
+#include "common/gpu/gpu-common.hpp"
 #include "operators/gpu/gpu-materializer-expr.hpp"
 #include "operators/operators.hpp"
+#include "util/jit/pipeline.hpp"
 #include "util/parallel-context.hpp"
 
 struct PartitionMetadata {

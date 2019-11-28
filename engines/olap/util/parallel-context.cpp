@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "parallel-context.hpp"
+#include "util/parallel-context.hpp"
 
 #include "common/gpu/gpu-common.hpp"
 
@@ -510,4 +510,32 @@ void ParallelContext::log(llvm::Value *out, decltype(__builtin_FILE()) file,
   auto f = getCurrentPipeline()->getFunctionOverload("log", out->getType());
   getBuilder()->CreateCall(f,
                            {out, CreateGlobalString(file), createInt32(line)});
+}
+
+llvm::BasicBlock *ParallelContext::getEndingBlock() {
+  return getCurrentPipeline()->getEndingBlock();
+}
+
+void ParallelContext::setEndingBlock(llvm::BasicBlock *codeEnd) {
+  getCurrentPipeline()->setEndingBlock(codeEnd);
+}
+
+llvm::BasicBlock *ParallelContext::getCurrentEntryBlock() {
+  return getCurrentPipeline()->getCurrentEntryBlock();
+}
+
+void ParallelContext::setCurrentEntryBlock(llvm::BasicBlock *codeEntry) {
+  getCurrentPipeline()->setCurrentEntryBlock(codeEntry);
+}
+
+llvm::Module *ParallelContext::getModule() const {
+  return getCurrentPipeline()->getModule();
+}
+
+llvm::IRBuilder<> *ParallelContext::getBuilder() const {
+  return getCurrentPipeline()->getBuilder();
+}
+
+llvm::Function *ParallelContext::getFunction(string funcName) const {
+  return getCurrentPipeline()->getFunction(funcName);
 }

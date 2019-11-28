@@ -23,6 +23,8 @@
 
 #include "plugins/binary-internal-plugin.hpp"
 
+#include "operators/operators.hpp"
+
 using namespace llvm;
 
 BinaryInternalPlugin::BinaryInternalPlugin(Context *const context,

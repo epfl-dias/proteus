@@ -25,11 +25,11 @@
 #define PLUGINS_LLVM_HPP_
 
 #include "common/common.hpp"
-#include "expressions/expressions.hpp"
-#include "operators/operators.hpp"
-#include "util/caching.hpp"
-//#include "util/catalog.hpp"
-#include "util/context.hpp"
+//#include "expressions/expressions.hpp"
+//#include "operators/operators.hpp"
+#include "util/cache-info.hpp"
+////#include "util/catalog.hpp"
+//#include "util/context.hpp"
 #include "values/expressionTypes.hpp"
 
 /* Leads to incomplete type */

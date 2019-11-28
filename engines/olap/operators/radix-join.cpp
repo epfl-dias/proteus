@@ -23,6 +23,8 @@
 
 #include "operators/radix-join.hpp"
 
+#include "util/jit/pipeline.hpp"
+
 using namespace llvm;
 
 RadixJoinBuild::RadixJoinBuild(expression_t keyExpr, Operator *child,

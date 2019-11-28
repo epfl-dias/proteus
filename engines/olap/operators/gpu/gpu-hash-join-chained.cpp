@@ -23,10 +23,9 @@
 
 #include "operators/gpu/gpu-hash-join-chained.hpp"
 
-#include "expressions/expressions-hasher.hpp"
 #include "memory/memory-manager.hpp"
-#include "operators/gpu/gmonoids.hpp"
 #include "topology/topology.hpp"
+#include "util/jit/pipeline.hpp"
 
 void GpuHashJoinChained::open_build(Pipeline *pip) {
   std::vector<void *> next_w_values;

@@ -25,6 +25,7 @@
 
 #include "llvm/IR/InlineAsm.h"
 #include "util/gpu/gpu-intrinsics.hpp"
+#include "util/jit/control-flow/if-statement.hpp"
 
 namespace gpu {
 

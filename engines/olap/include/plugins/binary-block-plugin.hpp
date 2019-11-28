@@ -28,7 +28,8 @@
 
 #include "plugins/plugins.hpp"
 #include "storage/storage-manager.hpp"
-#include "util/parallel-context.hpp"
+
+class ParallelContext;
 
 class BinaryBlockPlugin : public Plugin {
   /**

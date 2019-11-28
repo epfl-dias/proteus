@@ -23,6 +23,8 @@
 
 #include "plugins/csv-plugin.hpp"
 
+#include "operators/operators.hpp"
+
 using namespace llvm;
 
 CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,

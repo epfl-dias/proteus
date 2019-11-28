@@ -24,9 +24,10 @@
 #ifndef IF_STATEMENT_HPP_
 #define IF_STATEMENT_HPP_
 
+#include <values/expressionTypes.hpp>
+
 #include "common/common.hpp"
 #include "memory/memory-allocator.hpp"
-#include "values/expressionTypes.hpp"
 
 class Context;
 

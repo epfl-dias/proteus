@@ -26,6 +26,7 @@
 
 #include "plugins/plugins.hpp"
 #include "util/catalog.hpp"
+#include "util/context.hpp"
 
 //#JSON
 #define JSMN_STRICT

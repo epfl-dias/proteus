@@ -23,8 +23,8 @@
 
 #include "util/functions.hpp"
 
-#include "parallel-context.hpp"
 #include "util/catalog.hpp"
+#include "util/parallel-context.hpp"
 // #include <ext/stdio_filebuf.h>
 #include <chrono>
 #include <ctime>

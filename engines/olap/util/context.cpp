@@ -30,6 +30,7 @@
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
+#include "util/jit/control-flow/if-statement.hpp"
 
 bool print_generated_code = true;
 
@@ -768,4 +769,11 @@ llvm::Value *Context::gen_call(std::string func,
   }
 
   return getBuilder()->CreateCall(f, args);
+}
+
+if_branch Context::gen_if(ProteusValue cond) { return if_branch(cond, this); }
+
+if_branch Context::gen_if(const expression_t &expr,
+                          const OperatorState &state) {
+  return if_branch(expr, state, this);
 }

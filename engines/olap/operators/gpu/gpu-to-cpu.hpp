@@ -23,6 +23,7 @@
 #ifndef GPU_TO_CPU_HPP_
 #define GPU_TO_CPU_HPP_
 
+#include "common/gpu/gpu-common.hpp"
 #include "operators/device-cross.hpp"
 #include "operators/operators.hpp"
 #include "util/parallel-context.hpp"

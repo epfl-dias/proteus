@@ -40,6 +40,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
 #include "memory/memory-allocator.hpp"
+#include "operators/operator-state.hpp"
 #include "util/jit/control-flow/if-statement.hpp"
 #include "values/expressionTypes.hpp"
 
@@ -48,9 +49,6 @@
 //#ifdef DEBUG
 #define DEBUGCTX
 //#endif
-
-// Forward Declaration
-class JSONObject;
 
 void addOptimizerPipelineDefault(llvm::legacy::FunctionPassManager *TheFPM);
 
@@ -250,12 +248,10 @@ class Context {
     this->currentCodeEntry = codeEntry;
   }
 
-  virtual if_branch gen_if(ProteusValue cond) { return if_branch(cond, this); }
+  virtual if_branch gen_if(ProteusValue cond);
 
   virtual if_branch gen_if(const expression_t &expr,
-                           const OperatorState &state) {
-    return if_branch(expr, state, this);
-  }
+                           const OperatorState &state);
 
   virtual llvm::Value *gen_call(std::string func,
                                 std::initializer_list<llvm::Value *> args,

@@ -27,6 +27,7 @@
 #include "memory/memory-manager.hpp"
 #include "threadpool/threadpool.hpp"
 #include "util/catalog.hpp"
+#include "util/jit/pipeline.hpp"
 #include "util/logging.hpp"
 
 buff_pair buff_pair::not_moved(void *buff) { return {buff, buff}; }

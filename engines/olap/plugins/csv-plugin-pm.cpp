@@ -24,6 +24,7 @@
 #include "plugins/csv-plugin-pm.hpp"
 
 #include "expressions/expressions-hasher.hpp"
+#include "operators/operators.hpp"
 
 using namespace llvm;
 

@@ -32,6 +32,7 @@
 #include "memory/block-manager.hpp"
 #include "threadpool/threadpool.hpp"
 #include "topology/affinity_manager.hpp"
+#include "util/jit/pipeline.hpp"
 
 struct buff_pair {
   char *new_buff;

@@ -25,6 +25,7 @@
 #define PATH_HPP_
 
 #include "common/common.hpp"
+#include "expressions.hpp"
 #include "plugins/plugins.hpp"
 #include "util/catalog.hpp"
 
