@@ -27,10 +27,6 @@
 #include <thread>
 
 #include "codegen/communication/comm-manager.hpp"
-#include "codegen/memory/memory-manager.hpp"
-#include "codegen/topology/affinity_manager.hpp"
-#include "codegen/util/jit/pipeline.hpp"
-#include "topology/topology.hpp"
 #include "util/logging.hpp"
 
 double diff(struct timespec st, struct timespec end) {
@@ -159,57 +155,5 @@ void log_info::flush() const {
   global_log << timestamp << "," << dop << "," << tid << "," << cpu_id << ","
              << op << "\n";
 }
-
-namespace proteus {
-
-void thread_warm_up() {}
-
-void init(float gpu_mem_pool_percentage, float cpu_mem_pool_percentage,
-          size_t log_buffers) {
-  topology::init();
-
-  // Initialize Google's logging library.
-  LOG(INFO) << "Starting up server...";
-
-  // Force initialization of communcation manager by getting the instance
-  LOG(INFO) << "Initializing communication manager...";
-  communication::CommManager::getInstance();
-
-  LOG(INFO) << "Warming up GPUs...";
-  for (const auto &gpu : topology::getInstance().getGpus()) {
-    set_exec_location_on_scope d{gpu};
-    gpu_run(cudaFree(nullptr));
-  }
-
-  gpu_run(cudaFree(nullptr));
-
-  // gpu_run(cudaDeviceSetLimit(cudaLimitStackSize, 40960));
-
-  LOG(INFO) << "Warming up threads...";
-
-  std::vector<std::thread> thrds;
-  for (int i = 0; i < 1024; ++i) thrds.emplace_back(thread_warm_up);
-  for (auto &t : thrds) t.join();
-
-  // srand(time(0));
-
-  LOG(INFO) << "Initializing codegen...";
-
-  PipelineGen::init();
-
-  LOG(INFO) << "Initializing memory manager...";
-  MemoryManager::init(gpu_mem_pool_percentage, cpu_mem_pool_percentage,
-                      log_buffers);
-
-  // Make affinity deterministic
-  auto &topo = topology::getInstance();
-  if (topo.getGpuCount() > 0) {
-    exec_location{topo.getGpus()[0]}.activate();
-  } else {
-    exec_location{topo.getCpuNumaNodes()[0]}.activate();
-  }
-}
-
-}  // namespace proteus
 
 #endif

@@ -25,6 +25,9 @@
 #define EXPERIMENTS_VLDB_INIT_HPP_
 
 #include "common/symantec-config.hpp"
+#include "engines/olap/util/caching.hpp"
+#include "engines/olap/util/context.hpp"
+#include "engines/olap/util/functions.hpp"
 #include "expressions/binary-operators.hpp"
 #include "operators/join.hpp"
 #include "operators/materializer-expr.hpp"
@@ -42,9 +45,6 @@
 #include "plugins/binary-col-plugin.hpp"
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/caching.hpp"
-#include "util/context.hpp"
-#include "util/functions.hpp"
 
 // Context prepareContextVLDB(string moduleName);
 

@@ -23,6 +23,9 @@
 
 #include "common/common.hpp"
 #include "common/symantec-config.hpp"
+#include "engines/olap/util/caching.hpp"
+#include "engines/olap/util/context.hpp"
+#include "engines/olap/util/functions.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions-hasher.hpp"
 #include "expressions/expressions.hpp"
@@ -44,9 +47,6 @@
 #include "plugins/binary-col-plugin.hpp"
 #include "plugins/binary-row-plugin.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/caching.hpp"
-#include "util/context.hpp"
-#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 void symantecJSONWarmup(map<string, dataset> datasetCatalog);

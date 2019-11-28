@@ -227,7 +227,7 @@ if(CUDA_FOUND)
 	string(STRIP "${CUDA_CXXFLAGS} -x cuda" CUDA_CXXFLAGS)
 	string(STRIP "${CUDA_CXXFLAGS} --cuda-path=${CUDA_TOOLKIT_ROOT_DIR}" CUDA_CXXFLAGS)
 	# Enable llvm::*->dump()
-	string(STRIP "${CUDA_CXXFLAGS} -DLLVM_ENABLE_DUMP" CUDA_CXXFLAGS)
+#	string(STRIP "${CUDA_CXXFLAGS} -DLLVM_ENABLE_DUMP" CUDA_CXXFLAGS)
 
 	# Convert the list to a string
 	string(REGEX REPLACE [[;]] " " CUDA_CXX_ARCHS "${CUDA_CXX_ARCHS}")
@@ -479,16 +479,17 @@ add_subdirectory(jsmn)
 
 # code generation library
 add_subdirectory(codegen)
+add_subdirectory(engines/olap)
 
 # Add libcodegen to link
-set(default_libs ${default_libs} codegen::codegen)
+#set(default_libs ${default_libs} codegen::codegen)
 
 #-----------------------------------------------------------------------
 # Build our executables
 #-----------------------------------------------------------------------
 foreach(target ${MAINS})
 	add_executable(proteus${target} ${target}.cpp cli-flags.cpp)
-	target_link_libraries(proteus${target} ${default_libs})
+	target_link_libraries(proteus${target} codegen::olap)
 	install(TARGETS proteus${target}
 		RUNTIME DESTINATION pelago
 		LIBRARY DESTINATION lib

@@ -23,6 +23,9 @@
 
 #include "common/common.hpp"
 #include "common/tpch-config.hpp"
+#include "engines/olap/util/caching.hpp"
+#include "engines/olap/util/context.hpp"
+#include "engines/olap/util/functions.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
 #include "operators/materializer-expr.hpp"
@@ -38,9 +41,6 @@
 #include "operators/unnest.hpp"
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/json-plugin.hpp"
-#include "util/caching.hpp"
-#include "util/context.hpp"
-#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 void tpchSchema(map<string, dataset> &datasetCatalog) {

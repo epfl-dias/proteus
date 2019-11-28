@@ -23,15 +23,15 @@
 
 #include <gflags/gflags.h>
 
+#include <cstring>
+#include <engines/olap/util/context.hpp>
+
 #include "cli-flags.hpp"
 #include "codegen/communication/comm-manager.hpp"
 #include "codegen/memory/block-manager.hpp"
 #include "codegen/memory/memory-manager.hpp"
-#include "codegen/plan/prepared-statement.hpp"
 #include "codegen/topology/affinity_manager.hpp"
-#include "codegen/util/jit/pipeline.hpp"
-#include "codegen/util/parallel-context.hpp"
-#include "plan/plan-parser.hpp"
+#include "plan/prepared-statement.hpp"
 #include "storage/storage-manager.hpp"
 #include "topology/topology.hpp"
 

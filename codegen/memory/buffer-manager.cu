@@ -40,7 +40,7 @@
 #include "codegen/memory/memory-manager.hpp"
 #include "common/gpu/gpu-common.hpp"
 #include "topology/affinity_manager.hpp"
-#include "util/context.hpp"
+#include "util/string-object.hpp"
 #include "util/threadsafe_device_stack.cuh"
 
 #ifndef NCUDA

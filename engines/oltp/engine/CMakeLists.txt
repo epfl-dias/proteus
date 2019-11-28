@@ -21,10 +21,20 @@ set(txn_engine_cxx
     #oltp-cli-flags.cpp
     )
 
+foreach(target ${txn_engine_cxx})
+    set_source_files_properties(${target} PROPERTIES LANGUAGE CXX)
+endforeach()
+
+foreach(target ${txn_engine_cxx})
+    set_source_files_properties(${target} PROPERTIES COMPILE_FLAGS ${CUDA_CXXFLAGS})
+endforeach()
+
 add_library(aeolus_engine SHARED
         ${txn_engine_cxx}
         )
 
+set_target_properties(aeolus_engine PROPERTIES
+        LINK_FLAGS "-Wl,--no-allow-shlib-undefined -Wl,-z,defs")
 # Define headers for this library. PUBLIC headers are used for
 # compiling the library, and will be added to consumers' build
 # paths.
@@ -43,8 +53,9 @@ target_compile_features(aeolus_engine
 # Depend on a library that we defined in the top-level file
 target_link_libraries(aeolus_engine
         PUBLIC
-            cuckoo codegen
-        PRIVATE
+            ${llvm_libs}
+            codegen::olap
+            cuckoo::cuckoo
             cli-flags)
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
@@ -61,5 +72,6 @@ install(EXPORT ${PROJECT_NAME}Config DESTINATION share/${PROJECT_NAME}/cmake)
 # This makes the project importable from the build directory
 export(TARGETS aeolus_engine FILE ${PROJECT_NAME}Config.cmake)
 
+add_library(aeolus::engine ALIAS aeolus_engine)
 #enable_testing()
 #add_test(UT codegen-tests) # Add codegen-specific tests?

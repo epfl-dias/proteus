@@ -34,5 +34,6 @@ install(EXPORT ${PROJECT_NAME}Config DESTINATION share/${PROJECT_NAME}/cmake)
 # This makes the project importable from the build directory
 export(TARGETS cuckoo FILE ${PROJECT_NAME}Config.cmake)
 
+add_library(cuckoo::cuckoo ALIAS cuckoo)
 #enable_testing()
 #add_test(UT cuckoo-tests) # Add codegen-specific tests?

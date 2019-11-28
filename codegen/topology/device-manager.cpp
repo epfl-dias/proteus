@@ -22,7 +22,7 @@
 */
 #include "device-manager.hpp"
 
-#include "routing/affinitizers.hpp"
+#include "gpu-index.hpp"
 
 DeviceManager &DeviceManager::getInstance() {
   static DeviceManager instance;

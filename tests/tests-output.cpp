@@ -25,9 +25,10 @@
 // test logic needs is declared.
 //
 // Don't forget gtest.h, which declares the testing framework.
-#include "codegen/util/parallel-context.hpp"
 #include "common/common.hpp"
 #include "common/tpch-config.hpp"
+#include "engines/olap/util/functions.hpp"
+#include "engines/olap/util/parallel-context.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
 #include "gtest/gtest.h"
@@ -48,7 +49,6 @@
 #include "test-utils.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
-#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 // Step 2. Use the TEST macro to define your tests.

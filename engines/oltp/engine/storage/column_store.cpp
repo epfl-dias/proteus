@@ -26,6 +26,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include <cassert>
 #include <cmath>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -33,6 +34,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "codegen/memory/memory-manager.hpp"
 #include "codegen/topology/affinity_manager.hpp"
 #include "codegen/topology/topology.hpp"
+#include "codegen/values/expressionTypes.hpp"
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
 #include "scheduler/affinity_manager.hpp"

@@ -22,6 +22,8 @@
 */
 
 #include "common/common.hpp"
+#include "engines/olap/util/context.hpp"
+#include "engines/olap/util/functions.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
 #include "gtest/gtest.h"
@@ -36,8 +38,6 @@
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
-#include "util/context.hpp"
-#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 TEST(CSV, ScanCsvPM) {

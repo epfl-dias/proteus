@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "codegen/util/parallel-context.hpp"
+#include "engines/olap/util/parallel-context.hpp"
 #include "operators/block-to-tuples.hpp"
 #include "operators/cpu-to-gpu.hpp"
 #include "operators/flush.hpp"

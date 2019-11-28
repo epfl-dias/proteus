@@ -26,6 +26,8 @@
 //
 // Don't forget gtest.h, which declares the testing framework.
 #include "common/common.hpp"
+#include "engines/olap/util/context.hpp"
+#include "engines/olap/util/functions.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions-hasher.hpp"
 #include "expressions/expressions.hpp"
@@ -40,8 +42,6 @@
 #include "operators/unnest.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
-#include "util/context.hpp"
-#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 // Step 2. Use the TEST macro to define your tests.

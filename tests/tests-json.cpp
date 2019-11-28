@@ -22,6 +22,8 @@
 */
 
 #include "common/common.hpp"
+#include "engines/olap/util/context.hpp"
+#include "engines/olap/util/functions.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
 #include "gtest/gtest.h"
@@ -39,8 +41,6 @@
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-plugin.hpp"
 #include "test-utils.hpp"
-#include "util/context.hpp"
-#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 ::testing::Environment *const pools_env =

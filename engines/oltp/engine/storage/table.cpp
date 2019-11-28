@@ -23,13 +23,14 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/table.hpp"
 
 #include <cassert>
+#include <codegen/values/expressionTypes.hpp>
 #include <fstream>
 #include <future>
 #include <iostream>
 #include <mutex>
+#include <plan/catalog-parser.hpp>
 #include <string>
 
-#include "codegen/plan/plan-parser.hpp"
 #include "codegen/util/timing.hpp"
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"

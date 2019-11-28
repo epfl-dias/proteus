@@ -9,6 +9,12 @@ set(OLTP_MAINS server)
 
 set (OLTP_CLI_FLAGS engine/oltp-cli-flags.cpp)
 
+
+foreach(target ${OLTP_CLI_FLAGS})
+	set_source_files_properties(${target} PROPERTIES COMPILE_FLAGS ${CUDA_CXXFLAGS})
+endforeach()
+
+
 #-----------------------------------------------------------------------
 # Build our libraries
 #-----------------------------------------------------------------------
@@ -26,8 +32,10 @@ add_subdirectory(lib/libcuckoo)
 add_subdirectory(engine)
 
 foreach(target ${OLTP_MAINS})
+	set_source_files_properties(${target}.cpp PROPERTIES COMPILE_FLAGS ${CUDA_CXXFLAGS})
+
 	add_executable(aeolus-${target} ${target}.cpp ${OLTP_CLI_FLAGS}) 
-	target_link_libraries(aeolus-${target} aeolus_engine gflags::gflags)
+	target_link_libraries(aeolus-${target} PUBLIC aeolus::engine)
 	install(TARGETS aeolus-${target}
 		RUNTIME DESTINATION pelago
 		LIBRARY DESTINATION lib

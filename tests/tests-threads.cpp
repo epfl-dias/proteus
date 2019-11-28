@@ -56,9 +56,9 @@
 //
 // </TechnicalDetails>
 
-#include "codegen/util/parallel-context.hpp"
 #include "common/common.hpp"
 #include "common/gpu/gpu-common.hpp"
+#include "engines/olap/util/parallel-context.hpp"
 #include "memory/memory-manager.hpp"
 #include "plan/plan-parser.hpp"
 #include "storage/storage-manager.hpp"
