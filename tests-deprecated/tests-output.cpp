@@ -26,7 +26,6 @@
 //
 // Don't forget gtest.h, which declares the testing framework.
 #include "common/common.hpp"
-#include "common/tpch-config.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
 #include "gtest/gtest.h"
@@ -42,6 +41,7 @@
 #include "operators/unnest.hpp"
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/json-jsmn-plugin.hpp"
+#include "tpch-config.hpp"
 #include "util/context.hpp"
 #include "util/functions.hpp"
 #include "values/expressionTypes.hpp"

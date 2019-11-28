@@ -22,9 +22,6 @@
 */
 
 #include "common/common.hpp"
-#include "common/tpch-config.hpp"
-#include "expressions/binary-operators.hpp"
-#include "expressions/expressions-hasher.hpp"
 #include "expressions/expressions.hpp"
 #include "operators/join.hpp"
 #include "operators/materializer-expr.hpp"
@@ -41,6 +38,7 @@
 #include "operators/select.hpp"
 #include "operators/unnest.hpp"
 #include "plugins/json-plugin.hpp"
+#include "tpch-config.hpp"
 #include "util/caching.hpp"
 #include "util/context.hpp"
 #include "util/functions.hpp"

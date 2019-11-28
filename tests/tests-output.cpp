@@ -26,7 +26,6 @@
 //
 // Don't forget gtest.h, which declares the testing framework.
 #include "common/common.hpp"
-#include "common/tpch-config.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
 #include "gtest/gtest.h"
@@ -47,6 +46,7 @@
 #include "test-utils.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
+#include "tpch-config.hpp"
 #include "util/functions.hpp"
 #include "util/parallel-context.hpp"
 #include "values/expressionTypes.hpp"

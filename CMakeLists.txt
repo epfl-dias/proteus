@@ -42,13 +42,13 @@ set(MAINS main-server) # Interface to the executor
 # Tests
 # not too sure if we should build "main", it looks like it has the same
 # test cases as the gtests
-set(MAINS ${MAINS} main main-caches main-nest main-str main-reduce)
+#set(MAINS ${MAINS} main main-caches main-nest main-str main-reduce)
 set(UNIT_TESTS TRUE)
-set(DUNIT_TESTS TRUE)
+set(DUNIT_TESTS FALSE)
 
 # Benchmarks
-set(TPCH TRUE)
-set(REALWORLD_EXPERIMENTS TRUE)
+set(TPCH FALSE)
+set(REALWORLD_EXPERIMENTS FALSE)
 
 #-----------------------------------------------------------------------
 # Setup environment for the project
@@ -474,7 +474,7 @@ string(STRIP "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS}" CMAKE_CXX_FLAGS)
 string(STRIP "${CMAKE_C_FLAGS} ${WARNING_FLAGS}" CMAKE_C_FLAGS)
 
 # build libjsmn
-add_subdirectory(jsmn)
+add_subdirectory(jsmn EXCLUDE_FROM_ALL)
 
 # code generation library
 add_subdirectory(codegen)
