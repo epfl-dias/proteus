@@ -61,13 +61,9 @@
 
 #include "common/common.hpp"
 #include "common/gpu/gpu-common.hpp"
-#include "memory/memory-manager.hpp"
-#include "plan/plan-parser.hpp"
 #include "storage/storage-manager.hpp"
 #include "test-utils.hpp"
 #include "topology/topology.hpp"
-#include "util/jit/pipeline.hpp"
-#include "util/parallel-context.hpp"
 
 using namespace llvm;
 

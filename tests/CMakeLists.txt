@@ -1,13 +1,13 @@
 set(gtest_libs ${GTEST_MAIN} ${GTEST} codegen::olap)
 
 set(gtest_src
-	tests-joins
-	tests-json
+#	tests-joins
+#	tests-json
 	tests-cow
 	tests-cpu-ssb
 	tests-gpu-ssb
 	tests-hyb-ssb
-	tests-output
+#	tests-output
 	tests-plan-parsing
 	tests-threads
 	)

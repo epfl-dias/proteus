@@ -309,6 +309,7 @@ if (TRUE)
 	add_subdirectory(
 			${CMAKE_CURRENT_BINARY_DIR}/gflags-src
 			${CMAKE_CURRENT_BINARY_DIR}/gflags-build
+			EXCLUDE_FROM_ALL
 			)
 
 	# patch around gflags::gflags exporting their targets in two export sets

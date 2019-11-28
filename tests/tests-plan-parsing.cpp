@@ -25,10 +25,8 @@
 // test logic needs is declared.
 //
 // Don't forget gtest.h, which declares the testing framework.
-#include "common/common.hpp"
 #include "gtest/gtest.h"
 #include "memory/memory-manager.hpp"
-#include "plan/plan-parser.hpp"
 #include "storage/storage-manager.hpp"
 #include "test-utils.hpp"
 
@@ -61,13 +59,6 @@
 
 class PlanTest : public ::testing::Test {
  protected:
-  virtual void SetUp() {
-    catalog = &Catalog::getInstance();
-    caches = &CachingService::getInstance();
-    catalog->clear();
-    caches->clear();
-  }
-
   virtual void TearDown() { StorageManager::unloadAll(); }
 
   bool flushResults = true;
@@ -78,10 +69,6 @@ class PlanTest : public ::testing::Test {
                     bool unordered = true) {
     ::runAndVerify(testLabel, planPath, testPath, catalogJSON, unordered);
   }
-
- private:
-  Catalog *catalog;
-  CachingService *caches;
 };
 
 /* SELECT COUNT(*) FROM SAILORS s; */

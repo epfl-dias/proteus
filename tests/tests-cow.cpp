@@ -56,22 +56,16 @@
 //
 // </TechnicalDetails>
 
-#include "common/common.hpp"
-#include "common/gpu/gpu-common.hpp"
-#include "memory/memory-manager.hpp"
-#include "plan/plan-parser.hpp"
-#include "storage/storage-manager.hpp"
-#include "util/parallel-context.hpp"
-// #include <cuda_profiler_api.h>
 #include <fcntl.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include <thread>
 #include <vector>
 
+#include "common/common.hpp"
+#include "memory/memory-manager.hpp"
+#include "storage/storage-manager.hpp"
 #include "test-utils.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"

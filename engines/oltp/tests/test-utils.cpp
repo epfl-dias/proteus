@@ -23,19 +23,8 @@
 
 #include "test-utils.hpp"
 
-#include "codegen/plan/prepared-statement.hpp"
-#include "memory/memory-manager.hpp"
-#include "plan/plan-parser.hpp"
-#include "rapidjson/error/en.h"
-#include "rapidjson/schema.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
-#include "storage/storage-manager.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
-#include "util/functions.hpp"
-#include "util/jit/pipeline.hpp"
-#include "util/parallel-context.hpp"
+#include <common/common.hpp>
+#include <memory/memory-manager.hpp>
 
 void TestEnvironment::SetUp() {
   if (has_already_been_setup) {
