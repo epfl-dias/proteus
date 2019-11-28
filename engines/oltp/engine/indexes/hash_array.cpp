@@ -20,7 +20,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#include "engines/oltp/engine/include/indexes/hash_array.hpp"
+#include "indexes/hash_array.hpp"
 
 #include "glo.hpp"
 #include "storage/table.hpp"

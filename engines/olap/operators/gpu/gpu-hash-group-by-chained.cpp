@@ -23,9 +23,8 @@
 
 #include "operators/gpu/gpu-hash-group-by-chained.hpp"
 
-#include "codegen/memory/memory-manager.hpp"
 #include "expressions/expressions-generator.hpp"
-#include "expressions/expressions-hasher.hpp"
+#include "memory/memory-manager.hpp"
 #include "operators/gpu/gmonoids.hpp"
 #include "topology/topology.hpp"
 #include "util/gpu/gpu-intrinsics.hpp"

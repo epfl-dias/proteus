@@ -45,11 +45,6 @@
 #include <sstream>
 #include <stdexcept>
 
-//#JSON
-#define JSMN_STRICT
-//
-//#define JSON_TIGHT
-#include "jsmn/jsmn.h"
 #include "util/glog.hpp"
 
 //#define DEBUG

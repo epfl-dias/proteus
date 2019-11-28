@@ -23,13 +23,10 @@
 
 #include "operators/mem-move-device.hpp"
 
-#include "util/catalog.hpp"
-// #include "common/gpu/gpu-common.hpp"
-// #include "cuda.h"
-// #include "cuda_runtime_api.h"
-#include "codegen/memory/block-manager.hpp"
-#include "codegen/memory/memory-manager.hpp"
+#include "memory/block-manager.hpp"
+#include "memory/memory-manager.hpp"
 #include "threadpool/threadpool.hpp"
+#include "util/catalog.hpp"
 #include "util/logging.hpp"
 
 buff_pair buff_pair::not_moved(void *buff) { return {buff, buff}; }

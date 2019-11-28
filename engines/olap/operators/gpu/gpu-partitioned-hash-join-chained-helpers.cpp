@@ -22,7 +22,7 @@
 */
 //
 //#include "operators/gpu/gpu-partitioned-hash-join-chained.hpp"
-//#include "codegen/memory/memory-manager.hpp"
+//#include "memory/memory-manager.hpp"
 //#include "expressions/expressions-generator.hpp"
 //#include "operators/gpu/gmonoids.hpp"
 //#include "util/gpu/gpu-intrinsics.hpp"

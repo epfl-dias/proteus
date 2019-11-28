@@ -23,10 +23,10 @@
 
 #include "operators/gpu/gpu-partitioned-hash-join-chained.hpp"
 
-#include "codegen/memory/memory-manager.hpp"
 #include "cuda.h"
 #include "cuda_runtime.h"
 #include "expressions/expressions-generator.hpp"
+#include "memory/memory-manager.hpp"
 #include "operators/gpu/gmonoids.hpp"
 #include "topology/topology.hpp"
 #include "util/gpu/gpu-intrinsics.hpp"

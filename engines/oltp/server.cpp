@@ -31,7 +31,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <tuple>
 
 // AEOLUS includes
-#include "cli-flags.hpp"
+#include "../cli-flags.hpp"
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
 #include "scheduler/affinity_manager.hpp"

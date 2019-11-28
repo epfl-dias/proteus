@@ -23,10 +23,10 @@
 
 #include "gpu-pipeline.hpp"
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "topology/topology.hpp"
 #include "util/gpu/gpu-intrinsics.hpp"
 #include "util/jit/cpu-pipeline.hpp"
+#include "util/parallel-context.hpp"
 
 using namespace llvm;
 

@@ -33,9 +33,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/table.hpp"
 
 #if PROTEUS_MEM_MANAGER
-#include "codegen/memory/memory-manager.hpp"
 #include "codegen/topology/affinity_manager.hpp"
 #include "codegen/topology/topology.hpp"
+#include "memory/memory-manager.hpp"
 #endif
 
 namespace storage {

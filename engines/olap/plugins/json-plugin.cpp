@@ -32,6 +32,10 @@ using namespace llvm;
 
 namespace jsonPipelined {
 
+struct pmJSON {
+  size_t *newlines;
+  jsmntok_t **tokens;
+};
 /* Deprecated. Dealt with it using default argument in other constructor */
 // JSONPlugin::JSONPlugin(Context* const context, string& fname,
 //        ExpressionType* schema) :

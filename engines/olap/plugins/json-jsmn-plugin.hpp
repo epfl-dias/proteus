@@ -27,6 +27,11 @@
 #include "plugins/plugins.hpp"
 #include "util/catalog.hpp"
 
+//#JSON
+#define JSMN_STRICT
+//
+//#define JSON_TIGHT
+#include "jsmn.h"
 //#define DEBUGJSMN
 
 namespace jsmn {

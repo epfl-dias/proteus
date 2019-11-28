@@ -31,18 +31,18 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <iostream>
 #include <string>
 
-#include "codegen/memory/memory-manager.hpp"
-#include "codegen/topology/affinity_manager.hpp"
-#include "codegen/topology/topology.hpp"
-#include "codegen/values/expressionTypes.hpp"
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
+#include "memory/memory-manager.hpp"
 #include "scheduler/affinity_manager.hpp"
 #include "scheduler/topology.hpp"
 #include "storage/delta_storage.hpp"
 #include "storage/table.hpp"
 #include "threadpool/thread.hpp"
+#include "topology/affinity_manager.hpp"
+#include "topology/topology.hpp"
 #include "util/timing.hpp"
+#include "values/expressionTypes.hpp"
 
 #define CIDR_HACK false
 #if CIDR_HACK

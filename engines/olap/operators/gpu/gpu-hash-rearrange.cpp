@@ -25,11 +25,11 @@
 
 #include <algorithm>
 
-#include "codegen/memory/buffer-manager.cuh"
-#include "codegen/memory/memory-manager.hpp"
 #include "common/gpu/gpu-common.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-hasher.hpp"
+#include "memory/buffer-manager.cuh"
+#include "memory/memory-manager.hpp"
 #include "topology/topology.hpp"
 #include "util/gpu/gpu-intrinsics.hpp"
 

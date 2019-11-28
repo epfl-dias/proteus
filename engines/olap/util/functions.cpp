@@ -36,6 +36,9 @@
 #include <immintrin.h>
 #endif
 
+//#define JSON_TIGHT
+#include "jsmn.h"
+
 // Remember to add these functions as extern in .hpp too!
 extern "C" double putchari(int X) {
   putchar((char)X);

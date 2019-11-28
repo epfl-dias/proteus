@@ -24,11 +24,11 @@
 #ifndef FLUSH_HPP_
 #define FLUSH_HPP_
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "expressions/expressions-flusher.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "operators/monoids.hpp"
 #include "operators/operators.hpp"
+#include "util/parallel-context.hpp"
 
 class Flush : public UnaryOperator {
  public:

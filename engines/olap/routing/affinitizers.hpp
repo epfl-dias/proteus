@@ -24,7 +24,7 @@
 #ifndef AFFINITIZERS_HPP_
 #define AFFINITIZERS_HPP_
 
-#include <codegen/topology/gpu-index.hpp>
+#include <topology/gpu-index.hpp>
 
 #include "expressions/expressions.hpp"
 #include "topology/device-types.hpp"

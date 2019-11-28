@@ -23,13 +23,10 @@
 
 #include "operators/block-to-tuples.hpp"
 
-#include "codegen/memory/buffer-manager.cuh"
-#include "codegen/memory/memory-manager.hpp"
+#include "memory/buffer-manager.cuh"
+#include "memory/memory-manager.hpp"
 #include "util/catalog.hpp"
 #include "util/logging.hpp"
-
-// #include "util/gpu/gpu-intrinsics.hpp"
-// #include "util/jit/gpu-pipeline.hpp"
 
 using namespace llvm;
 

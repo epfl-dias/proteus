@@ -24,11 +24,11 @@
 #ifndef PROJECT_HPP_
 #define PROJECT_HPP_
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "expressions/expressions-flusher.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "operators/monoids.hpp"
 #include "operators/operators.hpp"
+#include "util/parallel-context.hpp"
 
 class Project : public UnaryOperator {
  public:

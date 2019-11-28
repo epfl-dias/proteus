@@ -24,12 +24,12 @@
 #ifndef GPU_HASH_GROUP_BY_CHAINED_HPP_
 #define GPU_HASH_GROUP_BY_CHAINED_HPP_
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "expressions/expressions.hpp"
 #include "operators/hash-group-by-chained.hpp"
 #include "operators/monoids.hpp"
 #include "operators/operators.hpp"
 #include "util/jit/pipeline.hpp"
+#include "util/parallel-context.hpp"
 
 class GpuHashGroupByChained : public HashGroupByChained {
  public:

@@ -1,7 +1,7 @@
 project(jsmn VERSION 0.1 LANGUAGES CXX)
 
 set(jsmn_src
-	jsmn.c
+		jsmn.c
 	)
 add_library(jsmn SHARED ${jsmn_src})
 

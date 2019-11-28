@@ -23,8 +23,8 @@
 
 #include "operators/reduce-opt.hpp"
 
-#include "codegen/memory/memory-manager.hpp"
-#include "engines/olap/util/parallel-context.hpp"
+#include "memory/memory-manager.hpp"
+#include "util/parallel-context.hpp"
 
 using namespace llvm;
 

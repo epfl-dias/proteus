@@ -26,7 +26,7 @@
 #include <mutex>
 #include <thread>
 
-#include "codegen/communication/comm-manager.hpp"
+#include "communication/comm-manager.hpp"
 #include "util/logging.hpp"
 
 double diff(struct timespec st, struct timespec end) {

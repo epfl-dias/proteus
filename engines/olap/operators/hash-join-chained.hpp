@@ -26,9 +26,9 @@
 
 #include <unordered_map>
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "operators/gpu/gpu-materializer-expr.hpp"
 #include "operators/operators.hpp"
+#include "util/parallel-context.hpp"
 
 class HashJoinChained : public BinaryOperator {
  public:

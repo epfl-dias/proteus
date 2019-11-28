@@ -461,8 +461,6 @@ install(DIRECTORY "testResults/" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/outp
 # Build our libraries
 #-----------------------------------------------------------------------
 include_directories(
-		"${PROJECT_SOURCE_DIR}"
-		"${PROJECT_SOURCE_DIR}/codegen"
 		SYSTEM ${LLVM_INCLUDE_DIRS}
 		SYSTEM "${RapidJSON_SOURCE_DIR}/include"
 		# FIXME: system libraries should not be included with quotes...

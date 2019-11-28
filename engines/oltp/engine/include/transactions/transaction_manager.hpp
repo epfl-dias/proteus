@@ -36,7 +36,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "transactions/txn_utils.hpp"
 //#include "utils/utils.hpp"
 
-#include "codegen/util/timing.hpp"
+#include "util/timing.hpp"
 
 namespace txn {
 

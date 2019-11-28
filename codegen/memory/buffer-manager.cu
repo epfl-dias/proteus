@@ -37,8 +37,8 @@
 #include <thread>
 
 #include "buffer-manager.cuh"
-#include "codegen/memory/memory-manager.hpp"
 #include "common/gpu/gpu-common.hpp"
+#include "memory/memory-manager.hpp"
 #include "topology/affinity_manager.hpp"
 #include "util/string-object.hpp"
 #include "util/threadsafe_device_stack.cuh"

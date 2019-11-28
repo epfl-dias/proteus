@@ -23,8 +23,8 @@
 
 #include "operators/project.hpp"
 
-#include "codegen/memory/memory-manager.hpp"
-#include "engines/olap/util/parallel-context.hpp"
+#include "memory/memory-manager.hpp"
+#include "util/parallel-context.hpp"
 
 Project::Project(vector<expression_t> outputExprs, string relName,
                  Operator *const child, Context *context)

@@ -25,12 +25,12 @@
 
 #include <thread>
 
-#include "codegen/memory/memory-manager.hpp"
 #include "common/gpu/gpu-common.hpp"
-#include "engines/olap/util/parallel-context.hpp"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/TargetSelect.h"
+#include "memory/memory-manager.hpp"
+#include "util/parallel-context.hpp"
 
 using namespace llvm;
 

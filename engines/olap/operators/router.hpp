@@ -30,13 +30,13 @@
 #include <stack>
 #include <thread>
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "operators/operators.hpp"
 #include "routing/routing-policy.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/device-manager.hpp"
 #include "util/async_containers.hpp"
 #include "util/logging.hpp"
+#include "util/parallel-context.hpp"
 
 class Router;
 

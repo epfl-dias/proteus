@@ -35,11 +35,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <cstdlib>
 #include <iostream>
 
-#include "codegen/memory/memory-manager.hpp"
-#include "codegen/topology/affinity_manager.hpp"
-#include "codegen/topology/topology.hpp"
+#include "memory/memory-manager.hpp"
 #include "scheduler/comm_manager.hpp"
 #include "scheduler/topology.hpp"
+#include "topology/affinity_manager.hpp"
+#include "topology/topology.hpp"
 
 /*
   TODO:

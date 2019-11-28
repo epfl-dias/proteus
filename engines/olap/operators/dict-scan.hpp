@@ -23,8 +23,8 @@
 #ifndef DICTSCAN_HPP_
 #define DICTSCAN_HPP_
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "operators/operators.hpp"
+#include "util/parallel-context.hpp"
 
 class DictMatchIter;
 

@@ -26,10 +26,10 @@
 
 #include <unordered_map>
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "expressions/expressions.hpp"
 #include "operators/gpu/gpu-materializer-expr.hpp"
 #include "operators/operators.hpp"
+#include "util/parallel-context.hpp"
 
 struct ZipParam {
   int heads_id;

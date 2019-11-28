@@ -24,13 +24,13 @@
 #ifndef _RADIX_JOIN_HPP_
 #define _RADIX_JOIN_HPP_
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "operators/operators.hpp"
 #include "operators/scan.hpp"
 #include "plugins/binary-internal-plugin.hpp"
 #include "util/caching.hpp"
 #include "util/functions.hpp"
+#include "util/parallel-context.hpp"
 #include "util/radix/joins/radix-join.hpp"
 
 //#define DEBUGRADIX

@@ -24,16 +24,17 @@
 #include <gflags/gflags.h>
 
 #include <cstring>
-#include <engines/olap/util/context.hpp>
 
 #include "cli-flags.hpp"
 #include "codegen/communication/comm-manager.hpp"
 #include "codegen/memory/block-manager.hpp"
-#include "codegen/memory/memory-manager.hpp"
 #include "codegen/topology/affinity_manager.hpp"
+#include "memory/memory-manager.hpp"
 #include "plan/prepared-statement.hpp"
 #include "storage/storage-manager.hpp"
 #include "topology/topology.hpp"
+
+extern bool print_generated_code;
 
 // https://stackoverflow.com/a/25829178/1237824
 std::string trim(const std::string &str) {

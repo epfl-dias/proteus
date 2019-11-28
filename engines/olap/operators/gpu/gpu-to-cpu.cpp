@@ -23,7 +23,7 @@
 
 #include "operators/gpu/gpu-to-cpu.hpp"
 
-#include "codegen/memory/memory-manager.hpp"
+#include "memory/memory-manager.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 #include "util/catalog.hpp"

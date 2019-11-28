@@ -24,9 +24,9 @@
 #ifndef GPU_SORT_HPP_
 #define GPU_SORT_HPP_
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "operators/operators.hpp"
 #include "operators/sort.hpp"
+#include "util/parallel-context.hpp"
 
 class GpuSort : public UnaryOperator {
  public:

@@ -24,7 +24,7 @@
 #ifndef GPU_INTRINSICS_HPP_
 #define GPU_INTRINSICS_HPP_
 
-#include "engines/olap/util/parallel-context.hpp"
+#include "util/parallel-context.hpp"
 
 namespace gpu_intrinsic {
 

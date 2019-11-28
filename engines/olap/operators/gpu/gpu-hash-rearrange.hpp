@@ -23,9 +23,9 @@
 #ifndef GPU_HASH_REARRANGE_HPP_
 #define GPU_HASH_REARRANGE_HPP_
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "memory/block-manager.hpp"
 #include "operators/operators.hpp"
+#include "util/parallel-context.hpp"
 // #include "operators/hash-rearrange.hpp"
 // #include "operators/gpu/gpu-materializer-expr.hpp"
 

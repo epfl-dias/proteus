@@ -21,7 +21,6 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "operators/block-to-tuples.hpp"
 #include "operators/cpu-to-gpu.hpp"
 #include "operators/flush.hpp"
@@ -45,6 +44,7 @@
 #include "plugins/gpu-col-scan-to-blocks-plugin.hpp"
 #include "plugins/scan-to-blocks-sm-plugin.hpp"
 #include "storage/raw-storage-manager.hpp"
+#include "util/parallel-context.hpp"
 #include "util/raw-memory-manager.hpp"
 #include "util/raw-pipeline.hpp"
 

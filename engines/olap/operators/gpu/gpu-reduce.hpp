@@ -24,12 +24,12 @@
 #ifndef GPU_REDUCE_HPP_
 #define GPU_REDUCE_HPP_
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "expressions/expressions-flusher.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "operators/monoids.hpp"
 #include "operators/operators.hpp"
 #include "operators/reduce-opt.hpp"
+#include "util/parallel-context.hpp"
 
 namespace opt {
 //#ifdef DEBUG

@@ -23,9 +23,9 @@
 #ifndef HASH_REARRANGE_HPP_
 #define HASH_REARRANGE_HPP_
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "memory/block-manager.hpp"
 #include "operators/operators.hpp"
+#include "util/parallel-context.hpp"
 
 class HashRearrange : public UnaryOperator {
  public:

@@ -33,7 +33,6 @@
 #define CONTEXT_HPP_
 
 #include "common/common.hpp"
-#include "engines/olap/util/jit/control-flow/if-statement.hpp"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/IPO.h"
@@ -41,6 +40,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
 #include "memory/memory-allocator.hpp"
+#include "util/jit/control-flow/if-statement.hpp"
 #include "values/expressionTypes.hpp"
 
 #define MODULEPASS 0

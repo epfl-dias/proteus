@@ -20,8 +20,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#ifndef AEOLUS_SNAPSHOT_COR_CONST_ARENA_HPP_
-#define AEOLUS_SNAPSHOT_COR_CONST_ARENA_HPP_
+#ifndef AEOLUS_SNAPSHOT_CIRCULAR_MASTER_ARENA_HPP_
+#define AEOLUS_SNAPSHOT_CIRCULAR_MASTER_ARENA_HPP_
 
 #include <signal.h>
 
@@ -31,79 +31,66 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <map>
 #include <memory>
 
-#include "engines/oltp/engine/include/snapshot/arena.hpp"
+#include "snapshot/arena.hpp"
 
 namespace aeolus {
 namespace snapshot {
 
-class CORConstArena : public Arena<CORConstArena> {
+class CircularMasterArena : public Arena<CircularMasterArena> {
  protected:
-  size_t size_bytes;
-
-  int *const olap_arena;
-  int *const oltp_arena;
-  int shm_fd;
-
-  int8_t *olap_start;
-  int8_t *start;
-  uint64_t *dirty;
-  uint64_t *new_dirty;
-  size_t dirty_segs;
-
  protected:
   class guard {
    private:
     guard(int) {}
 
-    friend class CORConstProvider;
+    friend class CircularMasterProvider;
   };
 
  public:
-  CORConstArena(size_t size, guard g);
-  ~CORConstArena();
+  CircularMasterArena(size_t size, guard g) {}
+  ~CircularMasterArena() {}
 
-  int *oltp() const { return oltp_arena; }
-  int *olap() const { return olap_arena; }
+  int *oltp() const { return nullptr; }
+  int *olap() const { return nullptr; }
 
  protected:
-  void create_snapshot_();
+  void create_snapshot_() {}
   void destroy_snapshot_() {}
 
-  friend class Arena<CORConstArena>;
-  friend class CORConstProvider;
+  friend class Arena<CircularMasterArena>;
+  friend class CircularMasterProvider;
 };
 
-class CORConstProvider {
+class CircularMasterProvider {
  public:
-  static size_t page_size;
-  static std::map<void *, CORConstArena *, std::greater<>> instances;
+  // static std::map<void *, CircularMasterArena *, std::greater<>> instances;
 
  private:
-  static CORConstArena *getInstance(void *addr) {
-    return instances.lower_bound(addr)->second;
-  }
+  // static CircularMasterArena *getInstance(void *addr) {
+  //   return instances.lower_bound(addr)->second;
+  // }
 
  private:
-  static void remove(void *olap) { instances.erase(olap); }
+  // static void remove(void *olap) { instances.erase(olap); }
 
  public:
-  static void handler(int sig, siginfo_t *siginfo, void *uap);
+  // static void handler(int sig, siginfo_t *siginfo, void *uap);
 
  public:
-  static void init();
-  static void deinit();
+  static void init() {}
+  static void deinit() {}
 
-  static std::unique_ptr<CORConstArena> create(size_t size) {
-    size = ((size + page_size - 1) / page_size) * page_size;
-    auto ptr = std::make_unique<CORConstArena>(size, CORConstArena::guard{5});
-    instances.emplace(ptr->olap(), ptr.get());
+  static std::unique_ptr<CircularMasterArena> create(size_t size) {
+    auto ptr = std::make_unique<CircularMasterArena>(
+        size, CircularMasterArena::guard{5});
+    // instances.emplace(ptr->olap(), ptr.get());
     return ptr;
   }
 
-  friend class CORConstArena;
+  friend class CircularMasterArena;
 };
 
 }  // namespace snapshot
 }  // namespace aeolus
 
-#endif /* AEOLUS_SNAPSHOT_COR_CONST_ARENA_HPP_ */
+#endif /* AEOLUS_SNAPSHOT_CIRCULAR_MASTER_ARENA_HPP_ */

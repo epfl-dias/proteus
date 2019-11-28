@@ -26,10 +26,10 @@
 #include <future>
 #include <thread>
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "operators/operators.hpp"
 #include "topology/affinity_manager.hpp"
 #include "util/async_containers.hpp"
+#include "util/parallel-context.hpp"
 
 struct buff_pair {
   void *new_buff;

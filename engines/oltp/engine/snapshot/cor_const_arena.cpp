@@ -20,7 +20,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#include "cor_const_arena.hpp"
+#include "snapshot/cor_const_arena.hpp"
 
 #include <glog/logging.h>
 #include <sys/mman.h>

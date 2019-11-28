@@ -31,12 +31,16 @@
 
 //#define DEBUGJSON
 
+//#JSON
+#define JSMN_STRICT
+//
+//#define JSON_TIGHT
+#include "jsmn.h"
+//#define DEBUGJSMN
+
 namespace jsonPipelined {
 
-typedef struct pmJSON {
-  size_t *newlines;
-  jsmntok_t **tokens;
-} pmJSON;
+struct pmJSON;
 
 /**
  * JSON's basic types are:

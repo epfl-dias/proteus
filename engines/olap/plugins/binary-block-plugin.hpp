@@ -26,9 +26,9 @@
 
 #include <memory>
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "plugins/plugins.hpp"
 #include "storage/storage-manager.hpp"
+#include "util/parallel-context.hpp"
 
 class BinaryBlockPlugin : public Plugin {
   /**

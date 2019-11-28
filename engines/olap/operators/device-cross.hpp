@@ -24,8 +24,8 @@
 #ifndef DEVICE_CROSS_HPP_
 #define DEVICE_CROSS_HPP_
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "operators/operators.hpp"
+#include "util/parallel-context.hpp"
 
 class DeviceCross : public UnaryOperator {
  protected:

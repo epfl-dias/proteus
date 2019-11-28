@@ -23,8 +23,8 @@
 #ifndef BLOCK_TO_TUPLES_HPP_
 #define BLOCK_TO_TUPLES_HPP_
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "operators/operators.hpp"
+#include "util/parallel-context.hpp"
 
 class BlockToTuples : public UnaryOperator {
  public:

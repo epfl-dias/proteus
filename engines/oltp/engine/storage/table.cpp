@@ -23,7 +23,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/table.hpp"
 
 #include <cassert>
-#include <codegen/values/expressionTypes.hpp>
 #include <fstream>
 #include <future>
 #include <iostream>
@@ -31,7 +30,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <plan/catalog-parser.hpp>
 #include <string>
 
-#include "codegen/util/timing.hpp"
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
 #include "scheduler/threadpool.hpp"
@@ -39,11 +37,13 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/column_store.hpp"
 #include "storage/delta_storage.hpp"
 #include "storage/row_store.hpp"
+#include "util/timing.hpp"
+#include "values/expressionTypes.hpp"
 
 #if HTAP_DOUBLE_MASTER
-#include "codegen/memory/memory-manager.hpp"
-#include "codegen/topology/affinity_manager.hpp"
-#include "codegen/topology/topology.hpp"
+#include "memory/memory-manager.hpp"
+#include "topology/affinity_manager.hpp"
+#include "topology/topology.hpp"
 
 #endif
 

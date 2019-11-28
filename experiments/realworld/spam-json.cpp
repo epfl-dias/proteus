@@ -23,9 +23,6 @@
 
 #include "common/common.hpp"
 #include "common/symantec-config.hpp"
-#include "engines/olap/util/caching.hpp"
-#include "engines/olap/util/context.hpp"
-#include "engines/olap/util/functions.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions-hasher.hpp"
 #include "expressions/expressions.hpp"
@@ -50,6 +47,9 @@
 #include "plugins/csv-plugin-pm.hpp"
 #include "plugins/csv-plugin.hpp"
 #include "plugins/json-plugin.hpp"
+#include "util/caching.hpp"
+#include "util/context.hpp"
+#include "util/functions.hpp"
 #include "values/expressionTypes.hpp"
 
 /* SELECT MIN(p_event),MAX(p_event), COUNT(*) from symantecunordered where id >

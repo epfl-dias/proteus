@@ -20,7 +20,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
                              USE OF THIS SOFTWARE.
 */
 
-#include "cow_arena.hpp"
+#include "snapshot/cow_arena.hpp"
 
 #include <glog/logging.h>
 #include <sys/mman.h>

@@ -26,10 +26,10 @@
 #include <future>
 #include <thread>
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "operators/operators.hpp"
 #include "topology/affinity_manager.hpp"
 #include "util/async_containers.hpp"
+#include "util/parallel-context.hpp"
 
 // void * make_mem_move_device(char * src, size_t bytes, int target_device,
 // cudaStream_t strm);

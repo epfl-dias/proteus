@@ -23,9 +23,8 @@
 
 #include "operators/cpu-to-gpu.hpp"
 
-#include <engines/olap/util/catalog.hpp>
-
 #include "topology/topology.hpp"
+#include "util/catalog.hpp"
 #include "util/jit/cpu-pipeline.hpp"
 #include "util/logging.hpp"
 

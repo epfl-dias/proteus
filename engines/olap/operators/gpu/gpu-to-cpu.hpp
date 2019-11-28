@@ -23,9 +23,9 @@
 #ifndef GPU_TO_CPU_HPP_
 #define GPU_TO_CPU_HPP_
 
-#include "engines/olap/util/parallel-context.hpp"
 #include "operators/device-cross.hpp"
 #include "operators/operators.hpp"
+#include "util/parallel-context.hpp"
 
 class GpuToCpu : public DeviceCross {
  public:

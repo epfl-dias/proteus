@@ -25,9 +25,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include <cstdlib>
 
-#include "engines/oltp/engine/snapshot/circular_master_arena.hpp"
-#include "engines/oltp/engine/snapshot/cor_const_arena.hpp"
-#include "engines/oltp/engine/snapshot/cow_arena.hpp"
+#include "snapshot/circular_master_arena.hpp"
+#include "snapshot/cor_const_arena.hpp"
+#include "snapshot/cow_arena.hpp"
 
 namespace aeolus {
 namespace snapshot {

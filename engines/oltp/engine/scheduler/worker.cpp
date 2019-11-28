@@ -35,13 +35,13 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <string>
 #include <thread>
 
-#include "codegen/memory/memory-manager.hpp"
-#include "codegen/topology/affinity_manager.hpp"
-#include "codegen/topology/topology.hpp"
-#include "codegen/util/timing.hpp"
+#include "memory/memory-manager.hpp"
 #include "scheduler/affinity_manager.hpp"
 #include "storage/table.hpp"
+#include "topology/affinity_manager.hpp"
+#include "topology/topology.hpp"
 #include "transactions/transaction_manager.hpp"
+#include "util/timing.hpp"
 
 namespace scheduler {
 
