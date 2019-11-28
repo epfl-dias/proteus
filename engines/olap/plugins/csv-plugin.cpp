@@ -88,8 +88,6 @@ void CSVPlugin::init() {
   NamedValuesCSV[fsizeVar] = fsizeMem;
 
   // Typical way to pass a pointer via the LLVM API
-  AllocaInst *AllocaPtr =
-      context->CreateEntryBlockAlloca(F, string("charPtr"), charPtrType);
   Value *ptrVal = ConstantInt::get(llvmContext, APInt(64, ((uint64_t)buf)));
   // i8*
   Value *unshiftedPtr = Builder->CreateIntToPtr(ptrVal, charPtrType);
@@ -363,7 +361,6 @@ void CSVPlugin::skipDelimLLVM(Value *delim, Function *debugChar,
                               Function *debugInt) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int64Type = Type::getInt64Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
 
@@ -444,7 +441,6 @@ void CSVPlugin::skipDelimLLVM(Value *delim, Function *debugChar,
 void CSVPlugin::skipLLVM() {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int64Type = Type::getInt64Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
   Value *delimInner = ConstantInt::get(llvmContext, APInt(8, ';'));
@@ -547,7 +543,6 @@ void CSVPlugin::skipLLVM() {
 void CSVPlugin::getFieldEndLLVM() {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int64Type = Type::getInt64Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
   Value *delimInner = ConstantInt::get(llvmContext, APInt(8, ';'));
@@ -641,9 +636,7 @@ void CSVPlugin::readAsIntLLVM(
     Function *debugChar, Function *debugInt) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int32Type = Type::getInt32Ty(llvmContext);
-  Type *int64Type = Type::getInt64Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
@@ -707,9 +700,7 @@ void CSVPlugin::readAsIntLLVM(
     map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int32Type = Type::getInt32Ty(llvmContext);
-  Type *int64Type = Type::getInt64Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
@@ -829,9 +820,6 @@ void CSVPlugin::readAsFloatLLVM(
     Function *debugChar, Function *debugFloat) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
-  Type *int32Type = Type::getInt32Ty(llvmContext);
-  Type *int64Type = Type::getInt64Ty(llvmContext);
   Type *doubleType = Type::getDoubleTy(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
@@ -859,7 +847,6 @@ void CSVPlugin::readAsFloatLLVM(
   Value *start = Builder->CreateLoad(pos, "start_pos_atoi");
   skipLLVM();
   // index must be different than start!
-  Value *index = Builder->CreateLoad(pos, "end_pos_atoi");
   Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
   Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, start);
   vector<Value *> ArgsV;

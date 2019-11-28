@@ -102,8 +102,6 @@ void BinaryInternalPlugin::scanStruct(const ::Operator &producer) {
   // cout << "Internal Binary PG scan (struct)" << endl;
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
-  Type *int64Type = Type::getInt64Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
 
   // Container for the variable bindings
@@ -233,8 +231,6 @@ void BinaryInternalPlugin::scan(const ::Operator &producer) {
   cout << "Internal Binary PG scan" << endl;
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
-  Type *int64Type = Type::getInt64Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
 
   // Container for the variable bindings
@@ -301,13 +297,6 @@ void BinaryInternalPlugin::scan(const ::Operator &producer) {
   //      br label %for.inc
 
   // Actual Work (Loop through attributes etc.)
-  int cur_col = 0;
-
-  int lastFieldNo = -1;
-
-  Function *debugChar = context->getFunction("printc");
-  Function *debugInt = context->getFunction("printi");
-  Function *debugFloat = context->getFunction("printFloat");
 
   size_t offset = 0;
   list<RecordAttribute *> args = rec.getArgs();
@@ -660,8 +649,6 @@ Value *BinaryInternalPlugin::getValueSize(ProteusValueMemory mem_value,
 void BinaryInternalPlugin::skipLLVM(Value *offset) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
-  Type *int64Type = Type::getInt64Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
 
   // Increment and store back
@@ -675,9 +662,7 @@ void BinaryInternalPlugin::readAsIntLLVM(
     map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int32Type = Type::getInt32Ty(llvmContext);
-  Type *int64Type = Type::getInt64Ty(llvmContext);
   PointerType *ptrType_int32 = PointerType::get(int32Type, 0);
 
   IRBuilder<> *Builder = context->getBuilder();
@@ -713,7 +698,6 @@ void BinaryInternalPlugin::readAsInt64LLVM(
     map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int64Type = Type::getInt64Ty(llvmContext);
   PointerType *ptrType_int64 = PointerType::get(int64Type, 0);
 
@@ -749,10 +733,7 @@ void BinaryInternalPlugin::readAsStringLLVM(
     map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int32Type = Type::getInt32Ty(llvmContext);
-  Type *int64Type = Type::getInt64Ty(llvmContext);
-  PointerType *ptrType_int32 = PointerType::get(int32Type, 0);
 
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = Builder->GetInsertBlock()->getParent();

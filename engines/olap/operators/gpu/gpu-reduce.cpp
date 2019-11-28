@@ -89,8 +89,6 @@ void GpuReduce::consume(ParallelContext *const context,
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-  int aggsNo = accs.size();
-
   // Generate condition
   ExpressionGeneratorVisitor predExprGenerator{context, childState};
   ProteusValue condition = pred.accept(predExprGenerator);
@@ -107,7 +105,6 @@ void GpuReduce::consume(ParallelContext *const context,
   /**
    * IF(pred) Block
    */
-  ProteusValue val_output;
   Builder->SetInsertPoint(entryBlock);
 
   Builder->CreateCondBr(condition.value, ifBlock, endBlock);
@@ -408,9 +405,7 @@ size_t GpuReduce::resetAccumulator(expression_t outputExpr, Monoid acc,
 
               vector<Value *> args;
               for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
-                auto acc = *itAcc;
                 auto outputExpr = *itExpr;
-                Value *mem_accumulating = nullptr;
 
                 if (*itMem == ~((size_t)0)) continue;
 
@@ -418,8 +413,6 @@ size_t GpuReduce::resetAccumulator(expression_t outputExpr, Monoid acc,
               }
 
               IRBuilder<> *Builder = context->getBuilder();
-
-              Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
 
               Function *f = context->getFunction("subpipeline_consume");
               FunctionType *f_t = f->getFunctionType();

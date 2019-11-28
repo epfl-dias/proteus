@@ -487,7 +487,6 @@ void GpuHashGroupByChained::close(Pipeline *pip) {
   cudaStream_t strm = createNonBlockingStream();
 
   execution_conf ec = pip->getExecConfiguration();
-  size_t grid_size = ec.gridSize();
 
   // void   ** buffs = pip->getStateVar<void   **>(buffVar_id[0]);
   // int32_t * cnts  = pip->getStateVar<int32_t *>(cntVar_id    );

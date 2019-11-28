@@ -48,18 +48,6 @@ GpuPipelineGen::GpuPipelineGen(Context *context, std::string pipName,
   Type *int64_type = Type::getInt64Ty(context->getLLVMContext());
   Type *void_type = Type::getVoidTy(context->getLLVMContext());
   Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
-  Type *f32PtrType = Type::getFloatPtrTy(context->getLLVMContext());
-  Type *f32Type = Type::getFloatTy(context->getLLVMContext());
-  Type *f64PtrType = Type::getDoublePtrTy(context->getLLVMContext());
-  Type *f64Type = Type::getDoubleTy(context->getLLVMContext());
-
-  Type *size_type;
-  if (sizeof(size_t) == 4)
-    size_type = int32_type;
-  else if (sizeof(size_t) == 8)
-    size_type = int64_type;
-  else
-    assert(false);
 
   kernel_id = appendStateVar(
       charPtrType,

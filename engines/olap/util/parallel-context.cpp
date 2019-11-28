@@ -24,13 +24,9 @@
 #include "util/parallel-context.hpp"
 
 #include "common/gpu/gpu-common.hpp"
-
-// #include "llvm/CodeGen/CommandFlags.h"
 #include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/TargetMachine.h"
-// #include "llvm/Target/TargetSubtargetInfo.h"
 #include "util/jit/cpu-pipeline.hpp"
 #include "util/jit/gpu-pipeline.hpp"
 #include "util/timing.hpp"

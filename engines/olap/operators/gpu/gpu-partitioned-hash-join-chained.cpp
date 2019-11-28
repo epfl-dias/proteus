@@ -123,10 +123,6 @@ void HashPartitioner::consume(Context *const context,
                               const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
-  Function *TheFunction = Builder->GetInsertBlock()->getParent();
-
-  Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
-  Type *int64_type = Type::getInt64Ty(context->getLLVMContext());
 
   Value *out_cnt = ((const ParallelContext *)context)->getStateVar(cnt_pipe);
 
@@ -157,7 +153,6 @@ void HashPartitioner::consume(Context *const context,
     const ExpressionType *out_type = w.expr.getExpressionType();
     Type *llvm_type = ((const PrimitiveType *)out_type)
                           ->getLLVMType(context->getLLVMContext());
-    Type *t_ptr = PointerType::get(llvm_type, 1);
 
     ProteusValue valWrapper = w.expr.accept(exprGenerator);
     Value *col_ptr =
@@ -211,9 +206,6 @@ void HashPartitioner::open(Pipeline *pip) {
   size_t buckets_num_max =
       (((maxInputSize + parts2 - 1) / parts2 + bucket_size - 1) / bucket_size) *
       parts2;
-  size_t buffer_size = buckets_num_max * bucket_size;
-  size_t alloca_size = (buckets_num_max + parts2 + 4) * sizeof(int32_t) +
-                       parts2 * sizeof(uint64_t);
 
   cudaStream_t strm = createNonBlockingStream();
   gpu_run(cudaMemsetAsync(cnt_ptr, 0, sizeof(int32_t), strm));
@@ -279,7 +271,6 @@ void HashPartitioner::close(Pipeline *pip) {
       parts2;
   size_t buffer_size = buckets_num_max * bucket_size;
 
-  char *alloca = state.allocas[pip->getGroup()];
   int32_t *cnt_ptr = cnts_ptr[pip->getGroup()];
 
   size_t alloca_size = (buckets_num_max + parts2 + 4) * sizeof(int32_t) +
@@ -575,7 +566,6 @@ void GpuPartitionedHashJoinChained::probeHashTableFormat() {
 
 void GpuPartitionedHashJoinChained::buildHashTableFormat() {
   Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
-  Type *t_head_ptr = PointerType::get(int32_type, 1);
   // head_id = context->appendStateVar(t_head_ptr);//, true, false);
 
   const ExpressionType *out_type_key = build_keyexpr.getExpressionType();
@@ -706,8 +696,6 @@ void GpuPartitionedHashJoinChained::generate_joinloop(Context *const context) {
       ConstantAggregateZero::get(ArrayType::get(int32_type, 1 << hash_bits)),
       "head_shared", nullptr, GlobalVariable::ThreadLocalMode::NotThreadLocal,
       3, false);
-
-  Value *out_cnts = gpu_context->getStateVar(cnt_right_join);
 
   kernelBindings["keys_shared"] = shared_keys;
   kernelBindings["idxs_shared"] = shared_idxs;
