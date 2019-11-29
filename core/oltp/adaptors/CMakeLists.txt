@@ -10,7 +10,11 @@ set(aeolus_plugin_cxx
 add_library(aeolus_plugin SHARED
         ${aeolus_plugin_cxx}
     )
-target_link_libraries(aeolus_plugin aeolus_engine codegen::olap)
+
+target_link_libraries(aeolus_plugin
+    PUBLIC
+        aeolus::engine
+        codegen::olap)
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
 install(TARGETS aeolus_plugin EXPORT ${PROJECT_NAME}Config
@@ -26,5 +30,6 @@ install(EXPORT ${PROJECT_NAME}Config DESTINATION share/${PROJECT_NAME}/cmake)
 # This makes the project importable from the build directory
 export(TARGETS aeolus_plugin FILE ${PROJECT_NAME}Config.cmake)
 
+add_library(aeolus::plugin ALIAS aeolus_plugin)
 #enable_testing()
 #add_test(UT aeolus_plugin-tests)

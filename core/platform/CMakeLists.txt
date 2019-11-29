@@ -3,9 +3,7 @@ project(codegen VERSION 0.1 LANGUAGES CXX)
 # Pure, regular C++ files
 set(codegen_cxx
     common/common.cpp
-    common/llvm-dump.cpp
     common/gpu/gpu-common.cpp
-    common/symantec-config.cpp
     communication/comm-manager.cpp
     memory/memory-allocator.cpp
     memory/memory-manager.cpp
@@ -16,7 +14,6 @@ set(codegen_cxx
     util/profiling.cpp
     util/radix/aggregations/radix-aggr.cpp
     util/radix/joins/radix-join.cpp
-    values/expressionTypes.cpp
     )
 
 # C++ files requiring CUDA headers
@@ -121,7 +118,6 @@ target_compile_features(codegen
 # Depend on a library that we defined in the top-level file
 target_link_libraries(codegen
         PUBLIC
-            ${llvm_libs}
             glog::glog
             -lnuma
             -lc++abi

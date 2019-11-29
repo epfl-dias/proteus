@@ -459,9 +459,6 @@ install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/generated_code) 			
 #-----------------------------------------------------------------------
 # Build our libraries
 #-----------------------------------------------------------------------
-include_directories(
-		SYSTEM ${LLVM_INCLUDE_DIRS}
-)
 
 # Add the warning flags
 string(STRIP "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS}" CMAKE_CXX_FLAGS)

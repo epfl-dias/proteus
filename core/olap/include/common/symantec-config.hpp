@@ -24,7 +24,6 @@
 #ifndef SYMANTEC_CONFIG_HPP_
 #define SYMANTEC_CONFIG_HPP_
 
-#include "common/common.hpp"
 #include "values/expressionTypes.hpp"
 /* Constants and macros to be used by queries targeting dataset of spam emails
  */

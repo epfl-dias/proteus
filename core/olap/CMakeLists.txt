@@ -3,6 +3,8 @@ project(olap VERSION 0.1 LANGUAGES CXX)
 # Pure, regular C++ files
 set(olap_cxx
         common/common.cpp
+        common/llvm-dump.cpp
+        common/symantec-config.cpp
         expressions/binary-operators.cpp
         expressions/expressions-dot-evaluator.cpp
         expressions/expressions-flusher.cpp
@@ -78,6 +80,7 @@ set(olap_cxx
         util/jit/jit-module.cpp
         util/jit/pipeline.cpp
         util/parallel-context.cpp
+        values/expressionTypes.cpp
         )
 
 # C++ files requiring CUDA headers
@@ -113,11 +116,17 @@ add_library(olap SHARED
 # compiling the library, and will be added to consumers' build
 # paths.
 target_include_directories(olap
-        PUBLIC
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-            $<INSTALL_INTERFACE:include>
-        PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR})
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+
+target_include_directories(olap
+    SYSTEM PUBLIC
+        ${LLVM_INCLUDE_DIRS}
+    )
 
 # If we have compiler requirements for this library, list them
 # here

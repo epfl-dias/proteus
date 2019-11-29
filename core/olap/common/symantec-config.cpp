@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "symantec-config.hpp"
+#include "common/symantec-config.hpp"
 /* Constants and macros to be used by queries targeting dataset of spam emails
  */
 

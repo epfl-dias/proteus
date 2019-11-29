@@ -43,6 +43,7 @@ install(TARGETS aeolus_bench EXPORT ${PROJECT_NAME}Config
 # This makes the project importable from the build directory
 #export(TARGETS codegen FILE ${PROJECT_NAME}Config.cmake)
 
+add_library(aeolus::bench ALIAS aeolus_bench)
 #enable_testing()
 #add_test(UT codegen-tests) # Add codegen-specific tests?
 
