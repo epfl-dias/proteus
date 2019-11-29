@@ -283,7 +283,7 @@ if (TRUE)
 	set(GFLAGS_REGISTER_INSTALL_PREFIX OFF)
 	set(GFLAGS_LIBRARY_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR})
 	# Add google test here, so that we do not propagate to it the WARNING_FLAGS
-	configure_file(CMakeLists.txt.gflags.in gflags-download/CMakeLists.txt)
+	configure_file(external/CMakeLists.txt.gflags.in gflags-download/CMakeLists.txt)
 	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
 		RESULT_VARIABLE result
 		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/gflags-download )
@@ -328,7 +328,7 @@ if (TRUE)
 	endmacro()
 
 	# Add glog here, so that we do not propagate to it the WARNING_FLAGS
-	configure_file(CMakeLists.txt.glog.in glog-download/CMakeLists.txt)
+	configure_file(external/CMakeLists.txt.glog.in glog-download/CMakeLists.txt)
 	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
 			RESULT_VARIABLE result
 			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/glog-download )
@@ -364,7 +364,7 @@ endif()
 # GoogleTest
 if (TRUE)
 	# Add google test here, so that we do not propagate to it the WARNING_FLAGS
-	configure_file(CMakeLists.txt.gtest.in googletest-download/CMakeLists.txt)
+	configure_file(external/CMakeLists.txt.gtest.in googletest-download/CMakeLists.txt)
 	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
 		RESULT_VARIABLE result
 		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
@@ -399,7 +399,7 @@ if (TRUE)
 
 	set(GTEST_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/googletest-src)
 
-	configure_file(CMakeLists.txt.rapidjson.in rapidjson-download/CMakeLists.txt)
+	configure_file(external/CMakeLists.txt.rapidjson.in rapidjson-download/CMakeLists.txt)
 	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
 			RESULT_VARIABLE result
 			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/rapidjson-download )

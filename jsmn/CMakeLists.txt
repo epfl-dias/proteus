@@ -26,3 +26,5 @@ install(EXPORT ${PROJECT_NAME}Config DESTINATION share/${PROJECT_NAME}/cmake)
 
 # This makes the project importable from the build directory
 export(TARGETS jsmn FILE ${PROJECT_NAME}Config.cmake)
+
+add_library(jsmn::jsmn ALIAS jsmn)

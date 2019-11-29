@@ -13,3 +13,5 @@ install(TARGETS cli-flags EXPORT ${PROJECT_NAME}Config.cmake
 
 install(EXPORT ${PROJECT_NAME}Config.cmake DESTINATION share/${PROJECT_NAME}/cmake)
 export(TARGETS cli-flags gflags_shared FILE ${PROJECT_NAME}Config.cmake)
+
+add_library(cli-flags::cli-flags ALIAS cli-flags)
