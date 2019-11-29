@@ -74,7 +74,7 @@ exclude_dirs = [
     "cmake-build-debug"
 ]
 
-root = os.path.dirname(os.path.realpath(__file__))
+root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 found_bad = False
 
 def check_files(files, d):

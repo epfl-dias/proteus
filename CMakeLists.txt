@@ -35,14 +35,10 @@ project(proteus VERSION 2.0)
 #-----------------------------------------------------------------------
 # Which binaries to build:
 #-----------------------------------------------------------------------
-# Simply comment the lines of this section to skip some of the binaries
-# to build.
-set(MAINS main-server) # Interface to the executor
 
 # Tests
 # not too sure if we should build "main", it looks like it has the same
 # test cases as the gtests
-#set(MAINS ${MAINS} main main-caches main-nest main-str main-reduce)
 set(UNIT_TESTS TRUE)
 set(DUNIT_TESTS FALSE)
 
@@ -485,15 +481,7 @@ add_subdirectory(core/olap)
 #-----------------------------------------------------------------------
 # Build our executables
 #-----------------------------------------------------------------------
-foreach(target ${MAINS})
-	add_executable(proteus${target} ${target}.cpp cli-flags.cpp)
-	target_link_libraries(proteus${target} codegen::olap)
-	install(TARGETS proteus${target}
-		RUNTIME DESTINATION pelago
-		LIBRARY DESTINATION lib
-		ARCHIVE DESTINATION lib
-		)
-endforeach(target)
+add_subdirectory(apps/standalones/olap)
 
 add_subdirectory(core/oltp)
 add_subdirectory(apps/benchmarks/oltp)

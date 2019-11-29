@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "codegen/common/common.hpp"
+#include "common/common.hpp"
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions-hasher.hpp"
 #include "expressions/expressions.hpp"

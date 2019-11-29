@@ -121,7 +121,7 @@ licenses:
  stage: Code quality
  allow_failure: true
  script:
- - python check_licenses.py
+ - python tools/check_licenses.py
  <<: *cache
  <<: *restrict_precommit
 

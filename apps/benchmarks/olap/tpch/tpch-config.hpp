@@ -24,7 +24,7 @@
 #ifndef TPCH_CONFIG_HPP_
 #define TPCH_CONFIG_HPP_
 
-//#include "codegen/expressions/expressions.hpp"
+//#include "expressions/expressions.hpp"
 #include <values/expressionTypes.hpp>
 
 #include "common/common.hpp"
