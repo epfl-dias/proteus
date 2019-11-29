@@ -418,6 +418,10 @@ if (TRUE)
 	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/rapidjson-src
 			${CMAKE_CURRENT_BINARY_DIR}/rapidjson-build
 			)
+
+	add_library(RapidJSON::RapidJSON INTERFACE IMPORTED)
+	set_target_properties(RapidJSON::RapidJSON PROPERTIES
+		INTERFACE_INCLUDE_DIRECTORIES "${RapidJSON_SOURCE_DIR}/include")
 endif()
 
 #-----------------------------------------------------------------------
@@ -458,7 +462,6 @@ install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/generated_code) 			
 #-----------------------------------------------------------------------
 include_directories(
 		SYSTEM ${LLVM_INCLUDE_DIRS}
-		SYSTEM "${RapidJSON_SOURCE_DIR}/include"
 		# FIXME: system libraries should not be included with quotes...
 		# Add local (for use with ""-style includes) path to the sysroot
 #		"${CMAKE_INSTALL_PREFIX}/include"

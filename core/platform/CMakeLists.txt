@@ -127,7 +127,8 @@ target_link_libraries(codegen
             -lnuma
             -lc++abi
             ${CUDA_LIBS}
-            cli-flags)
+            cli-flags
+            RapidJSON::RapidJSON)
 
 if(VTUNE AND VTUNE_ENABLE)
 target_link_libraries(codegen PUBLIC ${VTUNE})
