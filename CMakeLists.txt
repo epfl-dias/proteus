@@ -453,8 +453,9 @@ add_definitions(-DTEST_OUTPUTS="outputs")
 #-----------------------------------------------------------------------
 # Copy data files too in the destination folder
 #-----------------------------------------------------------------------
-install(DIRECTORY "inputs" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago)			# Creates <..>/pelago/inputs
+install(DIRECTORY "inputs" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago)					# Creates <..>/pelago/inputs
 install(DIRECTORY "testResults/" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/outputs)	# Creates <..>/pelago/outputs
+install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/generated_code) 			# Creates <..>/pelago/generated_code
 
 #-----------------------------------------------------------------------
 # Build our libraries
