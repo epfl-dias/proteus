@@ -123,15 +123,13 @@ target_link_libraries(codegen
         PUBLIC
             ${llvm_libs}
             glog::glog
-            jsmn
             -lnuma
             -lc++abi
             ${CUDA_LIBS}
-            cli-flags
-            RapidJSON::RapidJSON)
+            cli-flags)
 
 if(VTUNE AND VTUNE_ENABLE)
-target_link_libraries(codegen PUBLIC ${VTUNE})
+target_link_libraries(codegen PUBLIC VTUNE)
 endif()
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).

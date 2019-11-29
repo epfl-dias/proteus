@@ -129,7 +129,9 @@ target_link_libraries(olap
     PUBLIC
         ${llvm_libs}
         codegen::codegen
-        cli-flags)
+        jsmn
+        cli-flags
+        RapidJSON::RapidJSON)
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
 install(TARGETS olap EXPORT ${PROJECT_NAME}Targets

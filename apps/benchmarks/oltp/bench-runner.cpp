@@ -56,13 +56,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "common/common.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
-
-#if __has_include("ittnotify.h")
-#include <ittnotify.h>
-#else
-#define __itt_resume() ((void)0)
-#define __itt_pause() ((void)0)
-#endif
+#include "util/profiling.hpp"
 
 // DEFINE_bool(debug, false, "Debug mode");
 // DEFINE_uint64(num_workers, 0, "Number of txn-workers");
@@ -181,7 +175,7 @@ int main(int argc, char** argv) {
       (FLAGS_elastic_workload > 0 ? true : false));
 
   schema->report();
-  __itt_resume();
+  profiling::resume();
   scheduler::WorkerPool::getInstance().start_workers();
 
   if (FLAGS_migrate_worker > 0) {
@@ -245,7 +239,7 @@ int main(int argc, char** argv) {
   usleep(1000000);  // sanity sleep so that async threads can exit gracefully.
 
   std::cout << "Tear Down Inititated" << std::endl;
-  __itt_pause();
+  profiling::pause();
   scheduler::WorkerPool::getInstance().shutdown(true);
 
   if (HTAP_RM_SERVER) {

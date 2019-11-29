@@ -427,22 +427,17 @@ endif()
 #-----------------------------------------------------------------------
 # Setup the library list, as the order is important do it last
 
-# `codegen` needs to be unquoted to be replaced, as CMake controls the build of
-# that library
-
-set(default_libs ${default_libs} ${CUDA_LIBS})
-set(default_libs ${default_libs} gflags::gflags glog::glog gflags::gflags)
-set(default_libs ${default_libs} -lc++abi -lpthread -lrt)
-
-
 #-----------------------------------------------------------------------
 # Intel VTune profile support
-find_library(VTUNE ittnotify HINTS "/opt/intel/vtune_amplifier/lib64")
+find_library(VTUNE ittnotify HINTS
+		"/opt/intel/vtune_amplifier/lib64"
+		"~/intel/vtune_amplifier/lib64")
 if(VTUNE AND VTUNE_ENABLE)
-	include_directories(
-		SYSTEM "/opt/intel/vtune_amplifier/include"
-		)
-	set(default_libs ${default_libs} ${VTUNE} -ldl)
+	get_filename_component(VTUNE_LIBRARY_DIR ${VTUNE} DIRECTORY)
+	get_filename_component(VTUNE_ROOT ${VTUNE_LIBRARY_DIR} DIRECTORY)
+	add_library(VTUNE INTERFACE IMPORTED)
+	set_target_properties(VTUNE PROPERTIES
+			INTERFACE_INCLUDE_DIRECTORIES "${VTUNE_ROOT}/include")
 endif()
 
 #-----------------------------------------------------------------------
@@ -462,9 +457,6 @@ install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/generated_code) 			
 #-----------------------------------------------------------------------
 include_directories(
 		SYSTEM ${LLVM_INCLUDE_DIRS}
-		# FIXME: system libraries should not be included with quotes...
-		# Add local (for use with ""-style includes) path to the sysroot
-#		"${CMAKE_INSTALL_PREFIX}/include"
 )
 
 # Add the warning flags
@@ -477,9 +469,6 @@ add_subdirectory(jsmn)
 # code generation library
 add_subdirectory(core/platform)
 add_subdirectory(core/olap)
-
-# Add libcodegen to link
-#set(default_libs ${default_libs} codegen::codegen)
 
 #-----------------------------------------------------------------------
 # Build our executables
