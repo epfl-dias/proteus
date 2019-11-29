@@ -7,7 +7,8 @@ project(aeolus VERSION 0.1)
 # to build.
 set(OLTP_MAINS server)
 
-set (OLTP_CLI_FLAGS engine/oltp-cli-flags.cpp)
+set (OLTP_CLI_FLAGS
+		)
 
 
 foreach(target ${OLTP_CLI_FLAGS})
