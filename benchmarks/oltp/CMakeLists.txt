@@ -4,7 +4,6 @@
 add_subdirectory(bench)
 set(txn_bench_cxx
 	bench-cli-flags.cpp
-	${PROJECT_SOURCE_DIR}/engines/oltp/engine/oltp-cli-flags.cpp
     )
 
 find_package(Threads REQUIRED)

@@ -26,12 +26,12 @@
 #include <cstring>
 
 #include "cli-flags.hpp"
-#include "codegen/communication/comm-manager.hpp"
-#include "codegen/memory/block-manager.hpp"
-#include "codegen/topology/affinity_manager.hpp"
+#include "communication/comm-manager.hpp"
+#include "memory/block-manager.hpp"
 #include "memory/memory-manager.hpp"
 #include "plan/prepared-statement.hpp"
 #include "storage/storage-manager.hpp"
+#include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 
 extern bool print_generated_code;

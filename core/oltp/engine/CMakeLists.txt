@@ -18,7 +18,7 @@ set(txn_engine_cxx
     snapshot/cow_arena.cpp
     snapshot/cor_const_arena.cpp
     indexes/hash_array.cpp
-    #oltp-cli-flags.cpp
+    oltp-cli-flags.cpp
     )
 
 foreach(target ${txn_engine_cxx})

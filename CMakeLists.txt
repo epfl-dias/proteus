@@ -241,8 +241,7 @@ if(CUDA_FOUND)
 	# CUDA-only flags, used with nvcc
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem ${CMAKE_INSTALL_PREFIX}/include)
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem ${LLVM_INCLUDE_DIRS})
-	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${PROJECT_SOURCE_DIR})
-	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${PROJECT_SOURCE_DIR}/codegen)
+	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${PROJECT_SOURCE_DIR}/core/platform)
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} ${CUDA_CU_ARCHS})
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} --std=c++11)
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -Xcompiler -fPIC)
@@ -476,8 +475,8 @@ string(STRIP "${CMAKE_C_FLAGS} ${WARNING_FLAGS}" CMAKE_C_FLAGS)
 add_subdirectory(jsmn)
 
 # code generation library
-add_subdirectory(codegen)
-add_subdirectory(engines/olap)
+add_subdirectory(core/platform)
+add_subdirectory(core/olap)
 
 # Add libcodegen to link
 #set(default_libs ${default_libs} codegen::codegen)
@@ -495,7 +494,7 @@ foreach(target ${MAINS})
 		)
 endforeach(target)
 
-add_subdirectory(engines/oltp)
+add_subdirectory(core/oltp)
 add_subdirectory(benchmarks/oltp)
 
 # Unit-tests
