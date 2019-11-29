@@ -3,7 +3,7 @@
 
 add_subdirectory(bench)
 set(txn_bench_cxx
-	bench-cli-flags.cpp
+		bench-cli-flags.cpp
     )
 
 find_package(Threads REQUIRED)

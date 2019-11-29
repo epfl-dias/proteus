@@ -495,7 +495,7 @@ foreach(target ${MAINS})
 endforeach(target)
 
 add_subdirectory(core/oltp)
-add_subdirectory(benchmarks/oltp)
+add_subdirectory(apps/benchmarks/oltp)
 
 # Unit-tests
 if(UNIT_TESTS)
@@ -509,15 +509,15 @@ endif()
 
 # Benchmarks
 if(TPCH)
-	add_subdirectory(benchmarks/olap/tpch)
+	add_subdirectory(apps/benchmarks/olap/tpch)
 endif()
 
 # real-world experiments
 if(REALWORLD_EXPERIMENTS)
-	add_subdirectory(experiments/realworld-queries)
-	add_subdirectory(experiments/realworld-symantec)
-	add_subdirectory(experiments/realworld-vldb)
+	add_subdirectory(apps/experiments/realworld-queries)
+	add_subdirectory(apps/experiments/realworld-symantec)
+	add_subdirectory(apps/experiments/realworld-vldb)
 
 	# sigmod versions
-	add_subdirectory(experiments/realworld)
+	add_subdirectory(apps/experiments/realworld)
 endif()

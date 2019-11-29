@@ -2,7 +2,7 @@ project(aeolus_bench VERSION 0.1 LANGUAGES CXX)
 # Pure, regular C++ files
 set(aeolus_bench_cxx
     #tpcc.cpp
-    tpcc_64.cpp
+        tpcc_64.cpp
 #    micro_ssb.cpp
     )
 
