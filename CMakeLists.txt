@@ -235,7 +235,6 @@ if(CUDA_FOUND)
 	# CMAKE list, and not a string for CUDA_CUFLAGS
 
 	# CUDA-only flags, used with nvcc
-	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem ${CMAKE_INSTALL_PREFIX}/include)
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem ${LLVM_INCLUDE_DIRS})
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${PROJECT_SOURCE_DIR}/core/platform)
 	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} ${CUDA_CU_ARCHS})
@@ -435,9 +434,14 @@ find_library(VTUNE ittnotify HINTS
 if(VTUNE AND VTUNE_ENABLE)
 	get_filename_component(VTUNE_LIBRARY_DIR ${VTUNE} DIRECTORY)
 	get_filename_component(VTUNE_ROOT ${VTUNE_LIBRARY_DIR} DIRECTORY)
-	add_library(VTUNE INTERFACE IMPORTED)
-	set_target_properties(VTUNE PROPERTIES
-			INTERFACE_INCLUDE_DIRECTORIES "${VTUNE_ROOT}/include")
+	add_library(vtune::vtune INTERFACE IMPORTED)
+	set_target_properties(vtune::vtune PROPERTIES
+			INTERFACE_INCLUDE_DIRECTORIES "${VTUNE_ROOT}/include"
+			INTERFACE_LINK_LIBRARIES "${VTUNE}"
+			)
+	message(STATUS "Vtune root: ${VTUNE_ROOT}")
+	message(STATUS "Vtune lib: ${VTUNE}")
+	message(STATUS "Vtune include: ${VTUNE_ROOT}/include")
 endif()
 
 #-----------------------------------------------------------------------

@@ -129,7 +129,7 @@ target_link_libraries(codegen
             cli-flags)
 
 if(VTUNE AND VTUNE_ENABLE)
-target_link_libraries(codegen PUBLIC VTUNE)
+target_link_libraries(codegen PUBLIC vtune::vtune)
 endif()
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
