@@ -309,7 +309,6 @@ if (TRUE)
 	add_subdirectory(
 			${CMAKE_CURRENT_BINARY_DIR}/gflags-src
 			${CMAKE_CURRENT_BINARY_DIR}/gflags-build
-			EXCLUDE_FROM_ALL
 			)
 
 	# patch around gflags::gflags exporting their targets in two export sets
@@ -352,7 +351,7 @@ if (TRUE)
 
 	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/glog-src
 			${CMAKE_CURRENT_BINARY_DIR}/glog-build
-			EXCLUDE_FROM_ALL)
+			)
 
 	# Make glog appear as system library to avoid header warnings
 	get_target_property(glog_INCLUDE_DIR glog INTERFACE_INCLUDE_DIRECTORIES)
@@ -390,7 +389,7 @@ if (TRUE)
 	# the gtest and gtest_main targets.
 	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
 		${CMAKE_CURRENT_BINARY_DIR}/googletest-build
-		EXCLUDE_FROM_ALL)
+		)
 
 	set(GTEST gtest)
 	set(GTEST_MAIN gtest_main)
@@ -423,7 +422,7 @@ if (TRUE)
 
 	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/rapidjson-src
 			${CMAKE_CURRENT_BINARY_DIR}/rapidjson-build
-			EXCLUDE_FROM_ALL)
+			)
 endif()
 
 #-----------------------------------------------------------------------
@@ -474,7 +473,7 @@ string(STRIP "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS}" CMAKE_CXX_FLAGS)
 string(STRIP "${CMAKE_C_FLAGS} ${WARNING_FLAGS}" CMAKE_C_FLAGS)
 
 # build libjsmn
-add_subdirectory(jsmn EXCLUDE_FROM_ALL)
+add_subdirectory(jsmn)
 
 # code generation library
 add_subdirectory(codegen)
