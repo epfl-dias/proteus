@@ -450,7 +450,7 @@ add_definitions(-DTEST_OUTPUTS="outputs")
 # Copy data files too in the destination folder
 #-----------------------------------------------------------------------
 install(DIRECTORY "inputs" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago)					# Creates <..>/pelago/inputs
-install(DIRECTORY "testResults/" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/outputs)	# Creates <..>/pelago/outputs
+install(DIRECTORY "tests/olap/testResults/" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/outputs)	# Creates <..>/pelago/outputs
 install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/generated_code) 			# Creates <..>/pelago/generated_code
 
 #-----------------------------------------------------------------------
@@ -488,12 +488,12 @@ add_subdirectory(apps/benchmarks/oltp)
 
 # Unit-tests
 if(UNIT_TESTS)
-	add_subdirectory(tests)
+	add_subdirectory(tests/olap)
 endif()
 
 # Deprecated unit-tests
 if(DUNIT_TESTS)
-	add_subdirectory(tests-deprecated)
+	add_subdirectory(tests/olap/deprecated)
 endif()
 
 # Benchmarks
