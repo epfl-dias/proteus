@@ -32,6 +32,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <functional>
 #include <future>
 #include <iostream>
+#include <random>
 #include <thread>
 #include <tuple>
 
@@ -131,7 +132,10 @@ class timed_func {
 
 static inline int __attribute__((always_inline))
 RAND(unsigned int *seed, int max) {
-  return rand_r(seed) % max;
+  // return rand_r(seed) % max;
+
+  static thread_local std::mt19937 gen;
+  return gen() % max;
 }
 
 static inline int __attribute__((always_inline))
