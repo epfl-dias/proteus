@@ -24,6 +24,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define SPIN_LOCK_HPP_
 
 #include <sched.h>
+
 #include <atomic>
 #include <cassert>
 
@@ -56,7 +57,8 @@ struct Spinlock_Weak {
   void acquire() {
     for (int tries = 0; true; ++tries) {
       bool e_false = false;
-      if (lk.compare_exchange_weak(e_false, true)) return;
+      if (lk.compare_exchange_weak(e_false, true, std::memory_order_acquire))
+        return;
       if (tries == 100) {
         tries = 0;
         sched_yield();
@@ -64,7 +66,7 @@ struct Spinlock_Weak {
     }
   }
 
-  void release() { lk.store(false); }
+  void release() { lk.store(false, std::memory_order_release); }
 
   std::atomic<bool> lk;
 };

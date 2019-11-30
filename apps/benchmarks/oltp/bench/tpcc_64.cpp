@@ -70,7 +70,7 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
 
   assert(w_idx_ptr != NULL || w_idx_ptr != nullptr);
   bool e_false = false;
-  if (!(w_idx_ptr->write_lck.compare_exchange_strong(e_false, true))) {
+  if (!(w_idx_ptr->write_lck.try_lock())) {
     return false;
   }
 
@@ -81,8 +81,8 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
 
   assert(d_idx_ptr != NULL || d_idx_ptr != nullptr);
   e_false = false;
-  if (!(d_idx_ptr->write_lck.compare_exchange_strong(e_false, true))) {
-    w_idx_ptr->write_lck.store(false);
+  if (!(d_idx_ptr->write_lck.try_lock())) {
+    w_idx_ptr->write_lck.unlock();
     return false;
   }
 
@@ -105,8 +105,8 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
             cust_derive_key(q->c_last, q->c_d_id, q->c_w_id), sr)) {
       // ABORT
 
-      w_idx_ptr->write_lck.store(false);
-      d_idx_ptr->write_lck.store(false);
+      w_idx_ptr->write_lck.unlock();
+      d_idx_ptr->write_lck.unlock();
 
       return false;
     }
@@ -156,9 +156,9 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
 
   assert(c_idx_ptr != NULL || c_idx_ptr != nullptr);
   e_false = false;
-  if (!(c_idx_ptr->write_lck.compare_exchange_strong(e_false, true))) {
-    w_idx_ptr->write_lck.store(false);
-    d_idx_ptr->write_lck.store(false);
+  if (!(c_idx_ptr->write_lck.try_lock())) {
+    w_idx_ptr->write_lck.unlock();
+    d_idx_ptr->write_lck.unlock();
     return false;
   }
 
@@ -196,7 +196,7 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
 
   w_idx_ptr->t_min = xid;
   w_idx_ptr->latch.release();
-  w_idx_ptr->write_lck.store(false);
+  w_idx_ptr->write_lck.unlock();
 
   /*=====================================================+
       EXEC SQL UPDATE district SET d_ytd = d_ytd + :h_amount
@@ -229,7 +229,7 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
 
   d_idx_ptr->t_min = xid;
   d_idx_ptr->latch.release();
-  d_idx_ptr->write_lck.store(false);
+  d_idx_ptr->write_lck.unlock();
 
   //---
 
@@ -293,7 +293,7 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
 
   c_idx_ptr->t_min = xid;
   c_idx_ptr->latch.release();
-  c_idx_ptr->write_lck.store(false);
+  c_idx_ptr->write_lck.unlock();
 
   /*
       char h_data[25];
@@ -416,8 +416,7 @@ inline bool TPCC::exec_delivery_txn(struct tpcc_query *q, uint64_t xid,
       bool e_false = false;
       assert(idx_w_locks[num_locks] != NULL ||
              idx_w_locks[num_locks] != nullptr);
-      if (idx_w_locks[num_locks]->write_lck.compare_exchange_strong(e_false,
-                                                                    true)) {
+      if (idx_w_locks[num_locks]->write_lck.try_lock()) {
 #if !tpcc_dist_txns
         assert(extract_pid(idx_w_locks[num_locks]->VID) == partition_id);
 #endif
@@ -434,8 +433,7 @@ inline bool TPCC::exec_delivery_txn(struct tpcc_query *q, uint64_t xid,
       e_false = false;
       assert(idx_w_locks[num_locks] != NULL ||
              idx_w_locks[num_locks] != nullptr);
-      if (idx_w_locks[num_locks]->write_lck.compare_exchange_strong(e_false,
-                                                                    true)) {
+      if (idx_w_locks[num_locks]->write_lck.try_lock()) {
 #if !tpcc_dist_txns
         assert(extract_pid(idx_w_locks[num_locks]->VID) == partition_id);
 #endif
@@ -454,8 +452,7 @@ inline bool TPCC::exec_delivery_txn(struct tpcc_query *q, uint64_t xid,
         assert(idx_w_locks[num_locks] != NULL ||
                idx_w_locks[num_locks] != nullptr);
         bool e_false_s = false;
-        if (idx_w_locks[num_locks]->write_lck.compare_exchange_strong(e_false_s,
-                                                                      true)) {
+        if (idx_w_locks[num_locks]->write_lck.try_lock()) {
 #if !tpcc_dist_txns
           assert(extract_pid(idx_w_locks[num_locks]->VID) == partition_id);
 #endif
@@ -690,8 +687,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
 
   bool e_false = false;
   assert(idx_w_locks[num_locks] != NULL || idx_w_locks[num_locks] != nullptr);
-  if (idx_w_locks[num_locks]->write_lck.compare_exchange_strong(e_false,
-                                                                true)) {
+  if (idx_w_locks[num_locks]->write_lck.try_lock()) {
 #if !tpcc_dist_txns
     assert(extract_pid(idx_w_locks[num_locks]->VID) == partition_id);
 #endif
@@ -710,8 +706,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
 
     assert(idx_w_locks[num_locks] != NULL || idx_w_locks[num_locks] != nullptr);
     bool e_false_s = false;
-    if (idx_w_locks[num_locks]->write_lck.compare_exchange_strong(e_false_s,
-                                                                  true)) {
+    if (idx_w_locks[num_locks]->write_lck.try_lock()) {
 #if !tpcc_dist_txns
       assert(extract_pid(idx_w_locks[num_locks]->VID) == partition_id);
 #endif

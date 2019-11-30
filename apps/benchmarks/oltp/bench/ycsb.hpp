@@ -234,7 +234,7 @@ class YCSB : public Benchmark {
               (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
 
           bool e_false = false;
-          if (hash_ptr->write_lck.compare_exchange_strong(e_false, true)) {
+          if (hash_ptr->write_lck.try_lock()) {
             hash_ptrs_lock_acquired.emplace_back(hash_ptr);
           } else {
             txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired);
@@ -281,7 +281,7 @@ class YCSB : public Benchmark {
 
           ycsb_tbl->updateRecord(hash_ptr, op.rec, master_ver, delta_ver);
           hash_ptr->t_min = xid;
-          hash_ptr->write_lck.store(false);
+          hash_ptr->write_lck.unlock();
           hash_ptr->latch.release();
           break;
         }

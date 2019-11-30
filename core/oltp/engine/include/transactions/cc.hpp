@@ -28,6 +28,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <vector>
 
 #include "transactions/txn_utils.hpp"
+#include "utils/lock.hpp"
 #include "utils/spinlock.h"
 
 /*
@@ -60,8 +61,10 @@ class CC_MV2PL {
     uint64_t t_min;  //  | 1-byte w_id | 6 bytes xid |
     uint64_t VID;    // | 1-byte delta-id | 1-byte master_ver | 1-byte
                      // partition_id | 5-byte VID |
-    lock::Spinlock_Strong latch;
-    std::atomic<bool> write_lck;
+    lock::Spinlock_Weak latch;
+    // std::atomic<bool> write_lck;
+
+    lock::AtomicTryLock write_lck;
 
     struct VERSION_LIST *delta_ver;
     uint delta_ver_tag;
@@ -70,7 +73,7 @@ class CC_MV2PL {
     PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid)
         : t_min(tid),
           VID(vid),
-          write_lck(false),
+          // write_lck(false),
           delta_ver(nullptr),
           delta_ver_tag(0) {}
   };  //__attribute__((aligned(64)));
@@ -98,13 +101,13 @@ class CC_MV2PL {
   static inline bool is_mv() { return true; }
   static inline void __attribute__((always_inline)) release_locks(
       std::vector<CC_MV2PL::PRIMARY_INDEX_VAL *> &hash_ptrs_lock_acquired) {
-    for (auto c : hash_ptrs_lock_acquired) c->write_lck = false;
+    for (auto c : hash_ptrs_lock_acquired) c->write_lck.unlock();
   }
 
   static inline void __attribute__((always_inline))
   release_locks(CC_MV2PL::PRIMARY_INDEX_VAL **hash_ptrs, uint count) {
     for (int i = 0; i < count; i++) {
-      hash_ptrs[i]->write_lck.store(false);
+      hash_ptrs[i]->write_lck.unlock();
     }
   }
 };
