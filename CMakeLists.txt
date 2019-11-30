@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10.2)
 
 include(GNUInstallDirs)
+include(GetPrerequisites)
 
 # Set LLVM suffix for systems with multiple LLVM installed to request
 # a specific version using -DLLVM_VERSION_SUFFIX=7
@@ -179,6 +180,31 @@ else() 						 # Usually in LLVM dev mode or Pelago
 	llvm_map_components_to_libnames(llvm_libs ${LLVM_COMPONENTS})
 endif()
 message(STATUS "Linking with LLVM components: ${llvm_libs}")
+
+# Check if LLVM depends on libc++ or libstdc++
+set(USE_LIBCXX FALSE)
+
+foreach(llvm_lib ${llvm_libs})
+find_library(lib ${llvm_lib} PATHS "${LLVM_LIBRARY_DIR}" NO_DEFAULT_PATH)
+get_prerequisites("${lib}" _prereqs FALSE TRUE "" "${LLVM_LIBRARY_DIR}")
+if (_prereqs MATCHES "/libc\\+\\+")
+	set(USE_LIBCXX TRUE)
+	break()
+endif()
+endforeach()
+
+if (USE_LIBCXX)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
+endif()
+
+if (CMAKE_CXX_FLAGS MATCHES ".*-stdlib=libc\\+\\+.*")
+	set(USE_LIBCXX ON)
+else()
+	set(USE_LIBCXX OFF)
+endif()
+
+message(STATUS "Using libc++: ${USE_LIBCXX}")
 
 add_definitions(${LLVM_DEFINITIONS})
 message(STATUS "Using LLVM definitions: ${LLVM_DEFINITIONS}")
