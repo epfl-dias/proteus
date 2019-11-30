@@ -151,23 +151,40 @@ class alignas(4096) DeltaStore {
     }
 
     inline void *getVersionDataChunk(size_t rec_size) {
+      constexpr uint slack_size = 8192;
+
+      static thread_local uint remaining_slack = 0;
+      static thread_local char *ptr = nullptr;
+
       size_t req = rec_size + sizeof(global_conf::mv_version);
-      char *tmp = ver_data_cursor.fetch_add(req, std::memory_order_relaxed);
 
-      if (__unlikely((tmp + req) > data_cursor_max)) {
-        // FIXME: if delta-storage is full, there should be a manual trigger to
-        // initiate a detailed/granular GC algorithm, not just crash the engine.
+      if (__unlikely(req > remaining_slack)) {
+        ptr = ver_data_cursor.fetch_add(slack_size, std::memory_order_relaxed);
+        remaining_slack = slack_size;
 
-        std::unique_lock<std::mutex> lk(print_lock);
-        if (!printed) {
-          printed = true;
-          std::cout << "#######" << std::endl;
-          std::cout << "PID: " << pid << std::endl;
-          report();
-          std::cout << "#######" << std::endl;
-          assert(false);
+        if (__unlikely((ptr + remaining_slack) > data_cursor_max)) {
+          // FIXME: if delta-storage is full, there should be a manual trigger
+          // to initiate a detailed/granular GC algorithm, not just crash the
+          // engine.
+
+          std::unique_lock<std::mutex> lk(print_lock);
+          if (!printed) {
+            printed = true;
+            std::cout << "#######" << std::endl;
+            std::cout << "PID: " << pid << std::endl;
+            report();
+            std::cout << "#######" << std::endl;
+            assert(false);
+          }
         }
       }
+
+      char *tmp = ptr;
+      ptr += req;
+      remaining_slack -= req;
+
+      // char *tmp = ver_data_cursor.fetch_add(req, std::memory_order_relaxed);
+
       touched = true;
       return tmp;
     }
