@@ -60,9 +60,14 @@ extern "C" void numa_error(char *where) { LOG(FATAL) << where; }
 extern "C" void numa_warn(int num, char *fmt, ...) { LOG(WARNING) << fmt; }
 #pragma clang diagnostic pop
 
+constexpr size_t hugepage = 2 * 1024 * 1024;
+
+static size_t fixSize(size_t bytes) {
+  return ((bytes + hugepage - 1) / hugepage) * hugepage;
+}
+
 void *topology::cpunumanode::alloc(size_t bytes) const {
-  constexpr size_t hugepage = 2 * 1024 * 1024;
-  bytes = ((bytes + hugepage - 1) / hugepage) * hugepage;
+  bytes = fixSize(bytes);
   void *mem = mmap(nullptr, bytes, PROT_READ | PROT_WRITE,
                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
   assert(mem != MAP_FAILED);
@@ -114,7 +119,8 @@ void *topology::cpunumanode::alloc(size_t bytes) const {
 
 void topology::cpunumanode::free(void *mem, size_t bytes) {
   // numa_free(mem, bytes);
-  munmap(mem, bytes);
+  bytes = fixSize(bytes);
+  linux_run(munmap(mem, bytes));
 }
 
 size_t topology::cpunumanode::getMemorySize() const {
