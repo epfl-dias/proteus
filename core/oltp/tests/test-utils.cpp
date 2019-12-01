@@ -24,6 +24,7 @@
 #include "test-utils.hpp"
 
 #include <common/common.hpp>
+#include <common/olap-common.hpp>
 #include <memory/memory-manager.hpp>
 
 void TestEnvironment::SetUp() {
@@ -38,7 +39,7 @@ void TestEnvironment::SetUp() {
 
   set_trace_allocations(true, true);
 
-  proteus::init();
+  proteus::olap::init();
 
   has_already_been_setup = true;
 }

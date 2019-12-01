@@ -24,6 +24,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <unistd.h>
 
 #include <bitset>
+#include <common/olap-common.hpp>
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -94,7 +95,7 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 // void check_num_upd_by_bits();
 
 int main(int argc, char** argv) {
-  proteus::init();
+  proteus::olap::init();
   gflags::SetUsageMessage("Simple command line interface for aeolus");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 

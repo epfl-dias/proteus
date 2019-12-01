@@ -23,15 +23,12 @@
 
 #include "test-utils.hpp"
 
+#include "common/olap-common.hpp"
 #include "memory/memory-manager.hpp"
 #include "plan/prepared-statement.hpp"
 #include "rapidjson/error/en.h"
-#include "rapidjson/schema.h"
 #include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
 #include "storage/storage-manager.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
 
 void TestEnvironment::SetUp() {
   if (has_already_been_setup) {
@@ -43,9 +40,10 @@ void TestEnvironment::SetUp() {
 
   google::InstallFailureSignalHandler();
 
-  set_trace_allocations(true, true);
+  // FIXME: reenable tracing as soon as we find the issue with libunwind
+  set_trace_allocations(false, true);
 
-  proteus::init();
+  proteus::olap::init();
 
   has_already_been_setup = true;
 }

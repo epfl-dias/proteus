@@ -23,6 +23,7 @@
 
 #include <gflags/gflags.h>
 
+#include <common/olap-common.hpp>
 #include <cstring>
 
 #include "cli-flags.hpp"
@@ -198,7 +199,8 @@ int main(int argc, char *argv[]) {
 
   set_trace_allocations(FLAGS_trace_allocations);
 
-  proteus::init(FLAGS_gpu_buffers, FLAGS_cpu_buffers, FLAGS_log_buffer_usage);
+  proteus::olap::init(FLAGS_gpu_buffers, FLAGS_cpu_buffers,
+                      FLAGS_log_buffer_usage);
 
   bool echo = false;
 

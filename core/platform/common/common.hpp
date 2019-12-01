@@ -168,8 +168,10 @@ inline void hash_combine(std::size_t &seed, const T &v) {
 std::ostream &operator<<(std::ostream &out, const bytes &b);
 
 namespace proteus {
-void init(float gpu_mem_pool_percentage = 0.1,
-          float cpu_mem_pool_percentage = 0.1, size_t log_buffers = 0);
+namespace platform {
+void init(float gpu_mem_pool_percentage = 0.05,
+          float cpu_mem_pool_percentage = 0.05, size_t log_buffers = 0);
 }
+}  // namespace proteus
 
 #endif /* COMMON_HPP_ */

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2019
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -21,28 +21,14 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "common/common.hpp"
-
-#include <thread>
-
-#include "communication/comm-manager.hpp"
-#include "memory/memory-manager.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
-#include "util/jit/pipeline.hpp"
+#ifndef PROTEUS_OLAP_COMMON_HPP
+#define PROTEUS_OLAP_COMMON_HPP
 
 namespace proteus {
-
 namespace olap {
-void init(float gpu_mem_pool_percentage, float cpu_mem_pool_percentage,
-          size_t log_buffers) {
-  proteus::platform::init(gpu_mem_pool_percentage, cpu_mem_pool_percentage,
-                          log_buffers);
-
-  LOG(INFO) << "Initializing codegen...";
-
-  PipelineGen::init();
+void init(float gpu_mem_pool_percentage = 0.1,
+          float cpu_mem_pool_percentage = 0.1, size_t log_buffers = 0);
 }
-}  // namespace olap
-
 }  // namespace proteus
+
+#endif /*PROTEUS_OLAP_COMMON_HPP*/
