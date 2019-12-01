@@ -507,6 +507,10 @@ add_subdirectory(apps/standalones/olap)
 add_subdirectory(core/oltp)
 add_subdirectory(apps/benchmarks/oltp)
 
+add_subdirectory(core/htap)
+add_subdirectory(apps/benchmarks/htap)
+
+
 # Unit-tests
 if(UNIT_TESTS)
 	add_subdirectory(tests/olap)

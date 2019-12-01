@@ -20,36 +20,24 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
+#include <gflags/gflags.h>
 
-#include "routing/routing-policy.hpp"
-#include "topology/topology.hpp"
+#include <iostream>
 
-AffinityPolicy::AffinityPolicy(size_t fanout, const Affinitizer *aff)
-    : aff(aff) {
-  indexes.resize(aff->size());
-  for (size_t i = 0; i < fanout; ++i) {
-    indexes[aff->getAvailableCUIndex(i)].emplace_back(i);
-  }
-  for (auto &ind : indexes) {
-    if (!ind.empty()) continue;
-    for (size_t i = 0; i < fanout; ++i) ind.emplace_back(i);
-  }
-}
+DEFINE_uint64(num_olap_clients, 1, "Number of OLAP clients");
+DEFINE_uint64(num_olap_repeat, 1, "Number of OLAP clients");
+DEFINE_uint64(num_oltp_clients, 0, "Number of OLTP clients");
+DEFINE_string(plan_json, "", "Plan to execute, takes priority over plan_dir");
+DEFINE_string(plan_dir, "inputs/plans/cpu-ssb",
+              "Directory with plans to be executed");
+DEFINE_string(inputs_dir, "inputs/", "Data and catalog directory");
+DEFINE_bool(run_oltp, true, "Run OLTP");
+DEFINE_bool(run_olap, true, "Run OLAP");
+DEFINE_uint64(elastic, 0, "elastic_oltp cores");
 
-size_t AffinityPolicy::getIndexOfRandLocalCU(void *p) const {
-  auto r = rand();
+DEFINE_uint64(ch_scale_factor, 0, "CH-Bench scale factor");
+DEFINE_bool(etl, false, "ETL on snapshot");
+DEFINE_bool(trade_core, false, "trade case for elasticiy");
 
-  auto index_in_topo = aff->getLocalCUIndex(p);
-
-  const auto &ind = indexes[index_in_topo];
-  return ind[r % ind.size()];
-}
-
-std::unique_ptr<Affinitizer> getDefaultAffinitizer(DeviceType d) {
-  switch (d) {
-    case DeviceType::CPU:
-      return std::make_unique<CpuNumaNodeAffinitizer>();
-    case DeviceType::GPU:
-      return std::make_unique<GPUAffinitizer>();
-  }
-}
+DEFINE_bool(bench_ycsb, false, "OLTP Bench: true-ycsb, false-tpcc (default)");
+DEFINE_double(ycsb_write_ratio, 0.5, "Writer to reader ratio");

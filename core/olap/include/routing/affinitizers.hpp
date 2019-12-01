@@ -26,7 +26,6 @@
 
 #include <topology/gpu-index.hpp>
 
-#include "expressions/expressions.hpp"
 #include "topology/device-types.hpp"
 #include "topology/topology.hpp"
 #include "util/parallel-context.hpp"

@@ -20,36 +20,20 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
+#include <gflags/gflags.h>
 
-#include "routing/routing-policy.hpp"
-#include "topology/topology.hpp"
+DECLARE_uint64(num_olap_clients);
+DECLARE_uint64(num_olap_repeat);
+DECLARE_uint64(num_oltp_clients);
+DECLARE_string(plan_json);
+DECLARE_string(plan_dir);
+DECLARE_string(inputs_dir);
+DECLARE_bool(run_oltp);
+DECLARE_bool(run_olap);
+DECLARE_uint64(elastic);
+DECLARE_uint64(ch_scale_factor);
+DECLARE_bool(etl);
+DECLARE_bool(trade_core);
 
-AffinityPolicy::AffinityPolicy(size_t fanout, const Affinitizer *aff)
-    : aff(aff) {
-  indexes.resize(aff->size());
-  for (size_t i = 0; i < fanout; ++i) {
-    indexes[aff->getAvailableCUIndex(i)].emplace_back(i);
-  }
-  for (auto &ind : indexes) {
-    if (!ind.empty()) continue;
-    for (size_t i = 0; i < fanout; ++i) ind.emplace_back(i);
-  }
-}
-
-size_t AffinityPolicy::getIndexOfRandLocalCU(void *p) const {
-  auto r = rand();
-
-  auto index_in_topo = aff->getLocalCUIndex(p);
-
-  const auto &ind = indexes[index_in_topo];
-  return ind[r % ind.size()];
-}
-
-std::unique_ptr<Affinitizer> getDefaultAffinitizer(DeviceType d) {
-  switch (d) {
-    case DeviceType::CPU:
-      return std::make_unique<CpuNumaNodeAffinitizer>();
-    case DeviceType::GPU:
-      return std::make_unique<GPUAffinitizer>();
-  }
-}
+DECLARE_bool(bench_ycsb);
+DECLARE_double(ycsb_write_ratio);

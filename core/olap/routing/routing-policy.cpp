@@ -21,11 +21,11 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "routing-policy.hpp"
+#include "routing/routing-policy.hpp"
 
-#include "affinitizers.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "operators/operators.hpp"
+#include "routing/affinitizers.hpp"
 #include "topology/topology.hpp"
 
 extern "C" size_t random_local_cu(void *ptr, AffinityPolicy *aff) {
