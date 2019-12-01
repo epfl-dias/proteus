@@ -28,17 +28,17 @@
 #include <string>
 #include <vector>
 
-#include "adaptors/aeolus-plugin.hpp"
-#include "codegen/memory/block-manager.hpp"
-#include "codegen/memory/memory-manager.hpp"
-#include "codegen/plan/prepared-statement.hpp"
-#include "codegen/storage/storage-manager.hpp"
-#include "codegen/topology/affinity_manager.hpp"
-#include "codegen/util/jit/pipeline.hpp"
-#include "codegen/util/parallel-context.hpp"
-#include "codegen/util/profiling.hpp"
-#include "codegen/util/timing.hpp"
-#include "queries.hpp"
+//#include "adaptors/aeolus-plugin.hpp"
+// #include "codegen/memory/block-manager.hpp"
+// #include "codegen/memory/memory-manager.hpp"
+#include "plan/prepared-statement.hpp"
+// #include "codegen/storage/storage-manager.hpp"
+#include "topology/affinity_manager.hpp"
+// #include "util/jit/pipeline.hpp"
+// #include "codegen/util/parallel-context.hpp"
+// #include "codegen/util/profiling.hpp"
+// #include "codegen/util/timing.hpp"
+#include "query-interface.hpp"
 #include "routing/affinitizers.hpp"
 #include "routing/degree-of-parallelism.hpp"
 

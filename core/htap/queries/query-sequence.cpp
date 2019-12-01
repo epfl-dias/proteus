@@ -21,12 +21,13 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "query_sequence.hpp"
+#include "queries/query-sequence.hpp"
 
-#include "codegen/plan/prepared-statement.hpp"
-#include "queries.hpp"
+#include "plan/prepared-statement.hpp"
+#include "queries/query-interface.hpp"
 #include "routing/affinitizers.hpp"
 #include "routing/degree-of-parallelism.hpp"
+#include "util/timing.hpp"
 
 namespace htap {
 namespace queries {
@@ -49,74 +50,77 @@ QuerySequence::QuerySequence(const topology::cpunumanode &olap_node,
 
   std::vector<SpecificCpuCoreAffinitizer::coreid_t> coreids;
 
-  if (per_query_freshness) {
-    uint j = 0;
-    for (auto id : olap_node.local_cores) {
-      if (trade_resources && elastic_resources > 0 && j < elastic_resources) {
-        j++;
-        continue;
-      }
-      coreids.emplace_back(id);
-    }
+  // TODO: Implement query sequence.
 
-    if (elastic_resources > 0) {
-      uint i = 0;
-      for (auto id : oltp_node.local_cores) {
-        coreids.emplace_back(id);
-        if (++i >= elastic_resources) {
-          break;
-        }
-      }
+  // if (per_query_freshness) {
+  //   uint j = 0;
+  //   for (auto id : olap_node.local_cores) {
+  //     if (trade_resources && elastic_resources > 0 && j < elastic_resources)
+  //     {
+  //       j++;
+  //       continue;
+  //     }
+  //     coreids.emplace_back(id);
+  //   }
 
-      if (trade_resources) {
-        for (auto id : olap_node.local_cores) {
-          coreids.emplace_back(id);
-        }
-      }
-    }
+  //   if (elastic_resources > 0) {
+  //     uint i = 0;
+  //     for (auto id : oltp_node.local_cores) {
+  //       coreids.emplace_back(id);
+  //       if (++i >= elastic_resources) {
+  //         break;
+  //       }
+  //     }
 
-    DegreeOfParallelism dop{coreids.size()};
+  //     if (trade_resources) {
+  //       for (auto id : olap_node.local_cores) {
+  //         coreids.emplace_back(id);
+  //       }
+  //     }
+  //   }
 
-    auto aff_parallel = [&]() -> std::unique_ptr<Affinitizer> {
-      return std::make_unique<SpecificCpuCoreAffinitizer>(coreids);
-    };
+  //   DegreeOfParallelism dop{coreids.size()};
 
-    auto aff_reduce = []() -> std::unique_ptr<Affinitizer> {
-      return std::make_unique<CpuCoreAffinitizer>();
-    };
+  //   auto aff_parallel = [&]() -> std::unique_ptr<Affinitizer> {
+  //     return std::make_unique<SpecificCpuCoreAffinitizer>(coreids);
+  //   };
 
-    typedef decltype(aff_parallel) aff_t;
-    typedef decltype(aff_reduce) red_t;
+  //   auto aff_reduce = []() -> std::unique_ptr<Affinitizer> {
+  //     return std::make_unique<CpuCoreAffinitizer>();
+  //   };
 
-    for (const auto &q : {q_ch1<aff_t, red_t, AeolusElasticPlugin>,
-                          q_ch6<aff_t, red_t, AeolusElasticPlugin>,
-                          q_ch19<aff_t, red_t, AeolusElasticPlugin>}) {
-      this->queries.emplace_back(q(dop, aff_parallel, aff_reduce));
-    }
+  //   typedef decltype(aff_parallel) aff_t;
+  //   typedef decltype(aff_reduce) red_t;
 
-  } else {
-    // batch of queries with batch freshness.
-    for (auto id : olap_node.local_cores) {
-      coreids.emplace_back(id);
-    }
+  //   for (const auto &q : {q_ch1<aff_t, red_t, AeolusElasticPlugin>,
+  //                         q_ch6<aff_t, red_t, AeolusElasticPlugin>,
+  //                         q_ch19<aff_t, red_t, AeolusElasticPlugin>}) {
+  //     this->queries.emplace_back(q(dop, aff_parallel, aff_reduce));
+  //   }
 
-    DegreeOfParallelism dop{coreids.size()};
+  // } else {
+  //   // batch of queries with batch freshness.
+  //   for (auto id : olap_node.local_cores) {
+  //     coreids.emplace_back(id);
+  //   }
 
-    auto aff_parallel = [&]() -> std::unique_ptr<Affinitizer> {
-      return std::make_unique<SpecificCpuCoreAffinitizer>(coreids);
-    };
+  //   DegreeOfParallelism dop{coreids.size()};
 
-    auto aff_reduce = []() -> std::unique_ptr<Affinitizer> {
-      return std::make_unique<CpuCoreAffinitizer>();
-    };
+  //   auto aff_parallel = [&]() -> std::unique_ptr<Affinitizer> {
+  //     return std::make_unique<SpecificCpuCoreAffinitizer>(coreids);
+  //   };
 
-    typedef decltype(aff_parallel) aff_t;
-    typedef decltype(aff_reduce) red_t;
+  //   auto aff_reduce = []() -> std::unique_ptr<Affinitizer> {
+  //     return std::make_unique<CpuCoreAffinitizer>();
+  //   };
 
-    for (const auto &q : {}) {
-      this->queries.emplace_back(q(dop, aff_parallel, aff_reduce));
-    }
-  }
+  //   typedef decltype(aff_parallel) aff_t;
+  //   typedef decltype(aff_reduce) red_t;
+
+  //   for (const auto &q : {}) {
+  //     this->queries.emplace_back(q(dop, aff_parallel, aff_reduce));
+  //   }
+  // }
   // }
   // else {
   //   assert(false && "why control reaches here?");

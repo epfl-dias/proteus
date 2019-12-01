@@ -20,41 +20,11 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
-#include <gflags/gflags.h>
-#include <sys/wait.h>
-#include <unistd.h>
 
-#include <iostream>
-#include <string>
+#ifndef HARMONIA_QUERIES_CH_Q8_HPP_
+#define HARMONIA_QUERIES_CH_Q8_HPP_
 
-#include "adaptors/aeolus-plugin.hpp"
-#include "benchmarks/tpcc_64.hpp"
-#include "benchmarks/ycsb.hpp"
-#include "codegen/communication/comm-manager.hpp"
-#include "codegen/memory/block-manager.hpp"
-#include "codegen/memory/memory-manager.hpp"
-#include "codegen/operators/relbuilder.hpp"
-#include "codegen/plan/plan-parser.hpp"
-#include "codegen/plan/prepared-statement.hpp"
-#include "codegen/plugins/binary-block-plugin.hpp"
-#include "codegen/storage/storage-manager.hpp"
-#include "codegen/topology/affinity_manager.hpp"
-#include "codegen/util/jit/pipeline.hpp"
-#include "codegen/util/parallel-context.hpp"
-#include "codegen/util/profiling.hpp"
-#include "codegen/util/timing.hpp"
-#include "interfaces/bench.hpp"
-#include "llvm/Support/DynamicLibrary.h"
-#include "queries/queries.hpp"
-#include "scheduler/affinity_manager.hpp"
-#include "scheduler/comm_manager.hpp"
-#include "scheduler/topology.hpp"
-#include "scheduler/worker.hpp"
-#include "storage/column_store.hpp"
-#include "storage/memory_manager.hpp"
-#include "storage/table.hpp"
-#include "transactions/transaction_manager.hpp"
-#include "utils/utils.hpp"
+#include "../queries.hpp"
 
 template <>
 template <typename Tplugin, typename Tp, typename Tr>
@@ -437,3 +407,5 @@ PreparedStatement Q<8>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
       // (trait=[ENUMERABLE.[0].unpckd.X86_64.homSingle.hetSingle.cX86_64])
       .prepare();
 }
+
+#endif /* HARMONIA_QUERIES_CH_Q8_HPP_ */

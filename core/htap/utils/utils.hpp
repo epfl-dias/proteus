@@ -26,24 +26,10 @@
 
 #include <signal.h>
 #include <unistd.h>
+
 #include <iostream>
 #include <string>
 #include <thread>
-
-#include "cli-flags.hpp"
-#include "codegen/topology/affinity_manager.hpp"
-#include "codegen/util/parallel-context.hpp"
-#include "codegen/util/profiling.hpp"
-#include "codegen/util/timing.hpp"
-#include "glo.hpp"
-#include "interfaces/bench.hpp"
-#include "scheduler/affinity_manager.hpp"
-#include "scheduler/comm_manager.hpp"
-#include "scheduler/topology.hpp"
-#include "scheduler/worker.hpp"
-#include "storage/column_store.hpp"
-#include "storage/memory_manager.hpp"
-#include "storage/table.hpp"
 
 namespace harmonia {
 // std::vector<std::thread> children;

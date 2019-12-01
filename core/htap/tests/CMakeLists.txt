@@ -1,4 +1,4 @@
-set(gtest_libs ${GTEST_MAIN} ${GTEST} ${default_libs})
+set(gtest_libs ${GTEST_MAIN} ${GTEST} htap_engine)
 
 set(gtest_src
 

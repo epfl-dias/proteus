@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "queries.hpp"
+#include "ch-queries.hpp"
 
 std::string tpcc_orderline = "tpcc_orderline";
 

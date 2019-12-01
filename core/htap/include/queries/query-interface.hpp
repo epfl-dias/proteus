@@ -26,13 +26,10 @@
 
 #include <string>
 
-#include "adaptors/aeolus-plugin.hpp"
-#include "codegen/plan/prepared-statement.hpp"
+#include "aeolus-plugin.hpp"
+#include "plan/prepared-statement.hpp"
 #include "routing/affinitizers.hpp"
 #include "routing/degree-of-parallelism.hpp"
-
-namespace htap {
-namespace queries {
 
 template <int64_t id>
 struct Q {
@@ -56,7 +53,5 @@ struct Q {
     return cpar<Tplugin>(dop, aff_parallel, aff_reduce);
   }
 };
-}  // namespace queries
-}  // namespace htap
 
 #endif /* HARMONIA_QUERIES_HPP_ */

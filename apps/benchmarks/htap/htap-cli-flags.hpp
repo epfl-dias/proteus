@@ -1,5 +1,5 @@
 /*
-    Harmonia -- High-performance elastic HTAP on heterogeneous hardware.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Laboratory (DIAS)
@@ -20,17 +20,20 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
+#include <gflags/gflags.h>
 
-#ifndef HTAP_QUERIES_HPP_
-#define HTAP_QUERIES_HPP_
+DECLARE_uint64(num_olap_clients);
+DECLARE_uint64(num_olap_repeat);
+DECLARE_uint64(num_oltp_clients);
+DECLARE_string(plan_json);
+DECLARE_string(plan_dir);
+DECLARE_string(inputs_dir);
+DECLARE_bool(run_oltp);
+DECLARE_bool(run_olap);
+DECLARE_uint64(elastic);
+DECLARE_uint64(ch_scale_factor);
+DECLARE_bool(etl);
+DECLARE_bool(trade_core);
 
-#include <string>
-
-#include "aeolus-plugin.hpp"
-#include "operators/relbuilder.hpp"  // TODO: fix rel path issue
-#include "plan/catalog-parser.hpp"
-#include "queries/query-interface.hpp"
-
-using default_plugin_t = AeolusRemotePlugin;
-
-#endif /* HTAP_QUERIES_HPP_ */
+DECLARE_bool(bench_ycsb);
+DECLARE_double(ycsb_write_ratio);

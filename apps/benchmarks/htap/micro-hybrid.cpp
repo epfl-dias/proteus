@@ -21,9 +21,9 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#define NUM_TPCH_QUERIES 1
+//#define NUM_TPCH_QUERIES 1
 #define NUM_OLAP_REPEAT 16
-#define HTAP true
+//#define HTAP true
 
 #include <gflags/gflags.h>
 #include <unistd.h>
@@ -32,22 +32,24 @@
 #include <string>
 #include <thread>
 
-#include "benchmarks/tpcc_64.hpp"
-#include "benchmarks/ycsb.hpp"
-#include "cli-flags.hpp"
-#include "codegen/communication/comm-manager.hpp"
-#include "codegen/memory/block-manager.hpp"
-#include "codegen/memory/memory-manager.hpp"
-#include "codegen/plan/prepared-statement.hpp"
-#include "codegen/storage/storage-manager.hpp"
-#include "codegen/topology/affinity_manager.hpp"
-#include "codegen/util/jit/pipeline.hpp"
-#include "codegen/util/parallel-context.hpp"
-#include "codegen/util/profiling.hpp"
-#include "codegen/util/timing.hpp"
+// HTAP
+#include "htap-cli-flags.hpp"
+#include "queries/ch/ch-queries.hpp"
+
+// OLAP includes
+#include "memory/memory-manager.hpp"
+#include "plan/catalog-parser.hpp"
+#include "plan/prepared-statement.hpp"
+#include "storage/storage-manager.hpp"
+#include "util/jit/pipeline.hpp"
+#include "util/parallel-context.hpp"
+#include "util/profiling.hpp"
+#include "util/timing.hpp"
+
+// OLTP
+//#include "cli-flags.hpp"
 #include "glo.hpp"
 #include "interfaces/bench.hpp"
-#include "queries/queries.hpp"
 #include "scheduler/affinity_manager.hpp"
 #include "scheduler/comm_manager.hpp"
 #include "scheduler/topology.hpp"
@@ -55,28 +57,11 @@
 #include "storage/column_store.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
+#include "topology/affinity_manager.hpp"
+#include "tpcc_64.hpp"
+#include "ycsb.hpp"
 
-DEFINE_uint64(num_olap_clients, 1, "Number of OLAP clients");
-DEFINE_uint64(num_olap_repeat, 1, "Number of OLAP clients");
-DEFINE_uint64(num_oltp_clients, 0, "Number of OLTP clients");
-DEFINE_string(plan_json, "", "Plan to execute, takes priority over plan_dir");
-DEFINE_string(plan_dir, "inputs/plans/cpu-ssb",
-              "Directory with plans to be executed");
-DEFINE_string(inputs_dir, "inputs/", "Data and catalog directory");
-DEFINE_bool(run_oltp, true, "Run OLTP");
-DEFINE_bool(run_olap, true, "Run OLAP");
-DEFINE_uint64(elastic, 0, "elastic_oltp cores");
-
-DEFINE_uint64(ch_scale_factor, 0, "CH-Bench scale factor");
-DEFINE_bool(etl, false, "ETL on snapshot");
-DEFINE_bool(trade_core, false, "trade case for elasticiy");
-
-DEFINE_bool(bench_ycsb, false, "OLTP Bench: true-ycsb, false-tpcc (default)");
-DEFINE_double(ycsb_write_ratio, 0.5, "Writer to reader ratio");
-
-void init_olap_warmup() {
-  proteus::init(FLAGS_gpu_buffers, FLAGS_cpu_buffers, FLAGS_log_buffer_usage);
-}
+void init_olap_warmup() { proteus::init(); }
 
 std::vector<PreparedStatement> init_olap_sequence(
     int &client_id, const topology::cpunumanode &numa_node,
@@ -274,7 +259,7 @@ int main(int argc, char *argv[]) {
 
   // google::InstallFailureSignalHandler();
 
-  set_trace_allocations(FLAGS_trace_allocations);
+  // set_trace_allocations(FLAGS_trace_allocations);
 
   const auto &txn_topo = scheduler::Topology::getInstance();
   const auto &txn_nodes = txn_topo.getCpuNumaNodes();

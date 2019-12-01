@@ -5,11 +5,30 @@ set(aeolus_plugin_cxx
     aeolus-plugin.cpp
     )
 
-#-----------------------------------------------------------------------------
+foreach(target ${aeolus_plugin_cxx})
+    set_source_files_properties(${target} PROPERTIES LANGUAGE CXX)
+endforeach()
 
 add_library(aeolus_plugin SHARED
         ${aeolus_plugin_cxx}
     )
+
+set_target_properties(aeolus_plugin PROPERTIES
+        LINK_FLAGS "-Wl,--no-allow-shlib-undefined -Wl,-z,defs")
+# Define headers for this library. PUBLIC headers are used for
+# compiling the library, and will be added to consumers' build
+# paths.
+target_include_directories(aeolus_plugin
+        PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:include>
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR})
+
+# If we have compiler requirements for this library, list them
+# here
+target_compile_features(aeolus_plugin
+        PUBLIC cxx_std_17)
 
 target_link_libraries(aeolus_plugin
     PUBLIC
