@@ -21,15 +21,12 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef HARMONIA_QUERIES_HPP_
-#define HARMONIA_QUERIES_HPP_
+#ifndef HTAP_QUERIES_HPP_
+#define HTAP_QUERIES_HPP_
 
 #include <string>
 
-#include "adaptors/aeolus-plugin.hpp"
-#include "codegen/plan/prepared-statement.hpp"
-#include "routing/affinitizers.hpp"
-#include "routing/degree-of-parallelism.hpp"
+#include "queries/query-interface.hpp"
 
 extern std::string tpcc_orderline;
 
@@ -56,29 +53,6 @@ extern std::string o_ol_cnt;
 extern std::string o_all_local;
 
 using default_plugin_t = AeolusRemotePlugin;
-
-template <int64_t id>
-struct Q {
- private:
-  static constexpr int64_t Qid = id;
-
-  template <typename Tplugin>
-  static PreparedStatement c1t() {
-    throw std::runtime_error("unimplemented");
-  }
-
-  template <typename Tplugin, typename Tp, typename Tr>
-  inline static PreparedStatement cpar(DegreeOfParallelism dop, Tp aff_parallel,
-                                       Tr aff_reduce);
-
- public:
-  template <typename Tplugin, typename Tp, typename Tr>
-  inline static PreparedStatement prepare(DegreeOfParallelism dop,
-                                          Tp aff_parallel, Tr aff_reduce) {
-    if (dop == DegreeOfParallelism{1}) return c1t<Tplugin>();
-    return cpar<Tplugin>(dop, aff_parallel, aff_reduce);
-  }
-};
 
 #include "ch/q01.hpp"
 #include "ch/q04.hpp"
@@ -159,4 +133,4 @@ struct Q {
 //   return q_ch18_c1t<Tplugin>();
 // }
 
-#endif /* HARMONIA_QUERIES_HPP_ */
+#endif /* HTAP_QUERIES_HPP_ */

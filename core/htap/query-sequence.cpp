@@ -28,7 +28,8 @@
 #include "routing/affinitizers.hpp"
 #include "routing/degree-of-parallelism.hpp"
 
-namespace harmonia {
+namespace htap {
+namespace queries {
 
 size_t QuerySequence::sequence_counter = 0;
 
@@ -154,4 +155,5 @@ void QuerySequence::execute(bool log_results, bool warmup) {
     LOG(INFO) << "Sequence " << this->sequence_id << ": close";
   }
 }
-}  // namespace harmonia
+}  // namespace queries
+}  // namespace htap

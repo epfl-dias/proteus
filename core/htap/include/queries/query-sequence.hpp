@@ -29,10 +29,6 @@
 #include <vector>
 
 #include "adaptors/aeolus-plugin.hpp"
-#include "codegen/plan/prepared-statement.hpp"
-#include "routing/affinitizers.hpp"
-#include "routing/degree-of-parallelism.hpp"
-
 #include "codegen/memory/block-manager.hpp"
 #include "codegen/memory/memory-manager.hpp"
 #include "codegen/plan/prepared-statement.hpp"
@@ -42,10 +38,12 @@
 #include "codegen/util/parallel-context.hpp"
 #include "codegen/util/profiling.hpp"
 #include "codegen/util/timing.hpp"
-
 #include "queries.hpp"
+#include "routing/affinitizers.hpp"
+#include "routing/degree-of-parallelism.hpp"
 
-namespace harmonia {
+namespace htap {
+namespace queries {
 
 class QuerySequence {
  public:
@@ -77,7 +75,7 @@ class QuerySequence {
 
   static bool should_etl() { assert(false && "Not-implemented"); }
 };
-
-}  // namespace harmonia
+}  // namespace queries
+}  // namespace htap
 
 #endif /* HARMONIA_QUERY_SEQUENCE_HPP_ */
