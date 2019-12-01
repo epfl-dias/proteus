@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "routing-policy.hpp"
+#include "routing/routing-policy.hpp"
 #include "topology/topology.hpp"
 
 AffinityPolicy::AffinityPolicy(size_t fanout, const Affinitizer *aff)
