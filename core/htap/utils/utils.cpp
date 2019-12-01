@@ -21,9 +21,9 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include "utils.hpp"
+
 #include <thread>
 #include <vector>
-
-#include "utils.hpp"
 
 namespace harmonia {}
