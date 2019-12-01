@@ -37,6 +37,8 @@
 #include "queries/ch/ch-queries.hpp"
 
 // OLAP includes
+#include <common/olap-common.hpp>
+
 #include "memory/memory-manager.hpp"
 #include "plan/catalog-parser.hpp"
 #include "plan/prepared-statement.hpp"
@@ -61,7 +63,7 @@
 #include "tpcc_64.hpp"
 #include "ycsb.hpp"
 
-void init_olap_warmup() { proteus::init(); }
+void init_olap_warmup() { proteus::olap::init(); }
 
 std::vector<PreparedStatement> init_olap_sequence(
     int &client_id, const topology::cpunumanode &numa_node,
