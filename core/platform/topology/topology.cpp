@@ -144,7 +144,13 @@ void topology::init_() {
   if (nvml_res == NVML_SUCCESS) {
     // We can not use gpu_run(...) before we set gpu_cnt, call gpuAssert
     // directly.
-    gpuAssert(cudaGetDeviceCount((int *)&gpus), __FILE__, __LINE__);
+    auto ret = cudaGetDeviceCount((int *)&gpus);
+    if (ret == cudaErrorNoDevice) {
+      // Still not an error if we do not have any devices
+      gpus = 0;
+    } else {
+      gpuAssert(ret, __FILE__, __LINE__);
+    }
   }
   gpu_cnt = gpus;
 
