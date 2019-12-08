@@ -1,23 +1,24 @@
 /*
-                  AEOLUS - In-Memory HTAP-Ready OLTP Engine
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
-                             Copyright (c) 2019-2019
-           Data Intensive Applications and Systems Laboratory (DIAS)
-                   Ecole Polytechnique Federale de Lausanne
+                            Copyright (c) 2019
+        Data Intensive Applications and Systems Laboratory (DIAS)
+                École Polytechnique Fédérale de Lausanne
 
-                              All Rights Reserved.
+                            All Rights Reserved.
 
-      Permission to use, copy, modify and distribute this software and its
-    documentation is hereby granted, provided that both the copyright notice
-  and this permission notice appear in all copies of the software, derivative
-  works or modified versions, and any portions thereof, and that both notices
-                      appear in supporting documentation.
+    Permission to use, copy, modify and distribute this software and
+    its documentation is hereby granted, provided that both the
+    copyright notice and this permission notice appear in all copies of
+    the software, derivative works or modified versions, and any
+    portions thereof, and that both notices appear in supporting
+    documentation.
 
-  This code is distributed in the hope that it will be useful, but WITHOUT ANY
- WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- A PARTICULAR PURPOSE. THE AUTHORS AND ECOLE POLYTECHNIQUE FEDERALE DE LAUSANNE
-DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
-                             USE OF THIS SOFTWARE.
+    This code is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
+    DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
+    RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
 #include "storage/table.hpp"
@@ -237,8 +238,13 @@ void Schema::drop_table(int idx) {
 void Table::reportUsage() {
   std::cout << "Table: " << this->name << std::endl;
   for (int i = 0; i < g_num_partitions; i++) {
-    std::cout << "P" << i << ": " << vid[i].load() << " / "
-              << (initial_num_recs / g_num_partitions) << std::endl;
+    auto curr = vid[i].load();
+    double percent =
+        ((double)curr / ((double)(initial_num_recs / g_num_partitions))) * 100;
+
+    std::cout << "P" << i << ": " << curr << " / "
+              << (initial_num_recs / g_num_partitions) << " | " << percent
+              << "%" << std::endl;
   }
 }
 
