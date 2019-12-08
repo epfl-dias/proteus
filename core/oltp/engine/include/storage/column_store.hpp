@@ -1,23 +1,24 @@
 /*
-                  AEOLUS - In-Memory HTAP-Ready OLTP Engine
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
-                             Copyright (c) 2019-2019
-           Data Intensive Applications and Systems Laboratory (DIAS)
-                   Ecole Polytechnique Federale de Lausanne
+                            Copyright (c) 2019
+        Data Intensive Applications and Systems Laboratory (DIAS)
+                École Polytechnique Fédérale de Lausanne
 
-                              All Rights Reserved.
+                            All Rights Reserved.
 
-      Permission to use, copy, modify and distribute this software and its
-    documentation is hereby granted, provided that both the copyright notice
-  and this permission notice appear in all copies of the software, derivative
-  works or modified versions, and any portions thereof, and that both notices
-                      appear in supporting documentation.
+    Permission to use, copy, modify and distribute this software and
+    its documentation is hereby granted, provided that both the
+    copyright notice and this permission notice appear in all copies of
+    the software, derivative works or modified versions, and any
+    portions thereof, and that both notices appear in supporting
+    documentation.
 
-  This code is distributed in the hope that it will be useful, but WITHOUT ANY
- WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- A PARTICULAR PURPOSE. THE AUTHORS AND ECOLE POLYTECHNIQUE FEDERALE DE LAUSANNE
-DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
-                             USE OF THIS SOFTWARE.
+    This code is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
+    DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
+    RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
 #ifndef STORAGE_COLUMN_STORE_HPP_
@@ -90,7 +91,7 @@ class alignas(4096) ColumnStore : public Table {
 
   // global_conf::mv_version_list *getVersions(uint64_t vid);
 
-  [[noreturn]] void sync_master_snapshots(ushort master_ver_idx);
+  void sync_master_snapshots(ushort master_ver_idx);
   void snapshot(uint64_t epoch, uint8_t snapshot_master_ver);
   void ETL(uint numa_node_idx);
   void num_upd_tuples();
@@ -143,7 +144,7 @@ class alignas(4096) Column {
   // void updateElem(uint64_t offset, void *elem, ushort master_ver);
   // void deleteElem(uint64_t offset, ushort master_ver);
 
-  [[noreturn]] void sync_master_snapshots(ushort master_ver_idx);
+  void sync_master_snapshots(ushort master_ver_idx);
   void snapshot(const uint64_t *n_recs_part, uint64_t epoch,
                 uint8_t snapshot_master_ver);
 
