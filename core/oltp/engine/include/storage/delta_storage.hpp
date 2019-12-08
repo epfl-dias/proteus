@@ -1,23 +1,24 @@
 /*
-                  AEOLUS - In-Memory HTAP-Ready OLTP Engine
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
-                             Copyright (c) 2019-2019
-           Data Intensive Applications and Systems Laboratory (DIAS)
-                   Ecole Polytechnique Federale de Lausanne
+                            Copyright (c) 2019
+        Data Intensive Applications and Systems Laboratory (DIAS)
+                École Polytechnique Fédérale de Lausanne
 
-                              All Rights Reserved.
+                            All Rights Reserved.
 
-      Permission to use, copy, modify and distribute this software and its
-    documentation is hereby granted, provided that both the copyright notice
-  and this permission notice appear in all copies of the software, derivative
-  works or modified versions, and any portions thereof, and that both notices
-                      appear in supporting documentation.
+    Permission to use, copy, modify and distribute this software and
+    its documentation is hereby granted, provided that both the
+    copyright notice and this permission notice appear in all copies of
+    the software, derivative works or modified versions, and any
+    portions thereof, and that both notices appear in supporting
+    documentation.
 
-  This code is distributed in the hope that it will be useful, but WITHOUT ANY
- WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- A PARTICULAR PURPOSE. THE AUTHORS AND ECOLE POLYTECHNIQUE FEDERALE DE LAUSANNE
-DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
-                             USE OF THIS SOFTWARE.
+    This code is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
+    DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
+    RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
 #ifndef STORAGE_DELTA_STORAGE_HPP_
@@ -99,6 +100,9 @@ class alignas(4096) DeltaStore {
     const char *list_cursor_max;
     const char *data_cursor_max;
 
+    // std::vector<bool> reset_listeners;
+    bool reset_listeners[NUM_CORE_PER_SOCKET];
+
    public:
     DeltaPartition(char *ver_list_cursor, mem_chunk ver_list_mem,
                    char *ver_data_cursor, mem_chunk ver_data_mem, int pid)
@@ -125,6 +129,12 @@ class alignas(4096) DeltaStore {
       warmup_size = ver_data_mem.size / sizeof(uint64_t);
       pt[0] = 1;
       for (int i = 1; i < warmup_size; i++) pt[i] = i * 2;
+
+      // reset_listeners.reserve(NUM_CORE_PER_SOCKET);
+      for (int i = 0; i < NUM_CORE_PER_SOCKET; i++) {
+        // reset_listeners.push_back(false);
+        reset_listeners[i] = false;
+      }
     }
 
     ~DeltaPartition() {
@@ -138,6 +148,12 @@ class alignas(4096) DeltaStore {
       if (__likely(touched)) {
         ver_list_cursor = (char *)ver_list_mem.data;
         ver_data_cursor = (char *)ver_data_mem.data;
+
+        for (uint i = 0; i < NUM_CORE_PER_SOCKET; i++) {
+          reset_listeners[i] = true;
+        }
+
+        std::atomic_thread_fence(std::memory_order_seq_cst);
       }
       touched = false;
     }
@@ -155,8 +171,17 @@ class alignas(4096) DeltaStore {
 
       static thread_local uint remaining_slack = 0;
       static thread_local char *ptr = nullptr;
+      static int thread_counter = 0;
+
+      static thread_local uint tid = thread_counter++;
 
       size_t req = rec_size + sizeof(global_conf::mv_version);
+
+      // works.
+      if (reset_listeners[tid] == true) {
+        remaining_slack = 0;
+        reset_listeners[tid] = false;
+      }
 
       if (__unlikely(req > remaining_slack)) {
         ptr = ver_data_cursor.fetch_add(slack_size, std::memory_order_relaxed);
