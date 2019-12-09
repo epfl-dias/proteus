@@ -1,23 +1,24 @@
 /*
-                  AEOLUS - In-Memory HTAP-Ready OLTP Engine
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
-                             Copyright (c) 2019-2019
-           Data Intensive Applications and Systems Laboratory (DIAS)
-                   Ecole Polytechnique Federale de Lausanne
+                            Copyright (c) 2019
+        Data Intensive Applications and Systems Laboratory (DIAS)
+                École Polytechnique Fédérale de Lausanne
 
-                              All Rights Reserved.
+                            All Rights Reserved.
 
-      Permission to use, copy, modify and distribute this software and its
-    documentation is hereby granted, provided that both the copyright notice
-  and this permission notice appear in all copies of the software, derivative
-  works or modified versions, and any portions thereof, and that both notices
-                      appear in supporting documentation.
+    Permission to use, copy, modify and distribute this software and
+    its documentation is hereby granted, provided that both the
+    copyright notice and this permission notice appear in all copies of
+    the software, derivative works or modified versions, and any
+    portions thereof, and that both notices appear in supporting
+    documentation.
 
-  This code is distributed in the hope that it will be useful, but WITHOUT ANY
- WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- A PARTICULAR PURPOSE. THE AUTHORS AND ECOLE POLYTECHNIQUE FEDERALE DE LAUSANNE
-DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
-                             USE OF THIS SOFTWARE.
+    This code is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
+    DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
+    RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
 #ifndef BENCH_TPCC_64_HPP_
@@ -49,6 +50,16 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 // SIGMOD 20
 #define index_on_order_tbl false  // also cascade to orderlne, neworder table
 
+#if diascld40
+#define TPCC_MAX_ORD_PER_DIST 700000  // 2 master - 2 socket
+#elif diascld48
+#define TPCC_MAX_ORD_PER_DIST 700000  // 2 master - 2 socket
+#elif icc148
+#define TPCC_MAX_ORD_PER_DIST 1000000  // 2 master - 1 socket
+#else
+#define TPCC_MAX_ORD_PER_DIST 200000
+#endif
+
 #define NO_MIX 100
 #define P_MIX 0
 #define OS_MIX 0
@@ -75,7 +86,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define TPCC_NDIST_PER_WH 10
 #define TPCC_ORD_PER_DIST 3000
 
-#define TPCC_MAX_ORD_PER_DIST 200000  // 1.5 TB Memory Server -- 1000000
 #define TPCC_MAX_ORDER_INITIAL_CAP_PER_PARTITION \
   (TPCC_MAX_ORD_PER_DIST * TPCC_NDIST_PER_WH * NUM_CORE_PER_SOCKET)
 #define TPCC_MAX_ORDER_INITIAL_CAP \
