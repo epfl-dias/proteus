@@ -638,6 +638,9 @@ void HashGroupByChained::generate_scan() {
   RecordAttribute tupleCnt{relName, "activeCnt",
                            pg->getOIDType()};  // FIXME: OID type for blocks ?
   Value *cnt = Builder->CreateLoad(context->getArgument(cnt_ptr_param), "cnt");
+  if (pg->getOIDType()->getLLVMType(llvmContext)->isIntegerTy()) {
+    cnt = Builder->CreateZExt(cnt, pg->getOIDType()->getLLVMType(llvmContext));
+  }
   AllocaInst *mem_cnt =
       context->CreateEntryBlockAlloca(F, "cnt_mem", cnt->getType());
   Builder->CreateStore(cnt, mem_cnt);
