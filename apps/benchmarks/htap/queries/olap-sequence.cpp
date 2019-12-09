@@ -31,7 +31,7 @@
 #include <util/timing.hpp>
 
 #include "../htap-cli-flags.hpp"
-#include "queries/query-interface.hpp"
+#include "ch/ch-queries.hpp"
 
 template <typename plugin_t>
 OLAPSequence::OLAPSequence(OLAPSequence::wrapper_t<plugin_t>, int client_id,
@@ -84,7 +84,6 @@ OLAPSequence::OLAPSequence(OLAPSequence::wrapper_t<plugin_t>, int client_id,
       return std::make_unique<SpecificCpuCoreAffinitizer>(coreids);
     };
   }
-
   DegreeOfParallelism dop{(dev == DeviceType::CPU)
                               ? coreids.size()
                               : topology::getInstance().getGpuCount()};

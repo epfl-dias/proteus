@@ -41,7 +41,7 @@ class OLAPSequence {
   OLAPSequence(wrapper_t<plugin_t>, int client_id,
                const topology::cpunumanode &numa_node,
                const topology::cpunumanode &oltp_node,
-               DeviceType dev = DeviceType::GPU);
+               DeviceType dev = DeviceType::CPU);
 
   void run(int client_id, const topology::cpunumanode &numa_node,
            size_t repeat);

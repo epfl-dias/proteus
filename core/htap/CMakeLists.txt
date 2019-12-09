@@ -3,7 +3,6 @@ project(htap VERSION 0.1 LANGUAGES CXX)
 # Pure, regular C++ files
 set(htap_cxx
 	utils/utils.cpp
-    queries/query-sequence.cpp
     )
 
 foreach(target ${htap_cxx})
