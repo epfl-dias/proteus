@@ -153,7 +153,7 @@ void create_q_seq(std::vector<PreparedStatement> &stmts,
     // std::unique_ptr<Affinitizer> aff_parallel =
     //     std::make_unique<CpuCoreAffinitizer>();
 
-    stmts.emplace_back(q(dop, aff_parallel, aff_reduce));
+    stmts.emplace_back(q(dop, aff_parallel, aff_reduce, DeviceType::CPU));
   }
 }
 
@@ -330,7 +330,7 @@ int main(int argc, char *argv[]) {
   {
     time_block t("T_FIRST_SNAPSHOT_ETL_: ");
     snapshot_oltp();
-    storage::Schema::getInstance().ETL(OLAP_SOCKET);
+    if (FLAGS_etl) storage::Schema::getInstance().ETL(OLAP_SOCKET);
   }
 
   profiling::resume();

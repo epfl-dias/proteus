@@ -174,7 +174,8 @@ PreparedStatement q_ch4_c1t() {
 template <>
 template <typename Tplugin, typename Tp, typename Tr>
 PreparedStatement Q<4>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
-                             Tr aff_reduce) {
+                             Tr aff_reduce, DeviceType dev) {
+  assert(dev == DeviceType::CPU);
   std::string revenue = "revenue";
   auto ctx = new ParallelContext(
       "ch_Q" + std::to_string(Qid) + "_" + typeid(Tplugin).name(), false);

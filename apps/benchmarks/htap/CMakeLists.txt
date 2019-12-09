@@ -2,8 +2,9 @@
 
 
 set(htap_bench_cxx
-	htap-cli-flags.cpp
-	queries/ch/ch-queries.cpp
+		htap-cli-flags.cpp
+		queries/ch/ch-queries.cpp
+		queries/olap-sequence.cpp
     )
 
 #find_package(Threads REQUIRED)

@@ -55,7 +55,8 @@ PreparedStatement q_ch6_c1t() {
 template <>
 template <typename Tplugin, typename Tp, typename Tr>
 PreparedStatement Q<6>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
-                             Tr aff_reduce) {
+                             Tr aff_reduce, DeviceType dev) {
+  assert(dev == DeviceType::CPU);
   auto ctx = new ParallelContext(
       "ch_Q" + std::to_string(Qid) + "_" + typeid(Tplugin).name(), false);
   CatalogParser &catalog = CatalogParser::getInstance();
@@ -91,7 +92,8 @@ PreparedStatement Q<6>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
 template <>
 template <typename Tplugin, typename Tp, typename Tr>
 PreparedStatement Q<-6>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
-                              Tr aff_reduce) {
+                              Tr aff_reduce, DeviceType dev) {
+  assert(dev == DeviceType::CPU);
   auto ctx = new ParallelContext(
       "ch_Q" + std::to_string(Qid) + "_" + typeid(Tplugin).name(), false);
   CatalogParser &catalog = CatalogParser::getInstance();

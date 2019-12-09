@@ -390,7 +390,8 @@ void GpuHashGroupByChained::generate_build(ParallelContext *const context,
 }
 
 void GpuHashGroupByChained::open(Pipeline *pip) {
-  int32_t *cnt = (int32_t *)MemoryManager::mallocGpu(sizeof(int32_t));
+  size_t cnt_size = 2 * sizeof(int32_t);
+  int32_t *cnt = (int32_t *)MemoryManager::mallocGpu(cnt_size);
   int32_t *first =
       (int32_t *)MemoryManager::mallocGpu(sizeof(int32_t) * (1 << hash_bits));
   std::vector<void *> next;
@@ -400,7 +401,7 @@ void GpuHashGroupByChained::open(Pipeline *pip) {
   }
 
   cudaStream_t strm = createNonBlockingStream();
-  gpu_run(cudaMemsetAsync(cnt, 0, sizeof(int32_t), strm));
+  gpu_run(cudaMemsetAsync(cnt, 0, cnt_size, strm));
   gpu_run(cudaMemsetAsync(first, -1, (1 << hash_bits) * sizeof(int32_t), strm));
   // gpu_run(cudaMemset(next[0], -1, (packet_widths[0]/8) * maxInputSize));
 

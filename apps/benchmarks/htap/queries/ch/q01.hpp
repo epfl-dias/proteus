@@ -64,48 +64,56 @@ PreparedStatement q_ch_c1t() {
 template <typename Tplugin>
 PreparedStatement q_ch_cpar(DegreeOfParallelism dop,
                             std::unique_ptr<Affinitizer> aff_parallel,
-                            std::unique_ptr<Affinitizer> aff_reduce) {
+                            std::unique_ptr<Affinitizer> aff_reduce,
+                            DeviceType dev = DeviceType::CPU) {
   std::string count_order = "count_order";
   auto ctx = new ParallelContext(__FUNCTION__, false);
   CatalogParser &catalog = CatalogParser::getInstance();
-  return RelBuilder{ctx}
-      .scan<Tplugin>(tpcc_orderline,
-                     {ol_delivery_d, ol_number, ol_amount, ol_quantity},
-                     catalog)
-      .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
-              std::move(aff_parallel))
-      .unpack()
-      .filter([&](const auto &arg) -> expression_t {
-        return gt(arg[ol_delivery_d],
-                  expressions::DateConstant(/*FIX*/ 904694400000));
-      })
-      .reduce(
-          [&](const auto &arg) -> std::vector<expression_t> {
-            return {arg[ol_number], arg[ol_quantity], arg[ol_amount],
-                    expression_t{1}.as(tpcc_orderline, count_order)};
-          },
-          {SUM /*fix*/, SUM, SUM, SUM})
-      .router(DegreeOfParallelism{1}, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
-              std::move(aff_reduce))
-      .reduce(
-          [&](const auto &arg) -> std::vector<expression_t> {
-            return {arg[ol_number], arg[ol_quantity], arg[ol_amount],
-                    arg[count_order]};
-          },
-          {SUM /*fix*/, SUM, SUM, SUM})
-      .print([&](const auto &arg,
-                 std::string outrel) -> std::vector<expression_t> {
-        std::vector<expression_t> ret{
-            arg[ol_number].as(outrel, ol_number),
-            arg[ol_quantity].as(outrel, "sum_qty"),
-            arg[ol_amount].as(outrel, "sum_amount"),
-            (arg[ol_quantity] / arg[count_order]).as(outrel, "avg_qty"),
-            (arg[ol_amount] / arg[count_order].template as<FloatType>())
-                .as(outrel, "avg_amount"),
-            arg[count_order].as(outrel, count_order)};
-        return ret;
-      })
-      .prepare();
+  auto rel =
+      RelBuilder{ctx}
+          .scan<Tplugin>(tpcc_orderline,
+                         {ol_delivery_d, ol_number, ol_amount, ol_quantity},
+                         catalog)
+          .router(dop, 1, RoutingPolicy::RANDOM, dev, std::move(aff_parallel));
+
+  if (dev == DeviceType::GPU) rel = rel.to_gpu();
+
+  rel = rel.unpack()
+            .filter([&](const auto &arg) -> expression_t {
+              return gt(arg[ol_delivery_d],
+                        expressions::DateConstant(/*FIX*/ 904694400000));
+            })
+            .reduce(
+                [&](const auto &arg) -> std::vector<expression_t> {
+                  return {arg[ol_number], arg[ol_quantity], arg[ol_amount],
+                          expression_t{1}.as(tpcc_orderline, count_order)};
+                },
+                {SUM /*fix*/, SUM, SUM, SUM});
+
+  if (dev == DeviceType::GPU) rel = rel.to_cpu();
+
+  rel = rel.router(DegreeOfParallelism{1}, 1, RoutingPolicy::RANDOM,
+                   DeviceType::CPU, std::move(aff_reduce))
+            .reduce(
+                [&](const auto &arg) -> std::vector<expression_t> {
+                  return {arg[ol_number], arg[ol_quantity], arg[ol_amount],
+                          arg[count_order]};
+                },
+                {SUM /*fix*/, SUM, SUM, SUM})
+            .print([&](const auto &arg,
+                       std::string outrel) -> std::vector<expression_t> {
+              std::vector<expression_t> ret{
+                  arg[ol_number].as(outrel, ol_number),
+                  arg[ol_quantity].as(outrel, "sum_qty"),
+                  arg[ol_amount].as(outrel, "sum_amount"),
+                  (arg[ol_quantity] / arg[count_order]).as(outrel, "avg_qty"),
+                  (arg[ol_amount] / arg[count_order].template as<FloatType>())
+                      .as(outrel, "avg_amount"),
+                  arg[count_order].as(outrel, count_order)};
+              return ret;
+            });
+
+  return rel.prepare();
 }
 
 // PreparedStatement q_ch2_c1t() {
@@ -171,63 +179,78 @@ PreparedStatement q_ch1_c1t() {
 template <>
 template <typename Tplugin, typename Tp, typename Tr>
 PreparedStatement Q<1>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
-                             Tr aff_reduce) {
+                             Tr aff_reduce, DeviceType dev) {
   std::string count_order = "count_order";
   auto ctx = new ParallelContext(
       "ch_Q" + std::to_string(Qid) + "_" + typeid(Tplugin).name(), false);
   CatalogParser &catalog = CatalogParser::getInstance();
-  return RelBuilder{ctx}
-      .scan<Tplugin>(tpcc_orderline,
-                     {ol_delivery_d, ol_number, ol_amount, ol_quantity},
-                     catalog)
-      .router(dop, 8, RoutingPolicy::RANDOM, DeviceType::CPU, aff_parallel())
-      //.memmove(8, true)
-      .unpack()
-      // .filter([&](const auto &arg) -> expression_t {
-      //   return gt(arg[ol_delivery_d],
-      //             expressions::DateConstant(/*FIX*/ 904694400000));
-      // })
-      .groupby(
-          [&](const auto &arg) -> std::vector<expression_t> {
-            return {arg[ol_number]};
-          },
-          [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
-            return {
-                GpuAggrMatExpr{arg[ol_quantity], 1, 0, SUM},
-                GpuAggrMatExpr{expression_t{1}.as(tpcc_orderline, count_order),
-                               1, 32, SUM},
-                GpuAggrMatExpr{arg[ol_amount], 1, 64, SUM}};
-          },
-          5, 128)
-      .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
-              DeviceType::CPU, aff_reduce())
-      .groupby(
-          [&](const auto &arg) -> std::vector<expression_t> {
-            return {arg[ol_number]};
-          },
-          [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
-            return {GpuAggrMatExpr{arg[ol_quantity], 1, 0, SUM},
-                    GpuAggrMatExpr{arg[ol_amount], 2, 0, SUM},
-                    GpuAggrMatExpr{arg[count_order], 3, 0, SUM}};
-          },
-          5, 128)
-      .sort(
-          [&](const auto &arg) -> std::vector<expression_t> {
-            return {arg[ol_number], arg[ol_quantity], arg[ol_amount],
-                    arg[count_order]};
-          },
-          {direction::ASC, direction::NONE, direction::NONE})
-      .print([&](const auto &arg,
-                 std::string outrel) -> std::vector<expression_t> {
-        return {arg[ol_number].as(outrel, ol_number),
-                arg[ol_quantity].as(outrel, "sum_qty"),
-                arg[ol_amount].as(outrel, "sum_amount"),
-                (arg[ol_quantity] / arg[count_order]).as(outrel, "avg_qty"),
-                (arg[ol_amount] / arg[count_order].template as<FloatType>())
-                    .as(outrel, "avg_amount"),
-                arg[count_order].as(outrel, count_order)};
-      })
-      .prepare();
+  auto rel =
+      RelBuilder{ctx}
+          .scan<Tplugin>(tpcc_orderline,
+                         {ol_delivery_d, ol_number, ol_amount, ol_quantity},
+                         catalog)
+          .router(dop, 8, RoutingPolicy::RANDOM, dev, aff_parallel())
+      //      .memmove(8, dev == DeviceType::CPU)
+      ;
+
+  if (dev == DeviceType::GPU) {
+    rel = rel.memmove(8, dev == DeviceType::CPU).to_gpu();
+  }
+
+  rel = rel.unpack()
+            // .filter([&](const auto &arg) -> expression_t {
+            //   return gt(arg[ol_delivery_d],
+            //             expressions::DateConstant(/*FIX*/ 904694400000));
+            // })
+            .groupby(
+                [&](const auto &arg) -> std::vector<expression_t> {
+                  return {arg[ol_number]};
+                },
+                [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
+                  return {GpuAggrMatExpr{arg[ol_quantity], 1, 0, SUM},
+                          GpuAggrMatExpr{
+                              expression_t{1}.as(tpcc_orderline, count_order),
+                              1, 32, SUM},
+                          GpuAggrMatExpr{arg[ol_amount], 1, 64, SUM}};
+                },
+                5, 128 * 1024);
+
+  if (dev == DeviceType::GPU) {
+    rel = rel.to_cpu();
+  }
+
+  rel = rel.router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
+                   DeviceType::CPU, aff_reduce())
+            .groupby(
+                [&](const auto &arg) -> std::vector<expression_t> {
+                  return {arg[ol_number]};
+                },
+                [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
+                  return {GpuAggrMatExpr{arg[ol_quantity], 1, 0, SUM},
+                          GpuAggrMatExpr{arg[ol_amount], 2, 0, SUM},
+                          GpuAggrMatExpr{arg[count_order], 3, 0, SUM}};
+                },
+                5, 128)
+            .sort(
+                [&](const auto &arg) -> std::vector<expression_t> {
+                  return {arg[ol_number], arg[ol_quantity], arg[ol_amount],
+                          arg[count_order]};
+                },
+                {direction::ASC, direction::NONE, direction::NONE})
+            .print([&](const auto &arg,
+                       std::string outrel) -> std::vector<expression_t> {
+              return {arg[ol_number].as(outrel, ol_number),
+                      arg[ol_quantity].as(outrel, "sum_qty"),
+                      arg[ol_amount].as(outrel, "sum_amount"),
+                      (arg[ol_quantity] / (arg[count_order] + 1))
+                          .as(outrel, "avg_qty"),
+                      (arg[ol_amount] /
+                       (arg[count_order] + 1).template as<FloatType>())
+                          .as(outrel, "avg_amount"),
+                      arg[count_order].as(outrel, count_order)};
+            });
+
+  return rel.prepare();
 }
 
 #endif /* HARMONIA_QUERIES_CH_Q1_HPP_ */

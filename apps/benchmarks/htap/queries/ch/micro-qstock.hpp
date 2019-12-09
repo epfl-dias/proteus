@@ -24,12 +24,14 @@
 #ifndef HARMONIA_QUERIES_CH_QSTOCK_HPP_
 #define HARMONIA_QUERIES_CH_QSTOCK_HPP_
 
-#include "../queries.hpp"
+#include "ch-queries.hpp"
+#include "queries/query-interface.hpp"
 
 template <>
 template <typename Tplugin, typename Tp, typename Tr>
 PreparedStatement Q<-1>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
-                              Tr aff_reduce) {
+                              Tr aff_reduce, DeviceType dev) {
+  assert(dev == DeviceType::CPU);
   auto ctx = new ParallelContext(
       "ch_Q" + std::to_string(Qid) + "_" + typeid(Tplugin).name(), false);
   CatalogParser &catalog = CatalogParser::getInstance();

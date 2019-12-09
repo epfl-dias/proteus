@@ -641,13 +641,9 @@ void HashGroupByChained::generate_scan() {
   if (pg->getOIDType()->getLLVMType(llvmContext)->isIntegerTy()) {
     cnt = Builder->CreateZExt(cnt, pg->getOIDType()->getLLVMType(llvmContext));
   }
-  AllocaInst *mem_cnt =
-      context->CreateEntryBlockAlloca(F, "cnt_mem", cnt->getType());
-  Builder->CreateStore(cnt, mem_cnt);
 
-  ProteusValueMemory mem_cntWrapper;
-  mem_cntWrapper.mem = mem_cnt;
-  mem_cntWrapper.isNull = context->createFalse();
+  ProteusValueMemory mem_cntWrapper =
+      context->toMem(cnt, context->createFalse());
   variableBindings[tupleCnt] = mem_cntWrapper;
 
   // Function * f = context->getFunction("devprinti64");
@@ -783,7 +779,8 @@ void HashGroupByChained::generate_scan() {
 }
 
 void HashGroupByChained::open(Pipeline *pip) {
-  int32_t *cnt = (int32_t *)MemoryManager::mallocPinned(sizeof(int32_t));
+  size_t cnt_size = sizeof(int64_t);
+  int32_t *cnt = (int32_t *)MemoryManager::mallocPinned(cnt_size);
   // int32_t * first = (int32_t *) MemoryManager::mallocPinned(sizeof(int32_t
   // ) * (1 << hash_bits));
   std::vector<void *> next;
@@ -793,7 +790,7 @@ void HashGroupByChained::open(Pipeline *pip) {
   }
   // gpu_run(cudaMemset(next[0], -1, (packet_widths[0]/8) * maxInputSize));
 
-  memset(cnt, 0, sizeof(int32_t));
+  memset(cnt, 0, cnt_size);
   // memset(first, -1, (1 << hash_bits) * sizeof(int32_t));
 
   pip->setStateVar<int32_t *>(cnt_param_id, cnt);

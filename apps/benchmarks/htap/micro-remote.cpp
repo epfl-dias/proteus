@@ -34,9 +34,10 @@
 
 // HTAP
 #include "htap-cli-flags.hpp"
-#include "queries/ch/ch-queries.hpp"
+#include "queries/olap-sequence.hpp"
 
 // OLAP includes
+#include <aeolus-plugin.hpp>
 #include <common/olap-common.hpp>
 
 #include "memory/memory-manager.hpp"
@@ -64,126 +65,6 @@
 #include "ycsb.hpp"
 
 void init_olap_warmup() { proteus::olap::init(); }
-
-std::vector<PreparedStatement> init_olap_sequence(
-    int &client_id, const topology::cpunumanode &numa_node,
-    const topology::cpunumanode &oltp_node) {
-  // chdir("/home/raza/local/htap/opt/pelago");
-
-  time_block t("TcodegenTotal_: ");
-
-  std::vector<PreparedStatement> stmts;
-
-  // std::string label_prefix("htap_" + std::to_string(getpid()) + "_c" +
-  //                          std::to_string(client_id) + "_q");
-
-  // if (FLAGS_plan_json.length()) {
-  //   LOG(INFO) << "Compiling Plan:" << FLAGS_plan_json << std::endl;
-
-  //   stmts.emplace_back(PreparedStatement::from(
-  //       FLAGS_plan_json, label_prefix + std::to_string(0),
-  //       FLAGS_inputs_dir));
-  // } else {
-  //   uint i = 0;
-  //   for (const auto &entry :
-  //        std::filesystem::directory_iterator(FLAGS_plan_dir)) {
-  //     if (entry.path().filename().string()[0] == '.') continue;
-
-  //     if (entry.path().extension() == ".json") {
-  //       std::string plan_path = entry.path().string();
-  //       std::string label = label_prefix + std::to_string(i++);
-
-  //       LOG(INFO) << "Compiling Query:" << plan_path << std::endl;
-
-  //       stmts.emplace_back(
-  //           PreparedStatement::from(plan_path, label, FLAGS_inputs_dir));
-  //     }
-  //   }
-  // }
-
-  std::vector<SpecificCpuCoreAffinitizer::coreid_t> coreids;
-
-  uint j = 0;
-  for (auto id : numa_node.local_cores) {
-    if (FLAGS_trade_core && FLAGS_elastic > 0 && j < FLAGS_elastic) {
-      j++;
-      continue;
-    }
-    coreids.emplace_back(id);
-  }
-
-  if (FLAGS_elastic > 0) {
-    uint i = 0;
-    for (auto id : oltp_node.local_cores) {
-      coreids.emplace_back(id);
-      if (++i >= FLAGS_elastic) {
-        break;
-      }
-    }
-
-    if (FLAGS_trade_core) {
-      for (auto id : numa_node.local_cores) {
-        coreids.emplace_back(id);
-      }
-    }
-  }
-
-  // {
-  //   for (const auto &n : topology::getInstance().getCpuNumaNodes()) {
-  //     if (n != numa_node) {
-  //       for (size_t i = 0; i < std::min(4, n.local_cores.size()); ++i) {
-  //         coreids.emplace_back(n.local_cores[i]);
-  //       }
-  //     }
-  //   }
-  // }
-
-  DegreeOfParallelism dop{coreids.size()};
-
-  auto aff_parallel = [&]() -> std::unique_ptr<Affinitizer> {
-    return std::make_unique<SpecificCpuCoreAffinitizer>(coreids);
-  };
-
-  auto aff_reduce = []() -> std::unique_ptr<Affinitizer> {
-    return std::make_unique<CpuCoreAffinitizer>();
-  };
-
-  typedef decltype(aff_parallel) aff_t;
-  typedef decltype(aff_reduce) red_t;
-
-  // for (const auto &q : {q_ch1<aff_t, red_t, plugin_t>, q_ch6<aff_t, red_t,
-  // plugin_t>,
-  //                       q_ch19<aff_t, red_t, plugin_t>}) {
-  // using plugin_t = AeolusLocalPlugin;
-  using plugin_t = AeolusRemotePlugin;
-  for (const auto &q : {Q<6>::prepare<plugin_t, aff_t, red_t>}) {
-    // std::unique_ptr<Affinitizer> aff_parallel =
-    //     std::make_unique<CpuCoreAffinitizer>();
-
-    stmts.emplace_back(q(dop, aff_parallel, aff_reduce));
-  }
-  return stmts;
-}
-void run_olap_sequence(int &client_id,
-                       std::vector<PreparedStatement> &olap_queries,
-                       const topology::cpunumanode &numa_node) {
-  // Make affinity deterministic
-  exec_location{numa_node}.activate();
-
-  olap_queries[0].execute();
-
-  {
-    time_block t("T_OLAP: ");
-
-    for (uint i = 0; i < FLAGS_num_olap_repeat; i++) {
-      uint j = 0;
-      for (auto &q : olap_queries) {
-        LOG(INFO) << q.execute();
-        j++;
-      }
-    }
-  }
-}
 
 void shutdown_olap() {
   StorageManager::unloadAll();
@@ -226,10 +107,10 @@ void shutdown_oltp(bool print_stat = true) {
 
 void snapshot_oltp() { txn::TransactionManager::getInstance().snapshot(); }
 
-void fly_olap(int i, std::vector<PreparedStatement> &olap_queries,
+void fly_olap(int i, OLAPSequence &olap_queries,
               const topology::cpunumanode &node) {
   LOG(INFO) << "[SERVER-COW] OLAP Client #" << i << ": Running OLAP Sequence";
-  run_olap_sequence(i, olap_queries, node);
+  olap_queries.run(i, node, FLAGS_num_olap_repeat);
 }
 
 int main(int argc, char *argv[]) {
@@ -282,12 +163,12 @@ int main(int argc, char *argv[]) {
   {
     time_block t("T_FIRST_SNAPSHOT_ETL_: ");
     snapshot_oltp();
-    storage::Schema::getInstance().ETL(OLAP_SOCKET);
+    if (FLAGS_etl) storage::Schema::getInstance().ETL(OLAP_SOCKET);
   }
 
   int client_id = 1;
-  auto olap_queries =
-      init_olap_sequence(client_id, nodes[OLAP_SOCKET], nodes[OLTP_SOCKET]);
+  OLAPSequence olap_queries{OLAPSequence::wrapper_t<AeolusRemotePlugin>{},
+                            client_id, nodes[OLAP_SOCKET], nodes[OLTP_SOCKET]};
 
   profiling::resume();
   if (FLAGS_run_oltp && FLAGS_num_oltp_clients > 0)

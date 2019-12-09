@@ -27,7 +27,6 @@
 #include <string>
 
 #include "../queries.hpp"
-#include "queries/query-interface.hpp"
 
 extern std::string tpcc_orderline;
 

@@ -110,7 +110,7 @@ using PrimaryIndex = indexes::HashArray<T_KEY>;
 // const uint time_master_switch_ms = 200;
 
 /* # of Snapshots*/
-constexpr short num_master_versions = 1;
+constexpr short num_master_versions = 2;
 constexpr short num_delta_storages = 2;
 
 constexpr bool reverse_partition_numa_mapping = false;

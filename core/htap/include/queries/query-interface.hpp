@@ -43,14 +43,15 @@ struct Q {
 
   template <typename Tplugin = AeolusRemotePlugin, typename Tp, typename Tr>
   inline static PreparedStatement cpar(DegreeOfParallelism dop, Tp aff_parallel,
-                                       Tr aff_reduce);
+                                       Tr aff_reduce, DeviceType dev);
 
  public:
   template <typename Tplugin = AeolusRemotePlugin, typename Tp, typename Tr>
   inline static PreparedStatement prepare(DegreeOfParallelism dop,
-                                          Tp aff_parallel, Tr aff_reduce) {
+                                          Tp aff_parallel, Tr aff_reduce,
+                                          DeviceType dev = DeviceType::CPU) {
     if (dop == DegreeOfParallelism{1}) return c1t<Tplugin>();
-    return cpar<Tplugin>(dop, aff_parallel, aff_reduce);
+    return cpar<Tplugin>(dop, aff_parallel, aff_reduce, dev);
   }
 };
 
