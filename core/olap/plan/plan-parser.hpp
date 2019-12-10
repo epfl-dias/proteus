@@ -24,34 +24,13 @@
 #ifndef PLAN_PARSER_HPP_
 #define PLAN_PARSER_HPP_
 
+#include "expression-parser.hpp"
 #include "expressions/expressions.hpp"
 #include "plan/catalog-parser.hpp"
 #include "rapidjson/document.h"
 
 class Operator;
 class Plugin;
-
-class ExpressionParser {
-  CatalogParser &catalogParser;
-
- public:
-  ExpressionParser(CatalogParser &catalogParser)
-      : catalogParser(catalogParser) {}
-  expression_t parseExpression(const rapidjson::Value &val, Context *ctx);
-  ExpressionType *parseExpressionType(const rapidjson::Value &val);
-  RecordAttribute *parseRecordAttr(const rapidjson::Value &val,
-                                   const ExpressionType *defaultType = nullptr,
-                                   int defaultAttrNo = -1);
-  Monoid parseAccumulator(const char *acc);
-
- private:
-  expression_t parseExpressionWithoutRegistering(const rapidjson::Value &val,
-                                                 Context *ctx);
-  expressions::extract_unit parseUnitRange(std::string range, Context *ctx);
-  RecordType *getRecordType(std::string relName, bool createIfNeeded = true);
-  const RecordAttribute *getAttribute(std::string relName, std::string attrName,
-                                      bool createIfNeeded = true);
-};
 
 class PlanExecutor {
  private:
@@ -94,8 +73,6 @@ class PlanExecutor {
 
   void cleanUp();
 };
-
-int lookupInDictionary(std::string s, const rapidjson::Value &val);
 
 std::ostream &operator<<(std::ostream &out, const rapidjson::Value &val);
 

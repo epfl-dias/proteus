@@ -52,6 +52,7 @@ set(olap_cxx
         operators/block-to-tuples.cpp
         operators/gpu/gpu-hash-rearrange.cpp
         operators/gpu/gpu-partitioned-hash-join-chained.cpp
+        plan/expression-parser.cpp
         plan/plan-parser.cpp
         plan/prepared-statement.cpp
         plan/query-result.cpp
