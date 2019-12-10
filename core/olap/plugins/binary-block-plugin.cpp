@@ -129,7 +129,6 @@ void BinaryBlockPlugin::generate(const ::Operator &producer) {
 
 ProteusValueMemory BinaryBlockPlugin::readProteusValue(
     ProteusValueMemory val, const ExpressionType *type) {
-  type->getLLVMType(context->getLLVMContext())->dump();
   if (val.mem->getType()->getPointerElementType()->isPointerTy() &&
       val.mem->getType()
               ->getPointerElementType()
