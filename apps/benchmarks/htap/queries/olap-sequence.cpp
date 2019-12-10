@@ -104,7 +104,8 @@ OLAPSequence::OLAPSequence(OLAPSequence::wrapper_t<plugin_t>, int client_id,
   typedef decltype(aff_reduce) red_t;
 
   // using plugin_t = AeolusLocalPlugin;
-  for (const auto &q : {Q<1>::prepare<plugin_t, aff_t, red_t>}) {
+  for (const auto &q : {Q<1>::prepare<plugin_t, aff_t, red_t>,
+                        Q<6>::prepare<plugin_t, aff_t, red_t>}) {
     stmts.emplace_back(q(dop, aff_parallel, aff_reduce, dev));
   }
 }
