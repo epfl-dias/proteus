@@ -61,7 +61,7 @@ void buffer_manager_init(float gpu_mem_pool_percentage = 0.1,
                          float cpu_mem_pool_percentage = 0.1,
                          size_t log_buffers = false) {
   buffer_manager<int32_t>::init(gpu_mem_pool_percentage,
-                                cpu_mem_pool_percentage, log_buffers, 256, 512);
+                                cpu_mem_pool_percentage, log_buffers, 64, 128);
 }
 
 template <typename T>
@@ -93,6 +93,7 @@ __host__ void buffer_manager<T>::__release_buffer_host(T *buff) {
     size_t size = device_buffs_pool[gpu->id].size();
     if (size > keep_threshold) {
       uint32_t devid = gpu->id;
+      LOG(INFO) << "releasing buffers to gpu " << gpu->id;
       nvtxRangePushA("release_buffer_host_devbuffer_overflow");
       for (size_t i = 0; i < device_buff_size; ++i)
         device_buff[devid][i] = device_buffs_pool[devid][size - i - 1];
@@ -314,6 +315,7 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
                                       size_t log_buffers,
                                       size_t buff_buffer_size,
                                       size_t buff_keep_threshold) {
+  assert(buff_buffer_size < buff_keep_threshold);
   const topology &topo = topology::getInstance();
   // std::cout << topo << std::endl;
 
@@ -360,14 +362,14 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
   std::vector<std::thread> buffer_pool_constrs;
   for (const auto &gpu : topo.getGpus()) {
     buffer_pool_constrs.emplace_back([gpu, gpu_mem_pool_percentage,
-                                      &buff_cache] {
+                                      buff_buffer_size, &buff_cache] {
       size_t size =
           gpu_mem_pool_percentage * (gpu.getMemorySize() / buffer_size);
       LOG(INFO) << "Using " << size << " " << bytes{buffer_size}
                 << "-buffers in GPU " << gpu.id
                 << " (Total: " << bytes{size * buffer_size} << "/"
                 << bytes{gpu.getMemorySize()} << ")";
-
+      assert(buff_buffer_size < size);
       uint32_t j = gpu.id;
 
       set_exec_location_on_scope d(gpu);
