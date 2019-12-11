@@ -56,13 +56,13 @@ constexpr size_t clen(const char *str) {
 
 const char *catalogJSON = "inputs";
 
-void executePlan(const char *label, const char *planPath,
+auto executePlan(const char *label, const char *planPath,
                  const char *catalogJSON) {
-  PreparedStatement::from(planPath, label, catalogJSON).execute();
+  return PreparedStatement::from(planPath, label, catalogJSON).execute();
 }
 
-void executePlan(const char *label, const char *planPath) {
-  executePlan(label, planPath, catalogJSON);
+auto executePlan(const char *label, const char *planPath) {
+  return executePlan(label, planPath, catalogJSON);
 }
 
 class unlink_upon_exit {
@@ -98,29 +98,11 @@ class unlink_upon_exit {
 std::string runPlanFile(std::string plan, unlink_upon_exit &uue,
                         bool echo = true) {
   std::string label = uue.inc_label();
-  executePlan(label.c_str(), plan.c_str());
+  auto qr = executePlan(label.c_str(), plan.c_str());
 
   if (echo) {
     std::cout << "result echo" << std::endl;
-    /* current */
-    int fd2 = shm_open(label.c_str(), O_RDONLY, S_IRWXU);
-    if (fd2 == -1) {
-      throw runtime_error(string(__func__) + string(".open (output): ") +
-                          label);
-    }
-    struct stat statbuf;
-    if (fstat(fd2, &statbuf)) {
-      fprintf(stderr, "FAILURE to stat test results! (%s)\n",
-              std::strerror(errno));
-      assert(false);
-    }
-    size_t fsize2 = statbuf.st_size;
-    char *currResultBuf = (char *)mmap(nullptr, fsize2, PROT_READ | PROT_WRITE,
-                                       MAP_PRIVATE, fd2, 0);
-    fwrite(currResultBuf, sizeof(char), fsize2, stdout);
-    std::cout << std::endl;
-
-    munmap(currResultBuf, fsize2);
+    std::cout << qr << std::endl;
   }
 
   return label;
