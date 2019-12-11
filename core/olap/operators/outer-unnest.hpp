@@ -37,6 +37,11 @@ class OuterUnnest : public UnaryOperator {
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return true; }
 
+  virtual RecordType getRowType() const {
+    // FIXME: implement
+    throw runtime_error("unimplemented");
+  }
+
  private:
   void generate(Context *const context, const OperatorState &childState) const;
   expression_t pred;

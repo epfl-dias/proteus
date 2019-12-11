@@ -84,6 +84,11 @@ class ZipCollect : public BinaryOperator {
 
   virtual bool isFiltering() const { return false; }
 
+  virtual RecordType getRowType() const {
+    // FIXME: implement
+    throw runtime_error("unimplemented");
+  }
+
  private:
   void cacheFormatLeft();
   void cacheFormatRight();
@@ -144,6 +149,11 @@ class ZipInitiate : public UnaryOperator {
   void close_cache(Pipeline *pip);
   void ctrl(Pipeline *pip);
 
+  virtual RecordType getRowType() const {
+    // FIXME: implement
+    throw runtime_error("unimplemented");
+  }
+
  private:
   void generate_send();
 
@@ -189,6 +199,11 @@ class ZipForward : public UnaryOperator {
 
   void open(Pipeline *pip);
   void close(Pipeline *pip);
+
+  virtual RecordType getRowType() const {
+    // FIXME: implement
+    throw runtime_error("unimplemented");
+  }
 
  private:
   void cacheFormat();

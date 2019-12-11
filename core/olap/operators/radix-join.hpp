@@ -112,6 +112,10 @@ class RadixJoinBuild : public UnaryOperator {
                        const OperatorState &childState);
   Materializer &getMaterializer() { return mat; }
   virtual bool isFiltering() const { return true; }
+  virtual RecordType getRowType() const {
+    // FIXME: implement
+    throw runtime_error("unimplemented");
+  }
 
   virtual int32_t *getClusterCounts(Pipeline *pip);
   virtual void registerClusterCounts(Pipeline *pip, int32_t *cnts);
@@ -181,6 +185,11 @@ class RadixJoin : public BinaryOperator {
     return buildS->getMaterializer();
   }
   virtual bool isFiltering() const { return true; }
+
+  virtual RecordType getRowType() const {
+    // FIXME: implement
+    throw runtime_error("unimplemented");
+  }
 
  private:
   void runRadix() const;

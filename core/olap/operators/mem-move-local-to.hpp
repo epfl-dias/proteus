@@ -71,6 +71,8 @@ class MemMoveLocalTo : public UnaryOperator {
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
+  virtual RecordType getRowType() const { return wantedFields; }
+
  private:
   const vector<RecordAttribute *> wantedFields;
   StateVar device_id_var;

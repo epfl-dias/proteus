@@ -72,6 +72,11 @@ class HashPartitioner : public UnaryOperator {
 
   llvm::StructType *getPayloadType() { return payloadType; }
 
+  virtual RecordType getRowType() const {
+    // FIXME: implement
+    throw runtime_error("unimplemented");
+  }
+
  private:
   void matFormat();
 
@@ -133,6 +138,11 @@ class GpuPartitionedHashJoinChained : public BinaryOperator {
   void allocate(Pipeline *pip);
 
   virtual bool isFiltering() const { return true; }
+
+  virtual RecordType getRowType() const {
+    // FIXME: implement
+    throw runtime_error("unimplemented");
+  }
 
  private:
   void generate_materialize_left(Context *const context,

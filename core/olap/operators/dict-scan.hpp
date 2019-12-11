@@ -62,6 +62,11 @@ class DictScan : public UnaryOperator {
                        const OperatorState &childState);
   virtual bool isFiltering() const { return true; }
 
+  virtual RecordType getRowType() const {
+    // FIXME: implement
+    throw runtime_error("unimplemented");
+  }
+
   virtual DeviceType getDeviceType() const { return DeviceType::CPU; }
   virtual DegreeOfParallelism getDOP() const { return DegreeOfParallelism{1}; }
 

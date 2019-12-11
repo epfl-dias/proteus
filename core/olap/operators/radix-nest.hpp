@@ -101,6 +101,11 @@ class Nest : public UnaryOperator {
   Materializer &getMaterializer() { return mat; }
   virtual bool isFiltering() const { return true; }
 
+  virtual RecordType getRowType() const {
+    // FIXME: implement
+    throw runtime_error("unimplemented");
+  }
+
  private:
   // void generateInsert(Context* context, const OperatorState& childState);
   /* Very similar to radix join building phase! */
