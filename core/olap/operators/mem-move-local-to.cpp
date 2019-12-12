@@ -66,7 +66,7 @@ buff_pair make_mem_move_local_to(char *src, size_t bytes, int target_device,
 }
 }
 
-void MemMoveLocalTo::produce() {
+void MemMoveLocalTo::produce_(ParallelContext *context) {
   auto &llvmContext = context->getLLVMContext();
   auto int32_type = Type::getInt32Ty(context->getLLVMContext());
   auto charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
@@ -199,7 +199,7 @@ void MemMoveLocalTo::produce() {
   context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
   context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 void MemMoveLocalTo::consume(Context *const context,

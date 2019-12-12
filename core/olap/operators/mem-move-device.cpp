@@ -64,7 +64,7 @@ void *MemMoveConf_pull(void *buff, MemMoveDevice::MemMoveConf *mmc) {
 }
 }
 
-void MemMoveDevice::produce() {
+void MemMoveDevice::produce_(ParallelContext *context) {
   auto &llvmContext = context->getLLVMContext();
   auto int32_type = llvm::Type::getInt32Ty(context->getLLVMContext());
   auto charPtrType = llvm::Type::getInt8PtrTy(context->getLLVMContext());
@@ -202,7 +202,7 @@ void MemMoveDevice::produce() {
     this->close(pip);
   });
 
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 void MemMoveDevice::consume(Context *const context,

@@ -34,7 +34,7 @@ class NullFilter : public UnaryOperator {
       : UnaryOperator(child), expr(expr) {}
   virtual ~NullFilter() { LOG(INFO) << "Collapsing null_filter operator"; }
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return true; }
 

@@ -44,7 +44,7 @@ class HashJoinChained : public BinaryOperator {
     LOG(INFO) << "Collapsing HashJoinChained operator";
   }
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
   virtual void consume(Context *const context, const OperatorState &childState);

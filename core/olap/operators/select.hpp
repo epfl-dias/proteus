@@ -30,7 +30,7 @@ class Select : public UnaryOperator {
       : UnaryOperator(child), expr(std::move(expr)) {}
   virtual ~Select() { LOG(INFO) << "Collapsing selection operator"; }
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return true; }
 

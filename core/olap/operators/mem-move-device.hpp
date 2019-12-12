@@ -99,7 +99,7 @@ class MemMoveDevice : public UnaryOperator {
 
   virtual ~MemMoveDevice() { LOG(INFO) << "Collapsing MemMoveDevice operator"; }
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 

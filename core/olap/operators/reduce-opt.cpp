@@ -47,7 +47,7 @@ Reduce::Reduce(std::vector<Monoid> accs, std::vector<expression_t> outputExprs,
   }
 }
 
-void Reduce::produce() {
+void Reduce::produce_(ParallelContext *context) {
   flushResults =
       flushResults && !getParent();  // TODO: is this the best way to do it ?
   generate_flush();
@@ -80,7 +80,7 @@ void Reduce::produce() {
     }
   }
 
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 void Reduce::consume(Context *const context, const OperatorState &childState) {

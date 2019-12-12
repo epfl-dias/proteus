@@ -595,7 +595,7 @@ TEST(Output, NestBagTPCH) {
   opt::Reduce *reduceOp = new opt::Reduce(reduceAccs, exprs, predicate, nestOp,
                                           &ctx, flushResults, testLabel);
   nestOp->setParent(reduceOp);
-  reduceOp->produce();
+  reduceOp->produce(context);
 
   /* Execute */
   ctx.prepareFunction(ctx.getGlobalFunction());

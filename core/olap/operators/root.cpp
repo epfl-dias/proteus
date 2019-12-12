@@ -23,6 +23,6 @@
 
 #include "operators/root.hpp"
 
-void Root::produce() { getChild()->produce(); }
+void Root::produce_(ParallelContext *context) { getChild()->produce(context); }
 
 void Root::consume(Context *const context, const OperatorState &childState) {}

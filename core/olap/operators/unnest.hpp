@@ -48,7 +48,7 @@ class Unnest : public UnaryOperator {
                         path.getUnderlyingExpression())),
                child) {}
   virtual ~Unnest() { LOG(INFO) << "Collapsing Unnest operator"; }
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return true; }
 

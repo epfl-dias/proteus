@@ -46,7 +46,7 @@ class HashRearrangeBuffered : public UnaryOperator {
     LOG(INFO) << "Collapsing HashRearrangeBuffered operator";
   }
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 

@@ -36,7 +36,7 @@ class Sort : public UnaryOperator {
 
   virtual ~Sort() { LOG(INFO) << "Collapsing Sort operator"; }
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);

@@ -56,7 +56,7 @@ RadixJoinBuild::~RadixJoinBuild() {
   //  Can't do garbage collection here, need to do it from codegen
 }
 
-void RadixJoinBuild::produce() {
+void RadixJoinBuild::produce_(ParallelContext *context) {
   initializeState();
 
   Operator *newChild = nullptr;
@@ -76,7 +76,7 @@ void RadixJoinBuild::produce() {
     newChild->setParent(this);
   }
 
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 void RadixJoinBuild::initializeState() {
@@ -685,7 +685,7 @@ void registerRelationMem(Pipeline *pip, void *rel_mem, RadixJoinBuild *b) {
 }
 }
 
-void RadixJoin::produce() {
+void RadixJoin::produce_(ParallelContext *context) {
   runRadix();
 
   context->popPipeline();
@@ -700,7 +700,7 @@ void RadixJoin::produce() {
   buildR->setParent(this);
   setLeftChild(buildR);
 
-  buildR->produce();
+  buildR->produce(context);
 
   context->popPipeline();
 
@@ -751,7 +751,7 @@ void RadixJoin::produce() {
 
   context->setChainedPipeline(flush_pip);
 
-  buildS->produce();
+  buildS->produce(context);
 }
 
 void RadixJoin::consume(Context *const context,

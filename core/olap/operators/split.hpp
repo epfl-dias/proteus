@@ -40,7 +40,7 @@ class Split : public Router {
 
   virtual ~Split() { LOG(INFO) << "Collapsing Split operator"; }
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
 
   virtual void setParent(Operator *parent) {
     UnaryOperator::setParent(parent);

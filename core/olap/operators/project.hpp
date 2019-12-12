@@ -35,7 +35,7 @@ class Project : public UnaryOperator {
   Project(vector<expression_t> outputExprs, string relName,
           Operator *const child, Context *context);
   virtual ~Project() { LOG(INFO) << "Collapsing Project operator"; }
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return getChild()->isFiltering(); }
 

@@ -31,7 +31,7 @@ class Root : public UnaryOperator {
  public:
   Root(Operator *const child) : UnaryOperator(child) {}
   virtual ~Root() { LOG(INFO) << "Collapsing root operator"; }
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return getChild()->isFiltering(); }
 

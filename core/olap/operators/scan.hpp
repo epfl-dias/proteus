@@ -38,7 +38,7 @@ class Scan : public UnaryOperator {
     throw runtime_error(string("Scan operator has no children"));
   }
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 

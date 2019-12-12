@@ -82,7 +82,7 @@ class Router : public UnaryOperator {
 
   virtual ~Router() { LOG(INFO) << "Collapsing Router operator"; }
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
   virtual void consume(Context *const context,

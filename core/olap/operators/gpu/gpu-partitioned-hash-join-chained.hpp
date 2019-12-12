@@ -60,7 +60,7 @@ class HashPartitioner : public UnaryOperator {
 
   virtual ~HashPartitioner() {}
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
 
   virtual bool isFiltering() const { return true; }
@@ -130,7 +130,7 @@ class GpuPartitionedHashJoinChained : public BinaryOperator {
     LOG(INFO) << "Collapsing GpuOptJoin operator";
   }
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
 
   void open(Pipeline *pip);

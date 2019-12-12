@@ -30,8 +30,8 @@
 
 using namespace llvm;
 
-void CpuToGpu::produce() {
-  generateGpuSide();
+void CpuToGpu::produce_(ParallelContext *context) {
+  generateGpuSide(context);
 
   context->popPipeline();
 
@@ -60,12 +60,12 @@ void CpuToGpu::produce() {
   childVar_id = context->appendStateVar(charPtrType);
   strmVar_id = context->appendStateVar(charPtrType);
 
-  getChild()->produce();
+  getChild()->produce(context);
 
   context->popDeviceProvider();
 }
 
-void CpuToGpu::generateGpuSide() {
+void CpuToGpu::generateGpuSide(ParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   std::vector<size_t> wantedFieldsArg_id;
@@ -74,14 +74,6 @@ void CpuToGpu::generateGpuSide() {
 
     wantedFieldsArg_id.emplace_back(context->appendParameter(t, true, true));
   }
-
-  Type *size_type;
-  if (sizeof(size_t) == 4)
-    size_type = Type::getInt32Ty(llvmContext);
-  else if (sizeof(size_t) == 8)
-    size_type = Type::getInt64Ty(llvmContext);
-  else
-    assert(false);
 
   Plugin *pg =
       Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());

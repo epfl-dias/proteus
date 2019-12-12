@@ -37,7 +37,7 @@ class PlanExecutor {
   PlanExecutor(const char *planPath, CatalogParser &cat,
                const char *moduleName = "llvmModule");
   PlanExecutor(const char *planPath, CatalogParser &cat, const char *moduleName,
-               Context *ctx);
+               ParallelContext *ctx);
   friend class PreparedStatement;
 
   void *handle;  // FIXME: when can we release the handle ?
@@ -50,7 +50,7 @@ class PlanExecutor {
   vector<Plugin *> activePlugins;
   std::map<size_t, Operator *> splitOps;
 
-  Context *ctx;
+  ParallelContext *ctx;
   void parsePlan(const rapidjson::Document &doc, bool execute = false);
   /* When processing tree root, parent will be nullptr */
   Operator *parseOperator(const rapidjson::Value &val);

@@ -52,7 +52,7 @@ Flush::Flush(vector<expression_t> outputExprs_v, Operator *const child,
       relName(outputExprs_v[0].getRegisteredRelName()),
       outputExprs_v(outputExprs_v) {}
 
-void Flush::produce() {
+void Flush::produce_(ParallelContext *context) {
   IntegerType *t = Type::getInt64Ty(context->getLLVMContext());
   result_cnt_id = context->appendStateVar(
       PointerType::getUnqual(t),
@@ -82,7 +82,7 @@ void Flush::produce() {
         context->deallocateStateVar(s);
       });
 
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 void Flush::consume(Context *const context, const OperatorState &childState) {

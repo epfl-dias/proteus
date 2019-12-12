@@ -33,7 +33,7 @@ void *get_buffer(size_t bytes);
 
 using namespace llvm;
 
-void HashRearrange::produce() {
+void HashRearrange::produce_(ParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Plugin *pg =
@@ -66,7 +66,7 @@ void HashRearrange::produce() {
     this->close(pip);
   });
 
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 Value *HashRearrange::hash(const std::vector<expression_t> &exprs,

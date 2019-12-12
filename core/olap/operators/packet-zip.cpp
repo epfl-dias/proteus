@@ -44,7 +44,7 @@ ZipInitiate::ZipInitiate(RecordAttribute *ptrAttr, RecordAttribute *splitter,
       state2(state2),
       calls(0) {}
 
-void ZipInitiate::produce() {
+void ZipInitiate::produce_(ParallelContext *context) {
   Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
   Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
 
@@ -85,7 +85,7 @@ void ZipInitiate::produce() {
   ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
     this->open_cache(pip);
   });
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 void ZipInitiate::consume(Context *const context,
@@ -294,7 +294,7 @@ ZipCollect::ZipCollect(RecordAttribute *ptrAttr, RecordAttribute *splitter,
 
 {}
 
-void ZipCollect::produce() {
+void ZipCollect::produce_(ParallelContext *context) {
   Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
 
   pipeFormat();
@@ -317,7 +317,7 @@ void ZipCollect::produce() {
     this->close_cache_left(pip);
   });
   cacheFormatLeft();
-  getLeftChild()->produce();
+  getLeftChild()->produce(context);
   // context->getModule()->dump();
   context->popPipeline();
 
@@ -330,7 +330,7 @@ void ZipCollect::produce() {
     this->close_cache_right(pip);
   });
   cacheFormatRight();
-  getRightChild()->produce();
+  getRightChild()->produce(context);
 }
 
 void ZipCollect::consume(Context *const context,
@@ -892,7 +892,7 @@ ZipForward::ZipForward(RecordAttribute *targetAttr, Operator *const child,
       targetAttr(targetAttr),
       state(state) {}
 
-void ZipForward::produce() {
+void ZipForward::produce_(ParallelContext *context) {
   cacheFormat();
   ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
     this->open(pip);
@@ -902,7 +902,7 @@ void ZipForward::produce() {
   });
 
   getChild()->setParent(this);
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 void ZipForward::cacheFormat() {

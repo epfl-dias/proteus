@@ -38,7 +38,7 @@ class Flush : public UnaryOperator {
         Context *context)
       : Flush(outputExprs, child, context, context->getModuleName()) {}
   virtual ~Flush() { LOG(INFO) << "Collapsing Flush operator"; }
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return getChild()->isFiltering(); }
 

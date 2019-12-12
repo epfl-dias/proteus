@@ -40,7 +40,7 @@ void non_temporal_copy(char *out, char *in);
 
 using namespace llvm;
 
-void HashRearrangeBuffered::produce() {
+void HashRearrangeBuffered::produce_(ParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Plugin *pg =
@@ -82,7 +82,7 @@ void HashRearrangeBuffered::produce() {
     this->close(pip);
   });
 
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 // NOTE: no MOD hashtable_size here!

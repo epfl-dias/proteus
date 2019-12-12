@@ -29,17 +29,16 @@
 
 class CpuToGpu : public DeviceCross {
  public:
-  CpuToGpu(Operator *const child, ParallelContext *const context,
-           const vector<RecordAttribute *> &wantedFields)
-      : DeviceCross(child), context(context), wantedFields(wantedFields) {}
+  CpuToGpu(Operator *const child, const vector<RecordAttribute *> &wantedFields)
+      : DeviceCross(child), wantedFields(wantedFields) {}
 
   virtual ~CpuToGpu() { LOG(INFO) << "Collapsing CpuToGpu operator"; }
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
 
-  virtual void generateGpuSide();
+  virtual void generateGpuSide(ParallelContext *context);
 
   virtual RecordType getRowType() const { return wantedFields; }
 
@@ -50,8 +49,6 @@ class CpuToGpu : public DeviceCross {
 
  private:
   const vector<RecordAttribute *> wantedFields;
-
-  ParallelContext *const context;
 
   PipelineGen *gpu_pip;
   StateVar childVar_id;

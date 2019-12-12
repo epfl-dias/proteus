@@ -29,12 +29,10 @@
 
 class BlockToTuples : public UnaryOperator {
  public:
-  BlockToTuples(Operator *const child, ParallelContext *const context,
-                const std::vector<expression_t> &wantedFields, bool gpu = true,
-                gran_t granularity = gran_t::GRID)
+  BlockToTuples(Operator *const child, std::vector<expression_t> wantedFields,
+                bool gpu = true, gran_t granularity = gran_t::GRID)
       : UnaryOperator(child),
-        wantedFields(wantedFields),
-        context(context),
+        wantedFields(std::move(wantedFields)),
         granularity(granularity),
         gpu(gpu) {
     assert((gpu || granularity == gran_t::THREAD) &&
@@ -44,9 +42,7 @@ class BlockToTuples : public UnaryOperator {
                                                        // granularity
   }
 
-  virtual ~BlockToTuples() { LOG(INFO) << "Collapsing BlockToTuples operator"; }
-
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
@@ -68,14 +64,12 @@ class BlockToTuples : public UnaryOperator {
   }
 
  private:
-  void nextEntry();
+  void nextEntry(llvm::Value *mem_itemCtr, ParallelContext *context);
   virtual void open(Pipeline *pip);
   virtual void close(Pipeline *pip);
 
   const std::vector<expression_t> wantedFields;
   std::vector<StateVar> old_buffs;
-  ParallelContext *const context;
-  llvm::AllocaInst *mem_itemCtr;
   gran_t granularity;
 
   bool gpu;

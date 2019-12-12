@@ -111,7 +111,7 @@ void symantecCSV3v1(map<string, dataset> datasetCatalog) {
   // Run function
   struct timespec t0, t1;
   clock_gettime(CLOCK_REALTIME, &t0);
-  reduce->produce();
+  reduce->produce(context);
   ctx.prepareFunction(ctx.getGlobalFunction());
   clock_gettime(CLOCK_REALTIME, &t1);
   printf("Execution took %f seconds\n", diff(t0, t1));
@@ -308,8 +308,8 @@ void symantecCSV4v1(map<string, dataset> datasetCatalog) {
   // Run function
   struct timespec t0, t1;
   clock_gettime(CLOCK_REALTIME, &t0);
-  rootOp->produce();
-  //    reduce->produce();
+  rootOp->produce(context);
+  //    reduce->produce(context);
   ctx.prepareFunction(ctx.getGlobalFunction());
   clock_gettime(CLOCK_REALTIME, &t1);
   printf("Execution took %f seconds\n", diff(t0, t1));
@@ -526,8 +526,8 @@ void symantecCSV4v2(map<string, dataset> datasetCatalog) {
   // Run function
   struct timespec t0, t1;
   clock_gettime(CLOCK_REALTIME, &t0);
-  rootOp->produce();
-  //    reduce->produce();
+  rootOp->produce(context);
+  //    reduce->produce(context);
   ctx.prepareFunction(ctx.getGlobalFunction());
   clock_gettime(CLOCK_REALTIME, &t1);
   printf("Execution took %f seconds\n", diff(t0, t1));
@@ -578,7 +578,7 @@ void symantecCSVWarmup(map<string, dataset> datasetCatalog) {
   // Run function
   struct timespec t0, t1;
   clock_gettime(CLOCK_REALTIME, &t0);
-  reduce->produce();
+  reduce->produce(context);
   ctx.prepareFunction(ctx.getGlobalFunction());
   clock_gettime(CLOCK_REALTIME, &t1);
   printf("Execution took %f seconds\n", diff(t0, t1));

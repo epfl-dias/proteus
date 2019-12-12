@@ -23,6 +23,8 @@
 
 #include "expression-parser.hpp"
 
+#include <util/parallel-context.hpp>
+
 inline bool ends_with(std::string const &value, std::string const &ending) {
   if (ending.size() > value.size()) return false;
   return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
@@ -102,8 +104,8 @@ int lookupInDictionary(string s, const rapidjson::Value &val) {
   }
 }
 
-expressions::extract_unit ExpressionParser::parseUnitRange(std::string range,
-                                                           Context *ctx) {
+expressions::extract_unit ExpressionParser::parseUnitRange(
+    std::string range, ParallelContext *ctx) {
   if (range == "YEAR") return expressions::extract_unit::YEAR;
   if (range == "MONTH") return expressions::extract_unit::MONTH;
   if (range == "DAY") return expressions::extract_unit::DAYOFMONTH;
@@ -134,7 +136,7 @@ expressions::extract_unit ExpressionParser::parseUnitRange(std::string range,
 }
 
 expression_t ExpressionParser::parseExpression(const rapidjson::Value &val,
-                                               Context *ctx) {
+                                               ParallelContext *ctx) {
   assert(val.IsObject());
   expression_t ret = parseExpressionWithoutRegistering(val, ctx);
   if (val.HasMember("register_as")) {
@@ -167,7 +169,7 @@ expression_t ExpressionParser::parseExpression(const rapidjson::Value &val,
  */
 
 expression_t ExpressionParser::parseExpressionWithoutRegistering(
-    const rapidjson::Value &val, Context *ctx) {
+    const rapidjson::Value &val, ParallelContext *ctx) {
   assert(val.IsObject());
 
   const char *keyExpression = "expression";

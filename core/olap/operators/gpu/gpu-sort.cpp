@@ -83,7 +83,7 @@ GpuSort::GpuSort(Operator *const child, ParallelContext *const context,
   assert(granularity == gran_t::GRID || granularity == gran_t::THREAD);
 }
 
-void GpuSort::produce() {
+void GpuSort::produce_(ParallelContext *context) {
   auto &llvmContext = context->getLLVMContext();
 
   auto pg = Catalog::getInstance().getPlugin(relName);
@@ -185,7 +185,7 @@ void GpuSort::produce() {
         context->deallocateStateVar(s);
       });
 
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 void GpuSort::consume(Context *const context, const OperatorState &childState) {

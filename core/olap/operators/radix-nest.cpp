@@ -171,7 +171,7 @@ Nest::Nest(Context *const context, vector<Monoid> accs,
   payloadType = build->getPayloadType();
 }
 
-void Nest::produce() {
+void Nest::produce_(ParallelContext *context) {
   probeHT();
 
   context->popPipeline();
@@ -210,11 +210,11 @@ void Nest::produce() {
   setChild(build);
 
   context->setChainedPipeline(flush_pip);
-  build->produce();
+  build->produce(context);
 
   // context->popNewPipeline();
 
-  //     getChild()->produce();
+  //     getChild()->produce(context);
 
   // generateProbe(this->context);
   // updateRelationPointers();

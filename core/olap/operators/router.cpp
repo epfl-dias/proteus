@@ -31,7 +31,7 @@
 
 using namespace llvm;
 
-void Router::produce() {
+void Router::produce_(ParallelContext *context) {
   generate_catch();
 
   context->popPipeline();
@@ -44,7 +44,7 @@ void Router::produce() {
   context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
   context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 void Router::generate_catch() {

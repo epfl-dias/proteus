@@ -25,7 +25,9 @@
 
 using namespace llvm;
 
-void OuterUnnest::produce() { getChild()->produce(); }
+void OuterUnnest::produce_(ParallelContext *context) {
+  getChild()->produce(context);
+}
 
 void OuterUnnest::consume(Context *const context,
                           const OperatorState &childState) {

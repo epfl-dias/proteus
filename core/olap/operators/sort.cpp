@@ -54,7 +54,7 @@ Sort::Sort(Operator *const child, ParallelContext *const context,
       outputExpr(buildSortOutputExpression(context, orderByFields)),
       relName(orderByFields[0].getRegisteredRelName()) {}
 
-void Sort::produce() {
+void Sort::produce_(ParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Plugin *pg = Catalog::getInstance().getPlugin(relName);
@@ -157,7 +157,7 @@ void Sort::produce() {
         context->deallocateStateVar(s);
       });
 
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 void Sort::consume(Context *const context, const OperatorState &childState) {

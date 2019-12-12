@@ -37,7 +37,7 @@
 
 using namespace llvm;
 
-void GpuHashRearrange::produce() {
+void GpuHashRearrange::produce_(ParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Type *idx_type = Type::getInt32Ty(llvmContext);
@@ -66,7 +66,7 @@ void GpuHashRearrange::produce() {
     this->close(pip);
   });
 
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 void GpuHashRearrange::consume(Context *const context,

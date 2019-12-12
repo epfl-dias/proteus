@@ -33,7 +33,7 @@ class Join : public BinaryOperator {
         htName(opLabel),
         mat(mat) {}
   virtual ~Join() { LOG(INFO) << "Collapsing Join operator"; }
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   Materializer &getMaterializer() { return mat; }
   virtual bool isFiltering() const { return true; }

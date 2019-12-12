@@ -105,7 +105,7 @@ extern "C" int32_t getDictScan(DictMatchIter *begin) { return **begin; }
 
 extern "C" void nextDictScan(DictMatchIter *begin) { ++(*begin); }
 
-void DictScan::produce() {
+void DictScan::produce_(ParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
 

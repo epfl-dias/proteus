@@ -36,7 +36,7 @@ class GpuHashGroupByChained : public HashGroupByChained {
   // inherit constructor
   using HashGroupByChained::HashGroupByChained;
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   // virtual void consume(Context *const context,
   //                      const OperatorState &childState);
 

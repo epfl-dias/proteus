@@ -72,7 +72,7 @@ class HashGroupByChained : public UnaryOperator {
     LOG(INFO) << "Collapsing HashGroupByChained operator";
   }
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
 
   virtual bool isFiltering() const { return true; }

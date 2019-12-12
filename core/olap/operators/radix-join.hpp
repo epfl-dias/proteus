@@ -105,7 +105,7 @@ class RadixJoinBuild : public UnaryOperator {
 #endif
                  bool is_agg = false);
   virtual ~RadixJoinBuild();
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   //  void produceNoCache() ;
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual void consume(ParallelContext *const context,
@@ -175,7 +175,7 @@ class RadixJoin : public BinaryOperator {
             Operator *rightChild, Context *const context, const char *opLabel,
             Materializer &matLeft, Materializer &matRight);
   virtual ~RadixJoin();
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   //    void produceNoCache() ;
   virtual void consume(Context *const context, const OperatorState &childState);
   Materializer &getMaterializerLeft() const {

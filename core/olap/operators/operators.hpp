@@ -24,6 +24,8 @@
 #ifndef OPERATORS_HPP_
 #define OPERATORS_HPP_
 
+#include <util/parallel-context.hpp>
+
 #include "common/common.hpp"
 #include "expressions/expressions.hpp"
 #include "llvm/IR/IRBuilder.h"
@@ -49,7 +51,19 @@ class Operator {
                                        OPERATORS"<<this<<" vs "<<&i;*/
     return this == &i;
   }
-  virtual void produce() = 0;
+
+ protected:
+  virtual void produce_(ParallelContext *context) = 0;
+
+ public:
+  virtual void produce(ParallelContext *context) final {
+    //#ifndef NDEBUG
+    //    auto * pip = context->getCurrentPipeline();
+    //#endif
+    produce_(context);
+    //    assert(pip == context->getCurrentPipeline());
+  }
+
   /**
    * Consume is not a const method because Nest does need to keep some state
    * info. Context needs to be passed from the consuming to the producing

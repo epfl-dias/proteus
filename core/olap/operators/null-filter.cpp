@@ -25,7 +25,9 @@
 
 using namespace llvm;
 
-void NullFilter::produce() { getChild()->produce(); }
+void NullFilter::produce_(ParallelContext *context) {
+  getChild()->produce(context);
+}
 
 void NullFilter::consume(Context *const context,
                          const OperatorState &childState) {

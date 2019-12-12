@@ -23,7 +23,7 @@
 
 #include "operators/print.hpp"
 
-void Print::produce() { getChild()->produce(); }
+void Print::produce_(ParallelContext *context) { getChild()->produce(context); }
 
 void Print::consume(Context *const context, const OperatorState &childState) {
   // Generate condition

@@ -198,8 +198,8 @@ void ExprMaterializer::freeArenas() const {
   Builder->CreateCall(freeLLVM, ArgsFree);
 }
 
-void ExprMaterializer::produce() {
-  getChild()->produce();
+void ExprMaterializer::produce_(ParallelContext *context) {
+  getChild()->produce(context);
 
   /* Free Arenas */
   /*this->freeArenas();*/

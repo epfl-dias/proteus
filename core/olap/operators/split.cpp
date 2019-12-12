@@ -27,7 +27,7 @@
 
 #include "expressions/expressions-generator.hpp"
 
-void Split::produce() {
+void Split::produce_(ParallelContext *context) {
   UnaryOperator::setParent(parent[produce_calls]);
   generate_catch();
 
@@ -43,7 +43,7 @@ void Split::produce() {
   context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
   context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 void Split::open(Pipeline *pip) {

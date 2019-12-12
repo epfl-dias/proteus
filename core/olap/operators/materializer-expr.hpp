@@ -53,7 +53,7 @@ class ExprMaterializer : public UnaryOperator {
                    Operator *const child, Context *const context,
                    char *opLabel);
   virtual ~ExprMaterializer();
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 

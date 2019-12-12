@@ -127,7 +127,7 @@ buff_pair make_mem_move_broadcast_device(
 }
 }
 
-void MemBroadcastDevice::produce() {
+void MemBroadcastDevice::produce_(ParallelContext *context) {
   auto &llvmContext = context->getLLVMContext();
   auto int32_type = Type::getInt32Ty(context->getLLVMContext());
   auto charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
@@ -235,7 +235,7 @@ void MemBroadcastDevice::produce() {
   ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
     this->close(pip);
   });
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 void MemBroadcastDevice::consume(Context *const context,

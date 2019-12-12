@@ -34,7 +34,8 @@ class ExpressionParser {
  public:
   ExpressionParser(CatalogParser &catalogParser)
       : catalogParser(catalogParser) {}
-  expression_t parseExpression(const rapidjson::Value &val, Context *ctx);
+  expression_t parseExpression(const rapidjson::Value &val,
+                               ParallelContext *ctx);
   ExpressionType *parseExpressionType(const rapidjson::Value &val);
   RecordAttribute *parseRecordAttr(const rapidjson::Value &val,
                                    const ExpressionType *defaultType = nullptr,
@@ -43,8 +44,9 @@ class ExpressionParser {
 
  private:
   expression_t parseExpressionWithoutRegistering(const rapidjson::Value &val,
-                                                 Context *ctx);
-  expressions::extract_unit parseUnitRange(std::string range, Context *ctx);
+                                                 ParallelContext *ctx);
+  expressions::extract_unit parseUnitRange(std::string range,
+                                           ParallelContext *ctx);
   RecordType *getRecordType(std::string relName, bool createIfNeeded = true);
   const RecordAttribute *getAttribute(std::string relName, std::string attrName,
                                       bool createIfNeeded = true);

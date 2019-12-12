@@ -75,8 +75,8 @@ Nest::Nest(Monoid acc, expressions::Expression *outputExpr,
  * stop entirely before finishing the operator's work
  * => generation takes place in two steps
  */
-void Nest::produce() {
-  getChild()->produce();
+void Nest::produce_(ParallelContext *context) {
+  getChild()->produce(context);
 
   generateProbe(this->context);
 }

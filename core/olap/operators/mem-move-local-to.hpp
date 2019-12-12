@@ -55,19 +55,16 @@ class MemMoveLocalTo : public UnaryOperator {
     size_t next_e;
   };
 
-  MemMoveLocalTo(Operator *const child, ParallelContext *const context,
+  MemMoveLocalTo(Operator *const child,
                  const vector<RecordAttribute *> &wantedFields,
                  size_t slack = 8)
-      : UnaryOperator(child),
-        context(context),
-        wantedFields(wantedFields),
-        slack(slack) {}
+      : UnaryOperator(child), wantedFields(wantedFields), slack(slack) {}
 
   virtual ~MemMoveLocalTo() {
     LOG(INFO) << "Collapsing MemMoveLocalTo operator";
   }
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 
@@ -82,8 +79,6 @@ class MemMoveLocalTo : public UnaryOperator {
   llvm::Type *data_type;
 
   size_t slack;
-
-  ParallelContext *const context;
 
   void open(Pipeline *pip);
   void close(Pipeline *pip);

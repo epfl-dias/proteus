@@ -23,7 +23,9 @@
 
 #include "operators/select.hpp"
 
-void Select::produce() { getChild()->produce(); }
+void Select::produce_(ParallelContext *context) {
+  getChild()->produce(context);
+}
 
 void Select::consume(Context *const context, const OperatorState &childState) {
   generate(context, childState);

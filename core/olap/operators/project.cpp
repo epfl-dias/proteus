@@ -33,7 +33,7 @@ Project::Project(vector<expression_t> outputExprs, string relName,
       relName(relName),
       outputExprs(outputExprs) {}
 
-void Project::produce() {
+void Project::produce_(ParallelContext *context) {
   auto t = llvm::Type::getInt32Ty(context->getLLVMContext());
   oid_id = context->appendStateVar(
       llvm::PointerType::getUnqual(t),
@@ -47,7 +47,7 @@ void Project::produce() {
 
       [=](llvm::Value *, llvm::Value *s) { context->deallocateStateVar(s); });
 
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 void Project::consume(Context *const context, const OperatorState &childState) {

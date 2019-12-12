@@ -23,7 +23,7 @@
 
 #include "operators/scan.hpp"
 
-void Scan::produce() {
+void Scan::produce_(ParallelContext *context) {
   LOG(INFO) << "[Scan:] " << pg.getName();
   pg.init();
   pg.generate(*this);

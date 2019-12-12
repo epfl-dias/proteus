@@ -41,7 +41,7 @@ class Reduce : public UnaryOperator {
          expression_t pred, Operator *const child, Context *context,
          bool flushResults = false, const char *outPath = "out.json");
   virtual ~Reduce() { LOG(INFO) << "Collapsing Reduce operator"; }
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return true; }
 

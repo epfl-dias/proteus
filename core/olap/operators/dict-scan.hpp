@@ -44,7 +44,7 @@ class DictScan : public UnaryOperator {
     throw runtime_error(string("Dictscan operator has no children"));
   }
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context,
                        const OperatorState &childState) {
     ParallelContext *ctx = dynamic_cast<ParallelContext *>(context);

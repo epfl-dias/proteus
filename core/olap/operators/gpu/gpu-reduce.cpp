@@ -43,7 +43,7 @@ GpuReduce::GpuReduce(vector<Monoid> accs, vector<expression_t> outputExprs,
   }
 }
 
-void GpuReduce::produce() {
+void GpuReduce::produce_(ParallelContext *context) {
   flushResults =
       flushResults && !getParent();  // TODO: is this the best way to do it ?
   generate_flush();
@@ -75,7 +75,7 @@ void GpuReduce::produce() {
     }
   }
 
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 void GpuReduce::consume(Context *const context,

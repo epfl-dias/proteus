@@ -23,7 +23,9 @@
 
 #include "operators/unnest.hpp"
 
-void Unnest::produce() { getChild()->produce(); }
+void Unnest::produce_(ParallelContext *context) {
+  getChild()->produce(context);
+}
 
 void Unnest::consume(Context *const context, const OperatorState &childState) {
   generate(context, childState);

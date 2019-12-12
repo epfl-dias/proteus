@@ -96,7 +96,7 @@ class Nest : public UnaryOperator {
        expression_t pred, expression_t f_grouping, expression_t g_nullToZero,
        Operator *const child, const std::string &opLabel, Materializer &mat);
   virtual ~Nest() { LOG(INFO) << "Collapsing Nest operator"; }
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   Materializer &getMaterializer() { return mat; }
   virtual bool isFiltering() const { return true; }

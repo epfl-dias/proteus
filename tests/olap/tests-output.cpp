@@ -605,7 +605,7 @@ TEST_F(OutputTest, NestBagTPCH) {
 
   Flush *flush = new Flush({projCnt, projMax}, nestOp, &ctx, testLabel);
   nestOp->setParent(flush);
-  flush->produce();
+  flush->produce(context);
 
   // Run function
   EXPECT_TRUE(executePlan(ctx, testLabel, {pg}));

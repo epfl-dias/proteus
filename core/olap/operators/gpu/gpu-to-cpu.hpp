@@ -41,7 +41,7 @@ class GpuToCpu : public DeviceCross {
 
   virtual ~GpuToCpu() { LOG(INFO) << "Collapsing GpuToCpu operator"; }
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
 

@@ -61,7 +61,7 @@ class ZipCollect : public BinaryOperator {
 
   virtual ~ZipCollect() { LOG(INFO) << "Collapsing PacketZip operator"; }
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
 
   void generate_cache_left(Context *const context,
@@ -135,7 +135,7 @@ class ZipInitiate : public UnaryOperator {
 
   virtual ~ZipInitiate() {}
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
 
   virtual void consume(Context *const context, const OperatorState &childState);
 
@@ -193,7 +193,7 @@ class ZipForward : public UnaryOperator {
 
   virtual ~ZipForward() {}
 
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return false; }
 

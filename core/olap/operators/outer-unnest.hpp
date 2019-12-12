@@ -33,7 +33,7 @@ class OuterUnnest : public UnaryOperator {
   OuterUnnest(expression_t pred, Path path, Operator *const child)
       : UnaryOperator(child), path(std::move(path)), pred(std::move(pred)) {}
   virtual ~OuterUnnest() { LOG(INFO) << "Collapsing Outer Unnest operator"; }
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return true; }
 

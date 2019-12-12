@@ -31,7 +31,7 @@
 
 using namespace llvm;
 
-void GpuHashGroupByChained::produce() {
+void GpuHashGroupByChained::produce_(ParallelContext *context) {
   context->pushPipeline();
 
   buildHashTableFormat();
@@ -39,7 +39,7 @@ void GpuHashGroupByChained::produce() {
   context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
   context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
-  getChild()->produce();
+  getChild()->produce(context);
 
   context->popPipeline();
 

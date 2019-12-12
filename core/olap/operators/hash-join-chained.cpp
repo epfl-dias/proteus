@@ -55,14 +55,14 @@ HashJoinChained::HashJoinChained(const std::vector<GpuMatExpr> &build_mat_exprs,
       context(context),
       opLabel(opLabel) {}
 
-void HashJoinChained::produce() {
+void HashJoinChained::produce_(ParallelContext *context) {
   context->pushPipeline();  // FIXME: find a better way to do this
   buildHashTableFormat();
 
   context->registerOpen(this, [this](Pipeline *pip) { this->open_build(pip); });
   context->registerClose(this,
                          [this](Pipeline *pip) { this->close_build(pip); });
-  getLeftChild()->produce();
+  getLeftChild()->produce(context);
 
   // context->compileAndLoad(); //FIXME: Remove!!!! causes an extra compilation!
   // this compile will be done again later! Get kernel function probe_kernel =
@@ -74,7 +74,7 @@ void HashJoinChained::produce() {
   context->registerOpen(this, [this](Pipeline *pip) { this->open_probe(pip); });
   context->registerClose(this,
                          [this](Pipeline *pip) { this->close_probe(pip); });
-  getRightChild()->produce();
+  getRightChild()->produce(context);
 }
 
 void HashJoinChained::consume(Context *const context,

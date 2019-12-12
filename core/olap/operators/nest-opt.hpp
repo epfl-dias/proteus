@@ -52,7 +52,7 @@ class Nest : public UnaryOperator {
        const list<expressions::InputArgument> &g_nullToZero,
        Operator *const child, char *opLabel, Materializer &mat);
   virtual ~Nest() { LOG(INFO) << "Collapsing Nest operator"; }
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   Materializer &getMaterializer() { return mat; }
   virtual bool isFiltering() const { return true; }

@@ -25,9 +25,9 @@
 
 using namespace llvm;
 
-void Join::produce() {
-  getLeftChild()->produce();
-  getRightChild()->produce();
+void Join::produce_(ParallelContext *context) {
+  getLeftChild()->produce(context);
+  getRightChild()->produce(context);
 }
 
 // TODO For now, materializing in a struct

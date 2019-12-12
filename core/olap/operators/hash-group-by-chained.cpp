@@ -46,7 +46,7 @@ HashGroupByChained::HashGroupByChained(
       context(context),
       opLabel(opLabel) {}
 
-void HashGroupByChained::produce() {
+void HashGroupByChained::produce_(ParallelContext *context) {
   prepareDescription();
   generate_scan();
 
@@ -65,7 +65,7 @@ void HashGroupByChained::produce() {
     this->close(pip);
   });
 
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 void HashGroupByChained::consume(Context *const context,

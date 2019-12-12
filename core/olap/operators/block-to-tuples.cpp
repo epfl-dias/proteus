@@ -31,7 +31,7 @@
 
 using namespace llvm;
 
-void BlockToTuples::produce() {
+void BlockToTuples::produce_(ParallelContext *context) {
   context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
   context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
@@ -39,12 +39,15 @@ void BlockToTuples::produce() {
     old_buffs.push_back(context->appendStateVar(PointerType::getUnqual(
         RecordAttribute{wantedFields[i].getRegisteredAs(), true}.getLLVMType(
             context->getLLVMContext()))));
+    LOG(INFO) << old_buffs[i].index_in_pip << " " << old_buffs[i].pip;
   }
+  LOG(INFO) << this << " " << context->getCurrentPipeline() << std::endl;
 
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
-void BlockToTuples::nextEntry() {
+void BlockToTuples::nextEntry(llvm::Value *mem_itemCtr,
+                              ParallelContext *context) {
   // Prepare
   IRBuilder<> *Builder = context->getBuilder();
 
@@ -66,7 +69,7 @@ void BlockToTuples::nextEntry() {
 
 void BlockToTuples::consume(Context *const context,
                             const OperatorState &childState) {
-  ParallelContext *ctx = dynamic_cast<ParallelContext *>(context);
+  auto ctx = dynamic_cast<ParallelContext *>(context);
   if (!ctx) {
     string error_msg =
         "[BlockToTuples: ] Operator only supports code "
@@ -164,7 +167,7 @@ void BlockToTuples::consume(ParallelContext *const context,
                            pg->getOIDType()};  // FIXME: OID type for blocks ?
   Value *cnt = Builder->CreateLoad(oldBindings[tupleCnt].mem, "cnt");
 
-  mem_itemCtr = context->CreateEntryBlockAlloca(F, "i_ptr", cnt->getType());
+  auto mem_itemCtr = context->CreateEntryBlockAlloca("i_ptr", cnt->getType());
   Builder->CreateStore(
       Builder->CreateIntCast(context->threadId(), cnt->getType(), false),
       mem_itemCtr);
@@ -231,42 +234,14 @@ void BlockToTuples::consume(ParallelContext *const context,
   variableBindings[tupleIdentifier] = mem_posWrapper;
 
   // Actual Work (Loop through attributes etc.)
-  for (size_t i = 0; i < wantedFields.size(); ++i) {
-    RecordAttribute attr{wantedFields[i].getRegisteredAs(), true};
-
-    // Argument * arg = context->getArgument(wantedFieldsArg_id[i]);
-    // arg->setName(attr.getAttrName() + "_ptr");
-
-    // size_t offset = 0;
-
-    /* Read wanted field.
-     * Reminder: Primitive, scalar types have the (raw) buffer
-     * already cast to appr. type*/
-    // if (!attr.getOriginalType()->isPrimitive()){
-    //     LOG(ERROR)<< "[BINARY COL PLUGIN: ] Only primitives are currently
-    //     supported"; throw runtime_error(string("[BINARY COL PLUGIN: ] Only
-    //     primitives are currently supported"));
-    // }
-
-    // const PrimitiveType * t = dynamic_cast<const PrimitiveType
-    // *>(attr.getOriginalType());
-
-    // AllocaInst * attr_alloca = context->CreateEntryBlockAlloca(F,
-    // attr.getAttrName(), t->getLLVMType(llvmContext));
-
-    // variableBindings[tupleIdentifier] = mem_posWrapper;
-    // Move to next position
-    // Value* val_offset = context->createInt64(offset);
-    // skipLLVM(attr, val_offset);
+  for (const auto &field : wantedFields) {
+    RecordAttribute attr{field.getRegisteredAs(), true};
 
     Value *arg = Builder->CreateLoad(oldBindings[attr].mem);
 
-    // string posVarStr = string(posVar);
-    // string currPosVar = posVarStr + "." + attr.getAttrName();
-    string bufVarStr = wantedFields[0].getRegisteredRelName();
-    string currBufVar = bufVarStr + "." + attr.getAttrName();
+    auto bufVarStr = field.getRegisteredRelName();
+    auto currBufVar = bufVarStr + "." + attr.getAttrName();
 
-    // Value *parsed = Builder->CreateLoad(bufShiftedPtr); //attr_alloca
     Value *ptr = Builder->CreateGEP(arg, lhs);
 
     // Function    * pfetch =
@@ -291,13 +266,13 @@ void BlockToTuples::consume(ParallelContext *const context,
       ptr = parsed;
     }
 
-    variableBindings[wantedFields[i].getRegisteredAs()] =
+    variableBindings[field.getRegisteredAs()] =
         context->toMem(ptr, context->createFalse());
   }
 
   // Start insertion in IncBB.
   Builder->SetInsertPoint(IncBB);
-  nextEntry();
+  nextEntry(mem_itemCtr, context);
   Builder->CreateBr(CondBB);
 
   Builder->SetInsertPoint(LoopBB);

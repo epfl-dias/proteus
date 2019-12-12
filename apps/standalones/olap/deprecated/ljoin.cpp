@@ -320,7 +320,7 @@ void Query() {
   gtc->setParent(flush);
 
   RawOperator *root = flush;
-  root->produce();
+  root->produce(context);
 
   std::cout << "produced" << std::endl;
 
@@ -1163,7 +1163,7 @@ void Query2() {
   "/home/sioulas/pelago/pelago/res.json"); btt11->setParent(red);*/
 
   RawOperator *root = flush;
-  root->produce();
+  root->produce(context);
 
   std::cout << "produced" << std::endl;
 
@@ -1583,7 +1583,7 @@ expressions::RecordProjection(e6, *aggr);
 
 
     RawOperator* root = flush;
-    root->produce();
+    root->produce(context);
 
     std::cout << "produced" << std::endl;
 

@@ -162,7 +162,7 @@ RelBuilder RelBuilder::to_cpu(gran_t granularity, size_t size) const {
 
 RelBuilder RelBuilder::to_gpu(
     const vector<RecordAttribute *> &wantedFields) const {
-  auto op = new CpuToGpu(root, ctx, wantedFields);
+  auto op = new CpuToGpu(root, wantedFields);
   return apply(op);
 }
 
@@ -191,9 +191,8 @@ RelBuilder RelBuilder::unpack(const vector<expression_t> &projections) const {
 
 RelBuilder RelBuilder::unpack(const vector<expression_t> &projections,
                               gran_t granularity) const {
-  auto op =
-      new BlockToTuples(root, ctx, projections,
-                        root->getDeviceType() == DeviceType::GPU, granularity);
+  auto op = new BlockToTuples(
+      root, projections, root->getDeviceType() == DeviceType::GPU, granularity);
   return apply(op);
 }
 
@@ -281,7 +280,7 @@ RelBuilder RelBuilder::unnest(expression_t e) const {
 }
 
 PreparedStatement RelBuilder::prepare() {
-  root->produce();
+  root->produce(ctx);
   ctx->prepareFunction(ctx->getGlobalFunction());
   ctx->compileAndLoad();
   return {ctx->getPipelines(), ctx->getModuleName()};

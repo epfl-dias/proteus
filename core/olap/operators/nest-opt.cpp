@@ -68,8 +68,8 @@ Nest::Nest(vector<Monoid> accs, vector<expression_t> outputExprs,
   }
 }
 
-void Nest::produce() {
-  getChild()->produce();
+void Nest::produce_(ParallelContext *context) {
+  getChild()->produce(context);
 
   generateProbe(this->context);
 }

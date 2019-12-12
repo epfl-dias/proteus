@@ -70,7 +70,7 @@ HashPartitioner::HashPartitioner(const std::vector<GpuMatExpr> &parts_mat_exprs,
   log_parts1 = log_parts - log_parts2;
 }
 
-void HashPartitioner::produce() {
+void HashPartitioner::produce_(ParallelContext *context) {
   parts_mat_exprs.emplace_back(parts_keyexpr, 0, 32);
 
   std::sort(parts_mat_exprs.begin(), parts_mat_exprs.end(),
@@ -86,7 +86,7 @@ void HashPartitioner::produce() {
   ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
     this->close(pip);
   });
-  getChild()->produce();
+  getChild()->produce(context);
 }
 
 void HashPartitioner::matFormat() {
@@ -444,7 +444,7 @@ GpuPartitionedHashJoinChained::GpuPartitionedHashJoinChained(
 
 __global__ void print_gpu() { printf("Hello world\n"); }
 
-void GpuPartitionedHashJoinChained::produce() {
+void GpuPartitionedHashJoinChained::produce_(ParallelContext *context) {
   probe_mat_exprs.emplace_back(probe_keyexpr, 0, 32);
 
   std::sort(probe_mat_exprs.begin(), probe_mat_exprs.end(),
@@ -491,21 +491,21 @@ void GpuPartitionedHashJoinChained::produce() {
       this->allocate(pip);
     });
 
-    getLeftChild()->produce();
+    getLeftChild()->produce(context);
     context->popPipeline();
 
     context->pushPipeline();
     context->setChainedPipeline(flush_pip);
-    getRightChild()->produce();
+    getRightChild()->produce(context);
   } else {
     *caller = flush_pip;
-    getLeftChild()->produce();
+    getLeftChild()->produce(context);
     context->popPipeline();
 
     context->pushPipeline();
     // context->setChainedPipeline(flush_pip);
-    getRightChild()->produce();
-    // unionop->produce();
+    getRightChild()->produce(context);
+    // unionop->produce(context);
   }
   // context->getModule()->dump();
 }

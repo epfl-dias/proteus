@@ -23,7 +23,7 @@
 
 #include "operators/unionall.hpp"
 
-void UnionAll::produce() {
+void UnionAll::produce_(ParallelContext *context) {
   generate_catch();
 
   catch_pip = context->operator->();
@@ -36,6 +36,6 @@ void UnionAll::produce() {
     context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
     context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
-    child->produce();
+    child->produce(context);
   }
 }

@@ -117,7 +117,7 @@ PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
     : PlanExecutor(planPath, cat, moduleName, prepareContext(moduleName)) {}
 
 PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
-                           const char *moduleName, Context *ctx)
+                           const char *moduleName, ParallelContext *ctx)
     : handle(dlopen(nullptr, 0)),
       exprParser(cat),
       planPath(planPath),
@@ -172,7 +172,7 @@ void PlanExecutor::parsePlan(const rapidjson::Document &doc, bool execute) {
   splitOps.clear();
   Operator *planRootOp = parseOperator(doc);
 
-  planRootOp->produce();
+  planRootOp->produce(ctx);
 
   // Run function
   ctx->prepareFunction(ctx->getGlobalFunction());
@@ -939,8 +939,8 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
                    DegreeOfParallelism{numPartitioners}, build_attr_block,
                    slack, std::nullopt, RoutingPolicy::LOCAL, DeviceType::CPU);
     build_op->setParent(xch_build);
-    Operator *btt_build = new BlockToTuples(xch_build, (ParallelContext *)ctx,
-                                            build_expr, false, gran_t::THREAD);
+    Operator *btt_build =
+        new BlockToTuples(xch_build, build_expr, false, gran_t::THREAD);
     xch_build->setParent(btt_build);
     Operator *part_build =
         new HashRearrange(btt_build, (ParallelContext *)ctx, numOfBuckets,
@@ -958,8 +958,8 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
                    DegreeOfParallelism{numPartitioners}, probe_attr_block,
                    slack, std::nullopt, RoutingPolicy::LOCAL, DeviceType::CPU);
     probe_op->setParent(xch_probe);
-    Operator *btt_probe = new BlockToTuples(xch_probe, (ParallelContext *)ctx,
-                                            probe_expr, false, gran_t::THREAD);
+    Operator *btt_probe =
+        new BlockToTuples(xch_probe, probe_expr, false, gran_t::THREAD);
     xch_probe->setParent(btt_probe);
     Operator *part_probe =
         new HashRearrange(btt_probe, (ParallelContext *)ctx, numOfBuckets,
@@ -1032,18 +1032,16 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
         new ZipForward(attr_target, initiator, (ParallelContext *)ctx,
                        build_hashed_expr, "forwarder", coord->getStateLeft());
 
-    Operator *mml_build = new MemMoveLocalTo(fwd_build, (ParallelContext *)ctx,
-                                             build_hashed_attr_block, 4);
+    Operator *mml_build =
+        new MemMoveLocalTo(fwd_build, build_hashed_attr_block, 4);
     fwd_build->setParent(mml_build);
     Operator *mmd_build = new MemMoveDevice(mml_build, (ParallelContext *)ctx,
                                             build_hashed_attr_block, 4, false);
     mml_build->setParent(mmd_build);
-    Operator *ctg_build = new CpuToGpu(mmd_build, (ParallelContext *)ctx,
-                                       build_hashed_attr_block);
+    Operator *ctg_build = new CpuToGpu(mmd_build, build_hashed_attr_block);
     mmd_build->setParent(ctg_build);
     Operator *btt_build2 =
-        new BlockToTuples(ctg_build, (ParallelContext *)ctx, build_prejoin_expr,
-                          true, gran_t::GRID);
+        new BlockToTuples(ctg_build, build_prejoin_expr, true, gran_t::GRID);
     ctg_build->setParent(btt_build2);
     HashPartitioner *hpart1 = new HashPartitioner(
         build_join_expr, build_widths, build_prejoin_expr[0], btt_build2,
@@ -1054,18 +1052,16 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
         new ZipForward(attr_target, initiator, (ParallelContext *)ctx,
                        probe_hashed_expr, "forwarder", coord->getStateRight());
 
-    Operator *mml_probe = new MemMoveLocalTo(fwd_probe, (ParallelContext *)ctx,
-                                             probe_hashed_attr_block, 4);
+    Operator *mml_probe =
+        new MemMoveLocalTo(fwd_probe, probe_hashed_attr_block, 4);
     fwd_probe->setParent(mml_probe);
     Operator *mmd_probe = new MemMoveDevice(mml_probe, (ParallelContext *)ctx,
                                             probe_hashed_attr_block, 4, false);
     mml_probe->setParent(mmd_probe);
-    Operator *ctg_probe = new CpuToGpu(mmd_probe, (ParallelContext *)ctx,
-                                       probe_hashed_attr_block);
+    Operator *ctg_probe = new CpuToGpu(mmd_probe, probe_hashed_attr_block);
     mmd_probe->setParent(ctg_probe);
     Operator *btt_probe2 =
-        new BlockToTuples(ctg_probe, (ParallelContext *)ctx, probe_prejoin_expr,
-                          true, gran_t::GRID);
+        new BlockToTuples(ctg_probe, probe_prejoin_expr, true, gran_t::GRID);
     ctg_probe->setParent(btt_probe2);
     HashPartitioner *hpart2 = new HashPartitioner(
         probe_join_expr, probe_widths, probe_prejoin_expr[0], btt_probe2,
@@ -1897,8 +1893,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       projections.push_back(recAttr);
     }
 
-    assert(dynamic_cast<ParallelContext *>(this->ctx));
-    newOp = new CpuToGpu(childOp, ((ParallelContext *)this->ctx), projections);
+    newOp = new CpuToGpu(childOp, projections);
     childOp->setParent(newOp);
 #endif
   } else if (strcmp(opName, "block-to-tuples") == 0 ||
@@ -1940,8 +1935,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     }
 
     assert(dynamic_cast<ParallelContext *>(this->ctx));
-    newOp = new BlockToTuples(childOp, ((ParallelContext *)this->ctx),
-                              projections, gpu, granularity);
+    newOp = new BlockToTuples(childOp, projections, gpu, granularity);
     childOp->setParent(newOp);
 #ifndef NCUDA
   } else if (strcmp(opName, "gpu-to-cpu") == 0) {
@@ -2209,8 +2203,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     }
 
     assert(dynamic_cast<ParallelContext *>(this->ctx));
-    newOp = new MemMoveLocalTo(childOp, ((ParallelContext *)this->ctx),
-                               projections, slack);
+    newOp = new MemMoveLocalTo(childOp, projections, slack);
     childOp->setParent(newOp);
   } else if (strcmp(opName, "exchange") == 0 || strcmp(opName, "router") == 0) {
     /* parse operator input */

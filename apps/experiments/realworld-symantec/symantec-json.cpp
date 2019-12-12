@@ -126,7 +126,7 @@ int main() {
 //    //Run function
 //    struct timespec t0, t1;
 //    clock_gettime(CLOCK_REALTIME, &t0);
-//    reduce->produce();
+//    reduce->produce(context);
 //    ctx.prepareFunction(ctx.getGlobalFunction());
 //    clock_gettime(CLOCK_REALTIME, &t1);
 //    printf("Execution took %f seconds\n", diff(t0, t1));
@@ -200,7 +200,7 @@ void symantecProjection1(map<string, dataset> datasetCatalog,
   // Run function
   struct timespec t0, t1;
   clock_gettime(CLOCK_REALTIME, &t0);
-  reduce->produce();
+  reduce->produce(context);
   ctx.prepareFunction(ctx.getGlobalFunction());
   clock_gettime(CLOCK_REALTIME, &t1);
   printf("Execution took %f seconds\n", diff(t0, t1));

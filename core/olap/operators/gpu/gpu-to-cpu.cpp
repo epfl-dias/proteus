@@ -32,7 +32,7 @@
 
 using namespace llvm;
 
-void GpuToCpu::produce() {
+void GpuToCpu::produce_(ParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int32_type = Type::getInt32Ty(llvmContext);
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
@@ -71,7 +71,7 @@ void GpuToCpu::produce() {
   context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
   context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
-  getChild()->produce();
+  getChild()->produce(context);
   context->popDeviceProvider();
 }
 

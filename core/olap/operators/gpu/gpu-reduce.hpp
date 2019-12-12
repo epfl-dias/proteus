@@ -45,7 +45,7 @@ class GpuReduce : public Reduce {
   GpuReduce(vector<Monoid> accs, vector<expression_t> outputExprs,
             expression_t pred, Operator *const child, ParallelContext *context);
   virtual ~GpuReduce() { LOG(INFO) << "Collapsing GpuReduce operator"; }
-  virtual void produce();
+  virtual void produce_(ParallelContext *context);
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
