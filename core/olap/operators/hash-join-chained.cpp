@@ -42,7 +42,6 @@ HashJoinChained::HashJoinChained(const std::vector<GpuMatExpr> &build_mat_exprs,
 
                                  int hash_bits,
 
-                                 ParallelContext *context,
                                  size_t maxBuildInputSize, string opLabel)
     : BinaryOperator(build_child, probe_child),
       build_mat_exprs(build_mat_exprs),
@@ -52,12 +51,11 @@ HashJoinChained::HashJoinChained(const std::vector<GpuMatExpr> &build_mat_exprs,
       probe_keyexpr(std::move(probe_keyexpr)),
       hash_bits(hash_bits),
       maxBuildInputSize(maxBuildInputSize),
-      context(context),
       opLabel(opLabel) {}
 
 void HashJoinChained::produce_(ParallelContext *context) {
   context->pushPipeline();  // FIXME: find a better way to do this
-  buildHashTableFormat();
+  buildHashTableFormat(context);
 
   context->registerOpen(this, [this](Pipeline *pip) { this->open_build(pip); });
   context->registerClose(this,
@@ -69,7 +67,7 @@ void HashJoinChained::produce_(ParallelContext *context) {
   // context->getKernel();
   context->popPipeline();  // FIXME: find a better way to do this
 
-  probeHashTableFormat();
+  probeHashTableFormat(context);
 
   context->registerOpen(this, [this](Pipeline *pip) { this->open_probe(pip); });
   context->registerClose(this,
@@ -95,7 +93,7 @@ void HashJoinChained::consume(ParallelContext *const context,
   }
 }
 
-void HashJoinChained::probeHashTableFormat() {
+void HashJoinChained::probeHashTableFormat(ParallelContext *context) {
   // assumes than build has already run
 
   Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
@@ -159,7 +157,7 @@ void HashJoinChained::probeHashTableFormat() {
   // cnt_param_id = context->appendParameter(t_cnt, true, false);
 }
 
-void HashJoinChained::buildHashTableFormat() {
+void HashJoinChained::buildHashTableFormat(ParallelContext *context) {
   build_mat_exprs.emplace_back(new expressions::IntConstant(0), 0, 0);
   build_mat_exprs.emplace_back(build_keyexpr, 0, 32);
 
@@ -306,12 +304,6 @@ void HashJoinChained::generate_probe(ParallelContext *context,
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-  // PointerType *charPtrType = Type::getInt8PtrTy(llvmContext);
-  // Type *int8_type = Type::getInt8Ty(llvmContext);
-  // PointerType *void_ptr_type = PointerType::get(int8_type, 0);
-  // Type *int64_type = Type::getInt64Ty(llvmContext);
-  // Type *int32_type = Type::getInt32Ty(llvmContext);
-
   BasicBlock *insBB = Builder->GetInsertBlock();
 
   Builder->SetInsertPoint(context->getCurrentEntryBlock());
@@ -325,10 +317,10 @@ void HashJoinChained::generate_probe(ParallelContext *context,
   Value *hash = HashJoinChained::hash(probe_keyexpr, context, childState);
 
   // current = head[hash(key)]
-  size_t s = context->getSizeOf(head_ptr->getType()->getPointerElementType());
-  // Value * current =
-  // Builder->CreateAlignedLoad(Builder->CreateInBoundsGEP(head_ptr, hash), s &
-  // -s);
+  // size_t s =
+  // context->getSizeOf(head_ptr->getType()->getPointerElementType()); Value *
+  // current = Builder->CreateAlignedLoad(Builder->CreateInBoundsGEP(head_ptr,
+  // hash), s & -s);
   Value *current =
       Builder->CreateLoad(Builder->CreateInBoundsGEP(head_ptr, hash));
   current->setName("current");
@@ -374,9 +366,9 @@ void HashJoinChained::generate_probe(ParallelContext *context,
 
     in_ptrs.push_back(
         Builder->CreateInBoundsGEP(in_ptr, Builder->CreateLoad(mem_current)));
-    size_t s =
-        context->getSizeOf(in_ptrs.back()->getType()->getPointerElementType());
-    // in_vals.push_back(Builder->CreateAlignedLoad(in_ptrs.back(), s & -s));
+    //    size_t s =
+    //        context->getSizeOf(in_ptrs.back()->getType()->getPointerElementType());
+    //    in_vals.push_back(Builder->CreateAlignedLoad(in_ptrs.back(), s & -s));
     in_vals.push_back(Builder->CreateLoad(in_ptrs.back()));
   }
 
@@ -400,20 +392,11 @@ void HashJoinChained::generate_probe(ParallelContext *context,
   Builder->SetInsertPoint(MatchThenBB);
 
   // Reconstruct tuples
-  map<RecordAttribute, ProteusValueMemory> *allJoinBindings =
-      new map<RecordAttribute, ProteusValueMemory>();
+  std::map<RecordAttribute, ProteusValueMemory> allJoinBindings;
 
   if (probe_keyexpr.isRegistered()) {
-    AllocaInst *mem_arg = context->CreateEntryBlockAlloca(
-        TheFunction, "mem_" + probe_keyexpr.getRegisteredAttrName(),
-        keyWrapper.value->getType());
-
-    Builder->CreateStore(keyWrapper.value, mem_arg);
-
-    ProteusValueMemory mem_valWrapper;
-    mem_valWrapper.mem = mem_arg;
-    mem_valWrapper.isNull = context->createFalse();  // FIMXE: is this correct ?
-    (*allJoinBindings)[probe_keyexpr.getRegisteredAs()] = mem_valWrapper;
+    allJoinBindings[probe_keyexpr.getRegisteredAs()] =
+        context->toMem(keyWrapper.value, context->createFalse());
   }
 
   if (probe_keyexpr.getExpressionType()->getTypeID() == RECORD) {
@@ -426,32 +409,16 @@ void HashJoinChained::generate_probe(ParallelContext *context,
       if (e.isRegistered()) {
         Value *d = Builder->CreateExtractValue(keyWrapper.value, i);
 
-        AllocaInst *mem_arg = context->CreateEntryBlockAlloca(
-            TheFunction, "mem_" + e.getRegisteredAttrName(), d->getType());
-
-        Builder->CreateStore(d, mem_arg);
-
-        ProteusValueMemory mem_valWrapper;
-        mem_valWrapper.mem = mem_arg;
-        mem_valWrapper.isNull =
-            context->createFalse();  // FIMXE: is this correct ?
-        (*allJoinBindings)[e.getRegisteredAs()] = mem_valWrapper;
+        allJoinBindings[e.getRegisteredAs()] =
+            context->toMem(d, context->createFalse());
       }
       ++i;
     }
   }
 
   if (build_keyexpr.isRegistered()) {
-    AllocaInst *mem_arg = context->CreateEntryBlockAlloca(
-        TheFunction, "mem_" + build_keyexpr.getRegisteredAttrName(),
-        build_key->getType());
-
-    Builder->CreateStore(build_key, mem_arg);
-
-    ProteusValueMemory mem_valWrapper;
-    mem_valWrapper.mem = mem_arg;
-    mem_valWrapper.isNull = context->createFalse();  // FIMXE: is this correct ?
-    (*allJoinBindings)[build_keyexpr.getRegisteredAs()] = mem_valWrapper;
+    allJoinBindings[build_keyexpr.getRegisteredAs()] =
+        context->toMem(build_key, context->createFalse());
   }
 
   if (build_keyexpr.getExpressionType()->getTypeID() == RECORD) {
@@ -464,16 +431,8 @@ void HashJoinChained::generate_probe(ParallelContext *context,
       if (e.isRegistered()) {
         Value *d = Builder->CreateExtractValue(build_key, i);
 
-        AllocaInst *mem_arg = context->CreateEntryBlockAlloca(
-            TheFunction, "mem_" + e.getRegisteredAttrName(), d->getType());
-
-        Builder->CreateStore(d, mem_arg);
-
-        ProteusValueMemory mem_valWrapper;
-        mem_valWrapper.mem = mem_arg;
-        mem_valWrapper.isNull =
-            context->createFalse();  // FIMXE: is this correct ?
-        (*allJoinBindings)[e.getRegisteredAs()] = mem_valWrapper;
+        allJoinBindings[e.getRegisteredAs()] =
+            context->toMem(d, context->createFalse());
       }
       ++i;
     }
@@ -496,31 +455,22 @@ void HashJoinChained::generate_probe(ParallelContext *context,
       string probeRel = mexpr.expr.getRegisteredRelName();
       Plugin *pg = catalog.getPlugin(probeRel);
       assert(pg);
-      RecordAttribute *probe_oid =
-          new RecordAttribute(probeRel, activeLoop, pg->getOIDType());
 
-      PrimitiveType *pr_oid_type =
-          dynamic_cast<PrimitiveType *>(pg->getOIDType());
-      if (!pr_oid_type) {
-        string error_msg(
-            "[HashJoinChained: ] Only primitive OIDs are supported.");
-        LOG(ERROR) << error_msg;
-        throw runtime_error(error_msg);
-      }
+      RecordAttribute probe_oid(probeRel, activeLoop, pg->getOIDType());
 
-      llvm::Type *llvm_oid_type = pr_oid_type->getLLVMType(llvmContext);
+      if (allJoinBindings.count(probe_oid) == 0) {
+        auto pr_oid_type = dynamic_cast<PrimitiveType *>(pg->getOIDType());
+        if (!pr_oid_type) {
+          string error_msg(
+              "[HashJoinChained: ] Only primitive OIDs are supported.");
+          LOG(ERROR) << error_msg;
+          throw runtime_error(error_msg);
+        }
 
-      AllocaInst *mem_arg = context->CreateEntryBlockAlloca(
-          TheFunction, "mem_" + probeRel + "_" + activeLoop, llvm_oid_type);
+        llvm::Type *llvm_oid_type = pr_oid_type->getLLVMType(llvmContext);
 
-      Builder->CreateStore(UndefValue::get(llvm_oid_type), mem_arg);
-
-      ProteusValueMemory mem_valWrapper;
-      mem_valWrapper.mem = mem_arg;
-      mem_valWrapper.isNull = context->createFalse();
-
-      if (allJoinBindings->count(*probe_oid) == 0) {
-        (*allJoinBindings)[*probe_oid] = mem_valWrapper;
+        allJoinBindings[probe_oid] = context->toMem(
+            UndefValue::get(llvm_oid_type), context->createFalse());
       }
     }
 
@@ -528,17 +478,8 @@ void HashJoinChained::generate_probe(ParallelContext *context,
 
     ProteusValue val = mexpr.expr.accept(exprGenerator);
 
-    AllocaInst *mem_arg = context->CreateEntryBlockAlloca(
-        TheFunction, "mem_" + mexpr.expr.getRegisteredAttrName(),
-        val.value->getType());
-
-    Builder->CreateStore(val.value, mem_arg);
-
-    ProteusValueMemory mem_valWrapper;
-    mem_valWrapper.mem = mem_arg;
-    mem_valWrapper.isNull = context->createFalse();
-
-    (*allJoinBindings)[mexpr.expr.getRegisteredAs()] = mem_valWrapper;
+    allJoinBindings[mexpr.expr.getRegisteredAs()] =
+        context->toMem(val.value, val.isNull);
   }
 
   // from build side
@@ -551,55 +492,34 @@ void HashJoinChained::generate_probe(ParallelContext *context,
       string buildRel = mexpr.expr.getRegisteredRelName();
       Plugin *pg = catalog.getPlugin(buildRel);
       assert(pg);
-      RecordAttribute *build_oid =
-          new RecordAttribute(buildRel, activeLoop, pg->getOIDType());
+      RecordAttribute build_oid{buildRel, activeLoop, pg->getOIDType()};
 
-      PrimitiveType *pr_oid_type =
-          dynamic_cast<PrimitiveType *>(pg->getOIDType());
-      if (!pr_oid_type) {
-        string error_msg(
-            "[HashJoinChained: ] Only primitive OIDs are supported.");
-        LOG(ERROR) << error_msg;
-        throw runtime_error(error_msg);
-      }
+      if (allJoinBindings.count(build_oid) == 0) {
+        auto pr_oid_type = dynamic_cast<PrimitiveType *>(pg->getOIDType());
+        if (!pr_oid_type) {
+          string error_msg(
+              "[HashJoinChained: ] Only primitive OIDs are supported.");
+          LOG(ERROR) << error_msg;
+          throw runtime_error(error_msg);
+        }
 
-      llvm::Type *llvm_oid_type = pr_oid_type->getLLVMType(llvmContext);
+        llvm::Type *llvm_oid_type = pr_oid_type->getLLVMType(llvmContext);
 
-      AllocaInst *mem_arg = context->CreateEntryBlockAlloca(
-          TheFunction, "mem_" + buildRel + "_" + activeLoop, llvm_oid_type);
-
-      Builder->CreateStore(UndefValue::get(llvm_oid_type), mem_arg);
-
-      ProteusValueMemory mem_valWrapper;
-      mem_valWrapper.mem = mem_arg;
-      mem_valWrapper.isNull = context->createFalse();
-
-      if (allJoinBindings->count(*build_oid) == 0) {
-        (*allJoinBindings)[*build_oid] = mem_valWrapper;
+        allJoinBindings[build_oid] = context->toMem(
+            UndefValue::get(llvm_oid_type), context->createFalse());
       }
     }
-
-    // ExpressionGeneratorVisitor exprGenerator(context, childState);
 
     Value *val =
         Builder->CreateExtractValue(in_vals[mexpr.packet], mexpr.packind);
 
-    AllocaInst *mem_arg = context->CreateEntryBlockAlloca(
-        TheFunction, "mem_" + mexpr.expr.getRegisteredAttrName(),
-        val->getType());
-
-    Builder->CreateStore(val, mem_arg);
-
-    ProteusValueMemory mem_valWrapper;
-    mem_valWrapper.mem = mem_arg;
-    mem_valWrapper.isNull = context->createFalse();
-
-    (*allJoinBindings)[mexpr.expr.getRegisteredAs()] = mem_valWrapper;
+    allJoinBindings[mexpr.expr.getRegisteredAs()] =
+        context->toMem(val, context->createFalse());
   }
 
   // Triggering parent
-  OperatorState *newState = new OperatorState(*this, *allJoinBindings);
-  getParent()->consume(context, *newState);
+  OperatorState newState{*this, allJoinBindings};
+  getParent()->consume(context, newState);
 
   Builder->CreateBr(CondBB);
 

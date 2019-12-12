@@ -1282,14 +1282,12 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     if (val.HasMember("gpu") && val["gpu"].GetBool()) {
       newOp = new GpuHashJoinChained(
           build_e, build_widths, build_key_expr, build_op, probe_e,
-          probe_widths, probe_key_expr, probe_op, hash_bits,
-          dynamic_cast<ParallelContext *>(this->ctx), maxBuildInputSize);
+          probe_widths, probe_key_expr, probe_op, hash_bits, maxBuildInputSize);
     } else {
 #endif
       newOp = new HashJoinChained(
           build_e, build_widths, build_key_expr, build_op, probe_e,
-          probe_widths, probe_key_expr, probe_op, hash_bits,
-          dynamic_cast<ParallelContext *>(this->ctx), maxBuildInputSize);
+          probe_widths, probe_key_expr, probe_op, hash_bits, maxBuildInputSize);
 #ifndef NCUDA
     }
 #endif

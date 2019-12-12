@@ -38,8 +38,8 @@ class HashJoinChained : public BinaryOperator {
                   const std::vector<GpuMatExpr> &probe_mat_exprs,
                   const std::vector<size_t> &probe_packet_widths,
                   expression_t probe_keyexpr, Operator *const probe_child,
-                  int hash_bits, ParallelContext *context,
-                  size_t maxBuildInputSize, string opLabel = "hj_chained");
+                  int hash_bits, size_t maxBuildInputSize,
+                  string opLabel = "hj_chained");
   virtual ~HashJoinChained() {
     LOG(INFO) << "Collapsing HashJoinChained operator";
   }
@@ -109,8 +109,8 @@ class HashJoinChained : public BinaryOperator {
                       const OperatorState &childState);
   void generate_probe(ParallelContext *context,
                       const OperatorState &childState);
-  void buildHashTableFormat();
-  void probeHashTableFormat();
+  void buildHashTableFormat(ParallelContext *context);
+  void probeHashTableFormat(ParallelContext *context);
 
   llvm::Value *hash(expression_t exprs, Context *const context,
                     const OperatorState &childState);
@@ -122,8 +122,6 @@ class HashJoinChained : public BinaryOperator {
 
   expression_t probe_keyexpr;
 
-  std::vector<size_t> packet_widths;
-
   StateVar head_param_id;
   std::vector<StateVar> out_param_ids;
   std::vector<StateVar> in_param_ids;
@@ -133,10 +131,6 @@ class HashJoinChained : public BinaryOperator {
 
   int hash_bits;
   size_t maxBuildInputSize;
-
-  // GpuExprMaterializer *   build_mat  ;
-  // GpuExprMaterializer *   probe_mat  ;
-  ParallelContext *context;
 
   string opLabel;
 

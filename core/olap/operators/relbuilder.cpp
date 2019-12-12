@@ -348,13 +348,13 @@ RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
   if (root->getDeviceType() == DeviceType::GPU) {
     auto op = new GpuHashJoinChained(build_e, build_w, build_k, build.root,
                                      probe_e, probe_w, probe_k, root, hash_bits,
-                                     ctx, maxBuildInputSize);
+                                     maxBuildInputSize);
     build.apply(op);
     return apply(op);
   } else {
     auto op = new HashJoinChained(build_e, build_w, build_k, build.root,
                                   probe_e, probe_w, probe_k, root, hash_bits,
-                                  ctx, maxBuildInputSize);
+                                  maxBuildInputSize);
     build.apply(op);
     return apply(op);
   }
