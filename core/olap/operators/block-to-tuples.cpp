@@ -39,9 +39,7 @@ void BlockToTuples::produce_(ParallelContext *context) {
     old_buffs.push_back(context->appendStateVar(PointerType::getUnqual(
         RecordAttribute{wantedFields[i].getRegisteredAs(), true}.getLLVMType(
             context->getLLVMContext()))));
-    LOG(INFO) << old_buffs[i].index_in_pip << " " << old_buffs[i].pip;
   }
-  LOG(INFO) << this << " " << context->getCurrentPipeline() << std::endl;
 
   getChild()->produce(context);
 }
