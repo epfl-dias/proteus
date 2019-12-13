@@ -299,7 +299,6 @@ RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
 RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
                             expression_t probe_k, int hash_bits,
                             size_t maxBuildInputSize) const {
-  auto relName = build_k.getRegisteredRelName();
   auto &llvmContext = ctx->getLLVMContext();
   std::vector<size_t> build_w;
   std::vector<GpuMatExpr> build_e;
@@ -310,10 +309,14 @@ RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
   size_t ind = 1;
   auto build_arg = build.getOutputArg();
   for (const auto &p : build_arg.getProjections()) {
+    auto relName = build_k.getRegisteredRelName();
     auto e = build_arg[p];
-    build_e.emplace_back(
-        e.as(relName, e.getRelationName() + "$" + e.getRegisteredAttrName()),
-        ind++, 0);
+
+    if (build_k.isRegistered() &&
+        build_k.getRegisteredAs() == e.getRegisteredAs())
+      continue;
+
+    build_e.emplace_back(e, ind++, 0);
     build_w.emplace_back(
         ctx->getSizeOf(e.getExpressionType()->getLLVMType(llvmContext)) * 8);
   }
@@ -326,10 +329,14 @@ RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
   ind = 1;
   auto probe_arg = getOutputArg();
   for (const auto &p : probe_arg.getProjections()) {
+    auto relName = probe_k.getRegisteredRelName();
     auto e = probe_arg[p];
-    probe_e.emplace_back(
-        e.as(relName, e.getRelationName() + "$" + e.getRegisteredAttrName()),
-        ind++, 0);
+
+    if (probe_k.isRegistered() &&
+        probe_k.getRegisteredAs() == e.getRegisteredAs())
+      continue;
+
+    probe_e.emplace_back(e, ind++, 0);
     probe_w.emplace_back(
         ctx->getSizeOf(e.getExpressionType()->getLLVMType(llvmContext)) * 8);
   }

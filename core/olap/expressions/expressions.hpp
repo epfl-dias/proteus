@@ -410,6 +410,10 @@ class InputArgument : public ExpressionCRTP<InputArgument> {
     // #endif
   }
 
+  const RecordType *getExpressionType() const {
+    return static_cast<const RecordType *>(ExpressionCRTP::getExpressionType());
+  }
+
   int getArgNo() const { return argNo; }
   // list<RecordAttribute> getProjections() const { return projections; }
   list<RecordAttribute> getProjections() const {
@@ -1194,6 +1198,29 @@ inline expressions::EqExpression eq(const expression_t &lhs,
   return {lhs, rhs};
 }
 
+inline expressions::EqExpression eq(const expression_t &lhs,
+                                    const std::string &rhs) {
+  auto dstring = dynamic_cast<const DStringType *>(lhs.getExpressionType());
+  if (dstring) {
+    return eq(lhs, expression_t{rhs, dstring->getDictionary()});
+  } else {
+    return eq(lhs, expression_t{rhs});
+  }
+}
+
+inline expressions::EqExpression eq(const expression_t &lhs, const char *rhs) {
+  return eq(lhs, std::string{rhs});
+}
+
+inline expressions::EqExpression eq(const std::string &lhs,
+                                    const expression_t &rhs) {
+  return eq(rhs, lhs);
+}
+
+inline expressions::EqExpression eq(const char *lhs, const expression_t &rhs) {
+  return eq(rhs, lhs);
+}
+
 inline expressions::NeExpression ne(const expression_t &lhs,
                                     const expression_t &rhs) {
   return {lhs, rhs};
@@ -1268,8 +1295,11 @@ inline expressions::RecordProjection expression_t::operator[](
   assert(rec);
   auto p = rec->getArg(proj.getAttrName());
   if (p) {
-    assert(p->getRelationName() == proj.getRelationName());
-    return {*this, *p};
+    if (p->getRelationName() == proj.getRelationName()) return {*this, *p};
+    for (const auto &p2 : rec->getArgs()) {
+      if (*p2 == proj) return {*this, *p2};
+    }
+    assert(false && "same attrName but not relName");
   }
   if (proj.getAttrName().size() > 0 && proj.getAttrName()[0] == '$') {
     try {
@@ -1292,6 +1322,11 @@ inline expressions::RecordProjection expression_t::operator[](
       }
     }
   }
+  LOG(INFO) << proj.getAttrName();
+  LOG(INFO) << proj.getRelationName();
+  for (const auto &e : rec->getArgs()) {
+    LOG(INFO) << e->getRelationName() << "." << e->getAttrName();
+  }
   throw std::runtime_error("Invalid record projection");
 }
 
@@ -1302,7 +1337,12 @@ inline expressions::RecordProjection expressions::InputArgument::operator[](
 
 inline expressions::RecordProjection expressions::InputArgument::operator[](
     std::string attr) const {
+  // Short-circuit to avoid ending up with the wrong relName
+  auto p = getExpressionType()->getArg(attr);
+  if (p) return {*this, *p};
+
   assert(this->getProjections().size() && "Empty input argument!");
+  // Otherwise fall back to using the first RelName; not always safe
   return (*this)[RecordAttribute(
       this->getProjections().front().getRelationName(), attr,
       nullptr /*assuming that this null with note survive*/)];

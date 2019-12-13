@@ -376,7 +376,14 @@ bool expressions::Expression::operator<(
   }
 }
 
-expression_t::expression_t(std::string v, void *dict)
-    : expression_t(expressions::DStringConstant{0, dict}) {
-  LOG(WARNING) << "TODO: FIX THIS CONSTRUCTOR, IT'S COMPLETELY WRONG";
+int probeDictionary(void *dict, const std::string &v) {
+  auto d = (std::map<int, std::string> *)dict;
+  auto it = std::find_if(d->begin(), d->end(),
+                         [v](const auto &o) { return v == o.second; });
+  assert(it != d->end() && "String not found in dictionary");
+  return it->first;
 }
+
+expression_t::expression_t(std::string v, void *dict)
+    : expression_t(
+          expressions::DStringConstant{probeDictionary(dict, v), dict}) {}
