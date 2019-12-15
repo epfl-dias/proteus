@@ -182,17 +182,19 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < FLAGS_num_olap_clients; i++) {
     oltp_engine.print_differential_stats();
 
-    oltp_engine.snapshot();
-    if (FLAGS_etl) oltp_engine.etl(OLAP_socket);
+    // oltp_engine.snapshot();
+    // if (FLAGS_etl) oltp_engine.etl(OLAP_socket);
 
-    usleep(1000000);  // stabilize
+    // usleep(1000000);  // stabilize
 
-    oltp_engine.print_differential_stats();
+    // oltp_engine.print_differential_stats();
 
     olap_queries.run(FLAGS_num_olap_repeat);
   }
 
   LOG(INFO) << "OLAP sequence completed.";
+
+  LOG(INFO) << olap_queries;
 
   oltp_engine.print_differential_stats();
   oltp_engine.print_global_stats();
