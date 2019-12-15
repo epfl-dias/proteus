@@ -24,8 +24,6 @@
 
 #include <iostream>
 
-#include "util/glog.hpp"
-
 static bool validatePercentage(const char *flagname, double value) {
   if (value >= 0.0 && value <= 1.0) return true;
   std::cerr << "Invalid value for --" << flagname << ": " << value << std::endl;

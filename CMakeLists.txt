@@ -490,6 +490,7 @@ add_subdirectory(core/olap)
 # Build our executables
 #-----------------------------------------------------------------------
 add_subdirectory(apps/standalones/olap)
+add_subdirectory(apps/standalones/olap/flags)
 
 add_subdirectory(core/oltp)
 add_subdirectory(apps/benchmarks/oltp)
