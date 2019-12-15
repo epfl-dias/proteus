@@ -32,9 +32,9 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "snapshot/snapshot_manager.hpp"
 #include "transactions/cc.hpp"
 
-#define diascld33 true
+#define diascld33 false
 #define diascld40 false
-#define diascld48 false
+#define diascld48 true
 
 #define icc148 false
 

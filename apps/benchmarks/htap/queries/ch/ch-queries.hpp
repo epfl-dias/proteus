@@ -52,7 +52,7 @@ extern std::string o_carrier_id;
 extern std::string o_ol_cnt;
 extern std::string o_all_local;
 
-using default_plugin_t = AeolusRemotePlugin;
+// using default_plugin_t = AeolusRemotePlugin;
 
 #include "micro-qstock.hpp"
 #include "micro-sum.hpp"

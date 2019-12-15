@@ -474,6 +474,8 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
             << num_workers << std::endl;
 
   std::cout << "[WorkerPool] Number of Workers " << num_workers << std::endl;
+  std::cout << "[WorkerPool] Scheduling Mode: " << worker_sched_mode
+            << std::endl;
 
   /* FIX ME:HACKED because we dont have topology returning specific number of
    * cores, this will be fixed when the elasticity and container stuff. until
@@ -516,7 +518,6 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
           std::chrono::time_point<std::chrono::system_clock,
                                   std::chrono::nanoseconds>::min());
       prev_sum_tps.emplace_back(0);
-
       if (++i == num_workers) {
         break;
       }

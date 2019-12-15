@@ -24,8 +24,19 @@
 
 #include <iostream>
 
-DEFINE_uint64(num_olap_clients, 1, "Number of OLAP clients");
-DEFINE_uint64(num_olap_repeat, 1, "Number of OLAP clients");
+#include "glo.hpp"
+
+static bool validateETL(const char *flagname, bool value) {
+  if (value && !HTAP_ETL) {
+    std::cerr << "Invalid value for --" << flagname
+              << ": ETL mode requires HTAP_ETL flag in OLTP" << std::endl;
+    return false;
+  } else
+    return true;
+}
+
+DEFINE_uint64(num_olap_clients, 5, "Number of OLAP clients");
+DEFINE_uint64(num_olap_repeat, 5, "Number of OLAP clients");
 DEFINE_uint64(num_oltp_clients, 0, "Number of OLTP clients");
 DEFINE_string(plan_json, "", "Plan to execute, takes priority over plan_dir");
 DEFINE_string(plan_dir, "inputs/plans/cpu-ssb",
@@ -38,6 +49,9 @@ DEFINE_uint64(elastic, 0, "elastic_oltp cores");
 DEFINE_uint64(ch_scale_factor, 0, "CH-Bench scale factor");
 DEFINE_bool(etl, false, "ETL on snapshot");
 DEFINE_bool(trade_core, false, "trade case for elasticiy");
+DEFINE_bool(gpu_olap, false, "OLAP on GPU, OLTP on CPU");
 
 DEFINE_bool(bench_ycsb, false, "OLTP Bench: true-ycsb, false-tpcc (default)");
 DEFINE_double(ycsb_write_ratio, 0.5, "Writer to reader ratio");
+
+DEFINE_validator(etl, &validateETL);

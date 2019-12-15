@@ -94,6 +94,13 @@ void Column::sync_master_snapshots(ushort master_ver_idx) {
       // assert(upd_bit_masks[master_ver_idx][j].size() ==
       //        upd_bit_masks[i][j].size());
 
+      if (master_versions[i][j].size() != 1) {
+        LOG(INFO) << this->name;
+        LOG(INFO) << master_versions[i][j].size();
+        LOG(INFO) << "i: " << i;
+        LOG(INFO) << "j: " << j;
+      }
+
       assert(master_versions[i][j].size() == 1 &&
              "Expandable memory not supported");
       // assert(snapshot_arenas[i][j].size() == 1 &&
@@ -1127,9 +1134,9 @@ int64_t* ColumnStore::snapshot_get_number_tuples(bool olap_snapshot,
 std::vector<std::pair<mem_chunk, size_t>> ColumnStore::snapshot_get_data(
     size_t scan_idx, std::vector<RecordAttribute*>& wantedFields,
     bool olap_local, bool elastic_scan) {
-  assert(g_num_partitions == 1 &&
-         "cannot do it for more as of now due to static nParts");
   if (elastic_scan) {
+    assert(g_num_partitions == 1 &&
+           "cannot do it for more as of now due to static nParts");
     this->nParts = wantedFields.size() * wantedFields.size();
     // std::pow(wantedFields.size(), wantedFields.size());
 
@@ -1332,11 +1339,11 @@ std::vector<std::pair<mem_chunk, size_t>> Column::snapshot_get_data(
       assert(HTAP_ETL && "OLAP local mode is not turned on");
       const auto& olap_arena = etl_arenas[i][0]->getMetadata();
 
-      std::cout << "[SnapshotData][" << this->name << "][P:" << i
+      LOG(INFO) << "[SnapshotData][" << this->name << "][P:" << i
                 << "] Mode: LOCAL "
                 << ((double)(olap_arena.numOfRecords * this->elem_size)) /
                        (1024 * 1024 * 1024)
-                << std::endl;
+                << " GB";
 
       ret.emplace_back(std::make_pair(
           mem_chunk(this->etl_mem[i], olap_arena.numOfRecords * this->elem_size,
@@ -1348,11 +1355,11 @@ std::vector<std::pair<mem_chunk, size_t>> Column::snapshot_get_data(
       assert(master_versions[snap_arena.master_ver][i].size() == 1 &&
              "Memory expansion not supported yet.");
 
-      std::cout << "[SnapshotData][" << this->name << "][P:" << i
+      LOG(INFO) << "[SnapshotData][" << this->name << "][P:" << i
                 << "] Mode: REMOTE2 "
                 << ((double)(snap_arena.numOfRecords * this->elem_size)) /
                        (1024 * 1024 * 1024)
-                << std::endl;
+                << " GB";
 
       ret.emplace_back(
           std::make_pair(master_versions[snap_arena.master_ver][i][0],

@@ -35,5 +35,7 @@ DECLARE_uint64(ch_scale_factor);
 DECLARE_bool(etl);
 DECLARE_bool(trade_core);
 
+DECLARE_bool(gpu_olap);
+
 DECLARE_bool(bench_ycsb);
 DECLARE_double(ycsb_write_ratio);

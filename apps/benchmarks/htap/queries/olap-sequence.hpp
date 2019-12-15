@@ -29,22 +29,25 @@
 #include <topology/topology.hpp>
 #include <vector>
 
+using exec_nodes = std::vector<topology::numanode*>;
+
 class OLAPSequence {
  private:
   std::vector<PreparedStatement> stmts;
+  int client_id;
+
+  exec_nodes olap_nodes;
+  exec_nodes oltp_nodes;
 
  public:
   template <typename plugin_t>
   struct wrapper_t {};
 
   template <typename plugin_t>
-  OLAPSequence(wrapper_t<plugin_t>, int client_id,
-               const topology::cpunumanode &numa_node,
-               const topology::cpunumanode &oltp_node,
-               DeviceType dev = DeviceType::CPU);
+  OLAPSequence(wrapper_t<plugin_t>, int client_id, exec_nodes olap_nodes,
+               exec_nodes oltp_nodes, DeviceType dev);
 
-  void run(int client_id, const topology::cpunumanode &numa_node,
-           size_t repeat);
+  void run(size_t repeat);
 };
 
 #endif /* PROTEUS_OLAP_SEQUENCE_HPP */

@@ -50,7 +50,9 @@ struct Q {
   inline static PreparedStatement prepare(DegreeOfParallelism dop,
                                           Tp aff_parallel, Tr aff_reduce,
                                           DeviceType dev = DeviceType::CPU) {
-    if (dop == DegreeOfParallelism{1}) return c1t<Tplugin>();
+    if (dop == DegreeOfParallelism{1} && dev == DeviceType::CPU) {
+      return c1t<Tplugin>();
+    }
     return cpar<Tplugin>(dop, aff_parallel, aff_reduce, dev);
   }
 };

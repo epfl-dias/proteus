@@ -35,8 +35,9 @@
 
 template <typename plugin_t>
 OLAPSequence::OLAPSequence(OLAPSequence::wrapper_t<plugin_t>, int client_id,
-                           const topology::cpunumanode &numa_node,
-                           const topology::cpunumanode &oltp_node,
+                           // const topology::cpunumanode &numa_node,
+                           // const topology::cpunumanode &oltp_node,
+                           exec_nodes olap_nodes, exec_nodes oltp_nodes,
                            DeviceType dev) {
   //    time_block t("TcodegenTotal_: ");
   //
@@ -44,26 +45,32 @@ OLAPSequence::OLAPSequence(OLAPSequence::wrapper_t<plugin_t>, int client_id,
 
   if (dev == DeviceType::CPU) {
     uint j = 0;
-    for (auto id : numa_node.local_cores) {
-      if (FLAGS_trade_core && FLAGS_elastic > 0 && j < FLAGS_elastic) {
-        j++;
-        continue;
+
+    for (auto &olap_n : olap_nodes) {
+      for (auto id :
+           (dynamic_cast<topology::cpunumanode *>(olap_n))->local_cores) {
+        if (FLAGS_trade_core && FLAGS_elastic > 0 && j < FLAGS_elastic) {
+          j++;
+          continue;
+        }
+        coreids.emplace_back(id);
       }
-      coreids.emplace_back(id);
     }
 
     if (FLAGS_elastic > 0) {
       uint i = 0;
-      for (auto id : oltp_node.local_cores) {
-        coreids.emplace_back(id);
-        if (++i >= FLAGS_elastic) {
-          break;
-        }
-      }
 
-      if (FLAGS_trade_core) {
-        for (auto id : numa_node.local_cores) {
+      for (auto &oltp_n : oltp_nodes) {
+        for (auto id :
+             (dynamic_cast<topology::cpunumanode *>(oltp_n))->local_cores) {
           coreids.emplace_back(id);
+          if (++i >= FLAGS_elastic) {
+            break;
+          }
+        }
+
+        if (i >= FLAGS_elastic) {
+          break;
         }
       }
     }
@@ -84,9 +91,8 @@ OLAPSequence::OLAPSequence(OLAPSequence::wrapper_t<plugin_t>, int client_id,
       return std::make_unique<SpecificCpuCoreAffinitizer>(coreids);
     };
   }
-  DegreeOfParallelism dop{(dev == DeviceType::CPU)
-                              ? coreids.size()
-                              : topology::getInstance().getGpuCount()};
+  DegreeOfParallelism dop{(dev == DeviceType::CPU) ? coreids.size()
+                                                   : olap_nodes.size()};
 
   auto aff_parallel = [&]() -> std::unique_ptr<Affinitizer> {
     if (dev == DeviceType::CPU) {
@@ -103,21 +109,21 @@ OLAPSequence::OLAPSequence(OLAPSequence::wrapper_t<plugin_t>, int client_id,
   typedef decltype(aff_parallel) aff_t;
   typedef decltype(aff_reduce) red_t;
 
-  // using plugin_t = AeolusLocalPlugin;
   for (const auto &q : {Q<1>::prepare<plugin_t, aff_t, red_t>,
                         Q<6>::prepare<plugin_t, aff_t, red_t>}) {
     stmts.emplace_back(q(dop, aff_parallel, aff_reduce, dev));
   }
 }
 
-void OLAPSequence::run(int client_id, const topology::cpunumanode &numa_node,
-                       size_t repeat) {
-  // Make affinity deterministic
-  exec_location{numa_node}.activate();
+void OLAPSequence::run(size_t repeat) {
+  // TODO: Make affinity deterministic
+  // exec_location{numa_node}.activate();
 
   LOG(INFO) << "taststas";
   stmts[0].execute();
   LOG(INFO) << "taststas";
+
+  LOG(INFO) << "Exeucting OLAP Sequence[Client # " << this->client_id << "]";
 
   {
     time_block t("T_OLAP: ");
@@ -132,30 +138,21 @@ void OLAPSequence::run(int client_id, const topology::cpunumanode &numa_node,
 }
 
 template OLAPSequence::OLAPSequence(OLAPSequence::wrapper_t<AeolusLocalPlugin>,
-                                    int client_id,
-                                    const topology::cpunumanode &numa_node,
-                                    const topology::cpunumanode &oltp_node,
-                                    DeviceType dev);
+                                    int client_id, exec_nodes olap_nodes,
+                                    exec_nodes oltp_nodes, DeviceType dev);
 
 template OLAPSequence::OLAPSequence(OLAPSequence::wrapper_t<AeolusRemotePlugin>,
-                                    int client_id,
-                                    const topology::cpunumanode &numa_node,
-                                    const topology::cpunumanode &oltp_node,
-                                    DeviceType dev);
+                                    int client_id, exec_nodes olap_nodes,
+                                    exec_nodes oltp_nodes, DeviceType dev);
 
 template OLAPSequence::OLAPSequence(
     OLAPSequence::wrapper_t<AeolusElasticPlugin>, int client_id,
-    const topology::cpunumanode &numa_node,
-    const topology::cpunumanode &oltp_node, DeviceType dev);
+    exec_nodes olap_nodes, exec_nodes oltp_nodes, DeviceType dev);
 
 template OLAPSequence::OLAPSequence(OLAPSequence::wrapper_t<AeolusCowPlugin>,
-                                    int client_id,
-                                    const topology::cpunumanode &numa_node,
-                                    const topology::cpunumanode &oltp_node,
-                                    DeviceType dev);
+                                    int client_id, exec_nodes olap_nodes,
+                                    exec_nodes oltp_nodes, DeviceType dev);
 
 template OLAPSequence::OLAPSequence(OLAPSequence::wrapper_t<BinaryBlockPlugin>,
-                                    int client_id,
-                                    const topology::cpunumanode &numa_node,
-                                    const topology::cpunumanode &oltp_node,
-                                    DeviceType dev);
+                                    int client_id, exec_nodes olap_nodes,
+                                    exec_nodes oltp_nodes, DeviceType dev);

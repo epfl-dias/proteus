@@ -22,7 +22,7 @@
 */
 
 //#define NUM_TPCH_QUERIES 1
-#define NUM_OLAP_REPEAT 16
+//#define NUM_OLAP_REPEAT 16
 //#define HTAP true
 
 #include <gflags/gflags.h>
@@ -63,7 +63,7 @@
 #include "tpcc_64.hpp"
 #include "ycsb.hpp"
 
-void init_olap_warmup() { proteus::olap::init(); }
+void olap_init() { proteus::olap::init(); }
 
 template <typename plugin_t>
 void create_q_seq(std::vector<PreparedStatement> &stmts,
@@ -269,11 +269,6 @@ void fly_olap(int i, std::vector<PreparedStatement> &olap_queries,
 }
 
 int main(int argc, char *argv[]) {
-  // assert(HTAP_DOUBLE_MASTER && !HTAP_COW && "wrong snapshot mode in oltp");
-  if (FLAGS_etl) {
-    assert(HTAP_ETL && "ETL MODE NOT ON");
-  }
-
   gflags::SetUsageMessage("Simple command line interface for proteus");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
@@ -281,32 +276,29 @@ int main(int argc, char *argv[]) {
   FLAGS_logtostderr = 1;  // FIXME: the command line flags/defs seem to fail...
   g_num_partitions = 1;
   google::InstallFailureSignalHandler();
+  // set_trace_allocations(FLAGS_trace_allocations);
 
-  FLAGS_num_olap_repeat =
-      (NUM_OLAP_REPEAT / FLAGS_num_olap_clients);  // warmmup
-
-  init_olap_warmup();
+  olap_init();
 
   if (FLAGS_num_oltp_clients == 0) {
-    FLAGS_num_oltp_clients =
-        topology::getInstance().getCpuNumaNodes()[0].local_cores.size();
+    FLAGS_num_oltp_clients = topology::getInstance().getCoreCount();
+    // topology::getInstance().getCpuNumaNodes()[0].local_cores.size();
   }
 
   std::cout << "QUERIES_PER_SESSION: " << (FLAGS_num_olap_repeat) << std::endl;
   std::cout << "OLAP Clients: " << FLAGS_num_olap_clients << std::endl;
 
-  // google::InstallFailureSignalHandler();
-
-  // set_trace_allocations(FLAGS_trace_allocations);
-
   const auto &txn_topo = scheduler::Topology::getInstance();
   const auto &txn_nodes = txn_topo.getCpuNumaNodes();
-  // init_oltp(txn_nodes[0].local_cores.size(), "");
-  // init_oltp(FLAGS_num_oltp_clients, "");
-  // OLAP INIT
 
   const auto &topo = topology::getInstance();
   const auto &nodes = topo.getCpuNumaNodes();
+
+  if (global_conf::reverse_partition_numa_mapping) {
+    // OLTP should be last socket
+  } else {
+    // OLTP starts from first socket
+  }
 
   auto OLAP_SOCKET = 0;
   auto OLTP_SOCKET = 1;
