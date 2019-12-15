@@ -293,6 +293,8 @@ void ParallelContext::setChainedPipeline(PipelineGen *next) {
 void ParallelContext::compileAndLoad() {
   popPipeline();
   assert(generators.size() == 0 && "Leftover pipelines!");
+  // prepare for next code generation
+  pushPipeline();
 }
 
 std::vector<Pipeline *> ParallelContext::getPipelines() {
@@ -303,7 +305,8 @@ std::vector<Pipeline *> ParallelContext::getPipelines() {
     if (!leafpip[i]) continue;
     pips.emplace_back(pipelines[i]->getPipeline());
   }
-
+  pipelines.clear();
+  leafpip.clear();
   return pips;
 }
 
