@@ -25,38 +25,11 @@
 #define HASH_GROUP_BY_CHAINED_HPP_
 
 #include "expressions/expressions.hpp"
+#include "operators/gpu-aggr-mat-expr.hpp"
 #include "operators/monoids.hpp"
 #include "operators/operators.hpp"
 #include "util/jit/pipeline.hpp"
 #include "util/parallel-context.hpp"
-
-struct GpuAggrMatExpr {
- public:
-  expression_t expr;
-  size_t packet;
-  size_t bitoffset;
-  size_t packind;
-  Monoid m;
-  bool is_m;
-
-  GpuAggrMatExpr(expression_t expr, size_t packet, size_t bitoffset, Monoid m)
-      : expr(expr),
-        packet(packet),
-        bitoffset(bitoffset),
-        packind(-1),
-        m(m),
-        is_m(true) {}
-
-  GpuAggrMatExpr(expression_t expr, size_t packet, size_t bitoffset)
-      : expr(expr),
-        packet(packet),
-        bitoffset(bitoffset),
-        packind(-1),
-        m(SUM),
-        is_m(false) {}
-
-  bool is_aggregation() { return is_m; }
-};
 
 class HashGroupByChained : public UnaryOperator {
  public:

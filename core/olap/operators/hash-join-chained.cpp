@@ -573,6 +573,10 @@ void HashJoinChained::open_probe(Pipeline *pip) {
 void HashJoinChained::close_build(Pipeline *pip) {
   int32_t h_cnt;
   memcpy(&h_cnt, pip->getStateVar<int32_t *>(cnt_param_id), sizeof(int32_t));
+  LOG_IF(INFO, h_cnt < 0.5 * maxBuildInputSize || h_cnt >= maxBuildInputSize)
+      << "Actual build "
+         "input size: "
+      << h_cnt;
   assert(((size_t)h_cnt) <= maxBuildInputSize &&
          "Build input sized exceeded given parameter");
 }
