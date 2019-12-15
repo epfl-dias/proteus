@@ -491,6 +491,7 @@ add_subdirectory(core/olap)
 #-----------------------------------------------------------------------
 add_subdirectory(apps/standalones/olap)
 add_subdirectory(apps/standalones/olap/flags)
+add_subdirectory(apps/standalones/olap/prepared-queries)
 
 add_subdirectory(core/oltp)
 add_subdirectory(apps/benchmarks/oltp)
