@@ -47,6 +47,38 @@
 #include "operators/unnest.hpp"
 #include "plan/catalog-parser.hpp"
 
+RelBuilder::RelBuilder(ParallelContext *ctx, Operator *root)
+    : ctx(ctx), root(root) {}
+
+RelBuilder::RelBuilder(const RelBuilder &builder, Operator *root)
+    : RelBuilder(builder.ctx, root) {
+  if (builder.root) builder.root->setParent(root);
+}
+
+expressions::InputArgument RelBuilder::getOutputArg() const {
+  return new RecordType(root->getRowType());
+}
+
+expressions::InputArgument RelBuilder::getOutputArgUnnested() const {
+  auto args = root->getRowType().getArgs();
+  std::vector<RecordAttribute *> attrs;
+  attrs.reserve(args.size());
+  for (const auto &arg : args) {
+    auto block = dynamic_cast<const BlockType *>(arg->getOriginalType());
+    if (block) {
+      attrs.emplace_back(
+          new RecordAttribute(arg->getAttrNo(), arg->getRelationName(),
+                              arg->getAttrName(), &(block->getNestedType())));
+    } else {
+      attrs.emplace_back(arg);
+    }
+  }
+  return new RecordType(attrs);
+}
+
+RelBuilder::RelBuilder() : RelBuilder(new ParallelContext("main", false)) {}
+RelBuilder::RelBuilder(ParallelContext *ctx) : RelBuilder(ctx, nullptr) {}
+
 const RecordType &RelBuilder::getRecordType(CatalogParser &catalog,
                                             std::string relName) const {
   auto inputInfo = catalog.getInputInfo(relName);

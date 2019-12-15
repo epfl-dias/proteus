@@ -24,16 +24,17 @@
 #ifndef RELBUILDER_HPP_
 #define RELBUILDER_HPP_
 
-#include "operators/gpu/gpu-materializer-expr.hpp"
-#include "operators/hash-group-by-chained.hpp"
-#include "operators/operators.hpp"
-#include "plan/prepared-statement.hpp"
-#include "routing/routing-policy.hpp"
-#include "topology/topology.hpp"
-#include "util/catalog.hpp"
-#include "util/parallel-context.hpp"
-#include "util/sort/sort-direction.hpp"
+#include <operators/gpu-aggr-mat-expr.hpp>
+#include <operators/gpu/gpu-materializer-expr.hpp>
+#include <plan/prepared-statement.hpp>
+#include <routing/degree-of-parallelism.hpp>
+#include <routing/routing-policy.hpp>
+#include <util/catalog.hpp>
+#include <util/sort/sort-direction.hpp>
 
+#include "expressions/expressions.hpp"
+
+class PreparedStatement;
 class CatalogParser;
 
 class RelBuilder {
@@ -41,35 +42,14 @@ class RelBuilder {
   ParallelContext* ctx;
   Operator* root;
 
-  RelBuilder(ParallelContext* ctx, Operator* root) : ctx(ctx), root(root) {}
-  RelBuilder(const RelBuilder& builder, Operator* root)
-      : RelBuilder(builder.ctx, root) {
-    if (builder.root) builder.root->setParent(root);
-  }
+  RelBuilder(ParallelContext* ctx, Operator* root);
+  RelBuilder(const RelBuilder& builder, Operator* root);
 
   RelBuilder apply(Operator* op) const;
 
-  expressions::InputArgument getOutputArg() const {
-    return new RecordType(root->getRowType());
-  }
+  expressions::InputArgument getOutputArg() const;
 
-  expressions::InputArgument getOutputArgUnnested() const {
-    auto args = root->getRowType().getArgs();
-    std::vector<RecordAttribute*> attrs;
-    attrs.reserve(args.size());
-    for (const auto& arg : args) {
-      const BlockType* block =
-          dynamic_cast<const BlockType*>(arg->getOriginalType());
-      if (block) {
-        attrs.emplace_back(
-            new RecordAttribute(arg->getAttrNo(), arg->getRelationName(),
-                                arg->getAttrName(), &(block->getNestedType())));
-      } else {
-        attrs.emplace_back(arg);
-      }
-    }
-    return new RecordType(attrs);
-  }
+  expressions::InputArgument getOutputArgUnnested() const;
 
   const RecordType& getRecordType(CatalogParser& catalog,
                                   std::string relName) const;
@@ -77,8 +57,8 @@ class RelBuilder {
                   ExpressionType* type) const;
 
  public:
-  RelBuilder() : RelBuilder(new ParallelContext("main", false)) {}
-  RelBuilder(ParallelContext* ctx) : RelBuilder(ctx, nullptr) {}
+  RelBuilder();
+  RelBuilder(ParallelContext* ctx);
 
   RelBuilder scan(Plugin& pg) const;
 
