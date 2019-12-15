@@ -1193,58 +1193,46 @@ class Context;
 llvm::Constant *getIdentityElementIfSimple(Monoid m, const ExpressionType *type,
                                            Context *context);
 
-inline expressions::EqExpression eq(const expression_t &lhs,
-                                    const expression_t &rhs) {
-  return {lhs, rhs};
-}
+// FIXME: reduce cases
+expressions::EqExpression eq(const expression_t &lhs, const expression_t &rhs);
+expressions::EqExpression eq(const expression_t &lhs, const std::string &rhs);
+expressions::EqExpression eq(const expression_t &lhs, const char *rhs);
+expressions::EqExpression eq(const std::string &lhs, const expression_t &rhs);
+expressions::EqExpression eq(const char *lhs, const expression_t &rhs);
 
-inline expressions::EqExpression eq(const expression_t &lhs,
-                                    const std::string &rhs) {
-  auto dstring = dynamic_cast<const DStringType *>(lhs.getExpressionType());
-  if (dstring) {
-    return eq(lhs, expression_t{rhs, dstring->getDictionary()});
-  } else {
-    return eq(lhs, expression_t{rhs});
-  }
-}
+expressions::NeExpression ne(const expression_t &lhs, const expression_t &rhs);
+expressions::NeExpression ne(const expression_t &lhs, const std::string &rhs);
+expressions::NeExpression ne(const expression_t &lhs, const char *rhs);
+expressions::NeExpression ne(const std::string &lhs, const expression_t &rhs);
+expressions::NeExpression ne(const char *lhs, const expression_t &rhs);
 
-inline expressions::EqExpression eq(const expression_t &lhs, const char *rhs) {
-  return eq(lhs, std::string{rhs});
-}
+expressions::GeExpression ge(const expression_t &lhs, const expression_t &rhs);
+expressions::GeExpression ge(const expression_t &lhs, const std::string &rhs);
+expressions::GeExpression ge(const expression_t &lhs, const char *rhs);
+// Return reverse expr to allow swapping the args
+expressions::LeExpression ge(const std::string &lhs, const expression_t &rhs);
+expressions::LeExpression ge(const char *lhs, const expression_t &rhs);
 
-inline expressions::EqExpression eq(const std::string &lhs,
-                                    const expression_t &rhs) {
-  return eq(rhs, lhs);
-}
+expressions::GtExpression gt(const expression_t &lhs, const expression_t &rhs);
+expressions::GtExpression gt(const expression_t &lhs, const std::string &rhs);
+expressions::GtExpression gt(const expression_t &lhs, const char *rhs);
+// Return reverse expr to allow swapping the args
+expressions::LtExpression gt(const std::string &lhs, const expression_t &rhs);
+expressions::LtExpression gt(const char *lhs, const expression_t &rhs);
 
-inline expressions::EqExpression eq(const char *lhs, const expression_t &rhs) {
-  return eq(rhs, lhs);
-}
+expressions::LeExpression le(const expression_t &lhs, const expression_t &rhs);
+expressions::LeExpression le(const expression_t &lhs, const std::string &rhs);
+expressions::LeExpression le(const expression_t &lhs, const char *rhs);
+// Return reverse expr to allow swapping the args
+expressions::GeExpression le(const std::string &lhs, const expression_t &rhs);
+expressions::GeExpression le(const char *lhs, const expression_t &rhs);
 
-inline expressions::NeExpression ne(const expression_t &lhs,
-                                    const expression_t &rhs) {
-  return {lhs, rhs};
-}
-
-inline expressions::LeExpression le(const expression_t &lhs,
-                                    const expression_t &rhs) {
-  return {lhs, rhs};
-}
-
-inline expressions::LtExpression lt(const expression_t &lhs,
-                                    const expression_t &rhs) {
-  return {lhs, rhs};
-}
-
-inline expressions::GeExpression ge(const expression_t &lhs,
-                                    const expression_t &rhs) {
-  return {lhs, rhs};
-}
-
-inline expressions::GtExpression gt(const expression_t &lhs,
-                                    const expression_t &rhs) {
-  return {lhs, rhs};
-}
+expressions::LtExpression lt(const expression_t &lhs, const expression_t &rhs);
+expressions::LtExpression lt(const expression_t &lhs, const std::string &rhs);
+expressions::LtExpression lt(const expression_t &lhs, const char *rhs);
+// Return reverse expr to allow swapping the args
+expressions::GtExpression lt(const std::string &lhs, const expression_t &rhs);
+expressions::GtExpression lt(const char *lhs, const expression_t &rhs);
 
 inline expressions::OrExpression operator|(const expression_t &lhs,
                                            const expression_t &rhs) {

@@ -387,3 +387,153 @@ int probeDictionary(void *dict, const std::string &v) {
 expression_t::expression_t(std::string v, void *dict)
     : expression_t(
           expressions::DStringConstant{probeDictionary(dict, v), dict}) {}
+
+expressions::EqExpression eq(const expression_t &lhs, const expression_t &rhs) {
+  return {lhs, rhs};
+}
+
+expressions::EqExpression eq(const expression_t &lhs, const std::string &rhs) {
+  auto dstring = dynamic_cast<const DStringType *>(lhs.getExpressionType());
+  if (dstring) {
+    return eq(lhs, expression_t{rhs, dstring->getDictionary()});
+  } else {
+    return eq(lhs, expression_t{rhs});
+  }
+}
+
+expressions::EqExpression eq(const expression_t &lhs, const char *rhs) {
+  return eq(lhs, std::string{rhs});
+}
+
+expressions::EqExpression eq(const std::string &lhs, const expression_t &rhs) {
+  return eq(rhs, lhs);
+}
+
+expressions::EqExpression eq(const char *lhs, const expression_t &rhs) {
+  return eq(rhs, lhs);
+}
+
+expressions::NeExpression ne(const expression_t &lhs, const expression_t &rhs) {
+  return {lhs, rhs};
+}
+
+expressions::NeExpression ne(const expression_t &lhs, const std::string &rhs) {
+  auto dstring = dynamic_cast<const DStringType *>(lhs.getExpressionType());
+  if (dstring) {
+    return ne(lhs, expression_t{rhs, dstring->getDictionary()});
+  } else {
+    return ne(lhs, expression_t{rhs});
+  }
+}
+
+expressions::NeExpression ne(const expression_t &lhs, const char *rhs) {
+  return ne(lhs, std::string{rhs});
+}
+
+expressions::NeExpression ne(const std::string &lhs, const expression_t &rhs) {
+  return ne(rhs, lhs);
+}
+
+expressions::NeExpression ne(const char *lhs, const expression_t &rhs) {
+  return ne(rhs, lhs);
+}
+
+expressions::GeExpression ge(const expression_t &lhs, const expression_t &rhs) {
+  return {lhs, rhs};
+}
+
+expressions::GeExpression ge(const expression_t &lhs, const std::string &rhs) {
+  auto dstring = dynamic_cast<const DStringType *>(lhs.getExpressionType());
+  if (dstring) {
+    return ge(lhs, expression_t{rhs, dstring->getDictionary()});
+  } else {
+    return ge(lhs, expression_t{rhs});
+  }
+}
+
+expressions::GeExpression ge(const expression_t &lhs, const char *rhs) {
+  return ge(lhs, std::string{rhs});
+}
+
+expressions::LeExpression ge(const std::string &lhs, const expression_t &rhs) {
+  return le(rhs, lhs);  // Reverse inequality
+}
+
+expressions::LeExpression ge(const char *lhs, const expression_t &rhs) {
+  return le(rhs, lhs);  // Reverse inequality
+}
+
+expressions::GtExpression gt(const expression_t &lhs, const expression_t &rhs) {
+  return {lhs, rhs};
+}
+
+expressions::GtExpression gt(const expression_t &lhs, const std::string &rhs) {
+  auto dstring = dynamic_cast<const DStringType *>(lhs.getExpressionType());
+  if (dstring) {
+    return gt(lhs, expression_t{rhs, dstring->getDictionary()});
+  } else {
+    return gt(lhs, expression_t{rhs});
+  }
+}
+
+expressions::GtExpression gt(const expression_t &lhs, const char *rhs) {
+  return gt(lhs, std::string{rhs});
+}
+
+expressions::LtExpression gt(const std::string &lhs, const expression_t &rhs) {
+  return lt(rhs, lhs);  // Reverse inequality
+}
+
+expressions::LtExpression gt(const char *lhs, const expression_t &rhs) {
+  return lt(rhs, lhs);  // Reverse inequality
+}
+
+expressions::LeExpression le(const expression_t &lhs, const expression_t &rhs) {
+  return {lhs, rhs};
+}
+
+expressions::LeExpression le(const expression_t &lhs, const std::string &rhs) {
+  auto dstring = dynamic_cast<const DStringType *>(lhs.getExpressionType());
+  if (dstring) {
+    return le(lhs, expression_t{rhs, dstring->getDictionary()});
+  } else {
+    return le(lhs, expression_t{rhs});
+  }
+}
+
+expressions::LeExpression le(const expression_t &lhs, const char *rhs) {
+  return le(lhs, std::string{rhs});
+}
+
+expressions::GeExpression le(const std::string &lhs, const expression_t &rhs) {
+  return ge(rhs, lhs);  // Reverse inequality
+}
+
+expressions::GeExpression le(const char *lhs, const expression_t &rhs) {
+  return ge(rhs, lhs);  // Reverse inequality
+}
+
+expressions::LtExpression lt(const expression_t &lhs, const expression_t &rhs) {
+  return {lhs, rhs};
+}
+
+expressions::LtExpression lt(const expression_t &lhs, const std::string &rhs) {
+  auto dstring = dynamic_cast<const DStringType *>(lhs.getExpressionType());
+  if (dstring) {
+    return lt(lhs, expression_t{rhs, dstring->getDictionary()});
+  } else {
+    return lt(lhs, expression_t{rhs});
+  }
+}
+
+expressions::LtExpression lt(const expression_t &lhs, const char *rhs) {
+  return lt(lhs, std::string{rhs});
+}
+
+expressions::GtExpression lt(const std::string &lhs, const expression_t &rhs) {
+  return gt(rhs, lhs);  // Reverse inequality
+}
+
+expressions::GtExpression lt(const char *lhs, const expression_t &rhs) {
+  return gt(rhs, lhs);  // Reverse inequality
+}
