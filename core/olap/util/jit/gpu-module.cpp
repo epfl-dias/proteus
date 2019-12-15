@@ -120,8 +120,6 @@ void GpuModule::init() {
   // opt.MCOptions.AsmVerbose            = 1;
   opt.MCOptions.PreserveAsmComments = 1;
 
-  std::cout << GPU << std::endl;
-
   auto RM = llvm::Optional<llvm::Reloc::Model>();
   TheTargetMachine = (llvm::LLVMTargetMachine *)Target->createTargetMachine(
       TargetTriple, GPU,
@@ -209,7 +207,6 @@ char info_log[BUFFER_SIZE];
 
 void GpuModule::compileAndLoad() {
 #ifndef NCUDA
-  LOG(INFO) << "[Prepare Function: ] Exit";  // and dump code so far";
   time_block t(pipName + " G: ");
 
 #ifdef DEBUGCTX
@@ -330,20 +327,19 @@ void GpuModule::compileAndLoad() {
     //      gpu_run(x);
     //    }
 
-    for (const auto &gpu : topology::getInstance().getGpus()) {
+    {
       time_block t("TloadModule: ");
-      set_device_on_scope d(gpu);
+      for (const auto &gpu : topology::getInstance().getGpus()) {
+        set_device_on_scope d(gpu);
 
-      auto x = (cuModuleLoadDataEx(&cudaModule[gpu.id], ptx.c_str(), opt_size,
-                                   options, values));
+        auto x = (cuModuleLoadDataEx(&cudaModule[gpu.id], ptx.c_str(), opt_size,
+                                     options, values));
 
-      if (info_log[0] != '\0') LOG(INFO) << info_log;
-      if (x != CUDA_SUCCESS) {
-        LOG(INFO) << error_log;
-        gpu_run(x);
-      }
-      {
-        time_block t("TinitModule: ");
+        if (info_log[0] != '\0') LOG(INFO) << info_log;
+        if (x != CUDA_SUCCESS) {
+          LOG(INFO) << error_log;
+          gpu_run(x);
+        }
         initializeModule(cudaModule[gpu.id]);
       }
     }

@@ -172,7 +172,6 @@ void CpuModule::optimizeModule(Module *M) {
 }
 
 void CpuModule::compileAndLoad() {
-  LOG(INFO) << "[Prepare Function: ] Exit";  // and dump code so far";
   time_block t(pipName + " C: ");
   // std::cout << pipName << " C" << std::endl;
 

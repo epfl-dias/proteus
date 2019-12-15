@@ -624,7 +624,6 @@ void flushOutput(char *fileName) {
   stringstream *strBuffer = catalog.getSerializer(name);
   // cout << "Flushing to " << fileName << endl;
   {
-    time_block t("Flushing to " + name + ": ");
     int fd = shm_open(fileName, O_CREAT | O_RDWR, S_IRWXU);
     std::ofstream{std::string{"/dev/shm/"} + fileName} << strBuffer->rdbuf();
     // const string &tmp_str = strBuffer->str();     //more portable but it

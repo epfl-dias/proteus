@@ -24,10 +24,8 @@
 #include "operators/scan.hpp"
 
 void Scan::produce_(ParallelContext *context) {
-  LOG(INFO) << "[Scan:] " << pg.getName();
   pg.init();
   pg.generate(*this);
-  LOG(INFO) << "[Scan:] End";
 }
 
 void Scan::consume(Context *const context, const OperatorState &childState) {
