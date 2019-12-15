@@ -182,8 +182,8 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < FLAGS_num_olap_clients; i++) {
     oltp_engine.print_differential_stats();
 
-    // oltp_engine.snapshot();
-    // if (FLAGS_etl) oltp_engine.etl(OLAP_socket);
+    oltp_engine.snapshot();
+    if (FLAGS_etl) oltp_engine.etl(OLAP_socket);
 
     usleep(1000000);  // stabilize
 

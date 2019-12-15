@@ -35,9 +35,11 @@ static bool validateETL(const char *flagname, bool value) {
     return true;
 }
 
-DEFINE_uint64(num_olap_clients, 5, "Number of OLAP clients");
-DEFINE_uint64(num_olap_repeat, 5, "Number of OLAP clients");
-DEFINE_uint64(num_oltp_clients, 0, "Number of OLTP clients");
+DEFINE_uint64(num_olap_clients, 1, "Number of OLAP clients");
+DEFINE_uint64(num_olap_repeat, 10, "Number of OLAP clients");
+DEFINE_uint64(num_oltp_clients, 0,
+              "Number of OLTP clients (default: cpu-only: one-numa-socket, "
+              "gpu-only: all cpus");
 DEFINE_string(plan_json, "", "Plan to execute, takes priority over plan_dir");
 DEFINE_string(plan_dir, "inputs/plans/cpu-ssb",
               "Directory with plans to be executed");
