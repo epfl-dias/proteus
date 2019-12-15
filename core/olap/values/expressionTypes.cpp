@@ -55,7 +55,11 @@ int RecordType::getIndex(RecordAttribute *x) const {
     }
     ++index;
   }
-  std::cout << this->getType() << std::endl;
   assert(cnt <= 1 && "Multiple matches for attribute name, but none with rel");
   return maybe_index;
+}
+
+std::ostream &operator<<(std::ostream &o, const RecordAttribute &rec) {
+  return (o << rec.getRelationName() << "." << rec.getAttrName() << ": "
+            << rec.getOriginalType()->getType());
 }

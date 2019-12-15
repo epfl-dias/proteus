@@ -24,6 +24,8 @@
 #ifndef EXPRESSIONTYPES_HPP_
 #define EXPRESSIONTYPES_HPP_
 
+#include <ostream>
+
 #include "common/common.hpp"
 #include "llvm/IR/IRBuilder.h"
 
@@ -349,6 +351,8 @@ class RecordAttribute {
   int attrNo;
   bool projected;
 };
+
+std::ostream &operator<<(std::ostream &o, const RecordAttribute &rec);
 
 class RecordType : public ExpressionTypeVisitable<RecordType, ExpressionType> {
  public:
