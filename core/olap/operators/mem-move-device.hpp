@@ -95,7 +95,8 @@ class MemMoveDevice : public UnaryOperator {
                 const vector<RecordAttribute *> &wantedFields, size_t slack,
                 bool to_cpu)
       : MemMoveDevice(child, context, wantedFields, slack, to_cpu,
-                      std::vector<bool>(wantedFields.size(), false)) {}
+                      //                      {true, true, false, false}
+                      std::vector<bool>(wantedFields.size(), true)) {}
 
   virtual ~MemMoveDevice() { LOG(INFO) << "Collapsing MemMoveDevice operator"; }
 
