@@ -366,10 +366,10 @@ void HashJoinChained::generate_probe(ParallelContext *context,
 
     in_ptrs.push_back(
         Builder->CreateInBoundsGEP(in_ptr, Builder->CreateLoad(mem_current)));
-    //    size_t s =
-    //        context->getSizeOf(in_ptrs.back()->getType()->getPointerElementType());
-    //    in_vals.push_back(Builder->CreateAlignedLoad(in_ptrs.back(), s & -s));
-    in_vals.push_back(Builder->CreateLoad(in_ptrs.back()));
+    size_t s =
+        context->getSizeOf(in_ptrs.back()->getType()->getPointerElementType());
+    in_vals.push_back(Builder->CreateAlignedLoad(in_ptrs.back(), s & -s));
+    //    in_vals.push_back(Builder->CreateLoad(in_ptrs.back()));
   }
 
   Value *next = Builder->CreateExtractValue(in_vals[0], 0);
