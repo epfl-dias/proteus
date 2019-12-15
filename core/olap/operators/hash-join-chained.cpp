@@ -474,12 +474,22 @@ void HashJoinChained::generate_probe(ParallelContext *context,
       }
     }
 
-    ExpressionGeneratorVisitor exprGenerator(context, childState);
+    if (mexpr.expr.getTypeID() !=
+            expressions::ExpressionId::RECORD_PROJECTION ||
+        !(mexpr.expr.getRegisteredAs() ==
+          dynamic_cast<const expressions::RecordProjection *>(
+              mexpr.expr.getUnderlyingExpression())
+              ->getAttribute())) {
+      ExpressionGeneratorVisitor exprGenerator(context, childState);
+      ProteusValue val = mexpr.expr.accept(exprGenerator);
 
-    ProteusValue val = mexpr.expr.accept(exprGenerator);
-
-    allJoinBindings[mexpr.expr.getRegisteredAs()] =
-        context->toMem(val.value, val.isNull);
+      allJoinBindings[mexpr.expr.getRegisteredAs()] =
+          context->toMem(val.value, val.isNull);
+    } else {
+      allJoinBindings[mexpr.expr.getRegisteredAs()] =
+          childState[mexpr.expr.getRegisteredAs()];
+      LOG(INFO) << "Lazy: " << mexpr.expr.getRegisteredAs();
+    }
   }
 
   // from build side
