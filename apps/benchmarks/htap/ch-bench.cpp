@@ -142,7 +142,16 @@ int main(int argc, char *argv[]) {
       olap_nodes.emplace_back((topology::numanode *)&gpu_n);
     }
   } else {
-    assert(false && "set nodes for cpu-only mode");
+    // assert(false && "set nodes for cpu-only mode");
+    // for (const auto &n : nodes) {
+    //   oltp_nodes.emplace_back((topology::numanode *)&n);
+    // }
+    // for (const auto &n : nodes) {
+    //   olap_nodes.emplace_back((topology::numanode *)&n);
+    // }
+
+    oltp_nodes.emplace_back((topology::numanode *)&nodes[OLTP_socket]);
+    olap_nodes.emplace_back((topology::numanode *)&nodes[OLAP_socket]);
   }
 
   OLAPSequence olap_queries(

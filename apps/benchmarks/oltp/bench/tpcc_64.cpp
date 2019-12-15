@@ -2431,7 +2431,7 @@ void TPCC::load_order(int w_id, uint64_t xid, ushort partition_id,
         } else
           r.o_carrier_id = 0;
 
-        int o_ol_cnt = URand(&this->seed, 5, 15);
+        int o_ol_cnt = 15;  // URand(&this->seed, 5, 15);
 
         if (tpch_scale_factor != 0) {
           o_ol_cnt = 15;
