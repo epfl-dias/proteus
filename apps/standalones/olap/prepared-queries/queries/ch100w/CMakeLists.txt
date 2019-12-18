@@ -5,6 +5,7 @@ set(${PROJECT_NAME}_cxx
         q01.sql.json.cpp
         q04.sql.json.cpp
         q06.sql.json.cpp
+        q12.sql.json.cpp
         q19.sql.json.cpp
         )
 
