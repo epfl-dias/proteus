@@ -31,10 +31,11 @@ class Query {
  public:
   PreparedStatement prepare01(bool memmv);
   PreparedStatement prepare06(bool memmv);
+  PreparedStatement prepare19(bool memmv);
 
   std::vector<PreparedStatement> prepareAll(bool memmv) {
     return {
-        prepare01(memmv), prepare06(memmv)
+        prepare01(memmv), prepare06(memmv), prepare19(memmv)
         // EOQ
     };
   }
