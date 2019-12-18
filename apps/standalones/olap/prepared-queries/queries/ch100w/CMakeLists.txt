@@ -3,6 +3,7 @@ project(ch100w VERSION 0.1 LANGUAGES CXX)
 # Pure, regular C++ files
 set(${PROJECT_NAME}_cxx
         q01.sql.json.cpp
+        q04.sql.json.cpp
         q06.sql.json.cpp
         q19.sql.json.cpp
         )
