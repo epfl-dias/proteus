@@ -53,15 +53,15 @@ PreparedStatement Query::prepare12(bool memmv) {
           .to_gpu()  // (trait=[Pelago.[].packed.NVPTX.homBrdcst.hetSingle])
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle])
           .project([&](const auto &arg) -> std::vector<expression_t> {
-            return {(arg["$0"]).as("PelagoProject#2508", "$0"),
-                    (arg["$1"]).as("PelagoProject#2508", "$1"),
-                    (arg["$2"]).as("PelagoProject#2508", "$2"),
-                    (arg["$3"]).as("PelagoProject#2508", "$3"),
-                    (arg["$5"]).as("PelagoProject#2508", "$4"),
+            return {(arg["$0"]).as("PelagoProject#2508", "o_id"),
+                    (arg["$1"]).as("PelagoProject#2508", "o_d_id"),
+                    (arg["$2"]).as("PelagoProject#2508", "o_w_id"),
+                    (arg["$3"]).as("PelagoProject#2508", "o_entry_d"),
+                    (arg["$5"]).as("PelagoProject#2508", "o_carrier_id"),
                     (cond((eq(arg["$4"], 1) | eq(arg["$4"], 2)), 1, 0))
-                        .as("PelagoProject#2508", "$5"),
+                        .as("PelagoProject#2508", "or"),
                     (cond((ne(arg["$4"], 1) & ne(arg["$4"], 2)), 1, 0))
-                        .as("PelagoProject#2508", "$6")};
+                        .as("PelagoProject#2508", "nor")};
           })  // (o_id=[$0], o_d_id=[$1], o_w_id=[$2], o_entry_d=[$3],
               // o_ol_cnt=[$5], CASE=[CASE(OR(=($4, 1), =($4, 2)), 1, 0)],
               // CASE6=[CASE(AND(<>($4, 1), <>($4, 2)), 1, 0)],
@@ -76,7 +76,7 @@ PreparedStatement Query::prepare12(bool memmv) {
                              // 2, 6]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .router(
-              dop, 1, RoutingPolicy::LOCAL, dev,
+              dop, 8, RoutingPolicy::LOCAL, dev,
               aff_parallel())  // (trait=[Pelago.[].packed.X86_64.homRandom.hetSingle])
       ;
 
