@@ -26,6 +26,7 @@ foreach(target
 			codegen::olap
 			htap::engine
 			gflags::gflags
+			queries::ch100w
 			)
 	target_include_directories(htap-${target}
 		PUBLIC

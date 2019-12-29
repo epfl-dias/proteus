@@ -4,6 +4,7 @@ set(MAINS
         run-prepared-query  # Interface to the executor
         )
 
+add_subdirectory(queries/ch100w)
 add_subdirectory(queries/ssb100)
 add_subdirectory(queries/ssb1000)
 

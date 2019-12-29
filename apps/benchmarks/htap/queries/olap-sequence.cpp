@@ -24,6 +24,7 @@
 #include "olap-sequence.hpp"
 
 #include <aeolus-plugin.hpp>
+#include <ch100w/query.hpp>
 #include <include/routing/affinitizers.hpp>
 #include <include/routing/degree-of-parallelism.hpp>
 #include <numeric>
@@ -40,82 +41,87 @@ OLAPSequence::OLAPSequence(OLAPSequence::wrapper_t<plugin_t>, int client_id,
                            // const topology::cpunumanode &oltp_node,
                            exec_nodes olap_nodes, exec_nodes oltp_nodes,
                            DeviceType dev) {
-  //    time_block t("TcodegenTotal_: ");
+  //  //    time_block t("TcodegenTotal_: ");
+  //  //
+  //  std::vector<SpecificCpuCoreAffinitizer::coreid_t> coreids;
   //
-  std::vector<SpecificCpuCoreAffinitizer::coreid_t> coreids;
+  //  if (dev == DeviceType::CPU) {
+  //    uint j = 0;
+  //
+  //    for (auto &olap_n : olap_nodes) {
+  //      for (auto id :
+  //           (dynamic_cast<topology::cpunumanode *>(olap_n))->local_cores) {
+  //        if (FLAGS_trade_core && FLAGS_elastic > 0 && j < FLAGS_elastic) {
+  //          j++;
+  //          continue;
+  //        }
+  //        coreids.emplace_back(id);
+  //      }
+  //    }
+  //
+  //    if (FLAGS_elastic > 0) {
+  //      uint i = 0;
+  //
+  //      for (auto &oltp_n : oltp_nodes) {
+  //        for (auto id :
+  //             (dynamic_cast<topology::cpunumanode *>(oltp_n))->local_cores) {
+  //          coreids.emplace_back(id);
+  //          if (++i >= FLAGS_elastic) {
+  //            break;
+  //          }
+  //        }
+  //
+  //        if (i >= FLAGS_elastic) {
+  //          break;
+  //        }
+  //      }
+  //    }
+  //
+  //    // {
+  //    //   for (const auto &n : topology::getInstance().getCpuNumaNodes()) {
+  //    //     if (n != numa_node) {
+  //    //       for (size_t i = 0; i < std::min(4, n.local_cores.size()); ++i)
+  //    {
+  //    //         coreids.emplace_back(n.local_cores[i]);
+  //    //       }
+  //    //     }
+  //    //   }
+  //    // }
+  //
+  //    DegreeOfParallelism dop{coreids.size()};
+  //
+  //    auto aff_parallel = [&]() -> std::unique_ptr<Affinitizer> {
+  //      return std::make_unique<SpecificCpuCoreAffinitizer>(coreids);
+  //    };
+  //  }
+  //  DegreeOfParallelism dop{(dev == DeviceType::CPU) ? coreids.size()
+  //                                                   : olap_nodes.size()};
+  //
+  //  auto aff_parallel = [&]() -> std::unique_ptr<Affinitizer> {
+  //    if (dev == DeviceType::CPU) {
+  //      return std::make_unique<SpecificCpuCoreAffinitizer>(coreids);
+  //    } else {
+  //      return std::make_unique<GPUAffinitizer>();
+  //    }
+  //  };
+  //
+  //  auto aff_reduce = []() -> std::unique_ptr<Affinitizer> {
+  //    return std::make_unique<CpuCoreAffinitizer>();
+  //  };
+  //
+  //  typedef decltype(aff_parallel) aff_t;
+  //  typedef decltype(aff_reduce) red_t;
 
-  if (dev == DeviceType::CPU) {
-    uint j = 0;
-
-    for (auto &olap_n : olap_nodes) {
-      for (auto id :
-           (dynamic_cast<topology::cpunumanode *>(olap_n))->local_cores) {
-        if (FLAGS_trade_core && FLAGS_elastic > 0 && j < FLAGS_elastic) {
-          j++;
-          continue;
-        }
-        coreids.emplace_back(id);
-      }
-    }
-
-    if (FLAGS_elastic > 0) {
-      uint i = 0;
-
-      for (auto &oltp_n : oltp_nodes) {
-        for (auto id :
-             (dynamic_cast<topology::cpunumanode *>(oltp_n))->local_cores) {
-          coreids.emplace_back(id);
-          if (++i >= FLAGS_elastic) {
-            break;
-          }
-        }
-
-        if (i >= FLAGS_elastic) {
-          break;
-        }
-      }
-    }
-
-    // {
-    //   for (const auto &n : topology::getInstance().getCpuNumaNodes()) {
-    //     if (n != numa_node) {
-    //       for (size_t i = 0; i < std::min(4, n.local_cores.size()); ++i) {
-    //         coreids.emplace_back(n.local_cores[i]);
-    //       }
-    //     }
-    //   }
-    // }
-
-    DegreeOfParallelism dop{coreids.size()};
-
-    auto aff_parallel = [&]() -> std::unique_ptr<Affinitizer> {
-      return std::make_unique<SpecificCpuCoreAffinitizer>(coreids);
-    };
-  }
-  DegreeOfParallelism dop{(dev == DeviceType::CPU) ? coreids.size()
-                                                   : olap_nodes.size()};
-
-  auto aff_parallel = [&]() -> std::unique_ptr<Affinitizer> {
-    if (dev == DeviceType::CPU) {
-      return std::make_unique<SpecificCpuCoreAffinitizer>(coreids);
-    } else {
-      return std::make_unique<GPUAffinitizer>();
-    }
-  };
-
-  auto aff_reduce = []() -> std::unique_ptr<Affinitizer> {
-    return std::make_unique<CpuCoreAffinitizer>();
-  };
-
-  typedef decltype(aff_parallel) aff_t;
-  typedef decltype(aff_reduce) red_t;
-
-  for (const auto &q : {
-           Q<1>::prepare<plugin_t, aff_t, red_t>
-           // ,Q<6>::prepare<plugin_t, aff_t, red_t>
-       }) {
-    stmts.emplace_back(q(dop, aff_parallel, aff_reduce, dev));
-  }
+  //  for (const auto &q : {
+  //           Q<1>::prepare<plugin_t, aff_t, red_t>,
+  //           //                        Q<6>::prepare<plugin_t, aff_t, red_t>
+  //       }) {
+  //    stmts.emplace_back(q(dop, aff_parallel, aff_reduce, dev));
+  //  }
+  stmts.emplace_back(ch100w::Query{}.prepare01(true));
+  stmts.emplace_back(ch100w::Query{}.prepare01(false));
+  stmts.emplace_back(ch100w::Query{}.prepare06(true));
+  stmts.emplace_back(ch100w::Query{}.prepare06(false));
 }
 
 std::ostream &operator<<(std::ostream &out, const OLAPSequence &seq) {
