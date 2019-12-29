@@ -35,6 +35,7 @@ set(codegen_cu
 #       For now we build two times this, as otherwise we get linking and/or
 #       runtime error as LLVM cannot yet generate relocatable ptx code.
         memory/buffer-manager.cu
+        util/sort/gpu/sort-util.cu
     )
 
 foreach(target ${codegen_cu})
@@ -54,19 +55,9 @@ file(MAKE_DIRECTORY ${CUDA_WORKDIR})
 if(CUDA_FOUND)
     set(codegen_cu_objs
         "${CUDA_WORKDIR}/buffer-manager.fatbin.o"
-        "${CUDA_WORKDIR}/sort-util.o"
     )
 endif()
 
-add_custom_command(OUTPUT ${CUDA_WORKDIR}/sort-util.o
-    COMMAND ${CUDA_NVCC_EXECUTABLE} ${CUDA_CUFLAGS}
-        -c ${CMAKE_CURRENT_SOURCE_DIR}/util/sort/gpu/sort-util.cu
-        -o sort-util.o
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/util/sort/gpu/sort-util.cu
-    IMPLICIT_DEPENDS CXX ${CMAKE_CURRENT_SOURCE_DIR}/util/sort/gpu/sort-util.cu
-    WORKING_DIRECTORY ${CUDA_WORKDIR}
-    COMMENT "Building CUDA object ${CUDA_WORKDIR}/sort-util.o"
-)
 
 add_custom_command(OUTPUT ${CUDA_WORKDIR}/buffer-manager.fatbin
     COMMAND ${CUDA_NVCC_EXECUTABLE} ${CUDA_CUFLAGS}

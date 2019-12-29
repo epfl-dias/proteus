@@ -155,6 +155,9 @@ string(STRIP "${WARNING_FLAGS} -Wno-vla-extension" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-weak-vtables" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-atomic-implicit-seq-cst" WARNING_FLAGS)
 
+string(STRIP "${WARNING_FLAGS} -Wno-zero-length-array" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-packed" WARNING_FLAGS)
+
 # Unit-tests:
 string(STRIP "${WARNING_FLAGS} -Wno-shift-sign-overflow" WARNING_FLAGS)
 
