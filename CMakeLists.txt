@@ -262,20 +262,9 @@ if(CUDA_FOUND)
 	string(REGEX REPLACE [[;]] " " CUDA_CXX_ARCHS "${CUDA_CXX_ARCHS}")
 	string(STRIP "${CUDA_CXXFLAGS} ${CUDA_CXX_ARCHS}" CUDA_CXXFLAGS)
 	string(STRIP "${CUDA_CXXFLAGS} -DMAXRREGCOUNT=32" CUDA_CXXFLAGS)
-	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -DMAXRREGCOUNT=32 --maxrregcount=32)
 
 	# Because of how the "command" function works, we have to use a
 	# CMAKE list, and not a string for CUDA_CUFLAGS
-
-	# CUDA-only flags, used with nvcc
-	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem ${LLVM_INCLUDE_DIRS})
-	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -I ${PROJECT_SOURCE_DIR}/core/platform)
-	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} ${CUDA_CU_ARCHS})
-	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} --std=c++11)
-	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -Xcompiler -fPIC)
-	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} --expt-relaxed-constexpr)
-	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -O3)
-	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} --generate-line-info -line-info)
 
 	set(CUDA_LIBS -lnvToolsExt -lcuda ${CUDA_LIBRARIES}
 			-lnvidia-ml
@@ -297,7 +286,6 @@ else()
 	detected)")
 
 	set(CUDA_CXXFLAGS -x c++ -DNCUDA)
-	set(CUDA_CUFLAGS "")
 	set(CUDA_LIBS "")
 
 	set(CUDA "CUDA-NOTFOUND")
@@ -383,12 +371,6 @@ if (TRUE)
 	# Make glog appear as system library to avoid header warnings
 	get_target_property(glog_INCLUDE_DIR glog INTERFACE_INCLUDE_DIRECTORIES)
 	target_include_directories(glog SYSTEM PUBLIC ${glog_INCLUDE_DIR})
-#	message(FATAL_ERROR "${glog_INCLUDE_DIR}")
-	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem
-			${CMAKE_CURRENT_BINARY_DIR}/glog-build)
-	set(CUDA_CUFLAGS ${CUDA_CUFLAGS} -isystem
-			${CMAKE_CURRENT_BINARY_DIR}/glog-src/src)
-
 	add_library(glog::glog ALIAS glog)
 endif()
 
