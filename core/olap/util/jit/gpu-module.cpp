@@ -23,15 +23,19 @@
 #include "util/jit/gpu-module.hpp"
 
 #include <dlfcn.h>
-
-#include "llvm/Analysis/BasicAliasAnalysis.h"
-#include "llvm/CodeGen/TargetPassConfig.h"
-#include "llvm/ExecutionEngine/JITEventListener.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Support/TargetRegistry.h"
+#include <llvm/Analysis/BasicAliasAnalysis.h>
+#include <llvm/CodeGen/TargetPassConfig.h>
+#include <llvm/ExecutionEngine/JITEventListener.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/PassManager.h>
+#include <llvm/IRReader/IRReader.h>
+#include <llvm/Linker/Linker.h>
+#include <llvm/Support/SourceMgr.h>
+#include <llvm/Support/TargetRegistry.h>
 #pragma push_macro("NDEBUG")
 #define NDEBUG
-#include "llvm/Analysis/TargetTransformInfo.h"
+#include <llvm/Analysis/TargetTransformInfo.h>
 #pragma pop_macro("NDEBUG")
 
 #include "topology/affinity_manager.hpp"
@@ -195,6 +199,10 @@ void GpuModule::optimizeModule(llvm::Module *M) {
 // &_binary_device_funcs_cubin_size extern char
 // _binary_device_funcs_cubin_start[];
 
+extern const char *const _binary_buffer_manager_bc_start;
+extern const char *const _binary_buffer_manager_bc_end;
+// extern const size_t _binary_buffer_manager_bc_size;
+
 constexpr size_t BUFFER_SIZE = 8192;
 char error_log[BUFFER_SIZE];
 char info_log[BUFFER_SIZE];
@@ -219,7 +227,19 @@ void GpuModule::compileAndLoad() {
     getModule()->print(out, nullptr, false, true);
   }
 #endif
+  llvm::SMDiagnostic error;
+  auto start = (const char *)&_binary_buffer_manager_bc_start;
+  auto end = (const char *)&_binary_buffer_manager_bc_end;
+  size_t size = end - start;
+  auto mb2 =
+      llvm::MemoryBuffer::getMemBuffer(llvm::StringRef{start, size}, "", false);
+  assert(mb2);
 
+  auto mod =
+      llvm::parseIR(mb2->getMemBufferRef(), error, getModule()->getContext());
+  assert(mod);
+
+  llvm::Linker::linkModules(*getModule(), std::move(mod));
   optimizeModule(getModule());
 
   // Dump to see final (optimized) form
@@ -263,31 +283,17 @@ void GpuModule::compileAndLoad() {
   }
 #endif
 
-  // {
-  //     time_block t("Tcuda_comp: ");
-  //     CUlinkState linkState;
-
-  //     gpu_run(cuLinkCreate  (0, nullptr, nullptr, &linkState));
-  //     gpu_run(cuLinkAddData (linkState, CU_JIT_INPUT_PTX, (void *)
-  //     ptx.c_str(), ptx.length() + 1, 0, 0, 0, 0)); gpu_run(cuLinkAddFile
-  //     (linkState, CU_JIT_INPUT_LIBRARY,
-  //     "/usr/local/cuda/lib64/libcudadevrt.a", 0, nullptr, nullptr));
-  //     gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_PTX,
-  //     "/home/chrysoge/Documents/pelago/src/raw-jit-executor/codegen/device_funcs.ptx",
-  //     0, nullptr, nullptr)); gpu_run(cuLinkComplete(linkState, &cubin,
-  //     &cubinSize)); gpu_run(cuLinkDestroy (linkState));
-  // }
   {
     time_block t("TcuCompile: ");  // FIXME: Currently requires all GPUs to be
                                    // of the same compute capability, or to be
                                    // more precise, all of them to be compatible
                                    // with the CC of the current device
-    void *cubin;
-    size_t cubinSize;
+                                   //    void *cubin;
+                                   //    size_t cubinSize;
+                                   //
+                                   //    CUlinkState linkState = nullptr;
 
-    CUlinkState linkState = nullptr;
-
-    constexpr size_t opt_size = 6;
+    constexpr size_t opt_size = 8;
     CUjit_option options[opt_size];
     void *values[opt_size];
 
@@ -303,154 +309,46 @@ void GpuModule::compileAndLoad() {
     values[4] = (void *)info_log;
     options[5] = CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;
     values[5] = (void *)BUFFER_SIZE;
+    options[6] = CU_JIT_LOG_VERBOSE;
+    values[6] = (void *)1;
+    options[7] = CU_JIT_OPTIMIZATION_LEVEL;
+    values[7] = (void *)4;
 
-    char *_binary_buffer_manager_cubin_start;
-    char *_binary_buffer_manager_cubin_end;
-    // FIXME: should use a loop instead of nested ifs... also, we should cache
-    // the result per sm
-    {  // Compute symbol name for one of the GPU architecture, and use that to
-      // retrieve the corresponding binary blob.
-      // FIXME: We assume compute and arch are equal!
-      // FIXME: Add error handling, we are generating a symbol name and
-      //        assuming it is going to be available...
-      int dev;
-      gpu_run(cudaGetDevice(&dev));
-      cudaDeviceProp deviceProp;
-      gpu_run(cudaGetDeviceProperties(&deviceProp, dev));
-      auto sm_code = std::to_string(deviceProp.major * 10 + deviceProp.minor);
-
-      auto sim_prefix = "_binary_buffer_manager_compute_" + sm_code + "_sm_" +
-                        sm_code + "_cubin_";
-      auto sim_start = sim_prefix + "start";
-      auto sim_end = sim_prefix + "end";
-
-      void *handle = dlopen(nullptr, RTLD_LAZY | RTLD_GLOBAL);
-      assert(handle);
-
-      _binary_buffer_manager_cubin_start =
-          (char *)dlsym(handle, sim_start.c_str());
-      _binary_buffer_manager_cubin_end = (char *)dlsym(handle, sim_end.c_str());
-
-      if (!_binary_buffer_manager_cubin_start) {
-        assert(!_binary_buffer_manager_cubin_end &&
-               "Only one of the symbols found!");
-        // CUDA 8.0 in RHEL does not include the compute_XX part of the
-        // string
-        auto sim_prefix = "_binary_buffer_manager_sm_" + sm_code + "_cubin_";
-        sim_start = sim_prefix + "start";
-        sim_end = sim_prefix + "end";
-
-        _binary_buffer_manager_cubin_start =
-            (char *)dlsym(handle, sim_start.c_str());
-        _binary_buffer_manager_cubin_end =
-            (char *)dlsym(handle, sim_end.c_str());
-
-        if (!_binary_buffer_manager_cubin_start) {
-          assert(!_binary_buffer_manager_cubin_end &&
-                 "Only one of the symbols found!");
-          // CUDA 8.0 in RHEL does not include the compute_XX part of the
-          // string
-          auto sim_prefix =
-              "_binary_buffer_manager_compute_" + sm_code + "_cubin_";
-          sim_start = sim_prefix + "start";
-          sim_end = sim_prefix + "end";
-
-          _binary_buffer_manager_cubin_start =
-              (char *)dlsym(handle, sim_start.c_str());
-          _binary_buffer_manager_cubin_end =
-              (char *)dlsym(handle, sim_end.c_str());
-
-          if (!_binary_buffer_manager_cubin_start) {
-            assert(!_binary_buffer_manager_cubin_end &&
-                   "Only one of the symbols found!");
-            // CUDA 8.0 in RHEL does not include the compute_XX part of the
-            // string
-            std::string sim_prefix = "_binary_buffer_manager_cubin_";
-            sim_start = sim_prefix + "start";
-            sim_end = sim_prefix + "end";
-
-            _binary_buffer_manager_cubin_start =
-                (char *)dlsym(handle, sim_start.c_str());
-            _binary_buffer_manager_cubin_end =
-                (char *)dlsym(handle, sim_end.c_str());
-          }
-        }
-      }
-      assert(_binary_buffer_manager_cubin_start &&
-             "cubin start symbol not found!");
-      assert(_binary_buffer_manager_cubin_end && "cubin end symbol not found!");
-
-      LOG(INFO) << "[Load CUBIN blob: ] sim_start: " << sim_start
-                << ", sim_end: " << sim_end;
-      LOG(INFO) << "[Load CUBIN blob: ] start: "
-                << (void *)_binary_buffer_manager_cubin_start
-                << ", end: " << (void *)_binary_buffer_manager_cubin_end;
-    }
-
-    // size_t size = _binary_device_funcs_cubin_end -
-    // _binary_device_funcs_cubin_start;
-    size_t size =
-        _binary_buffer_manager_cubin_end - _binary_buffer_manager_cubin_start;
-
-    gpu_run(cuLinkCreate(opt_size, options, values, &linkState));
-    // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_LIBRARY,
-    // "/usr/local/cuda/lib64/libcudadevrt.a", 0, nullptr, nullptr));
-    // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN,
-    // "/home/chrysoge/Documents/pelago/opt/res/device_funcs.cubin", 0, nullptr,
-    // nullptr)); auto x = (cuLinkAddData (linkState, CU_JIT_INPUT_CUBIN,
-    // _binary_device_funcs_cubin_start, size, nullptr, 0, nullptr, nullptr));
-    auto x = (cuLinkAddData(linkState, CU_JIT_INPUT_CUBIN,
-                            _binary_buffer_manager_cubin_start, size, nullptr,
-                            0, nullptr, nullptr));
-
-    // the strange file name comes from FindCUDA... hopefully there is way to
-    // change it...
-    // auto x = (cuLinkAddFile (linkState, CU_JIT_INPUT_CUBIN,
-    // "/home/chrysoge/Documents/pelago/build/raw-jit-executor/codegen/multigpu/CMakeFiles/multigpu.dir/multigpu_generated_buffer_manager.cu.o.cubin.txt",
-    // 0, nullptr, nullptr)); auto x = (cuLinkAddFile (linkState,
-    // CU_JIT_INPUT_CUBIN,
-    // "/home/chrysoge/Documents/pelago/opt/res/buffer-manager.cubin", 0,
-    // nullptr, nullptr)); libmultigpu.a", 0, nullptr, nullptr));
-    if (x != CUDA_SUCCESS) {
-      // If you get an error message similar to "no kernel image is available
-      // for execution on the device" it usually means that the target sm_xy in
-      // root CMakeLists.txt is not set to the current GPU's CC.
-      printf("[CUcompile: ] %s\n", info_log);
-      printf("[CUcompile: ] %s\n", error_log);
-      gpu_run(x);
-    }
-    // gpu_run(cuLinkAddFile (linkState, CU_JIT_INPUT_PTX,
-    // "/home/chrysoge/Documents/pelago/src/raw-jit-executor/codegen/device_funcs.ptx",
-    // 0, nullptr, nullptr)); gpu_run(cuLinkAddFile (linkState,
-    // CU_JIT_INPUT_PTX,
-    // ("generated_code/" + pipName + ".ptx").c_str(), 0, nullptr, nullptr));
-    x = cuLinkAddData(linkState, CU_JIT_INPUT_PTX, (void *)ptx.c_str(),
-                      ptx.length() + 1, nullptr, 0, nullptr, nullptr);
-    if (x != CUDA_SUCCESS) {
-      printf("[CUcompile: ] %s\n", info_log);
-      printf("[CUcompile: ] %s\n", error_log);
-      gpu_run(x);
-    }
-    x = cuLinkComplete(linkState, &cubin, &cubinSize);
-    if (x != CUDA_SUCCESS) {
-      printf("[CUcompile: ] %s\n", info_log);
-      printf("[CUcompile: ] %s\n", error_log);
-      gpu_run(x);
-    }
+    //    gpu_run(cuLinkCreate(opt_size, options, values, &linkState));
+    //
+    //    {
+    //      auto x = cuLinkAddData(linkState, CU_JIT_INPUT_PTX, (void *)
+    //      ptx.c_str(), ptx.size(), "jit",
+    //                             0, nullptr, nullptr);
+    //      LOG(INFO) << info_log;
+    //      gpu_run(x);
+    //    }
+    //
+    //    {
+    //      auto x = cuLinkComplete(linkState, &cubin, &cubinSize);
+    //      LOG(INFO) << info_log;
+    //      gpu_run(x);
+    //    }
 
     for (const auto &gpu : topology::getInstance().getGpus()) {
       time_block t("TloadModule: ");
       set_device_on_scope d(gpu);
 
-      // gpu_run(cuModuleLoadDataEx(&cudaModule[i], ptx.c_str(), 0, 0, 0));
-      gpu_run(cuModuleLoadFatBinary(&cudaModule[gpu.id], cubin));
+      auto x = (cuModuleLoadDataEx(&cudaModule[gpu.id], ptx.c_str(), opt_size,
+                                   options, values));
+
+      if (info_log[0] != '\0') LOG(INFO) << info_log;
+      if (x != CUDA_SUCCESS) {
+        LOG(INFO) << error_log;
+        gpu_run(x);
+      }
       {
         time_block t("TinitModule: ");
         initializeModule(cudaModule[gpu.id]);
       }
     }
 
-    gpu_run(cuLinkDestroy(linkState));
+    //    gpu_run(cuLinkDestroy(linkState));
   }
   // func_name = F->getName().str();
 #else

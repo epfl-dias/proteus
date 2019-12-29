@@ -54,29 +54,38 @@ file(MAKE_DIRECTORY ${CUDA_WORKDIR})
 
 if(CUDA_FOUND)
     set(codegen_cu_objs
-        "${CUDA_WORKDIR}/buffer-manager.fatbin.o"
+        "${CUDA_WORKDIR}/buffer-manager.bc.o"
     )
 endif()
 
+string(REPLACE " " ";" BMFLAGS ${CUDA_CXXFLAGS})
 
-add_custom_command(OUTPUT ${CUDA_WORKDIR}/buffer-manager.fatbin
-    COMMAND ${CUDA_NVCC_EXECUTABLE} ${CUDA_CUFLAGS}
-        --keep --keep-dir ${CUDA_WORKDIR} -rdc true -fatbin
+# Generate LLVM bitcode file with device code
+# The generated file is used for link-time optimization with the JITed code
+# TODO: correctly accept the includes and CXX flags
+add_custom_command(OUTPUT ${CUDA_WORKDIR}/buffer-manager.bc
+    COMMAND ${CMAKE_CXX_COMPILER}
         ${CMAKE_CURRENT_SOURCE_DIR}/memory/buffer-manager.cu
-        -o ${CUDA_WORKDIR}/buffer-manager.fatbin
+        -o ${CUDA_WORKDIR}/buffer-manager.bc
+        --cuda-device-only -c -emit-llvm
+        # TODO: correctly accept the CXX flags
+        --std=c++17 ${BMFLAGS}
+        # TODO: correctly accept the includes flags
+        -I${CMAKE_CURRENT_SOURCE_DIR} -isystem ${CMAKE_BINARY_DIR}/glog-build -isystem ${CMAKE_BINARY_DIR}/glog-src/src
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/memory/buffer-manager.cu
     IMPLICIT_DEPENDS CXX ${CMAKE_CURRENT_SOURCE_DIR}/memory/buffer-manager.cu
     WORKING_DIRECTORY ${CUDA_WORKDIR}
-    COMMENT "Building CUDA object ${CUDA_WORKDIR}/buffer-manager.o"
+    COMMENT "Building CUDA LLVM bitcode ${CUDA_WORKDIR}/buffer-manager.bc"
 )
 
-add_custom_command(OUTPUT ${CUDA_WORKDIR}/buffer-manager.fatbin.o
+# Embed the generated file into the library
+add_custom_command(OUTPUT ${CUDA_WORKDIR}/buffer-manager.bc.o
     COMMAND ld -r -b binary
-        buffer-manager*.cubin
-        -o ${CUDA_WORKDIR}/buffer-manager.fatbin.o
-    DEPENDS ${CUDA_WORKDIR}/buffer-manager.fatbin
+        buffer-manager*.bc
+        -o ${CUDA_WORKDIR}/buffer-manager.bc.o
+    DEPENDS ${CUDA_WORKDIR}/buffer-manager.bc
     WORKING_DIRECTORY ${CUDA_WORKDIR}
-    COMMENT "Linking CUDA object ${CUDA_WORKDIR}/buffer-manager.cubin.o"
+    COMMENT "Linking CUDA object ${CUDA_WORKDIR}/buffer-manager.bc.o"
 )
 #-----------------------------------------------------------------------------
 
