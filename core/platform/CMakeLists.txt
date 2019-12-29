@@ -1,5 +1,7 @@
 project(codegen VERSION 0.1 LANGUAGES CXX)
 
+find_package(NUMA REQUIRED)
+
 # Pure, regular C++ files
 set(codegen_cxx
     common/common.cpp
@@ -119,7 +121,7 @@ target_compile_features(codegen
 target_link_libraries(codegen
         PUBLIC
             glog::glog
-            -lnuma
+            NUMA::NUMA
             -lc++abi
             ${CUDA_LIBS}
             cli-flags)
