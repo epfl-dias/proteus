@@ -29,9 +29,9 @@
 template <typename Tplugin>
 PreparedStatement q_ch_c1t() {
   std::string count_order = "count_order";
-  auto ctx = new ParallelContext(__FUNCTION__, false);
+  RelBuilderFactory ctx{__FUNCTION__};
   CatalogParser &catalog = CatalogParser::getInstance();
-  return RelBuilder{ctx}
+  return ctx.getBuilder()
       .scan<Tplugin>(tpcc_orderline,
                      {ol_delivery_d, ol_number, ol_amount, ol_quantity},
                      catalog)
@@ -67,10 +67,10 @@ PreparedStatement q_ch_cpar(DegreeOfParallelism dop,
                             std::unique_ptr<Affinitizer> aff_reduce,
                             DeviceType dev = DeviceType::CPU) {
   std::string count_order = "count_order";
-  auto ctx = new ParallelContext(__FUNCTION__, false);
+  RelBuilderFactory ctx{__FUNCTION__};
   CatalogParser &catalog = CatalogParser::getInstance();
   auto rel =
-      RelBuilder{ctx}
+      ctx.getBuilder()
           .scan<Tplugin>(tpcc_orderline,
                          {ol_delivery_d, ol_number, ol_amount, ol_quantity},
                          catalog)
@@ -134,9 +134,9 @@ PreparedStatement q_ch(DegreeOfParallelism dop,
 template <typename Tplugin>
 PreparedStatement q_ch1_c1t() {
   std::string count_order = "count_order";
-  auto ctx = new ParallelContext(__FUNCTION__, false);
+  RelBuilderFactory ctx{__FUNCTION__};
   CatalogParser &catalog = CatalogParser::getInstance();
-  return RelBuilder{ctx}
+  return ctx.getBuilder()
       .scan<Tplugin>(tpcc_orderline,
                      {ol_delivery_d, ol_number, ol_amount, ol_quantity},
                      catalog)
@@ -181,11 +181,11 @@ template <typename Tplugin, typename Tp, typename Tr>
 PreparedStatement Q<1>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
                              Tr aff_reduce, DeviceType dev) {
   std::string count_order = "count_order";
-  auto ctx = new ParallelContext(
-      "ch_Q" + std::to_string(Qid) + "_" + typeid(Tplugin).name(), false);
+  RelBuilderFactory ctx{"ch_Q" + std::to_string(Qid) + "_" +
+                        typeid(Tplugin).name()};
   CatalogParser &catalog = CatalogParser::getInstance();
   auto rel =
-      RelBuilder{ctx}
+      ctx.getBuilder()
           .scan<Tplugin>(tpcc_orderline,
                          {ol_delivery_d, ol_number, ol_amount, ol_quantity},
                          catalog)

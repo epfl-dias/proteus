@@ -46,6 +46,7 @@
 #include "operators/sort.hpp"
 #include "operators/unnest.hpp"
 #include "plan/catalog-parser.hpp"
+#include "util/parallel-context.hpp"
 
 RelBuilder::RelBuilder(ParallelContext *ctx, Operator *root)
     : ctx(ctx), root(root) {}
@@ -54,6 +55,8 @@ RelBuilder::RelBuilder(const RelBuilder &builder, Operator *root)
     : RelBuilder(builder.ctx, root) {
   if (builder.root) builder.root->setParent(root);
 }
+
+std::string RelBuilder::getModuleName() const { return ctx->getModuleName(); }
 
 expressions::InputArgument RelBuilder::getOutputArg() const {
   return new RecordType(root->getRowType());
@@ -397,4 +400,8 @@ RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
     build.apply(op);
     return apply(op);
   }
+}
+
+void RelBuilder::registerPlugin(const std::string &relName, Plugin *pg) const {
+  Catalog::getInstance().registerPlugin(relName, pg);
 }

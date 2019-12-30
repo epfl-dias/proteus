@@ -29,7 +29,7 @@ constexpr auto query = "ssb100_Q1_3";
 
 PreparedStatement Query::prepare13(bool memmv) {
   auto rel6631 =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ssbm100/date.csv",
               {"d_datekey", "d_year", "d_weeknuminyear"},
@@ -55,7 +55,7 @@ PreparedStatement Query::prepare13(bool memmv) {
               // trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle])
       ;
   auto rel =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ssbm100/lineorder.csv",
               {"lo_orderdate", "lo_quantity", "lo_extendedprice",

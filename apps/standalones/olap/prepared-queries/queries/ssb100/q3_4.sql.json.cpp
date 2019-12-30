@@ -29,7 +29,7 @@ constexpr auto query = "ssb100_Q3_4";
 
 PreparedStatement Query::prepare34(bool memmv) {
   auto rel44853 =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ssbm100/date.csv", {"d_datekey", "d_year", "d_yearmonth"},
               getCatalog())  // (table=[[SSB, ssbm_date]], fields=[[0, 4, 6]],
@@ -55,7 +55,7 @@ PreparedStatement Query::prepare34(bool memmv) {
               // trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle])
       ;
   auto rel44857 =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ssbm100/customer.csv", {"c_custkey", "c_city"},
               getCatalog())  // (table=[[SSB, ssbm_customer]], fields=[[0, 3]],
@@ -76,7 +76,7 @@ PreparedStatement Query::prepare34(bool memmv) {
               // isS=[false])
       ;
   auto rel44861 =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ssbm100/supplier.csv", {"s_suppkey", "s_city"},
               getCatalog())  // (table=[[SSB, ssbm_supplier]], fields=[[0, 3]],
@@ -97,7 +97,7 @@ PreparedStatement Query::prepare34(bool memmv) {
               // isS=[false])
       ;
   auto rel =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ssbm100/lineorder.csv",
               {"lo_custkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},

@@ -29,10 +29,10 @@
 template <typename Tplugin>
 PreparedStatement q_ch12_c1t() {
   std::string revenue = "revenue";
-  auto ctx = new ParallelContext(__FUNCTION__, false);
+  RelBuilderFactory ctx{__FUNCTION__};
   CatalogParser &catalog = CatalogParser::getInstance();
   auto rel22964 =
-      RelBuilder{ctx}
+      ctx.getBuilder()
           .scan<Tplugin>("tpcc_order",
                          {"o_id", "o_d_id", "o_w_id", "o_entry_d",
                           "o_carrier_id", "o_ol_cnt"},
@@ -57,7 +57,7 @@ PreparedStatement q_ch12_c1t() {
       // <>($4, 2)), 1, 0)],
       // trait=[Pelago.[].unpckd.X86_64.homSingle.hetSingle.cX86_64])
       ;
-  return RelBuilder{ctx}
+  return ctx.getBuilder()
       .scan<Tplugin>("tpcc_orderline",
                      {"ol_o_id", "ol_d_id", "ol_w_id", "ol_delivery_d"},
                      catalog)
@@ -143,12 +143,12 @@ template <typename Tplugin, typename Tp, typename Tr>
 PreparedStatement Q<12>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
                               Tr aff_reduce, DeviceType dev) {
   assert(dev == DeviceType::CPU);
-  auto ctx = new ParallelContext(
-      "ch_Q" + std::to_string(Qid) + "_" + typeid(Tplugin).name(), false);
+  RelBuilderFactory ctx{"ch_Q" + std::to_string(Qid) + "_" +
+                        typeid(Tplugin).name()};
   CatalogParser &catalog = CatalogParser::getInstance();
   std::string revenue = "revenue";
   auto rel24766 =
-      RelBuilder{ctx}
+      ctx.getBuilder()
           .scan<Tplugin>("tpcc_order",
                          {"o_id", "o_d_id", "o_w_id", "o_entry_d",
                           "o_carrier_id", "o_ol_cnt"},
@@ -181,7 +181,7 @@ PreparedStatement Q<12>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
       // <>($4, 2)), 1, 0)],
       // trait=[Pelago.[].unpckd.X86_64.homBrdcst.hetSingle.cX86_64])
       ;
-  return RelBuilder{ctx}
+  return ctx.getBuilder()
       .scan<Tplugin>("tpcc_orderline",
                      {"ol_o_id", "ol_d_id", "ol_w_id", "ol_delivery_d"},
                      catalog)

@@ -28,9 +28,9 @@
 
 template <typename Tplugin, typename Tp, typename Tr>
 PreparedStatement q_sum_c1t() {
-  auto ctx = new ParallelContext("main2", false);
+  RelBuilderFactory ctx("main2");
   CatalogParser &catalog = CatalogParser::getInstance();
-  return RelBuilder{ctx}
+  return ctx.getBuilder()
       .scan<Tplugin>(tpcc_orderline, {ol_o_id}, catalog)
       .unpack()
       .reduce(
@@ -50,9 +50,9 @@ template <typename Tplugin, typename Tp, typename Tr>
 PreparedStatement q_sum_cpar(DegreeOfParallelism dop,
                              std::unique_ptr<Affinitizer> aff_parallel,
                              std::unique_ptr<Affinitizer> aff_reduce) {
-  auto ctx = new ParallelContext("main3", false);
+  RelBuilderFactory ctx{"main3"};
   CatalogParser &catalog = CatalogParser::getInstance();
-  return RelBuilder{ctx}
+  return ctx.getBuilder()
       .scan<Tplugin>(tpcc_orderline, {ol_o_id}, catalog)
       .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU,
               std::move(aff_parallel))

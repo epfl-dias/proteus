@@ -24,6 +24,8 @@
 #ifndef ROUTING_POLICY_HPP_
 #define ROUTING_POLICY_HPP_
 
+#include <routing/routing-policy-types.hpp>
+
 #include "affinitizers.hpp"
 #include "expressions/expressions.hpp"
 #include "topology/device-types.hpp"
@@ -34,8 +36,6 @@ struct routing_target {
   llvm::Value *target;
   bool may_retry;
 };
-
-enum class RoutingPolicy { RANDOM, LOCAL, HASH_BASED };
 
 namespace routing {
 class RoutingPolicy {

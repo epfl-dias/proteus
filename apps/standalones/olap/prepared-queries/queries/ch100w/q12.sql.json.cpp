@@ -29,7 +29,7 @@ constexpr auto query = "ch100w_Q12";
 
 PreparedStatement Query::prepare12(bool memmv) {
   auto rel2508 =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ch100w/order.csv",
               {"o_id", "o_d_id", "o_w_id", "o_entry_d", "o_carrier_id",
@@ -68,7 +68,7 @@ PreparedStatement Query::prepare12(bool memmv) {
               // trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle])
       ;
   auto rel =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ch100w/orderline.csv",
               {"ol_o_id", "ol_d_id", "ol_w_id", "ol_delivery_d"},

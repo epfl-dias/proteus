@@ -21,35 +21,20 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <plan/catalog-parser.hpp>
-#include <plugins/binary-block-plugin.hpp>
-#include <routing/degree-of-parallelism.hpp>
+#include "operators/relbuilder-factory.hpp"
 
-#include <ssb100/query.hpp>
-#include <operators/relbuilder-factory.hpp>
+#include "util/parallel-context.hpp"
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wheader-hygiene"
-using namespace ssb100;
-#pragma clang diagnostic pop
+class RelBuilderFactory::impl {
+ public:
+  ParallelContext *ctx;
 
-typedef BinaryBlockPlugin Tplugin;
-
-template <typename Tplugin>
-inline static auto getBuilder() {
-  static RelBuilderFactory ctx{std::string{query} + typeid(Tplugin).name()};
-  return ctx.getBuilder();
-}
-
-inline static auto &getCatalog() { return CatalogParser::getInstance(); }
-
-const DegreeOfParallelism dop{2};
-const DeviceType dev = DeviceType::GPU;
-
-auto aff_parallel = []() -> std::unique_ptr<Affinitizer> {
-  return std::make_unique<GPUAffinitizer>();
+  impl(std::string name) : ctx(new ParallelContext(std::move(name), false)) {}
 };
 
-auto aff_reduce = []() -> std::unique_ptr<Affinitizer> {
-  return std::make_unique<CpuCoreAffinitizer>();
-};
+RelBuilderFactory::RelBuilderFactory(std::string name)
+    : pimpl(std::make_unique<RelBuilderFactory::impl>(std::move(name))) {}
+
+RelBuilderFactory::~RelBuilderFactory() = default;
+
+RelBuilder RelBuilderFactory::getBuilder() const { return {pimpl->ctx}; }

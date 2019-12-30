@@ -23,6 +23,8 @@
 
 #include "expressions/expressions.hpp"
 
+#include "util/context.hpp"
+
 expression_t toExpression(Monoid m, expression_t lhs, expression_t rhs) {
   switch (m) {
     case SUM:

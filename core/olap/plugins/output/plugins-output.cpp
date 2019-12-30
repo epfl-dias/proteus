@@ -24,6 +24,7 @@
 #include "plugins/output/plugins-output.hpp"
 
 #include "expressions/expressions-generator.hpp"
+#include "util/context.hpp"
 
 Materializer::Materializer(
     std::vector<RecordAttribute *> wantedFields,

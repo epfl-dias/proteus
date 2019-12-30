@@ -29,9 +29,9 @@
 template <typename Tplugin>
 PreparedStatement q_ch6_c1t() {
   std::string revenue = "revenue";
-  auto ctx = new ParallelContext(__FUNCTION__, false);
+  RelBuilderFactory ctx{__FUNCTION__};
   CatalogParser &catalog = CatalogParser::getInstance();
-  return RelBuilder{ctx}
+  return ctx.getBuilder()
       .scan<Tplugin>(tpcc_orderline, {ol_delivery_d, ol_quantity, ol_amount},
                      catalog)
       .unpack()
@@ -56,12 +56,12 @@ template <>
 template <typename Tplugin, typename Tp, typename Tr>
 PreparedStatement Q<6>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
                              Tr aff_reduce, DeviceType dev) {
-  auto ctx = new ParallelContext(
-      "ch_Q" + std::to_string(Qid) + "_" + typeid(Tplugin).name(), false);
+  RelBuilderFactory ctx{"ch_Q" + std::to_string(Qid) + "_" +
+                        typeid(Tplugin).name()};
   CatalogParser &catalog = CatalogParser::getInstance();
   std::string revenue = "revenue";
   auto rel =
-      RelBuilder{ctx}
+      ctx.getBuilder()
           .scan<Tplugin>(tpcc_orderline,
                          {ol_delivery_d, ol_quantity, ol_amount}, catalog)
           .router(dop, 1, RoutingPolicy::LOCAL, dev, aff_parallel());
@@ -107,11 +107,11 @@ template <typename Tplugin, typename Tp, typename Tr>
 PreparedStatement Q<-6>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
                               Tr aff_reduce, DeviceType dev) {
   assert(dev == DeviceType::CPU);
-  auto ctx = new ParallelContext(
-      "ch_Q" + std::to_string(Qid) + "_" + typeid(Tplugin).name(), false);
+  RelBuilderFactory ctx{"ch_Q" + std::to_string(Qid) + "_" +
+                        typeid(Tplugin).name()};
   CatalogParser &catalog = CatalogParser::getInstance();
   std::string revenue = "revenue";
-  return RelBuilder{ctx}
+  return ctx.getBuilder()
       .scan<Tplugin>(tpcc_orderline, {ol_delivery_d, ol_quantity, ol_amount},
                      catalog)
       .router(dop, 1, RoutingPolicy::RANDOM, DeviceType::CPU, aff_parallel())

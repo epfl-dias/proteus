@@ -24,6 +24,7 @@
 #include "expressions/expressions-dot-evaluator.hpp"
 
 #include "expressions/expressions-generator.hpp"
+#include "util/context.hpp"
 
 using namespace llvm;
 

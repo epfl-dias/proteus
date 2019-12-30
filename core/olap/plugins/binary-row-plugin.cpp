@@ -94,10 +94,6 @@ void BinaryRowPlugin::init() {
   NamedValuesBinaryRow[bufVar] = bufMem;
 };
 
-void BinaryRowPlugin::generate(const ::Operator &producer) {
-  return scan(producer, context->getGlobalFunction());
-}
-
 /**
  * The work of readPath() and readValue() has been taken care of scanCSV()
  */
@@ -436,7 +432,8 @@ void BinaryRowPlugin::readAsFloatLLVM(
   variables[attName] = mem_valWrapper;
 }
 
-void BinaryRowPlugin::scan(const ::Operator &producer, Function *f) {
+void BinaryRowPlugin::generate(const ::Operator &producer) {
+  auto f = context->getGlobalFunction();
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);

@@ -23,6 +23,8 @@
 
 #include "expressions/expressions-hasher.hpp"
 
+#include <util/project-record.hpp>
+
 #include "operators/operators.hpp"
 
 using namespace llvm;
@@ -352,7 +354,7 @@ ProteusValue ExpressionHasherVisitor::visit(
       if (exprType) {
         RecordAttribute attr = e->getAttribute();
         Value *val =
-            exprType->projectArg(record.value, &attr, context->getBuilder());
+            projectArg(exprType, record.value, &attr, context->getBuilder());
         if (val) {
           ProteusValue valWrapper;
           valWrapper.value = val;

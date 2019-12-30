@@ -23,6 +23,8 @@
 
 #include "expressions/expressions-generator.hpp"
 
+#include <util/project-record.hpp>
+
 #include "expressions/expressions-hasher.hpp"
 #include "operators/operators.hpp"
 
@@ -296,7 +298,7 @@ ProteusValue ExpressionGeneratorVisitor::visit(
           dynamic_cast<const RecordType *>(e->getExpr().getExpressionType());
       if (exprType) {
         RecordAttribute attr = e->getAttribute();
-        Value *val = exprType->projectArg(record.value, &attr, Builder);
+        Value *val = projectArg(exprType, record.value, &attr, Builder);
         if (val) {
           ProteusValue valWrapper;
           valWrapper.value = val;

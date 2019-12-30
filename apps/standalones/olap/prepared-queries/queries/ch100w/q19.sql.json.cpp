@@ -29,7 +29,7 @@ constexpr auto query = "ch100w_Q19";
 
 PreparedStatement Query::prepare19(bool memmv) {
   auto rel2305 =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "tpcc_item", {"i_id", "i_price"},
               getCatalog())  // (table=[[SSB, tpcc_item]], fields=[[0, 3]],
@@ -57,7 +57,7 @@ PreparedStatement Query::prepare19(bool memmv) {
               // isS=[false])
       ;
   auto rel =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "tpcc_orderline",
               {"ol_w_id", "ol_i_id", "ol_quantity", "ol_amount"},

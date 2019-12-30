@@ -24,6 +24,8 @@
 #ifndef PLUGINS_OUTPUT_HPP_
 #define PLUGINS_OUTPUT_HPP_
 
+#include <llvm/IR/DerivedTypes.h>
+
 #include "expressions/expressions.hpp"
 #include "plugins/plugins.hpp"
 //#include "util/raw-catalog.hpp"

@@ -33,8 +33,6 @@ target_include_directories(${PROJECT_NAME}
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
-        # FIXME: REMOVE following path
-        ./../../../../../../core/olap
     )
 
 

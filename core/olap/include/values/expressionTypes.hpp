@@ -24,10 +24,11 @@
 #ifndef EXPRESSIONTYPES_HPP_
 #define EXPRESSIONTYPES_HPP_
 
+#include <cassert>
+#include <memory>
 #include <ostream>
 
 #include "common/common.hpp"
-#include "llvm/IR/IRBuilder.h"
 
 /* Original.*/
 // enum typeID    { BOOL, STRING, FLOAT, INT, RECORD, LIST, BAG, SET, BLOCK };
@@ -49,6 +50,11 @@ enum typeID {
 };
 
 class ExprTypeVisitor;
+
+namespace llvm {
+class Type;
+class LLVMContext;
+}  // namespace llvm
 
 class ExpressionType {
  public:
@@ -76,9 +82,6 @@ class ExpressionTypeVisitable : public Interface {
 class PrimitiveType : public ExpressionType {
  public:
   virtual llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const = 0;
-  virtual size_t getSizeInBits(llvm::LLVMContext &ctx) const {
-    return getLLVMType(ctx)->getPrimitiveSizeInBits();
-  }
 };
 
 template <typename T, typeID id>
@@ -93,19 +96,14 @@ class BoolType : public PrimitiveTypeCRTP<BoolType, BOOL> {
  public:
   static constexpr auto name = "Bool";
 
-  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
-    return llvm::Type::getInt1Ty(ctx);
-  }
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
 };
 
 class StringType : public PrimitiveTypeCRTP<StringType, STRING> {
  public:
   static constexpr auto name = "String";
 
-  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
-    return llvm::StructType::get(
-        ctx, {llvm::Type::getInt8PtrTy(ctx), llvm::Type::getInt32Ty(ctx)});
-  }
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
 };
 
 class DStringType : public PrimitiveTypeCRTP<DStringType, DSTRING> {
@@ -124,9 +122,7 @@ class DStringType : public PrimitiveTypeCRTP<DStringType, DSTRING> {
     dictionary = dict;
   }
 
-  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
-    return llvm::Type::getInt32Ty(ctx);
-  }
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
 
  private:
   void *dictionary;
@@ -136,27 +132,21 @@ class FloatType : public PrimitiveTypeCRTP<FloatType, FLOAT> {
  public:
   static constexpr auto name = "Float";
 
-  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
-    return llvm::Type::getDoubleTy(ctx);
-  }
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
 };
 
 class IntType : public PrimitiveTypeCRTP<IntType, INT> {
  public:
   static constexpr auto name = "Int";
 
-  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
-    return llvm::Type::getInt32Ty(ctx);
-  }
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
 };
 
 class Int64Type : public PrimitiveTypeCRTP<Int64Type, INT64> {
  public:
   static constexpr auto name = "Int64";
 
-  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
-    return llvm::Type::getInt64Ty(ctx);
-  }
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
 };
 
 /**
@@ -169,9 +159,7 @@ class DateType : public PrimitiveTypeCRTP<DateType, DATE> {
  public:
   static constexpr auto name = "Date";
 
-  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
-    return llvm::Type::getInt64Ty(ctx);
-  }
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
 };
 
 class CollectionType : public ExpressionType {
@@ -205,9 +193,7 @@ class BlockType : public CollectionTypeCRTP<BlockType, BLOCK> {
   static constexpr auto name = "Block";
   using CollectionTypeCRTP::CollectionTypeCRTP;
 
-  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
-    return llvm::PointerType::get(getNestedType().getLLVMType(ctx), 0);
-  }
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
 };
 
 class ListType : public CollectionTypeCRTP<ListType, LIST> {
@@ -393,11 +379,7 @@ class RecordType : public ExpressionTypeVisitable<RecordType, ExpressionType> {
     return ss.str();
   }
 
-  virtual llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
-    std::vector<llvm::Type *> body;
-    for (const auto &attr : args) body.push_back(attr->getLLVMType(ctx));
-    return llvm::StructType::get(ctx, body);
-  }
+  virtual llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
 
   typeID getTypeID() const { return RECORD; }
   list<RecordAttribute *> getArgs() const { return args; }
@@ -425,14 +407,11 @@ class RecordType : public ExpressionTypeVisitable<RecordType, ExpressionType> {
     return r->second;
   }
 
-  llvm::Value *projectArg(llvm::Value *record, RecordAttribute *attr,
-                          llvm::IRBuilder<> *const Builder) const;
+  int getIndex(RecordAttribute *x) const;
 
  private:
   list<RecordAttribute *> args;
   map<string, RecordAttribute *> argsMap;
-
-  int getIndex(RecordAttribute *x) const;
 };
 
 class ExprTypeVisitor {

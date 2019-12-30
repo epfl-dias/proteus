@@ -29,7 +29,7 @@ constexpr auto query = "ssb1000_Q2_1";
 
 PreparedStatement Query::prepare21(bool memmv) {
   auto rel11407 =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ssbm1000/date.csv", {"d_datekey", "d_year"},
               getCatalog())  // (table=[[SSB, ssbm_date]], fields=[[0, 4]],
@@ -45,7 +45,7 @@ PreparedStatement Query::prepare21(bool memmv) {
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle])
       ;
   auto rel11412 =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ssbm1000/supplier.csv", {"s_suppkey", "s_region"},
               getCatalog())  // (table=[[SSB, ssbm_supplier]], fields=[[0, 5]],
@@ -70,7 +70,7 @@ PreparedStatement Query::prepare21(bool memmv) {
               // trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle])
       ;
   auto rel11417 =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ssbm1000/part.csv",
               {"p_partkey", "p_category", "p_brand1"},
@@ -97,7 +97,7 @@ PreparedStatement Query::prepare21(bool memmv) {
               // trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle])
       ;
   auto rel =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ssbm1000/lineorder.csv",
               {"lo_partkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},

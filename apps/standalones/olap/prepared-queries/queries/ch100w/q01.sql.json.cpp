@@ -29,7 +29,7 @@ constexpr auto query = "ch100w_Q01";
 
 PreparedStatement Query::prepare01(bool memmv) {
   auto rel =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "tpcc_orderline",
               {"ol_number", "ol_delivery_d", "ol_quantity", "ol_amount"},

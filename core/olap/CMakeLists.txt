@@ -38,6 +38,7 @@ set(olap_cxx
         operators/radix-nest.cpp
         operators/reduce-opt.cpp
         operators/relbuilder.cpp
+        operators/relbuilder-factory.cpp
         operators/root.cpp
         operators/router.cpp
         operators/scan.cpp
@@ -81,6 +82,7 @@ set(olap_cxx
         util/jit/jit-module.cpp
         util/jit/pipeline.cpp
         util/parallel-context.cpp
+        util/project-record.cpp
         values/expressionTypes.cpp
         )
 

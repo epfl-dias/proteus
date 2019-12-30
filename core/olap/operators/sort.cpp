@@ -23,6 +23,8 @@
 
 #include "operators/sort.hpp"
 
+#include <util/project-record.hpp>
+
 #include "expressions/expressions-flusher.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "memory/block-manager.hpp"
@@ -684,7 +686,7 @@ void Sort::call_sort(Value *mem, Value *N) {
       RecordType *t = (RecordType *)outputExpr.getExpressionType();
       for (const auto &e : orderByFields) {
         RecordAttribute attr = e.getRegisteredAs();
-        Value *p = t->projectArg(recs[i], &attr, Builder);
+        Value *p = projectArg(t, recs[i], &attr, Builder);
         assert(p);
 
         ProteusValueMemory mem;

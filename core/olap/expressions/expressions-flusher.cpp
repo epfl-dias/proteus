@@ -23,6 +23,8 @@
 
 #include "expressions/expressions-flusher.hpp"
 
+#include <util/project-record.hpp>
+
 #include "operators/operators.hpp"
 
 using namespace llvm;
@@ -263,7 +265,7 @@ ProteusValue ExpressionFlusherVisitor::visit(
       if (exprType) {
         RecordAttribute attr = e->getAttribute();
         Value *val =
-            exprType->projectArg(record.value, &attr, context->getBuilder());
+            projectArg(exprType, record.value, &attr, context->getBuilder());
         if (val) {
           ProteusValue valWrapper;
           valWrapper.value = val;

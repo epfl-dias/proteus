@@ -21,35 +21,9 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <plan/catalog-parser.hpp>
-#include <plugins/binary-block-plugin.hpp>
-#include <routing/degree-of-parallelism.hpp>
+#ifndef PROTEUS_ROUTING_POLICY_TYPES_HPP
+#define PROTEUS_ROUTING_POLICY_TYPES_HPP
 
-#include <ssb100/query.hpp>
-#include <operators/relbuilder-factory.hpp>
+enum class RoutingPolicy { RANDOM, LOCAL, HASH_BASED };
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wheader-hygiene"
-using namespace ssb100;
-#pragma clang diagnostic pop
-
-typedef BinaryBlockPlugin Tplugin;
-
-template <typename Tplugin>
-inline static auto getBuilder() {
-  static RelBuilderFactory ctx{std::string{query} + typeid(Tplugin).name()};
-  return ctx.getBuilder();
-}
-
-inline static auto &getCatalog() { return CatalogParser::getInstance(); }
-
-const DegreeOfParallelism dop{2};
-const DeviceType dev = DeviceType::GPU;
-
-auto aff_parallel = []() -> std::unique_ptr<Affinitizer> {
-  return std::make_unique<GPUAffinitizer>();
-};
-
-auto aff_reduce = []() -> std::unique_ptr<Affinitizer> {
-  return std::make_unique<CpuCoreAffinitizer>();
-};
+#endif  // PROTEUS_ROUTING_POLICY_TYPES_HPP

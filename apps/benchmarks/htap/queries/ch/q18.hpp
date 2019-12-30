@@ -30,10 +30,10 @@ template <>
 template <typename Tplugin>
 PreparedStatement Q<18>::c1t() {
   std::string revenue = "revenue";
-  auto ctx = new ParallelContext("ch_Q" + std::to_string(Qid), false);
+  RelBuilderFactory ctx{"ch_Q" + std::to_string(Qid)};
   CatalogParser &catalog = CatalogParser::getInstance();
   auto rel55895 =
-      RelBuilder{ctx}
+      ctx.getBuilder()
           .scan<Tplugin>("tpcc_customer",
                          {"c_id", "c_d_id", "c_w_id", "c_last"}, catalog)
           // (table=[[SSB, tpcc_customer]], fields=[[0, 1, 2, 5]],
@@ -42,7 +42,7 @@ PreparedStatement Q<18>::c1t() {
       // (trait=[Pelago.[].unpckd.X86_64.homSingle.hetSingle.cX86_64])
       ;
   auto rel55898 =
-      RelBuilder{ctx}
+      ctx.getBuilder()
           .scan<Tplugin>(
               "tpcc_order",
               {"o_id", "o_d_id", "o_w_id", "o_c_id", "o_entry_d", "o_ol_cnt"},
@@ -87,7 +87,7 @@ PreparedStatement Q<18>::c1t() {
       // o_entry_d=[$8], o_ol_cnt=[$9],
       // trait=[Pelago.[].unpckd.X86_64.homSingle.hetSingle.cX86_64])
       ;
-  return RelBuilder{ctx}
+  return ctx.getBuilder()
       .scan<Tplugin>("tpcc_orderline",
                      {"ol_o_id", "ol_d_id", "ol_w_id", "ol_amount"}, catalog)
       // (table=[[SSB, tpcc_orderline]], fields=[[0, 1, 2, 8]],
@@ -196,11 +196,11 @@ template <typename Tplugin, typename Tp, typename Tr>
 PreparedStatement Q<18>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
                               Tr aff_reduce, DeviceType dev) {
   assert(dev == DeviceType::CPU);
-  auto ctx = new ParallelContext(
-      "ch_Q" + std::to_string(Qid) + "_" + typeid(Tplugin).name(), false);
+  RelBuilderFactory ctx{"ch_Q" + std::to_string(Qid) + "_" +
+                        typeid(Tplugin).name()};
   CatalogParser &catalog = CatalogParser::getInstance();
   auto rel56251 =
-      RelBuilder{ctx}
+      ctx.getBuilder()
           .scan<Tplugin>("tpcc_customer",
                          {"c_id", "c_d_id", "c_w_id", "c_last"}, catalog)
           // (table=[[SSB, tpcc_customer]], fields=[[0, 1, 2, 5]],
@@ -209,7 +209,7 @@ PreparedStatement Q<18>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
       // (trait=[Pelago.[].unpckd.X86_64.homSingle.hetSingle.cX86_64])
       ;
   auto rel56257 =
-      RelBuilder{ctx}
+      ctx.getBuilder()
           .scan<Tplugin>(
               "tpcc_order",
               {"o_id", "o_d_id", "o_w_id", "o_c_id", "o_entry_d", "o_ol_cnt"},
@@ -269,7 +269,7 @@ PreparedStatement Q<18>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
       // o_entry_d=[$8], o_ol_cnt=[$9],
       // trait=[Pelago.[].unpckd.X86_64.homBrdcst.hetSingle.cX86_64])
       ;
-  return RelBuilder{ctx}
+  return ctx.getBuilder()
       .scan<Tplugin>("tpcc_orderline",
                      {"ol_o_id", "ol_d_id", "ol_w_id", "ol_amount"}, catalog)
       // (table=[[SSB, tpcc_orderline]], fields=[[0, 1, 2, 8]],

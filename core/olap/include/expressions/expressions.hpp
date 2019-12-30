@@ -26,7 +26,6 @@
 
 #include "expressions/binary-operators.hpp"
 #include "operators/monoids.hpp"
-#include "util/context.hpp"
 #include "values/expressionTypes.hpp"
 
 class ExprVisitor;        // Forward declaration
@@ -1189,6 +1188,10 @@ class ExprTandemVisitor {
 expression_t toExpression(Monoid m, expression_t lhs, expression_t rhs);
 
 class Context;
+
+namespace llvm {
+class Constant;
+}
 
 llvm::Constant *getIdentityElementIfSimple(Monoid m, const ExpressionType *type,
                                            Context *context);

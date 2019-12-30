@@ -26,8 +26,7 @@
 #include <plan/catalog-parser.hpp>
 #include <plugins/binary-block-plugin.hpp>
 #include <routing/degree-of-parallelism.hpp>
-
-#include "operators/relbuilder.hpp"
+#include <operators/relbuilder-factory.hpp>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wheader-hygiene"
@@ -37,11 +36,9 @@ using namespace ch100w;
 typedef AeolusRemotePlugin Tplugin;
 
 template <typename Tplugin>
-inline static auto getContext() {
-  static auto ctx =
-      new ParallelContext(std::string{query} + typeid(Tplugin).name(),
-          false);
-  return ctx;
+inline static auto getBuilder() {
+  static RelBuilderFactory ctx{std::string{query} + typeid(Tplugin).name()};
+  return ctx.getBuilder();
 }
 
 inline static auto &getCatalog() { return CatalogParser::getInstance(); }

@@ -29,7 +29,7 @@ constexpr auto query = "ssb100_Q3_3";
 
 PreparedStatement Query::prepare33(bool memmv) {
   auto rel39560 =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ssbm100/date.csv", {"d_datekey", "d_year"},
               getCatalog())  // (table=[[SSB, ssbm_date]], fields=[[0, 4]],
@@ -50,7 +50,7 @@ PreparedStatement Query::prepare33(bool memmv) {
               // isS=[false])
       ;
   auto rel39564 =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ssbm100/customer.csv", {"c_custkey", "c_city"},
               getCatalog())  // (table=[[SSB, ssbm_customer]], fields=[[0, 3]],
@@ -71,7 +71,7 @@ PreparedStatement Query::prepare33(bool memmv) {
               // isS=[false])
       ;
   auto rel39568 =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ssbm100/supplier.csv", {"s_suppkey", "s_city"},
               getCatalog())  // (table=[[SSB, ssbm_supplier]], fields=[[0, 3]],
@@ -92,7 +92,7 @@ PreparedStatement Query::prepare33(bool memmv) {
               // isS=[false])
       ;
   auto rel =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ssbm100/lineorder.csv",
               {"lo_custkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},

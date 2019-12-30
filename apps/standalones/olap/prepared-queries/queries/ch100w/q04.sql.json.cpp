@@ -29,7 +29,7 @@ constexpr auto query = "ch100w_Q04";
 
 PreparedStatement Query::prepare04(bool memmv) {
   auto rel2895 =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ch100w/order.csv",
               {"o_id", "o_d_id", "o_w_id", "o_entry_d"},
@@ -48,7 +48,7 @@ PreparedStatement Query::prepare04(bool memmv) {
               // isS=[false])
       ;
   auto rel2906 =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ch100w/order.csv",
               {"o_id", "o_d_id", "o_w_id", "o_entry_d", "o_ol_cnt"},
@@ -123,7 +123,7 @@ PreparedStatement Query::prepare04(bool memmv) {
       ;
 
   auto rel =
-      RelBuilder{getContext<Tplugin>()}
+      getBuilder<Tplugin>()
           .scan<Tplugin>(
               "inputs/ch100w/orderline.csv",
               {"ol_o_id", "ol_d_id", "ol_w_id", "ol_delivery_d"},

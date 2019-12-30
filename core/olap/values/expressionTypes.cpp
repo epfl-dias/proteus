@@ -23,20 +23,10 @@
 
 #include "values/expressionTypes.hpp"
 
+#include <llvm/IR/IRBuilder.h>
+
 bool recordComparator(RecordAttribute *x, RecordAttribute *y) {
   return (x->getAttrNo() < y->getAttrNo());
-}
-
-llvm::Value *RecordType::projectArg(llvm::Value *record, RecordAttribute *attr,
-                                    llvm::IRBuilder<> *const Builder) const {
-  if (!(record->getType()->isStructTy())) return nullptr;
-  if (!(((llvm::StructType *)record->getType())
-            ->isLayoutIdentical(
-                (llvm::StructType *)getLLVMType(record->getContext()))))
-    return nullptr;
-  int index = getIndex(attr);
-  if (index < 0) return nullptr;
-  return Builder->CreateExtractValue(record, index);
 }
 
 int RecordType::getIndex(RecordAttribute *x) const {
@@ -62,4 +52,43 @@ int RecordType::getIndex(RecordAttribute *x) const {
 std::ostream &operator<<(std::ostream &o, const RecordAttribute &rec) {
   return (o << rec.getRelationName() << "." << rec.getAttrName() << ": "
             << rec.getOriginalType()->getType());
+}
+
+llvm::Type *BoolType::getLLVMType(llvm::LLVMContext &ctx) const {
+  return llvm::Type::getInt1Ty(ctx);
+}
+
+llvm::Type *StringType::getLLVMType(llvm::LLVMContext &ctx) const {
+  return llvm::StructType::get(
+      ctx, {llvm::Type::getInt8PtrTy(ctx), llvm::Type::getInt32Ty(ctx)});
+}
+
+llvm::Type *DStringType::getLLVMType(llvm::LLVMContext &ctx) const {
+  return llvm::Type::getInt32Ty(ctx);
+}
+
+llvm::Type *FloatType::getLLVMType(llvm::LLVMContext &ctx) const {
+  return llvm::Type::getDoubleTy(ctx);
+}
+
+llvm::Type *IntType::getLLVMType(llvm::LLVMContext &ctx) const {
+  return llvm::Type::getInt32Ty(ctx);
+}
+
+llvm::Type *Int64Type::getLLVMType(llvm::LLVMContext &ctx) const {
+  return llvm::Type::getInt64Ty(ctx);
+}
+
+llvm::Type *DateType::getLLVMType(llvm::LLVMContext &ctx) const {
+  return llvm::Type::getInt64Ty(ctx);
+}
+
+llvm::Type *BlockType::getLLVMType(llvm::LLVMContext &ctx) const {
+  return llvm::PointerType::get(getNestedType().getLLVMType(ctx), 0);
+}
+
+llvm::Type *RecordType::getLLVMType(llvm::LLVMContext &ctx) const {
+  std::vector<llvm::Type *> body;
+  for (const auto &attr : args) body.push_back(attr->getLLVMType(ctx));
+  return llvm::StructType::get(ctx, body);
 }

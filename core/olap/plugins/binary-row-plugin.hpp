@@ -207,9 +207,6 @@ class BinaryRowPlugin : public Plugin {
   void readAsBooleanLLVM(
       RecordAttribute attName,
       std::map<RecordAttribute, ProteusValueMemory> &variables);
-
-  // Generates a for loop that performs the file scan
-  void scan(const Operator &producer, llvm::Function *f);
 };
 
 #endif /* BINARY_ROW_PLUGIN_HPP_ */

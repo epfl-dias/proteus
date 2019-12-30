@@ -21,35 +21,17 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <plan/catalog-parser.hpp>
-#include <plugins/binary-block-plugin.hpp>
-#include <routing/degree-of-parallelism.hpp>
+#include "project-record.hpp"
 
-#include <ssb100/query.hpp>
-#include <operators/relbuilder-factory.hpp>
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wheader-hygiene"
-using namespace ssb100;
-#pragma clang diagnostic pop
-
-typedef BinaryBlockPlugin Tplugin;
-
-template <typename Tplugin>
-inline static auto getBuilder() {
-  static RelBuilderFactory ctx{std::string{query} + typeid(Tplugin).name()};
-  return ctx.getBuilder();
+llvm::Value *projectArg(const RecordType *type, llvm::Value *record,
+                        RecordAttribute *attr,
+                        llvm::IRBuilder<> *const Builder) {
+  if (!(record->getType()->isStructTy())) return nullptr;
+  if (!(((llvm::StructType *)record->getType())
+            ->isLayoutIdentical(
+                (llvm::StructType *)type->getLLVMType(record->getContext()))))
+    return nullptr;
+  int index = type->getIndex(attr);
+  if (index < 0) return nullptr;
+  return Builder->CreateExtractValue(record, index);
 }
-
-inline static auto &getCatalog() { return CatalogParser::getInstance(); }
-
-const DegreeOfParallelism dop{2};
-const DeviceType dev = DeviceType::GPU;
-
-auto aff_parallel = []() -> std::unique_ptr<Affinitizer> {
-  return std::make_unique<GPUAffinitizer>();
-};
-
-auto aff_reduce = []() -> std::unique_ptr<Affinitizer> {
-  return std::make_unique<CpuCoreAffinitizer>();
-};

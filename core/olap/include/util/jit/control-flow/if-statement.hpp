@@ -33,6 +33,10 @@ class Context;
 
 class if_then;
 
+namespace llvm {
+class BasicBlock;
+}
+
 namespace expressions {
 class Expression;
 }
@@ -89,33 +93,24 @@ class if_then {
   llvm::BasicBlock *ElseBB;
   llvm::BasicBlock *AfterBB;
 
-  llvm::IRBuilder<> *getBuilder(Context *context);
-  llvm::LLVMContext &getLLVMContext(Context *context);
+  void openCase(const ProteusValue &cond);
+  void closeCase();
+
+  void openElseCase();
+  void closeElseCase();
+
+  void jumpToEnd();
 
  public:
   template <typename Fthen>
   if_then(ProteusValue cond, Fthen then, Context *context,
           llvm::BasicBlock *endBB = nullptr)
       : context(context), AfterBB(endBB) {
-    llvm::IRBuilder<> *Builder = getBuilder(context);
-    llvm::LLVMContext &llvmContext = getLLVMContext(context);
-    llvm::Function *F = Builder->GetInsertBlock()->getParent();
-
-    auto ThenBB = llvm::BasicBlock::Create(llvmContext, "IfThen", F);
-    ElseBB = llvm::BasicBlock::Create(llvmContext, "IfElse", F);
-    if (!AfterBB) {
-      AfterBB = llvm::BasicBlock::Create(llvmContext, "IfAfter", F);
-    }
-
     // if (cond.value) {
-    Builder->CreateCondBr(cond.value, ThenBB, ElseBB);
-
-    Builder->SetInsertPoint(ThenBB);
+    openCase(cond);
     then();
-    Builder->CreateBr(AfterBB);
+    closeCase();
     // }
-
-    Builder->SetInsertPoint(AfterBB);
   }
 
   if_then(const if_then &) = delete;
@@ -127,18 +122,15 @@ class if_then {
   template <typename Felse>
   void gen_else(Felse felse) {
     assert(ElseBB && "gen_else* called twice in same gen_if");
-    llvm::IRBuilder<> *Builder = getBuilder(context);
-    Builder->SetInsertPoint(ElseBB);
+    openElseCase();
     felse();
-    Builder->CreateBr(AfterBB);
-    Builder->SetInsertPoint(AfterBB);
-    ElseBB = nullptr;
+    closeElseCase();
   }
 
   template <typename Felse>
   if_branch gen_else_if(ProteusValue cond) {
     assert(ElseBB && "gen_else* called twice in same gen_if");
-    getBuilder(context)->SetInsertPoint(ElseBB);
+    openElseCase();
     ElseBB = nullptr;
     return {cond, context, AfterBB};
   }
@@ -146,7 +138,7 @@ class if_then {
   template <typename Felse>
   if_branch gen_else_if(const expression_t &expr, const OperatorState &state) {
     assert(ElseBB && "gen_else* called twice in same gen_if");
-    getBuilder(context)->SetInsertPoint(ElseBB);
+    openElseCase();
     ElseBB = nullptr;
     return {expr, state, context, AfterBB};
   }
@@ -154,7 +146,7 @@ class if_then {
   ~if_then() {
     if (ElseBB) gen_else([]() {});
     // Just to be sure, reset the insertion pointer to AfterBB
-    getBuilder(context)->SetInsertPoint(AfterBB);
+    jumpToEnd();
   }
 };
 

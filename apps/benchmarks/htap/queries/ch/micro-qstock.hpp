@@ -24,6 +24,8 @@
 #ifndef HARMONIA_QUERIES_CH_QSTOCK_HPP_
 #define HARMONIA_QUERIES_CH_QSTOCK_HPP_
 
+#include <operators/relbuilder-factory.hpp>
+
 #include "ch-queries.hpp"
 #include "queries/query-interface.hpp"
 
@@ -32,10 +34,10 @@ template <typename Tplugin, typename Tp, typename Tr>
 PreparedStatement Q<-1>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
                               Tr aff_reduce, DeviceType dev) {
   assert(dev == DeviceType::CPU);
-  auto ctx = new ParallelContext(
-      "ch_Q" + std::to_string(Qid) + "_" + typeid(Tplugin).name(), false);
+  RelBuilderFactory ctx{"ch_Q" + std::to_string(Qid) + "_" +
+                        typeid(Tplugin).name()};
   CatalogParser &catalog = CatalogParser::getInstance();
-  return RelBuilder{ctx}
+  return ctx.getBuilder()
       .scan<Tplugin>("tpcc_stock", {"s_i_id", "s_w_id", "s_quantity"}, catalog)
       // (table=[[SSB, tpcc_stock]], fields=[[0, 1, 2]],
       // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle.none])

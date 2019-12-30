@@ -23,6 +23,8 @@
 
 #include "util/jit/control-flow/if-statement.hpp"
 
+#include <llvm/IR/IRBuilder.h>
+
 #include "expressions/expressions-generator.hpp"
 #include "util/context.hpp"
 
@@ -40,10 +42,35 @@ if_branch::if_branch(const expression_t &expr, const OperatorState &state,
                      Context *context)
     : if_branch(expr, state, context, nullptr) {}
 
-llvm::IRBuilder<> *if_then::getBuilder(Context *context) {
-  return context->getBuilder();
+void if_then::openCase(const ProteusValue &cond) {
+  auto Builder = context->getBuilder();
+  llvm::LLVMContext &llvmContext = context->getLLVMContext();
+  llvm::Function *F = Builder->GetInsertBlock()->getParent();
+
+  auto ThenBB = llvm::BasicBlock::Create(llvmContext, "IfThen", F);
+  ElseBB = llvm::BasicBlock::Create(llvmContext, "IfElse", F);
+  if (!AfterBB) {
+    AfterBB = llvm::BasicBlock::Create(llvmContext, "IfAfter", F);
+  }
+
+  Builder->CreateCondBr(cond.value, ThenBB, ElseBB);
+
+  Builder->SetInsertPoint(ThenBB);
 }
 
-llvm::LLVMContext &if_then::getLLVMContext(Context *context) {
-  return context->getLLVMContext();
+void if_then::jumpToEnd() { context->getBuilder()->SetInsertPoint(AfterBB); }
+
+void if_then::closeCase() {
+  context->getBuilder()->CreateBr(AfterBB);
+
+  jumpToEnd();
+}
+
+void if_then::openElseCase() { context->getBuilder()->SetInsertPoint(ElseBB); }
+
+void if_then::closeElseCase() {
+  auto Builder = context->getBuilder();
+  Builder->CreateBr(AfterBB);
+  Builder->SetInsertPoint(AfterBB);
+  ElseBB = nullptr;
 }

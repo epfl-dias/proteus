@@ -28,7 +28,6 @@
 
 #include "topology/device-types.hpp"
 #include "topology/topology.hpp"
-#include "util/parallel-context.hpp"
 
 class Affinitizer {
  public:

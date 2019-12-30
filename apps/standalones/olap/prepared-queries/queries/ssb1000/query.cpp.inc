@@ -26,7 +26,7 @@
 #include <routing/degree-of-parallelism.hpp>
 
 #include <ssb1000/query.hpp>
-#include "operators/relbuilder.hpp"
+#include <operators/relbuilder-factory.hpp>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wheader-hygiene"
@@ -36,11 +36,9 @@ using namespace ssb1000;
 typedef BinaryBlockPlugin Tplugin;
 
 template <typename Tplugin>
-inline static auto getContext() {
-  static auto ctx =
-      new ParallelContext(std::string{query} + typeid(Tplugin).name(),
-          false);
-  return ctx;
+inline static auto getBuilder() {
+  static RelBuilderFactory ctx{std::string{query} + typeid(Tplugin).name()};
+  return ctx.getBuilder();
 }
 
 inline static auto &getCatalog() { return CatalogParser::getInstance(); }

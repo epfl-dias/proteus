@@ -32,6 +32,8 @@
 #ifndef CONTEXT_HPP_
 #define CONTEXT_HPP_
 
+#include <llvm/IR/IRBuilder.h>
+
 #include "common/common.hpp"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/LegacyPassManager.h"

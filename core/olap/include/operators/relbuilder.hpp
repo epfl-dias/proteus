@@ -27,15 +27,15 @@
 #include <operators/gpu-aggr-mat-expr.hpp>
 #include <operators/gpu/gpu-materializer-expr.hpp>
 #include <plan/prepared-statement.hpp>
+#include <plugins/plugins.hpp>
+#include <routing/affinitizers.hpp>
 #include <routing/degree-of-parallelism.hpp>
-#include <routing/routing-policy.hpp>
-#include <util/catalog.hpp>
+#include <routing/routing-policy-types.hpp>
 #include <util/sort/sort-direction.hpp>
-
-#include "expressions/expressions.hpp"
 
 class PreparedStatement;
 class CatalogParser;
+class ParallelContext;
 
 class RelBuilder {
  private:
@@ -56,10 +56,17 @@ class RelBuilder {
   void setOIDType(CatalogParser& catalog, std::string relName,
                   ExpressionType* type) const;
 
- public:
+  std::string getModuleName() const;
+
+ private:
   RelBuilder();
   RelBuilder(ParallelContext* ctx);
 
+  friend class RelBuilderFactory;
+
+  void registerPlugin(const std::string& relName, Plugin* pg) const;
+
+ public:
   RelBuilder scan(Plugin& pg) const;
 
   template <typename Tplugin>
@@ -74,10 +81,10 @@ class RelBuilder {
       v.emplace_back(new RecordAttribute(*attr));
     }
 
-    Plugin* pg = new Tplugin(ctx, relName, recType_, v);
+    auto pg = new Tplugin(ctx, relName, recType_, v);
 
     setOIDType(catalog, relName, pg->getOIDType());
-    Catalog::getInstance().registerPlugin(relName, pg);
+    registerPlugin(relName, pg);
 
     return scan(*pg);
   }
@@ -258,7 +265,7 @@ class RelBuilder {
 
   template <typename T>
   RelBuilder print(T expr) const {
-    return print(expr, ctx->getModuleName());
+    return print(expr, getModuleName());
   }
 
   template <typename T>
