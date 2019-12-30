@@ -67,7 +67,7 @@ add_custom_command(OUTPUT ${CUDA_WORKDIR}/buffer-manager.bc
     COMMAND ${CMAKE_CXX_COMPILER}
         ${CMAKE_CURRENT_SOURCE_DIR}/memory/buffer-manager.cu
         -o ${CUDA_WORKDIR}/buffer-manager.bc
-        --cuda-device-only -c -emit-llvm
+        --cuda-device-only -c -emit-llvm -O3
         # TODO: correctly accept the CXX flags
         --std=c++17 ${BMFLAGS}
         # TODO: correctly accept the includes flags
@@ -104,13 +104,10 @@ add_library(codegen SHARED
 # paths.
 target_include_directories(codegen
         PUBLIC
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-            $<INSTALL_INTERFACE:include>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/>
-        $<INSTALL_INTERFACE:.>
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/>
+            $<INSTALL_INTERFACE:.>
         PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}
-            ${CMAKE_CURRENT_SOURCE_DIR}/../engines/olap)
+            ${CMAKE_CURRENT_SOURCE_DIR})
 
 # If we have compiler requirements for this library, list them
 # here
