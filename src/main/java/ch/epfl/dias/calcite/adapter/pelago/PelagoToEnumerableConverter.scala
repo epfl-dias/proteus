@@ -148,12 +148,11 @@ object PelagoToEnumerableConverter {
   private var files       : Set[String]       = null
   private var loadedfiles : Set[String]       = null
 
-  var builder = if(Repl.isMockRun) null else new ProcessBuilder(Repl.executor_server)
+  var builder = if(Repl.isMockRun) null else new ProcessBuilder(Repl.executor_server).redirectErrorStream(true)
   var process = if(Repl.isMockRun || builder == null) null else builder.start()
 
   var stdinWriter  = if(Repl.isMockRun) null else new java.io.PrintWriter  ((new java.io.OutputStreamWriter(new java.io.BufferedOutputStream(process.getOutputStream()))), true)
   var stdoutReader = if(Repl.isMockRun) null else new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))
-  var stderrReader = if(Repl.isMockRun) null else new java.io.BufferedReader(new java.io.InputStreamReader(process.getErrorStream()))
 
   var line: String = ""
 
@@ -163,13 +162,12 @@ object PelagoToEnumerableConverter {
       pt.scan(root)
     } else {
       if (process == null || !process.isAlive){
-        builder = new ProcessBuilder(Repl.executor_server)
+        builder = new ProcessBuilder(Repl.executor_server).redirectErrorStream(true)
         process = builder.start()
         loadedfiles = null
 
         stdinWriter  = new java.io.PrintWriter((new java.io.OutputStreamWriter(new java.io.BufferedOutputStream(process.getOutputStream()))), true)
         stdoutReader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))
-        stderrReader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getErrorStream()))
       }
 
       if (Repl.echoResults) stdinWriter.println("echo results on" )
@@ -219,11 +217,7 @@ object PelagoToEnumerableConverter {
         }
       }
 
-      if (line == null){
-        while ({line = stderrReader.readLine(); line != null}) {
-          System.out.println("pelago:err: " + line)
-        }
-      } else {
+      if (line != null){
         System.out.println("pelago: " + line)
       }
 
