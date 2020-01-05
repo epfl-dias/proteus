@@ -194,16 +194,16 @@ class Catalog {
   //        }
   //    }
 
-  stringstream *getSerializer(string fileName) {
+  stringstream &getSerializer(string fileName) {
     map<string, stringstream *>::iterator it;
     it = serializers.find(fileName);
     if (it == serializers.end()) {
       LOG(INFO) << "Creating Serializer, flushing to " << fileName;
       stringstream *strBuffer = new stringstream();
       (this->serializers)[fileName] = strBuffer;
-      return strBuffer;
+      return *strBuffer;
     } else {
-      return serializers[fileName];
+      return *serializers[fileName];
     }
   }
 

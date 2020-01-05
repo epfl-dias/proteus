@@ -139,9 +139,7 @@ void **probeHT(char *HTname, size_t key) {
   // same indirection here as above.
   multimap<size_t, void *> *HT = catalog.getHashTable(name);
 
-  pair<multimap<size_t, void *>::iterator, multimap<size_t, void *>::iterator>
-      results;
-  results = HT->equal_range(key);
+  auto results = HT->equal_range(key);
 
   void **bindings = nullptr;
   int count = HT->count(key);
@@ -190,10 +188,10 @@ HashtableBucketMetadata *getMetadataHT(char *HTname) {
   HashtableBucketMetadata *metadata =
       new HashtableBucketMetadata[keys.size() + 1];
   size_t pos = 0;
-  for (vector<size_t>::iterator it = keys.begin(); it != keys.end();
-       it++, pos++) {
-    metadata[pos].hashKey = *it;
-    metadata[pos].bucketSize = HT->count(*it);
+  for (auto &it : keys) {
+    metadata[pos].hashKey = it;
+    metadata[pos].bucketSize = HT->count(it);
+    pos++;
   }
   // XXX Silly stopping condition..
   metadata[pos].bucketSize = 0;
@@ -420,195 +418,66 @@ int *partitionAggHTLLVM(size_t num_tuples, agg::tuple_t *inTuples) {
   return partitionHT(num_tuples, inTuples);
 }
 
-/**
- * Flushing data.
- * Issue with standard flusher for now:
- * Cannot 'cheat' and pass along JSON serialized data
- * without having to first deserialize them
- */
-// void flushInt(int toFlush, char* fileName)    {
-//    Catalog& catalog = Catalog::getInstance();
-//    string name = string(fileName);
-//    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
-//    w.Uint(toFlush);
-//}
-//
-// void flushDouble(double toFlush, char* fileName)    {
-//    Catalog& catalog = Catalog::getInstance();
-//    string name = string(fileName);
-//    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
-//    w.Double(toFlush);
-//}
-//
-// void flushBoolean(bool toFlush, char* fileName)    {
-//    Catalog& catalog = Catalog::getInstance();
-//    string name = string(fileName);
-//    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
-//    w.Bool(toFlush);
-//}
-//
-// void flushStringC(char* toFlush, size_t start, size_t end, char* fileName) {
-//    Catalog& catalog = Catalog::getInstance();
-//    string name = string(fileName);
-//    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
-//    char tmp = toFlush[end + 1 - start];
-//    toFlush[end+1] = '\0';
-//    w.String(toFlush);
-//    toFlush[end+1] = tmp;
-//}
-//
-///**
-// * flushString: Not used atm
-// * Careful: Cannot be used from static code!
-// * It's going to be executed and flush to JSON file
-// * before actual 'query' execution
-// */
-// void flushString(string toFlush, char* fileName)    {
-//    Catalog& catalog = Catalog::getInstance();
-//    string name = string(fileName);
-//    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
-//    w.String(toFlush.c_str());
-//}
-//
-// void flushObjectStart(char* fileName)    {
-//    Catalog& catalog = Catalog::getInstance();
-//    string name = string(fileName);
-//    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
-//    w.StartObject();
-//}
-//
-// void flushArrayStart(char* fileName)    {
-//    Catalog& catalog = Catalog::getInstance();
-//    string name = string(fileName);
-//    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
-//    w.StartArray();
-//}
-//
-// void flushObjectEnd(char* fileName)    {
-//    Catalog& catalog = Catalog::getInstance();
-//    string name = string(fileName);
-//    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
-//    w.EndObject();
-//}
-//
-// void flushArrayEnd(char* fileName)    {
-//    Catalog& catalog = Catalog::getInstance();
-//    string name = string(fileName);
-//    Writer<StringBuffer> w = catalog.getJSONFlusher(name);
-//    w.EndArray();
-//}
-
 void flushDString(int toFlush, void *dict, char *fileName) {
   assert(dict && "Dictionary should not be null!");
   map<int, std::string> *actual_dict{(map<int, std::string> *)dict};
   Catalog &catalog = Catalog::getInstance();
   string name = string(fileName);
-  stringstream *strBuffer = catalog.getSerializer(name);
-  (*strBuffer) << '"';
+  auto &strBuffer = catalog.getSerializer(name);
+  strBuffer << '"';
   try {
-    (*strBuffer) << actual_dict->at(toFlush);
+    strBuffer << actual_dict->at(toFlush);
   } catch (std::out_of_range &) {
-    (*strBuffer) << "unimplemented // TODO: oltp strings";
+    strBuffer << "unimplemented // TODO: oltp strings";
   }
-  (*strBuffer) << '"';
+  strBuffer << '"';
 }
 
-void flushInt(int toFlush, char *fileName) {
-  Catalog &catalog = Catalog::getInstance();
-  string name = string(fileName);
-  stringstream *strBuffer = catalog.getSerializer(name);
-  (*strBuffer) << toFlush;
+template <typename T>
+void flush(const T &toFlush, const char *fileName) {
+  Catalog::getInstance().getSerializer(fileName) << toFlush;
 }
 
-void flushInt64(size_t toFlush, char *fileName) {
-  Catalog &catalog = Catalog::getInstance();
-  string name = string(fileName);
-  stringstream *strBuffer = catalog.getSerializer(name);
-  (*strBuffer) << toFlush;
-}
+void flushInt(int toFlush, char *fileName) { flush(toFlush, fileName); }
+
+void flushInt64(size_t toFlush, char *fileName) { flush(toFlush, fileName); }
 
 void flushDate(int64_t toFlush, char *fileName) {
-  Catalog &catalog = Catalog::getInstance();
-  string name = string(fileName);
-  stringstream *strBuffer = catalog.getSerializer(name);
-  time_t t = toFlush;
-  (*strBuffer) << t;  // std::put_time(std::localtime(&t), L"%Y-%m-%d");
+  flush(time_t{toFlush}, fileName);
+  // std::put_time(std::localtime(&t), L"%Y-%m-%d");
 }
 
-void flushDouble(double toFlush, char *fileName) {
-  Catalog &catalog = Catalog::getInstance();
-  string name = string(fileName);
-  stringstream *strBuffer = catalog.getSerializer(name);
-  (*strBuffer) << toFlush;
-}
+void flushDouble(double toFlush, char *fileName) { flush(toFlush, fileName); }
 
-void flushBoolean(bool toFlush, char *fileName) {
-  Catalog &catalog = Catalog::getInstance();
-  string name = string(fileName);
-  stringstream *strBuffer = catalog.getSerializer(name);
-  (*strBuffer) << toFlush;
-}
+void flushBoolean(bool toFlush, char *fileName) { flush(toFlush, fileName); }
 
 void flushStringC(char *toFlush, size_t start, size_t end, char *fileName) {
-  Catalog &catalog = Catalog::getInstance();
-  string name = string(fileName);
-  stringstream *strBuffer = catalog.getSerializer(name);
   assert(start <= end);
-  (*strBuffer).write(toFlush + start, end - start);
+  auto &strBuffer = Catalog::getInstance().getSerializer(fileName);
+  strBuffer.write(toFlush + start, end - start);
 }
 
 void flushStringReady(char *toFlush, char *fileName) {
-  Catalog &catalog = Catalog::getInstance();
-  string name = string(fileName);
-  stringstream *strBuffer = catalog.getSerializer(name);
-  (*strBuffer) << "\"";
-  (*strBuffer) << toFlush;
-  (*strBuffer) << "\"";
+  auto &strBuffer = Catalog::getInstance().getSerializer(fileName);
+  strBuffer << '"' << toFlush << '"';
 }
 
 void flushStringObject(StringObject obj, char *fileName) {
-  Catalog &catalog = Catalog::getInstance();
-  string name = string(fileName);
-  stringstream *strBuffer = catalog.getSerializer(name);
-  (*strBuffer) << "\"";
-  (*strBuffer).write(obj.start, obj.len);
-  (*strBuffer) << "\"";
+  auto &strBuffer = Catalog::getInstance().getSerializer(fileName);
+  strBuffer << '"';
+  strBuffer.write(obj.start, obj.len);
+  strBuffer << '"';
 }
 
-void flushObjectStart(char *fileName) {
-  Catalog &catalog = Catalog::getInstance();
-  string name = string(fileName);
-  stringstream *strBuffer = catalog.getSerializer(name);
-  (*strBuffer) << "{";
-}
+void flushObjectStart(char *fileName) { flush('{', fileName); }
 
-void flushArrayStart(char *fileName) {
-  Catalog &catalog = Catalog::getInstance();
-  string name = string(fileName);
-  stringstream *strBuffer = catalog.getSerializer(name);
-  (*strBuffer) << "}";
-}
+void flushArrayStart(char *fileName) { flush('[', fileName); }
 
-void flushObjectEnd(char *fileName) {
-  Catalog &catalog = Catalog::getInstance();
-  string name = string(fileName);
-  stringstream *strBuffer = catalog.getSerializer(name);
-  (*strBuffer) << "[";
-}
+void flushObjectEnd(char *fileName) { flush('}', fileName); }
 
-void flushArrayEnd(char *fileName) {
-  Catalog &catalog = Catalog::getInstance();
-  string name = string(fileName);
-  stringstream *strBuffer = catalog.getSerializer(name);
-  (*strBuffer) << "]";
-}
+void flushArrayEnd(char *fileName) { flush(']', fileName); }
 
-void flushChar(char whichChar, char *fileName) {
-  Catalog &catalog = Catalog::getInstance();
-  string name = string(fileName);
-  stringstream *strBuffer = catalog.getSerializer(name);
-  (*strBuffer) << whichChar;
-}
+void flushChar(char toFlush, char *fileName) { flush(toFlush, fileName); }
 
 void flushDelim(size_t resultCtr, char whichDelim, char *fileName) {
   if (likely(resultCtr > 0)) {
@@ -619,13 +488,11 @@ void flushDelim(size_t resultCtr, char whichDelim, char *fileName) {
 #include <fstream>
 
 void flushOutput(char *fileName) {
-  Catalog &catalog = Catalog::getInstance();
-  string name = string(fileName);
-  stringstream *strBuffer = catalog.getSerializer(name);
+  auto &strBuffer = Catalog::getInstance().getSerializer(fileName);
   // cout << "Flushing to " << fileName << endl;
   {
-    int fd = shm_open(fileName, O_CREAT | O_RDWR, S_IRWXU);
-    std::ofstream{std::string{"/dev/shm/"} + fileName} << strBuffer->rdbuf();
+    shm_open(fileName, O_CREAT | O_RDWR, S_IRWXU);
+    std::ofstream{std::string{"/dev/shm/"} + fileName} << strBuffer.rdbuf();
     // const string &tmp_str = strBuffer->str();     //more portable but it
     // creates a copy, which will be problematic for big output files...
     // write(fd, tmp_str.c_str(), tmp_str.size());
