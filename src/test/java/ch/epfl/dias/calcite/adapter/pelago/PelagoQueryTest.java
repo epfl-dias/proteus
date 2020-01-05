@@ -64,7 +64,6 @@ public class PelagoQueryTest {
     return CalciteAssert.that()
       .with(PelagoTestConnectionFactory.get())
       .query(sql)
-      .explainContains("PLAN=PelagoToEnumerableConverter")
       ;
   }
 
@@ -79,12 +78,13 @@ public class PelagoQueryTest {
   public void testQueryOrdered(String sql, Path resultFile) throws SQLException, IOException {
     CalciteAssert.AssertQuery q = testParseAndExecute(sql);
 
+    String pf = Repl.planfile();
     String explainContains = "PLAN=PelagoToEnumerableConverter";
     if (resultFile != null) {
       final String suffix = ".resultset";
-      String filename = resultFile.toString();
-      assert(filename.endsWith(suffix));
-      filename = filename.substring(0, filename.length() - suffix.length());
+      String f = resultFile.toString();
+      assert(f.endsWith(suffix));
+      final String filename = f.substring(0, f.length() - suffix.length());
       final Path p = Paths.get(filename + "." + getModeAsString() + ".plan");
       if (Files.exists(p) && Files.isRegularFile(p)){
         String plan = new String(Files.readAllBytes(p)).trim();
@@ -106,16 +106,25 @@ public class PelagoQueryTest {
 //          }
 //        });
       }
+      {
+        String fname = resultFile.getFileName().toString();
+        String qname = fname.substring(0, fname.length() - suffix.length());
+        Path target = Paths.get(resultFile.getParent().toString(), "current", getModeAsString(), qname + ".json");
+        target.getParent().toFile().mkdirs();
+        Repl.planfile_$eq(target.toString());
+      }
     }
     assert(explainContains.startsWith("PLAN=PelagoToEnumerableConverter"));
+
     q = q.explainMatches("EXCLUDING ATTRIBUTES ", CalciteAssert.checkResultContains(explainContains));
+    Repl.planfile_$eq(pf);
 
     if (resultFile != null && !Repl.isMockRun()){
       List<String> lines = Files.readAllLines(resultFile);
       q.returnsOrdered(lines.toArray(new String[lines.size()]));
     } else {
       if (resultFile != null) logger.debug("Result set not verified (reason: running in mock mode)");
-      q.runs(); // => flush json and return fake results
+      if (!Repl.isMockRun()) q.runs(); // => flush json and return fake results
     }
   }
 
@@ -192,6 +201,7 @@ public class PelagoQueryTest {
         })
         .filter((x) -> x != null),
       Files.list(path)
+        .filter((x) -> !x.getFileName().toString().equals("current"))
         .filter(Files::isDirectory)
         .sorted()       // sorted in order to guarantee the order between different invocations
         .map((file) -> {

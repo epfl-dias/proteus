@@ -111,7 +111,7 @@ object PlanToJSON {
             case SqlTypeName.BOOLEAN => new java.lang.Boolean(lit.toString).asInstanceOf[Boolean]
             case SqlTypeName.FLOAT => lit.getValue.asInstanceOf[java.math.BigDecimal].doubleValue()
             case SqlTypeName.DOUBLE => lit.getValue.asInstanceOf[java.math.BigDecimal].doubleValue()
-            case SqlTypeName.DECIMAL => new java.lang.Double(lit.toString).asInstanceOf[Double]
+            case SqlTypeName.DECIMAL => lit.getValue.asInstanceOf[java.math.BigDecimal].doubleValue()
             case SqlTypeName.DATE => lit.getValue.asInstanceOf[Calendar].getTimeInMillis
             case SqlTypeName.TIMESTAMP => lit.getValue.asInstanceOf[Calendar].getTimeInMillis
             case SqlTypeName.VARCHAR => lit.getValueAs(classOf[String]) //.toString.substring(1, lit.to)

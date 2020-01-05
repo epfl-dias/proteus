@@ -27,6 +27,7 @@ import org.apache.calcite.rel.convert.Converter
 import org.apache.calcite.rel.core.Exchange
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.util.Util
+import scala.collection.JavaConverters._
 
 class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, input: RelNode, val deviceType: RelDeviceType)
       extends SingleRel(cluster, traits, input) with PelagoRel with Converter {
@@ -91,7 +92,8 @@ class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, i
       json = ("operator", "mem-move-device") ~
         ("projections", emitSchema(childBinding.rel, getRowType, false, true)) ~
         ("input", json) ~
-        ("to_cpu", target != RelDeviceType.NVPTX)
+        ("to_cpu", target != RelDeviceType.NVPTX) ~
+        ("do_transfer", getRowType.getFieldList.asScala.map(_ => true))
     }
 
     val ret = (childBinding, json)

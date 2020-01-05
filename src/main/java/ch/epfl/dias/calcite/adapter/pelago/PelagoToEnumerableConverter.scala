@@ -68,6 +68,10 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
       ("input", childOp                                              ) // ~ ("tupleType", rowType)
   }
 
+  def writePlan(plan: JValue, file: String) = {
+    new PrintWriter(file) { write(pretty(render(plan))); close }
+  }
+
   override def implement(implementor: EnumerableRelImplementor, pref: EnumerableRel.Prefer): EnumerableRel.Result = {
     val mock = Repl.isMockRun //TODO: change!!!
 
@@ -95,7 +99,7 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
 
     val plan = getPlan
 
-    new PrintWriter(Repl.planfile) { write(pretty(render(plan))); close }
+    writePlan(plan, Repl.planfile)
     if (Files.exists(Paths.get("../../src/panorama/public/assets"))) {new PrintWriter(new FileOutputStream("../../src/panorama/public/assets/flare.json", false)) { write(pretty(render(plan))); close } }
 
     if (PelagoSplit.bindings.size > 0){

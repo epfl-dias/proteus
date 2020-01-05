@@ -150,7 +150,8 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
       json = ("operator", "mem-move-device") ~
         ("projections", emitSchema(childBinding.rel, getRowType, false, true)) ~
         ("input", json) ~
-        ("to_cpu", target != RelDeviceType.NVPTX)
+        ("to_cpu", target != RelDeviceType.NVPTX) ~
+        ("do_transfer", getRowType.getFieldList.asScala.map(_ => true))
     }
 
     val ret: (Binding, JValue) = (childBinding, json)

@@ -90,10 +90,13 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     val rightRowCount = getCluster.getMetadataQuery.getRowCount(getRight)
     val leftRowCount = getCluster.getMetadataQuery.getRowCount(getLeft)
 
-    if (leftRowCount.isInfinite) rc1 = leftRowCount
-    else rc1 += Util.nLogN(leftRowCount * left.getRowType.getFieldCount)
+    val rightCols = right.getRowType.getFieldCount
+    val leftCols = left.getRowType.getFieldCount
 
-    rc1 *= left.getRowType.getFieldCount * 10000
+    if (leftRowCount.isInfinite) rc1 = leftRowCount
+    else rc1 += Util.nLogN(leftRowCount * leftCols)
+
+    rc1 *= leftCols * 10000
 
     val rc2 = if (rightRowCount.isInfinite) {
       rightRowCount
@@ -101,7 +104,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
       rightRowCount //For the current HJ implementation, extra fields in the probing rel are 0-cost // * 0.1 * right.getRowType().getFieldCount();
       //TODO: Cost should change for radix-HJ
     }
-    rc1 += rc2 * right.getRowType.getFieldCount
+    rc1 += rc2 * rightCols
     planner.getCostFactory.makeCost(rowCount * rf2 * rf, rc1 * 10000 * rf * rf2, 0)
   }
 
