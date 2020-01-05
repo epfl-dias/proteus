@@ -114,7 +114,7 @@ public class PelagoRules {
                 .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
 
             RelNode inp = convert(agg.getInput(), traitSet);
-            return PelagoAggregate.create(inp, agg.indicator, agg.getGroupSet(), agg.getGroupSets(), agg.getAggCallList());
+            return PelagoAggregate.create(inp, agg.getGroupSet(), agg.getGroupSets(), agg.getAggCallList());
         }
     }
 
@@ -310,7 +310,7 @@ public class PelagoRules {
                 equalities.add(cond);
             } else {
                 RexNode condition = RexUtil.pullFactors(join.getCluster().getRexBuilder(), cond);
-                assert(condition.isA(SqlKind.AND));
+                assert(condition.isA(SqlKind.AND) || condition.isA(SqlKind.EQUALS));
                 for (RexNode predicate: ((RexCall) condition).getOperands()){
                     // Needs a little bit of fixing... not completely correct checking
                     RelOptUtil.InputFinder vis = new RelOptUtil.InputFinder();

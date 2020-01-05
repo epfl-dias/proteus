@@ -134,7 +134,6 @@ public class PelagoPushSplitBelowAggregate extends RelOptRule {
 
     PelagoAggregate agg = PelagoAggregate.create(
         union,
-        rel.indicator,
         topGroupSet,
         ImmutableList.of(topGroupSet),
         aggCalls,

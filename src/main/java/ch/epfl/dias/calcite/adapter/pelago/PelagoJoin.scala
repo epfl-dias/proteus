@@ -32,7 +32,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
 //        assert getConvention() == left.getConvention();
 //        assert getConvention() == right.getConvention();
 //        assert !condition.isAlwaysTrue();
-  extends EquiJoin(cluster, traitSet, left, right, condition, leftKeys, rightKeys, variablesSet, joinType) with PelagoRel {
+  extends Join(cluster, traitSet, left, right, condition, variablesSet, joinType) with PelagoRel {
   assert(getConvention eq PelagoRel.CONVENTION)
 
   override def copy(traitSet: RelTraitSet, conditionExpr: RexNode, left: RelNode, right: RelNode, joinType: JoinRelType,
@@ -45,7 +45,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
   }
 
   override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
-    if (condition.isAlwaysTrue) return planner.getCostFactory.makeHugeCost
+    if (condition.isAlwaysTrue || !analyzeCondition.isEqui) return planner.getCostFactory.makeHugeCost
     //    if (!getCondition.isA(SqlKind.EQUALS)) return planner.getCostFactory.makeHugeCost
 
     val rf = {

@@ -67,8 +67,8 @@ public class PelagoRelFactories {
 
   private static class PelagoFilterFactoryImpl implements FilterFactory {
 
-    @Override
-    public RelNode createFilter(RelNode input, RexNode condition) {
+    @Override public RelNode createFilter(final RelNode input, final RexNode condition,
+        final Set<CorrelationId> variablesSet) {
       return PelagoFilter.create(input, condition);
     }
 
@@ -102,9 +102,9 @@ public class PelagoRelFactories {
 
   private static class PelagoAggregateFactoryImpl implements AggregateFactory {
     @Override
-    public RelNode createAggregate(RelNode child, boolean indicator, ImmutableBitSet groupSet,
+    public RelNode createAggregate(RelNode child, ImmutableBitSet groupSet,
         ImmutableList<ImmutableBitSet> groupSets, List<AggregateCall> aggCalls) {
-      return PelagoAggregate.create(child, indicator, groupSet, groupSets, aggCalls);
+      return PelagoAggregate.create(child, groupSet, groupSets, aggCalls);
     }
   }
 }

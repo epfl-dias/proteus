@@ -107,7 +107,6 @@ public class PelagoPushRouterBelowAggregate extends RelOptRule {
                   .replace(RelHomDistribution.SINGLE)
                   .replace(Repl.isGpuonly() ? RelDeviceType.NVPTX : dev)
           ),
-          rel.indicator,
           topGroupSet,
           ImmutableList.of(topGroupSet),
           aggCalls,

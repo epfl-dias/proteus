@@ -93,7 +93,7 @@ object Repl extends App {
                                 'echoResults -> false, 'mock -> false, 'timings -> true, 'timingscsv -> false,
                                 'mockfile -> defaultMock,
                                 'cpuonly -> (detected_gpudop <= 0), 'planfile -> "plan.json", 'schema -> defaultSchema,
-                                'onlyinit -> false
+                                'onlyinit -> false, 'printplan -> false,
                               ), arglist)
 
   System.out.println(options);
@@ -102,6 +102,7 @@ object Repl extends App {
   var isMockRun   = options('mock       ).asInstanceOf[Boolean]
   var echoResults = options('echoResults).asInstanceOf[Boolean]
   var planfile    = options('planfile   ).asInstanceOf[String ]
+  var printplan   = options('printplan  ).asInstanceOf[Boolean]
   var timingscsv  = options('timingscsv ).asInstanceOf[Boolean]
   var timings     = options('timings    ).asInstanceOf[Boolean]
 

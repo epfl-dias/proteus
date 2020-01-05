@@ -3,6 +3,7 @@ package ch.epfl.dias.calcite.adapter.pelago.rules;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.mapping.Mappings;
 
@@ -20,11 +21,11 @@ public class PelagoProjectPushBelowUnpack extends RelOptRule {
   public static final PelagoProjectPushBelowUnpack INSTANCE = new PelagoProjectPushBelowUnpack();
 
   protected PelagoProjectPushBelowUnpack() {
-    super(operand(PelagoProject.class, operand(PelagoUnpack.class, operand(PelagoTableScan.class, any()))));
+    super(operand(Project.class, operand(PelagoUnpack.class, operand(PelagoTableScan.class, any()))));
   }
 
   public void onMatch(RelOptRuleCall call) {
-    PelagoProject     project = (PelagoProject    ) call.rel(0);
+    Project           project = (Project          ) call.rel(0);
     PelagoUnpack      unpack  = (PelagoUnpack     ) call.rel(1);
     PelagoTableScan   scan    = (PelagoTableScan  ) call.rel(2);
 

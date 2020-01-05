@@ -3,7 +3,7 @@ package ch.epfl.dias.emitter
 import java.io.{PrintWriter, StringWriter}
 import java.nio.charset.Charset
 import java.util
-import java.util.Set
+import java.util.{Calendar, Set}
 
 import ch.epfl.dias.calcite.adapter.pelago.{PelagoTable, PelagoTableScan}
 import ch.epfl.dias.emitter.PlanToJSON.emitPrimitiveType
@@ -109,11 +109,11 @@ object PlanToJSON {
             case SqlTypeName.INTEGER => new Integer(lit.toString).asInstanceOf[Int]
             case SqlTypeName.BIGINT => new java.lang.Long(lit.toString).asInstanceOf[Long]
             case SqlTypeName.BOOLEAN => new java.lang.Boolean(lit.toString).asInstanceOf[Boolean]
-            case SqlTypeName.FLOAT => new java.lang.Double(lit.toString).asInstanceOf[Double]
-            case SqlTypeName.DOUBLE => new java.lang.Double(lit.toString).asInstanceOf[Double]
+            case SqlTypeName.FLOAT => lit.getValue.asInstanceOf[java.math.BigDecimal].doubleValue()
+            case SqlTypeName.DOUBLE => lit.getValue.asInstanceOf[java.math.BigDecimal].doubleValue()
             case SqlTypeName.DECIMAL => new java.lang.Double(lit.toString).asInstanceOf[Double]
-            case SqlTypeName.DATE => new java.lang.Long(DateTimeUtils.timestampStringToUnixDate(lit.toString)).asInstanceOf[Long]
-            case SqlTypeName.TIMESTAMP => new java.lang.Long(DateTimeUtils.timestampStringToUnixDate(lit.toString)).asInstanceOf[Long]
+            case SqlTypeName.DATE => lit.getValue.asInstanceOf[Calendar].getTimeInMillis
+            case SqlTypeName.TIMESTAMP => lit.getValue.asInstanceOf[Calendar].getTimeInMillis
             case SqlTypeName.VARCHAR => lit.getValueAs(classOf[String]) //.toString.substring(1, lit.to)
             case SqlTypeName.CHAR => lit.getValueAs(classOf[String])
             case _ => {
@@ -132,11 +132,6 @@ object PlanToJSON {
             assert(ref.size == 1)
             // NOTE: ok! that's a good sign!
             val table = ref.iterator.next.asInstanceOf[RexTableInputRef].getTableRef.getTable
-            System.out.println("=+==" + table)
-            System.out.println(table.getQualifiedName)
-            System.out.println("====" + table.getRelOptSchema.getTableForMember(table.getQualifiedName))
-            System.out.println("====" + table.unwrap(classOf[PelagoTable]).getPelagoRelName)
-            System.out.println()
 
             val info = findAttrInfo(other.asInstanceOf[RexInputRef], f)
             val path = table.unwrap(classOf[PelagoTable]).getPelagoRelName + "." + info._1.getName + ".dict"

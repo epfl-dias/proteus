@@ -197,7 +197,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
 //        rules.add(EnumerableRules.ENUMERABLE_AGGREGATE_RULE);
 //        rules.add(EnumerableRules.ENUMERABLE_JOIN_RULE);
 //      rules.add(EnumerableRules.ENUMERABLE_MERGE_JOIN_RULE) //FIMXE: no mergejoin yet
-        rules.add(EnumerableRules.ENUMERABLE_SEMI_JOIN_RULE);
+//        rules.add(EnumerableRules.ENUMERABLE_SEMI_JOIN_RULE);
 //        rules.add(EnumerableRules.ENUMERABLE_SORT_RULE);       //FIMXE: no support for SORT yet
 //      rules.add(EnumerableRules.ENUMERABLE_UNION_RULE)      //FIMXE: no support for UNION yet
 //      rules.add(EnumerableRules.ENUMERABLE_INTERSECT_RULE)  //FIMXE: no support for INTERSECT yet

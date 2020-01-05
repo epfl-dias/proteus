@@ -26,7 +26,6 @@ data: {
         "org.apache.calcite.sql.SqlCreate"
         "org.apache.calcite.sql.SqlDrop"
         "org.apache.calcite.sql.ddl.SqlDdlPelagoNodes"
-        #"ch.epfl.dias.calcite.sql.ddl.SqlDdlNodes"
         "java.util.Map"
         "java.util.HashMap"
       ]
@@ -140,6 +139,7 @@ data: {
         "GOTO"
         "GRANTED"
         "HIERARCHY"
+        "IGNORE"
         "IMMEDIATE"
         "IMMEDIATELY"
         "IMPLEMENTATION"
@@ -221,6 +221,7 @@ data: {
         "RELATIVE"
         "REPEATABLE"
         "REPLACE"
+        "RESPECT"
         "RESTART"
         "RESTRICT"
         "RETURNED_CARDINALITY"
@@ -347,19 +348,6 @@ data: {
         "WRITE"
         "XML"
         "ZONE"
-
-        # not in core, added in server
-        "IF"
-        "MATERIALIZED"
-        "STORED"
-        "VIRTUAL"
-        "JAR"
-        "FILE"
-        "ARCHIVE"
-
-        # extended server
-        "JPLUGIN"
-        "FROM_JSON"
       ]
 
       # List of additional join types. Each is a method with no arguments.
@@ -378,6 +366,12 @@ data: {
 
       # List of methods for parsing custom data types.
       dataTypeParserMethods: [
+      ]
+
+      # List of methods for parsing builtin function calls.
+      # Return type of method implementation should be "SqlNode".
+      # Example: DateFunctionCall().
+      builtinFunctionCallMethods: [
       ]
 
       # List of methods for parsing extensions to "ALTER <scope>" calls.
@@ -408,6 +402,14 @@ data: {
         "SqlDropFunction"
       ]
 
+      # Binary operators tokens
+      binaryOperatorsTokens: [
+      ]
+
+      # Binary operators initialization
+      extraBinaryExpressions: [
+      ]
+
       # List of files in @includes directory that have parser method
       # implementations for parsing custom SQL statements, literals or types
       # given as part of "statementParserMethods", "literalParserMethods" or
@@ -416,6 +418,7 @@ data: {
         "parserImpls.ftl"
       ]
 
+      includePosixOperators: false
       includeCompoundIdentifier: true
       includeBraces: true
       includeAdditionalDeclarations: false

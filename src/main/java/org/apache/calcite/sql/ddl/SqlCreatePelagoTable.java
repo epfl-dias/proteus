@@ -29,6 +29,7 @@ import org.apache.calcite.schema.impl.ViewTable;
 import org.apache.calcite.schema.impl.ViewTableMacro;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.InitializerExpressionFactory;
 import org.apache.calcite.sql2rel.NullInitializerExpressionFactory;
@@ -99,7 +100,7 @@ public class SqlCreatePelagoTable extends SqlCreate
     if (jsonPlugin != null) {
       writer.keyword("JPLUGIN");
       writer.newlineAndIndent();
-      writer.identifier(jsonPlugin);
+      writer.identifier(jsonPlugin, false);
     }
   }
 
@@ -151,10 +152,11 @@ public class SqlCreatePelagoTable extends SqlCreate
     final ImmutableList.Builder<ColumnDef> b = ImmutableList.builder();
     final RelDataTypeFactory.Builder builder = typeFactory.builder();
     final RelDataTypeFactory.Builder storedBuilder = typeFactory.builder();
+    final SqlValidator validator = SqlDdlNodes.validator(context, true);
     for (Ord<SqlNode> c : Ord.zip(columnList)) {
       if (c.e instanceof SqlColumnDeclaration) {
         final SqlColumnDeclaration d = (SqlColumnDeclaration) c.e;
-        final RelDataType type = d.dataType.deriveType(typeFactory, true);
+        final RelDataType type = d.dataType.deriveType(validator, true);
         builder.add(d.name.getSimple(), type);
         if (d.strategy != ColumnStrategy.VIRTUAL) {
           storedBuilder.add(d.name.getSimple(), type);
