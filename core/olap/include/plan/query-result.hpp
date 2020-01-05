@@ -37,7 +37,7 @@ class QueryResult {
  public:
   QueryResult(const std::string &query_name);
   QueryResult(const QueryResult &) = delete;
-  QueryResult(QueryResult &&) = delete;
+  QueryResult(QueryResult &&);
   QueryResult &operator=(const QueryResult &) = delete;
   QueryResult &operator=(QueryResult &&) = delete;
   ~QueryResult();

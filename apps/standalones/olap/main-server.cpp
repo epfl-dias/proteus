@@ -71,6 +71,8 @@ class unlink_upon_exit {
 
   std::string last_label;
 
+  std::unique_ptr<QueryResult> last_result;
+
  public:
   unlink_upon_exit()
       : query(0),
@@ -93,6 +95,10 @@ class unlink_upon_exit {
     last_label = label_prefix + std::to_string(query++);
     return last_label;
   }
+
+  void store(QueryResult &&qr) {
+    last_result = std::make_unique<QueryResult>(std::move(qr));
+  }
 };
 
 std::string runPlanFile(std::string plan, unlink_upon_exit &uue,
@@ -104,6 +110,8 @@ std::string runPlanFile(std::string plan, unlink_upon_exit &uue,
     std::cout << "result echo" << std::endl;
     std::cout << qr << std::endl;
   }
+
+  uue.store(std::move(qr));
 
   return label;
 }

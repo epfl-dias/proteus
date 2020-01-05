@@ -59,6 +59,8 @@ QueryResult::QueryResult(const std::string &q) : q(q) {
 }
 
 QueryResult::~QueryResult() {
+  if (!resultBuf) return;  // object has been moved
+
   munmap(resultBuf, fsize);
   // we can now free the pointer, mmap will keep the file open
   shm_unlink(q.c_str());
@@ -67,4 +69,9 @@ QueryResult::~QueryResult() {
 std::ostream &operator<<(std::ostream &out, const QueryResult &qr) {
   out.write(qr.resultBuf, sizeof(char) * qr.fsize);
   return out;
+}
+
+QueryResult::QueryResult(QueryResult &&o)
+    : fsize(o.fsize), resultBuf(o.resultBuf), q(o.q) {
+  o.resultBuf = nullptr;
 }
