@@ -48,7 +48,12 @@ public class RelHomDistributionTraitDef extends RelTraitDef<RelHomDistribution> 
 
   @Override public boolean canConvert(RelOptPlanner planner, RelHomDistribution fromTrait,
       RelHomDistribution toTrait) {
-    return toTrait != fromTrait && fromTrait != RelHomDistribution.BRDCST;
+    if (RelHomDistribution.SINGLE == fromTrait) {
+      return toTrait == RelHomDistribution.RANDOM || toTrait == RelHomDistribution.BRDCST;
+    } else if (RelHomDistribution.RANDOM == fromTrait) {
+      return toTrait == RelHomDistribution.SINGLE; //FIXME: RANDOM can become BRDCST but I am not sure the executor supports it
+    }
+    return false; // Can't convert BRDCST
   }
 
   @Override public RelHomDistribution getDefault() {

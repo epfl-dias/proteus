@@ -1,8 +1,8 @@
 package ch.epfl.dias.calcite.adapter.pelago.rules;
 
 import org.apache.calcite.plan.RelOptRule;
-import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.convert.ConverterRule;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoAggregate;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoFilter;
@@ -13,7 +13,7 @@ import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 
 import java.util.stream.Collectors;
 
-public class PelagoPushDeviceCrossDown extends RelOptRule {
+public class PelagoPushDeviceCrossDown extends ConverterRule {
 
   public static final RelOptRule[] RULES = {
     new PelagoPushDeviceCrossDown(PelagoAggregate.class),
@@ -24,20 +24,16 @@ public class PelagoPushDeviceCrossDown extends RelOptRule {
   };
 
   protected PelagoPushDeviceCrossDown(Class<? extends RelNode> op) {
-    super(operand(op, any()), "PPDCD" + op.getName());
+    super(op, RelDeviceType.X86_64, RelDeviceType.NVPTX, "PPDCD" + op.getName());
   }
 
   protected RelNode cross(RelNode rel){
     return convert(rel, RelDeviceType.NVPTX);
   }
 
-  public void onMatch(RelOptRuleCall call) {
-    RelNode rel   = call.rel(0);
-
+  public RelNode convert(RelNode rel) {
     var inps = rel.getInputs().stream().map(this::cross).collect(Collectors.toUnmodifiableList());
 
-    call.transformTo(
-        rel.copy(null, inps)
-    );
+    return rel.copy(null, inps);
   }
 }

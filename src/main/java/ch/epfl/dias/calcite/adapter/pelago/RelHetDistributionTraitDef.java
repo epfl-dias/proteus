@@ -67,7 +67,12 @@ public class RelHetDistributionTraitDef extends RelTraitDef<RelHetDistribution> 
 
   @Override public boolean canConvert(RelOptPlanner planner, RelHetDistribution fromTrait,
       RelHetDistribution toTrait) {
-    return toTrait != fromTrait && fromTrait != RelHetDistribution.SPLIT_BRDCST;
+    if (RelHetDistribution.SINGLETON == fromTrait) {
+      return toTrait == RelHetDistribution.SPLIT || toTrait == RelHetDistribution.SPLIT_BRDCST;
+    } else if (RelHetDistribution.SPLIT == fromTrait) {
+      return toTrait == RelHetDistribution.SINGLETON; //FIXME: SPLIT can become SPLIT_BRDCST but I am not sure the executor supports it
+    }
+    return false; // Can't convert SPLIT_BRDCST
   }
 
   @Override public RelHetDistribution getDefault() {

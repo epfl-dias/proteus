@@ -48,7 +48,7 @@ class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: R
     }
     val rowCount = mq.getRowCount(this)
     val bytesPerRow = getRowType.getFieldCount * 4
-    planner.getCostFactory.makeCost(rowCount, rowCount * bytesPerRow * 1e15, 0)
+    planner.getCostFactory.makeCost(rowCount, rowCount * rf * bytesPerRow * 1e15, 0)
   }
 
   override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {

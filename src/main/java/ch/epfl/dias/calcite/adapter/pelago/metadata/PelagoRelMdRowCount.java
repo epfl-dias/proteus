@@ -4,8 +4,10 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.EquiJoin;
 import org.apache.calcite.rel.core.Join;
+import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.metadata.BuiltInMetadata;
 import org.apache.calcite.rel.metadata.ChainedRelMetadataProvider;
+import org.apache.calcite.rel.metadata.CyclicMetadataException;
 import org.apache.calcite.rel.metadata.MetadataDef;
 import org.apache.calcite.rel.metadata.MetadataHandler;
 import org.apache.calcite.rel.metadata.ReflectiveRelMetadataProvider;
@@ -77,6 +79,15 @@ public class PelagoRelMdRowCount implements MetadataHandler<BuiltInMetadata.RowC
     if (rel.getTraitSet().containsIfApplicable(RelPacking.Packed)) rc /= 1024;
     return rc;
   }
+
+  public Double getRowCount(Project rel, RelMetadataQuery mq) {
+    try {
+      return mq.getRowCount(rel.getInput());
+    } catch (CyclicMetadataException e){
+      return 1e6d;
+    }
+  }
+
 
   public Double getRowCount(Join rel, RelMetadataQuery mq) {
     Double leftRows = mq.getRowCount(rel.getLeft());
