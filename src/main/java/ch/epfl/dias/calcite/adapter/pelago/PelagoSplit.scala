@@ -30,7 +30,8 @@ class PelagoSplit protected(cluster: RelOptCluster, traitSet: RelTraitSet, input
 
   override def estimateRowCount(mq: RelMetadataQuery): Double = {
     var rc = mq.getRowCount(getInput)
-    if      (hetdistribution eq RelHetDistribution.SPLIT_BRDCST) rc = rc
+    if      ((hetdistribution eq RelHetDistribution.SPLIT_BRDCST) && input.getTraitSet.contains(RelHetDistribution.SPLIT)) rc = rc * 2
+    else if (hetdistribution eq RelHetDistribution.SPLIT_BRDCST) rc = rc
     else if (hetdistribution eq RelHetDistribution.SPLIT       ) rc = rc / 2.0
     else if (hetdistribution eq RelHetDistribution.SINGLETON   ) rc = rc * 2.0
     rc

@@ -35,7 +35,8 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
 
   override def estimateRowCount(mq: RelMetadataQuery): Double = {
     var rc = mq.getRowCount(getInput)
-    if      (getHomDistribution eq RelHomDistribution.BRDCST) rc = rc
+    if      ((getHomDistribution eq RelHomDistribution.BRDCST) && (input.getTraitSet.contains(RelHomDistribution.RANDOM))) rc = rc * 2
+    else if (getHomDistribution eq RelHomDistribution.BRDCST) rc = rc
     else if (getHomDistribution eq RelHomDistribution.RANDOM) rc = rc / 2.0 //TODO: Does this hold even when input is already distributed ?
     else if (getHomDistribution eq RelHomDistribution.SINGLE) rc = rc * 2.0 //TODO: Does this hold even when input is already distributed ?
     rc
@@ -165,6 +166,7 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
 
 object PelagoRouter{
   def create(input: RelNode, distribution: RelHomDistribution): PelagoRouter = {
+    assert(input.getTraitSet.contains(RelDeviceType.X86_64))
     val cluster  = input.getCluster
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION).replace(distribution)
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64)

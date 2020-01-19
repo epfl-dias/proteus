@@ -24,6 +24,8 @@ class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
 
     Repl.mockfile_$eq ("src/main/resources/mock.csv");
     Repl.isMockRun_$eq(true);
+//    Repl.printplan_$eq(true);
+    Repl.gpudop_$eq(2);
 
     Connection connection = createConnection();
     connection.createStatement().executeQuery("explain plan for select count(d_datekey) from ssbm_date");

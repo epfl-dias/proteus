@@ -2,7 +2,12 @@ package ch.epfl.dias.calcite.adapter.pelago;
 
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitDef;
+import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
+
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 
 public class RelComputeDeviceTraitDef extends RelTraitDef<RelComputeDevice> {
   public static final RelComputeDeviceTraitDef INSTANCE = new RelComputeDeviceTraitDef();
@@ -19,17 +24,30 @@ public class RelComputeDeviceTraitDef extends RelTraitDef<RelComputeDevice> {
 
   @Override public RelNode convert(RelOptPlanner planner, RelNode rel, RelComputeDevice toDevice,
                                    boolean allowInfiniteCostConverters) {
-    if (rel.getTraitSet().getTrait(INSTANCE).satisfies(toDevice)) return rel;
+//    if (rel.getTraitSet().getTrait(INSTANCE).satisfies(toDevice)) return rel;
 
-    //TODO: Can we do something about it? Normally this trait is not convertible, except if we want to nullify it,
-    // in which case, we can put a PelagoSplit.
-    return null;
+    List<RelNode> inputs = rel.getInputs();
+    if (inputs.isEmpty()) return null;
+
+    RelDeviceType dev = (toDevice == RelComputeDevice.NVPTX) ? RelDeviceType.NVPTX : RelDeviceType.X86_64;
+    ImmutableList.Builder<RelNode> b = ImmutableList.builder();
+    for (RelNode inp: inputs){
+      b.add(planner.changeTraits(inp, inp.getTraitSet().replace(dev)));
+    }
+
+    RelNode newRel = rel.copy(null, b.build());
+    if (!newRel.getTraitSet().contains(toDevice)) return null;
+    RelTraitSet traitSet = rel.getTraitSet().replace(toDevice);
+    if (!newRel.getTraitSet().equals(traitSet)) {
+      newRel = planner.changeTraits(newRel, traitSet);
+    }
+    return newRel;
   }
 
   @Override public boolean canConvert(RelOptPlanner planner, RelComputeDevice fromTrait,
       RelComputeDevice toDevice) {
     //See comment in convert(...)
-    return fromTrait.satisfies(toDevice);
+    return false;//toDevice != RelComputeDevice.X86_64NVPTX && toDevice != RelComputeDevice.NONE;//fromTrait.satisfies(toDevice);
   }
 
   @Override public RelComputeDevice getDefault() {

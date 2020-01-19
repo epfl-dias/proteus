@@ -25,13 +25,17 @@ import ch.epfl.dias.emitter.PlanToJSON._
 class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode,
                       groupSet: ImmutableBitSet, groupSets: util.List[ImmutableBitSet],
                       aggCalls: util.List[AggregateCall],
-                      var isGlobalAgg: Boolean)
+                      var isGlobalAgg: Boolean, val isSplitted: Boolean)
         extends Aggregate(cluster, traitSet, input, groupSet, groupSets, aggCalls) with PelagoRel {
 
   override def copy(traitSet: RelTraitSet, input: RelNode, groupSet: ImmutableBitSet,
                     groupSets: util.List[ImmutableBitSet], aggCalls: util.List[AggregateCall])
                           = {
-    PelagoAggregate.create(input, groupSet, groupSets, aggCalls, isGlobalAgg)
+    PelagoAggregate.create(input, groupSet, groupSets, aggCalls, isGlobalAgg, isSplitted)
+  }
+
+  def copy(input: RelNode, global: Boolean, isSplitted: Boolean) = {
+    PelagoAggregate.create(input, groupSet, this.asInstanceOf[Aggregate].groupSets, aggCalls, global, isSplitted)
   }
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
@@ -45,12 +49,12 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
 
     val rf = {
       if (getTraitSet.containsIfApplicable(RelHomDistribution.RANDOM)) 1e3
-      else 1e6
+      else 1e10
     }
 
     val rf2 = {
-      if (getTraitSet.containsIfApplicable(RelHetDistribution.SPLIT)) 1e-9
-      else 1
+      if (getTraitSet.containsIfApplicable(RelHetDistribution.SPLIT)) 1e-15
+      else 1e10
     }
 
     var base = super.computeSelfCost(planner, mq)
@@ -65,7 +69,7 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = {
-    super.explainTerms(pw).item("trait", getTraitSet.toString)
+    super.explainTerms(pw).item("trait", getTraitSet.toString).item("global", isGlobalAgg)
   }
 
   override def implement(target: RelDeviceType, alias2: String): (Binding, JValue) = {
@@ -158,19 +162,19 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
 
 object PelagoAggregate{
   def create(input: RelNode, groupSet: ImmutableBitSet, groupSets: util.List[ImmutableBitSet], aggCalls: util.List[AggregateCall]): PelagoAggregate = {
-    create(input, groupSet, groupSets, aggCalls, false)
+    create(input, groupSet, groupSets, aggCalls, true, false)
   }
 
-  def create(input: RelNode, groupSet: ImmutableBitSet, groupSets: util.List[ImmutableBitSet], aggCalls: util.List[AggregateCall], isGlobalAgg: Boolean): PelagoAggregate = {
+  def create(input: RelNode, groupSet: ImmutableBitSet, groupSets: util.List[ImmutableBitSet], aggCalls: util.List[AggregateCall], isGlobalAgg: Boolean, isSplitted: Boolean): PelagoAggregate = {
     val cluster = input.getCluster
     val mq = cluster.getMetadataQuery
     val dev = PelagoRelMdDeviceType.aggregate(mq, input)
     val traitSet = cluster.traitSet
       .replace(PelagoRel.CONVENTION)
-      .replace(mq.asInstanceOf[PelagoRelMetadataQuery].homDistribution(input))
+      .replaceIf(RelHomDistributionTraitDef.INSTANCE, () => mq.asInstanceOf[PelagoRelMetadataQuery].homDistribution(input))
       .replaceIf(RelHetDistributionTraitDef.INSTANCE, () => mq.asInstanceOf[PelagoRelMetadataQuery].hetDistribution(input))
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => dev);
-    new PelagoAggregate(cluster, traitSet, input, groupSet, groupSets, aggCalls, isGlobalAgg)
+    new PelagoAggregate(cluster, traitSet, input, groupSet, groupSets, aggCalls, isGlobalAgg, isSplitted)
   }
 }

@@ -46,7 +46,7 @@ public class RelPackingTraitDef extends RelTraitDef<RelPacking> {
 
   @Override public RelNode convert(RelOptPlanner planner, RelNode rel, RelPacking to_packing,
                                    boolean allowInfiniteCostConverters) {
-    if (rel.getConvention() != PelagoRel.CONVENTION) return null;
+//    if (rel.getConvention() != PelagoRel.CONVENTION) return null;
     RelNode p;
     if (to_packing == RelPacking.Packed) {
       p = PelagoPack  .create(rel, to_packing);
@@ -62,7 +62,7 @@ public class RelPackingTraitDef extends RelTraitDef<RelPacking> {
   }
 
   @Override public boolean canConvert(RelOptPlanner planner, RelPacking fromTrait, RelPacking toTrait) {
-    return fromTrait != toTrait;
+    return true;//fromTrait != toTrait;
   }
 
   @Override public RelPacking getDefault() {

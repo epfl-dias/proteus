@@ -29,7 +29,7 @@ public class RelDeviceTypeTraitDef extends RelTraitDef<RelDeviceType> {
 
   @Override public RelNode convert(RelOptPlanner planner, RelNode rel, RelDeviceType toDevice,
                                    boolean allowInfiniteCostConverters) {
-    if (toDevice == RelDeviceType.ANY) {
+    if (toDevice == RelDeviceType.ANY || rel.getTraitSet().contains(toDevice)) {
       return rel;
     }
 
@@ -37,7 +37,7 @@ public class RelDeviceTypeTraitDef extends RelTraitDef<RelDeviceType> {
     RelNode newRel = planner.register(crossDev, rel);
     final RelTraitSet newTraitSet = rel.getTraitSet().replace(toDevice);
     if (!newRel.getTraitSet().equals(newTraitSet)) {
-      newRel = planner.register(planner.changeTraits(newRel, newTraitSet), rel);
+      newRel = planner.changeTraits(newRel, newTraitSet);
     }
     return newRel;
 
@@ -47,7 +47,7 @@ public class RelDeviceTypeTraitDef extends RelTraitDef<RelDeviceType> {
 
   @Override public boolean canConvert(RelOptPlanner planner, RelDeviceType fromTrait,
                                       RelDeviceType toDevice) {
-    return true;
+    return fromTrait != toDevice;
   }
 
   @Override public RelDeviceType getDefault() {

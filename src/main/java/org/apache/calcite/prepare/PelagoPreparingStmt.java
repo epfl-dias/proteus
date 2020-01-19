@@ -41,7 +41,7 @@ import org.apache.calcite.tools.Programs;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.Holder;
 
-import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectPushBelowUnpack;
+import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPartialAggregateRule;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectTableScanRule;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoToEnumerableConverter;
@@ -53,7 +53,6 @@ import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 import ch.epfl.dias.calcite.adapter.pelago.rules.LikeToJoinRule;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPackTransfers;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushDeviceCrossDown;
-import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushDeviceCrossNSplitDown;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushRouterDown;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushSplitDown;
 import ch.epfl.dias.repl.Repl;
@@ -291,12 +290,13 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
 //        hetRuleBuilder.add(PelagoRules.RULES);
 
         if (!cpu_only) hetRuleBuilder.add(PelagoPushDeviceCrossDown.RULES);
-        if (hybrid) hetRuleBuilder.add(PelagoPushDeviceCrossNSplitDown.RULES);
+//        if (hybrid) hetRuleBuilder.add(PelagoPushDeviceCrossNSplitDown.RULES);
 
         if (!(cpu_only && cpudop == 1) && !(gpu_only && gpudop == 1)) hetRuleBuilder.add(PelagoPushRouterDown.RULES);
         if (hybrid) hetRuleBuilder.add(PelagoPushSplitDown.RULES);
 
         hetRuleBuilder.add(PelagoPackTransfers.RULES);
+        hetRuleBuilder.add(PelagoPartialAggregateRule.INSTANCE);
 
         hetRuleBuilder.add(AbstractConverter.ExpandConversionRule.INSTANCE);
 
@@ -326,10 +326,10 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             .addRuleInstance(PruneEmptyRules.PROJECT_INSTANCE)
             .addRuleInstance(ProjectRemoveRule.INSTANCE)
             .addRuleInstance(ProjectMergeRule.INSTANCE)
-            .addRuleInstance(ProjectMergeRule.INSTANCE)
+//            .addRuleInstance(ProjectMergeRule.INSTANCE)
             .addRuleInstance(ProjectTableScanRule.INSTANCE)
             .addRuleInstance(PelagoProjectTableScanRule.INSTANCE)
-            .addRuleInstance(PelagoProjectPushBelowUnpack.INSTANCE)
+//            .addRuleInstance(PelagoProjectPushBelowUnpack.INSTANCE)
             .build();
 
         // program1, program2 are based on Programs.heuristicJoinOrder
@@ -358,20 +358,21 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                 Programs.subQuery(PelagoRelMetadataProvider.INSTANCE),
                 new DecorrelateProgram(),
                 new TrimFieldsProgram(),
-                new PelagoProgram(),
+//                new PelagoProgram(),
                 new DeLikeProgram(),
-                new PelagoProgram(),
+//                new PelagoProgram(),
                 Programs.of(hepPullUpProjects, false, PelagoRelMetadataProvider.INSTANCE),
-                new PelagoProgram(),
+//                new PelagoProgram(),
                 // Use this with the lines commented above
                 program1,
-                new PelagoProgram(),
+//                new PelagoProgram(),
                 program2,
 //                Programs.heuristicJoinOrder(List.of(), false, 2),
                 new PelagoProgram(),
                 Programs.of(hepPushDownProjects, false, PelagoRelMetadataProvider.INSTANCE),
                 new PelagoProgram(),
                 Programs.ofRules(planner.getRules()),
+                new PelagoProgram(),
 //                new PelagoProgram(),
 //                new PelagoProgram2(),
                 Programs.ofRules(hetRuleBuilder.build()),

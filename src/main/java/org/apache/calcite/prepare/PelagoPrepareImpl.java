@@ -11,12 +11,14 @@ import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.config.CalciteConnectionConfig;
+import org.apache.calcite.config.CalciteSystemProperty;
 import org.apache.calcite.interpreter.BindableConvention;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.plan.*;
+import org.apache.calcite.plan.volcano.AbstractConverter;
 import org.apache.calcite.plan.volcano.PelagoCostFactory;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.rel.RelCollation;
@@ -95,154 +97,140 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
             RelOptCostFactory costFactory) {
         RelOptCostFactory cFactory = (costFactory == null) ? PelagoCostFactory.INSTANCE : costFactory;
         RelOptPlanner planner = super.createPlanner(prepareContext, externalContext, cFactory);
-        planner.addRelTraitDef(RelPackingTraitDef        .INSTANCE);
         planner.addRelTraitDef(RelDeviceTypeTraitDef     .INSTANCE);
+        planner.addRelTraitDef(RelPackingTraitDef        .INSTANCE);
         planner.addRelTraitDef(RelHomDistributionTraitDef.INSTANCE);
+
         planner.addRelTraitDef(RelHetDistributionTraitDef.INSTANCE);
         if (Repl.isHybrid() || Repl.isCpuonly()) planner.addRelTraitDef(RelComputeDeviceTraitDef  .INSTANCE);
-
-        planner.clear();
-
-        //FIXME: not so certain any more about which RelFactory we should use and which rules should be applied to the core RelNodes oand which ones to the Logical ones.\
-        //this may as well be disabling some rules...
-        ((VolcanoPlanner) planner).registerAbstractRelationalRules();
-
+//
+//        planner.clear();
+//
+//        //FIXME: not so certain any more about which RelFactory we should use and which rules should be applied to the core RelNodes oand which ones to the Logical ones.\
+//        //this may as well be disabling some rules...
+//        ((VolcanoPlanner) planner).registerAbstractRelationalRules();
+//
 //        planner.addRule(AbstractConverter.ExpandConversionRule.INSTANCE);
-//        System.out.println(planner.getRules());
+////        System.out.println(planner.getRules());
         for (RelOptRule rule: PelagoRules.RULES) {
             planner.addRule(rule);
         }
-
-        List<RelOptRule> rules = new ArrayList<RelOptRule>();
-        rules.add(new TableScanRule(PelagoRelFactories.PELAGO_BUILDER));
-        // push and merge filter rules
-        rules.add(new FilterAggregateTransposeRule(Filter.class, PelagoRelFactories.PELAGO_BUILDER, Aggregate.class));
-        rules.add(FilterProjectTransposeRule.INSTANCE);
-//        rules.add(SubstitutionVisitor.FilterOnProjectRule.INSTANCE);
-//        rules.add(new FilterMergeRule(PelagoRelFactories.PELAGO_BUILDER));
-        rules.add(FilterJoinRule.FILTER_ON_JOIN);
-        rules.add(FilterJoinRule.JOIN);
-//      rules.add(new FilterJoinRule.FilterIntoJoinRule(true, RelFactories.LOGICAL_BUILDER, //PelagoRelFactories.PELAGO_BUILDER,
-//          new FilterJoinRule.Predicate() {
-//            public boolean apply(Join join, JoinRelType joinType, RexNode exp) {
-//              return exp.isA(SqlKind.EQUALS);
-//            }
-//          }));
-//      rules.add(new FilterJoinRule.JoinConditionPushRule(RelFactories.LOGICAL_BUILDER, /*PelagoRelFactories.PELAGO_BUILDER, */  new FilterJoinRule.Predicate() {
-//        public boolean apply(Join join, JoinRelType joinType, RexNode exp) {
-//          return exp.isA(SqlKind.EQUALS);
-//        }
-//      }));
-
-
-//      rules.add(FilterJoinRule.FILTER_ON_JOIN);
-//      rules.add(FilterJoinRule.JOIN);
-        /*push filter into the children of a join*/
-        rules.add(FilterTableScanRule.INSTANCE);
-        // push and merge projection rules
-        rules.add(ProjectRemoveRule.INSTANCE);
-        rules.add(ProjectJoinTransposeRule.INSTANCE);//new ProjectJoinTransposeRule(PushProjector.ExprCondition.TRUE, PelagoRelFactories.PELAGO_BUILDER));
-//        rules.add(JoinProjectTransposeRule.BOTH_PROJECT);
-        rules.add(ProjectFilterTransposeRule.INSTANCE); //XXX causes non-termination
-        /*it is better to use filter first an then project*/
-        rules.add(ProjectTableScanRule.INSTANCE);
-        rules.add(PelagoProjectMergeRule.INSTANCE);//new ProjectMergeRule(true, PelagoRelFactories.PELAGO_BUILDER));
-        //aggregate rules
-        rules.add(AggregateRemoveRule.INSTANCE);
-//        rules.add(AggregateReduceFunctionsRule.INSTANCE);
-        rules.add(new AggregateReduceFunctionsRule(operand(Aggregate.class, any()), PelagoRelFactories.PELAGO_BUILDER));
-        rules.add(AggregateJoinTransposeRule.EXTENDED);
-        rules.add(new AggregateProjectMergeRule(Aggregate.class, Project.class, PelagoRelFactories.PELAGO_BUILDER));
-        rules.add(new AggregateProjectPullUpConstantsRule(Aggregate.class,
-            Project.class, PelagoRelFactories.PELAGO_BUILDER,
-            "AggregateProjectPullUpConstantsRule"));
-        rules.add(new AggregateExpandDistinctAggregatesRule(Aggregate.class, true, PelagoRelFactories.PELAGO_BUILDER));
-        //join rules
-////                                                                                                                rules.add(JoinToMultiJoinRule.INSTANCE);
-////                                                                                                                rules.add(LoptOptimizeJoinRule.INSTANCE);
-////                                                                                                              rules.add(MultiJoinOptimizeBushyRule.INSTANCE);//,
-//                                                                                                                rules.add(JoinPushThroughJoinRule.LEFT );
-//                                                                                                                rules.add(JoinPushThroughJoinRule.RIGHT);
-//                                                                                                                /*choose between right and left*/
-//                                                                                                                rules.add(JoinPushExpressionsRule.INSTANCE);
-//                                                                                                                rules.add(JoinAssociateRule.INSTANCE);
-//                                                                                                                rules.add(JoinCommuteRule.INSTANCE);
-        // simplify expressions rules
-        rules.add(ReduceExpressionsRule.CALC_INSTANCE);
-        rules.add(ReduceExpressionsRule.FILTER_INSTANCE);
-        rules.add(ReduceExpressionsRule.PROJECT_INSTANCE);
-        rules.add(ReduceExpressionsRule.JOIN_INSTANCE);
-
-        // prune empty results rules
-        rules.add(PruneEmptyRules.FILTER_INSTANCE);
-        rules.add(PruneEmptyRules.PROJECT_INSTANCE);
-        rules.add(PruneEmptyRules.AGGREGATE_INSTANCE);
-        rules.add(PruneEmptyRules.JOIN_LEFT_INSTANCE);
-        rules.add(PruneEmptyRules.JOIN_RIGHT_INSTANCE);
-        rules.add(ProjectTableScanRule.INSTANCE);
-        rules.add(new AggregateProjectPullUpConstantsRule(Aggregate.class,
-            RelNode.class, PelagoRelFactories.PELAGO_BUILDER,
-            "AggregatePullUpConstantsRule"));
-        /* Sort Rules*/
-        rules.add(new SortJoinTransposeRule(Sort.class,
-            Join.class, PelagoRelFactories.PELAGO_BUILDER));
-        rules.add(new SortProjectTransposeRule(Sort.class, Project.class,
-            PelagoRelFactories.PELAGO_BUILDER, null));
-        //SortRemoveRule.INSTANCE, //Too aggressive when triggered over enumerables; always removes Sort
-        rules.add(SortUnionTransposeRule.INSTANCE);
-        /*Enumerable Rules*/
-//        rules.add(EnumerableRules.ENUMERABLE_FILTER_RULE);
-//        rules.add(EnumerableRules.ENUMERABLE_TABLE_SCAN_RULE);
-//        rules.add(EnumerableRules.ENUMERABLE_PROJECT_RULE);
-//        rules.add(EnumerableRules.ENUMERABLE_AGGREGATE_RULE);
-//        rules.add(EnumerableRules.ENUMERABLE_JOIN_RULE);
-//      rules.add(EnumerableRules.ENUMERABLE_MERGE_JOIN_RULE) //FIMXE: no mergejoin yet
-//        rules.add(EnumerableRules.ENUMERABLE_SEMI_JOIN_RULE);
-//        rules.add(EnumerableRules.ENUMERABLE_SORT_RULE);       //FIMXE: no support for SORT yet
-//      rules.add(EnumerableRules.ENUMERABLE_UNION_RULE)      //FIMXE: no support for UNION yet
-//      rules.add(EnumerableRules.ENUMERABLE_INTERSECT_RULE)  //FIMXE: no support for INTERSECT yet
-//      rules.add(EnumerableRules.ENUMERABLE_MINUS_RULE)      //FIMXE: no support for MINUS yet
-        rules.add(EnumerableRules.ENUMERABLE_COLLECT_RULE);
-        rules.add(EnumerableRules.ENUMERABLE_UNCOLLECT_RULE);
-        rules.add(EnumerableRules.ENUMERABLE_CORRELATE_RULE);
-        rules.add(EnumerableRules.ENUMERABLE_VALUES_RULE);
-//      rules.add(EnumerableRules.ENUMERABLE_JOIN_RULE)
+        planner.removeRule(EnumerableRules.ENUMERABLE_AGGREGATE_RULE);
 //
-//      rules.add(EnumerableRules.ENUMERABLE_MERGE_JOIN_RULE)
-//      rules.add(EnumerableRules.ENUMERABLE_SEMI_JOIN_RULE)
-//      rules.add(EnumerableRules.ENUMERABLE_CORRELATE_RULE)
-//      rules.add(EnumerableRules.ENUMERABLE_PROJECT_RULE)
-//      rules.add(EnumerableRules.ENUMERABLE_FILTER_RULE)
-//      rules.add(EnumerableRules.ENUMERABLE_AGGREGATE_RULE);
-//      rules.add(EnumerableRules.ENUMERABLE_SORT_RULE);
-//      rules.add(EnumerableRules.ENUMERABLE_LIMIT_RULE)
-        rules.add(EnumerableRules.ENUMERABLE_UNION_RULE);
-        rules.add(EnumerableRules.ENUMERABLE_INTERSECT_RULE);
-        rules.add(EnumerableRules.ENUMERABLE_MINUS_RULE);
-        rules.add(EnumerableRules.ENUMERABLE_TABLE_MODIFICATION_RULE);
-//      rules.add(EnumerableRules.ENUMERABLE_VALUES_RULE)
-//      rules.add(EnumerableRules.ENUMERABLE_WINDOW_RULE)
-
-        for (RelOptRule r: rules){
-            planner.addRule(r);
-        }
-
-
-
-
-
-
-//        planner.removeRule(ProjectMergeRule.INSTANCE);
-//        planner.addRule(JoinAssociateRule.INSTANCE);
-//        planner.addRule(JoinToMultiJoinRule.INSTANCE);
-//        planner.addRule(LoptOptimizeJoinRule.INSTANCE);
-//        //        MultiJoinOptimizeBushyRule.INSTANCE,
-//        planner.addRule(JoinPushThroughJoinRule.RIGHT);
-//        planner.addRule(JoinPushThroughJoinRule.LEFT);
-//        /*choose between right and left*/
-//        planner.addRule(JoinPushExpressionsRule.INSTANCE);
-//        planner.removeRule(EnumerableRules.ENUMERABLE_PROJECT_TO_CALC_RULE);
-//        System.out.println(planner.getRules());
+//        List<RelOptRule> rules = new ArrayList<RelOptRule>();
+//        rules.add(new TableScanRule(PelagoRelFactories.PELAGO_BUILDER));
+//        // push and merge filter rules
+//        rules.add(new FilterAggregateTransposeRule(Filter.class, PelagoRelFactories.PELAGO_BUILDER, Aggregate.class));
+//        rules.add(FilterProjectTransposeRule.INSTANCE);
+////        rules.add(SubstitutionVisitor.FilterOnProjectRule.INSTANCE);
+////        rules.add(new FilterMergeRule(PelagoRelFactories.PELAGO_BUILDER));
+//        rules.add(FilterJoinRule.FILTER_ON_JOIN);
+//        rules.add(FilterJoinRule.JOIN);
+////      rules.add(new FilterJoinRule.FilterIntoJoinRule(true, RelFactories.LOGICAL_BUILDER, //PelagoRelFactories.PELAGO_BUILDER,
+////          new FilterJoinRule.Predicate() {
+////            public boolean apply(Join join, JoinRelType joinType, RexNode exp) {
+////              return exp.isA(SqlKind.EQUALS);
+////            }
+////          }));
+////      rules.add(new FilterJoinRule.JoinConditionPushRule(RelFactories.LOGICAL_BUILDER, /*PelagoRelFactories.PELAGO_BUILDER, */  new FilterJoinRule.Predicate() {
+////        public boolean apply(Join join, JoinRelType joinType, RexNode exp) {
+////          return exp.isA(SqlKind.EQUALS);
+////        }
+////      }));
+//
+//
+////      rules.add(FilterJoinRule.FILTER_ON_JOIN);
+////      rules.add(FilterJoinRule.JOIN);
+//        /*push filter into the children of a join*/
+//        rules.add(FilterTableScanRule.INSTANCE);
+//        // push and merge projection rules
+//        rules.add(ProjectRemoveRule.INSTANCE);
+//        rules.add(ProjectJoinTransposeRule.INSTANCE);//new ProjectJoinTransposeRule(PushProjector.ExprCondition.TRUE, PelagoRelFactories.PELAGO_BUILDER));
+////        rules.add(JoinProjectTransposeRule.BOTH_PROJECT);
+//        rules.add(ProjectFilterTransposeRule.INSTANCE); //XXX causes non-termination
+//        /*it is better to use filter first an then project*/
+//        rules.add(ProjectTableScanRule.INSTANCE);
+//        rules.add(PelagoProjectMergeRule.INSTANCE);//new ProjectMergeRule(true, PelagoRelFactories.PELAGO_BUILDER));
+//        //aggregate rules
+//        rules.add(AggregateRemoveRule.INSTANCE);
+////        rules.add(AggregateReduceFunctionsRule.INSTANCE);
+//        rules.add(new AggregateReduceFunctionsRule(operand(Aggregate.class, any()), PelagoRelFactories.PELAGO_BUILDER));
+//        rules.add(AggregateJoinTransposeRule.EXTENDED);
+//        rules.add(new AggregateProjectMergeRule(Aggregate.class, Project.class, PelagoRelFactories.PELAGO_BUILDER));
+//        rules.add(new AggregateProjectPullUpConstantsRule(Aggregate.class,
+//            Project.class, PelagoRelFactories.PELAGO_BUILDER,
+//            "AggregateProjectPullUpConstantsRule"));
+//        rules.add(new AggregateExpandDistinctAggregatesRule(Aggregate.class, true, PelagoRelFactories.PELAGO_BUILDER));
+//        //join rules
+//////                                                                                                                rules.add(JoinToMultiJoinRule.INSTANCE);
+//////                                                                                                                rules.add(LoptOptimizeJoinRule.INSTANCE);
+//////                                                                                                              rules.add(MultiJoinOptimizeBushyRule.INSTANCE);//,
+////                                                                                                                rules.add(JoinPushThroughJoinRule.LEFT );
+////                                                                                                                rules.add(JoinPushThroughJoinRule.RIGHT);
+////                                                                                                                /*choose between right and left*/
+////                                                                                                                rules.add(JoinPushExpressionsRule.INSTANCE);
+////                                                                                                                rules.add(JoinAssociateRule.INSTANCE);
+////                                                                                                                rules.add(JoinCommuteRule.INSTANCE);
+//        // simplify expressions rules
+//        rules.add(ReduceExpressionsRule.CALC_INSTANCE);
+//        rules.add(ReduceExpressionsRule.FILTER_INSTANCE);
+//        rules.add(ReduceExpressionsRule.PROJECT_INSTANCE);
+//        rules.add(ReduceExpressionsRule.JOIN_INSTANCE);
+//
+//        // prune empty results rules
+//        rules.add(PruneEmptyRules.FILTER_INSTANCE);
+//        rules.add(PruneEmptyRules.PROJECT_INSTANCE);
+//        rules.add(PruneEmptyRules.AGGREGATE_INSTANCE);
+//        rules.add(PruneEmptyRules.JOIN_LEFT_INSTANCE);
+//        rules.add(PruneEmptyRules.JOIN_RIGHT_INSTANCE);
+//        rules.add(ProjectTableScanRule.INSTANCE);
+//        rules.add(new AggregateProjectPullUpConstantsRule(Aggregate.class,
+//            RelNode.class, PelagoRelFactories.PELAGO_BUILDER,
+//            "AggregatePullUpConstantsRule"));
+//        /* Sort Rules*/
+//        rules.add(new SortJoinTransposeRule(Sort.class,
+//            Join.class, PelagoRelFactories.PELAGO_BUILDER));
+//        rules.add(new SortProjectTransposeRule(Sort.class, Project.class,
+//            PelagoRelFactories.PELAGO_BUILDER, null));
+//        //SortRemoveRule.INSTANCE, //Too aggressive when triggered over enumerables; always removes Sort
+//        rules.add(SortUnionTransposeRule.INSTANCE);
+//        /*Enumerable Rules*/
+////        rules.add(EnumerableRules.ENUMERABLE_FILTER_RULE);
+////        rules.add(EnumerableRules.ENUMERABLE_TABLE_SCAN_RULE);
+////        rules.add(EnumerableRules.ENUMERABLE_PROJECT_RULE);
+////        rules.add(EnumerableRules.ENUMERABLE_AGGREGATE_RULE);
+////        rules.add(EnumerableRules.ENUMERABLE_JOIN_RULE);
+////      rules.add(EnumerableRules.ENUMERABLE_MERGE_JOIN_RULE) //FIMXE: no mergejoin yet
+////        rules.add(EnumerableRules.ENUMERABLE_SEMI_JOIN_RULE);
+////        rules.add(EnumerableRules.ENUMERABLE_SORT_RULE);       //FIMXE: no support for SORT yet
+////      rules.add(EnumerableRules.ENUMERABLE_UNION_RULE)      //FIMXE: no support for UNION yet
+////      rules.add(EnumerableRules.ENUMERABLE_INTERSECT_RULE)  //FIMXE: no support for INTERSECT yet
+////      rules.add(EnumerableRules.ENUMERABLE_MINUS_RULE)      //FIMXE: no support for MINUS yet
+//        rules.add(EnumerableRules.ENUMERABLE_COLLECT_RULE);
+//        rules.add(EnumerableRules.ENUMERABLE_UNCOLLECT_RULE);
+//        rules.add(EnumerableRules.ENUMERABLE_CORRELATE_RULE);
+//        rules.add(EnumerableRules.ENUMERABLE_VALUES_RULE);
+////      rules.add(EnumerableRules.ENUMERABLE_JOIN_RULE)
+////
+////      rules.add(EnumerableRules.ENUMERABLE_MERGE_JOIN_RULE)
+////      rules.add(EnumerableRules.ENUMERABLE_SEMI_JOIN_RULE)
+////      rules.add(EnumerableRules.ENUMERABLE_CORRELATE_RULE)
+////      rules.add(EnumerableRules.ENUMERABLE_PROJECT_RULE)
+////      rules.add(EnumerableRules.ENUMERABLE_FILTER_RULE)
+////      rules.add(EnumerableRules.ENUMERABLE_AGGREGATE_RULE);
+////      rules.add(EnumerableRules.ENUMERABLE_SORT_RULE);
+////      rules.add(EnumerableRules.ENUMERABLE_LIMIT_RULE)
+//        rules.add(EnumerableRules.ENUMERABLE_UNION_RULE);
+//        rules.add(EnumerableRules.ENUMERABLE_INTERSECT_RULE);
+//        rules.add(EnumerableRules.ENUMERABLE_MINUS_RULE);
+//        rules.add(EnumerableRules.ENUMERABLE_TABLE_MODIFICATION_RULE);
+////      rules.add(EnumerableRules.ENUMERABLE_VALUES_RULE)
+////      rules.add(EnumerableRules.ENUMERABLE_WINDOW_RULE)
+//
+//        for (RelOptRule r: rules){
+//            planner.addRule(r);
+//        }
+//
         return planner;
     }
 

@@ -23,7 +23,7 @@ class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: R
   override def explainTerms(pw: RelWriter): RelWriter = {
     val rowCount = input.getCluster.getMetadataQuery.getRowCount(this)
     val bytesPerRow = getRowType.getFieldCount * 4
-    val cost = input.getCluster.getPlanner.getCostFactory.makeCost(rowCount * bytesPerRow, rowCount * bytesPerRow, 0).multiplyBy(0.1)
+    val cost = computeSelfCost(input.getCluster.getPlanner, input.getCluster.getMetadataQuery)
 
     super.explainTerms(pw)
       .item("trait", getTraitSet.toString).item("intrait", inTraits.toString)

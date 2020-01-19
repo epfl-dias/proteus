@@ -60,7 +60,7 @@ class PelagoUnpack protected(cluster: RelOptCluster, traits: RelTraitSet, input:
       if (!getTraitSet.containsIfApplicable(RelHetDistribution.SINGLETON)) {
         1
       } else {
-        1e2
+        1e5
 //        return planner.getCostFactory.makeHugeCost()
       }
     }
@@ -107,6 +107,7 @@ object PelagoUnpack {
     val mq = cluster.getMetadataQuery
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION).replace(toPacking)
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
+      .replaceIf(RelHomDistributionTraitDef.INSTANCE, () => mq.asInstanceOf[PelagoRelMetadataQuery].homDistribution(input))
       .replaceIf(RelHetDistributionTraitDef.INSTANCE, () => mq.asInstanceOf[PelagoRelMetadataQuery].hetDistribution(input))
     new PelagoUnpack(input.getCluster, traitSet, input, toPacking)
   }

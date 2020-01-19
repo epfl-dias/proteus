@@ -14,3 +14,4 @@ project/.sbtboot
 src/main/resources/ssb_schema/catalog.json
 /inputs
 /Test Results - *
+/plan.json.cpp

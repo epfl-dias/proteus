@@ -6,6 +6,8 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
 
+import java.util.List;
+
 public class RelHetDistributionTraitDef extends RelTraitDef<RelHetDistribution> {
   public static final RelHetDistributionTraitDef INSTANCE = new RelHetDistributionTraitDef();
 
@@ -33,11 +35,31 @@ public class RelHetDistributionTraitDef extends RelTraitDef<RelHetDistribution> 
       return null;
     }
 
-    final PelagoSplit router = PelagoSplit.create(input, distribution);
+    PelagoRel router;
+    if (distribution == RelHetDistribution.SPLIT || distribution == RelHetDistribution.SPLIT_BRDCST) {
+      if (!input.getTraitSet().contains(RelHetDistribution.SINGLETON)) return null;
+      router = PelagoSplit.create(input, distribution);
+    } else {
+      if (!input.getTraitSet().contains(RelHetDistribution.SPLIT)) return null;
+      RelTraitSet c = input.getTraitSet().replace(RelComputeDevice.X86_64);
+      RelTraitSet g = input.getTraitSet().replace(RelComputeDevice.NVPTX);
+      RelNode ing = input;
+      RelNode inc = input;
+      if (!ing.getTraitSet().equals(g)){
+        ing = planner.changeTraits(ing, g);
+      }
+      if (!inc.getTraitSet().equals(c)){
+        inc = planner.changeTraits(inc, c);
+      }
+      router = PelagoUnion.create(List.of(
+            inc,
+            ing
+          ), true);
+    }
 
     RelNode newRel = planner.register(router, rel);
     if (!newRel.getTraitSet().equals(traitSet)) {
-      newRel = planner.register(planner.changeTraits(newRel, traitSet), rel);
+      newRel = planner.changeTraits(newRel, traitSet);
     }
 
     return newRel;
@@ -45,7 +67,7 @@ public class RelHetDistributionTraitDef extends RelTraitDef<RelHetDistribution> 
 
   @Override public boolean canConvert(RelOptPlanner planner, RelHetDistribution fromTrait,
       RelHetDistribution toTrait) {
-    return toTrait != RelHetDistribution.SINGLETON && fromTrait == RelHetDistribution.SINGLETON;
+    return toTrait != fromTrait && fromTrait != RelHetDistribution.SPLIT_BRDCST;
   }
 
   @Override public RelHetDistribution getDefault() {

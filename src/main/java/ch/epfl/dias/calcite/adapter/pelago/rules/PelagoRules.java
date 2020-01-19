@@ -36,6 +36,7 @@ public class PelagoRules {
         PelagoProjectPushBelowUnpack.INSTANCE,
         PelagoProjectRule.INSTANCE,
         PelagoAggregateRule.INSTANCE,
+        PelagoPartialAggregateRule.INSTANCE,
         PelagoSortRule.INSTANCE,
         PelagoFilterRule.INSTANCE,
         PelagoUnnestRule.INSTANCE,
@@ -114,7 +115,7 @@ public class PelagoRules {
                 .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
 
             RelNode inp = convert(agg.getInput(), traitSet);
-            return PelagoAggregate.create(inp, agg.getGroupSet(), agg.getGroupSets(), agg.getAggCallList());
+            return PelagoAggregate.create(inp, agg.getGroupSet(), agg.getGroupSets(), agg.getAggCallList(), true, false);
         }
     }
 

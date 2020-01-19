@@ -13,6 +13,8 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.util.Pair;
 
+import com.google.common.collect.ImmutableList;
+
 import org.json4s.JsonAST;
 import scala.Tuple2;
 
@@ -37,23 +39,26 @@ public interface PelagoRel extends RelNode {
 
         public boolean useAbstractConvertersForConversion(RelTraitSet fromTraits, RelTraitSet toTraits) {
             if (!fromTraits.containsIfApplicable(CONVENTION)) return false;
-
-            boolean foundOne = false;
-
-            for (Pair<RelTrait, RelTrait> pair : Pair.zip(fromTraits, toTraits)) {
-                if (!pair.left.satisfies(pair.right)) {
-                    // Do not count device crossing as extra conversion
-                    if (pair.left instanceof RelDeviceType     ) continue;
-
-//                    if (foundOne) return false;
-                    foundOne = true;
-
-                    if (pair.left instanceof RelPacking        ) continue;
-                    if (pair.left instanceof RelHetDistribution) continue;
-                    if (pair.left instanceof RelHomDistribution) continue;
-                    return false;
-                }
-            }
+//
+//
+//            boolean foundOne = false;
+//            int cnt = 0;
+//
+//            for (Pair<RelTrait, RelTrait> pair : Pair.zip(fromTraits, toTraits)) {
+//                if (!pair.left.satisfies(pair.right)) {
+////                    // Do not count device crossing as extra conversion
+//                    if (pair.left instanceof RelComputeDevice     ) continue;
+//                    ++cnt;
+////
+//////                    if (foundOne) return false;
+////                    foundOne = true;
+////
+////                    if (pair.left instanceof RelPacking        ) continue;
+////                    if (pair.left instanceof RelHetDistribution) continue;
+////                    if (pair.left instanceof RelHomDistribution) continue;
+//////                    return false;
+//                }
+//            }
             return true;
         }
     }

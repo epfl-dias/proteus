@@ -141,7 +141,7 @@ object PelagoToEnumerableConverter {
   def create(input: RelNode): RelNode = {
     val cluster = input.getCluster
     val traitSet = input.getTraitSet.replace(EnumerableConvention.INSTANCE)
-      .replace(cluster.getMetadataQuery.asInstanceOf[PelagoRelMetadataQuery].homDistribution(input))
+      .replaceIf(RelHomDistributionTraitDef.INSTANCE, () => cluster.getMetadataQuery.asInstanceOf[PelagoRelMetadataQuery].homDistribution(input))
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => cluster.getMetadataQuery.asInstanceOf[PelagoRelMetadataQuery].deviceType(input))
     new PelagoToEnumerableConverter(input.getCluster, traitSet, input)
   }

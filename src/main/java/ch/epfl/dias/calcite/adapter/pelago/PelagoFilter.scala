@@ -30,7 +30,7 @@ class PelagoFilter protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
       super.computeSelfCost(planner, mq).multiplyBy(0.001 * rf * 1e5)
     } else {
       if (getTraitSet.containsIfApplicable(RelHomDistribution.SINGLE)) rf = 1e10
-      super.computeSelfCost(planner, mq).multiplyBy(10 * rf * 1e5)
+      super.computeSelfCost(planner, mq).multiplyBy(10 * rf * 1e7)
     }
   }
 
@@ -67,7 +67,7 @@ object PelagoFilter{
     val dev      = PelagoRelMdDeviceType.filter(mq, input)
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION)
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
-      .replace(mq.asInstanceOf[PelagoRelMetadataQuery].homDistribution(input))
+      .replaceIf(RelHomDistributionTraitDef.INSTANCE, () => mq.asInstanceOf[PelagoRelMetadataQuery].homDistribution(input))
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => dev);
     assert(traitSet.containsIfApplicable(RelPacking.UnPckd))
     new PelagoFilter(input.getCluster, traitSet, input, recFlatten(cluster.getRexBuilder, condition))

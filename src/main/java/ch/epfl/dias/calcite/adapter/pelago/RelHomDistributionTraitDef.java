@@ -23,17 +23,17 @@ public class RelHomDistributionTraitDef extends RelTraitDef<RelHomDistribution> 
                                    boolean allowInfiniteCostConverters) {
     if (rel.getTraitSet().containsIfApplicable(distribution)) return rel;
 
-    if (rel.getConvention() != PelagoRel.CONVENTION){
+    if (rel.getConvention() != PelagoRel.CONVENTION || !rel.getTraitSet().containsIfApplicable(RelDeviceType.X86_64)){
       return null;
     }
 
-    RelTraitSet inptraitSet = rel.getTraitSet().replace(RelDeviceType.X86_64);
+    RelTraitSet inptraitSet = rel.getTraitSet();
     RelTraitSet traitSet = rel.getTraitSet().replace(distribution);
     RelNode input = rel;
-    if (!rel.getTraitSet().equals(inptraitSet)) {
-//      input = planner.register(planner.changeTraits(rel, inptraitSet), rel);
-      return null;
-    }
+//    if (!rel.getTraitSet().equals(inptraitSet)) {
+////      input = planner.register(planner.changeTraits(rel, inptraitSet), rel);
+//      return null;
+//    }
 
     final PelagoRouter router = PelagoRouter.create(input, distribution);
 
@@ -48,7 +48,7 @@ public class RelHomDistributionTraitDef extends RelTraitDef<RelHomDistribution> 
 
   @Override public boolean canConvert(RelOptPlanner planner, RelHomDistribution fromTrait,
       RelHomDistribution toTrait) {
-    return fromTrait != RelHomDistribution.BRDCST;
+    return toTrait != fromTrait && fromTrait != RelHomDistribution.BRDCST;
   }
 
   @Override public RelHomDistribution getDefault() {
