@@ -116,6 +116,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
             planner.addRule(rule);
         }
         planner.removeRule(EnumerableRules.ENUMERABLE_AGGREGATE_RULE);
+        planner.removeRule(EnumerableRules.ENUMERABLE_SORT_RULE);
 //
 //        List<RelOptRule> rules = new ArrayList<RelOptRule>();
 //        rules.add(new TableScanRule(PelagoRelFactories.PELAGO_BUILDER));

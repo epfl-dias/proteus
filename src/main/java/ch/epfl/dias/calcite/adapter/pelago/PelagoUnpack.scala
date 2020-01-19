@@ -52,7 +52,7 @@ class PelagoUnpack protected(cluster: RelOptCluster, traits: RelTraitSet, input:
         if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 0.0001
         else 0.001
       } else if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
-        0.001
+        0.01
       } else {
         0.1
       }

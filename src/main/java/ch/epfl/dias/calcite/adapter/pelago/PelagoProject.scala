@@ -45,7 +45,7 @@ class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, in
     // equivalence. This increases the search space as there are have more
     // intermediate results. We use this big factor to compensate for that.
     val c = super.computeSelfCost(planner, mq)
-    planner.getCostFactory.makeCost(c.getRows, c.getCpu * {if (getTraitSet.containsIfApplicable(RelComputeDevice.NVPTX) || getTraitSet.containsIfApplicable(RelHetDistribution.SPLIT) || getTraitSet.containsIfApplicable(RelHetDistribution.SPLIT_BRDCST)) 1e9 else 1e10}, c.getIo)
+    planner.getCostFactory.makeCost(c.getRows, c.getCpu * 1e9, c.getIo)
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)

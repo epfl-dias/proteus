@@ -66,7 +66,7 @@ class PelagoRelMdNonCumulativeCost protected() extends MetadataHandler[BuiltInMe
     if (rel.getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)){
       base
     } else {
-      rel.getCluster.getPlanner.getCostFactory.makeCost(base.getRows, base.getCpu * 1e3, base.getIo)
+      rel.getCluster.getPlanner.getCostFactory.makeCost(base.getRows, base.getCpu, base.getIo)
     }
   }
 }

@@ -57,7 +57,7 @@ class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, i
       * (
       if (traitSet.containsIfApplicable(RelPacking.UnPckd) && (getDeviceType eq RelDeviceType.NVPTX)) return planner.getCostFactory.makeHugeCost()
       else if (traitSet.containsIfApplicable(RelPacking.UnPckd)) Math.min(1e12, rowCount)
-      else 1), 0)
+      else 1), rowCount * bytesPerRow * 1e5)
   }
 
   override def estimateRowCount(mq: RelMetadataQuery): Double = input.estimateRowCount(mq)
