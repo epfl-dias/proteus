@@ -42,6 +42,7 @@ import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.Holder;
 
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPartialAggregateRule;
+import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectPushBelowUnpack;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectTableScanRule;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoToEnumerableConverter;
@@ -166,7 +167,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             RelTraitSet requiredOutputTraits,
             List<RelOptMaterialization> materializations,
             List<RelOptLattice> lattices) {
-            System.out.println(RelOptUtil.toString(rel, SqlExplainLevel.EXPPLAN_ATTRIBUTES));
+            System.out.println(RelOptUtil.toString(rel, SqlExplainLevel.ALL_ATTRIBUTES));
             return rel;
         }
     }
@@ -306,6 +307,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
         // allow joins to be combined into a single MultiJoin and thus such
         // such operators create hard boundaries for the join ordering program.
         HepProgram hepPullUpProjects = new HepProgramBuilder()
+            .addRuleInstance(ProjectMergeRule.INSTANCE)
             // Push Filters down
             .addRuleInstance(FilterProjectTransposeRule.INSTANCE)
             .addRuleInstance(FilterJoinRule.FilterIntoJoinRule.FILTER_ON_JOIN)
@@ -315,7 +317,6 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             .addRuleInstance(JoinProjectTransposeRule.RIGHT_PROJECT)
             .addRuleInstance(PruneEmptyRules.PROJECT_INSTANCE)
             .addRuleInstance(ProjectRemoveRule.INSTANCE)
-            .addRuleInstance(ProjectMergeRule.INSTANCE)
             .build();
 
         HepProgram hepPushDownProjects = new HepProgramBuilder()
@@ -326,10 +327,23 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             .addRuleInstance(PruneEmptyRules.PROJECT_INSTANCE)
             .addRuleInstance(ProjectRemoveRule.INSTANCE)
             .addRuleInstance(ProjectMergeRule.INSTANCE)
-//            .addRuleInstance(ProjectMergeRule.INSTANCE)
             .addRuleInstance(ProjectTableScanRule.INSTANCE)
             .addRuleInstance(PelagoProjectTableScanRule.INSTANCE)
-//            .addRuleInstance(PelagoProjectPushBelowUnpack.INSTANCE)
+            .addRuleInstance(PelagoProjectPushBelowUnpack.INSTANCE)
+            .build();
+
+        HepProgram hepPushDownProjects2 = new HepProgramBuilder()
+            .addRuleInstance(ProjectMergeRule.INSTANCE)
+            // Pull Filters up over projects
+            .addRuleInstance(ProjectFilterTransposeRule.INSTANCE)
+            // Push Projects down
+            .addRuleInstance(ProjectJoinTransposeRule.INSTANCE)
+            .addRuleInstance(PruneEmptyRules.PROJECT_INSTANCE)
+            .addRuleInstance(ProjectRemoveRule.INSTANCE)
+            .addRuleInstance(ProjectMergeRule.INSTANCE)
+            .addRuleInstance(ProjectTableScanRule.INSTANCE)
+            .addRuleInstance(PelagoProjectTableScanRule.INSTANCE)
+            .addRuleInstance(PelagoProjectPushBelowUnpack.INSTANCE)
             .build();
 
         // program1, program2 are based on Programs.heuristicJoinOrder
@@ -361,15 +375,20 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
 //                new PelagoProgram(),
                 new DeLikeProgram(),
 //                new PelagoProgram(),
+            new PelagoProgram(),
+            Programs.of(hepPushDownProjects, false, PelagoRelMetadataProvider.INSTANCE),
+            new PelagoProgram(),
                 Programs.of(hepPullUpProjects, false, PelagoRelMetadataProvider.INSTANCE),
+            new PelagoProgram(),
+            new PelagoProgram(),
 //                new PelagoProgram(),
                 // Use this with the lines commented above
                 program1,
-//                new PelagoProgram(),
+                new PelagoProgram(),
                 program2,
 //                Programs.heuristicJoinOrder(List.of(), false, 2),
                 new PelagoProgram(),
-                Programs.of(hepPushDownProjects, false, PelagoRelMetadataProvider.INSTANCE),
+                Programs.of(hepPushDownProjects2, false, PelagoRelMetadataProvider.INSTANCE),
                 new PelagoProgram(),
                 Programs.ofRules(planner.getRules()),
                 new PelagoProgram(),

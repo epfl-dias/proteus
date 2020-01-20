@@ -28,8 +28,7 @@ class PelagoUnion protected
     if (!getInput(0).getTraitSet.containsIfApplicable(RelComputeDevice.X86_64)) return planner.getCostFactory.makeInfiniteCost()
     if (!getInput(1).getTraitSet.containsIfApplicable(RelComputeDevice.NVPTX )) return planner.getCostFactory.makeInfiniteCost()
 
-    if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) super.computeSelfCost(planner, mq).multiplyBy(0.001)
-    else super.computeSelfCost(planner, mq).multiplyBy(10)
+    super.computeSelfCost(planner, mq).multiplyBy(1e8).plus(planner.getCostFactory.makeCost(0, 0, mq.getRowCount(this)))
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString).item("isS", getTraitSet.satisfies(RelTraitSet.createEmpty().plus(RelDeviceType.NVPTX)).toString)

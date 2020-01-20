@@ -62,8 +62,8 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
     val s = super.computeSelfCost(planner, mq)
     planner.getCostFactory.makeCost(
       s.getRows,
-      s.getCpu * (fields.length.toDouble * 10000 + 2D) / (table.getRowType.getFieldCount.toDouble + 2D),
-      s.getRows * fields.length.toDouble
+      s.getCpu * (fields.length.toDouble * 10000 + 2D) / (table.getRowType.getFieldCount.toDouble + 2D) + fields.length * 1e8,
+      s.getRows * fields.length.toDouble * 2 * 1e8
     )
   }
 

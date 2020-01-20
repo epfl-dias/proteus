@@ -1,52 +1,25 @@
 PelagoToEnumerableConverter
   PelagoSort
-    PelagoAggregate
-      PelagoUnion
+    PelagoProject
+      PelagoProject
         PelagoAggregate
           PelagoUnpack
-            PelagoRouter
-              PelagoPack
-                PelagoAggregate
-                  PelagoProject
-                    PelagoJoin
-                      PelagoFilter
-                        PelagoUnpack
-                          PelagoRouter
-                            PelagoSplit
-                              PelagoTableScan
-                      PelagoProject
-                        PelagoJoin
-                          PelagoProject
-                            PelagoFilter
-                              PelagoUnpack
-                                PelagoRouter
-                                  PelagoSplit
-                                    PelagoTableScan
-                          PelagoProject
-                            PelagoJoin
-                              PelagoProject
-                                PelagoFilter
-                                  PelagoUnpack
-                                    PelagoRouter
-                                      PelagoSplit
-                                        PelagoTableScan
-                              PelagoUnpack
-                                PelagoRouter
-                                  PelagoSplit
-                                    PelagoTableScan
-        PelagoDeviceCross
-          PelagoAggregate
-            PelagoUnpack
-              PelagoDeviceCross
-                PelagoRouter
-                  PelagoDeviceCross
-                    PelagoPack
-                      PelagoAggregate
+            PelagoUnion
+              PelagoRouter
+                PelagoPack
+                  PelagoAggregate
+                    PelagoProject
+                      PelagoJoin
+                        PelagoFilter
+                          PelagoUnpack
+                            PelagoRouter
+                              PelagoSplit
+                                PelagoTableScan
                         PelagoProject
                           PelagoJoin
-                            PelagoFilter
-                              PelagoUnpack
-                                PelagoDeviceCross
+                            PelagoProject
+                              PelagoFilter
+                                PelagoUnpack
                                   PelagoRouter
                                     PelagoSplit
                                       PelagoTableScan
@@ -55,21 +28,45 @@ PelagoToEnumerableConverter
                                 PelagoProject
                                   PelagoFilter
                                     PelagoUnpack
-                                      PelagoDeviceCross
-                                        PelagoRouter
-                                          PelagoSplit
-                                            PelagoTableScan
-                                PelagoProject
-                                  PelagoJoin
-                                    PelagoProject
-                                      PelagoFilter
-                                        PelagoUnpack
-                                          PelagoDeviceCross
-                                            PelagoRouter
-                                              PelagoSplit
-                                                PelagoTableScan
-                                    PelagoUnpack
-                                      PelagoDeviceCross
-                                        PelagoRouter
-                                          PelagoSplit
-                                            PelagoTableScan
+                                      PelagoRouter
+                                        PelagoSplit
+                                          PelagoTableScan
+                                PelagoUnpack
+                                  PelagoRouter
+                                    PelagoSplit
+                                      PelagoTableScan
+              PelagoRouter
+                PelagoDeviceCross
+                  PelagoPack
+                    PelagoAggregate
+                      PelagoProject
+                        PelagoJoin
+                          PelagoFilter
+                            PelagoUnpack
+                              PelagoDeviceCross
+                                PelagoRouter
+                                  PelagoSplit
+                                    PelagoTableScan
+                          PelagoProject
+                            PelagoJoin
+                              PelagoProject
+                                PelagoFilter
+                                  PelagoUnpack
+                                    PelagoDeviceCross
+                                      PelagoRouter
+                                        PelagoSplit
+                                          PelagoTableScan
+                              PelagoProject
+                                PelagoJoin
+                                  PelagoProject
+                                    PelagoFilter
+                                      PelagoUnpack
+                                        PelagoDeviceCross
+                                          PelagoRouter
+                                            PelagoSplit
+                                              PelagoTableScan
+                                  PelagoUnpack
+                                    PelagoDeviceCross
+                                      PelagoRouter
+                                        PelagoSplit
+                                          PelagoTableScan

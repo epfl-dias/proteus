@@ -49,12 +49,12 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
 
     val rf = {
       if (!isGlobalAgg && getTraitSet.containsIfApplicable(RelHomDistribution.RANDOM)) 1e3
-      else 1e10
+      else 1e5
     }
 
     val rf2 = {
       if (!isGlobalAgg && getTraitSet.containsIfApplicable(RelHetDistribution.SPLIT)) 1e-15
-      else 1e10
+      else 1e5
     }
 
     var base = super.computeSelfCost(planner, mq)
@@ -62,8 +62,7 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
     val cpuCost = (if (!isGlobalAgg && getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) 1e-2 else 1e8*(1e-2 + 1e-1 * mq.getRowCount(getInput))) *
       rf * rf2 *
       Math.log(getInput.getRowType.getFieldCount + 10) *
-      mq.getRowCount(getInput) *
-      1e10
+      mq.getRowCount(getInput)
 
     planner.getCostFactory.makeCost(base.getRows, cpuCost, base.getIo)
   }

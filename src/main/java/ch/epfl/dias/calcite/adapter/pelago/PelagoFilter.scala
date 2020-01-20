@@ -27,10 +27,10 @@ class PelagoFilter protected (cluster: RelOptCluster, traitSet: RelTraitSet, inp
 //    val rf = 1
     if (getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
       if (getTraitSet.containsIfApplicable(RelHomDistribution.SINGLE)) rf = 1e10//return planner.getCostFactory.makeInfiniteCost()
-      super.computeSelfCost(planner, mq).multiplyBy(0.001 * rf * 1e5)
+      super.computeSelfCost(planner, mq).multiplyBy(0.001 * rf * 1e4)
     } else {
       if (getTraitSet.containsIfApplicable(RelHomDistribution.SINGLE)) rf = 1e10
-      super.computeSelfCost(planner, mq).multiplyBy(10 * rf * 1e7)
+      super.computeSelfCost(planner, mq).multiplyBy(rf * 1e5)
     }
   }
 

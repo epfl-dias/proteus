@@ -3,9 +3,13 @@ package ch.epfl.dias.calcite.adapter.pelago.rules;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Project;
+import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.mapping.Mappings;
+
+import com.google.common.collect.ImmutableMap;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoProject;
@@ -51,25 +55,33 @@ public class PelagoProjectPushBelowUnpack extends RelOptRule {
 
     RelOptUtil.RexInputConverter conv = new RelOptUtil.RexInputConverter(scan.getCluster().getRexBuilder(), scan.getRowType().getFieldList(), revfields);
     List<RexNode> projs = new ArrayList<RexNode>();
+    boolean isId = true;
     for (int j = 0 ; j < project.getProjects().size() ; ++j) {
       projs.add(project.getProjects().get(j).accept(conv));
+      RexNode p = project.getProjects().get(j).accept(conv);
+      isId = isId && (p instanceof RexInputRef && ((RexInputRef) p).getIndex() == j);
     }
 
-    call.transformTo(
-      PelagoProject.create(
+    RelNode in =
         PelagoUnpack.create(
-          PelagoTableScan.create(
-              scan.getCluster(),
-              scan.getTable(),
-              scan.pelagoTable(),
-              fields
-          ),
-          unpack.getPacking()
-        ),
+            PelagoTableScan.create(
+                scan.getCluster(),
+                scan.getTable(),
+                scan.pelagoTable(),
+                fields
+            ),
+            unpack.getPacking()
+        );
+
+    if (!isId){
+      in = project.copy(
+        project.getTraitSet(),
+        in,
         projs,
         project.getRowType()
-      )
-    );
+      );
+    }
+    call.transformTo(in, ImmutableMap.of(in, project));
   }
 
 //  @Override public boolean matches(final RelOptRuleCall call) {

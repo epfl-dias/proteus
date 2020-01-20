@@ -80,13 +80,6 @@ public class PelagoRelMdRowCount implements MetadataHandler<BuiltInMetadata.RowC
     return rc;
   }
 
-  public Double getRowCount(Project rel, RelMetadataQuery mq) {
-    try {
-      return mq.getRowCount(rel.getInput());
-    } catch (CyclicMetadataException e){
-      return 1e6d;
-    }
-  }
 
 
   public Double getRowCount(Join rel, RelMetadataQuery mq) {

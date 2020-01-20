@@ -96,7 +96,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     if (leftRowCount.isInfinite) rc1 = leftRowCount
     else rc1 += Util.nLogN(leftRowCount * leftCols)
 
-    rc1 *= leftCols * 10000
+    rc1 *= leftCols
 
     val rc2 = if (rightRowCount.isInfinite) {
       rightRowCount
@@ -104,8 +104,8 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
       rightRowCount //For the current HJ implementation, extra fields in the probing rel are 0-cost // * 0.1 * right.getRowType().getFieldCount();
       //TODO: Cost should change for radix-HJ
     }
-    rc1 += rc2 * rightCols
-    planner.getCostFactory.makeCost(rowCount * rf2 * rf, rc1 * 10000 * rf * rf2, 0)
+    rc1 += rc2 * rightCols * 1e-5
+    planner.getCostFactory.makeCost(rowCount * rf2 * rf, rc1 * rf * rf2, 0)
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = {

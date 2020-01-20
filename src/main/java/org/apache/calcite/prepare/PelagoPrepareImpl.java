@@ -61,6 +61,7 @@ import ch.epfl.dias.calcite.adapter.pelago.RelHomDistributionTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelPackingTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectMergeRule;
+import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectPushBelowUnpack;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules;
 import ch.epfl.dias.repl.Repl;
 
@@ -117,6 +118,8 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         }
         planner.removeRule(EnumerableRules.ENUMERABLE_AGGREGATE_RULE);
         planner.removeRule(EnumerableRules.ENUMERABLE_SORT_RULE);
+        planner.addRule(PelagoProjectPushBelowUnpack.INSTANCE);
+        planner.addRule(ProjectMergeRule.INSTANCE);
 //
 //        List<RelOptRule> rules = new ArrayList<RelOptRule>();
 //        rules.add(new TableScanRule(PelagoRelFactories.PELAGO_BUILDER));
