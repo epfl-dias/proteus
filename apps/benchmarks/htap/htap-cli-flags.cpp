@@ -46,7 +46,7 @@ DEFINE_string(plan_dir, "inputs/plans/cpu-ssb",
 DEFINE_string(inputs_dir, "inputs/", "Data and catalog directory");
 DEFINE_bool(run_oltp, true, "Run OLTP");
 DEFINE_bool(run_olap, true, "Run OLAP");
-DEFINE_uint64(elastic, 0, "elastic_oltp cores");
+DEFINE_uint64(oltp_elastic_threshold, 0, "elastic_oltp cores");
 
 DEFINE_uint64(ch_scale_factor, 0, "CH-Bench scale factor");
 DEFINE_bool(etl, false, "ETL on snapshot");
@@ -55,5 +55,9 @@ DEFINE_bool(gpu_olap, false, "OLAP on GPU, OLTP on CPU");
 
 DEFINE_bool(bench_ycsb, false, "OLTP Bench: true-ycsb, false-tpcc (default)");
 DEFINE_double(ycsb_write_ratio, 0.5, "Writer to reader ratio");
+
+DEFINE_string(htap_mode, "ISOLATED",
+              "OLAP Scheduling Mode: 1) ISOLATED, 2) COLOC 3) HYBRID-ISOLATED "
+              "4) HYBRID-COLOC 5) ADAPTIVE");
 
 DEFINE_validator(etl, &validateETL);

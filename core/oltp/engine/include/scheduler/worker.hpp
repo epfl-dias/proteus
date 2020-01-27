@@ -156,6 +156,7 @@ class WorkerPool {
 
   void print_worker_stats(bool global_only = true);
   void print_worker_stats_diff();
+  std::pair<double, double> get_worker_stats_diff(bool print = false);
 
   std::vector<uint64_t> get_active_txns();
   uint64_t get_min_active_txn();

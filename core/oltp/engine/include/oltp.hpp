@@ -21,6 +21,9 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#ifndef OLTP_HPP_
+#define OLTP_HPP_
+
 #include "glo.hpp"
 #include "interfaces/bench.hpp"
 #include "scheduler/worker.hpp"
@@ -34,6 +37,7 @@
 
 // TODO: Currently this is made for HTAP. make this standard entry point for
 // OLTP, so that even OLTP specific benchmarks can use this file.
+// __attribute__((always_inline))
 
 class OLTP {
  public:
@@ -83,6 +87,10 @@ class OLTP {
     this->worker_pool->print_worker_stats_diff();
   }
 
+  inline std::pair<double, double> get_differential_stats(bool print = false) {
+    return this->worker_pool->get_worker_stats_diff(print);
+  }
+
   inline void print_storage_stats() { this->db->report(); }
 
   // Snapshot
@@ -96,18 +104,71 @@ class OLTP {
   }
 
   // Resource Management
-  inline void scale_up();
+
+  inline void scale_back() { this->worker_pool->scale_back(); }
+
+  inline void scale_up(const uint &num_workers) {
+    this->worker_pool->scale_back();
+  }
   inline void scale_down(const uint &num_workers) {
     this->worker_pool->scale_down(num_workers);
   }
+
   inline void migrate_worker(const uint &num_workers) {
+    static bool workers_in_home = true;
     for (uint i = 0; i < num_workers; i++) {
       this->worker_pool->migrate_worker();
     }
+
+    workers_in_home = !workers_in_home;
+  }
+
+  void getFreshnessRatio() {
+    // diff b/w oltp arena and olap arena somehow
+    // std::vector<Table *> getAllTables()
+    for (auto tbl : db->getAllTables()) {
+      _getFreshnessRatioRelation(tbl);
+    }
+  }
+
+  inline void getFreshnessRatioRelation(std::string table_name) {
+    _getFreshnessRatioRelation(db->getTable(table_name));
+  }
+
+  inline void getFreshnessRationRelation(int table_idx) {
+    _getFreshnessRatioRelation(db->getTable(table_idx));
   }
 
  private:
   storage::Schema *db;
   scheduler::WorkerPool *worker_pool;
   txn::TransactionManager *txn_manager;
+
+  inline std::pair<size_t, size_t> _getFreshnessRelation(storage::Table *rel) {
+    int64_t *oltp_num_records =
+        (rel(storage::ColumnStore *))
+            ->snapshot_get_number_tuples(false, false);  // oltp snapshot
+    int64_t *olap_num_records =
+        (rel(storage::ColumnStore *))
+            ->snapshot_get_number_tuples(true, false);  // olap snapshot
+    size_t oltp_sum = 0;
+    size_t olap_sum = 0;
+
+    for (int i = 0; i < g_num_partitions; i++) {
+      oltp_sum += oltp_num_records[i];
+      olap_sum += olap_num_records[i];
+    }
+
+    return std::make_pair(olap_sum, oltp_sum);
+  }
+
+  inline double _getFreshnessRatioRelation(storage::Table *rel) {
+    auto tmp = _getFreshnessRelation(rel);
+    // first - olap snapshot
+    // second - oltp snapshot
+
+    return ((double)tmp.first) / ((double)tmp.second);
+  }
 };
+
+#endif /* OLTP_HPP_ */

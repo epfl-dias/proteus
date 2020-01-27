@@ -30,12 +30,13 @@ DECLARE_string(plan_dir);
 DECLARE_string(inputs_dir);
 DECLARE_bool(run_oltp);
 DECLARE_bool(run_olap);
-DECLARE_uint64(elastic);
+DECLARE_uint64(oltp_elastic_threshold);
 DECLARE_uint64(ch_scale_factor);
 DECLARE_bool(etl);
 DECLARE_bool(trade_core);
 
 DECLARE_bool(gpu_olap);
+DECLARE_string(htap_mode);
 
 DECLARE_bool(bench_ycsb);
 DECLARE_double(ycsb_write_ratio);

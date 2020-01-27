@@ -1045,7 +1045,7 @@ void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
   std::cout << "SnapTable -- " << this->name << std::endl;
   for (uint i = 0; i < g_num_partitions; i++) {
     partitions_n_recs[i] = this->vid[i].load();
-    std::cout << "\tNumRecords[" << i << "]" << this->vid[i].load()
+    std::cout << "\tNumRecords[" << i << "]" << partitions_n_recs[i]
               << std::endl;
   }
 

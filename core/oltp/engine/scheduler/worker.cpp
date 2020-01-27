@@ -97,6 +97,7 @@ void Worker::run() {
   // std::cout << exec_core->local_cpu_index << std::endl;
   // std::cout << exec_core->index_in_topo << std::endl;
 
+  LOG(INFO) << "WID: " << this->id << "  " << exec_core->index_in_topo;
   set_exec_location_on_scope d{
       topology::getInstance().getCores()[exec_core->index_in_topo]};
 
@@ -338,6 +339,52 @@ void WorkerPool::resume() {
 
 //   return tps / 1000000;
 // }
+
+std::pair<double, double> WorkerPool::get_worker_stats_diff(bool print) {
+  static const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
+  static uint num_sockets = vec.size();
+
+  constexpr auto min_point =
+      std::chrono::time_point<std::chrono::system_clock,
+                              std::chrono::nanoseconds>::min();
+
+  double tps = 0;
+  double duration = 0;
+  uint duration_ctr = 0;
+
+  uint wl = 0;
+  for (auto it = workers.begin(); it != workers.end(); ++it, wl++) {
+    Worker* tmp = it->second.second;
+    if (tmp->terminate) continue;
+
+    std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>
+        curr_time = std::chrono::system_clock::now();
+
+    std::chrono::duration<double> diff =
+        curr_time - (prev_time_tps[wl] == min_point ? tmp->txn_start_time
+                                                    : prev_time_tps[wl]);
+
+    duration += diff.count();
+    duration_ctr += 1;
+    tps += ((tmp->num_txns - prev_sum_tps[wl]) / 1000000.0) / diff.count();
+    prev_sum_tps[wl] = tmp->num_txns;
+    prev_time_tps[wl] = curr_time;
+
+    // tps += ((double) (p->q_idx - prev_sum_tps[i])) / (cur_time -
+    // prev_time_tps[i]);
+  }
+
+  if (print) {
+    std::cout << "---- DIFF WORKER STATS ----" << std::endl;
+    std::cout << "\tDuration\t" << (duration / duration_ctr) << " sec"
+              << std::endl;
+    std::cout << "\tTPS\t\t" << tps << " MTPS" << std::endl;
+
+    std::cout << "------------ END ------------" << std::endl;
+  }
+
+  return std::make_pair((duration / duration_ctr), tps);
+}
 void WorkerPool::print_worker_stats_diff() {
   static const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
   static uint num_sockets = vec.size();
@@ -603,8 +650,12 @@ void WorkerPool::migrate_worker() {
   if (worker_sched_mode == 3) {
     auto get = workers.find(worker_cores[pool_size + worker_num].id);
 
-    LOG(INFO) << "WM-Migrade: Old: " << worker_cores[pool_size + worker_num].id;
-    LOG(INFO) << "WM-Migrade: New: " << worker_cores[worker_num].id;
+    LOG(INFO) << "WM-Migrate: From-" << worker_cores[pool_size + worker_num].id
+              << "  To-" << worker_cores[worker_num].id;
+
+    // LOG(INFO) << "WM-Migrade: Old: " << worker_cores[pool_size +
+    // worker_num].id; LOG(INFO) << "WM-Migrade: New: " <<
+    // worker_cores[worker_num].id;
     assert(get != workers.end());
     get->second.second->affinity_core = &(worker_cores[worker_num]);
     get->second.second->change_affinity = true;
@@ -623,7 +674,7 @@ const std::vector<uint>& WorkerPool::scale_down(uint num_cores) {
 
   uint ctr = 0;
   const auto& cres = Topology::getInstance().getCores();
-  for (int ci = 28; ci < cres.size(); ci++) {
+  for (int ci = cres.size() - num_cores - 1; ci < cres.size(); ci++) {
     Worker* tmp = workers[cres[ci].id].second;
 
     if (ctr == num_cores) {

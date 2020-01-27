@@ -60,11 +60,13 @@ void init(int argc, char *argv[]) {
   google::InitGoogleLogging(argv[0]);
   FLAGS_logtostderr = 1;  // FIXME: the command line flags/defs seem to fail...
   google::InstallFailureSignalHandler();
+  // set_trace_allocations(true);
 }
 
 int main(int argc, char *argv[]) {
   init(argc, argv);
   proteus::olap::init();
+
   OLTP oltp_engine;
 
   LOG(INFO) << "HTAP Initializing";
@@ -78,10 +80,17 @@ int main(int argc, char *argv[]) {
   uint oltp_num_workers = 1;
 
   if (FLAGS_num_oltp_clients == 0) {
-    oltp_num_workers = topology::getInstance().getCoreCount();
+    if (FLAGS_gpu_olap)
+      oltp_num_workers = topology::getInstance().getCoreCount();
+    else
+      oltp_num_workers = topology::getInstance().getCoreCount() /
+                         topology::getInstance().getCpuNumaNodes().size();
   } else {
     oltp_num_workers = FLAGS_num_oltp_clients;
   }
+
+  assert(FLAGS_oltp_elastic_threshold < oltp_num_workers);
+
   if (oltp_num_workers >
       topology::getInstance().getCpuNumaNodes()[0].local_cores.size()) {
     uint core_per_socket =
@@ -154,10 +163,28 @@ int main(int argc, char *argv[]) {
     olap_nodes.emplace_back((topology::numanode *)&nodes[OLAP_socket]);
   }
 
+  SchedulingPolicy::ScheduleMode schedule_policy =
+      SchedulingPolicy::S2_ISOLATED;
+
+  if (FLAGS_htap_mode.compare("ADAPTIVE") == 0) {
+    schedule_policy = SchedulingPolicy::ADAPTIVE;
+
+  } else if (FLAGS_htap_mode.compare("COLOC") == 0) {
+    schedule_policy = SchedulingPolicy::S1_COLOCATED;
+
+  } else if (FLAGS_htap_mode.compare("HYBRID-ISOLATED") == 0) {
+    schedule_policy = SchedulingPolicy::S3_IS;
+
+  } else if (FLAGS_htap_mode.compare("HYBRID-COLOC") == 0) {
+    schedule_policy = SchedulingPolicy::S3_NI;
+  }
+
+  HTAPSequenceConfig htap_conf(olap_nodes, oltp_nodes,
+                               FLAGS_oltp_elastic_threshold,
+                               (oltp_num_workers / 2), schedule_policy);
+
   OLAPSequence olap_queries(
-      OLAPSequence::wrapper_t<AeolusRemotePlugin>{}, 1, olap_nodes, oltp_nodes,
-      (FLAGS_gpu_olap ? DeviceType::GPU : DeviceType::CPU));
-  // nodes[OLAP_socket], nodes[OLTP_socket]);
+      1, htap_conf, (FLAGS_gpu_olap ? DeviceType::GPU : DeviceType::CPU));
 
   profiling::resume();
 
@@ -167,36 +194,17 @@ int main(int argc, char *argv[]) {
     oltp_engine.print_differential_stats();
   }
 
-  if (FLAGS_elastic) {
-    if (FLAGS_trade_core) {
-      oltp_engine.migrate_worker(FLAGS_elastic);
-    } else {
-      oltp_engine.scale_down(FLAGS_elastic);
-    }
-  }
-
   usleep(2000000);  // stabilize
 
   exec_location{nodes[OLAP_socket]}.activate();
 
-  for (int i = 0; i < FLAGS_num_olap_clients; i++) {
-    oltp_engine.print_differential_stats();
+  if (FLAGS_run_olap) {
+    olap_queries.execute(oltp_engine, FLAGS_num_olap_repeat, true);
+    LOG(INFO) << "OLAP sequence completed.";
 
-    // oltp_engine.snapshot();
-    // if (FLAGS_etl) oltp_engine.etl(OLAP_socket);
-
-    // usleep(1000000);  // stabilize
-
-    // oltp_engine.print_differential_stats();
-
-    olap_queries.run(FLAGS_num_olap_repeat);
+    // LOG(INFO) << olap_queries;
   }
 
-  LOG(INFO) << "OLAP sequence completed.";
-
-  LOG(INFO) << olap_queries;
-
-  oltp_engine.print_differential_stats();
   oltp_engine.print_global_stats();
 
   if (!FLAGS_run_oltp) {

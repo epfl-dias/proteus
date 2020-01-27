@@ -30,55 +30,104 @@
 #include <topology/topology.hpp>
 #include <vector>
 
+#include "oltp.hpp"
+
 using exec_nodes = std::vector<topology::numanode *>;
 typedef std::chrono::time_point<std::chrono::system_clock> timepoint_t;
+
+namespace SchedulingPolicy {
+
+enum DataAccess { LOCAL_READ, REMOTE_READ, HYBRID_READ };
+
+enum ResourceSchedule { ISOLATED, COLOCATED, ELASTIC };
+
+enum ScheduleMode { S1_COLOCATED, S2_ISOLATED, S3_IS, S3_NI, ADAPTIVE, CUSTOM };
+
+};  // namespace SchedulingPolicy
 
 struct OLAPSequenceStats {
   const uint run_id;
   // runtimes[# queries][# runs] milliseconds
-  std::vector<std::vector<size_t>> sts;
+  std::vector<std::vector<std::pair<size_t, size_t>>> sts;
+  std::vector<std::vector<std::pair<double, double>>> oltp_stats;
+  std::vector<std::vector<SchedulingPolicy::ScheduleMode>> sts_state;
 
-  std::vector<size_t> sequence_time;
+  std::vector<std::pair<size_t, size_t>> sequence_time;
 
   OLAPSequenceStats(uint run_id, size_t number_of_queries, size_t repeat)
       : run_id(run_id) {
     sts.reserve(number_of_queries);
     for (size_t i = 0; i < number_of_queries; i++) {
-      sts.emplace_back(std::vector<size_t>());
+      sts.emplace_back(std::vector<std::pair<size_t, size_t>>());
       sts[i].reserve(repeat);
+
+      sts_state.emplace_back(std::vector<SchedulingPolicy::ScheduleMode>());
+      sts_state[i].reserve(repeat);
+
+      oltp_stats.emplace_back(std::vector<std::pair<double, double>>());
+      oltp_stats[i].reserve(repeat);
     }
 
     sequence_time.reserve(repeat);
   }
 };
 
+class HTAPSequenceConfig {
+ public:
+  const exec_nodes olap_nodes;
+  const exec_nodes oltp_nodes;
+  const uint oltp_scale_threshold;
+  const uint collocated_worker_threshold;
+
+  SchedulingPolicy::ScheduleMode schedule_policy;
+  SchedulingPolicy::ResourceSchedule resource_policy;
+  SchedulingPolicy::DataAccess data_access_policy;
+
+  HTAPSequenceConfig(exec_nodes olap_nodes, exec_nodes oltp_nodes,
+                     uint oltp_scale_threshold = 0,
+                     uint collocated_worker_threshold = 0,
+                     SchedulingPolicy::ScheduleMode schedule_policy =
+                         SchedulingPolicy::S2_ISOLATED);
+
+  HTAPSequenceConfig(exec_nodes olap_nodes, exec_nodes oltp_nodes,
+                     uint oltp_scale_threshold = 0,
+                     uint collocated_worker_threshold = 0,
+                     SchedulingPolicy::ResourceSchedule resource_policy =
+                         SchedulingPolicy::ISOLATED,
+                     SchedulingPolicy::DataAccess data_access_policy =
+                         SchedulingPolicy::LOCAL_READ);
+};
+
 class OLAPSequence {
  private:
-  std::vector<PreparedStatement> stmts;
+  int total_queries;
   int client_id;
-
-  exec_nodes olap_nodes;
-  exec_nodes oltp_nodes;
-
-  std::deque<OLAPSequenceStats *> stats;  // insert per run.
+  std::vector<PreparedStatement> stmts;
+  std::deque<OLAPSequenceStats *> stats;
+  HTAPSequenceConfig conf;
 
  public:
-  template <typename plugin_t>
-  struct wrapper_t {};
+  OLAPSequence(int client_id, HTAPSequenceConfig conf, DeviceType dev);
+  void execute(OLTP &txn_engine, int repeat = 1,
+               bool per_query_snapshot = false);
 
-  template <typename plugin_t>
-  OLAPSequence(wrapper_t<plugin_t>, int client_id, exec_nodes olap_nodes,
-               exec_nodes oltp_nodes, DeviceType dev);
-
-  void run(size_t repeat);
-
-  friend std::ostream &operator<<(std::ostream &stream,
-                                  const OLAPSequence &seq);
+  friend std::ostream &operator<<(std::ostream &, const OLAPSequence &);
+  friend std::ostream &operator<<(std::ostream &, const OLAPSequenceStats &);
 
   // TODO: implement
   //~OLAPSequence()
+
+ private:
+  void migrateState(SchedulingPolicy::ScheduleMode &curr,
+                    SchedulingPolicy::ScheduleMode to, OLTP &txn_engine);
+  SchedulingPolicy::ScheduleMode getNextState();
+  void setupAdaptiveSequence();
+  auto getIsolatedOLAPResources();
+  auto getColocatedResources();
+  auto getElasticResources();
 };
 
-std::ostream &operator<<(std::ostream &stream, const OLAPSequence &seq);
+std::ostream &operator<<(std::ostream &, const OLAPSequence &);
+std::ostream &operator<<(std::ostream &, const OLAPSequenceStats &);
 
 #endif /* PROTEUS_OLAP_SEQUENCE_HPP */
