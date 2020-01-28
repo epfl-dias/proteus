@@ -188,6 +188,9 @@ PreparedStatement Q<4>::cpar(DegreeOfParallelism dop, Tp aff_parallel,
                              Tr aff_reduce, DeviceType dev) {
   assert(dev == DeviceType::CPU);
 
+  query = "Q4";
+  memmv = false;
+
   auto rel1968 =
       getBuilder<Tplugin>()
           .template scan<Tplugin>(
