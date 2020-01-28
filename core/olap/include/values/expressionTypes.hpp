@@ -340,6 +340,8 @@ class RecordAttribute {
 
 std::ostream &operator<<(std::ostream &o, const RecordAttribute &rec);
 
+std::ostream &operator<<(std::ostream &o, const ExpressionType &rec);
+
 class RecordType : public ExpressionTypeVisitable<RecordType, ExpressionType> {
  public:
   RecordType() {}

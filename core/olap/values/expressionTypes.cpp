@@ -51,7 +51,11 @@ int RecordType::getIndex(RecordAttribute *x) const {
 
 std::ostream &operator<<(std::ostream &o, const RecordAttribute &rec) {
   return (o << rec.getRelationName() << "." << rec.getAttrName() << ": "
-            << rec.getOriginalType()->getType());
+            << *(rec.getOriginalType()));
+}
+
+std::ostream &operator<<(std::ostream &o, const ExpressionType &type) {
+  return o << type.getType();
 }
 
 llvm::Type *BoolType::getLLVMType(llvm::LLVMContext &ctx) const {
