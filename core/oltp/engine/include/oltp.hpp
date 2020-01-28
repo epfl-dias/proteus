@@ -123,20 +123,27 @@ class OLTP {
     workers_in_home = !workers_in_home;
   }
 
-  void getFreshnessRatio() {
-    // diff b/w oltp arena and olap arena somehow
-    // std::vector<Table *> getAllTables()
+  inline double getFreshnessRatio() {
+    // diff b/w oltp arena and olap arena
+
+    size_t total_olap = 0;
+    size_t total_oltp = 0;
+
     for (auto tbl : db->getAllTables()) {
-      _getFreshnessRatioRelation(tbl);
+      auto tmp = _getFreshnessRelation(tbl);
+      total_olap = tmp.first;
+      total_oltp = tmp.second;
     }
+
+    return ((double)total_olap) / ((double)total_oltp);
   }
 
-  inline void getFreshnessRatioRelation(std::string table_name) {
-    _getFreshnessRatioRelation(db->getTable(table_name));
+  inline double getFreshnessRatioRelation(std::string table_name) {
+    return _getFreshnessRatioRelation(db->getTable(table_name));
   }
 
-  inline void getFreshnessRationRelation(int table_idx) {
-    _getFreshnessRatioRelation(db->getTable(table_idx));
+  inline double getFreshnessRationRelation(int table_idx) {
+    return _getFreshnessRatioRelation(db->getTable(table_idx));
   }
 
  private:
@@ -146,10 +153,10 @@ class OLTP {
 
   inline std::pair<size_t, size_t> _getFreshnessRelation(storage::Table *rel) {
     int64_t *oltp_num_records =
-        (rel(storage::ColumnStore *))
+        ((storage::ColumnStore *)rel)
             ->snapshot_get_number_tuples(false, false);  // oltp snapshot
     int64_t *olap_num_records =
-        (rel(storage::ColumnStore *))
+        ((storage::ColumnStore *)rel)
             ->snapshot_get_number_tuples(true, false);  // olap snapshot
     size_t oltp_sum = 0;
     size_t olap_sum = 0;
