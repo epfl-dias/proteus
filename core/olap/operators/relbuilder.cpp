@@ -102,8 +102,10 @@ RelBuilder RelBuilder::apply(Operator *op) const {
   // Registered op's output relation, if it's not already registered
   auto args = op->getRowType().getArgs();
   if (!args.empty()) {
-    auto relName = args.front()->getRelationName();
-    CatalogParser::getInstance().getOrCreateInputInfo(relName, ctx);
+    auto &catalog = CatalogParser::getInstance();
+    for (const auto a : args) {
+      catalog.getOrCreateInputInfo(a->getRelationName(), ctx);
+    }
   }
   return {*this, op};
 }
