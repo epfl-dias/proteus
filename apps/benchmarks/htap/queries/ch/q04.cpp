@@ -22,6 +22,8 @@
 */
 #include "q04.hpp"
 
+static int q_instance = 10;
+
 PreparedStatement Q_4_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                            const aff_t &aff_reduce, DeviceType dev,
                            const scan_t &scan) {
@@ -215,9 +217,8 @@ PreparedStatement Q_4_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
             return {arg["$0"].as(outrel, "o_ol_cnt"),
                     arg["$1"].as(outrel, "order_count")};
           },
-          std::string{query} +
-              (memmv
-                   ? "mv"
-                   : "nmv"))  // (trait=[ENUMERABLE.[0].X86_64.unpckd.homSingle.hetSingle.cX86_64])
+          std::string{query} + (memmv ? "mv" : "nmv") +
+              std::to_string(
+                  q_instance++))  // (trait=[ENUMERABLE.[0].X86_64.unpckd.homSingle.hetSingle.cX86_64])
       .prepare();
 }

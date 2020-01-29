@@ -24,6 +24,8 @@
 
 #include "ch-queries.hpp"
 
+static int q_instance = 20;
+
 PreparedStatement Q_6_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                            const aff_t &aff_reduce, DeviceType dev,
                            const scan_t &scan) {
@@ -61,10 +63,12 @@ PreparedStatement Q_6_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                   return {arg[ol_amount]};
                 },
                 {SUM})
-            .print([&](const auto &arg,
-                       std::string outrel) -> std::vector<expression_t> {
-              return {arg[ol_amount].as(outrel, revenue)};
-            });
+            .print(
+                [&](const auto &arg,
+                    std::string outrel) -> std::vector<expression_t> {
+                  return {arg[ol_amount].as(outrel, revenue)};
+                },
+                std::string{"CH_Q_06"} + std::to_string(q_instance++));
 
   return rel.prepare();
 }

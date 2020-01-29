@@ -20,20 +20,5 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
-#include <gflags/gflags.h>
 
-DECLARE_uint64(num_olap_clients);
-DECLARE_uint64(num_olap_repeat);
-DECLARE_uint64(num_oltp_clients);
-DECLARE_string(plan_json);
-DECLARE_string(plan_dir);
-DECLARE_string(inputs_dir);
-DECLARE_bool(run_oltp);
-DECLARE_bool(run_olap);
-DECLARE_uint64(oltp_elastic_threshold);
-DECLARE_uint64(ch_scale_factor);
-
-DECLARE_bool(gpu_olap);
-DECLARE_string(htap_mode);
-DECLARE_bool(per_query_snapshot);
-DECLARE_int64(etl_interval_ms);
+#include "query-interface.hpp"

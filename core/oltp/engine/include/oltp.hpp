@@ -123,7 +123,7 @@ class OLTP {
     workers_in_home = !workers_in_home;
   }
 
-  inline double getFreshnessRatio() {
+  inline std::pair<size_t, size_t> getFreshness() {
     // diff b/w oltp arena and olap arena
 
     size_t total_olap = 0;
@@ -134,16 +134,45 @@ class OLTP {
       total_olap = tmp.first;
       total_oltp = tmp.second;
     }
+    return std::make_pair(total_olap, total_oltp);
+  }
 
+  inline double getFreshnessRatio() {
+    auto tmp = getFreshness();
+    return ((double)tmp.first) / ((double)tmp.second);
+  }
+
+  inline std::pair<size_t, size_t> getFreshnessRelation(
+      std::vector<std::string> &tables) {
+    size_t total_olap = 0;
+    size_t total_oltp = 0;
+    for (auto &tb : tables) {
+      auto tmp = _getFreshnessRelation(db->getTable(tb));
+      total_olap = tmp.first;
+      total_oltp = tmp.second;
+    }
+    return std::make_pair(total_olap, total_oltp);
+  }
+
+  inline double getFreshnessRatioRelation(std::vector<std::string> &tables) {
+    size_t total_olap = 0;
+    size_t total_oltp = 0;
+    for (auto &tb : tables) {
+      auto tmp = _getFreshnessRelation(db->getTable(tb));
+      total_olap = tmp.first;
+      total_oltp = tmp.second;
+    }
     return ((double)total_olap) / ((double)total_oltp);
   }
 
   inline double getFreshnessRatioRelation(std::string table_name) {
-    return _getFreshnessRatioRelation(db->getTable(table_name));
+    auto tmp = _getFreshnessRelation(db->getTable(table_name));
+    return ((double)tmp.first) / ((double)tmp.second);
   }
 
   inline double getFreshnessRationRelation(int table_idx) {
-    return _getFreshnessRatioRelation(db->getTable(table_idx));
+    auto tmp = _getFreshnessRelation(db->getTable(table_idx));
+    return ((double)tmp.first) / ((double)tmp.second);
   }
 
  private:
@@ -167,14 +196,6 @@ class OLTP {
     }
 
     return std::make_pair(olap_sum, oltp_sum);
-  }
-
-  inline double _getFreshnessRatioRelation(storage::Table *rel) {
-    auto tmp = _getFreshnessRelation(rel);
-    // first - olap snapshot
-    // second - oltp snapshot
-
-    return ((double)tmp.first) / ((double)tmp.second);
   }
 };
 

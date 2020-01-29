@@ -30,6 +30,7 @@
 
 #include "aeolus-plugin.hpp"
 #include "plan/prepared-statement.hpp"
+#include "prepared-query.hpp"
 #include "routing/affinitizers.hpp"
 #include "routing/degree-of-parallelism.hpp"
 
@@ -46,7 +47,7 @@ typedef std::function<RelBuilder(std::string, std::vector<std::string>)> scan_t;
 typedef std::function<std::unique_ptr<Affinitizer>()> aff_t;
 
 template <int64_t id>
-struct Q {
+class Q {
  private:
   static constexpr int64_t Qid = id;
 
@@ -68,14 +69,16 @@ struct Q {
 
  public:
   template <typename Tplugin = AeolusRemotePlugin, typename Tp, typename Tr>
-  inline static PreparedStatement prepare(DegreeOfParallelism dop,
-                                          Tp aff_parallel, Tr aff_reduce,
-                                          DeviceType dev = DeviceType::CPU) {
+  inline static PreparedQuery prepare(DegreeOfParallelism dop, Tp aff_parallel,
+                                      Tr aff_reduce,
+                                      DeviceType dev = DeviceType::CPU) {
     if (dop == DegreeOfParallelism{1} && dev == DeviceType::CPU) {
       return c1t<Tplugin>();
     }
     return cpar<Tplugin>(dop, aff_parallel, aff_reduce, dev);
   }
+
+  // static query_rel_t query_relations;
 };
 
 #endif /* HARMONIA_QUERIES_HPP_ */

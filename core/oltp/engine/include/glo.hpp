@@ -34,15 +34,15 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #define diascld33 false
 #define diascld40 false
-#define diascld48 true
+#define diascld48 false
 
-#define icc148 false
+#define icc148 true
 
 #define DEFAULT_OLAP_SOCKET 0
 
 #define HTAP_DOUBLE_MASTER true
 #define HTAP_COW false
-#define HTAP_ETL false  // for this, double master should be turned on too.
+#define HTAP_ETL true  // for this, double master should be turned on too.
 
 // Memory Allocators
 #define HTAP_RM_SERVER false
@@ -113,7 +113,7 @@ using PrimaryIndex = indexes::HashArray<T_KEY>;
 constexpr short num_master_versions = 2;
 constexpr short num_delta_storages = 2;
 
-constexpr bool reverse_partition_numa_mapping = false;
+constexpr bool reverse_partition_numa_mapping = true;
 
 }  // namespace global_conf
 

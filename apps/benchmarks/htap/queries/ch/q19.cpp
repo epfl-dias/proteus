@@ -22,6 +22,8 @@
 */
 #include "q19.hpp"
 
+static int q_instance = 30;
+
 PreparedStatement Q_19_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                             const aff_t &aff_reduce, DeviceType dev,
                             const scan_t &scan) {
@@ -137,9 +139,8 @@ PreparedStatement Q_19_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
               std::string outrel) -> std::vector<expression_t> {
             return {arg["$0"].as(outrel, "revenue")};
           },
-          std::string{query} +
-              (memmv
-                   ? "mv"
-                   : "nmv"))  // (trait=[ENUMERABLE.[].X86_64.unpckd.homSingle.hetSingle.cX86_64])
+          std::string{query} + (memmv ? "mv" : "nmv") +
+              std::to_string(
+                  q_instance++))  // (trait=[ENUMERABLE.[].X86_64.unpckd.homSingle.hetSingle.cX86_64])
       .prepare();
 }

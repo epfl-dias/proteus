@@ -26,17 +26,9 @@
 
 #include "glo.hpp"
 
-static bool validateETL(const char *flagname, bool value) {
-  if (value && !HTAP_ETL) {
-    std::cerr << "Invalid value for --" << flagname
-              << ": ETL mode requires HTAP_ETL flag in OLTP" << std::endl;
-    return false;
-  } else
-    return true;
-}
-
 DEFINE_uint64(num_olap_clients, 1, "Number of OLAP clients");
-DEFINE_uint64(num_olap_repeat, 10, "Number of OLAP clients");
+DEFINE_uint64(num_olap_repeat, 10,
+              "Number of OLAP clients repeat query sequence");
 DEFINE_uint64(num_oltp_clients, 0,
               "Number of OLTP clients (default: cpu-only: one-numa-socket, "
               "gpu-only: all cpus");
@@ -47,17 +39,12 @@ DEFINE_string(inputs_dir, "inputs/", "Data and catalog directory");
 DEFINE_bool(run_oltp, true, "Run OLTP");
 DEFINE_bool(run_olap, true, "Run OLAP");
 DEFINE_uint64(oltp_elastic_threshold, 0, "elastic_oltp cores");
-
 DEFINE_uint64(ch_scale_factor, 0, "CH-Bench scale factor");
-DEFINE_bool(etl, false, "ETL on snapshot");
-DEFINE_bool(trade_core, false, "trade case for elasticiy");
 DEFINE_bool(gpu_olap, false, "OLAP on GPU, OLTP on CPU");
-
-DEFINE_bool(bench_ycsb, false, "OLTP Bench: true-ycsb, false-tpcc (default)");
-DEFINE_double(ycsb_write_ratio, 0.5, "Writer to reader ratio");
 
 DEFINE_string(htap_mode, "ISOLATED",
               "OLAP Scheduling Mode: 1) ISOLATED, 2) COLOC 3) HYBRID-ISOLATED "
               "4) HYBRID-COLOC 5) ADAPTIVE");
 
-DEFINE_validator(etl, &validateETL);
+DEFINE_bool(per_query_snapshot, true, "Query-level data freshness");
+DEFINE_int64(etl_interval_ms, -1, "max ETL interval");

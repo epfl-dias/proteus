@@ -55,7 +55,7 @@
 #elif diascld48
 #define TPCC_MAX_ORD_PER_DIST 350000  // 2 master - 2 socket
 #elif icc148
-#define TPCC_MAX_ORD_PER_DIST 1000000  // 2 master - 1 socket
+#define TPCC_MAX_ORD_PER_DIST 2000000  // 2 master - 1 socket
 #else
 #define TPCC_MAX_ORD_PER_DIST 200000
 #endif

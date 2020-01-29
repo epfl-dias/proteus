@@ -31,6 +31,7 @@
 #include <vector>
 
 #include "oltp.hpp"
+#include "prepared-query.hpp"
 
 using exec_nodes = std::vector<topology::numanode *>;
 typedef std::chrono::time_point<std::chrono::system_clock> timepoint_t;
@@ -101,15 +102,15 @@ class HTAPSequenceConfig {
 class OLAPSequence {
  private:
   int total_queries;
-  int client_id;
-  std::vector<PreparedStatement> stmts;
+
+  std::vector<PreparedQuery> stmts;
   std::deque<OLAPSequenceStats *> stats;
   HTAPSequenceConfig conf;
 
  public:
   OLAPSequence(int client_id, HTAPSequenceConfig conf, DeviceType dev);
-  void execute(OLTP &txn_engine, int repeat = 1,
-               bool per_query_snapshot = false);
+  void execute(OLTP &txn_engine, int repeat = 1, bool per_query_snapshot = true,
+               size_t etl_interval_ms = std::numeric_limits<size_t>::max());
 
   friend std::ostream &operator<<(std::ostream &, const OLAPSequence &);
   friend std::ostream &operator<<(std::ostream &, const OLAPSequenceStats &);
@@ -120,11 +121,16 @@ class OLAPSequence {
  private:
   void migrateState(SchedulingPolicy::ScheduleMode &curr,
                     SchedulingPolicy::ScheduleMode to, OLTP &txn_engine);
-  SchedulingPolicy::ScheduleMode getNextState();
+  SchedulingPolicy::ScheduleMode getNextState(
+      SchedulingPolicy::ScheduleMode current_state, OLTP &txn_engine,
+      size_t &query_idx);
   void setupAdaptiveSequence();
   auto getIsolatedOLAPResources();
   auto getColocatedResources();
   auto getElasticResources();
+
+ public:
+  const int client_id;
 };
 
 std::ostream &operator<<(std::ostream &, const OLAPSequence &);

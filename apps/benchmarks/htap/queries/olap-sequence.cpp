@@ -39,13 +39,40 @@
 // FIXME: remove following
 #define ETL_AFFINITY_SOCKET 0
 
+constexpr auto num_ch_q = 4;
 template <typename plugin_t, typename aff_t, typename red_t>
-constexpr auto CH_queries = {
-    Q<1>::prepare<plugin_t, aff_t, red_t>,
-    // Q<4>::prepare<plugin_t, aff_t, red_t>,
-    // Q<6>::prepare<plugin_t, aff_t, red_t>,
-    // Q<19>::prepare<plugin_t, aff_t, red_t>
-};
+constexpr auto CH_queries = {Q<1>::prepare<plugin_t, aff_t, red_t>,
+                             Q<4>::prepare<plugin_t, aff_t, red_t>,
+                             Q<6>::prepare<plugin_t, aff_t, red_t>,
+                             Q<19>::prepare<plugin_t, aff_t, red_t>};
+
+// auto q1_rel = {std::make_pair(
+//     "tpcc_orderline", std::vector<std::string>{"ol_delivery_d", "ol_number",
+//                                                "ol_amount", "ol_quantity"})};
+// auto q4_rel = {
+//     std::make_pair("tpcc_order",
+//                    std::vector<std::string>{"o_id", "o_d_id", "o_w_id",
+//                                             "o_entry_d", "o_ol_cnt"}),
+//     std::make_pair("tpcc_orderline",
+//                    std::vector<std::string>{"ol_o_id", "ol_d_id", "ol_w_id",
+//                                             "ol_delivery_d"})};
+// auto q6_rel = {std::make_pair(
+//     "tpcc_orderline",
+//     std::vector<std::string>{"ol_delivery_d", "ol_quantity", "ol_amount"})};
+// auto q19_rel = {
+//     std::make_pair("tpcc_item", std::vector<std::string>{"i_id", "i_price"}),
+//     std::make_pair("tpcc_orderline",
+//                    std::vector<std::string>{"ol_w_id", "ol_i_id",
+//                    "ol_quantity",
+//                                             "ol_amount"})};
+
+const auto q1_rel = std::vector<std::string>{"tpcc_orderline"};
+const auto q4_rel = std::vector<std::string>{"tpcc_order", "tpcc_orderline"};
+const auto q6_rel = std::vector<std::string>{"tpcc_orderline"};
+const auto q19_rel = std::vector<std::string>{"tpcc_item", "tpcc_orderline"};
+
+auto ch_relations =
+    std::vector<std::vector<std::string>>{q1_rel, q4_rel, q6_rel, q19_rel};
 
 auto OLAPSequence::getIsolatedOLAPResources() {
   std::vector<SpecificCpuCoreAffinitizer::coreid_t> coreids;
@@ -369,6 +396,16 @@ std::ostream &operator<<(std::ostream &out, const OLAPSequenceStats &r) {
     i++;
   }
 
+  uint k = 0;
+  for (const auto &q : r.sts_state) {
+    out << "\t\tQState # " << (k + 1) << " -";
+    for (const auto &q_ts : q) {
+      out << "\t" << q_ts;
+    }
+    out << std::endl;
+    k++;
+  }
+
   out << "\tSequence Time "
       << " -";
   for (const auto &st : r.sequence_time) {
@@ -526,12 +563,56 @@ void OLAPSequence::migrateState(SchedulingPolicy::ScheduleMode &curr,
   curr = to;
 }
 
-SchedulingPolicy::ScheduleMode OLAPSequence::getNextState() {
-  return SchedulingPolicy::S2_ISOLATED;
+SchedulingPolicy::ScheduleMode OLAPSequence::getNextState(
+    SchedulingPolicy::ScheduleMode current_state, OLTP &txn_engine,
+    size_t &query_idx) {
+  // txn_engine.getFreshnessRatio();
+  // getFreshnessRatioRelation(std::string table_name)
+
+  // Need to capture information about the query,
+  // somehow pass the metadata of query in this function, so that we know
+  // exactly what this query will touch and what are the exact requirements.
+
+  /*
+  The ratio of fresh data to the overall amount of data that the query will
+  access is given by Rf q , whereas the ratio of fresh data that the query will
+  access to the overall number of fresh data is given by Rf t .
+  */
+
+  // BUG: account for number of columns in query and the datatype.
+  // For the fresh tuples, account for the updates else inserts will be same no
+  // matter what.
+
+  auto db_f = txn_engine.getFreshness();
+  auto query_f =
+      txn_engine.getFreshnessRelation(ch_relations[(query_idx % num_ch_q)]);
+
+  auto query_fresh_data = query_f.second - query_f.first;
+  auto total_fresh_data = db_f.second - db_f.first;
+
+  // R_fq
+  double r_fq = ((double)query_fresh_data) / ((double)query_f.second);
+  double r_ft = ((double)query_fresh_data) / ((double)total_fresh_data);
+
+  if (r_fq < r_ft) {
+    if (conf.oltp_scale_threshold <= 0) {
+      return SchedulingPolicy::S3_IS;
+    } else {
+      return SchedulingPolicy::S3_NI;
+    }
+
+  } else {
+    return SchedulingPolicy::S2_ISOLATED;
+  }
+}
+
+static inline size_t time_diff(timepoint_t end, timepoint_t start) {
+  return std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+      .count();
 }
 
 void OLAPSequence::execute(OLTP &txn_engine, int repeat,
-                           bool per_query_snapshot) {
+                           bool per_query_snapshot, size_t etl_interval_ms) {
   assert(conf.schedule_policy != SchedulingPolicy::CUSTOM &&
          "Not supported currently");
 
@@ -539,6 +620,15 @@ void OLAPSequence::execute(OLTP &txn_engine, int repeat,
   static uint run = 0;
   OLAPSequenceStats *stats_local =
       new OLAPSequenceStats(++run, stmts.size(), repeat);
+
+  timepoint_t last_etl = std::chrono::system_clock::now() -
+                         std::chrono::milliseconds(etl_interval_ms);
+
+  // txn_engine.snapshot();
+  // if (current_state != SchedulingPolicy::S1_COLOCATED) {
+  //   txn_engine.etl(ETL_AFFINITY_SOCKET);
+  //   last_etl = std::chrono::system_clock::now();
+  // }
 
   // warm-up
   LOG(INFO) << "Warm-up execution - BEGIN";
@@ -557,48 +647,72 @@ void OLAPSequence::execute(OLTP &txn_engine, int repeat,
   for (int i = 0; i < repeat; i++) {
     LOG(INFO) << "Sequence # " << i;
     timepoint_t start_seq = std::chrono::system_clock::now();
+    // add time based ETL here.
+
     if (!per_query_snapshot) {
       txn_engine.snapshot();
-      if (current_state == SchedulingPolicy::S2_ISOLATED) {
+      if (current_state == SchedulingPolicy::S2_ISOLATED ||
+          (conf.schedule_policy != SchedulingPolicy::S1_COLOCATED &&
+           time_diff(std::chrono::system_clock::now(), last_etl) >=
+               etl_interval_ms)) {
         txn_engine.etl(ETL_AFFINITY_SOCKET);
+        last_etl = std::chrono::system_clock::now();
       }
     }
-    for (size_t j = 0; j < stmts.size(); j++) {
-      if (conf.schedule_policy == SchedulingPolicy::ADAPTIVE)
-        migrateState(current_state, getNextState(), txn_engine);
-
+    for (size_t j = 0; j < total_queries; j++) {
+      // update the snapshot
       if (per_query_snapshot) {
         txn_engine.snapshot();
-        if (current_state == SchedulingPolicy::S2_ISOLATED) {
-          txn_engine.etl(ETL_AFFINITY_SOCKET);
+
+        if (conf.schedule_policy != SchedulingPolicy::S2_ISOLATED ||
+            conf.schedule_policy != SchedulingPolicy::S1_COLOCATED) {
+          if (time_diff(std::chrono::system_clock::now(), last_etl) >=
+              etl_interval_ms) {
+            LOG(INFO) << "ETL_TIME:";
+            txn_engine.etl(ETL_AFFINITY_SOCKET);
+            last_etl = std::chrono::system_clock::now();
+          }
         }
       }
 
+      // migrate state according to freshness depending on the freshness of each
+      // snapshots (olap and otlp)
+      if (conf.schedule_policy == SchedulingPolicy::ADAPTIVE)
+        migrateState(current_state, getNextState(current_state, txn_engine, j),
+                     txn_engine);
+
+      if (current_state == SchedulingPolicy::S2_ISOLATED) {
+        // have to do it anyway
+        LOG(INFO) << "ETL_STATE:";
+        txn_engine.etl(ETL_AFFINITY_SOCKET);
+        last_etl = std::chrono::system_clock::now();
+      }
+
+      // Query Execution
+
       timepoint_t start = std::chrono::system_clock::now();
 
-      LOG(INFO) << stmts[j].execute();
+      if (conf.schedule_policy == SchedulingPolicy::ADAPTIVE)
+        // execute apprpriate query
+        LOG(INFO) << stmts[j * conf.schedule_policy].execute();
+      else
+        LOG(INFO) << stmts[j].execute();
       timepoint_t end = std::chrono::system_clock::now();
 
       stats_local->oltp_stats[j].push_back(
           txn_engine.get_differential_stats(true));
 
-      stats_local->sts[j].push_back(std::make_pair(
-          std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                global_start)
-              .count(),
-          std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-              .count()));
+      stats_local->sts[j].push_back(
+          std::make_pair(time_diff(end, global_start), time_diff(end, start)));
       stats_local->sts_state[j].push_back(current_state);
     }
+
+    // End sequence
     timepoint_t end_seq = std::chrono::system_clock::now();
     stats_local->sequence_time.push_back(std::make_pair(
-        std::chrono::duration_cast<std::chrono::milliseconds>(end_seq -
-                                                              global_start)
-            .count(),
-        std::chrono::duration_cast<std::chrono::milliseconds>(end_seq -
-                                                              start_seq)
-            .count()));
+        time_diff(end_seq, global_start), time_diff(end_seq, start_seq)));
   }
+
   LOG(INFO) << "Stats-Local:";
   LOG(INFO) << *stats_local;
   LOG(INFO) << "Stats-Local-END";

@@ -24,6 +24,8 @@
 
 #include "ch-queries.hpp"
 
+static int q_instance = 0;
+
 PreparedStatement Q_1_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                            const aff_t &aff_reduce, DeviceType dev,
                            const scan_t &scan) {
@@ -79,18 +81,20 @@ PreparedStatement Q_1_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                           arg[count_order]};
                 },
                 {direction::ASC, direction::NONE, direction::NONE})
-            .print([&](const auto &arg,
-                       std::string outrel) -> std::vector<expression_t> {
-              return {arg[ol_number].as(outrel, ol_number),
-                      arg[ol_quantity].as(outrel, "sum_qty"),
-                      arg[ol_amount].as(outrel, "sum_amount"),
-                      (arg[ol_quantity] / (arg[count_order] + 1))
-                          .as(outrel, "avg_qty"),
-                      (arg[ol_amount] /
-                       (arg[count_order] + 1).template as<FloatType>())
-                          .as(outrel, "avg_amount"),
-                      arg[count_order].as(outrel, count_order)};
-            });
+            .print(
+                [&](const auto &arg,
+                    std::string outrel) -> std::vector<expression_t> {
+                  return {arg[ol_number].as(outrel, ol_number),
+                          arg[ol_quantity].as(outrel, "sum_qty"),
+                          arg[ol_amount].as(outrel, "sum_amount"),
+                          (arg[ol_quantity] / (arg[count_order] + 1))
+                              .as(outrel, "avg_qty"),
+                          (arg[ol_amount] /
+                           (arg[count_order] + 1).template as<FloatType>())
+                              .as(outrel, "avg_amount"),
+                          arg[count_order].as(outrel, count_order)};
+                },
+                std::string{"CH_Q_01"} + std::to_string(q_instance++));
 
   return rel.prepare();
 }

@@ -130,17 +130,10 @@ int main(int argc, char *argv[]) {
   exec_location{nodes[OLAP_socket]}.activate();
 
   oltp_engine.snapshot();
-  if (FLAGS_etl) {
-    oltp_engine.etl(OLAP_socket);
-  }
-
-  int client_id = 1;
+  oltp_engine.etl(OLAP_socket);
 
   std::vector<topology::numanode *> oltp_nodes;
   std::vector<topology::numanode *> olap_nodes;
-
-  // oltp_nodes.emplace_back((topology::numanode *)&nodes[OLTP_socket]);
-  // olap_nodes.emplace_back((topology::numanode *)&nodes[OLAP_socket]);
 
   if (FLAGS_gpu_olap) {
     for (const auto &n : nodes) {
@@ -151,14 +144,6 @@ int main(int argc, char *argv[]) {
       olap_nodes.emplace_back((topology::numanode *)&gpu_n);
     }
   } else {
-    // assert(false && "set nodes for cpu-only mode");
-    // for (const auto &n : nodes) {
-    //   oltp_nodes.emplace_back((topology::numanode *)&n);
-    // }
-    // for (const auto &n : nodes) {
-    //   olap_nodes.emplace_back((topology::numanode *)&n);
-    // }
-
     oltp_nodes.emplace_back((topology::numanode *)&nodes[OLTP_socket]);
     olap_nodes.emplace_back((topology::numanode *)&nodes[OLAP_socket]);
   }
@@ -183,8 +168,12 @@ int main(int argc, char *argv[]) {
                                FLAGS_oltp_elastic_threshold,
                                (oltp_num_workers / 2), schedule_policy);
 
-  OLAPSequence olap_queries(
-      1, htap_conf, (FLAGS_gpu_olap ? DeviceType::GPU : DeviceType::CPU));
+  std::vector<OLAPSequence> olap_clients;
+
+  for (int i = 0; i < FLAGS_num_olap_clients; i++) {
+    olap_clients.emplace_back(
+        i, htap_conf, (FLAGS_gpu_olap ? DeviceType::GPU : DeviceType::CPU));
+  }
 
   profiling::resume();
 
@@ -199,8 +188,18 @@ int main(int argc, char *argv[]) {
   exec_location{nodes[OLAP_socket]}.activate();
 
   if (FLAGS_run_olap) {
-    olap_queries.execute(oltp_engine, FLAGS_num_olap_repeat, true);
-    LOG(INFO) << "OLAP sequence completed.";
+    for (auto &olap_cl : olap_clients) {
+      if (FLAGS_etl_interval_ms > 0) {
+        olap_cl.execute(oltp_engine, FLAGS_num_olap_repeat,
+                        FLAGS_per_query_snapshot, FLAGS_etl_interval_ms);
+      } else {
+        olap_cl.execute(oltp_engine, FLAGS_num_olap_repeat,
+                        FLAGS_per_query_snapshot);
+      }
+
+      // LOG(INFO) << olap_cl;
+      LOG(INFO) << "OLAP client#" << olap_cl.client_id << " finished.";
+    }
 
     // LOG(INFO) << olap_queries;
   }
@@ -211,6 +210,8 @@ int main(int argc, char *argv[]) {
     // FIXME: hack because it needs to run before it can be stopped
     oltp_engine.run();
   }
+
+  profiling::pause();
 
   LOG(INFO) << "Shutdown initiated";
 

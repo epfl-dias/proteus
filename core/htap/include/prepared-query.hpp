@@ -1,5 +1,5 @@
 /*
-    Proteus -- High-performance query processing on heterogeneous hardware.
+    Harmonia -- High-performance elastic HTAP on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Laboratory (DIAS)
@@ -20,20 +20,28 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
-#include <gflags/gflags.h>
 
-DECLARE_uint64(num_olap_clients);
-DECLARE_uint64(num_olap_repeat);
-DECLARE_uint64(num_oltp_clients);
-DECLARE_string(plan_json);
-DECLARE_string(plan_dir);
-DECLARE_string(inputs_dir);
-DECLARE_bool(run_oltp);
-DECLARE_bool(run_olap);
-DECLARE_uint64(oltp_elastic_threshold);
-DECLARE_uint64(ch_scale_factor);
+#ifndef HARMONIA_PREPARED_QUERY_HPP_
+#define HARMONIA_PREPARED_QUERY_HPP_
 
-DECLARE_bool(gpu_olap);
-DECLARE_string(htap_mode);
-DECLARE_bool(per_query_snapshot);
-DECLARE_int64(etl_interval_ms);
+#include "plan/prepared-statement.hpp"
+
+// std::vector<std::string relName, std::vector<std::string> relAttrs>
+typedef std::vector<std::pair<std::string, std::vector<std::string>>>
+    query_rel_t;
+
+class PreparedQuery : public PreparedStatement {
+ public:
+  query_rel_t query_relations;
+
+  PreparedQuery(PreparedStatement q) : PreparedStatement(std::move(q)) {}
+
+  PreparedQuery(PreparedStatement q, query_rel_t relations)
+      : PreparedStatement(std::move(q)), query_relations(relations) {}
+
+  void setQueryRelations(query_rel_t r) { query_relations = std::move(r); }
+
+  query_rel_t &getQueryRelations() { return query_relations; }
+};
+
+#endif /* HARMONIA_PREPARED_QUERY_HPP_ */
