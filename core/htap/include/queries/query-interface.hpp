@@ -24,12 +24,26 @@
 #ifndef HARMONIA_QUERIES_HPP_
 #define HARMONIA_QUERIES_HPP_
 
+#include <functional>
+#include <operators/relbuilder-factory.hpp>
 #include <string>
 
 #include "aeolus-plugin.hpp"
 #include "plan/prepared-statement.hpp"
 #include "routing/affinitizers.hpp"
 #include "routing/degree-of-parallelism.hpp"
+
+template <typename Tplugin>
+inline static auto getBuilder(const std::string &query) {
+  static RelBuilderFactory ctx{query + typeid(Tplugin).name()};
+  return ctx.getBuilder();
+}
+
+inline static auto &getCatalog() { return CatalogParser::getInstance(); }
+
+typedef std::function<RelBuilder(std::string, std::vector<std::string>)> scan_t;
+
+typedef std::function<std::unique_ptr<Affinitizer>()> aff_t;
 
 template <int64_t id>
 struct Q {
@@ -44,6 +58,13 @@ struct Q {
   template <typename Tplugin = AeolusRemotePlugin, typename Tp, typename Tr>
   inline static PreparedStatement cpar(DegreeOfParallelism dop, Tp aff_parallel,
                                        Tr aff_reduce, DeviceType dev);
+
+  template <typename Tplugin>
+  static auto scan(std::string relName, std::vector<std::string> relAttrs) {
+    return getBuilder<Tplugin>("ch_Q" + std::to_string(Qid))
+        .template scan<Tplugin>(relName, relAttrs,
+                                CatalogParser::getInstance());
+  }
 
  public:
   template <typename Tplugin = AeolusRemotePlugin, typename Tp, typename Tr>

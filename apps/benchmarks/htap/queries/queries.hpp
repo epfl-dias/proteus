@@ -27,7 +27,7 @@
 #include <string>
 
 #include "aeolus-plugin.hpp"
-#include "operators/relbuilder.hpp"  // TODO: fix rel path issue
+#include "operators/relbuilder.hpp"
 #include "plan/catalog-parser.hpp"
 #include "queries/query-interface.hpp"
 

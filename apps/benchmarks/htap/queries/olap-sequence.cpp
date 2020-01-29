@@ -25,9 +25,9 @@
 
 #include <aeolus-plugin.hpp>
 #include <ch100w/query.hpp>
-#include <include/routing/affinitizers.hpp>
-#include <include/routing/degree-of-parallelism.hpp>
 #include <numeric>
+#include <routing/affinitizers.hpp>
+#include <routing/degree-of-parallelism.hpp>
 #include <topology/affinity_manager.hpp>
 #include <topology/topology.hpp>
 #include <util/timing.hpp>

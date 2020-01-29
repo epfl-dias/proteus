@@ -15,8 +15,8 @@ add_library(aeolus_bench SHARED
 # paths.
 target_include_directories(aeolus_bench
 		PUBLIC
-			$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-			$<INSTALL_INTERFACE:include>
+			$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+			$<INSTALL_INTERFACE:.>
 		PRIVATE
 			src)
 

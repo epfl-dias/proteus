@@ -3,6 +3,10 @@
 
 set(htap_bench_cxx
 		htap-cli-flags.cpp
+		queries/ch/q01.cpp
+		queries/ch/q04.cpp
+		queries/ch/q06.cpp
+		queries/ch/q19.cpp
 		queries/ch/ch-queries.cpp
 		queries/olap-sequence.cpp
     )
@@ -32,8 +36,6 @@ foreach(target
 		PUBLIC
 			$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 			$<INSTALL_INTERFACE:include>
-			./../../../core/olap
-			./../oltp/bench
 		PRIVATE
 			src)
 	install(TARGETS htap-${target}
