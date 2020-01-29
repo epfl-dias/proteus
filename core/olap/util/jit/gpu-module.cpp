@@ -192,18 +192,48 @@ void GpuModule::optimizeModule(llvm::Module *M) {
   Passes.run(*M);
 }
 
-// extern char _binary_device_funcs_cubin_end  [];
-// extern char _binary_device_funcs_cubin_size   ; //size = (size_t)
-// &_binary_device_funcs_cubin_size extern char
-// _binary_device_funcs_cubin_start[];
-
-extern const char *const _binary_buffer_manager_bc_start;
-extern const char *const _binary_buffer_manager_bc_end;
-// extern const size_t _binary_buffer_manager_bc_size;
-
 constexpr size_t BUFFER_SIZE = 8192;
 char error_log[BUFFER_SIZE];
 char info_log[BUFFER_SIZE];
+
+std::pair<char *, char *> discover_bc() {
+  // FIXME: should use a loop instead of nested ifs... also, we should cache
+  // the result per sm
+  // Compute symbol name for one of the GPU architecture, and use that to
+  // retrieve the corresponding binary blob.
+  // FIXME: We assume compute and arch are equal!
+  // FIXME: Add error handling, we are generating a symbol name and
+  //        assuming it is going to be available...
+  int dev;
+  gpu_run(cudaGetDevice(&dev));
+  cudaDeviceProp deviceProp;
+  gpu_run(cudaGetDeviceProperties(&deviceProp, dev));
+  auto sm_code = std::to_string(deviceProp.major * 10 + deviceProp.minor);
+
+  auto sim_prefix =
+      "_binary_buffer_manager_cuda_nvptx64_nvidia_cuda_sm_" + sm_code + "_bc_";
+  auto sim_start = sim_prefix + "start";
+  auto sim_end = sim_prefix + "end";
+
+  void *handle = dlopen(nullptr, RTLD_LAZY | RTLD_GLOBAL);
+  assert(handle);
+
+  auto _binary_buffer_manager_cubin_start =
+      (char *)dlsym(handle, sim_start.c_str());
+  auto _binary_buffer_manager_cubin_end =
+      (char *)dlsym(handle, sim_end.c_str());
+
+  assert(_binary_buffer_manager_cubin_start && "cubin start symbol not found!");
+  assert(_binary_buffer_manager_cubin_end && "cubin end symbol not found!");
+
+  LOG(INFO) << "[Load CUBIN blob: ] sim_start: " << sim_start
+            << ", sim_end: " << sim_end;
+  LOG(INFO) << "[Load CUBIN blob: ] start: "
+            << (void *)_binary_buffer_manager_cubin_start
+            << ", end: " << (void *)_binary_buffer_manager_cubin_end;
+
+  return {_binary_buffer_manager_cubin_start, _binary_buffer_manager_cubin_end};
+}
 
 void GpuModule::compileAndLoad() {
 #ifndef NCUDA
@@ -225,8 +255,9 @@ void GpuModule::compileAndLoad() {
   }
 #endif
   llvm::SMDiagnostic error;
-  auto start = (const char *)&_binary_buffer_manager_bc_start;
-  auto end = (const char *)&_binary_buffer_manager_bc_end;
+  auto binary_bc = discover_bc();
+  auto start = (const char *)binary_bc.first;
+  auto end = (const char *)binary_bc.second;
   size_t size = end - start;
   auto mb2 =
       llvm::MemoryBuffer::getMemBuffer(llvm::StringRef{start, size}, "", false);

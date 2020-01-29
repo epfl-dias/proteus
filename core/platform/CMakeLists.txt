@@ -63,29 +63,21 @@ string(REPLACE " " ";" BMFLAGS ${CUDA_CXXFLAGS})
 # Generate LLVM bitcode file with device code
 # The generated file is used for link-time optimization with the JITed code
 # TODO: correctly accept the includes and CXX flags
-add_custom_command(OUTPUT ${CUDA_WORKDIR}/buffer-manager.bc
+add_custom_command(OUTPUT ${CUDA_WORKDIR}/buffer-manager.bc.o
     COMMAND ${CMAKE_CXX_COMPILER}
         ${CMAKE_CURRENT_SOURCE_DIR}/memory/buffer-manager.cu
-        -o ${CUDA_WORKDIR}/buffer-manager.bc
         --cuda-device-only -c -emit-llvm -O3
         # TODO: correctly accept the CXX flags
         --std=c++17 ${BMFLAGS}
         # TODO: correctly accept the includes flags
         -I${CMAKE_CURRENT_SOURCE_DIR} -isystem ${CMAKE_BINARY_DIR}/glog-build -isystem ${CMAKE_BINARY_DIR}/glog-src/src
+    # Embed the generated file into the library
+    COMMAND ld -r -b binary buffer-manager*.bc
+        -o ${CUDA_WORKDIR}/buffer-manager.bc.o
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/memory/buffer-manager.cu
     IMPLICIT_DEPENDS CXX ${CMAKE_CURRENT_SOURCE_DIR}/memory/buffer-manager.cu
     WORKING_DIRECTORY ${CUDA_WORKDIR}
-    COMMENT "Building CUDA LLVM bitcode ${CUDA_WORKDIR}/buffer-manager.bc"
-)
-
-# Embed the generated file into the library
-add_custom_command(OUTPUT ${CUDA_WORKDIR}/buffer-manager.bc.o
-    COMMAND ld -r -b binary
-        buffer-manager*.bc
-        -o ${CUDA_WORKDIR}/buffer-manager.bc.o
-    DEPENDS ${CUDA_WORKDIR}/buffer-manager.bc
-    WORKING_DIRECTORY ${CUDA_WORKDIR}
-    COMMENT "Linking CUDA object ${CUDA_WORKDIR}/buffer-manager.bc.o"
+    COMMENT "Building CUDA LLVM bitcode ${CUDA_WORKDIR}/buffer-manager.bc.o"
 )
 #-----------------------------------------------------------------------------
 
