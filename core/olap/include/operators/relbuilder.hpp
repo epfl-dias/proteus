@@ -89,6 +89,37 @@ class RelBuilder {
     return scan(*pg);
   }
 
+  template <typename T>
+  RelBuilder print(T expr, std::string outrel, Plugin* pg = nullptr) const {
+    const auto vec = expr(getOutputArg(), outrel);
+#ifndef NDEBUG
+    for (const auto& e : vec) {
+      assert(e.isRegistered());
+      assert(e.getRegisteredRelName() == outrel);
+    }
+#endif
+    assert(pg == nullptr || outrel == pg->getName());
+    return print(vec, pg);
+  }
+
+  template <typename Tplugin, typename T>
+  RelBuilder print(T expr, std::string outrel) const {
+    auto pg = new Tplugin(ctx, outrel, {});
+    registerPlugin(outrel, pg);
+
+    return print(expr, outrel, pg);
+  }
+
+  template <typename T>
+  RelBuilder print(T expr, Plugin* pg) const {
+    return print(expr, pg->getName(), pg);
+  }
+
+  template <typename T>
+  RelBuilder print(T expr) const {
+    return print(expr, getModuleName());
+  }
+
   RelBuilder memmove(size_t slack, bool to_cpu) const;
 
   template <typename T>
@@ -252,23 +283,6 @@ class RelBuilder {
   }
 
   template <typename T>
-  RelBuilder print(T expr, std::string outrel) const {
-    const auto vec = expr(getOutputArg(), outrel);
-#ifndef NDEBUG
-    for (const auto& e : vec) {
-      assert(e.isRegistered());
-      assert(e.getRegisteredRelName() == outrel);
-    }
-#endif
-    return print(vec);
-  }
-
-  template <typename T>
-  RelBuilder print(T expr) const {
-    return print(expr, getModuleName());
-  }
-
-  template <typename T>
   RelBuilder unnest(T expr) const {
     return unnest(expr(getOutputArg()));
   }
@@ -309,7 +323,7 @@ class RelBuilder {
   RelBuilder sort(const vector<expression_t>& orderByFields,
                   const vector<direction>& dirs) const;
 
-  RelBuilder print(const vector<expression_t>& e) const;
+  RelBuilder print(const vector<expression_t>& e, Plugin* pg) const;
 
   RelBuilder unnest(expression_t e) const;
 

@@ -44,6 +44,8 @@ class Flush : public UnaryOperator {
 
   virtual RecordType getRowType() const { return {}; }
 
+  virtual std::string getOutputPath() { return outPath; }
+
  protected:
   Context *context;
   StateVar result_cnt_id;

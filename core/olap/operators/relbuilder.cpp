@@ -302,7 +302,7 @@ RelBuilder RelBuilder::sort(const vector<expression_t> &orderByFields,
   }
 }
 
-RelBuilder RelBuilder::print(const vector<expression_t> &e) const {
+RelBuilder RelBuilder::print(const vector<expression_t> &e, Plugin *pg) const {
   assert(!e.empty() && "Empty print");
   assert(e[0].isRegistered());
   std::string outrel = e[0].getRegisteredRelName();
@@ -317,11 +317,24 @@ RelBuilder RelBuilder::print(const vector<expression_t> &e) const {
     args.emplace_back(new RecordAttribute{e_e.getRegisteredAs()});
   }
 
-  InputInfo *datasetInfo = catalog.getOrCreateInputInfo(outrel, ctx);
+  InputInfo *datasetInfo;
+  if (pg == nullptr) {
+    datasetInfo = catalog.getOrCreateInputInfo(outrel, ctx);
+  } else {
+    datasetInfo = new InputInfo();
+    datasetInfo->path = outrel;
+    assert(
+        ctx &&
+        "A ParallelContext is required to register relationships on the fly");
+
+    catalog.setInputInfo(outrel, datasetInfo);
+    setOIDType(catalog, outrel, pg->getOIDType());
+  }
+
   datasetInfo->exprType =
       new BagType{RecordType{std::vector<RecordAttribute *>{args}}};
 
-  auto op = new Flush(e, root, ctx);
+  auto op = new Flush(e, root, ctx, outrel);
   return apply(op);
 }
 
@@ -334,7 +347,9 @@ PreparedStatement RelBuilder::prepare() {
   root->produce(ctx);
   ctx->prepareFunction(ctx->getGlobalFunction());
   ctx->compileAndLoad();
-  return {ctx->getPipelines(), ctx->getModuleName()};
+  auto p = dynamic_cast<Flush *>(root);
+  std::string outputFile = (p) ? p->getOutputPath() : ctx->getModuleName();
+  return {ctx->getPipelines(), outputFile};
 }
 
 RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
