@@ -311,8 +311,6 @@ Table::Table(std::string name, uint8_t table_id, layout_type storage_layout,
       storage_layout(storage_layout) {
   for (int i = 0; i < NUM_SOCKETS; i++) vid[i] = 0;
 
-  LOG(INFO) << "Registering table to OLAP";
-
   std::vector<RecordAttribute*> attrs;
   attrs.reserve(columns.size());
   for (const auto& t : columns) {
@@ -331,7 +329,9 @@ Table::Table(std::string name, uint8_t table_id, layout_type storage_layout,
   //  scheduler knows about the available plugins
   for (const auto& s : {"block-local", "block-remote", "block-cow",
                         "block-elastic", "block-elastic-ni"}) {
-    CatalogParser::getInstance().registerInput(name + "<" + s + ">", exprType);
+    auto tName = name + "<" + s + ">";
+    LOG(INFO) << "Registering table " << tName << " to OLAP";
+    CatalogParser::getInstance().registerInput(tName, exprType);
   }
 }
 

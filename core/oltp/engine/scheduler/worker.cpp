@@ -97,7 +97,6 @@ void Worker::run() {
   // std::cout << exec_core->local_cpu_index << std::endl;
   // std::cout << exec_core->index_in_topo << std::endl;
 
-  LOG(INFO) << "WID: " << this->id << "  " << exec_core->index_in_topo;
   set_exec_location_on_scope d{
       topology::getInstance().getCores()[exec_core->index_in_topo]};
 

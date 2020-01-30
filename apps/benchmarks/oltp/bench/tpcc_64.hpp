@@ -51,7 +51,7 @@
 #define index_on_order_tbl false  // also cascade to orderlne, neworder table
 
 #if diascld40
-#define TPCC_MAX_ORD_PER_DIST 700000  // 2 master - 2 socket
+#define TPCC_MAX_ORD_PER_DIST 200000  // 2 master - 2 socket
 #elif diascld48
 #define TPCC_MAX_ORD_PER_DIST 350000  // 2 master - 2 socket
 #elif icc148
