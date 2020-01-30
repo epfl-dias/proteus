@@ -131,7 +131,8 @@ ProteusValueMemory CSVPlugin::readValue(ProteusValueMemory mem_value,
 }
 
 ProteusValue CSVPlugin::hashValue(ProteusValueMemory mem_value,
-                                  const ExpressionType *type) {
+                                  const ExpressionType *type,
+                                  Context *context) {
   IRBuilder<> *Builder = context->getBuilder();
   switch (type->getTypeID()) {
     case BOOL: {
@@ -193,7 +194,8 @@ ProteusValue CSVPlugin::hashValue(ProteusValueMemory mem_value,
 }
 
 ProteusValue CSVPlugin::hashValueEager(ProteusValue valWrapper,
-                                       const ExpressionType *type) {
+                                       const ExpressionType *type,
+                                       Context *context) {
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = Builder->GetInsertBlock()->getParent();
   Value *tmp = valWrapper.value;
@@ -201,7 +203,7 @@ ProteusValue CSVPlugin::hashValueEager(ProteusValue valWrapper,
       context->CreateEntryBlockAlloca(F, "mem_cachedToHash", tmp->getType());
   Builder->CreateStore(tmp, mem_tmp);
   ProteusValueMemory mem_tmpWrapper = {mem_tmp, valWrapper.isNull};
-  return hashValue(mem_tmpWrapper, type);
+  return hashValue(mem_tmpWrapper, type, context);
 }
 
 void CSVPlugin::flushValue(ProteusValueMemory mem_value,

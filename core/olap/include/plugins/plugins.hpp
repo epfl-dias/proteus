@@ -24,6 +24,8 @@
 #ifndef PLUGINS_LLVM_HPP_
 #define PLUGINS_LLVM_HPP_
 
+#include <util/context.hpp>
+
 #include "common/common.hpp"
 //#include "expressions/expressions.hpp"
 //#include "operators/operators.hpp"
@@ -81,11 +83,13 @@ class Plugin {
 
   // Relevant for hashing visitors
   virtual ProteusValue hashValue(ProteusValueMemory mem_value,
-                                 const ExpressionType *type) = 0;
+                                 const ExpressionType *type,
+                                 Context *context) = 0;
   /* Hash without re-interpreting. Mostly relevant if some value is cached
    * Meant for primitive values! */
   virtual ProteusValue hashValueEager(ProteusValue value,
-                                      const ExpressionType *type) = 0;
+                                      const ExpressionType *type,
+                                      Context *context) = 0;
 
   /**
    * Not entirely sure which is the correct granularity for 'stuff to flush'

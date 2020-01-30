@@ -241,8 +241,8 @@ ProteusValue ExpressionHasherVisitor::visit(
           // Does order matter?
           // Does result of retrieving tuple1->tuple2 differ from
           // tuple2->tuple1??? (Probably should)
-          ProteusValue partialHash =
-              plugin->hashValue(mem_activeTuple, e->getExpressionType());
+          ProteusValue partialHash = plugin->hashValue(
+              mem_activeTuple, e->getExpressionType(), context);
           ArgsV.clear();
           ArgsV.push_back(hashedValue);
           ArgsV.push_back(partialHash.value);
@@ -277,7 +277,8 @@ ProteusValue ExpressionHasherVisitor::visit(
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   } else {
-    return plugin->hashValueEager(e->getValue(), e->getExpressionType());
+    return plugin->hashValueEager(e->getValue(), e->getExpressionType(),
+                                  context);
   }
 }
 
@@ -326,7 +327,7 @@ ProteusValue ExpressionHasherVisitor::visit(
         //                plugin->hashValue(mem_tmpWrapper,
         //                e->getExpressionType());
         ProteusValue mem_val =
-            plugin->hashValueEager(tmpWrapper, e->getExpressionType());
+            plugin->hashValueEager(tmpWrapper, e->getExpressionType(), context);
         return mem_val;
       }
     } else {
@@ -361,7 +362,8 @@ ProteusValue ExpressionHasherVisitor::visit(
           valWrapper.isNull =
               record.isNull;  // FIXME: what if only one attribute is nullptr?
 
-          return plugin->hashValueEager(valWrapper, attr.getOriginalType());
+          return plugin->hashValueEager(valWrapper, attr.getOriginalType(),
+                                        context);
         }
       }
 
@@ -385,7 +387,7 @@ ProteusValue ExpressionHasherVisitor::visit(
       }
       mem_path = it->second;
     }
-    return plugin->hashValue(mem_path, e->getExpressionType());
+    return plugin->hashValue(mem_path, e->getExpressionType(), context);
   }
 }
 

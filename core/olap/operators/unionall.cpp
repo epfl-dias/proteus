@@ -24,7 +24,7 @@
 #include "operators/unionall.hpp"
 
 void UnionAll::produce_(ParallelContext *context) {
-  generate_catch();
+  generate_catch(context);
 
   catch_pip = context->operator->();
 

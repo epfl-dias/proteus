@@ -34,12 +34,6 @@
 #include "routing/affinitizers.hpp"
 #include "routing/degree-of-parallelism.hpp"
 
-template <typename Tplugin>
-inline static auto getBuilder(const std::string &query) {
-  static RelBuilderFactory ctx{query + typeid(Tplugin).name()};
-  return ctx.getBuilder();
-}
-
 inline static auto &getCatalog() { return CatalogParser::getInstance(); }
 
 typedef std::function<RelBuilder(std::string, std::vector<std::string>)> scan_t;
@@ -49,6 +43,13 @@ typedef std::function<std::unique_ptr<Affinitizer>()> aff_t;
 template <int64_t id>
 class Q {
  private:
+  template <typename Tplugin>
+  inline static auto getBuilder() {
+    static RelBuilderFactory ctx{"ch_Q" + std::to_string(Qid) + "<" +
+                                 Tplugin::type + ">"};
+    return ctx.getBuilder();
+  }
+
   static constexpr int64_t Qid = id;
 
   template <typename Tplugin = AeolusRemotePlugin>
@@ -62,9 +63,9 @@ class Q {
 
   template <typename Tplugin>
   static auto scan(std::string relName, std::vector<std::string> relAttrs) {
-    return getBuilder<Tplugin>("ch_Q" + std::to_string(Qid))
-        .template scan<Tplugin>(relName, relAttrs,
-                                CatalogParser::getInstance());
+    return getBuilder<Tplugin>().template scan<Tplugin>(
+        relName + "<" + Tplugin::type + ">", relAttrs,
+        CatalogParser::getInstance());
   }
 
  public:

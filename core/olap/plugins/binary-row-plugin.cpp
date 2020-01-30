@@ -128,7 +128,8 @@ ProteusValueMemory BinaryRowPlugin::readValue(ProteusValueMemory mem_value,
 }
 
 ProteusValue BinaryRowPlugin::hashValue(ProteusValueMemory mem_value,
-                                        const ExpressionType *type) {
+                                        const ExpressionType *type,
+                                        Context *context) {
   IRBuilder<> *Builder = context->getBuilder();
   ProteusValue value;
   value.isNull = mem_value.isNull;
@@ -137,7 +138,8 @@ ProteusValue BinaryRowPlugin::hashValue(ProteusValueMemory mem_value,
 }
 
 ProteusValue BinaryRowPlugin::hashValueEager(ProteusValue valWrapper,
-                                             const ExpressionType *type) {
+                                             const ExpressionType *type,
+                                             Context *context) {
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = Builder->GetInsertBlock()->getParent();
   Value *tmp = valWrapper.value;
@@ -145,7 +147,7 @@ ProteusValue BinaryRowPlugin::hashValueEager(ProteusValue valWrapper,
       context->CreateEntryBlockAlloca(F, "mem_cachedToHash", tmp->getType());
   Builder->CreateStore(tmp, mem_tmp);
   ProteusValueMemory mem_tmpWrapper = {mem_tmp, valWrapper.isNull};
-  return hashValue(mem_tmpWrapper, type);
+  return hashValue(mem_tmpWrapper, type, context);
 }
 
 void BinaryRowPlugin::finish() {

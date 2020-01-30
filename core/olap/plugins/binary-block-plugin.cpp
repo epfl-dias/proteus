@@ -35,13 +35,21 @@ BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
                                      vector<RecordAttribute *> &whichFields)
     : BinaryBlockPlugin(context, fnamePrefix, rec, whichFields, true) {}
 
+std::vector<RecordAttribute *> ensureRelName(
+    std::vector<RecordAttribute *> whichFields, const std::string &relName) {
+  for (auto &fields : whichFields)
+    fields = new RecordAttribute(relName, fields->getAttrName(),
+                                 fields->getOriginalType());
+  return whichFields;
+}
+
 BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
                                      string fnamePrefix, RecordType rec,
                                      vector<RecordAttribute *> &whichFields,
                                      bool load)
     : fnamePrefix(fnamePrefix),
       rec(rec),
-      wantedFields(whichFields),
+      wantedFields(ensureRelName(whichFields, fnamePrefix)),
       context(context),
       posVar("offset"),
       bufVar("buf"),
@@ -216,7 +224,8 @@ ProteusValue BinaryBlockPlugin::readCachedValue(
 }
 
 ProteusValue BinaryBlockPlugin::hashValue(ProteusValueMemory mem_value,
-                                          const ExpressionType *type) {
+                                          const ExpressionType *type,
+                                          Context *context) {
   IRBuilder<> *Builder = context->getBuilder();
   auto mem = readProteusValue(mem_value, type);
   ProteusValue v{Builder->CreateLoad(mem.mem), mem.isNull};
@@ -224,7 +233,8 @@ ProteusValue BinaryBlockPlugin::hashValue(ProteusValueMemory mem_value,
 }
 
 ProteusValue BinaryBlockPlugin::hashValueEager(ProteusValue valWrapper,
-                                               const ExpressionType *type) {
+                                               const ExpressionType *type,
+                                               Context *context) {
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = Builder->GetInsertBlock()->getParent();
   Value *tmp = valWrapper.value;
@@ -232,7 +242,7 @@ ProteusValue BinaryBlockPlugin::hashValueEager(ProteusValue valWrapper,
       context->CreateEntryBlockAlloca(F, "mem_cachedToHash", tmp->getType());
   Builder->CreateStore(tmp, mem_tmp);
   ProteusValueMemory mem_tmpWrapper{mem_tmp, valWrapper.isNull};
-  return hashValue(mem_tmpWrapper, type);
+  return hashValue(mem_tmpWrapper, type, context);
 }
 
 void BinaryBlockPlugin::finish() {

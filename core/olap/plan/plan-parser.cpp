@@ -934,10 +934,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
       probe_widths.push_back(w.GetInt());
     }
 
-    Router *xch_build =
-        new Router(build_op, (ParallelContext *)ctx,
-                   DegreeOfParallelism{numPartitioners}, build_attr_block,
-                   slack, std::nullopt, RoutingPolicy::LOCAL, DeviceType::CPU);
+    Router *xch_build = new Router(
+        build_op, DegreeOfParallelism{numPartitioners}, build_attr_block, slack,
+        std::nullopt, RoutingPolicy::LOCAL, DeviceType::CPU);
     build_op->setParent(xch_build);
     Operator *btt_build =
         new BlockToTuples(xch_build, build_expr, false, gran_t::THREAD);
@@ -948,15 +947,13 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     btt_build->setParent(part_build);
     build_attr_block.push_back(build_hash_attr);
     Router *xch_build2 =
-        new Router(part_build, (ParallelContext *)ctx, DegreeOfParallelism{1},
-                   build_attr_block, slack, std::nullopt, RoutingPolicy::LOCAL,
-                   DeviceType::GPU);
+        new Router(part_build, DegreeOfParallelism{1}, build_attr_block, slack,
+                   std::nullopt, RoutingPolicy::LOCAL, DeviceType::GPU);
     part_build->setParent(xch_build2);
 
-    Router *xch_probe =
-        new Router(probe_op, (ParallelContext *)ctx,
-                   DegreeOfParallelism{numPartitioners}, probe_attr_block,
-                   slack, std::nullopt, RoutingPolicy::LOCAL, DeviceType::CPU);
+    Router *xch_probe = new Router(
+        probe_op, DegreeOfParallelism{numPartitioners}, probe_attr_block, slack,
+        std::nullopt, RoutingPolicy::LOCAL, DeviceType::CPU);
     probe_op->setParent(xch_probe);
     Operator *btt_probe =
         new BlockToTuples(xch_probe, probe_expr, false, gran_t::THREAD);
@@ -967,9 +964,8 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     btt_probe->setParent(part_probe);
     probe_attr_block.push_back(probe_hash_attr);
     Router *xch_probe2 =
-        new Router(part_probe, (ParallelContext *)ctx, DegreeOfParallelism{1},
-                   probe_attr_block, slack, std::nullopt, RoutingPolicy::LOCAL,
-                   DeviceType::GPU);
+        new Router(part_probe, DegreeOfParallelism{1}, probe_attr_block, slack,
+                   std::nullopt, RoutingPolicy::LOCAL, DeviceType::GPU);
     part_probe->setParent(xch_probe2);
 
     RecordAttribute *attr_ptr =
@@ -1016,10 +1012,9 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     xch_build2->setParent(coord);
     xch_probe2->setParent(coord);
 
-    Router *xch_proc =
-        new Router(coord, (ParallelContext *)ctx,
-                   DegreeOfParallelism{numConcurrent}, f_atts_target_v, slack,
-                   expr_target, RoutingPolicy::HASH_BASED, DeviceType::GPU);
+    Router *xch_proc = new Router(coord, DegreeOfParallelism{numConcurrent},
+                                  f_atts_target_v, slack, expr_target,
+                                  RoutingPolicy::HASH_BASED, DeviceType::GPU);
     coord->setParent(xch_proc);
     ZipInitiate *initiator = new ZipInitiate(
         attr_ptr, attr_splitter, attr_target, xch_proc, (ParallelContext *)ctx,
@@ -2277,9 +2272,8 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(!val.HasMember("numa_socket_id"));
 
     assert(dynamic_cast<ParallelContext *>(this->ctx));
-    newOp = new Router(childOp, ((ParallelContext *)this->ctx),
-                       DegreeOfParallelism{numOfParents}, projections, slack,
-                       hash, policy_type, targets);
+    newOp = new Router(childOp, DegreeOfParallelism{numOfParents}, projections,
+                       slack, hash, policy_type, targets);
     childOp->setParent(newOp);
   } else if (strcmp(opName, "union-all") == 0) {
     /* parse operator input */
@@ -2302,7 +2296,7 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
     }
 
     assert(dynamic_cast<ParallelContext *>(this->ctx));
-    newOp = new UnionAll(children, ((ParallelContext *)this->ctx), projections);
+    newOp = new UnionAll(children, projections);
     for (const auto &childOp : children) childOp->setParent(newOp);
   } else if (strcmp(opName, "split") == 0) {
     assert(val.HasMember("split_id"));
@@ -2367,8 +2361,8 @@ Operator *PlanExecutor::parseOperator(const rapidjson::Value &val) {
                                     : RoutingPolicy::RANDOM);
 
       assert(dynamic_cast<ParallelContext *>(this->ctx));
-      newOp = new Split(childOp, ((ParallelContext *)this->ctx), numOfParents,
-                        projections, slack, hash, policy_type);
+      newOp = new Split(childOp, numOfParents, projections, slack, hash,
+                        policy_type);
       splitOps[split_id] = newOp;
       childOp->setParent(newOp);
     } else {

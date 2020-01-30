@@ -71,9 +71,10 @@ class BinaryInternalPlugin : public Plugin {
   }
 
   virtual ProteusValue hashValue(ProteusValueMemory mem_value,
-                                 const ExpressionType *type);
+                                 const ExpressionType *type, Context *context);
   virtual ProteusValue hashValueEager(ProteusValue value,
-                                      const ExpressionType *type);
+                                      const ExpressionType *type,
+                                      Context *context);
 
   virtual void flushTuple(ProteusValueMemory mem_value, llvm::Value *fileName) {
     string error_msg =

@@ -64,16 +64,18 @@ class AeolusPlugin : public BinaryBlockPlugin {
 
 class AeolusCowPlugin : public AeolusPlugin {
  public:
+  static constexpr auto type = "block-cow";
   AeolusCowPlugin(ParallelContext *const context, std::string fnamePrefix,
                   RecordType rec, std::vector<RecordAttribute *> &whichFields)
-      : AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-cow") {}
+      : AeolusPlugin(context, fnamePrefix, rec, whichFields, type) {}
 };
 
 class AeolusLocalPlugin : public AeolusPlugin {
  public:
+  static constexpr auto type = "block-local";
   AeolusLocalPlugin(ParallelContext *const context, std::string fnamePrefix,
                     RecordType rec, std::vector<RecordAttribute *> &whichFields)
-      : AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-local") {
+      : AeolusPlugin(context, fnamePrefix, rec, whichFields, type) {
     local_storage = true;
     elastic_scan = false;
   }
@@ -81,17 +83,27 @@ class AeolusLocalPlugin : public AeolusPlugin {
 
 class AeolusRemotePlugin : public AeolusPlugin {
  public:
+  static constexpr auto type = "block-remote";
   AeolusRemotePlugin(ParallelContext *const context, std::string fnamePrefix,
                      RecordType rec,
                      std::vector<RecordAttribute *> &whichFields)
-      : AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-remote") {}
+      : AeolusPlugin(context, fnamePrefix, rec, whichFields, type) {}
 };
 
 class AeolusElasticPlugin : public AeolusPlugin {
  public:
+  static constexpr auto type = "block-elastic";
   AeolusElasticPlugin(ParallelContext *const context, std::string fnamePrefix,
                       RecordType rec,
                       std::vector<RecordAttribute *> &whichFields);
+};
+
+class AeolusElasticNIPlugin : public AeolusPlugin {
+ public:
+  static constexpr auto type = "block-elastic-ni";
+  AeolusElasticNIPlugin(ParallelContext *const context, std::string fnamePrefix,
+                        RecordType rec,
+                        std::vector<RecordAttribute *> &whichFields);
 };
 
 extern "C" {

@@ -73,9 +73,10 @@ class CSVPlugin : public Plugin {
       CacheInfo info, const map<RecordAttribute, ProteusValueMemory> &bindings);
 
   virtual ProteusValue hashValue(ProteusValueMemory mem_value,
-                                 const ExpressionType *type);
+                                 const ExpressionType *type, Context *context);
   virtual ProteusValue hashValueEager(ProteusValue value,
-                                      const ExpressionType *type);
+                                      const ExpressionType *type,
+                                      Context *context);
 
   virtual void flushTuple(ProteusValueMemory mem_value, llvm::Value *fileName) {
     string error_msg = "[CSVPlugin: ] Functionality not supported yet";

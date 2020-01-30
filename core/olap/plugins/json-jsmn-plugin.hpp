@@ -97,9 +97,10 @@ class JSONPlugin : public Plugin {
   }
 
   virtual ProteusValue hashValue(ProteusValueMemory mem_value,
-                                 const ExpressionType *type);
+                                 const ExpressionType *type, Context *context);
   virtual ProteusValue hashValueEager(ProteusValue value,
-                                      const ExpressionType *type) {
+                                      const ExpressionType *type,
+                                      Context *context) {
     string error_msg = "[JSMNPlugin: ] No eager haching support yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);

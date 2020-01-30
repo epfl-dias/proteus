@@ -294,6 +294,7 @@ RelBuilder RelBuilder::print(const vector<expression_t> &e) const {
   assert(e[0].isRegistered());
   std::string outrel = e[0].getRegisteredRelName();
   CatalogParser &catalog = CatalogParser::getInstance();
+  LOG(INFO) << outrel;
   assert(!catalog.getInputInfoIfKnown(outrel));
 
   std::vector<RecordAttribute *> args;
@@ -328,7 +329,7 @@ RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
                               DegreeOfParallelism fanout, size_t slack,
                               RoutingPolicy p, DeviceType target,
                               std::unique_ptr<Affinitizer> aff) const {
-  auto op = new Router(root, ctx, fanout, wantedFields, slack, hash, p, target,
+  auto op = new Router(root, fanout, wantedFields, slack, hash, p, target,
                        std::move(aff));
   return apply(op);
 }

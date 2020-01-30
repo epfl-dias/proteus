@@ -29,7 +29,7 @@
 
 void Split::produce_(ParallelContext *context) {
   UnaryOperator::setParent(parent[produce_calls]);
-  generate_catch();
+  generate_catch(context);
 
   catch_pip.push_back(context->operator->());
 

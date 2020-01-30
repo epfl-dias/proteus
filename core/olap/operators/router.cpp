@@ -32,7 +32,7 @@
 using namespace llvm;
 
 void Router::produce_(ParallelContext *context) {
-  generate_catch();
+  generate_catch(context);
 
   context->popPipeline();
 
@@ -47,7 +47,7 @@ void Router::produce_(ParallelContext *context) {
   getChild()->produce(context);
 }
 
-void Router::generate_catch() {
+void Router::generate_catch(ParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   // IRBuilder<> * Builder       = context->getBuilder    ();
   // BasicBlock  * insBB         = Builder->GetInsertBlock();

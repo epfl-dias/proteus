@@ -325,7 +325,14 @@ Table::Table(std::string name, uint8_t table_id, layout_type storage_layout,
                                   // BagType getting a reference
 
   std::lock_guard<std::mutex> lock{m_catalog};
-  CatalogParser::getInstance().registerInput(name, exprType);
+  // FIXME: the table should not require knowledge of all the plugin types
+  //  one possible solution is to register the tables "variants" when asking
+  //  for the plugin, just before the plan creation, where either way the
+  //  scheduler knows about the available plugins
+  for (const auto& s : {"block-local", "block-remote", "block-cow",
+                        "block-elastic", "block-elastic-ni"}) {
+    CatalogParser::getInstance().registerInput(name + "<" + s + ">", exprType);
+  }
 }
 
 Table::~Table() {}

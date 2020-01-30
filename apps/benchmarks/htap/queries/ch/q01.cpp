@@ -52,9 +52,10 @@ PreparedStatement Q_1_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                 },
                 [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
                   return {GpuAggrMatExpr{arg[ol_quantity], 1, 0, SUM},
-                          GpuAggrMatExpr{
-                              expression_t{1}.as(tpcc_orderline, count_order),
-                              1, 32, SUM},
+                          GpuAggrMatExpr{expression_t{1}.as(
+                                             arg[ol_number].getRelationName(),
+                                             count_order),
+                                         1, 32, SUM},
                           GpuAggrMatExpr{arg[ol_amount], 1, 64, SUM}};
                 },
                 5, 128 * 1024);

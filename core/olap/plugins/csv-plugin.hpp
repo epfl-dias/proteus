@@ -61,9 +61,10 @@ class CSVPlugin : public Plugin {
   }
 
   virtual ProteusValue hashValue(ProteusValueMemory mem_value,
-                                 const ExpressionType *type);
+                                 const ExpressionType *type, Context *context);
   virtual ProteusValue hashValueEager(ProteusValue value,
-                                      const ExpressionType *type);
+                                      const ExpressionType *type,
+                                      Context *context);
 
   virtual void flushTuple(ProteusValueMemory mem_value, llvm::Value *fileName) {
     std::string error_msg = "[CSVPlugin: ] Functionality not supported yet";

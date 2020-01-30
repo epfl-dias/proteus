@@ -60,7 +60,7 @@ PreparedStatement Q_6_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                    DeviceType::CPU, aff_reduce())
             .reduce(
                 [&](const auto &arg) -> std::vector<expression_t> {
-                  return {arg[ol_amount]};
+                  return {arg[ol_amount].as("tmp", ol_amount)};
                 },
                 {SUM})
             .print(

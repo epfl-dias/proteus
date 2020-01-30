@@ -49,8 +49,7 @@ void freeBuffer(int target, Router *xch, void *buff);
 
 class Router : public UnaryOperator {
  public:
-  Router(Operator *const child, ParallelContext *const context,
-         DegreeOfParallelism numOfParents,
+  Router(Operator *const child, DegreeOfParallelism numOfParents,
          const vector<RecordAttribute *> &wantedFields, int slack,
          std::optional<expression_t> hash, RoutingPolicy policy_type,
          DeviceType targets, std::unique_ptr<Affinitizer> aff = nullptr)
@@ -60,7 +59,6 @@ class Router : public UnaryOperator {
         fanout(numOfParents.dop),
         producers(child->getDOP().dop),
         remaining_producers(producers),
-        context(context),
         hashExpr(std::move(hash)),
         need_cnt(false),
         targets(targets),
@@ -105,7 +103,7 @@ class Router : public UnaryOperator {
   }
 
  protected:
-  virtual void generate_catch();
+  virtual void generate_catch(ParallelContext *context);
 
   void fire(int target, PipelineGen *pipGen);
 
@@ -137,7 +135,6 @@ class Router : public UnaryOperator {
   const size_t fanout;
   int producers;
   std::atomic<int> remaining_producers;
-  ParallelContext *const context;
 
   llvm::Type *params_type;
   PipelineGen *catch_pip;

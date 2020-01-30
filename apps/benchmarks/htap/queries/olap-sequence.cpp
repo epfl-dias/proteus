@@ -234,7 +234,7 @@ void OLAPSequence::setupAdaptiveSequence() {
     typedef decltype(aff_parallel) aff_t;
     typedef decltype(aff_reduce) red_t;
 
-    for (const auto &q : CH_queries<AeolusElasticPlugin, aff_t, red_t>) {
+    for (const auto &q : CH_queries<AeolusElasticNIPlugin, aff_t, red_t>) {
       stmts.emplace_back(
           q(isolated_dop, aff_parallel, aff_reduce, DeviceType::CPU));
     }

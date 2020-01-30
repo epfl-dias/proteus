@@ -28,9 +28,9 @@
 
 class UnionAll : public Router {
  public:
-  UnionAll(vector<Operator *> &children, ParallelContext *const context,
+  UnionAll(vector<Operator *> &children,
            const vector<RecordAttribute *> &wantedFields)
-      : Router(children[0], context, DegreeOfParallelism{1}, wantedFields, 8,
+      : Router(children[0], DegreeOfParallelism{1}, wantedFields, 8,
                std::nullopt, RoutingPolicy::RANDOM, DeviceType::CPU,
                getDefaultAffinitizer(DeviceType::CPU)),
         children(children) {

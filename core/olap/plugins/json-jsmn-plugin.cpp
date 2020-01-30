@@ -1142,7 +1142,8 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
 }
 
 ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
-                                   const ExpressionType *type) {
+                                   const ExpressionType *type,
+                                   Context *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int64Type = Type::getInt64Ty(llvmContext);
@@ -1261,7 +1262,8 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
 
         // CAREFUL: It's generated code that has to be stitched
         hashedValue = Builder->CreateLoad(mem_hashedValue);
-        ProteusValue partialHash = hashValue(mem_path, attr->getOriginalType());
+        ProteusValue partialHash =
+            hashValue(mem_path, attr->getOriginalType(), context);
         ArgsV.clear();
         ArgsV.push_back(hashedValue);
         ArgsV.push_back(partialHash.value);
@@ -1332,7 +1334,7 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
 
       // CAREFUL: It's generated code that has to be stitched
       // XXX in the general case, nested type may vary between elements..
-      ProteusValue partialHash = hashValue(listElem, &nestedType);
+      ProteusValue partialHash = hashValue(listElem, &nestedType, context);
 
       ArgsV.clear();
       ArgsV.push_back(hashedValue);

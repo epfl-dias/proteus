@@ -36,9 +36,11 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 using namespace llvm;
 
 extern "C" {
-storage::ColumnStore *getRelation(std::string fnamePrefix) {
+storage::ColumnStore *getRelation(std::string fnamePrefix,
+                                  std::string opt_suffix = "") {
   for (auto &tb : storage::Schema::getInstance().getTables()) {
-    if (fnamePrefix.compare(tb->name) == 0) {
+    if (fnamePrefix.compare(tb->name) == 0 ||
+        (fnamePrefix == (tb->name + opt_suffix))) {
       // assert(tb->storage_layout == storage::COLUMN_STORE);
       return (storage::ColumnStore *)tb;
     }
@@ -98,9 +100,7 @@ void **AeolusPlugin::getDataPointerForFile_runtime(size_t i,
                                                    const char *relName,
                                                    const char *attrName,
                                                    void *session) {
-  // TODO: add scale-up and scale-down logic here for elastic stuff.
-
-  const auto &tbl = getRelation({relName});
+  const auto &tbl = getRelation({relName}, "<" + pgType + ">");
   const auto &data_arenas =
       tbl->snapshot_get_data(i, wantedFields, local_storage, elastic_scan);
 
@@ -136,7 +136,7 @@ void AeolusPlugin::freeDataPointerForFile_runtime(void **inn) { free(inn); }
 
 int64_t *AeolusPlugin::getNumOfTuplesPerPartition_runtime(const char *relName,
                                                           void *session) {
-  const auto &tbl = getRelation({relName});
+  const auto &tbl = getRelation({relName}, "<" + pgType + ">");
 
   return tbl->snapshot_get_number_tuples(local_storage, elastic_scan);
 
@@ -157,8 +157,10 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
                            string pgType)
     : BinaryBlockPlugin(context, fnamePrefix, rec, whichFields, false),
       pgType(pgType) {
-  Nparts =
-      getRelation(fnamePrefix)->getColumns()[0]->snapshot_get_data().size();
+  Nparts = getRelation(fnamePrefix, "<" + pgType + ">")
+               ->getColumns()[0]
+               ->snapshot_get_data()
+               .size();
 
   local_storage = false;
   elastic_scan = false;
@@ -167,10 +169,22 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
 AeolusElasticPlugin::AeolusElasticPlugin(
     ParallelContext *const context, std::string fnamePrefix, RecordType rec,
     std::vector<RecordAttribute *> &whichFields)
-    : AeolusPlugin(context, fnamePrefix, rec, whichFields, "block-elastic") {
+    : AeolusPlugin(context, fnamePrefix, rec, whichFields, type) {
   // 2  means that a partition can be split in max 2 more.
   Nparts = std::pow(wantedFields.size(), 2);
   LOG(INFO) << "Elastic Plugin- Nparts: " << Nparts;
+
+  elastic_scan = true;
+  local_storage = false;
+}
+
+AeolusElasticNIPlugin::AeolusElasticNIPlugin(
+    ParallelContext *const context, std::string fnamePrefix, RecordType rec,
+    std::vector<RecordAttribute *> &whichFields)
+    : AeolusPlugin(context, fnamePrefix, rec, whichFields, type) {
+  // 2  means that a partition can be split in max 2 more.
+  Nparts = std::pow(wantedFields.size(), 2);
+  LOG(INFO) << "Elastic-ni Plugin- Nparts: " << Nparts;
 
   elastic_scan = true;
   local_storage = false;
