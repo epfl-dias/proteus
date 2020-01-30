@@ -557,6 +557,8 @@ void OLAPSequence::migrateState(SchedulingPolicy::ScheduleMode &curr,
     }
   } else {
     // missing NI <-> COLOCATED
+    LOG(INFO) << "Current State: " << curr;
+    LOG(INFO) << "Next State: " << to;
     assert(false && "How come?");
   }
 
@@ -640,7 +642,8 @@ void OLAPSequence::execute(OLTP &txn_engine, int repeat,
   // sequence
   LOG(INFO) << "Exeucting OLAP Sequence[Client # " << this->client_id << "]";
 
-  migrateState(current_state, conf.schedule_policy, txn_engine);
+  if (conf.schedule_policy != SchedulingPolicy::ADAPTIVE)
+    migrateState(current_state, conf.schedule_policy, txn_engine);
 
   timepoint_t global_start = std::chrono::system_clock::now();
 
