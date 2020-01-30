@@ -2804,4 +2804,165 @@ void TPCC::pre_run(int wid, uint64_t xid, ushort partition_id,
 #endif
 }
 
+std::ostream &operator<<(std::ostream &out, const TPCC::ch_nation &r) {
+  out << r.n_nationkey << csv_delim;
+  out << r.n_name << csv_delim;
+  out << r.n_regionkey << csv_delim;
+  out << r.n_comment << csv_delim;
+  out << std::endl;
+  return out;
+}
+
+std::ostream &operator<<(std::ostream &out, const TPCC::ch_region &r) {
+  out << r.r_regionkey << csv_delim;
+  out << r.r_name << csv_delim;
+  out << r.r_comment << csv_delim;
+
+  out << std::endl;
+  return out;
+}
+std::ostream &operator<<(std::ostream &out, const TPCC::ch_supplier &r) {
+  out << r.suppkey << csv_delim;
+  out << r.s_name << csv_delim;
+  out << r.s_address << csv_delim;
+  out << r.s_nationkey << csv_delim;
+  out << r.s_phone << csv_delim;
+  out << r.s_acctbal << csv_delim;
+  out << r.s_comment << csv_delim;
+
+  out << std::endl;
+  return out;
+}
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_stock &r) {
+  out << r.s_i_id << csv_delim;
+  out << r.s_w_id << csv_delim;
+  out << r.s_quantity << csv_delim;
+  for (size_t i = 0; i < TPCC_NDIST_PER_WH; i++) {
+    out << r.s_dist[i] << csv_delim;
+  }
+  out << r.s_ytd << csv_delim;
+  out << r.s_order_cnt << csv_delim;
+  out << r.s_remote_cnt << csv_delim;
+  out << r.s_data << csv_delim;
+  out << r.s_su_suppkey << csv_delim;
+
+  out << std::endl;
+  return out;
+}
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_item &r) {
+  out << r.i_id << csv_delim;
+  out << r.i_im_id << csv_delim;
+  out << r.i_name << csv_delim;
+  out << r.i_price << csv_delim;
+  out << r.i_data << csv_delim;
+
+  out << std::endl;
+  return out;
+}
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_warehouse &r) {
+  out << r.w_id << csv_delim;
+  out << r.w_name << csv_delim;
+  out << r.w_street[0] << csv_delim;
+  out << r.w_street[1] << csv_delim;
+  out << r.w_city << csv_delim;
+  out << r.w_state << csv_delim;
+  out << r.w_zip << csv_delim;
+  out << r.w_tax << csv_delim;
+  out << r.w_ytd << csv_delim;
+
+  out << std::endl;
+  return out;
+}
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_district &r) {
+  out << r.d_id << csv_delim;
+  out << r.d_w_id << csv_delim;
+  out << r.d_name << csv_delim;
+  out << r.d_street[0] << csv_delim;
+  out << r.d_street[1] << csv_delim;
+  out << r.d_city << csv_delim;
+  out << r.d_state << csv_delim;
+  out << r.d_zip << csv_delim;
+  out << r.d_tax << csv_delim;
+  out << r.d_ytd << csv_delim;
+  out << r.d_next_o_id << csv_delim;
+
+  out << std::endl;
+  return out;
+}
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_history &r) {
+  out << r.h_c_id << csv_delim;
+  out << r.h_c_d_id << csv_delim;
+  out << r.h_c_w_id << csv_delim;
+  out << r.h_d_id << csv_delim;
+  out << r.h_w_id << csv_delim;
+  out << r.h_date << csv_delim;
+  out << r.h_amount << csv_delim;
+  out << r.h_data << csv_delim;
+
+  out << std::endl;
+  return out;
+}
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_customer &r) {
+  out << r.c_id << csv_delim;
+  out << r.c_w_id << csv_delim;
+  out << r.c_d_id << csv_delim;
+  out << r.c_first << csv_delim;
+  out << r.c_middle << csv_delim;
+  out << r.c_last << csv_delim;
+  out << r.c_street[0] << csv_delim;
+  out << r.c_street[1] << csv_delim;
+  out << r.c_city << csv_delim;
+  out << r.c_state << csv_delim;
+  out << r.c_zip << csv_delim;
+  out << r.c_phone << csv_delim;
+  out << r.c_since << csv_delim;
+  out << r.c_credit << csv_delim;
+  out << r.c_credit_lim << csv_delim;
+  out << r.c_discount << csv_delim;
+  out << r.c_balance << csv_delim;
+  out << r.c_ytd_payment << csv_delim;
+  out << r.c_payment_cnt << csv_delim;
+  out << r.c_delivery_cnt << csv_delim;
+  out << r.c_data << csv_delim;
+  out << r.c_n_nationkey << csv_delim;
+  out << std::endl;
+  return out;
+}
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_order &r) {
+  out << r.o_id << csv_delim;
+  out << r.o_d_id << csv_delim;
+  out << r.o_w_id << csv_delim;
+  out << r.o_c_id << csv_delim;
+  out << r.o_entry_d << csv_delim;
+  out << r.o_carrier_id << csv_delim;
+  out << r.o_ol_cnt << csv_delim;
+  out << r.o_all_local << csv_delim;
+
+  out << std::endl;
+  return out;
+}
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_order_line &r) {
+  out << r.ol_o_id << csv_delim;
+  out << r.ol_d_id << csv_delim;
+  out << r.ol_w_id << csv_delim;
+  out << r.ol_number << csv_delim;
+  out << r.ol_i_id << csv_delim;
+  out << r.ol_supply_w_id << csv_delim;
+  out << r.ol_delivery_d << csv_delim;
+  out << r.ol_quantity << csv_delim;
+  out << r.ol_amount << csv_delim;
+  // out << r.ol_dist_info << csv_delim;
+
+  out << std::endl;
+  return out;
+}
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_new_order &r) {
+  out << r.no_o_id << csv_delim;
+  out << r.no_d_id << csv_delim;
+  out << r.no_w_id << csv_delim;
+
+  out << std::endl;
+  return out;
+}
+
 }  // namespace bench

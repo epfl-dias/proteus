@@ -81,7 +81,7 @@
 #define MAX_OPS_PER_QUERY 255
 
 // From TPCC-SPEC
-#define TPCC_MAX_ITEMS 100000  // 100000
+#define TPCC_MAX_ITEMS 100000
 #define TPCC_NCUST_PER_DIST 3000
 #define TPCC_NDIST_PER_WH 10
 #define TPCC_ORD_PER_DIST 3000
@@ -116,6 +116,7 @@ enum TPCC_QUERY_TYPE {
 };
 
 typedef uint64_t date_t;
+constexpr char csv_delim = '|';
 
 class TPCC : public Benchmark {
  private:
@@ -255,7 +256,7 @@ class TPCC : public Benchmark {
     uint32_t o_d_id;
     uint32_t o_w_id;
     uint32_t o_c_id;
-    date_t o_entry_d;  // TODO: MAKE IT 64 BIT
+    date_t o_entry_d;
     uint32_t o_carrier_id;
     uint32_t o_ol_cnt;
     uint32_t o_all_local;
@@ -268,7 +269,7 @@ class TPCC : public Benchmark {
     uint32_t ol_number;
     uint32_t ol_i_id;
     uint32_t ol_supply_w_id;
-    date_t ol_delivery_d;  // TODO: MAKE IT 64 BIT
+    date_t ol_delivery_d;
     uint32_t ol_quantity;
     double ol_amount;
     // char ol_dist_info[24]; // TODO: uncomment
@@ -281,7 +282,7 @@ class TPCC : public Benchmark {
     uint32_t ol_number[TPCC_MAX_OL_PER_ORDER];
     uint32_t ol_i_id[TPCC_MAX_OL_PER_ORDER];
     uint32_t ol_supply_w_id[TPCC_MAX_OL_PER_ORDER];
-    date_t ol_delivery_d[TPCC_MAX_OL_PER_ORDER];  // TODO: MAKE IT 64 BIT
+    date_t ol_delivery_d[TPCC_MAX_OL_PER_ORDER];
     uint32_t ol_quantity[TPCC_MAX_OL_PER_ORDER];
     double ol_amount[TPCC_MAX_OL_PER_ORDER];
     // char ol_dist_info[TPCC_MAX_OL_PER_ORDER][24]; // TODO: uncomment
@@ -332,10 +333,10 @@ class TPCC : public Benchmark {
     char rbk;
     char remote;
     uint32_t ol_cnt;
-    date_t o_entry_d;  // 64bit please
+    date_t o_entry_d;
   };
 
-  // fucking shortcut
+  // shortcut for secondary index
   indexes::HashIndex<uint64_t, struct secondary_record> *cust_sec_index;
 
   void init_tpcc_seq_array();
@@ -464,7 +465,40 @@ class TPCC : public Benchmark {
 
   static_assert(!(D_MIX > 0 && !index_on_order_tbl),
                 "Delivery Txn requires index on order tables");
+
+  friend std::ostream &operator<<(std::ostream &out, const TPCC::ch_nation &r);
+  friend std::ostream &operator<<(std::ostream &out, const TPCC::ch_region &r);
+  friend std::ostream &operator<<(std::ostream &out,
+                                  const TPCC::ch_supplier &r);
+  friend std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_stock &r);
+  friend std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_item &r);
+  friend std::ostream &operator<<(std::ostream &out,
+                                  const TPCC::tpcc_warehouse &r);
+  friend std::ostream &operator<<(std::ostream &out,
+                                  const TPCC::tpcc_district &r);
+  friend std::ostream &operator<<(std::ostream &out,
+                                  const TPCC::tpcc_history &r);
+  friend std::ostream &operator<<(std::ostream &out,
+                                  const TPCC::tpcc_customer &r);
+  friend std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_order &r);
+  friend std::ostream &operator<<(std::ostream &out,
+                                  const TPCC::tpcc_order_line &r);
+  friend std::ostream &operator<<(std::ostream &out,
+                                  const TPCC::tpcc_new_order &r);
 };
+
+std::ostream &operator<<(std::ostream &out, const TPCC::ch_nation &r);
+std::ostream &operator<<(std::ostream &out, const TPCC::ch_region &r);
+std::ostream &operator<<(std::ostream &out, const TPCC::ch_supplier &r);
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_stock &r);
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_item &r);
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_warehouse &r);
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_district &r);
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_history &r);
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_customer &r);
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_order &r);
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_order_line &r);
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_new_order &r);
 
 }  // namespace bench
 
