@@ -47,148 +47,147 @@ class BinaryBlockPlugin : public Plugin {
    * -> dates require more sophisticated serialization (boost?)
    */
  protected:
-  BinaryBlockPlugin(ParallelContext *const context, string fnamePrefix,
+  BinaryBlockPlugin(ParallelContext *context, string fnamePrefix,
                     RecordType rec, std::vector<RecordAttribute *> &whichFields,
                     bool load);
 
  public:
-  BinaryBlockPlugin(ParallelContext *const context, string fnamePrefix,
+  BinaryBlockPlugin(ParallelContext *context, string fnamePrefix,
                     RecordType rec,
                     std::vector<RecordAttribute *> &whichFields);
 
-  BinaryBlockPlugin(ParallelContext *const context, string fnamePrefix,
+  BinaryBlockPlugin(ParallelContext *context, string fnamePrefix,
                     RecordType rec);
-  //  BinaryBlockPlugin(ParallelContext* const context,
-  //  vector<RecordAttribute*>& whichFields, vector<CacheInfo> whichCaches);
-  ~BinaryBlockPlugin();
-  virtual string &getName() { return fnamePrefix; }
-  void init();
-  //  void initCached();
-  void generate(const Operator &producer);
-  void finish();
-  virtual ProteusValueMemory readPath(string activeRelation, Bindings bindings,
-                                      const char *pathVar,
-                                      RecordAttribute attr);
-  virtual ProteusValueMemory readValue(ProteusValueMemory mem_value,
-                                       const ExpressionType *type);
-  virtual ProteusValue readCachedValue(CacheInfo info,
-                                       const OperatorState &currState);
 
-  virtual ProteusValue hashValue(ProteusValueMemory mem_value,
-                                 const ExpressionType *type, Context *context);
-  virtual ProteusValue hashValueEager(ProteusValue value,
-                                      const ExpressionType *type,
-                                      Context *context);
+  ~BinaryBlockPlugin() override;
+  string &getName() override { return fnamePrefix; }
+  void init() override;
 
-  virtual ProteusValueMemory initCollectionUnnest(
-      ProteusValue val_parentObject) {
+  void generate(const Operator &producer) override;
+  void finish() override;
+  ProteusValueMemory readPath(string activeRelation, Bindings bindings,
+                              const char *pathVar,
+                              RecordAttribute attr) override;
+  ProteusValueMemory readValue(ProteusValueMemory mem_value,
+                               const ExpressionType *type) override;
+  ProteusValue readCachedValue(CacheInfo info,
+                               const OperatorState &currState) override;
+
+  ProteusValue hashValue(ProteusValueMemory mem_value,
+                         const ExpressionType *type, Context *context) override;
+  ProteusValue hashValueEager(ProteusValue value, const ExpressionType *type,
+                              Context *context) override;
+
+  ProteusValueMemory initCollectionUnnest(
+      ProteusValue val_parentObject) override {
     string error_msg =
         "[BinaryBlockPlugin: ] Binary col. files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  virtual ProteusValue collectionHasNext(ProteusValue val_parentObject,
-                                         ProteusValueMemory mem_currentChild) {
+  ProteusValue collectionHasNext(ProteusValue val_parentObject,
+                                 ProteusValueMemory mem_currentChild) override {
     string error_msg =
         "[BinaryBlockPlugin: ] Binary col. files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  virtual ProteusValueMemory collectionGetNext(
-      ProteusValueMemory mem_currentChild) {
+  ProteusValueMemory collectionGetNext(
+      ProteusValueMemory mem_currentChild) override {
     string error_msg =
         "[BinaryBlockPlugin: ] Binary col. files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushTuple(ProteusValueMemory mem_value, llvm::Value *fileName) {
+  void flushTuple(ProteusValueMemory mem_value,
+                  llvm::Value *fileName) override {
     string error_msg = "[BinaryBlockPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushValue(ProteusValueMemory mem_value,
-                          const ExpressionType *type, llvm::Value *fileName) {
-    string error_msg = "[BinaryBlockPlugin: ] Flush not implemented yet";
-    LOG(ERROR) << error_msg;
-    throw runtime_error(error_msg);
-  }
+  void flushValue(Context *context, ProteusValueMemory mem_value,
+                  const ExpressionType *type, std::string fileName) override;
 
-  virtual void flushValueEager(ProteusValue value, const ExpressionType *type,
-                               llvm::Value *fileName) {
-    string error_msg = "[BinaryBlockPlugin: ] Flush not implemented yet";
-    LOG(ERROR) << error_msg;
-    throw runtime_error(error_msg);
-  }
+  void flushValueEager(Context *context, ProteusValue mem_value,
+                       const ExpressionType *type,
+                       std::string fileName) override;
 
-  virtual void flushChunk(ProteusValueMemory mem_value, llvm::Value *fileName) {
-    string error_msg = "[BinaryBlockPlugin: ] Flush not implemented yet";
-    LOG(ERROR) << error_msg;
-    throw runtime_error(error_msg);
-  }
+  llvm::Value *getValueSize(ProteusValueMemory mem_value,
+                            const ExpressionType *type) override;
 
-  virtual llvm::Value *getValueSize(ProteusValueMemory mem_value,
-                                    const ExpressionType *type);
+  ExpressionType *getOIDType() override { return new Int64Type(); }
 
-  virtual ExpressionType *getOIDType() { return new Int64Type(); }
+  PluginType getPluginType() override { return PGBINARY; }
 
-  virtual PluginType getPluginType() { return PGBINARY; }
+  void flushBeginList(llvm::Value *fileName) override;
 
-  virtual void flushBeginList(llvm::Value *fileName) {
+  void flushBeginBag(llvm::Value *fileName) override {
     string error_msg = "[ScanToBlocksSM: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushBeginBag(llvm::Value *fileName) {
+  void flushBeginSet(llvm::Value *fileName) override {
     string error_msg = "[ScanToBlocksSM: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushBeginSet(llvm::Value *fileName) {
+  void flushEndList(llvm::Value *fileName) override;
+
+  void flushEndBag(llvm::Value *fileName) override {
     string error_msg = "[ScanToBlocksSM: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndList(llvm::Value *fileName) {
+  void flushEndSet(llvm::Value *fileName) override {
     string error_msg = "[ScanToBlocksSM: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndBag(llvm::Value *fileName) {
-    string error_msg = "[ScanToBlocksSM: ] Flush not implemented yet";
-    LOG(ERROR) << error_msg;
-    throw runtime_error(error_msg);
-  }
+  void flushDelim(llvm::Value *fileName, int depth) override;
 
-  virtual void flushEndSet(llvm::Value *fileName) {
-    string error_msg = "[ScanToBlocksSM: ] Flush not implemented yet";
-    LOG(ERROR) << error_msg;
-    throw runtime_error(error_msg);
-  }
+  void flushDelim(llvm::Value *resultCtr, llvm::Value *fileName,
+                  int depth) override;
 
-  virtual void flushDelim(llvm::Value *fileName, int depth) {
-    string error_msg = "[ScanToBlocksSM: ] Flush not implemented yet";
-    LOG(ERROR) << error_msg;
-    throw runtime_error(error_msg);
-  }
-
-  virtual void flushDelim(llvm::Value *resultCtr, llvm::Value *fileName,
-                          int depth) {
-    string error_msg = "[ScanToBlocksSM: ] Flush not implemented yet";
-    LOG(ERROR) << error_msg;
-    throw runtime_error(error_msg);
-  }
+  void flushOutput(Context *context, std::string fileName,
+                   const ExpressionType *type) override;
 
  protected:
-  void finalize_data();
-  virtual RecordType getRowType() const;
+  void flushOutputInternal(Context *context, std::string fileName,
+                           const ExpressionType *type);
 
-  virtual llvm::Value *getSession() const { return nullptr; }
+  void flushValueInternal(Context *context, ProteusValueMemory mem_value,
+                          const ExpressionType *type, std::string fileName);
+
+  void flushOutput(llvm::Value *fileName) override {
+    string error_msg = "Reached a deprecated function";
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
+
+  void flushValue(ProteusValueMemory mem_value, const ExpressionType *type,
+                  llvm::Value *fileName) override {
+    string error_msg = "Reached a deprecated function";
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
+
+  void flushValueEager(ProteusValue value, const ExpressionType *type,
+                       llvm::Value *fileName) override {
+    string error_msg = "Reached a deprecated function";
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
+
+  void finalize_data();
+  [[nodiscard]] RecordType getRowType() const override;
+
+  [[nodiscard]] virtual llvm::Value *getSession() const { return nullptr; }
 
   virtual std::pair<llvm::Value *, llvm::Value *> getPartitionSizes(
       llvm::Value *) const;
@@ -199,7 +198,7 @@ class BinaryBlockPlugin : public Plugin {
 
   virtual void releaseSession(llvm::Value *) const {}
 
-  virtual bool isLazy() { return true; }
+  bool isLazy() override { return true; }
 
   std::vector<RecordAttribute *> wantedFields;
   std::vector<std::vector<mem_file>> wantedFieldsFiles;
@@ -207,21 +206,12 @@ class BinaryBlockPlugin : public Plugin {
  private:
   // Schema info provided
   RecordType rec;
-  std::vector<int> wantedFieldsArg_id;
-  // llvm::Value *               tupleCnt;
   llvm::Value *blockSize;
-
-  std::vector<size_t> wantedFieldsWidth;
-
-  std::vector<llvm::Type *> parts_array;
 
  protected:
   size_t Nparts;
 
  protected:
-  /* Used when we treat the col. files as internal caches! */
-  std::vector<CacheInfo> whichCaches;
-
   string fnamePrefix;
   off_t *colFilesize;  // Size of each column
   int *fd;             // One per column
@@ -254,17 +244,11 @@ class BinaryBlockPlugin : public Plugin {
 
   // Used to generate code
   void skipLLVM(RecordAttribute attName, llvm::Value *offset);
-  void prepareArray(RecordAttribute attName);
 
   void nextEntry();
 
   void readAsLLVM(RecordAttribute attName,
                   std::map<RecordAttribute, ProteusValueMemory> &variables);
-
-  /* Operate over char* */
-  void readAsInt64LLVM(
-      RecordAttribute attName,
-      std::map<RecordAttribute, ProteusValueMemory> &variables);
 
   /* Operates over int* */
   void readAsIntLLVM(RecordAttribute attName,
@@ -275,10 +259,6 @@ class BinaryBlockPlugin : public Plugin {
       std::map<RecordAttribute, ProteusValueMemory> &variables);
   /* Operates over bool* */
   void readAsBooleanLLVM(
-      RecordAttribute attName,
-      std::map<RecordAttribute, ProteusValueMemory> &variables);
-  /* Not (fully) supported yet. Dictionary-based */
-  void readAsStringLLVM(
       RecordAttribute attName,
       std::map<RecordAttribute, ProteusValueMemory> &variables);
 

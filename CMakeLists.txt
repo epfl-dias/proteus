@@ -203,6 +203,13 @@ if (USE_LIBCXX)
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
 	set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -stdlib=libc++")
 	set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -stdlib=libc++")
+
+	# Also add libc++ to the llvm_libs so that we get std::filesystem; apparently -stdlib=libc++ is not enough
+	find_library(libc++ c++ PATHS "${LLVM_LIBRARY_DIR}" NO_DEFAULT_PATH)
+	list(APPEND llvm_libs ${llvm_libs} ${libc++})
+else()
+	# Patch for GCC shipping libstdc++fs separately from libstdc++
+	list(APPEND llvm_libs ${llvm_libs} stdc++fs)
 endif()
 
 if (CMAKE_CXX_FLAGS MATCHES ".*-stdlib=libc\\+\\+.*")

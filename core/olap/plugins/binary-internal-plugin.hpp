@@ -142,6 +142,14 @@ class BinaryInternalPlugin : public Plugin {
     throw runtime_error(error_msg);
   }
 
+  virtual void flushOutput(llvm::Value *fileName) {
+    llvm::Function *flushFunc = context->getFunction("flushOutput");
+    vector<llvm::Value *> ArgsV;
+    // Start 'array'
+    ArgsV.push_back(fileName);
+    context->getBuilder()->CreateCall(flushFunc, ArgsV);
+  }
+
   virtual void flushEndSet(llvm::Value *fileName) {
     string error_msg =
         "[BinaryInternalPlugin: ] Binary-internal files do not contain SETs";

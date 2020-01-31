@@ -243,6 +243,14 @@ class JSONPlugin : public Plugin {
         dynamic_cast<CollectionType &>(*schema).getNestedType())};
   }
 
+  virtual void flushOutput(llvm::Value *fileName) {
+    llvm::Function *flushFunc = context->getFunction("flushOutput");
+    vector<llvm::Value *> ArgsV;
+    // Start 'array'
+    ArgsV.push_back(fileName);
+    context->getBuilder()->CreateCall(flushFunc, ArgsV);
+  }
+
  private:
   string fname;
   size_t fsize;

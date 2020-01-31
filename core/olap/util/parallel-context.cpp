@@ -506,7 +506,7 @@ llvm::Value *ParallelContext::workerScopedAtomicXchg(llvm::Value *ptr,
 
 void ParallelContext::log(llvm::Value *out, decltype(__builtin_FILE()) file,
                           decltype(__builtin_LINE()) line) {
-  auto f = getCurrentPipeline()->getFunctionOverload("log", out->getType());
+  auto f = getFunctionOverload("log", out->getType());
   getBuilder()->CreateCall(f,
                            {out, CreateGlobalString(file), createInt32(line)});
 }
@@ -537,4 +537,14 @@ llvm::IRBuilder<> *ParallelContext::getBuilder() const {
 
 llvm::Function *ParallelContext::getFunction(string funcName) const {
   return getCurrentPipeline()->getFunction(funcName);
+}
+
+llvm::Function *ParallelContext::getFunctionOverload(std::string name,
+                                                     llvm::Type *type) {
+  return getCurrentPipeline()->getFunctionOverload(name, type);
+}
+
+std::string ParallelContext::getFunctionNameOverload(std::string name,
+                                                     llvm::Type *type) {
+  return getCurrentPipeline()->getFunctionNameOverload(name, type);
 }

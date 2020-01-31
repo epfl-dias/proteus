@@ -23,6 +23,8 @@
 
 #include "plugins/binary-block-plugin.hpp"
 
+#include <expressions/expressions-flusher.hpp>
+
 #include "expressions/expressions-hasher.hpp"
 #include "memory/block-manager.hpp"
 #include "operators/operators.hpp"
@@ -405,24 +407,6 @@ void BinaryBlockPlugin::readAsLLVM(
   variables[attName] = mem_valWrapper;
 }
 
-/* Operates over char*! */
-void BinaryBlockPlugin::readAsInt64LLVM(
-    RecordAttribute attName,
-    map<RecordAttribute, ProteusValueMemory> &variables) {
-  readAsLLVM(attName, variables);
-}
-
-/*
- * FIXME Needs to be aware of dictionary (?).
- * Probably readValue() is the appropriate place for this.
- * I think forwarding the dict. code (int32) is sufficient here.
- */
-void BinaryBlockPlugin::readAsStringLLVM(
-    RecordAttribute attName,
-    map<RecordAttribute, ProteusValueMemory> &variables) {
-  readAsIntLLVM(attName, variables);
-}
-
 void BinaryBlockPlugin::readAsBooleanLLVM(
     RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
@@ -433,39 +417,6 @@ void BinaryBlockPlugin::readAsFloatLLVM(
     RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
   readAsLLVM(attName, variables);
-}
-
-void BinaryBlockPlugin::prepareArray(RecordAttribute attName) {
-  LLVMContext &llvmContext = context->getLLVMContext();
-  IRBuilder<> *Builder = context->getBuilder();
-  Function *F = Builder->GetInsertBlock()->getParent();
-
-  string posVarStr = string(posVar);
-  string currPosVar = posVarStr + "." + attName.getAttrName();
-  string bufVarStr = string(bufVar);
-  string currBufVar = bufVarStr + "." + attName.getAttrName();
-
-  /* Code equivalent to skip(size_t) */
-  Value *val_offset = context->createInt64(sizeof(size_t));
-  auto mem_pos = NamedValuesBinaryCol.at(currPosVar);
-
-  // Increment and store back
-  Value *val_curr_pos = Builder->CreateLoad(mem_pos);
-  Value *val_new_pos = Builder->CreateAdd(val_curr_pos, val_offset);
-  /* Not storing this 'offset' - we want the cast buffer to
-   * conceptually start from 0 */
-  //  Builder->CreateStore(val_new_pos,mem_pos);
-
-  /* Get relevant char* rawBuf */
-  auto buf = NamedValuesBinaryCol.at(currBufVar);
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_new_pos);
-
-  auto type = PointerType::getUnqual(attName.getLLVMType(llvmContext));
-  auto mem_bufPtr = context->CreateEntryBlockAlloca(F, "mem_bufPtr", type);
-  Value *val_bufPtr = Builder->CreateBitCast(bufShiftedPtr, type);
-  Builder->CreateStore(val_bufPtr, mem_bufPtr);
-  NamedValuesBinaryCol[currBufVar] = mem_bufPtr;
 }
 
 Value *BinaryBlockPlugin::getDataPointersForFile(size_t i,
@@ -766,4 +717,86 @@ RecordType BinaryBlockPlugin::getRowType() const {
     rec.emplace_back(ptr);
   }
   return rec;
+}
+
+void BinaryBlockPlugin::flushValueEager(Context *context,
+                                        ProteusValue mem_value,
+                                        const ExpressionType *type,
+                                        std::string fileName) {
+  return flushValue(context, context->toMem(mem_value), type, fileName);
+}
+
+void BinaryBlockPlugin::flushValue(Context *context,
+                                   ProteusValueMemory mem_value,
+                                   const ExpressionType *type,
+                                   std::string fileName) {
+  return flushValueInternal(context, mem_value, type,
+                            fileName + "/" + fileName);
+}
+
+void BinaryBlockPlugin::flushValueInternal(Context *context,
+                                           ProteusValueMemory mem_value,
+                                           const ExpressionType *type,
+                                           std::string fileName) {
+  IRBuilder<> *Builder = context->getBuilder();
+  Value *val_attr = Builder->CreateLoad(mem_value.mem);
+  switch (type->getTypeID()) {
+    case DSTRING:
+    case INT: {
+      auto flushFunc =
+          dynamic_cast<ParallelContext *>(context)->getFunctionNameOverload(
+              "flushBinary", val_attr->getType());
+      auto f = context->CreateGlobalString(fileName.c_str());
+      context->gen_call(flushFunc, {val_attr, f},
+                        Type::getVoidTy(context->getLLVMContext()));
+      return;
+    }
+    case RECORD: {
+      auto attrs = ((const RecordType *)type)->getArgs();
+
+      size_t i = 0;
+      for (const auto &attr : attrs) {
+        LOG(INFO) << attr->getAttrName();
+        // value
+        auto partialFlush = context->toMem(
+            Builder->CreateExtractValue(val_attr, i), context->createFalse());
+
+        auto concat = fileName + "." + attr->getAttrName();
+
+        flushValueInternal(context, partialFlush, attr->getOriginalType(),
+                           concat);
+
+        ++i;
+      }
+
+      return;
+    }
+    default:
+      LOG(ERROR) << "Unsupported datatype: " << *type;
+      throw runtime_error("Unsupported datatype");
+  }
+}
+
+void BinaryBlockPlugin::flushBeginList(llvm::Value *) {}
+void BinaryBlockPlugin::flushEndList(llvm::Value *) {}
+void BinaryBlockPlugin::flushDelim(llvm::Value *, int) {}
+void BinaryBlockPlugin::flushDelim(llvm::Value *, llvm::Value *, int) {}
+
+void BinaryBlockPlugin::flushOutputInternal(Context *context,
+                                            std::string fileName,
+                                            const ExpressionType *type) {
+  if (auto r = dynamic_cast<const RecordType *>(type)) {
+    for (const auto &attr : r->getArgs()) {
+      flushOutputInternal(context, fileName + "." + attr->getAttrName(),
+                          attr->getOriginalType());
+    }
+  } else {
+    context->gen_call("flushOutput",
+                      {context->CreateGlobalString(fileName.c_str())});
+  }
+}
+
+void BinaryBlockPlugin::flushOutput(Context *context, std::string fileName,
+                                    const ExpressionType *type) {
+  flushOutputInternal(context, fileName + "/" + fileName, type);
 }

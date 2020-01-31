@@ -284,7 +284,20 @@ RelBuilder RelBuilder::sort(const vector<expression_t> &orderByFields,
     }
     case DeviceType::CPU: {
       auto op = new Sort(root, ctx, orderByFields, dirs);
-      return apply(op).unpack();
+      return apply(op)
+          .unpack([&](const auto &arg) -> std::vector<expression_t> {
+            return {arg["__sorted"]};
+          })
+          .project([&](const auto &arg) -> std::vector<expression_t> {
+            std::vector<expression_t> attrs;
+            for (const auto attr : dynamic_cast<const RecordType *>(
+                                       arg["__sorted"].getExpressionType())
+                                       ->getArgs()) {
+              attrs.emplace_back(expression_t{arg["__sorted"]}[*attr]);
+              LOG(INFO) << *attr;
+            }
+            return attrs;
+          });
     }
   }
 }

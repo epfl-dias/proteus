@@ -36,6 +36,18 @@
 #include <immintrin.h>
 #endif
 
+#if __has_include(<filesystem>)
+#include <filesystem>
+namespace fs = std::filesystem;
+#else
+// TODO: remove as soon as the default GCC moves filesystem out of experimental
+//  GCC 8.3 has made the transition, but the default GCC in Ubuntu 18.04 is 7.4
+#include <experimental/filesystem>
+namespace std {
+namespace filesystem = std::experimental::filesystem;
+}
+#endif
+
 //#define JSON_TIGHT
 #include "jsmn.h"
 
@@ -489,10 +501,19 @@ void flushDelim(size_t resultCtr, char whichDelim, char *fileName) {
 
 void flushOutput(char *fileName) {
   auto &strBuffer = Catalog::getInstance().getSerializer(fileName);
-  // cout << "Flushing to " << fileName << endl;
+  LOG(INFO) << "Flushing to " << fileName << endl;
   {
-    shm_open(fileName, O_CREAT | O_RDWR, S_IRWXU);
-    std::ofstream{std::string{"/dev/shm/"} + fileName} << strBuffer.rdbuf();
+    std::filesystem::path p{fileName};
+    if (p.is_relative()) {
+      shm_open(fileName, O_CREAT | O_RDWR, S_IRWXU);
+      p = "/dev/shm" / p;
+    }
+
+    if (p.has_parent_path()) {
+      std::filesystem::create_directories(p.parent_path());
+    }
+
+    std::ofstream{p} << strBuffer.rdbuf();
     // const string &tmp_str = strBuffer->str();     //more portable but it
     // creates a copy, which will be problematic for big output files...
     // write(fd, tmp_str.c_str(), tmp_str.size());
@@ -789,4 +810,26 @@ ParallelContext *prepareContext(string moduleName) {
   ParallelContext *ctx = new ParallelContext(moduleName);
   // registerFunctions(ctx);
   return ctx;
+}
+
+template <typename T>
+void flushBinary_impl(const T &toFlush, const char *fileName) {
+  Catalog::getInstance().getSerializer(fileName).write(
+      reinterpret_cast<const char *>(&toFlush), sizeof(T));
+}
+
+extern "C" void flushBinaryi8(int8_t x, const char *fileName) {
+  flushBinary_impl(x, fileName);
+}
+
+extern "C" void flushBinaryi16(int16_t x, const char *fileName) {
+  flushBinary_impl(x, fileName);
+}
+
+extern "C" void flushBinaryi32(int32_t x, const char *fileName) {
+  flushBinary_impl(x, fileName);
+}
+
+extern "C" void flushBinaryi64(int64_t x, const char *fileName) {
+  flushBinary_impl(x, fileName);
 }

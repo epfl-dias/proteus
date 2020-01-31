@@ -172,7 +172,6 @@ ProteusValue ExpressionFlusherVisitor::visit(
 
 ProteusValue ExpressionFlusherVisitor::visit(
     const expressions::ProteusValueExpression *e) {
-  outputFileLLVM = context->CreateGlobalString(this->outputFile);
   Catalog &catalog = Catalog::getInstance();
 
   Plugin *plugin = catalog.getPlugin(activeRelation);
@@ -184,15 +183,14 @@ ProteusValue ExpressionFlusherVisitor::visit(
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   } else {
-    plugin->flushValueEager(e->getValue(), e->getExpressionType(),
-                            outputFileLLVM);
+    plugin->flushValueEager(context, e->getValue(), e->getExpressionType(),
+                            outputFile);
   }
   return placeholder;
 }
 
 ProteusValue ExpressionFlusherVisitor::visit(
     const expressions::RecordProjection *e) {
-  outputFileLLVM = context->CreateGlobalString(this->outputFile);
   Catalog &catalog = Catalog::getInstance();
   activeRelation = e->getOriginalRelationName();
 
@@ -214,8 +212,7 @@ ProteusValue ExpressionFlusherVisitor::visit(
     CacheInfo info = cache.getCache(e);
     /* Must also make sure that no explicit binding exists => No duplicate work
      */
-    map<RecordAttribute, ProteusValueMemory>::const_iterator it =
-        currState.getBindings().find(e->getAttribute());
+    auto it = currState.getBindings().find(e->getAttribute());
     if (info.structFieldNo != -1 && it == currState.getBindings().end()) {
 #ifdef DEBUGCACHING
       cout << "[Flusher: ] Expression found for "
@@ -237,8 +234,8 @@ ProteusValue ExpressionFlusherVisitor::visit(
         //                tmpWrapper.isNull };
         //                plugin->flushValue(mem_tmpWrapper,
         //                e->getExpressionType(),outputFileLLVM);
-        plugin->flushValueEager(tmpWrapper, e->getExpressionType(),
-                                outputFileLLVM);
+        plugin->flushValueEager(context, tmpWrapper, e->getExpressionType(),
+                                outputFile);
         return placeholder;
       }
     } else {
@@ -272,8 +269,8 @@ ProteusValue ExpressionFlusherVisitor::visit(
           valWrapper.isNull =
               record.isNull;  // FIXME: what if only one attribute is nullptr?
 
-          plugin->flushValueEager(valWrapper, e->getExpressionType(),
-                                  outputFileLLVM);
+          plugin->flushValueEager(context, valWrapper, e->getExpressionType(),
+                                  outputFile);
           return placeholder;
         }
       }
@@ -289,8 +286,7 @@ ProteusValue ExpressionFlusherVisitor::visit(
                                       pg->getOIDType());
       mem_path = currState[tupleIdentifier];
     }
-    std::cout << e->getExpressionType()->getType() << std::endl;
-    plugin->flushValue(mem_path, e->getExpressionType(), outputFileLLVM);
+    plugin->flushValue(context, mem_path, e->getExpressionType(), outputFile);
   }
   return placeholder;
 }
@@ -812,7 +808,7 @@ ProteusValue ExpressionFlusherVisitor::visit(
   ExpressionGeneratorVisitor exprGen(context, currState);
   ProteusValue recValue = e->accept(exprGen);
   recValue.isNull = (llvm::Value *)new tmpstruct{e, this};
-  pg->flushValueEager(recValue, e->getExpressionType(), outputFileLLVM);
+  pg->flushValueEager(context, recValue, e->getExpressionType(), outputFile);
 
   return placeholder;
 }

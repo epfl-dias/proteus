@@ -261,6 +261,19 @@ class Context {
     return toMem(val, isNull, std::string{file} + std::to_string(line));
   }
 
+  inline ProteusValueMemory toMem(
+      const ProteusValue &val,
+      /* The weird argument order is to avoid conflicts with the above def */
+      decltype(__builtin_LINE()) line = __builtin_LINE(),
+      decltype(__builtin_FILE()) file = __builtin_FILE()) {
+    return toMem(val.value, val.isNull, line, file);
+  }
+
+  inline ProteusValueMemory toMem(const ProteusValue &val,
+                                  const std::string &name) {
+    return toMem(val.value, val.isNull, name);
+  }
+
   // Not used atm
   void CodegenMemcpy(llvm::Value *dst, llvm::Value *src, int size);
   void CodegenMemcpy(llvm::Value *dst, llvm::Value *src, llvm::Value *size);
@@ -290,7 +303,10 @@ class Context {
 
   virtual llvm::Value *gen_call(std::string func,
                                 std::initializer_list<llvm::Value *> args,
-                                llvm::Type *ret);
+                                llvm::Type *ret = nullptr);
+
+  virtual llvm::Value *gen_call(llvm::Function *func,
+                                std::initializer_list<llvm::Value *> args);
 
   /**
    * Not sure the HT methods belong here

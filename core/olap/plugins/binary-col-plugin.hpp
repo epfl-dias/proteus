@@ -190,6 +190,14 @@ class BinaryColPlugin : public Plugin {
     throw runtime_error(error_msg);
   }
 
+  virtual void flushOutput(llvm::Value *fileName) {
+    llvm::Function *flushFunc = context->getFunction("flushOutput");
+    vector<llvm::Value *> ArgsV;
+    // Start 'array'
+    ArgsV.push_back(fileName);
+    context->getBuilder()->CreateCall(flushFunc, ArgsV);
+  }
+
  private:
   // Schema info provided
   RecordType rec;

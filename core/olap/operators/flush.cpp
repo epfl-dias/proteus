@@ -78,7 +78,7 @@ void Flush::produce_(ParallelContext *context) {
         ExpressionFlusherVisitor flusher{context, childState, outPath.c_str(),
                                          relName};
         flusher.endList();
-        flusher.flushOutput();
+        flusher.flushOutput(outputExpr.getExpressionType());
         context->deallocateStateVar(s);
       });
 

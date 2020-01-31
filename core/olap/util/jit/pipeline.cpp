@@ -674,9 +674,14 @@ std::string PipelineGen::convertTypeToFuncSuffix(llvm::Type *type) {
   }
 }
 
+std::string PipelineGen::getFunctionNameOverload(std::string name,
+                                                 llvm::Type *type) {
+  return name + convertTypeToFuncSuffix(type);
+}
+
 llvm::Function *PipelineGen::getFunctionOverload(std::string name,
                                                  llvm::Type *type) {
-  return getFunction(name + convertTypeToFuncSuffix(type));
+  return getFunction(getFunctionNameOverload(name, type));
 }
 
 /*

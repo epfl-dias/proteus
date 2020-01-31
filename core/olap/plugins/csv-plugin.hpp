@@ -156,6 +156,14 @@ class CSVPlugin : public Plugin {
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
+  virtual void flushOutput(llvm::Value *fileName) {
+    llvm::Function *flushFunc = context->getFunction("flushOutput");
+    vector<llvm::Value *> ArgsV;
+    // Start 'array'
+    ArgsV.push_back(fileName);
+    context->getBuilder()->CreateCall(flushFunc, ArgsV);
+  }
+
  private:
   std::string fname;
   off_t fsize;

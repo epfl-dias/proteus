@@ -111,11 +111,25 @@ class Plugin {
    */
   virtual void flushTuple(ProteusValueMemory mem_value,
                           llvm::Value *fileName) = 0;
+
+ protected:
   virtual void flushValue(ProteusValueMemory mem_value,
                           const ExpressionType *type,
                           llvm::Value *fileName) = 0;
   virtual void flushValueEager(ProteusValue value, const ExpressionType *type,
                                llvm::Value *fileName) = 0;
+
+ public:
+  virtual void flushValue(Context *context, ProteusValueMemory mem_value,
+                          const ExpressionType *type, std::string fileName) {
+    flushValue(mem_value, type, context->CreateGlobalString(fileName.c_str()));
+  }
+
+  virtual void flushValueEager(Context *context, ProteusValue value,
+                               const ExpressionType *type,
+                               std::string fileName) {
+    flushValueEager(value, type, context->CreateGlobalString(fileName.c_str()));
+  }
 
   /**
    * Relevant for collections' unnesting
@@ -141,10 +155,11 @@ class Plugin {
   virtual PluginType getPluginType() = 0;
   virtual RecordType getRowType() const {
     // FIXME: throw an exception for now, but as soon as existing classes
-    // implementat it, we should mark it function abstract
+    //  implement it, we should mark it pure virtual
     throw runtime_error("unimplemented");
   }
 
+ protected:
   virtual void flushBeginList(llvm::Value *fileName) = 0;
   virtual void flushBeginBag(llvm::Value *fileName) = 0;
   virtual void flushBeginSet(llvm::Value *fileName) = 0;
@@ -156,6 +171,48 @@ class Plugin {
   virtual void flushDelim(llvm::Value *fileName, int depth = 0) = 0;
   virtual void flushDelim(llvm::Value *resultCtr, llvm::Value *fileName,
                           int depth = 0) = 0;
+
+  virtual void flushOutput(llvm::Value *fileName) = 0;
+
+ public:
+  virtual void flushBeginList(Context *context, std::string fileName) {
+    flushBeginList(context->CreateGlobalString(fileName.c_str()));
+  }
+
+  virtual void flushBeginBag(Context *context, std::string fileName) {
+    flushBeginBag(context->CreateGlobalString(fileName.c_str()));
+  }
+
+  virtual void flushBeginSet(Context *context, std::string fileName) {
+    flushBeginSet(context->CreateGlobalString(fileName.c_str()));
+  }
+
+  virtual void flushEndList(Context *context, std::string fileName) {
+    flushEndList(context->CreateGlobalString(fileName.c_str()));
+  }
+
+  virtual void flushEndBag(Context *context, std::string fileName) {
+    flushEndBag(context->CreateGlobalString(fileName.c_str()));
+  }
+
+  virtual void flushEndSet(Context *context, std::string fileName) {
+    flushEndSet(context->CreateGlobalString(fileName.c_str()));
+  }
+
+  virtual void flushDelim(Context *context, std::string fileName,
+                          int depth = 0) {
+    flushDelim(context->CreateGlobalString(fileName.c_str()), depth);
+  }
+
+  virtual void flushDelim(Context *context, llvm::Value *resultCtr,
+                          std::string fileName, int depth = 0) {
+    flushDelim(resultCtr, context->CreateGlobalString(fileName.c_str()), depth);
+  }
+
+  virtual void flushOutput(Context *context, std::string fileName,
+                           const ExpressionType *type = nullptr) {
+    flushOutput(context->CreateGlobalString(fileName.c_str()));
+  }
 
   virtual bool isLazy() { return false; }
 };

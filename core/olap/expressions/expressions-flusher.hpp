@@ -120,9 +120,9 @@ class ExpressionFlusherVisitor : public ExprVisitor {
    * NOTE: Hard-coded to JSON case atm
    */
   void beginList() {
-    outputFileLLVM = context->CreateGlobalString(this->outputFile);
     if (!pg) {
       // TODO: remove. deprecated exectuion path
+      outputFileLLVM = context->CreateGlobalString(this->outputFile);
       llvm::Function *flushFunc = context->getFunction("flushChar");
       vector<llvm::Value *> ArgsV;
       // Start 'array'
@@ -130,21 +130,15 @@ class ExpressionFlusherVisitor : public ExprVisitor {
       ArgsV.push_back(outputFileLLVM);
       context->getBuilder()->CreateCall(flushFunc, ArgsV);
     } else {
-      pg->flushBeginList(outputFileLLVM);
+      pg->flushBeginList(context, outputFile);
     }
   }
-  void beginBag() {
-    outputFileLLVM = context->CreateGlobalString(this->outputFile);
-    pg->flushBeginBag(outputFileLLVM);
-  }
-  void beginSet() {
-    outputFileLLVM = context->CreateGlobalString(this->outputFile);
-    pg->flushBeginSet(outputFileLLVM);
-  }
+  void beginBag() { pg->flushBeginBag(context, outputFile); }
+  void beginSet() { pg->flushBeginSet(context, outputFile); }
   void endList() {
-    outputFileLLVM = context->CreateGlobalString(this->outputFile);
     if (!pg) {
       // TODO: remove. deprecated exectuion path
+      outputFileLLVM = context->CreateGlobalString(this->outputFile);
       llvm::Function *flushFunc = context->getFunction("flushChar");
       vector<llvm::Value *> ArgsV;
       // Start 'array'
@@ -152,29 +146,18 @@ class ExpressionFlusherVisitor : public ExprVisitor {
       ArgsV.push_back(outputFileLLVM);
       context->getBuilder()->CreateCall(flushFunc, ArgsV);
     } else {
-      pg->flushEndList(outputFileLLVM);
+      pg->flushEndList(context, outputFile);
     }
   }
-  void endBag() {
-    outputFileLLVM = context->CreateGlobalString(this->outputFile);
-    pg->flushEndBag(outputFileLLVM);
-  }
-  void endSet() {
-    outputFileLLVM = context->CreateGlobalString(this->outputFile);
-    pg->flushEndSet(outputFileLLVM);
-  }
-  void flushOutput() {
-    outputFileLLVM = context->CreateGlobalString(this->outputFile);
-    llvm::Function *flushFunc = context->getFunction("flushOutput");
-    vector<llvm::Value *> ArgsV;
-    // Start 'array'
-    ArgsV.push_back(outputFileLLVM);
-    context->getBuilder()->CreateCall(flushFunc, ArgsV);
+  void endBag() { pg->flushEndBag(context, outputFile); }
+  void endSet() { pg->flushEndSet(context, outputFile); }
+  void flushOutput(const ExpressionType *type = nullptr) {
+    pg->flushOutput(context, outputFile, type);
   }
   void flushDelim(llvm::Value *resultCtr, int depth = 0) {
-    outputFileLLVM = context->CreateGlobalString(this->outputFile);
     if (!pg) {
       // TODO: remove. deprecated exectuion path
+      outputFileLLVM = context->CreateGlobalString(this->outputFile);
       llvm::Function *flushFunc = context->getFunction("flushDelim");
       vector<llvm::Value *> ArgsV;
       ArgsV.push_back(resultCtr);
@@ -183,7 +166,7 @@ class ExpressionFlusherVisitor : public ExprVisitor {
       ArgsV.push_back(outputFileLLVM);
       context->getBuilder()->CreateCall(flushFunc, ArgsV);
     } else {
-      pg->flushDelim(resultCtr, outputFileLLVM, depth);
+      pg->flushDelim(context, resultCtr, outputFile, depth);
     }
   }
   void flushDelim(int depth = 0) {
@@ -197,7 +180,7 @@ class ExpressionFlusherVisitor : public ExprVisitor {
       ArgsV.push_back(outputFileLLVM);
       context->getBuilder()->CreateCall(flushFunc, ArgsV);
     } else {
-      pg->flushDelim(outputFileLLVM, depth);
+      pg->flushDelim(context, outputFile, depth);
     }
   }
 
