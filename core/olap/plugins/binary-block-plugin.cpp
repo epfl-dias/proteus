@@ -741,16 +741,6 @@ void BinaryBlockPlugin::flushValueInternal(Context *context,
   IRBuilder<> *Builder = context->getBuilder();
   Value *val_attr = Builder->CreateLoad(mem_value.mem);
   switch (type->getTypeID()) {
-    case DSTRING:
-    case INT: {
-      auto flushFunc =
-          dynamic_cast<ParallelContext *>(context)->getFunctionNameOverload(
-              "flushBinary", val_attr->getType());
-      auto f = context->CreateGlobalString(fileName.c_str());
-      context->gen_call(flushFunc, {val_attr, f},
-                        Type::getVoidTy(context->getLLVMContext()));
-      return;
-    }
     case RECORD: {
       auto attrs = ((const RecordType *)type)->getArgs();
 
@@ -771,9 +761,24 @@ void BinaryBlockPlugin::flushValueInternal(Context *context,
 
       return;
     }
-    default:
+    case STRING:
+    case SET:
+    case COMPOSITE:
+    case BLOCK:
+    case LIST:
+    case BAG: {
       LOG(ERROR) << "Unsupported datatype: " << *type;
       throw runtime_error("Unsupported datatype");
+    }
+    default: {
+      auto flushFunc =
+          dynamic_cast<ParallelContext *>(context)->getFunctionNameOverload(
+              "flushBinary", val_attr->getType());
+      auto f = context->CreateGlobalString(fileName.c_str());
+      context->gen_call(flushFunc, {val_attr, f},
+                        Type::getVoidTy(context->getLLVMContext()));
+      return;
+    }
   }
 }
 

@@ -833,3 +833,11 @@ extern "C" void flushBinaryi32(int32_t x, const char *fileName) {
 extern "C" void flushBinaryi64(int64_t x, const char *fileName) {
   flushBinary_impl(x, fileName);
 }
+
+extern "C" void flushBinarydouble(double x, const char *fileName) {
+  flushBinary_impl(x, fileName);
+}
+
+extern "C" void flushBinaryfloat(float x, const char *fileName) {
+  flushBinary_impl(x, fileName);
+}
