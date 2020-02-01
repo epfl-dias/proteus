@@ -37,6 +37,16 @@ class PreparedStatement;
 class CatalogParser;
 class ParallelContext;
 
+class pg {
+ private:
+  const std::string pgType;
+
+ public:
+  explicit pg(std::string pgType) : pgType(std::move(pgType)) {}
+
+  auto getType() const { return pgType; }
+};
+
 class RelBuilder {
  private:
   ParallelContext* ctx;
@@ -57,6 +67,9 @@ class RelBuilder {
                   ExpressionType* type) const;
 
   std::string getModuleName() const;
+
+  Plugin* createPlugin(RecordType rec, std::vector<RecordAttribute*> projs,
+                       const std::string& pgType) const;
 
  private:
   RelBuilder();
@@ -92,8 +105,29 @@ class RelBuilder {
     return scan(*pg);
   }
 
-  template <typename T>
-  RelBuilder print(T expr, std::string outrel, Plugin* pg = nullptr) const {
+  RelBuilder print(pg pgType, std::string outrel) const;
+
+  RelBuilder print(pg pgType) const;
+
+  RelBuilder print(std::function<
+                   std::vector<expression_t>(const expressions::InputArgument&)>
+                       exprs) const;
+
+  RelBuilder print(std::function<std::vector<expression_t>(
+                       const expressions::InputArgument&)>
+                       exprs,
+                   pg pgType) const;
+
+  RelBuilder print(std::function<std::vector<expression_t>(
+                       const expressions::InputArgument&)>
+                       exprs,
+                   pg pgType, std::string outrel) const;
+
+  [[deprecated]] RelBuilder print(
+      std::function<std::vector<expression_t>(const expressions::InputArgument&,
+                                              std::string)>
+          expr,
+      std::string outrel, Plugin* pg = nullptr) const {
     const auto vec = expr(getOutputArg(), outrel);
 #ifndef NDEBUG
     for (const auto& e : vec) {
@@ -105,21 +139,30 @@ class RelBuilder {
     return print(vec, pg);
   }
 
-  template <typename Tplugin, typename T>
-  RelBuilder print(T expr, std::string outrel) const {
+  template <typename Tplugin>
+  [[deprecated]] RelBuilder print(
+      std::function<std::vector<expression_t>(const expressions::InputArgument&,
+                                              std::string)>
+          expr,
+      std::string outrel) const {
     auto pg = new Tplugin(ctx, outrel, {});
     registerPlugin(outrel, pg);
 
     return print(expr, outrel, pg);
   }
 
-  template <typename T>
-  RelBuilder print(T expr, Plugin* pg) const {
+  [[deprecated]] RelBuilder print(
+      std::function<std::vector<expression_t>(const expressions::InputArgument&,
+                                              std::string)>
+          expr,
+      Plugin* pg) const {
     return print(expr, pg->getName(), pg);
   }
 
-  template <typename T>
-  RelBuilder print(T expr) const {
+  [[deprecated]] RelBuilder print(
+      std::function<std::vector<expression_t>(const expressions::InputArgument&,
+                                              std::string)>
+          expr) const {
     return print(expr, getModuleName());
   }
 
@@ -326,7 +369,8 @@ class RelBuilder {
   RelBuilder sort(const vector<expression_t>& orderByFields,
                   const vector<direction>& dirs) const;
 
-  RelBuilder print(const vector<expression_t>& e, Plugin* pg) const;
+  RelBuilder print(const vector<expression_t>& e, Plugin* pg,
+                   bool may_overwrite = false) const;
 
   RelBuilder unnest(expression_t e) const;
 

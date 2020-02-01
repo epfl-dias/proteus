@@ -152,6 +152,13 @@ struct pmJSON {
 //
 //}
 
+extern "C" JSONPlugin *createJsonPlugin(ParallelContext *context,
+                                        std::string fname, RecordType rec,
+                                        std::vector<RecordAttribute *> &) {
+  return new JSONPlugin(context, fname, new RecordType(rec), /* FIXME */ 10,
+                        true);
+}
+
 JSONPlugin::JSONPlugin(Context *const context, string fname,
                        ExpressionType *schema, size_t linehint,
                        bool staticSchema)

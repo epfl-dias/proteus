@@ -213,9 +213,8 @@ TEST_F(OutputTest, ReduceNumeric) {
                 return {arg["sid"]};
               },
               {MAX})
-          .print([&](const auto &arg,
-                     std::string outrel) -> std::vector<expression_t> {
-            return {arg["sid"].as(outrel, "sid")};
+          .print([&](const auto &arg) -> std::vector<expression_t> {
+            return {arg["sid"]};
           })
           .prepare();
 
@@ -257,17 +256,17 @@ TEST_F(OutputTest, ReduceBag) {
   const char *testLabel = "reduceBag.json";
   RelBuilderFactory factory{testLabel};
 
-  auto statement =
-      factory.getBuilder()
-          .scan(sailors, {"age", "sid"}, "pm-csv")
-          .filter([&](const auto &arg) -> expression_t {
-            return gt(arg["age"], 40.0);
-          })
-          .print([&](const auto &arg,
-                     std::string outrel) -> std::vector<expression_t> {
-            return {arg["sid"].as(outrel, "sid")};
-          })
-          .prepare();  // FIMXE: ask for json
+  auto statement = factory.getBuilder()
+                       .scan(sailors, {"age", "sid"}, "pm-csv")
+                       .filter([&](const auto &arg) -> expression_t {
+                         return gt(arg["age"], 40.0);
+                       })
+                       .print(
+                           [&](const auto &arg) -> std::vector<expression_t> {
+                             return {arg["sid"]};
+                           },
+                           pg("json"))
+                       .prepare();  // FIMXE: ask for json
 
   runAndVerify(statement, testLabel);
 }
@@ -278,17 +277,17 @@ TEST_F(OutputTest, ReduceBagRecord) {
   const char *testLabel = "reduceBagRecord.json";
   RelBuilderFactory factory{testLabel};
 
-  auto statement =
-      factory.getBuilder()
-          .scan(sailors, {"age", "sid"}, "pm-csv")
-          .filter([&](const auto &arg) -> expression_t {
-            return gt(arg["age"], 40.0);
-          })
-          .print([&](const auto &arg,
-                     std::string outrel) -> std::vector<expression_t> {
-            return {arg["sid"].as(outrel, "id"), arg["age"].as(outrel, "age")};
-          })
-          .prepare();  // FIMXE: ask for json
+  auto statement = factory.getBuilder()
+                       .scan(sailors, {"age", "sid"}, "pm-csv")
+                       .filter([&](const auto &arg) -> expression_t {
+                         return gt(arg["age"], 40.0);
+                       })
+                       .print(
+                           [&](const auto &arg) -> std::vector<expression_t> {
+                             return {arg["sid"].as("tmp", "id"), arg["age"]};
+                           },
+                           pg("json"))
+                       .prepare();  // FIMXE: ask for json
 
   runAndVerify(statement, testLabel);
 }
@@ -316,11 +315,11 @@ TEST_F(OutputTest, NestBagTPCH) {
                                    32, MAX}};
               },
               4, 16)
-          .print([&](const auto &arg,
-                     std::string outrel) -> std::vector<expression_t> {
-            return {arg["cnt"].as(outrel, "cnt"),
-                    arg["max_qty"].as(outrel, "max_qty")};
-          })
+          .print(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {arg["cnt"], arg["max_qty"]};
+              },
+              pg("json"))
           .prepare();
 
   runAndVerify(statement, testLabel);
@@ -358,12 +357,11 @@ TEST_F(OutputTest, JoinLeft3) {
                         expression_t{1}.as("tmp", "cnt")};
               },
               {MAX, SUM, SUM})
-          .print([&](const auto &arg,
-                     std::string outrel) -> std::vector<expression_t> {
-            return {arg["max_sid"].as(outrel, "max_sid"),
-                    arg["sum_sid"].as(outrel, "sum_sid"),
-                    arg["cnt"].as(outrel, "cnt")};
-          })
+          .print(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {arg["max_sid"], arg["sum_sid"], arg["cnt"]};
+              },
+              pg("json"))
           .prepare();
 
   runAndVerify(statement, testLabel);
@@ -386,10 +384,11 @@ TEST_F(OutputTest, NestReserves) {
                                        1, 0, SUM}};
               },
               4, 16)
-          .print([&](const auto &arg,
-                     std::string outrel) -> std::vector<expression_t> {
-            return {arg["_groupCount"].as(outrel, "_groupCount")};
-          })
+          .print(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {arg["_groupCount"]};
+              },
+              pg("json"))
           .prepare();
 
   runAndVerify(statement, testLabel);
@@ -413,11 +412,11 @@ TEST_F(OutputTest, MultiNestReservesStaticAlloc) {
                                        MAX}};
               },
               4, 16)
-          .print([&](const auto &arg,
-                     std::string outrel) -> std::vector<expression_t> {
-            return {arg["_outCount"].as(outrel, "_outCount"),
-                    arg["_outMax"].as(outrel, "_outMax")};
-          })
+          .print(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {arg["_outCount"], arg["_outMax"]};
+              },
+              pg("json"))
           .prepare();
 
   runAndVerify(statement, testLabel);

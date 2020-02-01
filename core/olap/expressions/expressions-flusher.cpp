@@ -192,8 +192,15 @@ ProteusValue ExpressionFlusherVisitor::visit(
 ProteusValue ExpressionFlusherVisitor::visit(
     const expressions::RecordProjection *e) {
   Catalog &catalog = Catalog::getInstance();
-  activeRelation = e->getOriginalRelationName();
+  Plugin *plugin = catalog.getPlugin(activeRelation);
 
+  if (activeRelation != e->getOriginalRelationName()) {
+    ExpressionGeneratorVisitor exprGenerator(context, currState);
+    ProteusValue val = e->accept(exprGenerator);
+
+    plugin->flushValueEager(context, val, e->getExpressionType(), outputFile);
+    return placeholder;
+  }
   /**
    *  Missing connection apparently ('activeRelation')
    */
@@ -201,7 +208,6 @@ ProteusValue ExpressionFlusherVisitor::visit(
       ExpressionGeneratorVisitor(context, currState, activeRelation);
 
   ProteusValue record = e->getExpr().accept(exprGenerator);
-  Plugin *plugin = catalog.getPlugin(activeRelation);
   {
     // if (plugin->getPluginType() != PGBINARY) {
     /* Cache Logic */

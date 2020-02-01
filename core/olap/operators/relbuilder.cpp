@@ -304,13 +304,14 @@ RelBuilder RelBuilder::sort(const vector<expression_t> &orderByFields,
   }
 }
 
-RelBuilder RelBuilder::print(const vector<expression_t> &e, Plugin *pg) const {
+RelBuilder RelBuilder::print(const vector<expression_t> &e, Plugin *pg,
+                             bool may_overwrite) const {
   assert(!e.empty() && "Empty print");
   assert(e[0].isRegistered());
   std::string outrel = e[0].getRegisteredRelName();
   CatalogParser &catalog = CatalogParser::getInstance();
   LOG(INFO) << outrel;
-  assert(!catalog.getInputInfoIfKnown(outrel));
+  assert(may_overwrite || !catalog.getInputInfoIfKnown(outrel));
 
   std::vector<RecordAttribute *> args;
   args.reserve(e.size());
@@ -444,9 +445,7 @@ typedef Plugin *(*plugin_creator_t)(ParallelContext *, std::string, RecordType,
 
 std::string hyphenatedPluginToCamel(const char *line);
 
-RelBuilder RelBuilder::scan(RecordType rec,
-                            const std::vector<std::string> &relAttrs,
-                            const std::string &pgType) const {
+auto getPluginFactory(const std::string &pgType) {
   auto name = hyphenatedPluginToCamel(pgType.c_str());
   std::string conv = "create" + name + "Plugin";
 
@@ -462,18 +461,103 @@ RelBuilder RelBuilder::scan(RecordType rec,
     throw runtime_error(err);
   }
 
-  std::vector<RecordAttribute *> projs;
-  projs.reserve(relAttrs.size());
-  for (const auto &attr : relAttrs)
-    projs.emplace_back(new RecordAttribute(*rec.getArg(attr)));
+  return create;
+}
+
+Plugin *RelBuilder::createPlugin(RecordType rec,
+                                 std::vector<RecordAttribute *> projs,
+                                 const std::string &pgType) const {
+  auto create = getPluginFactory(pgType);
 
   assert(rec.getArgs().size() > 0);
   auto fileName = rec.getArgs().front()->getRelationName();
+  LOG(INFO) << fileName << " " << pgType;
   auto pg = create(ctx, fileName, rec, projs);
 
-  CatalogParser::getInstance().getOrCreateInputInfo(fileName, ctx);
-  setOIDType(CatalogParser::getInstance(), fileName, pg->getOIDType());
+  auto &catalog = CatalogParser::getInstance();
+  auto ii = catalog.getInputInfoIfKnown(fileName);
+  if (!ii) {
+    ii = new InputInfo;
+    ii->exprType = new BagType(rec);
+    ii->path = fileName;
+
+    catalog.setInputInfo(fileName, ii);
+  }
+
+  ii->oidType = new RecordType(rec);
+
   Catalog::getInstance().registerPlugin(fileName, pg);
 
+  return pg;
+}
+
+RelBuilder RelBuilder::scan(RecordType rec,
+                            const std::vector<std::string> &relAttrs,
+                            const std::string &pgType) const {
+  std::vector<RecordAttribute *> projs;
+  projs.reserve(relAttrs.size());
+  for (const auto &attr : relAttrs) {
+    projs.emplace_back(new RecordAttribute(*rec.getArg(attr)));
+  }
+
+  auto pg = createPlugin(rec, projs, pgType);
   return scan(*pg);
+}
+
+RelBuilder RelBuilder::print(pg pgType, std::string outrel) const {
+  return print(
+      [&](const auto &arg) {
+        auto attrs = arg.getProjections();
+        std::vector<expression_t> es;
+        es.reserve(attrs.size());
+        for (const auto &attr : attrs) {
+          es.emplace_back(
+              arg[attr.getAttrName()].as(outrel, attr.getAttrName()));
+        }
+        return es;
+      },
+      pgType, outrel);
+}
+
+RelBuilder RelBuilder::print(pg pgType) const {
+  return print(std::move(pgType), getModuleName());
+}
+
+RelBuilder RelBuilder::print(
+    std::function<std::vector<expression_t>(const expressions::InputArgument &)>
+        exprs,
+    pg pgType) const {
+  return print(std::move(exprs), std::move(pgType), getModuleName());
+}
+
+RelBuilder RelBuilder::print(
+    std::function<std::vector<expression_t>(const expressions::InputArgument &)>
+        exprs,
+    pg pgType, std::string outrel) const {
+  LOG(INFO) << "registering";
+  auto arg = getOutputArg();
+
+  const auto &projs = arg.getProjections();
+
+  std::vector<RecordAttribute *> attrs;
+  attrs.reserve(projs.size());
+  for (const auto &a : projs) {
+    attrs.emplace_back(new RecordAttribute(
+        attrs.size() + 1, outrel, a.getAttrName(), a.getOriginalType()));
+  }
+
+  LOG(INFO) << "registering";
+  auto pg = createPlugin({attrs}, {}, pgType.getType());
+  LOG(INFO) << "registering done";
+
+  auto v = exprs(arg);
+  for (auto &e : v) e.as(outrel, e.getRegisteredAttrName());
+
+  return print(v, pg, true);
+}
+
+RelBuilder RelBuilder::print(
+    std::function<std::vector<expression_t>(const expressions::InputArgument &)>
+        exprs) const {
+  return print(exprs, pg("pm-csv"));
 }
