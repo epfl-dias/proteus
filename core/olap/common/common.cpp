@@ -23,13 +23,7 @@
 
 #include "common/common.hpp"
 
-#include <thread>
-
-#include "communication/comm-manager.hpp"
-#include "memory/memory-manager.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
-#include "util/jit/pipeline.hpp"
+#include <util/jit/pipeline.hpp>
 
 namespace proteus {
 
