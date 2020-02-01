@@ -223,12 +223,12 @@ void ZipInitiate::generate_send() {
 void ZipInitiate::ctrl(Pipeline *pip) {
   std::cout << "close" << launch.size() << std::endl;
 
-  Pipeline *lpip = launch[0]->getPipeline(pip->getGroup());
-  Pipeline *rpip = launch[1]->getPipeline(pip->getGroup());
+  auto lpip = launch[0]->getPipeline(pip->getGroup());
+  auto rpip = launch[1]->getPipeline(pip->getGroup());
 
   int targs = *(partition_ptr[pip->getGroup()]);
 
-  Pipeline *jpip = join_pip->getPipeline(pip->getGroup());
+  auto jpip = join_pip->getPipeline(pip->getGroup());
 
   jpip->open();
 

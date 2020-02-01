@@ -434,7 +434,7 @@ void MemMoveLocalTo::catcher(MemMoveConf *mmc, int group_id,
                              const exec_location &target_dev) {
   set_exec_location_on_scope d(target_dev);
 
-  Pipeline *pip = catch_pip->getPipeline(group_id);
+  auto pip = catch_pip->getPipeline(group_id);
   nvtxRangePushA("MemMoveLocalTo::catch");
 
   nvtxRangePushA("MemMoveLocalTo::catch_open");

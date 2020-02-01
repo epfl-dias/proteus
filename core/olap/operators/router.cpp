@@ -251,7 +251,7 @@ void Router::fire(int target, PipelineGen *pipGen) {
   const auto &cu = aff->getAvailableCU(target);
   // set_exec_location_on_scope d(cu);
   auto exec_affinity = cu.set_on_scope();
-  Pipeline *pip = pipGen->getPipeline(target);
+  auto pip = pipGen->getPipeline(target);
   std::this_thread::yield();  // if we remove that, following opens may allocate
                               // memory to wrong socket!
 

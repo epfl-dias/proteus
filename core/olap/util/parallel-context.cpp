@@ -297,8 +297,8 @@ void ParallelContext::compileAndLoad() {
   pushPipeline();
 }
 
-std::vector<Pipeline *> ParallelContext::getPipelines() {
-  std::vector<Pipeline *> pips;
+std::vector<std::unique_ptr<Pipeline>> ParallelContext::getPipelines() {
+  std::vector<std::unique_ptr<Pipeline>> pips;
 
   assert(pipelines.size() == leafpip.size());
   for (size_t i = 0; i < pipelines.size(); ++i) {

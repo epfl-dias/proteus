@@ -23,6 +23,8 @@
 
 #include "plan/prepared-statement.hpp"
 
+#include <utility>
+
 #include "plan/plan-parser.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
@@ -61,7 +63,7 @@ QueryResult PreparedStatement::execute(bool deterministic_affinity) {
     {
       time_block t("Texecute       : ");
 
-      for (Pipeline *p : pipelines) {
+      for (auto &p : pipelines) {
         nvtxRangePushA("pip");
         {
           time_block t("T: ");
@@ -109,7 +111,7 @@ PreparedStatement PreparedStatement::from(const std::string &planPath,
   {
     time_block t("Tcodegen: ");
 
-    ParallelContext *ctx = new ParallelContext(label, false);
+    auto ctx = new ParallelContext(label, false);
     CatalogParser catalog{catalogJSON.c_str(), ctx};
     auto label_ptr = new std::string{label};
     PlanExecutor exec{planPath.c_str(), catalog, label_ptr->c_str(), ctx};
@@ -119,3 +121,18 @@ PreparedStatement PreparedStatement::from(const std::string &planPath,
     return {ctx->getPipelines(), ctx->getModuleName()};
   }
 }
+
+std::vector<std::shared_ptr<Pipeline>> uniqueToShared(
+    std::vector<std::unique_ptr<Pipeline>> pips) {
+  std::vector<std::shared_ptr<Pipeline>> ret{
+      std::make_move_iterator(pips.begin()),
+      std::make_move_iterator(pips.end())};
+  return ret;
+}
+
+PreparedStatement::PreparedStatement(
+    std::vector<std::unique_ptr<Pipeline>> pips, std::string outputFile)
+    : pipelines(uniqueToShared(std::move(pips))),
+      outputFile(std::move(outputFile)) {}
+
+PreparedStatement::~PreparedStatement() = default;

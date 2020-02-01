@@ -24,6 +24,7 @@
 #ifndef PREPARED_STATEMENT_HPP_
 #define PREPARED_STATEMENT_HPP_
 
+#include <utility>
 #include <vector>
 
 #include "plan/query-result.hpp"
@@ -32,15 +33,17 @@ class Pipeline;
 
 class PreparedStatement {
  private:
-  std::vector<Pipeline*> pipelines;
+  // Both fields are non-const to allow moving PreparedStatements
+  std::vector<std::shared_ptr<Pipeline>> pipelines;
   std::string outputFile;
 
  protected:
-  PreparedStatement(const std::vector<Pipeline*>& pips,
-                    const std::string& outputFile)
-      : pipelines(pips), outputFile(outputFile) {}
+  PreparedStatement(std::vector<std::unique_ptr<Pipeline>> pips,
+                    std::string outputFile);
 
  public:
+  ~PreparedStatement();
+
   QueryResult execute(bool deterministic_affinity = true);
 
   static PreparedStatement from(const std::string& planPath,

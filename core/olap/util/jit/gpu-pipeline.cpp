@@ -676,7 +676,7 @@ void *GpuPipelineGen::getKernel() const {
   return k;
 }
 
-Pipeline *GpuPipelineGen::getPipeline(int group_id) {
+std::unique_ptr<Pipeline> GpuPipelineGen::getPipeline(int group_id) {
   void *func = getConsume();
 
   std::vector<std::pair<const void *, std::function<opener_t>>>
@@ -685,7 +685,7 @@ Pipeline *GpuPipelineGen::getPipeline(int group_id) {
       closers{};  // this->closers};
 
   if (copyStateFrom) {
-    Pipeline *copyFrom = copyStateFrom->getPipeline(group_id);
+    std::shared_ptr<Pipeline> copyFrom = copyStateFrom->getPipeline(group_id);
 
     openers.insert(openers.begin(),
                    std::make_pair(this, [copyFrom, this](Pipeline *pip) {
@@ -704,7 +704,7 @@ Pipeline *GpuPipelineGen::getPipeline(int group_id) {
     closers.insert(closers.begin(), std::make_pair(this, [](Pipeline *pip) {}));
   }
 
-  return new Pipeline(
+  return Pipeline::create(
       func, getModule()->getDataLayout().getTypeAllocSize(state_type), this,
       state_type, openers, closers,
       wrapper_module.getCompiledFunction(open__function),

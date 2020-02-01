@@ -523,7 +523,7 @@ void MemMoveDevice::catcher(MemMoveConf *mmc, int group_id,
 
   nvtxRangePushA("memmove::catch");
 
-  Pipeline *pip = catch_pip->getPipeline(group_id);
+  auto pip = catch_pip->getPipeline(group_id);
 
   nvtxRangePushA("memmove::catch_open");
   pip->open();

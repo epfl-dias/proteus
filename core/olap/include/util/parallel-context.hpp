@@ -124,7 +124,7 @@ class ParallelContext : public Context {
   void compileAndLoad();
 
   // std::vector<CUfunction> getKernel();
-  std::vector<Pipeline *> getPipelines();
+  std::vector<std::unique_ptr<Pipeline>> getPipelines();
 
   // Provide support for some extern functions
   virtual void registerFunction(const char *funcName, llvm::Function *func);

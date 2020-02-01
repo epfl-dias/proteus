@@ -131,7 +131,7 @@ class PipelineGen {
   virtual void deallocateStateVar(llvm::Value *v);
 
   virtual llvm::Function *prepare();
-  virtual Pipeline *getPipeline(int group_id = 0);
+  virtual std::unique_ptr<Pipeline> getPipeline(int group_id = 0);
   virtual void *getKernel() const;
 
   virtual std::string convertTypeToFuncSuffix(llvm::Type *type);
@@ -226,9 +226,14 @@ class Pipeline {
   void *init_state;
   void *deinit_state;
 
-  Pipeline *execute_after_close;
+  std::shared_ptr<Pipeline> execute_after_close;
 
-  Pipeline(void *cons, size_t state_size, PipelineGen *gen,
+  struct guard {
+    explicit guard(int) {}
+  };
+
+ public:
+  Pipeline(guard, void *cons, size_t state_size, PipelineGen *gen,
            llvm::StructType *state_type,
            const std::vector<std::pair<const void *, std::function<opener_t>>>
                &openers,
@@ -237,8 +242,13 @@ class Pipeline {
            void *init_state, void *deinit_state,
            int32_t group_id = 0,  // FIXME: group id should be handled to comply
                                   // with the requirements!
-           Pipeline *execute_after_close = nullptr);
+           std::shared_ptr<Pipeline> execute_after_close = nullptr);
 
+ protected:
+  template <typename... T>
+  static auto create(T &&... args) {
+    return std::make_unique<Pipeline>(guard{0}, std::forward<T>(args)...);
+  }
   // void copyStateFrom  (Pipeline * p){
   //     std::cout << p->state_size << std::endl;
   //     memcpy(state, p->state, p->state_size);

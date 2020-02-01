@@ -51,7 +51,7 @@ class GpuPipelineGen : public PipelineGen {
 
   virtual llvm::Function *prepare();
 
-  virtual Pipeline *getPipeline(int group_id = 0);
+  virtual std::unique_ptr<Pipeline> getPipeline(int group_id = 0);
   virtual void *getKernel() const;
 
   // virtual size_t appendStateVar (llvm::Type * ptype);

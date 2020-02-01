@@ -548,7 +548,7 @@ void GpuToCpu::generate_catch() {
   Builder->SetInsertPoint(context->getEndingBlock());
 }
 
-void kick_start(Pipeline *cpip, int device) {
+void kick_start(std::unique_ptr<Pipeline> cpip, int device) {
   set_exec_location_on_scope d(topology::getInstance().getGpus()[device]);
 
   nvtxRangePushA("gpu2cpu_reads");
@@ -599,7 +599,7 @@ void GpuToCpu::open(Pipeline *pip) {
   pip->setStateVar<int32_t *>(eofVar_id, (int32_t *)eof);
 
   nvtxRangePushA("gpu2cpu_get_pipeline");
-  Pipeline *cpip = cpu_pip->getPipeline(pip->getGroup());
+  auto cpip = cpu_pip->getPipeline(pip->getGroup());
   nvtxRangePop();
 
   cpip->setStateVar<int32_t *>(flagsVar_id_catch, (int32_t *)flags);
@@ -610,7 +610,7 @@ void GpuToCpu::open(Pipeline *pip) {
   gpu_run(cudaStreamSynchronize(strm));
   gpu_run(cudaStreamDestroy(strm));
 
-  std::thread *t = new std::thread(kick_start, cpip, device);
+  std::thread *t = new std::thread(kick_start, std::move(cpip), device);
 
   pip->setStateVar<void *>(threadVar_id, t);
   nvtxRangePop();

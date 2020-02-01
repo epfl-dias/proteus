@@ -476,7 +476,7 @@ void *PipelineGen::getKernel() const {
   return (void *)func;
 }
 
-Pipeline *PipelineGen::getPipeline(int group_id) {
+std::unique_ptr<Pipeline> PipelineGen::getPipeline(int group_id) {
   void *func = getKernel();
 
   std::vector<std::pair<const void *, std::function<opener_t>>>
@@ -485,7 +485,7 @@ Pipeline *PipelineGen::getPipeline(int group_id) {
       closers{};  // this->closers};
 
   if (copyStateFrom) {
-    Pipeline *copyFrom = copyStateFrom->getPipeline(group_id);
+    std::shared_ptr<Pipeline> copyFrom = copyStateFrom->getPipeline(group_id);
 
     openers.insert(openers.begin(),
                    std::make_pair(this, [copyFrom, this](Pipeline *pip) {
@@ -503,7 +503,7 @@ Pipeline *PipelineGen::getPipeline(int group_id) {
     // pip){pip->copyStateBackTo(copyFrom);});
     closers.insert(closers.begin(), std::make_pair(this, [](Pipeline *pip) {}));
   }
-  return new Pipeline(
+  return Pipeline::create(
       func, getModule()->getDataLayout().getTypeAllocSize(state_type), this,
       state_type, openers, closers, getCompiledFunction(open__function),
       getCompiledFunction(close_function), group_id,
@@ -532,13 +532,13 @@ void PipelineGen::workerScopedMembar() {
 }
 
 Pipeline::Pipeline(
-    void *f, size_t state_size, PipelineGen *gen, StructType *state_type,
+    guard, void *f, size_t state_size, PipelineGen *gen, StructType *state_type,
     const std::vector<std::pair<const void *, std::function<opener_t>>>
         &openers,
     const std::vector<std::pair<const void *, std::function<closer_t>>>
         &closers,
     void *init_state, void *deinit_state, int32_t group_id,
-    Pipeline *execute_after_close)
+    std::shared_ptr<Pipeline> execute_after_close)
     : cons(f),
       state_type(state_type),
       openers(openers),
@@ -548,13 +548,13 @@ Pipeline::Pipeline(
       state_size(state_size),
       init_state(init_state),
       deinit_state(deinit_state),
-      execute_after_close(execute_after_close) {
+      execute_after_close(std::move(execute_after_close)) {
   assert(!openers.empty() && "Openers should be non-empty");
   assert(!closers.empty() && "Closers should be non-empty");
   assert(openers.size() == 1 && "Openers should contain a single element");
   assert(closers.size() == 1 && "Closers should contain a single element");
 
-  state = malloc(
+  state = MemoryManager::mallocPinned(
       state_size);  //(getModule()->getDataLayout().getTypeSizeInBits(state_type)
                     //+ 7) / 8);
   assert(state);
@@ -568,7 +568,7 @@ Pipeline::Pipeline(
 //             Pipeline(f, state_size, gen, state_type, openers, closers,
 //             group_id){}
 
-Pipeline::~Pipeline() { free(state); }
+Pipeline::~Pipeline() { MemoryManager::freePinned(state); }
 
 // bytes
 size_t Pipeline::getSizeOf(llvm::Type *t) const {
