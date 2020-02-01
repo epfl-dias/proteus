@@ -24,6 +24,8 @@
 #ifndef EXPRESSIONS_HPP_
 #define EXPRESSIONS_HPP_
 
+#include <plugins/plugins.hpp>
+
 #include "expressions/binary-operators.hpp"
 #include "operators/monoids.hpp"
 #include "values/expressionTypes.hpp"
@@ -1313,6 +1315,7 @@ inline expressions::RecordProjection expression_t::operator[](
       }
     }
   }
+  if (proj.getAttrName() == activeLoop) return {*this, proj};
   LOG(INFO) << proj.getAttrName();
   LOG(INFO) << proj.getRelationName();
   for (const auto &e : rec->getArgs()) {

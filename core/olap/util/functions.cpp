@@ -678,8 +678,8 @@ size_t newlineAVX(const char *const target, size_t targetLength) {
 /// tokenArray[0].end << endl;
 //}
 
-void parseLineJSON(char *buf, size_t start, size_t end, jsmntok_t **tokens,
-                   size_t line) {
+extern "C" void parseLineJSON(char *buf, size_t start, size_t end,
+                              jsmntok_t **tokens, size_t line) {
   //    cout << "[parseLineJSON: ] Entry for line " << line << " from " << start
   //    << " to " << end << endl;
   int error_code;

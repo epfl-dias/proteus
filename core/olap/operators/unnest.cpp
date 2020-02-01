@@ -84,19 +84,6 @@ void Unnest::generate(Context *const context,
 //    }
 #endif
   ProteusValueMemory nestedValueItem = pg->collectionGetNext(mem_currentObjId);
-  // #ifdef DEBUGUNNEST
-  {
-    auto val_offset = context->getStructElem(nestedValueItem.mem, 0);
-    auto val_rowId = context->getStructElem(nestedValueItem.mem, 1);
-    auto val_currentTokenNo = context->getStructElem(nestedValueItem.mem, 2);
-    // Printing the active token that will be forwarded
-    context->log(val_offset);
-
-    context->log(val_rowId);
-
-    context->log(val_currentTokenNo);
-  }
-  // #endif
 
   // Preparing call to parent
   std::map<RecordAttribute, ProteusValueMemory> unnestBindings{

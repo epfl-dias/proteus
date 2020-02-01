@@ -32,18 +32,13 @@
 class Path {
  public:
   Path(string nestedName, const expressions::RecordProjection *desugarizedPath)
-      : desugarizedPath(desugarizedPath),
-        nestedName(nestedName),
-        val_parentColl(nullptr) {
+      : desugarizedPath(desugarizedPath), nestedName(nestedName) {
     assert(desugarizedPath && "Projection should be non-null");
     Catalog &catalog = Catalog::getInstance();
     string originalRelation = desugarizedPath->getOriginalRelationName();
     pg = catalog.getPlugin(originalRelation);
   }
 
-  void setParentCollection(llvm::Value *collection) {
-    val_parentColl = collection;
-  }
   const expressions::RecordProjection *get() const { return desugarizedPath; }
   Plugin *getRelevantPlugin() const { return pg; }
   string getNestedName() const { return nestedName; }
@@ -51,7 +46,6 @@ class Path {
 
  private:
   const expressions::RecordProjection *const desugarizedPath;
-  const llvm::Value *val_parentColl;
   string nestedName;
   Plugin *pg;
 };

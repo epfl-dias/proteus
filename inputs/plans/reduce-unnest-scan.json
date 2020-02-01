@@ -1,159 +1,183 @@
 {
-  "e": [{
-    "expression": "int",
-    "v": 1,
-    "register_as": {
-      "relName": "agg",
-      "attrName": "cnt",
-      "attrNo": -1
-    }
-  }],
-  "operator": "reduce",
-  "accumulator": ["sum"],
-  "p": {
-    "expression": "bool",
-    "v": true
-  },
-  "input": {
-    "operator": "unnest",
-    "p": {
-      "expression": "bool",
-      "v": true
+  "operator" : "print",
+  "gpu" : false,
+  "e" : [ {
+    "expression" : "recordProjection",
+    "e" : {
+      "expression" : "argument",
+      "attributes" : [ {
+        "attrName" : "cnt",
+        "relName" : "subsetPelagoAggregate#952"
+      } ],
+      "type" : {
+        "relName" : "subsetPelagoAggregate#952",
+        "type" : "record"
+      },
+      "argNo" : -1
     },
-    "argNo": 0,
-
-    "path": {
-      "name": "c",
-      "e": {
-        "expression": "recordProjection",
-        "type": {
-          "type": "list",
-          "inner": {
-            "type": "record",
-            "attributes": [{
-              "type": {
-                "type": "string"
-              },
-              "relName": "inputs/json/employees-flat.json",
-              "attrName": "name",
-              "attrNo": 1
-            }, {
-              "type": {
-                "type": "int"
-              },
-              "relName": "inputs/json/employees-flat.json",
-              "attrName": "age",
-              "attrNo": 2
-            }]
-          }
+    "attribute" : {
+      "attrName" : "cnt",
+      "relName" : "subsetPelagoAggregate#952"
+    },
+    "register_as" : {
+      "attrName" : "cnt",
+      "relName" : "print953"
+    }
+  } ],
+  "input" : {
+    "operator" : "reduce",
+    "gpu" : false,
+    "e" : [ {
+      "expression" : "int64",
+      "v" : 1,
+      "register_as" : {
+        "attrName" : "cnt",
+        "relName" : "subsetPelagoAggregate#952"
+      }
+    } ],
+    "accumulator" : [ "sum" ],
+    "p" : {
+      "expression" : "bool",
+      "v" : true
+    },
+    "input" : {
+      "operator" : "project",
+      "gpu" : false,
+      "relName" : "subsetPelagoProject#951",
+      "e" : [ {
+        "expression" : "int",
+        "v" : 0,
+        "register_as" : {
+          "attrName" : "DUMMY",
+          "relName" : "subsetPelagoProject#951"
+        }
+      } ],
+      "input" : {
+        "operator" : "unnest",
+        "gpu" : false,
+        "p" : {
+          "expression" : "bool",
+          "v" : true
         },
-        "e": {
-          "expression": "argument",
-          "argNo": 0,
-          "type": {
-            "type": "record",
-            "attributes": [{
-              "type": {
-                "type": "string"
-              },
-              "relName": "inputs/json/employees-flat.json",
-              "attrName": "name",
-              "attrNo": 1
-            }, {
-              "type": {
-                "type": "int"
-              },
-              "relName": "inputs/json/employees-flat.json",
-              "attrName": "age",
-              "attrNo": 2
-            }, {
-              "type": {
-                "type": "list",
-                "inner": {
-                  "type": "record",
-                  "attributes": [{
-                    "type": {
-                      "type": "string"
-                    },
-                    "relName": "inputs/json/employees-flat.json",
-                    "attrName": "name",
-                    "attrNo": 1
-                  }, {
-                    "type": {
-                      "type": "int"
-                    },
-                    "relName": "inputs/json/employees-flat.json",
-                    "attrName": "age",
-                    "attrNo": 2
-                  }]
+        "path" : {
+          "e" : {
+            "expression" : "recordProjection",
+            "e" : {
+              "expression" : "argument",
+              "attributes" : [ {
+                "attrName" : "children",
+                "relName" : "inputs/json/employees-flat.json",
+                "type" : {
+                  "type" : "list",
+                  "inner" : {
+                    "type" : "record",
+                    "attributes" : [ {
+                      "relName" : "inputs/json/employees-flat.json",
+                      "attrName" : "name2",
+                      "type" : {
+                        "type" : "string"
+                      }
+                    }, {
+                      "relName" : "inputs/json/employees-flat.json",
+                      "attrName" : "age2",
+                      "type" : {
+                        "type" : "int"
+                      }
+                    } ]
+                  }
                 }
+              } ],
+              "type" : {
+                "relName" : "inputs/json/employees-flat.json",
+                "type" : "record"
               },
-              "relName": "inputs/json/employees-flat.json",
-              "attrName": "children",
-              "attrNo": 3
-            }]
-          },
-          "attributes": [{
-            "type": {
-              "type": "list",
-              "inner": {
-                "type": "record",
-                "attributes": [{
-                  "type": {
-                    "type": "string"
-                  },
-                  "relName": "inputs/json/employees-flat.json",
-                  "attrName": "name",
-                  "attrNo": 1
-                }, {
-                  "type": {
-                    "type": "int"
-                  },
-                  "relName": "inputs/json/employees-flat.json",
-                  "attrName": "age",
-                  "attrNo": 2
-                }]
-              }
+              "argNo" : -1
             },
-            "relName": "inputs/json/employees-flat.json",
-            "attrName": "children",
-            "attrNo": 3
-          }]
-        },
-        "attribute": {
-          "type": {
-            "type": "list",
-            "inner": {
-              "type": "record",
-              "attributes": [{
-                "type": {
-                  "type": "string"
-                },
-                "relName": "inputs/json/employees-flat.json",
-                "attrName": "name",
-                "attrNo": 1
-              }, {
-                "type": {
-                  "type": "int"
-                },
-                "relName": "inputs/json/employees-flat.json",
-                "attrName": "age",
-                "attrNo": 2
-              }]
+            "attribute" : {
+              "attrName" : "children",
+              "relName" : "inputs/json/employees-flat.json",
+              "type" : {
+                "type" : "list",
+                "inner" : {
+                  "type" : "record",
+                  "attributes" : [ {
+                    "relName" : "inputs/json/employees-flat.json",
+                    "attrName" : "name2",
+                    "type" : {
+                      "type" : "string"
+                    }
+                  }, {
+                    "relName" : "inputs/json/employees-flat.json",
+                    "attrName" : "age2",
+                    "type" : {
+                      "type" : "int"
+                    }
+                  } ]
+                }
+              }
             }
           },
-          "relName": "inputs/json/employees-flat.json",
-          "attrName": "children",
-          "attrNo": 3
+          "name" : "inputs/json/employees-flat.json.children"
+        },
+        "argNo" : 0,
+        "input" : {
+          "operator" : "scan",
+          "gpu" : false,
+          "plugin" : {
+            "type" : "json",
+            "lines" : 3,
+            "policy" : 2,
+            "name" : "inputs/json/employees-flat.json",
+            "projections" : [ {
+              "relName" : "inputs/json/employees-flat.json",
+              "attrName" : "name"
+            }, {
+              "relName" : "inputs/json/employees-flat.json",
+              "attrName" : "age"
+            }, {
+              "relName" : "inputs/json/employees-flat.json",
+              "attrName" : "children"
+            } ],
+            "schema" : [ {
+              "relName" : "inputs/json/employees-flat.json",
+              "attrName" : "name",
+              "type" : {
+                "type" : "string"
+              },
+              "attrNo" : 1
+            }, {
+              "relName" : "inputs/json/employees-flat.json",
+              "attrName" : "age",
+              "type" : {
+                "type" : "int"
+              },
+              "attrNo" : 2
+            }, {
+              "relName" : "inputs/json/employees-flat.json",
+              "attrName" : "children",
+              "type" : {
+                "type" : "list",
+                "inner" : {
+                  "type" : "record",
+                  "attributes" : [ {
+                    "relName" : "inputs/json/employees-flat.json",
+                    "attrName" : "name2",
+                    "type" : {
+                      "type" : "string"
+                    }
+                  }, {
+                    "relName" : "inputs/json/employees-flat.json",
+                    "attrName" : "age2",
+                    "type" : {
+                      "type" : "int"
+                    }
+                  } ]
+                }
+              },
+              "attrNo" : 3
+            } ]
+          }
         }
-      }
-    },
-    "input": {
-      "operator": "scan",
-      "plugin": {
-        "name": "inputs/json/employees-flat.json",
-        "type": "json",
-        "lines": 3
       }
     }
   }
