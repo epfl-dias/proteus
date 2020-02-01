@@ -7,7 +7,7 @@ set(gtest_src
 	tests-cpu-ssb
 	tests-gpu-ssb
 	tests-hyb-ssb
-#	tests-output
+	tests-output
 	tests-plan-parsing
 	tests-threads
 	)

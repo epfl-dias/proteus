@@ -69,6 +69,9 @@ class RelBuilder {
  public:
   RelBuilder scan(Plugin& pg) const;
 
+  RelBuilder scan(RecordType rec, const std::vector<std::string>& relAttrs,
+                  const std::string& pg) const;
+
   template <typename Tplugin>
   RelBuilder scan(std::string relName, std::vector<std::string> relAttrs,
                   CatalogParser& catalog) const {

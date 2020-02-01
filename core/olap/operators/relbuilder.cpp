@@ -23,6 +23,8 @@
 
 #include "operators/relbuilder.hpp"
 
+#include <dlfcn.h>
+
 #include <iomanip>
 
 #include "operators/block-to-tuples.hpp"
@@ -435,4 +437,43 @@ RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
 
 void RelBuilder::registerPlugin(const std::string &relName, Plugin *pg) const {
   Catalog::getInstance().registerPlugin(relName, pg);
+}
+
+typedef Plugin *(*plugin_creator_t)(ParallelContext *, std::string, RecordType,
+                                    std::vector<RecordAttribute *> &);
+
+std::string hyphenatedPluginToCamel(const char *line);
+
+RelBuilder RelBuilder::scan(RecordType rec,
+                            const std::vector<std::string> &relAttrs,
+                            const std::string &pgType) const {
+  auto name = hyphenatedPluginToCamel(pgType.c_str());
+  std::string conv = "create" + name + "Plugin";
+
+  std::cout << "PluginName: " << name << std::endl;
+
+  static auto handle = dlopen(nullptr, 0);
+
+  auto create = (plugin_creator_t)dlsym(handle, conv.c_str());
+
+  if (!create) {
+    string err = string("Unknown Plugin Type: ") + pgType;
+    LOG(ERROR) << err;
+    throw runtime_error(err);
+  }
+
+  std::vector<RecordAttribute *> projs;
+  projs.reserve(relAttrs.size());
+  for (const auto &attr : relAttrs)
+    projs.emplace_back(new RecordAttribute(*rec.getArg(attr)));
+
+  assert(rec.getArgs().size() > 0);
+  auto fileName = rec.getArgs().front()->getRelationName();
+  auto pg = create(ctx, fileName, rec, projs);
+
+  CatalogParser::getInstance().getOrCreateInputInfo(fileName, ctx);
+  setOIDType(CatalogParser::getInstance(), fileName, pg->getOIDType());
+  Catalog::getInstance().registerPlugin(fileName, pg);
+
+  return scan(*pg);
 }

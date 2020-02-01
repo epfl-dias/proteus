@@ -26,7 +26,6 @@
 //
 // Don't forget gtest.h, which declares the testing framework.
 #include "gtest/gtest.h"
-#include "memory/memory-manager.hpp"
 #include "storage/storage-manager.hpp"
 #include "test-utils.hpp"
 

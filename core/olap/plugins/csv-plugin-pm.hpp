@@ -179,13 +179,15 @@ class CSVPlugin : public Plugin {
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
+  virtual RecordType getRowType() const { return wantedFields; }
+
  private:
   string fname;
   off_t fsize;
   int fd;
   char *buf;
   // Schema info provided
-  RecordType &rec;
+  RecordType rec;
   vector<RecordAttribute *> wantedFields;
   bool stringBrackets;  // Are string literals wrapped in ""?
 

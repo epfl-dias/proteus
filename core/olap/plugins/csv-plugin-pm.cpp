@@ -30,6 +30,18 @@ using namespace llvm;
 
 namespace pm {
 
+extern "C" pm::CSVPlugin *createPmCsvPlugin(
+    ParallelContext *context, std::string fname, RecordType rec,
+    std::vector<RecordAttribute *> &projs) {
+  return new CSVPlugin(context, fname, rec, projs, ';', 10, 2, false);
+}
+
+extern "C" pm::CSVPlugin *createPmTsvPlugin(
+    ParallelContext *context, std::string fname, RecordType rec,
+    std::vector<RecordAttribute *> &projs) {
+  return new CSVPlugin(context, fname, rec, projs, '|', 10, 2, false);
+}
+
 CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
                      vector<RecordAttribute *> whichFields, int lineHint,
                      int policy, bool stringBrackets)
@@ -60,8 +72,9 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
   fsize = statbuf.st_size;
 
   fd = open(name_c, O_RDONLY);
+  LOG(INFO) << name_c;
   if (fd == -1 && whichFields.size() > 0) {
-    throw runtime_error(string("csv.open"));
+    throw runtime_error("csv.open: " + fname);
   }
 
   this->delimInner = ';';
@@ -146,6 +159,7 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
   std::sort(wantedFields.begin(), wantedFields.end(), orderByNumber);
 
   LOG(INFO) << "[CSVPlugin: ] " << fname;
+  LOG(INFO) << wantedFields.size();
   struct stat statbuf;
   const char *name_c = fname.c_str();
   stat(name_c, &statbuf);
