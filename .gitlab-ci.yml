@@ -231,7 +231,6 @@ install:
   - cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-output --gtest_output="xml:$CWD/report-output.xml"
- allow_failure: true
  artifacts:
   reports:
    junit: report-output.xml
