@@ -24,6 +24,7 @@
 #ifndef PREPARED_STATEMENT_HPP_
 #define PREPARED_STATEMENT_HPP_
 
+#include <memory>
 #include <utility>
 #include <vector>
 

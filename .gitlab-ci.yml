@@ -193,7 +193,6 @@ install:
   - cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-plan-parsing --gtest_output="xml:$CWD/report-plan-parsing.xml"
- allow_failure: true
  artifacts:
   reports:
    junit: report-plan-parsing.xml
