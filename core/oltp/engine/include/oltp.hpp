@@ -131,8 +131,8 @@ class OLTP {
 
     for (auto tbl : db->getAllTables()) {
       auto tmp = _getFreshnessRelation(tbl);
-      total_olap = tmp.first;
-      total_oltp = tmp.second;
+      total_olap += tmp.first;
+      total_oltp += tmp.second;
     }
     return std::make_pair(total_olap, total_oltp);
   }
@@ -148,8 +148,8 @@ class OLTP {
     size_t total_oltp = 0;
     for (auto &tb : tables) {
       auto tmp = _getFreshnessRelation(db->getTable(tb));
-      total_olap = tmp.first;
-      total_oltp = tmp.second;
+      total_olap += tmp.first;
+      total_oltp += tmp.second;
     }
     return std::make_pair(total_olap, total_oltp);
   }
@@ -159,8 +159,8 @@ class OLTP {
     size_t total_oltp = 0;
     for (auto &tb : tables) {
       auto tmp = _getFreshnessRelation(db->getTable(tb));
-      total_olap = tmp.first;
-      total_oltp = tmp.second;
+      total_olap += tmp.first;
+      total_oltp += tmp.second;
     }
     return ((double)total_olap) / ((double)total_oltp);
   }

@@ -565,7 +565,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
         {0, 0, 0, 0, static_cast<uint8_t>(j), false});
 
     etl_arenas[j][0]->create_snapshot(
-        {0, 0, 0, 0, static_cast<uint8_t>(j), false});
+        {0, 0, 0, 0, static_cast<uint8_t>(j), true});
   }
 
 #if HTAP_ETL
@@ -1056,13 +1056,13 @@ void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
 
 void Column::snapshot(const uint64_t* n_recs_part, uint64_t epoch,
                       uint8_t snapshot_master_ver) {
-  if (this->name.compare("d_next_o_id") == 0 ||
-      this->name.compare("s_quantity") == 0 ||
-      this->name.compare("s_order_cnt") == 0 ||
-      this->name.compare("s_ytd") == 0 ||
-      this->parent->name.compare("tpcc_order") == 0 ||
-      this->parent->name.compare("tpcc_orderline") == 0)
-    num_upd_tuples(snapshot_master_ver, n_recs_part, true);
+  // if (this->name.compare("d_next_o_id") == 0 ||
+  //     this->name.compare("s_quantity") == 0 ||
+  //     this->name.compare("s_order_cnt") == 0 ||
+  //     this->name.compare("s_ytd") == 0 ||
+  //     this->parent->name.compare("tpcc_order") == 0 ||
+  //     this->parent->name.compare("tpcc_orderline") == 0)
+  //   num_upd_tuples(snapshot_master_ver, n_recs_part, true);
 
   for (uint i = 0; i < g_num_partitions; i++) {
     assert(snapshot_arenas[i].size() == 1);
@@ -1105,9 +1105,9 @@ int64_t* ColumnStore::snapshot_get_number_tuples(bool olap_snapshot,
       i++;
     }
 
-    for (uint cc = 0; cc < nParts; cc++) {
-      LOG(INFO) << this->name << " " << cc << " - " << arr[cc];
-    }
+    // for (uint cc = 0; cc < nParts; cc++) {
+    //   LOG(INFO) << this->name << " " << cc << " - " << arr[cc];
+    // }
 
     return arr;
   } else {
@@ -1171,12 +1171,12 @@ std::vector<std::pair<mem_chunk, size_t>> ColumnStore::snapshot_get_data(
 
     std::vector<std::pair<mem_chunk, size_t>> ret;
 
-    for (uint xd = 0; xd < getit.size(); xd++) {
-      LOG(INFO) << "Part: " << xd << ": numa_loc: "
-                << topology::getInstance()
-                       .getCpuNumaNodeAddressed(getit[xd].first.data)
-                       ->id;
-    }
+    // for (uint xd = 0; xd < getit.size(); xd++) {
+    //   LOG(INFO) << "Part: " << xd << ": numa_loc: "
+    //             << topology::getInstance()
+    //                    .getCpuNumaNodeAddressed(getit[xd].first.data)
+    //                    ->id;
+    // }
 
     if (elastic_offsets.size() == 0) {
       // add the remaining
@@ -1261,11 +1261,10 @@ std::vector<std::pair<mem_chunk, size_t>> Column::elastic_partition(
     assert(master_versions[snap_arena.master_ver][pid].size() == 1 &&
            "Memory expansion not supported yet.");
 
-    std::cout << "[SnapshotData][" << this->name << "][P:" << pid
+    LOG(INFO) << "[SnapshotData][" << this->name << "][P:" << pid
               << "] Mode: ELASTIC-REMOTE "
               << ((double)(snap_arena.numOfRecords * this->elem_size)) /
-                     (1024 * 1024 * 1024)
-              << std::endl;
+                     (1024 * 1024 * 1024);
 
     ret.emplace_back(
         std::make_pair(master_versions[snap_arena.master_ver][pid][0],
@@ -1276,19 +1275,18 @@ std::vector<std::pair<mem_chunk, size_t>> Column::elastic_partition(
       // safe to read from local storage
       assert(HTAP_ETL && "OLAP local mode is not turned on");
 
-      std::cout << "[SnapshotData][" << this->name << "][P:" << pid
+      LOG(INFO) << "[SnapshotData][" << this->name << "][P:" << pid
                 << "] Mode: ELASTIC-LOCAL "
                 << ((double)(olap_arena.numOfRecords * this->elem_size)) /
-                       (1024 * 1024 * 1024)
-                << std::endl;
+                       (1024 * 1024 * 1024);
       ret.emplace_back(std::make_pair(
           mem_chunk(this->etl_mem[pid],
                     olap_arena.numOfRecords * this->elem_size, -1),
           olap_arena.numOfRecords));
 
     } else if (snap_arena.numOfRecords > olap_arena.numOfRecords) {
-      std::cout << "[SnapshotData][" << this->name << "][P:" << pid
-                << "] Mode: HYBRID" << std::endl;
+      LOG(INFO) << "[SnapshotData][" << this->name << "][P:" << pid
+                << "] Mode: HYBRID";
 
       assert(HTAP_ETL && "OLAP local mode is not turned on");
       // new records, safe to do local + tail

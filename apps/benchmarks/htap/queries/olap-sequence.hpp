@@ -50,6 +50,8 @@ struct OLAPSequenceStats {
   const uint run_id;
   // runtimes[# queries][# runs] milliseconds
   std::vector<std::vector<std::pair<size_t, size_t>>> sts;
+  std::vector<std::vector<size_t>> input_records;
+  std::vector<std::vector<std::pair<double, double>>> freshness_ratios;
   std::vector<std::vector<std::pair<double, double>>> oltp_stats;
   std::vector<std::vector<SchedulingPolicy::ScheduleMode>> sts_state;
 
@@ -67,6 +69,12 @@ struct OLAPSequenceStats {
 
       oltp_stats.emplace_back(std::vector<std::pair<double, double>>());
       oltp_stats[i].reserve(repeat);
+
+      freshness_ratios.emplace_back(std::vector<std::pair<double, double>>());
+      freshness_ratios[i].reserve(repeat);
+
+      input_records.emplace_back(std::vector<size_t>());
+      input_records[i].reserve(repeat);
     }
 
     sequence_time.reserve(repeat);
@@ -102,7 +110,6 @@ class HTAPSequenceConfig {
 class OLAPSequence {
  private:
   int total_queries;
-
   std::vector<PreparedQuery> stmts;
   std::deque<OLAPSequenceStats *> stats;
   HTAPSequenceConfig conf;
@@ -122,12 +129,17 @@ class OLAPSequence {
   void migrateState(SchedulingPolicy::ScheduleMode &curr,
                     SchedulingPolicy::ScheduleMode to, OLTP &txn_engine);
   SchedulingPolicy::ScheduleMode getNextState(
-      SchedulingPolicy::ScheduleMode current_state, OLTP &txn_engine,
-      size_t &query_idx);
+      SchedulingPolicy::ScheduleMode current_state,
+      const std::pair<double, double> &freshness_ratios);
+  std::pair<double, double> getFreshnessRatios(OLTP &txn_engine,
+                                               size_t &query_idx,
+                                               OLAPSequenceStats *stats_local);
   void setupAdaptiveSequence();
   auto getIsolatedOLAPResources();
   auto getColocatedResources();
   auto getElasticResources();
+
+  static constexpr size_t n_warmup_queries = 1;
 
  public:
   const int client_id;

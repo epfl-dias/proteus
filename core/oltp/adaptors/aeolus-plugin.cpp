@@ -109,7 +109,7 @@ void **AeolusPlugin::getDataPointerForFile_runtime(size_t i,
   void **arr = (void **)malloc(sizeof(void *) * data_arenas.size());
   for (uint j = 0; j < data_arenas.size(); j++) {
     arr[j] = data_arenas[j].first.data;
-    LOG(INFO) << topology::getInstance().getCpuNumaNodeAddressed(arr[j])->id;
+    // LOG(INFO) << topology::getInstance().getCpuNumaNodeAddressed(arr[j])->id;
   }
   return arr;
 
