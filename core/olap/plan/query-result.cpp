@@ -41,6 +41,12 @@ QueryResult::QueryResult(const std::string &q) : q(q) {
   fsize = statbuf.st_size;
   resultBuf =
       (char *)mmap(nullptr, fsize, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+  if (resultBuf == MAP_FAILED) {
+    auto msg =
+        std::string{"Opening result file failed ("} + strerror(errno) + ")";
+    LOG(ERROR) << msg;
+    throw std::runtime_error{msg};
+  }
   assert(resultBuf != MAP_FAILED);
 }
 
