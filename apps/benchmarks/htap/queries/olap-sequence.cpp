@@ -640,7 +640,7 @@ SchedulingPolicy::ScheduleMode OLAPSequence::getNextState(
     const std::pair<double, double> &freshness_ratios) {
   double r_fq = freshness_ratios.first;
   double r_ft = freshness_ratios.second;
-  if (r_fq < r_ft) {
+  if (r_fq < (0.25 * r_ft)) {
     if (conf.oltp_scale_threshold <= 0) {
       return SchedulingPolicy::S3_IS;
     } else {
@@ -722,8 +722,6 @@ void OLAPSequence::execute(OLTP &txn_engine, int repeat,
         }
       }
 
-      // migrate state according to freshness depending on the freshness ofeach
-      // snapshots (olap and otlp)
       auto f_ratio = getFreshnessRatios(txn_engine, j, stats_local);
       if (conf.schedule_policy == SchedulingPolicy::ADAPTIVE)
         migrateState(current_state, getNextState(current_state, f_ratio),
@@ -766,7 +764,7 @@ void OLAPSequence::execute(OLTP &txn_engine, int repeat,
   }
 
   LOG(INFO) << "Stats-Local:";
-  LOG(INFO) << *stats_local;
+  std::cout << *stats_local << std::endl;
   LOG(INFO) << "Stats-Local-END";
   stats.push_back(stats_local);
 
@@ -812,7 +810,7 @@ void OLAPSequence::execute(OLTP &txn_engine, int repeat,
 
 //       timepoint_t start = std::chrono::system_clock::now();
 
-//       LOG(INFO) << stmts[j].execute();
+//       LOG(INFO) << stmts[j].execute(false);
 
 //       timepoint_t end = std::chrono::system_clock::now();
 

@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
   exec_location{nodes[OLAP_socket]}.activate();
 
   oltp_engine.snapshot();
-  // oltp_engine.etl(OLAP_socket);
+  oltp_engine.etl(OLAP_socket);
 
   std::vector<topology::numanode *> oltp_nodes;
   std::vector<topology::numanode *> olap_nodes;
@@ -175,8 +175,6 @@ int main(int argc, char *argv[]) {
         i, htap_conf, (FLAGS_gpu_olap ? DeviceType::GPU : DeviceType::CPU));
   }
 
-  // profiling::resume();
-
   if (FLAGS_run_oltp) {
     oltp_engine.run();
     usleep(2000000);  // stabilize
@@ -186,7 +184,7 @@ int main(int argc, char *argv[]) {
   // usleep(2000000);  // stabilize
 
   exec_location{nodes[OLAP_socket]}.activate();
-
+  profiling::resume();
   if (FLAGS_run_olap) {
     for (auto &olap_cl : olap_clients) {
       if (FLAGS_etl_interval_ms > 0) {
@@ -200,6 +198,7 @@ int main(int argc, char *argv[]) {
       // LOG(INFO) << olap_cl;
       LOG(INFO) << "OLAP client#" << olap_cl.client_id << " finished.";
     }
+    profiling::pause();
 
     // LOG(INFO) << olap_queries;
   }

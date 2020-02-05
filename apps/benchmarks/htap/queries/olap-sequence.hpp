@@ -61,19 +61,19 @@ struct OLAPSequenceStats {
       : run_id(run_id) {
     sts.reserve(number_of_queries);
     for (size_t i = 0; i < number_of_queries; i++) {
-      sts.emplace_back(std::vector<std::pair<size_t, size_t>>());
+      sts.emplace_back();
       sts[i].reserve(repeat);
 
-      sts_state.emplace_back(std::vector<SchedulingPolicy::ScheduleMode>());
+      sts_state.emplace_back();
       sts_state[i].reserve(repeat);
 
-      oltp_stats.emplace_back(std::vector<std::pair<double, double>>());
+      oltp_stats.emplace_back();
       oltp_stats[i].reserve(repeat);
 
-      freshness_ratios.emplace_back(std::vector<std::pair<double, double>>());
+      freshness_ratios.emplace_back();
       freshness_ratios[i].reserve(repeat);
 
-      input_records.emplace_back(std::vector<size_t>());
+      input_records.emplace_back();
       input_records[i].reserve(repeat);
     }
 
