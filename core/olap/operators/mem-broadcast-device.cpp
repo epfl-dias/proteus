@@ -373,10 +373,13 @@ void MemBroadcastDevice::open(Pipeline *pip) {
   // cudaStream_t strm2;
   // gpu_run(cudaStreamCreateWithFlags(&strm2, cudaStreamNonBlocking));
 
-  MemBroadcastConf *mmc = new MemBroadcastConf;
+  auto mmc = new MemBroadcastConf;
 #ifndef NCUDA
-  for (const auto &t : targets) mmc->strm[t] = createNonBlockingStream();
-    // mmc->strm2          = strm2;
+  if (!always_share) {
+    for (const auto &t : targets) mmc->strm[t] = createNonBlockingStream();
+  } else {
+    mmc->strm[0] = createNonBlockingStream();
+  }
 #endif
 
   mmc->num_of_targets = targets.size();
@@ -387,7 +390,7 @@ void MemBroadcastDevice::open(Pipeline *pip) {
   // // mmc->events         = new cudaEvent_t[slack];
   // mmc->old_buffs      = new void      *[slack];
 
-  workunit *wu = new workunit[slack];
+  auto wu = new workunit[slack];
   size_t data_size = (pip->getSizeOf(data_type) + 16 - 1) & ~((size_t)0xF);
   // void * data_buff = malloc(data_size * slack);
   nvtxRangePushA("memmove::open2");
@@ -425,7 +428,7 @@ void MemBroadcastDevice::open(Pipeline *pip) {
 void MemBroadcastDevice::close(Pipeline *pip) {
   // int device = get_device();
   // cudaStream_t strm = pip->getStateVar<cudaStream_t>(cu_stream_var);
-  MemBroadcastConf *mmc = pip->getStateVar<MemBroadcastConf *>(memmvconf_var);
+  auto mmc = pip->getStateVar<MemBroadcastConf *>(memmvconf_var);
 
   mmc->tran.close();
 
@@ -441,12 +444,9 @@ void MemBroadcastDevice::close(Pipeline *pip) {
   // MemoryManager::freeGpu(s);
 
   if (!always_share) {
-    for (const auto &t : targets) {
-      gpu_run(cudaStreamSynchronize(mmc->strm[t]));
-      gpu_run(cudaStreamDestroy(mmc->strm[t]));
-    }
+    for (const auto &t : targets) syncAndDestroyStream(mmc->strm[t]);
   } else {
-    gpu_run(cudaStreamSynchronize(mmc->strm[0]));
+    syncAndDestroyStream(mmc->strm[0]);
   }
 
   // gpu_run(cudaStreamSynchronize(mmc->strm2));
