@@ -27,22 +27,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 
-//#include "llvm/Analysis/BasicAliasAnalysis.h"
-//#include "llvm/CodeGen/TargetPassConfig.h"
-//#include "llvm/ExecutionEngine/JITEventListener.h"
-
-//#include "llvm/ADT/Optional.h"
-//#include "llvm/IR/Operator.h"
-//#include "llvm/IR/PassManager.h"
-//#include "llvm/Pass.h"
-//#include "llvm/Support/AtomicOrdering.h"
-
-//#include "llvm/Support/DataTypes.h"
-//#include "llvm/Analysis/LoopInfo.h"
-//#include "llvm/Analysis/ScalarEvolution.h"
-
-//#include "llvm/Analysis/TargetTransformInfo.h"
-
+#include <cassert>
 #include <iostream>
 
 #include "common/error-handling.hpp"
@@ -56,6 +41,7 @@ QueryResult::QueryResult(const std::string &q) : q(q) {
   fsize = statbuf.st_size;
   resultBuf =
       (char *)mmap(nullptr, fsize, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+  assert(resultBuf != MAP_FAILED);
 }
 
 QueryResult::~QueryResult() {
