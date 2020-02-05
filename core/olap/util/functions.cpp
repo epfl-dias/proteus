@@ -23,14 +23,16 @@
 
 #include "util/functions.hpp"
 
-#include "util/catalog.hpp"
-#include "util/parallel-context.hpp"
-// #include <ext/stdio_filebuf.h>
 #include <chrono>
+#include <common/error-handling.hpp>
 #include <ctime>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <ostream>
+
+#include "util/catalog.hpp"
+#include "util/parallel-context.hpp"
 
 #ifdef __AVX2__
 #include <immintrin.h>
@@ -497,21 +499,32 @@ void flushDelim(size_t resultCtr, char whichDelim, char *fileName) {
   }
 }
 
-#include <fstream>
-
 void flushOutput(char *fileName) {
   auto &strBuffer = Catalog::getInstance().getSerializer(fileName);
   LOG(INFO) << "Flushing to " << fileName << endl;
   {
     std::filesystem::path p{fileName};
     if (p.is_relative()) {
-      shm_open(fileName, O_CREAT | O_RDWR, S_IRWXU);
+      // Here we assume that every flushOutput will result in one QueryResult
+      // The shm_open keeps the file alive in shm. The release happens
+      // when all file descriptors have been closed and after shm_unlink has
+      // been called. Thus, we can immediately close the file descriptor
+      // returned by shm_open. The QueryResult is responsible to shm_unlink
+      // the file to avoid resource leakage.
+
+      // shm_open is probably not needed here. At least it works without it,
+      // but then, what are the guarantees for the lifetime of the file?
+      // Is it well defined? If we never unlink it, does it persist forever?
+      int fd = linux_run(shm_open(fileName, O_CREAT | O_RDWR, S_IRWXU));
+      linux_run(close(fd));
       p = "/dev/shm" / p;
     }
 
     if (p.has_parent_path()) {
       std::filesystem::create_directories(p.parent_path());
     }
+
+    assert(std::filesystem::exists(p) && "Too many open file descriptors?");
 
     std::ofstream{p} << strBuffer.rdbuf();
     // const string &tmp_str = strBuffer->str();     //more portable but it

@@ -70,7 +70,6 @@ class OutputTest : public ::testing::Test {
     auto qr = statement.execute();
 
     EXPECT_TRUE(verifyTestResult(testPath, testLabel, true));
-    shm_unlink(testLabel);
   }
 };
 

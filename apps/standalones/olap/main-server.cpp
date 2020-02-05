@@ -84,14 +84,9 @@ class unlink_upon_exit {
         label_prefix("raw_server_" + std::to_string(unique_id) + "_q"),
         last_label("") {}
 
-  ~unlink_upon_exit() {
-    if (last_label != "") shm_unlink(last_label.c_str());
-  }
-
   std::string get_label() const { return last_label; }
 
   std::string inc_label() {
-    if (query > 0) shm_unlink(last_label.c_str());
     last_label = label_prefix + std::to_string(query++);
     return last_label;
   }

@@ -158,7 +158,6 @@ bool verifyTestResult(const char *testsPath, const char *testLabel,
   close(fd1);
   munmap(correctBuf, fsize1);
   // close(fd2);
-  shm_unlink(testLabel);
   munmap(currResultBuf, fsize2);
   // if (remove(testLabel) != 0) {
   //  throw runtime_error(string("Error deleting file"));
@@ -172,9 +171,7 @@ void runAndVerify(const char *testLabel, const char *planPath,
                   bool unordered) {
   auto qr = PreparedStatement::from(planPath, testLabel, catalogJSON).execute();
 
-  EXPECT_TRUE(
-      verifyTestResult(testPath, testLabel, unordered));  // FIXME:!!!!!!!!!!!!!
-  shm_unlink(testLabel);
+  EXPECT_TRUE(verifyTestResult(testPath, testLabel, unordered));  // FIXME:!!!!
 }
 
 bool TestEnvironment::has_already_been_setup = false;

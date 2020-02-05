@@ -25,20 +25,34 @@
 
 #include <fcntl.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
 
 #include <cassert>
 #include <iostream>
+#include <thread>
 
 #include "common/error-handling.hpp"
 
+#if __has_include(<filesystem>)
+#include <filesystem>
+namespace fs = std::filesystem;
+#else
+// TODO: remove as soon as the default GCC moves filesystem out of experimental
+//  GCC 8.3 has made the transition, but the default GCC in Ubuntu 18.04 is 7.4
+#include <experimental/filesystem>
+namespace std {
+namespace filesystem = std::experimental::filesystem;
+}
+#endif
+
+using namespace std::chrono_literals;
+
 QueryResult::QueryResult(const std::string &q) : q(q) {
-  int fd = shm_open(q.c_str(), O_RDONLY, S_IRWXU);
+  auto p = "/dev/shm" / std::filesystem::path{q};
+  assert(std::filesystem::exists(p));
 
-  struct stat statbuf;
-  fstat(fd, &statbuf);
+  int fd = linux_run(shm_open(q.c_str(), O_RDONLY, S_IRWXU));
 
-  fsize = statbuf.st_size;
+  fsize = std::filesystem::file_size(p);
   resultBuf =
       (char *)mmap(nullptr, fsize, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
   if (resultBuf == MAP_FAILED) {
@@ -48,14 +62,17 @@ QueryResult::QueryResult(const std::string &q) : q(q) {
     throw std::runtime_error{msg};
   }
   assert(resultBuf != MAP_FAILED);
+
+  close(fd);  // close the descriptor produced by the shm_open
 }
 
 QueryResult::~QueryResult() {
   if (!resultBuf) return;  // object has been moved
 
   munmap(resultBuf, fsize);
-  // we can now free the pointer, mmap will keep the file open
-  shm_unlink(q.c_str());
+
+  // We can now unlink the file from the filesystem
+  linux_run(shm_unlink(q.c_str()));
 }
 
 std::ostream &operator<<(std::ostream &out, const QueryResult &qr) {
