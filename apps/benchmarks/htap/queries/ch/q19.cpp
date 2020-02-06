@@ -40,22 +40,18 @@ PreparedStatement Q_19_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
               [&](const auto &arg) -> std::optional<expression_t> {
                 return arg["__broadcastTarget"];
               },
-              dop, 1, RoutingPolicy::HASH_BASED, dev,
+              dop, 128, RoutingPolicy::HASH_BASED, dev,
               aff_parallel())  // (trait=[Pelago.[].X86_64.packed.homBrdcst.hetSingle.none])
           .unpack()  // (trait=[Pelago.[].X86_64.unpckd.homBrdcst.hetSingle.cX86_64])
-          .project([&](const auto &arg) -> std::vector<expression_t> {
-            return {(arg["$0"]).as("PelagoProject#1617", "i_id"),
-                    (ge(arg["$1"], ((double)1))).as("PelagoProject#1617", ">="),
-                    (le(arg["$1"], ((double)400000)))
-                        .as("PelagoProject#1617", "<=")};
-          })  // (i_id=[$0], >==[>=($1, 1)], <==[<=($1, 400000)],
-              // trait=[Pelago.[].X86_64.unpckd.homBrdcst.hetSingle.cX86_64])
           .filter([&](const auto &arg) -> expression_t {
-            return (arg["$1"] & arg["$2"]);
+            return ge(arg["i_price"], ((double)1)) &
+                   le(arg["i_price"], ((double)400000));
           })  // (condition=[AND($1, $2)],
               // trait=[Pelago.[].X86_64.unpckd.homBrdcst.hetSingle.cX86_64],
               // isS=[false])
-      ;
+          .project([&](const auto &arg) -> std::vector<expression_t> {
+            return {arg["i_id"]};
+          });
   return scan(
              "tpcc_orderline",
              {"ol_w_id", "ol_i_id", "ol_quantity",
@@ -63,29 +59,13 @@ PreparedStatement Q_19_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                              // 7, 8]],
                              // traits=[Pelago.[].X86_64.packed.homSingle.hetSingle.none])
       .router(
-          dop, 1, RoutingPolicy::LOCAL, dev,
+          dop, 16, RoutingPolicy::LOCAL, dev,
           aff_parallel())  // (trait=[Pelago.[].X86_64.packed.homRandom.hetSingle.none])
       .unpack()  // (trait=[Pelago.[].X86_64.unpckd.homRandom.hetSingle.cX86_64])
-      .project([&](const auto &arg) -> std::vector<expression_t> {
-        return {(arg["$1"]).as("PelagoProject#1621", "ol_i_id"),
-                (arg["$3"]).as("PelagoProject#1621", "ol_amount"),
-                (ge(arg["$2"], 1)).as("PelagoProject#1621", ">="),
-                (le(arg["$2"], 10)).as("PelagoProject#1621", "<="),
-                ((eq(arg["$0"], 1) | eq(arg["$0"], 2) | eq(arg["$0"], 3)))
-                    .as("PelagoProject#1621", "OR"),
-                ((eq(arg["$0"], 1) | eq(arg["$0"], 2) | eq(arg["$0"], 4)))
-                    .as("PelagoProject#1621", "OR5"),
-                ((eq(arg["$0"], 1) | eq(arg["$0"], 5) | eq(arg["$0"], 3)))
-                    .as("PelagoProject#1621", "OR6")};
-      })  // (ol_i_id=[$1], ol_amount=[$3],
-          // >==[>=($2, 1)], <==[<=($2, 10)],
-          // OR=[OR(=($0, 1), =($0, 2), =($0, 3))],
-          // OR5=[OR(=($0, 1), =($0, 2),
-          // =($0, 4))], OR6=[OR(=($0, 1), =($0, 5),
-          // =($0, 3))],
-          // trait=[Pelago.[].X86_64.unpckd.homRandom.hetSingle.cX86_64])
       .filter([&](const auto &arg) -> expression_t {
-        return (arg["$2"] & arg["$3"] & (arg["$4"] | arg["$5"] | arg["$6"]));
+        return (ge(arg["ol_quantity"], 1) & le(arg["ol_quantity"], 10) &
+                (eq(arg["$0"], 1) | eq(arg["$0"], 2) | eq(arg["$0"], 3) |
+                 eq(arg["$0"], 4) | eq(arg["$0"], 5)));
       })  // (condition=[AND($2, $3, OR($4, $5,
           // $6))],
           // trait=[Pelago.[].X86_64.unpckd.homRandom.hetSingle.cX86_64],
@@ -96,7 +76,7 @@ PreparedStatement Q_19_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
             return build_arg["$0"].as("PelagoJoin#1623", "bk_0");
           },
           [&](const auto &probe_arg) -> expression_t {
-            return probe_arg["$0"].as("PelagoJoin#1623", "pk_0");
+            return probe_arg["ol_i_id"].as("PelagoJoin#1623", "pk_0");
           },
           20,
           128 * 1024)  // (condition=[=($3, $0)],
@@ -110,13 +90,9 @@ PreparedStatement Q_19_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                        // rcount=[3.84E9],
                        // buildcountrow=[2.56E7],
                        // probecountrow=[3.84E9])
-      .project([&](const auto &arg) -> std::vector<expression_t> {
-        return {(arg["$4"]).as("PelagoProject#1624", "ol_amount")};
-      })  // (ol_amount=[$4],
-          // trait=[Pelago.[].X86_64.unpckd.homRandom.hetSingle.cX86_64])
       .reduce(
           [&](const auto &arg) -> std::vector<expression_t> {
-            return {(arg["$0"]).as("PelagoAggregate#1625", "$0")};
+            return {arg["ol_amount"]};
           },
           {SUM})  // (group=[{}], revenue=[SUM($0)],
                   // trait=[Pelago.[].X86_64.unpckd.homRandom.hetSingle.cX86_64],
@@ -126,14 +102,13 @@ PreparedStatement Q_19_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
           aff_reduce())  // (trait=[Pelago.[].X86_64.unpckd.homSingle.hetSingle.cX86_64])
       .reduce(
           [&](const auto &arg) -> std::vector<expression_t> {
-            return {(arg["$0"]).as("PelagoAggregate#1627", "$0")};
+            return {(arg["$0"]).as("PelagoAggregate#1627", "revenue")};
           },
           {SUM})  // (group=[{}], revenue=[SUM($0)],
                   // trait=[Pelago.[].X86_64.unpckd.homSingle.hetSingle.cX86_64],
                   // global=[true])
-      .print([&](const auto &arg,
-                 std::string outrel) -> std::vector<expression_t> {
-        return {arg["$0"].as(outrel, "revenue")};
+      .print([&](const auto &arg) -> std::vector<expression_t> {
+        return {arg["revenue"]};
       })  // (trait=[ENUMERABLE.[].X86_64.unpckd.homSingle.hetSingle.cX86_64])
       .prepare();
 }
