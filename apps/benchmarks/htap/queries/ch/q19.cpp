@@ -98,18 +98,18 @@ PreparedStatement Q_19_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
           [&](const auto &probe_arg) -> expression_t {
             return probe_arg["$0"].as("PelagoJoin#1623", "pk_0");
           },
-          27,
-          100000)  // (condition=[=($3, $0)],
-                   // joinType=[inner],
-                   // rowcnt=[2.56E7],
-                   // maxrow=[100000.0],
-                   // maxEst=[100000.0], h_bits=[27],
-                   // build=[RecordType(INTEGER i_id,
-                   // BOOLEAN >=, BOOLEAN <=)],
-                   // lcount=[1.3944357272154548E9],
-                   // rcount=[3.84E9],
-                   // buildcountrow=[2.56E7],
-                   // probecountrow=[3.84E9])
+          20,
+          128 * 1024)  // (condition=[=($3, $0)],
+                       // joinType=[inner],
+                       // rowcnt=[2.56E7],
+                       // maxrow=[100000.0],
+                       // maxEst=[100000.0], h_bits=[27],
+                       // build=[RecordType(INTEGER i_id,
+                       // BOOLEAN >=, BOOLEAN <=)],
+                       // lcount=[1.3944357272154548E9],
+                       // rcount=[3.84E9],
+                       // buildcountrow=[2.56E7],
+                       // probecountrow=[3.84E9])
       .project([&](const auto &arg) -> std::vector<expression_t> {
         return {(arg["$4"]).as("PelagoProject#1624", "ol_amount")};
       })  // (ol_amount=[$4],
