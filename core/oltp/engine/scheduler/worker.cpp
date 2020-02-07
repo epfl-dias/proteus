@@ -96,7 +96,6 @@ void Worker::run() {
   // std::cout << exec_core->local_cpu << std::endl;
   // std::cout << exec_core->local_cpu_index << std::endl;
   // std::cout << exec_core->index_in_topo << std::endl;
-
   set_exec_location_on_scope d{
       topology::getInstance().getCores()[exec_core->index_in_topo]};
 
@@ -536,11 +535,12 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
   if (worker_sched_mode <= 2) {  // default / inteleave
 
     for (const auto& exec_core : Topology::getInstance().getCores()) {
-      if (worker_sched_mode == 1) {  // interleave - even
-        if (worker_counter % 2 != 0) continue;
-      } else if (worker_sched_mode == 2) {  // interleave - odd
-        if (worker_counter % 2 == 0) continue;
-      }
+      // BROKEN
+      // if (worker_sched_mode == 1) {  // interleave - even
+      //   if (worker_counter % 2 != 0) {continue;}
+      // } else if (worker_sched_mode == 2) {  // interleave - odd
+      //   if (worker_counter % 2 == 0) continue;
+      // }
 
       void* obj_ptr = storage::MemoryManager::alloc(
           sizeof(Worker), exec_core.local_cpu_index, MADV_DONTFORK);
@@ -584,6 +584,14 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
 
       wrkr->partition_id =
           0;  //(sys_cores[i].local_cpu_index % num_partitions);
+
+      // if (global_conf::reverse_partition_numa_mapping) {
+      //   wrkr->partition_id = (sys_cores[i].local_cpu_index % num_partitions);
+      // } else {
+      //   wrkr->partition_id = num_partitions - 1 -
+      //                        (sys_cores[i].local_cpu_index % num_partitions);
+      // }
+
       wrkr->num_iters = num_iter_per_worker;
 
       std::cout << "Worker-" << (uint)wrkr->id << "(" << sys_cores[i].id
@@ -599,6 +607,104 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
       prev_sum_tps.emplace_back(0);
 
       if (++ctr == num_workers) {
+        break;
+      }
+    }
+
+  } else if (worker_sched_mode ==
+             4) {  // colocated - second-half of both socket
+    assert(Topology::getInstance().getCpuNumaNodeCount() == 2);
+    // assert(false && "Turned off due to buggy code");
+    const auto remote_cores = Topology::getInstance().getCores().size() / 4;
+
+    uint skipper1 = 0, skipper2 = 0;
+
+    for (const auto& exec_core : Topology::getInstance().getCores()) {
+      if (skipper1 < remote_cores) {
+        // skip half of first-socket
+        skipper1++;
+        continue;
+      }
+
+      if (worker_counter == remote_cores && skipper2 < remote_cores) {
+        skipper2++;
+        continue;
+      }
+
+      void* obj_ptr = storage::MemoryManager::alloc(
+          sizeof(Worker), exec_core.local_cpu_index, MADV_DONTFORK);
+      void* thd_ptr = storage::MemoryManager::alloc(
+          sizeof(std::thread), exec_core.local_cpu_index, MADV_DONTFORK);
+
+      Worker* wrkr = new (obj_ptr) Worker(worker_counter++, &exec_core);
+      // Worker* wrkr = new Worker(exec_core.id, &exec_core);
+      // worker_counter++;
+      if (global_conf::reverse_partition_numa_mapping) {
+        wrkr->partition_id =
+            num_partitions - 1 - (exec_core.local_cpu_index % num_partitions);
+      } else {
+        wrkr->partition_id = (exec_core.local_cpu_index % num_partitions);
+      }
+
+      wrkr->num_iters = num_iter_per_worker;
+
+      std::cout << "Worker-" << (uint)wrkr->id << "(" << exec_core.id
+                << "): Allocated partition # " << wrkr->partition_id
+                << std::endl;
+      std::thread* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
+
+      workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
+      prev_time_tps.emplace_back(
+          std::chrono::time_point<std::chrono::system_clock,
+                                  std::chrono::nanoseconds>::min());
+      prev_sum_tps.emplace_back(0);
+      if (++i == num_workers) {
+        break;
+      }
+    }
+
+  } else if (worker_sched_mode == 5) {
+    // colocated - interleaved, leaving first one.
+    assert(Topology::getInstance().getCpuNumaNodeCount() == 2);
+    // assert(false && "Turned off due to buggy code");
+    const auto remote_cores = Topology::getInstance().getCores().size() / 4;
+
+    int skipper = -1;
+
+    for (const auto& exec_core : Topology::getInstance().getCores()) {
+      skipper++;
+      if (skipper % 2 == 0) {
+        continue;
+      }
+
+      void* obj_ptr = storage::MemoryManager::alloc(
+          sizeof(Worker), exec_core.local_cpu_index, MADV_DONTFORK);
+      void* thd_ptr = storage::MemoryManager::alloc(
+          sizeof(std::thread), exec_core.local_cpu_index, MADV_DONTFORK);
+
+      Worker* wrkr = new (obj_ptr) Worker(worker_counter++, &exec_core);
+      // Worker* wrkr = new Worker(exec_core.id, &exec_core);
+      // worker_counter++;
+      if (global_conf::reverse_partition_numa_mapping) {
+        wrkr->partition_id =
+            num_partitions - 1 - (exec_core.local_cpu_index % num_partitions);
+      } else {
+        wrkr->partition_id = (exec_core.local_cpu_index % num_partitions);
+      }
+
+      wrkr->num_iters = num_iter_per_worker;
+
+      std::cout << "Worker-" << (uint)wrkr->id << "(" << exec_core.id
+                << "): Allocated partition # " << wrkr->partition_id
+                << std::endl;
+      std::thread* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
+
+      workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
+      prev_time_tps.emplace_back(
+          std::chrono::time_point<std::chrono::system_clock,
+                                  std::chrono::nanoseconds>::min());
+      prev_sum_tps.emplace_back(0);
+      if (++i == num_workers) {
         break;
       }
     }
