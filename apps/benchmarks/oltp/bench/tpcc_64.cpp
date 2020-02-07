@@ -1692,9 +1692,9 @@ TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
 
   uint64_t total_districts = TPCC_NDIST_PER_WH * (this->num_warehouse);
   uint64_t max_customers = TPCC_NCUST_PER_DIST * total_districts;
-  uint64_t max_orders = TPCC_MAX_ORDER_INITIAL_CAP;
+  uint64_t max_orders = TPCC_MAX_ORD_PER_DIST * total_districts;
 
-  max_orders = (max_orders / NUM_SOCKETS) * g_num_partitions;
+  // max_orders = max_orders * g_num_partitions;
   // std::cout << "MAX ORDERS: " << max_orders << std::endl;
   // std::cout << "g_num_partitions: " << g_num_partitions << std::endl;
   // uint64_t max_order_line = TPCC_MAX_OL_PER_ORDER * max_orders;
