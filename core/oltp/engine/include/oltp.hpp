@@ -43,7 +43,8 @@ class OLTP {
  public:
   // Core
   inline void init(bench::Benchmark *bench = nullptr, uint num_txn_workers = 1,
-                   uint num_data_partitions = 1, uint ch_scale_factor = 0) {
+                   uint num_data_partitions = 1, uint ch_scale_factor = 0,
+                   bool colocated_schedule = false) {
     time_block t("G_OLTP_INIT ");
 
     g_num_partitions = num_data_partitions;
@@ -64,9 +65,15 @@ class OLTP {
                         int num_iter_per_worker, bool elastic_workload)
     */
 
+    uint worker_sched_mode =
+        global_conf::reverse_partition_numa_mapping ? 3 : 0;
+
+    if (colocated_schedule) {
+      worker_sched_mode = 5;
+    }
+
     scheduler::WorkerPool::getInstance().init(
-        bench, num_txn_workers, num_data_partitions,
-        global_conf::reverse_partition_numa_mapping ? 3 : 0);
+        bench, num_txn_workers, num_data_partitions, worker_sched_mode);
 
     // save references
     this->worker_pool = &scheduler::WorkerPool::getInstance();

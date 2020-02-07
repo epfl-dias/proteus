@@ -45,26 +45,6 @@ constexpr auto CH_queries = {Q<1>::prepare<plugin_t, aff_t, red_t>,
                              Q<6>::prepare<plugin_t, aff_t, red_t>,
                              Q<19>::prepare<plugin_t, aff_t, red_t>};
 
-// auto q1_rel = {std::make_pair(
-//     "tpcc_orderline", std::vector<std::string>{"ol_delivery_d", "ol_number",
-//                                                "ol_amount", "ol_quantity"})};
-// auto q4_rel = {
-//     std::make_pair("tpcc_order",
-//                    std::vector<std::string>{"o_id", "o_d_id", "o_w_id",
-//                                             "o_entry_d", "o_ol_cnt"}),
-//     std::make_pair("tpcc_orderline",
-//                    std::vector<std::string>{"ol_o_id", "ol_d_id", "ol_w_id",
-//                                             "ol_delivery_d"})};
-// auto q6_rel = {std::make_pair(
-//     "tpcc_orderline",
-//     std::vector<std::string>{"ol_delivery_d", "ol_quantity", "ol_amount"})};
-// auto q19_rel = {
-//     std::make_pair("tpcc_item", std::vector<std::string>{"i_id", "i_price"}),
-//     std::make_pair("tpcc_orderline",
-//                    std::vector<std::string>{"ol_w_id", "ol_i_id",
-//                    "ol_quantity",
-//                                             "ol_amount"})};
-
 const auto q1_rel = std::vector<std::string>{"tpcc_orderline"};
 const auto q4_rel = std::vector<std::string>{"tpcc_order", "tpcc_orderline"};
 const auto q6_rel = std::vector<std::string>{"tpcc_orderline"};
@@ -87,27 +67,36 @@ auto OLAPSequence::getIsolatedOLAPResources() {
 auto OLAPSequence::getColocatedResources() {
   std::vector<SpecificCpuCoreAffinitizer::coreid_t> coreids;
   int j = 0;
+  bool skip = true;
   for (auto &olap_n : conf.olap_nodes) {
     for (auto id :
          (dynamic_cast<topology::cpunumanode *>(olap_n))->local_cores) {
-      if (j < conf.collocated_worker_threshold) {
-        j++;
-        continue;
-      }
+      skip = !skip;
+      if (skip) continue;
 
+      // if (j < conf.collocated_worker_threshold) {
+      //   j++;
+      //   continue;
+      // }
+      j++;
       coreids.emplace_back(id);
     }
   }
 
   int k = 0;
+  skip = true;
   for (auto &oltp_n : conf.oltp_nodes) {
     for (auto id :
          (dynamic_cast<topology::cpunumanode *>(oltp_n))->local_cores) {
-      if (k >= conf.collocated_worker_threshold) {
-        break;
-      }
-      coreids.emplace_back(id);
+      // if (k >= conf.collocated_worker_threshold) {
+      //   break;
+      // }
+
+      skip = !skip;
+      if (skip) continue;
+
       k++;
+      coreids.emplace_back(id);
     }
 
     if (k >= conf.collocated_worker_threshold) {
@@ -272,6 +261,11 @@ OLAPSequence::OLAPSequence(int client_id, HTAPSequenceConfig conf,
       assert(conf.oltp_scale_threshold > 0);
       coreids = getElasticResources();
     }
+  }
+
+  LOG(INFO) << "OLAP Cores:";
+  for (const auto &cr : coreids) {
+    LOG(INFO) << cr;
   }
 
   DegreeOfParallelism dop{(dev == DeviceType::CPU) ? coreids.size()
@@ -558,6 +552,7 @@ void OLAPSequence::migrateState(SchedulingPolicy::ScheduleMode &curr,
       (to == SchedulingPolicy::S3_NI || to == SchedulingPolicy::S1_COLOCATED)) {
     if (to == SchedulingPolicy::S1_COLOCATED) {
       // migrate oltp worker
+      assert(false && "colocated also requires data migration??");
       txn_engine.migrate_worker(conf.collocated_worker_threshold);
 
     } else {
@@ -572,6 +567,7 @@ void OLAPSequence::migrateState(SchedulingPolicy::ScheduleMode &curr,
             to == SchedulingPolicy::S3_IS)) {
     if (curr == SchedulingPolicy::S1_COLOCATED) {
       // migrate back
+      assert(false && "colocated also requires data migration??");
       txn_engine.migrate_worker(conf.collocated_worker_threshold);
     } else {
       // scale-up oltp
@@ -640,7 +636,7 @@ SchedulingPolicy::ScheduleMode OLAPSequence::getNextState(
     const std::pair<double, double> &freshness_ratios) {
   double r_fq = freshness_ratios.first;
   double r_ft = freshness_ratios.second;
-  if (r_fq < (0.25 * r_ft)) {
+  if (r_fq < *r_ft) {
     if (conf.oltp_scale_threshold <= 0) {
       return SchedulingPolicy::S3_IS;
     } else {
@@ -663,6 +659,10 @@ void OLAPSequence::execute(OLTP &txn_engine, int repeat,
          "Not supported currently");
 
   SchedulingPolicy::ScheduleMode current_state = SchedulingPolicy::S2_ISOLATED;
+  if (conf.schedule_policy == SchedulingPolicy::S1_COLOCATED) {
+    current_state = SchedulingPolicy::S1_COLOCATED;
+  }
+
   static uint run = 0;
   OLAPSequenceStats *stats_local =
       new OLAPSequenceStats(++run, total_queries, repeat);

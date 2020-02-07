@@ -108,10 +108,19 @@ int main(int argc, char *argv[]) {
   LOG(INFO) << "[OLTP] Txn workers: " << oltp_num_workers;
   LOG(INFO) << "[OLTP] CH Scale Factor: " << FLAGS_ch_scale_factor;
 
-  oltp_engine.init(new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers,
-                                   true, FLAGS_ch_scale_factor, 0, "", false),
-                   oltp_num_workers, oltp_data_partitions,
-                   FLAGS_ch_scale_factor);
+  if (FLAGS_htap_mode.compare("COLOC") == 0) {
+    g_num_partitions = 2;
+    oltp_engine.init(new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers,
+                                     true, FLAGS_ch_scale_factor, 0, "", false),
+                     oltp_num_workers, 2, FLAGS_ch_scale_factor, true);
+
+  } else {
+    oltp_engine.init(new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers,
+                                     true, FLAGS_ch_scale_factor, 0, "", false),
+                     oltp_num_workers, oltp_data_partitions,
+                     FLAGS_ch_scale_factor);
+  }
+
   LOG(INFO) << "[OLTP] Initialization completed.";
 
   oltp_engine.print_storage_stats();
@@ -128,9 +137,6 @@ int main(int argc, char *argv[]) {
   const auto &topo = topology::getInstance();
   const auto &nodes = topo.getCpuNumaNodes();
   exec_location{nodes[OLAP_socket]}.activate();
-
-  oltp_engine.snapshot();
-  oltp_engine.etl(OLAP_socket);
 
   std::vector<topology::numanode *> oltp_nodes;
   std::vector<topology::numanode *> olap_nodes;
@@ -164,6 +170,11 @@ int main(int argc, char *argv[]) {
     schedule_policy = SchedulingPolicy::S3_NI;
   }
 
+  oltp_engine.snapshot();
+  if (schedule_policy != SchedulingPolicy::S1_COLOCATED) {
+    oltp_engine.etl(OLAP_socket);
+  }
+
   HTAPSequenceConfig htap_conf(olap_nodes, oltp_nodes,
                                FLAGS_oltp_elastic_threshold,
                                (oltp_num_workers / 2), schedule_policy);
@@ -184,7 +195,9 @@ int main(int argc, char *argv[]) {
   // usleep(2000000);  // stabilize
 
   exec_location{nodes[OLAP_socket]}.activate();
+
   profiling::resume();
+
   if (FLAGS_run_olap) {
     for (auto &olap_cl : olap_clients) {
       if (FLAGS_etl_interval_ms > 0) {
