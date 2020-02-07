@@ -9,6 +9,7 @@ set(htap_bench_cxx
 		queries/ch/q19.cpp
 		queries/ch/ch-queries.cpp
 		queries/olap-sequence.cpp
+		queries/ch/data-export/data-export-ch.cpp
     )
 
 #find_package(Threads REQUIRED)

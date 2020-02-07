@@ -35,7 +35,8 @@ using namespace llvm;
 BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
                                      string fnamePrefix, RecordType rec,
                                      vector<RecordAttribute *> &whichFields)
-    : BinaryBlockPlugin(context, fnamePrefix, rec, whichFields, true) {}
+    : BinaryBlockPlugin(context, fnamePrefix, rec, whichFields,
+                        !whichFields.empty()) {}
 
 std::vector<RecordAttribute *> ensureRelName(
     std::vector<RecordAttribute *> whichFields, const std::string &relName) {
@@ -56,15 +57,15 @@ BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
       posVar("offset"),
       bufVar("buf"),
       itemCtrVar("itemCtr") {
-  if (wantedFields.size() == 0) {
-    string error_msg{"[BinaryBlockPlugin: ] Invalid number of fields"};
-    LOG(ERROR) << error_msg;
-    throw runtime_error(error_msg);
-  }
-
   LLVMContext &llvmContext = context->getLLVMContext();
 
   if (load) {
+    if (wantedFields.empty()) {
+      string error_msg{"[BinaryBlockPlugin: ] Invalid number of fields"};
+      LOG(ERROR) << error_msg;
+      throw runtime_error(error_msg);
+    }
+
     // std::vector<Type *> parts_array;
     for (const auto &in : wantedFields) {
       string fileName = fnamePrefix + "." + in->getAttrName();
@@ -804,4 +805,10 @@ void BinaryBlockPlugin::flushOutputInternal(Context *context,
 void BinaryBlockPlugin::flushOutput(Context *context, std::string fileName,
                                     const ExpressionType *type) {
   flushOutputInternal(context, fileName + "/" + fileName, type);
+}
+
+extern "C" Plugin *createBlockPlugin(
+    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    std::vector<RecordAttribute *> &whichFields) {
+  return new BinaryBlockPlugin(context, fnamePrefix, rec, whichFields);
 }

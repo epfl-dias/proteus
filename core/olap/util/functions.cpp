@@ -515,8 +515,8 @@ void flushOutput(char *fileName) {
       // shm_open is probably not needed here. At least it works without it,
       // but then, what are the guarantees for the lifetime of the file?
       // Is it well defined? If we never unlink it, does it persist forever?
-      int fd = linux_run(shm_open(fileName, O_CREAT | O_RDWR, S_IRWXU));
-      linux_run(close(fd));
+      // int fd = linux_run(shm_open(fileName, O_CREAT | O_RDWR, S_IRWXU));
+      // linux_run(close(fd));
       p = "/dev/shm" / p;
     }
 
@@ -524,7 +524,7 @@ void flushOutput(char *fileName) {
       std::filesystem::create_directories(p.parent_path());
     }
 
-    assert(std::filesystem::exists(p) && "Too many open file descriptors?");
+    // assert(std::filesystem::exists(p) && "Too many open file descriptors?");
 
     std::ofstream{p} << strBuffer.rdbuf();
     // const string &tmp_str = strBuffer->str();     //more portable but it

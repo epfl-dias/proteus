@@ -54,6 +54,7 @@ extern std::string o_all_local;
 
 // using default_plugin_t = AeolusRemotePlugin;
 
+#include "data-export/data-export-ch.hpp"
 #include "micro-qstock.hpp"
 #include "micro-sum.hpp"
 #include "q01.hpp"
