@@ -53,30 +53,33 @@ QueryResult::QueryResult(const std::string &q) : q(q) {
   int fd = linux_run(shm_open(q.c_str(), O_RDONLY, S_IRWXU));
 
   fsize = std::filesystem::file_size(p);
-  resultBuf =
-      (char *)mmap(nullptr, fsize, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-  if (resultBuf == MAP_FAILED) {
-    auto msg =
-        std::string{"Opening result file failed ("} + strerror(errno) + ")";
-    LOG(ERROR) << msg;
-    throw std::runtime_error{msg};
+  if (fsize) {
+    resultBuf = (char *)mmap(nullptr, fsize, PROT_READ | PROT_WRITE,
+                             MAP_PRIVATE, fd, 0);
+    if (resultBuf == MAP_FAILED) {
+      auto msg =
+          std::string{"Opening result file failed ("} + strerror(errno) + ")";
+      LOG(ERROR) << msg;
+      throw std::runtime_error{msg};
+    }
+    assert(resultBuf != MAP_FAILED);
+  } else {
+    resultBuf = static_cast<char *>(MAP_FAILED);
   }
-  assert(resultBuf != MAP_FAILED);
-
   close(fd);  // close the descriptor produced by the shm_open
 }
 
 QueryResult::~QueryResult() {
   if (!resultBuf) return;  // object has been moved
 
-  munmap(resultBuf, fsize);
+  if (fsize) munmap(resultBuf, fsize);
 
   // We can now unlink the file from the filesystem
   linux_run(shm_unlink(q.c_str()));
 }
 
 std::ostream &operator<<(std::ostream &out, const QueryResult &qr) {
-  out.write(qr.resultBuf, sizeof(char) * qr.fsize);
+  if (qr.fsize) out.write(qr.resultBuf, sizeof(char) * qr.fsize);
   return out;
 }
 
