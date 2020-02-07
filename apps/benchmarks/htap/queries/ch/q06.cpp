@@ -32,7 +32,7 @@ PreparedStatement Q_6_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
   std::string revenue = "revenue";
 
   auto rel = scan(tpcc_orderline, {ol_delivery_d, ol_quantity, ol_amount})
-                 .router(dop, 1, RoutingPolicy::LOCAL, dev, aff_parallel());
+                 .router(dop, 32, RoutingPolicy::LOCAL, dev, aff_parallel());
 
   if (dev == DeviceType::GPU) {
     rel = rel.memmove(8, dev == DeviceType::CPU).to_gpu();
@@ -44,8 +44,14 @@ PreparedStatement Q_6_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                      ge(arg[ol_delivery_d],
                         expressions::DateConstant(915148800000)) &
                      lt(arg[ol_delivery_d],
-                        expressions::DateConstant(1577836800000));
+                        expressions::DateConstant(1644162414000));
             })
+            .project([&](const auto &arg) -> std::vector<expression_t> {
+              return {(arg["$0"]).as("PelagoProject#1621", "ol_delivery_d"),
+                      (arg["$1"]).as("PelagoProject#1621", "ol_quantity"),
+                      (arg["$2"]).as("PelagoProject#1621", "ol_amount")};
+            })
+
             .reduce(
                 [&](const auto &arg) -> std::vector<expression_t> {
                   return {arg[ol_amount]};
