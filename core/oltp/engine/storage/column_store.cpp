@@ -576,14 +576,15 @@ Column::Column(std::string name, uint64_t initial_num_records,
   uint total_numa_nodes =
       scheduler::Topology::getInstance().getCpuNumaNodeCount();
 
-  for (ushort j = 0; j < this->num_partitions; j++) {
-    this->etl_mem[j] =
-        MemoryManager::alloc(size_per_partition, DEFAULT_OLAP_SOCKET);
-    // assert((total_numa_nodes - j - 1) == 1);
-    // MemoryManager::alloc_shm(name + "__" + std::to_string(j),
-    //                          size_per_partition, total_numa_nodes - j - 1);
-    assert(this->etl_mem[j] != nullptr || this->etl_mem[j] != NULL);
-  }
+  if (g_num_partitions == 1)
+    for (ushort j = 0; j < this->num_partitions; j++) {
+      this->etl_mem[j] =
+          MemoryManager::alloc(size_per_partition, DEFAULT_OLAP_SOCKET);
+      // assert((total_numa_nodes - j - 1) == 1);
+      // MemoryManager::alloc_shm(name + "__" + std::to_string(j),
+      //                          size_per_partition, total_numa_nodes - j - 1);
+      assert(this->etl_mem[j] != nullptr || this->etl_mem[j] != NULL);
+    }
 
 #endif
 
