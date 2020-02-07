@@ -37,3 +37,5 @@ DECLARE_bool(gpu_olap);
 DECLARE_string(htap_mode);
 DECLARE_bool(per_query_snapshot);
 DECLARE_int64(etl_interval_ms);
+
+DECLARE_int64(micro_ch_query);

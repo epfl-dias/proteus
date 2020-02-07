@@ -179,6 +179,10 @@ int main(int argc, char *argv[]) {
                                FLAGS_oltp_elastic_threshold,
                                (oltp_num_workers / 2), schedule_policy);
 
+  if (FLAGS_micro_ch_query > 0) {
+    htap_conf.setChMicro(FLAGS_micro_ch_query);
+  }
+
   std::vector<OLAPSequence> olap_clients;
 
   for (int i = 0; i < FLAGS_num_olap_clients; i++) {

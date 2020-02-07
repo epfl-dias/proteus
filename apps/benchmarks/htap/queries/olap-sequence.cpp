@@ -38,7 +38,6 @@
 // FIXME: remove following
 #define ETL_AFFINITY_SOCKET 0
 
-constexpr auto num_ch_q = 3;
 template <typename plugin_t, typename aff_t, typename red_t>
 constexpr auto CH_queries = {Q<1>::prepare<plugin_t, aff_t, red_t>,
                              // Q<4>::prepare<plugin_t, aff_t, red_t>,
@@ -66,44 +65,26 @@ auto OLAPSequence::getIsolatedOLAPResources() {
 
 auto OLAPSequence::getColocatedResources() {
   std::vector<SpecificCpuCoreAffinitizer::coreid_t> coreids;
-  int j = 0;
   bool skip = true;
   for (auto &olap_n : conf.olap_nodes) {
     for (auto id :
          (dynamic_cast<topology::cpunumanode *>(olap_n))->local_cores) {
       skip = !skip;
       if (skip) continue;
-
-      // if (j < conf.collocated_worker_threshold) {
-      //   j++;
-      //   continue;
-      // }
-      j++;
       coreids.emplace_back(id);
     }
   }
 
-  int k = 0;
   skip = true;
   for (auto &oltp_n : conf.oltp_nodes) {
     for (auto id :
          (dynamic_cast<topology::cpunumanode *>(oltp_n))->local_cores) {
-      // if (k >= conf.collocated_worker_threshold) {
-      //   break;
-      // }
-
       skip = !skip;
       if (skip) continue;
 
-      k++;
       coreids.emplace_back(id);
     }
-
-    if (k >= conf.collocated_worker_threshold) {
-      break;
-    }
   }
-  assert(k == conf.collocated_worker_threshold);
   return coreids;
 }
 
@@ -603,8 +584,7 @@ std::pair<double, double> OLAPSequence::getFreshnessRatios(
   // matter what.
 
   auto db_f = txn_engine.getFreshness();
-  auto query_f =
-      txn_engine.getFreshnessRelation(ch_relations[(query_idx % num_ch_q)]);
+  auto query_f = txn_engine.getFreshnessRelation(ch_relations[query_idx]);
 
   auto query_fresh_data = query_f.second - query_f.first;
   auto total_fresh_data = db_f.second - db_f.first;
@@ -636,7 +616,7 @@ SchedulingPolicy::ScheduleMode OLAPSequence::getNextState(
     const std::pair<double, double> &freshness_ratios) {
   double r_fq = freshness_ratios.first;
   double r_ft = freshness_ratios.second;
-  if (r_fq < *r_ft) {
+  if (r_fq < r_ft) {
     if (conf.oltp_scale_threshold <= 0) {
       return SchedulingPolicy::S3_IS;
     } else {

@@ -92,6 +92,9 @@ class HTAPSequenceConfig {
   SchedulingPolicy::ResourceSchedule resource_policy;
   SchedulingPolicy::DataAccess data_access_policy;
 
+  bool ch_micro;
+  uint q_num;
+
   HTAPSequenceConfig(exec_nodes olap_nodes, exec_nodes oltp_nodes,
                      uint oltp_scale_threshold = 0,
                      uint collocated_worker_threshold = 0,
@@ -105,6 +108,11 @@ class HTAPSequenceConfig {
                          SchedulingPolicy::ISOLATED,
                      SchedulingPolicy::DataAccess data_access_policy =
                          SchedulingPolicy::LOCAL_READ);
+
+  void setChMicro(uint q_num) {
+    ch_micro = true;
+    this->q_num = q_num;
+  }
 };
 
 class OLAPSequence {
