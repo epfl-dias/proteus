@@ -539,3 +539,13 @@ expressions::GtExpression lt(const std::string &lhs, const expression_t &rhs) {
 expressions::GtExpression lt(const char *lhs, const expression_t &rhs) {
   return gt(rhs, lhs);  // Reverse inequality
 }
+
+int64_t dateToTimestamp(const std::string &d) {
+  std::tm t{};
+  strptime(d.c_str(), "%Y-%m-%d %H:%M:%S", &t);
+  t.tm_isdst = -1;  // Unknown
+  return std::mktime(&t) * 1000;
+}
+
+expressions::DateConstant::DateConstant(std::string d)
+    : DateConstant(dateToTimestamp(d)) {}

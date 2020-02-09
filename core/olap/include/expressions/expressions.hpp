@@ -340,6 +340,8 @@ class DateConstant
  public:
   using TConstant<int64_t, DateType, Constant::ConstantType::DATE,
                   DateConstant>::TConstant;
+
+  DateConstant(std::string);
 };
 
 class BoolConstant
@@ -1204,6 +1206,13 @@ expressions::EqExpression eq(const expression_t &lhs, const std::string &rhs);
 expressions::EqExpression eq(const expression_t &lhs, const char *rhs);
 expressions::EqExpression eq(const std::string &lhs, const expression_t &rhs);
 expressions::EqExpression eq(const char *lhs, const expression_t &rhs);
+template <typename T>
+expressions::EqExpression eq(const expression_t &lhs, const T &rhs) {
+  static_assert(!std::is_same_v<T, std::string>);
+  static_assert(!std::is_same_v<T, const char *>);
+  static_assert(!std::is_same_v<T, expression_t>);
+  return eq(lhs, expression_t{rhs});
+}
 
 expressions::NeExpression ne(const expression_t &lhs, const expression_t &rhs);
 expressions::NeExpression ne(const expression_t &lhs, const std::string &rhs);
