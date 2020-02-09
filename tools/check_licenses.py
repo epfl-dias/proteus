@@ -67,7 +67,7 @@ external_files = [
     "core/platform/util/radix/prj_params.h",
     "core/platform/util/radix/types.h",
     "jsmn/jsmn.c",
-    "jsmn/jsmn.h"
+    "jsmn/jsmn.h",
     
     # TODO: fix licensing on following files:
     "apps/benchmarks/oltp/bench-runner.cpp",
