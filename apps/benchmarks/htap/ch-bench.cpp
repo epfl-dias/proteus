@@ -111,12 +111,12 @@ int main(int argc, char *argv[]) {
   if (FLAGS_htap_mode.compare("COLOC") == 0) {
     g_num_partitions = 2;
     oltp_engine.init(new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers,
-                                     true, FLAGS_ch_scale_factor, 0, "", false),
+                                     true, FLAGS_ch_scale_factor, 0, "", true),
                      oltp_num_workers, 2, FLAGS_ch_scale_factor, true);
 
   } else {
     oltp_engine.init(new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers,
-                                     true, FLAGS_ch_scale_factor, 0, "", false),
+                                     true, FLAGS_ch_scale_factor, 0, "", true),
                      oltp_num_workers, oltp_data_partitions,
                      FLAGS_ch_scale_factor);
   }
