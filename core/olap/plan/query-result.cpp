@@ -52,7 +52,12 @@ QueryResult::QueryResult(const std::string &q) : q(q) {
 
   int fd = linux_run(shm_open(q.c_str(), O_RDONLY, S_IRWXU));
 
-  fsize = std::filesystem::file_size(p);
+  if (std::filesystem::is_directory(p)) {
+    fsize = 0;
+  } else {
+    fsize = std::filesystem::file_size(p);
+  }
+
   if (fsize) {
     resultBuf = (char *)mmap(nullptr, fsize, PROT_READ | PROT_WRITE,
                              MAP_PRIVATE, fd, 0);
@@ -65,6 +70,7 @@ QueryResult::QueryResult(const std::string &q) : q(q) {
     assert(resultBuf != MAP_FAILED);
   } else {
     resultBuf = static_cast<char *>(MAP_FAILED);
+    assert(resultBuf && "Destructor assumes MAP_FAILED != 0");
   }
   close(fd);  // close the descriptor produced by the shm_open
 }
