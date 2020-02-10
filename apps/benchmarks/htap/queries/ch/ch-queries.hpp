@@ -58,6 +58,7 @@ extern std::string o_all_local;
 #include "micro-qstock.hpp"
 #include "micro-sum.hpp"
 #include "q01.hpp"
+#include "q02.hpp"
 #include "q04.hpp"
 #include "q06.hpp"
 #include "q08.hpp"

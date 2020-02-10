@@ -1,0 +1,249 @@
+{
+  "operator" : "print",
+  "gpu" : false,
+  "e" : [ {
+    "expression" : "recordProjection",
+    "e" : {
+      "expression" : "argument"
+    },
+    "attribute" : {
+      "attrName" : "revenue",
+      "relName" : "subsetPelagoAggregate#15226"
+    },
+    "register_as" : {
+      "attrName" : "revenue",
+      "relName" : "print15227"
+    }
+  } ],
+  "input" : {
+    "operator" : "reduce",
+    "gpu" : false,
+    "e" : [ {
+      "expression" : "recordProjection",
+      "e" : {
+        "expression" : "argument"
+      },
+      "attribute" : {
+        "attrName" : "revenue",
+        "relName" : "subsetPelagoRouter#15225"
+      },
+      "register_as" : {
+        "attrName" : "revenue",
+        "relName" : "subsetPelagoAggregate#15226"
+      }
+    } ],
+    "accumulator" : [ "sum" ],
+    "input" : {
+      "operator" : "router",
+      "numOfParents" : 1,
+      "slack" : 8,
+      "cpu_targets" : true,
+      "numa_local" : false,
+      "input" : {
+        "operator" : "reduce",
+        "gpu" : false,
+        "e" : [ {
+          "expression" : "recordProjection",
+          "e" : {
+            "expression" : "argument"
+          },
+          "attribute" : {
+            "attrName" : "ol_amount",
+            "relName" : "tpcc_orderline<block-local>"
+          },
+          "register_as" : {
+            "attrName" : "revenue",
+            "relName" : "subsetPelagoRouter#15225"
+          }
+        } ],
+        "accumulator" : [ "sum" ],
+        "input" : {
+          "operator" : "select",
+          "gpu" : false,
+          "p" : {
+            "expression" : "and",
+            "left" : {
+              "expression" : "and",
+              "left" : {
+                "expression" : "ge",
+                "left" : {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument"
+                  },
+                  "attribute" : {
+                    "attrName" : "ol_delivery_d",
+                    "relName" : "tpcc_orderline<block-local>"
+                  }
+                },
+                "right" : {
+                  "expression" : "datetime",
+                  "v" : "1999-01-01 00:00:00"
+                }
+              },
+              "right" : {
+                "expression" : "lt",
+                "left" : {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument"
+                  },
+                  "attribute" : {
+                    "attrName" : "ol_delivery_d",
+                    "relName" : "tpcc_orderline<block-local>"
+                  }
+                },
+                "right" : {
+                  "expression" : "datetime",
+                  "v" : "2021-01-01 00:00:00"
+                }
+              }
+            },
+            "right" : {
+              "expression" : "and",
+              "left" : {
+                "expression" : "ge",
+                "left" : {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument"
+                  },
+                  "attribute" : {
+                    "attrName" : "ol_quantity",
+                    "relName" : "tpcc_orderline<block-local>"
+                  }
+                },
+                "right" : {
+                  "expression" : "int",
+                  "v" : 1
+                }
+              },
+              "right" : {
+                "expression" : "le",
+                "left" : {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument"
+                  },
+                  "attribute" : {
+                    "attrName" : "ol_quantity",
+                    "relName" : "tpcc_orderline<block-local>"
+                  }
+                },
+                "right" : {
+                  "expression" : "int",
+                  "v" : 100000
+                }
+              }
+            }
+          },
+          "input" : {
+            "operator" : "unpack",
+            "input" : {
+              "operator" : "mem-move-device",
+              "input" : {
+                "operator" : "router",
+                "numOfParents" : 48,
+                "slack" : 8,
+                "cpu_targets" : true,
+                "rand_local_cpu" : true,
+                "input" : {
+                  "operator" : "scan",
+                  "gpu" : false,
+                  "plugin" : {
+                    "type" : "block-local",
+                    "linehint" : 6000000,
+                    "name" : "tpcc_orderline<block-local>",
+                    "projections" : [ {
+                      "relName" : "tpcc_orderline<block-local>",
+                      "attrName" : "ol_delivery_d"
+                    }, {
+                      "relName" : "tpcc_orderline<block-local>",
+                      "attrName" : "ol_quantity"
+                    }, {
+                      "relName" : "tpcc_orderline<block-local>",
+                      "attrName" : "ol_amount"
+                    } ],
+                    "schema" : [ {
+                      "relName" : "tpcc_orderline<block-local>",
+                      "attrName" : "ol_o_id",
+                      "type" : {
+                        "type" : "int64"
+                      },
+                      "attrNo" : 1
+                    }, {
+                      "relName" : "tpcc_orderline<block-local>",
+                      "attrName" : "ol_d_id",
+                      "type" : {
+                        "type" : "int"
+                      },
+                      "attrNo" : 2
+                    }, {
+                      "relName" : "tpcc_orderline<block-local>",
+                      "attrName" : "ol_w_id",
+                      "type" : {
+                        "type" : "int"
+                      },
+                      "attrNo" : 3
+                    }, {
+                      "relName" : "tpcc_orderline<block-local>",
+                      "attrName" : "ol_number",
+                      "type" : {
+                        "type" : "int"
+                      },
+                      "attrNo" : 4
+                    }, {
+                      "relName" : "tpcc_orderline<block-local>",
+                      "attrName" : "ol_i_id",
+                      "type" : {
+                        "type" : "int"
+                      },
+                      "attrNo" : 5
+                    }, {
+                      "relName" : "tpcc_orderline<block-local>",
+                      "attrName" : "ol_supply_w_id",
+                      "type" : {
+                        "type" : "int"
+                      },
+                      "attrNo" : 6
+                    }, {
+                      "relName" : "tpcc_orderline<block-local>",
+                      "attrName" : "ol_delivery_d",
+                      "type" : {
+                        "type" : "datetime"
+                      },
+                      "attrNo" : 7
+                    }, {
+                      "relName" : "tpcc_orderline<block-local>",
+                      "attrName" : "ol_quantity",
+                      "type" : {
+                        "type" : "int"
+                      },
+                      "attrNo" : 8
+                    }, {
+                      "relName" : "tpcc_orderline<block-local>",
+                      "attrName" : "ol_amount",
+                      "type" : {
+                        "type" : "float"
+                      },
+                      "attrNo" : 9
+                    }, {
+                      "relName" : "tpcc_orderline<block-local>",
+                      "attrName" : "ol_dist_info",
+                      "type" : {
+                        "type" : "dstring"
+                      },
+                      "attrNo" : 10
+                    } ]
+                  }
+                }
+              },
+              "to_cpu" : true,
+              "do_transfer" : [ true, true, true ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

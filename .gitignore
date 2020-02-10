@@ -75,3 +75,4 @@ docs/**
 
 #Temporary files
 *.fuse_hidden*
+apps/benchmarks/htap/queries/clotho/cpu/*.cpp

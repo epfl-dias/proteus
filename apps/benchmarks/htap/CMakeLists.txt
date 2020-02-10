@@ -4,6 +4,7 @@
 set(htap_bench_cxx
 		htap-cli-flags.cpp
 		queries/ch/q01.cpp
+		queries/ch/q02.cpp
 		queries/ch/q04.cpp
 		queries/ch/q06.cpp
 		queries/ch/q19.cpp
@@ -14,7 +15,7 @@ set(htap_bench_cxx
 
 #find_package(Threads REQUIRED)
 
-
+install(DIRECTORY "queries/clotho" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/benchmarks/htap/queries)
 
 foreach(target
 		#micro-hybrid

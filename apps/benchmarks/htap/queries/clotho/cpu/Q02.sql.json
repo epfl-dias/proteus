@@ -1,0 +1,2706 @@
+{
+  "operator" : "print",
+  "gpu" : false,
+  "e" : [ {
+    "expression" : "recordProjection",
+    "e" : {
+      "expression" : "argument"
+    },
+    "attribute" : {
+      "attrName" : "su_suppkey",
+      "relName" : "__sort4290"
+    },
+    "register_as" : {
+      "attrName" : "su_suppkey",
+      "relName" : "print4291"
+    }
+  }, {
+    "expression" : "recordProjection",
+    "e" : {
+      "expression" : "argument"
+    },
+    "attribute" : {
+      "attrName" : "su_name",
+      "relName" : "__sort4290"
+    },
+    "register_as" : {
+      "attrName" : "su_name",
+      "relName" : "print4291"
+    }
+  }, {
+    "expression" : "recordProjection",
+    "e" : {
+      "expression" : "argument"
+    },
+    "attribute" : {
+      "attrName" : "n_name",
+      "relName" : "__sort4290"
+    },
+    "register_as" : {
+      "attrName" : "n_name",
+      "relName" : "print4291"
+    }
+  }, {
+    "expression" : "recordProjection",
+    "e" : {
+      "expression" : "argument"
+    },
+    "attribute" : {
+      "attrName" : "i_id",
+      "relName" : "__sort4290"
+    },
+    "register_as" : {
+      "attrName" : "i_id",
+      "relName" : "print4291"
+    }
+  }, {
+    "expression" : "recordProjection",
+    "e" : {
+      "expression" : "argument"
+    },
+    "attribute" : {
+      "attrName" : "i_name",
+      "relName" : "__sort4290"
+    },
+    "register_as" : {
+      "attrName" : "i_name",
+      "relName" : "print4291"
+    }
+  }, {
+    "expression" : "recordProjection",
+    "e" : {
+      "expression" : "argument"
+    },
+    "attribute" : {
+      "attrName" : "su_address",
+      "relName" : "__sort4290"
+    },
+    "register_as" : {
+      "attrName" : "su_address",
+      "relName" : "print4291"
+    }
+  }, {
+    "expression" : "recordProjection",
+    "e" : {
+      "expression" : "argument"
+    },
+    "attribute" : {
+      "attrName" : "su_phone",
+      "relName" : "__sort4290"
+    },
+    "register_as" : {
+      "attrName" : "su_phone",
+      "relName" : "print4291"
+    }
+  }, {
+    "expression" : "recordProjection",
+    "e" : {
+      "expression" : "argument"
+    },
+    "attribute" : {
+      "attrName" : "su_comment",
+      "relName" : "__sort4290"
+    },
+    "register_as" : {
+      "attrName" : "su_comment",
+      "relName" : "print4291"
+    }
+  } ],
+  "input" : {
+    "operator" : "sort",
+    "gpu" : false,
+    "rowType" : [ {
+      "relName" : "__sort4290",
+      "attrName" : "su_suppkey"
+    }, {
+      "relName" : "__sort4290",
+      "attrName" : "su_name"
+    }, {
+      "relName" : "__sort4290",
+      "attrName" : "n_name"
+    }, {
+      "relName" : "__sort4290",
+      "attrName" : "i_id"
+    }, {
+      "relName" : "__sort4290",
+      "attrName" : "i_name"
+    }, {
+      "relName" : "__sort4290",
+      "attrName" : "su_address"
+    }, {
+      "relName" : "__sort4290",
+      "attrName" : "su_phone"
+    }, {
+      "relName" : "__sort4290",
+      "attrName" : "su_comment"
+    } ],
+    "e" : [ {
+      "direction" : "ASC",
+      "expression" : {
+        "expression" : "recordProjection",
+        "e" : {
+          "expression" : "argument"
+        },
+        "attribute" : {
+          "attrName" : "n_name",
+          "relName" : "subsetPelagoUnpack#4289"
+        },
+        "register_as" : {
+          "attrName" : "n_name",
+          "relName" : "__sort4290"
+        }
+      }
+    }, {
+      "direction" : "ASC",
+      "expression" : {
+        "expression" : "recordProjection",
+        "e" : {
+          "expression" : "argument"
+        },
+        "attribute" : {
+          "attrName" : "su_name",
+          "relName" : "subsetPelagoUnpack#4289"
+        },
+        "register_as" : {
+          "attrName" : "su_name",
+          "relName" : "__sort4290"
+        }
+      }
+    }, {
+      "direction" : "ASC",
+      "expression" : {
+        "expression" : "recordProjection",
+        "e" : {
+          "expression" : "argument"
+        },
+        "attribute" : {
+          "attrName" : "i_id",
+          "relName" : "subsetPelagoUnpack#4289"
+        },
+        "register_as" : {
+          "attrName" : "i_id",
+          "relName" : "__sort4290"
+        }
+      }
+    }, {
+      "direction" : "NONE",
+      "expression" : {
+        "expression" : "recordProjection",
+        "e" : {
+          "expression" : "argument"
+        },
+        "attribute" : {
+          "attrName" : "su_suppkey",
+          "relName" : "subsetPelagoUnpack#4289"
+        },
+        "register_as" : {
+          "attrName" : "su_suppkey",
+          "relName" : "__sort4290"
+        }
+      }
+    }, {
+      "direction" : "NONE",
+      "expression" : {
+        "expression" : "recordProjection",
+        "e" : {
+          "expression" : "argument"
+        },
+        "attribute" : {
+          "attrName" : "i_name",
+          "relName" : "subsetPelagoUnpack#4289"
+        },
+        "register_as" : {
+          "attrName" : "i_name",
+          "relName" : "__sort4290"
+        }
+      }
+    }, {
+      "direction" : "NONE",
+      "expression" : {
+        "expression" : "recordProjection",
+        "e" : {
+          "expression" : "argument"
+        },
+        "attribute" : {
+          "attrName" : "su_address",
+          "relName" : "subsetPelagoUnpack#4289"
+        },
+        "register_as" : {
+          "attrName" : "su_address",
+          "relName" : "__sort4290"
+        }
+      }
+    }, {
+      "direction" : "NONE",
+      "expression" : {
+        "expression" : "recordProjection",
+        "e" : {
+          "expression" : "argument"
+        },
+        "attribute" : {
+          "attrName" : "su_phone",
+          "relName" : "subsetPelagoUnpack#4289"
+        },
+        "register_as" : {
+          "attrName" : "su_phone",
+          "relName" : "__sort4290"
+        }
+      }
+    }, {
+      "direction" : "NONE",
+      "expression" : {
+        "expression" : "recordProjection",
+        "e" : {
+          "expression" : "argument"
+        },
+        "attribute" : {
+          "attrName" : "su_comment",
+          "relName" : "subsetPelagoUnpack#4289"
+        },
+        "register_as" : {
+          "attrName" : "su_comment",
+          "relName" : "__sort4290"
+        }
+      }
+    } ],
+    "granularity" : "thread",
+    "input" : {
+      "operator" : "unpack",
+      "input" : {
+        "operator" : "mem-move-device",
+        "input" : {
+          "operator" : "router",
+          "numOfParents" : 1,
+          "slack" : 8,
+          "cpu_targets" : true,
+          "input" : {
+            "operator" : "pack",
+            "projections" : [ {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument"
+              },
+              "attribute" : {
+                "attrName" : "su_suppkey",
+                "relName" : "subsetPelagoUnpack#4289"
+              }
+            }, {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument"
+              },
+              "attribute" : {
+                "attrName" : "su_name",
+                "relName" : "subsetPelagoUnpack#4289"
+              }
+            }, {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument"
+              },
+              "attribute" : {
+                "attrName" : "n_name",
+                "relName" : "subsetPelagoUnpack#4289"
+              }
+            }, {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument"
+              },
+              "attribute" : {
+                "attrName" : "i_id",
+                "relName" : "subsetPelagoUnpack#4289"
+              }
+            }, {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument"
+              },
+              "attribute" : {
+                "attrName" : "i_name",
+                "relName" : "subsetPelagoUnpack#4289"
+              }
+            }, {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument"
+              },
+              "attribute" : {
+                "attrName" : "su_address",
+                "relName" : "subsetPelagoUnpack#4289"
+              }
+            }, {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument"
+              },
+              "attribute" : {
+                "attrName" : "su_phone",
+                "relName" : "subsetPelagoUnpack#4289"
+              }
+            }, {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument"
+              },
+              "attribute" : {
+                "attrName" : "su_comment",
+                "relName" : "subsetPelagoUnpack#4289"
+              }
+            } ],
+            "input" : {
+              "operator" : "project",
+              "relName" : "subsetPelagoUnpack#4289",
+              "e" : [ {
+                "expression" : "recordProjection",
+                "e" : {
+                  "expression" : "argument"
+                },
+                "attribute" : {
+                  "attrName" : "su_suppkey",
+                  "relName" : "subsetPelagoUnpack#4289"
+                },
+                "register_as" : {
+                  "attrName" : "su_suppkey",
+                  "relName" : "subsetPelagoUnpack#4289"
+                }
+              }, {
+                "expression" : "recordProjection",
+                "e" : {
+                  "expression" : "argument"
+                },
+                "attribute" : {
+                  "attrName" : "su_name",
+                  "relName" : "subsetPelagoUnpack#4289"
+                },
+                "register_as" : {
+                  "attrName" : "su_name",
+                  "relName" : "subsetPelagoUnpack#4289"
+                }
+              }, {
+                "expression" : "recordProjection",
+                "e" : {
+                  "expression" : "argument"
+                },
+                "attribute" : {
+                  "attrName" : "n_name",
+                  "relName" : "subsetPelagoUnpack#4289"
+                },
+                "register_as" : {
+                  "attrName" : "n_name",
+                  "relName" : "subsetPelagoUnpack#4289"
+                }
+              }, {
+                "expression" : "recordProjection",
+                "e" : {
+                  "expression" : "argument"
+                },
+                "attribute" : {
+                  "attrName" : "i_id",
+                  "relName" : "subsetPelagoUnpack#4289"
+                },
+                "register_as" : {
+                  "attrName" : "i_id",
+                  "relName" : "subsetPelagoUnpack#4289"
+                }
+              }, {
+                "expression" : "recordProjection",
+                "e" : {
+                  "expression" : "argument"
+                },
+                "attribute" : {
+                  "attrName" : "i_name",
+                  "relName" : "subsetPelagoUnpack#4289"
+                },
+                "register_as" : {
+                  "attrName" : "i_name",
+                  "relName" : "subsetPelagoUnpack#4289"
+                }
+              }, {
+                "expression" : "recordProjection",
+                "e" : {
+                  "expression" : "argument"
+                },
+                "attribute" : {
+                  "attrName" : "su_address",
+                  "relName" : "subsetPelagoUnpack#4289"
+                },
+                "register_as" : {
+                  "attrName" : "su_address",
+                  "relName" : "subsetPelagoUnpack#4289"
+                }
+              }, {
+                "expression" : "recordProjection",
+                "e" : {
+                  "expression" : "argument"
+                },
+                "attribute" : {
+                  "attrName" : "su_phone",
+                  "relName" : "subsetPelagoUnpack#4289"
+                },
+                "register_as" : {
+                  "attrName" : "su_phone",
+                  "relName" : "subsetPelagoUnpack#4289"
+                }
+              }, {
+                "expression" : "recordProjection",
+                "e" : {
+                  "expression" : "argument"
+                },
+                "attribute" : {
+                  "attrName" : "su_comment",
+                  "relName" : "subsetPelagoUnpack#4289"
+                },
+                "register_as" : {
+                  "attrName" : "su_comment",
+                  "relName" : "subsetPelagoUnpack#4289"
+                }
+              } ],
+              "input" : {
+                "operator" : "hashjoin-chained",
+                "build_k" : {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument"
+                  },
+                  "attribute" : {
+                    "attrName" : "su_suppkey",
+                    "relName" : "subsetPelagoUnpack#4233"
+                  },
+                  "register_as" : {
+                    "attrName" : "$8",
+                    "relName" : "subsetPelagoUnpack#4289"
+                  }
+                },
+                "build_input" : {
+                  "operator" : "unpack",
+                  "input" : {
+                    "operator" : "router",
+                    "numOfParents" : 48,
+                    "slack" : 8,
+                    "cpu_targets" : true,
+                    "target" : {
+                      "expression" : "recordProjection",
+                      "e" : {
+                        "expression" : "argument"
+                      },
+                      "attribute" : {
+                        "relName" : "subsetPelagoUnpack#4233",
+                        "attrName" : "__broadcastTarget"
+                      }
+                    },
+                    "input" : {
+                      "operator" : "mem-broadcast-device",
+                      "num_of_targets" : 48,
+                      "input" : {
+                        "operator" : "mem-move-device",
+                        "input" : {
+                          "operator" : "router",
+                          "numOfParents" : 1,
+                          "slack" : 8,
+                          "cpu_targets" : true,
+                          "input" : {
+                            "operator" : "pack",
+                            "projections" : [ {
+                              "expression" : "recordProjection",
+                              "e" : {
+                                "expression" : "argument"
+                              },
+                              "attribute" : {
+                                "attrName" : "su_suppkey",
+                                "relName" : "subsetPelagoUnpack#4233"
+                              }
+                            }, {
+                              "expression" : "recordProjection",
+                              "e" : {
+                                "expression" : "argument"
+                              },
+                              "attribute" : {
+                                "attrName" : "su_name",
+                                "relName" : "subsetPelagoUnpack#4233"
+                              }
+                            }, {
+                              "expression" : "recordProjection",
+                              "e" : {
+                                "expression" : "argument"
+                              },
+                              "attribute" : {
+                                "attrName" : "su_address",
+                                "relName" : "subsetPelagoUnpack#4233"
+                              }
+                            }, {
+                              "expression" : "recordProjection",
+                              "e" : {
+                                "expression" : "argument"
+                              },
+                              "attribute" : {
+                                "attrName" : "su_phone",
+                                "relName" : "subsetPelagoUnpack#4233"
+                              }
+                            }, {
+                              "expression" : "recordProjection",
+                              "e" : {
+                                "expression" : "argument"
+                              },
+                              "attribute" : {
+                                "attrName" : "su_comment",
+                                "relName" : "subsetPelagoUnpack#4233"
+                              }
+                            }, {
+                              "expression" : "recordProjection",
+                              "e" : {
+                                "expression" : "argument"
+                              },
+                              "attribute" : {
+                                "attrName" : "n_name",
+                                "relName" : "subsetPelagoUnpack#4233"
+                              }
+                            } ],
+                            "input" : {
+                              "operator" : "project",
+                              "relName" : "subsetPelagoUnpack#4233",
+                              "e" : [ {
+                                "expression" : "recordProjection",
+                                "e" : {
+                                  "expression" : "argument"
+                                },
+                                "attribute" : {
+                                  "attrName" : "su_suppkey",
+                                  "relName" : "subsetPelagoUnpack#4233"
+                                },
+                                "register_as" : {
+                                  "attrName" : "su_suppkey",
+                                  "relName" : "subsetPelagoUnpack#4233"
+                                }
+                              }, {
+                                "expression" : "recordProjection",
+                                "e" : {
+                                  "expression" : "argument"
+                                },
+                                "attribute" : {
+                                  "attrName" : "su_name",
+                                  "relName" : "subsetPelagoUnpack#4233"
+                                },
+                                "register_as" : {
+                                  "attrName" : "su_name",
+                                  "relName" : "subsetPelagoUnpack#4233"
+                                }
+                              }, {
+                                "expression" : "recordProjection",
+                                "e" : {
+                                  "expression" : "argument"
+                                },
+                                "attribute" : {
+                                  "attrName" : "su_address",
+                                  "relName" : "subsetPelagoUnpack#4233"
+                                },
+                                "register_as" : {
+                                  "attrName" : "su_address",
+                                  "relName" : "subsetPelagoUnpack#4233"
+                                }
+                              }, {
+                                "expression" : "recordProjection",
+                                "e" : {
+                                  "expression" : "argument"
+                                },
+                                "attribute" : {
+                                  "attrName" : "su_phone",
+                                  "relName" : "subsetPelagoUnpack#4233"
+                                },
+                                "register_as" : {
+                                  "attrName" : "su_phone",
+                                  "relName" : "subsetPelagoUnpack#4233"
+                                }
+                              }, {
+                                "expression" : "recordProjection",
+                                "e" : {
+                                  "expression" : "argument"
+                                },
+                                "attribute" : {
+                                  "attrName" : "su_comment",
+                                  "relName" : "subsetPelagoUnpack#4233"
+                                },
+                                "register_as" : {
+                                  "attrName" : "su_comment",
+                                  "relName" : "subsetPelagoUnpack#4233"
+                                }
+                              }, {
+                                "expression" : "recordProjection",
+                                "e" : {
+                                  "expression" : "argument"
+                                },
+                                "attribute" : {
+                                  "attrName" : "n_name",
+                                  "relName" : "subsetPelagoUnpack#4233"
+                                },
+                                "register_as" : {
+                                  "attrName" : "n_name",
+                                  "relName" : "subsetPelagoUnpack#4233"
+                                }
+                              } ],
+                              "input" : {
+                                "operator" : "hashjoin-chained",
+                                "build_k" : {
+                                  "expression" : "recordProjection",
+                                  "e" : {
+                                    "expression" : "argument"
+                                  },
+                                  "attribute" : {
+                                    "attrName" : "n_nationkey",
+                                    "relName" : "subsetPelagoUnpack#4225"
+                                  },
+                                  "register_as" : {
+                                    "attrName" : "$5",
+                                    "relName" : "subsetPelagoUnpack#4233"
+                                  }
+                                },
+                                "build_input" : {
+                                  "operator" : "unpack",
+                                  "input" : {
+                                    "operator" : "router",
+                                    "numOfParents" : 48,
+                                    "slack" : 8,
+                                    "cpu_targets" : true,
+                                    "target" : {
+                                      "expression" : "recordProjection",
+                                      "e" : {
+                                        "expression" : "argument"
+                                      },
+                                      "attribute" : {
+                                        "relName" : "subsetPelagoUnpack#4225",
+                                        "attrName" : "__broadcastTarget"
+                                      }
+                                    },
+                                    "input" : {
+                                      "operator" : "mem-broadcast-device",
+                                      "num_of_targets" : 48,
+                                      "input" : {
+                                        "operator" : "mem-move-device",
+                                        "input" : {
+                                          "operator" : "router",
+                                          "numOfParents" : 1,
+                                          "slack" : 8,
+                                          "cpu_targets" : true,
+                                          "input" : {
+                                            "operator" : "pack",
+                                            "projections" : [ {
+                                              "expression" : "recordProjection",
+                                              "e" : {
+                                                "expression" : "argument"
+                                              },
+                                              "attribute" : {
+                                                "attrName" : "n_nationkey",
+                                                "relName" : "subsetPelagoUnpack#4225"
+                                              }
+                                            }, {
+                                              "expression" : "recordProjection",
+                                              "e" : {
+                                                "expression" : "argument"
+                                              },
+                                              "attribute" : {
+                                                "attrName" : "n_name",
+                                                "relName" : "subsetPelagoUnpack#4225"
+                                              }
+                                            } ],
+                                            "input" : {
+                                              "operator" : "project",
+                                              "relName" : "subsetPelagoUnpack#4225",
+                                              "e" : [ {
+                                                "expression" : "recordProjection",
+                                                "e" : {
+                                                  "expression" : "argument"
+                                                },
+                                                "attribute" : {
+                                                  "attrName" : "n_nationkey",
+                                                  "relName" : "subsetPelagoUnpack#4225"
+                                                },
+                                                "register_as" : {
+                                                  "attrName" : "n_nationkey",
+                                                  "relName" : "subsetPelagoUnpack#4225"
+                                                }
+                                              }, {
+                                                "expression" : "recordProjection",
+                                                "e" : {
+                                                  "expression" : "argument"
+                                                },
+                                                "attribute" : {
+                                                  "attrName" : "n_name",
+                                                  "relName" : "subsetPelagoUnpack#4225"
+                                                },
+                                                "register_as" : {
+                                                  "attrName" : "n_name",
+                                                  "relName" : "subsetPelagoUnpack#4225"
+                                                }
+                                              } ],
+                                              "input" : {
+                                                "operator" : "hashjoin-chained",
+                                                "build_k" : {
+                                                  "expression" : "recordProjection",
+                                                  "e" : {
+                                                    "expression" : "argument"
+                                                  },
+                                                  "attribute" : {
+                                                    "attrName" : "n_regionkey",
+                                                    "relName" : "tpcc_nation<block-local>"
+                                                  },
+                                                  "register_as" : {
+                                                    "attrName" : "$2",
+                                                    "relName" : "subsetPelagoUnpack#4225"
+                                                  }
+                                                },
+                                                "build_input" : {
+                                                  "operator" : "unpack",
+                                                  "input" : {
+                                                    "operator" : "router",
+                                                    "numOfParents" : 48,
+                                                    "slack" : 8,
+                                                    "cpu_targets" : true,
+                                                    "target" : {
+                                                      "expression" : "recordProjection",
+                                                      "e" : {
+                                                        "expression" : "argument"
+                                                      },
+                                                      "attribute" : {
+                                                        "relName" : "tpcc_nation<block-local>",
+                                                        "attrName" : "__broadcastTarget"
+                                                      }
+                                                    },
+                                                    "input" : {
+                                                      "operator" : "mem-broadcast-device",
+                                                      "num_of_targets" : 48,
+                                                      "input" : {
+                                                        "operator" : "scan",
+                                                        "gpu" : false,
+                                                        "plugin" : {
+                                                          "type" : "block-local",
+                                                          "linehint" : 62,
+                                                          "name" : "tpcc_nation<block-local>",
+                                                          "projections" : [ {
+                                                            "relName" : "tpcc_nation<block-local>",
+                                                            "attrName" : "n_nationkey"
+                                                          }, {
+                                                            "relName" : "tpcc_nation<block-local>",
+                                                            "attrName" : "n_name"
+                                                          }, {
+                                                            "relName" : "tpcc_nation<block-local>",
+                                                            "attrName" : "n_regionkey"
+                                                          } ],
+                                                          "schema" : [ {
+                                                            "relName" : "tpcc_nation<block-local>",
+                                                            "attrName" : "n_nationkey",
+                                                            "type" : {
+                                                              "type" : "int"
+                                                            },
+                                                            "attrNo" : 1
+                                                          }, {
+                                                            "relName" : "tpcc_nation<block-local>",
+                                                            "attrName" : "n_name",
+                                                            "type" : {
+                                                              "type" : "dstring"
+                                                            },
+                                                            "attrNo" : 2
+                                                          }, {
+                                                            "relName" : "tpcc_nation<block-local>",
+                                                            "attrName" : "n_regionkey",
+                                                            "type" : {
+                                                              "type" : "int"
+                                                            },
+                                                            "attrNo" : 3
+                                                          }, {
+                                                            "relName" : "tpcc_nation<block-local>",
+                                                            "attrName" : "n_comment",
+                                                            "type" : {
+                                                              "type" : "dstring"
+                                                            },
+                                                            "attrNo" : 4
+                                                          } ]
+                                                        }
+                                                      },
+                                                      "to_cpu" : true
+                                                    }
+                                                  }
+                                                },
+                                                "probe_k" : {
+                                                  "expression" : "recordProjection",
+                                                  "e" : {
+                                                    "expression" : "argument"
+                                                  },
+                                                  "attribute" : {
+                                                    "attrName" : "r_regionkey",
+                                                    "relName" : "subsetPelagoProject#4219"
+                                                  },
+                                                  "register_as" : {
+                                                    "attrName" : "$3",
+                                                    "relName" : "subsetPelagoUnpack#4225"
+                                                  }
+                                                },
+                                                "hash_bits" : 7,
+                                                "maxBuildInputSize" : 62,
+                                                "probe_input" : {
+                                                  "operator" : "project",
+                                                  "relName" : "subsetPelagoProject#4219",
+                                                  "e" : [ {
+                                                    "expression" : "recordProjection",
+                                                    "e" : {
+                                                      "expression" : "argument"
+                                                    },
+                                                    "attribute" : {
+                                                      "attrName" : "r_regionkey",
+                                                      "relName" : "subsetPelagoProject#4219"
+                                                    },
+                                                    "register_as" : {
+                                                      "attrName" : "r_regionkey",
+                                                      "relName" : "subsetPelagoProject#4219"
+                                                    }
+                                                  } ],
+                                                  "input" : {
+                                                    "operator" : "hashjoin-chained",
+                                                    "build_k" : {
+                                                      "expression" : "recordProjection",
+                                                      "e" : {
+                                                        "expression" : "argument"
+                                                      },
+                                                      "attribute" : {
+                                                        "attrName" : "r_name",
+                                                        "relName" : "tpcc_region<block-local>$dict$r_name"
+                                                      },
+                                                      "register_as" : {
+                                                        "attrName" : "$2",
+                                                        "relName" : "subsetPelagoProject#4219"
+                                                      }
+                                                    },
+                                                    "build_input" : {
+                                                      "operator" : "unpack",
+                                                      "input" : {
+                                                        "operator" : "router",
+                                                        "numOfParents" : 48,
+                                                        "slack" : 8,
+                                                        "cpu_targets" : true,
+                                                        "target" : {
+                                                          "expression" : "recordProjection",
+                                                          "e" : {
+                                                            "expression" : "argument"
+                                                          },
+                                                          "attribute" : {
+                                                            "relName" : "tpcc_region<block-local>$dict$r_name",
+                                                            "attrName" : "__broadcastTarget"
+                                                          }
+                                                        },
+                                                        "input" : {
+                                                          "operator" : "mem-broadcast-device",
+                                                          "num_of_targets" : 48,
+                                                          "input" : {
+                                                            "operator" : "pack",
+                                                            "projections" : [ {
+                                                              "expression" : "recordProjection",
+                                                              "e" : {
+                                                                "expression" : "argument"
+                                                              },
+                                                              "attribute" : {
+                                                                "attrName" : "r_name",
+                                                                "relName" : "tpcc_region<block-local>$dict$r_name"
+                                                              }
+                                                            } ],
+                                                            "input" : {
+                                                              "operator" : "dict-scan",
+                                                              "relName" : "tpcc_region<block-local>",
+                                                              "attrName" : "r_name",
+                                                              "regex" : "Europ.*"
+                                                            }
+                                                          },
+                                                          "to_cpu" : true
+                                                        }
+                                                      }
+                                                    },
+                                                    "probe_k" : {
+                                                      "expression" : "recordProjection",
+                                                      "e" : {
+                                                        "expression" : "argument"
+                                                      },
+                                                      "attribute" : {
+                                                        "attrName" : "r_name",
+                                                        "relName" : "tpcc_region<block-local>"
+                                                      },
+                                                      "register_as" : {
+                                                        "attrName" : "$0",
+                                                        "relName" : "subsetPelagoProject#4219"
+                                                      }
+                                                    },
+                                                    "hash_bits" : 27,
+                                                    "maxBuildInputSize" : 34078720,
+                                                    "probe_input" : {
+                                                      "operator" : "unpack",
+                                                      "input" : {
+                                                        "operator" : "mem-move-device",
+                                                        "input" : {
+                                                          "operator" : "router",
+                                                          "numOfParents" : 48,
+                                                          "slack" : 8,
+                                                          "cpu_targets" : true,
+                                                          "rand_local_cpu" : true,
+                                                          "input" : {
+                                                            "operator" : "scan",
+                                                            "gpu" : false,
+                                                            "plugin" : {
+                                                              "type" : "block-local",
+                                                              "linehint" : 5,
+                                                              "name" : "tpcc_region<block-local>",
+                                                              "projections" : [ {
+                                                                "relName" : "tpcc_region<block-local>",
+                                                                "attrName" : "r_regionkey"
+                                                              }, {
+                                                                "relName" : "tpcc_region<block-local>",
+                                                                "attrName" : "r_name"
+                                                              } ],
+                                                              "schema" : [ {
+                                                                "relName" : "tpcc_region<block-local>",
+                                                                "attrName" : "r_regionkey",
+                                                                "type" : {
+                                                                  "type" : "int"
+                                                                },
+                                                                "attrNo" : 1
+                                                              }, {
+                                                                "relName" : "tpcc_region<block-local>",
+                                                                "attrName" : "r_name",
+                                                                "type" : {
+                                                                  "type" : "dstring"
+                                                                },
+                                                                "attrNo" : 2
+                                                              }, {
+                                                                "relName" : "tpcc_region<block-local>",
+                                                                "attrName" : "r_comment",
+                                                                "type" : {
+                                                                  "type" : "dstring"
+                                                                },
+                                                                "attrNo" : 3
+                                                              } ]
+                                                            }
+                                                          }
+                                                        },
+                                                        "to_cpu" : true,
+                                                        "do_transfer" : [ true, true ]
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        },
+                                        "to_cpu" : true,
+                                        "do_transfer" : [ true, true ]
+                                      },
+                                      "to_cpu" : true
+                                    }
+                                  }
+                                },
+                                "probe_k" : {
+                                  "expression" : "recordProjection",
+                                  "e" : {
+                                    "expression" : "argument"
+                                  },
+                                  "attribute" : {
+                                    "attrName" : "su_nationkey",
+                                    "relName" : "tpcc_supplier<block-local>"
+                                  },
+                                  "register_as" : {
+                                    "attrName" : "$0",
+                                    "relName" : "subsetPelagoUnpack#4233"
+                                  }
+                                },
+                                "hash_bits" : 27,
+                                "maxBuildInputSize" : 34603008,
+                                "probe_input" : {
+                                  "operator" : "unpack",
+                                  "input" : {
+                                    "operator" : "mem-move-device",
+                                    "input" : {
+                                      "operator" : "router",
+                                      "numOfParents" : 48,
+                                      "slack" : 8,
+                                      "cpu_targets" : true,
+                                      "rand_local_cpu" : true,
+                                      "input" : {
+                                        "operator" : "scan",
+                                        "gpu" : false,
+                                        "plugin" : {
+                                          "type" : "block-local",
+                                          "linehint" : 10000,
+                                          "name" : "tpcc_supplier<block-local>",
+                                          "projections" : [ {
+                                            "relName" : "tpcc_supplier<block-local>",
+                                            "attrName" : "su_suppkey"
+                                          }, {
+                                            "relName" : "tpcc_supplier<block-local>",
+                                            "attrName" : "su_name"
+                                          }, {
+                                            "relName" : "tpcc_supplier<block-local>",
+                                            "attrName" : "su_address"
+                                          }, {
+                                            "relName" : "tpcc_supplier<block-local>",
+                                            "attrName" : "su_nationkey"
+                                          }, {
+                                            "relName" : "tpcc_supplier<block-local>",
+                                            "attrName" : "su_phone"
+                                          }, {
+                                            "relName" : "tpcc_supplier<block-local>",
+                                            "attrName" : "su_comment"
+                                          } ],
+                                          "schema" : [ {
+                                            "relName" : "tpcc_supplier<block-local>",
+                                            "attrName" : "su_suppkey",
+                                            "type" : {
+                                              "type" : "int"
+                                            },
+                                            "attrNo" : 1
+                                          }, {
+                                            "relName" : "tpcc_supplier<block-local>",
+                                            "attrName" : "su_name",
+                                            "type" : {
+                                              "type" : "dstring"
+                                            },
+                                            "attrNo" : 2
+                                          }, {
+                                            "relName" : "tpcc_supplier<block-local>",
+                                            "attrName" : "su_address",
+                                            "type" : {
+                                              "type" : "dstring"
+                                            },
+                                            "attrNo" : 3
+                                          }, {
+                                            "relName" : "tpcc_supplier<block-local>",
+                                            "attrName" : "su_nationkey",
+                                            "type" : {
+                                              "type" : "int"
+                                            },
+                                            "attrNo" : 4
+                                          }, {
+                                            "relName" : "tpcc_supplier<block-local>",
+                                            "attrName" : "su_phone",
+                                            "type" : {
+                                              "type" : "dstring"
+                                            },
+                                            "attrNo" : 5
+                                          }, {
+                                            "relName" : "tpcc_supplier<block-local>",
+                                            "attrName" : "su_acctbal",
+                                            "type" : {
+                                              "type" : "float"
+                                            },
+                                            "attrNo" : 6
+                                          }, {
+                                            "relName" : "tpcc_supplier<block-local>",
+                                            "attrName" : "su_comment",
+                                            "type" : {
+                                              "type" : "dstring"
+                                            },
+                                            "attrNo" : 7
+                                          } ]
+                                        }
+                                      }
+                                    },
+                                    "to_cpu" : true,
+                                    "do_transfer" : [ true, true, true, true, true, true ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "to_cpu" : true,
+                        "do_transfer" : [ true, true, true, true, true, true ]
+                      },
+                      "to_cpu" : true
+                    }
+                  }
+                },
+                "probe_k" : {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument"
+                  },
+                  "attribute" : {
+                    "attrName" : "MOD",
+                    "relName" : "subsetPelagoProject#4284"
+                  },
+                  "register_as" : {
+                    "attrName" : "$0",
+                    "relName" : "subsetPelagoUnpack#4289"
+                  }
+                },
+                "hash_bits" : 27,
+                "maxBuildInputSize" : 38674432,
+                "probe_input" : {
+                  "operator" : "project",
+                  "relName" : "subsetPelagoProject#4284",
+                  "e" : [ {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument"
+                    },
+                    "attribute" : {
+                      "attrName" : "i_id",
+                      "relName" : "subsetPelagoProject#4284"
+                    },
+                    "register_as" : {
+                      "attrName" : "i_id",
+                      "relName" : "subsetPelagoProject#4284"
+                    }
+                  }, {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument"
+                    },
+                    "attribute" : {
+                      "attrName" : "i_name",
+                      "relName" : "subsetPelagoProject#4284"
+                    },
+                    "register_as" : {
+                      "attrName" : "i_name",
+                      "relName" : "subsetPelagoProject#4284"
+                    }
+                  }, {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument"
+                    },
+                    "attribute" : {
+                      "attrName" : "MOD",
+                      "relName" : "subsetPelagoProject#4284"
+                    },
+                    "register_as" : {
+                      "attrName" : "MOD",
+                      "relName" : "subsetPelagoProject#4284"
+                    }
+                  } ],
+                  "input" : {
+                    "operator" : "hashjoin-chained",
+                    "build_k" : {
+                      "expression" : "recordConstruction",
+                      "type" : {
+                        "type" : "record"
+                      },
+                      "attributes" : [ {
+                        "name" : "$2",
+                        "e" : {
+                          "expression" : "recordProjection",
+                          "e" : {
+                            "expression" : "argument"
+                          },
+                          "attribute" : {
+                            "attrName" : "m_s_quantity",
+                            "relName" : "subsetPelagoUnpack#4279"
+                          },
+                          "register_as" : {
+                            "attrName" : "$2",
+                            "relName" : "subsetPelagoProject#4284"
+                          }
+                        }
+                      }, {
+                        "name" : "$0",
+                        "e" : {
+                          "expression" : "recordProjection",
+                          "e" : {
+                            "expression" : "argument"
+                          },
+                          "attribute" : {
+                            "attrName" : "i_id",
+                            "relName" : "subsetPelagoUnpack#4279"
+                          },
+                          "register_as" : {
+                            "attrName" : "$0",
+                            "relName" : "subsetPelagoProject#4284"
+                          }
+                        }
+                      } ],
+                      "register_as" : {
+                        "attrName" : "$6",
+                        "relName" : "subsetPelagoProject#4284"
+                      }
+                    },
+                    "build_input" : {
+                      "operator" : "unpack",
+                      "input" : {
+                        "operator" : "router",
+                        "numOfParents" : 48,
+                        "slack" : 8,
+                        "cpu_targets" : true,
+                        "target" : {
+                          "expression" : "recordProjection",
+                          "e" : {
+                            "expression" : "argument"
+                          },
+                          "attribute" : {
+                            "relName" : "subsetPelagoUnpack#4279",
+                            "attrName" : "__broadcastTarget"
+                          }
+                        },
+                        "input" : {
+                          "operator" : "mem-broadcast-device",
+                          "num_of_targets" : 48,
+                          "input" : {
+                            "operator" : "mem-move-device",
+                            "input" : {
+                              "operator" : "router",
+                              "numOfParents" : 1,
+                              "slack" : 8,
+                              "cpu_targets" : true,
+                              "input" : {
+                                "operator" : "pack",
+                                "projections" : [ {
+                                  "expression" : "recordProjection",
+                                  "e" : {
+                                    "expression" : "argument"
+                                  },
+                                  "attribute" : {
+                                    "attrName" : "i_id",
+                                    "relName" : "subsetPelagoUnpack#4279"
+                                  }
+                                }, {
+                                  "expression" : "recordProjection",
+                                  "e" : {
+                                    "expression" : "argument"
+                                  },
+                                  "attribute" : {
+                                    "attrName" : "i_name",
+                                    "relName" : "subsetPelagoUnpack#4279"
+                                  }
+                                }, {
+                                  "expression" : "recordProjection",
+                                  "e" : {
+                                    "expression" : "argument"
+                                  },
+                                  "attribute" : {
+                                    "attrName" : "m_s_quantity",
+                                    "relName" : "subsetPelagoUnpack#4279"
+                                  }
+                                } ],
+                                "input" : {
+                                  "operator" : "project",
+                                  "relName" : "subsetPelagoUnpack#4279",
+                                  "e" : [ {
+                                    "expression" : "recordProjection",
+                                    "e" : {
+                                      "expression" : "argument"
+                                    },
+                                    "attribute" : {
+                                      "attrName" : "i_id",
+                                      "relName" : "subsetPelagoUnpack#4279"
+                                    },
+                                    "register_as" : {
+                                      "attrName" : "i_id",
+                                      "relName" : "subsetPelagoUnpack#4279"
+                                    }
+                                  }, {
+                                    "expression" : "recordProjection",
+                                    "e" : {
+                                      "expression" : "argument"
+                                    },
+                                    "attribute" : {
+                                      "attrName" : "i_name",
+                                      "relName" : "subsetPelagoUnpack#4279"
+                                    },
+                                    "register_as" : {
+                                      "attrName" : "i_name",
+                                      "relName" : "subsetPelagoUnpack#4279"
+                                    }
+                                  }, {
+                                    "expression" : "recordProjection",
+                                    "e" : {
+                                      "expression" : "argument"
+                                    },
+                                    "attribute" : {
+                                      "attrName" : "m_s_quantity",
+                                      "relName" : "subsetPelagoUnpack#4279"
+                                    },
+                                    "register_as" : {
+                                      "attrName" : "m_s_quantity",
+                                      "relName" : "subsetPelagoUnpack#4279"
+                                    }
+                                  } ],
+                                  "input" : {
+                                    "operator" : "hashjoin-chained",
+                                    "build_k" : {
+                                      "expression" : "recordProjection",
+                                      "e" : {
+                                        "expression" : "argument"
+                                      },
+                                      "attribute" : {
+                                        "attrName" : "s_i_id",
+                                        "relName" : "subsetPelagoUnpack#4266"
+                                      },
+                                      "register_as" : {
+                                        "attrName" : "$2",
+                                        "relName" : "subsetPelagoUnpack#4279"
+                                      }
+                                    },
+                                    "build_input" : {
+                                      "operator" : "unpack",
+                                      "input" : {
+                                        "operator" : "router",
+                                        "numOfParents" : 48,
+                                        "slack" : 8,
+                                        "cpu_targets" : true,
+                                        "target" : {
+                                          "expression" : "recordProjection",
+                                          "e" : {
+                                            "expression" : "argument"
+                                          },
+                                          "attribute" : {
+                                            "relName" : "subsetPelagoUnpack#4266",
+                                            "attrName" : "__broadcastTarget"
+                                          }
+                                        },
+                                        "input" : {
+                                          "operator" : "mem-broadcast-device",
+                                          "num_of_targets" : 48,
+                                          "input" : {
+                                            "operator" : "pack",
+                                            "projections" : [ {
+                                              "expression" : "recordProjection",
+                                              "e" : {
+                                                "expression" : "argument"
+                                              },
+                                              "attribute" : {
+                                                "attrName" : "s_i_id",
+                                                "relName" : "subsetPelagoUnpack#4266"
+                                              }
+                                            }, {
+                                              "expression" : "recordProjection",
+                                              "e" : {
+                                                "expression" : "argument"
+                                              },
+                                              "attribute" : {
+                                                "attrName" : "m_s_quantity",
+                                                "relName" : "subsetPelagoUnpack#4266"
+                                              }
+                                            } ],
+                                            "input" : {
+                                              "operator" : "groupby",
+                                              "gpu" : false,
+                                              "k" : [ {
+                                                "expression" : "recordProjection",
+                                                "e" : {
+                                                  "expression" : "argument"
+                                                },
+                                                "attribute" : {
+                                                  "attrName" : "s_i_id",
+                                                  "relName" : "subsetPelagoRouter#4262"
+                                                },
+                                                "register_as" : {
+                                                  "attrName" : "s_i_id",
+                                                  "relName" : "subsetPelagoUnpack#4266"
+                                                }
+                                              } ],
+                                              "e" : [ {
+                                                "m" : "min",
+                                                "e" : {
+                                                  "expression" : "recordProjection",
+                                                  "e" : {
+                                                    "expression" : "argument"
+                                                  },
+                                                  "attribute" : {
+                                                    "attrName" : "m_s_quantity",
+                                                    "relName" : "subsetPelagoRouter#4262"
+                                                  },
+                                                  "register_as" : {
+                                                    "attrName" : "m_s_quantity",
+                                                    "relName" : "subsetPelagoUnpack#4266"
+                                                  }
+                                                },
+                                                "packet" : 1,
+                                                "offset" : 0
+                                              } ],
+                                              "hash_bits" : 10,
+                                              "maxInputSize" : 131072,
+                                              "input" : {
+                                                "operator" : "router",
+                                                "numOfParents" : 1,
+                                                "slack" : 8,
+                                                "cpu_targets" : true,
+                                                "numa_local" : false,
+                                                "input" : {
+                                                  "operator" : "groupby",
+                                                  "gpu" : false,
+                                                  "k" : [ {
+                                                    "expression" : "recordProjection",
+                                                    "e" : {
+                                                      "expression" : "argument"
+                                                    },
+                                                    "attribute" : {
+                                                      "attrName" : "s_i_id",
+                                                      "relName" : "subsetPelagoJoin#4260"
+                                                    },
+                                                    "register_as" : {
+                                                      "attrName" : "s_i_id",
+                                                      "relName" : "subsetPelagoRouter#4262"
+                                                    }
+                                                  } ],
+                                                  "e" : [ {
+                                                    "m" : "min",
+                                                    "e" : {
+                                                      "expression" : "recordProjection",
+                                                      "e" : {
+                                                        "expression" : "argument"
+                                                      },
+                                                      "attribute" : {
+                                                        "attrName" : "s_quantity",
+                                                        "relName" : "subsetPelagoJoin#4260"
+                                                      },
+                                                      "register_as" : {
+                                                        "attrName" : "m_s_quantity",
+                                                        "relName" : "subsetPelagoRouter#4262"
+                                                      }
+                                                    },
+                                                    "packet" : 1,
+                                                    "offset" : 0
+                                                  } ],
+                                                  "hash_bits" : 10,
+                                                  "maxInputSize" : 131072,
+                                                  "input" : {
+                                                    "operator" : "hashjoin-chained",
+                                                    "build_k" : {
+                                                      "expression" : "recordProjection",
+                                                      "e" : {
+                                                        "expression" : "argument"
+                                                      },
+                                                      "attribute" : {
+                                                        "attrName" : "su_suppkey",
+                                                        "relName" : "subsetPelagoUnpack#4256"
+                                                      },
+                                                      "register_as" : {
+                                                        "attrName" : "$3",
+                                                        "relName" : "subsetPelagoJoin#4260"
+                                                      }
+                                                    },
+                                                    "build_input" : {
+                                                      "operator" : "unpack",
+                                                      "input" : {
+                                                        "operator" : "router",
+                                                        "numOfParents" : 48,
+                                                        "slack" : 8,
+                                                        "cpu_targets" : true,
+                                                        "target" : {
+                                                          "expression" : "recordProjection",
+                                                          "e" : {
+                                                            "expression" : "argument"
+                                                          },
+                                                          "attribute" : {
+                                                            "relName" : "subsetPelagoUnpack#4256",
+                                                            "attrName" : "__broadcastTarget"
+                                                          }
+                                                        },
+                                                        "input" : {
+                                                          "operator" : "mem-broadcast-device",
+                                                          "num_of_targets" : 48,
+                                                          "input" : {
+                                                            "operator" : "mem-move-device",
+                                                            "input" : {
+                                                              "operator" : "router",
+                                                              "numOfParents" : 1,
+                                                              "slack" : 8,
+                                                              "cpu_targets" : true,
+                                                              "input" : {
+                                                                "operator" : "pack",
+                                                                "projections" : [ {
+                                                                  "expression" : "recordProjection",
+                                                                  "e" : {
+                                                                    "expression" : "argument"
+                                                                  },
+                                                                  "attribute" : {
+                                                                    "attrName" : "su_suppkey",
+                                                                    "relName" : "subsetPelagoUnpack#4256"
+                                                                  }
+                                                                } ],
+                                                                "input" : {
+                                                                  "operator" : "project",
+                                                                  "relName" : "subsetPelagoUnpack#4256",
+                                                                  "e" : [ {
+                                                                    "expression" : "recordProjection",
+                                                                    "e" : {
+                                                                      "expression" : "argument"
+                                                                    },
+                                                                    "attribute" : {
+                                                                      "attrName" : "su_suppkey",
+                                                                      "relName" : "subsetPelagoUnpack#4256"
+                                                                    },
+                                                                    "register_as" : {
+                                                                      "attrName" : "su_suppkey",
+                                                                      "relName" : "subsetPelagoUnpack#4256"
+                                                                    }
+                                                                  } ],
+                                                                  "input" : {
+                                                                    "operator" : "hashjoin-chained",
+                                                                    "build_k" : {
+                                                                      "expression" : "recordProjection",
+                                                                      "e" : {
+                                                                        "expression" : "argument"
+                                                                      },
+                                                                      "attribute" : {
+                                                                        "attrName" : "n_nationkey",
+                                                                        "relName" : "subsetPelagoUnpack#4248"
+                                                                      },
+                                                                      "register_as" : {
+                                                                        "attrName" : "$2",
+                                                                        "relName" : "subsetPelagoUnpack#4256"
+                                                                      }
+                                                                    },
+                                                                    "build_input" : {
+                                                                      "operator" : "unpack",
+                                                                      "input" : {
+                                                                        "operator" : "router",
+                                                                        "numOfParents" : 48,
+                                                                        "slack" : 8,
+                                                                        "cpu_targets" : true,
+                                                                        "target" : {
+                                                                          "expression" : "recordProjection",
+                                                                          "e" : {
+                                                                            "expression" : "argument"
+                                                                          },
+                                                                          "attribute" : {
+                                                                            "relName" : "subsetPelagoUnpack#4248",
+                                                                            "attrName" : "__broadcastTarget"
+                                                                          }
+                                                                        },
+                                                                        "input" : {
+                                                                          "operator" : "mem-broadcast-device",
+                                                                          "num_of_targets" : 48,
+                                                                          "input" : {
+                                                                            "operator" : "mem-move-device",
+                                                                            "input" : {
+                                                                              "operator" : "router",
+                                                                              "numOfParents" : 1,
+                                                                              "slack" : 8,
+                                                                              "cpu_targets" : true,
+                                                                              "input" : {
+                                                                                "operator" : "pack",
+                                                                                "projections" : [ {
+                                                                                  "expression" : "recordProjection",
+                                                                                  "e" : {
+                                                                                    "expression" : "argument"
+                                                                                  },
+                                                                                  "attribute" : {
+                                                                                    "attrName" : "n_nationkey",
+                                                                                    "relName" : "subsetPelagoUnpack#4248"
+                                                                                  }
+                                                                                } ],
+                                                                                "input" : {
+                                                                                  "operator" : "project",
+                                                                                  "relName" : "subsetPelagoUnpack#4248",
+                                                                                  "e" : [ {
+                                                                                    "expression" : "recordProjection",
+                                                                                    "e" : {
+                                                                                      "expression" : "argument"
+                                                                                    },
+                                                                                    "attribute" : {
+                                                                                      "attrName" : "n_nationkey",
+                                                                                      "relName" : "subsetPelagoUnpack#4248"
+                                                                                    },
+                                                                                    "register_as" : {
+                                                                                      "attrName" : "n_nationkey",
+                                                                                      "relName" : "subsetPelagoUnpack#4248"
+                                                                                    }
+                                                                                  } ],
+                                                                                  "input" : {
+                                                                                    "operator" : "hashjoin-chained",
+                                                                                    "build_k" : {
+                                                                                      "expression" : "recordProjection",
+                                                                                      "e" : {
+                                                                                        "expression" : "argument"
+                                                                                      },
+                                                                                      "attribute" : {
+                                                                                        "attrName" : "n_regionkey",
+                                                                                        "relName" : "tpcc_nation<block-local>"
+                                                                                      },
+                                                                                      "register_as" : {
+                                                                                        "attrName" : "$1",
+                                                                                        "relName" : "subsetPelagoUnpack#4248"
+                                                                                      }
+                                                                                    },
+                                                                                    "build_input" : {
+                                                                                      "operator" : "unpack",
+                                                                                      "input" : {
+                                                                                        "operator" : "router",
+                                                                                        "numOfParents" : 48,
+                                                                                        "slack" : 8,
+                                                                                        "cpu_targets" : true,
+                                                                                        "target" : {
+                                                                                          "expression" : "recordProjection",
+                                                                                          "e" : {
+                                                                                            "expression" : "argument"
+                                                                                          },
+                                                                                          "attribute" : {
+                                                                                            "relName" : "tpcc_nation<block-local>",
+                                                                                            "attrName" : "__broadcastTarget"
+                                                                                          }
+                                                                                        },
+                                                                                        "input" : {
+                                                                                          "operator" : "mem-broadcast-device",
+                                                                                          "num_of_targets" : 48,
+                                                                                          "input" : {
+                                                                                            "operator" : "scan",
+                                                                                            "gpu" : false,
+                                                                                            "plugin" : {
+                                                                                              "type" : "block-local",
+                                                                                              "linehint" : 62,
+                                                                                              "name" : "tpcc_nation<block-local>",
+                                                                                              "projections" : [ {
+                                                                                                "relName" : "tpcc_nation<block-local>",
+                                                                                                "attrName" : "n_nationkey"
+                                                                                              }, {
+                                                                                                "relName" : "tpcc_nation<block-local>",
+                                                                                                "attrName" : "n_regionkey"
+                                                                                              } ],
+                                                                                              "schema" : [ {
+                                                                                                "relName" : "tpcc_nation<block-local>",
+                                                                                                "attrName" : "n_nationkey",
+                                                                                                "type" : {
+                                                                                                  "type" : "int"
+                                                                                                },
+                                                                                                "attrNo" : 1
+                                                                                              }, {
+                                                                                                "relName" : "tpcc_nation<block-local>",
+                                                                                                "attrName" : "n_name",
+                                                                                                "type" : {
+                                                                                                  "type" : "dstring"
+                                                                                                },
+                                                                                                "attrNo" : 2
+                                                                                              }, {
+                                                                                                "relName" : "tpcc_nation<block-local>",
+                                                                                                "attrName" : "n_regionkey",
+                                                                                                "type" : {
+                                                                                                  "type" : "int"
+                                                                                                },
+                                                                                                "attrNo" : 3
+                                                                                              }, {
+                                                                                                "relName" : "tpcc_nation<block-local>",
+                                                                                                "attrName" : "n_comment",
+                                                                                                "type" : {
+                                                                                                  "type" : "dstring"
+                                                                                                },
+                                                                                                "attrNo" : 4
+                                                                                              } ]
+                                                                                            }
+                                                                                          },
+                                                                                          "to_cpu" : true
+                                                                                        }
+                                                                                      }
+                                                                                    },
+                                                                                    "probe_k" : {
+                                                                                      "expression" : "recordProjection",
+                                                                                      "e" : {
+                                                                                        "expression" : "argument"
+                                                                                      },
+                                                                                      "attribute" : {
+                                                                                        "attrName" : "r_regionkey",
+                                                                                        "relName" : "subsetPelagoProject#4242"
+                                                                                      },
+                                                                                      "register_as" : {
+                                                                                        "attrName" : "$2",
+                                                                                        "relName" : "subsetPelagoUnpack#4248"
+                                                                                      }
+                                                                                    },
+                                                                                    "hash_bits" : 7,
+                                                                                    "maxBuildInputSize" : 62,
+                                                                                    "probe_input" : {
+                                                                                      "operator" : "project",
+                                                                                      "relName" : "subsetPelagoProject#4242",
+                                                                                      "e" : [ {
+                                                                                        "expression" : "recordProjection",
+                                                                                        "e" : {
+                                                                                          "expression" : "argument"
+                                                                                        },
+                                                                                        "attribute" : {
+                                                                                          "attrName" : "r_regionkey",
+                                                                                          "relName" : "subsetPelagoProject#4242"
+                                                                                        },
+                                                                                        "register_as" : {
+                                                                                          "attrName" : "r_regionkey",
+                                                                                          "relName" : "subsetPelagoProject#4242"
+                                                                                        }
+                                                                                      } ],
+                                                                                      "input" : {
+                                                                                        "operator" : "hashjoin-chained",
+                                                                                        "build_k" : {
+                                                                                          "expression" : "recordProjection",
+                                                                                          "e" : {
+                                                                                            "expression" : "argument"
+                                                                                          },
+                                                                                          "attribute" : {
+                                                                                            "attrName" : "r_name",
+                                                                                            "relName" : "tpcc_region<block-local>$dict$r_name"
+                                                                                          },
+                                                                                          "register_as" : {
+                                                                                            "attrName" : "$2",
+                                                                                            "relName" : "subsetPelagoProject#4242"
+                                                                                          }
+                                                                                        },
+                                                                                        "build_input" : {
+                                                                                          "operator" : "unpack",
+                                                                                          "input" : {
+                                                                                            "operator" : "router",
+                                                                                            "numOfParents" : 48,
+                                                                                            "slack" : 8,
+                                                                                            "cpu_targets" : true,
+                                                                                            "target" : {
+                                                                                              "expression" : "recordProjection",
+                                                                                              "e" : {
+                                                                                                "expression" : "argument"
+                                                                                              },
+                                                                                              "attribute" : {
+                                                                                                "relName" : "tpcc_region<block-local>$dict$r_name",
+                                                                                                "attrName" : "__broadcastTarget"
+                                                                                              }
+                                                                                            },
+                                                                                            "input" : {
+                                                                                              "operator" : "mem-broadcast-device",
+                                                                                              "num_of_targets" : 48,
+                                                                                              "input" : {
+                                                                                                "operator" : "pack",
+                                                                                                "projections" : [ {
+                                                                                                  "expression" : "recordProjection",
+                                                                                                  "e" : {
+                                                                                                    "expression" : "argument"
+                                                                                                  },
+                                                                                                  "attribute" : {
+                                                                                                    "attrName" : "r_name",
+                                                                                                    "relName" : "tpcc_region<block-local>$dict$r_name"
+                                                                                                  }
+                                                                                                } ],
+                                                                                                "input" : {
+                                                                                                  "operator" : "dict-scan",
+                                                                                                  "relName" : "tpcc_region<block-local>",
+                                                                                                  "attrName" : "r_name",
+                                                                                                  "regex" : "Europ.*"
+                                                                                                }
+                                                                                              },
+                                                                                              "to_cpu" : true
+                                                                                            }
+                                                                                          }
+                                                                                        },
+                                                                                        "probe_k" : {
+                                                                                          "expression" : "recordProjection",
+                                                                                          "e" : {
+                                                                                            "expression" : "argument"
+                                                                                          },
+                                                                                          "attribute" : {
+                                                                                            "attrName" : "r_name",
+                                                                                            "relName" : "tpcc_region<block-local>"
+                                                                                          },
+                                                                                          "register_as" : {
+                                                                                            "attrName" : "$0",
+                                                                                            "relName" : "subsetPelagoProject#4242"
+                                                                                          }
+                                                                                        },
+                                                                                        "hash_bits" : 27,
+                                                                                        "maxBuildInputSize" : 34078720,
+                                                                                        "probe_input" : {
+                                                                                          "operator" : "unpack",
+                                                                                          "input" : {
+                                                                                            "operator" : "mem-move-device",
+                                                                                            "input" : {
+                                                                                              "operator" : "router",
+                                                                                              "numOfParents" : 48,
+                                                                                              "slack" : 8,
+                                                                                              "cpu_targets" : true,
+                                                                                              "rand_local_cpu" : true,
+                                                                                              "input" : {
+                                                                                                "operator" : "scan",
+                                                                                                "gpu" : false,
+                                                                                                "plugin" : {
+                                                                                                  "type" : "block-local",
+                                                                                                  "linehint" : 5,
+                                                                                                  "name" : "tpcc_region<block-local>",
+                                                                                                  "projections" : [ {
+                                                                                                    "relName" : "tpcc_region<block-local>",
+                                                                                                    "attrName" : "r_regionkey"
+                                                                                                  }, {
+                                                                                                    "relName" : "tpcc_region<block-local>",
+                                                                                                    "attrName" : "r_name"
+                                                                                                  } ],
+                                                                                                  "schema" : [ {
+                                                                                                    "relName" : "tpcc_region<block-local>",
+                                                                                                    "attrName" : "r_regionkey",
+                                                                                                    "type" : {
+                                                                                                      "type" : "int"
+                                                                                                    },
+                                                                                                    "attrNo" : 1
+                                                                                                  }, {
+                                                                                                    "relName" : "tpcc_region<block-local>",
+                                                                                                    "attrName" : "r_name",
+                                                                                                    "type" : {
+                                                                                                      "type" : "dstring"
+                                                                                                    },
+                                                                                                    "attrNo" : 2
+                                                                                                  }, {
+                                                                                                    "relName" : "tpcc_region<block-local>",
+                                                                                                    "attrName" : "r_comment",
+                                                                                                    "type" : {
+                                                                                                      "type" : "dstring"
+                                                                                                    },
+                                                                                                    "attrNo" : 3
+                                                                                                  } ]
+                                                                                                }
+                                                                                              }
+                                                                                            },
+                                                                                            "to_cpu" : true,
+                                                                                            "do_transfer" : [ true, true ]
+                                                                                          }
+                                                                                        }
+                                                                                      }
+                                                                                    }
+                                                                                  }
+                                                                                }
+                                                                              }
+                                                                            },
+                                                                            "to_cpu" : true,
+                                                                            "do_transfer" : [ true ]
+                                                                          },
+                                                                          "to_cpu" : true
+                                                                        }
+                                                                      }
+                                                                    },
+                                                                    "probe_k" : {
+                                                                      "expression" : "recordProjection",
+                                                                      "e" : {
+                                                                        "expression" : "argument"
+                                                                      },
+                                                                      "attribute" : {
+                                                                        "attrName" : "su_nationkey",
+                                                                        "relName" : "tpcc_supplier<block-local>"
+                                                                      },
+                                                                      "register_as" : {
+                                                                        "attrName" : "$0",
+                                                                        "relName" : "subsetPelagoUnpack#4256"
+                                                                      }
+                                                                    },
+                                                                    "hash_bits" : 27,
+                                                                    "maxBuildInputSize" : 34603008,
+                                                                    "probe_input" : {
+                                                                      "operator" : "unpack",
+                                                                      "input" : {
+                                                                        "operator" : "mem-move-device",
+                                                                        "input" : {
+                                                                          "operator" : "router",
+                                                                          "numOfParents" : 48,
+                                                                          "slack" : 8,
+                                                                          "cpu_targets" : true,
+                                                                          "rand_local_cpu" : true,
+                                                                          "input" : {
+                                                                            "operator" : "scan",
+                                                                            "gpu" : false,
+                                                                            "plugin" : {
+                                                                              "type" : "block-local",
+                                                                              "linehint" : 10000,
+                                                                              "name" : "tpcc_supplier<block-local>",
+                                                                              "projections" : [ {
+                                                                                "relName" : "tpcc_supplier<block-local>",
+                                                                                "attrName" : "su_suppkey"
+                                                                              }, {
+                                                                                "relName" : "tpcc_supplier<block-local>",
+                                                                                "attrName" : "su_nationkey"
+                                                                              } ],
+                                                                              "schema" : [ {
+                                                                                "relName" : "tpcc_supplier<block-local>",
+                                                                                "attrName" : "su_suppkey",
+                                                                                "type" : {
+                                                                                  "type" : "int"
+                                                                                },
+                                                                                "attrNo" : 1
+                                                                              }, {
+                                                                                "relName" : "tpcc_supplier<block-local>",
+                                                                                "attrName" : "su_name",
+                                                                                "type" : {
+                                                                                  "type" : "dstring"
+                                                                                },
+                                                                                "attrNo" : 2
+                                                                              }, {
+                                                                                "relName" : "tpcc_supplier<block-local>",
+                                                                                "attrName" : "su_address",
+                                                                                "type" : {
+                                                                                  "type" : "dstring"
+                                                                                },
+                                                                                "attrNo" : 3
+                                                                              }, {
+                                                                                "relName" : "tpcc_supplier<block-local>",
+                                                                                "attrName" : "su_nationkey",
+                                                                                "type" : {
+                                                                                  "type" : "int"
+                                                                                },
+                                                                                "attrNo" : 4
+                                                                              }, {
+                                                                                "relName" : "tpcc_supplier<block-local>",
+                                                                                "attrName" : "su_phone",
+                                                                                "type" : {
+                                                                                  "type" : "dstring"
+                                                                                },
+                                                                                "attrNo" : 5
+                                                                              }, {
+                                                                                "relName" : "tpcc_supplier<block-local>",
+                                                                                "attrName" : "su_acctbal",
+                                                                                "type" : {
+                                                                                  "type" : "float"
+                                                                                },
+                                                                                "attrNo" : 6
+                                                                              }, {
+                                                                                "relName" : "tpcc_supplier<block-local>",
+                                                                                "attrName" : "su_comment",
+                                                                                "type" : {
+                                                                                  "type" : "dstring"
+                                                                                },
+                                                                                "attrNo" : 7
+                                                                              } ]
+                                                                            }
+                                                                          }
+                                                                        },
+                                                                        "to_cpu" : true,
+                                                                        "do_transfer" : [ true, true ]
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "to_cpu" : true,
+                                                            "do_transfer" : [ true ]
+                                                          },
+                                                          "to_cpu" : true
+                                                        }
+                                                      }
+                                                    },
+                                                    "probe_k" : {
+                                                      "expression" : "recordProjection",
+                                                      "e" : {
+                                                        "expression" : "argument"
+                                                      },
+                                                      "attribute" : {
+                                                        "attrName" : "MOD",
+                                                        "relName" : "subsetPelagoProject#4259"
+                                                      },
+                                                      "register_as" : {
+                                                        "attrName" : "$0",
+                                                        "relName" : "subsetPelagoJoin#4260"
+                                                      }
+                                                    },
+                                                    "hash_bits" : 27,
+                                                    "maxBuildInputSize" : 38674432,
+                                                    "probe_input" : {
+                                                      "operator" : "project",
+                                                      "relName" : "subsetPelagoProject#4259",
+                                                      "e" : [ {
+                                                        "expression" : "recordProjection",
+                                                        "e" : {
+                                                          "expression" : "argument"
+                                                        },
+                                                        "attribute" : {
+                                                          "attrName" : "s_i_id",
+                                                          "relName" : "tpcc_stock<block-local>"
+                                                        },
+                                                        "register_as" : {
+                                                          "attrName" : "s_i_id",
+                                                          "relName" : "subsetPelagoProject#4259"
+                                                        }
+                                                      }, {
+                                                        "expression" : "recordProjection",
+                                                        "e" : {
+                                                          "expression" : "argument"
+                                                        },
+                                                        "attribute" : {
+                                                          "attrName" : "s_quantity",
+                                                          "relName" : "tpcc_stock<block-local>"
+                                                        },
+                                                        "register_as" : {
+                                                          "attrName" : "s_quantity",
+                                                          "relName" : "subsetPelagoProject#4259"
+                                                        }
+                                                      }, {
+                                                        "expression" : "mod",
+                                                        "left" : {
+                                                          "expression" : "multiply",
+                                                          "left" : {
+                                                            "expression" : "recordProjection",
+                                                            "e" : {
+                                                              "expression" : "argument"
+                                                            },
+                                                            "attribute" : {
+                                                              "attrName" : "s_w_id",
+                                                              "relName" : "tpcc_stock<block-local>"
+                                                            }
+                                                          },
+                                                          "right" : {
+                                                            "expression" : "recordProjection",
+                                                            "e" : {
+                                                              "expression" : "argument"
+                                                            },
+                                                            "attribute" : {
+                                                              "attrName" : "s_i_id",
+                                                              "relName" : "tpcc_stock<block-local>"
+                                                            }
+                                                          }
+                                                        },
+                                                        "right" : {
+                                                          "expression" : "int",
+                                                          "v" : 10000
+                                                        },
+                                                        "register_as" : {
+                                                          "attrName" : "MOD",
+                                                          "relName" : "subsetPelagoProject#4259"
+                                                        }
+                                                      } ],
+                                                      "input" : {
+                                                        "operator" : "unpack",
+                                                        "input" : {
+                                                          "operator" : "mem-move-device",
+                                                          "input" : {
+                                                            "operator" : "router",
+                                                            "numOfParents" : 48,
+                                                            "slack" : 8,
+                                                            "cpu_targets" : true,
+                                                            "rand_local_cpu" : true,
+                                                            "input" : {
+                                                              "operator" : "scan",
+                                                              "gpu" : false,
+                                                              "plugin" : {
+                                                                "type" : "block-local",
+                                                                "linehint" : 6400000,
+                                                                "name" : "tpcc_stock<block-local>",
+                                                                "projections" : [ {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_i_id"
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_w_id"
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_quantity"
+                                                                } ],
+                                                                "schema" : [ {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_i_id",
+                                                                  "type" : {
+                                                                    "type" : "int"
+                                                                  },
+                                                                  "attrNo" : 1
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_w_id",
+                                                                  "type" : {
+                                                                    "type" : "int"
+                                                                  },
+                                                                  "attrNo" : 2
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_quantity",
+                                                                  "type" : {
+                                                                    "type" : "int"
+                                                                  },
+                                                                  "attrNo" : 3
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_dist_01",
+                                                                  "type" : {
+                                                                    "type" : "dstring"
+                                                                  },
+                                                                  "attrNo" : 4
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_dist_02",
+                                                                  "type" : {
+                                                                    "type" : "dstring"
+                                                                  },
+                                                                  "attrNo" : 5
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_dist_03",
+                                                                  "type" : {
+                                                                    "type" : "dstring"
+                                                                  },
+                                                                  "attrNo" : 6
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_dist_04",
+                                                                  "type" : {
+                                                                    "type" : "dstring"
+                                                                  },
+                                                                  "attrNo" : 7
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_dist_05",
+                                                                  "type" : {
+                                                                    "type" : "dstring"
+                                                                  },
+                                                                  "attrNo" : 8
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_dist_06",
+                                                                  "type" : {
+                                                                    "type" : "dstring"
+                                                                  },
+                                                                  "attrNo" : 9
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_dist_07",
+                                                                  "type" : {
+                                                                    "type" : "dstring"
+                                                                  },
+                                                                  "attrNo" : 10
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_dist_08",
+                                                                  "type" : {
+                                                                    "type" : "dstring"
+                                                                  },
+                                                                  "attrNo" : 11
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_dist_09",
+                                                                  "type" : {
+                                                                    "type" : "dstring"
+                                                                  },
+                                                                  "attrNo" : 12
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_dist_10",
+                                                                  "type" : {
+                                                                    "type" : "dstring"
+                                                                  },
+                                                                  "attrNo" : 13
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_ytd",
+                                                                  "type" : {
+                                                                    "type" : "float"
+                                                                  },
+                                                                  "attrNo" : 14
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_order_cnt",
+                                                                  "type" : {
+                                                                    "type" : "int"
+                                                                  },
+                                                                  "attrNo" : 15
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_remote_cnt",
+                                                                  "type" : {
+                                                                    "type" : "int"
+                                                                  },
+                                                                  "attrNo" : 16
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_data",
+                                                                  "type" : {
+                                                                    "type" : "dstring"
+                                                                  },
+                                                                  "attrNo" : 17
+                                                                }, {
+                                                                  "relName" : "tpcc_stock<block-local>",
+                                                                  "attrName" : "s_su_suppkey",
+                                                                  "type" : {
+                                                                    "type" : "int"
+                                                                  },
+                                                                  "attrNo" : 18
+                                                                } ]
+                                                              }
+                                                            }
+                                                          },
+                                                          "to_cpu" : true,
+                                                          "do_transfer" : [ true, true, true ]
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          },
+                                          "to_cpu" : true
+                                        }
+                                      }
+                                    },
+                                    "probe_k" : {
+                                      "expression" : "recordProjection",
+                                      "e" : {
+                                        "expression" : "argument"
+                                      },
+                                      "attribute" : {
+                                        "attrName" : "i_id",
+                                        "relName" : "subsetPelagoProject#4273"
+                                      },
+                                      "register_as" : {
+                                        "attrName" : "$0",
+                                        "relName" : "subsetPelagoUnpack#4279"
+                                      }
+                                    },
+                                    "hash_bits" : 27,
+                                    "maxBuildInputSize" : 34078720,
+                                    "probe_input" : {
+                                      "operator" : "project",
+                                      "relName" : "subsetPelagoProject#4273",
+                                      "e" : [ {
+                                        "expression" : "recordProjection",
+                                        "e" : {
+                                          "expression" : "argument"
+                                        },
+                                        "attribute" : {
+                                          "attrName" : "i_id",
+                                          "relName" : "subsetPelagoProject#4273"
+                                        },
+                                        "register_as" : {
+                                          "attrName" : "i_id",
+                                          "relName" : "subsetPelagoProject#4273"
+                                        }
+                                      }, {
+                                        "expression" : "recordProjection",
+                                        "e" : {
+                                          "expression" : "argument"
+                                        },
+                                        "attribute" : {
+                                          "attrName" : "i_name",
+                                          "relName" : "subsetPelagoProject#4273"
+                                        },
+                                        "register_as" : {
+                                          "attrName" : "i_name",
+                                          "relName" : "subsetPelagoProject#4273"
+                                        }
+                                      } ],
+                                      "input" : {
+                                        "operator" : "hashjoin-chained",
+                                        "build_k" : {
+                                          "expression" : "recordProjection",
+                                          "e" : {
+                                            "expression" : "argument"
+                                          },
+                                          "attribute" : {
+                                            "attrName" : "i_data",
+                                            "relName" : "tpcc_item<block-local>$dict$i_data"
+                                          },
+                                          "register_as" : {
+                                            "attrName" : "$3",
+                                            "relName" : "subsetPelagoProject#4273"
+                                          }
+                                        },
+                                        "build_input" : {
+                                          "operator" : "unpack",
+                                          "input" : {
+                                            "operator" : "router",
+                                            "numOfParents" : 48,
+                                            "slack" : 8,
+                                            "cpu_targets" : true,
+                                            "target" : {
+                                              "expression" : "recordProjection",
+                                              "e" : {
+                                                "expression" : "argument"
+                                              },
+                                              "attribute" : {
+                                                "relName" : "tpcc_item<block-local>$dict$i_data",
+                                                "attrName" : "__broadcastTarget"
+                                              }
+                                            },
+                                            "input" : {
+                                              "operator" : "mem-broadcast-device",
+                                              "num_of_targets" : 48,
+                                              "input" : {
+                                                "operator" : "pack",
+                                                "projections" : [ {
+                                                  "expression" : "recordProjection",
+                                                  "e" : {
+                                                    "expression" : "argument"
+                                                  },
+                                                  "attribute" : {
+                                                    "attrName" : "i_data",
+                                                    "relName" : "tpcc_item<block-local>$dict$i_data"
+                                                  }
+                                                } ],
+                                                "input" : {
+                                                  "operator" : "dict-scan",
+                                                  "relName" : "tpcc_item<block-local>",
+                                                  "attrName" : "i_data",
+                                                  "regex" : ".*b"
+                                                }
+                                              },
+                                              "to_cpu" : true
+                                            }
+                                          }
+                                        },
+                                        "probe_k" : {
+                                          "expression" : "recordProjection",
+                                          "e" : {
+                                            "expression" : "argument"
+                                          },
+                                          "attribute" : {
+                                            "attrName" : "i_data",
+                                            "relName" : "tpcc_item<block-local>"
+                                          },
+                                          "register_as" : {
+                                            "attrName" : "$0",
+                                            "relName" : "subsetPelagoProject#4273"
+                                          }
+                                        },
+                                        "hash_bits" : 27,
+                                        "maxBuildInputSize" : 34078720,
+                                        "probe_input" : {
+                                          "operator" : "unpack",
+                                          "input" : {
+                                            "operator" : "mem-move-device",
+                                            "input" : {
+                                              "operator" : "router",
+                                              "numOfParents" : 48,
+                                              "slack" : 8,
+                                              "cpu_targets" : true,
+                                              "rand_local_cpu" : true,
+                                              "input" : {
+                                                "operator" : "scan",
+                                                "gpu" : false,
+                                                "plugin" : {
+                                                  "type" : "block-local",
+                                                  "linehint" : 100000,
+                                                  "name" : "tpcc_item<block-local>",
+                                                  "projections" : [ {
+                                                    "relName" : "tpcc_item<block-local>",
+                                                    "attrName" : "i_id"
+                                                  }, {
+                                                    "relName" : "tpcc_item<block-local>",
+                                                    "attrName" : "i_name"
+                                                  }, {
+                                                    "relName" : "tpcc_item<block-local>",
+                                                    "attrName" : "i_data"
+                                                  } ],
+                                                  "schema" : [ {
+                                                    "relName" : "tpcc_item<block-local>",
+                                                    "attrName" : "i_id",
+                                                    "type" : {
+                                                      "type" : "int"
+                                                    },
+                                                    "attrNo" : 1
+                                                  }, {
+                                                    "relName" : "tpcc_item<block-local>",
+                                                    "attrName" : "i_im_id",
+                                                    "type" : {
+                                                      "type" : "int"
+                                                    },
+                                                    "attrNo" : 2
+                                                  }, {
+                                                    "relName" : "tpcc_item<block-local>",
+                                                    "attrName" : "i_name",
+                                                    "type" : {
+                                                      "type" : "dstring"
+                                                    },
+                                                    "attrNo" : 3
+                                                  }, {
+                                                    "relName" : "tpcc_item<block-local>",
+                                                    "attrName" : "i_price",
+                                                    "type" : {
+                                                      "type" : "float"
+                                                    },
+                                                    "attrNo" : 4
+                                                  }, {
+                                                    "relName" : "tpcc_item<block-local>",
+                                                    "attrName" : "i_data",
+                                                    "type" : {
+                                                      "type" : "dstring"
+                                                    },
+                                                    "attrNo" : 5
+                                                  } ]
+                                                }
+                                              }
+                                            },
+                                            "to_cpu" : true,
+                                            "do_transfer" : [ true, true, true ]
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "to_cpu" : true,
+                            "do_transfer" : [ true, true, true ]
+                          },
+                          "to_cpu" : true
+                        }
+                      }
+                    },
+                    "probe_k" : {
+                      "expression" : "recordConstruction",
+                      "type" : {
+                        "type" : "record"
+                      },
+                      "attributes" : [ {
+                        "name" : "$4",
+                        "e" : {
+                          "expression" : "recordProjection",
+                          "e" : {
+                            "expression" : "argument"
+                          },
+                          "attribute" : {
+                            "attrName" : "s_quantity",
+                            "relName" : "subsetPelagoProject#4282"
+                          },
+                          "register_as" : {
+                            "attrName" : "$4",
+                            "relName" : "subsetPelagoProject#4284"
+                          }
+                        }
+                      }, {
+                        "name" : "$3",
+                        "e" : {
+                          "expression" : "recordProjection",
+                          "e" : {
+                            "expression" : "argument"
+                          },
+                          "attribute" : {
+                            "attrName" : "s_i_id",
+                            "relName" : "subsetPelagoProject#4282"
+                          },
+                          "register_as" : {
+                            "attrName" : "$3",
+                            "relName" : "subsetPelagoProject#4284"
+                          }
+                        }
+                      } ],
+                      "register_as" : {
+                        "attrName" : "$7",
+                        "relName" : "subsetPelagoProject#4284"
+                      }
+                    },
+                    "hash_bits" : 27,
+                    "maxBuildInputSize" : 67108864,
+                    "probe_input" : {
+                      "operator" : "project",
+                      "relName" : "subsetPelagoProject#4282",
+                      "e" : [ {
+                        "expression" : "recordProjection",
+                        "e" : {
+                          "expression" : "argument"
+                        },
+                        "attribute" : {
+                          "attrName" : "s_i_id",
+                          "relName" : "tpcc_stock<block-local>"
+                        },
+                        "register_as" : {
+                          "attrName" : "s_i_id",
+                          "relName" : "subsetPelagoProject#4282"
+                        }
+                      }, {
+                        "expression" : "recordProjection",
+                        "e" : {
+                          "expression" : "argument"
+                        },
+                        "attribute" : {
+                          "attrName" : "s_quantity",
+                          "relName" : "tpcc_stock<block-local>"
+                        },
+                        "register_as" : {
+                          "attrName" : "s_quantity",
+                          "relName" : "subsetPelagoProject#4282"
+                        }
+                      }, {
+                        "expression" : "mod",
+                        "left" : {
+                          "expression" : "multiply",
+                          "left" : {
+                            "expression" : "recordProjection",
+                            "e" : {
+                              "expression" : "argument"
+                            },
+                            "attribute" : {
+                              "attrName" : "s_w_id",
+                              "relName" : "tpcc_stock<block-local>"
+                            }
+                          },
+                          "right" : {
+                            "expression" : "recordProjection",
+                            "e" : {
+                              "expression" : "argument"
+                            },
+                            "attribute" : {
+                              "attrName" : "s_i_id",
+                              "relName" : "tpcc_stock<block-local>"
+                            }
+                          }
+                        },
+                        "right" : {
+                          "expression" : "int",
+                          "v" : 10000
+                        },
+                        "register_as" : {
+                          "attrName" : "MOD",
+                          "relName" : "subsetPelagoProject#4282"
+                        }
+                      } ],
+                      "input" : {
+                        "operator" : "unpack",
+                        "input" : {
+                          "operator" : "mem-move-device",
+                          "input" : {
+                            "operator" : "router",
+                            "numOfParents" : 48,
+                            "slack" : 8,
+                            "cpu_targets" : true,
+                            "rand_local_cpu" : true,
+                            "input" : {
+                              "operator" : "scan",
+                              "gpu" : false,
+                              "plugin" : {
+                                "type" : "block-local",
+                                "linehint" : 6400000,
+                                "name" : "tpcc_stock<block-local>",
+                                "projections" : [ {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_i_id"
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_w_id"
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_quantity"
+                                } ],
+                                "schema" : [ {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_i_id",
+                                  "type" : {
+                                    "type" : "int"
+                                  },
+                                  "attrNo" : 1
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_w_id",
+                                  "type" : {
+                                    "type" : "int"
+                                  },
+                                  "attrNo" : 2
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_quantity",
+                                  "type" : {
+                                    "type" : "int"
+                                  },
+                                  "attrNo" : 3
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_dist_01",
+                                  "type" : {
+                                    "type" : "dstring"
+                                  },
+                                  "attrNo" : 4
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_dist_02",
+                                  "type" : {
+                                    "type" : "dstring"
+                                  },
+                                  "attrNo" : 5
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_dist_03",
+                                  "type" : {
+                                    "type" : "dstring"
+                                  },
+                                  "attrNo" : 6
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_dist_04",
+                                  "type" : {
+                                    "type" : "dstring"
+                                  },
+                                  "attrNo" : 7
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_dist_05",
+                                  "type" : {
+                                    "type" : "dstring"
+                                  },
+                                  "attrNo" : 8
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_dist_06",
+                                  "type" : {
+                                    "type" : "dstring"
+                                  },
+                                  "attrNo" : 9
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_dist_07",
+                                  "type" : {
+                                    "type" : "dstring"
+                                  },
+                                  "attrNo" : 10
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_dist_08",
+                                  "type" : {
+                                    "type" : "dstring"
+                                  },
+                                  "attrNo" : 11
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_dist_09",
+                                  "type" : {
+                                    "type" : "dstring"
+                                  },
+                                  "attrNo" : 12
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_dist_10",
+                                  "type" : {
+                                    "type" : "dstring"
+                                  },
+                                  "attrNo" : 13
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_ytd",
+                                  "type" : {
+                                    "type" : "float"
+                                  },
+                                  "attrNo" : 14
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_order_cnt",
+                                  "type" : {
+                                    "type" : "int"
+                                  },
+                                  "attrNo" : 15
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_remote_cnt",
+                                  "type" : {
+                                    "type" : "int"
+                                  },
+                                  "attrNo" : 16
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_data",
+                                  "type" : {
+                                    "type" : "dstring"
+                                  },
+                                  "attrNo" : 17
+                                }, {
+                                  "relName" : "tpcc_stock<block-local>",
+                                  "attrName" : "s_su_suppkey",
+                                  "type" : {
+                                    "type" : "int"
+                                  },
+                                  "attrNo" : 18
+                                } ]
+                              }
+                            }
+                          },
+                          "to_cpu" : true,
+                          "do_transfer" : [ true, true, true ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "to_cpu" : true,
+        "do_transfer" : [ true, true, true, true, true, true, true, true ]
+      }
+    }
+  }
+}
