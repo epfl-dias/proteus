@@ -257,7 +257,7 @@ class TPCC : public Benchmark {
     uint32_t o_all_local;
   };
 
-  struct __attribute__((packed)) tpcc_order_line {
+  struct __attribute__((packed)) tpcc_orderline {
     uint32_t ol_o_id;
     uint32_t ol_d_id;
     uint32_t ol_w_id;
@@ -270,7 +270,7 @@ class TPCC : public Benchmark {
     // char ol_dist_info[24]; // TODO: uncomment
   };
 
-  struct __attribute__((packed)) tpcc_order_line_batch {
+  struct __attribute__((packed)) tpcc_orderline_batch {
     uint32_t ol_o_id[TPCC_MAX_OL_PER_ORDER];
     uint32_t ol_d_id[TPCC_MAX_OL_PER_ORDER];
     uint32_t ol_w_id[TPCC_MAX_OL_PER_ORDER];
@@ -477,7 +477,7 @@ class TPCC : public Benchmark {
                                   const TPCC::tpcc_customer &r);
   friend std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_order &r);
   friend std::ostream &operator<<(std::ostream &out,
-                                  const TPCC::tpcc_order_line &r);
+                                  const TPCC::tpcc_orderline &r);
   friend std::ostream &operator<<(std::ostream &out,
                                   const TPCC::tpcc_new_order &r);
 };
@@ -492,7 +492,7 @@ std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_district &r);
 std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_history &r);
 std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_customer &r);
 std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_order &r);
-std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_order_line &r);
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_orderline &r);
 std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_new_order &r);
 
 }  // namespace bench

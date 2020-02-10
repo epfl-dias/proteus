@@ -985,12 +985,12 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
 
 #if batch_insert_no_ol
   // Row-store
-  struct tpcc_order_line ol_ins_batch_row[TPCC_MAX_OL_PER_ORDER] = {};
+  struct tpcc_orderline ol_ins_batch_row[TPCC_MAX_OL_PER_ORDER] = {};
   // Column-store optimization - layout_column_store
-  struct tpcc_order_line_batch ol_ins_batch_col = {};
+  struct tpcc_orderline_batch ol_ins_batch_col = {};
 
 #else
-  struct tpcc_order_line ol_ins;
+  struct tpcc_orderline ol_ins;
 #endif
 
   uint64_t ol_key_batch[TPCC_MAX_OL_PER_ORDER];
@@ -1322,8 +1322,8 @@ inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *q, uint64_t xid,
 
                                            ol_col_scan, 5, &p_ol_r);
         } else {
-          struct tpcc_order_line *ol_r =
-              (struct tpcc_order_line *)ol_idx_ptr->delta_ver->get_readable_ver(
+          struct tpcc_orderline *ol_r =
+              (struct tpcc_orderline *)ol_idx_ptr->delta_ver->get_readable_ver(
                   xid);
           assert(ol_r != nullptr || ol_r != NULL);
 
@@ -1419,8 +1419,8 @@ inline bool TPCC::exec_stocklevel_txn(struct tpcc_query *q, uint64_t xid,
                                          &ol_i_id);
 
       } else {
-        struct tpcc_order_line *ol_r =
-            (struct tpcc_order_line *)ol_idx_ptr->delta_ver->get_readable_ver(
+        struct tpcc_orderline *ol_r =
+            (struct tpcc_orderline *)ol_idx_ptr->delta_ver->get_readable_ver(
                 xid);
         assert(ol_r != nullptr || ol_r != NULL);
         ol_i_id = ol_r->ol_i_id;
@@ -2013,7 +2013,7 @@ void TPCC::create_tbl_order_line(uint64_t num_order_line) {
 
   // (OL_SUPPLY_W_ID, OL_I_ID) Foreign Key, references (S_W_ID, S_I_ID)
 
-  struct tpcc_order_line tmp;
+  struct tpcc_orderline tmp;
 
   std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
 
@@ -2450,7 +2450,7 @@ void TPCC::load_order(int w_id, uint64_t xid, ushort partition_id,
 #endif
 
         for (int ol = 0; ol < o_ol_cnt; ol++) {
-          struct tpcc_order_line r_ol = {};  // new struct tpcc_order_line;
+          struct tpcc_orderline r_ol = {};  // new struct tpcc_orderline;
 
           uint64_t ol_pkey = MAKE_OL_KEY(w_id, d, o, ol);
 
@@ -2941,7 +2941,7 @@ std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_order &r) {
   out << std::endl;
   return out;
 }
-std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_order_line &r) {
+std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_orderline &r) {
   out << r.ol_o_id << csv_delim;
   out << r.ol_d_id << csv_delim;
   out << r.ol_w_id << csv_delim;
