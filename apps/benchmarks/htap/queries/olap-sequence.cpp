@@ -24,7 +24,6 @@
 #include "olap-sequence.hpp"
 
 #include <aeolus-plugin.hpp>
-#include <ch100w/query.hpp>
 #include <numeric>
 #include <routing/affinitizers.hpp>
 #include <routing/degree-of-parallelism.hpp>
@@ -40,7 +39,7 @@
 
 template <typename plugin_t, typename aff_t, typename red_t>
 constexpr auto CH_queries = {Q<1>::prepare<plugin_t, aff_t, red_t>,
-                             // Q<4>::prepare<plugin_t, aff_t, red_t>,
+                             Q<4>::prepare<plugin_t, aff_t, red_t>,
                              Q<6>::prepare<plugin_t, aff_t, red_t>,
                              Q<19>::prepare<plugin_t, aff_t, red_t>};
 
