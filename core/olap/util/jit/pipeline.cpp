@@ -660,6 +660,8 @@ std::string PipelineGen::convertTypeToFuncSuffix(llvm::Type *type) {
   if (type->isIntegerTy()) {
     return "i" + std::to_string(type->getIntegerBitWidth());
   }
+  if (type->isFloatTy()) return "float";
+  if (type->isDoubleTy()) return "double";
   if (type->isPointerTy()) {
     return convertTypeToFuncSuffix(type->getPointerElementType()) + "ptr";
   }
