@@ -98,6 +98,7 @@ class SingleDeviceMemoryManager {
 
   std::unordered_map<void *, alloc_unit_info> units;
   std::unordered_map<void *, void *> mappings;
+  //  std::unordered_map<void *, std::pair<void **, size_t>> dmappings;
   std::stack<allocation_t> allocations;
 
   std::stack<void *> free_cache;

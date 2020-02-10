@@ -56,22 +56,25 @@ int main(int argc, char *argv[]) {
   LOG(INFO) << "Finished initialization";
 
   LOG(INFO) << "Preparing queries...";
-  std::vector<PreparedStatement> statements;
-  //    for (const auto &memmv : {true, false}) {
-  //      auto v = ssb100::Query{}.prepareAll(memmv);
-  //      statements.insert(statements.end(),
-  //      std::make_move_iterator(v.begin()),
-  //                        std::make_move_iterator(v.end()));
-  //    }
-  for (const auto &memmv : {false}) {
-    auto v = ssb1000::Query{}.prepareAll(memmv);
-    statements.insert(statements.end(), std::make_move_iterator(v.begin()),
-                      std::make_move_iterator(v.end()));
-  }
 
-  for (size_t i = 0; i < 5; ++i) {
-    for (auto &statement : statements) {
-      statement.execute();
+  {
+    std::vector<PreparedStatement> statements;
+    //    for (const auto &memmv : {true, false}) {
+    //      auto v = ssb100::Query{}.prepareAll(memmv);
+    //      statements.insert(statements.end(),
+    //      std::make_move_iterator(v.begin()),
+    //                        std::make_move_iterator(v.end()));
+    //    }
+    for (const auto &memmv : {false}) {
+      auto v = ssb100::Query{}.prepareAll(memmv);
+      statements.insert(statements.end(), std::make_move_iterator(v.begin()),
+                        std::make_move_iterator(v.end()));
+    }
+
+    for (size_t i = 0; i < 5; ++i) {
+      for (auto &statement : statements) {
+        statement.execute();
+      }
     }
   }
 

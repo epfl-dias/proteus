@@ -237,6 +237,17 @@ SingleDeviceMemoryManager<allocator, unit_cap>::~SingleDeviceMemoryManager() {
     free_cache.pop();
   }
 
+  //  for (const auto &p: dmappings){
+  //    auto bt = p.second.first;
+  //    auto n = p.second.second;
+  //
+  //    char **trace = backtrace_symbols(bt, n);
+  //    std::cout << "Detected memory leak created from: " << std::endl;
+  //    for (size_t i = 0; i < n; ++i) {
+  //      std::cout << trace[i] << std::endl;
+  //    }
+  //  }
+
 #ifndef NDEBUG
   // If not trace_allocations, then we do not have the necessary info to proceed
   if (trace_allocations && !allocations.empty()) {
@@ -322,6 +333,12 @@ void *SingleDeviceMemoryManager<allocator, unit_cap>::malloc(size_t bytes) {
     info->sub_units += 1;
     mappings.emplace(ptr, info->base);
 
+    //    {
+    //      void ** bt = new void*[32];
+    //      size_t n = backtrace(bt, 31);
+    //      dmappings.emplace(ptr, std::make_pair(bt, n));
+    //    }
+
     return ptr;
   }
 }
@@ -350,6 +367,7 @@ void SingleDeviceMemoryManager<allocator, unit_cap>::free(void *ptr) {
 
     void *base = f->second;
     mappings.erase(f);
+    //    dmappings.erase(dmappings.find(ptr));
 
     auto fu = units.find(base);
     assert(fu != units.end() && "Unit not found!");
