@@ -392,6 +392,8 @@ class RelBuilder {
 
   RelBuilder join(RelBuilder build, expression_t build_k, expression_t probe_k,
                   int hash_bits, size_t maxBuildInputSize) const;
+
+  friend class PlanExecutor;
 };
 
 #endif /* RELBUILDER_HPP_ */

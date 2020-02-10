@@ -29,6 +29,7 @@
 #include <routing/degree-of-parallelism.hpp>
 #include <topology/affinity_manager.hpp>
 #include <topology/topology.hpp>
+#include <type_traits>
 #include <util/timing.hpp>
 
 #include "../htap-cli-flags.hpp"
@@ -37,19 +38,46 @@
 // FIXME: remove following
 #define ETL_AFFINITY_SOCKET 0
 
-template <typename plugin_t, typename aff_t, typename red_t>
-constexpr auto CH_queries = {Q<1>::prepare<plugin_t, aff_t, red_t>,
-                             Q<4>::prepare<plugin_t, aff_t, red_t>,
-                             Q<6>::prepare<plugin_t, aff_t, red_t>,
-                             Q<19>::prepare<plugin_t, aff_t, red_t>};
-
-const auto q1_rel = std::vector<std::string>{"tpcc_orderline"};
-const auto q4_rel = std::vector<std::string>{"tpcc_order", "tpcc_orderline"};
-const auto q6_rel = std::vector<std::string>{"tpcc_orderline"};
+const auto q01_rel = std::vector<std::string>{"tpcc_orderline"};
+const auto q02_rel = std::vector<std::string>{
+    "tpcc_region", "tpcc_nation", "tpcc_supplier", "tpcc_stock", "tpcc_item"};
+const auto q04_rel = std::vector<std::string>{"tpcc_order", "tpcc_orderline"};
+const auto q06_rel = std::vector<std::string>{"tpcc_orderline"};
 const auto q19_rel = std::vector<std::string>{"tpcc_item", "tpcc_orderline"};
 
-auto ch_relations =
-    std::vector<std::vector<std::string>>{q1_rel, /*q4_rel,*/ q6_rel, q19_rel};
+typedef std::function<std::unique_ptr<Affinitizer>()> red_t;
+
+typedef std::function<PreparedStatement(DegreeOfParallelism, aff_t, red_t)>
+    prep_t;
+
+prep_t qs(const std::string &plan) {
+  return [plan](DegreeOfParallelism dop, aff_t aff_parallel, red_t aff_reduce,
+                DeviceType dev = DeviceType::CPU) {
+    const std::string planDir = "benchmarks/htap/queries/clotho/cpu/";
+    return PreparedStatement::from(planDir + plan, plan);
+  };
+}
+
+template <size_t id, typename plugin_t>
+prep_t qs_old() {
+  return [](DegreeOfParallelism dop, aff_t aff_parallel, red_t aff_reduce,
+            DeviceType dev = DeviceType::CPU) {
+    return Q<id>::template prepare<plugin_t, aff_t, red_t>(dop, aff_parallel,
+                                                           aff_reduce);
+  };
+}
+
+template <typename plugin_t = AeolusLocalPlugin>
+std::vector<std::pair<std::vector<std::string>, prep_t>> ch_map = {
+    //        {q01_rel, qs("Q01.sql.json")},
+    //        {q02_rel, qs("Q02_simplified.sql.json")},
+    //        {q06_rel, qs("Q06.sql.json")},
+    //        {q19_rel, qs("Q19_simplified.sql.json")},
+    {q01_rel, qs_old<1, plugin_t>()},
+    //        {q04_rel, qs_old<4, plugin_t>()},
+    {q06_rel, qs_old<6, plugin_t>()},
+    {q19_rel, qs_old<19, plugin_t>()},
+};
 
 auto OLAPSequence::getIsolatedOLAPResources() {
   std::vector<SpecificCpuCoreAffinitizer::coreid_t> coreids;
@@ -138,12 +166,8 @@ void OLAPSequence::setupAdaptiveSequence() {
       return std::make_unique<CpuCoreAffinitizer>();
     };
 
-    typedef decltype(aff_parallel) aff_t;
-    typedef decltype(aff_reduce) red_t;
-
-    for (const auto &q : CH_queries<AeolusRemotePlugin, aff_t, red_t>) {
-      stmts.emplace_back(
-          q(colocated_dop, aff_parallel, aff_reduce, DeviceType::CPU));
+    for (const auto &q : ch_map<AeolusRemotePlugin>) {
+      stmts.emplace_back(q.second(colocated_dop, aff_parallel, aff_reduce));
       total_queries++;
     }
   }
@@ -159,12 +183,8 @@ void OLAPSequence::setupAdaptiveSequence() {
       return std::make_unique<CpuCoreAffinitizer>();
     };
 
-    typedef decltype(aff_parallel) aff_t;
-    typedef decltype(aff_reduce) red_t;
-
-    for (const auto &q : CH_queries<AeolusLocalPlugin, aff_t, red_t>) {
-      stmts.emplace_back(
-          q(isolated_dop, aff_parallel, aff_reduce, DeviceType::CPU));
+    for (const auto &q : ch_map<AeolusLocalPlugin>) {
+      stmts.emplace_back(q.second(isolated_dop, aff_parallel, aff_reduce));
     }
   }
 
@@ -179,12 +199,8 @@ void OLAPSequence::setupAdaptiveSequence() {
       return std::make_unique<CpuCoreAffinitizer>();
     };
 
-    typedef decltype(aff_parallel) aff_t;
-    typedef decltype(aff_reduce) red_t;
-
-    for (const auto &q : CH_queries<AeolusElasticPlugin, aff_t, red_t>) {
-      stmts.emplace_back(
-          q(isolated_dop, aff_parallel, aff_reduce, DeviceType::CPU));
+    for (const auto &q : ch_map<AeolusElasticPlugin>) {
+      stmts.emplace_back(q.second(isolated_dop, aff_parallel, aff_reduce));
     }
   }
 
@@ -199,12 +215,8 @@ void OLAPSequence::setupAdaptiveSequence() {
       return std::make_unique<CpuCoreAffinitizer>();
     };
 
-    typedef decltype(aff_parallel) aff_t;
-    typedef decltype(aff_reduce) red_t;
-
-    for (const auto &q : CH_queries<AeolusElasticNIPlugin, aff_t, red_t>) {
-      stmts.emplace_back(
-          q(elastic_dop, aff_parallel, aff_reduce, DeviceType::CPU));
+    for (const auto &q : ch_map<AeolusElasticNIPlugin>) {
+      stmts.emplace_back(q.second(elastic_dop, aff_parallel, aff_reduce));
     }
   }
 
@@ -262,31 +274,27 @@ OLAPSequence::OLAPSequence(int client_id, HTAPSequenceConfig conf,
   auto aff_reduce = []() -> std::unique_ptr<Affinitizer> {
     return std::make_unique<CpuCoreAffinitizer>();
   };
-
-  typedef decltype(aff_parallel) aff_t;
-  typedef decltype(aff_reduce) red_t;
-
   // Data Access Methods
 
   if (conf.data_access_policy == SchedulingPolicy::REMOTE_READ ||
       conf.schedule_policy == SchedulingPolicy::S1_COLOCATED) {
-    for (const auto &q : CH_queries<AeolusRemotePlugin, aff_t, red_t>) {
-      stmts.emplace_back(q(dop, aff_parallel, aff_reduce, dev));
+    for (const auto &q : ch_map<AeolusRemotePlugin>) {
+      stmts.emplace_back(q.second(dop, aff_parallel, aff_reduce));
       total_queries++;
     }
 
   } else if (conf.data_access_policy == SchedulingPolicy::LOCAL_READ ||
              conf.schedule_policy == SchedulingPolicy::S2_ISOLATED) {
-    for (const auto &q : CH_queries<AeolusLocalPlugin, aff_t, red_t>) {
-      stmts.emplace_back(q(dop, aff_parallel, aff_reduce, dev));
+    for (const auto &q : ch_map<AeolusLocalPlugin>) {
+      stmts.emplace_back(q.second(dop, aff_parallel, aff_reduce));
       total_queries++;
     }
 
   } else if (conf.data_access_policy == SchedulingPolicy::HYBRID_READ ||
              conf.schedule_policy == SchedulingPolicy::S3_IS ||
              conf.schedule_policy == SchedulingPolicy::S3_NI) {
-    for (const auto &q : CH_queries<AeolusElasticPlugin, aff_t, red_t>) {
-      stmts.emplace_back(q(dop, aff_parallel, aff_reduce, dev));
+    for (const auto &q : ch_map<AeolusElasticPlugin>) {
+      stmts.emplace_back(q.second(dop, aff_parallel, aff_reduce));
       total_queries++;
     }
 
@@ -583,7 +591,7 @@ std::pair<double, double> OLAPSequence::getFreshnessRatios(
   // matter what.
 
   auto db_f = txn_engine.getFreshness();
-  auto query_f = txn_engine.getFreshnessRelation(ch_relations[query_idx]);
+  auto query_f = txn_engine.getFreshnessRelation(ch_map<>[query_idx].first);
 
   auto query_fresh_data = query_f.second - query_f.first;
   auto total_fresh_data = db_f.second - db_f.first;

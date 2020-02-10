@@ -31,71 +31,109 @@ PreparedStatement Q_1_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                            const scan_t &scan) {
   std::string count_order = "count_order";
 
-  auto rel =
-      scan(tpcc_orderline, {ol_delivery_d, ol_number, ol_amount, ol_quantity})
-          .router(dop, 8, RoutingPolicy::RANDOM, dev, aff_parallel())
-      //      .memmove(8, dev == DeviceType::CPU)
-      ;
-
-  if (dev == DeviceType::GPU) {
-    rel = rel.memmove(8, dev == DeviceType::CPU).to_gpu();
-  }
-
-  rel = rel.unpack()
-            // .filter([&](const auto &arg) -> expression_t {
-            //   return gt(arg[ol_delivery_d],
-            //             expressions::DateConstant(/*FIX*/ 904694400000));
-            // })
-            .groupby(
-                [&](const auto &arg) -> std::vector<expression_t> {
-                  return {arg[ol_number]};
-                },
-                [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
-                  return {GpuAggrMatExpr{arg[ol_quantity], 1, 0, SUM},
-                          GpuAggrMatExpr{expression_t{1}.as(
-                                             arg[ol_number].getRelationName(),
-                                             count_order),
-                                         1, 32, SUM},
-                          GpuAggrMatExpr{arg[ol_amount], 1, 64, SUM}};
-                },
-                5, 128 * 1024);
-
-  if (dev == DeviceType::GPU) {
-    rel = rel.to_cpu();
-  }
-
-  rel = rel.router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
-                   DeviceType::CPU, aff_reduce())
-            .groupby(
-                [&](const auto &arg) -> std::vector<expression_t> {
-                  return {arg[ol_number]};
-                },
-                [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
-                  return {GpuAggrMatExpr{arg[ol_quantity], 1, 0, SUM},
-                          GpuAggrMatExpr{arg[ol_amount], 2, 0, SUM},
-                          GpuAggrMatExpr{arg[count_order], 3, 0, SUM}};
-                },
-                5, 128)
-            .sort(
-                [&](const auto &arg) -> std::vector<expression_t> {
-                  return {arg[ol_number], arg[ol_quantity], arg[ol_amount],
-                          arg[count_order]};
-                },
-                {direction::ASC, direction::NONE, direction::NONE})
-            .print(
-                [&](const auto &arg,
-                    std::string outrel) -> std::vector<expression_t> {
-                  return {arg[ol_number].as(outrel, ol_number),
-                          arg[ol_quantity].as(outrel, "sum_qty"),
-                          arg[ol_amount].as(outrel, "sum_amount"),
-                          (arg[ol_quantity] / (arg[count_order] + 1))
-                              .as(outrel, "avg_qty"),
-                          (arg[ol_amount] /
-                           (arg[count_order] + 1).template as<FloatType>())
-                              .as(outrel, "avg_amount"),
-                          arg[count_order].as(outrel, count_order)};
-                },
-                std::string{"CH_Q_01"} + std::to_string(q_instance++));
-
-  return rel.prepare();
+  return scan(
+             tpcc_orderline, {"ol_number",
+                              "ol_delivery_d", "ol_quantity", "ol_amount"})  // (table=[[SSB, ch100w_orderline]], fields=[[3, 6, 7, 8]], traits=[Pelago.[].X86_64.packed.homSingle.hetSingle.none])
+      .router(
+          dop, 32, RoutingPolicy::LOCAL, dev,
+          aff_parallel())  // (trait=[Pelago.[].X86_64.packed.homRandom.hetSingle.none])
+      .unpack()  // (trait=[Pelago.[].X86_64.unpckd.homRandom.hetSingle.cX86_64])
+      .filter([&](const auto &arg) -> expression_t {
+        return gt(arg["$1"], expressions::DateConstant("2007-01-02 00:00:00"));
+      })  // (condition=[>($1, 2007-01-02 00:00:00:TIMESTAMP(3))],
+          // trait=[Pelago.[].X86_64.unpckd.homRandom.hetSingle.cX86_64],
+          // isS=[false])
+      .groupby(
+          [&](const auto &arg) -> std::vector<expression_t> {
+            return {arg["$0"].as("PelagoAggregate#1052", "$0")};
+          },
+          [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
+            return {GpuAggrMatExpr{(arg["$2"]).as("PelagoAggregate#1052", "$1"),
+                                   1, 0, SUM},
+                    GpuAggrMatExpr{
+                        (expression_t{1}).as("PelagoAggregate#1052", "$2"), 2,
+                        0, SUM},
+                    GpuAggrMatExpr{(arg["$3"]).as("PelagoAggregate#1052", "$3"),
+                                   3, 0, SUM},
+                    GpuAggrMatExpr{
+                        (expression_t{1}).as("PelagoAggregate#1052", "$4"), 4,
+                        0, SUM},
+                    GpuAggrMatExpr{
+                        (expression_t{1}).as("PelagoAggregate#1052", "$5"), 5,
+                        0, SUM}};
+          },
+          5,
+          128)  // (group=[{0}], sum_qty=[$SUM0($2)], agg#1=[COUNT($2)],
+                // sum_amount=[$SUM0($3)], agg#3=[COUNT($3)],
+                // count_order=[COUNT()],
+                // trait=[Pelago.[].X86_64.unpckd.homRandom.hetSingle.cX86_64],
+                // global=[false])
+      .router(
+          DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM, DeviceType::CPU,
+          aff_reduce())  // (trait=[Pelago.[].X86_64.unpckd.homSingle.hetSingle.cX86_64])
+      .groupby(
+          [&](const auto &arg) -> std::vector<expression_t> {
+            return {arg["$0"].as("PelagoAggregate#1054", "$0")};
+          },
+          [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
+            return {GpuAggrMatExpr{(arg["$1"]).as("PelagoAggregate#1054", "$1"),
+                                   1, 0, SUM},
+                    GpuAggrMatExpr{(arg["$2"]).as("PelagoAggregate#1054", "$2"),
+                                   2, 0, SUM},
+                    GpuAggrMatExpr{(arg["$3"]).as("PelagoAggregate#1054", "$3"),
+                                   3, 0, SUM},
+                    GpuAggrMatExpr{(arg["$4"]).as("PelagoAggregate#1054", "$4"),
+                                   4, 0, SUM},
+                    GpuAggrMatExpr{(arg["$5"]).as("PelagoAggregate#1054", "$5"),
+                                   5, 0, SUM}};
+          },
+          5,
+          128)  // (group=[{0}], sum_qty=[$SUM0($1)], agg#1=[$SUM0($2)],
+                // sum_amount=[$SUM0($3)], agg#3=[$SUM0($4)],
+                // count_order=[$SUM0($5)],
+                // trait=[Pelago.[].X86_64.unpckd.homSingle.hetSingle.cX86_64],
+                // global=[true])
+      .project([&](const auto &arg) -> std::vector<expression_t> {
+        return {(arg["$0"]).as("PelagoProject#1055", "ol_number"),
+                (cond(eq(arg["$2"], 0), 0, arg["$1"]))
+                    .as("PelagoProject#1055", "sum_qty"),
+                (cond(eq(arg["$4"], 0), 0.0, arg["$3"]))
+                    .as("PelagoProject#1055", "sum_amount"),
+                (cond(eq(arg["$2"], 0), 0, arg["$1"]).template as<FloatType>() /
+                 arg["$2"].template as<FloatType>())
+                    .as("PelagoProject#1055", "avg_qty"),
+                (cond(eq(arg["$4"], 0), 0.0, arg["$3"]) /
+                 arg["$4"].template as<FloatType>())
+                    .as("PelagoProject#1055", "avg_amount"),
+                (arg["$5"]).as("PelagoProject#1055", "count_order")};
+      })  // (ol_number=[$0], sum_qty=[CASE(=($2, 0), null:INTEGER, $1)],
+          // sum_amount=[CASE(=($4, 0), null:DOUBLE, $3)],
+          // avg_qty=[CAST(/(CASE(=($2, 0), null:INTEGER, $1), $2)):INTEGER],
+          // avg_amount=[/(CASE(=($4, 0), null:DOUBLE, $3), $4)],
+          // count_order=[$5],
+          // trait=[Pelago.[].X86_64.unpckd.homSingle.hetSingle.cX86_64])
+      .sort(
+          [&](const auto &arg) -> std::vector<expression_t> {
+            return {arg["$0"], arg["$1"], arg["$2"],
+                    arg["$3"], arg["$4"], arg["$5"]};
+          },
+          {
+              direction::ASC,
+              direction::NONE,
+              direction::NONE,
+              direction::NONE,
+              direction::NONE,
+              direction::NONE,
+          })  // (sort0=[$0], dir0=[ASC],
+              // trait=[Pelago.[0].X86_64.unpckd.homSingle.hetSingle.cX86_64])
+      .print([&](const auto &arg,
+                 std::string outrel) -> std::vector<expression_t> {
+        return {arg["$0"].as(outrel, "ol_number"),
+                arg["$1"].as(outrel, "sum_qty"),
+                arg["$2"].as(outrel, "sum_amount"),
+                arg["$3"].as(outrel, "avg_qty"),
+                arg["$4"].as(outrel, "avg_amount"),
+                arg["$5"].as(outrel, "count_order")};
+      })  // (trait=[ENUMERABLE.[0].X86_64.unpckd.homSingle.hetSingle.cX86_64])
+      .prepare();
 }
