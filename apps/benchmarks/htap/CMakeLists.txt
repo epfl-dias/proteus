@@ -22,6 +22,7 @@ foreach(target
 		#micro-remote
 		#server-circular-master
 		ch-bench
+		ch-export-data
 		#server-fork
 	)
 	add_executable(htap-${target} ${target}.cpp ${htap_bench_cxx})
@@ -31,7 +32,7 @@ foreach(target
 			codegen::olap
 			htap::engine
 			gflags::gflags
-			queries::ch100w
+			#queries::ch100w
 			)
 	target_include_directories(htap-${target}
 		PUBLIC

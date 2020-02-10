@@ -41,7 +41,7 @@ class DataExporter_CH {
   DataExporter_CH() {}
 
  public:
-  static void exportAll(std::string output_dir);
+  static void exportAll(std::string &output_dir);
 
   static PreparedStatement export_tpcc_order(bool output_binary = false);
   static PreparedStatement export_tpcc_orderline(bool output_binary = false);

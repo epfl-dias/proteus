@@ -38,7 +38,7 @@ namespace filesystem = std::experimental::filesystem;
 #include <fstream>
 #include <system_error>
 
-void DataExporter_CH::exportAll(std::string output_dir) {
+void DataExporter_CH::exportAll(std::string& output_dir) {
   std::vector<QueryResult> queryResults;
   std::vector<PreparedStatement> relations;
 
