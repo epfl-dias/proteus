@@ -359,11 +359,12 @@ ProteusValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings,
     if (it == csvProjections.end()) {
       string error_msg =
           string("[CSV plugin - readPath ]: Unknown variable name ") + pathVar;
-      cout << "Nothing found for " << fname << "_" << pathVar << " in "
-           << csvProjections.size() << " bindings" << endl;
+      LOG(INFO) << "Nothing found for " << fname << "_" << pathVar << " in "
+                << csvProjections.size() << " bindings" << endl;
       for (it = csvProjections.begin(); it != csvProjections.end(); it++) {
         RecordAttribute attr = it->first;
-        cout << attr.getRelationName() << "_" << attr.getAttrName() << endl;
+        LOG(INFO) << attr.getRelationName() << "_" << attr.getAttrName()
+                  << endl;
       }
       LOG(ERROR) << error_msg;
       throw runtime_error(error_msg);

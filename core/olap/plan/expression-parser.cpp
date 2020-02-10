@@ -251,16 +251,24 @@ expression_t ExpressionParser::parseExpressionWithoutRegistering(
       retValue = createNull(new DateType());
     } else {
       assert(val.HasMember("v"));
-      assert(val["v"].IsInt64());
-      retValue = new expressions::DateConstant(val["v"].GetInt64());
+      if (val["v"].IsInt64()) {
+        retValue = new expressions::DateConstant(val["v"].GetInt64());
+      } else {
+        assert(val["v"].IsString());
+        retValue = new expressions::DateConstant(val["v"].GetString());
+      }
     }
   } else if (strcmp(valExpression, "datetime") == 0) {
     if (isNull) {
       retValue = createNull(new DateType());
     } else {
       assert(val.HasMember("v"));
-      assert(val["v"].IsInt64());
-      retValue = new expressions::DateConstant(val["v"].GetInt64());
+      if (val["v"].IsInt64()) {
+        retValue = new expressions::DateConstant(val["v"].GetInt64());
+      } else {
+        assert(val["v"].IsString());
+        retValue = new expressions::DateConstant(val["v"].GetString());
+      }
     }
   } else if (strcmp(valExpression, "string") == 0) {
     if (isNull) {
@@ -288,28 +296,27 @@ expression_t ExpressionParser::parseExpressionWithoutRegistering(
       }
     }
   } else if (strcmp(valExpression, "argument") == 0) {
-    assert(!isNull);
-    /* exprType */
-    assert(val.HasMember(keyExprType));
-    assert(val[keyExprType].IsObject());
-    ExpressionType *exprType = parseExpressionType(val[keyExprType]);
+    //    assert(!isNull);
+    //    /* exprType */
+    //    assert(val.HasMember(keyExprType));
+    //    assert(val[keyExprType].IsObject());
+    //    ExpressionType *exprType = parseExpressionType(val[keyExprType]);
+    //
+    //    /* argNo */
+    //    assert(val.HasMember(keyArgNo));
+    //    assert(val[keyArgNo].IsInt());
+    //    int argNo = val[keyArgNo].GetInt();
+    //
+    //    /* 'projections' / attributes */
+    //    assert(val.HasMember(keyAtts));
+    //    assert(val[keyAtts].IsArray());
+    //
+    //    list<RecordAttribute> atts;
+    //    for (const auto &v : val[keyAtts].GetArray()) {
+    //      atts.emplace_back(*parseRecordAttr(v));
+    //    }
 
-    /* argNo */
-    assert(val.HasMember(keyArgNo));
-    assert(val[keyArgNo].IsInt());
-    int argNo = val[keyArgNo].GetInt();
-
-    /* 'projections' / attributes */
-    assert(val.HasMember(keyAtts));
-    assert(val[keyAtts].IsArray());
-
-    list<RecordAttribute> atts;
-    for (const auto &v : val[keyAtts].GetArray()) {
-      atts.emplace_back(*parseRecordAttr(v));
-    }
-
-    return expression_t::make<expressions::InputArgument>(exprType, argNo,
-                                                          atts);
+    return arg;
   } else if (strcmp(valExpression, "recordProjection") == 0) {
     assert(!isNull);
 
@@ -329,7 +336,7 @@ expression_t ExpressionParser::parseExpressionWithoutRegistering(
       std::cerr << err << endl;
     }
 
-    return expression_t::make<expressions::RecordProjection>(expr, *recAttr);
+    return expr[*recAttr];
   } else if (strcmp(valExpression, "recordConstruction") == 0) {
     assert(!isNull);
     /* exprType */
@@ -350,11 +357,10 @@ expression_t ExpressionParser::parseExpressionWithoutRegistering(
       assert(attrConst.HasMember(keyAttrExpr));
       expression_t newAttrExpr = parseExpression(attrConst[keyAttrExpr], ctx);
 
-      expressions::AttributeConstruction *newAttr =
-          new expressions::AttributeConstruction(newAttrName, newAttrExpr);
-      newAtts.push_back(*newAttr);
+      expressions::AttributeConstruction newAttr(newAttrName, newAttrExpr);
+      newAtts.push_back(newAttr);
     }
-    return expression_t::make<expressions::RecordConstruction>(newAtts);
+    return expressions::RecordConstruction{newAtts};
   } else if (strcmp(valExpression, "extract") == 0) {
     assert(val.HasMember("unitrange"));
     assert(val["unitrange"].IsString());
@@ -726,7 +732,8 @@ RecordAttribute *ExpressionParser::parseRecordAttr(
         recArgType = defaultType;
       } else {
         std::cerr << relName << "." << attrName << std::endl;
-        assert(false && "Attribute not found");
+        return new RecordAttribute(*arg.getExpressionType()->getArg(attrName));
+        //        assert(false && "Attribute not found");
       }
     }
   }

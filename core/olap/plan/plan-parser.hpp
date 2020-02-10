@@ -24,6 +24,9 @@
 #ifndef PLAN_PARSER_HPP_
 #define PLAN_PARSER_HPP_
 
+#include <operators/relbuilder-factory.hpp>
+#include <operators/relbuilder.hpp>
+
 #include "expression-parser.hpp"
 #include "expressions/expressions.hpp"
 #include "plan/catalog-parser.hpp"
@@ -36,40 +39,44 @@ class PlanExecutor {
  private:
   PlanExecutor(const char *planPath, CatalogParser &cat,
                const char *moduleName = "llvmModule");
-  PlanExecutor(const char *planPath, CatalogParser &cat, const char *moduleName,
-               ParallelContext *ctx);
   friend class PreparedStatement;
 
   void *handle;  // FIXME: when can we release the handle ?
 
  private:
-  ExpressionParser exprParser;
-  const char *__attribute__((unused)) planPath;
   const char *moduleName;
   CatalogParser &catalogParser;
   vector<Plugin *> activePlugins;
   std::map<size_t, Operator *> splitOps;
+  RelBuilderFactory factory;
 
-  ParallelContext *ctx;
+  [[deprecated]] ParallelContext *ctx;
   void parsePlan(const rapidjson::Document &doc, bool execute = false);
   /* When processing tree root, parent will be nullptr */
-  Operator *parseOperator(const rapidjson::Value &val);
-  expression_t parseExpression(const rapidjson::Value &val) {
-    return exprParser.parseExpression(val, ctx);
+  RelBuilder parseOperator(const rapidjson::Value &val);
+  expression_t parseExpression(const rapidjson::Value &val,
+                               const expressions::InputArgument &arg) {
+    return ExpressionParser{catalogParser, arg}.parseExpression(val, ctx);
   }
-  ExpressionType *parseExpressionType(const rapidjson::Value &val) {
-    return exprParser.parseExpressionType(val);
+  ExpressionType *parseExpressionType(const rapidjson::Value &val,
+                                      const expressions::InputArgument &arg) {
+    return ExpressionParser{catalogParser, arg}.parseExpressionType(val);
   }
   RecordAttribute *parseRecordAttr(const rapidjson::Value &val,
+                                   const expressions::InputArgument &arg,
                                    const ExpressionType *defaultType = nullptr,
                                    int defaultAttrNo = -1) {
-    return exprParser.parseRecordAttr(val, defaultType, defaultAttrNo);
+    return ExpressionParser{catalogParser, arg}.parseRecordAttr(
+        val, defaultType, defaultAttrNo);
   }
-  Monoid parseAccumulator(const char *acc) {
-    return exprParser.parseAccumulator(acc);
+  Monoid parseAccumulator(const char *acc,
+                          const expressions::InputArgument &arg) {
+    return ExpressionParser{catalogParser, arg}.parseAccumulator(acc);
   }
 
   Plugin *parsePlugin(const rapidjson::Value &val);
+
+  void compileAndLoad();
 
   void cleanUp();
 };

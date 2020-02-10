@@ -107,18 +107,17 @@ PreparedStatement PreparedStatement::from(const std::string &planPath,
     caches->clear();
   }
 
-  std::vector<Pipeline *> pipelines;
   {
     time_block t("Tcodegen: ");
 
     auto ctx = new ParallelContext(label, false);
     CatalogParser catalog{catalogJSON.c_str(), ctx};
     auto label_ptr = new std::string{label};
-    PlanExecutor exec{planPath.c_str(), catalog, label_ptr->c_str(), ctx};
+    PlanExecutor exec{planPath.c_str(), catalog, label_ptr->c_str()};
 
-    ctx->compileAndLoad();
+    exec.compileAndLoad();
 
-    return {ctx->getPipelines(), ctx->getModuleName()};
+    return {exec.ctx->getPipelines(), exec.ctx->getModuleName()};
   }
 }
 

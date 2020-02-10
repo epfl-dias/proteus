@@ -30,10 +30,12 @@
 
 class ExpressionParser {
   CatalogParser &catalogParser;
+  const expressions::InputArgument &arg;
 
  public:
-  ExpressionParser(CatalogParser &catalogParser)
-      : catalogParser(catalogParser) {}
+  ExpressionParser(CatalogParser &catalogParser,
+                   const expressions::InputArgument &arg)
+      : catalogParser(catalogParser), arg(arg) {}
   expression_t parseExpression(const rapidjson::Value &val,
                                ParallelContext *ctx);
   ExpressionType *parseExpressionType(const rapidjson::Value &val);
