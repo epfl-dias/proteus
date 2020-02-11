@@ -52,8 +52,7 @@ class Column;
 
 class alignas(4096) ColumnStore : public Table {
  public:
-  ColumnStore(uint8_t table_id, std::string name,
-              std::vector<std::tuple<std::string, data_type, size_t>> columns,
+  ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
               uint64_t initial_num_records = 10000000, bool indexed = true,
               bool partitioned = true, int numa_idx = -1);
   uint64_t insertRecord(void *rec, ushort partition_id, ushort master_ver);

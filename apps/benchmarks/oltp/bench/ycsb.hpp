@@ -330,10 +330,10 @@ class YCSB : public Benchmark {
     std::cout << "workers: " << this->num_active_workers << std::endl;
     init();
 
-    std::vector<std::tuple<std::string, storage::data_type, size_t> > columns;
+    storage::ColumnDef columns;
     for (int i = 0; i < num_fields; i++) {
-      columns.emplace_back(std::tuple<std::string, storage::data_type, size_t>(
-          "col_" + std::to_string(i + 1), storage::INTEGER, sizeof(uint64_t)));
+      columns.emplace_back("col_" + std::to_string(i + 1), storage::INTEGER,
+                           sizeof(uint64_t));
     }
 
     ycsb_tbl = schema->create_table(

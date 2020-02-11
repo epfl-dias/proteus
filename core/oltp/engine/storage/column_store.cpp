@@ -207,10 +207,9 @@ uint64_t ColumnStore::load_data_from_binary(std::string col_name,
   assert(false && "Column not found: ");
 }
 
-ColumnStore::ColumnStore(
-    uint8_t table_id, std::string name,
-    std::vector<std::tuple<std::string, data_type, size_t>> columns,
-    uint64_t initial_num_records, bool indexed, bool partitioned, int numa_idx)
+ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
+                         uint64_t initial_num_records, bool indexed,
+                         bool partitioned, int numa_idx)
     : Table(name, table_id, COLUMN_STORE, columns) {
   this->total_mem_reserved = 0;
   this->indexed = indexed;
@@ -251,7 +250,7 @@ ColumnStore::ColumnStore(
 
   // create columns
   size_t col_offset = 0;
-  for (const auto& t : columns) {
+  for (const auto& t : columns.getColumns()) {
     void* obj_ptr = MemoryManager::alloc(
         sizeof(Column),
         storage::NUMAPartitionPolicy::getInstance().getDefaultPartition());

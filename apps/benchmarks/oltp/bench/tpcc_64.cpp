@@ -1774,7 +1774,7 @@ TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
 
 void TPCC::create_tbl_warehouse(uint64_t num_warehouses) {
   // Primary Key: W_ID
-  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
+  storage::ColumnDef columns;
 
   struct tpcc_warehouse tmp;
 
@@ -1800,7 +1800,7 @@ void TPCC::create_tbl_warehouse(uint64_t num_warehouses) {
 void TPCC::create_tbl_district(uint64_t num_districts) {
   // Primary Key: (D_W_ID, D_ID) D_W_ID
   // Foreign Key, references W_ID
-  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
+  storage::ColumnDef columns;
 
   struct tpcc_district tmp;
 
@@ -1825,7 +1825,7 @@ void TPCC::create_tbl_district(uint64_t num_districts) {
 
 void TPCC::create_tbl_item(uint64_t num_item) {
   // Primary Key: I_ID
-  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
+  storage::ColumnDef columns;
 
   struct tpcc_item tmp;
 
@@ -1854,7 +1854,7 @@ void TPCC::create_tbl_stock(uint64_t num_stock) {
   // Primary Key: (S_W_ID, S_I_ID)
   // S_W_ID Foreign Key, references W_ID
   // S_I_ID Foreign Key, references I_ID
-  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
+  storage::ColumnDef columns;
 
   struct tpcc_stock tmp;
 
@@ -1892,7 +1892,7 @@ void TPCC::create_tbl_history(uint64_t num_history) {
   // (H_C_W_ID, H_C_D_ID, H_C_ID) Foreign Key, references (C_W_ID, C_D_ID,
   // C_ID)
   // (H_W_ID, H_D_ID) Foreign Key, references (D_W_ID, D_ID)
-  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
+  storage::ColumnDef columns;
 
   struct tpcc_history tmp;
 
@@ -1920,7 +1920,7 @@ void TPCC::create_tbl_customer(uint64_t num_cust) {
 
   struct tpcc_customer tmp;
 
-  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
+  storage::ColumnDef columns;
 
   columns.emplace_back("c_id", storage::INTEGER, sizeof(tmp.c_id));
 
@@ -1968,7 +1968,7 @@ void TPCC::create_tbl_new_order(uint64_t num_new_order) {
 
   struct tpcc_new_order tmp;
 
-  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
+  storage::ColumnDef columns;
 
   columns.emplace_back("no_o_id", storage::INTEGER, sizeof(tmp.no_o_id));
 
@@ -1984,7 +1984,7 @@ void TPCC::create_tbl_new_order(uint64_t num_new_order) {
 void TPCC::create_tbl_order(uint64_t num_order) {
   // Primary Key: (O_W_ID, O_D_ID, O_ID)
   // (O_W_ID, O_D_ID, O_C_ID) Foreign Key, references (C_W_ID, C_D_ID, C_ID)
-  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
+  storage::ColumnDef columns;
 
   struct tpcc_order tmp;
 
@@ -2015,7 +2015,7 @@ void TPCC::create_tbl_order_line(uint64_t num_order_line) {
 
   struct tpcc_orderline tmp;
 
-  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
+  storage::ColumnDef columns;
 
   columns.emplace_back("ol_o_id", storage::INTEGER, sizeof(tmp.ol_o_id));
 
@@ -2052,7 +2052,7 @@ void TPCC::create_tbl_supplier(uint64_t num_supp) {
   */
 
   struct ch_supplier tmp;
-  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
+  storage::ColumnDef columns;
 
   columns.emplace_back("su_suppkey", storage::INTEGER, sizeof(tmp.suppkey));
 
@@ -2084,7 +2084,7 @@ void TPCC::create_tbl_region(uint64_t num_region) {
 
   struct ch_region tmp;
 
-  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
+  storage::ColumnDef columns;
 
   columns.emplace_back("r_regionkey", storage::INTEGER,
                        sizeof(tmp.r_regionkey));
@@ -2105,7 +2105,7 @@ void TPCC::create_tbl_nation(uint64_t num_nation) {
      char n_comment[115];  // var
   */
   struct ch_nation tmp;
-  std::vector<std::tuple<std::string, storage::data_type, size_t>> columns;
+  storage::ColumnDef columns;
 
   columns.emplace_back("n_nationkey", storage::INTEGER,
                        sizeof(tmp.n_nationkey));

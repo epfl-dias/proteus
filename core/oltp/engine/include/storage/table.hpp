@@ -49,7 +49,25 @@ class DeltaStore;
 
 enum layout_type { ROW_STORE, COLUMN_STORE };
 
-enum data_type { META, INTEGER, STRING, FLOAT, VARCHAR, DATE };
+enum data_type { META, INTEGER, STRING, FLOAT, VARCHAR, DATE, DSTRING };
+
+class ColumnDef {
+  std::vector<std::tuple<std::string, storage::data_type, size_t, void *>>
+      columns;
+
+ public:
+  void emplace_back(std::string name, data_type dt, size_t width,
+                    void *dict = nullptr) {
+    columns.emplace_back(name, dt, width, dict);
+  }
+
+  size_t size() { return columns.size(); }
+
+  std::vector<std::tuple<std::string, storage::data_type, size_t, void *>>
+  getColumns() {
+    return columns;
+  }
+};
 
 class NUMAPartitionPolicy {
  public:
@@ -113,11 +131,10 @@ class Schema {
   std::vector<Table *> getAllTables();
 
   /* returns pointer to the table */
-  Table *create_table(
-      std::string name, layout_type layout,
-      std::vector<std::tuple<std::string, data_type, size_t>> columns,
-      uint64_t initial_num_records = 10000000, bool indexed = true,
-      bool partitioned = true, int numa_idx = -1);
+  Table *create_table(std::string name, layout_type layout, ColumnDef columns,
+                      uint64_t initial_num_records = 10000000,
+                      bool indexed = true, bool partitioned = true,
+                      int numa_idx = -1);
 
   [[noreturn]] void drop_table(std::string name);
   [[noreturn]] void drop_table(int idx);
@@ -218,7 +235,7 @@ class Table {
 
   void reportUsage();
   Table(std::string name, uint8_t table_id, layout_type storage_layout,
-        std::vector<std::tuple<std::string, data_type, size_t>> columns);
+        ColumnDef columns);
   virtual ~Table();
 
   global_conf::PrimaryIndex<uint64_t> *p_index;

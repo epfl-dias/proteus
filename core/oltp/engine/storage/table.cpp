@@ -181,11 +181,9 @@ Table* Schema::getTable(std::string name) {
 }
 
 /* returns pointer to the table */
-Table* Schema::create_table(
-    std::string name, layout_type layout,
-    std::vector<std::tuple<std::string, data_type, size_t>> columns,
-    uint64_t initial_num_records, bool indexed, bool partitioned,
-    int numa_idx) {
+Table* Schema::create_table(std::string name, layout_type layout,
+                            ColumnDef columns, uint64_t initial_num_records,
+                            bool indexed, bool partitioned, int numa_idx) {
   Table* tbl = nullptr;
 
   if (numa_idx == -1) {
@@ -249,7 +247,7 @@ void Table::reportUsage() {
 }
 
 ExpressionType* getProteusType(
-    const std::tuple<std::string, data_type, size_t>& col) {
+    const std::tuple<std::string, data_type, size_t, void*>& col) {
   switch (std::get<1>(col)) {
     case INTEGER: {
       switch (std::get<2>(col)) {
@@ -281,6 +279,16 @@ ExpressionType* getProteusType(
     case STRING: {
       return new StringType();
     }
+    case DSTRING: {
+      if (std::get<3>(col) == nullptr) {
+        auto msg = std::string{"Column[" + std::get<0>(col) +
+                               "] with type DSTRING with no dictionary."};
+        LOG(FATAL) << msg;
+        throw std::runtime_error(msg);
+      }
+      // std::map<int, std::string> *d = new std::map<int, std::string>;
+      return new DStringType(std::get<3>(col));
+    }
     case DATE: {
       switch (std::get<2>(col)) {
         case 8:
@@ -304,7 +312,7 @@ ExpressionType* getProteusType(
 static std::mutex m_catalog;
 
 Table::Table(std::string name, uint8_t table_id, layout_type storage_layout,
-             std::vector<std::tuple<std::string, data_type, size_t>> columns)
+             ColumnDef columns)
     : name(name),
       table_id(table_id),
       total_mem_reserved(0),
@@ -313,7 +321,7 @@ Table::Table(std::string name, uint8_t table_id, layout_type storage_layout,
 
   std::vector<RecordAttribute*> attrs;
   attrs.reserve(columns.size());
-  for (const auto& t : columns) {
+  for (const auto& t : columns.getColumns()) {
     attrs.emplace_back(
         new RecordAttribute(name, std::get<0>(t), getProteusType(t)));
   }

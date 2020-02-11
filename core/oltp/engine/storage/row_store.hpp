@@ -47,8 +47,7 @@ class RowStore;
 
 class RowStore : public Table {
  public:
-  RowStore(uint8_t table_id, std::string name,
-           std::vector<std::tuple<std::string, data_type, size_t>> columns,
+  RowStore(uint8_t table_id, std::string name, ColumnDef columns,
            uint64_t initial_num_records = 10000000, bool indexed = true,
            bool partitioned = true, int numa_idx = -1);
 

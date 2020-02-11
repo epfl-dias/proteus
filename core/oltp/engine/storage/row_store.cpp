@@ -300,10 +300,9 @@ void RowStore::initializeMetaColumn() {
   }
 }
 
-RowStore::RowStore(
-    uint8_t table_id, std::string name,
-    std::vector<std::tuple<std::string, data_type, size_t>> columns,
-    uint64_t initial_num_records, bool indexed, bool partitioned, int numa_idx)
+RowStore::RowStore(uint8_t table_id, std::string name, ColumnDef columns,
+                   uint64_t initial_num_records, bool indexed, bool partitioned,
+                   int numa_idx)
     : Table(name, table_id, ROW_STORE, columns),
       indexed(indexed),
       initial_num_records(initial_num_records) {
@@ -331,7 +330,7 @@ RowStore::RowStore(
 
   // create columns
   size_t col_offset = 0;
-  for (const auto& t : columns) {
+  for (const auto& t : columns.getColumns()) {
     this->columns.emplace_back(std::get<0>(t));
     this->column_width.emplace_back(
         std::make_pair(std::get<2>(t), this->rec_size));
