@@ -531,7 +531,8 @@ void HashJoinChained::generate_probe(ParallelContext *context,
   OperatorState newState{*this, allJoinBindings};
   getParent()->consume(context, newState);
 
-  Builder->CreateBr(CondBB);
+  bool fk = false;
+  Builder->CreateBr((fk) ? MergeBB : CondBB);
 
   // TheFunction->getBasicBlockList().push_back(MergeBB);
   Builder->SetInsertPoint(MergeBB);
@@ -540,8 +541,8 @@ void HashJoinChained::generate_probe(ParallelContext *context,
 void HashJoinChained::open_build(Pipeline *pip) {
   std::vector<void *> next_w_values;
 
-  uint32_t *head =
-      (uint32_t *)malloc(sizeof(uint32_t) * (1 << hash_bits) + sizeof(int32_t));
+  uint32_t *head = (uint32_t *)MemoryManager::mallocPinned(
+      sizeof(uint32_t) * (1 << hash_bits) + sizeof(int32_t));
   int32_t *cnt = (int32_t *)(head + (1 << hash_bits));
 
   // cudaStream_t strm;
@@ -550,7 +551,8 @@ void HashJoinChained::open_build(Pipeline *pip) {
   memset(cnt, 0, sizeof(int32_t));
 
   for (const auto &w : build_packet_widths) {
-    next_w_values.emplace_back(malloc((w / 8) * maxBuildInputSize));
+    next_w_values.emplace_back(
+        MemoryManager::mallocPinned((w / 8) * maxBuildInputSize));
   }
 
   pip->setStateVar(head_param_id, head);
@@ -583,14 +585,14 @@ void HashJoinChained::open_probe(Pipeline *pip) {
 void HashJoinChained::close_build(Pipeline *pip) {
   int32_t h_cnt;
   memcpy(&h_cnt, pip->getStateVar<int32_t *>(cnt_param_id), sizeof(int32_t));
-  LOG_IF(INFO, h_cnt < 0.5 * maxBuildInputSize || h_cnt >= maxBuildInputSize)
+  LOG_IF(INFO, h_cnt < 0.5 * maxBuildInputSize || h_cnt > maxBuildInputSize)
       << "Actual build "
          "input size: "
-      << h_cnt;
+      << h_cnt << " (capacity: " << maxBuildInputSize << ")";
   assert(((size_t)h_cnt) <= maxBuildInputSize &&
          "Build input sized exceeded given parameter");
 }
 
 void HashJoinChained::close_probe(Pipeline *pip) {
-  for (const auto &p : confs[pip->getGroup()]) free(p);
+  for (const auto &p : confs[pip->getGroup()]) MemoryManager::freePinned(p);
 }
