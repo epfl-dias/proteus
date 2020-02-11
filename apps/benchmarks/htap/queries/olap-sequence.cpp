@@ -73,10 +73,21 @@ std::vector<std::pair<std::vector<std::string>, prep_t>> ch_map = {
     //        {q02_rel, qs("Q02_simplified.sql.json")},
     //        {q06_rel, qs("Q06.sql.json")},
     //        {q19_rel, qs("Q19_simplified.sql.json")},
-    {q01_rel, qs_old<1, plugin_t>()},
+    //{q01_rel, qs_old<1, plugin_t>()},
     //        {q04_rel, qs_old<4, plugin_t>()},
     {q06_rel, qs_old<6, plugin_t>()},
-    {q19_rel, qs_old<19, plugin_t>()},
+    //{q19_rel, qs_old<19, plugin_t>()},
+};
+
+std::vector<std::vector<std::string>> ch_map2 = {
+    //        {q01_rel, qs("Q01.sql.json")},
+    //        {q02_rel, qs("Q02_simplified.sql.json")},
+    //        {q06_rel, qs("Q06.sql.json")},
+    //        {q19_rel, qs("Q19_simplified.sql.json")},
+    //{q01_rel, qs_old<1, plugin_t>()},
+    //        {q04_rel, qs_old<4, plugin_t>()},
+    q06_rel,
+    //{q19_rel, qs_old<19, plugin_t>()},
 };
 
 auto OLAPSequence::getIsolatedOLAPResources() {
@@ -591,7 +602,7 @@ std::pair<double, double> OLAPSequence::getFreshnessRatios(
   // matter what.
 
   auto db_f = txn_engine.getFreshness();
-  auto query_f = txn_engine.getFreshnessRelation(ch_map<>[query_idx].first);
+  auto query_f = txn_engine.getFreshnessRelation(ch_map2[query_idx]);
 
   auto query_fresh_data = query_f.second - query_f.first;
   auto total_fresh_data = db_f.second - db_f.first;
@@ -642,8 +653,8 @@ static inline size_t time_diff(timepoint_t end, timepoint_t start) {
 
 void OLAPSequence::execute(OLTP &txn_engine, int repeat,
                            bool per_query_snapshot, size_t etl_interval_ms) {
-  assert(conf.schedule_policy != SchedulingPolicy::CUSTOM &&
-         "Not supported currently");
+  // assert(conf.schedule_policy != SchedulingPolicy::CUSTOM &&
+  //        "Not supported currently");
 
   SchedulingPolicy::ScheduleMode current_state = SchedulingPolicy::S2_ISOLATED;
   if (conf.schedule_policy == SchedulingPolicy::S1_COLOCATED) {
@@ -673,8 +684,14 @@ void OLAPSequence::execute(OLTP &txn_engine, int repeat,
   // sequence
   LOG(INFO) << "Exeucting OLAP Sequence[Client # " << this->client_id << "]";
 
-  if (conf.schedule_policy != SchedulingPolicy::ADAPTIVE)
+  if (conf.schedule_policy != SchedulingPolicy::ADAPTIVE &&
+      conf.schedule_policy != SchedulingPolicy::CUSTOM)
     migrateState(current_state, conf.schedule_policy, txn_engine);
+
+  if (conf.schedule_policy == SchedulingPolicy::CUSTOM) {
+    // FIXME: move to appropriate custom state.
+    current_state = SchedulingPolicy::CUSTOM;
+  }
 
   timepoint_t global_start = std::chrono::system_clock::now();
 

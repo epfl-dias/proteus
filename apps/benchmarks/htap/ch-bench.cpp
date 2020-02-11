@@ -179,6 +179,12 @@ int main(int argc, char *argv[]) {
                                FLAGS_oltp_elastic_threshold,
                                (oltp_num_workers / 2), schedule_policy);
 
+  if (FLAGS_htap_mode.compare("REMOTE-READ") == 0) {
+    htap_conf.schedule_policy = SchedulingPolicy::CUSTOM;
+    htap_conf.resource_policy = SchedulingPolicy::ISOLATED;
+    htap_conf.data_access_policy = SchedulingPolicy::REMOTE_READ;
+  }
+
   if (FLAGS_micro_ch_query > 0) {
     htap_conf.setChMicro(FLAGS_micro_ch_query);
   }

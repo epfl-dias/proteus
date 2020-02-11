@@ -1,6 +1,6 @@
 #!/bin/bash
 
-expr_dir="/scratch1/bug-fix/"
+expr_dir="/scratch1/sig20_rev_feb10/"
 EXE_DIR="/scratch1/pelago_two/opt/pelago"
 #SEQ_COUNT=150
 QUERY="MIX"
@@ -8,66 +8,66 @@ ELASTIC_THRESH=4
 
 cd $EXE_DIR
 
-for SEQ_COUNT in 110
+for SEQ_COUNT in 75
 do
 
-	# #ISOLATED
-	# for SF in 30
-	# do
-	# 		for EXPR_NUM in {1..1}
-	# 		do
-	# 			MODE="ISOLATED"			
-	# 			start=`date +%s`
-	# 			echo "#####################  ISOLATED  ###########################"
-	# 			echo "#######################################################"
-	# 			echo "PerQueryFreshness: True"
-	# 			echo "Experiment #: $EXPR_NUM"
-	# 			echo "#######################################################"
-	# 			echo "#######################################################"
-	# 			cmd="./htap-ch-bench --ch-scale-factor=$SF --htap-mode=$MODE --num-olap-repeat=$SEQ_COUNT"
-	# 			echo "$cmd"
-	# 			$cmd 2>&1 | tee $expr_dir/htap-$MODE-queryFresh-sf-$SF-$QUERY-SEQ-COUNT-$SEQ_COUNT-$EXPR_NUM
-	# 			end=`date +%s`
+	#ISOLATED
+	for SF in 100
+	do
+			for EXPR_NUM in {1..1}
+			do
+				MODE="ISOLATED"			
+				start=`date +%s`
+				echo "#####################  ISOLATED  ###########################"
+				echo "#######################################################"
+				echo "PerQueryFreshness: True"
+				echo "Experiment #: $EXPR_NUM"
+				echo "#######################################################"
+				echo "#######################################################"
+				cmd="./htap-ch-bench --ch-scale-factor=$SF --htap-mode=$MODE --num-olap-repeat=$SEQ_COUNT"
+				echo "$cmd"
+				$cmd 2>&1 | tee $expr_dir/htap-$MODE-queryFresh-sf-$SF-$QUERY-SEQ-COUNT-$SEQ_COUNT-$EXPR_NUM
+				end=`date +%s`
 				
-	# 			echo "Duration: $((($(date +%s)-$start)/60)) minutes"
-	# 			kill $(ps aux | grep htap | awk '{print $2}')
+				echo "Duration: $((($(date +%s)-$start)/60)) minutes"
+				kill $(ps aux | grep htap | awk '{print $2}')
 
-	# 			echo "Sleeping for 3 seconds before next expr."
-	# 			sleep 3
-	# 		done
+				echo "Sleeping for 3 seconds before next expr."
+				sleep 3
+			done
 			
-	# done
+	done
 
 
-	# #COLOCATED
-	# for SF in 30
-	# do
-	# 		for EXPR_NUM in {1..1}
-	# 		do
-	# 			MODE="COLOC"			
-	# 			start=`date +%s`
-	# 			echo "#####################  COLOCATED  ###########################"
-	# 			echo "#######################################################"
-	# 			echo "PerQueryFreshness: True"
-	# 			echo "Experiment #: $EXPR_NUM"
-	# 			echo "#######################################################"
-	# 			echo "#######################################################"
-	# 			cmd="./htap-ch-bench --ch-scale-factor=$SF --htap-mode=$MODE --num-olap-repeat=$SEQ_COUNT"
-	# 			echo "$cmd"
-	# 			$cmd 2>&1 | tee $expr_dir/htap-$MODE-queryFresh-sf-$SF-$QUERY-SEQ-COUNT-$SEQ_COUNT-$EXPR_NUM
-	# 			end=`date +%s`
+	#COLOCATED
+	for SF in 100
+	do
+			for EXPR_NUM in {1..1}
+			do
+				MODE="COLOC"			
+				start=`date +%s`
+				echo "#####################  COLOCATED  ###########################"
+				echo "#######################################################"
+				echo "PerQueryFreshness: True"
+				echo "Experiment #: $EXPR_NUM"
+				echo "#######################################################"
+				echo "#######################################################"
+				cmd="./htap-ch-bench --ch-scale-factor=$SF --htap-mode=$MODE --num-olap-repeat=$SEQ_COUNT"
+				echo "$cmd"
+				$cmd 2>&1 | tee $expr_dir/htap-$MODE-queryFresh-sf-$SF-$QUERY-SEQ-COUNT-$SEQ_COUNT-$EXPR_NUM
+				end=`date +%s`
 				
-	# 			echo "Duration: $((($(date +%s)-$start)/60)) minutes"
-	# 			kill $(ps aux | grep htap | awk '{print $2}')
+				echo "Duration: $((($(date +%s)-$start)/60)) minutes"
+				kill $(ps aux | grep htap | awk '{print $2}')
 
-	# 			echo "Sleeping for 3 seconds before next expr."
-	# 			sleep 3
-	# 		done
+				echo "Sleeping for 3 seconds before next expr."
+				sleep 3
+			done
 			
-	# done
+	done
 
 	#READ OVER QPI
-	for SF in 30
+	for SF in 100
 	do
 			#for ETL in 0 2000 4000 8000 16000
 			#do
@@ -96,9 +96,9 @@ do
 	done
 
 	#S3_IS
-	for SF in 30
+	for SF in 100
 	do
-			for ETL in 0 #2000 4000 8000 16000
+			for ETL in 0 2000 4000 8000 16000
 			do
 				for EXPR_NUM in {1..1}
 				do
@@ -124,97 +124,97 @@ do
 			done
 	done
 
-	# #S3_NI
-	# for SF in 30
-	# do
-	# 	for ETL in 0 2000 4000 8000 16000
-	# 		do
-	# 			for EXPR_NUM in {1..1}
-	# 			do
-	# 				MODE="HYBRID-COLOC"			
-	# 				start=`date +%s`
-	# 				echo "#####################  HYBRID-COLOC  ###########################"
-	# 				echo "#######################################################"
-	# 				echo "PerQueryFreshness: True"
-	# 				echo "Experiment #: $EXPR_NUM"
-	# 				echo "#######################################################"
-	# 				echo "#######################################################"
-	# 				cmd="./htap-ch-bench --ch-scale-factor=$SF --htap-mode=$MODE --num-olap-repeat=$SEQ_COUNT --oltp-elastic-threshold=$ELASTIC_THRESH  --etl-interval-ms=$ETL"
-	# 				echo "$cmd"
-	# 				$cmd 2>&1 | tee $expr_dir/htap-$MODE-queryFresh-sf-$SF-ETL-$ETL-$QUERY-SEQ-COUNT-$SEQ_COUNT-$EXPR_NUM
-	# 				end=`date +%s`
+	#S3_NI
+	for SF in 100
+	do
+		for ETL in 0 2000 4000 8000 16000
+			do
+				for EXPR_NUM in {1..1}
+				do
+					MODE="HYBRID-COLOC"			
+					start=`date +%s`
+					echo "#####################  HYBRID-COLOC  ###########################"
+					echo "#######################################################"
+					echo "PerQueryFreshness: True"
+					echo "Experiment #: $EXPR_NUM"
+					echo "#######################################################"
+					echo "#######################################################"
+					cmd="./htap-ch-bench --ch-scale-factor=$SF --htap-mode=$MODE --num-olap-repeat=$SEQ_COUNT --oltp-elastic-threshold=$ELASTIC_THRESH  --etl-interval-ms=$ETL"
+					echo "$cmd"
+					$cmd 2>&1 | tee $expr_dir/htap-$MODE-queryFresh-sf-$SF-ETL-$ETL-$QUERY-SEQ-COUNT-$SEQ_COUNT-$EXPR_NUM
+					end=`date +%s`
 					
-	# 				echo "Duration: $((($(date +%s)-$start)/60)) minutes"
-	# 				kill $(ps aux | grep htap | awk '{print $2}')
+					echo "Duration: $((($(date +%s)-$start)/60)) minutes"
+					kill $(ps aux | grep htap | awk '{print $2}')
 
-	# 				echo "Sleeping for 3 seconds before next expr."
-	# 				sleep 3
-	# 			done
-	# 		done
-	# done
+					echo "Sleeping for 3 seconds before next expr."
+					sleep 3
+				done
+			done
+	done
 
 
-	# #ADAPTIVE
-	# for SF in 30
-	# do
-	# 		for EXPR_NUM in {1..1}
-	# 		do
-	# 			MODE="ADAPTIVE"			
-	# 			start=`date +%s`
-	# 			echo "#####################  ADAPTIVE  ###########################"
-	# 			echo "#######################################################"
-	# 			echo "PerQueryFreshness: True"
-	# 			echo "Experiment #: $EXPR_NUM"
-	# 			echo "#######################################################"
-	# 			echo "#######################################################"
-	# 			cmd="./htap-ch-bench --ch-scale-factor=$SF --htap-mode=$MODE --num-olap-repeat=$SEQ_COUNT"
-	# 			echo "$cmd"
-	# 			$cmd 2>&1 | tee $expr_dir/htap-$MODE-queryFresh-sf-$SF-$QUERY-SEQ-COUNT-$SEQ_COUNT-$EXPR_NUM
-	# 			end=`date +%s`
+	#ADAPTIVE
+	for SF in 100
+	do
+			for EXPR_NUM in {1..1}
+			do
+				MODE="ADAPTIVE"			
+				start=`date +%s`
+				echo "#####################  ADAPTIVE  ###########################"
+				echo "#######################################################"
+				echo "PerQueryFreshness: True"
+				echo "Experiment #: $EXPR_NUM"
+				echo "#######################################################"
+				echo "#######################################################"
+				cmd="./htap-ch-bench --ch-scale-factor=$SF --htap-mode=$MODE --num-olap-repeat=$SEQ_COUNT"
+				echo "$cmd"
+				$cmd 2>&1 | tee $expr_dir/htap-$MODE-queryFresh-sf-$SF-$QUERY-SEQ-COUNT-$SEQ_COUNT-$EXPR_NUM
+				end=`date +%s`
 				
-	# 			echo "Duration: $((($(date +%s)-$start)/60)) minutes"
-	# 			kill $(ps aux | grep htap | awk '{print $2}')
+				echo "Duration: $((($(date +%s)-$start)/60)) minutes"
+				kill $(ps aux | grep htap | awk '{print $2}')
 
-	# 			echo "Sleeping for 3 seconds before next expr."
-	# 			sleep 3
-	# 		done
+				echo "Sleeping for 3 seconds before next expr."
+				sleep 3
+			done
 			
-	# done
+	done
 
-	# #ADAPTIVE-NI
-	# for SF in 30
-	# do
-	# 		for EXPR_NUM in {1..1}
-	# 		do
-	# 			MODE="ADAPTIVE"			
-	# 			start=`date +%s`
-	# 			echo "#####################  ADAPTIVE  ###########################"
-	# 			echo "#######################################################"
-	# 			echo "PerQueryFreshness: True"
-	# 			echo "Experiment #: $EXPR_NUM"
-	# 			echo "#######################################################"
-	# 			echo "#######################################################"
-	# 			cmd="./htap-ch-bench --ch-scale-factor=$SF --htap-mode=$MODE --num-olap-repeat=$SEQ_COUNT --oltp-elastic-threshold=$ELASTIC_THRESH"
-	# 			echo "$cmd"
-	# 			$cmd 2>&1 | tee $expr_dir/htap-$MODE-NI-queryFresh-sf-$SF-$QUERY-SEQ-COUNT-$SEQ_COUNT-$EXPR_NUM
-	# 			end=`date +%s`
+	#ADAPTIVE-NI
+	for SF in 100
+	do
+			for EXPR_NUM in {1..1}
+			do
+				MODE="ADAPTIVE"			
+				start=`date +%s`
+				echo "#####################  ADAPTIVE  ###########################"
+				echo "#######################################################"
+				echo "PerQueryFreshness: True"
+				echo "Experiment #: $EXPR_NUM"
+				echo "#######################################################"
+				echo "#######################################################"
+				cmd="./htap-ch-bench --ch-scale-factor=$SF --htap-mode=$MODE --num-olap-repeat=$SEQ_COUNT --oltp-elastic-threshold=$ELASTIC_THRESH"
+				echo "$cmd"
+				$cmd 2>&1 | tee $expr_dir/htap-$MODE-NI-queryFresh-sf-$SF-$QUERY-SEQ-COUNT-$SEQ_COUNT-$EXPR_NUM
+				end=`date +%s`
 				
-	# 			echo "Duration: $((($(date +%s)-$start)/60)) minutes"
-	# 			kill $(ps aux | grep htap | awk '{print $2}')
+				echo "Duration: $((($(date +%s)-$start)/60)) minutes"
+				kill $(ps aux | grep htap | awk '{print $2}')
 
-	# 			echo "Sleeping for 3 seconds before next expr."
-	# 			sleep 3
-	# 		done
+				echo "Sleeping for 3 seconds before next expr."
+				sleep 3
+			done
 			
-	# done
+	done
 done 
 
 
 #-------------
-# for SEQ_COUNT in 110
+# for SEQ_COUNT in 80 100 150
 # do
 # 	#ISOLATED
-# 	for SF in 30
+# 	for SF in 100
 # 	do
 # 			for EXPR_NUM in {1..1}
 # 			do
@@ -242,7 +242,7 @@ done
 
 
 # 	#COLOCATED
-# 	for SF in 30
+# 	for SF in 100
 # 	do
 # 			for EXPR_NUM in {1..1}
 # 			do
@@ -269,7 +269,7 @@ done
 # 	done
 
 # 	#S3_IS
-# 	for SF in 30
+# 	for SF in 100
 # 	do
 # 			for ETL in 0 2000 4000 8000 16000
 # 			do
@@ -298,7 +298,7 @@ done
 # 	done
 
 # 	#S3_NI
-# 	for SF in 30
+# 	for SF in 100
 # 	do
 # 		for ETL in 0 2000 4000 8000 16000
 # 			do

@@ -1292,7 +1292,6 @@ std::vector<std::pair<mem_chunk, size_t>> Column::elastic_partition(
       // new records, safe to do local + tail
 
       size_t diff = snap_arena.numOfRecords - olap_arena.numOfRecords;
-
       // local-part
       ret.emplace_back(std::make_pair(
           mem_chunk(this->etl_mem[pid],
@@ -1306,7 +1305,7 @@ std::vector<std::pair<mem_chunk, size_t>> Column::elastic_partition(
 
       char* oltp_mem =
           (char*)master_versions[snap_arena.master_ver][pid][0].data;
-      oltp_mem += diff * this->elem_size;
+      oltp_mem += olap_arena.numOfRecords * this->elem_size;
 
       ret.emplace_back(std::make_pair(
           mem_chunk(oltp_mem, diff * this->elem_size, -1), diff));

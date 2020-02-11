@@ -990,7 +990,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
   struct tpcc_orderline_batch ol_ins_batch_col = {};
 
 #else
-  struct tpcc_orderline ol_ins;
+  struct tpcc_orderline ol_ins = {};
 #endif
 
   uint64_t ol_key_batch[TPCC_MAX_OL_PER_ORDER];
@@ -1066,7 +1066,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
       ol_ins_batch_col.ol_i_id[ol_number] = q->item[ol_number].ol_i_id;
       ol_ins_batch_col.ol_supply_w_id[ol_number] =
           q->item[ol_number].ol_supply_w_id;
-      ol_ins_batch_col.ol_delivery_d[ol_number] = get_timestamp();
+      ol_ins_batch_col.ol_delivery_d[ol_number] = 0;  // get_timestamp();
 
     } else {
       ol_ins_batch_row[ol_number].ol_o_id = dist_no_read.d_next_o_id;
@@ -1081,7 +1081,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
       ol_ins_batch_row[ol_number].ol_i_id = q->item[ol_number].ol_i_id;
       ol_ins_batch_row[ol_number].ol_supply_w_id =
           q->item[ol_number].ol_supply_w_id;
-      ol_ins_batch_row[ol_number].ol_delivery_d = get_timestamp();
+      ol_ins_batch_row[ol_number].ol_delivery_d = 0;  // get_timestamp();
 
       // uint64_t ol_key =
       //     MAKE_OL_KEY(q->w_id, q->d_id, dist_no_read.d_next_o_id,
@@ -1111,7 +1111,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
     ol_ins.ol_number = ol_number;
     ol_ins.ol_i_id = q->item[ol_number].ol_i_id;
     ol_ins.ol_supply_w_id = q->item[ol_number].ol_supply_w_id;
-    ol_ins.ol_delivery_d = get_timestamp();
+    ol_ins.ol_delivery_d = 0;  // get_timestamp();
 
     uint64_t ol_key =
         MAKE_OL_KEY(q->w_id, q->d_id, dist_no_read.d_next_o_id, ol_number);
@@ -2013,7 +2013,7 @@ void TPCC::create_tbl_order_line(uint64_t num_order_line) {
 
   // (OL_SUPPLY_W_ID, OL_I_ID) Foreign Key, references (S_W_ID, S_I_ID)
 
-  struct tpcc_orderline tmp;
+  struct tpcc_orderline tmp = {};
 
   storage::ColumnDef columns;
 
