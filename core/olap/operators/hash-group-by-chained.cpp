@@ -818,7 +818,7 @@ struct entry {
 // };
 
 void HashGroupByChained::close(Pipeline *pip) {
-  // int32_t * cnt_ptr = pip->getStateVar<int32_t  *>(cnt_param_id);
+  auto *cnt_ptr = pip->getStateVar<int32_t *>(cnt_param_id);
   // entry * h_next;
   // int32_t * h_first;
   // int32_t cnt;
@@ -834,6 +834,11 @@ void HashGroupByChained::close(Pipeline *pip) {
   // cudaMemcpyDefault)); gpu_run(cudaMemcpy(h_first, pip->getStateVar<void
   // *>(head_param_id), sizeof(int32_t  ) * (1 << hash_bits),
   // cudaMemcpyDefault));
+  int32_t h_cnt = *cnt_ptr;
+
+  LOG_IF(INFO, h_cnt < 0.5 * maxInputSize || h_cnt > maxInputSize)
+      << "Actual build input size: " << h_cnt << " (capacity: " << maxInputSize
+      << ")";
 
   // for (int32_t i = 0 ; i < cnt ; ++i){
   //     if (h_next[i].index != i){

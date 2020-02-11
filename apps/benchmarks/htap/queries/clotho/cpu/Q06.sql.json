@@ -8,11 +8,11 @@
     },
     "attribute" : {
       "attrName" : "revenue",
-      "relName" : "subsetPelagoAggregate#15226"
+      "relName" : "subsetPelagoAggregate#17175"
     },
     "register_as" : {
       "attrName" : "revenue",
-      "relName" : "print15227"
+      "relName" : "print17176"
     }
   } ],
   "input" : {
@@ -25,11 +25,11 @@
       },
       "attribute" : {
         "attrName" : "revenue",
-        "relName" : "subsetPelagoRouter#15225"
+        "relName" : "subsetPelagoRouter#17174"
       },
       "register_as" : {
         "attrName" : "revenue",
-        "relName" : "subsetPelagoAggregate#15226"
+        "relName" : "subsetPelagoAggregate#17175"
       }
     } ],
     "accumulator" : [ "sum" ],
@@ -53,7 +53,7 @@
           },
           "register_as" : {
             "attrName" : "revenue",
-            "relName" : "subsetPelagoRouter#15225"
+            "relName" : "subsetPelagoRouter#17174"
           }
         } ],
         "accumulator" : [ "sum" ],

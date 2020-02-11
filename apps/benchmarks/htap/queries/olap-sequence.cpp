@@ -41,8 +41,18 @@
 const auto q01_rel = std::vector<std::string>{"tpcc_orderline"};
 const auto q02_rel = std::vector<std::string>{
     "tpcc_region", "tpcc_nation", "tpcc_supplier", "tpcc_stock", "tpcc_item"};
+const auto q03_rel = std::vector<std::string>{"tpcc_customer", "tpcc_neworder",
+                                              "tpcc_order", "tpcc_orderline"};
 const auto q04_rel = std::vector<std::string>{"tpcc_order", "tpcc_orderline"};
 const auto q06_rel = std::vector<std::string>{"tpcc_orderline"};
+const auto q09_rel =
+    std::vector<std::string>{"tpcc_item",  "tpcc_stock",     "tpcc_supplier",
+                             "tpcc_order", "tpcc_orderline", "tpcc_nation"};
+const auto q12_rel = std::vector<std::string>{"tpcc_order", "tpcc_orderline"};
+const auto q15_rel =
+    std::vector<std::string>{"tpcc_stock", "tpcc_supplier", "tpcc_orderline"};
+const auto q18_rel =
+    std::vector<std::string>{"tpcc_customer", "tpcc_order", "tpcc_orderline"};
 const auto q19_rel = std::vector<std::string>{"tpcc_item", "tpcc_orderline"};
 
 typedef std::function<std::unique_ptr<Affinitizer>()> red_t;

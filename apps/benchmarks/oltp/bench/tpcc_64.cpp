@@ -1997,7 +1997,7 @@ void TPCC::create_tbl_new_order(uint64_t num_new_order) {
   columns.emplace_back("no_w_id", storage::INTEGER, sizeof(tmp.no_w_id));
 
   table_new_order = schema->create_table(
-      "tpcc_new_order",
+      "tpcc_neworder",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
       columns, num_new_order, index_on_order_tbl);
 }

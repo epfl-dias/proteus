@@ -1,0 +1,789 @@
+{
+  "operator" : "print",
+  "gpu" : false,
+  "e" : [ {
+    "expression" : "recordProjection",
+    "e" : {
+      "expression" : "argument"
+    },
+    "attribute" : {
+      "attrName" : "o_ol_cnt",
+      "relName" : "__sort27158"
+    },
+    "register_as" : {
+      "attrName" : "o_ol_cnt",
+      "relName" : "print27159"
+    }
+  }, {
+    "expression" : "recordProjection",
+    "e" : {
+      "expression" : "argument"
+    },
+    "attribute" : {
+      "attrName" : "high_line_count",
+      "relName" : "__sort27158"
+    },
+    "register_as" : {
+      "attrName" : "high_line_count",
+      "relName" : "print27159"
+    }
+  }, {
+    "expression" : "recordProjection",
+    "e" : {
+      "expression" : "argument"
+    },
+    "attribute" : {
+      "attrName" : "low_line_count",
+      "relName" : "__sort27158"
+    },
+    "register_as" : {
+      "attrName" : "low_line_count",
+      "relName" : "print27159"
+    }
+  } ],
+  "input" : {
+    "operator" : "sort",
+    "gpu" : false,
+    "rowType" : [ {
+      "relName" : "__sort27158",
+      "attrName" : "o_ol_cnt"
+    }, {
+      "relName" : "__sort27158",
+      "attrName" : "high_line_count"
+    }, {
+      "relName" : "__sort27158",
+      "attrName" : "low_line_count"
+    } ],
+    "e" : [ {
+      "direction" : "ASC",
+      "expression" : {
+        "expression" : "recordProjection",
+        "e" : {
+          "expression" : "argument"
+        },
+        "attribute" : {
+          "attrName" : "o_ol_cnt",
+          "relName" : "subsetPelagoAggregate#27157"
+        },
+        "register_as" : {
+          "attrName" : "o_ol_cnt",
+          "relName" : "__sort27158"
+        }
+      }
+    }, {
+      "direction" : "NONE",
+      "expression" : {
+        "expression" : "recordProjection",
+        "e" : {
+          "expression" : "argument"
+        },
+        "attribute" : {
+          "attrName" : "high_line_count",
+          "relName" : "subsetPelagoAggregate#27157"
+        },
+        "register_as" : {
+          "attrName" : "high_line_count",
+          "relName" : "__sort27158"
+        }
+      }
+    }, {
+      "direction" : "NONE",
+      "expression" : {
+        "expression" : "recordProjection",
+        "e" : {
+          "expression" : "argument"
+        },
+        "attribute" : {
+          "attrName" : "low_line_count",
+          "relName" : "subsetPelagoAggregate#27157"
+        },
+        "register_as" : {
+          "attrName" : "low_line_count",
+          "relName" : "__sort27158"
+        }
+      }
+    } ],
+    "granularity" : "thread",
+    "input" : {
+      "operator" : "groupby",
+      "gpu" : false,
+      "k" : [ {
+        "expression" : "recordProjection",
+        "e" : {
+          "expression" : "argument"
+        },
+        "attribute" : {
+          "attrName" : "o_ol_cnt",
+          "relName" : "subsetPelagoRouter#27156"
+        },
+        "register_as" : {
+          "attrName" : "o_ol_cnt",
+          "relName" : "subsetPelagoAggregate#27157"
+        }
+      } ],
+      "e" : [ {
+        "m" : "sum",
+        "e" : {
+          "expression" : "recordProjection",
+          "e" : {
+            "expression" : "argument"
+          },
+          "attribute" : {
+            "attrName" : "high_line_count",
+            "relName" : "subsetPelagoRouter#27156"
+          },
+          "register_as" : {
+            "attrName" : "high_line_count",
+            "relName" : "subsetPelagoAggregate#27157"
+          }
+        },
+        "packet" : 1,
+        "offset" : 0
+      }, {
+        "m" : "sum",
+        "e" : {
+          "expression" : "recordProjection",
+          "e" : {
+            "expression" : "argument"
+          },
+          "attribute" : {
+            "attrName" : "low_line_count",
+            "relName" : "subsetPelagoRouter#27156"
+          },
+          "register_as" : {
+            "attrName" : "low_line_count",
+            "relName" : "subsetPelagoAggregate#27157"
+          }
+        },
+        "packet" : 2,
+        "offset" : 0
+      } ],
+      "hash_bits" : 10,
+      "maxInputSize" : 131072,
+      "input" : {
+        "operator" : "router",
+        "numOfParents" : 1,
+        "slack" : 8,
+        "cpu_targets" : true,
+        "numa_local" : false,
+        "input" : {
+          "operator" : "groupby",
+          "gpu" : false,
+          "k" : [ {
+            "expression" : "recordProjection",
+            "e" : {
+              "expression" : "argument"
+            },
+            "attribute" : {
+              "attrName" : "o_ol_cnt",
+              "relName" : "subsetPelagoFilter#27154"
+            },
+            "register_as" : {
+              "attrName" : "o_ol_cnt",
+              "relName" : "subsetPelagoRouter#27156"
+            }
+          } ],
+          "e" : [ {
+            "m" : "sum",
+            "e" : {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument"
+              },
+              "attribute" : {
+                "attrName" : "CASE",
+                "relName" : "subsetPelagoFilter#27154"
+              },
+              "register_as" : {
+                "attrName" : "high_line_count",
+                "relName" : "subsetPelagoRouter#27156"
+              }
+            },
+            "packet" : 1,
+            "offset" : 0
+          }, {
+            "m" : "sum",
+            "e" : {
+              "expression" : "recordProjection",
+              "e" : {
+                "expression" : "argument"
+              },
+              "attribute" : {
+                "attrName" : "CASE6",
+                "relName" : "subsetPelagoFilter#27154"
+              },
+              "register_as" : {
+                "attrName" : "low_line_count",
+                "relName" : "subsetPelagoRouter#27156"
+              }
+            },
+            "packet" : 2,
+            "offset" : 0
+          } ],
+          "hash_bits" : 10,
+          "maxInputSize" : 131072,
+          "input" : {
+            "operator" : "select",
+            "gpu" : false,
+            "p" : {
+              "expression" : "le",
+              "left" : {
+                "expression" : "recordProjection",
+                "e" : {
+                  "expression" : "argument"
+                },
+                "attribute" : {
+                  "attrName" : "o_entry_d",
+                  "relName" : "subsetPelagoFilter#27154"
+                }
+              },
+              "right" : {
+                "expression" : "recordProjection",
+                "e" : {
+                  "expression" : "argument"
+                },
+                "attribute" : {
+                  "attrName" : "ol_delivery_d",
+                  "relName" : "subsetPelagoFilter#27154"
+                }
+              }
+            },
+            "input" : {
+              "operator" : "hashjoin-chained",
+              "build_k" : {
+                "expression" : "recordConstruction",
+                "type" : {
+                  "type" : "record"
+                },
+                "attributes" : [ {
+                  "name" : "$2",
+                  "e" : {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument"
+                    },
+                    "attribute" : {
+                      "attrName" : "o_w_id",
+                      "relName" : "subsetPelagoProject#27149"
+                    },
+                    "register_as" : {
+                      "attrName" : "$2",
+                      "relName" : "subsetPelagoFilter#27154"
+                    }
+                  }
+                }, {
+                  "name" : "$1",
+                  "e" : {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument"
+                    },
+                    "attribute" : {
+                      "attrName" : "o_d_id",
+                      "relName" : "subsetPelagoProject#27149"
+                    },
+                    "register_as" : {
+                      "attrName" : "$1",
+                      "relName" : "subsetPelagoFilter#27154"
+                    }
+                  }
+                }, {
+                  "name" : "$0",
+                  "e" : {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument"
+                    },
+                    "attribute" : {
+                      "attrName" : "o_id",
+                      "relName" : "subsetPelagoProject#27149"
+                    },
+                    "register_as" : {
+                      "attrName" : "$0",
+                      "relName" : "subsetPelagoFilter#27154"
+                    }
+                  }
+                } ],
+                "register_as" : {
+                  "attrName" : "$11",
+                  "relName" : "subsetPelagoFilter#27154"
+                }
+              },
+              "build_input" : {
+                "operator" : "project",
+                "relName" : "subsetPelagoProject#27149",
+                "e" : [ {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument"
+                  },
+                  "attribute" : {
+                    "attrName" : "o_id",
+                    "relName" : "tpcc_order<block-local>"
+                  },
+                  "register_as" : {
+                    "attrName" : "o_id",
+                    "relName" : "subsetPelagoProject#27149"
+                  }
+                }, {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument"
+                  },
+                  "attribute" : {
+                    "attrName" : "o_d_id",
+                    "relName" : "tpcc_order<block-local>"
+                  },
+                  "register_as" : {
+                    "attrName" : "o_d_id",
+                    "relName" : "subsetPelagoProject#27149"
+                  }
+                }, {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument"
+                  },
+                  "attribute" : {
+                    "attrName" : "o_w_id",
+                    "relName" : "tpcc_order<block-local>"
+                  },
+                  "register_as" : {
+                    "attrName" : "o_w_id",
+                    "relName" : "subsetPelagoProject#27149"
+                  }
+                }, {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument"
+                  },
+                  "attribute" : {
+                    "attrName" : "o_entry_d",
+                    "relName" : "tpcc_order<block-local>"
+                  },
+                  "register_as" : {
+                    "attrName" : "o_entry_d",
+                    "relName" : "subsetPelagoProject#27149"
+                  }
+                }, {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument"
+                  },
+                  "attribute" : {
+                    "attrName" : "o_ol_cnt",
+                    "relName" : "tpcc_order<block-local>"
+                  },
+                  "register_as" : {
+                    "attrName" : "o_ol_cnt",
+                    "relName" : "subsetPelagoProject#27149"
+                  }
+                }, {
+                  "expression" : "if",
+                  "cond" : {
+                    "expression" : "or",
+                    "left" : {
+                      "expression" : "eq",
+                      "left" : {
+                        "expression" : "recordProjection",
+                        "e" : {
+                          "expression" : "argument"
+                        },
+                        "attribute" : {
+                          "attrName" : "o_carrier_id",
+                          "relName" : "tpcc_order<block-local>"
+                        }
+                      },
+                      "right" : {
+                        "expression" : "int",
+                        "v" : 1
+                      }
+                    },
+                    "right" : {
+                      "expression" : "eq",
+                      "left" : {
+                        "expression" : "recordProjection",
+                        "e" : {
+                          "expression" : "argument"
+                        },
+                        "attribute" : {
+                          "attrName" : "o_carrier_id",
+                          "relName" : "tpcc_order<block-local>"
+                        }
+                      },
+                      "right" : {
+                        "expression" : "int",
+                        "v" : 2
+                      }
+                    }
+                  },
+                  "then" : {
+                    "expression" : "int",
+                    "v" : 1
+                  },
+                  "else" : {
+                    "expression" : "int",
+                    "v" : 0
+                  },
+                  "register_as" : {
+                    "attrName" : "CASE",
+                    "relName" : "subsetPelagoProject#27149"
+                  }
+                }, {
+                  "expression" : "if",
+                  "cond" : {
+                    "expression" : "and",
+                    "left" : {
+                      "expression" : "neq",
+                      "left" : {
+                        "expression" : "recordProjection",
+                        "e" : {
+                          "expression" : "argument"
+                        },
+                        "attribute" : {
+                          "attrName" : "o_carrier_id",
+                          "relName" : "tpcc_order<block-local>"
+                        }
+                      },
+                      "right" : {
+                        "expression" : "int",
+                        "v" : 1
+                      }
+                    },
+                    "right" : {
+                      "expression" : "neq",
+                      "left" : {
+                        "expression" : "recordProjection",
+                        "e" : {
+                          "expression" : "argument"
+                        },
+                        "attribute" : {
+                          "attrName" : "o_carrier_id",
+                          "relName" : "tpcc_order<block-local>"
+                        }
+                      },
+                      "right" : {
+                        "expression" : "int",
+                        "v" : 2
+                      }
+                    }
+                  },
+                  "then" : {
+                    "expression" : "int",
+                    "v" : 1
+                  },
+                  "else" : {
+                    "expression" : "int",
+                    "v" : 0
+                  },
+                  "register_as" : {
+                    "attrName" : "CASE6",
+                    "relName" : "subsetPelagoProject#27149"
+                  }
+                } ],
+                "input" : {
+                  "operator" : "unpack",
+                  "input" : {
+                    "operator" : "router",
+                    "numOfParents" : 48,
+                    "slack" : 8,
+                    "cpu_targets" : true,
+                    "target" : {
+                      "expression" : "recordProjection",
+                      "e" : {
+                        "expression" : "argument"
+                      },
+                      "attribute" : {
+                        "relName" : "tpcc_order<block-local>",
+                        "attrName" : "__broadcastTarget"
+                      }
+                    },
+                    "input" : {
+                      "operator" : "mem-broadcast-device",
+                      "num_of_targets" : 48,
+                      "input" : {
+                        "operator" : "scan",
+                        "gpu" : false,
+                        "plugin" : {
+                          "type" : "block-local",
+                          "linehint" : 400000,
+                          "name" : "tpcc_order<block-local>",
+                          "projections" : [ {
+                            "relName" : "tpcc_order<block-local>",
+                            "attrName" : "o_id"
+                          }, {
+                            "relName" : "tpcc_order<block-local>",
+                            "attrName" : "o_d_id"
+                          }, {
+                            "relName" : "tpcc_order<block-local>",
+                            "attrName" : "o_w_id"
+                          }, {
+                            "relName" : "tpcc_order<block-local>",
+                            "attrName" : "o_entry_d"
+                          }, {
+                            "relName" : "tpcc_order<block-local>",
+                            "attrName" : "o_carrier_id"
+                          }, {
+                            "relName" : "tpcc_order<block-local>",
+                            "attrName" : "o_ol_cnt"
+                          } ],
+                          "schema" : [ {
+                            "relName" : "tpcc_order<block-local>",
+                            "attrName" : "o_id",
+                            "type" : {
+                              "type" : "int64"
+                            },
+                            "attrNo" : 1
+                          }, {
+                            "relName" : "tpcc_order<block-local>",
+                            "attrName" : "o_d_id",
+                            "type" : {
+                              "type" : "int"
+                            },
+                            "attrNo" : 2
+                          }, {
+                            "relName" : "tpcc_order<block-local>",
+                            "attrName" : "o_w_id",
+                            "type" : {
+                              "type" : "int"
+                            },
+                            "attrNo" : 3
+                          }, {
+                            "relName" : "tpcc_order<block-local>",
+                            "attrName" : "o_c_id",
+                            "type" : {
+                              "type" : "int"
+                            },
+                            "attrNo" : 4
+                          }, {
+                            "relName" : "tpcc_order<block-local>",
+                            "attrName" : "o_entry_d",
+                            "type" : {
+                              "type" : "datetime"
+                            },
+                            "attrNo" : 5
+                          }, {
+                            "relName" : "tpcc_order<block-local>",
+                            "attrName" : "o_carrier_id",
+                            "type" : {
+                              "type" : "int"
+                            },
+                            "attrNo" : 6
+                          }, {
+                            "relName" : "tpcc_order<block-local>",
+                            "attrName" : "o_ol_cnt",
+                            "type" : {
+                              "type" : "int"
+                            },
+                            "attrNo" : 7
+                          }, {
+                            "relName" : "tpcc_order<block-local>",
+                            "attrName" : "o_all_local",
+                            "type" : {
+                              "type" : "int"
+                            },
+                            "attrNo" : 8
+                          } ]
+                        }
+                      },
+                      "to_cpu" : true
+                    }
+                  }
+                }
+              },
+              "probe_k" : {
+                "expression" : "recordConstruction",
+                "type" : {
+                  "type" : "record"
+                },
+                "attributes" : [ {
+                  "name" : "$9",
+                  "e" : {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument"
+                    },
+                    "attribute" : {
+                      "attrName" : "ol_w_id",
+                      "relName" : "tpcc_orderline<block-local>"
+                    },
+                    "register_as" : {
+                      "attrName" : "$9",
+                      "relName" : "subsetPelagoFilter#27154"
+                    }
+                  }
+                }, {
+                  "name" : "$8",
+                  "e" : {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument"
+                    },
+                    "attribute" : {
+                      "attrName" : "ol_d_id",
+                      "relName" : "tpcc_orderline<block-local>"
+                    },
+                    "register_as" : {
+                      "attrName" : "$8",
+                      "relName" : "subsetPelagoFilter#27154"
+                    }
+                  }
+                }, {
+                  "name" : "$7",
+                  "e" : {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument"
+                    },
+                    "attribute" : {
+                      "attrName" : "ol_o_id",
+                      "relName" : "tpcc_orderline<block-local>"
+                    },
+                    "register_as" : {
+                      "attrName" : "$7",
+                      "relName" : "subsetPelagoFilter#27154"
+                    }
+                  }
+                } ],
+                "register_as" : {
+                  "attrName" : "$12",
+                  "relName" : "subsetPelagoFilter#27154"
+                }
+              },
+              "hash_bits" : 20,
+              "maxBuildInputSize" : 400000,
+              "probe_input" : {
+                "operator" : "select",
+                "gpu" : false,
+                "p" : {
+                  "expression" : "lt",
+                  "left" : {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument"
+                    },
+                    "attribute" : {
+                      "attrName" : "ol_delivery_d",
+                      "relName" : "tpcc_orderline<block-local>"
+                    }
+                  },
+                  "right" : {
+                    "expression" : "datetime",
+                    "v" : "2020-01-01 00:00:00"
+                  }
+                },
+                "input" : {
+                  "operator" : "unpack",
+                  "input" : {
+                    "operator" : "mem-move-device",
+                    "input" : {
+                      "operator" : "router",
+                      "numOfParents" : 48,
+                      "slack" : 8,
+                      "cpu_targets" : true,
+                      "rand_local_cpu" : true,
+                      "input" : {
+                        "operator" : "scan",
+                        "gpu" : false,
+                        "plugin" : {
+                          "type" : "block-local",
+                          "linehint" : 6000000,
+                          "name" : "tpcc_orderline<block-local>",
+                          "projections" : [ {
+                            "relName" : "tpcc_orderline<block-local>",
+                            "attrName" : "ol_o_id"
+                          }, {
+                            "relName" : "tpcc_orderline<block-local>",
+                            "attrName" : "ol_d_id"
+                          }, {
+                            "relName" : "tpcc_orderline<block-local>",
+                            "attrName" : "ol_w_id"
+                          }, {
+                            "relName" : "tpcc_orderline<block-local>",
+                            "attrName" : "ol_delivery_d"
+                          } ],
+                          "schema" : [ {
+                            "relName" : "tpcc_orderline<block-local>",
+                            "attrName" : "ol_o_id",
+                            "type" : {
+                              "type" : "int64"
+                            },
+                            "attrNo" : 1
+                          }, {
+                            "relName" : "tpcc_orderline<block-local>",
+                            "attrName" : "ol_d_id",
+                            "type" : {
+                              "type" : "int"
+                            },
+                            "attrNo" : 2
+                          }, {
+                            "relName" : "tpcc_orderline<block-local>",
+                            "attrName" : "ol_w_id",
+                            "type" : {
+                              "type" : "int"
+                            },
+                            "attrNo" : 3
+                          }, {
+                            "relName" : "tpcc_orderline<block-local>",
+                            "attrName" : "ol_number",
+                            "type" : {
+                              "type" : "int"
+                            },
+                            "attrNo" : 4
+                          }, {
+                            "relName" : "tpcc_orderline<block-local>",
+                            "attrName" : "ol_i_id",
+                            "type" : {
+                              "type" : "int"
+                            },
+                            "attrNo" : 5
+                          }, {
+                            "relName" : "tpcc_orderline<block-local>",
+                            "attrName" : "ol_supply_w_id",
+                            "type" : {
+                              "type" : "int"
+                            },
+                            "attrNo" : 6
+                          }, {
+                            "relName" : "tpcc_orderline<block-local>",
+                            "attrName" : "ol_delivery_d",
+                            "type" : {
+                              "type" : "datetime"
+                            },
+                            "attrNo" : 7
+                          }, {
+                            "relName" : "tpcc_orderline<block-local>",
+                            "attrName" : "ol_quantity",
+                            "type" : {
+                              "type" : "int"
+                            },
+                            "attrNo" : 8
+                          }, {
+                            "relName" : "tpcc_orderline<block-local>",
+                            "attrName" : "ol_amount",
+                            "type" : {
+                              "type" : "float"
+                            },
+                            "attrNo" : 9
+                          }, {
+                            "relName" : "tpcc_orderline<block-local>",
+                            "attrName" : "ol_dist_info",
+                            "type" : {
+                              "type" : "dstring"
+                            },
+                            "attrNo" : 10
+                          } ]
+                        }
+                      }
+                    },
+                    "to_cpu" : true,
+                    "do_transfer" : [ true, true, true, true ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
