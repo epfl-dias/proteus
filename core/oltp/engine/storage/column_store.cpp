@@ -561,10 +561,9 @@ Column::Column(std::string name, uint64_t initial_num_records,
         global_conf::SnapshotManager::create(size_per_partition));
 
     snapshot_arenas[j][0]->create_snapshot(
-        {0, 0, 0, 0, static_cast<uint8_t>(j), false});
+        {0, 0, 0, static_cast<uint8_t>(j), false});
 
-    etl_arenas[j][0]->create_snapshot(
-        {0, 0, 0, 0, static_cast<uint8_t>(j), true});
+    etl_arenas[j][0]->create_snapshot({0, 0, 0, static_cast<uint8_t>(j), true});
   }
 
 #if HTAP_ETL
@@ -1068,8 +1067,7 @@ void Column::snapshot(const uint64_t* n_recs_part, uint64_t epoch,
     assert(snapshot_arenas[i].size() == 1);
 
     snapshot_arenas[i][0]->create_snapshot(
-        {n_recs_part[i], snapshot_arenas[i][0]->getMetadata().numOfRecords,
-         epoch, snapshot_master_ver, static_cast<uint8_t>(i),
+        {n_recs_part[i], epoch, snapshot_master_ver, static_cast<uint8_t>(i),
          this->touched[i]});
 
     if (this->touched[i]) etl_arenas[i][0]->setUpdated();
@@ -1393,25 +1391,25 @@ void ColumnStore::ETL(uint numa_node_idx) {
 
 void Column::ETL(uint numa_node_index) {
   // TODO: ETL with respect to the bit-mask.
-  // const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
-  // scheduler::AffinityManager::getInstance().set(&vec[numa_node_index]);
+  const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
+  scheduler::AffinityManager::getInstance().set(&vec[numa_node_index]);
 
   for (uint i = 0; i < this->num_partitions; i++) {
     // zero assume no runtime column expansion
     const auto& snap_arena = snapshot_arenas[i][0]->getMetadata();
-
+    const auto& olap_arena = etl_arenas[i][0]->getMetadata();
+    const auto olap_num_rec = olap_arena.numOfRecords;
     // book-keeping for etl-data
     etl_arenas[i][0]->create_snapshot(
-        {snap_arena.numOfRecords, snap_arena.prev_numOfRecords,
-         snap_arena.epoch_id, snap_arena.master_ver, snap_arena.partition_id,
-         false});
+        {snap_arena.numOfRecords, snap_arena.epoch_id, snap_arena.master_ver,
+         snap_arena.partition_id, false});
 
     const auto& chunk = master_versions[snap_arena.master_ver][i][0];
 
     if (snap_arena.upd_since_last_snapshot) {
       for (size_t msk = 0; msk < upd_bit_masks[snap_arena.master_ver][i].size();
            msk++) {
-        if (msk * BIT_PACK_SIZE >= snap_arena.prev_numOfRecords) break;
+        if (msk * BIT_PACK_SIZE >= olap_num_rec) break;
 
         if (upd_bit_masks[snap_arena.master_ver][i][msk].any(
                 std::memory_order::memory_order_acquire)) {
@@ -1431,21 +1429,19 @@ void Column::ETL(uint numa_node_index) {
       }
     }
 
-    if (__likely(snap_arena.numOfRecords > snap_arena.prev_numOfRecords)) {
+    if (__likely(snap_arena.numOfRecords > olap_num_rec)) {
       // std::cout << this->name << " : new_records: " <<
       // snap_arena.numOfRecords
       //           << " | " << snap_arena.prev_numOfRecords << std::endl;
 
       LOG(INFO) << "ETL-" << this->name << " | inserted records: "
-                << (snap_arena.numOfRecords - snap_arena.prev_numOfRecords)
-                << ", Size: "
-                << (double)((snap_arena.numOfRecords -
-                             snap_arena.prev_numOfRecords) *
+                << (snap_arena.numOfRecords - olap_num_rec) << ", Size: "
+                << (double)((snap_arena.numOfRecords - olap_num_rec) *
                             this->elem_size) /
                        (1024 * 1024 * 1024);
-      size_t st = snap_arena.prev_numOfRecords * this->elem_size;
-      size_t to_cpy = (snap_arena.numOfRecords - snap_arena.prev_numOfRecords) *
-                      this->elem_size;
+      size_t st = olap_num_rec * this->elem_size;
+      size_t to_cpy =
+          (snap_arena.numOfRecords - olap_num_rec) * this->elem_size;
       memcpy(((char*)(etl_mem[i])) + st, ((char*)chunk.data) + st, to_cpy);
     }
 
