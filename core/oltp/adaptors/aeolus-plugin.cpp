@@ -72,12 +72,6 @@ void freeNumOfTuplesPerPartition_runtime(int64_t *inn, AeolusPlugin *pg) {
   pg->freeNumOfTuplesPerPartition_runtime(inn);
 }
 
-Plugin *createBlockCowPlugin(ParallelContext *context, std::string fnamePrefix,
-                             RecordType rec,
-                             std::vector<RecordAttribute *> &whichFields) {
-  return new AeolusCowPlugin(context, fnamePrefix, rec, whichFields);
-}
-
 Plugin *createBlockRemotePlugin(ParallelContext *context,
                                 std::string fnamePrefix, RecordType rec,
                                 std::vector<RecordAttribute *> &whichFields) {

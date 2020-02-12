@@ -83,8 +83,6 @@ prep_wrapper_t qs_old() {
       return qs_old_inner<id, AeolusElasticPlugin>();
     } else if (t == AeolusElasticNIPlugin::type) {
       return qs_old_inner<id, AeolusElasticNIPlugin>();
-    } else if (t == AeolusCowPlugin::type) {
-      return qs_old_inner<id, AeolusCowPlugin>();
     } else {
       assert(false);
       throw std::runtime_error("Unknown plugin: " + t);

@@ -335,8 +335,8 @@ Table::Table(std::string name, uint8_t table_id, layout_type storage_layout,
   //  one possible solution is to register the tables "variants" when asking
   //  for the plugin, just before the plan creation, where either way the
   //  scheduler knows about the available plugins
-  for (const auto& s : {"block-local", "block-remote", "block-cow",
-                        "block-elastic", "block-elastic-ni"}) {
+  for (const auto& s :
+       {"block-local", "block-remote", "block-elastic", "block-elastic-ni"}) {
     auto tName = name + "<" + s + ">";
     LOG(INFO) << "Registering table " << tName << " to OLAP";
     CatalogParser::getInstance().registerInput(tName, exprType);

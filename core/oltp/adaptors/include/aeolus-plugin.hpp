@@ -62,14 +62,6 @@ class AeolusPlugin : public BinaryBlockPlugin {
   std::string pgType;
 };
 
-class AeolusCowPlugin : public AeolusPlugin {
- public:
-  static constexpr auto type = "block-cow";
-  AeolusCowPlugin(ParallelContext *const context, std::string fnamePrefix,
-                  RecordType rec, std::vector<RecordAttribute *> &whichFields)
-      : AeolusPlugin(context, fnamePrefix, rec, whichFields, type) {}
-};
-
 class AeolusLocalPlugin : public AeolusPlugin {
  public:
   static constexpr auto type = "block-local";
@@ -107,9 +99,6 @@ class AeolusElasticNIPlugin : public AeolusPlugin {
 };
 
 extern "C" {
-Plugin *createBlockCowPlugin(ParallelContext *context, std::string fnamePrefix,
-                             RecordType rec,
-                             std::vector<RecordAttribute *> &whichFields);
 
 Plugin *createBlockRemotePlugin(ParallelContext *context,
                                 std::string fnamePrefix, RecordType rec,
