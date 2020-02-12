@@ -345,39 +345,7 @@ std::ostream &operator<<(std::ostream &out, const OLAPSequence &seq) {
   out << "OLAP Stats" << std::endl;
   for (const auto &r : seq.stats) {
     out << "Sequence Run # " << r->run_id << std::endl;
-
-    // per query avg time
-    // std::vector<double> q_avg_time(r->sts.size(), 0.0);
-    uint i = 0;
-    for (const auto &q : r->sts) {
-      out << "\t\tQuery # " << (i + 1) << " -";
-      for (const auto &q_ts : q) {
-        // q_avg_time[i] += q_ts;
-
-        out << "\t" << q_ts.second;
-      }
-      out << std::endl;
-      // q_avg_time[i] /= q.size();
-      // out << "\t\tQuery (Avg) # " << (i + 1) << " - " << q_avg_time[i] << "
-      // ms"
-      //     << std::endl;
-      i++;
-    }
-
-    // average sequence time
-    // double average = (double)(std::accumulate(r->sequence_time.begin(),
-    //                                           r->sequence_time.end(), 0.0))
-    //                                           /
-    //                  ((double)r->sequence_time.size());
-
-    // out << "\t\tQuery Sequence - " << average << " ms" << std::endl;
-
-    out << "\tSequence Time "
-        << " -";
-    for (const auto &st : r->sequence_time) {
-      out << "\t" << st.second;
-    }
-    out << std::endl;
+    out << seq;
   }
   return out;
 }
@@ -385,27 +353,27 @@ std::ostream &operator<<(std::ostream &out, const OLAPSequence &seq) {
 std::ostream &operator<<(std::ostream &out, const OLAPSequenceStats &r) {
   out << "Sequence Run # " << r.run_id << std::endl;
 
-  uint ts = 0;
+  size_t i = 0;
   for (const auto &q : r.sts) {
     out << "\t\t\tTime -";
     for (const auto &q_ts : q) {
       out << "\t" << q_ts.first;
     }
     out << std::endl;
-    ts++;
+    i++;
   }
 
-  uint t = 0;
+  i = 0;
   for (const auto &q : r.oltp_stats) {
     out << "\t\t\tOLTP -";
     for (const auto &q_ts : q) {
       out << "\t" << q_ts.second;
     }
     out << std::endl;
-    t++;
+    i++;
   }
 
-  uint i = 0;
+  i = 0;
   for (const auto &q : r.sts) {
     out << "\t\tQuery # " << (i + 1) << " -";
     for (const auto &q_ts : q) {
@@ -415,34 +383,44 @@ std::ostream &operator<<(std::ostream &out, const OLAPSequenceStats &r) {
     i++;
   }
 
-  uint l = 0;
-  for (const auto &q : r.freshness_ratios) {
-    out << "\t\tR_fq " << (l + 1) << " -";
-    for (const auto &q_ts : q) {
-      out << "\t" << (q_ts.first);
-    }
-    out << std::endl;
-    l++;
-  }
-
-  l = 0;
-  for (const auto &q : r.freshness_ratios) {
-    out << "\t\tR_ft " << (l + 1) << " -";
-    for (const auto &q_ts : q) {
-      out << "\t" << (q_ts.second);
-    }
-    out << std::endl;
-    l++;
-  }
-
-  uint k = 0;
-  for (const auto &q : r.sts_state) {
-    out << "\t\tQState # " << (k + 1) << " -";
+  i = 0;
+  for (const auto &q : r.input_records) {
+    out << "\tInputRecords-Q # " << (i + 1) << " -";
     for (const auto &q_ts : q) {
       out << "\t" << q_ts;
     }
     out << std::endl;
-    k++;
+    i++;
+  }
+
+  i = 0;
+  for (const auto &q : r.freshness_ratios) {
+    out << "\t\tR_fq " << (i + 1) << " -";
+    for (const auto &q_ts : q) {
+      out << "\t" << (q_ts.first);
+    }
+    out << std::endl;
+    i++;
+  }
+
+  i = 0;
+  for (const auto &q : r.freshness_ratios) {
+    out << "\t\tR_ft " << (i + 1) << " -";
+    for (const auto &q_ts : q) {
+      out << "\t" << (q_ts.second);
+    }
+    out << std::endl;
+    i++;
+  }
+
+  i = 0;
+  for (const auto &q : r.sts_state) {
+    out << "\t\tQState # " << (i + 1) << " -";
+    for (const auto &q_ts : q) {
+      out << "\t" << q_ts;
+    }
+    out << std::endl;
+    i++;
   }
 
   out << "\tSequence Time "
