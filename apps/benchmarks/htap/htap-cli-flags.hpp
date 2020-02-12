@@ -39,3 +39,4 @@ DECLARE_bool(per_query_snapshot);
 DECLARE_int64(etl_interval_ms);
 
 DECLARE_int64(micro_ch_query);
+DECLARE_double(adaptive_ratio);

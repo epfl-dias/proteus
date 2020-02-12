@@ -104,10 +104,10 @@ std::vector<std::pair<std::vector<std::string>, prep_wrapper_t>> ch_map = {
     //    {q15_rel, qs("Q15.sql.json")},
     //    {q18_rel, qs("Q18.sql.json")},
     //    {q19_rel, qs("Q19_simplified.sql.json")},
-    //    {q01_rel, qs_old<1, plugin_t>()},
+    {q01_rel, qs_old<1>()},
     //    {q04_rel, qs_old<4, plugin_t>()},
     {q06_rel, qs_old<6>()},
-    //    {q19_rel, qs_old<19, plugin_t>()},
+    {q19_rel, qs_old<19>()},
 };
 
 auto OLAPSequence::getIsolatedOLAPResources() {
@@ -463,11 +463,12 @@ std::ostream &operator<<(std::ostream &out, const OLAPSequenceStats &r) {
 }
 
 HTAPSequenceConfig::HTAPSequenceConfig(
-    exec_nodes olap_nodes, exec_nodes oltp_nodes, uint oltp_scale_threshold,
-    uint collocated_worker_threshold,
+    exec_nodes olap_nodes, exec_nodes oltp_nodes, double adaptivity_ratio,
+    uint oltp_scale_threshold, uint collocated_worker_threshold,
     SchedulingPolicy::ScheduleMode schedule_policy)
     : olap_nodes(olap_nodes),
       oltp_nodes(oltp_nodes),
+      adaptivity_ratio(adaptivity_ratio),
       oltp_scale_threshold(oltp_scale_threshold),
       collocated_worker_threshold(collocated_worker_threshold),
       schedule_policy(schedule_policy) {
@@ -494,12 +495,13 @@ HTAPSequenceConfig::HTAPSequenceConfig(
   }
 }
 HTAPSequenceConfig::HTAPSequenceConfig(
-    exec_nodes olap_nodes, exec_nodes oltp_nodes, uint oltp_scale_threshold,
-    uint collocated_worker_threshold,
+    exec_nodes olap_nodes, exec_nodes oltp_nodes, double adaptivity_ratio,
+    uint oltp_scale_threshold, uint collocated_worker_threshold,
     SchedulingPolicy::ResourceSchedule resource_policy,
     SchedulingPolicy::DataAccess data_access_policy)
     : olap_nodes(olap_nodes),
       oltp_nodes(oltp_nodes),
+      adaptivity_ratio(adaptivity_ratio),
       oltp_scale_threshold(oltp_scale_threshold),
       collocated_worker_threshold(collocated_worker_threshold),
       resource_policy(resource_policy),
@@ -661,7 +663,7 @@ SchedulingPolicy::ScheduleMode OLAPSequence::getNextState(
     const std::pair<double, double> &freshness_ratios) {
   double r_fq = freshness_ratios.first;
   double r_ft = freshness_ratios.second;
-  if (r_fq < r_ft) {
+  if (r_fq < (this->conf.adaptivity_ratio * r_ft)) {
     if (conf.oltp_scale_threshold <= 0) {
       return SchedulingPolicy::S3_IS;
     } else {

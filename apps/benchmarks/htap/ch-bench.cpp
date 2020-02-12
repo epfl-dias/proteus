@@ -175,7 +175,7 @@ int main(int argc, char *argv[]) {
     oltp_engine.etl(OLAP_socket);
   }
 
-  HTAPSequenceConfig htap_conf(olap_nodes, oltp_nodes,
+  HTAPSequenceConfig htap_conf(olap_nodes, oltp_nodes, FLAGS_adaptive_ratio,
                                FLAGS_oltp_elastic_threshold,
                                (oltp_num_workers / 2), schedule_policy);
 

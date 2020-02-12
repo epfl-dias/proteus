@@ -87,6 +87,7 @@ class HTAPSequenceConfig {
   const exec_nodes oltp_nodes;
   const uint oltp_scale_threshold;
   const uint collocated_worker_threshold;
+  const double adaptivity_ratio;
 
   SchedulingPolicy::ScheduleMode schedule_policy;
   SchedulingPolicy::ResourceSchedule resource_policy;
@@ -96,12 +97,14 @@ class HTAPSequenceConfig {
   uint q_num;
 
   HTAPSequenceConfig(exec_nodes olap_nodes, exec_nodes oltp_nodes,
+                     double adaptivity_ratio = 1.0,
                      uint oltp_scale_threshold = 0,
                      uint collocated_worker_threshold = 0,
                      SchedulingPolicy::ScheduleMode schedule_policy =
                          SchedulingPolicy::S2_ISOLATED);
 
   HTAPSequenceConfig(exec_nodes olap_nodes, exec_nodes oltp_nodes,
+                     double adaptivity_ratio = 1.0,
                      uint oltp_scale_threshold = 0,
                      uint collocated_worker_threshold = 0,
                      SchedulingPolicy::ResourceSchedule resource_policy =
@@ -117,10 +120,10 @@ class HTAPSequenceConfig {
 
 class OLAPSequence {
  private:
+  const HTAPSequenceConfig conf;
   int total_queries;
   std::vector<PreparedQuery> stmts;
   std::deque<OLAPSequenceStats *> stats;
-  HTAPSequenceConfig conf;
 
  public:
   OLAPSequence(int client_id, HTAPSequenceConfig conf, DeviceType dev);

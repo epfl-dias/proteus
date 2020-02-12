@@ -50,3 +50,5 @@ DEFINE_bool(per_query_snapshot, true, "Query-level data freshness");
 DEFINE_int64(etl_interval_ms, -1, "max ETL interval");
 
 DEFINE_int64(micro_ch_query, -1, "Micro-bench: CH-Query #");
+
+DEFINE_double(adaptive_ratio, 1.0, "Ratio for Adaptive HTAP");
