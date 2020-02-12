@@ -50,16 +50,20 @@ typedef std::function<std::unique_ptr<Affinitizer>()> red_t;
 typedef std::function<PreparedStatement(DegreeOfParallelism, aff_t, red_t)>
     prep_t;
 
-prep_t qs(const std::string &plan) {
-  return [plan](DegreeOfParallelism dop, aff_t aff_parallel, red_t aff_reduce,
-                DeviceType dev = DeviceType::CPU) {
-    const std::string planDir = "benchmarks/htap/queries/clotho/cpu/";
-    return PreparedStatement::from(planDir + plan, plan);
+typedef std::function<prep_t(pg)> prep_wrapper_t;
+
+prep_wrapper_t qs(const std::string &plan) {
+  return [plan](pg type) {
+    return [plan, type](DegreeOfParallelism dop, aff_t aff_parallel,
+                        red_t aff_reduce, DeviceType dev = DeviceType::CPU) {
+      const std::string planDir = "benchmarks/htap/queries/clotho/cpu/";
+      return PreparedStatement::from(planDir + plan, plan);
+    };
   };
 }
 
 template <size_t id, typename plugin_t>
-prep_t qs_old() {
+prep_t qs_old_inner() {
   return [](DegreeOfParallelism dop, aff_t aff_parallel, red_t aff_reduce,
             DeviceType dev = DeviceType::CPU) {
     return Q<id>::template prepare<plugin_t, aff_t, red_t>(dop, aff_parallel,
@@ -67,27 +71,43 @@ prep_t qs_old() {
   };
 }
 
-template <typename plugin_t = AeolusLocalPlugin>
-std::vector<std::pair<std::vector<std::string>, prep_t>> ch_map = {
-    //        {q01_rel, qs("Q01.sql.json")},
-    //        {q02_rel, qs("Q02_simplified.sql.json")},
-    //        {q06_rel, qs("Q06.sql.json")},
-    //        {q19_rel, qs("Q19_simplified.sql.json")},
-    //{q01_rel, qs_old<1, plugin_t>()},
-    //        {q04_rel, qs_old<4, plugin_t>()},
-    {q06_rel, qs_old<6, plugin_t>()},
-    //{q19_rel, qs_old<19, plugin_t>()},
-};
+template <size_t id>
+prep_wrapper_t qs_old() {
+  return [](pg type) {
+    auto t = type.getType();
+    if (t == AeolusLocalPlugin::type) {
+      return qs_old_inner<id, AeolusLocalPlugin>();
+    } else if (t == AeolusRemotePlugin::type) {
+      return qs_old_inner<id, AeolusRemotePlugin>();
+    } else if (t == AeolusElasticPlugin::type) {
+      return qs_old_inner<id, AeolusElasticPlugin>();
+    } else if (t == AeolusElasticNIPlugin::type) {
+      return qs_old_inner<id, AeolusElasticNIPlugin>();
+    } else if (t == AeolusCowPlugin::type) {
+      return qs_old_inner<id, AeolusCowPlugin>();
+    } else {
+      assert(false);
+      throw std::runtime_error("Unknown plugin: " + t);
+    }
+  };
+}
 
-std::vector<std::vector<std::string>> ch_map2 = {
-    //        {q01_rel, qs("Q01.sql.json")},
-    //        {q02_rel, qs("Q02_simplified.sql.json")},
-    //        {q06_rel, qs("Q06.sql.json")},
-    //        {q19_rel, qs("Q19_simplified.sql.json")},
-    //{q01_rel, qs_old<1, plugin_t>()},
-    //        {q04_rel, qs_old<4, plugin_t>()},
-    q06_rel,
-    //{q19_rel, qs_old<19, plugin_t>()},
+std::vector<std::pair<std::vector<std::string>, prep_wrapper_t>> ch_map = {
+    //    {q01_rel, qs("Q01.sql.json")},
+    //    {q02_rel, qs("Q02_simplified.sql.json")},
+    //    {q02_rel, qs("Q02_simplified_red.sql.json")},
+    ////    {q03_rel, qs("Q03_simplified.sql.json")},
+    //    {q04_rel, qs("Q04.sql.json")},
+    //    {q06_rel, qs("Q06.sql.json")},
+    //    {q09_rel, qs("Q09_simplified.sql.json")},
+    //    {q12_rel, qs("Q12.sql.json")},
+    //    {q15_rel, qs("Q15.sql.json")},
+    //    {q18_rel, qs("Q18.sql.json")},
+    //    {q19_rel, qs("Q19_simplified.sql.json")},
+    //    {q01_rel, qs_old<1, plugin_t>()},
+    //    {q04_rel, qs_old<4, plugin_t>()},
+    {q06_rel, qs_old<6>()},
+    //    {q19_rel, qs_old<19, plugin_t>()},
 };
 
 auto OLAPSequence::getIsolatedOLAPResources() {
@@ -177,8 +197,9 @@ void OLAPSequence::setupAdaptiveSequence() {
       return std::make_unique<CpuCoreAffinitizer>();
     };
 
-    for (const auto &q : ch_map<AeolusRemotePlugin>) {
-      stmts.emplace_back(q.second(colocated_dop, aff_parallel, aff_reduce));
+    for (const auto &q : ch_map) {
+      stmts.emplace_back(q.second(pg(AeolusRemotePlugin::type))(
+          colocated_dop, aff_parallel, aff_reduce));
       total_queries++;
     }
   }
@@ -194,8 +215,9 @@ void OLAPSequence::setupAdaptiveSequence() {
       return std::make_unique<CpuCoreAffinitizer>();
     };
 
-    for (const auto &q : ch_map<AeolusLocalPlugin>) {
-      stmts.emplace_back(q.second(isolated_dop, aff_parallel, aff_reduce));
+    for (const auto &q : ch_map) {
+      stmts.emplace_back(q.second(pg(AeolusLocalPlugin::type))(
+          isolated_dop, aff_parallel, aff_reduce));
     }
   }
 
@@ -210,8 +232,9 @@ void OLAPSequence::setupAdaptiveSequence() {
       return std::make_unique<CpuCoreAffinitizer>();
     };
 
-    for (const auto &q : ch_map<AeolusElasticPlugin>) {
-      stmts.emplace_back(q.second(isolated_dop, aff_parallel, aff_reduce));
+    for (const auto &q : ch_map) {
+      stmts.emplace_back(q.second(pg(AeolusElasticPlugin::type))(
+          isolated_dop, aff_parallel, aff_reduce));
     }
   }
 
@@ -226,8 +249,9 @@ void OLAPSequence::setupAdaptiveSequence() {
       return std::make_unique<CpuCoreAffinitizer>();
     };
 
-    for (const auto &q : ch_map<AeolusElasticNIPlugin>) {
-      stmts.emplace_back(q.second(elastic_dop, aff_parallel, aff_reduce));
+    for (const auto &q : ch_map) {
+      stmts.emplace_back(q.second(pg(AeolusElasticNIPlugin::type))(
+          elastic_dop, aff_parallel, aff_reduce));
     }
   }
 
@@ -289,23 +313,26 @@ OLAPSequence::OLAPSequence(int client_id, HTAPSequenceConfig conf,
 
   if (conf.data_access_policy == SchedulingPolicy::REMOTE_READ ||
       conf.schedule_policy == SchedulingPolicy::S1_COLOCATED) {
-    for (const auto &q : ch_map<AeolusRemotePlugin>) {
-      stmts.emplace_back(q.second(dop, aff_parallel, aff_reduce));
+    for (const auto &q : ch_map) {
+      stmts.emplace_back(q.second(pg(AeolusRemotePlugin::type))(
+          dop, aff_parallel, aff_reduce));
       total_queries++;
     }
 
   } else if (conf.data_access_policy == SchedulingPolicy::LOCAL_READ ||
              conf.schedule_policy == SchedulingPolicy::S2_ISOLATED) {
-    for (const auto &q : ch_map<AeolusLocalPlugin>) {
-      stmts.emplace_back(q.second(dop, aff_parallel, aff_reduce));
+    for (const auto &q : ch_map) {
+      stmts.emplace_back(
+          q.second(pg(AeolusLocalPlugin::type))(dop, aff_parallel, aff_reduce));
       total_queries++;
     }
 
   } else if (conf.data_access_policy == SchedulingPolicy::HYBRID_READ ||
              conf.schedule_policy == SchedulingPolicy::S3_IS ||
              conf.schedule_policy == SchedulingPolicy::S3_NI) {
-    for (const auto &q : ch_map<AeolusElasticPlugin>) {
-      stmts.emplace_back(q.second(dop, aff_parallel, aff_reduce));
+    for (const auto &q : ch_map) {
+      stmts.emplace_back(q.second(pg(AeolusElasticPlugin::type))(
+          dop, aff_parallel, aff_reduce));
       total_queries++;
     }
 
@@ -602,7 +629,7 @@ std::pair<double, double> OLAPSequence::getFreshnessRatios(
   // matter what.
 
   auto db_f = txn_engine.getFreshness();
-  auto query_f = txn_engine.getFreshnessRelation(ch_map2[query_idx]);
+  auto query_f = txn_engine.getFreshnessRelation(ch_map[query_idx].first);
 
   auto query_fresh_data = query_f.second - query_f.first;
   auto total_fresh_data = db_f.second - db_f.first;

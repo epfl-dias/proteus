@@ -150,7 +150,7 @@ class OLTP {
   }
 
   inline std::pair<size_t, size_t> getFreshnessRelation(
-      std::vector<std::string> &tables) {
+      const std::vector<std::string> &tables) {
     size_t total_olap = 0;
     size_t total_oltp = 0;
     for (auto &tb : tables) {
