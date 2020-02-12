@@ -118,6 +118,7 @@ class alignas(4096) ColumnStore : public Table {
   Column *meta_column;
   // Column **secondary_index_vals;
   uint64_t offset;
+  ushort num_data_partitions;
 
   size_t nParts;
 };

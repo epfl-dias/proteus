@@ -86,7 +86,7 @@ void Column::sync_master_snapshots(ushort master_ver_idx) {
 
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     if (i == master_ver_idx) continue;
-    for (ushort j = 0; j < g_num_partitions; j++) {
+    for (ushort j = 0; j < this->num_partitions; j++) {
       // std::cout << "sync: p_id: " << j << std::endl;
       assert(master_versions[master_ver_idx][j].size() ==
              master_versions[i][j].size());
@@ -215,6 +215,11 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
   this->indexed = indexed;
   this->deltaStore = storage::Schema::getInstance().deltaStore;
 
+  if (partitioned)
+    this->num_data_partitions = g_num_partitions;
+  else
+    this->num_data_partitions = 1;
+
   for (int i = 0; i < g_num_partitions; i++) this->vid[i] = 0;
 
   std::vector<proteus::thread> loaders;
@@ -306,6 +311,7 @@ void ColumnStore::offsetVID(uint64_t offset) {
 
 void ColumnStore::insertIndexRecord(uint64_t rid, uint64_t xid,
                                     ushort partition_id, ushort master_ver) {
+  partition_id = partition_id % this->num_data_partitions;
   assert(this->indexed);
   uint64_t curr_vid = vid[partition_id].fetch_add(1);
 
@@ -325,6 +331,7 @@ void ColumnStore::insertIndexRecord(uint64_t rid, uint64_t xid,
 void* ColumnStore::insertRecordBatch(void* rec_batch, uint recs_to_ins,
                                      uint capacity_offset, uint64_t xid,
                                      ushort partition_id, ushort master_ver) {
+  partition_id = partition_id % this->num_data_partitions;
   uint64_t idx_st = vid[partition_id].fetch_add(recs_to_ins);
   // get batch from meta column
   uint64_t st_vid = CC_gen_vid(idx_st, partition_id, master_ver, 0);
@@ -358,6 +365,7 @@ void* ColumnStore::insertRecordBatch(void* rec_batch, uint recs_to_ins,
 
 void* ColumnStore::insertRecord(void* rec, uint64_t xid, ushort partition_id,
                                 ushort master_ver) {
+  partition_id = partition_id % this->num_data_partitions;
   uint64_t idx = vid[partition_id].fetch_add(1);
   uint64_t curr_vid = CC_gen_vid(idx, partition_id, master_ver, 0);
 
@@ -394,6 +402,7 @@ void* ColumnStore::insertRecord(void* rec, uint64_t xid, ushort partition_id,
 
 uint64_t ColumnStore::insertRecord(void* rec, ushort partition_id,
                                    ushort master_ver) {
+  partition_id = partition_id % this->num_data_partitions;
   uint64_t curr_vid =
       CC_gen_vid(vid[partition_id].fetch_add(1), partition_id, master_ver, 0);
 

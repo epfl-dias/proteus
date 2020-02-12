@@ -104,15 +104,13 @@ int main(int argc, char *argv[]) {
     g_num_partitions = oltp_data_partitions;
   }
 
-  LOG(INFO) << "[OLTP] data-partitions: " << oltp_data_partitions;
-  LOG(INFO) << "[OLTP] Txn workers: " << oltp_num_workers;
-  LOG(INFO) << "[OLTP] CH Scale Factor: " << FLAGS_ch_scale_factor;
-
   if (FLAGS_htap_mode.compare("COLOC") == 0) {
     g_num_partitions = 2;
+    oltp_data_partitions = 2;
     oltp_engine.init(new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers,
                                      true, FLAGS_ch_scale_factor, 0, "", true),
-                     oltp_num_workers, 2, FLAGS_ch_scale_factor, true);
+                     oltp_num_workers, oltp_data_partitions,
+                     FLAGS_ch_scale_factor, true);
 
   } else {
     oltp_engine.init(new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers,
@@ -121,6 +119,9 @@ int main(int argc, char *argv[]) {
                      FLAGS_ch_scale_factor);
   }
 
+  LOG(INFO) << "[OLTP] data-partitions: " << oltp_data_partitions;
+  LOG(INFO) << "[OLTP] Txn workers: " << oltp_num_workers;
+  LOG(INFO) << "[OLTP] CH Scale Factor: " << FLAGS_ch_scale_factor;
   LOG(INFO) << "[OLTP] Initialization completed.";
 
   oltp_engine.print_storage_stats();
