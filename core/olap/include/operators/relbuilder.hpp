@@ -228,6 +228,8 @@ class RelBuilder {
     return router(DegreeOfParallelism{dop}, slack, p, target, std::move(aff));
   }
 
+  RelBuilder unionAll(const std::vector<RelBuilder>& children) const;
+
   RelBuilder to_gpu() const;
 
   template <typename T>
@@ -378,6 +380,9 @@ class RelBuilder {
                     std::optional<expression_t> hash,
                     DegreeOfParallelism fanout, size_t slack, RoutingPolicy p,
                     DeviceType target, std::unique_ptr<Affinitizer> aff) const;
+
+  RelBuilder unionAll(const std::vector<RelBuilder>& children,
+                      const vector<RecordAttribute*>& wantedFields) const;
 
   RelBuilder membrdcst(const vector<RecordAttribute*>& wantedFields,
                        DegreeOfParallelism fanout, bool to_cpu,

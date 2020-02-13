@@ -46,6 +46,7 @@
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
 #include "operators/sort.hpp"
+#include "operators/unionall.hpp"
 #include "operators/unnest.hpp"
 #include "plan/catalog-parser.hpp"
 #include "util/parallel-context.hpp"
@@ -560,4 +561,24 @@ RelBuilder RelBuilder::print(
     std::function<std::vector<expression_t>(const expressions::InputArgument &)>
         exprs) const {
   return print(exprs, pg("pm-csv"));
+}
+
+RelBuilder RelBuilder::unionAll(const std::vector<RelBuilder> &children) const {
+  std::vector<RecordAttribute *> projections;
+  for (const auto &attr : getOutputArg().getProjections()) {
+    projections.emplace_back(new RecordAttribute{attr});
+  }
+
+  return unionAll(children, projections);
+}
+
+RelBuilder RelBuilder::unionAll(
+    const std::vector<RelBuilder> &children,
+    const vector<RecordAttribute *> &wantedFields) const {
+  std::vector<Operator *> c2{root};
+  c2.reserve(children.size() + 1);
+  for (const auto &c : children) c2.emplace_back(c.root);
+  auto op = new UnionAll(c2, wantedFields);
+  for (const auto &c : children) c.apply(op);
+  return apply(op);
 }

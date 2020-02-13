@@ -1298,10 +1298,17 @@ inline expressions::RecordProjection expression_t::operator[](
   auto p = rec->getArg(proj.getAttrName());
   if (p) {
     if (p->getRelationName() == proj.getRelationName()) return {*this, *p};
+#ifndef NDEBUG
+    size_t cnt = 0;
+#endif
     for (const auto &p2 : rec->getArgs()) {
       if (*p2 == proj) return {*this, *p2};
+#ifndef NDEBUG
+      cnt += p2->getAttrName() == proj.getAttrName();
+#endif
     }
-    assert(false && "same attrName but not relName");
+    assert(cnt == 1 && "Same attrName but not relName AND multiple such attrs");
+    return {*this, *p};
   }
   if (proj.getAttrName().size() > 0 && proj.getAttrName()[0] == '$') {
     try {

@@ -59,6 +59,11 @@ class UnionAll : public Router {
     return dop;
   }
 
+  virtual DeviceType getDeviceType() const {
+    assert(children.size() > 0);
+    return children[0]->getDeviceType();
+  }
+
  private:
   vector<Operator *> children;
 };

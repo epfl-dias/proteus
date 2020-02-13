@@ -45,7 +45,6 @@
 #include "operators/dict-scan.hpp"
 #include "operators/flush.hpp"
 #include "operators/gpu/gpu-materializer-expr.hpp"
-#include "operators/gpu/gpu-sort.hpp"
 #include "operators/hash-group-by-chained.hpp"
 #include "operators/hash-join-chained.hpp"
 #include "operators/hash-rearrange.hpp"
@@ -55,7 +54,6 @@
 #include "operators/outer-unnest.hpp"
 #include "operators/packet-zip.hpp"
 #include "operators/print.hpp"
-#include "operators/project.hpp"
 #include "operators/radix-join.hpp"
 #include "operators/radix-nest.hpp"
 #include "operators/reduce-opt.hpp"
@@ -63,9 +61,7 @@
 #include "operators/router.hpp"
 #include "operators/scan.hpp"
 #include "operators/select.hpp"
-#include "operators/sort.hpp"
 #include "operators/split.hpp"
-#include "operators/unionall.hpp"
 #include "operators/unnest.hpp"
 #include "rapidjson/error/en.h"
 #include "rapidjson/stringbuffer.h"
@@ -1537,30 +1533,16 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     /* parse operator input */
     assert(val.HasMember("input"));
     assert(val["input"].IsArray());
-    std::vector<RelBuilder> cs;
-    std::vector<Operator *> children;
+
+    std::vector<RelBuilder> children;
     for (const auto &child : val["input"].GetArray()) {
       assert(child.IsObject());
-      cs.emplace_back(parseOperator(child));
-      children.push_back(cs.back().root);
+      children.emplace_back(parseOperator(child));
     }
 
-    assert(val.HasMember("projections"));
-    assert(val["projections"].IsArray());
+    assert(children.size() >= 2);
 
-    vector<RecordAttribute *> projections;
-    for (const auto &proj : val["projections"].GetArray()) {
-      assert(proj.IsObject());
-      RecordAttribute *recAttr =
-          this->parseRecordAttr(proj, cs[projections.size()].getOutputArg());
-      projections.push_back(recAttr);
-    }
-
-    assert(dynamic_cast<ParallelContext *>(this->ctx));
-    newOp = new UnionAll(children, projections);
-    for (const auto &childOp : children) childOp->setParent(newOp);
-
-    return RelBuilder(ctx, newOp);
+    return children[0].unionAll({children.begin() + 1, children.end()});
   } else if (strcmp(opName, "split") == 0) {
     assert(val.HasMember("split_id"));
     assert(val["split_id"].IsInt());
@@ -1578,14 +1560,12 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
       assert(val["numOfParents"].IsInt());
       int numOfParents = val["numOfParents"].GetInt();
 
-      assert(val.HasMember("projections"));
-      assert(val["projections"].IsArray());
-
-      vector<RecordAttribute *> projections;
-      for (const auto &proj : val["projections"].GetArray()) {
-        assert(proj.IsObject());
-        RecordAttribute *recAttr = this->parseRecordAttr(proj, arg);
-        projections.push_back(recAttr);
+      std::vector<RecordAttribute *> projections;
+      for (const auto &attr : arg.getProjections()) {
+        if (attr.getAttrName() == "__broadcastTarget") {
+          continue;
+        }
+        projections.emplace_back(new RecordAttribute{attr});
       }
 
       int slack = 8;

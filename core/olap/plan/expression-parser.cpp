@@ -731,8 +731,11 @@ RecordAttribute *ExpressionParser::parseRecordAttr(
       if (defaultType) {
         recArgType = defaultType;
       } else {
-        std::cerr << relName << "." << attrName << std::endl;
-        return new RecordAttribute(*arg.getExpressionType()->getArg(attrName));
+        auto *attr = arg.getExpressionType()->getArg(attrName);
+        LOG_IF(ERROR, !attr) << "No " << relName << "." << attrName << " in "
+                             << *(arg.getExpressionType());
+        assert(attr && "Attribute not found");
+        return new RecordAttribute(*attr);
         //        assert(false && "Attribute not found");
       }
     }
