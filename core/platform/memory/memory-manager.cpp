@@ -313,20 +313,26 @@ void *SingleDeviceMemoryManager<allocator, unit_cap>::malloc(size_t bytes) {
   {
     std::lock_guard<std::mutex> lock(m);
 
-    alloc_unit_info *info;
-    if (allocations.empty()) {
-      info = &(create_allocation());
-    } else {
-      void *latest = allocations.top();
-
-      auto match = units.find(latest);
-      assert(match != units.end() && "Unit not found!");
-      info = &(match->second);
-
-      if (info->fill + bytes > unit_cap) {
+    alloc_unit_info *info = nullptr;
+    do {
+      if (allocations.empty()) {
         info = &(create_allocation());
+      } else {
+        void *latest = allocations.top();
+
+        auto match = units.find(latest);
+        if (match ==
+            units.end()) {  // the last release inside latest was not base
+          allocations.pop();
+          continue;
+        }
+        info = &(match->second);
+
+        if (info->fill + bytes > unit_cap) {
+          info = &(create_allocation());
+        }
       }
-    }
+    } while (!info);
 
     void *ptr = ((void *)(((char *)info->base) + info->fill));
     info->fill += bytes;
@@ -390,7 +396,8 @@ void SingleDeviceMemoryManager<allocator, unit_cap>::free(void *ptr) {
       if (free_cache.size() < freed_cache_cap) {
         free_cache.push(base);
       } else {
-        allocator::free(ptr);
+        assert(ptr >= base);
+        allocator::free(base);
       }
       units.erase(fu);
     }
