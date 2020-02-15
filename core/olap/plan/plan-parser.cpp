@@ -1298,9 +1298,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     else
       assert(false && "granularity must be one of GRID, BLOCK, THREAD");
 
-    assert(dynamic_cast<ParallelContext *>(this->ctx));
-    newOp = new GpuToCpu(childOp, ((ParallelContext *)this->ctx), projections,
-                         size, g);
+    newOp = new GpuToCpu(childOp, projections, size, g);
     childOp->setParent(newOp);
 
     return RelBuilder(ctx, newOp);

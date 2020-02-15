@@ -52,7 +52,7 @@ void GpuToCpu::produce_(ParallelContext *context) {
   storeVar_id_catch = context->appendStateVar(PointerType::get(params_type, 0));
   eofVar_id_catch = context->appendStateVar(PointerType::get(int32_type, 0));
 
-  generate_catch();
+  generate_catch(context);
 
   context->popPipeline();
 
@@ -90,17 +90,13 @@ void GpuToCpu::consume(ParallelContext *const context,
   Type *int32_type = Type::getInt32Ty(llvmContext);
   Type *ptr_t = PointerType::get(charPtrType, 0);
 
-  const map<RecordAttribute, ProteusValueMemory> &activeVars =
-      childState.getBindings();
-
   Value *kernel_params = UndefValue::get(params_type);
   // Value * kernel_params_addr = context->CreateEntryBlockAlloca(F,
   // "cpu_params", params_type);
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
-    auto it = activeVars.find(*(wantedFields[i]));
-    assert(it != activeVars.end());
-    Value *mem_val = Builder->CreateLoad(it->second.mem);
+    auto it = childState[*(wantedFields[i])];
+    Value *mem_val = Builder->CreateLoad(it.mem);
 
     kernel_params = Builder->CreateInsertValue(kernel_params, mem_val, i);
   }
@@ -111,29 +107,16 @@ void GpuToCpu::consume(ParallelContext *const context,
       RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt",
                       pg->getOIDType());  // FIXME: OID type for blocks ?
 
-  auto it = activeVars.find(tupleCnt);
-  if (it == activeVars.end()) {
-    for (const auto &t : activeVars) {
-      std::cout << t.first.getRelationName() << " " << t.first.getAttrName()
-                << std::endl;
-    }
-  }
-  assert(it != activeVars.end());
-
-  ProteusValueMemory mem_cntWrapper = it->second;
+  ProteusValueMemory mem_cntWrapper = childState[tupleCnt];
 
   kernel_params = Builder->CreateInsertValue(
       kernel_params, Builder->CreateLoad(mem_cntWrapper.mem),
       wantedFields.size() + 1);
 
-  RecordAttribute tupleOID =
-      RecordAttribute(wantedFields[0]->getRelationName(), activeLoop,
-                      pg->getOIDType());  // FIXME: OID type for blocks ?
+  RecordAttribute tupleOID(wantedFields[0]->getRelationName(), activeLoop,
+                           pg->getOIDType());  // FIXME: OID type for blocks ?
 
-  it = activeVars.find(tupleOID);
-  assert(it != activeVars.end());
-
-  ProteusValueMemory mem_oidWrapper = it->second;
+  ProteusValueMemory mem_oidWrapper = childState[tupleOID];
 
   kernel_params = Builder->CreateInsertValue(
       kernel_params, Builder->CreateLoad(mem_oidWrapper.mem),
@@ -392,7 +375,7 @@ void GpuToCpu::consume(ParallelContext *const context,
   Builder->CreateCall(warpsync, {activemask});
 }
 
-void GpuToCpu::generate_catch() {
+void GpuToCpu::generate_catch(ParallelContext *context) {
   context->setGlobalFunction();
 
   LLVMContext &llvmContext = context->getLLVMContext();

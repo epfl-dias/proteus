@@ -208,7 +208,7 @@ RelBuilder RelBuilder::to_gpu(
 
 RelBuilder RelBuilder::to_cpu(const vector<RecordAttribute *> &wantedFields,
                               gran_t granularity, size_t size) const {
-  auto op = new GpuToCpu(root, ctx, wantedFields, size, granularity);
+  auto op = new GpuToCpu(root, wantedFields, size, granularity);
   return apply(op);
 }
 

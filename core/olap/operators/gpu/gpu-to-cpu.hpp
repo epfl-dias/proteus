@@ -23,6 +23,8 @@
 #ifndef GPU_TO_CPU_HPP_
 #define GPU_TO_CPU_HPP_
 
+#include <utility>
+
 #include "common/gpu/gpu-common.hpp"
 #include "operators/device-cross.hpp"
 #include "operators/operators.hpp"
@@ -30,12 +32,10 @@
 
 class GpuToCpu : public DeviceCross {
  public:
-  GpuToCpu(Operator *const child, ParallelContext *const context,
-           const vector<RecordAttribute *> &wantedFields, size_t size,
-           gran_t granularity = gran_t::GRID)
+  GpuToCpu(Operator *const child, vector<RecordAttribute *> wantedFields,
+           size_t size, gran_t granularity = gran_t::GRID)
       : DeviceCross(child),
-        context(context),
-        wantedFields(wantedFields),
+        wantedFields(std::move(wantedFields)),
         size(size),
         granularity(granularity) {}
 
@@ -53,14 +53,12 @@ class GpuToCpu : public DeviceCross {
   }
 
  private:
-  void generate_catch();
+  void generate_catch(ParallelContext *context);
 
   void open(Pipeline *pip);
   void close(Pipeline *pip);
 
   const vector<RecordAttribute *> wantedFields;
-
-  ParallelContext *const context;
 
   PipelineGen *cpu_pip;
 
