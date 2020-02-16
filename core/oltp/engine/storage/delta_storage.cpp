@@ -85,7 +85,13 @@ DeltaStore::DeltaStore(uint delta_id, uint64_t ver_list_capacity,
   // this->min_active_epoch = std::numeric_limits<uint64_t>::max();
 }
 
-DeltaStore::~DeltaStore() { print_info(); }
+DeltaStore::~DeltaStore() {
+  print_info();
+  for (auto& p : partitions) {
+    p->~DeltaPartition();
+    MemoryManager::free(p);
+  }
+}
 
 void DeltaStore::print_info() {
   static int i = 0;

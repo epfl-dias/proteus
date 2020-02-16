@@ -216,6 +216,11 @@ Table* Schema::create_table(std::string name, layout_type layout,
   return tbl;
 }
 
+void Schema::destroy_table(Table* table) {
+  table->~Table();
+  MemoryManager::free(table);
+}
+
 void Schema::drop_table(std::string name) {
   assert(false && "Not Implemented");
   // int index = -1;

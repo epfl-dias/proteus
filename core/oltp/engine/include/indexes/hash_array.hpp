@@ -51,6 +51,7 @@ class HashArray {
   std::string name;
 
   HashArray(std::string name = "", uint64_t num_obj = 72000000);
+  ~HashArray();
 
   //~HashArray() { storage::MemoryManager::free(arr, capacity * sizeof(V)); }
 

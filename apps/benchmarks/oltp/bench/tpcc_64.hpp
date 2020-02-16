@@ -452,7 +452,7 @@ class TPCC : public Benchmark {
                            ushort partition_id);
   void print_tpcc_query(void *arg);
 
-  ~TPCC() {}
+  ~TPCC();
   TPCC(std::string name = "TPCC", int num_warehouses = 1,
        int active_warehouse = 1, bool layout_column_store = true,
        uint tpch_scale_factor = 0, int g_dist_threshold = 0,

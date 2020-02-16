@@ -198,6 +198,7 @@ ColumnStore::~ColumnStore() {
     MemoryManager::free(meta_column);
   }
 
+  if (p_index) delete p_index;
   // MemoryManager::free(meta_column);
   // delete meta_column;
 }

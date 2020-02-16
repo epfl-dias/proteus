@@ -65,6 +65,13 @@ HashArray<K, V>::HashArray(std::string name, uint64_t num_obj)
   }
 }
 
+template <class K, class V>
+HashArray<K, V>::~HashArray() {
+  for (int i = 0; i < partitions; i++) {
+    storage::MemoryManager::free(arr[i]);
+  }
+}
+
 template class HashArray<uint64_t, void *>;
 
 }  // namespace indexes

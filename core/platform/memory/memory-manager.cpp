@@ -105,11 +105,13 @@ void MemoryManager::destroy() {
     set_device_on_scope d(gpu);
     delete gpu_managers[gpu.index_in_topo];
   }
+  GpuMemAllocator::freed();
   delete[] gpu_managers;
   for (const auto &cpu : topo.getCpuNumaNodes()) {
     set_exec_location_on_scope d(cpu);
     delete cpu_managers[cpu.index_in_topo];
   }
+  NUMAPinnedMemAllocator::freed();
   delete[] cpu_managers;
 }
 
@@ -273,8 +275,7 @@ SingleDeviceMemoryManager<allocator, unit_cap>::~SingleDeviceMemoryManager() {
   assert(units.empty());
   assert(big_units.empty());
   assert(free_cache.empty());
-  LOG(INFO) << bytes{active_bytes} << " " << bytes{allocator::rem()};
-  allocator::freed();
+  assert(active_bytes == 0);
 }
 
 template <typename allocator, size_t unit_cap>

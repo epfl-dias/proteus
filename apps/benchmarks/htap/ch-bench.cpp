@@ -104,18 +104,17 @@ int main(int argc, char *argv[]) {
     g_num_partitions = oltp_data_partitions;
   }
 
+  bench::Benchmark *bench =
+      new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers, true,
+                      FLAGS_ch_scale_factor, 0, "", true);
   if (FLAGS_htap_mode.compare("COLOC") == 0) {
     g_num_partitions = 2;
     oltp_data_partitions = 2;
-    oltp_engine.init(new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers,
-                                     true, FLAGS_ch_scale_factor, 0, "", true),
-                     oltp_num_workers, oltp_data_partitions,
+    oltp_engine.init(bench, oltp_num_workers, oltp_data_partitions,
                      FLAGS_ch_scale_factor, true);
 
   } else {
-    oltp_engine.init(new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers,
-                                     true, FLAGS_ch_scale_factor, 0, "", true),
-                     oltp_num_workers, oltp_data_partitions,
+    oltp_engine.init(bench, oltp_num_workers, oltp_data_partitions,
                      FLAGS_ch_scale_factor);
   }
 
@@ -242,6 +241,7 @@ int main(int argc, char *argv[]) {
   // OLTP
   oltp_engine.shutdown();
 
+  delete bench;
   // OLAP
   StorageManager::unloadAll();
   MemoryManager::destroy();

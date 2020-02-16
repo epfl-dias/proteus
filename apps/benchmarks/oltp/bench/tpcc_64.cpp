@@ -622,6 +622,27 @@ void TPCC::init_tpcc_seq_array() {
   }
 }
 
+TPCC::~TPCC() {
+  schema->destroy_table(table_warehouse);
+  schema->destroy_table(table_district);
+  schema->destroy_table(table_customer);
+  schema->destroy_table(table_history);
+  schema->destroy_table(table_new_order);
+  schema->destroy_table(table_order);
+  schema->destroy_table(table_order_line);
+  schema->destroy_table(table_stock);
+
+#if REPLICATED_ITEM_TABLE
+  schema->destroy_table(table_item[NUM_SOCKETS]);
+#else
+  schema->destroy_table(table_item);
+#endif
+
+  schema->destroy_table(table_region);
+  schema->destroy_table(table_nation);
+  schema->destroy_table(table_supplier);
+}
+
 void TPCC::print_tpcc_query(void *arg) {
   struct tpcc_query *q = (struct tpcc_query *)arg;
   std::cout << "-------TPCC QUERY------" << std::endl;

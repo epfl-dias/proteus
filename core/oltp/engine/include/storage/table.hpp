@@ -135,6 +135,7 @@ class Schema {
                       uint64_t initial_num_records = 10000000,
                       bool indexed = true, bool partitioned = true,
                       int numa_idx = -1);
+  void destroy_table(Table *);
 
   [[noreturn]] void drop_table(std::string name);
   [[noreturn]] void drop_table(int idx);

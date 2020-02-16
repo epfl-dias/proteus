@@ -885,6 +885,13 @@ void WorkerPool::shutdown(bool print_stats) {
       worker.second.second->terminate = true;
       worker.second.first->join();
     }
+
+    // FIXME: why not using an allocator with the map?
+    worker.second.first->~thread();
+    storage::MemoryManager::free(worker.second.first);
+
+    worker.second.second->~Worker();
+    storage::MemoryManager::free(worker.second.second);
   }
   print_worker_stats();
   workers.clear();
