@@ -73,6 +73,14 @@ class topology {
                 // do not remove argument!!!
                 topologyonly_construction = {});
 
+    // Do not allow copies
+    cpunumanode(const cpunumanode &) = delete;
+    cpunumanode &operator=(const cpunumanode &) = delete;
+
+    // Allow construction through moving, but do not allow moving to overwrite
+    cpunumanode(cpunumanode &&) = default;
+    cpunumanode &operator=(cpunumanode &&) = delete;
+
     void *alloc(size_t bytes) const;
     static void free(void *mem, size_t bytes);
     size_t getMemorySize() const;

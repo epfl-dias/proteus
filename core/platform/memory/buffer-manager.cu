@@ -423,7 +423,7 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
 
   for (const auto &cpu : topo.getCpuNumaNodes()) {
     buffer_pool_constrs.emplace_back(
-        [cpu, cpu_mem_pool_percentage, &buff_cache] {
+        [&cpu, cpu_mem_pool_percentage, &buff_cache] {
           size_t h_size =
               cpu_mem_pool_percentage * (cpu.getMemorySize() / buffer_size);
           buffer_manager<T>::h_size[cpu.id] = h_size;
@@ -584,7 +584,7 @@ __host__ void buffer_manager<T>::destroy() {
   }
 
   for (const auto &cpu : topo.getCpuNumaNodes()) {
-    buffer_pool_constrs.emplace_back([cpu] {
+    buffer_pool_constrs.emplace_back([&cpu] {
       set_exec_location_on_scope cu{cpu};
       MemoryManager::freePinned(h_h_buff_start[cpu.id]);
       delete h_pool_numa[cpu.id];
