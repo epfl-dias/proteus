@@ -60,7 +60,7 @@ void init(int argc, char *argv[]) {
   google::InitGoogleLogging(argv[0]);
   FLAGS_logtostderr = 1;  // FIXME: the command line flags/defs seem to fail...
   google::InstallFailureSignalHandler();
-  // set_trace_allocations(true);
+  set_trace_allocations(true);
 }
 
 int main(int argc, char *argv[]) {
@@ -228,6 +228,7 @@ int main(int argc, char *argv[]) {
   }
 
   oltp_engine.print_global_stats();
+  olap_clients.clear();
 
   if (!FLAGS_run_oltp) {
     // FIXME: hack because it needs to run before it can be stopped
@@ -238,12 +239,12 @@ int main(int argc, char *argv[]) {
 
   LOG(INFO) << "Shutdown initiated";
 
+  // OLTP
+  oltp_engine.shutdown();
+
   // OLAP
   StorageManager::unloadAll();
   MemoryManager::destroy();
-
-  // OLTP
-  oltp_engine.shutdown();
 
   return 0;
 

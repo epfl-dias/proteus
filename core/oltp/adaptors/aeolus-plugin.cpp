@@ -153,7 +153,7 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
       pgType(pgType) {
   Nparts = getRelation(fnamePrefix, "<" + pgType + ">")
                ->getColumns()[0]
-               ->snapshot_get_data()
+               .snapshot_get_data()
                .size();
 
   local_storage = false;

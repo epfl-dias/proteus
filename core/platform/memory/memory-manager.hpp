@@ -34,8 +34,12 @@ void set_trace_allocations(bool val = true, bool silent_set_fail = false);
 
 class GpuMemAllocator {
  public:
+  static std::atomic<size_t> usage;
   static void *malloc(size_t bytes);
   static void free(void *ptr);
+
+  static void freed();
+  static size_t rem() { return usage; }
 };
 
 class NUMAMemAllocator {
@@ -43,20 +47,27 @@ class NUMAMemAllocator {
   static std::unordered_map<void *, size_t> sizes;
 
  public:
+  static std::atomic<size_t> usage;
+
   static void *malloc(size_t bytes);
   static void free(void *ptr);
+
+  static void freed();
 };
 
 class NUMAPinnedMemAllocator {
   //  static std::unordered_map<void *, bool> sizes;
 
   //  static void *reg(void *mem, size_t bytes, bool allocated);
-
  public:
   static void *reg(void *mem, size_t bytes);
   static void *malloc(size_t bytes);
   static void free(void *ptr);
   static void unreg(void *mem);
+
+  static size_t rem() { return NUMAMemAllocator::usage; }
+
+  static void freed();
 };
 
 constexpr size_t unit_capacity_gpu = 128 * 1024 * 1024;
@@ -94,7 +105,8 @@ class SingleDeviceMemoryManager {
   std::mutex m;
   std::mutex m_big_units;
 
-  std::unordered_set<void *> big_units;
+  //  std::unordered_set<void *> big_units;
+  std::unordered_map<void *, size_t> big_units;
 
   std::unordered_map<void *, alloc_unit_info> units;
   std::unordered_map<void *, void *> mappings;
@@ -110,6 +122,7 @@ class SingleDeviceMemoryManager {
   ~SingleDeviceMemoryManager();
 
   alloc_unit_info &create_allocation();
+  void destroy_allocation();
 
   void *malloc(size_t bytes);
   void free(void *ptr);

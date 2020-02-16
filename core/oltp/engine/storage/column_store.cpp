@@ -74,8 +74,8 @@ CC_upd_vid(uint64_t vid, ushort master_ver, ushort delta_version) {
 void ColumnStore::sync_master_snapshots(ushort master_ver_idx) {
   assert(global_conf::num_master_versions > 1);
   for (auto& col : this->columns) {
-    if (!(col->type == STRING || col->type == VARCHAR)) {
-      col->sync_master_snapshots(master_ver_idx);
+    if (!(col.type == STRING || col.type == VARCHAR)) {
+      col.sync_master_snapshots(master_ver_idx);
     }
   }
 }
@@ -188,20 +188,24 @@ void Column::sync_master_snapshots(ushort master_ver_idx) {
 }
 
 ColumnStore::~ColumnStore() {
-  for (auto& col : columns) {
-    col->~Column();
-    // MemoryManager::free(col);
-    // delete col;
+  //  for (auto& col : columns) {
+  //    col.~Column();
+  //    // MemoryManager::free(col);
+  //    // delete col;
+  //  }
+  if (meta_column) {
+    meta_column->~Column();
+    MemoryManager::free(meta_column);
   }
-  meta_column->~Column();
+
   // MemoryManager::free(meta_column);
   // delete meta_column;
 }
 uint64_t ColumnStore::load_data_from_binary(std::string col_name,
                                             std::string file_path) {
   for (auto& c : this->columns) {
-    if (c->name.compare(col_name) == 0) {
-      return c->load_from_binary(file_path);
+    if (c.name.compare(col_name) == 0) {
+      return c.load_from_binary(file_path);
     }
   }
   assert(false && "Column not found: ");
@@ -210,7 +214,9 @@ uint64_t ColumnStore::load_data_from_binary(std::string col_name,
 ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
                          uint64_t initial_num_records, bool indexed,
                          bool partitioned, int numa_idx)
-    : Table(name, table_id, COLUMN_STORE, columns) {
+    : Table(name, table_id, COLUMN_STORE, columns),
+      columns(ExplicitSocketPinnedMemoryAllocator<storage::Column>(
+          storage::NUMAPartitionPolicy::getInstance().getDefaultPartition())) {
   this->total_mem_reserved = 0;
   this->indexed = indexed;
   this->deltaStore = storage::Schema::getInstance().deltaStore;
@@ -255,24 +261,23 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
 
   // create columns
   size_t col_offset = 0;
+  this->columns.reserve(columns.getColumns().size());
+  LOG(INFO) << this->columns.size();
   for (const auto& t : columns.getColumns()) {
-    void* obj_ptr = MemoryManager::alloc(
-        sizeof(Column),
-        storage::NUMAPartitionPolicy::getInstance().getDefaultPartition());
-    this->columns.emplace_back(new (obj_ptr) Column(
-        std::get<0>(t), initial_num_records, this, std::get<1>(t),
-        std::get<2>(t), col_offset, false, partitioned, numa_idx));
+    this->columns.emplace_back(std::get<0>(t), initial_num_records, this,
+                               std::get<1>(t), std::get<2>(t), col_offset,
+                               false, partitioned, numa_idx);
     col_offset += std::get<2>(t);
   }
   for (const auto& t : this->columns) {
-    total_mem_reserved += t->total_mem_reserved;
+    total_mem_reserved += t.total_mem_reserved;
   }
 
   this->num_columns = columns.size();
 
   size_t rec_size = 0;
   for (auto& co : this->columns) {
-    rec_size += co->elem_size;
+    rec_size += co.elem_size;
   }
   this->rec_size = rec_size;
   assert(rec_size == col_offset);
@@ -353,9 +358,9 @@ void* ColumnStore::insertRecordBatch(void* rec_batch, uint recs_to_ins,
 
   // for loop to copy all columns.
   for (auto& col : columns) {
-    col->insertElemBatch(
+    col.insertElemBatch(
         st_vid, recs_to_ins,
-        ((char*)rec_batch) + (col->cummulative_offset * capacity_offset));
+        ((char*)rec_batch) + (col.cummulative_offset * capacity_offset));
   }
 
   return (void*)hash_ptr;
@@ -394,7 +399,7 @@ void* ColumnStore::insertRecord(void* rec, uint64_t xid, ushort partition_id,
   char* rec_ptr = (char*)rec;
 
   for (auto& col : columns) {
-    col->insertElem(curr_vid, rec_ptr + col->cummulative_offset);
+    col.insertElem(curr_vid, rec_ptr + col.cummulative_offset);
   }
 
   return (void*)hash_ptr;
@@ -408,14 +413,14 @@ uint64_t ColumnStore::insertRecord(void* rec, ushort partition_id,
 
   char* rec_ptr = (char*)rec;
   for (auto& col : columns) {
-    col->insertElem(curr_vid, rec_ptr + col->cummulative_offset);
+    col.insertElem(curr_vid, rec_ptr + col.cummulative_offset);
   }
   return curr_vid;
 }
 
 void ColumnStore::touchRecordByKey(uint64_t vid) {
   for (auto& col : columns) {
-    col->touchElem(vid);
+    col.touchElem(vid);
   }
 }
 
@@ -424,14 +429,14 @@ void ColumnStore::getRecordByKey(uint64_t vid, const ushort* col_idx,
   char* write_loc = (char*)loc;
   if (__unlikely(col_idx == nullptr)) {
     for (auto& col : columns) {
-      col->getElem(vid, write_loc);
-      write_loc += col->elem_size;
+      col.getElem(vid, write_loc);
+      write_loc += col.elem_size;
     }
   } else {
     for (ushort i = 0; i < num_cols; i++) {
-      Column* col = columns.at(col_idx[i]);
-      col->getElem(vid, write_loc);
-      write_loc += col->elem_size;
+      auto& col = columns.at(col_idx[i]);
+      col.getElem(vid, write_loc);
+      write_loc += col.elem_size;
     }
   }
 }
@@ -443,14 +448,14 @@ std::vector<const void*> ColumnStore::getRecordByKey(uint64_t vid,
   // if (col_idx == nullptr) {
   //   std::vector<const void*> record(columns.size());
   //   for (auto& col : columns) {
-  //     record.push_back((const void*)(col->getElem(vid)));
+  //     record.push_back((const void*)(col.getElem(vid)));
   //   }
   //   return record;
   // } else {
   //   std::vector<const void*> record(col_idx->size());
   //   for (auto& c_idx : *col_idx) {
   //     Column* col = columns.at(c_idx);
-  //     record.push_back((const void*)(col->getElem(vid)));
+  //     record.push_back((const void*)(col.getElem(vid)));
   //   }
   //   return record;
   // }
@@ -486,8 +491,8 @@ void ColumnStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
   assert(ver != nullptr);
 
   for (auto& col : columns) {
-    memcpy(ver + col->cummulative_offset, col->getElem(hash_ptr->VID),
-           col->elem_size);
+    memcpy(ver + col.cummulative_offset, col.getElem(hash_ptr->VID),
+           col.elem_size);
   }
 
   hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
@@ -495,17 +500,16 @@ void ColumnStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
 
   if (__unlikely(num_cols <= 0)) {
     for (auto& col : columns) {
-      col->updateElem(
+      col.updateElem(
           hash_ptr->VID,
-          (rec == nullptr ? nullptr : cursor + col->cummulative_offset));
+          (rec == nullptr ? nullptr : cursor + col.cummulative_offset));
     }
   } else {
     for (ushort i = 0; i < num_cols; i++) {
       // assert(col_idx[i] < columns.size());
-      Column* col = columns.at(col_idx[i]);
-      col->updateElem(hash_ptr->VID,
-                      (rec == nullptr ? nullptr : (void*)cursor));
-      cursor += col->elem_size;
+      auto& col = columns.at(col_idx[i]);
+      col.updateElem(hash_ptr->VID, (rec == nullptr ? nullptr : (void*)cursor));
+      cursor += col.elem_size;
     }
   }
 }
@@ -970,7 +974,7 @@ void Column::insertElemBatch(uint64_t vid, uint64_t num_elem, void* data) {
 void ColumnStore::num_upd_tuples() {
   for (uint i = 0; i < global_conf::num_master_versions; i++) {
     for (auto& col : this->columns) {
-      col->num_upd_tuples(i, nullptr, true);
+      col.num_upd_tuples(i, nullptr, true);
     }
   }
 }
@@ -1058,7 +1062,7 @@ void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
   }
 
   for (auto& col : this->columns) {
-    col->snapshot(partitions_n_recs, epoch, snapshot_master_ver);
+    col.snapshot(partitions_n_recs, epoch, snapshot_master_ver);
   }
 }
 
@@ -1092,7 +1096,7 @@ int64_t* ColumnStore::snapshot_get_number_tuples(bool olap_snapshot,
            "cannot do it for more as of now due to static nParts");
 
     const auto& totalNumRecords =
-        columns[0]->snapshot_arenas[0][0]->getMetadata().numOfRecords;
+        columns[0].snapshot_arenas[0][0]->getMetadata().numOfRecords;
 
     int64_t* arr = (int64_t*)malloc(sizeof(int64_t*) * nParts);
 
@@ -1118,20 +1122,20 @@ int64_t* ColumnStore::snapshot_get_number_tuples(bool olap_snapshot,
 
     return arr;
   } else {
-    const uint num_parts = this->columns[0]->num_partitions;
+    const uint num_parts = this->columns[0].num_partitions;
     int64_t* arr = (int64_t*)malloc(sizeof(int64_t*) * num_parts);
 
     for (uint i = 0; i < num_parts; i++) {
       if (__unlikely(olap_snapshot)) {
-        arr[i] = this->columns[0]->etl_arenas[i][0]->getMetadata().numOfRecords;
-        LOG(INFO) << this->name
-                  << " -- [OLAP-snapshot] NumberOfRecords:" << arr[i];
+        arr[i] = this->columns[0].etl_arenas[i][0]->getMetadata().numOfRecords;
+        //        LOG(INFO) << this->name
+        //                  << " -- [OLAP-snapshot] NumberOfRecords:" << arr[i];
       } else {
         arr[i] =
-            this->columns[0]->snapshot_arenas[i][0]->getMetadata().numOfRecords;
+            this->columns[0].snapshot_arenas[i][0]->getMetadata().numOfRecords;
 
-        LOG(INFO) << this->name
-                  << " -- [OLTP-snapshot] NumberOfRecords:" << arr[i];
+        //        LOG(INFO) << this->name
+        //                  << " -- [OLTP-snapshot] NumberOfRecords:" << arr[i];
       }
     }
     return arr;
@@ -1148,7 +1152,7 @@ std::vector<std::pair<mem_chunk, size_t>> ColumnStore::snapshot_get_data(
     // std::pow(wantedFields.size(), wantedFields.size());
 
     const auto& totalNumRecords =
-        columns[0]->snapshot_arenas[0][0]->getMetadata().numOfRecords;
+        columns[0].snapshot_arenas[0][0]->getMetadata().numOfRecords;
 
     if (scan_idx == 0) {
       elastic_mappings.clear();
@@ -1157,11 +1161,11 @@ std::vector<std::pair<mem_chunk, size_t>> ColumnStore::snapshot_get_data(
       // restart
 
       for (size_t j = 0; j < wantedFields.size(); j++) {
-        for (const auto& cl : this->columns) {
-          if (cl->name.compare(wantedFields[j]->getAttrName()) == 0) {
+        for (auto& cl : this->columns) {
+          if (cl.name.compare(wantedFields[j]->getAttrName()) == 0) {
             // 0 partition id
             elastic_mappings.emplace_back(
-                cl->elastic_partition(0, elastic_offsets));
+                cl.elastic_partition(0, elastic_offsets));
           }
         }
       }
@@ -1209,8 +1213,8 @@ std::vector<std::pair<mem_chunk, size_t>> ColumnStore::snapshot_get_data(
       size_t elem_size = 0;
       for (size_t j = 0; j < wantedFields.size(); j++) {
         for (const auto& cl : this->columns) {
-          if (cl->name.compare(wantedFields[j]->getAttrName()) == 0) {
-            elem_size = cl->elem_size;
+          if (cl.name.compare(wantedFields[j]->getAttrName()) == 0) {
+            elem_size = cl.elem_size;
           }
         }
       }
@@ -1237,9 +1241,9 @@ std::vector<std::pair<mem_chunk, size_t>> ColumnStore::snapshot_get_data(
   }
 
   else {
-    for (const auto& cl : this->columns) {
-      if (cl->name.compare(wantedFields[scan_idx]->getAttrName()) == 0) {
-        return cl->snapshot_get_data(olap_local, false);
+    for (auto& cl : this->columns) {
+      if (cl.name.compare(wantedFields[scan_idx]->getAttrName()) == 0) {
+        return cl.snapshot_get_data(olap_local, false);
       }
     }
 
@@ -1279,6 +1283,7 @@ std::vector<std::pair<mem_chunk, size_t>> Column::elastic_partition(
 
   } else {
     if (snap_arena.numOfRecords == olap_arena.numOfRecords) {
+      time_block t("Tcs:");
       // safe to read from local storage
       assert(HTAP_ETL && "OLAP local mode is not turned on");
 
@@ -1333,7 +1338,7 @@ std::vector<std::pair<mem_chunk, size_t>> Column::elastic_partition(
 }
 
 std::vector<std::pair<mem_chunk, size_t>> Column::snapshot_get_data(
-    bool olap_local, bool elastic_scan) {
+    bool olap_local, bool elastic_scan) const {
   std::vector<std::pair<mem_chunk, size_t>> ret;
 
   for (uint i = 0; i < num_partitions; i++) {
@@ -1389,8 +1394,8 @@ std::vector<std::pair<mem_chunk, size_t>> Column::snapshot_get_data(
 void ColumnStore::ETL(uint numa_node_idx) {
   std::vector<proteus::thread> workers;
 
-  for (const auto& col : this->columns) {
-    workers.emplace_back([col, numa_node_idx]() { col->ETL(numa_node_idx); });
+  for (auto& col : this->columns) {
+    workers.emplace_back([&col, numa_node_idx]() { col.ETL(numa_node_idx); });
   }
 
   for (auto& th : workers) {
@@ -1443,11 +1448,12 @@ void Column::ETL(uint numa_node_index) {
       // snap_arena.numOfRecords
       //           << " | " << snap_arena.prev_numOfRecords << std::endl;
 
-      LOG(INFO) << "ETL-" << this->name << " | inserted records: "
-                << (snap_arena.numOfRecords - olap_num_rec) << ", Size: "
-                << (double)((snap_arena.numOfRecords - olap_num_rec) *
-                            this->elem_size) /
-                       (1024 * 1024 * 1024);
+      //      LOG(INFO) << "ETL-" << this->name << " | inserted records: "
+      //                << (snap_arena.numOfRecords - olap_num_rec) << ", Size:
+      //                "
+      //                << (double)((snap_arena.numOfRecords - olap_num_rec) *
+      //                            this->elem_size) /
+      //                       (1024 * 1024 * 1024);
       size_t st = olap_num_rec * this->elem_size;
       size_t to_cpy =
           (snap_arena.numOfRecords - olap_num_rec) * this->elem_size;

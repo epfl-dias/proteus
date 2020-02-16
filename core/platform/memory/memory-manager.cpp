@@ -29,6 +29,8 @@
 
 #ifndef NDEBUG
 #include <execinfo.h>
+
+#include <util/timing.hpp>
 #endif
 
 #ifndef NDEBUG
@@ -181,6 +183,7 @@ void *NUMAMemAllocator::malloc(size_t bytes) {
     std::lock_guard<std::mutex> lock{m_sizes};
     sizes.emplace(ptr, bytes);
   }
+  usage.fetch_add(bytes);
   return ptr;
 }
 
@@ -196,6 +199,7 @@ void NUMAMemAllocator::free(void *ptr) {
     sizes.erase(it);
   }
   topology::cpunumanode::free(ptr, bytes);
+  usage.fetch_sub(bytes);
 }
 
 void *NUMAPinnedMemAllocator::reg(void *ptr, size_t bytes) {
@@ -258,7 +262,7 @@ SingleDeviceMemoryManager<allocator, unit_cap>::~SingleDeviceMemoryManager() {
       for (size_t i = 0; i < alloc.backtrace_size; ++i) {
         std::cout << trace[i] << std::endl;
       }
-      allocations.pop();
+      destroy_allocation();
     }
     assert(false);
   }
@@ -269,6 +273,8 @@ SingleDeviceMemoryManager<allocator, unit_cap>::~SingleDeviceMemoryManager() {
   assert(units.empty());
   assert(big_units.empty());
   assert(free_cache.empty());
+  LOG(INFO) << bytes{active_bytes} << " " << bytes{allocator::rem()};
+  allocator::freed();
 }
 
 template <typename allocator, size_t unit_cap>
@@ -284,13 +290,32 @@ SingleDeviceMemoryManager<allocator, unit_cap>::create_allocation() {
     free_cache.pop();
   }
 
-  auto &al = allocations.emplace(ptr);
+  {
+    time_block t("emplace: ");
+    auto &al = allocations.emplace(ptr);
 
-  if (trace_allocations) {
-    al.backtrace_size = backtrace(al.backtrace, allocation_t::backtrace_limit);
+    if (trace_allocations) {
+      time_block t("trace_allocations: ");
+      al.backtrace_size =
+          backtrace(al.backtrace, allocation_t::backtrace_limit);
+    }
   }
 
   return units.emplace(ptr, ptr).first->second;
+}
+
+template <typename allocator, size_t unit_cap>
+void SingleDeviceMemoryManager<allocator, unit_cap>::destroy_allocation() {
+  void *base = allocations.top();
+  allocations.pop();
+
+  active_bytes -= unit_cap;
+  if (free_cache.size() < freed_cache_cap) {
+    free_cache.push(base);
+  } else {
+    allocator::free(base);
+  }
+  units.erase(base);
 }
 
 template <typename allocator, size_t unit_cap>
@@ -302,7 +327,7 @@ void *SingleDeviceMemoryManager<allocator, unit_cap>::malloc(size_t bytes) {
 
     {
       std::lock_guard<std::mutex> lock(m_big_units);
-      big_units.emplace(ptr);
+      big_units.emplace(ptr, bytes);
     }
 
     active_bytes += bytes;
@@ -321,11 +346,7 @@ void *SingleDeviceMemoryManager<allocator, unit_cap>::malloc(size_t bytes) {
         void *latest = allocations.top();
 
         auto match = units.find(latest);
-        if (match ==
-            units.end()) {  // the last release inside latest was not base
-          allocations.pop();
-          continue;
-        }
+        assert(match != units.end());
         info = &(match->second);
 
         if (info->fill + bytes > unit_cap) {
@@ -355,6 +376,7 @@ void SingleDeviceMemoryManager<allocator, unit_cap>::free(void *ptr) {
     std::lock_guard<std::mutex> lock(m_big_units);
     auto f = big_units.find(ptr);
     if (f != big_units.end()) {
+      active_bytes -= f->second;
       big_units.erase(f);
       allocator::free(ptr);
       return;
@@ -381,25 +403,16 @@ void SingleDeviceMemoryManager<allocator, unit_cap>::free(void *ptr) {
     assert(info.sub_units > 0);
     info.sub_units = info.sub_units - 1;
     if (info.sub_units == 0) {
-      if (!allocations.empty() && allocations.top() == base) {
-        allocations.pop();
-        while (!allocations.empty()) {
-          void *tmp_base = allocations.top();
-          bool still_valid = (units.find(tmp_base) != units.end());
-          if (!still_valid)
-            allocations.pop();
-          else
-            break;
+      while (!allocations.empty()) {
+        void *tmp_base = allocations.top();
+        auto it = units.find(tmp_base);
+        assert(it != units.end());
+        if (it->second.sub_units == 0) {
+          destroy_allocation();
+        } else {
+          break;
         }
       }
-      active_bytes -= unit_cap;
-      if (free_cache.size() < freed_cache_cap) {
-        free_cache.push(base);
-      } else {
-        assert(ptr >= base);
-        allocator::free(base);
-      }
-      units.erase(fu);
     }
   }
 }
@@ -409,3 +422,13 @@ SingleCpuMemoryManager **MemoryManager::cpu_managers;
 
 std::mutex NUMAMemAllocator::m_sizes;
 std::unordered_map<void *, size_t> NUMAMemAllocator::sizes;
+
+std::atomic<size_t> NUMAMemAllocator::usage = 0;
+
+void NUMAMemAllocator::freed() { assert(usage == 0); }
+
+std::atomic<size_t> GpuMemAllocator::usage = 0;
+
+void GpuMemAllocator::freed() { assert(usage == 0); }
+
+void NUMAPinnedMemAllocator::freed() { NUMAMemAllocator::freed(); }

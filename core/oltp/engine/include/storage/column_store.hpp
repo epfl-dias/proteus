@@ -24,8 +24,7 @@
 #ifndef STORAGE_COLUMN_STORE_HPP_
 #define STORAGE_COLUMN_STORE_HPP_
 
-#include <assert.h>
-
+#include <cassert>
 #include <deque>
 #include <iostream>
 #include <map>
@@ -45,6 +44,45 @@
 #define BIT_PACK_SIZE 8192
 
 class RecordAttribute;
+
+// template<typename T>
+// class PinnedMemoryAllocator {
+// public:
+//  typedef T value_type;
+//
+//  [[nodiscard]] T  allocate(size_t n) {
+//    if (n > std::numeric_limits<size_t>::max() / sizeof(T))
+//      throw std::bad_alloc();
+//
+//    return static_cast<T *>(MemoryManager::mallocPinned(n * sizeof(T)));
+//  }
+//
+//  void deallocate(T *mem, size_t) noexcept { MemoryManager::freePinned(mem); }
+//};
+
+template <typename T>
+class ExplicitSocketPinnedMemoryAllocator {
+ private:
+  int numa_memset_id;
+
+ public:
+  typedef T value_type;
+
+  inline explicit ExplicitSocketPinnedMemoryAllocator(int numa)
+      : numa_memset_id(numa) {}
+
+  [[nodiscard]] T *allocate(size_t n) {
+    if (n > std::numeric_limits<size_t>::max() / sizeof(T))
+      throw std::bad_alloc();
+
+    return static_cast<T *>(
+        storage::MemoryManager::alloc(n * sizeof(T), numa_memset_id));
+  }
+
+  void deallocate(T *mem, size_t) noexcept {
+    storage::MemoryManager::free(mem);
+  }
+};
 
 namespace storage {
 
@@ -96,7 +134,6 @@ class alignas(4096) ColumnStore : public Table {
   void num_upd_tuples();
   int64_t *snapshot_get_number_tuples(bool olap_snapshot = false,
                                       bool elastic_scan = false);
-  const std::vector<Column *> &getColumns() { return columns; }
 
   std::vector<std::pair<mem_chunk, size_t>> snapshot_get_data(
       size_t scan_idx, std::vector<RecordAttribute *> &wantedFields,
@@ -114,13 +151,16 @@ class alignas(4096) ColumnStore : public Table {
   std::set<size_t> elastic_offsets;
 
  private:
-  std::vector<Column *> columns;
+  std::vector<Column, ExplicitSocketPinnedMemoryAllocator<Column>> columns;
   Column *meta_column;
   // Column **secondary_index_vals;
   uint64_t offset;
   ushort num_data_partitions;
 
   size_t nParts;
+
+ public:
+  const decltype(columns) &getColumns() { return columns; }
 };
 
 class alignas(4096) Column {
@@ -129,6 +169,9 @@ class alignas(4096) Column {
          data_type type, size_t unit_size, size_t cummulative_offset,
          bool single_version_only = false, bool partitioned = true,
          int numa_idx = -1);
+
+  Column(const Column &) = delete;
+  Column(Column &&) = default;
   ~Column();
 
   void *getElem(uint64_t vid);
@@ -165,7 +208,7 @@ class alignas(4096) Column {
 
   // snapshot stuff
   std::vector<std::pair<mem_chunk, size_t>> snapshot_get_data(
-      bool olap_local = false, bool elastic_scan = false);
+      bool olap_local = false, bool elastic_scan = false) const;
 
   std::vector<std::pair<mem_chunk, size_t>> elastic_partition(
       uint pid, std::set<size_t> &segment_boundaries);
