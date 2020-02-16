@@ -83,10 +83,17 @@ Plugin *createBlockLocalPlugin(ParallelContext *context,
                                std::vector<RecordAttribute *> &whichFields) {
   return new AeolusLocalPlugin(context, fnamePrefix, rec, whichFields);
 }
+
 Plugin *createBlockElasticPlugin(ParallelContext *context,
                                  std::string fnamePrefix, RecordType rec,
                                  std::vector<RecordAttribute *> &whichFields) {
   return new AeolusElasticPlugin(context, fnamePrefix, rec, whichFields);
+}
+
+Plugin *createBlockElasticNiPlugin(
+    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    std::vector<RecordAttribute *> &whichFields) {
+  return new AeolusElasticNIPlugin(context, fnamePrefix, rec, whichFields);
 }
 }
 

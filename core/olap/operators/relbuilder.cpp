@@ -444,10 +444,10 @@ void RelBuilder::registerPlugin(const std::string &relName, Plugin *pg) const {
 typedef Plugin *(*plugin_creator_t)(ParallelContext *, std::string, RecordType,
                                     std::vector<RecordAttribute *> &);
 
-std::string hyphenatedPluginToCamel(const char *line);
+std::string hyphenatedPluginToCamel(const std::string &line);
 
 auto getPluginFactory(const std::string &pgType) {
-  auto name = hyphenatedPluginToCamel(pgType.c_str());
+  auto name = hyphenatedPluginToCamel(pgType);
   std::string conv = "create" + name + "Plugin";
 
   std::cout << "PluginName: " << name << std::endl;

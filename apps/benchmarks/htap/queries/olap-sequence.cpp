@@ -25,6 +25,7 @@
 
 #include <aeolus-plugin.hpp>
 #include <numeric>
+#include <routing/affinitization-factory.hpp>
 #include <routing/affinitizers.hpp>
 #include <routing/degree-of-parallelism.hpp>
 #include <topology/affinity_manager.hpp>
@@ -62,12 +63,68 @@ typedef std::function<PreparedStatement(DegreeOfParallelism, aff_t, red_t)>
 
 typedef std::function<prep_t(pg)> prep_wrapper_t;
 
+class RDEPolicyFactory : public AffinitizationFactory {
+  typedef std::function<std::unique_ptr<Affinitizer>()> aff_t;
+  typedef std::function<std::unique_ptr<Affinitizer>()> red_t;
+
+  aff_t parAffFactory;
+  RoutingPolicy parPolicy;
+  DegreeOfParallelism dop;
+
+  red_t redAffFactory;
+  RoutingPolicy redPolicy;
+
+  std::string pgName;
+
+ public:
+  RDEPolicyFactory(aff_t parAffFactory, RoutingPolicy parPolicy,
+                   DegreeOfParallelism dop, red_t redAffFactory,
+                   RoutingPolicy redPolicy, std::string pgName)
+      : parAffFactory(std::move(parAffFactory)),
+        parPolicy(parPolicy),
+        dop(dop),
+        redAffFactory(std::move(redAffFactory)),
+        redPolicy(redPolicy),
+        pgName(std::move(pgName)) {}
+
+  DegreeOfParallelism getDOP(DeviceType trgt, RelBuilder &input) override {
+    if (isReduction(input)) return DegreeOfParallelism{1};
+    LOG(INFO) << dop;
+    return dop;
+  }
+
+  RoutingPolicy getRoutingPolicy(DeviceType trgt, bool isHashBased,
+                                 RelBuilder &input) override {
+    LOG(INFO) << isHashBased << " " << isReduction(input);
+    if (isHashBased) return RoutingPolicy::HASH_BASED;
+    if (isReduction(input)) return redPolicy;
+    return parPolicy;
+  }
+
+  std::unique_ptr<Affinitizer> getAffinitizer(DeviceType trgt,
+                                              RoutingPolicy policy,
+                                              RelBuilder &input) override {
+    LOG(INFO) << isReduction(input);
+    if (isReduction(input)) return redAffFactory();
+    return parAffFactory();
+  }
+
+  std::string getDynamicPgName(const std::string &relName) override {
+    LOG(INFO) << pgName;
+    return pgName;
+  }
+};
+
 prep_wrapper_t qs(const std::string &plan) {
   return [plan](pg type) {
     return [plan, type](DegreeOfParallelism dop, aff_t aff_parallel,
                         red_t aff_reduce, DeviceType dev = DeviceType::CPU) {
       const std::string planDir = "benchmarks/htap/queries/clotho/cpu/";
-      return PreparedStatement::from(planDir + plan, plan);
+      return PreparedStatement::from(
+          planDir + plan, plan,
+          std::make_unique<RDEPolicyFactory>(
+              aff_parallel, RoutingPolicy::LOCAL, dop, aff_reduce,
+              RoutingPolicy::RANDOM, type.getType()));
     };
   };
 }
@@ -101,14 +158,14 @@ prep_wrapper_t qs_old() {
 }
 
 std::vector<std::pair<std::vector<std::string>, prep_wrapper_t>> ch_map = {
-    //    {q01_rel, qs("Q01.sql.json")},
+    {q01_rel, qs("Q01.sql.json")},
     //    {q02_rel, qs("Q02_simplified.sql.json")},
     //    {q02_rel, qs("Q02_simplified_red.sql.json")},
     ////    {q03_rel, qs("Q03_simplified.sql.json")},
     //    {q04_rel, qs("Q04.sql.json")},
-    //    {q06_rel, qs("Q06.sql.json")},
+    {q06_rel, qs("Q06.sql.json")},
     //    {q18_rel, qs("Q18.sql.json")},
-    //    {q19_rel, qs("Q19_simplified.sql.json")},
+    {q19_rel, qs("Q19_simplified.sql.json")},
     //    {q01_rel, qs_old<1, plugin_t>()},
     //    {q04_rel, qs_old<4, plugin_t>()},
     //    {q09_rel, qs("Q09_simplified.sql.json")},
@@ -116,10 +173,10 @@ std::vector<std::pair<std::vector<std::string>, prep_wrapper_t>> ch_map = {
     //    {q15_rel, qs("Q15.sql.json")},
     //    {q18_rel, qs("Q18.sql.json")},
     //    {q19_rel, qs("Q19_simplified.sql.json")},
-    {q01_rel, qs_old<1>()},
+    //    {q01_rel, qs_old<1>()},
     //    {q04_rel, qs_old<4, plugin_t>()},
-    {q06_rel, qs_old<6>()},
-    {q19_rel, qs_old<19>()},
+    //    {q06_rel, qs_old<6>()},
+    //    {q19_rel, qs_old<19>()},
 };
 
 auto OLAPSequence::getIsolatedOLAPResources() {

@@ -41,6 +41,8 @@
 #include "operators/gpu/gpu-reduce.hpp"
 #include "operators/gpu/gpu-to-cpu.hpp"
 #endif
+#include <routing/affinitization-factory.hpp>
+
 #include "operators/block-to-tuples.hpp"
 #include "operators/dict-scan.hpp"
 #include "operators/flush.hpp"
@@ -67,27 +69,8 @@
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 
-// std::string hyphenatedPluginToCamel(const char *name) {
-//   size_t len = strlen(name);
-//   bool make_capital = true;
-//   char conv[len + 1];
-//   size_t j = 0;
-//   for (size_t i = 0; i < len - 1; ++i) {
-//     if (name[i] == '-') {
-//       ++i;
-//       make_capital = true;
-//     }
-//     if (make_capital) {
-//       conv[j++] = name[i];
-//     }
-//     make_capital = false;
-//   }
-//   conv[j] = '\0';
-//   return {conv};
-// }
-
-std::string hyphenatedPluginToCamel(const char *line) {
-  size_t len = strlen(line);
+std::string hyphenatedPluginToCamel(const std::string &line) {
+  size_t len = line.size();
   char conv[len + 1];
   bool active = true;
   int j = 0;
@@ -110,11 +93,20 @@ std::string hyphenatedPluginToCamel(const char *line) {
 
 PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
                            const char *moduleName)
+    : PlanExecutor(planPath, cat,
+                   std::make_unique<ParserAffinitizationFactory>(),
+                   moduleName) {}
+
+PlanExecutor::PlanExecutor(
+    const char *planPath, CatalogParser &cat,
+    std::unique_ptr<ParserAffinitizationFactory> parFactory,
+    const char *moduleName)
     : handle(dlopen(nullptr, 0)),
       moduleName(moduleName),
       catalogParser(cat),
       factory(moduleName),
-      ctx(factory.getBuilder().ctx) {
+      ctx(factory.getBuilder().ctx),
+      parFactory(std::move(parFactory)) {
   // Input Path
   const char *nameJSON = planPath;
   // Prepare Input
@@ -183,6 +175,94 @@ void PlanExecutor::cleanUp() {
     currPg->finish();
   }
 }
+
+class ParserAdapterAffinitizationFactory : public ParserAffinitizationFactory {
+  std::unique_ptr<AffinitizationFactory> aff;
+
+ public:
+  ParserAdapterAffinitizationFactory(std::unique_ptr<AffinitizationFactory> aff)
+      : aff(std::move(aff)) {}
+
+  DegreeOfParallelism getDOP(DeviceType trgt, const rapidjson::Value &val,
+                             RelBuilder &input) override {
+    return aff->getDOP(trgt, input);
+  }
+
+  RoutingPolicy getRoutingPolicy(DeviceType trgt, const rapidjson::Value &val,
+                                 RelBuilder &input) override {
+    return aff->getRoutingPolicy(trgt, val.HasMember("target"), input);
+  }
+
+  std::unique_ptr<Affinitizer> getAffinitizer(DeviceType trgt,
+                                              RoutingPolicy policy,
+                                              const rapidjson::Value &val,
+                                              RelBuilder &input) override {
+    return aff->getAffinitizer(trgt, policy, input);
+  }
+
+  std::string getDynamicPgName(const std::string &relName) override {
+    return aff->getDynamicPgName(relName);
+  }
+};
+
+DegreeOfParallelism ParserAffinitizationFactory::getDOP(
+    DeviceType trgt, const rapidjson::Value &val, RelBuilder &input) {
+  auto attr = [&]() -> std::string {
+    if (val.HasMember("numOfParents")) {
+      return "numOfParents";
+    } else {
+      assert(val.HasMember("num_of_targets"));
+      return "num_of_targets";
+    }
+  }();
+  assert(val[attr.c_str()].IsUint64());
+  return DegreeOfParallelism{val[attr.c_str()].GetUint64()};
+}
+
+RoutingPolicy ParserAffinitizationFactory::getRoutingPolicy(
+    DeviceType trgt, const rapidjson::Value &val, RelBuilder &input) {
+  if (val.HasMember("target")) return RoutingPolicy::HASH_BASED;
+
+  bool numa_local = true;
+  bool rand_local_cpu = false;
+  if (val.HasMember("rand_local_cpu")) {
+    assert(val["rand_local_cpu"].IsBool());
+    rand_local_cpu = val["rand_local_cpu"].GetBool();
+    numa_local = false;
+  }
+
+  if (val.HasMember("numa_local")) {
+    assert(!rand_local_cpu);
+    assert(numa_local);
+    assert(val["numa_local"].IsBool());
+    numa_local = val["numa_local"].GetBool();
+  }
+
+  return (numa_local || rand_local_cpu) ? RoutingPolicy::LOCAL
+                                        : RoutingPolicy::RANDOM;
+}
+
+std::unique_ptr<Affinitizer> ParserAffinitizationFactory::getAffinitizer(
+    DeviceType trgt, RoutingPolicy policy, const rapidjson::Value &val,
+    RelBuilder &input) {
+  return (trgt == DeviceType::GPU)
+             ? (std::unique_ptr<Affinitizer>)std::make_unique<GPUAffinitizer>()
+             : (std::unique_ptr<Affinitizer>)
+                   std::make_unique<CpuCoreAffinitizer>(); /* FIXME */
+}
+
+std::string ParserAffinitizationFactory::getDynamicPgName(
+    const std::string &relName) {
+  return "binary";
+}
+
+PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
+                           std::unique_ptr<AffinitizationFactory> parFactory,
+                           const char *moduleName)
+    : PlanExecutor(planPath, cat,
+                   std::make_unique<ParserAdapterAffinitizationFactory>(
+                       std::move(parFactory)),
+                   moduleName) {}
 
 RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
   const char *keyPg = "plugin";
@@ -1313,72 +1393,38 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     return childOp.pack();
   } else if (strcmp(opName, "hash-rearrange") == 0 ||
              strcmp(opName, "hash-pack") == 0) {
-    bool gpu = false;
-    if (val.HasMember("gpu")) {
-      assert(val["gpu"].IsBool());
-      gpu = val["gpu"].GetBool();
-    }
-    /* parse operator input */
     assert(val.HasMember("input"));
     assert(val["input"].IsObject());
-    auto child = parseOperator(val["input"]);
-    auto arg = child.getOutputArg();
-    auto childOp = child.root;
+    auto childOp = parseOperator(val["input"]);
 
-    assert(val.HasMember("projections"));
-    assert(val["projections"].IsArray());
-
-    int numOfBuckets = 2;
+    int numOfBuckets = 2;  // FIXME: !!!
     if (val.HasMember("buckets")) {
       assert(val["buckets"].IsInt());
       numOfBuckets = val["buckets"].GetInt();
     }
 
-    RecordAttribute *hashAttr = nullptr;
-    // register hash as an attribute
-    if (val.HasMember("hashProject")) {
-      assert(val["hashProject"].IsObject());
+    return childOp.pack(
+        [&](const auto &arg) -> std::vector<expression_t> {
+          assert(val.HasMember("projections"));
+          assert(val["projections"].IsArray());
+          vector<expression_t> projections;
+          for (const auto &v : val["projections"].GetArray()) {
+            projections.emplace_back(parseExpression(v, arg));
+          }
+          return projections;
+        },
+        [&](const auto &arg) -> expression_t {
+          assert(val.HasMember("e"));
+          assert(val["e"].IsObject());
 
-      hashAttr = parseRecordAttr(val["hashProject"], arg);
+          auto hashExpr = parseExpression(val["e"], arg);
 
-      InputInfo *datasetInfo =
-          (this->catalogParser).getInputInfo(hashAttr->getRelationName());
-      auto *rec = new RecordType{dynamic_cast<const RecordType &>(
-          dynamic_cast<CollectionType *>(datasetInfo->exprType)
-              ->getNestedType())};
-
-      rec->appendAttribute(hashAttr);
-
-      datasetInfo->exprType = new BagType{*rec};
-    }
-
-    assert(val.HasMember("e"));
-    assert(val["e"].IsObject());
-
-    auto hashExpr = parseExpression(val["e"], arg);
-
-    vector<expression_t> projections;
-    for (const auto &v : val["projections"].GetArray()) {
-      projections.emplace_back(parseExpression(v, arg));
-    }
-
-    assert(dynamic_cast<ParallelContext *>(this->ctx));
-
-#ifndef NCUDA
-    if (gpu) {
-      newOp =
-          new GpuHashRearrange(childOp, ((ParallelContext *)this->ctx),
-                               numOfBuckets, projections, hashExpr, hashAttr);
-    } else {
-#endif
-      newOp = new HashRearrange(childOp, ((ParallelContext *)this->ctx),
-                                numOfBuckets, projections, hashExpr, hashAttr);
-#ifndef NCUDA
-    }
-#endif
-    childOp->setParent(newOp);
-
-    return RelBuilder(ctx, newOp);
+          if (val.HasMember("hashProject")) {
+            hashExpr.as(parseRecordAttr(val["hashProject"], arg));
+          }
+          return hashExpr;
+        },
+        numOfBuckets);
   } else if (strcmp(opName, "mem-move-device") == 0) {
     /* parse operator input */
     assert(val.HasMember("input"));
@@ -1420,12 +1466,6 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val["input"].IsObject());
     auto childOp = parseOperator(val["input"]);
 
-    size_t num_of_targets = 1;
-    if (val.HasMember("num_of_targets")) {
-      assert(val["num_of_targets"].IsInt64());
-      num_of_targets = val["num_of_targets"].GetInt64();
-    }
-
     bool to_cpu = false;
     if (val.HasMember("to_cpu")) {
       assert(val["to_cpu"].IsBool());
@@ -1438,8 +1478,10 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
       always_share = val["always_share"].GetBool();
     }
 
-    return childOp.membrdcst(DegreeOfParallelism{num_of_targets}, to_cpu,
-                             always_share);
+    return childOp.membrdcst(
+        parFactory->getDOP(to_cpu ? DeviceType::CPU : DeviceType::GPU, val,
+                           childOp),
+        to_cpu, always_share);
   } else if (strcmp(opName, "mem-move-local-to") == 0) {
     /* parse operator input */
     assert(val.HasMember("input"));
@@ -1475,10 +1517,6 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val["input"].IsObject());
     auto childOp = parseOperator(val["input"]);
 
-    assert(val.HasMember("numOfParents"));
-    assert(val["numOfParents"].IsUint64());
-    auto dop = DegreeOfParallelism{val["numOfParents"].GetUint64()};
-
     size_t slack = 8;
     if (val.HasMember("slack")) {
       assert(val["slack"].IsUint64());
@@ -1492,39 +1530,21 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
           val["cpu_targets"].GetBool() ? DeviceType::CPU : DeviceType::GPU;
     }
 
-    auto aff =
-        (targets == DeviceType::GPU)
-            ? (std::unique_ptr<Affinitizer>)std::make_unique<GPUAffinitizer>()
-            : (std::unique_ptr<Affinitizer>)
-                  std::make_unique<CpuCoreAffinitizer>(); /* FIXME */
+    auto dop = parFactory->getDOP(targets, val, childOp);
+
+    auto policy_type = parFactory->getRoutingPolicy(targets, val, childOp);
+
+    auto aff = parFactory->getAffinitizer(targets, policy_type, val, childOp);
 
     if (val.HasMember("target")) {
+      assert(policy_type == RoutingPolicy::HASH_BASED);
       return childOp.router(
           [&](const auto &arg) -> std::optional<expression_t> {
             assert(val["target"].IsObject());
             return parseExpression(val["target"], arg);
           },
-          dop, slack, RoutingPolicy::HASH_BASED, targets, std::move(aff));
+          dop, slack, policy_type, targets, std::move(aff));
     } else {
-      bool numa_local = true;
-      bool rand_local_cpu = false;
-      if (val.HasMember("rand_local_cpu")) {
-        assert(val["rand_local_cpu"].IsBool());
-        rand_local_cpu = val["rand_local_cpu"].GetBool();
-        numa_local = false;
-      }
-
-      if (val.HasMember("numa_local")) {
-        assert(!rand_local_cpu);
-        assert(numa_local);
-        assert(val["numa_local"].IsBool());
-        numa_local = val["numa_local"].GetBool();
-      }
-
-      RoutingPolicy policy_type = (numa_local || rand_local_cpu)
-                                      ? RoutingPolicy::LOCAL
-                                      : RoutingPolicy::RANDOM;
-
       return childOp.router(dop, slack, policy_type, targets, std::move(aff));
     }
   } else if (strcmp(opName, "union-all") == 0) {
@@ -1636,7 +1656,7 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
    * CSV-specific
    */
   // which fields to project
-  const char *keyProjectionsCSV = "projections";
+  const char *keyProjections = "projections";
   // pm policy
   const char *keyPolicy = "policy";
   // line hint
@@ -1646,28 +1666,18 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
   // OPTIONAL: are string values wrapped in brackets?
   const char *keyBrackets = "brackets";
 
-  /*
-   * BinRow
-   */
-  const char *keyProjectionsBinRow = "projections";
-
-  /*
-   * GPU
-   */
-  const char *keyProjectionsGPU = "projections";
-
-  /*
-   * BinCol
-   */
-  const char *keyProjectionsBinCol = "projections";
-
   assert(val.HasMember(keyInputName));
   assert(val[keyInputName].IsString());
-  string datasetName = val[keyInputName].GetString();
+  std::string datasetName = val[keyInputName].GetString();
 
   assert(val.HasMember(keyPgType));
   assert(val[keyPgType].IsString());
-  const char *pgType = val[keyPgType].GetString();
+  std::string pgType = val[keyPgType].GetString();
+
+  if (pgType == "dynamic") {
+    pgType = parFactory->getDynamicPgName(pgType);
+    datasetName = datasetName + "<" + pgType + ">";
+  }
 
   // Lookup in catalog based on name
   InputInfo *datasetInfo =
@@ -1681,12 +1691,9 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
       size_t attrNo = 1;
       for (const auto &attr : val["schema"].GetArray()) {
         assert(attr.IsObject());
-        RecordAttribute *recAttr = parseRecordAttr(
-            attr, {new RecordType(std::vector<RecordAttribute *>{})}, nullptr,
-            attrNo++);
+        auto recAttr = parseRecordAttr(attr, datasetName, nullptr, attrNo++);
 
-        std::cout << "Plugin Registered: " << recAttr->getRelationName() << "."
-                  << recAttr->getAttrName() << std::endl;
+        LOG(INFO) << "Plugin Registered: " << *recAttr;
 
         rec->appendAttribute(recAttr);
       }
@@ -1726,17 +1733,17 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
   // circumventing the presence of const
   RecordType *recType = new RecordType(recType_.getArgs());
 
-  if (strcmp(pgType, "csv") == 0) {
+  if (pgType == "csv") {
     //        cout<<"Original intended type: " <<
     //        datasetInfo.exprType->getType()<<endl; cout<<"File path: " <<
     //        datasetInfo.path<<endl;
 
     /* Projections come in an array of Record Attributes */
-    assert(val.HasMember(keyProjectionsCSV));
-    assert(val[keyProjectionsCSV].IsArray());
+    assert(val.HasMember(keyProjections));
+    assert(val[keyProjections].IsArray());
 
     vector<RecordAttribute *> projections;
-    for (const auto &attr : val[keyProjectionsCSV].GetArray()) {
+    for (const auto &attr : val[keyProjections].GetArray()) {
       projections.push_back(parseRecordAttr(attr, {recType}));
     }
 
@@ -1774,30 +1781,30 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
     newPg =
         new pm::CSVPlugin(this->ctx, *pathDynamicCopy, *recType, projections,
                           delim, linehint, policy, stringBrackets, hasHeader);
-  } else if (strcmp(pgType, "json") == 0) {
+  } else if (pgType == "json") {
     assert(val.HasMember(keyLineHint));
     assert(val[keyLineHint].IsInt());
     int linehint = val[keyLineHint].GetInt();
 
     newPg = new jsonPipelined::JSONPlugin(this->ctx, *pathDynamicCopy,
                                           datasetInfo->exprType, linehint);
-  } else if (strcmp(pgType, "binrow") == 0) {
-    assert(val.HasMember(keyProjectionsBinRow));
-    assert(val[keyProjectionsBinRow].IsArray());
+  } else if (pgType == "binrow") {
+    assert(val.HasMember(keyProjections));
+    assert(val[keyProjections].IsArray());
 
     vector<RecordAttribute *> projections;
-    for (const auto &attr : val[keyProjectionsBinRow].GetArray()) {
+    for (const auto &attr : val[keyProjections].GetArray()) {
       projections.push_back(parseRecordAttr(attr, {recType}));
     }
 
     newPg =
         new BinaryRowPlugin(this->ctx, *pathDynamicCopy, *recType, projections);
-  } else if (strcmp(pgType, "bincol") == 0) {
-    assert(val.HasMember(keyProjectionsBinCol));
-    assert(val[keyProjectionsBinCol].IsArray());
+  } else if (pgType == "bincol") {
+    assert(val.HasMember(keyProjections));
+    assert(val[keyProjections].IsArray());
 
     vector<RecordAttribute *> projections;
-    for (const auto &attr : val[keyProjectionsBinCol].GetArray()) {
+    for (const auto &attr : val[keyProjections].GetArray()) {
       projections.push_back(parseRecordAttr(attr, {recType}));
     }
 
@@ -1808,12 +1815,12 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
     }
     newPg = new BinaryColPlugin(this->ctx, *pathDynamicCopy, *recType,
                                 projections, sizeInFile);
-  } else if (strcmp(pgType, "block") == 0) {
-    assert(val.HasMember(keyProjectionsGPU));
-    assert(val[keyProjectionsGPU].IsArray());
+  } else if (pgType == "block") {
+    assert(val.HasMember(keyProjections));
+    assert(val[keyProjections].IsArray());
 
     vector<RecordAttribute *> projections;
-    for (const auto &attr : val[keyProjectionsGPU].GetArray()) {
+    for (const auto &attr : val[keyProjections].GetArray()) {
       projections.push_back(parseRecordAttr(attr, {recType}));
     }
 
@@ -1827,6 +1834,10 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
     typedef Plugin *(*plugin_creator_t)(ParallelContext *, std::string,
                                         RecordType,
                                         std::vector<RecordAttribute *> &);
+
+    //    if (std::string{pgType} == "dynamic"){
+    //      pgType = "block-elastic";
+    //    }
 
     std::string conv = "create" + hyphenatedPluginToCamel(pgType) + "Plugin";
 
@@ -1842,11 +1853,11 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
         throw runtime_error(err);
       }
     } else {
-      assert(val.HasMember(keyProjectionsGPU));
-      assert(val[keyProjectionsGPU].IsArray());
+      assert(val.HasMember(keyProjections));
+      assert(val[keyProjections].IsArray());
 
       vector<RecordAttribute *> projections;
-      for (const auto &attr : val[keyProjectionsGPU].GetArray()) {
+      for (const auto &attr : val[keyProjections].GetArray()) {
         projections.push_back(parseRecordAttr(attr, {recType}));
       }
 
@@ -2013,7 +2024,7 @@ InputInfo *CatalogParser::getOrCreateInputInfo(string inputName,
     vector<RecordAttribute *> projs;
     Plugin *newPg =
         new pm::CSVPlugin(context, inputName, *rec, projs, ',', 10, 1, false);
-    catalog.registerPlugin(*(new string(inputName)), newPg);
+    catalog.registerPlugin(inputName, newPg);
     ret->oidType = newPg->getOIDType();
 
     setInputInfo(inputName, ret);

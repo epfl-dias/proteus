@@ -31,6 +31,7 @@
 #include "plan/query-result.hpp"
 
 class Pipeline;
+class AffinitizationFactory;
 
 class PreparedStatement {
  private:
@@ -52,6 +53,9 @@ class PreparedStatement {
   static PreparedStatement from(const std::string& planPath,
                                 const std::string& label,
                                 const std::string& catalogJSON);
+  static PreparedStatement from(
+      const std::string& planPath, const std::string& label,
+      std::unique_ptr<AffinitizationFactory> affFactory);
 
   friend class RelBuilder;
 };

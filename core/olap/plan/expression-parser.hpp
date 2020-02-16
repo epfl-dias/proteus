@@ -40,6 +40,10 @@ class ExpressionParser {
                                ParallelContext *ctx);
   ExpressionType *parseExpressionType(const rapidjson::Value &val);
   RecordAttribute *parseRecordAttr(const rapidjson::Value &val,
+                                   std::string relName,
+                                   const ExpressionType *defaultType = nullptr,
+                                   int defaultAttrNo = -1);
+  RecordAttribute *parseRecordAttr(const rapidjson::Value &val,
                                    const ExpressionType *defaultType = nullptr,
                                    int defaultAttrNo = -1);
   Monoid parseAccumulator(const char *acc);

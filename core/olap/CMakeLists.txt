@@ -66,6 +66,7 @@ set(olap_cxx
         plugins/json-jsmn-plugin.cpp
         plugins/json-plugin.cpp
         plugins/output/plugins-output.cpp
+        routing/affinitization-factory.cpp
         routing/affinitizers.cpp
         routing/routing-policy.cpp
         util/atois.cpp

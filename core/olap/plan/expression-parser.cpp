@@ -326,17 +326,18 @@ expression_t ExpressionParser::parseExpressionWithoutRegistering(
 
     /* projected attribute */
     assert(val.HasMember(keyProjectedAttr));
-    assert(val[keyProjectedAttr].IsObject());
-    RecordAttribute *recAttr = parseRecordAttr(val[keyProjectedAttr]);
-
-    /* exprType */
-    if (val.HasMember(keyExprType)) {
-      string err{"deprecated type in recordProjection ignored"};
-      LOG(WARNING) << err;
-      std::cerr << err << endl;
+    if (val[keyProjectedAttr].IsObject()) {
+      auto recAttr = *parseRecordAttr(val[keyProjectedAttr]);
+      return expr[recAttr];
+    } else {
+      assert(val[keyProjectedAttr].IsString());
+      std::string attrName = val[keyProjectedAttr].GetString();
+      auto recType =
+          dynamic_cast<const RecordType &>(*expr.getExpressionType());
+      auto p = recType.getArg(attrName);
+      assert(p);
+      return expr[*p];
     }
-
-    return expr[*recAttr];
   } else if (strcmp(valExpression, "recordConstruction") == 0) {
     assert(!isNull);
     /* exprType */
@@ -696,15 +697,34 @@ const RecordAttribute *ExpressionParser::getAttribute(string relName,
 RecordAttribute *ExpressionParser::parseRecordAttr(
     const rapidjson::Value &val, const ExpressionType *defaultType,
     int defaultAttrNo) {
+  const auto keyRelName = "relName";
+
+  auto relName = [&]() -> std::string {
+    if (val.HasMember(keyRelName)) {
+      assert(val[keyRelName].IsString());
+      return val[keyRelName].GetString();
+    } else {
+      return arg.getProjections().front().getRelationName();
+    }
+  }();
+
+  return parseRecordAttr(val, relName, defaultType, defaultAttrNo);
+}
+
+RecordAttribute *ExpressionParser::parseRecordAttr(
+    const rapidjson::Value &val, std::string relName,
+    const ExpressionType *defaultType, int defaultAttrNo) {
   assert(val.IsObject());
   const char *keyRecAttrType = "type";
   const char *keyRelName = "relName";
   const char *keyAttrName = "attrName";
   const char *keyAttrNo = "attrNo";
 
-  assert(val.HasMember(keyRelName));
-  assert(val[keyRelName].IsString());
-  string relName = val[keyRelName].GetString();
+  // For backward compatibility, prioritize attr
+  if (val.HasMember(keyRelName)) {
+    assert(val[keyRelName].IsString());
+    relName = val[keyRelName].GetString();
+  }
 
   assert(val.HasMember(keyAttrName));
   assert(val[keyAttrName].IsString());

@@ -109,6 +109,9 @@ Plugin *createBlockLocalPlugin(ParallelContext *context,
 Plugin *createBlockElasticPlugin(ParallelContext *context,
                                  std::string fnamePrefix, RecordType rec,
                                  std::vector<RecordAttribute *> &whichFields);
+Plugin *createBlockElasticNiPlugin(ParallelContext *context,
+                                   std::string fnamePrefix, RecordType rec,
+                                   std::vector<RecordAttribute *> &whichFields);
 }
 
 #endif /* AEOLUS_PLUGIN_HPP_ */

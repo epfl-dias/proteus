@@ -97,6 +97,31 @@ PreparedStatement PreparedStatement::from(const std::string &planPath,
   return from(planPath, label, defaultCatalogJSON);
 }
 
+PreparedStatement PreparedStatement::from(
+    const std::string &planPath, const std::string &label,
+    std::unique_ptr<AffinitizationFactory> affFactory) {
+  {
+    Catalog *catalog = &Catalog::getInstance();
+    CachingService *caches = &CachingService::getInstance();
+    catalog->clear();
+    caches->clear();
+  }
+
+  {
+    time_block t("Tcodegen: ");
+
+    auto ctx = new ParallelContext(label, false);
+    CatalogParser catalog{defaultCatalogJSON, ctx};
+    auto label_ptr = new std::string{label};
+    PlanExecutor exec{planPath.c_str(), catalog, std::move(affFactory),
+                      label_ptr->c_str()};
+
+    exec.compileAndLoad();
+
+    return {exec.ctx->getPipelines(), exec.ctx->getModuleName()};
+  }
+}
+
 PreparedStatement PreparedStatement::from(const std::string &planPath,
                                           const std::string &label,
                                           const std::string &catalogJSON) {

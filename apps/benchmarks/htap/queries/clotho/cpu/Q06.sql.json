@@ -47,10 +47,7 @@
           "e" : {
             "expression" : "argument"
           },
-          "attribute" : {
-            "attrName" : "ol_amount",
-            "relName" : "tpcc_orderline<block-local>"
-          },
+          "attribute" : "ol_amount",
           "register_as" : {
             "attrName" : "revenue",
             "relName" : "subsetPelagoRouter#17174"
@@ -71,10 +68,7 @@
                   "e" : {
                     "expression" : "argument"
                   },
-                  "attribute" : {
-                    "attrName" : "ol_delivery_d",
-                    "relName" : "tpcc_orderline<block-local>"
-                  }
+                  "attribute" : "ol_delivery_d"
                 },
                 "right" : {
                   "expression" : "datetime",
@@ -88,10 +82,7 @@
                   "e" : {
                     "expression" : "argument"
                   },
-                  "attribute" : {
-                    "attrName" : "ol_delivery_d",
-                    "relName" : "tpcc_orderline<block-local>"
-                  }
+                  "attribute" : "ol_delivery_d"
                 },
                 "right" : {
                   "expression" : "datetime",
@@ -108,10 +99,7 @@
                   "e" : {
                     "expression" : "argument"
                   },
-                  "attribute" : {
-                    "attrName" : "ol_quantity",
-                    "relName" : "tpcc_orderline<block-local>"
-                  }
+                  "attribute" : "ol_quantity"
                 },
                 "right" : {
                   "expression" : "int",
@@ -125,10 +113,7 @@
                   "e" : {
                     "expression" : "argument"
                   },
-                  "attribute" : {
-                    "attrName" : "ol_quantity",
-                    "relName" : "tpcc_orderline<block-local>"
-                  }
+                  "attribute" : "ol_quantity"
                 },
                 "right" : {
                   "expression" : "int",
@@ -151,84 +136,71 @@
                   "operator" : "scan",
                   "gpu" : false,
                   "plugin" : {
-                    "type" : "block-local",
+                    "type" : "dynamic",
                     "linehint" : 6000000,
-                    "name" : "tpcc_orderline<block-local>",
+                    "name" : "tpcc_orderline",
                     "projections" : [ {
-                      "relName" : "tpcc_orderline<block-local>",
                       "attrName" : "ol_delivery_d"
                     }, {
-                      "relName" : "tpcc_orderline<block-local>",
                       "attrName" : "ol_quantity"
                     }, {
-                      "relName" : "tpcc_orderline<block-local>",
                       "attrName" : "ol_amount"
                     } ],
                     "schema" : [ {
-                      "relName" : "tpcc_orderline<block-local>",
                       "attrName" : "ol_o_id",
                       "type" : {
                         "type" : "int64"
                       },
                       "attrNo" : 1
                     }, {
-                      "relName" : "tpcc_orderline<block-local>",
                       "attrName" : "ol_d_id",
                       "type" : {
                         "type" : "int"
                       },
                       "attrNo" : 2
                     }, {
-                      "relName" : "tpcc_orderline<block-local>",
                       "attrName" : "ol_w_id",
                       "type" : {
                         "type" : "int"
                       },
                       "attrNo" : 3
                     }, {
-                      "relName" : "tpcc_orderline<block-local>",
                       "attrName" : "ol_number",
                       "type" : {
                         "type" : "int"
                       },
                       "attrNo" : 4
                     }, {
-                      "relName" : "tpcc_orderline<block-local>",
                       "attrName" : "ol_i_id",
                       "type" : {
                         "type" : "int"
                       },
                       "attrNo" : 5
                     }, {
-                      "relName" : "tpcc_orderline<block-local>",
                       "attrName" : "ol_supply_w_id",
                       "type" : {
                         "type" : "int"
                       },
                       "attrNo" : 6
                     }, {
-                      "relName" : "tpcc_orderline<block-local>",
                       "attrName" : "ol_delivery_d",
                       "type" : {
                         "type" : "datetime"
                       },
                       "attrNo" : 7
                     }, {
-                      "relName" : "tpcc_orderline<block-local>",
                       "attrName" : "ol_quantity",
                       "type" : {
                         "type" : "int"
                       },
                       "attrNo" : 8
                     }, {
-                      "relName" : "tpcc_orderline<block-local>",
                       "attrName" : "ol_amount",
                       "type" : {
                         "type" : "float"
                       },
                       "attrNo" : 9
                     }, {
-                      "relName" : "tpcc_orderline<block-local>",
                       "attrName" : "ol_dist_info",
                       "type" : {
                         "type" : "dstring"
