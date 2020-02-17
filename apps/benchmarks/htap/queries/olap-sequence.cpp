@@ -123,8 +123,11 @@ prep_wrapper_t qs(const std::string &plan) {
       return PreparedStatement::from(
           planDir + plan, plan,
           std::make_unique<RDEPolicyFactory>(
-              aff_parallel, RoutingPolicy::LOCAL, dop, aff_reduce,
-              RoutingPolicy::RANDOM, type.getType()));
+              aff_parallel,
+              ((type.getType() == AeolusElasticNIPlugin::type)
+                   ? RoutingPolicy::RANDOM
+                   : RoutingPolicy::LOCAL),
+              dop, aff_reduce, RoutingPolicy::RANDOM, type.getType()));
     };
   };
 }
