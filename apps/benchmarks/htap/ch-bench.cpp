@@ -60,7 +60,7 @@ void init(int argc, char *argv[]) {
   google::InitGoogleLogging(argv[0]);
   FLAGS_logtostderr = 1;  // FIXME: the command line flags/defs seem to fail...
   google::InstallFailureSignalHandler();
-  set_trace_allocations(true);
+  set_trace_allocations(false);
 }
 
 int main(int argc, char *argv[]) {
