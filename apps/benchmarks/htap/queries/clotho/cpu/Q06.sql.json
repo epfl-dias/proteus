@@ -35,8 +35,7 @@
     "accumulator" : [ "sum" ],
     "input" : {
       "operator" : "router",
-      "numOfParents" : 1,
-      "slack" : 8,
+      "slack" : 32,
       "cpu_targets" : true,
       "numa_local" : false,
       "input" : {
@@ -125,11 +124,8 @@
           "input" : {
             "operator" : "unpack",
             "input" : {
-              "operator" : "mem-move-device",
-              "input" : {
                 "operator" : "router",
-                "numOfParents" : 48,
-                "slack" : 8,
+                "slack" : 32,
                 "cpu_targets" : true,
                 "rand_local_cpu" : true,
                 "input" : {
@@ -209,10 +205,7 @@
                     } ]
                   }
                 }
-              },
-              "to_cpu" : true,
-              "do_transfer" : [ true, true, true ]
-            }
+              }
           }
         }
       }
