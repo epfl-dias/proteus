@@ -61,21 +61,12 @@ class Router : public UnaryOperator {
         remaining_producers(producers),
         hashExpr(std::move(hash)),
         need_cnt(false),
+        free_pool(nullptr),
         targets(targets),
         policy_type(policy_type),
         aff(aff ? std::move(aff) : getDefaultAffinitizer(targets)) {
     assert((policy_type == RoutingPolicy::HASH_BASED) == hash.has_value() &&
            "hash should only contain a value for hash-based routing policies");
-
-    free_pool = new std::stack<void *>[fanout];
-    free_pool_mutex = new std::mutex[fanout];
-    free_pool_cv = new std::condition_variable[fanout];
-
-    // ready_pool          = new std::queue<void *>     [fanout];
-    // ready_pool_mutex    = new std::mutex             [fanout];
-    // ready_pool_cv       = new std::condition_variable[fanout];
-
-    ready_fifo = new AsyncQueueMPSC<void *>[fanout];
   }
 
   virtual ~Router() { LOG(INFO) << "Collapsing Router operator"; }
@@ -133,6 +124,7 @@ class Router : public UnaryOperator {
 
   const int slack;
   const size_t fanout;
+  size_t buf_size;
   int producers;
   std::atomic<int> remaining_producers;
 

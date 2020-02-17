@@ -24,6 +24,8 @@
 #include "operators/router.hpp"
 
 #include <cstring>
+#include <memory/memory-manager.hpp>
+#include <util/timing.hpp>
 
 #include "expressions/expressions-generator.hpp"
 #include "routing/routing-policy.hpp"
@@ -66,14 +68,13 @@ void Router::generate_catch(ParallelContext *context) {
   // subState->getType());
 
   std::vector<Type *> param_typelist;
-  for (size_t i = 0; i < wantedFields.size(); ++i) {
-    Type *wtype = wantedFields[i]->getLLVMType(llvmContext);
+  for (auto field : wantedFields) {
+    Type *wtype = field->getLLVMType(llvmContext);
     if (wtype == nullptr)
       wtype = oidType;  // FIXME: dirty hack for JSON inner lists
 
     param_typelist.push_back(wtype);
-    need_cnt =
-        need_cnt || (wantedFields[i]->getOriginalType()->getTypeID() == BLOCK);
+    need_cnt = need_cnt || (field->getOriginalType()->getTypeID() == BLOCK);
   }
 
   param_typelist.push_back(oidType);                // oid
@@ -82,15 +83,7 @@ void Router::generate_catch(ParallelContext *context) {
   // param_typelist.push_back(subStatePtr->getType());
 
   params_type = StructType::get(llvmContext, param_typelist);
-
-  size_t buf_size = context->getSizeOf(params_type);
-  for (int i = 0; i < fanout; ++i) {
-    for (int j = 0; j < slack; ++j) {
-      free_pool[i].push(malloc(buf_size));
-    }
-    // std::cout << free_pool[i].size() << std::endl;
-  }
-
+  buf_size = context->getSizeOf(params_type);
   // context->SetInsertPoint(insBB);
 
   RecordAttribute tupleCnt(wantedFields[0]->getRelationName(), "activeCnt",
@@ -424,11 +417,30 @@ void Router::consume(ParallelContext *const context,
 }
 
 void Router::open(Pipeline *pip) {
-  // time_block t("Tinit_exchange: ");
+  time_block t("Tinit_exchange: ");
 
   std::lock_guard<std::mutex> guard(init_mutex);
 
   if (firers.empty()) {
+    if (free_pool == nullptr) {
+      free_pool = new std::stack<void *>[fanout];
+      free_pool_mutex = new std::mutex[fanout];
+      free_pool_cv = new std::condition_variable[fanout];
+      ready_fifo = new AsyncQueueMPSC<void *>[fanout];
+
+      assert(buf_size);
+      for (int i = 0; i < fanout; ++i) {
+        // set_exec_location_on_scope d(cu);
+        auto exec_affinity = aff->getAvailableCU(i).set_on_scope();
+        void *mem = MemoryManager::mallocPinned(buf_size * slack);
+        for (int j = 0; j < slack; ++j) {
+          free_pool[i].push(((char *)mem) + j * buf_size);
+          //        free_pool[i].push(malloc(buf_size));
+        }
+      }
+    }
+    assert(free_pool);
+
     for (int i = 0; i < fanout; ++i) {
       ready_fifo[i].reset();
     }
@@ -459,5 +471,10 @@ void Router::close(Pipeline *pip) {
     nvtxRangePop();
     eventlogger.log(this, log_op::EXCHANGE_JOIN_END);
     firers.clear();
+
+    //    delete[] free_pool;
+    //    delete[] free_pool_mutex;
+    //    delete[] free_pool_cv;
+    //    delete[] ready_fifo;
   }
 }
