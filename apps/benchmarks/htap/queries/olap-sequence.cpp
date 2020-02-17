@@ -168,7 +168,7 @@ std::vector<std::pair<std::vector<std::string>, prep_wrapper_t>> ch_map = {
     //    {q04_rel, qs("Q04.sql.json")},
     {q06_rel, qs("Q06.sql.json")},
     //    {q18_rel, qs("Q18.sql.json")},
-    {q19_rel, qs("Q19_simplified.sql.json")},
+    //{q19_rel, qs("Q19_simplified.sql.json")},
     //    {q01_rel, qs_old<1, plugin_t>()},
     //    {q04_rel, qs_old<4, plugin_t>()},
     //    {q09_rel, qs("Q09_simplified.sql.json")},
@@ -229,6 +229,9 @@ auto OLAPSequence::getElasticResources() {
   }
 
   int k = 0;
+  // FIXME: Intel HT hack!!
+  const auto ht_pair =
+      topology::getInstance().getCpuNumaNodes()[0].local_cores.size();
   for (auto &oltp_n : conf.oltp_nodes) {
     for (auto id :
          (dynamic_cast<topology::cpunumanode *>(oltp_n))->local_cores) {
@@ -236,7 +239,8 @@ auto OLAPSequence::getElasticResources() {
         break;
       }
       coreids.emplace_back(id);
-      k++;
+      coreids.emplace_back(id + ht_pair);
+      k += 2;
     }
 
     if (k >= conf.oltp_scale_threshold) {
@@ -515,7 +519,8 @@ std::ostream &operator<<(std::ostream &out, const OLAPSequenceStats &r) {
 HTAPSequenceConfig::HTAPSequenceConfig(
     exec_nodes olap_nodes, exec_nodes oltp_nodes, double adaptivity_ratio,
     uint oltp_scale_threshold, uint collocated_worker_threshold,
-    SchedulingPolicy::ScheduleMode schedule_policy)
+    SchedulingPolicy::ScheduleMode schedule_policy,
+    SchedulingPolicy::ResourceSchedule adaptive_resource_policy)
     : olap_nodes(olap_nodes),
       oltp_nodes(oltp_nodes),
       adaptivity_ratio(adaptivity_ratio),
@@ -539,7 +544,16 @@ HTAPSequenceConfig::HTAPSequenceConfig(
       resource_policy = SchedulingPolicy::ELASTIC;
       data_access_policy = SchedulingPolicy::HYBRID_READ;
       break;
-    case SchedulingPolicy::ADAPTIVE:
+    case SchedulingPolicy::ADAPTIVE: {
+      resource_policy = adaptive_resource_policy;
+      if (adaptive_resource_policy == SchedulingPolicy::COLOCATED) {
+        assert(collocated_worker_threshold > 0 &&
+               "ADAPTIVE-COLOCATED required collocated workers >0");
+      } else if (adaptive_resource_policy == SchedulingPolicy::ELASTIC) {
+        assert(oltp_scale_threshold > 0 &&
+               "ADAPTIVE-NI required elastic workers >0");
+      }
+    }
     default:
       break;
   }
@@ -645,7 +659,7 @@ void OLAPSequence::migrateState(SchedulingPolicy::ScheduleMode &curr,
             to == SchedulingPolicy::S3_IS)) {
     if (curr == SchedulingPolicy::S1_COLOCATED) {
       // migrate back
-      assert(false && "colocated also requires data migration??");
+      // assert(false && "colocated also requires data migration??");
       txn_engine.migrate_worker(conf.collocated_worker_threshold);
     } else {
       // scale-up oltp
@@ -714,10 +728,12 @@ SchedulingPolicy::ScheduleMode OLAPSequence::getNextState(
   double r_fq = freshness_ratios.first;
   double r_ft = freshness_ratios.second;
   if (r_fq < (this->conf.adaptivity_ratio * r_ft)) {
-    if (conf.oltp_scale_threshold <= 0) {
-      return SchedulingPolicy::S3_IS;
-    } else {
+    if (conf.oltp_scale_threshold > 0) {
       return SchedulingPolicy::S3_NI;
+    } else if (conf.collocated_worker_threshold > 0) {
+      return SchedulingPolicy::S1_COLOCATED;
+    } else {
+      return SchedulingPolicy::S3_IS;
     }
 
   } else {

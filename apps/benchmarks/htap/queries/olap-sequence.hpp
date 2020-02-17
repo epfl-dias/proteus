@@ -101,7 +101,9 @@ class HTAPSequenceConfig {
                      uint oltp_scale_threshold = 0,
                      uint collocated_worker_threshold = 0,
                      SchedulingPolicy::ScheduleMode schedule_policy =
-                         SchedulingPolicy::S2_ISOLATED);
+                         SchedulingPolicy::S2_ISOLATED,
+                     SchedulingPolicy::ResourceSchedule
+                         adaptive_resource_policy = SchedulingPolicy::ISOLATED);
 
   HTAPSequenceConfig(exec_nodes olap_nodes, exec_nodes oltp_nodes,
                      double adaptivity_ratio = 1.0,
