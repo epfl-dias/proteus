@@ -31,6 +31,7 @@ DECLARE_string(inputs_dir);
 DECLARE_bool(run_oltp);
 DECLARE_bool(run_olap);
 DECLARE_uint64(oltp_elastic_threshold);
+DECLARE_uint64(oltp_coloc_threshold);
 DECLARE_uint64(ch_scale_factor);
 
 DECLARE_bool(gpu_olap);

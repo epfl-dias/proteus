@@ -39,6 +39,7 @@ DEFINE_string(inputs_dir, "inputs/", "Data and catalog directory");
 DEFINE_bool(run_oltp, true, "Run OLTP");
 DEFINE_bool(run_olap, true, "Run OLAP");
 DEFINE_uint64(oltp_elastic_threshold, 0, "elastic_oltp cores");
+DEFINE_uint64(oltp_coloc_threshold, 0, "colocated cores");
 DEFINE_uint64(ch_scale_factor, 0, "CH-Bench scale factor");
 DEFINE_bool(gpu_olap, false, "OLAP on GPU, OLTP on CPU");
 

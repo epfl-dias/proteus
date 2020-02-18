@@ -107,16 +107,19 @@ int main(int argc, char *argv[]) {
   bench::Benchmark *bench =
       new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers, true,
                       FLAGS_ch_scale_factor, 0, "", true);
-  if (FLAGS_htap_mode.compare("COLOC") == 0) {
-    g_num_partitions = 2;
-    oltp_data_partitions = 2;
-    oltp_engine.init(bench, oltp_num_workers, oltp_data_partitions,
-                     FLAGS_ch_scale_factor, true);
+  // if (FLAGS_htap_mode.compare("COLOC") == 0) {
+  //   g_num_partitions = 2;
+  //   oltp_data_partitions = 2;
+  //   oltp_engine.init(bench, oltp_num_workers, oltp_data_partitions,
+  //                    FLAGS_ch_scale_factor, true);
 
-  } else {
-    oltp_engine.init(bench, oltp_num_workers, oltp_data_partitions,
-                     FLAGS_ch_scale_factor);
-  }
+  // } else {
+  //   oltp_engine.init(bench, oltp_num_workers, oltp_data_partitions,
+  //                    FLAGS_ch_scale_factor);
+  // }
+
+  oltp_engine.init(bench, oltp_num_workers, oltp_data_partitions,
+                   FLAGS_ch_scale_factor);
 
   LOG(INFO) << "[OLTP] data-partitions: " << oltp_data_partitions;
   LOG(INFO) << "[OLTP] Txn workers: " << oltp_num_workers;
@@ -177,7 +180,7 @@ int main(int argc, char *argv[]) {
 
   HTAPSequenceConfig htap_conf(olap_nodes, oltp_nodes, FLAGS_adaptive_ratio,
                                FLAGS_oltp_elastic_threshold,
-                               (oltp_num_workers / 2), schedule_policy);
+                               FLAGS_oltp_coloc_threshold, schedule_policy);
 
   if (FLAGS_htap_mode.compare("REMOTE-READ") == 0) {
     htap_conf.schedule_policy = SchedulingPolicy::CUSTOM;
@@ -186,6 +189,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (FLAGS_micro_ch_query > 0) {
+    LOG(INFO) << "QQQQ: " << FLAGS_micro_ch_query;
     htap_conf.setChMicro(FLAGS_micro_ch_query);
   }
 
