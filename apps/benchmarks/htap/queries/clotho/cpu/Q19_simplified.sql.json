@@ -37,7 +37,6 @@
       "operator" : "router",
       "slack" : 32,
       "cpu_targets" : true,
-      "numa_local" : false,
       "input" : {
         "operator" : "reduce",
         "gpu" : false,
@@ -522,7 +521,6 @@
                     "operator" : "router",
                     "slack" : 32,
                     "cpu_targets" : true,
-                    "rand_local_cpu" : true,
                     "input" : {
                       "operator" : "scan",
                       "gpu" : false,
