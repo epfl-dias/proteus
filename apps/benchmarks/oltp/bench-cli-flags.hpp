@@ -37,3 +37,5 @@ DECLARE_string(tpcc_csv_dir);
 
 DECLARE_uint32(benchmark);
 DECLARE_uint64(runtime);
+
+DECLARE_uint32(scale_test);

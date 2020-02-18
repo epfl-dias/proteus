@@ -41,3 +41,5 @@ DEFINE_string(tpcc_csv_dir, "/scratch/data/ch100w/raw",
 DEFINE_uint32(benchmark, 0, "Select benchmark (0=ycsb, 1=tpcc)");
 
 DEFINE_uint64(runtime, 60, "Time to run for (sec)");
+
+DEFINE_uint32(scale_test, 0, "aa");

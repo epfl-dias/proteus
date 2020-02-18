@@ -168,7 +168,7 @@ std::vector<std::pair<std::vector<std::string>, prep_wrapper_t>> ch_map = {
     //    {q04_rel, qs("Q04.sql.json")},
     {q06_rel, qs("Q06.sql.json")},
     //    {q18_rel, qs("Q18.sql.json")},
-    //{q19_rel, qs("Q19_simplified.sql.json")},
+    {q19_rel, qs("Q19_simplified.sql.json")},
     //    {q01_rel, qs_old<1, plugin_t>()},
     //    {q04_rel, qs_old<4, plugin_t>()},
     //    {q09_rel, qs("Q09_simplified.sql.json")},
@@ -274,7 +274,8 @@ void OLAPSequence::setupAdaptiveSequence() {
     };
 
     for (const auto &q : ch_map) {
-      stmts.emplace_back(q.second(pg(AeolusRemotePlugin::type))(
+      // COLOC in adaptive is hyb-scan
+      stmts.emplace_back(q.second(pg(AeolusElasticNIPlugin::type))(
           colocated_dop, aff_parallel, aff_reduce));
       total_queries++;
     }
@@ -333,6 +334,93 @@ void OLAPSequence::setupAdaptiveSequence() {
 
   return;
 }
+void OLAPSequence::setupMicroSequence() {
+  auto resources_colocated = getColocatedResources();
+  auto resources_isolated = getIsolatedOLAPResources();
+  auto resources_elastic = getElasticResources();
+
+  DegreeOfParallelism colocated_dop{resources_colocated.size()};
+  DegreeOfParallelism isolated_dop{resources_isolated.size()};
+  DegreeOfParallelism elastic_dop{resources_elastic.size()};
+
+  // ---- Queries -----
+
+  LOG(INFO) << "Micro-Q-Num: " << conf.micro_q_num;
+  // S3_IS
+
+  {
+    auto aff_parallel = [&]() -> std::unique_ptr<Affinitizer> {
+      return std::make_unique<SpecificCpuCoreAffinitizer>(resources_isolated);
+    };
+
+    auto aff_reduce = []() -> std::unique_ptr<Affinitizer> {
+      return std::make_unique<CpuCoreAffinitizer>();
+    };
+
+    stmts.emplace_back(ch_map[conf.micro_q_num].second(
+        pg(AeolusElasticPlugin::type))(isolated_dop, aff_parallel, aff_reduce));
+    total_queries++;
+
+    conf.micro_states.push_back(SchedulingPolicy::S3_IS);
+  }
+
+  // S3_NI
+
+  {
+    auto aff_parallel = [&]() -> std::unique_ptr<Affinitizer> {
+      return std::make_unique<SpecificCpuCoreAffinitizer>(resources_elastic);
+    };
+
+    auto aff_reduce = []() -> std::unique_ptr<Affinitizer> {
+      return std::make_unique<CpuCoreAffinitizer>();
+    };
+
+    stmts.emplace_back(ch_map[conf.micro_q_num].second(pg(
+        AeolusElasticNIPlugin::type))(elastic_dop, aff_parallel, aff_reduce));
+    total_queries++;
+
+    conf.micro_states.push_back(SchedulingPolicy::S3_NI);
+  }
+
+  // S1_COLOCATED
+
+  {
+    auto aff_parallel = [&]() -> std::unique_ptr<Affinitizer> {
+      return std::make_unique<SpecificCpuCoreAffinitizer>(resources_colocated);
+    };
+
+    auto aff_reduce = []() -> std::unique_ptr<Affinitizer> {
+      return std::make_unique<CpuCoreAffinitizer>();
+    };
+
+    // COLOC in adaptive is hyb-scan
+    stmts.emplace_back(ch_map[conf.micro_q_num].second(pg(
+        AeolusElasticNIPlugin::type))(colocated_dop, aff_parallel, aff_reduce));
+    total_queries++;
+
+    conf.micro_states.push_back(SchedulingPolicy::S1_COLOCATED);
+  }
+
+  // S2_ISOLATED
+
+  {
+    auto aff_parallel = [&]() -> std::unique_ptr<Affinitizer> {
+      return std::make_unique<SpecificCpuCoreAffinitizer>(resources_isolated);
+    };
+
+    auto aff_reduce = []() -> std::unique_ptr<Affinitizer> {
+      return std::make_unique<CpuCoreAffinitizer>();
+    };
+
+    stmts.emplace_back(ch_map[conf.micro_q_num].second(
+        pg(AeolusLocalPlugin::type))(isolated_dop, aff_parallel, aff_reduce));
+    total_queries++;
+
+    conf.micro_states.push_back(SchedulingPolicy::S2_ISOLATED);
+  }
+
+  return;
+}
 
 OLAPSequence::OLAPSequence(int client_id, HTAPSequenceConfig conf,
                            DeviceType dev)
@@ -344,6 +432,11 @@ OLAPSequence::OLAPSequence(int client_id, HTAPSequenceConfig conf,
 
   if (conf.schedule_policy == SchedulingPolicy::ADAPTIVE) {
     setupAdaptiveSequence();
+    return;
+  }
+  if (conf.ch_micro) {
+    LOG(INFO) << "QQQQ-22: " << conf.micro_q_num;
+    setupMicroSequence();
     return;
   }
 
@@ -403,11 +496,20 @@ OLAPSequence::OLAPSequence(int client_id, HTAPSequenceConfig conf,
       total_queries++;
     }
 
-  } else if (conf.data_access_policy == SchedulingPolicy::HYBRID_READ ||
-             conf.schedule_policy == SchedulingPolicy::S3_IS ||
-             conf.schedule_policy == SchedulingPolicy::S3_NI) {
+  } else if ((conf.data_access_policy == SchedulingPolicy::HYBRID_READ &&
+              conf.oltp_scale_threshold == 0) ||
+             conf.schedule_policy == SchedulingPolicy::S3_IS) {
     for (const auto &q : ch_map) {
       stmts.emplace_back(q.second(pg(AeolusElasticPlugin::type))(
+          dop, aff_parallel, aff_reduce));
+      total_queries++;
+    }
+
+  } else if ((conf.data_access_policy == SchedulingPolicy::HYBRID_READ &&
+              conf.oltp_scale_threshold > 0) ||
+             conf.schedule_policy == SchedulingPolicy::S3_NI) {
+    for (const auto &q : ch_map) {
+      stmts.emplace_back(q.second(pg(AeolusElasticNIPlugin::type))(
           dop, aff_parallel, aff_reduce));
       total_queries++;
     }
@@ -527,6 +629,7 @@ HTAPSequenceConfig::HTAPSequenceConfig(
       oltp_scale_threshold(oltp_scale_threshold),
       collocated_worker_threshold(collocated_worker_threshold),
       schedule_policy(schedule_policy) {
+  ch_micro = false;
   switch (schedule_policy) {
     case SchedulingPolicy::S1_COLOCATED:
       resource_policy = SchedulingPolicy::COLOCATED;
@@ -570,6 +673,7 @@ HTAPSequenceConfig::HTAPSequenceConfig(
       collocated_worker_threshold(collocated_worker_threshold),
       resource_policy(resource_policy),
       data_access_policy(data_access_policy) {
+  ch_micro = false;
   // set the schedule policy accordingly.
   switch (resource_policy) {
     case SchedulingPolicy::COLOCATED: {
@@ -644,7 +748,7 @@ void OLAPSequence::migrateState(SchedulingPolicy::ScheduleMode &curr,
       (to == SchedulingPolicy::S3_NI || to == SchedulingPolicy::S1_COLOCATED)) {
     if (to == SchedulingPolicy::S1_COLOCATED) {
       // migrate oltp worker
-      assert(false && "colocated also requires data migration??");
+      // assert(false && "colocated also requires data migration??");
       txn_engine.migrate_worker(conf.collocated_worker_threshold);
 
     } else {
@@ -746,15 +850,91 @@ static inline size_t time_diff(timepoint_t end, timepoint_t start) {
       .count();
 }
 
+void OLAPSequence::executeMicro(OLTP &txn_engine, int repeat,
+                                bool per_query_snapshot,
+                                size_t etl_interval_ms) {
+  LOG(INFO) << "Exeucting MICRO-Bench for q_num: " << conf.micro_q_num;
+
+  assert(conf.schedule_policy != SchedulingPolicy::ADAPTIVE &&
+         "MICRO-Sequence not supported for Adaptive");
+
+  SchedulingPolicy::ScheduleMode current_state = SchedulingPolicy::S2_ISOLATED;
+
+  static uint run = 0;
+  OLAPSequenceStats *stats_local =
+      new OLAPSequenceStats(++run, total_queries, repeat);
+  stats_local->micro = true;
+
+  // setup
+  txn_engine.snapshot();
+  txn_engine.etl(ETL_AFFINITY_SOCKET);
+
+  // warm-up
+  LOG(INFO) << "Warm-up execution - BEGIN";
+  for (uint i = 0; i < n_warmup_queries; i++) {
+    stmts[i % stmts.size()].execute();
+  }
+  LOG(INFO) << "Warm-up execution - END";
+
+  LOG(INFO) << "Sleeping for 10-seconds to heat-up OLTP instnace.";
+  usleep(10000000);
+  // sequence
+  LOG(INFO) << "Exeucting OLAP Sequence[Client # " << this->client_id << "]";
+  size_t j = 0;
+  for (const auto &state : conf.micro_states) {
+    migrateState(current_state, conf.schedule_policy, txn_engine);
+
+    timepoint_t global_start = std::chrono::system_clock::now();
+
+    for (int i = 0; i < repeat; i++) {
+      LOG(INFO) << "Sequence # " << i;
+      timepoint_t start_seq = std::chrono::system_clock::now();
+
+      auto f_ratio = getFreshnessRatios(txn_engine, j, stats_local);
+
+      // Query Execution
+      timepoint_t start = std::chrono::system_clock::now();
+
+      LOG(INFO) << stmts[j].execute();
+
+      timepoint_t end = std::chrono::system_clock::now();
+
+      stats_local->freshness_ratios[j].push_back(f_ratio);
+
+      stats_local->oltp_stats[j].push_back(
+          txn_engine.get_differential_stats(true));
+
+      stats_local->sts[j].push_back(
+          std::make_pair(time_diff(end, global_start), time_diff(end, start)));
+      stats_local->sts_state[j].push_back(current_state);
+    }
+
+    j++;
+  }
+
+  LOG(INFO) << "Stats-Local:";
+  std::cout << *stats_local << std::endl;
+  LOG(INFO) << "Stats-Local-END";
+  stats.push_back(stats_local);
+
+  LOG(INFO) << "Exeucting  Sequence - END";
+  txn_engine.print_storage_stats();
+}
+
 void OLAPSequence::execute(OLTP &txn_engine, int repeat,
                            bool per_query_snapshot, size_t etl_interval_ms) {
   // assert(conf.schedule_policy != SchedulingPolicy::CUSTOM &&
   //        "Not supported currently");
 
-  SchedulingPolicy::ScheduleMode current_state = SchedulingPolicy::S2_ISOLATED;
-  if (conf.schedule_policy == SchedulingPolicy::S1_COLOCATED) {
-    current_state = SchedulingPolicy::S1_COLOCATED;
+  if (conf.ch_micro) {
+    executeMicro(txn_engine, repeat, per_query_snapshot, etl_interval_ms);
+    return;
   }
+
+  SchedulingPolicy::ScheduleMode current_state = SchedulingPolicy::S2_ISOLATED;
+  // if (conf.schedule_policy == SchedulingPolicy::S1_COLOCATED) {
+  //   current_state = SchedulingPolicy::S1_COLOCATED;
+  // }
 
   static uint run = 0;
   OLAPSequenceStats *stats_local =
@@ -780,8 +960,9 @@ void OLAPSequence::execute(OLTP &txn_engine, int repeat,
   LOG(INFO) << "Exeucting OLAP Sequence[Client # " << this->client_id << "]";
 
   if (conf.schedule_policy != SchedulingPolicy::ADAPTIVE &&
-      conf.schedule_policy != SchedulingPolicy::CUSTOM)
+      conf.schedule_policy != SchedulingPolicy::CUSTOM) {
     migrateState(current_state, conf.schedule_policy, txn_engine);
+  }
 
   if (conf.schedule_policy == SchedulingPolicy::CUSTOM) {
     // FIXME: move to appropriate custom state.

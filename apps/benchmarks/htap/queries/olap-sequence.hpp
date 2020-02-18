@@ -56,6 +56,7 @@ struct OLAPSequenceStats {
   std::vector<std::vector<SchedulingPolicy::ScheduleMode>> sts_state;
 
   std::vector<std::pair<size_t, size_t>> sequence_time;
+  bool micro;
 
   OLAPSequenceStats(uint run_id, size_t number_of_queries, size_t repeat)
       : run_id(run_id) {
@@ -94,7 +95,8 @@ class HTAPSequenceConfig {
   SchedulingPolicy::DataAccess data_access_policy;
 
   bool ch_micro;
-  uint q_num;
+  size_t micro_q_num;
+  std::vector<SchedulingPolicy::ScheduleMode> micro_states;
 
   HTAPSequenceConfig(exec_nodes olap_nodes, exec_nodes oltp_nodes,
                      double adaptivity_ratio = 1.0,
@@ -114,15 +116,15 @@ class HTAPSequenceConfig {
                      SchedulingPolicy::DataAccess data_access_policy =
                          SchedulingPolicy::LOCAL_READ);
 
-  void setChMicro(uint q_num) {
+  void setChMicro(size_t q_num) {
     ch_micro = true;
-    this->q_num = q_num;
+    this->micro_q_num = q_num - 1;
   }
 };
 
 class OLAPSequence {
  private:
-  const HTAPSequenceConfig conf;
+  HTAPSequenceConfig conf;
   int total_queries;
   std::vector<PreparedQuery> stmts;
   std::deque<OLAPSequenceStats *> stats;
@@ -147,7 +149,11 @@ class OLAPSequence {
   std::pair<double, double> getFreshnessRatios(OLTP &txn_engine,
                                                size_t &query_idx,
                                                OLAPSequenceStats *stats_local);
+
+  void executeMicro(OLTP &txn_engine, int repeat, bool per_query_snapshot,
+                    size_t etl_interval_ms);
   void setupAdaptiveSequence();
+  void setupMicroSequence();
   auto getIsolatedOLAPResources();
   auto getColocatedResources();
   auto getElasticResources();
