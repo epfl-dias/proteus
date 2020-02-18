@@ -76,6 +76,7 @@ class Worker {
   volatile bool pause;
   volatile bool change_affinity;
   volatile WORKER_STATE state;
+  volatile bool revert_affinity;
 
   uint partition_id;
 
@@ -110,6 +111,7 @@ class Worker {
         exec_core(exec_core),
         pause(false),
         change_affinity(false),
+        revert_affinity(false),
         state(READY),
         partition_id(partition_id),
         is_hotplugged(false),
@@ -149,7 +151,7 @@ class WorkerPool {
   void start_workers();
   void add_worker(const core *exec_location, short partition_id = -1);
   void remove_worker(const core *exec_location);
-  void migrate_worker();
+  void migrate_worker(bool return_back = false);
 
   const std::vector<uint> &scale_down(uint num_cores = 1);
   void scale_back();

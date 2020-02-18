@@ -122,9 +122,9 @@ class OLTP {
   }
 
   inline void migrate_worker(const uint &num_workers) {
-    static bool workers_in_home = true;
+    static bool workers_in_home = false;
     for (uint i = 0; i < num_workers; i++) {
-      this->worker_pool->migrate_worker();
+      this->worker_pool->migrate_worker(workers_in_home);
     }
 
     workers_in_home = !workers_in_home;

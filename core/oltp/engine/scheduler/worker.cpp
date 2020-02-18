@@ -137,19 +137,32 @@ void Worker::run() {
 
   while (!terminate) {
     if (change_affinity) {
-      exec_location{topology::getInstance()
-                        .getCores()[this->affinity_core->index_in_topo]}
-          .activate();
-      // set_exec_location_on_scope d{
-      //     topology::getInstance()
-      //         .getCores()[this->affinity_core->index_in_topo]};
-      LOG(INFO) << "Migrating to core_id: "
-                << topology::getInstance()
-                       .getCores()[this->affinity_core->index_in_topo]
-                       .id;
-      // AffinityManager::getInstance().set(this->affinity_core);
+      if (revert_affinity) {
+        exec_location{
+            topology::getInstance().getCores()[this->exec_core->index_in_topo]}
+            .activate();
+
+        revert_affinity = false;
+        // LOG(INFO) << "MigratingBack to core_id: "
+        //           << topology::getInstance()
+        //                  .getCores()[this->exec_core->index_in_topo]
+        //                  .id;
+      } else {
+        exec_location{topology::getInstance()
+                          .getCores()[this->affinity_core->index_in_topo]}
+            .activate();
+        // set_exec_location_on_scope d{
+        //     topology::getInstance()
+        //         .getCores()[this->affinity_core->index_in_topo]};
+        // LOG(INFO) << "Migrating to core_id: "
+        //           << topology::getInstance()
+        //                  .getCores()[this->affinity_core->index_in_topo]
+        //                  .id;
+        // AffinityManager::getInstance().set(this->affinity_core);
+      }
       change_affinity = false;
     }
+
     if (pause) {
       state = PAUSED;
 
@@ -160,12 +173,24 @@ void Worker::run() {
       // schema->remove_active_txn( this->curr_delta %
       // global_conf::num_delta_storages, this->curr_delta, this->id );
 
+      schema->remove_active_txn(
+          this->curr_delta % global_conf::num_delta_storages, this->curr_delta,
+          this->id);
+
       while (pause && !terminate) {
         // std::this_thread::sleep_for(std::chrono::microseconds(50));
         std::this_thread::yield();
         this->curr_master = txnManager->current_master;
       }
       state = RUNNING;
+
+      this->curr_master = txnManager->current_master;
+      this->curr_txn = txnManager->get_next_xid(this->id);
+      this->prev_delta = this->curr_delta;
+      this->curr_delta = calculate_delta_ver(this->curr_txn, tx_st);
+
+      schema->add_active_txn(curr_delta % global_conf::num_delta_storages,
+                             this->curr_delta, this->id);
       continue;
     }
 
@@ -744,7 +769,7 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
   }
 }
 
-void WorkerPool::migrate_worker() {
+void WorkerPool::migrate_worker(bool return_back) {
   static std::vector<scheduler::core> worker_cores =
       Topology::getInstance().getCoresCopy();
   static const uint pool_size = workers.size();
@@ -753,25 +778,46 @@ void WorkerPool::migrate_worker() {
   static uint worker_num = 0;
 
   if (worker_sched_mode == 3) {
-    auto get = workers.find(worker_cores[pool_size + worker_num].id);
+    if (!return_back) {
+      auto get = workers.find(worker_cores[pool_size + worker_num].id);
 
-    LOG(INFO) << "WM-Migrate: From-" << worker_cores[pool_size + worker_num].id
-              << "  To-" << worker_cores[worker_num].id;
+      LOG(INFO) << "Worker-Migrate: From-"
+                << worker_cores[pool_size + worker_num].id << "  To-"
+                << worker_cores[worker_num].id;
+      assert(get != workers.end());
+      get->second.second->affinity_core = &(worker_cores[worker_num]);
+      get->second.second->change_affinity = true;
 
-    // LOG(INFO) << "WM-Migrade: Old: " << worker_cores[pool_size +
-    // worker_num].id; LOG(INFO) << "WM-Migrade: New: " <<
-    // worker_cores[worker_num].id;
-    assert(get != workers.end());
-    get->second.second->affinity_core = &(worker_cores[worker_num]);
-    get->second.second->change_affinity = true;
+    } else {
+      auto get = workers.find(worker_cores[pool_size + worker_num - 1].id);
+
+      LOG(INFO) << "Worker-Migrate: From-"
+                << worker_cores[pool_size + worker_num - 1].id
+                << "  returning to" << worker_cores[worker_num - 1].id;
+      assert(get != workers.end());
+      get->second.second->revert_affinity = true;
+      get->second.second->change_affinity = true;
+    }
+
   } else {
-    auto get = workers.find(worker_cores[worker_num].id);
-    assert(get != workers.end());
-    get->second.second->affinity_core = &(worker_cores[pool_size + worker_num]);
-    get->second.second->change_affinity = true;
-  }
+    if (!return_back) {
+      auto get = workers.find(worker_cores[worker_num].id);
+      assert(get != workers.end());
+      get->second.second->affinity_core =
+          &(worker_cores[pool_size + worker_num]);
+      get->second.second->change_affinity = true;
+    } else {
+      auto get = workers.find(worker_cores[worker_num - 1].id);
+      assert(get != workers.end());
 
-  worker_num++;
+      get->second.second->revert_affinity = true;
+      get->second.second->change_affinity = true;
+    }
+  }
+  if (!return_back)
+    worker_num++;
+  else
+    worker_num--;
 }
 
 const std::vector<uint>& WorkerPool::scale_down(uint num_cores) {
@@ -807,11 +853,11 @@ const std::vector<uint>& WorkerPool::scale_down(uint num_cores) {
     tmp2->terminate = true;
 
     // if (tmp->state != PAUSED) {
-    //   tmp->state = PAUSED;
+    //   tmp->pause = true;
     // }
 
     // if (tmp2->state != PAUSED) {
-    //   tmp2->state = PAUSED;
+    //   tmp2->pause = true;
     // }
 
     elastic_set.push_back(tmp->exec_core->id);
@@ -844,7 +890,7 @@ const std::vector<uint>& WorkerPool::scale_down(uint num_cores) {
 void WorkerPool::scale_back() {
   for (const auto& id : elastic_set) {
     if (workers[id].second->state == PAUSED) {
-      workers[id].second->state = RUNNING;
+      workers[id].second->pause = false;
     }
   }
   elastic_set.clear();
