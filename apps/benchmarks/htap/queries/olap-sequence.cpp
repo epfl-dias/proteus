@@ -124,7 +124,8 @@ prep_wrapper_t qs(const std::string &plan) {
           planDir + plan, plan,
           std::make_unique<RDEPolicyFactory>(
               aff_parallel,
-              ((type.getType() == AeolusElasticNIPlugin::type)
+              ((type.getType() == AeolusElasticNIPlugin::type ||
+                type.getType() == AeolusRemotePlugin::type)
                    ? RoutingPolicy::RANDOM
                    : RoutingPolicy::LOCAL),
               dop, aff_reduce, RoutingPolicy::RANDOM, type.getType()));
@@ -194,27 +195,60 @@ auto OLAPSequence::getIsolatedOLAPResources() {
 }
 
 auto OLAPSequence::getColocatedResources() {
+  // FIXME: Intel HT hack!!
+  const auto ht_pair =
+      topology::getInstance().getCpuNumaNodes()[0].local_cores.size() / 2;
+  // conf.collocated_worker_threshold
   std::vector<SpecificCpuCoreAffinitizer::coreid_t> coreids;
-  bool skip = true;
+  // bool skip = true;
   for (auto &olap_n : conf.olap_nodes) {
     for (auto id :
          (dynamic_cast<topology::cpunumanode *>(olap_n))->local_cores) {
-      skip = !skip;
-      if (skip) continue;
+      // skip = !skip;
+      // if (skip) continue;
       coreids.emplace_back(id);
     }
   }
+  size_t o_rem = 0;
 
-  skip = true;
+  while (o_rem < conf.collocated_worker_threshold) {
+    coreids.erase(coreids.begin());
+    assert(coreids.size() > (ht_pair - 1));
+    coreids.erase(coreids.begin() + ht_pair - 1);
+
+    o_rem += 2;
+  }
+
+  // skip = true;
+  // for (auto &oltp_n : conf.oltp_nodes) {
+  //   for (auto id :
+  //        (dynamic_cast<topology::cpunumanode *>(oltp_n))->local_cores) {
+  //     skip = !skip;
+  //     if (skip) continue;
+
+  //     coreids.emplace_back(id);
+  //   }
+  // }
+
+  size_t k = 0;
   for (auto &oltp_n : conf.oltp_nodes) {
     for (auto id :
          (dynamic_cast<topology::cpunumanode *>(oltp_n))->local_cores) {
-      skip = !skip;
-      if (skip) continue;
-
+      if (k >= conf.collocated_worker_threshold) {
+        break;
+      }
       coreids.emplace_back(id);
+      coreids.emplace_back(id + (ht_pair * 2));
+      k += 2;
+    }
+
+    if (k >= conf.collocated_worker_threshold) {
+      break;
     }
   }
+
+  assert(k == conf.collocated_worker_threshold);
+
   return coreids;
 }
 
@@ -393,9 +427,8 @@ void OLAPSequence::setupMicroSequence() {
       return std::make_unique<CpuCoreAffinitizer>();
     };
 
-    // COLOC in adaptive is hyb-scan
-    stmts.emplace_back(ch_map[conf.micro_q_num].second(pg(
-        AeolusElasticNIPlugin::type))(colocated_dop, aff_parallel, aff_reduce));
+    stmts.emplace_back(ch_map[conf.micro_q_num].second(
+        pg(AeolusRemotePlugin::type))(colocated_dop, aff_parallel, aff_reduce));
     total_queries++;
 
     conf.micro_states.push_back(SchedulingPolicy::S1_COLOCATED);
@@ -769,6 +802,20 @@ void OLAPSequence::migrateState(SchedulingPolicy::ScheduleMode &curr,
       // scale-up oltp
       txn_engine.scale_up(conf.oltp_scale_threshold);
     }
+  }
+  // FROM NI to COLOC
+  else if (curr == SchedulingPolicy::S3_NI &&
+           to == SchedulingPolicy::S1_COLOCATED) {
+    txn_engine.scale_up(conf.oltp_scale_threshold);
+    txn_engine.migrate_worker(conf.collocated_worker_threshold);
+
+  }
+  // FROM COLOC to NI
+  else if (curr == SchedulingPolicy::S1_COLOCATED &&
+           to == SchedulingPolicy::S3_NI) {
+    txn_engine.migrate_worker(conf.collocated_worker_threshold);
+    txn_engine.scale_down(conf.oltp_scale_threshold);
+
   } else {
     // missing NI <-> COLOCATED
     LOG(INFO) << "Current State: " << curr;
@@ -806,7 +853,9 @@ std::pair<double, double> OLAPSequence::getFreshnessRatios(
 
   // R_fq
   double r_fq = ((double)query_fresh_data) / ((double)query_f.second);
-  double r_ft = ((double)query_fresh_data) / ((double)total_fresh_data);
+  double r_ft = (total_fresh_data == 0)
+                    ? 0.0
+                    : (((double)query_fresh_data) / ((double)total_fresh_data));
 
   LOG(INFO) << "===========================";
   LOG(INFO) << "Query" << query_idx;
@@ -865,10 +914,6 @@ void OLAPSequence::executeMicro(OLTP &txn_engine, int repeat,
       new OLAPSequenceStats(++run, total_queries, repeat);
   stats_local->micro = true;
 
-  // setup
-  txn_engine.snapshot();
-  txn_engine.etl(ETL_AFFINITY_SOCKET);
-
   // warm-up
   LOG(INFO) << "Warm-up execution - BEGIN";
   for (uint i = 0; i < n_warmup_queries; i++) {
@@ -878,11 +923,19 @@ void OLAPSequence::executeMicro(OLTP &txn_engine, int repeat,
 
   LOG(INFO) << "Sleeping for 10-seconds to heat-up OLTP instnace.";
   usleep(10000000);
+
+  // setup
+  txn_engine.snapshot();
+
   // sequence
   LOG(INFO) << "Exeucting OLAP Sequence[Client # " << this->client_id << "]";
   size_t j = 0;
   for (const auto &state : conf.micro_states) {
-    migrateState(current_state, conf.schedule_policy, txn_engine);
+    LOG(INFO) << "--------State " << state;
+    migrateState(current_state, state, txn_engine);
+    if (state == SchedulingPolicy::S2_ISOLATED) {
+      txn_engine.etl(ETL_AFFINITY_SOCKET);
+    }
 
     timepoint_t global_start = std::chrono::system_clock::now();
 
@@ -890,7 +943,8 @@ void OLAPSequence::executeMicro(OLTP &txn_engine, int repeat,
       LOG(INFO) << "Sequence # " << i;
       timepoint_t start_seq = std::chrono::system_clock::now();
 
-      auto f_ratio = getFreshnessRatios(txn_engine, j, stats_local);
+      auto f_ratio =
+          getFreshnessRatios(txn_engine, conf.micro_q_num, stats_local);
 
       // Query Execution
       timepoint_t start = std::chrono::system_clock::now();
@@ -907,6 +961,11 @@ void OLAPSequence::executeMicro(OLTP &txn_engine, int repeat,
       stats_local->sts[j].push_back(
           std::make_pair(time_diff(end, global_start), time_diff(end, start)));
       stats_local->sts_state[j].push_back(current_state);
+
+      // End sequence
+      timepoint_t end_seq = std::chrono::system_clock::now();
+      stats_local->sequence_time.push_back(std::make_pair(
+          time_diff(end_seq, global_start), time_diff(end_seq, start_seq)));
     }
 
     j++;

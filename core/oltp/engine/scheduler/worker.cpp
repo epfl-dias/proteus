@@ -776,8 +776,13 @@ void WorkerPool::migrate_worker(bool return_back) {
   assert(worker_cores.size() == (pool_size * 2));
 
   static uint worker_num = 0;
+  assert(worker_num <= (workers.size() / 2) &&
+         "Migration with HT happens in pair, that is, physical core");
 
   if (worker_sched_mode == 3) {
+    const auto ht_pair =
+        Topology::getInstance().getCpuNumaNodes()[0].local_cores.size() / 2;
+
     if (!return_back) {
       auto get = workers.find(worker_cores[pool_size + worker_num].id);
 
@@ -788,15 +793,36 @@ void WorkerPool::migrate_worker(bool return_back) {
       get->second.second->affinity_core = &(worker_cores[worker_num]);
       get->second.second->change_affinity = true;
 
+      // HT-pair now
+      auto ht_worker = worker_num + ht_pair;
+      auto getHT = workers.find(worker_cores[pool_size + ht_worker].id);
+
+      LOG(INFO) << "Worker-Migrate: From-"
+                << worker_cores[pool_size + ht_worker].id << "  To-"
+                << worker_cores[ht_worker].id;
+      assert(getHT != workers.end());
+      getHT->second.second->affinity_core = &(worker_cores[ht_worker]);
+      getHT->second.second->change_affinity = true;
+
     } else {
       auto get = workers.find(worker_cores[pool_size + worker_num - 1].id);
 
-      LOG(INFO) << "Worker-Migrate: From-"
-                << worker_cores[pool_size + worker_num - 1].id
-                << "  returning to" << worker_cores[worker_num - 1].id;
+      LOG(INFO) << "Worker-Migrate: From " << worker_cores[worker_num - 1].id
+                << "  returning to "
+                << worker_cores[pool_size + worker_num - 1].id;
       assert(get != workers.end());
       get->second.second->revert_affinity = true;
       get->second.second->change_affinity = true;
+
+      // HT-pair now
+      auto ht_worker = worker_num - 1 + ht_pair;
+      auto getHT = workers.find(worker_cores[pool_size + ht_worker].id);
+
+      LOG(INFO) << "Worker-Migrate: From " << worker_cores[ht_worker].id
+                << "  returning to " << worker_cores[pool_size + ht_worker].id;
+      assert(getHT != workers.end());
+      getHT->second.second->revert_affinity = true;
+      getHT->second.second->change_affinity = true;
     }
 
   } else {
@@ -815,9 +841,9 @@ void WorkerPool::migrate_worker(bool return_back) {
     }
   }
   if (!return_back)
-    worker_num++;
+    worker_num += 1;
   else
-    worker_num--;
+    worker_num -= 1;
 }
 
 const std::vector<uint>& WorkerPool::scale_down(uint num_cores) {
