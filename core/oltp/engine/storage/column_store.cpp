@@ -263,7 +263,6 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
   // create columns
   size_t col_offset = 0;
   this->columns.reserve(columns.getColumns().size());
-  LOG(INFO) << this->columns.size();
   for (const auto& t : columns.getColumns()) {
     this->columns.emplace_back(std::get<0>(t), initial_num_records, this,
                                std::get<1>(t), std::get<2>(t), col_offset,

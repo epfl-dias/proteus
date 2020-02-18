@@ -417,7 +417,7 @@ void Router::consume(ParallelContext *const context,
 }
 
 void Router::open(Pipeline *pip) {
-  time_block t("Tinit_exchange: ");
+  //  time_block t("Tinit_exchange: ");
 
   std::lock_guard<std::mutex> guard(init_mutex);
 
