@@ -303,10 +303,9 @@ void HashJoinChained::generate_build(ParallelContext *context,
   }
 
   for (size_t i = 0; i < out_ptrs.size(); ++i) {
-    Builder->CreateStore(out_vals[i], out_ptrs[i]);
-
-    // Builder->CreateAlignedStore(out_vals[i], out_ptrs[i],
-    //                             build_packet_widths[i] / 8);
+    //    Builder->CreateStore(out_vals[i], out_ptrs[i]);
+    auto s = build_packet_widths[i] / 8;
+    Builder->CreateAlignedStore(out_vals[i], out_ptrs[i], s & -s);
   }
 }
 

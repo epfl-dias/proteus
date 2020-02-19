@@ -266,7 +266,7 @@
                               },
                               "input": {
                                 "operator": "hashjoin-chained",
-                                "probe_k": {
+                                "build_k": {
                                   "expression": "recordConstruction",
                                   "type": {
                                     "type": "record"
@@ -320,7 +320,7 @@
                                     "relName": "subsetPelagoFilter#14163"
                                   }
                                 },
-                                "probe_input": {
+                                "build_input": {
                                   "operator": "select",
                                   "gpu": false,
                                   "p": {
@@ -445,7 +445,7 @@
                                     }
                                   }
                                 },
-                                "build_k": {
+                                "probe_k": {
                                   "expression": "recordConstruction",
                                   "type": {
                                     "type": "record"
@@ -499,10 +499,10 @@
                                     "relName": "subsetPelagoFilter#14163"
                                   }
                                 },
-                                "hash_bits": 28,
+                                "hash_bits": 30,
                                 "morsel": true,
-                                "maxBuildInputSize": 256000000,
-                                "build_input": {
+                                "maxBuildInputSize": 3200000000,
+                                "probe_input": {
                                   "operator" : "select",
                                   "p" : {
                                     "expression" : "neq",
