@@ -568,7 +568,7 @@
                                     "relName": "subsetPelagoFilter#14163"
                                   }
                                 },
-                                "hash_bits": 17,
+                                "hash_bits": 27,
                                 "morsel": true,
                                 "maxBuildInputSize": 51200000,
                                 "probe_input": {
@@ -748,7 +748,7 @@
                 "relName" : "subsetPelagoJoin#14173"
               }
             },
-            "hash_bits" : 18,
+            "hash_bits" : 24,
             "morsel" : true,
             "maxBuildInputSize" : 4000000,
             "probe_input" : {
