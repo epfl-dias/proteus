@@ -193,75 +193,6 @@
               }
             },
             "build_input" : {
-              "operator" : "unpack",
-              "input" : {
-                "operator": "router",
-                "slack": 1024,
-                "input": {
-                  "operator": "pack",
-                  "input": {
-                    "operator": "groupby",
-                    "gpu": false,
-                    "k": [
-                      {
-                        "expression": "recordProjection",
-                        "e": {
-                          "expression": "argument"
-                        },
-                        "attribute": "o_id",
-                        "register_as": {
-                          "attrName": "o_id",
-                          "relName": "subsetPelagoUnpack#14169"
-                        }
-                      },
-                      {
-                        "expression": "recordProjection",
-                        "e": {
-                          "expression": "argument"
-                        },
-                        "attribute": "o_d_id",
-                        "register_as": {
-                          "attrName": "o_d_id",
-                          "relName": "subsetPelagoUnpack#14169"
-                        }
-                      },
-                      {
-                        "expression": "recordProjection",
-                        "e": {
-                          "expression": "argument"
-                        },
-                        "attribute": "o_w_id",
-                        "register_as": {
-                          "attrName": "o_w_id",
-                          "relName": "subsetPelagoUnpack#14169"
-                        }
-                      },
-                      {
-                        "expression": "recordProjection",
-                        "e": {
-                          "expression": "argument"
-                        },
-                        "attribute": "o_entry_d",
-                        "register_as": {
-                          "attrName": "o_entry_d",
-                          "relName": "subsetPelagoUnpack#14169"
-                        }
-                      }
-                    ],
-                    "e": [],
-                    "hash_bits": 19,
-                    "maxInputSize": 8000000,
-                    "input": {
-                      "operator": "unpack",
-                      "input": {
-                        "operator": "router",
-                        "numOfParents": 1,
-                        "slack": 1024,
-                        "cpu_targets": true,
-                        "numa_local": false,
-                        "input": {
-                          "operator": "pack",
-                          "input": {
                             "operator": "groupby",
                             "gpu": false,
                             "k": [
@@ -311,8 +242,8 @@
                               }
                             ],
                             "e": [],
-                            "hash_bits": 19,
-                            "maxInputSize": 512000,
+                            "hash_bits": 23,
+                            "maxInputSize": 16000000,
                             "input": {
                               "operator": "select",
                               "gpu": false,
@@ -335,7 +266,7 @@
                               },
                               "input": {
                                 "operator": "hashjoin-chained",
-                                "build_k": {
+                                "probe_k": {
                                   "expression": "recordConstruction",
                                   "type": {
                                     "type": "record"
@@ -389,7 +320,7 @@
                                     "relName": "subsetPelagoFilter#14163"
                                   }
                                 },
-                                "build_input": {
+                                "probe_input": {
                                   "operator": "select",
                                   "gpu": false,
                                   "p": {
@@ -514,7 +445,7 @@
                                     }
                                   }
                                 },
-                                "probe_k": {
+                                "build_k": {
                                   "expression": "recordConstruction",
                                   "type": {
                                     "type": "record"
@@ -568,122 +499,132 @@
                                     "relName": "subsetPelagoFilter#14163"
                                   }
                                 },
-                                "hash_bits": 27,
+                                "hash_bits": 30,
                                 "morsel": true,
-                                "maxBuildInputSize": 512000000,
-                                "probe_input": {
-                                  "operator": "unpack",
+                                "maxBuildInputSize": 3200000000,
+                                "build_input": {
+                                  "operator" : "select",
+                                  "p" : {
+                                    "expression" : "neq",
+                                    "left" : {
+                                      "expression" : "recordProjection",
+                                      "e" : {
+                                        "expression" : "argument"
+                                      },
+                                      "attribute" : "ol_delivery_d"
+                                    },
+                                    "right" : {
+                                      "expression" : "datetime",
+                                      "v" : 0
+                                    }
+                                  },
                                   "input": {
-                                    "operator": "router",
-                                    "slack": 64,
-                                    "cpu_targets": true,
-                                    "rand_local_cpu": true,
+                                    "operator": "unpack",
                                     "input": {
-                                      "operator": "scan",
-                                      "gpu": false,
-                                      "plugin": {
-                                        "type": "dynamic",
-                                        "linehint": 6000000,
-                                        "name": "tpcc_orderline",
-                                        "projections": [
-                                          {
-                                            "attrName": "ol_o_id"
-                                          },
-                                          {
-                                            "attrName": "ol_d_id"
-                                          },
-                                          {
-                                            "attrName": "ol_w_id"
-                                          },
-                                          {
-                                            "attrName": "ol_delivery_d"
-                                          }
-                                        ],
-                                        "schema": [
-                                          {
-                                            "attrName": "ol_o_id",
-                                            "type": {
-                                              "type": "int"
+                                      "operator": "router",
+                                      "slack": 64,
+                                      "cpu_targets": true,
+                                      "rand_local_cpu": true,
+                                      "input": {
+                                        "operator": "scan",
+                                        "gpu": false,
+                                        "plugin": {
+                                          "type": "dynamic",
+                                          "linehint": 6000000,
+                                          "name": "tpcc_orderline",
+                                          "projections": [
+                                            {
+                                              "attrName": "ol_o_id"
                                             },
-                                            "attrNo": 1
-                                          },
-                                          {
-                                            "attrName": "ol_d_id",
-                                            "type": {
-                                              "type": "int"
+                                            {
+                                              "attrName": "ol_d_id"
                                             },
-                                            "attrNo": 2
-                                          },
-                                          {
-                                            "attrName": "ol_w_id",
-                                            "type": {
-                                              "type": "int"
+                                            {
+                                              "attrName": "ol_w_id"
                                             },
-                                            "attrNo": 3
-                                          },
-                                          {
-                                            "attrName": "ol_number",
-                                            "type": {
-                                              "type": "int"
+                                            {
+                                              "attrName": "ol_delivery_d"
+                                            }
+                                          ],
+                                          "schema": [
+                                            {
+                                              "attrName": "ol_o_id",
+                                              "type": {
+                                                "type": "int"
+                                              },
+                                              "attrNo": 1
                                             },
-                                            "attrNo": 4
-                                          },
-                                          {
-                                            "attrName": "ol_i_id",
-                                            "type": {
-                                              "type": "int"
+                                            {
+                                              "attrName": "ol_d_id",
+                                              "type": {
+                                                "type": "int"
+                                              },
+                                              "attrNo": 2
                                             },
-                                            "attrNo": 5
-                                          },
-                                          {
-                                            "attrName": "ol_supply_w_id",
-                                            "type": {
-                                              "type": "int"
+                                            {
+                                              "attrName": "ol_w_id",
+                                              "type": {
+                                                "type": "int"
+                                              },
+                                              "attrNo": 3
                                             },
-                                            "attrNo": 6
-                                          },
-                                          {
-                                            "attrName": "ol_delivery_d",
-                                            "type": {
-                                              "type": "datetime"
+                                            {
+                                              "attrName": "ol_number",
+                                              "type": {
+                                                "type": "int"
+                                              },
+                                              "attrNo": 4
                                             },
-                                            "attrNo": 7
-                                          },
-                                          {
-                                            "attrName": "ol_quantity",
-                                            "type": {
-                                              "type": "int"
+                                            {
+                                              "attrName": "ol_i_id",
+                                              "type": {
+                                                "type": "int"
+                                              },
+                                              "attrNo": 5
                                             },
-                                            "attrNo": 8
-                                          },
-                                          {
-                                            "attrName": "ol_amount",
-                                            "type": {
-                                              "type": "float"
+                                            {
+                                              "attrName": "ol_supply_w_id",
+                                              "type": {
+                                                "type": "int"
+                                              },
+                                              "attrNo": 6
                                             },
-                                            "attrNo": 9
-                                          },
-                                          {
-                                            "attrName": "ol_dist_info",
-                                            "type": {
-                                              "type": "dstring"
+                                            {
+                                              "attrName": "ol_delivery_d",
+                                              "type": {
+                                                "type": "datetime"
+                                              },
+                                              "attrNo": 7
                                             },
-                                            "attrNo": 10
-                                          }
-                                        ]
+                                            {
+                                              "attrName": "ol_quantity",
+                                              "type": {
+                                                "type": "int"
+                                              },
+                                              "attrNo": 8
+                                            },
+                                            {
+                                              "attrName": "ol_amount",
+                                              "type": {
+                                                "type": "float"
+                                              },
+                                              "attrNo": 9
+                                            },
+                                            {
+                                              "attrName": "ol_dist_info",
+                                              "type": {
+                                                "type": "dstring"
+                                              },
+                                              "attrNo": 10
+                                            }
+                                          ]
+                                        }
                                       }
                                     }
                                   }
                                 }
                               }
                             }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
             },
             "probe_k" : {
               "expression" : "recordConstruction",
@@ -750,7 +691,7 @@
             },
             "hash_bits" : 24,
             "morsel" : true,
-            "maxBuildInputSize" : 4000000,
+            "maxBuildInputSize" : 256000000,
             "probe_input" : {
               "operator" : "select",
               "gpu" : false,
