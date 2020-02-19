@@ -90,8 +90,8 @@
         "packet" : 1,
         "offset" : 0
       } ],
-      "hash_bits" : 20,
-      "maxInputSize" : 13107200,
+      "hash_bits" : 3,
+      "maxInputSize" : 128,
       "input" : {
         "operator" : "router",
         "numOfParents" : 1,
@@ -126,7 +126,7 @@
             "offset" : 0
           } ],
           "hash_bits" : 3,
-          "maxInputSize" : 4,
+          "maxInputSize" : 64,
           "input" : {
             "operator" : "hashjoin-chained",
             "build_k" : {
@@ -161,19 +161,6 @@
                   }
                 }
               }, {
-                "name" : "o_w_id",
-                "e" : {
-                  "expression" : "recordProjection",
-                  "e" : {
-                    "expression" : "argument"
-                  },
-                  "attribute" : "o_w_id",
-                  "register_as" : {
-                    "attrName" : "o_w_id",
-                    "relName" : "subsetPelagoJoin#14173"
-                  }
-                }
-              }, {
                 "name" : "o_entry_d",
                 "e" : {
                   "expression" : "recordProjection",
@@ -186,6 +173,19 @@
                     "relName" : "subsetPelagoJoin#14173"
                   }
                 }
+              }, {
+                "name" : "o_w_id",
+                "e" : {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument"
+                  },
+                  "attribute" : "o_w_id",
+                  "register_as" : {
+                    "attrName" : "o_w_id",
+                    "relName" : "subsetPelagoJoin#14173"
+                  }
+                }
               } ],
               "register_as" : {
                 "attrName" : "whatever4",
@@ -195,507 +195,483 @@
             "build_input" : {
               "operator" : "unpack",
               "input" : {
-                "operator" : "router",
-                "numOfParents": 1,
+                "operator": "router",
                 "slack": 1024,
-                "cpu_targets": true,
-                "numa_local": false,
-                "input" : {
-                    "operator" : "pack",
-                    "projections" : [ {
-                      "expression" : "recordProjection",
-                      "e" : {
-                        "expression" : "argument"
-                      },
-                      "attribute" : "o_id"
-                    }, {
-                      "expression" : "recordProjection",
-                      "e" : {
-                        "expression" : "argument"
-                      },
-                      "attribute" : "o_d_id"
-                    }, {
-                      "expression" : "recordProjection",
-                      "e" : {
-                        "expression" : "argument"
-                      },
-                      "attribute" : "o_w_id"
-                    }, {
-                      "expression" : "recordProjection",
-                      "e" : {
-                        "expression" : "argument"
-                      },
-                      "attribute" : "o_entry_d"
-                    } ],
-                    "input" : {
-                      "operator" : "groupby",
-                      "gpu" : false,
-                      "k" : [ {
-                        "expression" : "recordProjection",
-                        "e" : {
-                          "expression" : "argument"
+                "input": {
+                  "operator": "pack",
+                  "input": {
+                    "operator": "groupby",
+                    "gpu": false,
+                    "k": [
+                      {
+                        "expression": "recordProjection",
+                        "e": {
+                          "expression": "argument"
                         },
-                        "attribute" : "o_id",
-                        "register_as" : {
-                          "attrName" : "o_id",
-                          "relName" : "subsetPelagoUnpack#14169"
+                        "attribute": "o_id",
+                        "register_as": {
+                          "attrName": "o_id",
+                          "relName": "subsetPelagoUnpack#14169"
                         }
-                      }, {
-                        "expression" : "recordProjection",
-                        "e" : {
-                          "expression" : "argument"
+                      },
+                      {
+                        "expression": "recordProjection",
+                        "e": {
+                          "expression": "argument"
                         },
-                        "attribute" : "o_d_id",
-                        "register_as" : {
-                          "attrName" : "o_d_id",
-                          "relName" : "subsetPelagoUnpack#14169"
+                        "attribute": "o_d_id",
+                        "register_as": {
+                          "attrName": "o_d_id",
+                          "relName": "subsetPelagoUnpack#14169"
                         }
-                      }, {
-                        "expression" : "recordProjection",
-                        "e" : {
-                          "expression" : "argument"
+                      },
+                      {
+                        "expression": "recordProjection",
+                        "e": {
+                          "expression": "argument"
                         },
-                        "attribute" : "o_w_id",
-                        "register_as" : {
-                          "attrName" : "o_w_id",
-                          "relName" : "subsetPelagoUnpack#14169"
+                        "attribute": "o_w_id",
+                        "register_as": {
+                          "attrName": "o_w_id",
+                          "relName": "subsetPelagoUnpack#14169"
                         }
-                      }, {
-                        "expression" : "recordProjection",
-                        "e" : {
-                          "expression" : "argument"
+                      },
+                      {
+                        "expression": "recordProjection",
+                        "e": {
+                          "expression": "argument"
                         },
-                        "attribute" : "o_entry_d",
-                        "register_as" : {
-                          "attrName" : "o_entry_d",
-                          "relName" : "subsetPelagoUnpack#14169"
+                        "attribute": "o_entry_d",
+                        "register_as": {
+                          "attrName": "o_entry_d",
+                          "relName": "subsetPelagoUnpack#14169"
                         }
-                      } ],
-                      "e" : [ ],
-                      "hash_bits" : 19,
-                      "maxInputSize" : 512000,
-                      "input" : {
-                        "operator": "unpack",
+                      }
+                    ],
+                    "e": [],
+                    "hash_bits": 19,
+                    "maxInputSize": 8000000,
+                    "input": {
+                      "operator": "unpack",
+                      "input": {
+                        "operator": "router",
+                        "numOfParents": 1,
+                        "slack": 1024,
+                        "cpu_targets": true,
+                        "numa_local": false,
                         "input": {
-                          "operator": "router",
-                          "numOfParents": 1,
-                          "slack": 1024,
-                          "cpu_targets": true,
-                          "numa_local": false,
+                          "operator": "pack",
                           "input": {
-                            "operator": "pack",
-                            "input": {
-                              "operator": "groupby",
-                              "gpu": false,
-                              "k": [
-                                {
-                                  "expression": "recordProjection",
-                                  "e": {
-                                    "expression": "argument"
-                                  },
-                                  "attribute": "o_id",
-                                  "register_as": {
-                                    "attrName": "o_id",
-                                    "relName": "subsetPelagoRouter#14165"
-                                  }
+                            "operator": "groupby",
+                            "gpu": false,
+                            "k": [
+                              {
+                                "expression": "recordProjection",
+                                "e": {
+                                  "expression": "argument"
                                 },
-                                {
-                                  "expression": "recordProjection",
-                                  "e": {
-                                    "expression": "argument"
-                                  },
-                                  "attribute": "o_d_id",
-                                  "register_as": {
-                                    "attrName": "o_d_id",
-                                    "relName": "subsetPelagoRouter#14165"
-                                  }
-                                },
-                                {
-                                  "expression": "recordProjection",
-                                  "e": {
-                                    "expression": "argument"
-                                  },
-                                  "attribute": "o_w_id",
-                                  "register_as": {
-                                    "attrName": "o_w_id",
-                                    "relName": "subsetPelagoRouter#14165"
-                                  }
-                                },
-                                {
-                                  "expression": "recordProjection",
-                                  "e": {
-                                    "expression": "argument"
-                                  },
-                                  "attribute": "o_entry_d",
-                                  "register_as": {
-                                    "attrName": "o_entry_d",
-                                    "relName": "subsetPelagoRouter#14165"
-                                  }
+                                "attribute": "o_id",
+                                "register_as": {
+                                  "attrName": "o_id",
+                                  "relName": "subsetPelagoRouter#14165"
                                 }
-                              ],
-                              "e": [],
-                              "hash_bits": 17,
-                              "maxInputSize": 128000,
-                              "input": {
-                                "operator": "select",
-                                "gpu": false,
-                                "p": {
-                                  "expression": "ge",
-                                  "left": {
-                                    "expression": "recordProjection",
-                                    "e": {
-                                      "expression": "argument"
-                                    },
-                                    "attribute": "ol_delivery_d"
-                                  },
-                                  "right": {
-                                    "expression": "recordProjection",
-                                    "e": {
-                                      "expression": "argument"
-                                    },
-                                    "attribute": "o_entry_d"
-                                  }
+                              },
+                              {
+                                "expression": "recordProjection",
+                                "e": {
+                                  "expression": "argument"
                                 },
-                                "input": {
-                                  "operator": "hashjoin-chained",
-                                  "build_k": {
-                                    "expression": "recordConstruction",
-                                    "type": {
-                                      "type": "record"
-                                    },
-                                    "attributes": [
-                                      {
-                                        "name": "o_id",
+                                "attribute": "o_d_id",
+                                "register_as": {
+                                  "attrName": "o_d_id",
+                                  "relName": "subsetPelagoRouter#14165"
+                                }
+                              },
+                              {
+                                "expression": "recordProjection",
+                                "e": {
+                                  "expression": "argument"
+                                },
+                                "attribute": "o_w_id",
+                                "register_as": {
+                                  "attrName": "o_w_id",
+                                  "relName": "subsetPelagoRouter#14165"
+                                }
+                              },
+                              {
+                                "expression": "recordProjection",
+                                "e": {
+                                  "expression": "argument"
+                                },
+                                "attribute": "o_entry_d",
+                                "register_as": {
+                                  "attrName": "o_entry_d",
+                                  "relName": "subsetPelagoRouter#14165"
+                                }
+                              }
+                            ],
+                            "e": [],
+                            "hash_bits": 19,
+                            "maxInputSize": 512000,
+                            "input": {
+                              "operator": "select",
+                              "gpu": false,
+                              "p": {
+                                "expression": "ge",
+                                "left": {
+                                  "expression": "recordProjection",
+                                  "e": {
+                                    "expression": "argument"
+                                  },
+                                  "attribute": "ol_delivery_d"
+                                },
+                                "right": {
+                                  "expression": "recordProjection",
+                                  "e": {
+                                    "expression": "argument"
+                                  },
+                                  "attribute": "o_entry_d"
+                                }
+                              },
+                              "input": {
+                                "operator": "hashjoin-chained",
+                                "build_k": {
+                                  "expression": "recordConstruction",
+                                  "type": {
+                                    "type": "record"
+                                  },
+                                  "attributes": [
+                                    {
+                                      "name": "o_id",
+                                      "e": {
+                                        "expression": "recordProjection",
                                         "e": {
-                                          "expression": "recordProjection",
-                                          "e": {
-                                            "expression": "argument"
-                                          },
-                                          "attribute": "o_id",
-                                          "register_as": {
-                                            "attrName": "o_id",
-                                            "relName": "subsetPelagoFilter#14163"
-                                          }
-                                        }
-                                      },
-                                      {
-                                        "name": "o_w_id",
-                                        "e": {
-                                          "expression": "recordProjection",
-                                          "e": {
-                                            "expression": "argument"
-                                          },
-                                          "attribute": "o_w_id",
-                                          "register_as": {
-                                            "attrName": "o_w_id",
-                                            "relName": "subsetPelagoFilter#14163"
-                                          }
-                                        }
-                                      },
-                                      {
-                                        "name": "o_d_id",
-                                        "e": {
-                                          "expression": "recordProjection",
-                                          "e": {
-                                            "expression": "argument"
-                                          },
-                                          "attribute": "o_d_id",
-                                          "register_as": {
-                                            "attrName": "o_d_id",
-                                            "relName": "subsetPelagoFilter#14163"
-                                          }
+                                          "expression": "argument"
+                                        },
+                                        "attribute": "o_id",
+                                        "register_as": {
+                                          "attrName": "o_id",
+                                          "relName": "subsetPelagoFilter#14163"
                                         }
                                       }
-                                    ],
-                                    "register_as": {
-                                      "attrName": "whatever",
-                                      "relName": "subsetPelagoFilter#14163"
-                                    }
-                                  },
-                                  "build_input": {
-                                    "operator": "select",
-                                    "gpu": false,
-                                    "p": {
-                                      "expression": "and",
-                                      "left": {
-                                        "expression": "ge",
-                                        "left": {
-                                          "expression": "recordProjection",
-                                          "e": {
-                                            "expression": "argument"
-                                          },
-                                          "attribute": "o_entry_d"
+                                    },
+                                    {
+                                      "name": "o_w_id",
+                                      "e": {
+                                        "expression": "recordProjection",
+                                        "e": {
+                                          "expression": "argument"
                                         },
-                                        "right": {
-                                          "expression": "datetime",
-                                          "v": "2007-01-02 00:00:00"
+                                        "attribute": "o_w_id",
+                                        "register_as": {
+                                          "attrName": "o_w_id",
+                                          "relName": "subsetPelagoFilter#14163"
                                         }
+                                      }
+                                    },
+                                    {
+                                      "name": "o_d_id",
+                                      "e": {
+                                        "expression": "recordProjection",
+                                        "e": {
+                                          "expression": "argument"
+                                        },
+                                        "attribute": "o_d_id",
+                                        "register_as": {
+                                          "attrName": "o_d_id",
+                                          "relName": "subsetPelagoFilter#14163"
+                                        }
+                                      }
+                                    }
+                                  ],
+                                  "register_as": {
+                                    "attrName": "whatever",
+                                    "relName": "subsetPelagoFilter#14163"
+                                  }
+                                },
+                                "build_input": {
+                                  "operator": "select",
+                                  "gpu": false,
+                                  "p": {
+                                    "expression": "and",
+                                    "left": {
+                                      "expression": "ge",
+                                      "left": {
+                                        "expression": "recordProjection",
+                                        "e": {
+                                          "expression": "argument"
+                                        },
+                                        "attribute": "o_entry_d"
                                       },
                                       "right": {
-                                        "expression": "lt",
-                                        "left": {
-                                          "expression": "recordProjection",
-                                          "e": {
-                                            "expression": "argument"
-                                          },
-                                          "attribute": "o_entry_d"
+                                        "expression": "datetime",
+                                        "v": "2007-01-02 00:00:00"
+                                      }
+                                    },
+                                    "right": {
+                                      "expression": "lt",
+                                      "left": {
+                                        "expression": "recordProjection",
+                                        "e": {
+                                          "expression": "argument"
                                         },
-                                        "right": {
-                                          "expression": "datetime",
-                                          "v": "2022-01-02 00:00:00"
-                                        }
-                                      }
-                                    },
-                                    "input": {
-                                      "operator": "unpack",
-                                      "input": {
-                                        "operator": "router",
-                                        "slack": 64,
-                                        "cpu_targets": true,
-                                        "rand_local_cpu": true,
-                                          "input": {
-                                            "operator": "scan",
-                                            "gpu": false,
-                                            "plugin": {
-                                              "type": "dynamic",
-                                              "linehint": 400000,
-                                              "name": "tpcc_order",
-                                              "projections": [
-                                                {
-                                                  "attrName": "o_id"
-                                                },
-                                                {
-                                                  "attrName": "o_d_id"
-                                                },
-                                                {
-                                                  "attrName": "o_w_id"
-                                                },
-                                                {
-                                                  "attrName": "o_entry_d"
-                                                }
-                                              ],
-                                              "schema": [
-                                                {
-                                                  "attrName": "o_id",
-                                                  "type": {
-                                                    "type": "int"
-                                                  },
-                                                  "attrNo": 1
-                                                },
-                                                {
-                                                  "attrName": "o_d_id",
-                                                  "type": {
-                                                    "type": "int"
-                                                  },
-                                                  "attrNo": 2
-                                                },
-                                                {
-                                                  "attrName": "o_w_id",
-                                                  "type": {
-                                                    "type": "int"
-                                                  },
-                                                  "attrNo": 3
-                                                },
-                                                {
-                                                  "attrName": "o_c_id",
-                                                  "type": {
-                                                    "type": "int"
-                                                  },
-                                                  "attrNo": 4
-                                                },
-                                                {
-                                                  "attrName": "o_entry_d",
-                                                  "type": {
-                                                    "type": "datetime"
-                                                  },
-                                                  "attrNo": 5
-                                                },
-                                                {
-                                                  "attrName": "o_carrier_id",
-                                                  "type": {
-                                                    "type": "int"
-                                                  },
-                                                  "attrNo": 6
-                                                },
-                                                {
-                                                  "attrName": "o_ol_cnt",
-                                                  "type": {
-                                                    "type": "int"
-                                                  },
-                                                  "attrNo": 7
-                                                },
-                                                {
-                                                  "attrName": "o_all_local",
-                                                  "type": {
-                                                    "type": "int"
-                                                  },
-                                                  "attrNo": 8
-                                                }
-                                              ]
-                                            }
-                                          }
+                                        "attribute": "o_entry_d"
+                                      },
+                                      "right": {
+                                        "expression": "datetime",
+                                        "v": "2022-01-02 00:00:00"
                                       }
                                     }
                                   },
-                                  "probe_k": {
-                                    "expression": "recordConstruction",
-                                    "type": {
-                                      "type": "record"
-                                    },
-                                    "attributes": [
-                                      {
-                                        "name": "ol_o_id",
-                                        "e": {
-                                          "expression": "recordProjection",
-                                          "e": {
-                                            "expression": "argument"
-                                          },
-                                          "attribute": "ol_o_id",
-                                          "register_as": {
-                                            "attrName": "ol_o_id",
-                                            "relName": "subsetPelagoFilter#14163"
-                                          }
-                                        }
-                                      },
-                                      {
-                                        "name": "ol_w_id",
-                                        "e": {
-                                          "expression": "recordProjection",
-                                          "e": {
-                                            "expression": "argument"
-                                          },
-                                          "attribute": "ol_w_id",
-                                          "register_as": {
-                                            "attrName": "ol_w_id",
-                                            "relName": "subsetPelagoFilter#14163"
-                                          }
-                                        }
-                                      },
-                                      {
-                                        "name": "ol_d_id",
-                                        "e": {
-                                          "expression": "recordProjection",
-                                          "e": {
-                                            "expression": "argument"
-                                          },
-                                          "attribute": "ol_d_id",
-                                          "register_as": {
-                                            "attrName": "ol_d_id",
-                                            "relName": "subsetPelagoFilter#14163"
-                                          }
-                                        }
-                                      }
-                                    ],
-                                    "register_as": {
-                                      "attrName": "whatever2",
-                                      "relName": "subsetPelagoFilter#14163"
-                                    }
-                                  },
-                                  "hash_bits": 17,
-                                  "morsel": true,
-                                  "maxBuildInputSize": 512000,
-                                  "probe_input": {
+                                  "input": {
                                     "operator": "unpack",
                                     "input": {
-                                        "operator": "router",
-                                        "slack": 64,
-                                        "cpu_targets": true,
-                                        "rand_local_cpu": true,
-                                        "input": {
-                                          "operator": "scan",
-                                          "gpu": false,
-                                          "plugin": {
-                                            "type": "dynamic",
-                                            "linehint": 6000000,
-                                            "name": "tpcc_orderline",
-                                            "projections": [
-                                              {
-                                                "attrName": "ol_o_id"
+                                      "operator": "router",
+                                      "slack": 64,
+                                      "cpu_targets": true,
+                                      "rand_local_cpu": true,
+                                      "input": {
+                                        "operator": "scan",
+                                        "gpu": false,
+                                        "plugin": {
+                                          "type": "dynamic",
+                                          "linehint": 400000,
+                                          "name": "tpcc_order",
+                                          "projections": [
+                                            {
+                                              "attrName": "o_id"
+                                            },
+                                            {
+                                              "attrName": "o_d_id"
+                                            },
+                                            {
+                                              "attrName": "o_w_id"
+                                            },
+                                            {
+                                              "attrName": "o_entry_d"
+                                            }
+                                          ],
+                                          "schema": [
+                                            {
+                                              "attrName": "o_id",
+                                              "type": {
+                                                "type": "int"
                                               },
-                                              {
-                                                "attrName": "ol_d_id"
+                                              "attrNo": 1
+                                            },
+                                            {
+                                              "attrName": "o_d_id",
+                                              "type": {
+                                                "type": "int"
                                               },
-                                              {
-                                                "attrName": "ol_w_id"
+                                              "attrNo": 2
+                                            },
+                                            {
+                                              "attrName": "o_w_id",
+                                              "type": {
+                                                "type": "int"
                                               },
-                                              {
-                                                "attrName": "ol_delivery_d"
-                                              }
-                                            ],
-                                            "schema": [
-                                              {
-                                                "attrName": "ol_o_id",
-                                                "type": {
-                                                  "type": "int"
-                                                },
-                                                "attrNo": 1
+                                              "attrNo": 3
+                                            },
+                                            {
+                                              "attrName": "o_c_id",
+                                              "type": {
+                                                "type": "int"
                                               },
-                                              {
-                                                "attrName": "ol_d_id",
-                                                "type": {
-                                                  "type": "int"
-                                                },
-                                                "attrNo": 2
+                                              "attrNo": 4
+                                            },
+                                            {
+                                              "attrName": "o_entry_d",
+                                              "type": {
+                                                "type": "datetime"
                                               },
-                                              {
-                                                "attrName": "ol_w_id",
-                                                "type": {
-                                                  "type": "int"
-                                                },
-                                                "attrNo": 3
+                                              "attrNo": 5
+                                            },
+                                            {
+                                              "attrName": "o_carrier_id",
+                                              "type": {
+                                                "type": "int"
                                               },
-                                              {
-                                                "attrName": "ol_number",
-                                                "type": {
-                                                  "type": "int"
-                                                },
-                                                "attrNo": 4
+                                              "attrNo": 6
+                                            },
+                                            {
+                                              "attrName": "o_ol_cnt",
+                                              "type": {
+                                                "type": "int"
                                               },
-                                              {
-                                                "attrName": "ol_i_id",
-                                                "type": {
-                                                  "type": "int"
-                                                },
-                                                "attrNo": 5
+                                              "attrNo": 7
+                                            },
+                                            {
+                                              "attrName": "o_all_local",
+                                              "type": {
+                                                "type": "int"
                                               },
-                                              {
-                                                "attrName": "ol_supply_w_id",
-                                                "type": {
-                                                  "type": "int"
-                                                },
-                                                "attrNo": 6
-                                              },
-                                              {
-                                                "attrName": "ol_delivery_d",
-                                                "type": {
-                                                  "type": "datetime"
-                                                },
-                                                "attrNo": 7
-                                              },
-                                              {
-                                                "attrName": "ol_quantity",
-                                                "type": {
-                                                  "type": "int"
-                                                },
-                                                "attrNo": 8
-                                              },
-                                              {
-                                                "attrName": "ol_amount",
-                                                "type": {
-                                                  "type": "float"
-                                                },
-                                                "attrNo": 9
-                                              },
-                                              {
-                                                "attrName": "ol_dist_info",
-                                                "type": {
-                                                  "type": "dstring"
-                                                },
-                                                "attrNo": 10
-                                              }
-                                            ]
-                                          }
+                                              "attrNo": 8
+                                            }
+                                          ]
                                         }
+                                      }
+                                    }
+                                  }
+                                },
+                                "probe_k": {
+                                  "expression": "recordConstruction",
+                                  "type": {
+                                    "type": "record"
+                                  },
+                                  "attributes": [
+                                    {
+                                      "name": "ol_o_id",
+                                      "e": {
+                                        "expression": "recordProjection",
+                                        "e": {
+                                          "expression": "argument"
+                                        },
+                                        "attribute": "ol_o_id",
+                                        "register_as": {
+                                          "attrName": "ol_o_id",
+                                          "relName": "subsetPelagoFilter#14163"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "name": "ol_w_id",
+                                      "e": {
+                                        "expression": "recordProjection",
+                                        "e": {
+                                          "expression": "argument"
+                                        },
+                                        "attribute": "ol_w_id",
+                                        "register_as": {
+                                          "attrName": "ol_w_id",
+                                          "relName": "subsetPelagoFilter#14163"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "name": "ol_d_id",
+                                      "e": {
+                                        "expression": "recordProjection",
+                                        "e": {
+                                          "expression": "argument"
+                                        },
+                                        "attribute": "ol_d_id",
+                                        "register_as": {
+                                          "attrName": "ol_d_id",
+                                          "relName": "subsetPelagoFilter#14163"
+                                        }
+                                      }
+                                    }
+                                  ],
+                                  "register_as": {
+                                    "attrName": "whatever2",
+                                    "relName": "subsetPelagoFilter#14163"
+                                  }
+                                },
+                                "hash_bits": 17,
+                                "morsel": true,
+                                "maxBuildInputSize": 51200000,
+                                "probe_input": {
+                                  "operator": "unpack",
+                                  "input": {
+                                    "operator": "router",
+                                    "slack": 64,
+                                    "cpu_targets": true,
+                                    "rand_local_cpu": true,
+                                    "input": {
+                                      "operator": "scan",
+                                      "gpu": false,
+                                      "plugin": {
+                                        "type": "dynamic",
+                                        "linehint": 6000000,
+                                        "name": "tpcc_orderline",
+                                        "projections": [
+                                          {
+                                            "attrName": "ol_o_id"
+                                          },
+                                          {
+                                            "attrName": "ol_d_id"
+                                          },
+                                          {
+                                            "attrName": "ol_w_id"
+                                          },
+                                          {
+                                            "attrName": "ol_delivery_d"
+                                          }
+                                        ],
+                                        "schema": [
+                                          {
+                                            "attrName": "ol_o_id",
+                                            "type": {
+                                              "type": "int"
+                                            },
+                                            "attrNo": 1
+                                          },
+                                          {
+                                            "attrName": "ol_d_id",
+                                            "type": {
+                                              "type": "int"
+                                            },
+                                            "attrNo": 2
+                                          },
+                                          {
+                                            "attrName": "ol_w_id",
+                                            "type": {
+                                              "type": "int"
+                                            },
+                                            "attrNo": 3
+                                          },
+                                          {
+                                            "attrName": "ol_number",
+                                            "type": {
+                                              "type": "int"
+                                            },
+                                            "attrNo": 4
+                                          },
+                                          {
+                                            "attrName": "ol_i_id",
+                                            "type": {
+                                              "type": "int"
+                                            },
+                                            "attrNo": 5
+                                          },
+                                          {
+                                            "attrName": "ol_supply_w_id",
+                                            "type": {
+                                              "type": "int"
+                                            },
+                                            "attrNo": 6
+                                          },
+                                          {
+                                            "attrName": "ol_delivery_d",
+                                            "type": {
+                                              "type": "datetime"
+                                            },
+                                            "attrNo": 7
+                                          },
+                                          {
+                                            "attrName": "ol_quantity",
+                                            "type": {
+                                              "type": "int"
+                                            },
+                                            "attrNo": 8
+                                          },
+                                          {
+                                            "attrName": "ol_amount",
+                                            "type": {
+                                              "type": "float"
+                                            },
+                                            "attrNo": 9
+                                          },
+                                          {
+                                            "attrName": "ol_dist_info",
+                                            "type": {
+                                              "type": "dstring"
+                                            },
+                                            "attrNo": 10
+                                          }
+                                        ]
+                                      }
                                     }
                                   }
                                 }
@@ -706,6 +682,7 @@
                       }
                     }
                   }
+                }
               }
             },
             "probe_k" : {
@@ -740,19 +717,6 @@
                   }
                 }
               }, {
-                "name" : "o_w_id",
-                "e" : {
-                  "expression" : "recordProjection",
-                  "e" : {
-                    "expression" : "argument"
-                  },
-                  "attribute" : "o_w_id",
-                  "register_as" : {
-                    "attrName" : "o_w_id",
-                    "relName" : "subsetPelagoJoin#14173"
-                  }
-                }
-              }, {
                 "name" : "o_entry_d",
                 "e" : {
                   "expression" : "recordProjection",
@@ -765,6 +729,19 @@
                     "relName" : "subsetPelagoJoin#14173"
                   }
                 }
+              }, {
+                "name" : "o_w_id",
+                "e" : {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument"
+                  },
+                  "attribute" : "o_w_id",
+                  "register_as" : {
+                    "attrName" : "o_w_id",
+                    "relName" : "subsetPelagoJoin#14173"
+                  }
+                }
               } ],
               "register_as" : {
                 "attrName" : "whatever3",
@@ -773,7 +750,7 @@
             },
             "hash_bits" : 18,
             "morsel" : true,
-            "maxBuildInputSize" : 1280000,
+            "maxBuildInputSize" : 4000000,
             "probe_input" : {
               "operator" : "select",
               "gpu" : false,

@@ -569,6 +569,8 @@ void HashGroupByChained::generate_build(ParallelContext *const context,
   Builder->SetInsertPoint(MergeBB);
 }
 
+std::map<std::pair<void *, int32_t>, std::vector<void *>> garbage;
+
 void HashGroupByChained::generate_scan() {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -587,6 +589,12 @@ void HashGroupByChained::generate_scan() {
   for (const auto &p : ptr_types) {
     out_param_ids_scan.push_back(context->appendParameter(p, true, true));
   }
+
+  context->registerClose(this, [this](Pipeline *pip) {
+    for (const auto &ptr : garbage[std::make_pair(this, pip->getGroup())]) {
+      MemoryManager::freePinned(ptr);
+    }
+  });
 
   context->setGlobalFunction();
 
@@ -784,7 +792,7 @@ void HashGroupByChained::open(Pipeline *pip) {
   std::vector<void *> next;
 
   for (const auto &w : packet_widths) {
-    next.emplace_back(MemoryManager::mallocPinned((w / 8) * maxInputSize));
+    next.emplace_back(MemoryManager::mallocPinned((w / 8) * maxInputSize * 8));
   }
   // gpu_run(cudaMemset(next[0], -1, (packet_widths[0]/8) * maxInputSize));
 
@@ -904,11 +912,15 @@ void HashGroupByChained::close(Pipeline *pip) {
 
   // probe_pip->close();
 
-  MemoryManager::freePinned(pip->getStateVar<int32_t *>(cnt_param_id));
-  MemoryManager::freePinned(pip->getStateVar<int32_t *>(head_param_id));
+  // FIXME: should get them from the parameters of the scan kernel
+  auto &v = garbage[std::make_pair(this, pip->getGroup())];
+  v.clear();
+
+  v.emplace_back(pip->getStateVar<int32_t *>(cnt_param_id));
+  v.emplace_back(pip->getStateVar<int32_t *>(head_param_id));
 
   assert(out_param_ids.size() == packet_widths.size());
   for (size_t i = 0; i < out_param_ids.size(); ++i) {
-    MemoryManager::freePinned(pip->getStateVar<void *>(out_param_ids[i]));
+    v.emplace_back(pip->getStateVar<void *>(out_param_ids[i]));
   }
 }
