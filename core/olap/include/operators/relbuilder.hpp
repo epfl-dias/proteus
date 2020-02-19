@@ -276,11 +276,29 @@ class RelBuilder {
                 probe_e(getOutputArg()), probe_w, hash_bits, maxBuildInputSize);
   }
 
+  template <typename Tbk, typename Tbe, typename Tpk, typename Tpe>
+  RelBuilder morsel_join(RelBuilder build, Tbk build_k, Tbe build_e,
+                         std::vector<size_t> build_w, Tpk probe_k, Tpe probe_e,
+                         std::vector<size_t> probe_w, int hash_bits,
+                         size_t maxBuildInputSize) const {
+    return morsel_join(build, build_k(build.getOutputArg()),
+                       build_e(build.getOutputArg()), build_w,
+                       probe_k(getOutputArg()), probe_e(getOutputArg()),
+                       probe_w, hash_bits, maxBuildInputSize);
+  }
+
   template <typename Tbk, typename Tpk>
   RelBuilder join(RelBuilder build, Tbk build_k, Tpk probe_k, int hash_bits,
                   size_t maxBuildInputSize) const {
     return join(build, build_k(build.getOutputArg()), probe_k(getOutputArg()),
                 hash_bits, maxBuildInputSize);
+  }
+
+  template <typename Tbk, typename Tpk>
+  RelBuilder morsel_join(RelBuilder build, Tbk build_k, Tpk probe_k,
+                         int hash_bits, size_t maxBuildInputSize) const {
+    return morsel_join(build, build_k(build.getOutputArg()),
+                       probe_k(getOutputArg()), hash_bits, maxBuildInputSize);
   }
 
   template <typename T>
@@ -395,8 +413,20 @@ class RelBuilder {
                   const std::vector<size_t>& probe_w, int hash_bits,
                   size_t maxBuildInputSize) const;
 
+  RelBuilder morsel_join(RelBuilder build, expression_t build_k,
+                         const std::vector<GpuMatExpr>& build_e,
+                         const std::vector<size_t>& build_w,
+                         expression_t probe_k,
+                         const std::vector<GpuMatExpr>& probe_e,
+                         const std::vector<size_t>& probe_w, int hash_bits,
+                         size_t maxBuildInputSize) const;
+
   RelBuilder join(RelBuilder build, expression_t build_k, expression_t probe_k,
                   int hash_bits, size_t maxBuildInputSize) const;
+
+  RelBuilder morsel_join(RelBuilder build, expression_t build_k,
+                         expression_t probe_k, int hash_bits,
+                         size_t maxBuildInputSize) const;
 
   friend class PlanExecutor;
 };

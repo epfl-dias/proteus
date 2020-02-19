@@ -132,11 +132,11 @@ PlanExecutor::PlanExecutor(
   auto &parsed = document.Parse(bufJSON);
   if (parsed.HasParseError()) {
     auto ok = (rapidjson::ParseResult)parsed;
-    fprintf(stderr, "JSON parse error: %s (%lu)",
-            RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
-    const char *err =
+    auto *err =
         "[PlanExecutor: ] Error parsing physical plan (JSON parsing error)";
-    LOG(ERROR) << err;
+    LOG(ERROR) << err << "JSON parse error: "
+               << RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()) << " ("
+               << ok.Offset() << ")";
     throw runtime_error(err);
   }
 
@@ -988,17 +988,31 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
 
     size_t maxBuildInputSize = val["maxBuildInputSize"].GetUint64();
 
-    return probe_op.join(
-        build_op,
-        [&](const auto &build_arg) {
-          assert(val.HasMember("build_k"));
-          return parseExpression(val["build_k"], build_arg);
-        },
-        [&](const auto &probe_arg) {
-          assert(val.HasMember("probe_k"));
-          return parseExpression(val["probe_k"], probe_arg);
-        },
-        hash_bits, maxBuildInputSize);
+    if (val.HasMember("morsel") && val["morsel"].GetBool()) {
+      return probe_op.morsel_join(
+          build_op,
+          [&](const auto &build_arg) {
+            assert(val.HasMember("build_k"));
+            return parseExpression(val["build_k"], build_arg);
+          },
+          [&](const auto &probe_arg) {
+            assert(val.HasMember("probe_k"));
+            return parseExpression(val["probe_k"], probe_arg);
+          },
+          hash_bits, maxBuildInputSize);
+    } else {
+      return probe_op.join(
+          build_op,
+          [&](const auto &build_arg) {
+            assert(val.HasMember("build_k"));
+            return parseExpression(val["build_k"], build_arg);
+          },
+          [&](const auto &probe_arg) {
+            assert(val.HasMember("probe_k"));
+            return parseExpression(val["probe_k"], probe_arg);
+          },
+          hash_bits, maxBuildInputSize);
+    }
   } else if (strcmp(opName, "join") == 0) {
     assert(!(val.HasMember("gpu") && val["gpu"].GetBool()));
     const char *keyMatLeft = "leftFields";
@@ -1477,6 +1491,9 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
       assert(val["always_share"].IsBool());
       always_share = val["always_share"].GetBool();
     }
+
+    assert(parFactory->getDOP(to_cpu ? DeviceType::CPU : DeviceType::GPU, val,
+                              childOp) != DegreeOfParallelism{1});
 
     return childOp.membrdcst(
         parFactory->getDOP(to_cpu ? DeviceType::CPU : DeviceType::GPU, val,

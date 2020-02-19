@@ -31,6 +31,7 @@
 #include <topology/affinity_manager.hpp>
 #include <topology/topology.hpp>
 #include <type_traits>
+#include <util/profiling.hpp>
 #include <util/timing.hpp>
 
 #include "../htap-cli-flags.hpp"
@@ -95,7 +96,6 @@ class RDEPolicyFactory : public AffinitizationFactory {
 
   RoutingPolicy getRoutingPolicy(DeviceType trgt, bool isHashBased,
                                  RelBuilder &input) override {
-    LOG(INFO) << isHashBased << " " << isReduction(input);
     if (isHashBased) return RoutingPolicy::HASH_BASED;
     if (isReduction(input)) return redPolicy;
     return parPolicy;
@@ -127,7 +127,7 @@ prep_wrapper_t qs(const std::string &plan) {
               ((type.getType() == AeolusElasticNIPlugin::type ||
                 type.getType() == AeolusRemotePlugin::type)
                    ? RoutingPolicy::RANDOM
-                   : RoutingPolicy::LOCAL),
+                   : RoutingPolicy::RANDOM),
               dop, aff_reduce, RoutingPolicy::RANDOM, type.getType()));
     };
   };
@@ -162,14 +162,16 @@ prep_wrapper_t qs_old() {
 }
 
 std::vector<std::pair<std::vector<std::string>, prep_wrapper_t>> ch_map = {
-    {q01_rel, qs("Q01.sql.json")},
+    //    {q01_rel, qs("Q01.sql.json")},
     //    {q02_rel, qs("Q02_simplified.sql.json")},
     //    {q02_rel, qs("Q02_simplified_red.sql.json")},
     ////    {q03_rel, qs("Q03_simplified.sql.json")},
     //    {q04_rel, qs("Q04.sql.json")},
-    {q06_rel, qs("Q06.sql.json")},
-    //    {q18_rel, qs("Q18.sql.json")},
-    {q19_rel, qs("Q19_simplified.sql.json")},
+    {q04_rel, qs("Q04_morsel.sql.json")},
+    //    {q04_rel, qs("Q04.sql.json")},
+    //    {q06_rel, qs("Q06.sql.json")},
+    //    //    {q18_rel, qs("Q18.sql.json")},
+    //    {q19_rel, qs("Q19_simplified.sql.json")},
     //    {q01_rel, qs_old<1, plugin_t>()},
     //    {q04_rel, qs_old<4, plugin_t>()},
     //    {q09_rel, qs("Q09_simplified.sql.json")},
@@ -509,7 +511,7 @@ OLAPSequence::OLAPSequence(int client_id, HTAPSequenceConfig conf,
   };
 
   auto aff_reduce = []() -> std::unique_ptr<Affinitizer> {
-    return std::make_unique<CpuCoreAffinitizer>();
+    return std::make_unique<CpuNumaNodeAffinitizer>();
   };
   // Data Access Methods
 
@@ -1030,6 +1032,7 @@ void OLAPSequence::execute(OLTP &txn_engine, int repeat,
 
   timepoint_t global_start = std::chrono::system_clock::now();
 
+  profiling::resume();
   for (int i = 0; i < repeat; i++) {
     LOG(INFO) << "Sequence # " << i;
     timepoint_t start_seq = std::chrono::system_clock::now();
@@ -1101,6 +1104,7 @@ void OLAPSequence::execute(OLTP &txn_engine, int repeat,
     stats_local->sequence_time.push_back(std::make_pair(
         time_diff(end_seq, global_start), time_diff(end_seq, start_seq)));
   }
+  profiling::pause();
 
   LOG(INFO) << "Stats-Local:";
   std::cout << *stats_local << std::endl;

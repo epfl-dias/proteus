@@ -112,6 +112,10 @@ class HashJoinChained : public BinaryOperator {
   void buildHashTableFormat(ParallelContext *context);
   void probeHashTableFormat(ParallelContext *context);
 
+  virtual llvm::Value *nextIndex(ParallelContext *context);
+  virtual llvm::Value *replaceHead(ParallelContext *context, llvm::Value *h_ptr,
+                                   llvm::Value *index);
+
   llvm::Value *hash(expression_t exprs, Context *const context,
                     const OperatorState &childState);
 

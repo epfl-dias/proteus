@@ -23,6 +23,7 @@ set(olap_cxx
         operators/gpu/gpu-to-cpu.cpp
         operators/hash-group-by-chained.cpp
         operators/hash-join-chained.cpp
+        operators/hash-join-chained-morsel.cpp
         operators/hash-rearrange-buffered.cpp
         operators/hash-rearrange.cpp
         operators/join.cpp

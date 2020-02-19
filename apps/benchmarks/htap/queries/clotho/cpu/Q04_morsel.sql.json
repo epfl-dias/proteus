@@ -90,7 +90,7 @@
         "packet" : 1,
         "offset" : 0
       } ],
-      "hash_bits" : 10,
+      "hash_bits" : 20,
       "maxInputSize" : 13107200,
       "input" : {
         "operator" : "router",
@@ -125,8 +125,8 @@
             "packet" : 1,
             "offset" : 0
           } ],
-          "hash_bits" : 10,
-          "maxInputSize" : 13107200,
+          "hash_bits" : 3,
+          "maxInputSize" : 4,
           "input" : {
             "operator" : "hashjoin-chained",
             "build_k" : {
@@ -135,7 +135,7 @@
                 "type" : "record"
               },
               "attributes" : [ {
-                "name" : "$0",
+                "name" : "o_id",
                 "e" : {
                   "expression" : "recordProjection",
                   "e" : {
@@ -143,12 +143,12 @@
                   },
                   "attribute" : "o_id",
                   "register_as" : {
-                    "attrName" : "$0",
+                    "attrName" : "o_id",
                     "relName" : "subsetPelagoJoin#14173"
                   }
                 }
               }, {
-                "name" : "$1",
+                "name" : "o_d_id",
                 "e" : {
                   "expression" : "recordProjection",
                   "e" : {
@@ -156,12 +156,12 @@
                   },
                   "attribute" : "o_d_id",
                   "register_as" : {
-                    "attrName" : "$1",
+                    "attrName" : "o_d_id",
                     "relName" : "subsetPelagoJoin#14173"
                   }
                 }
               }, {
-                "name" : "$2",
+                "name" : "o_w_id",
                 "e" : {
                   "expression" : "recordProjection",
                   "e" : {
@@ -169,12 +169,12 @@
                   },
                   "attribute" : "o_w_id",
                   "register_as" : {
-                    "attrName" : "$2",
+                    "attrName" : "o_w_id",
                     "relName" : "subsetPelagoJoin#14173"
                   }
                 }
               }, {
-                "name" : "$3",
+                "name" : "o_entry_d",
                 "e" : {
                   "expression" : "recordProjection",
                   "e" : {
@@ -182,13 +182,13 @@
                   },
                   "attribute" : "o_entry_d",
                   "register_as" : {
-                    "attrName" : "$3",
+                    "attrName" : "o_entry_d",
                     "relName" : "subsetPelagoJoin#14173"
                   }
                 }
               } ],
               "register_as" : {
-                "attrName" : "$9",
+                "attrName" : "whatever4",
                 "relName" : "subsetPelagoJoin#14173"
               }
             },
@@ -196,19 +196,11 @@
               "operator" : "unpack",
               "input" : {
                 "operator" : "router",
-                "numOfParents" : 48,
-                "slack" : 8,
-                "cpu_targets" : true,
-                "target" : {
-                  "expression" : "recordProjection",
-                  "e" : {
-                    "expression" : "argument"
-                  },
-                  "attribute" : "__broadcastTarget"
-                },
+                "numOfParents": 1,
+                "slack": 1024,
+                "cpu_targets": true,
+                "numa_local": false,
                 "input" : {
-                  "operator" : "mem-broadcast-device",
-                  "input" : {
                     "operator" : "pack",
                     "projections" : [ {
                       "expression" : "recordProjection",
@@ -280,14 +272,14 @@
                         }
                       } ],
                       "e" : [ ],
-                      "hash_bits" : 20,
+                      "hash_bits" : 19,
                       "maxInputSize" : 512000,
                       "input" : {
                         "operator": "unpack",
                         "input": {
                           "operator": "router",
                           "numOfParents": 1,
-                          "slack": 8,
+                          "slack": 1024,
                           "cpu_targets": true,
                           "numa_local": false,
                           "input": {
@@ -342,7 +334,7 @@
                                 }
                               ],
                               "e": [],
-                              "hash_bits": 18,
+                              "hash_bits": 17,
                               "maxInputSize": 128000,
                               "input": {
                                 "operator": "select",
@@ -373,7 +365,7 @@
                                     },
                                     "attributes": [
                                       {
-                                        "name": "$0",
+                                        "name": "o_id",
                                         "e": {
                                           "expression": "recordProjection",
                                           "e": {
@@ -381,13 +373,13 @@
                                           },
                                           "attribute": "o_id",
                                           "register_as": {
-                                            "attrName": "$0",
+                                            "attrName": "o_id",
                                             "relName": "subsetPelagoFilter#14163"
                                           }
                                         }
                                       },
                                       {
-                                        "name": "$2",
+                                        "name": "o_w_id",
                                         "e": {
                                           "expression": "recordProjection",
                                           "e": {
@@ -395,13 +387,13 @@
                                           },
                                           "attribute": "o_w_id",
                                           "register_as": {
-                                            "attrName": "$2",
+                                            "attrName": "o_w_id",
                                             "relName": "subsetPelagoFilter#14163"
                                           }
                                         }
                                       },
                                       {
-                                        "name": "$1",
+                                        "name": "o_d_id",
                                         "e": {
                                           "expression": "recordProjection",
                                           "e": {
@@ -409,14 +401,14 @@
                                           },
                                           "attribute": "o_d_id",
                                           "register_as": {
-                                            "attrName": "$1",
+                                            "attrName": "o_d_id",
                                             "relName": "subsetPelagoFilter#14163"
                                           }
                                         }
                                       }
                                     ],
                                     "register_as": {
-                                      "attrName": "$8",
+                                      "attrName": "whatever",
                                       "relName": "subsetPelagoFilter#14163"
                                     }
                                   },
@@ -458,19 +450,9 @@
                                       "operator": "unpack",
                                       "input": {
                                         "operator": "router",
-                                        "numOfParents": 48,
-                                        "slack": 8,
+                                        "slack": 64,
                                         "cpu_targets": true,
-                                        "target": {
-                                          "expression": "recordProjection",
-                                          "e": {
-                                            "expression": "argument"
-                                          },
-                                          "attribute": "__broadcastTarget"
-                                        },
-                                        "input": {
-                                          "operator": "mem-broadcast-device",
-                                          "num_of_targets": 48,
+                                        "rand_local_cpu": true,
                                           "input": {
                                             "operator": "scan",
                                             "gpu": false,
@@ -551,9 +533,7 @@
                                                 }
                                               ]
                                             }
-                                          },
-                                          "to_cpu": true
-                                        }
+                                          }
                                       }
                                     }
                                   },
@@ -564,7 +544,7 @@
                                     },
                                     "attributes": [
                                       {
-                                        "name": "$4",
+                                        "name": "ol_o_id",
                                         "e": {
                                           "expression": "recordProjection",
                                           "e": {
@@ -572,13 +552,13 @@
                                           },
                                           "attribute": "ol_o_id",
                                           "register_as": {
-                                            "attrName": "$4",
+                                            "attrName": "ol_o_id",
                                             "relName": "subsetPelagoFilter#14163"
                                           }
                                         }
                                       },
                                       {
-                                        "name": "$6",
+                                        "name": "ol_w_id",
                                         "e": {
                                           "expression": "recordProjection",
                                           "e": {
@@ -586,13 +566,13 @@
                                           },
                                           "attribute": "ol_w_id",
                                           "register_as": {
-                                            "attrName": "$6",
+                                            "attrName": "ol_w_id",
                                             "relName": "subsetPelagoFilter#14163"
                                           }
                                         }
                                       },
                                       {
-                                        "name": "$5",
+                                        "name": "ol_d_id",
                                         "e": {
                                           "expression": "recordProjection",
                                           "e": {
@@ -600,26 +580,25 @@
                                           },
                                           "attribute": "ol_d_id",
                                           "register_as": {
-                                            "attrName": "$5",
+                                            "attrName": "ol_d_id",
                                             "relName": "subsetPelagoFilter#14163"
                                           }
                                         }
                                       }
                                     ],
                                     "register_as": {
-                                      "attrName": "$9",
+                                      "attrName": "whatever2",
                                       "relName": "subsetPelagoFilter#14163"
                                     }
                                   },
-                                  "hash_bits": 28,
-                                  "maxBuildInputSize": 32000000,
-                                  "maxBuildInputSize_SF1": 512000,
+                                  "hash_bits": 17,
+                                  "morsel": true,
+                                  "maxBuildInputSize": 512000,
                                   "probe_input": {
                                     "operator": "unpack",
                                     "input": {
                                         "operator": "router",
-                                        "numOfParents": 48,
-                                        "slack": 8,
+                                        "slack": 64,
                                         "cpu_targets": true,
                                         "rand_local_cpu": true,
                                         "input": {
@@ -726,9 +705,7 @@
                         }
                       }
                     }
-                  },
-                  "to_cpu" : true
-                }
+                  }
               }
             },
             "probe_k" : {
@@ -737,7 +714,7 @@
                 "type" : "record"
               },
               "attributes" : [ {
-                "name" : "$4",
+                "name" : "o_id",
                 "e" : {
                   "expression" : "recordProjection",
                   "e" : {
@@ -745,12 +722,12 @@
                   },
                   "attribute" : "o_id",
                   "register_as" : {
-                    "attrName" : "$4",
+                    "attrName" : "o_id",
                     "relName" : "subsetPelagoJoin#14173"
                   }
                 }
               }, {
-                "name" : "$5",
+                "name" : "o_d_id",
                 "e" : {
                   "expression" : "recordProjection",
                   "e" : {
@@ -758,12 +735,12 @@
                   },
                   "attribute" : "o_d_id",
                   "register_as" : {
-                    "attrName" : "$5",
+                    "attrName" : "o_d_id",
                     "relName" : "subsetPelagoJoin#14173"
                   }
                 }
               }, {
-                "name" : "$6",
+                "name" : "o_w_id",
                 "e" : {
                   "expression" : "recordProjection",
                   "e" : {
@@ -771,12 +748,12 @@
                   },
                   "attribute" : "o_w_id",
                   "register_as" : {
-                    "attrName" : "$6",
+                    "attrName" : "o_w_id",
                     "relName" : "subsetPelagoJoin#14173"
                   }
                 }
               }, {
-                "name" : "$7",
+                "name" : "o_entry_d",
                 "e" : {
                   "expression" : "recordProjection",
                   "e" : {
@@ -784,18 +761,19 @@
                   },
                   "attribute" : "o_entry_d",
                   "register_as" : {
-                    "attrName" : "$7",
+                    "attrName" : "o_entry_d",
                     "relName" : "subsetPelagoJoin#14173"
                   }
                 }
               } ],
               "register_as" : {
-                "attrName" : "$10",
+                "attrName" : "whatever3",
                 "relName" : "subsetPelagoJoin#14173"
               }
             },
-            "hash_bits" : 20,
-            "maxBuildInputSize" : 320000,
+            "hash_bits" : 18,
+            "morsel" : true,
+            "maxBuildInputSize" : 1280000,
             "probe_input" : {
               "operator" : "select",
               "gpu" : false,
@@ -833,10 +811,7 @@
               "input" : {
                 "operator" : "unpack",
                 "input" : {
-                  "operator" : "mem-move-device",
-                  "input" : {
                     "operator" : "router",
-                    "numOfParents" : 48,
                     "slack" : 8,
                     "cpu_targets" : true,
                     "rand_local_cpu" : true,
@@ -909,9 +884,6 @@
                         } ]
                       }
                     }
-                  },
-                  "to_cpu" : true,
-                  "do_transfer" : [ true, true, true, true, true ]
                 }
               }
             }

@@ -27,6 +27,7 @@
 
 #include <iomanip>
 
+#include "hash-join-chained-morsel.hpp"
 #include "operators/block-to-tuples.hpp"
 #include "operators/cpu-to-gpu.hpp"
 #include "operators/flush.hpp"
@@ -415,6 +416,55 @@ RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
               hash_bits, maxBuildInputSize);
 }
 
+RelBuilder RelBuilder::morsel_join(RelBuilder build, expression_t build_k,
+                                   expression_t probe_k, int hash_bits,
+                                   size_t maxBuildInputSize) const {
+  auto &llvmContext = ctx->getLLVMContext();
+  std::vector<size_t> build_w;
+  std::vector<GpuMatExpr> build_e;
+  build_w.emplace_back(
+      32 +
+      ctx->getSizeOf(build_k.getExpressionType()->getLLVMType(llvmContext)) *
+          8);
+  size_t ind = 1;
+  auto build_arg = build.getOutputArg();
+  for (const auto &p : build_arg.getProjections()) {
+    auto relName = build_k.getRegisteredRelName();
+    auto e = build_arg[p];
+
+    if (build_k.isRegistered() &&
+        build_k.getRegisteredAs() == e.getRegisteredAs())
+      continue;
+
+    build_e.emplace_back(e, ind++, 0);
+    build_w.emplace_back(
+        ctx->getSizeOf(e.getExpressionType()->getLLVMType(llvmContext)) * 8);
+  }
+  std::vector<size_t> probe_w;
+  std::vector<GpuMatExpr> probe_e;
+  probe_w.emplace_back(
+      32 +
+      ctx->getSizeOf(probe_k.getExpressionType()->getLLVMType(llvmContext)) *
+          8);
+  ind = 1;
+  auto probe_arg = getOutputArg();
+  for (const auto &p : probe_arg.getProjections()) {
+    auto relName = probe_k.getRegisteredRelName();
+    auto e = probe_arg[p];
+
+    if (probe_k.isRegistered() &&
+        probe_k.getRegisteredAs() == e.getRegisteredAs())
+      continue;
+
+    probe_e.emplace_back(e, ind++, 0);
+    probe_w.emplace_back(
+        ctx->getSizeOf(e.getExpressionType()->getLLVMType(llvmContext)) * 8);
+  }
+
+  return morsel_join(build, build_k, build_e, build_w, probe_k, probe_e,
+                     probe_w, hash_bits, maxBuildInputSize);
+}
+
 RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
                             const std::vector<GpuMatExpr> &build_e,
                             const std::vector<size_t> &build_w,
@@ -432,6 +482,30 @@ RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
     auto op = new HashJoinChained(build_e, build_w, build_k, build.root,
                                   probe_e, probe_w, probe_k, root, hash_bits,
                                   maxBuildInputSize);
+    build.apply(op);
+    return apply(op);
+  }
+}
+
+RelBuilder RelBuilder::morsel_join(RelBuilder build, expression_t build_k,
+                                   const std::vector<GpuMatExpr> &build_e,
+                                   const std::vector<size_t> &build_w,
+                                   expression_t probe_k,
+                                   const std::vector<GpuMatExpr> &probe_e,
+                                   const std::vector<size_t> &probe_w,
+                                   int hash_bits,
+                                   size_t maxBuildInputSize) const {
+  if (root->getDeviceType() == DeviceType::GPU) {
+    auto op = new GpuHashJoinChained(build_e, build_w, build_k, build.root,
+                                     probe_e, probe_w, probe_k, root, hash_bits,
+                                     maxBuildInputSize);
+    build.apply(op);
+    return apply(op);
+  } else {
+    assert(this->root->getDOP() == build->getDOP());
+    auto op = new HashJoinChainedMorsel(build_e, build_w, build_k, build.root,
+                                        probe_e, probe_w, probe_k, root,
+                                        hash_bits, maxBuildInputSize);
     build.apply(op);
     return apply(op);
   }

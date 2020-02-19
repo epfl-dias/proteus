@@ -840,6 +840,8 @@ void HashGroupByChained::close(Pipeline *pip) {
       << "Actual build input size: " << h_cnt << " (capacity: " << maxInputSize
       << ")";
 
+  assert(h_cnt <= maxInputSize);
+
   // for (int32_t i = 0 ; i < cnt ; ++i){
   //     if (h_next[i].index != i){
   //         std::cout << i << " " << h_next[i].index << std::endl;//" " <<

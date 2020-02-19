@@ -247,7 +247,14 @@ void Router::fire(int target, PipelineGen *pipGen) {
   auto pip = pipGen->getPipeline(target);
   std::this_thread::yield();  // if we remove that, following opens may allocate
                               // memory to wrong socket!
-
+  void *mem;
+  {
+    assert(buf_size);
+    mem = MemoryManager::mallocPinned(buf_size * slack);
+    for (int j = 0; j < slack; ++j) {
+      freeBuffer(target, ((char *)mem) + j * buf_size);
+    }
+  }
   nvtxRangePushA(
       (pipGen->getName() + ":" + std::to_string(target) + "open").c_str());
   pip->open();
@@ -274,7 +281,11 @@ void Router::fire(int target, PipelineGen *pipGen) {
       //         " << r << " " << strerror(-node); std::cout << std::endl;
       //     }
       // }
-      pip->consume(0, p);
+      {
+        //          time_block t{"Tfire_" + std::to_string(pip->getGroup()) +
+        //          "_" + std::to_string((uintptr_t) this) + ": "};
+        pip->consume(0, p);
+      }
       nvtxRangePop();
 
       freeBuffer(target, p);  // FIXME: move this inside the generated code
@@ -290,6 +301,7 @@ void Router::fire(int target, PipelineGen *pipGen) {
   pip->close();
   nvtxRangePop();
 
+  MemoryManager::freePinned(mem);
   // std::cout << "Xchange pipeline packets (target=" << target << "): " <<
   // packets << std::endl;
 
@@ -417,28 +429,13 @@ void Router::consume(ParallelContext *const context,
 }
 
 void Router::open(Pipeline *pip) {
-  //  time_block t("Tinit_exchange: ");
-
   std::lock_guard<std::mutex> guard(init_mutex);
 
   if (firers.empty()) {
-    if (free_pool == nullptr) {
-      free_pool = new std::stack<void *>[fanout];
-      free_pool_mutex = new std::mutex[fanout];
-      free_pool_cv = new std::condition_variable[fanout];
-      ready_fifo = new AsyncQueueMPSC<void *>[fanout];
-
-      assert(buf_size);
-      for (int i = 0; i < fanout; ++i) {
-        // set_exec_location_on_scope d(cu);
-        auto exec_affinity = aff->getAvailableCU(i).set_on_scope();
-        void *mem = MemoryManager::mallocPinned(buf_size * slack);
-        for (int j = 0; j < slack; ++j) {
-          free_pool[i].push(((char *)mem) + j * buf_size);
-          //        free_pool[i].push(malloc(buf_size));
-        }
-      }
-    }
+    free_pool = new std::stack<void *>[fanout];
+    free_pool_mutex = new std::mutex[fanout];
+    free_pool_cv = new std::condition_variable[fanout];
+    ready_fifo = new AsyncQueueMPSC<void *>[fanout];
     assert(free_pool);
 
     for (int i = 0; i < fanout; ++i) {
@@ -472,9 +469,9 @@ void Router::close(Pipeline *pip) {
     eventlogger.log(this, log_op::EXCHANGE_JOIN_END);
     firers.clear();
 
-    //    delete[] free_pool;
-    //    delete[] free_pool_mutex;
-    //    delete[] free_pool_cv;
-    //    delete[] ready_fifo;
+    delete[] free_pool;
+    delete[] free_pool_mutex;
+    delete[] free_pool_cv;
+    delete[] ready_fifo;
   }
 }

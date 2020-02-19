@@ -236,29 +236,41 @@ Value *HashJoinChained::hash(expression_t exprs, Context *const context,
   return context->getBuilder()->CreateURem(hash, size);
 }
 
+llvm::Value *HashJoinChained::nextIndex(ParallelContext *context) {
+  // TODO: consider using just the object id as the index, instead of the atomic
+  //  index
+  Value *out_cnt = context->getStateVar(cnt_param_id);
+  out_cnt->setName(opLabel + "_cnt_ptr");
+
+  auto v = context->workerScopedAtomicAdd(
+      out_cnt,
+      ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1));
+  v->setName("index");
+  return v;
+}
+
+llvm::Value *HashJoinChained::replaceHead(ParallelContext *context,
+                                          llvm::Value *h_ptr,
+                                          llvm::Value *index) {
+  Value *old_head = context->workerScopedAtomicXchg(h_ptr, index);
+  old_head->setName("old_head");
+  return old_head;
+}
+
 void HashJoinChained::generate_build(ParallelContext *context,
                                      const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
-
-  Value *out_cnt = context->getStateVar(cnt_param_id);
-  out_cnt->setName(opLabel + "_cnt_ptr");
 
   Value *head_ptr = context->getStateVar(head_param_id);
   head_ptr->setName(opLabel + "_head_ptr");
 
   Value *hash = HashJoinChained::hash(build_keyexpr, context, childState);
 
-  // TODO: consider using just the object id as the index, instead of the atomic
-  // index
-  Value *old_cnt = context->workerScopedAtomicAdd(
-      out_cnt,
-      ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1));
-  old_cnt->setName("index");
+  Value *old_cnt = nextIndex(context);
 
   // old_head = head[index]
-  Value *old_head = context->workerScopedAtomicXchg(
-      Builder->CreateInBoundsGEP(head_ptr, hash), old_cnt);
-  old_head->setName("old_head");
+  Value *old_head =
+      replaceHead(context, Builder->CreateInBoundsGEP(head_ptr, hash), old_cnt);
 
   std::vector<Value *> out_ptrs;
   std::vector<Value *> out_vals;
@@ -315,6 +327,7 @@ void HashJoinChained::generate_probe(ParallelContext *context,
   ExpressionGeneratorVisitor exprGenerator(context, childState);
   ProteusValue keyWrapper = probe_keyexpr.accept(exprGenerator);
   Value *hash = HashJoinChained::hash(probe_keyexpr, context, childState);
+  //  context->log(hash);
 
   // current = head[hash(key)]
   // size_t s =
@@ -368,8 +381,8 @@ void HashJoinChained::generate_probe(ParallelContext *context,
         Builder->CreateInBoundsGEP(in_ptr, Builder->CreateLoad(mem_current)));
     size_t s =
         context->getSizeOf(in_ptrs.back()->getType()->getPointerElementType());
-    in_vals.push_back(Builder->CreateAlignedLoad(in_ptrs.back(), s & -s));
-    //    in_vals.push_back(Builder->CreateLoad(in_ptrs.back()));
+    //    in_vals.push_back(Builder->CreateAlignedLoad(in_ptrs.back(), s & -s));
+    in_vals.push_back(Builder->CreateLoad(in_ptrs.back()));
   }
 
   Value *next = Builder->CreateExtractValue(in_vals[0], 0);
