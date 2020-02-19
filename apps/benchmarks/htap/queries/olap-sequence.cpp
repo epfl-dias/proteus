@@ -62,6 +62,8 @@ typedef std::function<std::unique_ptr<Affinitizer>()> red_t;
 typedef std::function<PreparedStatement(DegreeOfParallelism, aff_t, red_t)>
     prep_t;
 
+std::vector<PreparedQuery> q4_reverse;
+
 typedef std::function<prep_t(pg)> prep_wrapper_t;
 
 class RDEPolicyFactory : public AffinitizationFactory {
@@ -127,7 +129,7 @@ prep_wrapper_t qs(const std::string &plan) {
               ((type.getType() == AeolusElasticNIPlugin::type ||
                 type.getType() == AeolusRemotePlugin::type)
                    ? RoutingPolicy::RANDOM
-                   : RoutingPolicy::RANDOM),
+                   : RoutingPolicy::LOCAL),
               dop, aff_reduce, RoutingPolicy::RANDOM, type.getType()));
     };
   };
@@ -162,16 +164,16 @@ prep_wrapper_t qs_old() {
 }
 
 std::vector<std::pair<std::vector<std::string>, prep_wrapper_t>> ch_map = {
-    //    {q01_rel, qs("Q01.sql.json")},
+    {q01_rel, qs("Q01.sql.json")},
     //    {q02_rel, qs("Q02_simplified.sql.json")},
     //    {q02_rel, qs("Q02_simplified_red.sql.json")},
     ////    {q03_rel, qs("Q03_simplified.sql.json")},
     //    {q04_rel, qs("Q04.sql.json")},
     {q04_rel, qs("Q04_morsel.sql.json")},
     //    {q04_rel, qs("Q04.sql.json")},
-    //    {q06_rel, qs("Q06.sql.json")},
+    {q06_rel, qs("Q06.sql.json")},
     //    //    {q18_rel, qs("Q18.sql.json")},
-    //    {q19_rel, qs("Q19_simplified.sql.json")},
+    {q19_rel, qs("Q19_simplified.sql.json")},
     //    {q01_rel, qs_old<1, plugin_t>()},
     //    {q04_rel, qs_old<4, plugin_t>()},
     //    {q09_rel, qs("Q09_simplified.sql.json")},
@@ -315,6 +317,8 @@ void OLAPSequence::setupAdaptiveSequence() {
           colocated_dop, aff_parallel, aff_reduce));
       total_queries++;
     }
+    q4_reverse.emplace_back(qs("Q04_morsel.reverse.sql.json")(pg(
+        AeolusElasticNIPlugin::type))(colocated_dop, aff_parallel, aff_reduce));
   }
 
   // S2_ISOLATED
@@ -332,6 +336,9 @@ void OLAPSequence::setupAdaptiveSequence() {
       stmts.emplace_back(q.second(pg(AeolusLocalPlugin::type))(
           isolated_dop, aff_parallel, aff_reduce));
     }
+
+    q4_reverse.emplace_back(qs("Q04_morsel.reverse.sql.json")(
+        pg(AeolusLocalPlugin::type))(isolated_dop, aff_parallel, aff_reduce));
   }
 
   // S3_IS
@@ -349,6 +356,8 @@ void OLAPSequence::setupAdaptiveSequence() {
       stmts.emplace_back(q.second(pg(AeolusElasticPlugin::type))(
           isolated_dop, aff_parallel, aff_reduce));
     }
+    q4_reverse.emplace_back(qs("Q04_morsel.reverse.sql.json")(
+        pg(AeolusElasticPlugin::type))(isolated_dop, aff_parallel, aff_reduce));
   }
 
   // S3_NI
@@ -366,6 +375,8 @@ void OLAPSequence::setupAdaptiveSequence() {
       stmts.emplace_back(q.second(pg(AeolusElasticNIPlugin::type))(
           elastic_dop, aff_parallel, aff_reduce));
     }
+    q4_reverse.emplace_back(qs("Q04_morsel.reverse.sql.json")(pg(
+        AeolusElasticNIPlugin::type))(elastic_dop, aff_parallel, aff_reduce));
   }
 
   return;
@@ -398,6 +409,9 @@ void OLAPSequence::setupMicroSequence() {
     total_queries++;
 
     conf.micro_states.push_back(SchedulingPolicy::S3_IS);
+
+    q4_reverse.emplace_back(qs("Q04_morsel.reverse.sql.json")(
+        pg(AeolusElasticPlugin::type))(isolated_dop, aff_parallel, aff_reduce));
   }
 
   // S3_NI
@@ -416,6 +430,9 @@ void OLAPSequence::setupMicroSequence() {
     total_queries++;
 
     conf.micro_states.push_back(SchedulingPolicy::S3_NI);
+
+    q4_reverse.emplace_back(qs("Q04_morsel.reverse.sql.json")(pg(
+        AeolusElasticNIPlugin::type))(elastic_dop, aff_parallel, aff_reduce));
   }
 
   // S1_COLOCATED
@@ -434,6 +451,9 @@ void OLAPSequence::setupMicroSequence() {
     total_queries++;
 
     conf.micro_states.push_back(SchedulingPolicy::S1_COLOCATED);
+
+    q4_reverse.emplace_back(qs("Q04_morsel.reverse.sql.json")(
+        pg(AeolusRemotePlugin::type))(colocated_dop, aff_parallel, aff_reduce));
   }
 
   // S2_ISOLATED
@@ -452,6 +472,9 @@ void OLAPSequence::setupMicroSequence() {
     total_queries++;
 
     conf.micro_states.push_back(SchedulingPolicy::S2_ISOLATED);
+
+    q4_reverse.emplace_back(qs("Q04_morsel.reverse.sql.json")(
+        pg(AeolusLocalPlugin::type))(isolated_dop, aff_parallel, aff_reduce));
   }
 
   return;
@@ -521,6 +544,9 @@ OLAPSequence::OLAPSequence(int client_id, HTAPSequenceConfig conf,
       stmts.emplace_back(q.second(pg(AeolusRemotePlugin::type))(
           dop, aff_parallel, aff_reduce));
       total_queries++;
+
+      q4_reverse.emplace_back(qs("Q04_morsel.reverse.sql.json")(
+          pg(AeolusRemotePlugin::type))(dop, aff_parallel, aff_reduce));
     }
 
   } else if (conf.data_access_policy == SchedulingPolicy::LOCAL_READ ||
@@ -529,6 +555,9 @@ OLAPSequence::OLAPSequence(int client_id, HTAPSequenceConfig conf,
       stmts.emplace_back(
           q.second(pg(AeolusLocalPlugin::type))(dop, aff_parallel, aff_reduce));
       total_queries++;
+
+      q4_reverse.emplace_back(qs("Q04_morsel.reverse.sql.json")(
+          pg(AeolusLocalPlugin::type))(dop, aff_parallel, aff_reduce));
     }
 
   } else if ((conf.data_access_policy == SchedulingPolicy::HYBRID_READ &&
@@ -538,6 +567,9 @@ OLAPSequence::OLAPSequence(int client_id, HTAPSequenceConfig conf,
       stmts.emplace_back(q.second(pg(AeolusElasticPlugin::type))(
           dop, aff_parallel, aff_reduce));
       total_queries++;
+
+      q4_reverse.emplace_back(qs("Q04_morsel.reverse.sql.json")(
+          pg(AeolusElasticPlugin::type))(dop, aff_parallel, aff_reduce));
     }
 
   } else if ((conf.data_access_policy == SchedulingPolicy::HYBRID_READ &&
@@ -547,6 +579,9 @@ OLAPSequence::OLAPSequence(int client_id, HTAPSequenceConfig conf,
       stmts.emplace_back(q.second(pg(AeolusElasticNIPlugin::type))(
           dop, aff_parallel, aff_reduce));
       total_queries++;
+
+      q4_reverse.emplace_back(qs("Q04_morsel.reverse.sql.json")(
+          pg(AeolusElasticNIPlugin::type))(dop, aff_parallel, aff_reduce));
     }
 
   } else {
