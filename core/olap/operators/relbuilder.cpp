@@ -436,6 +436,13 @@ RelBuilder RelBuilder::morsel_join(RelBuilder build, expression_t build_k,
         build_k.getRegisteredAs() == e.getRegisteredAs())
       continue;
 
+    auto rc = dynamic_cast<const expressions::RecordConstruction *>(
+        build_k.getUnderlyingExpression());
+    if (rc && dynamic_cast<const RecordType *>(rc->getExpressionType())
+                  ->getArg(p.getAttrName()))
+      continue;
+    LOG(INFO) << p;
+
     build_e.emplace_back(e, ind++, 0);
     build_w.emplace_back(
         ctx->getSizeOf(e.getExpressionType()->getLLVMType(llvmContext)) * 8);

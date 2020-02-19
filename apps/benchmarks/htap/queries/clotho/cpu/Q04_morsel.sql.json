@@ -570,7 +570,7 @@
                                 },
                                 "hash_bits": 27,
                                 "morsel": true,
-                                "maxBuildInputSize": 51200000,
+                                "maxBuildInputSize": 512000000,
                                 "probe_input": {
                                   "operator": "unpack",
                                   "input": {
