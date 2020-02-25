@@ -54,15 +54,15 @@ void Schema::ETL(uint numa_node_idx) {
 
 void Schema::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
   // check if prev sync is in progress, if yes, wait for that too complete.
-  std::cout << "------------------------" << std::endl;
-  std::cout << "snap_epoch: " << epoch << std::endl;
+  LOG(INFO) << "------------------------";
+  LOG(INFO) << "snap_epoch: " << epoch;
 
   if (snapshot_sync_in_progress.load()) {
-    std::cout << "Already in progress: " << epoch << std::endl;
+    LOG(INFO) << "Already in progress: " << epoch;
     // snapshot_sync.get();
     while (snapshot_sync_in_progress.load())
       ;
-    std::cout << "Done - snap_mver: " << (uint)snapshot_master_ver << std::endl;
+    LOG(INFO) << "Done - snap_mver: " << (uint)snapshot_master_ver;
   }
 
   for (auto& tbl : tables) {
@@ -271,7 +271,7 @@ ExpressionType* getProteusType(
     }
     case VARCHAR:
     case STRING: {
-      return new StringType();
+      return new DStringType(new std::map<int, std::string>());
     }
     case DSTRING: {
       if (std::get<3>(col) == nullptr) {
