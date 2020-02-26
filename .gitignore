@@ -67,8 +67,10 @@ generated_code/**
 #Scratchpad
 scratchpad/**
 cmake-build-debug*
+cmake-build*
 .idea
 *.sublime-workspace
+.clion.source.upload.marker
 
 #Documentation
 docs/**
