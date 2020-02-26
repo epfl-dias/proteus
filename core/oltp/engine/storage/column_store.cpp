@@ -581,12 +581,8 @@ Column::Column(std::string name, uint64_t initial_num_records,
 
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     for (ushort j = 0; j < this->num_partitions; j++) {
-#if HTAP_RM_SERVER
-      void* mem = MemoryManager::alloc_shm_htap(
-          std::to_string(i) + "__" + std::to_string(j) + "__" + name,
-          size_per_partition, unit_size, j);
 
-#elif SHARED_MEMORY
+#if SHARED_MEMORY
       void* mem = MemoryManager::alloc_shm(
           std::to_string(i) + "__" + std::to_string(j) + "__" + name,
           size_per_partition, j);

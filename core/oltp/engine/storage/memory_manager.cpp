@@ -36,7 +36,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <iostream>
 
 #include "memory/memory-manager.hpp"
-#include "scheduler/comm_manager.hpp"
 #include "scheduler/topology.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
@@ -58,51 +57,6 @@ namespace storage {
 //   return 0; /*Make compiler happy */
 // }
 
-// FIXME: numa_memset_id should be retereived through the current affinity, not
-// just hardcoded by default. and numa_get_mems_allowed
-void* MemoryManager::alloc_shm_htap(const std::string& key,
-                                    const size_t size_bytes,
-                                    const size_t unit_size,
-                                    const int numa_memset_id) {
-  // assert(key.length() <= 255 && key[0] == '/');
-
-  if (scheduler::CommManager::getInstance().request_memory_alloc(
-          key, size_bytes, unit_size)) {
-    int shm_fd = shm_open(key.c_str(), O_TRUNC | O_RDWR, 0666);
-    if (shm_fd == -1) {
-      fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno));
-      return nullptr;
-    }
-
-    if (ftruncate(shm_fd, size_bytes) < 0) {  //== -1){
-      shm_unlink(key.c_str());
-      fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno));
-      return nullptr;
-    }
-
-    void* mem_addr = mmap(nullptr, size_bytes, PROT_WRITE | PROT_READ,
-                          MAP_SHARED, shm_fd, 0);
-    if (!mem_addr) {
-      fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, strerror(errno));
-      return nullptr;
-    }
-
-    if (numa_memset_id != -1) {
-      const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
-      numa_tonode_memory(mem_addr, size_bytes, vec[numa_memset_id].id);
-    }
-
-    close(shm_fd);
-    return mem_addr;
-  }
-  assert(false && "Memmory allocation failed");
-}
-
-void MemoryManager::remove_shm_htap(const std::string& key) {
-  if (scheduler::CommManager::getInstance().request_memory_free(key)) {
-    MemoryManager::remove_shm(key);
-  }
-}
 
 void MemoryManager::remove_shm(const std::string& key) {
   // int munmap(void *addr, size_t length);

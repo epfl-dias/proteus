@@ -26,7 +26,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include <exception>
 #include <string>
 
-#include "communication/comm-manager.hpp"
 #include "storage/column_store.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"

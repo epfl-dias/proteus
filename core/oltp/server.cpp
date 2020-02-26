@@ -35,7 +35,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "indexes/hash_index.hpp"
 #include "oltp-cli-flags.hpp"
 #include "scheduler/affinity_manager.hpp"
-#include "scheduler/comm_manager.hpp"
 #include "scheduler/topology.hpp"
 #include "scheduler/worker.hpp"
 #include "storage/column_store.hpp"

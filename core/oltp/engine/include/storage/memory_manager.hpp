@@ -47,10 +47,6 @@ class MemoryManager {
   static void init();
   static void destroy();
 
-  static void* alloc_shm_htap(const std::string& key, const size_t size_bytes,
-                              const size_t unit_size, const int numa_memset_id);
-  static void remove_shm_htap(const std::string& key);
-
   // Allocation should be managed  and linked with affinities and topology
   static void* alloc_shm(const std::string& key, const size_t size_bytes,
                          const int numa_memset_id);
@@ -60,19 +56,6 @@ class MemoryManager {
                      int mem_advice = MADV_DOFORK | MADV_HUGEPAGE);
   static void free(void* mem);
 };
-
-/*class MemoryManager {
- public:
-  static void init();
-  static void destory();
-
-  static mem_chunk* malloc(size_t bytes);
-  static void free(mem_chunk* chunk);
-};
-
-class NUMAPinnedMemAllocator {};
-
-}  // namespace storage*/
 
 };  // namespace storage
 

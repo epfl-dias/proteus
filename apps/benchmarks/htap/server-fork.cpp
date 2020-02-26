@@ -47,7 +47,6 @@
 #include "glo.hpp"
 #include "interfaces/bench.hpp"
 #include "scheduler/affinity_manager.hpp"
-#include "scheduler/comm_manager.hpp"
 #include "scheduler/topology.hpp"
 #include "scheduler/worker.hpp"
 #include "storage/column_store.hpp"

@@ -37,7 +37,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "interfaces/bench.hpp"
 #include "oltp-cli-flags.hpp"
 #include "scheduler/affinity_manager.hpp"
-#include "scheduler/comm_manager.hpp"
 #include "scheduler/topology.hpp"
 #include "scheduler/worker.hpp"
 #include "storage/column_store.hpp"
@@ -120,16 +119,6 @@ int main(int argc, char** argv) {
 
   g_delta_size = FLAGS_delta_size;
   storage::MemoryManager::init();
-
-  // #if PROTEUS_MEM_MANAGER
-  //   proteus::init();
-  // #elif HTAP_RM_SERVER
-  //   std::cout << "\tInitializing communication manager..." << std::endl;
-  //   scheduler::CommManager::getInstance().init();
-  // #else
-  //   std::cout << scheduler::Topology::getInstance() << std::endl;
-  //   std::cout << "------------------------------------" << std::endl;
-  // #endif
 
   storage::Schema* schema = &storage::Schema::getInstance();
 

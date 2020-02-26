@@ -54,7 +54,6 @@
 #include "interfaces/bench.hpp"
 #include "queries/olap-sequence.hpp"
 #include "scheduler/affinity_manager.hpp"
-#include "scheduler/comm_manager.hpp"
 #include "scheduler/topology.hpp"
 #include "scheduler/worker.hpp"
 #include "storage/column_store.hpp"

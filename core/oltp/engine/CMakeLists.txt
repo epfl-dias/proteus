@@ -6,8 +6,7 @@ set(txn_engine_cxx
     scheduler/worker.cpp
     scheduler/topology.cpp
     scheduler/affinity_manager.cpp
-    scheduler/comm_manager.cpp
-    storage/memory_manager.cpp
+        storage/memory_manager.cpp
     storage/table.cpp
     storage/row_store.cpp
     storage/column_store.cpp

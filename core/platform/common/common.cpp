@@ -26,7 +26,6 @@
 #include <mutex>
 #include <thread>
 
-#include "communication/comm-manager.hpp"
 #include "memory/memory-manager.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
@@ -172,10 +171,6 @@ void init(float gpu_mem_pool_percentage, float cpu_mem_pool_percentage,
 
   // Initialize Google's logging library.
   LOG(INFO) << "Starting up server...";
-
-  // Force initialization of communcation manager by getting the instance
-  LOG(INFO) << "Initializing communication manager...";
-  communication::CommManager::getInstance();
 
   LOG(INFO) << "Warming up GPUs...";
   for (const auto &gpu : topology::getInstance().getGpus()) {

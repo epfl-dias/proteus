@@ -6,7 +6,6 @@ find_package(NUMA REQUIRED)
 set(codegen_cxx
     common/common.cpp
     common/gpu/gpu-common.cpp
-    communication/comm-manager.cpp
     memory/memory-allocator.cpp
     memory/memory-manager.cpp
     storage/storage-manager.cpp
