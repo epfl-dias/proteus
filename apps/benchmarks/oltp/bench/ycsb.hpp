@@ -1,23 +1,24 @@
 /*
-                  AEOLUS - In-Memory HTAP-Ready OLTP Engine
+     AEOLUS - In-Memory HTAP-Ready OLTP Engine
 
-                             Copyright (c) 2019-2019
-           Data Intensive Applications and Systems Laboratory (DIAS)
-                   Ecole Polytechnique Federale de Lausanne
+                            Copyright (c) 2019
+        Data Intensive Applications and Systems Laboratory (DIAS)
+                École Polytechnique Fédérale de Lausanne
 
-                              All Rights Reserved.
+                            All Rights Reserved.
 
-      Permission to use, copy, modify and distribute this software and its
-    documentation is hereby granted, provided that both the copyright notice
-  and this permission notice appear in all copies of the software, derivative
-  works or modified versions, and any portions thereof, and that both notices
-                      appear in supporting documentation.
+    Permission to use, copy, modify and distribute this software and
+    its documentation is hereby granted, provided that both the
+    copyright notice and this permission notice appear in all copies of
+    the software, derivative works or modified versions, and any
+    portions thereof, and that both notices appear in supporting
+    documentation.
 
-  This code is distributed in the hope that it will be useful, but WITHOUT ANY
- WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- A PARTICULAR PURPOSE. THE AUTHORS AND ECOLE POLYTECHNIQUE FEDERALE DE LAUSANNE
-DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
-                             USE OF THIS SOFTWARE.
+    This code is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
+    DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
+    RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
 #ifndef BENCH_YCSB_HPP_
@@ -385,8 +386,8 @@ class YCSB : public Benchmark {
     static thread_local double g_alpha_half_pow_tlocal = this->g_alpha_half_pow;
     static thread_local double g_zetan_tlocal = this->g_zetan;
     static thread_local double theta_tlocal = this->theta;
-    static thread_local size_t max_worker_per_partition = this->num_max_workers/this->num_partitions;
-
+    static thread_local size_t max_worker_per_partition =
+        this->num_max_workers / this->num_partitions;
 
     double alpha = 1 / (1 - theta_tlocal);
     double u;
