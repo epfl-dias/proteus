@@ -44,11 +44,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "util/timing.hpp"
 #include "values/expressionTypes.hpp"
 
-#define CIDR_HACK false
-#if CIDR_HACK
-#define MEMORY_SLACK 1000
-#endif
-#define PARTITIONED_WORKLOAD false
 
 #define HTAP_UPD_BIT_ON_INSERT false
 
@@ -282,13 +277,9 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
   this->rec_size = rec_size;
   assert(rec_size == col_offset);
   this->offset = 0;
-
-#if CIDR_HACK
-  this->initial_num_recs = initial_num_records - (NUM_SOCKETS * MEMORY_SLACK);
-#else
   this->initial_num_recs = initial_num_records;
 
-#endif
+
   for (auto& th : loaders) {
     th.join();
   }
@@ -381,13 +372,6 @@ void* ColumnStore::insertRecord(void* rec, uint64_t xid, ushort partition_id,
 
   global_conf::IndexVal* hash_ptr = nullptr;
 
-#if CIDR_HACK
-  if (curr_vid >= (initial_num_recs / NUM_SOCKETS)) {
-    scheduler::WorkerPool::getInstance().shutdown_manual();
-  }
-
-#endif
-
   if (indexed) {
     hash_ptr = (global_conf::IndexVal*)this->meta_column->getElem(
         CC_gen_vid(idx, partition_id, 0, 0));
@@ -475,16 +459,6 @@ void ColumnStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
                                const ushort* col_idx, short num_cols) {
   ushort pid = CC_extract_pid(hash_ptr->VID);
   ushort m_ver = CC_extract_m_ver(hash_ptr->VID);
-
-#if PARTITIONED_WORKLOAD
-  if (ppid != pid) {
-    std::unique_lock<std::mutex> ll(print_mutex);
-    std::cout << this->name << std::endl;
-    std::cout << ppid << std::endl;
-    std::cout << pid << std::endl;
-  }
-  assert(ppid == pid);
-#endif
 
   char* ver = (char*)this->deltaStore[curr_delta]->insert_version(
       hash_ptr, this->rec_size, pid);
