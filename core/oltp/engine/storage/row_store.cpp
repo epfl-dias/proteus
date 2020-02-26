@@ -409,7 +409,7 @@ RowStore::RowStore(uint8_t table_id, std::string name, ColumnDef columns,
         uint64_t* pt = (uint64_t*)mem;
         uint64_t warmup_max = size_per_part / sizeof(uint64_t);
 #pragma clang loop vectorize(enable)
-        for (uint64_t j = 0; j < warmup_max; j++) pt[j] = 0;
+        for (uint64_t k = 0; k < warmup_max; k++) pt[k] = 0;
       });
 
       data[i][j].emplace_back(mem, size_per_part, j);

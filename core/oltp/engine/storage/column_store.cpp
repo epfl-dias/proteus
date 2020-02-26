@@ -144,35 +144,35 @@ void Column::sync_master_snapshots(ushort master_ver_idx) {
               case 1: {  // uint8_t
                 uint8_t old_val = (*(actv_ptr + mem_idx));
                 uint8_t new_val = (*(src_ptr + mem_idx));
-                uint8_t* dst = (uint8_t*)(actv_ptr + mem_idx);
-                __sync_bool_compare_and_swap(dst, old_val, new_val);
+                uint8_t* dst_ptr = (uint8_t*)(actv_ptr + mem_idx);
+                __sync_bool_compare_and_swap(dst_ptr, old_val, new_val);
                 break;
               }
               case 2: {  // uint16_t
                 uint16_t old_val = *((uint16_t*)(actv_ptr + mem_idx));
                 uint16_t new_val = *((uint16_t*)(src_ptr + mem_idx));
-                uint16_t* dst = (uint16_t*)(actv_ptr + mem_idx);
-                __sync_bool_compare_and_swap(dst, old_val, new_val);
+                uint16_t* dst_ptr = (uint16_t*)(actv_ptr + mem_idx);
+                __sync_bool_compare_and_swap(dst_ptr, old_val, new_val);
                 break;
               }
               case 4: {  // uint32_t
                 uint32_t old_val = *((uint32_t*)(actv_ptr + mem_idx));
                 uint32_t new_val = *((uint32_t*)(src_ptr + mem_idx));
-                uint32_t* dst = (uint32_t*)(actv_ptr + mem_idx);
-                __sync_bool_compare_and_swap(dst, old_val, new_val);
+                uint32_t* dst_ptr = (uint32_t*)(actv_ptr + mem_idx);
+                __sync_bool_compare_and_swap(dst_ptr, old_val, new_val);
                 break;
               }
               case 8: {  // uint64_t
                 uint64_t old_val = *((uint64_t*)(actv_ptr + mem_idx));
                 uint64_t new_val = *((uint64_t*)(src_ptr + mem_idx));
-                uint64_t* dst = (uint64_t*)(actv_ptr + mem_idx);
-                __sync_bool_compare_and_swap(dst, old_val, new_val);
+                uint64_t* dst_ptr = (uint64_t*)(actv_ptr + mem_idx);
+                __sync_bool_compare_and_swap(dst_ptr, old_val, new_val);
                 break;
               }
               default: {
                 // std::unique_lock<std::mutex> lk(print_mutex);
                 std::cout << "col fucked: " << this->name << std::endl;
-                assert(false && "unsupported for now");
+                assert(false);
               }
             }
           }
@@ -300,9 +300,9 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
   elastic_mappings.reserve(columns.size());
 }
 
-void ColumnStore::offsetVID(uint64_t offset) {
-  for (int i = 0; i < NUM_SOCKETS; i++) vid[i].store(offset);
-  this->offset = offset;
+void ColumnStore::offsetVID(uint64_t offset_vid) {
+  for (int i = 0; i < NUM_SOCKETS; i++) vid[i].store(offset_vid);
+  this->offset = offset_vid;
 }
 
 void ColumnStore::insertIndexRecord(uint64_t rid, uint64_t xid,
@@ -613,7 +613,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
         uint64_t* pt = (uint64_t*)mem;
         uint64_t warmup_max = size_per_partition / sizeof(uint64_t);
 #pragma clang loop vectorize(enable)
-        for (uint64_t j = 0; j < warmup_max; j++) pt[j] = 0;
+        for (uint64_t k = 0; k < warmup_max; k++) pt[k] = 0;
       });
 
       master_versions[i][j].emplace_back(
@@ -987,14 +987,12 @@ uint64_t Column::num_upd_tuples(const ushort master_ver,
 }
 
 uint64_t Column::load_from_binary(std::string file_path) {
+  assert(false && "broken code");
   std::ifstream binFile(file_path.c_str(), std::ifstream::binary);
-  // std::cout << "Loading binary file: " << file_path << std::endl;
   if (binFile) {
     // get length of file
     binFile.seekg(0, binFile.end);
     size_t length = static_cast<size_t>(binFile.tellg());
-    // std::cout << "\tContains " << (length / this->elem_size) << " elements."
-    //           << std::endl;
 
     for (ushort i = 0; i < global_conf::num_master_versions; i++) {
       binFile.seekg(0, binFile.beg);

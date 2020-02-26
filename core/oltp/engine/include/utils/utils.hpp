@@ -97,9 +97,11 @@ class timed_func {
       while (true) {
         // std::cout << "HE" << std::endl;
         if (terminate) break;
-        auto x = std::chrono::steady_clock::now() +
-                 std::chrono::milliseconds(interval);
+        auto x = std::chrono::steady_clock::now();
+        x+= std::chrono::milliseconds(interval);
+
         func();
+
         std::this_thread::sleep_until(x);
       }
     }).detach();
