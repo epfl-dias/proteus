@@ -24,9 +24,17 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define STORAGE_MEMORY_MANAGER_HPP_
 
 #include <sys/mman.h>
+#include <new>
 
 
 namespace storage::memory {
+
+class MemoryManager {
+ public:
+  static void* alloc(size_t bytes, int numa_memset_id,
+                     int mem_advice = MADV_DOFORK | MADV_HUGEPAGE);
+  static void free(void* mem);
+};
 
 struct mem_chunk {
   void* data;
@@ -39,11 +47,48 @@ struct mem_chunk {
       : data(data), size(size), numa_id(numa_id) {}
 };
 
-class MemoryManager {
+template <typename T>
+class ExplicitSocketPinnedMemoryAllocator {
+ private:
+  const int numa_memset_id;
+
  public:
-  static void* alloc(size_t bytes, int numa_memset_id,
-                     int mem_advice = MADV_DOFORK | MADV_HUGEPAGE);
-  static void free(void* mem);
+  typedef T value_type;
+
+  inline explicit ExplicitSocketPinnedMemoryAllocator(int numa)
+      : numa_memset_id(numa) {}
+
+  [[nodiscard]] T *allocate(size_t n) {
+    if (n > std::numeric_limits<size_t>::max() / sizeof(T))
+      throw std::bad_alloc();
+
+    return static_cast<T *>(
+        storage::memory::MemoryManager::alloc(n * sizeof(T), numa_memset_id));
+  }
+
+  void deallocate(T *mem, size_t) noexcept {
+    storage::memory::MemoryManager::free(mem);
+  }
+};
+
+template <typename T>
+class PinnedMemoryAllocator {
+ public:
+  typedef T value_type;
+
+  inline explicit PinnedMemoryAllocator(){}
+
+  [[nodiscard]] T *allocate(size_t n) {
+    if (n > std::numeric_limits<size_t>::max() / sizeof(T))
+      throw std::bad_alloc();
+
+    return static_cast<T *>(
+        storage::memory::MemoryManager::alloc(n * sizeof(T), -1));
+  }
+
+  void deallocate(T *mem, size_t) noexcept {
+    storage::memory::MemoryManager::free(mem);
+  }
 };
 
 };  // namespace storage

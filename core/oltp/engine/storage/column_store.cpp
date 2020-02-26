@@ -211,7 +211,7 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
                          uint64_t initial_num_records, bool indexed,
                          bool partitioned, int numa_idx)
     : Table(name, table_id, COLUMN_STORE, columns),
-      columns(ExplicitSocketPinnedMemoryAllocator<storage::Column>(
+      columns(storage::memory::ExplicitSocketPinnedMemoryAllocator<storage::Column>(
           storage::NUMAPartitionPolicy::getInstance().getDefaultPartition())) {
   this->total_mem_reserved = 0;
   this->indexed = indexed;

@@ -60,30 +60,6 @@ class RecordAttribute;
 //  void deallocate(T *mem, size_t) noexcept { MemoryManager::freePinned(mem); }
 //};
 
-template <typename T>
-class ExplicitSocketPinnedMemoryAllocator {
- private:
-  int numa_memset_id;
-
- public:
-  typedef T value_type;
-
-  inline explicit ExplicitSocketPinnedMemoryAllocator(int numa)
-      : numa_memset_id(numa) {}
-
-  [[nodiscard]] T *allocate(size_t n) {
-    if (n > std::numeric_limits<size_t>::max() / sizeof(T))
-      throw std::bad_alloc();
-
-    return static_cast<T *>(
-        storage::memory::MemoryManager::alloc(n * sizeof(T), numa_memset_id));
-  }
-
-  void deallocate(T *mem, size_t) noexcept {
-    storage::memory::MemoryManager::free(mem);
-  }
-};
-
 namespace storage {
 
 class Column;
@@ -151,7 +127,7 @@ class alignas(4096) ColumnStore : public Table {
   std::set<size_t> elastic_offsets;
 
  private:
-  std::vector<Column, ExplicitSocketPinnedMemoryAllocator<Column>> columns;
+  std::vector<Column, storage::memory::ExplicitSocketPinnedMemoryAllocator<Column>> columns;
   Column *meta_column;
   // Column **secondary_index_vals;
   uint64_t offset;
