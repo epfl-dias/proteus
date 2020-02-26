@@ -25,33 +25,22 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include <sys/mman.h>
 
-#include <map>
-#include <vector>
 
-namespace storage {
+namespace storage::memory {
 
 struct mem_chunk {
   void* data;
-  size_t size;
-  int numa_id;
+  const size_t size;
+  const int numa_id;
 
-  // latching or locking here?
   mem_chunk() : data(nullptr), size(0), numa_id(-1) {}
 
   mem_chunk(void* data, size_t size, int numa_id)
       : data(data), size(size), numa_id(numa_id) {}
 };
-//  mlock() ???
+
 class MemoryManager {
  public:
-  static void init();
-  static void destroy();
-
-  // Allocation should be managed  and linked with affinities and topology
-  static void* alloc_shm(const std::string& key, const size_t size_bytes,
-                         const int numa_memset_id);
-  static void remove_shm(const std::string& key);
-
   static void* alloc(size_t bytes, int numa_memset_id,
                      int mem_advice = MADV_DOFORK | MADV_HUGEPAGE);
   static void free(void* mem);

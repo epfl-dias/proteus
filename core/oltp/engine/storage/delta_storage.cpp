@@ -44,9 +44,9 @@ DeltaStore::DeltaStore(uint delta_id, uint64_t ver_list_capacity,
                                .getPartitionInfo(i)
                                .numa_idx;
 
-    void* mem_list = MemoryManager::alloc(ver_list_capacity, numa_idx,
+    void* mem_list = storage::memory::MemoryManager::alloc(ver_list_capacity, numa_idx,
                                           MADV_DONTFORK | MADV_HUGEPAGE);
-    void* mem_data = MemoryManager::alloc(ver_data_capacity, numa_idx,
+    void* mem_data = storage::memory::MemoryManager::alloc(ver_data_capacity, numa_idx,
                                           MADV_DONTFORK | MADV_HUGEPAGE);
     assert(mem_list != NULL);
     assert(mem_data != NULL);
@@ -55,11 +55,11 @@ DeltaStore::DeltaStore(uint delta_id, uint64_t ver_list_capacity,
     assert(mem_data != nullptr);
 
     void* obj_data =
-        MemoryManager::alloc(sizeof(DeltaPartition), numa_idx, MADV_DONTFORK);
+        storage::memory::MemoryManager::alloc(sizeof(DeltaPartition), numa_idx, MADV_DONTFORK);
 
     partitions.emplace_back(new (obj_data) DeltaPartition(
-        (char*)mem_list, mem_chunk(mem_list, ver_list_capacity, numa_idx),
-        (char*)mem_data, mem_chunk(mem_data, ver_data_capacity, numa_idx), i));
+        (char*)mem_list, storage::memory::mem_chunk(mem_list, ver_list_capacity, numa_idx),
+        (char*)mem_data, storage::memory::mem_chunk(mem_data, ver_data_capacity, numa_idx), i));
   }
 
   if (DELTA_DEBUG) {
@@ -89,7 +89,7 @@ DeltaStore::~DeltaStore() {
   print_info();
   for (auto& p : partitions) {
     p->~DeltaPartition();
-    MemoryManager::free(p);
+    storage::memory::MemoryManager::free(p);
   }
 }
 

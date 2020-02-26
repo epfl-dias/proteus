@@ -92,8 +92,8 @@ class alignas(4096) DeltaStore {
     std::atomic<char *> ver_list_cursor;
     std::atomic<char *> ver_data_cursor;
     int pid;
-    mem_chunk ver_list_mem;
-    mem_chunk ver_data_mem;
+    storage::memory::mem_chunk ver_list_mem;
+    storage::memory::mem_chunk ver_data_mem;
     bool touched;
     std::mutex print_lock;
     bool printed;
@@ -104,8 +104,8 @@ class alignas(4096) DeltaStore {
     bool reset_listeners[NUM_CORE_PER_SOCKET];
 
    public:
-    DeltaPartition(char *ver_list_cursor, mem_chunk ver_list_mem,
-                   char *ver_data_cursor, mem_chunk ver_data_mem, int pid)
+    DeltaPartition(char *ver_list_cursor, storage::memory::mem_chunk ver_list_mem,
+                   char *ver_data_cursor, storage::memory::mem_chunk ver_data_mem, int pid)
         : ver_list_mem(ver_list_mem),
           ver_data_mem(ver_data_mem),
           ver_list_cursor(ver_list_cursor),

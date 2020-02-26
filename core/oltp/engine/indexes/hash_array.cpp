@@ -47,7 +47,7 @@ HashArray<K, V>::HashArray(std::string name, uint64_t num_obj)
   size_t size_per_part = capacity_per_partition * sizeof(char *);
 
   for (int i = 0; i < partitions; i++) {
-    arr[i] = (char **)storage::MemoryManager::alloc(
+    arr[i] = (char **)storage::memory::MemoryManager::alloc(
         size_per_part,
         storage::NUMAPartitionPolicy::getInstance()
             .getPartitionInfo(i)
@@ -68,7 +68,7 @@ HashArray<K, V>::HashArray(std::string name, uint64_t num_obj)
 template <class K, class V>
 HashArray<K, V>::~HashArray() {
   for (int i = 0; i < partitions; i++) {
-    storage::MemoryManager::free(arr[i]);
+    storage::memory::MemoryManager::free(arr[i]);
   }
 }
 

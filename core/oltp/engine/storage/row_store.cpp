@@ -319,7 +319,7 @@ RowStore::RowStore(uint8_t table_id, std::string name, ColumnDef columns,
     //                          sizeof(global_conf::IndexVal), 0, true,
     //                          partitioned, numa_idx);
 
-    void* obj_data = MemoryManager::alloc(
+    void* obj_data = storage::memory::MemoryManager::alloc(
         sizeof(global_conf::PrimaryIndex<uint64_t>),
         storage::NUMAPartitionPolicy::getInstance().getDefaultPartition(),
         MADV_DONTFORK);
@@ -373,7 +373,7 @@ RowStore::RowStore(uint8_t table_id, std::string name, ColumnDef columns,
 
 #else
 
-    void* mem = MemoryManager::alloc(meta_size_per_part, j);
+    void* mem = storage::memory::MemoryManager::alloc(meta_size_per_part, j);
 
 #endif
 
@@ -400,7 +400,7 @@ RowStore::RowStore(uint8_t table_id, std::string name, ColumnDef columns,
 
 #else
 
-      void* mem = MemoryManager::alloc(size_per_part, j);
+      void* mem = storage::memory::MemoryManager::alloc(size_per_part, j);
 
 #endif
 

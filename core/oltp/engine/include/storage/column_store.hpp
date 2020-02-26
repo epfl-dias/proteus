@@ -76,11 +76,11 @@ class ExplicitSocketPinnedMemoryAllocator {
       throw std::bad_alloc();
 
     return static_cast<T *>(
-        storage::MemoryManager::alloc(n * sizeof(T), numa_memset_id));
+        storage::memory::MemoryManager::alloc(n * sizeof(T), numa_memset_id));
   }
 
   void deallocate(T *mem, size_t) noexcept {
-    storage::MemoryManager::free(mem);
+    storage::memory::MemoryManager::free(mem);
   }
 };
 
@@ -135,7 +135,7 @@ class alignas(4096) ColumnStore : public Table {
   int64_t *snapshot_get_number_tuples(bool olap_snapshot = false,
                                       bool elastic_scan = false);
 
-  std::vector<std::pair<mem_chunk, size_t>> snapshot_get_data(
+  std::vector<std::pair<storage::memory::mem_chunk, size_t>> snapshot_get_data(
       size_t scan_idx, std::vector<RecordAttribute *> &wantedFields,
       bool olap_local, bool elastic_scan);
 
@@ -147,7 +147,7 @@ class alignas(4096) ColumnStore : public Table {
 
   ~ColumnStore();
   // uint64_t *plugin_ptr[global_conf::num_master_versions][NUM_SOCKETS];
-  std::vector<std::vector<std::pair<mem_chunk, size_t>>> elastic_mappings;
+  std::vector<std::vector<std::pair<storage::memory::mem_chunk, size_t>>> elastic_mappings;
   std::set<size_t> elastic_offsets;
 
  private:
@@ -207,10 +207,10 @@ class alignas(4096) Column {
   // }
 
   // snapshot stuff
-  std::vector<std::pair<mem_chunk, size_t>> snapshot_get_data(
+  std::vector<std::pair<storage::memory::mem_chunk, size_t>> snapshot_get_data(
       bool olap_local = false, bool elastic_scan = false) const;
 
-  std::vector<std::pair<mem_chunk, size_t>> elastic_partition(
+  std::vector<std::pair<storage::memory::mem_chunk, size_t>> elastic_partition(
       uint pid, std::set<size_t> &segment_boundaries);
 
   const std::string name;
@@ -229,7 +229,7 @@ class alignas(4096) Column {
   uint64_t initial_num_records;
   uint64_t initial_num_records_per_part;
 
-  std::vector<mem_chunk> master_versions[global_conf::num_master_versions]
+  std::vector<storage::memory::mem_chunk> master_versions[global_conf::num_master_versions]
                                         [NUM_SOCKETS];
 
   std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>>

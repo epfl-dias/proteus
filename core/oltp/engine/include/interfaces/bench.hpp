@@ -23,20 +23,20 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #ifndef BENCH_HPP_
 #define BENCH_HPP_
 
-//#include <gflags/gflags.h>
 #include <iostream>
 #include <string>
 
-// DECLARE_uint64(num_partitions);
-
 namespace bench {
-
-// enum OP_TYPE { OPTYPE_LOOKUP, OPTYPE_UPDATE }; done in txn_manager
 
 class Benchmark {
  public:
-  virtual void init() {
-  }  // who will init the bench? the main session or in worker's init?
+  const std::string name;
+  ushort num_active_workers;
+  const ushort num_max_workers;
+  const ushort num_partitions;
+
+
+  virtual void init() {}
   virtual void load_data(int num_threads = 1) {}
   virtual void gen_txn(int wid, void *txn_ptr, ushort partition_id) {}
   virtual bool exec_txn(const void *stmts, uint64_t xid, ushort master_ver,
@@ -49,32 +49,23 @@ class Benchmark {
   virtual void free_query_struct_ptr(void *ptr) {}
 
   // NOTE: Following will run before/after the workers starts the execution. it
-  // will be synchorinized, i.e., worker will not start transaction until all
+  // will be synchronized, i.e., worker will not start transaction until all
   // workers finish the pre-run and a worker will not start post-run unless all
-  // workers are ready to start the post run. Morever, this will not apply to
-  // the hotplugged workers.
-
-  // TODO: not implemented in the worker pool as of yet.
-
+  // workers are ready to start the post run. Moreover, this will not apply to
+  // the hot-plugged workers.
   virtual void post_run(int wid, uint64_t xid, ushort partition_id,
                         ushort master_ver) {}
   virtual void pre_run(int wid, uint64_t xid, ushort partition_id,
                        ushort master_ver) {}
 
-  std::string name;
-  ushort num_active_workers;
-  const ushort num_max_workers;
-  const ushort num_partitions;
-
-  // private:
-  Benchmark(std::string name = "DUMMY", ushort num_active_workers = 1,
+  Benchmark(std::string name = "BENNCH-DUMMY", ushort num_active_workers = 1,
             ushort num_max_workers = 1, ushort num_partitions = 1)
       : name(name),
         num_active_workers(num_active_workers),
         num_max_workers(num_max_workers),
         num_partitions(num_partitions) {}
 
-  virtual ~Benchmark() { std::cout << "destructor of Benchmark" << std::endl; }
+  virtual ~Benchmark() {}
 };
 
 }  // namespace bench

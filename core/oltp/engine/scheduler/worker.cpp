@@ -567,9 +567,9 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
       //   if (worker_counter % 2 == 0) continue;
       // }
 
-      void* obj_ptr = storage::MemoryManager::alloc(
+      void* obj_ptr = storage::memory::MemoryManager::alloc(
           sizeof(Worker), exec_core.local_cpu_index, MADV_DONTFORK);
-      void* thd_ptr = storage::MemoryManager::alloc(
+      void* thd_ptr = storage::memory::MemoryManager::alloc(
           sizeof(std::thread), exec_core.local_cpu_index, MADV_DONTFORK);
 
       Worker* wrkr = new (obj_ptr) Worker(worker_counter++, &exec_core);
@@ -599,13 +599,13 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
 
     const auto& sys_cores = Topology::getInstance().getCores();
     uint ctr = 0;
-    for (int i = sys_cores.size() - 1; i >= 0; i--) {
-      void* obj_ptr = storage::MemoryManager::alloc(
-          sizeof(Worker), sys_cores[i].local_cpu_index, MADV_DONTFORK);
-      void* thd_ptr = storage::MemoryManager::alloc(
-          sizeof(std::thread), sys_cores[i].local_cpu_index, MADV_DONTFORK);
+    for (int ci = sys_cores.size() - 1; ci >= 0; ci--) {
+      void* obj_ptr = storage::memory::MemoryManager::alloc(
+          sizeof(Worker), sys_cores[ci].local_cpu_index, MADV_DONTFORK);
+      void* thd_ptr = storage::memory::MemoryManager::alloc(
+          sizeof(std::thread), sys_cores[ci].local_cpu_index, MADV_DONTFORK);
 
-      Worker* wrkr = new (obj_ptr) Worker(worker_counter++, &(sys_cores[i]));
+      Worker* wrkr = new (obj_ptr) Worker(worker_counter++, &(sys_cores[ci]));
 
       wrkr->partition_id =
           0;  //(sys_cores[i].local_cpu_index % num_partitions);
@@ -619,13 +619,13 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
 
       wrkr->num_iters = num_iter_per_worker;
 
-      std::cout << "Worker-" << (uint)wrkr->id << "(" << sys_cores[i].id
+      std::cout << "Worker-" << (uint)wrkr->id << "(" << sys_cores[ci].id
                 << "): Allocated partition # " << wrkr->partition_id
                 << std::endl;
       std::thread* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
 
       workers.emplace(
-          std::make_pair(sys_cores[i].id, std::make_pair(thd, wrkr)));
+          std::make_pair(sys_cores[ci].id, std::make_pair(thd, wrkr)));
       prev_time_tps.emplace_back(
           std::chrono::time_point<std::chrono::system_clock,
                                   std::chrono::nanoseconds>::min());
@@ -656,9 +656,9 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
         continue;
       }
 
-      void* obj_ptr = storage::MemoryManager::alloc(
+      void* obj_ptr = storage::memory::MemoryManager::alloc(
           sizeof(Worker), exec_core.local_cpu_index, MADV_DONTFORK);
-      void* thd_ptr = storage::MemoryManager::alloc(
+      void* thd_ptr = storage::memory::MemoryManager::alloc(
           sizeof(std::thread), exec_core.local_cpu_index, MADV_DONTFORK);
 
       Worker* wrkr = new (obj_ptr) Worker(worker_counter++, &exec_core);
@@ -702,9 +702,9 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
         continue;
       }
 
-      void* obj_ptr = storage::MemoryManager::alloc(
+      void* obj_ptr = storage::memory::MemoryManager::alloc(
           sizeof(Worker), exec_core.local_cpu_index, MADV_DONTFORK);
-      void* thd_ptr = storage::MemoryManager::alloc(
+      void* thd_ptr = storage::memory::MemoryManager::alloc(
           sizeof(std::thread), exec_core.local_cpu_index, MADV_DONTFORK);
 
       Worker* wrkr = new (obj_ptr) Worker(worker_counter++, &exec_core);
@@ -746,12 +746,12 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
 
     const auto& wrks_crs = Topology::getInstance().getCores();
 
-    for (int i = txn_bench->num_active_workers; i < txn_bench->num_max_workers;
+    for (int ew = txn_bench->num_active_workers; ew < txn_bench->num_max_workers;
          i++) {
-      loaders.emplace_back([this, i, wrks_crs, curr_master, num_partitions]() {
-        auto tid = txn::TransactionManager::getInstance().get_next_xid(i);
+      loaders.emplace_back([this, ew, wrks_crs, curr_master, num_partitions]() {
+        auto tid = txn::TransactionManager::getInstance().get_next_xid(ew);
         this->txn_bench->pre_run(
-            i, tid, wrks_crs.at(i).local_cpu_index % num_partitions,
+            ew, tid, wrks_crs.at(ew).local_cpu_index % num_partitions,
             curr_master);
       });
     }
@@ -925,9 +925,9 @@ void WorkerPool::scale_back() {
 // Hot Plug
 void WorkerPool::add_worker(const core* exec_location, short partition_id) {
   // assert(workers.find(exec_location->id) == workers.end());
-  void* obj_ptr = storage::MemoryManager::alloc(
+  void* obj_ptr = storage::memory::MemoryManager::alloc(
       sizeof(Worker), exec_location->local_cpu_index, MADV_DONTFORK);
-  void* thd_ptr = storage::MemoryManager::alloc(
+  void* thd_ptr = storage::memory::MemoryManager::alloc(
       sizeof(std::thread), exec_location->local_cpu_index, MADV_DONTFORK);
 
   Worker* wrkr = new (obj_ptr) Worker(worker_counter++, exec_location);
@@ -984,10 +984,10 @@ void WorkerPool::shutdown(bool print_stats) {
 
     // FIXME: why not using an allocator with the map?
     worker.second.first->~thread();
-    storage::MemoryManager::free(worker.second.first);
+    storage::memory::MemoryManager::free(worker.second.first);
 
     worker.second.second->~Worker();
-    storage::MemoryManager::free(worker.second.second);
+    storage::memory::MemoryManager::free(worker.second.second);
   }
   print_worker_stats();
   workers.clear();

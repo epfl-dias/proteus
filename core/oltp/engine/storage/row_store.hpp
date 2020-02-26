@@ -100,9 +100,9 @@ class RowStore : public Table {
   // 1-size, 2-cumm size until that col
   std::vector<std::pair<size_t, size_t>> column_width;
   std::vector<data_type> column_data_types;
-  std::vector<mem_chunk> data[global_conf::num_master_versions][NUM_SOCKETS];
+  std::vector<storage::memory::mem_chunk> data[global_conf::num_master_versions][NUM_SOCKETS];
 
-  std::vector<mem_chunk> metadata[NUM_SOCKETS];
+  std::vector<storage::memory::mem_chunk> metadata[NUM_SOCKETS];
 
   bool indexed;
   uint64_t vid_offset;

@@ -102,7 +102,7 @@ void **AeolusPlugin::getDataPointerForFile_runtime(size_t i,
                                                    void *session) {
   const auto &tbl = getRelation({relName}, "<" + pgType + ">");
   const auto &data_arenas =
-      tbl->snapshot_get_data(i, wantedFields, local_storage, elastic_scan);
+      tbl->snapshot_get_data(i, wantedFields, olap_snapshot_only, elastic_scan);
 
   assert(data_arenas.size() > 0 && "ERROR: getDataPointerForFile");
 
@@ -120,7 +120,7 @@ void **AeolusPlugin::getDataPointerForFile_runtime(size_t i,
   // for (auto &c : tbl->getColumns()) {
   //   if (strcmp(c->name.c_str(), attrName) == 0) {
   //     const auto &data_arenas =
-  //         c->snapshot_get_data(i, local_storage, elastic_scan);
+  //         c->snapshot_get_data(i, olap_snapshot_only, elastic_scan);
   //     void **arr = (void **)malloc(sizeof(void *) * data_arenas.size());
   //     for (uint i = 0; i < data_arenas.size(); i++) {
   //       arr[i] = data_arenas[i].first.data;
@@ -138,7 +138,7 @@ int64_t *AeolusPlugin::getNumOfTuplesPerPartition_runtime(const char *relName,
                                                           void *session) {
   const auto &tbl = getRelation({relName}, "<" + pgType + ">");
 
-  return tbl->snapshot_get_number_tuples(local_storage, elastic_scan);
+  return tbl->snapshot_get_number_tuples(olap_snapshot_only, elastic_scan);
 
   // const auto &c = tbl->getColumns()[0];
   // // FIXME: this should actually get pointer, just the number of records.
@@ -162,7 +162,7 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
                .snapshot_get_data()
                .size();
 
-  local_storage = false;
+  olap_snapshot_only = false;
   elastic_scan = false;
 }
 
@@ -175,7 +175,7 @@ AeolusElasticPlugin::AeolusElasticPlugin(
   LOG(INFO) << "Elastic Plugin- Nparts: " << Nparts;
 
   elastic_scan = true;
-  local_storage = false;
+  olap_snapshot_only = false;
 }
 
 AeolusElasticNIPlugin::AeolusElasticNIPlugin(
@@ -187,7 +187,7 @@ AeolusElasticNIPlugin::AeolusElasticNIPlugin(
   LOG(INFO) << "Elastic-ni Plugin- Nparts: " << Nparts;
 
   elastic_scan = true;
-  local_storage = false;
+  olap_snapshot_only = false;
 }
 
 llvm::Value *createCall(std::string func,

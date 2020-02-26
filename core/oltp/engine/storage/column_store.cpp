@@ -190,7 +190,7 @@ ColumnStore::~ColumnStore() {
   //  }
   if (meta_column) {
     meta_column->~Column();
-    MemoryManager::free(meta_column);
+    storage::memory::MemoryManager::free(meta_column);
   }
 
   if (p_index) delete p_index;
@@ -227,7 +227,7 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
   std::vector<proteus::thread> loaders;
 
   if (indexed) {
-    void* obj_ptr = MemoryManager::alloc(
+    void* obj_ptr = storage::memory::MemoryManager::alloc(
         sizeof(Column),
         storage::NUMAPartitionPolicy::getInstance().getDefaultPartition());
     meta_column = new (obj_ptr)
@@ -491,18 +491,14 @@ void ColumnStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
 Column::~Column() {
 #if HTAP_ETL
   for (ushort j = 0; j < this->num_partitions; j++) {
-    MemoryManager::free(this->etl_mem[j]);
+    storage::memory::MemoryManager::free(this->etl_mem[j]);
   }
 #endif
 
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     for (ushort j = 0; j < g_num_partitions; j++) {
       for (auto& chunk : master_versions[i][j]) {
-#if PROTEUS_MEM_MANAGER
-        ::MemoryManager::freePinned(chunk.data);
-#else
-        MemoryManager::free(chunk.data);
-#endif
+        storage::memory::MemoryManager::free(chunk.data);
       }
       master_versions[i][j].clear();
     }
@@ -564,7 +560,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
   if (g_num_partitions == 1)
     for (ushort j = 0; j < this->num_partitions; j++) {
       this->etl_mem[j] =
-          MemoryManager::alloc(size_per_partition, DEFAULT_OLAP_SOCKET);
+          storage::memory::MemoryManager::alloc(size_per_partition, DEFAULT_OLAP_SOCKET);
       // assert((total_numa_nodes - j - 1) == 1);
       // MemoryManager::alloc_shm(name + "__" + std::to_string(j),
       //                          size_per_partition, total_numa_nodes - j - 1);
@@ -573,33 +569,17 @@ Column::Column(std::string name, uint64_t initial_num_records,
 
 #endif
 
-#if PROTEUS_MEM_MANAGER
-  const auto& cpunumanodes = ::topology::getInstance().getCpuNumaNodes();
-#endif
-
   std::vector<proteus::thread> loaders;
 
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     for (ushort j = 0; j < this->num_partitions; j++) {
 
-#if SHARED_MEMORY
-      void* mem = MemoryManager::alloc_shm(
-          std::to_string(i) + "__" + std::to_string(j) + "__" + name,
-          size_per_partition, j);
-
-#elif PROTEUS_MEM_MANAGER
-      set_exec_location_on_scope d{cpunumanodes[j]};
-      void* mem = ::MemoryManager::mallocPinned(size_per_partition);
-#else
-      void* mem = MemoryManager::alloc(
+      void* mem = storage::memory::MemoryManager::alloc(
           size_per_partition, storage::NUMAPartitionPolicy::getInstance()
                                   .getPartitionInfo(j)
                                   .numa_idx);
-
-#endif
       assert(mem != nullptr || mem != NULL);
       loaders.emplace_back([mem, size_per_partition, j]() {
-        // time_block t("T_ColumnCreate_warmup_1: ");
         set_exec_location_on_scope d{
             topology::getInstance()
                 .getCpuNumaNodes()[storage::NUMAPartitionPolicy::getInstance()
@@ -1110,7 +1090,7 @@ int64_t* ColumnStore::snapshot_get_number_tuples(bool olap_snapshot,
   }
 }
 
-std::vector<std::pair<mem_chunk, size_t>> ColumnStore::snapshot_get_data(
+std::vector<std::pair<storage::memory::mem_chunk, size_t>> ColumnStore::snapshot_get_data(
     size_t scan_idx, std::vector<RecordAttribute*>& wantedFields,
     bool olap_local, bool elastic_scan) {
   if (elastic_scan) {
@@ -1148,7 +1128,7 @@ std::vector<std::pair<mem_chunk, size_t>> ColumnStore::snapshot_get_data(
 
     size_t num_to_return = wantedFields.size();
 
-    std::vector<std::pair<mem_chunk, size_t>> ret;
+    std::vector<std::pair<storage::memory::mem_chunk, size_t>> ret;
 
     // for (uint xd = 0; xd < getit.size(); xd++) {
     //   LOG(INFO) << "Part: " << xd << ": numa_loc: "
@@ -1219,11 +1199,11 @@ std::vector<std::pair<mem_chunk, size_t>> ColumnStore::snapshot_get_data(
   }
 }
 
-std::vector<std::pair<mem_chunk, size_t>> Column::elastic_partition(
+std::vector<std::pair<storage::memory::mem_chunk, size_t>> Column::elastic_partition(
     uint pid, std::set<size_t>& segment_boundaries) {
   // tuple: <mem_chunk, num_records>, offset
 
-  std::vector<std::pair<mem_chunk, size_t>> ret;
+  std::vector<std::pair<storage::memory::mem_chunk, size_t>> ret;
 
   assert(master_versions[0][pid].size() == 1);
   assert(g_num_partitions == 1);
@@ -1260,7 +1240,7 @@ std::vector<std::pair<mem_chunk, size_t>> Column::elastic_partition(
                 << ((double)(olap_arena.numOfRecords * this->elem_size)) /
                        (1024 * 1024 * 1024);
       ret.emplace_back(std::make_pair(
-          mem_chunk(this->etl_mem[pid],
+          storage::memory::mem_chunk(this->etl_mem[pid],
                     olap_arena.numOfRecords * this->elem_size, -1),
           olap_arena.numOfRecords));
 
@@ -1274,7 +1254,7 @@ std::vector<std::pair<mem_chunk, size_t>> Column::elastic_partition(
       size_t diff = snap_arena.numOfRecords - olap_arena.numOfRecords;
       // local-part
       ret.emplace_back(std::make_pair(
-          mem_chunk(this->etl_mem[pid],
+          storage::memory::mem_chunk(this->etl_mem[pid],
                     olap_arena.numOfRecords * this->elem_size, -1),
           olap_arena.numOfRecords));
 
@@ -1288,7 +1268,7 @@ std::vector<std::pair<mem_chunk, size_t>> Column::elastic_partition(
       oltp_mem += olap_arena.numOfRecords * this->elem_size;
 
       ret.emplace_back(std::make_pair(
-          mem_chunk(oltp_mem, diff * this->elem_size, -1), diff));
+          storage::memory::mem_chunk(oltp_mem, diff * this->elem_size, -1), diff));
 
       // if (this->name.compare("ol_number") == 0) {
       //    uint32_t* ls = (uint32_t*)data;
@@ -1305,9 +1285,9 @@ std::vector<std::pair<mem_chunk, size_t>> Column::elastic_partition(
   return ret;
 }
 
-std::vector<std::pair<mem_chunk, size_t>> Column::snapshot_get_data(
+std::vector<std::pair<storage::memory::mem_chunk, size_t>> Column::snapshot_get_data(
     bool olap_local, bool elastic_scan) const {
-  std::vector<std::pair<mem_chunk, size_t>> ret;
+  std::vector<std::pair<storage::memory::mem_chunk, size_t>> ret;
 
   for (uint i = 0; i < num_partitions; i++) {
     assert(master_versions[0][i].size() == 1);
@@ -1323,7 +1303,7 @@ std::vector<std::pair<mem_chunk, size_t>> Column::snapshot_get_data(
                 << " GB";
 
       ret.emplace_back(std::make_pair(
-          mem_chunk(this->etl_mem[i], olap_arena.numOfRecords * this->elem_size,
+          storage::memory::mem_chunk(this->etl_mem[i], olap_arena.numOfRecords * this->elem_size,
                     -1),
           olap_arena.numOfRecords));
 

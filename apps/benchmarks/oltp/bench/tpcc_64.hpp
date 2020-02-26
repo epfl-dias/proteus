@@ -407,7 +407,7 @@ class TPCC : public Benchmark {
   void load_customer_secondary_index(struct tpcc_customer &r);
 
   void *get_query_struct_ptr(ushort pid) {
-    return storage::MemoryManager::alloc(
+    return storage::memory::MemoryManager::alloc(
         sizeof(struct tpcc_query),
         storage::NUMAPartitionPolicy::getInstance()
             .getPartitionInfo(pid)
@@ -415,7 +415,7 @@ class TPCC : public Benchmark {
         MADV_DONTFORK);
   }
   void free_query_struct_ptr(void *ptr) {
-    storage::MemoryManager::free(ptr);  //, sizeof(struct tpcc_query));
+    storage::memory::MemoryManager::free(ptr);  //, sizeof(struct tpcc_query));
   }
 
   // cust_utils

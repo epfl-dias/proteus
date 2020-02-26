@@ -192,7 +192,7 @@ Table* Schema::create_table(std::string name, layout_type layout,
   }
 
   if (layout == COLUMN_STORE) {
-    void* obj_ptr = MemoryManager::alloc(sizeof(ColumnStore), numa_idx);
+    void* obj_ptr = storage::memory::MemoryManager::alloc(sizeof(ColumnStore), numa_idx);
 
     tbl = new (obj_ptr)
         ColumnStore((this->num_tables + 1), name, columns, initial_num_records,
@@ -218,7 +218,7 @@ Table* Schema::create_table(std::string name, layout_type layout,
 
 void Schema::destroy_table(Table* table) {
   table->~Table();
-  MemoryManager::free(table);
+  storage::memory::MemoryManager::free(table);
 }
 
 void Schema::drop_table(std::string name) {

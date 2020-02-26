@@ -55,7 +55,7 @@ class AeolusPlugin : public BinaryBlockPlugin {
 
   virtual void freeNumOfTuplesPerPartition_runtime(int64_t *inn);
 
-  bool local_storage;
+  bool olap_snapshot_only;
   bool elastic_scan;
 
  private:
@@ -68,7 +68,7 @@ class AeolusLocalPlugin : public AeolusPlugin {
   AeolusLocalPlugin(ParallelContext *const context, std::string fnamePrefix,
                     RecordType rec, std::vector<RecordAttribute *> &whichFields)
       : AeolusPlugin(context, fnamePrefix, rec, whichFields, type) {
-    local_storage = true;
+    olap_snapshot_only = true;
     elastic_scan = false;
   }
 };
