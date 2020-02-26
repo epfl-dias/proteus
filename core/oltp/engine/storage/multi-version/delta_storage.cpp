@@ -44,22 +44,24 @@ DeltaStore::DeltaStore(uint delta_id, uint64_t ver_list_capacity,
                                .getPartitionInfo(i)
                                .numa_idx;
 
-    void* mem_list = storage::memory::MemoryManager::alloc(ver_list_capacity, numa_idx,
-                                          MADV_DONTFORK | MADV_HUGEPAGE);
-    void* mem_data = storage::memory::MemoryManager::alloc(ver_data_capacity, numa_idx,
-                                          MADV_DONTFORK | MADV_HUGEPAGE);
+    void* mem_list = storage::memory::MemoryManager::alloc(
+        ver_list_capacity, numa_idx, MADV_DONTFORK | MADV_HUGEPAGE);
+    void* mem_data = storage::memory::MemoryManager::alloc(
+        ver_data_capacity, numa_idx, MADV_DONTFORK | MADV_HUGEPAGE);
     assert(mem_list != NULL);
     assert(mem_data != NULL);
 
     assert(mem_list != nullptr);
     assert(mem_data != nullptr);
 
-    void* obj_data =
-        storage::memory::MemoryManager::alloc(sizeof(DeltaPartition), numa_idx, MADV_DONTFORK);
+    void* obj_data = storage::memory::MemoryManager::alloc(
+        sizeof(DeltaPartition), numa_idx, MADV_DONTFORK);
 
     partitions.emplace_back(new (obj_data) DeltaPartition(
-        (char*)mem_list, storage::memory::mem_chunk(mem_list, ver_list_capacity, numa_idx),
-        (char*)mem_data, storage::memory::mem_chunk(mem_data, ver_data_capacity, numa_idx), i));
+        (char*)mem_list,
+        storage::memory::mem_chunk(mem_list, ver_list_capacity, numa_idx),
+        (char*)mem_data,
+        storage::memory::mem_chunk(mem_data, ver_data_capacity, numa_idx), i));
   }
 
   if (DELTA_DEBUG) {
@@ -154,6 +156,44 @@ void DeltaStore::gc() {
       // gc_lock.unlock();
       gc_lock.store(0);
     }
+  }
+}
+
+DeltaStore::DeltaPartition::DeltaPartition(
+    char* ver_list_cursor, storage::memory::mem_chunk ver_list_mem,
+    char* ver_data_cursor, storage::memory::mem_chunk ver_data_mem, int pid)
+    : ver_list_mem(ver_list_mem),
+      ver_data_mem(ver_data_mem),
+      ver_list_cursor(ver_list_cursor),
+      ver_data_cursor(ver_data_cursor),
+      list_cursor_max(ver_list_cursor + ver_list_mem.size),
+      data_cursor_max(ver_list_cursor + ver_data_mem.size),
+      touched(false),
+      pid(pid) {
+  printed = false;
+  // warm-up mem-list
+  if (DELTA_DEBUG)
+    std::cout << "\t warming up delta storage P" << pid << std::endl;
+
+  uint64_t* pt = (uint64_t*)ver_list_cursor;
+  int warmup_size = ver_list_mem.size / sizeof(uint64_t);
+  pt[0] = 3;
+  for (int i = 1; i < warmup_size; i++) pt[i] = i * 2;
+
+  // warm-up mem-data
+  pt = (uint64_t*)ver_data_cursor;
+  warmup_size = ver_data_mem.size / sizeof(uint64_t);
+  pt[0] = 1;
+  for (int i = 1; i < warmup_size; i++) pt[i] = i * 2;
+
+  size_t max_workers_in_partition =
+      scheduler::Topology::getInstance()
+          .getCpuNumaNodes()[storage::NUMAPartitionPolicy::getInstance()
+                                 .getPartitionInfo(pid)
+                                 .numa_idx]
+          .local_cores.size();
+  for (int i = 0; i < max_workers_in_partition; i++) {
+    reset_listeners.push_back(false);
   }
 }
 

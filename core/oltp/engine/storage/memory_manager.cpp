@@ -22,8 +22,8 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 
 #include "storage/memory_manager.hpp"
 
-
 #include <sys/mman.h>
+
 #include "memory/memory-manager.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
@@ -43,19 +43,18 @@ void* MemoryManager::alloc(size_t bytes, int numa_memset_id, int mem_advice) {
 
   // return numa_alloc_interleaved(bytes);
   void* ret = nullptr;
-  if(numa_memset_id >= 0){
-  static const auto& nodes = topology::getInstance().getCpuNumaNodes();
-  set_exec_location_on_scope d{nodes[numa_memset_id]};
-  ret = ::MemoryManager::mallocPinned(bytes);
+  if (numa_memset_id >= 0) {
+    static const auto& nodes = topology::getInstance().getCpuNumaNodes();
+    set_exec_location_on_scope d{nodes[numa_memset_id]};
+    ret = ::MemoryManager::mallocPinned(bytes);
   } else {
     ret = ::MemoryManager::mallocPinned(bytes);
   }
   return ret;
-
 }
 void MemoryManager::free(void* mem) {
   // numa_free(mem, bytes);
   ::MemoryManager::freePinned(mem);
 }
 
-};  // namespace storage
+};  // namespace storage::memory

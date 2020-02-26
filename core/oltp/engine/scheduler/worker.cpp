@@ -746,8 +746,8 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
 
     const auto& wrks_crs = Topology::getInstance().getCores();
 
-    for (int ew = txn_bench->num_active_workers; ew < txn_bench->num_max_workers;
-         i++) {
+    for (int ew = txn_bench->num_active_workers;
+         ew < txn_bench->num_max_workers; i++) {
       loaders.emplace_back([this, ew, wrks_crs, curr_master, num_partitions]() {
         auto tid = txn::TransactionManager::getInstance().get_next_xid(ew);
         this->txn_bench->pre_run(

@@ -174,17 +174,13 @@ class Schema {
                            const uint8_t snapshot_master_ver);
   bool sync_master_ver_schema(const uint8_t snapshot_master_ver);
 
-  Schema() {
+  Schema()
+      : total_mem_reserved(0),
+        total_delta_mem_reserved(0),
+        snapshot_sync_in_progress(0) {
     aeolus::snapshot::SnapshotManager::init();
 
-    total_mem_reserved = 0;
-    total_delta_mem_reserved = 0;
-    snapshot_sync_in_progress = false;
-    // rid = 0;
-
     if (global_conf::cc_ismv) {
-      // init delta store
-
       for (int i = 0; i < global_conf::num_delta_storages; i++) {
         deltaStore[i] = new DeltaStore(i);
         this->total_delta_mem_reserved += deltaStore[i]->total_mem_reserved;

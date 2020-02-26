@@ -100,42 +100,13 @@ class alignas(4096) DeltaStore {
     const char *list_cursor_max;
     const char *data_cursor_max;
 
-    // std::vector<bool> reset_listeners;
-    bool reset_listeners[NUM_CORE_PER_SOCKET];
+    std::vector<bool> reset_listeners;
 
    public:
-    DeltaPartition(char *ver_list_cursor, storage::memory::mem_chunk ver_list_mem,
-                   char *ver_data_cursor, storage::memory::mem_chunk ver_data_mem, int pid)
-        : ver_list_mem(ver_list_mem),
-          ver_data_mem(ver_data_mem),
-          ver_list_cursor(ver_list_cursor),
-          ver_data_cursor(ver_data_cursor),
-          list_cursor_max(ver_list_cursor + ver_list_mem.size),
-          data_cursor_max(ver_list_cursor + ver_data_mem.size),
-          touched(false),
-          pid(pid) {
-      printed = false;
-      // warm-up mem-list
-      if (DELTA_DEBUG)
-        std::cout << "\t warming up delta storage P" << pid << std::endl;
-
-      uint64_t *pt = (uint64_t *)ver_list_cursor;
-      int warmup_size = ver_list_mem.size / sizeof(uint64_t);
-      pt[0] = 3;
-      for (int i = 1; i < warmup_size; i++) pt[i] = i * 2;
-
-      // warm-up mem-data
-      pt = (uint64_t *)ver_data_cursor;
-      warmup_size = ver_data_mem.size / sizeof(uint64_t);
-      pt[0] = 1;
-      for (int i = 1; i < warmup_size; i++) pt[i] = i * 2;
-
-      // reset_listeners.reserve(NUM_CORE_PER_SOCKET);
-      for (int i = 0; i < NUM_CORE_PER_SOCKET; i++) {
-        // reset_listeners.push_back(false);
-        reset_listeners[i] = false;
-      }
-    }
+    DeltaPartition(char *ver_list_cursor,
+                   storage::memory::mem_chunk ver_list_mem,
+                   char *ver_data_cursor,
+                   storage::memory::mem_chunk ver_data_mem, int pid);
 
     ~DeltaPartition() {
       if (DELTA_DEBUG)
@@ -149,7 +120,7 @@ class alignas(4096) DeltaStore {
         ver_list_cursor = (char *)ver_list_mem.data;
         ver_data_cursor = (char *)ver_data_mem.data;
 
-        for (uint i = 0; i < NUM_CORE_PER_SOCKET; i++) {
+        for (uint i = 0; i < reset_listeners.size(); i++) {
           reset_listeners[i] = true;
         }
 

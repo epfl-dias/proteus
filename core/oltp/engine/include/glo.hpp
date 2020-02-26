@@ -41,34 +41,22 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define DEFAULT_OLAP_SOCKET 0
 
 #define HTAP_DOUBLE_MASTER true
-#define HTAP_COW false
 #define HTAP_ETL true  // for this, double master should be turned on too.
-
-// Memory Allocators
-#define HTAP_RM_SERVER false
-#define PROTEUS_MEM_MANAGER false
-#define SHARED_MEMORY false  // if htap=false, then shm or numa_alloc
 
 #if icc148
 #define NUM_SOCKETS 2
-#define NUM_CORE_PER_SOCKET 28
 #endif
 
 #if diascld48
 #define NUM_SOCKETS 2
-#define NUM_CORE_PER_SOCKET 24
 #endif
 
 #if diascld33
 #define NUM_SOCKETS 4
-#define NUM_CORE_PER_SOCKET 18
-//#define MAX_WORKERS 72
 #endif
 
 #if diascld40
 #define NUM_SOCKETS 2
-#define NUM_CORE_PER_SOCKET 64
-//#define MAX_WORKERS 128
 #endif
 
 #if HTAP_DOUBLE_MASTER

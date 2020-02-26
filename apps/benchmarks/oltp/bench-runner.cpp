@@ -118,7 +118,6 @@ int main(int argc, char** argv) {
   std::cout << "PARTITIONS: " << g_num_partitions << std::endl;
 
   g_delta_size = FLAGS_delta_size;
-  storage::MemoryManager::init();
 
   storage::Schema* schema = &storage::Schema::getInstance();
 
@@ -231,11 +230,6 @@ int main(int argc, char** argv) {
   std::cout << "Tear Down Inititated" << std::endl;
   profiling::pause();
   scheduler::WorkerPool::getInstance().shutdown(true);
-
-  if (HTAP_RM_SERVER) {
-    std::cout << "\tShutting down communication manager..." << std::endl;
-    scheduler::CommManager::getInstance().shutdown();
-  }
 
   // std::cout << "AFTER" << std::endl;
   // for (auto& tb : storage::Schema::getInstance().getAllTables()) {

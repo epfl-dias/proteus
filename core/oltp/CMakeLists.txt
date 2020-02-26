@@ -7,13 +7,13 @@ project(aeolus VERSION 0.1)
 # to build.
 set(OLTP_MAINS server)
 
-set (OLTP_CLI_FLAGS
-		)
+set(OLTP_CLI_FLAGS
+        )
 
 
-foreach(target ${OLTP_CLI_FLAGS})
-	set_source_files_properties(${target} PROPERTIES COMPILE_FLAGS ${CUDA_CXXFLAGS})
-endforeach()
+foreach (target ${OLTP_CLI_FLAGS})
+    set_source_files_properties(${target} PROPERTIES COMPILE_FLAGS ${CUDA_CXXFLAGS})
+endforeach ()
 
 
 #-----------------------------------------------------------------------
@@ -32,23 +32,23 @@ endforeach()
 add_subdirectory(lib/libcuckoo)
 add_subdirectory(engine)
 
-foreach(target ${OLTP_MAINS})
-	set_source_files_properties(${target}.cpp PROPERTIES COMPILE_FLAGS ${CUDA_CXXFLAGS})
+foreach (target ${OLTP_MAINS})
+    set_source_files_properties(${target}.cpp PROPERTIES COMPILE_FLAGS ${CUDA_CXXFLAGS})
 
-	add_executable(aeolus-${target} ${target}.cpp ${OLTP_CLI_FLAGS}) 
-	target_link_libraries(aeolus-${target} PUBLIC aeolus::engine)
-	install(TARGETS aeolus-${target}
-		RUNTIME DESTINATION pelago
-		LIBRARY DESTINATION lib
-		ARCHIVE DESTINATION lib
-		)
-endforeach(target)
+    add_executable(aeolus-${target} ${target}.cpp ${OLTP_CLI_FLAGS})
+    target_link_libraries(aeolus-${target} PUBLIC aeolus::engine)
+    install(TARGETS aeolus-${target}
+            RUNTIME DESTINATION pelago
+            LIBRARY DESTINATION lib
+            ARCHIVE DESTINATION lib
+            )
+endforeach (target)
 
 add_subdirectory(adaptors)
 
 #-----------------------------------------------------------------------
 
 # Unit-tests
-if(UNIT_TESTS)
-	add_subdirectory(tests)
-endif()
+if (UNIT_TESTS)
+    add_subdirectory(tests)
+endif ()

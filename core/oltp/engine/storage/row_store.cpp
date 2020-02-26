@@ -32,12 +32,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "storage/delta_storage.hpp"
 #include "storage/table.hpp"
 
-#if PROTEUS_MEM_MANAGER
-#include "memory/memory-manager.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
-#endif
-
 namespace storage {
 
 std::mutex row_store_print_mutex;
@@ -353,10 +347,6 @@ RowStore::RowStore(uint8_t table_id, std::string name, ColumnDef columns,
   this->initial_num_records_per_part =
       initial_num_records / this->num_partitions;
 
-#if PROTEUS_MEM_MANAGER
-  const auto& cpunumanodes = ::topology::getInstance().getCpuNumaNodes();
-#endif
-
   // Memory Allocation
   std::vector<std::thread> loaders;
 
@@ -366,16 +356,7 @@ RowStore::RowStore(uint8_t table_id, std::string name, ColumnDef columns,
   size_t meta_size_per_part = meta_tsize / num_partitions;
 
   for (ushort j = 0; j < this->num_partitions; j++) {
-#if PROTEUS_MEM_MANAGER
-
-    set_exec_location_on_scope d{cpunumanodes[j]};
-    void* mem = ::MemoryManager::mallocPinned(meta_size_per_part);
-
-#else
-
     void* mem = storage::memory::MemoryManager::alloc(meta_size_per_part, j);
-
-#endif
 
     assert(mem != nullptr || mem != NULL);
     //     loaders.emplace_back([mem, meta_size_per_part]() {
@@ -393,16 +374,7 @@ RowStore::RowStore(uint8_t table_id, std::string name, ColumnDef columns,
   // data
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     for (ushort j = 0; j < this->num_partitions; j++) {
-#if PROTEUS_MEM_MANAGER
-
-      set_exec_location_on_scope d{cpunumanodes[j]};
-      void* mem = ::MemoryManager::mallocPinned(size_per_part);
-
-#else
-
       void* mem = storage::memory::MemoryManager::alloc(size_per_part, j);
-
-#endif
 
       assert(mem != nullptr || mem != NULL);
       loaders.emplace_back([mem, this]() {

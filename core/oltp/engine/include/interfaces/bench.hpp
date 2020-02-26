@@ -35,7 +35,6 @@ class Benchmark {
   const ushort num_max_workers;
   const ushort num_partitions;
 
-
   virtual void init() {}
   virtual void load_data(int num_threads = 1) {}
   virtual void gen_txn(int wid, void *txn_ptr, ushort partition_id) {}

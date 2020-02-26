@@ -44,7 +44,6 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #include "util/timing.hpp"
 #include "values/expressionTypes.hpp"
 
-
 #define HTAP_UPD_BIT_ON_INSERT false
 
 namespace storage {
@@ -211,8 +210,10 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
                          uint64_t initial_num_records, bool indexed,
                          bool partitioned, int numa_idx)
     : Table(name, table_id, COLUMN_STORE, columns),
-      columns(storage::memory::ExplicitSocketPinnedMemoryAllocator<storage::Column>(
-          storage::NUMAPartitionPolicy::getInstance().getDefaultPartition())) {
+      columns(
+          storage::memory::ExplicitSocketPinnedMemoryAllocator<storage::Column>(
+              storage::NUMAPartitionPolicy::getInstance()
+                  .getDefaultPartition())) {
   this->total_mem_reserved = 0;
   this->indexed = indexed;
   this->deltaStore = storage::Schema::getInstance().deltaStore;
@@ -278,7 +279,6 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
   assert(rec_size == col_offset);
   this->offset = 0;
   this->initial_num_recs = initial_num_records;
-
 
   for (auto& th : loaders) {
     th.join();
@@ -559,8 +559,8 @@ Column::Column(std::string name, uint64_t initial_num_records,
 
   if (g_num_partitions == 1)
     for (ushort j = 0; j < this->num_partitions; j++) {
-      this->etl_mem[j] =
-          storage::memory::MemoryManager::alloc(size_per_partition, DEFAULT_OLAP_SOCKET);
+      this->etl_mem[j] = storage::memory::MemoryManager::alloc(
+          size_per_partition, DEFAULT_OLAP_SOCKET);
       // assert((total_numa_nodes - j - 1) == 1);
       // MemoryManager::alloc_shm(name + "__" + std::to_string(j),
       //                          size_per_partition, total_numa_nodes - j - 1);
@@ -573,7 +573,6 @@ Column::Column(std::string name, uint64_t initial_num_records,
 
   for (ushort i = 0; i < global_conf::num_master_versions; i++) {
     for (ushort j = 0; j < this->num_partitions; j++) {
-
       void* mem = storage::memory::MemoryManager::alloc(
           size_per_partition, storage::NUMAPartitionPolicy::getInstance()
                                   .getPartitionInfo(j)
@@ -1090,9 +1089,10 @@ int64_t* ColumnStore::snapshot_get_number_tuples(bool olap_snapshot,
   }
 }
 
-std::vector<std::pair<storage::memory::mem_chunk, size_t>> ColumnStore::snapshot_get_data(
-    size_t scan_idx, std::vector<RecordAttribute*>& wantedFields,
-    bool olap_local, bool elastic_scan) {
+std::vector<std::pair<storage::memory::mem_chunk, size_t>>
+ColumnStore::snapshot_get_data(size_t scan_idx,
+                               std::vector<RecordAttribute*>& wantedFields,
+                               bool olap_local, bool elastic_scan) {
   if (elastic_scan) {
     assert(g_num_partitions == 1 &&
            "cannot do it for more as of now due to static nParts");
@@ -1199,8 +1199,8 @@ std::vector<std::pair<storage::memory::mem_chunk, size_t>> ColumnStore::snapshot
   }
 }
 
-std::vector<std::pair<storage::memory::mem_chunk, size_t>> Column::elastic_partition(
-    uint pid, std::set<size_t>& segment_boundaries) {
+std::vector<std::pair<storage::memory::mem_chunk, size_t>>
+Column::elastic_partition(uint pid, std::set<size_t>& segment_boundaries) {
   // tuple: <mem_chunk, num_records>, offset
 
   std::vector<std::pair<storage::memory::mem_chunk, size_t>> ret;
@@ -1241,7 +1241,8 @@ std::vector<std::pair<storage::memory::mem_chunk, size_t>> Column::elastic_parti
                        (1024 * 1024 * 1024);
       ret.emplace_back(std::make_pair(
           storage::memory::mem_chunk(this->etl_mem[pid],
-                    olap_arena.numOfRecords * this->elem_size, -1),
+                                     olap_arena.numOfRecords * this->elem_size,
+                                     -1),
           olap_arena.numOfRecords));
 
     } else if (snap_arena.numOfRecords > olap_arena.numOfRecords) {
@@ -1255,7 +1256,8 @@ std::vector<std::pair<storage::memory::mem_chunk, size_t>> Column::elastic_parti
       // local-part
       ret.emplace_back(std::make_pair(
           storage::memory::mem_chunk(this->etl_mem[pid],
-                    olap_arena.numOfRecords * this->elem_size, -1),
+                                     olap_arena.numOfRecords * this->elem_size,
+                                     -1),
           olap_arena.numOfRecords));
 
       segment_boundaries.insert(olap_arena.numOfRecords);
@@ -1268,7 +1270,8 @@ std::vector<std::pair<storage::memory::mem_chunk, size_t>> Column::elastic_parti
       oltp_mem += olap_arena.numOfRecords * this->elem_size;
 
       ret.emplace_back(std::make_pair(
-          storage::memory::mem_chunk(oltp_mem, diff * this->elem_size, -1), diff));
+          storage::memory::mem_chunk(oltp_mem, diff * this->elem_size, -1),
+          diff));
 
       // if (this->name.compare("ol_number") == 0) {
       //    uint32_t* ls = (uint32_t*)data;
@@ -1285,8 +1288,8 @@ std::vector<std::pair<storage::memory::mem_chunk, size_t>> Column::elastic_parti
   return ret;
 }
 
-std::vector<std::pair<storage::memory::mem_chunk, size_t>> Column::snapshot_get_data(
-    bool olap_local, bool elastic_scan) const {
+std::vector<std::pair<storage::memory::mem_chunk, size_t>>
+Column::snapshot_get_data(bool olap_local, bool elastic_scan) const {
   std::vector<std::pair<storage::memory::mem_chunk, size_t>> ret;
 
   for (uint i = 0; i < num_partitions; i++) {
@@ -1303,8 +1306,8 @@ std::vector<std::pair<storage::memory::mem_chunk, size_t>> Column::snapshot_get_
                 << " GB";
 
       ret.emplace_back(std::make_pair(
-          storage::memory::mem_chunk(this->etl_mem[i], olap_arena.numOfRecords * this->elem_size,
-                    -1),
+          storage::memory::mem_chunk(
+              this->etl_mem[i], olap_arena.numOfRecords * this->elem_size, -1),
           olap_arena.numOfRecords));
 
     } else {

@@ -2,31 +2,31 @@ project(aeolus_engine VERSION 0.1 LANGUAGES CXX)
 
 # Pure, regular C++ files
 set(txn_engine_cxx
-    glo.cpp
-    scheduler/worker.cpp
-    scheduler/topology.cpp
-    scheduler/affinity_manager.cpp
+        glo.cpp
+        scheduler/worker.cpp
+        scheduler/topology.cpp
+        scheduler/affinity_manager.cpp
         storage/memory_manager.cpp
-    storage/table.cpp
-    storage/row_store.cpp
-    storage/column_store.cpp
-    storage/delta_storage.cpp
-    transactions/transaction_manager.cpp
-    #transactions/cc.cpp
-    snapshot/cor_arena.cpp
-    snapshot/cow_arena.cpp
-    snapshot/cor_const_arena.cpp
-    indexes/hash_array.cpp
-    oltp-cli-flags.cpp
-    )
+        storage/table.cpp
+        storage/row_store.cpp
+        storage/column_store.cpp
+        storage/multi-version/delta_storage.cpp
+        transactions/transaction_manager.cpp
+        #transactions/cc.cpp
+        snapshot/cor_arena.cpp
+        snapshot/cow_arena.cpp
+        snapshot/cor_const_arena.cpp
+        indexes/hash_array.cpp
+        oltp-cli-flags.cpp
+        )
 
-foreach(target ${txn_engine_cxx})
+foreach (target ${txn_engine_cxx})
     set_source_files_properties(${target} PROPERTIES LANGUAGE CXX)
-endforeach()
+endforeach ()
 
-foreach(target ${txn_engine_cxx})
+foreach (target ${txn_engine_cxx})
     set_source_files_properties(${target} PROPERTIES COMPILE_FLAGS ${CUDA_CXXFLAGS})
-endforeach()
+endforeach ()
 
 add_library(aeolus_engine SHARED
         ${txn_engine_cxx}
@@ -39,10 +39,10 @@ set_target_properties(aeolus_engine PROPERTIES
 # paths.
 target_include_directories(aeolus_engine
         PUBLIC
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-            $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
         PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR})
+        ${CMAKE_CURRENT_SOURCE_DIR})
 
 # If we have compiler requirements for this library, list them
 # here
@@ -52,16 +52,16 @@ target_compile_features(aeolus_engine
 # Depend on a library that we defined in the top-level file
 target_link_libraries(aeolus_engine
         PUBLIC
-            ${llvm_libs}
-            codegen::olap
-            cuckoo::cuckoo
-            cli-flags)
+        ${llvm_libs}
+        codegen::olap
+        cuckoo::cuckoo
+        cli-flags)
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
 install(TARGETS aeolus_engine EXPORT ${PROJECT_NAME}Config
-        ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR})  # This is for Windows
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})  # This is for Windows
 
 # This makes the project importable from the install directory
 # Put config file in per-project dir (name MUST match), can also

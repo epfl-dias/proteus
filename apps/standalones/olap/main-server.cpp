@@ -27,7 +27,6 @@
 #include <cstring>
 
 #include "cli-flags.hpp"
-#include "communication/comm-manager.hpp"
 #include "memory/block-manager.hpp"
 #include "memory/memory-manager.hpp"
 #include "plan/prepared-statement.hpp"

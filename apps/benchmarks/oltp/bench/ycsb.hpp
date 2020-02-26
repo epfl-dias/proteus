@@ -154,8 +154,9 @@ class YCSB : public Benchmark {
     // txn->ops = new struct YCSB_TXN_OP[num_ops_per_txn];
     // return txn;
 
-    struct YCSB_TXN *txn = (struct YCSB_TXN *)storage::memory::MemoryManager::alloc(
-        sizeof(struct YCSB_TXN), pid, MADV_DONTFORK);
+    struct YCSB_TXN *txn =
+        (struct YCSB_TXN *)storage::memory::MemoryManager::alloc(
+            sizeof(struct YCSB_TXN), pid, MADV_DONTFORK);
     txn->ops = (struct YCSB_TXN_OP *)storage::memory::MemoryManager::alloc(
         sizeof(struct YCSB_TXN_OP) * num_ops_per_txn, pid, MADV_DONTFORK);
     return txn;
@@ -317,11 +318,10 @@ class YCSB : public Benchmark {
         // num_iterations_per_worker(num_iterations_per_worker),
         num_ops_per_txn(num_ops_per_txn),
         write_threshold(write_threshold) {
-    // num_workers = scheduler::Topology::getInstance().get_num_worker_cores();
     if (num_max_workers == -1)
-      num_max_workers = std::thread::hardware_concurrency();
+      num_max_workers = scheduler::Topology::getInstance().getCoreCount();
     if (num_active_workers == -1)
-      num_active_workers = std::thread::hardware_concurrency();
+      num_active_workers = scheduler::Topology::getInstance().getCoreCount();
 
     assert(this->num_records % this->num_max_workers == 0 &&
            "Total number of records should be divisible by total # cores");
@@ -348,9 +348,10 @@ class YCSB : public Benchmark {
     rand_buffer = (struct drand48_data **)calloc(num_partitions,
                                                  sizeof(struct drand48_data *));
     for (ushort i = 0; i < num_partitions; i++) {
-      rand_buffer[i] = (struct drand48_data *)storage::memory::MemoryManager::alloc(
-          (num_max_workers / num_partitions) * sizeof(struct drand48_data), i,
-          MADV_DONTFORK);
+      rand_buffer[i] =
+          (struct drand48_data *)storage::memory::MemoryManager::alloc(
+              (num_max_workers / num_partitions) * sizeof(struct drand48_data),
+              i, MADV_DONTFORK);
 
       // rand_buffer[i] = (struct drand48_data *)calloc(
       //   num_max_workers / num_partitions, sizeof(struct drand48_data));
@@ -384,11 +385,13 @@ class YCSB : public Benchmark {
     static thread_local double g_alpha_half_pow_tlocal = this->g_alpha_half_pow;
     static thread_local double g_zetan_tlocal = this->g_zetan;
     static thread_local double theta_tlocal = this->theta;
+    static thread_local size_t max_worker_per_partition = this->num_max_workers/this->num_partitions;
+
 
     double alpha = 1 / (1 - theta_tlocal);
     double u;
 
-    drand48_r(&rand_buffer[partition_id][wid % NUM_CORE_PER_SOCKET], &u);
+    drand48_r(&rand_buffer[partition_id][wid % max_worker_per_partition], &u);
 
     double uz = u * g_zetan_tlocal;
 

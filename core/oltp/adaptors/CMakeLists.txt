@@ -2,16 +2,16 @@ project(aeolus_plugin VERSION 0.1 LANGUAGES CXX)
 
 # Pure, regular C++ files
 set(aeolus_plugin_cxx
-    aeolus-plugin.cpp
-    )
+        aeolus-plugin.cpp
+        )
 
-foreach(target ${aeolus_plugin_cxx})
+foreach (target ${aeolus_plugin_cxx})
     set_source_files_properties(${target} PROPERTIES LANGUAGE CXX)
-endforeach()
+endforeach ()
 
 add_library(aeolus_plugin SHARED
         ${aeolus_plugin_cxx}
-    )
+        )
 
 set_target_properties(aeolus_plugin PROPERTIES
         LINK_FLAGS "-Wl,--no-allow-shlib-undefined -Wl,-z,defs")
@@ -20,10 +20,10 @@ set_target_properties(aeolus_plugin PROPERTIES
 # paths.
 target_include_directories(aeolus_plugin
         PUBLIC
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-            $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
         PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR})
+        ${CMAKE_CURRENT_SOURCE_DIR})
 
 # If we have compiler requirements for this library, list them
 # here
@@ -31,15 +31,15 @@ target_compile_features(aeolus_plugin
         PUBLIC cxx_std_17)
 
 target_link_libraries(aeolus_plugin
-    PUBLIC
+        PUBLIC
         aeolus::engine
         codegen::olap)
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
 install(TARGETS aeolus_plugin EXPORT ${PROJECT_NAME}Config
-        ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR})  # This is for Windows
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})  # This is for Windows
 
 # This makes the project importable from the install directory
 # Put config file in per-project dir (name MUST match), can also

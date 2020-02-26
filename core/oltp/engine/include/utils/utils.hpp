@@ -98,7 +98,7 @@ class timed_func {
         // std::cout << "HE" << std::endl;
         if (terminate) break;
         auto x = std::chrono::steady_clock::now();
-        x+= std::chrono::milliseconds(interval);
+        x += std::chrono::milliseconds(interval);
 
         func();
 

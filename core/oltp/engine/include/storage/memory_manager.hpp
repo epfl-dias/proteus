@@ -24,26 +24,26 @@ DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
 #define STORAGE_MEMORY_MANAGER_HPP_
 
 #include <sys/mman.h>
-#include <new>
 
+#include <new>
 
 namespace storage::memory {
 
 class MemoryManager {
  public:
-  static void* alloc(size_t bytes, int numa_memset_id,
+  static void *alloc(size_t bytes, int numa_memset_id,
                      int mem_advice = MADV_DOFORK | MADV_HUGEPAGE);
-  static void free(void* mem);
+  static void free(void *mem);
 };
 
 struct mem_chunk {
-  void* data;
+  void *data;
   const size_t size;
   const int numa_id;
 
   mem_chunk() : data(nullptr), size(0), numa_id(-1) {}
 
-  mem_chunk(void* data, size_t size, int numa_id)
+  mem_chunk(void *data, size_t size, int numa_id)
       : data(data), size(size), numa_id(numa_id) {}
 };
 
@@ -76,7 +76,7 @@ class PinnedMemoryAllocator {
  public:
   typedef T value_type;
 
-  inline explicit PinnedMemoryAllocator(){}
+  inline explicit PinnedMemoryAllocator() {}
 
   [[nodiscard]] T *allocate(size_t n) {
     if (n > std::numeric_limits<size_t>::max() / sizeof(T))
@@ -91,6 +91,6 @@ class PinnedMemoryAllocator {
   }
 };
 
-};  // namespace storage
+};  // namespace storage::memory
 
 #endif /* STORAGE_MEMORY_MANAGER_HPP_ */

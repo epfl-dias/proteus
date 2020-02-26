@@ -123,11 +123,14 @@ class alignas(4096) ColumnStore : public Table {
 
   ~ColumnStore();
   // uint64_t *plugin_ptr[global_conf::num_master_versions][NUM_SOCKETS];
-  std::vector<std::vector<std::pair<storage::memory::mem_chunk, size_t>>> elastic_mappings;
+  std::vector<std::vector<std::pair<storage::memory::mem_chunk, size_t>>>
+      elastic_mappings;
   std::set<size_t> elastic_offsets;
 
  private:
-  std::vector<Column, storage::memory::ExplicitSocketPinnedMemoryAllocator<Column>> columns;
+  std::vector<Column,
+              storage::memory::ExplicitSocketPinnedMemoryAllocator<Column>>
+      columns;
   Column *meta_column;
   // Column **secondary_index_vals;
   uint64_t offset;
@@ -205,8 +208,8 @@ class alignas(4096) Column {
   uint64_t initial_num_records;
   uint64_t initial_num_records_per_part;
 
-  std::vector<storage::memory::mem_chunk> master_versions[global_conf::num_master_versions]
-                                        [NUM_SOCKETS];
+  std::vector<storage::memory::mem_chunk>
+      master_versions[global_conf::num_master_versions][NUM_SOCKETS];
 
   std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>>
       upd_bit_masks[global_conf::num_master_versions][NUM_SOCKETS];
