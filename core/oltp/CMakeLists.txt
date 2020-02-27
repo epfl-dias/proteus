@@ -5,7 +5,7 @@ project(aeolus VERSION 0.1)
 #-----------------------------------------------------------------------
 # Simply comment the lines of this section to skip some of the binaries
 # to build.
-set(OLTP_MAINS server)
+set(OLTP_MAINS)
 
 set(OLTP_CLI_FLAGS
         )
