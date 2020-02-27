@@ -31,7 +31,6 @@
 #include <string>
 #include <thread>
 
-#include "indexes/hash_index.hpp"
 #include "interfaces/bench.hpp"
 #include "scheduler/topology.hpp"
 #include "storage/memory_manager.hpp"

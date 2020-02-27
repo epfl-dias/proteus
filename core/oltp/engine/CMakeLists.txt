@@ -6,10 +6,9 @@ set(txn_engine_cxx
         scheduler/worker.cpp
         scheduler/topology.cpp
         scheduler/affinity_manager.cpp
-        storage/memory_manager.cpp
         storage/table.cpp
-        storage/row_store.cpp
-        storage/column_store.cpp
+        storage/layout/row_store.cpp
+        storage/layout/column_store.cpp
         storage/multi-version/delta_storage.cpp
         transactions/transaction_manager.cpp
         #transactions/cc.cpp

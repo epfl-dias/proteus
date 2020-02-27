@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "storage/row_store.hpp"
+#include "row_store.hpp"
 
 #include <cassert>
 #include <cstring>

@@ -30,7 +30,6 @@
 #include <iostream>
 #include <thread>
 
-#include "indexes/hash_index.hpp"
 #include "interfaces/bench.hpp"
 #include "scheduler/topology.hpp"
 #include "storage/table.hpp"

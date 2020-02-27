@@ -34,7 +34,7 @@
 #include <tuple>
 #include <vector>
 
-#include "indexes/hash_index.hpp"
+
 #include "snapshot/snapshot_manager.hpp"
 #include "storage/delta_storage.hpp"
 #include "storage/memory_manager.hpp"

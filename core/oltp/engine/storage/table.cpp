@@ -37,7 +37,7 @@
 #include "scheduler/worker.hpp"
 #include "storage/column_store.hpp"
 #include "storage/delta_storage.hpp"
-#include "storage/row_store.hpp"
+#include "storage/layout/row_store.hpp"
 #include "util/timing.hpp"
 #include "values/expressionTypes.hpp"
 

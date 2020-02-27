@@ -35,7 +35,6 @@
 #include <vector>
 
 #include "glo.hpp"
-#include "indexes/hash_index.hpp"
 #include "storage/delta_storage.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"

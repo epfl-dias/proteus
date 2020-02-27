@@ -26,8 +26,8 @@
 
 #include <mutex>
 
-#include "indexes/hash_array.hpp"
-#include "indexes/hash_index.hpp"
+#include "../indexes/hash_array.hpp"
+#include "../indexes/hash_index.hpp"
 #include "scheduler/topology.hpp"
 #include "snapshot/arena.hpp"
 #include "snapshot/snapshot_manager.hpp"

@@ -34,14 +34,11 @@
 
 // OLTP Engine
 #include "glo.hpp"
-#include "indexes/hash_index.hpp"
 #include "interfaces/bench.hpp"
 #include "oltp-cli-flags.hpp"
 #include "scheduler/affinity_manager.hpp"
 #include "scheduler/topology.hpp"
 #include "scheduler/worker.hpp"
-#include "storage/column_store.hpp"
-#include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
 #include "utils/utils.hpp"
