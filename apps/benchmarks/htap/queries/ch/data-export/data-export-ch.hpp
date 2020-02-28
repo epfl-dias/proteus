@@ -1,5 +1,5 @@
 /*
-    Harmonia -- High-performance elastic HTAP on heterogeneous hardware.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2017
         Data Intensive Applications and Systems Laboratory (DIAS)

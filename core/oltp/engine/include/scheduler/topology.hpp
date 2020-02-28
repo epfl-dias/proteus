@@ -1,5 +1,5 @@
 /*
-     AEOLUS - In-Memory HTAP-Ready OLTP Engine
+     Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2019
         Data Intensive Applications and Systems Laboratory (DIAS)
