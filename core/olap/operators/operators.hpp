@@ -137,4 +137,32 @@ class BinaryOperator : public Operator {
   Operator *rightChild;
 };
 
+namespace experimental {
+template <typename T>
+class POperator : public T {
+ public:
+  using T::T;
+
+  void consume(Context *const context, const OperatorState &childState) final {
+    auto ctx = dynamic_cast<ParallelContext *>(context);
+    assert(ctx);
+
+    consume(ctx, childState);
+  }
+
+  virtual void consume(ParallelContext *context,
+                       const OperatorState &childState) = 0;
+};
+
+class Operator : public POperator<::Operator> {
+  using POperator::POperator;
+};
+class UnaryOperator : public POperator<::UnaryOperator> {
+  using POperator::POperator;
+};
+class BinaryOperator : public POperator<::BinaryOperator> {
+  using POperator::POperator;
+};
+}  // namespace experimental
+
 #endif /* OPERATORS_HPP_ */
