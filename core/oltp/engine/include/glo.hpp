@@ -44,6 +44,8 @@
 #define HTAP_DOUBLE_MASTER true
 #define HTAP_ETL true  // for this, double master should be turned on too.
 
+#define MAX_NUM_PARTITIONS 4  // w.r.t. we have a 4-socket machine.
+
 #if icc148
 #define NUM_SOCKETS 2
 #endif

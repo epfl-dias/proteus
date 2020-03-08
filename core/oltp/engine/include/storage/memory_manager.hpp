@@ -25,6 +25,7 @@
 #define STORAGE_MEMORY_MANAGER_HPP_
 
 #include <sys/mman.h>
+
 #include <new>
 
 #include "memory/memory-manager.hpp"
@@ -36,8 +37,8 @@ namespace storage::memory {
 class MemoryManager {
  public:
   static void *alloc(size_t bytes, int numa_memset_id,
-                     int mem_advice = MADV_DOFORK | MADV_HUGEPAGE){
-    void* ret = nullptr;
+                     int mem_advice = MADV_DOFORK | MADV_HUGEPAGE) {
+    void *ret = nullptr;
 
     // const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
     // assert(numa_memset_id < vec.size());
@@ -51,9 +52,8 @@ class MemoryManager {
 
     // return numa_alloc_interleaved(bytes);
 
-
     if (numa_memset_id >= 0) {
-      static const auto& nodes = topology::getInstance().getCpuNumaNodes();
+      static const auto &nodes = topology::getInstance().getCpuNumaNodes();
       set_exec_location_on_scope d{nodes[numa_memset_id]};
       ret = ::MemoryManager::mallocPinned(bytes);
     } else {
@@ -62,7 +62,7 @@ class MemoryManager {
     return ret;
   }
 
-  static void free(void *mem){
+  static void free(void *mem) {
     // numa_free(mem, bytes);
     ::MemoryManager::freePinned(mem);
   }

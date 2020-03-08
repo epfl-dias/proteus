@@ -44,21 +44,6 @@
 
 class RecordAttribute;
 
-// template<typename T>
-// class PinnedMemoryAllocator {
-// public:
-//  typedef T value_type;
-//
-//  [[nodiscard]] T  allocate(size_t n) {
-//    if (n > std::numeric_limits<size_t>::max() / sizeof(T))
-//      throw std::bad_alloc();
-//
-//    return static_cast<T *>(MemoryManager::mallocPinned(n * sizeof(T)));
-//  }
-//
-//  void deallocate(T *mem, size_t) noexcept { MemoryManager::freePinned(mem); }
-//};
-
 namespace storage {
 
 class Column;
@@ -87,19 +72,16 @@ class alignas(4096) ColumnStore : public Table {
     assert(false && "Not implemented");
   }
 
+  /*  Utils for loading data from binary or offseting datasets
+   * */
   void insertIndexRecord(uint64_t rid, uint64_t xid, ushort partition_id,
                          ushort master_ver);  // hack for loading binary files
   void offsetVID(uint64_t offset);
-
   uint64_t load_data_from_binary(std::string col_name, std::string file_path);
 
   void touchRecordByKey(uint64_t vid);
   void getRecordByKey(uint64_t vid, const ushort *col_idx, ushort num_cols,
                       void *loc);
-
-  [[noreturn]] std::vector<const void *> getRecordByKey(uint64_t vid,
-                                                        const ushort *col_idx,
-                                                        ushort num_cols);
 
   // global_conf::mv_version_list *getVersions(uint64_t vid);
 
@@ -170,8 +152,6 @@ class alignas(4096) Column {
                 uint8_t snapshot_master_ver);
 
   void ETL(uint numa_node_idx);
-
-  uint64_t load_from_binary(std::string file_path);
 
   uint64_t num_upd_tuples(const ushort master_ver = 0,
                           const uint64_t *num_records = nullptr,
