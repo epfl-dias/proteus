@@ -23,6 +23,8 @@
 
 #include "expressions/expressions.hpp"
 
+#include <expressions/expressions/ref-expression.hpp>
+
 #include "util/context.hpp"
 
 expression_t toExpression(Monoid m, expression_t lhs, expression_t rhs) {
@@ -345,6 +347,16 @@ class ExpressionComparatorVisitor : public ExprTandemVisitor {
     res = C<expressions::HashExpression>{}(*e1, *e2);
     return {};
   }
+  ProteusValue visit(const expressions::RefExpression *e1,
+                     const expressions::RefExpression *e2) {
+    res = C<expressions::RefExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::AssignExpression *e1,
+                     const expressions::AssignExpression *e2) {
+    res = C<expressions::AssignExpression>{}(*e1, *e2);
+    return {};
+  }
   ProteusValue visit(const expressions::NegExpression *e1,
                      const expressions::NegExpression *e2) {
     res = C<expressions::NegExpression>{}(*e1, *e2);
@@ -549,3 +561,11 @@ int64_t dateToTimestamp(const std::string &d) {
 
 expressions::DateConstant::DateConstant(std::string d)
     : DateConstant(dateToTimestamp(d)) {}
+
+expressions::RefExpression expression_t::operator*() const {
+  return expressions::RefExpression{*this};
+}
+
+expressions::RefExpression expression_t::operator[](expression_t index) const {
+  return *(*this + index);
+}

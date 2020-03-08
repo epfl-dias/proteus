@@ -23,6 +23,7 @@
 
 #include "expressions/expressions-flusher.hpp"
 
+#include <expressions/expressions/ref-expression.hpp>
 #include <util/project-record.hpp>
 
 #include "operators/operators.hpp"
@@ -1096,4 +1097,15 @@ ProteusValue ExpressionFlusherVisitor::visit(
   throw runtime_error(
       string("[ExpressionFlusherVisitor]: input of cast "
              "expression can only be primitive"));
+}
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::RefExpression *e) {
+  return e->getExpr().accept(*this);
+}
+
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::AssignExpression *) {
+  throw std::runtime_error(
+      "[ExpressionFlusherVisitor]: unsupported flushing of assignment "
+      "operation");
 }

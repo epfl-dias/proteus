@@ -51,8 +51,13 @@ enum ExpressionId {
   TESTNULL_EXPRESSION,
   EXTRACT,
   NEG_EXPRESSION,
-  CAST_EXPRESSION
+  CAST_EXPRESSION,
+  REF_EXPRESSION,
+  ASSIGN_EXPRESSION,
 };
+
+class RefExpression;
+class AssignExpression;
 
 class Expression {
  public:
@@ -167,6 +172,10 @@ class ExprVisitorVisitable : public Interface {
         as_expr(attr->getRelationName(), attr->getAttrName())));
   }
 
+  operator expression_t() const;
+  virtual RefExpression operator*() const;
+  virtual RefExpression operator[](expression_t index) const;
+
   friend T;
 };
 
@@ -223,6 +232,7 @@ class expression_t final : public expressions::ExpressionCRTP<expression_t> {
   expression_t(const char *v, void *dict);
 
   inline ProteusValue accept(ExprVisitor &v) const override {
+    assert(data);
     return data->accept(v);
   }
 
@@ -255,6 +265,8 @@ class expression_t final : public expressions::ExpressionCRTP<expression_t> {
   [[deprecated]] operator const concept_t *() const { return data.get(); }
 
   expressions::RecordProjection operator[](RecordAttribute proj) const;
+  expressions::RefExpression operator[](expression_t index) const override;
+  expressions::RefExpression operator*() const override;
 
   virtual inline bool operator<(const expression_t &r) const override final {
     return *data < *(r.data);
@@ -1106,6 +1118,9 @@ class ExprVisitor {
   virtual ProteusValue visit(const expressions::MinExpression *e) = 0;
   virtual ProteusValue visit(const expressions::MaxExpression *e) = 0;
   virtual ProteusValue visit(const expressions::HashExpression *e) = 0;
+  //  virtual ProteusValue visit(const expressions::AtExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::RefExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::AssignExpression *e) = 0;
   virtual ProteusValue visit(const expressions::TestNullExpression *e) = 0;
   virtual ProteusValue visit(const expressions::NegExpression *e) = 0;
   virtual ProteusValue visit(const expressions::ExtractExpression *e) = 0;
@@ -1179,6 +1194,10 @@ class ExprTandemVisitor {
                              const expressions::MaxExpression *e2) = 0;
   virtual ProteusValue visit(const expressions::HashExpression *e1,
                              const expressions::HashExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::RefExpression *e1,
+                             const expressions::RefExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::AssignExpression *e1,
+                             const expressions::AssignExpression *e2) = 0;
   virtual ProteusValue visit(const expressions::NegExpression *e1,
                              const expressions::NegExpression *e2) = 0;
   virtual ProteusValue visit(const expressions::ExtractExpression *e1,
@@ -1422,6 +1441,75 @@ template <typename Ttype>
 inline expressions::CastExpression
 expressions::ExprVisitorVisitable<T, Interface>::as() {
   return {new Ttype(), static_cast<T &>(*this)};
+}
+
+namespace expressions {
+
+class AssignExpression;
+
+class RefExpression : public ExpressionCRTP<RefExpression> {
+ private:
+  const expression_t ptr;
+
+ public:
+  explicit RefExpression(expression_t ptr);
+
+  [[nodiscard]] const expression_t &getExpr() const;
+
+  ExpressionId getTypeID() const { return REF_EXPRESSION; }
+  bool operator<(const RefExpression &r) const {
+    if (getTypeID() == r.getTypeID()) return ptr < r.ptr;
+    return getTypeID() < r.getTypeID();
+  }
+
+  // TODO: [[nodiscard("Evaluate using a visitor!")]]
+  [[nodiscard]] AssignExpression assign(expression_t e) const;
+};
+
+class AssignExpression : public ExpressionCRTP<AssignExpression> {
+ private:
+  const RefExpression ref;
+  const expression_t v;
+
+  explicit AssignExpression(RefExpression ref, expression_t v);
+
+  friend class RefExpression;
+
+ public:
+  [[nodiscard]] const expression_t &getExpr() const;
+  [[nodiscard]] const RefExpression &getRef() const;
+
+  ExpressionId getTypeID() const { return ASSIGN_EXPRESSION; }
+  bool operator<(const AssignExpression &r) const {
+    if (getTypeID() == r.getTypeID()) {
+      bool rlt = ref < r.ref;
+      bool rgt = r.ref < ref;
+      if (!rlt && !rgt) return v < r.v;
+      return rlt;
+    }
+    return getTypeID() < r.getTypeID();
+  }
+};
+
+}  // namespace expressions
+
+template <typename T, typename Interface>
+expressions::ExprVisitorVisitable<T, Interface>::operator expression_t() const {
+  return expression_t::make<T>(static_cast<const T &>(*this));
+}
+
+template <typename T, typename Interface>
+expressions::RefExpression
+    expressions::ExprVisitorVisitable<T, Interface>::operator*() const {
+  return *static_cast<expression_t>(*this);
+}
+
+template <typename T, typename Interface>
+expressions::RefExpression
+    expressions::ExprVisitorVisitable<T, Interface>::operator[](
+        expression_t index) const {
+  LOG(INFO) << "here " << typeid(T).name();
+  return static_cast<expression_t>(*this)[index];
 }
 
 #endif /* EXPRESSIONS_HPP_ */

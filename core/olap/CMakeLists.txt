@@ -5,6 +5,7 @@ set(olap_cxx
         common/common.cpp
         common/llvm-dump.cpp
         common/symantec-config.cpp
+        expressions/expressions/ref-expression.cpp
         expressions/binary-operators.cpp
         expressions/expressions-dot-evaluator.cpp
         expressions/expressions-flusher.cpp
@@ -86,7 +87,7 @@ set(olap_cxx
         util/parallel-context.cpp
         util/project-record.cpp
         values/expressionTypes.cpp
-        )
+        values/indexed-seq.cpp)
 
 # C++ files requiring CUDA headers
 set(olap_cxx_cu

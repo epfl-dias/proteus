@@ -76,6 +76,8 @@ class ExpressionGeneratorVisitor : public ExprVisitor {
   ProteusValue visit(const expressions::MinExpression *e);
   ProteusValue visit(const expressions::MaxExpression *e);
   ProteusValue visit(const expressions::HashExpression *e);
+  ProteusValue visit(const expressions::RefExpression *e);
+  ProteusValue visit(const expressions::AssignExpression *e);
   ProteusValue visit(const expressions::NegExpression *e);
   ProteusValue visit(const expressions::ExtractExpression *e);
   ProteusValue visit(const expressions::TestNullExpression *e);
@@ -102,5 +104,8 @@ class ExpressionGeneratorVisitor : public ExprVisitor {
   /* Plugins are responsible for this action */
   // ProteusValue retrieveValue(CacheInfo info, Plugin *pg);
 };
+
+static_assert(!std::is_abstract<ExpressionGeneratorVisitor>(),
+              "ExpressionGeneratorVisitor should be non-abstract");
 
 #endif /* EXPRESSIONS_VISITOR_HPP_ */

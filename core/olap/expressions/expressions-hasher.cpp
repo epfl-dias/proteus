@@ -23,6 +23,7 @@
 
 #include "expressions/expressions-hasher.hpp"
 
+#include <expressions/expressions/ref-expression.hpp>
 #include <util/project-record.hpp>
 
 #include "operators/operators.hpp"
@@ -587,4 +588,14 @@ ProteusValue ExpressionHasherVisitor::visit(
   throw runtime_error(
       string("[ExpressionHasherVisitor]: output of cast "
              "expression can only be primitive"));
+}
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::RefExpression *e) {
+  return e->getExpr().accept(*this);
+}
+
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::AssignExpression *) {
+  throw std::runtime_error(
+      "[ExpressionHasherVisitor]: unsupported hashing of assignment operation");
 }

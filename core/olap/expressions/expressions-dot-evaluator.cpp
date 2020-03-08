@@ -23,6 +23,8 @@
 
 #include "expressions/expressions-dot-evaluator.hpp"
 
+#include <expressions/expressions/ref-expression.hpp>
+
 #include "expressions/expressions-generator.hpp"
 #include "util/context.hpp"
 
@@ -769,4 +771,17 @@ ProteusValue ExpressionDotVisitor::visit(
     const expressions::CastExpression *e1,
     const expressions::CastExpression *e2) {
   return e1->getExpr().acceptTandem(*this, e2->getExpr());
+}
+
+ProteusValue ExpressionDotVisitor::visit(const expressions::RefExpression *e1,
+                                         const expressions::RefExpression *e2) {
+  return e1->getExpr().acceptTandem(*this, e2->getExpr());
+}
+
+ProteusValue ExpressionDotVisitor::visit(
+    const expressions::AssignExpression *,
+    const expressions::AssignExpression *) {
+  throw std::runtime_error(
+      "[ExpressionDotVisitor]: unsupported dot evaluation of assignment "
+      "operation");
 }

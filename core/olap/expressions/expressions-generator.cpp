@@ -23,6 +23,7 @@
 
 #include "expressions/expressions-generator.hpp"
 
+#include <expressions/expressions/ref-expression.hpp>
 #include <util/project-record.hpp>
 
 #include "expressions/expressions-hasher.hpp"
@@ -1360,6 +1361,12 @@ ProteusValue ExpressionGeneratorVisitor::visit(
   IRBuilder<> *const TheBuilder = context->getBuilder();
   ProteusValue left = e->getLeftOperand().accept(*this);
   ProteusValue right = e->getRightOperand().accept(*this);
+  left.value->dump();
+  right.value->dump();
+  left.value->getType()->dump();
+  right.value->getType()->dump();
+  LOG(INFO) << *e->getLeftOperand().getExpressionType();
+  LOG(INFO) << *e->getRightOperand().getExpressionType();
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
   if (childType->isPrimitive()) {
@@ -1649,48 +1656,47 @@ ProteusValue ExpressionGeneratorVisitor::visit(
   ProteusValue right = e->getRightOperand().accept(*this);
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
-  if (childType->isPrimitive()) {
-    typeID id = childType->getTypeID();
-    ProteusValue valWrapper;
-    valWrapper.isNull = context->createFalse();
+  typeID id = childType->getTypeID();
+  ProteusValue valWrapper;
+  valWrapper.isNull = context->createFalse();
 
-    switch (id) {
-      case INT64:
-      case DATE:
-      case INT:
-        valWrapper.value = TheBuilder->CreateAdd(left.value, right.value);
-        return valWrapper;
-      case FLOAT:
-        valWrapper.value = TheBuilder->CreateFAdd(left.value, right.value);
-        return valWrapper;
-      case BOOL:
-        valWrapper.value = TheBuilder->CreateAdd(left.value, right.value);
-        return valWrapper;
-      case STRING:
-        LOG(ERROR) << "[ExpressionGeneratorVisitor]: string operations not "
-                      "supported yet";
-        throw runtime_error(
-            string("[ExpressionGeneratorVisitor]: string operations not "
-                   "supported yet"));
-      case BAG:
-      case LIST:
-      case SET:
-        LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
-        throw runtime_error(
-            string("[ExpressionGeneratorVisitor]: invalid expression type"));
-      case RECORD:
-        LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
-        throw runtime_error(
-            string("[ExpressionGeneratorVisitor]: invalid expression type"));
-      default:
-        LOG(ERROR) << "[ExpressionGeneratorVisitor]: Unknown Input";
-        throw runtime_error(
-            string("[ExpressionGeneratorVisitor]: Unknown Input"));
-    }
+  switch (id) {
+    case INT64:
+    case DATE:
+    case INT:
+      valWrapper.value = TheBuilder->CreateAdd(left.value, right.value);
+      return valWrapper;
+    case FLOAT:
+      valWrapper.value = TheBuilder->CreateFAdd(left.value, right.value);
+      return valWrapper;
+    case BOOL:
+      valWrapper.value = TheBuilder->CreateAdd(left.value, right.value);
+      return valWrapper;
+    case INDEXEDSEQ:
+      valWrapper.value = TheBuilder->CreateGEP(
+          left.value, {context->createInt64(0), right.value});
+      return valWrapper;
+    case STRING:
+      LOG(ERROR) << "[ExpressionGeneratorVisitor]: string operations not "
+                    "supported yet";
+      throw runtime_error(
+          string("[ExpressionGeneratorVisitor]: string operations not "
+                 "supported yet"));
+    case BAG:
+    case LIST:
+    case SET:
+      LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
+      throw runtime_error(
+          string("[ExpressionGeneratorVisitor]: invalid expression type"));
+    case RECORD:
+      LOG(ERROR) << "[ExpressionGeneratorVisitor]: invalid expression type";
+      throw runtime_error(
+          string("[ExpressionGeneratorVisitor]: invalid expression type"));
+    default:
+      LOG(ERROR) << "[ExpressionGeneratorVisitor]: Unknown Input";
+      throw runtime_error(
+          string("[ExpressionGeneratorVisitor]: Unknown Input"));
   }
-  throw runtime_error(
-      string("[ExpressionGeneratorVisitor]: input of binary "
-             "expression can only be primitive"));
 }
 
 ProteusValue ExpressionGeneratorVisitor::visit(
@@ -2283,6 +2289,22 @@ ProteusValue ExpressionGeneratorVisitor::visit(
   }
 
   return v;
+}
+
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::RefExpression *e) {
+  auto ptr = e->getExpr().accept(*this);
+
+  return {context->getBuilder()->CreateLoad(ptr.value), ptr.isNull};
+}
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::AssignExpression *e) {
+  auto ptr = e->getRef().getExpr().accept(*this);
+  auto val = e->getExpr().accept(*this);
+
+  context->getBuilder()->CreateStore(val.value, ptr.value);
+
+  return ptr;
 }
 
 #pragma pop_macro("DEBUG")  // FIXME: REMOVE!!! used to disable prints, as they

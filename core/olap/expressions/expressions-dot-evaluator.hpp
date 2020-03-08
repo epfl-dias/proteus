@@ -102,6 +102,10 @@ class ExpressionDotVisitor : public ExprTandemVisitor {
                      const expressions::MinExpression *e2);
   ProteusValue visit(const expressions::HashExpression *e1,
                      const expressions::HashExpression *e2);
+  ProteusValue visit(const expressions::RefExpression *e1,
+                     const expressions::RefExpression *e2);
+  ProteusValue visit(const expressions::AssignExpression *e1,
+                     const expressions::AssignExpression *e2);
   ProteusValue visit(const expressions::NegExpression *e1,
                      const expressions::NegExpression *e2);
   ProteusValue visit(const expressions::ExtractExpression *e1,

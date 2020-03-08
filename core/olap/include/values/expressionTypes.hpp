@@ -46,7 +46,8 @@ enum typeID {
   SET,
   INT64,
   COMPOSITE,
-  BLOCK
+  BLOCK,
+  INDEXEDSEQ,
 };
 
 class ExprTypeVisitor;
@@ -416,6 +417,10 @@ class RecordType : public ExpressionTypeVisitable<RecordType, ExpressionType> {
   map<string, RecordAttribute *> argsMap;
 };
 
+namespace type {
+class IndexedSeq;
+}
+
 class ExprTypeVisitor {
  public:
   virtual void visit(const IntType &type) = 0;
@@ -428,6 +433,7 @@ class ExprTypeVisitor {
   virtual void visit(const RecordType &type) = 0;
   virtual void visit(const SetType &type) = 0;
   virtual void visit(const BlockType &type) = 0;
+  virtual void visit(const type::IndexedSeq &type) = 0;
   virtual void visit(const BagType &type) = 0;
   virtual void visit(const ListType &type) = 0;
   virtual ~ExprTypeVisitor() = default;

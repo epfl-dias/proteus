@@ -77,6 +77,8 @@ class ExpressionHasherVisitor : public ExprVisitor {
   ProteusValue visit(const expressions::MinExpression *e);
   ProteusValue visit(const expressions::MaxExpression *e);
   ProteusValue visit(const expressions::HashExpression *e);
+  ProteusValue visit(const expressions::RefExpression *e);
+  ProteusValue visit(const expressions::AssignExpression *e);
   ProteusValue visit(const expressions::NegExpression *e);
   ProteusValue visit(const expressions::ExtractExpression *e);
   ProteusValue visit(const expressions::TestNullExpression *e);
