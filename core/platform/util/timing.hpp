@@ -24,28 +24,31 @@
 #ifndef TIMING_HPP_
 #define TIMING_HPP_
 
-#include <sys/time.h>
-
 #include <chrono>
-#include <iostream>
+#include <functional>
 #include <string>
+#include <util/glog.hpp>
 
 class [[nodiscard]] time_block {
  private:
+  std::function<void(std::chrono::milliseconds)> reg;
   std::chrono::time_point<std::chrono::system_clock> start;
-  std::string text;
 
  public:
-  inline time_block(std::string text = "")
-      : text(text), start(std::chrono::system_clock::now()) {}
+  inline explicit time_block(decltype(reg) reg)
+      : reg(std::move(reg)), start(std::chrono::system_clock::now()) {}
+
+  inline explicit time_block(std::string text = "",
+                             decltype(__builtin_FILE()) file = __builtin_FILE(),
+                             decltype(__builtin_LINE()) line = __builtin_LINE())
+      : time_block([text{std::move(text)}, file, line](const auto &t) {
+          google::LogMessage(file, line, google::GLOG_INFO).stream()
+              << text << t.count() << "ms";
+        }) {}
 
   inline ~time_block() {
     auto end = std::chrono::system_clock::now();
-    std::cout << text;
-    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                       start)
-                     .count()
-              << "ms" << std::endl;
+    reg(std::chrono::duration_cast<std::chrono::milliseconds>(end - start));
   }
 };
 
