@@ -46,6 +46,8 @@
 #ifndef NCUDA
 __device__ __constant__
     threadsafe_device_stack<int32_t *, (int32_t *)nullptr> *pool;
+__device__ __constant__
+    threadsafe_device_stack<int32_t *, (int32_t *)nullptr> *npool;
 __device__ __constant__ int deviceId;
 __device__ __constant__ void *buff_start;
 __device__ __constant__ void *buff_end;
@@ -71,8 +73,12 @@ __device__ void buffer_manager<T>::__release_buffer_device(T *buff) {
   // if (buff->device == deviceId) { //FIXME: remote device!
   // buff->clean();
   // __threadfence();
-  if (buff >= buff_start && buff < buff_end) pool->push(buff);
-  // else printf("Throwing buffer: %p\n", buff);
+  if (buff >= buff_start && buff < buff_end)
+    pool->push(buff);
+  else
+    npool->push(buff);
+  //  else printf("Throwing buffer: %p %p %p\n", (void *) buff, buff_start,
+  //  buff_end);
   // } else                          assert(false); //FIXME: IMPORTANT free
   // buffer of another device (or host)!
 }
@@ -232,6 +238,10 @@ void initializeModule(CUmodule &cudaModule) {
   gpu_run(cudaMemcpyFromSymbol(&mem, pool, sizeof(void *)));
   gpu_run(cuMemcpyHtoD(ptr, &mem, sizeof(void *)));
 
+  gpu_run(cuModuleGetGlobal(&ptr, &bytes, cudaModule, "npool"));
+  gpu_run(cudaMemcpyFromSymbol(&mem, npool, sizeof(void *)));
+  gpu_run(cuMemcpyHtoD(ptr, &mem, sizeof(void *)));
+
   gpu_run(cuModuleGetGlobal(&ptr, &bytes, cudaModule, "buff_start"));
   gpu_run(cudaMemcpyFromSymbol(&mem, buff_start, sizeof(void *)));
   gpu_run(cuMemcpyHtoD(ptr, &mem, sizeof(void *)));
@@ -252,6 +262,17 @@ __global__ void release_buffer_host(void **buff, int buffs) {
   assert(gridDim.x * gridDim.y * gridDim.z == 1);
   for (int i = 0; i < buffs; ++i)
     buffer_manager<int32_t>::release_buffer((int32_t *)buff[i]);
+}
+
+__global__ void find_released_remote_buffers(void **buff, int buffs) {
+  assert(blockDim.x * blockDim.y * blockDim.z == 1);
+  assert(gridDim.x * gridDim.y * gridDim.z == 1);
+  for (int i = 0; i < buffs; ++i) {
+    if (!npool->try_pop(((int32_t **)buff) + i)) {
+      buff[i] = nullptr;
+      return;
+    }
+  }
 }
 
 __global__ void get_buffer_host(void **buff, int buffs) {
@@ -396,6 +417,8 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
 
       pool_t *tmp = cuda_new<pool_t>(gpu, size, buffs, gpu);
       gpu_run(cudaMemcpyToSymbol(pool, &tmp, sizeof(pool_t *)));
+      pool_t *tmp2 = cuda_new<pool_t>(gpu, size * 8, std::vector<T *>{}, gpu);
+      gpu_run(cudaMemcpyToSymbol(npool, &tmp2, sizeof(pool_t *)));
       gpu_run(cudaMemcpyToSymbol(deviceId, &j, sizeof(int)));
       gpu_run(cudaMemcpyToSymbol(buff_start, &mem, sizeof(void *)));
       void *e = (void *)(((char *)mem) + size * pitch);
@@ -513,6 +536,8 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
   } else {
     buffer_logger = nullptr;
   }
+
+  buffer_gc = new std::thread(buffer_manager<T>::find_released_buffers, 100);
 }
 
 template <typename T>
@@ -528,6 +553,8 @@ __host__ void buffer_manager<T>::destroy() {
   terminating = true;
 
   if (buffer_logger) buffer_logger->join();
+
+  buffer_gc->join();
   // device_buffs_mutex = new mutex              [devices];
   // device_buffs_pool  = new vector<buffer_t *> [devices];
   // release_streams    = new cudaStream_t       [devices];
@@ -568,6 +595,8 @@ __host__ void buffer_manager<T>::destroy() {
 
       pool_t *tmp = nullptr;
       gpu_run(cudaMemcpyFromSymbol(&tmp, pool, sizeof(pool_t *)));
+      cuda_delete(tmp);
+      gpu_run(cudaMemcpyFromSymbol(&tmp, npool, sizeof(pool_t *)));
       cuda_delete(tmp);
 
       T *mem = nullptr;
@@ -677,6 +706,57 @@ void buffer_manager<T>::dev_buff_manager(int dev) {
     // lk.unlock();
   }
 #endif
+}
+
+template <typename T>
+__host__ void buffer_manager<T>::find_released_buffers(size_t freq) {
+  const auto &topo = topology::getInstance();
+  uint32_t devices = topo.getGpuCount();
+  // if (devices <= 0) return;
+
+  // std::ostream &out = std::cerr;
+  size_t maxFetchedBuffs = 1024;
+  auto stage = (T **)MemoryManager::mallocPinned(maxFetchedBuffs * sizeof(T *) *
+                                                 devices);
+
+  cudaStream_t strs[devices];
+
+  for (const auto &gpu : topo.getGpus()) {
+    set_device_on_scope d(gpu);
+    gpu_run(cudaStreamCreateWithFlags(strs + gpu.id, cudaStreamNonBlocking));
+  }
+
+  while (!terminating) {
+    std::this_thread::sleep_for(std::chrono::milliseconds{freq});
+
+    for (uint32_t i = 0; i < devices; ++i) {
+      set_device_on_scope d(topo.getGpus()[i]);
+
+      auto buffs = stage + maxFetchedBuffs * i;
+
+      // FIXME: Probably we can "snapshot" the npool and read the snapshotted
+      // version. Then propagate the npool respectively
+      find_released_remote_buffers<<<1, 1, 0, strs[i]>>>((void **)buffs,
+                                                         maxFetchedBuffs);
+      gpu_run(cudaStreamSynchronize(strs[i]));
+
+      for (size_t j = 0; j < maxFetchedBuffs; ++j) {
+        auto b = buffs[j];
+        if (!b) break;
+        buffer_manager<T>::release_buffer(b);
+      }
+    }
+  }
+
+  for (uint32_t i = 0; i < devices; ++i)
+    gpu_run(cudaStreamSynchronize(strs[i]));
+
+  for (const auto &gpu : topo.getGpus()) {
+    set_device_on_scope d(gpu);
+    gpu_run(cudaStreamDestroy(strs[gpu.id]));
+  }
+
+  MemoryManager::freePinned(stage);
 }
 
 template <typename T>
@@ -845,6 +925,9 @@ size_t *buffer_manager<T>::h_size;
 
 template <typename T>
 std::thread *buffer_manager<T>::buffer_logger;
+
+template <typename T>
+std::thread *buffer_manager<T>::buffer_gc;
 
 bool __equalStringObjs_host(StringObject o1, StringObject o2) {
   return o1.len == o2.len && strncmp(o1.start, o2.start, o1.len) == 0;

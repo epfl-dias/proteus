@@ -80,9 +80,11 @@ class threadsafe_device_stack {  // FIXME: must have a bug
 
     gpu_run(cudaFree(const_cast<T *>(data)));
 
-    int dev = topology::getInstance().getActiveGpu().id;
-    std::cout << "------------------------------------------------------->dev"
-              << dev << "_stack: " << cnt << " " << size << std::endl;
+    if (cnt) {
+      int dev = topology::getInstance().getActiveGpu().id;
+      LOG(INFO) << "------------------------------------------------------->dev"
+                << dev << "_stack: " << cnt << " " << size << std::endl;
+    }
     // assert(cnt == size);
   }
 

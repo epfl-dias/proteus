@@ -24,10 +24,7 @@
 #ifndef BUFFER_MANAGER_CUH_
 #define BUFFER_MANAGER_CUH_
 
-#include <sched.h>
-
 #include <atomic>
-#include <condition_variable>
 #include <mutex>
 #include <thread>
 #include <type_traits>
@@ -88,6 +85,7 @@ class [[deprecated("Access through BlockManager")]] buffer_manager {
   static std::unordered_map<T *, std::atomic<int>> buffer_cache;
 
   static std::thread *buffer_logger;
+  static std::thread *buffer_gc;
 
   static __host__ void init(
       float gpu_mem_pool_percentage = 0.1, float cpu_mem_pool_percentage = 0.1,
@@ -182,6 +180,8 @@ class [[deprecated("Access through BlockManager")]] buffer_manager {
   static __host__ void destroy();  // FIXME: cleanup...
 
   static __host__ void log_buffers(size_t freq);
+
+  static __host__ void find_released_buffers(size_t freq);
 };
 
 extern "C" {
