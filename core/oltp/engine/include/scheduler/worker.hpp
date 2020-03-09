@@ -33,7 +33,6 @@
 #include <queue>
 #include <thread>
 #include <unordered_map>
-//#include "scheduler/affinity_manager.hpp"
 
 #include "glo.hpp"
 #include "interfaces/bench.hpp"

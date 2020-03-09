@@ -35,7 +35,6 @@
 #include "storage/table.hpp"
 #include "transactions/cc.hpp"
 #include "transactions/txn_utils.hpp"
-//#include "utils/utils.hpp"
 
 #include "util/timing.hpp"
 

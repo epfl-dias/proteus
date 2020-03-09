@@ -77,7 +77,7 @@ void RowStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
   // delta versioning
 
   char* ver = (char*)this->deltaStore[curr_delta]->insert_version(
-      hash_ptr, this->rec_size - HTAP_UPD_BIT_COUNT, pid);  // tmax==0
+      hash_ptr, this->rec_size - global_conf::HTAP_UPD_BIT_COUNT, pid);  // tmax==0
 
   // char* ver = (char*)this->deltaStore[curr_delta]->insert_version(
   //     vid_to_uuid(this->table_id, hash_ptr->VID), hash_ptr->t_min, 0,
@@ -85,16 +85,16 @@ void RowStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
   //     pid);  // tmax==0
   assert(ver != nullptr);
 
-  memcpy(ver, rec_ptr + HTAP_UPD_BIT_COUNT,
-         this->rec_size - HTAP_UPD_BIT_COUNT);
+  memcpy(ver, rec_ptr + global_conf::HTAP_UPD_BIT_COUNT,
+         this->rec_size - global_conf::HTAP_UPD_BIT_COUNT);
   // end--delta versioning
 
   hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
   // assert(CC_extract_offset(hash_ptr->VID) < initial_num_records_per_part);
 
-#if HTAP_DOUBLE_MASTER
-  set_upd_bit(rec_ptr);
-#endif
+  if(global_conf::num_master_versions > 1) {
+    set_upd_bit(rec_ptr);
+  }
 
   if (__unlikely(num_cols <= 0)) {
     if (__likely(rec == nullptr || rec == NULL)) {
@@ -104,8 +104,8 @@ void RowStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
       }
 
     } else {
-      memcpy(rec_ptr + HTAP_UPD_BIT_COUNT, rec,
-             this->rec_size - HTAP_UPD_BIT_COUNT);
+      memcpy(rec_ptr + global_conf::HTAP_UPD_BIT_COUNT, rec,
+             this->rec_size - global_conf::HTAP_UPD_BIT_COUNT);
     }
 
   } else {
@@ -132,7 +132,7 @@ void RowStore::getRecordByKey(uint64_t vid, const ushort* col_idx,
   char* src = ((char*)(this->data[m_ver][pid][0].data) + data_idx);
 
   if (__unlikely(col_idx == nullptr)) {
-    memcpy(loc, src + HTAP_UPD_BIT_COUNT, this->rec_size - HTAP_UPD_BIT_COUNT);
+    memcpy(loc, src + global_conf::HTAP_UPD_BIT_COUNT, this->rec_size - global_conf::HTAP_UPD_BIT_COUNT);
 
   } else {
     // std::cout << name << " : " << this->columns.size() << std::endl;
@@ -164,10 +164,10 @@ void RowStore::touchRecordByKey(uint64_t vid) {
     if (__likely(chunk.size >= ((size_t)data_idx + this->rec_size))) {
       char* loc = ((char*)chunk.data) + data_idx;
 
-#if HTAP_DOUBLE_MASTER
-      set_upd_bit(loc);
-#endif
-      loc += HTAP_UPD_BIT_COUNT;
+      if(global_conf::num_master_versions > 1) {
+        set_upd_bit(loc);
+      }
+      loc += global_conf::HTAP_UPD_BIT_COUNT;
 
       volatile char tmp = 'a';
       for (int i = 1; i < this->rec_size; i++) {
@@ -197,15 +197,15 @@ void* RowStore::insertRecordBatch(void* rec_batch, uint recs_to_ins,
 
   for (uint i = 0; i < recs_to_ins; i++) {
     char* dst = ((char*)(this->data[master_ver][partition_id][0].data) +
-                 (idx_st + (i * this->rec_size)) + HTAP_UPD_BIT_COUNT);
+                 (idx_st + (i * this->rec_size)) + global_conf::HTAP_UPD_BIT_COUNT);
 
-#if HTAP_DOUBLE_MASTER
-    set_upd_bit(dst - HTAP_UPD_BIT_COUNT);
-#endif
+    if(global_conf::num_master_versions > 1) {
+      set_upd_bit(dst - global_conf::HTAP_UPD_BIT_COUNT);
+    }
 
     void* src = (char*)rec_batch + (i * this->rec_size);
 
-    memcpy(dst, src, this->rec_size - HTAP_UPD_BIT_COUNT);
+    memcpy(dst, src, this->rec_size - global_conf::HTAP_UPD_BIT_COUNT);
   }
 
   return (void*)hash_ptr;
@@ -240,11 +240,11 @@ void* RowStore::insertRecord(void* rec, uint64_t xid, ushort partition_id,
 
   // Copy data
   char* dst = ((char*)(this->data[master_ver][partition_id][0].data) +
-               (idx * this->rec_size) + HTAP_UPD_BIT_COUNT);
-#if HTAP_DOUBLE_MASTER
-  set_upd_bit(dst - HTAP_UPD_BIT_COUNT);
-#endif
-  memcpy(dst, rec, this->rec_size - HTAP_UPD_BIT_COUNT);
+               (idx * this->rec_size) + global_conf::HTAP_UPD_BIT_COUNT);
+  if(global_conf::num_master_versions > 1) {
+    set_upd_bit(dst - global_conf::HTAP_UPD_BIT_COUNT);
+  }
+  memcpy(dst, rec, this->rec_size - global_conf::HTAP_UPD_BIT_COUNT);
 
   return (void*)hash_ptr;
 }
@@ -257,13 +257,13 @@ uint64_t RowStore::insertRecord(void* rec, ushort partition_id,
 
   // Copy data
   char* dst = ((char*)(this->data[master_ver][partition_id][0].data) +
-               (idx * this->rec_size) + HTAP_UPD_BIT_COUNT);
+               (idx * this->rec_size) + global_conf::HTAP_UPD_BIT_COUNT);
 
-#if HTAP_DOUBLE_MASTER
-  set_upd_bit(dst - HTAP_UPD_BIT_COUNT);
-#endif
+  if(global_conf::num_master_versions > 1) {
+    set_upd_bit(dst - global_conf::HTAP_UPD_BIT_COUNT);
+  }
 
-  memcpy(dst, rec, this->rec_size - HTAP_UPD_BIT_COUNT);
+  memcpy(dst, rec, this->rec_size - global_conf::HTAP_UPD_BIT_COUNT);
 
   return curr_vid;
 }
@@ -301,7 +301,7 @@ RowStore::RowStore(uint8_t table_id, std::string name, ColumnDef columns,
     : Table(name, table_id, ROW_STORE, columns),
       indexed(indexed),
       initial_num_records(initial_num_records) {
-  this->rec_size = HTAP_UPD_BIT_COUNT;  // upd bit
+  this->rec_size = global_conf::HTAP_UPD_BIT_COUNT;  // upd bit
   this->total_mem_reserved = 0;
   this->deltaStore = storage::Schema::getInstance().deltaStore;
   this->vid_offset = 0;

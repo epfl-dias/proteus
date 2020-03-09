@@ -41,7 +41,6 @@
 
 #define DEFAULT_OLAP_SOCKET 0
 
-#define HTAP_DOUBLE_MASTER true
 #define HTAP_ETL true  // for this, double master should be turned on too.
 
 #define MAX_NUM_PARTITIONS 4  // w.r.t. we have a 4-socket machine.
@@ -60,12 +59,6 @@
 
 #if diascld40
 #define NUM_SOCKETS 2
-#endif
-
-#if HTAP_DOUBLE_MASTER
-#define HTAP_UPD_BIT_COUNT 1
-#else
-#define HTAP_UPD_BIT_COUNT 0
 #endif
 
 extern uint g_num_partitions;
@@ -103,8 +96,10 @@ using PrimaryIndex = indexes::HashArray<T_KEY>;
 /* # of Snapshots*/
 constexpr short num_master_versions = 2;
 constexpr short num_delta_storages = 2;
-
 constexpr bool reverse_partition_numa_mapping = true;
+
+// for row-store inline bit, fix it to have bit-mask separate.
+constexpr short HTAP_UPD_BIT_COUNT = 1;
 
 }  // namespace global_conf
 
