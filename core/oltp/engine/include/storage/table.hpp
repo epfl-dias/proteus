@@ -211,9 +211,11 @@ class Table {
   //                           uint64_t tmin, const ushort *col_idx = nullptr,
   //                           short num_cols = -1) = 0;
   virtual void deleteRecord(uint64_t vid, ushort master_ver) = 0;
-  virtual std::vector<const void *> getRecordByKey(uint64_t vid,
+  virtual std::vector<const void *> getRecordByKey(uint64_t rec_vid,
                                                    const ushort *col_idx,
-                                                   ushort num_cols) = 0;
+                                                   ushort num_cols) {
+    assert(false && "Not implemented");
+  }
 
   virtual void getRecordByKey(uint64_t vid, const ushort *col_idx,
                               ushort num_cols, void *loc) = 0;
