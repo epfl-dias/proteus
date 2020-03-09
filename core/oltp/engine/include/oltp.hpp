@@ -29,8 +29,7 @@
 #include "scheduler/worker.hpp"
 #include "storage/column_store.hpp"
 #include "storage/table.hpp"
-#include "tpcc_64.hpp"
-#include "ycsb.hpp"
+#include "transactions/transaction_manager.hpp"
 
 //
 #include "util/timing.hpp"

@@ -35,7 +35,6 @@
 #include "scheduler/topology.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
-#include "transactions/transaction_manager.hpp"
 
 // FIXME: REPLICATED_ITEM_TABLE - broken, incomplete stuff.
 #define REPLICATED_ITEM_TABLE false

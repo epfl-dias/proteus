@@ -40,7 +40,6 @@
 #include "scheduler/topology.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
-#include "transactions/transaction_manager.hpp"
 //#include <thread
 
 namespace bench {
