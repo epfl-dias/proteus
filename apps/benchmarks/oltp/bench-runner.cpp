@@ -36,7 +36,6 @@
 #include "glo.hpp"
 #include "interfaces/bench.hpp"
 #include "oltp-cli-flags.hpp"
-#include "scheduler/affinity_manager.hpp"
 #include "scheduler/topology.hpp"
 #include "scheduler/worker.hpp"
 #include "storage/table.hpp"

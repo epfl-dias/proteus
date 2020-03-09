@@ -5,7 +5,6 @@ set(txn_engine_cxx
         glo.cpp
         scheduler/worker.cpp
         scheduler/topology.cpp
-        scheduler/affinity_manager.cpp
         storage/table.cpp
         storage/layout/row_store.cpp
         storage/layout/column_store.cpp

@@ -32,9 +32,10 @@
 #include <string>
 
 #include "glo.hpp"
-#include "scheduler/threadpool.hpp"
 #include "storage/column_store.hpp"
 #include "storage/delta_storage.hpp"
+
+#include "threadpool/threadpool.hpp"
 #include "util/timing.hpp"
 #include "values/expressionTypes.hpp"
 
@@ -72,7 +73,7 @@ void Schema::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
 
   if(global_conf::num_master_versions > 1){
     // start an async task (threadpool) to sync master..
-    this->snapshot_sync = scheduler::ThreadPool::getInstance().enqueue(
+    this->snapshot_sync = ThreadPool::getInstance().enqueue(
         &Schema::sync_master_ver_schema, this, snapshot_master_ver);
     // this->sync_master_ver_schema(snapshot_master_ver);
   }
@@ -87,7 +88,7 @@ bool Schema::sync_master_ver_schema(const uint8_t snapshot_master_ver) {
 
   // start
   for (auto& tbl : tables) {
-    sync_tasks.emplace_back(scheduler::ThreadPool::getInstance().enqueue(
+    sync_tasks.emplace_back(ThreadPool::getInstance().enqueue(
         &Schema::sync_master_ver_tbl, this, tbl, snapshot_master_ver));
   }
 

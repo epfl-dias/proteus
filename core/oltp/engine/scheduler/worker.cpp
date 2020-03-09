@@ -37,7 +37,6 @@
 #include <thread>
 
 #include "memory/memory-manager.hpp"
-#include "scheduler/affinity_manager.hpp"
 #include "storage/table.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"

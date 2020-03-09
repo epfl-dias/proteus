@@ -31,7 +31,6 @@
 
 #include "glo.hpp"
 #include "memory/memory-manager.hpp"
-#include "scheduler/affinity_manager.hpp"
 #include "scheduler/topology.hpp"
 #include "storage/table.hpp"
 #include "threadpool/thread.hpp"
@@ -1124,8 +1123,9 @@ void ColumnStore::ETL(uint numa_node_idx) {
 
 void Column::ETL(uint numa_node_index) {
   // TODO: ETL with respect to the bit-mask.
-  const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
-  scheduler::AffinityManager::getInstance().set(&vec[numa_node_index]);
+  set_exec_location_on_scope d{
+      topology::getInstance()
+          .getCpuNumaNodes()[numa_node_index]};
 
   for (uint i = 0; i < this->num_partitions; i++) {
     // zero assume no runtime column expansion
