@@ -18,13 +18,8 @@ set(htap_bench_cxx
 install(DIRECTORY "queries/clotho" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/benchmarks/htap/queries)
 
 foreach(target
-		#micro-hybrid
-		#micro-local
-		#micro-remote
-		#server-circular-master
 		ch-bench
 		ch-export-data
-		#server-fork
 	)
 	add_executable(htap-${target} ${target}.cpp ${htap_bench_cxx})
 	target_link_libraries(htap-${target}
