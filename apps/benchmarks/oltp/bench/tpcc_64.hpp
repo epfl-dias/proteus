@@ -31,10 +31,12 @@
 #include <string>
 #include <thread>
 
-#include "interfaces/bench.hpp"
-#include "scheduler/topology.hpp"
-#include "storage/memory_manager.hpp"
+#include "glo.hpp"
 #include "storage/table.hpp"
+#include "interfaces/bench.hpp"
+#include "storage/memory_manager.hpp"
+
+
 
 // FIXME: REPLICATED_ITEM_TABLE - broken, incomplete stuff.
 #define REPLICATED_ITEM_TABLE false

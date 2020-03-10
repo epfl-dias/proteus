@@ -36,7 +36,7 @@
 #include "glo.hpp"
 #include "interfaces/bench.hpp"
 #include "oltp-cli-flags.hpp"
-#include "scheduler/topology.hpp"
+#include "topology/topology.hpp"
 #include "scheduler/worker.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
@@ -104,10 +104,10 @@ int main(int argc, char** argv) {
   // fail...
 
   if (FLAGS_num_workers == 0)
-    FLAGS_num_workers = scheduler::Topology::getInstance().getCoreCount();
+    FLAGS_num_workers = topology::getInstance().getCoreCount();
 
   if (FLAGS_num_partitions == 0) {
-    g_num_partitions = scheduler::Topology::getInstance().getCpuNumaNodeCount();
+    g_num_partitions = topology::getInstance().getCpuNumaNodeCount();
   } else {
     g_num_partitions = FLAGS_num_partitions;
   }
@@ -122,6 +122,8 @@ int main(int argc, char** argv) {
   bench::Benchmark* bench = nullptr;
   if (FLAGS_benchmark == 1) {
     if (FLAGS_tpcc_num_wh == 0) FLAGS_tpcc_num_wh = FLAGS_num_workers;
+
+    std::cout << "ABCABCBAB" << std::endl;
     bench =
         new bench::TPCC("TPCC", FLAGS_tpcc_num_wh,
                         (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
@@ -151,7 +153,7 @@ int main(int argc, char** argv) {
                         FLAGS_ycsb_zipf_theta, FLAGS_num_iter_per_worker,
                         FLAGS_ycsb_num_ops_per_txn, FLAGS_ycsb_write_ratio,
                         (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
-                        scheduler::Topology::getInstance().getCoreCount(),
+                        topology::getInstance().getCoreCount(),
                         g_num_partitions, FLAGS_layout_column_store);
   }
 
@@ -176,7 +178,7 @@ int main(int argc, char** argv) {
   if (FLAGS_elastic_workload > 0) {
     uint curr_active_worker = 1;
     bool removal = false;
-    const auto& worker_cores = scheduler::Topology::getInstance().getCores();
+    const auto& worker_cores = topology::getInstance().getCores();
     timed_func::interval_runner(
         [curr_active_worker, removal, worker_cores]() mutable {
           if (curr_active_worker < FLAGS_num_workers && !removal) {

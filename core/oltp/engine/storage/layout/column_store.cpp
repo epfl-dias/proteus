@@ -31,7 +31,6 @@
 
 #include "glo.hpp"
 #include "memory/memory-manager.hpp"
-#include "scheduler/topology.hpp"
 #include "storage/table.hpp"
 #include "threadpool/thread.hpp"
 #include "topology/affinity_manager.hpp"
@@ -391,7 +390,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
 
   // FIXME: hack for expr to make memory in proteus sockets
   uint total_numa_nodes =
-      scheduler::Topology::getInstance().getCpuNumaNodeCount();
+      topology::getInstance().getCpuNumaNodeCount();
 
   if (g_num_partitions == 1)
     for (ushort j = 0; j < this->num_partitions; j++) {

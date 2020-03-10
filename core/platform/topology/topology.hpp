@@ -98,13 +98,14 @@ class topology {
    public:
     const uint32_t id;
     const uint32_t local_cpu;
+    const uint32_t local_cpu_index;
     const uint32_t index_in_topo;
 
    public:
-    core(uint32_t id, uint32_t local_cpu, uint32_t index_in_topo,
+    core(uint32_t id, uint32_t local_cpu, uint32_t index_in_topo, uint32_t local_cpu_index,
          // do not remove argument!!!
          topologyonly_construction = {})
-        : id(id), local_cpu(local_cpu), index_in_topo(index_in_topo) {}
+        : id(id), local_cpu(local_cpu), index_in_topo(index_in_topo), local_cpu_index(local_cpu_index) {}
 
     // const cpunumanode &getNumaNode() const;
     const cpunumanode &getLocalCPUNumaNode() const;

@@ -37,7 +37,7 @@
 
 #include "glo.hpp"
 #include "interfaces/bench.hpp"
-#include "scheduler/topology.hpp"
+#include "topology/topology.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 //#include <thread
@@ -319,9 +319,9 @@ class YCSB : public Benchmark {
         num_ops_per_txn(num_ops_per_txn),
         write_threshold(write_threshold) {
     if (num_max_workers == -1)
-      num_max_workers = scheduler::Topology::getInstance().getCoreCount();
+      num_max_workers = topology::getInstance().getCoreCount();
     if (num_active_workers == -1)
-      num_active_workers = scheduler::Topology::getInstance().getCoreCount();
+      num_active_workers = topology::getInstance().getCoreCount();
 
     assert(this->num_records % this->num_max_workers == 0 &&
            "Total number of records should be divisible by total # cores");

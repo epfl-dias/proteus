@@ -36,7 +36,7 @@
 
 #include "glo.hpp"
 #include "interfaces/bench.hpp"
-#include "scheduler/topology.hpp"
+#include "topology/topology.hpp"
 
 namespace scheduler {
 
@@ -80,8 +80,8 @@ class Worker {
 
   uint partition_id;
 
-  const core *exec_core;
-  core *affinity_core;
+  const topology::core *exec_core;
+  topology::core *affinity_core;
 
   uint64_t curr_txn;
   uint64_t prev_delta;
@@ -103,7 +103,7 @@ class Worker {
       txn_end_time;
 
  public:
-  Worker(uint8_t id, const core *exec_core, int64_t num_iters = -1,
+  Worker(uint8_t id, const topology::core *exec_core, int64_t num_iters = -1,
          uint partition_id = 0)
       : id(id),
         num_iters(num_iters),
@@ -149,8 +149,8 @@ class WorkerPool {
   void shutdown_manual();
 
   void start_workers();
-  void add_worker(const core *exec_location, short partition_id = -1);
-  void remove_worker(const core *exec_location);
+  void add_worker(const topology::core *exec_location, short partition_id = -1);
+  void remove_worker(const topology::core *exec_location);
   void migrate_worker(bool return_back = false);
 
   const std::vector<uint> &scale_down(uint num_cores = 1);

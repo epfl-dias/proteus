@@ -364,7 +364,7 @@ void WorkerPool::resume() {
 // }
 
 std::pair<double, double> WorkerPool::get_worker_stats_diff(bool print) {
-  static const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
+  static const auto& vec = topology::getInstance().getCpuNumaNodes();
   static uint num_sockets = vec.size();
 
   constexpr auto min_point =
@@ -409,7 +409,7 @@ std::pair<double, double> WorkerPool::get_worker_stats_diff(bool print) {
   return std::make_pair((duration / duration_ctr), tps);
 }
 void WorkerPool::print_worker_stats_diff() {
-  static const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
+  static const auto& vec = topology::getInstance().getCpuNumaNodes();
   static uint num_sockets = vec.size();
 
   constexpr auto min_point =
@@ -457,7 +457,7 @@ void WorkerPool::print_worker_stats(bool global_only) {
   double num_aborts = 0;
   double num_txns = 0;
 
-  static const auto& vec = scheduler::Topology::getInstance().getCpuNumaNodes();
+  static const auto& vec = topology::getInstance().getCpuNumaNodes();
   static uint num_sockets = vec.size();
 
   std::vector<double> socket_tps(num_sockets, 0.0);
@@ -537,8 +537,8 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
   this->num_partitions = num_partitions;
   this->elastic_workload = elastic_workload;
 
-  prev_time_tps.reserve(Topology::getInstance().getCoreCount());
-  prev_sum_tps.reserve(Topology::getInstance().getCoreCount());
+  prev_time_tps.reserve(topology::getInstance().getCoreCount());
+  prev_sum_tps.reserve(topology::getInstance().getCoreCount());
 
   std::cout << "[WorkerPool] start_workers -- requested_num_workers: "
             << num_workers << std::endl;
@@ -559,7 +559,7 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
 
   if (worker_sched_mode <= 2) {  // default / inteleave
 
-    for (const auto& exec_core : Topology::getInstance().getCores()) {
+    for (const auto& exec_core : topology::getInstance().getCores()) {
       // BROKEN
       // if (worker_sched_mode == 1) {  // interleave - even
       //   if (worker_counter % 2 != 0) {continue;}
@@ -597,7 +597,7 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
   } else if (worker_sched_mode == 3) {  // reversed
     // assert(false && "Turned off due to buggy code");
 
-    const auto& sys_cores = Topology::getInstance().getCores();
+    const auto& sys_cores = topology::getInstance().getCores();
     uint ctr = 0;
     for (int ci = sys_cores.size() - 1; ci >= 0; ci--) {
       void* obj_ptr = storage::memory::MemoryManager::alloc(
@@ -638,13 +638,13 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
 
   } else if (worker_sched_mode ==
              4) {  // colocated - second-half of both socket
-    assert(Topology::getInstance().getCpuNumaNodeCount() == 2);
+    assert(topology::getInstance().getCpuNumaNodeCount() == 2);
     // assert(false && "Turned off due to buggy code");
-    const auto remote_cores = Topology::getInstance().getCores().size() / 4;
+    const auto remote_cores = topology::getInstance().getCores().size() / 4;
 
     uint skipper1 = 0, skipper2 = 0;
 
-    for (const auto& exec_core : Topology::getInstance().getCores()) {
+    for (const auto& exec_core : topology::getInstance().getCores()) {
       if (skipper1 < remote_cores) {
         // skip half of first-socket
         skipper1++;
@@ -690,13 +690,13 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
 
   } else if (worker_sched_mode == 5) {
     // colocated - interleaved, leaving first one.
-    assert(Topology::getInstance().getCpuNumaNodeCount() == 2);
+    assert(topology::getInstance().getCpuNumaNodeCount() == 2);
     // assert(false && "Turned off due to buggy code");
-    const auto remote_cores = Topology::getInstance().getCores().size() / 4;
+    const auto remote_cores = topology::getInstance().getCores().size() / 4;
 
     int skipper = -1;
 
-    for (const auto& exec_core : Topology::getInstance().getCores()) {
+    for (const auto& exec_core : topology::getInstance().getCores()) {
       skipper++;
       if (skipper % 2 == 0) {
         continue;
@@ -744,7 +744,7 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
     auto curr_master =
         txn::TransactionManager::getInstance().current_master.load();
 
-    const auto& wrks_crs = Topology::getInstance().getCores();
+    const auto& wrks_crs = topology::getInstance().getCores();
 
     for (int ew = txn_bench->num_active_workers;
          ew < txn_bench->num_max_workers; i++) {
@@ -770,8 +770,8 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
 }
 
 void WorkerPool::migrate_worker(bool return_back) {
-  static std::vector<scheduler::core> worker_cores =
-      Topology::getInstance().getCoresCopy();
+  static const auto & worker_cores =
+      topology::getInstance().getCores();
   static const uint pool_size = workers.size();
   assert(worker_cores.size() == (pool_size * 2));
 
@@ -781,7 +781,7 @@ void WorkerPool::migrate_worker(bool return_back) {
 
   if (worker_sched_mode == 3) {
     const auto ht_pair =
-        Topology::getInstance().getCpuNumaNodes()[0].local_cores.size() / 2;
+        topology::getInstance().getCpuNumaNodes()[0].local_cores.size() / 2;
 
     if (!return_back) {
       auto get = workers.find(worker_cores[pool_size + worker_num].id);
@@ -790,7 +790,8 @@ void WorkerPool::migrate_worker(bool return_back) {
                 << worker_cores[pool_size + worker_num].id << "  To-"
                 << worker_cores[worker_num].id;
       assert(get != workers.end());
-      get->second.second->affinity_core = &(worker_cores[worker_num]);
+      get->second.second->affinity_core =
+          const_cast<topology::core*>(&(worker_cores[worker_num]));
       get->second.second->change_affinity = true;
 
       // HT-pair now
@@ -801,7 +802,8 @@ void WorkerPool::migrate_worker(bool return_back) {
                 << worker_cores[pool_size + ht_worker].id << "  To-"
                 << worker_cores[ht_worker].id;
       assert(getHT != workers.end());
-      getHT->second.second->affinity_core = &(worker_cores[ht_worker]);
+      getHT->second.second->affinity_core =
+          const_cast<topology::core*>(&(worker_cores[ht_worker]));
       getHT->second.second->change_affinity = true;
 
     } else {
@@ -830,7 +832,7 @@ void WorkerPool::migrate_worker(bool return_back) {
       auto get = workers.find(worker_cores[worker_num].id);
       assert(get != workers.end());
       get->second.second->affinity_core =
-          &(worker_cores[pool_size + worker_num]);
+          const_cast<topology::core*>(&(worker_cores[pool_size + worker_num]));
       get->second.second->change_affinity = true;
     } else {
       auto get = workers.find(worker_cores[worker_num - 1].id);
@@ -851,10 +853,10 @@ const std::vector<uint>& WorkerPool::scale_down(uint num_cores) {
 
   uint ctr = 0;
 
-  const auto& cres = Topology::getInstance().getCores();
+  const auto& cres = topology::getInstance().getCores();
 
   const auto ht_pair =
-      Topology::getInstance().getCpuNumaNodes()[0].local_cores.size() / 2;
+      topology::getInstance().getCpuNumaNodes()[0].local_cores.size() / 2;
   const auto st = cres.size() / 2;
   const auto end = (cres.size() / 2) + num_cores;
   for (int ci = st; ci <= end; ci++) {
@@ -923,7 +925,7 @@ void WorkerPool::scale_back() {
 }
 
 // Hot Plug
-void WorkerPool::add_worker(const core* exec_location, short partition_id) {
+void WorkerPool::add_worker(const topology::core* exec_location, short partition_id) {
   // assert(workers.find(exec_location->id) == workers.end());
   void* obj_ptr = storage::memory::MemoryManager::alloc(
       sizeof(Worker), exec_location->local_cpu_index, MADV_DONTFORK);
@@ -948,7 +950,7 @@ void WorkerPool::add_worker(const core* exec_location, short partition_id) {
 }
 
 // Hot Plug
-void WorkerPool::remove_worker(const core* exec_location) {
+void WorkerPool::remove_worker(const topology::core* exec_location) {
   auto get = workers.find(exec_location->id);
   txn_bench->num_active_workers--;
   assert(get != workers.end());

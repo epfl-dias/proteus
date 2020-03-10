@@ -4,7 +4,6 @@ project(aeolus_engine VERSION 0.1 LANGUAGES CXX)
 set(txn_engine_cxx
         glo.cpp
         scheduler/worker.cpp
-        scheduler/topology.cpp
         storage/table.cpp
         storage/layout/row_store.cpp
         storage/layout/column_store.cpp

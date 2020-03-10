@@ -188,7 +188,7 @@ DeltaStore::DeltaPartition::DeltaPartition(
   for (int i = 1; i < warmup_size; i++) pt[i] = i * 2;
 
   size_t max_workers_in_partition =
-      scheduler::Topology::getInstance()
+      topology::getInstance()
           .getCpuNumaNodes()[storage::NUMAPartitionPolicy::getInstance()
                                  .getPartitionInfo(pid)
                                  .numa_idx]

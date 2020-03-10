@@ -28,22 +28,21 @@
 
 #include "../indexes/hash_array.hpp"
 #include "../indexes/hash_index.hpp"
-#include "scheduler/topology.hpp"
 #include "snapshot/arena.hpp"
 #include "snapshot/snapshot_manager.hpp"
 #include "transactions/cc.hpp"
 
 #define diascld33 false
 #define diascld40 false
-#define diascld48 false
+#define diascld48 true
 
-#define icc148 true
+#define icc148 false
 
 #define DEFAULT_OLAP_SOCKET 0
 
 #define HTAP_ETL true  // for this, double master should be turned on too.
 
-#define MAX_NUM_PARTITIONS 4  // w.r.t. we have a 4-socket machine.
+#define MAX_NUM_PARTITIONS 2  // w.r.t. we have a 4-socket machine.
 
 #if icc148
 #define NUM_SOCKETS 2
