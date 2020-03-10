@@ -36,9 +36,9 @@
 #include "glo.hpp"
 #include "interfaces/bench.hpp"
 #include "oltp-cli-flags.hpp"
-#include "topology/topology.hpp"
 #include "scheduler/worker.hpp"
 #include "storage/table.hpp"
+#include "topology/topology.hpp"
 #include "transactions/transaction_manager.hpp"
 #include "utils/utils.hpp"
 

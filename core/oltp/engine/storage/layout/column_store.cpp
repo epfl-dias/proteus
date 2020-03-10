@@ -59,8 +59,6 @@ CC_upd_vid(uint64_t vid, ushort master_ver, ushort delta_version) {
           ((uint64_t)(delta_version & 0x00FF) << 56));
 }
 
-
-
 ColumnStore::~ColumnStore() {
   // TODO: Implement and clean memory.
   //  for (auto& col : columns) {
@@ -158,8 +156,8 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
   elastic_mappings.reserve(columns.size());
 }
 
-/* ColumnStore::insertRecordBatch assumes that the  void* rec has columns in the same order
- * as the actual columns
+/* ColumnStore::insertRecordBatch assumes that the  void* rec has columns in the
+ * same order as the actual columns
  */
 void* ColumnStore::insertRecordBatch(void* rec_batch, uint recs_to_ins,
                                      uint capacity_offset, uint64_t xid,
@@ -389,8 +387,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
   // and update its snapshots.
 
   // FIXME: hack for expr to make memory in proteus sockets
-  uint total_numa_nodes =
-      topology::getInstance().getCpuNumaNodeCount();
+  uint total_numa_nodes = topology::getInstance().getCpuNumaNodeCount();
 
   if (g_num_partitions == 1)
     for (ushort j = 0; j < this->num_partitions; j++) {
@@ -1123,8 +1120,7 @@ void ColumnStore::ETL(uint numa_node_idx) {
 void Column::ETL(uint numa_node_index) {
   // TODO: ETL with respect to the bit-mask.
   set_exec_location_on_scope d{
-      topology::getInstance()
-          .getCpuNumaNodes()[numa_node_index]};
+      topology::getInstance().getCpuNumaNodes()[numa_node_index]};
 
   for (uint i = 0; i < this->num_partitions; i++) {
     // zero assume no runtime column expansion
@@ -1207,7 +1203,7 @@ void Column::sync_master_snapshots(ushort master_ver_idx) {
     for (ushort j = 0; j < this->num_partitions; j++) {
       // std::cout << "sync: p_id: " << j << std::endl;
       assert(master_versions[master_ver_idx][j].size() ==
-          master_versions[i][j].size());
+             master_versions[i][j].size());
 
       // assert(upd_bit_masks[master_ver_idx][j].size() ==
       //        upd_bit_masks[i][j].size());
@@ -1220,7 +1216,7 @@ void Column::sync_master_snapshots(ushort master_ver_idx) {
       }
 
       assert(master_versions[i][j].size() == 1 &&
-          "Expandable memory not supported");
+             "Expandable memory not supported");
       // assert(snapshot_arenas[i][j].size() == 1 &&
       //        "Expandable memory not supported");
 

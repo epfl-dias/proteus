@@ -32,11 +32,9 @@
 #include <thread>
 
 #include "glo.hpp"
-#include "storage/table.hpp"
 #include "interfaces/bench.hpp"
 #include "storage/memory_manager.hpp"
-
-
+#include "storage/table.hpp"
 
 // FIXME: REPLICATED_ITEM_TABLE - broken, incomplete stuff.
 #define REPLICATED_ITEM_TABLE false

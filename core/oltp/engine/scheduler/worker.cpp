@@ -770,8 +770,7 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
 }
 
 void WorkerPool::migrate_worker(bool return_back) {
-  static const auto & worker_cores =
-      topology::getInstance().getCores();
+  static const auto& worker_cores = topology::getInstance().getCores();
   static const uint pool_size = workers.size();
   assert(worker_cores.size() == (pool_size * 2));
 
@@ -925,7 +924,8 @@ void WorkerPool::scale_back() {
 }
 
 // Hot Plug
-void WorkerPool::add_worker(const topology::core* exec_location, short partition_id) {
+void WorkerPool::add_worker(const topology::core* exec_location,
+                            short partition_id) {
   // assert(workers.find(exec_location->id) == workers.end());
   void* obj_ptr = storage::memory::MemoryManager::alloc(
       sizeof(Worker), exec_location->local_cpu_index, MADV_DONTFORK);

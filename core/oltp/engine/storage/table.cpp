@@ -34,7 +34,6 @@
 #include "glo.hpp"
 #include "storage/column_store.hpp"
 #include "storage/delta_storage.hpp"
-
 #include "threadpool/threadpool.hpp"
 #include "util/timing.hpp"
 #include "values/expressionTypes.hpp"
@@ -70,8 +69,7 @@ void Schema::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
     tbl->snapshot(epoch, snapshot_master_ver);
   }
 
-
-  if(global_conf::num_master_versions > 1){
+  if (global_conf::num_master_versions > 1) {
     // start an async task (threadpool) to sync master..
     this->snapshot_sync = ThreadPool::getInstance().enqueue(
         &Schema::sync_master_ver_schema, this, snapshot_master_ver);

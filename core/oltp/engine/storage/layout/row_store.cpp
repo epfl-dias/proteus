@@ -77,7 +77,8 @@ void RowStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
   // delta versioning
 
   char* ver = (char*)this->deltaStore[curr_delta]->insert_version(
-      hash_ptr, this->rec_size - global_conf::HTAP_UPD_BIT_COUNT, pid);  // tmax==0
+      hash_ptr, this->rec_size - global_conf::HTAP_UPD_BIT_COUNT,
+      pid);  // tmax==0
 
   // char* ver = (char*)this->deltaStore[curr_delta]->insert_version(
   //     vid_to_uuid(this->table_id, hash_ptr->VID), hash_ptr->t_min, 0,
@@ -92,7 +93,7 @@ void RowStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
   hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
   // assert(CC_extract_offset(hash_ptr->VID) < initial_num_records_per_part);
 
-  if(global_conf::num_master_versions > 1) {
+  if (global_conf::num_master_versions > 1) {
     set_upd_bit(rec_ptr);
   }
 
@@ -132,7 +133,8 @@ void RowStore::getRecordByKey(uint64_t vid, const ushort* col_idx,
   char* src = ((char*)(this->data[m_ver][pid][0].data) + data_idx);
 
   if (__unlikely(col_idx == nullptr)) {
-    memcpy(loc, src + global_conf::HTAP_UPD_BIT_COUNT, this->rec_size - global_conf::HTAP_UPD_BIT_COUNT);
+    memcpy(loc, src + global_conf::HTAP_UPD_BIT_COUNT,
+           this->rec_size - global_conf::HTAP_UPD_BIT_COUNT);
 
   } else {
     // std::cout << name << " : " << this->columns.size() << std::endl;
@@ -164,7 +166,7 @@ void RowStore::touchRecordByKey(uint64_t vid) {
     if (__likely(chunk.size >= ((size_t)data_idx + this->rec_size))) {
       char* loc = ((char*)chunk.data) + data_idx;
 
-      if(global_conf::num_master_versions > 1) {
+      if (global_conf::num_master_versions > 1) {
         set_upd_bit(loc);
       }
       loc += global_conf::HTAP_UPD_BIT_COUNT;
@@ -196,10 +198,11 @@ void* RowStore::insertRecordBatch(void* rec_batch, uint recs_to_ins,
   }
 
   for (uint i = 0; i < recs_to_ins; i++) {
-    char* dst = ((char*)(this->data[master_ver][partition_id][0].data) +
-                 (idx_st + (i * this->rec_size)) + global_conf::HTAP_UPD_BIT_COUNT);
+    char* dst =
+        ((char*)(this->data[master_ver][partition_id][0].data) +
+         (idx_st + (i * this->rec_size)) + global_conf::HTAP_UPD_BIT_COUNT);
 
-    if(global_conf::num_master_versions > 1) {
+    if (global_conf::num_master_versions > 1) {
       set_upd_bit(dst - global_conf::HTAP_UPD_BIT_COUNT);
     }
 
@@ -241,7 +244,7 @@ void* RowStore::insertRecord(void* rec, uint64_t xid, ushort partition_id,
   // Copy data
   char* dst = ((char*)(this->data[master_ver][partition_id][0].data) +
                (idx * this->rec_size) + global_conf::HTAP_UPD_BIT_COUNT);
-  if(global_conf::num_master_versions > 1) {
+  if (global_conf::num_master_versions > 1) {
     set_upd_bit(dst - global_conf::HTAP_UPD_BIT_COUNT);
   }
   memcpy(dst, rec, this->rec_size - global_conf::HTAP_UPD_BIT_COUNT);
@@ -259,7 +262,7 @@ uint64_t RowStore::insertRecord(void* rec, ushort partition_id,
   char* dst = ((char*)(this->data[master_ver][partition_id][0].data) +
                (idx * this->rec_size) + global_conf::HTAP_UPD_BIT_COUNT);
 
-  if(global_conf::num_master_versions > 1) {
+  if (global_conf::num_master_versions > 1) {
     set_upd_bit(dst - global_conf::HTAP_UPD_BIT_COUNT);
   }
 

@@ -37,9 +37,9 @@
 
 #include "glo.hpp"
 #include "interfaces/bench.hpp"
-#include "topology/topology.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
+#include "topology/topology.hpp"
 //#include <thread
 
 namespace bench {
