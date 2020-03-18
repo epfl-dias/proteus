@@ -33,3 +33,8 @@ DECLARE_bool(ipv4);
 DECLARE_int32(port);
 DECLARE_string(url);
 DECLARE_int32(repeat);
+DECLARE_bool(print_generated_code);
+
+namespace proteus::olap {
+void init_from_cli();
+}

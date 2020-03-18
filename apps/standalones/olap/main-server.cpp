@@ -171,20 +171,9 @@ int main(int argc, char *argv[]) {
   srand(time(nullptr));
 
   google::InitGoogleLogging(argv[0]);
-  FLAGS_logtostderr = 1;  // FIXME: the command line flags/defs seem to fail...
+  FLAGS_logtostderr = true;  // FIXME: the command line flags/defs seem to fail
 
-  google::InstallFailureSignalHandler();
-
-  if (FLAGS_query_topology) {
-    topology::init();
-    std::cout << topology::getInstance() << std::endl;
-    return 0;
-  }
-
-  set_trace_allocations(FLAGS_trace_allocations);
-
-  proteus::olap::init(FLAGS_gpu_buffers, FLAGS_cpu_buffers,
-                      FLAGS_log_buffer_usage);
+  proteus::olap::init_from_cli();
 
   bool echo = false;
 

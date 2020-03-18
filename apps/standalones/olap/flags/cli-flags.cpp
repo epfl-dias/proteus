@@ -22,7 +22,12 @@
 */
 #include <gflags/gflags.h>
 
+#include <common/olap-common.hpp>
 #include <iostream>
+#include <memory/memory-manager.hpp>
+#include <topology/topology.hpp>
+#include <util/context.hpp>
+#include <util/glog.hpp>
 
 static bool validatePercentage(const char *flagname, double value) {
   if (value >= 0.0 && value <= 1.0) return true;
@@ -56,6 +61,9 @@ DEFINE_string(url, "localhost",
               "Used in conjuction with --secondary to specify the address of "
               "the primary");
 DEFINE_int32(repeat, 5, "# repetitions of default query");
+DEFINE_bool(print_generated_code, false,
+            "Print generated code into files (use only for debugging as it "
+            "will slow down excecution significnatly)");
 
 static bool validatePort(const char *flag, int32_t value) {
   if (value > 0 && value < 0x8000) return true;  // max port value: 32768
@@ -64,3 +72,23 @@ static bool validatePort(const char *flag, int32_t value) {
 }
 
 DEFINE_validator(port, &validatePort);
+
+namespace proteus::olap {
+void init_from_cli() {
+  srand(time(nullptr));
+
+  google::InstallFailureSignalHandler();
+
+  if (FLAGS_query_topology) {
+    topology::init();
+    std::cout << topology::getInstance() << std::endl;
+    exit(0);
+  }
+
+  set_trace_allocations(FLAGS_trace_allocations);
+  print_generated_code = FLAGS_print_generated_code;
+
+  proteus::olap::init(FLAGS_gpu_buffers, FLAGS_cpu_buffers,
+                      FLAGS_log_buffer_usage);
+}
+}  // namespace proteus::olap

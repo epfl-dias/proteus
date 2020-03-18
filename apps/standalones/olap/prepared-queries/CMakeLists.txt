@@ -12,10 +12,6 @@ foreach(target ${MAINS})
     add_executable(proteus${target} ${target}.cpp)
     target_link_libraries(proteus${target} codegen::codegen codegen::olap
             codegen::olap_flags queries::ssb100 queries::ssb1000)
-    target_include_directories(proteus${target}
-        PUBLIC
-            ./../../../../core/olap
-    )
     install(TARGETS proteus${target}
             ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
             LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
