@@ -184,6 +184,7 @@ GpuPipelineGen::GpuPipelineGen(Context *context, std::string pipName,
       FunctionType::get(charPtrType, std::vector<Type *>{}, false);
   Function *intr_pget_buffers = Function::Create(
       intrget_buffers, Function::ExternalLinkage, "get_buffers", getModule());
+  intr_pget_buffers->setReturnDoesNotAlias();
   registerFunction("get_buffers", intr_pget_buffers);
 
   FunctionType *intrrelease_buffers =

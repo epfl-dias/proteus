@@ -217,6 +217,7 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
       FunctionType::get(charPtrType, std::vector<Type *>{size_type}, false);
   Function *fget_buffer = Function::Create(
       get_buffer, Function::ExternalLinkage, "get_buffer", getModule());
+  fget_buffer->setReturnDoesNotAlias();
   registerFunction("get_buffer", fget_buffer);
 
   FunctionType *release_buffer =
