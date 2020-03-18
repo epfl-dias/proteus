@@ -452,7 +452,9 @@ endif()
 # Intel VTune profile support
 find_library(VTUNE ittnotify HINTS
 		"/opt/intel/vtune_amplifier/lib64"
-		"~/intel/vtune_amplifier/lib64")
+		"~/intel/vtune_amplifier/lib64"
+		"/opt/intel/vtune_profiler/lib64"
+		"~/intel/vtune_profiler/lib64")
 if(VTUNE AND VTUNE_ENABLE)
 	get_filename_component(VTUNE_LIBRARY_DIR ${VTUNE} DIRECTORY)
 	get_filename_component(VTUNE_ROOT ${VTUNE_LIBRARY_DIR} DIRECTORY)
