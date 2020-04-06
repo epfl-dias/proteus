@@ -8,11 +8,11 @@
     },
     "attribute" : {
       "attrName" : "c_city",
-      "relName" : "__sort12714"
+      "relName" : "__sort12591"
     },
     "register_as" : {
       "attrName" : "c_city",
-      "relName" : "print12715"
+      "relName" : "print12592"
     }
   }, {
     "expression" : "recordProjection",
@@ -21,11 +21,11 @@
     },
     "attribute" : {
       "attrName" : "s_city",
-      "relName" : "__sort12714"
+      "relName" : "__sort12591"
     },
     "register_as" : {
       "attrName" : "s_city",
-      "relName" : "print12715"
+      "relName" : "print12592"
     }
   }, {
     "expression" : "recordProjection",
@@ -34,11 +34,11 @@
     },
     "attribute" : {
       "attrName" : "d_year",
-      "relName" : "__sort12714"
+      "relName" : "__sort12591"
     },
     "register_as" : {
       "attrName" : "d_year",
-      "relName" : "print12715"
+      "relName" : "print12592"
     }
   }, {
     "expression" : "recordProjection",
@@ -47,27 +47,27 @@
     },
     "attribute" : {
       "attrName" : "lo_revenue",
-      "relName" : "__sort12714"
+      "relName" : "__sort12591"
     },
     "register_as" : {
       "attrName" : "lo_revenue",
-      "relName" : "print12715"
+      "relName" : "print12592"
     }
   } ],
   "input" : {
     "operator" : "sort",
     "gpu" : false,
     "rowType" : [ {
-      "relName" : "__sort12714",
+      "relName" : "__sort12591",
       "attrName" : "c_city"
     }, {
-      "relName" : "__sort12714",
+      "relName" : "__sort12591",
       "attrName" : "s_city"
     }, {
-      "relName" : "__sort12714",
+      "relName" : "__sort12591",
       "attrName" : "d_year"
     }, {
-      "relName" : "__sort12714",
+      "relName" : "__sort12591",
       "attrName" : "lo_revenue"
     } ],
     "e" : [ {
@@ -79,11 +79,11 @@
         },
         "attribute" : {
           "attrName" : "d_year",
-          "relName" : "subsetPelagoProject#12713"
+          "relName" : "subsetPelagoProject#12590"
         },
         "register_as" : {
           "attrName" : "d_year",
-          "relName" : "__sort12714"
+          "relName" : "__sort12591"
         }
       }
     }, {
@@ -95,11 +95,11 @@
         },
         "attribute" : {
           "attrName" : "lo_revenue",
-          "relName" : "subsetPelagoProject#12713"
+          "relName" : "subsetPelagoProject#12590"
         },
         "register_as" : {
           "attrName" : "lo_revenue",
-          "relName" : "__sort12714"
+          "relName" : "__sort12591"
         }
       }
     }, {
@@ -111,11 +111,11 @@
         },
         "attribute" : {
           "attrName" : "c_city",
-          "relName" : "subsetPelagoProject#12713"
+          "relName" : "subsetPelagoProject#12590"
         },
         "register_as" : {
           "attrName" : "c_city",
-          "relName" : "__sort12714"
+          "relName" : "__sort12591"
         }
       }
     }, {
@@ -127,18 +127,18 @@
         },
         "attribute" : {
           "attrName" : "s_city",
-          "relName" : "subsetPelagoProject#12713"
+          "relName" : "subsetPelagoProject#12590"
         },
         "register_as" : {
           "attrName" : "s_city",
-          "relName" : "__sort12714"
+          "relName" : "__sort12591"
         }
       }
     } ],
     "granularity" : "thread",
     "input" : {
       "operator" : "project",
-      "relName" : "subsetPelagoProject#12713",
+      "relName" : "subsetPelagoProject#12590",
       "e" : [ {
         "expression" : "recordProjection",
         "e" : {
@@ -146,11 +146,11 @@
         },
         "attribute" : {
           "attrName" : "c_city",
-          "relName" : "subsetPelagoProject#12713"
+          "relName" : "subsetPelagoProject#12590"
         },
         "register_as" : {
           "attrName" : "c_city",
-          "relName" : "subsetPelagoProject#12713"
+          "relName" : "subsetPelagoProject#12590"
         }
       }, {
         "expression" : "recordProjection",
@@ -159,11 +159,11 @@
         },
         "attribute" : {
           "attrName" : "s_city",
-          "relName" : "subsetPelagoProject#12713"
+          "relName" : "subsetPelagoProject#12590"
         },
         "register_as" : {
           "attrName" : "s_city",
-          "relName" : "subsetPelagoProject#12713"
+          "relName" : "subsetPelagoProject#12590"
         }
       }, {
         "expression" : "recordProjection",
@@ -172,11 +172,11 @@
         },
         "attribute" : {
           "attrName" : "d_year",
-          "relName" : "subsetPelagoProject#12713"
+          "relName" : "subsetPelagoProject#12590"
         },
         "register_as" : {
           "attrName" : "d_year",
-          "relName" : "subsetPelagoProject#12713"
+          "relName" : "subsetPelagoProject#12590"
         }
       }, {
         "expression" : "recordProjection",
@@ -185,11 +185,11 @@
         },
         "attribute" : {
           "attrName" : "lo_revenue",
-          "relName" : "subsetPelagoProject#12713"
+          "relName" : "subsetPelagoProject#12590"
         },
         "register_as" : {
           "attrName" : "lo_revenue",
-          "relName" : "subsetPelagoProject#12713"
+          "relName" : "subsetPelagoProject#12590"
         }
       } ],
       "input" : {
@@ -202,11 +202,11 @@
           },
           "attribute" : {
             "attrName" : "d_year",
-            "relName" : "subsetPelagoRouter#12711"
+            "relName" : "subsetPelagoUnpack#12588"
           },
           "register_as" : {
             "attrName" : "d_year",
-            "relName" : "subsetPelagoProject#12713"
+            "relName" : "subsetPelagoProject#12590"
           }
         }, {
           "expression" : "recordProjection",
@@ -215,11 +215,11 @@
           },
           "attribute" : {
             "attrName" : "c_city",
-            "relName" : "subsetPelagoRouter#12711"
+            "relName" : "subsetPelagoUnpack#12588"
           },
           "register_as" : {
             "attrName" : "c_city",
-            "relName" : "subsetPelagoProject#12713"
+            "relName" : "subsetPelagoProject#12590"
           }
         }, {
           "expression" : "recordProjection",
@@ -228,11 +228,11 @@
           },
           "attribute" : {
             "attrName" : "s_city",
-            "relName" : "subsetPelagoRouter#12711"
+            "relName" : "subsetPelagoUnpack#12588"
           },
           "register_as" : {
             "attrName" : "s_city",
-            "relName" : "subsetPelagoProject#12713"
+            "relName" : "subsetPelagoProject#12590"
           }
         } ],
         "e" : [ {
@@ -244,11 +244,11 @@
             },
             "attribute" : {
               "attrName" : "lo_revenue",
-              "relName" : "subsetPelagoRouter#12711"
+              "relName" : "subsetPelagoUnpack#12588"
             },
             "register_as" : {
               "attrName" : "lo_revenue",
-              "relName" : "subsetPelagoProject#12713"
+              "relName" : "subsetPelagoProject#12590"
             }
           },
           "packet" : 1,
@@ -257,336 +257,24 @@
         "hash_bits" : 10,
         "maxInputSize" : 131072,
         "input" : {
-          "operator" : "router",
-          "numOfParents" : 1,
-          "slack" : 8,
-          "cpu_targets" : true,
-          "numa_local" : false,
+          "operator" : "unpack",
           "input" : {
-            "operator" : "groupby",
-            "gpu" : false,
-            "k" : [ {
-              "expression" : "recordProjection",
-              "e" : {
-                "expression" : "argument"
-              },
-              "attribute" : {
-                "attrName" : "d_year",
-                "relName" : "subsetPelagoJoin#12709"
-              },
-              "register_as" : {
-                "attrName" : "d_year",
-                "relName" : "subsetPelagoRouter#12711"
-              }
-            }, {
-              "expression" : "recordProjection",
-              "e" : {
-                "expression" : "argument"
-              },
-              "attribute" : {
-                "attrName" : "c_city",
-                "relName" : "subsetPelagoJoin#12709"
-              },
-              "register_as" : {
-                "attrName" : "c_city",
-                "relName" : "subsetPelagoRouter#12711"
-              }
-            }, {
-              "expression" : "recordProjection",
-              "e" : {
-                "expression" : "argument"
-              },
-              "attribute" : {
-                "attrName" : "s_city",
-                "relName" : "subsetPelagoJoin#12709"
-              },
-              "register_as" : {
-                "attrName" : "s_city",
-                "relName" : "subsetPelagoRouter#12711"
-              }
-            } ],
-            "e" : [ {
-              "m" : "sum",
-              "e" : {
-                "expression" : "recordProjection",
-                "e" : {
-                  "expression" : "argument"
-                },
-                "attribute" : {
-                  "attrName" : "lo_revenue",
-                  "relName" : "subsetPelagoJoin#12709"
-                },
-                "register_as" : {
-                  "attrName" : "lo_revenue",
-                  "relName" : "subsetPelagoRouter#12711"
-                }
-              },
-              "packet" : 1,
-              "offset" : 0
-            } ],
-            "hash_bits" : 10,
-            "maxInputSize" : 131072,
+            "operator" : "mem-move-device",
             "input" : {
-              "operator" : "hashjoin-chained",
-              "build_k" : {
-                "expression" : "recordProjection",
-                "e" : {
-                  "expression" : "argument"
-                },
-                "attribute" : {
-                  "attrName" : "d_datekey",
-                  "relName" : "inputs/ssbm100/date.csv"
-                },
-                "register_as" : {
-                  "attrName" : "$2",
-                  "relName" : "subsetPelagoJoin#12709"
-                }
-              },
-              "build_input" : {
-                "operator" : "select",
-                "gpu" : false,
-                "p" : {
-                  "expression" : "and",
-                  "left" : {
-                    "expression" : "ge",
-                    "left" : {
-                      "expression" : "recordProjection",
-                      "e" : {
-                        "expression" : "argument"
-                      },
-                      "attribute" : {
-                        "attrName" : "d_year",
-                        "relName" : "inputs/ssbm100/date.csv"
-                      }
-                    },
-                    "right" : {
-                      "expression" : "int",
-                      "v" : 1992
-                    }
-                  },
-                  "right" : {
-                    "expression" : "le",
-                    "left" : {
-                      "expression" : "recordProjection",
-                      "e" : {
-                        "expression" : "argument"
-                      },
-                      "attribute" : {
-                        "attrName" : "d_year",
-                        "relName" : "inputs/ssbm100/date.csv"
-                      }
-                    },
-                    "right" : {
-                      "expression" : "int",
-                      "v" : 1997
-                    }
-                  }
-                },
-                "input" : {
-                  "operator" : "unpack",
-                  "input" : {
-                    "operator" : "router",
-                    "numOfParents" : 24,
-                    "slack" : 8,
-                    "cpu_targets" : true,
-                    "target" : {
-                      "expression" : "recordProjection",
-                      "e" : {
-                        "expression" : "argument"
-                      },
-                      "attribute" : {
-                        "relName" : "inputs/ssbm100/date.csv",
-                        "attrName" : "__broadcastTarget"
-                      }
-                    },
-                    "input" : {
-                      "operator" : "mem-broadcast-device",
-                      "num_of_targets" : 24,
-                      "input" : {
-                        "operator" : "scan",
-                        "gpu" : false,
-                        "plugin" : {
-                          "type" : "block",
-                          "linehint" : 2556,
-                          "name" : "inputs/ssbm100/date.csv",
-                          "projections" : [ {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_datekey"
-                          }, {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_year"
-                          } ],
-                          "schema" : [ {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_datekey",
-                            "type" : {
-                              "type" : "int"
-                            },
-                            "attrNo" : 1
-                          }, {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_date",
-                            "type" : {
-                              "type" : "dstring"
-                            },
-                            "attrNo" : 2
-                          }, {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_dayofweek",
-                            "type" : {
-                              "type" : "dstring"
-                            },
-                            "attrNo" : 3
-                          }, {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_month",
-                            "type" : {
-                              "type" : "dstring"
-                            },
-                            "attrNo" : 4
-                          }, {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_year",
-                            "type" : {
-                              "type" : "int"
-                            },
-                            "attrNo" : 5
-                          }, {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_yearmonthnum",
-                            "type" : {
-                              "type" : "int"
-                            },
-                            "attrNo" : 6
-                          }, {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_yearmonth",
-                            "type" : {
-                              "type" : "dstring"
-                            },
-                            "attrNo" : 7
-                          }, {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_daynuminweek",
-                            "type" : {
-                              "type" : "int"
-                            },
-                            "attrNo" : 8
-                          }, {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_daynuminmonth",
-                            "type" : {
-                              "type" : "int"
-                            },
-                            "attrNo" : 9
-                          }, {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_daynuminyear",
-                            "type" : {
-                              "type" : "int"
-                            },
-                            "attrNo" : 10
-                          }, {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_monthnuminyear",
-                            "type" : {
-                              "type" : "int"
-                            },
-                            "attrNo" : 11
-                          }, {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_weeknuminyear",
-                            "type" : {
-                              "type" : "int"
-                            },
-                            "attrNo" : 12
-                          }, {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_sellingseason",
-                            "type" : {
-                              "type" : "dstring"
-                            },
-                            "attrNo" : 13
-                          }, {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_lastdayinweekfl",
-                            "type" : {
-                              "type" : "int"
-                            },
-                            "attrNo" : 14
-                          }, {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_lastdayinmonthfl",
-                            "type" : {
-                              "type" : "int"
-                            },
-                            "attrNo" : 15
-                          }, {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_holidayfl",
-                            "type" : {
-                              "type" : "int"
-                            },
-                            "attrNo" : 16
-                          }, {
-                            "relName" : "inputs/ssbm100/date.csv",
-                            "attrName" : "d_weekdayfl",
-                            "type" : {
-                              "type" : "int"
-                            },
-                            "attrNo" : 17
-                          } ]
-                        }
-                      },
-                      "to_cpu" : true
-                    }
-                  }
-                }
-              },
-              "probe_k" : {
-                "expression" : "recordProjection",
-                "e" : {
-                  "expression" : "argument"
-                },
-                "attribute" : {
-                  "attrName" : "lo_orderdate",
-                  "relName" : "subsetPelagoProject#12708"
-                },
-                "register_as" : {
-                  "attrName" : "$0",
-                  "relName" : "subsetPelagoJoin#12709"
-                }
-              },
-              "hash_bits" : 13,
-              "maxBuildInputSize" : 2556,
-              "probe_input" : {
-                "operator" : "project",
-                "relName" : "subsetPelagoProject#12708",
-                "e" : [ {
+              "operator" : "router",
+              "numOfParents" : 1,
+              "slack" : 8,
+              "cpu_targets" : true,
+              "input" : {
+                "operator" : "pack",
+                "projections" : [ {
                   "expression" : "recordProjection",
                   "e" : {
                     "expression" : "argument"
                   },
                   "attribute" : {
-                    "attrName" : "lo_orderdate",
-                    "relName" : "subsetPelagoProject#12708"
-                  },
-                  "register_as" : {
-                    "attrName" : "lo_orderdate",
-                    "relName" : "subsetPelagoProject#12708"
-                  }
-                }, {
-                  "expression" : "recordProjection",
-                  "e" : {
-                    "expression" : "argument"
-                  },
-                  "attribute" : {
-                    "attrName" : "lo_revenue",
-                    "relName" : "subsetPelagoProject#12708"
-                  },
-                  "register_as" : {
-                    "attrName" : "lo_revenue",
-                    "relName" : "subsetPelagoProject#12708"
+                    "attrName" : "d_year",
+                    "relName" : "subsetPelagoUnpack#12588"
                   }
                 }, {
                   "expression" : "recordProjection",
@@ -595,11 +283,7 @@
                   },
                   "attribute" : {
                     "attrName" : "c_city",
-                    "relName" : "subsetPelagoProject#12708"
-                  },
-                  "register_as" : {
-                    "attrName" : "c_city",
-                    "relName" : "subsetPelagoProject#12708"
+                    "relName" : "subsetPelagoUnpack#12588"
                   }
                 }, {
                   "expression" : "recordProjection",
@@ -608,598 +292,1105 @@
                   },
                   "attribute" : {
                     "attrName" : "s_city",
-                    "relName" : "subsetPelagoProject#12708"
+                    "relName" : "subsetPelagoUnpack#12588"
+                  }
+                }, {
+                  "expression" : "recordProjection",
+                  "e" : {
+                    "expression" : "argument"
                   },
-                  "register_as" : {
-                    "attrName" : "s_city",
-                    "relName" : "subsetPelagoProject#12708"
+                  "attribute" : {
+                    "attrName" : "lo_revenue",
+                    "relName" : "subsetPelagoUnpack#12588"
                   }
                 } ],
                 "input" : {
-                  "operator" : "hashjoin-chained",
-                  "build_k" : {
+                  "operator" : "groupby",
+                  "gpu" : false,
+                  "k" : [ {
                     "expression" : "recordProjection",
                     "e" : {
                       "expression" : "argument"
                     },
                     "attribute" : {
-                      "attrName" : "s_suppkey",
-                      "relName" : "subsetPelagoProject#12698"
+                      "attrName" : "d_year",
+                      "relName" : "subsetPelagoJoin#12584"
                     },
                     "register_as" : {
-                      "attrName" : "$2",
-                      "relName" : "subsetPelagoProject#12708"
+                      "attrName" : "d_year",
+                      "relName" : "subsetPelagoUnpack#12588"
                     }
-                  },
-                  "build_input" : {
-                    "operator" : "project",
-                    "relName" : "subsetPelagoProject#12698",
-                    "e" : [ {
+                  }, {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument"
+                    },
+                    "attribute" : {
+                      "attrName" : "c_city",
+                      "relName" : "subsetPelagoJoin#12584"
+                    },
+                    "register_as" : {
+                      "attrName" : "c_city",
+                      "relName" : "subsetPelagoUnpack#12588"
+                    }
+                  }, {
+                    "expression" : "recordProjection",
+                    "e" : {
+                      "expression" : "argument"
+                    },
+                    "attribute" : {
+                      "attrName" : "s_city",
+                      "relName" : "subsetPelagoJoin#12584"
+                    },
+                    "register_as" : {
+                      "attrName" : "s_city",
+                      "relName" : "subsetPelagoUnpack#12588"
+                    }
+                  } ],
+                  "e" : [ {
+                    "m" : "sum",
+                    "e" : {
                       "expression" : "recordProjection",
                       "e" : {
                         "expression" : "argument"
                       },
                       "attribute" : {
-                        "attrName" : "s_suppkey",
-                        "relName" : "inputs/ssbm100/supplier.csv"
+                        "attrName" : "lo_revenue",
+                        "relName" : "subsetPelagoJoin#12584"
                       },
                       "register_as" : {
-                        "attrName" : "s_suppkey",
-                        "relName" : "subsetPelagoProject#12698"
+                        "attrName" : "lo_revenue",
+                        "relName" : "subsetPelagoUnpack#12588"
                       }
-                    }, {
+                    },
+                    "packet" : 1,
+                    "offset" : 0
+                  } ],
+                  "hash_bits" : 10,
+                  "maxInputSize" : 131072,
+                  "input" : {
+                    "operator" : "hashjoin-chained",
+                    "build_k" : {
                       "expression" : "recordProjection",
                       "e" : {
                         "expression" : "argument"
                       },
                       "attribute" : {
-                        "attrName" : "s_city",
-                        "relName" : "inputs/ssbm100/supplier.csv"
+                        "attrName" : "d_datekey",
+                        "relName" : "inputs/ssbm100/date.csv"
                       },
                       "register_as" : {
-                        "attrName" : "s_city",
-                        "relName" : "subsetPelagoProject#12698"
+                        "attrName" : "$2",
+                        "relName" : "subsetPelagoJoin#12584"
                       }
-                    } ],
-                    "input" : {
-                      "operator" : "select",
-                      "gpu" : false,
-                      "p" : {
-                        "expression" : "eq",
-                        "left" : {
-                          "expression" : "recordProjection",
-                          "e" : {
-                            "expression" : "argument"
-                          },
-                          "attribute" : {
-                            "attrName" : "s_nation",
-                            "relName" : "inputs/ssbm100/supplier.csv"
-                          }
-                        },
-                        "right" : {
-                          "expression" : "dstring",
-                          "v" : "UNITED STATES",
-                          "dict" : {
-                            "path" : "inputs/ssbm100/supplier.csv.s_nation.dict"
-                          }
-                        }
-                      },
+                    },
+                    "build_input" : {
+                      "operator" : "unpack",
                       "input" : {
-                        "operator" : "unpack",
-                        "input" : {
-                          "operator" : "router",
-                          "numOfParents" : 24,
-                          "slack" : 8,
-                          "cpu_targets" : true,
-                          "target" : {
-                            "expression" : "recordProjection",
-                            "e" : {
-                              "expression" : "argument"
-                            },
-                            "attribute" : {
-                              "relName" : "inputs/ssbm100/supplier.csv",
-                              "attrName" : "__broadcastTarget"
-                            }
-                          },
-                          "input" : {
-                            "operator" : "mem-broadcast-device",
-                            "num_of_targets" : 24,
-                            "input" : {
-                              "operator" : "scan",
-                              "gpu" : false,
-                              "plugin" : {
-                                "type" : "block",
-                                "linehint" : 200000,
-                                "name" : "inputs/ssbm100/supplier.csv",
-                                "projections" : [ {
-                                  "relName" : "inputs/ssbm100/supplier.csv",
-                                  "attrName" : "s_suppkey"
-                                }, {
-                                  "relName" : "inputs/ssbm100/supplier.csv",
-                                  "attrName" : "s_city"
-                                }, {
-                                  "relName" : "inputs/ssbm100/supplier.csv",
-                                  "attrName" : "s_nation"
-                                } ],
-                                "schema" : [ {
-                                  "relName" : "inputs/ssbm100/supplier.csv",
-                                  "attrName" : "s_suppkey",
-                                  "type" : {
-                                    "type" : "int"
-                                  },
-                                  "attrNo" : 1
-                                }, {
-                                  "relName" : "inputs/ssbm100/supplier.csv",
-                                  "attrName" : "s_name",
-                                  "type" : {
-                                    "type" : "dstring"
-                                  },
-                                  "attrNo" : 2
-                                }, {
-                                  "relName" : "inputs/ssbm100/supplier.csv",
-                                  "attrName" : "s_address",
-                                  "type" : {
-                                    "type" : "dstring"
-                                  },
-                                  "attrNo" : 3
-                                }, {
-                                  "relName" : "inputs/ssbm100/supplier.csv",
-                                  "attrName" : "s_city",
-                                  "type" : {
-                                    "type" : "dstring"
-                                  },
-                                  "attrNo" : 4
-                                }, {
-                                  "relName" : "inputs/ssbm100/supplier.csv",
-                                  "attrName" : "s_nation",
-                                  "type" : {
-                                    "type" : "dstring"
-                                  },
-                                  "attrNo" : 5
-                                }, {
-                                  "relName" : "inputs/ssbm100/supplier.csv",
-                                  "attrName" : "s_region",
-                                  "type" : {
-                                    "type" : "dstring"
-                                  },
-                                  "attrNo" : 6
-                                }, {
-                                  "relName" : "inputs/ssbm100/supplier.csv",
-                                  "attrName" : "s_phone",
-                                  "type" : {
-                                    "type" : "dstring"
-                                  },
-                                  "attrNo" : 7
-                                } ]
-                              }
-                            },
-                            "to_cpu" : true
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "probe_k" : {
-                    "expression" : "recordProjection",
-                    "e" : {
-                      "expression" : "argument"
-                    },
-                    "attribute" : {
-                      "attrName" : "lo_suppkey",
-                      "relName" : "subsetPelagoProject#12706"
-                    },
-                    "register_as" : {
-                      "attrName" : "$0",
-                      "relName" : "subsetPelagoProject#12708"
-                    }
-                  },
-                  "hash_bits" : 19,
-                  "maxBuildInputSize" : 200000,
-                  "probe_input" : {
-                    "operator" : "project",
-                    "relName" : "subsetPelagoProject#12706",
-                    "e" : [ {
-                      "expression" : "recordProjection",
-                      "e" : {
-                        "expression" : "argument"
-                      },
-                      "attribute" : {
-                        "attrName" : "lo_suppkey",
-                        "relName" : "subsetPelagoProject#12706"
-                      },
-                      "register_as" : {
-                        "attrName" : "lo_suppkey",
-                        "relName" : "subsetPelagoProject#12706"
-                      }
-                    }, {
-                      "expression" : "recordProjection",
-                      "e" : {
-                        "expression" : "argument"
-                      },
-                      "attribute" : {
-                        "attrName" : "lo_orderdate",
-                        "relName" : "subsetPelagoProject#12706"
-                      },
-                      "register_as" : {
-                        "attrName" : "lo_orderdate",
-                        "relName" : "subsetPelagoProject#12706"
-                      }
-                    }, {
-                      "expression" : "recordProjection",
-                      "e" : {
-                        "expression" : "argument"
-                      },
-                      "attribute" : {
-                        "attrName" : "lo_revenue",
-                        "relName" : "subsetPelagoProject#12706"
-                      },
-                      "register_as" : {
-                        "attrName" : "lo_revenue",
-                        "relName" : "subsetPelagoProject#12706"
-                      }
-                    }, {
-                      "expression" : "recordProjection",
-                      "e" : {
-                        "expression" : "argument"
-                      },
-                      "attribute" : {
-                        "attrName" : "c_city",
-                        "relName" : "subsetPelagoProject#12706"
-                      },
-                      "register_as" : {
-                        "attrName" : "c_city",
-                        "relName" : "subsetPelagoProject#12706"
-                      }
-                    } ],
-                    "input" : {
-                      "operator" : "hashjoin-chained",
-                      "build_k" : {
-                        "expression" : "recordProjection",
-                        "e" : {
-                          "expression" : "argument"
-                        },
-                        "attribute" : {
-                          "attrName" : "c_custkey",
-                          "relName" : "subsetPelagoProject#12702"
-                        },
-                        "register_as" : {
-                          "attrName" : "$2",
-                          "relName" : "subsetPelagoProject#12706"
-                        }
-                      },
-                      "build_input" : {
-                        "operator" : "project",
-                        "relName" : "subsetPelagoProject#12702",
-                        "e" : [ {
+                        "operator" : "router",
+                        "numOfParents" : 24,
+                        "slack" : 8,
+                        "cpu_targets" : true,
+                        "target" : {
                           "expression" : "recordProjection",
                           "e" : {
                             "expression" : "argument"
                           },
                           "attribute" : {
-                            "attrName" : "c_custkey",
-                            "relName" : "inputs/ssbm100/customer.csv"
-                          },
-                          "register_as" : {
-                            "attrName" : "c_custkey",
-                            "relName" : "subsetPelagoProject#12702"
+                            "relName" : "inputs/ssbm100/date.csv",
+                            "attrName" : "__broadcastTarget"
                           }
-                        }, {
-                          "expression" : "recordProjection",
-                          "e" : {
-                            "expression" : "argument"
-                          },
-                          "attribute" : {
-                            "attrName" : "c_city",
-                            "relName" : "inputs/ssbm100/customer.csv"
-                          },
-                          "register_as" : {
-                            "attrName" : "c_city",
-                            "relName" : "subsetPelagoProject#12702"
-                          }
-                        } ],
+                        },
                         "input" : {
-                          "operator" : "select",
-                          "gpu" : false,
-                          "p" : {
-                            "expression" : "eq",
-                            "left" : {
-                              "expression" : "recordProjection",
-                              "e" : {
-                                "expression" : "argument"
-                              },
-                              "attribute" : {
-                                "attrName" : "c_nation",
-                                "relName" : "inputs/ssbm100/customer.csv"
-                              }
-                            },
-                            "right" : {
-                              "expression" : "dstring",
-                              "v" : "UNITED STATES",
-                              "dict" : {
-                                "path" : "inputs/ssbm100/customer.csv.c_nation.dict"
-                              }
-                            }
-                          },
+                          "operator" : "mem-broadcast-device",
+                          "num_of_targets" : 24,
                           "input" : {
-                            "operator" : "unpack",
+                            "operator" : "mem-move-device",
                             "input" : {
                               "operator" : "router",
-                              "numOfParents" : 24,
+                              "numOfParents" : 1,
                               "slack" : 8,
                               "cpu_targets" : true,
-                              "target" : {
-                                "expression" : "recordProjection",
-                                "e" : {
-                                  "expression" : "argument"
-                                },
-                                "attribute" : {
-                                  "relName" : "inputs/ssbm100/customer.csv",
-                                  "attrName" : "__broadcastTarget"
-                                }
-                              },
                               "input" : {
-                                "operator" : "mem-broadcast-device",
-                                "num_of_targets" : 24,
-                                "input" : {
-                                  "operator" : "scan",
-                                  "gpu" : false,
-                                  "plugin" : {
-                                    "type" : "block",
-                                    "linehint" : 3000000,
-                                    "name" : "inputs/ssbm100/customer.csv",
-                                    "projections" : [ {
-                                      "relName" : "inputs/ssbm100/customer.csv",
-                                      "attrName" : "c_custkey"
-                                    }, {
-                                      "relName" : "inputs/ssbm100/customer.csv",
-                                      "attrName" : "c_city"
-                                    }, {
-                                      "relName" : "inputs/ssbm100/customer.csv",
-                                      "attrName" : "c_nation"
-                                    } ],
-                                    "schema" : [ {
-                                      "relName" : "inputs/ssbm100/customer.csv",
-                                      "attrName" : "c_custkey",
-                                      "type" : {
-                                        "type" : "int"
-                                      },
-                                      "attrNo" : 1
-                                    }, {
-                                      "relName" : "inputs/ssbm100/customer.csv",
-                                      "attrName" : "c_name",
-                                      "type" : {
-                                        "type" : "dstring"
-                                      },
-                                      "attrNo" : 2
-                                    }, {
-                                      "relName" : "inputs/ssbm100/customer.csv",
-                                      "attrName" : "c_address",
-                                      "type" : {
-                                        "type" : "dstring"
-                                      },
-                                      "attrNo" : 3
-                                    }, {
-                                      "relName" : "inputs/ssbm100/customer.csv",
-                                      "attrName" : "c_city",
-                                      "type" : {
-                                        "type" : "dstring"
-                                      },
-                                      "attrNo" : 4
-                                    }, {
-                                      "relName" : "inputs/ssbm100/customer.csv",
-                                      "attrName" : "c_nation",
-                                      "type" : {
-                                        "type" : "dstring"
-                                      },
-                                      "attrNo" : 5
-                                    }, {
-                                      "relName" : "inputs/ssbm100/customer.csv",
-                                      "attrName" : "c_region",
-                                      "type" : {
-                                        "type" : "dstring"
-                                      },
-                                      "attrNo" : 6
-                                    }, {
-                                      "relName" : "inputs/ssbm100/customer.csv",
-                                      "attrName" : "c_phone",
-                                      "type" : {
-                                        "type" : "dstring"
-                                      },
-                                      "attrNo" : 7
-                                    }, {
-                                      "relName" : "inputs/ssbm100/customer.csv",
-                                      "attrName" : "c_mktsegment",
-                                      "type" : {
-                                        "type" : "dstring"
-                                      },
-                                      "attrNo" : 8
-                                    } ]
+                                "operator" : "pack",
+                                "projections" : [ {
+                                  "expression" : "recordProjection",
+                                  "e" : {
+                                    "expression" : "argument"
+                                  },
+                                  "attribute" : {
+                                    "attrName" : "d_datekey",
+                                    "relName" : "inputs/ssbm100/date.csv"
                                   }
-                                },
-                                "to_cpu" : true
+                                }, {
+                                  "expression" : "recordProjection",
+                                  "e" : {
+                                    "expression" : "argument"
+                                  },
+                                  "attribute" : {
+                                    "attrName" : "d_year",
+                                    "relName" : "inputs/ssbm100/date.csv"
+                                  }
+                                } ],
+                                "input" : {
+                                  "operator" : "select",
+                                  "gpu" : false,
+                                  "p" : {
+                                    "expression" : "and",
+                                    "left" : {
+                                      "expression" : "ge",
+                                      "left" : {
+                                        "expression" : "recordProjection",
+                                        "e" : {
+                                          "expression" : "argument"
+                                        },
+                                        "attribute" : {
+                                          "attrName" : "d_year",
+                                          "relName" : "inputs/ssbm100/date.csv"
+                                        }
+                                      },
+                                      "right" : {
+                                        "expression" : "int",
+                                        "v" : 1992
+                                      }
+                                    },
+                                    "right" : {
+                                      "expression" : "le",
+                                      "left" : {
+                                        "expression" : "recordProjection",
+                                        "e" : {
+                                          "expression" : "argument"
+                                        },
+                                        "attribute" : {
+                                          "attrName" : "d_year",
+                                          "relName" : "inputs/ssbm100/date.csv"
+                                        }
+                                      },
+                                      "right" : {
+                                        "expression" : "int",
+                                        "v" : 1997
+                                      }
+                                    }
+                                  },
+                                  "input" : {
+                                    "operator" : "unpack",
+                                    "input" : {
+                                      "operator" : "mem-move-device",
+                                      "input" : {
+                                        "operator" : "router",
+                                        "numOfParents" : 24,
+                                        "slack" : 8,
+                                        "cpu_targets" : true,
+                                        "rand_local_cpu" : true,
+                                        "input" : {
+                                          "operator" : "scan",
+                                          "gpu" : false,
+                                          "plugin" : {
+                                            "type" : "block",
+                                            "linehint" : 2556,
+                                            "name" : "inputs/ssbm100/date.csv",
+                                            "projections" : [ {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_datekey"
+                                            }, {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_year"
+                                            } ],
+                                            "schema" : [ {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_datekey",
+                                              "type" : {
+                                                "type" : "int"
+                                              },
+                                              "attrNo" : 1
+                                            }, {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_date",
+                                              "type" : {
+                                                "type" : "dstring"
+                                              },
+                                              "attrNo" : 2
+                                            }, {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_dayofweek",
+                                              "type" : {
+                                                "type" : "dstring"
+                                              },
+                                              "attrNo" : 3
+                                            }, {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_month",
+                                              "type" : {
+                                                "type" : "dstring"
+                                              },
+                                              "attrNo" : 4
+                                            }, {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_year",
+                                              "type" : {
+                                                "type" : "int"
+                                              },
+                                              "attrNo" : 5
+                                            }, {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_yearmonthnum",
+                                              "type" : {
+                                                "type" : "int"
+                                              },
+                                              "attrNo" : 6
+                                            }, {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_yearmonth",
+                                              "type" : {
+                                                "type" : "dstring"
+                                              },
+                                              "attrNo" : 7
+                                            }, {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_daynuminweek",
+                                              "type" : {
+                                                "type" : "int"
+                                              },
+                                              "attrNo" : 8
+                                            }, {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_daynuminmonth",
+                                              "type" : {
+                                                "type" : "int"
+                                              },
+                                              "attrNo" : 9
+                                            }, {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_daynuminyear",
+                                              "type" : {
+                                                "type" : "int"
+                                              },
+                                              "attrNo" : 10
+                                            }, {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_monthnuminyear",
+                                              "type" : {
+                                                "type" : "int"
+                                              },
+                                              "attrNo" : 11
+                                            }, {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_weeknuminyear",
+                                              "type" : {
+                                                "type" : "int"
+                                              },
+                                              "attrNo" : 12
+                                            }, {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_sellingseason",
+                                              "type" : {
+                                                "type" : "dstring"
+                                              },
+                                              "attrNo" : 13
+                                            }, {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_lastdayinweekfl",
+                                              "type" : {
+                                                "type" : "int"
+                                              },
+                                              "attrNo" : 14
+                                            }, {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_lastdayinmonthfl",
+                                              "type" : {
+                                                "type" : "int"
+                                              },
+                                              "attrNo" : 15
+                                            }, {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_holidayfl",
+                                              "type" : {
+                                                "type" : "int"
+                                              },
+                                              "attrNo" : 16
+                                            }, {
+                                              "relName" : "inputs/ssbm100/date.csv",
+                                              "attrName" : "d_weekdayfl",
+                                              "type" : {
+                                                "type" : "int"
+                                              },
+                                              "attrNo" : 17
+                                            } ]
+                                          }
+                                        }
+                                      },
+                                      "to_cpu" : true,
+                                      "do_transfer" : [ true, true ]
+                                    }
+                                  }
+                                }
                               }
-                            }
-                          }
+                            },
+                            "to_cpu" : true,
+                            "do_transfer" : [ true, true ]
+                          },
+                          "to_cpu" : true
                         }
+                      }
+                    },
+                    "probe_k" : {
+                      "expression" : "recordProjection",
+                      "e" : {
+                        "expression" : "argument"
                       },
-                      "probe_k" : {
+                      "attribute" : {
+                        "attrName" : "lo_orderdate",
+                        "relName" : "subsetPelagoProject#12583"
+                      },
+                      "register_as" : {
+                        "attrName" : "$0",
+                        "relName" : "subsetPelagoJoin#12584"
+                      }
+                    },
+                    "hash_bits" : 21,
+                    "maxBuildInputSize" : 1048576,
+                    "probe_input" : {
+                      "operator" : "project",
+                      "relName" : "subsetPelagoProject#12583",
+                      "e" : [ {
                         "expression" : "recordProjection",
                         "e" : {
                           "expression" : "argument"
                         },
                         "attribute" : {
-                          "attrName" : "lo_custkey",
-                          "relName" : "inputs/ssbm100/lineorder.csv"
+                          "attrName" : "lo_orderdate",
+                          "relName" : "subsetPelagoProject#12583"
                         },
                         "register_as" : {
-                          "attrName" : "$0",
-                          "relName" : "subsetPelagoProject#12706"
+                          "attrName" : "lo_orderdate",
+                          "relName" : "subsetPelagoProject#12583"
                         }
-                      },
-                      "hash_bits" : 23,
-                      "maxBuildInputSize" : 3000000,
-                      "probe_input" : {
-                        "operator" : "unpack",
-                        "input" : {
-                          "operator" : "mem-move-device",
+                      }, {
+                        "expression" : "recordProjection",
+                        "e" : {
+                          "expression" : "argument"
+                        },
+                        "attribute" : {
+                          "attrName" : "lo_revenue",
+                          "relName" : "subsetPelagoProject#12583"
+                        },
+                        "register_as" : {
+                          "attrName" : "lo_revenue",
+                          "relName" : "subsetPelagoProject#12583"
+                        }
+                      }, {
+                        "expression" : "recordProjection",
+                        "e" : {
+                          "expression" : "argument"
+                        },
+                        "attribute" : {
+                          "attrName" : "c_city",
+                          "relName" : "subsetPelagoProject#12583"
+                        },
+                        "register_as" : {
+                          "attrName" : "c_city",
+                          "relName" : "subsetPelagoProject#12583"
+                        }
+                      }, {
+                        "expression" : "recordProjection",
+                        "e" : {
+                          "expression" : "argument"
+                        },
+                        "attribute" : {
+                          "attrName" : "s_city",
+                          "relName" : "subsetPelagoProject#12583"
+                        },
+                        "register_as" : {
+                          "attrName" : "s_city",
+                          "relName" : "subsetPelagoProject#12583"
+                        }
+                      } ],
+                      "input" : {
+                        "operator" : "hashjoin-chained",
+                        "build_k" : {
+                          "expression" : "recordProjection",
+                          "e" : {
+                            "expression" : "argument"
+                          },
+                          "attribute" : {
+                            "attrName" : "s_suppkey",
+                            "relName" : "subsetPelagoUnpack#12569"
+                          },
+                          "register_as" : {
+                            "attrName" : "$2",
+                            "relName" : "subsetPelagoProject#12583"
+                          }
+                        },
+                        "build_input" : {
+                          "operator" : "unpack",
                           "input" : {
                             "operator" : "router",
                             "numOfParents" : 24,
                             "slack" : 8,
                             "cpu_targets" : true,
-                            "rand_local_cpu" : true,
+                            "target" : {
+                              "expression" : "recordProjection",
+                              "e" : {
+                                "expression" : "argument"
+                              },
+                              "attribute" : {
+                                "relName" : "subsetPelagoUnpack#12569",
+                                "attrName" : "__broadcastTarget"
+                              }
+                            },
                             "input" : {
-                              "operator" : "scan",
-                              "gpu" : false,
-                              "plugin" : {
-                                "type" : "block",
-                                "linehint" : 600038145,
-                                "name" : "inputs/ssbm100/lineorder.csv",
-                                "projections" : [ {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_custkey"
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_suppkey"
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_orderdate"
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_revenue"
-                                } ],
-                                "schema" : [ {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_orderkey",
-                                  "type" : {
-                                    "type" : "int"
+                              "operator" : "mem-broadcast-device",
+                              "num_of_targets" : 24,
+                              "input" : {
+                                "operator" : "mem-move-device",
+                                "input" : {
+                                  "operator" : "router",
+                                  "numOfParents" : 1,
+                                  "slack" : 8,
+                                  "cpu_targets" : true,
+                                  "input" : {
+                                    "operator" : "pack",
+                                    "projections" : [ {
+                                      "expression" : "recordProjection",
+                                      "e" : {
+                                        "expression" : "argument"
+                                      },
+                                      "attribute" : {
+                                        "attrName" : "s_suppkey",
+                                        "relName" : "subsetPelagoUnpack#12569"
+                                      }
+                                    }, {
+                                      "expression" : "recordProjection",
+                                      "e" : {
+                                        "expression" : "argument"
+                                      },
+                                      "attribute" : {
+                                        "attrName" : "s_city",
+                                        "relName" : "subsetPelagoUnpack#12569"
+                                      }
+                                    } ],
+                                    "input" : {
+                                      "operator" : "project",
+                                      "relName" : "subsetPelagoUnpack#12569",
+                                      "e" : [ {
+                                        "expression" : "recordProjection",
+                                        "e" : {
+                                          "expression" : "argument"
+                                        },
+                                        "attribute" : {
+                                          "attrName" : "s_suppkey",
+                                          "relName" : "inputs/ssbm100/supplier.csv"
+                                        },
+                                        "register_as" : {
+                                          "attrName" : "s_suppkey",
+                                          "relName" : "subsetPelagoUnpack#12569"
+                                        }
+                                      }, {
+                                        "expression" : "recordProjection",
+                                        "e" : {
+                                          "expression" : "argument"
+                                        },
+                                        "attribute" : {
+                                          "attrName" : "s_city",
+                                          "relName" : "inputs/ssbm100/supplier.csv"
+                                        },
+                                        "register_as" : {
+                                          "attrName" : "s_city",
+                                          "relName" : "subsetPelagoUnpack#12569"
+                                        }
+                                      } ],
+                                      "input" : {
+                                        "operator" : "select",
+                                        "gpu" : false,
+                                        "p" : {
+                                          "expression" : "eq",
+                                          "left" : {
+                                            "expression" : "recordProjection",
+                                            "e" : {
+                                              "expression" : "argument"
+                                            },
+                                            "attribute" : {
+                                              "attrName" : "s_nation",
+                                              "relName" : "inputs/ssbm100/supplier.csv"
+                                            }
+                                          },
+                                          "right" : {
+                                            "expression" : "dstring",
+                                            "v" : "UNITED STATES",
+                                            "dict" : {
+                                              "path" : "inputs/ssbm100/supplier.csv.s_nation.dict"
+                                            }
+                                          }
+                                        },
+                                        "input" : {
+                                          "operator" : "unpack",
+                                          "input" : {
+                                            "operator" : "mem-move-device",
+                                            "input" : {
+                                              "operator" : "router",
+                                              "numOfParents" : 24,
+                                              "slack" : 8,
+                                              "cpu_targets" : true,
+                                              "rand_local_cpu" : true,
+                                              "input" : {
+                                                "operator" : "scan",
+                                                "gpu" : false,
+                                                "plugin" : {
+                                                  "type" : "block",
+                                                  "linehint" : 200000,
+                                                  "name" : "inputs/ssbm100/supplier.csv",
+                                                  "projections" : [ {
+                                                    "relName" : "inputs/ssbm100/supplier.csv",
+                                                    "attrName" : "s_suppkey"
+                                                  }, {
+                                                    "relName" : "inputs/ssbm100/supplier.csv",
+                                                    "attrName" : "s_city"
+                                                  }, {
+                                                    "relName" : "inputs/ssbm100/supplier.csv",
+                                                    "attrName" : "s_nation"
+                                                  } ],
+                                                  "schema" : [ {
+                                                    "relName" : "inputs/ssbm100/supplier.csv",
+                                                    "attrName" : "s_suppkey",
+                                                    "type" : {
+                                                      "type" : "int"
+                                                    },
+                                                    "attrNo" : 1
+                                                  }, {
+                                                    "relName" : "inputs/ssbm100/supplier.csv",
+                                                    "attrName" : "s_name",
+                                                    "type" : {
+                                                      "type" : "dstring"
+                                                    },
+                                                    "attrNo" : 2
+                                                  }, {
+                                                    "relName" : "inputs/ssbm100/supplier.csv",
+                                                    "attrName" : "s_address",
+                                                    "type" : {
+                                                      "type" : "dstring"
+                                                    },
+                                                    "attrNo" : 3
+                                                  }, {
+                                                    "relName" : "inputs/ssbm100/supplier.csv",
+                                                    "attrName" : "s_city",
+                                                    "type" : {
+                                                      "type" : "dstring"
+                                                    },
+                                                    "attrNo" : 4
+                                                  }, {
+                                                    "relName" : "inputs/ssbm100/supplier.csv",
+                                                    "attrName" : "s_nation",
+                                                    "type" : {
+                                                      "type" : "dstring"
+                                                    },
+                                                    "attrNo" : 5
+                                                  }, {
+                                                    "relName" : "inputs/ssbm100/supplier.csv",
+                                                    "attrName" : "s_region",
+                                                    "type" : {
+                                                      "type" : "dstring"
+                                                    },
+                                                    "attrNo" : 6
+                                                  }, {
+                                                    "relName" : "inputs/ssbm100/supplier.csv",
+                                                    "attrName" : "s_phone",
+                                                    "type" : {
+                                                      "type" : "dstring"
+                                                    },
+                                                    "attrNo" : 7
+                                                  } ]
+                                                }
+                                              }
+                                            },
+                                            "to_cpu" : true,
+                                            "do_transfer" : [ true, true, true ]
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                },
+                                "to_cpu" : true,
+                                "do_transfer" : [ true, true ]
+                              },
+                              "to_cpu" : true
+                            }
+                          }
+                        },
+                        "probe_k" : {
+                          "expression" : "recordProjection",
+                          "e" : {
+                            "expression" : "argument"
+                          },
+                          "attribute" : {
+                            "attrName" : "lo_suppkey",
+                            "relName" : "subsetPelagoProject#12581"
+                          },
+                          "register_as" : {
+                            "attrName" : "$0",
+                            "relName" : "subsetPelagoProject#12583"
+                          }
+                        },
+                        "hash_bits" : 21,
+                        "maxBuildInputSize" : 1048576,
+                        "probe_input" : {
+                          "operator" : "project",
+                          "relName" : "subsetPelagoProject#12581",
+                          "e" : [ {
+                            "expression" : "recordProjection",
+                            "e" : {
+                              "expression" : "argument"
+                            },
+                            "attribute" : {
+                              "attrName" : "lo_suppkey",
+                              "relName" : "subsetPelagoProject#12581"
+                            },
+                            "register_as" : {
+                              "attrName" : "lo_suppkey",
+                              "relName" : "subsetPelagoProject#12581"
+                            }
+                          }, {
+                            "expression" : "recordProjection",
+                            "e" : {
+                              "expression" : "argument"
+                            },
+                            "attribute" : {
+                              "attrName" : "lo_orderdate",
+                              "relName" : "subsetPelagoProject#12581"
+                            },
+                            "register_as" : {
+                              "attrName" : "lo_orderdate",
+                              "relName" : "subsetPelagoProject#12581"
+                            }
+                          }, {
+                            "expression" : "recordProjection",
+                            "e" : {
+                              "expression" : "argument"
+                            },
+                            "attribute" : {
+                              "attrName" : "lo_revenue",
+                              "relName" : "subsetPelagoProject#12581"
+                            },
+                            "register_as" : {
+                              "attrName" : "lo_revenue",
+                              "relName" : "subsetPelagoProject#12581"
+                            }
+                          }, {
+                            "expression" : "recordProjection",
+                            "e" : {
+                              "expression" : "argument"
+                            },
+                            "attribute" : {
+                              "attrName" : "c_city",
+                              "relName" : "subsetPelagoProject#12581"
+                            },
+                            "register_as" : {
+                              "attrName" : "c_city",
+                              "relName" : "subsetPelagoProject#12581"
+                            }
+                          } ],
+                          "input" : {
+                            "operator" : "hashjoin-chained",
+                            "build_k" : {
+                              "expression" : "recordProjection",
+                              "e" : {
+                                "expression" : "argument"
+                              },
+                              "attribute" : {
+                                "attrName" : "c_custkey",
+                                "relName" : "subsetPelagoUnpack#12577"
+                              },
+                              "register_as" : {
+                                "attrName" : "$2",
+                                "relName" : "subsetPelagoProject#12581"
+                              }
+                            },
+                            "build_input" : {
+                              "operator" : "unpack",
+                              "input" : {
+                                "operator" : "router",
+                                "numOfParents" : 24,
+                                "slack" : 8,
+                                "cpu_targets" : true,
+                                "target" : {
+                                  "expression" : "recordProjection",
+                                  "e" : {
+                                    "expression" : "argument"
                                   },
-                                  "attrNo" : 1
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_linenumber",
-                                  "type" : {
-                                    "type" : "int"
+                                  "attribute" : {
+                                    "relName" : "subsetPelagoUnpack#12577",
+                                    "attrName" : "__broadcastTarget"
+                                  }
+                                },
+                                "input" : {
+                                  "operator" : "mem-broadcast-device",
+                                  "num_of_targets" : 24,
+                                  "input" : {
+                                    "operator" : "mem-move-device",
+                                    "input" : {
+                                      "operator" : "router",
+                                      "numOfParents" : 1,
+                                      "slack" : 8,
+                                      "cpu_targets" : true,
+                                      "input" : {
+                                        "operator" : "pack",
+                                        "projections" : [ {
+                                          "expression" : "recordProjection",
+                                          "e" : {
+                                            "expression" : "argument"
+                                          },
+                                          "attribute" : {
+                                            "attrName" : "c_custkey",
+                                            "relName" : "subsetPelagoUnpack#12577"
+                                          }
+                                        }, {
+                                          "expression" : "recordProjection",
+                                          "e" : {
+                                            "expression" : "argument"
+                                          },
+                                          "attribute" : {
+                                            "attrName" : "c_city",
+                                            "relName" : "subsetPelagoUnpack#12577"
+                                          }
+                                        } ],
+                                        "input" : {
+                                          "operator" : "project",
+                                          "relName" : "subsetPelagoUnpack#12577",
+                                          "e" : [ {
+                                            "expression" : "recordProjection",
+                                            "e" : {
+                                              "expression" : "argument"
+                                            },
+                                            "attribute" : {
+                                              "attrName" : "c_custkey",
+                                              "relName" : "inputs/ssbm100/customer.csv"
+                                            },
+                                            "register_as" : {
+                                              "attrName" : "c_custkey",
+                                              "relName" : "subsetPelagoUnpack#12577"
+                                            }
+                                          }, {
+                                            "expression" : "recordProjection",
+                                            "e" : {
+                                              "expression" : "argument"
+                                            },
+                                            "attribute" : {
+                                              "attrName" : "c_city",
+                                              "relName" : "inputs/ssbm100/customer.csv"
+                                            },
+                                            "register_as" : {
+                                              "attrName" : "c_city",
+                                              "relName" : "subsetPelagoUnpack#12577"
+                                            }
+                                          } ],
+                                          "input" : {
+                                            "operator" : "select",
+                                            "gpu" : false,
+                                            "p" : {
+                                              "expression" : "eq",
+                                              "left" : {
+                                                "expression" : "recordProjection",
+                                                "e" : {
+                                                  "expression" : "argument"
+                                                },
+                                                "attribute" : {
+                                                  "attrName" : "c_nation",
+                                                  "relName" : "inputs/ssbm100/customer.csv"
+                                                }
+                                              },
+                                              "right" : {
+                                                "expression" : "dstring",
+                                                "v" : "UNITED STATES",
+                                                "dict" : {
+                                                  "path" : "inputs/ssbm100/customer.csv.c_nation.dict"
+                                                }
+                                              }
+                                            },
+                                            "input" : {
+                                              "operator" : "unpack",
+                                              "input" : {
+                                                "operator" : "mem-move-device",
+                                                "input" : {
+                                                  "operator" : "router",
+                                                  "numOfParents" : 24,
+                                                  "slack" : 8,
+                                                  "cpu_targets" : true,
+                                                  "rand_local_cpu" : true,
+                                                  "input" : {
+                                                    "operator" : "scan",
+                                                    "gpu" : false,
+                                                    "plugin" : {
+                                                      "type" : "block",
+                                                      "linehint" : 3000000,
+                                                      "name" : "inputs/ssbm100/customer.csv",
+                                                      "projections" : [ {
+                                                        "relName" : "inputs/ssbm100/customer.csv",
+                                                        "attrName" : "c_custkey"
+                                                      }, {
+                                                        "relName" : "inputs/ssbm100/customer.csv",
+                                                        "attrName" : "c_city"
+                                                      }, {
+                                                        "relName" : "inputs/ssbm100/customer.csv",
+                                                        "attrName" : "c_nation"
+                                                      } ],
+                                                      "schema" : [ {
+                                                        "relName" : "inputs/ssbm100/customer.csv",
+                                                        "attrName" : "c_custkey",
+                                                        "type" : {
+                                                          "type" : "int"
+                                                        },
+                                                        "attrNo" : 1
+                                                      }, {
+                                                        "relName" : "inputs/ssbm100/customer.csv",
+                                                        "attrName" : "c_name",
+                                                        "type" : {
+                                                          "type" : "dstring"
+                                                        },
+                                                        "attrNo" : 2
+                                                      }, {
+                                                        "relName" : "inputs/ssbm100/customer.csv",
+                                                        "attrName" : "c_address",
+                                                        "type" : {
+                                                          "type" : "dstring"
+                                                        },
+                                                        "attrNo" : 3
+                                                      }, {
+                                                        "relName" : "inputs/ssbm100/customer.csv",
+                                                        "attrName" : "c_city",
+                                                        "type" : {
+                                                          "type" : "dstring"
+                                                        },
+                                                        "attrNo" : 4
+                                                      }, {
+                                                        "relName" : "inputs/ssbm100/customer.csv",
+                                                        "attrName" : "c_nation",
+                                                        "type" : {
+                                                          "type" : "dstring"
+                                                        },
+                                                        "attrNo" : 5
+                                                      }, {
+                                                        "relName" : "inputs/ssbm100/customer.csv",
+                                                        "attrName" : "c_region",
+                                                        "type" : {
+                                                          "type" : "dstring"
+                                                        },
+                                                        "attrNo" : 6
+                                                      }, {
+                                                        "relName" : "inputs/ssbm100/customer.csv",
+                                                        "attrName" : "c_phone",
+                                                        "type" : {
+                                                          "type" : "dstring"
+                                                        },
+                                                        "attrNo" : 7
+                                                      }, {
+                                                        "relName" : "inputs/ssbm100/customer.csv",
+                                                        "attrName" : "c_mktsegment",
+                                                        "type" : {
+                                                          "type" : "dstring"
+                                                        },
+                                                        "attrNo" : 8
+                                                      } ]
+                                                    }
+                                                  }
+                                                },
+                                                "to_cpu" : true,
+                                                "do_transfer" : [ true, true, true ]
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "to_cpu" : true,
+                                    "do_transfer" : [ true, true ]
                                   },
-                                  "attrNo" : 2
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_custkey",
-                                  "type" : {
-                                    "type" : "int"
-                                  },
-                                  "attrNo" : 3
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_partkey",
-                                  "type" : {
-                                    "type" : "int"
-                                  },
-                                  "attrNo" : 4
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_suppkey",
-                                  "type" : {
-                                    "type" : "int"
-                                  },
-                                  "attrNo" : 5
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_orderdate",
-                                  "type" : {
-                                    "type" : "int"
-                                  },
-                                  "attrNo" : 6
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_orderpriority",
-                                  "type" : {
-                                    "type" : "dstring"
-                                  },
-                                  "attrNo" : 7
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_shippriority",
-                                  "type" : {
-                                    "type" : "dstring"
-                                  },
-                                  "attrNo" : 8
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_quantity",
-                                  "type" : {
-                                    "type" : "int"
-                                  },
-                                  "attrNo" : 9
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_extendedprice",
-                                  "type" : {
-                                    "type" : "int"
-                                  },
-                                  "attrNo" : 10
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_ordtotalprice",
-                                  "type" : {
-                                    "type" : "int"
-                                  },
-                                  "attrNo" : 11
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_discount",
-                                  "type" : {
-                                    "type" : "int"
-                                  },
-                                  "attrNo" : 12
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_revenue",
-                                  "type" : {
-                                    "type" : "int"
-                                  },
-                                  "attrNo" : 13
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_supplycost",
-                                  "type" : {
-                                    "type" : "int"
-                                  },
-                                  "attrNo" : 14
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_tax",
-                                  "type" : {
-                                    "type" : "int"
-                                  },
-                                  "attrNo" : 15
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_commitdate",
-                                  "type" : {
-                                    "type" : "int"
-                                  },
-                                  "attrNo" : 16
-                                }, {
-                                  "relName" : "inputs/ssbm100/lineorder.csv",
-                                  "attrName" : "lo_shipmode",
-                                  "type" : {
-                                    "type" : "dstring"
-                                  },
-                                  "attrNo" : 17
-                                } ]
+                                  "to_cpu" : true
+                                }
+                              }
+                            },
+                            "probe_k" : {
+                              "expression" : "recordProjection",
+                              "e" : {
+                                "expression" : "argument"
+                              },
+                              "attribute" : {
+                                "attrName" : "lo_custkey",
+                                "relName" : "inputs/ssbm100/lineorder.csv"
+                              },
+                              "register_as" : {
+                                "attrName" : "$0",
+                                "relName" : "subsetPelagoProject#12581"
+                              }
+                            },
+                            "hash_bits" : 23,
+                            "maxBuildInputSize" : 3145728,
+                            "probe_input" : {
+                              "operator" : "unpack",
+                              "input" : {
+                                "operator" : "mem-move-device",
+                                "input" : {
+                                  "operator" : "router",
+                                  "numOfParents" : 24,
+                                  "slack" : 8,
+                                  "cpu_targets" : true,
+                                  "rand_local_cpu" : true,
+                                  "input" : {
+                                    "operator" : "scan",
+                                    "gpu" : false,
+                                    "plugin" : {
+                                      "type" : "block",
+                                      "linehint" : 600038145,
+                                      "name" : "inputs/ssbm100/lineorder.csv",
+                                      "projections" : [ {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_custkey"
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_suppkey"
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_orderdate"
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_revenue"
+                                      } ],
+                                      "schema" : [ {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_orderkey",
+                                        "type" : {
+                                          "type" : "int"
+                                        },
+                                        "attrNo" : 1
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_linenumber",
+                                        "type" : {
+                                          "type" : "int"
+                                        },
+                                        "attrNo" : 2
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_custkey",
+                                        "type" : {
+                                          "type" : "int"
+                                        },
+                                        "attrNo" : 3
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_partkey",
+                                        "type" : {
+                                          "type" : "int"
+                                        },
+                                        "attrNo" : 4
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_suppkey",
+                                        "type" : {
+                                          "type" : "int"
+                                        },
+                                        "attrNo" : 5
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_orderdate",
+                                        "type" : {
+                                          "type" : "int"
+                                        },
+                                        "attrNo" : 6
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_orderpriority",
+                                        "type" : {
+                                          "type" : "dstring"
+                                        },
+                                        "attrNo" : 7
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_shippriority",
+                                        "type" : {
+                                          "type" : "dstring"
+                                        },
+                                        "attrNo" : 8
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_quantity",
+                                        "type" : {
+                                          "type" : "int"
+                                        },
+                                        "attrNo" : 9
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_extendedprice",
+                                        "type" : {
+                                          "type" : "int"
+                                        },
+                                        "attrNo" : 10
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_ordtotalprice",
+                                        "type" : {
+                                          "type" : "int"
+                                        },
+                                        "attrNo" : 11
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_discount",
+                                        "type" : {
+                                          "type" : "int"
+                                        },
+                                        "attrNo" : 12
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_revenue",
+                                        "type" : {
+                                          "type" : "int"
+                                        },
+                                        "attrNo" : 13
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_supplycost",
+                                        "type" : {
+                                          "type" : "int"
+                                        },
+                                        "attrNo" : 14
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_tax",
+                                        "type" : {
+                                          "type" : "int"
+                                        },
+                                        "attrNo" : 15
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_commitdate",
+                                        "type" : {
+                                          "type" : "int"
+                                        },
+                                        "attrNo" : 16
+                                      }, {
+                                        "relName" : "inputs/ssbm100/lineorder.csv",
+                                        "attrName" : "lo_shipmode",
+                                        "type" : {
+                                          "type" : "dstring"
+                                        },
+                                        "attrNo" : 17
+                                      } ]
+                                    }
+                                  }
+                                },
+                                "to_cpu" : true,
+                                "do_transfer" : [ true, true, true, true ]
                               }
                             }
-                          },
-                          "to_cpu" : true,
-                          "do_transfer" : [ true, true, true, true ]
+                          }
                         }
                       }
                     }
                   }
                 }
               }
-            }
+            },
+            "to_cpu" : true,
+            "do_transfer" : [ true, true, true, true ]
           }
         }
       }

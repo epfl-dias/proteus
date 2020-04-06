@@ -8,11 +8,11 @@
     },
     "attribute" : {
       "attrName" : "d_year",
-      "relName" : "__sort13887"
+      "relName" : "subsetPelagoProject#13478"
     },
     "register_as" : {
       "attrName" : "d_year",
-      "relName" : "print13888"
+      "relName" : "print13479"
     }
   }, {
     "expression" : "recordProjection",
@@ -21,11 +21,11 @@
     },
     "attribute" : {
       "attrName" : "s_city",
-      "relName" : "__sort13887"
+      "relName" : "subsetPelagoProject#13478"
     },
     "register_as" : {
       "attrName" : "s_city",
-      "relName" : "print13888"
+      "relName" : "print13479"
     }
   }, {
     "expression" : "recordProjection",
@@ -34,11 +34,11 @@
     },
     "attribute" : {
       "attrName" : "p_brand1",
-      "relName" : "__sort13887"
+      "relName" : "subsetPelagoProject#13478"
     },
     "register_as" : {
       "attrName" : "p_brand1",
-      "relName" : "print13888"
+      "relName" : "print13479"
     }
   }, {
     "expression" : "recordProjection",
@@ -47,151 +47,151 @@
     },
     "attribute" : {
       "attrName" : "profit",
-      "relName" : "__sort13887"
+      "relName" : "subsetPelagoProject#13478"
     },
     "register_as" : {
       "attrName" : "profit",
-      "relName" : "print13888"
+      "relName" : "print13479"
     }
   } ],
   "input" : {
-    "operator" : "sort",
-    "gpu" : false,
-    "rowType" : [ {
-      "relName" : "__sort13887",
-      "attrName" : "d_year"
-    }, {
-      "relName" : "__sort13887",
-      "attrName" : "s_city"
-    }, {
-      "relName" : "__sort13887",
-      "attrName" : "p_brand1"
-    }, {
-      "relName" : "__sort13887",
-      "attrName" : "profit"
-    } ],
+    "operator" : "project",
+    "relName" : "subsetPelagoProject#13478",
     "e" : [ {
-      "direction" : "ASC",
-      "expression" : {
-        "expression" : "recordProjection",
-        "e" : {
-          "expression" : "argument"
-        },
-        "attribute" : {
-          "attrName" : "d_year",
-          "relName" : "subsetPelagoProject#13886"
-        },
-        "register_as" : {
-          "attrName" : "d_year",
-          "relName" : "__sort13887"
-        }
+      "expression" : "recordProjection",
+      "e" : {
+        "expression" : "argument"
+      },
+      "attribute" : {
+        "attrName" : "d_year",
+        "relName" : "__sort13477"
+      },
+      "register_as" : {
+        "attrName" : "d_year",
+        "relName" : "subsetPelagoProject#13478"
       }
     }, {
-      "direction" : "ASC",
-      "expression" : {
-        "expression" : "recordProjection",
-        "e" : {
-          "expression" : "argument"
-        },
-        "attribute" : {
-          "attrName" : "s_city",
-          "relName" : "subsetPelagoProject#13886"
-        },
-        "register_as" : {
-          "attrName" : "s_city",
-          "relName" : "__sort13887"
-        }
+      "expression" : "recordProjection",
+      "e" : {
+        "expression" : "argument"
+      },
+      "attribute" : {
+        "attrName" : "s_city",
+        "relName" : "__sort13477"
+      },
+      "register_as" : {
+        "attrName" : "s_city",
+        "relName" : "subsetPelagoProject#13478"
       }
     }, {
-      "direction" : "ASC",
-      "expression" : {
-        "expression" : "recordProjection",
-        "e" : {
-          "expression" : "argument"
-        },
-        "attribute" : {
-          "attrName" : "p_brand1",
-          "relName" : "subsetPelagoProject#13886"
-        },
-        "register_as" : {
-          "attrName" : "p_brand1",
-          "relName" : "__sort13887"
-        }
+      "expression" : "recordProjection",
+      "e" : {
+        "expression" : "argument"
+      },
+      "attribute" : {
+        "attrName" : "p_brand1",
+        "relName" : "__sort13477"
+      },
+      "register_as" : {
+        "attrName" : "p_brand1",
+        "relName" : "subsetPelagoProject#13478"
       }
     }, {
-      "direction" : "NONE",
-      "expression" : {
-        "expression" : "recordProjection",
-        "e" : {
-          "expression" : "argument"
-        },
-        "attribute" : {
-          "attrName" : "profit",
-          "relName" : "subsetPelagoProject#13886"
-        },
-        "register_as" : {
-          "attrName" : "profit",
-          "relName" : "__sort13887"
-        }
+      "expression" : "recordProjection",
+      "e" : {
+        "expression" : "argument"
+      },
+      "attribute" : {
+        "attrName" : "profit",
+        "relName" : "__sort13477"
+      },
+      "register_as" : {
+        "attrName" : "profit",
+        "relName" : "subsetPelagoProject#13478"
       }
     } ],
-    "granularity" : "thread",
     "input" : {
-      "operator" : "project",
-      "relName" : "subsetPelagoProject#13886",
+      "operator" : "sort",
+      "gpu" : false,
+      "rowType" : [ {
+        "relName" : "__sort13477",
+        "attrName" : "d_year"
+      }, {
+        "relName" : "__sort13477",
+        "attrName" : "p_brand1"
+      }, {
+        "relName" : "__sort13477",
+        "attrName" : "s_city"
+      }, {
+        "relName" : "__sort13477",
+        "attrName" : "profit"
+      } ],
       "e" : [ {
-        "expression" : "recordProjection",
-        "e" : {
-          "expression" : "argument"
-        },
-        "attribute" : {
-          "attrName" : "d_year",
-          "relName" : "subsetPelagoProject#13886"
-        },
-        "register_as" : {
-          "attrName" : "d_year",
-          "relName" : "subsetPelagoProject#13886"
+        "direction" : "ASC",
+        "expression" : {
+          "expression" : "recordProjection",
+          "e" : {
+            "expression" : "argument"
+          },
+          "attribute" : {
+            "attrName" : "d_year",
+            "relName" : "subsetPelagoAggregate#13476"
+          },
+          "register_as" : {
+            "attrName" : "d_year",
+            "relName" : "__sort13477"
+          }
         }
       }, {
-        "expression" : "recordProjection",
-        "e" : {
-          "expression" : "argument"
-        },
-        "attribute" : {
-          "attrName" : "s_city",
-          "relName" : "subsetPelagoProject#13886"
-        },
-        "register_as" : {
-          "attrName" : "s_city",
-          "relName" : "subsetPelagoProject#13886"
+        "direction" : "ASC",
+        "expression" : {
+          "expression" : "recordProjection",
+          "e" : {
+            "expression" : "argument"
+          },
+          "attribute" : {
+            "attrName" : "s_city",
+            "relName" : "subsetPelagoAggregate#13476"
+          },
+          "register_as" : {
+            "attrName" : "s_city",
+            "relName" : "__sort13477"
+          }
         }
       }, {
-        "expression" : "recordProjection",
-        "e" : {
-          "expression" : "argument"
-        },
-        "attribute" : {
-          "attrName" : "p_brand1",
-          "relName" : "subsetPelagoProject#13886"
-        },
-        "register_as" : {
-          "attrName" : "p_brand1",
-          "relName" : "subsetPelagoProject#13886"
+        "direction" : "ASC",
+        "expression" : {
+          "expression" : "recordProjection",
+          "e" : {
+            "expression" : "argument"
+          },
+          "attribute" : {
+            "attrName" : "p_brand1",
+            "relName" : "subsetPelagoAggregate#13476"
+          },
+          "register_as" : {
+            "attrName" : "p_brand1",
+            "relName" : "__sort13477"
+          }
         }
       }, {
-        "expression" : "recordProjection",
-        "e" : {
-          "expression" : "argument"
-        },
-        "attribute" : {
-          "attrName" : "profit",
-          "relName" : "subsetPelagoProject#13886"
-        },
-        "register_as" : {
-          "attrName" : "profit",
-          "relName" : "subsetPelagoProject#13886"
+        "direction" : "NONE",
+        "expression" : {
+          "expression" : "recordProjection",
+          "e" : {
+            "expression" : "argument"
+          },
+          "attribute" : {
+            "attrName" : "profit",
+            "relName" : "subsetPelagoAggregate#13476"
+          },
+          "register_as" : {
+            "attrName" : "profit",
+            "relName" : "__sort13477"
+          }
         }
       } ],
+      "granularity" : "thread",
       "input" : {
         "operator" : "groupby",
         "gpu" : false,
@@ -202,11 +202,11 @@
           },
           "attribute" : {
             "attrName" : "d_year",
-            "relName" : "subsetPelagoJoin#13884"
+            "relName" : "subsetPelagoJoin#13475"
           },
           "register_as" : {
             "attrName" : "d_year",
-            "relName" : "subsetPelagoProject#13886"
+            "relName" : "subsetPelagoAggregate#13476"
           }
         }, {
           "expression" : "recordProjection",
@@ -215,11 +215,11 @@
           },
           "attribute" : {
             "attrName" : "p_brand1",
-            "relName" : "subsetPelagoJoin#13884"
+            "relName" : "subsetPelagoJoin#13475"
           },
           "register_as" : {
             "attrName" : "p_brand1",
-            "relName" : "subsetPelagoProject#13886"
+            "relName" : "subsetPelagoAggregate#13476"
           }
         }, {
           "expression" : "recordProjection",
@@ -228,11 +228,11 @@
           },
           "attribute" : {
             "attrName" : "s_city",
-            "relName" : "subsetPelagoJoin#13884"
+            "relName" : "subsetPelagoJoin#13475"
           },
           "register_as" : {
             "attrName" : "s_city",
-            "relName" : "subsetPelagoProject#13886"
+            "relName" : "subsetPelagoAggregate#13476"
           }
         } ],
         "e" : [ {
@@ -244,11 +244,11 @@
             },
             "attribute" : {
               "attrName" : "-",
-              "relName" : "subsetPelagoJoin#13884"
+              "relName" : "subsetPelagoJoin#13475"
             },
             "register_as" : {
               "attrName" : "profit",
-              "relName" : "subsetPelagoProject#13886"
+              "relName" : "subsetPelagoAggregate#13476"
             }
           },
           "packet" : 1,
@@ -269,7 +269,7 @@
             },
             "register_as" : {
               "attrName" : "$2",
-              "relName" : "subsetPelagoJoin#13884"
+              "relName" : "subsetPelagoJoin#13475"
             }
           },
           "build_input" : {
@@ -459,18 +459,18 @@
             },
             "attribute" : {
               "attrName" : "lo_orderdate",
-              "relName" : "subsetPelagoProject#13883"
+              "relName" : "subsetPelagoProject#13474"
             },
             "register_as" : {
               "attrName" : "$0",
-              "relName" : "subsetPelagoJoin#13884"
+              "relName" : "subsetPelagoJoin#13475"
             }
           },
           "hash_bits" : 13,
           "maxBuildInputSize" : 2556,
           "probe_input" : {
             "operator" : "project",
-            "relName" : "subsetPelagoProject#13883",
+            "relName" : "subsetPelagoProject#13474",
             "e" : [ {
               "expression" : "recordProjection",
               "e" : {
@@ -478,11 +478,11 @@
               },
               "attribute" : {
                 "attrName" : "lo_orderdate",
-                "relName" : "subsetPelagoProject#13883"
+                "relName" : "subsetPelagoProject#13474"
               },
               "register_as" : {
                 "attrName" : "lo_orderdate",
-                "relName" : "subsetPelagoProject#13883"
+                "relName" : "subsetPelagoProject#13474"
               }
             }, {
               "expression" : "recordProjection",
@@ -491,11 +491,11 @@
               },
               "attribute" : {
                 "attrName" : "p_brand1",
-                "relName" : "subsetPelagoProject#13883"
+                "relName" : "subsetPelagoProject#13474"
               },
               "register_as" : {
                 "attrName" : "p_brand1",
-                "relName" : "subsetPelagoProject#13883"
+                "relName" : "subsetPelagoProject#13474"
               }
             }, {
               "expression" : "recordProjection",
@@ -504,11 +504,11 @@
               },
               "attribute" : {
                 "attrName" : "s_city",
-                "relName" : "subsetPelagoProject#13883"
+                "relName" : "subsetPelagoProject#13474"
               },
               "register_as" : {
                 "attrName" : "s_city",
-                "relName" : "subsetPelagoProject#13883"
+                "relName" : "subsetPelagoProject#13474"
               }
             }, {
               "expression" : "recordProjection",
@@ -517,11 +517,11 @@
               },
               "attribute" : {
                 "attrName" : "-",
-                "relName" : "subsetPelagoProject#13883"
+                "relName" : "subsetPelagoProject#13474"
               },
               "register_as" : {
                 "attrName" : "-",
-                "relName" : "subsetPelagoProject#13883"
+                "relName" : "subsetPelagoProject#13474"
               }
             } ],
             "input" : {
@@ -533,16 +533,16 @@
                 },
                 "attribute" : {
                   "attrName" : "c_custkey",
-                  "relName" : "subsetPelagoProject#13869"
+                  "relName" : "subsetPelagoProject#13460"
                 },
                 "register_as" : {
                   "attrName" : "$1",
-                  "relName" : "subsetPelagoProject#13883"
+                  "relName" : "subsetPelagoProject#13474"
                 }
               },
               "build_input" : {
                 "operator" : "project",
-                "relName" : "subsetPelagoProject#13869",
+                "relName" : "subsetPelagoProject#13460",
                 "e" : [ {
                   "expression" : "recordProjection",
                   "e" : {
@@ -554,7 +554,7 @@
                   },
                   "register_as" : {
                     "attrName" : "c_custkey",
-                    "relName" : "subsetPelagoProject#13869"
+                    "relName" : "subsetPelagoProject#13460"
                   }
                 } ],
                 "input" : {
@@ -665,18 +665,18 @@
                 },
                 "attribute" : {
                   "attrName" : "lo_custkey",
-                  "relName" : "subsetPelagoProject#13881"
+                  "relName" : "subsetPelagoProject#13472"
                 },
                 "register_as" : {
                   "attrName" : "$0",
-                  "relName" : "subsetPelagoProject#13883"
+                  "relName" : "subsetPelagoProject#13474"
                 }
               },
               "hash_bits" : 23,
               "maxBuildInputSize" : 3000000,
               "probe_input" : {
                 "operator" : "project",
-                "relName" : "subsetPelagoProject#13881",
+                "relName" : "subsetPelagoProject#13472",
                 "e" : [ {
                   "expression" : "recordProjection",
                   "e" : {
@@ -684,11 +684,11 @@
                   },
                   "attribute" : {
                     "attrName" : "lo_custkey",
-                    "relName" : "subsetPelagoProject#13881"
+                    "relName" : "subsetPelagoProject#13472"
                   },
                   "register_as" : {
                     "attrName" : "lo_custkey",
-                    "relName" : "subsetPelagoProject#13881"
+                    "relName" : "subsetPelagoProject#13472"
                   }
                 }, {
                   "expression" : "recordProjection",
@@ -697,11 +697,11 @@
                   },
                   "attribute" : {
                     "attrName" : "lo_orderdate",
-                    "relName" : "subsetPelagoProject#13881"
+                    "relName" : "subsetPelagoProject#13472"
                   },
                   "register_as" : {
                     "attrName" : "lo_orderdate",
-                    "relName" : "subsetPelagoProject#13881"
+                    "relName" : "subsetPelagoProject#13472"
                   }
                 }, {
                   "expression" : "recordProjection",
@@ -710,11 +710,11 @@
                   },
                   "attribute" : {
                     "attrName" : "p_brand1",
-                    "relName" : "subsetPelagoProject#13881"
+                    "relName" : "subsetPelagoProject#13472"
                   },
                   "register_as" : {
                     "attrName" : "p_brand1",
-                    "relName" : "subsetPelagoProject#13881"
+                    "relName" : "subsetPelagoProject#13472"
                   }
                 }, {
                   "expression" : "recordProjection",
@@ -723,11 +723,11 @@
                   },
                   "attribute" : {
                     "attrName" : "s_city",
-                    "relName" : "subsetPelagoProject#13881"
+                    "relName" : "subsetPelagoProject#13472"
                   },
                   "register_as" : {
                     "attrName" : "s_city",
-                    "relName" : "subsetPelagoProject#13881"
+                    "relName" : "subsetPelagoProject#13472"
                   }
                 }, {
                   "expression" : "recordProjection",
@@ -736,11 +736,11 @@
                   },
                   "attribute" : {
                     "attrName" : "-",
-                    "relName" : "subsetPelagoProject#13881"
+                    "relName" : "subsetPelagoProject#13472"
                   },
                   "register_as" : {
                     "attrName" : "-",
-                    "relName" : "subsetPelagoProject#13881"
+                    "relName" : "subsetPelagoProject#13472"
                   }
                 } ],
                 "input" : {
@@ -752,16 +752,16 @@
                     },
                     "attribute" : {
                       "attrName" : "s_suppkey",
-                      "relName" : "subsetPelagoProject#13872"
+                      "relName" : "subsetPelagoProject#13463"
                     },
                     "register_as" : {
                       "attrName" : "$3",
-                      "relName" : "subsetPelagoProject#13881"
+                      "relName" : "subsetPelagoProject#13472"
                     }
                   },
                   "build_input" : {
                     "operator" : "project",
-                    "relName" : "subsetPelagoProject#13872",
+                    "relName" : "subsetPelagoProject#13463",
                     "e" : [ {
                       "expression" : "recordProjection",
                       "e" : {
@@ -773,7 +773,7 @@
                       },
                       "register_as" : {
                         "attrName" : "s_suppkey",
-                        "relName" : "subsetPelagoProject#13872"
+                        "relName" : "subsetPelagoProject#13463"
                       }
                     }, {
                       "expression" : "recordProjection",
@@ -786,7 +786,7 @@
                       },
                       "register_as" : {
                         "attrName" : "s_city",
-                        "relName" : "subsetPelagoProject#13872"
+                        "relName" : "subsetPelagoProject#13463"
                       }
                     } ],
                     "input" : {
@@ -893,18 +893,18 @@
                     },
                     "attribute" : {
                       "attrName" : "lo_suppkey",
-                      "relName" : "subsetPelagoProject#13879"
+                      "relName" : "subsetPelagoProject#13470"
                     },
                     "register_as" : {
                       "attrName" : "$0",
-                      "relName" : "subsetPelagoProject#13881"
+                      "relName" : "subsetPelagoProject#13472"
                     }
                   },
                   "hash_bits" : 19,
                   "maxBuildInputSize" : 200000,
                   "probe_input" : {
                     "operator" : "project",
-                    "relName" : "subsetPelagoProject#13879",
+                    "relName" : "subsetPelagoProject#13470",
                     "e" : [ {
                       "expression" : "recordProjection",
                       "e" : {
@@ -912,11 +912,11 @@
                       },
                       "attribute" : {
                         "attrName" : "lo_custkey",
-                        "relName" : "subsetPelagoProject#13879"
+                        "relName" : "subsetPelagoProject#13470"
                       },
                       "register_as" : {
                         "attrName" : "lo_custkey",
-                        "relName" : "subsetPelagoProject#13879"
+                        "relName" : "subsetPelagoProject#13470"
                       }
                     }, {
                       "expression" : "recordProjection",
@@ -925,11 +925,11 @@
                       },
                       "attribute" : {
                         "attrName" : "lo_suppkey",
-                        "relName" : "subsetPelagoProject#13879"
+                        "relName" : "subsetPelagoProject#13470"
                       },
                       "register_as" : {
                         "attrName" : "lo_suppkey",
-                        "relName" : "subsetPelagoProject#13879"
+                        "relName" : "subsetPelagoProject#13470"
                       }
                     }, {
                       "expression" : "recordProjection",
@@ -938,11 +938,11 @@
                       },
                       "attribute" : {
                         "attrName" : "lo_orderdate",
-                        "relName" : "subsetPelagoProject#13879"
+                        "relName" : "subsetPelagoProject#13470"
                       },
                       "register_as" : {
                         "attrName" : "lo_orderdate",
-                        "relName" : "subsetPelagoProject#13879"
+                        "relName" : "subsetPelagoProject#13470"
                       }
                     }, {
                       "expression" : "recordProjection",
@@ -951,11 +951,11 @@
                       },
                       "attribute" : {
                         "attrName" : "p_brand1",
-                        "relName" : "subsetPelagoProject#13879"
+                        "relName" : "subsetPelagoProject#13470"
                       },
                       "register_as" : {
                         "attrName" : "p_brand1",
-                        "relName" : "subsetPelagoProject#13879"
+                        "relName" : "subsetPelagoProject#13470"
                       }
                     }, {
                       "expression" : "recordProjection",
@@ -964,11 +964,11 @@
                       },
                       "attribute" : {
                         "attrName" : "-",
-                        "relName" : "subsetPelagoProject#13879"
+                        "relName" : "subsetPelagoProject#13470"
                       },
                       "register_as" : {
                         "attrName" : "-",
-                        "relName" : "subsetPelagoProject#13879"
+                        "relName" : "subsetPelagoProject#13470"
                       }
                     } ],
                     "input" : {
@@ -980,16 +980,16 @@
                         },
                         "attribute" : {
                           "attrName" : "p_partkey",
-                          "relName" : "subsetPelagoProject#13875"
+                          "relName" : "subsetPelagoProject#13466"
                         },
                         "register_as" : {
                           "attrName" : "$3",
-                          "relName" : "subsetPelagoProject#13879"
+                          "relName" : "subsetPelagoProject#13470"
                         }
                       },
                       "build_input" : {
                         "operator" : "project",
-                        "relName" : "subsetPelagoProject#13875",
+                        "relName" : "subsetPelagoProject#13466",
                         "e" : [ {
                           "expression" : "recordProjection",
                           "e" : {
@@ -1001,7 +1001,7 @@
                           },
                           "register_as" : {
                             "attrName" : "p_partkey",
-                            "relName" : "subsetPelagoProject#13875"
+                            "relName" : "subsetPelagoProject#13466"
                           }
                         }, {
                           "expression" : "recordProjection",
@@ -1014,7 +1014,7 @@
                           },
                           "register_as" : {
                             "attrName" : "p_brand1",
-                            "relName" : "subsetPelagoProject#13875"
+                            "relName" : "subsetPelagoProject#13466"
                           }
                         } ],
                         "input" : {
@@ -1142,18 +1142,18 @@
                         },
                         "attribute" : {
                           "attrName" : "lo_partkey",
-                          "relName" : "subsetPelagoProject#13877"
+                          "relName" : "subsetPelagoProject#13468"
                         },
                         "register_as" : {
                           "attrName" : "$0",
-                          "relName" : "subsetPelagoProject#13879"
+                          "relName" : "subsetPelagoProject#13470"
                         }
                       },
                       "hash_bits" : 22,
                       "maxBuildInputSize" : 1400000,
                       "probe_input" : {
                         "operator" : "project",
-                        "relName" : "subsetPelagoProject#13877",
+                        "relName" : "subsetPelagoProject#13468",
                         "e" : [ {
                           "expression" : "recordProjection",
                           "e" : {
@@ -1165,7 +1165,7 @@
                           },
                           "register_as" : {
                             "attrName" : "lo_custkey",
-                            "relName" : "subsetPelagoProject#13877"
+                            "relName" : "subsetPelagoProject#13468"
                           }
                         }, {
                           "expression" : "recordProjection",
@@ -1178,7 +1178,7 @@
                           },
                           "register_as" : {
                             "attrName" : "lo_partkey",
-                            "relName" : "subsetPelagoProject#13877"
+                            "relName" : "subsetPelagoProject#13468"
                           }
                         }, {
                           "expression" : "recordProjection",
@@ -1191,7 +1191,7 @@
                           },
                           "register_as" : {
                             "attrName" : "lo_suppkey",
-                            "relName" : "subsetPelagoProject#13877"
+                            "relName" : "subsetPelagoProject#13468"
                           }
                         }, {
                           "expression" : "recordProjection",
@@ -1204,7 +1204,7 @@
                           },
                           "register_as" : {
                             "attrName" : "lo_orderdate",
-                            "relName" : "subsetPelagoProject#13877"
+                            "relName" : "subsetPelagoProject#13468"
                           }
                         }, {
                           "expression" : "sub",
@@ -1230,7 +1230,7 @@
                           },
                           "register_as" : {
                             "attrName" : "-",
-                            "relName" : "subsetPelagoProject#13877"
+                            "relName" : "subsetPelagoProject#13468"
                           }
                         } ],
                         "input" : {
