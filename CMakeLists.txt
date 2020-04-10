@@ -19,7 +19,10 @@ option(STANDALONE "If ON, installs required subprojects. Otherwise the parent pr
 # the Ubuntu cmake module file is incorrect for our use case.
 
 if (DEFINED LLVM_VERSION_SUFFIX)
+	set(LLVM_REQUIRED_VERSION "${LLVM_VERSION_SUFFIX}")
 	set(LLVM_VERSION_SUFFIX "-${LLVM_VERSION_SUFFIX}")
+else()
+	set(LLVM_REQUIRED_VERSION 10)
 endif()
 
 # FIXME: Should we use find_pacakge and ${LLVM_TOOLS_BINARY_DIR} to find clang?
@@ -154,6 +157,7 @@ string(STRIP "${WARNING_FLAGS} -Wno-vla" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-vla-extension" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-weak-vtables" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-atomic-implicit-seq-cst" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-unknown-cuda-version" WARNING_FLAGS)
 
 string(STRIP "${WARNING_FLAGS} -Wno-zero-length-array" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-packed" WARNING_FLAGS)
@@ -166,7 +170,7 @@ string(STRIP "${WARNING_FLAGS} -Wno-shift-sign-overflow" WARNING_FLAGS)
 string(STRIP "${CMAKE_CXX_FLAGS} ${COMPILER_FLAGS}" CMAKE_CXX_FLAGS)
 string(STRIP "${CMAKE_C_FLAGS} ${COMPILER_FLAGS}" CMAKE_C_FLAGS)
 
-find_package(LLVM REQUIRED VERSION 9 CONFIG)
+find_package(LLVM REQUIRED VERSION ${LLVM_REQUIRED_VERSION} CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
@@ -180,9 +184,10 @@ else() 						 # Usually in LLVM dev mode or Pelago
 	# If no, we can link with only the required components
 	# LLVM APIs we use
 	#set(LLVM_COMPONENTS aggressiveinstcombine all all-targets analysis asmparser asmprinter binaryformat bitreader bitwriter codegen core coroutines coverage debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb demangle dlltooldriver engine executionengine fuzzmutate globalisel instcombine instrumentation inteljitevents interpreter ipo irreader libdriver lineeditor linker lto mc mcdisassembler mcjit mcparser mirparser native nativecodegen nvptx nvptxasmprinter nvptxcodegen nvptxdesc nvptxinfo objcarcopts object objectyaml option orcjit passes profiledata runtimedyld scalaropts selectiondag support symbolize tablegen target transformutils vectorize windowsmanifest x86 x86asmparser x86asmprinter x86codegen x86desc x86disassembler x86info x86utils)
-	set(LLVM_COMPONENTS all)
-
-	llvm_map_components_to_libnames(llvm_libs ${LLVM_COMPONENTS})
+#	set(LLVM_COMPONENTS all)
+#
+#	llvm_map_components_to_libnames(llvm_libs ${LLVM_COMPONENTS})
+	set(llvm_libs ${LLVM_AVAILABLE_LIBS})
 endif()
 message(STATUS "Linking with LLVM components: ${llvm_libs}")
 

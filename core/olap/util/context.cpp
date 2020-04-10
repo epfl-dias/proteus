@@ -88,7 +88,10 @@ addOptimizerPipelineVectorization(legacy::FunctionPassManager *TheFPM) {
   TheFPM->add(createSLPVectorizerPass());
 }
 
-const char *Context::getName() { return TheModule->getName().str().c_str(); }
+// FIXME: memory leak
+const char *Context::getName() {
+  return (new std::string{TheModule->getName().str()})->c_str();
+}
 
 Context::Context(const string &moduleName, bool setGlobFunction)
     : moduleName(moduleName) {

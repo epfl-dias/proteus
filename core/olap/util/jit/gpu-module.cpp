@@ -295,12 +295,11 @@ void GpuModule::compileAndLoad() {
     llvm::legacy::PassManager PM;
 
     // Ask the target to add backend passes as necessary.
-    TheTargetMachine->addPassesToEmitFile(
-        PM, ostream,
+    TheTargetMachine->addPassesToEmitFile(PM, ostream,
 #if LLVM_VERSION_MAJOR >= 7
-        nullptr,
+                                          nullptr,
 #endif
-        llvm::TargetMachine::CGFT_AssemblyFile, false);
+                                          llvm::CGFT_AssemblyFile, false);
 
     PM.run(*(getModule()));
   }  // flushes stream and ostream

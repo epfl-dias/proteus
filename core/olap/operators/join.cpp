@@ -23,6 +23,8 @@
 
 #include "operators/join.hpp"
 
+#include <llvm/Support/Alignment.h>
+
 using namespace llvm;
 
 void Join::produce_(ParallelContext *context) {
@@ -209,15 +211,15 @@ void Join::consume(Context *const context, const OperatorState &childState) {
     BasicBlock *codeSpot = Builder->GetInsertBlock();
     AllocaInst *ptr_i = context->createAlloca(
         codeSpot, "i_mem", IntegerType::get(llvmContext, 32));
-    ptr_i->setAlignment(4);
+    ptr_i->setAlignment(llvm::MaybeAlign(4));
     StoreInst *store_i =
         new StoreInst(context->createInt32(0), ptr_i, false, codeSpot);
-    store_i->setAlignment(4);
+    store_i->setAlignment(llvm::MaybeAlign(4));
     Builder->CreateBr(loopCond);
 
     // CONDITION OF RESULT LOOP
     LoadInst *load_cnt = new LoadInst(ptr_i, "", false);
-    load_cnt->setAlignment(4);
+    load_cnt->setAlignment(llvm::MaybeAlign(4));
     loopCond->getInstList().push_back(load_cnt);
     CastInst *int64_idxprom =
         new SExtInst(load_cnt, IntegerType::get(llvmContext, 64), "idxprom");
@@ -229,7 +231,7 @@ void Join::consume(Context *const context, const OperatorState &childState) {
         int64_idxprom, "arrayidx");
     loopCond->getInstList().push_back(ptr_arrayidx);
     LoadInst *arrayShifted = new LoadInst(ptr_arrayidx, "", false);
-    arrayShifted->setAlignment(8);
+    arrayShifted->setAlignment(llvm::MaybeAlign(8));
     loopCond->getInstList().push_back(arrayShifted);
     // Ending condition: current position in result array is nullptr
     ICmpInst *int_cmp = new ICmpInst(*loopCond, ICmpInst::ICMP_NE, arrayShifted,
@@ -238,7 +240,7 @@ void Join::consume(Context *const context, const OperatorState &childState) {
 
     // BODY OF RESULT LOOP
     LoadInst *load_cnt_body = new LoadInst(ptr_i, "", false, loopBody);
-    load_cnt_body->setAlignment(4);
+    load_cnt_body->setAlignment(llvm::MaybeAlign(4));
     CastInst *int64_idxprom_body = new SExtInst(
         load_cnt_body, IntegerType::get(context->getLLVMContext(), 64),
         "idxprom1", loopBody);
@@ -247,7 +249,7 @@ void Join::consume(Context *const context, const OperatorState &childState) {
         "arrayidx2", loopBody);
     LoadInst *arrayShiftedBody =
         new LoadInst(ptr_arrayidx_body, "", false, loopBody);
-    arrayShiftedBody->setAlignment(8);
+    arrayShiftedBody->setAlignment(llvm::MaybeAlign(8));
 
     // Result (payload) type and appropriate casts
     Type *structType = Catalog::getInstance().getTypeInternal(typeIdx);
@@ -259,7 +261,7 @@ void Join::consume(Context *const context, const OperatorState &childState) {
         TheFunction, string("htValue"), structPtrType);
     StoreInst *store_result =
         new StoreInst(result_cast, ptr_result, false, loopBody);
-    store_result->setAlignment(8);
+    store_result->setAlignment(llvm::MaybeAlign(8));
 
     // Need to store each part of result --> Not the overall struct, just the
     // components
@@ -350,11 +352,11 @@ void Join::consume(Context *const context, const OperatorState &childState) {
 
     // Block for.inc (label_for_inc)
     LoadInst *cnt_curr = new LoadInst(ptr_i, "", false, loopInc);
-    cnt_curr->setAlignment(4);
+    cnt_curr->setAlignment(llvm::MaybeAlign(4));
     auto cnt_inc1 = llvm::BinaryOperator::Create(
         Instruction::Add, cnt_curr, context->createInt32(1), "i_inc", loopInc);
     StoreInst *store_cnt = new StoreInst(cnt_inc1, ptr_i, false, loopInc);
-    store_cnt->setAlignment(4);
+    store_cnt->setAlignment(llvm::MaybeAlign(4));
 
     BranchInst::Create(loopCond, loopInc);
 

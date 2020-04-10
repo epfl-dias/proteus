@@ -52,6 +52,16 @@ void Split::open(Pipeline *pip) {
   std::lock_guard<std::mutex> guard(init_mutex);
 
   if (firers.empty()) {
+    free_pool = new std::stack<void *>[fanout];
+    free_pool_mutex = new std::mutex[fanout];
+    free_pool_cv = new std::condition_variable[fanout];
+    ready_fifo = new AsyncQueueMPSC<void *>[fanout];
+    assert(free_pool);
+
+    for (int i = 0; i < fanout; ++i) {
+      ready_fifo[i].reset();
+    }
+
     remaining_producers = producers;
     for (int i = 0; i < fanout; ++i) {
       firers.emplace_back(&Split::fire, this, i, catch_pip[i]);

@@ -47,12 +47,10 @@ class OperatorState {
   const ProteusValueMemory &operator[](const RecordAttribute &key) const {
     try {
       return activeVariables.at(key);
-    } catch (std::out_of_range) {
-      LOG(INFO) << "Looking for: " << key.getRelationName() << "."
-                << key.getAttrName();
-      for (auto v : activeVariables) {
-        LOG(INFO) << "  Active binding: " << v.first.getRelationName() << "."
-                  << v.first.getAttrName();
+    } catch (std::out_of_range &) {
+      LOG(INFO) << "Looking for: " << key;
+      for (const auto &v : activeVariables) {
+        LOG(INFO) << "  Active binding: " << v.first;
       }
       throw;
     }

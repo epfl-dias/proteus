@@ -23,6 +23,8 @@
 
 #include "gpu-pipeline.hpp"
 
+#include <llvm/IR/IntrinsicsNVPTX.h>
+
 #include "topology/topology.hpp"
 #include "util/gpu/gpu-intrinsics.hpp"
 #include "util/jit/cpu-pipeline.hpp"

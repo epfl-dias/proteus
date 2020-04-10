@@ -1,6 +1,6 @@
 #############################################################################
 # gitlab-runner:docker executor options
-image: chapeiro/pelago-build:cuda10.1-llvm9
+image: chapeiro/pelago-build:cuda10.2-llvm10
 
 #############################################################################
 variables:

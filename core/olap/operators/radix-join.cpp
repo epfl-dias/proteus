@@ -170,7 +170,7 @@ void RadixJoinBuild::initializeState() {
             Builder->CreateCall(getMemChunk, context->createSizeT(kvSize));
         mem_rel = Builder->CreateBitCast(mem_rel, htEntryPtrType);
         StoreInst *store_ht = Builder->CreateStore(mem_rel, mem_ptr);
-        store_ht->setAlignment(8);
+        store_ht->setAlignment(llvm::MaybeAlign(8));
         return mem_ptr;
       },
       [=](llvm::Value *pip, llvm::Value *s) {
@@ -456,7 +456,7 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     context->CreateIfBlock(F, "IfHTFullCond", &ifHTFull, endBlockHTFull);
 
     LoadInst *val_ht = Builder->CreateLoad(context->getStateVar(ht.mem_kv_id));
-    val_ht->setAlignment(8);
+    val_ht->setAlignment(llvm::MaybeAlign(8));
 
     Value *offsetInHT =
         Builder->CreateLoad(context->getStateVar(ht.mem_offset_id));
@@ -497,7 +497,7 @@ void RadixJoinBuild::consume(ParallelContext *const context,
 
     /* Repeat load - realloc() might have occurred */
     val_ht = Builder->CreateLoad(context->getStateVar(ht.mem_kv_id));
-    val_ht->setAlignment(8);
+    val_ht->setAlignment(llvm::MaybeAlign(8));
 
     val_size = Builder->CreateLoad(context->getStateVar(ht.mem_size_id));
 
@@ -514,7 +514,7 @@ void RadixJoinBuild::consume(ParallelContext *const context,
 
     Value *structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
     StoreInst *store_key = Builder->CreateStore(key.value, structPtr);
-    store_key->setAlignment(4);
+    store_key->setAlignment(llvm::MaybeAlign(4));
 
     /* 2b. kv_cast->payloadPtr = &payload */
     offsetInStruct = 1;
@@ -525,7 +525,7 @@ void RadixJoinBuild::consume(ParallelContext *const context,
 
     StoreInst *store_payloadPtr =
         Builder->CreateStore(offsetInArena, structPtr);
-    store_payloadPtr->setAlignment(8);
+    store_payloadPtr->setAlignment(llvm::MaybeAlign(8));
 
     /* 4. Increment counts - both Rel and HT */
     Builder->CreateStore(offsetPlusPayload,

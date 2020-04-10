@@ -1660,7 +1660,6 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
 
   /* Preparing Cache Attempt */
   /* XXX Very silly conversion */
-  list<RecordAttribute *>::iterator attrIter = rec.getArgs().begin();
   list<RecordAttribute> attrList;
   RecordAttribute projTuple =
       RecordAttribute(fname, activeLoop, this->getOIDType());

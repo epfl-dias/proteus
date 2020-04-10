@@ -23,6 +23,8 @@
 
 #include "operators/materializer-expr.hpp"
 
+#include <llvm/Support/Alignment.h>
+
 using namespace llvm;
 
 ExprMaterializer::ExprMaterializer(expressions::Expression *toMat,
@@ -54,7 +56,7 @@ ExprMaterializer::ExprMaterializer(expressions::Expression *toMat,
   /* Request memory to store relation R             */
   opBuffer.mem_buffer =
       context->CreateEntryBlockAlloca(F, string("cacheBuffer"), char_ptr_type);
-  (opBuffer.mem_buffer)->setAlignment(8);
+  (opBuffer.mem_buffer)->setAlignment(llvm::MaybeAlign(8));
   opBuffer.mem_tuplesNo =
       context->CreateEntryBlockAlloca(F, string("tuplesR"), int64_type);
   opBuffer.mem_size =
@@ -144,7 +146,7 @@ ExprMaterializer::ExprMaterializer(expressions::Expression *toMat, int linehint,
   /* Request memory to store relation R             */
   opBuffer.mem_buffer =
       context->CreateEntryBlockAlloca(F, string("cacheBuffer"), char_ptr_type);
-  (opBuffer.mem_buffer)->setAlignment(8);
+  (opBuffer.mem_buffer)->setAlignment(llvm::MaybeAlign(8));
   opBuffer.mem_tuplesNo =
       context->CreateEntryBlockAlloca(F, string("tuplesR"), int64_type);
   opBuffer.mem_size =

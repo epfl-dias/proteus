@@ -709,9 +709,6 @@ class RecordConstruction : public ExpressionCRTP<RecordConstruction> {
 
 class IfThenElse : public ExpressionCRTP<IfThenElse> {
  public:
-  [[deprecated]] IfThenElse(const ExpressionType *type, Expression *expr1,
-                            Expression *expr2, Expression *expr3)
-      : ExpressionCRTP(type), expr1(expr1), expr2(expr2), expr3(expr3) {}
   IfThenElse(expression_t expr1, expression_t expr2, expression_t expr3)
       : ExpressionCRTP(expr2.getExpressionType()),
         expr1(std::move(expr1)),
@@ -1333,7 +1330,8 @@ inline expressions::RecordProjection expression_t::operator[](
     try {
       auto index = std::stoi(proj.getAttrName().substr(1));
       if (index >= 0 && index < rec->getArgs().size()) {
-        auto it = rec->getArgs().begin();
+        auto args = rec->getArgs();
+        auto it = args.begin();
         std::advance(it, index);
         return {*this, **it};
       }
@@ -1500,14 +1498,14 @@ expressions::ExprVisitorVisitable<T, Interface>::operator expression_t() const {
 
 template <typename T, typename Interface>
 expressions::RefExpression
-    expressions::ExprVisitorVisitable<T, Interface>::operator*() const {
+expressions::ExprVisitorVisitable<T, Interface>::operator*() const {
   return *static_cast<expression_t>(*this);
 }
 
 template <typename T, typename Interface>
 expressions::RefExpression
-    expressions::ExprVisitorVisitable<T, Interface>::operator[](
-        expression_t index) const {
+expressions::ExprVisitorVisitable<T, Interface>::operator[](
+    expression_t index) const {
   LOG(INFO) << "here " << typeid(T).name();
   return static_cast<expression_t>(*this)[index];
 }

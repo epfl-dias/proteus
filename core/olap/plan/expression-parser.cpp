@@ -86,9 +86,8 @@ int lookupInDictionary(string s, const rapidjson::Value &val) {
     rapidjson::Document document;  // Default template parameter uses UTF8 and
     // MemoryPoolAllocator.
     if (document.Parse(bufJSON).HasParseError()) {
-      const char *err = (string("[CatalogParser: ] Error parsing dictionary ") +
-                         string(val["path"].GetString()))
-                            .c_str();
+      auto err = std::string{"[CatalogParser: ] Error parsing dictionary "} +
+                 val["path"].GetString();
       LOG(ERROR) << err;
       throw runtime_error(err);
     }

@@ -208,7 +208,6 @@ void BinaryColPlugin::init() {
   Function *F = Builder->GetInsertBlock()->getParent();
 
   /* XXX Very silly conversion */
-  list<RecordAttribute *>::iterator attrIter = rec.getArgs().begin();
   list<RecordAttribute> attrList;
   RecordAttribute projTuple =
       RecordAttribute(fnamePrefix, activeLoop, this->getOIDType());

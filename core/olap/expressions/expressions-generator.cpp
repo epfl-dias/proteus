@@ -766,33 +766,33 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
     // Block entry (label_entry)
     AllocaInst *ptr_retval =
         context->createAlloca(label_entry, "retval", int32Ty);
-    ptr_retval->setAlignment(4);
+    ptr_retval->setAlignment(llvm::MaybeAlign(4));
     AllocaInst *ptr_s1_addr =
         context->createAlloca(label_entry, "s1.addr", PointerTy_1);
-    ptr_s1_addr->setAlignment(8);
+    ptr_s1_addr->setAlignment(llvm::MaybeAlign(8));
     AllocaInst *ptr_s2_addr =
         context->createAlloca(label_entry, "s2.addr", PointerTy_1);
-    ptr_s2_addr->setAlignment(8);
+    ptr_s2_addr->setAlignment(llvm::MaybeAlign(8));
     AllocaInst *ptr_n1_addr =
         context->createAlloca(label_entry, "n1.addr", int32Ty);
-    ptr_n1_addr->setAlignment(4);
+    ptr_n1_addr->setAlignment(llvm::MaybeAlign(4));
     AllocaInst *ptr_n2_addr =
         context->createAlloca(label_entry, "n2.addr", int32Ty);
-    ptr_n2_addr->setAlignment(4);
+    ptr_n2_addr->setAlignment(llvm::MaybeAlign(4));
     StoreInst *void_7 = new StoreInst(ptr_s1, ptr_s1_addr, false, label_entry);
-    void_7->setAlignment(8);
+    void_7->setAlignment(llvm::MaybeAlign(8));
     StoreInst *void_8 = new StoreInst(ptr_s2, ptr_s2_addr, false, label_entry);
-    void_8->setAlignment(8);
+    void_8->setAlignment(llvm::MaybeAlign(8));
     StoreInst *void_9 =
         new StoreInst(int32_n1, ptr_n1_addr, false, label_entry);
-    void_9->setAlignment(4);
+    void_9->setAlignment(llvm::MaybeAlign(4));
     StoreInst *void_10 =
         new StoreInst(int32_n2, ptr_n2_addr, false, label_entry);
-    void_10->setAlignment(4);
+    void_10->setAlignment(llvm::MaybeAlign(4));
     LoadInst *int32_11 = new LoadInst(ptr_n1_addr, "", false, label_entry);
-    int32_11->setAlignment(4);
+    int32_11->setAlignment(llvm::MaybeAlign(4));
     LoadInst *int32_12 = new LoadInst(ptr_n2_addr, "", false, label_entry);
-    int32_12->setAlignment(4);
+    int32_12->setAlignment(llvm::MaybeAlign(4));
     ICmpInst *int1_cmp = new ICmpInst(*label_entry, ICmpInst::ICMP_NE, int32_11,
                                       int32_12, "cmp");
     BranchInst::Create(label_if_then, label_if_end, int1_cmp, label_entry);
@@ -800,7 +800,7 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
     // Block if.then (label_if_then)
     StoreInst *void_14 =
         new StoreInst(const_int32_5, ptr_retval, false, label_if_then);
-    void_14->setAlignment(4);
+    void_14->setAlignment(llvm::MaybeAlign(4));
     BranchInst::Create(label_return, label_if_then);
 
     // Block if.end (label_if_end)
@@ -808,7 +808,7 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
 
     // Block for.cond (label_for_cond)
     LoadInst *int32_17 = new LoadInst(ptr_n1_addr, "", false, label_for_cond);
-    int32_17->setAlignment(4);
+    int32_17->setAlignment(llvm::MaybeAlign(4));
     ICmpInst *int1_cmp1 = new ICmpInst(*label_for_cond, ICmpInst::ICMP_SGT,
                                        int32_17, const_int32_6, "cmp1");
     BranchInst::Create(label_for_body, label_for_end, int1_cmp1,
@@ -816,16 +816,16 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
 
     // Block for.body (label_for_body)
     LoadInst *ptr_19 = new LoadInst(ptr_s1_addr, "", false, label_for_body);
-    ptr_19->setAlignment(8);
+    ptr_19->setAlignment(llvm::MaybeAlign(8));
     LoadInst *int8_20 = new LoadInst(ptr_19, "", false, label_for_body);
-    int8_20->setAlignment(1);
+    int8_20->setAlignment(llvm::MaybeAlign(1));
     CastInst *int32_conv =
         new SExtInst(int8_20, IntegerType::get(mod->getContext(), 32), "conv",
                      label_for_body);
     LoadInst *ptr_21 = new LoadInst(ptr_s2_addr, "", false, label_for_body);
-    ptr_21->setAlignment(8);
+    ptr_21->setAlignment(llvm::MaybeAlign(8));
     LoadInst *int8_22 = new LoadInst(ptr_21, "", false, label_for_body);
-    int8_22->setAlignment(1);
+    int8_22->setAlignment(llvm::MaybeAlign(1));
     CastInst *int32_conv2 =
         new SExtInst(int8_22, IntegerType::get(mod->getContext(), 32), "conv2",
                      label_for_body);
@@ -836,16 +836,16 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
 
     // Block if.then5 (label_if_then5)
     LoadInst *ptr_24 = new LoadInst(ptr_s1_addr, "", false, label_if_then5);
-    ptr_24->setAlignment(8);
+    ptr_24->setAlignment(llvm::MaybeAlign(8));
     LoadInst *int8_25 = new LoadInst(ptr_24, "", false, label_if_then5);
-    int8_25->setAlignment(1);
+    int8_25->setAlignment(llvm::MaybeAlign(1));
     CastInst *int32_conv6 =
         new ZExtInst(int8_25, IntegerType::get(mod->getContext(), 32), "conv6",
                      label_if_then5);
     LoadInst *ptr_26 = new LoadInst(ptr_s2_addr, "", false, label_if_then5);
-    ptr_26->setAlignment(8);
+    ptr_26->setAlignment(llvm::MaybeAlign(8));
     LoadInst *int8_27 = new LoadInst(ptr_26, "", false, label_if_then5);
-    int8_27->setAlignment(1);
+    int8_27->setAlignment(llvm::MaybeAlign(1));
     CastInst *int32_conv7 =
         new ZExtInst(int8_27, IntegerType::get(mod->getContext(), 32), "conv7",
                      label_if_then5);
@@ -855,14 +855,14 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
         int1_cmp8, const_int32_5, const_int32_4, "cond", label_if_then5);
     StoreInst *void_28 =
         new StoreInst(int32_cond, ptr_retval, false, label_if_then5);
-    void_28->setAlignment(4);
+    void_28->setAlignment(llvm::MaybeAlign(4));
     BranchInst::Create(label_return, label_if_then5);
 
     // Block if.else (label_if_else)
     LoadInst *ptr_30 = new LoadInst(ptr_s1_addr, "", false, label_if_else);
-    ptr_30->setAlignment(8);
+    ptr_30->setAlignment(llvm::MaybeAlign(8));
     LoadInst *int8_31 = new LoadInst(ptr_30, "", false, label_if_else);
-    int8_31->setAlignment(1);
+    int8_31->setAlignment(llvm::MaybeAlign(1));
     CastInst *int32_conv10 =
         new SExtInst(int8_31, IntegerType::get(mod->getContext(), 32), "conv10",
                      label_if_else);
@@ -874,7 +874,7 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
     // Block if.then13 (label_if_then13)
     StoreInst *void_33 =
         new StoreInst(const_int32_6, ptr_retval, false, label_if_then13);
-    void_33->setAlignment(4);
+    void_33->setAlignment(llvm::MaybeAlign(4));
     BranchInst::Create(label_return, label_if_then13);
 
     // Block if.end14 (label_if_end14)
@@ -885,49 +885,49 @@ void ExpressionGeneratorVisitor::declareLLVMFunc() {
 
     // Block for.inc (label_for_inc)
     LoadInst *ptr_37 = new LoadInst(ptr_s1_addr, "", false, label_for_inc);
-    ptr_37->setAlignment(8);
+    ptr_37->setAlignment(llvm::MaybeAlign(8));
     GetElementPtrInst *ptr_incdec_ptr = GetElementPtrInst::Create(
         IntegerTy_1, ptr_37, const_int32_4, "incdec.ptr", label_for_inc);
     StoreInst *void_38 =
         new StoreInst(ptr_incdec_ptr, ptr_s1_addr, false, label_for_inc);
-    void_38->setAlignment(8);
+    void_38->setAlignment(llvm::MaybeAlign(8));
     LoadInst *ptr_39 = new LoadInst(ptr_s2_addr, "", false, label_for_inc);
-    ptr_39->setAlignment(8);
+    ptr_39->setAlignment(llvm::MaybeAlign(8));
     GetElementPtrInst *ptr_incdec_ptr16 = GetElementPtrInst::Create(
         IntegerTy_1, ptr_39, const_int32_4, "incdec.ptr16", label_for_inc);
     StoreInst *void_40 =
         new StoreInst(ptr_incdec_ptr16, ptr_s2_addr, false, label_for_inc);
-    void_40->setAlignment(8);
+    void_40->setAlignment(llvm::MaybeAlign(8));
     LoadInst *int32_41 = new LoadInst(ptr_n1_addr, "", false, label_for_inc);
-    int32_41->setAlignment(4);
+    int32_41->setAlignment(llvm::MaybeAlign(4));
     auto int32_dec = llvm::BinaryOperator::Create(
         Instruction::Add, int32_41, const_int32_5, "dec", label_for_inc);
     StoreInst *void_42 =
         new StoreInst(int32_dec, ptr_n1_addr, false, label_for_inc);
-    void_42->setAlignment(4);
+    void_42->setAlignment(llvm::MaybeAlign(4));
     BranchInst::Create(label_for_cond, label_for_inc);
 
     // Block for.end (label_for_end)
     StoreInst *void_44 =
         new StoreInst(const_int32_6, ptr_retval, false, label_for_end);
-    void_44->setAlignment(4);
+    void_44->setAlignment(llvm::MaybeAlign(4));
     BranchInst::Create(label_return, label_for_end);
 
     // Block return (label_return)
     LoadInst *int32_46 = new LoadInst(ptr_retval, "", false, label_return);
-    int32_46->setAlignment(4);
+    int32_46->setAlignment(llvm::MaybeAlign(4));
     ReturnInst::Create(mod->getContext(), int32_46, label_return);
   }
 
   /* Calling convention */
   //      AllocaInst* ptr_xx = new AllocaInst(PointerTy_1, "xx",
-  //      label_entry_51); ptr_xx->setAlignment(8); AllocaInst* ptr_yy = new
-  //      AllocaInst(PointerTy_1, "yy", label_entry_51);
-  //      ptr_yy->setAlignment(8);
-  //      LoadInst* ptr_52 = new LoadInst(ptr_xx, "", false, label_entry_51);
-  //      ptr_52->setAlignment(8);
+  //      label_entry_51); ptr_xx->setAlignment(llvm::MaybeAlign(8));
+  //      AllocaInst* ptr_yy = new AllocaInst(PointerTy_1, "yy",
+  //      label_entry_51); ptr_yy->setAlignment(llvm::MaybeAlign(8)); LoadInst*
+  //      ptr_52 = new LoadInst(ptr_xx, "", false, label_entry_51);
+  //      ptr_52->setAlignment(llvm::MaybeAlign(8));
   //      LoadInst* ptr_53 = new LoadInst(ptr_yy, "", false, label_entry_51);
-  //      ptr_53->setAlignment(8);
+  //      ptr_53->setAlignment(llvm::MaybeAlign(8));
   //      std::vector<Value*> int32_call_params;
   //      int32_call_params.push_back(ptr_52);
   //      int32_call_params.push_back(ptr_53);
@@ -992,45 +992,45 @@ ProteusValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
   // Block entry (label_entry)
   AllocaInst *ptr_s1_addr =
       context->createAlloca(label_entry, "s1.addr", charPtrType);
-  ptr_s1_addr->setAlignment(8);
+  ptr_s1_addr->setAlignment(llvm::MaybeAlign(8));
   AllocaInst *ptr_s2_addr =
       context->createAlloca(label_entry, "s2.addr", charPtrType);
-  ptr_s2_addr->setAlignment(8);
+  ptr_s2_addr->setAlignment(llvm::MaybeAlign(8));
   AllocaInst *ptr_n_addr =
       context->createAlloca(label_entry, "n.addr", int32Ty);
-  ptr_n_addr->setAlignment(4);
+  ptr_n_addr->setAlignment(llvm::MaybeAlign(4));
   AllocaInst *ptr_result =
       context->createAlloca(label_entry, "result", int32Ty);
-  ptr_result->setAlignment(4);
+  ptr_result->setAlignment(llvm::MaybeAlign(4));
   StoreInst *void_8 = new StoreInst(ptr_s1, ptr_s1_addr, false, label_entry);
-  void_8->setAlignment(8);
+  void_8->setAlignment(llvm::MaybeAlign(8));
   StoreInst *void_9 = new StoreInst(ptr_s2, ptr_s2_addr, false, label_entry);
-  void_9->setAlignment(8);
+  void_9->setAlignment(llvm::MaybeAlign(8));
   StoreInst *void_10 = new StoreInst(int32_n, ptr_n_addr, false, label_entry);
-  void_10->setAlignment(4);
+  void_10->setAlignment(llvm::MaybeAlign(4));
   StoreInst *void_11 =
       new StoreInst(const_int32_5, ptr_result, false, label_entry);
-  void_11->setAlignment(4);
+  void_11->setAlignment(llvm::MaybeAlign(4));
   BranchInst::Create(label_for_cond, label_entry);
 
   // Block for.cond (label_for_cond)
   LoadInst *int32_13 = new LoadInst(ptr_n_addr, "", false, label_for_cond);
-  int32_13->setAlignment(4);
+  int32_13->setAlignment(llvm::MaybeAlign(4));
   ICmpInst *int1_cmp = new ICmpInst(*label_for_cond, ICmpInst::ICMP_SGT,
                                     int32_13, const_int32_6, "cmp");
   BranchInst::Create(label_for_body, label_for_end, int1_cmp, label_for_cond);
 
   // Block for.body (label_for_body)
   LoadInst *ptr_15 = new LoadInst(ptr_s1_addr, "", false, label_for_body);
-  ptr_15->setAlignment(8);
+  ptr_15->setAlignment(llvm::MaybeAlign(8));
   LoadInst *int8_16 = new LoadInst(ptr_15, "", false, label_for_body);
-  int8_16->setAlignment(1);
+  int8_16->setAlignment(llvm::MaybeAlign(1));
   CastInst *int32_conv = new SExtInst(
       int8_16, IntegerType::get(llvmContext, 32), "conv", label_for_body);
   LoadInst *ptr_17 = new LoadInst(ptr_s2_addr, "", false, label_for_body);
-  ptr_17->setAlignment(8);
+  ptr_17->setAlignment(llvm::MaybeAlign(8));
   LoadInst *int8_18 = new LoadInst(ptr_17, "", false, label_for_body);
-  int8_18->setAlignment(1);
+  int8_18->setAlignment(llvm::MaybeAlign(1));
   CastInst *int32_conv1 = new SExtInst(
       int8_18, IntegerType::get(llvmContext, 32), "conv1", label_for_body);
   ICmpInst *int1_cmp2 = new ICmpInst(*label_for_body, ICmpInst::ICMP_NE,
@@ -1039,15 +1039,15 @@ ProteusValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
 
   // Block if.then (label_if_then)
   LoadInst *ptr_20 = new LoadInst(ptr_s1_addr, "", false, label_if_then);
-  ptr_20->setAlignment(8);
+  ptr_20->setAlignment(llvm::MaybeAlign(8));
   LoadInst *int8_21 = new LoadInst(ptr_20, "", false, label_if_then);
-  int8_21->setAlignment(1);
+  int8_21->setAlignment(llvm::MaybeAlign(1));
   CastInst *int32_conv4 = new ZExtInst(
       int8_21, IntegerType::get(llvmContext, 32), "conv4", label_if_then);
   LoadInst *ptr_22 = new LoadInst(ptr_s2_addr, "", false, label_if_then);
-  ptr_22->setAlignment(8);
+  ptr_22->setAlignment(llvm::MaybeAlign(8));
   LoadInst *int8_23 = new LoadInst(ptr_22, "", false, label_if_then);
-  int8_23->setAlignment(1);
+  int8_23->setAlignment(llvm::MaybeAlign(1));
   CastInst *int32_conv5 = new ZExtInst(
       int8_23, IntegerType::get(llvmContext, 32), "conv5", label_if_then);
   ICmpInst *int1_cmp6 = new ICmpInst(*label_if_then, ICmpInst::ICMP_SLT,
@@ -1056,14 +1056,14 @@ ProteusValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
       int1_cmp6, const_int32_7, const_int32_4, "cond", label_if_then);
   StoreInst *void_24 =
       new StoreInst(int32_cond, ptr_result, false, label_if_then);
-  void_24->setAlignment(4);
+  void_24->setAlignment(llvm::MaybeAlign(4));
   BranchInst::Create(label_for_end, label_if_then);
 
   // Block if.else (label_if_else)
   LoadInst *ptr_26 = new LoadInst(ptr_s1_addr, "", false, label_if_else);
-  ptr_26->setAlignment(8);
+  ptr_26->setAlignment(llvm::MaybeAlign(8));
   LoadInst *int8_27 = new LoadInst(ptr_26, "", false, label_if_else);
-  int8_27->setAlignment(1);
+  int8_27->setAlignment(llvm::MaybeAlign(1));
   CastInst *int32_conv8 = new SExtInst(
       int8_27, IntegerType::get(llvmContext, 32), "conv8", label_if_else);
   ICmpInst *int1_cmp9 = new ICmpInst(*label_if_else, ICmpInst::ICMP_EQ,
@@ -1073,7 +1073,7 @@ ProteusValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
   // Block if.then11 (label_if_then11)
   StoreInst *void_29 =
       new StoreInst(const_int32_6, ptr_result, false, label_if_then11);
-  void_29->setAlignment(4);
+  void_29->setAlignment(llvm::MaybeAlign(4));
   BranchInst::Create(label_for_end, label_if_then11);
 
   // Block if.end (label_if_end)
@@ -1084,33 +1084,33 @@ ProteusValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
 
   // Block for.inc (label_for_inc)
   LoadInst *ptr_33 = new LoadInst(ptr_s1_addr, "", false, label_for_inc);
-  ptr_33->setAlignment(8);
+  ptr_33->setAlignment(llvm::MaybeAlign(8));
   GetElementPtrInst *ptr_incdec_ptr =
       GetElementPtrInst::Create(charPtrType->getPointerElementType(), ptr_33,
                                 const_int32_4, "incdec.ptr", label_for_inc);
   StoreInst *void_34 =
       new StoreInst(ptr_incdec_ptr, ptr_s1_addr, false, label_for_inc);
-  void_34->setAlignment(8);
+  void_34->setAlignment(llvm::MaybeAlign(8));
   LoadInst *ptr_35 = new LoadInst(ptr_s2_addr, "", false, label_for_inc);
-  ptr_35->setAlignment(8);
+  ptr_35->setAlignment(llvm::MaybeAlign(8));
   GetElementPtrInst *ptr_incdec_ptr13 =
       GetElementPtrInst::Create(charPtrType->getPointerElementType(), ptr_35,
                                 const_int32_4, "incdec.ptr13", label_for_inc);
   StoreInst *void_36 =
       new StoreInst(ptr_incdec_ptr13, ptr_s2_addr, false, label_for_inc);
-  void_36->setAlignment(8);
+  void_36->setAlignment(llvm::MaybeAlign(8));
   LoadInst *int32_37 = new LoadInst(ptr_n_addr, "", false, label_for_inc);
-  int32_37->setAlignment(4);
+  int32_37->setAlignment(llvm::MaybeAlign(4));
   auto int32_dec = llvm::BinaryOperator::Create(
       Instruction::Add, int32_37, const_int32_7, "dec", label_for_inc);
   StoreInst *void_38 =
       new StoreInst(int32_dec, ptr_n_addr, false, label_for_inc);
-  void_38->setAlignment(4);
+  void_38->setAlignment(llvm::MaybeAlign(4));
   BranchInst::Create(label_for_cond, label_for_inc);
 
   // Block for.end (label_for_end)
   LoadInst *int32_40 = new LoadInst(ptr_result, "", false, label_for_end);
-  int32_40->setAlignment(4);
+  int32_40->setAlignment(llvm::MaybeAlign(4));
   ICmpInst *int1_cmp14 = new ICmpInst(*label_for_end, ICmpInst::ICMP_EQ,
                                       int32_40, const_int32_5, "cmp14");
   BranchInst::Create(label_if_then16, label_if_end17, int1_cmp14,
@@ -1119,12 +1119,12 @@ ProteusValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
   // Block if.then16 (label_if_then16)
   StoreInst *void_42 =
       new StoreInst(const_int32_6, ptr_result, false, label_if_then16);
-  void_42->setAlignment(4);
+  void_42->setAlignment(llvm::MaybeAlign(4));
   BranchInst::Create(label_if_end17, label_if_then16);
 
   // Block if.end17 (label_if_end17)
   LoadInst *int32_44 = new LoadInst(ptr_result, "", false, label_if_end17);
-  int32_44->setAlignment(4);
+  int32_44->setAlignment(llvm::MaybeAlign(4));
 
   /* OUTPUT */
   ProteusValue valWrapper;
@@ -1211,44 +1211,44 @@ ProteusValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
   // Block entry (label_entry)
   AllocaInst *ptr_s1_addr =
       context->createAlloca(label_entry, "s1.addr", charPtrType);
-  ptr_s1_addr->setAlignment(8);
+  ptr_s1_addr->setAlignment(llvm::MaybeAlign(8));
   AllocaInst *ptr_s2_addr =
       context->createAlloca(label_entry, "s2.addr", charPtrType);
-  ptr_s2_addr->setAlignment(8);
+  ptr_s2_addr->setAlignment(llvm::MaybeAlign(8));
   AllocaInst *ptr_n_addr =
       context->createAlloca(label_entry, "n.addr", int32Ty);
-  ptr_n_addr->setAlignment(4);
+  ptr_n_addr->setAlignment(llvm::MaybeAlign(4));
 
-  ptr_result->setAlignment(4);
+  ptr_result->setAlignment(llvm::MaybeAlign(4));
   StoreInst *void_8 = new StoreInst(ptr_s1, ptr_s1_addr, false, label_entry);
-  void_8->setAlignment(8);
+  void_8->setAlignment(llvm::MaybeAlign(8));
   StoreInst *void_9 = new StoreInst(ptr_s2, ptr_s2_addr, false, label_entry);
-  void_9->setAlignment(8);
+  void_9->setAlignment(llvm::MaybeAlign(8));
   StoreInst *void_10 = new StoreInst(int32_n2, ptr_n_addr, false, label_entry);
-  void_10->setAlignment(4);
+  void_10->setAlignment(llvm::MaybeAlign(4));
   StoreInst *void_11 =
       new StoreInst(const_int32_5, ptr_result, false, label_entry);
-  void_11->setAlignment(4);
+  void_11->setAlignment(llvm::MaybeAlign(4));
   BranchInst::Create(label_for_cond, label_entry);
 
   // Block for.cond (label_for_cond)
   LoadInst *int32_13 = new LoadInst(ptr_n_addr, "", false, label_for_cond);
-  int32_13->setAlignment(4);
+  int32_13->setAlignment(llvm::MaybeAlign(4));
   ICmpInst *int1_cmp = new ICmpInst(*label_for_cond, ICmpInst::ICMP_SGT,
                                     int32_13, const_int32_6, "cmp");
   BranchInst::Create(label_for_body, label_for_end, int1_cmp, label_for_cond);
 
   // Block for.body (label_for_body)
   LoadInst *ptr_15 = new LoadInst(ptr_s1_addr, "", false, label_for_body);
-  ptr_15->setAlignment(8);
+  ptr_15->setAlignment(llvm::MaybeAlign(8));
   LoadInst *int8_16 = new LoadInst(ptr_15, "", false, label_for_body);
-  int8_16->setAlignment(1);
+  int8_16->setAlignment(llvm::MaybeAlign(1));
   CastInst *int32_conv = new SExtInst(
       int8_16, IntegerType::get(llvmContext, 32), "conv", label_for_body);
   LoadInst *ptr_17 = new LoadInst(ptr_s2_addr, "", false, label_for_body);
-  ptr_17->setAlignment(8);
+  ptr_17->setAlignment(llvm::MaybeAlign(8));
   LoadInst *int8_18 = new LoadInst(ptr_17, "", false, label_for_body);
-  int8_18->setAlignment(1);
+  int8_18->setAlignment(llvm::MaybeAlign(1));
   CastInst *int32_conv1 = new SExtInst(
       int8_18, IntegerType::get(llvmContext, 32), "conv1", label_for_body);
   ICmpInst *int1_cmp2 = new ICmpInst(*label_for_body, ICmpInst::ICMP_NE,
@@ -1257,15 +1257,15 @@ ProteusValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
 
   // Block if.then (label_if_then)
   LoadInst *ptr_20 = new LoadInst(ptr_s1_addr, "", false, label_if_then);
-  ptr_20->setAlignment(8);
+  ptr_20->setAlignment(llvm::MaybeAlign(8));
   LoadInst *int8_21 = new LoadInst(ptr_20, "", false, label_if_then);
-  int8_21->setAlignment(1);
+  int8_21->setAlignment(llvm::MaybeAlign(1));
   CastInst *int32_conv4 = new ZExtInst(
       int8_21, IntegerType::get(llvmContext, 32), "conv4", label_if_then);
   LoadInst *ptr_22 = new LoadInst(ptr_s2_addr, "", false, label_if_then);
-  ptr_22->setAlignment(8);
+  ptr_22->setAlignment(llvm::MaybeAlign(8));
   LoadInst *int8_23 = new LoadInst(ptr_22, "", false, label_if_then);
-  int8_23->setAlignment(1);
+  int8_23->setAlignment(llvm::MaybeAlign(1));
   CastInst *int32_conv5 = new ZExtInst(
       int8_23, IntegerType::get(llvmContext, 32), "conv5", label_if_then);
   ICmpInst *int1_cmp6 = new ICmpInst(*label_if_then, ICmpInst::ICMP_SLT,
@@ -1274,14 +1274,14 @@ ProteusValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
       int1_cmp6, const_int32_7, const_int32_4, "cond", label_if_then);
   StoreInst *void_24 =
       new StoreInst(int32_cond, ptr_result, false, label_if_then);
-  void_24->setAlignment(4);
+  void_24->setAlignment(llvm::MaybeAlign(4));
   BranchInst::Create(label_for_end, label_if_then);
 
   // Block if.else (label_if_else)
   LoadInst *ptr_26 = new LoadInst(ptr_s1_addr, "", false, label_if_else);
-  ptr_26->setAlignment(8);
+  ptr_26->setAlignment(llvm::MaybeAlign(8));
   LoadInst *int8_27 = new LoadInst(ptr_26, "", false, label_if_else);
-  int8_27->setAlignment(1);
+  int8_27->setAlignment(llvm::MaybeAlign(1));
   CastInst *int32_conv8 = new SExtInst(
       int8_27, IntegerType::get(llvmContext, 32), "conv8", label_if_else);
   ICmpInst *int1_cmp9 = new ICmpInst(*label_if_else, ICmpInst::ICMP_EQ,
@@ -1291,7 +1291,7 @@ ProteusValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
   // Block if.then11 (label_if_then11)
   StoreInst *void_29 =
       new StoreInst(const_int32_6, ptr_result, false, label_if_then11);
-  void_29->setAlignment(4);
+  void_29->setAlignment(llvm::MaybeAlign(4));
   BranchInst::Create(label_for_end, label_if_then11);
 
   // Block if.end (label_if_end)
@@ -1302,31 +1302,31 @@ ProteusValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
 
   // Block for.inc (label_for_inc)
   LoadInst *ptr_33 = new LoadInst(ptr_s1_addr, "", false, label_for_inc);
-  ptr_33->setAlignment(8);
+  ptr_33->setAlignment(llvm::MaybeAlign(8));
   GetElementPtrInst *ptr_incdec_ptr = GetElementPtrInst::Create(
       ptr_s1->getType(), ptr_33, const_int32_4, "incdec.ptr", label_for_inc);
   StoreInst *void_34 =
       new StoreInst(ptr_incdec_ptr, ptr_s1_addr, false, label_for_inc);
-  void_34->setAlignment(8);
+  void_34->setAlignment(llvm::MaybeAlign(8));
   LoadInst *ptr_35 = new LoadInst(ptr_s2_addr, "", false, label_for_inc);
-  ptr_35->setAlignment(8);
+  ptr_35->setAlignment(llvm::MaybeAlign(8));
   GetElementPtrInst *ptr_incdec_ptr13 = GetElementPtrInst::Create(
       ptr_s2->getType(), ptr_35, const_int32_4, "incdec.ptr13", label_for_inc);
   StoreInst *void_36 =
       new StoreInst(ptr_incdec_ptr13, ptr_s2_addr, false, label_for_inc);
-  void_36->setAlignment(8);
+  void_36->setAlignment(llvm::MaybeAlign(8));
   LoadInst *int32_37 = new LoadInst(ptr_n_addr, "", false, label_for_inc);
-  int32_37->setAlignment(4);
+  int32_37->setAlignment(llvm::MaybeAlign(4));
   llvm::BinaryOperator *int32_dec = llvm::BinaryOperator::Create(
       Instruction::Add, int32_37, const_int32_7, "dec", label_for_inc);
   StoreInst *void_38 =
       new StoreInst(int32_dec, ptr_n_addr, false, label_for_inc);
-  void_38->setAlignment(4);
+  void_38->setAlignment(llvm::MaybeAlign(4));
   BranchInst::Create(label_for_cond, label_for_inc);
 
   // Block for.end (label_for_end)
   LoadInst *int32_40 = new LoadInst(ptr_result, "", false, label_for_end);
-  int32_40->setAlignment(4);
+  int32_40->setAlignment(llvm::MaybeAlign(4));
   ICmpInst *int1_cmp14 = new ICmpInst(*label_for_end, ICmpInst::ICMP_EQ,
                                       int32_40, const_int32_5, "cmp14");
   BranchInst::Create(label_if_then16, label_if_end17, int1_cmp14,
@@ -1335,14 +1335,14 @@ ProteusValue ExpressionGeneratorVisitor::mystrncmp(Value *ptr_s1, Value *ptr_s2,
   // Block if.then16 (label_if_then16)
   StoreInst *void_42 =
       new StoreInst(const_int32_6, ptr_result, false, label_if_then16);
-  void_42->setAlignment(4);
+  void_42->setAlignment(llvm::MaybeAlign(4));
   BranchInst::Create(label_if_end17, label_if_then16);
 
   /* FINAL MERGE */
   Builder->CreateBr(label_size_merge);
 
   LoadInst *int32_44 = new LoadInst(ptr_result, "", false, label_size_merge);
-  int32_44->setAlignment(4);
+  int32_44->setAlignment(llvm::MaybeAlign(4));
 
   /* OUTPUT */
   ProteusValue valWrapper;
