@@ -38,19 +38,26 @@ public class RelHetDistributionTraitDef extends RelTraitDef<RelHetDistribution> 
     PelagoRel router;
     if (distribution == RelHetDistribution.SPLIT || distribution == RelHetDistribution.SPLIT_BRDCST) {
       if (!input.getTraitSet().contains(RelHetDistribution.SINGLETON)) return null;
+      if (!input.getTraitSet().containsIfApplicable(RelPacking.Packed)) return null;
+      if (!input.getTraitSet().containsIfApplicable(RelSplitPoint.NONE())) return null;
       router = PelagoSplit.create(input, distribution);
     } else {
+//      if (input.getTraitSet().containsIfApplicable(RelSplitPoint.NONE())) return null;
       if (!input.getTraitSet().contains(RelHetDistribution.SPLIT)) return null;
       RelTraitSet c = input.getTraitSet().replace(RelComputeDevice.X86_64);
       RelTraitSet g = input.getTraitSet().replace(RelComputeDevice.NVPTX);
       RelNode ing = input;
       RelNode inc = input;
+      planner.register(inc, rel);
+      planner.register(ing, rel);
       if (!ing.getTraitSet().equals(g)){
         ing = planner.changeTraits(ing, g);
       }
       if (!inc.getTraitSet().equals(c)){
         inc = planner.changeTraits(inc, c);
       }
+      planner.register(inc, rel);
+      planner.register(ing, rel);
       router = PelagoUnion.create(List.of(
             inc,
             ing

@@ -10,6 +10,7 @@ import org.apache.calcite.plan.RelTrait;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.util.Pair;
 
@@ -39,26 +40,48 @@ public interface PelagoRel extends RelNode {
 
         public boolean useAbstractConvertersForConversion(RelTraitSet fromTraits, RelTraitSet toTraits) {
             if (!fromTraits.containsIfApplicable(CONVENTION)) return false;
+            if (!toTraits.containsIfApplicable(CONVENTION)) return false;
 //
 //
-//            boolean foundOne = false;
-//            int cnt = 0;
-//
-//            for (Pair<RelTrait, RelTrait> pair : Pair.zip(fromTraits, toTraits)) {
-//                if (!pair.left.satisfies(pair.right)) {
-////                    // Do not count device crossing as extra conversion
-//                    if (pair.left instanceof RelComputeDevice     ) continue;
-//                    ++cnt;
-////
-//////                    if (foundOne) return false;
-////                    foundOne = true;
-////
-////                    if (pair.left instanceof RelPacking        ) continue;
-////                    if (pair.left instanceof RelHetDistribution) continue;
-////                    if (pair.left instanceof RelHomDistribution) continue;
-//////                    return false;
-//                }
+            boolean foundOne = false;
+            int cnt = 0;
+
+            var s1d = fromTraits.getTrait(RelSplitPointTraitDef.INSTANCE);
+            var s1h = fromTraits.getTrait(RelHetDistributionTraitDef.INSTANCE);
+            var s2d = toTraits.getTrait(RelSplitPointTraitDef.INSTANCE);
+            var s2h = toTraits.getTrait(RelHetDistributionTraitDef.INSTANCE);
+
+//            if (s2h != null && s2d != null) {
+//                if (s2d == RelSplitPoint.NONE() && s2h != RelHetDistribution.SINGLETON) return false;
+//                if (s2d != RelSplitPoint.NONE() && s2h == RelHetDistribution.SINGLETON) return false;
 //            }
+
+//            if (s1h != null && s1d != null) {
+//                if (s1d == RelSplitPoint.NONE() && s1h != RelHetDistribution.SINGLETON) return false;
+//                if (s1d != RelSplitPoint.NONE() && s1h == RelHetDistribution.SINGLETON) return false;
+//            }
+
+//            if (!fromTraits.containsIfApplicable(RelHomDistribution.SINGLE) && !toTraits.containsIfApplicable(RelHomDistribution.SINGLE)) return false;
+
+            for (Pair<RelTrait, RelTrait> pair : Pair.zip(fromTraits, toTraits)) {
+                if (!pair.left.satisfies(pair.right)) {
+//                    // Do not count device crossing as extra conversion
+                    if (pair.left instanceof RelComputeDevice     ) continue;
+//                    if (pair.left instanceof RelSplitPoint && (
+//                        pair.left != RelSplitPoint.NONE() &&
+//                        pair.right != RelSplitPoint.NONE()
+//                    )) return false;
+                    ++cnt;
+//
+//                    if (foundOne) return false;
+                    foundOne = true;
+//
+//                    if (pair.left instanceof RelPacking        ) continue;
+//                    if (pair.left instanceof RelHetDistribution) continue;
+//                    if (pair.left instanceof RelHomDistribution) continue;
+////                    return false;
+                }
+            }
             return true;
         }
     }

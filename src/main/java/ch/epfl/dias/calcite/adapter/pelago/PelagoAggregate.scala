@@ -1,26 +1,21 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
-import org.apache.calcite.plan.RelOptCluster
-import org.apache.calcite.plan.RelOptCost
-import org.apache.calcite.plan.RelOptPlanner
-import org.apache.calcite.plan.RelTraitSet
+import java.util
+
+import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMetadataQuery}
+import ch.epfl.dias.emitter.{Binding, PlanConversionException}
+import ch.epfl.dias.emitter.PlanToJSON._
+import org.apache.calcite.plan.{RelOptCluster, RelOptCost, RelOptPlanner, RelTraitSet}
 import org.apache.calcite.rel._
-import org.apache.calcite.rel.core.Aggregate
-import org.apache.calcite.rel.core.AggregateCall
+import org.apache.calcite.rel.core.{Aggregate, AggregateCall}
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rex.RexInputRef
+import org.apache.calcite.sql.SqlKind
 import org.apache.calcite.util.ImmutableBitSet
 import org.json4s.JsonDSL._
 import org.json4s._
 
 import scala.collection.JavaConverters._
-import java.util
-
-import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdHetDistribution, PelagoRelMetadataQuery}
-import ch.epfl.dias.emitter.PlanConversionException
-import org.apache.calcite.sql.SqlKind
-import ch.epfl.dias.emitter.Binding
-import ch.epfl.dias.emitter.PlanToJSON._
 
 class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode,
                       groupSet: ImmutableBitSet, groupSets: util.List[ImmutableBitSet],
@@ -59,7 +54,7 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
 
     var base = super.computeSelfCost(planner, mq)
 
-    val cpuCost = (if (!isGlobalAgg && getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) 1e-2 else 1e8*(1e-2 + 1e-1 * mq.getRowCount(getInput))) *
+    val cpuCost = (if (!isGlobalAgg && getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)) 1e-2 else 1e9*(1e-2 + 1e-1 * mq.getRowCount(getInput))) *
       rf * rf2 *
       Math.log(getInput.getRowType.getFieldCount + 10) *
       mq.getRowCount(getInput)
@@ -118,7 +113,6 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
         ("gpu"        , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
         ("e"          , aggsExpr                                              ) ~
         ("accumulator", aggsJS                                                ) ~
-        ("p"          , ("expression", "bool") ~ ("v", true)                  ) ~
         ("input"      , childOp)
       val binding: Binding = Binding(alias, getFields(getRowType))
       val ret: (Binding, JValue) = (binding, json)

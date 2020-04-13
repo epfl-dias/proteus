@@ -23,6 +23,7 @@ import ch.epfl.dias.calcite.adapter.pelago.PelagoUnion;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoUnnest;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoUnpack;
 import ch.epfl.dias.calcite.adapter.pelago.RelPacking;
+import ch.epfl.dias.calcite.adapter.pelago.costs.CostModel;
 
 public class PelagoRelMdMaxRowCount implements MetadataHandler<BuiltInMetadata.MaxRowCount> {
   private static final PelagoRelMdMaxRowCount INSTANCE = new PelagoRelMdMaxRowCount();
@@ -43,11 +44,11 @@ public class PelagoRelMdMaxRowCount implements MetadataHandler<BuiltInMetadata.M
   }
 
   public Double getMaxRowCount(PelagoPack rel, RelMetadataQuery mq) {
-    return Math.ceil(mq.getMaxRowCount(rel.getInput()) / (1024));
+    return Math.ceil(mq.getMaxRowCount(rel.getInput()) / CostModel.blockSize());
   }
 
   public Double getMaxRowCount(PelagoUnpack rel, RelMetadataQuery mq) {
-    return mq.getMaxRowCount(rel.getInput()) * (1024);
+    return mq.getMaxRowCount(rel.getInput()) * CostModel.blockSize();
   }
 
   public Double getMaxRowCount(PelagoUnnest rel, RelMetadataQuery mq) {
@@ -68,7 +69,7 @@ public class PelagoRelMdMaxRowCount implements MetadataHandler<BuiltInMetadata.M
 
   public Double getMaxRowCount(PelagoTableScan rel, RelMetadataQuery mq) {
     double rc = rel.getTable().getRowCount();
-    if (rel.getTraitSet().containsIfApplicable(RelPacking.Packed)) rc /= 1024;
+    if (rel.getTraitSet().containsIfApplicable(RelPacking.Packed)) rc /= CostModel.blockSize();
     return rc;
   }
 }

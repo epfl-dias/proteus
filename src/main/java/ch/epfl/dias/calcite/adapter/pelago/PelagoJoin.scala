@@ -1,30 +1,24 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
-import ch.epfl.dias.emitter.{Binding, PlanConversionException}
+import java.util
+
+import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataQuery
 import ch.epfl.dias.emitter.PlanToJSON._
-import org.apache.calcite.plan.RelOptCluster
-import org.apache.calcite.plan.RelOptCost
-import org.apache.calcite.plan.RelOptPlanner
-import org.apache.calcite.plan.RelTraitSet
+import ch.epfl.dias.emitter.{Binding, PlanConversionException}
+import com.google.common.collect.ImmutableList
+import org.apache.calcite.plan.{RelOptCluster, RelOptCost, RelOptPlanner, RelTraitSet}
 import org.apache.calcite.rel._
+import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.core._
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rex._
-import org.apache.calcite.util.{ImmutableIntList, Util}
-import org.json4s.{JValue, JsonAST}
-import org.json4s.JsonDSL._
-import org.json4s._
-
-import scala.collection.JavaConverters._
-import java.util
-
-import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMetadataQuery}
-import com.google.common.collect.ImmutableList
-import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.sql.SqlKind
 import org.apache.calcite.sql.`type`.SqlTypeName
+import org.apache.calcite.util.{ImmutableIntList, Util}
+import org.json4s.JsonDSL._
+import org.json4s.{JValue, JsonAST, _}
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.JavaConverters._
 
 class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: RelNode, right: RelNode,
                           condition: RexNode, leftKeys: ImmutableIntList, rightKeys: ImmutableIntList,
@@ -53,9 +47,9 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
         if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) 0.000001
         else 100//0.1
       } else if (traitSet.containsIfApplicable(RelDeviceType.NVPTX)) {
-        1e6 //0.01
+        1e10 //0.01
       } else {
-        1e8
+        1e15
       }
     }
 
@@ -108,25 +102,57 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     planner.getCostFactory.makeCost(rowCount * rf2 * rf, rc1 * rf * rf2, 0)
   }
 
-  override def explainTerms(pw: RelWriter): RelWriter = {
-    val rowEst = getCluster.getMetadataQuery.getRowCount(getLeft)
-    val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getLeft  )
-    val maxEst = if (maxrow != null) Math.min(maxrow, 64*1024*1024) else 64*1024*1024
+  protected lazy val rowEst: Long = {
+    val exprow: Double = try {
+      getCluster.getMetadataQuery.getRowCount(getLeft)
+    } catch {
+      case _: Throwable => 1e20
+    }
+    if (exprow != null) Math.min(exprow, 64 * 1024 * 1024) else 64 * 1024 * 1024
+  }.asInstanceOf[Long]
 
-    val hash_bits = Math.min(2 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 28)
+  protected lazy val maxEst: Long = {
+    val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getLeft)
+    if (maxrow != null) Math.min(maxrow, 64 * 1024 * 1024) else 64 * 1024 * 1024
+  }.asInstanceOf[Long]
+
+  protected lazy val maxBuildInputSize: Long = {
+    (Math.min(rowEst, maxEst) + maxEst)/2
+  }
+
+  protected lazy val hash_bits: Long = {
+    Math.ceil(Math.log(maxBuildInputSize)/Math.log(2)) + 1
+  }.asInstanceOf[Long]
+
+  override def explainTerms(pw: RelWriter): RelWriter = {
+    val mq = getCluster.getMetadataQuery
+    val leftRows: Double = try {
+      getCluster.getMetadataQuery.getRowCount(getLeft)
+    } catch {
+      case _: Throwable => 1e20
+    }
+    val rightRows: Double = try {
+      mq.getRowCount(getRight)
+    } catch {
+      case _: Throwable => 1e20
+    }
+    val rows = Math.max(leftRows, rightRows)
+    val small = if (leftRows < rightRows) getLeft else getRight
+    val sel = mq.getPercentageOriginalRows(small)
     super.explainTerms(pw)
-      //.item("trait", getTraitSet.toString)
-      .item("rowcnt", rowEst)
-      .item("maxrow", maxrow)
-      .item("maxEst", maxEst)
-      .item("h_bits", hash_bits)
-      .item("build", left.getRowType.toString)
-      .item("lcount", Util.nLogN(getCluster.getMetadataQuery.getRowCount(getLeft) * left.getRowType.getFieldCount)).item("rcount", getCluster.getMetadataQuery.getRowCount(getRight)).item("buildcountrow", getCluster.getMetadataQuery.getRowCount(getLeft)).item("probecountrow", getCluster.getMetadataQuery.getRowCount(getRight))
+//      .item("rct", mq.getRowCount(this) * sel)
+      .item("tr", getTraitSet)
+      .item("sel", sel)
+      .item("hash_bits", hash_bits)
+      .item("maxBuildInputSize", maxBuildInputSize)
+//      .item("buildcountrow", getCluster.getMetadataQuery.getRowCount(getLeft))
+//      .item("probecountrow", getCluster.getMetadataQuery.getRowCount(getRight))
+      .item("ht", left.getRowType.toString)
   }
 
 //  override def estimateRowCount(mq: RelMetadataQuery): Double = mq.getRowCount(getRight) * mq.getPercentageOriginalRows(getLeft);//Math.max(mq.getRowCount(getLeft), mq.getRowCount(getRight))
 
-  def getTypeSize(t: RelDataType) = t.getSqlTypeName match {
+  private def getTypeSize(t: RelDataType) = t.getSqlTypeName match {
     case SqlTypeName.INTEGER    => 32
     case SqlTypeName.BIGINT     => 64
     case SqlTypeName.BOOLEAN    => 1  //TODO: check this
@@ -188,7 +214,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
   }
 
   override def implement(target: RelDeviceType, alias2: String): (Binding, JValue) = {
-    val alias = PelagoTable.create(alias2, getRowType);
+    val alias = PelagoTable.create(alias2, getRowType)
     val op = ("operator" , "hashjoin-chained")
     val build = getLeft.asInstanceOf[PelagoRel].implement(target)
     val build_binding: Binding = build._1
@@ -198,73 +224,19 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     val probe_child = probe._2
 
     //FIXME: joinCondOperands does not always belong to the probe side
-//    val cond = emitExpression(getCondition, List(leftBinding,rightBinding))
-    val (probe_k, probe_keyRexInputRef, pk_size) = getKeyExpr(getCondition, 1, List(build_binding, probe_binding), alias.getPelagoRelName)
-    val (build_k, build_keyRexInputRef, bk_size) = getKeyExpr(getCondition, 0, List(build_binding, probe_binding), alias.getPelagoRelName)
-    val rowType = emitSchema(alias, getRowType)
-//    ("attrName", joinCondOperands.get(1).asInstanceOf[RexInputRef].getName) ~ ("relName", alias)
+    val (probe_k, probe_keyRexInputRef, _) = getKeyExpr(getCondition, 1, List(build_binding, probe_binding), alias.getPelagoRelName)
+    val (build_k, build_keyRexInputRef, _) = getKeyExpr(getCondition, 0, List(build_binding, probe_binding), alias.getPelagoRelName)
 
+    val build_keyName  = build_keyRexInputRef.getName
 
-    val joinCondOperands = getCondition.asInstanceOf[RexCall].operands
-    var build_w = ListBuffer(32 + bk_size)
-
-    var build_keyName  = build_keyRexInputRef.getName
-    var build_keyIndex = build_keyRexInputRef.getIndex
-    val build_e = getRowType.getFieldList.asScala.zipWithIndex.flatMap {
-      f => {
-        if (f._2 != build_keyIndex && f._2 < getLeft.getRowType.getFieldCount) {
-          build_w += getTypeSize(f._1.getType)
-          List(
-            emitExpression(RexInputRef.of(f._2, getRowType), List(build_binding, probe_binding), this)
-              .asInstanceOf[JsonAST.JObject] ~
-            ("register_as", ("attrName", f._1.getName) ~ ("relName", alias.getPelagoRelName))
-          )
-//          List(("relName", alias) ~ ("attrName", f._1.getName) ~ ("type", f._1.getType.toString))
-        } else {
-          if (f._2 <  getLeft.getRowType.getFieldCount) build_keyName = f._1.getName
-          List()
-        }
-      }
-    }.zipWithIndex.map{e => ("e", e._1) ~ ("packet", e._2 + 1) ~ ("offset", 0)} //FIXME: using different packets for each of them is the worst performance-wise
-
-    var probe_w = ListBuffer(32 + pk_size)
-
-    var probe_keyName = probe_keyRexInputRef.asInstanceOf[RexInputRef].getName
-    val probe_e = getRowType.getFieldList.asScala.zipWithIndex.flatMap {
-      f => {
-        if (f._2 != probe_keyRexInputRef.asInstanceOf[RexInputRef].getIndex && f._2 >= getLeft.getRowType.getFieldCount) {
-          probe_w += getTypeSize(f._1.getType)
-          List(
-            emitExpression(RexInputRef.of(f._2, getRowType), List(build_binding, probe_binding), this)
-              .asInstanceOf[JsonAST.JObject] ~
-              ("register_as", ("attrName", f._1.getName) ~ ("relName", alias.getPelagoRelName))
-          )
-//          List(("relName", alias) ~ ("attrName", f._1.getName) ~ ("type", f._1.getType.toString))
-        } else {
-          if (f._2 >= getLeft.getRowType.getFieldCount) probe_keyName = f._1.getName
-          List()
-        }
-      }
-    }.zipWithIndex.map{e => ("e", e._1) ~ ("packet", e._2 + 1) ~ ("offset", 0)} //FIXME: using different packets for each of them is the worst performance-wise
-
-    val rowEst = getCluster.getMetadataQuery.getRowCount(getLeft)
-    val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getLeft  )
-    val maxEst = if (maxrow != null) Math.min(maxrow, 64*1024*1024) else 64*1024*1024
-
-    val hash_bits = Math.min(2 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 28)
+    val probe_keyName = probe_keyRexInputRef.asInstanceOf[RexInputRef].getName
 
     val json = op ~
-//      ("tupleType"        , rowType     ) ~
-      ("gpu"              , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)                       ) ~
       ("build_k"          , build_k ~ ("register_as", ("attrName", build_keyName) ~ ("relName", alias.getPelagoRelName)) ) ~
-      ("build_e"          , build_e                                                                     ) ~
-      ("build_w"          , build_w                                                                     ) ~
       ("build_input"      , build_child                                                                 ) ~
       ("probe_k"          , probe_k ~ ("register_as", ("attrName", probe_keyName) ~ ("relName", alias.getPelagoRelName)) ) ~
-      ("probe_e"          , probe_e                                                                     ) ~
-      ("probe_w"          , probe_w                                                                     ) ~
       ("hash_bits"        , hash_bits                                                                   ) ~
-      ("maxBuildInputSize", maxEst.asInstanceOf[Int]                                                    ) ~
+      ("maxBuildInputSize", maxBuildInputSize                                                           ) ~
       ("probe_input"      , probe_child                                                                 )
     val binding: Binding = Binding(alias, getFields(getRowType))
     val ret: (Binding, JValue) = (binding,json)
@@ -284,6 +256,9 @@ object PelagoJoin {
     val dev = ImmutableList.of(left, right).stream().map[RelComputeDevice]((e) => mq.asInstanceOf[PelagoRelMetadataQuery].computeType(e))
     val traitSet = right.getTraitSet.replace(PelagoRel.CONVENTION)
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(ImmutableList.of(RelComputeDevice.from(dev), RelComputeDevice.from(left), RelComputeDevice.from(right)).stream()))
+      .replaceIf(RelSplitPointTraitDef.INSTANCE, () => {
+        RelSplitPoint.merge(left.getTraitSet.getTrait(RelSplitPointTraitDef.INSTANCE), right.getTraitSet.getTrait(RelSplitPointTraitDef.INSTANCE))
+      })
 
     assert(right.getTraitSet.containsIfApplicable(RelPacking.UnPckd))
     assert(left.getTraitSet.containsIfApplicable(RelPacking.UnPckd))

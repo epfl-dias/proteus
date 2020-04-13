@@ -22,9 +22,8 @@ public class PelagoRelMetadataQuery extends RelMetadataQuery {
   private HomDistribution.Handler homDistrHandler;
   private ComputeDevice.Handler   computeTypeHandler;
 
-  protected PelagoRelMetadataQuery(JaninoRelMetadataProvider metadataProvider,
-                                   RelMetadataQuery prototype) {
-    super(metadataProvider, prototype);
+  protected PelagoRelMetadataQuery() {
+    super();
     deviceTypeHandler  = initialHandler(DeviceType.Handler.class);
     packingHandler     = initialHandler(Packing   .Handler.class);
 //    selfCostHandler    = initialHandler(SelfCost  .Handler.class);
@@ -34,7 +33,7 @@ public class PelagoRelMetadataQuery extends RelMetadataQuery {
   }
 
   public static PelagoRelMetadataQuery instance() {
-    return new PelagoRelMetadataQuery(THREAD_PROVIDERS.get(), EMPTY);
+    return new PelagoRelMetadataQuery();
   }
   /**
    * Returns the

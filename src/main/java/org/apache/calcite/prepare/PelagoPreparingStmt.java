@@ -16,10 +16,23 @@ import org.apache.calcite.plan.hep.HepProgramBuilder;
 import org.apache.calcite.plan.volcano.AbstractConverter;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.RelShuttle;
+import org.apache.calcite.rel.RelShuttleImpl;
+import org.apache.calcite.rel.RelVisitor;
 import org.apache.calcite.rel.RelWriter;
+import org.apache.calcite.rel.core.CorrelationId;
+import org.apache.calcite.rel.core.Join;
+import org.apache.calcite.rel.core.JoinRelType;
+import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.RelFactories;
+import org.apache.calcite.rel.core.Sort;
+import org.apache.calcite.rel.externalize.RelWriterImpl;
+import org.apache.calcite.rel.hint.RelHint;
+import org.apache.calcite.rel.logical.LogicalJoin;
+import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.rules.FilterJoinRule;
 import org.apache.calcite.rel.rules.FilterProjectTransposeRule;
+import org.apache.calcite.rel.rules.JoinCommuteRule;
 import org.apache.calcite.rel.rules.JoinProjectTransposeRule;
 import org.apache.calcite.rel.rules.JoinToMultiJoinRule;
 import org.apache.calcite.rel.rules.LoptOptimizeJoinRule;
@@ -27,9 +40,14 @@ import org.apache.calcite.rel.rules.ProjectFilterTransposeRule;
 import org.apache.calcite.rel.rules.ProjectJoinTransposeRule;
 import org.apache.calcite.rel.rules.ProjectMergeRule;
 import org.apache.calcite.rel.rules.ProjectRemoveRule;
+import org.apache.calcite.rel.rules.ProjectSortTransposeRule;
 import org.apache.calcite.rel.rules.ProjectTableScanRule;
 import org.apache.calcite.rel.rules.PruneEmptyRules;
+import org.apache.calcite.rel.rules.SortProjectTransposeRule;
+import org.apache.calcite.rel.rules.SortRemoveRule;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexOver;
 import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql2rel.RelDecorrelator;
@@ -41,6 +59,12 @@ import org.apache.calcite.tools.Programs;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.Holder;
 
+import ch.epfl.dias.calcite.adapter.pelago.PelagoJoin;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoLogicalJoin;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoProject;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoSort;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoSplit;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPartialAggregateRule;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectPushBelowUnpack;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectTableScanRule;
@@ -53,19 +77,28 @@ import ch.epfl.dias.calcite.adapter.pelago.RelHomDistribution;
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 import ch.epfl.dias.calcite.adapter.pelago.rules.LikeToJoinRule;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPackTransfers;
+import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPullUnionUp;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushDeviceCrossDown;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushRouterDown;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushSplitDown;
+import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules;
 import ch.epfl.dias.repl.Repl;
 
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import ch.epfl.dias.calcite.adapter.pelago.reporting.PelagoTimeInterval;
 import ch.epfl.dias.calcite.adapter.pelago.reporting.TimeKeeper;
+import scala.MatchError;
+import scala.NotImplementedError;
+
+import static org.apache.calcite.plan.RelOptRule.any;
+import static org.apache.calcite.plan.RelOptRule.operand;
 
 public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt {
     private final EnumerableRel.Prefer prefer;
@@ -78,10 +111,10 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                          RelDataTypeFactory typeFactory,
                          CalciteSchema schema,
                          EnumerableRel.Prefer prefer,
-                         RelOptPlanner planner,
+                         RelOptCluster cluster,
                          Convention resultConvention,
                          SqlRexConvertletTable convertletTable) {
-        super(prepare, context, catalogReader, typeFactory, schema, prefer, planner, resultConvention, convertletTable);
+        super(prepare, context, catalogReader, typeFactory, schema, prefer, cluster, resultConvention, convertletTable);
         this.prefer = prefer;
     }
 
@@ -171,6 +204,16 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             return rel;
         }
     }
+    private static class PelagoProgram5 implements Program {
+        public RelNode run(RelOptPlanner planner, RelNode rel,
+            RelTraitSet requiredOutputTraits,
+            List<RelOptMaterialization> materializations,
+            List<RelOptLattice> lattices) {
+            System.out.println("asdasd");
+            System.out.println(RelOptUtil.toString(rel, SqlExplainLevel.ALL_ATTRIBUTES));
+            return rel;
+        }
+    }
 
     /** Program that trims fields. */
     private static class PelagoProgramPrintPlan implements Program {
@@ -179,7 +222,13 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             List<RelOptMaterialization> materializations,
             List<RelOptLattice> lattices) {
             if (Repl.printplan() && rel instanceof PelagoToEnumerableConverter) {
-                ((PelagoToEnumerableConverter) rel).writePlan(((PelagoToEnumerableConverter) rel).getPlan(), Repl.planfile());
+                try {
+                    ((PelagoToEnumerableConverter) rel).writePlan(((PelagoToEnumerableConverter) rel).getPlan(),
+                        Repl.planfile());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    System.out.println("Failed to generate plan");
+                }
             }
             return rel;
         }
@@ -191,20 +240,51 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             List<RelOptMaterialization> materializations,
             List<RelOptLattice> lattices) {
             if (Repl.printplan() && rel instanceof PelagoToEnumerableConverter) {
-                final StringWriter sw = new StringWriter();
-                final RelWriter planWriter =
-                    new RelBuilderWriter(
-                        new PrintWriter(sw), SqlExplainLevel.EXPPLAN_ATTRIBUTES, false);
-                rel.explain(planWriter);
+                var splits = new HashMap<Long, Integer>();
+                new RelVisitor(){
+                    public void visit(RelNode node, int ordinal, RelNode parent) {
+                        if (node instanceof PelagoSplit){
+                            var id = ((PelagoSplit) node).splitId();
+                            splits.put(id, splits.getOrDefault(id, 0) + 1);
+                        }
+                        node.childrenAccept(this);
+                    }
+                }.go(rel);
+                splits.forEach((key, value) -> {
+                    System.out.println("Split" + key + ": " + value);
+                    assert (value % 2 == 0);
+                });
+
+                try{
+                    final StringWriter sw = new StringWriter();
+                    final RelWriter planWriter =
+                        new RelBuilderWriter(
+                            new PrintWriter(sw), SqlExplainLevel.EXPPLAN_ATTRIBUTES, false);
+                    rel.explain(planWriter);
+                    try {
+                        System.out.println(Repl.planfile() + ".cpp");
+                        PrintWriter pw = new PrintWriter(Repl.planfile() + ".cpp");
+                        pw.write("// AUTOGENERATED FILE. DO NOT EDIT.\n\n");
+                        pw.write("constexpr auto query = __FILE__;\n\n");
+                        pw.write("#include \"query.cpp.inc\"\n\n");
+                        pw.write("\nPreparedStatement Query::prepare(bool memmv) {\n");
+                        pw.write(sw.toString());
+                        pw.write("}\n");
+                        pw.close();
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    }
+                } catch (NotImplementedError | MatchError e){
+//                    e.printStackTrace();
+                }
+
                 try {
-                    System.out.println(Repl.planfile() + ".cpp");
-                    PrintWriter pw = new PrintWriter(Repl.planfile() + ".cpp");
-                    pw.write("// AUTOGENERATED FILE. DO NOT EDIT.\n\n");
-                    pw.write("constexpr auto query = __FILE__;\n\n");
-                    pw.write("#include \"query.cpp.inc\"\n\n");
-                    pw.write("\nPreparedStatement Query::prepare(bool memmv) {\n");
-                    pw.write(sw.toString());
-                    pw.write("}\n");
+                    System.out.println(Repl.planfile() + ".plan");
+                    PrintWriter pw = new PrintWriter(Repl.planfile() + ".plan");
+                    final RelWriter planWriter =
+                        new RelWriterImpl(
+                            new PrintWriter(pw), SqlExplainLevel.NO_ATTRIBUTES, false);
+                    rel.explain(planWriter);
                     pw.close();
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
@@ -295,11 +375,17 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
 
         if (!(cpu_only && cpudop == 1) && !(gpu_only && gpudop == 1)) hetRuleBuilder.add(PelagoPushRouterDown.RULES);
         if (hybrid) hetRuleBuilder.add(PelagoPushSplitDown.RULES);
+        if (hybrid) hetRuleBuilder.add(PelagoPullUnionUp.RULES);
 
         hetRuleBuilder.add(PelagoPackTransfers.RULES);
         hetRuleBuilder.add(PelagoPartialAggregateRule.INSTANCE);
 
         hetRuleBuilder.add(AbstractConverter.ExpandConversionRule.INSTANCE);
+
+//        hetRuleBuilder.add(new ProjectJoinTransposeRule(
+//            PelagoProject.class, PelagoJoin.class,
+//            expr -> !(expr instanceof RexOver),
+//            PelagoRelFactories.PELAGO_BUILDER));
 
         // To allow the join ordering program to proceed, we need to pull all
         // Project operators up (and anything else that is not a filter).
@@ -336,6 +422,8 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             .addRuleInstance(ProjectMergeRule.INSTANCE)
             // Pull Filters up over projects
             .addRuleInstance(ProjectFilterTransposeRule.INSTANCE)
+            .addRuleInstance(ProjectSortTransposeRule.INSTANCE)
+//            .addRuleInstance(SortProjectTransposeRule.INSTANCE)
             // Push Projects down
             .addRuleInstance(ProjectJoinTransposeRule.INSTANCE)
             .addRuleInstance(PruneEmptyRules.PROJECT_INSTANCE)
@@ -356,6 +444,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             .addRuleInstance(FilterJoinRule.FILTER_ON_JOIN)
             .addMatchOrder(HepMatchOrder.BOTTOM_UP)
             .addRuleInstance(JoinToMultiJoinRule.INSTANCE)
+//            .addRuleInstance(PelagoRules.PelagoFilterRule.INSTANCE)
             .build();
         final Program program1 =
             Programs.of(hep, false, PelagoRelMetadataProvider.INSTANCE);
@@ -365,44 +454,90 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
         // Do not add JoinCommuteRule and JoinPushThroughJoinRule, as
         // they cause exhaustive search.
         final Program program2 = Programs.of(new HepProgramBuilder()
-            .addRuleInstance(LoptOptimizeJoinRule.INSTANCE)
+            .addRuleInstance(new LoptOptimizeJoinRule(
+                RelBuilder.proto(
+                    new RelFactories.JoinFactory() {
+                        @Override public RelNode createJoin(final RelNode left, final RelNode right,
+                            final List<RelHint> hints,
+                            final RexNode condition, final Set<CorrelationId> variablesSet, final JoinRelType joinType,
+                            final boolean semiJoinDone) {
+                            return new PelagoLogicalJoin(left.getCluster(), left.getTraitSet(), left, right, condition, variablesSet, joinType);
+                        }
+                    }
+                )
+            ))
             .build(), false, PelagoRelMetadataProvider.INSTANCE);
 
-        return Programs.sequence(timedSequence("Optimization time: ",
-                Programs.subQuery(PelagoRelMetadataProvider.INSTANCE),
-                new DecorrelateProgram(),
-                new TrimFieldsProgram(),
-//                new PelagoProgram(),
-                new DeLikeProgram(),
-//                new PelagoProgram(),
-            new PelagoProgram(),
-            Programs.of(hepPushDownProjects, false, PelagoRelMetadataProvider.INSTANCE),
-            new PelagoProgram(),
-                Programs.of(hepPullUpProjects, false, PelagoRelMetadataProvider.INSTANCE),
-            new PelagoProgram(),
-            new PelagoProgram(),
-//                new PelagoProgram(),
-                // Use this with the lines commented above
-                program1,
+        HepProgram hepReduceProjects = new HepProgramBuilder()
+//            .addRuleInstance(PruneEmptyRules.PROJECT_INSTANCE)
+            .addMatchOrder(HepMatchOrder.BOTTOM_UP)
+            // Projects in the probe side of a Join can be pulled up to avoid redundant calculation
+            // Note that this relies on the compile to hoist the calculation for M:N joins,
+            // which may not be happening
+            // FIXME: adding the following rule is buggy as for a Join(Project, Project) it will
+            //   only pull up the prob-eside project, if it pulls up the build-side one as well.
+//            .addRuleInstance(new JoinProjectTransposeRule(
+//                operand(
+//                    PelagoJoin.class,
+//                    operand(RelNode.class, any()),
+//                    operand(PelagoProject.class, any())),
+//                "JoinProjectTransposeRule(Other-Project)",
+//                false,
+//                PelagoRelFactories.PELAGO_BUILDER))
+            .addRuleInstance(new ProjectRemoveRule(PelagoRelFactories.PELAGO_BUILDER))
+            .addRuleInstance(new ProjectMergeRule(true, ProjectMergeRule.DEFAULT_BLOAT, PelagoRelFactories.PELAGO_BUILDER))
+            .build();
+
+        return Programs.sequence(
+            timedSequence("Optimization time: ",
+                timedSequence(
+                    "Subqueries: ",
+                    Programs.subQuery(PelagoRelMetadataProvider.INSTANCE),
+                    new DecorrelateProgram(),
+                    new TrimFieldsProgram()
+                ),
+                timedSequence(
+                    "LIKE-to-join: ",
+                    new DeLikeProgram()
+                ),
+                timedSequence(
+                    "Project consolidation: ",
+                    Programs.of(hepPushDownProjects, false, PelagoRelMetadataProvider.INSTANCE),
+                    Programs.of(hepPullUpProjects, false, PelagoRelMetadataProvider.INSTANCE)
+                ),
+                timedSequence(
+                    "To multi-join: ",
+                    program1
+                ),
+                timedSequence(
+                    "Join ordering: ",
+                    program2//,
+//                    new PelagoProgram()
+                ),
+                timedSequence(
+                    "Push down projects: ",
+                    Programs.of(hepPushDownProjects2, false, PelagoRelMetadataProvider.INSTANCE)
+//                    new PelagoProgram()
+                ),
+                timedSequence(
+                    "Physical optimization: ",
+                    Programs.ofRules(planner.getRules()),
+                    new PelagoProgram()
+                ),
+                timedSequence(
+                    "Reduce projects: ",
+                    Programs.of(hepReduceProjects, false, PelagoRelMetadataProvider.INSTANCE)
+//                    new PelagoProgram()
+                ),
+                timedSequence(
+                    "Parallelization: ",
+                    Programs.ofRules(hetRuleBuilder.build())
+                ),
                 new PelagoProgram(),
-                program2,
-//                Programs.heuristicJoinOrder(List.of(), false, 2),
-                new PelagoProgram(),
-                Programs.of(hepPushDownProjects2, false, PelagoRelMetadataProvider.INSTANCE),
-                new PelagoProgram(),
-                Programs.ofRules(planner.getRules()),
-                new PelagoProgram(),
-//                new PelagoProgram(),
-//                new PelagoProgram2(),
-                Programs.ofRules(hetRuleBuilder.build()),
-//            Programs.ofRules(new JoinProjectTransposeRule(
-//                    operand(PelagoJoin.class,
-//                        operand(PelagoProject.class, any()),
-//                        operand(PelagoProject.class, any())),
-//                    "JoinProjectTransposeRule(Project-Project)2")),
                 new PelagoProgram2(),
-                new PelagoProgram(),
                 new PelagoProgramPrintPlan()
-                ));
+            )
+        );
     }
+
 }

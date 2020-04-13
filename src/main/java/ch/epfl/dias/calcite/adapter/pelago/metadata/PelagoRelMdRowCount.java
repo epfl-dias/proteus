@@ -15,17 +15,20 @@ import org.apache.calcite.rel.metadata.RelMdRowCount;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.util.BuiltInMethod;
+import org.apache.calcite.util.ImmutableBitSet;
 
 import com.google.common.collect.ImmutableList;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoPack;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoRouter;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoSplit;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoTableScan;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoUnion;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoUnnest;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoUnpack;
 import ch.epfl.dias.calcite.adapter.pelago.RelPacking;
+import ch.epfl.dias.calcite.adapter.pelago.costs.CostModel;
 
 public class PelagoRelMdRowCount implements MetadataHandler<BuiltInMetadata.RowCount> {
   private static final PelagoRelMdRowCount INSTANCE = new PelagoRelMdRowCount();
@@ -50,16 +53,26 @@ public class PelagoRelMdRowCount implements MetadataHandler<BuiltInMetadata.RowC
   }
 
   public Double getRowCount(PelagoPack rel, RelMetadataQuery mq) {
-    return Math.ceil(mq.getRowCount(rel.getInput()) / (1024*1024.0));
+//    return Math.ceil(mq.getRowCount(rel.getInput()) / (1024*1024.0));
+    return mq.getRowCount(rel.getInput()) / (CostModel.blockSize());
   }
 
   public Double getRowCount(Aggregate rel, RelMetadataQuery mq) {
     if (rel.getGroupCount() == 0) return 1.0;
+    ImmutableBitSet groupKey = rel.getGroupSet();
+
+    // rowCount is the cardinality of the group by columns
+    Double distinctRowCount =
+        mq.getDistinctRowCount(rel.getInput(), groupKey, null);
+    if (distinctRowCount == null) {
+      return def.getRowCount(rel, mq) * 1e-6;
+    }
+
     return def.getRowCount(rel, mq); // groupby's are generally very selective
   }
 
   public Double getRowCount(PelagoUnpack rel, RelMetadataQuery mq) {
-    return mq.getRowCount(rel.getInput()) * (1024*1024.0);
+    return mq.getRowCount(rel.getInput()) * (CostModel.blockSize());
   }
 
   public Double getRowCount(PelagoRouter rel, RelMetadataQuery mq) {
@@ -74,9 +87,14 @@ public class PelagoRelMdRowCount implements MetadataHandler<BuiltInMetadata.RowC
     return mq.getRowCount(rel.getInput());
   }
 
+  public Double getRowCount(PelagoSplit rel, RelMetadataQuery mq) {
+    return mq.getRowCount(rel.getInput(0)) / 2;
+  }
+
   public Double getRowCount(PelagoTableScan rel, RelMetadataQuery mq) {
-    double rc = rel.getTable().getRowCount();
-    if (rel.getTraitSet().containsIfApplicable(RelPacking.Packed)) rc /= 1024;
+    double rc = rel.getTable().getRowCount() * 1e8;
+    // FIXME: using CostModel.blockSize() breaks jo/in ordering in ssbm100
+    if (rel.getTraitSet().containsIfApplicable(RelPacking.Packed)) rc /= CostModel.blockSize();
     return rc;
   }
 

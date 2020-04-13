@@ -2,13 +2,12 @@ package ch.epfl.dias.calcite.adapter.pelago
 
 import java.util
 
-import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMetadataQuery}
 import ch.epfl.dias.emitter.Binding
 import ch.epfl.dias.emitter.PlanToJSON._
 import org.apache.calcite.plan._
 import org.apache.calcite.rel.convert.Converter
 import org.apache.calcite.rel.metadata.RelMetadataQuery
-import org.apache.calcite.rel.{RelNode, RelWriter, SingleRel}
+import org.apache.calcite.rel.{RelNode, SingleRel}
 import org.apache.calcite.rex.RexInputRef
 import org.json4s.JValue
 import org.json4s.JsonAST.JObject
@@ -19,17 +18,6 @@ import scala.collection.JavaConverters._
 class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: RelNode, val toPacking: RelPacking)
       extends SingleRel(cluster, traits, input) with PelagoRel with Converter {
   protected var inTraits: RelTraitSet = input.getTraitSet
-
-  override def explainTerms(pw: RelWriter): RelWriter = {
-    val rowCount = input.getCluster.getMetadataQuery.getRowCount(this)
-    val bytesPerRow = getRowType.getFieldCount * 4
-    val cost = computeSelfCost(input.getCluster.getPlanner, input.getCluster.getMetadataQuery)
-
-    super.explainTerms(pw)
-      .item("trait", getTraitSet.toString).item("intrait", inTraits.toString)
-      .item("inputRows", input.getCluster.getMetadataQuery.getRowCount(input))
-      .item("cost", cost)
-  }
 
   def getPacking() = toPacking;
 
@@ -48,7 +36,7 @@ class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: R
     } * (if (traitSet.containsIfApplicable(RelHomDistribution.SINGLE)) 1e2 else 1)
     val rowCount = mq.getRowCount(this)
     val bytesPerRow = getRowType.getFieldCount * 4
-    planner.getCostFactory.makeCost(rowCount, rowCount * rf * bytesPerRow * 1e16, 0)
+    planner.getCostFactory.makeCost(rowCount, rowCount * rf * bytesPerRow * 1e25, 0)
   }
 
   override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
@@ -64,9 +52,7 @@ class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: R
       }
     }
 
-    val json = op ~
-      ("gpu"        , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
-      ("projections", projs) ~ ("input", childOp) ~ ("trait", getTraitSet.toString)
+    val json = op ~ ("projections", projs)~ ("input", childOp)
     val ret = (childBinding, json)
     ret
   }

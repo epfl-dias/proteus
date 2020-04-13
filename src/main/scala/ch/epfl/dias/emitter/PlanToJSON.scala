@@ -1,35 +1,24 @@
 package ch.epfl.dias.emitter
 
 import java.io.{PrintWriter, StringWriter}
-import java.nio.charset.Charset
-import java.util
-import java.util.{Calendar, Set}
 
-import ch.epfl.dias.calcite.adapter.pelago.{PelagoTable, PelagoTableScan}
-import ch.epfl.dias.emitter.PlanToJSON.emitPrimitiveType
+import ch.epfl.dias.calcite.adapter.pelago.PelagoTable
 import com.google.common.collect.ImmutableList
-import org.apache.calcite.adapter.enumerable._
-import org.apache.calcite.avatica.util.{DateTimeUtils, TimeUnit, TimeUnitRange}
+import org.apache.calcite.avatica.util.TimeUnitRange
+import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeField, RelRecordType}
+import org.apache.calcite.rel.core.AggregateCall
 import org.apache.calcite.rel.{RelNode, SingleRel}
-import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeFactory, RelDataTypeField, RelRecordType}
-import org.apache.calcite.rel.core.{AggregateCall, Filter}
 import org.apache.calcite.rex._
-import org.apache.calcite.sql.fun.{SqlCaseOperator, SqlCastFunction, SqlLikeOperator, SqlStdOperatorTable}
+import org.apache.calcite.sql.`type`.{SqlTypeName, SqlTypeUtil}
+import org.apache.calcite.sql.fun.{SqlCaseOperator, SqlLikeOperator, SqlStdOperatorTable}
 import org.apache.calcite.sql.{pretty => _, _}
-import org.apache.calcite.interpreter.Bindables.BindableTableScan
-import org.apache.calcite.plan.{RelOptTable, RelOptUtil}
-import org.apache.calcite.plan.RelOptUtil.InputFinder
-import org.apache.calcite.sql.`type`.{ArraySqlType, SqlTypeName, SqlTypeUtil}
-import org.apache.calcite.util.NlsString
 import org.json4s.JsonAST.JValue
 import org.json4s.JsonDSL._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
-import org.json4s.jackson.Serialization
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.Buffer
-import scala.collection.mutable.ArrayBuffer
 import scala.util.control.Breaks._
 
 case class Binding(rel: PelagoTable, fields: List[RelDataTypeField])
@@ -112,8 +101,13 @@ object PlanToJSON {
             case SqlTypeName.FLOAT => lit.getValue.asInstanceOf[java.math.BigDecimal].doubleValue()
             case SqlTypeName.DOUBLE => lit.getValue.asInstanceOf[java.math.BigDecimal].doubleValue()
             case SqlTypeName.DECIMAL => lit.getValue.asInstanceOf[java.math.BigDecimal].doubleValue()
-            case SqlTypeName.DATE => lit.getValue.asInstanceOf[Calendar].getTimeInMillis
-            case SqlTypeName.TIMESTAMP => lit.getValue.asInstanceOf[Calendar].getTimeInMillis
+            case SqlTypeName.DATE | SqlTypeName.TIMESTAMP => {
+              val sw = new StringWriter
+              val pw = new PrintWriter(sw)
+              lit.printAsJava(pw)
+              pw.flush()
+              sw.toString
+            }
             case SqlTypeName.VARCHAR => lit.getValueAs(classOf[String]) //.toString.substring(1, lit.to)
             case SqlTypeName.CHAR => lit.getValueAs(classOf[String])
             case _ => {
@@ -137,7 +131,7 @@ object PlanToJSON {
             val path = table.unwrap(classOf[PelagoTable]).getPelagoRelName + "." + info._1.getName + ".dict"
 
             val old = PlanToJSON.dictEncoded
-            PlanToJSON.dictEncoded = table.unwrap(classOf[PelagoTable]).getPluginInfo.get("type").toString().equalsIgnoreCase("block")
+            PlanToJSON.dictEncoded = table.unwrap(classOf[PelagoTable]).getPluginInfo.get("type").toString.contains("block")
             val exprType2 : JValue = emitType(e.getType, f)
             PlanToJSON.dictEncoded = old
 
@@ -386,6 +380,9 @@ object PlanToJSON {
         val range = args.get(0).asInstanceOf[RexLiteral].getValue.asInstanceOf[TimeUnitRange]
         ("expression", "extract") ~ ("unitrange", range.name()) ~ ("e", emitExpression(args.get(1), f, input))
       }
+      case SqlKind.OTHER_FUNCTION => {
+        ("expression", func.getSqlIdentifier.toString) ~ ("argCnt", args.size()) /* FIXME */
+      }
       case _ => throw new PlanConversionException("Unsupported function: "+func.getKind.sql)
     }
     json
@@ -463,14 +460,7 @@ object PlanToJSON {
       }
     }
 
-    val jsonArg: JObject =
-      ("expression" , "argument"                            ) ~
-      ("attributes" , List(jsonAttr)                        ) ~
-      ("type"       , ("relName", finalRel) ~ ("type", "record") ) ~
-      ("argNo"      , -1                                    )
-
-
-    ("expression", "recordProjection") ~ ("e", jsonArg) ~ ("attribute", jsonAttr)
+    ("expression", "recordProjection") ~ ("e", ("expression" , "argument")) ~ ("attribute", jsonAttr)
   }
 
   def emitArg(arg: Integer, f: List[Binding]) : JValue = {

@@ -1,5 +1,14 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
+import java.io.{File, FileOutputStream, PrintWriter}
+import java.nio.file.{Files, Paths}
+import java.util
+
+import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataQuery
+import ch.epfl.dias.calcite.adapter.pelago.reporting.{PelagoTimeInterval, TimeKeeper}
+import ch.epfl.dias.emitter.Binding
+import ch.epfl.dias.emitter.PlanToJSON._
+import ch.epfl.dias.repl.Repl
 import com.google.common.collect.ImmutableList
 import org.apache.calcite.DataContext
 import org.apache.calcite.adapter.enumerable._
@@ -7,24 +16,14 @@ import org.apache.calcite.linq4j._
 import org.apache.calcite.linq4j.tree._
 import org.apache.calcite.plan._
 import org.apache.calcite.prepare.RelOptTableImpl
-import org.apache.calcite.rel.{RelDistributionTraitDef, RelNode, RelVisitor, RelWriter}
+import org.apache.calcite.rel.`type`._
 import org.apache.calcite.rel.convert.ConverterImpl
 import org.apache.calcite.rel.metadata.RelMetadataQuery
-import org.apache.calcite.rel.`type`._
+import org.apache.calcite.rel.{RelNode, RelWriter}
 import org.apache.calcite.rex.RexInputRef
-import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataQuery
-import ch.epfl.dias.emitter.Binding
-import ch.epfl.dias.repl.Repl
 import org.apache.calcite.util.Sources
-import java.io.{File, FileOutputStream, PrintWriter}
-import java.nio.file.{Files, Paths}
-import java.util
-
-import ch.epfl.dias.calcite.adapter.pelago.reporting.{PelagoTimeInterval, TimeKeeper}
-import ch.epfl.dias.emitter.PlanToJSON._
-import org.json4s.JValue
 import org.json4s.JsonDSL._
-import org.json4s._
+import org.json4s.{JValue, _}
 import org.json4s.jackson.JsonMethods._
 
 import scala.collection.JavaConverters._
@@ -99,6 +98,7 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
 
     val plan = getPlan
 
+    println(Repl.planfile)
     writePlan(plan, Repl.planfile)
     if (Files.exists(Paths.get("../../src/panorama/public/assets"))) {new PrintWriter(new FileOutputStream("../../src/panorama/public/assets/flare.json", false)) { write(pretty(render(plan))); close } }
 

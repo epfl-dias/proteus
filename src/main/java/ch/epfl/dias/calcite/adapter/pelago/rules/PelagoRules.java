@@ -36,7 +36,6 @@ public class PelagoRules {
         PelagoProjectPushBelowUnpack.INSTANCE,
         PelagoProjectRule.INSTANCE,
         PelagoAggregateRule.INSTANCE,
-        PelagoPartialAggregateRule.INSTANCE,
         PelagoSortRule.INSTANCE,
         PelagoFilterRule.INSTANCE,
         PelagoUnnestRule.INSTANCE,
@@ -196,7 +195,8 @@ public class PelagoRules {
             RelTraitSet traitSet = sort.getInput().getTraitSet().replace(PelagoRel.CONVENTION)
                 .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.X86_64)
                 .replace(RelHomDistribution.SINGLE)
-                .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
+                .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd)
+                .replaceIf(RelCollationTraitDef.INSTANCE, () -> RelCollations.EMPTY);
 
             RelNode inp = convert(sort.getInput(), traitSet);
 
@@ -251,7 +251,7 @@ public class PelagoRules {
         }
 
         protected PelagoJoinSeq(String description, boolean swap) {
-            super(LogicalJoin.class, description);
+            super(PelagoLogicalJoin.class, description);
             this.swap = swap;
         }
 

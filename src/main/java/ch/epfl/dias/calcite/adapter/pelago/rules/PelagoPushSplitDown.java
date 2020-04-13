@@ -6,10 +6,12 @@ import org.apache.calcite.rel.RelNode;
 
 import ch.epfl.dias.calcite.adapter.pelago.PelagoFilter;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoProject;
+import ch.epfl.dias.calcite.adapter.pelago.PelagoSplit$;
 import ch.epfl.dias.calcite.adapter.pelago.RelComputeDevice;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelHetDistribution;
+import ch.epfl.dias.calcite.adapter.pelago.RelSplitPoint;
 
 import java.util.stream.Collectors;
 
@@ -38,6 +40,7 @@ public class PelagoPushSplitDown extends RelOptRule {
       rel.getTraitSet()
           .replace(distr)
           .replace(rel.getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE) == RelDeviceType.NVPTX ? RelComputeDevice.NVPTX : RelComputeDevice.X86_64)
+          .replace(RelSplitPoint.of(rel))
     );
   }
 

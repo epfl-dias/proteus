@@ -1,18 +1,12 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
 import ch.epfl.dias.emitter.Binding
-import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema}
-import ch.epfl.dias.repl.Repl
 import org.apache.calcite.plan.{RelOptCluster, RelOptCost, RelOptPlanner, RelTraitSet}
-import org.apache.calcite.rel.{RelNode, _}
 import org.apache.calcite.rel.convert.Converter
-import org.apache.calcite.rel.metadata.RelMetadataQuery
-import org.apache.calcite.rex.RexInputRef
+import org.apache.calcite.rel.metadata.{CyclicMetadataException, RelMetadataQuery}
+import org.apache.calcite.rel.{RelNode, _}
 import org.json4s.JsonDSL._
 import org.json4s._
-
-import scala.collection.JavaConverters._
-import ch.epfl.dias.repl.Repl
 
 class PelagoSplit protected(cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode, val hetdistribution: RelHetDistribution, val splitId: Long)
     extends PelagoRouter(cluster, traitSet, input, traitSet.getTrait(RelHomDistributionTraitDef.INSTANCE)) with Converter {
@@ -29,11 +23,15 @@ class PelagoSplit protected(cluster: RelOptCluster, traitSet: RelTraitSet, input
 //  }
 
   override def estimateRowCount(mq: RelMetadataQuery): Double = {
-    var rc = mq.getRowCount(getInput)
-    if      ((hetdistribution eq RelHetDistribution.SPLIT_BRDCST) && input.getTraitSet.contains(RelHetDistribution.SPLIT)) rc = rc * 2
+    var rc: Double = try {
+      mq.getRowCount(getInput)
+    } catch {
+      case _: CyclicMetadataException => 1.0e50
+    }
+    if ((hetdistribution eq RelHetDistribution.SPLIT_BRDCST) && input.getTraitSet.contains(RelHetDistribution.SPLIT)) rc = rc * 2
     else if (hetdistribution eq RelHetDistribution.SPLIT_BRDCST) rc = rc
-    else if (hetdistribution eq RelHetDistribution.SPLIT       ) rc = rc / 2.0
-    else if (hetdistribution eq RelHetDistribution.SINGLETON   ) rc = rc * 2.0
+    else if (hetdistribution eq RelHetDistribution.SPLIT) rc = rc / 2.0
+    else if (hetdistribution eq RelHetDistribution.SINGLETON) rc = rc * 2.0
     rc
   }
 
@@ -67,24 +65,16 @@ class PelagoSplit protected(cluster: RelOptCluster, traitSet: RelTraitSet, input
     val child = getInput.asInstanceOf[PelagoRel].implement(null, alias)
     val childBinding: Binding = child._1
     var childOp = child._2
-    val rowType = emitSchema(childBinding.rel, getRowType, false, getTraitSet.containsIfApplicable(RelPacking.Packed))
 
     var out_dop = this.hetdistribution.getNumOfDeviceTypes()
 
     var in_dop = input.getTraitSet.getTrait(RelHetDistributionTraitDef.INSTANCE).getNumOfDeviceTypes
-
-    val projs = getRowType.getFieldList.asScala.zipWithIndex.map{
-      f => {
-        emitExpression(RexInputRef.of(f._2, getInput.getRowType), List(childBinding), this).asInstanceOf[JObject]
-      }
-    }
 
     val policy: JObject = {
       if (hetdistribution eq RelHetDistribution.SPLIT_BRDCST) {
         if (getTraitSet.containsIfApplicable(RelPacking.Packed)) {
           childOp = ("operator", "mem-broadcast-device") ~
             ("num_of_targets", out_dop) ~
-            ("projections", emitSchema(childBinding.rel, getRowType, false, true)) ~
             ("input", child._2) ~
             ("to_cpu", true) ~
             ("always_share", true)
@@ -93,16 +83,7 @@ class PelagoSplit protected(cluster: RelOptCluster, traitSet: RelTraitSet, input
         ("target",
           ("expression", "recordProjection") ~
             ("e",
-              ("expression", "argument") ~
-                ("argNo", -1) ~
-                ("type",
-                  ("type", "record") ~
-                    ("relName", childBinding.rel.getPelagoRelName)
-                ) ~
-                ("attributes", List(
-                  ("relName", childBinding.rel.getPelagoRelName) ~
-                    ("attrName", "__broadcastTarget")
-                ))
+              ("expression", "argument")
             ) ~
             ("attribute",
               ("relName", childBinding.rel.getPelagoRelName) ~
@@ -118,9 +99,7 @@ class PelagoSplit protected(cluster: RelOptCluster, traitSet: RelTraitSet, input
       }
     }
 
-    var json = header ~
-      ("gpu"         , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
-      ("projections" , rowType) ~
+    val json = header ~
       ("numOfParents", out_dop) ~
       ("producers"   , in_dop) ~
       ("slack"       , 8) ~
@@ -139,22 +118,23 @@ object PelagoSplit{
     return null;
   }
 
-  var split_cnt: Long = 0;
   val bindings = collection.mutable.Map[Long, Binding]();
 
   def create(input: RelNode, distribution: RelHetDistribution): PelagoSplit = {
+    val splitId = RelSplitPoint.getOrCreateId(input)
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION).replace(distribution)
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64)
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.NONE)
-    val splitId = split_cnt
-    split_cnt = splitId + 1
+      .replaceIf(RelSplitPointTraitDef.INSTANCE, () => RelSplitPoint.of(splitId))
     new PelagoSplit(input.getCluster, traitSet, input, distribution, splitId)
   }
 
-  def create(input: RelNode, distribution: RelHetDistribution, splitId: Long): PelagoSplit = {
+  def create(input: RelNode, distribution: RelHetDistribution, _splitId: Long): PelagoSplit = {
+    val splitId = RelSplitPoint.getOrCreateId(input)
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION).replace(distribution)
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64)
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.NONE)
+      .replaceIf(RelSplitPointTraitDef.INSTANCE, () => RelSplitPoint.of(splitId))
     new PelagoSplit(input.getCluster, traitSet, input, distribution, splitId)
   }
 }

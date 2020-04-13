@@ -1,24 +1,15 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
-import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataQuery
-import org.apache.calcite.plan._
-import org.apache.calcite.rel._
-import org.apache.calcite.rel.core.Exchange
-import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema}
 import ch.epfl.dias.emitter.Binding
-import org.apache.calcite.plan.RelOptCluster
-import org.apache.calcite.plan.RelOptCost
-import org.apache.calcite.plan.RelOptPlanner
-import org.apache.calcite.plan.RelTraitSet
-import org.apache.calcite.rel.RelNode
+import ch.epfl.dias.repl.Repl
+import org.apache.calcite.plan.{RelOptCluster, RelOptCost, RelOptPlanner, RelTraitSet, _}
+import org.apache.calcite.rel.convert.Converter
 import org.apache.calcite.rel.metadata.RelMetadataQuery
-import org.apache.calcite.rex.RexInputRef
+import org.apache.calcite.rel.{RelNode, _}
 import org.json4s.JsonDSL._
 import org.json4s._
 
 import scala.collection.JavaConverters._
-import ch.epfl.dias.repl.Repl
-import org.apache.calcite.rel.convert.Converter
 
 class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode, val homdistribution: RelHomDistribution)
     extends SingleRel(cluster, traitSet, input) with PelagoRel with Converter {
@@ -47,27 +38,31 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
   }
 
   override def computeBaseSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
-//    if (traitSet.containsIfApplicable(RelPacking.UnPckd)) return planner.getCostFactory.makeInfiniteCost()
-    val rf = 1e5
-    val rf2 = 1 * (if (getTraitSet.containsIfApplicable(RelPacking.UnPckd)) 1e11 else 1)
+    if (traitSet.containsIfApplicable(RelPacking.UnPckd) && getHomDistribution == RelHomDistribution.BRDCST) return planner.getCostFactory.makeInfiniteCost()
+    val rf = 1e7
+    val inCnt = mq.getRowCount(input)
+    val rf2 = 1 * (if (getTraitSet.containsIfApplicable(RelPacking.UnPckd)) 1e7 * (if (inCnt != null) inCnt.doubleValue() else 1e6) else 1)
     var base = super.computeSelfCost(planner, mq)
     //    if (getDistribution.getType eq RelDistribution.Type.HASH_DISTRIBUTED) base = base.multiplyBy(80)
-    planner.getCostFactory.makeCost(base.getRows * rf2, base.getCpu * rf * rf2, base.getIo * rf2)
+    planner.getCostFactory.makeCost(base.getRows * rf2, base.getCpu * rf * rf2 * getRowType.getFieldCount, base.getIo * rf2)
     //    planner.getCostFactory.makeZeroCost()
   }
 
-  override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
+  override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("policy", getHomDistribution)
 
   def getDistribution: RelDistribution = homdistribution.getDistribution
 
   def getHomDistribution: RelHomDistribution = homdistribution
+
+  def hasMemMove: Boolean = {
+    getTraitSet.containsIfApplicable(RelPacking.Packed)
+  }
 
   override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
 //    assert(getTraitSet.containsIfApplicable(RelPacking.UnPckd) || (target != null))
     val child = getInput.asInstanceOf[PelagoRel].implement(target, alias)
     val childBinding: Binding = child._1
     var childOp = child._2
-    val rowType = emitSchema(childBinding.rel, getRowType, false, getTraitSet.containsIfApplicable(RelPacking.Packed))
 
     var out_dop = if (target == RelDeviceType.NVPTX) Repl.gpudop else Repl.cpudop
     if (homdistribution.satisfies(RelHomDistribution.SINGLE)) {
@@ -79,18 +74,11 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
       in_dop = 1
     }
 
-    val projs = getRowType.getFieldList.asScala.zipWithIndex.map{
-      f => {
-        emitExpression(RexInputRef.of(f._2, getInput.getRowType), List(childBinding), this).asInstanceOf[JObject]
-      }
-    }
-
     val policy: JObject = {
       if (getDistribution.getType eq RelDistribution.Type.BROADCAST_DISTRIBUTED) {
         if (getTraitSet.containsIfApplicable(RelPacking.Packed)) {
           childOp = ("operator", "mem-broadcast-device") ~
             ("num_of_targets", out_dop) ~
-            ("projections", emitSchema(childBinding.rel, getRowType, false, true)) ~
             ("input", child._2) ~
             ("to_cpu", target != RelDeviceType.NVPTX)
         }
@@ -98,16 +86,7 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
         ("target",
           ("expression", "recordProjection") ~
           ("e",
-            ("expression", "argument") ~
-            ("argNo", -1) ~
-            ("type",
-              ("type", "record") ~
-              ("relName", childBinding.rel.getPelagoRelName)
-            ) ~
-            ("attributes", List(
-              ("relName", childBinding.rel.getPelagoRelName) ~
-              ("attrName", "__broadcastTarget")
-            ))
+            ("expression", "argument")
           ) ~
           ("attribute",
             ("relName", childBinding.rel.getPelagoRelName) ~
@@ -138,10 +117,7 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
     }
 
     var json = ("operator", "router") ~
-      ("gpu"           , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
-      ("projections", rowType) ~
       ("numOfParents", out_dop) ~
-      ("producers", in_dop) ~
       ("slack", 8) ~
       ("cpu_targets", target != RelDeviceType.NVPTX) ~
       policy ~
@@ -149,7 +125,6 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
 
     if (getDistribution.getType != RelDistribution.Type.BROADCAST_DISTRIBUTED && getTraitSet.containsIfApplicable(RelPacking.Packed)) {
       json = ("operator", "mem-move-device") ~
-        ("projections", emitSchema(childBinding.rel, getRowType, false, true)) ~
         ("input", json) ~
         ("to_cpu", target != RelDeviceType.NVPTX) ~
         ("do_transfer", getRowType.getFieldList.asScala.map(_ => true))

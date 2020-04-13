@@ -1,10 +1,13 @@
 package ch.epfl.dias.calcite.adapter.pelago;
 
 import org.apache.calcite.test.CalciteAssert;
+import org.apache.calcite.test.Matchers;
+import org.apache.calcite.util.TestUtil;
 
 import com.google.common.collect.ImmutableList;
 
 import ch.epfl.dias.repl.Repl;
+import org.junit.Assert;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -21,6 +24,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 
@@ -75,6 +79,12 @@ public class PelagoQueryTest {
     return "";
   }
 
+  private static Path validationFile(String queryFile){
+    final Path p = Paths.get(queryFile + "." + getModeAsString() + ".plan");
+    if (Files.exists(p) && Files.isRegularFile(p)) return p;
+    return null;
+  }
+
   public void testQueryOrdered(String sql, Path resultFile) throws SQLException, IOException {
     CalciteAssert.AssertQuery q = testParseAndExecute(sql);
 
@@ -85,8 +95,8 @@ public class PelagoQueryTest {
       String f = resultFile.toString();
       assert(f.endsWith(suffix));
       final String filename = f.substring(0, f.length() - suffix.length());
-      final Path p = Paths.get(filename + "." + getModeAsString() + ".plan");
-      if (Files.exists(p) && Files.isRegularFile(p)){
+      final Path p = validationFile(filename);
+      if (p != null){
         String plan = new String(Files.readAllBytes(p)).trim();
         plan = plan.replaceAll("\\s*--[^\n]*", "");
         explainContains = "PLAN=" + plan;
@@ -112,6 +122,7 @@ public class PelagoQueryTest {
         Path target = Paths.get(resultFile.getParent().toString(), "current", getModeAsString(), qname + ".json");
         target.getParent().toFile().mkdirs();
         Repl.planfile_$eq(target.toString());
+        System.out.println(Repl.planfile());
       }
     }
     assert(explainContains.startsWith("PLAN=PelagoToEnumerableConverter"));
@@ -199,7 +210,7 @@ public class PelagoQueryTest {
             return null;
           }
         })
-        .filter((x) -> x != null),
+        .filter(Objects::nonNull),
       Files.list(path)
         .filter((x) -> !x.getFileName().toString().equals("current"))
         .filter(Files::isDirectory)
@@ -212,6 +223,6 @@ public class PelagoQueryTest {
             return null;
           }
         })
-        .filter((x) -> x != null));
+        .filter(Objects::nonNull));
   }
 }

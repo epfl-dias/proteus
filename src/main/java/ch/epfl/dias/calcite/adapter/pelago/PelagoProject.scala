@@ -1,24 +1,20 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
-import ch.epfl.dias.emitter.Binding
-import org.apache.calcite.plan.RelOptCluster
-import org.apache.calcite.plan.RelOptCost
-import org.apache.calcite.plan.RelOptPlanner
-import org.apache.calcite.plan.RelTraitSet
-import org.apache.calcite.rel._
-import org.apache.calcite.rel.core.Project
-import org.apache.calcite.rel.metadata.RelMetadataQuery
-import org.apache.calcite.rel.`type`.RelDataType
-import org.json4s.JsonDSL._
-import org.json4s._
-import org.apache.calcite.rex.RexNode
-import org.json4s.JsonAST
-
-import scala.collection.JavaConverters._
 import java.util
 
-import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution, PelagoRelMdHomDistribution, PelagoRelMetadataQuery}
+import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdHomDistribution}
+import ch.epfl.dias.emitter.Binding
 import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema, getFields}
+import org.apache.calcite.plan.{RelOptCluster, RelOptCost, RelOptPlanner, RelTraitSet}
+import org.apache.calcite.rel._
+import org.apache.calcite.rel.`type`.RelDataType
+import org.apache.calcite.rel.core.Project
+import org.apache.calcite.rel.metadata.{RelMdCollation, RelMetadataQuery}
+import org.apache.calcite.rex.RexNode
+import org.json4s.JsonDSL._
+import org.json4s.{JsonAST, _}
+
+import scala.collection.JavaConverters._
 
 /**
   * Implementation of {@link org.apache.calcite.rel.core.Project}
@@ -45,7 +41,7 @@ class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, in
     // equivalence. This increases the search space as there are have more
     // intermediate results. We use this big factor to compensate for that.
     val c = super.computeSelfCost(planner, mq)
-    planner.getCostFactory.makeCost(c.getRows, c.getCpu * 1e9, c.getIo)
+    planner.getCostFactory.makeCost(c.getRows, c.getCpu * 1e15, c.getIo)
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
@@ -65,11 +61,10 @@ class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, in
     }
 
     val json = op ~
-      ("gpu"          , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
       ("relName"      , alias.getPelagoRelName                                ) ~
       ("e"            , exprsJS                                               ) ~
       ("input"        , childOp          ) // ~ ("tupleType", rowType)
-    val binding: Binding = Binding(alias,getFields(getRowType))
+    val binding: Binding = Binding(alias, getFields(getRowType))
     val ret: (Binding, JValue) = (binding,json)
     ret
   }
@@ -82,6 +77,7 @@ object PelagoProject{
     val mq       = cluster.getMetadataQuery
     val dev      = PelagoRelMdDeviceType.project(mq, input, projects)
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION)
+      .replaceIfs(RelCollationTraitDef.INSTANCE, () => RelMdCollation.project(mq, input, projects))
       .replaceIf(RelHomDistributionTraitDef.INSTANCE, () => PelagoRelMdHomDistribution.project(mq, input, projects))
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => dev);

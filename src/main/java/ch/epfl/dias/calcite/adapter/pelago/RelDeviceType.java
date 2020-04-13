@@ -31,6 +31,10 @@ public class RelDeviceType implements PelagoTrait {
 //    return (trait == this) || (trait == ANY); //(this == ANY) ||
   }
 
+  public Double getMemBW(){
+    return ((this == X86_64) ? (100.0 / 10) : 900) * 1024.0 * 1024 * 1024;
+  }
+
   @Override public void register(RelOptPlanner planner) {}
 }
 

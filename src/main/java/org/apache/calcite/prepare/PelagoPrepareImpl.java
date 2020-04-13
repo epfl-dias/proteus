@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import org.apache.calcite.adapter.enumerable.EnumerableConvention;
+import org.apache.calcite.adapter.enumerable.EnumerableInterpreterRule;
 import org.apache.calcite.adapter.enumerable.EnumerableRel;
 import org.apache.calcite.adapter.enumerable.EnumerableRules;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
@@ -18,16 +19,10 @@ import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.plan.*;
-import org.apache.calcite.plan.volcano.AbstractConverter;
 import org.apache.calcite.plan.volcano.PelagoCostFactory;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.Aggregate;
-import org.apache.calcite.rel.core.Filter;
-import org.apache.calcite.rel.core.Join;
-import org.apache.calcite.rel.core.Project;
-import org.apache.calcite.rel.core.Sort;
+import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.rules.*;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -53,27 +48,29 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.util.Util;
 
-import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
 import ch.epfl.dias.calcite.adapter.pelago.RelComputeDeviceTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelHetDistributionTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelHomDistributionTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelPackingTraitDef;
+import ch.epfl.dias.calcite.adapter.pelago.RelSplitPointTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
-import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectMergeRule;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectPushBelowUnpack;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules;
 import ch.epfl.dias.repl.Repl;
 
+import java.io.PrintStream;
 import java.lang.reflect.Type;
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
-import static org.apache.calcite.plan.RelOptRule.any;
 import static org.apache.calcite.plan.RelOptRule.operand;
 
 public class PelagoPrepareImpl extends CalcitePrepareImpl {
@@ -97,12 +94,37 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
             org.apache.calcite.plan.Context externalContext,
             RelOptCostFactory costFactory) {
         RelOptCostFactory cFactory = (costFactory == null) ? PelagoCostFactory.INSTANCE : costFactory;
-        RelOptPlanner planner = super.createPlanner(prepareContext, externalContext, cFactory);
+
+        if (externalContext == null) {
+            externalContext = Contexts.of(prepareContext.config());
+        }
+        final VolcanoPlanner planner =
+            new VolcanoPlanner(cFactory, externalContext){
+
+//                public RelOptCost getCost(RelNode rel, RelMetadataQuery mq) {
+////                    System.out.println(rel);
+//                    if (rel instanceof RelSubset) {
+//                        return ((RelSubset) rel).computeSelfCost(this, mq);
+//                    }
+//                    return super.getCost(rel, mq);
+//                }
+            };
+        planner.addRelTraitDef(ConventionTraitDef.INSTANCE);
+        if (CalciteSystemProperty.ENABLE_COLLATION_TRAIT.value()) {
+            planner.addRelTraitDef(RelCollationTraitDef.INSTANCE);
+        }
+        RelOptUtil.registerDefaultRules(planner,
+            prepareContext.config().materializationsEnabled(),
+            enableBindable);
+//        Hook.PLANNER.run(planner); // allow test to add or remove rules
+
+//        RelOptPlanner planner = super.createPlanner(prepareContext, externalContext, cFactory);
         planner.addRelTraitDef(RelDeviceTypeTraitDef     .INSTANCE);
         planner.addRelTraitDef(RelPackingTraitDef        .INSTANCE);
         planner.addRelTraitDef(RelHomDistributionTraitDef.INSTANCE);
 
         planner.addRelTraitDef(RelHetDistributionTraitDef.INSTANCE);
+        planner.addRelTraitDef(RelSplitPointTraitDef     .INSTANCE);
         if (Repl.isHybrid() || Repl.isCpuonly()) planner.addRelTraitDef(RelComputeDeviceTraitDef  .INSTANCE);
 //
 //        planner.clear();
@@ -116,8 +138,12 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         for (RelOptRule rule: PelagoRules.RULES) {
             planner.addRule(rule);
         }
-        planner.removeRule(EnumerableRules.ENUMERABLE_AGGREGATE_RULE);
-        planner.removeRule(EnumerableRules.ENUMERABLE_SORT_RULE);
+        for (var enrule: EnumerableRules.ENUMERABLE_RULES){
+            planner.removeRule(enrule);
+        }
+        planner.removeRule(JoinCommuteRule.INSTANCE);
+
+        planner.removeRule(EnumerableInterpreterRule.INSTANCE);
         planner.addRule(PelagoProjectPushBelowUnpack.INSTANCE);
         planner.addRule(ProjectMergeRule.INSTANCE);
 //

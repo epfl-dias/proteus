@@ -31,13 +31,14 @@
  */
 package ch.epfl.dias.calcite.adapter.pelago.metadata
 
+import ch.epfl.dias.calcite.adapter.pelago.PelagoRel
+import ch.epfl.dias.calcite.adapter.pelago.costs.CostModel
 import org.apache.calcite.plan.RelOptCost
 import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rel.metadata._
-import ch.epfl.dias.calcite.adapter.pelago.{PelagoRel, RelDeviceType}
-import com.google.common.collect.ImmutableList
-import org.apache.calcite.rel.metadata.BuiltInMetadata.NonCumulativeCost
 import org.apache.calcite.util.BuiltInMethod
+
+import scala.collection.mutable
 
 /**
   * RelNodes supply a function {@link RelNode#computeSelfCost(RelOptPlanner, RelMetadataQuery)} to compute selfCost
@@ -53,21 +54,42 @@ object PelagoRelMdNonCumulativeCost {
 class PelagoRelMdNonCumulativeCost protected() extends MetadataHandler[BuiltInMetadata.NonCumulativeCost] {
   override def getDef: MetadataDef[BuiltInMetadata.NonCumulativeCost] = BuiltInMetadata.NonCumulativeCost.DEF
 
+  private val cache = mutable.WeakHashMap[RelNode, RelOptCost]()
+
   /** Fallback method to deduce selfCost for any relational expression not
     * handled by a more specific method.
     *
     * @param rel Relational expression
     * @return Relational expression's self cost
     */
-  def getNonCumulativeCost(rel: RelNode, mq: RelMetadataQuery): RelOptCost = rel.computeSelfCost(rel.getCluster.getPlanner, mq)
+  def getNonCumulativeCost(rel: RelNode, mq: RelMetadataQuery): RelOptCost = {
+    computeAndCacheNonCumulativeCost(rel, mq)
+  }
+
+  protected def computeAndCacheNonCumulativeCost[T <: RelNode](rel: T, mq: RelMetadataQuery): RelOptCost = {
+//    if (rel.isInstanceOf[PelagoUnion])
+      cache.remove(rel)
+    mq.clearCache(rel)
+    try {
+      cache.getOrElseUpdate(rel, {
+        val rowCount = mq.getRowCount(rel)
+        assert(rowCount != null)
+        val c = CostModel.getNonCumulativeCost(rel)
+        if (c == null) {
+          assert(!rel.isInstanceOf[PelagoRel])
+          rel.computeSelfCost(rel.getCluster.getPlanner, mq)
+        } else {
+          c.toRelCost(rel.getCluster.getPlanner.getCostFactory, rel.getTraitSet, rowCount)
+        }
+      })
+    } catch {
+      case _: CyclicMetadataException => rel.getCluster.getPlanner.getCostFactory.makeInfiniteCost()
+    }
+  }
+
 
   def getNonCumulativeCost(rel: PelagoRel, mq: RelMetadataQuery): RelOptCost = {
-    val base = rel.computeBaseSelfCost(rel.getCluster.getPlanner, mq)
-    if (rel.getTraitSet.containsIfApplicable(RelDeviceType.NVPTX)){
-      base
-    } else {
-      rel.getCluster.getPlanner.getCostFactory.makeCost(base.getRows, base.getCpu, base.getIo)
-    }
+    computeAndCacheNonCumulativeCost(rel, mq)
   }
 }
 

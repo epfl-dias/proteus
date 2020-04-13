@@ -46,7 +46,9 @@ public class RelPackingTraitDef extends RelTraitDef<RelPacking> {
 
   @Override public RelNode convert(RelOptPlanner planner, RelNode rel, RelPacking to_packing,
                                    boolean allowInfiniteCostConverters) {
-//    if (rel.getConvention() != PelagoRel.CONVENTION) return null;
+    if (rel.getConvention() != PelagoRel.CONVENTION) return null;
+    if (rel.getTraitSet().containsIfApplicable(to_packing)) return rel;
+
     RelNode p;
     if (to_packing == RelPacking.Packed) {
       p = PelagoPack  .create(rel, to_packing);

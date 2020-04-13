@@ -41,6 +41,7 @@ public class PelagoPartialAggregateRule extends RelOptRule {
     Integer i = rel.getGroupCount();
     for (AggregateCall a: rel.getAggCallList()){
       SqlSplittableAggFunction s = a.getAggregation().unwrap(SqlSplittableAggFunction.class);
+      if (s == null) return;
 
       List<RexNode> list = new ArrayList<>(rexBuilder.identityProjects(rel.getRowType()));
       SqlSplittableAggFunction.Registry<RexNode> reg = e -> {

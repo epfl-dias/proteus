@@ -1,32 +1,21 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
-import java.util
 import java.util.List
 
-import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution, PelagoRelMetadataQuery}
-import org.apache.calcite.rel.metadata.RelMdDistribution
-import org.apache.calcite.rel.{RelDistribution, RelDistributionTraitDef, RelDistributions}
+import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataQuery
+import org.apache.calcite.rel.{RelCollationTraitDef, RelCollations}
 
 //import ch.epfl.dias.calcite.adapter.pelago.`trait`.RelDeviceType
 //import ch.epfl.dias.calcite.adapter.pelago.`trait`.RelDeviceTypeTraitDef
 import ch.epfl.dias.emitter.Binding
-import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema}
-import com.google.common.base.Supplier
+import ch.epfl.dias.emitter.PlanToJSON.emitSchema
 import org.apache.calcite.plan._
-import org.apache.calcite.rel.RelNode
-import org.apache.calcite.rel.RelWriter
-import org.apache.calcite.rel.SingleRel
-import org.json4s.{JValue, JsonAST}
-import org.json4s.JsonDSL._
-import org.json4s._
-import org.json4s.jackson.JsonMethods._
-import org.json4s.jackson.Serialization
-import ch.epfl.dias.emitter.PlanToJSON.{emitAggExpression, emitArg, emitExpression, emitSchema, getFields}
-import ch.epfl.dias.emitter.Binding
+import org.apache.calcite.rel.{RelNode, RelWriter, SingleRel}
 import org.apache.calcite.rel.convert.Converter
-import org.apache.calcite.rel.core.Exchange
 import org.apache.calcite.rel.metadata.RelMetadataQuery
-import org.apache.calcite.util.Util
+import org.json4s.JValue
+import org.json4s.JsonDSL._
+
 import scala.collection.JavaConverters._
 
 class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, input: RelNode, val deviceType: RelDeviceType)
@@ -56,11 +45,23 @@ class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, i
     planner.getCostFactory.makeCost(rowCount, rowCount * bytesPerRow * 1e6
       * (
       if (traitSet.containsIfApplicable(RelPacking.UnPckd) && (getDeviceType eq RelDeviceType.NVPTX)) return planner.getCostFactory.makeHugeCost()
-      else if (traitSet.containsIfApplicable(RelPacking.UnPckd)) Math.min(1e12, rowCount)
+      else if (traitSet.containsIfApplicable(RelPacking.UnPckd)) Math.min(1e7, rowCount)
       else 1), rowCount * bytesPerRow * 1e5)
   }
 
   override def estimateRowCount(mq: RelMetadataQuery): Double = input.estimateRowCount(mq)
+
+  def hasMemMove: Boolean = {
+    getTraitSet.containsIfApplicable(RelPacking.Packed) && (
+      (getDeviceType() == RelDeviceType.X86_64) ||
+      getTraitSet.containsIfApplicable(RelHomDistribution.SINGLE)
+    )
+  }
+
+  def hasMemMovePrivate: Boolean = {
+    getTraitSet.containsIfApplicable(RelPacking.Packed) &&
+      (getDeviceType() == RelDeviceType.X86_64)
+  }
 
   override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
     val op = ("operator" ,
@@ -88,7 +89,7 @@ class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, i
       ("input", childOp)
 
 
-    if (target != null && getDeviceType() == RelDeviceType.X86_64 && getTraitSet.containsIfApplicable(RelPacking.Packed)) {
+    if (target != null && hasMemMovePrivate) {
       json = ("operator", "mem-move-device") ~
         ("projections", emitSchema(childBinding.rel, getRowType, false, true)) ~
         ("input", json) ~
@@ -112,6 +113,7 @@ object PelagoDeviceCross {
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION).replace(toDevice)
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input, false))
       .replaceIf(RelHetDistributionTraitDef.INSTANCE, () => mq.asInstanceOf[PelagoRelMetadataQuery].hetDistribution(input))
+      .replaceIf(RelCollationTraitDef.INSTANCE, () => RelCollations.EMPTY)
     new PelagoDeviceCross(input.getCluster, traitSet, input, toDevice)
   }
 }

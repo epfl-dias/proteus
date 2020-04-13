@@ -2,27 +2,23 @@ package ch.epfl.dias.calcite.adapter.pelago
 
 import java.io.{PrintWriter, StringWriter}
 import java.util
-import java.util.Calendar
 
 import org.apache.calcite.plan.RelOptCluster
-import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeFactory}
-import org.apache.calcite.rel.core.{Aggregate, AggregateCall, Filter, Join, Project, TableScan}
+import org.apache.calcite.rel.RelNode
+import org.apache.calcite.rel.core._
 import org.apache.calcite.rel.externalize.RelWriterImpl
-import org.apache.calcite.rel.metadata.RelMetadataQuery
-import org.apache.calcite.rel.{RelNode, RelWriter}
-import org.apache.calcite.rex.{RexCall, RexCorrelVariable, RexDynamicParam, RexFieldAccess, RexInputRef, RexLiteral, RexLocalRef, RexNode, RexOver, RexPatternFieldRef, RexRangeRef, RexShuttle, RexSubQuery, RexTableInputRef, RexUtil, RexVisitor, RexVisitorImpl}
+import org.apache.calcite.rex._
 import org.apache.calcite.sql.`type`.SqlTypeName
-import org.apache.calcite.sql.fun.{SqlCountAggFunction, SqlSumAggFunction, SqlSumEmptyIsZeroAggFunction}
-import org.apache.calcite.sql.{SqlExplainLevel, SqlFunctionalOperator, SqlKind}
-import org.apache.calcite.util.{NlsString, Pair}
-import sun.jvm.hotspot.oops.ObjectHeap
+import org.apache.calcite.sql.fun.{SqlCountAggFunction, SqlMinMaxAggFunction, SqlSumAggFunction, SqlSumEmptyIsZeroAggFunction}
+import org.apache.calcite.sql.{SqlExplainLevel, SqlKind}
+import org.apache.calcite.util.Pair
 
 import scala.collection.JavaConverters._
 
 class RelBuilderWriter(pw: PrintWriter, detailLevel: SqlExplainLevel,
                        withIdPrefix: Boolean) extends RelWriterImpl(pw, detailLevel, withIdPrefix){
   def getPelagoRelBuilderName(rel: RelNode) = rel match {
-    case _: TableScan => "scan"
+    case _: TableScan => "template scan"
     case _: Project => "project"
     case _: Filter => "filter"
     case _: Join => "join"
@@ -169,8 +165,14 @@ class RelBuilderWriter(pw: PrintWriter, detailLevel: SqlExplainLevel,
         s.append("}")
       }
       case SqlKind.OTHER_FUNCTION => {
+//        e.getOperator match {
+//          case function: SqlFunction => function.getSqlIdentifier match {
+//            case _ => ???
+//          }
+//        }
         ???
       }
+      case _ => ???
     }
   }
 
@@ -191,7 +193,15 @@ class RelBuilderWriter(pw: PrintWriter, detailLevel: SqlExplainLevel,
         case SqlTypeName.INTEGER => s.append(lit)
         case SqlTypeName.BIGINT => s.append("((int64_t) ").append(lit).append(")")
         case SqlTypeName.TIMESTAMP => s.append("expressions::DateConstant(")
-          .append(lit.getValue.asInstanceOf[Calendar].getTimeInMillis)
+          .append({
+            val sw = new StringWriter
+            val pw = new PrintWriter(sw)
+            pw.print('"')
+            lit.printAsJava(pw)
+            pw.print('"')
+            pw.flush()
+            sw.toString
+          })
           .append(")")
         case SqlTypeName.VARCHAR | SqlTypeName.CHAR => {
           append(lit.getValue2, s, cluster)
@@ -199,12 +209,13 @@ class RelBuilderWriter(pw: PrintWriter, detailLevel: SqlExplainLevel,
         case SqlTypeName.SYMBOL => {
           s.append(lit.getValue)
         }
+        case SqlTypeName.DATE => ???
       }
     }
   }
 
   protected def convAggInput(agg: AggregateCall, s: java.lang.StringBuilder) = agg.getAggregation match {
-    case _: SqlSumAggFunction | _ : SqlSumEmptyIsZeroAggFunction => {
+    case _: SqlSumAggFunction | _ : SqlSumEmptyIsZeroAggFunction | _: SqlMinMaxAggFunction => {
       assert(agg.getArgList.size() == 1)
       s.append("arg[\"$")
         .append(agg.getArgList.get(0))
@@ -219,6 +230,10 @@ class RelBuilderWriter(pw: PrintWriter, detailLevel: SqlExplainLevel,
   protected def convAggMonoid(agg: AggregateCall, s: java.lang.StringBuilder) = agg.getAggregation match {
     case _: SqlSumAggFunction => s.append("SUM")
     case _: SqlCountAggFunction | _ : SqlSumEmptyIsZeroAggFunction => s.append("SUM")
+    case a: SqlMinMaxAggFunction => s.append(a.getKind match {
+      case SqlKind.MIN => "MIN"
+      case SqlKind.MAX => "MAX"
+    })
   }
   protected def append(x: Any, s: java.lang.StringBuilder, cluster: RelOptCluster): Unit = x match{
     case e: RexNode => expr(canonicalizeTypes(e, cluster), s, cluster)
@@ -266,13 +281,13 @@ class RelBuilderWriter(pw: PrintWriter, detailLevel: SqlExplainLevel,
       case proj: PelagoProject => {
         s.append("[&](const auto &arg) -> std::vector<expression_t> { return {")
 //        val names = proj.getRowType..asScala
-        proj.getProjects.asScala.zipWithIndex.foreach(e => {
+        proj.getNamedProjects.asScala.zipWithIndex.foreach(e => {
           if (e._2 != 0) s.append(", ")
           s.append("(")
-          append(e._1, s, rel.getCluster)
+          append(e._1.left, s, rel.getCluster)
           s.append(").as(")
           append(proj.getDigest, s, rel.getCluster)
-          s.append(", \"$").append(e._2)
+          s.append(", \"").append(e._1.right)
           s.append("\")")
         })
         s.append("}; }")
@@ -371,12 +386,12 @@ class RelBuilderWriter(pw: PrintWriter, detailLevel: SqlExplainLevel,
         s.append("}; }, ").append(hash_bits).append(", ").append(maxEst)
       }
       case router: PelagoRouter if router.getHomDistribution == RelHomDistribution.BRDCST => {
-        val slack = 1
+        val slack = 64
         s.append("[&](const auto &arg) -> std::optional<expression_t> { return arg[\"__broadcastTarget\"]; }, ")
         s.append("dop, ").append(slack).append(", RoutingPolicy::HASH_BASED, dev, aff_parallel()")
       }
       case router: PelagoRouter if router.getHomDistribution == RelHomDistribution.RANDOM => {
-        val slack = 1
+        val slack = 32
         s.append("dop, ").append(slack).append(", RoutingPolicy::LOCAL, dev, aff_parallel()")
       }
       case router: PelagoRouter if router.getHomDistribution == RelHomDistribution.SINGLE => {
@@ -390,15 +405,18 @@ class RelBuilderWriter(pw: PrintWriter, detailLevel: SqlExplainLevel,
           s.append("arg[\"$").append(e).append("\"]")
         })
         s.append("}; }, {")
-        (0 until (sort.getRowType.getFieldCount - sort.getCollation.getFieldCollations.size)).foreach(_ => {
-          s.append("direction::NONE, ")
-        })
         sort.getCollation.getFieldCollations.asScala.zipWithIndex.foreach(e => {
           s.append("direction::").append(e._1.direction.shortString).append(", ")
+        })
+        (0 until (sort.getRowType.getFieldCount - sort.getCollation.getFieldCollations.size)).foreach(_ => {
+          s.append("direction::NONE, ")
         })
         s.append("}")
       }
       case _: PelagoDeviceCross => {}
+      case _: PelagoDictTableScan => {
+        s.append(". /* Unimplemeted node */");
+      }
 //      case _ => /* TODO: implement */
     }
     s.append(")")
@@ -434,17 +452,17 @@ class RelBuilderWriter(pw: PrintWriter, detailLevel: SqlExplainLevel,
     rel match {
       case p: PelagoRel => construction(p, s, values.asScala.map(e => (e.left, e.right)).toMap)
       case root: PelagoToEnumerableConverter => {
-        s.append("([&](const auto &arg, std::string outrel) -> std::vector<expression_t> { return {")
+        s.append("([&](const auto &arg) -> std::vector<expression_t> { return {")
         //        val names = proj.getRowType..asScala
         root.getRowType.getFieldList.asScala.foreach(e => {
           if (e.getIndex != 0) s.append(", ")
           s.append("arg[\"$").append(e.getIndex).append("\"].as(")
-          s.append("outrel")
+          s.append("\"out\"")
           s.append(", ")
           append(e.getName, s, rel.getCluster)
           s.append(")")
         })
-        s.append("}; }, std::string{query} + (memmv ? \"mv\" : \"nmv\"))")
+        s.append("}; })")
       }
       case _ => s.append("()")
     }

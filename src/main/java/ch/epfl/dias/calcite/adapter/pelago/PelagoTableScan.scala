@@ -1,20 +1,20 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
+import java.util
+
+import ch.epfl.dias.calcite.adapter.pelago.costs.CostModel
+import ch.epfl.dias.emitter.PlanToJSON._
 import ch.epfl.dias.emitter.{Binding, PlanToJSON}
 import org.apache.calcite.linq4j.tree.Primitive
 import org.apache.calcite.plan._
 import org.apache.calcite.rel._
+import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.core.TableScan
 import org.apache.calcite.rel.metadata.RelMetadataQuery
-import org.apache.calcite.rel.`type`.RelDataType
 import org.json4s.JsonDSL._
 import org.json4s._
 
 import scala.collection.JavaConverters._
-import java.util
-
-import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataQuery
-import ch.epfl.dias.emitter.PlanToJSON._
 
 /**
   * Relational expression representing a scan of a Pelago file.
@@ -33,7 +33,7 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
     PelagoTableScan.create(getCluster, table, pelagoTable, fields)
   }
 
-  override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("fields", Primitive.asList(fields)).item("traits", getTraitSet.toString)
+  override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("fields", Primitive.asList(fields))
 
   override def deriveRowType: RelDataType = {
     val fieldList = table.getRowType.getFieldList
@@ -120,7 +120,7 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
     //TODO Cross-check: 0: schemaName, 1: tableName (?)
     val srcName  = getPelagoRelName //s.getTable.getQualifiedName.get(1)
 
-    PlanToJSON.dictEncoded = getPluginInfo.get("type").toString().equalsIgnoreCase("block")
+    PlanToJSON.dictEncoded = getPluginInfo.get("type").toString.contains("block")
     val rowType  = emitSchema(pelagoTable, getRowType)
     val linehint = getLineHint.longValue
 
@@ -162,7 +162,7 @@ class PelagoTableScan protected (cluster: RelOptCluster, traitSet: RelTraitSet, 
     pelagoTable.getDeviceType
   }
 
-  override def estimateRowCount(mq: RelMetadataQuery): Double = table.getRowCount / (if (pelagoTable.getPacking == RelPacking.Packed) 1024 else 1)
+  override def estimateRowCount(mq: RelMetadataQuery): Double = table.getRowCount / (if (pelagoTable.getPacking == RelPacking.Packed) CostModel.blockSize else 1)
 }
 
 object PelagoTableScan {

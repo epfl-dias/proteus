@@ -13,7 +13,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
-  static final boolean isDebug = ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp")>=0;
+  static final boolean isDebug = ManagementFactory.getRuntimeMXBean().getInputArguments().toString().contains("jdwp");
   private static final String schemaPath = "inputs/plans/schema.json";
 //  private static final String schemaPath = "inputs/plans/schema.json";
 
@@ -24,8 +24,9 @@ class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
 
     Repl.mockfile_$eq ("src/main/resources/mock.csv");
     Repl.isMockRun_$eq(true);
-//    Repl.printplan_$eq(true);
+    Repl.printplan_$eq(true);
     Repl.gpudop_$eq(2);
+    Repl.cpudop_$eq(24);
 
     Connection connection = createConnection();
     connection.createStatement().executeQuery("explain plan for select count(d_datekey) from ssbm_date");

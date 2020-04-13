@@ -9,7 +9,9 @@ public class PelagoCostFactory implements RelOptCostFactory {
   private PelagoCostFactory(){}
 
   @Override public RelOptCost makeCost(final double rowCount, final double cpu, final double io) {
-    return new PelagoCost(rowCount + 1e-3 * cpu + 1e3 * io, cpu, io);
+//    return new PelagoCost(rowCount + 1e-3 * cpu + 1e3 * io, cpu, io);
+    return new PelagoCost(io, cpu, rowCount);
+//    return new PelagoCost(rowCount, cpu, io);
   }
 
   @Override public RelOptCost makeHugeCost() {

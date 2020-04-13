@@ -116,6 +116,9 @@ public class PelagoPlannerTest {
       + "from ssbm_date",
 
     // unnest query
+    "select count(*) as cnt from employees e, unnest(e.children)",
+
+    // unnest query
     "select age, age2 from employeesnum e, unnest(e.children) as c",
 
     // unnest + group by query
@@ -173,7 +176,8 @@ public class PelagoPlannerTest {
     // warm-up connection and load classes
     PelagoTestConnectionFactory.get();
 
-    Repl.setHybrid();
+    Repl.setCpuonly();
+    Repl.cpudop_$eq(1);
   }
 
   public static Stream<String> data() {
