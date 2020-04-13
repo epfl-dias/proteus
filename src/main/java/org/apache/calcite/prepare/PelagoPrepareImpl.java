@@ -110,6 +110,65 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
 //                }
             };
         planner.addRelTraitDef(ConventionTraitDef.INSTANCE);
+        planner.addListener(new RelOptListener() {
+            int invokes = 0;
+            int transformations = 0;
+            final HashMap<RelOptRule, Long> invocations = new HashMap<>();
+            final HashMap<RelOptRule, Long> transforms = new HashMap<>();
+
+            @Override public void relEquivalenceFound(final RelEquivalenceEvent event) {
+
+            }
+
+            @Override public void ruleAttempted(final RuleAttemptedEvent event) {
+                if (event.isBefore()) return;
+                invokes++;
+                invocations.put(event.getRuleCall().rule, invocations.getOrDefault(event.getRuleCall().rule, 0L) + 1);
+            }
+
+            @Override public void ruleProductionSucceeded(final RuleProductionEvent event) {
+                if (event.isBefore()) return;
+                transformations++;
+                transforms.put(event.getRuleCall().rule, transforms.getOrDefault(event.getRuleCall().rule, 0L) + 1);
+            }
+
+            @Override public void relDiscarded(final RelDiscardedEvent event) {
+
+            }
+
+            public String repeat(String x, int n){
+                return IntStream.range(0, n).mapToObj(i -> x).collect(Collectors.joining(""));
+            }
+
+            public void printBarChart(PrintStream out, HashMap<RelOptRule, Long> maps, int counter, int barWidth){
+                int numSize = (int) Math.ceil(Math.log10(counter));
+                for (var x: maps.entrySet()) {
+                    int barSize = (int) (barWidth * 1.0 * x.getValue() / counter);
+                    out.print(repeat("#", barSize));
+                    out.print(repeat(" ", barWidth - barSize));
+                    out.format("\t%" + numSize + "d/%d\t", x.getValue(), counter);
+                    out.print(x.getKey());
+                    out.println();
+                }
+            }
+
+            @Override public void relChosen(final RelChosenEvent event) {
+                if (event.getRel() == null) {
+                    int barWidth = 30;
+
+                    System.out.println("Attempted: " + invokes);
+                    printBarChart(System.out, invocations, invokes, barWidth);
+
+                    System.out.println("Transformations: " + transformations);
+                    printBarChart(System.out, transforms, invokes, barWidth);
+
+                    transforms.clear();
+                    invocations.clear();
+                    invokes = 0;
+                    transformations = 0;
+                }
+            }
+        });
         if (CalciteSystemProperty.ENABLE_COLLATION_TRAIT.value()) {
             planner.addRelTraitDef(RelCollationTraitDef.INSTANCE);
         }
