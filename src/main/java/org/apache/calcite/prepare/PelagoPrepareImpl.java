@@ -19,6 +19,7 @@ import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.plan.*;
+import org.apache.calcite.plan.volcano.AbstractConverter;
 import org.apache.calcite.plan.volcano.PelagoCostFactory;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.rel.RelCollation;
@@ -46,6 +47,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.ChainedSqlOperatorTable;
 import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.sql.validate.SqlValidator;
+import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 
 import ch.epfl.dias.calcite.adapter.pelago.RelComputeDeviceTraitDef;
@@ -58,6 +60,7 @@ import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectPushBelowUnpack;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules;
 import ch.epfl.dias.repl.Repl;
+import org.codehaus.janino.Java;
 
 import java.io.PrintStream;
 import java.lang.reflect.Type;
@@ -66,6 +69,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -111,25 +115,33 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
             };
         planner.addRelTraitDef(ConventionTraitDef.INSTANCE);
         planner.addListener(new RelOptListener() {
-            int invokes = 0;
-            int transformations = 0;
             final HashMap<RelOptRule, Long> invocations = new HashMap<>();
             final HashMap<RelOptRule, Long> transforms = new HashMap<>();
+            final HashMap<Pair<RelTraitSet, RelTraitSet>, Long> expands = new HashMap<>();
+            final HashMap<RelTraitSet, Long> expandsFrom = new HashMap<>();
+            final HashMap<RelTraitSet, Long> expandsTo = new HashMap<>();
 
             @Override public void relEquivalenceFound(final RelEquivalenceEvent event) {
 
             }
 
+            public <T> void increment(HashMap<T, Long> map, T key){
+                map.put(key, map.getOrDefault(key, 0L) + 1);
+            }
+
             @Override public void ruleAttempted(final RuleAttemptedEvent event) {
                 if (event.isBefore()) return;
-                invokes++;
-                invocations.put(event.getRuleCall().rule, invocations.getOrDefault(event.getRuleCall().rule, 0L) + 1);
+                increment(invocations, event.getRuleCall().rule);
+                if (event.getRuleCall().getRule() == AbstractConverter.ExpandConversionRule.INSTANCE){
+                    increment(expands, Pair.of(event.getRel().getInput(0).getTraitSet(), event.getRel().getTraitSet()));
+                    increment(expandsFrom, event.getRel().getInput(0).getTraitSet());
+                    increment(expandsTo, event.getRel().getTraitSet());
+                }
             }
 
             @Override public void ruleProductionSucceeded(final RuleProductionEvent event) {
                 if (event.isBefore()) return;
-                transformations++;
-                transforms.put(event.getRuleCall().rule, transforms.getOrDefault(event.getRuleCall().rule, 0L) + 1);
+                increment(transforms, event.getRuleCall().rule);
             }
 
             @Override public void relDiscarded(final RelDiscardedEvent event) {
@@ -140,32 +152,34 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
                 return IntStream.range(0, n).mapToObj(i -> x).collect(Collectors.joining(""));
             }
 
-            public void printBarChart(PrintStream out, HashMap<RelOptRule, Long> maps, int counter, int barWidth){
-                int numSize = (int) Math.ceil(Math.log10(counter));
-                for (var x: maps.entrySet()) {
+            public <T> void printBarChart(PrintStream out, HashMap<T, Long> maps, int barWidth){
+                long counter = maps.values().stream().mapToLong(Long::longValue).sum();
+                int numSize = Math.max((int) Math.ceil(Math.log10(counter)), 1);
+                maps.entrySet().stream().sorted(Comparator.comparing(Object::toString)).forEach(x -> {
                     int barSize = (int) (barWidth * 1.0 * x.getValue() / counter);
                     out.print(repeat("#", barSize));
                     out.print(repeat(" ", barWidth - barSize));
                     out.format("\t%" + numSize + "d/%d\t", x.getValue(), counter);
                     out.print(x.getKey());
                     out.println();
-                }
+                });
+                System.out.println("Total: " + counter);
             }
 
             @Override public void relChosen(final RelChosenEvent event) {
                 if (event.getRel() == null) {
                     int barWidth = 30;
 
-                    System.out.println("Attempted: " + invokes);
-                    printBarChart(System.out, invocations, invokes, barWidth);
+                    printBarChart(System.out, invocations, barWidth);
+                    printBarChart(System.out, expands, barWidth);
+                    printBarChart(System.out, transforms, barWidth);
 
-                    System.out.println("Transformations: " + transformations);
-                    printBarChart(System.out, transforms, invokes, barWidth);
+                    printBarChart(System.out, expandsFrom, barWidth);
+                    printBarChart(System.out, expandsTo, barWidth);
 
                     transforms.clear();
                     invocations.clear();
-                    invokes = 0;
-                    transformations = 0;
+                    expands.clear();
                 }
             }
         });
@@ -183,7 +197,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         planner.addRelTraitDef(RelHomDistributionTraitDef.INSTANCE);
 
         planner.addRelTraitDef(RelHetDistributionTraitDef.INSTANCE);
-        planner.addRelTraitDef(RelSplitPointTraitDef     .INSTANCE);
+        if (Repl.isHybrid()) planner.addRelTraitDef(RelSplitPointTraitDef.INSTANCE);
         if (Repl.isHybrid() || Repl.isCpuonly()) planner.addRelTraitDef(RelComputeDeviceTraitDef  .INSTANCE);
 //
 //        planner.clear();

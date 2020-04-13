@@ -10,15 +10,15 @@ import org.apache.calcite.rel.RelNode
   * TODO: should we convert it into a RelMultipleTrait ? Does a RelMultipleTrait has *ANY* of the values or all?
   */
 object RelSplitPoint {
-  private val map = new util.HashMap[List[Long], RelSplitPoint]
+  private val map = new util.HashMap[Set[Long], RelSplitPoint]
   val NONE: RelSplitPoint = RelSplitPoint.of(-1)
   val TEST: RelSplitPoint = RelSplitPoint.of(100000)
 
   def of(point: Long): RelSplitPoint = {
-    of(point :: Nil)
+    of(Set(point))
   }
 
-  def of(point: List[Long]): RelSplitPoint = {
+  def of(point: Set[Long]): RelSplitPoint = {
     var s = map.get(point)
     if (s != null) return s
     s = new RelSplitPoint(point)
@@ -45,13 +45,13 @@ object RelSplitPoint {
     if (s1 == RelSplitPoint.NONE) return s2
     if (s2 == RelSplitPoint.NONE) return s1
     if (s1 == s2) return s1
-    of(s1.point ::: s2.point)
+    of(s1.point ++ s2.point)
   }
 
   def of(r: RelNode): RelSplitPoint = of(getOrCreateId(r))
 }
 
-class RelSplitPoint private(val point: List[Long]) extends PelagoTrait {
+class RelSplitPoint private(val point: Set[Long]) extends PelagoTrait {
   override def toString: String = {
     if (this == RelSplitPoint.NONE) return "NoSplit"
     "Split" + point

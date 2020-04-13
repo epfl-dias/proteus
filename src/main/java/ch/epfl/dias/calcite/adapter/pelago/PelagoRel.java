@@ -43,6 +43,8 @@ public interface PelagoRel extends RelNode {
             if (!toTraits.containsIfApplicable(CONVENTION)) return false;
 //
 //
+            if (fromTraits.contains(RelComputeDevice.X86_64NVPTX)) return false;
+            if (toTraits.contains(RelComputeDevice.X86_64NVPTX)) return false;
             boolean foundOne = false;
             int cnt = 0;
 
@@ -51,15 +53,24 @@ public interface PelagoRel extends RelNode {
             var s2d = toTraits.getTrait(RelSplitPointTraitDef.INSTANCE);
             var s2h = toTraits.getTrait(RelHetDistributionTraitDef.INSTANCE);
 
-//            if (s2h != null && s2d != null) {
-//                if (s2d == RelSplitPoint.NONE() && s2h != RelHetDistribution.SINGLETON) return false;
-//                if (s2d != RelSplitPoint.NONE() && s2h == RelHetDistribution.SINGLETON) return false;
-//            }
+            if (toTraits.containsIfApplicable(RelDeviceType.NVPTX) && toTraits.contains(RelComputeDevice.X86_64)) return false;
+            if (fromTraits.containsIfApplicable(RelDeviceType.NVPTX) && fromTraits.contains(RelComputeDevice.X86_64)) return false;
+            if (fromTraits.containsIfApplicable(RelPacking.UnPckd) && fromTraits.containsIfApplicable(RelDeviceType.X86_64) && fromTraits.contains(RelComputeDevice.NVPTX)) return false;
+            if (fromTraits.containsIfApplicable(RelPacking.UnPckd) && fromTraits.containsIfApplicable(RelDeviceType.X86_64) && fromTraits.contains(RelComputeDevice.NONE)) return false;
+            if (toTraits.containsIfApplicable(RelPacking.UnPckd) && toTraits.containsIfApplicable(RelDeviceType.X86_64) && toTraits.contains(RelComputeDevice.NONE)) return false;
+//            if (toTraits.containsIfApplicable(RelPacking.UnPckd) && toTraits.containsIfApplicable(RelDeviceType.X86_64) && toTraits.containsIfApplicable(RelComputeDevice.NVPTX)) return false;
 
-//            if (s1h != null && s1d != null) {
+            if (s2h != null && s2d != null) {
+                if (s2d == RelSplitPoint.NONE() && s2h == RelHetDistribution.SPLIT_BRDCST) return false;
+                // RelSplitPoint==NONE && RelHetDistribution==SPLIT is apparently needed
+                if (s2d != RelSplitPoint.NONE() && s2h == RelHetDistribution.SINGLETON) return false;
+            }
+
+            if (s1h != null && s1d != null) {
+                if (s1d == RelSplitPoint.NONE() && s1h == RelHetDistribution.SPLIT_BRDCST) return false;
 //                if (s1d == RelSplitPoint.NONE() && s1h != RelHetDistribution.SINGLETON) return false;
-//                if (s1d != RelSplitPoint.NONE() && s1h == RelHetDistribution.SINGLETON) return false;
-//            }
+                if (s1d != RelSplitPoint.NONE() && s1h == RelHetDistribution.SINGLETON) return false;
+            }
 
 //            if (!fromTraits.containsIfApplicable(RelHomDistribution.SINGLE) && !toTraits.containsIfApplicable(RelHomDistribution.SINGLE)) return false;
 
