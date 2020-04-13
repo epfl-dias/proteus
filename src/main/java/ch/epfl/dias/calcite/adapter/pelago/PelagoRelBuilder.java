@@ -19,7 +19,7 @@ public class PelagoRelBuilder extends RelBuilder {
     final RelOptCluster[] clusters      = { null };
     final RelOptSchema [] relOptSchemas = { null };
     Frameworks.withPrepare(
-      new Frameworks.PrepareAction<Void>(config) {
+      new Frameworks.BasePrepareAction<Void>() {
         public Void apply(RelOptCluster cluster, RelOptSchema relOptSchema,
             SchemaPlus rootSchema, CalciteServerStatement statement) {
           clusters[0] = cluster;

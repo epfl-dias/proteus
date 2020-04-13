@@ -600,7 +600,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
                         : EnumerableConvention.INSTANCE;
         final PelagoPreparingStmt preparingStmt =
                 new PelagoPreparingStmt(this, context, catalogReader, typeFactory,
-                        context.getRootSchema(), prefer, planner, resultConvention,
+                        context.getRootSchema(), prefer, createCluster(planner, new RexBuilder(typeFactory)), resultConvention,
                         createConvertletTable());
 
         final RelDataType x;

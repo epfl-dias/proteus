@@ -8,6 +8,7 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexCorrelVariable;
 import org.apache.calcite.rex.RexNode;
@@ -56,44 +57,31 @@ public class PelagoRelFactories {
 
   private static class PelagoProjectFactoryImpl implements ProjectFactory {
 
-    @Override
-    public RelNode createProject(RelNode child, List<? extends RexNode> projects, List<String> fieldNames) {
-      RelOptCluster cluster = child.getCluster();
+    @Override public RelNode createProject(final RelNode input, final List<RelHint> hints,
+        final List<? extends RexNode> projects,
+        final List<String> fieldNames) {
+      RelOptCluster cluster = input.getCluster();
       RelDataType   rowType = RexUtil.createStructType(cluster.getTypeFactory(), projects, fieldNames);
-      return PelagoProject.create(child, projects, rowType);
+      return PelagoProject.create(input, projects, rowType);
     }
-
   }
 
   private static class PelagoFilterFactoryImpl implements FilterFactory {
-
     @Override public RelNode createFilter(final RelNode input, final RexNode condition,
         final Set<CorrelationId> variablesSet) {
       return PelagoFilter.create(input, condition);
     }
-
   }
 
   private static class PelagoJoinFactoryImpl implements JoinFactory {
-    @Override
-    public RelNode createJoin(RelNode left, RelNode right, RexNode condition, JoinRelType joinType,
-        Set<String> variablesSet, boolean semiJoinDone) {
-      return PelagoJoin.create(left, right, condition, CorrelationId.setOf(variablesSet), joinType);
-    }
-
-    @Deprecated // to be removed before Calcite 2.0 (?)
-    public RelNode createJoin(RelNode left, RelNode right, RexNode condition,
-        Set<CorrelationId> variablesSet, JoinRelType joinType, boolean semiJoinDone) {
+    @Override public RelNode createJoin(final RelNode left, final RelNode right, final List<RelHint> hints,
+        final RexNode condition,
+        final Set<CorrelationId> variablesSet, final JoinRelType joinType, final boolean semiJoinDone) {
       return PelagoJoin.create(left, right, condition, variablesSet, joinType);
     }
   }
 
   private static class PelagoSortFactoryImpl implements SortFactory {
-    @Override
-    public RelNode createSort(RelTraitSet traits, RelNode input, RelCollation collation, RexNode offset, RexNode fetch){
-      return createSort(input, collation, offset, fetch);
-    }
-
     @Override
     public RelNode createSort(RelNode input, RelCollation collation, RexNode offset, RexNode fetch) {
       return PelagoSort.create(input, collation, offset, fetch);
@@ -101,10 +89,10 @@ public class PelagoRelFactories {
   }
 
   private static class PelagoAggregateFactoryImpl implements AggregateFactory {
-    @Override
-    public RelNode createAggregate(RelNode child, ImmutableBitSet groupSet,
-        ImmutableList<ImmutableBitSet> groupSets, List<AggregateCall> aggCalls) {
-      return PelagoAggregate.create(child, groupSet, groupSets, aggCalls);
+    @Override public RelNode createAggregate(final RelNode input, final List<RelHint> hints,
+        final ImmutableBitSet groupSet,
+        final ImmutableList<ImmutableBitSet> groupSets, final List<AggregateCall> aggCalls) {
+      return PelagoAggregate.create(input, groupSet, groupSets, aggCalls);
     }
   }
 }

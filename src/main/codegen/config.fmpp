@@ -43,6 +43,19 @@ data: {
         "FROM_JSON"
       ]
 
+      # List of non-reserved keywords to add;
+      # items in this list become non-reserved
+      nonReservedKeywordsToAdd: [
+        # not in core, added in server
+        "IF"
+        "MATERIALIZED"
+        "STORED"
+        "VIRTUAL"
+        "JAR"
+        "FILE"
+        "ARCHIVE"
+      ]
+
       # List of keywords from "keywords" section that are not reserved.
       nonReservedKeywords: [
         "A"
