@@ -54,12 +54,12 @@
 // </TechnicalDetails>
 
 class TestEnvironment : public ::testing::Environment {
-  bool is_noop;
+  bool is_noop = false;
   static bool has_already_been_setup;
 
  public:
-  virtual void SetUp();
-  virtual void TearDown();
+  void SetUp() override;
+  void TearDown() override;
 };
 
 // ::testing::Environment *const pools_env =

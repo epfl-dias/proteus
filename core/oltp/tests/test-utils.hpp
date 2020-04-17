@@ -54,7 +54,7 @@
 // </TechnicalDetails>
 
 class TestEnvironment : public ::testing::Environment {
-  bool is_noop;
+  bool is_noop = false;
   static bool has_already_been_setup;
 
  public:
