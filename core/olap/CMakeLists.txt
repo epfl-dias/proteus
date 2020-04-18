@@ -13,6 +13,7 @@ set(olap_cxx
         expressions/expressions-hasher.cpp
         expressions/expressions.cpp
         expressions/path.cpp
+        operators/join/radix/radix-join-build.cpp
         operators/cpu-to-gpu.cpp
         operators/dict-scan.cpp
         operators/flush.cpp
