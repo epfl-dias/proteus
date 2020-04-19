@@ -1,30 +1,4 @@
 {
-    "e": [
-        {
-            "e": {
-                "argNo": -1, 
-                "attributes": [
-                    {
-                        "attrName": "cnt", 
-                        "relName": "agg211"
-                    }
-                ], 
-                "expression": "argument", 
-                "type": {
-                    "relName": "agg211", 
-                    "type": "record"
-                }
-            }, 
-            "expression": "recordProjection", 
-            "attribute": {
-                "attrName": "cnt", 
-                "relName": "agg211"
-            }
-        }
-    ], 
-    "output": [], 
-    "blockwise": false, 
-    "gpu": false, 
     "operator": "print", 
     "input": {
         "e": [
@@ -40,37 +14,16 @@
         ], 
         "accumulator": [
             "sum"
-        ], 
-        "blockwise": false, 
-        "gpu": false, 
-        "p": {
-            "expression": "bool", 
-            "v": true
-        }, 
-        "max_line_estimate": 1, 
-        "output": [
-            {
-                "attrName": "cnt", 
-                "relName": "agg211"
-            }
-        ], 
+        ],
         "operator": "reduce", 
         "input": {
-            "blockwise": false, 
-            "gpu": false, 
             "p": {
                 "expression": "eq", 
                 "right": {
                     "expression": "int", 
                     "v": 22
                 }, 
-                "type": "bool", 
-                "depends_on": [
-                    {
-                        "attrName": "sid", 
-                        "relName": "inputs/reserves.csv"
-                    }
-                ], 
+                "type": "bool",
                 "left": {
                     "e": {
                         "argNo": -1, 
@@ -92,8 +45,7 @@
                         "relName": "inputs/reserves.csv"
                     }
                 }
-            }, 
-            "max_line_estimate": 10, 
+            },
             "input": {
                 "plugin": {
                     "name": "inputs/reserves.csv", 
@@ -103,25 +55,16 @@
                     "projections": [
                         {
                             "attrName": "sid", 
-                            "relName": "inputs/reserves.csv"
+                            "relName": "inputs/reserves.csv",
+                            "attrNo": 1
                         }
                     ], 
-                    "policy": 2, 
+                    "policy": 1,
                     "type": "csv"
-                }, 
-                "blockwise": false, 
-                "max_line_estimate": 10, 
-                "gpu": false, 
-                "operator": "scan", 
-                "output": [
-                    {
-                        "attrName": "sid", 
-                        "relName": "inputs/reserves.csv"
-                    }
-                ]
+                },
+                "operator": "scan"
             }, 
-            "operator": "select", 
-            "output": []
+            "operator": "select"
         }
     }
 }

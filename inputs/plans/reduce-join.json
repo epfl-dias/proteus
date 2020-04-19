@@ -132,7 +132,7 @@
                 "type": {
                   "type": "float"
                 },
-                "relName": "inputs/sailors.csv",
+                "relName": "inputs/reserves.csv",
                 "attrName": "age",
                 "attrNo": 4
               }]

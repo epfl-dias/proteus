@@ -1,46 +1,4 @@
 {
-  "e": [{
-    "expression": "recordProjection",
-    "type": {
-      "type": "int"
-    },
-    "e": {
-      "expression": "argument",
-      "argNo": 1,
-      "type": {
-        "type": "record",
-        "attributes": [{
-          "type": {
-            "type": "int"
-          },
-          "relName": "radixNest",
-          "attrName": "_groupCount",
-          "attrNo": 1
-        }]
-      },
-      "attributes": [{
-        "type": {
-          "type": "int"
-        },
-        "relName": "radixNest",
-        "attrName": "_groupCount",
-        "attrNo": 1
-      }]
-    },
-    "attribute": {
-      "type": {
-        "type": "int"
-      },
-      "relName": "radixNest",
-      "attrName": "_groupCount",
-      "attrNo": 1
-    },
-    "register_as": {
-      "relName": "output",
-      "attrName": "count",
-      "attrNo": 1
-    }
-  }],
   "plugin": {
     "name": "output",
     "type": "json",
@@ -48,203 +6,252 @@
   },
   "operator": "print",
   "input": {
-    "operator": "nest",
-    "accumulator": ["sum"],
-    "aggrLabels": ["_groupCount"],
-    "e": [{
-      "expression": "int",
-      "v": 1
-    }],
-    "p": {
-      "expression": "bool",
-      "v": true
-    },
-    "f": {
-      "expression": "recordProjection",
-      "type": {
-        "type": "int"
-      },
-      "e": {
-        "expression": "argument",
-        "argNo": 1,
-        "type": {
-          "type": "record",
-          "attributes": [{
-            "type": {
-              "type": "int"
-            },
-            "relName": "inputs/reserves.csv",
-            "attrName": "sid",
-            "attrNo": 1
-          }, {
-            "type": {
-              "type": "int"
-            },
-            "relName": "inputs/reserves.csv",
-            "attrName": "bid",
-            "attrNo": 2
-          }, {
-            "type": {
-              "type": "string"
-            },
-            "relName": "inputs/reserves.csv",
-            "attrName": "day",
-            "attrNo": 3
-          }]
+    "operator": "project",
+    "e": [
+      {
+        "expression": "recordProjection",
+        "e": {
+          "expression": "argument"
         },
-        "attributes": [{
-          "type": {
-            "type": "int"
-          },
-          "relName": "inputs/reserves.csv",
-          "attrName": "sid",
+        "attribute": {
+          "relName": "radixNest",
+          "attrName": "_groupCount"
+        },
+        "register_as": {
+          "relName": "output",
+          "attrName": "count",
           "attrNo": 1
-        }]
-      },
-      "attribute": {
-        "type": {
-          "type": "int"
-        },
-        "relName": "inputs/reserves.csv",
-        "attrName": "sid",
-        "attrNo": 1
+        }
       }
-    },
-    "g": {
-      "expression": "recordProjection",
-      "type": {
-        "type": "int"
-      },
-      "e": {
-        "expression": "argument",
-        "argNo": 1,
-        "type": {
-          "type": "record",
-          "attributes": [{
-            "type": {
-              "type": "int"
-            },
-            "relName": "inputs/reserves.csv",
-            "attrName": "sid",
-            "attrNo": 1
-          }, {
-            "type": {
-              "type": "int"
-            },
-            "relName": "inputs/reserves.csv",
-            "attrName": "bid",
-            "attrNo": 2
-          }, {
-            "type": {
-              "type": "string"
-            },
-            "relName": "inputs/reserves.csv",
-            "attrName": "day",
-            "attrNo": 3
-          }]
-        },
-        "attributes": [{
-          "type": {
-            "type": "int"
-          },
-          "relName": "inputs/reserves.csv",
-          "attrName": "sid",
-          "attrNo": 1
-        }]
-      },
-      "attribute": {
-        "type": {
-          "type": "int"
-        },
-        "relName": "inputs/reserves.csv",
-        "attrName": "sid",
-        "attrNo": 1
-      }
-    },
-    "fields": [{
-      "expression": "recordProjection",
-      "type": {
-        "type": "int"
-      },
-      "e": {
-        "expression": "argument",
-        "argNo": 1,
-        "type": {
-          "type": "record",
-          "attributes": [{
-            "type": {
-              "type": "int"
-            },
-            "relName": "inputs/reserves.csv",
-            "attrName": "sid",
-            "attrNo": 1
-          }, {
-            "type": {
-              "type": "int"
-            },
-            "relName": "inputs/reserves.csv",
-            "attrName": "bid",
-            "attrNo": 2
-          }, {
-            "type": {
-              "type": "string"
-            },
-            "relName": "inputs/reserves.csv",
-            "attrName": "day",
-            "attrNo": 3
-          }]
-        },
-        "attributes": [{
-          "type": {
-            "type": "int"
-          },
-          "relName": "inputs/reserves.csv",
-          "attrName": "sid",
-          "attrNo": 1
-        }]
-      },
-      "attribute": {
-        "type": {
-          "type": "int"
-        },
-        "relName": "inputs/reserves.csv",
-        "attrName": "sid",
-        "attrNo": 1
-      }
-    }],
+    ],
     "input": {
-      "operator": "scan",
-      "plugin": {
-        "name": "inputs/reserves.csv",
-        "type": "csv",
-        "policy": 2,
-        "lines": 10,
-        "delimiter": ";",
-        "brackets": false,
-        "projections": [{
+      "operator": "nest",
+      "accumulator": [
+        "sum"
+      ],
+      "aggrLabels": [
+        "_groupCount"
+      ],
+      "e": [
+        {
+          "expression": "int",
+          "v": 1
+        }
+      ],
+      "p": {
+        "expression": "bool",
+        "v": true
+      },
+      "f": {
+        "expression": "recordProjection",
+        "type": {
+          "type": "int"
+        },
+        "e": {
+          "expression": "argument",
+          "argNo": 1,
+          "type": {
+            "type": "record",
+            "attributes": [
+              {
+                "type": {
+                  "type": "int"
+                },
+                "relName": "inputs/reserves.csv",
+                "attrName": "sid",
+                "attrNo": 1
+              },
+              {
+                "type": {
+                  "type": "int"
+                },
+                "relName": "inputs/reserves.csv",
+                "attrName": "bid",
+                "attrNo": 2
+              },
+              {
+                "type": {
+                  "type": "string"
+                },
+                "relName": "inputs/reserves.csv",
+                "attrName": "day",
+                "attrNo": 3
+              }
+            ]
+          },
+          "attributes": [
+            {
+              "type": {
+                "type": "int"
+              },
+              "relName": "inputs/reserves.csv",
+              "attrName": "sid",
+              "attrNo": 1
+            }
+          ]
+        },
+        "attribute": {
           "type": {
             "type": "int"
           },
           "relName": "inputs/reserves.csv",
           "attrName": "sid",
           "attrNo": 1
-        }, {
+        }
+      },
+      "g": {
+        "expression": "recordProjection",
+        "type": {
+          "type": "int"
+        },
+        "e": {
+          "expression": "argument",
+          "argNo": 1,
+          "type": {
+            "type": "record",
+            "attributes": [
+              {
+                "type": {
+                  "type": "int"
+                },
+                "relName": "inputs/reserves.csv",
+                "attrName": "sid",
+                "attrNo": 1
+              },
+              {
+                "type": {
+                  "type": "int"
+                },
+                "relName": "inputs/reserves.csv",
+                "attrName": "bid",
+                "attrNo": 2
+              },
+              {
+                "type": {
+                  "type": "string"
+                },
+                "relName": "inputs/reserves.csv",
+                "attrName": "day",
+                "attrNo": 3
+              }
+            ]
+          },
+          "attributes": [
+            {
+              "type": {
+                "type": "int"
+              },
+              "relName": "inputs/reserves.csv",
+              "attrName": "sid",
+              "attrNo": 1
+            }
+          ]
+        },
+        "attribute": {
           "type": {
             "type": "int"
           },
           "relName": "inputs/reserves.csv",
-          "attrName": "bid",
-          "attrNo": 2
-        }, {
+          "attrName": "sid",
+          "attrNo": 1
+        }
+      },
+      "fields": [
+        {
+          "expression": "recordProjection",
           "type": {
-            "type": "string"
+            "type": "int"
           },
-          "relName": "inputs/reserves.csv",
-          "attrName": "day",
-          "attrNo": 3
-        }]
+          "e": {
+            "expression": "argument",
+            "argNo": 1,
+            "type": {
+              "type": "record",
+              "attributes": [
+                {
+                  "type": {
+                    "type": "int"
+                  },
+                  "relName": "inputs/reserves.csv",
+                  "attrName": "sid",
+                  "attrNo": 1
+                },
+                {
+                  "type": {
+                    "type": "int"
+                  },
+                  "relName": "inputs/reserves.csv",
+                  "attrName": "bid",
+                  "attrNo": 2
+                },
+                {
+                  "type": {
+                    "type": "string"
+                  },
+                  "relName": "inputs/reserves.csv",
+                  "attrName": "day",
+                  "attrNo": 3
+                }
+              ]
+            },
+            "attributes": [
+              {
+                "type": {
+                  "type": "int"
+                },
+                "relName": "inputs/reserves.csv",
+                "attrName": "sid",
+                "attrNo": 1
+              }
+            ]
+          },
+          "attribute": {
+            "type": {
+              "type": "int"
+            },
+            "relName": "inputs/reserves.csv",
+            "attrName": "sid",
+            "attrNo": 1
+          }
+        }
+      ],
+      "input": {
+        "operator": "scan",
+        "plugin": {
+          "name": "inputs/reserves.csv",
+          "type": "csv",
+          "policy": 2,
+          "lines": 10,
+          "delimiter": ";",
+          "brackets": false,
+          "projections": [
+            {
+              "type": {
+                "type": "int"
+              },
+              "relName": "inputs/reserves.csv",
+              "attrName": "sid",
+              "attrNo": 1
+            },
+            {
+              "type": {
+                "type": "int"
+              },
+              "relName": "inputs/reserves.csv",
+              "attrName": "bid",
+              "attrNo": 2
+            },
+            {
+              "type": {
+                "type": "string"
+              },
+              "relName": "inputs/reserves.csv",
+              "attrName": "day",
+              "attrNo": 3
+            }
+          ]
+        }
       }
     }
-
   }
 }
