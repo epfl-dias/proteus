@@ -198,6 +198,8 @@ class BinaryColPlugin : public Plugin {
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
+  virtual RecordType getRowType() const { return {wantedFields}; }
+
  private:
   // Schema info provided
   RecordType rec;

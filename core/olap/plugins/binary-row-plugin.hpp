@@ -181,6 +181,8 @@ class BinaryRowPlugin : public Plugin {
 
   virtual PluginType getPluginType() { return PGBINARY; }
 
+  virtual RecordType getRowType() const { return {wantedFields}; }
+
  private:
   string fname;
   off_t fsize;
