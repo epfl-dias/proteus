@@ -316,8 +316,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
   } else if (strcmp(opName, "print") == 0) {
     /* parse operator input */
     auto childOp = parseOperator(val["input"]);
-
-    return childOp.print([&]() {
+    auto pgType = [&]() {
       if (val.HasMember("plugin")) {
         assert(val["plugin"].HasMember("type"));
         assert(val["plugin"]["type"].IsString());
@@ -325,7 +324,29 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
       } else {
         return pg{"pm-csv"};
       }
-    }());
+    }();
+
+    if (val.HasMember("e")) {
+      return childOp.print(
+          [&](const auto &arg) {
+            /*
+             * parse output expressions
+             * XXX Careful: Assuming numerous output expressions!
+             */
+            assert(val.HasMember("e"));
+            assert(val["e"].IsArray());
+            std::vector<expression_t> e;
+            e.reserve(val["e"].Size());
+            for (const auto &v : val["e"].GetArray()) {
+              e.emplace_back(parseExpression(v, arg));
+              assert(e.back().isRegistered());
+            }
+            return e;
+          },
+          pgType);
+    } else {
+      return childOp.print(pgType);
+    }
   } else if (strcmp(opName, "sort") == 0) {
     auto childOp = parseOperator(val["input"]);
 
