@@ -537,7 +537,7 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
     buffer_logger = nullptr;
   }
 
-  buffer_gc = new std::thread(buffer_manager<T>::find_released_buffers, 100);
+  buffer_gc = new std::thread(buffer_manager<T>::find_released_buffers, 50);
 }
 
 template <typename T>
@@ -723,7 +723,12 @@ __host__ void buffer_manager<T>::find_released_buffers(size_t freq) {
 
   for (const auto &gpu : topo.getGpus()) {
     set_device_on_scope d(gpu);
-    gpu_run(cudaStreamCreateWithFlags(strs + gpu.id, cudaStreamNonBlocking));
+    int greatest;
+    int lowest;
+    gpu_run(cudaDeviceGetStreamPriorityRange(&greatest, &lowest));
+    // std::cout << greatest << " " << lowest << std::endl;
+    gpu_run(cudaStreamCreateWithPriority(strs + gpu.id, cudaStreamNonBlocking,
+                                         lowest));
   }
 
   while (!terminating) {
@@ -738,6 +743,13 @@ __host__ void buffer_manager<T>::find_released_buffers(size_t freq) {
       // version. Then propagate the npool respectively
       find_released_remote_buffers<<<1, 1, 0, strs[i]>>>((void **)buffs,
                                                          maxFetchedBuffs);
+    }
+
+    for (uint32_t i = 0; i < devices; ++i) {
+      set_device_on_scope d(topo.getGpus()[i]);
+
+      auto buffs = stage + maxFetchedBuffs * i;
+
       gpu_run(cudaStreamSynchronize(strs[i]));
 
       for (size_t j = 0; j < maxFetchedBuffs; ++j) {
