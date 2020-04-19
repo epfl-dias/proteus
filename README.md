@@ -17,3 +17,8 @@ Allocate HugePages
 ```
 echo 32768 | sudo tee /sys/devices/system/node/node{0,1}/hugepages/hugepages-2048kB/nr_hugepages
 ```
+
+Update include paths in Clion after LLVM update
+========
+
+Clion lazily updates the include paths during remote deployment, use the resync with remote hosts to force a refresh: https://www.jetbrains.com/help/clion/remote-projects-support.html#resync
