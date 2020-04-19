@@ -195,22 +195,19 @@ void BlockToTuples::consume(ParallelContext *const context,
   MDNode *LoopID;
 
   {
-    // MDString       * vec_st   = MDString::get(llvmContext,
-    // "llvm.loop.vectorize.enable"); Type           * int1Type =
-    // Type::getInt1Ty(llvmContext); Metadata       * one      =
-    // ConstantAsMetadata::get(ConstantInt::get(int1Type, 1)); llvm::Metadata *
-    // vec_en[] = {vec_st, one}; MDNode * vectorize_enable =
-    // MDNode::get(llvmContext, vec_en);
+    MDString *vec_st = MDString::get(llvmContext, "llvm.loop.vectorize.enable");
+    Type *int1Type = Type::getInt1Ty(llvmContext);
+    Metadata *one = ConstantAsMetadata::get(ConstantInt::get(int1Type, 1));
+    llvm::Metadata *vec_en[] = {vec_st, one};
+    MDNode *vectorize_enable = MDNode::get(llvmContext, vec_en);
 
-    // MDString       * itr_st   = MDString::get(llvmContext,
-    // "llvm.loop.interleave.count"); Type           * int32Type=
-    // Type::getInt32Ty(llvmContext); Metadata       * count    =
-    // ConstantAsMetadata::get(ConstantInt::get(int32Type, 4)); llvm::Metadata *
-    // itr_en[] = {itr_st, count}; MDNode * interleave_count =
-    // MDNode::get(llvmContext, itr_en);
+    MDString *itr_st = MDString::get(llvmContext, "llvm.loop.interleave.count");
+    Type *int32Type = Type::getInt32Ty(llvmContext);
+    Metadata *count = ConstantAsMetadata::get(ConstantInt::get(int32Type, 4));
+    llvm::Metadata *itr_en[] = {itr_st, count};
+    MDNode *interleave_count = MDNode::get(llvmContext, itr_en);
 
-    llvm::Metadata *Args[] = {
-        nullptr};  //, vectorize_enable, interleave_count};
+    llvm::Metadata *Args[] = {nullptr, vectorize_enable, interleave_count};
     LoopID = MDNode::get(llvmContext, Args);
     LoopID->replaceOperandWith(0, LoopID);
 
