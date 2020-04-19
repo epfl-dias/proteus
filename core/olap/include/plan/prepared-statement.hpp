@@ -44,8 +44,6 @@ class PreparedStatement {
                     std::string outputFile);
 
  public:
-  ~PreparedStatement();
-
   QueryResult execute(bool deterministic_affinity = true);
 
   static PreparedStatement from(const std::string& planPath,

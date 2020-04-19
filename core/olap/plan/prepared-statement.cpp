@@ -158,5 +158,3 @@ PreparedStatement::PreparedStatement(
     std::vector<std::unique_ptr<Pipeline>> pips, std::string outputFile)
     : pipelines(uniqueToShared(std::move(pips))),
       outputFile(std::move(outputFile)) {}
-
-PreparedStatement::~PreparedStatement() = default;
