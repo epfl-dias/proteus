@@ -1029,18 +1029,11 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val.HasMember(keyPred));
     assert(val[keyPred].IsObject());
 
-    auto predExpr =
-        parseExpression(val[keyPred], left.getOutputArg() /* FIXME */);
-    const expressions::BinaryExpression *pred =
-        dynamic_cast<const expressions::BinaryExpression *>(
-            predExpr.getUnderlyingExpression());
-    if (pred == nullptr) {
-      string error_msg =
-          string("[JOIN: ] Cannot cast to binary predicate. Original: ") +
-          predExpr.getExpressionType()->getType();
-      LOG(ERROR) << error_msg;
-      throw runtime_error(string(error_msg));
-    }
+    assert(val[keyPred]["expression"].GetString() == std::string{"eq"});
+    auto el = parseExpression(val[keyPred]["left"], left.getOutputArg());
+    auto er = parseExpression(val[keyPred]["right"], right.getOutputArg());
+
+    auto pred = eq(el, er);
 
     /*
      * *** WHAT TO MATERIALIZE ***
@@ -1148,7 +1141,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     Materializer *matRight =
         new Materializer(fieldsRight, exprsRight, oidsRight, outputModesRight);
 
-    newOp = new RadixJoin(*pred, leftOp, rightOp, this->ctx, "radixHashJoin",
+    newOp = new RadixJoin(pred, leftOp, rightOp, this->ctx, "radixHashJoin",
                           *matLeft, *matRight);
     leftOp->setParent(newOp);
     rightOp->setParent(newOp);
