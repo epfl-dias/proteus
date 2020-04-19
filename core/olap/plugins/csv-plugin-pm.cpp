@@ -98,8 +98,7 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
       /* -1 bc field 0 does not have to be indexed */
       int pmFields = (rec.getArgsNo() / policy) - 1;
       if (pmFields < 0) {
-        std::cout << pmFields << " " << rec.getArgsNo() << " " << policy
-                  << std::endl;
+        LOG(INFO) << pmFields << " " << rec.getArgsNo() << " " << policy;
         string error_msg = "[CSVPlugin: ] Erroneous PM policy";
         LOG(ERROR) << error_msg;
         throw runtime_error(error_msg);
@@ -178,7 +177,7 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
 
   char *pmCast = cache.getPM(fname);
   if (pmCast == nullptr) {
-    cout << "NEW (CSV) PM" << endl;
+    LOG(INFO) << "NEW (CSV) PM " << fname;
     hasPM = false;
     newlines = (size_t *)malloc(lines * sizeof(size_t));
     if (newlines == nullptr) {
@@ -209,7 +208,7 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
     pmCast = (char *)pmStruct;
     cache.registerPM(fname, pmCast);
   } else {
-    cout << "(CSV) PM REUSE" << endl;
+    LOG(INFO) << "(CSV) PM REUSE " << fname;
     hasPM = true;
     pmCSV *pmStruct = (pmCSV *)pmCast;
 
@@ -979,7 +978,7 @@ void CSVPlugin::getFieldEndLLVM() {
 
 void CSVPlugin::readField(typeID id, RecordAttribute attName,
                           map<RecordAttribute, ProteusValueMemory> &variables) {
-  cout << "READ (RAW) FIELD " << attName.getAttrName() << endl;
+  LOG(INFO) << "READ (RAW) FIELD " << attName.getAttrName();
   switch (id) {
     case BOOL: {
       readAsBooleanLLVM(attName, variables);
