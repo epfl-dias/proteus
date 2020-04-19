@@ -102,8 +102,16 @@ class Nest : public UnaryOperator {
   virtual bool isFiltering() const { return true; }
 
   virtual RecordType getRowType() const {
-    // FIXME: implement
-    throw runtime_error("unimplemented");
+    std::vector<RecordAttribute *> attrs;
+    for (const auto &attr : f_grouping_vec) {
+      attrs.emplace_back(new RecordAttribute{attr.getRegisteredAs()});
+    }
+    size_t i = 0;
+    for (const auto &attr : aggregateLabels) {
+      attrs.emplace_back(new RecordAttribute{
+          htName, attr, outputExprs[i++].getExpressionType()});
+    }
+    return attrs;
   }
 
  private:
