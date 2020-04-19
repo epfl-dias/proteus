@@ -317,21 +317,15 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     /* parse operator input */
     auto childOp = parseOperator(val["input"]);
 
-    return childOp.print([&](const auto &arg) {
-      /*
-       * parse output expressions
-       * XXX Careful: Assuming numerous output expressions!
-       */
-      assert(val.HasMember("e"));
-      assert(val["e"].IsArray());
-      std::vector<expression_t> e;
-      e.reserve(val["e"].Size());
-      for (const auto &v : val["e"].GetArray()) {
-        e.emplace_back(parseExpression(v, arg));
-        assert(e.back().isRegistered());
+    return childOp.print([&]() {
+      if (val.HasMember("plugin")) {
+        assert(val["plugin"].HasMember("type"));
+        assert(val["plugin"]["type"].IsString());
+        return pg{val["plugin"]["type"].GetString()};
+      } else {
+        return pg{"pm-csv"};
       }
-      return e;
-    });
+    }());
   } else if (strcmp(opName, "sort") == 0) {
     auto childOp = parseOperator(val["input"]);
 
