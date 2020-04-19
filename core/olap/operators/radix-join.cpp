@@ -246,27 +246,6 @@ void RadixJoin::consume(Context *const context,
          "correctly set as children of this operator?");
 }
 
-/**
- * @param mem_tuplesNo  the htEntries corresp. to the relation
- * @param mem_kv_id     the materialized input relation
- *
- * @return item count per resulting cluster
- */
-Value *RadixJoinBuild::radix_cluster_nopadding(Value *mem_tuplesNo,
-                                               Value *mem_kv_id) const {
-  IRBuilder<> *Builder = context->getBuilder();
-
-  Function *partitionHT =
-      context->getFunction(is_agg ? "partitionAggHT" : "partitionHT");
-  vector<Value *> ArgsPartition;
-  Value *val_tuplesNo = Builder->CreateLoad(mem_tuplesNo);
-  Value *val_ht = Builder->CreateLoad(mem_kv_id);
-  ArgsPartition.push_back(val_tuplesNo);
-  ArgsPartition.push_back(val_ht);
-
-  return Builder->CreateCall(partitionHT, ArgsPartition);
-}
-
 void RadixJoin::runRadix() const {
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
@@ -524,7 +503,6 @@ void RadixJoin::runRadix() const {
     Function *bucketChainingPrepare =
         context->getFunction("bucketChainingPrepare");
 
-    PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
     Value *val_htPerClusterShiftedPtr =
         Builder->CreateInBoundsGEP(val_htPerCluster, val_clusterCount);
 
@@ -657,8 +635,7 @@ void RadixJoin::runRadix() const {
            * -> RECONSTRUCT RESULTS
            * -> CALL PARENT
            */
-          map<RecordAttribute, ProteusValueMemory> *allJoinBindings =
-              new map<RecordAttribute, ProteusValueMemory>();
+          std::map<RecordAttribute, ProteusValueMemory> allJoinBindings;
 
           /* Payloads (Relative Offsets): size_t */
           /* Must be added to relR / relS accordingly */
@@ -697,150 +674,41 @@ void RadixJoin::runRadix() const {
           /* LEFT SIDE (RELATION R)*/
           // Retrieving activeTuple(s) from HT
           {
-            //                         AllocaInst *mem_activeTuple = nullptr;
             int i = 0;
-            // //                      const set<RecordAttribute>&
-            // tuplesIdentifiers =
-            // //                              matLeft.getTupleIdentifiers();
-            //                         for (RecordAttribute *attr:
-            //                         getMaterializerLeft().getWantedOIDs()) {
-            //                             mem_activeTuple =
-            //                             context->CreateEntryBlockAlloca(F,
-            //                                     "mem_activeTuple",
-            //                                     rPayloadType->getElementType(i));
-            //                             vector<Value*> idxList =
-            //                             vector<Value*>();
-            //                             idxList.push_back(context->createInt32(0));
-            //                             idxList.push_back(context->createInt32(i));
-
-            //                             Value *elem_ptr =
-            //                             Builder->CreateGEP(mem_payload_r,
-            //                                     idxList);
-            //                             Value *val_activeTuple =
-            //                             Builder->CreateLoad(
-            //                                     elem_ptr);
-            //                             StoreInst *store_activeTuple =
-            //                             Builder->CreateStore(
-            //                                     val_activeTuple,
-            //                                     mem_activeTuple);
-            //                             store_activeTuple->setAlignment(8);
-
-            //                             ProteusValueMemory mem_valWrapper;
-            //                             mem_valWrapper.mem = mem_activeTuple;
-            //                             mem_valWrapper.isNull =
-            //                             context->createFalse();
-            //                             (*allJoinBindings)[*attr] =
-            //                             mem_valWrapper; i++;
-            //                         }
 
             for (const auto &expr2 :
                  getMaterializerLeft().getWantedExpressions()) {
-              string currField = expr2.getRegisteredAttrName();
-              AllocaInst *mem_field = context->CreateEntryBlockAlloca(
-                  F, "mem_" + currField, rPayloadType->getElementType(i));
-              vector<Value *> idxList = vector<Value *>();
-              idxList.push_back(context->createInt32(0));
-              idxList.push_back(context->createInt32(i));
+              const auto &currField = expr2.getRegisteredAttrName();
 
-              Value *elem_ptr = Builder->CreateGEP(mem_payload_r, idxList);
-              Value *val_field = Builder->CreateLoad(elem_ptr);
-              Builder->CreateStore(val_field, mem_field);
+              auto elem_ptr = Builder->CreateGEP(
+                  mem_payload_r,
+                  {context->createInt32(0), context->createInt32(i)});
+              auto val_field = Builder->CreateLoad(elem_ptr);
+              auto mem_valWrapper = context->toMem(
+                  val_field, context->createFalse(), "mem_" + currField);
 
-              ProteusValueMemory mem_valWrapper;
-              mem_valWrapper.mem = mem_field;
-              mem_valWrapper.isNull = context->createFalse();
-
-#ifdef DEBUGRADIX
-//                          vector<Value*> ArgsV;
-//                          ArgsV.push_back(context->createInt32(1111));
-//                          Builder->CreateCall(debugInt, ArgsV);
-//                          ArgsV.clear();
-//                          ArgsV.push_back(Builder->CreateLoad(mem_field));
-//                          Builder->CreateCall(debugInt, ArgsV);
-#endif
-              LOG(INFO) << expr2.getRegisteredAs();
-              (*allJoinBindings)[expr2.getRegisteredAs()] = mem_valWrapper;
+              allJoinBindings[expr2.getRegisteredAs()] = mem_valWrapper;
               i++;
             }
           }
-#ifdef DEBUGRADIX
-          {
-            /* Printing key(s) */
-            vector<Value *> ArgsV;
-            ArgsV.push_back(Builder->getInt32(500006));
-            Builder->CreateCall(debugInt, ArgsV);
-          }
-#endif
+
           /* RIGHT SIDE (RELATION S) */
           {
-            // AllocaInst *mem_activeTuple = nullptr;
             int i = 0;
-            //                         for (RecordAttribute *attr:
-            //                         getMaterializerRight().getWantedOIDs()) {
-            //                             mem_activeTuple =
-            //                             context->CreateEntryBlockAlloca(F,
-            //                                     "mem_activeTuple",
-            //                                     sPayloadType->getElementType(i));
-            //                             vector<Value*> idxList =
-            //                             vector<Value*>();
-            //                             idxList.push_back(context->createInt32(0));
-            //                             idxList.push_back(context->createInt32(i));
-
-            //                             Value *elem_ptr =
-            //                             Builder->CreateGEP(mem_payload_s,
-            //                                     idxList);
-            //                             Value *val_activeTuple =
-            //                             Builder->CreateLoad(
-            //                                     elem_ptr);
-            //                             StoreInst *store_activeTuple =
-            //                             Builder->CreateStore(
-            //                                     val_activeTuple,
-            //                                     mem_activeTuple);
-            //                             store_activeTuple->setAlignment(8);
-
-            //                             ProteusValueMemory mem_valWrapper;
-            //                             mem_valWrapper.mem = mem_activeTuple;
-            //                             mem_valWrapper.isNull =
-            //                             context->createFalse();
-            //                             (*allJoinBindings)[*attr] =
-            //                             mem_valWrapper; i++;
-            // #ifdef DEBUGRADIX
-            //                             {
-            //                                 /* Printing key(s) */
-            //                                 vector<Value*> ArgsV;
-            //                                 ArgsV.push_back(val_activeTuple);
-            //                                 Builder->CreateCall(debugInt64,
-            //                                 ArgsV);
-            //                             }
-            // #endif
-            //                         }
 
             for (const auto &expr2 :
                  getMaterializerRight().getWantedExpressions()) {
-              string currField = expr2.getRegisteredAttrName();
-              AllocaInst *mem_field = context->CreateEntryBlockAlloca(
-                  F, "mem_" + currField, sPayloadType->getElementType(i));
-              vector<Value *> idxList = vector<Value *>();
-              idxList.push_back(context->createInt32(0));
-              idxList.push_back(context->createInt32(i));
+              const auto &currField = expr2.getRegisteredAttrName();
 
-              Value *elem_ptr = Builder->CreateGEP(mem_payload_s, idxList);
-              Value *val_field = Builder->CreateLoad(elem_ptr);
-              Builder->CreateStore(val_field, mem_field);
+              auto elem_ptr = Builder->CreateGEP(
+                  mem_payload_s,
+                  {context->createInt32(0), context->createInt32(i)});
+              auto val_field = Builder->CreateLoad(elem_ptr);
+              auto mem_valWrapper = context->toMem(
+                  val_field, context->createFalse(), "mem_" + currField);
 
-              ProteusValueMemory mem_valWrapper;
-              mem_valWrapper.mem = mem_field;
-              mem_valWrapper.isNull = context->createFalse();
-#ifdef DEBUGRADIX
-//                          vector<Value*> ArgsV;
-//                          ArgsV.push_back(context->createInt32(1112));
-//                          Builder->CreateCall(debugInt, ArgsV);
-//                          ArgsV.clear();
-//                          ArgsV.push_back(Builder->CreateLoad(mem_field));
-//                          Builder->CreateCall(debugInt, ArgsV);
-#endif
               LOG(INFO) << expr2.getRegisteredAs();
-              (*allJoinBindings)[expr2.getRegisteredAs()] = mem_valWrapper;
+              allJoinBindings[expr2.getRegisteredAs()] = mem_valWrapper;
               i++;
             }
           }
@@ -849,17 +717,10 @@ void RadixJoin::runRadix() const {
           ProteusValueMemory oid_mem;
           oid_mem.mem = mem_outCount;
           oid_mem.isNull = context->createFalse();
-          (*allJoinBindings)[oid] = oid_mem;
-#ifdef DEBUGRADIX
-          {
-            /* Printing key(s) */
-            vector<Value *> ArgsV;
-            ArgsV.push_back(Builder->getInt32(500008));
-            Builder->CreateCall(debugInt, ArgsV);
-          }
-#endif
+          allJoinBindings[oid] = oid_mem;
+
           /* Trigger Parent */
-          OperatorState newState{*this, *allJoinBindings};
+          OperatorState newState{*this, allJoinBindings};
           getParent()->consume(context, newState);
 
           Value *old_oid = Builder->CreateLoad(mem_outCount);

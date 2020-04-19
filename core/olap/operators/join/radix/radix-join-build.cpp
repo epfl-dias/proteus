@@ -23,19 +23,20 @@
 
 #include "radix-join-build.hpp"
 
+#include <utility>
+
 using namespace llvm;
 
 RadixJoinBuild::RadixJoinBuild(expression_t keyExpr, Operator *child,
-                               ParallelContext *const context, string opLabel,
+                               ParallelContext *context, string opLabel,
                                Materializer &mat, StructType *htEntryType,
                                size_t /* bytes */ size,
                                size_t /* bytes */ kvSize, bool is_agg)
     : UnaryOperator(child),
       keyExpr(std::move(keyExpr)),
-      context(context),
       mat(mat),
       htEntryType(htEntryType),
-      htLabel(opLabel),
+      htLabel(std::move(opLabel)),
       size(size),
       kvSize(kvSize),
       cached(false),
@@ -55,7 +56,7 @@ RadixJoinBuild::~RadixJoinBuild() {
 }
 
 void RadixJoinBuild::produce_(ParallelContext *context) {
-  initializeState();
+  initializeState(context);
 
   Operator *newChild = nullptr;
 
@@ -77,7 +78,7 @@ void RadixJoinBuild::produce_(ParallelContext *context) {
   getChild()->produce(context);
 }
 
-void RadixJoinBuild::initializeState() {
+void RadixJoinBuild::initializeState(ParallelContext *context) {
   Function *F = context->getGlobalFunction();
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
@@ -119,7 +120,7 @@ void RadixJoinBuild::initializeState() {
       [=](llvm::Value *pip, llvm::Value *s) {
         /* Partition and Cluster (the corresponding htEntries) */
         Value *mem_kv = context->getStateVar(ht.mem_kv_id);
-        Value *clusterCount = radix_cluster_nopadding(s, mem_kv);
+        Value *clusterCount = radix_cluster_nopadding(context, s, mem_kv);
         Function *reg = context->getFunction("registerClusterCounts");
         Value *this_ptr = context->CastPtrToLlvmPtr(char_ptr_type, this);
         Builder->CreateCall(reg, vector<Value *>{pip, clusterCount, this_ptr});
@@ -213,7 +214,7 @@ void RadixJoinBuild::initializeState() {
 
 void RadixJoinBuild::consume(Context *const context,
                              const OperatorState &childState) {
-  ParallelContext *ctx = dynamic_cast<ParallelContext *>(context);
+  auto *ctx = dynamic_cast<ParallelContext *>(context);
   assert(ctx && "Update caller to new API");
   consume(ctx, childState);
 }
@@ -538,4 +539,26 @@ void RadixJoinBuild::consume(ParallelContext *const context,
   } else {
     assert(false && "Caching is disabled");  // FIMXE
   }
+}
+
+/**
+ * @param mem_tuplesNo  the htEntries corresp. to the relation
+ * @param mem_kv_id     the materialized input relation
+ *
+ * @return item count per resulting cluster
+ */
+Value *RadixJoinBuild::radix_cluster_nopadding(ParallelContext *context,
+                                               Value *mem_tuplesNo,
+                                               Value *mem_kv_id) const {
+  IRBuilder<> *Builder = context->getBuilder();
+
+  Function *partitionHT =
+      context->getFunction(is_agg ? "partitionAggHT" : "partitionHT");
+  vector<Value *> ArgsPartition;
+  Value *val_tuplesNo = Builder->CreateLoad(mem_tuplesNo);
+  Value *val_ht = Builder->CreateLoad(mem_kv_id);
+  ArgsPartition.push_back(val_tuplesNo);
+  ArgsPartition.push_back(val_ht);
+
+  return Builder->CreateCall(partitionHT, ArgsPartition);
 }

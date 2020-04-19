@@ -23,6 +23,7 @@
 
 #ifndef PROTEUS_RADIX_JOIN_BUILD_HPP
 #define PROTEUS_RADIX_JOIN_BUILD_HPP
+
 #include "expressions/expressions-generator.hpp"
 #include "operators/operators.hpp"
 #include "operators/scan.hpp"
@@ -30,8 +31,6 @@
 #include "util/caching.hpp"
 #include "util/functions.hpp"
 #include "util/parallel-context.hpp"
-#include "util/radix/joins/radix-join.hpp"
-
 //#define DEBUGRADIX
 
 /* valuePtr is relative to the payloadBuffer! */
@@ -88,8 +87,8 @@ struct kvBuf {
 class RadixJoinBuild : public UnaryOperator {
  public:
   RadixJoinBuild(expression_t keyExpr, Operator *child,
-                 ParallelContext *const context, string opLabel,
-                 Materializer &mat, llvm::StructType *htEntryType,
+                 ParallelContext *context, string opLabel, Materializer &mat,
+                 llvm::StructType *htEntryType,
                  size_t size
 #ifdef LOCAL_EXEC
                  = 15000,
@@ -103,15 +102,14 @@ class RadixJoinBuild : public UnaryOperator {
                  = 30000000000,
 #endif
                  bool is_agg = false);
-  virtual ~RadixJoinBuild();
-  virtual void produce_(ParallelContext *context);
+  ~RadixJoinBuild() override;
+  void produce_(ParallelContext *context) override;
   //  void produceNoCache() ;
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual void consume(ParallelContext *const context,
-                       const OperatorState &childState);
+  void consume(Context *context, const OperatorState &childState) override;
+  void consume(ParallelContext *context, const OperatorState &childState);
   Materializer &getMaterializer() { return mat; }
-  virtual bool isFiltering() const { return true; }
-  virtual RecordType getRowType() const {
+  [[nodiscard]] bool isFiltering() const override { return true; }
+  [[nodiscard]] RecordType getRowType() const override {
     // FIXME: implement
     throw runtime_error("unimplemented RadixJoin:: getRowType()");
   }
@@ -131,9 +129,10 @@ class RadixJoinBuild : public UnaryOperator {
   //     void runRadix() const;
   //     Value *radix_cluster_nopadding(struct relationBuf rel, struct kvBuf ht)
   //     const;
-  llvm::Value *radix_cluster_nopadding(llvm::Value *mem_tuplesNo,
+  llvm::Value *radix_cluster_nopadding(ParallelContext *context,
+                                       llvm::Value *mem_tuplesNo,
                                        llvm::Value *mem_kv_id) const;
-  void initializeState();
+  void initializeState(ParallelContext *context);
 
   // //  char** findSideInCache(Materializer &mat) const;
   //     Scan* findSideInCache(Materializer &mat, bool isLeft) const;
@@ -150,7 +149,6 @@ class RadixJoinBuild : public UnaryOperator {
   bool is_agg;
 
   string htLabel;
-  ParallelContext *const context;
   expression_t keyExpr;
 
   OutputPlugin *pg;
