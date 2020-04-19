@@ -153,11 +153,7 @@ class Plugin {
   //    virtual typeID getOIDSize() = 0;
   virtual ExpressionType *getOIDType() = 0;
   virtual PluginType getPluginType() = 0;
-  virtual RecordType getRowType() const {
-    // FIXME: throw an exception for now, but as soon as existing classes
-    //  implement it, we should mark it pure virtual
-    throw runtime_error("unimplemented");
-  }
+  [[nodiscard]] virtual RecordType getRowType() const = 0;
 
  protected:
   virtual void flushBeginList(llvm::Value *fileName) = 0;

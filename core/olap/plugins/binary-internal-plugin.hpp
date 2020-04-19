@@ -177,6 +177,8 @@ class BinaryInternalPlugin : public Plugin {
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
+  virtual RecordType getRowType() const { return {fields}; }
+
  private:
   string structName;
 
