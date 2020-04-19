@@ -1510,4 +1510,6 @@ expressions::ExprVisitorVisitable<T, Interface>::operator[](
   return static_cast<expression_t>(*this)[index];
 }
 
+std::ostream &operator<<(std::ostream &out, const expressions::Expression &e);
+
 #endif /* EXPRESSIONS_HPP_ */

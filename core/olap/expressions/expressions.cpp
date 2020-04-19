@@ -569,3 +569,84 @@ expressions::RefExpression expression_t::operator*() const {
 expressions::RefExpression expression_t::operator[](expression_t index) const {
   return *(*this + index);
 }
+
+template <typename F>
+class DefaultedExprVisitor : public ExprVisitor {
+ protected:
+  F f;
+
+ public:
+  DefaultedExprVisitor() = default;
+  DefaultedExprVisitor(F f) : f(std::move(f)) {}
+
+  ProteusValue visit(const expressions::IntConstant *e) { return f(*e); }
+  ProteusValue visit(const expressions::Int64Constant *e) { return f(*e); }
+  ProteusValue visit(const expressions::DateConstant *e) { return f(*e); }
+  ProteusValue visit(const expressions::FloatConstant *e) { return f(*e); }
+  ProteusValue visit(const expressions::BoolConstant *e) { return f(*e); }
+  ProteusValue visit(const expressions::StringConstant *e) { return f(*e); }
+  ProteusValue visit(const expressions::DStringConstant *e) { return f(*e); }
+  ProteusValue visit(const expressions::InputArgument *e) { return f(*e); }
+  ProteusValue visit(const expressions::RecordProjection *e) { return f(*e); }
+  /*
+   * XXX How is nullptr propagated? What if one of the attributes is nullptr;
+   * XXX Did not have to test it yet -> Applicable to output only
+   */
+  ProteusValue visit(const expressions::RecordConstruction *e) { return f(*e); }
+  ProteusValue visit(const expressions::IfThenElse *e) { return f(*e); }
+  // XXX Do binary operators require explicit handling of nullptr?
+  ProteusValue visit(const expressions::EqExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::NeExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::GeExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::GtExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::LeExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::LtExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::AddExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::SubExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::MultExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::DivExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::ModExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::AndExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::OrExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::ProteusValueExpression *e) {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::MinExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::MaxExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::HashExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::RefExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::AssignExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::NegExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::ExtractExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::TestNullExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::CastExpression *e) { return f(*e); }
+};
+
+class ExpressionSerializer {
+  std::ostream &out;
+
+ public:
+  ExpressionSerializer(std::ostream &out) : out(out) {}
+
+  ProteusValue operator()(const expressions::Expression &e) {
+    out << typeid(e).name();
+    return {};
+  }
+
+  ProteusValue operator()(const expressions::RecordProjection &e) {
+    out << "RecordProjection(" << e.getAttribute() << ")";
+    return {};
+  }
+};
+
+class OStreamVisitor : public DefaultedExprVisitor<ExpressionSerializer> {
+ public:
+  OStreamVisitor(std::ostream &out)
+      : DefaultedExprVisitor(ExpressionSerializer(out)) {}
+};
+
+std::ostream &operator<<(std::ostream &out, const expressions::Expression &e) {
+  OStreamVisitor ov(out);
+  e.accept(ov);
+  return out;
+}
