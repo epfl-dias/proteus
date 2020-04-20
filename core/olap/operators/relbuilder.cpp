@@ -244,7 +244,7 @@ RelBuilder RelBuilder::pack(const vector<expression_t> &projections,
         new GpuHashRearrange(root, ctx, numOfBuckets, projections, hashExpr);
     return apply(op);
   } else {
-    auto op = new HashRearrange(root, ctx, numOfBuckets, projections, hashExpr);
+    auto op = new HashRearrange(root, numOfBuckets, projections, hashExpr);
     return apply(op);
   }
 }

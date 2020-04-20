@@ -726,9 +726,8 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     Operator *btt_build =
         new BlockToTuples(xch_build, build_expr, false, gran_t::THREAD);
     xch_build->setParent(btt_build);
-    Operator *part_build =
-        new HashRearrange(btt_build, (ParallelContext *)ctx, numOfBuckets,
-                          build_expr, build_expr[0], build_hash_attr);
+    Operator *part_build = new HashRearrange(
+        btt_build, numOfBuckets, build_expr, build_expr[0], build_hash_attr);
     btt_build->setParent(part_build);
     build_attr_block.push_back(build_hash_attr);
     Router *xch_build2 =
@@ -743,9 +742,8 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     Operator *btt_probe =
         new BlockToTuples(xch_probe, probe_expr, false, gran_t::THREAD);
     xch_probe->setParent(btt_probe);
-    Operator *part_probe =
-        new HashRearrange(btt_probe, (ParallelContext *)ctx, numOfBuckets,
-                          probe_expr, probe_expr[0], probe_hash_attr);
+    Operator *part_probe = new HashRearrange(
+        btt_probe, numOfBuckets, probe_expr, probe_expr[0], probe_hash_attr);
     btt_probe->setParent(part_probe);
     probe_attr_block.push_back(probe_hash_attr);
     Router *xch_probe2 =

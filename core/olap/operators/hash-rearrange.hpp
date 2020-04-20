@@ -23,33 +23,30 @@
 #ifndef HASH_REARRANGE_HPP_
 #define HASH_REARRANGE_HPP_
 
+#include <utility>
+
 #include "memory/block-manager.hpp"
 #include "operators/operators.hpp"
 #include "util/parallel-context.hpp"
 
-class HashRearrange : public UnaryOperator {
+class HashRearrange : public experimental::UnaryOperator {
  public:
-  HashRearrange(Operator *const child, ParallelContext *const context,
-                int numOfBuckets, const std::vector<expression_t> &wantedFields,
-                expression_t hashExpr, RecordAttribute *hashProject = nullptr)
+  HashRearrange(Operator *const child, int numOfBuckets,
+                std::vector<expression_t> wantedFields, expression_t hashExpr,
+                RecordAttribute *hashProject = nullptr)
       : UnaryOperator(child),
-        context(context),
         numOfBuckets(numOfBuckets),
-        wantedFields(wantedFields),
+        wantedFields(std::move(wantedFields)),
         hashExpr(std::move(hashExpr)),
         hashProject(hashProject),
         blockSize(BlockManager::block_size) {}  // FIMXE: default blocksize...
 
-  virtual ~HashRearrange() { LOG(INFO) << "Collapsing HashRearrange operator"; }
+  void produce_(ParallelContext *context) override;
+  void consume(ParallelContext *context,
+               const OperatorState &childState) override;
+  [[nodiscard]] bool isFiltering() const override { return false; }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return false; }
-
-  llvm::Value *hash(const std::vector<expression_t> &exprs,
-                    Context *const context, const OperatorState &childState);
-
-  virtual RecordType getRowType() const {
+  [[nodiscard]] RecordType getRowType() const override {
     std::vector<RecordAttribute *> attr;
     for (const auto &t : wantedFields) {
       attr.emplace_back(new RecordAttribute(t.getRegisteredAs(), true));
@@ -61,7 +58,14 @@ class HashRearrange : public UnaryOperator {
   }
 
  protected:
-  virtual void consume_flush();
+  virtual void consume_flush(ParallelContext *context);
+
+  llvm::Value *getIndexPtr(ParallelContext *context, llvm::Value *target) const;
+
+  llvm::Value *getIndex(ParallelContext *context, llvm::Value *target) const;
+
+  llvm::StoreInst *setIndex(ParallelContext *context, llvm::Value *newIndex,
+                            llvm::Value *target) const;
 
   virtual void open(Pipeline *pip);
   virtual void close(Pipeline *pip);
@@ -81,8 +85,6 @@ class HashRearrange : public UnaryOperator {
   size_t blockSize;  // bytes
 
   int64_t cap;
-
-  ParallelContext *const context;
 
   PipelineGen *closingPip;
   llvm::Function *flushingFunc;

@@ -170,6 +170,12 @@ Value *PipelineGen::getStateVar(StateVar id) const {
   return context->getBuilder()->CreateExtractValue(arg, id.getIndex());
 }
 
+Value *PipelineGen::getStateVarPtr() const {
+  assert(F == getBuilder()->GetInsertBlock()->getParent() &&
+         "Only supported in main function");
+  return args.back();
+}
+
 Value *PipelineGen::getSubStateVar() const {
   assert(copyStateFrom);
   Value *subState = getStateVar(StateVar{0, this});

@@ -125,6 +125,7 @@ class PipelineGen {
   virtual llvm::Argument *getArgument(size_t id) const;
   virtual llvm::Value *getStateVar(StateVar id) const;
   virtual llvm::Value *getStateVar() const;
+  virtual llvm::Value *getStateVarPtr() const;
   virtual llvm::Value *getSubStateVar() const;
 
   virtual llvm::Value *allocateStateVar(llvm::Type *t);
