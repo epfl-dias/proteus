@@ -39,6 +39,7 @@
 #include "nvToolsExt.h"
 #include "nvml.h"
 #include "topology/affinity_manager.hpp"
+#include "util/topology_parser.hpp"
 
 // template<typename T>
 const topology::cpunumanode *topology::getCpuNumaNodeAddressed(
@@ -190,7 +191,8 @@ void topology::init_() {
   for (const auto &cpu : cpu_info) {
     for (const auto &core : cpu.local_cores) {
       cpucore_index[core] = core_info.size();
-      core_info.emplace_back(core, cpu.id, core_info.size(), cpu.index_in_topo);
+      core_info.emplace_back(core, cpu.id, core_info.size(), cpu.index_in_topo,
+                             ThreadSiblingParser::getThreadSiblings(core));
     }
   }
 

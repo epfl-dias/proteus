@@ -100,16 +100,18 @@ class topology {
     const uint32_t local_cpu;
     const uint32_t local_cpu_index;
     const uint32_t index_in_topo;
+    const std::vector<uint32_t> ht_pairs_id;
 
    public:
     core(uint32_t id, uint32_t local_cpu, uint32_t index_in_topo,
-         uint32_t local_cpu_index,
+         uint32_t local_cpu_index, const std::vector<uint32_t> ht_pairs,
          // do not remove argument!!!
          topologyonly_construction = {})
         : id(id),
           local_cpu(local_cpu),
           index_in_topo(index_in_topo),
-          local_cpu_index(local_cpu_index) {}
+          local_cpu_index(local_cpu_index),
+          ht_pairs_id(ht_pairs) {}
 
     // const cpunumanode &getNumaNode() const;
     const cpunumanode &getLocalCPUNumaNode() const;
