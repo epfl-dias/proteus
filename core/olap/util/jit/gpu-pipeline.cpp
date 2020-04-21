@@ -619,9 +619,10 @@ void GpuPipelineGen::markAsKernel(Function *F) const {
 
 Function *const GpuPipelineGen::createHelperFunction(
     string funcName, std::vector<Type *> ins, std::vector<bool> readonly,
-    std::vector<bool> noalias) const {
+    std::vector<bool> noalias) {
   assert(readonly.size() == noalias.size());
   assert(readonly.size() == 0 || readonly.size() == args.size());
+  module.markToAvoidInteralizeFunction(funcName);
 
   ins.push_back(state_type);
 

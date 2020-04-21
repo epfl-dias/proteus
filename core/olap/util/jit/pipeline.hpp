@@ -184,7 +184,7 @@ class PipelineGen {
 
   virtual llvm::Function *const createHelperFunction(
       string funcName, std::vector<llvm::Type *> ins,
-      std::vector<bool> readonly, std::vector<bool> noalias) const;
+      std::vector<bool> readonly, std::vector<bool> noalias);
   virtual llvm::Value *invokeHelperFunction(
       llvm::Function *f, std::vector<llvm::Value *> args) const;
 

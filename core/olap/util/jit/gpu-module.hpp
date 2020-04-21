@@ -50,7 +50,10 @@ class GpuModule : public JITModule {
 
   virtual void *getCompiledFunction(llvm::Function *f) const;
 
+  virtual void markToAvoidInteralizeFunction(std::string func);
+
  protected:
+  std::set<std::string> preserveFromInternalization;
   virtual void optimizeModule(llvm::Module *M);
 };
 

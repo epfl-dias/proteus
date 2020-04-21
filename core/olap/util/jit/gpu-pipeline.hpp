@@ -70,7 +70,7 @@ class GpuPipelineGen : public PipelineGen {
 
   virtual llvm::Function *const createHelperFunction(
       std::string funcName, std::vector<llvm::Type *> ins,
-      std::vector<bool> readonly, std::vector<bool> noalias) const;
+      std::vector<bool> readonly, std::vector<bool> noalias);
 
   virtual llvm::Value *workerScopedAtomicAdd(llvm::Value *ptr,
                                              llvm::Value *inc);

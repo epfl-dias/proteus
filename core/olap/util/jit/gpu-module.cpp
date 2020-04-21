@@ -23,7 +23,10 @@
 #include "util/jit/gpu-module.hpp"
 
 #include <dlfcn.h>
+#pragma push_macro("NDEBUG")
+#define NDEBUG
 #include <llvm/Analysis/BasicAliasAnalysis.h>
+#include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/CodeGen/TargetPassConfig.h>
 #include <llvm/ExecutionEngine/JITEventListener.h>
 #include <llvm/IR/LLVMContext.h>
@@ -31,11 +34,11 @@
 #include <llvm/IR/PassManager.h>
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Linker/Linker.h>
+#include <llvm/Passes/PassBuilder.h>
 #include <llvm/Support/SourceMgr.h>
 #include <llvm/Support/TargetRegistry.h>
-#pragma push_macro("NDEBUG")
-#define NDEBUG
-#include <llvm/Analysis/TargetTransformInfo.h>
+#include <llvm/Transforms/IPO/Internalize.h>
+#include <llvm/Transforms/Utils/Cloning.h>
 #pragma pop_macro("NDEBUG")
 
 #include "topology/affinity_manager.hpp"
@@ -235,6 +238,22 @@ std::pair<char *, char *> discover_bc() {
   return {_binary_buffer_manager_cubin_start, _binary_buffer_manager_cubin_end};
 }
 
+auto createBC() {
+  auto binary_bc = discover_bc();
+  auto start = (const char *)binary_bc.first;
+  auto end = (const char *)binary_bc.second;
+  size_t size = end - start;
+  auto mb2 =
+      llvm::MemoryBuffer::getMemBuffer(llvm::StringRef{start, size}, "", false);
+  assert(mb2);
+  return mb2;
+}
+
+auto getBCRef() {
+  static auto mb2 = createBC();
+  return mb2->getMemBufferRef();
+}
+
 void GpuModule::compileAndLoad() {
 #ifndef NCUDA
   time_block t(pipName + " G: ");
@@ -244,30 +263,38 @@ void GpuModule::compileAndLoad() {
 
   if (print_generated_code) {
     std::error_code EC;
-    llvm::raw_fd_ostream out(
-        "generated_code/" + pipName + ".ll", EC,
-        (llvm::sys::fs::OpenFlags)0);  // FIXME:
-                                       // llvm::sys::fs::OpenFlags::F_NONE is
-                                       // the correct one but it gives a
-                                       // compilation error
+    llvm::raw_fd_ostream out("generated_code/" + pipName + ".ll", EC,
+                             llvm::sys::fs::OpenFlags::F_None);
 
     getModule()->print(out, nullptr, false, true);
   }
 #endif
   llvm::SMDiagnostic error;
-  auto binary_bc = discover_bc();
-  auto start = (const char *)binary_bc.first;
-  auto end = (const char *)binary_bc.second;
-  size_t size = end - start;
-  auto mb2 =
-      llvm::MemoryBuffer::getMemBuffer(llvm::StringRef{start, size}, "", false);
-  assert(mb2);
 
-  auto mod =
-      llvm::parseIR(mb2->getMemBufferRef(), error, getModule()->getContext());
+  auto mod = llvm::parseIR(getBCRef(), error, getModule()->getContext());
   assert(mod);
 
   llvm::Linker::linkModules(*getModule(), std::move(mod));
+
+  {
+    llvm::ModulePassManager mpm;
+    llvm::ModuleAnalysisManager mam;
+
+    PassBuilder b;
+    b.registerModuleAnalyses(mam);
+
+    std::set<std::string> gs{
+        "pool", "npool", "deviceId", "buff_start", "buff_end",
+    };
+
+    mpm.addPass(llvm::InternalizePass([&](const GlobalValue &g) {
+      if (gs.count(g.getName().str())) return true;
+      if (g.getName().startswith(getModule()->getName())) return true;
+      return preserveFromInternalization.count(g.getName().str()) > 0;
+    }));
+    mpm.run(*getModule(), mam);
+  }
+
   optimizeModule(getModule());
 
   // Dump to see final (optimized) form
@@ -276,12 +303,8 @@ void GpuModule::compileAndLoad() {
 
   if (print_generated_code) {
     std::error_code EC;
-    llvm::raw_fd_ostream out(
-        "generated_code/" + pipName + "_opt.ll", EC,
-        (llvm::sys::fs::OpenFlags)0);  // FIXME:
-                                       // llvm::sys::fs::OpenFlags::F_NONE is
-                                       // the correct one but it gives a
-                                       // compilation error
+    llvm::raw_fd_ostream out("generated_code/" + pipName + "_opt.ll", EC,
+                             llvm::sys::fs::OpenFlags::F_None);
 
     getModule()->print(out, nullptr, false, true);
   }
@@ -394,4 +417,8 @@ void *GpuModule::getCompiledFunction(Function *f) const {
   assert(false);
   return nullptr;
 #endif
+}
+
+void GpuModule::markToAvoidInteralizeFunction(std::string func) {
+  preserveFromInternalization.emplace(std::move(func));
 }

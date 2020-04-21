@@ -183,9 +183,10 @@ Value *PipelineGen::getSubStateVar() const {
   return subState;
 }
 
-Function *const PipelineGen::createHelperFunction(
-    string funcName, std::vector<Type *> ins, std::vector<bool> readonly,
-    std::vector<bool> noalias) const {
+Function *const PipelineGen::createHelperFunction(string funcName,
+                                                  std::vector<Type *> ins,
+                                                  std::vector<bool> readonly,
+                                                  std::vector<bool> noalias) {
   assert(readonly.size() == noalias.size());
   assert(readonly.size() == 0 || readonly.size() == ins.size());
 
