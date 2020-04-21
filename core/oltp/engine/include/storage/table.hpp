@@ -38,6 +38,8 @@
 #include "storage/delta_storage.hpp"
 #include "storage/memory_manager.hpp"
 
+typedef std::map<uint64_t, std::string> dict_dstring_t;
+
 namespace storage {
 
 class Schema;
@@ -52,18 +54,22 @@ enum layout_type { ROW_STORE, COLUMN_STORE };
 enum data_type { META, INTEGER, STRING, FLOAT, VARCHAR, DATE, DSTRING };
 
 class ColumnDef {
-  std::vector<std::tuple<std::string, storage::data_type, size_t, void *>>
+  std::vector<
+      std::tuple<std::string, storage::data_type, size_t, dict_dstring_t *>>
       columns;
+
 
  public:
   void emplace_back(std::string name, data_type dt, size_t width,
-                    void *dict = nullptr) {
+                    dict_dstring_t *dict = nullptr) {
     columns.emplace_back(name, dt, width, dict);
   }
 
   size_t size() { return columns.size(); }
 
-  std::vector<std::tuple<std::string, storage::data_type, size_t, void *>>
+  std::vector<
+      std::tuple<std::string, storage::data_type, size_t, dict_dstring_t *>>
+
   getColumns() {
     return columns;
   }
