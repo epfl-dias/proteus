@@ -238,7 +238,7 @@ std::pair<char *, char *> discover_bc() {
   return {_binary_buffer_manager_cubin_start, _binary_buffer_manager_cubin_end};
 }
 
-auto createBC() {
+auto createModule(LLVMContext &llvmContext) {
   auto binary_bc = discover_bc();
   auto start = (const char *)binary_bc.first;
   auto end = (const char *)binary_bc.second;
@@ -246,12 +246,18 @@ auto createBC() {
   auto mb2 =
       llvm::MemoryBuffer::getMemBuffer(llvm::StringRef{start, size}, "", false);
   assert(mb2);
-  return mb2;
+  llvm::SMDiagnostic error;
+
+  auto mod = llvm::parseIR(mb2->getMemBufferRef(), error, llvmContext);
+  assert(mod);
+
+  return mod;
 }
 
-auto getBCRef() {
-  static auto mb2 = createBC();
-  return mb2->getMemBufferRef();
+auto getModuleRef(LLVMContext &llvmContext) {
+  static auto mod{createModule(llvmContext)};
+  if (&llvmContext != &mod->getContext()) mod = createModule(llvmContext);
+  return llvm::CloneModule(*mod);
 }
 
 void GpuModule::compileAndLoad() {
@@ -269,10 +275,7 @@ void GpuModule::compileAndLoad() {
     getModule()->print(out, nullptr, false, true);
   }
 #endif
-  llvm::SMDiagnostic error;
-
-  auto mod = llvm::parseIR(getBCRef(), error, getModule()->getContext());
-  assert(mod);
+  auto mod = getModuleRef(getModule()->getContext());
 
   llvm::Linker::linkModules(*getModule(), std::move(mod));
 
