@@ -157,7 +157,7 @@ ProteusValueMemory BinaryBlockPlugin::readProteusValue(
       llvm::Metadata *Args[] = {nullptr, n2};
       MDNode *n = MDNode::get(context->getLLVMContext(), Args);
       n->replaceOperandWith(0, n);
-      ld->setMetadata("alias.scope", n);
+      ld->setMetadata(LLVMContext::MD_alias_scope, n);
     }
 
     {  // Loaded value will be the same in all the places it will be loaded
@@ -165,7 +165,7 @@ ProteusValueMemory BinaryBlockPlugin::readProteusValue(
       llvm::Metadata *Args[] = {
           llvm::ValueAsMetadata::get(context->createInt32(1))};
       MDNode *n = MDNode::get(context->getLLVMContext(), Args);
-      ld->setMetadata("invariant.load", n);
+      ld->setMetadata(LLVMContext::MD_invariant_load, n);
     }
 
     val = context->toMem(ld, val.isNull);

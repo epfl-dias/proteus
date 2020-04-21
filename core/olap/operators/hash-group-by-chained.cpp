@@ -696,7 +696,7 @@ void HashGroupByChained::generate_scan() {
     LoopID = MDNode::get(llvmContext, Args);
     LoopID->replaceOperandWith(0, LoopID);
 
-    loop_cond->setMetadata("llvm.loop", LoopID);
+    loop_cond->setMetadata(LLVMContext::MD_loop, LoopID);
   }
   // Start insertion in LoopBB.
   Builder->SetInsertPoint(LoopBB);

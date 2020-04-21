@@ -169,7 +169,8 @@ void HashRearrange::consume(ParallelContext *context,
 
     llvm::Metadata *Args[] = {
         llvm::ValueAsMetadata::get(context->createInt64(10000))};
-    blocks2->setMetadata("dereferenceable", MDNode::get(llvmContext, Args));
+    blocks2->setMetadata(LLVMContext::MD_dereferenceable,
+                         MDNode::get(llvmContext, Args));
 
     //    alloc = context->CreateEntryBlockAlloca("asd", blocks2->getType());
     //    blocks2->getType()->dump();
@@ -227,17 +228,17 @@ void HashRearrange::consume(ParallelContext *context,
     auto block = Builder->CreateLoad(Builder->CreateInBoundsGEP(
         curblk, {context->createInt32(0), context->createInt32(i)}));
 
-    block->setMetadata("alias.scope", n);
+    block->setMetadata(LLVMContext::MD_alias_scope, n);
 
     Value *el_ptr = Builder->CreateInBoundsGEP(block, indx);
 
     Value *el = vals[i].value;
     auto ld = dyn_cast<llvm::LoadInst>(el);
     assert(ld);
-    ld->setMetadata("alias.scope", n);
+    ld->setMetadata(LLVMContext::MD_alias_scope, n);
 
     auto s = Builder->CreateStore(el, el_ptr);
-    s->setMetadata("noalias", n);
+    s->setMetadata(LLVMContext::MD_noalias, n);
     //    s->setMetadata("nontemporal", ntemp); //awful performance
 
     els.push_back(block);
@@ -293,7 +294,7 @@ void HashRearrange::consume(ParallelContext *context,
                             llvmContext)));
 
           auto new_buff = Builder->CreateCall(get_buffer, {size});
-          new_buff->setMetadata("noalias", n);
+          new_buff->setMetadata(LLVMContext::MD_noalias, n);
 
           auto new_buff2 =
               Builder->CreateBitCast(new_buff, tblock.getLLVMType(llvmContext));

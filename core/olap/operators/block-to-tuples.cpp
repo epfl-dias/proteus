@@ -211,7 +211,7 @@ void BlockToTuples::consume(ParallelContext *const context,
     LoopID = MDNode::get(llvmContext, Args);
     LoopID->replaceOperandWith(0, LoopID);
 
-    loop_cond->setMetadata("llvm.loop", LoopID);
+    loop_cond->setMetadata(LLVMContext::MD_loop, LoopID);
   }
   // Start insertion in LoopBB.
   Builder->SetInsertPoint(LoopBB);
@@ -257,7 +257,7 @@ void BlockToTuples::consume(ParallelContext *const context,
       // If not lazy, load the data now
       Instruction *parsed =
           Builder->CreateLoad(ptr);  // TODO : use CreateAlignedLoad
-      { parsed->setMetadata("llvm.mem.parallel_loop_access", LoopID); }
+      { parsed->setMetadata(LLVMContext::MD_mem_parallel_loop_access, LoopID); }
       ptr = parsed;
     }
 
