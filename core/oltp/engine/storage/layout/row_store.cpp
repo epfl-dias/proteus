@@ -309,7 +309,14 @@ RowStore::RowStore(uint8_t table_id, std::string name, ColumnDef columns,
   this->deltaStore = storage::Schema::getInstance().deltaStore;
   this->vid_offset = 0;
 
-  for (int i = 0; i < g_num_partitions; i++) this->vid[i] = 0;
+  for (int i = 0; i < g_num_partitions; i++) {
+    this->vid[i] = 0;
+    this->metadata.emplace_back();
+
+    for(int j = 0; j < global_conf::num_master_versions; j++ ){
+      data[j].emplace_back();
+    }
+  }
 
   if (indexed) {
     // this->rec_size += sizeof(global_conf::IndexVal);
@@ -345,7 +352,7 @@ RowStore::RowStore(uint8_t table_id, std::string name, ColumnDef columns,
   else
     this->num_partitions = 1;
 
-  assert(g_num_partitions <= NUM_SOCKETS);
+  assert(g_num_partitions <= topology::getInstance().getCpuNumaNodeCount());
   size_t tsize = initial_num_records * this->rec_size;
   this->size_per_part = tsize / this->num_partitions;
   this->initial_num_records_per_part =

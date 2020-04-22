@@ -297,7 +297,7 @@ void ColumnStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
  * */
 
 void ColumnStore::offsetVID(uint64_t offset_vid) {
-  for (int i = 0; i < NUM_SOCKETS; i++) vid[i].store(offset_vid);
+  for (int i = 0; i < vid.size(); i++) vid[i].store(offset_vid);
   this->offset = offset_vid;
 }
 
@@ -356,7 +356,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
   else
     this->num_partitions = 1;
 
-  assert(g_num_partitions <= NUM_SOCKETS);
+  assert(g_num_partitions <= topology::getInstance().getCpuNumaNodeCount());
 
   this->initial_num_records = initial_num_records;
   this->initial_num_records_per_part =
@@ -771,7 +771,7 @@ uint64_t Column::num_upd_tuples(const ushort master_ver,
 }
 
 void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
-  uint64_t partitions_n_recs[MAX_NUM_PARTITIONS];
+  uint64_t partitions_n_recs[global_conf::MAX_PARTITIONS];
 
   for (uint i = 0; i < g_num_partitions; i++) {
     partitions_n_recs[i] = this->vid[i].load();

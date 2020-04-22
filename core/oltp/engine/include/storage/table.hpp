@@ -25,7 +25,6 @@
 #define STORAGE_TABLE_HPP_
 
 #include <assert.h>
-
 #include <future>
 #include <iostream>
 #include <map>
@@ -113,9 +112,10 @@ class NUMAPartitionPolicy {
   std::vector<TablePartition> PartitionVector;
 
   NUMAPartitionPolicy() {
-    for (uint i = 0; i < NUM_SOCKETS; i++) {
+    auto num_numa_nodes = topology::getInstance().getCpuNumaNodeCount();
+    for (uint i = 0; i < num_numa_nodes; i++) {
       if (global_conf::reverse_partition_numa_mapping)
-        PartitionVector.emplace_back(TablePartition{i, NUM_SOCKETS - i - 1});
+        PartitionVector.emplace_back(TablePartition{i, num_numa_nodes - i - 1});
       else
         PartitionVector.emplace_back(TablePartition{i, i});
     }
@@ -246,7 +246,8 @@ class Table {
   global_conf::PrimaryIndex<uint64_t> *p_index;
   global_conf::PrimaryIndex<uint64_t> **s_index;
   uint64_t total_mem_reserved;
-  volatile std::atomic<uint64_t> vid[NUM_SOCKETS];
+  //volatile std::atomic<uint64_t> vid[NUM_SOCKETS];
+  std::deque<std::atomic<uint64_t>> vid;
   const std::string name;
   const uint8_t table_id;
 

@@ -316,7 +316,10 @@ Table::Table(std::string name, uint8_t table_id, layout_type storage_layout,
       table_id(table_id),
       total_mem_reserved(0),
       storage_layout(storage_layout) {
-  for (int i = 0; i < NUM_SOCKETS; i++) vid[i] = 0;
+  for (int i = 0; i < topology::getInstance().getCpuNumaNodeCount(); i++) {
+    vid.emplace_back();
+    vid[i].store(0);
+  }
 
   std::vector<RecordAttribute*> attrs;
   attrs.reserve(columns.size());

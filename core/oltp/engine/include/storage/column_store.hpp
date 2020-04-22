@@ -180,7 +180,7 @@ class alignas(4096) Column {
 
  private:
   uint num_partitions;
-  volatile bool touched[NUM_SOCKETS];
+  volatile bool touched[global_conf::MAX_PARTITIONS];
 
   size_t total_mem_reserved;
   size_t size_per_part;
@@ -188,18 +188,18 @@ class alignas(4096) Column {
   uint64_t initial_num_records_per_part;
 
   std::vector<storage::memory::mem_chunk>
-      master_versions[global_conf::num_master_versions][NUM_SOCKETS];
+      master_versions[global_conf::num_master_versions][global_conf::MAX_PARTITIONS];
 
   std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>>
-      upd_bit_masks[global_conf::num_master_versions][NUM_SOCKETS];
+      upd_bit_masks[global_conf::num_master_versions][global_conf::MAX_PARTITIONS];
 
   // Snapshotting Utils
   std::vector<decltype(global_conf::SnapshotManager::create(0))>
-      snapshot_arenas[NUM_SOCKETS];
+      snapshot_arenas[global_conf::MAX_PARTITIONS];
   std::vector<decltype(global_conf::SnapshotManager::create(0))>
-      etl_arenas[NUM_SOCKETS];
+      etl_arenas[global_conf::MAX_PARTITIONS];
 
-  void *etl_mem[NUM_SOCKETS];
+  void *etl_mem[global_conf::MAX_PARTITIONS];
 
   friend class ColumnStore;
 };

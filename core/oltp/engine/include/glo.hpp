@@ -32,33 +32,32 @@
 #include "snapshot/snapshot_manager.hpp"
 #include "transactions/cc.hpp"
 
-#define diascld33 false
-#define diascld40 false
-#define diascld48 true
-
-#define icc148 false
+//#define diascld33 true
+//#define diascld40 false
+//#define diascld48 false
+//#define icc148 false
 
 #define DEFAULT_OLAP_SOCKET 0
 
 #define HTAP_ETL true  // for this, double master should be turned on too.
 
-#define MAX_NUM_PARTITIONS 2  // w.r.t. we have a 4-socket machine.
-
-#if icc148
-#define NUM_SOCKETS 2
-#endif
-
-#if diascld48
-#define NUM_SOCKETS 2
-#endif
-
-#if diascld33
-#define NUM_SOCKETS 4
-#endif
-
-#if diascld40
-#define NUM_SOCKETS 2
-#endif
+//#define MAX_NUM_PARTITIONS 2  // w.r.t. we have a 4-socket machine.
+//
+//#if icc148
+//#define NUM_SOCKETS 2
+//#endif
+//
+//#if diascld48
+//#define NUM_SOCKETS 2
+//#endif
+//
+//#if diascld33
+//#define NUM_SOCKETS 4
+//#endif
+//
+//#if diascld40
+//#define NUM_SOCKETS 2
+//#endif
 
 extern uint g_num_partitions;
 extern uint g_delta_size;
@@ -67,6 +66,9 @@ extern uint g_delta_size;
 #define __unlikely(x) __builtin_expect(x, 0)
 
 namespace global_conf {
+
+
+constexpr int MAX_PARTITIONS = 8;
 
 using SnapshotManager = aeolus::snapshot::SnapshotManager;
 
