@@ -255,7 +255,6 @@ void ParallelContext::pushDeviceProvider(PipelineGenFactory *factory) {
 void ParallelContext::popDeviceProvider() { pipFactories.pop_back(); }
 
 void ParallelContext::pushPipeline(PipelineGen *copyStateFrom) {
-  time_block t("Tregpips: ");
   TheFunction = nullptr;
   generators.emplace_back(pipFactories.back()->create(
       this, kernelName + "_pip" + std::to_string(pip_cnt++), copyStateFrom));

@@ -628,9 +628,7 @@ RelBuilder RelBuilder::print(
         attrs.size() + 1, outrel, a.getAttrName(), a.getOriginalType()));
   }
 
-  LOG(INFO) << "registering";
   auto pg = createPlugin({attrs}, {}, pgType.getType());
-  LOG(INFO) << "registering done";
 
   auto v = exprs(arg);
   for (auto &e : v) e.as(outrel, e.getRegisteredAttrName());

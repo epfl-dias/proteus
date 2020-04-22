@@ -157,15 +157,13 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
   } orderByNumber;
   std::sort(wantedFields.begin(), wantedFields.end(), orderByNumber);
 
-  LOG(INFO) << "[CSVPlugin: ] " << fname;
-  LOG(INFO) << wantedFields.size();
-  struct stat statbuf;
+  struct stat statbuf {};
   const char *name_c = fname.c_str();
   stat(name_c, &statbuf);
   fsize = statbuf.st_size;
 
   fd = open(name_c, O_RDONLY);
-  if (fd == -1 && whichFields.size() > 0) {
+  if (fd == -1 && !whichFields.empty()) {
     throw runtime_error(string("csv.open"));
   }
 
@@ -240,14 +238,13 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
   buf = nullptr;
   std::sort(wantedFields.begin(), wantedFields.end());
 
-  LOG(INFO) << "[CSVPlugin: ] " << fname;
-  struct stat statbuf;
+  struct stat statbuf {};
   const char *name_c = fname.c_str();
   stat(name_c, &statbuf);
   fsize = statbuf.st_size;
 
   fd = open(name_c, O_RDONLY);
-  if (fd == -1 && whichFields.size() > 0) {
+  if (fd == -1 && !whichFields.empty()) {
     throw runtime_error(string("csv.open"));
   }
 
@@ -258,8 +255,6 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
   this->delimInner = delimInner;
   this->delimEnd = '\n';
 }
-
-CSVPlugin::~CSVPlugin() {}
 
 void CSVPlugin::init() {
   context->setGlobalFunction(true);

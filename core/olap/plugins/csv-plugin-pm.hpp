@@ -57,7 +57,6 @@ class CSVPlugin : public Plugin {
             vector<RecordAttribute *> whichFields, char delimInner,
             int lineHint, int policy, size_t *newlines, short **offsets,
             bool stringBrackets = true, bool hasHeader = false);
-  ~CSVPlugin();
   virtual string &getName() { return fname; }
   void init();
   void generate(const ::Operator &producer);
