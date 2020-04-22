@@ -43,7 +43,11 @@ class BinaryOperator {
     OR,
     MAX,
     MIN,
-    MOD
+    MOD,
+    SHL,
+    LSHR,
+    ASHR,
+    XOR,
   };
   virtual opID getID() = 0;
   virtual ~BinaryOperator();
@@ -93,6 +97,18 @@ class Max : public BinaryOperator {
 };
 class Min : public BinaryOperator {
   opID getID() { return MIN; }
+};
+class Shl : public BinaryOperator {
+  opID getID() { return SHL; }
+};
+class Lshr : public BinaryOperator {
+  opID getID() { return LSHR; }
+};
+class Ashr : public BinaryOperator {
+  opID getID() { return ASHR; }
+};
+class Xor : public BinaryOperator {
+  opID getID() { return XOR; }
 };
 }  // namespace expressions
 

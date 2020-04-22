@@ -921,6 +921,32 @@ class OrExpression : public TBinaryExpression<OrExpression, Or> {
       : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
 };
 
+class ShiftLeftExpression : public TBinaryExpression<ShiftLeftExpression, Shl> {
+ public:
+  ShiftLeftExpression(expression_t lhs, expression_t rhs)
+      : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
+};
+
+class LogicalShiftRightExpression
+    : public TBinaryExpression<LogicalShiftRightExpression, Lshr> {
+ public:
+  LogicalShiftRightExpression(expression_t lhs, expression_t rhs)
+      : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
+};
+
+class ArithmeticShiftRightExpression
+    : public TBinaryExpression<ArithmeticShiftRightExpression, Ashr> {
+ public:
+  ArithmeticShiftRightExpression(expression_t lhs, expression_t rhs)
+      : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
+};
+
+class XORExpression : public TBinaryExpression<XORExpression, Xor> {
+ public:
+  XORExpression(expression_t lhs, expression_t rhs)
+      : TBinaryExpression(lhs.getExpressionType(), lhs, rhs) {}
+};
+
 class MaxExpression : public BinaryExpressionCRTP<MaxExpression> {
  public:
   MaxExpression(expression_t lhs, expression_t rhs)
@@ -1122,8 +1148,13 @@ class ExprVisitor {
   virtual ProteusValue visit(const expressions::NegExpression *e) = 0;
   virtual ProteusValue visit(const expressions::ExtractExpression *e) = 0;
   virtual ProteusValue visit(const expressions::CastExpression *e1) = 0;
-  //    virtual ProteusValue visit(const expressions::MergeExpression *e)      =
-  //    0;
+
+  virtual ProteusValue visit(const expressions::ShiftLeftExpression *e) = 0;
+  virtual ProteusValue visit(
+      const expressions::LogicalShiftRightExpression *e) = 0;
+  virtual ProteusValue visit(
+      const expressions::ArithmeticShiftRightExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::XORExpression *e) = 0;
 };
 
 class ExprTandemVisitor {
@@ -1203,6 +1234,17 @@ class ExprTandemVisitor {
                              const expressions::TestNullExpression *e2) = 0;
   virtual ProteusValue visit(const expressions::CastExpression *e1,
                              const expressions::CastExpression *e2) = 0;
+
+  virtual ProteusValue visit(const expressions::ShiftLeftExpression *e1,
+                             const expressions::ShiftLeftExpression *e2) = 0;
+  virtual ProteusValue visit(
+      const expressions::LogicalShiftRightExpression *e1,
+      const expressions::LogicalShiftRightExpression *e2) = 0;
+  virtual ProteusValue visit(
+      const expressions::ArithmeticShiftRightExpression *e1,
+      const expressions::ArithmeticShiftRightExpression *e2) = 0;
+  virtual ProteusValue visit(const expressions::XORExpression *e1,
+                             const expressions::XORExpression *e2) = 0;
 };
 
 expression_t toExpression(Monoid m, expression_t lhs, expression_t rhs);
@@ -1298,6 +1340,21 @@ inline expressions::DivExpression operator/(const expression_t &lhs,
 
 inline expressions::ModExpression operator%(const expression_t &lhs,
                                             const expression_t &rhs) {
+  return {lhs, rhs};
+}
+
+inline expressions::XORExpression operator^(const expression_t &lhs,
+                                            const expression_t &rhs) {
+  return {lhs, rhs};
+}
+
+inline expressions::ShiftLeftExpression operator<<(const expression_t &lhs,
+                                                   const expression_t &rhs) {
+  return {lhs, rhs};
+}
+
+inline expressions::ArithmeticShiftRightExpression operator>>(
+    const expression_t &lhs, const expression_t &rhs) {
   return {lhs, rhs};
 }
 

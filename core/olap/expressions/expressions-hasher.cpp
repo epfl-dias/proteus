@@ -488,6 +488,38 @@ ProteusValue ExpressionHasherVisitor::visit(
 }
 
 ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::ShiftLeftExpression *e) {
+  if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
+  throw runtime_error(
+      string("[ExpressionHasherVisitor]: input of binary "
+             "expression can only be primitive"));
+}
+
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::ArithmeticShiftRightExpression *e) {
+  if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
+  throw runtime_error(
+      string("[ExpressionHasherVisitor]: input of binary "
+             "expression can only be primitive"));
+}
+
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::LogicalShiftRightExpression *e) {
+  if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
+  throw runtime_error(
+      string("[ExpressionHasherVisitor]: input of binary "
+             "expression can only be primitive"));
+}
+
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::XORExpression *e) {
+  if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
+  throw runtime_error(
+      string("[ExpressionHasherVisitor]: input of binary "
+             "expression can only be primitive"));
+}
+
+ProteusValue ExpressionHasherVisitor::visit(
     const expressions::SubExpression *e) {
   if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
   throw runtime_error(

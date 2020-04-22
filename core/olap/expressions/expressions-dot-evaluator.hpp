@@ -115,10 +115,21 @@ class ExpressionDotVisitor : public ExprTandemVisitor {
   ProteusValue visit(const expressions::CastExpression *e1,
                      const expressions::CastExpression *e2);
 
+  ProteusValue visit(const expressions::ShiftLeftExpression *e1,
+                     const expressions::ShiftLeftExpression *e2);
+  ProteusValue visit(const expressions::LogicalShiftRightExpression *e1,
+                     const expressions::LogicalShiftRightExpression *e2);
+  ProteusValue visit(const expressions::ArithmeticShiftRightExpression *e1,
+                     const expressions::ArithmeticShiftRightExpression *e2);
+  ProteusValue visit(const expressions::XORExpression *e1,
+                     const expressions::XORExpression *e2);
+
  private:
   Context *const context;
   const OperatorState &currStateLeft;
   const OperatorState &currStateRight;
+  ProteusValue compareThroughEvaluation(const expressions::Expression *e1,
+                                        const expressions::Expression *e2);
 };
 
 #endif /* EXPRESSIONS_DOT_VISITOR_HPP_ */

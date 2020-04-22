@@ -1921,6 +1921,50 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 }
 
 ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::ShiftLeftExpression *e) {
+  IRBuilder<> *const TheBuilder = context->getBuilder();
+  ProteusValue left = e->getLeftOperand().accept(*this);
+  ProteusValue right = e->getRightOperand().accept(*this);
+  ProteusValue valWrapper;
+  valWrapper.isNull = context->createFalse();
+  valWrapper.value = TheBuilder->CreateShl(left.value, right.value);
+  return valWrapper;
+}
+
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::ArithmeticShiftRightExpression *e) {
+  IRBuilder<> *const TheBuilder = context->getBuilder();
+  ProteusValue left = e->getLeftOperand().accept(*this);
+  ProteusValue right = e->getRightOperand().accept(*this);
+  ProteusValue valWrapper;
+  valWrapper.isNull = context->createFalse();
+  valWrapper.value = TheBuilder->CreateAShr(left.value, right.value);
+  return valWrapper;
+}
+
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::LogicalShiftRightExpression *e) {
+  IRBuilder<> *const TheBuilder = context->getBuilder();
+  ProteusValue left = e->getLeftOperand().accept(*this);
+  ProteusValue right = e->getRightOperand().accept(*this);
+  ProteusValue valWrapper;
+  valWrapper.isNull = context->createFalse();
+  valWrapper.value = TheBuilder->CreateLShr(left.value, right.value);
+  return valWrapper;
+}
+
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::XORExpression *e) {
+  IRBuilder<> *const TheBuilder = context->getBuilder();
+  ProteusValue left = e->getLeftOperand().accept(*this);
+  ProteusValue right = e->getRightOperand().accept(*this);
+  ProteusValue valWrapper;
+  valWrapper.isNull = context->createFalse();
+  valWrapper.value = TheBuilder->CreateXor(left.value, right.value);
+  return valWrapper;
+}
+
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::ProteusValueExpression *e) {
   return e->getValue();
 }

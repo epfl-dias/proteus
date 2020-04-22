@@ -838,6 +838,38 @@ ProteusValue ExpressionFlusherVisitor::visit(
   return rve.accept(*this);
 }
 
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::ShiftLeftExpression *e) {
+  ExpressionGeneratorVisitor v(context, currState);
+  ProteusValue rv = e->accept(v);
+  expressions::ProteusValueExpression rve(e->getExpressionType(), rv);
+  return rve.accept(*this);
+}
+
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::LogicalShiftRightExpression *e) {
+  ExpressionGeneratorVisitor v(context, currState);
+  ProteusValue rv = e->accept(v);
+  expressions::ProteusValueExpression rve(e->getExpressionType(), rv);
+  return rve.accept(*this);
+}
+
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::ArithmeticShiftRightExpression *e) {
+  ExpressionGeneratorVisitor v(context, currState);
+  ProteusValue rv = e->accept(v);
+  expressions::ProteusValueExpression rve(e->getExpressionType(), rv);
+  return rve.accept(*this);
+}
+
+ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::XORExpression *e) {
+  ExpressionGeneratorVisitor v(context, currState);
+  ProteusValue rv = e->accept(v);
+  expressions::ProteusValueExpression rve(e->getExpressionType(), rv);
+  return rve.accept(*this);
+}
+
 /* Code almost identical to CSVPlugin::flushValue */
 void ExpressionFlusherVisitor::flushValue(Value *val, typeID val_type) {
   outputFileLLVM = context->CreateGlobalString(this->outputFile);

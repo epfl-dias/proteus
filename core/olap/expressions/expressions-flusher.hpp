@@ -103,6 +103,11 @@ class ExpressionFlusherVisitor : public ExprVisitor {
   ProteusValue visit(const expressions::ExtractExpression *e);
   ProteusValue visit(const expressions::TestNullExpression *e);
   ProteusValue visit(const expressions::CastExpression *e);
+
+  ProteusValue visit(const expressions::ShiftLeftExpression *e);
+  ProteusValue visit(const expressions::LogicalShiftRightExpression *e);
+  ProteusValue visit(const expressions::ArithmeticShiftRightExpression *e);
+  ProteusValue visit(const expressions::XORExpression *e);
   /* Reduce produces accumulated value internally.
    * It makes no sense to probe a plugin in order to flush this value out */
   void flushValue(llvm::Value *val, typeID val_type);

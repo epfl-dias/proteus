@@ -327,6 +327,26 @@ class ExpressionComparatorVisitor : public ExprTandemVisitor {
     res = C<expressions::OrExpression>{}(*e1, *e2);
     return {};
   }
+  ProteusValue visit(const expressions::ShiftLeftExpression *e1,
+                     const expressions::ShiftLeftExpression *e2) {
+    res = C<expressions::ShiftLeftExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::ArithmeticShiftRightExpression *e1,
+                     const expressions::ArithmeticShiftRightExpression *e2) {
+    res = C<expressions::ArithmeticShiftRightExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::LogicalShiftRightExpression *e1,
+                     const expressions::LogicalShiftRightExpression *e2) {
+    res = C<expressions::LogicalShiftRightExpression>{}(*e1, *e2);
+    return {};
+  }
+  ProteusValue visit(const expressions::XORExpression *e1,
+                     const expressions::XORExpression *e2) {
+    res = C<expressions::XORExpression>{}(*e1, *e2);
+    return {};
+  }
   ProteusValue visit(const expressions::ProteusValueExpression *e1,
                      const expressions::ProteusValueExpression *e2) {
     res = C<expressions::ProteusValueExpression>{}(*e1, *e2);
@@ -608,6 +628,16 @@ class DefaultedExprVisitor : public ExprVisitor {
   ProteusValue visit(const expressions::ModExpression *e) { return f(*e); }
   ProteusValue visit(const expressions::AndExpression *e) { return f(*e); }
   ProteusValue visit(const expressions::OrExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::ShiftLeftExpression *e) {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::LogicalShiftRightExpression *e) {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::ArithmeticShiftRightExpression *e) {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::XORExpression *e) { return f(*e); }
   ProteusValue visit(const expressions::ProteusValueExpression *e) {
     return f(*e);
   }

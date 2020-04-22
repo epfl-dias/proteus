@@ -479,6 +479,59 @@ ProteusValue ExpressionDotVisitor::visit(const expressions::ModExpression *e1,
   return valWrapper;
 }
 
+ProteusValue ExpressionDotVisitor::compareThroughEvaluation(
+    const expressions::Expression *e1, const expressions::Expression *e2) {
+  IRBuilder<> *const Builder = context->getBuilder();
+  ExpressionGeneratorVisitor exprGenerator1(context, currStateLeft);
+  ProteusValue left = e1->accept(exprGenerator1);
+
+  ExpressionGeneratorVisitor exprGenerator2(context, currStateRight);
+  ProteusValue right = e2->accept(exprGenerator2);
+
+  typeID id = e1->getExpressionType()->getTypeID();
+  ProteusValue valWrapper{nullptr, context->createFalse()};
+
+  switch (id) {
+    case INT:
+      valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
+      return valWrapper;
+    case FLOAT:
+      valWrapper.value = Builder->CreateFCmpOEQ(left.value, right.value);
+      return valWrapper;
+    case BOOL:
+      valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
+      return valWrapper;
+    default:
+      LOG(ERROR) << "[ExpressionDotVisitor]: Invalid Input";
+      throw runtime_error(string("[ExpressionDotVisitor]: Invalid Input"));
+  }
+
+  return valWrapper;
+}
+
+ProteusValue ExpressionDotVisitor::visit(
+    const expressions::ShiftLeftExpression *e1,
+    const expressions::ShiftLeftExpression *e2) {
+  return compareThroughEvaluation(e1, e2);
+}
+
+ProteusValue ExpressionDotVisitor::visit(
+    const expressions::LogicalShiftRightExpression *e1,
+    const expressions::LogicalShiftRightExpression *e2) {
+  return compareThroughEvaluation(e1, e2);
+}
+
+ProteusValue ExpressionDotVisitor::visit(
+    const expressions::ArithmeticShiftRightExpression *e1,
+    const expressions::ArithmeticShiftRightExpression *e2) {
+  return compareThroughEvaluation(e1, e2);
+}
+
+ProteusValue ExpressionDotVisitor::visit(const expressions::XORExpression *e1,
+                                         const expressions::XORExpression *e2) {
+  return compareThroughEvaluation(e1, e2);
+}
+
 // XXX Careful here
 ProteusValue ExpressionDotVisitor::visit(
     const expressions::RecordConstruction *e1,

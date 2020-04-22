@@ -84,6 +84,11 @@ class ExpressionHasherVisitor : public ExprVisitor {
   ProteusValue visit(const expressions::TestNullExpression *e);
   ProteusValue visit(const expressions::CastExpression *e);
 
+  ProteusValue visit(const expressions::ShiftLeftExpression *e);
+  ProteusValue visit(const expressions::LogicalShiftRightExpression *e);
+  ProteusValue visit(const expressions::ArithmeticShiftRightExpression *e);
+  ProteusValue visit(const expressions::XORExpression *e);
+
   void setActiveRelation(string relName) { activeRelation = relName; }
   string getActiveRelation(string relName) { return activeRelation; }
 
