@@ -2,9 +2,10 @@ project(aeolus_bench VERSION 0.1 LANGUAGES CXX)
 # Pure, regular C++ files
 set(aeolus_bench_cxx
     #tpcc.cpp
-        tpcc_64.cpp
+        tpcc/tpcc_64.cpp
+		tpcc/txn.cpp
 #    micro_ssb.cpp
-    )
+		tpcc/utils.cpp)
 
 add_library(aeolus_bench SHARED
         ${aeolus_bench_cxx}

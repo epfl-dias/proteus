@@ -48,15 +48,17 @@
 // SIGMOD 20
 #define index_on_order_tbl false  // also cascade to orderlne, neworder table
 
-#if diascld40
-#define TPCC_MAX_ORD_PER_DIST 200000  // 2 master - 2 socket
-#elif diascld48
-#define TPCC_MAX_ORD_PER_DIST 350000  // 2 master - 2 socket
-#elif icc148
-#define TPCC_MAX_ORD_PER_DIST 2000000  // 2 master - 1 socket
-#else
+//#if diascld40
+//#define TPCC_MAX_ORD_PER_DIST 200000  // 2 master - 2 socket
+//#elif diascld48
+//#define TPCC_MAX_ORD_PER_DIST 350000  // 2 master - 2 socket
+//#elif icc148
+//#define TPCC_MAX_ORD_PER_DIST 2000000  // 2 master - 1 socket
+//#else
+//#define TPCC_MAX_ORD_PER_DIST 200000
+//#endif
+
 #define TPCC_MAX_ORD_PER_DIST 200000
-#endif
 
 #define NO_MIX 100
 #define P_MIX 0
@@ -124,12 +126,7 @@ class TPCC : public Benchmark {
   storage::Table *table_order;
   storage::Table *table_order_line;
   storage::Table *table_stock;
-
-#if REPLICATED_ITEM_TABLE
-  storage::Table *table_item[NUM_SOCKETS];
-#else
   storage::Table *table_item;
-#endif
 
   storage::Table *table_region;
   storage::Table *table_nation;
@@ -382,6 +379,8 @@ class TPCC : public Benchmark {
     // TODO: Implement verify consistency after txn run.
   }
 
+  void verify_consistency();
+
   // CSV Loaders
 
   void load_stock_csv(std::string filename = "stock.tbl", char delim = '|');
@@ -414,6 +413,11 @@ class TPCC : public Benchmark {
   }
   void free_query_struct_ptr(void *ptr) {
     storage::memory::MemoryManager::free(ptr);  //, sizeof(struct tpcc_query));
+  }
+  static inline date_t __attribute__((always_inline)) get_timestamp() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch())
+        .count();
   }
 
   // cust_utils

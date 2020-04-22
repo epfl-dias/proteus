@@ -46,7 +46,7 @@
 // OLTP
 #include "aeolus-plugin.hpp"
 #include "oltp.hpp"
-#include "tpcc_64.hpp"
+#include "tpcc/tpcc_64.hpp"
 #include "ycsb.hpp"
 
 // Platform
