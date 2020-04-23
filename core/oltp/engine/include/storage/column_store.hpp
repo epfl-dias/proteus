@@ -188,10 +188,12 @@ class alignas(4096) Column {
   uint64_t initial_num_records_per_part;
 
   std::vector<storage::memory::mem_chunk>
-      master_versions[global_conf::num_master_versions][global_conf::MAX_PARTITIONS];
+      master_versions[global_conf::num_master_versions]
+                     [global_conf::MAX_PARTITIONS];
 
   std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>>
-      upd_bit_masks[global_conf::num_master_versions][global_conf::MAX_PARTITIONS];
+      upd_bit_masks[global_conf::num_master_versions]
+                   [global_conf::MAX_PARTITIONS];
 
   // Snapshotting Utils
   std::vector<decltype(global_conf::SnapshotManager::create(0))>

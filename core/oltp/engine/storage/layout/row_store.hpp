@@ -102,7 +102,8 @@ class RowStore : public Table {
   std::vector<std::pair<size_t, size_t>> column_width;
   std::vector<data_type> column_data_types;
   // vector of partitions.
-  std::vector<std::vector<storage::memory::mem_chunk>> data[global_conf::num_master_versions];
+  std::vector<std::vector<storage::memory::mem_chunk>>
+      data[global_conf::num_master_versions];
 
   std::vector<std::vector<storage::memory::mem_chunk>> metadata;
 

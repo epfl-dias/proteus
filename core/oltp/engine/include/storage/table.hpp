@@ -25,6 +25,7 @@
 #define STORAGE_TABLE_HPP_
 
 #include <assert.h>
+
 #include <future>
 #include <iostream>
 #include <map>
@@ -56,7 +57,6 @@ class ColumnDef {
   std::vector<
       std::tuple<std::string, storage::data_type, size_t, dict_dstring_t *>>
       columns;
-
 
  public:
   void emplace_back(std::string name, data_type dt, size_t width,
@@ -156,9 +156,7 @@ class Schema {
   void snapshot(uint64_t epoch, uint8_t snapshot_master_ver);
   void ETL(uint numa_node_idx);
 
-  bool is_sync_in_progress(){
-    return snapshot_sync_in_progress.load();
-  }
+  bool is_sync_in_progress() { return snapshot_sync_in_progress.load(); }
 
   void report();
 
@@ -250,7 +248,7 @@ class Table {
   global_conf::PrimaryIndex<uint64_t> *p_index;
   global_conf::PrimaryIndex<uint64_t> **s_index;
   uint64_t total_mem_reserved;
-  //volatile std::atomic<uint64_t> vid[NUM_SOCKETS];
+  // volatile std::atomic<uint64_t> vid[NUM_SOCKETS];
   std::deque<std::atomic<uint64_t>> vid;
   const std::string name;
   const uint8_t table_id;

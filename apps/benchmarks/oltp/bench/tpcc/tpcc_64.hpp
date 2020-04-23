@@ -28,6 +28,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <plan/prepared-statement.hpp>
 #include <string>
 #include <thread>
 
@@ -35,7 +36,6 @@
 #include "interfaces/bench.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
-#include <plan/prepared-statement.hpp>
 
 // FIXME: REPLICATED_ITEM_TABLE - broken, incomplete stuff.
 #define REPLICATED_ITEM_TABLE false
@@ -390,7 +390,6 @@ class TPCC : public Benchmark {
   bool consistency_check_3();
   bool consistency_check_4();
 
-
   // CSV Loaders
 
   void load_stock_csv(std::string filename = "stock.tbl", char delim = '|');
@@ -413,10 +412,9 @@ class TPCC : public Benchmark {
                          char delim = '|');
   void load_customer_secondary_index(struct tpcc_customer &r);
 
-
   static inline date_t __attribute__((always_inline)) get_timestamp() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch())
+               std::chrono::system_clock::now().time_since_epoch())
         .count();
   }
 
@@ -494,9 +492,9 @@ class TPCC : public Benchmark {
   friend std::ostream &operator<<(std::ostream &out,
                                   const TPCC::tpcc_new_order &r);
 
-
-
-  std::vector<PreparedStatement> consistency_check_2_query();
+  std::vector<PreparedStatement> consistency_check_2_query_builder();
+  std::vector<PreparedStatement> consistency_check_3_query_builder();
+  std::vector<PreparedStatement> consistency_check_4_query_builder();
 };
 
 std::ostream &operator<<(std::ostream &out, const TPCC::ch_nation &r);

@@ -22,8 +22,8 @@
 */
 
 #include "data-export-ch.hpp"
-#include <filesystem>
 
+#include <filesystem>
 #include <system_error>
 
 void DataExporter_CH::exportAll(std::string& output_dir) {

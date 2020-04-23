@@ -22,6 +22,4 @@
 */
 #include "tpcc_64.hpp"
 
-namespace bench {
-
-}
+namespace bench {}

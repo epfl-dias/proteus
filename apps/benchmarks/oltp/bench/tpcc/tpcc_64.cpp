@@ -274,7 +274,6 @@ void TPCC::create_tbl_item(uint64_t num_item) {
   columns.emplace_back("i_price", storage::FLOAT, sizeof(tmp.i_price));
   columns.emplace_back("i_data", storage::VARCHAR, sizeof(tmp.i_data));
 
-
   table_item = schema->create_table(
       "tpcc_item",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
@@ -715,7 +714,7 @@ void TPCC::load_warehouse(int w_id, uint64_t xid, ushort partition_id,
   make_alpha_string(&this->seed, 2, 2, w_temp->w_state);
   make_alpha_string(&this->seed, 9, 9, w_temp->w_zip);
   w_temp->w_tax = (double)URand(&this->seed, 10L, 20L) / 100.0;
-  w_temp->w_ytd = 300000.00; // WRONG IN TPC-C SPECS!!
+  w_temp->w_ytd = 300000.00;  // WRONG IN TPC-C SPECS!!
 
   // txn_id = 0, master_ver = 0
   void *hash_ptr =
@@ -1198,7 +1197,6 @@ void TPCC::pre_run(int wid, uint64_t xid, ushort partition_id,
 
   assert(partition_id < g_num_partitions);
 
-
   if (wid == 0) load_item(wid, xid, partition_id, master_ver);
 
   if (wid == 0 && this->is_ch_benchmark) {
@@ -1221,9 +1219,6 @@ void TPCC::pre_run(int wid, uint64_t xid, ushort partition_id,
   load_order(wid, xid, partition_id, master_ver);
 #endif
 }
-
-
-
 
 std::ostream &operator<<(std::ostream &out, const TPCC::ch_nation &r) {
   out << r.n_nationkey << csv_delim;

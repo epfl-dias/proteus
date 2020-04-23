@@ -67,7 +67,6 @@ extern uint g_delta_size;
 
 namespace global_conf {
 
-
 constexpr int MAX_PARTITIONS = 8;
 
 using SnapshotManager = aeolus::snapshot::SnapshotManager;

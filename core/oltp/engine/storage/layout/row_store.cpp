@@ -313,7 +313,7 @@ RowStore::RowStore(uint8_t table_id, std::string name, ColumnDef columns,
     this->vid[i] = 0;
     this->metadata.emplace_back();
 
-    for(int j = 0; j < global_conf::num_master_versions; j++ ){
+    for (int j = 0; j < global_conf::num_master_versions; j++) {
       data[j].emplace_back();
     }
   }
