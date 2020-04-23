@@ -35,6 +35,7 @@
 #include "interfaces/bench.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
+#include <plan/prepared-statement.hpp>
 
 // FIXME: REPLICATED_ITEM_TABLE - broken, incomplete stuff.
 #define REPLICATED_ITEM_TABLE false
@@ -374,12 +375,21 @@ class TPCC : public Benchmark {
       table_order->reportUsage();
       table_new_order->reportUsage();
       table_order_line->reportUsage();
+      // consistency check parallelizes itself, doesnt need a worker to do it.
+      // moreover, it is not performance-critical.
+      verify_consistency();
     }
 
     // TODO: Implement verify consistency after txn run.
   }
 
+  // consistency checks
   void verify_consistency();
+  bool consistency_check_1();
+  bool consistency_check_2();
+  bool consistency_check_3();
+  bool consistency_check_4();
+
 
   // CSV Loaders
 
@@ -403,17 +413,7 @@ class TPCC : public Benchmark {
                          char delim = '|');
   void load_customer_secondary_index(struct tpcc_customer &r);
 
-  void *get_query_struct_ptr(ushort pid) {
-    return storage::memory::MemoryManager::alloc(
-        sizeof(struct tpcc_query),
-        storage::NUMAPartitionPolicy::getInstance()
-            .getPartitionInfo(pid)
-            .numa_idx,
-        MADV_DONTFORK);
-  }
-  void free_query_struct_ptr(void *ptr) {
-    storage::memory::MemoryManager::free(ptr);  //, sizeof(struct tpcc_query));
-  }
+
   static inline date_t __attribute__((always_inline)) get_timestamp() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch())
@@ -433,10 +433,6 @@ class TPCC : public Benchmark {
   void tpcc_get_next_delivery_query(int wid, void *arg);
   void tpcc_get_next_stocklevel_query(int wid, void *arg);
 
-  bool exec_txn(const void *stmts, uint64_t xid, ushort master_ver,
-                ushort delta_ver, ushort partition_id);
-  void gen_txn(int wid, void *txn_ptr, ushort partition_id);
-
   bool exec_neworder_txn(const struct tpcc_query *stmts, uint64_t xid,
                          ushort master_ver, ushort delta_ver,
                          ushort partition_id);
@@ -452,6 +448,21 @@ class TPCC : public Benchmark {
   bool exec_stocklevel_txn(struct tpcc_query *stmts, uint64_t xid,
                            ushort master_ver, ushort delta_ver,
                            ushort partition_id);
+
+  void *get_query_struct_ptr(ushort pid) {
+    return storage::memory::MemoryManager::alloc(
+        sizeof(struct tpcc_query),
+        storage::NUMAPartitionPolicy::getInstance()
+            .getPartitionInfo(pid)
+            .numa_idx,
+        MADV_DONTFORK);
+  }
+  void free_query_struct_ptr(void *ptr) {
+    storage::memory::MemoryManager::free(ptr);  //, sizeof(struct tpcc_query));
+  }
+  bool exec_txn(const void *stmts, uint64_t xid, ushort master_ver,
+                ushort delta_ver, ushort partition_id);
+  void gen_txn(int wid, void *txn_ptr, ushort partition_id);
   void print_tpcc_query(void *arg);
 
   ~TPCC();
@@ -482,6 +493,10 @@ class TPCC : public Benchmark {
                                   const TPCC::tpcc_orderline &r);
   friend std::ostream &operator<<(std::ostream &out,
                                   const TPCC::tpcc_new_order &r);
+
+
+
+  std::vector<PreparedStatement> consistency_check_2_query();
 };
 
 std::ostream &operator<<(std::ostream &out, const TPCC::ch_nation &r);

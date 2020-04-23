@@ -28,7 +28,8 @@ target_compile_features(aeolus_bench
 
 # Depend on a library that we defined in the top-level file
 target_link_libraries(aeolus_bench
-        aeolus_engine)
+        aeolus_engine
+		aeolus_plugin)
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
 install(TARGETS aeolus_bench EXPORT ${PROJECT_NAME}Config

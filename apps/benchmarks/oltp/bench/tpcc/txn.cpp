@@ -21,9 +21,6 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "tpcc_64.hpp"
-
-
 #include <sys/mman.h>
 
 #include <algorithm>
@@ -37,9 +34,16 @@
 #include <iostream>
 #include <limits>
 #include <locale>
+#include <operators/relbuilder-factory.hpp>
+#include <plan/catalog-parser.hpp>
+#include <plan/prepared-statement.hpp>
+#include <routing/degree-of-parallelism.hpp>
 #include <string>
 
+#include "aeolus-plugin.hpp"
+#include "storage/column_store.hpp"
 #include "threadpool/thread.hpp"
+#include "tpcc_64.hpp"
 #include "utils/utils.hpp"
 
 namespace bench {
@@ -101,7 +105,6 @@ void TPCC::gen_txn(int wid, void *q, ushort partition_id) {
   }
   // mprotect(q, sizeof(struct tpcc_query), PROT_READ);
 }
-
 
 bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
                              ushort partition_id, ushort master_ver,
@@ -486,7 +489,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
       ol_ins_batch_col.ol_quantity[ol_number] = q->item[ol_number].ol_quantity;
       ol_ins_batch_col.ol_amount[ol_number] =
           q->item[ol_number].ol_quantity * i_price *
-              (1 + w_tax + dist_no_read.d_tax) * (1 - cust_no_read.c_discount);
+          (1 + w_tax + dist_no_read.d_tax) * (1 - cust_no_read.c_discount);
       ol_ins_batch_col.ol_d_id[ol_number] = q->d_id;
       ol_ins_batch_col.ol_w_id[ol_number] = q->w_id;
       ol_ins_batch_col.ol_number[ol_number] = ol_number;
@@ -501,7 +504,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
       ol_ins_batch_row[ol_number].ol_quantity = q->item[ol_number].ol_quantity;
       ol_ins_batch_row[ol_number].ol_amount =
           q->item[ol_number].ol_quantity * i_price *
-              (1 + w_tax + dist_no_read.d_tax) * (1 - cust_no_read.c_discount);
+          (1 + w_tax + dist_no_read.d_tax) * (1 - cust_no_read.c_discount);
       ol_ins_batch_row[ol_number].ol_d_id = q->d_id;
       ol_ins_batch_row[ol_number].ol_w_id = q->w_id;
       ol_ins_batch_row[ol_number].ol_number = ol_number;
@@ -611,7 +614,7 @@ inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *q, uint64_t xid,
     struct secondary_record sr;
 
     if (!this->cust_sec_index->find(
-        cust_derive_key(q->c_last, q->c_d_id, q->c_w_id), sr)) {
+            cust_derive_key(q->c_last, q->c_d_id, q->c_w_id), sr)) {
       assert(false && "read_txn aborted! how!");
       return false;
     }
@@ -982,7 +985,7 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
     struct secondary_record sr;
 
     if (!this->cust_sec_index->find(
-        cust_derive_key(q->c_last, q->c_d_id, q->c_w_id), sr)) {
+            cust_derive_key(q->c_last, q->c_d_id, q->c_w_id), sr)) {
       // ABORT
 
       w_idx_ptr->write_lck.unlock();
@@ -1295,7 +1298,7 @@ inline bool TPCC::exec_delivery_txn(struct tpcc_query *q, uint64_t xid,
 
       bool e_false = false;
       assert(idx_w_locks[num_locks] != NULL ||
-          idx_w_locks[num_locks] != nullptr);
+             idx_w_locks[num_locks] != nullptr);
       if (idx_w_locks[num_locks]->write_lck.try_lock()) {
 #if !tpcc_dist_txns
         assert(CC_extract_pid(idx_w_locks[num_locks]->VID) == partition_id);
@@ -1312,7 +1315,7 @@ inline bool TPCC::exec_delivery_txn(struct tpcc_query *q, uint64_t xid,
 
       e_false = false;
       assert(idx_w_locks[num_locks] != NULL ||
-          idx_w_locks[num_locks] != nullptr);
+             idx_w_locks[num_locks] != nullptr);
       if (idx_w_locks[num_locks]->write_lck.try_lock()) {
 #if !tpcc_dist_txns
         assert(CC_extract_pid(idx_w_locks[num_locks]->VID) == partition_id);
@@ -1330,7 +1333,7 @@ inline bool TPCC::exec_delivery_txn(struct tpcc_query *q, uint64_t xid,
                 (uint64_t)MAKE_OL_KEY(q->w_id, d_id, okey, ol_number));
 
         assert(idx_w_locks[num_locks] != NULL ||
-            idx_w_locks[num_locks] != nullptr);
+               idx_w_locks[num_locks] != nullptr);
         bool e_false_s = false;
         if (idx_w_locks[num_locks]->write_lck.try_lock()) {
 #if !tpcc_dist_txns
@@ -1583,9 +1586,366 @@ inline void TPCC::tpcc_get_next_stocklevel_query(int wid, void *arg) {
   q->threshold = URand(&seed_t, 10, 20);
 }
 
+bool TPCC::consistency_check_1() {
+  // Check-1
+  // Entries in the WAREHOUSE and DISTRICT tables must satisfy the relationship:
+  // W_YTD = sum(D_YTD)
 
+  // SQL: (EXPECTED 0 ROWS)
+  //     SELECT sum(w_ytd), sum(d_ytd)
+  //     FROM tpcc_warehouse, tpcc_district
+  //     WHERE tpcc_warehouse.w_id = tpcc_district.d_w_id
+  //     GROUP BY tpcc_warehouse.w_id
+  //     HAVING sum(w_ytd) != sum(d_ytd)
 
-void TPCC::verify_consistency(){
-  
+  bool db_consistent = true;
+  std::vector<proteus::thread> workers;
+  // TODO: parallelize
+
+  //  loaders.emplace_back(
+  //      [this]() { this->create_tbl_warehouse(this->num_warehouse); });
+
+  for (uint64_t i = 0; i < this->num_warehouse; i++) {
+    // Get wh ytd.
+    double wh_ytd = 0.0;
+    const ushort w_col_scan[] = {8};  // position in columns
+    auto w_idx_ptr = (global_conf::IndexVal *)table_warehouse->p_index->find(i);
+    table_warehouse->getRecordByKey(w_idx_ptr->VID, w_col_scan, 1, &wh_ytd);
+
+    double district_ytd = 0.0;
+    for (uint j = 0; j < TPCC_NDIST_PER_WH; j++) {
+      // Get all district ytd and sum it.
+      double tmp_d_ytd = 0.0;
+      const ushort d_col_scan[] = {9};  // position in columns
+      auto d_idx_ptr = (global_conf::IndexVal *)table_district->p_index->find(
+          MAKE_DIST_KEY(i, j));
+      table_district->getRecordByKey(d_idx_ptr->VID, d_col_scan, 1, &tmp_d_ytd);
+      district_ytd += tmp_d_ytd;
+    }
+
+    if ((size_t)wh_ytd != (size_t)district_ytd) {
+      LOG(INFO) << "FAILED CONSISTENCY CHECK-1"
+                << "\n\tWH: " << i << "\n\twh_ytd: " << wh_ytd << " | "
+                << "district_ytd: " << district_ytd;
+      db_consistent = false;
+    }
+  }
+
+  for (auto &th : workers) {
+    th.join();
+  }
+  return db_consistent;
 }
+
+std::vector<PreparedStatement> TPCC::consistency_check_2_query() {
+  RelBuilderFactory ctx_one{"tpcc_consistency_check_2_1"};
+  RelBuilderFactory ctx_two{"tpcc_consistency_check_2_2"};
+  RelBuilderFactory ctx_three{"tpcc_consistency_check_2_3"};
+  CatalogParser &catalog = CatalogParser::getInstance();
+  PreparedStatement o_max =
+      ctx_one.getBuilder()
+          .scan<AeolusRemotePlugin>("tpcc_order<block-remote>",
+                                    {"o_w_id", "o_d_id", "o_id"},
+                                    CatalogParser::getInstance())
+          .router(32, RoutingPolicy::LOCAL, DeviceType::CPU)
+          .unpack()
+          .groupby(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {arg["o_w_id"], arg["o_d_id"]};
+              },
+              [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
+                return {
+                    GpuAggrMatExpr{(arg["o_id"]), 1, 0, MAX},
+                };
+              },
+              log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1,
+              log2(this->num_warehouse * TPCC_NDIST_PER_WH) + (1024 * 1024))
+          .pack()
+          .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
+                  DeviceType::CPU)
+          .unpack()
+          .groupby(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {arg["o_w_id"], arg["o_d_id"]};
+              },
+              [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
+                return {
+                    GpuAggrMatExpr{(arg["o_id"]), 1, 0, MAX},
+                };
+              },
+              log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1,
+              log2(this->num_warehouse * TPCC_NDIST_PER_WH) + (1024 * 1024))
+          .sort(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {arg["o_w_id"], arg["o_d_id"], arg["o_id"]};
+              },
+              {direction::ASC, direction::ASC, direction::NONE})
+          .print([&](const auto &arg) -> std::vector<expression_t> {
+            return {
+                arg["o_w_id"],
+                arg["o_d_id"],
+                arg["o_id"],
+            };
+          })
+          .prepare();
+
+  PreparedStatement no_max =
+      ctx_two.getBuilder()
+          .scan<AeolusRemotePlugin>("tpcc_neworder<block-remote>",
+                                    {"no_w_id", "no_d_id", "no_o_id"},
+                                    CatalogParser::getInstance())
+          .router(32, RoutingPolicy::LOCAL, DeviceType::CPU)
+          .unpack()
+          .groupby(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {arg["no_w_id"], arg["no_d_id"]};
+              },
+              [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
+                return {
+                    GpuAggrMatExpr{(arg["no_o_id"]), 1, 0, MAX},
+                };
+              },
+              log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1,
+              log2(this->num_warehouse * TPCC_NDIST_PER_WH) + (1024 * 1024))
+          .pack()
+          .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
+                  DeviceType::CPU)
+          .unpack()
+          .groupby(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {arg["no_w_id"], arg["no_d_id"]};
+              },
+              [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
+                return {
+                    GpuAggrMatExpr{(arg["no_o_id"]), 1, 0, MAX},
+                };
+              },
+              log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1,
+              log2(this->num_warehouse * TPCC_NDIST_PER_WH) + (1024 * 1024))
+          .sort(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {arg["no_w_id"], arg["no_d_id"], arg["no_o_id"]};
+              },
+              {direction::ASC, direction::ASC, direction::NONE})
+          .print([&](const auto &arg) -> std::vector<expression_t> {
+            return {
+                arg["no_w_id"],
+                arg["no_d_id"],
+                arg["no_o_id"],
+            };
+          })
+          .prepare();
+
+  PreparedStatement d_next_oid =
+      ctx_three.getBuilder()
+          .scan<AeolusRemotePlugin>("tpcc_district<block-remote>",
+                                    {"d_w_id", "d_id", "d_next_o_id"},
+                                    CatalogParser::getInstance())
+          .unpack()
+          .sort(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {arg["d_w_id"], arg["d_id"], arg["d_next_o_id"]};
+              },
+              {direction::ASC, direction::ASC, direction::NONE})
+          .project([&](const auto &arg) -> std::vector<expression_t> {
+            return {(arg["d_w_id"]).as("PelagoProject#13144", "d_w_id"),
+                    (arg["d_id"]).as("PelagoProject#13144", "d_id"),
+                    (arg["d_next_o_id"] - ((int64_t)1))
+                        .as("PelagoProject#13144", "d_next_o_id")};
+          })
+          .print([&](const auto &arg) -> std::vector<expression_t> {
+            return {
+                arg["d_w_id"],
+                arg["d_id"],
+                arg["d_next_o_id"],
+            };
+          })
+          .prepare();
+
+  return {o_max, no_max, d_next_oid};
 }
+static void print_inconsistency(std::string a, std::string b) {
+  std::stringstream check1(a);
+  std::string i1;
+
+  std::stringstream check2(b);
+  std::string i2;
+
+  // Tokenizing w.r.t. space ' '
+  while (getline(check1, i1, '\n') && getline(check2, i2, '\n')) {
+    if (i1 != i2) {
+      LOG(INFO) << i1 << " | " << i2;
+    }
+  }
+}
+
+bool TPCC::consistency_check_2() {
+  // Check-2
+  // Entries in the DISTRICT, ORDER, and NEW-ORDER tables must satisfy the
+  // relationship: D_NEXT_O_ID - 1 = max(O_ID) = max(NO_O_ID)
+  // for each district defined by
+  // (D_W_ID = O_W_ID = NO_W_ID) and (D_ID = O_D_ID = NO_D_ID).
+  // This condition does not apply to the NEW-ORDER table for any districts
+  // which have no outstanding new orders (i.e., the number of rows is zero).
+
+  //  Comment 2: For Consistency Conditions 2 and 4 (Clauses 3.3.2.2
+  //  and 3.3.2.4), sampling the first, last, and two random warehouses is
+  //  sufficient.
+  bool db_consistent = true;
+
+  auto queries = consistency_check_2_query();
+
+  std::ostringstream stream_orders;
+  std::ostringstream stream_new_orders;
+  std::ostringstream stream_district_orders;
+
+  stream_orders << queries[0].execute();
+  stream_new_orders << queries[1].execute();
+  stream_district_orders << queries[2].execute();
+
+  std::string s_orders = stream_orders.str();
+  std::string s_new_orders = stream_new_orders.str();
+  std::string s_dist_orders = stream_district_orders.str();
+
+  if (s_orders == s_dist_orders) {
+    if (s_new_orders != s_dist_orders) {
+      LOG(INFO) << "NewOrders and District Orders doesnt match.";
+      db_consistent = false;
+      LOG(INFO) << "NewOrders, DistOrders";
+      print_inconsistency(s_new_orders, s_dist_orders);
+    }
+  } else {
+    LOG(INFO) << "Orders and District Orders doesnt match.";
+    db_consistent = false;
+    LOG(INFO) << "Orders, DistOrders";
+    print_inconsistency(s_orders, s_dist_orders);
+  }
+  return db_consistent;
+}
+bool TPCC::consistency_check_3() {
+  // Check-3
+  // Entries in the NEW-ORDER table must satisfy the relationship:
+  // max(NO_O_ID) - min(NO_O_ID) + 1 =
+  //                       [# of rows in the NEW-ORDER table for this district]
+  // for each district defined by NO_W_ID and NO_D_ID. This condition does not
+  // apply to any districts which have no outstanding new orders
+  // (i.e., the number of rows is zero).
+
+  // SQL: (EXPECTED 0 ROWS)
+  //     SELECT no_w_id, no_d_id, max(no_o_id)-min(no_o_id)+1, count(no_o_id)
+  //     FROM tpcc_new_order
+  //     GROUP BY no_w_id, no_d_id
+  //     HAVING max(no_o_id)-min(no_o_id)+1 != count(no_o_id)
+
+  bool db_consistent = true;
+  std::vector<proteus::thread> workers;
+
+  // TODO: parallelize
+
+  for (uint i = 0; i < this->num_warehouse; i++) {
+    for (uint j = 0; j < TPCC_NDIST_PER_WH; j++) {
+      size_t min_no_o_id = 0;
+      size_t max_no_o_id = 0;
+      size_t count_no_o_id = 0;
+      // TODO: calculate.
+
+      if ((max_no_o_id - min_no_o_id + 1) != count_no_o_id) {
+        LOG(INFO) << "FAILED CONSISTENCY CHECK-3"
+                  << "\n\tWH: " << i << " | DT: " << j
+                  << "\n\t(max_no_o_id - min_no_o_id + 1): "
+                  << (max_no_o_id - min_no_o_id + 1)
+                  << " | count: " << count_no_o_id;
+        db_consistent = false;
+      }
+    }
+  }
+
+  for (auto &th : workers) {
+    th.join();
+  }
+  return db_consistent;
+}
+bool TPCC::consistency_check_4() {
+  // Check-4
+  // Entries in the ORDER and ORDER-LINE tables must satisfy the relationship:
+  // sum(O_OL_CNT) = [number of rows in the ORDER-LINE table for this district]
+  // for each district defined by (O_W_ID = OL_W_ID) and (O_D_ID = OL_D_ID).
+
+  //  Comment 2: For Consistency Conditions 2 and 4 (Clauses 3.3.2.2
+  //  and 3.3.2.4), sampling the first, last, and two random warehouses is
+  //  sufficient.
+
+  // SQL: (EXPECTED 0 ROWS)
+  //     SELECT o_w_id, o_d_id, o_count, ol_count
+  //     FROM (
+  //	    SELECT o_w_id, o_d_id, sum(o_ol_cnt) as o_count
+  //	    FROM tpcc_orders
+  //	    GROUP BY o_w_id, o_d_id) o,
+  //	    (SELECT ol_w_id, ol_d_id, count(o_ol_id) as ol_count
+  //	    FROM tpcc_orderline
+  //	    GROUP BY ol_w_id, ol_d_id) ol
+  //     WHERE o.o_w_id = ol.ol_w_id
+  //     AND o.o_d_id = ol.ol_d_id
+  //     AND o_count != ol_count
+
+  bool db_consistent = true;
+  std::vector<proteus::thread> workers;
+
+  // TODO: parallelize
+
+  for (uint i = 0; i < this->num_warehouse; i++) {
+    for (uint j = 0; j < TPCC_NDIST_PER_WH; j++) {
+      size_t o_ol_sum = 0;
+      // TODO: Get sum(o_ol_cnt)
+
+      // TODO: Get count(ol_o_id)
+      size_t ol_count = 0;
+
+      if (o_ol_sum != ol_count) {
+        LOG(INFO) << "FAILED CONSISTENCY CHECK-4"
+                  << "\n\tWH: " << i << " | DT: " << j
+                  << "\n\to_ol_count: " << o_ol_sum
+                  << " | ol_count: " << ol_count;
+        db_consistent = false;
+      }
+    }
+  }
+
+  for (auto &th : workers) {
+    th.join();
+  }
+  return db_consistent;
+}
+
+void TPCC::verify_consistency() {
+  LOG(INFO) << "Verifying consistency...";
+  // NOTE: Only first-four are required, others are extra.
+
+  //  Comment 1: The consistency conditions were chosen so that they would
+  //  remain valid within the context of a larger order-entry application that
+  //  includes the five TPC-C transactions (See Clause 1.1.). They are designed
+  //  to be independent of the length of time for which such an application
+  //  would be executed. Thus, for example, a condition involving I_PRICE was
+  //  not included here since it is conceivable that within a larger application
+  //  I_PRICE is modified from time to time.
+  //
+  //  Comment 2: For Consistency Conditions 2 and 4 (Clauses 3.3.2.2
+  //  and 3.3.2.4), sampling the first, last, and two random warehouses is
+  //  sufficient.
+
+  // Set execution affinity to everywhere..
+  //  cpu_set_t all_cpu_set;
+  //  CPU_ZERO(&all_cpu_set);
+  //  for (uint32_t i =0; i < topology::getInstance().getCoreCount(); i++)
+  //    CPU_SET(i, &all_cpu_set);
+  //  set_exec_location_on_scope d{all_cpu_set};
+
+  // execute consistency checks.
+  if (consistency_check_1() && consistency_check_2() /*&& consistency_check_3() &&
+      consistency_check_4()*/) {
+    LOG(INFO) << "DB IS CONSISTENT.";
+  } else {
+    LOG(FATAL) << "DB IS NOT CONSISTENT.";
+  }
+}
+}  // namespace bench

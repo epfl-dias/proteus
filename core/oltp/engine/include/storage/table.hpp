@@ -156,6 +156,10 @@ class Schema {
   void snapshot(uint64_t epoch, uint8_t snapshot_master_ver);
   void ETL(uint numa_node_idx);
 
+  bool is_sync_in_progress(){
+    return snapshot_sync_in_progress.load();
+  }
+
   void report();
 
   std::vector<Table *> getTables() { return tables; }
