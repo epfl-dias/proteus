@@ -234,25 +234,41 @@ void initializeModule(CUmodule &cudaModule) {
   size_t bytes;
   void *mem;
 
-  gpu_run(cuModuleGetGlobal(&ptr, &bytes, cudaModule, "pool"));
-  gpu_run(cudaMemcpyFromSymbol(&mem, pool, sizeof(void *)));
-  gpu_run(cuMemcpyHtoD(ptr, &mem, sizeof(void *)));
+  auto pool_err = cuModuleGetGlobal(&ptr, &bytes, cudaModule, "pool");
+  if (pool_err != CUDA_ERROR_NOT_FOUND) {
+    gpu_run(pool_err);
+    gpu_run(cudaMemcpyFromSymbol(&mem, pool, sizeof(void *)));
+    gpu_run(cuMemcpyHtoD(ptr, &mem, sizeof(void *)));
+  }
 
-  gpu_run(cuModuleGetGlobal(&ptr, &bytes, cudaModule, "npool"));
-  gpu_run(cudaMemcpyFromSymbol(&mem, npool, sizeof(void *)));
-  gpu_run(cuMemcpyHtoD(ptr, &mem, sizeof(void *)));
+  auto npool_err = cuModuleGetGlobal(&ptr, &bytes, cudaModule, "npool");
+  if (npool_err != CUDA_ERROR_NOT_FOUND) {
+    gpu_run(npool_err);
+    gpu_run(cudaMemcpyFromSymbol(&mem, npool, sizeof(void *)));
+    gpu_run(cuMemcpyHtoD(ptr, &mem, sizeof(void *)));
+  }
 
-  gpu_run(cuModuleGetGlobal(&ptr, &bytes, cudaModule, "buff_start"));
-  gpu_run(cudaMemcpyFromSymbol(&mem, buff_start, sizeof(void *)));
-  gpu_run(cuMemcpyHtoD(ptr, &mem, sizeof(void *)));
+  auto buff_start_err =
+      cuModuleGetGlobal(&ptr, &bytes, cudaModule, "buff_start");
+  if (buff_start_err != CUDA_ERROR_NOT_FOUND) {
+    gpu_run(buff_start_err);
+    gpu_run(cudaMemcpyFromSymbol(&mem, buff_start, sizeof(void *)));
+    gpu_run(cuMemcpyHtoD(ptr, &mem, sizeof(void *)));
+  }
 
-  gpu_run(cuModuleGetGlobal(&ptr, &bytes, cudaModule, "buff_end"));
-  gpu_run(cudaMemcpyFromSymbol(&mem, buff_end, sizeof(void *)));
-  gpu_run(cuMemcpyHtoD(ptr, &mem, sizeof(void *)));
+  auto buff_end_err = cuModuleGetGlobal(&ptr, &bytes, cudaModule, "buff_end");
+  if (buff_end_err != CUDA_ERROR_NOT_FOUND) {
+    gpu_run(buff_end_err);
+    gpu_run(cudaMemcpyFromSymbol(&mem, buff_end, sizeof(void *)));
+    gpu_run(cuMemcpyHtoD(ptr, &mem, sizeof(void *)));
+  }
 
-  gpu_run(cuModuleGetGlobal(&ptr, &bytes, cudaModule, "deviceId"));
-  gpu_run(cudaMemcpyFromSymbol(&mem, deviceId, sizeof(int)));
-  gpu_run(cuMemcpyHtoD(ptr, &mem, sizeof(int)));
+  auto deviceId_err = cuModuleGetGlobal(&ptr, &bytes, cudaModule, "deviceId");
+  if (deviceId_err != CUDA_ERROR_NOT_FOUND) {
+    gpu_run(deviceId_err);
+    gpu_run(cudaMemcpyFromSymbol(&mem, deviceId, sizeof(int)));
+    gpu_run(cuMemcpyHtoD(ptr, &mem, sizeof(int)));
+  }
 #endif
 }
 

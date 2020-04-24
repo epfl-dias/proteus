@@ -287,7 +287,7 @@ void GpuModule::compileAndLoad() {
     b.registerModuleAnalyses(mam);
 
     std::set<std::string> gs{
-        "pool", "npool", "deviceId", "buff_start", "buff_end",
+        //        "pool", "npool", "deviceId", "buff_start", "buff_end",
     };
 
     mpm.addPass(llvm::InternalizePass([&](const GlobalValue &g) {
