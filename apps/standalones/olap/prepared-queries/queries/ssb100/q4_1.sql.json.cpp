@@ -113,12 +113,12 @@ PreparedStatement Query::prepare41(bool memmv) {
           .to_gpu()  // (trait=[Pelago.[].packed.NVPTX.homBrdcst.hetSingle])
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle])
           .filter([&](const auto &arg) -> expression_t {
-            return eq(arg["$1"], "AMERICA");
+            return eq(arg["s_region"], "AMERICA");
           })  // (condition=[=($1, 'AMERICA')],
               // trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle],
               // isS=[false])
           .project([&](const auto &arg) -> std::vector<expression_t> {
-            return {(arg["$0"]).as("PelagoProject#51028", "$0")};
+            return {arg["s_suppkey"]};
           })  // (s_suppkey=[$0],
               // trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle])
       ;
@@ -132,7 +132,7 @@ PreparedStatement Query::prepare41(bool memmv) {
                              // 4, 5, 12, 13]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .router(
-              dop, 1, RoutingPolicy::LOCAL, dev,
+              dop, 16, RoutingPolicy::LOCAL, dev,
               aff_parallel())  // (trait=[Pelago.[].packed.X86_64.homRandom.hetSingle])
       ;
 
@@ -144,7 +144,7 @@ PreparedStatement Query::prepare41(bool memmv) {
           .join(
               rel51028,
               [&](const auto &build_arg) -> expression_t {
-                return build_arg["$0"];
+                return build_arg["s_suppkey"];
               },
               [&](const auto &probe_arg) -> expression_t {
                 return probe_arg["lo_suppkey"];

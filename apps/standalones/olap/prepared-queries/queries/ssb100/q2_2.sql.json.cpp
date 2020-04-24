@@ -30,33 +30,29 @@ constexpr auto query = "ssb100_Q2_2";
 PreparedStatement Query::prepare22(bool memmv) {
   auto rel17693 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
-              "inputs/ssbm100/date.csv", {"d_datekey", "d_year"},
-              getCatalog())  // (table=[[SSB, ssbm_date]], fields=[[0, 4]],
-                             // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
+          .scan<Tplugin>("inputs/ssbm100/date.csv", {"d_datekey", "d_year"},
+                         getCatalog())
           .membrdcst(dop, true, true)
           .router(
               [&](const auto &arg) -> std::optional<expression_t> {
                 return arg["__broadcastTarget"];
               },
               dop, 1, RoutingPolicy::HASH_BASED, dev,
-              aff_parallel())  // (trait=[Pelago.[].packed.X86_64.homBrdcst.hetSingle])
+              aff_parallel())
           .to_gpu()  // (trait=[Pelago.[].packed.NVPTX.homBrdcst.hetSingle])
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle])
       ;
   auto rel17698 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
-              "inputs/ssbm100/supplier.csv", {"s_suppkey", "s_region"},
-              getCatalog())  // (table=[[SSB, ssbm_supplier]], fields=[[0, 5]],
-                             // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
+          .scan<Tplugin>("inputs/ssbm100/supplier.csv",
+                         {"s_suppkey", "s_region"}, getCatalog())
           .membrdcst(dop, true, true)
           .router(
               [&](const auto &arg) -> std::optional<expression_t> {
                 return arg["__broadcastTarget"];
               },
               dop, 1, RoutingPolicy::HASH_BASED, dev,
-              aff_parallel())  // (trait=[Pelago.[].packed.X86_64.homBrdcst.hetSingle])
+              aff_parallel())
           .to_gpu()  // (trait=[Pelago.[].packed.NVPTX.homBrdcst.hetSingle])
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle])
           .filter([&](const auto &arg) -> expression_t {
@@ -71,17 +67,15 @@ PreparedStatement Query::prepare22(bool memmv) {
       ;
   auto rel17702 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
-              "inputs/ssbm100/part.csv", {"p_partkey", "p_brand1"},
-              getCatalog())  // (table=[[SSB, ssbm_part]], fields=[[0, 4]],
-                             // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
+          .scan<Tplugin>("inputs/ssbm100/part.csv", {"p_partkey", "p_brand1"},
+                         getCatalog())
           .membrdcst(dop, true, true)
           .router(
               [&](const auto &arg) -> std::optional<expression_t> {
                 return arg["__broadcastTarget"];
               },
               dop, 1, RoutingPolicy::HASH_BASED, dev,
-              aff_parallel())  // (trait=[Pelago.[].packed.X86_64.homBrdcst.hetSingle])
+              aff_parallel())
           .to_gpu()  // (trait=[Pelago.[].packed.NVPTX.homBrdcst.hetSingle])
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle])
           .filter([&](const auto &arg) -> expression_t {
@@ -90,18 +84,12 @@ PreparedStatement Query::prepare22(bool memmv) {
               // trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle],
               // isS=[false])
       ;
-  auto rel =
-      getBuilder<Tplugin>()
-          .scan<Tplugin>(
-              "inputs/ssbm100/lineorder.csv",
-              {"lo_partkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},
-              getCatalog())  // (table=[[SSB, ssbm_lineorder]], fields=[[3, 4,
-                             // 5, 12]],
-                             // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
-          .router(
-              dop, 8, RoutingPolicy::LOCAL, dev,
-              aff_parallel())  // (trait=[Pelago.[].packed.X86_64.homRandom.hetSingle])
-      ;
+  auto rel = getBuilder<Tplugin>()
+                 .scan<Tplugin>(
+                     "inputs/ssbm100/lineorder.csv",
+                     {"lo_partkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},
+                     getCatalog())
+                 .router(dop, 8, RoutingPolicy::LOCAL, dev, aff_parallel());
 
   if (memmv) rel = rel.memmove(8, dev == DeviceType::CPU);
 
@@ -133,14 +121,7 @@ PreparedStatement Query::prepare22(bool memmv) {
               [&](const auto &probe_arg) -> expression_t {
                 return probe_arg["lo_suppkey"];
               },
-              17,
-              65536)  // (condition=[=($1, $0)], joinType=[inner],
-                      // rowcnt=[4.096E7], maxrow=[200000.0],
-                      // maxEst=[200000.0], h_bits=[28],
-                      // build=[RecordType(INTEGER s_suppkey)],
-                      // lcount=[7.179512438249687E8],
-                      // rcount=[31919.833237079914], buildcountrow=[4.096E7],
-                      // probecountrow=[31919.833237079914])
+              17, 65536)
           .join(
               rel17693,
               [&](const auto &build_arg) -> expression_t {
@@ -149,13 +130,7 @@ PreparedStatement Query::prepare22(bool memmv) {
               [&](const auto &probe_arg) -> expression_t {
                 return probe_arg["lo_orderdate"];
               },
-              14,
-              2556)  // (condition=[=($2, $0)], joinType=[inner],
-                     // rowcnt=[2617344.0], maxrow=[2556.0], maxEst=[2556.0],
-                     // h_bits=[24], build=[RecordType(INTEGER d_datekey,
-                     // INTEGER d_year)], lcount=[8.098490429651935E7],
-                     // rcount=[4.255707208358217], buildcountrow=[2617344.0],
-                     // probecountrow=[4.255707208358217])
+              14, 2556)
           .groupby(
               [&](const auto &arg) -> std::vector<expression_t> {
                 return {arg["d_year"].as("PelagoAggregate#11428", "$0"),
@@ -166,18 +141,11 @@ PreparedStatement Query::prepare22(bool memmv) {
                     (arg["lo_revenue"]).as("PelagoAggregate#11428", "$2"), 1, 0,
                     SUM}};
               },
-              10,
-              131072)  // (group=[{0, 1}], lo_revenue=[SUM($2)],
-                       // trait=[Pelago.[].unpckd.NVPTX.homRandom.hetSingle])
-          .pack()      // (trait=[Pelago.[].packed.NVPTX.homRandom.hetSingle],
-                       // intrait=[Pelago.[].unpckd.NVPTX.homRandom.hetSingle],
-          // inputRows=[1.0], cost=[{1.2012 rows, 1.2000000000000002 cpu,
-          // 0.0 io}])
-          .to_cpu()  // (trait=[Pelago.[].packed.X86_64.homRandom.hetSingle])
-          .router(
-              DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
-              DeviceType::CPU,
-              aff_reduce())  // (trait=[Pelago.[].packed.X86_64.homSingle.hetSingle])
+              10, 131072)
+          .pack()
+          .to_cpu()
+          .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
+                  DeviceType::CPU, aff_reduce())
           .memmove(8, true)
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homSingle.hetSingle])
           .groupby(
@@ -189,9 +157,7 @@ PreparedStatement Query::prepare22(bool memmv) {
                 return {GpuAggrMatExpr{
                     (arg["$2"]).as("PelagoAggregate#17718", "$2"), 1, 0, SUM}};
               },
-              10,
-              131072)  // (group=[{0, 1}], lo_revenue=[SUM($2)],
-                       // trait=[Pelago.[].unpckd.NVPTX.homSingle.hetSingle])
+              10, 131072)
           .project([&](const auto &arg) -> std::vector<expression_t> {
             return {(arg["$2"]).as("PelagoProject#17722", "EXPR$0"),
                     (arg["$0"]).as("PelagoProject#17722", "$1"),
@@ -213,10 +179,6 @@ PreparedStatement Query::prepare22(bool memmv) {
                         arg["$1"].as(outrel, "d_year"),
                         arg["$2"].as(outrel, "p_brand1")};
               },
-              std::string{query} +
-                  (memmv ? "mv"
-                         : "nmv"))  // (trait=[ENUMERABLE.[1,
-                                    // 2].unpckd.X86_64.homSingle.hetSingle])
-      ;
+              std::string{query} + (memmv ? "mv" : "nmv"));
   return rel.prepare();
 }

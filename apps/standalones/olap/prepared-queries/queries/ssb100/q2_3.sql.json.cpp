@@ -108,9 +108,6 @@ PreparedStatement Query::prepare23(bool memmv) {
   rel =
       rel.to_gpu()   // (trait=[Pelago.[].packed.NVPTX.homRandom.hetSingle])
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homRandom.hetSingle])
-          .filter([&](const auto &arg) -> expression_t {
-            return eq(arg["lo_partkey"], expression_t{0});
-          })  // (condition=[=($1, 'MFGR#2239')],
           .join(
               rel23999,
               [&](const auto &build_arg) -> expression_t {
@@ -136,13 +133,13 @@ PreparedStatement Query::prepare23(bool memmv) {
                 return probe_arg["lo_suppkey"];
               },
               17,
-              65536)  // (condition=[=($1, $0)], joinType=[inner],
-                      // rowcnt=[4.096E7], maxrow=[200000.0],
-                      // maxEst=[200000.0], h_bits=[28],
-                      // build=[RecordType(INTEGER s_suppkey)],
-                      // lcount=[7.179512438249687E8], rcount=[3.0721953024E8],
-                      // buildcountrow=[4.096E7],
-                      // probecountrow=[3.0721953024E8])
+              512 * 1024)  // (condition=[=($1, $0)], joinType=[inner],
+                           // rowcnt=[4.096E7], maxrow=[200000.0],
+                           // maxEst=[200000.0], h_bits=[28],
+                           // build=[RecordType(INTEGER s_suppkey)],
+                           // lcount=[7.179512438249687E8],
+                           // rcount=[3.0721953024E8], buildcountrow=[4.096E7],
+                           // probecountrow=[3.0721953024E8])
           .join(
               rel23990,
               [&](const auto &build_arg) -> expression_t {
