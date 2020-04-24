@@ -575,10 +575,9 @@ Plugin *RelBuilder::createPlugin(RecordType rec,
 
 RelBuilder RelBuilder::scan(std::string relName,
                             const std::vector<std::string> &relAttrs,
-                            const std::string &pgType,
-                            CatalogParser &catalog) const {
+                            CatalogParser &catalog, const pg &pgType) const {
   const RecordType &recType_ = getRecordType(catalog, std::move(relName));
-  return scan(recType_, relAttrs, pgType);
+  return scan(recType_, relAttrs, pgType.getType());
 }
 
 RelBuilder RelBuilder::scan(const RecordType &rec,

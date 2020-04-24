@@ -83,7 +83,7 @@ class RelBuilder {
   RelBuilder scan(Plugin& pg) const;
 
   RelBuilder scan(std::string relName, const std::vector<std::string>& relAttrs,
-                  const std::string& pg, CatalogParser& catalog) const;
+                  CatalogParser& catalog, const pg& pg) const;
 
   RelBuilder scan(const RecordType& rec,
                   const std::vector<std::string>& relAttrs,
