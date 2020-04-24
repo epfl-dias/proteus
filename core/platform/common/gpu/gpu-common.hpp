@@ -363,7 +363,7 @@ __device__ __forceinline__ T atomicAdd_block(T *address, T val) {
 #endif
 
 const dim3 defaultBlockDim(1024, 1, 1);
-const dim3 defaultGridDim(40, 1, 1);
+const dim3 defaultGridDim(160, 1, 1);
 
 struct execution_conf {
   dim3 gridDim;
