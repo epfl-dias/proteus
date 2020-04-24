@@ -41,6 +41,11 @@ class affinity_cpu_set {
   friend class affinity;
 };
 
+class Pipeline;
+
+extern "C" void setBloomFilter(Pipeline *pip, void *s, uint64_t bloomId);
+extern "C" void *getBloomFilter(Pipeline *pip, uint64_t bloomId);
+
 class affinity {
  public:
   static int32_t get_server();
@@ -58,6 +63,8 @@ class affinity {
   friend class NUMAMemAllocator;
   friend class NUMAPinnedMemAllocator;
   friend class buffer_manager<int32_t>;
+  friend void setBloomFilter(Pipeline *pip, void *s, uint64_t bloomId);
+  friend void *getBloomFilter(Pipeline *pip, uint64_t bloomId);
 };
 
 class exec_location {

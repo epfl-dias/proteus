@@ -271,6 +271,20 @@ class RelBuilder {
     return filter(pred(getOutputArg()));
   }
 
+  RelBuilder bloomfilter_probe(
+      std::function<expression_t(expressions::InputArgument)> pred,
+      size_t filterSize, uint64_t bloomId) const {
+    if (true)
+      return bloomfilter_probe(pred(getOutputArg()), filterSize, bloomId);
+    return *this;
+  }
+
+  RelBuilder bloomfilter_build(
+      std::function<expression_t(expressions::InputArgument)> pred,
+      size_t filterSize, uint64_t bloomId) const {
+    return bloomfilter_build(pred(getOutputArg()), filterSize, bloomId);
+  }
+
   template <typename Tbk, typename Tbe, typename Tpk, typename Tpe>
   RelBuilder join(RelBuilder build, Tbk build_k, Tbe build_e,
                   std::vector<size_t> build_w, Tpk probe_k, Tpe probe_e,
@@ -381,6 +395,11 @@ class RelBuilder {
                   expression_t hashExpr, size_t numOfBuckets) const;
 
   RelBuilder filter(expression_t pred) const;
+
+  RelBuilder bloomfilter_probe(expression_t pred, size_t filterSize,
+                               uint64_t bloomId) const;
+  RelBuilder bloomfilter_build(expression_t pred, size_t filterSize,
+                               uint64_t bloomId) const;
 
   RelBuilder project(const vector<expression_t>& e) const;
 

@@ -26,6 +26,8 @@
 #include <dlfcn.h>
 
 #include <iomanip>
+#include <operators/bloom-filter/bloom-filter-build.hpp>
+#include <operators/bloom-filter/bloom-filter-probe.hpp>
 
 #include "hash-join-chained-morsel.hpp"
 #include "operators/block-to-tuples.hpp"
@@ -666,5 +668,17 @@ RelBuilder RelBuilder::unionAll(
   for (const auto &c : children) c2.emplace_back(c.root);
   auto op = new UnionAll(c2, wantedFields);
   for (const auto &c : children) c.apply(op);
+  return apply(op);
+}
+
+RelBuilder RelBuilder::bloomfilter_probe(expression_t pred, size_t filterSize,
+                                         uint64_t bloomId) const {
+  auto op = new BloomFilterProbe(root, std::move(pred), filterSize, bloomId);
+  return apply(op);
+}
+
+RelBuilder RelBuilder::bloomfilter_build(expression_t pred, size_t filterSize,
+                                         uint64_t bloomId) const {
+  auto op = new BloomFilterBuild(root, std::move(pred), filterSize, bloomId);
   return apply(op);
 }

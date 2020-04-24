@@ -6,12 +6,14 @@ set(MAINS
 
 add_subdirectory(queries/ch100w)
 add_subdirectory(queries/ssb100)
+add_subdirectory(queries/ssb100_bloom)
 add_subdirectory(queries/ssb1000)
+
 
 foreach(target ${MAINS})
     add_executable(proteus${target} ${target}.cpp)
     target_link_libraries(proteus${target} codegen::codegen codegen::olap
-            codegen::olap_flags queries::ssb100 queries::ssb1000)
+            codegen::olap_flags queries::ssb100 queries::ssb100_bloom queries::ssb1000)
     install(TARGETS proteus${target}
             ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
             LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
