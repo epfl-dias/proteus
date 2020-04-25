@@ -40,7 +40,7 @@ class Catalog {
 
   // TODO REPLACE ONCE REMOVED FROM JOIN
   // TODO NEED a more elegant way to group hashtables together - array?
-  int getIntHashTableID(string tableName) {
+  int getIntHashTableID(const string &tableName) {
     map<string, int>::iterator it;
     it = htIdentifiers.find(tableName);
 
@@ -50,7 +50,7 @@ class Catalog {
     } else {
       cout << "NEW HT for label " << tableName << endl;
       int newIdentifier = intHashtables.size();
-      multimap<int, void *> *newHT = new multimap<int, void *>();
+      auto *newHT = new multimap<int, void *>();
       intHashtables.push_back(newHT);
       htIdentifiers[tableName] = newIdentifier;
       return newIdentifier;
@@ -62,9 +62,8 @@ class Catalog {
   }
 
   // TODO NEED a more elegant way to group hashtables together - array?
-  multimap<size_t, void *> *getHashTable(string tableName) {
-    map<string, multimap<size_t, void *> *>::iterator it;
-    it = HTs.find(tableName);
+  multimap<size_t, void *> *getHashTable(const string &tableName) {
+    auto it = HTs.find(tableName);
     if (it == HTs.end()) {
       LOG(INFO) << "Creating HT for table " << tableName;
       HTs[tableName] = new multimap<size_t, void *>();
@@ -75,9 +74,8 @@ class Catalog {
     }
   }
 
-  llvm::Type *getType(string tableName) {
-    map<string, int>::iterator it;
-    it = resultTypes.find(tableName);
+  llvm::Type *getType(const string &tableName) {
+    auto it = resultTypes.find(tableName);
     if (it == resultTypes.end()) {
       LOG(ERROR) << "Could not locate type of table " << tableName;
       throw runtime_error(string("Could not locate type of table ") +
@@ -88,9 +86,8 @@ class Catalog {
     }
   }
 
-  int getTypeIndex(string tableName) {
-    map<string, int>::iterator it;
-    it = resultTypes.find(tableName);
+  int getTypeIndex(const string &tableName) {
+    auto it = resultTypes.find(tableName);
     if (it == resultTypes.end()) {
       LOG(ERROR) << "Info in catalog does not exist for table " << tableName;
       throw runtime_error(string("Info in catalog does not exist for table ") +
@@ -103,7 +100,7 @@ class Catalog {
 
   llvm::Type *getTypeInternal(int idx) { return tableTypes[idx]; }
 
-  void insertTableInfo(string tableName, llvm::Type *type) {
+  void insertTableInfo(const string &tableName, llvm::Type *type) {
     int idx = resultTypes[tableName];
     if (idx == 0) {
       idx = getUniqueId();
@@ -126,7 +123,7 @@ class Catalog {
     return uniqueTableId;
   }
 
-  void registerFileJSON(string fileName, ExpressionType *type) {
+  void registerFileJSON(const string &fileName, ExpressionType *type) {
     auto it = jsonTypeCatalog.find(fileName);
     if (it != jsonTypeCatalog.end()) {
       LOG(WARNING) << "Catalog already contains the type of " << fileName;
@@ -134,7 +131,7 @@ class Catalog {
     jsonTypeCatalog[fileName] = type;
   }
 
-  ExpressionType *getTypeJSON(string fileName) {
+  ExpressionType *getTypeJSON(const string &fileName) {
     auto it = jsonTypeCatalog.find(fileName);
     if (it == jsonTypeCatalog.end()) {
       LOG(ERROR) << "Catalog does not contain the type of " << fileName;
@@ -144,7 +141,7 @@ class Catalog {
     return it->second;
   }
 
-  void registerPlugin(string fileName, Plugin *pg) {
+  void registerPlugin(const string &fileName, Plugin *pg) {
     auto it = this->plugins.find(fileName);
     if (it != this->plugins.end()) {
       LOG(WARNING) << "Catalog already contains the plugin of " << fileName;
@@ -152,11 +149,10 @@ class Catalog {
     this->plugins[fileName] = pg;
   }
 
-  Plugin *getPlugin(string fileName) {
+  Plugin *getPlugin(const string &fileName) {
     auto it = this->plugins.find(fileName);
     if (it == this->plugins.end()) {
-      string error_msg =
-          string("Catalog does not contain the plugin of ") + fileName;
+      auto error_msg = "Catalog does not contain the plugin of " + fileName;
       LOG(ERROR) << error_msg;
       throw runtime_error(error_msg);
     }
@@ -165,8 +161,7 @@ class Catalog {
 
   map<int, llvm::Value *> *getReduceHT() {
     if (reduceSetHT == nullptr) {
-      string error_msg =
-          string("[Catalog: ] HT to be used in Reduce not initialized");
+      auto error_msg = "[Catalog: ] HT to be used in Reduce not initialized";
       LOG(ERROR) << error_msg;
       throw runtime_error(error_msg);
     }
@@ -194,17 +189,10 @@ class Catalog {
   //        }
   //    }
 
-  stringstream &getSerializer(string fileName) {
-    map<string, stringstream *>::iterator it;
-    it = serializers.find(fileName);
-    if (it == serializers.end()) {
-      LOG(INFO) << "Creating Serializer, flushing to " << fileName;
-      stringstream *strBuffer = new stringstream();
-      (this->serializers)[fileName] = strBuffer;
-      return *strBuffer;
-    } else {
-      return *serializers[fileName];
-    }
+  stringstream &getSerializer(const string &fileName) {
+    LOG_IF(INFO, serializers.count(fileName) == 0)
+        << "Creating Serializer, flushing to " << fileName;
+    return serializers[fileName];
   }
 
   void clear() {
@@ -226,7 +214,7 @@ class Catalog {
 
   map<string, ExpressionType *> jsonTypeCatalog;
   //    map<string, Writer<StringBuffer>>         jsonFlushers;
-  map<string, stringstream *> serializers;
+  std::map<string, stringstream> serializers;
   // Initialized by Reduce() if accumulator type is set
   map<int, llvm::Value *> *reduceSetHT;
 
@@ -249,11 +237,7 @@ class Catalog {
   Catalog() : uniqueTableId(1), maxTables(1000), reduceSetHT(nullptr) {
     tableTypes = new llvm::Type *[maxTables];
   }
-  ~Catalog() {
-    if (reduceSetHT != nullptr) {
-      delete reduceSetHT;
-    }
-  }
+  ~Catalog() { delete reduceSetHT; }
 
   // Not implementing; Catalog is a singleton
   Catalog(Catalog const &);         // Don't Implement.
