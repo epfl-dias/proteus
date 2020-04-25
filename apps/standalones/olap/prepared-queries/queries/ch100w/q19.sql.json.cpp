@@ -43,7 +43,7 @@ PreparedStatement Query::prepare19(bool memmv) {
               aff_parallel())  // (trait=[Pelago.[].packed.X86_64.homBrdcst.hetSingle])
       ;
 
-  if (memmv) rel2305 = rel2305.memmove(8, dev == DeviceType::CPU);
+  if (memmv) rel2305 = rel2305.memmove(8, dev);
 
   rel2305 =
       rel2305
@@ -68,7 +68,7 @@ PreparedStatement Query::prepare19(bool memmv) {
       // (trait=[Pelago.[].packed.X86_64.homRandom.hetSingle])
       ;
 
-  if (memmv) rel = rel.memmove(8, dev == DeviceType::CPU);
+  if (memmv) rel = rel.memmove(8, dev);
 
   rel =
       rel.to_gpu()   // (trait=[Pelago.[].packed.NVPTX.homRandom.hetSingle])

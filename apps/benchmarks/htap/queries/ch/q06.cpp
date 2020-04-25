@@ -35,7 +35,7 @@ PreparedStatement Q_6_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                  .router(dop, 32, RoutingPolicy::LOCAL, dev, aff_parallel());
 
   if (dev == DeviceType::GPU) {
-    rel = rel.memmove(8, dev == DeviceType::CPU).to_gpu();
+    rel = rel.memmove(8, dev).to_gpu();
   }
 
   rel = rel.unpack()

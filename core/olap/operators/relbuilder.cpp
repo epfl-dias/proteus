@@ -121,11 +121,12 @@ RelBuilder RelBuilder::scan(Plugin &pg) const {
 }
 
 RelBuilder RelBuilder::memmove(const vector<RecordAttribute *> &wantedFields,
-                               size_t slack, bool to_cpu) const {
+                               size_t slack, DeviceType to) const {
   for (const auto &attr : wantedFields) {
     assert(dynamic_cast<const BlockType *>(attr->getOriginalType()));
   }
-  auto op = new MemMoveDevice(root, ctx, wantedFields, slack, to_cpu);
+  auto op =
+      new MemMoveDevice(root, ctx, wantedFields, slack, to == DeviceType::CPU);
   return apply(op);
 }
 
@@ -156,7 +157,7 @@ RelBuilder RelBuilder::membrdcst(DegreeOfParallelism fanout, bool to_cpu,
       fanout, to_cpu, always_share);
 }
 
-RelBuilder RelBuilder::memmove(size_t slack, bool to_cpu) const {
+RelBuilder RelBuilder::memmove(size_t slack, DeviceType to) const {
   return memmove(
       [&](const auto &arg) -> std::vector<RecordAttribute *> {
         std::vector<RecordAttribute *> ret;
@@ -168,7 +169,7 @@ RelBuilder RelBuilder::memmove(size_t slack, bool to_cpu) const {
         assert(ret.size() != 0);
         return ret;
       },
-      slack, to_cpu);
+      slack, to);
 }
 
 RelBuilder RelBuilder::to_gpu() const {

@@ -95,7 +95,7 @@ PreparedStatement Query::prepare11(bool memmv, SLAZY conf, size_t bloomSize) {
           .router(DegreeOfParallelism{2}, 8, RoutingPolicy::LOCAL,
                   DeviceType::GPU);
 
-  if (memmv) rel = rel.memmove(8, dev == DeviceType::CPU);
+  if (memmv) rel = rel.memmove(8, dev);
 
   rel = rel.to_gpu().unpack();
 
@@ -139,12 +139,11 @@ PreparedStatement Query::prepare11(bool memmv, SLAZY conf, size_t bloomSize) {
 PreparedStatement Query::prepare11_b(bool memmv, size_t bloomSize) {
   auto rel =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
-              "inputs/ssbm100/lineorder.csv",
-              {"lo_orderdate", "lo_quantity", "lo_extendedprice",
-               "lo_discount"},
-              getCatalog())  // (table=[[SSB, ssbm_lineorder]], fields=[[5, 8,
-                             // 9, 11]],
+          .scan<Tplugin>("inputs/ssbm100/lineorder.csv",
+                         {"lo_orderdate", "lo_quantity", "lo_extendedprice",
+                          "lo_discount"},
+                         getCatalog())  // (table=[[SSB, ssbm_lineorder]],
+                                        // fields=[[5, 8, 9, 11]],
           // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .router(DegreeOfParallelism{48}, 8, RoutingPolicy::LOCAL,
                   DeviceType::CPU)

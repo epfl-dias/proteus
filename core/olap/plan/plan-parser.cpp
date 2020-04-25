@@ -1479,7 +1479,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
       }
     }
 
-    return childOp.memmove(slack, to_cpu);
+    return childOp.memmove(slack, to_cpu ? DeviceType::CPU : DeviceType::GPU);
   } else if (strcmp(opName, "mem-broadcast-device") == 0) {
     /* parse operator input */
     assert(val.HasMember("input"));

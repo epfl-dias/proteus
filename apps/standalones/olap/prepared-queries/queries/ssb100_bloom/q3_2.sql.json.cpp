@@ -113,7 +113,7 @@ PreparedStatement Query::prepare32(bool memmv, size_t bloomSize) {
           .pack()
           .router(8, RoutingPolicy::LOCAL, dev);
 
-  if (memmv) rel = rel.memmove(8, dev == DeviceType::CPU);
+  if (memmv) rel = rel.memmove(8, dev);
 
   rel =
       rel.to_gpu()   // (trait=[Pelago.[].packed.NVPTX.homRandom.hetSingle])
@@ -189,7 +189,7 @@ PreparedStatement Query::prepare32(bool memmv, size_t bloomSize) {
               DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
               DeviceType::CPU,
               aff_reduce())  // (trait=[Pelago.[].packed.X86_64.homSingle.hetSingle])
-          .memmove(8, true)
+          .memmove(8, DeviceType::CPU)
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homSingle.hetSingle])
           .groupby(
               [&](const auto &arg) -> std::vector<expression_t> {

@@ -110,7 +110,7 @@ PreparedStatement Query::prepare31(bool memmv, size_t bloomSize) {
           .pack()
           .router(8, RoutingPolicy::LOCAL, dev);
 
-  if (memmv) rel = rel.memmove(8, dev == DeviceType::CPU);
+  if (memmv) rel = rel.memmove(8, dev);
 
   rel =
       rel.to_gpu()   // (trait=[Pelago.[].packed.NVPTX.homRandom.hetSingle])
@@ -179,7 +179,7 @@ PreparedStatement Query::prepare31(bool memmv, size_t bloomSize) {
               DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
               DeviceType::
                   CPU)  // (trait=[Pelago.[].packed.X86_64.homSingle.hetSingle])
-          .memmove(8, true)
+          .memmove(8, DeviceType::CPU)
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homSingle.hetSingle])
           .groupby(
               [&](const auto &arg) -> std::vector<expression_t> {
@@ -214,9 +214,8 @@ PreparedStatement Query::prepare31_b(bool memmv, size_t bloomSize) {
       getBuilder<Tplugin>()
           .scan("inputs/ssbm100/lineorder.csv",
                 {"lo_custkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},
-                getCatalog(),
-                pg{"block"})  // (table=[[SSB, ssbm_lineorder]], fields=[[2, 4,
-                              // 5, 12]],
+                getCatalog(), pg{"block"})  // (table=[[SSB, ssbm_lineorder]],
+                                            // fields=[[2, 4, 5, 12]],
           // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .router(8, RoutingPolicy::LOCAL, DeviceType::CPU)
           .unpack()

@@ -103,7 +103,7 @@ PreparedStatement Query::prepare23(bool memmv) {
               aff_parallel())  // (trait=[Pelago.[].packed.X86_64.homRandom.hetSingle])
       ;
 
-  if (memmv) rel = rel.memmove(8, dev == DeviceType::CPU);
+  if (memmv) rel = rel.memmove(8, dev);
 
   rel =
       rel.to_gpu()   // (trait=[Pelago.[].packed.NVPTX.homRandom.hetSingle])
@@ -178,7 +178,7 @@ PreparedStatement Query::prepare23(bool memmv) {
               DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
               DeviceType::CPU,
               aff_reduce())  // (trait=[Pelago.[].packed.X86_64.homSingle.hetSingle])
-                             //          .memmove(8, true)
+                             //          .memmove(8, DeviceType::CPU)
                              //          .unpack()  //
           //          (trait=[Pelago.[].unpckd.NVPTX.homSingle.hetSingle])
           .groupby(
@@ -194,30 +194,19 @@ PreparedStatement Query::prepare23(bool memmv) {
               16)  // (group=[{0, 1}], lo_revenue=[SUM($2)],
                    // trait=[Pelago.[].unpckd.NVPTX.homSingle.hetSingle])
           .project([&](const auto &arg) -> std::vector<expression_t> {
-            return {(arg["$2"]).as("PelagoProject#11437", "EXPR$0"),
-                    (arg["$0"]).as("PelagoProject#11437", "$1"),
-                    (arg["$1"]).as("PelagoProject#11437", "$2")};
+            return {(arg["$2"]).as("PelagoProject#11437", "lo_revenue"),
+                    (arg["$0"]).as("PelagoProject#11437", "d_year"),
+                    (arg["$1"]).as("PelagoProject#11437", "p_brand1")};
           })  // (EXPR$0=[$2], d_year=[$0], p_brand1=[$1],
               // trait=[Pelago.[].unpckd.X86_64.homSingle.hetSingle])
           .sort(
               [&](const auto &arg) -> std::vector<expression_t> {
-                return {arg["EXPR$0"], arg["$1"], arg["$2"]};
+                return {arg["lo_revenue"], arg["d_year"], arg["p_brand1"]};
               },
               {direction::NONE, direction::ASC,
                direction::ASC})  // (sort0=[$1], sort1=[$2], dir0=[ASC],
                                  // dir1=[ASC], trait=[Pelago.[1,
                                  // 2].unpckd.X86_64.homSingle.hetSingle])
-          .print(
-              [&](const auto &arg,
-                  std::string outrel) -> std::vector<expression_t> {
-                return {arg["EXPR$0"].as(outrel, "lo_revenue"),
-                        arg["$1"].as(outrel, "d_year"),
-                        arg["$2"].as(outrel, "p_brand1")};
-              },
-              std::string{query} +
-                  (memmv ? "mv"
-                         : "nmv"))  // (trait=[ENUMERABLE.[1,
-                                    // 2].unpckd.X86_64.homSingle.hetSingle])
-      ;
+          .print(pg{"pm-csv"});
   return rel.prepare();
 }

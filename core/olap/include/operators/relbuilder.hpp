@@ -171,12 +171,7 @@ class RelBuilder {
     return print(expr, getModuleName());
   }
 
-  RelBuilder memmove(size_t slack, bool to_cpu) const;
-
-  template <typename T>
-  RelBuilder memmove(T attr, size_t slack, bool to_cpu) const {
-    return memmove(attr(getOutputArg()), slack, to_cpu);
-  }
+  [[nodiscard]] RelBuilder memmove(size_t slack, DeviceType to) const;
 
   template <typename T>
   RelBuilder membrdcst(T attr, DegreeOfParallelism fanout, bool to_cpu,
@@ -377,8 +372,13 @@ class RelBuilder {
   PreparedStatement prepare();
 
  private:
-  RelBuilder memmove(const vector<RecordAttribute*>& wantedFields, size_t slack,
-                     bool to_cpu) const;
+  template <typename T>
+  [[deprecated]] RelBuilder memmove(T attr, size_t slack, DeviceType to) const {
+    return memmove(attr(getOutputArg()), slack, to);
+  }
+
+  [[nodiscard]] RelBuilder memmove(const vector<RecordAttribute*>& wantedFields,
+                                   size_t slack, DeviceType to) const;
 
   RelBuilder to_gpu(const vector<RecordAttribute*>& wantedFields) const;
 

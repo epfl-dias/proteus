@@ -101,7 +101,7 @@ PreparedStatement Query::prepare23(bool memmv, size_t bloomSize) {
           .pack()
           .router(8, RoutingPolicy::LOCAL, dev);
 
-  if (memmv) rel = rel.memmove(8, dev == DeviceType::CPU);
+  if (memmv) rel = rel.memmove(8, dev);
 
   rel =
       rel.to_gpu()   // (trait=[Pelago.[].packed.NVPTX.homRandom.hetSingle])
@@ -175,7 +175,7 @@ PreparedStatement Query::prepare23(bool memmv, size_t bloomSize) {
               DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
               DeviceType::CPU,
               aff_reduce())  // (trait=[Pelago.[].packed.X86_64.homSingle.hetSingle])
-          .memmove(8, true)
+          .memmove(8, DeviceType::CPU)
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homSingle.hetSingle])
           .groupby(
               [&](const auto &arg) -> std::vector<expression_t> {
@@ -339,7 +339,7 @@ PreparedStatement Query::prepare23_c(bool memmv, size_t bloomSize) {
               aff_parallel())  // (trait=[Pelago.[].packed.X86_64.homRandom.hetSingle])
       ;
 
-  if (memmv) rel = rel.memmove(8, dev == DeviceType::CPU);
+  if (memmv) rel = rel.memmove(8, dev);
 
   rel = rel.reduce(
                [&](const auto &arg) -> std::vector<expression_t> {
@@ -433,7 +433,7 @@ PreparedStatement Query::prepare23_d(bool memmv, size_t bloomSize) {
               aff_parallel())  // (trait=[Pelago.[].packed.X86_64.homRandom.hetSingle])
       ;
 
-  if (memmv) rel = rel.memmove(8, dev == DeviceType::CPU);
+  if (memmv) rel = rel.memmove(8, dev);
 
   rel = rel.reduce(
                [&](const auto &arg) -> std::vector<expression_t> {
@@ -474,5 +474,26 @@ PreparedStatement Query::prepare23_e(bool memmv, size_t bloomSize) {
                      },
                      {SUM})
                  .print(pg("pm-csv"));
+  return rel.prepare();
+}
+
+PreparedStatement Query::prepare23_mat(bool memmv, size_t bloomSize) {
+  auto rel =
+      getBuilder<Tplugin>()
+          .scan<Tplugin>(
+              "inputs/ssbm100/lineorder.csv",
+              {"lo_partkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},
+              getCatalog())
+          .router(8, RoutingPolicy::LOCAL, DeviceType::CPU)
+          .unpack()
+          .bloomfilter_probe([&](const auto &arg) { return arg["lo_partkey"]; },
+                             bloomSize, 6)
+          .pack()
+          .router(DegreeOfParallelism{1}, 8, RoutingPolicy::LOCAL,
+                  DeviceType::CPU);
+
+  if (memmv) rel = rel.memmove(8, DeviceType::CPU);
+
+  rel = rel.unpack().print(pg("block"));
   return rel.prepare();
 }

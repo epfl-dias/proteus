@@ -41,7 +41,6 @@ class Query {
   PreparedStatement prepare12_b(bool memmv, size_t bloomSize);
   PreparedStatement prepare13(bool memmv, SLAZY conf, size_t bloomSize);
   PreparedStatement prepare13_b(bool memmv, size_t bloomSize);
-  PreparedStatement prepare13(bool memmv, size_t bloomSize);
   PreparedStatement prepare21(bool memmv, size_t bloomSize);
   PreparedStatement prepare21_b(bool memmv, size_t bloomSize);
   PreparedStatement prepare22(bool memmv, size_t bloomSize);
@@ -52,6 +51,7 @@ class Query {
   PreparedStatement prepare23_c(bool memmv, size_t bloomSize);
   PreparedStatement prepare23_d(bool memmv, size_t bloomSize);
   PreparedStatement prepare23_e(bool memmv, size_t bloomSize);
+  PreparedStatement prepare23_mat(bool memmv, size_t bloomSize);
   PreparedStatement prepare31(bool memmv, size_t bloomSize);
   PreparedStatement prepare31_b(bool memmv, size_t bloomSize);
   PreparedStatement prepare32(bool memmv, size_t bloomSize);
