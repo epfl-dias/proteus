@@ -24,6 +24,7 @@
 #include "plugins/binary-block-plugin.hpp"
 
 #include <expressions/expressions-flusher.hpp>
+#include <utility>
 
 #include "expressions/expressions-hasher.hpp"
 #include "memory/block-manager.hpp"
@@ -33,7 +34,8 @@
 using namespace llvm;
 
 BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
-                                     string fnamePrefix, RecordType rec,
+                                     const string &fnamePrefix,
+                                     const RecordType &rec,
                                      vector<RecordAttribute *> &whichFields)
     : BinaryBlockPlugin(context, fnamePrefix, rec, whichFields,
                         !whichFields.empty()) {}
@@ -47,16 +49,14 @@ std::vector<RecordAttribute *> ensureRelName(
 }
 
 BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
-                                     string fnamePrefix, RecordType rec,
+                                     const string &fnamePrefix,
+                                     const RecordType &rec,
                                      vector<RecordAttribute *> &whichFields,
                                      bool load)
     : fnamePrefix(fnamePrefix),
       rec(rec),
       wantedFields(ensureRelName(whichFields, fnamePrefix)),
-      context(context),
-      posVar("offset"),
-      bufVar("buf"),
-      itemCtrVar("itemCtr") {
+      context(context) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   if (load) {
@@ -117,21 +117,6 @@ void BinaryBlockPlugin::finalize_data() {
   // parts_arrays_type = StructType::get(llvmContext, parts_array);
 }
 
-BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
-                                     string fnamePrefix, RecordType rec)
-    : fnamePrefix(fnamePrefix),
-      rec(rec),
-      context(context),
-      posVar("offset"),
-      bufVar("buf"),
-      itemCtrVar("itemCtr") {
-  Nparts = 0;
-}
-
-BinaryBlockPlugin::~BinaryBlockPlugin() {
-  std::cout << "freeing plugin..." << std::endl;
-}
-
 void BinaryBlockPlugin::init() {}
 
 void BinaryBlockPlugin::generate(const ::Operator &producer) {
@@ -166,6 +151,14 @@ ProteusValueMemory BinaryBlockPlugin::readProteusValue(
           llvm::ValueAsMetadata::get(context->createInt32(1))};
       MDNode *n = MDNode::get(context->getLLVMContext(), Args);
       ld->setMetadata(LLVMContext::MD_invariant_load, n);
+    }
+
+    {  // Loaded value will be the same in all the places it will be loaded
+      //! invariant.load !{i32 1}
+      llvm::Metadata *Args[] = {
+          llvm::ValueAsMetadata::get(context->createInt32(1))};
+      MDNode *n = MDNode::get(context->getLLVMContext(), Args);
+      ld->setMetadata(LLVMContext::MD_nontemporal, n);
     }
 
     val = context->toMem(ld, val.isNull);
@@ -273,9 +266,6 @@ void BinaryBlockPlugin::finish() {
   LOG(INFO) << "[BinaryBlockPlugin] Finish";
   int cnt = 0;
   for (const auto &attr : wantedFields) {
-    close(fd[cnt]);
-    munmap(buf[cnt], colFilesize[cnt]);
-
     if (attr->getOriginalType()->getTypeID() == STRING) {
       int dictionaryFd = dictionaries[cnt];
       close(dictionaryFd);
@@ -357,7 +347,7 @@ void BinaryBlockPlugin::nextEntry() {
 
   Value *part_i = Builder->CreateLoad(part_i_ptr, "part_i");
 
-  IntegerType *size_type = (IntegerType *)part_i->getType();
+  auto *size_type = (IntegerType *)part_i->getType();
 
   Value *part_N = ConstantInt::get(size_type, Nparts - 1);
 
@@ -394,7 +384,7 @@ void BinaryBlockPlugin::nextEntry() {
 void BinaryBlockPlugin::readAsIntLLVM(
     RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
-  readAsLLVM(attName, variables);
+  readAsLLVM(std::move(attName), variables);
 }
 
 /* Operates over char*! */
@@ -423,22 +413,20 @@ void BinaryBlockPlugin::readAsLLVM(
       TheFunction, "currResult", parsedInt->getType());
   Builder->CreateStore(parsedInt, mem_currResult);
 
-  ProteusValueMemory mem_valWrapper;
-  mem_valWrapper.mem = mem_currResult;
-  mem_valWrapper.isNull = context->createFalse();
+  ProteusValueMemory mem_valWrapper{mem_currResult, context->createFalse()};
   variables[attName] = mem_valWrapper;
 }
 
 void BinaryBlockPlugin::readAsBooleanLLVM(
     RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
-  readAsLLVM(attName, variables);
+  readAsLLVM(std::move(attName), variables);
 }
 
 void BinaryBlockPlugin::readAsFloatLLVM(
     RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
-  readAsLLVM(attName, variables);
+  readAsLLVM(std::move(attName), variables);
 }
 
 Value *BinaryBlockPlugin::getDataPointersForFile(size_t i,
@@ -639,13 +627,11 @@ void BinaryBlockPlugin::scan(const ::Operator &producer) {
   // More general/lazy plugins will only perform this action,
   // instead of eagerly 'converting' fields
   // FIXME This action corresponds to materializing the oid. Do we want this?
-  RecordAttribute tupleIdentifier =
-      RecordAttribute(fnamePrefix, activeLoop,
-                      this->getOIDType());  // FIXME: OID type for blocks ?
+  RecordAttribute tupleIdentifier{
+      fnamePrefix, activeLoop,
+      this->getOIDType()};  // FIXME: OID type for blocks ?
 
-  ProteusValueMemory mem_posWrapper;
-  mem_posWrapper.mem = mem_itemCtr;
-  mem_posWrapper.isNull = context->createFalse();
+  ProteusValueMemory mem_posWrapper{mem_itemCtr, context->createFalse()};
   variableBindings[tupleIdentifier] = mem_posWrapper;
 
   // Actual Work (Loop through attributes etc.)
@@ -670,9 +656,7 @@ void BinaryBlockPlugin::scan(const ::Operator &producer) {
         context->CreateEntryBlockAlloca(F, currBufVar, ptr_t);
     Builder->CreateStore(val_bufPtr, mem_currResult);
 
-    ProteusValueMemory mem_valWrapper;
-    mem_valWrapper.mem = mem_currResult;
-    mem_valWrapper.isNull = context->createFalse();
+    ProteusValueMemory mem_valWrapper{mem_currResult, context->createFalse()};
     variableBindings[block_attr] = mem_valWrapper;
   }
 

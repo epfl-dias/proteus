@@ -47,19 +47,15 @@ class BinaryBlockPlugin : public Plugin {
    * -> dates require more sophisticated serialization (boost?)
    */
  protected:
-  BinaryBlockPlugin(ParallelContext *context, string fnamePrefix,
-                    RecordType rec, std::vector<RecordAttribute *> &whichFields,
-                    bool load);
+  BinaryBlockPlugin(ParallelContext *context, const string &fnamePrefix,
+                    const RecordType &rec,
+                    std::vector<RecordAttribute *> &whichFields, bool load);
 
  public:
-  BinaryBlockPlugin(ParallelContext *context, string fnamePrefix,
-                    RecordType rec,
+  BinaryBlockPlugin(ParallelContext *context, const string &fnamePrefix,
+                    const RecordType &rec,
                     std::vector<RecordAttribute *> &whichFields);
 
-  BinaryBlockPlugin(ParallelContext *context, string fnamePrefix,
-                    RecordType rec);
-
-  ~BinaryBlockPlugin() override;
   string &getName() override { return fnamePrefix; }
   void init() override;
 
@@ -212,10 +208,7 @@ class BinaryBlockPlugin : public Plugin {
   size_t Nparts;
 
  protected:
-  string fnamePrefix;
-  off_t *colFilesize;  // Size of each column
-  int *fd;             // One per column
-  char **buf;
+  std::string fnamePrefix;
 
   // Mapping attrNumber to
   //  -> file descriptor of its dictionary
@@ -238,9 +231,9 @@ class BinaryBlockPlugin : public Plugin {
   ParallelContext *const context;
 
  private:
-  const char *posVar;      // = "offset";
-  const char *bufVar;      // = "fileBuffer";
-  const char *itemCtrVar;  // = "itemCtr";
+  static constexpr auto posVar = "offset";
+  static constexpr auto bufVar = "buf";
+  static constexpr auto itemCtrVar = "itemCtr";
 
   // Used to generate code
   void skipLLVM(RecordAttribute attName, llvm::Value *offset);
