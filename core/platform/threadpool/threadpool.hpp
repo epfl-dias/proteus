@@ -50,6 +50,9 @@ class ThreadPool {
 
   std::queue<std::function<void()>> tasks;
 
+  const bool elastic;
+  std::atomic<int> idleWorkers;
+
  public:
   static ThreadPool &getInstance() {
     // Guaranteed-by-the-standard threadsafe initialization (and destruction)
@@ -61,11 +64,13 @@ class ThreadPool {
     workers.emplace_back([this] {
       // eventlogger.log(this, log_op::THREADPOOL_THREAD_START);
       while (true) {
-        std::function<void()> task;
+        decltype(tasks)::value_type task;
 
         {
           std::unique_lock<std::mutex> lock(m);
+          ++idleWorkers;
           cv.wait(lock, [this] { return terminate || !tasks.empty(); });
+          --idleWorkers;
 
           if (terminate && tasks.empty()) break;
 
@@ -92,14 +97,15 @@ class ThreadPool {
     {
       std::unique_lock<std::mutex> lock(m);
       tasks.emplace([task]() { (*task)(); });
+      if (elastic && idleWorkers == 0) addThread();
     }
 
     cv.notify_one();
     return res;
   }
 
- private:
-  ThreadPool() : terminate(false) {
+  explicit ThreadPool(bool elastic = false)
+      : terminate(false), elastic(elastic), idleWorkers(0) {
     size_t N = 4 * std::thread::hardware_concurrency();
 
     for (size_t i = 0; i < N; ++i) addThread();
