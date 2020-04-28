@@ -28,7 +28,7 @@
 #include <mutex>
 #include <queue>
 #include <stack>
-#include <thread>
+#include <threadpool/threadvector.hpp>
 
 #include "operators/operators.hpp"
 #include "routing/routing-policy.hpp"
@@ -131,7 +131,7 @@ class Router : public UnaryOperator {
   llvm::Type *params_type;
   PipelineGen *catch_pip;
 
-  std::vector<std::thread> firers;
+  threadvector firers;
 
   // std::queue<void *>            * ready_pool;
   // std::mutex                    * ready_pool_mutex;

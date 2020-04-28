@@ -464,7 +464,7 @@ void Router::close(Pipeline *pip) {
 
     eventlogger.log(this, log_op::EXCHANGE_JOIN_START);
     nvtxRangePushA("Exchange_waiting_to_close");
-    for (auto &t : firers) t.join();
+    for (auto &t : firers) t.get();
     nvtxRangePop();
     eventlogger.log(this, log_op::EXCHANGE_JOIN_END);
     firers.clear();
