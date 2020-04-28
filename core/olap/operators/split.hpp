@@ -32,8 +32,7 @@ class Split : public Router {
         std::optional<expression_t> hash = std::nullopt,
         RoutingPolicy policy_type = RoutingPolicy::LOCAL)
       : Router(child, DegreeOfParallelism{numOfParents}, wantedFields, slack,
-               hash, policy_type, DeviceType::CPU,
-               getDefaultAffinitizer(DeviceType::CPU)),
+               hash, policy_type, getDefaultAffinitizer(DeviceType::CPU)),
         produce_calls(0) {
     producers = 1;  // Set so that it does not get overwritten by Routers' cnstr
   }
@@ -51,7 +50,7 @@ class Split : public Router {
   virtual DegreeOfParallelism getDOP() const { return getChild()->getDOP(); }
 
  protected:
-  void open(Pipeline *pip);
+  virtual void spawnWorker(size_t i);
 
  private:
   size_t produce_calls;

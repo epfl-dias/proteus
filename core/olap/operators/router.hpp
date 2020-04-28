@@ -29,6 +29,7 @@
 #include <queue>
 #include <stack>
 #include <threadpool/threadvector.hpp>
+#include <utility>
 
 #include "operators/operators.hpp"
 #include "routing/routing-policy.hpp"
@@ -41,20 +42,20 @@
 class Router;
 
 extern "C" {
-void *acquireBuffer(int target, Router *xch);
-void *try_acquireBuffer(int target, Router *xch);
+[[nodiscard]] void *acquireBuffer(int target, Router *xch);
+[[nodiscard]] void *try_acquireBuffer(int target, Router *xch);
 void releaseBuffer(int target, Router *xch, void *buff);
 void freeBuffer(int target, Router *xch, void *buff);
 }
 
-class Router : public UnaryOperator {
+class Router : public experimental::UnaryOperator {
  public:
   Router(Operator *const child, DegreeOfParallelism numOfParents,
-         const vector<RecordAttribute *> &wantedFields, int slack,
+         vector<RecordAttribute *> wantedFields, int slack,
          std::optional<expression_t> hash, RoutingPolicy policy_type,
-         DeviceType targets, std::unique_ptr<Affinitizer> aff = nullptr)
+         std::unique_ptr<Affinitizer> aff)
       : UnaryOperator(child),
-        wantedFields(wantedFields),
+        wantedFields(std::move(wantedFields)),
         slack(slack),
         fanout(numOfParents.dop),
         producers(child->getDOP().dop),
@@ -62,34 +63,27 @@ class Router : public UnaryOperator {
         hashExpr(std::move(hash)),
         need_cnt(false),
         free_pool(nullptr),
-        targets(targets),
         policy_type(policy_type),
-        aff(aff ? std::move(aff) : getDefaultAffinitizer(targets)) {
+        aff(std::move(aff)) {
     assert((policy_type == RoutingPolicy::HASH_BASED) == hash.has_value() &&
            "hash should only contain a value for hash-based routing policies");
+    assert(this->aff && "Affinitizer should be non-null");
   }
 
-  virtual ~Router() { LOG(INFO) << "Collapsing Router operator"; }
+  Router(Operator *const child, DegreeOfParallelism numOfParents,
+         vector<RecordAttribute *> wantedFields, int slack,
+         std::optional<expression_t> hash, RoutingPolicy policy_type,
+         DeviceType targets)
+      : Router(child, numOfParents, wantedFields, slack, hash, policy_type,
+               getDefaultAffinitizer(targets)) {}
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(ParallelContext *const context,
-                       const OperatorState &childState);
-  virtual void consume(Context *const context,
-                       const OperatorState &childState) {
-    ParallelContext *ctx = dynamic_cast<ParallelContext *>(context);
-    if (!ctx) {
-      string error_msg =
-          "[DeviceCross: ] Operator only supports code "
-          "generation using the ParallelContext";
-      LOG(ERROR) << error_msg;
-      throw runtime_error(error_msg);
-    }
-    consume(ctx, childState);
-  }
-  virtual bool isFiltering() const { return false; }
+  void produce_(ParallelContext *context) override;
+  void consume(ParallelContext *context,
+               const OperatorState &childState) override;
+  [[nodiscard]] bool isFiltering() const override { return false; }
 
-  virtual RecordType getRowType() const { return wantedFields; }
-  virtual DegreeOfParallelism getDOP() const {
+  [[nodiscard]] RecordType getRowType() const override { return wantedFields; }
+  [[nodiscard]] DegreeOfParallelism getDOP() const override {
     return DegreeOfParallelism{fanout};
   }
 
@@ -101,7 +95,7 @@ class Router : public UnaryOperator {
   virtual std::unique_ptr<routing::RoutingPolicy> getPolicy() const;
 
  private:
-  void *acquireBuffer(int target, bool polling = false);
+  [[nodiscard]] void *acquireBuffer(int target, bool polling = false);
   void releaseBuffer(int target, void *buff);
   void freeBuffer(int target, void *buff);
   bool get_ready(int target, void *&buff);
@@ -111,31 +105,27 @@ class Router : public UnaryOperator {
   friend void releaseBuffer(int target, Router *xch, void *buff);
   friend void freeBuffer(int target, Router *xch, void *buff);
 
-  inline void setProducers(int producers) {
-    this->producers = producers;
-    remaining_producers = producers;
-  }
-
  protected:
   void open(Pipeline *pip);
   void close(Pipeline *pip);
 
-  const vector<RecordAttribute *> wantedFields;
-
-  const int slack;
-  const size_t fanout;
-  size_t buf_size;
-  int producers;
-  std::atomic<int> remaining_producers;
-
-  llvm::Type *params_type;
-  PipelineGen *catch_pip;
+  virtual void spawnWorker(size_t i);
 
   threadvector firers;
 
-  // std::queue<void *>            * ready_pool;
-  // std::mutex                    * ready_pool_mutex;
-  // std::condition_variable       * ready_pool_cv;
+  const size_t fanout;
+  int producers;
+
+  PipelineGen *catch_pip;
+
+ private:
+  const int slack;
+  size_t buf_size;
+  std::atomic<int> remaining_producers;
+
+  const vector<RecordAttribute *> wantedFields;
+
+  llvm::Type *params_type;
 
   AsyncQueueMPSC<void *> *ready_fifo;
 
@@ -149,7 +139,6 @@ class Router : public UnaryOperator {
 
   bool need_cnt;
 
-  const DeviceType targets;
   const RoutingPolicy policy_type;
 
   std::unique_ptr<Affinitizer> aff;

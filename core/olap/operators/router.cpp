@@ -428,6 +428,10 @@ void Router::consume(ParallelContext *const context,
   Builder->CreateCall(releaseBuffer, kernel_args);
 }
 
+void Router::spawnWorker(size_t i) {
+  firers.emplace_back(&Router::fire, this, i, catch_pip);
+}
+
 void Router::open(Pipeline *pip) {
   std::lock_guard<std::mutex> guard(init_mutex);
 
@@ -444,9 +448,7 @@ void Router::open(Pipeline *pip) {
 
     eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_START);
     remaining_producers = producers;
-    for (int i = 0; i < fanout; ++i) {
-      firers.emplace_back(&Router::fire, this, i, catch_pip);
-    }
+    for (int i = 0; i < fanout; ++i) spawnWorker(i);
     eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_END);
   }
 }

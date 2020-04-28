@@ -365,9 +365,14 @@ RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
                               DegreeOfParallelism fanout, size_t slack,
                               RoutingPolicy p, DeviceType target,
                               std::unique_ptr<Affinitizer> aff) const {
-  auto op = new Router(root, fanout, wantedFields, slack, hash, p, target,
-                       std::move(aff));
-  return apply(op);
+  if (aff) {
+    auto op =
+        new Router(root, fanout, wantedFields, slack, hash, p, std::move(aff));
+    return apply(op);
+  } else {
+    auto op = new Router(root, fanout, wantedFields, slack, hash, p, target);
+    return apply(op);
+  }
 }
 
 RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
