@@ -24,6 +24,8 @@
 #ifndef REDUCE_OPT_HPP_
 #define REDUCE_OPT_HPP_
 
+#include <utility>
+
 #include "expressions/expressions-flusher.hpp"
 #include "expressions/expressions-generator.hpp"
 #include "operators/monoids.hpp"
@@ -34,61 +36,66 @@ namespace opt {
 #define DEBUGREDUCE
 //#endif
 
-/* MULTIPLE ACCUMULATORS SUPPORTED */
-class Reduce : public UnaryOperator {
+class agg_t {
+  expression_t e;
+  Monoid m;
+
  public:
-  Reduce(std::vector<Monoid> accs, std::vector<expression_t> outputExprs,
-         expression_t pred, Operator *const child, Context *context,
-         bool flushResults = false, const char *outPath = "out.json");
-  virtual ~Reduce() { LOG(INFO) << "Collapsing Reduce operator"; }
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return true; }
+  agg_t(expression_t e, Monoid m) : e(std::move(e)), m(std::move(m)) {}
 
-  llvm::Value *getAccumulator(int index) {
-    return context->getStateVar(mem_accumulators[index]);
+  [[nodiscard]] const expression_t &getExpression() const { return e; }
+
+  [[nodiscard]] auto getExpressionType() const { return e.getExpressionType(); }
+
+  [[nodiscard]] auto getRegisteredAs() const { return e.getRegisteredAs(); }
+
+  [[nodiscard]] const Monoid &getMonoid() const { return m; }
+
+  [[nodiscard]] expression_t toReduceExpression(expression_t acc) const {
+    return toExpression(m, std::move(acc), e);
   }
+};
 
-  virtual RecordType getRowType() const {
+class sum : agg_t {
+ public:
+  sum(expression_t e) : agg_t(std::move(e), SUM) {}
+};
+
+/* MULTIPLE ACCUMULATORS SUPPORTED */
+class Reduce : public experimental::UnaryOperator {
+ public:
+  Reduce(std::vector<agg_t> aggs, expression_t pred, Operator *const child)
+      : UnaryOperator(child), aggs(std::move(aggs)), pred(std::move(pred)) {}
+
+  void produce_(ParallelContext *context) override;
+  void consume(ParallelContext *context,
+               const OperatorState &childState) override;
+  [[nodiscard]] bool isFiltering() const override { return true; }
+
+  [[nodiscard]] RecordType getRowType() const override {
     std::vector<RecordAttribute *> attrs;
-    for (const auto &attr : outputExprs) {
+    for (const auto &attr : aggs) {
       attrs.emplace_back(new RecordAttribute{attr.getRegisteredAs()});
     }
     return attrs;
   }
 
  protected:
-  Context *context;
-
-  std::vector<Monoid> accs;
-  std::vector<expression_t> outputExprs;
+  std::vector<agg_t> aggs;
   expression_t pred;
   std::vector<StateVar> mem_accumulators;
 
-  const char *outPath;
-  bool flushResults;
+ protected:
+  virtual void generate_flush(ParallelContext *context);
 
-  void *flush_fun;
+  virtual StateVar resetAccumulator(const agg_t &agg, bool is_first = false,
+                                    bool is_last = false,
+                                    ParallelContext *context = nullptr) const;
 
-  // PipelineGen *                flush_pip;
-
-  virtual void generate_flush();
-
-  virtual StateVar resetAccumulator(expression_t outputExpr, Monoid acc,
-                                    bool flushDelim = false,
-                                    bool is_first = false,
-                                    bool is_last = false) const;
-
- private:
-  void generate(Context *const context, const OperatorState &childState) const;
   // Used to enable chaining with subsequent operators
-  void generateBagUnion(expression_t outputExpr, Context *const context,
-                        const OperatorState &state, llvm::Value *cnt_mem) const;
-  void generateAppend(expression_t outputExpr, Context *const context,
-                      const OperatorState &state,
-                      llvm::AllocaInst *mem_accumulating) const;
-
-  void flushResult();
+  virtual void generateBagUnion(expression_t outputExpr, Context *const context,
+                                const OperatorState &state,
+                                llvm::Value *cnt_mem) const;
 };
 }  // namespace opt
 

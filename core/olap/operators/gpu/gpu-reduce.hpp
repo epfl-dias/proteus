@@ -32,42 +32,21 @@
 #include "util/parallel-context.hpp"
 
 namespace opt {
-//#ifdef DEBUG
-#define DEBUGREDUCE
-//#endif
-
-/* MULTIPLE ACCUMULATORS SUPPORTED */
 class GpuReduce : public Reduce {
  public:
-  // FIXME get read of parameter global_accumulator_ptr, it should be created
-  // inside this class and the materializer should be responsible to write it to
-  // the host
-  GpuReduce(vector<Monoid> accs, vector<expression_t> outputExprs,
-            expression_t pred, Operator *const child, ParallelContext *context);
-  virtual ~GpuReduce() { LOG(INFO) << "Collapsing GpuReduce operator"; }
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual void consume(ParallelContext *const context,
+  GpuReduce(std::vector<agg_t> accs, expression_t pred, Operator *child);
+  virtual void consume(ParallelContext *context,
                        const OperatorState &childState);
 
-  // virtual void open (Pipeline * pip) const;
-  // virtual void close(Pipeline * pip) const;
-
  protected:
-  virtual StateVar resetAccumulator(expression_t outputExpr, Monoid acc,
-                                    bool flushDelim, bool is_first,
-                                    bool is_last) const;
+  virtual void generateBagUnion(expression_t outputExpr, Context *const context,
+                                const OperatorState &state,
+                                llvm::Value *cnt_mem) const;
 
  private:
-  void generate(Context *const context, const OperatorState &childState) const;
-  void generate(const Monoid &m, expression_t outputExpr,
-                ParallelContext *const context, const OperatorState &childState,
-                llvm::Value *mem_accumulating,
+  void generate(const agg_t &agg, ParallelContext *context,
+                const OperatorState &childState, llvm::Value *mem_accumulating,
                 llvm::Value *global_accumulator_ptr) const;
-
-  std::vector<llvm::Value *> global_acc_ptr;
-
-  std::vector<StateVar> out_ids;
 };
 }  // namespace opt
 

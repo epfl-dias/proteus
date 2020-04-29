@@ -255,12 +255,15 @@ RelBuilder RelBuilder::pack(const vector<expression_t> &projections,
 RelBuilder RelBuilder::reduce(const vector<expression_t> &e,
                               const vector<Monoid> &accs) const {
   assert(e.size() == accs.size());
+  std::vector<opt::agg_t> aggs;
+  for (size_t i = 0; i < e.size(); ++i) {
+    aggs.emplace_back(e[i], accs[i]);
+  }
   if (root->getDeviceType() == DeviceType::GPU) {
-    auto op = new opt::GpuReduce(accs, e, expression_t{true}, root, ctx);
+    auto op = new opt::GpuReduce(std::move(aggs), true, root);
     return apply(op);
   } else {
-    auto op =
-        new opt::Reduce(accs, e, expression_t{true}, root, ctx, false, "");
+    auto op = new opt::Reduce(std::move(aggs), true, root);
     return apply(op);
   }
 }

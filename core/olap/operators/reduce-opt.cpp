@@ -30,52 +30,43 @@
 using namespace llvm;
 
 namespace opt {
-Reduce::Reduce(std::vector<Monoid> accs, std::vector<expression_t> outputExprs,
-               expression_t pred, Operator *const child, Context *context,
-               bool flushResults, const char *outPath)
-    : UnaryOperator(child),
-      accs(std::move(accs)),
-      outputExprs(std::move(outputExprs)),
-      pred(std::move(pred)),
-      context(context),
-      flushResults(flushResults),
-      outPath(outPath) {
-  if (this->accs.size() != this->outputExprs.size()) {
-    string error_msg = string("[REDUCE: ] Erroneous constructor args");
-    LOG(ERROR) << error_msg;
-    throw runtime_error(error_msg);
-  }
-}
+// Reduce::Reduce(std::vector<Monoid> accs, std::vector<expression_t>
+// outputExprs,
+//               expression_t pred, Operator *const child, Context *context,
+//               bool flushResults, const char *outPath)
+//    : UnaryOperator(child),
+//      accs(std::move(accs)),
+//      outputExprs(std::move(outputExprs)),
+//      pred(std::move(pred)),
+//      context(context),
+//      flushResults(flushResults),
+//      outPath(outPath) {
+//  if (this->accs.size() != this->outputExprs.size()) {
+//    string error_msg = string("[REDUCE: ] Erroneous constructor args");
+//    LOG(ERROR) << error_msg;
+//    throw runtime_error(error_msg);
+//  }
+//}
 
 void Reduce::produce_(ParallelContext *context) {
-  flushResults =
-      flushResults && !getParent();  // TODO: is this the best way to do it ?
-  generate_flush();
+  generate_flush(context);
 
-  ((ParallelContext *)context)->popPipeline();
+  context->popPipeline();
 
-  auto flush_pip = ((ParallelContext *)context)->removeLatestPipeline();
-  flush_fun = flush_pip->getKernel();
-
-  ((ParallelContext *)context)->pushPipeline(flush_pip);
+  auto flush_pip = context->removeLatestPipeline();
+  context->pushPipeline(flush_pip);
 
   assert(mem_accumulators.empty());
   if (mem_accumulators.empty()) {
-    vector<Monoid>::const_iterator itAcc;
-    vector<expression_t>::const_iterator itExpr;
-    itAcc = accs.begin();
-    itExpr = outputExprs.begin();
-
-    int aggsNo = accs.size();
+    int aggsNo = aggs.size();
     /* Prepare accumulator FOREACH outputExpr */
-    for (; itAcc != accs.end(); itAcc++, itExpr++) {
-      auto acc = *itAcc;
-      auto outputExpr = *itExpr;
-      bool flushDelim = (aggsNo > 1) && (itAcc != accs.end() - 1);
-      bool is_first = (itAcc == accs.begin());
-      bool is_last = (itAcc == accs.end() - 1);
-      auto mem_accumulator =
-          resetAccumulator(outputExpr, acc, flushDelim, is_first, is_last);
+    for (const auto &agg : aggs) {
+      auto aggs_i = mem_accumulators.size();
+      auto acc = agg.getMonoid();
+      bool is_first = (aggs_i == 0);
+      bool is_last = (aggs_i == aggsNo - 1);
+      bool flushDelim = (aggsNo > 1) && !is_last;
+      auto mem_accumulator = resetAccumulator(agg, is_first, is_last, context);
       mem_accumulators.emplace_back(mem_accumulator);
     }
   }
@@ -83,53 +74,11 @@ void Reduce::produce_(ParallelContext *context) {
   getChild()->produce(context);
 }
 
-void Reduce::consume(Context *const context, const OperatorState &childState) {
-  generate(context, childState);
-  // flushResult();
-}
-
-void Reduce::flushResult() {
-  //    StringBuffer s;
-  //    Writer<StringBuffer> writer(s);
-  //    writer.StartObject();
-  //
-  //    switch (acc) {
-  //        case SUM:
-  //
-  //            break;
-  //        case MULTIPLY:
-  //
-  //            break;
-  //        case MAX:
-  //
-  //            break;
-  //        case OR:
-  //
-  //            break;
-  //        case AND:
-  //
-  //            break;
-  //        case UNION:
-  //        case BAGUNION:
-  //        case APPEND:
-  //        default: {
-  //            string error_msg = string("[Reduce: ] Unknown accumulator");
-  //            LOG(ERROR)<< error_msg;
-  //            throw runtime_error(error_msg);
-  //        }
-  //        }
-  //
-  //    writer.EndObject();
-  //    cout << s.GetString() << endl;
-}
-
-void Reduce::generate(Context *const context,
-                      const OperatorState &childState) const {
+void Reduce::consume(ParallelContext *context,
+                     const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
-
-  int aggsNo = accs.size();
 
   // Generate condition
   ExpressionGeneratorVisitor predExprGenerator{context, childState};
@@ -147,7 +96,6 @@ void Reduce::generate(Context *const context,
   /**
    * IF(pred) Block
    */
-  ProteusValue val_output;
   Builder->SetInsertPoint(entryBlock);
 
   Builder->CreateCondBr(condition.value, ifBlock, endBlock);
@@ -155,16 +103,14 @@ void Reduce::generate(Context *const context,
   Builder->SetInsertPoint(ifBlock);
 
   /* Time to Compute Aggs */
-  auto itAcc = accs.begin();
-  auto itExpr = outputExprs.begin();
+  auto itAcc = aggs.begin();
   auto itMem = mem_accumulators.begin();
 
-  for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
-    auto acc = *itAcc;
-    auto outputExpr = *itExpr;
+  for (; itAcc != aggs.end(); itAcc++, itMem++) {
+    auto agg = *itAcc;
     Value *mem_accumulating = nullptr;
 
-    switch (acc) {
+    switch (agg.getMonoid()) {
       case SUM:
       case MULTIPLY:
       case MAX:
@@ -187,14 +133,13 @@ void Reduce::generate(Context *const context,
         ExpressionGeneratorVisitor outputExprGenerator{context, childState};
 
         // Load accumulator -> acc_value
-        ProteusValue acc_value;
-        acc_value.value = Builder->CreateLoad(acc_mem);
-        acc_value.isNull = context->createFalse();
+        ProteusValue acc_value{Builder->CreateLoad(acc_mem),
+                               context->createFalse()};
 
         // new_value = acc_value op outputExpr
-        expressions::ProteusValueExpression val{outputExpr.getExpressionType(),
+        expressions::ProteusValueExpression val{agg.getExpressionType(),
                                                 acc_value};
-        auto upd = toExpression(acc, val, outputExpr);
+        auto upd = agg.toReduceExpression(val);
         ProteusValue new_val = upd.accept(outputExprGenerator);
 
         // store new_val to accumulator
@@ -202,7 +147,7 @@ void Reduce::generate(Context *const context,
         break;
       }
       case BAGUNION:
-        generateBagUnion(outputExpr, context, childState,
+        generateBagUnion(agg.getExpression(), context, childState,
                          context->getStateVar(*itMem));
         break;
       case APPEND:
@@ -233,9 +178,9 @@ void Reduce::generateBagUnion(expression_t outputExpr, Context *const context,
                               Value *cnt_mem) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
-  Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-  ExpressionFlusherVisitor flusher{context, state, outPath,
+  ExpressionFlusherVisitor flusher{context, state,
+                                   outputExpr.getRegisteredRelName().c_str(),
                                    outputExpr.getRegisteredRelName()};
 
   // Backing up insertion block
@@ -274,45 +219,26 @@ void Reduce::generateBagUnion(expression_t outputExpr, Context *const context,
    * END Block
    */
   Builder->SetInsertPoint(currBlock);
-
-  // ((ParallelContext *) context)->registerOpen (this, [this](Pipeline * pip){
-  // });
-
-  // ((ParallelContext *) context)->registerClose(this, [this](Pipeline * pip){
-  //     ((void (*)()) gpu_pip->getKernel(pip->get))();
-  // });
 }
 
-// Materializes collection (in HT?)
-// Use the catalog for the materialization
-void Reduce::generateAppend(expression_t outputExpr, Context *const context,
-                            const OperatorState &state,
-                            AllocaInst *mem_accumulating) const {}
-
-void Reduce::generate_flush() {
+void Reduce::generate_flush(ParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
-  (*((ParallelContext *)context))->setMaxWorkerSize(1, 1);
+  (*context)->setMaxWorkerSize(1, 1);
 
   vector<size_t> params;
 
-  auto itAcc = accs.begin();
-  auto itExpr = outputExprs.begin();
-
-  for (; itAcc != accs.end(); itAcc++, itExpr++) {
-    switch (*itAcc) {
+  for (const auto &agg : aggs) {
+    switch (agg.getMonoid()) {
       case SUM:
       case MULTIPLY:
       case MAX:
       case OR:
       case AND: {
-        params.emplace_back(
-            ((ParallelContext *)context)
-                ->appendParameter(
-                    PointerType::getUnqual(
-                        (*itExpr).getExpressionType()->getLLVMType(
-                            llvmContext)),
-                    true, true));
+        params.emplace_back(context->appendParameter(
+            PointerType::getUnqual(
+                agg.getExpressionType()->getLLVMType(llvmContext)),
+            true, true));
         break;
       }
       case UNION:
@@ -347,9 +273,9 @@ void Reduce::generate_flush() {
 
   std::string rel_name;
   bool found = false;
-  for (const auto &t : outputExprs) {
-    if (t.isRegistered()) {
-      rel_name = t.getRegisteredRelName();
+  for (const auto &t : aggs) {
+    if (t.getExpression().isRegistered()) {
+      rel_name = t.getRegisteredAs().getRelationName();
       found = true;
       break;
     }
@@ -396,76 +322,43 @@ void Reduce::generate_flush() {
     }
   }
 
-  itAcc = accs.begin();
-  itExpr = outputExprs.begin();
+  auto itAcc = aggs.begin();
   auto itMem = params.begin();
 
-  if (getParent()) {
-    for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
-      auto acc = *itAcc;
-      auto outputExpr = *itExpr;
-      Value *mem_accumulating = nullptr;
+  for (; itAcc != aggs.end(); itAcc++, itMem++) {
+    auto acc = itAcc->getMonoid();
+    auto outputExpr = itAcc->getExpression();
+    Value *mem_accumulating = nullptr;
 
-      if (*itMem == ~((size_t)0) || acc == BAGUNION) {
-        string error_msg = string("[Reduce: ] Not implemented yet");
-        LOG(ERROR) << error_msg;
-        throw runtime_error(error_msg);
-      }
-
-      if (!outputExpr.isRegistered()) {
-        string error_msg = string(
-            "[Reduce: ] All expressions must be "
-            "registered to forward them to the parent");
-        LOG(ERROR) << error_msg;
-        throw runtime_error(error_msg);
-      }
-
-      Value *val_mem = ((ParallelContext *)context)->getArgument(*itMem);
-      val_mem->setName(outputExpr.getRegisteredAttrName() + "_ptr");
-      Value *val_acc = Builder->CreateLoad(val_mem);
-      AllocaInst *acc_alloca = context->CreateEntryBlockAlloca(
-          outputExpr.getRegisteredAttrName(), val_acc->getType());
-
-      context->getBuilder()->CreateStore(val_acc, acc_alloca);
-
-      ProteusValueMemory acc_mem{acc_alloca, context->createFalse()};
-      variableBindings[outputExpr.getRegisteredAs()] = acc_mem;
+    if (*itMem == ~((size_t)0) || acc == BAGUNION) {
+      string error_msg = string("[Reduce: ] Not implemented yet");
+      LOG(ERROR) << error_msg;
+      throw runtime_error(error_msg);
     }
-  }
 
-  if (flushResults) {
-    OperatorState state{*this, variableBindings};
-    ExpressionFlusherVisitor flusher{context, state, outPath,
-                                     outputExprs[0].getRegisteredRelName()};
-
-    if (accs.size() > 1) flusher.beginList();
-
-    auto itAcc = accs.begin();
-    auto itExpr = outputExprs.begin();
-    auto itMem = params.begin();
-
-    for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
-      auto acc = *itAcc;
-      auto outputExpr = *itExpr;
-
-      if (*itMem == ~((size_t)0) || acc == BAGUNION) continue;
-
-      Value *val_mem = ((ParallelContext *)context)->getArgument(*itMem);
-      Value *val_acc = Builder->CreateLoad(val_mem);
-
-      flusher.flushValue(val_acc, outputExpr.getExpressionType()->getTypeID());
-      bool flushDelim = (accs.size() > 1) && (itAcc != accs.end() - 1);
-      if (flushDelim) flusher.flushDelim();
+    if (!outputExpr.isRegistered()) {
+      string error_msg = string(
+          "[Reduce: ] All expressions must be "
+          "registered to forward them to the parent");
+      LOG(ERROR) << error_msg;
+      throw runtime_error(error_msg);
     }
-    if (accs.size() > 1) flusher.endList();
 
-    flusher.flushOutput();
+    Value *val_mem = context->getArgument(*itMem);
+    val_mem->setName(outputExpr.getRegisteredAttrName() + "_ptr");
+    Value *val_acc = Builder->CreateLoad(val_mem);
+    AllocaInst *acc_alloca = context->CreateEntryBlockAlloca(
+        outputExpr.getRegisteredAttrName(), val_acc->getType());
+
+    context->getBuilder()->CreateStore(val_acc, acc_alloca);
+
+    ProteusValueMemory acc_mem{acc_alloca, context->createFalse()};
+    variableBindings[outputExpr.getRegisteredAs()] = acc_mem;
   }
 
-  if (getParent()) {
-    OperatorState state{*this, variableBindings};
-    getParent()->consume(context, state);
-  }
+  OperatorState state{*this, variableBindings};
+  getParent()->consume(context, state);
+
   // Insert an explicit fall through from the current (body) block to AfterBB.
   Builder->CreateBr(AfterBB);
 
@@ -479,18 +372,16 @@ void Reduce::generate_flush() {
   Builder->SetInsertPoint(context->getEndingBlock());
 }
 
-StateVar Reduce::resetAccumulator(expression_t outputExpr, Monoid acc,
-                                  bool flushDelim, bool is_first,
-                                  bool is_last) const {
+StateVar Reduce::resetAccumulator(const agg_t &agg, bool is_first, bool is_last,
+                                  ParallelContext *context) const {
   // Deal with 'memory allocations' as per monoid type requested
-  switch (acc) {
+  switch (agg.getMonoid()) {
     case SUM:
     case MULTIPLY:
     case MAX:
     case OR:
     case AND: {
-      Type *t = outputExpr.getExpressionType()->getLLVMType(
-          context->getLLVMContext());
+      Type *t = agg.getExpressionType()->getLLVMType(context->getLLVMContext());
 
       return context->appendStateVar(
           PointerType::getUnqual(t),
@@ -501,72 +392,53 @@ StateVar Reduce::resetAccumulator(expression_t outputExpr, Monoid acc,
             Value *mem_acc = context->allocateStateVar(t);
 
             Constant *val_id = getIdentityElementIfSimple(
-                acc, outputExpr.getExpressionType(), context);
-            Builder->CreateStore(val_id, mem_acc);
+                agg.getMonoid(), agg.getExpressionType(), context);
+
+            // FIXME: Assumes that we val_id is a byte to be repeated, not so
+            // general... needs a memset to store...
+            // Builder->CreateStore(val_id, mem_acc);
+
+            // Even for floating points, 00000000 = 0.0, so cast to integer type
+            // of same length to avoid problems with initialization of floats
+            Value *val = Builder->CreateBitCast(
+                val_id, Type::getIntNTy(context->getLLVMContext(),
+                                        context->getSizeOf(val_id) * 8));
+            context->CodegenMemset(mem_acc, val,
+                                   (t->getPrimitiveSizeInBits() + 7) / 8);
 
             return mem_acc;
           },
 
           [=](llvm::Value *, llvm::Value *s) {
-            // if (flushResults && is_first && accs.size() > 1)
-            // flusher->beginList();
-
-            // Value* val_acc =  context->getBuilder()->CreateLoad(s);
-
-            // if (outputExpr.isRegistered()){
-            //     map<RecordAttribute, ProteusValueMemory> binding{};
-            //     AllocaInst * acc_alloca =
-            //     context->CreateEntryBlockAlloca(outputExpr.getRegisteredAttrName(),
-            //     val_acc->getType());
-            //     context->getBuilder()->CreateStore(val_acc, acc_alloca);
-            //     ProteusValueMemory acc_mem{acc_alloca,
-            //     context->createFalse()};
-            //     binding[outputExpr.getRegisteredAs()] = acc_mem;
-            // }
-
             if (is_first) {
-              auto itAcc = accs.begin();
-              auto itExpr = outputExprs.begin();
+              auto itAcc = aggs.begin();
               auto itMem = mem_accumulators.begin();
 
               vector<Value *> args;
-              for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++) {
+              for (; itAcc != aggs.end(); itAcc++, itMem++) {
                 auto acc = *itAcc;
-                auto outputExpr = *itExpr;
-                Value *mem_accumulating = nullptr;
 
-                if (*itMem == StateVar{} || acc == BAGUNION) continue;
+                if (*itMem == StateVar{} || acc.getMonoid() == BAGUNION)
+                  continue;
 
                 args.emplace_back(context->getStateVar(*itMem));
               }
 
               IRBuilder<> *Builder = context->getBuilder();
 
-              Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
-
               Function *f = context->getFunction("subpipeline_consume");
               FunctionType *f_t = f->getFunctionType();
 
               Type *substate_t = f_t->getParamType(f_t->getNumParams() - 1);
 
-              Value *substate = Builder->CreateBitCast(
-                  ((ParallelContext *)context)->getSubStateVar(), substate_t);
+              Value *substate =
+                  Builder->CreateBitCast(context->getSubStateVar(), substate_t);
               args.emplace_back(substate);
 
               Builder->CreateCall(f, args);
             }
 
-            // if (flushResults){
-            //     flusher->flushValue(val_acc,
-            //     outputExpr.getExpressionType()->getTypeID()); if (flushDelim)
-            //     flusher->flushDelim();
-            // }
             context->deallocateStateVar(s);
-
-            // if (flushResults && is_last  && accs.size() > 1)
-            // flusher->endList();
-
-            // if (flushResults && is_last  ) flusher->flushOutput();
           });
     }
     case UNION: {
