@@ -37,12 +37,19 @@ class OperatorState {
       : producer(opState.producer), activeVariables(opState.activeVariables) {
     LOG(INFO) << "[Operator State: ] Copy Constructor";
   }
+  OperatorState(const Operator &producer, const OperatorState &opState)
+      : OperatorState(producer, opState.activeVariables) {}
 
   [[deprecated]] const map<RecordAttribute, ProteusValueMemory> &getBindings()
       const {
     return activeVariables;
   }
-  const Operator &getProducer() const { return producer; }
+
+  [[nodiscard]] const Operator &getProducer() const { return producer; }
+
+  [[nodiscard]] bool contains(const RecordAttribute &key) const {
+    return activeVariables.count(key) > 0;
+  }
 
   const ProteusValueMemory &operator[](const RecordAttribute &key) const {
     try {

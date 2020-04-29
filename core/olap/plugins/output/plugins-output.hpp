@@ -69,7 +69,7 @@ class Materializer {
    *
    * XXX ORDER OF expression fields matters!! OIDs need to be placed first!
    */
-  Materializer(std::vector<expression_t> wantedExpressions);
+  Materializer(const std::vector<expression_t> &wantedExpressions);
 
   ~Materializer() {}
 

@@ -342,7 +342,7 @@ void Nest::probeHT() const {
 
         Value *build = context->CastPtrToLlvmPtr(char_ptr_type, this->build);
         Function *clusterCnts = context->getFunction("getClusterCounts");
-        return Builder->CreateCall(clusterCnts, vector<Value *>{pip, build});
+        return Builder->CreateCall(clusterCnts, {pip, build});
       },
       [=](llvm::Value *, llvm::Value *s) {
         Function *f = context->getFunction("free");
@@ -359,8 +359,7 @@ void Nest::probeHT() const {
 
         Value *build = context->CastPtrToLlvmPtr(char_ptr_type, this->build);
         Function *ht_mem_kv = context->getFunction("getHTMemKV");
-        Value *char_ht_mem =
-            Builder->CreateCall(ht_mem_kv, vector<Value *>{pip, build});
+        Value *char_ht_mem = Builder->CreateCall(ht_mem_kv, {pip, build});
         return Builder->CreateBitCast(char_ht_mem,
                                       PointerType::getUnqual(htEntryType));
       },
@@ -607,10 +606,9 @@ void Nest::probeHT() const {
       val_idx = Builder->CreateAShr(val_idx, val_num_radix_bits64);
 
       /* Also getting value to reassemble ACTUAL KEY when needed */
-      map<RecordAttribute, ProteusValueMemory> *currKeyBindings =
+      auto *currKeyBindings =
           reconstructResults(htRshiftedPtr, val_j, relR_mem_relation_id);
-      OperatorState *currKeyState = new OperatorState(*this, *currKeyBindings);
-      map<RecordAttribute, ProteusValueMemory> *retrievedBindings;
+      OperatorState currKeyState(*this, *currKeyBindings);
 
       /**
        * Checking actual hits (when applicable)
@@ -621,6 +619,7 @@ void Nest::probeHT() const {
                              "hitLoopEnd", &hitLoopCond, &hitLoopBody,
                              &hitLoopInc, &hitLoopEnd);
 
+      map<RecordAttribute, ProteusValueMemory> *retrievedBindings;
       {
         AllocaInst *mem_hit = Builder->CreateAlloca(int32_type, nullptr, "hit");
         //(ht->bucket)
@@ -664,12 +663,11 @@ void Nest::probeHT() const {
         {
           retrievedBindings = reconstructResults(htRshiftedPtr, val_hit_idx_dec,
                                                  relR_mem_relation_id);
-          OperatorState *retrievedState =
-              new OperatorState(*this, *retrievedBindings);
+          OperatorState retrievedState(*this, *retrievedBindings);
 
           /* Condition: Checking dot equality */
-          ExpressionDotVisitor dotVisitor{context, *currKeyState,
-                                          *retrievedState};
+          ExpressionDotVisitor dotVisitor{context, currKeyState,
+                                          retrievedState};
 
           Value *val_cond = context->createTrue();
 
@@ -679,11 +677,9 @@ void Nest::probeHT() const {
             // auto &t: currKeyState->getBindings()) std::cout <<
             // t.first.getRelationName() << " " << t.first.getAttrName()
             // <<std::endl;
-            ProteusValueMemory currKeyMem =
-                currKeyState->getBindings().at(k.getRegisteredAs());
+            ProteusValueMemory currKeyMem = currKeyState[k.getRegisteredAs()];
             Value *currKey = Builder->CreateLoad(currKeyMem.mem);
-            ProteusValueMemory retrKeyMem =
-                retrievedState->getBindings().at(k.getRegisteredAs());
+            ProteusValueMemory retrKeyMem = retrievedState[k.getRegisteredAs()];
             Value *retrKey = Builder->CreateLoad(retrKeyMem.mem);
             //                expressions::ProteusValueExpression
             //                currKey{f_grouping->getExpressionType(), };
@@ -749,8 +745,7 @@ void Nest::probeHT() const {
           /* Time to Compute Aggs */
 
           // Generate condition
-          ExpressionGeneratorVisitor predExprGenerator{context,
-                                                       *retrievedState};
+          ExpressionGeneratorVisitor predExprGenerator{context, retrievedState};
           ProteusValue condition = pred.accept(predExprGenerator);
           /**
            * Predicate Evaluation:
@@ -792,7 +787,7 @@ void Nest::probeHT() const {
               case OR:
               case AND: {
                 ExpressionGeneratorVisitor outputExprGenerator{context,
-                                                               *retrievedState};
+                                                               retrievedState};
 
                 // Load accumulator -> acc_value
                 ProteusValue acc_value;
@@ -800,21 +795,14 @@ void Nest::probeHT() const {
                 acc_value.isNull = context->createFalse();
 
                 ProteusValue acc_value2;
-                bool val_unset = true;
-                if (outputExpr.isRegistered()) {
-                  const auto &f = retrievedState->getBindings().find(
-                      outputExpr.getRegisteredAs());
-                  if (f != retrievedState->getBindings().end()) {
-                    ProteusValueMemory mem_val = f->second;
-                    acc_value2.value = Builder->CreateLoad(mem_val.mem);
-                    acc_value2.isNull = mem_val.isNull;
-                    // itExpr++;
-                    val_unset = false;
-                  }
-                }
-
-                if (val_unset)
+                if (outputExpr.isRegistered() &&
+                    retrievedState.contains(outputExpr.getRegisteredAs())) {
+                  auto mem_val = retrievedState[outputExpr.getRegisteredAs()];
+                  acc_value2.value = Builder->CreateLoad(mem_val.mem);
+                  acc_value2.isNull = mem_val.isNull;
+                } else {
                   acc_value2 = outputExpr.accept(outputExprGenerator);
+                }
 
                 // new_value = acc_value op outputExpr
                 expressions::ProteusValueExpression val{

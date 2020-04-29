@@ -570,25 +570,14 @@ ProteusValueMemory JSONPlugin::readPath(string activeRelation,
 
   // Get relevant token number
   ExpressionType *oidType = new IntType();
-  RecordAttribute tupleIdentifier =
-      RecordAttribute(activeRelation, activeLoop, oidType);
-  //    RecordAttribute tupleIdentifier = RecordAttribute(fname,activeLoop);
-  const map<RecordAttribute, ProteusValueMemory> &bindings =
-      state.getBindings();
-  map<RecordAttribute, ProteusValueMemory>::const_iterator it =
-      bindings.find(tupleIdentifier);
-  if (it == bindings.end()) {
-    string error_msg = "[JSONPlugin - jsmn: ] Current tuple binding not found";
-    LOG(ERROR) << error_msg;
-    throw runtime_error(error_msg);
-  }
-  ProteusValueMemory mem_parentTokenNo = it->second;
+  RecordAttribute tupleIdentifier(activeRelation, activeLoop, oidType);
+  ProteusValueMemory mem_parentTokenNo = state[tupleIdentifier];
   Value *parentTokenNo =
       Builder->CreateLoad(mem_parentTokenNo.mem, "parentTokenNo");
 
   // Preparing default return value (i.e., path not found)
   AllocaInst *mem_return =
-      context->CreateEntryBlockAlloca(F, std::string("pathReturn"), int64Type);
+      context->CreateEntryBlockAlloca(F, "pathReturn", int64Type);
   Value *minus_1 = context->createInt64(-1);
   Builder->CreateStore(minus_1, mem_return);
 

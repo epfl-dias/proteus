@@ -84,10 +84,6 @@ class PlanExecutor {
                                const expressions::InputArgument &arg) {
     return ExpressionParser{catalogParser, arg}.parseExpression(val, ctx);
   }
-  ExpressionType *parseExpressionType(const rapidjson::Value &val,
-                                      const expressions::InputArgument &arg) {
-    return ExpressionParser{catalogParser, arg}.parseExpressionType(val);
-  }
   RecordAttribute *parseRecordAttr(const rapidjson::Value &val,
                                    const expressions::InputArgument &arg,
                                    const ExpressionType *defaultType = nullptr,

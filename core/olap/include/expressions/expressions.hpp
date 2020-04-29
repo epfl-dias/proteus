@@ -191,7 +191,8 @@ class RecordProjection;
 
 }  // namespace expressions
 
-class expression_t final : public expressions::ExpressionCRTP<expression_t> {
+class [[nodiscard]] expression_t final
+    : public expressions::ExpressionCRTP<expression_t> {
  public:
   typedef expressions::Expression concept_t;
 
@@ -199,7 +200,7 @@ class expression_t final : public expressions::ExpressionCRTP<expression_t> {
   std::shared_ptr<const concept_t> data;
 
   template <typename T>
-  expression_t(std::shared_ptr<T> &&ptr)
+  expression_t(std::shared_ptr<T> && ptr)
       : expressions::ExpressionCRTP<expression_t>(ptr->getExpressionType()),
         data(ptr) {
     if (data->isRegistered()) {
@@ -231,18 +232,18 @@ class expression_t final : public expressions::ExpressionCRTP<expression_t> {
   expression_t(std::string v, void *dict);
   expression_t(const char *v, void *dict);
 
-  inline ProteusValue accept(ExprVisitor &v) const override {
+  inline ProteusValue accept(ExprVisitor & v) const override {
     assert(data);
     return data->accept(v);
   }
 
-  inline ProteusValue acceptTandem(ExprTandemVisitor &v,
-                                   const expression_t &e) const {
+  inline ProteusValue acceptTandem(ExprTandemVisitor & v, const expression_t &e)
+      const {
     return data->acceptTandem(v, e.data.get());
   }
 
   [[deprecated]] inline ProteusValue acceptTandem(
-      ExprTandemVisitor &v, const expressions::Expression *e) const override {
+      ExprTandemVisitor & v, const expressions::Expression *e) const override {
     return data->acceptTandem(v, e);
   }
 
@@ -251,7 +252,7 @@ class expression_t final : public expressions::ExpressionCRTP<expression_t> {
   }
 
   template <typename T, typename... Args>
-  static expression_t make(Args &&... args) {
+  static expression_t make(Args && ... args) {
     return {std::make_shared<T>(args...)};
   }
 
@@ -501,18 +502,6 @@ class InputArgument : public ExpressionCRTP<InputArgument> {
 
 class RecordProjection : public ExpressionCRTP<RecordProjection> {
  public:
-  [[deprecated]] RecordProjection(ExpressionType *type, Expression *expr,
-                                  RecordAttribute attribute)
-      : ExpressionCRTP(type), expr(expr), attribute(attribute) {
-    assert(type->getTypeID() == this->attribute.getOriginalType()->getTypeID());
-    registerAs(getRelationName(), getProjectionName());
-  }
-  [[deprecated]] RecordProjection(const ExpressionType *type, Expression *expr,
-                                  RecordAttribute attribute)
-      : ExpressionCRTP(type), expr(expr), attribute(attribute) {
-    assert(type->getTypeID() == this->attribute.getOriginalType()->getTypeID());
-    registerAs(getRelationName(), getProjectionName());
-  }
   RecordProjection(expression_t expr, RecordAttribute attribute)
       : ExpressionCRTP(attribute.getOriginalType()),
         expr(std::move(expr)),
@@ -641,7 +630,7 @@ class AttributeConstruction {
 };
 
 inline std::list<AttributeConstruction> toAttrConstr(
-    const std::initializer_list<expression_t> &atts) {
+    const std::vector<expression_t> &atts) {
   std::list<AttributeConstruction> l;
   for (const auto &e : atts) {
     l.emplace_back(e.getRegisteredAttrName(), e);
@@ -665,6 +654,9 @@ class RecordConstruction : public ExpressionCRTP<RecordConstruction> {
       : ExpressionCRTP(constructRecordType(atts)), atts(atts) {}
 
   RecordConstruction(const std::initializer_list<expression_t> &atts)
+      : RecordConstruction(toAttrConstr({atts})) {}
+
+  RecordConstruction(const std::vector<expression_t> &atts)
       : RecordConstruction(toAttrConstr(atts)) {}
 
   ExpressionId getTypeID() const { return RECORD_CONSTRUCTION; }

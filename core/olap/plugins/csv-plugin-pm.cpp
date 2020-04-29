@@ -1655,18 +1655,16 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
   /* Preparing Cache Attempt */
   /* XXX Very silly conversion */
   list<RecordAttribute> attrList;
-  RecordAttribute projTuple =
-      RecordAttribute(fname, activeLoop, this->getOIDType());
+  RecordAttribute projTuple(fname, activeLoop, this->getOIDType());
   attrList.push_back(projTuple);
 
-  for (vector<RecordAttribute *>::iterator it = wantedFields.begin();
-       it != wantedFields.end(); it++) {
-    attrList.push_back(*(*it));
+  for (const auto &wantedField : wantedFields) {
+    attrList.push_back(*wantedField);
   }
 
+  expressions::InputArgument arg(&rec, 0, attrList);
   /* Actual Work */
-  for (vector<RecordAttribute *>::iterator it = wantedFields.begin();
-       it != wantedFields.end(); it++) {
+  for (const auto &wantedField : wantedFields) {
 #ifdef DEBUGPM
     cout << "[CSV_PM: ] Need Field " << (*it)->getOriginalRelationName() << "."
          << (*it)->getAttrName() << endl;
@@ -1674,21 +1672,17 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
     /* Create search key for caches  */
     bool found = false;
     {
-      expressions::InputArgument arg =
-          expressions::InputArgument(&rec, 0, attrList);
-      const ExpressionType *fieldType = (*it)->getOriginalType();
-      const RecordAttribute &thisAttr = *(*it);
-      expressions::Expression *thisField =
-          new expressions::RecordProjection(fieldType, &arg, thisAttr);
+      const RecordAttribute &thisAttr = *wantedField;
+      auto thisField = arg[*wantedField];
       CachingService &cache = CachingService::getInstance();
-      CacheInfo info = cache.getCache(thisField);
+      CacheInfo info = cache.getCache(&thisField);
       //            CacheInfo info; info.structFieldNo = -1;
       if (info.structFieldNo != -1) {
 #ifdef DEBUGCACHING
         cout << "[CSV_PM: ] Field " << (*it)->getOriginalRelationName() << "."
              << (*it)->getAttrName() << " found!" << endl;
 #endif
-        if (!cache.getCacheIsFull(thisField)) {
+        if (!cache.getCacheIsFull(&thisField)) {
 #ifdef DEBUGCACHING
           cout << "...but is not useable " << endl;
 #endif
@@ -1736,8 +1730,7 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
             ProteusValueMemory mem_valWrapper;
             mem_valWrapper.mem = mem_cachedField;
             mem_valWrapper.isNull = context->createFalse();
-            RecordAttribute attr = *(*it);
-            (*variableBindings)[attr] = mem_valWrapper;
+            (*variableBindings)[*wantedField] = mem_valWrapper;
 #ifdef DEBUG
             {
               vector<Value *> ArgsV;
@@ -1756,7 +1749,7 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
 
     if (!found) {
       /* Determine whether to scan forwards or backwards */
-      int neededAttr = (*it)->getAttrNo() - 1;
+      int neededAttr = wantedField->getAttrNo() - 1;
       int pmDistanceBefore = neededAttr % policy;
       int pmDistanceAfter = policy - neededAttr % policy;
       int distanceFromCurr = neededAttr - currAttr;
@@ -1774,9 +1767,9 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
           skipDelimLLVM(delimInner);
         }
         /* Codegen: Convert Field */
-        RecordAttribute attr = *(*it);
+        RecordAttribute attr = *wantedField;
         // cout << "1. Also " << attr.getAttrName() << endl;
-        typeID id = (*it)->getOriginalType()->getTypeID();
+        typeID id = wantedField->getOriginalType()->getTypeID();
         readField(id, attr, *variableBindings);
       }
       /* Parse forwards */
@@ -1816,8 +1809,8 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
           skipDelimLLVM(delimInner);
         }
         /* Codegen: Convert Field */
-        RecordAttribute attr = *(*it);
-        typeID id = (*it)->getOriginalType()->getTypeID();
+        RecordAttribute attr = *wantedField;
+        typeID id = wantedField->getOriginalType()->getTypeID();
         // cout << "2. Also " << attr.getAttrName() << endl;
         readField(id, attr, *variableBindings);
 
@@ -1865,8 +1858,8 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
           //                }
         }
         /* Codegen: Convert Field */
-        RecordAttribute attr = *(*it);
-        typeID id = (*it)->getOriginalType()->getTypeID();
+        RecordAttribute attr = *wantedField;
+        typeID id = wantedField->getOriginalType()->getTypeID();
         // cout << "3. Also " << attr.getAttrName() << endl;
         readField(id, attr, *variableBindings);
       }

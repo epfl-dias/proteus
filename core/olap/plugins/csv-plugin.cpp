@@ -105,24 +105,9 @@ void CSVPlugin::generate(const ::Operator &producer) {
 ProteusValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings,
                                        const char *pathVar,
                                        RecordAttribute attr) {
-  ProteusValueMemory mem_valWrapper;
-  {
-    const OperatorState *state = bindings.state;
-    const map<RecordAttribute, ProteusValueMemory> &csvProjections =
-        state->getBindings();
-    RecordAttribute tmpKey =
-        RecordAttribute(fname, pathVar, this->getOIDType());
-    map<RecordAttribute, ProteusValueMemory>::const_iterator it;
-    it = csvProjections.find(tmpKey);
-    if (it == csvProjections.end()) {
-      string error_msg =
-          string("[CSV plugin - readPath ]: Unknown variable name ") + pathVar;
-      LOG(ERROR) << error_msg;
-      throw runtime_error(error_msg);
-    }
-    mem_valWrapper = it->second;
-  }
-  return mem_valWrapper;
+  const OperatorState &state = *(bindings.state);
+  RecordAttribute tmpKey(fname, pathVar, this->getOIDType());
+  return state[tmpKey];
 }
 
 ProteusValueMemory CSVPlugin::readValue(ProteusValueMemory mem_value,

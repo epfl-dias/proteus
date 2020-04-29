@@ -35,7 +35,7 @@ void Select::generate(Context *const context,
                       const OperatorState &childState) const {
   context->gen_if(expr, childState)([&] {
     // Triggering parent
-    OperatorState newState{*this, childState.getBindings()};
+    OperatorState newState{*this, childState};
     getParent()->consume(context, newState);
   });
 }
