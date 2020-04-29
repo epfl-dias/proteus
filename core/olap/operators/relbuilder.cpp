@@ -251,7 +251,7 @@ RelBuilder RelBuilder::pack(const vector<expression_t> &projections,
 RelBuilder RelBuilder::reduce(const vector<expression_t> &e,
                               const vector<Monoid> &accs) const {
   assert(e.size() == accs.size());
-  std::vector<opt::agg_t> aggs;
+  std::vector<agg_t> aggs;
   for (size_t i = 0; i < e.size(); ++i) {
     aggs.emplace_back(e[i], accs[i]);
   }

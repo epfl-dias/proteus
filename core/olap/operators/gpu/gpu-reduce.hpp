@@ -35,13 +35,13 @@ namespace opt {
 class GpuReduce : public Reduce {
  public:
   GpuReduce(std::vector<agg_t> accs, expression_t pred, Operator *child);
-  virtual void consume(ParallelContext *context,
-                       const OperatorState &childState);
+  void consume(ParallelContext *context,
+               const OperatorState &childState) override;
 
  protected:
-  virtual void generateBagUnion(expression_t outputExpr, Context *const context,
-                                const OperatorState &state,
-                                llvm::Value *cnt_mem) const;
+  void generateBagUnion(const expression_t &outputExpr,
+                        ParallelContext *context, const OperatorState &state,
+                        llvm::Value *cnt_mem) const override;
 
  private:
   void generate(const agg_t &agg, ParallelContext *context,

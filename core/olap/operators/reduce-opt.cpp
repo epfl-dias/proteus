@@ -173,7 +173,8 @@ void Reduce::consume(ParallelContext *context,
 
 // Flush out whatever you received
 // FIXME Need 'output plugin' / 'serializer'
-void Reduce::generateBagUnion(expression_t outputExpr, Context *const context,
+void Reduce::generateBagUnion(const expression_t &outputExpr,
+                              ParallelContext *context,
                               const OperatorState &state,
                               Value *cnt_mem) const {
   IRBuilder<> *Builder = context->getBuilder();
@@ -285,40 +286,26 @@ void Reduce::generate_flush(ParallelContext *context) {
     Plugin *pg = Catalog::getInstance().getPlugin(rel_name);
 
     {
-      RecordAttribute tupleOID =
-          RecordAttribute(rel_name, activeLoop,
-                          pg->getOIDType());  // FIXME: OID type for blocks ?
+      RecordAttribute tupleOID(
+          rel_name, activeLoop,
+          pg->getOIDType());  // FIXME: OID type for blocks ?
 
       Value *oid =
           ConstantInt::get(pg->getOIDType()->getLLVMType(llvmContext), 0);
       oid->setName("oid");
-      AllocaInst *mem =
-          context->CreateEntryBlockAlloca(F, "activeLoop_ptr", oid->getType());
-      Builder->CreateStore(oid, mem);
 
-      ProteusValueMemory tmp;
-      tmp.mem = mem;
-      tmp.isNull = context->createFalse();
-
-      variableBindings[tupleOID] = tmp;
+      variableBindings[tupleOID] = context->toMem(oid, context->createFalse());
     }
 
     {
-      RecordAttribute tupleCnt =
-          RecordAttribute(rel_name, "activeCnt",
-                          pg->getOIDType());  // FIXME: OID type for blocks ?
+      RecordAttribute tupleCnt(
+          rel_name, "activeCnt",
+          pg->getOIDType());  // FIXME: OID type for blocks ?
       Value *N =
           ConstantInt::get(pg->getOIDType()->getLLVMType(llvmContext), 1);
       N->setName("cnt");
-      AllocaInst *mem =
-          context->CreateEntryBlockAlloca(F, "activeCnt_ptr", N->getType());
-      Builder->CreateStore(N, mem);
 
-      ProteusValueMemory tmp;
-      tmp.mem = mem;
-      tmp.isNull = context->createFalse();
-
-      variableBindings[tupleCnt] = tmp;
+      variableBindings[tupleCnt] = context->toMem(N, context->createFalse());
     }
   }
 

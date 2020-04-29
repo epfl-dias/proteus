@@ -141,8 +141,8 @@ void GpuReduce::consume(ParallelContext *context,
   Builder->SetInsertPoint(endBlock);
 }
 
-void GpuReduce::generateBagUnion(expression_t outputExpr,
-                                 Context *const context,
+void GpuReduce::generateBagUnion(const expression_t &outputExpr,
+                                 ParallelContext *context,
                                  const OperatorState &state,
                                  Value *cnt_mem) const {
   auto error_msg = "[Reduce: ] Unknown / Still Unsupported accumulator";
