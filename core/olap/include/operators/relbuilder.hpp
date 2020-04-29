@@ -354,11 +354,6 @@ class RelBuilder {
   PreparedStatement prepare();
 
  private:
-  template <typename T>
-  [[deprecated]] RelBuilder memmove(T attr, size_t slack, DeviceType to) const {
-    return memmove(attr(getOutputArg()), slack, to);
-  }
-
   [[nodiscard]] RelBuilder memmove(const vector<RecordAttribute*>& wantedFields,
                                    size_t slack, DeviceType to) const;
 

@@ -158,18 +158,14 @@ RelBuilder RelBuilder::membrdcst(DegreeOfParallelism fanout, bool to_cpu,
 }
 
 RelBuilder RelBuilder::memmove(size_t slack, DeviceType to) const {
-  return memmove(
-      [&](const auto &arg) -> std::vector<RecordAttribute *> {
-        std::vector<RecordAttribute *> ret;
-        for (const auto &attr : arg.getProjections()) {
-          if (dynamic_cast<const BlockType *>(attr.getOriginalType())) {
-            ret.emplace_back(new RecordAttribute{attr});
-          }
-        }
-        assert(!ret.empty());
-        return ret;
-      },
-      slack, to);
+  std::vector<RecordAttribute *> ret;
+  for (const auto &attr : getOutputArg().getProjections()) {
+    if (dynamic_cast<const BlockType *>(attr.getOriginalType())) {
+      ret.emplace_back(new RecordAttribute{attr});
+    }
+  }
+  assert(!ret.empty());
+  return memmove(ret, slack, to);
 }
 
 RelBuilder RelBuilder::to_gpu() const {
