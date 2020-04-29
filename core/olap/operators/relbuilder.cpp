@@ -166,42 +166,38 @@ RelBuilder RelBuilder::memmove(size_t slack, DeviceType to) const {
             ret.emplace_back(new RecordAttribute{attr});
           }
         }
-        assert(ret.size() != 0);
+        assert(!ret.empty());
         return ret;
       },
       slack, to);
 }
 
 RelBuilder RelBuilder::to_gpu() const {
-  return to_gpu([&](const auto &arg) -> std::vector<RecordAttribute *> {
-    std::vector<RecordAttribute *> ret;
-    for (const auto &attr : arg.getProjections()) {
-      if (dynamic_cast<const BlockType *>(attr.getOriginalType())) {
-        ret.emplace_back(new RecordAttribute{attr});
-      }
+  const auto arg = getOutputArg();
+  std::vector<RecordAttribute *> ret;
+  for (const auto &attr : arg.getProjections()) {
+    if (dynamic_cast<const BlockType *>(attr.getOriginalType())) {
+      ret.emplace_back(new RecordAttribute{attr});
     }
-    assert(ret.size() != 0);
-    return ret;
-  });
+  }
+  assert(!ret.empty());
+  return to_gpu(ret);
 }
 
 RelBuilder RelBuilder::to_cpu(gran_t granularity, size_t size) const {
-  return to_cpu(
-      [&](const auto &arg) -> std::vector<RecordAttribute *> {
-        std::vector<RecordAttribute *> ret;
-        for (const auto &attr : arg.getProjections()) {
-          if (dynamic_cast<const BlockType *>(attr.getOriginalType())) {
-            ret.emplace_back(new RecordAttribute{attr});
-          }
-        }
-        if (ret.empty()) {
-          for (const auto &attr : arg.getProjections()) {
-            ret.emplace_back(new RecordAttribute{attr});
-          }
-        }
-        return ret;
-      },
-      granularity, size);
+  const auto arg = getOutputArg();
+  std::vector<RecordAttribute *> ret;
+  for (const auto &attr : arg.getProjections()) {
+    if (dynamic_cast<const BlockType *>(attr.getOriginalType())) {
+      ret.emplace_back(new RecordAttribute{attr});
+    }
+  }
+  if (ret.empty()) {
+    for (const auto &attr : arg.getProjections()) {
+      ret.emplace_back(new RecordAttribute{attr});
+    }
+  }
+  return to_cpu(ret, granularity, size);
 }
 
 RelBuilder RelBuilder::to_gpu(
@@ -217,7 +213,7 @@ RelBuilder RelBuilder::to_cpu(const vector<RecordAttribute *> &wantedFields,
 }
 
 RelBuilder RelBuilder::filter(expression_t pred) const {
-  auto op = new Select(pred, root);
+  auto op = new Select(std::move(pred), root);
   return apply(op);
 }
 

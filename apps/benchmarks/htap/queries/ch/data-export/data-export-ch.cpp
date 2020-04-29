@@ -35,7 +35,6 @@ namespace filesystem = std::experimental::filesystem;
 }
 #endif
 
-#include <fstream>
 #include <system_error>
 
 void DataExporter_CH::exportAll(std::string& output_dir) {
@@ -103,37 +102,20 @@ PreparedStatement DataExporter_CH::export_tpcc_orderline(bool output_binary) {
                "ol_supply_w_id", "ol_delivery_d", "ol_quantity", "ol_amount"},
               CatalogParser::getInstance())
           .unpack()
-          .print(
-              [&](const auto& arg) -> std::vector<expression_t> {
-                return {
-                    arg["ol_o_id"],       arg["ol_d_id"],
-                    arg["ol_w_id"],       arg["ol_number"],
-                    arg["ol_i_id"],       arg["ol_supply_w_id"],
-                    arg["ol_delivery_d"], arg["ol_quantity"],
-                    arg["ol_amount"],
-                };
-              },
-              (output_binary ? pg(bin_plugin) : pg(csv_plugin)),
-              (output_binary ? "tpcc_orderline" : "tpcc_orderline.tbl"));
+          .print((output_binary ? pg(bin_plugin) : pg(csv_plugin)),
+                 (output_binary ? "tpcc_orderline" : "tpcc_orderline.tbl"));
   return rel.prepare();
 }
 
 PreparedStatement DataExporter_CH::export_tpcc_order(bool output_binary) {
-  auto rel =
-      getBuilder()
-          .scan<ch_access_plugin>(
-              "tpcc_order<block-remote>",
-              {"o_id", "o_d_id", "o_w_id", "o_c_id", "o_entry_d",
-               "o_carrier_id", "o_ol_cnt", "o_all_local"},
-              CatalogParser::getInstance())
-          .unpack()
-          .print(
-              [&](const auto& arg) -> std::vector<expression_t> {
-                return {arg["o_id"],     arg["o_d_id"],     arg["o_w_id"],
-                        arg["o_c_id"],   arg["o_entry_d"],  arg["o_carrier_id"],
-                        arg["o_ol_cnt"], arg["o_all_local"]};
-              },
-              (output_binary ? pg(bin_plugin) : pg(csv_plugin)),
-              (output_binary ? "tpcc_order" : "tpcc_order.tbl"));
+  auto rel = getBuilder()
+                 .scan<ch_access_plugin>(
+                     "tpcc_order<block-remote>",
+                     {"o_id", "o_d_id", "o_w_id", "o_c_id", "o_entry_d",
+                      "o_carrier_id", "o_ol_cnt", "o_all_local"},
+                     CatalogParser::getInstance())
+                 .unpack()
+                 .print((output_binary ? pg(bin_plugin) : pg(csv_plugin)),
+                        (output_binary ? "tpcc_order" : "tpcc_order.tbl"));
   return rel.prepare();
 }

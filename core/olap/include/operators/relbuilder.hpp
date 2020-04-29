@@ -80,6 +80,13 @@ class RelBuilder {
   void registerPlugin(const std::string& relName, Plugin* pg) const;
 
  public:
+  typedef std::function<std::vector<RecordAttribute*>(
+      const expressions::InputArgument&)>
+      MultiAttributeFactory;
+  typedef std::function<std::vector<expression_t>(
+      const expressions::InputArgument&)>
+      MultiExpressionFactory;
+
   RelBuilder scan(Plugin& pg) const;
 
   RelBuilder scan(std::string relName, const std::vector<std::string>& relAttrs,
@@ -114,19 +121,14 @@ class RelBuilder {
 
   RelBuilder print(pg pgType) const;
 
-  RelBuilder print(std::function<
-                   std::vector<expression_t>(const expressions::InputArgument&)>
-                       exprs) const;
+  [[deprecated]] RelBuilder print(std::function<std::vector<expression_t>(
+                                      const expressions::InputArgument&)>
+                                      exprs) const;
 
   RelBuilder print(std::function<std::vector<expression_t>(
                        const expressions::InputArgument&)>
                        exprs,
                    pg pgType) const;
-
-  RelBuilder print(std::function<std::vector<expression_t>(
-                       const expressions::InputArgument&)>
-                       exprs,
-                   pg pgType, std::string outrel) const;
 
   [[deprecated]] RelBuilder print(
       std::function<std::vector<expression_t>(const expressions::InputArgument&,
@@ -230,28 +232,12 @@ class RelBuilder {
 
   RelBuilder unionAll(const std::vector<RelBuilder>& children) const;
 
-  RelBuilder to_gpu() const;
+  [[nodiscard]] RelBuilder to_gpu() const;
 
-  template <typename T>
-  RelBuilder to_gpu(T attr) const {
-    return to_gpu(attr(getOutputArg()));
-  }
+  [[nodiscard]] RelBuilder to_cpu(gran_t granularity = gran_t::THREAD,
+                                  size_t size = 1024 * 1024 / 4) const;
 
-  RelBuilder to_cpu(gran_t granularity = gran_t::THREAD,
-                    size_t size = 1024 * 1024 / 4) const;
-
-  template <typename T>
-  RelBuilder to_cpu(T attr, gran_t granularity = gran_t::THREAD,
-                    size_t size = 1024 * 1024 / 4) const {
-    return to_cpu(attr(getOutputArg()), granularity, size);
-  }
-
-  template <typename T>
-  RelBuilder unpack(T expr) const {
-    return unpack(expr(getOutputArgUnnested()));
-  }
-
-  RelBuilder unpack() const {
+  [[nodiscard]] RelBuilder unpack() const {
     return unpack([&](const auto& arg) -> std::vector<expression_t> {
       std::vector<expression_t> attrs;
       for (const auto& attr : arg.getProjections()) {
@@ -325,20 +311,16 @@ class RelBuilder {
     return pack(expr(getOutputArg()), hashExpr(getOutputArg()), numOfBuckets);
   }
 
-  template <typename T>
-  RelBuilder pack(T expr) const {
+  [[nodiscard]] RelBuilder pack() const {
     return pack(
-        expr, [](const auto& arg) { return expression_t{0}; }, 1);
-  }
-
-  RelBuilder pack() const {
-    return pack([&](const auto& arg) -> std::vector<expression_t> {
-      std::vector<expression_t> attrs;
-      for (const auto& attr : arg.getProjections()) {
-        attrs.emplace_back(arg[attr]);
-      }
-      return attrs;
-    });
+        [&](const auto& arg) -> std::vector<expression_t> {
+          std::vector<expression_t> attrs;
+          for (const auto& attr : arg.getProjections()) {
+            attrs.emplace_back(arg[attr]);
+          }
+          return attrs;
+        },
+        [](const auto& arg) { return expression_t{0}; }, 1);
   }
 
   template <typename T>
@@ -346,8 +328,8 @@ class RelBuilder {
     return project(expr(getOutputArg()));
   }
 
-  template <typename T>
-  RelBuilder reduce(T expr, const vector<Monoid>& accs) const {
+  RelBuilder reduce(const MultiExpressionFactory& expr,
+                    const vector<Monoid>& accs) const {
     return reduce(expr(getOutputArg()), accs);
   }
 
@@ -416,6 +398,11 @@ class RelBuilder {
   RelBuilder print(const vector<expression_t>& e, Plugin* pg,
                    bool may_overwrite = false) const;
 
+  RelBuilder print(std::function<std::vector<expression_t>(
+                       const expressions::InputArgument&)>
+                       exprs,
+                   pg pgType, std::string outrel) const;
+
   RelBuilder unnest(expression_t e) const;
 
   RelBuilder router(const vector<RecordAttribute*>& wantedFields,
@@ -451,6 +438,13 @@ class RelBuilder {
   RelBuilder morsel_join(RelBuilder build, expression_t build_k,
                          expression_t probe_k, int hash_bits,
                          size_t maxBuildInputSize) const;
+
+  // Helpers
+
+  template <typename T>
+  RelBuilder unpack(T expr) const {
+    return unpack(expr(getOutputArgUnnested()));
+  }
 
   friend class PlanExecutor;
 };
