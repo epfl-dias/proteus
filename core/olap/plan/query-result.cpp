@@ -81,7 +81,17 @@ QueryResult::~QueryResult() {
   if (fsize) munmap(resultBuf, fsize);
 
   // We can now unlink the file from the filesystem
-  linux_run(shm_unlink(q.c_str()));
+  if (std::filesystem::is_directory(q)) {
+    LOG(INFO) << "Not unlinking dir " << q;
+  } else {
+    auto x = shm_unlink(q.c_str());
+    if (x < 0 &&
+        errno == EISDIR) {  // std::filesystem may not know the file type
+      LOG(INFO) << "Not unlinking dir " << q;
+    } else {
+      linux_run(x);
+    }
+  }
 }
 
 std::ostream &operator<<(std::ostream &out, const QueryResult &qr) {
