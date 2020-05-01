@@ -210,3 +210,5 @@ void syncAndDestroyStream(cudaStream_t strm) {
   gpu_run(cudaStreamSynchronize(strm));
   gpu_run(cudaStreamDestroy(strm));
 }
+
+dim3 defaultGridDim = {40, 1, 1};

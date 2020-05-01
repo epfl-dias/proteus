@@ -358,6 +358,14 @@ topology::gpunode::gpunode(uint32_t id, uint32_t index_in_topo,
 #ifndef NCUDA
   gpu_run(cudaGetDeviceProperties(&properties, id));
 
+  defaultGridDim =
+      dim3(std::max((decltype(dim3::x))properties.multiProcessorCount *
+                        ((properties.maxThreadsPerMultiProcessor +
+                          defaultBlockDim.x - 1) /
+                         defaultBlockDim.x),
+                    defaultGridDim.x),
+           1, 1);
+
   uint32_t sets = ((all_cores.size() + 63) / 64);
   uint64_t cpuSet[sets];
   for (uint32_t i = 0; i < sets; ++i) cpuSet[i] = 0;
