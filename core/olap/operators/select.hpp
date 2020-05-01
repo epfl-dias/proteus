@@ -21,22 +21,23 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "expressions/expressions-generator.hpp"
+#include "expressions/expressions.hpp"
 #include "operators/operators.hpp"
 
-class Select : public UnaryOperator {
+class Select : public experimental::UnaryOperator {
  public:
-  Select(expression_t expr, Operator *const child)
+  Select(expression_t expr, Operator *child)
       : UnaryOperator(child), expr(std::move(expr)) {}
-  virtual ~Select() { LOG(INFO) << "Collapsing selection operator"; }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return true; }
+  void produce_(ParallelContext *context) override;
+  void consume(ParallelContext *context,
+               const OperatorState &childState) override;
+  [[nodiscard]] bool isFiltering() const override { return true; }
 
-  virtual RecordType getRowType() const { return getChild()->getRowType(); }
+  [[nodiscard]] RecordType getRowType() const override {
+    return getChild()->getRowType();
+  }
 
  private:
   expression_t expr;
-  void generate(Context *const context, const OperatorState &childState) const;
 };

@@ -27,12 +27,8 @@ void Select::produce_(ParallelContext *context) {
   getChild()->produce(context);
 }
 
-void Select::consume(Context *const context, const OperatorState &childState) {
-  generate(context, childState);
-}
-
-void Select::generate(Context *const context,
-                      const OperatorState &childState) const {
+void Select::consume(ParallelContext *context,
+                     const OperatorState &childState) {
   context->gen_if(expr, childState)([&] {
     // Triggering parent
     OperatorState newState{*this, childState};
