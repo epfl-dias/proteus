@@ -322,7 +322,11 @@ std::ostream &operator<<(std::ostream &out, const topology &topo) {
 
     for (auto cpu_id : gpu.local_cores) core_mask[cpu_id] = 'x';
 
-    out << core_mask << " | name: " << gpu.properties.name << '\n';
+    bytes memBusWidth{static_cast<size_t>(gpu.properties.memoryBusWidth / 8)};
+    out << core_mask;
+    out << " | memory bus width: " << memBusWidth;
+    out << " | name: " << gpu.properties.name;
+    out << '\n';
     // for ( auto cpu_id : gpu.local_cores  ) {
     //     if (cpu_id)
     //     out << std::setw(4) << cpu_id << " ";
