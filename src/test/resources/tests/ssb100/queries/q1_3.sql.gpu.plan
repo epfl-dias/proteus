@@ -1,0 +1,24 @@
+PelagoToEnumerableConverter
+  PelagoDeviceCross
+    PelagoAggregate
+      PelagoUnpack
+        PelagoDeviceCross
+          PelagoRouter
+            PelagoDeviceCross
+              PelagoPack
+                PelagoAggregate
+                  PelagoProject
+                    PelagoJoin
+                      PelagoProject
+                        PelagoFilter
+                          PelagoUnpack
+                            PelagoDeviceCross
+                              PelagoRouter
+                                PelagoTableScan
+                      PelagoProject
+                        PelagoFilter
+                          PelagoUnpack
+                            PelagoDeviceCross
+                              PelagoRouter
+                                PelagoTableScan
+
