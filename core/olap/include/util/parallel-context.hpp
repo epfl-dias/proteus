@@ -101,10 +101,10 @@ class ParallelContext : public Context {
                    decltype(__builtin_FILE()) file = __builtin_FILE(),
                    decltype(__builtin_LINE()) line = __builtin_LINE());
 
-  virtual llvm::Function *getFunctionOverload(std::string name,
-                                              llvm::Type *type);
-  virtual std::string getFunctionNameOverload(std::string name,
-                                              llvm::Type *type);
+  [[nodiscard]] virtual llvm::Function *getFunctionOverload(std::string name,
+                                                            llvm::Type *type);
+  [[nodiscard]] virtual std::string getFunctionNameOverload(std::string name,
+                                                            llvm::Type *type);
 
   virtual llvm::BasicBlock *getEndingBlock();
   virtual void setEndingBlock(llvm::BasicBlock *codeEnd);

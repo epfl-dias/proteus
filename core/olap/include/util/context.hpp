@@ -97,6 +97,8 @@ class StateVar {
   friend class GpuPipelineGen;
 };
 
+std::string getFunctionName(void *f);
+
 class Context {
  private:
   const std::string moduleName;
@@ -300,6 +302,31 @@ class Context {
 
   virtual if_branch gen_if(const expression_t &expr,
                            const OperatorState &state);
+
+  template <typename T>
+  llvm::Type *toLLVM() {
+    if constexpr (std::is_pointer_v<T>) {
+      return llvm::PointerType::getUnqual(
+          toLLVM<std::remove_cv_t<std::remove_pointer_t<T>>>());
+    } else if constexpr (std::is_integral_v<T>) {
+      return llvm::Type::getIntNTy(getLLVMContext(), sizeof(T) * 8);
+    } else if constexpr (std::is_same_v<T, double>) {
+      return llvm::Type::getDoubleTy(getLLVMContext());
+    } else if constexpr (std::is_same_v<T, float>) {
+      return llvm::Type::getFloatTy(getLLVMContext());
+    } else {
+      LOG(INFO) << "Unknown type " << typeid(T).name()
+                << " substituting with sized placeholder";
+      return llvm::Type::getIntNTy(getLLVMContext(), sizeof(T) * 8);
+    }
+  }
+
+  template <typename R, typename... Args>
+  llvm::Value *gen_call(R (*func)(Args...),
+                        std::initializer_list<llvm::Value *> args) {
+    auto fname = getFunctionName((void *)func);
+    return gen_call(fname, args, toLLVM<std::remove_cv_t<R>>());
+  }
 
   virtual llvm::Value *gen_call(std::string func,
                                 std::initializer_list<llvm::Value *> args,

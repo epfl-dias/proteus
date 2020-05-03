@@ -23,6 +23,8 @@
 
 #include "util/context.hpp"
 
+#include <dlfcn.h>
+
 #include "expressions/expressions-generator.hpp"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
@@ -339,6 +341,10 @@ ConstantInt *Context::createFalse() {
   return ConstantInt::get(getLLVMContext(), APInt(1, 0));
 }
 
+/**
+ * The source of all evil, but some times useful.
+ * Avoid at any cost, especially for long-lived purposes
+ */
 Value *Context::CastPtrToLlvmPtr(PointerType *type, const void *ptr) {
   Constant *const_int = createInt64((uint64_t)ptr);
   Value *llvmPtr = ConstantExpr::getIntToPtr(const_int, type);
@@ -785,4 +791,16 @@ if_branch Context::gen_if(ProteusValue cond) { return if_branch(cond, this); }
 if_branch Context::gen_if(const expression_t &expr,
                           const OperatorState &state) {
   return if_branch(expr, state, this);
+}
+
+std::string getFunctionName(void *f) {
+  Dl_info info{};
+#ifndef NDEBUG
+  int ret =
+#endif
+      dladdr(f, &info);
+  assert(ret && "Looking for function failed");
+  assert(info.dli_saddr == (decltype(Dl_info::dli_saddr))f);
+  assert(info.dli_sname);
+  return info.dli_sname;
 }
