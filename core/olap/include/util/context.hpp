@@ -74,12 +74,6 @@ class StateVar {
   // constexpr StateVar(StateVar &&) = default;
   // constexpr StateVar(const StateVar &) = default;
   // StateVar &operator=(StateVar &&) = default;
-  StateVar &operator=(const StateVar &o) {
-    assert(index_in_pip == ~size_t{0} || pip == o.pip);
-    index_in_pip = o.index_in_pip;
-    pip = o.pip;
-    return *this;
-  }
 
   inline bool operator==(const StateVar &o) const {
     return index_in_pip == o.index_in_pip && pip == o.pip;
