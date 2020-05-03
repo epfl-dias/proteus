@@ -826,31 +826,30 @@ ParallelContext *prepareContext(string moduleName) {
 }
 
 template <typename T>
-void flushBinary_impl(const T &toFlush, const char *fileName) {
-  Catalog::getInstance().getSerializer(fileName).write(
-      reinterpret_cast<const char *>(&toFlush), sizeof(T));
+void flushBinary_impl(const T &toFlush, std::ostream *fileName) {
+  fileName->write(reinterpret_cast<const char *>(&toFlush), sizeof(T));
 }
 
-extern "C" void flushBinaryi8(int8_t x, const char *fileName) {
+extern "C" void flushBinaryi8(int8_t x, std::ostream *fileName) {
   flushBinary_impl(x, fileName);
 }
 
-extern "C" void flushBinaryi16(int16_t x, const char *fileName) {
+extern "C" void flushBinaryi16(int16_t x, std::ostream *fileName) {
   flushBinary_impl(x, fileName);
 }
 
-extern "C" void flushBinaryi32(int32_t x, const char *fileName) {
+extern "C" void flushBinaryi32(int32_t x, std::ostream *fileName) {
   flushBinary_impl(x, fileName);
 }
 
-extern "C" void flushBinaryi64(int64_t x, const char *fileName) {
+extern "C" void flushBinaryi64(int64_t x, std::ostream *fileName) {
   flushBinary_impl(x, fileName);
 }
 
-extern "C" void flushBinarydouble(double x, const char *fileName) {
+extern "C" void flushBinarydouble(double x, std::ostream *fileName) {
   flushBinary_impl(x, fileName);
 }
 
-extern "C" void flushBinaryfloat(float x, const char *fileName) {
+extern "C" void flushBinaryfloat(float x, std::ostream *fileName) {
   flushBinary_impl(x, fileName);
 }

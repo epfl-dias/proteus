@@ -740,6 +740,10 @@ void BinaryBlockPlugin::flushValue(Context *context,
                             fileName + "/" + fileName);
 }
 
+auto *getSerializer(const char *fileName) {
+  return &Catalog::getInstance().getSerializer(fileName);
+}
+
 void BinaryBlockPlugin::flushValueInternal(Context *context,
                                            ProteusValueMemory mem_value,
                                            const ExpressionType *type,
@@ -752,7 +756,6 @@ void BinaryBlockPlugin::flushValueInternal(Context *context,
 
       size_t i = 0;
       for (const auto &attr : attrs) {
-        LOG(INFO) << attr->getAttrName();
         // value
         auto partialFlush = context->toMem(
             Builder->CreateExtractValue(val_attr, i), context->createFalse());
@@ -777,11 +780,23 @@ void BinaryBlockPlugin::flushValueInternal(Context *context,
       throw runtime_error("Unsupported datatype");
     }
     default: {
+      auto BB = Builder->GetInsertBlock();
+
+      // Find serializer, in the entry block
+      Builder->SetInsertPoint(context->getCurrentEntryBlock());
+      auto f = context->CreateGlobalString(fileName.c_str());
+      //      auto ser = context->gen_call(
+      //          static_cast<std::stringstream *(*)(const char
+      //          *)>(getSerializer), {f});
+      auto ser = context->gen_call(getSerializer, {f});
+      Builder->SetInsertPoint(BB);
+
+      // Back to normal flow, find cached serializer value
       auto flushFunc =
           dynamic_cast<ParallelContext *>(context)->getFunctionNameOverload(
               "flushBinary", val_attr->getType());
-      auto f = context->CreateGlobalString(fileName.c_str());
-      context->gen_call(flushFunc, {val_attr, f},
+
+      context->gen_call(flushFunc, {val_attr, ser},
                         Type::getVoidTy(context->getLLVMContext()));
       return;
     }
