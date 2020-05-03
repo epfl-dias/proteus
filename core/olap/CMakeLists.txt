@@ -80,6 +80,8 @@ set(olap_cxx
         util/caching.cpp
         util/catalog.cpp
         util/context.cpp
+        util/demangle.cpp
+        util/flush-operator-tree.cpp
         util/functions.cpp
         util/gpu/gpu-intrinsics.cpp
         util/jit/control-flow/if-statement.cpp
@@ -92,7 +94,8 @@ set(olap_cxx
         util/parallel-context.cpp
         util/project-record.cpp
         values/expressionTypes.cpp
-        values/indexed-seq.cpp)
+        values/indexed-seq.cpp
+        )
 
 # C++ files requiring CUDA headers
 set(olap_cxx_cu

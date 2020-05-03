@@ -28,6 +28,7 @@
 #include <iomanip>
 #include <operators/bloom-filter/bloom-filter-build.hpp>
 #include <operators/bloom-filter/bloom-filter-probe.hpp>
+#include <util/flush-operator-tree.hpp>
 
 #include "hash-join-chained-morsel.hpp"
 #include "operators/block-to-tuples.hpp"
@@ -682,4 +683,8 @@ RelBuilder RelBuilder::bloomfilter_build(expression_t pred, size_t filterSize,
                                          uint64_t bloomId) const {
   auto op = new BloomFilterBuild(root, std::move(pred), filterSize, bloomId);
   return apply(op);
+}
+
+std::ostream &operator<<(std::ostream &out, const RelBuilder &builder) {
+  return out << *(builder.operator->());
 }

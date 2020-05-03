@@ -37,14 +37,14 @@ class PreparedStatement;
 class CatalogParser;
 class ParallelContext;
 
-class pg {
+class [[nodiscard]] pg {
  private:
   const std::string pgType;
 
  public:
   explicit pg(std::string pgType) : pgType(std::move(pgType)) {}
 
-  auto getType() const { return pgType; }
+  [[nodiscard]] auto getType() const { return pgType; }
 };
 
 class RelBuilder {
@@ -350,6 +350,7 @@ class RelBuilder {
   }
 
   Operator* operator->() { return root; }
+  Operator* operator->() const { return root; }
 
   PreparedStatement prepare();
 
@@ -443,5 +444,7 @@ class RelBuilder {
 
   friend class PlanExecutor;
 };
+
+std::ostream& operator<<(std::ostream& out, const RelBuilder& builder);
 
 #endif /* RELBUILDER_HPP_ */
