@@ -64,6 +64,8 @@ class UnionAll : public Router {
     return children[0]->getDeviceType();
   }
 
+  std::vector<Operator *> getChildren() const { return children; }
+
  private:
   vector<Operator *> children;
 };
