@@ -1,31 +1,13 @@
 package ch.epfl.dias.repl
 
-import java.io.PrintWriter
-import java.net.URL
-import java.sql.{Connection, DriverManager, Statement}
+import java.sql.DriverManager
 import java.util.Properties
 
-import org.apache.calcite.plan.{Convention, RelOptPlanner, RelOptUtil, RelTraitSet}
-import ch.epfl.dias.emitter.{PlanConversionException, PlanToJSON}
-import ch.epfl.dias.sql.QueryToPlan
-import com.google.common.io.Resources
-import org.apache.calcite.adapter.enumerable.EnumerableConvention
-import org.apache.calcite.avatica.server.HttpServer
-import org.apache.calcite.interpreter.InterpretableConvention
-import org.apache.calcite.jdbc.CalciteConnection
-import org.apache.calcite.plan.hep.{HepPlanner, HepProgramBuilder}
-import org.apache.calcite.rel.logical.LogicalExchange
-import org.apache.calcite.rel._
-import org.apache.calcite.sql.SqlExplainLevel
-import org.json4s.JsonAST.JValue
-import org.apache.calcite.sql.parser.SqlParseException
-import org.apache.calcite.sql.validate.SqlValidatorException
-import org.apache.calcite.tools.ValidationException
-import org.apache.calcite.avatica.remote.Driver.Serialization
 import org.apache.calcite.avatica.jdbc.JdbcMeta
+import org.apache.calcite.avatica.remote.Driver.Serialization
 import org.apache.calcite.avatica.remote.LocalService
+import org.apache.calcite.avatica.server.HttpServer
 
-import scala.io.{BufferedSource, Source, StdIn}
 import scala.sys.process.Process
 
 object Repl extends App {

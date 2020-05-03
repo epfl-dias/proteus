@@ -15,6 +15,10 @@ class PelagoUnion protected
     extends Union(cluster, traitSet, inputs, all) with PelagoRel {
   assert(getConvention eq PelagoRel.CONVENTION)
   assert(all)
+  if (getInput(1).getTraitSet.getTrait(RelSplitPointTraitDef.INSTANCE).point != getInput(0).getTraitSet.getTrait(RelSplitPointTraitDef.INSTANCE).point) {
+    println("=>" + id + " " + getInput(0).getTraitSet.getTrait(RelSplitPointTraitDef.INSTANCE).point)
+    println("=>" + id + " " + getInput(1).getTraitSet.getTrait(RelSplitPointTraitDef.INSTANCE).point)
+  }
 
   override def copy(traitSet: RelTraitSet, inputs: java.util.List[RelNode], all: Boolean) = {
     PelagoUnion.create(inputs, all)

@@ -34,7 +34,7 @@ object CostModel {
       MemBW(unpack.getRowType.getFieldCount * 16)
     case pack: PelagoPack =>
       // Materialization cost
-      MemBW(pack.getRowType.getFieldCount * blockSize)
+      MemBW(pack.getRowType.getFieldCount * blockSize * 16)
     case _: PelagoUnion =>
 //      var cnt = 0
 //      val splits = new mutable.HashSet[Long]

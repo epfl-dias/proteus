@@ -3,8 +3,8 @@ package ch.epfl.dias.calcite.adapter.pelago
 import java.util
 
 import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMetadataQuery}
-import ch.epfl.dias.emitter.{Binding, PlanConversionException}
 import ch.epfl.dias.emitter.PlanToJSON._
+import ch.epfl.dias.emitter.{Binding, PlanConversionException}
 import org.apache.calcite.plan.{RelOptCluster, RelOptCost, RelOptPlanner, RelTraitSet}
 import org.apache.calcite.rel._
 import org.apache.calcite.rel.core.{Aggregate, AggregateCall}
@@ -135,7 +135,7 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
       //FIXME: reconsider these upper limits
       val rowEst = Math.min(getCluster.getMetadataQuery.getRowCount(getInput), 1*1024*1024) //1 vs 128 vs 64
       val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getInput)
-      val maxEst = 131072 //if (maxrow != null) Math.min(maxrow, 32*1024*1024) else 32*1024*1024 //1 vs 128 vs 64
+      val maxEst = 256*1024 //if (maxrow != null) Math.min(maxrow, 32*1024*1024) else 32*1024*1024 //1 vs 128 vs 64
 
       val hash_bits = 10 //Math.min(1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 10)
 
@@ -162,8 +162,9 @@ object PelagoAggregate{
     val cluster = input.getCluster
     val mq = cluster.getMetadataQuery
     val dev = PelagoRelMdDeviceType.aggregate(mq, input)
-    val traitSet = cluster.traitSet
-      .replace(PelagoRel.CONVENTION)
+    val traitSet = input.getTraitSet
+      .replace(PelagoRel.CONVENTION).replace(PelagoRel.CONVENTION)
+      .replaceIf(RelCollationTraitDef.INSTANCE, () => RelCollations.EMPTY)
       .replaceIf(RelHomDistributionTraitDef.INSTANCE, () => mq.asInstanceOf[PelagoRelMetadataQuery].homDistribution(input))
       .replaceIf(RelHetDistributionTraitDef.INSTANCE, () => mq.asInstanceOf[PelagoRelMetadataQuery].hetDistribution(input))
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))

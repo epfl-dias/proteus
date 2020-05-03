@@ -434,23 +434,15 @@ struct entry {
 // };
 
 void GpuHashGroupByChained::close(Pipeline *pip) {
-  // int32_t * cnt_ptr = pip->getStateVar<int32_t  *>(cnt_param_id);
-  // entry * h_next;
-  // int32_t * h_first;
-  // int32_t cnt;
-  // std::cout << packet_widths[0]/8 << " " << sizeof(entry) << std::endl;
-  // assert(packet_widths[0]/8 == sizeof(entry));
-  // size_t size = (packet_widths[0]/8) * maxInputSize;
-  // gpu_run(cudaMallocHost((void **) &h_next , size));
-  // gpu_run(cudaMallocHost((void **) &h_first, sizeof(int32_t  ) * (1 <<
-  // hash_bits))); gpu_run(cudaMemcpy(&cnt  , cnt_ptr, sizeof(int32_t),
-  // cudaMemcpyDefault)); std::cout << "---------------------------> " << cnt <<
-  // " " << maxInputSize << std::endl; gpu_run(cudaMemcpy(h_next,
-  // pip->getStateVar<void *>(out_param_ids[0]), cnt * (packet_widths[0]/8),
-  // cudaMemcpyDefault)); gpu_run(cudaMemcpy(h_first, pip->getStateVar<void
-  // *>(head_param_id), sizeof(int32_t  ) * (1 << hash_bits),
-  // cudaMemcpyDefault));
-
+  int32_t h_cnt = -1;
+  gpu_run(cudaMemcpy(&h_cnt, pip->getStateVar<int32_t *>(cnt_param_id),
+                     sizeof(int32_t), cudaMemcpyDefault));
+  LOG_IF(INFO, h_cnt < 0.5 * maxInputSize || h_cnt >= maxInputSize)
+      << "Actual build "
+         "input size: "
+      << h_cnt;
+  assert(((size_t)h_cnt) <= maxInputSize &&
+         "Build input sized exceeded given parameter");
   // for (int32_t i = 0 ; i < cnt ; ++i){
   //     if (h_next[i].index != i){
   //         std::cout << i << " " << h_next[i].index << std::endl;//" " <<

@@ -114,7 +114,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
 //                }
             };
         planner.addRelTraitDef(ConventionTraitDef.INSTANCE);
-        planner.addListener(new RelOptListener() {
+        if (false) planner.addListener(new RelOptListener() {
             final HashMap<RelOptRule, Long> invocations = new HashMap<>();
             final HashMap<RelOptRule, Long> transforms = new HashMap<>();
             final HashMap<Pair<RelTraitSet, RelTraitSet>, Long> expands = new HashMap<>();

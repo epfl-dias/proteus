@@ -498,6 +498,7 @@ add_subdirectory(jsmn)
 
 # code generation library
 add_subdirectory(core/platform)
+add_subdirectory(core/planner)
 add_subdirectory(core/olap)
 
 #-----------------------------------------------------------------------

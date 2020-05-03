@@ -99,7 +99,6 @@ __host__ void buffer_manager<T>::__release_buffer_host(T *buff) {
     size_t size = device_buffs_pool[gpu->id].size();
     if (size > keep_threshold) {
       uint32_t devid = gpu->id;
-      LOG(INFO) << "releasing buffers to gpu " << gpu->id;
       nvtxRangePushA("release_buffer_host_devbuffer_overflow");
       for (size_t i = 0; i < device_buff_size; ++i)
         device_buff[devid][i] = device_buffs_pool[devid][size - i - 1];

@@ -10,6 +10,7 @@ import org.json4s._
 
 class PelagoSplit protected(cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode, val hetdistribution: RelHetDistribution, val splitId: Long)
     extends PelagoRouter(cluster, traitSet, input, traitSet.getTrait(RelHomDistributionTraitDef.INSTANCE)) with Converter {
+//  assert(splitId == RelSplitPoint.getOrCreateId(input).get)
   assert(getConvention eq PelagoRel.CONVENTION)
   assert(getConvention eq input.getConvention)
 
@@ -122,15 +123,16 @@ object PelagoSplit{
 
   def create(input: RelNode, distribution: RelHetDistribution): PelagoSplit = {
     val splitId = RelSplitPoint.getOrCreateId(input)
+    assert(splitId.nonEmpty)
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION).replace(distribution)
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64)
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.NONE)
-      .replaceIf(RelSplitPointTraitDef.INSTANCE, () => RelSplitPoint.of(splitId))
-    new PelagoSplit(input.getCluster, traitSet, input, distribution, splitId)
+      .replaceIf(RelSplitPointTraitDef.INSTANCE, () => RelSplitPoint.of(splitId.get))
+    new PelagoSplit(input.getCluster, traitSet, input, distribution, splitId.get)
   }
 
   def create(input: RelNode, distribution: RelHetDistribution, _splitId: Long): PelagoSplit = {
-    val splitId = RelSplitPoint.getOrCreateId(input)
+    val splitId = RelSplitPoint.getOrCreateId(input).getOrElse(_splitId)
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION).replace(distribution)
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64)
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.NONE)

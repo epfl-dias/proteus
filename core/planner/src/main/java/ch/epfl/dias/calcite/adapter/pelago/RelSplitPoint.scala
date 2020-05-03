@@ -2,7 +2,7 @@ package ch.epfl.dias.calcite.adapter.pelago
 
 import java.util
 
-import org.apache.calcite.plan.volcano.VolcanoPlanner
+import org.apache.calcite.plan.volcano.{StealSetId, VolcanoPlanner}
 import org.apache.calcite.plan.{RelOptPlanner, RelTrait}
 import org.apache.calcite.rel.RelNode
 
@@ -29,16 +29,20 @@ object RelSplitPoint {
   var split_cnt: Long = 0;
   val mem = new collection.mutable.WeakHashMap[Any, Long]
 
-  def getOrCreateId(input: RelNode): Long = {
+  def getOrCreateId(input: RelNode): Option[Long] = {
     val set = input.getCluster.getPlanner.asInstanceOf[VolcanoPlanner].getSet(input)
-    if (set == null) println(input)
-//    assert(set != null)
-    mem.getOrElseUpdate(set, {
-//      println(split_cnt + ": " + input)
+    if (set == null) {
+      println(input)
+      println(input.getInputs.get(0))
+      return Option.empty;
+    }
+    val id = if (set == null) input else StealSetId.getSetId(set)
+    Option(mem.getOrElseUpdate(id, {
+      println(split_cnt + ": " + input)
       val splitId = split_cnt
       split_cnt += 1
       splitId
-    })
+    }))
   }
 
   def merge(s1: RelSplitPoint, s2: RelSplitPoint): RelSplitPoint = {
@@ -48,7 +52,7 @@ object RelSplitPoint {
     of(s1.point ++ s2.point)
   }
 
-  def of(r: RelNode): RelSplitPoint = of(getOrCreateId(r))
+  def of(r: RelNode): RelSplitPoint = of(getOrCreateId(r).get)
 }
 
 class RelSplitPoint private(val point: Set[Long]) extends PelagoTrait {
