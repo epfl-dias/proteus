@@ -23,7 +23,18 @@
 
 #include "data-export-ch.hpp"
 
+#if __has_include(<filesystem>)
 #include <filesystem>
+namespace fs = std::filesystem;
+#else
+// TODO: remove as soon as the default GCC moves filesystem out of experimental
+//  GCC 8.3 has made the transition, but the default GCC in Ubuntu 18.04 is 7.4
+#include <experimental/filesystem>
+namespace std {
+namespace filesystem = std::experimental::filesystem;
+}
+#endif
+
 #include <system_error>
 
 void DataExporter_CH::exportAll(std::string& output_dir) {
