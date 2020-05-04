@@ -23,7 +23,7 @@ public class RelHetDistributionTraitDef extends RelTraitDef<RelHetDistribution> 
 
   @Override public RelNode convert(RelOptPlanner planner, RelNode rel, RelHetDistribution distribution,
                                    boolean allowInfiniteCostConverters) {
-    if (rel.getConvention() != PelagoRel.CONVENTION){
+    if (rel.getConvention() != PelagoRel.CONVENTION()){
       return null;
     }
 
@@ -39,13 +39,13 @@ public class RelHetDistributionTraitDef extends RelTraitDef<RelHetDistribution> 
     if (distribution == RelHetDistribution.SPLIT || distribution == RelHetDistribution.SPLIT_BRDCST) {
       if (!input.getTraitSet().contains(RelHetDistribution.SINGLETON)) return null;
       if (!input.getTraitSet().containsIfApplicable(RelPacking.Packed)) return null;
-      if (!input.getTraitSet().containsIfApplicable(RelSplitPoint.NONE())) return null;
+//      if (!input.getTraitSet().containsIfApplicable(RelSplitPoint.NONE())) return null;
       router = PelagoSplit.create(input, distribution);
     } else {
 //      if (input.getTraitSet().containsIfApplicable(RelSplitPoint.NONE())) return null;
       if (!input.getTraitSet().contains(RelHetDistribution.SPLIT)) return null;
-      RelTraitSet c = input.getTraitSet().replace(RelComputeDevice.X86_64);
-      RelTraitSet g = input.getTraitSet().replace(RelComputeDevice.NVPTX);
+      RelTraitSet c = input.getTraitSet().replace(RelComputeDevice.X86_64).replace(RelDeviceType.X86_64);
+      RelTraitSet g = input.getTraitSet().replace(RelComputeDevice.NVPTX).replace(RelDeviceType.X86_64);
       RelNode ing = input;
       RelNode inc = input;
       planner.register(inc, rel);

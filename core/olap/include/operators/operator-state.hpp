@@ -58,6 +58,7 @@ class OperatorState {
       LOG(INFO) << "Looking for: " << key;
       for (const auto &v : activeVariables) {
         LOG(INFO) << "  Active binding: " << v.first;
+        if (v.first.getAttrName() == key.getAttrName()) return v.second;
       }
       throw;
     }

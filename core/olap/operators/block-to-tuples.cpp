@@ -227,6 +227,11 @@ void BlockToTuples::consume(ParallelContext *const context,
   mem_posWrapper.mem = mem_itemCtr;
   mem_posWrapper.isNull = context->createFalse();
   variableBindings[tupleIdentifier] = mem_posWrapper;
+  for (const auto &w : wantedFields) {
+    RecordAttribute tIdentifier{w.getRegisteredRelName(), activeLoop,
+                                pg->getOIDType()};
+    variableBindings[tIdentifier] = mem_posWrapper;
+  }
 
   // Actual Work (Loop through attributes etc.)
   for (const auto &field : wantedFields) {

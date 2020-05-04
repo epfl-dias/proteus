@@ -8,11 +8,10 @@ import org.apache.calcite.rel.{RelCollationTraitDef, RelCollations}
 //import ch.epfl.dias.calcite.adapter.pelago.`trait`.RelDeviceType
 //import ch.epfl.dias.calcite.adapter.pelago.`trait`.RelDeviceTypeTraitDef
 import ch.epfl.dias.emitter.Binding
-import ch.epfl.dias.emitter.PlanToJSON.emitSchema
 import org.apache.calcite.plan._
-import org.apache.calcite.rel.{RelNode, RelWriter, SingleRel}
 import org.apache.calcite.rel.convert.Converter
 import org.apache.calcite.rel.metadata.RelMetadataQuery
+import org.apache.calcite.rel.{RelNode, RelWriter, SingleRel}
 import org.json4s.JValue
 import org.json4s.JsonDSL._
 
@@ -70,10 +69,10 @@ class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, i
     )
     val child = getInput.asInstanceOf[PelagoRel].implement(getDeviceType, alias)
     val childBinding = child._1
-    var childOp = child._2
+    val childOp = child._2
 //    assert(childBinding.rel == alias)
 
-    val rowType = emitSchema(childBinding.rel, getRowType, false, getTraitSet.containsIfApplicable(RelPacking.Packed))
+//    val rowType = emitSchema(childBinding.rel, getRowType, false, getTraitSet.containsIfApplicable(RelPacking.Packed))
 //
 //    if (target != null && getDeviceType() == RelDeviceType.NVPTX && getTraitSet.containsIfApplicable(RelPacking.Packed) && !getTraitSet.containsIfApplicable(RelDistributions.SINGLETON)) {
 //      childOp = ("operator", "mem-move-device") ~
@@ -83,7 +82,6 @@ class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, i
 //    }
 
     var json = op ~
-      ("projections", rowType) ~
       ("queueSize", 1024*1024/4) ~ //FIXME: make adaptive
       ("granularity", "thread") ~ //FIXME: not always
       ("input", childOp)
@@ -91,7 +89,6 @@ class PelagoDeviceCross protected(cluster: RelOptCluster, traits: RelTraitSet, i
 
     if (target != null && hasMemMovePrivate) {
       json = ("operator", "mem-move-device") ~
-        ("projections", emitSchema(childBinding.rel, getRowType, false, true)) ~
         ("input", json) ~
         ("to_cpu", target != RelDeviceType.NVPTX) ~
         ("do_transfer", getRowType.getFieldList.asScala.map(_ => true))

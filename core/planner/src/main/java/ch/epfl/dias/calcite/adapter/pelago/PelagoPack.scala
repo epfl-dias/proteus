@@ -3,17 +3,12 @@ package ch.epfl.dias.calcite.adapter.pelago
 import java.util
 
 import ch.epfl.dias.emitter.Binding
-import ch.epfl.dias.emitter.PlanToJSON._
 import org.apache.calcite.plan._
 import org.apache.calcite.rel.convert.Converter
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rel.{RelNode, SingleRel}
-import org.apache.calcite.rex.RexInputRef
 import org.json4s.JValue
-import org.json4s.JsonAST.JObject
 import org.json4s.JsonDSL._
-
-import scala.collection.JavaConverters._
 
 class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: RelNode, val toPacking: RelPacking)
       extends SingleRel(cluster, traits, input) with PelagoRel with Converter {
@@ -44,15 +39,8 @@ class PelagoPack protected(cluster: RelOptCluster, traits: RelTraitSet, input: R
     val child = getInput.asInstanceOf[PelagoRel].implement(target, alias)
     val childBinding = child._1
     val childOp = child._2
-    val rowType = emitSchema(childBinding.rel, getRowType)
 
-    val projs = getRowType.getFieldList.asScala.zipWithIndex.map{
-      f => {
-        emitExpression(RexInputRef.of(f._2, getInput.getRowType), List(childBinding), this).asInstanceOf[JObject]
-      }
-    }
-
-    val json = op ~ ("projections", projs)~ ("input", childOp)
+    val json = op ~ ("input", childOp)
     val ret = (childBinding, json)
     ret
   }

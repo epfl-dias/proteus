@@ -64,6 +64,11 @@ class PelagoUnion protected
 object PelagoUnion{
   def create(inputs: java.util.List[RelNode], all: Boolean): PelagoUnion = {
     assert(inputs.get(0).getTraitSet.getTrait(RelSplitPointTraitDef.INSTANCE) == inputs.get(1).getTraitSet.getTrait(RelSplitPointTraitDef.INSTANCE))
+    assert(inputs.get(0).getTraitSet.getTrait(RelComputeDeviceTraitDef.INSTANCE) != inputs.get(1).getTraitSet.getTrait(RelComputeDeviceTraitDef.INSTANCE))
+    assert(!inputs.get(0).getTraitSet.contains(RelComputeDevice.X86_64NVPTX))
+    assert(!inputs.get(1).getTraitSet.contains(RelComputeDevice.X86_64NVPTX))
+    assert(inputs.get(0).getTraitSet.contains(RelDeviceType.X86_64))
+    assert(inputs.get(1).getTraitSet.contains(RelDeviceType.X86_64))
     val traitSet = inputs.get(0).getTraitSet.replace(PelagoRel.CONVENTION)
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.NONE)
       .replaceIf(RelHetDistributionTraitDef.INSTANCE, () => RelHetDistribution.SINGLETON)

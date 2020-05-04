@@ -22,7 +22,7 @@ import scala.collection.JavaConverters._
   */
 class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode, projects: util.List[_ <: RexNode], rowType: RelDataType) //        assert getConvention() == input.getConvention();
   extends Project(cluster, traitSet, input, projects, rowType) with PelagoRel {
-//  assert(getConvention eq PelagoRel.CONVENTION)
+//  assert(getConvention eq PelagoRel.CONVENTION())
 
   override def copy(traitSet: RelTraitSet, input: RelNode, projects: util.List[RexNode], rowType: RelDataType) = {
     PelagoProject.create(input, projects, rowType)

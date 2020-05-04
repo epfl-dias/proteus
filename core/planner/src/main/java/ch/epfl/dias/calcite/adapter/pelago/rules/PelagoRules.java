@@ -50,8 +50,8 @@ public class PelagoRules {
 
         PelagoConverterRule(Class<? extends RelNode> clazz,
                                String description) {
-            super(clazz, (Predicate<RelNode>) (e) -> true, Convention.NONE, PelagoRel.CONVENTION, PelagoRelFactories.PELAGO_BUILDER, description);
-            this.out = PelagoRel.CONVENTION;
+            super(clazz, (Predicate<RelNode>) (e) -> true, Convention.NONE, PelagoRel.CONVENTION(), PelagoRelFactories.PELAGO_BUILDER, description);
+            this.out = PelagoRel.CONVENTION();
         }
 
         public void onMatch(RelOptRuleCall call) {
@@ -108,7 +108,7 @@ public class PelagoRules {
         public RelNode convert(RelNode rel) {
             final Aggregate agg = (Aggregate) rel;
 
-            RelTraitSet traitSet = agg.getTraitSet().replace(PelagoRel.CONVENTION)
+            RelTraitSet traitSet = agg.getTraitSet().replace(PelagoRel.CONVENTION())
                 .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.X86_64)
                 .replace(RelHomDistribution.SINGLE)
                 .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
@@ -158,7 +158,7 @@ public class PelagoRules {
             Project   proj      = call.rel(3);
 
             RelTraitSet traitSet = uncollect.getTraitSet()
-                .replace(PelagoRel.CONVENTION)
+                .replace(PelagoRel.CONVENTION())
                 .replace(RelDeviceType.X86_64)
                 .replace(RelHomDistribution.SINGLE)
                 .replace(RelPacking.UnPckd);
@@ -192,7 +192,7 @@ public class PelagoRules {
         public RelNode convert(RelNode rel) {
             final Sort sort = (Sort) rel;
 
-            RelTraitSet traitSet = sort.getInput().getTraitSet().replace(PelagoRel.CONVENTION)
+            RelTraitSet traitSet = sort.getInput().getTraitSet().replace(PelagoRel.CONVENTION())
                 .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.X86_64)
                 .replace(RelHomDistribution.SINGLE)
                 .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd)
@@ -389,7 +389,7 @@ public class PelagoRules {
                 call.getPlanner().ensureRegistered(relBuilder.build(), newJoin);
             }
 
-            swapped = convert(swapped, PelagoRel.CONVENTION);
+            swapped = convert(swapped, PelagoRel.CONVENTION());
 
             if (rest.isEmpty()) return swapped;
 

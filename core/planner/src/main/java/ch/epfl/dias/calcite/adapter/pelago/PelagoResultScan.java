@@ -49,7 +49,7 @@ public class PelagoResultScan extends TableScan implements EnumerableRel {
 
   protected PelagoResultScan(RelOptCluster cluster, RelOptTable table,
                              PelagoResultTable pelagoTable, int[] fields) {
-    super(cluster, cluster.traitSet().plus(PelagoRel.CONVENTION).plus(RelDistributions.RANDOM_DISTRIBUTED), table);
+    super(cluster, cluster.traitSet().plus(PelagoRel.CONVENTION()).plus(RelDistributions.RANDOM_DISTRIBUTED), table);
     this.pelagoTable = pelagoTable;
     this.fields = fields;
     assert pelagoTable != null;

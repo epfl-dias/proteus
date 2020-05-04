@@ -33,7 +33,7 @@ public class PelagoToEnumerableConverterRule extends ConverterRule {
      */
     public PelagoToEnumerableConverterRule(
             RelBuilderFactory relBuilderFactory) {
-        super(RelNode.class, PelagoRel.CONVENTION, EnumerableConvention.INSTANCE,
+        super(RelNode.class, PelagoRel.CONVENTION(), EnumerableConvention.INSTANCE,
                 "PelagoToEnumerableConverterRule");
     }
 
@@ -44,7 +44,7 @@ public class PelagoToEnumerableConverterRule extends ConverterRule {
 //        RelNode inp = LogicalExchange.create(rel, RelDistributions.SINGLETON);
 //        System.out.println(inp.getTraitSet());
 
-        RelTraitSet traitSet = rel.getTraitSet().replace(PelagoRel.CONVENTION)
+        RelTraitSet traitSet = rel.getTraitSet().replace(PelagoRel.CONVENTION())
             .replace(RelHomDistribution.SINGLE)
             .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.X86_64)
             .replace(RelComputeDevice.X86_64NVPTX)
@@ -57,7 +57,7 @@ public class PelagoToEnumerableConverterRule extends ConverterRule {
 //        return true;
 //        if (!call.rel(0).getTraitSet().satisfies(RelTraitSet.createEmpty().plus(RelDistributions.SINGLETON))) return false;
 //        if (!call.rel(0).getTraitSet().contains(RelDeviceType.X86_64)) return false;
-//        if (call.rel(0).getTraitSet().containsIfApplicable(PelagoRel.CONVENTION)) return false;
+//        if (call.rel(0).getTraitSet().containsIfApplicable(PelagoRel.CONVENTION())) return false;
         return call.rel(0).getTraitSet().containsIfApplicable(RelHetDistribution.SINGLETON);
     }
 }

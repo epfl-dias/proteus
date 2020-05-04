@@ -451,19 +451,8 @@ class RelBuilderWriter(pw: PrintWriter, detailLevel: SqlExplainLevel,
     s.append(getPelagoRelBuilderName(rel))
     rel match {
       case p: PelagoRel => construction(p, s, values.asScala.map(e => (e.left, e.right)).toMap)
-      case root: PelagoToEnumerableConverter => {
-        s.append("([&](const auto &arg) -> std::vector<expression_t> { return {")
-        //        val names = proj.getRowType..asScala
-        root.getRowType.getFieldList.asScala.foreach(e => {
-          if (e.getIndex != 0) s.append(", ")
-          s.append("arg[\"$").append(e.getIndex).append("\"].as(")
-          s.append("\"out\"")
-          s.append(", ")
-          append(e.getName, s, rel.getCluster)
-          s.append(")")
-        })
-        s.append("}; })")
-      }
+      case root: PelagoToEnumerableConverter =>
+        s.append("(pg{\"pm-csv\"})")
       case _ => s.append("()")
     }
     s.append(" // ")

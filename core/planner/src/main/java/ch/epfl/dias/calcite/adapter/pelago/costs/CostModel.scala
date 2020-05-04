@@ -34,7 +34,7 @@ object CostModel {
       MemBW(unpack.getRowType.getFieldCount * 16)
     case pack: PelagoPack =>
       // Materialization cost
-      MemBW(pack.getRowType.getFieldCount * blockSize * 16)
+      MemBW(pack.getRowType.getFieldCount * blockSize * 1024)
     case _: PelagoUnion =>
 //      var cnt = 0
 //      val splits = new mutable.HashSet[Long]
@@ -56,7 +56,7 @@ object CostModel {
 //      if (cnt > 0) println(rel.getId + ": " + splits + " (" + uns.getOrElse(rel, "") + ")")
 //      uns.put(rel, splits)
 //      if (splits.nonEmpty) return ReallyInfiniteCost()
-      MemBW(rel.getRowType.getFieldCount * 10 /* 10 for sync cost */ ) +
+      MemBW(rel.getRowType.getFieldCount * blockSize * 10 /* 10 for sync cost */ ) +
         InterconnectBW(rel.getRowType.getFieldCount * 8)// * rel.getCluster.getMetadataQuery.getRowCount(rel.getInput(0)))
     case router: PelagoSplit =>
       MemBW(rel.getRowType.getFieldCount * 10 /* 10 for sync cost */ )
@@ -121,7 +121,7 @@ object CostModel {
 //      InfiniteCost()
 //    } else {
       val buildTupleBytes = (rel.getLeft.getRowType.getFieldCount * 8 + 2) * Math.log(rel.getCluster.getMetadataQuery.getRowCount(rel.getLeft))
-      RandomMemBW(buildTupleBytes)
+      RandomMemBW(buildTupleBytes * rel.getRight.getRowType.getFieldCount)
       //        RandomMemBW(800 * 1024 * 1024 * join.getCluster.getMetadataQuery.getPercentageOriginalRows(join.getLeft))
 //    }
   }

@@ -1366,18 +1366,6 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     assert(val.HasMember("input"));
     assert(val["input"].IsObject());
     auto child = parseOperator(val["input"]);
-    auto childOp = child.root;
-
-    assert(val.HasMember("projections"));
-    assert(val["projections"].IsArray());
-
-    vector<RecordAttribute *> projections;
-    for (const auto &proj : val["projections"].GetArray()) {
-      assert(proj.IsObject());
-      RecordAttribute *recAttr =
-          this->parseRecordAttr(proj, child.getOutputArg());
-      projections.push_back(recAttr);
-    }
 
     assert(val.HasMember("queueSize"));
     assert(val["queueSize"].IsInt());
@@ -1398,10 +1386,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     else
       assert(false && "granularity must be one of GRID, BLOCK, THREAD");
 
-    newOp = new GpuToCpu(childOp, projections, size, g);
-    childOp->setParent(newOp);
-
-    return RelBuilder(ctx, newOp);
+    return child.to_cpu(g, size);
 #endif
   } else if (strcmp(opName, "tuples-to-block") == 0 ||
              strcmp(opName, "pack") == 0) {
@@ -1465,7 +1450,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
 
     size_t width = childOp.getOutputArg().getProjections().size();
     std::vector<bool> do_transfer;
-    if (val.HasMember("do_transfer")) {
+    if (false && val.HasMember("do_transfer")) {
       assert(val["do_transfer"].IsArray());
       assert(val["do_transfer"].Size() == width);
       for (const auto &a : val["do_transfer"].GetArray()) {
@@ -2045,8 +2030,10 @@ InputInfo *CatalogParser::getOrCreateInputInfo(string inputName,
         context &&
         "A ParallelContext is required to register relationships on the fly");
     vector<RecordAttribute *> projs;
-    Plugin *newPg =
-        new pm::CSVPlugin(context, inputName, *rec, projs, ',', 10, 1, false);
+    //    Plugin *newPg =
+    //        new pm::CSVPlugin(context, inputName, *rec, projs, ',', 10, 1,
+    //        false);
+    Plugin *newPg = new BinaryBlockPlugin(context, inputName, *rec, projs);
     catalog.registerPlugin(inputName, newPg);
     ret->oidType = newPg->getOIDType();
 

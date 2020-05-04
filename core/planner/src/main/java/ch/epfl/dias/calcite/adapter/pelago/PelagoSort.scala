@@ -24,7 +24,7 @@ import org.apache.calcite.util.Util
   */
 class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: RelNode, collation: RelCollation, offset: RexNode, fetch: RexNode) //        assert getConvention() == input.getConvention();
   extends Sort(cluster, traits, child, collation, offset, fetch) with PelagoRel {
-  //  assert(getConvention eq PelagoRel.CONVENTION)
+  //  assert(getConvention eq PelagoRel.CONVENTION())
 
   override def copy(traitSet: RelTraitSet, input: RelNode, collation: RelCollation, offset: RexNode, fetch: RexNode): PelagoSort = {
     PelagoSort.create(input, collation, offset, fetch)

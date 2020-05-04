@@ -21,6 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include <operators/scan.hpp>
 #include <operators/unionall.hpp>
 #include <util/flush-operator-tree.hpp>
 
@@ -48,6 +49,7 @@ std::ostream &operator<<(std::ostream &out, const spacer &s) {
   out << '(' << s.v.getRowType() << ")\n";
   if (auto u = dynamic_cast<const UnionAll *>(&s.v)) {
     for (const auto c : u->getChildren()) out << s.step(*c);
+  } else if (dynamic_cast<const Scan *>(&s.v)) {
   } else if (auto c = dynamic_cast<const UnaryOperator *>(&s.v)) {
     out << s.step(*(c->getChild()));
   } else if (auto b = dynamic_cast<const BinaryOperator *>(&s.v)) {

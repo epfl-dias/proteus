@@ -23,7 +23,7 @@ public class RelHomDistributionTraitDef extends RelTraitDef<RelHomDistribution> 
                                    boolean allowInfiniteCostConverters) {
     if (rel.getTraitSet().containsIfApplicable(distribution)) return rel;
 
-    if (rel.getConvention() != PelagoRel.CONVENTION || !rel.getTraitSet().containsIfApplicable(RelDeviceType.X86_64)){
+    if (rel.getConvention() != PelagoRel.CONVENTION() || !rel.getTraitSet().containsIfApplicable(RelDeviceType.X86_64)){
       return null;
     }
 

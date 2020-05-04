@@ -36,6 +36,7 @@ public class RelComputeDeviceTraitDef extends RelTraitDef<RelComputeDevice> {
     }
 
     RelNode newRel = rel.copy(null, b.build());
+    newRel = planner.register(newRel, rel);
     if (!newRel.getTraitSet().contains(toDevice)) return null;
     RelTraitSet traitSet = rel.getTraitSet().replace(toDevice);
     if (!newRel.getTraitSet().equals(traitSet)) {

@@ -42,7 +42,7 @@ public class RelDeviceTypeTraitDef extends RelTraitDef<RelDeviceType> {
     return newRel;
 
 
-//    return PelagoDeviceCross.create(planner.changeTraits(rel, PelagoRel.CONVENTION), toDevice);
+//    return PelagoDeviceCross.create(planner.changeTraits(rel, PelagoRel.CONVENTION()), toDevice);
   }
 
   @Override public boolean canConvert(RelOptPlanner planner, RelDeviceType fromTrait,

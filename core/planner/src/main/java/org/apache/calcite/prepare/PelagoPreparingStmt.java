@@ -30,21 +30,7 @@ import org.apache.calcite.rel.externalize.RelWriterImpl;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
-import org.apache.calcite.rel.rules.FilterJoinRule;
-import org.apache.calcite.rel.rules.FilterProjectTransposeRule;
-import org.apache.calcite.rel.rules.JoinCommuteRule;
-import org.apache.calcite.rel.rules.JoinProjectTransposeRule;
-import org.apache.calcite.rel.rules.JoinToMultiJoinRule;
-import org.apache.calcite.rel.rules.LoptOptimizeJoinRule;
-import org.apache.calcite.rel.rules.ProjectFilterTransposeRule;
-import org.apache.calcite.rel.rules.ProjectJoinTransposeRule;
-import org.apache.calcite.rel.rules.ProjectMergeRule;
-import org.apache.calcite.rel.rules.ProjectRemoveRule;
-import org.apache.calcite.rel.rules.ProjectSortTransposeRule;
-import org.apache.calcite.rel.rules.ProjectTableScanRule;
-import org.apache.calcite.rel.rules.PruneEmptyRules;
-import org.apache.calcite.rel.rules.SortProjectTransposeRule;
-import org.apache.calcite.rel.rules.SortRemoveRule;
+import org.apache.calcite.rel.rules.*;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexOver;
@@ -172,7 +158,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
     protected RelTraitSet getDesiredRootTraitSet(RelRoot root) {//this.resultConvention
         return root.rel.getTraitSet()
             .replace(this.resultConvention)
-//            .replace(PelagoRel.CONVENTION) //this.resultConvention)
+//            .replace(PelagoRel.CONVENTION()) //this.resultConvention)
             .replace(root.collation)
             .replace(RelHomDistribution.SINGLE)
             .replace(RelDeviceType.X86_64)
@@ -418,6 +404,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             .addRuleInstance(PelagoProjectPushBelowUnpack.INSTANCE)
             .build();
 
+
         HepProgram hepPushDownProjects2 = new HepProgramBuilder()
             .addRuleInstance(ProjectMergeRule.INSTANCE)
             // Pull Filters up over projects
@@ -425,7 +412,18 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             .addRuleInstance(ProjectSortTransposeRule.INSTANCE)
 //            .addRuleInstance(SortProjectTransposeRule.INSTANCE)
             // Push Projects down
-            .addRuleInstance(ProjectJoinTransposeRule.INSTANCE)
+            .addRuleInstance(new ProjectJoinTransposeRule(Project.class, PelagoLogicalJoin.class, expr -> !(expr instanceof RexOver),
+                    RelBuilder.proto(
+                            new RelFactories.JoinFactory() {
+                                @Override public RelNode createJoin(final RelNode left, final RelNode right,
+                                                                    final List<RelHint> hints,
+                                                                    final RexNode condition, final Set<CorrelationId> variablesSet, final JoinRelType joinType,
+                                                                    final boolean semiJoinDone) {
+                                    return new PelagoLogicalJoin(left.getCluster(), left.getTraitSet(), left, right, condition, variablesSet, joinType);
+                                }
+                            }
+                    )
+            ))
             .addRuleInstance(PruneEmptyRules.PROJECT_INSTANCE)
             .addRuleInstance(ProjectRemoveRule.INSTANCE)
             .addRuleInstance(ProjectMergeRule.INSTANCE)
@@ -484,6 +482,11 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
 //                "JoinProjectTransposeRule(Other-Project)",
 //                false,
 //                PelagoRelFactories.PELAGO_BUILDER))
+            .addRuleInstance(new ProjectJoinTransposeRule(
+               PelagoProject.class, PelagoJoin.class,
+               expr -> !(expr instanceof RexOver),
+               PelagoRelFactories.PELAGO_BUILDER
+            ))
             .addRuleInstance(new ProjectRemoveRule(PelagoRelFactories.PELAGO_BUILDER))
             .addRuleInstance(new ProjectMergeRule(true, ProjectMergeRule.DEFAULT_BLOAT, PelagoRelFactories.PELAGO_BUILDER))
             .build();
