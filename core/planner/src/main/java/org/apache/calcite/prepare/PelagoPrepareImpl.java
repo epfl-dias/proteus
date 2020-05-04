@@ -211,9 +211,9 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         for (RelOptRule rule: PelagoRules.RULES) {
             planner.addRule(rule);
         }
-        for (var enrule: EnumerableRules.ENUMERABLE_RULES){
-            planner.removeRule(enrule);
-        }
+//        for (var enrule: EnumerableRules.ENUMERABLE_RULES){
+//            planner.removeRule(enrule);
+//        }
         planner.removeRule(JoinCommuteRule.INSTANCE);
 
         planner.removeRule(EnumerableInterpreterRule.INSTANCE);
