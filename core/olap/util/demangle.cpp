@@ -25,6 +25,8 @@
 
 #include <cxxabi.h>
 
+#include <memory>
+
 std::string demangle(const char* name) {
   int status = 0;
   std::unique_ptr<char, decltype(&std::free)> res{
