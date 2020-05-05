@@ -32,12 +32,6 @@
 #include <topology/topology.hpp>
 #include <util/timing.hpp>
 
-size_t operator"" _K(unsigned long long int x) { return x * 1024; }
-
-size_t operator"" _M(unsigned long long int x) { return x * 1024_K; }
-
-size_t operator"" _G(unsigned long long int x) { return x * 1024_M; }
-
 int main(int argc, char *argv[]) {
   auto olap = proteus::from_cli::olap("Prepared query runner", &argc, &argv);
 
