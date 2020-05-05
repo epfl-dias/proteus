@@ -39,14 +39,14 @@ void TestEnvironment::SetUp() {
 
   set_trace_allocations(true, true);
 
-  proteus::olap::init();
+  olap = std::make_unique<proteus::olap>();
 
   has_already_been_setup = true;
 }
 
 void TestEnvironment::TearDown() {
   if (!is_noop) {
-    MemoryManager::destroy();
+    olap.reset();
     has_already_been_setup = false;
   }
 }

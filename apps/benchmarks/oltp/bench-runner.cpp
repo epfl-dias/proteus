@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 #include <bitset>
+#include <cli-flags.hpp>
 #include <common/olap-common.hpp>
 #include <functional>
 #include <iostream>
@@ -91,9 +92,8 @@
 // void check_num_upd_by_bits();
 
 int main(int argc, char** argv) {
-  proteus::olap::init();
-  gflags::SetUsageMessage("Simple command line interface for aeolus");
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
+  auto olap = proteus::from_cli::olap(
+      "Simple command line interface for aeolus", &argc, &argv);
 
   const auto& topo = topology::getInstance();
   const auto& nodes = topo.getCpuNumaNodes();

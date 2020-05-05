@@ -27,6 +27,8 @@
 // test logic needs is declared.
 //
 // Don't forget gtest.h, which declares the testing framework.
+#include <common/olap-common.hpp>
+
 #include "gtest/gtest.h"
 
 // Step 2. Use the TEST macro to define your tests.
@@ -56,6 +58,7 @@
 class TestEnvironment : public ::testing::Environment {
   bool is_noop = false;
   static bool has_already_been_setup;
+  std::unique_ptr<proteus::olap> olap;
 
  public:
   void SetUp() override;

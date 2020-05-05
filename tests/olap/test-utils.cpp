@@ -31,10 +31,7 @@
 #include "storage/storage-manager.hpp"
 
 void TestEnvironment::SetUp() {
-  if (has_already_been_setup) {
-    is_noop = true;
-    return;
-  }
+  assert(!has_already_been_setup);
 
   setbuf(stdout, nullptr);
 
@@ -43,14 +40,14 @@ void TestEnvironment::SetUp() {
   // FIXME: reenable tracing as soon as we find the issue with libunwind
   set_trace_allocations(false, true);
 
-  proteus::olap::init();
+  olap = std::make_unique<proteus::olap>();
 
   has_already_been_setup = true;
 }
 
 void TestEnvironment::TearDown() {
   if (!is_noop) {
-    MemoryManager::destroy();
+    olap.reset();
     has_already_been_setup = false;
   }
 }

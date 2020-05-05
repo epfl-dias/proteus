@@ -36,6 +36,7 @@
 #include "util/timing.hpp"
 
 // OLAP
+#include <cli-flags.hpp>
 #include <common/olap-common.hpp>
 
 #include "memory/memory-manager.hpp"
@@ -53,19 +54,9 @@
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 
-void init(int argc, char *argv[]) {
-  gflags::SetUsageMessage("Simple command line interface for proteus");
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
-
-  google::InitGoogleLogging(argv[0]);
-  FLAGS_logtostderr = 1;  // FIXME: the command line flags/defs seem to fail...
-  google::InstallFailureSignalHandler();
-  set_trace_allocations(false);
-}
-
 int main(int argc, char *argv[]) {
-  init(argc, argv);
-  proteus::olap::init();
+  auto olap = proteus::from_cli::olap(
+      "Simple command line interface for ch-bench", &argc, &argv);
 
   OLTP oltp_engine;
 
@@ -246,9 +237,6 @@ int main(int argc, char *argv[]) {
   oltp_engine.shutdown();
 
   delete bench;
-  // OLAP
-  StorageManager::unloadAll();
-  MemoryManager::destroy();
 
   return 0;
 

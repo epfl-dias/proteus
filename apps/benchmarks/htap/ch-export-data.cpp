@@ -36,6 +36,7 @@
 #include "util/timing.hpp"
 
 // OLAP
+#include <cli-flags.hpp>
 #include <common/olap-common.hpp>
 
 #include "memory/memory-manager.hpp"
@@ -57,21 +58,9 @@
 DEFINE_string(ch_export_dir, "/scratch1/export",
               "Export dir for ch-data-export");
 
-void init(int argc, char *argv[]) {
-  gflags::SetUsageMessage("Simple command line interface for proteus");
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
-
-  google::InitGoogleLogging(argv[0]);
-  FLAGS_logtostderr = 1;  // FIXME: the command line flags/defs seem to fail...
-  google::InstallFailureSignalHandler();
-  // set_trace_allocations(true);
-}
-
 int main(int argc, char *argv[]) {
+  auto olap = proteus::from_cli::olap("ch exporter", &argc, &argv);
   // assert(FLAGS_ch_export_dir.length() > 2);
-
-  init(argc, argv);
-  proteus::olap::init();
 
   OLTP oltp_engine;
 
@@ -99,10 +88,6 @@ int main(int argc, char *argv[]) {
   DataExporter_CH::exportAll(FLAGS_ch_export_dir);
 
   LOG(INFO) << "Export completed.";
-
-  // OLAP
-  StorageManager::unloadAll();
-  MemoryManager::destroy();
 
   // OLTP
   oltp_engine.shutdown();

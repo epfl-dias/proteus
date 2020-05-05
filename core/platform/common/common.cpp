@@ -24,6 +24,7 @@
 #include "common/common.hpp"
 
 #include <mutex>
+#include <storage/storage-manager.hpp>
 #include <thread>
 
 #include "memory/memory-manager.hpp"
@@ -164,44 +165,65 @@ namespace proteus {
 
 void thread_warm_up() {}
 
-namespace platform {
-void init(float gpu_mem_pool_percentage, float cpu_mem_pool_percentage,
-          size_t log_buffers) {
-  topology::init();
+class platform::impl {
+ public:
+  impl(float gpu_mem_pool_percentage, float cpu_mem_pool_percentage,
+       size_t log_buffers) {
+    topology::init();
 
-  // Initialize Google's logging library.
-  LOG(INFO) << "Starting up server...";
+    // Initialize Google's logging library.
+    LOG(INFO) << "Starting up server...";
 
-  LOG(INFO) << "Warming up GPUs...";
-  for (const auto &gpu : topology::getInstance().getGpus()) {
-    set_exec_location_on_scope d{gpu};
+    LOG(INFO) << "Warming up GPUs...";
+    for (const auto &gpu : topology::getInstance().getGpus()) {
+      set_exec_location_on_scope d{gpu};
+      gpu_run(cudaFree(nullptr));
+    }
+
     gpu_run(cudaFree(nullptr));
+
+    // gpu_run(cudaDeviceSetLimit(cudaLimitStackSize, 40960));
+
+    LOG(INFO) << "Warming up threads...";
+
+    std::vector<std::thread> thrds;
+    thrds.reserve(1024);
+    for (int i = 0; i < 1024; ++i) thrds.emplace_back(thread_warm_up);
+    for (auto &t : thrds) t.join();
+
+    // srand(time(0));
+
+    LOG(INFO) << "Initializing memory manager...";
+    MemoryManager::init(gpu_mem_pool_percentage, cpu_mem_pool_percentage,
+                        log_buffers);
+
+    // Make affinity deterministic
+    auto &topo = topology::getInstance();
+    if (topo.getGpuCount() > 0) {
+      exec_location{topo.getGpus()[0]}.activate();
+    } else {
+      exec_location{topo.getCpuNumaNodes()[0]}.activate();
+    }
   }
 
-  gpu_run(cudaFree(nullptr));
+  ~impl() {
+    LOG(INFO) << "Shutting down...";
 
-  // gpu_run(cudaDeviceSetLimit(cudaLimitStackSize, 40960));
+    LOG(INFO) << "Unloading files...";
+    StorageManager::unloadAll();
 
-  LOG(INFO) << "Warming up threads...";
+    LOG(INFO) << "Shuting down memory manager...";
+    MemoryManager::destroy();
 
-  std::vector<std::thread> thrds;
-  for (int i = 0; i < 1024; ++i) thrds.emplace_back(thread_warm_up);
-  for (auto &t : thrds) t.join();
-
-  // srand(time(0));
-
-  LOG(INFO) << "Initializing memory manager...";
-  MemoryManager::init(gpu_mem_pool_percentage, cpu_mem_pool_percentage,
-                      log_buffers);
-
-  // Make affinity deterministic
-  auto &topo = topology::getInstance();
-  if (topo.getGpuCount() > 0) {
-    exec_location{topo.getGpus()[0]}.activate();
-  } else {
-    exec_location{topo.getCpuNumaNodes()[0]}.activate();
+    LOG(INFO) << "Shut down finished";
   }
-}
-}  // namespace platform
+};
+
+platform::platform(float gpu_mem_pool_percentage, float cpu_mem_pool_percentage,
+                   size_t log_buffers)
+    : p_impl(std::make_unique<impl>(gpu_mem_pool_percentage,
+                                    cpu_mem_pool_percentage, log_buffers)) {}
+
+platform::~platform() = default;
 
 }  // namespace proteus

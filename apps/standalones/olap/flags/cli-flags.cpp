@@ -73,8 +73,8 @@ static bool validatePort(const char *flag, int32_t value) {
 
 DEFINE_validator(port, &validatePort);
 
-namespace proteus::olap {
-void init_from_cli() {
+namespace proteus::from_cli {
+proteus::olap olap() {
   srand(time(nullptr));
 
   google::InstallFailureSignalHandler();
@@ -88,7 +88,18 @@ void init_from_cli() {
   set_trace_allocations(FLAGS_trace_allocations);
   print_generated_code = FLAGS_print_generated_code;
 
-  proteus::olap::init(FLAGS_gpu_buffers, FLAGS_cpu_buffers,
-                      FLAGS_log_buffer_usage);
+  return proteus::olap{static_cast<float>(FLAGS_gpu_buffers),
+                       static_cast<float>(FLAGS_cpu_buffers),
+                       static_cast<size_t>(FLAGS_log_buffer_usage)};
 }
-}  // namespace proteus::olap
+
+proteus::olap olap(const std::string &usage, int *argc, char ***argv) {
+  gflags::SetUsageMessage(usage);
+  gflags::ParseCommandLineFlags(argc, argv, true);
+
+  google::InitGoogleLogging((*argv)[0]);
+  FLAGS_logtostderr = true;  // FIXME: the command line flags/defs seem to fail
+
+  return olap();
+}
+}  // namespace proteus::from_cli

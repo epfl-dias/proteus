@@ -28,6 +28,7 @@ foreach(target
 			codegen::olap
 			htap::engine
 			gflags::gflags
+			codegen::olap_flags
 			#queries::ch100w
 			)
 	target_include_directories(htap-${target}

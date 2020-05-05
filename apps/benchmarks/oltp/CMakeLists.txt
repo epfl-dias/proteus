@@ -16,6 +16,7 @@ foreach(target
 			aeolus::engine
 			aeolus::bench
 			gflags::gflags
+			codegen::olap_flags
 			Threads::Threads
 			-lc++abi)
 	install(TARGETS oltp-${target}

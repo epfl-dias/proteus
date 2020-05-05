@@ -23,20 +23,31 @@
 
 #include "common/common.hpp"
 
+#include <common/olap-common.hpp>
 #include <util/jit/pipeline.hpp>
 
 namespace proteus {
 
-namespace olap {
-void init(float gpu_mem_pool_percentage, float cpu_mem_pool_percentage,
-          size_t log_buffers) {
-  proteus::platform::init(gpu_mem_pool_percentage, cpu_mem_pool_percentage,
-                          log_buffers);
+class olap::impl {
+  platform p;
 
-  LOG(INFO) << "Initializing codegen...";
+ public:
+  impl(float gpu_mem_pool_percentage, float cpu_mem_pool_percentage,
+       size_t log_buffers)
+      : p(gpu_mem_pool_percentage, cpu_mem_pool_percentage, log_buffers) {
+    LOG(INFO) << "Initializing codegen...";
 
-  PipelineGen::init();
-}
-}  // namespace olap
+    PipelineGen::init();
+  }
+
+  ~impl() = default;
+};
+
+olap::olap(float gpu_mem_pool_percentage, float cpu_mem_pool_percentage,
+           size_t log_buffers)
+    : p_impl(std::make_unique<olap::impl>(
+          gpu_mem_pool_percentage, cpu_mem_pool_percentage, log_buffers)) {}
+
+olap::~olap() = default;
 
 }  // namespace proteus

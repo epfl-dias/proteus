@@ -24,11 +24,21 @@
 #ifndef PROTEUS_OLAP_COMMON_HPP
 #define PROTEUS_OLAP_COMMON_HPP
 
+#include <memory>
+
 namespace proteus {
-namespace olap {
-void init(float gpu_mem_pool_percentage = 0.1,
-          float cpu_mem_pool_percentage = 0.1, size_t log_buffers = 0);
-}
+
+class [[nodiscard]] olap {
+ private:
+  class impl;
+  const std::unique_ptr<impl> p_impl;
+
+ public:
+  explicit olap(float gpu_mem_pool_percentage = 0.1,
+                float cpu_mem_pool_percentage = 0.1, size_t log_buffers = 0);
+  ~olap();
+};
+
 }  // namespace proteus
 
 #endif /*PROTEUS_OLAP_COMMON_HPP*/

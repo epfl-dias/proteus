@@ -39,27 +39,7 @@ size_t operator"" _M(unsigned long long int x) { return x * 1024_K; }
 size_t operator"" _G(unsigned long long int x) { return x * 1024_M; }
 
 int main(int argc, char *argv[]) {
-  gflags::SetUsageMessage("Simple command line interface for proteus");
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
-
-  srand(time(nullptr));
-
-  google::InitGoogleLogging(argv[0]);
-  FLAGS_logtostderr = 1;  // FIXME: the command line flags/defs seem to fail...
-
-  google::InstallFailureSignalHandler();
-
-  if (FLAGS_query_topology) {
-    topology::init();
-    std::cout << topology::getInstance() << std::endl;
-    return 0;
-  }
-
-  set_trace_allocations(FLAGS_trace_allocations);
-  print_generated_code = FLAGS_print_generated_code;
-
-  proteus::olap::init(FLAGS_gpu_buffers, FLAGS_cpu_buffers,
-                      FLAGS_log_buffer_usage);
+  auto olap = proteus::from_cli::olap("Prepared query runner", &argc, &argv);
 
   LOG(INFO) << "Finished initialization";
 
@@ -152,14 +132,5 @@ int main(int argc, char *argv[]) {
     }
   }*/
 
-  LOG(INFO) << "Shutting down...";
-
-  LOG(INFO) << "Unloading files...";
-  StorageManager::unloadAll();
-
-  LOG(INFO) << "Shuting down memory manager...";
-  MemoryManager::destroy();
-
-  LOG(INFO) << "Shut down finished";
   return 0;
 }

@@ -22,6 +22,9 @@
 */
 #include <gflags/gflags.h>
 
+#include <common/olap-common.hpp>
+#include <memory>
+
 DECLARE_bool(query_topology);
 DECLARE_bool(trace_allocations);
 DECLARE_double(gpu_buffers);
@@ -35,6 +38,7 @@ DECLARE_string(url);
 DECLARE_int32(repeat);
 DECLARE_bool(print_generated_code);
 
-namespace proteus::olap {
-void init_from_cli();
-}
+namespace proteus::from_cli {
+proteus::olap olap(const std::string &usage, int *argc, char ***argv);
+proteus::olap olap();
+}  // namespace proteus::from_cli

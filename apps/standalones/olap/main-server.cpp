@@ -165,15 +165,8 @@ std::string runPlanFile(std::string plan, unlink_upon_exit &uue,
  *                  The following line/lines are results printed into stdout
  */
 int main(int argc, char *argv[]) {
-  gflags::SetUsageMessage("Simple command line interface for proteus");
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
-
-  srand(time(nullptr));
-
-  google::InitGoogleLogging(argv[0]);
-  FLAGS_logtostderr = true;  // FIXME: the command line flags/defs seem to fail
-
-  proteus::olap::init_from_cli();
+  auto ctx = proteus::from_cli::olap(
+      "Simple command line interface for proteus", &argc, &argv);
 
   bool echo = false;
 
@@ -274,14 +267,5 @@ int main(int argc, char *argv[]) {
       }
     }
   }
-  LOG(INFO) << "Shutting down...";
-
-  LOG(INFO) << "Unloading files...";
-  StorageManager::unloadAll();
-
-  LOG(INFO) << "Shuting down memory manager...";
-  MemoryManager::destroy();
-
-  LOG(INFO) << "Shut down finished";
   return 0;
 }
