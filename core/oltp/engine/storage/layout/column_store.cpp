@@ -559,14 +559,20 @@ void Column::updateElem(uint64_t vid, void* elem) {
   for (const auto& chunk : master_versions[mver][pid]) {
     if (__likely(chunk.size >= (data_idx + elem_size))) {
       void* dst = (void*)(((char*)chunk.data) + data_idx);
-      assert(elem != nullptr);
+
       char* src_t = (char*)chunk.data;
       char* dst_t = (char*)dst;
 
       assert(src_t <= dst_t);
       assert((src_t + chunk.size) >= (dst_t + this->elem_size));
 
-      std::memcpy(dst, elem, this->elem_size);
+      // assert(elem != nullptr);
+      if (__unlikely(elem == nullptr)) {
+        // YCSB update hack.
+        (*((uint64_t*)dst_t))++;
+      } else {
+        std::memcpy(dst, elem, this->elem_size);
+      }
 
       upd_bit_masks[mver][pid][offset / BIT_PACK_SIZE].set(offset %
                                                            BIT_PACK_SIZE);
