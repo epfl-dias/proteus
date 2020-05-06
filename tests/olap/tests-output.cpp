@@ -201,21 +201,22 @@ TEST_F(OutputTest, ReduceNumeric) {
   const char *testLabel = "reduceNumeric.json";
   RelBuilderFactory factory{testLabel};
 
-  auto statement =
-      factory.getBuilder()
-          .scan(sailors, {"age", "sid"}, "pm-csv")
-          .filter([&](const auto &arg) -> expression_t {
-            return gt(arg["age"], 40.0);
-          })
-          .reduce(
-              [&](const auto &arg) -> std::vector<expression_t> {
-                return {arg["sid"]};
-              },
-              {MAX})
-          .print([&](const auto &arg) -> std::vector<expression_t> {
-            return {arg["sid"]};
-          })
-          .prepare();
+  auto statement = factory.getBuilder()
+                       .scan(sailors, {"age", "sid"}, "pm-csv")
+                       .filter([&](const auto &arg) -> expression_t {
+                         return gt(arg["age"], 40.0);
+                       })
+                       .reduce(
+                           [&](const auto &arg) -> std::vector<expression_t> {
+                             return {arg["sid"]};
+                           },
+                           {MAX})
+                       .print(
+                           [&](const auto &arg) -> std::vector<expression_t> {
+                             return {arg["sid"]};
+                           },
+                           pg{"pm-csv"})
+                       .prepare();
 
   runAndVerify(statement, testLabel);
 }
@@ -227,24 +228,23 @@ TEST_F(OutputTest, MultiReduceNumeric) {
 
   RelBuilderFactory factory{testLabel};
 
-  auto statement =
-      factory.getBuilder()
-          .scan(sailors, {"age", "sid"}, "pm-csv")
-          .filter([&](const auto &arg) -> expression_t {
-            return gt(arg["age"], 40.0);
-          })
-          .reduce(
-              [&](const auto &arg) -> std::vector<expression_t> {
-                return {arg["sid"].as("tmp", "sum_sid"),
-                        arg["sid"].as("tmp", "max_sid")};
-              },
-              {SUM, MAX})
-          .print([&](const auto &arg,
-                     std::string outrel) -> std::vector<expression_t> {
-            return {arg["sum_sid"].as(outrel, "sum_sid"),
-                    arg["max_sid"].as(outrel, "max_sid")};
-          })
-          .prepare();
+  auto statement = factory.getBuilder()
+                       .scan(sailors, {"age", "sid"}, "pm-csv")
+                       .filter([&](const auto &arg) -> expression_t {
+                         return gt(arg["age"], 40.0);
+                       })
+                       .reduce(
+                           [&](const auto &arg) -> std::vector<expression_t> {
+                             return {arg["sid"].as("tmp", "sum_sid"),
+                                     arg["sid"].as("tmp", "max_sid")};
+                           },
+                           {SUM, MAX})
+                       .print(
+                           [&](const auto &arg) -> std::vector<expression_t> {
+                             return {arg["sum_sid"], arg["max_sid"]};
+                           },
+                           pg{"pm-csv"})
+                       .prepare();
 
   runAndVerify(statement, testLabel);
 }
