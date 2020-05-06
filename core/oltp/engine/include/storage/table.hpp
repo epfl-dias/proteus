@@ -96,6 +96,8 @@ class NUMAPartitionPolicy {
     inline bool operator==(const TablePartition &o) {
       return (pid == o.pid && numa_idx == o.numa_idx);
     }
+    friend std::ostream &operator<<(std::ostream &out,
+                                    const TablePartition &r);
   };
 
   const TablePartition &getPartitionInfo(uint pid) {
@@ -113,13 +115,17 @@ class NUMAPartitionPolicy {
 
   NUMAPartitionPolicy() {
     auto num_numa_nodes = topology::getInstance().getCpuNumaNodeCount();
-    for (uint i = 0; i < num_numa_nodes; i++) {
+    for (uint i = 0; i < g_num_partitions; i++) {
       if (global_conf::reverse_partition_numa_mapping)
         PartitionVector.emplace_back(TablePartition{i, num_numa_nodes - i - 1});
       else
         PartitionVector.emplace_back(TablePartition{i, i});
     }
+    LOG(INFO) << *this;
   }
+
+  friend std::ostream &operator<<(std::ostream &out,
+                                  const NUMAPartitionPolicy &r);
 };
 
 class Schema {
