@@ -55,41 +55,6 @@
 #include "topology/topology.hpp"
 #include "util/profiling.hpp"
 
-// DEFINE_bool(debug, false, "Debug mode");
-// DEFINE_uint64(num_workers, 0, "Number of txn-workers");
-// DEFINE_uint64(benchmark, 0,
-//               "Benchmark: 0:YCSB, 1:TPC-C (gen),  2:TPC-C (csv),
-//               3:Micro-SSB");
-// DEFINE_uint64(num_partitions, 0,
-//               "Number of storage partitions ( round robin NUMA nodes)");
-// DEFINE_int64(num_iter_per_worker, -1, "# of iterations per worker");
-// DEFINE_uint64(runtime, 60, "Duration of experiments in seconds");
-// DEFINE_uint64(delta_size, 8, "Size of delta storage in GBs.");
-// DEFINE_bool(layout_column_store, true, "True: ColumnStore / False:
-// RowStore"); DEFINE_uint64(worker_sched_mode, 0,
-//               "Scheduling of worker: 0-default, 1-interleaved-even, "
-//               "2-interleaved-odd, 3-reversed.");
-// DEFINE_uint64(report_stat_sec, 0, "Report stats every x secs");
-// DEFINE_uint64(elastic_workload, 0, "if > 0, add a worker every x seconds");
-// DEFINE_uint64(migrate_worker, 0, "if > 0, migrate worker to other side");
-// DEFINE_uint64(switch_master_sec, 0, "if > 0, add a worker every x seconds");
-
-// // YCSB
-// DEFINE_double(ycsb_write_ratio, 0.5, "Writer to reader ratio");
-// DEFINE_double(ycsb_zipf_theta, 0.5, "YCSB - Zipfian theta");
-// DEFINE_uint64(ycsb_num_cols, 1, "YCSB - # Columns");
-// DEFINE_uint64(ycsb_num_ops_per_txn, 10, "YCSB - # ops / txn");
-// DEFINE_uint64(ycsb_num_records, 0, "YCSB - # records");
-
-// // TPC-C
-// DEFINE_uint64(tpcc_num_wh, 0, "TPC-C - # of Warehouses ( 0 = one per
-// worker"); DEFINE_uint64(ch_scale_factor, 0, "CH-Bench scale factor");
-// DEFINE_uint64(tpcc_dist_threshold, 0, "TPC-C - Distributed txn threshold");
-// DEFINE_string(tpcc_csv_dir, "/scratch/data/ch100w/raw",
-//               "CSV Dir for loading tpc-c data (bench-2)");
-
-// void check_num_upd_by_bits();
-
 int main(int argc, char** argv) {
   auto olap = proteus::from_cli::olap(
       "Simple command line interface for aeolus", &argc, &argv);
@@ -98,17 +63,29 @@ int main(int argc, char** argv) {
   const auto& nodes = topo.getCpuNumaNodes();
   set_exec_location_on_scope d{nodes[0]};
 
-  // google::InitGoogleLogging(argv[0]);
-  // FLAGS_logtostderr = 1; // FIXME: the command line flags/defs seem to
-  // fail...
-
   if (FLAGS_num_workers == 0)
     FLAGS_num_workers = topology::getInstance().getCoreCount();
 
   if (FLAGS_num_partitions == 0) {
-    g_num_partitions = topology::getInstance().getCpuNumaNodeCount();
+    if (FLAGS_elastic_workload > 0) {
+      g_num_partitions = topology::getInstance().getCpuNumaNodeCount();
+    } else {
+      g_num_partitions =
+          ((FLAGS_num_workers - 1) /
+           topology::getInstance().getCpuNumaNodes()[0].local_cores.size()) +
+          1;
+    }
+
   } else {
     g_num_partitions = FLAGS_num_partitions;
+  }
+
+  for (size_t aa = 1; aa <= 144; aa++) {
+    LOG(INFO)
+        << "w: " << aa << " | partitons: "
+        << (((aa - 1) /
+             topology::getInstance().getCpuNumaNodes()[0].local_cores.size()) +
+            1);
   }
 
   std::cout << "PARTITIONS: " << g_num_partitions << std::endl;
@@ -147,13 +124,14 @@ int main(int argc, char** argv) {
       FLAGS_ycsb_num_records = FLAGS_num_workers * 1000000;
     }
 
-    bench =
-        new bench::YCSB("YCSB", FLAGS_ycsb_num_cols, FLAGS_ycsb_num_records,
-                        FLAGS_ycsb_zipf_theta, FLAGS_num_iter_per_worker,
-                        FLAGS_ycsb_num_ops_per_txn, FLAGS_ycsb_write_ratio,
-                        (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
-                        topology::getInstance().getCoreCount(),
-                        g_num_partitions, FLAGS_layout_column_store);
+    bench = new bench::YCSB(
+        "YCSB", FLAGS_ycsb_num_cols, FLAGS_ycsb_num_records,
+        FLAGS_ycsb_zipf_theta, FLAGS_num_iter_per_worker,
+        FLAGS_ycsb_num_ops_per_txn, FLAGS_ycsb_write_ratio,
+        (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
+        (FLAGS_elastic_workload > 0 ? topology::getInstance().getCoreCount()
+                                    : FLAGS_num_workers),
+        g_num_partitions, FLAGS_layout_column_store);
   }
 
   scheduler::WorkerPool::getInstance().init(

@@ -96,8 +96,7 @@ class NUMAPartitionPolicy {
     inline bool operator==(const TablePartition &o) {
       return (pid == o.pid && numa_idx == o.numa_idx);
     }
-    friend std::ostream &operator<<(std::ostream &out,
-                                    const TablePartition &r);
+    friend std::ostream &operator<<(std::ostream &out, const TablePartition &r);
   };
 
   const TablePartition &getPartitionInfo(uint pid) {

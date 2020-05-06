@@ -28,36 +28,14 @@
 
 #include "../indexes/hash_array.hpp"
 #include "../indexes/hash_index.hpp"
+#include "../indexes/index.hpp"
+//#include "../indexes/ART/adaptive_radix_tree_index.hpp"
 #include "snapshot/arena.hpp"
 #include "snapshot/snapshot_manager.hpp"
 #include "transactions/cc.hpp"
 
-//#define diascld33 true
-//#define diascld40 false
-//#define diascld48 false
-//#define icc148 false
-
 #define DEFAULT_OLAP_SOCKET 0
-
 #define HTAP_ETL true  // for this, double master should be turned on too.
-
-//#define MAX_NUM_PARTITIONS 2  // w.r.t. we have a 4-socket machine.
-//
-//#if icc148
-//#define NUM_SOCKETS 2
-//#endif
-//
-//#if diascld48
-//#define NUM_SOCKETS 2
-//#endif
-//
-//#if diascld33
-//#define NUM_SOCKETS 4
-//#endif
-//
-//#if diascld40
-//#define NUM_SOCKETS 2
-//#endif
 
 extern uint g_num_partitions;
 extern uint g_delta_size;
@@ -70,33 +48,21 @@ namespace global_conf {
 constexpr int MAX_PARTITIONS = 8;
 
 using SnapshotManager = aeolus::snapshot::SnapshotManager;
-
 using ConcurrencyControl = txn::CC_MV2PL;  // CC_GlobalLock;
 using IndexVal = ConcurrencyControl::PRIMARY_INDEX_VAL;
-
 const bool cc_ismv = ConcurrencyControl::is_mv();
-
 using mv_version_list = txn::VERSION_LIST;
 using mv_version = txn::VERSION;
 
-template <class T_KEY>
+template <typename T_KEY = uint64_t>
 // using PrimaryIndex = indexes::HashIndex<T_KEY>;
 using PrimaryIndex = indexes::HashArray<T_KEY>;
-
-// const ushort NUM_SOCKETS =
-//     scheduler::Topology::getInstance().getCpuNumaNodeCount();
-// const ushort NUM_CORE_PER_SOCKET = scheduler::Topology::getInstance()
-//                                        .getCpuNumaNodes()
-//                                        .front()
-//                                        .local_cores.size();
-// const ushort MAX_WORKERS = scheduler::Topology::getInstance().getCoreCount();
-
-// const uint time_master_switch_ms = 200;
+// using PrimaryIndex = indexes::AdaptiveRadixTreeIndex<T_KEY, void*>;
 
 /* # of Snapshots*/
 constexpr short num_master_versions = 2;
 constexpr short num_delta_storages = 2;
-constexpr bool reverse_partition_numa_mapping = true;
+constexpr bool reverse_partition_numa_mapping = false;
 
 // for row-store inline bit, fix it to have bit-mask separate.
 constexpr short HTAP_UPD_BIT_COUNT = 1;

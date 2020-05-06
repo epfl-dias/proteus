@@ -240,28 +240,27 @@ void Table::reportUsage() {
   }
 }
 
-std::ostream &operator<<(std::ostream &out,
-                                const NUMAPartitionPolicy::TablePartition &r){
-
+std::ostream& operator<<(std::ostream& out,
+                         const NUMAPartitionPolicy::TablePartition& r) {
   out << "\tPID: " << r.pid << "|\t NUMA Index: " << r.numa_idx << std::endl;
   return out;
 }
 
-std::ostream &operator<<(std::ostream &out,
-                                const NUMAPartitionPolicy &r){
+std::ostream& operator<<(std::ostream& out, const NUMAPartitionPolicy& r) {
   out << "---------------------------" << std::endl;
   out << "NUMA Partition Policy" << std::endl;
-  out<< "\treverse_numa_mapping: " << (global_conf::reverse_partition_numa_mapping ? "True" : "False") << std::endl;
+  out << "\treverse_numa_mapping: "
+      << (global_conf::reverse_partition_numa_mapping ? "True" : "False")
+      << std::endl;
   out << "---------------------------" << std::endl;
   out << "Default Partition:" << std::endl;
   out << r.PartitionVector[0];
   out << "---------------------------" << std::endl;
-  for(const auto& p : r.PartitionVector){
+  for (const auto& p : r.PartitionVector) {
     out << p;
   }
   out << "---------------------------" << std::endl;
   return out;
-
 }
 
 ExpressionType* getProteusType(
