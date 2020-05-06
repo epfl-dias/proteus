@@ -365,7 +365,12 @@ Column::Column(std::string name, uint64_t initial_num_records,
 
   size_t size_per_partition = initial_num_records_per_part * unit_size;
   size_t size = size_per_partition * this->num_partitions;
-  this->total_mem_reserved = size * global_conf::num_master_versions;
+  if (single_version_only) {
+    this->total_mem_reserved = size;
+  } else {
+    this->total_mem_reserved = size * global_conf::num_master_versions;
+  }
+
   this->size_per_part = size_per_partition;
 
   // snapshot arenas
