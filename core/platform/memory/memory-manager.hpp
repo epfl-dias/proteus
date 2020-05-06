@@ -138,15 +138,24 @@ typedef SingleDeviceMemoryManager<GpuMemAllocator, unit_capacity_gpu>
 typedef SingleDeviceMemoryManager<NUMAPinnedMemAllocator, unit_capacity_cpu>
     SingleCpuMemoryManager;
 
+namespace proteus {
+class platform;
+}
+
 class MemoryManager {
  public:
   static SingleGpuMemoryManager **gpu_managers;
   static SingleCpuMemoryManager **cpu_managers;
+
+ private:
   static void init(float gpu_mem_pool_percentage = 0.1,
                    float cpu_mem_pool_percentage = 0.1,
                    size_t log_buffers = 250);
   static void destroy();
 
+  friend class proteus::platform;
+
+ public:
   static void *mallocGpu(size_t bytes);
   static void freeGpu(void *ptr);
 

@@ -40,6 +40,7 @@
 #include <iostream>
 #include <list>
 #include <map>
+#include <memory>
 #include <queue>
 #include <set>
 #include <sstream>

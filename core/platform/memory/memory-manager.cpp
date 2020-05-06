@@ -373,6 +373,8 @@ void *SingleDeviceMemoryManager<allocator, unit_cap>::malloc(size_t bytes) {
 
 template <typename allocator, size_t unit_cap>
 void SingleDeviceMemoryManager<allocator, unit_cap>::free(void *ptr) {
+  if (!ptr) return;  // Ignore nullptr
+
   {
     std::lock_guard<std::mutex> lock(m_big_units);
     auto f = big_units.find(ptr);
