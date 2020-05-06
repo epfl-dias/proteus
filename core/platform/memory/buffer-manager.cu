@@ -727,7 +727,7 @@ template <typename T>
 __host__ void buffer_manager<T>::find_released_buffers(size_t freq) {
   const auto &topo = topology::getInstance();
   uint32_t devices = topo.getGpuCount();
-  // if (devices <= 0) return;
+  if (devices <= 0) return;
 
   // std::ostream &out = std::cerr;
   size_t maxFetchedBuffs = 1024;
