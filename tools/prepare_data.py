@@ -67,7 +67,7 @@ ddl = {
         lo_custkey          int     FOREIGN KEY REFERENCES customer (c_custkey),
         lo_partkey          int     FOREIGN KEY REFERENCES part     (p_partkey),
         lo_suppkey          int     FOREIGN KEY REFERENCES supplier (s_suppkey),
-        lo_orderdate        int     FOREIGN KEY REFERENCES dates    (d_datekey),
+        lo_orderdate        int     FOREIGN KEY REFERENCES date     (d_datekey),
         lo_orderpriority    string,
         lo_shippriority     string,
         lo_quantity         int,
@@ -77,7 +77,7 @@ ddl = {
         lo_revenue          int,
         lo_supplycost       int,
         lo_tax              int,
-        lo_commitdate       int     FOREIGN KEY REFERENCES dates    (d_datekey),
+        lo_commitdate       int     FOREIGN KEY REFERENCES date     (d_datekey),
         lo_shipmode         string
     """
 },
