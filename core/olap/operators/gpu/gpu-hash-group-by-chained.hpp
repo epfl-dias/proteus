@@ -36,19 +36,18 @@ class GpuHashGroupByChained : public HashGroupByChained {
   // inherit constructor
   using HashGroupByChained::HashGroupByChained;
 
-  virtual void produce_(ParallelContext *context);
-  // virtual void consume(Context *const context,
-  //                      const OperatorState &childState);
+  void produce_(ParallelContext *context) override;
 
-  virtual void open(Pipeline *pip);
-  virtual void close(Pipeline *pip);
+  void open(Pipeline *pip) override;
+  void close(Pipeline *pip) override;
 
  private:
-  void generate_build(ParallelContext *const context,
-                      const OperatorState &childState);
-  void buildHashTableFormat();
+  void generate_build(ParallelContext *context,
+                      const OperatorState &childState) override;
+  void buildHashTableFormat(ParallelContext *context) override;
   // llvm::Value *hash(llvm::Value *key);
   // llvm::Value *hash(llvm::Value *old_seed, llvm::Value *key);
+  PipelineGen *probe_gen;
 };
 
 #endif /* GPU_HASH_GROUP_BY_CHAINED_HPP_ */

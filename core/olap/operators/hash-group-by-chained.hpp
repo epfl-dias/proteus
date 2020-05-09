@@ -31,29 +31,25 @@
 #include "util/jit/pipeline.hpp"
 #include "util/parallel-context.hpp"
 
-class HashGroupByChained : public UnaryOperator {
+class HashGroupByChained : public experimental::UnaryOperator {
  public:
-  HashGroupByChained(const std::vector<GpuAggrMatExpr> &agg_exprs,
-                     const std::vector<expression_t> key_expr,
-                     Operator *const child,
+  HashGroupByChained(std::vector<GpuAggrMatExpr> agg_exprs,
+                     std::vector<expression_t> key_expr, Operator *child,
 
                      int hash_bits,
 
-                     ParallelContext *context, size_t maxInputSize,
-                     string opLabel = "gb_chained");
-  virtual ~HashGroupByChained() {
-    LOG(INFO) << "Collapsing HashGroupByChained operator";
-  }
+                     size_t maxInputSize, std::string opLabel = "gb_chained");
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
+  void produce_(ParallelContext *context) override;
+  void consume(ParallelContext *context,
+               const OperatorState &childState) override;
 
-  virtual bool isFiltering() const { return true; }
+  [[nodiscard]] bool isFiltering() const override { return true; }
 
   virtual void open(Pipeline *pip);
   virtual void close(Pipeline *pip);
 
-  virtual RecordType getRowType() const {
+  [[nodiscard]] RecordType getRowType() const override {
     std::vector<RecordAttribute *> attrs;
     for (const auto &attr : key_expr) {
       attrs.emplace_back(new RecordAttribute{attr.getRegisteredAs()});
@@ -65,13 +61,13 @@ class HashGroupByChained : public UnaryOperator {
   }
 
  protected:
-  void prepareDescription();
-  virtual void generate_build(ParallelContext *const context,
+  virtual void prepareDescription(ParallelContext *context);
+  virtual void generate_build(ParallelContext *context,
                               const OperatorState &childState);
-  virtual void generate_scan();
-  virtual void buildHashTableFormat();
+  virtual void generate_scan(ParallelContext *context);
+  virtual void buildHashTableFormat(ParallelContext *context);
   virtual llvm::Value *hash(const std::vector<expression_t> &exprs,
-                            Context *const context,
+                            ParallelContext *context,
                             const OperatorState &childState);
 
   std::vector<GpuAggrMatExpr> agg_exprs;
@@ -86,10 +82,7 @@ class HashGroupByChained : public UnaryOperator {
   int hash_bits;
   size_t maxInputSize;
 
-  PipelineGen *probe_gen;
-
-  ParallelContext *context;
-  string opLabel;
+  std::string opLabel;
 };
 
 #endif /* HASH_GROUP_BY_CHAINED_HPP_ */

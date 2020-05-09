@@ -23,6 +23,9 @@
 
 #include "operators/hash-group-by-chained.hpp"
 
+#include <util/bitwise-ops.hpp>
+#include <utility>
+
 #include "expressions/expressions-generator.hpp"
 #include "expressions/expressions-hasher.hpp"
 #include "memory/memory-manager.hpp"
@@ -30,50 +33,42 @@
 
 using namespace llvm;
 
-HashGroupByChained::HashGroupByChained(
-    const std::vector<GpuAggrMatExpr> &agg_exprs,
-    // const std::vector<size_t>                      &packet_widths,
-    const std::vector<expression_t> key_expr, Operator *const child,
+HashGroupByChained::HashGroupByChained(std::vector<GpuAggrMatExpr> agg_exprs,
+                                       std::vector<expression_t> key_expr,
+                                       Operator *child,
 
-    int hash_bits,
+                                       int hash_bits,
 
-    ParallelContext *context, size_t maxInputSize, string opLabel)
+                                       size_t maxInputSize, std::string opLabel)
     : UnaryOperator(child),
-      agg_exprs(agg_exprs),
-      key_expr(key_expr),
+      agg_exprs(std::move(agg_exprs)),
+      key_expr(std::move(key_expr)),
       hash_bits(hash_bits),
       maxInputSize(maxInputSize),
-      context(context),
-      opLabel(opLabel) {}
+      opLabel(std::move(opLabel)) {}
 
 void HashGroupByChained::produce_(ParallelContext *context) {
-  prepareDescription();
-  generate_scan();
+  prepareDescription(context);
+  generate_scan(context);
 
   context->popPipeline();
 
-  probe_gen = context->removeLatestPipeline();
+  context->pushPipeline(context->removeLatestPipeline());
 
-  context->pushPipeline(probe_gen);
+  buildHashTableFormat(context);
 
-  buildHashTableFormat();
-
-  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
-    this->open(pip);
-  });
-  ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
-    this->close(pip);
-  });
+  context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
+  context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
   getChild()->produce(context);
 }
 
-void HashGroupByChained::consume(Context *const context,
+void HashGroupByChained::consume(ParallelContext *context,
                                  const OperatorState &childState) {
-  generate_build((ParallelContext *const)context, childState);
+  generate_build(context, childState);
 }
 
-void HashGroupByChained::prepareDescription() {
+void HashGroupByChained::prepareDescription(ParallelContext *context) {
   agg_exprs.emplace_back(new expressions::IntConstant(0), ~((size_t)0), 0);
 
   size_t bitoffset = 0;
@@ -97,10 +92,6 @@ void HashGroupByChained::prepareDescription() {
   size_t p = 0;
 
   while (i < agg_exprs.size()) {
-    // Type * t     =
-    // PointerType::get(IntegerType::getIntNTy(context->getLLVMContext(),
-    // packet_widths[p]), /* address space */ 0);
-
     size_t bindex = 0;
     size_t packind = 0;
 
@@ -127,14 +118,7 @@ void HashGroupByChained::prepareDescription() {
     // assert(packet_widths[p] >= bindex);
 
     if (bindex & (bindex - 1)) {
-      size_t v = bindex - 1;
-      v |= v >> 1;
-      v |= v >> 2;
-      v |= v >> 4;
-      v |= v >> 8;
-      v |= v >> 16;
-      v |= v >> 32;
-      v++;
+      size_t v = next_power_of_2(bindex);
       body.push_back(Type::getIntNTy(context->getLLVMContext(), (v - bindex)));
       // if (packet_widths[p] > bindex) {
       //     body.push_back(Type::getIntNTy(context->getLLVMContext(),
@@ -153,13 +137,9 @@ void HashGroupByChained::prepareDescription() {
   assert(i == agg_exprs.size());
 
   agg_exprs.erase(agg_exprs.begin());  // erase dummy entry for next
-
-  // Type * t     = PointerType::get(((const PrimitiveType *)
-  // out_type)->getLLVMType(context->getLLVMContext()), /* address space */ 0);
-  // out_param_id = context->appendStateVar(t    );//, true, false);
 }
 
-void HashGroupByChained::buildHashTableFormat() {
+void HashGroupByChained::buildHashTableFormat(ParallelContext *context) {
   for (const auto &t : ptr_types) {
     out_param_ids.push_back(context->appendStateVar(t));  //, true, false));
   }
@@ -204,14 +184,12 @@ void HashGroupByChained::buildHashTableFormat() {
             ((ParallelContext *)context)->getSubStateVar(), substate_t);
         args.emplace_back(substate);
 
-        // for (const auto &t : args) t->getType()->dump();
-        // f->getFunctionType()->dump();
         Builder->CreateCall(f, args);
       });
 }
 
 Value *HashGroupByChained::hash(const std::vector<expression_t> &exprs,
-                                Context *const context,
+                                ParallelContext *context,
                                 const OperatorState &childState) {
   Value *hash;
   if (exprs.size() == 1) {
@@ -229,17 +207,12 @@ Value *HashGroupByChained::hash(const std::vector<expression_t> &exprs,
   return context->getBuilder()->CreateURem(hash, size);
 }
 
-void HashGroupByChained::generate_build(ParallelContext *const context,
+void HashGroupByChained::generate_build(ParallelContext *context,
                                         const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-  // PointerType *charPtrType = Type::getInt8PtrTy(llvmContext);
-  // Type *int8_type = Type::getInt8Ty(llvmContext);
-  // PointerType *void_ptr_type = PointerType::get(int8_type, 0);
-  // Type *int64_type = Type::getInt64Ty(llvmContext);
-  // Type *int32_type = Type::getInt32Ty(llvmContext);
   Value *v_true = ConstantInt::getTrue(llvmContext);
   Value *v_false = ConstantInt::getFalse(llvmContext);
 
@@ -448,17 +421,16 @@ void HashGroupByChained::generate_build(ParallelContext *const context,
       BasicBlock::Create(llvmContext, "InvalidateEntry", TheFunction);
 
   // atomicAdd(&(next[current].sum), val);
-  for (size_t i = 0; i < agg_exprs.size(); ++i) {
-    if (agg_exprs[i].is_aggregation()) {
-      gpu::Monoid *gm = gpu::Monoid::get(agg_exprs[i].m);
-      std::vector<Value *> tmp{current,
-                               context->createInt32(agg_exprs[i].packind)};
+  for (auto &agg_expr : agg_exprs) {
+    if (agg_expr.is_aggregation()) {
+      gpu::Monoid *gm = gpu::Monoid::get(agg_expr.m);
+      std::vector<Value *> tmp{current, context->createInt32(agg_expr.packind)};
 
-      Value *aggr = Builder->CreateExtractValue(out_vals[agg_exprs[i].packet],
-                                                agg_exprs[i].packind);
+      Value *aggr = Builder->CreateExtractValue(out_vals[agg_expr.packet],
+                                                agg_expr.packind);
 
       Value *gl_accum = Builder->CreateInBoundsGEP(
-          context->getStateVar(out_param_ids[agg_exprs[i].packet]), tmp);
+          context->getStateVar(out_param_ids[agg_expr.packet]), tmp);
 
       gm->createUpdate(context, gl_accum, aggr);
     }
@@ -571,7 +543,7 @@ void HashGroupByChained::generate_build(ParallelContext *const context,
 
 std::map<std::pair<void *, int32_t>, std::vector<void *>> garbage;
 
-void HashGroupByChained::generate_scan() {
+void HashGroupByChained::generate_scan(ParallelContext *context) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
 
@@ -786,7 +758,7 @@ void HashGroupByChained::generate_scan() {
 
 void HashGroupByChained::open(Pipeline *pip) {
   size_t cnt_size = sizeof(int64_t);
-  int32_t *cnt = (int32_t *)MemoryManager::mallocPinned(cnt_size);
+  auto *cnt = (int32_t *)MemoryManager::mallocPinned(cnt_size);
   // int32_t * first = (int32_t *) MemoryManager::mallocPinned(sizeof(int32_t
   // ) * (1 << hash_bits));
   std::vector<void *> next;
@@ -920,7 +892,7 @@ void HashGroupByChained::close(Pipeline *pip) {
   v.emplace_back(pip->getStateVar<int32_t *>(head_param_id));
 
   assert(out_param_ids.size() == packet_widths.size());
-  for (size_t i = 0; i < out_param_ids.size(); ++i) {
-    v.emplace_back(pip->getStateVar<void *>(out_param_ids[i]));
+  for (auto &out_param_id : out_param_ids) {
+    v.emplace_back(pip->getStateVar<void *>(out_param_id));
   }
 }

@@ -34,7 +34,7 @@ using namespace llvm;
 void GpuHashGroupByChained::produce_(ParallelContext *context) {
   context->pushPipeline();
 
-  buildHashTableFormat();
+  buildHashTableFormat(context);
 
   context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
   context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
@@ -44,11 +44,11 @@ void GpuHashGroupByChained::produce_(ParallelContext *context) {
   context->popPipeline();
 
   probe_gen = context->getCurrentPipeline();
-  generate_scan();
+  generate_scan(context);
 }
 
-void GpuHashGroupByChained::buildHashTableFormat() {
-  prepareDescription();
+void GpuHashGroupByChained::buildHashTableFormat(ParallelContext *context) {
+  prepareDescription(context);
   for (const auto &t : ptr_types) {
     out_param_ids.push_back(context->appendStateVar(t));  //, true, false));
   }
@@ -62,18 +62,14 @@ void GpuHashGroupByChained::buildHashTableFormat() {
   head_param_id = context->appendStateVar(t_head_ptr);
 }
 
-void GpuHashGroupByChained::generate_build(ParallelContext *const context,
+void GpuHashGroupByChained::generate_build(ParallelContext *context,
                                            const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
   auto activemask_all = gpu_intrinsic::activemask(context);
-  // PointerType *charPtrType = Type::getInt8PtrTy(llvmContext);
-  // Type *int8_type = Type::getInt8Ty(llvmContext);
-  // PointerType *void_ptr_type = PointerType::get(int8_type, 0);
-  // Type *int64_type = Type::getInt64Ty(llvmContext);
-  // Type *int32_type = Type::getInt32Ty(llvmContext);
+
   Value *v_true = ConstantInt::getTrue(llvmContext);
   Value *v_false = ConstantInt::getFalse(llvmContext);
 
@@ -122,12 +118,7 @@ void GpuHashGroupByChained::generate_build(ParallelContext *const context,
   for (size_t i = 0; i < out_param_ids.size(); ++i) {
     Value *out_ptr = context->getStateVar(out_param_ids[i]);
     out_ptr->setName(opLabel + "_data" + std::to_string(i) + "_ptr");
-    // out_ptrs.push_back(out_ptr);
 
-    // out_ptr->addAttr(Attribute::getWithAlignment(llvmContext,
-    // context->getSizeOf(out_ptr)));
-
-    // out_ptrs.push_back(Builder->CreateInBoundsGEP(out_ptr, old_cnt));
     out_vals.push_back(
         UndefValue::get(out_ptr->getType()->getPointerElementType()));
   }
@@ -141,13 +132,6 @@ void GpuHashGroupByChained::generate_build(ParallelContext *const context,
     out_vals[mexpr.packet] = Builder->CreateInsertValue(
         out_vals[mexpr.packet], valWrapper.value, mexpr.packind);
   }
-
-  // BasicBlock *InitCondBB  = BasicBlock::Create(llvmContext, "setHeadCond",
-  // TheFunction);
-  // BasicBlock *InitThenBB =
-  //     BasicBlock::Create(llvmContext, "setHead", TheFunction);
-  // BasicBlock *InitMergeBB =
-  //     BasicBlock::Create(llvmContext, "cont", TheFunction);
 
   BasicBlock *ThenBB =
       BasicBlock::Create(llvmContext, "chainFollow", TheFunction);
@@ -294,9 +278,6 @@ void GpuHashGroupByChained::generate_build(ParallelContext *const context,
       new BoolType(),
       ProteusValue{Builder->CreateLoad(mem_written), context->createFalse()}};
   context->gen_if(writtenExpr, childState)([&] {
-    // Value * str = UndefValue::get(((const ParallelContext *)
-    // context)->getStateVar(out_param_ids[0])->getType()->getPointerElementType());
-    // str = Builder->CreateInsertValue(str, Builder->CreateLoad(mem_idx), 0);
     Value *inv_ptr = Builder->CreateInBoundsGEP(
         context->getStateVar(out_param_ids[0]),
         std::vector<Value *>{Builder->CreateLoad(mem_idx),
@@ -478,8 +459,6 @@ void GpuHashGroupByChained::close(Pipeline *pip) {
   // std::endl;
 
   cudaStream_t strm = createNonBlockingStream();
-
-  execution_conf ec = pip->getExecConfiguration();
 
   // void   ** buffs = pip->getStateVar<void   **>(buffVar_id[0]);
   // int32_t * cnts  = pip->getStateVar<int32_t *>(cntVar_id    );

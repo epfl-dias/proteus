@@ -266,13 +266,13 @@ RelBuilder RelBuilder::groupby(const std::vector<expression_t> &e,
                                size_t hash_bits, size_t maxInputSize) const {
   switch (root->getDeviceType()) {
     case DeviceType::GPU: {
-      auto op = new GpuHashGroupByChained(agg_exprs, e, root, hash_bits, ctx,
+      auto op = new GpuHashGroupByChained(agg_exprs, e, root, hash_bits,
                                           maxInputSize);
       return apply(op);
     }
     case DeviceType::CPU: {
-      auto op = new HashGroupByChained(agg_exprs, e, root, hash_bits, ctx,
-                                       maxInputSize);
+      auto op =
+          new HashGroupByChained(agg_exprs, e, root, hash_bits, maxInputSize);
       return apply(op);
     }
   }
