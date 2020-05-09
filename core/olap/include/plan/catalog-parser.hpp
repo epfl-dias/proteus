@@ -26,6 +26,17 @@
 
 #include "values/expressionTypes.hpp"
 
+#if __has_include(<filesystem>)
+#include <filesystem>
+#else
+// TODO: remove as soon as the default GCC moves filesystem out of experimental
+//  GCC 8.3 has made the transition, but the default GCC in Ubuntu 18.04 is 7.4
+#include <experimental/filesystem>
+namespace std {
+namespace filesystem = std::experimental::filesystem;
+}
+#endif
+
 class ParallelContext;
 
 typedef struct InputInfo {
@@ -78,8 +89,8 @@ class CatalogParser {
   void clear();
 
  private:
-  void parseCatalogFile(std::string file);
-  void parseDir(std::string dir);
+  void parseCatalogFile(const std::filesystem::path &dir);
+  void parseDir(const std::filesystem::path &dir);
 
   map<std::string, InputInfo *> inputs;
 };

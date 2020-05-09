@@ -1856,7 +1856,7 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
     if (!create) {
       newPg = Catalog::getInstance().getPlugin(*pathDynamicCopy);  // TODO fix
       if (!newPg) {
-        string err = string("Unknown Plugin Type: ") + pgType;
+        auto err = "Unknown Plugin Type: " + pgType;
         LOG(ERROR) << err;
         throw runtime_error(err);
       }
@@ -1885,26 +1885,24 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
   return newPg;
 }
 
-void CatalogParser::parseCatalogFile(std::string file) {
+void CatalogParser::parseCatalogFile(const std::filesystem::path &file) {
   // key aliases
   const char *keyInputPath = "path";
   const char *keyExprType = "type";
 
-  // Prepare Input
-  struct stat statbuf;
-  stat(file.c_str(), &statbuf);
-  size_t fsize = statbuf.st_size;
+  auto fsize = std::filesystem::file_size(file);
 
-  int fd = open(file.c_str(), O_RDONLY);
+  auto f = std::filesystem::absolute(file).string();
+  int fd = open(f.c_str(), O_RDONLY);
   if (fd < 0) {
-    std::string err = "failed to open file: " + file;
+    const auto err = "failed to open file: " + f;
     LOG(ERROR) << err;
     throw runtime_error(err);
   }
-  const char *bufJSON =
+  auto bufJSON =
       (const char *)mmap(nullptr, fsize, PROT_READ, MAP_PRIVATE, fd, 0);
   if (bufJSON == MAP_FAILED) {
-    std::string err = "json.mmap";
+    const auto err = "failed to mmap file: " + f;
     LOG(ERROR) << err;
     throw runtime_error(err);
   }
@@ -1935,7 +1933,7 @@ void CatalogParser::parseCatalogFile(std::string file) {
         ExpressionParser{*this,
                          new RecordType{std::vector<RecordAttribute *>{}}}
             .parseExpressionType((member.value)[keyExprType]);
-    InputInfo *info = new InputInfo();
+    auto *info = new InputInfo();
     info->exprType = exprType;
     info->path = inputPath;
     // Initialized by parsePlugin() later on
@@ -1961,39 +1959,16 @@ void CatalogParser::clear() {
   parseDir("inputs");
 }
 
-void CatalogParser::parseDir(std::string dir) {
-  // FIXME: we can do that in a portable way with C++17, but for now because we
-  // are using libstdc++, upgrading to C++17 and using <filesystem> causes
-  // linking problems in machines with old gcc version
-  DIR *d = opendir(dir.c_str());
-  if (!d) {
-    LOG(WARNING) << "Open dir " << dir << " failed (" << strerror(errno) << ")";
-    LOG(WARNING) << "Ignoring directory: " << dir;
-    return;
+void CatalogParser::parseDir(const std::filesystem::path &dir) {
+  LOG(INFO) << "Scanning for catalogs: " << dir;
+
+  for (const auto &entry : std::filesystem::directory_iterator(dir)) {
+    if (std::filesystem::is_directory(entry)) {
+      parseDir(entry);
+    } else if (entry.path().filename() == "catalog.json") {
+      parseCatalogFile(entry);
+    }
   }
-
-  dirent *entry;
-  while ((entry = readdir(d)) != nullptr) {
-    std::string fname{entry->d_name};
-
-    if (strcmp(entry->d_name, "..") == 0) continue;
-    if (strcmp(entry->d_name, ".") == 0) continue;
-
-    std::string origd{dir + "/" + fname};
-    // Use this to canonicalize paths:
-    // std::string pathd{realpath(origd.c_str(), nullptr)};
-    std::string pathd{origd};
-
-    struct stat s;
-    stat(pathd.c_str(), &s);
-
-    if (S_ISDIR(s.st_mode)) {
-      parseDir(pathd);
-    } else if (fname == "catalog.json" && S_ISREG(s.st_mode)) {
-      parseCatalogFile(pathd);
-    } /* else skipping */
-  }
-  closedir(d);
 }
 
 /**
