@@ -24,6 +24,7 @@
 #include "expressions/expressions.hpp"
 
 #include <expressions/expressions/ref-expression.hpp>
+#include <util/demangle.hpp>
 
 #include "util/context.hpp"
 
@@ -659,7 +660,12 @@ class ExpressionSerializer {
   ExpressionSerializer(std::ostream &out) : out(out) {}
 
   ProteusValue operator()(const expressions::Expression &e) {
-    out << typeid(e).name();
+    out << demangle(typeid(e).name());
+    return {};
+  }
+
+  ProteusValue operator()(const expressions::InputArgument &e) {
+    out << "InputArgument(" << *(e.getExpressionType()) << ")\n";
     return {};
   }
 
