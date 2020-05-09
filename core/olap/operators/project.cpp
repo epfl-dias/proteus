@@ -34,7 +34,8 @@ Project::Project(vector<expression_t> outputExprs, string relName,
       outputExprs(outputExprs) {}
 
 void Project::produce_(ParallelContext *context) {
-  auto t = llvm::Type::getInt32Ty(context->getLLVMContext());
+  Plugin *pg = Catalog::getInstance().getPlugin(relName);
+  auto t = pg->getOIDType()->getLLVMType(context->getLLVMContext());
   oid_id = context->appendStateVar(
       llvm::PointerType::getUnqual(t),
       [=](llvm::Value *) {
@@ -69,7 +70,8 @@ void Project::generate(Context *const context,
   auto local_mem_cnt =
       context->CreateEntryBlockAlloca("cnt", local_oid->getType());
   Builder->CreateStore(local_oid, local_mem_oid);
-  Builder->CreateStore(context->createInt32(1), local_mem_cnt);
+  Builder->CreateStore(llvm::ConstantInt::get(local_oid->getType(), 1),
+                       local_mem_cnt);
 
   Builder->SetInsertPoint(context->getEndingBlock());
   Builder->CreateStore(Builder->CreateLoad(local_mem_oid), state_mem_oid);
@@ -83,15 +85,17 @@ void Project::generate(Context *const context,
   oid_value.isNull = context->createFalse();
 
   // store new_val to accumulator
-  llvm::Value *next_oid = Builder->CreateAdd(Builder->CreateLoad(local_mem_oid),
-                                             context->createInt32(0));
+  llvm::Value *next_oid =
+      Builder->CreateAdd(Builder->CreateLoad(local_mem_oid),
+                         llvm::ConstantInt::get(local_oid->getType(), 0));
   Builder->CreateStore(next_oid, local_mem_oid);
-  bindings[RecordAttribute(relName, activeLoop, new IntType())] = oid_value;
+  auto oidType = Catalog::getInstance().getPlugin(relName)->getOIDType();
+  bindings[{relName, activeLoop, oidType}] = oid_value;
 
   ProteusValueMemory cnt_value;
   cnt_value.mem = local_mem_cnt;
   cnt_value.isNull = context->createFalse();
-  bindings[RecordAttribute(relName, "activeCnt", new IntType())] = cnt_value;
+  bindings[{relName, "activeCnt", oidType}] = cnt_value;
 
   for (const auto &outputExpr : outputExprs) {
     ExpressionGeneratorVisitor exprGenerator{context, childState};
