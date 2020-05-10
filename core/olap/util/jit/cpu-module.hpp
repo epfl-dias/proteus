@@ -31,22 +31,14 @@
 
 class CpuModule : public JITModule {
  protected:
-  static llvm::LLVMTargetMachine *TheTargetMachine;
-  static llvm::legacy::PassManager Passes;
-  static llvm::PassManagerBuilder Builder;
-  // static std::unique_ptr<llvm::legacy::FunctionPassManager>   FPasses ;
-
- protected:
   llvm::ExecutionEngine *TheExecutionEngine;
 
  public:
-  CpuModule(Context *context, std::string pipName = "pip");
+  explicit CpuModule(Context *context, std::string pipName = "pip");
 
-  static void init();
+  void compileAndLoad() override;
 
-  virtual void compileAndLoad();
-
-  virtual void *getCompiledFunction(llvm::Function *f) const;
+  void *getCompiledFunction(llvm::Function *f) const override;
 
  protected:
   virtual void optimizeModule(llvm::Module *M);
