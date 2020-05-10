@@ -64,6 +64,8 @@ constexpr short num_master_versions = 2;
 constexpr short num_delta_storages = 2;
 constexpr bool reverse_partition_numa_mapping = false;
 
+constexpr bool col_level_mv = false;
+
 // for row-store inline bit, fix it to have bit-mask separate.
 constexpr short HTAP_UPD_BIT_COUNT = 1;
 

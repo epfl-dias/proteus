@@ -30,9 +30,7 @@
 
 namespace storage {
 
-// FIXME: NUMA socket for delta-partitions are hard-coded at the moment.
-
-DeltaStore::DeltaStore(uint delta_id, uint64_t ver_list_capacity,
+DeltaStore::DeltaStore(uint32_t delta_id, uint64_t ver_list_capacity,
                        uint64_t ver_data_capacity, int num_partitions)
     : touched(false) {
   this->delta_id = delta_id;
@@ -115,19 +113,26 @@ void DeltaStore::print_info() {
 }
 
 void* DeltaStore::insert_version(global_conf::IndexVal* idx_ptr, uint rec_size,
-                                 ushort parition_id) {
+                                 ushort parition_id, const ushort* col_idx,
+                                 ushort num_cols) {
   char* cnk = (char*)partitions[parition_id]->getVersionDataChunk(rec_size);
-  global_conf::mv_version* val = (global_conf::mv_version*)cnk;
-  val->t_min = idx_ptr->t_min;
-  val->t_max = 0;  // idx_ptr->t_max;
-  val->data = cnk + sizeof(global_conf::mv_version);
 
-  if (idx_ptr->delta_ver_tag != tag) {
+  global_conf::mv_version* val = new ((void*)cnk) global_conf::mv_version(
+      idx_ptr->t_min, 0, cnk + sizeof(global_conf::mv_version));
+
+  if (num_cols > 0) {
+    for (auto i = 0; i < num_cols; i++) {
+      val->col_ids.emplace_back(col_idx[i]);
+    }
+  }
+
+  auto curr_tag = create_delta_tag(this->delta_id, tag);
+  if (idx_ptr->delta_ver_tag != curr_tag) {
     // none/stale list
-    idx_ptr->delta_ver_tag = tag;
+    idx_ptr->delta_ver_tag = curr_tag;
     idx_ptr->delta_ver =
         (global_conf::mv_version_list*)partitions[parition_id]->getListChunk();
-    idx_ptr->delta_ver->insert(val);
+    idx_ptr->delta_ver->head = val;
   } else {
     // valid list
     idx_ptr->delta_ver->insert(val);
@@ -152,7 +157,7 @@ void DeltaStore::gc() {
       tag++;
       gc_lock.store(0);
       touched = false;
-      // gc_reset_success++;
+      gc_reset_success++;
     } else {
       // gc_lock.unlock();
       gc_lock.store(0);

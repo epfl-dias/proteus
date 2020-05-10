@@ -80,6 +80,10 @@ class alignas(4096) ColumnStore : public Table {
   uint64_t load_data_from_binary(std::string col_name, std::string file_path);
 
   void touchRecordByKey(uint64_t vid);
+
+  void getRecordByKey(global_conf::IndexVal *idx_ptr, uint64_t txn_id,
+                      ushort curr_delta, const ushort *col_idx, ushort num_cols,
+                      void *loc);
   void getRecordByKey(uint64_t vid, const ushort *col_idx, ushort num_cols,
                       void *loc);
 

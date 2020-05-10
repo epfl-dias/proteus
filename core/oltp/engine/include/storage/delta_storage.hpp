@@ -43,14 +43,15 @@ namespace storage {
 
 class alignas(4096) DeltaStore {
  public:
-  DeltaStore(uint delta_id, uint64_t ver_list_capacity = g_delta_size,
+  DeltaStore(uint32_t delta_id, uint64_t ver_list_capacity = g_delta_size,
              uint64_t ver_data_capacity = g_delta_size,
              int num_partitions = g_num_partitions);
   ~DeltaStore();
 
   void print_info();
   void *insert_version(global_conf::IndexVal *idx_ptr, uint rec_size,
-                       ushort parition_id);
+                       ushort parition_id, const ushort *col_idx = nullptr,
+                       ushort num_cols = 0);
   void gc();
   void gc_with_counter_arr(int wrk_id);
 
@@ -85,6 +86,18 @@ class alignas(4096) DeltaStore {
     if (readers.fetch_sub(1) <= 1 && touched) {
       gc();
     }
+  }
+
+  inline auto getTag() { return tag.load(); }
+
+  [[maybe_unused]] inline bool verifyTag(uint64_t &d_tag_ver) {
+    return (create_delta_tag(this->delta_id, tag.load()) == d_tag_ver);
+  }
+
+  static inline uint64_t __attribute__((always_inline))
+  create_delta_tag(uint64_t delta_idx, uint32_t delta_tag) {
+    // 2 byte delta_idx | 4-byte delta-tag
+    return (delta_idx << 32) | (delta_tag);
   }
 
  private:
@@ -210,7 +223,7 @@ class alignas(4096) DeltaStore {
 
   std::atomic<uint> tag;
   uint64_t max_active_epoch;
-  uint delta_id;
+  uint32_t delta_id;
   std::vector<DeltaPartition *> partitions;
   std::atomic<uint> readers;
   std::atomic<short> gc_lock;

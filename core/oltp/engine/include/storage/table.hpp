@@ -232,6 +232,9 @@ class Table {
 
   virtual void getRecordByKey(uint64_t vid, const ushort *col_idx,
                               ushort num_cols, void *loc) = 0;
+  virtual void getRecordByKey(global_conf::IndexVal *idx_ptr, uint64_t txn_id,
+                              ushort curr_delta, const ushort *col_idx,
+                              ushort num_cols, void *loc) = 0;
 
   virtual void touchRecordByKey(uint64_t vid) = 0;
 

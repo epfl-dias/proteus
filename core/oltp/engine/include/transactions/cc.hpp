@@ -26,6 +26,7 @@
 
 #include <iostream>
 #include <mutex>
+#include <utility>
 #include <vector>
 
 #include "transactions/txn_utils.hpp"
@@ -58,6 +59,7 @@ struct VERSION_LIST;
 
 class CC_MV2PL {
  public:
+  // FIXME: GET AND VERIFY TAG FOR UPDATES!!!
   struct __attribute__((packed)) PRIMARY_INDEX_VAL {
     uint64_t t_min;  //  | 1-byte w_id | 6 bytes xid |
     uint64_t VID;    // | 1-byte delta-id | 1-byte master_ver | 1-byte
@@ -68,7 +70,8 @@ class CC_MV2PL {
     lock::AtomicTryLock write_lck;
 
     struct VERSION_LIST *delta_ver;
-    uint delta_ver_tag;
+    // uint delta_ver_tag;
+    uint64_t delta_ver_tag;  // 4 byte delta_idx| 4-byte delta-tag
 
     PRIMARY_INDEX_VAL();
     PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid)
@@ -116,10 +119,17 @@ class CC_MV2PL {
 struct VERSION {
   uint64_t t_min;
   uint64_t t_max;
+  std::vector<uint> col_ids;
   void *data;
   VERSION *next;
   VERSION(uint64_t t_min, uint64_t t_max, void *data)
-      : t_min(t_min), t_max(t_max), data(data), next(nullptr) {}
+      : t_min(t_min), t_max(t_max), data(data), next(nullptr), col_ids() {}
+  VERSION(uint64_t t_min, uint64_t t_max, void *data, std::vector<uint> col_ids)
+      : t_min(t_min),
+        t_max(t_max),
+        data(data),
+        next(nullptr),
+        col_ids(std::move(col_ids)) {}
 };
 
 struct VERSION_LIST {
@@ -151,6 +161,25 @@ struct VERSION_LIST {
     }
     return nullptr;
   }
+
+  //  void *get_readable_ver(uint64_t tid_self, uint col_id) {
+  //    VERSION *tmp = nullptr;
+  //    {
+  //      tmp = head;
+  //      // C++ standard says that (x == NULL) <=> (x==nullptr)
+  //      while (tmp != nullptr) {
+  //        // if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
+  //        if ((tmp->col_ids.empty() || tmp->col_ids.find(col_id) !=
+  //        tmp->col_ids.end()) &&
+  //            CC_MV2PL::is_readable(tmp->t_min, tid_self)) {
+  //          return tmp->data;
+  //        } else {
+  //          tmp = tmp->next;
+  //        }
+  //      }
+  //    }
+  //    return nullptr;
+  //  }
 
   // void print_list(uint64_t print) {
   //   VERSION *tmp = head;

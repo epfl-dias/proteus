@@ -44,6 +44,16 @@ namespace storage {
 
 std::mutex print_mutex;
 
+static inline uint32_t __attribute__((always_inline))
+CC_get_delta_tag(uint64_t delta_ver_tag) {
+  return static_cast<uint32_t>(delta_ver_tag);
+}
+
+static inline uint32_t __attribute__((always_inline))
+CC_get_delta_id(uint64_t delta_ver_tag) {
+  return static_cast<uint32_t>(delta_ver_tag >> 32);
+}
+
 static inline uint64_t __attribute__((always_inline))
 CC_gen_vid(uint64_t vid, ushort partition_id, ushort master_ver,
            ushort delta_version) {
@@ -236,8 +246,118 @@ void ColumnStore::touchRecordByKey(uint64_t vid) {
   }
 }
 
+void ColumnStore::getRecordByKey(global_conf::IndexVal* idx_ptr,
+                                 uint64_t txn_id, ushort curr_delta,
+                                 const ushort* col_idx, ushort num_cols,
+                                 void* loc) {
+  char* write_loc = (char*)loc;
+
+  if (txn::CC_MV2PL::is_readable(idx_ptr->t_min, txn_id)) {
+    if (__unlikely(col_idx == nullptr)) {
+      for (auto& col : columns) {
+        col.getElem(idx_ptr->VID, write_loc);
+        write_loc += col.elem_size;
+      }
+    } else {
+      for (ushort i = 0; i < num_cols; i++) {
+        auto& col = columns.at(col_idx[i]);
+        col.getElem(idx_ptr->VID, write_loc);
+        write_loc += col.elem_size;
+      }
+    }
+  } else {
+    // LOG(INFO) << txn_id;
+    //    // Check delta-tag. kinda assert because if not, then its an issue.
+    // dont check tag, as tag is written on the delta_ver for the existing but
+    // when actual compare, it might be different delta.
+    //    auto tagTmp = this->deltaStore[curr_delta]->getTag();
+    //    if(tagTmp != idx_ptr->delta_ver_tag){
+    //      LOG(INFO) << "txn_id: " << txn_id << " | tag: " << tagTmp << " |
+    //      hTag: " << idx_ptr->delta_ver_tag;
+    //    }
+    //    assert(tagTmp== idx_ptr->delta_ver_tag);
+
+    // get the delta-idx. and verify in that delta if this thing is valid.
+    // idx_ptr->delta_ver_tag
+
+    auto tagTmp =
+        this->deltaStore[CC_get_delta_id(idx_ptr->delta_ver_tag)]->getTag();
+    assert(tagTmp == CC_get_delta_tag(idx_ptr->delta_ver_tag));
+
+    if constexpr (global_conf::col_level_mv) {
+      // TODO: get col-based version only for attr-level MV.
+      // TODO: can use some _BitScanForward64 intrinsic to find 1 bits and use
+      // bit masks as index to col_ids.
+      // NOTE: this is very naive impl and will be only for list-based MV,
+      // not DAG-based.
+
+      ushort copied = 0;
+
+      for (ushort i = 0, j = 0; i < num_cols; i++) {
+        auto col_elem_size = columns.at(col_idx[i]).elem_size;
+        global_conf::mv_version* tmp = idx_ptr->delta_ver->head;
+        bool found = false;
+        while (tmp != nullptr) {
+          if (txn::CC_MV2PL::is_readable(tmp->t_min, txn_id)) {
+            if (tmp->col_ids.size() > 0) {
+              size_t offset_ver = 0;
+              // assumption, col_idx will be sorted.
+              for (; j < tmp->col_ids.size(); j++) {
+                auto tmp_col_id = tmp->col_ids[j];
+
+                if (tmp_col_id == col_idx[i]) {
+                  memcpy(write_loc, ((char*)(tmp->data)) + offset_ver,
+                         col_elem_size);
+                  write_loc += col_elem_size;
+                  copied++;
+                  found = true;
+                  break;
+                } else if (tmp_col_id < col_idx[i]) {
+                  offset_ver += columns.at(tmp_col_id).elem_size;
+                } else {
+                  assert(false && "it shouldnt come here given sortedness.");
+                }
+              }
+              if (found) {
+                break;
+              }
+            } else {
+              // shift to old strategy.
+              while (i < num_cols) {
+                auto& col_i = columns.at(col_idx[i]);
+                memcpy(write_loc,
+                       ((char*)(tmp->data)) + col_i.cummulative_offset,
+                       col_i.elem_size);
+                write_loc += col_i.elem_size;
+                i++;
+              }
+              break;
+            }
+          } else {
+            tmp = tmp->next;
+          }
+        }
+      }
+      assert(copied == num_cols);
+
+    } else {
+      // get version from chain.
+      char* version = (char*)idx_ptr->delta_ver->get_readable_ver(txn_id);
+
+      // copy the required attr
+      for (ushort i = 0; i < num_cols; i++) {
+        auto& col = columns.at(col_idx[i]);
+        // assumption: full row is in the version.
+        memcpy(write_loc, version + col.cummulative_offset, col.elem_size);
+        write_loc += col.elem_size;
+      }
+    }
+  }
+}
+
 void ColumnStore::getRecordByKey(uint64_t vid, const ushort* col_idx,
                                  ushort num_cols, void* loc) {
+  // FIXME: GET AND VERIFY TAG FOR UPDATES, USE TXN ID/ TimeStamp!!!
   char* write_loc = (char*)loc;
   if (__unlikely(col_idx == nullptr)) {
     for (auto& col : columns) {
@@ -264,30 +384,60 @@ void ColumnStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
   ushort pid = CC_extract_pid(hash_ptr->VID);
   ushort m_ver = CC_extract_m_ver(hash_ptr->VID);
 
-  char* ver = (char*)this->deltaStore[curr_delta]->insert_version(
-      hash_ptr, this->rec_size, pid);
-  assert(ver != nullptr);
-
-  for (auto& col : columns) {
-    memcpy(ver + col.cummulative_offset, col.getElem(hash_ptr->VID),
-           col.elem_size);
-  }
-
-  hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
   char* cursor = (char*)rec;
 
-  if (__unlikely(num_cols <= 0)) {
-    for (auto& col : columns) {
-      col.updateElem(
-          hash_ptr->VID,
-          (rec == nullptr ? nullptr : cursor + col.cummulative_offset));
+  // Either column-level MV or entire record is to be updated.
+  if (global_conf::col_level_mv && num_cols <= 0) {
+    auto old_vid = hash_ptr->VID;
+    hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
+
+    // FIXME: this is just hack to report update-thresh numbers.
+    size_t ver_rec_size = 0;
+    for (ushort i = 0; i < num_cols; i++) {
+      ver_rec_size += columns.at(col_idx[i]).elem_size;
+    }
+    char* ver = (char*)this->deltaStore[curr_delta]->insert_version(
+        hash_ptr, ver_rec_size, pid);
+    assert(ver != nullptr);
+
+    for (ushort i = 0; i < num_cols; i++) {
+      // copy-col to version
+      auto& col = columns.at(col_idx[i]);
+      memcpy(ver, col.getElem(old_vid), col.elem_size);
+      ver += col.elem_size;
+
+      // update column
+      col.updateElem(hash_ptr->VID, (rec == nullptr ? nullptr : (void*)cursor));
+      if (rec != nullptr) {
+        cursor += col.elem_size;
+      }
     }
   } else {
-    for (ushort i = 0; i < num_cols; i++) {
-      // assert(col_idx[i] < columns.size());
-      auto& col = columns.at(col_idx[i]);
-      col.updateElem(hash_ptr->VID, (rec == nullptr ? nullptr : (void*)cursor));
-      cursor += col.elem_size;
+    char* ver = (char*)this->deltaStore[curr_delta]->insert_version(
+        hash_ptr, this->rec_size, pid);
+    assert(ver != nullptr);
+    for (auto& col : columns) {
+      memcpy(ver + col.cummulative_offset, col.getElem(hash_ptr->VID),
+             col.elem_size);
+    }
+
+    hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
+    if (__unlikely(num_cols <= 0)) {
+      for (auto& col : columns) {
+        col.updateElem(
+            hash_ptr->VID,
+            (rec == nullptr ? nullptr : cursor + col.cummulative_offset));
+      }
+    } else {
+      for (ushort i = 0; i < num_cols; i++) {
+        // assert(col_idx[i] < columns.size());
+        auto& col = columns.at(col_idx[i]);
+        col.updateElem(hash_ptr->VID,
+                       (rec == nullptr ? nullptr : (void*)cursor));
+        if (rec != nullptr) {
+          cursor += col.elem_size;
+        }
+      }
     }
   }
 }
@@ -499,9 +649,9 @@ void Column::touchElem(uint64_t vid) {
   for (const auto& chunk : master_versions[m_ver][pid]) {
     if (__likely(chunk.size >= ((size_t)data_idx + elem_size))) {
       char* loc = ((char*)chunk.data) + data_idx;
-      upd_bit_masks[m_ver][pid][offset / BIT_PACK_SIZE].set(offset %
-                                                            BIT_PACK_SIZE);
-      this->touched[pid] = true;
+      //      upd_bit_masks[m_ver][pid][offset / BIT_PACK_SIZE].set(offset %
+      //                                                            BIT_PACK_SIZE);
+      //      this->touched[pid] = true;
       char tmp = 'a';
       for (int i = 0; i < elem_size; i++) {
         tmp += *loc;

@@ -86,6 +86,13 @@ class RowStore : public Table {
     assert(false && "Not implemented");
   }
 
+  [[noreturn]] void getRecordByKey(global_conf::IndexVal *idx_ptr,
+                                   uint64_t txn_id, ushort curr_delta,
+                                   const ushort *col_idx, ushort num_cols,
+                                   void *loc) {
+    assert(false && "Not implemented");
+  }
+
   [[noreturn]] void insertIndexRecord(uint64_t rid, uint64_t xid,
                                       ushort partition_id, ushort master_ver) {
     assert(false && "Not implemented");
