@@ -201,17 +201,18 @@ void createCall2(std::string func, std::initializer_list<llvm::Value *> args,
   createCall(func, args, context, Type::getVoidTy(context->getLLVMContext()));
 }
 
-llvm::Value *AeolusPlugin::getSession() const {
+llvm::Value *AeolusPlugin::getSession(ParallelContext *context) const {
   return createCall("getSession", {}, context,
                     Type::getInt8PtrTy(context->getLLVMContext()));
 }
 
-void AeolusPlugin::releaseSession(llvm::Value *session_ptr) const {
+void AeolusPlugin::releaseSession(ParallelContext *context,
+                                  llvm::Value *session_ptr) const {
   createCall2("releaseSession", {session_ptr}, context);
 }
 
-Value *AeolusPlugin::getDataPointersForFile(size_t i,
-                                            llvm::Value *session_ptr) const {
+llvm::Value *AeolusPlugin::getDataPointersForFile(
+    ParallelContext *context, size_t i, llvm::Value *session_ptr) const {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Type *char8ptr = Type::getInt8PtrTy(llvmContext);
@@ -236,7 +237,8 @@ Value *AeolusPlugin::getDataPointersForFile(size_t i,
   // return BinaryBlockPlugin::getDataPointersForFile(i);
 }
 
-void AeolusPlugin::freeDataPointersForFile(size_t i, Value *v) const {
+void AeolusPlugin::freeDataPointersForFile(ParallelContext *context, size_t i,
+                                           Value *v) const {
   LLVMContext &llvmContext = context->getLLVMContext();
   auto data_type = PointerType::getUnqual(Type::getInt8PtrTy(llvmContext));
   auto casted = context->getBuilder()->CreatePointerCast(v, data_type);
@@ -245,8 +247,8 @@ void AeolusPlugin::freeDataPointersForFile(size_t i, Value *v) const {
   createCall2("freeDataPointerForFile_runtime", {casted, this_ptr}, context);
 }
 
-std::pair<Value *, Value *> AeolusPlugin::getPartitionSizes(
-    llvm::Value *session_ptr) const {
+std::pair<llvm::Value *, llvm::Value *> AeolusPlugin::getPartitionSizes(
+    ParallelContext *context, llvm::Value *session_ptr) const {
   IRBuilder<> *Builder = context->getBuilder();
 
   IntegerType *sizeType = context->createSizeType();
@@ -272,7 +274,8 @@ std::pair<Value *, Value *> AeolusPlugin::getPartitionSizes(
   // return BinaryBlockPlugin::getPartitionSizes();
 }
 
-void AeolusPlugin::freePartitionSizes(Value *v) const {
+void AeolusPlugin::freePartitionSizes(ParallelContext *context,
+                                      Value *v) const {
   Value *this_ptr = context->getBuilder()->CreateIntToPtr(
       context->createInt64((uintptr_t)this),
       Type::getInt8PtrTy(context->getLLVMContext()));

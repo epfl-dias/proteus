@@ -39,15 +39,17 @@ class CSVPlugin : public Plugin {
   ~CSVPlugin();
   virtual std::string &getName() { return fname; }
   void init();
-  void generate(const Operator &producer);
+  void generate(const Operator &producer, ParallelContext *context);
   void finish();
-  virtual ProteusValueMemory readPath(std::string activeRelation,
-                                      Bindings bindings, const char *pathVar,
-                                      RecordAttribute attr);
+  virtual ProteusValueMemory readPath(string activeRelation, Bindings bindings,
+                                      const char *pathVar, RecordAttribute attr,
+                                      ParallelContext *context);
   virtual ProteusValueMemory readValue(ProteusValueMemory mem_value,
-                                       const ExpressionType *type);
+                                       const ExpressionType *type,
+                                       ParallelContext *context);
   virtual ProteusValue readCachedValue(CacheInfo info,
-                                       const OperatorState &currState) {
+                                       const OperatorState &currState,
+                                       ParallelContext *context) {
     std::string error_msg = "[CSVPlugin: ] No caching support yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
@@ -100,7 +102,8 @@ class CSVPlugin : public Plugin {
   }
 
   virtual llvm::Value *getValueSize(ProteusValueMemory mem_value,
-                                    const ExpressionType *type);
+                                    const ExpressionType *type,
+                                    ParallelContext *context);
 
   //    virtual typeID getOIDSize() { return INT64; }
 

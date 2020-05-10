@@ -25,7 +25,7 @@
 
 void Scan::produce_(ParallelContext *context) {
   pg.init();
-  pg.generate(*this);
+  pg.generate(*this, context);
 }
 
 void Scan::consume(Context *const context, const OperatorState &childState) {

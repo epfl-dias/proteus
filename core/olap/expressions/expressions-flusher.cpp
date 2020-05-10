@@ -231,7 +231,9 @@ ProteusValue ExpressionFlusherVisitor::visit(
         cout << "...but is not useable " << endl;
 #endif
       } else {
-        ProteusValue tmpWrapper = plugin->readCachedValue(info, currState);
+        assert(dynamic_cast<ParallelContext *>(context));
+        ProteusValue tmpWrapper = plugin->readCachedValue(
+            info, currState, dynamic_cast<ParallelContext *>(context));
         //                Value *tmp = tmpWrapper.value;
         //                AllocaInst *mem_tmp =
         //                context->CreateEntryBlockAlloca(F,
@@ -282,9 +284,10 @@ ProteusValue ExpressionFlusherVisitor::visit(
         }
       }
       // Path involves a projection / an object
-      mem_path =
-          plugin->readPath(activeRelation, bindings,
-                           e->getProjectionName().c_str(), e->getAttribute());
+      assert(dynamic_cast<ParallelContext *>(context));
+      mem_path = plugin->readPath(
+          activeRelation, bindings, e->getProjectionName().c_str(),
+          e->getAttribute(), dynamic_cast<ParallelContext *>(context));
     } else {
       // Path involves a primitive datatype
       //(e.g., the result of unnesting a list of primitives)

@@ -33,16 +33,19 @@ class AeolusPlugin : public BinaryBlockPlugin {
                std::string pgType);
 
  protected:
-  virtual llvm::Value *getSession() const;
+  virtual llvm::Value *getSession(ParallelContext *context) const;
 
-  virtual llvm::Value *getDataPointersForFile(size_t i,
+  virtual llvm::Value *getDataPointersForFile(ParallelContext *context,
+                                              size_t i,
                                               llvm::Value *session_ptr) const;
-  virtual void freeDataPointersForFile(size_t i, llvm::Value *v) const;
+  virtual void freeDataPointersForFile(ParallelContext *context, size_t i,
+                                       llvm::Value *v) const;
   virtual std::pair<llvm::Value *, llvm::Value *> getPartitionSizes(
-      llvm::Value *session_ptr) const;
-  virtual void freePartitionSizes(llvm::Value *v) const;
+      ParallelContext *context, llvm::Value *session_ptr) const;
+  virtual void freePartitionSizes(ParallelContext *context,
+                                  llvm::Value *v) const;
 
-  virtual void releaseSession(llvm::Value *) const;
+  virtual void releaseSession(ParallelContext *context, llvm::Value *) const;
 
  public:
   virtual void **getDataPointerForFile_runtime(size_t i, const char *relName,

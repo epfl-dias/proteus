@@ -100,7 +100,8 @@ void BinaryRowPlugin::init() {
 ProteusValueMemory BinaryRowPlugin::readPath(string activeRelation,
                                              Bindings bindings,
                                              const char *pathVar,
-                                             RecordAttribute attr) {
+                                             RecordAttribute attr,
+                                             ParallelContext *context) {
   ProteusValueMemory mem_projection;
   {
     const OperatorState *state = bindings.state;
@@ -123,7 +124,8 @@ ProteusValueMemory BinaryRowPlugin::readPath(string activeRelation,
 }
 
 ProteusValueMemory BinaryRowPlugin::readValue(ProteusValueMemory mem_value,
-                                              const ExpressionType *type) {
+                                              const ExpressionType *type,
+                                              ParallelContext *context) {
   return mem_value;
 }
 
@@ -155,8 +157,9 @@ void BinaryRowPlugin::finish() {
   munmap(buf, fsize);
 }
 
-Value *BinaryRowPlugin::getValueSize(ProteusValueMemory mem_value,
-                                     const ExpressionType *type) {
+llvm::Value *BinaryRowPlugin::getValueSize(ProteusValueMemory mem_value,
+                                           const ExpressionType *type,
+                                           ParallelContext *context) {
   switch (type->getTypeID()) {
     case BOOL:
     case INT:
@@ -434,7 +437,8 @@ void BinaryRowPlugin::readAsFloatLLVM(
   variables[attName] = mem_valWrapper;
 }
 
-void BinaryRowPlugin::generate(const ::Operator &producer) {
+void BinaryRowPlugin::generate(const ::Operator &producer,
+                               ParallelContext *context) {
   auto f = context->getGlobalFunction();
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();

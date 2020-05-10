@@ -59,15 +59,16 @@ class BinaryBlockPlugin : public Plugin {
   string &getName() override { return fnamePrefix; }
   void init() override;
 
-  void generate(const Operator &producer) override;
+  void generate(const Operator &producer, ParallelContext *context) override;
   void finish() override;
   ProteusValueMemory readPath(string activeRelation, Bindings bindings,
-                              const char *pathVar,
-                              RecordAttribute attr) override;
+                              const char *pathVar, RecordAttribute attr,
+                              ParallelContext *context) override;
   ProteusValueMemory readValue(ProteusValueMemory mem_value,
-                               const ExpressionType *type) override;
-  ProteusValue readCachedValue(CacheInfo info,
-                               const OperatorState &currState) override;
+                               const ExpressionType *type,
+                               ParallelContext *context) override;
+  ProteusValue readCachedValue(CacheInfo info, const OperatorState &currState,
+                               ParallelContext *context) override;
 
   ProteusValue hashValue(ProteusValueMemory mem_value,
                          const ExpressionType *type, Context *context) override;
@@ -111,7 +112,8 @@ class BinaryBlockPlugin : public Plugin {
                        std::string fileName) override;
 
   llvm::Value *getValueSize(ProteusValueMemory mem_value,
-                            const ExpressionType *type) override;
+                            const ExpressionType *type,
+                            ParallelContext *context) override;
 
   ExpressionType *getOIDType() override { return new Int64Type(); }
 
@@ -180,19 +182,24 @@ class BinaryBlockPlugin : public Plugin {
     throw runtime_error(error_msg);
   }
 
-  void finalize_data();
+  void finalize_data(ParallelContext *context);
   [[nodiscard]] RecordType getRowType() const override;
 
-  [[nodiscard]] virtual llvm::Value *getSession() const { return nullptr; }
+  [[nodiscard]] virtual llvm::Value *getSession(ParallelContext *) const {
+    return nullptr;
+  }
 
   virtual std::pair<llvm::Value *, llvm::Value *> getPartitionSizes(
-      llvm::Value *) const;
-  virtual void freePartitionSizes(llvm::Value *) const;
+      ParallelContext *context, llvm::Value *) const;
+  virtual void freePartitionSizes(ParallelContext *context,
+                                  llvm::Value *) const;
 
-  virtual llvm::Value *getDataPointersForFile(size_t i, llvm::Value *) const;
-  virtual void freeDataPointersForFile(size_t i, llvm::Value *) const;
+  virtual llvm::Value *getDataPointersForFile(ParallelContext *context,
+                                              size_t i, llvm::Value *) const;
+  virtual void freeDataPointersForFile(ParallelContext *context, size_t i,
+                                       llvm::Value *) const;
 
-  virtual void releaseSession(llvm::Value *) const {}
+  virtual void releaseSession(ParallelContext *context, llvm::Value *) const {}
 
   bool isLazy() override { return true; }
 
@@ -227,39 +234,38 @@ class BinaryBlockPlugin : public Plugin {
   // code
   std::map<string, llvm::AllocaInst *> NamedValuesBinaryCol;
 
- protected:
-  ParallelContext *const context;
-
  private:
   static constexpr auto posVar = "offset";
   static constexpr auto bufVar = "buf";
   static constexpr auto itemCtrVar = "itemCtr";
 
   // Used to generate code
-  void skipLLVM(RecordAttribute attName, llvm::Value *offset);
+  void skipLLVM(ParallelContext *context, RecordAttribute attName,
+                llvm::Value *offset);
 
-  void nextEntry();
+  void nextEntry(ParallelContext *context);
 
-  void readAsLLVM(RecordAttribute attName,
+  void readAsLLVM(ParallelContext *context, RecordAttribute attName,
                   std::map<RecordAttribute, ProteusValueMemory> &variables);
 
   /* Operates over int* */
-  void readAsIntLLVM(RecordAttribute attName,
+  void readAsIntLLVM(ParallelContext *context, RecordAttribute attName,
                      std::map<RecordAttribute, ProteusValueMemory> &variables);
   /* Operates over float* */
   void readAsFloatLLVM(
-      RecordAttribute attName,
+      ParallelContext *context, RecordAttribute attName,
       std::map<RecordAttribute, ProteusValueMemory> &variables);
   /* Operates over bool* */
   void readAsBooleanLLVM(
-      RecordAttribute attName,
+      ParallelContext *context, RecordAttribute attName,
       std::map<RecordAttribute, ProteusValueMemory> &variables);
 
   ProteusValueMemory readProteusValue(ProteusValueMemory val,
-                                      const ExpressionType *type);
+                                      const ExpressionType *type,
+                                      ParallelContext *context);
 
   // Generates a for loop that performs the file scan
-  void scan(const Operator &producer);
+  void scan(const Operator &producer, ParallelContext *context);
 };
 
 #endif /* BINARY_BLOCK_PLUGIN_HPP_ */

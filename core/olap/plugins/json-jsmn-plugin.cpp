@@ -546,8 +546,8 @@ void JSONPlugin::skipToEnd() {
 
 ProteusValueMemory JSONPlugin::readPath(string activeRelation,
                                         Bindings wrappedBindings,
-                                        const char *path,
-                                        RecordAttribute attr) {
+                                        const char *path, RecordAttribute attr,
+                                        ParallelContext *context) {
   /**
    * FIXME Add an extra (generated) check here
    * Only objects are relevant to path expressions
@@ -900,7 +900,8 @@ ProteusValueMemory JSONPlugin::readPathInternal(
 }
 
 ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
-                                         const ExpressionType *type) {
+                                         const ExpressionType *type,
+                                         ParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
   Type *int64Type = Type::getInt64Ty(llvmContext);
@@ -1641,7 +1642,8 @@ void JSONPlugin::flushChunk(ProteusValueMemory mem_value, Value *fileName) {
   Builder->CreateCall(flushFunc, ArgsV);
 }
 
-void JSONPlugin::generate(const ::Operator &producer) {
+void JSONPlugin::generate(const ::Operator &producer,
+                          ParallelContext *context) {
   return scanObjects(producer, context->getGlobalFunction());
 }
 
@@ -1650,8 +1652,9 @@ void JSONPlugin::finish() {
   munmap((void *)buf, fsize);
 }
 
-Value *JSONPlugin::getValueSize(ProteusValueMemory mem_value,
-                                const ExpressionType *type) {
+llvm::Value *JSONPlugin::getValueSize(ProteusValueMemory mem_value,
+                                      const ExpressionType *type,
+                                      ParallelContext *context) {
   switch (type->getTypeID()) {
     case BOOL:
     case INT:

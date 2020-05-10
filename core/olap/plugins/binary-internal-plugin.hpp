@@ -24,6 +24,8 @@
 #ifndef BINARY_INTERNAL_PLUGIN_HPP_
 #define BINARY_INTERNAL_PLUGIN_HPP_
 
+#include <util/parallel-context.hpp>
+
 #include "plugins/plugins.hpp"
 #include "util/atois.hpp"
 
@@ -49,15 +51,17 @@ class BinaryInternalPlugin : public Plugin {
   ~BinaryInternalPlugin();
   virtual string &getName() { return structName; }
   void init();
-  void generate(const Operator &producer);
+  void generate(const Operator &producer, ParallelContext *context);
   void finish();
   virtual ProteusValueMemory readPath(string activeRelation, Bindings bindings,
-                                      const char *pathVar,
-                                      RecordAttribute attr);
+                                      const char *pathVar, RecordAttribute attr,
+                                      ParallelContext *context);
   virtual ProteusValueMemory readValue(ProteusValueMemory mem_value,
-                                       const ExpressionType *type);
+                                       const ExpressionType *type,
+                                       ParallelContext *context);
   virtual ProteusValue readCachedValue(CacheInfo info,
-                                       const OperatorState &currState) {
+                                       const OperatorState &currState,
+                                       ParallelContext *context) {
     string error_msg = "[BinaryInternalPlugin: ] No caching support applicable";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
@@ -111,7 +115,8 @@ class BinaryInternalPlugin : public Plugin {
   }
 
   virtual llvm::Value *getValueSize(ProteusValueMemory mem_value,
-                                    const ExpressionType *type);
+                                    const ExpressionType *type,
+                                    ParallelContext *context);
 
   virtual ExpressionType *getOIDType() { return new IntType(); }
 

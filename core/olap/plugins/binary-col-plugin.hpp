@@ -64,15 +64,17 @@ class BinaryColPlugin : public Plugin {
   virtual string &getName() { return fnamePrefix; }
   void init();
   //    void initCached();
-  void generate(const Operator &producer);
+  void generate(const Operator &producer, ParallelContext *context);
   void finish();
   virtual ProteusValueMemory readPath(string activeRelation, Bindings bindings,
-                                      const char *pathVar,
-                                      RecordAttribute attr);
+                                      const char *pathVar, RecordAttribute attr,
+                                      ParallelContext *context);
   virtual ProteusValueMemory readValue(ProteusValueMemory mem_value,
-                                       const ExpressionType *type);
+                                       const ExpressionType *type,
+                                       ParallelContext *context);
   virtual ProteusValue readCachedValue(CacheInfo info,
-                                       const OperatorState &currState);
+                                       const OperatorState &currState,
+                                       ParallelContext *context);
   //    {
   //        string error_msg = "[BinaryColPlugin: ] No caching support should be
   //        needed"; LOG(ERROR) << error_msg; throw runtime_error(error_msg);
@@ -135,7 +137,8 @@ class BinaryColPlugin : public Plugin {
   }
 
   virtual llvm::Value *getValueSize(ProteusValueMemory mem_value,
-                                    const ExpressionType *type);
+                                    const ExpressionType *type,
+                                    ParallelContext *context);
 
   virtual ExpressionType *getOIDType() { return new Int64Type(); }
 

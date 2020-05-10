@@ -327,7 +327,7 @@ void CSVPlugin::init() {
   }
 };
 
-void CSVPlugin::generate(const ::Operator &producer) {
+void CSVPlugin::generate(const ::Operator &producer, ParallelContext *context) {
   if (!hasPM) {
     return scanAndPopulatePM(producer);
   } else {
@@ -340,7 +340,8 @@ void CSVPlugin::generate(const ::Operator &producer) {
  */
 ProteusValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings,
                                        const char *pathVar,
-                                       RecordAttribute attr) {
+                                       RecordAttribute attr,
+                                       ParallelContext *context) {
   ProteusValueMemory mem_valWrapper;
   {
     const OperatorState *state = bindings.state;
@@ -370,12 +371,14 @@ ProteusValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings,
 }
 
 ProteusValueMemory CSVPlugin::readValue(ProteusValueMemory mem_value,
-                                        const ExpressionType *type) {
+                                        const ExpressionType *type,
+                                        ParallelContext *context) {
   return mem_value;
 }
 
 ProteusValue CSVPlugin::readCachedValue(CacheInfo info,
-                                        const OperatorState &currState) {
+                                        const OperatorState &currState,
+                                        ParallelContext *context) {
   return readCachedValue(info, currState.getBindings());
 }
 
@@ -580,8 +583,9 @@ void CSVPlugin::finish() {
   munmap(buf, fsize);
 }
 
-Value *CSVPlugin::getValueSize(ProteusValueMemory mem_value,
-                               const ExpressionType *type) {
+llvm::Value *CSVPlugin::getValueSize(ProteusValueMemory mem_value,
+                                     const ExpressionType *type,
+                                     ParallelContext *context) {
   switch (type->getTypeID()) {
     case BOOL:
     case INT:

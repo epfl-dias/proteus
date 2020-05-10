@@ -381,7 +381,8 @@ void RadixJoinBuild::consume(ParallelContext *const context,
         string activeRelation = e.getOriginalRelationName();
         string projName = e.getProjectionName();
         Plugin *plugin = catalog.getPlugin(activeRelation);
-        valToMaterialize = (plugin->readCachedValue(info, childState)).value;
+        valToMaterialize =
+            (plugin->readCachedValue(info, childState, context)).value;
       } else {
         map<RecordAttribute, ProteusValueMemory>::const_iterator memSearch =
             bindings.find(we.getRegisteredAs());

@@ -71,19 +71,21 @@ class JSONPlugin : public Plugin {
   JSONPlugin(Context *const context, string &fname, ExpressionType *schema);
   ~JSONPlugin();
   void init() {}
-  void generate(const Operator &producer);
+  void generate(const Operator &producer, ParallelContext *context);
   void finish();
   string &getName() { return fname; }
 
   // 1-1 correspondence with 'RecordProjection' expression
   virtual ProteusValueMemory readPath(string activeRelation,
                                       Bindings wrappedBindings,
-                                      const char *pathVar,
-                                      RecordAttribute attr);
+                                      const char *pathVar, RecordAttribute attr,
+                                      ParallelContext *context);
   virtual ProteusValueMemory readValue(ProteusValueMemory mem_value,
-                                       const ExpressionType *type);
+                                       const ExpressionType *type,
+                                       ParallelContext *context);
   virtual ProteusValue readCachedValue(CacheInfo info,
-                                       const OperatorState &currState) {
+                                       const OperatorState &currState,
+                                       ParallelContext *context) {
     string error_msg = "[JSMNPlugin: ] No caching support yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
@@ -127,7 +129,8 @@ class JSONPlugin : public Plugin {
   void flushChunk(ProteusValueMemory mem_value, llvm::Value *fileName);
 
   virtual llvm::Value *getValueSize(ProteusValueMemory mem_value,
-                                    const ExpressionType *type);
+                                    const ExpressionType *type,
+                                    ParallelContext *context);
 
   // Used by unnest
   virtual ProteusValueMemory initCollectionUnnest(

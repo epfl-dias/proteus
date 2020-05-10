@@ -86,7 +86,8 @@ BinaryInternalPlugin::~BinaryInternalPlugin() {}
 
 void BinaryInternalPlugin::init(){};
 
-void BinaryInternalPlugin::generate(const ::Operator &producer) {
+void BinaryInternalPlugin::generate(const ::Operator &producer,
+                                    ParallelContext *context) {
   if (mem_pos == nullptr || mem_buffer == nullptr) {
     /* XXX Later on, populate this function to simplify Nest */
     string error_msg = string("[BinaryInternalPlugin: ] Unexpected use of pg.");
@@ -426,7 +427,8 @@ void BinaryInternalPlugin::scan(const ::Operator &producer) {
 ProteusValueMemory BinaryInternalPlugin::readPath(string activeRelation,
                                                   Bindings bindings,
                                                   const char *pathVar,
-                                                  RecordAttribute attr) {
+                                                  RecordAttribute attr,
+                                                  ParallelContext *context) {
   ProteusValueMemory mem_valWrapper;
   {
     const ::OperatorState *state = bindings.state;
@@ -449,7 +451,8 @@ ProteusValueMemory BinaryInternalPlugin::readPath(string activeRelation,
 }
 
 ProteusValueMemory BinaryInternalPlugin::readValue(ProteusValueMemory mem_value,
-                                                   const ExpressionType *type) {
+                                                   const ExpressionType *type,
+                                                   ParallelContext *context) {
   return mem_value;
 }
 
@@ -609,8 +612,9 @@ void BinaryInternalPlugin::flushValueEager(ProteusValue valWrapper,
 
 void BinaryInternalPlugin::finish() {}
 
-Value *BinaryInternalPlugin::getValueSize(ProteusValueMemory mem_value,
-                                          const ExpressionType *type) {
+llvm::Value *BinaryInternalPlugin::getValueSize(ProteusValueMemory mem_value,
+                                                const ExpressionType *type,
+                                                ParallelContext *context) {
   switch (type->getTypeID()) {
     case BOOL:
     case INT:

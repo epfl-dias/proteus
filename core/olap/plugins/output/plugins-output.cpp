@@ -242,8 +242,10 @@ llvm::Value *OutputPlugin::getRuntimePayloadTypeSize() {
       if (mode == EAGER) {
         RecordAttribute currAttr = itSearch->first;
         Plugin *inputPg = catalog.getPlugin(currAttr.getOriginalRelationName());
+        assert(dynamic_cast<ParallelContext *>(context));
         val_attr_size =
-            inputPg->getValueSize(itSearch->second, currAttr.getOriginalType());
+            inputPg->getValueSize(itSearch->second, currAttr.getOriginalType(),
+                                  dynamic_cast<ParallelContext *>(context));
         val_size = Builder->CreateAdd(val_size, val_attr_size);
       } else {
         // Pre-computed

@@ -25,6 +25,7 @@
 #define PLUGINS_LLVM_HPP_
 
 #include <util/context.hpp>
+#include <util/parallel-context.hpp>
 
 #include "common/common.hpp"
 //#include "expressions/expressions.hpp"
@@ -63,7 +64,7 @@ class Plugin {
   virtual string &getName() = 0;
   virtual void init() = 0;
   virtual void finish() = 0;
-  virtual void generate(const Operator &producer) = 0;
+  virtual void generate(const Operator &producer, ParallelContext *context) = 0;
   /**
    * @param activeRelation Which relation's activeTuple is to be processed.
    *                          Does not have to be a native one
@@ -74,12 +75,14 @@ class Plugin {
    */
   virtual ProteusValueMemory readPath(string activeRelation,
                                       Bindings wrappedBindings,
-                                      const char *pathVar,
-                                      RecordAttribute attr) = 0;
+                                      const char *pathVar, RecordAttribute attr,
+                                      ParallelContext *context) = 0;
   virtual ProteusValueMemory readValue(ProteusValueMemory mem_value,
-                                       const ExpressionType *type) = 0;
+                                       const ExpressionType *type,
+                                       ParallelContext *context) = 0;
   virtual ProteusValue readCachedValue(CacheInfo info,
-                                       const OperatorState &currState) = 0;
+                                       const OperatorState &currState,
+                                       ParallelContext *context) = 0;
 
   // Relevant for hashing visitors
   virtual ProteusValue hashValue(ProteusValueMemory mem_value,
@@ -148,7 +151,8 @@ class Plugin {
    * (i.e., not used that often)
    */
   virtual llvm::Value *getValueSize(ProteusValueMemory mem_value,
-                                    const ExpressionType *type) = 0;
+                                    const ExpressionType *type,
+                                    ParallelContext *context) = 0;
 
   //    virtual typeID getOIDSize() = 0;
   virtual ExpressionType *getOIDType() = 0;

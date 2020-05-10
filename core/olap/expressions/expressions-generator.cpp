@@ -269,7 +269,9 @@ ProteusValue ExpressionGeneratorVisitor::visit(
         cout << "...but is not useable " << endl;
 #endif
       } else {
-        return plugin->readCachedValue(info, currState);
+        assert(dynamic_cast<ParallelContext *>(context));
+        return plugin->readCachedValue(
+            info, currState, dynamic_cast<ParallelContext *>(context));
       }
     } else {
 #ifdef DEBUGCACHING
@@ -310,9 +312,10 @@ ProteusValue ExpressionGeneratorVisitor::visit(
       }
 
       // Path involves a projection / an object
-      mem_path =
-          plugin->readPath(activeRelation, bindings,
-                           e->getProjectionName().c_str(), e->getAttribute());
+      assert(dynamic_cast<ParallelContext *>(context));
+      mem_path = plugin->readPath(
+          activeRelation, bindings, e->getProjectionName().c_str(),
+          e->getAttribute(), dynamic_cast<ParallelContext *>(context));
     } else {
       // Path involves a primitive datatype
       //(e.g., the result of unnesting a list of primitives)
@@ -323,7 +326,9 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 
       mem_path = currState[tupleIdentifier];
     }
-    mem_val = plugin->readValue(mem_path, e->getExpressionType());
+    assert(dynamic_cast<ParallelContext *>(context));
+    mem_val = plugin->readValue(mem_path, e->getExpressionType(),
+                                dynamic_cast<ParallelContext *>(context));
     Value *val = Builder->CreateLoad(mem_val.mem);
     ProteusValue valWrapper;
     valWrapper.value = val;

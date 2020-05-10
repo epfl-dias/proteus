@@ -337,7 +337,8 @@ void BinaryColPlugin::init() {
   NamedValuesBinaryCol[itemCtrVar] = mem_itemCtr;
 }
 
-void BinaryColPlugin::generate(const ::Operator &producer) {
+void BinaryColPlugin::generate(const ::Operator &producer,
+                               ParallelContext *context) {
   return scan(producer);
 }
 
@@ -347,7 +348,8 @@ void BinaryColPlugin::generate(const ::Operator &producer) {
 ProteusValueMemory BinaryColPlugin::readPath(string activeRelation,
                                              Bindings bindings,
                                              const char *pathVar,
-                                             RecordAttribute attr) {
+                                             RecordAttribute attr,
+                                             ParallelContext *context) {
   ProteusValueMemory mem_projection;
   {
     const ::OperatorState *state = bindings.state;
@@ -382,12 +384,14 @@ ProteusValueMemory BinaryColPlugin::readPath(string activeRelation,
 /* FIXME Differentiate between operations that need the code and the ones
  * needing the materialized string */
 ProteusValueMemory BinaryColPlugin::readValue(ProteusValueMemory mem_value,
-                                              const ExpressionType *type) {
+                                              const ExpressionType *type,
+                                              ParallelContext *context) {
   return mem_value;
 }
 
-ProteusValue BinaryColPlugin::readCachedValue(
-    CacheInfo info, const ::OperatorState &currState) {
+ProteusValue BinaryColPlugin::readCachedValue(CacheInfo info,
+                                              const OperatorState &currState,
+                                              ParallelContext *context) {
   return readCachedValue(info, currState.getBindings());
 }
 
@@ -555,8 +559,9 @@ void BinaryColPlugin::finish() {
   }
 }
 
-Value *BinaryColPlugin::getValueSize(ProteusValueMemory mem_value,
-                                     const ExpressionType *type) {
+llvm::Value *BinaryColPlugin::getValueSize(ProteusValueMemory mem_value,
+                                           const ExpressionType *type,
+                                           ParallelContext *context) {
   switch (type->getTypeID()) {
     case BOOL:
     case INT:

@@ -55,8 +55,7 @@ BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
                                      bool load)
     : fnamePrefix(fnamePrefix),
       rec(rec),
-      wantedFields(ensureRelName(whichFields, fnamePrefix)),
-      context(context) {
+      wantedFields(ensureRelName(whichFields, fnamePrefix)) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   if (load) {
@@ -90,11 +89,11 @@ BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
       }
     }
 
-    finalize_data();
+    finalize_data(context);
   }
 }
 
-void BinaryBlockPlugin::finalize_data() {
+void BinaryBlockPlugin::finalize_data(ParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Nparts = wantedFieldsFiles[0].size();
   for (size_t i = 1; i < wantedFields.size(); ++i) {
@@ -119,12 +118,14 @@ void BinaryBlockPlugin::finalize_data() {
 
 void BinaryBlockPlugin::init() {}
 
-void BinaryBlockPlugin::generate(const ::Operator &producer) {
-  return scan(producer);
+void BinaryBlockPlugin::generate(const ::Operator &producer,
+                                 ParallelContext *context) {
+  return scan(producer, context);
 }
 
 ProteusValueMemory BinaryBlockPlugin::readProteusValue(
-    ProteusValueMemory val, const ExpressionType *type) {
+    ProteusValueMemory val, const ExpressionType *type,
+    ParallelContext *context) {
   if (val.mem->getType()->getPointerElementType()->isPointerTy() &&
       val.mem->getType()
               ->getPointerElementType()
@@ -172,21 +173,25 @@ ProteusValueMemory BinaryBlockPlugin::readProteusValue(
 ProteusValueMemory BinaryBlockPlugin::readPath(string activeRelation,
                                                Bindings bindings,
                                                const char *pathVar,
-                                               RecordAttribute attr) {
+                                               RecordAttribute attr,
+                                               ParallelContext *context) {
   // XXX Make sure that using fnamePrefix in this search does not cause issues
   RecordAttribute tmpKey{fnamePrefix, pathVar, this->getOIDType()};
-  return readProteusValue((*(bindings.state))[tmpKey], attr.getOriginalType());
+  return readProteusValue((*(bindings.state))[tmpKey], attr.getOriginalType(),
+                          context);
 }
 
 /* FIXME Differentiate between operations that need the code and the ones
  * needing the materialized string */
 ProteusValueMemory BinaryBlockPlugin::readValue(ProteusValueMemory mem_value,
-                                                const ExpressionType *type) {
+                                                const ExpressionType *type,
+                                                ParallelContext *context) {
   return mem_value;
 }
 
-ProteusValue BinaryBlockPlugin::readCachedValue(
-    CacheInfo info, const OperatorState &currState) {
+ProteusValue BinaryBlockPlugin::readCachedValue(CacheInfo info,
+                                                const OperatorState &currState,
+                                                ParallelContext *context) {
   IRBuilder<> *const Builder = context->getBuilder();
   Function *F = context->getGlobalFunction();
 
@@ -244,7 +249,9 @@ ProteusValue BinaryBlockPlugin::hashValue(ProteusValueMemory mem_value,
                                           const ExpressionType *type,
                                           Context *context) {
   IRBuilder<> *Builder = context->getBuilder();
-  auto mem = readProteusValue(mem_value, type);
+  assert(dynamic_cast<ParallelContext *>(context));
+  auto mem = readProteusValue(mem_value, type,
+                              dynamic_cast<ParallelContext *>(context));
   ProteusValue v{Builder->CreateLoad(mem.mem), mem.isNull};
   return hashPrimitive(v, type->getTypeID(), context);
 }
@@ -275,8 +282,9 @@ void BinaryBlockPlugin::finish() {
   }
 }
 
-Value *BinaryBlockPlugin::getValueSize(ProteusValueMemory mem_value,
-                                       const ExpressionType *type) {
+llvm::Value *BinaryBlockPlugin::getValueSize(ProteusValueMemory mem_value,
+                                             const ExpressionType *type,
+                                             ParallelContext *context) {
   switch (type->getTypeID()) {
     case BOOL:
     case INT:
@@ -311,7 +319,8 @@ Value *BinaryBlockPlugin::getValueSize(ProteusValueMemory mem_value,
   }
 }
 
-void BinaryBlockPlugin::skipLLVM(RecordAttribute attName, Value *offset) {
+void BinaryBlockPlugin::skipLLVM(ParallelContext *context,
+                                 RecordAttribute attName, Value *offset) {
   // Prepare
   IRBuilder<> *Builder = context->getBuilder();
 
@@ -325,7 +334,7 @@ void BinaryBlockPlugin::skipLLVM(RecordAttribute attName, Value *offset) {
   Builder->CreateStore(val_new_pos, mem_pos);
 }
 
-void BinaryBlockPlugin::nextEntry() {
+void BinaryBlockPlugin::nextEntry(ParallelContext *context) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
@@ -382,14 +391,14 @@ void BinaryBlockPlugin::nextEntry() {
 
 /* Operates over int*! */
 void BinaryBlockPlugin::readAsIntLLVM(
-    RecordAttribute attName,
+    ParallelContext *context, RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
-  readAsLLVM(std::move(attName), variables);
+  readAsLLVM(context, std::move(attName), variables);
 }
 
 /* Operates over char*! */
 void BinaryBlockPlugin::readAsLLVM(
-    RecordAttribute attName,
+    ParallelContext *context, RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   IRBuilder<> *Builder = context->getBuilder();
@@ -418,19 +427,20 @@ void BinaryBlockPlugin::readAsLLVM(
 }
 
 void BinaryBlockPlugin::readAsBooleanLLVM(
-    RecordAttribute attName,
+    ParallelContext *context, RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
-  readAsLLVM(std::move(attName), variables);
+  readAsLLVM(context, std::move(attName), variables);
 }
 
 void BinaryBlockPlugin::readAsFloatLLVM(
-    RecordAttribute attName,
+    ParallelContext *context, RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
-  readAsLLVM(std::move(attName), variables);
+  readAsLLVM(context, std::move(attName), variables);
 }
 
-Value *BinaryBlockPlugin::getDataPointersForFile(size_t i,
-                                                 llvm::Value *) const {
+llvm::Value *BinaryBlockPlugin::getDataPointersForFile(ParallelContext *context,
+                                                       size_t i,
+                                                       llvm::Value *) const {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Function *F = context->getGlobalFunction();
@@ -463,10 +473,11 @@ Value *BinaryBlockPlugin::getDataPointersForFile(size_t i,
   return ptr;
 }
 
-void BinaryBlockPlugin::freeDataPointersForFile(size_t i, Value *v) const {}
+void BinaryBlockPlugin::freeDataPointersForFile(ParallelContext *, size_t i,
+                                                Value *v) const {}
 
-std::pair<Value *, Value *> BinaryBlockPlugin::getPartitionSizes(
-    llvm::Value *session) const {
+std::pair<llvm::Value *, llvm::Value *> BinaryBlockPlugin::getPartitionSizes(
+    ParallelContext *context, llvm::Value *) const {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Function *F = context->getGlobalFunction();
@@ -514,9 +525,10 @@ std::pair<Value *, Value *> BinaryBlockPlugin::getPartitionSizes(
   return {N_parts_ptr, ConstantInt::get(sizeType, max_pack_size)};
 }
 
-void BinaryBlockPlugin::freePartitionSizes(Value *) const {}
+void BinaryBlockPlugin::freePartitionSizes(ParallelContext *, Value *) const {}
 
-void BinaryBlockPlugin::scan(const ::Operator &producer) {
+void BinaryBlockPlugin::scan(const ::Operator &producer,
+                             ParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   context->setGlobalFunction(true);
@@ -533,19 +545,19 @@ void BinaryBlockPlugin::scan(const ::Operator &producer) {
   // Get the ENTRY BLOCK
   context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
-  llvm::Value *session = getSession();
+  llvm::Value *session = getSession(context);
 
   std::vector<Value *> parts_ptrs;
 
   // std::vector<Constant *> file_parts_init;
   for (size_t i = 0; i < wantedFields.size(); ++i) {
-    parts_ptrs.emplace_back(getDataPointersForFile(i, session));
+    parts_ptrs.emplace_back(getDataPointersForFile(context, i, session));
   }
 
   // Constant * file_parts = ConstantStruct::get(parts_arrays_type,
   // file_parts_init); Builder->CreateStore(file_parts, file_parts_ptr);
 
-  auto partsizes = getPartitionSizes(session);
+  auto partsizes = getPartitionSizes(context, session);
   Value *N_parts_ptr = partsizes.first;
   Value *maxPackCnt = partsizes.second;
   maxPackCnt->setName("maxPackCnt");
@@ -679,7 +691,7 @@ void BinaryBlockPlugin::scan(const ::Operator &producer) {
 
   // // Start insertion in IncBB.
   Builder->SetInsertPoint(IncBB);
-  nextEntry();
+  nextEntry(context);
 
   Builder->CreateBr(CondBB);
 
@@ -701,12 +713,12 @@ void BinaryBlockPlugin::scan(const ::Operator &producer) {
   //  Any new code will be inserted in AfterBB.
   Builder->SetInsertPoint(context->getEndingBlock());
 
-  freePartitionSizes(N_parts_ptr);
+  freePartitionSizes(context, N_parts_ptr);
   for (size_t i = 0; i < wantedFields.size(); ++i) {
-    freeDataPointersForFile(i, parts_ptrs[i]);
+    freeDataPointersForFile(context, i, parts_ptrs[i]);
   }
 
-  releaseSession(session);
+  releaseSession(context, session);
   // Builder->SetInsertPoint(AfterBB);
 }
 
