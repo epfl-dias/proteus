@@ -110,12 +110,8 @@ PreparedStatement DataExporter_CH::export_ch_nation(bool output_binary) {
                                          {"n_nationkey", "n_regionkey"},
                                          CatalogParser::getInstance())
                  .unpack()
-                 .print(
-                     [&](const auto& arg) -> std::vector<expression_t> {
-                       return {arg["n_nationkey"], arg["n_regionkey"]};
-                     },
-                     (output_binary ? pg(bin_plugin) : pg(csv_plugin)),
-                     (output_binary ? "tpcc_nation" : "tpcc_nation.tbl"));
+                 .print((output_binary ? pg(bin_plugin) : pg(csv_plugin)),
+                        (output_binary ? "tpcc_nation" : "tpcc_nation.tbl"));
   return rel.prepare();
 }
 PreparedStatement DataExporter_CH::export_ch_region(bool output_binary) {
@@ -128,12 +124,8 @@ PreparedStatement DataExporter_CH::export_ch_region(bool output_binary) {
           .scan<ch_access_plugin>("tpcc_region<block-remote>", {"r_regionkey"},
                                   CatalogParser::getInstance())
           .unpack()
-          .print(
-              [&](const auto& arg) -> std::vector<expression_t> {
-                return {arg["r_regionkey"]};
-              },
-              (output_binary ? pg(bin_plugin) : pg(csv_plugin)),
-              (output_binary ? "tpcc_region" : "tpcc_region.tbl"));
+          .print((output_binary ? pg(bin_plugin) : pg(csv_plugin)),
+                 (output_binary ? "tpcc_region" : "tpcc_region.tbl"));
   return rel.prepare();
 }
 PreparedStatement DataExporter_CH::export_ch_supplier(bool output_binary) {
@@ -148,13 +140,8 @@ PreparedStatement DataExporter_CH::export_ch_supplier(bool output_binary) {
                                   {"su_suppkey", "su_nationkey", "su_acctbal"},
                                   CatalogParser::getInstance())
           .unpack()
-          .print(
-              [&](const auto& arg) -> std::vector<expression_t> {
-                return {arg["su_suppkey"], arg["su_nationkey"],
-                        arg["su_acctbal"]};
-              },
-              (output_binary ? pg(bin_plugin) : pg(csv_plugin)),
-              (output_binary ? "tpcc_supplier" : "tpcc_supplier.tbl"));
+          .print((output_binary ? pg(bin_plugin) : pg(csv_plugin)),
+                 (output_binary ? "tpcc_supplier" : "tpcc_supplier.tbl"));
   return rel.prepare();
 }
 PreparedStatement DataExporter_CH::export_tpcc_stock(bool output_binary) {
@@ -169,15 +156,8 @@ PreparedStatement DataExporter_CH::export_tpcc_stock(bool output_binary) {
                       "s_remote_cnt", "s_su_suppkey"},
                      CatalogParser::getInstance())
                  .unpack()
-                 .print(
-                     [&](const auto& arg) -> std::vector<expression_t> {
-                       return {arg["s_i_id"],      arg["s_w_id"],
-                               arg["s_quantity"],  arg["s_ytd"],
-                               arg["s_order_cnt"], arg["s_remote_cnt"],
-                               arg["s_su_suppkey"]};
-                     },
-                     (output_binary ? pg(bin_plugin) : pg(csv_plugin)),
-                     (output_binary ? "tpcc_stock" : "tpcc_stock.tbl"));
+                 .print((output_binary ? pg(bin_plugin) : pg(csv_plugin)),
+                        (output_binary ? "tpcc_stock" : "tpcc_stock.tbl"));
   return rel.prepare();
 }
 PreparedStatement DataExporter_CH::export_tpcc_item(bool output_binary) {
@@ -189,12 +169,8 @@ PreparedStatement DataExporter_CH::export_tpcc_item(bool output_binary) {
                                          {"i_id", "i_im_id", "i_price"},
                                          CatalogParser::getInstance())
                  .unpack()
-                 .print(
-                     [&](const auto& arg) -> std::vector<expression_t> {
-                       return {arg["i_id"], arg["i_im_id"], arg["i_price"]};
-                     },
-                     (output_binary ? pg(bin_plugin) : pg(csv_plugin)),
-                     (output_binary ? "tpcc_item" : "tpcc_item.tbl"));
+                 .print((output_binary ? pg(bin_plugin) : pg(csv_plugin)),
+                        (output_binary ? "tpcc_item" : "tpcc_item.tbl"));
   return rel.prepare();
 }
 PreparedStatement DataExporter_CH::export_tpcc_warehouse(bool output_binary) {
@@ -202,17 +178,14 @@ PreparedStatement DataExporter_CH::export_tpcc_warehouse(bool output_binary) {
    * FIXME: Missing string attributes: [w_name, w_street_1, w_street_2, w_city,
    * w_state, w_zip]
    * */
-  auto rel = getBuilder()
-                 .scan<ch_access_plugin>("tpcc_warehouse<block-remote>",
-                                         {"w_id", "w_tax", "w_ytd"},
-                                         CatalogParser::getInstance())
-                 .unpack()
-                 .print(
-                     [&](const auto& arg) -> std::vector<expression_t> {
-                       return {arg["w_id"], arg["w_tax"], arg["w_ytd"]};
-                     },
-                     (output_binary ? pg(bin_plugin) : pg(csv_plugin)),
-                     (output_binary ? "tpcc_warehouse" : "tpcc_warehouse.tbl"));
+  auto rel =
+      getBuilder()
+          .scan<ch_access_plugin>("tpcc_warehouse<block-remote>",
+                                  {"w_id", "w_tax", "w_ytd"},
+                                  CatalogParser::getInstance())
+          .unpack()
+          .print((output_binary ? pg(bin_plugin) : pg(csv_plugin)),
+                 (output_binary ? "tpcc_warehouse" : "tpcc_warehouse.tbl"));
   return rel.prepare();
 }
 PreparedStatement DataExporter_CH::export_tpcc_district(bool output_binary) {
@@ -221,19 +194,15 @@ PreparedStatement DataExporter_CH::export_tpcc_district(bool output_binary) {
    * d_state, d_zip]
    * */
 
-  auto rel = getBuilder()
-                 .scan<ch_access_plugin>(
-                     "tpcc_district<block-remote>",
-                     {"d_id", "d_w_id", "d_tax", "d_ytd", "d_next_o_id"},
-                     CatalogParser::getInstance())
-                 .unpack()
-                 .print(
-                     [&](const auto& arg) -> std::vector<expression_t> {
-                       return {arg["d_id"], arg["d_w_id"], arg["d_tax"],
-                               arg["d_ytd"], arg["d_next_o_id"]};
-                     },
-                     (output_binary ? pg(bin_plugin) : pg(csv_plugin)),
-                     (output_binary ? "tpcc_district" : "tpcc_district.tbl"));
+  auto rel =
+      getBuilder()
+          .scan<ch_access_plugin>(
+              "tpcc_district<block-remote>",
+              {"d_id", "d_w_id", "d_tax", "d_ytd", "d_next_o_id"},
+              CatalogParser::getInstance())
+          .unpack()
+          .print((output_binary ? pg(bin_plugin) : pg(csv_plugin)),
+                 (output_binary ? "tpcc_district" : "tpcc_district.tbl"));
   return rel.prepare();
 }
 PreparedStatement DataExporter_CH::export_tpcc_history(bool output_binary) {
@@ -248,14 +217,8 @@ PreparedStatement DataExporter_CH::export_tpcc_history(bool output_binary) {
                                    "h_w_id", "h_date", "h_amount"},
                                   CatalogParser::getInstance())
           .unpack()
-          .print(
-              [&](const auto& arg) -> std::vector<expression_t> {
-                return {arg["h_c_id"],  arg["h_c_d_id"], arg["h_c_w_id"],
-                        arg["h_d_id"],  arg["h_w_id"],   arg["h_date"],
-                        arg["h_amount"]};
-              },
-              (output_binary ? pg(bin_plugin) : pg(csv_plugin)),
-              (output_binary ? "tpcc_history" : "tpcc_history.tbl"));
+          .print((output_binary ? pg(bin_plugin) : pg(csv_plugin)),
+                 (output_binary ? "tpcc_history" : "tpcc_history.tbl"));
   return rel.prepare();
 }
 PreparedStatement DataExporter_CH::export_tpcc_customer(bool output_binary) {
@@ -265,27 +228,17 @@ PreparedStatement DataExporter_CH::export_tpcc_customer(bool output_binary) {
    * c_credit, c_data]
    * */
 
-  auto rel = getBuilder()
-                 .scan<ch_access_plugin>(
-                     "tpcc_customer<block-remote>",
-                     {"c_id", "c_w_id", "c_d_id", "c_since", "c_credit_lim",
-                      "c_discount", "c_balance", "c_ytd_payment",
-                      "c_payment_cnt", "c_delivery_cnt", "c_n_nationkey"},
-                     CatalogParser::getInstance())
-                 .unpack()
-                 .print(
-                     [&](const auto& arg) -> std::vector<expression_t> {
-                       return {arg["c_id"],          arg["c_w_id"],
-                               arg["c_d_id"],        arg["c_since"],
-                               arg["c_credit_lim"],  arg["c_discount"],
-                               arg["c_balance"],     arg["c_ytd_payment"],
-                               arg["c_payment_cnt"], arg["c_delivery_cnt"],
-                               arg["c_n_nationkey"]
-
-                       };
-                     },
-                     (output_binary ? pg(bin_plugin) : pg(csv_plugin)),
-                     (output_binary ? "tpcc_customer" : "tpcc_customer.tbl"));
+  auto rel =
+      getBuilder()
+          .scan<ch_access_plugin>(
+              "tpcc_customer<block-remote>",
+              {"c_id", "c_w_id", "c_d_id", "c_since", "c_credit_lim",
+               "c_discount", "c_balance", "c_ytd_payment", "c_payment_cnt",
+               "c_delivery_cnt", "c_n_nationkey"},
+              CatalogParser::getInstance())
+          .unpack()
+          .print((output_binary ? pg(bin_plugin) : pg(csv_plugin)),
+                 (output_binary ? "tpcc_customer" : "tpcc_customer.tbl"));
   return rel.prepare();
 }
 
@@ -317,16 +270,13 @@ PreparedStatement DataExporter_CH::export_tpcc_order(bool output_binary) {
 }
 
 PreparedStatement DataExporter_CH::export_tpcc_new_order(bool output_binary) {
-  auto rel = getBuilder()
-                 .scan<ch_access_plugin>("tpcc_neworder<block-remote>",
-                                         {"no_o_id", "no_d_id", "no_w_id"},
-                                         CatalogParser::getInstance())
-                 .unpack()
-                 .print(
-                     [&](const auto& arg) -> std::vector<expression_t> {
-                       return {arg["no_o_id"], arg["no_d_id"], arg["no_w_id"]};
-                     },
-                     (output_binary ? pg(bin_plugin) : pg(csv_plugin)),
-                     (output_binary ? "tpcc_neworder" : "tpcc_neworder.tbl"));
+  auto rel =
+      getBuilder()
+          .scan<ch_access_plugin>("tpcc_neworder<block-remote>",
+                                  {"no_o_id", "no_d_id", "no_w_id"},
+                                  CatalogParser::getInstance())
+          .unpack()
+          .print((output_binary ? pg(bin_plugin) : pg(csv_plugin)),
+                 (output_binary ? "tpcc_neworder" : "tpcc_neworder.tbl"));
   return rel.prepare();
 }
