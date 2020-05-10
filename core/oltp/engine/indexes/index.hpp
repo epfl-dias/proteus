@@ -28,14 +28,27 @@
 
 namespace indexes {
 
+// class Index {
+// public:
+//  Index() { std::cout << "Index constructor\n" << std::endl; };
+//
+//  void put(void* key, void* val);
+//  void* getByKey(void* key);
+//
+//  void gc();
+//};
+
+template <class K = uint64_t, class V = void *>
 class Index {
  public:
-  Index() { std::cout << "Index constructor\n" << std::endl; };
+  Index() = default;
+  Index(std::string name) : name(std::move(name)) {}
+  Index(std::string name, uint64_t initial_capacity) : name(std::move(name)) {}
+  virtual V find(K key) = 0;
+  virtual bool insert(K key, V &value) = 0;
+  virtual ~Index() {}
 
-  void put(void* key, void* val);
-  void* getByKey(void* key);
-
-  void gc();
+  const std::string name;
 };
 
 };  // namespace indexes
