@@ -28,6 +28,7 @@ DECLARE_double(ycsb_zipf_theta);
 DECLARE_uint32(ycsb_num_cols);
 DECLARE_uint32(ycsb_num_ops_per_txn);
 DECLARE_uint32(ycsb_num_records);
+DECLARE_uint32(ycsb_num_col_upd);
 
 // TPC-C
 DECLARE_uint32(tpcc_num_wh);

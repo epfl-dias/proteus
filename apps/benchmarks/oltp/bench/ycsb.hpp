@@ -35,19 +35,16 @@
 #include <mutex>
 #include <thread>
 
+#include "common/common.hpp"
 #include "glo.hpp"
 #include "interfaces/bench.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 #include "topology/topology.hpp"
-//#include <thread
 
 namespace bench {
 
-/*
-  FIXME: zipfian is broken in YCSB.
-*/
-
+#define THREAD_LOCAL 0
 #define YCSB_MIXED_OPS 1
 
 /*
@@ -75,9 +72,13 @@ class YCSB : public Benchmark {
   // const int num_iterations_per_worker;
   const int num_ops_per_txn;
   const double write_threshold;
-  uint64_t recs_per_server;
+
+  // uint64_t recs_per_server;
   storage::Schema *schema;
   storage::Table *ycsb_tbl;
+
+  const int num_of_col_upd_per_op;
+  std::vector<ushort> col_idx;
 
   // zipf stuff
   struct drand48_data **rand_buffer;
@@ -94,7 +95,7 @@ class YCSB : public Benchmark {
 
   struct YCSB_TXN {
     struct YCSB_TXN_OP *ops;
-    short n_ops;
+    uint n_ops;
 
     ~YCSB_TXN() { delete ops; }
   };  // __attribute__((aligned(64)));
@@ -112,16 +113,6 @@ class YCSB : public Benchmark {
       gen_insert_txn(i, &tmp, q_ptr);
       this->exec_txn(q_ptr, xid, master_ver, 0, partition_id);
     }
-
-    // static std::mutex out_lk;
-    // {
-    //   std::unique_lock<std::mutex> lk(out_lk);
-    //   std::cout << "Worker-" << wid << " : Inserted[" << partition_id << "] "
-    //             << to_ins << " records (" << start << " -- " << (start +
-    //             to_ins)
-    //             << ")" << std::endl;
-    // }
-
     free_query_struct_ptr(q_ptr);
   }
 
@@ -145,18 +136,12 @@ class YCSB : public Benchmark {
   void free_query_struct_ptr(void *ptr) {
     struct YCSB_TXN *txn = (struct YCSB_TXN *)ptr;
     storage::memory::MemoryManager::free(txn->ops);
-    //,sizeof(struct YCSB_TXN_OP) * num_ops_per_txn);
-    storage::memory::MemoryManager::free(txn);  //, sizeof(struct YCSB_TXN));
+    storage::memory::MemoryManager::free(txn);
   }
 
   void *get_query_struct_ptr(ushort pid) {
-    // struct YCSB_TXN *txn = new struct YCSB_TXN;
-    // txn->ops = new struct YCSB_TXN_OP[num_ops_per_txn];
-    // return txn;
-
-    struct YCSB_TXN *txn =
-        (struct YCSB_TXN *)storage::memory::MemoryManager::alloc(
-            sizeof(struct YCSB_TXN), pid, MADV_DONTFORK);
+    auto *txn = (struct YCSB_TXN *)storage::memory::MemoryManager::alloc(
+        sizeof(struct YCSB_TXN), pid, MADV_DONTFORK);
     txn->ops = (struct YCSB_TXN_OP *)storage::memory::MemoryManager::alloc(
         sizeof(struct YCSB_TXN_OP) * num_ops_per_txn, pid, MADV_DONTFORK);
     return txn;
@@ -165,10 +150,13 @@ class YCSB : public Benchmark {
   void gen_txn(int wid, void *txn_ptr, ushort partition_id) {
     struct YCSB_TXN *txn = (struct YCSB_TXN *)txn_ptr;
 
+    static thread_local auto recs_per_thread =
+        this->num_records / this->num_active_workers;
+    static thread_local uint64_t rec_key_iter = 0;
 #if YCSB_MIXED_OPS
 
-    uint num_w_ops = write_threshold * num_ops_per_txn;
-
+    static thread_local uint num_w_ops = write_threshold * num_ops_per_txn;
+    bool is_duplicate = false;
 #else
 
     txn::OP_TYPE op;
@@ -181,27 +169,30 @@ class YCSB : public Benchmark {
     }
 
 #endif
-    // op = txn::OPTYPE_UPDATE;
-    // op = txn::OPTYPE_LOOKUP;
-
-    bool is_duplicate = false;
+    txn->n_ops = num_ops_per_txn;
+    assert(txn->n_ops == 10);
     for (int i = 0; i < num_ops_per_txn; i++) {
-#if YCSB_MIXED_OPS
+      // txn->ops[i].data_table = ycsb_tbl;
+      txn->ops[i].rec = nullptr;
 
+#if YCSB_MIXED_OPS
       if (i < num_w_ops) {
         txn->ops[i].op_type = txn::OPTYPE_UPDATE;
       } else {
         txn->ops[i].op_type = txn::OPTYPE_LOOKUP;
       }
-
 #else
       txn->ops[i].op_type = op;
 
 #endif
 
-      // txn->ops[i].data_table = ycsb_tbl;
-      txn->ops[i].rec = nullptr;
+#if THREAD_LOCAL
+      // In a round-robin way, each thread will operate on its own data block,
+      // so there will be no conflicts between two workers.
 
+      txn->ops[i].key =
+          (wid * recs_per_thread) + ((rec_key_iter++) % recs_per_thread);
+#else
       do {
         // make op
         zipf_val(wid, partition_id, &txn->ops[i]);
@@ -214,8 +205,8 @@ class YCSB : public Benchmark {
           }
         }
       } while (is_duplicate == true);
+#endif
     }
-    txn->n_ops = num_ops_per_txn;
   }
 
   bool exec_txn(const void *stmts, uint64_t xid, ushort master_ver,
@@ -223,9 +214,17 @@ class YCSB : public Benchmark {
     struct YCSB_TXN *txn_stmts = (struct YCSB_TXN *)stmts;
     int n = txn_stmts->n_ops;
 
-    /* Acquire locks for updates*/
+    // static thread_local int n = this->num_ops_per_txn;
+    // TODO: which cols to update?
+    static thread_local int num_col_upd = this->num_of_col_upd_per_op;
+    static thread_local std::vector<ushort> col_idx_local(col_idx);
+    static thread_local std::vector<uint64_t> read_loc(num_fields, 0);
 
-    std::vector<global_conf::IndexVal *> hash_ptrs_lock_acquired;
+    static thread_local std::vector<global_conf::IndexVal *>
+        hash_ptrs_lock_acquired(this->num_ops_per_txn, nullptr);
+    uint num_locks = 0;
+
+    /* Acquire locks for updates*/
     for (int i = 0; i < n; i++) {
       struct YCSB_TXN_OP op = txn_stmts->ops[i];
 
@@ -236,9 +235,13 @@ class YCSB : public Benchmark {
 
           bool e_false = false;
           if (hash_ptr->write_lck.try_lock()) {
-            hash_ptrs_lock_acquired.emplace_back(hash_ptr);
+            // assert(num_locks < hash_ptrs_lock_acquired.size());
+            hash_ptrs_lock_acquired[num_locks] = hash_ptr;
+            num_locks++;
           } else {
-            txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired);
+            // txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired);
+            txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired.data(),
+                                         num_locks);
             return false;
           }
           break;
@@ -259,17 +262,24 @@ class YCSB : public Benchmark {
               (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
 
           hash_ptr->latch.acquire();
-          if (txn::CC_MV2PL::is_readable(hash_ptr->t_min, xid)) {
-            ycsb_tbl->touchRecordByKey(hash_ptr->VID);
-          } else {
-            // in order to put an assert on valid list, the current tag resides
-            // in delta-store, so this should come from delta store, but for now
-            // lets assume correctness and directly access the list.
-            // void *v =
-            //     ycsb_tbl->getVersions(hash_ptr->VID)->get_readable_ver(xid);
 
-            void *v = hash_ptr->delta_ver->get_readable_ver(xid);
-          }
+          ycsb_tbl->getRecordByKey(hash_ptr, xid, delta_ver, nullptr, 0,
+                                   read_loc.data());
+
+          //          if (txn::CC_MV2PL::is_readable(hash_ptr->t_min, xid)) {
+          //            ycsb_tbl->touchRecordByKey(hash_ptr->VID);
+          //          } else {
+          //            // in order to put an assert on valid list, the current
+          //            tag resides
+          //            // in delta-store, so this should come from delta store,
+          //            but for now
+          //            // lets assume correctness and directly access the list.
+          //            // void *v =
+          //            //
+          //            ycsb_tbl->getVersions(hash_ptr->VID)->get_readable_ver(xid);
+          //
+          //            void *v = hash_ptr->delta_ver->get_readable_ver(xid);
+          //          }
           hash_ptr->latch.release();
           break;
         }
@@ -279,8 +289,10 @@ class YCSB : public Benchmark {
               (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
 
           hash_ptr->latch.acquire();
+          assert(num_col_upd == col_idx_local.size());
+          ycsb_tbl->updateRecord(hash_ptr, op.rec, master_ver, delta_ver,
+                                 col_idx_local.data(), num_col_upd);
 
-          ycsb_tbl->updateRecord(hash_ptr, op.rec, master_ver, delta_ver);
           hash_ptr->t_min = xid;
           hash_ptr->write_lck.unlock();
           hash_ptr->latch.release();
@@ -296,7 +308,7 @@ class YCSB : public Benchmark {
           break;
       }
     }
-
+    txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired.data(), num_locks);
     // txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired);
 
     return true;
@@ -310,24 +322,34 @@ class YCSB : public Benchmark {
        double theta = 0.5, int num_iterations_per_worker = 1000000,
        int num_ops_per_txn = 2, double write_threshold = 0.5,
        int num_active_workers = -1, int num_max_workers = -1,
-       ushort num_partitions = 1, bool layout_column_store = true)
+       ushort num_partitions = 1, bool layout_column_store = true,
+       int num_of_col_upd = 1)
       : Benchmark(name, num_active_workers, num_max_workers, num_partitions),
         num_fields(num_fields),
         num_records(num_records),
         theta(theta),
         // num_iterations_per_worker(num_iterations_per_worker),
         num_ops_per_txn(num_ops_per_txn),
-        write_threshold(write_threshold) {
+        write_threshold(write_threshold),
+        num_of_col_upd_per_op(num_of_col_upd) {
     if (num_max_workers == -1)
       num_max_workers = topology::getInstance().getCoreCount();
     if (num_active_workers == -1)
       num_active_workers = topology::getInstance().getCoreCount();
 
+    assert(num_of_col_upd_per_op <= num_fields);
     assert(this->num_records % this->num_max_workers == 0 &&
            "Total number of records should be divisible by total # cores");
-    this->recs_per_server = this->num_records / this->num_max_workers;
+
+    for (ushort t = 0; t < num_of_col_upd_per_op; t++) {
+      col_idx.emplace_back(t);
+    }
+    assert(col_idx.size() == num_of_col_upd_per_op);
+
+    // this->recs_per_server = this->num_records / this->num_max_workers;
     this->schema = &storage::Schema::getInstance();
-    std::cout << "workers: " << this->num_active_workers << std::endl;
+    LOG(INFO) << "workers: " << this->num_active_workers;
+    LOG(INFO) << "Max-Workers: " << this->num_max_workers;
     init();
 
     storage::ColumnDef columns;
@@ -335,7 +357,6 @@ class YCSB : public Benchmark {
       columns.emplace_back("col_" + std::to_string(i + 1), storage::INTEGER,
                            sizeof(uint64_t));
     }
-
     ycsb_tbl = schema->create_table(
         "ycsb_tbl",
         (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
@@ -370,7 +391,7 @@ class YCSB : public Benchmark {
 
     g_eta = (1 - pow(2.0 / n, 1 - theta)) / (1 - g_zeta2 / g_zetan);
     g_alpha_half_pow = 1 + pow(0.5, theta);
-    printf("n = %lu\n", n);
+    printf("n = %lu\n", n + 1);
     printf("theta = %.2f\n", theta);
   }
 
@@ -380,15 +401,21 @@ class YCSB : public Benchmark {
     // elasticity hack when we will increase num_server on runtime
     // wid = wid % num_workers;
 
-    static thread_local uint64_t recs_per_server_tlocal = this->recs_per_server;
-    static thread_local double g_eta_tlocal = this->g_eta;
-    static thread_local double g_alpha_half_pow_tlocal = this->g_alpha_half_pow;
-    static thread_local double g_zetan_tlocal = this->g_zetan;
-    static thread_local double theta_tlocal = this->theta;
-    static thread_local size_t max_worker_per_partition =
+    // copying class variables as thread_local variables in order to remove
+    // false sharing of cachelines
+    // static thread_local uint64_t recs_per_server_tlocal =
+    // this->recs_per_server;
+    static thread_local auto g_eta_tlocal = this->g_eta;
+    static thread_local auto g_alpha_half_pow_tlocal = this->g_alpha_half_pow;
+    static thread_local auto g_zetan_tlocal = this->g_zetan;
+    static thread_local auto theta_tlocal = this->theta;
+    static thread_local auto max_worker_per_partition =
         this->num_max_workers / this->num_partitions;
 
-    double alpha = 1 / (1 - theta_tlocal);
+    static thread_local auto num_workers = this->num_active_workers;
+    static thread_local auto g_nrecs = this->num_records;
+
+    static thread_local double alpha = 1 / (1 - theta_tlocal);
     double u;
 
     drand48_r(&rand_buffer[partition_id][wid % max_worker_per_partition], &u);
@@ -405,35 +432,28 @@ class YCSB : public Benchmark {
     } else {
       op->key = (uint64_t)(n * pow(g_eta_tlocal * u - g_eta_tlocal + 1, alpha));
     }
-    // std::cout << "op->key: " << op->key << std::endl;
-    op->key = op->key % recs_per_server_tlocal;
-    // std::cout << "op->key: " << op->key << std::endl;
-    // // ---
-    // uint64_t recs_per_server = num_records / num_max_workers;
-    // uint tserver = op->key / recs_per_server;
 
-    // ---
-    // std::cout << "op->key: " << op->key << std::endl;
+    // Aunn's comment: i still dont understand what is the need for following
+    // calculations.
 
+    // Trireme
+    //------------
     // get the server id for the key
-    // int tserver = op->key % num_max_workers;
-    // std::cout << "tserver: " << tserver << std::endl;
+    uint tserver = op->key % num_workers;
     // get the key count for the key
-    // uint64_t key_cnt = op->key / num_max_workers;
-    // std::cout << "key_cnt: " << key_cnt << std::endl;
-    // std::cout << "wid: " << wid << std::endl;
-    // std::cout << "recs_per_server: " << recs_per_server << std::endl;
-    // op->key = tserver * recs_per_server + key_cnt;
-    op->key = wid * recs_per_server_tlocal + op->key;
-    assert(op->key >= (wid * 1000000) && op->key < ((wid + 1) * 1000000));
-    // std::cout << "op->key: " << op->key << std::endl;
+    uint64_t key_cnt = op->key / num_workers;
 
-    assert(op->key < num_records);
+    uint64_t recs_per_server = g_nrecs / num_workers;
+    op->key = tserver * recs_per_server + key_cnt;
+
+    assert(op->key < g_nrecs);
+
+    // End trireme
   }
 
-  inline double zeta(uint64_t n, double theta) {
+  inline double zeta(uint64_t n, double theta_z) {
     double sum = 0;
-    for (uint64_t i = 1; i <= n; i++) sum += std::pow(1.0 / i, theta);
+    for (uint64_t i = 1; i <= n; i++) sum += std::pow(1.0 / i, theta_z);
     return sum;
   }
 };

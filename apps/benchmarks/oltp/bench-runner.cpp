@@ -80,14 +80,6 @@ int main(int argc, char** argv) {
     g_num_partitions = FLAGS_num_partitions;
   }
 
-  for (size_t aa = 1; aa <= 144; aa++) {
-    LOG(INFO)
-        << "w: " << aa << " | partitons: "
-        << (((aa - 1) /
-             topology::getInstance().getCpuNumaNodes()[0].local_cores.size()) +
-            1);
-  }
-
   std::cout << "PARTITIONS: " << g_num_partitions << std::endl;
 
   g_delta_size = FLAGS_delta_size;
@@ -123,6 +115,11 @@ int main(int argc, char** argv) {
     if (FLAGS_ycsb_num_records == 0) {
       FLAGS_ycsb_num_records = FLAGS_num_workers * 1000000;
     }
+    if (FLAGS_ycsb_num_col_upd != 0) {
+      assert(FLAGS_ycsb_num_col_upd <= FLAGS_ycsb_num_cols);
+    } else {
+      FLAGS_ycsb_num_col_upd = FLAGS_ycsb_num_cols;
+    }
 
     bench = new bench::YCSB(
         "YCSB", FLAGS_ycsb_num_cols, FLAGS_ycsb_num_records,
@@ -131,7 +128,7 @@ int main(int argc, char** argv) {
         (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
         (FLAGS_elastic_workload > 0 ? topology::getInstance().getCoreCount()
                                     : FLAGS_num_workers),
-        g_num_partitions, FLAGS_layout_column_store);
+        g_num_partitions, FLAGS_layout_column_store, FLAGS_ycsb_num_col_upd);
   }
 
   scheduler::WorkerPool::getInstance().init(
@@ -203,17 +200,17 @@ int main(int argc, char** argv) {
   timed_func::terminate_all_timed();
   usleep(1000000);  // sanity sleep so that async threads can exit gracefully.
 
-  std::cout << "Tear Down Inititated" << std::endl;
   profiling::pause();
+  LOG(INFO) << "Tear Down Initiated";
   scheduler::WorkerPool::getInstance().shutdown(true);
+
+  LOG(INFO) << "DBMS Storage: ";
+  storage::Schema::getInstance().report();
 
   // std::cout << "AFTER" << std::endl;
   // for (auto& tb : storage::Schema::getInstance().getAllTables()) {
   //   ((storage::ColumnStore*)tb)->num_upd_tuples();
   // }
-
-  // TODO: cleanup
-  // storage::Schema::getInstance().teardown();
 
   return 0;
 }
