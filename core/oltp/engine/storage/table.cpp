@@ -116,6 +116,10 @@ bool Schema::sync_master_ver_tbl(const storage::Table* tbl,
 }
 
 void Schema::report() {
+  for (int i = 0; i < global_conf::num_delta_storages; i++) {
+    deltaStore[i]->print_info();
+  }
+
   for (auto& tbl : tables) {
     // tbl->p_index->report();
     tbl->reportUsage();
@@ -142,15 +146,16 @@ void Schema::switch_delta(ushort prev, ushort curr, uint64_t epoch,
 }
 
 void Schema::teardown() {
-  for (auto& tbl : tables) {
-    tbl->~Table();
-  }
   if (global_conf::cc_ismv) {
     // init delta store
 
     for (int i = 0; i < global_conf::num_delta_storages; i++) {
       deltaStore[i]->~DeltaStore();
     }
+  }
+
+  for (auto& tbl : tables) {
+    tbl->~Table();
   }
 }
 

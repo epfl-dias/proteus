@@ -334,13 +334,13 @@ void Worker::run_bench() {
     this->curr_txn = txnManager->get_next_xid(this->id);
     this->curr_master = txnManager->current_master;
 
-    if (this->id == 0) {
-      txnManager->snapshot();
-      while (schema->is_sync_in_progress())
-        ;
-    }
-    pool->txn_bench->post_run(this->id, curr_txn, this->partition_id,
-                              this->curr_master);
+    //    if (this->id == 0) {
+    //      txnManager->snapshot();
+    //      while (schema->is_sync_in_progress())
+    //        ;
+    //    }
+    //    pool->txn_bench->post_run(this->id, curr_txn, this->partition_id,
+    //                              this->curr_master);
   }
   state = TERMINATED;
   pool->_txn_bench->free_query_struct_ptr(txn_mem);
@@ -1076,13 +1076,17 @@ void WorkerPool::start_workers() {
 
 void WorkerPool::shutdown(bool print_stats) {
   this->terminate.store(true);
+
   // cv.notify_all();
   for (auto& worker : workers) {
     if (!worker.second.second->terminate) {
       worker.second.second->terminate = true;
       worker.second.first->join();
     }
+  }
+  print_worker_stats();
 
+  for (auto& worker : workers) {
     // FIXME: why not using an allocator with the map?
     worker.second.first->~thread();
     storage::memory::MemoryManager::free(worker.second.first);
@@ -1090,7 +1094,6 @@ void WorkerPool::shutdown(bool print_stats) {
     worker.second.second->~Worker();
     storage::memory::MemoryManager::free(worker.second.second);
   }
-  print_worker_stats();
   workers.clear();
 }
 
