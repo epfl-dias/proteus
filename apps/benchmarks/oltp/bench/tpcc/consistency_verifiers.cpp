@@ -105,7 +105,7 @@ std::vector<PreparedStatement> TPCC::consistency_check_2_query_builder() {
   PreparedStatement o_max =
       ctx_one.getBuilder()
           .scan("tpcc_order<block-remote>", {"o_w_id", "o_d_id", "o_id"},
-                {"block-remote"}, CatalogParser::getInstance())
+                CatalogParser::getInstance(), pg{"block-remote"})
           .router(DegreeOfParallelism{24}, 32, RoutingPolicy::LOCAL,
                   DeviceType::CPU)
           .unpack()
@@ -152,8 +152,8 @@ std::vector<PreparedStatement> TPCC::consistency_check_2_query_builder() {
   PreparedStatement no_max =
       ctx_two.getBuilder()
           .scan("tpcc_neworder<block-remote>",
-                {"no_w_id", "no_d_id", "no_o_id"}, {"block-remote"},
-                CatalogParser::getInstance())
+                {"no_w_id", "no_d_id", "no_o_id"}, CatalogParser::getInstance(),
+                pg{"block-remote"})
           .router(DegreeOfParallelism{24}, 32, RoutingPolicy::LOCAL,
                   DeviceType::CPU)
           .unpack()
@@ -200,8 +200,8 @@ std::vector<PreparedStatement> TPCC::consistency_check_2_query_builder() {
   PreparedStatement d_next_oid =
       ctx_three.getBuilder()
           .scan("tpcc_district<block-remote>",
-                {"d_w_id", "d_id", "d_next_o_id"}, {"block-remote"},
-                CatalogParser::getInstance())
+                {"d_w_id", "d_id", "d_next_o_id"}, CatalogParser::getInstance(),
+                pg{"block-remote"})
           .unpack()
           .sort(
               [&](const auto &arg) -> std::vector<expression_t> {
@@ -290,8 +290,8 @@ std::vector<PreparedStatement> TPCC::consistency_check_3_query_builder() {
   PreparedStatement new_order_stats =
       ctx.getBuilder()
           .scan("tpcc_neworder<block-remote>",
-                {"no_o_id", "no_d_id", "no_w_id"}, {"block-remote"},
-                CatalogParser::getInstance())
+                {"no_o_id", "no_d_id", "no_w_id"}, CatalogParser::getInstance(),
+                pg{"block-remote"})
           .router(DegreeOfParallelism{48}, 32, RoutingPolicy::LOCAL,
                   DeviceType::CPU)
 
