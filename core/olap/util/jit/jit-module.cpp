@@ -46,7 +46,7 @@ JITModule::JITModule(Context *context, std::string pipName)
     : TheModule(new Module(pipName, getJiter().getContext())),
       pipName(pipName),
       context(context) {
-  if (TheBuilder == nullptr) init(getJiter().getContext());
+  if (TheBuilder == nullptr) init(TheModule->getContext());
 }
 
 void JITModule::init(LLVMContext &llvmContext) {

@@ -49,9 +49,6 @@ class CpuModule : public JITModule {
 
   void *getCompiledFunction(llvm::Function *f) const override;
   void *getCompiledFunction(std::string str) const;
-
- protected:
-  virtual void optimizeModule(llvm::Module *M);
 };
 
 #endif /* CPU_MODULE_HPP_ */

@@ -99,16 +99,96 @@ JITer::JITer() : p_impl(std::make_unique<JITer_impl>()) {}
 
 JITer::~JITer() = default;
 
+class PassConfiguration {
+ public:
+  std::unique_ptr<TargetMachine> JTM;
+  Triple ModuleTriple;
+  TargetLibraryInfoImpl TLII;
+  legacy::PassManager Passes;
+  PassManagerBuilder Builder;
+  ImmutablePass *TTIPass;
+  FunctionPass *PrefetchPass;
+  std::mutex m;
+
+ public:
+  explicit PassConfiguration(std::unique_ptr<TargetMachine> TM)
+      : JTM(std::move(TM)),
+        ModuleTriple(JTM->getTargetTriple()),
+        TLII(ModuleTriple),
+        TTIPass(
+            createTargetTransformInfoWrapperPass(JTM->getTargetIRAnalysis())),
+        PrefetchPass(createLoopDataPrefetchPass()) {
+    time_block trun(TimeRegistry::Key{"Optimization avoidable phase"});
+
+    Pass *TPC =
+        dynamic_cast<LLVMTargetMachine *>(JTM.get())->createPassConfig(Passes);
+    Passes.add(TPC);
+
+    Passes.add(new TargetLibraryInfoWrapperPass(TLII));
+
+    // Add internal analysis passes from the target machine.
+    Passes.add(
+        createTargetTransformInfoWrapperPass(JTM->getTargetIRAnalysis()));
+
+    Builder.OptLevel = 3;
+    Builder.SizeLevel = 0;
+
+    Builder.Inliner = createFunctionInliningPass(3, 0, false);
+
+    Builder.DisableUnrollLoops = false;
+    Builder.LoopVectorize = true;
+
+    Builder.SLPVectorize = true;
+
+    JTM->adjustPassManager(Builder);
+
+    Builder.populateModulePassManager(Passes);
+  }
+};
+
+llvm::orc::ThreadSafeModule optimizeModule(llvm::orc::ThreadSafeModule TSM,
+                                           std::unique_ptr<TargetMachine> TM) {
+  TSM.withModuleDo([&TM](Module &M) {
+    time_block t("Optimization time: ",
+                 TimeRegistry::Key{"Optimization phase"});
+    // if (Coroutines)
+    //   addCoroutinePassesToExtensionPoints(Builder);
+
+    PassConfiguration pc{std::move(TM)};
+
+    llvm::legacy::FunctionPassManager FPasses{&M};
+
+    pc.Builder.populateFunctionPassManager(FPasses);
+
+    FPasses.add(pc.TTIPass);
+    FPasses.add(pc.PrefetchPass);
+
+    {
+      time_block trun(TimeRegistry::Key{"Optimization run phase"});
+
+      FPasses.doInitialization();
+      for (Function &F : M) FPasses.run(F);
+      FPasses.doFinalization();
+
+      // Now that we have all of the passes ready, run them.
+      pc.Passes.run(M);
+    }
+  });
+  return TSM;
+}
+
 class JITer_impl {
  public:
   DataLayout DL;
   llvm::orc::MangleAndInterner Mangle;
   llvm::orc::ThreadSafeContext Ctx;
 
+  PassConfiguration PassConf;
+
   llvm::orc::ExecutionSession ES;
   llvm::orc::RTDyldObjectLinkingLayer ObjectLayer;
   llvm::orc::IRCompileLayer CompileLayer;
-  //  llvm::orc::IRTransformLayer TransformLayer;
+  llvm::orc::IRTransformLayer TransformLayer;
 
   llvm::orc::JITDylib &MainJD;
 
@@ -120,13 +200,22 @@ class JITer_impl {
       : DL(llvm::cantFail(JTMB.getDefaultDataLayoutForTarget())),
         Mangle(ES, this->DL),
         Ctx(std::make_unique<LLVMContext>()),
+        PassConf(llvm::cantFail(JTMB.createTargetMachine())),
         ObjectLayer(ES,
                     []() { return std::make_unique<SectionMemoryManager>(); }),
-        CompileLayer(
-            ES, ObjectLayer,
-            std::make_unique<llvm::orc::ConcurrentIRCompiler>(std::move(JTMB))),
+        CompileLayer(ES, ObjectLayer,
+                     std::make_unique<llvm::orc::ConcurrentIRCompiler>(JTMB)),
+        TransformLayer(
+            ES, CompileLayer,
+            [JTMB = std::move(JTMB)](
+                llvm::orc::ThreadSafeModule TSM,
+                const llvm::orc::MaterializationResponsibility &R) mutable
+            -> Expected<llvm::orc::ThreadSafeModule> {
+              auto TM = JTMB.createTargetMachine();
+              if (!TM) return TM.takeError();
+              return optimizeModule(std::move(TSM), std::move(TM.get()));
+            }),
         MainJD(ES.createJITDylib("main")) {
-    CompileLayer.setCloneToNewContextOnEmit(true);
     ObjectLayer.setNotifyEmitted(
         [](llvm::orc::VModuleKey k, std::unique_ptr<MemoryBuffer> mb) {
           LOG(INFO) << "Emitted " << k << " "
@@ -146,7 +235,7 @@ class JITer_impl {
   }
 
   void addModule(llvm::orc::ThreadSafeModule M) {
-    llvm::cantFail(CompileLayer.add(MainJD, std::move(M)));
+    llvm::cantFail(TransformLayer.add(MainJD, std::move(M)));
   }
 
   JITEvaluatedSymbol lookup(StringRef Name) {
@@ -155,66 +244,21 @@ class JITer_impl {
 };
 
 LLVMContext &JITer::getContext() { return p_impl->getContext(); }
-
+#include "llvm/Bitcode/BitcodeReader.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 auto &getJiter() {
   static JITer jiter;
   return jiter;
 }
 
-void CpuModule::optimizeModule(Module *M) {
-  time_block t("Optimization time: ");
-
-  auto JTM =
-      dynamic_cast<LLVMTargetMachine *>(TheExecutionEngine->getTargetMachine());
-  legacy::PassManager Passes;
-  llvm::legacy::FunctionPassManager FPasses{M};
-
-  Pass *TPC = JTM->createPassConfig(Passes);
-  Passes.add(TPC);
-
-  Triple ModuleTriple(JTM->getTargetTriple());
-  TargetLibraryInfoImpl TLII(ModuleTriple);
-
-  Passes.add(new TargetLibraryInfoWrapperPass(TLII));
-
-  // Add internal analysis passes from the target machine.
-  Passes.add(createTargetTransformInfoWrapperPass(JTM->getTargetIRAnalysis()));
-
-  {
-    PassManagerBuilder Builder;
-
-    Builder.OptLevel = 3;
-    Builder.SizeLevel = 0;
-
-    Builder.Inliner = createFunctionInliningPass(3, 0, false);
-
-    Builder.DisableUnrollLoops = false;
-    Builder.LoopVectorize = true;
-
-    // When #pragma vectorize is on for SLP, do the same as above
-    Builder.SLPVectorize = true;
-
-    JTM->adjustPassManager(Builder);
-
-    // if (Coroutines)
-    //   addCoroutinePassesToExtensionPoints(Builder);
-
-    Builder.populateFunctionPassManager(FPasses);
-    Builder.populateModulePassManager(Passes);
-  }
-
-  FPasses.add(createTargetTransformInfoWrapperPass(JTM->getTargetIRAnalysis()));
-  //
-  //  Builder.populateFunctionPassManager(FPasses);
-  FPasses.add(createLoopDataPrefetchPass());
-
-  FPasses.doInitialization();
-  for (Function &F : *M) FPasses.run(F);
-  FPasses.doFinalization();
-
-  // Now that we have all of the passes ready, run them.
-  Passes.run(*M);
-}
+// void CpuModule::optimizeModule(Module *M) {
+//  auto JTM =
+//      dynamic_cast<LLVMTargetMachine
+//      *>(TheExecutionEngine->getTargetMachine());
+//  llvm::orc::ThreadSafeModule TSM(std::unique_ptr<Module>(M),
+//                                  getJiter().p_impl->Ctx);
+//  ::optimizeModule(std::move(TSM), *JTM);
+//}
 
 void CpuModule::compileAndLoad() {
   time_block t(pipName + " C: ", TimeRegistry::Key{"Compile and Load (CPU)"});
@@ -234,16 +278,42 @@ void CpuModule::compileAndLoad() {
   }
 #endif
 
-  optimizeModule(getModule());
-  auto tsmw = llvm::orc::ThreadSafeModule(llvm::CloneModule(*getModule()),
-                                          getJiter().p_impl->Ctx);
-  auto ptr = llvm::orc::cloneToNewContext(tsmw);
+  //  optimizeModule(getModule());
+  llvm::orc::ThreadSafeModule ptr;
+  {
+    time_block tCopy{"Tcopy: ", TimeRegistry::Key{"Module Copying"}};
+    // FIXME: we have to copy the module into a different context, as
+    //  asynchronous consumers still have copies all over the place.
+    //  as soon as we start preventing these issues, we should remove
+    //  this slow copying process.
+    Module &M = *getModule();
+    SmallVector<char, 1> ClonedModuleBuffer;
 
-  // llvm::CloneModule(*getModule());
+    {
+      BitcodeWriter BCWriter(ClonedModuleBuffer);
+
+      BCWriter.writeModule(M);
+      BCWriter.writeSymtab();
+      BCWriter.writeStrtab();
+    }
+
+    MemoryBufferRef ClonedModuleBufferRef(
+        StringRef(ClonedModuleBuffer.data(), ClonedModuleBuffer.size()),
+        "cloned module buffer");
+    llvm::orc::ThreadSafeContext NewTSCtx(std::make_unique<LLVMContext>());
+
+    auto ClonedModule = cantFail(
+        parseBitcodeFile(ClonedModuleBufferRef, *NewTSCtx.getContext()));
+    ClonedModule->setModuleIdentifier(M.getName());
+    ptr = llvm::orc::ThreadSafeModule(std::move(ClonedModule),
+                                      std::move(NewTSCtx));
+  }
+
+  // Change the source file name, otherwise the main function conflicts with the
+  // source file name and it does not get emitted
   ptr.withModuleDo([pipName = this->pipName](Module &nm) {
     nm.setSourceFileName("this_" + pipName);
   });
-  //  ptr->dump();
   getJiter().p_impl->addModule(std::move(ptr));
 
 #ifdef DEBUGCTX
@@ -295,6 +365,7 @@ void CpuModule::compileAndLoad() {
 }
 
 void *CpuModule::getCompiledFunction(std::string str) const {
+  time_block t(TimeRegistry::Key{"Compile and Load (CPU, waiting)"});
   return (void *)getJiter().p_impl->lookup(str).getAddress();
 }
 
