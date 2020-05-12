@@ -46,10 +46,15 @@ GpuPipelineGen::GpuPipelineGen(Context *context, std::string pipName,
   registerSubPipeline();
   registerFunctions();
 
-  Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
-  Type *int64_type = Type::getInt64Ty(context->getLLVMContext());
-  Type *void_type = Type::getVoidTy(context->getLLVMContext());
-  Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
+  if (copyStateFrom) {
+    Type *charPtrType = Type::getInt8PtrTy(getModule()->getContext());
+    appendStateVar(charPtrType);
+  }
+
+  Type *int32_type = Type::getInt32Ty(getModule()->getContext());
+  Type *int64_type = Type::getInt64Ty(getModule()->getContext());
+  Type *void_type = Type::getVoidTy(getModule()->getContext());
+  Type *charPtrType = Type::getInt8PtrTy(getModule()->getContext());
 
   kernel_id = appendStateVar(
       charPtrType,
@@ -199,11 +204,11 @@ GpuPipelineGen::GpuPipelineGen(Context *context, std::string pipName,
 
 void GpuPipelineGen::registerFunctions() {
   PipelineGen::registerFunctions();
-  Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
-  Type *int64_type = Type::getInt64Ty(context->getLLVMContext());
-  Type *void_type = Type::getVoidTy(context->getLLVMContext());
-  Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
-  Type *bool_type = Type::getInt1Ty(context->getLLVMContext());
+  Type *int32_type = Type::getInt32Ty(getModule()->getContext());
+  Type *int64_type = Type::getInt64Ty(getModule()->getContext());
+  Type *void_type = Type::getVoidTy(getModule()->getContext());
+  Type *charPtrType = Type::getInt8PtrTy(getModule()->getContext());
+  Type *bool_type = Type::getInt1Ty(getModule()->getContext());
 
   Type *size_type;
   if (sizeof(size_t) == 4)
@@ -219,10 +224,10 @@ void GpuPipelineGen::registerFunctions() {
                                          "allocate_gpu", getModule());
   std::vector<std::pair<unsigned, Attribute>> attrs;
   Attribute noAlias =
-      Attribute::get(context->getLLVMContext(), Attribute::AttrKind::NoAlias);
+      Attribute::get(getModule()->getContext(), Attribute::AttrKind::NoAlias);
   attrs.emplace_back(0, noAlias);
   fallocate->setAttributes(
-      AttributeList::get(context->getLLVMContext(), attrs));
+      AttributeList::get(getModule()->getContext(), attrs));
   registerFunction("allocate", fallocate);
 
   FunctionType *deallocate =

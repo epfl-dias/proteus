@@ -43,16 +43,6 @@ void Context::createJITEngine() {
   LLVMInitializeNativeTarget();
   LLVMInitializeNativeAsmPrinter();
   LLVMInitializeNativeAsmParser();
-
-  // Create the JIT.  This takes ownership of the module.
-  string ErrStr;
-  TheExecutionEngine = EngineBuilder(std::unique_ptr<Module>(TheModule))
-                           .setErrorStr(&ErrStr)
-                           .create();
-  if (TheExecutionEngine == nullptr) {
-    fprintf(stderr, "Could not create ExecutionEngine: %s\n", ErrStr.c_str());
-    exit(1);
-  }
 }
 
 void addOptimizerPipelineDefault(legacy::FunctionPassManager *TheFPM) {
@@ -92,48 +82,14 @@ addOptimizerPipelineVectorization(legacy::FunctionPassManager *TheFPM) {
 
 // FIXME: memory leak
 const char *Context::getName() {
-  return (new std::string{TheModule->getName().str()})->c_str();
+  return (new std::string{getModule()->getName().str()})->c_str();
 }
 
-Context::Context(const string &moduleName, bool setGlobFunction)
-    : moduleName(moduleName) {
-  TheModule = new Module(moduleName, getLLVMContext());
-  TheBuilder = new IRBuilder<>(getLLVMContext());
-
+Context::Context(const string &moduleName)
+    : moduleName(std::move(moduleName)), TheBuilder(nullptr) {
   TheExecutionEngine = nullptr;
   TheFunction = nullptr;
   codeEnd = nullptr;
-
-  /* OPTIMIZER PIPELINE, function passes */
-  TheFPM = new legacy::FunctionPassManager(getModule());
-  addOptimizerPipelineDefault(TheFPM);
-
-  // LSC: Seems to be faster without the vectorization, at least
-  // while running the unit-tests, but this might be because the
-  // datasets are too small.
-  // addOptimizerPipelineVectorization(TheFPM);
-
-#if MODULEPASS
-  /* OPTIMIZER PIPELINE, module passes */
-  PassManagerBuilder pmb;
-  pmb.OptLevel = 3;
-  TheMPM = new ModulePassManager();
-  pmb.populateModulePassManager(*TheMPM);
-  addOptimizerPipelineInlining(TheMPM);
-#endif
-
-  TheFPM->doInitialization();
-
-  if (setGlobFunction) {
-    llvm::Type *int_type = Type::getInt32Ty(getLLVMContext());
-    vector<Type *> Ints(1, int_type);
-    FunctionType *FT =
-        FunctionType::get(Type::getInt32Ty(getLLVMContext()), Ints, false);
-    Function *F = Function::Create(FT, Function::ExternalLinkage, moduleName,
-                                   getModule());
-
-    setGlobalFunction(F);  // Be careful, calls from constructor non-virtual!
-  }
 }
 
 void Context::setGlobalFunction(bool leaf) { setGlobalFunction(nullptr, leaf); }
@@ -161,48 +117,6 @@ void Context::setGlobalFunction(Function *F, bool leaf) {
   prepareStateVars();
 
   createJITEngine();
-}
-
-void Context::prepareFunction(Function *F) {
-  endStateVars();
-
-  // FIXME Have a (tmp) return value for now at this point
-  getBuilder()->CreateRet(getBuilder()->getInt32(114));
-
-#ifdef DEBUGCTX
-  //    getModule()->dump();
-#endif
-  // Validate the generated code, checking for consistency.
-  verifyFunction(*F);
-
-  // Optimize the function.
-  TheFPM->run(*F);
-#if MODULEPASS
-  TheMPM->runOnModule(getModule());
-#endif
-
-  // JIT the function, returning a function pointer.
-  TheExecutionEngine->finalizeObject();
-  void *FPtr = TheExecutionEngine->getPointerToFunction(F);
-
-  int (*FP)(void) = (int (*)(void))FPtr;
-  assert(FP != nullptr && "Code generation failed!");
-
-  // TheModule->dump();
-  // Run function
-  struct timespec t0, t1;
-  clock_gettime(CLOCK_REALTIME, &t0);
-  int jitFuncResult = FP();
-  // LOG(INFO) << "Mock return value of generated function " << FP(11);
-  clock_gettime(CLOCK_REALTIME, &t1);
-  printf("(Already compiled) Execution took %f seconds\n", diff(t0, t1));
-  cout << "Return flag: " << jitFuncResult << endl;
-
-  TheFPM = nullptr;
-  // Dump to see final (optimized) form
-#ifdef DEBUGCTX
-  //    F->dump();
-#endif
 }
 
 Function *Context::getFunction(string funcName) const {
@@ -523,10 +437,13 @@ PointerType *Context::getPointerType(Type *type) {
   return PointerType::get(type, 0);
 }
 
+StructType *Context::CreateCustomStruct(LLVMContext &ctx,
+                                        vector<Type *> innerTypes) {
+  return llvm::StructType::get(ctx, innerTypes);
+}
+
 StructType *Context::CreateCustomStruct(vector<Type *> innerTypes) {
-  llvm::StructType *valueType =
-      llvm::StructType::get(getLLVMContext(), innerTypes);
-  return valueType;
+  return CreateCustomStruct(getLLVMContext(), std::move(innerTypes));
 }
 
 StructType *Context::ReproduceCustomStruct(list<typeID> innerTypes) {
@@ -580,14 +497,20 @@ StructType *Context::CreateJSONPosStruct() {
   return CreateCustomStruct(json_pos_types);
 }
 
+PointerType *Context::CreateJSMNStructPtr(LLVMContext &ctx) {
+  auto jsmnStructType = CreateJSMNStruct(ctx);
+  return PointerType::get(jsmnStructType, 0);
+}
+
 PointerType *Context::CreateJSMNStructPtr() {
-  Type *jsmnStructType = CreateJSMNStruct();
-  PointerType *ptr_jsmnStructType = PointerType::get(jsmnStructType, 0);
-  return ptr_jsmnStructType;
+  return CreateJSMNStructPtr(getLLVMContext());
 }
 
 StructType *Context::CreateJSMNStruct() {
-  LLVMContext &ctx = getLLVMContext();
+  return CreateJSMNStruct(getLLVMContext());
+}
+
+StructType *Context::CreateJSMNStruct(llvm::LLVMContext &ctx) {
   vector<Type *> jsmn_pos_types;
 #ifndef JSON_TIGHT
   llvm::Type *int32_type = Type::getInt32Ty(ctx);
@@ -604,11 +527,10 @@ StructType *Context::CreateJSMNStruct() {
   jsmn_pos_types.push_back(int16_type);
   jsmn_pos_types.push_back(int8_type);
 #endif
-  return CreateCustomStruct(jsmn_pos_types);
+  return CreateCustomStruct(ctx, jsmn_pos_types);
 }
 
-StructType *Context::CreateStringStruct() {
-  LLVMContext &ctx = getLLVMContext();
+llvm::StructType *Context::CreateStringStruct(llvm::LLVMContext &ctx) {
   llvm::Type *int32_type = Type::getInt32Ty(ctx);
   llvm::Type *char_type = Type::getInt8Ty(ctx);
   PointerType *ptr_char_type = PointerType::get(char_type, 0);
@@ -616,7 +538,11 @@ StructType *Context::CreateStringStruct() {
   string_obj_types.push_back(ptr_char_type);
   string_obj_types.push_back(int32_type);
 
-  return CreateCustomStruct(string_obj_types);
+  return CreateCustomStruct(ctx, string_obj_types);
+}
+
+StructType *Context::CreateStringStruct() {
+  return CreateStringStruct(getLLVMContext());
 }
 
 // Provide support for some extern functions

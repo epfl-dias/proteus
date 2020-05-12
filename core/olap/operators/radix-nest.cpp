@@ -327,7 +327,6 @@ map<RecordAttribute, ProteusValueMemory> *Nest::reconstructResults(
 
 void Nest::probeHT() const {
   LLVMContext &llvmContext = context->getLLVMContext();
-  IRBuilder<> *Builder = context->getBuilder();
   Catalog &catalog = Catalog::getInstance();
 
   Type *int64_type = Type::getInt64Ty(llvmContext);
@@ -346,6 +345,7 @@ void Nest::probeHT() const {
       },
       [=](llvm::Value *, llvm::Value *s) {
         Function *f = context->getFunction("free");
+        IRBuilder<> *Builder = context->getBuilder();
         s = Builder->CreateBitCast(s, char_ptr_type);
         Builder->CreateCall(f, s);
       },
@@ -365,6 +365,7 @@ void Nest::probeHT() const {
       },
       [=](llvm::Value *, llvm::Value *s) {
         Function *f = context->getFunction("releaseMemoryChunk");
+        IRBuilder<> *Builder = context->getBuilder();
         s = Builder->CreateBitCast(s, char_ptr_type);
         Builder->CreateCall(f, s);
       },
@@ -382,6 +383,7 @@ void Nest::probeHT() const {
         return Builder->CreateCall(rel_mem, vector<Value *>{pip, build});
       },
       [=](llvm::Value *, llvm::Value *s) {
+        IRBuilder<> *Builder = context->getBuilder();
         Function *f = context->getFunction("releaseMemoryChunk");
         s = Builder->CreateBitCast(s, char_ptr_type);
         Builder->CreateCall(f, s);
@@ -392,6 +394,7 @@ void Nest::probeHT() const {
   context->setGlobalFunction();
   Function *F = context->getGlobalFunction();
 
+  IRBuilder<> *Builder = context->getBuilder();
   Value *val_zero = context->createInt32(0);
   Value *val_one = context->createInt32(1);
 

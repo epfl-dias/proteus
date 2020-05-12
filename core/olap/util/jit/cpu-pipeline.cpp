@@ -33,6 +33,11 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
     : PipelineGen(context, pipName, copyStateFrom),
       module(std::make_unique<CpuModule>(context, pipName)) {
   registerSubPipeline();
+
+  if (copyStateFrom) {
+    Type *charPtrType = Type::getInt8PtrTy(getModule()->getContext());
+    appendStateVar(charPtrType);
+  }
   //     /* OPTIMIZER PIPELINE, function passes */
   //     TheFPM = new legacy::FunctionPassManager(getModule());
   //     addOptimizerPipelineDefault(TheFPM);
@@ -53,15 +58,14 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
   // #endif
 
   // TheFPM->doInitialization();
-  Type *bool_type = Type::getInt1Ty(context->getLLVMContext());
+  Type *bool_type = Type::getInt1Ty(getModule()->getContext());
   // Type * cpp_bool_type = Type::getInt8Ty   (context->getLLVMContext());
   // static_assert(sizeof(bool) == 1, "Fix datatype");
-  Type *int8_type = Type::getInt8Ty(context->getLLVMContext());
-  Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
-  Type *int64_type = Type::getInt64Ty(context->getLLVMContext());
-  Type *void_type = Type::getVoidTy(context->getLLVMContext());
-  Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
-  Type *int32PtrType = Type::getInt32PtrTy(context->getLLVMContext());
+  Type *int32_type = Type::getInt32Ty(getModule()->getContext());
+  Type *int64_type = Type::getInt64Ty(getModule()->getContext());
+  Type *void_type = Type::getVoidTy(getModule()->getContext());
+  Type *charPtrType = Type::getInt8PtrTy(getModule()->getContext());
+  Type *int32PtrType = Type::getInt32PtrTy(getModule()->getContext());
 
   Type *size_type;
   if (sizeof(size_t) == 4)
@@ -98,7 +102,7 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
                                              {charPtrType, int64_type}));
 
   Type *pair_type = StructType::get(
-      context->getLLVMContext(), std::vector<Type *>{charPtrType, charPtrType});
+      getModule()->getContext(), std::vector<Type *>{charPtrType, charPtrType});
   FunctionType *make_mem_move_device = FunctionType::get(
       pair_type,
       std::vector<Type *>{charPtrType, size_type, int32_type, charPtrType},
@@ -150,12 +154,12 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
   {
     std::vector<std::pair<unsigned, Attribute>> attrs;
     Attribute def = Attribute::getWithDereferenceableBytes(
-        context->getLLVMContext(),
+        getModule()->getContext(),
         BlockManager::block_size);  // FIXME: at some point this should
                                     // change...
     attrs.emplace_back(0, def);
     facquireBuffer->setAttributes(
-        AttributeList::get(context->getLLVMContext(), attrs));
+        AttributeList::get(getModule()->getContext(), attrs));
   }
   registerFunction("acquireBuffer", facquireBuffer);
 
@@ -167,12 +171,12 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
   {
     std::vector<std::pair<unsigned, Attribute>> attrs;
     Attribute def = Attribute::getWithDereferenceableOrNullBytes(
-        context->getLLVMContext(),
+        getModule()->getContext(),
         BlockManager::block_size);  // FIXME: at some point this should
                                     // change...
     attrs.emplace_back(0, def);
     ftry_acquireBuffer->setAttributes(
-        AttributeList::get(context->getLLVMContext(), attrs));
+        AttributeList::get(getModule()->getContext(), attrs));
   }
   registerFunction("try_acquireBuffer", ftry_acquireBuffer);
 
@@ -182,10 +186,10 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
                                          "allocate_pinned", getModule());
   std::vector<std::pair<unsigned, Attribute>> attrs;
   Attribute noAlias =
-      Attribute::get(context->getLLVMContext(), Attribute::AttrKind::NoAlias);
+      Attribute::get(getModule()->getContext(), Attribute::AttrKind::NoAlias);
   attrs.emplace_back(0, noAlias);
   fallocate->setAttributes(
-      AttributeList::get(context->getLLVMContext(), attrs));
+      AttributeList::get(getModule()->getContext(), attrs));
   registerFunction("allocate", fallocate);
 
   FunctionType *deallocate =

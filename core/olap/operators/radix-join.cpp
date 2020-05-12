@@ -248,7 +248,6 @@ void RadixJoin::consume(Context *const context,
 
 void RadixJoin::runRadix() const {
   LLVMContext &llvmContext = context->getLLVMContext();
-  IRBuilder<> *Builder = context->getBuilder();
   Catalog &catalog = Catalog::getInstance();
 
   Type *int64_type = Type::getInt64Ty(llvmContext);
@@ -267,6 +266,7 @@ void RadixJoin::runRadix() const {
       },
       [=](llvm::Value *, llvm::Value *s) {
         Function *f = context->getFunction("free");
+        IRBuilder<> *Builder = context->getBuilder();
         s = Builder->CreateBitCast(s, char_ptr_type);
         Builder->CreateCall(f, s);
       },
@@ -284,6 +284,7 @@ void RadixJoin::runRadix() const {
       },
       [=](llvm::Value *, llvm::Value *s) {
         Function *f = context->getFunction("free");
+        IRBuilder<> *Builder = context->getBuilder();
         s = Builder->CreateBitCast(s, char_ptr_type);
         Builder->CreateCall(f, s);
       },
@@ -305,6 +306,7 @@ void RadixJoin::runRadix() const {
       },
       [=](llvm::Value *, llvm::Value *s) {
         Function *f = context->getFunction("releaseMemoryChunk");
+        IRBuilder<> *Builder = context->getBuilder();
         s = Builder->CreateBitCast(s, char_ptr_type);
         Builder->CreateCall(f, s);
       },
@@ -326,6 +328,7 @@ void RadixJoin::runRadix() const {
       },
       [=](llvm::Value *, llvm::Value *s) {
         Function *f = context->getFunction("releaseMemoryChunk");
+        IRBuilder<> *Builder = context->getBuilder();
         s = Builder->CreateBitCast(s, char_ptr_type);
         Builder->CreateCall(f, s);
       },
@@ -344,6 +347,7 @@ void RadixJoin::runRadix() const {
       },
       [=](llvm::Value *, llvm::Value *s) {
         Function *f = context->getFunction("releaseMemoryChunk");
+        IRBuilder<> *Builder = context->getBuilder();
         s = Builder->CreateBitCast(s, char_ptr_type);
         Builder->CreateCall(f, s);
       },
@@ -362,6 +366,7 @@ void RadixJoin::runRadix() const {
       },
       [=](llvm::Value *, llvm::Value *s) {
         Function *f = context->getFunction("releaseMemoryChunk");
+        IRBuilder<> *Builder = context->getBuilder();
         s = Builder->CreateBitCast(s, char_ptr_type);
         Builder->CreateCall(f, s);
       },
@@ -393,6 +398,7 @@ void RadixJoin::runRadix() const {
   Builder->CreateCall(debugInt, ArgsV0);
 #endif
 
+  IRBuilder<> *Builder = context->getBuilder();
   context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
   std::string relName = getMaterializerRight()

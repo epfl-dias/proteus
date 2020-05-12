@@ -279,19 +279,13 @@ PipelineGen::PipelineGen(Context *context, std::string pipName,
       pipName(pipName),
       context(context),
       copyStateFrom(copyStateFrom),
-      execute_after_close(nullptr) {
-  // TheModule  = new Module(pipName, context->getLLVMContext());
-  TheBuilder = new IRBuilder<>(context->getLLVMContext());
-
+      execute_after_close(nullptr),
+      TheBuilder(nullptr) {
   maxBlockSize = 1;
   maxGridSize = 1;
 
   state = nullptr;
 
-  if (copyStateFrom) {
-    Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
-    appendStateVar(charPtrType);
-  }
   // ThePM = new legacy::PassManager();
   // {
   //     auto &LTM = static_cast<LLVMTargetMachine &>(*(((ParallelContext *)
@@ -344,6 +338,7 @@ size_t PipelineGen::prepareStateArgument() {
   state_type = StructType::create(state_vars, pipName + "_state_t");
   size_t state_id =
       appendParameter(PointerType::get(state_type, 0), true, true);  // true);
+  state_size = getDataLayout().getTypeAllocSize(state_type);
 
   return state_id;
 }
@@ -424,16 +419,15 @@ void PipelineGen::prepareInitDeinit() {
 
 void PipelineGen::prepareFunction() {
   FunctionType *ftype = FunctionType::get(
-      Type::getVoidTy(context->getLLVMContext()), inputs, false);
+      Type::getVoidTy(getModule()->getContext()), inputs, false);
   // use f_num to overcome an llvm bu with keeping dots in function names when
   // generating PTX (which is invalid in PTX)
-  F = Function::Create(ftype, Function::ExternalLinkage, pipName,
-                       context->getModule());
+  F = Function::Create(ftype, Function::ExternalLinkage, pipName, getModule());
 
   Attribute readOnly =
-      Attribute::get(context->getLLVMContext(), Attribute::AttrKind::ReadOnly);
+      Attribute::get(getModule()->getContext(), Attribute::AttrKind::ReadOnly);
   Attribute noAlias =
-      Attribute::get(context->getLLVMContext(), Attribute::AttrKind::NoAlias);
+      Attribute::get(getModule()->getContext(), Attribute::AttrKind::NoAlias);
 
   std::vector<std::pair<unsigned, Attribute>> attrs;
   for (size_t i = 1; i <= inputs.size();
@@ -442,10 +436,11 @@ void PipelineGen::prepareFunction() {
     if (inputs_noalias[i - 1]) attrs.emplace_back(i, noAlias);
   }
 
-  F->setAttributes(AttributeList::get(context->getLLVMContext(), attrs));
+  F->setAttributes(AttributeList::get(getModule()->getContext(), attrs));
   for (auto &t : F->args()) args.push_back(&t);
 
-  BasicBlock *BB = BasicBlock::Create(context->getLLVMContext(), "entry", F);
+  TheBuilder = new IRBuilder<>(getModule()->getContext());
+  BasicBlock *BB = BasicBlock::Create(getModule()->getContext(), "entry", F);
   getBuilder()->SetInsertPoint(BB);
 }
 
@@ -702,7 +697,7 @@ llvm::Function *PipelineGen::getFunctionOverload(std::string name,
  * TODO: deduplicate code...
  */
 void PipelineGen::registerFunctions() {
-  LLVMContext &ctx = context->getLLVMContext();
+  LLVMContext &ctx = getModule()->getContext();
   Module *TheModule = getModule();
   assert(TheModule != nullptr);
 
@@ -713,7 +708,7 @@ void PipelineGen::registerFunctions() {
   Type *int64_type = Type::getInt64Ty(ctx);
   Type *void_type = Type::getVoidTy(ctx);
   Type *double_type = Type::getDoubleTy(ctx);
-  StructType *strObjType = context->CreateStringStruct();
+  StructType *strObjType = Context::CreateStringStruct(ctx);
   PointerType *void_ptr_type = PointerType::get(int8_type, 0);
   PointerType *char_ptr_type = PointerType::get(int8_type, 0);
   PointerType *int32_ptr_type = PointerType::get(int32_type, 0);
@@ -1091,7 +1086,7 @@ void PipelineGen::registerFunctions() {
   probeHT_->addFnAttr(llvm::Attribute::AlwaysInline);
 
   Type *ht_get_metadata_types[] = {char_ptr_type};
-  StructType *metadataType = context->getHashtableMetadataType();
+  StructType *metadataType = Context::getHashtableMetadataType(ctx);
   PointerType *metadataArrayType = PointerType::get(metadataType, 0);
   FunctionType *FTget_metadata_HT =
       FunctionType::get(metadataArrayType, ht_get_metadata_types, false);
@@ -1181,7 +1176,7 @@ void PipelineGen::registerFunctions() {
   //  tokenMembers.push_back(int32_type);
   //  tokenMembers.push_back(int32_type);
   //  StructType *tokenType = StructType::get(ctx,tokenMembers);
-  StructType *tokenType = context->CreateJSMNStruct();
+  StructType *tokenType = Context::CreateJSMNStruct(ctx);
 
   PointerType *tokenPtrType = PointerType::get(tokenType, 0);
   PointerType *token2DPtrType = PointerType::get(tokenPtrType, 0);

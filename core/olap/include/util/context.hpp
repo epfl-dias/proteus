@@ -101,7 +101,10 @@ class Context {
   typedef llvm::Value *(init_func_t)(llvm::Value *);
   typedef void(deinit_func_t)(llvm::Value *, llvm::Value *);
 
-  Context(const string &moduleName, bool setGlobalFunction = true);
+ protected:
+  Context(const string &moduleName);
+
+ public:
   virtual ~Context() {
     LOG(WARNING) << "[Context: ] Destructor";
     // XXX Has to be done in an appropriate sequence - segfaults otherwise
@@ -115,9 +118,9 @@ class Context {
 
   std::string getModuleName() const { return moduleName; }
 
-  llvm::LLVMContext &getLLVMContext() { return TheContext; }
+  llvm::LLVMContext &getLLVMContext() { return getModule()->getContext(); }
 
-  virtual void prepareFunction(llvm::Function *F);
+  virtual void prepareFunction(llvm::Function *F) = 0;
 
   llvm::ExecutionEngine const *getExecEngine() { return TheExecutionEngine; }
 
@@ -125,8 +128,8 @@ class Context {
   virtual void setGlobalFunction(llvm::Function *F = nullptr,
                                  bool leaf = false);
   llvm::Function *getGlobalFunction() const { return TheFunction; }
-  virtual llvm::Module *getModule() const { return TheModule; }
-  virtual llvm::IRBuilder<> *getBuilder() const { return TheBuilder; }
+  virtual llvm::Module *getModule() const = 0;
+  virtual llvm::IRBuilder<> *getBuilder() const = 0;
   virtual llvm::Function *getFunction(string funcName) const;
 
   llvm::ConstantInt *createInt8(char val);
@@ -146,9 +149,14 @@ class Context {
 
   llvm::Type *CreateCustomType(char *typeName);
   llvm::StructType *CreateJSMNStruct();
+  static llvm::StructType *CreateJSMNStruct(llvm::LLVMContext &);
   llvm::StructType *CreateStringStruct();
+  static llvm::StructType *CreateStringStruct(llvm::LLVMContext &);
   llvm::PointerType *CreateJSMNStructPtr();
+  static llvm::PointerType *CreateJSMNStructPtr(llvm::LLVMContext &);
   llvm::StructType *CreateJSONPosStruct();
+  static llvm::StructType *CreateCustomStruct(llvm::LLVMContext &,
+                                              vector<llvm::Type *> innerTypes);
   llvm::StructType *CreateCustomStruct(vector<llvm::Type *> innerTypes);
   llvm::StructType *ReproduceCustomStruct(list<typeID> innerTypes);
 
@@ -334,8 +342,8 @@ class Context {
    */
   // Metadata maintained per bucket.
   // Will probably use an array of such structs per HT
-  llvm::StructType *getHashtableMetadataType() {
-    llvm::Type *int64_type = llvm::Type::getInt64Ty(getLLVMContext());
+  static llvm::StructType *getHashtableMetadataType(llvm::LLVMContext &ctx) {
+    llvm::Type *int64_type = llvm::Type::getInt64Ty(ctx);
     llvm::Type *keyType = int64_type;
     llvm::Type *bucketSizeType = int64_type;
     vector<llvm::Type *> types_htMetadata{keyType, bucketSizeType};
@@ -343,7 +351,11 @@ class Context {
     htMetadataSize += (bucketSizeType->getPrimitiveSizeInBits() / 8);
 
     // Result type specified
-    return llvm::StructType::get(getLLVMContext(), types_htMetadata);
+    return llvm::StructType::get(ctx, types_htMetadata);
+  }
+
+  llvm::StructType *getHashtableMetadataType() {
+    return getHashtableMetadataType(getLLVMContext());
   }
 
   llvm::Value *getMemResultCtr() { return mem_resultCtr; }
@@ -365,17 +377,10 @@ class Context {
   virtual void prepareStateVars();
   virtual void endStateVars();
 
-  llvm::LLVMContext TheContext;
   llvm::Module *TheModule;
-  llvm::IRBuilder<> *TheBuilder;
+  llvm::IRBuilder<> *TheBuilder = nullptr;
 
  public:
-  // Used to include optimization passes
-  llvm::legacy::FunctionPassManager *TheFPM;
-#if MODULEPASS
-  llvm::ModulePassManager *TheMPM;
-#endif
-
   llvm::ExecutionEngine *TheExecutionEngine;
 
  protected:

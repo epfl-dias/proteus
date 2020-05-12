@@ -56,10 +56,6 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
       policy(policy),
       stringBrackets(stringBrackets),
       hasHeader(false) {
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Function *F = context->getGlobalFunction();
-  IRBuilder<> *Builder = context->getBuilder();
-
   fd = -1;
   buf = nullptr;
   std::sort(wantedFields.begin(), wantedFields.end());
@@ -143,10 +139,6 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
       policy(policy),
       stringBrackets(stringBrackets),
       hasHeader(hasHeader) {
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Function *F = context->getGlobalFunction();
-  IRBuilder<> *Builder = context->getBuilder();
-
   fd = -1;
   buf = nullptr;
 
@@ -230,10 +222,6 @@ CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
       policy(policy),
       stringBrackets(stringBrackets),
       hasHeader(hasHeader) {
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Function *F = context->getGlobalFunction();
-  IRBuilder<> *Builder = context->getBuilder();
-
   fd = -1;
   buf = nullptr;
   std::sort(wantedFields.begin(), wantedFields.end());

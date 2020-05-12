@@ -189,7 +189,7 @@ llvm::Value *ParallelContext::getSubStateVar() const {
 // }
 
 ParallelContext::ParallelContext(const std::string &moduleName, bool gpu_root)
-    : Context(moduleName, false), kernelName(moduleName), pip_cnt(0) {
+    : Context(moduleName), kernelName(moduleName), pip_cnt(0) {
   createJITEngine();
   if (gpu_root)
     pushDeviceProvider(&(GpuPipelineGenFactory::getInstance()));
@@ -255,9 +255,12 @@ void ParallelContext::pushDeviceProvider(PipelineGenFactory *factory) {
 void ParallelContext::popDeviceProvider() { pipFactories.pop_back(); }
 
 void ParallelContext::pushPipeline(PipelineGen *copyStateFrom) {
+  static size_t pip_cnt = 0;
   TheFunction = nullptr;
   generators.emplace_back(pipFactories.back()->create(
       this, kernelName + "_pip" + std::to_string(pip_cnt++), copyStateFrom));
+
+  TheBuilder = new llvm::IRBuilder<>(getLLVMContext());
 }
 
 void ParallelContext::popPipeline() {

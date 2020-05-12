@@ -79,9 +79,7 @@ void RadixJoinBuild::produce_(ParallelContext *context) {
 }
 
 void RadixJoinBuild::initializeState(ParallelContext *context) {
-  Function *F = context->getGlobalFunction();
   LLVMContext &llvmContext = context->getLLVMContext();
-  IRBuilder<> *Builder = context->getBuilder();
 
   Type *int64_type = Type::getInt64Ty(llvmContext);
   Type *int32_type = Type::getInt32Ty(llvmContext);
@@ -95,6 +93,7 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
   rel.mem_relation_id = context->appendStateVar(
       PointerType::getUnqual(char_ptr_type),
       [=](llvm::Value *) {
+        IRBuilder<> *Builder = context->getBuilder();
         Value *mem_ptr = context->allocateStateVar(char_ptr_type);
         Function *getMemChunk = context->getFunction("getMemoryChunk");
         Value *mem_rel =
@@ -103,6 +102,7 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
         return mem_ptr;
       },
       [=](llvm::Value *pip, llvm::Value *s) {
+        IRBuilder<> *Builder = context->getBuilder();
         Value *mem_rel = Builder->CreateLoad(s);
         Value *this_ptr = context->CastPtrToLlvmPtr(char_ptr_type, this);
         Function *reg = context->getFunction("registerRelationMem");
@@ -114,6 +114,7 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
       PointerType::getUnqual(int64_type),
       [=](llvm::Value *) {
         Value *mem = context->allocateStateVar(int64_type);
+        IRBuilder<> *Builder = context->getBuilder();
         Builder->CreateStore(zero, mem);
         return mem;
       },
@@ -123,6 +124,7 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
         Value *clusterCount = radix_cluster_nopadding(context, s, mem_kv);
         Function *reg = context->getFunction("registerClusterCounts");
         Value *this_ptr = context->CastPtrToLlvmPtr(char_ptr_type, this);
+        IRBuilder<> *Builder = context->getBuilder();
         Builder->CreateCall(reg, vector<Value *>{pip, clusterCount, this_ptr});
         context->deallocateStateVar(s);
       },
@@ -131,6 +133,7 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
       PointerType::getUnqual(int64_type),
       [=](llvm::Value *) {
         Value *mem = context->allocateStateVar(int64_type);
+        IRBuilder<> *Builder = context->getBuilder();
         Builder->CreateStore(zero, mem);
         return mem;
       },
@@ -140,6 +143,7 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
       PointerType::getUnqual(int64_type),
       [=](llvm::Value *) {
         Value *mem = context->allocateStateVar(int64_type);
+        IRBuilder<> *Builder = context->getBuilder();
         Builder->CreateStore(zero, mem);
         return mem;
       },
@@ -149,6 +153,7 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
       PointerType::getUnqual(int64_type),
       [=](llvm::Value *) {
         Value *mem = context->allocateStateVar(int64_type);
+        IRBuilder<> *Builder = context->getBuilder();
         Builder->CreateStore(context->createInt64(size), mem);
         return mem;
       },
@@ -165,6 +170,7 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
       [=](llvm::Value *) {
         Value *mem_ptr = context->allocateStateVar(htEntryPtrType);
         Function *getMemChunk = context->getFunction("getMemoryChunk");
+        IRBuilder<> *Builder = context->getBuilder();
         Value *mem_rel =
             Builder->CreateCall(getMemChunk, context->createSizeT(kvSize));
         mem_rel = Builder->CreateBitCast(mem_rel, htEntryPtrType);
@@ -173,6 +179,7 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
         return mem_ptr;
       },
       [=](llvm::Value *pip, llvm::Value *s) {
+        IRBuilder<> *Builder = context->getBuilder();
         Value *mem_kv = Builder->CreateLoad(s);
         mem_kv = Builder->CreateBitCast(mem_kv, char_ptr_type);
         Value *this_ptr = context->CastPtrToLlvmPtr(char_ptr_type, this);
@@ -184,6 +191,7 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
   ht.mem_tuplesNo_id = context->appendStateVar(
       PointerType::getUnqual(int64_type),
       [=](llvm::Value *) {
+        IRBuilder<> *Builder = context->getBuilder();
         Value *mem = context->allocateStateVar(int64_type);
         Builder->CreateStore(zero, mem);
         return mem;
@@ -193,6 +201,7 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
   ht.mem_size_id = context->appendStateVar(
       PointerType::getUnqual(int64_type),
       [=](llvm::Value *) {
+        IRBuilder<> *Builder = context->getBuilder();
         Value *mem = context->allocateStateVar(int64_type);
         Builder->CreateStore(context->createInt64(kvSize), mem);
         return mem;
@@ -202,6 +211,7 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
   ht.mem_offset_id = context->appendStateVar(
       PointerType::getUnqual(int64_type),
       [=](llvm::Value *) {
+        IRBuilder<> *Builder = context->getBuilder();
         Value *mem = context->allocateStateVar(int64_type);
         Builder->CreateStore(zero, mem);
         return mem;
