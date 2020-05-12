@@ -262,7 +262,7 @@ auto getModuleRef(LLVMContext &llvmContext) {
 
 void GpuModule::compileAndLoad() {
 #ifndef NCUDA
-  time_block t(pipName + " G: ");
+  time_block t(pipName + " G: ", TimeRegistry::Key{"Compile and Load (GPU)"});
 
 #ifdef DEBUGCTX
   // getModule()->dump();

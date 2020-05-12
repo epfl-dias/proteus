@@ -51,7 +51,8 @@ void StorageManager::load(std::string name, size_t type_size, data_loc loc) {
     return;
   }
 
-  time_block t("Topen (" + name + "): ");
+  time_block t("Topen (" + name + "): ",
+               TimeRegistry::Key{"Data loading (current)"});
 
   auto it = files.emplace(name, std::vector<std::unique_ptr<mmap_file>>{});
   assert(it.second && "File already loaded!");
@@ -59,7 +60,8 @@ void StorageManager::load(std::string name, size_t type_size, data_loc loc) {
 }
 
 void StorageManager::loadToGpus(std::string name, size_t type_size) {
-  time_block t("Topen (" + name + "): ");
+  time_block t("Topen (" + name + "): ",
+               TimeRegistry::Key{"Data loading (GPUs)"});
   const auto &topo = topology::getInstance();
 
   size_t factor = type_size / sizeof(int32_t);
@@ -96,7 +98,8 @@ void StorageManager::loadToGpus(std::string name, size_t type_size) {
 }
 
 void StorageManager::loadToCpus(std::string name, size_t type_size) {
-  time_block t("Topen (" + name + "): ");
+  time_block t("Topen (" + name + "): ",
+               TimeRegistry::Key{"Data loading (CPUs)"});
   const auto &topo = topology::getInstance();
 
   size_t factor = type_size / sizeof(int32_t);
@@ -133,7 +136,8 @@ void StorageManager::loadToCpus(std::string name, size_t type_size) {
 
 void StorageManager::loadEverywhere(std::string name, size_t type_size,
                                     int pref_gpu_weight, int pref_cpu_weight) {
-  time_block t("Topen (" + name + "): ");
+  time_block t("Topen (" + name + "): ",
+               TimeRegistry::Key{"Data loading (everywhere)"});
   const auto &topo = topology::getInstance();
 
   size_t factor = type_size / sizeof(int32_t);
@@ -212,12 +216,9 @@ std::vector<mem_file> StorageManager::getOrLoadFile(std::string name,
                                                     data_loc loc) {
   if (files.count(name) == 0) {
     LOG(INFO) << "File " << name << " not loaded, loading it to " << loc;
-    std::cout << "File " << name << " not loaded, loading it to " << loc
-              << std::endl;
     load(name, type_size, loc);
   } else {
     LOG(INFO) << "Using loaded version of file " << name;
-    std::cout << "Using loaded version of file " << name << std::endl;
   }
   return getFile(name);
 }
