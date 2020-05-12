@@ -27,11 +27,26 @@ using namespace llvm;
 
 IRBuilder<> *JITModule::TheBuilder = nullptr;
 
+class JITer_impl;
+
+class JITer {
+ public:
+  std::unique_ptr<JITer_impl> p_impl;
+
+ public:
+  JITer();
+  ~JITer();
+
+  LLVMContext &getContext();
+};
+
+JITer &getJiter();
+
 JITModule::JITModule(Context *context, std::string pipName)
-    : TheModule(new Module(pipName, context->getLLVMContext())),
+    : TheModule(new Module(pipName, getJiter().getContext())),
       pipName(pipName),
       context(context) {
-  if (TheBuilder == nullptr) init(context->getLLVMContext());
+  if (TheBuilder == nullptr) init(getJiter().getContext());
 }
 
 void JITModule::init(LLVMContext &llvmContext) {

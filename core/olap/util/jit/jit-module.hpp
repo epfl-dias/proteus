@@ -42,7 +42,10 @@ class JITModule {
 
   virtual void compileAndLoad() = 0;
 
-  llvm::Module *getModule() const;
+  virtual llvm::Module *getModule() const;
+  virtual const llvm::DataLayout &getDataLayout() const {
+    return getModule()->getDataLayout();
+  }
 
   virtual void *getCompiledFunction(llvm::Function *f) const = 0;
 

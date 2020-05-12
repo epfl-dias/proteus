@@ -30,7 +30,8 @@ using namespace llvm;
 
 CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
                                PipelineGen *copyStateFrom)
-    : PipelineGen(context, pipName, copyStateFrom), module(context, pipName) {
+    : PipelineGen(context, pipName, copyStateFrom),
+      module(std::make_unique<CpuModule>(context, pipName)) {
   registerSubPipeline();
   //     /* OPTIMIZER PIPELINE, function passes */
   //     TheFPM = new legacy::FunctionPassManager(getModule());
@@ -416,10 +417,36 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
 }
 
 void *CpuPipelineGen::getCompiledFunction(Function *f) {
-  return module.getCompiledFunction(f);
+  return funcdict.get().at(f->getName());
+  //  return module->getCompiledFunction(f);
+}
+
+const llvm::DataLayout &CpuPipelineGen::getDataLayout() const {
+  return CpuModule::getDL();
 }
 
 void CpuPipelineGen::compileAndLoad() {
-  module.compileAndLoad();
-  func = getCompiledFunction(F);
+  std::vector<std::string> fnames;
+  for (Function &ftmp : *(module->getModule())) {
+    if (!ftmp.isDeclaration()) fnames.emplace_back(ftmp.getName());
+  }
+  module->compileAndLoad();
+  std::string fname = F->getName().str();
+  std::promise<void *> p;
+  func = p.get_future();
+  funcdict = std::async(
+      std::launch::async,
+      [fname, m = std::move(module)](std::promise<void *> p,
+                                     std::vector<std::string> fnames) {
+        std::map<std::string, void *> funcs;
+        for (const auto &ftmp : fnames) {
+          funcs.emplace(ftmp, m->getCompiledFunction(ftmp));
+        }
+        p.set_value(funcs[fname]);
+        return funcs;
+      },
+      std::move(p), std::move(fnames));
+
+  module.reset();  // = std::make_unique<CpuModule>(context, "waste");
+  //  func.wait();
 }

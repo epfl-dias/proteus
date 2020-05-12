@@ -196,8 +196,9 @@ Function *const PipelineGen::createHelperFunction(string funcName,
       FunctionType::get(Type::getVoidTy(context->getLLVMContext()), ins, false);
   // use f_num to overcome an llvm bu with keeping dots in function names when
   // generating PTX (which is invalid in PTX)
-  Function *helper = Function::Create(ftype, Function::ExternalLinkage,
-                                      funcName, context->getModule());
+  Function *helper =
+      Function::Create(ftype, Function::ExternalLinkage,
+                       pipName + "_" + funcName, context->getModule());
 
   if (readonly.size() == ins.size()) {
     Attribute readOnly = Attribute::get(context->getLLVMContext(),
@@ -477,13 +478,15 @@ Function *PipelineGen::getFunction() const {
   return F;
 }
 
-void *PipelineGen::getKernel() const {
-  assert(func != nullptr);
+void *PipelineGen::getKernel() {
+  auto ret = func.get();
+  assert(ret != nullptr);
   // assert(!F);
-  return (void *)func;
+  return (void *)ret;
 }
 
 std::unique_ptr<Pipeline> PipelineGen::getPipeline(int group_id) {
+  auto ssize = state_size;
   void *func = getKernel();
 
   std::vector<std::pair<const void *, std::function<opener_t>>>
@@ -510,12 +513,12 @@ std::unique_ptr<Pipeline> PipelineGen::getPipeline(int group_id) {
     // pip){pip->copyStateBackTo(copyFrom);});
     closers.insert(closers.begin(), std::make_pair(this, [](Pipeline *pip) {}));
   }
-  return Pipeline::create(
-      func, getModule()->getDataLayout().getTypeAllocSize(state_type), this,
-      state_type, openers, closers, getCompiledFunction(open__function),
-      getCompiledFunction(close_function), group_id,
-      execute_after_close ? execute_after_close->getPipeline(group_id)
-                          : nullptr);
+  return Pipeline::create(func, ssize, this, state_type, openers, closers,
+                          getCompiledFunction(open__function),
+                          getCompiledFunction(close_function), group_id,
+                          execute_after_close
+                              ? execute_after_close->getPipeline(group_id)
+                              : nullptr);
 }
 
 llvm::Value *PipelineGen::workerScopedAtomicAdd(llvm::Value *ptr,
@@ -551,7 +554,7 @@ Pipeline::Pipeline(
       openers(openers),
       closers(closers),
       group_id(group_id),
-      layout(gen->getModule()->getDataLayout()),
+      layout(gen->getDataLayout()),
       state_size(state_size),
       init_state(init_state),
       deinit_state(deinit_state),

@@ -385,7 +385,7 @@ size_t GpuPipelineGen::prepareStateArgument() {
 
   state_type = StructType::create(state_vars, pipName + "_state_t");
   size_t state_id = appendParameter(state_type, false, false);  // true);
-
+  state_size = getDataLayout().getTypeAllocSize(state_type);
   return state_id;
 }
 
@@ -669,11 +669,11 @@ Function *GpuPipelineGen::prepare() {
   return F;
 }
 
-void *GpuPipelineGen::getConsume() const {
+void *GpuPipelineGen::getConsume() {
   return wrapper_module.getCompiledFunction(Fconsume);
 }
 
-void *GpuPipelineGen::getKernel() const {
+void *GpuPipelineGen::getKernel() {
   assert(F);
   auto k = module.getCompiledFunction(F);
   assert(k);
@@ -681,6 +681,7 @@ void *GpuPipelineGen::getKernel() const {
 }
 
 std::unique_ptr<Pipeline> GpuPipelineGen::getPipeline(int group_id) {
+  auto ssize = state_size;
   void *func = getConsume();
 
   std::vector<std::pair<const void *, std::function<opener_t>>>
@@ -709,8 +710,7 @@ std::unique_ptr<Pipeline> GpuPipelineGen::getPipeline(int group_id) {
   }
 
   return Pipeline::create(
-      func, getModule()->getDataLayout().getTypeAllocSize(state_type), this,
-      state_type, openers, closers,
+      func, ssize, this, state_type, openers, closers,
       wrapper_module.getCompiledFunction(open__function),
       wrapper_module.getCompiledFunction(close_function), group_id,
       execute_after_close ? execute_after_close->getPipeline(group_id)
@@ -726,7 +726,8 @@ void *GpuPipelineGen::getCompiledFunction(Function *f) {
 void GpuPipelineGen::compileAndLoad() {
   wrapper_module.compileAndLoad();
   module.compileAndLoad();
-  func = getCompiledFunction(F);
+  func = std::async([this]() { return getCompiledFunction(F); });
+  func.wait();
 }
 
 void GpuPipelineGen::registerFunction(std::string funcName, Function *f) {

@@ -319,7 +319,8 @@ void Sort::call_sort(Value *mem, Value *N) {
         int32_type, std::vector<Type *>{charPtrType, charPtrType}, false);
     // use f_num to overcome an llvm bu with keeping dots in function names when
     // generating PTX (which is invalid in PTX)
-    cmp = Function::Create(ftype, Function::ExternalLinkage, "cmp",
+    cmp = Function::Create(ftype, Function::ExternalLinkage,
+                           "cmp" + std::to_string((uintptr_t)this),
                            context->getModule());
 
     {

@@ -37,8 +37,18 @@ class CpuModule : public JITModule {
   explicit CpuModule(Context *context, std::string pipName = "pip");
 
   void compileAndLoad() override;
+  inline llvm::Module *getModule() const override {
+    return JITModule::getModule();
+  }
+
+  [[nodiscard]] static const llvm::DataLayout &getDL();
+
+  [[nodiscard]] const llvm::DataLayout &getDataLayout() const override {
+    return CpuModule::getDL();
+  }
 
   void *getCompiledFunction(llvm::Function *f) const override;
+  void *getCompiledFunction(std::string str) const;
 
  protected:
   virtual void optimizeModule(llvm::Module *M);

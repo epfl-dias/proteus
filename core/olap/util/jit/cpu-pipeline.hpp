@@ -29,7 +29,7 @@
 
 class CpuPipelineGen : public PipelineGen {
  protected:
-  CpuModule module;
+  std::unique_ptr<CpuModule> module;
 
  private:
   CpuPipelineGen(Context *context, std::string pipName = "pip",
@@ -40,7 +40,8 @@ class CpuPipelineGen : public PipelineGen {
  public:
   virtual void compileAndLoad();
 
-  virtual llvm::Module *getModule() const { return module.getModule(); }
+  virtual llvm::Module *getModule() const { return module->getModule(); }
+  virtual const llvm::DataLayout &getDataLayout() const;
 
  public:
   virtual void *getCompiledFunction(llvm::Function *f);

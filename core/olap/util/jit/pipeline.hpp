@@ -30,6 +30,7 @@
 
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
+#include <future>
 #include <utility>
 
 #include "common/gpu/gpu-common.hpp"
@@ -72,14 +73,16 @@ class PipelineGen {
   std::vector<std::pair<const void *, std::function<closer_t>>> closers;
 
   std::string pipName;
-  Context *context;
+  [[deprecated]] Context *context;
 
   std::string func_name;
 
-  void *func;
+  std::shared_future<void *> func;
+  std::shared_future<std::map<std::string, void *>> funcdict;
 
   llvm::Value *state;
   llvm::StructType *state_type;
+  size_t state_size;
 
   llvm::IRBuilder<> *TheBuilder;
 
@@ -133,7 +136,7 @@ class PipelineGen {
 
   virtual llvm::Function *prepare();
   virtual std::unique_ptr<Pipeline> getPipeline(int group_id = 0);
-  virtual void *getKernel() const;
+  virtual void *getKernel();
 
   virtual std::string convertTypeToFuncSuffix(llvm::Type *type);
   virtual llvm::Function *getFunctionOverload(std::string name,
@@ -148,7 +151,7 @@ class PipelineGen {
     execute_after_close = next;
   }
 
-  virtual void *getConsume() const { return getKernel(); }
+  virtual void *getConsume() { return getKernel(); }
   virtual llvm::Function *getLLVMConsume() const { return F; }
 
   std::string getName() const { return pipName; }
@@ -176,7 +179,13 @@ class PipelineGen {
   [[deprecated]] virtual llvm::Function *getFunction() const;
 
   virtual llvm::Module *getModule() const = 0;  //{return TheModule ;}
-  virtual llvm::IRBuilder<> *getBuilder() const { return TheBuilder; }
+  virtual const llvm::DataLayout &getDataLayout() const {
+    return getModule()->getDataLayout();
+  }
+  virtual llvm::IRBuilder<> *getBuilder() const {
+    assert(TheBuilder && "Is the function signature ready?");
+    return TheBuilder;
+  }
 
   virtual void registerFunction(std::string, llvm::Function *);
 
