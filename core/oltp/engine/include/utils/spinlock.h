@@ -34,7 +34,7 @@ namespace lock {
 struct Spinlock {
   Spinlock() : value(0) {}
 
-  int acquire() {
+  inline int acquire() {
     for (int tries = 0; true; ++tries) {
       if (__sync_bool_compare_and_swap(&value, 0, 1)) return 0;
       if (tries == 100) {
@@ -44,7 +44,7 @@ struct Spinlock {
     }
   }
 
-  int release() {
+  inline int release() {
     __sync_lock_release(&value);
     return 0;
   }
@@ -55,7 +55,7 @@ struct Spinlock {
 struct Spinlock_Weak {
   Spinlock_Weak() { lk.store(false); }
 
-  void acquire() {
+  inline void acquire() {
     for (int tries = 0; true; ++tries) {
       bool e_false = false;
       if (lk.compare_exchange_weak(e_false, true, std::memory_order_acquire))
@@ -67,7 +67,7 @@ struct Spinlock_Weak {
     }
   }
 
-  void release() { lk.store(false, std::memory_order_release); }
+  inline void release() { lk.store(false, std::memory_order_release); }
 
   std::atomic<bool> lk;
 };
@@ -75,7 +75,7 @@ struct Spinlock_Weak {
 struct Spinlock_Strong {
   Spinlock_Strong() { lk.store(false); }
 
-  void acquire() {
+  inline void acquire() {
     for (int tries = 0; true; ++tries) {
       bool e_false = false;
       if (lk.compare_exchange_strong(e_false, true)) return;
@@ -87,7 +87,7 @@ struct Spinlock_Strong {
     }
   }
 
-  void release() { lk.store(false); }
+  inline void release() { lk.store(false); }
 
   std::atomic<bool> lk;
 };
