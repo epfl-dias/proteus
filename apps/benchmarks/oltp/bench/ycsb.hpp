@@ -24,10 +24,6 @@
 #ifndef BENCH_YCSB_HPP_
 #define BENCH_YCSB_HPP_
 
-// extern "C" {
-//#include "stdlib.h"
-//}
-
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
@@ -170,7 +166,6 @@ class YCSB : public Benchmark {
 
 #endif
     txn->n_ops = num_ops_per_txn;
-    assert(txn->n_ops == 10);
     for (int i = 0; i < num_ops_per_txn; i++) {
       // txn->ops[i].data_table = ycsb_tbl;
       txn->ops[i].rec = nullptr;
@@ -235,11 +230,9 @@ class YCSB : public Benchmark {
 
           bool e_false = false;
           if (hash_ptr->write_lck.try_lock()) {
-            // assert(num_locks < hash_ptrs_lock_acquired.size());
             hash_ptrs_lock_acquired[num_locks] = hash_ptr;
             num_locks++;
           } else {
-            // txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired);
             txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired.data(),
                                          num_locks);
             return false;
@@ -265,21 +258,6 @@ class YCSB : public Benchmark {
 
           ycsb_tbl->getRecordByKey(hash_ptr, xid, delta_ver, nullptr, 0,
                                    read_loc.data());
-
-          //          if (txn::CC_MV2PL::is_readable(hash_ptr->t_min, xid)) {
-          //            ycsb_tbl->touchRecordByKey(hash_ptr->VID);
-          //          } else {
-          //            // in order to put an assert on valid list, the current
-          //            tag resides
-          //            // in delta-store, so this should come from delta store,
-          //            but for now
-          //            // lets assume correctness and directly access the list.
-          //            // void *v =
-          //            //
-          //            ycsb_tbl->getVersions(hash_ptr->VID)->get_readable_ver(xid);
-          //
-          //            void *v = hash_ptr->delta_ver->get_readable_ver(xid);
-          //          }
           hash_ptr->latch.release();
           break;
         }
@@ -289,7 +267,6 @@ class YCSB : public Benchmark {
               (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
 
           hash_ptr->latch.acquire();
-          assert(num_col_upd == col_idx_local.size());
           ycsb_tbl->updateRecord(hash_ptr, op.rec, master_ver, delta_ver,
                                  col_idx_local.data(), num_col_upd);
 
@@ -308,8 +285,7 @@ class YCSB : public Benchmark {
           break;
       }
     }
-    txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired.data(), num_locks);
-    // txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired);
+    // txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired.data(), num_locks);
 
     return true;
   }
@@ -421,9 +397,6 @@ class YCSB : public Benchmark {
     drand48_r(&rand_buffer[partition_id][wid % max_worker_per_partition], &u);
 
     double uz = u * g_zetan_tlocal;
-
-    // std::cout << "u: " << u << std::endl;
-    // std::cout << "uz: " << u << std::endl;
 
     if (uz < 1) {
       op->key = 0;
