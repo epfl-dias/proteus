@@ -28,27 +28,37 @@
 #include <functional>
 #include <string>
 #include <util/glog.hpp>
+#include <util/time-registry.hpp>
 
 class [[nodiscard]] time_block {
  private:
   std::function<void(std::chrono::milliseconds)> reg;
   std::chrono::time_point<std::chrono::system_clock> start;
+  TimeRegistry::Key k;
 
  public:
-  inline explicit time_block(decltype(reg) reg)
-      : reg(std::move(reg)), start(std::chrono::system_clock::now()) {}
+  inline explicit time_block(decltype(reg) reg,
+                             TimeRegistry::Key k = TimeRegistry::Ignore)
+      : reg(std::move(reg)),
+        start(std::chrono::system_clock::now()),
+        k(std::move(k)) {}
 
   inline explicit time_block(std::string text = "",
+                             TimeRegistry::Key k = TimeRegistry::Ignore,
                              decltype(__builtin_FILE()) file = __builtin_FILE(),
                              decltype(__builtin_LINE()) line = __builtin_LINE())
-      : time_block([text{std::move(text)}, file, line](const auto &t) {
-          google::LogMessage(file, line, google::GLOG_INFO).stream()
-              << text << t.count() << "ms";
-        }) {}
+      : time_block(
+            [text{std::move(text)}, file, line](const auto &t) {
+              google::LogMessage(file, line, google::GLOG_INFO).stream()
+                  << text << t.count() << "ms";
+            },
+            std::move(k)) {}
 
   inline ~time_block() {
     auto end = std::chrono::system_clock::now();
-    reg(std::chrono::duration_cast<std::chrono::milliseconds>(end - start));
+    auto d = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    TimeRegistry::getInstance().emplace(k, d);
+    reg(d);
   }
 };
 

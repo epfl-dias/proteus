@@ -13,6 +13,7 @@ set(codegen_cxx
     topology/device-manager.cpp
     topology/topology.cpp
     util/profiling.cpp
+    util/time-registry.cpp
     util/radix/aggregations/radix-aggr.cpp
     util/radix/joins/radix-join.cpp
     )
