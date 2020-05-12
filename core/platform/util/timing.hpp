@@ -54,6 +54,11 @@ class [[nodiscard]] time_block {
             },
             std::move(k)) {}
 
+  inline explicit time_block(TimeRegistry::Key k = TimeRegistry::Ignore)
+      : reg([](const auto &t) {}),
+        start(std::chrono::system_clock::now()),
+        k(std::move(k)) {}
+
   inline ~time_block() {
     auto end = std::chrono::system_clock::now();
     auto d = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
