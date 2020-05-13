@@ -73,7 +73,8 @@ BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
       size_t type_size = context->getSizeOf(llvm_type);
 
       wantedFieldsFiles.emplace_back(
-          StorageManager::getOrLoadFile(fileName, type_size, ALLSOCKETS));
+          StorageManager::getInstance().getOrLoadFile(fileName, type_size,
+                                                      ALLSOCKETS));
       // wantedFieldsFiles.emplace_back(StorageManager::getFile(fileName));
       // FIXME: consider if address space should be global memory rather than
       // generic
@@ -84,7 +85,7 @@ BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
 
       if (in->getOriginalType()->getTypeID() == DSTRING) {
         // fetch the dictionary
-        void *dict = StorageManager::getDictionaryOf(fileName);
+        void *dict = StorageManager::getInstance().getDictionaryOf(fileName);
         ((DStringType *)(in->getOriginalType()))->setDictionary(dict);
       }
     }

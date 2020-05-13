@@ -210,7 +210,7 @@ class platform::impl {
     LOG(INFO) << "Shutting down...";
 
     LOG(INFO) << "Unloading files...";
-    StorageManager::unloadAll();
+    StorageManager::getInstance().unloadAll();
 
     LOG(INFO) << "Shuting down memory manager...";
     MemoryManager::destroy();

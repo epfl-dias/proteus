@@ -1322,8 +1322,8 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
 
     auto dictRelName = relName + std::string{"$dict$"} + attrName;
 
-    void *dict =
-        StorageManager::getDictionaryOf(relName + std::string{"."} + attrName);
+    void *dict = StorageManager::getInstance().getDictionaryOf(
+        relName + std::string{"."} + attrName);
 
     InputInfo *datasetInfo =
         (this->catalogParser).getOrCreateInputInfo(dictRelName);
@@ -1332,8 +1332,8 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
             ->getNestedType())};
     auto *reg_as =
         new RecordAttribute(dictRelName, attrName, new DStringType(dict));
-    std::cout << "Registered: " << reg_as->getRelationName() << "."
-              << reg_as->getAttrName() << std::endl;
+    LOG(INFO) << "Registered: " << reg_as->getRelationName() << "."
+              << reg_as->getAttrName();
     rec->appendAttribute(reg_as);
 
     datasetInfo->exprType = new BagType{*rec};

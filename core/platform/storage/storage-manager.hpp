@@ -66,27 +66,31 @@ struct mem_file {
 
 class StorageManager {
  private:
-  static std::map<std::string, std::vector<std::unique_ptr<mmap_file>>> files;
-  static std::map<std::string, std::map<int, std::string> *> dicts;
+  std::map<std::string, std::vector<std::unique_ptr<mmap_file>>> files;
+  std::map<std::string, std::map<int, std::string> *> dicts;
 
  public:
+  ~StorageManager();
+
+  static StorageManager &getInstance();
   // void load  (const RawStorageDescription &desc);
   // void unload(const RawStorageDescription &desc);
-  static void load(std::string name, size_t type_size, data_loc loc);
-  static void loadToGpus(std::string name, size_t type_size);
-  static void loadToCpus(std::string name, size_t type_size);
-  static void loadEverywhere(std::string name, size_t type_size,
-                             int pref_gpu_weight = 1, int pref_cpu_weight = 1);
+  void load(std::string name, size_t type_size, data_loc loc);
+  void loadToGpus(std::string name, size_t type_size);
+  void loadToCpus(std::string name, size_t type_size);
+  void loadEverywhere(std::string name, size_t type_size,
+                      int pref_gpu_weight = 1, int pref_cpu_weight = 1);
 
-  static void *getDictionaryOf(std::string name);
+  void *getDictionaryOf(std::string name);
 
-  static void unloadAll();
+  void unloadAll();
   // void unload(std::string name);
 
-  static std::vector<mem_file> getFile(std::string name);
-  static std::vector<mem_file> getOrLoadFile(std::string name, size_t type_size,
-                                             data_loc loc = PINNED);
-  static void unloadFile(std::string name);
+  [[nodiscard]] std::vector<mem_file> getFile(std::string name);
+  [[nodiscard]] std::vector<mem_file> getOrLoadFile(std::string name,
+                                                    size_t type_size,
+                                                    data_loc loc = PINNED);
+  void unloadFile(std::string name);
 };
 
 #endif /* STORAGE_MANAGER_HPP_ */

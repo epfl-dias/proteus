@@ -232,7 +232,7 @@ int main(int argc, char *argv[]) {
               << std::endl;
         }
       } else if (cmd == "unloadall") {
-        StorageManager::unloadAll();
+        StorageManager::getInstance().unloadAll();
         std::cout << "done" << std::endl;
       } else if (starts_with(cmd, "load ")) {
         // if (starts_with(cmd, "load locally ")){

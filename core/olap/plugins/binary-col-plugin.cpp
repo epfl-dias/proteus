@@ -71,8 +71,9 @@ BinaryColPlugin::BinaryColPlugin(Context *const context, string fnamePrefix,
   for (it = wantedFields.begin(); it != wantedFields.end(); it++) {
     string fileName = fnamePrefix + "." + (*it)->getAttrName();
 
-    std::vector<mem_file> file_parts = StorageManager::getOrLoadFile(
-        fileName.c_str(), PINNED);  // open(name_c, O_RDONLY);
+    std::vector<mem_file> file_parts =
+        StorageManager::getInstance().getOrLoadFile(
+            fileName.c_str(), PINNED);  // open(name_c, O_RDONLY);
     assert(file_parts.size() == 1 &&
            "Plug-in does not handle (in-memory) partitioned files");
     buf[cnt] = file_parts[0].data;

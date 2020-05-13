@@ -60,8 +60,6 @@
 
 class OutputTest : public ::testing::Test {
  protected:
-  virtual void TearDown();
-
   const char *testPath = TEST_OUTPUTS "/tests-output/";
   const char *catalogJSON = "inputs";
 
@@ -72,8 +70,6 @@ class OutputTest : public ::testing::Test {
     EXPECT_TRUE(verifyTestResult(testPath, testLabel, true));
   }
 };
-
-void OutputTest::TearDown() { StorageManager::unloadAll(); }
 
 class DanglingAttr;
 

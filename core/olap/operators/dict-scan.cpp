@@ -50,7 +50,7 @@ class DictMatchIter {
   DictMatchIter(const DictScan &dictscan, std::string r) : rex(r) {
     const auto &attr = dictscan.getAttr();
     const auto &path = attr.getRelationName() + "." + attr.getAttrName();
-    dict = (dict_t *)StorageManager::getDictionaryOf(path);
+    dict = (dict_t *)StorageManager::getInstance().getDictionaryOf(path);
     assert(dict);
 
     curr = dict->begin();
@@ -64,7 +64,7 @@ class DictMatchIter {
   DictMatchIter(const DictScan &dictscan) : rex("") {
     const auto &attr = dictscan.getAttr();
     const auto &path = attr.getRelationName() + "." + attr.getAttrName();
-    dict = (dict_t *)StorageManager::getDictionaryOf(path);
+    dict = (dict_t *)StorageManager::getInstance().getDictionaryOf(path);
     assert(dict);
 
     curr = end = dict->end();

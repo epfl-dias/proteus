@@ -31,9 +31,12 @@
 #include "topology/topology.hpp"
 #include "util/timing.hpp"
 
-std::map<std::string, std::vector<std::unique_ptr<mmap_file>>>
-    StorageManager::files;
-std::map<std::string, std::map<int, std::string> *> StorageManager::dicts;
+StorageManager &StorageManager::getInstance() {
+  static StorageManager sm;
+  return sm;
+}
+
+StorageManager::~StorageManager() { assert(files.empty()); }
 
 void StorageManager::load(std::string name, size_t type_size, data_loc loc) {
   if (loc == ALLSOCKETS) {

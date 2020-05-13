@@ -78,7 +78,6 @@ using namespace llvm;
 class ThreadCOW : public ::testing::Test {
  protected:
   virtual void SetUp();
-  virtual void TearDown();
 
   void runAndVerify(const char *testLabel, const char *planPath,
                     bool unordered = false);
@@ -98,8 +97,6 @@ void ThreadCOW::SetUp() {
 
   set_trace_allocations(true, true);
 }
-
-void ThreadCOW::TearDown() { StorageManager::unloadAll(); }
 
 void ThreadCOW::runAndVerify(const char *testLabel, const char *planPath,
                              bool unordered) {

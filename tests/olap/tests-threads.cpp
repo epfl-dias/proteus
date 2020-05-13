@@ -82,7 +82,6 @@ using namespace llvm;
 class ThreadTest : public ::testing::Test {
  protected:
   virtual void SetUp();
-  virtual void TearDown();
 
   void runAndVerify(const char *testLabel, const char *planPath,
                     bool unordered = false);
@@ -96,8 +95,6 @@ class ThreadTest : public ::testing::Test {
 };
 
 void ThreadTest::SetUp() { gpu_run(cudaSetDevice(0)); }
-
-void ThreadTest::TearDown() { StorageManager::unloadAll(); }
 
 void ThreadTest::runAndVerify(const char *testLabel, const char *planPath,
                               bool unordered) {

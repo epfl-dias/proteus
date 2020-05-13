@@ -115,8 +115,6 @@ void Context::setGlobalFunction(Function *F, bool leaf) {
   getBuilder()->CreateStore(this->createInt64(0), mem_resultCtr);
 
   prepareStateVars();
-
-  createJITEngine();
 }
 
 Function *Context::getFunction(string funcName) const {

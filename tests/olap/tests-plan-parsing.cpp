@@ -58,9 +58,6 @@
 
 class PlanTest : public ::testing::Test {
  protected:
-  virtual void TearDown() { StorageManager::unloadAll(); }
-
-  bool flushResults = true;
   const char *testPath = TEST_OUTPUTS "/tests-plan-parsing/";
   const char *catalogJSON = "inputs";
 
