@@ -1555,7 +1555,6 @@ template <typename T, typename Interface>
 expressions::RefExpression
 expressions::ExprVisitorVisitable<T, Interface>::operator[](
     expression_t index) const {
-  LOG(INFO) << "here " << typeid(T).name();
   return static_cast<expression_t>(*this)[index];
 }
 

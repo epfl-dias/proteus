@@ -1366,12 +1366,6 @@ ProteusValue ExpressionGeneratorVisitor::visit(
   IRBuilder<> *const TheBuilder = context->getBuilder();
   ProteusValue left = e->getLeftOperand().accept(*this);
   ProteusValue right = e->getRightOperand().accept(*this);
-  left.value->dump();
-  right.value->dump();
-  left.value->getType()->dump();
-  right.value->getType()->dump();
-  LOG(INFO) << *e->getLeftOperand().getExpressionType();
-  LOG(INFO) << *e->getRightOperand().getExpressionType();
 
   const ExpressionType *childType = e->getLeftOperand().getExpressionType();
   if (childType->isPrimitive()) {

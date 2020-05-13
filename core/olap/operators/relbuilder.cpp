@@ -297,7 +297,6 @@ RelBuilder RelBuilder::sort(const vector<expression_t> &orderByFields,
                                        arg["__sorted"].getExpressionType())
                                        ->getArgs()) {
               attrs.emplace_back(expression_t{arg["__sorted"]}[*attr]);
-              LOG(INFO) << *attr;
             }
             return attrs;
           });

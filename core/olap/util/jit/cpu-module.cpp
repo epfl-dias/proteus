@@ -151,8 +151,7 @@ class PassConfiguration {
 llvm::orc::ThreadSafeModule optimizeModule(llvm::orc::ThreadSafeModule TSM,
                                            std::unique_ptr<TargetMachine> TM) {
   TSM.withModuleDo([&TM](Module &M) {
-    time_block t("Optimization time: ",
-                 TimeRegistry::Key{"Optimization phase"});
+    time_block t(TimeRegistry::Key{"Optimization phase"});
     // if (Coroutines)
     //   addCoroutinePassesToExtensionPoints(Builder);
 
@@ -273,7 +272,7 @@ auto &getJiter() {
 //}
 
 void CpuModule::compileAndLoad() {
-  time_block t(pipName + " C: ", TimeRegistry::Key{"Compile and Load (CPU)"});
+  time_block t(TimeRegistry::Key{"Compile and Load (CPU)"});
   // std::cout << pipName << " C" << std::endl;
 
   //  auto x = llvm::orc::LLJITBuilder().create();
@@ -293,7 +292,7 @@ void CpuModule::compileAndLoad() {
   //  optimizeModule(getModule());
   llvm::orc::ThreadSafeModule ptr;
   {
-    time_block tCopy{"Tcopy: ", TimeRegistry::Key{"Module Copying"}};
+    time_block tCopy{TimeRegistry::Key{"Module Copying"}};
     // FIXME: we have to copy the module into a different context, as
     //  asynchronous consumers still have copies all over the place.
     //  as soon as we start preventing these issues, we should remove
