@@ -24,6 +24,7 @@
 #include "plugins/binary-block-plugin.hpp"
 
 #include <expressions/expressions-flusher.hpp>
+#include <memory/memory-manager.hpp>
 #include <utility>
 
 #include "expressions/expressions-hasher.hpp"
@@ -71,6 +72,7 @@ BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
 
       const auto llvm_type = in->getOriginalType()->getLLVMType(llvmContext);
       size_t type_size = context->getSizeOf(llvm_type);
+      fieldSizes.emplace_back(type_size);
 
       wantedFieldsFiles.emplace_back(
           StorageManager::getInstance().getOrLoadFile(fileName, type_size,
@@ -95,26 +97,8 @@ BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
 }
 
 void BinaryBlockPlugin::finalize_data(ParallelContext *context) {
-  LLVMContext &llvmContext = context->getLLVMContext();
-  Nparts = wantedFieldsFiles[0].size();
-  for (size_t i = 1; i < wantedFields.size(); ++i) {
-    size_t Nparts_loc = wantedFieldsFiles[i].size();
-    if (Nparts_loc != Nparts) {
-      string error_msg{
-          "[BinaryBlockPlugin: ] Columns do not have the same "
-          "number of partitions"};
-      LOG(ERROR) << error_msg;
-      throw runtime_error(error_msg);
-    }
-  }
-
-  // for (const auto &in : wantedFields) {
-  //   RecordAttribute bin(*in, true);
-  //   parts_array.emplace_back(
-  //       ArrayType::get(bin.getLLVMType(llvmContext), Nparts));
-  // }
-
-  // parts_arrays_type = StructType::get(llvmContext, parts_array);
+  time_block t{"Tfinalize: ", TimeRegistry::Key{"Finalizing Data"}};
+  Nparts = wantedFieldsFiles[0].get().size();
 }
 
 void BinaryBlockPlugin::init() {}
@@ -439,76 +423,66 @@ void BinaryBlockPlugin::readAsFloatLLVM(
   readAsLLVM(context, std::move(attName), variables);
 }
 
-llvm::Value *BinaryBlockPlugin::getDataPointersForFile(ParallelContext *context,
-                                                       size_t i,
-                                                       llvm::Value *) const {
-  LLVMContext &llvmContext = context->getLLVMContext();
-
-  Function *F = context->getGlobalFunction();
-  IRBuilder<> *Builder = context->getBuilder();
-
-  std::vector<Constant *> part_ptrs;
-
-  Type *col_type = wantedFields[i]->getLLVMType(llvmContext);
-  Type *col_ptr_type = PointerType::getUnqual(col_type);
-
-  for (const auto &t : wantedFieldsFiles[i]) {
-    Constant *constaddr = context->createInt64((int64_t)(t.data));
-    Constant *constptr = ConstantExpr::getIntToPtr(constaddr, col_ptr_type);
-
-    part_ptrs.emplace_back(constptr);
-  }
-
-  // file_parts_init.emplace_back(
-  Value *const_parts = ConstantArray::get(
-      ArrayType::get(RecordAttribute{*(wantedFields[i]), true}.getLLVMType(
-                         context->getLLVMContext()),
-                     Nparts),
-      part_ptrs);
-
-  auto ptr = context->CreateEntryBlockAlloca(
-      F, wantedFields[i]->getAttrName() + "_parts_ptr", const_parts->getType());
-
-  Builder->CreateStore(const_parts, ptr);
-
-  return ptr;
+const void **getDataForField(size_t i, BinaryBlockPlugin *pg) {
+  return pg->getDataForField(i);
 }
 
-void BinaryBlockPlugin::freeDataPointersForFile(ParallelContext *, size_t i,
-                                                Value *v) const {}
+const void **BinaryBlockPlugin::getDataForField(size_t i) {
+  auto fieldPtr =
+      (const void **)MemoryManager::mallocPinned(Nparts * sizeof(void *));
 
-std::pair<llvm::Value *, llvm::Value *> BinaryBlockPlugin::getPartitionSizes(
-    ParallelContext *context, llvm::Value *) const {
-  LLVMContext &llvmContext = context->getLLVMContext();
+  size_t j = 0;
+  for (const auto &t : wantedFieldsFiles[i].get()) fieldPtr[j++] = t.data;
+  if (j != Nparts) {
+    string error_msg{"Columns do not have the same number of partitions"};
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
+  return fieldPtr;
+}
 
-  Function *F = context->getGlobalFunction();
-  IRBuilder<> *Builder = context->getBuilder();
+void freeDataForField(const void **d, BinaryBlockPlugin *pg) {
+  return pg->freeDataForField(d);
+}
 
-  IntegerType *sizeType = context->createSizeType();
+void BinaryBlockPlugin::freeDataForField(const void **d) {
+  MemoryManager::freePinned(d);
+}
 
-  std::vector<Constant *> N_parts_init;
+int64_t *getTuplesPerPartition(BinaryBlockPlugin *pg) {
+  return pg->getTuplesPerPartition();
+}
+
+void freeTuplesPerPartition(int64_t *p, BinaryBlockPlugin *pg) {
+  pg->freeTuplesPerPartition(p);
+}
+
+int64_t *BinaryBlockPlugin::getTuplesPerPartition() {
+  auto N_parts_init =
+      (int64_t *)MemoryManager::mallocPinned(Nparts * sizeof(void *));
+
 #ifndef NDEBUG
   std::vector<size_t> N_parts_init_sizes;
 #endif
 
   size_t max_pack_size = 0;
-  for (const auto &t : wantedFieldsFiles[0]) {
-    assert((t.size % context->getSizeOf(
-                         wantedFields[0]->getLLVMType(llvmContext))) == 0);
-    size_t pack_N =
-        t.size / context->getSizeOf(wantedFields[0]->getLLVMType(llvmContext));
+  size_t k = 0;
+  for (const auto &t : wantedFieldsFiles[0].get()) {
+    //    assert((t.size % context->getSizeOf(
+    //        wantedFields[0]->getLLVMType(llvmContext))) == 0);
+    size_t pack_N = t.size / fieldSizes[0];
 #ifndef NDEBUG
     N_parts_init_sizes.push_back(pack_N);
 #endif
-    N_parts_init.push_back(context->createInt64(pack_N));
+    N_parts_init[k++] = pack_N;
     max_pack_size = std::max(pack_N, max_pack_size);
   }
 
+  // Following check is too expensive for codegen-time
 #ifndef NDEBUG
   for (size_t j = 0; j < wantedFields.size(); ++j) {
-    const auto &files = wantedFieldsFiles[j];
-    const size_t size =
-        context->getSizeOf(wantedFields[j]->getLLVMType(llvmContext));
+    const auto &files = wantedFieldsFiles[j].get();
+    const size_t size = fieldSizes[j];
     for (size_t i = 0; i < files.size(); ++i) {
       const auto &t = files[i];
       assert((t.size % size) == 0);
@@ -517,16 +491,113 @@ std::pair<llvm::Value *, llvm::Value *> BinaryBlockPlugin::getPartitionSizes(
     }
   }
 #endif
-
-  ArrayType *arr_type = ArrayType::get(sizeType, Nparts);
-  Value *N_parts_ptr =
-      context->CreateEntryBlockAlloca(F, "N_parts_ptr", arr_type);
-  Builder->CreateStore(ConstantArray::get(arr_type, N_parts_init), N_parts_ptr);
-
-  return {N_parts_ptr, ConstantInt::get(sizeType, max_pack_size)};
+  return N_parts_init;
 }
 
-void BinaryBlockPlugin::freePartitionSizes(ParallelContext *, Value *) const {}
+void BinaryBlockPlugin::freeTuplesPerPartition(int64_t *p) {
+  MemoryManager::freePinned(p);
+}
+
+llvm::Value *BinaryBlockPlugin::getDataPointersForFile(ParallelContext *context,
+                                                       size_t i,
+                                                       llvm::Value *) const {
+  LLVMContext &llvmContext = context->getLLVMContext();
+
+  Function *F = context->getGlobalFunction();
+  //  IRBuilder<> *Builder = context->getBuilder();
+
+  //  std::vector<Constant *> part_ptrs;
+
+  Type *col_type = wantedFields[i]->getLLVMType(llvmContext);
+  //  Type *col_ptr_type = PointerType::getUnqual(col_type);
+
+  //  for (const auto &t : wantedFieldsFiles[i].get()) {
+  //    Constant *constaddr = context->createInt64((int64_t)(t.data));
+  //    Constant *constptr = ConstantExpr::getIntToPtr(constaddr, col_ptr_type);
+  //
+  //    part_ptrs.emplace_back(constptr);
+  //  }
+  //  if (part_ptrs.size() != Nparts) {
+  //    string error_msg{
+  //        "[BinaryBlockPlugin: ] Columns do not have the same "
+  //        "number of partitions"};
+  //    LOG(ERROR) << error_msg;
+  //    throw runtime_error(error_msg);
+  //  }
+
+  Type *char8ptr = Type::getInt8PtrTy(llvmContext);
+
+  Value *this_ptr = context->getBuilder()->CreateIntToPtr(
+      context->createInt64((uintptr_t)this), char8ptr);
+
+  Value *N_parts_ptr = context->gen_call(&::getDataForField,
+                                         {context->createSizeT(i), this_ptr});
+
+  //  // file_parts_init.emplace_back(
+  //  Value *const_parts = ConstantArray::get(
+  //      ArrayType::get(RecordAttribute{*(wantedFields[i]), true}.getLLVMType(
+  //                         context->getLLVMContext()),
+  //                     Nparts),
+  //      part_ptrs);
+
+  auto data_type = PointerType::getUnqual(
+      ArrayType::get(RecordAttribute{*(wantedFields[i]), true}.getLLVMType(
+                         context->getLLVMContext()),
+                     Nparts));
+
+  auto ptr = context->getBuilder()->CreatePointerCast(N_parts_ptr, data_type);
+
+  //  auto ptr = context->CreateEntryBlockAlloca(
+  //      F, wantedFields[i]->getAttrName() + "_parts_ptr", data_type);
+  //
+  ////  N_parts_ptr
+  //  context->getBuilder()->CreateStore(N_parts_ptrD, ptr);
+
+  return ptr;
+}
+
+void BinaryBlockPlugin::freeDataPointersForFile(ParallelContext *context,
+                                                size_t i, Value *v) const {
+  LLVMContext &llvmContext = context->getLLVMContext();
+  auto data_type = PointerType::getUnqual(Type::getInt8PtrTy(llvmContext));
+  auto casted = context->getBuilder()->CreatePointerCast(v, data_type);
+  Value *this_ptr = context->getBuilder()->CreateIntToPtr(
+      context->createInt64((uintptr_t)this), Type::getInt8PtrTy(llvmContext));
+  context->gen_call(&::freeDataForField, {casted, this_ptr});
+}
+
+std::pair<llvm::Value *, llvm::Value *> BinaryBlockPlugin::getPartitionSizes(
+    ParallelContext *context, llvm::Value *) const {
+  IRBuilder<> *Builder = context->getBuilder();
+
+  IntegerType *sizeType = context->createSizeType();
+
+  Value *this_ptr = context->getBuilder()->CreateIntToPtr(
+      context->createInt64((uintptr_t)this),
+      Type::getInt8PtrTy(context->getLLVMContext()));
+
+  Value *N_parts_ptr = Builder->CreatePointerCast(
+      context->gen_call(&::getTuplesPerPartition, {this_ptr}),
+      PointerType::getUnqual(ArrayType::get(sizeType, Nparts)));
+
+  Value *max_pack_size = ConstantInt::get(sizeType, 0);
+  for (size_t i = 0; i < Nparts; ++i) {
+    auto v = Builder->CreateLoad(Builder->CreateInBoundsGEP(
+        N_parts_ptr, {context->createSizeT(0), context->createSizeT(i)}));
+    auto cond = Builder->CreateICmpUGT(max_pack_size, v);
+    max_pack_size = Builder->CreateSelect(cond, max_pack_size, v);
+  }
+
+  return {N_parts_ptr, max_pack_size};
+}
+
+void BinaryBlockPlugin::freePartitionSizes(ParallelContext *context,
+                                           Value *v) const {
+  Value *this_ptr = context->getBuilder()->CreateIntToPtr(
+      context->createInt64((uintptr_t)this),
+      Type::getInt8PtrTy(context->getLLVMContext()));
+  context->gen_call(&::freeTuplesPerPartition, {v, this_ptr});
+}
 
 void BinaryBlockPlugin::scan(const ::Operator &producer,
                              ParallelContext *context) {

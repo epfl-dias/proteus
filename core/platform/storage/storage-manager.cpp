@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <threadpool/threadpool.hpp>
 
 #include "memory/block-manager.hpp"
 #include "topology/affinity_manager.hpp"
@@ -38,31 +39,26 @@ StorageManager &StorageManager::getInstance() {
 
 StorageManager::~StorageManager() { assert(files.empty()); }
 
-void StorageManager::load(std::string name, size_t type_size, data_loc loc) {
-  if (loc == ALLSOCKETS) {
-    loadToCpus(name, type_size);
-    return;
-  }
+FileRecord::FileRecord(std::vector<std::unique_ptr<mmap_file>> data)
+    : data(std::move(data)) {}
 
-  if (loc == ALLGPUS) {
-    loadToGpus(name, type_size);
-    return;
-  }
+FileRecord FileRecord::load(const std::string &name, size_t type_size,
+                            data_loc loc) {
+  if (loc == ALLSOCKETS) return loadToCpus(name, type_size);
 
-  if (loc == EVERYWHERE) {
-    loadEverywhere(name, type_size, 1, 1);
-    return;
-  }
+  if (loc == ALLGPUS) return loadToGpus(name, type_size);
+
+  if (loc == EVERYWHERE) return loadEverywhere(name, type_size, 1, 1);
 
   time_block t("Topen (" + name + "): ",
                TimeRegistry::Key{"Data loading (current)"});
 
-  auto it = files.emplace(name, std::vector<std::unique_ptr<mmap_file>>{});
-  assert(it.second && "File already loaded!");
-  it.first->second.emplace_back(new mmap_file(name, loc));
+  decltype(data) p;
+  p.emplace_back(std::make_unique<mmap_file>(name, loc));
+  return FileRecord{std::move(p)};
 }
 
-void StorageManager::loadToGpus(std::string name, size_t type_size) {
+FileRecord FileRecord::loadToGpus(const std::string &name, size_t type_size) {
   time_block t("Topen (" + name + "): ",
                TimeRegistry::Key{"Data loading (GPUs)"});
   const auto &topo = topology::getInstance();
@@ -71,9 +67,6 @@ void StorageManager::loadToGpus(std::string name, size_t type_size) {
 
   auto devices = topo.getGpuCount();
 
-  auto it = files.emplace(name, std::vector<std::unique_ptr<mmap_file>>{});
-  assert(it.second && "File already loaded!");
-
   size_t filesize = ::getFileSize(name.c_str()) / factor;
 
   size_t pack_alignment = sysconf(_SC_PAGE_SIZE);  // required by mmap
@@ -87,20 +80,23 @@ void StorageManager::loadToGpus(std::string name, size_t type_size) {
        devices) *
       pack_alignment;  // FIXME: assumes maximum record size of 128Bytes
 
+  std::vector<std::unique_ptr<mmap_file>> partitions;
+  partitions.reserve(devices);
   int d = 0;
   for (const auto &gpu : topo.getGpus()) {
     if (part_size * d < filesize) {
       set_device_on_scope cd(gpu);
-      it.first->second.emplace_back(
-          new mmap_file(name, GPU_RESIDENT,
-                        std::min(part_size, filesize - part_size * d) * factor,
-                        part_size * d * factor));
+      partitions.emplace_back(std::make_unique<mmap_file>(
+          name, GPU_RESIDENT,
+          std::min(part_size, filesize - part_size * d) * factor,
+          part_size * d * factor));
     }
     ++d;
   }
+  return FileRecord{std::move(partitions)};
 }
 
-void StorageManager::loadToCpus(std::string name, size_t type_size) {
+FileRecord FileRecord::loadToCpus(const std::string &name, size_t type_size) {
   time_block t("Topen (" + name + "): ",
                TimeRegistry::Key{"Data loading (CPUs)"});
   const auto &topo = topology::getInstance();
@@ -109,9 +105,6 @@ void StorageManager::loadToCpus(std::string name, size_t type_size) {
 
   auto devices = topo.getCpuNumaNodeCount();
 
-  auto it = files.emplace(name, std::vector<std::unique_ptr<mmap_file>>{});
-  assert(it.second && "File already loaded!");
-
   size_t filesize = ::getFileSize(name.c_str()) / factor;
 
   size_t pack_alignment = sysconf(_SC_PAGE_SIZE);  // required by mmap
@@ -125,20 +118,24 @@ void StorageManager::loadToCpus(std::string name, size_t type_size) {
        devices) *
       pack_alignment;  // FIXME: assumes maximum record size of 128Bytes
 
+  decltype(data) partitions;
+  partitions.reserve(devices);
   int d = 0;
   for (const auto &cpu : topo.getCpuNumaNodes()) {
     if (part_size * d < filesize) {
       set_exec_location_on_scope cd(cpu);
-      it.first->second.emplace_back(new mmap_file(
+      partitions.emplace_back(std::make_unique<mmap_file>(
           name, PINNED, std::min(part_size, filesize - part_size * d) * factor,
           part_size * d * factor));
     }
     ++d;
   }
+  return FileRecord{std::move(partitions)};
 }
 
-void StorageManager::loadEverywhere(std::string name, size_t type_size,
-                                    int pref_gpu_weight, int pref_cpu_weight) {
+FileRecord FileRecord::loadEverywhere(const std::string &name, size_t type_size,
+                                      int pref_gpu_weight,
+                                      int pref_cpu_weight) {
   time_block t("Topen (" + name + "): ",
                TimeRegistry::Key{"Data loading (everywhere)"});
   const auto &topo = topology::getInstance();
@@ -148,9 +145,6 @@ void StorageManager::loadEverywhere(std::string name, size_t type_size,
   auto devices_gpus = topo.getGpuCount();
   auto devices_sock = topo.getCpuNumaNodeCount();
   int devices = devices_sock * pref_cpu_weight + devices_gpus * pref_gpu_weight;
-
-  auto it = files.emplace(name, std::vector<std::unique_ptr<mmap_file>>{});
-  assert(it.second && "File already loaded!");
 
   size_t filesize = ::getFileSize(name.c_str());
 
@@ -168,24 +162,47 @@ void StorageManager::loadEverywhere(std::string name, size_t type_size,
   const auto &gpu_vec = topo.getGpus();
   const auto &sck_vec = topo.getCpuNumaNodes();
 
+  decltype(data) partitions;
+  partitions.reserve(devices);
   for (int d = 0; d < devices; ++d) {
     if (part_size * d < filesize) {
       if (d < devices_sock * pref_cpu_weight) {
         set_exec_location_on_scope cd(sck_vec[d % devices_sock]);
-        it.first->second.emplace_back(new mmap_file(
+        partitions.emplace_back(std::make_unique<mmap_file>(
             name, PINNED,
             std::min(part_size, filesize - part_size * d) * factor,
             part_size * d * factor));
       } else {
         set_device_on_scope cd(
             gpu_vec[(d - devices_sock * pref_cpu_weight) % devices_gpus]);
-        it.first->second.emplace_back(new mmap_file(
+        partitions.emplace_back(std::make_unique<mmap_file>(
             name, GPU_RESIDENT,
             std::min(part_size, filesize - part_size * d) * factor,
             part_size * d * factor));
       }
     }
   }
+  return FileRecord{std::move(partitions)};
+}
+
+void StorageManager::load(std::string name, size_t type_size, data_loc loc) {
+  files.emplace(name, ThreadPool::getInstance().enqueue(FileRecord::load, name,
+                                                        type_size, loc));
+}
+
+void StorageManager::loadToGpus(std::string name, size_t type_size) {
+  load(name, type_size, ALLGPUS);
+}
+
+void StorageManager::loadToCpus(std::string name, size_t type_size) {
+  load(name, type_size, ALLSOCKETS);
+}
+
+void StorageManager::loadEverywhere(std::string name, size_t type_size,
+                                    int pref_gpu_weight, int pref_cpu_weight) {
+  files.emplace(name, ThreadPool::getInstance().enqueue(
+                          FileRecord::loadEverywhere, name, type_size,
+                          pref_gpu_weight, pref_cpu_weight));
 }
 
 void StorageManager::unloadAll() { files.clear(); }
@@ -200,23 +217,26 @@ void StorageManager::unloadFile(std::string name) {
   files.erase(name);
 }
 
-std::vector<mem_file> StorageManager::getFile(std::string name) {
+std::future<std::vector<mem_file>> StorageManager::getFile(std::string name) {
   if (files.count(name) == 0) {
     LOG(ERROR) << "File " << name << " not loaded";
   }
   assert(files.count(name) > 0 && "File not loaded!");
-  const auto &f = files[name];
-  std::vector<mem_file> mfiles{f.size()};
-  for (size_t i = 0; i < mfiles.size(); ++i) {
-    mfiles[i].data = f[i]->getData();
-    mfiles[i].size = f[i]->getFileSize();
-  }
-  return mfiles;
+  return ThreadPool::getInstance().enqueue(
+      [](auto ffut) {
+        const auto &f = ffut.get().data;
+        std::vector<mem_file> mfiles{f.size()};
+        for (size_t i = 0; i < mfiles.size(); ++i) {
+          mfiles[i].data = f[i]->getData();
+          mfiles[i].size = f[i]->getFileSize();
+        }
+        return mfiles;
+      },
+      files[name]);
 }
 
-std::vector<mem_file> StorageManager::getOrLoadFile(std::string name,
-                                                    size_t type_size,
-                                                    data_loc loc) {
+std::future<std::vector<mem_file>> StorageManager::getOrLoadFile(
+    std::string name, size_t type_size, data_loc loc) {
   if (files.count(name) == 0) {
     LOG(INFO) << "File " << name << " not loaded, loading it to " << loc;
     load(name, type_size, loc);

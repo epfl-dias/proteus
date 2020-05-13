@@ -307,9 +307,17 @@ class Context {
 
   template <typename T>
   llvm::Type *toLLVM() {
-    if constexpr (std::is_pointer_v<T>) {
-      return llvm::PointerType::getUnqual(
-          toLLVM<std::remove_cv_t<std::remove_pointer_t<T>>>());
+    if constexpr (std::is_void_v<T>) {
+      return llvm::Type::getVoidTy(getLLVMContext());
+    } else if constexpr (std::is_pointer_v<T>) {
+      if constexpr (std::is_void_v<
+                        std::remove_cv_t<std::remove_pointer_t<T>>>) {
+        // No void ptr type in llvm ir
+        return llvm::PointerType::getUnqual(toLLVM<char>());
+      } else {
+        return llvm::PointerType::getUnqual(
+            toLLVM<std::remove_cv_t<std::remove_pointer_t<T>>>());
+      }
     } else if constexpr (std::is_integral_v<T>) {
       return llvm::Type::getIntNTy(getLLVMContext(), sizeof(T) * 8);
     } else if constexpr (std::is_same_v<T, double>) {

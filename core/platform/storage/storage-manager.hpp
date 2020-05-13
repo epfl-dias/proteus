@@ -24,6 +24,7 @@
 #ifndef STORAGE_MANAGER_HPP_
 #define STORAGE_MANAGER_HPP_
 
+#include <future>
 #include <map>
 #include <vector>
 
@@ -64,9 +65,32 @@ struct mem_file {
   size_t size;
 };
 
+class FileRecord {
+ public:
+  std::vector<std::unique_ptr<mmap_file>> data;
+
+ private:
+  explicit FileRecord(std::vector<std::unique_ptr<mmap_file>> data);
+  explicit FileRecord(std::initializer_list<std::unique_ptr<mmap_file>> data);
+
+ public:
+  FileRecord(const FileRecord &) = delete;
+  FileRecord &operator=(const FileRecord &) = delete;
+  FileRecord(FileRecord &&) = default;
+  FileRecord &operator=(FileRecord &&) = default;
+
+  static FileRecord loadToGpus(const std::string &name, size_t type_size);
+  static FileRecord loadToCpus(const std::string &name, size_t type_size);
+  static FileRecord loadEverywhere(const std::string &name, size_t type_size,
+                                   int pref_gpu_weight, int pref_cpu_weight);
+
+  static FileRecord load(const std::string &name, size_t type_size,
+                         data_loc loc);
+};
+
 class StorageManager {
  private:
-  std::map<std::string, std::vector<std::unique_ptr<mmap_file>>> files;
+  std::map<std::string, std::shared_future<FileRecord>> files;
   std::map<std::string, std::map<int, std::string> *> dicts;
 
  public:
@@ -86,10 +110,9 @@ class StorageManager {
   void unloadAll();
   // void unload(std::string name);
 
-  [[nodiscard]] std::vector<mem_file> getFile(std::string name);
-  [[nodiscard]] std::vector<mem_file> getOrLoadFile(std::string name,
-                                                    size_t type_size,
-                                                    data_loc loc = PINNED);
+  [[nodiscard]] std::future<std::vector<mem_file>> getFile(std::string name);
+  [[nodiscard]] std::future<std::vector<mem_file>> getOrLoadFile(
+      std::string name, size_t type_size, data_loc loc = PINNED);
   void unloadFile(std::string name);
 };
 

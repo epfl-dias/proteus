@@ -204,7 +204,8 @@ class BinaryBlockPlugin : public Plugin {
   bool isLazy() override { return true; }
 
   std::vector<RecordAttribute *> wantedFields;
-  std::vector<std::vector<mem_file>> wantedFieldsFiles;
+  std::vector<std::shared_future<std::vector<mem_file>>> wantedFieldsFiles;
+  std::vector<size_t> fieldSizes;
 
  private:
   // Schema info provided
@@ -266,6 +267,17 @@ class BinaryBlockPlugin : public Plugin {
 
   // Generates a for loop that performs the file scan
   void scan(const Operator &producer, ParallelContext *context);
+
+ private:
+  const void **getDataForField(size_t i);
+  void freeDataForField(const void **d);
+  int64_t *getTuplesPerPartition();
+  void freeTuplesPerPartition(int64_t *);
+
+  friend const void **getDataForField(size_t i, BinaryBlockPlugin *pg);
+  friend void freeDataForField(const void **d, BinaryBlockPlugin *pg);
+  friend int64_t *getTuplesPerPartition(BinaryBlockPlugin *pg);
+  friend void freeTuplesPerPartition(int64_t *, BinaryBlockPlugin *pg);
 };
 
 #endif /* BINARY_BLOCK_PLUGIN_HPP_ */
