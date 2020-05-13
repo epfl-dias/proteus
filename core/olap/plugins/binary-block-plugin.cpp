@@ -139,13 +139,14 @@ ProteusValueMemory BinaryBlockPlugin::readProteusValue(
       ld->setMetadata(LLVMContext::MD_invariant_load, n);
     }
 
-    {  // Loaded value will be the same in all the places it will be loaded
-      //! invariant.load !{i32 1}
-      llvm::Metadata *Args[] = {
-          llvm::ValueAsMetadata::get(context->createInt32(1))};
-      MDNode *n = MDNode::get(context->getLLVMContext(), Args);
-      ld->setMetadata(LLVMContext::MD_nontemporal, n);
-    }
+    //    {  // Loaded value will be the same in all the places it will be
+    //    loaded
+    //      //! invariant.load !{i32 1}
+    //      llvm::Metadata *Args[] = {
+    //          llvm::ValueAsMetadata::get(context->createInt32(1))};
+    //      MDNode *n = MDNode::get(context->getLLVMContext(), Args);
+    //      ld->setMetadata(LLVMContext::MD_nontemporal, n);
+    //    }
 
     val = context->toMem(ld, val.isNull);
   }
