@@ -195,28 +195,26 @@ object PelagoToEnumerableConverter {
         System.out.println("pelago: " + line)
 
         if(line.contains("Texecute w sync: ")){
-          val texec = java.lang.Long.parseLong("(\\d+)".r.findFirstIn(line).get)
+          val texec = java.lang.Long.parseLong(" (\\d+)ms$".r.findFirstMatchIn(line).get.group(1))
           TimeKeeper.INSTANCE.addTexec(texec)
         }
 
         if(line.contains("Tcodegen: ")){
-          val tcodegen = java.lang.Long.parseLong("(\\d+)".r.findFirstIn(line).get)
+          val tcodegen = java.lang.Long.parseLong(" (\\d+)ms$".r.findFirstMatchIn(line).get.group(1))
           TimeKeeper.INSTANCE.addTcodegen(tcodegen)
         }
 
         if(line.startsWith("Topen (") && line.contains("):") && !line.contains(",")){
-          val m = "(\\d+)ms$".r.findFirstIn(line).get
-          val t = m.slice(0, m.length - 2)
+          val t = " (\\d+)ms$".r.findFirstMatchIn(line).get.group(1)
           tdataload = tdataload + java.lang.Long.parseLong(t)
         }
 
         if(line.contains("Optimization time: ")){
-          tcodeopt = tcodeopt + java.lang.Long.parseLong("(\\d+)".r.findFirstIn(line).get)
+          tcodeopt = tcodeopt + java.lang.Long.parseLong(" (\\d+)ms$".r.findFirstMatchIn(line).get.group(1))
         }
 
         if(line.contains(" C: ") || line.contains(" G: ")){
-          val m = "(\\d+)ms$".r.findFirstIn(line).get
-          val t = m.slice(0, m.length - 2)
+          val t = " (\\d+)ms$".r.findFirstMatchIn(line).get.group(1)
           tcodeoptnload = tcodeoptnload + java.lang.Long.parseLong(t)
         }
       }
