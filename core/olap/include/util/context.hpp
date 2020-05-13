@@ -122,8 +122,6 @@ class Context {
 
   virtual void prepareFunction(llvm::Function *F) = 0;
 
-  llvm::ExecutionEngine const *getExecEngine() { return TheExecutionEngine; }
-
   virtual void setGlobalFunction(bool leaf);
   virtual void setGlobalFunction(llvm::Function *F = nullptr,
                                  bool leaf = false);
@@ -388,9 +386,6 @@ class Context {
   llvm::Module *TheModule;
   llvm::IRBuilder<> *TheBuilder = nullptr;
 
- public:
-  llvm::ExecutionEngine *TheExecutionEngine;
-
  protected:
   // JIT Driver
   llvm::Function *TheFunction;
@@ -410,10 +405,6 @@ class Context {
   // and be utilized in actions such as flushing out delimiters
   // NOTE: Must check whether sth similar is necessary for nested collections
   llvm::Value *mem_resultCtr;
-
-  /**
-   * Helper function to create the LLVM objects required for JIT execution. */
-  virtual void createJITEngine();
 
  private:
   std::vector<std::tuple<llvm::Type *, std::string, std::function<init_func_t>,

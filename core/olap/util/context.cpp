@@ -38,13 +38,6 @@ bool print_generated_code = true;
 
 using namespace llvm;
 
-void Context::createJITEngine() {
-  LLVMLinkInMCJIT();
-  LLVMInitializeNativeTarget();
-  LLVMInitializeNativeAsmPrinter();
-  LLVMInitializeNativeAsmParser();
-}
-
 void addOptimizerPipelineDefault(legacy::FunctionPassManager *TheFPM) {
   // Provide basic AliasAnalysis support for GVN.
   TheFPM->add(createBasicAAWrapperPass());
@@ -87,7 +80,6 @@ const char *Context::getName() {
 
 Context::Context(const string &moduleName)
     : moduleName(std::move(moduleName)), TheBuilder(nullptr) {
-  TheExecutionEngine = nullptr;
   TheFunction = nullptr;
   codeEnd = nullptr;
 }
