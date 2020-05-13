@@ -24,6 +24,7 @@
 #include "pipeline.hpp"
 
 #include <thread>
+#include <util/timing.hpp>
 
 #include "common/gpu/gpu-common.hpp"
 #include "llvm/InitializePasses.h"
@@ -301,11 +302,12 @@ void PipelineGen::registerSubPipeline() {
                                    copyStateFrom->getLLVMConsume()->getName(),
                                    getModule());
 
-    sys::DynamicLibrary::AddSymbol(
-        copyStateFrom->getLLVMConsume()->getName(),
-        copyStateFrom
-            ->getConsume());  // FIMXE: this can be a little bit more elegant...
-                              // alos it may create name conflicts...
+    //    sys::DynamicLibrary::AddSymbol(
+    //        copyStateFrom->getLLVMConsume()->getName(),
+    //        copyStateFrom
+    //            ->getConsume());  // FIMXE: this can be a little bit more
+    //            elegant...
+    //                              // alos it may create name conflicts...
     registerFunction("subpipeline_consume", f);
   }
 }
@@ -474,6 +476,8 @@ Function *PipelineGen::getFunction() const {
 }
 
 void *PipelineGen::getKernel() {
+  time_block t(TimeRegistry::Key{
+      "Compile and Load (CPU, waiting - critical - getKernel)"});
   auto ret = func.get();
   assert(ret != nullptr);
   // assert(!F);

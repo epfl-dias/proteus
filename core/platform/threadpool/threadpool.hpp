@@ -104,11 +104,11 @@ class ThreadPool {
     return res;
   }
 
-  explicit ThreadPool(bool elastic = false)
+  explicit ThreadPool(
+      bool elastic = false,
+      size_t initialNumberOfThreads = 4 * std::thread::hardware_concurrency())
       : terminate(false), elastic(elastic), idleWorkers(0) {
-    size_t N = 4 * std::thread::hardware_concurrency();
-
-    for (size_t i = 0; i < N; ++i) addThread();
+    for (size_t i = 0; i < initialNumberOfThreads; ++i) addThread();
   }
 
   ~ThreadPool() {

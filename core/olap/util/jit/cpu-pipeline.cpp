@@ -421,8 +421,8 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
 }
 
 void *CpuPipelineGen::getCompiledFunction(Function *f) {
-  return funcdict.get().at(f->getName());
-  //  return module->getCompiledFunction(f);
+  time_block t(TimeRegistry::Key{"Compile and Load (CPU, waiting - critical)"});
+  return module->getCompiledFunction(f->getName());
 }
 
 const llvm::DataLayout &CpuPipelineGen::getDataLayout() const {
@@ -430,27 +430,9 @@ const llvm::DataLayout &CpuPipelineGen::getDataLayout() const {
 }
 
 void CpuPipelineGen::compileAndLoad() {
-  std::vector<std::string> fnames;
-  for (Function &ftmp : *(module->getModule())) {
-    if (!ftmp.isDeclaration()) fnames.emplace_back(ftmp.getName());
-  }
   module->compileAndLoad();
-  std::string fname = F->getName().str();
-  std::promise<void *> p;
-  func = p.get_future();
-  funcdict = std::async(
-      std::launch::async,
-      [fname, m = std::move(module)](std::promise<void *> p,
-                                     std::vector<std::string> fnames) {
-        std::map<std::string, void *> funcs;
-        for (const auto &ftmp : fnames) {
-          funcs.emplace(ftmp, m->getCompiledFunction(ftmp));
-        }
-        p.set_value(funcs[fname]);
-        return funcs;
-      },
-      std::move(p), std::move(fnames));
-
-  module.reset();  // = std::make_unique<CpuModule>(context, "waste");
-  //  func.wait();
+  func = std::async(std::launch::async,
+                    [m = module.get(), fname = F->getName().str()]() {
+                      return m->getCompiledFunction(fname);
+                    });
 }

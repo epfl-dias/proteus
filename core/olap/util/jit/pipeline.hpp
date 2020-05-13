@@ -75,10 +75,7 @@ class PipelineGen {
   std::string pipName;
   [[deprecated]] Context *context;
 
-  std::string func_name;
-
   std::shared_future<void *> func;
-  std::shared_future<std::map<std::string, void *>> funcdict;
 
   llvm::Value *state;
   llvm::StructType *state_type;
@@ -112,7 +109,7 @@ class PipelineGen {
   PipelineGen(Context *context, std::string pipName = "pip",
               PipelineGen *copyStateFrom = nullptr);
 
-  virtual ~PipelineGen() {}
+  virtual ~PipelineGen() { func.wait(); }
 
  public:
   virtual size_t appendParameter(llvm::Type *ptype, bool noalias = false,

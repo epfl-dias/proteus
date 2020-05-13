@@ -43,6 +43,8 @@
 #include <llvm/Transforms/Utils/Cloning.h>
 #pragma pop_macro("NDEBUG")
 
+#include <threadpool/threadpool.hpp>
+
 #include "util/timing.hpp"
 
 using namespace llvm;
@@ -179,6 +181,8 @@ llvm::orc::ThreadSafeModule optimizeModule(llvm::orc::ThreadSafeModule TSM,
 
 class JITer_impl {
  public:
+  ::ThreadPool pool;
+
   DataLayout DL;
   llvm::orc::MangleAndInterner Mangle;
   llvm::orc::ThreadSafeContext Ctx;
@@ -197,7 +201,8 @@ class JITer_impl {
       llvm::orc::JITTargetMachineBuilder JTMB =
           llvm::cantFail(llvm::orc::JITTargetMachineBuilder::detectHost())
               .setCodeGenOptLevel(CodeGenOpt::Aggressive))
-      : DL(llvm::cantFail(JTMB.getDefaultDataLayoutForTarget())),
+      : pool(false, std::thread::hardware_concurrency()),
+        DL(llvm::cantFail(JTMB.getDefaultDataLayoutForTarget())),
         Mangle(ES, this->DL),
         Ctx(std::make_unique<LLVMContext>()),
         PassConf(llvm::cantFail(JTMB.createTargetMachine())),
@@ -221,6 +226,13 @@ class JITer_impl {
           LOG(INFO) << "Emitted " << k << " "
                     << mb.get();  //->getBufferIdentifier().str();
         });
+
+    ES.setDispatchMaterialization(
+        [&p = pool](llvm::orc::JITDylib &JD,
+                    std::unique_ptr<llvm::orc::MaterializationUnit> MU) {
+          p.enqueue([&JD, MU = std::move(MU)]() { MU->doMaterialize(JD); });
+        });
+
     MainJD.addGenerator(llvm::cantFail(
         llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
             this->DL.getGlobalPrefix())));
