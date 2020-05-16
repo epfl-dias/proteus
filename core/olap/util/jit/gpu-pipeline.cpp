@@ -25,6 +25,9 @@
 
 #include <llvm/IR/IntrinsicsNVPTX.h>
 
+#include <threadpool/threadpool.hpp>
+#include <util/timing.hpp>
+
 #include "topology/topology.hpp"
 #include "util/gpu/gpu-intrinsics.hpp"
 #include "util/jit/cpu-pipeline.hpp"
@@ -635,8 +638,9 @@ Function *const GpuPipelineGen::createHelperFunction(
       FunctionType::get(Type::getVoidTy(context->getLLVMContext()), ins, false);
   // use f_num to overcome an llvm bu with keeping dots in function names when
   // generating PTX (which is invalid in PTX)
-  Function *helper = Function::Create(ftype, Function::ExternalLinkage,
-                                      funcName, context->getModule());
+  Function *helper =
+      Function::Create(ftype, Function::ExternalLinkage,
+                       pipName + "_gpu_" + funcName, context->getModule());
 
   if (readonly.size() == ins.size()) {
     Attribute readOnly = Attribute::get(context->getLLVMContext(),
@@ -675,10 +679,14 @@ Function *GpuPipelineGen::prepare() {
 }
 
 void *GpuPipelineGen::getConsume() {
+  time_block t(TimeRegistry::Key{
+      "Compile and Load (GPU, waiting - critical - getConsume)"});
   return wrapper_module.getCompiledFunction(Fconsume);
 }
 
 void *GpuPipelineGen::getKernel() {
+  time_block t(TimeRegistry::Key{
+      "Compile and Load (GPU, waiting - critical - getKernel)"});
   assert(F);
   auto k = module.getCompiledFunction(F);
   assert(k);
@@ -723,16 +731,21 @@ std::unique_ptr<Pipeline> GpuPipelineGen::getPipeline(int group_id) {
 }
 
 void *GpuPipelineGen::getCompiledFunction(Function *f) {
+  time_block t(TimeRegistry::Key{
+      "Compile and Load (GPU, waiting - critical - getCompiledFunction)"});
   // FIXME: should handle cpu functins (open/close)
   if (wrapperModuleActive) return wrapper_module.getCompiledFunction(f);
   return module.getCompiledFunction(f);
 }
 
 void GpuPipelineGen::compileAndLoad() {
+  std::string name = open__function->getName();
   wrapper_module.compileAndLoad();
+  ThreadPool::getInstance().enqueue(
+      [this, name]() { return wrapper_module.getCompiledFunction(name); });
   module.compileAndLoad();
-  func = std::async([this]() { return getCompiledFunction(F); });
-  func.wait();
+  func = ThreadPool::getInstance().enqueue(
+      [this]() { return getCompiledFunction(F); });
 }
 
 void GpuPipelineGen::registerFunction(std::string funcName, Function *f) {

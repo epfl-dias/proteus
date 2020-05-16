@@ -32,6 +32,7 @@
 #include <mutex>
 #include <queue>
 #include <thread>
+#include <topology/affinity_manager.hpp>
 
 #include "common/common.hpp"
 
@@ -61,27 +62,32 @@ class ThreadPool {
   }
 
   void addThread() {
-    workers.emplace_back([this] {
-      // eventlogger.log(this, log_op::THREADPOOL_THREAD_START);
-      while (true) {
-        decltype(tasks)::value_type task;
+    workers.emplace_back(
+        [this](size_t i) {
+          set_exec_location_on_scope aff{
+              topology::getInstance().getCpuNumaNodes()
+                  [i % topology::getInstance().getCpuNumaNodeCount()]};
+          // eventlogger.log(this, log_op::THREADPOOL_THREAD_START);
+          while (true) {
+            decltype(tasks)::value_type task;
 
-        {
-          std::unique_lock<std::mutex> lock(m);
-          ++idleWorkers;
-          cv.wait(lock, [this] { return terminate || !tasks.empty(); });
-          --idleWorkers;
+            {
+              std::unique_lock<std::mutex> lock(m);
+              ++idleWorkers;
+              cv.wait(lock, [this] { return terminate || !tasks.empty(); });
+              --idleWorkers;
 
-          if (terminate && tasks.empty()) break;
+              if (terminate && tasks.empty()) break;
 
-          task = std::move(tasks.front());
-          tasks.pop();
-        }
+              task = std::move(tasks.front());
+              tasks.pop();
+            }
 
-        task();
-      }
-      // eventlogger.log(this, log_op::THREADPOOL_THREAD_END);
-    });
+            task();
+          }
+          // eventlogger.log(this, log_op::THREADPOOL_THREAD_END);
+        },
+        workers.size());
   }
 
   template <class F, class... Args>
