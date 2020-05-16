@@ -204,13 +204,14 @@ class BinaryBlockPlugin : public Plugin {
   bool isLazy() override { return true; }
 
   std::vector<RecordAttribute *> wantedFields;
-  std::vector<std::shared_future<std::vector<mem_file>>> wantedFieldsFiles;
+
+ private:
+  std::vector<FileRequest> wantedFieldsFiles;
   std::vector<size_t> fieldSizes;
 
  private:
   // Schema info provided
   RecordType rec;
-  llvm::Value *blockSize;
 
  protected:
   size_t Nparts;
@@ -244,7 +245,7 @@ class BinaryBlockPlugin : public Plugin {
   void skipLLVM(ParallelContext *context, RecordAttribute attName,
                 llvm::Value *offset);
 
-  void nextEntry(ParallelContext *context);
+  void nextEntry(ParallelContext *context, llvm::Value *blockSize);
 
   void readAsLLVM(ParallelContext *context, RecordAttribute attName,
                   std::map<RecordAttribute, ProteusValueMemory> &variables);
@@ -270,12 +271,12 @@ class BinaryBlockPlugin : public Plugin {
 
  private:
   const void **getDataForField(size_t i);
-  void freeDataForField(const void **d);
+  void freeDataForField(size_t i, const void **d);
   int64_t *getTuplesPerPartition();
   void freeTuplesPerPartition(int64_t *);
 
   friend const void **getDataForField(size_t i, BinaryBlockPlugin *pg);
-  friend void freeDataForField(const void **d, BinaryBlockPlugin *pg);
+  friend void freeDataForField(size_t i, const void **d, BinaryBlockPlugin *pg);
   friend int64_t *getTuplesPerPartition(BinaryBlockPlugin *pg);
   friend void freeTuplesPerPartition(int64_t *, BinaryBlockPlugin *pg);
 };

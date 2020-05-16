@@ -240,10 +240,13 @@ std::future<std::vector<mem_file>> StorageManager::getOrLoadFile(
   if (files.count(name) == 0) {
     LOG(INFO) << "File " << name << " not loaded, loading it to " << loc;
     load(name, type_size, loc);
-  } else {
-    LOG(INFO) << "Using loaded version of file " << name;
   }
   return getFile(name);
+}
+
+FileRequest StorageManager::request(std::string name, size_t type_size,
+                                    data_loc loc) {
+  return FileRequest{[=]() { return getOrLoadFile(name, type_size, loc); }};
 }
 
 void *StorageManager::getDictionaryOf(std::string name) {

@@ -88,6 +88,54 @@ class FileRecord {
                          data_loc loc);
 };
 
+class FileRequest {
+ public:
+  typedef std::vector<mem_file> segments_t;
+
+ private:
+  std::function<std::future<segments_t>()> generator;
+  std::shared_future<segments_t> data;
+  bool pinned;
+
+  const std::vector<mem_file> &get() { return data.get(); }
+
+ private:
+  explicit FileRequest(decltype(generator) generator)
+      : generator(std::move(generator)), pinned(false) {}
+
+  friend class StorageManager;
+
+ public:
+  [[nodiscard]] bool isPinned() const { return pinned; }
+
+  void pin() {
+    assert(!pinned);
+    pinned = true;
+    data = generator();
+  }
+
+  void unpin() {
+    assert(pinned);
+    pinned = false;
+    data = std::shared_future<segments_t>{};
+  }
+
+  void registerIntent() { generator(); }
+
+  size_t getSegmentCount() {
+    bool was_pinned = isPinned();
+    if (!was_pinned) pin();
+    auto s = get().size();
+    if (!was_pinned) unpin();
+    return s;
+  }
+
+  const segments_t &getSegments() {
+    assert(isPinned());
+    return get();
+  }
+};
+
 class StorageManager {
  private:
   std::map<std::string, std::shared_future<FileRecord>> files;
@@ -113,6 +161,8 @@ class StorageManager {
   [[nodiscard]] std::future<std::vector<mem_file>> getFile(std::string name);
   [[nodiscard]] std::future<std::vector<mem_file>> getOrLoadFile(
       std::string name, size_t type_size, data_loc loc = PINNED);
+  [[nodiscard]] FileRequest request(std::string name, size_t type_size,
+                                    data_loc loc);
   void unloadFile(std::string name);
 };
 
