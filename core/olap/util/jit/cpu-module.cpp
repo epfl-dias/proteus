@@ -69,19 +69,6 @@ CpuModule::CpuModule(Context *context, std::string pipName)
   } else {
     TheExecutionEngine->RegisterJITEventListener(vtuneProfiler);
   }
-
-  // Inform the module about the current configuration
-  //  getModule()->setDataLayout(TheExecutionEngine->getDataLayout());
-  //  getModule()->setTargetTriple(
-  //      TheExecutionEngine->getTargetMachine()->getTargetTriple().getTriple());
-
-  // JITEventListener* gdbDebugger =
-  // JITEventListener::createGDBRegistrationListener(); if (gdbDebugger ==
-  // nullptr) {
-  //     fprintf(stderr, "Could not create GDB listener\n");
-  // } else {
-  //     TheExecutionEngine->RegisterJITEventListener(gdbDebugger);
-  // }
 }
 
 class JITer_impl;
@@ -178,6 +165,17 @@ llvm::orc::ThreadSafeModule optimizeModule(llvm::orc::ThreadSafeModule TSM,
   return TSM;
 }
 
+Expected<llvm::orc::ThreadSafeModule> printIR(orc::ThreadSafeModule module,
+                                              const std::string &suffix = "") {
+  module.withModuleDo([&suffix](Module &m) {
+    std::error_code EC;
+    raw_fd_ostream out("generated_code/" + m.getName().str() + suffix + ".ll",
+                       EC, llvm::sys::fs::OpenFlags::F_None);
+    m.print(out, nullptr, false, true);
+  });
+  return std::move(module);
+}
+
 class JITer_impl {
  public:
   ::ThreadPool pool;
@@ -191,9 +189,14 @@ class JITer_impl {
   llvm::orc::ExecutionSession ES;
   llvm::orc::RTDyldObjectLinkingLayer ObjectLayer;
   llvm::orc::IRCompileLayer CompileLayer;
+  llvm::orc::IRTransformLayer PrintOptimizedIRLayer;
   llvm::orc::IRTransformLayer TransformLayer;
+  llvm::orc::IRTransformLayer PrintGeneratedIRLayer;
 
   llvm::orc::JITDylib &MainJD;
+
+  std::mutex vtuneLock;
+  JITEventListener *vtuneProfiler;
 
  public:
   explicit JITer_impl(
@@ -209,8 +212,16 @@ class JITer_impl {
                     []() { return std::make_unique<SectionMemoryManager>(); }),
         CompileLayer(ES, ObjectLayer,
                      std::make_unique<llvm::orc::ConcurrentIRCompiler>(JTMB)),
-        TransformLayer(
+        PrintOptimizedIRLayer(
             ES, CompileLayer,
+            [](llvm::orc::ThreadSafeModule TSM,
+               const llvm::orc::MaterializationResponsibility &R)
+                -> Expected<llvm::orc::ThreadSafeModule> {
+              if (print_generated_code) return printIR(std::move(TSM), "_opt");
+              return std::move(TSM);
+            }),
+        TransformLayer(
+            ES, PrintOptimizedIRLayer,
             [JTMB = std::move(JTMB)](
                 llvm::orc::ThreadSafeModule TSM,
                 const llvm::orc::MaterializationResponsibility &R) mutable
@@ -219,11 +230,30 @@ class JITer_impl {
               if (!TM) return TM.takeError();
               return optimizeModule(std::move(TSM), std::move(TM.get()));
             }),
-        MainJD(ES.createJITDylib("main")) {
+        PrintGeneratedIRLayer(
+            ES, TransformLayer,
+            [](llvm::orc::ThreadSafeModule TSM,
+               const llvm::orc::MaterializationResponsibility &R)
+                -> Expected<llvm::orc::ThreadSafeModule> {
+              if (print_generated_code) return printIR(std::move(TSM));
+              return std::move(TSM);
+            }),
+        MainJD(ES.createJITDylib("main")),
+        vtuneProfiler(JITEventListener::createIntelJITEventListener()) {
+    if (vtuneProfiler == nullptr) {
+      LOG(WARNING) << "Could not create VTune listener";
+    } else {
+      ObjectLayer.setNotifyLoaded(
+          [this](llvm::orc::VModuleKey k, const object::ObjectFile &Obj,
+                 const RuntimeDyld::LoadedObjectInfo &loi) {
+            std::scoped_lock<std::mutex> lock{vtuneLock};
+            vtuneProfiler->notifyObjectLoaded(k, Obj, loi);
+          });
+    }
+
     ObjectLayer.setNotifyEmitted(
         [](llvm::orc::VModuleKey k, std::unique_ptr<MemoryBuffer> mb) {
-          LOG(INFO) << "Emitted " << k << " "
-                    << mb.get();  //->getBufferIdentifier().str();
+          LOG(INFO) << "Emitted " << k << " " << mb.get();
         });
 
     ES.setDispatchMaterialization(
@@ -246,7 +276,7 @@ class JITer_impl {
   }
 
   void addModule(llvm::orc::ThreadSafeModule M) {
-    llvm::cantFail(TransformLayer.add(MainJD, std::move(M)));
+    llvm::cantFail(PrintGeneratedIRLayer.add(MainJD, std::move(M)));
   }
 
   JITEvaluatedSymbol lookup(StringRef Name) {
@@ -255,41 +285,18 @@ class JITer_impl {
 };
 
 LLVMContext &JITer::getContext() { return p_impl->getContext(); }
+
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
+
 auto &getJiter() {
   static JITer jiter;
   return jiter;
 }
 
-// void CpuModule::optimizeModule(Module *M) {
-//  auto JTM =
-//      dynamic_cast<LLVMTargetMachine
-//      *>(TheExecutionEngine->getTargetMachine());
-//  llvm::orc::ThreadSafeModule TSM(std::unique_ptr<Module>(M),
-//                                  getJiter().p_impl->Ctx);
-//  ::optimizeModule(std::move(TSM), *JTM);
-//}
-
 void CpuModule::compileAndLoad() {
   time_block t(TimeRegistry::Key{"Compile and Load (CPU)"});
-  // std::cout << pipName << " C" << std::endl;
 
-  //  auto x = llvm::orc::LLJITBuilder().create();
-
-#ifdef DEBUGCTX
-  // getModule()->dump();
-
-  if (print_generated_code) {
-    std::error_code EC;
-    raw_fd_ostream out("generated_code/" + pipName + ".ll", EC,
-                       llvm::sys::fs::OpenFlags::F_None);
-
-    getModule()->print(out, nullptr, false, true);
-  }
-#endif
-
-  //  optimizeModule(getModule());
   llvm::orc::ThreadSafeModule ptr;
   {
     time_block tCopy{TimeRegistry::Key{"Module Copying"}};
@@ -328,18 +335,6 @@ void CpuModule::compileAndLoad() {
   getJiter().p_impl->addModule(std::move(ptr));
 
 #ifdef DEBUGCTX
-  // getModule()->dump();
-
-  if (print_generated_code) {
-    std::error_code EC;
-    raw_fd_ostream out("generated_code/" + pipName + "_opt.ll", EC,
-                       llvm::sys::fs::OpenFlags::F_None);
-
-    getModule()->print(out, nullptr, false, true);
-  }
-#endif
-
-#ifdef DEBUGCTX
   if (print_generated_code) {
     string assembly;
     {
@@ -362,16 +357,11 @@ void CpuModule::compileAndLoad() {
     oassembly << assembly;
   }
 #endif
-  // JIT the function, returning a function pointer.
-  //  TheExecutionEngine->finalizeObject();
-  // func = TheExecutionEngine->getPointerToFunction(F);
-  // assert(func);
-
-  // F->eraseFromParent();
-  // F = nullptr;
-
-  //  for (Function &ftmp : *getModule()) {
-  //    if (!ftmp.isDeclaration()) getCompiledFunction(&ftmp);
+  //  for (Function &f : *getModule()) {
+  //    if (!f.isDeclaration()) {
+  //      auto addr = getJiter().p_impl->lookup(f.getName());
+  //      LOG(INFO) << f.getName().str() << " " << (void *)addr.getAddress();
+  //    }
   //  }
 }
 

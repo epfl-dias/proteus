@@ -358,7 +358,7 @@ GPUJITer::~GPUJITer() = default;
 
 class NVPTXLinkLayer final : public llvm::orc::ObjectLayer {
  public:
-  auto gpuMangle(StringRef Name, decltype(topology::gpunode::id) id) {
+  static auto gpuMangle(StringRef Name, decltype(topology::gpunode::id) id) {
     return ("_gpu" + std::to_string(id) + "_" + Name).str();
   }
 
@@ -409,9 +409,9 @@ class NVPTXLinkLayer final : public llvm::orc::ObjectLayer {
         for (const auto &gpu : topology::getInstance().getGpus()) {
           set_device_on_scope d(gpu);
 
-          auto x = (cuModuleLoadDataEx(&cudaModule[gpu.id],
-                                       Obj->getBuffer().str().c_str(), opt_size,
-                                       options, values));
+          auto x =
+              (cuModuleLoadDataEx(&cudaModule[gpu.id], Obj->getBuffer().data(),
+                                  opt_size, options, values));
 
           if (info_log[0] != '\0') LOG(INFO) << info_log;
           if (x != CUDA_SUCCESS) {
@@ -745,12 +745,9 @@ void GpuModule::compileAndLoad() {
 #else
   assert(false);
 #endif
-  //  for (Function &f : *getModule()) {
-  //    if (!f.isDeclaration()) {
-  //      auto addr = getGPUJiter().p_impl->lookup(f.getName());
-  //      LOG(INFO) << f.getName().str() << " " << (void *)addr.getAddress();
-  //    }
-  //  }
+  //  auto addr = getGPUJiter().p_impl->lookup(getModule()->getName());
+  //  LOG(INFO) << getModule()->getName().str() << " " << (void
+  //  *)addr.getAddress();
 }
 
 void *GpuModule::getCompiledFunction(Function *f) const {
