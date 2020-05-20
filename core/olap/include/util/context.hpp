@@ -93,6 +93,22 @@ class StateVar {
 
 std::string getFunctionName(void *f);
 
+class While {
+ private:
+  std::function<ProteusValue()> cond;
+  Context *context;
+
+ private:
+  While(std::function<ProteusValue()> cond, Context *context)
+      : cond(std::move(cond)), context(context) {}
+
+  friend class Context;
+
+ public:
+  template <typename Fbody>
+  void operator()(Fbody body) &&;
+};
+
 class Context {
  private:
   const std::string moduleName;
@@ -298,6 +314,8 @@ class Context {
     this->currentCodeEntry = codeEntry;
   }
 
+  virtual While gen_while(std::function<ProteusValue()> cond);
+
   virtual if_branch gen_if(ProteusValue cond);
 
   virtual if_branch gen_if(const expression_t &expr,
@@ -437,5 +455,31 @@ class save_current_blocks_and_restore_at_exit_scope {
     context->getBuilder()->SetInsertPoint(current);
   }
 };
+
+template <typename Fbody>
+void While::operator()(Fbody body) && {
+  auto &llvmContext = context->getLLVMContext();
+  auto F = context->getBuilder()->GetInsertBlock()->getParent();
+
+  auto CondBB = llvm::BasicBlock::Create(llvmContext, "cond", F);
+  auto BodyBB = llvm::BasicBlock::Create(llvmContext, "body", F);
+  auto AfterBB = llvm::BasicBlock::Create(llvmContext, "after", F);
+
+  auto Builder = context->getBuilder();
+  Builder->CreateBr(CondBB);
+  Builder->SetInsertPoint(CondBB);
+
+  auto condition = cond();
+
+  auto loop_cond = Builder->CreateCondBr(condition.value, BodyBB, AfterBB);
+
+  Builder->SetInsertPoint(BodyBB);
+
+  body(loop_cond);
+
+  Builder->CreateBr(CondBB);
+
+  Builder->SetInsertPoint(AfterBB);
+}
 
 #endif /* CONTEXT_HPP_ */

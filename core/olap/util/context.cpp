@@ -709,6 +709,10 @@ if_branch Context::gen_if(const expression_t &expr,
   return if_branch(expr, state, this);
 }
 
+While Context::gen_while(std::function<ProteusValue()> cond) {
+  return {std::move(cond), this};
+}
+
 std::string getFunctionName(void *f) {
   Dl_info info{};
 #ifndef NDEBUG

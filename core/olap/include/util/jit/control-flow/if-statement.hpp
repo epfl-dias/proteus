@@ -71,7 +71,7 @@ class if_branch {
 
  public:
   template <typename Fthen>
-  if_then operator()(Fthen then);
+  if_then operator()(Fthen then) &&;
 
   friend class Context;
 };
@@ -151,7 +151,7 @@ class if_then {
 };
 
 template <typename Fthen>
-if_then if_branch::operator()(Fthen then) {
+if_then if_branch::operator()(Fthen then) && {
   return {condition, then, context};
 }
 
