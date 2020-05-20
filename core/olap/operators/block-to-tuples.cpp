@@ -35,9 +35,9 @@ void BlockToTuples::produce_(ParallelContext *context) {
   context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
   context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
-  for (size_t i = 0; i < wantedFields.size(); ++i) {
-    old_buffs.push_back(context->appendStateVar(PointerType::getUnqual(
-        RecordAttribute{wantedFields[i].getRegisteredAs(), true}.getLLVMType(
+  for (const auto &wantedField : wantedFields) {
+    old_buffs.push_back(context->appendStateVar(llvm::PointerType::getUnqual(
+        RecordAttribute{wantedField.getRegisteredAs(), true}.getLLVMType(
             context->getLLVMContext()))));
   }
 
@@ -47,7 +47,7 @@ void BlockToTuples::produce_(ParallelContext *context) {
 void BlockToTuples::nextEntry(llvm::Value *mem_itemCtr,
                               ParallelContext *context) {
   // Prepare
-  IRBuilder<> *Builder = context->getBuilder();
+  auto Builder = context->getBuilder();
 
   // Increment and store back
 
@@ -65,240 +65,162 @@ void BlockToTuples::nextEntry(llvm::Value *mem_itemCtr,
   Builder->CreateStore(val_new_itemCtr, mem_itemCtr);
 }
 
-void BlockToTuples::consume(Context *const context,
-                            const OperatorState &childState) {
-  auto ctx = dynamic_cast<ParallelContext *>(context);
-  if (!ctx) {
-    string error_msg =
-        "[BlockToTuples: ] Operator only supports code "
-        "generation using the ParallelContext";
-    LOG(ERROR) << error_msg;
-    throw runtime_error(error_msg);
-  }
-  consume(ctx, childState);
-}
-
-void BlockToTuples::consume(ParallelContext *const context,
+void BlockToTuples::consume(ParallelContext *context,
                             const OperatorState &childState) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
-  Function *F = Builder->GetInsertBlock()->getParent();
 
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
-  // Type* int64Type = Type::getInt64Ty(llvmContext);
+  // TODO move into context
+  expressions::ProteusValueExpression tid{
+      new Int64Type(), {context->threadId(), context->createFalse()}};
 
-  // Container for the variable bindings
-  map<RecordAttribute, ProteusValueMemory> oldBindings{
-      childState.getBindings()};
-  map<RecordAttribute, ProteusValueMemory> variableBindings;
-
-  // Create the "AFTER LOOP" block and insert it.
-  BasicBlock *releaseBB = BasicBlock::Create(llvmContext, "releaseIf", F);
-  BasicBlock *rlAfterBB = BasicBlock::Create(llvmContext, "releaseEnd", F);
-
-  Value *tId = context->threadId();
-  Value *is_leader =
-      Builder->CreateICmpEQ(tId, ConstantInt::get(tId->getType(), 0));
+  auto is_leader = eq(tid, INT64_C(0));
 
   // FIXME: do we need that?
   // Value *activemask;
   // if (dynamic_cast<GpuPipelineGen *>(context->getCurrentPipeline())) {
   //   activemask = gpu_intrinsic::activemask(context);
   // }
-  Builder->CreateCondBr(
-      is_leader, releaseBB,
-      rlAfterBB);  // FIXME: assumes thread 0 gets to execute block2tuples
 
-  Builder->SetInsertPoint(releaseBB);
+  // FIXME: assumes thread 0 gets to execute block2tuples
+  context->gen_if(is_leader, childState)([&]() {
+    Type *charPtrType = Type::getInt8PtrTy(llvmContext);
+    for (size_t i = 0; i < wantedFields.size(); ++i) {
+      RecordAttribute attr{wantedFields[i].getRegisteredAs(), true};
+      Value *arg = Builder->CreateLoad(childState[attr].mem);
+      Value *old = Builder->CreateLoad(context->getStateVar(old_buffs[i]));
+      old = Builder->CreateBitCast(old, charPtrType);
 
-  for (size_t i = 0; i < wantedFields.size(); ++i) {
-    RecordAttribute attr{wantedFields[i].getRegisteredAs(), true};
-    Value *arg = Builder->CreateLoad(oldBindings[attr].mem);
-    Value *old = Builder->CreateLoad(context->getStateVar(old_buffs[i]));
-    old = Builder->CreateBitCast(old, charPtrType);
+      Function *f = context->getFunction(
+          "release_buffers");  // FIXME: Assumes grid launch +
+                               // Assumes 1 block per kernel!
+      Builder->CreateCall(f, {old});
 
-    Function *f = context->getFunction(
-        "release_buffers");  // FIXME: Assumes grid launch +
-                             // Assumes 1 block per kernel!
-    Builder->CreateCall(f, std::vector<Value *>{old});
+      Builder->CreateStore(arg, context->getStateVar(old_buffs[i]));
+    }
+  });
 
-    Builder->CreateStore(arg, context->getStateVar(old_buffs[i]));
-  }
-
-  Builder->CreateBr(rlAfterBB);
-
-  Builder->SetInsertPoint(rlAfterBB);
   // FIXME: do we need that?
   // if (dynamic_cast<GpuPipelineGen *>(context->getCurrentPipeline())) {
   //   auto warpsync = context->getFunction("llvm.nvvm.bar.warp.sync");
   //   Builder->CreateCall(warpsync, {activemask});
   // }
 
-  // Get the ENTRY BLOCK
-  // context->setCurrentEntryBlock(Builder->GetInsertBlock());
-
-  BasicBlock *CondBB = BasicBlock::Create(llvmContext, "scanBlkCond", F);
-
-  // // Start insertion in CondBB.
-  // Builder->SetInsertPoint(CondBB);
-
-  // Make the new basic block for the loop header (BODY), inserting after
-  // current block.
-  BasicBlock *LoopBB = BasicBlock::Create(llvmContext, "scanBlkBody", F);
-
-  // Make the new basic block for the increment, inserting after current block.
-  BasicBlock *IncBB = BasicBlock::Create(llvmContext, "scanBlkInc", F);
-
-  // Create the "AFTER LOOP" block and insert it.
-  BasicBlock *AfterBB = BasicBlock::Create(llvmContext, "scanBlkEnd", F);
-  // context->setEndingBlock(AfterBB);
-
-  // Builder->CreateBr      (CondBB);
-
-  // Builder->SetInsertPoint(context->getCurrentEntryBlock());
-
   Plugin *pg =
       Catalog::getInstance().getPlugin(wantedFields[0].getRegisteredRelName());
 
   RecordAttribute tupleCnt{wantedFields[0].getRegisteredRelName(), "activeCnt",
                            pg->getOIDType()};  // FIXME: OID type for blocks ?
-  Value *cnt = Builder->CreateLoad(oldBindings[tupleCnt].mem, "cnt");
+  Value *cnt = Builder->CreateLoad(childState[tupleCnt].mem, "cnt");
 
   auto mem_itemCtr = context->CreateEntryBlockAlloca("i_ptr", cnt->getType());
   Builder->CreateStore(
       Builder->CreateIntCast(context->threadId(), cnt->getType(), false),
       mem_itemCtr);
 
-  // Function * f = context->getFunction("devprinti64");
-  // Builder->CreateCall(f, std::vector<Value *>{cnt});
-
-  Builder->CreateBr(CondBB);
-  Builder->SetInsertPoint(CondBB);
+  Value *lhs;
 
   /**
    * Equivalent:
    * while(itemCtr < size)
    */
-  Value *lhs = Builder->CreateLoad(mem_itemCtr, "i");
+  context->gen_while([&]() {
+    lhs = Builder->CreateLoad(mem_itemCtr, "i");
 
-  Value *cond = Builder->CreateICmpSLT(lhs, cnt);
+    return ProteusValue{Builder->CreateICmpSLT(lhs, cnt),
+                        context->createFalse()};
+  })([&](BranchInst *loop_cond) {
+    MDNode *LoopID;
 
-  // Insert the conditional branch into the end of CondBB.
-  BranchInst *loop_cond = Builder->CreateCondBr(cond, LoopBB, AfterBB);
+    {
+      MDString *vec_st =
+          MDString::get(llvmContext, "llvm.loop.vectorize.enable");
+      Type *int1Type = Type::getInt1Ty(llvmContext);
+      Metadata *one = ConstantAsMetadata::get(ConstantInt::get(int1Type, 1));
+      llvm::Metadata *vec_en[] = {vec_st, one};
+      MDNode *vectorize_enable = MDNode::get(llvmContext, vec_en);
 
-  // NamedMDNode * annot =
-  // context->getModule()->getOrInsertNamedMetadata("nvvm.annotations");
-  // MDString    * str   = MDString::get(TheContext, "kernel");
-  // Value       * one   = ConstantInt::get(int32Type, 1);
+      MDString *itr_st =
+          MDString::get(llvmContext, "llvm.loop.interleave.count");
+      Type *int32Type = Type::getInt32Ty(llvmContext);
+      Metadata *count = ConstantAsMetadata::get(ConstantInt::get(int32Type, 4));
+      llvm::Metadata *itr_en[] = {itr_st, count};
+      MDNode *interleave_count = MDNode::get(llvmContext, itr_en);
 
-  MDNode *LoopID;
+      llvm::Metadata *Args[] = {nullptr, vectorize_enable, interleave_count};
+      LoopID = MDNode::get(llvmContext, Args);
+      LoopID->replaceOperandWith(0, LoopID);
 
-  {
-    MDString *vec_st = MDString::get(llvmContext, "llvm.loop.vectorize.enable");
-    Type *int1Type = Type::getInt1Ty(llvmContext);
-    Metadata *one = ConstantAsMetadata::get(ConstantInt::get(int1Type, 1));
-    llvm::Metadata *vec_en[] = {vec_st, one};
-    MDNode *vectorize_enable = MDNode::get(llvmContext, vec_en);
-
-    MDString *itr_st = MDString::get(llvmContext, "llvm.loop.interleave.count");
-    Type *int32Type = Type::getInt32Ty(llvmContext);
-    Metadata *count = ConstantAsMetadata::get(ConstantInt::get(int32Type, 4));
-    llvm::Metadata *itr_en[] = {itr_st, count};
-    MDNode *interleave_count = MDNode::get(llvmContext, itr_en);
-
-    llvm::Metadata *Args[] = {nullptr, vectorize_enable, interleave_count};
-    LoopID = MDNode::get(llvmContext, Args);
-    LoopID->replaceOperandWith(0, LoopID);
-
-    loop_cond->setMetadata(LLVMContext::MD_loop, LoopID);
-  }
-  // Start insertion in LoopBB.
-  Builder->SetInsertPoint(LoopBB);
-
-  // Get the 'oid' of each record and pass it along.
-  // More general/lazy plugins will only perform this action,
-  // instead of eagerly 'converting' fields
-  // FIXME This action corresponds to materializing the oid. Do we want this?
-  RecordAttribute tupleIdentifier{wantedFields[0].getRegisteredRelName(),
-                                  activeLoop, pg->getOIDType()};
-
-  ProteusValueMemory mem_posWrapper;
-  mem_posWrapper.mem = mem_itemCtr;
-  mem_posWrapper.isNull = context->createFalse();
-  variableBindings[tupleIdentifier] = mem_posWrapper;
-  for (const auto &w : wantedFields) {
-    RecordAttribute tIdentifier{w.getRegisteredRelName(), activeLoop,
-                                pg->getOIDType()};
-    variableBindings[tIdentifier] = mem_posWrapper;
-  }
-
-  // Actual Work (Loop through attributes etc.)
-  for (const auto &field : wantedFields) {
-    RecordAttribute attr{field.getRegisteredAs(), true};
-
-    Value *arg = Builder->CreateLoad(oldBindings[attr].mem);
-
-    auto bufVarStr = field.getRegisteredRelName();
-    auto currBufVar = bufVarStr + "." + attr.getAttrName();
-
-    Value *ptr = Builder->CreateGEP(arg, lhs);
-
-    // Function    * pfetch =
-    // Intrinsic::getDeclaration(Builder->GetInsertBlock()->getParent()->getParent(),
-    // Intrinsic::prefetch);
-
-    // Instruction * ins = Builder->CreateCall(pfetch, std::vector<Value*>{
-    //                     Builder->CreateBitCast(ptr, charPtrType),
-    //                     context->createInt32(0),
-    //                     context->createInt32(3),
-    //                     context->createInt32(1)}
-    //                     );
-    // {
-    //     ins->setMetadata("llvm.mem.parallel_loop_access", LoopID);
-    // }
-
-    if (!pg->isLazy()) {
-      // If not lazy, load the data now
-      Instruction *parsed =
-          Builder->CreateLoad(ptr);  // TODO : use CreateAlignedLoad
-      { parsed->setMetadata(LLVMContext::MD_mem_parallel_loop_access, LoopID); }
-      ptr = parsed;
+      loop_cond->setMetadata(LLVMContext::MD_loop, LoopID);
     }
 
-    variableBindings[field.getRegisteredAs()] =
-        context->toMem(ptr, context->createFalse());
-  }
+    // Get the 'oid' of each record and pass it along.
+    // More general/lazy plugins will only perform this action,
+    // instead of eagerly 'converting' fields
+    // FIXME This action corresponds to materializing the oid. Do we want this?
+    RecordAttribute tupleIdentifier{wantedFields[0].getRegisteredRelName(),
+                                    activeLoop, pg->getOIDType()};
 
-  // Start insertion in IncBB.
-  Builder->SetInsertPoint(IncBB);
-  nextEntry(mem_itemCtr, context);
-  Builder->CreateBr(CondBB);
+    ProteusValueMemory mem_posWrapper{mem_itemCtr, context->createFalse()};
 
-  Builder->SetInsertPoint(LoopBB);
+    std::map<RecordAttribute, ProteusValueMemory> variableBindings;
+    variableBindings[tupleIdentifier] = mem_posWrapper;
+    for (const auto &w : wantedFields) {
+      RecordAttribute tIdentifier{w.getRegisteredRelName(), activeLoop,
+                                  pg->getOIDType()};
+      variableBindings[tIdentifier] = mem_posWrapper;
+    }
 
-  // Triggering parent
-  OperatorState state{*this, variableBindings};
-  getParent()->consume(context, state);
+    // Actual Work (Loop through attributes etc.)
+    for (const auto &field : wantedFields) {
+      RecordAttribute attr{field.getRegisteredAs(), true};
 
-  // Insert an explicit fall through from the current (body) block to IncBB.
-  Builder->CreateBr(IncBB);
+      Value *arg = Builder->CreateLoad(childState[attr].mem);
 
-  // Builder->SetInsertPoint(context->getCurrentEntryBlock());
-  // // Insert an explicit fall through from the current (entry) block to the
-  // CondBB. Builder->CreateBr(CondBB);
+      auto bufVarStr = field.getRegisteredRelName();
+      auto currBufVar = bufVarStr + "." + attr.getAttrName();
 
-  //  Finish up with end (the AfterLoop)
-  //  Any new code will be inserted in AfterBB.
-  Builder->SetInsertPoint(AfterBB);
+      Value *ptr = Builder->CreateGEP(arg, lhs);
+
+      // Function    * pfetch =
+      // Intrinsic::getDeclaration(Builder->GetInsertBlock()->getParent()->getParent(),
+      // Intrinsic::prefetch);
+
+      // Instruction * ins = Builder->CreateCall(pfetch, std::vector<Value*>{
+      //                     Builder->CreateBitCast(ptr, charPtrType),
+      //                     context->createInt32(0),
+      //                     context->createInt32(3),
+      //                     context->createInt32(1)}
+      //                     );
+      // {
+      //     ins->setMetadata("llvm.mem.parallel_loop_access", LoopID);
+      // }
+
+      if (!pg->isLazy()) {
+        // If not lazy, load the data now
+        Instruction *parsed =
+            Builder->CreateLoad(ptr);  // TODO : use CreateAlignedLoad
+        {
+          parsed->setMetadata(LLVMContext::MD_mem_parallel_loop_access, LoopID);
+        }
+        ptr = parsed;
+      }
+
+      variableBindings[field.getRegisteredAs()] =
+          context->toMem(ptr, context->createFalse());
+    }
+
+    // Triggering parent
+    OperatorState state{*this, variableBindings};
+    getParent()->consume(context, state);
+
+    nextEntry(mem_itemCtr, context);
+  });
 }
 
 void BlockToTuples::open(Pipeline *pip) {
   eventlogger.log(this, log_op::BLOCK2TUPLES_OPEN_START);
-
-  execution_conf ec = pip->getExecConfiguration();
-
-  // size_t grid_size  = ec.gridSize();
 
   void **buffs;
 

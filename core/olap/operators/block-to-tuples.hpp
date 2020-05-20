@@ -27,7 +27,7 @@
 #include "operators/operators.hpp"
 #include "util/parallel-context.hpp"
 
-class BlockToTuples : public UnaryOperator {
+class BlockToTuples : public experimental::UnaryOperator {
  public:
   BlockToTuples(Operator *const child, std::vector<expression_t> wantedFields,
                 bool gpu = true, gran_t granularity = gran_t::GRID)
@@ -42,13 +42,12 @@ class BlockToTuples : public UnaryOperator {
                                                        // granularity
   }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual void consume(ParallelContext *const context,
-                       const OperatorState &childState);
-  virtual bool isFiltering() const { return false; }
+  void produce_(ParallelContext *context) override;
+  void consume(ParallelContext *context,
+               const OperatorState &childState) override;
+  [[nodiscard]] bool isFiltering() const override { return false; }
 
-  virtual RecordType getRowType() const {
+  [[nodiscard]] RecordType getRowType() const override {
     std::vector<RecordAttribute *> attrs;
     for (const auto &attr : wantedFields) {
       auto a = attr.getRegisteredAs();
