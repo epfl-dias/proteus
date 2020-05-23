@@ -186,8 +186,11 @@ FileRecord FileRecord::loadEverywhere(const std::string &name, size_t type_size,
 }
 
 void StorageManager::load(std::string name, size_t type_size, data_loc loc) {
-  files.emplace(name, ThreadPool::getInstance().enqueue(FileRecord::load, name,
-                                                        type_size, loc));
+  files.emplace(name,
+                ThreadPool::getInstance().enqueue([=, aff = exec_location{}]() {
+                  set_exec_location_on_scope e{aff};
+                  return FileRecord::load(name, type_size, loc);
+                }));
 }
 
 void StorageManager::loadToGpus(std::string name, size_t type_size) {
@@ -200,9 +203,12 @@ void StorageManager::loadToCpus(std::string name, size_t type_size) {
 
 void StorageManager::loadEverywhere(std::string name, size_t type_size,
                                     int pref_gpu_weight, int pref_cpu_weight) {
-  files.emplace(name, ThreadPool::getInstance().enqueue(
-                          FileRecord::loadEverywhere, name, type_size,
-                          pref_gpu_weight, pref_cpu_weight));
+  files.emplace(name,
+                ThreadPool::getInstance().enqueue([=, aff = exec_location{}]() {
+                  set_exec_location_on_scope e{aff};
+                  return FileRecord::loadEverywhere(
+                      name, type_size, pref_gpu_weight, pref_cpu_weight);
+                }));
 }
 
 void StorageManager::unloadAll() { files.clear(); }
@@ -246,18 +252,21 @@ std::future<std::vector<mem_file>> StorageManager::getOrLoadFile(
 
 FileRequest StorageManager::request(std::string name, size_t type_size,
                                     data_loc loc) {
-  return FileRequest{[=]() { return getOrLoadFile(name, type_size, loc); }};
+  return FileRequest{[=, aff = exec_location{}]() {
+    set_exec_location_on_scope e{aff};
+    return getOrLoadFile(name, type_size, loc);
+  }};
 }
 
 void *StorageManager::getDictionaryOf(std::string name) {
   if (dicts.count(name) == 0) {
     std::ifstream dictfile(name + ".dict");
 
-    std::map<int, std::string> *d = new std::map<int, std::string>;
+    auto *d = new std::map<int, std::string>;
 
     std::string line;
     while (std::getline(dictfile, line)) {
-      size_t index = line.find_last_of(":");
+      size_t index = line.find_last_of(':');
       assert(index != std::string::npos && "Invalid file");
 
       int encoding = std::stoi(line.substr(index + 1, line.size() - 1));

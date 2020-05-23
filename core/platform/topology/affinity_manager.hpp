@@ -138,7 +138,7 @@ class set_device_on_scope {
 
 class set_exec_location_on_scope {
  private:
-  exec_location old;
+  exec_location old{};
 
  public:
   set_exec_location_on_scope(set_exec_location_on_scope &&) = delete;
