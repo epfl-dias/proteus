@@ -57,7 +57,7 @@ class ThreadPool {
  public:
   static ThreadPool &getInstance() {
     // Guaranteed-by-the-standard threadsafe initialization (and destruction)
-    static ThreadPool instance;
+    static ThreadPool instance{true};
     return instance;
   }
 
