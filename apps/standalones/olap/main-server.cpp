@@ -57,7 +57,9 @@ const char *catalogJSON = "inputs";
 
 auto executePlan(const char *label, const char *planPath,
                  const char *catalogJSON) {
-  return PreparedStatement::from(planPath, label, catalogJSON).execute();
+  auto prepared = PreparedStatement::from(planPath, label, catalogJSON);
+  for (size_t i = 1; i < FLAGS_repeat; ++i) prepared.execute();
+  return prepared.execute();
 }
 
 auto executePlan(const char *label, const char *planPath) {

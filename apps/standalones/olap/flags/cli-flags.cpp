@@ -60,7 +60,7 @@ DEFINE_int32(port, 12345,
 DEFINE_string(url, "localhost",
               "Used in conjuction with --secondary to specify the address of "
               "the primary");
-DEFINE_int32(repeat, 5, "# repetitions of default query");
+DEFINE_int32(repeat, 1, "# repetitions of default query");
 DEFINE_bool(print_generated_code, false,
             "Print generated code into files (use only for debugging as it "
             "will slow down excecution significnatly)");
