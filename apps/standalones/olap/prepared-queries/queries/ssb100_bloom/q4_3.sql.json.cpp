@@ -139,10 +139,10 @@ PreparedStatement Query::prepare43(bool memmv, size_t bloomSize) {
                              // 4, 5, 12, 13]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .router(8, RoutingPolicy::LOCAL, DeviceType::CPU)
-          .unpack()
-          .bloomfilter_probe([&](const auto &arg) { return arg["lo_suppkey"]; },
-                             bloomSize, 1)
-          .pack()
+          //          .unpack()
+          .bloomfilter_repack(
+              [&](const auto &arg) { return arg["lo_suppkey"]; }, bloomSize, 1)
+          //          .pack()
           .router(8, RoutingPolicy::LOCAL, dev);
 
   if (memmv) rel = rel.memmove(8, dev);

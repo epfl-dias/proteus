@@ -95,10 +95,10 @@ PreparedStatement Query::prepare23(bool memmv, size_t bloomSize) {
               {"lo_partkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},
               getCatalog())
           .router(8, RoutingPolicy::LOCAL, DeviceType::CPU)
-          .unpack()
-          .bloomfilter_probe([&](const auto &arg) { return arg["lo_partkey"]; },
-                             bloomSize, 6)
-          .pack()
+          //          .unpack()
+          .bloomfilter_repack(
+              [&](const auto &arg) { return arg["lo_partkey"]; }, bloomSize, 6)
+          //          .pack()
           .router(8, RoutingPolicy::LOCAL, dev);
 
   if (memmv) rel = rel.memmove(8, dev);

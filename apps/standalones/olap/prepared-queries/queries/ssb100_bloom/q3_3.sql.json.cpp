@@ -101,10 +101,10 @@ PreparedStatement Query::prepare33(bool memmv, size_t bloomSize) {
                 {"lo_custkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},
                 getCatalog(), pg{"block"})
           .router(8, RoutingPolicy::LOCAL, DeviceType::CPU)
-          .unpack()
-          .bloomfilter_probe([&](const auto &arg) { return arg["lo_suppkey"]; },
-                             bloomSize, 1)
-          .pack()
+          //          .unpack()
+          .bloomfilter_repack(
+              [&](const auto &arg) { return arg["lo_suppkey"]; }, bloomSize, 1)
+          //          .pack()
           .router(8, RoutingPolicy::LOCAL, dev);
 
   if (memmv) rel = rel.memmove(8, dev);

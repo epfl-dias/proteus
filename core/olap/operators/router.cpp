@@ -362,9 +362,18 @@ void Router::consume(ParallelContext *const context,
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     ProteusValueMemory mem_valWrapper = childState[*(wantedFields[i])];
+    auto v = Builder->CreateLoad(mem_valWrapper.mem);
 
-    params = Builder->CreateInsertValue(
-        params, Builder->CreateLoad(mem_valWrapper.mem), i);
+    auto vi =
+        (v->getType()->isPointerTy() &&
+         v->getType()->getPointerElementType()->isArrayTy() &&
+         v->getType()->getPointerElementType()->getArrayElementType() ==
+             params_type->getStructElementType(i)->getPointerElementType())
+            ? Builder->CreateInBoundsGEP(
+                  v, {context->createInt32(0), context->createInt32(0)})
+            : v;
+
+    params = Builder->CreateInsertValue(params, vi, i);
   }
 
   BasicBlock *tryBB = BasicBlock::Create(llvmContext, "tryAcq", F);

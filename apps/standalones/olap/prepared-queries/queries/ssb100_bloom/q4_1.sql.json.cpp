@@ -32,6 +32,7 @@ auto aff_parallel_cpu = []() -> std::unique_ptr<Affinitizer> {
 };
 
 PreparedStatement Query::prepare41(bool memmv, size_t bloomSize) {
+  size_t sf = 1;
   auto rel51013 =
       getBuilder<Tplugin>()
           .scan<Tplugin>(
@@ -145,13 +146,26 @@ PreparedStatement Query::prepare41(bool memmv, size_t bloomSize) {
                              // 4, 5, 12, 13]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .router(8, RoutingPolicy::LOCAL, DeviceType::CPU)
-          .unpack()
-          .bloomfilter_probe([&](const auto &arg) { return arg["lo_suppkey"]; },
-                             bloomSize, 2)
-          .pack()
-          .router(16, RoutingPolicy::LOCAL, dev);
+          .bloomfilter_repack(
+              [&](const auto &arg) { return arg["lo_suppkey"]; }, bloomSize, 2)
+          //                    .unpack()
+          //                    .bloomfilter_probe([&](const auto &arg) { return
+          //                    arg["lo_suppkey"]; },
+          //                                       bloomSize, 2)
+          //                    .pack([&](const auto& arg) ->
+          //                    std::vector<expression_t> {
+          //                      std::vector<expression_t> attrs;
+          //                      for (const auto& attr : arg.getProjections())
+          //                      {
+          //                        attrs.emplace_back(arg[attr]);
+          //                      }
+          //                      return
+          //                      {expressions::RecordConstruction{attrs}.as("t","pack")};
+          //                    }, [](const auto& arg) { return expression_t{0};
+          //                    }, 1)
+          .router(1024, RoutingPolicy::LOCAL, dev);
 
-  if (memmv) rel = rel.memmove(8, dev);
+  if (memmv) rel = rel.memmove(1024, dev);
 
   rel =
       rel.to_gpu()   // (trait=[Pelago.[].packed.NVPTX.homRandom.hetSingle])
@@ -165,13 +179,14 @@ PreparedStatement Query::prepare41(bool memmv, size_t bloomSize) {
                 return probe_arg["lo_custkey"];
               },
               21,
-              1048576)  // (condition=[=($2, $0)], joinType=[inner],
-                        // rowcnt=[6.144E8], maxrow=[3000000.0],
-                        // maxEst=[3000000.0], h_bits=[28],
-                        // build=[RecordType(INTEGER c_custkey, VARCHAR
-                        // c_nation)], lcount=[2.571792865733552E10],
-                        // rcount=[6.1443906048E10], buildcountrow=[6.144E8],
-                        // probecountrow=[6.1443906048E10])
+              1048576 *
+                  sf)  // (condition=[=($2, $0)], joinType=[inner],
+                       // rowcnt=[6.144E8], maxrow=[3000000.0],
+                       // maxEst=[3000000.0], h_bits=[28],
+                       // build=[RecordType(INTEGER c_custkey, VARCHAR
+                       // c_nation)], lcount=[2.571792865733552E10],
+                       // rcount=[6.1443906048E10], buildcountrow=[6.144E8],
+                       // probecountrow=[6.1443906048E10])
           .join(
               rel51018,
               [&](const auto &build_arg) -> expression_t {
@@ -181,13 +196,14 @@ PreparedStatement Query::prepare41(bool memmv, size_t bloomSize) {
                 return probe_arg["lo_partkey"];
               },
               21,
-              1048576)  // (condition=[=($1, $0)], joinType=[inner],
-                        // rowcnt=[5.7344E8], maxrow=[1400000.0],
-                        // maxEst=[1400000.0], h_bits=[28],
-                        // build=[RecordType(INTEGER p_partkey)],
-                        // lcount=[1.1564658448644136E10],
-                        // rcount=[1.22887812096E10], buildcountrow=[5.7344E8],
-                        // probecountrow=[1.22887812096E10])
+              1048576 *
+                  sf)  // (condition=[=($1, $0)], joinType=[inner],
+                       // rowcnt=[5.7344E8], maxrow=[1400000.0],
+                       // maxEst=[1400000.0], h_bits=[28],
+                       // build=[RecordType(INTEGER p_partkey)],
+                       // lcount=[1.1564658448644136E10],
+                       // rcount=[1.22887812096E10], buildcountrow=[5.7344E8],
+                       // probecountrow=[1.22887812096E10])
           .join(
               rel51028,
               [&](const auto &build_arg) -> expression_t {
@@ -196,14 +212,14 @@ PreparedStatement Query::prepare41(bool memmv, size_t bloomSize) {
               [&](const auto &probe_arg) -> expression_t {
                 return probe_arg["lo_suppkey"];
               },
-              12,
-              65536)  // (condition=[=($3, $0)], joinType=[inner],
-                      // rowcnt=[4.096E7], maxrow=[200000.0],
-                      // maxEst=[200000.0], h_bits=[28],
-                      // build=[RecordType(INTEGER s_suppkey)],
-                      // lcount=[7.179512438249687E8],
-                      // rcount=[3.0721953024E11], buildcountrow=[4.096E7],
-                      // probecountrow=[3.0721953024E11])
+              17,
+              65536 * sf)  // (condition=[=($3, $0)], joinType=[inner],
+                           // rowcnt=[4.096E7], maxrow=[200000.0],
+                           // maxEst=[200000.0], h_bits=[28],
+                           // build=[RecordType(INTEGER s_suppkey)],
+                           // lcount=[7.179512438249687E8],
+                           // rcount=[3.0721953024E11], buildcountrow=[4.096E7],
+                           // probecountrow=[3.0721953024E11])
           .join(
               rel51013,
               [&](const auto &build_arg) -> expression_t {
@@ -225,19 +241,19 @@ PreparedStatement Query::prepare41(bool memmv, size_t bloomSize) {
                         arg["c_nation"].as("PelagoAggregate#51041", "$1")};
               },
               [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
-                return {
-                    GpuAggrMatExpr{(arg["lo_revenue"] - arg["lo_supplycost"])
-                                       .as("PelagoAggregate#51041", "$2"),
-                                   1, 0, SUM}};
+                return {GpuAggrMatExpr{
+                    ((arg["lo_revenue"] - arg["lo_supplycost"]) * 0 + 1)
+                        .as("PelagoAggregate#51041", "$2"),
+                    1, 0, SUM}};
               },
               10,
-              131072)  // (group=[{0, 1}], profit=[SUM($2)],
-                       // trait=[Pelago.[].unpckd.NVPTX.homRandom.hetSingle])
-          .pack()      // (trait=[Pelago.[].packed.NVPTX.homRandom.hetSingle],
-                       // intrait=[Pelago.[].unpckd.NVPTX.homRandom.hetSingle],
-                       // inputRows=[4.91551248384E8], cost=[{563.3628 rows,
-                       // 562.8000000000001 cpu, 0.0 io}])
-          .to_cpu()    // (trait=[Pelago.[].packed.X86_64.homRandom.hetSingle])
+              16 * 1024)  // (group=[{0, 1}], profit=[SUM($2)],
+                          // trait=[Pelago.[].unpckd.NVPTX.homRandom.hetSingle])
+          .pack()    // (trait=[Pelago.[].packed.NVPTX.homRandom.hetSingle],
+                     // intrait=[Pelago.[].unpckd.NVPTX.homRandom.hetSingle],
+                     // inputRows=[4.91551248384E8], cost=[{563.3628 rows,
+                     // 562.8000000000001 cpu, 0.0 io}])
+          .to_cpu()  // (trait=[Pelago.[].packed.X86_64.homRandom.hetSingle])
           .router(
               DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
               DeviceType::CPU,
@@ -246,12 +262,12 @@ PreparedStatement Query::prepare41(bool memmv, size_t bloomSize) {
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homSingle.hetSingle])
           .groupby(
               [&](const auto &arg) -> std::vector<expression_t> {
-                return {arg["$0"].as("PelagoAggregate#51047", "d_year"),
-                        arg["$1"].as("PelagoAggregate#51047", "c_nation")};
+                return {arg["$0"].as("PelagoAggregate#51047b", "d_year"),
+                        arg["$1"].as("PelagoAggregate#51047b", "c_nation")};
               },
               [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
                 return {GpuAggrMatExpr{
-                    (arg["$2"]).as("PelagoAggregate#51047", "profit"), 1, 0,
+                    (arg["$2"]).as("PelagoAggregate#51047b", "profit"), 1, 0,
                     SUM}};
               },
               6,
@@ -302,5 +318,56 @@ PreparedStatement Query::prepare41_b(bool memmv, size_t bloomSize) {
             return {arg["cnt"]};
           });
 
+  return rel.prepare();
+}
+
+PreparedStatement Query::prepare41_c(bool memmv, size_t bloomSize) {
+  auto rel =
+      getBuilder<Tplugin>()
+          .scan<Tplugin>("inputs/ssbm100/lineorder.csv",
+                         {"lo_custkey", "lo_partkey", "lo_suppkey",
+                          "lo_orderdate", "lo_revenue", "lo_supplycost"},
+                         //              {"lo_custkey", "lo_partkey",
+                         //              "lo_suppkey", "lo_orderdate"},
+                         getCatalog())  // (table=[[SSB, ssbm_lineorder]],
+                                        // fields=[[2, 3, 4, 5, 12, 13]],
+          // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
+          .router(16, RoutingPolicy::LOCAL, DeviceType::CPU)
+          .unpack()
+          .bloomfilter_probe([&](const auto &arg) { return arg["lo_suppkey"]; },
+                             bloomSize, 2)
+          //          .pack(
+          //                [&](const auto& arg) -> std::vector<expression_t> {
+          //                  std::vector<expression_t> attrs;
+          //                  for (const auto& attr : arg.getProjections()) {
+          //                    attrs.emplace_back(arg[attr]);
+          //                  }
+          //                  return
+          //                  {expressions::RecordConstruction{attrs}.as("inputs/ssbm100/lineorder.csv",
+          //                  "pack")};
+          //                },
+          //                [](const auto& arg) { return expression_t{0}; }, 1
+          //          )
+          .pack(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                std::vector<expression_t> attrs;
+                for (const auto &attr : arg.getProjections()) {
+                  attrs.emplace_back(arg[attr]);
+                }
+                return {expressions::RecordConstruction{attrs}.as("t", "pack")};
+              },
+              [](const auto &arg) { return expression_t{0}; }, 1)
+          .router(
+              DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
+              DeviceType::CPU,
+              aff_reduce())  // (trait=[Pelago.[].packed.X86_64.homSingle.hetSingle])
+          .reduce(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {expression_t{1}.as("tmp", "cnt")};
+              },
+              {SUM})
+          .print(pg{"pm-csv"})  // (trait=[ENUMERABLE.[2, 3
+                                // DESC].unpckd.X86_64.homSingle.hetSingle])
+      ;
   return rel.prepare();
 }

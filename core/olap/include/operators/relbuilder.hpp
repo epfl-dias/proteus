@@ -247,6 +247,17 @@ class RelBuilder {
     });
   }
 
+  [[nodiscard]] RelBuilder bloomfilter_repack(
+      std::function<expression_t(expressions::InputArgument)> pred,
+      size_t filterSize, uint64_t bloomId) {
+    auto arg = getOutputArg();
+    std::vector<expression_t> attrs;
+    for (const auto& attr : arg.getProjections()) {
+      attrs.emplace_back(arg[attr]);
+    }
+    return bloomfilter_repack(pred(arg), attrs, filterSize, bloomId);
+  }
+
   template <typename T>
   RelBuilder filter(T pred) const {
     return filter(pred(getOutputArg()));
@@ -378,6 +389,10 @@ class RelBuilder {
                                uint64_t bloomId) const;
   RelBuilder bloomfilter_build(expression_t pred, size_t filterSize,
                                uint64_t bloomId) const;
+
+  RelBuilder bloomfilter_repack(expression_t pred,
+                                std::vector<expression_t> attr,
+                                size_t filterSize, uint64_t bloomId) const;
 
   RelBuilder project(const vector<expression_t>& e) const;
 

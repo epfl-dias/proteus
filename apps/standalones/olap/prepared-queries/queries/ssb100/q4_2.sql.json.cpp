@@ -155,14 +155,22 @@ PreparedStatement Query::prepare42(bool memmv) {
               [&](const auto &probe_arg) -> expression_t {
                 return probe_arg["lo_suppkey"];
               },
-              17,
-              65536)  // (condition=[=($4, $0)], joinType=[inner],
-                      // rowcnt=[4.096E7], maxrow=[200000.0],
-                      // maxEst=[200000.0], h_bits=[28],
-                      // build=[RecordType(INTEGER s_suppkey, VARCHAR
-                      // s_nation)], lcount=[1.4926851046814082E9],
-                      // rcount=[3.0721953024E11], buildcountrow=[4.096E7],
-                      // probecountrow=[3.0721953024E11])
+              17, 65536)
+          .join(
+              rel57935,
+              [&](const auto &build_arg) -> expression_t {
+                return build_arg["$0"];
+              },
+              [&](const auto &probe_arg) -> expression_t {
+                return probe_arg["lo_orderdate"];
+              },
+              11,
+              1024)  // (condition=[=($3, $0)], joinType=[inner],
+                     // rowcnt=[785203.2], maxrow=[2556.0], maxEst=[2556.0],
+                     // h_bits=[22], build=[RecordType(INTEGER d_datekey,
+                     // INTEGER d_year)], lcount=[2.2404744691616405E7],
+                     // rcount=[1.22887812096E10], buildcountrow=[785203.2],
+                     // probecountrow=[1.22887812096E10])
           .join(
               rel57940,
               [&](const auto &build_arg) -> expression_t {
@@ -179,21 +187,6 @@ PreparedStatement Query::prepare42(bool memmv) {
                         // lcount=[1.2433094700931728E10],
                         // rcount=[6.1443906048E10], buildcountrow=[6.144E8],
                         // probecountrow=[6.1443906048E10])
-          .join(
-              rel57935,
-              [&](const auto &build_arg) -> expression_t {
-                return build_arg["$0"];
-              },
-              [&](const auto &probe_arg) -> expression_t {
-                return probe_arg["lo_orderdate"];
-              },
-              11,
-              1024)  // (condition=[=($3, $0)], joinType=[inner],
-                     // rowcnt=[785203.2], maxrow=[2556.0], maxEst=[2556.0],
-                     // h_bits=[22], build=[RecordType(INTEGER d_datekey,
-                     // INTEGER d_year)], lcount=[2.2404744691616405E7],
-                     // rcount=[1.22887812096E10], buildcountrow=[785203.2],
-                     // probecountrow=[1.22887812096E10])
           .join(
               rel57931,
               [&](const auto &build_arg) -> expression_t {

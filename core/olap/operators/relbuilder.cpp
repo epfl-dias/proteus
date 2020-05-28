@@ -28,6 +28,7 @@
 #include <iomanip>
 #include <operators/bloom-filter/bloom-filter-build.hpp>
 #include <operators/bloom-filter/bloom-filter-probe.hpp>
+#include <operators/bloom-filter/bloom-filter-repack.hpp>
 #include <util/flush-operator-tree.hpp>
 
 #include "hash-join-chained-morsel.hpp"
@@ -681,6 +682,15 @@ RelBuilder RelBuilder::bloomfilter_probe(expression_t pred, size_t filterSize,
 RelBuilder RelBuilder::bloomfilter_build(expression_t pred, size_t filterSize,
                                          uint64_t bloomId) const {
   auto op = new BloomFilterBuild(root, std::move(pred), filterSize, bloomId);
+  return apply(op);
+}
+
+RelBuilder RelBuilder::bloomfilter_repack(expression_t pred,
+                                          std::vector<expression_t> attr,
+                                          size_t filterSize,
+                                          uint64_t bloomId) const {
+  auto op = new BloomFilterRepack(root, std::move(pred), std::move(attr),
+                                  filterSize, bloomId);
   return apply(op);
 }
 

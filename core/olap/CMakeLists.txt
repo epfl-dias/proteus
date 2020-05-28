@@ -20,6 +20,7 @@ set(olap_cxx
         operators/bloom-filter/bloom-filter.cpp
         operators/bloom-filter/bloom-filter-build.cpp
         operators/bloom-filter/bloom-filter-probe.cpp
+        operators/bloom-filter/bloom-filter-repack.cpp
         operators/gpu/gmonoids.cpp
         operators/gpu/gpu-hash-group-by-chained.cpp
         operators/gpu/gpu-hash-join-chained.cpp

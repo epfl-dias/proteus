@@ -62,6 +62,7 @@ class Query {
   PreparedStatement prepare34_b(bool memmv, size_t bloomSize);
   PreparedStatement prepare41(bool memmv, size_t bloomSize);
   PreparedStatement prepare41_b(bool memmv, size_t bloomSize);
+  PreparedStatement prepare41_c(bool memmv, size_t bloomSize);
   PreparedStatement prepare42(bool memmv, size_t bloomSize);
   PreparedStatement prepare42_b(bool memmv, size_t bloomSize);
   PreparedStatement prepare43(bool memmv, size_t bloomSize);

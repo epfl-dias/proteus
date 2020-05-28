@@ -73,12 +73,6 @@ PreparedStatement Query::prepare13(bool memmv) {
   rel =
       rel.to_gpu()   // (trait=[Pelago.[].packed.NVPTX.homRandom.hetSingle])
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homRandom.hetSingle])
-          .filter([&](const auto &arg) -> expression_t {
-            return (ge(arg["$3"], 5) & le(arg["$3"], 7) & ge(arg["$1"], 26) &
-                    le(arg["$1"], 35));
-          })  // (condition=[AND(>=($3, 5), <=($3, 7), >=($1, 26), <=($1, 35))],
-              // trait=[Pelago.[].unpckd.NVPTX.homRandom.hetSingle],
-              // isS=[false])
           .join(
               rel6631,
               [&](const auto &build_arg) -> expression_t {
@@ -93,6 +87,12 @@ PreparedStatement Query::prepare13(bool memmv) {
                    // h_bits=[18], build=[RecordType(INTEGER d_datekey)],
                    // lcount=[646816.8670798924], rcount=[1.920122064E10],
                    // buildcountrow=[58890.24], probecountrow=[1.920122064E10])
+          .filter([&](const auto &arg) -> expression_t {
+            return (ge(arg["lo_discount"], 5) & le(arg["lo_discount"], 7) &
+                    ge(arg["lo_quantity"], 26) & le(arg["lo_quantity"], 35));
+          })  // (condition=[AND(>=($3, 5), <=($3, 7), >=($1, 26), <=($1, 35))],
+              // trait=[Pelago.[].unpckd.NVPTX.homRandom.hetSingle],
+              // isS=[false])
           .project([&](const auto &arg) -> std::vector<expression_t> {
             return {(arg["lo_extendedprice"] * arg["lo_discount"])
                         .as("PelagoProject#6638", "$0")};

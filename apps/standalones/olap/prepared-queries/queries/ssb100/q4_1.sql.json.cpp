@@ -210,10 +210,10 @@ PreparedStatement Query::prepare41(bool memmv) {
                         arg["c_nation"].as("PelagoAggregate#51041", "$1")};
               },
               [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
-                return {
-                    GpuAggrMatExpr{(arg["lo_revenue"] - arg["lo_supplycost"])
-                                       .as("PelagoAggregate#51041", "$2"),
-                                   1, 0, SUM}};
+                return {GpuAggrMatExpr{
+                    ((arg["lo_revenue"] - arg["lo_supplycost"]) * 0 + 1)
+                        .as("PelagoAggregate#51041", "$2"),
+                    1, 0, SUM}};
               },
               10,
               131072)  // (group=[{0, 1}], profit=[SUM($2)],
@@ -243,21 +243,15 @@ PreparedStatement Query::prepare41(bool memmv) {
                        // trait=[Pelago.[].unpckd.NVPTX.homSingle.hetSingle])
           .sort(
               [&](const auto &arg) -> std::vector<expression_t> {
-                return {arg["$0"], arg["$1"], arg["$2"]};
+                return {arg["$0"].as("tmp", "d_year"),
+                        arg["$1"].as("tmp", "c_nation"),
+                        arg["$2"].as("tmp", "profit")};
               },
               {direction::ASC, direction::ASC,
                direction::NONE})  // (sort0=[$0], sort1=[$1], dir0=[ASC],
                                   // dir1=[ASC], trait=[Pelago.[0,
                                   // 1].unpckd.X86_64.homSingle.hetSingle])
-          .print(
-              [&](const auto &arg,
-                  std::string outrel) -> std::vector<expression_t> {
-                return {arg["$0"].as(outrel, "d_year"),
-                        arg["$1"].as(outrel, "c_nation"),
-                        arg["$2"].as(outrel, "profit")};
-              },
-              std::string{query} +
-                  (memmv ? "mv" : "nmv"))  // (trait=[ENUMERABLE.[2, 3
+          .print(pg{"pm-csv"})    // (trait=[ENUMERABLE.[2, 3
       // DESC].unpckd.X86_64.homSingle.hetSingle])
       ;
   return rel.prepare();

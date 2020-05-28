@@ -26,6 +26,95 @@
 constexpr auto query = "ssb100_Q2_3";
 
 #include "query.cpp.inc"
+class DanglingAttr;
+
+class RelWithAttributes;
+
+class rel {
+ private:
+  std::string relName;
+
+ public:
+  explicit rel(std::string relName) : relName(std::move(relName)) {}
+
+  RelWithAttributes operator()(std::initializer_list<DanglingAttr>);
+  template <typename... T>
+  RelWithAttributes operator()(T... x);
+
+  operator std::string() const { return relName; }
+};
+
+class DanglingAttr {
+ private:
+  std::string attrName;
+  ExpressionType *type;
+
+ protected:
+  explicit DanglingAttr(std::string attrName, ExpressionType *type)
+      : attrName(std::move(attrName)), type(type) {}
+
+  friend DanglingAttr attr(std::string attrName, ExpressionType *type);
+
+ public:
+  operator std::string() const { return attrName; }
+
+  auto getName() const { return attrName; }
+  auto getType() const { return type; }
+};
+
+DanglingAttr attr(std::string attrName, ExpressionType *type) {
+  return DanglingAttr(std::move(attrName), type);
+}
+
+DanglingAttr Int(std::string attrName) {
+  return attr(std::move(attrName), new IntType());
+}
+
+DanglingAttr Float(std::string attrName) {
+  return attr(std::move(attrName), new FloatType());
+}
+
+DanglingAttr String(std::string attrName) {
+  return attr(std::move(attrName), new StringType());
+}
+
+class RelWithAttributes {
+ private:
+  rel r;
+  std::vector<DanglingAttr> attrs;
+
+ private:
+  RelWithAttributes(rel relName, decltype(attrs) attrs)
+      : r(std::move(relName)), attrs(std::move(attrs)) {}
+
+  friend class rel;
+
+ public:
+  operator RecordType() const {
+    std::vector<RecordAttribute *> recattrs;
+    recattrs.reserve(attrs.size());
+    for (const auto &da : attrs) {
+      LOG(INFO) << recattrs.size() << ((std::string)r) << da.getName()
+                << *(da.getType());
+      recattrs.emplace_back(new RecordAttribute(recattrs.size() + 1, r,
+                                                da.getName(), da.getType()));
+    }
+    return {recattrs};
+  }
+};
+
+RelWithAttributes rel::operator()(std::initializer_list<DanglingAttr> attrs) {
+  return {*this, attrs};
+}
+
+template <typename... T>
+RelWithAttributes rel::operator()(T... x) {
+  return (*this)({x...});
+}
+
+auto lineorder2 =
+    rel("inputs/ssbm100/lineorder.csv")(Int("lo_partkey"), Int("lo_suppkey"),
+                                        Int("lo_orderdate"), Int("lo_revenue"));
 
 PreparedStatement Query::prepare23(bool memmv) {
   auto rel23990 =
@@ -92,12 +181,13 @@ PreparedStatement Query::prepare23(bool memmv) {
       ;
   auto rel =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
-              "inputs/ssbm100/lineorder.csv",
+          .scan(
+              lineorder2,
+              //              "inputs/ssbm100/lineorder.csv",
               {"lo_partkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},
-              getCatalog())  // (table=[[SSB, ssbm_lineorder]], fields=[[3, 4,
-                             // 5, 12]],
-                             // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
+              "block")  // (table=[[SSB, ssbm_lineorder]], fields=[[3, 4,
+                        // 5, 12]],
+                        // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .router(
               dop, 8, RoutingPolicy::LOCAL, dev,
               aff_parallel())  // (trait=[Pelago.[].packed.X86_64.homRandom.hetSingle])
