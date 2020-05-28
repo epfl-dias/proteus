@@ -243,6 +243,11 @@ void PipelineGen::init() {
   InitializeAllAsmPrinters();
   InitializeAllAsmParsers();
 
+  LLVMInitializeNVPTXTarget();
+  LLVMInitializeNVPTXTargetInfo();
+  LLVMInitializeNVPTXTargetMC();
+  LLVMInitializeNVPTXAsmPrinter();
+
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
   initializeCoroutines(Registry);
