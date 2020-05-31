@@ -2,6 +2,9 @@ project(codegen VERSION 0.1 LANGUAGES CXX)
 
 find_package(NUMA REQUIRED)
 find_package(RDMA REQUIRED)
+message(STATUS "RDMA root: ${RDMA_ROOT}")
+message(STATUS "RDMA lib: ${RDMA_LIBRARIES}")
+message(STATUS "RDMA include: ${RDMA_INCLUDE_DIRS}")
 
 # Pure, regular C++ files
 set(codegen_cxx
