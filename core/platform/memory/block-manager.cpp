@@ -29,13 +29,23 @@ size_t *buffer_manager<int32_t>::h_size;
 template <>
 void **buffer_manager<int32_t>::h_h_buff_start;
 
+template <>
+void **buffer_manager<int32_t>::h_buff_start;
+
+template <>
+void **buffer_manager<int32_t>::h_buff_end;
+
 void BlockManager::reg(MemoryRegistry &registry) {
   for (const auto &cpu : topology::getInstance().getCpuNumaNodes()) {
     size_t bytes = block_size * h_size[cpu.id];
     registry.reg(h_h_buff_start[cpu.id], bytes);
   }
 
-  // TODO: also register GPU memory
+  for (const auto &gpu : topology::getInstance().getGpus()) {
+    size_t bytes =
+        ((char *)h_buff_end[gpu.id]) - ((char *)h_buff_start[gpu.id]);
+    registry.reg(h_buff_start[gpu.id], bytes);
+  }
 }
 
 void BlockManager::unreg(MemoryRegistry &registry) {
@@ -43,5 +53,7 @@ void BlockManager::unreg(MemoryRegistry &registry) {
     registry.unreg(BlockManager::h_h_buff_start[cpu.id]);
   }
 
-  // TODO: also unregister GPU memory
+  for (const auto &gpu : topology::getInstance().getGpus()) {
+    registry.unreg(h_buff_start[gpu.id]);
+  }
 }
