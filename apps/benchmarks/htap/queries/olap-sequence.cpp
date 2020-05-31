@@ -25,9 +25,9 @@
 
 #include <aeolus-plugin.hpp>
 #include <numeric>
-#include <routing/affinitization-factory.hpp>
-#include <routing/affinitizers.hpp>
-#include <routing/degree-of-parallelism.hpp>
+#include <olap/routing/affinitization-factory.hpp>
+#include <olap/routing/affinitizers.hpp>
+#include <olap/routing/degree-of-parallelism.hpp>
 #include <topology/affinity_manager.hpp>
 #include <topology/topology.hpp>
 #include <type_traits>

@@ -25,7 +25,7 @@
 // test logic needs is declared.
 //
 // Don't forget gtest.h, which declares the testing framework.
-#include <operators/relbuilder-factory.hpp>
+#include <olap/operators/relbuilder-factory.hpp>
 
 #include "gtest/gtest.h"
 #include "storage/storage-manager.hpp"

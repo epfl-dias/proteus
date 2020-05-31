@@ -24,7 +24,7 @@
 #ifndef HARMONIA_PREPARED_QUERY_HPP_
 #define HARMONIA_PREPARED_QUERY_HPP_
 
-#include "plan/prepared-statement.hpp"
+#include "olap/plan/prepared-statement.hpp"
 
 // std::vector<std::string relName, std::vector<std::string> relAttrs>
 typedef std::vector<std::pair<std::string, std::vector<std::string>>>

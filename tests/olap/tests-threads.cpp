@@ -68,11 +68,11 @@
 #include "common/common.hpp"
 #include "common/gpu/gpu-common.hpp"
 #include "memory/memory-manager.hpp"
+#include "olap/util/parallel-context.hpp"
 #include "storage/storage-manager.hpp"
 #include "test-utils.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
-#include "util/parallel-context.hpp"
 
 using namespace llvm;
 

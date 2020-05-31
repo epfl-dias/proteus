@@ -24,7 +24,7 @@
 #ifndef PROTEUS_SSB1000_QUERY_HPP
 #define PROTEUS_SSB1000_QUERY_HPP
 
-#include <plan/prepared-statement.hpp>
+#include <olap/plan/prepared-statement.hpp>
 
 namespace ssb1000 {
 class Query {

@@ -23,9 +23,9 @@
 
 #include "test-utils.hpp"
 
-#include "common/olap-common.hpp"
 #include "memory/memory-manager.hpp"
-#include "plan/prepared-statement.hpp"
+#include "olap/common/olap-common.hpp"
+#include "olap/plan/prepared-statement.hpp"
 #include "rapidjson/error/en.h"
 #include "rapidjson/stringbuffer.h"
 #include "storage/storage-manager.hpp"

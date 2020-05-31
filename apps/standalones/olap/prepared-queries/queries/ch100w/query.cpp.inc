@@ -23,10 +23,10 @@
 
 #include <aeolus-plugin.hpp>
 #include <ch100w/query.hpp>
-#include <plan/catalog-parser.hpp>
-#include <plugins/binary-block-plugin.hpp>
-#include <routing/degree-of-parallelism.hpp>
-#include <operators/relbuilder-factory.hpp>
+#include <olap/plan/catalog-parser.hpp>
+#include <olap/plugins/binary-block-plugin.hpp>
+#include <olap/routing/degree-of-parallelism.hpp>
+#include <olap/operators/relbuilder-factory.hpp>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wheader-hygiene"

@@ -27,7 +27,7 @@
 // test logic needs is declared.
 //
 // Don't forget gtest.h, which declares the testing framework.
-#include <common/olap-common.hpp>
+#include <olap/common/olap-common.hpp>
 
 #include "gtest/gtest.h"
 

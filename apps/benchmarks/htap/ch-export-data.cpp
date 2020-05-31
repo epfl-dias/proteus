@@ -37,7 +37,7 @@
 
 // OLAP
 #include <cli-flags.hpp>
-#include <common/olap-common.hpp>
+#include <olap/common/olap-common.hpp>
 
 #include "memory/memory-manager.hpp"
 #include "queries/olap-sequence.hpp"

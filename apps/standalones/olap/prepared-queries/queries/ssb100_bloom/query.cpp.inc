@@ -21,12 +21,11 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <plan/catalog-parser.hpp>
-#include <plugins/binary-block-plugin.hpp>
-#include <routing/degree-of-parallelism.hpp>
-
+#include <olap/operators/relbuilder-factory.hpp>
+#include <olap/plan/catalog-parser.hpp>
+#include <olap/plugins/binary-block-plugin.hpp>
+#include <olap/routing/degree-of-parallelism.hpp>
 #include <ssb100_bloom/query.hpp>
-#include <operators/relbuilder-factory.hpp>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wheader-hygiene"

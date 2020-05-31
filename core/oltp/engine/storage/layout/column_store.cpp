@@ -27,6 +27,7 @@
 #include <cmath>
 #include <cstring>
 #include <iostream>
+#include <olap/values/expressionTypes.hpp>
 #include <string>
 
 #include "glo.hpp"
@@ -36,7 +37,6 @@
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 #include "util/timing.hpp"
-#include "values/expressionTypes.hpp"
 
 #define HTAP_UPD_BIT_ON_INSERT false
 

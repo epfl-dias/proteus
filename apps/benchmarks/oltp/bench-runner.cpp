@@ -26,7 +26,6 @@
 
 #include <bitset>
 #include <cli-flags.hpp>
-#include <common/olap-common.hpp>
 #include <functional>
 #include <iostream>
 #include <limits>

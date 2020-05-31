@@ -24,7 +24,7 @@
 #ifndef HARMONIA_QUERIES_CH_QSTOCK_HPP_
 #define HARMONIA_QUERIES_CH_QSTOCK_HPP_
 
-#include <operators/relbuilder-factory.hpp>
+#include <olap/operators/relbuilder-factory.hpp>
 
 #include "ch-queries.hpp"
 #include "queries/query-interface.hpp"

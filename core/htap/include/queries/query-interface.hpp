@@ -25,14 +25,14 @@
 #define HARMONIA_QUERIES_HPP_
 
 #include <functional>
-#include <operators/relbuilder-factory.hpp>
+#include <olap/operators/relbuilder-factory.hpp>
 #include <string>
 
 #include "aeolus-plugin.hpp"
-#include "plan/prepared-statement.hpp"
+#include "olap/plan/prepared-statement.hpp"
+#include "olap/routing/affinitizers.hpp"
+#include "olap/routing/degree-of-parallelism.hpp"
 #include "prepared-query.hpp"
-#include "routing/affinitizers.hpp"
-#include "routing/degree-of-parallelism.hpp"
 
 inline static auto &getCatalog() { return CatalogParser::getInstance(); }
 

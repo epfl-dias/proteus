@@ -23,14 +23,7 @@
 #include <glog/logging.h>
 
 #include <cli-flags.hpp>
-#include <common/olap-common.hpp>
-#include <memory/memory-manager.hpp>
-#include <plugins/binary-block-plugin.hpp>
 #include <ssb100/query.hpp>
-#include <ssb1000/query.hpp>
-#include <storage/storage-manager.hpp>
-#include <topology/topology.hpp>
-#include <util/timing.hpp>
 
 int main(int argc, char *argv[]) {
   auto olap = proteus::from_cli::olap("Prepared query runner", &argc, &argv);

@@ -22,31 +22,26 @@
 */
 
 #include <arpa/inet.h>
-#include <err.h>
 #include <gflags/gflags.h>
-#include <netdb.h>
 #include <rdma/rdma_cma.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 
 #include <network/infiniband/infiniband-manager.hpp>
-#include <operators/relbuilder-factory.hpp>
-#include <plan/catalog-parser.hpp>
+#include <olap/operators/relbuilder-factory.hpp>
+#include <olap/plan/catalog-parser.hpp>
 #include <type_traits>
 
 #include "cli-flags.hpp"
 #include "common/error-handling.hpp"
 #include "memory/block-manager.hpp"
 #include "memory/memory-manager.hpp"
-#include "operators/relbuilder.hpp"
-#include "plan/prepared-statement.hpp"
-#include "plugins/binary-block-plugin.hpp"
+#include "olap/operators/relbuilder.hpp"
+#include "olap/plan/prepared-statement.hpp"
+#include "olap/plugins/binary-block-plugin.hpp"
+#include "olap/util/parallel-context.hpp"
 #include "storage/storage-manager.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 #include "util/logging.hpp"
-#include "util/parallel-context.hpp"
-#include "util/profiling.hpp"
 
 int main(int argc, char *argv[]) {
   auto ctx = proteus::from_cli::olap(

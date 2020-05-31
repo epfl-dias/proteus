@@ -25,7 +25,7 @@
 #define PROTEUS_OLAP_SEQUENCE_HPP
 
 #include <deque>
-#include <plan/prepared-statement.hpp>
+#include <olap/plan/prepared-statement.hpp>
 #include <topology/device-types.hpp>
 #include <topology/topology.hpp>
 #include <vector>

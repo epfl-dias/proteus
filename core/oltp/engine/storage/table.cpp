@@ -28,7 +28,8 @@
 #include <future>
 #include <iostream>
 #include <mutex>
-#include <plan/catalog-parser.hpp>
+#include <olap/plan/catalog-parser.hpp>
+#include <olap/values/expressionTypes.hpp>
 #include <string>
 
 #include "glo.hpp"
@@ -36,7 +37,6 @@
 #include "storage/delta_storage.hpp"
 #include "threadpool/threadpool.hpp"
 #include "util/timing.hpp"
-#include "values/expressionTypes.hpp"
 
 namespace storage {
 

@@ -27,8 +27,8 @@
 #include <string>
 
 #include "aeolus-plugin.hpp"
-#include "operators/relbuilder.hpp"
-#include "plan/catalog-parser.hpp"
+#include "olap/operators/relbuilder.hpp"
+#include "olap/plan/catalog-parser.hpp"
 #include "queries/query-interface.hpp"
 
 using default_plugin_t = AeolusRemotePlugin;

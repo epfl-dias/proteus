@@ -24,7 +24,7 @@
 #ifndef PROTEUS_SSB100_BLOOM_QUERY_HPP
 #define PROTEUS_SSB100_BLOOM_QUERY_HPP
 
-#include <plan/prepared-statement.hpp>
+#include <olap/plan/prepared-statement.hpp>
 
 enum SLAZY {
   BLOOM_CPUFILTER_PROJECT,

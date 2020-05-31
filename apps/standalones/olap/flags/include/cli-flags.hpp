@@ -22,8 +22,8 @@
 */
 #include <gflags/gflags.h>
 
-#include <common/olap-common.hpp>
 #include <memory>
+#include <olap/common/olap-common.hpp>
 
 DECLARE_bool(query_topology);
 DECLARE_bool(trace_allocations);

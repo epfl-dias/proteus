@@ -27,10 +27,10 @@
 #include <exception>
 #include <string>
 
+#include "olap/util/parallel-context.hpp"
 #include "storage/column_store.hpp"
 #include "storage/table.hpp"
 #include "topology/topology.hpp"
-#include "util/parallel-context.hpp"
 
 using namespace llvm;
 

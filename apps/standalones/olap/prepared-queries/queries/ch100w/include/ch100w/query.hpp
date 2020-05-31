@@ -24,7 +24,7 @@
 #ifndef PROTEUS_CH100W_QUERY_HPP
 #define PROTEUS_CH100W_QUERY_HPP
 
-#include <plan/prepared-statement.hpp>
+#include <olap/plan/prepared-statement.hpp>
 
 namespace ch100w {
 class Query {

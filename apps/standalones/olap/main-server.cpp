@@ -23,8 +23,9 @@
 
 #include <cli-flags.hpp>
 #include <iostream>
-#include <plan/prepared-statement.hpp>
+#include <olap/plan/prepared-statement.hpp>
 #include <storage/storage-manager.hpp>
+#include <topology/affinity_manager.hpp>
 #include <topology/topology.hpp>
 #include <util/glog.hpp>
 

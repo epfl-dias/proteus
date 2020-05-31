@@ -24,7 +24,7 @@
 #ifndef AEOLUS_PLUGIN_HPP_
 #define AEOLUS_PLUGIN_HPP_
 
-#include "plugins/binary-block-plugin.hpp"
+#include "olap/plugins/binary-block-plugin.hpp"
 
 class AeolusPlugin : public BinaryBlockPlugin {
  public:

@@ -22,11 +22,11 @@
 */
 #include <gflags/gflags.h>
 
-#include <common/olap-common.hpp>
 #include <iostream>
 #include <memory/memory-manager.hpp>
+#include <olap/common/olap-common.hpp>
+#include <olap/util/context.hpp>
 #include <topology/topology.hpp>
-#include <util/context.hpp>
 #include <util/glog.hpp>
 
 static bool validatePercentage(const char *flagname, double value) {
