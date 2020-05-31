@@ -292,7 +292,9 @@ SingleDeviceMemoryManager<allocator, unit_cap>::create_allocation() {
   }
 
   {
-    time_block t("emplace: ");
+    time_block t([](auto ms) {
+      LOG_IF(INFO, ms.count() > 0) << "Tlong_emplace: " << ms.count();
+    });
     auto &al = allocations.emplace(ptr);
 
     if (trace_allocations) {
