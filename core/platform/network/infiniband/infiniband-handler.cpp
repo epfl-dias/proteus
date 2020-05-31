@@ -206,8 +206,10 @@ static ibv_context *getIBdev(int *dev_cnt) {
   ibv_device **dev_list = linux_run(ibv_get_device_list(dev_cnt));
 
   ibv_device *ib_dev = dev_list[0];
-  LOG(INFO) << ib_dev->dev_path << " " << ib_dev->ibdev_path << " "
-            << ib_dev->name << " " << ib_dev->name;
+  LOG(INFO) << ibv_get_device_name(ib_dev) << " " << std::hex
+            << ibv_get_device_guid(ib_dev) << std::dec << " "
+            << (void *)ib_dev->dev_path << " " << (void *)ib_dev->ibdev_path
+            << " " << (void *)ib_dev->dev_name << " " << (void *)ib_dev->name;
   assert(ib_dev && "No IB devices detected");
 
   auto context = linux_run(ibv_open_device(ib_dev));
@@ -987,10 +989,13 @@ void IBHandler::disconnect() {
 void IBHandler::reg(const void *mem, size_t bytes) {
   LOG(INFO) << "reg: " << mem << "-" << ((void *)(((char *)mem) + bytes));
 
-  ibv_mr *mr =
-      linux_run(ibv_reg_mr(pd, const_cast<void *>(mem), bytes,
-                           IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE |
-                               IBV_ACCESS_REMOTE_READ));
+  ibv_mr *mr = ibv_reg_mr(pd, const_cast<void *>(mem), bytes,
+                          IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE |
+                              IBV_ACCESS_REMOTE_READ);
+  if (!mr) {
+    mr = linux_run(
+        ibv_reg_mr(pd, const_cast<void *>(mem), bytes, IBV_ACCESS_REMOTE_READ));
+  }
   assert(mr->addr == mem);
 
   {
