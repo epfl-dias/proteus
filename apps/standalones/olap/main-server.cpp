@@ -756,25 +756,14 @@ int main(int argc, char *argv[]) {
 
   LOG(INFO) << "Eagerly loading files in memory...";
 
-  // FIXME: remove, we should be loading files lazily
-  //{
-  //    auto load = [](string filename){
-  //        // StorageManager::load(filename, PINNED);
-  //        StorageManager::loadToCpus(filename);
-  //    };
-  //
-  //
-  // }
-
   LOG(INFO) << "Finished initialization";
   std::cout << "ready" << std::endl;
-  std::string line;
-  std::string prefix("--foo=");
 
   if (argc >= 2) {
     unlink_upon_exit uue;
     runPlanFile(argv[argc - 1], uue, true);
   } else {
+    std::string line;
     unlink_upon_exit uue;
     while (std::getline(std::cin, line)) {
       std::string cmd = trim(line);
@@ -818,36 +807,6 @@ int main(int argc, char *argv[]) {
       } else if (cmd == "unloadall") {
         StorageManager::getInstance().unloadAll();
         std::cout << "done" << std::endl;
-      } else if (starts_with(cmd, "load ")) {
-        // if (starts_with(cmd, "load locally ")){
-        //     constexpr size_t prefix_size = clen("load locally ");
-        //     std::string path             = cmd.substr(prefix_size);
-        //     StorageManager::load(path, PINNED);
-        //     std::cout << "done" << std::endl;
-        // } else if (starts_with(cmd, "load cpus ")){
-        //     constexpr size_t prefix_size = clen("load cpus ");
-        //     std::string path             = cmd.substr(prefix_size);
-        //     StorageManager::loadToCpus(path);
-        //     std::cout << "done" << std::endl;
-        // } else if (starts_with(cmd, "load gpus ")){
-        //     constexpr size_t prefix_size = clen("load gpus ");
-        //     std::string path             = cmd.substr(prefix_size);
-        //     StorageManager::loadToGpus(path);
-        //     std::cout << "done" << std::endl;
-        // } else if (starts_with(cmd, "load localgpu ")){
-        //     constexpr size_t prefix_size = clen("load localgpu ");
-        //     std::string path             = cmd.substr(prefix_size);
-        //     StorageManager::load(path, GPU_RESIDENT);
-        //     std::cout << "done" << std::endl;
-        // } else if (starts_with(cmd, "load everywhere ")){
-        //     constexpr size_t prefix_size = clen("load everywhere ");
-        //     std::string path             = cmd.substr(prefix_size);
-        //     StorageManager::loadEverywhere(path);
-        //     std::cout << "done" << std::endl;
-        // } else {
-        std::cout << "error (unknown load option, please specify where to load)"
-                  << std::endl;
-        // }
       }
     }
   }
