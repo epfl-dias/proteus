@@ -37,6 +37,7 @@ class Benchmark {
   const ushort num_partitions;
 
   virtual void init() {}
+  virtual void deinit() {}
   virtual void load_data(int num_threads = 1) {}
   virtual void gen_txn(int wid, void *txn_ptr, ushort partition_id) {}
   virtual bool exec_txn(const void *stmts, uint64_t xid, ushort master_ver,

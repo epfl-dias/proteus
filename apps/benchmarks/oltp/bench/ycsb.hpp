@@ -110,6 +110,10 @@ class YCSB : public Benchmark {
       this->exec_txn(q_ptr, xid, master_ver, 0, partition_id);
     }
     free_query_struct_ptr(q_ptr);
+
+    //    LOG(INFO) << "################";
+    //    LOG(INFO)<< "\n" << *(ycsb_tbl->p_index);
+    //    LOG(INFO) << "################";
   }
 
   void load_data(int num_threads = 1) { assert(false && "Not implemented"); }
@@ -337,6 +341,14 @@ class YCSB : public Benchmark {
         "ycsb_tbl",
         (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
         columns, num_records);
+  }
+
+  void deinit() {
+    for (ushort i = 0; i < num_partitions; i++) {
+      storage::memory::MemoryManager::free(rand_buffer[i]);
+    }
+
+    free(rand_buffer);
   }
 
   void init() {

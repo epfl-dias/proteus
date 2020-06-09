@@ -147,15 +147,14 @@ void Schema::switch_delta(ushort prev, ushort curr, uint64_t epoch,
 
 void Schema::teardown() {
   if (global_conf::cc_ismv) {
-    // init delta store
-
-    for (int i = 0; i < global_conf::num_delta_storages; i++) {
-      deltaStore[i]->~DeltaStore();
+    for (auto& dt : deltaStore) {
+      dt->~DeltaStore();
     }
   }
 
   for (auto& tbl : tables) {
     tbl->~Table();
+    storage::memory::MemoryManager::free(tbl);
   }
 }
 

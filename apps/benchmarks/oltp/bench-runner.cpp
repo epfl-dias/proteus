@@ -212,5 +212,9 @@ int main(int argc, char** argv) {
   //   ((storage::ColumnStore*)tb)->num_upd_tuples();
   // }
 
+  storage::Schema::getInstance().teardown();
+
+  bench->deinit();
+  delete bench;
   return 0;
 }
