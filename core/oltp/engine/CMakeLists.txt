@@ -15,7 +15,9 @@ set(txn_engine_cxx
         snapshot/cor_const_arena.cpp
         indexes/hash_array.cpp
         oltp-cli-flags.cpp
-        )
+        storage/multi-version/mv-record-list.cpp
+        storage/multi-version/mv-attribute-list.cpp
+        storage/multi-version/mv-attribute-dag.cpp)
 
 foreach (target ${txn_engine_cxx})
     set_source_files_properties(${target} PROPERTIES LANGUAGE CXX)

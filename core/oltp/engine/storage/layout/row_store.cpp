@@ -30,7 +30,7 @@
 
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
-#include "storage/delta_storage.hpp"
+#include "storage/multi-version/delta_storage.hpp"
 #include "storage/table.hpp"
 
 namespace storage {
@@ -76,9 +76,12 @@ void RowStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
 
   // delta versioning
 
-  char* ver = (char*)this->deltaStore[curr_delta]->insert_version(
-      hash_ptr, this->rec_size - global_conf::HTAP_UPD_BIT_COUNT,
-      pid);  // tmax==0
+  char* ver = (char*)(((storage::mv::mv_version*)this->deltaStore[curr_delta]
+                           ->insert_version(
+                               hash_ptr,
+                               this->rec_size - global_conf::HTAP_UPD_BIT_COUNT,
+                               pid))
+                          ->data);  // tmax==0
 
   // char* ver = (char*)this->deltaStore[curr_delta]->insert_version(
   //     vid_to_uuid(this->table_id, hash_ptr->VID), hash_ptr->t_min, 0,

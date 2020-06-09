@@ -422,7 +422,8 @@ class TPCC : public Benchmark {
   uint64_t cust_derive_key(char *c_last, int c_d_id, int c_w_id);
   int set_last_name(int num, char *name);
   uint fetch_cust_records(const struct secondary_record &sr,
-                          struct cust_read *c_recs, uint64_t xid);
+                          struct cust_read *c_recs, uint64_t xid,
+                          ushort delta_ver);
 
   // get queries
   void tpcc_get_next_payment_query(int wid, void *arg);

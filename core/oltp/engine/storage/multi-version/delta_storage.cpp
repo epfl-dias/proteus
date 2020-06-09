@@ -21,11 +21,12 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "storage/delta_storage.hpp"
+#include "storage/multi-version/delta_storage.hpp"
 
 #include <sys/mman.h>
 
 #include "scheduler/worker.hpp"
+#include "storage/multi-version/mv.hpp"
 #include "storage/table.hpp"
 
 namespace storage {
@@ -88,6 +89,9 @@ DeltaStore::DeltaStore(uint32_t delta_id, uint64_t ver_list_capacity,
 
 DeltaStore::~DeltaStore() {
   print_info();
+  LOG(INFO) << "[" << this->delta_id
+            << "] Delta Partitions: " << partitions.size();
+
   for (auto& p : partitions) {
     p->~DeltaPartition();
     storage::memory::MemoryManager::free(p);
@@ -95,51 +99,45 @@ DeltaStore::~DeltaStore() {
 }
 
 void DeltaStore::print_info() {
-  static int i = 0;
-  std::cout << "[DeltaStore # " << i
-            << "] Number of GC Requests: " << this->gc_requests.load()
-            << std::endl;
+  LOG(INFO) << "[DeltaStore # " << this->delta_id
+            << "] Number of GC Requests: " << this->gc_requests.load();
 
-  std::cout << "[DeltaStore # " << i << "] Number of Successful GC Resets: "
-            << this->gc_reset_success.load() << std::endl;
-  std::cout << "[DeltaStore # " << i
-            << "] Number of Operations: " << this->ops.load() << std::endl;
+  LOG(INFO) << "[DeltaStore # " << this->delta_id
+            << "] Number of Successful GC Resets: "
+            << this->gc_reset_success.load();
+  LOG(INFO) << "[DeltaStore # " << this->delta_id
+            << "] Number of Operations: " << this->ops.load();
 
   for (auto& p : partitions) {
     p->report();
   }
-  i++;
-  if (i >= partitions.size()) i = 0;
 }
 
 void* DeltaStore::insert_version(global_conf::IndexVal* idx_ptr, uint rec_size,
-                                 ushort parition_id, const ushort* col_idx,
-                                 ushort num_cols) {
-  char* cnk = (char*)partitions[parition_id]->getVersionDataChunk(rec_size);
+                                 ushort partition_id) {
+  char* cnk = (char*)partitions[partition_id]->getVersionDataChunk(rec_size);
 
-  global_conf::mv_version* val = new ((void*)cnk) global_conf::mv_version(
-      idx_ptr->t_min, 0, cnk + sizeof(global_conf::mv_version));
-
-  if (num_cols > 0) {
-    for (auto i = 0; i < num_cols; i++) {
-      val->col_ids.emplace_back(col_idx[i]);
-    }
-  }
+  storage::mv::mv_version* val = new ((void*)cnk) storage::mv::mv_version(
+      idx_ptr->t_min, 0, cnk + sizeof(storage::mv::mv_version));
 
   auto curr_tag = create_delta_tag(this->delta_id, tag);
+
   if (idx_ptr->delta_ver_tag != curr_tag) {
     // none/stale list
     idx_ptr->delta_ver_tag = curr_tag;
-    idx_ptr->delta_ver =
-        (global_conf::mv_version_list*)partitions[parition_id]->getListChunk();
-    idx_ptr->delta_ver->head = val;
+
+    storage::mv::mv_version_chain* list_ptr =
+        (storage::mv::mv_version_chain*)partitions[partition_id]
+            ->getListChunk();
+    idx_ptr->delta_ver = list_ptr;
+    list_ptr->head = val;
   } else {
     // valid list
-    idx_ptr->delta_ver->insert(val);
+    ((storage::mv::mv_version_chain*)(idx_ptr->delta_ver))->insert(val);
   }
 
   if (!touched) touched = true;
-  return val->data;
+  return val;
 }
 
 void DeltaStore::gc() {
@@ -182,7 +180,7 @@ DeltaStore::DeltaPartition::DeltaPartition(
     std::cout << "\t warming up delta storage P" << pid << std::endl;
 
   uint64_t* pt = (uint64_t*)ver_list_cursor;
-  int warmup_size = ver_list_mem.size / sizeof(uint64_t);
+  uint64_t warmup_size = ver_list_mem.size / sizeof(uint64_t);
   pt[0] = 3;
   for (int i = 1; i < warmup_size; i++) pt[i] = i * 2;
 
@@ -201,6 +199,63 @@ DeltaStore::DeltaPartition::DeltaPartition(
   for (int i = 0; i < max_workers_in_partition; i++) {
     reset_listeners.push_back(false);
   }
+}
+
+void* DeltaStore::DeltaPartition::getListChunk() {
+  char* tmp = ver_list_cursor.fetch_add(sizeof(storage::mv::mv_version_chain),
+                                        std::memory_order_relaxed);
+
+  assert((tmp + sizeof(storage::mv::mv_version_chain)) <= list_cursor_max);
+  touched = true;
+  return tmp;
+}
+
+void* DeltaStore::DeltaPartition::getVersionDataChunk(size_t rec_size) {
+  constexpr uint slack_size = 8192;
+
+  static thread_local uint remaining_slack = 0;
+  static thread_local char* ptr = nullptr;
+  static int thread_counter = 0;
+
+  static thread_local uint tid = thread_counter++;
+
+  size_t req = rec_size + sizeof(storage::mv::mv_version);
+
+  // works.
+  if (reset_listeners[tid] == true) {
+    remaining_slack = 0;
+    reset_listeners[tid] = false;
+  }
+
+  if (__unlikely(req > remaining_slack)) {
+    ptr = ver_data_cursor.fetch_add(slack_size, std::memory_order_relaxed);
+    remaining_slack = slack_size;
+
+    if (__unlikely((ptr + remaining_slack) > data_cursor_max)) {
+      // FIXME: if delta-storage is full, there should be a manual trigger
+      // to initiate a detailed/granular GC algorithm, not just crash the
+      // engine.
+
+      std::unique_lock<std::mutex> lk(print_lock);
+      if (!printed) {
+        printed = true;
+        std::cout << "#######" << std::endl;
+        std::cout << "PID: " << pid << std::endl;
+        report();
+        std::cout << "#######" << std::endl;
+        assert(false);
+      }
+    }
+  }
+
+  char* tmp = ptr;
+  ptr += req;
+  remaining_slack -= req;
+
+  // char *tmp = ver_data_cursor.fetch_add(req, std::memory_order_relaxed);
+
+  touched = true;
+  return tmp;
 }
 
 }  // namespace storage

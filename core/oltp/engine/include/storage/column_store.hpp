@@ -35,7 +35,6 @@
 #include <vector>
 
 #include "glo.hpp"
-#include "storage/delta_storage.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 #include "utils/atomic_bit_set.hpp"
@@ -47,6 +46,10 @@ class RecordAttribute;
 namespace storage {
 
 class Column;
+
+using ColumnVector =
+    std::vector<storage::Column,
+                storage::memory::ExplicitSocketPinnedMemoryAllocator<Column>>;
 
 class alignas(4096) ColumnStore : public Table {
  public:
@@ -113,15 +116,15 @@ class alignas(4096) ColumnStore : public Table {
   std::set<size_t> elastic_offsets;
 
  private:
-  std::vector<Column,
-              storage::memory::ExplicitSocketPinnedMemoryAllocator<Column>>
-      columns;
+  ColumnVector columns;
   Column *meta_column;
   // Column **secondary_index_vals;
   uint64_t offset;
   ushort num_data_partitions;
-
   size_t nParts;
+  std::vector<std::pair<size_t, size_t>> column_size_offset_pairs;
+  std::vector<size_t> column_size_offsets;
+  std::vector<size_t> column_size;
 
  public:
   const decltype(columns) &getColumns() { return columns; }

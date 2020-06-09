@@ -55,8 +55,6 @@ class CC_GlobalLock;
 //   ((v & 0x000000FFFFFFFFFF) | ((p & 0x00FF) << 40) | \
 //    ((m & 0x00FF) << 48)((d & 0x00FF) << 56))
 
-struct VERSION_LIST;
-
 class CC_MV2PL {
  public:
   // FIXME: GET AND VERIFY TAG FOR UPDATES!!!
@@ -65,22 +63,22 @@ class CC_MV2PL {
     uint64_t VID;    // | 1-byte delta-id | 1-byte master_ver | 1-byte
                      // partition_id | 5-byte VID |
     lock::Spinlock_Weak latch;
-    // std::atomic<bool> write_lck;
-
     lock::AtomicTryLock write_lck;
 
-    struct VERSION_LIST *delta_ver;
-    // uint delta_ver_tag;
+    void *delta_ver;         // delta-list
     uint64_t delta_ver_tag;  // 4 byte delta_idx| 4-byte delta-tag
 
-    PRIMARY_INDEX_VAL();
+    PRIMARY_INDEX_VAL() {}
     PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid)
-        : t_min(tid),
-          VID(vid),
-          // write_lck(false),
-          delta_ver(nullptr),
-          delta_ver_tag(0) {}
-  };  //__attribute__((aligned(64)));
+        : t_min(tid), VID(vid), delta_ver(nullptr), delta_ver_tag(0) {}
+  };
+  /*
+   * single record-level list
+   * single attribute-level list
+   *
+   * attribute-level per-attribute list
+   * DAG (attribute-level / per-attribute)
+   * */
 
   // TODO: this needs to be modified as we changed the format of TIDs
   static inline bool __attribute__((always_inline))
@@ -115,80 +113,6 @@ class CC_MV2PL {
     }
   }
 };
-
-struct VERSION {
-  uint64_t t_min;
-  uint64_t t_max;
-  std::vector<uint> col_ids;
-  void *data;
-  VERSION *next;
-  VERSION(uint64_t t_min, uint64_t t_max, void *data)
-      : t_min(t_min), t_max(t_max), data(data), next(nullptr), col_ids() {}
-  VERSION(uint64_t t_min, uint64_t t_max, void *data, std::vector<uint> col_ids)
-      : t_min(t_min),
-        t_max(t_max),
-        data(data),
-        next(nullptr),
-        col_ids(std::move(col_ids)) {}
-};
-
-struct VERSION_LIST {
-  VERSION *head;
-  short master_version;
-
-  VERSION_LIST() { head = nullptr; }
-
-  void insert(VERSION *val) {
-    {
-      val->next = head;
-      head = val;
-    }
-  }
-
-  void *get_readable_ver(uint64_t tid_self) {
-    VERSION *tmp = nullptr;
-    {
-      tmp = head;
-      // C++ standard says that (x == NULL) <=> (x==nullptr)
-      while (tmp != nullptr) {
-        // if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
-        if (CC_MV2PL::is_readable(tmp->t_min, tid_self)) {
-          return tmp->data;
-        } else {
-          tmp = tmp->next;
-        }
-      }
-    }
-    return nullptr;
-  }
-
-  //  void *get_readable_ver(uint64_t tid_self, uint col_id) {
-  //    VERSION *tmp = nullptr;
-  //    {
-  //      tmp = head;
-  //      // C++ standard says that (x == NULL) <=> (x==nullptr)
-  //      while (tmp != nullptr) {
-  //        // if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
-  //        if ((tmp->col_ids.empty() || tmp->col_ids.find(col_id) !=
-  //        tmp->col_ids.end()) &&
-  //            CC_MV2PL::is_readable(tmp->t_min, tid_self)) {
-  //          return tmp->data;
-  //        } else {
-  //          tmp = tmp->next;
-  //        }
-  //      }
-  //    }
-  //    return nullptr;
-  //  }
-
-  // void print_list(uint64_t print) {
-  //   VERSION *tmp = head;
-  //   while (tmp != nullptr) {
-  //     std::cout << "[" << print << "] xmin:" << tmp->t_min << std::endl;
-  //     tmp = tmp->next;
-  //   }
-  // }
-};  // __attribute__((aligned(64)));
 
 // class CC_MV2PL {
 //  public:

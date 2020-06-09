@@ -202,17 +202,8 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
 
     st_idx_ptr->latch.acquire();
 
-    if (txn::CC_MV2PL::is_readable(st_idx_ptr->t_min, xid)) {
-      table_stock->getRecordByKey(st_idx_ptr->VID, stock_col_rw, 4, &st_rec);
-    } else {
-      struct tpcc_stock *s_r =
-          (struct tpcc_stock *)st_idx_ptr->delta_ver->get_readable_ver(xid);
-
-      st_rec.s_quantity = s_r->s_quantity;
-      st_rec.s_ytd = s_r->s_ytd;
-      st_rec.s_order_cnt = s_r->s_order_cnt;
-      st_rec.s_remote_cnt = s_r->s_remote_cnt;
-    }
+    table_stock->getRecordByKey(st_idx_ptr, xid, delta_ver, stock_col_rw, 4,
+                                &st_rec);
 
     // NOW UPDATE
     // update = s_ytd, s_order_cnt, s_remote_cnt, s_quantity
@@ -258,16 +249,8 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
 
   d_idx_ptr->latch.acquire();
 
-  if (txn::CC_MV2PL::is_readable(d_idx_ptr->t_min, xid)) {
-    table_district->getRecordByKey(d_idx_ptr->VID, dist_col_scan, 2,
-                                   &dist_no_read);
-  } else {
-    struct tpcc_district *d_r =
-        (struct tpcc_district *)d_idx_ptr->delta_ver->get_readable_ver(xid);
-
-    dist_no_read.d_tax = d_r->d_tax;
-    dist_no_read.d_next_o_id = d_r->d_next_o_id;
-  }
+  table_district->getRecordByKey(d_idx_ptr, xid, delta_ver, dist_col_scan, 2,
+                                 &dist_no_read);
 
   uint64_t d_next_o_id_upd = dist_no_read.d_next_o_id + 1;
   table_district->updateRecord(d_idx_ptr, &d_next_o_id_upd, master_ver,
@@ -311,14 +294,8 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
 #endif
 
   w_idx_ptr->latch.acquire();
-  if (txn::CC_MV2PL::is_readable(w_idx_ptr->t_min, xid)) {
-    table_warehouse->getRecordByKey(w_idx_ptr->VID, w_col_scan, 1, &w_tax);
-  } else {
-    struct tpcc_warehouse *w_r =
-        (struct tpcc_warehouse *)w_idx_ptr->delta_ver->get_readable_ver(xid);
-    w_tax = w_r->w_tax;
-  }
-
+  table_warehouse->getRecordByKey(w_idx_ptr, xid, delta_ver, w_col_scan, 1,
+                                  &w_tax);
   w_idx_ptr->latch.release();
 
   // CUSTOMER
@@ -354,18 +331,8 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
   assert(CC_extract_pid(c_idx_ptr->VID) == partition_id);
 #endif
 
-  if (txn::CC_MV2PL::is_readable(c_idx_ptr->t_min, xid)) {
-    table_customer->getRecordByKey(c_idx_ptr->VID, cust_col_scan, 1,
-                                   &cust_no_read);
-
-  } else {
-    struct tpcc_customer *c_r =
-        (struct tpcc_customer *)c_idx_ptr->delta_ver->get_readable_ver(xid);
-
-    // memcpy(cust_no_read.c_last, c_r->c_last, LAST_NAME_LEN + 1);
-    // memcpy(cust_no_read.c_credit, c_r->c_credit, 2);
-    cust_no_read.c_discount = c_r->c_discount;
-  }
+  table_customer->getRecordByKey(c_idx_ptr, xid, delta_ver, cust_col_scan, 1,
+                                 &cust_no_read);
   c_idx_ptr->latch.release();
 
   // INSERTS: Order Processing
@@ -458,14 +425,8 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
         (global_conf::IndexVal *)table_item->p_index->find(
             (uint64_t)(q->item[ol_number].ol_i_id));
     item_idx_ptr->latch.acquire();
-    if (txn::CC_MV2PL::is_readable(item_idx_ptr->t_min, xid)) {
-      table_item->getRecordByKey(item_idx_ptr->VID, i_col_scan, 1, &i_price);
-    } else {
-      std::cout << "not readable 5" << std::endl;
-      struct tpcc_item *i_r =
-          (struct tpcc_item *)item_idx_ptr->delta_ver->get_readable_ver(xid);
-      i_price = i_r->i_price;
-    }
+    table_item->getRecordByKey(item_idx_ptr, xid, delta_ver, i_col_scan, 1,
+                               &i_price);
     item_idx_ptr->latch.release();
 
     // char *i_name = i_r->i_name;
@@ -582,7 +543,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
 inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *q, uint64_t xid,
                                        ushort partition_id, ushort master_ver,
                                        ushort delta_ver) {
-  int ol_number = 1;
+  // int ol_number = 1;
 
   uint32_t cust_id = std::numeric_limits<uint32_t>::max();
 
@@ -622,7 +583,7 @@ inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *q, uint64_t xid,
 
     struct cust_read c_recs[MAX_OPS_PER_QUERY];
 
-    uint nmatch = fetch_cust_records(sr, c_recs, xid);
+    uint nmatch = fetch_cust_records(sr, c_recs, xid, delta_ver);
 
     assert(nmatch > 0);
 
@@ -672,15 +633,8 @@ inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *q, uint64_t xid,
 
     c_idx_ptr->latch.acquire();
 
-    if (txn::CC_MV2PL::is_readable(c_idx_ptr->t_min, xid)) {
-      table_customer->getRecordByKey(c_idx_ptr->VID, cust_col_scan_read, 4,
-                                     &c_r);
-
-    } else {
-      struct tpcc_customer *c_rr =
-          (struct tpcc_customer *)c_idx_ptr->delta_ver->get_readable_ver(xid);
-      assert(c_rr != nullptr || c_rr != NULL);
-    }
+    table_customer->getRecordByKey(c_idx_ptr, xid, delta_ver,
+                                   cust_col_scan_read, 4, &c_r);
     c_idx_ptr->latch.release();
 
     /* EXEC SQL SELECT o_id, o_carrier_id, o_entry_d
@@ -725,17 +679,8 @@ inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *q, uint64_t xid,
       assert(o_idx_ptr != nullptr || o_idx_ptr != NULL);
 
       o_idx_ptr->latch.acquire();
-      if (txn::CC_MV2PL::is_readable(o_idx_ptr->t_min, xid)) {
-        table_order->getRecordByKey(o_idx_ptr->VID, o_col_scan, 4, &p_or[i]);
-      } else {
-        struct tpcc_order *c_r =
-            (struct tpcc_order *)o_idx_ptr->delta_ver->get_readable_ver(xid);
-        assert(c_r != nullptr || c_r != NULL);
-        p_or[i].o_id = c_r->o_id;
-        p_or[i].o_carrier_id = c_r->o_carrier_id;
-        p_or[i].entdate = c_r->o_entry_d;
-        p_or[i].o_ol_cnt = c_r->o_ol_cnt;
-      }
+      table_order->getRecordByKey(o_idx_ptr, xid, delta_ver, o_col_scan, 4,
+                                  &p_or[i]);
       o_idx_ptr->latch.release();
 
       for (ushort ol_number = 0; ol_number < p_or[i].o_ol_cnt; ++ol_number) {
@@ -746,23 +691,8 @@ inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *q, uint64_t xid,
         assert(ol_idx_ptr != nullptr || ol_idx_ptr != NULL);
 
         ol_idx_ptr->latch.acquire();
-        if (txn::CC_MV2PL::is_readable(ol_idx_ptr->t_min, xid)) {
-          table_order_line->getRecordByKey(ol_idx_ptr->VID,
-
-                                           ol_col_scan, 5, &p_ol_r);
-        } else {
-          struct tpcc_orderline *ol_r =
-              (struct tpcc_orderline *)ol_idx_ptr->delta_ver->get_readable_ver(
-                  xid);
-          assert(ol_r != nullptr || ol_r != NULL);
-
-          p_ol_r.ol_o_id = ol_r->ol_o_id;
-          p_ol_r.ol_supply_w_id = ol_r->ol_supply_w_id;
-          p_ol_r.ol_delivery_d = ol_r->ol_delivery_d;
-          p_ol_r.ol_quantity = ol_r->ol_quantity;
-          p_ol_r.ol_amount = ol_r->ol_amount;
-          //
-        }
+        table_order_line->getRecordByKey(ol_idx_ptr, xid, delta_ver,
+                                         ol_col_scan, 5, &p_ol_r);
         ol_idx_ptr->latch.release();
       }
     }
@@ -798,17 +728,8 @@ inline bool TPCC::exec_stocklevel_txn(struct tpcc_query *q, uint64_t xid,
 
   d_idx_ptr->latch.acquire();
 
-  if (txn::CC_MV2PL::is_readable(d_idx_ptr->t_min, xid)) {
-    table_district->getRecordByKey(d_idx_ptr->VID, dist_col_scan_read, 1,
-                                   &o_id);
-
-  } else {
-    struct tpcc_district *d_r =
-        (struct tpcc_district *)d_idx_ptr->delta_ver->get_readable_ver(xid);
-    assert(d_r != nullptr || d_r != NULL);
-
-    o_id = d_r->d_next_o_id;
-  }
+  table_district->getRecordByKey(d_idx_ptr, xid, delta_ver, dist_col_scan_read,
+                                 1, &o_id);
   d_idx_ptr->latch.release();
 
   /*
@@ -842,18 +763,8 @@ inline bool TPCC::exec_stocklevel_txn(struct tpcc_query *q, uint64_t xid,
       int32_t s_quantity;
 
       ol_idx_ptr->latch.acquire();
-
-      if (txn::CC_MV2PL::is_readable(ol_idx_ptr->t_min, xid)) {
-        table_order_line->getRecordByKey(ol_idx_ptr->VID, ol_col_scan_read, 1,
-                                         &ol_i_id);
-
-      } else {
-        struct tpcc_orderline *ol_r =
-            (struct tpcc_orderline *)ol_idx_ptr->delta_ver->get_readable_ver(
-                xid);
-        assert(ol_r != nullptr || ol_r != NULL);
-        ol_i_id = ol_r->ol_i_id;
-      }
+      table_order_line->getRecordByKey(ol_idx_ptr, xid, delta_ver,
+                                       ol_col_scan_read, 1, &ol_i_id);
       ol_idx_ptr->latch.release();
 
       // stock
@@ -864,17 +775,8 @@ inline bool TPCC::exec_stocklevel_txn(struct tpcc_query *q, uint64_t xid,
       assert(st_idx_ptr != nullptr || st_idx_ptr != NULL);
 
       st_idx_ptr->latch.acquire();
-
-      if (txn::CC_MV2PL::is_readable(st_idx_ptr->t_min, xid)) {
-        table_stock->getRecordByKey(st_idx_ptr->VID, st_col_scan_read, 1,
-                                    &s_quantity);
-
-      } else {
-        struct tpcc_stock *st_r =
-            (struct tpcc_stock *)st_idx_ptr->delta_ver->get_readable_ver(xid);
-        assert(st_r != nullptr || st_r != NULL);
-        s_quantity = st_r->s_quantity;
-      }
+      table_stock->getRecordByKey(st_idx_ptr, xid, delta_ver, st_col_scan_read,
+                                  1, &s_quantity);
       st_idx_ptr->latch.release();
 
       if (s_quantity < q->threshold) {
@@ -888,7 +790,8 @@ inline bool TPCC::exec_stocklevel_txn(struct tpcc_query *q, uint64_t xid,
 }
 
 inline uint TPCC::fetch_cust_records(const struct secondary_record &sr,
-                                     struct cust_read *c_recs, uint64_t xid) {
+                                     struct cust_read *c_recs, uint64_t xid,
+                                     ushort delta_ver) {
   uint nmatch = 0;
 
   // struct cust_read {
@@ -909,23 +812,9 @@ inline uint TPCC::fetch_cust_records(const struct secondary_record &sr,
     assert(c_idx_ptr != nullptr || c_idx_ptr != NULL);
 
     c_idx_ptr->latch.acquire();
-
-    if (txn::CC_MV2PL::is_readable(c_idx_ptr->t_min, xid)) {
-      table_customer->getRecordByKey(c_idx_ptr->VID, c_col_scan, 5,
-                                     &c_recs[nmatch]);
-      c_idx_ptr->latch.release();
-    } else {
-      struct tpcc_customer *c_r =
-          (struct tpcc_customer *)c_idx_ptr->delta_ver->get_readable_ver(xid);
-      assert(c_r != nullptr || c_r != NULL);
-      c_idx_ptr->latch.release();
-
-      strcpy(c_recs[nmatch].c_first, c_r->c_first);
-      strcpy(c_recs[nmatch].c_last, c_r->c_last);
-      c_recs[nmatch].c_id = c_r->c_id;
-      c_recs[nmatch].c_d_id = c_r->c_d_id;
-      c_recs[nmatch].c_w_id = c_r->c_w_id;
-    }
+    table_customer->getRecordByKey(c_idx_ptr, xid, delta_ver, c_col_scan, 5,
+                                   &c_recs[nmatch]);
+    c_idx_ptr->latch.release();
 
     nmatch++;
   }
@@ -997,7 +886,7 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
 
     struct cust_read c_recs[MAX_OPS_PER_QUERY];
 
-    uint nmatch = fetch_cust_records(sr, c_recs, xid);
+    uint nmatch = fetch_cust_records(sr, c_recs, xid, delta_ver);
 
     assert(nmatch > 0);
 
@@ -1062,15 +951,8 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
   double w_ytd = 0.0;
   const ushort wh_col_scan_upd[] = {7};
   w_idx_ptr->latch.acquire();
-
-  if (txn::CC_MV2PL::is_readable(w_idx_ptr->t_min, xid)) {
-    table_warehouse->getRecordByKey(w_idx_ptr->VID, wh_col_scan_upd, 1, &w_ytd);
-  } else {
-    struct tpcc_warehouse *w_r =
-        (struct tpcc_warehouse *)w_idx_ptr->delta_ver->get_readable_ver(xid);
-    assert(w_r != nullptr || w_r != NULL);
-    w_ytd = w_r->w_ytd;
-  }
+  table_warehouse->getRecordByKey(w_idx_ptr, xid, delta_ver, wh_col_scan_upd, 1,
+                                  &w_ytd);
 
   w_ytd += q->h_amount;
   table_warehouse->updateRecord(w_idx_ptr, &w_ytd, master_ver, delta_ver,
@@ -1095,23 +977,16 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
   const ushort d_col_scan_upd[] = {8};
   d_idx_ptr->latch.acquire();
 
-  if (txn::CC_MV2PL::is_readable(d_idx_ptr->t_min, xid)) {
-    table_district->getRecordByKey(d_idx_ptr->VID, d_col_scan_upd, 1, &d_ytd);
-  } else {
-    struct tpcc_district *d_r =
-        (struct tpcc_district *)d_idx_ptr->delta_ver->get_readable_ver(xid);
-    assert(d_r != nullptr || d_r != NULL);
-    d_ytd = d_r->d_ytd;
-  }
-
+  table_district->getRecordByKey(d_idx_ptr, xid, delta_ver, d_col_scan_upd, 1,
+                                 &d_ytd);
   d_ytd += q->h_amount;
 
   table_district->updateRecord(d_idx_ptr, &d_ytd, master_ver, delta_ver,
                                d_col_scan_upd, 1);
 
   d_idx_ptr->t_min = xid;
-  d_idx_ptr->latch.release();
   d_idx_ptr->write_lck.unlock();
+  d_idx_ptr->latch.release();
 
   //---
 
@@ -1134,26 +1009,8 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
   struct cust_rw_t cust_rw = {};
 
   c_idx_ptr->latch.acquire();
-
-  if (txn::CC_MV2PL::is_readable(c_idx_ptr->t_min, xid)) {
-    table_customer->getRecordByKey(c_idx_ptr->VID, cust_col_scan_read, 5,
-                                   &cust_rw);
-
-    cust_rw.c_balance -= q->h_amount;
-    cust_rw.c_ytd_payment += q->h_amount;
-    cust_rw.c_payment_cnt += 1;
-
-  } else {
-    struct tpcc_customer *c_rr =
-        (struct tpcc_customer *)c_idx_ptr->delta_ver->get_readable_ver(xid);
-    assert(c_rr != nullptr || c_rr != NULL);
-
-    cust_rw.c_balance = c_rr->c_balance - q->h_amount;
-    cust_rw.c_ytd_payment = c_rr->c_ytd_payment + q->h_amount;
-    cust_rw.c_payment_cnt = c_rr->c_payment_cnt + 1;
-
-    strcpy(cust_rw.c_data, c_rr->c_data);
-  }
+  table_customer->getRecordByKey(c_idx_ptr, xid, delta_ver, cust_col_scan_read,
+                                 5, &cust_rw);
 
   if (cust_rw.c_credit[0] == 'B' && cust_rw.c_credit[1] == 'C') {
     num_col_upd++;
@@ -1174,8 +1031,8 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
                                cust_col_scan_read, num_col_upd);
 
   c_idx_ptr->t_min = xid;
-  c_idx_ptr->latch.release();
   c_idx_ptr->write_lck.unlock();
+  c_idx_ptr->latch.release();
 
   /*
       char h_data[25];

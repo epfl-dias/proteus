@@ -50,8 +50,7 @@ class alignas(4096) DeltaStore {
 
   void print_info();
   void *insert_version(global_conf::IndexVal *idx_ptr, uint rec_size,
-                       ushort parition_id, const ushort *col_idx = nullptr,
-                       ushort num_cols = 0);
+                       ushort parition_id);
   void gc();
   void gc_with_counter_arr(int wrk_id);
 
@@ -105,8 +104,8 @@ class alignas(4096) DeltaStore {
     std::atomic<char *> ver_list_cursor;
     std::atomic<char *> ver_data_cursor;
     int pid;
-    storage::memory::mem_chunk ver_list_mem;
-    storage::memory::mem_chunk ver_data_mem;
+    const storage::memory::mem_chunk ver_list_mem;
+    const storage::memory::mem_chunk ver_data_mem;
     bool touched;
     std::mutex print_lock;
     bool printed;
@@ -122,10 +121,11 @@ class alignas(4096) DeltaStore {
                    storage::memory::mem_chunk ver_data_mem, int pid);
 
     ~DeltaPartition() {
-      if (DELTA_DEBUG)
-        std::cout << "Clearing Delta Parition-" << pid << std::endl;
-      // MemoryManager::free(ver_list_mem.data, ver_list_mem.size);
-      // MemoryManager::free(ver_data_mem.data, ver_data_mem.size);
+      if (DELTA_DEBUG) {
+        LOG(INFO) << "Clearing DeltaPartition-" << pid;
+      }
+      storage::memory::MemoryManager::free(ver_list_mem.data);
+      storage::memory::MemoryManager::free(ver_data_mem.data);
     }
 
     void reset() {
@@ -141,62 +141,9 @@ class alignas(4096) DeltaStore {
       }
       touched = false;
     }
-    inline void *getListChunk() {
-      char *tmp = ver_list_cursor.fetch_add(
-          sizeof(global_conf::mv_version_list), std::memory_order_relaxed);
+    void *getListChunk();
 
-      assert((tmp + sizeof(global_conf::mv_version_list)) <= list_cursor_max);
-      touched = true;
-      return tmp;
-    }
-
-    inline void *getVersionDataChunk(size_t rec_size) {
-      constexpr uint slack_size = 8192;
-
-      static thread_local uint remaining_slack = 0;
-      static thread_local char *ptr = nullptr;
-      static int thread_counter = 0;
-
-      static thread_local uint tid = thread_counter++;
-
-      size_t req = rec_size + sizeof(global_conf::mv_version);
-
-      // works.
-      if (reset_listeners[tid] == true) {
-        remaining_slack = 0;
-        reset_listeners[tid] = false;
-      }
-
-      if (__unlikely(req > remaining_slack)) {
-        ptr = ver_data_cursor.fetch_add(slack_size, std::memory_order_relaxed);
-        remaining_slack = slack_size;
-
-        if (__unlikely((ptr + remaining_slack) > data_cursor_max)) {
-          // FIXME: if delta-storage is full, there should be a manual trigger
-          // to initiate a detailed/granular GC algorithm, not just crash the
-          // engine.
-
-          std::unique_lock<std::mutex> lk(print_lock);
-          if (!printed) {
-            printed = true;
-            std::cout << "#######" << std::endl;
-            std::cout << "PID: " << pid << std::endl;
-            report();
-            std::cout << "#######" << std::endl;
-            assert(false);
-          }
-        }
-      }
-
-      char *tmp = ptr;
-      ptr += req;
-      remaining_slack -= req;
-
-      // char *tmp = ver_data_cursor.fetch_add(req, std::memory_order_relaxed);
-
-      touched = true;
-      return tmp;
-    }
+    void *getVersionDataChunk(size_t rec_size);
 
     inline double usage() {
       return ((double)(((char *)ver_data_cursor.load() -

@@ -34,7 +34,7 @@
 
 #include "glo.hpp"
 #include "storage/column_store.hpp"
-#include "storage/delta_storage.hpp"
+#include "storage/multi-version/delta_storage.hpp"
 #include "threadpool/threadpool.hpp"
 #include "util/timing.hpp"
 
@@ -116,9 +116,9 @@ bool Schema::sync_master_ver_tbl(const storage::Table* tbl,
 }
 
 void Schema::report() {
-  for (int i = 0; i < global_conf::num_delta_storages; i++) {
-    deltaStore[i]->print_info();
-  }
+  //  for (int i = 0; i < global_conf::num_delta_storages; i++) {
+  //    deltaStore[i]->print_info();
+  //  }
 
   for (auto& tbl : tables) {
     // tbl->p_index->report();

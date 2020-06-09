@@ -51,11 +51,9 @@ using SnapshotManager = aeolus::snapshot::SnapshotManager;
 using ConcurrencyControl = txn::CC_MV2PL;  // CC_GlobalLock;
 using IndexVal = ConcurrencyControl::PRIMARY_INDEX_VAL;
 const bool cc_ismv = ConcurrencyControl::is_mv();
-using mv_version_list = txn::VERSION_LIST;
-using mv_version = txn::VERSION;
 
 template <typename T_KEY = uint64_t>
-// using PrimaryIndex = indexes::HashIndex<T_KEY>;
+//// using PrimaryIndex = indexes::HashIndex<T_KEY>;
 using PrimaryIndex = indexes::HashArray<T_KEY>;
 // using PrimaryIndex = indexes::AdaptiveRadixTreeIndex<T_KEY, void*>;
 
@@ -63,8 +61,6 @@ using PrimaryIndex = indexes::HashArray<T_KEY>;
 constexpr short num_master_versions = 2;
 constexpr short num_delta_storages = 2;
 constexpr bool reverse_partition_numa_mapping = false;
-
-constexpr bool col_level_mv = false;
 
 // for row-store inline bit, fix it to have bit-mask separate.
 constexpr short HTAP_UPD_BIT_COUNT = 1;

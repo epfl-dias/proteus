@@ -35,8 +35,9 @@
 
 #include "glo.hpp"
 #include "indexes/hash_index.hpp"
-#include "storage/delta_storage.hpp"
 #include "storage/memory_manager.hpp"
+#include "storage/multi-version/delta_storage.hpp"
+#include "storage/multi-version/mv.hpp"
 #include "storage/table.hpp"
 
 namespace storage {
@@ -68,7 +69,7 @@ class RowStore : public Table {
 
   void touchRecordByKey(uint64_t vid);
 
-  global_conf::mv_version_list *getVersions(uint64_t vid);
+  storage::mv::mv_version_chain *getVersions(uint64_t vid);
 
   void deleteRecord(uint64_t vid, ushort master_ver) {
     assert(false && "Not implemented");

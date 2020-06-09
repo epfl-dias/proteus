@@ -35,8 +35,8 @@
 #include <vector>
 
 #include "snapshot/snapshot_manager.hpp"
-#include "storage/delta_storage.hpp"
 #include "storage/memory_manager.hpp"
+#include "storage/multi-version/delta_storage.hpp"
 
 typedef std::map<uint64_t, std::string> dict_dstring_t;
 
