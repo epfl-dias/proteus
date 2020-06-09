@@ -34,10 +34,10 @@
 #include <iostream>
 #include <limits>
 #include <locale>
-#include <operators/relbuilder-factory.hpp>
-#include <plan/catalog-parser.hpp>
-#include <plan/prepared-statement.hpp>
-#include <routing/degree-of-parallelism.hpp>
+#include <olap/operators/relbuilder-factory.hpp>
+#include <olap/plan/catalog-parser.hpp>
+#include <olap/plan/prepared-statement.hpp>
+#include <olap/routing/degree-of-parallelism.hpp>
 #include <string>
 
 #include "storage/column_store.hpp"

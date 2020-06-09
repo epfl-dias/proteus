@@ -28,7 +28,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
-#include <plan/prepared-statement.hpp>
+#include <olap/plan/prepared-statement.hpp>
 #include <string>
 #include <thread>
 
