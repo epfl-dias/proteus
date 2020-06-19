@@ -45,6 +45,7 @@ namespace storage::mv {
 class recordList {
  public:
   static constexpr bool isAttributeLevelMV = false;
+  static constexpr bool isPerAttributeMV = false;
 
   class VERSION {
    public:

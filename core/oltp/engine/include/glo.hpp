@@ -48,9 +48,8 @@ namespace global_conf {
 constexpr int MAX_PARTITIONS = 8;
 
 using SnapshotManager = aeolus::snapshot::SnapshotManager;
-using ConcurrencyControl = txn::CC_MV2PL;  // CC_GlobalLock;
+using ConcurrencyControl = txn::CC_MV2PL;
 using IndexVal = ConcurrencyControl::PRIMARY_INDEX_VAL;
-const bool cc_ismv = ConcurrencyControl::is_mv();
 
 template <typename T_KEY = uint64_t>
 //// using PrimaryIndex = indexes::HashIndex<T_KEY>;

@@ -168,7 +168,7 @@ class alignas(4096) DeltaStore {
     friend class DeltaStore;
   };
 
-  std::atomic<uint> tag;
+  std::atomic<size_t> tag;
   uint64_t max_active_epoch;
   uint32_t delta_id;
   std::vector<DeltaPartition *> partitions;

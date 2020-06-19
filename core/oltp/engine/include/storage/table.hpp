@@ -34,6 +34,7 @@
 #include <tuple>
 #include <vector>
 
+#include "glo.hpp"
 #include "snapshot/snapshot_manager.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/multi-version/delta_storage.hpp"
@@ -51,7 +52,7 @@ class DeltaStore;
 
 enum layout_type { ROW_STORE, COLUMN_STORE };
 
-enum data_type { META, INTEGER, STRING, FLOAT, VARCHAR, DATE, DSTRING };
+enum data_type { META, MV, INTEGER, STRING, FLOAT, VARCHAR, DATE, DSTRING };
 
 class ColumnDef {
   std::vector<
@@ -193,11 +194,9 @@ class Schema {
         snapshot_sync_in_progress(0) {
     aeolus::snapshot::SnapshotManager::init();
 
-    if (global_conf::cc_ismv) {
-      for (int i = 0; i < global_conf::num_delta_storages; i++) {
-        deltaStore[i] = new DeltaStore(i);
-        this->total_delta_mem_reserved += deltaStore[i]->total_mem_reserved;
-      }
+    for (int i = 0; i < global_conf::num_delta_storages; i++) {
+      deltaStore[i] = new DeltaStore(i);
+      this->total_delta_mem_reserved += deltaStore[i]->total_mem_reserved;
     }
   }
 

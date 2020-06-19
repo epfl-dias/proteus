@@ -41,6 +41,8 @@ class attributeList {
 
 class attributeList_multi : public attributeList {
  public:
+  static constexpr bool isPerAttributeMV = true;
+
   class VERSION {
    public:
     uint64_t t_min;
@@ -76,6 +78,8 @@ class attributeList_multi : public attributeList {
 
 class attributeList_single : public attributeList {
  public:
+  static constexpr bool isPerAttributeMV = false;
+
   class VERSION {
    public:
     uint64_t t_min;

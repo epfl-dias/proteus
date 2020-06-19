@@ -118,6 +118,7 @@ class alignas(4096) ColumnStore : public Table {
  private:
   ColumnVector columns;
   Column *meta_column;
+  Column *mv_attr_list_column;
   // Column **secondary_index_vals;
   uint64_t offset;
   ushort num_data_partitions;
@@ -150,6 +151,7 @@ class alignas(4096) Column {
   void *insertElemBatch(uint64_t vid, uint64_t num_elem);
   void insertElemBatch(uint64_t vid, uint64_t num_elem, void *data);
   void initializeMetaColumn();
+  void initializeMVColumn();
 
   // void updateElem(uint64_t offset, void *elem, ushort master_ver);
   // void deleteElem(uint64_t offset, ushort master_ver);

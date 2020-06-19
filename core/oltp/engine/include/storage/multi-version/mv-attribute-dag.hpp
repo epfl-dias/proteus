@@ -27,6 +27,8 @@
 #include "glo.hpp"
 #include "transactions/cc.hpp"
 
+namespace storage::mv {
+
 /* Class: DAG
  * FIXME:
  * Description:
@@ -42,6 +44,7 @@
 class DAG {
  public:
   static constexpr bool isAttributeLevelMV = true;
+  static constexpr bool isPerAttributeMV = true;
 
   struct VERSION {
     uint64_t t_min;
@@ -49,7 +52,15 @@ class DAG {
     void *data;
   };
 
-  struct VERSION_CHAIN {};  // __attribute__((aligned(64)));
+  struct VERSION_CHAIN {
+   private:
+    VERSION *head{};
+    size_t length{};
+    const size_t attribute_idx{};
+
+    friend class storage::DeltaStore;
+  };  // __attribute__((aligned(64)));
 };
+}  // namespace storage::mv
 
 #endif  // PROTEUS_MV_ATTRIBUTE_DAG_HPP

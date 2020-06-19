@@ -146,10 +146,8 @@ void Schema::switch_delta(ushort prev, ushort curr, uint64_t epoch,
 }
 
 void Schema::teardown() {
-  if (global_conf::cc_ismv) {
-    for (auto& dt : deltaStore) {
-      dt->~DeltaStore();
-    }
+  for (auto& dt : deltaStore) {
+    dt->~DeltaStore();
   }
 
   for (auto& tbl : tables) {
@@ -322,8 +320,9 @@ ExpressionType* getProteusType(
         }
       }
     }
+    case MV:
     case META: {
-      auto msg = std::string{"Unknown META type"};
+      auto msg = std::string{"Illegal  type"};
       LOG(FATAL) << msg;
       throw std::runtime_error(msg);
     }

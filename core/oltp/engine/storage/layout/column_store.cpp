@@ -29,6 +29,7 @@
 #include <iostream>
 #include <olap/values/expressionTypes.hpp>
 #include <string>
+#include <utility>
 
 #include "glo.hpp"
 #include "memory/memory-manager.hpp"
@@ -84,8 +85,6 @@ ColumnStore::~ColumnStore() {
   }
 
   if (p_index) delete p_index;
-  // MemoryManager::free(meta_column);
-  // delete meta_column;
 }
 
 ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
@@ -151,6 +150,24 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
   this->offset = 0;
   this->initial_num_recs = initial_num_records;
 
+  // ------
+  // ADD a column for storing MV pointers. so that our list is always active.
+  //
+
+  if (mv::mv_type::isPerAttributeMV) {
+    auto mv_col_size = mv::perAttributeMVcol::getSize(columns.size());
+    void* mv_obj_ptr = storage::memory::MemoryManager::alloc(
+        sizeof(Column),
+        storage::NUMAPartitionPolicy::getInstance().getDefaultPartition());
+    mv_attr_list_column =
+        new (mv_obj_ptr) Column(name + "_mv", initial_num_records, this, MV,
+                                mv_col_size, 0, true, partitioned, numa_idx);
+    loaders.emplace_back(
+        [this]() { this->mv_attr_list_column->initializeMVColumn(); });
+  }
+
+  // ------
+
   for (auto& th : loaders) {
     th.join();
   }
@@ -160,6 +177,11 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
     std::cout << "Table: " << name << std::endl;
     std::cout << "\trecord size: " << rec_size << " bytes" << std::endl;
     std::cout << "\tnum_records: " << initial_num_records << std::endl;
+    if (mv::mv_type::isPerAttributeMV) {
+      std::cout << "\tAttributeMVCol: size_per_tuple: "
+                << mv::perAttributeMVcol::getSize(columns.size()) << std::endl;
+      total_mem_reserved += mv_attr_list_column->total_mem_reserved;
+    }
 
     if (indexed) total_mem_reserved += meta_column->total_mem_reserved;
 
@@ -271,40 +293,47 @@ void ColumnStore::getRecordByKey(global_conf::IndexVal* idx_ptr,
       }
     }
   } else {
-    auto tagTmp =
-        this->deltaStore[CC_get_delta_id(idx_ptr->delta_ver_tag)]->getTag();
-    assert(tagTmp == CC_get_delta_tag(idx_ptr->delta_ver_tag));
-    auto done_mask = ((storage::mv::mv_version_chain*)(idx_ptr->delta_ver))
-                         ->get_readable_version(txn_id, write_loc,
-                                                this->column_size_offset_pairs,
-                                                col_idx, num_cols);
+    if (mv::mv_type::isAttributeLevelMV) {
+      // should pass the the tuple from column instead to get version.
+      // or write the DAG algo here. dunno.
+    } else {
+      auto tagTmp =
+          this->deltaStore[CC_get_delta_id(idx_ptr->delta_ver_tag)]->getTag();
+      assert(tagTmp == CC_get_delta_tag(idx_ptr->delta_ver_tag));
+      auto done_mask =
+          ((storage::mv::mv_version_chain*)(idx_ptr->delta_ver))
+              ->get_readable_version(txn_id, write_loc,
+                                     this->column_size_offset_pairs, col_idx,
+                                     num_cols);
 
-    if (!done_mask.all()) {
-      // the fields which were never updated,
-      // get it from main storage.
+      if (!done_mask.all()) {
+        // the fields which were never updated,
+        // get it from main storage.
 
-      auto remaining_col = done_mask.size() - done_mask.count();
-      std::vector<size_t> return_col_offsets;
-      return_col_offsets.reserve(remaining_col);
+        auto remaining_col = done_mask.size() - done_mask.count();
+        std::vector<size_t> return_col_offsets;
+        return_col_offsets.reserve(remaining_col);
 
-      for (auto i = 0, cumm_offset = 0; i < num_cols; i++) {
-        cumm_offset += column_size_offset_pairs[col_idx[i]].first;
-        if (done_mask[i] == false) {
-          return_col_offsets.emplace_back(cumm_offset);
+        for (auto i = 0, cumm_offset = 0; i < num_cols; i++) {
+          cumm_offset += column_size_offset_pairs[col_idx[i]].first;
+          if (done_mask[i] == false) {
+            return_col_offsets.emplace_back(cumm_offset);
+          }
         }
-      }
 
-      auto required_mask = ~done_mask;
-      for (auto i = 0; i < done_mask.size(); i++) {
-        if (done_mask[i] == true) {
-          continue;
+        auto required_mask = ~done_mask;
+        for (auto i = 0; i < done_mask.size(); i++) {
+          if (done_mask[i] == true) {
+            continue;
+          }
+          // Offset of column in the requested set of columns.
+          auto offset_idx_output =
+              return_col_offsets[(required_mask >> (required_mask.size() - i))
+                                     .count()];
+          columns[i].getElem(
+              idx_ptr->VID,
+              (write_loc + return_col_offsets[offset_idx_output]));
         }
-        // Offset of column in the requested set of columns.
-        auto offset_idx_output =
-            return_col_offsets[(required_mask >> (required_mask.size() - i))
-                                   .count()];
-        columns[i].getElem(idx_ptr->VID,
-                           (write_loc + return_col_offsets[offset_idx_output]));
       }
     }
   }
@@ -484,15 +513,15 @@ void ColumnStore::insertIndexRecord(uint64_t rid, uint64_t xid,
  * */
 
 Column::~Column() {
-  // TODO: Implement and clean memory.
 #if HTAP_ETL
   for (ushort j = 0; j < this->num_partitions; j++) {
-    storage::memory::MemoryManager::free(this->etl_mem[j]);
+    if (this->etl_mem[j])
+      storage::memory::MemoryManager::free(this->etl_mem[j]);
   }
 #endif
 
-  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
-    for (ushort j = 0; j < g_num_partitions; j++) {
+  for (auto i = 0; i < global_conf::num_master_versions; i++) {
+    for (auto j = 0; j < g_num_partitions; j++) {
       for (auto& chunk : master_versions[i][j]) {
         storage::memory::MemoryManager::free(chunk.data);
       }
@@ -505,7 +534,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
                ColumnStore* parent, data_type type, size_t unit_size,
                size_t cummulative_offset, bool single_version_only,
                bool partitioned, int numa_idx)
-    : name(name),
+    : name(std::move(name)),
       parent(parent),
       elem_size(unit_size),
       cummulative_offset(cummulative_offset),
@@ -557,22 +586,25 @@ Column::Column(std::string name, uint64_t initial_num_records,
   // FIXME: hack for expr to make memory in proteus sockets
   uint total_numa_nodes = topology::getInstance().getCpuNumaNodeCount();
 
-  if (g_num_partitions == 1)
-    for (ushort j = 0; j < this->num_partitions; j++) {
+  for (auto j = 0; j < this->num_partitions; j++) {
+    if (g_num_partitions == 1) {
       this->etl_mem[j] = storage::memory::MemoryManager::alloc(
           size_per_partition, DEFAULT_OLAP_SOCKET);
       // assert((total_numa_nodes - j - 1) == 1);
       // MemoryManager::alloc_shm(name + "__" + std::to_string(j),
       //                          size_per_partition, total_numa_nodes - j - 1);
       assert(this->etl_mem[j] != nullptr || this->etl_mem[j] != NULL);
+    } else {
+      this->etl_mem[j] = nullptr;
     }
+  }
 
 #endif
 
   std::vector<proteus::thread> loaders;
 
-  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
-    for (ushort j = 0; j < this->num_partitions; j++) {
+  for (auto i = 0; i < global_conf::num_master_versions; i++) {
+    for (auto j = 0; j < this->num_partitions; j++) {
       void* mem = storage::memory::MemoryManager::alloc(
           size_per_partition, storage::NUMAPartitionPolicy::getInstance()
                                   .getPartitionInfo(j)
@@ -585,7 +617,7 @@ Column::Column(std::string name, uint64_t initial_num_records,
                                        .getPartitionInfo(j)
                                        .numa_idx]};
 
-        uint64_t* pt = (uint64_t*)mem;
+        auto* pt = (uint64_t*)mem;
         uint64_t warmup_max = size_per_partition / sizeof(uint64_t);
 #pragma clang loop vectorize(enable)
         for (uint64_t k = 0; k < warmup_max; k++) pt[k] = 0;
@@ -628,9 +660,31 @@ Column::Column(std::string name, uint64_t initial_num_records,
   for (uint i = 0; i < this->num_partitions; i++) this->touched[i] = false;
 }
 
-void Column::initializeMetaColumn() {
+void Column::initializeMVColumn() {
+  assert(this->type == MV);
   std::vector<proteus::thread> loaders;
-  for (ushort j = 0; j < this->num_partitions; j++) {
+  const auto num_attributes = this->parent->getColumns().size();
+  for (auto j = 0; j < this->num_partitions; j++) {
+    for (const auto& chunk : master_versions[0][j]) {
+      char* ptr = (char*)chunk.data;
+      assert(chunk.size % this->elem_size == 0);
+      loaders.emplace_back([this, chunk, ptr, num_attributes]() {
+        for (uint64_t i = 0; i < (chunk.size / this->elem_size); i++) {
+          mv::perAttributeMVcol::create(0, (ptr + (i * this->elem_size)),
+                                        num_attributes);
+        }
+      });
+    }
+  }
+  for (auto& th : loaders) {
+    th.join();
+  }
+}
+
+void Column::initializeMetaColumn() {
+  assert(this->type == META);
+  std::vector<proteus::thread> loaders;
+  for (auto j = 0; j < this->num_partitions; j++) {
     for (const auto& chunk : master_versions[0][j]) {
       char* ptr = (char*)chunk.data;
       assert(chunk.size % this->elem_size == 0);
@@ -657,7 +711,7 @@ void Column::touchElem(uint64_t vid) {
   uint64_t offset = CC_extract_offset(vid);
   uint64_t data_idx = offset * elem_size;
 
-  assert(master_versions[m_ver][pid].size() != 0);
+  assert(!master_versions[m_ver][pid].empty());
 
   for (const auto& chunk : master_versions[m_ver][pid]) {
     if (__likely(chunk.size >= ((size_t)data_idx + elem_size))) {
@@ -678,7 +732,7 @@ void* Column::getElem(uint64_t vid) {
   ushort m_ver = CC_extract_m_ver(vid);
   uint64_t data_idx = CC_extract_offset(vid) * elem_size;
 
-  assert(master_versions[m_ver][pid].size() != 0);
+  assert(!master_versions[m_ver][pid].empty());
 
   for (const auto& chunk : master_versions[m_ver][pid]) {
     if (__likely(chunk.size >= ((size_t)data_idx + elem_size))) {
