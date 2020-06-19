@@ -40,9 +40,7 @@
 namespace txn {
 
 class TransactionManager {
- protected:
  public:
-  // Singleton
   static inline TransactionManager &getInstance() {
     static TransactionManager instance;
     return instance;
@@ -53,26 +51,18 @@ class TransactionManager {
   // TODO: move the following to snapshot manager
   bool snapshot() {
     time_block t("[TransactionManger] snapshot_: ");
-    // FIXME: why get max active txn for double master while a new txn id for
-    // cow-snapshot. i guess this is because for switching master we dont need
-    // to pause the workers. it can happend on the fly.
+    /* FIXME: full-barrier is needed only to get num_records of each relation
+     *        which is implementation specific. it can be saved by the
+     *        storage-layer whenever it sees the master-version different from
+     *        the last or previous write.
+     * */
 
-    // Full barrier ( we need barier to get num_records in that snapshot)
-
-    // std::cout << "pausing" << std::endl;
     scheduler::WorkerPool::getInstance().pause();
-    //::cout << "paused" << std::endl;
-
     ushort snapshot_master_ver = this->switch_master();
-
     storage::Schema::getInstance().snapshot(this->get_next_xid(0),
                                             snapshot_master_ver);
-
     // storage::Schema::getInstance().snapshot(this->get_next_xid(0), 0);
-
-    // std::cout << "resuming" << std::endl;
     scheduler::WorkerPool::getInstance().resume();
-    // std::cout << "resumed" << std::endl;
     return true;
   }
 
@@ -88,10 +78,6 @@ class TransactionManager {
     // Before switching, clear up the new master. OR proteus do it.
 
     ushort tmp = (curr_master + 1) % global_conf::num_master_versions;
-
-    // std::cout << "Master switch request, from: " << (uint)curr_master
-    //           << " to: " << (uint)tmp << std::endl;
-
     current_master.store(tmp);
 
     // while (scheduler::WorkerPool::getInstance().is_all_worker_on_master_id(
@@ -130,7 +116,6 @@ class TransactionManager {
     return (rdtsc() & 0x00FFFFFFFFFFFFFF) | (((uint64_t)wid) << 56);
   }
 
-  global_conf::ConcurrencyControl executor;
   uint64_t txn_start_time;
   std::atomic<ushort> current_master;
 
