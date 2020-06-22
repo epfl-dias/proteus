@@ -29,10 +29,11 @@
 
 namespace storage::mv {
 
-void* recordList::VERSION_CHAIN::get_readable_version(uint64_t tid_self) const {
-  VERSION* tmp = nullptr;
+void* MV_RecordList_Full::get_readable_version(version_t* head,
+                                               uint64_t tid_self) {
+  version_t* tmp = nullptr;
   {
-    tmp = this->head;
+    tmp = head;
     // C++ standard says that (x == NULL) <=> (x==nullptr)
     while (tmp != nullptr) {
       // if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
@@ -45,22 +46,27 @@ void* recordList::VERSION_CHAIN::get_readable_version(uint64_t tid_self) const {
   }
   return nullptr;
 }
-void recordList::VERSION_CHAIN::get_readable_version(uint64_t tid_self,
-                                                     char* write_loc,
-                                                     uint rec_size) {
-  char* version = (char*)this->get_readable_version(tid_self);
+void MV_RecordList_Full::get_readable_version(version_t* head,
+                                              uint64_t tid_self,
+                                              char* write_loc, uint rec_size) {
+  // char* version = (char*)this->get_readable_version(tid_self);
+  char* version =
+      (char*)MV_RecordList_Full::get_readable_version(head, tid_self);
   assert(version != nullptr);
   assert(write_loc != nullptr);
   memcpy(write_loc, version, rec_size);
 }
 
-std::bitset<1> recordList::VERSION_CHAIN::get_readable_version(
-    const uint64_t tid_self, char* write_loc,
+std::bitset<1> MV_RecordList_Full::get_readable_version(
+    void* list_ptr, const uint64_t tid_self, char* write_loc,
     const std::vector<std::pair<size_t, size_t>>& column_size_offset_pairs,
     const ushort* col_idx, const ushort num_cols) {
   static thread_local std::bitset<1> ret_bitmask("1");
 
-  char* version = (char*)this->get_readable_version(tid_self);
+  version_t* head = static_cast<version_t*>(list_ptr);
+  // char* version = (char*)this->get_readable_version(tid_self);
+  char* version =
+      (char*)MV_RecordList_Full::get_readable_version(head, tid_self);
   assert(version != nullptr);
 
   if (__unlikely(col_idx == nullptr || num_cols == 0)) {
@@ -107,4 +113,85 @@ std::bitset<1> recordList::VERSION_CHAIN::get_readable_version(
 //     tmp = tmp->next;
 //   }
 // }
+
+std::bitset<64> MV_RecordList_Partial::get_readable_version(
+    void* list_ptr, const uint64_t tid_self, char* write_loc,
+    const std::vector<std::pair<size_t, size_t>>& column_size_offset_pairs,
+    const ushort* col_idx, const ushort num_cols) {
+  version_t* head = static_cast<version_t*>(list_ptr);
+
+  // CREATE containment mask.
+  std::bitset<64> done_mask;
+  std::bitset<64> required_mask;
+  std::vector<uint> return_col_offsets;
+
+  if (num_cols > 0) {
+    assert(num_cols <= 64 && "MAX columns supported: 64");
+    done_mask.set();
+    for (auto i = 0, offset = 0; i < num_cols; i++) {
+      done_mask.reset(col_idx[i]);
+      required_mask.set(col_idx[i]);
+
+      offset += column_size_offset_pairs[col_idx[i]].first;
+      return_col_offsets.push_back(offset);
+    }
+  } else {
+    for (auto i = column_size_offset_pairs.size(); i < done_mask.size(); i++)
+      done_mask.set(i);
+  }
+  required_mask = ~done_mask;
+
+  assert(!(done_mask.all()) && "havent even started and its done?");
+
+  // Traverse the list
+  version_t* curr = head;
+  size_t sanity_checker = 0;
+  while (curr != nullptr && !(done_mask.all())) {
+    sanity_checker++;
+
+    if (sanity_checker > 250) {
+      LOG(INFO) << "WOAHHH!: " << sanity_checker << " | " << done_mask;
+    }
+
+    if (global_conf::ConcurrencyControl::is_readable(curr->t_min, tid_self)) {
+      // So this version is readable, now check if it contains what we need or
+      // not.
+      auto tmp = curr->attribute_mask & (~done_mask);
+
+      if (tmp.any()) {
+        // set the bits that what we have it.
+        done_mask |= tmp;
+
+        // so this version contains some of the required stuff.
+        // Possible optimization: use intrinsic to find first set bit and
+        // start i from there
+        for (auto i = 0; i < tmp.size(); i++) {
+          if (tmp[i] == false) {
+            continue;
+          }
+          auto& col_s_pair = column_size_offset_pairs[i];
+
+          // Offset of some column in the version itself
+          auto version_col_offset = curr->get_offset(i);
+
+          // Offset of column in the requested set of columns.
+          // if requested all columns, the its columns cummulative offset.
+          auto offset_idx_output =
+              (num_cols == 0)
+                  ? col_s_pair.second
+                  : return_col_offsets
+                        [(required_mask >> (required_mask.size() - i)).count()];
+
+          memcpy((write_loc + offset_idx_output),
+                 static_cast<char*>(curr->data) + version_col_offset,
+                 col_s_pair.first);
+        }
+      }
+    } else {
+      curr = curr->next;
+    }
+  }
+
+  return done_mask;
+}
 }  // namespace storage::mv

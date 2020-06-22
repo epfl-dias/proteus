@@ -113,8 +113,36 @@ void DeltaStore::print_info() {
   }
 }
 
+void* insert_version_per_list() {
+  // two variant, one is which insert in all lists.
+  // the other one only in one list.
+
+  // also cater for cascade update, so take number of elements in interface
+  // also.
+  return nullptr;
+}
+
+void* DeltaStore::validate_or_create_list(void* list_ptr, size_t& delta_ver_tag,
+                                          ushort partition_id) {
+  auto curr_tag = create_delta_tag(this->delta_id, tag.load());
+  if (list_ptr == nullptr || delta_ver_tag != curr_tag) {
+    // none or stale list
+    delta_ver_tag = curr_tag;
+    list_ptr = partitions[partition_id]->getListChunk();
+    if (!touched) touched = true;
+  }
+  return list_ptr;
+}
+
+void* DeltaStore::create_version(size_t size, ushort partition_id) {
+  char* cnk = (char*)partitions[partition_id]->getVersionDataChunk(size);
+  if (!touched) touched = true;
+  return cnk;
+}
+
 void* DeltaStore::insert_version(global_conf::IndexVal* idx_ptr, uint rec_size,
                                  ushort partition_id) {
+  assert(!storage::mv::mv_type::isPerAttributeMVList);
   char* cnk = (char*)partitions[partition_id]->getVersionDataChunk(rec_size);
 
   storage::mv::mv_version* val = new ((void*)cnk) storage::mv::mv_version(

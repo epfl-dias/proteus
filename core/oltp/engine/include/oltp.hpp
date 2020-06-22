@@ -30,7 +30,6 @@
 #include "interfaces/bench.hpp"
 #include "scheduler/worker.hpp"
 #include "storage/column_store.hpp"
-#include "storage/multi-version/mv.hpp"
 #include "storage/table.hpp"
 #include "transactions/transaction_manager.hpp"
 

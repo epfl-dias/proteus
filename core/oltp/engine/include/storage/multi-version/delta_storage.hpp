@@ -51,6 +51,9 @@ class alignas(4096) DeltaStore {
   void print_info();
   void *insert_version(global_conf::IndexVal *idx_ptr, uint rec_size,
                        ushort parition_id);
+  void *validate_or_create_list(void *list_ptr, size_t &delta_ver_tag,
+                                ushort partition_id);
+  void *create_version(size_t size, ushort partition_id);
   void gc();
   void gc_with_counter_arr(int wrk_id);
 
@@ -88,6 +91,10 @@ class alignas(4096) DeltaStore {
   }
 
   inline auto getTag() { return tag.load(); }
+
+  [[maybe_unused]] inline auto getFullTag() {
+    return create_delta_tag(this->delta_id, tag.load());
+  }
 
   [[maybe_unused]] inline bool verifyTag(uint64_t &d_tag_ver) {
     return (create_delta_tag(this->delta_id, tag.load()) == d_tag_ver);

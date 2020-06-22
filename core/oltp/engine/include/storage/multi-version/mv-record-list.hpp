@@ -24,13 +24,19 @@
 #ifndef PROTEUS_MV_RECORD_LIST_HPP
 #define PROTEUS_MV_RECORD_LIST_HPP
 
+#include <bitset>
 #include <cassert>
 #include <iostream>
-#include <storage/column_store.hpp>
+#include <utility>
+
+#include "mv-versions.hpp"
 
 namespace storage::mv {
 
-/* Class: recordList
+class MV_RecordList_Full;
+class MV_RecordList_Partial;
+
+/* Class: MV_RecordList_Full
  * FIXME:
  * Description:
  *
@@ -42,65 +48,54 @@ namespace storage::mv {
  *
  * */
 
-class recordList {
+class MV_RecordList_Full {
  public:
   static constexpr bool isAttributeLevelMV = false;
-  static constexpr bool isPerAttributeMV = false;
+  static constexpr bool isPerAttributeMVList = false;
 
-  class VERSION {
-   public:
-    const uint64_t t_min;
-    const uint64_t t_max;
-    void *data;
-    VERSION *next;
-    VERSION(uint64_t t_min, uint64_t t_max, void *data)
-        : t_min(t_min), t_max(t_max), data(data), next(nullptr) {}
+  typedef VersionSingle version_t;
+  typedef VersionChain<MV_RecordList_Full> version_chain_t;
 
-    inline void set_attr_mask(std::bitset<64> mask) {}
+  static std::bitset<1> get_readable_version(
+      void* list_ptr, uint64_t tid_self, char* write_loc,
+      const std::vector<std::pair<size_t, size_t>>& column_size_offset_pairs,
+      const ushort* col_idx = nullptr, ushort num_cols = 0);
 
-    [[noreturn]] inline int64_t get_offset(size_t col_idx) {
-      throw std::runtime_error("record-list doesnt need offsets");
-    }
+  static std::vector<MV_RecordList_Full::version_t*> create_versions(
+      global_conf::IndexVal* idx_ptr, void* list_ptr,
+      std::vector<size_t>& attribute_widths, storage::DeltaStore& deltaStore,
+      ushort partition_id, const ushort* col_idx, short num_cols);
 
-    [[noreturn]] inline void set_offsets(std::vector<size_t> col_offsets) {
-      throw std::runtime_error("record-list doesnt need offsets");
-    }
-
-    friend class VERSION_CHAIN;
-  };
-
-  class VERSION_CHAIN {
-   public:
-    VERSION_CHAIN() { head = nullptr; }
-
-    inline void insert(VERSION *val) {
-      val->next = head;
-      head = val;
-    }
-    void get_readable_version(uint64_t tid_self, char *write_loc,
-                              uint rec_size);
-
-    std::bitset<1> get_readable_version(
-        uint64_t tid_self, char *write_loc,
-        const std::vector<std::pair<size_t, size_t>> &column_size_offset_pairs,
-        const ushort *col_idx = nullptr, ushort num_cols = 0);
-
-    // void print_list(uint64_t print) {
-    //   VERSION *tmp = head;
-    //   while (tmp != nullptr) {
-    //     std::cout << "[" << print << "] xmin:" << tmp->t_min << std::endl;
-    //     tmp = tmp->next;
-    //   }
-    // }
-
-   private:
-    VERSION *head;
-
-    [[nodiscard]] void *get_readable_version(uint64_t tid_self) const;
-
-    friend class storage::DeltaStore;
-  };
+ private:
+  static void* get_readable_version(version_t* head, uint64_t tid_self);
+  static void get_readable_version(version_t* head, uint64_t tid_self,
+                                   char* write_loc, uint rec_size);
 };
+
+/* Class: MV_RecordList_Partial
+ * Description: single: one list per-relation.
+ *             However, each version contains updated-attributed only.
+ * */
+
+class MV_RecordList_Partial {
+ public:
+  static constexpr bool isAttributeLevelMV = true;
+  static constexpr bool isPerAttributeMVList = false;
+
+  typedef VersionMultiAttr version_t;
+  typedef VersionChain<MV_RecordList_Partial> version_chain_t;
+
+  static std::bitset<64> get_readable_version(
+      void* list_ptr, uint64_t tid_self, char* write_loc,
+      const std::vector<std::pair<size_t, size_t>>& column_size_offset_pairs,
+      const ushort* col_idx = nullptr, ushort num_cols = 0);
+
+  static std::vector<MV_RecordList_Partial::version_t*> create_versions(
+      global_conf::IndexVal* idx_ptr, void* list_ptr,
+      std::vector<size_t>& attribute_widths, storage::DeltaStore& deltaStore,
+      ushort partition_id, const ushort* col_idx, short num_cols);
+};
+
 }  // namespace storage::mv
 
 #endif  // PROTEUS_MV_RECORD_LIST_HPP

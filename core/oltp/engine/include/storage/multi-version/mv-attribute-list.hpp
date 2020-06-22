@@ -24,120 +24,122 @@
 #ifndef PROTEUS_MV_ATTRIBUTE_LIST_HPP
 #define PROTEUS_MV_ATTRIBUTE_LIST_HPP
 
-#include <bitset>
-#include <storage/column_store.hpp>
-#include <utility>
-
 #include "glo.hpp"
+#include "mv-versions.hpp"
 
 namespace storage::mv {
 
-class attributeList {
+class MV_attributeList;
+class MV_DAG;
+
+template <typename T>
+class MV_perAttribute {
  public:
-  class VERSION;
-  class VERSION_CHAIN;
+  static constexpr bool isPerAttributeMVList = true;
   static constexpr bool isAttributeLevelMV = true;
+
+  typedef typename T::version_t version_t;
+  typedef typename T::version_chain_t version_chain_t;
+
+  static auto create_versions(global_conf::IndexVal *idx_ptr, void *list_ptr,
+                              std::vector<size_t> &attribute_widths,
+                              storage::DeltaStore &deltaStore,
+                              ushort partition_id, const ushort *col_idx,
+                              short num_cols) {
+    // static_cast<T&>(*this).destroy_snapshot_();
+    // T::create_versions(list_ptr, attribute_widths, col_idx, num_cols);
+    auto *tmp_list_ptr = (typename T::attributeVerList_t *)list_ptr;
+
+    return T::create_versions(idx_ptr, tmp_list_ptr, attribute_widths,
+                              deltaStore, partition_id, col_idx, num_cols);
+  }
+
+  static auto get_readable_version(
+      void *list_ptr, uint64_t xid, char *write_loc,
+      const std::vector<std::pair<size_t, size_t>> &column_size_offset_pairs,
+      const ushort *col_idx = nullptr, ushort num_cols = 0) {
+    auto *tmp_list_ptr = (typename T::attributeVerList_t *)list_ptr;
+
+    return T::get_readable_version(tmp_list_ptr, xid, write_loc,
+                                   column_size_offset_pairs, col_idx, num_cols);
+  }
 };
 
-class attributeList_multi : public attributeList {
+class MV_attributeList {
  public:
-  static constexpr bool isPerAttributeMV = true;
+  static constexpr bool isPerAttributeMVList = true;
+  static constexpr bool isAttributeLevelMV = true;
+  // typedef MVattributeListCol<VERSION_CHAIN> MVattributeLists;
 
-  class VERSION {
-   public:
-    uint64_t t_min;
-    uint64_t t_max;
-    void *data;
-    VERSION *next;
-    VERSION(uint64_t t_min, uint64_t t_max, void *data)
-        : t_min(t_min), t_max(t_max), data(data), next(nullptr) {}
-  };
+  // Single-version as each version contains a single-attribute only.
+  typedef VersionSingle version_t;
+  typedef VersionChain<MV_attributeList> version_chain_t;
+  typedef MVattributeListCol<version_chain_t> attributeVerList_t;
 
-  class VERSION_CHAIN {
-   public:
-    VERSION_CHAIN() { head = nullptr; }
-    explicit VERSION_CHAIN(VERSION *head) : head(head) {}
+  // required stuff to create versions
+  // - pointer to mv-lists
+  // - column_indexes
+  // - column_sizes (attribute_sizes) .. this is somewhere already saved i
+  // guess. (column_size)
 
-    inline void insert(VERSION *val) {
-      val->next = head;
-      head = val;
-    }
+  // return: pointers (ordered with col_idxes) where columnstore can create
+  // versions directly. diff in dag vs multi: nothing here, but in list
+  // connections!
+  //  static std::vector<MV_attributeList::version_t*> create_versions(
+  //      void *list_ptr, std::vector<size_t> &attribute_widths,
+  //      const ushort *col_idx, short num_cols);
 
-    bool get_readable_version(uint64_t tid_self, char *write_loc,
-                              const size_t elem_size);
+  static std::vector<MV_attributeList::version_t *> create_versions(
+      global_conf::IndexVal *idx_ptr,
+      MV_attributeList::attributeVerList_t *list_ptr,
+      std::vector<size_t> &attribute_widths, storage::DeltaStore &deltaStore,
+      ushort partition_id, const ushort *col_idx, short num_cols);
 
-   private:
-    VERSION *head;
-    friend class storage::DeltaStore;
-  };
+  static std::bitset<64> get_readable_version(
+      MV_attributeList::attributeVerList_t *list_ptr, uint64_t xid,
+      char *write_loc,
+      const std::vector<std::pair<size_t, size_t>> &column_size_offset_pairs,
+      const ushort *col_idx = nullptr, ushort num_cols = 0);
+
+  // friend class MV_perAttribute<MV_attributeList>;
 };
 
-/* Class: attributeList_single
- * Description: single: one list per-relation.
+/* Class: MV_DAG
+ * Description:
+ *
+ * Layout:
+ *
+ *
+ * Traversal Algo:
+ *
+ *
  * */
 
-class attributeList_single : public attributeList {
+class MV_DAG {
  public:
-  static constexpr bool isPerAttributeMV = false;
+  static constexpr bool isPerAttributeMVList = true;
+  static constexpr bool isAttributeLevelMV = true;
 
-  class VERSION {
-   public:
-    uint64_t t_min;
-    uint64_t t_max;
-    std::bitset<64> attribute_mask;
-    std::vector<size_t> offsets;
-    void *data;
-    VERSION *next;
-    VERSION(uint64_t t_min, uint64_t t_max, void *data)
-        : t_min(t_min), t_max(t_max), data(data), next(nullptr) {
-      attribute_mask.set();
-    }
-    VERSION(uint64_t t_min, uint64_t t_max, void *data,
-            std::bitset<64> attribute_mask)
-        : t_min(t_min),
-          t_max(t_max),
-          data(data),
-          next(nullptr),
-          attribute_mask(attribute_mask) {}
+  // Multi-version as each version contains a multiple-attribute.
+  typedef VersionMultiAttr version_t;
+  typedef VersionChain<MV_DAG> version_chain_t;
+  typedef MVattributeListCol<version_chain_t> attributeVerList_t;
 
-    inline void set_attr_mask(std::bitset<64> mask) { attribute_mask = mask; }
-    inline void set_offsets(std::vector<size_t> col_offsets) {
-      this->offsets = std::move(col_offsets);
-    }
+  static std::vector<MV_DAG::version_t *> create_versions(
+      void *list_ptr, std::vector<size_t> &attribute_widths,
+      const ushort *col_idx, short num_cols);
 
-    inline size_t get_offset(size_t col_idx) {
-      auto idx_in_ver =
-          (attribute_mask >> (attribute_mask.size() - col_idx)).count();
-      return offsets[idx_in_ver];
-    }
-  };
+  static std::vector<MV_DAG::version_t *> create_versions(
+      global_conf::IndexVal *idx_ptr, MV_DAG::attributeVerList_t *list_ptr,
+      std::vector<size_t> &attribute_widths, storage::DeltaStore &deltaStore,
+      ushort partition_id, const ushort *col_idx, short num_cols);
 
-  class VERSION_CHAIN {
-   public:
-    VERSION_CHAIN() { head = nullptr; }
-    explicit VERSION_CHAIN(VERSION *head) : head(head) {}
-
-    inline void insert(VERSION *val) {
-      val->next = head;
-      head = val;
-    }
-
-    void get_readable_version(uint64_t tid_self, char *write_loc,
-                              uint rec_size);
-
-    std::bitset<64> get_readable_version(
-        uint64_t tid_self, char *write_loc,
-        const std::vector<std::pair<size_t, size_t>> &column_size_offset_pairs,
-        const ushort *col_idx = nullptr, ushort num_cols = 0);
-
-   private:
-    VERSION *head;
-    void *get_readable_version(uint64_t tid_self) const;
-
-    friend class storage::DeltaStore;
-
-  };  // __attribute__((aligned(64)));
+  static std::bitset<64> get_readable_version(
+      version_t *head, uint64_t xid, char *write_loc,
+      const std::vector<std::pair<size_t, size_t>> &column_size_offset_pairs,
+      const ushort *col_idx = nullptr, ushort num_cols = 0);
 };
+
 }  // namespace storage::mv
 
 #endif  // PROTEUS_MV_ATTRIBUTE_LIST_HPP
