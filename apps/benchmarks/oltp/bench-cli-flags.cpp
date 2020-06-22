@@ -31,6 +31,7 @@ DEFINE_uint32(ycsb_num_cols, 1, "YCSB - # Columns");
 DEFINE_uint32(ycsb_num_ops_per_txn, 10, "YCSB - # ops / txn");
 DEFINE_uint32(ycsb_num_records, 0, "YCSB - # records");
 DEFINE_uint32(ycsb_num_col_upd, 0, "# of cols to upd per op");
+DEFINE_uint32(ycsb_num_col_read, 0, "# of cols to read per op");
 
 // TPC-C
 DEFINE_uint32(tpcc_num_wh, 0, "TPC-C - # of Warehouses ( 0 = one per worker");

@@ -73,8 +73,10 @@ class YCSB : public Benchmark {
   storage::Schema *schema;
   storage::Table *ycsb_tbl;
 
-  const int num_of_col_upd_per_op;
+  const uint num_of_col_upd_per_op;
+  const uint num_of_col_read_per_op;
   std::vector<ushort> col_idx;
+  std::vector<ushort> col_idx_rev;
 
   // zipf stuff
   struct drand48_data **rand_buffer;
@@ -215,8 +217,10 @@ class YCSB : public Benchmark {
 
     // static thread_local int n = this->num_ops_per_txn;
     // TODO: which cols to update?
-    static thread_local int num_col_upd = this->num_of_col_upd_per_op;
+    static thread_local ushort num_col_upd = this->num_of_col_upd_per_op;
+    static thread_local ushort num_col_read = this->num_of_col_read_per_op;
     static thread_local std::vector<ushort> col_idx_local(col_idx);
+    static thread_local std::vector<ushort> col_idx_rev_local(col_idx_rev);
     static thread_local std::vector<uint64_t> read_loc(num_fields, 0);
 
     static thread_local std::vector<global_conf::IndexVal *>
@@ -260,7 +264,8 @@ class YCSB : public Benchmark {
 
           hash_ptr->latch.acquire();
 
-          ycsb_tbl->getRecordByKey(hash_ptr, xid, delta_ver, nullptr, 0,
+          ycsb_tbl->getRecordByKey(hash_ptr, xid, delta_ver,
+                                   col_idx_rev_local.data(), num_col_read,
                                    read_loc.data());
           hash_ptr->latch.release();
           break;
@@ -294,8 +299,7 @@ class YCSB : public Benchmark {
     return true;
   }
 
-  // TODO: clean-up
-  ~YCSB() { std::cout << "destructor of YCSB" << std::endl; }
+  ~YCSB() {}
 
   // private:
   YCSB(std::string name = "YCSB", int num_fields = 2, int num_records = 1000000,
@@ -303,7 +307,7 @@ class YCSB : public Benchmark {
        int num_ops_per_txn = 2, double write_threshold = 0.5,
        int num_active_workers = -1, int num_max_workers = -1,
        ushort num_partitions = 1, bool layout_column_store = true,
-       int num_of_col_upd = 1)
+       uint num_of_col_upd = 1, uint num_of_col_read = 1)
       : Benchmark(name, num_active_workers, num_max_workers, num_partitions),
         num_fields(num_fields),
         num_records(num_records),
@@ -311,7 +315,8 @@ class YCSB : public Benchmark {
         // num_iterations_per_worker(num_iterations_per_worker),
         num_ops_per_txn(num_ops_per_txn),
         write_threshold(write_threshold),
-        num_of_col_upd_per_op(num_of_col_upd) {
+        num_of_col_upd_per_op(num_of_col_upd),
+        num_of_col_read_per_op(num_of_col_read) {
     if (num_max_workers == -1)
       num_max_workers = topology::getInstance().getCoreCount();
     if (num_active_workers == -1)
@@ -321,10 +326,13 @@ class YCSB : public Benchmark {
     assert(this->num_records % this->num_max_workers == 0 &&
            "Total number of records should be divisible by total # cores");
 
-    for (ushort t = 0; t < num_of_col_upd_per_op; t++) {
+    for (ushort t = 0; t < num_fields; t++) {
       col_idx.emplace_back(t);
     }
-    assert(col_idx.size() == num_of_col_upd_per_op);
+    for (short t = num_fields - 1; t >= 0; t--) {
+      col_idx_rev.emplace_back(t);
+    }
+    // assert(col_idx.size() == num_of_col_upd_per_op);
 
     // this->recs_per_server = this->num_records / this->num_max_workers;
     this->schema = &storage::Schema::getInstance();

@@ -121,6 +121,12 @@ int main(int argc, char** argv) {
       FLAGS_ycsb_num_col_upd = FLAGS_ycsb_num_cols;
     }
 
+    if (FLAGS_ycsb_num_col_read != 0) {
+      assert(FLAGS_ycsb_num_col_read <= FLAGS_ycsb_num_cols);
+    } else {
+      FLAGS_ycsb_num_col_read = FLAGS_ycsb_num_cols;
+    }
+
     bench = new bench::YCSB(
         "YCSB", FLAGS_ycsb_num_cols, FLAGS_ycsb_num_records,
         FLAGS_ycsb_zipf_theta, FLAGS_num_iter_per_worker,
@@ -128,7 +134,8 @@ int main(int argc, char** argv) {
         (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
         (FLAGS_elastic_workload > 0 ? topology::getInstance().getCoreCount()
                                     : FLAGS_num_workers),
-        g_num_partitions, FLAGS_layout_column_store, FLAGS_ycsb_num_col_upd);
+        g_num_partitions, FLAGS_layout_column_store, FLAGS_ycsb_num_col_upd,
+        FLAGS_ycsb_num_col_read);
   }
 
   scheduler::WorkerPool::getInstance().init(

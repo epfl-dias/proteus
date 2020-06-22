@@ -29,6 +29,7 @@ DECLARE_uint32(ycsb_num_cols);
 DECLARE_uint32(ycsb_num_ops_per_txn);
 DECLARE_uint32(ycsb_num_records);
 DECLARE_uint32(ycsb_num_col_upd);
+DECLARE_uint32(ycsb_num_col_read);
 
 // TPC-C
 DECLARE_uint32(tpcc_num_wh);
