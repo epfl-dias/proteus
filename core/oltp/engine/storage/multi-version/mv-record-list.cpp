@@ -194,4 +194,55 @@ std::bitset<64> MV_RecordList_Partial::get_readable_version(
 
   return done_mask;
 }
+
+
+
+
+std::vector<MV_RecordList_Full::version_t*> MV_RecordList_Full::create_versions(
+    global_conf::IndexVal* idx_ptr, void* list_ptr,
+    std::vector<size_t>& attribute_widths, storage::DeltaStore& deltaStore,
+    ushort partition_id, const ushort* col_idx, short num_cols){
+
+  size_t ver_size = 0;
+  for (auto &attr_w : attribute_widths){
+    ver_size += attr_w;
+  }
+
+  auto* ver =
+      (MV_RecordList_Full::version_t*) deltaStore.insert_version(idx_ptr, ver_size, partition_id);
+  assert(ver != nullptr && ver->data != nullptr);
+
+  return {ver};
+
+}
+
+
+std::vector<MV_RecordList_Partial::version_t*> MV_RecordList_Partial::create_versions(
+    global_conf::IndexVal* idx_ptr, void* list_ptr,
+    std::vector<size_t>& attribute_widths, storage::DeltaStore& deltaStore,
+    ushort partition_id, const ushort* col_idx, short num_cols){
+
+  size_t ver_size = 0;
+
+  if(__likely(num_cols > 0)){
+    for(auto i = 0; i < num_cols; i++){
+      ver_size += attribute_widths.at(col_idx[i]);
+    }
+  } else {
+    for (auto &attr_w : attribute_widths){
+      ver_size += attr_w;
+    }
+  }
+
+  auto* ver =
+      (MV_RecordList_Partial::version_t*) deltaStore.insert_version(idx_ptr, ver_size, partition_id);
+  assert(ver != nullptr && ver->data != nullptr);
+
+  size_t ver_rec_size = ver->create_partial_mask(attribute_widths,col_idx, num_cols);
+  assert(ver_size == ver_rec_size && "Sanity check failed");
+
+  return {ver};
+
+}
+
 }  // namespace storage::mv

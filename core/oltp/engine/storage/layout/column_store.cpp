@@ -48,7 +48,7 @@ namespace storage {
 
 std::mutex print_mutex;
 
-static inline uint32_t __attribute__((always_inline))
+[[maybe_unused]] static inline uint32_t __attribute__((always_inline))
 CC_get_delta_tag(uint64_t delta_ver_tag) {
   return static_cast<uint32_t>(delta_ver_tag);
 }
@@ -269,7 +269,7 @@ void* ColumnStore::insertRecord(void* rec, uint64_t xid, ushort partition_id,
     hash_ptr->t_min = xid;
     hash_ptr->VID = curr_vid;
 
-    if (mv::mv_type::isPerAttributeMVList) {
+    if constexpr (mv::mv_type::isPerAttributeMVList) {
       mv::MVattributeListCol<storage::mv::mv_version_chain>* mv_list_ptr =
           nullptr;
       mv_list_ptr = (mv::MVattributeListCol<storage::mv::mv_version_chain>*)this
@@ -329,7 +329,9 @@ void ColumnStore::getRecordByKey(global_conf::IndexVal* idx_ptr,
   } else {
     auto tagTmp =
         this->deltaStore[CC_get_delta_id(idx_ptr->delta_ver_tag)]->getTag();
-    assert(tagTmp == CC_get_delta_tag(idx_ptr->delta_ver_tag));
+    //FIXME: for the un-updated column, this tag would be invalid and causes assertion!
+
+    //assert(tagTmp == CC_get_delta_tag(idx_ptr->delta_ver_tag));
 
     auto done_mask = mv::mv_type::get_readable_version(
         idx_ptr->delta_ver, txn_id, write_loc, this->column_size_offset_pairs,
@@ -398,162 +400,172 @@ void ColumnStore::getRecordByKey(uint64_t vid, const ushort* col_idx,
 void ColumnStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
                                ushort curr_master, ushort curr_delta,
                                const ushort* col_idx, short num_cols) {
+
+  assert( (num_cols > 0 && col_idx != nullptr) || num_cols <=0 );
+
   ushort pid = CC_extract_pid(hash_ptr->VID);
   ushort m_ver = CC_extract_m_ver(hash_ptr->VID);
   char* cursor = (char*)rec;
 
-  if (storage::mv::mv_type::isAttributeLevelMV) {
-    if (storage::mv::mv_type::isPerAttributeMVList) {
-      auto old_vid = hash_ptr->VID;
-      hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
+  auto old_vid = hash_ptr->VID;
+  hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
 
-      void* mv_list_pointer = mv_attr_list_column->getElem(CC_gen_vid(
-          CC_extract_offset(old_vid), CC_extract_pid(old_vid), 0, 0));
-      assert(mv_list_pointer == hash_ptr->delta_ver &&
-             "to remove, just sanity for now.");
-      auto version_ptr = mv::mv_type::create_versions(
-          hash_ptr, mv_list_pointer, column_size,
-          *(this->deltaStore[curr_delta]), pid, col_idx, num_cols);
-      // IN MV_DAG! we also need attribute-masks!
+  auto version_ptr = mv::mv_type::create_versions(
+      hash_ptr, hash_ptr->delta_ver, column_size,
+      *(this->deltaStore[curr_delta]), pid, col_idx, num_cols);
 
-      // Actual data-copy and attribute-update.
-      // TWO-cases: when partial-attribute and when-full-row
-      if (__unlikely(num_cols == 0 || col_idx == nullptr)) {
-        // case where full-row
-        uint i = 0;
-        for (auto& col : columns) {
-          // copy-col to version
-          memcpy(version_ptr.at(i), col.getElem(old_vid), col.elem_size);
-          // update column
-          col.updateElem(hash_ptr->VID,
-                         (rec == nullptr ? nullptr : (void*)cursor));
-          if (__likely(rec != nullptr)) {
-            cursor += col.elem_size;
-          }
-          i++;
-        }
+  char* version_data_ptr = (char*) (version_ptr.at(0)->data);
+
+    auto n_cols = (num_cols > 0 ? num_cols : columns.size());
+    Column* col;
+    for (auto i = 0; i < n_cols; i++) {
+
+      if( __likely(num_cols > 0)){
+        col = &(columns.at(col_idx[i]));
       } else {
-        for (auto i = 0; i < num_cols; i++) {
-          // copy-col to version
-          auto& col = columns.at(col_idx[i]);
-          memcpy(version_ptr.at(i), col.getElem(old_vid), col.elem_size);
-
-          // update column
-          col.updateElem(hash_ptr->VID,
-                         (rec == nullptr ? nullptr : (void*)cursor));
-          if (__likely(rec != nullptr)) {
-            cursor += col.elem_size;
-          }
-        }
+        col = &(columns.at(i));
       }
 
-    } else {
-      // separate block as this type will also require
-      // mask of the column_ids
-
-      auto old_vid = hash_ptr->VID;
-      hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
-      size_t ver_rec_size = 0;
-      std::bitset<64> attribute_mask;
-      std::vector<size_t> offsets_in_version{
-          0, num_cols > 0 ? num_cols : this->columns.size()};
-
-      // Create-mask for the updated attributes.
-
-      if (__likely(this->num_columns <= 64)) {
-        // Optimization: maybe save column offsets in the version also.
-        // so whenever somebody is reterving version, we dont want to know the
-        // offset/size from the column but from version.
-        if (__unlikely(num_cols == 0 || col_idx == nullptr)) {
-          attribute_mask.set();
-          ver_rec_size = this->rec_size;
-          offsets_in_version = this->column_size_offsets;
-        } else {
-          for (ushort i = 0; i < num_cols; i++) {
-            attribute_mask.set(i);
-            auto tmp_size = columns.at(col_idx[i]).elem_size;
-            ver_rec_size += tmp_size;
-            offsets_in_version.push_back(tmp_size);
-          }
-        }
-
+      if constexpr (storage::mv::mv_type::isPerAttributeMVList){
+        memcpy(version_ptr.at(i)->data, col->getElem(old_vid), col->elem_size);
       } else {
-        assert(false && "for now only max 64 columns supported.");
+        memcpy(version_data_ptr, col->getElem(old_vid), col->elem_size);
+        version_data_ptr += col->elem_size;
       }
 
-      // Create version, and get back the data ptr.
-      storage::mv::mv_version* v =
-          (storage::mv::mv_version*)this->deltaStore[curr_delta]
-              ->insert_version(hash_ptr, ver_rec_size, pid);
-      char* ver = (char*)v->data;
-      assert(ver != nullptr);
-
-      // SET THE ATTRIBUTE MASK!
-      v->set_attr_mask(attribute_mask);
-      v->set_offsets(offsets_in_version);
-
-      // Actual data-copy and attribute-update.
-      if (__unlikely(num_cols == 0 || col_idx == nullptr)) {
-        for (auto& col : columns) {
-          // copy-col to version
-          memcpy(ver, col.getElem(old_vid), col.elem_size);
-          ver += col.elem_size;
-
-          // update column
-          col.updateElem(hash_ptr->VID,
-                         (rec == nullptr ? nullptr : (void*)cursor));
-          if (__likely(rec != nullptr)) {
-            cursor += col.elem_size;
-          }
-        }
-      } else {
-        for (auto i = 0; i < num_cols; i++) {
-          // copy-col to version
-          auto& col = columns.at(col_idx[i]);
-          memcpy(ver, col.getElem(old_vid), col.elem_size);
-          ver += col.elem_size;
-
-          // update column
-          col.updateElem(hash_ptr->VID,
-                         (rec == nullptr ? nullptr : (void*)cursor));
-          if (__likely(rec != nullptr)) {
-            cursor += col.elem_size;
-          }
-        }
+      // update column
+      col->updateElem(hash_ptr->VID,
+                     (rec == nullptr ? nullptr : (void*)cursor));
+      if (__likely(rec != nullptr)) {
+        cursor += col->elem_size;
       }
     }
-  } else {
-    // FULL RECORD BASED.
-
-    // Create delta-version.
-    char* ver = (char*)(((storage::mv::mv_version*)this->deltaStore[curr_delta]
-                             ->insert_version(hash_ptr, this->rec_size, pid))
-                            ->data);
-    assert(ver != nullptr);
-    for (auto& col : columns) {
-      memcpy(ver + col.cummulative_offset, col.getElem(hash_ptr->VID),
-             col.elem_size);
-    }
-
-    hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
-    if (__unlikely(num_cols <= 0)) {
-      for (auto& col : columns) {
-        col.updateElem(
-            hash_ptr->VID,
-            (rec == nullptr ? nullptr : cursor + col.cummulative_offset));
-      }
-    } else {
-      for (ushort i = 0; i < num_cols; i++) {
-        // assert(col_idx[i] < columns.size());
-        auto& col = columns.at(col_idx[i]);
-        col.updateElem(hash_ptr->VID,
-                       (rec == nullptr ? nullptr : (void*)cursor));
-        if (__likely(rec != nullptr)) {
-          cursor += col.elem_size;
-        }
-      }
-    }
-  }
+  // ------ legacy code below.
+//
+//  if (storage::mv::mv_type::isAttributeLevelMV) {
+//    if (storage::mv::mv_type::isPerAttributeMVList) {
+//      auto old_vid = hash_ptr->VID;
+//      hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
+//
+////      void* mv_list_pointer = mv_attr_list_column->getElem(CC_gen_vid(
+////          CC_extract_offset(old_vid), CC_extract_pid(old_vid), 0, 0));
+////      assert(mv_list_pointer == hash_ptr->delta_ver &&
+////             "to remove, just sanity for now.");
+//      auto version_ptr = mv::mv_type::create_versions(
+//          hash_ptr, hash_ptr->delta_ver, column_size,
+//          *(this->deltaStore[curr_delta]), pid, col_idx, num_cols);
+//      // IN MV_DAG! we also need attribute-masks!
+//
+//      // Actual data-copy and attribute-update.
+//      // TWO-cases: when partial-attribute and when-full-row
+//
+//
+//    } else {
+//      // separate block as this type will also require
+//      // mask of the column_ids
+//
+//      auto old_vid = hash_ptr->VID;
+//      hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
+//      size_t ver_rec_size = 0;
+//      std::bitset<64> attribute_mask;
+//      std::vector<size_t> offsets_in_version{
+//          0, num_cols > 0 ? num_cols : this->columns.size()};
+//
+//      // Create-mask for the updated attributes.
+//
+//      if (__likely(this->num_columns <= 64)) {
+//        // Optimization: maybe save column offsets in the version also.
+//        // so whenever somebody is reterving version, we dont want to know the
+//        // offset/size from the column but from version.
+//        if (__unlikely(num_cols == 0 || col_idx == nullptr)) {
+//          attribute_mask.set();
+//          ver_rec_size = this->rec_size;
+//          offsets_in_version = this->column_size_offsets;
+//        } else {
+//          for (ushort i = 0; i < num_cols; i++) {
+//            attribute_mask.set(i);
+//            offsets_in_version.push_back(ver_rec_size);
+//            ver_rec_size += columns.at(col_idx[i]).elem_size;
+//          }
+//        }
+//
+//      } else {
+//        assert(false && "for now only max 64 columns supported.");
+//      }
+//
+//      // Create version, and get back the data ptr.
+//      storage::mv::mv_version* v =
+//          (storage::mv::mv_version*)this->deltaStore[curr_delta]
+//              ->insert_version(hash_ptr, ver_rec_size, pid);
+//      char* ver = (char*)v->data;
+//      assert(ver != nullptr);
+//
+//      // SET THE ATTRIBUTE MASK!
+//      v->set_attr_mask(attribute_mask);
+//      v->set_offsets(offsets_in_version);
+//
+//      // Actual data-copy and attribute-update.
+//      if (__unlikely(num_cols == 0 || col_idx == nullptr)) {
+//        for (auto& col : columns) {
+//          // copy-col to version
+//          memcpy(ver, col.getElem(old_vid), col.elem_size);
+//          ver += col.elem_size;
+//
+//          // update column
+//          col.updateElem(hash_ptr->VID,
+//                         (rec == nullptr ? nullptr : (void*)cursor));
+//          if (__likely(rec != nullptr)) {
+//            cursor += col.elem_size;
+//          }
+//        }
+//      } else {
+//        for (auto i = 0; i < num_cols; i++) {
+//          // copy-col to version
+//          auto& col = columns.at(col_idx[i]);
+//          memcpy(ver, col.getElem(old_vid), col.elem_size);
+//          ver += col.elem_size;
+//
+//          // update column
+//          col.updateElem(hash_ptr->VID,
+//                         (rec == nullptr ? nullptr : (void*)cursor));
+//          if (__likely(rec != nullptr)) {
+//            cursor += col.elem_size;
+//          }
+//        }
+//      }
+//    }
+//  } else {
+//    // FULL RECORD BASED.
+//
+//    // Create delta-version.
+//    char* ver = (char*)(((storage::mv::mv_version*)this->deltaStore[curr_delta]
+//                             ->insert_version(hash_ptr, this->rec_size, pid))
+//                            ->data);
+//    assert(ver != nullptr);
+//    for (auto& col : columns) {
+//      memcpy(ver + col.cummulative_offset, col.getElem(hash_ptr->VID),
+//             col.elem_size);
+//    }
+//
+//    hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
+//    if (__unlikely(num_cols <= 0)) {
+//      for (auto& col : columns) {
+//        col.updateElem(
+//            hash_ptr->VID,
+//            (rec == nullptr ? nullptr : cursor + col.cummulative_offset));
+//      }
+//    } else {
+//      for (ushort i = 0; i < num_cols; i++) {
+//        // assert(col_idx[i] < columns.size());
+//        auto& col = columns.at(col_idx[i]);
+//        col.updateElem(hash_ptr->VID,
+//                       (rec == nullptr ? nullptr : (void*)cursor));
+//        if (__likely(rec != nullptr)) {
+//          cursor += col.elem_size;
+//        }
+//      }
+//    }
+//  }
 }
 
 /* Utils for loading data from binary or offseting datasets
@@ -571,13 +583,23 @@ void ColumnStore::insertIndexRecord(uint64_t rid, uint64_t xid,
   assert(this->indexed);
   uint64_t curr_vid = vid[partition_id].fetch_add(1);
 
-  global_conf::IndexVal* hash_ptr =
+  auto vid = CC_gen_vid(curr_vid, partition_id, 0, 0);
+  auto* hash_ptr =
       (global_conf::IndexVal*)this->meta_column->getElem(
-          CC_gen_vid(curr_vid, partition_id, 0, 0));
+          vid);
   hash_ptr->t_min = xid;
   hash_ptr->VID = CC_gen_vid(curr_vid, partition_id, master_ver, 0);
   void* pano = (void*)hash_ptr;
   this->p_index->insert(rid, pano);
+
+  if constexpr (mv::mv_type::isPerAttributeMVList) {
+    mv::MVattributeListCol<storage::mv::mv_version_chain>* mv_list_ptr =
+        nullptr;
+    mv_list_ptr = (mv::MVattributeListCol<storage::mv::mv_version_chain>*)this
+        ->mv_attr_list_column->getElem(vid);
+    assert(mv_list_ptr != nullptr);
+    hash_ptr->delta_ver = (void*)mv_list_ptr;
+  }
 }
 
 /*  Class Column

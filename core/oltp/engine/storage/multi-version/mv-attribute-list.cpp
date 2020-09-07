@@ -36,6 +36,7 @@ std::vector<MV_attributeList::version_t*> MV_attributeList::create_versions(
     MV_attributeList::attributeVerList_t* mv_list_ptr,
     std::vector<size_t>& attribute_widths, storage::DeltaStore& deltaStore,
     ushort partition_id, const ushort* col_idx, short num_cols) {
+
   std::vector<MV_attributeList::version_t*> version_pointers;
   version_pointers.reserve(num_cols > 0 ? num_cols : attribute_widths.size());
 
@@ -49,6 +50,8 @@ std::vector<MV_attributeList::version_t*> MV_attributeList::create_versions(
       auto* tmp = new (ver_chunk) MV_attributeList::version_t(
           idx_ptr->t_min, 0,
           (((char*)ver_chunk) + sizeof(MV_attributeList::version_t)));
+
+      tmp->create_partial_mask(attribute_widths,col_idx, num_cols);
 
       // Check if the list if valid, if not, then do the list thing,
       mv_list_ptr->version_lists[i] =
@@ -69,6 +72,8 @@ std::vector<MV_attributeList::version_t*> MV_attributeList::create_versions(
       auto* tmp = new (ver_chunk) MV_attributeList::version_t(
           idx_ptr->t_min, 0,
           (((char*)ver_chunk) + sizeof(MV_attributeList::version_t)));
+
+      tmp->create_partial_mask(attribute_widths,col_idx, num_cols);
 
       mv_list_ptr->version_lists[i] =
           static_cast<MV_attributeList::version_chain_t*>(
