@@ -97,7 +97,7 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
                          bool partitioned, int numa_idx)
     : Table(name, table_id, COLUMN_STORE, columns),
       columns(
-          storage::memory::ExplicitSocketPinnedMemoryAllocator<storage::Column>(
+          proteus::memory::ExplicitSocketPinnedMemoryAllocator<storage::Column>(
               storage::NUMAPartitionPolicy::getInstance()
                   .getDefaultPartition())) {
   this->total_mem_reserved = 0;

@@ -79,50 +79,6 @@ struct mem_chunk {
       : data(data), size(size), numa_id(numa_id) {}
 };
 
-template <typename T>
-class ExplicitSocketPinnedMemoryAllocator {
- private:
-  const int numa_memset_id;
-
- public:
-  typedef T value_type;
-
-  inline explicit ExplicitSocketPinnedMemoryAllocator(int numa)
-      : numa_memset_id(numa) {}
-
-  [[nodiscard]] T *allocate(size_t n) {
-    if (n > std::numeric_limits<size_t>::max() / sizeof(T))
-      throw std::bad_alloc();
-
-    return static_cast<T *>(
-        storage::memory::MemoryManager::alloc(n * sizeof(T), numa_memset_id));
-  }
-
-  void deallocate(T *mem, size_t) noexcept {
-    storage::memory::MemoryManager::free(mem);
-  }
-};
-
-template <typename T>
-class PinnedMemoryAllocator {
- public:
-  typedef T value_type;
-
-  inline explicit PinnedMemoryAllocator() {}
-
-  [[nodiscard]] T *allocate(size_t n) {
-    if (n > std::numeric_limits<size_t>::max() / sizeof(T))
-      throw std::bad_alloc();
-
-    return static_cast<T *>(
-        storage::memory::MemoryManager::alloc(n * sizeof(T), -1));
-  }
-
-  void deallocate(T *mem, size_t) noexcept {
-    storage::memory::MemoryManager::free(mem);
-  }
-};
-
 };  // namespace storage::memory
 
 #endif /* STORAGE_MEMORY_MANAGER_HPP_ */

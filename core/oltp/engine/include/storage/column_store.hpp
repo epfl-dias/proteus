@@ -36,6 +36,7 @@
 
 #include "glo.hpp"
 #include "storage/memory_manager.hpp"
+#include "memory/allocator.hpp"
 #include "storage/table.hpp"
 #include "utils/atomic_bit_set.hpp"
 
@@ -49,7 +50,7 @@ class Column;
 
 using ColumnVector =
     std::vector<storage::Column,
-                storage::memory::ExplicitSocketPinnedMemoryAllocator<Column>>;
+                proteus::memory::ExplicitSocketPinnedMemoryAllocator<Column>>;
 
 class alignas(4096) ColumnStore : public Table {
  public:
