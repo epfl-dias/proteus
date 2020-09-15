@@ -1,3 +1,4 @@
+add_subdirectory(index-probe-plans)
 add_subdirectory(olap)
 add_subdirectory(olap/flags)
 add_subdirectory(olap/prepared-queries)
