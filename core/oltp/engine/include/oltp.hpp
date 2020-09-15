@@ -24,6 +24,8 @@
 #ifndef OLTP_HPP_
 #define OLTP_HPP_
 
+#include <utility>
+
 #include "glo.hpp"
 #include "interfaces/bench.hpp"
 #include "scheduler/worker.hpp"
@@ -48,22 +50,6 @@ class OLTP {
 
     g_num_partitions = num_data_partitions;
 
-    /*
-    TPCC(std::string name = "TPCC", int num_warehouses = 1,
-       int active_warehouse = 1, bool layout_column_store = true,
-       uint tpch_scale_factor = 0, int g_dist_threshold = 0,
-       std::string csv_path = "", bool is_ch_benchmark = false);
-    */
-    // bench::Benchmark *bench =
-    //     new bench::TPCC("TPCC", num_txn_workers, num_txn_workers, true,
-    //                     ch_scale_factor, 0, "", true);
-
-    /*
-    void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
-                        uint num_partitions, uint worker_sched_mode,
-                        int num_iter_per_worker, bool elastic_workload)
-    */
-
     uint worker_sched_mode =
         global_conf::reverse_partition_numa_mapping ? 3 : 0;
 
@@ -79,6 +65,12 @@ class OLTP {
     this->db = &storage::Schema::getInstance();
     this->txn_manager = &txn::TransactionManager::getInstance();
   }
+
+  inline void enqueue_query(
+      std::function<bool(uint64_t, ushort, ushort, ushort)> query) {
+    this->worker_pool->enqueueTask(std::move(query));
+  }
+
   inline void run() { this->worker_pool->start_workers(); }
 
   inline void shutdown(bool print_stats = false) {

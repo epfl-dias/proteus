@@ -305,7 +305,6 @@ ExpressionType* getProteusType(
       LOG(FATAL) << msg;
       throw std::runtime_error(msg);
     }
-
   }
 }
 

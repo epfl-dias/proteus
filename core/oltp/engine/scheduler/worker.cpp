@@ -84,8 +84,108 @@ calculate_delta_ver(uint64_t txn_id, uint64_t start_time) {
 
   return duration >> 20;  // Magic Number
 }
+void Worker::run_interactive() {
+  set_exec_location_on_scope d{
+      topology::getInstance().getCores()[exec_core->index_in_topo]};
 
-void Worker::run() {
+  WorkerPool* pool = &WorkerPool::getInstance();
+  txn::TransactionManager* txnManager = &txn::TransactionManager::getInstance();
+  storage::Schema* schema = &storage::Schema::getInstance();
+
+  this->curr_delta = 0;
+  this->prev_delta = 0;
+
+  this->txn_start_tsc = txnManager->get_next_xid(this->id);
+  uint64_t tx_st = txnManager->txn_start_time;
+  this->curr_master = txnManager->current_master;
+  this->curr_txn = txnManager->get_next_xid(this->id);
+  this->prev_delta = this->curr_delta;
+  this->curr_delta = calculate_delta_ver(this->curr_txn, tx_st);
+  schema->add_active_txn(curr_delta % global_conf::num_delta_storages,
+                         this->curr_delta, this->id);
+
+  this->txn_start_time = std::chrono::system_clock::now();
+  this->state = RUNNING;
+
+  while (!terminate) {
+    if (change_affinity) {
+      if (revert_affinity) {
+        exec_location{
+            topology::getInstance().getCores()[this->exec_core->index_in_topo]}
+            .activate();
+        revert_affinity = false;
+      } else {
+        exec_location{topology::getInstance()
+                          .getCores()[this->affinity_core->index_in_topo]}
+            .activate();
+      }
+      change_affinity = false;
+    }
+
+    if (pause) {
+      state = PAUSED;
+      schema->remove_active_txn(
+          this->curr_delta % global_conf::num_delta_storages, this->curr_delta,
+          this->id);
+
+      while (pause && !terminate) {
+        std::this_thread::yield();
+        this->curr_master = txnManager->current_master;
+      }
+      state = RUNNING;
+
+      this->curr_master = txnManager->current_master;
+      this->curr_txn = txnManager->get_next_xid(this->id);
+      this->prev_delta = this->curr_delta;
+      this->curr_delta = calculate_delta_ver(this->curr_txn, tx_st);
+
+      schema->add_active_txn(curr_delta % global_conf::num_delta_storages,
+                             this->curr_delta, this->id);
+      continue;
+    }
+
+    // Master-version upd
+    this->curr_master = txnManager->current_master;
+
+    // Delta versioning
+    this->curr_txn = txnManager->get_next_xid(this->id);
+    this->prev_delta = this->curr_delta;
+    this->curr_delta = calculate_delta_ver(this->curr_txn, tx_st);
+
+    ushort curr_delta_id = curr_delta % global_conf::num_delta_storages;
+    ushort prev_delta_id = prev_delta % global_conf::num_delta_storages;
+
+    if (prev_delta != curr_delta) {  // && curr_delta_id != prev_delta_id
+      schema->switch_delta(prev_delta_id, curr_delta_id, curr_delta, this->id);
+
+    }  // else didnt switch.
+
+    // run query
+
+    std::function<bool(uint64_t, ushort, ushort, ushort)> task;
+    std::unique_lock<std::mutex> lock(pool->m);
+    if (!pool->tasks.empty()) {
+      //    NO-WAIT -> If task in queue, exec ELSE gen/exec txn
+      //    pool->cv.wait(
+      //    lock, [this, pool] { return this->terminate ||
+      //    !pool->tasks.empty(); });
+      task = std::move(pool->tasks.front());
+      pool->tasks.pop();
+      if (task(curr_txn, this->curr_master, curr_delta_id, this->partition_id))
+        num_commits++;
+      else
+        num_aborts++;
+      num_txns++;
+    }
+  }
+
+  txn_end_time = std::chrono::system_clock::now();
+  schema->remove_active_txn(this->curr_delta % global_conf::num_delta_storages,
+                            this->curr_delta, this->id);
+  state = TERMINATED;
+}
+
+void Worker::run_bench() {
   // std::cout << "[WORKER] Worker (TID:" << (int)(this->id)
   //          << "): Assigining Core ID:" << this->exec_core->id << std::endl;
   // AffinityManager::getInstance().set(this->exec_core);
@@ -102,7 +202,7 @@ void Worker::run() {
   WorkerPool* pool = &WorkerPool::getInstance();
   txn::TransactionManager* txnManager = &txn::TransactionManager::getInstance();
   storage::Schema* schema = &storage::Schema::getInstance();
-  void* txn_mem = pool->txn_bench->get_query_struct_ptr(this->partition_id);
+  void* txn_mem = pool->_txn_bench->get_query_struct_ptr(this->partition_id);
 
   curr_delta = 0;
   prev_delta = 0;
@@ -118,8 +218,8 @@ void Worker::run() {
 
   if (!is_hotplugged) {
     this->state = PRERUN;
-    pool->txn_bench->pre_run(this->id, curr_txn, this->partition_id,
-                             this->curr_master);
+    pool->_txn_bench->pre_run(this->id, curr_txn, this->partition_id,
+                              this->curr_master);
 
     this->state = READY;
 
@@ -210,32 +310,10 @@ void Worker::run() {
 
     }  // else didnt switch.
 
-    // custom query coming in.
-    // if (this->id == 0) {
-    //   std::function<bool(uint64_t)> task;
-    //   std::unique_lock<std::mutex> lock(pool->m);
-    //   if (!pool->tasks.empty()) {
-    //     //    NO-WAIT -> If task in queue, exec ELSE gen/exec txn
-    //     //    pool->cv.wait(
-    //     //    lock, [this, pool] { return this->terminate ||
-    //     //    !pool->tasks.empty(); });
-    //     task = std::move(pool->tasks.front());
-    //     pool->tasks.pop();
-    //     std::cout << "[WORKER] Worker (TID:" << (int)(this->id)
-    //               << ") Got a Task!" << std::endl;
-    //     if (task(this->curr_txn))
-    //       num_commits++;
-    //     else
-    //       num_aborts++;
-    //   }
-    // }
+    pool->_txn_bench->gen_txn((uint)this->id, txn_mem, this->partition_id);
 
-    pool->txn_bench->gen_txn((uint)this->id, txn_mem, this->partition_id);
-
-    // if (txnManager->executor.execute_txn(
-    //         c, curr_txn, txnManager->current_master, curr_delta_id))
-    if (pool->txn_bench->exec_txn(txn_mem, curr_txn, this->curr_master,
-                                  curr_delta_id, this->partition_id))
+    if (pool->_txn_bench->exec_txn(txn_mem, curr_txn, this->curr_master,
+                                   curr_delta_id, this->partition_id))
       num_commits++;
     else
       num_aborts++;
@@ -256,11 +334,11 @@ void Worker::run() {
     this->curr_txn = txnManager->get_next_xid(this->id);
     this->curr_master = txnManager->current_master;
 
-    pool->txn_bench->post_run(this->id, curr_txn, this->partition_id,
-                              this->curr_master);
+    pool->_txn_bench->post_run(this->id, curr_txn, this->partition_id,
+                               this->curr_master);
   }
   state = TERMINATED;
-  pool->txn_bench->free_query_struct_ptr(txn_mem);
+  pool->_txn_bench->free_query_struct_ptr(txn_mem);
 }
 
 std::vector<uint64_t> WorkerPool::get_active_txns() {
@@ -521,21 +599,25 @@ void WorkerPool::print_worker_stats(bool global_only) {
 }
 
 void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
-                      uint num_partitions, uint worker_sched_mode,
-                      int num_iter_per_worker, bool elastic_workload) {
+                      uint n_partitions, uint worker_scheduling_mode,
+                      int num_iterations_per_worker, bool is_elastic_workload) {
   std::cout << "[WorkerPool] Init" << std::endl;
 
   if (txn_bench == nullptr) {
-    this->txn_bench = new bench::Benchmark();
+    this->_txn_bench = new bench::Benchmark();
   } else {
-    this->txn_bench = txn_bench;
+    this->_txn_bench = txn_bench;
   }
-  std::cout << "[WorkerPool] TXN Bench: " << this->txn_bench->name << std::endl;
+  if (txn_bench != nullptr)
+    std::cout << "[WorkerPool] TXN Bench: " << this->_txn_bench->name
+              << std::endl;
+  else
+    std::cout << "[WorkerPool] Interactive mode";
 
-  this->num_iter_per_worker = num_iter_per_worker;
-  this->worker_sched_mode = worker_sched_mode;
-  this->num_partitions = num_partitions;
-  this->elastic_workload = elastic_workload;
+  this->num_iter_per_worker = num_iterations_per_worker;
+  this->worker_sched_mode = worker_scheduling_mode;
+  this->num_partitions = n_partitions;
+  this->elastic_workload = is_elastic_workload;
 
   prev_time_tps.reserve(topology::getInstance().getCoreCount());
   prev_sum_tps.reserve(topology::getInstance().getCoreCount());
@@ -546,13 +628,6 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
   std::cout << "[WorkerPool] Number of Workers " << num_workers << std::endl;
   std::cout << "[WorkerPool] Scheduling Mode: " << worker_sched_mode
             << std::endl;
-
-  /* FIX ME:HACKED because we dont have topology returning specific number of
-   * cores, this will be fixed when the elasticity and container stuff. until
-   * then, just manually limit the number of wokrers
-   */
-
-  // auto worker_cores = Topology::getInstance().getCoresPtr();
 
   pre_barrier.store(0);
   int i = 0;
@@ -582,7 +657,10 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
       std::cout << "Worker-" << (uint)wrkr->id << "(" << exec_core.id
                 << "): Allocated partition # " << wrkr->partition_id
                 << std::endl;
-      std::thread* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
+      std::thread* thd = new (thd_ptr)
+          std::thread((txn_bench != nullptr ? &Worker::run_bench
+                                            : &Worker::run_interactive),
+                      wrkr);
 
       workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
       prev_time_tps.emplace_back(
@@ -622,7 +700,10 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
       std::cout << "Worker-" << (uint)wrkr->id << "(" << sys_cores[ci].id
                 << "): Allocated partition # " << wrkr->partition_id
                 << std::endl;
-      std::thread* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
+      std::thread* thd = new (thd_ptr)
+          std::thread((txn_bench != nullptr ? &Worker::run_bench
+                                            : &Worker::run_interactive),
+                      wrkr);
 
       workers.emplace(
           std::make_pair(sys_cores[ci].id, std::make_pair(thd, wrkr)));
@@ -676,7 +757,11 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
       std::cout << "Worker-" << (uint)wrkr->id << "(" << exec_core.id
                 << "): Allocated partition # " << wrkr->partition_id
                 << std::endl;
-      std::thread* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
+
+      std::thread* thd = new (thd_ptr)
+          std::thread((txn_bench != nullptr ? &Worker::run_bench
+                                            : &Worker::run_interactive),
+                      wrkr);
 
       workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
       prev_time_tps.emplace_back(
@@ -722,7 +807,10 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
       std::cout << "Worker-" << (uint)wrkr->id << "(" << exec_core.id
                 << "): Allocated partition # " << wrkr->partition_id
                 << std::endl;
-      std::thread* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
+      std::thread* thd = new (thd_ptr)
+          std::thread((txn_bench != nullptr ? &Worker::run_bench
+                                            : &Worker::run_interactive),
+                      wrkr);
 
       workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
       prev_time_tps.emplace_back(
@@ -737,35 +825,36 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
   } else {
     assert(false && "Unknown scheduling mode.");
   }
+  if (txn_bench != nullptr) {
+    if (elastic_workload) {
+      // hack: initiate pre-run for hotplugged workers
+      std::vector<std::thread> loaders;
+      auto curr_master =
+          txn::TransactionManager::getInstance().current_master.load();
 
-  if (elastic_workload) {
-    // hack: initiate pre-run for hotplugged workers
-    std::vector<std::thread> loaders;
-    auto curr_master =
-        txn::TransactionManager::getInstance().current_master.load();
+      const auto& wrks_crs = topology::getInstance().getCores();
 
-    const auto& wrks_crs = topology::getInstance().getCores();
+      for (int ew = _txn_bench->num_active_workers;
+           ew < _txn_bench->num_max_workers; i++) {
+        loaders.emplace_back([this, ew, wrks_crs, curr_master]() {
+          auto tid = txn::TransactionManager::getInstance().get_next_xid(ew);
+          this->_txn_bench->pre_run(
+              ew, tid, wrks_crs.at(ew).local_cpu_index % num_partitions,
+              curr_master);
+        });
+      }
 
-    for (int ew = txn_bench->num_active_workers;
-         ew < txn_bench->num_max_workers; i++) {
-      loaders.emplace_back([this, ew, wrks_crs, curr_master, num_partitions]() {
-        auto tid = txn::TransactionManager::getInstance().get_next_xid(ew);
-        this->txn_bench->pre_run(
-            ew, tid, wrks_crs.at(ew).local_cpu_index % num_partitions,
-            curr_master);
-      });
+      for (auto& th : loaders) {
+        th.join();
+      }
+
+      std::cout << "Elastic Workload: Worker-group-size: " << workers.size()
+                << std::endl;
     }
 
-    for (auto& th : loaders) {
-      th.join();
+    while (pre_barrier != workers.size()) {
+      std::this_thread::yield();
     }
-
-    std::cout << "Elastic Workload: Worker-group-size: " << workers.size()
-              << std::endl;
-  }
-
-  while (pre_barrier != workers.size()) {
-    std::this_thread::yield();
   }
 }
 
@@ -939,8 +1028,11 @@ void WorkerPool::add_worker(const topology::core* exec_location,
            : partition_id);
   wrkr->num_iters = this->num_iter_per_worker;
   wrkr->is_hotplugged = true;
-  txn_bench->num_active_workers++;
-  std::thread* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
+  _txn_bench->num_active_workers++;
+  std::thread* thd = new (thd_ptr)
+      std::thread((this->_txn_bench != nullptr ? &Worker::run_bench
+                                               : &Worker::run_interactive),
+                  wrkr);
 
   workers.emplace(std::make_pair(exec_location->id, std::make_pair(thd, wrkr)));
   prev_time_tps.emplace_back(
@@ -952,27 +1044,29 @@ void WorkerPool::add_worker(const topology::core* exec_location,
 // Hot Plug
 void WorkerPool::remove_worker(const topology::core* exec_location) {
   auto get = workers.find(exec_location->id);
-  txn_bench->num_active_workers--;
+  _txn_bench->num_active_workers--;
   assert(get != workers.end());
   get->second.second->terminate = true;
   // TODO: remove from the vector too?
 }
 
 void WorkerPool::start_workers() {
-  while (pre_barrier != workers.size()) {
-    std::this_thread::yield();
+  if (this->_txn_bench != nullptr) {
+    while (pre_barrier != workers.size()) {
+      std::this_thread::yield();
+    }
+
+    {
+      std::lock_guard<std::mutex> lk(pre_m);
+      std::cout << "[WorkerPool] " << workers.size()
+                << " Workers starting txn.." << std::endl;
+
+      // storage::Schema::getInstance().report();
+      pre_barrier++;
+    }
+
+    pre_cv.notify_all();
   }
-
-  {
-    std::lock_guard<std::mutex> lk(pre_m);
-    std::cout << "[WorkerPool] " << workers.size() << " Workers starting txn.."
-              << std::endl;
-
-    // storage::Schema::getInstance().report();
-    pre_barrier++;
-  }
-
-  pre_cv.notify_all();
 }
 
 void WorkerPool::shutdown(bool print_stats) {
@@ -995,24 +1089,34 @@ void WorkerPool::shutdown(bool print_stats) {
   workers.clear();
 }
 
-template <class F, class... Args>
-std::future<typename std::result_of<F(Args...)>::type> WorkerPool::enqueueTask(
-    F&& f, Args&&... args) {
-  using packaged_task_t =
-      std::packaged_task<typename std::result_of<F(Args...)>::type()>;
-
-  std::shared_ptr<packaged_task_t> task(new packaged_task_t(
-      std::bind(std::forward<F>(f), std::forward<Args>(args)...)));
-
-  auto res = task->get_future();
+void WorkerPool::enqueueTask(
+    std::function<bool(uint64_t, ushort, ushort, ushort)> query) {
   {
-    std::unique_lock<std::mutex> lock(m);
-    tasks.emplace([task]() { (*task)(); });
+    std::unique_lock<std::mutex> lock(this->m);
+    tasks.emplace(std::move(query));
   }
-
   cv.notify_one();
-  return res;
 }
+
+// template <class F, class... Args>
+// std::future<typename std::result_of<F(Args...)>::type>
+// WorkerPool::enqueueTask(
+//    F&& f, Args&&... args) {
+//  using packaged_task_t =
+//      std::packaged_task<typename std::result_of<F(Args...)>::type()>;
+//
+//  std::shared_ptr<packaged_task_t> task(new packaged_task_t(
+//      std::bind(std::forward<F>(f), std::forward<Args>(args)...)));
+//
+//  auto res = task->get_future();
+//  {
+//    std::unique_lock<std::mutex> lock(m);
+//    tasks.emplace([task]() { (*task)(); });
+//  }
+//
+//  cv.notify_one();
+//  return res;
+//}
 
 /*
 << operator for Worker pool to print stats of worker pool.

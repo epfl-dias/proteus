@@ -122,7 +122,8 @@ class Worker {
   }
 
  private:
-  void run();
+  void run_bench();
+  void run_interactive();
   friend class WorkerPool;
 };
 
@@ -165,12 +166,14 @@ class WorkerPool {
   uint64_t get_max_active_txn();
   bool is_all_worker_on_master_id(ushort master_id);
 
-  template <class F, class... Args>
-  std::future<typename std::result_of<F(Args...)>::type> enqueueTask(
-      F &&f, Args &&...args);
+  //  template <class F, class... Args>
+  //  std::future<typename std::result_of<F(Args...)>::type> enqueueTask(
+  //      F &&f, Args &&... args);
+
+  void enqueueTask(std::function<bool(uint64_t, ushort, ushort, ushort)>);
 
   uint8_t size() { return workers.size(); }
-  std::string get_benchmark_name() { return this->txn_bench->name; }
+  std::string get_benchmark_name() { return this->_txn_bench->name; }
   void pause();
   void resume();
 
@@ -207,10 +210,11 @@ class WorkerPool {
   std::vector<double> prev_sum_tps;
 
   // TXN benchmark
-  bench::Benchmark *txn_bench;
+  bench::Benchmark *_txn_bench;
 
   // External TXN Queue
-  std::queue<std::function<bool(uint64_t)>> tasks;
+  std::queue<std::function<bool(uint64_t, ushort, ushort, ushort)>> tasks;
+
   std::mutex m;
   std::condition_variable cv;
 

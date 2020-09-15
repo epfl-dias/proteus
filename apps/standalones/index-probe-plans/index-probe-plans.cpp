@@ -27,20 +27,83 @@
 
 #include "oltp.hpp"
 
+storage::Table *tbl = nullptr;
+auto num_fields = 2;
+size_t record[] = {1, 2};
+auto intial_records = 100;
+
+bool insert_query(uint64_t xid, ushort master_ver, ushort delta_ver,
+                  ushort partition_id) {
+  // INSERT INTO T VALUES (5, 10);
+
+  for (auto i = 0; i < intial_records; i++) {
+    record[0] = i;
+    record[1] = i;
+    void *hash_idx = tbl->insertRecord(record, xid, partition_id, master_ver);
+    tbl->p_index->insert(i, hash_idx);
+
+    LOG(INFO) << "INSERTED: " << i;
+  }
+  LOG(INFO) << "INSERT QUERY SUCCESS";
+  return true;
+}
+
+bool update_query(uint64_t xid, ushort master_ver, ushort delta_ver,
+                  ushort partition_id) {
+  // UPDATE T SET b = 15 WHERE a=5;
+
+  auto *hash_ptr = (global_conf::IndexVal *)tbl->p_index->find(5);
+  if (hash_ptr->write_lck.try_lock()) {
+    hash_ptr->latch.acquire();
+    ushort col_update_idx = 1;
+    record[col_update_idx] = 15;
+    tbl->updateRecord(hash_ptr, &(record[col_update_idx]), master_ver,
+                      delta_ver, &col_update_idx, 1);
+    hash_ptr->t_min = xid;
+    hash_ptr->write_lck.unlock();
+    hash_ptr->latch.release();
+    LOG(INFO) << "UPDATE QUERY SUCCESS";
+    return true;
+  } else {
+    LOG(INFO) << "UPDATE QUERY FAILED";
+    return false;
+  }
+}
+
+bool select_query(uint64_t xid, ushort master_ver, ushort delta_ver,
+                  ushort partition_id) {
+  // SELECT * FROM T WHERE a=5;
+
+  auto *hash_ptr = (global_conf::IndexVal *)tbl->p_index->find(5);
+
+  if (hash_ptr != nullptr) {
+    hash_ptr->latch.acquire();
+    if (txn::CC_MV2PL::is_readable(hash_ptr->t_min, xid)) {
+      tbl->getRecordByKey(hash_ptr->VID, nullptr, 0, &(record[0]));
+    } else {
+      auto *v = (size_t *)hash_ptr->delta_ver->get_readable_ver(xid);
+      record[0] = v[0];
+      record[1] = v[1];
+    }
+    hash_ptr->latch.release();
+    LOG(INFO) << "SELECT VALUE GOT: [0]: " << record[0];
+    LOG(INFO) << "SELECT VALUE GOT: [1]: " << record[1];
+
+    return true;
+  } else {
+    assert(hash_ptr != nullptr && "Key not found.");
+    return false;
+  }
+}
+
 int main(int argc, char *argv[]) {
   auto ctx = proteus::from_cli::olap("Template", &argc, &argv);
 
   set_exec_location_on_scope exec(topology::getInstance().getCpuNumaNodes()[0]);
 
   // init OLTP
-  //  OLTP oltp_engine;
-  //  oltp_engine.init();
-
-  // txn-variables
-  auto num_fields = 2;
-  size_t record[] = {1, 2};
-  auto intial_records = 100;
-  size_t xid = 1;
+  OLTP oltp_engine;
+  oltp_engine.init();
 
   // CREATE TABLE T(a INTEGER, b INTEGER)
   storage::ColumnDef columns;
@@ -49,46 +112,21 @@ int main(int argc, char *argv[]) {
                          sizeof(uint64_t));
   }
 
-  auto tbl = storage::Schema::getInstance().create_table(
+  tbl = storage::Schema::getInstance().create_table(
       "table_one", storage::COLUMN_STORE, columns, intial_records * 10);
 
+  // Insert multiple values.
   // INSERT INTO T VALUES (5, 10);
-  for (auto i = 0; i < intial_records; i++) {
-    record[0] = i;
-    record[1] = i;
-    void *hash_idx = tbl->insertRecord(record, 0, 0, 0);
-    tbl->p_index->insert(i, hash_idx);
-  }
+  oltp_engine.enqueue_query(insert_query);
 
   // SELECT * FROM T WHERE a=5;
-
-  global_conf::IndexVal *hash_ptr =
-      (global_conf::IndexVal *)tbl->p_index->find(5);
-  assert(hash_ptr != nullptr);
-
-  hash_ptr->latch.acquire();
-  if (txn::CC_MV2PL::is_readable(hash_ptr->t_min, xid)) {
-    tbl->getRecordByKey(hash_ptr->VID, nullptr, 0, record);
-  } else {
-    void *v = hash_ptr->delta_ver->get_readable_ver(xid);
-    assert(false && "i dont remember the format of delta return :P");
-  }
-  hash_ptr->latch.release();
+  oltp_engine.enqueue_query(select_query);
 
   // UPDATE T SET b = 15 WHERE a=5;
+  oltp_engine.enqueue_query(update_query);
 
-  hash_ptr = (global_conf::IndexVal *)tbl->p_index->find(5);
-  if (hash_ptr->write_lck.try_lock()) {
-    hash_ptr->latch.acquire();
-    ushort col_update_idx = 1;
-    tbl->updateRecord(hash_ptr, &(record[col_update_idx]), 0, 0,
-                      &col_update_idx, 1);
-    hash_ptr->t_min = xid;
-    hash_ptr->write_lck.unlock();
-    hash_ptr->latch.release();
-  } else {
-    assert(false && "cannot acquire lock on record");
-  }
+  // SELECT * FROM T WHERE a=5;
+  oltp_engine.enqueue_query(select_query);
 
   return 0;
 }
