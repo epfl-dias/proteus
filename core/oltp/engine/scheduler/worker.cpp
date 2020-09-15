@@ -235,6 +235,11 @@ void Worker::run_bench() {
   this->txn_start_time = std::chrono::system_clock::now();
   this->state = RUNNING;
 
+  this->txn_start_time = std::chrono::system_clock::now();
+
+  std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>
+      txn_time = std::chrono::system_clock::now();
+
   while (!terminate) {
     if (change_affinity) {
       if (revert_affinity) {
@@ -266,12 +271,9 @@ void Worker::run_bench() {
     if (pause) {
       state = PAUSED;
 
-      // FIXME: TODO:
       // while paused, remove itself from the delta versioning, and when
       // continuing back, add itself. otherwise, until paused, it will block the
       // garbage collection for no reason.
-      // schema->remove_active_txn( this->curr_delta %
-      // global_conf::num_delta_storages, this->curr_delta, this->id );
 
       schema->remove_active_txn(
           this->curr_delta % global_conf::num_delta_storages, this->curr_delta,
@@ -317,8 +319,13 @@ void Worker::run_bench() {
       num_commits++;
     else
       num_aborts++;
-
     num_txns++;
+
+    if constexpr (global_conf::save_txn_cdf) {
+      // FIXME: use rdtsc instead of system_clock
+      //  better yet, just subtract txn_ids as they are already rdtsc.
+      latencies.add((std::chrono::system_clock::now() - txn_time).count());
+    }
 
     if (num_txns == num_iters) break;
   }
@@ -343,7 +350,11 @@ void Worker::run_bench() {
     //                              this->curr_master);
   }
   state = TERMINATED;
-  pool->_txn_bench->free_query_struct_ptr(txn_mem);
+  pool->txn_bench->free_query_struct_ptr(txn_mem);
+
+  if constexpr (global_conf::save_txn_cdf) {
+    pool->latencies.add(this->latencies);
+  }
 }
 
 std::vector<uint64_t> WorkerPool::get_active_txns() {

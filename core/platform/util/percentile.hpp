@@ -47,9 +47,15 @@ template <class T> class Percentile {
     points.push_back(value);
   }
 
+  inline void add(const Percentile &p){
+    std::copy(p.points.begin(), p.points.end(), std::back_inserter(points));
+  }
+
   inline void add(const std::vector<T> &v) {
     std::copy(v.begin(), v.end(), std::back_inserter(points));
   }
+
+
 
   T nth(double n) {
     assert(n > 0 && n <= 100);
@@ -68,6 +74,7 @@ template <class T> class Percentile {
 
     return points[i];
   }
+
 
   // shouldn't be on critical path.
   void save_cdf(const std::string &path, size_t step = 1000) {
@@ -100,6 +107,19 @@ template <class T> class Percentile {
     }
 
     cdf.close();
+  }
+
+
+  Percentile operator+(const Percentile& p) {
+    Percentile tmp;
+    tmp.add(this->points);
+    tmp.add(p.points);
+    return tmp;
+  }
+
+  T operator[](double n) {
+    assert(n > 0 && n <= 100);
+    return nth(n);
   }
 
  private:

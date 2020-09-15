@@ -46,6 +46,7 @@ extern uint g_delta_size;
 namespace global_conf {
 
 constexpr int MAX_PARTITIONS = 8;
+constexpr bool save_txn_cdf = true;
 
 using SnapshotManager = aeolus::snapshot::SnapshotManager;
 using ConcurrencyControl = txn::CC_MV2PL;

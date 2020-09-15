@@ -37,6 +37,7 @@
 #include "glo.hpp"
 #include "interfaces/bench.hpp"
 #include "topology/topology.hpp"
+#include "util/percentile.hpp"
 
 namespace scheduler {
 
@@ -95,7 +96,8 @@ class Worker {
   uint64_t num_commits;
   uint64_t num_aborts;
   uint64_t txn_start_tsc;
-  // std::chrono::time_point<std::chrono::system_clock> txn_start_time;
+  proteus::utils::Percentile<size_t> latencies;
+
   std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>
       txn_start_time;
 
@@ -119,6 +121,9 @@ class Worker {
         num_commits(0),
         num_aborts(0) {
     pause = false;
+
+    if constexpr (global_conf::save_txn_cdf)
+      latencies.reserve(1000000);
   }
 
  private:
@@ -176,6 +181,10 @@ class WorkerPool {
   std::string get_benchmark_name() { return this->_txn_bench->name; }
   void pause();
   void resume();
+
+
+ public:
+  proteus::utils::Percentile<size_t> latencies;
 
  private:
   WorkerPool() {
