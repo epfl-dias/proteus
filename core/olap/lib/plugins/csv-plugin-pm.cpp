@@ -1469,14 +1469,19 @@ void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
 
   // Start insertion in CondBB.
   Builder->SetInsertPoint(CondBB);
-  Value *lhs = Builder->CreateLoad(pos);
-  Value *rhs = Builder->CreateLoad(fsizePtr);
-  Value *cond = Builder->CreateICmpSLT(lhs, rhs);
+
+  Value *cond = [&]() {
+    Value *lhs = Builder->CreateLoad(pos);
+    Value *rhs = Builder->CreateLoad(fsizePtr);
+    return Builder->CreateICmpSLT(lhs, rhs);
+  }();
 
   // Make the new basic block for the loop header (BODY), inserting after
   // current block.
   BasicBlock *LoopBB =
       BasicBlock::Create(llvmContext, "csvScanBody", TheFunction);
+  BasicBlock *EnterLoopBB =
+      BasicBlock::Create(llvmContext, "csvScanPreBody", TheFunction);
 
   // Create the "AFTER LOOP" block and insert it.
   BasicBlock *AfterBB =
@@ -1484,7 +1489,27 @@ void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
   context->setEndingBlock(AfterBB);
 
   // Insert the conditional branch into the end of CondBB.
-  Builder->CreateCondBr(cond, LoopBB, AfterBB);
+  Builder->CreateCondBr(cond, EnterLoopBB, AfterBB);
+
+  Builder->SetInsertPoint(EnterLoopBB);
+
+  {  // Skip empty lines
+    auto index = Builder->CreateLoad(NamedValuesCSV[posVar]);
+    auto lhsPtr = Builder->CreateLoad(NamedValuesCSV[bufVar], "bufPtr");
+    auto lhsShiftedPtr = Builder->CreateInBoundsGEP(lhsPtr, index);
+    auto lhs = Builder->CreateLoad(lhsShiftedPtr, "bufVal");
+    auto nlLine = Builder->CreateICmpEQ(lhs, delimEnd);
+    // Handle CR cases as well...
+    auto crLine = Builder->CreateICmpEQ(lhs, context->createInt8('\r'));
+    auto emptyLine = Builder->CreateOr(nlLine, crLine);
+
+    context->gen_if({emptyLine, context->createFalse()})([&]() {
+      skipDelimLLVM(delimEnd);
+      context->log(index);
+    });
+
+    Builder->CreateCondBr(emptyLine, CondBB, LoopBB);
+  }
 
   // Start insertion in LoopBB.
   Builder->SetInsertPoint(LoopBB);
