@@ -3,8 +3,14 @@ package org.apache.calcite.sql.ddl;
 import com.google.common.collect.ImmutableList;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.prepare.PelagoPrepareImpl;
+import org.apache.calcite.prepare.PlannerImpl;
 import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.core.Values;
+import org.apache.calcite.rel.metadata.RelMdUtil;
 import org.apache.calcite.schema.ColumnStrategy;
+import org.apache.calcite.schema.Schemas;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
@@ -20,6 +26,7 @@ import java.io.StringWriter;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Objects;
 
 
 /**
@@ -149,25 +156,7 @@ public class SqlDdlPelagoNodes {
     };
   }
 
-  /** Returns the schema in which to create an object. */
-  static Pair<CalciteSchema, String> schema(CalcitePrepare.Context context,
-                                            boolean mutable, SqlIdentifier id) {
-    final String name;
-    final List<String> path;
-    if (id.isSimple()) {
-      path = context.getDefaultSchemaPath();
-      name = id.getSimple();
-    } else {
-      path = Util.skipLast(id.names);
-      name = Util.last(id.names);
-    }
-    CalciteSchema schema = mutable ? context.getMutableRootSchema()
-            : context.getRootSchema();
-    for (String p : path) {
-      schema = schema.getSubSchema(p, true);
-    }
-    return Pair.of(schema, name);
-  }
+
 
   /** Wraps a query to rename its columns. Used by CREATE VIEW and CREATE
    * MATERIALIZED VIEW. */
@@ -188,40 +177,136 @@ public class SqlDdlPelagoNodes {
     return new SqlSelect(p, null, selectList, from, null, null, null, null,
             null, null, null, null);
   }
+//  /** Populates the table called {@code name} by executing {@code query}. */
+//  protected static void populate(SqlIdentifier name, SqlNode query,
+//                                 CalcitePrepare.Context context) {
+//    // Generate, prepare and execute an "INSERT INTO table query" statement.
+//    // (It's a bit inefficient that we convert from SqlNode to SQL and back
+//    // again.)
+//    final FrameworkConfig config = Frameworks.newConfigBuilder()
+//            .defaultSchema(SqlDdlPelagoNodes.schema(context, true, name).left.plus())
+//            .build();
+////    final Planner planner = new PelagoPrepareImpl().createPlanner(context);
+//    final Planner planner = Frameworks.getPlanner(config);
+//
+//    try {
+//      final StringBuilder buf = new StringBuilder();
+//      final SqlPrettyWriter w =
+//          new SqlPrettyWriter(
+//              SqlPrettyWriter.config()
+//                  .withDialect(CalciteSqlDialect.DEFAULT)
+//                  .withAlwaysUseParentheses(false),
+//              buf);
+//      buf.append("INSERT INTO ");
+//      name.unparse(w, 0, 0);
+//      buf.append(" ");
+//      System.out.println(query);
+//      query.unparse(w, 0, 0);
+//      final String sql = buf.toString();
+//      final SqlNode query1 = planner.parse(sql);
+//      System.out.println(query1);
+//      final SqlNode query2 = planner.validate(query1);
+//      System.out.println(query2);
+//      final RelRoot r = planner.rel(query2);
+//      System.out.println(RelOptUtil.toString(r.rel, SqlExplainLevel.ALL_ATTRIBUTES));
+//      final PreparedStatement prepare = context.getRelRunner().prepare(r.rel);
+//      int rowCount = prepare.executeUpdate();
+//      Util.discard(rowCount);
+//      prepare.close();
+//    } catch (SqlParseException | ValidationException
+//            | RelConversionException | SQLException e) {
+//      throw new RuntimeException(e);
+//    }
+//  }
+//  /** Populates the table called {@code name} by executing {@code query}. */
+//  protected static void populate(SqlIdentifier name, SqlNode query,
+//                                 CalcitePrepare.Context context) {
+//    // Generate, prepare and execute an "INSERT INTO table query" statement.
+//    // (It's a bit inefficient that we convert from SqlNode to SQL and back
+//    // again.)
+//    final FrameworkConfig config = Frameworks.newConfigBuilder()
+//            .defaultSchema(context.getRootSchema().plus())
+//            .build();
+//    final Planner planner = Frameworks.getPlanner(config);
+//    try {
+//      final StringBuilder buf = new StringBuilder();
+//      final SqlPrettyWriter w =
+//          new SqlPrettyWriter(
+//              SqlPrettyWriter.config()
+//                  .withDialect(CalciteSqlDialect.DEFAULT)
+//                  .withAlwaysUseParentheses(false),
+//              buf);
+//      buf.append("INSERT INTO ");
+//      name.unparse(w, 0, 0);
+//      buf.append(" ");
+//      System.out.println(query);
+//      query.unparse(w, 0, 0);
+//      final String sql = buf.toString();
+//      System.out.println(sql);
+//      final SqlNode query1 = planner.parse(sql);
+//      System.out.println(query1);
+//      final SqlNode query2 = planner.validate(query1);
+//      System.out.println(query2);
+//      final RelRoot r = planner.rel(query2);
+//      System.out.println(RelOptUtil.toString(r.rel, SqlExplainLevel.ALL_ATTRIBUTES));
+//      final PreparedStatement prepare = context.getRelRunner().prepare(r.rel);
+//      int rowCount = prepare.executeUpdate();
+//      Util.discard(rowCount);
+//      prepare.close();
+//    } catch (SqlParseException | ValidationException
+//            | RelConversionException | SQLException e) {
+//      throw new RuntimeException(e);
+//    }
+//  }
 
-  /** Populates the table called {@code name} by executing {@code query}. */
-  protected static void populate(SqlIdentifier name, SqlNode query,
-                                 CalcitePrepare.Context context) {
-    // Generate, prepare and execute an "INSERT INTO table query" statement.
-    // (It's a bit inefficient that we convert from SqlNode to SQL and back
-    // again.)
-    final FrameworkConfig config = Frameworks.newConfigBuilder()
-            .defaultSchema(context.getRootSchema().plus())
-            .build();
-    final Planner planner = Frameworks.getPlanner(config);
-    try {
-      final StringWriter sw = new StringWriter();
-      final PrintWriter pw = new PrintWriter(sw);
-      final SqlPrettyWriter w =
-              new SqlPrettyWriter(CalciteSqlDialect.DEFAULT, false, pw);
-      pw.print("INSERT INTO ");
-      name.unparse(w, 0, 0);
-      pw.print(" ");
-      query.unparse(w, 0, 0);
-      pw.flush();
-      final String sql = sw.toString();
-      final SqlNode query1 = planner.parse(sql);
-      final SqlNode query2 = planner.validate(query1);
-      final RelRoot r = planner.rel(query2);
-      final PreparedStatement prepare = context.getRelRunner().prepare(r.rel);
-      int rowCount = prepare.executeUpdate();
-      Util.discard(rowCount);
-      prepare.close();
-    } catch (SqlParseException | ValidationException
-            | RelConversionException | SQLException e) {
-      throw new RuntimeException(e);
-    }
-  }
+//
+//  /** Populates the table called {@code name} by executing {@code query}. */
+//  protected static void populate(SqlIdentifier name, SqlNode query,
+//                                 CalcitePrepare.Context context) {
+//    // Generate, prepare and execute an "INSERT INTO table query" statement.
+//    // (It's a bit inefficient that we convert from SqlNode to SQL and back
+//    // again.)
+//    final FrameworkConfig config = Frameworks.newConfigBuilder()
+//        .defaultSchema(
+//            Objects.requireNonNull(
+//                Schemas.subSchema(context.getRootSchema(),
+//                    context.getDefaultSchemaPath())).plus())
+//        .build();
+//    final Planner planner = Frameworks.getPlanner(config);
+//    try {
+//      final StringBuilder buf = new StringBuilder();
+//      final SqlPrettyWriter w =
+//          new SqlPrettyWriter(
+//              SqlPrettyWriter.config()
+//                  .withDialect(CalciteSqlDialect.DEFAULT)
+//                  .withAlwaysUseParentheses(false),
+//              buf);
+//      buf.append("INSERT INTO ");
+//      name.unparse(w, 0, 0);
+//      buf.append(" ");
+//      System.out.println(query);
+//      query.unparse(w, 0, 0);
+//      final String sql = buf.toString();
+//      final SqlNode query1 = planner.parse(sql);
+//      final SqlNode query2 = planner.validate(query1);
+//      System.out.println(query2);
+//      final RelRoot r = planner.rel(query2);
+//      if (r.rel instanceof Values){
+//        System.out.println("Values!!! Calling TX directly");
+//      } else {
+//        System.out.println(RelOptUtil.toString(r.rel, SqlExplainLevel.ALL_ATTRIBUTES));
+//      }
+//
+//      final PreparedStatement prepare = context.getRelRunner().prepare(r.rel);
+//      int rowCount = prepare.executeUpdate();
+//      Util.discard(rowCount);
+//      prepare.close();
+//    } catch (SqlParseException | ValidationException
+//        | RelConversionException | SQLException e) {
+//      throw new RuntimeException(e);
+//    }
+//  }
+
 
   /** File type for CREATE FUNCTION. */
   public enum FileType {

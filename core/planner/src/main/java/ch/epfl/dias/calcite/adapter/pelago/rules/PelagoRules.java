@@ -33,12 +33,14 @@ public class PelagoRules {
     public static final RelOptRule[] RULES = {
         PelagoProjectTableScanRule.INSTANCE,
         PelagoToEnumerableConverterRule.INSTANCE,
+        PelagoTableModifyRule.INSTANCE,
         PelagoProjectPushBelowUnpack.INSTANCE,
         PelagoProjectRule.INSTANCE,
         PelagoAggregateRule.INSTANCE,
         PelagoSortRule.INSTANCE,
         PelagoFilterRule.INSTANCE,
         PelagoUnnestRule.INSTANCE,
+        PelagoScanRule.INSTANCE,
 //        PelagoJoinSeq.INSTANCE,
         PelagoJoinSeq.INSTANCE2, //Use the instance that swaps, as Lopt seems to generate left deep plans only
     };
@@ -87,6 +89,70 @@ public class PelagoRules {
                 .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
 
             return PelagoProject.create(convert(project.getInput(), traitSet), project.getProjects(), project.getRowType());
+        }
+    }
+
+    /**
+     * Rule to convert a {@link org.apache.calcite.rel.logical.LogicalProject}
+     * to a {@link PelagoProject}.
+     */
+    public static class PelagoScanRule extends PelagoConverterRule {
+        public static final PelagoScanRule INSTANCE = new PelagoScanRule();
+
+        private PelagoScanRule() {
+            super(LogicalTableScan.class, "PelagoScanRule");
+        }
+
+        @Override public boolean matches(RelOptRuleCall call) {
+            return true;
+        }
+
+        /** Returns an array of integers {0, ..., n - 1}. */
+        private static int[] identityList(int n) {
+            int[] ints = new int[n];
+            for (int i = 0; i < n; i++) ints[i] = i;
+            return ints;
+        }
+
+        public RelNode convert(RelNode rel) {
+            final LogicalTableScan s = (LogicalTableScan) rel;
+            var relOptTable = s.getTable();
+            var pTable = relOptTable.unwrap(PelagoTable.class);
+            if (pTable == null) return null;
+            final int fieldCount = relOptTable.getRowType().getFieldCount();
+            final int[] fields = identityList(fieldCount);
+            RelNode scan = PelagoTableScan.create(s.getCluster(), relOptTable, pTable, fields);
+            rel.getCluster().getPlanner().ensureRegistered(scan, s);
+            if (pTable.getPacking() == RelPacking.Packed) scan = PelagoUnpack.create(scan, RelPacking.UnPckd);
+            return scan;
+        }
+    }
+
+    /**
+     * Rule to convert a {@link org.apache.calcite.rel.logical.LogicalProject}
+     * to a {@link PelagoProject}.
+     */
+    public static class PelagoTableModifyRule extends PelagoConverterRule {
+        public static final PelagoTableModifyRule INSTANCE = new PelagoTableModifyRule();
+
+        private PelagoTableModifyRule() {
+            super(LogicalTableModify.class, "PelagoTableModifyRule");
+        }
+
+        @Override public boolean matches(RelOptRuleCall call) {
+            return true;
+        }
+
+        public RelNode convert(RelNode rel) {
+            final LogicalTableModify mod = (LogicalTableModify) rel;
+
+            RelTraitSet traitSet = mod.getInput().getTraitSet().replace(out)//rel.getCluster().traitSet()
+                .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.X86_64)//.SINGLETON
+                .replace(RelHomDistribution.SINGLE)
+                .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
+
+            return PelagoTableModify.create(rel.getTable(), mod.getCatalogReader(), convert(mod.getInput(), traitSet),
+                mod.getOperation(), mod.getUpdateColumnList(), mod.getSourceExpressionList(), mod.isFlattened());
         }
     }
 
@@ -386,7 +452,10 @@ public class PelagoRules {
                 relBuilder.push(swapped)
                     .project(exps, newJoin.getRowType().getFieldNames());
 
-                call.getPlanner().ensureRegistered(relBuilder.build(), newJoin);
+                var build = relBuilder.build();
+                if (build != newJoin) {
+                    call.getPlanner().ensureRegistered(relBuilder.build(), newJoin);
+                }
             }
 
             swapped = convert(swapped, PelagoRel.CONVENTION());

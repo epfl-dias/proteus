@@ -94,7 +94,7 @@ public class PelagoEnumerator<E> implements Enumerator<E> {
     try {
     outer:
       for (;;) {
-        if (cancelFlag.get()) {
+        if (cancelFlag != null && cancelFlag.get()) {
           return false;
         }
         final String[] strings = reader.readNext();

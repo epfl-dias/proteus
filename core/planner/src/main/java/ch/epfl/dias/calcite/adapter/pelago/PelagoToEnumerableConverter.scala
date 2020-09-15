@@ -4,6 +4,7 @@ import java.io.{File, FileOutputStream, PrintWriter}
 import java.nio.file.{Files, Paths}
 import java.util
 
+import ch.epfl.dias.calcite.adapter.pelago.executor.PelagoExecutor
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataQuery
 import ch.epfl.dias.calcite.adapter.pelago.reporting.{PelagoTimeInterval, TimeKeeper}
 import ch.epfl.dias.emitter.Binding
@@ -12,30 +13,31 @@ import ch.epfl.dias.repl.Repl
 import com.google.common.collect.ImmutableList
 import org.apache.calcite.DataContext
 import org.apache.calcite.adapter.enumerable._
-import org.apache.calcite.linq4j._
 import org.apache.calcite.linq4j.tree._
 import org.apache.calcite.plan._
 import org.apache.calcite.prepare.RelOptTableImpl
-import org.apache.calcite.rel.`type`._
+import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.convert.ConverterImpl
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rel.{RelNode, RelWriter}
 import org.apache.calcite.rex.RexInputRef
+import org.apache.calcite.sql.SqlExplainLevel
 import org.apache.calcite.util.Sources
 import org.json4s.JsonDSL._
-import org.json4s.{JValue, _}
 import org.json4s.jackson.JsonMethods._
+import org.json4s.{JValue, _}
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 /**
   * Relational expression representing a scan of a table in a Pelago data source.
   */
 
-class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTraitSet, input: RelNode)
+class PelagoToEnumerableConverter protected(cluster: RelOptCluster, traits: RelTraitSet, input: RelNode)
   extends ConverterImpl(cluster, ConventionTraitDef.INSTANCE, traits, input) with EnumerableRel {
 
-  implicit val formats = DefaultFormats
+  implicit val formats: DefaultFormats.type = DefaultFormats
 
   override def copy(traitSet: RelTraitSet, inputs: util.List[RelNode]): RelNode = copy(traitSet, inputs.get(0))
 
@@ -67,70 +69,87 @@ class PelagoToEnumerableConverter private(cluster: RelOptCluster, traits: RelTra
       ("input", childOp                                              ) // ~ ("tupleType", rowType)
   }
 
-  def writePlan(plan: JValue, file: String) = {
-    new PrintWriter(file) { write(pretty(render(plan))); close }
+  def writePlan(plan: JValue, file: String): PrintWriter = {
+    new PrintWriter(file) { write(pretty(render(plan))); close() }
   }
 
   override def implement(implementor: EnumerableRelImplementor, pref: EnumerableRel.Prefer): EnumerableRel.Result = {
-    val mock = Repl.isMockRun //TODO: change!!!
+    val digest = RelOptUtil.toString(getInput, SqlExplainLevel.DIGEST_ATTRIBUTES)
 
-    def visit(node: RelNode): Set[String] = {
-      if (node.isInstanceOf[PelagoDictTableScan]) {
-        return Set() // Otherwise the reduce above has a problem
-        // The actual column will be scanned on the other side
-      } else if (node.isInstanceOf[PelagoTableScan]){
-        val scan = node.asInstanceOf[PelagoTableScan]
-        if (scan.pelagoTable.getLineHint <= 1024*1024*1024/8) return Set()
-        val relName = scan.pelagoTable.getPelagoRelName
-        // FIXME: Should ask the plugin for the list of files
-        scan.getRowType.getFieldNames.asScala.map(e => relName + "." + e).toSet
-      } else {
-        node.getInputs.asScala.map(e => visit(e)).reduce((a, b) => a ++ b)
+    val (label, files, rowType) = PelagoToEnumerableConverter.preparedStatementsCache.getOrElseUpdate(
+      digest, {
+        val mock = Repl.isMockRun //TODO: change!!!
+
+        def visit(node: RelNode): Set[String] = {
+          node match {
+            case _: PelagoDictTableScan =>
+              Set() // Otherwise the reduce above has a problem
+            // The actual column will be scanned on the other side
+            case scan: PelagoTableScan =>
+              if (scan.pelagoTable.getLineHint <= 1024 * 1024 * 1024 / 8) return Set()
+              val relName = scan.pelagoTable.getPelagoRelName
+              // FIXME: Should ask the plugin for the list of files
+              scan.getRowType.getFieldNames.asScala.map(e => relName + "." + e).toSet
+            case _ =>
+              node.getInputs.asScala.map(e => visit(e)).reduce((a, b) => a ++ b)
+          }
+        }
+
+        val planTimer = new PelagoTimeInterval
+        planTimer.start()
+
+        PelagoSplit.bindings.clear
+
+        val plan = getPlan
+
+        println(Repl.planfile)
+        writePlan(plan, Repl.planfile)
+        if (Files.exists(Paths.get("../../src/panorama/public/assets"))) {new PrintWriter(new FileOutputStream("../../src/panorama/public/assets/flare.json", false)) { write(pretty(render(plan))); close } }
+
+        if (PelagoSplit.bindings.nonEmpty){
+          println(PelagoSplit.bindings)
+          throw new RuntimeException("Unmatched split operators (maybe the cost models didn't allow for even push down?)");
+        }
+
+        if (mock) {
+          PelagoExecutor.pt = new PelagoResultTable(Sources.of(new File(Repl.mockfile)), getRowType, mock) //TODO: fix path
+        } else {
+          PelagoExecutor.rowType = getRowType
+        }
+
+        // report time to create the json and flush it
+        planTimer.stop()
+        TimeKeeper.INSTANCE.addTplan2json(planTimer.getDifferenceMilli)
+
+        val files = visit(getInput)
+        PelagoExecutor.files = files;
+        (
+          if (mock) "mock" else PelagoExecutor.run("prepare plan from file " + Repl.planfile),
+          files,
+          getRowType
+        )
       }
-    }
+    )
 
-    PelagoToEnumerableConverter.files = visit(getInput)
-
-    val planTimer = new PelagoTimeInterval
-    planTimer.start()
-
-    PelagoSplit.bindings.clear
-
-    val plan = getPlan
-
-    println(Repl.planfile)
-    writePlan(plan, Repl.planfile)
-    if (Files.exists(Paths.get("../../src/panorama/public/assets"))) {new PrintWriter(new FileOutputStream("../../src/panorama/public/assets/flare.json", false)) { write(pretty(render(plan))); close } }
-
-    if (PelagoSplit.bindings.size > 0){
-      println(PelagoSplit.bindings)
-      throw new RuntimeException("Unmatched split operators (maybe the cost models didn't allow for even push down?)");
-    }
-
-    if (mock == true) {
-      PelagoToEnumerableConverter.pt = new PelagoResultTable(Sources.of(new File(Repl.mockfile)), getRowType, mock) //TODO: fix path
-    } else {
-      PelagoToEnumerableConverter.rowType = getRowType
-    }
-
-    // report time to create the json and flush it
-    planTimer.stop()
-    TimeKeeper.INSTANCE.addTplan2json(planTimer.getDifferenceMilli)
+    PelagoExecutor.rowType = rowType
+    PelagoExecutor.files = files
 
     val table = RelOptTableImpl.create(null, getRowType, ImmutableList.of[String](),
       Expressions.call(
         Types.lookupMethod(
-          classOf[PelagoToEnumerableConverter],
+          classOf[PelagoExecutor],
           "getEnumerableResult",
-          classOf[DataContext]
+          classOf[DataContext],
+          classOf[String]
         ),
-        DataContext.ROOT
+        DataContext.ROOT,
+        Expressions.constant(label)
       )
     )
     val fields = new Array[Int](getRowType.getFieldCount)
-    for (i <- 0 to fields.length - 1) fields(i) = i
+    for (i <- fields.indices) fields(i) = i
 
-    val ts = new PelagoResultScan(getCluster, table, PelagoToEnumerableConverter.pt, fields)
+    val ts = new PelagoResultScan(getCluster, table, PelagoExecutor.pt, fields)
     ts.implement(implementor, pref)
   }
 
@@ -146,99 +165,5 @@ object PelagoToEnumerableConverter {
     new PelagoToEnumerableConverter(input.getCluster, traitSet, input)
   }
 
-  // FIXME: This variables may be unsafe, what happens with prepared statements?
-  private var pt          : PelagoResultTable = null
-  private var rowType     : RelDataType       = null
-  private var files       : Set[String]       = null
-  private var loadedfiles : Set[String]       = null
-
-  var builder = if(Repl.isMockRun) null else new ProcessBuilder(Repl.executor_server).redirectErrorStream(true)
-  var process = if(Repl.isMockRun || builder == null) null else builder.start()
-
-  var stdinWriter  = if(Repl.isMockRun) null else new java.io.PrintWriter  ((new java.io.OutputStreamWriter(new java.io.BufferedOutputStream(process.getOutputStream()))), true)
-  var stdoutReader = if(Repl.isMockRun) null else new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))
-
-  var line: String = ""
-
-  @SuppressWarnings(Array("UnusedDeclaration"))
-  def getEnumerableResult(root: DataContext): Enumerable[_] = {
-    if (rowType == null) {
-      pt.scan(root)
-    } else {
-      if (process == null || !process.isAlive){
-        builder = new ProcessBuilder(Repl.executor_server).redirectErrorStream(true)
-        process = builder.start()
-        loadedfiles = null
-
-        stdinWriter  = new java.io.PrintWriter((new java.io.OutputStreamWriter(new java.io.BufferedOutputStream(process.getOutputStream()))), true)
-        stdoutReader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))
-      }
-
-      if (Repl.echoResults) stdinWriter.println("echo results on" )
-      else                  stdinWriter.println("echo results off")
-
-      val executorTimer = new PelagoTimeInterval
-      executorTimer.start()
-
-      // If current files are a subset of loaded files, do not unload!
-      if (loadedfiles == null || files == null || !files.subsetOf(loadedfiles)) {
-        stdinWriter.println("unloadall")
-        loadedfiles = files
-      }
-      stdinWriter.println("execute plan from file " + Repl.planfile)
-
-      var tdataload: Long = 0
-      var tcodeopt: Long = 0
-      var tcodeoptnload: Long = 0
-
-      while ({line = stdoutReader.readLine(); line != null} && !line.startsWith("result in file")) {
-        System.out.println("pelago: " + line)
-
-        if(line.contains("Texecute w sync: ")){
-          val texec = java.lang.Long.parseLong(" (\\d+)ms$".r.findFirstMatchIn(line).get.group(1))
-          TimeKeeper.INSTANCE.addTexec(texec)
-        }
-
-        if(line.contains("Tcodegen: ")){
-          val tcodegen = java.lang.Long.parseLong(" (\\d+)ms$".r.findFirstMatchIn(line).get.group(1))
-          TimeKeeper.INSTANCE.addTcodegen(tcodegen)
-        }
-
-        if(line.startsWith("Topen (") && line.contains("):") && !line.contains(",")){
-          val t = " (\\d+)ms$".r.findFirstMatchIn(line).get.group(1)
-          tdataload = tdataload + java.lang.Long.parseLong(t)
-        }
-
-        if(line.contains("Optimization time: ")){
-          tcodeopt = tcodeopt + java.lang.Long.parseLong(" (\\d+)ms$".r.findFirstMatchIn(line).get.group(1))
-        }
-
-        if(line.contains(" C: ") || line.contains(" G: ")){
-          val t = " (\\d+)ms$".r.findFirstMatchIn(line).get.group(1)
-          tcodeoptnload = tcodeoptnload + java.lang.Long.parseLong(t)
-        }
-      }
-
-      if (line != null){
-        System.out.println("pelago: " + line)
-      }
-
-      val path = line.substring("result in file ".length)
-
-      executorTimer.stop()
-      TimeKeeper.INSTANCE.addTexecutorTime(executorTimer)
-      TimeKeeper.INSTANCE.addTdataload(tdataload)
-      TimeKeeper.INSTANCE.addTcodeopt(tcodeopt)
-      TimeKeeper.INSTANCE.addTcodeoptnload(tcodeoptnload)
-      
-      if (Repl.timings) {
-        // print the times
-        System.out.println(TimeKeeper.INSTANCE)
-        // refresh the times
-        TimeKeeper.INSTANCE.refreshTable()
-      }
-
-      new PelagoResultTable(Sources.of(new File(path)), rowType, false).scan(root)
-    }
-  }
+  var preparedStatementsCache: mutable.Map[String, (String, Set[String], RelDataType)] = mutable.Map[String, (String, Set[String], RelDataType)]()
 }

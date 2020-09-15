@@ -12,6 +12,7 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelReferentialConstraint;
 import org.apache.calcite.rel.RelReferentialConstraintImpl;
+import org.apache.calcite.rel.logical.LogicalTableScan;
 import org.apache.calcite.rel.metadata.RelMdUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -42,6 +43,7 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
     protected final RelDataType         rowType;
     protected final Source              source      ;
     protected final String              name        ;
+    protected final String              alias       ;
 //    protected RelDataType               rowType     ;
     protected Map<String, ?>            type        ;
     protected Map<String, ?>            plugin      ;
@@ -56,13 +58,14 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
     // This map IS mutable, it should be updated periodically
 //    protected Map<ImmutableBitSet, > dCnt  = null;
 
-    private PelagoTable(Source source, RelProtoDataType protoRowType, Map<String, ?> plugin, long linehint, List<Map<String, ?>> constraints) {
+    private PelagoTable(Source source, RelProtoDataType protoRowType, Map<String, ?> plugin, long linehint, List<Map<String, ?>> constraints, String alias) {
         this.source         = source    ;
         this.type           = null      ;
         this.rowType        = null      ;
         this.linehint       = linehint  ;
         this.plugin         = plugin    ;
         this.name           = source.path();
+        this.alias          = alias     ;
 
         this.protoRowType   = protoRowType;
 
@@ -76,6 +79,7 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
     private PelagoTable(String name, RelDataType rowType, List<Map<String, ?>> constraints) {
         this.source         = null;
         this.name           = name;
+        this.alias          = name;
         this.type           = null      ;
         this.linehint       = Long.MAX_VALUE;
         this.plugin         = ImmutableMap.of("type", "intermediate");
@@ -90,13 +94,14 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
         }
     }
 
-    private PelagoTable(Source source, Map<String, ?> type, Map<String, ?> plugin, long linehint, List<Map<String, ?>> constraints) {
+    private PelagoTable(Source source, Map<String, ?> type, Map<String, ?> plugin, long linehint, List<Map<String, ?>> constraints, String alias) {
         this.source     = source    ;
         this.type       = type      ;
         this.rowType    = null      ;
         this.linehint   = linehint  ;
         this.plugin     = plugin    ;
         this.name       = source.path();
+        this.alias      = alias     ;
 
         this.protoRowType = null;
 
@@ -226,23 +231,11 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
         return stats;
     }
 
-    /** Returns an array of integers {0, ..., n - 1}. */
-    private static int[] identityList(int n) {
-        int[] ints = new int[n];
-        for (int i = 0; i < n; i++) ints[i] = i;
-        return ints;
-    }
 
     public RelNode toRel(
             RelOptTable.ToRelContext context,
             RelOptTable relOptTable) {
-        // Request all fields.
-//        context.getCluster().getPlanner().addRelTraitDef(RelDistributionTraitDef.INSTANCE);
-        final int fieldCount = relOptTable.getRowType().getFieldCount();
-        final int[] fields = identityList(fieldCount);
-        RelNode scan = PelagoTableScan.create(context.getCluster(), relOptTable, this, fields);
-        if (getPacking() == RelPacking.Packed) scan = PelagoUnpack.create(scan, RelPacking.UnPckd);
-        return scan;
+        return LogicalTableScan.create(context.getCluster(), relOptTable, List.of());
     }
 
     public String getPelagoRelName(){
@@ -291,11 +284,15 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
     }
 
     public static PelagoTable create(Source source, String name, Map<String, ?> plugin, Map<String, ?> lineType  , List<Map<String, ?>> constraints) throws MalformedPlugin {
-        return new PelagoTable(source, lineType, plugin, getLineHintFromPlugin(name, plugin), constraints);
+        return new PelagoTable(source, lineType, plugin, getLineHintFromPlugin(name, plugin), constraints, name);
+    }
+
+    public static PelagoTable create(Source source, String name, Map<String, ?> plugin, RelProtoDataType lineType, String alias) throws MalformedPlugin {
+        return new PelagoTable(source, lineType, plugin, getLineHintFromPlugin(name, plugin), null, alias);
     }
 
     public static PelagoTable create(Source source, String name, Map<String, ?> plugin, RelProtoDataType lineType) throws MalformedPlugin {
-        return new PelagoTable(source, lineType, plugin, getLineHintFromPlugin(name, plugin), null);
+        return create(source, name, plugin, lineType, name);
     }
 
     public static PelagoTable create(String name, RelDataType lineType) throws MalformedPlugin {

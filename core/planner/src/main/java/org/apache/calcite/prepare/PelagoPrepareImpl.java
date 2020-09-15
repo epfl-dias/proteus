@@ -1,12 +1,10 @@
 package org.apache.calcite.prepare;
 
+import ch.epfl.dias.calcite.adapter.pelago.*;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import org.apache.calcite.adapter.enumerable.EnumerableConvention;
-import org.apache.calcite.adapter.enumerable.EnumerableInterpreterRule;
-import org.apache.calcite.adapter.enumerable.EnumerableRel;
-import org.apache.calcite.adapter.enumerable.EnumerableRules;
+import org.apache.calcite.adapter.enumerable.*;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.ColumnMetaData;
@@ -24,6 +22,10 @@ import org.apache.calcite.plan.volcano.PelagoCostFactory;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollationTraitDef;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.core.RelFactories;
+import org.apache.calcite.rel.logical.LogicalTableModify;
 import org.apache.calcite.rel.rules.*;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -32,50 +34,36 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.runtime.Bindable;
 import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.runtime.Typed;
-import org.apache.calcite.sql.SqlIdentifier;
-import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.SqlLiteral;
-import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlOperatorTable;
-import org.apache.calcite.sql.SqlSetOption;
+import org.apache.calcite.sql.*;
+import org.apache.calcite.sql.ddl.SqlCreatePelagoTable;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.parser.SqlParserImplFactory;
+import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.calcite.sql.type.ExtraSqlTypes;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.ChainedSqlOperatorTable;
+import org.apache.calcite.sql.util.SqlBuilder;
 import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.sql.validate.SqlValidator;
+import org.apache.calcite.tools.*;
+import org.apache.calcite.util.Litmus;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 
-import ch.epfl.dias.calcite.adapter.pelago.RelComputeDeviceTraitDef;
-import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
-import ch.epfl.dias.calcite.adapter.pelago.RelHetDistributionTraitDef;
-import ch.epfl.dias.calcite.adapter.pelago.RelHomDistributionTraitDef;
-import ch.epfl.dias.calcite.adapter.pelago.RelPackingTraitDef;
-import ch.epfl.dias.calcite.adapter.pelago.RelSplitPointTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectPushBelowUnpack;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules;
 import ch.epfl.dias.repl.Repl;
-import org.codehaus.janino.Java;
 
 import java.io.PrintStream;
 import java.lang.reflect.Type;
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
-import static org.apache.calcite.plan.RelOptRule.operand;
 
 public class PelagoPrepareImpl extends CalcitePrepareImpl {
 
@@ -87,7 +75,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
 
     /** Creates a query planner and initializes it with a default set of
      * rules. */
-    protected RelOptPlanner createPlanner(CalcitePrepare.Context prepareContext) {
+    public RelOptPlanner createPlanner(CalcitePrepare.Context prepareContext) {
         return createPlanner(prepareContext, null, null);
     }
 
@@ -214,11 +202,11 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
 //        for (var enrule: EnumerableRules.ENUMERABLE_RULES){
 //            planner.removeRule(enrule);
 //        }
-        planner.removeRule(JoinCommuteRule.INSTANCE);
+        planner.removeRule(CoreRules.JOIN_COMMUTE);
 
-        planner.removeRule(EnumerableInterpreterRule.INSTANCE);
+        planner.removeRule(EnumerableRules.TO_INTERPRETER);
         planner.addRule(PelagoProjectPushBelowUnpack.INSTANCE);
-        planner.addRule(ProjectMergeRule.INSTANCE);
+        planner.addRule(CoreRules.PROJECT_MERGE);
 //
 //        List<RelOptRule> rules = new ArrayList<RelOptRule>();
 //        rules.add(new TableScanRule(PelagoRelFactories.PELAGO_BUILDER));
@@ -405,14 +393,19 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
     private SqlValidator createSqlValidator(Context context,
                                             CalciteCatalogReader catalogReader) {
         final SqlOperatorTable opTab0 =
-                context.config().fun(SqlOperatorTable.class,
-                        SqlStdOperatorTable.instance());
+            context.config().fun(SqlOperatorTable.class,
+                SqlStdOperatorTable.instance());
         final SqlOperatorTable opTab =
-                ChainedSqlOperatorTable.of(opTab0, catalogReader);
+            ChainedSqlOperatorTable.of(opTab0, catalogReader);
         final JavaTypeFactory typeFactory = context.getTypeFactory();
-        final SqlConformance conformance = context.config().conformance();
+        final CalciteConnectionConfig connectionConfig = context.config();
+        final SqlValidator.Config config = SqlValidator.Config.DEFAULT
+            .withLenientOperatorLookup(connectionConfig.lenientOperatorLookup())
+            .withSqlConformance(connectionConfig.conformance())
+            .withDefaultNullCollation(connectionConfig.defaultNullCollation())
+            .withIdentifierExpansion(true);
         return new CalciteSqlValidator(opTab, catalogReader, typeFactory,
-                conformance);
+            config);
     }
 
     /**
@@ -733,6 +726,72 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
             if (sqlNode.getKind().belongsTo(SqlKind.DDL)) {
                 executeDdl(context, sqlNode);
 
+                if (sqlNode.isA(Set.of(SqlKind.CREATE_TABLE))){
+                    assert(sqlNode instanceof SqlCreatePelagoTable);
+                    var n = ((SqlCreatePelagoTable) sqlNode).query;
+                    if (n != null){
+                        var name = ((SqlCreatePelagoTable) sqlNode).name;
+                        SqlNode query1;
+                        try {
+                            final FrameworkConfig conf = Frameworks.newConfigBuilder()
+                                .defaultSchema(context.getRootSchema().plus())
+                                .build();
+                            final Planner pl = Frameworks.getPlanner(conf);
+                            final StringBuilder buf = new StringBuilder();
+                            final SqlWriterConfig writerConfig =
+                                SqlPrettyWriter.config().withAlwaysUseParentheses(false);
+                            final SqlPrettyWriter w = new SqlPrettyWriter(writerConfig, buf);
+                            buf.append("INSERT INTO ");
+                            name.unparse(w, 0, 0);
+                            buf.append(' ');
+                            n.unparse(w, 0, 0);
+                            final String sql = buf.toString();
+                            query1 = pl.parse(sql);
+                        } catch (SqlParseException e) {
+                            throw new RuntimeException(e);
+                        }
+
+                        final SqlValidator validator =
+                            createSqlValidator(context, catalogReader);
+
+                        preparedResult = preparingStmt.prepareSql(
+                            query1, Object.class, validator, true);
+
+                        x = RelOptUtil.createDmlRowType(SqlKind.INSERT, typeFactory);
+                        System.out.println(x);
+                        RelDataType jdbcType = makeStruct(typeFactory, x);
+                        System.out.println(jdbcType);
+                        final List<List<String>> originList = preparedResult.getFieldOrigins();
+                        final List<ColumnMetaData> columns =
+                            getColumnMetaDataList(typeFactory, x, jdbcType, originList);
+                        Class resultClazz = null;
+                        if (preparedResult instanceof Typed) {
+                            resultClazz = (Class) ((Typed) preparedResult).getElementType();
+                        }
+                        final Meta.CursorFactory cursorFactory =
+                            preparingStmt.resultConvention == BindableConvention.INSTANCE
+                                ? Meta.CursorFactory.ARRAY
+                                : Meta.CursorFactory.deduce(columns, resultClazz);
+                        //noinspection unchecked
+                        final Bindable<T> bindable = preparedResult.getBindable(cursorFactory);
+//                        assert(bindable != null);
+//                        assert(context.getDataContext() != null);
+//                        var xi = bindable.bind(context.getDataContext());
+//
+//                        assert(xi != null);
+//
+//                        xi.forEach(System.out::println);
+//                        assert(false);
+                        return new CalciteSignature<>(query1.toString(),
+                            ImmutableList.of(),
+                            ImmutableMap.of(), jdbcType,
+                            columns, cursorFactory,
+                            context.getRootSchema(), ImmutableList.of(), 1,
+                            bindable,
+                            getStatementType(SqlKind.INSERT));
+                    }
+                }
+
                 return new CalciteSignature<>(query.sql,
                     ImmutableList.of(),
                     ImmutableMap.of(), null,
@@ -744,8 +803,6 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
 
             final SqlValidator validator =
                     createSqlValidator(context, catalogReader);
-            validator.setIdentifierExpansion(true);
-            validator.setDefaultNullCollation(config.defaultNullCollation());
 
             preparedResult = preparingStmt.prepareSql(
                     sqlNode, Object.class, validator, true);

@@ -1,5 +1,6 @@
 package ch.epfl.dias.calcite.adapter.pelago.metadata;
 
+import ch.epfl.dias.calcite.adapter.pelago.*;
 import org.apache.calcite.plan.volcano.RelSubset;
 import org.apache.calcite.rel.BiRel;
 import org.apache.calcite.rel.RelDistribution;
@@ -16,15 +17,6 @@ import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.mapping.Mappings;
-
-import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoRouter;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoSplit;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoTableScan;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoUnion;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoUnpack;
-import ch.epfl.dias.calcite.adapter.pelago.RelHomDistribution;
-import ch.epfl.dias.calcite.adapter.pelago.RelHomDistributionTraitDef;
 
 import java.util.List;
 
@@ -61,6 +53,12 @@ public class PelagoRelMdHomDistribution implements MetadataHandler<HomDistributi
 
   public RelHomDistribution homDistribution(PelagoUnion union, RelMetadataQuery mq) {
     return RelHomDistribution.SINGLE;
+  }
+
+  public RelHomDistribution homDistribution(PelagoTableModify mod, RelMetadataQuery mq) {
+    var ret = ((PelagoRelMetadataQuery) mq).homDistribution(mod.getInput());
+    assert(ret == RelHomDistribution.SINGLE);
+    return ret;
   }
 
   public RelHomDistribution homDistribution(RelNode rel, RelMetadataQuery mq) {

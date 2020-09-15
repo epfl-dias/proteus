@@ -4,6 +4,7 @@ import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.JoinRelType;
@@ -110,7 +111,7 @@ public class LikeToJoinRule extends RelOptRule {
 
     if (fl.getNewInput() != filter.getInput()){
       // do not consider the matched node again!
-      call.getPlanner().setImportance(filter, 0);
+      call.getPlanner().prune(filter);
 
       ImmutableList.Builder<RexNode> projs = ImmutableList.<RexNode>builder();
       for (RelDataTypeField f: filter.getRowType().getFieldList()){

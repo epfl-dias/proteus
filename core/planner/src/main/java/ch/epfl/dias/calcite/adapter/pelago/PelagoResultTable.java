@@ -35,7 +35,7 @@ public class PelagoResultTable extends AbstractTable implements ScannableTable {
     protected Long                      linehint    ;
     protected final boolean             mock        ;
 
-    PelagoResultTable(Source source, RelDataType rowType, boolean mock) {
+    public PelagoResultTable(Source source, RelDataType rowType, boolean mock) {
         this.source         = source    ;
         this.type           = null      ;
         this.rowType        = rowType   ;

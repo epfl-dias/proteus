@@ -5,6 +5,7 @@ import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.rel.type.RelProtoDataType;
+import org.apache.calcite.server.PelagoMutableArrayTable;
 import org.apache.calcite.sql.ddl.SqlCreatePelagoTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql2rel.InitializerExpressionFactory;
@@ -14,7 +15,7 @@ import java.sql.Timestamp;
 
 
 
-public class TimeKeeperTable extends SqlCreatePelagoTable.MutableArrayTable {
+public class TimeKeeperTable extends PelagoMutableArrayTable {
 
     public static TimeKeeperTable INSTANCE = init();
 
@@ -50,6 +51,6 @@ public class TimeKeeperTable extends SqlCreatePelagoTable.MutableArrayTable {
             long tcode_opt_time_ms, long tcode_optnload_time_ms,
             long texecution_ms, Timestamp timestamp){
         Object[] arr = {ttotal_ms, tplanning_ms, tplan2json_ms, texecutor_ms, tcodegen_ms, tdataload_ms, tcode_opt_time_ms, tcode_optnload_time_ms, texecution_ms, timestamp.toString()};
-        INSTANCE.rows.add(arr);
+        INSTANCE.getModifiableCollection().add(arr);
     }
 }

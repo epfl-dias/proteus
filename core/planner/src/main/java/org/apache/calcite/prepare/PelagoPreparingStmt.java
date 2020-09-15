@@ -379,37 +379,36 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
         // allow joins to be combined into a single MultiJoin and thus such
         // such operators create hard boundaries for the join ordering program.
         HepProgram hepPullUpProjects = new HepProgramBuilder()
-            .addRuleInstance(ProjectMergeRule.INSTANCE)
+            .addRuleInstance(CoreRules.PROJECT_MERGE)
             // Push Filters down
-            .addRuleInstance(FilterProjectTransposeRule.INSTANCE)
-            .addRuleInstance(FilterJoinRule.FilterIntoJoinRule.FILTER_ON_JOIN)
+            .addRuleInstance(CoreRules.FILTER_PROJECT_TRANSPOSE)
+            .addRuleInstance(CoreRules.FILTER_INTO_JOIN)
             // Pull Projects up
-            .addRuleInstance(JoinProjectTransposeRule.BOTH_PROJECT)
-            .addRuleInstance(JoinProjectTransposeRule.LEFT_PROJECT)
-            .addRuleInstance(JoinProjectTransposeRule.RIGHT_PROJECT)
+            .addRuleInstance(CoreRules.JOIN_PROJECT_BOTH_TRANSPOSE)
+            .addRuleInstance(CoreRules.JOIN_PROJECT_LEFT_TRANSPOSE)
+            .addRuleInstance(CoreRules.JOIN_PROJECT_RIGHT_TRANSPOSE)
             .addRuleInstance(PruneEmptyRules.PROJECT_INSTANCE)
-            .addRuleInstance(ProjectRemoveRule.INSTANCE)
+            .addRuleInstance(CoreRules.PROJECT_REMOVE)
             .build();
 
         HepProgram hepPushDownProjects = new HepProgramBuilder()
             // Pull Filters up over projects
-            .addRuleInstance(ProjectFilterTransposeRule.INSTANCE)
+            .addRuleInstance(CoreRules.PROJECT_FILTER_TRANSPOSE)
             // Push Projects down
-            .addRuleInstance(ProjectJoinTransposeRule.INSTANCE)
+            .addRuleInstance(CoreRules.PROJECT_JOIN_TRANSPOSE)
             .addRuleInstance(PruneEmptyRules.PROJECT_INSTANCE)
-            .addRuleInstance(ProjectRemoveRule.INSTANCE)
-            .addRuleInstance(ProjectMergeRule.INSTANCE)
-            .addRuleInstance(ProjectTableScanRule.INSTANCE)
+            .addRuleInstance(CoreRules.PROJECT_REMOVE)
+            .addRuleInstance(CoreRules.PROJECT_MERGE)
+            .addRuleInstance(CoreRules.PROJECT_TABLE_SCAN)
             .addRuleInstance(PelagoProjectTableScanRule.INSTANCE)
             .addRuleInstance(PelagoProjectPushBelowUnpack.INSTANCE)
             .build();
 
 
         HepProgram hepPushDownProjects2 = new HepProgramBuilder()
-            .addRuleInstance(ProjectMergeRule.INSTANCE)
+            .addRuleInstance(CoreRules.PROJECT_MERGE)
             // Pull Filters up over projects
-            .addRuleInstance(ProjectFilterTransposeRule.INSTANCE)
-            .addRuleInstance(ProjectSortTransposeRule.INSTANCE)
+            .addRuleInstance(CoreRules.PROJECT_FILTER_TRANSPOSE)
 //            .addRuleInstance(SortProjectTransposeRule.INSTANCE)
             // Push Projects down
             .addRuleInstance(new ProjectJoinTransposeRule(Project.class, PelagoLogicalJoin.class, expr -> !(expr instanceof RexOver),
@@ -425,9 +424,9 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                     )
             ))
             .addRuleInstance(PruneEmptyRules.PROJECT_INSTANCE)
-            .addRuleInstance(ProjectRemoveRule.INSTANCE)
-            .addRuleInstance(ProjectMergeRule.INSTANCE)
-            .addRuleInstance(ProjectTableScanRule.INSTANCE)
+            .addRuleInstance(CoreRules.PROJECT_REMOVE)
+            .addRuleInstance(CoreRules.PROJECT_MERGE)
+            .addRuleInstance(CoreRules.PROJECT_TABLE_SCAN)
             .addRuleInstance(PelagoProjectTableScanRule.INSTANCE)
             .addRuleInstance(PelagoProjectPushBelowUnpack.INSTANCE)
             .build();
@@ -439,9 +438,9 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
 
         // Create a program that gathers together joins as a MultiJoin.
         final HepProgram hep = new HepProgramBuilder()
-            .addRuleInstance(FilterJoinRule.FILTER_ON_JOIN)
+            .addRuleInstance(CoreRules.FILTER_INTO_JOIN)
             .addMatchOrder(HepMatchOrder.BOTTOM_UP)
-            .addRuleInstance(JoinToMultiJoinRule.INSTANCE)
+            .addRuleInstance(CoreRules.JOIN_TO_MULTI_JOIN)
 //            .addRuleInstance(PelagoRules.PelagoFilterRule.INSTANCE)
             .build();
         final Program program1 =

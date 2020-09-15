@@ -1,5 +1,6 @@
 package ch.epfl.dias.calcite.adapter.pelago.jdbc;
 
+import org.apache.calcite.avatica.AvaticaFactory;
 import org.apache.calcite.avatica.BuiltInConnectionProperty;
 import org.apache.calcite.avatica.ConnectionProperty;
 import org.apache.calcite.avatica.DriverVersion;

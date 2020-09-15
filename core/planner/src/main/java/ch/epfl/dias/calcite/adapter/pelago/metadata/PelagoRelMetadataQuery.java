@@ -1,18 +1,16 @@
 package ch.epfl.dias.calcite.adapter.pelago.metadata;
 
+import ch.epfl.dias.calcite.adapter.pelago.*;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.metadata.ChainedRelMetadataProvider;
 import org.apache.calcite.rel.metadata.JaninoRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 
 import com.google.common.base.Preconditions;
 
-import ch.epfl.dias.calcite.adapter.pelago.RelComputeDevice;
-import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
-import ch.epfl.dias.calcite.adapter.pelago.RelHetDistribution;
-import ch.epfl.dias.calcite.adapter.pelago.RelHomDistribution;
-import ch.epfl.dias.calcite.adapter.pelago.RelPacking;
+import java.util.List;
 
 public class PelagoRelMetadataQuery extends RelMetadataQuery {
   private DeviceType.Handler      deviceTypeHandler;
@@ -33,6 +31,10 @@ public class PelagoRelMetadataQuery extends RelMetadataQuery {
   }
 
   public static PelagoRelMetadataQuery instance() {
+    RelMetadataQuery.THREAD_PROVIDERS.set(JaninoRelMetadataProvider.of(ChainedRelMetadataProvider.of(
+        List.of(RelMetadataQuery.THREAD_PROVIDERS.get(),
+            PelagoRelMetadataProvider.INSTANCE)
+    )));
     return new PelagoRelMetadataQuery();
   }
   /**

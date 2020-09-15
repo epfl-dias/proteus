@@ -1,5 +1,6 @@
 package ch.epfl.dias.calcite.adapter.pelago.rules;
 
+import ch.epfl.dias.calcite.adapter.pelago.*;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptUtil;
@@ -10,11 +11,6 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.mapping.Mappings;
 
 import com.google.common.collect.ImmutableMap;
-
-import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoProject;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoTableScan;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoUnpack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -62,16 +58,17 @@ public class PelagoProjectPushBelowUnpack extends RelOptRule {
       isId = isId && (p instanceof RexInputRef && ((RexInputRef) p).getIndex() == j);
     }
 
-    RelNode in =
-        PelagoUnpack.create(
-            PelagoTableScan.create(
-                scan.getCluster(),
-                scan.getTable(),
-                scan.pelagoTable(),
-                fields
-            ),
-            unpack.getPacking()
+    var nscan =
+        PelagoTableScan.create(
+            scan.getCluster(),
+            scan.getTable(),
+            scan.pelagoTable(),
+            fields
         );
+
+    var nnscan = call.getPlanner().register(nscan, null);
+
+    RelNode in = call.getPlanner().register(PelagoUnpack.create(nnscan, RelPacking.UnPckd), null);
 
     if (!isId){
       in = project.copy(
@@ -81,7 +78,7 @@ public class PelagoProjectPushBelowUnpack extends RelOptRule {
         project.getRowType()
       );
     }
-    call.transformTo(in, ImmutableMap.of(in, project));
+    call.transformTo(in);//, ImmutableMap.of(project, in));
   }
 
 //  @Override public boolean matches(final RelOptRuleCall call) {

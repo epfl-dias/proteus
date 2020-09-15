@@ -5,7 +5,7 @@ import java.sql.Timestamp;
 
 /** Global singleton for time measurements */
 public class TimeKeeper {
-    public static final TimeKeeper INSTANCE = new TimeKeeper();
+    public static TimeKeeper INSTANCE = new TimeKeeper();
 
     private long tPlanToJson;
     private long tPlanning;
@@ -19,6 +19,10 @@ public class TimeKeeper {
     private Timestamp lastTimestamp;
 
     private TimeKeeper() {}
+
+    private void reset(){
+        INSTANCE = new TimeKeeper();
+    }
 
     public void addTexec(long time_ms) {
         tExec = time_ms;
@@ -57,7 +61,9 @@ public class TimeKeeper {
     }
 
     public void refreshTable() {
+        if (lastTimestamp == null) addTimestamp();
         TimeKeeperTable.addTimings(tExecutor + tPlanning + tPlanToJson, tPlanning, tPlanToJson, tExecutor, tCodegen, tDataLoad, tCodeOpt, tCodeOptAndLoad, tExec, lastTimestamp);
+        reset();
     }
 
 

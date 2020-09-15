@@ -4,7 +4,7 @@ version := "0.1"
 
 scalaVersion := "2.12.3"
 
-val calciteVersion = "1.22.0"
+val calciteVersion = "1.24.0"
 
 // https://mvnrepository.com/artifact/org.apache.calcite/calcite-core
 // Include Calcite Core
