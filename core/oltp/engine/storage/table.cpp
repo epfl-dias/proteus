@@ -300,6 +300,12 @@ ExpressionType* getProteusType(
       LOG(FATAL) << msg;
       throw std::runtime_error(msg);
     }
+    default: {
+      auto msg = std::string{"Unknown type"};
+      LOG(FATAL) << msg;
+      throw std::runtime_error(msg);
+    }
+
   }
 }
 
