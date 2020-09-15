@@ -79,7 +79,37 @@ class unlink_upon_exit {
   void store(QueryResult &&qr) {
     last_result = std::make_unique<QueryResult>(std::move(qr));
   }
+
+  void reset() { last_result.reset(); }
 };
+
+std::map<std::string, PreparedStatement> preparedStatements;
+
+std::string preparePlanFile(const std::string &plan, unlink_upon_exit &uue) {
+  std::string label = uue.inc_label();
+
+  preparedStatements.emplace(label,
+                             PreparedStatement::from(plan, label, catalogJSON));
+
+  return label;
+}
+
+std::string runPreparedStatement(const std::string &label,
+                                 unlink_upon_exit &uue, bool echo = true) {
+  uue.reset();  // Reset before exec to avoid conflicting with the output file
+  auto &prepared = preparedStatements.at(label);
+  for (size_t i = 1; i < FLAGS_repeat; ++i) prepared.execute();
+  auto qr = prepared.execute();
+
+  if (echo) {
+    std::cout << "result echo" << std::endl;
+    std::cout << qr << std::endl;
+  }
+
+  uue.store(std::move(qr));
+
+  return label;
+}
 
 std::string runPlanFile(const std::string &plan, unlink_upon_exit &uue,
                         bool echo = true) {
@@ -111,6 +141,17 @@ std::string runPlanFile(const std::string &plan, unlink_upon_exit &uue,
  *      quit
  *          Kills the raw-jit-executor engine
  *
+ *      prepare plan <plan_description>
+ *          Prepares the plan described from the <plan_description>
+ *          It will either result in an error command send back, or a result one
+ *
+ *          Valid plan descriptions:
+ *
+ *              from file <file_path>
+ *                  Reads the plan from the file pointed by the <file_path>
+ *                  The file path is either an absolute path, or a path relative
+ *                  to the current working directory
+ *
  *      execute plan <plan_description>
  *          Executes the plan described from the <plan_description>
  *          It will either result in an error command send back, or a result one
@@ -121,6 +162,9 @@ std::string runPlanFile(const std::string &plan, unlink_upon_exit &uue,
  *                  Reads the plan from the file pointed by the <file_path>
  *                  The file path is either an absolute path, or a path relative
  *                  to the current working directory
+ *
+ *              from statement <label>
+ *                  Executes the plan prepared for label <label>
  *
  *     echo <object_to_echo>
  *          Switched on/off the echoing of types of results. When switched on,
@@ -180,11 +224,27 @@ int main(int argc, char *argv[]) {
       if (cmd == "quit") {
         std::cout << "quiting..." << std::endl;
         break;
+      } else if (starts_with(cmd, "prepare plan ")) {
+        if (starts_with(cmd, "prepare plan from file ")) {
+          constexpr size_t prefix_size = clen("prepare plan from file ");
+          std::string plan = cmd.substr(prefix_size);
+          std::string label = preparePlanFile(plan, uue);
+
+          std::cout << "prepared statement with label " << label << std::endl;
+        } else {
+          std::cout << "error (command not supported)" << std::endl;
+        }
       } else if (starts_with(cmd, "execute plan ")) {
         if (starts_with(cmd, "execute plan from file ")) {
           constexpr size_t prefix_size = clen("execute plan from file ");
           std::string plan = cmd.substr(prefix_size);
           std::string label = runPlanFile(plan, uue, echo);
+
+          std::cout << "result in file /dev/shm/" << label << std::endl;
+        } else if (starts_with(cmd, "execute plan from statement ")) {
+          constexpr size_t prefix_size = clen("execute plan from statement ");
+          std::string plan = cmd.substr(prefix_size);
+          std::string label = runPreparedStatement(plan, uue, echo);
 
           std::cout << "result in file /dev/shm/" << label << std::endl;
         } else {
