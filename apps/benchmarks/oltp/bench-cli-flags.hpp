@@ -30,6 +30,7 @@ DECLARE_uint32(ycsb_num_ops_per_txn);
 DECLARE_uint32(ycsb_num_records);
 DECLARE_uint32(ycsb_num_col_upd);
 DECLARE_uint32(ycsb_num_col_read);
+DECLARE_uint32(ycsb_num_col_read_offset);
 
 // TPC-C
 DECLARE_uint32(tpcc_num_wh);
@@ -39,3 +40,4 @@ DECLARE_string(tpcc_csv_dir);
 
 DECLARE_uint32(benchmark);
 DECLARE_uint64(runtime);
+DECLARE_string(cdf_path);

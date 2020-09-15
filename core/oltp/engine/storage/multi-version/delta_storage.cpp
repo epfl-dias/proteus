@@ -36,6 +36,8 @@ DeltaStore::DeltaStore(uint32_t delta_id, uint64_t ver_list_capacity,
     : touched(false) {
   this->delta_id = delta_id;
 
+  LOG(INFO) << "DELTA SIZEING: " << g_delta_size;
+
   ver_list_capacity = ver_list_capacity * (1024 * 1024 * 1024);  // GB
   ver_list_capacity = ver_list_capacity / 2;
   ver_data_capacity = ver_data_capacity * (1024 * 1024 * 1024);  // GB
@@ -129,6 +131,11 @@ void* DeltaStore::validate_or_create_list(void* list_ptr, size_t& delta_ver_tag,
     // none or stale list
     delta_ver_tag = curr_tag;
     list_ptr = partitions[partition_id]->getListChunk();
+
+    // logic for transient timestamps instead of persistent.
+    ((storage::mv::mv_type::version_chain_t*)list_ptr)->last_updated_tmin =
+        scheduler::WorkerPool::getInstance().get_min_active_txn();
+
     if (!touched) touched = true;
   }
   return list_ptr;
@@ -149,6 +156,10 @@ void* DeltaStore::insert_version(global_conf::IndexVal* idx_ptr, uint rec_size,
       idx_ptr->t_min, 0, cnk + sizeof(storage::mv::mv_version));
 
   auto curr_tag = create_delta_tag(this->delta_id, tag);
+
+  // LOG(INFO) << "ver-data-struct-size: " << sizeof(storage::mv::mv_version);
+  // LOG(INFO) << "Tag: " << tag << "| DeltaId: " << this->delta_id << "|
+  // FullTag: " << curr_tag;
 
   if (idx_ptr->delta_ver_tag != curr_tag) {
     // none/stale list

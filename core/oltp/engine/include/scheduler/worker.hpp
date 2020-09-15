@@ -122,8 +122,7 @@ class Worker {
         num_aborts(0) {
     pause = false;
 
-    if constexpr (global_conf::save_txn_cdf)
-      latencies.reserve(1000000);
+    if constexpr (global_conf::save_txn_cdf) latencies.reserve(1000000);
   }
 
  private:
@@ -181,7 +180,6 @@ class WorkerPool {
   std::string get_benchmark_name() { return this->_txn_bench->name; }
   void pause();
   void resume();
-
 
  public:
   proteus::utils::Percentile<size_t> latencies;

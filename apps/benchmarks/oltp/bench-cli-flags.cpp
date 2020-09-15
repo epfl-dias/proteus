@@ -32,6 +32,7 @@ DEFINE_uint32(ycsb_num_ops_per_txn, 10, "YCSB - # ops / txn");
 DEFINE_uint32(ycsb_num_records, 0, "YCSB - # records");
 DEFINE_uint32(ycsb_num_col_upd, 0, "# of cols to upd per op");
 DEFINE_uint32(ycsb_num_col_read, 0, "# of cols to read per op");
+DEFINE_uint32(ycsb_num_col_read_offset, 0, "column offset for reader-columns");
 
 // TPC-C
 DEFINE_uint32(tpcc_num_wh, 0, "TPC-C - # of Warehouses ( 0 = one per worker");
@@ -43,3 +44,5 @@ DEFINE_string(tpcc_csv_dir, "/scratch/data/ch100w/raw",
 DEFINE_uint32(benchmark, 0, "Select benchmark (0=ycsb, 1=tpcc)");
 
 DEFINE_uint64(runtime, 60, "Time to run for (sec)");
+
+DEFINE_string(cdf_path, "", "Path for saving CDFs");

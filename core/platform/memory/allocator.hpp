@@ -25,11 +25,12 @@
 #define PROTEUS_ALLOCATOR_HPP
 
 #include <limits>
-#include "memory-manager.hpp"
-#include "topology/topology.hpp"
-#include "topology/affinity_manager.hpp"
 
-namespace proteus::memory{
+#include "memory-manager.hpp"
+#include "topology/affinity_manager.hpp"
+#include "topology/topology.hpp"
+
+namespace proteus::memory {
 
 template <typename T>
 class ExplicitSocketPinnedMemoryAllocator {
@@ -46,24 +47,18 @@ class ExplicitSocketPinnedMemoryAllocator {
     if (n > std::numeric_limits<size_t>::max() / sizeof(T))
       throw std::bad_alloc();
 
-
     if (numa_memset_id >= 0) {
       static const auto &nodes = topology::getInstance().getCpuNumaNodes();
       set_exec_location_on_scope d{nodes[numa_memset_id]};
 
-      return static_cast<T *>(
-          MemoryManager::mallocPinned(n * sizeof(T)));
+      return static_cast<T *>(MemoryManager::mallocPinned(n * sizeof(T)));
 
     } else {
-      return static_cast<T *>(
-          MemoryManager::mallocPinned(n * sizeof(T)));
+      return static_cast<T *>(MemoryManager::mallocPinned(n * sizeof(T)));
     }
-
   }
 
-  void deallocate(T *mem, size_t) noexcept {
-    MemoryManager::freePinned(mem);
-  }
+  void deallocate(T *mem, size_t) noexcept { MemoryManager::freePinned(mem); }
 };
 
 template <typename T>
@@ -77,15 +72,12 @@ class PinnedMemoryAllocator {
     if (n > std::numeric_limits<size_t>::max() / sizeof(T))
       throw std::bad_alloc();
 
-    return static_cast<T *>(
-        MemoryManager::mallocPinned(n * sizeof(T)));
+    return static_cast<T *>(MemoryManager::mallocPinned(n * sizeof(T)));
   }
 
-  void deallocate(T *mem, size_t) noexcept {
-    MemoryManager::freePinned(mem);
-  }
+  void deallocate(T *mem, size_t) noexcept { MemoryManager::freePinned(mem); }
 };
 
-}
+}  // namespace proteus::memory
 
 #endif  // PROTEUS_ALLOCATOR_HPP

@@ -35,8 +35,8 @@
 #include <vector>
 
 #include "glo.hpp"
-#include "storage/memory_manager.hpp"
 #include "memory/allocator.hpp"
+#include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 #include "utils/atomic_bit_set.hpp"
 
@@ -64,9 +64,9 @@ class alignas(4096) ColumnStore : public Table {
                           uint capacity_offset, uint64_t xid,
                           ushort partition_id, ushort master_ver);
 
-  void updateRecord(global_conf::IndexVal *hash_ptr, const void *rec,
-                    ushort curr_master, ushort curr_delta,
-                    const ushort *col_idx = nullptr, short num_cols = -1);
+  void updateRecord(uint64_t xid, global_conf::IndexVal *hash_ptr,
+                    const void *rec, ushort curr_master, ushort curr_delta,
+                    const ushort *col_idx, short num_cols);
   // void updateRecord(ushort pid, uint64_t &vid, const void *rec,
   //                   ushort curr_master, ushort curr_delta, uint64_t tmin,
   //                   const ushort *col_idx = nullptr, short num_cols =

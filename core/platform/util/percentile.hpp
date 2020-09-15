@@ -24,38 +24,38 @@
 #ifndef PROTEUS_PERCENTILE_HPP
 #define PROTEUS_PERCENTILE_HPP
 
-#include <vector>
 #include <cassert>
 #include <fstream>
+#include <utility>
+#include <vector>
 
 namespace proteus::utils {
 
-template <class T> class Percentile {
+template <class T = size_t>
+class Percentile {
  public:
-
-
-  Percentile(){}
-  Percentile(size_t reserved_capacity){
+  Percentile(std::string output_path = "") : path(std::move(output_path)) {}
+  Percentile(size_t reserved_capacity, const std::string output_path = "")
+      : Percentile(output_path) {
     points.reserve(reserved_capacity);
   }
-
-  inline void reserve(size_t quantity){
-    points.reserve(quantity);
+  ~Percentile() {
+    if (this->path.length() > 2) {
+      this->save_cdf(this->path);
+    }
   }
 
-  inline void add(const T &value) {
-    points.push_back(value);
-  }
+  inline void reserve(size_t quantity) { points.reserve(quantity); }
 
-  inline void add(const Percentile &p){
+  inline void add(const T &value) { points.push_back(value); }
+
+  inline void add(const Percentile &p) {
     std::copy(p.points.begin(), p.points.end(), std::back_inserter(points));
   }
 
   inline void add(const std::vector<T> &v) {
     std::copy(v.begin(), v.end(), std::back_inserter(points));
   }
-
-
 
   T nth(double n) {
     assert(n > 0 && n <= 100);
@@ -75,9 +75,8 @@ template <class T> class Percentile {
     return points[i];
   }
 
-
   // shouldn't be on critical path.
-  void save_cdf(const std::string &path, size_t step = 1000) {
+  void save_cdf(const std::string &out_path, size_t step = 1000) {
     if (points.size() == 0) {
       return;
     }
@@ -109,8 +108,7 @@ template <class T> class Percentile {
     cdf.close();
   }
 
-
-  Percentile operator+(const Percentile& p) {
+  Percentile operator+(const Percentile &p) {
     Percentile tmp;
     tmp.add(this->points);
     tmp.add(p.points);
@@ -124,7 +122,25 @@ template <class T> class Percentile {
 
  private:
   std::vector<T> points;
+  std::string path;
 };
-}
+
+class percentile_point {
+ private:
+  std::chrono::time_point<std::chrono::system_clock> start;
+  Percentile<size_t> &registry;
+
+ public:
+  inline explicit percentile_point(Percentile<size_t> &registry)
+      : start(std::chrono::system_clock::now()), registry(registry) {}
+
+  inline ~percentile_point() {
+    auto end = std::chrono::system_clock::now();
+    auto d = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    registry.add(d.count());
+  }
+};
+
+}  // namespace proteus::utils
 
 #endif  // PROTEUS_PERCENTILE_HPP

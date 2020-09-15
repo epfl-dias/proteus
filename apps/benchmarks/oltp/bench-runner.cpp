@@ -80,9 +80,11 @@ int main(int argc, char** argv) {
     g_num_partitions = FLAGS_num_partitions;
   }
 
-  std::cout << "PARTITIONS: " << g_num_partitions << std::endl;
+  LOG(INFO) << "PARTITIONS: " << g_num_partitions << std::endl;
 
   g_delta_size = FLAGS_delta_size;
+  LOG(INFO) << "DeltaSize: " << FLAGS_delta_size;
+  g_delta_size = 6;
 
   storage::Schema* schema = &storage::Schema::getInstance();
 
@@ -91,7 +93,6 @@ int main(int argc, char** argv) {
   if (FLAGS_benchmark == 1) {
     if (FLAGS_tpcc_num_wh == 0) FLAGS_tpcc_num_wh = FLAGS_num_workers;
 
-    std::cout << "ABCABCBAB" << std::endl;
     bench =
         new bench::TPCC("TPCC", FLAGS_tpcc_num_wh,
                         (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
@@ -135,7 +136,8 @@ int main(int argc, char** argv) {
         (FLAGS_elastic_workload > 0 ? topology::getInstance().getCoreCount()
                                     : FLAGS_num_workers),
         g_num_partitions, FLAGS_layout_column_store, FLAGS_ycsb_num_col_upd,
-        FLAGS_ycsb_num_col_read);
+        FLAGS_ycsb_num_col_read, FLAGS_ycsb_num_col_read_offset,
+        FLAGS_cdf_path);
   }
 
   scheduler::WorkerPool::getInstance().init(

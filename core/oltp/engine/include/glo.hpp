@@ -58,7 +58,7 @@ using PrimaryIndex = indexes::HashArray<T_KEY>;
 // using PrimaryIndex = indexes::AdaptiveRadixTreeIndex<T_KEY, void*>;
 
 /* # of Snapshots*/
-constexpr short num_master_versions = 2;
+constexpr short num_master_versions = 1;
 constexpr short num_delta_storages = 2;
 constexpr bool reverse_partition_numa_mapping = false;
 

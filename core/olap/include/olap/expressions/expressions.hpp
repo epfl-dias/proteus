@@ -1547,14 +1547,14 @@ expressions::ExprVisitorVisitable<T, Interface>::operator expression_t() const {
 
 template <typename T, typename Interface>
 expressions::RefExpression
-expressions::ExprVisitorVisitable<T, Interface>::operator*() const {
+    expressions::ExprVisitorVisitable<T, Interface>::operator*() const {
   return *static_cast<expression_t>(*this);
 }
 
 template <typename T, typename Interface>
 expressions::RefExpression
-expressions::ExprVisitorVisitable<T, Interface>::operator[](
-    expression_t index) const {
+    expressions::ExprVisitorVisitable<T, Interface>::operator[](
+        expression_t index) const {
   return static_cast<expression_t>(*this)[index];
 }
 

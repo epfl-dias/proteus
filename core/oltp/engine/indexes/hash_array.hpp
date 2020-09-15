@@ -76,6 +76,8 @@ class HashArray {
                          1)) {
       return (void *)arr[pid][idx];
     } else {
+      LOG(INFO) << "Faulty key: " << key << " | pid: " << pid
+                << " | idx: " << idx;
       assert(false);
     }
 

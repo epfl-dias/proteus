@@ -29,6 +29,13 @@
 
 namespace storage::mv {
 
+static inline void verify_delta(global_conf::IndexVal* idx_ptr,
+                                storage::DeltaStore** deltaStore) {
+  auto delta_idx =
+      storage::DeltaStore::extract_delta_idx(idx_ptr->delta_ver_tag);
+  assert(deltaStore[delta_idx]->verifyTag(idx_ptr->delta_ver_tag));
+}
+
 void* MV_RecordList_Full::get_readable_version(version_t* head,
                                                uint64_t tid_self) {
   version_t* tmp = nullptr;
@@ -46,24 +53,31 @@ void* MV_RecordList_Full::get_readable_version(version_t* head,
   }
   return nullptr;
 }
-void MV_RecordList_Full::get_readable_version(version_t* head,
-                                              uint64_t tid_self,
-                                              char* write_loc, uint rec_size) {
-  // char* version = (char*)this->get_readable_version(tid_self);
-  char* version =
-      (char*)MV_RecordList_Full::get_readable_version(head, tid_self);
-  assert(version != nullptr);
-  assert(write_loc != nullptr);
-  memcpy(write_loc, version, rec_size);
-}
+// void MV_RecordList_Full::get_readable_version(version_t* head,
+//                                              uint64_t tid_self,
+//                                              char* write_loc, uint rec_size)
+//                                              {
+//  // char* version = (char*)this->get_readable_version(tid_self);
+//  char* version =
+//      (char*)MV_RecordList_Full::get_readable_version(head, tid_self);
+//  assert(version != nullptr);
+//  assert(write_loc != nullptr);
+//  memcpy(write_loc, version, rec_size);
+//}
 
 std::bitset<1> MV_RecordList_Full::get_readable_version(
-    void* list_ptr, const uint64_t tid_self, char* write_loc,
+    global_conf::IndexVal* idx_ptr, void* list_ptr, uint64_t tid_self,
+    char* write_loc,
     const std::vector<std::pair<size_t, size_t>>& column_size_offset_pairs,
-    const ushort* col_idx, const ushort num_cols) {
+    storage::DeltaStore** deltaStore, const ushort* col_idx,
+    const ushort num_cols) {
   static thread_local std::bitset<1> ret_bitmask("1");
 
-  version_t* head = static_cast<version_t*>(list_ptr);
+  // verify delta-tag
+  verify_delta(idx_ptr, deltaStore);
+
+  // version_t* head = static_cast<version_t*>(list_ptr);
+  version_t* head = ((version_chain_t*)list_ptr)->head;
   // char* version = (char*)this->get_readable_version(tid_self);
   char* version =
       (char*)MV_RecordList_Full::get_readable_version(head, tid_self);
@@ -115,47 +129,78 @@ std::bitset<1> MV_RecordList_Full::get_readable_version(
 // }
 
 std::bitset<64> MV_RecordList_Partial::get_readable_version(
-    void* list_ptr, const uint64_t tid_self, char* write_loc,
+    global_conf::IndexVal* idx_ptr, void* list_ptr, uint64_t tid_self,
+    char* write_loc,
     const std::vector<std::pair<size_t, size_t>>& column_size_offset_pairs,
-    const ushort* col_idx, const ushort num_cols) {
-  version_t* head = static_cast<version_t*>(list_ptr);
+    storage::DeltaStore** deltaStore, const ushort* col_idx, ushort num_cols) {
+  //  static std::mutex m;
+  //  std::unique_lock<std::mutex> lk(m);
+
+  verify_delta(idx_ptr, deltaStore);
+
+  //  LOG(INFO)  << "[get_readable_version] xid: " << tid_self;
+  //  LOG(INFO) << "verified delta";
+
+  version_t* head = ((version_chain_t*)list_ptr)->head;
+
+  //  version_t* head = static_cast<version_t*>(list_ptr);
 
   // CREATE containment mask.
   std::bitset<64> done_mask;
   std::bitset<64> required_mask;
   std::vector<uint> return_col_offsets;
 
-  if (num_cols > 0) {
+  if (num_cols > 0 && col_idx != nullptr) {
     assert(num_cols <= 64 && "MAX columns supported: 64");
+    // LOG(INFO) << "[get_readable_version] num_cols: " << num_cols;
+
     done_mask.set();
     for (auto i = 0, offset = 0; i < num_cols; i++) {
+      // LOG(INFO) << "[get_readable_version] col_idx: " << ((uint)col_idx[i]);
       done_mask.reset(col_idx[i]);
       required_mask.set(col_idx[i]);
 
       offset += column_size_offset_pairs[col_idx[i]].first;
       return_col_offsets.push_back(offset);
     }
+    // LOG(INFO) << "[get_readable_version] mask: : " << done_mask;
   } else {
-    for (auto i = column_size_offset_pairs.size(); i < done_mask.size(); i++)
-      done_mask.set(i);
+    for (auto i = column_size_offset_pairs.size(); i < done_mask.size(); i++) {
+      done_mask.reset(i);
+    }
+    // offsets are not set in this case!
   }
   required_mask = ~done_mask;
 
   assert(!(done_mask.all()) && "havent even started and its done?");
 
+  // LOG(INFO) << "starting with list";
+
   // Traverse the list
   version_t* curr = head;
   size_t sanity_checker = 0;
   while (curr != nullptr && !(done_mask.all())) {
-    sanity_checker++;
+    //    sanity_checker++;
+    //
+    //    if(sanity_checker % 1000 == 0){
+    //      LOG(INFO) << "sanity_checker: " << sanity_checker;
+    //    }
 
-    if (sanity_checker > 250) {
-      LOG(INFO) << "WOAHHH!: " << sanity_checker << " | " << done_mask;
-    }
+    //    if (sanity_checker > 25) {
+    //      LOG(INFO) << "WOAHHH!: " << sanity_checker << " | " << done_mask;
+    //    }
+    //    if (sanity_checker > 500) {
+    //      assert(false);
+    //    }
 
     if (global_conf::ConcurrencyControl::is_readable(curr->t_min, tid_self)) {
       // So this version is readable, now check if it contains what we need or
       // not.
+
+      //      LOG(INFO) << "D: "<<done_mask;
+      //      LOG(INFO) << "A: " << curr->attribute_mask;
+      //      LOG(INFO) << "---------------------";
+
       auto tmp = curr->attribute_mask & (~done_mask);
 
       if (tmp.any()) {
@@ -187,62 +232,52 @@ std::bitset<64> MV_RecordList_Partial::get_readable_version(
                  col_s_pair.first);
         }
       }
-    } else {
-      curr = curr->next;
     }
+    curr = curr->next;
   }
 
   return done_mask;
 }
 
-
-
-
 std::vector<MV_RecordList_Full::version_t*> MV_RecordList_Full::create_versions(
-    global_conf::IndexVal* idx_ptr, void* list_ptr,
+    uint64_t xid, global_conf::IndexVal* idx_ptr, void* list_ptr,
     std::vector<size_t>& attribute_widths, storage::DeltaStore& deltaStore,
-    ushort partition_id, const ushort* col_idx, short num_cols){
-
+    ushort partition_id, const ushort* col_idx, short num_cols) {
   size_t ver_size = 0;
-  for (auto &attr_w : attribute_widths){
+  for (auto& attr_w : attribute_widths) {
     ver_size += attr_w;
   }
 
-  auto* ver =
-      (MV_RecordList_Full::version_t*) deltaStore.insert_version(idx_ptr, ver_size, partition_id);
+  auto* ver = (MV_RecordList_Full::version_t*)deltaStore.insert_version(
+      idx_ptr, ver_size, partition_id);
   assert(ver != nullptr && ver->data != nullptr);
 
   return {ver};
-
 }
 
-
-std::vector<MV_RecordList_Partial::version_t*> MV_RecordList_Partial::create_versions(
-    global_conf::IndexVal* idx_ptr, void* list_ptr,
+std::vector<MV_RecordList_Partial::version_t*>
+MV_RecordList_Partial::create_versions(
+    uint64_t xid, global_conf::IndexVal* idx_ptr, void* list_ptr,
     std::vector<size_t>& attribute_widths, storage::DeltaStore& deltaStore,
-    ushort partition_id, const ushort* col_idx, short num_cols){
+    ushort partition_id, const ushort* col_idx, short num_cols) {
 
-  size_t ver_size = 0;
 
-  if(__likely(num_cols > 0)){
-    for(auto i = 0; i < num_cols; i++){
-      ver_size += attribute_widths.at(col_idx[i]);
-    }
-  } else {
-    for (auto &attr_w : attribute_widths){
-      ver_size += attr_w;
-    }
-  }
+  std::vector<size_t> ver_offsets;
+  std::bitset<64> attr_mask;
 
-  auto* ver =
-      (MV_RecordList_Partial::version_t*) deltaStore.insert_version(idx_ptr, ver_size, partition_id);
+  auto ver_data_size = MV_RecordList_Partial::version_t::get_partial_mask_size(attribute_widths,
+                                                                ver_offsets,attr_mask, col_idx, num_cols  );
+
+  auto* ver = (MV_RecordList_Partial::version_t*)deltaStore.insert_version(
+      idx_ptr, ver_data_size, partition_id);
   assert(ver != nullptr && ver->data != nullptr);
 
-  size_t ver_rec_size = ver->create_partial_mask(attribute_widths,col_idx, num_cols);
-  assert(ver_size == ver_rec_size && "Sanity check failed");
+  ver->create_partial_mask(ver_offsets, attr_mask);
+
+  // LOG(INFO) << "ver-rec-size: " << ver_rec_size << "| ver-mask: " <<
+  // ver->attribute_mask << "| tag: " << idx_ptr->delta_ver_tag;
 
   return {ver};
-
 }
 
 }  // namespace storage::mv

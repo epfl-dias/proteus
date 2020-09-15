@@ -56,9 +56,10 @@ CC_upd_vid(uint64_t vid, ushort master_ver, ushort delta_version) {
           ((uint64_t)(delta_version & 0x00FF) << 56));
 }
 
-void RowStore::updateRecord(global_conf::IndexVal* hash_ptr, const void* rec,
-                            ushort curr_master, ushort curr_delta,
-                            const ushort* col_idx, short num_cols) {
+void RowStore::updateRecord(uint64_t xid, global_conf::IndexVal* hash_ptr,
+                            const void* rec, ushort curr_master,
+                            ushort curr_delta, const ushort* col_idx,
+                            short num_cols) {
   ushort pid = CC_extract_pid(hash_ptr->VID);
   ushort m_ver = CC_extract_m_ver(hash_ptr->VID);
   uint64_t data_idx = CC_extract_offset(hash_ptr->VID) * this->rec_size;

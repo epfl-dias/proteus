@@ -222,9 +222,8 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
 
     st_rec.s_quantity = quantity;
 
-    table_stock->updateRecord(st_idx_ptr, &st_rec, master_ver, delta_ver,
+    table_stock->updateRecord(xid, st_idx_ptr, &st_rec, master_ver, delta_ver,
                               stock_col_rw, 4);
-    st_idx_ptr->t_min = xid;
     // early release of locks?
     st_idx_ptr->latch.release();
   }
@@ -253,10 +252,9 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
                                  &dist_no_read);
 
   uint64_t d_next_o_id_upd = dist_no_read.d_next_o_id + 1;
-  table_district->updateRecord(d_idx_ptr, &d_next_o_id_upd, master_ver,
+  table_district->updateRecord(xid, d_idx_ptr, &d_next_o_id_upd, master_ver,
                                delta_ver, dist_col_upd, 1);
 
-  d_idx_ptr->t_min = xid;
   d_idx_ptr->latch.release();
 
   // TIME TO RELEASE LOCKS AS WE ARE NOT GONNA UPDATE ANYTHING
@@ -955,12 +953,11 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
                                   &w_ytd);
 
   w_ytd += q->h_amount;
-  table_warehouse->updateRecord(w_idx_ptr, &w_ytd, master_ver, delta_ver,
+  table_warehouse->updateRecord(xid, w_idx_ptr, &w_ytd, master_ver, delta_ver,
                                 wh_col_scan_upd, 1);
 
-  w_idx_ptr->t_min = xid;
-  w_idx_ptr->latch.release();
   w_idx_ptr->write_lck.unlock();
+  w_idx_ptr->latch.release();
 
   /*=====================================================+
       EXEC SQL UPDATE district SET d_ytd = d_ytd + :h_amount
@@ -981,10 +978,9 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
                                  &d_ytd);
   d_ytd += q->h_amount;
 
-  table_district->updateRecord(d_idx_ptr, &d_ytd, master_ver, delta_ver,
+  table_district->updateRecord(xid, d_idx_ptr, &d_ytd, master_ver, delta_ver,
                                d_col_scan_upd, 1);
 
-  d_idx_ptr->t_min = xid;
   d_idx_ptr->write_lck.unlock();
   d_idx_ptr->latch.release();
 
@@ -1027,10 +1023,9 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
     strncat(cust_rw.c_data, cust_rw.c_data, 500 - strlen(cust_rw.c_data));
   }
 
-  table_customer->updateRecord(c_idx_ptr, &cust_rw, master_ver, delta_ver,
+  table_customer->updateRecord(xid, c_idx_ptr, &cust_rw, master_ver, delta_ver,
                                cust_col_scan_read, num_col_upd);
 
-  c_idx_ptr->t_min = xid;
   c_idx_ptr->write_lck.unlock();
   c_idx_ptr->latch.release();
 
@@ -1206,9 +1201,8 @@ inline bool TPCC::exec_delivery_txn(struct tpcc_query *q, uint64_t xid,
       // update order
       constexpr ushort o_col_upd[] = {5};
       o_idx_ptr->latch.acquire();
-      table_order->updateRecord(o_idx_ptr, &q->o_carrier_id, master_ver,
+      table_order->updateRecord(xid, o_idx_ptr, &q->o_carrier_id, master_ver,
                                 delta_ver, o_col_upd, 1);
-      o_idx_ptr->t_min = xid;
       o_idx_ptr->latch.release();
 
       // update orderline
@@ -1234,9 +1228,8 @@ inline bool TPCC::exec_delivery_txn(struct tpcc_query *q, uint64_t xid,
           assert(false && "Not possible");
         }
 
-        table_order_line->updateRecord(ol_idx_ptr, &delivery_d, master_ver,
+        table_order_line->updateRecord(xid, ol_idx_ptr, &delivery_d, master_ver,
                                        delta_ver, ol_col_upd, 1);
-        ol_idx_ptr->t_min = xid;
         ol_idx_ptr->latch.release();
       }
 
@@ -1257,9 +1250,8 @@ inline bool TPCC::exec_delivery_txn(struct tpcc_query *q, uint64_t xid,
         assert(false && "Not possible");
       }
 
-      table_customer->updateRecord(c_idx_ptr, &c_balance, master_ver, delta_ver,
-                                   c_col_rw, 1);
-      c_idx_ptr->t_min = xid;
+      table_customer->updateRecord(xid, c_idx_ptr, &c_balance, master_ver,
+                                   delta_ver, c_col_rw, 1);
       c_idx_ptr->latch.release();
 
       // finally

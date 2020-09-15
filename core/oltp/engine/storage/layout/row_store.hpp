@@ -60,8 +60,8 @@ class RowStore : public Table {
                           uint capacity_offset, uint64_t xid,
                           ushort partition_id, ushort master_ver);
 
-  void updateRecord(global_conf::IndexVal *hash_ptr, const void *rec,
-                    ushort curr_master, ushort curr_delta,
+  void updateRecord(uint64_t xid, global_conf::IndexVal *hash_ptr,
+                    const void *rec, ushort curr_master, ushort curr_delta,
                     const ushort *col_idx = nullptr, short num_cols = -1);
 
   void getRecordByKey(uint64_t vid, const ushort *col_idx, ushort num_cols,

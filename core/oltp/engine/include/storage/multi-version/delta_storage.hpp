@@ -96,14 +96,27 @@ class alignas(4096) DeltaStore {
     return create_delta_tag(this->delta_id, tag.load());
   }
 
-  [[maybe_unused]] inline bool verifyTag(uint64_t &d_tag_ver) {
-    return (create_delta_tag(this->delta_id, tag.load()) == d_tag_ver);
+  [[maybe_unused]] inline bool verifyTag(uint64_t d_tag_ver) const {
+    // return (create_delta_tag(this->delta_id, tag.load()) == d_tag_ver);
+
+    return static_cast<size_t>(d_tag_ver & 0x00000000FFFFFFFF) ==
+           tag.load(std::memory_order_acquire);
   }
 
   static inline uint64_t __attribute__((always_inline))
   create_delta_tag(uint64_t delta_idx, uint32_t delta_tag) {
     // 2 byte delta_idx | 4-byte delta-tag
     return (delta_idx << 32) | (delta_tag);
+  }
+
+  static inline uint32_t __attribute__((always_inline))
+  extract_delta_idx(uint64_t delta_tag) {
+    // 2 byte delta_idx | 4-byte delta-tag
+
+    return static_cast<uint32_t>((delta_tag >> 32) & 0x000000000000FFFF);
+
+    // 0x00 00 00 00 00 00 00 00
+    // 0x00 00 00 00 00 00 FF FF
   }
 
  private:

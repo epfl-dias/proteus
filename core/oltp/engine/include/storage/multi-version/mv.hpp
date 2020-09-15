@@ -31,10 +31,10 @@
 
 namespace storage::mv {
 
-//using mv_type = MV_RecordList_Full;
-//using mv_type = MV_RecordList_Partial;
+using mv_type = MV_RecordList_Full;
+// using mv_type = MV_RecordList_Partial;
 
-using mv_type = MV_perAttribute<MV_attributeList>;
+//using mv_type = MV_perAttribute<MV_attributeList>;
 // using mv_type = MV_perAttribute<MV_DAG>;
 
 using mv_version_chain = mv_type::version_chain_t;
