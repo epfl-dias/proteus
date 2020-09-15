@@ -2,11 +2,22 @@
 PROJECT_ROOT="$(git rev-parse --show-toplevel)"
 
 RETVAL=0
+CLANG_FORMAT_VERSION=10
+
+if ! [ -x "$(command -v clang-format-$CLANG_FORMAT_VERSION)" ]; then
+  echo "*****************************************************************"
+  echo "*                                                               *"
+  echo "* Error: clang-format-$CLANG_FORMAT_VERSION is not installed.                      *"
+  echo "*                                                               *"
+  echo "*****************************************************************"
+  echo "Error: clang-format-$CLANG_FORMAT_VERSION is not installed" >&2
+  exit 1
+fi
 
 format_file() {
   file="${1}"
   if [ -f $file ]; then
-    clang-format-10 -i ${1}
+    clang-format-$CLANG_FORMAT_VERSION -i ${1}
     ${PROJECT_ROOT}/tools/check_licenses.py ${1} || RETVAL=1
     git add ${1}
   fi
