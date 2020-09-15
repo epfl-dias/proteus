@@ -679,6 +679,14 @@ std::string PipelineGen::convertTypeToFuncSuffix(llvm::Type *type) {
   if (type->isPointerTy()) {
     return convertTypeToFuncSuffix(type->getPointerElementType()) + "ptr";
   }
+  if (type->isStructTy() && type->getStructNumElements() == 2) {
+    auto ti0 = type->getStructElementType(0);
+    auto ti1 = type->getStructElementType(1);
+    if (ti0->isPointerTy() && ti0->getPointerElementType()->isIntegerTy(8) &&
+        ti1->isIntegerTy(32)) {
+      return "str";
+    }
+  }
   {
     auto msg = std::string{"Unexpected type: "};
     {

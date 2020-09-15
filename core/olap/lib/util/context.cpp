@@ -394,6 +394,7 @@ Value *Context::CreateGlobalString(char *str) {
 }
 
 Value *Context::CreateGlobalString(const char *str) {
+  assert(str);
   LLVMContext &ctx = getLLVMContext();
   ArrayType *ArrayTy_0 =
       ArrayType::get(IntegerType::get(ctx, 8), strlen(str) + 1);

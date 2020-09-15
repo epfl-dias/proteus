@@ -983,6 +983,10 @@ void CSVPlugin::readField(typeID id, RecordAttribute attName,
       readAsIntLLVM(attName, variables);
       break;
     }
+    case DATE: {
+      readAsDateLLVM(attName, variables);
+      break;
+    }
     case BAG:
     case LIST:
     case SET: {
@@ -1205,6 +1209,73 @@ void CSVPlugin::readAsStringLLVM(
   variables[attName] = mem_valWrapper;
 
   // cout << "[CSV_PM: ] Stored " << attName.getAttrName() << endl;
+}
+
+uint64_t parseDate(const char *s, uint32_t len) {
+  std::string str{s, len};
+  std::istringstream ss{str};
+  std::tm dt{};
+  ss >> std::get_time(&dt, "%Y-%m-%d %H:%M:%S");
+  if (ss.fail()) LOG(FATAL) << str;
+  assert(!ss.fail());
+
+  auto epoch = std::chrono::system_clock::from_time_t(std::mktime(&dt))
+                   .time_since_epoch();
+  auto r = std::chrono::duration_cast<std::chrono::milliseconds>(epoch).count();
+  return r;
+}
+
+void CSVPlugin::readAsDateLLVM(
+    RecordAttribute attName,
+    map<RecordAttribute, ProteusValueMemory> &variables) {
+  // Prepare
+  LLVMContext &llvmContext = context->getLLVMContext();
+  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
+  Type *int32Type = Type::getInt32Ty(llvmContext);
+  Type *int64Type = Type::getInt64Ty(llvmContext);
+  IRBuilder<> *Builder = context->getBuilder();
+  Function *F = Builder->GetInsertBlock()->getParent();
+
+  // Fetch values from symbol table
+  AllocaInst *mem_pos;
+  {
+    map<string, AllocaInst *>::iterator it;
+    it = NamedValuesCSV.find(posVar);
+    if (it == NamedValuesCSV.end()) {
+      throw runtime_error(string("Unknown variable name: ") + posVar);
+    }
+    mem_pos = it->second;
+  }
+  AllocaInst *buf;
+  {
+    map<string, AllocaInst *>::iterator it;
+    it = NamedValuesCSV.find(bufVar);
+    if (it == NamedValuesCSV.end()) {
+      throw runtime_error(string("Unknown variable name: ") + bufVar);
+    }
+    buf = it->second;
+  }
+
+  Value *start = Builder->CreateLoad(mem_pos, "start_pos_str");
+  Value *val_1 = Builder->getInt64(1);
+  getFieldEndLLVM();
+  // index must be different than start!
+  Value *index = Builder->CreateLoad(mem_pos, "end_pos_str");
+  // Must increase offset by 1 now
+  //(uniform behavior with other skip methods)
+
+  Value *pos_inc = Builder->CreateAdd(index, val_1);
+  Builder->CreateStore(pos_inc, mem_pos);
+  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, start);
+  Value *len = Builder->CreateSub(index, start);
+  // Also removing (size of) ending bracket!!
+  Value *len_32 = Builder->CreateTrunc(len, int32Type);
+
+  auto dt = context->gen_call(parseDate, {bufShiftedPtr, len_32});
+
+  variables[attName] = context->toMem(
+      dt, Builder->CreateICmpEQ(len_32, context->createInt32(0)));
 }
 
 void CSVPlugin::readAsBooleanLLVM(

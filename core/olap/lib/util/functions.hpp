@@ -151,6 +151,7 @@ extern "C" void flushStringObject(StringObject toFlush, char *fileName);
 extern "C" void flushChar(char whichChar, char *fileName);
 
 extern "C" void flushOutput(char *fileName);
+extern "C" void flushBinaryOutput(char *fileName, std::ostream *strBuffer);
 
 extern "C" void flushDelim(size_t resultCtr, char whichDelim, char *fileName);
 

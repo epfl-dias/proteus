@@ -254,6 +254,8 @@ class CSVPlugin : public Plugin {
   void readAsStringLLVM(
       RecordAttribute attName,
       std::map<RecordAttribute, ProteusValueMemory> &variables);
+  void readAsDateLLVM(RecordAttribute attName,
+                      std::map<RecordAttribute, ProteusValueMemory> &variables);
 
   // Generates a for loop that performs the file scan
   // No assumption on auxiliary structures yet

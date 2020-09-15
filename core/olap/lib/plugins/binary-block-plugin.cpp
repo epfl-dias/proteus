@@ -839,8 +839,8 @@ void BinaryBlockPlugin::flushValue(Context *context,
                             fileName + "/" + fileName);
 }
 
-auto *getSerializer(const char *fileName) {
-  return &Catalog::getInstance().getSerializer(fileName);
+auto *getSerializer(const char *file) {
+  return &Catalog::getInstance().getSerializer(file);
 }
 
 void BinaryBlockPlugin::flushValueInternal(Context *context,
@@ -869,7 +869,7 @@ void BinaryBlockPlugin::flushValueInternal(Context *context,
 
       return;
     }
-    case STRING:
+      //    case STRING:
     case SET:
     case COMPOSITE:
     case BLOCK:
@@ -883,11 +883,11 @@ void BinaryBlockPlugin::flushValueInternal(Context *context,
 
       // Find serializer, in the entry block
       Builder->SetInsertPoint(context->getCurrentEntryBlock());
-      auto f = context->CreateGlobalString(fileName.c_str());
-      //      auto ser = context->gen_call(
-      //          static_cast<std::stringstream *(*)(const char
-      //          *)>(getSerializer), {f});
-      auto ser = context->gen_call(getSerializer, {f});
+      auto ser = context->gen_call(
+          getSerializer,
+          {context->CastPtrToLlvmPtr(
+              llvm::Type::getInt8PtrTy(context->getLLVMContext()),
+              (new std::string{fileName})->c_str())});
       Builder->SetInsertPoint(BB);
 
       // Back to normal flow, find cached serializer value
@@ -916,8 +916,14 @@ void BinaryBlockPlugin::flushOutputInternal(Context *context,
                           attr->getOriginalType());
     }
   } else {
-    context->gen_call("flushOutput",
-                      {context->CreateGlobalString(fileName.c_str())});
+    // Find serializer, in the entry block
+    auto f = context->CastPtrToLlvmPtr(
+        llvm::Type::getInt8PtrTy(context->getLLVMContext()),
+        (new std::string{fileName})->c_str());
+
+    auto ser = context->gen_call(getSerializer, {f});
+
+    context->gen_call(flushBinaryOutput, {f, ser});
   }
 }
 

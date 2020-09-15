@@ -340,6 +340,8 @@ class Context {
       return llvm::Type::getDoubleTy(getLLVMContext());
     } else if constexpr (std::is_same_v<T, float>) {
       return llvm::Type::getFloatTy(getLLVMContext());
+    } else if constexpr (std::is_same_v<T, std::string>) {
+      return CreateStringStruct();
     } else {
       LOG(INFO) << "Unknown type " << typeid(T).name()
                 << " substituting with sized placeholder";

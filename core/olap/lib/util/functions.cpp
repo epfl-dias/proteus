@@ -499,8 +499,27 @@ void flushDelim(size_t resultCtr, char whichDelim, char *fileName) {
   }
 }
 
-void flushOutput(char *fileName) {
-  auto &strBuffer = Catalog::getInstance().getSerializer(fileName);
+std::map<std::ostream *, std::map<std::string, int32_t>> dicts;
+
+void flushDictIfExists(std::ostream *ptr, const char *fileName) {
+  if (!dicts.count(ptr)) return;
+  auto dictName = "/dev/shm/" + std::string{fileName} + ".dict";
+  LOG(INFO) << "Flushing dictionary to " << dictName << endl;
+  std::ofstream out{dictName};
+#ifndef NDEBUG
+  auto prev = std::numeric_limits<int32_t>::lowest();
+#endif
+  LOG(INFO) << dicts.at(ptr).size();
+  for (auto &e : dicts.at(ptr)) {
+    out << e.first << ":" << e.second << '\n';
+    assert(e.second > prev);
+#ifndef NDEBUG
+    prev = e.second;
+#endif
+  }
+}
+
+void flushBinaryOutput(char *fileName, std::ostream *strBuffer) {
   LOG(INFO) << "Flushing to " << fileName << endl;
   {
     std::filesystem::path p{fileName};
@@ -526,7 +545,9 @@ void flushOutput(char *fileName) {
 
     // assert(std::filesystem::exists(p) && "Too many open file descriptors?");
 
-    std::ofstream{p} << strBuffer.rdbuf();
+    std::ofstream{p, std::ios::app} << strBuffer->rdbuf();
+
+    flushDictIfExists(strBuffer, fileName);
     // const string &tmp_str = strBuffer->str();     //more portable but it
     // creates a copy, which will be problematic for big output files...
     // write(fd, tmp_str.c_str(), tmp_str.size());
@@ -556,6 +577,11 @@ void flushOutput(char *fileName) {
 
   //     outFile.close();
   // }
+}
+
+void flushOutput(char *fileName) {
+  return flushBinaryOutput(fileName,
+                           &Catalog::getInstance().getSerializer(fileName));
 }
 
 /**
@@ -852,4 +878,46 @@ extern "C" void flushBinarydouble(double x, std::ostream *fileName) {
 
 extern "C" void flushBinaryfloat(float x, std::ostream *fileName) {
   flushBinary_impl(x, fileName);
+}
+
+extern "C" void flushBinarystr(const char *s, uint32_t len,
+                               std::ostream *fileName) {
+  auto &d = dicts[fileName];
+  int32_t dkey;
+  std::string key{s, len};
+  auto kit = d.find(key);
+  if (kit == d.end()) {
+    if (d.size() < 2) {
+      if (d.empty()) {
+        dkey = std::numeric_limits<int32_t>::max() / 2;
+      } else {
+        dkey = std::numeric_limits<int32_t>::max() / 4;
+        if (key > d.begin()->first) {
+          dkey *= 3;
+        }
+      }
+    } else {
+      int32_t lower_key;
+      int32_t greater_key;
+      auto it_gt = d.upper_bound(key);
+      if (it_gt == d.end()) {
+        greater_key = std::numeric_limits<int32_t>::max() - 1;
+      } else {
+        greater_key = it_gt->second;
+      }
+      if (it_gt == d.begin()) {
+        lower_key = 0;
+      } else {
+        lower_key = (--it_gt)->second;
+      }
+      assert(lower_key <= greater_key);
+      dkey = (greater_key & lower_key) + (greater_key ^ lower_key) / 2;
+      assert(lower_key < dkey);
+      assert(greater_key > dkey);
+    }
+    d.emplace(std::move(key), dkey);
+  } else {
+    dkey = kit->second;
+  }
+  flushBinary_impl(dkey, fileName);
 }

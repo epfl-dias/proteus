@@ -42,7 +42,9 @@ class Flush : public UnaryOperator {
   virtual void consume(Context *const context, const OperatorState &childState);
   virtual bool isFiltering() const { return getChild()->isFiltering(); }
 
-  virtual RecordType getRowType() const { return {}; }
+  [[nodiscard]] virtual RecordType getRowType() const {
+    return {std::vector{new RecordAttribute(rowcount)}};
+  }
 
   virtual std::string getOutputPath() { return outPath; }
 
@@ -55,6 +57,8 @@ class Flush : public UnaryOperator {
 
   std::string outPath;
   std::string relName;
+
+  RecordAttribute rowcount{outPath, "ROWCOUNT", new Int64Type()};
 
  private:
   void generate(Context *const context, const OperatorState &childState) const;

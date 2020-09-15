@@ -79,6 +79,21 @@ void Flush::produce_(ParallelContext *context) {
                                          relName};
         flusher.endList();
         flusher.flushOutput(outputExpr.getExpressionType());
+
+        if (getParent()) {
+          std::map<RecordAttribute, ProteusValueMemory> variableBindings;
+          auto oidtype = Catalog::getInstance()
+                             .getPlugin(rowcount.getRelationName())
+                             ->getOIDType();
+          RecordAttribute oid{rowcount.getRelationName(), activeLoop, oidtype};
+          variableBindings[oid] = context->toMem(
+              llvm::ConstantInt::get(
+                  oidtype->getLLVMType(context->getLLVMContext()), 0),
+              context->createFalse());
+          variableBindings[rowcount] = context->toMem(
+              context->getBuilder()->CreateLoad(s), context->createFalse());
+          getParent()->consume(context, {*this, variableBindings});
+        }
         context->deallocateStateVar(s);
       });
 

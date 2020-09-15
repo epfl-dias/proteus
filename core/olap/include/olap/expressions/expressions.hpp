@@ -374,7 +374,7 @@ class FloatConstant
 };
 
 class DStringConstant
-    : public TConstant<int, DStringType, Constant::ConstantType::FLOAT,
+    : public TConstant<int, DStringType, Constant::ConstantType::DSTRING,
                        DStringConstant> {
  public:
   DStringConstant(int val, void *dictionary)
