@@ -648,6 +648,21 @@ RelBuilder RelBuilder::scan(
         std::pair<RecordAttribute *, std::shared_ptr<proteus_any_vector> > >
         &data) const {
   auto pg = new VectorPlugin(ctx, data);
+
+  auto fileName = data[0].first->getRelationName();
+  auto &catalog = CatalogParser::getInstance();
+  auto ii = catalog.getInputInfoIfKnown(fileName);
+  if (!ii) {
+    ii = new InputInfo;
+    ii->exprType = new BagType(pg->getRowType());
+    ii->path = fileName;
+
+    catalog.setInputInfo(fileName, ii);
+  }
+
+  ii->oidType = new RecordType(pg->getRowType());
+
+  Catalog::getInstance().registerPlugin(fileName, pg);
   return scan(*pg);
 }
 

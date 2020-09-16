@@ -80,6 +80,29 @@ object PlanToJSON {
     emitExpression(e, f, null, arg_with_type, input)
   }
 
+  def emitLiteral(lit: RexLiteral): JValue = lit.getType.getSqlTypeName match {
+    case SqlTypeName.INTEGER => new Integer(lit.toString).asInstanceOf[Int]
+    case SqlTypeName.BIGINT => new java.lang.Long(lit.toString).asInstanceOf[Long]
+    case SqlTypeName.BOOLEAN => new java.lang.Boolean(lit.toString).asInstanceOf[Boolean]
+    case SqlTypeName.FLOAT => lit.getValue.asInstanceOf[java.math.BigDecimal].doubleValue()
+    case SqlTypeName.DOUBLE => lit.getValue.asInstanceOf[java.math.BigDecimal].doubleValue()
+    case SqlTypeName.DECIMAL => lit.getValue.asInstanceOf[java.math.BigDecimal].doubleValue()
+    case SqlTypeName.DATE | SqlTypeName.TIMESTAMP => {
+      val sw = new StringWriter
+      val pw = new PrintWriter(sw)
+      lit.printAsJava(pw)
+      pw.flush()
+      sw.toString
+    }
+    case SqlTypeName.VARCHAR => lit.getValueAs(classOf[String]) //.toString.substring(1, lit.to)
+    case SqlTypeName.CHAR => lit.getValueAs(classOf[String])
+    case _ => {
+      val msg: String = "Unknown constant type"
+      throw new PlanConversionException(msg)
+      //List[RelDataTypeField]()
+    }
+  }
+
   def emitExpression(e: RexNode, f: List[Binding], other: RexNode, arg_with_type: Boolean, input: RelNode) : JValue = {
     val exprType : JValue = emitType(e.getType, f)
     val json : JValue = e match {
@@ -94,28 +117,7 @@ object PlanToJSON {
         if (lit.isNull) {
           ("expression", exprType \ "type") ~ ("isNull", true)
         } else {
-          val v: JValue = lit.getType.getSqlTypeName match {
-            case SqlTypeName.INTEGER => new Integer(lit.toString).asInstanceOf[Int]
-            case SqlTypeName.BIGINT => new java.lang.Long(lit.toString).asInstanceOf[Long]
-            case SqlTypeName.BOOLEAN => new java.lang.Boolean(lit.toString).asInstanceOf[Boolean]
-            case SqlTypeName.FLOAT => lit.getValue.asInstanceOf[java.math.BigDecimal].doubleValue()
-            case SqlTypeName.DOUBLE => lit.getValue.asInstanceOf[java.math.BigDecimal].doubleValue()
-            case SqlTypeName.DECIMAL => lit.getValue.asInstanceOf[java.math.BigDecimal].doubleValue()
-            case SqlTypeName.DATE | SqlTypeName.TIMESTAMP => {
-              val sw = new StringWriter
-              val pw = new PrintWriter(sw)
-              lit.printAsJava(pw)
-              pw.flush()
-              sw.toString
-            }
-            case SqlTypeName.VARCHAR => lit.getValueAs(classOf[String]) //.toString.substring(1, lit.to)
-            case SqlTypeName.CHAR => lit.getValueAs(classOf[String])
-            case _ => {
-              val msg: String = "Unknown constant type"
-              throw new PlanConversionException(msg)
-              //List[RelDataTypeField]()
-            }
-          }
+          val v = emitLiteral(lit);
           if (other != null && lit.getType.getSqlTypeName == SqlTypeName.VARCHAR || lit.getType.getSqlTypeName == SqlTypeName.CHAR) {
             // Only comparisons of input fields with string constants are supported
             // otherwise, which dictionary should we use?

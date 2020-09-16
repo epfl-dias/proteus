@@ -258,12 +258,7 @@ void StorageManager::loadEverywhere(std::string name, size_t type_size,
 void StorageManager::unloadAll() { files.clear(); }
 
 void StorageManager::unloadFile(std::string name) {
-  if (files.count(name) == 0) {
-    LOG(ERROR) << "File " << name << " not loaded";
-  }
-
-  assert(files.count(name) > 0 && "File not loaded!");
-
+  if (files.count(name) == 0) return;
   files.erase(name);
 }
 

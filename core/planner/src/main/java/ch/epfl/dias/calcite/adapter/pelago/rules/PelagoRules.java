@@ -110,7 +110,9 @@ public class PelagoRules {
 
         public RelNode convert(RelNode rel) {
             final Values vals = (Values) rel;
-            return PelagoValues.create(vals.getCluster(), vals.getRowType(), vals.getTuples());
+            var v = PelagoValues.create(vals.getCluster(), vals.getRowType(), vals.getTuples());
+            rel.getCluster().getPlanner().ensureRegistered(v, rel);
+            return PelagoUnpack.create(v, RelPacking.UnPckd);
         }
     }
 

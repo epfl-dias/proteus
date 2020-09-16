@@ -1339,6 +1339,54 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     Plugin *pg = this->parsePlugin(val[keyPg]);
 
     return factory.getBuilder().scan(*pg);
+  } else if (strcmp(opName, "values") == 0) {
+    assert(val.HasMember("values"));
+    assert(val["values"].IsArray());
+
+    assert(val.HasMember("relName"));
+    assert(val["relName"].IsString());
+
+    auto relName = val["relName"].GetString();
+    std::vector<
+        std::pair<RecordAttribute *, std::shared_ptr<proteus_any_vector>>>
+        vecs;
+    for (const auto &v : val["values"].GetArray()) {
+      assert(v.HasMember("attrName"));
+      assert(v["attrName"].IsString());
+      assert(v.HasMember("v"));
+      assert(v["v"].IsArray());
+      assert(v.HasMember("type"));
+
+      auto attrName = v["attrName"].GetString();
+
+      ExpressionType *type = parseExpressionType(v["type"]);
+
+      LOG(INFO) << "ASDASD";
+      auto data =
+          std::make_shared<proteus_any_vector>([&]() -> proteus_any_vector {
+            if (dynamic_cast<IntType *>(type)) {
+              LOG(INFO) << "ASDASD";
+              std::vector<int32_t> vs{};
+              for (const auto &vi : v["v"].GetArray()) {
+                vs.emplace_back(vi.GetInt());
+              }
+              return std::move(vs);
+            } else if (dynamic_cast<Int64Type *>(type)) {
+              LOG(INFO) << "ASDASD";
+              std::vector<int64_t> vs{};
+              for (const auto &vi : v["v"].GetArray()) {
+                vs.emplace_back(vi.GetInt64());
+              }
+              return std::move(vs);
+            } else {
+              throw std::runtime_error("Unsupported value type");
+            }
+          }());
+
+      vecs.emplace_back(new RecordAttribute{relName, attrName, type}, data);
+    }
+
+    return factory.getBuilder().scan(vecs);
   } else if (strcmp(opName, "dict-scan") == 0) {
     assert(val.HasMember("relName"));
     assert(val["relName"].IsString());

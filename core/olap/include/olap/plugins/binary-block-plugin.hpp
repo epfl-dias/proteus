@@ -156,6 +156,8 @@ class BinaryBlockPlugin : public Plugin {
   void flushOutput(Context *context, std::string fileName,
                    const ExpressionType *type) override;
 
+  [[nodiscard]] RecordType getRowType() const override;
+
  protected:
   void flushOutputInternal(Context *context, std::string fileName,
                            const ExpressionType *type);
@@ -184,7 +186,6 @@ class BinaryBlockPlugin : public Plugin {
   }
 
   void finalize_data(ParallelContext *context);
-  [[nodiscard]] RecordType getRowType() const override;
 
   [[nodiscard]] virtual llvm::Value *getSession(ParallelContext *) const {
     return nullptr;

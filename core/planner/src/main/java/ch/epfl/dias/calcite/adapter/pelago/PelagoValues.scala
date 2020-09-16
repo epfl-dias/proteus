@@ -11,7 +11,7 @@ import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.core.Values
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rex.RexLiteral
-import org.json4s.JValue
+import org.json4s._
 import org.json4s.JsonDSL._
 
 import scala.collection.JavaConverters._
@@ -29,11 +29,18 @@ class PelagoValues(cluster: RelOptCluster,
   override def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
     val op = ("operator", "values")
     val pelagoTable = PelagoTable.create(alias, getRowType)
-    val vals = getTuples.asScala.map(
-      t => t.asScala.map(f => emitExpression(f, List(), this))
+
+    val vals: JValue = getRowType.getFieldList.asScala.map(
+      f => {
+        ("type", emitType(f.getType, List())) ~
+        ("attrName", f.getName) ~
+        ("v",
+          getTuples.asScala.map(t => emitLiteral(t.get(f.getIndex)))
+        )
+      }
     )
 
-    val json: JValue = op ~ ("values", vals)
+    val json: JValue = op ~ ("values", vals) ~ ("relName", pelagoTable.getPelagoRelName)
 
     val binding = Binding(pelagoTable, getRowType.getFieldList.asScala.toList)
     val ret: (Binding, JValue) = (binding, json)
@@ -48,10 +55,11 @@ object PelagoValues {
              rowType: RelDataType,
              tuples: ImmutableList[ImmutableList[RexLiteral]]): PelagoValues = {
     val traitSet = cluster.traitSet.replace(PelagoRel.CONVENTION)
+      .replaceIf(RelPackingTraitDef.INSTANCE, () => RelPacking.Packed)
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.X86_64)
       .replaceIf(RelHomDistributionTraitDef.INSTANCE, () => RelHomDistribution.SINGLE)
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64)
-    assert(traitSet.containsIfApplicable(RelPacking.UnPckd))
+    assert(traitSet.containsIfApplicable(RelPacking.Packed))
     new PelagoValues(cluster,
       rowType,
       tuples,

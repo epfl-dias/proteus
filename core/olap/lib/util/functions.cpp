@@ -30,6 +30,7 @@
 #include <iomanip>
 #include <iostream>
 #include <ostream>
+#include <storage/storage-manager.hpp>
 
 #include "catalog.hpp"
 #include "olap/util/parallel-context.hpp"
@@ -517,6 +518,8 @@ void flushDictIfExists(std::ostream *ptr, const char *fileName) {
     prev = e.second;
 #endif
   }
+  // Invalidate file!
+  StorageManager::getInstance().unloadFile(dictName);
 }
 
 void flushBinaryOutput(char *fileName, std::ostream *strBuffer) {
@@ -558,6 +561,9 @@ void flushBinaryOutput(char *fileName, std::ostream *strBuffer) {
     // write(fd, strBuffer->str());//->rdbuf());
     // outFile << strBuffer->rdbuf();
     // shm_unlink(fileName); //REMEMBER to unlink at the end of the test
+
+    // Invalidate file!
+    StorageManager::getInstance().unloadFile(p);
   }
   // {
   // time_block t("memfd_create: ");

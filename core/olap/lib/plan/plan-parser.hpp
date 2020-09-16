@@ -99,6 +99,11 @@ class PlanExecutor {
                             {new RecordType(std::vector<RecordAttribute *>{})}}
         .parseRecordAttr(val, relName, defaultType, defaultAttrNo);
   }
+  ExpressionType *parseExpressionType(const rapidjson::Value &val) {
+    return ExpressionParser{catalogParser,
+                            {new RecordType(std::vector<RecordAttribute *>{})}}
+        .parseExpressionType(val);
+  }
   Monoid parseAccumulator(const char *acc,
                           const expressions::InputArgument &arg) {
     return ExpressionParser{catalogParser, arg}.parseAccumulator(acc);
