@@ -90,6 +90,8 @@ class PelagoToEnumerableConverter protected(cluster: RelOptCluster, traits: RelT
               val relName = scan.pelagoTable.getPelagoRelName
               // FIXME: Should ask the plugin for the list of files
               scan.getRowType.getFieldNames.asScala.map(e => relName + "." + e).toSet
+            case _: PelagoValues =>
+              Set()
             case _ =>
               node.getInputs.asScala.map(e => visit(e)).reduce((a, b) => a ++ b)
           }

@@ -29,6 +29,7 @@
 #include <lib/operators/bloom-filter/bloom-filter-build.hpp>
 #include <lib/operators/bloom-filter/bloom-filter-probe.hpp>
 #include <lib/operators/bloom-filter/bloom-filter-repack.hpp>
+#include <lib/plugins/vector/vector-plugin.hpp>
 #include <lib/util/flush-operator-tree.hpp>
 
 #include "block-to-tuples.hpp"
@@ -640,6 +641,14 @@ Plugin *RelBuilder::createPlugin(RecordType rec,
   Catalog::getInstance().registerPlugin(fileName, pg);
 
   return pg;
+}
+
+RelBuilder RelBuilder::scan(
+    const std::vector<
+        std::pair<RecordAttribute *, std::shared_ptr<proteus_any_vector> > >
+        &data) const {
+  auto pg = new VectorPlugin(ctx, data);
+  return scan(*pg);
 }
 
 RelBuilder RelBuilder::scan(std::string relName,

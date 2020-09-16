@@ -34,10 +34,9 @@
 
 using namespace llvm;
 
-BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
-                                     const string &fnamePrefix,
-                                     const RecordType &rec,
-                                     vector<RecordAttribute *> &whichFields)
+BinaryBlockPlugin::BinaryBlockPlugin(
+    ParallelContext *const context, const string &fnamePrefix,
+    const RecordType &rec, const std::vector<RecordAttribute *> &whichFields)
     : BinaryBlockPlugin(context, fnamePrefix, rec, whichFields,
                         !whichFields.empty()) {}
 
@@ -49,11 +48,10 @@ std::vector<RecordAttribute *> ensureRelName(
   return whichFields;
 }
 
-BinaryBlockPlugin::BinaryBlockPlugin(ParallelContext *const context,
-                                     const string &fnamePrefix,
-                                     const RecordType &rec,
-                                     vector<RecordAttribute *> &whichFields,
-                                     bool load)
+BinaryBlockPlugin::BinaryBlockPlugin(
+    ParallelContext *const context, const string &fnamePrefix,
+    const RecordType &rec, const std::vector<RecordAttribute *> &whichFields,
+    bool load)
     : fnamePrefix(fnamePrefix),
       rec(rec),
       wantedFields(ensureRelName(whichFields, fnamePrefix)) {

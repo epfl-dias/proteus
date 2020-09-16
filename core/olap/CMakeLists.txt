@@ -68,6 +68,7 @@ set(olap_cxx
         lib/plan/plan-parser.cpp
         lib/plan/prepared-statement.cpp
         lib/plan/query-result.cpp
+        lib/plugins/vector/vector-plugin.cpp
         lib/plugins/binary-block-plugin.cpp
         lib/plugins/binary-col-plugin.cpp
         lib/plugins/binary-internal-plugin.cpp

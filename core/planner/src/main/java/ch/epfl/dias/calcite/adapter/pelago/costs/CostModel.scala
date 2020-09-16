@@ -113,6 +113,8 @@ object CostModel {
       MemBW(8)
     case _: PelagoTableModify =>
       MemBW(64)
+    case _: PelagoValues =>
+      Compute(16)
   }
 
   def getNonCumulativeCost(rel: PelagoToEnumerableConverter): Cost = MemBW(rel.getRowType.getFieldCount * 64)

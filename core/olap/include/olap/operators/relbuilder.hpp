@@ -31,6 +31,7 @@
 #include <olap/routing/affinitizers.hpp>
 #include <olap/routing/degree-of-parallelism.hpp>
 #include <olap/routing/routing-policy-types.hpp>
+#include <olap/values/types.hpp>
 #include <util/sort/sort-direction.hpp>
 
 class PreparedStatement;
@@ -95,6 +96,11 @@ class RelBuilder {
   RelBuilder scan(const RecordType& rec,
                   const std::vector<std::string>& relAttrs,
                   const std::string& pg) const;
+
+  [[nodiscard]] RelBuilder scan(
+      const std::vector<
+          std::pair<RecordAttribute*, std::shared_ptr<proteus_any_vector>>>&
+          data) const;
 
   template <typename Tplugin>
   [[deprecated]] RelBuilder scan(std::string relName,

@@ -41,6 +41,7 @@ public class PelagoRules {
         PelagoFilterRule.INSTANCE,
         PelagoUnnestRule.INSTANCE,
         PelagoScanRule.INSTANCE,
+        PelagoValuesRule.INSTANCE,
 //        PelagoJoinSeq.INSTANCE,
         PelagoJoinSeq.INSTANCE2, //Use the instance that swaps, as Lopt seems to generate left deep plans only
     };
@@ -89,6 +90,27 @@ public class PelagoRules {
                 .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
 
             return PelagoProject.create(convert(project.getInput(), traitSet), project.getProjects(), project.getRowType());
+        }
+    }
+
+    /**
+     * Rule to convert a {@link org.apache.calcite.rel.logical.LogicalProject}
+     * to a {@link PelagoProject}.
+     */
+    public static class PelagoValuesRule extends PelagoConverterRule {
+        public static final PelagoValuesRule INSTANCE = new PelagoValuesRule();
+
+        private PelagoValuesRule() {
+            super(LogicalValues.class, "PelagoValuesRule");
+        }
+
+        @Override public boolean matches(RelOptRuleCall call) {
+            return true;
+        }
+
+        public RelNode convert(RelNode rel) {
+            final Values vals = (Values) rel;
+            return PelagoValues.create(vals.getCluster(), vals.getRowType(), vals.getTuples());
         }
     }
 
@@ -149,7 +171,8 @@ public class PelagoRules {
             RelTraitSet traitSet = mod.getInput().getTraitSet().replace(out)//rel.getCluster().traitSet()
                 .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () -> RelDeviceType.X86_64)//.SINGLETON
                 .replace(RelHomDistribution.SINGLE)
-                .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
+                .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd)
+                .replaceIf(RelCollationTraitDef.INSTANCE, () -> RelCollations.EMPTY);
 
             return PelagoTableModify.create(rel.getTable(), mod.getCatalogReader(), convert(mod.getInput(), traitSet),
                 mod.getOperation(), mod.getUpdateColumnList(), mod.getSourceExpressionList(), mod.isFlattened());

@@ -49,12 +49,13 @@ class BinaryBlockPlugin : public Plugin {
  protected:
   BinaryBlockPlugin(ParallelContext *context, const string &fnamePrefix,
                     const RecordType &rec,
-                    std::vector<RecordAttribute *> &whichFields, bool load);
+                    const std::vector<RecordAttribute *> &whichFields,
+                    bool load);
 
  public:
   BinaryBlockPlugin(ParallelContext *context, const string &fnamePrefix,
                     const RecordType &rec,
-                    std::vector<RecordAttribute *> &whichFields);
+                    const std::vector<RecordAttribute *> &whichFields);
 
   string &getName() override { return fnamePrefix; }
   void init() override;
