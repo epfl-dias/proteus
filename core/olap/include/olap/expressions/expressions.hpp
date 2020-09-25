@@ -200,7 +200,7 @@ class [[nodiscard]] expression_t final
   std::shared_ptr<const concept_t> data;
 
   template <typename T>
-  expression_t(std::shared_ptr<T> && ptr)
+  expression_t(std::shared_ptr<T> &&ptr)
       : expressions::ExpressionCRTP<expression_t>(ptr->getExpressionType()),
         data(ptr) {
     if (data->isRegistered()) {
@@ -232,18 +232,18 @@ class [[nodiscard]] expression_t final
   expression_t(std::string v, void *dict);
   expression_t(const char *v, void *dict);
 
-  inline ProteusValue accept(ExprVisitor & v) const override {
+  inline ProteusValue accept(ExprVisitor &v) const override {
     assert(data);
     return data->accept(v);
   }
 
-  inline ProteusValue acceptTandem(ExprTandemVisitor & v, const expression_t &e)
-      const {
+  inline ProteusValue acceptTandem(ExprTandemVisitor &v,
+                                   const expression_t &e) const {
     return data->acceptTandem(v, e.data.get());
   }
 
   [[deprecated]] inline ProteusValue acceptTandem(
-      ExprTandemVisitor & v, const expressions::Expression *e) const override {
+      ExprTandemVisitor &v, const expressions::Expression *e) const override {
     return data->acceptTandem(v, e);
   }
 
@@ -252,7 +252,7 @@ class [[nodiscard]] expression_t final
   }
 
   template <typename T, typename... Args>
-  static expression_t make(Args && ... args) {
+  static expression_t make(Args &&...args) {
     return {std::make_shared<T>(args...)};
   }
 

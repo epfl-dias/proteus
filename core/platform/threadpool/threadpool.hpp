@@ -92,7 +92,7 @@ class ThreadPool {
 
   template <class F, class... Args>
   std::future<typename std::result_of<F(Args...)>::type> enqueue(
-      F &&f, Args &&... args) {
+      F &&f, Args &&...args) {
     using packaged_task_t =
         std::packaged_task<typename std::result_of<F(Args...)>::type()>;
 

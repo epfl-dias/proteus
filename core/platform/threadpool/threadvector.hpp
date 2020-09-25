@@ -38,7 +38,7 @@ class threadvector {
 
  public:
   template <class F, class... Args>
-  void emplace_back(F &&f, Args &&... args) {
+  void emplace_back(F &&f, Args &&...args) {
     threads.emplace_back(
         getPool().enqueue(std::forward<F>(f), std::forward<Args>(args)...));
   }

@@ -24,6 +24,7 @@
 
 #pragma push_macro("NDEBUG")
 #define NDEBUG
+#define dumpDispatchInfo(x, y) (5)
 #include <llvm/Analysis/BasicAliasAnalysis.h>
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/CodeGen/TargetPassConfig.h>
@@ -39,6 +40,7 @@
 #include <llvm/ExecutionEngine/SectionMemoryManager.h>
 #include <llvm/IR/PassManager.h>
 #include <llvm/Support/Error.h>
+#include <llvm/Support/Host.h>
 #include <llvm/Support/TargetRegistry.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #pragma pop_macro("NDEBUG")
@@ -238,7 +240,7 @@ class JITer_impl {
               if (print_generated_code) return printIR(std::move(TSM));
               return std::move(TSM);
             }),
-        MainJD(ES.createJITDylib("main")),
+        MainJD(llvm::cantFail(ES.createJITDylib("main"))),
         vtuneProfiler(JITEventListener::createIntelJITEventListener()) {
     if (vtuneProfiler == nullptr) {
       LOG(WARNING) << "Could not create VTune listener";
@@ -257,9 +259,16 @@ class JITer_impl {
         });
 
     ES.setDispatchMaterialization(
-        [&p = pool](llvm::orc::JITDylib &JD,
-                    std::unique_ptr<llvm::orc::MaterializationUnit> MU) {
-          p.enqueue([&JD, MU = std::move(MU)]() { MU->doMaterialize(JD); });
+        [&p = pool](std::unique_ptr<llvm::orc::MaterializationUnit> MU,
+                    llvm::orc::MaterializationResponsibility MR) {
+          auto SharedMU =
+              std::shared_ptr<llvm::orc::MaterializationUnit>(std::move(MU));
+          auto SharedMR =
+              std::make_shared<llvm::orc::MaterializationResponsibility>(
+                  std::move(MR));
+          p.enqueue([SharedMU, SharedMR]() {
+            SharedMU->materialize(std::move(*SharedMR));
+          });
         });
 
     MainJD.addGenerator(llvm::cantFail(

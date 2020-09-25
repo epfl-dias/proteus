@@ -206,7 +206,9 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
                      llvm::Type::getInt32Ty(context->getLLVMContext()), 16)),
                  Builder->CreateBitCast(
                      f, llvm::Type::getInt8PtrTy(context->getLLVMContext())),
-                 ind, llvm::ConstantVector::getSplat(16, context->createTrue()),
+                 ind,
+                 llvm::ConstantVector::getSplat(llvm::ElementCount(16, false),
+                                                context->createTrue()),
                  context->createInt32(4)});
 
     for (size_t j = 0; j < 16; ++j) {
@@ -243,7 +245,8 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
   //        Builder->CreateVectorSplat(vsize, Builder->CreateSub(N, offset)),
   //        inds);
   //  }();
-  auto indMask = llvm::ConstantVector::getSplat(vsize, context->createTrue());
+  auto indMask = llvm::ConstantVector::getSplat(
+      llvm::ElementCount(vsize, false), context->createTrue());
 
   llvm::Value *hits = Builder->CreateICmpNE(
       Builder->CreateAnd(

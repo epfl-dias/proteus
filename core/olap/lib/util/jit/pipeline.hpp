@@ -253,7 +253,7 @@ class Pipeline {
 
  protected:
   template <typename... T>
-  static auto create(T &&... args) {
+  static auto create(T &&...args) {
     return std::make_unique<Pipeline>(guard{0}, std::forward<T>(args)...);
   }
   // void copyStateFrom  (Pipeline * p){
@@ -310,7 +310,7 @@ class Pipeline {
 
   template <typename... Tin>
   void consume(size_t N,
-               const Tin *... src) {  // FIXME: cleanup + remove synchronization
+               const Tin *...src) {  // FIXME: cleanup + remove synchronization
     // ((void (*)(const Tin * ..., size_t, void *)) cons)(src..., N, state);
     ((void (*)(const Tin *..., void *))cons)(src..., state);
   }  //;// cnt_t N, vid_t v, cid_t c){

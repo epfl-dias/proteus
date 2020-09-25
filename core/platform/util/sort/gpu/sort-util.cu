@@ -25,6 +25,7 @@
 
 // NOTE: Clang fails to compile thrust, but that is fine if we call this part
 // only from generated code
+#define _CubLog(format, ...) printf(format, __VA_ARGS__)
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
 #include <thrust/system/cuda/execution_policy.h>

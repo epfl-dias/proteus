@@ -423,7 +423,7 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
 
 void *CpuPipelineGen::getCompiledFunction(Function *f) {
   time_block t(TimeRegistry::Key{"Compile and Load (CPU, waiting - critical)"});
-  return module->getCompiledFunction(f->getName());
+  return module->getCompiledFunction(f);
 }
 
 const llvm::DataLayout &CpuPipelineGen::getDataLayout() const {

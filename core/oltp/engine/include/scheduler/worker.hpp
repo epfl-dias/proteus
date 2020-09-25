@@ -167,7 +167,7 @@ class WorkerPool {
 
   template <class F, class... Args>
   std::future<typename std::result_of<F(Args...)>::type> enqueueTask(
-      F &&f, Args &&... args);
+      F &&f, Args &&...args);
 
   uint8_t size() { return workers.size(); }
   std::string get_benchmark_name() { return this->txn_bench->name; }

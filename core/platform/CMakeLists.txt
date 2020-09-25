@@ -120,6 +120,7 @@ target_link_libraries(codegen
             NUMA::NUMA
             RDMA::RDMA
             -lc++abi
+	    -lrt
             ${CUDA_LIBS}
             cli-flags)
 

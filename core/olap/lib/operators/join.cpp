@@ -211,15 +211,15 @@ void Join::consume(Context *const context, const OperatorState &childState) {
     BasicBlock *codeSpot = Builder->GetInsertBlock();
     AllocaInst *ptr_i = context->createAlloca(
         codeSpot, "i_mem", IntegerType::get(llvmContext, 32));
-    ptr_i->setAlignment(llvm::MaybeAlign(4));
+    ptr_i->setAlignment(llvm::Align(4));
     StoreInst *store_i =
         new StoreInst(context->createInt32(0), ptr_i, false, codeSpot);
-    store_i->setAlignment(llvm::MaybeAlign(4));
+    store_i->setAlignment(llvm::Align(4));
     Builder->CreateBr(loopCond);
 
     // CONDITION OF RESULT LOOP
-    LoadInst *load_cnt = new LoadInst(ptr_i, "", false);
-    load_cnt->setAlignment(llvm::MaybeAlign(4));
+    LoadInst *load_cnt = Builder->CreateLoad(ptr_i);
+    load_cnt->setAlignment(llvm::Align(4));
     loopCond->getInstList().push_back(load_cnt);
     CastInst *int64_idxprom =
         new SExtInst(load_cnt, IntegerType::get(llvmContext, 64), "idxprom");
@@ -230,8 +230,8 @@ void Join::consume(Context *const context, const OperatorState &childState) {
         voidJoinBindings->getType()->getPointerElementType(), voidJoinBindings,
         int64_idxprom, "arrayidx");
     loopCond->getInstList().push_back(ptr_arrayidx);
-    LoadInst *arrayShifted = new LoadInst(ptr_arrayidx, "", false);
-    arrayShifted->setAlignment(llvm::MaybeAlign(8));
+    LoadInst *arrayShifted = Builder->CreateLoad(ptr_arrayidx);
+    arrayShifted->setAlignment(llvm::Align(8));
     loopCond->getInstList().push_back(arrayShifted);
     // Ending condition: current position in result array is nullptr
     ICmpInst *int_cmp = new ICmpInst(*loopCond, ICmpInst::ICMP_NE, arrayShifted,
@@ -239,17 +239,17 @@ void Join::consume(Context *const context, const OperatorState &childState) {
     BranchInst::Create(loopBody, loopEnd, int_cmp, loopCond);
 
     // BODY OF RESULT LOOP
-    LoadInst *load_cnt_body = new LoadInst(ptr_i, "", false, loopBody);
-    load_cnt_body->setAlignment(llvm::MaybeAlign(4));
+    Builder->SetInsertPoint(loopBody);
+    LoadInst *load_cnt_body = Builder->CreateLoad(ptr_i);
+    load_cnt_body->setAlignment(llvm::Align(4));
     CastInst *int64_idxprom_body = new SExtInst(
         load_cnt_body, IntegerType::get(context->getLLVMContext(), 64),
         "idxprom1", loopBody);
     GetElementPtrInst *ptr_arrayidx_body = GetElementPtrInst::Create(
         IntegerType::get(llvmContext, 64), voidJoinBindings, int64_idxprom_body,
         "arrayidx2", loopBody);
-    LoadInst *arrayShiftedBody =
-        new LoadInst(ptr_arrayidx_body, "", false, loopBody);
-    arrayShiftedBody->setAlignment(llvm::MaybeAlign(8));
+    LoadInst *arrayShiftedBody = Builder->CreateLoad(ptr_arrayidx_body);
+    arrayShiftedBody->setAlignment(llvm::Align(8));
 
     // Result (payload) type and appropriate casts
     Type *structType = Catalog::getInstance().getTypeInternal(typeIdx);
@@ -261,7 +261,7 @@ void Join::consume(Context *const context, const OperatorState &childState) {
         TheFunction, string("htValue"), structPtrType);
     StoreInst *store_result =
         new StoreInst(result_cast, ptr_result, false, loopBody);
-    store_result->setAlignment(llvm::MaybeAlign(8));
+    store_result->setAlignment(llvm::Align(8));
 
     // Need to store each part of result --> Not the overall struct, just the
     // components
@@ -291,7 +291,8 @@ void Join::consume(Context *const context, const OperatorState &childState) {
       stringstream ss;
       ss << activeLoop;
       ss << i;
-      LoadInst *field = new LoadInst(elem_ptr, ss.str(), false, loopBody);
+      Builder->SetInsertPoint(loopBody);
+      LoadInst *field = Builder->CreateLoad(elem_ptr, ss.str());
       new StoreInst(field, mem_activeTuple, false, loopBody);
 
       ProteusValueMemory mem_valWrapper;
@@ -313,7 +314,8 @@ void Join::consume(Context *const context, const OperatorState &childState) {
       GetElementPtrInst *elem_ptr =
           GetElementPtrInst::Create(str->getElementType(i), result_cast,
                                     idxList, currField + "ptr", loopBody);
-      LoadInst *field = new LoadInst(elem_ptr, currField, false, loopBody);
+      Builder->SetInsertPoint(loopBody);
+      LoadInst *field = Builder->CreateLoad(elem_ptr, currField);
       new StoreInst(field, memForField, false, loopBody);
       i++;
 
@@ -351,12 +353,13 @@ void Join::consume(Context *const context, const OperatorState &childState) {
     Builder->CreateBr(loopInc);
 
     // Block for.inc (label_for_inc)
-    LoadInst *cnt_curr = new LoadInst(ptr_i, "", false, loopInc);
-    cnt_curr->setAlignment(llvm::MaybeAlign(4));
+    Builder->SetInsertPoint(loopInc);
+    LoadInst *cnt_curr = Builder->CreateLoad(ptr_i);
+    cnt_curr->setAlignment(llvm::Align(4));
     auto cnt_inc1 = llvm::BinaryOperator::Create(
         Instruction::Add, cnt_curr, context->createInt32(1), "i_inc", loopInc);
     StoreInst *store_cnt = new StoreInst(cnt_inc1, ptr_i, false, loopInc);
-    store_cnt->setAlignment(llvm::MaybeAlign(4));
+    store_cnt->setAlignment(llvm::Align(4));
 
     BranchInst::Create(loopCond, loopInc);
 

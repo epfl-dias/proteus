@@ -23,7 +23,10 @@
 
 #include "gpu-pipeline.hpp"
 
+#pragma push_macro("NDEBUG")
+#define NDEBUG
 #include <llvm/IR/IntrinsicsNVPTX.h>
+#pragma pop_macro("NDEBUG")
 
 #include <threadpool/threadpool.hpp>
 #include <util/timing.hpp>
@@ -739,7 +742,7 @@ void *GpuPipelineGen::getCompiledFunction(Function *f) {
 }
 
 void GpuPipelineGen::compileAndLoad() {
-  std::string name = open__function->getName();
+  std::string name = open__function->getName().str();
   wrapper_module.compileAndLoad();
   ThreadPool::getInstance().enqueue(
       [this, name]() { return wrapper_module.getCompiledFunction(name); });

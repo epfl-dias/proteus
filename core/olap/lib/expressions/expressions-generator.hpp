@@ -101,12 +101,6 @@ class ExpressionGeneratorVisitor : public ExprVisitor {
 
   string activeRelation;
 
-  ProteusValue mystrncmp(llvm::Value *s1, llvm::Value *s2, llvm::Value *n);
-  ProteusValue mystrncmp(llvm::Value *s1, llvm::Value *s2, llvm::Value *n1,
-                         llvm::Value *n2);
-
-  void declareLLVMFunc();
-
   /* Plugins are responsible for this action */
   // ProteusValue retrieveValue(CacheInfo info, Plugin *pg);
 };

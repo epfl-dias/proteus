@@ -25,6 +25,7 @@
 #include <dlfcn.h>
 #pragma push_macro("NDEBUG")
 #define NDEBUG
+#define dumpDispatchInfo(x, y) (5)
 #include <llvm/Analysis/BasicAliasAnalysis.h>
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/CodeGen/TargetPassConfig.h>
@@ -46,6 +47,7 @@
 #include <llvm/Linker/Linker.h>
 #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Support/Error.h>
+#include <llvm/Support/Host.h>
 #include <llvm/Support/SmallVectorMemoryBuffer.h>
 #include <llvm/Support/SourceMgr.h>
 #include <llvm/Support/TargetRegistry.h>
@@ -570,7 +572,7 @@ class GPUJITer_impl {
               if (!TM) return TM.takeError();
               return optimizeGpuModule(std::move(TSM), std::move(TM.get()));
             }),
-        MainJD(ES.createJITDylib("main")) {
+        MainJD(llvm::cantFail(ES.createJITDylib("main"))) {
     ObjectLayer.setNotifyEmitted(
         [](llvm::orc::VModuleKey k, std::unique_ptr<MemoryBuffer> mb) {
           LOG(INFO) << "GPU Emitted " << k << " "
@@ -578,10 +580,18 @@ class GPUJITer_impl {
         });
 
     ES.setDispatchMaterialization(
-        [&p = pool](llvm::orc::JITDylib &JD,
-                    std::unique_ptr<llvm::orc::MaterializationUnit> MU) {
-          p.enqueue([&JD, MU = std::move(MU)]() { MU->doMaterialize(JD); });
+        [&p = pool](std::unique_ptr<llvm::orc::MaterializationUnit> MU,
+                    llvm::orc::MaterializationResponsibility MR) {
+          auto SharedMU =
+              std::shared_ptr<llvm::orc::MaterializationUnit>(std::move(MU));
+          auto SharedMR =
+              std::make_shared<llvm::orc::MaterializationResponsibility>(
+                  std::move(MR));
+          p.enqueue([SharedMU, SharedMR]() {
+            SharedMU->materialize(std::move(*SharedMR));
+          });
         });
+
     MainJD.addGenerator(llvm::cantFail(
         llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
             this->DL.getGlobalPrefix())));

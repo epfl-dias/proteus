@@ -158,6 +158,9 @@ string(STRIP "${WARNING_FLAGS} -Wno-vla-extension" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-weak-vtables" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-atomic-implicit-seq-cst" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-unknown-cuda-version" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-suggest-override" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wno-suggest-destructor-override" WARNING_FLAGS)
+
 
 string(STRIP "${WARNING_FLAGS} -Wno-zero-length-array" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-packed" WARNING_FLAGS)
@@ -245,7 +248,7 @@ if(CUDA_FOUND)
 
 		CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_CU_ARCHS ${_NVCC_ARCHS})
 	else(DEFINED _NVCC_ARCHS)
-		CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_CU_ARCHS Auto)
+		CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_CU_ARCHS Pascal Volta)
 	endif(DEFINED _NVCC_ARCHS)
 
 	# Create arguments for nvcc and clang
