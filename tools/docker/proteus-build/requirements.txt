@@ -1,0 +1,34 @@
+git
+make
+cmake
+libnuma1
+libnuma-dev
+npm
+ssh
+doxygen
+autoconf
+automake
+libtool
+sbt
+# Coordinator & data preparation
+python
+python-pip
+python-setuptools
+## required by jpype1
+python-dev
+openjdk-11-jre-headless
+# Formatting the code and style checks
+clang-format-11
+# LLVM to build subprojects as stand-alones
+clang-11
+llvm-11-dev
+libc++abi-11-dev
+libgoogle-glog-dev
+rapidjson-dev
+libxml2-dev
+# RDMA
+librdmacm-dev
+# UI
+sqlline
+curl
+
