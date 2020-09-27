@@ -2,7 +2,7 @@
 PROJECT_ROOT="$(git rev-parse --show-toplevel)"
 
 RETVAL=0
-CLANG_FORMAT_VERSION=10
+CLANG_FORMAT_VERSION=11
 
 if ! [ -x "$(command -v clang-format-$CLANG_FORMAT_VERSION)" ]; then
   echo "*****************************************************************"
