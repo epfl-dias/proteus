@@ -112,6 +112,7 @@ class RelBuilder {
 
     for (const auto& s : relAttrs) {
       auto attr = (new RecordType(recType_.getArgs()))->getArg(s);
+      assert(attr && "Unknown attribute");
       v.emplace_back(new RecordAttribute(*attr));
     }
 
@@ -122,6 +123,12 @@ class RelBuilder {
 
     return scan(*pg);
   }
+
+  [[nodiscard]] RelBuilder update(
+      const std::function<expression_t(const expressions::InputArgument&)>&
+          expr) const;
+
+  [[nodiscard]] RelBuilder update(expression_t e) const;
 
   RelBuilder print(pg pgType, std::string outrel) const;
 

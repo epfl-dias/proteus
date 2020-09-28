@@ -59,10 +59,18 @@ class AeolusPlugin : public BinaryBlockPlugin {
 
   virtual void freeNumOfTuplesPerPartition_runtime(int64_t *inn);
 
+  virtual void updateValueEager(ParallelContext *context, ProteusValue rid,
+                                ProteusValue value, const ExpressionType *type,
+                                const std::string &fileName);
+
   bool olap_snapshot_only;
   bool elastic_scan;
 
  private:
+  void updateValueEagerInternal(ParallelContext *context, ProteusValue rid,
+                                ProteusValue value, const ExpressionType *type,
+                                const std::string &relName, uint8_t index);
+
   std::string pgType;
 };
 

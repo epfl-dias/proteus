@@ -25,12 +25,12 @@
 
 #include <cmath>
 #include <exception>
+#include <olap/plan/catalog-parser.hpp>
 #include <string>
 
 #include "olap/util/parallel-context.hpp"
 #include "storage/column_store.hpp"
 #include "storage/table.hpp"
-#include "topology/topology.hpp"
 
 using namespace llvm;
 
@@ -257,10 +257,11 @@ std::pair<llvm::Value *, llvm::Value *> AeolusPlugin::getPartitionSizes(
       context->createInt64((uintptr_t)this),
       Type::getInt8PtrTy(context->getLLVMContext()));
 
-  Value *N_parts_ptr = createCall(
-      "getNumOfTuplesPerPartition_runtime",
-      {context->CreateGlobalString(fnamePrefix.c_str()), session_ptr, this_ptr},
-      context, PointerType::getUnqual(ArrayType::get(sizeType, Nparts)));
+  Value *N_parts_ptr = Builder->CreatePointerCast(
+      context->gen_call(::getNumOfTuplesPerPartition_runtime,
+                        {context->CreateGlobalString(fnamePrefix.c_str()),
+                         session_ptr, this_ptr}),
+      PointerType::getUnqual(ArrayType::get(sizeType, Nparts)));
 
   Value *max_pack_size = ConstantInt::get(sizeType, 0);
   for (size_t i = 0; i < Nparts; ++i) {
@@ -279,5 +280,95 @@ void AeolusPlugin::freePartitionSizes(ParallelContext *context,
   Value *this_ptr = context->getBuilder()->CreateIntToPtr(
       context->createInt64((uintptr_t)this),
       Type::getInt8PtrTy(context->getLLVMContext()));
-  createCall2("freeNumOfTuplesPerPartition_runtime", {v, this_ptr}, context);
+  context->gen_call(::freeNumOfTuplesPerPartition_runtime, {v, this_ptr});
+}
+
+struct session {
+  uint64_t xid;
+  ushort master_ver;
+  ushort delta_ver;
+  ushort partition_id;
+} TheSession;
+
+void update_query(storage::Table *tbl, int64_t vid, ushort col_update_idx,
+                  const void *rec) {
+  auto xid = TheSession.xid;
+  auto master_ver = TheSession.master_ver;
+  auto delta_ver = TheSession.delta_ver;
+  auto partition_id = TheSession.partition_id;
+  LOG(INFO) << xid << " " << master_ver << " " << delta_ver << " "
+            << partition_id;
+  LOG(INFO) << col_update_idx;
+
+  auto *hash_ptr = (global_conf::IndexVal *)tbl->p_index->find(vid);
+  if (!hash_ptr->write_lck.try_lock()) {
+    throw proteus::abort();
+  }
+  hash_ptr->latch.acquire();
+
+  tbl->updateRecord(xid, hash_ptr, rec, master_ver, delta_ver, &col_update_idx,
+                    1);
+  hash_ptr->t_min = xid;
+  hash_ptr->write_lck.unlock();
+  hash_ptr->latch.release();
+  LOG(INFO) << "UPDATE QUERY SUCCESS";
+}
+
+void AeolusPlugin::updateValueEagerInternal(
+    ParallelContext *context, ProteusValue rid, ProteusValue value,
+    const ExpressionType *type, const std::string &relName, uint8_t index) {
+  switch (type->getTypeID()) {
+    case RECORD: {
+      auto attrs = ((const RecordType *)type)->getArgs();
+
+      size_t i = 0;
+      for (const auto &attr : attrs) {
+        auto ii = CatalogParser::getInstance().getInputInfo(relName);
+        LOG(INFO) << ii;
+        auto indx = dynamic_cast<const RecordType &>(
+                        dynamic_cast<BagType *>(ii->exprType)->getNestedType())
+                        .getIndex(attr);
+        LOG(INFO) << indx;
+
+        ProteusValue partialFlush{
+            context->getBuilder()->CreateExtractValue(value.value, i),
+            context->createFalse()};
+        updateValueEagerInternal(context, rid, partialFlush,
+                                 attr->getOriginalType(), relName, indx);
+        ++i;
+      }
+
+      return;
+    }
+    case STRING:
+    case SET:
+    case COMPOSITE:
+    case BLOCK:
+    case LIST:
+    case BAG: {
+      LOG(ERROR) << "Unsupported datatype: " << *type;
+      throw runtime_error("Unsupported datatype");
+    }
+    default: {
+      // TODO: consider using overloaded functions per type
+      auto tbl = getRelation({relName}, "<" + pgType + ">");
+      // TODO: iterate over components of record and set attribute indexes
+      // correctly
+      auto mem = context->toMem(value);
+      context->gen_call(
+          update_query,
+          {context->CastPtrToLlvmPtr(
+               llvm::Type::getInt8PtrTy(context->getLLVMContext()), tbl),
+           rid.value, context->createInt8(index), mem.mem});
+      return;
+    }
+  }
+}
+
+void AeolusPlugin::updateValueEager(ParallelContext *context, ProteusValue rid,
+                                    ProteusValue value,
+                                    const ExpressionType *type,
+                                    const std::string &relName) {
+  assert(type->getTypeID() == RECORD);
+  updateValueEagerInternal(context, rid, value, type, relName, -1);
 }

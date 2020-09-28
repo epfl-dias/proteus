@@ -62,6 +62,7 @@ set(olap_cxx
         lib/operators/mem-move-local-to.cpp
         lib/operators/mem-move-scaleout.cpp
         lib/operators/block-to-tuples.cpp
+        lib/operators/update.cpp
         lib/operators/gpu/gpu-hash-rearrange.cpp
         lib/operators/gpu/gpu-partitioned-hash-join-chained.cpp
         lib/plan/expression-parser.cpp

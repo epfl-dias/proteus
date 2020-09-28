@@ -59,6 +59,7 @@
 #include "sort.hpp"
 #include "unionall.hpp"
 #include "unnest.hpp"
+#include "update.hpp"
 
 RelBuilder::RelBuilder(ParallelContext *ctx, Operator *root)
     : ctx(ctx), root(root) {}
@@ -780,6 +781,17 @@ RelBuilder RelBuilder::bloomfilter_repack(expression_t pred,
                                           uint64_t bloomId) const {
   auto op = new BloomFilterRepack(root, std::move(pred), std::move(attr),
                                   filterSize, bloomId);
+  return apply(op);
+}
+
+RelBuilder RelBuilder::update(
+    const std::function<expression_t(const expressions::InputArgument &)> &expr)
+    const {
+  return update(expr(getOutputArg()));
+}
+
+RelBuilder RelBuilder::update(expression_t e) const {
+  auto op = new Update(root, std::move(e));
   return apply(op);
 }
 

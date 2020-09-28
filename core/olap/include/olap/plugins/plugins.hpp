@@ -54,6 +54,18 @@ typedef struct Bindings {
   const ProteusValue record;
 } Bindings;
 
+namespace proteus {
+class unsupported_operation : public std::runtime_error {
+ public:
+  using std::runtime_error::runtime_error;
+};
+
+class abort : public std::runtime_error {
+ public:
+  abort() : runtime_error("tx abort") {}
+};
+}  // namespace proteus
+
 enum PluginType { PGCSV, PGJSON, PGBINARY };
 /**********************************/
 /*  The abstract part of plug-ins */
@@ -132,6 +144,19 @@ class Plugin {
                                const ExpressionType *type,
                                std::string fileName) {
     flushValueEager(value, type, context->CreateGlobalString(fileName.c_str()));
+  }
+
+  virtual void updateValue(ParallelContext *context, ProteusValueMemory mem_rid,
+                           ProteusValueMemory mem_value,
+                           const ExpressionType *type,
+                           const std::string &fileName) {
+    throw proteus::unsupported_operation("update");
+  }
+
+  virtual void updateValueEager(ParallelContext *context, ProteusValue rid,
+                                ProteusValue value, const ExpressionType *type,
+                                const std::string &fileName) {
+    throw proteus::unsupported_operation("update eager");
   }
 
   /**

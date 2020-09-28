@@ -21,13 +21,15 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include <aeolus-plugin.hpp>
 #include <cli-flags.hpp>
+#include <olap/operators/relbuilder-factory.hpp>
+#include <olap/plan/catalog-parser.hpp>
+#include <oltp.hpp>
 #include <topology/affinity_manager.hpp>
 #include <topology/topology.hpp>
 
-#include "oltp.hpp"
-
-storage::Table *tbl = nullptr;
+storage::Table *tbl;
 auto num_fields = 2;
 size_t record[] = {1, 2};
 auto intial_records = 100;
@@ -37,8 +39,8 @@ bool insert_query(uint64_t xid, ushort master_ver, ushort delta_ver,
   // INSERT INTO T VALUES (5, 10);
 
   for (auto i = 0; i < intial_records; i++) {
-    record[0] = i;
-    record[1] = i;
+    record[0] = i + 2;
+    record[1] = i + 1175;
     void *hash_idx = tbl->insertRecord(record, xid, partition_id, master_ver);
     tbl->p_index->insert(i, hash_idx);
 
@@ -50,6 +52,8 @@ bool insert_query(uint64_t xid, ushort master_ver, ushort delta_ver,
 
 bool update_query(uint64_t xid, ushort master_ver, ushort delta_ver,
                   ushort partition_id) {
+  LOG(INFO) << xid << " " << master_ver << " " << delta_ver << " "
+            << partition_id;
   // UPDATE T SET b = 15 WHERE a=5;
 
   auto *hash_ptr = (global_conf::IndexVal *)tbl->p_index->find(5);
@@ -89,13 +93,24 @@ bool select_query(uint64_t xid, ushort master_ver, ushort delta_ver,
   }
 }
 
+struct session {
+  uint64_t xid;
+  ushort master_ver;
+  ushort delta_ver;
+  ushort partition_id;
+};
+
+extern session TheSession;
+
 int main(int argc, char *argv[]) {
   auto ctx = proteus::from_cli::olap("Template", &argc, &argv);
+
+  CatalogParser::getInstance();
 
   set_exec_location_on_scope exec(topology::getInstance().getCpuNumaNodes()[0]);
 
   // init OLTP
-  OLTP oltp_engine;
+  OLTP oltp_engine{};
   oltp_engine.init();
 
   // CREATE TABLE T(a INTEGER, b INTEGER)
@@ -116,10 +131,72 @@ int main(int argc, char *argv[]) {
   oltp_engine.enqueue_query(select_query);
 
   // UPDATE T SET b = 15 WHERE a=5;
-  oltp_engine.enqueue_query(update_query);
+  //  oltp_engine.enqueue_query(update_query);
 
   // SELECT * FROM T WHERE a=5;
   oltp_engine.enqueue_query(select_query);
+
+  RelBuilderFactory factory{__FUNCTION__};
+
+  auto builder =
+      factory.getBuilder()
+          .template scan<AeolusRemotePlugin>("table_one<block-remote>",
+                                             {"col_1", "col_2"},
+                                             CatalogParser::getInstance())
+          .unpack()
+          .filter([](const auto &arg) -> expression_t {
+            return lt(arg["col_1"], int64_t{5});
+          })
+          //          .project([](const auto &arg) -> std::vector<expression_t>
+          //          {
+          //            return {(arg["col_2"] + int64_t{1}).as("test",
+          //            "test_b")};
+          //          })
+          .update([](const auto &arg) -> expression_t {
+            return expressions::RecordConstruction{
+                (arg["col_1"] + int64_t{2000})
+                    .as("table_one<block-remote>", "col_2")}
+                .as("table_one<block-remote>", "update");
+          })
+          .print(pg{"pm-csv"})
+          .prepare();
+
+  auto builder2 =
+      RelBuilderFactory{"f2"}
+          .getBuilder()
+          .template scan<AeolusRemotePlugin>("table_one<block-remote>",
+                                             {"col_1", "col_2"},
+                                             CatalogParser::getInstance())
+          .unpack()
+          .filter([](const auto &arg) -> expression_t {
+            return lt(arg["col_1"], int64_t{10});
+          })
+          .project([](const auto &arg) -> std::vector<expression_t> {
+            return {(arg["col_1"]).as("test", "test_a"),
+                    (arg["col_2"]).as("test", "test_b")};
+          })
+          .print(pg{"pm-csv"}, "final")
+          .prepare();
+
+  oltp_engine.snapshot();
+  oltp_engine.enqueue_query([&](auto xid, auto master_ver, auto delta_ver,
+                                auto partition_id) -> bool {
+    TheSession = session{xid, master_ver, delta_ver, partition_id};
+    LOG(INFO) << builder.execute();
+    return true;
+  });
+
+  std::this_thread::sleep_for(std::chrono::seconds{5});
+
+  oltp_engine.snapshot();
+  oltp_engine.enqueue_query([&](auto xid, auto master_ver, auto delta_ver,
+                                auto partition_id) -> bool {
+    TheSession = session{xid, master_ver, delta_ver, partition_id};
+    LOG(INFO) << builder2.execute();
+    return true;
+  });
+
+  std::this_thread::sleep_for(std::chrono::seconds{5});
 
   return 0;
 }
