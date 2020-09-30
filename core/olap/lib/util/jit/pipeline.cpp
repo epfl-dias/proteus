@@ -321,7 +321,7 @@ void PipelineGen::registerFunction(std::string funcName, Function *func) {
   availableFunctions[funcName] = func;
 }
 
-Function *const PipelineGen::getFunction(std::string funcName) const {
+llvm::Function *PipelineGen::getFunction(std::string funcName) const {
   map<string, Function *>::const_iterator it;
   it = availableFunctions.find(funcName);
   if (it == availableFunctions.end()) {

@@ -60,3 +60,11 @@ export(TARGETS htap_engine FILE ${PROJECT_NAME}Config.cmake)
 add_library(htap::engine ALIAS htap_engine)
 #enable_testing()
 #add_test(UT codegen-tests) # Add codegen-specific tests?
+
+# FIXME: remove after old warnings are fixed
+target_compile_options(
+      htap_engine
+    PRIVATE  # Not PUBLIC to at least avoid leaking the issue across libs
+      "-Wno-error=suggest-override"
+      "-Wno-error=suggest-destructor-override"
+)

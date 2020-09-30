@@ -36,20 +36,19 @@ class CSVPlugin : public Plugin {
    */
   CSVPlugin(Context *const context, std::string &fname, RecordType &rec_,
             std::vector<RecordAttribute *> &whichFields);
-  ~CSVPlugin();
-  virtual std::string &getName() { return fname; }
-  void init();
-  void generate(const Operator &producer, ParallelContext *context);
-  void finish();
-  virtual ProteusValueMemory readPath(string activeRelation, Bindings bindings,
-                                      const char *pathVar, RecordAttribute attr,
-                                      ParallelContext *context);
-  virtual ProteusValueMemory readValue(ProteusValueMemory mem_value,
-                                       const ExpressionType *type,
-                                       ParallelContext *context);
-  virtual ProteusValue readCachedValue(CacheInfo info,
-                                       const OperatorState &currState,
-                                       ParallelContext *context) {
+  ~CSVPlugin() override;
+  std::string &getName() override { return fname; }
+  void init() override;
+  void generate(const Operator &producer, ParallelContext *context) override;
+  void finish() override;
+  ProteusValueMemory readPath(string activeRelation, Bindings bindings,
+                              const char *pathVar, RecordAttribute attr,
+                              ParallelContext *context) override;
+  ProteusValueMemory readValue(ProteusValueMemory mem_value,
+                               const ExpressionType *type,
+                               ParallelContext *context) override;
+  ProteusValue readCachedValue(CacheInfo info, const OperatorState &currState,
+                               ParallelContext *context) override {
     std::string error_msg = "[CSVPlugin: ] No caching support yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
@@ -62,84 +61,84 @@ class CSVPlugin : public Plugin {
     throw runtime_error(error_msg);
   }
 
-  virtual ProteusValue hashValue(ProteusValueMemory mem_value,
-                                 const ExpressionType *type, Context *context);
-  virtual ProteusValue hashValueEager(ProteusValue value,
-                                      const ExpressionType *type,
-                                      Context *context);
+  ProteusValue hashValue(ProteusValueMemory mem_value,
+                         const ExpressionType *type, Context *context) override;
+  ProteusValue hashValueEager(ProteusValue value, const ExpressionType *type,
+                              Context *context) override;
 
-  virtual void flushTuple(ProteusValueMemory mem_value, llvm::Value *fileName) {
+  void flushTuple(ProteusValueMemory mem_value,
+                  llvm::Value *fileName) override {
     std::string error_msg = "[CSVPlugin: ] Functionality not supported yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushValue(ProteusValueMemory mem_value,
-                          const ExpressionType *type, llvm::Value *fileName);
-  virtual void flushValueEager(ProteusValue value, const ExpressionType *type,
-                               llvm::Value *fileName);
+  void flushValue(ProteusValueMemory mem_value, const ExpressionType *type,
+                  llvm::Value *fileName) override;
+  void flushValueEager(ProteusValue value, const ExpressionType *type,
+                       llvm::Value *fileName) override;
 
-  virtual ProteusValueMemory initCollectionUnnest(
-      ProteusValue val_parentObject) {
+  ProteusValueMemory initCollectionUnnest(
+      ProteusValue val_parentObject) override {
     std::string error_msg =
         "[CSVPlugin: ] CSV files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  virtual ProteusValue collectionHasNext(ProteusValue val_parentObject,
-                                         ProteusValueMemory mem_currentChild) {
+  ProteusValue collectionHasNext(ProteusValue val_parentObject,
+                                 ProteusValueMemory mem_currentChild) override {
     std::string error_msg =
         "[CSVPlugin: ] CSV files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  virtual ProteusValueMemory collectionGetNext(
-      ProteusValueMemory mem_currentChild) {
+  ProteusValueMemory collectionGetNext(
+      ProteusValueMemory mem_currentChild) override {
     std::string error_msg =
         "[CSVPlugin: ] CSV files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual llvm::Value *getValueSize(ProteusValueMemory mem_value,
-                                    const ExpressionType *type,
-                                    ParallelContext *context);
+  llvm::Value *getValueSize(ProteusValueMemory mem_value,
+                            const ExpressionType *type,
+                            ParallelContext *context) override;
 
   //    virtual typeID getOIDSize() { return INT64; }
 
-  virtual ExpressionType *getOIDType() { return new Int64Type(); }
+  ExpressionType *getOIDType() override { return new Int64Type(); }
 
-  virtual PluginType getPluginType() { return PGCSV; }
+  PluginType getPluginType() override { return PGCSV; }
 
-  virtual void flushBeginList(llvm::Value *fileName) {}
+  void flushBeginList(llvm::Value *fileName) override {}
 
-  virtual void flushBeginBag(llvm::Value *fileName) {
+  void flushBeginBag(llvm::Value *fileName) override {
     std::string error_msg = "[CSVPlugin: ] CSV files do not contain BAGs";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushBeginSet(llvm::Value *fileName) {
+  void flushBeginSet(llvm::Value *fileName) override {
     std::string error_msg = "[CSVPlugin: ] CSV files do not contain SETs";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndList(llvm::Value *fileName) {}
+  void flushEndList(llvm::Value *fileName) override {}
 
-  virtual void flushEndBag(llvm::Value *fileName) {
+  void flushEndBag(llvm::Value *fileName) override {
     std::string error_msg = "[CSVPlugin: ] CSV files do not contain BAGs";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndSet(llvm::Value *fileName) {
+  void flushEndSet(llvm::Value *fileName) override {
     std::string error_msg = "[CSVPlugin: ] CSV files do not contain SETs";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushDelim(llvm::Value *fileName, int depth) {
+  void flushDelim(llvm::Value *fileName, int depth) override {
     llvm::Function *flushFunc = context->getFunction("flushChar");
     std::vector<llvm::Value *> ArgsV;
     // XXX JSON-specific -> Serializer business to differentiate
@@ -148,8 +147,8 @@ class CSVPlugin : public Plugin {
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
-  virtual void flushDelim(llvm::Value *resultCtr, llvm::Value *fileName,
-                          int depth) {
+  void flushDelim(llvm::Value *resultCtr, llvm::Value *fileName,
+                  int depth) override {
     llvm::Function *flushFunc = context->getFunction("flushDelim");
     std::vector<llvm::Value *> ArgsV;
     ArgsV.push_back(resultCtr);
@@ -159,7 +158,7 @@ class CSVPlugin : public Plugin {
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
-  virtual void flushOutput(llvm::Value *fileName) {
+  void flushOutput(llvm::Value *fileName) override {
     llvm::Function *flushFunc = context->getFunction("flushOutput");
     vector<llvm::Value *> ArgsV;
     // Start 'array'

@@ -643,7 +643,7 @@ Function *const GpuPipelineGen::createHelperFunction(
   // generating PTX (which is invalid in PTX)
   Function *helper =
       Function::Create(ftype, Function::ExternalLinkage,
-                       pipName + "_gpu_" + funcName, context->getModule());
+                       pipName + "_gpu_" + funcName, getModule());
 
   if (readonly.size() == ins.size()) {
     Attribute readOnly = Attribute::get(context->getLLVMContext(),
@@ -759,10 +759,9 @@ void GpuPipelineGen::registerFunction(std::string funcName, Function *f) {
   }
 }
 
-Function *const GpuPipelineGen::getFunction(string funcName) const {
+Function *GpuPipelineGen::getFunction(string funcName) const {
   if (wrapperModuleActive) {
-    map<string, Function *>::const_iterator it;
-    it = availableWrapperFunctions.find(funcName);
+    auto it = availableWrapperFunctions.find(funcName);
     if (it == availableWrapperFunctions.end()) {
       for (auto &t : availableWrapperFunctions)
         std::cout << t.first << std::endl;

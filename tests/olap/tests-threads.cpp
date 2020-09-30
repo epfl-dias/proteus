@@ -81,7 +81,7 @@ using namespace llvm;
 
 class ThreadTest : public ::testing::Test {
  protected:
-  virtual void SetUp();
+  void SetUp() override;
 
   void runAndVerify(const char *testLabel, const char *planPath,
                     bool unordered = false);

@@ -23,6 +23,8 @@
 
 #include "hash-join-chained.hpp"
 
+#include <utility>
+
 #include "lib/expressions/expressions-hasher.hpp"
 #include "lib/operators/gpu/gmonoids.hpp"
 #include "lib/util/jit/pipeline.hpp"
@@ -30,28 +32,28 @@
 
 using namespace llvm;
 
-HashJoinChained::HashJoinChained(const std::vector<GpuMatExpr> &build_mat_exprs,
-                                 const std::vector<size_t> &build_packet_widths,
+HashJoinChained::HashJoinChained(std::vector<GpuMatExpr> build_mat_exprs,
+                                 std::vector<size_t> build_packet_widths,
                                  expression_t build_keyexpr,
                                  Operator *const build_child,
 
-                                 const std::vector<GpuMatExpr> &probe_mat_exprs,
+                                 std::vector<GpuMatExpr> probe_mat_exprs,
                                  const std::vector<size_t> &probe_packet_widths,
                                  expression_t probe_keyexpr,
                                  Operator *const probe_child,
 
                                  int hash_bits,
 
-                                 size_t maxBuildInputSize, string opLabel)
+                                 size_t maxBuildInputSize, std::string opLabel)
     : BinaryOperator(build_child, probe_child),
-      build_mat_exprs(build_mat_exprs),
-      probe_mat_exprs(probe_mat_exprs),
-      build_packet_widths(build_packet_widths),
+      build_mat_exprs(std::move(build_mat_exprs)),
+      probe_mat_exprs(std::move(probe_mat_exprs)),
+      build_packet_widths(std::move(build_packet_widths)),
       build_keyexpr(std::move(build_keyexpr)),
       probe_keyexpr(std::move(probe_keyexpr)),
       hash_bits(hash_bits),
       maxBuildInputSize(maxBuildInputSize),
-      opLabel(opLabel) {}
+      opLabel(std::move(opLabel)) {}
 
 void HashJoinChained::produce_(ParallelContext *context) {
   context->pushPipeline();  // FIXME: find a better way to do this
@@ -77,7 +79,7 @@ void HashJoinChained::produce_(ParallelContext *context) {
 
 void HashJoinChained::consume(Context *const context,
                               const OperatorState &childState) {
-  ParallelContext *const ctx = dynamic_cast<ParallelContext *const>(context);
+  auto *ctx = dynamic_cast<ParallelContext *>(context);
   assert(ctx);
   consume(ctx, childState);
 }
@@ -228,8 +230,8 @@ void HashJoinChained::buildHashTableFormat(ParallelContext *context) {
   cnt_param_id = context->appendStateVar(t_cnt);     //, true, false);
 }
 
-Value *HashJoinChained::hash(expression_t exprs, Context *const context,
-                             const OperatorState &childState) {
+Value *HashJoinChained::hash(const expression_t &exprs, Context *const context,
+                             const OperatorState &childState) const {
   ExpressionHasherVisitor hasher{context, childState};
   Value *hash = exprs.accept(hasher).value;
   auto size = ConstantInt::get(hash->getType(), (size_t(1) << hash_bits));
@@ -305,7 +307,8 @@ void HashJoinChained::generate_build(ParallelContext *context,
   for (size_t i = 0; i < out_ptrs.size(); ++i) {
     //    Builder->CreateStore(out_vals[i], out_ptrs[i]);
     auto s = build_packet_widths[i] / 8;
-    Builder->CreateAlignedStore(out_vals[i], out_ptrs[i], s & -s);
+    Builder->CreateAlignedStore(out_vals[i], out_ptrs[i],
+                                llvm::MaybeAlign(s & -s));
   }
 }
 
@@ -553,9 +556,9 @@ void HashJoinChained::generate_probe(ParallelContext *context,
 void HashJoinChained::open_build(Pipeline *pip) {
   std::vector<void *> next_w_values;
 
-  uint32_t *head = (uint32_t *)MemoryManager::mallocPinned(
+  auto *head = (uint32_t *)MemoryManager::mallocPinned(
       sizeof(uint32_t) * (1 << hash_bits) + sizeof(int32_t));
-  int32_t *cnt = (int32_t *)(head + (1 << hash_bits));
+  auto *cnt = (int32_t *)(head + (1 << hash_bits));
 
   // cudaStream_t strm;
   // gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
@@ -583,7 +586,7 @@ void HashJoinChained::open_build(Pipeline *pip) {
 
 void HashJoinChained::open_probe(Pipeline *pip) {
   std::vector<void *> next_w_values = confs[pip->getGroup()];
-  uint32_t *head = (uint32_t *)next_w_values.back();
+  auto *head = (uint32_t *)next_w_values.back();
 
   // next_w_values.pop_back();
 

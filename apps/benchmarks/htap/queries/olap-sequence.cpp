@@ -726,6 +726,7 @@ HTAPSequenceConfig::HTAPSequenceConfig(
         assert(oltp_scale_threshold > 0 &&
                "ADAPTIVE-NI required elastic workers >0");
       }
+      break;
     }
     default:
       break;

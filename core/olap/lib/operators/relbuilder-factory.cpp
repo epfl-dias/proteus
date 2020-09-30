@@ -29,7 +29,8 @@ class RelBuilderFactory::impl {
  public:
   ParallelContext *ctx;
 
-  impl(std::string name) : ctx(new ParallelContext(std::move(name), false)) {}
+  explicit impl(std::string name)
+      : ctx(new ParallelContext(std::move(name), false)) {}
 };
 
 RelBuilderFactory::RelBuilderFactory(std::string name)
@@ -37,4 +38,6 @@ RelBuilderFactory::RelBuilderFactory(std::string name)
 
 RelBuilderFactory::~RelBuilderFactory() = default;
 
-RelBuilder RelBuilderFactory::getBuilder() const { return {pimpl->ctx}; }
+RelBuilder RelBuilderFactory::getBuilder() const {
+  return RelBuilder{pimpl->ctx};
+}

@@ -92,7 +92,7 @@ struct log_info {
 };
 
 // the definition order matters!
-stringstream global_log;
+static stringstream global_log;
 // std::mutex                      global_log_lock    ;
 
 #if defined(__powerpc64__) || defined(__ppc64__)
@@ -140,7 +140,7 @@ class flush_log {
 };
 
 // the definition order matters!
-flush_log global_exchange_flush_lock;
+static flush_log global_exchange_flush_lock;
 #endif
 
 thread_local logger eventlogger;

@@ -30,8 +30,7 @@
 
 using namespace llvm;
 
-std::queue<void *> pending;
-std::mutex pending_m;
+static std::queue<void *> pending;
 
 void *RouterScaleOut::acquireBuffer(int target, bool polling) {
   if (target == InfiniBandManager::server_id()) {

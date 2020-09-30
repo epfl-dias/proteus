@@ -47,50 +47,51 @@ class GpuPipelineGen : public PipelineGen {
   friend class GpuPipelineGenFactory;
 
  public:
-  virtual void compileAndLoad();
+  void compileAndLoad() override;
 
-  virtual llvm::Function *prepare();
+  llvm::Function *prepare() override;
 
-  virtual std::unique_ptr<Pipeline> getPipeline(int group_id = 0);
-  virtual void *getKernel();
+  std::unique_ptr<Pipeline> getPipeline(int group_id = 0) override;
+  void *getKernel() override;
 
   // virtual size_t appendStateVar (llvm::Type * ptype);
   // virtual size_t appendStateVar (llvm::Type * ptype,
   // std::function<init_func_t> init, std::function<deinit_func_t> deinit);
-  virtual llvm::Module *getModule() const {
+  llvm::Module *getModule() const override {
     if (wrapperModuleActive) return wrapper_module.getModule();
     return module.getModule();
   }
 
-  virtual void *getConsume();
-  virtual llvm::Function *getLLVMConsume() const { return Fconsume; }
+  void *getConsume() override;
+  llvm::Function *getLLVMConsume() const override { return Fconsume; }
 
-  virtual void registerFunction(std::string, llvm::Function *);
-  virtual llvm::Function *const getFunction(std::string funcName) const;
+  void registerFunction(std::string, llvm::Function *) override;
+  [[nodiscard]] llvm::Function *getFunction(
+      std::string funcName) const override;
 
-  virtual llvm::Function *const createHelperFunction(
+  llvm::Function *const createHelperFunction(
       std::string funcName, std::vector<llvm::Type *> ins,
-      std::vector<bool> readonly, std::vector<bool> noalias);
+      std::vector<bool> readonly, std::vector<bool> noalias) override;
 
-  virtual llvm::Value *workerScopedAtomicAdd(llvm::Value *ptr,
-                                             llvm::Value *inc);
-  virtual llvm::Value *workerScopedAtomicXchg(llvm::Value *ptr,
-                                              llvm::Value *val);
+  llvm::Value *workerScopedAtomicAdd(llvm::Value *ptr,
+                                     llvm::Value *inc) override;
+  llvm::Value *workerScopedAtomicXchg(llvm::Value *ptr,
+                                      llvm::Value *val) override;
 
-  virtual void workerScopedMembar();
+  void workerScopedMembar() override;
 
  protected:
-  virtual size_t prepareStateArgument();
-  virtual llvm::Value *getStateLLVMValue();
-  virtual llvm::Value *getStateVar() const;
+  size_t prepareStateArgument() override;
+  llvm::Value *getStateLLVMValue() override;
+  llvm::Value *getStateVar() const override;
 
-  virtual void prepareInitDeinit();
+  void prepareInitDeinit() override;
 
  public:
-  virtual void *getCompiledFunction(llvm::Function *f);
+  void *getCompiledFunction(llvm::Function *f) override;
 
  protected:
-  virtual void registerFunctions();
+  void registerFunctions() override;
   virtual llvm::Function *prepareConsumeWrapper();
   virtual void markAsKernel(llvm::Function *F) const;
 };
@@ -106,7 +107,7 @@ class GpuPipelineGenFactory : public PipelineGenFactory {
   }
 
   PipelineGen *create(Context *context, std::string pipName,
-                      PipelineGen *copyStateFrom) {
+                      PipelineGen *copyStateFrom) override {
     return new GpuPipelineGen(context, pipName, copyStateFrom);
   }
 };

@@ -35,9 +35,9 @@
 using namespace llvm;
 
 BinaryBlockPlugin::BinaryBlockPlugin(
-    ParallelContext *const context, const string &fnamePrefix,
-    const RecordType &rec, const std::vector<RecordAttribute *> &whichFields)
-    : BinaryBlockPlugin(context, fnamePrefix, rec, whichFields,
+    ParallelContext *context, const string &fnamePrefix, RecordType rec,
+    const std::vector<RecordAttribute *> &whichFields)
+    : BinaryBlockPlugin(context, fnamePrefix, std::move(rec), whichFields,
                         !whichFields.empty()) {}
 
 std::vector<RecordAttribute *> ensureRelName(
@@ -49,11 +49,10 @@ std::vector<RecordAttribute *> ensureRelName(
 }
 
 BinaryBlockPlugin::BinaryBlockPlugin(
-    ParallelContext *const context, const string &fnamePrefix,
-    const RecordType &rec, const std::vector<RecordAttribute *> &whichFields,
-    bool load)
+    ParallelContext *context, const string &fnamePrefix, RecordType rec,
+    const std::vector<RecordAttribute *> &whichFields, bool load)
     : fnamePrefix(fnamePrefix),
-      rec(rec),
+      rec(std::move(rec)),
       wantedFields(ensureRelName(whichFields, fnamePrefix)) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
@@ -932,6 +931,6 @@ void BinaryBlockPlugin::flushOutput(Context *context, std::string fileName,
 
 extern "C" Plugin *createBlockPlugin(
     ParallelContext *context, std::string fnamePrefix, RecordType rec,
-    std::vector<RecordAttribute *> &whichFields) {
+    const std::vector<RecordAttribute *> &whichFields) {
   return new BinaryBlockPlugin(context, fnamePrefix, rec, whichFields);
 }

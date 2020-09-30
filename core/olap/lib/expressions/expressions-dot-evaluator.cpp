@@ -329,9 +329,6 @@ ProteusValue ExpressionDotVisitor::visit(const expressions::AddExpression *e1,
       LOG(ERROR) << "[ExpressionDotVisitor]: Invalid Input";
       throw runtime_error(string("[ExpressionDotVisitor]: Invalid Input"));
   }
-
-  valWrapper.isNull = context->createFalse();
-  return valWrapper;
 }
 
 ProteusValue ExpressionDotVisitor::visit(const expressions::SubExpression *e1,
@@ -365,9 +362,6 @@ ProteusValue ExpressionDotVisitor::visit(const expressions::SubExpression *e1,
       LOG(ERROR) << "[ExpressionDotVisitor]: Invalid Input";
       throw runtime_error(string("[ExpressionDotVisitor]: Invalid Input"));
   }
-
-  valWrapper.isNull = context->createFalse();
-  return valWrapper;
 }
 
 ProteusValue ExpressionDotVisitor::visit(
@@ -402,9 +396,6 @@ ProteusValue ExpressionDotVisitor::visit(
       LOG(ERROR) << "[ExpressionDotVisitor]: Invalid Input";
       throw runtime_error(string("[ExpressionDotVisitor]: Invalid Input"));
   }
-
-  valWrapper.isNull = context->createFalse();
-  return valWrapper;
 }
 
 ProteusValue ExpressionDotVisitor::visit(const expressions::DivExpression *e1,
@@ -438,9 +429,6 @@ ProteusValue ExpressionDotVisitor::visit(const expressions::DivExpression *e1,
       LOG(ERROR) << "[ExpressionDotVisitor]: Invalid Input";
       throw runtime_error(string("[ExpressionDotVisitor]: Invalid Input"));
   }
-
-  valWrapper.isNull = context->createFalse();
-  return valWrapper;
 }
 
 ProteusValue ExpressionDotVisitor::visit(const expressions::ModExpression *e1,
@@ -474,9 +462,6 @@ ProteusValue ExpressionDotVisitor::visit(const expressions::ModExpression *e1,
       LOG(ERROR) << "[ExpressionDotVisitor]: Invalid Input";
       throw runtime_error(string("[ExpressionDotVisitor]: Invalid Input"));
   }
-
-  valWrapper.isNull = context->createFalse();
-  return valWrapper;
 }
 
 ProteusValue ExpressionDotVisitor::compareThroughEvaluation(
@@ -505,8 +490,6 @@ ProteusValue ExpressionDotVisitor::compareThroughEvaluation(
       LOG(ERROR) << "[ExpressionDotVisitor]: Invalid Input";
       throw runtime_error(string("[ExpressionDotVisitor]: Invalid Input"));
   }
-
-  return valWrapper;
 }
 
 ProteusValue ExpressionDotVisitor::visit(
@@ -542,8 +525,8 @@ ProteusValue ExpressionDotVisitor::visit(
 
   const list<expressions::AttributeConstruction> &atts1 = e1->getAtts();
   const list<expressions::AttributeConstruction> &atts2 = e2->getAtts();
-  list<expressions::AttributeConstruction>::const_iterator it1 = atts1.begin();
-  list<expressions::AttributeConstruction>::const_iterator it2 = atts2.begin();
+  auto it1 = atts1.begin();
+  auto it2 = atts2.begin();
 
   for (; it1 != atts1.end() && it2 != atts2.end(); it1++, it2++) {
     auto expr1 = it1->getExpression();
@@ -648,7 +631,6 @@ ProteusValue ExpressionDotVisitor::visit(
         LOG(ERROR) << "[ExpressionDotVisitor]: Invalid Input";
         throw runtime_error(string("[ExpressionDotVisitor]: Invalid Input"));
     }
-    return valWrapper;
   } else {
     /* XXX
      * Stick to returning hash of result for now
@@ -715,7 +697,6 @@ ProteusValue ExpressionDotVisitor::visit(const expressions::IfThenElse *e1,
       throw runtime_error(error_msg);
     }
   }
-  return valWrapper;
 }
 
 ProteusValue ExpressionDotVisitor::visit(const expressions::MaxExpression *e1,
@@ -760,9 +741,6 @@ ProteusValue ExpressionDotVisitor::visit(const expressions::NegExpression *e1,
       LOG(ERROR) << "[ExpressionDotVisitor]: Invalid Input";
       throw runtime_error(string("[ExpressionDotVisitor]: Invalid Input"));
   }
-
-  valWrapper.isNull = context->createFalse();
-  return valWrapper;
 }
 
 ProteusValue ExpressionDotVisitor::visit(
@@ -796,9 +774,6 @@ ProteusValue ExpressionDotVisitor::visit(
       LOG(ERROR) << "[ExpressionDotVisitor]: Invalid Input";
       throw runtime_error(string("[ExpressionDotVisitor]: Invalid Input"));
   }
-
-  valWrapper.isNull = context->createFalse();
-  return valWrapper;
 }
 
 ProteusValue ExpressionDotVisitor::visit(
@@ -813,7 +788,6 @@ ProteusValue ExpressionDotVisitor::visit(
   ExpressionGeneratorVisitor exprGenerator2{context, currState2};
   ProteusValue right = e2->accept(exprGenerator2);
 
-  typeID id = e1->getExpressionType()->getTypeID();
   ProteusValue valWrapper;
   valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
   valWrapper.isNull = context->createFalse();

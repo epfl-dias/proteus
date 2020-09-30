@@ -34,9 +34,10 @@ auto aff_parallel_cpu = []() -> std::unique_ptr<Affinitizer> {
 PreparedStatement Query::prepare21(bool memmv, size_t bloomSize) {
   auto rel11407 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
-              "inputs/ssbm100/date.csv", {"d_datekey", "d_year"},
-              getCatalog())  // (table=[[SSB, ssbm_date]], fields=[[0, 4]],
+          .scan(
+              "inputs/ssbm100/date.csv", {"d_datekey", "d_year"}, getCatalog(),
+              pg{Tplugin::
+                     type})  // (table=[[SSB, ssbm_date]], fields=[[0, 4]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .membrdcst(dop, memmv || !(dev == DeviceType::CPU), !memmv)
           .router(
@@ -50,8 +51,8 @@ PreparedStatement Query::prepare21(bool memmv, size_t bloomSize) {
       ;
   auto rel11412 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>("inputs/ssbm100/supplier.csv",
-                         {"s_suppkey", "s_region"}, getCatalog())
+          .scan("inputs/ssbm100/supplier.csv", {"s_suppkey", "s_region"},
+                getCatalog(), pg{Tplugin::type})
           .membrdcst(dop, memmv || !(dev == DeviceType::CPU), !memmv)
           .router(
               [&](const auto &arg) -> std::optional<expression_t> {
@@ -68,8 +69,9 @@ PreparedStatement Query::prepare21(bool memmv, size_t bloomSize) {
           });
   auto rel11417 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>("inputs/ssbm100/part.csv",
-                         {"p_partkey", "p_category", "p_brand1"}, getCatalog())
+          .scan("inputs/ssbm100/part.csv",
+                {"p_partkey", "p_category", "p_brand1"}, getCatalog(),
+                pg{Tplugin::type})
           .membrdcst(dop, true, true)
           .router(
               [&](const auto &arg) -> std::optional<expression_t> {
@@ -91,10 +93,9 @@ PreparedStatement Query::prepare21(bool memmv, size_t bloomSize) {
           .unpack();
   auto rel =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
-              "inputs/ssbm100/lineorder.csv",
-              {"lo_partkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},
-              getCatalog())
+          .scan("inputs/ssbm100/lineorder.csv",
+                {"lo_partkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},
+                getCatalog(), pg{Tplugin::type})
           .router(8, RoutingPolicy::LOCAL, DeviceType::CPU)
           //          .unpack()
           .bloomfilter_repack(
@@ -208,10 +209,9 @@ PreparedStatement Query::prepare21(bool memmv, size_t bloomSize) {
 PreparedStatement Query::prepare21_b(bool memmv, size_t bloomSize) {
   auto rel =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
-              "inputs/ssbm100/lineorder.csv",
-              {"lo_partkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},
-              getCatalog())
+          .scan("inputs/ssbm100/lineorder.csv",
+                {"lo_partkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},
+                getCatalog(), pg{Tplugin::type})
           .router(
               DegreeOfParallelism{48}, 8, RoutingPolicy::LOCAL, DeviceType::CPU,
               aff_parallel_cpu())  // (trait=[Pelago.[].packed.X86_64.homSingle.hetSingle])

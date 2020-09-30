@@ -46,9 +46,9 @@ class GpuModule : public JITModule {
 
   static void init();
 
-  virtual void compileAndLoad();
+  void compileAndLoad() override;
 
-  virtual void *getCompiledFunction(llvm::Function *f) const;
+  void *getCompiledFunction(llvm::Function *f) const override;
 
   virtual void markToAvoidInteralizeFunction(std::string func);
 

@@ -38,13 +38,13 @@ class CpuPipelineGen : public PipelineGen {
   friend class CpuPipelineGenFactory;
 
  public:
-  virtual void compileAndLoad();
+  void compileAndLoad() override;
 
-  virtual llvm::Module *getModule() const { return module->getModule(); }
-  virtual const llvm::DataLayout &getDataLayout() const;
+  llvm::Module *getModule() const override { return module->getModule(); }
+  const llvm::DataLayout &getDataLayout() const override;
 
  public:
-  virtual void *getCompiledFunction(llvm::Function *f);
+  void *getCompiledFunction(llvm::Function *f) override;
 };
 
 class CpuPipelineGenFactory : public PipelineGenFactory {
@@ -58,7 +58,7 @@ class CpuPipelineGenFactory : public PipelineGenFactory {
   }
 
   PipelineGen *create(Context *context, std::string pipName,
-                      PipelineGen *copyStateFrom) {
+                      PipelineGen *copyStateFrom) override {
     return new CpuPipelineGen(context, pipName, copyStateFrom);
   }
 };

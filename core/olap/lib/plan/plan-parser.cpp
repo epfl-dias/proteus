@@ -751,9 +751,9 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
       probe_widths.push_back(w.GetInt());
     }
 
-    Router *xch_build = new Router(
-        build_op, DegreeOfParallelism{numPartitioners}, build_attr_block, slack,
-        std::nullopt, RoutingPolicy::LOCAL, DeviceType::CPU);
+    auto *xch_build = new Router(build_op, DegreeOfParallelism{numPartitioners},
+                                 build_attr_block, slack, std::nullopt,
+                                 RoutingPolicy::LOCAL, DeviceType::CPU);
     build_op->setParent(xch_build);
     Operator *btt_build =
         new BlockToTuples(xch_build, build_expr, false, gran_t::THREAD);
@@ -762,14 +762,14 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
         btt_build, numOfBuckets, build_expr, build_expr[0], build_hash_attr);
     btt_build->setParent(part_build);
     build_attr_block.push_back(build_hash_attr);
-    Router *xch_build2 =
+    auto *xch_build2 =
         new Router(part_build, DegreeOfParallelism{1}, build_attr_block, slack,
                    std::nullopt, RoutingPolicy::LOCAL, DeviceType::GPU);
     part_build->setParent(xch_build2);
 
-    Router *xch_probe = new Router(
-        probe_op, DegreeOfParallelism{numPartitioners}, probe_attr_block, slack,
-        std::nullopt, RoutingPolicy::LOCAL, DeviceType::CPU);
+    auto *xch_probe = new Router(probe_op, DegreeOfParallelism{numPartitioners},
+                                 probe_attr_block, slack, std::nullopt,
+                                 RoutingPolicy::LOCAL, DeviceType::CPU);
     probe_op->setParent(xch_probe);
     Operator *btt_probe =
         new BlockToTuples(xch_probe, probe_expr, false, gran_t::THREAD);
@@ -778,21 +778,21 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
         btt_probe, numOfBuckets, probe_expr, probe_expr[0], probe_hash_attr);
     btt_probe->setParent(part_probe);
     probe_attr_block.push_back(probe_hash_attr);
-    Router *xch_probe2 =
+    auto *xch_probe2 =
         new Router(part_probe, DegreeOfParallelism{1}, probe_attr_block, slack,
                    std::nullopt, RoutingPolicy::LOCAL, DeviceType::GPU);
     part_probe->setParent(xch_probe2);
 
-    RecordAttribute *attr_ptr =
+    auto *attr_ptr =
         new RecordAttribute(1, "coordinator", "ptr", new IntType(), true);
-    RecordAttribute *attr_target =
+    auto *attr_target =
         new RecordAttribute(1, "coordinator", "target", new IntType(), false);
-    RecordAttribute *attr_splitter =
+    auto *attr_splitter =
         new RecordAttribute(2, "coordinator", "splitter", new IntType(), false);
 
     InputInfo *datasetInfoCoord =
         catalogParser.getOrCreateInputInfo(attr_target->getRelationName());
-    RecordType *coord_rec = new RecordType{dynamic_cast<const RecordType &>(
+    auto *coord_rec = new RecordType{dynamic_cast<const RecordType &>(
         dynamic_cast<CollectionType *>(datasetInfoCoord->exprType)
             ->getNestedType())};
     coord_rec->appendAttribute(attr_ptr);
@@ -804,7 +804,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     f_atts_target.push_back(attr_ptr);
     f_atts_target.push_back(attr_target);
     f_atts_target.push_back(attr_splitter);
-    RecordType *recTypeTarget = new RecordType(f_atts_target);
+    auto *recTypeTarget = new RecordType(f_atts_target);
 
     list<RecordAttribute> f_atts_hash_d;
     f_atts_hash_d.push_back(*attr_target);
@@ -817,7 +817,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     f_atts_target_v.push_back(attr_target);
     f_atts_target_v.push_back(attr_splitter);
 
-    ZipCollect *coord =
+    auto *coord =
         new ZipCollect(attr_ptr, attr_splitter, attr_target,
                        new RecordAttribute(*build_attr[0], true),
                        new RecordAttribute(*probe_attr[0], true), xch_build2,
@@ -827,18 +827,18 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     xch_build2->setParent(coord);
     xch_probe2->setParent(coord);
 
-    Router *xch_proc = new Router(coord, DegreeOfParallelism{numConcurrent},
-                                  f_atts_target_v, slack, expr_target,
-                                  RoutingPolicy::HASH_BASED, DeviceType::GPU);
+    auto *xch_proc = new Router(coord, DegreeOfParallelism{numConcurrent},
+                                f_atts_target_v, slack, expr_target,
+                                RoutingPolicy::HASH_BASED, DeviceType::GPU);
     coord->setParent(xch_proc);
-    ZipInitiate *initiator = new ZipInitiate(
-        attr_ptr, attr_splitter, attr_target, xch_proc, (ParallelContext *)ctx,
-        numOfBuckets, coord->getStateLeft(), coord->getStateRight(),
-        "launcher");
+    auto *initiator = new ZipInitiate(attr_ptr, attr_splitter, attr_target,
+                                      xch_proc, (ParallelContext *)ctx,
+                                      numOfBuckets, coord->getStateLeft(),
+                                      coord->getStateRight(), "launcher");
     xch_proc->setParent(initiator);
     PipelineGen **pip_rcv = initiator->pipeSocket();
 
-    ZipForward *fwd_build =
+    auto *fwd_build =
         new ZipForward(attr_target, initiator, (ParallelContext *)ctx,
                        build_hashed_expr, "forwarder", coord->getStateLeft());
 
@@ -853,12 +853,12 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     Operator *btt_build2 =
         new BlockToTuples(ctg_build, build_prejoin_expr, true, gran_t::GRID);
     ctg_build->setParent(btt_build2);
-    HashPartitioner *hpart1 = new HashPartitioner(
+    auto *hpart1 = new HashPartitioner(
         build_join_expr, build_widths, build_prejoin_expr[0], btt_build2,
         (ParallelContext *)ctx, maxBuildInputSize, 13, "partition_hash_1");
     btt_build2->setParent(hpart1);
 
-    ZipForward *fwd_probe =
+    auto *fwd_probe =
         new ZipForward(attr_target, initiator, (ParallelContext *)ctx,
                        probe_hashed_expr, "forwarder", coord->getStateRight());
 
@@ -873,7 +873,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     Operator *btt_probe2 =
         new BlockToTuples(ctg_probe, probe_prejoin_expr, true, gran_t::GRID);
     ctg_probe->setParent(btt_probe2);
-    HashPartitioner *hpart2 = new HashPartitioner(
+    auto *hpart2 = new HashPartitioner(
         probe_join_expr, probe_widths, probe_prejoin_expr[0], btt_probe2,
         (ParallelContext *)ctx, maxProbeInputSize, 13, "partition_hash_2");
     btt_probe2->setParent(hpart2);
@@ -987,12 +987,12 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
 
     int log_parts = 13;
 
-    HashPartitioner *part_left =
+    auto *part_left =
         new HashPartitioner(build_e, build_widths, build_key_expr, build_op,
                             dynamic_cast<ParallelContext *>(this->ctx),
                             maxBuildInputSize, log_parts, "part1");
 
-    HashPartitioner *part_right =
+    auto *part_right =
         new HashPartitioner(probe_e, probe_widths, probe_key_expr, probe_op,
                             dynamic_cast<ParallelContext *>(this->ctx),
                             maxProbeInputSize, log_parts, "part1");
@@ -1107,9 +1107,8 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
       outputModesLeft.insert(outputModesLeft.begin(), EAGER);
 
       // XXX STRONG ASSUMPTION: Expression is actually a record projection!
-      const expressions::RecordProjection *projL =
-          dynamic_cast<const expressions::RecordProjection *>(
-              exprL.getUnderlyingExpression());
+      const auto *projL = dynamic_cast<const expressions::RecordProjection *>(
+          exprL.getUnderlyingExpression());
       if (projL == nullptr) {
         string error_msg =
             string("[Join: ] Cannot cast to rec projection. Original: ") +
@@ -1118,14 +1117,14 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
         throw runtime_error(string(error_msg));
       }
       // Added in 'wanted fields'
-      RecordAttribute *recAttr = new RecordAttribute(projL->getAttribute());
+      auto *recAttr = new RecordAttribute(projL->getAttribute());
       fieldsLeft.push_back(recAttr);
 
       string relName = recAttr->getRelationName();
       if (mapOidsLeft.find(relName) == mapOidsLeft.end()) {
         InputInfo *datasetInfo = (this->catalogParser).getInputInfo(relName);
-        RecordAttribute *oid = new RecordAttribute(
-            recAttr->getRelationName(), activeLoop, datasetInfo->oidType);
+        auto *oid = new RecordAttribute(recAttr->getRelationName(), activeLoop,
+                                        datasetInfo->oidType);
         mapOidsLeft[relName] = oid;
         auto oidL = projL->getExpr()[*oid];
         // Added in 'wanted expressions'
@@ -1136,7 +1135,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     }
     vector<RecordAttribute *> oidsLeft = vector<RecordAttribute *>();
     MapToVec(mapOidsLeft, oidsLeft);
-    Materializer *matLeft =
+    auto *matLeft =
         new Materializer(fieldsLeft, exprsLeft, oidsLeft, outputModesLeft);
 
     // RIGHT SIDE
@@ -1165,14 +1164,14 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
       }
 
       // Added in 'wanted fields'
-      RecordAttribute *recAttr = new RecordAttribute(projR->getAttribute());
+      auto *recAttr = new RecordAttribute(projR->getAttribute());
       fieldsRight.push_back(recAttr);
 
       string relName = recAttr->getRelationName();
       if (mapOidsRight.find(relName) == mapOidsRight.end()) {
         InputInfo *datasetInfo = (this->catalogParser).getInputInfo(relName);
-        RecordAttribute *oid = new RecordAttribute(
-            recAttr->getRelationName(), activeLoop, datasetInfo->oidType);
+        auto *oid = new RecordAttribute(recAttr->getRelationName(), activeLoop,
+                                        datasetInfo->oidType);
         mapOidsRight[relName] = oid;
         expressions::RecordProjection oidR = projR->getExpr()[*oid];
         // Added in 'wanted expressions'
@@ -1183,7 +1182,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     }
     vector<RecordAttribute *> oidsRight = vector<RecordAttribute *>();
     MapToVec(mapOidsRight, oidsRight);
-    Materializer *matRight =
+    auto *matRight =
         new Materializer(fieldsRight, exprsRight, oidsRight, outputModesRight);
 
     newOp = new RadixJoin(pred, leftOp, rightOp, this->ctx, "radixHashJoin",
@@ -1286,7 +1285,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
         throw runtime_error(string(error_msg));
       }
       // Added in 'wanted fields'
-      RecordAttribute *recAttr = new RecordAttribute(proj->getAttribute());
+      auto *recAttr = new RecordAttribute(proj->getAttribute());
       fieldsToMat.push_back(recAttr);
 
       string relName = recAttr->getRelationName();
@@ -1530,7 +1529,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
 
     size_t width = childOp.getOutputArg().getProjections().size();
     std::vector<bool> do_transfer;
-    if (false && val.HasMember("do_transfer")) {
+    if (val.HasMember("do_transfer")) {
       assert(val["do_transfer"].IsArray());
       assert(val["do_transfer"].Size() == width);
       for (const auto &a : val["do_transfer"].GetArray()) {
@@ -1773,7 +1772,7 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
   bool pluginExisted = true;
 
   if (!datasetInfo) {
-    RecordType *rec = new RecordType();
+    auto *rec = new RecordType();
 
     if (val.HasMember("schema")) {
       size_t attrNo = 1;
@@ -1801,12 +1800,11 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
   }
 
   // Dynamic allocation because I have to pass reference later on
-  string *pathDynamicCopy = new string(datasetInfo->path);
+  auto *pathDynamicCopy = new string(datasetInfo->path);
 
   /* Retrieve RecordType */
   /* Extract inner type of collection */
-  CollectionType *collType =
-      dynamic_cast<CollectionType *>(datasetInfo->exprType);
+  auto *collType = dynamic_cast<CollectionType *>(datasetInfo->exprType);
   if (collType == nullptr) {
     string error_msg = string(
                            "[Plugin Parser: ] Cannot cast to collection "
@@ -1817,9 +1815,9 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
   }
   /* For the current plugins, the expression type is unambiguously RecordType */
   const ExpressionType &nestedType = collType->getNestedType();
-  const RecordType &recType_ = dynamic_cast<const RecordType &>(nestedType);
+  const auto &recType_ = dynamic_cast<const RecordType &>(nestedType);
   // circumventing the presence of const
-  RecordType *recType = new RecordType(recType_.getArgs());
+  auto *recType = new RecordType(recType_.getArgs());
 
   if (pgType == "csv") {
     //        cout<<"Original intended type: " <<
@@ -2073,7 +2071,7 @@ InputInfo *CatalogParser::getOrCreateInputInfo(string inputName,
   InputInfo *ret = getInputInfoIfKnown(inputName);
 
   if (!ret) {
-    RecordType *rec = new RecordType();
+    auto *rec = new RecordType();
 
     ret = new InputInfo();
     ret->exprType = new BagType(*rec);

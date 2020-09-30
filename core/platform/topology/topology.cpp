@@ -435,7 +435,7 @@ nvmlDevice_t topology::gpunode::getGPUHandle(unsigned int id) {
   // source:
   // https://devblogs.nvidia.com/increase-performance-gpu-boost-k80-autoboost/
   for (unsigned int nvml_ind = 0; nvml_ind < nvml_count; ++nvml_ind) {
-    nvmlDevice_t d;
+    nvmlDevice_t d{};
     gpu_run(nvmlDeviceGetHandleByIndex(nvml_ind, &d));
 
     nvmlPciInfo_t pcie_info;
@@ -447,7 +447,7 @@ nvmlDevice_t topology::gpunode::getGPUHandle(unsigned int id) {
       return d;
     }
   }
-  throw new std::runtime_error("failed to locate device in nvml!");
+  throw std::runtime_error("failed to locate device in nvml!");
 }
 
 topology topology::instance;

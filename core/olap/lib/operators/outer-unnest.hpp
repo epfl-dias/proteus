@@ -32,12 +32,13 @@ class OuterUnnest : public UnaryOperator {
  public:
   OuterUnnest(expression_t pred, Path path, Operator *const child)
       : UnaryOperator(child), path(std::move(path)), pred(std::move(pred)) {}
-  virtual ~OuterUnnest() { LOG(INFO) << "Collapsing Outer Unnest operator"; }
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return true; }
+  ~OuterUnnest() override { LOG(INFO) << "Collapsing Outer Unnest operator"; }
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
+  bool isFiltering() const override { return true; }
 
-  virtual RecordType getRowType() const {
+  RecordType getRowType() const override {
     // FIXME: implement
     throw runtime_error("unimplemented");
   }

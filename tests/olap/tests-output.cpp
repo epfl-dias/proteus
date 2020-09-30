@@ -157,15 +157,15 @@ RelWithAttributes rel::operator()(T... x) {
   return (*this)({x...});
 }
 
-auto sailors = rel("inputs/sailors.csv")(Int("sid"), String("sname"),
-                                         Int("rating"), Float("age"));
+static auto sailors = rel("inputs/sailors.csv")(Int("sid"), String("sname"),
+                                                Int("rating"), Float("age"));
 
 // linehint = 10;
 // policy = 2;
 // pm::CSVPlugin *pgReserves =
 //    openCSV(&ctx, reservesPath, reserveRec, reserveAttsToProject, ';',
 //            linehint, policy, false);
-auto reserves =
+static auto reserves =
     rel("inputs/reserves.csv")(Int("sid"), Int("bid"), String("day"));
 
 //  linehint = 4;
@@ -174,7 +174,7 @@ auto reserves =
 //      openCSV(&ctx, filenameBoats, recBoats, whichFieldsBoats, ';',
 //      linehint,
 //              policy, false);
-auto boats =
+static auto boats =
     rel("inputs/boats.csv")(Int("bid"), String("bname"), String("color"));
 
 //  int linehint = 10;
@@ -184,7 +184,7 @@ auto boats =
 //  delimInner,
 //                              linehint, policy, false);
 
-auto lineitem = rel("inputs/tpch/lineitem10.csv")(
+static auto lineitem = rel("inputs/tpch/lineitem10.csv")(
     Int("l_orderkey"), Int("l_partkey"), Int("l_suppkey"), Int("l_linenumber"),
     Float("l_quantity"), Float("l_extendedprice"), Float("l_discount"),
     Float("l_tax"), String("l_returnflag"), String("l_linestatus"),

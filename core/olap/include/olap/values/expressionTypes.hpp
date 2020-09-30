@@ -27,6 +27,7 @@
 #include <cassert>
 #include <memory>
 #include <ostream>
+#include <utility>
 
 #include "common/common.hpp"
 
@@ -59,10 +60,10 @@ class LLVMContext;
 
 class ExpressionType {
  public:
-  virtual string getType() const = 0;
-  virtual typeID getTypeID() const = 0;
-  virtual ~ExpressionType() {}
-  virtual bool isPrimitive() const = 0;
+  [[nodiscard]] virtual string getType() const = 0;
+  [[nodiscard]] virtual typeID getTypeID() const = 0;
+  virtual ~ExpressionType() = default;
+  [[nodiscard]] virtual bool isPrimitive() const = 0;
   virtual llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
     string error_msg =
         string("Type " + getType() + " is not mapped into an LLVM-type.");
@@ -77,43 +78,43 @@ class ExpressionType {
 template <typename T, typename Interface = ExpressionType>
 class ExpressionTypeVisitable : public Interface {
   using Interface::Interface;
-  virtual void accept(ExprTypeVisitor &v) const;
+  void accept(ExprTypeVisitor &v) const override;
 };
 
 class PrimitiveType : public ExpressionType {
  public:
-  virtual llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const = 0;
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const override = 0;
 };
 
 template <typename T, typeID id>
 class PrimitiveTypeCRTP : public ExpressionTypeVisitable<T, PrimitiveType> {
  public:
-  std::string getType() const { return T::name; }
-  typeID getTypeID() const { return id; }
-  bool isPrimitive() const { return true; }
+  [[nodiscard]] std::string getType() const override { return T::name; }
+  [[nodiscard]] typeID getTypeID() const override { return id; }
+  [[nodiscard]] bool isPrimitive() const override { return true; }
 };
 
 class BoolType : public PrimitiveTypeCRTP<BoolType, BOOL> {
  public:
   static constexpr auto name = "Bool";
 
-  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const override;
 };
 
 class StringType : public PrimitiveTypeCRTP<StringType, STRING> {
  public:
   static constexpr auto name = "String";
 
-  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const override;
 };
 
 class DStringType : public PrimitiveTypeCRTP<DStringType, DSTRING> {
  public:
   static constexpr auto name = "DString";
 
-  DStringType(void *dictionary = nullptr) : dictionary(dictionary) {}
+  explicit DStringType(void *dictionary = nullptr) : dictionary(dictionary) {}
 
-  void *getDictionary() const {
+  [[nodiscard]] void *getDictionary() const {
     assert(dictionary);
     return dictionary;
   }
@@ -123,7 +124,7 @@ class DStringType : public PrimitiveTypeCRTP<DStringType, DSTRING> {
     dictionary = dict;
   }
 
-  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const override;
 
  private:
   void *dictionary;
@@ -133,21 +134,21 @@ class FloatType : public PrimitiveTypeCRTP<FloatType, FLOAT> {
  public:
   static constexpr auto name = "Float";
 
-  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const override;
 };
 
 class IntType : public PrimitiveTypeCRTP<IntType, INT> {
  public:
   static constexpr auto name = "Int";
 
-  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const override;
 };
 
 class Int64Type : public PrimitiveTypeCRTP<Int64Type, INT64> {
  public:
   static constexpr auto name = "Int64";
 
-  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const override;
 };
 
 /**
@@ -160,16 +161,15 @@ class DateType : public PrimitiveTypeCRTP<DateType, DATE> {
  public:
   static constexpr auto name = "Date";
 
-  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const override;
 };
 
 class CollectionType : public ExpressionType {
  public:
-  CollectionType(const ExpressionType &type) : type(type) {}
+  explicit CollectionType(const ExpressionType &type) : type(type) {}
 
-  virtual bool isPrimitive() const final { return false; }
-  const ExpressionType &getNestedType() const { return type; }
-  virtual ~CollectionType() = default;
+  [[nodiscard]] bool isPrimitive() const final { return false; }
+  [[nodiscard]] const ExpressionType &getNestedType() const { return type; }
 
  private:
   const ExpressionType &type;
@@ -181,9 +181,9 @@ class CollectionTypeCRTP : public ExpressionTypeVisitable<T, CollectionType> {
   using ExpressionTypeVisitable<T, CollectionType>::ExpressionTypeVisitable;
 
  public:
-  virtual typeID getTypeID() const { return id; }
+  [[nodiscard]] typeID getTypeID() const override { return id; }
 
-  virtual string getType() const {
+  [[nodiscard]] string getType() const override {
     return T::name + std::string("(") + this->getNestedType().getType() +
            string(")");
   }
@@ -194,7 +194,7 @@ class BlockType : public CollectionTypeCRTP<BlockType, BLOCK> {
   static constexpr auto name = "Block";
   using CollectionTypeCRTP::CollectionTypeCRTP;
 
-  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const override;
 };
 
 class ListType : public CollectionTypeCRTP<ListType, LIST> {
@@ -229,7 +229,7 @@ class RecordAttribute {
         type(make_block ? new BlockType(*type) : type),
         attrNo(no),
         projected(false) {
-    if (relName == "") {
+    if (relName.empty()) {
       string error_msg =
           string("Unexpected, no-relname attribute: ") + attrName;
       LOG(ERROR) << error_msg;
@@ -245,7 +245,7 @@ class RecordAttribute {
         attrNo(no),
         projected(false) {
     this->attrName = string(attrName);
-    if (relName == "") {
+    if (relName.empty()) {
       string error_msg =
           string("Unexpected, no-relname attribute: ") + attrName;
       LOG(ERROR) << error_msg;
@@ -254,22 +254,21 @@ class RecordAttribute {
   }
 
   RecordAttribute(int no, string originalRelName, string relName,
-                  string attrName, const ExpressionType *type)
-      : relName(relName),
-        attrName(attrName),
-        originalRelName(originalRelName),
+                  std::string attrName, const ExpressionType *type)
+      : relName(std::move(relName)),
+        attrName(std::move(attrName)),
+        originalRelName(std::move(originalRelName)),
         type(type),
         attrNo(no),
         projected(false) {
-    if (relName == "") {
-      string error_msg =
-          string("Unexpected, no-relname attribute: ") + attrName;
+    if (this->relName.empty()) {
+      auto error_msg = "Unexpected, no-relname attribute: " + this->attrName;
       LOG(ERROR) << error_msg;
       throw runtime_error(error_msg);
     }
-    if (originalRelName == "") {
-      string error_msg =
-          string("Unexpected, no-origrelname attribute: ") + attrName;
+    if (this->originalRelName.empty()) {
+      auto error_msg =
+          "Unexpected, no-origrelname attribute: " + this->attrName;
       LOG(ERROR) << error_msg;
       throw runtime_error(error_msg);
     }
@@ -282,17 +281,18 @@ class RecordAttribute {
 
   /* OID Type needed so that we know what we materialize
    * => Subsequent functions / programs use info to parse caches */
-  RecordAttribute(string relName, string attrName, const ExpressionType *type)
+  RecordAttribute(std::string relName, std::string attrName,
+                  const ExpressionType *type)
       : relName(relName),
-        attrName(attrName),
+        attrName(std::move(attrName)),
         originalRelName(relName),
         type(type),
         attrNo(-1),
         projected(false) {
     // cout << "RELNAME:[" << relName << "]" << endl;
-    if (relName == "") {
+    if (this->relName.empty()) {
       string error_msg =
-          string("Unexpected, no-relname attribute: ") + attrName;
+          string("Unexpected, no-relname attribute: ") + this->attrName;
       LOG(ERROR) << error_msg;
       throw runtime_error(error_msg);
     }
@@ -315,19 +315,23 @@ class RecordAttribute {
   //        this->projected = obj.projected;
   //    }
 
-  string getType() const { return attrName + " " + type->getType(); }
-  const ExpressionType *getOriginalType() const { return type; }
+  [[nodiscard]] string getType() const {
+    return attrName + " " + type->getType();
+  }
+  [[nodiscard]] const ExpressionType *getOriginalType() const { return type; }
   llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
     return getOriginalType()->getLLVMType(ctx);
   }
-  string getName() const { return attrName; }
-  string getRelationName() const { return relName; }
-  string getOriginalRelationName() const { return originalRelName; }
-  string getAttrName() const { return attrName; }
+  [[nodiscard]] string getName() const { return attrName; }
+  [[nodiscard]] string getRelationName() const { return relName; }
+  [[nodiscard]] string getOriginalRelationName() const {
+    return originalRelName;
+  }
+  [[nodiscard]] string getAttrName() const { return attrName; }
   // CONVENTION: Fields requested can be 1-2-3-etc.
-  int getAttrNo() const { return attrNo; }
+  [[nodiscard]] int getAttrNo() const { return attrNo; }
   void setProjected() { projected = true; }
-  bool isProjected() { return projected; }
+  [[nodiscard]] bool isProjected() const { return projected; }
 
  private:
   string relName;
@@ -345,14 +349,14 @@ std::ostream &operator<<(std::ostream &o, const ExpressionType &rec);
 
 class RecordType : public ExpressionTypeVisitable<RecordType, ExpressionType> {
  public:
-  RecordType() {}
-  RecordType(list<RecordAttribute *> args) : args(args) {
+  RecordType() = default;
+  explicit RecordType(list<RecordAttribute *> args) : args(std::move(args)) {
     for (const auto &arg : this->args) {
       argsMap[arg->getAttrName()] = arg;
     }
   }
 
-  RecordType(vector<RecordAttribute *> args) {
+  RecordType(const std::vector<RecordAttribute *> &args) {
     for (const auto &arg : args) {
       auto new_arg = new RecordAttribute{*arg};
       this->args.push_back(new_arg);
@@ -360,19 +364,13 @@ class RecordType : public ExpressionTypeVisitable<RecordType, ExpressionType> {
     }
   }
 
-  RecordType(const RecordType &rec) {
-    argsMap.insert(rec.argsMap.begin(), rec.argsMap.end());
-    args.insert(args.begin(), rec.args.begin(), rec.args.end());
-  }
-
-  string getType() const {
+  [[nodiscard]] string getType() const override {
     stringstream ss;
     ss << "Record(";
     int count = 0;
     int size = args.size();
-    for (list<RecordAttribute *>::const_iterator it = args.begin();
-         it != args.end(); it++) {
-      ss << (*it)->getType();
+    for (auto arg : args) {
+      ss << arg->getType();
       count++;
       if (count != size) {
         ss << ", ";
@@ -382,14 +380,13 @@ class RecordType : public ExpressionTypeVisitable<RecordType, ExpressionType> {
     return ss.str();
   }
 
-  virtual llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const;
+  llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const override;
 
-  typeID getTypeID() const { return RECORD; }
-  list<RecordAttribute *> getArgs() const { return args; }
+  [[nodiscard]] typeID getTypeID() const override { return RECORD; }
+  [[nodiscard]] list<RecordAttribute *> getArgs() const { return args; }
   map<string, RecordAttribute *> &getArgsMap() { return argsMap; }
-  int getArgsNo() const { return args.size(); }
-  bool isPrimitive() const { return false; }
-  ~RecordType() {}
+  [[nodiscard]] int getArgsNo() const { return args.size(); }
+  [[nodiscard]] bool isPrimitive() const override { return false; }
 
   void appendAttribute(RecordAttribute *attr) {
 #ifndef NDEBUG
@@ -404,7 +401,7 @@ class RecordType : public ExpressionTypeVisitable<RecordType, ExpressionType> {
     args.push_back(attr);
   }
 
-  const RecordAttribute *getArg(string name) const {
+  [[nodiscard]] const RecordAttribute *getArg(string name) const {
     auto r = argsMap.find(name);
     if (r == argsMap.end()) return nullptr;
     return r->second;

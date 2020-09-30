@@ -69,23 +69,21 @@ namespace jsmn {
 class JSONPlugin : public Plugin {
  public:
   JSONPlugin(Context *const context, string &fname, ExpressionType *schema);
-  ~JSONPlugin();
-  void init() {}
-  void generate(const Operator &producer, ParallelContext *context);
-  void finish();
-  string &getName() { return fname; }
+  ~JSONPlugin() override;
+  void init() override {}
+  void generate(const Operator &producer, ParallelContext *context) override;
+  void finish() override;
+  string &getName() override { return fname; }
 
   // 1-1 correspondence with 'RecordProjection' expression
-  virtual ProteusValueMemory readPath(string activeRelation,
-                                      Bindings wrappedBindings,
-                                      const char *pathVar, RecordAttribute attr,
-                                      ParallelContext *context);
-  virtual ProteusValueMemory readValue(ProteusValueMemory mem_value,
-                                       const ExpressionType *type,
-                                       ParallelContext *context);
-  virtual ProteusValue readCachedValue(CacheInfo info,
-                                       const OperatorState &currState,
-                                       ParallelContext *context) {
+  ProteusValueMemory readPath(string activeRelation, Bindings wrappedBindings,
+                              const char *pathVar, RecordAttribute attr,
+                              ParallelContext *context) override;
+  ProteusValueMemory readValue(ProteusValueMemory mem_value,
+                               const ExpressionType *type,
+                               ParallelContext *context) override;
+  ProteusValue readCachedValue(CacheInfo info, const OperatorState &currState,
+                               ParallelContext *context) override {
     string error_msg = "[JSMNPlugin: ] No caching support yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
@@ -98,11 +96,10 @@ class JSONPlugin : public Plugin {
     throw runtime_error(error_msg);
   }
 
-  virtual ProteusValue hashValue(ProteusValueMemory mem_value,
-                                 const ExpressionType *type, Context *context);
-  virtual ProteusValue hashValueEager(ProteusValue value,
-                                      const ExpressionType *type,
-                                      Context *context) {
+  ProteusValue hashValue(ProteusValueMemory mem_value,
+                         const ExpressionType *type, Context *context) override;
+  ProteusValue hashValueEager(ProteusValue value, const ExpressionType *type,
+                              Context *context) override {
     string error_msg = "[JSMNPlugin: ] No eager haching support yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
@@ -113,32 +110,34 @@ class JSONPlugin : public Plugin {
    * can just grab a chunk of the input and flush it w/o caring what is the
    * final serialization format
    */
-  virtual void flushTuple(ProteusValueMemory mem_value, llvm::Value *fileName) {
+  void flushTuple(ProteusValueMemory mem_value,
+                  llvm::Value *fileName) override {
     flushChunk(mem_value, fileName);
   }
-  virtual void flushValue(ProteusValueMemory mem_value,
-                          const ExpressionType *type, llvm::Value *fileName) {
+  void flushValue(ProteusValueMemory mem_value, const ExpressionType *type,
+                  llvm::Value *fileName) override {
     flushChunk(mem_value, fileName);
   }
-  virtual void flushValueEager(ProteusValue value, const ExpressionType *type,
-                               llvm::Value *fileName) {
+  void flushValueEager(ProteusValue value, const ExpressionType *type,
+                       llvm::Value *fileName) override {
     string error_msg = "[JSMNPlugin: ] No eager (caching) flushing support yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
   void flushChunk(ProteusValueMemory mem_value, llvm::Value *fileName);
 
-  virtual llvm::Value *getValueSize(ProteusValueMemory mem_value,
-                                    const ExpressionType *type,
-                                    ParallelContext *context);
+  llvm::Value *getValueSize(ProteusValueMemory mem_value,
+                            const ExpressionType *type,
+                            ParallelContext *context) override;
 
   // Used by unnest
-  virtual ProteusValueMemory initCollectionUnnest(
-      ProteusValue val_parentTokenNo);
-  virtual ProteusValue collectionHasNext(ProteusValue val_parentTokenNo,
-                                         ProteusValueMemory mem_currentTokenNo);
-  virtual ProteusValueMemory collectionGetNext(
-      ProteusValueMemory mem_currentToken);
+  ProteusValueMemory initCollectionUnnest(
+      ProteusValue val_parentTokenNo) override;
+  ProteusValue collectionHasNext(
+      ProteusValue val_parentTokenNo,
+      ProteusValueMemory mem_currentTokenNo) override;
+  ProteusValueMemory collectionGetNext(
+      ProteusValueMemory mem_currentToken) override;
 
   void scanObjects(const Operator &producer, llvm::Function *debug);
   void scanObjectsInterpreted(list<string> path, list<ExpressionType *> types);
@@ -150,11 +149,11 @@ class JSONPlugin : public Plugin {
   void readValueInterpreted(int tokenNo, const ExpressionType *type);
   void readValueEagerInterpreted(int tokenNo, const ExpressionType *type);
   //    virtual typeID getOIDSize() { return INT; }
-  virtual ExpressionType *getOIDType() { return new Int64Type(); }
+  ExpressionType *getOIDType() override { return new Int64Type(); }
 
-  virtual PluginType getPluginType() { return PGJSON; }
+  PluginType getPluginType() override { return PGJSON; }
 
-  virtual void flushBeginList(llvm::Value *fileName) {
+  void flushBeginList(llvm::Value *fileName) override {
     llvm::Function *flushFunc = context->getFunction("flushChar");
     std::vector<llvm::Value *> ArgsV;
     // Start 'array'
@@ -163,19 +162,19 @@ class JSONPlugin : public Plugin {
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
-  virtual void flushBeginBag(llvm::Value *fileName) {
+  void flushBeginBag(llvm::Value *fileName) override {
     string error_msg = string("[JSONPlugin]: Not implemented yet");
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushBeginSet(llvm::Value *fileName) {
+  void flushBeginSet(llvm::Value *fileName) override {
     string error_msg = string("[JSONPlugin]: Not implemented yet");
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndList(llvm::Value *fileName) {
+  void flushEndList(llvm::Value *fileName) override {
     llvm::Function *flushFunc = context->getFunction("flushChar");
     std::vector<llvm::Value *> ArgsV;
     // Start 'array'
@@ -184,19 +183,19 @@ class JSONPlugin : public Plugin {
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
-  virtual void flushEndBag(llvm::Value *fileName) {
+  void flushEndBag(llvm::Value *fileName) override {
     string error_msg = string("[JSONPlugin]: Not implemented yet");
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndSet(llvm::Value *fileName) {
+  void flushEndSet(llvm::Value *fileName) override {
     string error_msg = string("[JSONPlugin]: Not implemented yet");
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushDelim(llvm::Value *fileName, int depth) {
+  void flushDelim(llvm::Value *fileName, int depth) override {
     llvm::Function *flushFunc = context->getFunction("flushChar");
     std::vector<llvm::Value *> ArgsV;
     // XXX JSON-specific -> Serializer business to differentiate
@@ -205,8 +204,8 @@ class JSONPlugin : public Plugin {
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
-  virtual void flushDelim(llvm::Value *resultCtr, llvm::Value *fileName,
-                          int depth) {
+  void flushDelim(llvm::Value *resultCtr, llvm::Value *fileName,
+                  int depth) override {
     llvm::Function *flushFunc = context->getFunction("flushDelim");
     std::vector<llvm::Value *> ArgsV;
     ArgsV.push_back(resultCtr);
@@ -216,7 +215,7 @@ class JSONPlugin : public Plugin {
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
-  virtual void flushOutput(llvm::Value *fileName) {
+  void flushOutput(llvm::Value *fileName) override {
     llvm::Function *flushFunc = context->getFunction("flushOutput");
     vector<llvm::Value *> ArgsV;
     // Start 'array'

@@ -95,13 +95,14 @@ class Nest : public UnaryOperator {
        std::vector<expression_t> outputExprs, std::vector<string> aggrLabels,
        expression_t pred, expression_t f_grouping, expression_t g_nullToZero,
        Operator *const child, const std::string &opLabel, Materializer &mat);
-  virtual ~Nest() { LOG(INFO) << "Collapsing Nest operator"; }
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
+  ~Nest() override { LOG(INFO) << "Collapsing Nest operator"; }
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
   Materializer &getMaterializer() { return mat; }
-  virtual bool isFiltering() const { return true; }
+  bool isFiltering() const override { return true; }
 
-  virtual RecordType getRowType() const {
+  RecordType getRowType() const override {
     std::vector<RecordAttribute *> attrs;
     for (const auto &attr : f_grouping_vec) {
       attrs.emplace_back(new RecordAttribute{attr.getRegisteredAs()});

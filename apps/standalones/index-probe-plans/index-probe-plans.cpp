@@ -29,10 +29,10 @@
 #include <topology/affinity_manager.hpp>
 #include <topology/topology.hpp>
 
-storage::Table *tbl;
-auto num_fields = 2;
-size_t record[] = {1, 2};
-auto intial_records = 100;
+static storage::Table *tbl;
+static auto num_fields = 2;
+static size_t record[] = {1, 2};
+static auto intial_records = 100;
 
 bool insert_query(uint64_t xid, ushort master_ver, ushort delta_ver,
                   ushort partition_id) {

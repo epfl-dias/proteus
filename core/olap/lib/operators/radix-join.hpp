@@ -40,19 +40,20 @@ class RadixJoin : public BinaryOperator {
   RadixJoin(const expressions::BinaryExpression &predicate, Operator *leftChild,
             Operator *rightChild, Context *const context, const char *opLabel,
             Materializer &matLeft, Materializer &matRight);
-  virtual ~RadixJoin();
-  virtual void produce_(ParallelContext *context);
+  ~RadixJoin() override;
+  void produce_(ParallelContext *context) override;
   //    void produceNoCache() ;
-  virtual void consume(Context *const context, const OperatorState &childState);
+  void consume(Context *const context,
+               const OperatorState &childState) override;
   Materializer &getMaterializerLeft() const {
     return buildR->getMaterializer();
   }
   Materializer &getMaterializerRight() const {
     return buildS->getMaterializer();
   }
-  virtual bool isFiltering() const { return true; }
+  bool isFiltering() const override { return true; }
 
-  virtual RecordType getRowType() const {
+  RecordType getRowType() const override {
     std::vector<RecordAttribute *> ret;
 
     for (const auto &mexpr : buildR->getMaterializer().getWantedFields()) {

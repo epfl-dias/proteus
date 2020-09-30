@@ -51,11 +51,12 @@ class Nest : public UnaryOperator {
        const list<expressions::InputArgument> &f_grouping,
        const list<expressions::InputArgument> &g_nullToZero,
        Operator *const child, char *opLabel, Materializer &mat);
-  virtual ~Nest() { LOG(INFO) << "Collapsing Nest operator"; }
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
+  ~Nest() override { LOG(INFO) << "Collapsing Nest operator"; }
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
   Materializer &getMaterializer() { return mat; }
-  virtual bool isFiltering() const { return true; }
+  bool isFiltering() const override { return true; }
 
  private:
   void generateInsert(Context *context, const OperatorState &childState);

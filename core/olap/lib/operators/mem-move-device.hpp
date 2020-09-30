@@ -99,13 +99,16 @@ class MemMoveDevice : public UnaryOperator {
                       //                      {true, true, false, false}
                       std::vector<bool>(wantedFields.size(), true)) {}
 
-  virtual ~MemMoveDevice() { LOG(INFO) << "Collapsing MemMoveDevice operator"; }
+  ~MemMoveDevice() override {
+    LOG(INFO) << "Collapsing MemMoveDevice operator";
+  }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return false; }
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
+  bool isFiltering() const override { return false; }
 
-  virtual RecordType getRowType() const { return wantedFields; }
+  RecordType getRowType() const override { return wantedFields; }
 
  protected:
   virtual MemMoveConf *createMoveConf() const;

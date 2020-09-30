@@ -32,11 +32,12 @@ class NullFilter : public UnaryOperator {
  public:
   NullFilter(expressions::InputArgument *expr, Operator *const child)
       : UnaryOperator(child), expr(expr) {}
-  virtual ~NullFilter() { LOG(INFO) << "Collapsing null_filter operator"; }
+  ~NullFilter() override { LOG(INFO) << "Collapsing null_filter operator"; }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return true; }
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
+  bool isFiltering() const override { return true; }
 
  private:
   expressions::InputArgument *expr;

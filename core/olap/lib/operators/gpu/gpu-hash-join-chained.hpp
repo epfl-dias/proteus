@@ -31,9 +31,9 @@ class GpuHashJoinChained : public HashJoinChained {
   // inherit constructor
   using HashJoinChained::HashJoinChained;
 
-  void open_build(Pipeline *pip);
-  void close_probe(Pipeline *pip);
-  void close_build(Pipeline *pip);
+  void open_build(Pipeline *pip) override;
+  void close_probe(Pipeline *pip) override;
+  void close_build(Pipeline *pip) override;
 };
 
 #endif /* GPU_HASH_JOIN_CHAINED_HPP_ */

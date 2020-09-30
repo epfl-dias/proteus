@@ -32,11 +32,12 @@ class Join : public BinaryOperator {
         pred(predicate),
         htName(opLabel),
         mat(mat) {}
-  virtual ~Join() { LOG(INFO) << "Collapsing Join operator"; }
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
+  ~Join() override { LOG(INFO) << "Collapsing Join operator"; }
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
   Materializer &getMaterializer() { return mat; }
-  virtual bool isFiltering() const { return true; }
+  bool isFiltering() const override { return true; }
 
  private:
   char *htName;

@@ -541,7 +541,7 @@ void HashGroupByChained::generate_build(ParallelContext *context,
   Builder->SetInsertPoint(MergeBB);
 }
 
-std::map<std::pair<void *, int32_t>, std::vector<void *>> garbage;
+static std::map<std::pair<void *, int32_t>, std::vector<void *>> garbage;
 
 void HashGroupByChained::generate_scan(ParallelContext *context) {
   // Prepare

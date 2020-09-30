@@ -26,36 +26,38 @@
 #include "lib/operators/operators.hpp"
 #include "memory/block-manager.hpp"
 #include "olap/util/parallel-context.hpp"
-// #include "operators/hash-rearrange.hpp"
-// #include "operators/gpu/gpu-materializer-expr.hpp"
 
-class GpuHashRearrange : public UnaryOperator {
+class GpuHashRearrange : public experimental::UnaryOperator {
  public:
   GpuHashRearrange(Operator *const child, ParallelContext *const context,
                    int numOfBuckets, const std::vector<expression_t> &matExpr,
                    expression_t hashExpr,
                    RecordAttribute *hashProject = nullptr)
       : UnaryOperator(child),
-        context(context),
         numOfBuckets(numOfBuckets),
         matExpr(matExpr),
         hashExpr(std::move(hashExpr)),
         hashProject(hashProject),
         blockSize(BlockManager::block_size) {
+    attr_size = new size_t[matExpr.size()];
+    for (size_t attr_i = 0; attr_i < matExpr.size(); ++attr_i) {
+      attr_size[attr_i] =
+          context->getSizeOf(matExpr[attr_i].getExpressionType()->getLLVMType(
+              context->getLLVMContext()));
+    }
     // packet_widths(packet_widths){
   }  // FIMXE: default blocksize...
 
-  virtual ~GpuHashRearrange() {
+  ~GpuHashRearrange() override {
     LOG(INFO) << "Collapsing GpuHashRearrange operator";
   }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual void consume(ParallelContext *const context,
-                       const OperatorState &childState);
-  virtual bool isFiltering() const { return false; }
+  void produce_(ParallelContext *context) override;
+  void consume(ParallelContext *context,
+               const OperatorState &childState) override;
+  [[nodiscard]] bool isFiltering() const override { return false; }
 
-  virtual RecordType getRowType() const {
+  [[nodiscard]] RecordType getRowType() const override {
     std::vector<RecordAttribute *> attr;
     for (const auto &t : matExpr) {
       attr.emplace_back(new RecordAttribute(t.getRegisteredAs(), true));
@@ -67,13 +69,15 @@ class GpuHashRearrange : public UnaryOperator {
   }
 
  protected:
-  virtual void consume_flush(llvm::IntegerType *target_type);
+  virtual void consume_flush(ParallelContext *context,
+                             llvm::IntegerType *target_type);
 
   virtual void open(Pipeline *pip);
   virtual void close(Pipeline *pip);
 
-  llvm::Value *hash(const std::vector<expression_t> &exprs,
-                    Context *const context, const OperatorState &childState);
+  static llvm::Value *hash(const std::vector<expression_t> &exprs,
+                           ParallelContext *context,
+                           const OperatorState &childState);
 
   std::vector<expression_t> matExpr;
   const int numOfBuckets;
@@ -93,8 +97,7 @@ class GpuHashRearrange : public UnaryOperator {
   size_t blockSize;  // bytes
 
   int64_t cap;
-
-  ParallelContext *const context;
+  size_t *attr_size;
 
   // std::vector<size_t>                     packet_widths   ;
 };

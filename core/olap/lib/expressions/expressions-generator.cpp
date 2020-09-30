@@ -172,23 +172,21 @@ ProteusValue ExpressionGeneratorVisitor::visit(
       }
     } else {
       list<RecordAttribute> projections = e->getProjections();
-      list<RecordAttribute>::iterator it = projections.begin();
+      isNull = nullptr;
 
-      for (; it != projections.end(); it++) {
+      for (const auto &rec : projections) {
         /* OID info */
-        if (it->getAttrName() == activeLoop) {
-          map<RecordAttribute, ProteusValueMemory>::const_iterator itBindings;
-          for (itBindings = activeVars.begin(); itBindings != activeVars.end();
-               itBindings++) {
-            RecordAttribute currAttr = itBindings->first;
-            if (currAttr.getRelationName() == it->getRelationName() &&
+        if (rec.getAttrName() == activeLoop) {
+          for (const auto &binding : activeVars) {
+            RecordAttribute currAttr = binding.first;
+            if (currAttr.getRelationName() == rec.getRelationName() &&
                 currAttr.getAttrName() == activeLoop) {
               /* Found info needed! */
               //                            cout << "Binding found!!!" << endl;
               //                            cout << currAttr.getRelationName()
               //                            << "_" << currAttr.getAttrName() <<
               //                            endl;
-              ProteusValueMemory mem_activeTuple = itBindings->second;
+              ProteusValueMemory mem_activeTuple = binding.second;
               argMem = mem_activeTuple.mem;
               isNull = mem_activeTuple.isNull;
             }

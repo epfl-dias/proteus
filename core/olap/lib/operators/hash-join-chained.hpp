@@ -32,31 +32,32 @@
 
 class HashJoinChained : public BinaryOperator {
  public:
-  HashJoinChained(const std::vector<GpuMatExpr> &build_mat_exprs,
-                  const std::vector<size_t> &build_packet_widths,
+  HashJoinChained(std::vector<GpuMatExpr> build_mat_exprs,
+                  std::vector<size_t> build_packet_widths,
                   expression_t build_keyexpr, Operator *const build_child,
-                  const std::vector<GpuMatExpr> &probe_mat_exprs,
+                  std::vector<GpuMatExpr> probe_mat_exprs,
                   const std::vector<size_t> &probe_packet_widths,
                   expression_t probe_keyexpr, Operator *const probe_child,
                   int hash_bits, size_t maxBuildInputSize,
                   string opLabel = "hj_chained");
-  virtual ~HashJoinChained() {
+  ~HashJoinChained() override {
     LOG(INFO) << "Collapsing HashJoinChained operator";
   }
 
-  virtual void produce_(ParallelContext *context);
+  void produce_(ParallelContext *context) override;
   virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
-  virtual void consume(Context *const context, const OperatorState &childState);
+  void consume(Context *const context,
+               const OperatorState &childState) override;
 
   virtual void open_probe(Pipeline *pip);
   virtual void open_build(Pipeline *pip);
   virtual void close_probe(Pipeline *pip);
   virtual void close_build(Pipeline *pip);
 
-  virtual bool isFiltering() const { return true; }
+  bool isFiltering() const override { return true; }
 
-  virtual RecordType getRowType() const {
+  RecordType getRowType() const override {
     std::vector<RecordAttribute *> ret;
 
     for (const GpuMatExpr &mexpr : build_mat_exprs) {
@@ -116,8 +117,8 @@ class HashJoinChained : public BinaryOperator {
   virtual llvm::Value *replaceHead(ParallelContext *context, llvm::Value *h_ptr,
                                    llvm::Value *index);
 
-  llvm::Value *hash(expression_t exprs, Context *const context,
-                    const OperatorState &childState);
+  llvm::Value *hash(const expression_t &exprs, Context *const context,
+                    const OperatorState &childState) const;
 
   std::vector<GpuMatExpr> build_mat_exprs;
   std::vector<GpuMatExpr> probe_mat_exprs;

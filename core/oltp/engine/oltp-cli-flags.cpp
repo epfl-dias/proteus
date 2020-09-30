@@ -23,6 +23,7 @@
 #include <gflags/gflags.h>
 
 #include <iostream>
+#include <oltp-cli-flags.hpp>
 
 DEFINE_uint32(num_workers, 0, "Number of txn-workers");
 DEFINE_int32(num_iter_per_worker, -1, "Iterations per worker");

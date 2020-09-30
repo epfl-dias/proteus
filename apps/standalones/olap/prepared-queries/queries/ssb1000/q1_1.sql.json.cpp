@@ -30,9 +30,10 @@ constexpr auto query = "ssb1000_Q1_1";
 PreparedStatement Query::prepare11(bool memmv) {
   auto rel2337 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
-              "inputs/ssbm1000/date.csv", {"d_datekey", "d_year"},
-              getCatalog())  // (table=[[SSB, ssbm_date]], fields=[[0, 4]],
+          .scan(
+              "inputs/ssbm1000/date.csv", {"d_datekey", "d_year"}, getCatalog(),
+              pg{Tplugin::
+                     type})  // (table=[[SSB, ssbm_date]], fields=[[0, 4]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .membrdcst(dop, true, true)
           .router(
@@ -55,11 +56,13 @@ PreparedStatement Query::prepare11(bool memmv) {
       ;
   auto rel =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
+          .scan(
               "inputs/ssbm1000/lineorder.csv",
               {"lo_orderdate", "lo_quantity", "lo_extendedprice",
                "lo_discount"},
-              getCatalog())  // (table=[[SSB, ssbm_lineorder]], fields=[[5, 8,
+              getCatalog(),
+              pg{Tplugin::
+                     type})  // (table=[[SSB, ssbm_lineorder]], fields=[[5, 8,
                              // 9, 11]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .router(

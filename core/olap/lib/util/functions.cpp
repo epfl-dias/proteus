@@ -500,7 +500,7 @@ void flushDelim(size_t resultCtr, char whichDelim, char *fileName) {
   }
 }
 
-std::map<std::ostream *, std::map<std::string, int32_t>> dicts;
+static std::map<std::ostream *, std::map<std::string, int32_t>> dicts;
 
 void flushDictIfExists(std::ostream *ptr, const char *fileName) {
   if (!dicts.count(ptr)) return;

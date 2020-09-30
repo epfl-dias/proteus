@@ -30,10 +30,11 @@
 class Root : public UnaryOperator {
  public:
   Root(Operator *const child) : UnaryOperator(child) {}
-  virtual ~Root() { LOG(INFO) << "Collapsing root operator"; }
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return getChild()->isFiltering(); }
+  ~Root() override { LOG(INFO) << "Collapsing root operator"; }
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
+  bool isFiltering() const override { return getChild()->isFiltering(); }
 
  private:
 };

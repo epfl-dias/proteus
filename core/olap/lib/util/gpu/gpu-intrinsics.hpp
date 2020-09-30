@@ -28,9 +28,9 @@
 
 namespace gpu_intrinsic {
 
-llvm::Value *activemask(ParallelContext *const context);
+llvm::Value *activemask(ParallelContext *context);
 
-llvm::Value *load_ca(ParallelContext *const context, llvm::Value *address);
+llvm::Value *load_ca(ParallelContext *context, llvm::Value *address);
 
 llvm::Value *load_ca16(ParallelContext *const context, llvm::Value *address);
 

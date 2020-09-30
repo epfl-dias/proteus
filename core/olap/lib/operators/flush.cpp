@@ -23,34 +23,18 @@
 
 #include "flush.hpp"
 
-#include "memory/memory-manager.hpp"
+#include <utility>
+
 #include "olap/util/parallel-context.hpp"
 
 using namespace llvm;
 
-expression_t buildOutputExpression(const vector<expression_t> &outputExprs) {
-  list<expressions::AttributeConstruction> attrs;
-  std::vector<RecordAttribute *> recattr;
-  for (auto expr : outputExprs) {
-    assert(expr.isRegistered() && "All output expressions must be registered!");
-    expressions::AttributeConstruction *newAttr =
-        new expressions::AttributeConstruction(expr.getRegisteredAttrName(),
-                                               expr);
-    attrs.push_back(*newAttr);
-    recattr.push_back(new RecordAttribute{expr.getRegisteredAs()});
-  }
-  return expression_t::make<expressions::RecordConstruction>(
-      new RecordType(recattr), attrs);
-}
-
 Flush::Flush(vector<expression_t> outputExprs_v, Operator *const child,
-             Context *context, std::string outPath)
+             std::string outPath)
     : UnaryOperator(child),
-      context(context),
-      outPath(outPath),
-      outputExpr(buildOutputExpression(outputExprs_v)),
-      relName(outputExprs_v[0].getRegisteredRelName()),
-      outputExprs_v(outputExprs_v) {}
+      outPath(std::move(outPath)),
+      outputExpr(outputExprs_v),
+      relName(outputExprs_v[0].getRegisteredRelName()) {}
 
 void Flush::produce_(ParallelContext *context) {
   IntegerType *t = Type::getInt64Ty(context->getLLVMContext());
@@ -100,12 +84,7 @@ void Flush::produce_(ParallelContext *context) {
   getChild()->produce(context);
 }
 
-void Flush::consume(Context *const context, const OperatorState &childState) {
-  generate(context, childState);
-}
-
-void Flush::generate(Context *const context,
-                     const OperatorState &childState) const {
+void Flush::consume(ParallelContext *context, const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
 
   ExpressionFlusherVisitor flusher{context, childState, outPath.c_str(),

@@ -60,7 +60,7 @@ class RouterScaleOut : public Router {
     setProducers(producers);
   }
 
-  virtual DegreeOfParallelism getDOP() const { return DegreeOfParallelism{1}; }
+  DegreeOfParallelism getDOP() const override { return DegreeOfParallelism{1}; }
 
   // virtual void produce();
   // virtual void consume(Context *const context, const OperatorState

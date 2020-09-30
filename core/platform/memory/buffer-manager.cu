@@ -34,6 +34,9 @@
 // __device__ __constant__ void * buff_start;
 // __device__ __constant__ void * buff_end  ;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated"
+
 #include <thread>
 
 #include "buffer-manager.cuh"
@@ -44,6 +47,14 @@
 #include "util/threadsafe_device_stack.cuh"
 
 #ifndef NCUDA
+extern __device__ __constant__
+    threadsafe_device_stack<int32_t *, (int32_t *)nullptr> *pool;
+extern __device__ __constant__
+    threadsafe_device_stack<int32_t *, (int32_t *)nullptr> *npool;
+extern __device__ __constant__ int deviceId;
+extern __device__ __constant__ void *buff_start;
+extern __device__ __constant__ void *buff_end;
+
 __device__ __constant__
     threadsafe_device_stack<int32_t *, (int32_t *)nullptr> *pool;
 __device__ __constant__
@@ -187,7 +198,7 @@ __device__ int32_t *get_buffers() {
   uint32_t mask = __activemask();
   uint32_t b = __ballot_sync(mask, 1);
   uint32_t m = 1 << get_laneid();
-  int32_t *ret;
+  int32_t *ret = nullptr;
   do {
     uint32_t leader = b & -b;
 
@@ -298,17 +309,17 @@ __global__ void get_buffer_host(void **buff, int buffs) {
 }
 #endif
 
-int num_of_gpus;
-int num_of_cpus;
+static int num_of_gpus;
+static int num_of_cpus;
 
 inline int get_gpu_count() { return num_of_gpus; }
 
 inline int get_cpu_numa_node_count() { return num_of_cpus; }
 
-int cpu_cnt;
+static int cpu_cnt;
 // cpu_set_t                                          *gpu_affinity;
-cpu_set_t *cpu_numa_affinity;
-int *gpu_numa_node;
+static cpu_set_t *cpu_numa_affinity;
+static int *gpu_numa_node;
 
 #if defined(__clang__) && defined(__CUDA__)
 template <typename T>
@@ -410,8 +421,8 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
 
       set_exec_location_on_scope d(gpu);
 
-      T *mem;
-      size_t pitch;
+      T *mem = nullptr;
+      size_t pitch = 0;
       gpu_run(cudaMallocPitch(&mem, &pitch, h_vector_size * sizeof(T), size));
 
       vector<T *> buffs;
@@ -443,8 +454,8 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
       h_buff_start[j] = mem;
       h_buff_end[j] = e;
 
-      int greatest;
-      int lowest;
+      int greatest = 0;
+      int lowest = 0;
       gpu_run(cudaDeviceGetStreamPriorityRange(&greatest, &lowest));
       // std::cout << greatest << " " << lowest << std::endl;
       gpu_run(cudaStreamCreateWithPriority(&(release_streams[j]),
@@ -738,8 +749,8 @@ __host__ void buffer_manager<T>::find_released_buffers(size_t freq) {
 
   for (const auto &gpu : topo.getGpus()) {
     set_device_on_scope d(gpu);
-    int greatest;
-    int lowest;
+    int greatest = 0;
+    int lowest = 0;
     gpu_run(cudaDeviceGetStreamPriorityRange(&greatest, &lowest));
     // std::cout << greatest << " " << lowest << std::endl;
     gpu_run(cudaStreamCreateWithPriority(strs + gpu.id, cudaStreamNonBlocking,
@@ -901,11 +912,9 @@ void call_GpuHashRearrange_acq_buffs(size_t cnt, cudaStream_t strm,
 
 extern "C" {
 void gpu_memset(void *dst, int32_t val, size_t size) {
-  cudaStream_t strm;
-  gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+  cudaStream_t strm = createNonBlockingStream();
   gpu_run(cudaMemsetAsync(dst, val, size, strm));
-  gpu_run(cudaStreamSynchronize(strm));
-  gpu_run(cudaStreamDestroy(strm));
+  syncAndDestroyStream(strm);
 }
 }
 
@@ -1041,3 +1050,5 @@ extern "C" __host__ __device__ void logi8ptr(const char *x,
                                              decltype(__builtin_LINE()) line) {
   log_impl(x, file, line);
 }
+
+#pragma clang diagnostic pop

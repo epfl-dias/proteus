@@ -29,11 +29,12 @@ class Print : public UnaryOperator {
   Print(llvm::Function *debug, expressions::RecordProjection *arg,
         Operator *const child)
       : UnaryOperator(child), arg(arg), print(debug) {}
-  virtual ~Print() { LOG(INFO) << "Collapsing print operator"; }
+  ~Print() override { LOG(INFO) << "Collapsing print operator"; }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return getChild()->isFiltering(); }
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
+  bool isFiltering() const override { return getChild()->isFiltering(); }
 
  private:
   expressions::RecordProjection *arg;

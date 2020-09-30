@@ -52,3 +52,11 @@ export(TARGETS aeolus_plugin FILE ${PROJECT_NAME}Config.cmake)
 add_library(aeolus::plugin ALIAS aeolus_plugin)
 #enable_testing()
 #add_test(UT aeolus_plugin-tests)
+
+# FIXME: remove after old warnings are fixed
+target_compile_options(
+        aeolus_plugin
+    PRIVATE # Not PUBLIC to at least avoid leaking the issue across libs
+        "-Wno-error=suggest-override"
+        "-Wno-error=suggest-destructor-override"
+)

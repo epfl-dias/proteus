@@ -112,8 +112,7 @@ OutputPlugin::OutputPlugin(
    * Atm, that's always the case when dealing with e.g. JSON that is lazily
    * materialized
    */
-  for (std::vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
-       it != wantedFields.end(); it++) {
+  for (const auto &wantedField : wantedFields) {
     // map<RecordAttribute, ProteusValueMemory>::const_iterator itSearch =
     // currentBindings.find(*(*it));
 
@@ -121,11 +120,11 @@ OutputPlugin::OutputPlugin(
     /* expr does not participate in caching search, so don't need it explicitly
      * => mock */
     list<RecordAttribute *> mockAtts = list<RecordAttribute *>();
-    mockAtts.push_back(*it);
+    mockAtts.push_back(wantedField);
     list<RecordAttribute> mockProjections;
     RecordType mockRec = RecordType(mockAtts);
     expressions::InputArgument mockExpr{&mockRec, 0, mockProjections};
-    expressions::RecordProjection e = expression_t{mockExpr}[*(*it)];
+    expressions::RecordProjection e = expression_t{mockExpr}[*wantedField];
     CacheInfo info = cache.getCache(&e);
     bool isCached = false;
     if (info.structFieldNo != -1) {
@@ -139,20 +138,22 @@ OutputPlugin::OutputPlugin(
     }
 
     // Field needed
-    if (isCached == true) {
+    if (isCached) {
       LOG(INFO) << "[MATERIALIZER: ] *CACHED* PART OF PAYLOAD: "
-                << (*it)->getAttrName();
+                << wantedField->getAttrName();
       materialization_mode mode = (materializer.getOutputMode()).at(attrNo++);
       // gather datatypes: caches can only have int32 or float!!!
-      llvm::Type *requestedType = (*it)->getLLVMType(context->getLLVMContext());
+      llvm::Type *requestedType =
+          wantedField->getLLVMType(context->getLLVMContext());
       isComplex = false;
       materializedTypes->push_back(requestedType);
       int fieldSize = requestedType->getPrimitiveSizeInBits() / 8;
       fieldSizes.push_back(fieldSize);
       payload_type_size += fieldSize;
     } else {
-      LOG(INFO) << "[MATERIALIZER: ] PART OF PAYLOAD: " << (*it)->getAttrName();
-      cout << "[MATERIALIZER: ] PART OF PAYLOAD: " << (*it)->getAttrName()
+      LOG(INFO) << "[MATERIALIZER: ] PART OF PAYLOAD: "
+                << wantedField->getAttrName();
+      cout << "[MATERIALIZER: ] PART OF PAYLOAD: " << wantedField->getAttrName()
            << endl;
 
       materialization_mode mode = (materializer.getOutputMode()).at(attrNo++);
@@ -162,17 +163,17 @@ OutputPlugin::OutputPlugin(
       //     currType =
       //     itSearch->second.mem->getType()->getPointerElementType();//(*it)->getLLVMType(context->getLLVMContext());//->getAllocatedType();
       // } else {
-      currType = (*it)->getLLVMType(context->getLLVMContext());
+      currType = wantedField->getLLVMType(context->getLLVMContext());
       // }
       llvm::Type *requestedType =
-          chooseType((*it)->getOriginalType(), currType, mode);
+          chooseType(wantedField->getOriginalType(), currType, mode);
       // requestedType->dump();
       materializedTypes->push_back(requestedType);
       int fieldSize = requestedType->getPrimitiveSizeInBits() / 8;
       fieldSizes.push_back(fieldSize);
       payload_type_size += fieldSize;
       // cout << "Field Size "<< fieldSize << endl;
-      typeID id = (*it)->getOriginalType()->getTypeID();
+      typeID id = wantedField->getOriginalType()->getTypeID();
       switch (id) {
         case BOOL:
         case INT:
@@ -231,7 +232,7 @@ llvm::Value *OutputPlugin::getRuntimePayloadTypeSize() {
   int attrNo = 0;
   const std::vector<RecordAttribute *> &wantedFields =
       materializer.getWantedFields();
-  std::vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
+  auto it = wantedFields.begin();
   for (; it != wantedFields.end(); it++) {
     map<RecordAttribute, ProteusValueMemory>::const_iterator itSearch =
         currentBindings->find(*(*it));
@@ -276,7 +277,6 @@ llvm::Type *OutputPlugin::chooseType(const ExpressionType *exprType,
           << "[OUTPUT PG: ] DEALING WITH COLLECTION TYPE - NOT SUPPORTED YET";
       throw runtime_error(string(
           "[OUTPUT PG: ] DEALING WITH COLLECTION TYPE - NOT SUPPORTED YET"));
-      break;
     case RECORD:  // I am not sure if this is case can occur
       LOG(ERROR)
           << "[OUTPUT PG: ] DEALING WITH RECORD TYPE - NOT SUPPORTED YET";

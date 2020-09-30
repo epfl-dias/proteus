@@ -32,17 +32,17 @@ class CpuToGpu : public DeviceCross {
   CpuToGpu(Operator *const child, const vector<RecordAttribute *> &wantedFields)
       : DeviceCross(child), wantedFields(wantedFields) {}
 
-  virtual ~CpuToGpu() { LOG(INFO) << "Collapsing CpuToGpu operator"; }
+  ~CpuToGpu() override { LOG(INFO) << "Collapsing CpuToGpu operator"; }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(ParallelContext *const context,
-                       const OperatorState &childState);
+  void produce_(ParallelContext *context) override;
+  void consume(ParallelContext *const context,
+               const OperatorState &childState) override;
 
   virtual void generateGpuSide(ParallelContext *context);
 
-  virtual RecordType getRowType() const { return wantedFields; }
+  RecordType getRowType() const override { return wantedFields; }
 
-  virtual DeviceType getDeviceType() const {
+  DeviceType getDeviceType() const override {
     assert(getChild()->getDeviceType() == DeviceType::CPU);
     return DeviceType::GPU;
   }

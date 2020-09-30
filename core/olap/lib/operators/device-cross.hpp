@@ -35,8 +35,8 @@ class DeviceCross : public UnaryOperator {
   virtual void consume(ParallelContext *const context,
                        const OperatorState &childState) = 0;
 
-  virtual void consume(Context *const context,
-                       const OperatorState &childState) {
+  void consume(Context *const context,
+               const OperatorState &childState) override {
     ParallelContext *ctx = dynamic_cast<ParallelContext *>(context);
     if (!ctx) {
       string error_msg =
@@ -48,7 +48,7 @@ class DeviceCross : public UnaryOperator {
     consume(ctx, childState);
   }
 
-  virtual bool isFiltering() const { return false; }
+  bool isFiltering() const override { return false; }
 };
 
 #endif /* DEVICE_CROSS_HPP_ */

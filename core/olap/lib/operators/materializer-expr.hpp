@@ -52,10 +52,11 @@ class ExprMaterializer : public UnaryOperator {
   ExprMaterializer(expressions::Expression *expr, int linehint,
                    Operator *const child, Context *const context,
                    char *opLabel);
-  virtual ~ExprMaterializer();
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return false; }
+  ~ExprMaterializer() override;
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
+  bool isFiltering() const override { return false; }
 
  private:
   void freeArenas() const;

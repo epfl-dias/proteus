@@ -72,7 +72,7 @@ using namespace llvm;
 
 class GPUSSBTest : public ::testing::Test {
  protected:
-  virtual void SetUp();
+  void SetUp() override;
   virtual void TeadDown() { StorageManager::getInstance().unloadAll(); }
 
   void runAndVerify(const char *testLabel, const char *planPath,

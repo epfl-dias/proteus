@@ -30,10 +30,10 @@ constexpr auto query = "ssb100_Q1_3";
 PreparedStatement Query::prepare13(bool memmv, SLAZY conf, size_t bloomSize) {
   auto rel2337 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
+          .scan(
               "inputs/ssbm100/date.csv",
-              {"d_datekey", "d_year", "d_weeknuminyear"},
-              getCatalog())  // (table=[[SSB, ssbm_date]], fields=[[0, 4]],
+              {"d_datekey", "d_year", "d_weeknuminyear"}, getCatalog(),
+              pg{Tplugin::type})  // (table=[[SSB, ssbm_date]], fields=[[0, 4]],
           // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           //          .to_gpu()
           .membrdcst(dop, true, true)
@@ -59,11 +59,12 @@ PreparedStatement Query::prepare13(bool memmv, SLAZY conf, size_t bloomSize) {
 
   auto rel =
       getBuilder<Tplugin>()
-          .scan<Tplugin>("inputs/ssbm100/lineorder.csv",
-                         {"lo_orderdate", "lo_quantity", "lo_extendedprice",
-                          "lo_discount"},
-                         getCatalog())  // (table=[[SSB, ssbm_lineorder]],
-                                        // fields=[[5, 8, 9, 11]],
+          .scan("inputs/ssbm100/lineorder.csv",
+                {"lo_orderdate", "lo_quantity", "lo_extendedprice",
+                 "lo_discount"},
+                getCatalog(),
+                pg{Tplugin::type})  // (table=[[SSB, ssbm_lineorder]],
+                                    // fields=[[5, 8, 9, 11]],
           // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .router(DegreeOfParallelism{48}, 8, RoutingPolicy::LOCAL,
                   DeviceType::CPU)
@@ -139,11 +140,12 @@ PreparedStatement Query::prepare13(bool memmv, SLAZY conf, size_t bloomSize) {
 PreparedStatement Query::prepare13_b(bool memmv, size_t bloomSize) {
   auto rel =
       getBuilder<Tplugin>()
-          .scan<Tplugin>("inputs/ssbm100/lineorder.csv",
-                         {"lo_orderdate", "lo_quantity", "lo_extendedprice",
-                          "lo_discount"},
-                         getCatalog())  // (table=[[SSB, ssbm_lineorder]],
-                                        // fields=[[5, 8, 9, 11]],
+          .scan("inputs/ssbm100/lineorder.csv",
+                {"lo_orderdate", "lo_quantity", "lo_extendedprice",
+                 "lo_discount"},
+                getCatalog(),
+                pg{Tplugin::type})  // (table=[[SSB, ssbm_lineorder]],
+                                    // fields=[[5, 8, 9, 11]],
           // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .router(DegreeOfParallelism{48}, 8, RoutingPolicy::LOCAL,
                   DeviceType::CPU)

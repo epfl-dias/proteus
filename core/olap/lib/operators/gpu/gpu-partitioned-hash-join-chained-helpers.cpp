@@ -308,9 +308,9 @@ __global__ void build_partitions(const int32_t *__restrict__ S,
       if (cnt > 0) {
         atomicAdd(out_cnts + (pid << log_parts) + j, cnt);  // Is this needed ?
 
-        uint32_t pcnt;
-        uint32_t bucket;
-        uint32_t next_buck;
+        uint32_t pcnt = 0;
+        uint32_t bucket = 0;
+        uint32_t next_buck = 0;
 
         // assert(cnt <= bucket_size);
         bool repeat = true;

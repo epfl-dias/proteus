@@ -36,15 +36,16 @@ class GpuSort : public UnaryOperator {
           const std::vector<direction> &dirs,
           gran_t granularity = gran_t::GRID);
 
-  virtual ~GpuSort() { LOG(INFO) << "Collapsing GpuSort operator"; }
+  ~GpuSort() override { LOG(INFO) << "Collapsing GpuSort operator"; }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
   virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
-  virtual bool isFiltering() const { return false; }
+  bool isFiltering() const override { return false; }
 
-  virtual RecordType getRowType() const {
+  RecordType getRowType() const override {
     std::vector<RecordAttribute *> attrs;
     for (const auto &attr : orderByFields) {
       attrs.emplace_back(new RecordAttribute{attr.getRegisteredAs()});

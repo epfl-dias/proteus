@@ -47,12 +47,13 @@ class Unnest : public UnaryOperator {
                     dynamic_cast<const expressions::RecordProjection *>(
                         path.getUnderlyingExpression())),
                child) {}
-  virtual ~Unnest() { LOG(INFO) << "Collapsing Unnest operator"; }
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return true; }
+  ~Unnest() override { LOG(INFO) << "Collapsing Unnest operator"; }
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
+  bool isFiltering() const override { return true; }
 
-  virtual RecordType getRowType() const;
+  RecordType getRowType() const override;
 
  private:
   void generate(Context *const context, const OperatorState &childState) const;

@@ -34,15 +34,16 @@ class Sort : public UnaryOperator {
        const vector<expression_t> &orderByFields,
        const vector<direction> &dirs);
 
-  virtual ~Sort() { LOG(INFO) << "Collapsing Sort operator"; }
+  ~Sort() override { LOG(INFO) << "Collapsing Sort operator"; }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
   virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
-  virtual bool isFiltering() const { return false; }
+  bool isFiltering() const override { return false; }
 
-  virtual RecordType getRowType() const {
+  RecordType getRowType() const override {
     std::vector<RecordAttribute *> attrs;
     for (const auto &attr : orderByFields) {
       attrs.emplace_back(new RecordAttribute{attr.getRegisteredAs()});

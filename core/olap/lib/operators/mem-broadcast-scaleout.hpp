@@ -33,15 +33,15 @@ class MemBroadcastScaleOut : public MemBroadcastDevice {
  public:
   class MemBroadcastConf : public MemBroadcastDevice::MemBroadcastConf {
    public:
-    virtual void propagateBroadcast(MemMoveDevice::workunit *buff,
-                                    int target_device);
+    void propagateBroadcast(MemMoveDevice::workunit *buff,
+                            int target_device) override;
 
-    virtual buff_pair pushBroadcast(void *src, size_t bytes, int target_device,
-                                    bool disable_noop);
+    buff_pair pushBroadcast(void *src, size_t bytes, int target_device,
+                            bool disable_noop) override;
 
-    virtual void *pull(void *buff);
+    void *pull(void *buff) override;
 
-    virtual bool getPropagated(MemMoveDevice::workunit **ret);
+    bool getPropagated(MemMoveDevice::workunit **ret) override;
   };
 
   MemBroadcastScaleOut(Operator *const child, ParallelContext *const context,
@@ -51,7 +51,7 @@ class MemBroadcastScaleOut : public MemBroadcastDevice {
       : MemBroadcastDevice(child, context, wantedFields, num_of_targets, to_cpu,
                            always_share) {}
 
-  virtual MemBroadcastConf *createMoveConf() const;
+  MemBroadcastConf *createMoveConf() const override;
 };
 
 #endif /* MEM_BROADCAST_SCALEOUT_HPP_ */

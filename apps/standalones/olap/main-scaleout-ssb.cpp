@@ -22,12 +22,8 @@
 */
 
 #include <arpa/inet.h>
-#include <err.h>
 #include <gflags/gflags.h>
-#include <netdb.h>
 #include <rdma/rdma_cma.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 
 #include <network/infiniband/infiniband-manager.hpp>
 #include <olap/operators/relbuilder-factory.hpp>
@@ -48,29 +44,28 @@
 #include "util/logging.hpp"
 #include "util/profiling.hpp"
 
-std::string date = "inputs/ssbm1000/date.csv";
+static std::string date = "inputs/ssbm1000/date.csv";
 
-std::string d_datekey = "d_datekey";
-std::string d_year = "d_year";
-std::string d_weeknuminyear = "d_weeknuminyear";
+static std::string d_datekey = "d_datekey";
+static std::string d_year = "d_year";
+static std::string d_weeknuminyear = "d_weeknuminyear";
 
-std::string lineorder = "inputs/ssbm1000/lineorder.csv";
+static std::string lineorder = "inputs/ssbm1000/lineorder.csv";
 
-std::string lo_quantity = "lo_quantity";
-std::string lo_discount = "lo_discount";
-std::string lo_extendedprice = "lo_extendedprice";
-std::string lo_orderdate = "lo_orderdate";
+static std::string lo_quantity = "lo_quantity";
+static std::string lo_discount = "lo_discount";
+static std::string lo_extendedprice = "lo_extendedprice";
+static std::string lo_orderdate = "lo_orderdate";
 
-std::string revenue = "revenue";
+static std::string revenue = "revenue";
 
 auto scan_sum(ParallelContext *ctx, CatalogParser &catalog, size_t slack) {
   auto rel =
       RelBuilderFactory{__FUNCTION__}
           .getBuilder()
-          .scan<BinaryBlockPlugin>(
-              lineorder,
-              // {lo_orderdate, lo_quantity, lo_discount, lo_extendedprice},
-              {lo_discount}, catalog)
+          .scan(lineorder,
+                // {lo_orderdate, lo_quantity, lo_discount, lo_extendedprice},
+                {lo_discount}, catalog, pg{BinaryBlockPlugin::type})
           .unpack()
           // .filter([&](const auto &arg) -> expression_t {
           //   return lt(arg[lo_quantity], 25) & ge(arg[lo_discount], 1) &
@@ -97,8 +92,8 @@ auto scan_sum_scaleout(ParallelContext *ctx, CatalogParser &catalog,
   auto rel =
       RelBuilderFactory{__FUNCTION__}
           .getBuilder()
-          .scan<BinaryBlockPlugin>(lineorder, {lo_orderdate, lo_discount},
-                                   catalog)
+          .scan(lineorder, {lo_orderdate, lo_discount}, catalog,
+                pg{BinaryBlockPlugin::type})
           .router(DegreeOfParallelism{dop}, slack, RoutingPolicy::LOCAL,
                   DeviceType::CPU)
           .unpack()
@@ -128,46 +123,46 @@ auto ssb_q11(ParallelContext *ctx, CatalogParser &catalog, size_t slack) {
   RelBuilderFactory factory{__FUNCTION__};
   auto rel_date =
       factory.getBuilder()
-          .scan<BinaryBlockPlugin>(date, {d_datekey, d_year}, catalog)
+          .scan(date, {d_datekey, d_year}, catalog, pg{BinaryBlockPlugin::type})
           .unpack()
           .filter([&](const auto &arg) -> expression_t {
             return eq(arg[d_year], 1993);
           });
 
-  auto rel = factory.getBuilder()
-                 .scan<BinaryBlockPlugin>(
-                     lineorder,
-                     {lo_orderdate, lo_quantity, lo_discount, lo_extendedprice},
-                     catalog)
-                 .filter([&](const auto &arg) -> expression_t {
-                   return lt(arg[lo_quantity], 25) & ge(arg[lo_discount], 1) &
-                          le(arg[lo_discount], 3);
-                 })
-                 .join(
-                     rel_date,
-                     [&](const auto &build_arg) -> expression_t {
-                       return build_arg[d_datekey];
-                     },
-                     [&](const auto &build_arg) -> std::vector<GpuMatExpr> {
-                       return {};
-                     },
-                     {64},
-                     [&](const auto &probe_arg) -> expression_t {
-                       return probe_arg[lo_orderdate];
-                     },
-                     [&](const auto &probe_arg) -> std::vector<GpuMatExpr> {
-                       return {GpuMatExpr{(probe_arg[lo_discount] *
-                                           probe_arg[lo_extendedprice])
-                                              .as(lineorder, revenue),
-                                          1, 0}};
-                     },
-                     {64, 32}, 9, 1024)
-                 .reduce(
-                     [&](const auto &arg) -> std::vector<expression_t> {
-                       return {arg[revenue]};
-                     },
-                     {SUM})
-                 .print(pg{"pm-csv"});
+  auto rel =
+      factory.getBuilder()
+          .scan(lineorder,
+                {lo_orderdate, lo_quantity, lo_discount, lo_extendedprice},
+                catalog, pg{BinaryBlockPlugin::type})
+          .filter([&](const auto &arg) -> expression_t {
+            return lt(arg[lo_quantity], 25) & ge(arg[lo_discount], 1) &
+                   le(arg[lo_discount], 3);
+          })
+          .join(
+              rel_date,
+              [&](const auto &build_arg) -> expression_t {
+                return build_arg[d_datekey];
+              },
+              [&](const auto &build_arg) -> std::vector<GpuMatExpr> {
+                return {};
+              },
+              {64},
+              [&](const auto &probe_arg) -> expression_t {
+                return probe_arg[lo_orderdate];
+              },
+              [&](const auto &probe_arg) -> std::vector<GpuMatExpr> {
+                return {GpuMatExpr{
+                    (probe_arg[lo_discount] * probe_arg[lo_extendedprice])
+                        .as(lineorder, revenue),
+                    1, 0}};
+              },
+              {64, 32}, 9, 1024)
+          .reduce(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {arg[revenue]};
+              },
+              {SUM})
+          .print(pg{"pm-csv"});
 
   return rel.prepare();
 }
@@ -182,7 +177,7 @@ auto ssb_q11_par(ParallelContext *ctx, CatalogParser &catalog, size_t slack) {
   }
   auto rel_date =
       factory.getBuilder()
-          .scan<BinaryBlockPlugin>(date, {d_datekey, d_year}, catalog)
+          .scan(date, {d_datekey, d_year}, catalog, pg{BinaryBlockPlugin::type})
           .membrdcst(DegreeOfParallelism{dop}, true)
           .router(
               [&](const auto &arg) -> std::vector<RecordAttribute *> {
@@ -199,50 +194,50 @@ auto ssb_q11_par(ParallelContext *ctx, CatalogParser &catalog, size_t slack) {
             return eq(arg[d_year], 1993);
           });
 
-  auto rel = factory.getBuilder()
-                 .scan<BinaryBlockPlugin>(
-                     lineorder,
-                     {lo_orderdate, lo_quantity, lo_discount, lo_extendedprice},
-                     catalog)
-                 .router(DegreeOfParallelism{dop}, slack, RoutingPolicy::LOCAL,
-                         DeviceType::CPU)
-                 .unpack()
-                 .filter([&](const auto &arg) -> expression_t {
-                   return lt(arg[lo_quantity], 25) & ge(arg[lo_discount], 1) &
-                          le(arg[lo_discount], 3);
-                 })
-                 .join(
-                     rel_date,
-                     [&](const auto &build_arg) -> expression_t {
-                       return build_arg[d_datekey];
-                     },
-                     [&](const auto &build_arg) -> std::vector<GpuMatExpr> {
-                       return {};
-                     },
-                     {64},
-                     [&](const auto &probe_arg) -> expression_t {
-                       return probe_arg[lo_orderdate];
-                     },
-                     [&](const auto &probe_arg) -> std::vector<GpuMatExpr> {
-                       return {GpuMatExpr{(probe_arg[lo_discount] *
-                                           probe_arg[lo_extendedprice])
-                                              .as(lineorder, revenue),
-                                          1, 0}};
-                     },
-                     {64, 32}, 9, 1024)
-                 .reduce(
-                     [&](const auto &arg) -> std::vector<expression_t> {
-                       return {arg[revenue]};
-                     },
-                     {SUM})
-                 .router(DegreeOfParallelism{1}, slack, RoutingPolicy::RANDOM,
-                         DeviceType::CPU)
-                 .reduce(
-                     [&](const auto &arg) -> std::vector<expression_t> {
-                       return {arg[revenue]};
-                     },
-                     {SUM})
-                 .print(pg{"pm-csv"});
+  auto rel =
+      factory.getBuilder()
+          .scan(lineorder,
+                {lo_orderdate, lo_quantity, lo_discount, lo_extendedprice},
+                catalog, pg{BinaryBlockPlugin::type})
+          .router(DegreeOfParallelism{dop}, slack, RoutingPolicy::LOCAL,
+                  DeviceType::CPU)
+          .unpack()
+          .filter([&](const auto &arg) -> expression_t {
+            return lt(arg[lo_quantity], 25) & ge(arg[lo_discount], 1) &
+                   le(arg[lo_discount], 3);
+          })
+          .join(
+              rel_date,
+              [&](const auto &build_arg) -> expression_t {
+                return build_arg[d_datekey];
+              },
+              [&](const auto &build_arg) -> std::vector<GpuMatExpr> {
+                return {};
+              },
+              {64},
+              [&](const auto &probe_arg) -> expression_t {
+                return probe_arg[lo_orderdate];
+              },
+              [&](const auto &probe_arg) -> std::vector<GpuMatExpr> {
+                return {GpuMatExpr{
+                    (probe_arg[lo_discount] * probe_arg[lo_extendedprice])
+                        .as(lineorder, revenue),
+                    1, 0}};
+              },
+              {64, 32}, 9, 1024)
+          .reduce(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {arg[revenue]};
+              },
+              {SUM})
+          .router(DegreeOfParallelism{1}, slack, RoutingPolicy::RANDOM,
+                  DeviceType::CPU)
+          .reduce(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {arg[revenue]};
+              },
+              {SUM})
+          .print(pg{"pm-csv"});
 
   return rel.prepare();
 }
@@ -257,8 +252,8 @@ auto ssb_q13_par(ParallelContext *ctx, CatalogParser &catalog, size_t slack) {
   }
   auto rel_date =
       factory.getBuilder()
-          .scan<BinaryBlockPlugin>(date, {d_datekey, d_weeknuminyear, d_year},
-                                   catalog)
+          .scan(date, {d_datekey, d_weeknuminyear, d_year}, catalog,
+                pg{BinaryBlockPlugin::type})
           .membrdcst(DegreeOfParallelism{dop}, true)
           .router(
               [&](const auto &arg) -> std::vector<RecordAttribute *> {
@@ -277,50 +272,50 @@ auto ssb_q13_par(ParallelContext *ctx, CatalogParser &catalog, size_t slack) {
             return eq(arg[d_weeknuminyear], 6) & eq(arg[d_year], 1994);
           });
 
-  auto rel = factory.getBuilder()
-                 .scan<BinaryBlockPlugin>(
-                     lineorder,
-                     {lo_orderdate, lo_quantity, lo_discount, lo_extendedprice},
-                     catalog)
-                 .router(DegreeOfParallelism{dop}, slack, RoutingPolicy::LOCAL,
-                         DeviceType::CPU)
-                 .unpack()
-                 .filter([&](const auto &arg) -> expression_t {
-                   return ge(arg[lo_discount], 5) & le(arg[lo_discount], 7) &
-                          ge(arg[lo_quantity], 26) & le(arg[lo_quantity], 35);
-                 })
-                 .join(
-                     rel_date,
-                     [&](const auto &build_arg) -> expression_t {
-                       return build_arg[d_datekey];
-                     },
-                     [&](const auto &build_arg) -> std::vector<GpuMatExpr> {
-                       return {};
-                     },
-                     {64},
-                     [&](const auto &probe_arg) -> expression_t {
-                       return probe_arg[lo_orderdate];
-                     },
-                     [&](const auto &probe_arg) -> std::vector<GpuMatExpr> {
-                       return {GpuMatExpr{(probe_arg[lo_discount] *
-                                           probe_arg[lo_extendedprice])
-                                              .as(lineorder, revenue),
-                                          1, 0}};
-                     },
-                     {64, 32}, 4, 16)
-                 .reduce(
-                     [&](const auto &arg) -> std::vector<expression_t> {
-                       return {arg[revenue]};
-                     },
-                     {SUM})
-                 .router(DegreeOfParallelism{1}, slack, RoutingPolicy::RANDOM,
-                         DeviceType::CPU)
-                 .reduce(
-                     [&](const auto &arg) -> std::vector<expression_t> {
-                       return {arg[revenue]};
-                     },
-                     {SUM})
-                 .print(pg{"pm-csv"});
+  auto rel =
+      factory.getBuilder()
+          .scan(lineorder,
+                {lo_orderdate, lo_quantity, lo_discount, lo_extendedprice},
+                catalog, pg{BinaryBlockPlugin::type})
+          .router(DegreeOfParallelism{dop}, slack, RoutingPolicy::LOCAL,
+                  DeviceType::CPU)
+          .unpack()
+          .filter([&](const auto &arg) -> expression_t {
+            return ge(arg[lo_discount], 5) & le(arg[lo_discount], 7) &
+                   ge(arg[lo_quantity], 26) & le(arg[lo_quantity], 35);
+          })
+          .join(
+              rel_date,
+              [&](const auto &build_arg) -> expression_t {
+                return build_arg[d_datekey];
+              },
+              [&](const auto &build_arg) -> std::vector<GpuMatExpr> {
+                return {};
+              },
+              {64},
+              [&](const auto &probe_arg) -> expression_t {
+                return probe_arg[lo_orderdate];
+              },
+              [&](const auto &probe_arg) -> std::vector<GpuMatExpr> {
+                return {GpuMatExpr{
+                    (probe_arg[lo_discount] * probe_arg[lo_extendedprice])
+                        .as(lineorder, revenue),
+                    1, 0}};
+              },
+              {64, 32}, 4, 16)
+          .reduce(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {arg[revenue]};
+              },
+              {SUM})
+          .router(DegreeOfParallelism{1}, slack, RoutingPolicy::RANDOM,
+                  DeviceType::CPU)
+          .reduce(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {arg[revenue]};
+              },
+              {SUM})
+          .print(pg{"pm-csv"});
 
   return rel.prepare();
 }

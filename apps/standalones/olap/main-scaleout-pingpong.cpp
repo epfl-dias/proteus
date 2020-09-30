@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
 
   if (FLAGS_primary) {
     void *v_data;
-    auto v_size = (size_t{4} * 1024) * 1024 * 1024;
+    auto v_size = (size_t{25} * 1024) * 1024 * 1024;
     {
       // v_data = mmap(nullptr, v_size, PROT_READ | PROT_WRITE,
       //               MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
@@ -242,19 +242,26 @@ int main(int argc, char *argv[]) {
       LOG(INFO) << kb.first << " " << kb.second;
 
       auto v = StorageManager::getInstance()
-                   .getOrLoadFile("inputs/ssbm100/lineorder.csv.lo_orderdate",
+                   .getOrLoadFile("inputs/ssbm1000/lineorder.csv.lo_orderdate",
                                   4, PINNED)
                    .get();
 
       {
-        v_data = mmap(nullptr, v_size, PROT_READ | PROT_WRITE,
-                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
-        assert(v_data != MAP_FAILED);
-        // v_data = MemoryManager::mallocPinned(v_size);
+        //        v_data = mmap(nullptr, v_size, PROT_READ | PROT_WRITE,
+        //                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1,
+        //                      0);
+        //        assert(v_data != MAP_FAILED);
+        //        // v_data = MemoryManager::mallocPinned(v_size);
+        //        CUdeviceptr d_A{};
+        //        gpu_run(cuMemAlloc(&d_A, v_size));
+        v_data = MemoryManager::mallocGpu(v_size);  // v[0].size);
+        //        v_data = (void *) d_A;
+        assert(v_size >= v[0].size);
         InfiniBandManager::reg(v_data, v_size);
-        memcpy(v_data, v[0].data, v[0].size);
+        gpu_run(cudaMemcpy(v_data, v[0].data, v[0].size, cudaMemcpyDefault));
+        //        memcpy(v_data, v[0].data, v[0].size);
       }
-
+      LOG(INFO) << v_data << " " << bytes{v_size};
       // InfiniBandManager::reg((void *)v[0].data, v[0].size);
       profiling::resume();
       InfiniBandManager::send((char *)v_data, 0);
@@ -295,7 +302,8 @@ int main(int argc, char *argv[]) {
       });
     }
     InfiniBandManager::unreg(v_data);
-    munmap(v_data, v_size);
+    MemoryManager::freeGpu(v_data);
+    //    munmap(v_data, v_size);
     profiling::pause();
 
     std::cout << "DONE" << std::endl;

@@ -277,7 +277,7 @@ ExpressionType* getProteusType(
         default: {
           auto msg = std::string{"Unknown integer type of size: "} +
                      std::to_string(std::get<2>(col));
-          LOG(FATAL) << msg;
+          LOG(ERROR) << msg;
           throw std::runtime_error(msg);
         }
       }
@@ -289,7 +289,7 @@ ExpressionType* getProteusType(
         default: {
           auto msg = std::string{"Unknown float type of size: "} +
                      std::to_string(std::get<2>(col));
-          LOG(FATAL) << msg;
+          LOG(ERROR) << msg;
           throw std::runtime_error(msg);
         }
       }
@@ -302,7 +302,7 @@ ExpressionType* getProteusType(
       if (std::get<3>(col) == nullptr) {
         auto msg = std::string{"Column[" + std::get<0>(col) +
                                "] with type DSTRING with no dictionary."};
-        LOG(FATAL) << msg;
+        LOG(ERROR) << msg;
         throw std::runtime_error(msg);
       }
       // std::map<int, std::string> *d = new std::map<int, std::string>;
@@ -315,7 +315,7 @@ ExpressionType* getProteusType(
         default: {
           auto msg = std::string{"Unknown date type of size: "} +
                      std::to_string(std::get<2>(col));
-          LOG(FATAL) << msg;
+          LOG(ERROR) << msg;
           throw std::runtime_error(msg);
         }
       }
@@ -323,12 +323,12 @@ ExpressionType* getProteusType(
     case MV:
     case META: {
       auto msg = std::string{"Illegal  type"};
-      LOG(FATAL) << msg;
+      LOG(ERROR) << msg;
       throw std::runtime_error(msg);
     }
     default: {
       auto msg = std::string{"Unknown type"};
-      LOG(FATAL) << msg;
+      LOG(ERROR) << msg;
       throw std::runtime_error(msg);
     }
   }

@@ -34,12 +34,13 @@ class Project : public UnaryOperator {
  public:
   Project(vector<expression_t> outputExprs, string relName,
           Operator *const child, Context *context);
-  virtual ~Project() { LOG(INFO) << "Collapsing Project operator"; }
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return getChild()->isFiltering(); }
+  ~Project() override { LOG(INFO) << "Collapsing Project operator"; }
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
+  bool isFiltering() const override { return getChild()->isFiltering(); }
 
-  virtual RecordType getRowType() const {
+  RecordType getRowType() const override {
     std::vector<RecordAttribute *> attrs;
     for (const auto &attr : outputExprs) {
       attrs.emplace_back(new RecordAttribute{attr.getRegisteredAs()});

@@ -69,12 +69,8 @@ PreparedStatement Q_6_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                   return {arg[ol_amount].as("tmp", ol_amount)};
                 },
                 {SUM})
-            .print(
-                [&](const auto &arg,
-                    std::string outrel) -> std::vector<expression_t> {
-                  return {arg[ol_amount].as(outrel, revenue)};
-                },
-                std::string{"CH_Q_06"} + std::to_string(q_instance++));
+            .print(pg{"csv-pm"},
+                   std::string{"CH_Q_06"} + std::to_string(q_instance++));
 
   return rel.prepare();
 }

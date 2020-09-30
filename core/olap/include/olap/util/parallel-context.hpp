@@ -32,22 +32,21 @@ class Pipeline;
 
 class ParallelContext : public Context {
  public:
-  ParallelContext(const string &moduleName, bool gpu_root = false);
-  virtual ~ParallelContext();
+  explicit ParallelContext(const string &moduleName, bool gpu_root = false);
+  ~ParallelContext() override;
 
   virtual size_t appendParameter(llvm::Type *ptype, bool noalias = false,
                                  bool readonly = false);
-  virtual StateVar appendStateVar(llvm::Type *ptype, std::string name = "");
-  virtual StateVar appendStateVar(llvm::Type *ptype,
-                                  std::function<init_func_t> init,
-                                  std::function<deinit_func_t> deinit,
-                                  std::string name = "");
+  StateVar appendStateVar(llvm::Type *ptype, std::string name = "") override;
+  StateVar appendStateVar(llvm::Type *ptype, std::function<init_func_t> init,
+                          std::function<deinit_func_t> deinit,
+                          std::string name = "") override;
 
-  virtual llvm::Argument *getArgument(size_t id) const;
-  virtual llvm::Value *getStateVar(const StateVar &id) const;
-  virtual llvm::Value *getStateVar() const;
-  virtual llvm::Value *getSubStateVar() const;
-  virtual std::vector<llvm::Type *> getStateVars() const;
+  [[nodiscard]] virtual llvm::Argument *getArgument(size_t id) const;
+  [[nodiscard]] llvm::Value *getStateVar(const StateVar &id) const override;
+  [[nodiscard]] virtual llvm::Value *getStateVar() const;
+  [[nodiscard]] virtual llvm::Value *getSubStateVar() const;
+  [[nodiscard]] virtual std::vector<llvm::Type *> getStateVars() const;
 
   void registerOpen(const void *owner, std::function<void(Pipeline *pip)> open);
   void registerClose(const void *owner,
@@ -75,17 +74,17 @@ class ParallelContext : public Context {
   void popPipeline();
 
   PipelineGen *removeLatestPipeline();
-  PipelineGen *getCurrentPipeline() const;
+  [[nodiscard]] PipelineGen *getCurrentPipeline() const;
   void setChainedPipeline(PipelineGen *next);
 
-  virtual llvm::Module *getModule() const;
-  virtual llvm::IRBuilder<> *getBuilder() const;
-  llvm::Function *getFunction(string funcName) const;
+  [[nodiscard]] llvm::Module *getModule() const override;
+  [[nodiscard]] llvm::IRBuilder<> *getBuilder() const override;
+  [[nodiscard]] llvm::Function *getFunction(string funcName) const override;
 
-  virtual void setGlobalFunction(bool leaf);
-  virtual void setGlobalFunction(llvm::Function *F = nullptr,
-                                 bool leaf = false);
-  virtual void prepareFunction(llvm::Function *F) {}
+  void setGlobalFunction(bool leaf) override;
+  void setGlobalFunction(llvm::Function *F = nullptr,
+                         bool leaf = false) override;
+  void prepareFunction(llvm::Function *F) override {}
 
   virtual llvm::Value *threadId();
   virtual llvm::Value *threadIdInBlock();
@@ -97,27 +96,26 @@ class ParallelContext : public Context {
   virtual void createMembar_gl();
   virtual void workerScopedMembar();
 
-  virtual void log(llvm::Value *out,
-                   decltype(__builtin_FILE()) file = __builtin_FILE(),
-                   decltype(__builtin_LINE()) line = __builtin_LINE());
+  void log(llvm::Value *out, decltype(__builtin_FILE()) file = __builtin_FILE(),
+           decltype(__builtin_LINE()) line = __builtin_LINE()) override;
 
   [[nodiscard]] virtual llvm::Function *getFunctionOverload(std::string name,
                                                             llvm::Type *type);
   [[nodiscard]] virtual std::string getFunctionNameOverload(std::string name,
                                                             llvm::Type *type);
 
-  virtual llvm::BasicBlock *getEndingBlock();
-  virtual void setEndingBlock(llvm::BasicBlock *codeEnd);
-  virtual llvm::BasicBlock *getCurrentEntryBlock();
-  virtual void setCurrentEntryBlock(llvm::BasicBlock *codeEntry);
+  llvm::BasicBlock *getEndingBlock() override;
+  void setEndingBlock(llvm::BasicBlock *codeEnd) override;
+  llvm::BasicBlock *getCurrentEntryBlock() override;
+  void setCurrentEntryBlock(llvm::BasicBlock *codeEntry) override;
 
   virtual llvm::Value *workerScopedAtomicAdd(llvm::Value *ptr,
                                              llvm::Value *inc);
   virtual llvm::Value *workerScopedAtomicXchg(llvm::Value *ptr,
                                               llvm::Value *val);
 
-  virtual llvm::Value *allocateStateVar(llvm::Type *t);
-  virtual void deallocateStateVar(llvm::Value *v);
+  llvm::Value *allocateStateVar(llvm::Type *t) override;
+  void deallocateStateVar(llvm::Value *v) override;
 
   // string emitPTX();
 
@@ -127,7 +125,7 @@ class ParallelContext : public Context {
   std::vector<std::unique_ptr<Pipeline>> getPipelines();
 
   // Provide support for some extern functions
-  virtual void registerFunction(const char *funcName, llvm::Function *func);
+  void registerFunction(const char *funcName, llvm::Function *func) override;
 
   PipelineGen *operator->() const { return getCurrentPipeline(); }
 
@@ -136,10 +134,6 @@ class ParallelContext : public Context {
 
  public:
   std::unique_ptr<llvm::TargetMachine> TheTargetMachine;
-  llvm::ExecutionEngine *TheExecutionEngine;
-  llvm::ExecutionEngine *TheCPUExecutionEngine;
-
-  // CUmodule cudaModule;
 
  protected:
   string kernelName;

@@ -23,7 +23,6 @@
 
 #include "bloom-filter.hpp"
 
-#include <lib/expressions/expressions-generator.hpp>
 #include <memory/memory-manager.hpp>
 #include <olap/values/indexed-seq.hpp>
 #include <topology/affinity_manager.hpp>
@@ -31,7 +30,8 @@
 
 #include "llvm/IR/Intrinsics.h"
 
-std::map<std::pair<uint64_t, decltype(topology::cpunumanode::id)>, void *>
+static std::map<std::pair<uint64_t, decltype(topology::cpunumanode::id)>,
+                void *>
     registry;
 
 extern "C" void setBloomFilter(Pipeline *pip, void *s, uint64_t bloomId) {

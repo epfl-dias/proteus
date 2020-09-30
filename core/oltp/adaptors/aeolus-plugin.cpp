@@ -71,27 +71,27 @@ void freeNumOfTuplesPerPartition_runtime(int64_t *inn, AeolusPlugin *pg) {
   pg->freeNumOfTuplesPerPartition_runtime(inn);
 }
 
-Plugin *createBlockRemotePlugin(ParallelContext *context,
-                                std::string fnamePrefix, RecordType rec,
-                                std::vector<RecordAttribute *> &whichFields) {
+Plugin *createBlockRemotePlugin(
+    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    const std::vector<RecordAttribute *> &whichFields) {
   return new AeolusRemotePlugin(context, fnamePrefix, rec, whichFields);
 }
 
-Plugin *createBlockLocalPlugin(ParallelContext *context,
-                               std::string fnamePrefix, RecordType rec,
-                               std::vector<RecordAttribute *> &whichFields) {
+Plugin *createBlockLocalPlugin(
+    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    const std::vector<RecordAttribute *> &whichFields) {
   return new AeolusLocalPlugin(context, fnamePrefix, rec, whichFields);
 }
 
-Plugin *createBlockElasticPlugin(ParallelContext *context,
-                                 std::string fnamePrefix, RecordType rec,
-                                 std::vector<RecordAttribute *> &whichFields) {
+Plugin *createBlockElasticPlugin(
+    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    const std::vector<RecordAttribute *> &whichFields) {
   return new AeolusElasticPlugin(context, fnamePrefix, rec, whichFields);
 }
 
 Plugin *createBlockElasticNiPlugin(
     ParallelContext *context, std::string fnamePrefix, RecordType rec,
-    std::vector<RecordAttribute *> &whichFields) {
+    const std::vector<RecordAttribute *> &whichFields) {
   return new AeolusElasticNIPlugin(context, fnamePrefix, rec, whichFields);
 }
 }
@@ -153,7 +153,7 @@ void AeolusPlugin::freeNumOfTuplesPerPartition_runtime(int64_t *inn) {
 
 AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
                            RecordType rec,
-                           vector<RecordAttribute *> &whichFields,
+                           const std::vector<RecordAttribute *> &whichFields,
                            string pgType)
     : BinaryBlockPlugin(context, fnamePrefix, rec, whichFields, false),
       pgType(pgType) {
@@ -168,7 +168,7 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
 
 AeolusElasticPlugin::AeolusElasticPlugin(
     ParallelContext *const context, std::string fnamePrefix, RecordType rec,
-    std::vector<RecordAttribute *> &whichFields)
+    const std::vector<RecordAttribute *> &whichFields)
     : AeolusPlugin(context, fnamePrefix, rec, whichFields, type) {
   // 2  means that a partition can be split in max 2 more.
   Nparts = std::pow(wantedFields.size(), 2);
@@ -180,7 +180,7 @@ AeolusElasticPlugin::AeolusElasticPlugin(
 
 AeolusElasticNIPlugin::AeolusElasticNIPlugin(
     ParallelContext *const context, std::string fnamePrefix, RecordType rec,
-    std::vector<RecordAttribute *> &whichFields)
+    const std::vector<RecordAttribute *> &whichFields)
     : AeolusPlugin(context, fnamePrefix, rec, whichFields, type) {
   // 2  means that a partition can be split in max 2 more.
   Nparts = std::pow(wantedFields.size(), 2);
@@ -288,7 +288,10 @@ struct session {
   ushort master_ver;
   ushort delta_ver;
   ushort partition_id;
-} TheSession;
+};
+
+extern session TheSession;
+session TheSession;
 
 void update_query(storage::Table *tbl, int64_t vid, ushort col_update_idx,
                   const void *rec) {

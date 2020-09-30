@@ -35,7 +35,7 @@
 #include "util/timing.hpp"
 
 // Disable by default, as, active, it does not guarantee NUMA locality!
-bool allow_readwrite = false;
+static bool allow_readwrite = false;
 
 size_t getFileSize(const char *filename) {
   struct stat st;

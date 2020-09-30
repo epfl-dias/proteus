@@ -48,7 +48,7 @@ constexpr size_t clen(const char *str) {
   return (*str == 0) ? 0 : clen(str + 1) + 1;
 }
 
-const char *catalogJSON = "inputs";
+static const char *catalogJSON = "inputs";
 
 class unlink_upon_exit {
   size_t query;
@@ -83,7 +83,7 @@ class unlink_upon_exit {
   void reset() { last_result.reset(); }
 };
 
-std::map<std::string, PreparedStatement> preparedStatements;
+static std::map<std::string, PreparedStatement> preparedStatements;
 
 std::string preparePlanFile(const std::string &plan, unlink_upon_exit &uue) {
   std::string label = uue.inc_label();

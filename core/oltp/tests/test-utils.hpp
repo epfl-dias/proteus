@@ -62,8 +62,8 @@ class TestEnvironment : public ::testing::Environment {
   std::unique_ptr<proteus::olap> olap;
 
  public:
-  virtual void SetUp();
-  virtual void TearDown();
+  void SetUp() override;
+  void TearDown() override;
 };
 
 // ::testing::Environment *const pools_env =

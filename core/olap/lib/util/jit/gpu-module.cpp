@@ -110,7 +110,8 @@ GpuModule::GpuModule(Context *context, std::string pipName)
 }
 
 auto getGPU() {
-  int dev;
+  assert(topology::getInstance().getGpuCount() > 0);
+  int dev = 0;
   gpu_run(cudaGetDevice(&dev));
   cudaDeviceProp deviceProp;
   gpu_run(cudaGetDeviceProperties(&deviceProp, dev));
@@ -261,8 +262,8 @@ void GpuModule::optimizeModule(llvm::Module *M) {
 }
 
 constexpr size_t BUFFER_SIZE = 8192;
-char error_log[BUFFER_SIZE];
-char info_log[BUFFER_SIZE];
+static char error_log[BUFFER_SIZE];
+static char info_log[BUFFER_SIZE];
 
 std::pair<char *, char *> discover_bc() {
   // FIXME: should use a loop instead of nested ifs... also, we should cache
@@ -272,7 +273,7 @@ std::pair<char *, char *> discover_bc() {
   // FIXME: We assume compute and arch are equal!
   // FIXME: Add error handling, we are generating a symbol name and
   //        assuming it is going to be available...
-  int dev;
+  int dev = 0;
   gpu_run(cudaGetDevice(&dev));
   cudaDeviceProp deviceProp;
   gpu_run(cudaGetDeviceProperties(&deviceProp, dev));

@@ -203,198 +203,200 @@ ProteusValue expressions::ExprVisitorVisitable<
 }
 
 template <template <typename> class C = std::less, typename Tret = bool>
-class ExpressionComparatorVisitor : public ExprTandemVisitor {
+class ExpressionComparatorVisitor : public ExprTandemVisitorT<ProteusValue> {
  public:
   Tret res;
-  ExpressionComparatorVisitor() {}
+  ExpressionComparatorVisitor() = default;
 
   ProteusValue visit(const expressions::IntConstant *e1,
-                     const expressions::IntConstant *e2) {
+                     const expressions::IntConstant *e2) override {
     res = C<expressions::IntConstant>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::Int64Constant *e1,
-                     const expressions::Int64Constant *e2) {
+                     const expressions::Int64Constant *e2) override {
     res = C<expressions::Int64Constant>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::DateConstant *e1,
-                     const expressions::DateConstant *e2) {
+                     const expressions::DateConstant *e2) override {
     res = C<expressions::DateConstant>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::FloatConstant *e1,
-                     const expressions::FloatConstant *e2) {
+                     const expressions::FloatConstant *e2) override {
     res = C<expressions::FloatConstant>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::BoolConstant *e1,
-                     const expressions::BoolConstant *e2) {
+                     const expressions::BoolConstant *e2) override {
     res = C<expressions::BoolConstant>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::StringConstant *e1,
-                     const expressions::StringConstant *e2) {
+                     const expressions::StringConstant *e2) override {
     res = C<expressions::StringConstant>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::DStringConstant *e1,
-                     const expressions::DStringConstant *e2) {
+                     const expressions::DStringConstant *e2) override {
     res = C<expressions::DStringConstant>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::InputArgument *e1,
-                     const expressions::InputArgument *e2) {
+                     const expressions::InputArgument *e2) override {
     res = C<expressions::InputArgument>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::RecordProjection *e1,
-                     const expressions::RecordProjection *e2) {
+                     const expressions::RecordProjection *e2) override {
     res = C<expressions::RecordProjection>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::RecordConstruction *e1,
-                     const expressions::RecordConstruction *e2) {
+                     const expressions::RecordConstruction *e2) override {
     res = C<expressions::RecordConstruction>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::IfThenElse *e1,
-                     const expressions::IfThenElse *e2) {
+                     const expressions::IfThenElse *e2) override {
     res = C<expressions::IfThenElse>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::EqExpression *e1,
-                     const expressions::EqExpression *e2) {
+                     const expressions::EqExpression *e2) override {
     res = C<expressions::EqExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::NeExpression *e1,
-                     const expressions::NeExpression *e2) {
+                     const expressions::NeExpression *e2) override {
     res = C<expressions::NeExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::GeExpression *e1,
-                     const expressions::GeExpression *e2) {
+                     const expressions::GeExpression *e2) override {
     res = C<expressions::GeExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::GtExpression *e1,
-                     const expressions::GtExpression *e2) {
+                     const expressions::GtExpression *e2) override {
     res = C<expressions::GtExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::LeExpression *e1,
-                     const expressions::LeExpression *e2) {
+                     const expressions::LeExpression *e2) override {
     res = C<expressions::LeExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::LtExpression *e1,
-                     const expressions::LtExpression *e2) {
+                     const expressions::LtExpression *e2) override {
     res = C<expressions::LtExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::AddExpression *e1,
-                     const expressions::AddExpression *e2) {
+                     const expressions::AddExpression *e2) override {
     res = C<expressions::AddExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::SubExpression *e1,
-                     const expressions::SubExpression *e2) {
+                     const expressions::SubExpression *e2) override {
     res = C<expressions::SubExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::MultExpression *e1,
-                     const expressions::MultExpression *e2) {
+                     const expressions::MultExpression *e2) override {
     res = C<expressions::MultExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::DivExpression *e1,
-                     const expressions::DivExpression *e2) {
+                     const expressions::DivExpression *e2) override {
     res = C<expressions::DivExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::ModExpression *e1,
-                     const expressions::ModExpression *e2) {
+                     const expressions::ModExpression *e2) override {
     res = C<expressions::ModExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::AndExpression *e1,
-                     const expressions::AndExpression *e2) {
+                     const expressions::AndExpression *e2) override {
     res = C<expressions::AndExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::OrExpression *e1,
-                     const expressions::OrExpression *e2) {
+                     const expressions::OrExpression *e2) override {
     res = C<expressions::OrExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::ShiftLeftExpression *e1,
-                     const expressions::ShiftLeftExpression *e2) {
+                     const expressions::ShiftLeftExpression *e2) override {
     res = C<expressions::ShiftLeftExpression>{}(*e1, *e2);
     return {};
   }
-  ProteusValue visit(const expressions::ArithmeticShiftRightExpression *e1,
-                     const expressions::ArithmeticShiftRightExpression *e2) {
+  ProteusValue visit(
+      const expressions::ArithmeticShiftRightExpression *e1,
+      const expressions::ArithmeticShiftRightExpression *e2) override {
     res = C<expressions::ArithmeticShiftRightExpression>{}(*e1, *e2);
     return {};
   }
-  ProteusValue visit(const expressions::LogicalShiftRightExpression *e1,
-                     const expressions::LogicalShiftRightExpression *e2) {
+  ProteusValue visit(
+      const expressions::LogicalShiftRightExpression *e1,
+      const expressions::LogicalShiftRightExpression *e2) override {
     res = C<expressions::LogicalShiftRightExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::XORExpression *e1,
-                     const expressions::XORExpression *e2) {
+                     const expressions::XORExpression *e2) override {
     res = C<expressions::XORExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::ProteusValueExpression *e1,
-                     const expressions::ProteusValueExpression *e2) {
+                     const expressions::ProteusValueExpression *e2) override {
     res = C<expressions::ProteusValueExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::MinExpression *e1,
-                     const expressions::MinExpression *e2) {
+                     const expressions::MinExpression *e2) override {
     res = C<expressions::MinExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::MaxExpression *e1,
-                     const expressions::MaxExpression *e2) {
+                     const expressions::MaxExpression *e2) override {
     res = C<expressions::MaxExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::HashExpression *e1,
-                     const expressions::HashExpression *e2) {
+                     const expressions::HashExpression *e2) override {
     res = C<expressions::HashExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::RefExpression *e1,
-                     const expressions::RefExpression *e2) {
+                     const expressions::RefExpression *e2) override {
     res = C<expressions::RefExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::AssignExpression *e1,
-                     const expressions::AssignExpression *e2) {
+                     const expressions::AssignExpression *e2) override {
     res = C<expressions::AssignExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::NegExpression *e1,
-                     const expressions::NegExpression *e2) {
+                     const expressions::NegExpression *e2) override {
     res = C<expressions::NegExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::ExtractExpression *e1,
-                     const expressions::ExtractExpression *e2) {
+                     const expressions::ExtractExpression *e2) override {
     res = C<expressions::ExtractExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::TestNullExpression *e1,
-                     const expressions::TestNullExpression *e2) {
+                     const expressions::TestNullExpression *e2) override {
     res = C<expressions::TestNullExpression>{}(*e1, *e2);
     return {};
   }
   ProteusValue visit(const expressions::CastExpression *e1,
-                     const expressions::CastExpression *e2) {
+                     const expressions::CastExpression *e2) override {
     res = C<expressions::CastExpression>{}(*e1, *e2);
     return {};
   }
@@ -580,7 +582,7 @@ int64_t dateToTimestamp(const std::string &d) {
   return std::mktime(&t) * 1000;
 }
 
-expressions::DateConstant::DateConstant(std::string d)
+expressions::DateConstant::DateConstant(const std::string &d)
     : DateConstant(dateToTimestamp(d)) {}
 
 expressions::RefExpression expression_t::operator*() const {
@@ -598,66 +600,136 @@ class DefaultedExprVisitor : public ExprVisitor {
 
  public:
   DefaultedExprVisitor() = default;
-  DefaultedExprVisitor(F f) : f(std::move(f)) {}
+  explicit DefaultedExprVisitor(F f) : f(std::move(f)) {}
 
-  ProteusValue visit(const expressions::IntConstant *e) { return f(*e); }
-  ProteusValue visit(const expressions::Int64Constant *e) { return f(*e); }
-  ProteusValue visit(const expressions::DateConstant *e) { return f(*e); }
-  ProteusValue visit(const expressions::FloatConstant *e) { return f(*e); }
-  ProteusValue visit(const expressions::BoolConstant *e) { return f(*e); }
-  ProteusValue visit(const expressions::StringConstant *e) { return f(*e); }
-  ProteusValue visit(const expressions::DStringConstant *e) { return f(*e); }
-  ProteusValue visit(const expressions::InputArgument *e) { return f(*e); }
-  ProteusValue visit(const expressions::RecordProjection *e) { return f(*e); }
+  ProteusValue visit(const expressions::IntConstant *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::Int64Constant *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::DateConstant *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::FloatConstant *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::BoolConstant *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::StringConstant *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::DStringConstant *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::InputArgument *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::RecordProjection *e) override {
+    return f(*e);
+  }
   /*
    * XXX How is nullptr propagated? What if one of the attributes is nullptr;
    * XXX Did not have to test it yet -> Applicable to output only
    */
-  ProteusValue visit(const expressions::RecordConstruction *e) { return f(*e); }
-  ProteusValue visit(const expressions::IfThenElse *e) { return f(*e); }
+  ProteusValue visit(const expressions::RecordConstruction *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::IfThenElse *e) override {
+    return f(*e);
+  }
   // XXX Do binary operators require explicit handling of nullptr?
-  ProteusValue visit(const expressions::EqExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::NeExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::GeExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::GtExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::LeExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::LtExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::AddExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::SubExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::MultExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::DivExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::ModExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::AndExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::OrExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::ShiftLeftExpression *e) {
+  ProteusValue visit(const expressions::EqExpression *e) override {
     return f(*e);
   }
-  ProteusValue visit(const expressions::LogicalShiftRightExpression *e) {
+  ProteusValue visit(const expressions::NeExpression *e) override {
     return f(*e);
   }
-  ProteusValue visit(const expressions::ArithmeticShiftRightExpression *e) {
+  ProteusValue visit(const expressions::GeExpression *e) override {
     return f(*e);
   }
-  ProteusValue visit(const expressions::XORExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::ProteusValueExpression *e) {
+  ProteusValue visit(const expressions::GtExpression *e) override {
     return f(*e);
   }
-  ProteusValue visit(const expressions::MinExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::MaxExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::HashExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::RefExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::AssignExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::NegExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::ExtractExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::TestNullExpression *e) { return f(*e); }
-  ProteusValue visit(const expressions::CastExpression *e) { return f(*e); }
+  ProteusValue visit(const expressions::LeExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::LtExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::AddExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::SubExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::MultExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::DivExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::ModExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::AndExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::OrExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::ShiftLeftExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(
+      const expressions::LogicalShiftRightExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(
+      const expressions::ArithmeticShiftRightExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::XORExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::ProteusValueExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::MinExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::MaxExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::HashExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::RefExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::AssignExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::NegExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::ExtractExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::TestNullExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::CastExpression *e) override {
+    return f(*e);
+  }
 };
 
 class ExpressionSerializer {
   std::ostream &out;
 
  public:
-  ExpressionSerializer(std::ostream &out) : out(out) {}
+  explicit ExpressionSerializer(std::ostream &out) : out(out) {}
 
   ProteusValue operator()(const expressions::Expression &e) {
     out << demangle(typeid(e).name());
@@ -677,7 +749,7 @@ class ExpressionSerializer {
 
 class OStreamVisitor : public DefaultedExprVisitor<ExpressionSerializer> {
  public:
-  OStreamVisitor(std::ostream &out)
+  explicit OStreamVisitor(std::ostream &out)
       : DefaultedExprVisitor(ExpressionSerializer(out)) {}
 };
 

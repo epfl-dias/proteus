@@ -70,10 +70,11 @@ class MemBroadcastDevice : public MemMoveDevice {
     }
   }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
 
-  virtual RecordType getRowType() const {
+  RecordType getRowType() const override {
     std::string relName = wantedFields[0]->getRelationName();
 
     std::vector<RecordAttribute *> ret;
@@ -89,15 +90,15 @@ class MemBroadcastDevice : public MemMoveDevice {
     return ret;
   }
 
-  virtual MemBroadcastConf *createMoveConf() const;
+  MemBroadcastConf *createMoveConf() const override;
 
  private:
   std::vector<int> targets;
 
   bool always_share;
 
-  void open(Pipeline *pip);
-  void close(Pipeline *pip);
+  void open(Pipeline *pip) override;
+  void close(Pipeline *pip) override;
 };
 
 #endif /* MEM_BROADCAST_DEVICE_HPP_ */

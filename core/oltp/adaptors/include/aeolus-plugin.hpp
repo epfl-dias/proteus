@@ -24,28 +24,30 @@
 #ifndef AEOLUS_PLUGIN_HPP_
 #define AEOLUS_PLUGIN_HPP_
 
+#include <utility>
+
 #include "olap/plugins/binary-block-plugin.hpp"
 
 class AeolusPlugin : public BinaryBlockPlugin {
  public:
   AeolusPlugin(ParallelContext *const context, std::string fnamePrefix,
-               RecordType rec, std::vector<RecordAttribute *> &whichFields,
+               RecordType rec,
+               const std::vector<RecordAttribute *> &whichFields,
                std::string pgType);
 
  protected:
-  virtual llvm::Value *getSession(ParallelContext *context) const;
+  llvm::Value *getSession(ParallelContext *context) const override;
 
-  virtual llvm::Value *getDataPointersForFile(ParallelContext *context,
-                                              size_t i,
-                                              llvm::Value *session_ptr) const;
-  virtual void freeDataPointersForFile(ParallelContext *context, size_t i,
-                                       llvm::Value *v) const;
-  virtual std::pair<llvm::Value *, llvm::Value *> getPartitionSizes(
-      ParallelContext *context, llvm::Value *session_ptr) const;
-  virtual void freePartitionSizes(ParallelContext *context,
-                                  llvm::Value *v) const;
+  llvm::Value *getDataPointersForFile(ParallelContext *context, size_t i,
+                                      llvm::Value *session_ptr) const override;
+  void freeDataPointersForFile(ParallelContext *context, size_t i,
+                               llvm::Value *v) const override;
+  std::pair<llvm::Value *, llvm::Value *> getPartitionSizes(
+      ParallelContext *context, llvm::Value *session_ptr) const override;
+  void freePartitionSizes(ParallelContext *context,
+                          llvm::Value *v) const override;
 
-  virtual void releaseSession(ParallelContext *context, llvm::Value *) const;
+  void releaseSession(ParallelContext *context, llvm::Value *) const override;
 
  public:
   virtual void **getDataPointerForFile_runtime(size_t i, const char *relName,
@@ -59,9 +61,9 @@ class AeolusPlugin : public BinaryBlockPlugin {
 
   virtual void freeNumOfTuplesPerPartition_runtime(int64_t *inn);
 
-  virtual void updateValueEager(ParallelContext *context, ProteusValue rid,
-                                ProteusValue value, const ExpressionType *type,
-                                const std::string &fileName);
+  void updateValueEager(ParallelContext *context, ProteusValue rid,
+                        ProteusValue value, const ExpressionType *type,
+                        const std::string &fileName) override;
 
   bool olap_snapshot_only;
   bool elastic_scan;
@@ -77,9 +79,10 @@ class AeolusPlugin : public BinaryBlockPlugin {
 class AeolusLocalPlugin : public AeolusPlugin {
  public:
   static constexpr auto type = "block-local";
-  AeolusLocalPlugin(ParallelContext *const context, std::string fnamePrefix,
-                    RecordType rec, std::vector<RecordAttribute *> &whichFields)
-      : AeolusPlugin(context, fnamePrefix, rec, whichFields, type) {
+  AeolusLocalPlugin(ParallelContext *context, std::string fnamePrefix,
+                    RecordType rec,
+                    const std::vector<RecordAttribute *> &whichFields)
+      : AeolusPlugin(context, std::move(fnamePrefix), rec, whichFields, type) {
     olap_snapshot_only = true;
     elastic_scan = false;
   }
@@ -88,42 +91,42 @@ class AeolusLocalPlugin : public AeolusPlugin {
 class AeolusRemotePlugin : public AeolusPlugin {
  public:
   static constexpr auto type = "block-remote";
-  AeolusRemotePlugin(ParallelContext *const context, std::string fnamePrefix,
+  AeolusRemotePlugin(ParallelContext *context, std::string fnamePrefix,
                      RecordType rec,
-                     std::vector<RecordAttribute *> &whichFields)
-      : AeolusPlugin(context, fnamePrefix, rec, whichFields, type) {}
+                     const std::vector<RecordAttribute *> &whichFields)
+      : AeolusPlugin(context, std::move(fnamePrefix), rec, whichFields, type) {}
 };
 
 class AeolusElasticPlugin : public AeolusPlugin {
  public:
   static constexpr auto type = "block-elastic";
-  AeolusElasticPlugin(ParallelContext *const context, std::string fnamePrefix,
+  AeolusElasticPlugin(ParallelContext *context, std::string fnamePrefix,
                       RecordType rec,
-                      std::vector<RecordAttribute *> &whichFields);
+                      const std::vector<RecordAttribute *> &whichFields);
 };
 
 class AeolusElasticNIPlugin : public AeolusPlugin {
  public:
   static constexpr auto type = "block-elastic-ni";
-  AeolusElasticNIPlugin(ParallelContext *const context, std::string fnamePrefix,
+  AeolusElasticNIPlugin(ParallelContext *context, std::string fnamePrefix,
                         RecordType rec,
-                        std::vector<RecordAttribute *> &whichFields);
+                        const std::vector<RecordAttribute *> &whichFields);
 };
 
 extern "C" {
 
-Plugin *createBlockRemotePlugin(ParallelContext *context,
-                                std::string fnamePrefix, RecordType rec,
-                                std::vector<RecordAttribute *> &whichFields);
-Plugin *createBlockLocalPlugin(ParallelContext *context,
-                               std::string fnamePrefix, RecordType rec,
-                               std::vector<RecordAttribute *> &whichFields);
-Plugin *createBlockElasticPlugin(ParallelContext *context,
-                                 std::string fnamePrefix, RecordType rec,
-                                 std::vector<RecordAttribute *> &whichFields);
-Plugin *createBlockElasticNiPlugin(ParallelContext *context,
-                                   std::string fnamePrefix, RecordType rec,
-                                   std::vector<RecordAttribute *> &whichFields);
+Plugin *createBlockRemotePlugin(
+    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    const std::vector<RecordAttribute *> &whichFields);
+Plugin *createBlockLocalPlugin(
+    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    const std::vector<RecordAttribute *> &whichFields);
+Plugin *createBlockElasticPlugin(
+    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    const std::vector<RecordAttribute *> &whichFields);
+Plugin *createBlockElasticNiPlugin(
+    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    const std::vector<RecordAttribute *> &whichFields);
 }
 
 #endif /* AEOLUS_PLUGIN_HPP_ */

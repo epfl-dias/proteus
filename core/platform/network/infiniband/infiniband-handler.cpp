@@ -388,12 +388,11 @@ void IBHandler::poll_cq() {
           eventlogger.log(this, IB_CQ_PROCESSING_EVENT_END);
           continue;
         }
+        eventlogger.log(this, IB_CQ_PROCESSING_EVENT_END);
         auto msg =
             std::string{"completion queue: "} + ibv_wc_status_str(wc.status);
         LOG(INFO) << msg;
         throw std::runtime_error(msg);
-        eventlogger.log(this, IB_CQ_PROCESSING_EVENT_END);
-        continue;
       }
 
       void *data = (void *)wc.wr_id;
@@ -634,7 +633,7 @@ void IBHandler::flush() {
   flush_write();
 }
 
-size_t reads = 0;
+static size_t reads = 0;
 
 void IBHandler::flush_read() {
   // auto buff = BlockManager::get_buffer();
@@ -679,7 +678,7 @@ void IBHandler::flush_read() {
   linux_run(send(wr));
 }
 
-void *old_cnts = nullptr;
+static void *old_cnts = nullptr;
 
 decltype(IBHandler::read_promises)::value_type &IBHandler::create_promise(
     void *buff) {

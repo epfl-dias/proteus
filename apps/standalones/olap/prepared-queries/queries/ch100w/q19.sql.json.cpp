@@ -30,9 +30,10 @@ constexpr auto query = "ch100w_Q19";
 PreparedStatement Query::prepare19(bool memmv) {
   auto rel2305 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
-              "tpcc_item", {"i_id", "i_price"},
-              getCatalog())  // (table=[[SSB, tpcc_item]], fields=[[0, 3]],
+          .scan(
+              "tpcc_item", {"i_id", "i_price"}, getCatalog(),
+              pg{Tplugin::
+                     type})  // (table=[[SSB, tpcc_item]], fields=[[0, 3]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .membrdcst(dop, true, true)
           .router(
@@ -58,10 +59,11 @@ PreparedStatement Query::prepare19(bool memmv) {
       ;
   auto rel =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
+          .scan(
               "tpcc_orderline",
-              {"ol_w_id", "ol_i_id", "ol_quantity", "ol_amount"},
-              getCatalog())  // (table=[[SSB, tpcc_orderline]], fields=[[2, 4,
+              {"ol_w_id", "ol_i_id", "ol_quantity", "ol_amount"}, getCatalog(),
+              pg{Tplugin::
+                     type})  // (table=[[SSB, tpcc_orderline]], fields=[[2, 4,
                              // 7, 8]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .router(dop, 32, RoutingPolicy::LOCAL, dev, aff_parallel())  //

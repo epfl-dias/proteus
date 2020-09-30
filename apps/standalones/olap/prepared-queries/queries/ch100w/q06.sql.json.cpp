@@ -30,9 +30,11 @@ constexpr auto query = "ch100w_Q06";
 PreparedStatement Query::prepare06(bool memmv) {
   auto rel =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
+          .scan(
               "tpcc_orderline", {"ol_delivery_d", "ol_quantity", "ol_amount"},
-              getCatalog())  // (table=[[SSB, ch100w_orderline]], fields=[[6, 7,
+              getCatalog(),
+              pg{Tplugin::
+                     type})  // (table=[[SSB, ch100w_orderline]], fields=[[6, 7,
                              // 8]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .router(

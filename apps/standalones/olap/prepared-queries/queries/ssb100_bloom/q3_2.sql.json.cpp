@@ -30,9 +30,10 @@ constexpr auto query = "ssb100_Q3_2";
 PreparedStatement Query::prepare32(bool memmv, size_t bloomSize) {
   auto rel34584 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
-              "inputs/ssbm100/date.csv", {"d_datekey", "d_year"},
-              getCatalog())  // (table=[[SSB, ssbm_date]], fields=[[0, 4]],
+          .scan(
+              "inputs/ssbm100/date.csv", {"d_datekey", "d_year"}, getCatalog(),
+              pg{Tplugin::
+                     type})  // (table=[[SSB, ssbm_date]], fields=[[0, 4]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .membrdcst(dop, true, true)
           .router(
@@ -51,10 +52,11 @@ PreparedStatement Query::prepare32(bool memmv, size_t bloomSize) {
       ;
   auto rel34589 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
+          .scan(
               "inputs/ssbm100/customer.csv",
-              {"c_custkey", "c_city", "c_nation"},
-              getCatalog())  // (table=[[SSB, ssbm_customer]], fields=[[0, 3,
+              {"c_custkey", "c_city", "c_nation"}, getCatalog(),
+              pg{Tplugin::
+                     type})  // (table=[[SSB, ssbm_customer]], fields=[[0, 3,
                              // 4]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .membrdcst(dop, true, true)
@@ -74,10 +76,11 @@ PreparedStatement Query::prepare32(bool memmv, size_t bloomSize) {
           });
   auto rel34594 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
+          .scan(
               "inputs/ssbm100/supplier.csv",
-              {"s_suppkey", "s_city", "s_nation"},
-              getCatalog())  // (table=[[SSB, ssbm_supplier]], fields=[[0, 3,
+              {"s_suppkey", "s_city", "s_nation"}, getCatalog(),
+              pg{Tplugin::
+                     type})  // (table=[[SSB, ssbm_supplier]], fields=[[0, 3,
                              // 4]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .membrdcst(dop, true, true)

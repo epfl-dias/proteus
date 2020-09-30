@@ -26,10 +26,7 @@
 #include <cassert>
 #include <cstdlib>
 
-#include "common/common.hpp"
-#include "memory/memory-manager.hpp"
 #include "topology/topology.hpp"
-#include "util/timing.hpp"
 
 void launch_kernel(CUfunction function, void **args, dim3 gridDim,
                    dim3 blockDim, cudaStream_t strm) {
@@ -72,7 +69,7 @@ void launch_kernel_strm_single(CUfunction function, void **args,
 extern "C" {
 int get_ptr_device(const void *p) {
   const auto *g = topology::getInstance().getGpuAddressed(p);
-  return g ? -1 : g->id;
+  return g ? g->id : -1;
 }
 
 // FIXME: rename function...........
@@ -88,25 +85,24 @@ int get_ptr_device_or_rand_for_host(const void *p) {
   else
     return rand();
 }
-
-void memcpy_gpu(void *dst, const void *src, size_t size, bool is_volatile) {
-  assert(!is_volatile);
-#ifndef NCUDA
-  cudaStream_t strm;
-  gpu_run(cudaStreamCreate(&strm));
-  gpu_run(cudaMemcpyAsync(dst, src, size, cudaMemcpyDefault, strm));
-  gpu_run(cudaStreamSynchronize(strm));
-  gpu_run(cudaStreamDestroy(strm));
-#else
-  memcpy(dst, src, size);
-#endif
-}
 }
 
 cudaStream_t createNonBlockingStream() {
   cudaStream_t strm = nullptr;
   gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
   return strm;
+}
+
+extern "C" void memcpy_gpu(void *dst, const void *src, size_t size,
+                           bool is_volatile) {
+  assert(!is_volatile);
+#ifndef NCUDA
+  cudaStream_t strm = createNonBlockingStream();
+  gpu_run(cudaMemcpyAsync(dst, src, size, cudaMemcpyDefault, strm));
+  syncAndDestroyStream(strm);
+#else
+  memcpy(dst, src, size);
+#endif
 }
 
 void syncAndDestroyStream(cudaStream_t strm) {

@@ -39,15 +39,15 @@ class GpuToCpu : public DeviceCross {
         size(size),
         granularity(granularity) {}
 
-  virtual ~GpuToCpu() { LOG(INFO) << "Collapsing GpuToCpu operator"; }
+  ~GpuToCpu() override { LOG(INFO) << "Collapsing GpuToCpu operator"; }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(ParallelContext *const context,
-                       const OperatorState &childState);
+  void produce_(ParallelContext *context) override;
+  void consume(ParallelContext *const context,
+               const OperatorState &childState) override;
 
-  virtual RecordType getRowType() const { return wantedFields; }
+  RecordType getRowType() const override { return wantedFields; }
 
-  virtual DeviceType getDeviceType() const {
+  DeviceType getDeviceType() const override {
     assert(getChild()->getDeviceType() == DeviceType::GPU);
     return DeviceType::CPU;
   }

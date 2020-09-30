@@ -58,12 +58,13 @@ class HashPartitioner : public UnaryOperator {
                   ParallelContext *context, size_t maxInputSize, int log_parts,
                   std::string opLabel);
 
-  virtual ~HashPartitioner() {}
+  ~HashPartitioner() override {}
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
 
-  virtual bool isFiltering() const { return true; }
+  bool isFiltering() const override { return true; }
 
   PartitionState &getState() { return state; }
 
@@ -72,7 +73,7 @@ class HashPartitioner : public UnaryOperator {
 
   llvm::StructType *getPayloadType() { return payloadType; }
 
-  virtual RecordType getRowType() const {
+  RecordType getRowType() const override {
     // FIXME: implement
     throw runtime_error("unimplemented");
   }
@@ -126,20 +127,21 @@ class GpuPartitionedHashJoinChained : public BinaryOperator {
       int log_parts, ParallelContext *context,
       std::string opLabel = "hj_chained", PipelineGen **caller = nullptr,
       Operator *const unionop = nullptr);
-  virtual ~GpuPartitionedHashJoinChained() {
+  ~GpuPartitionedHashJoinChained() override {
     LOG(INFO) << "Collapsing GpuOptJoin operator";
   }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
 
   void open(Pipeline *pip);
   void close(Pipeline *pip);
   void allocate(Pipeline *pip);
 
-  virtual bool isFiltering() const { return true; }
+  bool isFiltering() const override { return true; }
 
-  virtual RecordType getRowType() const {
+  RecordType getRowType() const override {
     // FIXME: implement
     throw runtime_error("unimplemented");
   }

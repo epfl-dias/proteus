@@ -38,9 +38,9 @@ class UnionAll : public Router {
     producers = children.size();
   }
 
-  virtual ~UnionAll() { LOG(INFO) << "Collapsing UnionAll operator"; }
+  ~UnionAll() override { LOG(INFO) << "Collapsing UnionAll operator"; }
 
-  virtual void produce_(ParallelContext *context);
+  void produce_(ParallelContext *context) override;
   //     virtual void consume(   Context * const context, const
   //     OperatorState& childState); virtual void consume(ParallelContext *
   //     const context, const OperatorState& childState); virtual bool
@@ -49,7 +49,7 @@ class UnionAll : public Router {
   // protected:
   //     virtual void generate_catch();
 
-  virtual DegreeOfParallelism getDOP() const {
+  DegreeOfParallelism getDOP() const override {
     auto dop = children[0]->getDOP();
 #ifdef NDEBUG
     for (const auto &op : children) {
@@ -59,7 +59,7 @@ class UnionAll : public Router {
     return dop;
   }
 
-  virtual DeviceType getDeviceType() const {
+  DeviceType getDeviceType() const override {
     assert(children.size() > 0);
     return children[0]->getDeviceType();
   }

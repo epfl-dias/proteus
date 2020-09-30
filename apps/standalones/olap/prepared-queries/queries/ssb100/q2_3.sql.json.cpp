@@ -112,16 +112,17 @@ RelWithAttributes rel::operator()(T... x) {
   return (*this)({x...});
 }
 
-auto lineorder2 =
+static auto lineorder2 =
     rel("inputs/ssbm100/lineorder.csv")(Int("lo_partkey"), Int("lo_suppkey"),
                                         Int("lo_orderdate"), Int("lo_revenue"));
 
 PreparedStatement Query::prepare23(bool memmv) {
   auto rel23990 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
-              "inputs/ssbm100/date.csv", {"d_datekey", "d_year"},
-              getCatalog())  // (table=[[SSB, ssbm_date]], fields=[[0, 4]],
+          .scan(
+              "inputs/ssbm100/date.csv", {"d_datekey", "d_year"}, getCatalog(),
+              pg{Tplugin::
+                     type})  // (table=[[SSB, ssbm_date]], fields=[[0, 4]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .membrdcst(dop, true, true)
           .router(
@@ -135,9 +136,11 @@ PreparedStatement Query::prepare23(bool memmv) {
       ;
   auto rel23995 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
+          .scan(
               "inputs/ssbm100/supplier.csv", {"s_suppkey", "s_region"},
-              getCatalog())  // (table=[[SSB, ssbm_supplier]], fields=[[0, 5]],
+              getCatalog(),
+              pg{Tplugin::
+                     type})  // (table=[[SSB, ssbm_supplier]], fields=[[0, 5]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .membrdcst(dop, true, true)
           .router(
@@ -160,9 +163,11 @@ PreparedStatement Query::prepare23(bool memmv) {
       ;
   auto rel23999 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
+          .scan(
               "inputs/ssbm100/part.csv", {"p_partkey", "p_brand1"},
-              getCatalog())  // (table=[[SSB, ssbm_part]], fields=[[0, 4]],
+              getCatalog(),
+              pg{Tplugin::
+                     type})  // (table=[[SSB, ssbm_part]], fields=[[0, 4]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .membrdcst(dop, true, true)
           .router(

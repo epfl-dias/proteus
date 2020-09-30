@@ -33,19 +33,20 @@ class Scan : public UnaryOperator {
   //            UnaryOperator(nullptr), context(context), pg(pg) {
   //        this->setParent(parent);
   //    }
-  virtual ~Scan() { LOG(INFO) << "Collapsing scan operator"; }
+  ~Scan() override { LOG(INFO) << "Collapsing scan operator"; }
   virtual Operator *const getChild() const final {
     throw runtime_error(string("Scan operator has no children"));
   }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return false; }
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
+  bool isFiltering() const override { return false; }
 
-  virtual RecordType getRowType() const;
+  RecordType getRowType() const override;
 
-  virtual DeviceType getDeviceType() const { return DeviceType::CPU; }
-  virtual DegreeOfParallelism getDOP() const { return DegreeOfParallelism{1}; }
+  DeviceType getDeviceType() const override { return DeviceType::CPU; }
+  DegreeOfParallelism getDOP() const override { return DegreeOfParallelism{1}; }
 
  private:
   Context *const __attribute__((unused)) context;

@@ -70,7 +70,6 @@ class IBHandler : public MemoryRegistry {
   ibv_cq *cq;
 
   std::thread poller;
-  ibv_context *verbs;
 
   size_t pending;
 
@@ -127,7 +126,7 @@ class IBHandler : public MemoryRegistry {
  public:
   explicit IBHandler(int cq_backlog);
 
-  virtual ~IBHandler();
+  ~IBHandler() override;
 
   void start();
 
@@ -140,9 +139,9 @@ class IBHandler : public MemoryRegistry {
    *
    * Notes: Do not overwrite as its called from constructor
    */
-  virtual void reg(const void *mem, size_t bytes) final;
-  virtual buffkey reg2(const void *mem, size_t bytes) final;
-  virtual void unreg(const void *mem) final;
+  void reg(const void *mem, size_t bytes) final;
+  buffkey reg2(const void *mem, size_t bytes);
+  void unreg(const void *mem) final;
 
   void flush();
   void flush_read();
@@ -154,7 +153,6 @@ class IBHandler : public MemoryRegistry {
   decltype(read_promises)::value_type &create_promise(void *buff);
   decltype(write_promises)::value_type create_write_promise(void *buff);
 
-  void flush_write(ibv_sge *sge_ptr);
   void flush_write();
   subscription *write_to_int(void *data, size_t bytes, buffkey dst,
                              void *buffpromise = nullptr);

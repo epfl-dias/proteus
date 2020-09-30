@@ -1789,6 +1789,7 @@ void JSONPlugin::readValueInterpreted(int tokenNo, const ExpressionType *type) {
         LOG(ERROR) << error_msg;
         throw runtime_error(string(error_msg));
       }
+      break;
     case STRING:
       printf("Passing object along\n");
       break;
@@ -1894,6 +1895,7 @@ void JSONPlugin::readValueEagerInterpreted(int tokenNo,
         LOG(ERROR) << error_msg;
         throw runtime_error(string(error_msg));
       }
+      break;
     case STRING:
       printf("Passing object along\n");
       break;

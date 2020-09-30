@@ -32,6 +32,8 @@
 class ParallelContext;
 
 class BinaryBlockPlugin : public Plugin {
+ public:
+  static constexpr auto type = "block";
   /**
    * Plugin for scanning columns on the gpu side.
    *
@@ -48,13 +50,13 @@ class BinaryBlockPlugin : public Plugin {
    */
  protected:
   BinaryBlockPlugin(ParallelContext *context, const string &fnamePrefix,
-                    const RecordType &rec,
+                    RecordType rec,
                     const std::vector<RecordAttribute *> &whichFields,
                     bool load);
 
  public:
   BinaryBlockPlugin(ParallelContext *context, const string &fnamePrefix,
-                    const RecordType &rec,
+                    RecordType rec,
                     const std::vector<RecordAttribute *> &whichFields);
 
   string &getName() override { return fnamePrefix; }

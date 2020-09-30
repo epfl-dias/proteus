@@ -36,20 +36,19 @@ class BinaryRowPlugin : public Plugin {
    */
   BinaryRowPlugin(Context *const context, string &fname, RecordType &rec_,
                   vector<RecordAttribute *> &whichFields);
-  ~BinaryRowPlugin();
-  virtual string &getName() { return fname; }
-  void init();
-  void generate(const Operator &producer, ParallelContext *context);
-  void finish();
-  virtual ProteusValueMemory readPath(string activeRelation, Bindings bindings,
-                                      const char *pathVar, RecordAttribute attr,
-                                      ParallelContext *context);
-  virtual ProteusValueMemory readValue(ProteusValueMemory mem_value,
-                                       const ExpressionType *type,
-                                       ParallelContext *context);
-  virtual ProteusValue readCachedValue(CacheInfo info,
-                                       const OperatorState &currState,
-                                       ParallelContext *context) {
+  ~BinaryRowPlugin() override;
+  string &getName() override { return fname; }
+  void init() override;
+  void generate(const Operator &producer, ParallelContext *context) override;
+  void finish() override;
+  ProteusValueMemory readPath(string activeRelation, Bindings bindings,
+                              const char *pathVar, RecordAttribute attr,
+                              ParallelContext *context) override;
+  ProteusValueMemory readValue(ProteusValueMemory mem_value,
+                               const ExpressionType *type,
+                               ParallelContext *context) override;
+  ProteusValue readCachedValue(CacheInfo info, const OperatorState &currState,
+                               ParallelContext *context) override {
     string error_msg =
         "[BinaryRowPlugin: ] No caching support should be needed";
     LOG(ERROR) << error_msg;
@@ -64,49 +63,49 @@ class BinaryRowPlugin : public Plugin {
     throw runtime_error(error_msg);
   }
 
-  virtual ProteusValue hashValue(ProteusValueMemory mem_value,
-                                 const ExpressionType *type, Context *context);
-  virtual ProteusValue hashValueEager(ProteusValue value,
-                                      const ExpressionType *type,
-                                      Context *context);
+  ProteusValue hashValue(ProteusValueMemory mem_value,
+                         const ExpressionType *type, Context *context) override;
+  ProteusValue hashValueEager(ProteusValue value, const ExpressionType *type,
+                              Context *context) override;
 
-  virtual ProteusValueMemory initCollectionUnnest(
-      ProteusValue val_parentObject) {
+  ProteusValueMemory initCollectionUnnest(
+      ProteusValue val_parentObject) override {
     string error_msg =
         "[BinaryRowPlugin: ] Binary row files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  virtual ProteusValue collectionHasNext(ProteusValue val_parentObject,
-                                         ProteusValueMemory mem_currentChild) {
+  ProteusValue collectionHasNext(ProteusValue val_parentObject,
+                                 ProteusValueMemory mem_currentChild) override {
     string error_msg =
         "[BinaryRowPlugin: ] Binary row files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  virtual ProteusValueMemory collectionGetNext(
-      ProteusValueMemory mem_currentChild) {
+  ProteusValueMemory collectionGetNext(
+      ProteusValueMemory mem_currentChild) override {
     string error_msg =
         "[BinaryRowPlugin: ] Binary row files do not contain collections";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushTuple(ProteusValueMemory mem_value, llvm::Value *fileName) {
+  void flushTuple(ProteusValueMemory mem_value,
+                  llvm::Value *fileName) override {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushValue(ProteusValueMemory mem_value,
-                          const ExpressionType *type, llvm::Value *fileName) {
+  void flushValue(ProteusValueMemory mem_value, const ExpressionType *type,
+                  llvm::Value *fileName) override {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushValueEager(ProteusValue value, const ExpressionType *type,
-                               llvm::Value *fileName) {
+  void flushValueEager(ProteusValue value, const ExpressionType *type,
+                       llvm::Value *fileName) override {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
@@ -118,56 +117,56 @@ class BinaryRowPlugin : public Plugin {
     throw runtime_error(error_msg);
   }
 
-  virtual void flushBeginList(llvm::Value *fileName) {
+  void flushBeginList(llvm::Value *fileName) override {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushBeginBag(llvm::Value *fileName) {
+  void flushBeginBag(llvm::Value *fileName) override {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushBeginSet(llvm::Value *fileName) {
+  void flushBeginSet(llvm::Value *fileName) override {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndList(llvm::Value *fileName) {
+  void flushEndList(llvm::Value *fileName) override {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndBag(llvm::Value *fileName) {
+  void flushEndBag(llvm::Value *fileName) override {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushEndSet(llvm::Value *fileName) {
+  void flushEndSet(llvm::Value *fileName) override {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushDelim(llvm::Value *fileName, int depth) {
+  void flushDelim(llvm::Value *fileName, int depth) override {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushDelim(llvm::Value *resultCtr, llvm::Value *fileName,
-                          int depth) {
+  void flushDelim(llvm::Value *resultCtr, llvm::Value *fileName,
+                  int depth) override {
     string error_msg = "[BinaryRowPlugin: ] Flush not implemented yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  virtual void flushOutput(llvm::Value *fileName) {
+  void flushOutput(llvm::Value *fileName) override {
     llvm::Function *flushFunc = context->getFunction("flushOutput");
     vector<llvm::Value *> ArgsV;
     // Start 'array'
@@ -175,16 +174,16 @@ class BinaryRowPlugin : public Plugin {
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
-  virtual llvm::Value *getValueSize(ProteusValueMemory mem_value,
-                                    const ExpressionType *type,
-                                    ParallelContext *context);
+  llvm::Value *getValueSize(ProteusValueMemory mem_value,
+                            const ExpressionType *type,
+                            ParallelContext *context) override;
   //    virtual typeID getOIDSize() { return INT; }
 
-  virtual ExpressionType *getOIDType() { return new IntType(); }
+  ExpressionType *getOIDType() override { return new IntType(); }
 
-  virtual PluginType getPluginType() { return PGBINARY; }
+  PluginType getPluginType() override { return PGBINARY; }
 
-  virtual RecordType getRowType() const { return {wantedFields}; }
+  RecordType getRowType() const override { return {wantedFields}; }
 
  private:
   string fname;

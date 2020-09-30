@@ -107,7 +107,6 @@ ProteusValue hashPrimitive(ProteusValue v, typeID type, Context *context) {
     case INT64:
     case DATE:
       return hashInt64(v, context);
-      break;
     case FLOAT:
       instructionLabel = "hashDouble";
       break;
@@ -306,8 +305,7 @@ ProteusValue ExpressionHasherVisitor::visit(
     CacheInfo info = cache.getCache(e);
     /* Must also make sure that no explicit binding exists => No duplicate work
      */
-    map<RecordAttribute, ProteusValueMemory>::const_iterator it =
-        currState.getBindings().find(e->getAttribute());
+    auto it = currState.getBindings().find(e->getAttribute());
     if (info.structFieldNo != -1 && it == currState.getBindings().end()) {
 #ifdef DEBUGCACHING
       cout << "[Hasher: ] Expression found for " << e->getOriginalRelationName()

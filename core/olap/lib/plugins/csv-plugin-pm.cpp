@@ -34,18 +34,18 @@ namespace pm {
 
 extern "C" pm::CSVPlugin *createPmCsvPlugin(
     ParallelContext *context, std::string fname, RecordType rec,
-    std::vector<RecordAttribute *> &projs) {
+    const std::vector<RecordAttribute *> &projs) {
   return new CSVPlugin(context, fname, rec, projs, ';', 10, 2, false);
 }
 
 extern "C" pm::CSVPlugin *createPmTsvPlugin(
     ParallelContext *context, std::string fname, RecordType rec,
-    std::vector<RecordAttribute *> &projs) {
+    const std::vector<RecordAttribute *> &projs) {
   return new CSVPlugin(context, fname, rec, projs, '|', 10, 2, false);
 }
 
 CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
-                     vector<RecordAttribute *> whichFields, int lineHint,
+                     const vector<RecordAttribute *> &whichFields, int lineHint,
                      int policy, bool stringBrackets)
     : fname(fname),
       rec(rec),

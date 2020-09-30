@@ -30,38 +30,31 @@
 #include "olap/util/parallel-context.hpp"
 #include "operators.hpp"
 
-class Flush : public UnaryOperator {
+class Flush : public experimental::UnaryOperator {
  public:
-  Flush(vector<expression_t> outputExprs, Operator *const child,
-        Context *context, std::string outPath);
-  Flush(vector<expression_t> outputExprs, Operator *const child,
-        Context *context)
-      : Flush(outputExprs, child, context, context->getModuleName()) {}
-  virtual ~Flush() { LOG(INFO) << "Collapsing Flush operator"; }
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return getChild()->isFiltering(); }
+  Flush(vector<expression_t> outputExprs, Operator *child, std::string outPath);
+  void produce_(ParallelContext *context) override;
+  void consume(ParallelContext *context,
+               const OperatorState &childState) override;
+  [[nodiscard]] bool isFiltering() const override {
+    return getChild()->isFiltering();
+  }
 
-  [[nodiscard]] virtual RecordType getRowType() const {
+  [[nodiscard]] RecordType getRowType() const override {
     return {std::vector<RecordAttribute *>{new RecordAttribute(rowcount)}};
   }
 
   virtual std::string getOutputPath() { return outPath; }
 
  protected:
-  Context *context;
   StateVar result_cnt_id;
 
-  expression_t outputExpr;
-  vector<expression_t> outputExprs_v;
+  expressions::RecordConstruction outputExpr;
 
   std::string outPath;
   std::string relName;
 
   RecordAttribute rowcount{outPath, "ROWCOUNT", new Int64Type()};
-
- private:
-  void generate(Context *const context, const OperatorState &childState) const;
 };
 
 #endif /* FLUSH_HPP_ */

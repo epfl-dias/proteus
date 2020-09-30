@@ -104,6 +104,7 @@ void TPCC::print_tpcc_query(void *arg) {
       break;
     case STOCK_LEVEL:
       std::cout << "\tType: STOCK_LEVEL" << std::endl;
+      break;
     default:
       break;
   }

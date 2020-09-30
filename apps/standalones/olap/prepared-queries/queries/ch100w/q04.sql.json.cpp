@@ -30,10 +30,11 @@ constexpr auto query = "ch100w_Q04";
 PreparedStatement Query::prepare04(bool memmv) {
   auto rel2895 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
+          .scan(
               "inputs/ch100w/order.csv",
-              {"o_id", "o_d_id", "o_w_id", "o_entry_d"},
-              getCatalog())  // (table=[[SSB, ch100w_order]], fields=[[0, 1, 2,
+              {"o_id", "o_d_id", "o_w_id", "o_entry_d"}, getCatalog(),
+              pg{Tplugin::
+                     type})  // (table=[[SSB, ch100w_order]], fields=[[0, 1, 2,
                              // 4]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .to_gpu()  // (trait=[Pelago.[].packed.NVPTX.homSingle.hetSingle])
@@ -49,10 +50,12 @@ PreparedStatement Query::prepare04(bool memmv) {
       ;
   auto rel2906 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
+          .scan(
               "inputs/ch100w/order.csv",
               {"o_id", "o_d_id", "o_w_id", "o_entry_d", "o_ol_cnt"},
-              getCatalog())  // (table=[[SSB, ch100w_order]], fields=[[0, 1, 2,
+              getCatalog(),
+              pg{Tplugin::
+                     type})  // (table=[[SSB, ch100w_order]], fields=[[0, 1, 2,
                              // 4, 6]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .to_gpu()  // (trait=[Pelago.[].packed.NVPTX.homSingle.hetSingle])
@@ -124,10 +127,11 @@ PreparedStatement Query::prepare04(bool memmv) {
 
   auto rel =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
+          .scan(
               "inputs/ch100w/orderline.csv",
-              {"ol_o_id", "ol_d_id", "ol_w_id", "ol_delivery_d"},
-              getCatalog())  // (table=[[SSB, ch100w_orderline]], fields=[[0, 1,
+              {"ol_o_id", "ol_d_id", "ol_w_id", "ol_delivery_d"}, getCatalog(),
+              pg{Tplugin::
+                     type})  // (table=[[SSB, ch100w_orderline]], fields=[[0, 1,
                              // 2, 6]],
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .router(

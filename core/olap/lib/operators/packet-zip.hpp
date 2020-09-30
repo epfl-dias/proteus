@@ -59,10 +59,11 @@ class ZipCollect : public BinaryOperator {
              RecordAttribute *hash_key_right,
              const vector<expression_t> &wantedFieldsRight, string opLabel);
 
-  virtual ~ZipCollect() { LOG(INFO) << "Collapsing PacketZip operator"; }
+  ~ZipCollect() override { LOG(INFO) << "Collapsing PacketZip operator"; }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
 
   void generate_cache_left(Context *const context,
                            const OperatorState &childState);
@@ -82,9 +83,9 @@ class ZipCollect : public BinaryOperator {
   ZipState &getStateLeft() { return state_left; }
   ZipState &getStateRight() { return state_right; }
 
-  virtual bool isFiltering() const { return false; }
+  bool isFiltering() const override { return false; }
 
-  virtual RecordType getRowType() const {
+  RecordType getRowType() const override {
     // FIXME: implement
     throw runtime_error("unimplemented");
   }
@@ -133,13 +134,14 @@ class ZipInitiate : public UnaryOperator {
               ParallelContext *const context, int numOfBuckets,
               ZipState &state1, ZipState &state2, string opLabel);
 
-  virtual ~ZipInitiate() {}
+  ~ZipInitiate() override {}
 
-  virtual void produce_(ParallelContext *context);
+  void produce_(ParallelContext *context) override;
 
-  virtual void consume(Context *const context, const OperatorState &childState);
+  void consume(Context *const context,
+               const OperatorState &childState) override;
 
-  virtual bool isFiltering() const { return false; }
+  bool isFiltering() const override { return false; }
 
   PipelineGen **pipeSocket() { return &join_pip; }
 
@@ -149,7 +151,7 @@ class ZipInitiate : public UnaryOperator {
   void close_cache(Pipeline *pip);
   void ctrl(Pipeline *pip);
 
-  virtual RecordType getRowType() const {
+  RecordType getRowType() const override {
     // FIXME: implement
     throw runtime_error("unimplemented");
   }
@@ -191,16 +193,17 @@ class ZipForward : public UnaryOperator {
              const vector<expression_t> &wantedFields, string opLabel,
              ZipState &state);
 
-  virtual ~ZipForward() {}
+  ~ZipForward() override {}
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return false; }
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
+  bool isFiltering() const override { return false; }
 
   void open(Pipeline *pip);
   void close(Pipeline *pip);
 
-  virtual RecordType getRowType() const {
+  RecordType getRowType() const override {
     // FIXME: implement
     throw runtime_error("unimplemented");
   }

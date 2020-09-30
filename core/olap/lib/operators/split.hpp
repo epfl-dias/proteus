@@ -37,20 +37,20 @@ class Split : public Router {
     producers = 1;  // Set so that it does not get overwritten by Routers' cnstr
   }
 
-  virtual ~Split() { LOG(INFO) << "Collapsing Split operator"; }
+  ~Split() override { LOG(INFO) << "Collapsing Split operator"; }
 
-  virtual void produce_(ParallelContext *context);
+  void produce_(ParallelContext *context) override;
 
-  virtual void setParent(Operator *parent) {
+  void setParent(Operator *parent) override {
     UnaryOperator::setParent(parent);
 
     this->parent.emplace_back(parent);
   }
 
-  virtual DegreeOfParallelism getDOP() const { return getChild()->getDOP(); }
+  DegreeOfParallelism getDOP() const override { return getChild()->getDOP(); }
 
  protected:
-  virtual void spawnWorker(size_t i);
+  void spawnWorker(size_t i) override;
 
  private:
   size_t produce_calls;

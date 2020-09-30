@@ -55,23 +55,23 @@ class AffinityPolicy {
 
 class CpuNumaNodeAffinitizer : public Affinitizer {
  protected:
-  virtual const topology::cu &getAvailableCU(size_t cpu_req) const override {
+  const topology::cu &getAvailableCU(size_t cpu_req) const override {
     return topology::getInstance()
         .getCpuNumaNodes()[cpu_req %
                            topology::getInstance().getCpuNumaNodeCount()];
   }
 
  public:
-  virtual size_t getAvailableCUIndex(size_t i) const override {
+  size_t getAvailableCUIndex(size_t i) const override {
     return dynamic_cast<const topology::cpunumanode &>(getAvailableCU(i))
         .index_in_topo;
   }
 
-  virtual size_t size() const override {
+  size_t size() const override {
     return topology::getInstance().getCpuNumaNodeCount();
   }
 
-  virtual size_t getLocalCUIndex(void *p) const override {
+  size_t getLocalCUIndex(void *p) const override {
     auto &topo = topology::getInstance();
     const auto *g = topo.getGpuAddressed(p);
     if (g) return g->getLocalCPUNumaNode().index_in_topo;
@@ -83,23 +83,20 @@ class CpuNumaNodeAffinitizer : public Affinitizer {
 
 class GPUAffinitizer : public Affinitizer {
  protected:
-  virtual const topology::gpunode &getAvailableCU(
-      size_t gpu_req) const override {
+  const topology::gpunode &getAvailableCU(size_t gpu_req) const override {
     static const gpu_index index;
     size_t gpu_i = gpu_req % topology::getInstance().getGpuCount();
     return topology::getInstance().getGpus()[index.d[gpu_i]];
   }
 
  public:
-  virtual size_t getAvailableCUIndex(size_t i) const override {
+  size_t getAvailableCUIndex(size_t i) const override {
     return getAvailableCU(i).index_in_topo;
   }
 
-  virtual size_t size() const override {
-    return topology::getInstance().getGpuCount();
-  }
+  size_t size() const override { return topology::getInstance().getGpuCount(); }
 
-  virtual size_t getLocalCUIndex(void *p) const override {
+  size_t getLocalCUIndex(void *p) const override {
     auto &topo = topology::getInstance();
     const auto *g = topo.getGpuAddressed(p);
     if (g) return g->index_in_topo;
@@ -123,12 +120,11 @@ class CpuCoreAffinitizer : public CpuNumaNodeAffinitizer {
   }
 
  protected:
-  virtual const topology::cu &getAvailableCU(
-      size_t cpu_req) const override final {
+  const topology::cu &getAvailableCU(size_t cpu_req) const final {
     return getAvailableCore(cpu_req);
   }
 
-  virtual size_t getAvailableCUIndex(size_t i) const override {
+  size_t getAvailableCUIndex(size_t i) const override {
     return getAvailableCore(i).getLocalCPUNumaNode().index_in_topo;
   }
 };
@@ -145,8 +141,7 @@ class SpecificCpuCoreAffinitizer : public CpuCoreAffinitizer {
       : core_ids(core_ids) {}
 
  protected:
-  virtual const topology::core &getAvailableCore(
-      size_t cpu_req) const override {
+  const topology::core &getAvailableCore(size_t cpu_req) const override {
     assert(cpu_req < core_ids.size());
     return topology::getInstance().getCoreById(core_ids[cpu_req]);
   }

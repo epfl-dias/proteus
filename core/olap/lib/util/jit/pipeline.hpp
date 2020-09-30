@@ -186,7 +186,7 @@ class PipelineGen {
 
   virtual void registerFunction(std::string, llvm::Function *);
 
-  virtual llvm::Function *const getFunction(string funcName) const;
+  [[nodiscard]] virtual llvm::Function *getFunction(string funcName) const;
 
   virtual llvm::Function *const createHelperFunction(
       string funcName, std::vector<llvm::Type *> ins,

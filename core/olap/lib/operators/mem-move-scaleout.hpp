@@ -36,13 +36,13 @@ class MemMoveScaleOut : public MemMoveDevice {
     std::mutex pending_m;
 
    public:
-    virtual void propagate(MemMoveDevice::workunit *buff, bool is_noop);
+    void propagate(MemMoveDevice::workunit *buff, bool is_noop) override;
 
-    virtual buff_pair push(void *src, size_t bytes, int target_device,
-                           uint64_t srcServer);
-    virtual void *pull(void *buff);
+    buff_pair push(void *src, size_t bytes, int target_device,
+                   uint64_t srcServer) override;
+    void *pull(void *buff) override;
 
-    virtual bool getPropagated(MemMoveDevice::workunit **ret);
+    bool getPropagated(MemMoveDevice::workunit **ret) override;
   };
 
   MemMoveScaleOut(Operator *const child, ParallelContext *const context,
@@ -50,10 +50,10 @@ class MemMoveScaleOut : public MemMoveDevice {
       : MemMoveDevice(child, context, wantedFields, slack, true) {}
 
  protected:
-  virtual MemMoveScaleOut::MemMoveConf *createMoveConf() const;
+  MemMoveScaleOut::MemMoveConf *createMoveConf() const override;
 
   // virtual void open(Pipeline *pip);
-  virtual void close(Pipeline *pip);
+  void close(Pipeline *pip) override;
 };
 
 #endif /* MEM_MOVE_SCALEOUT_HPP_ */

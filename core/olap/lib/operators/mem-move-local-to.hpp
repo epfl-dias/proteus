@@ -60,15 +60,16 @@ class MemMoveLocalTo : public UnaryOperator {
                  size_t slack = 8)
       : UnaryOperator(child), wantedFields(wantedFields), slack(slack) {}
 
-  virtual ~MemMoveLocalTo() {
+  ~MemMoveLocalTo() override {
     LOG(INFO) << "Collapsing MemMoveLocalTo operator";
   }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return false; }
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
+  bool isFiltering() const override { return false; }
 
-  virtual RecordType getRowType() const { return wantedFields; }
+  RecordType getRowType() const override { return wantedFields; }
 
  private:
   const vector<RecordAttribute *> wantedFields;

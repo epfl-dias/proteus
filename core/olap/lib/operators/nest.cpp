@@ -43,27 +43,23 @@ Nest::Nest(Monoid acc, expressions::Expression *outputExpr,
       context(nullptr) {
   // Prepare 'f' -> Turn it into expression (record construction)
   list<expressions::InputArgument>::const_iterator it;
-  list<expressions::AttributeConstruction> *atts =
-      new list<expressions::AttributeConstruction>();
+  auto *atts = new list<expressions::AttributeConstruction>();
   list<RecordAttribute *> recordAtts;
   string attrPlaceholder = string("attr_");
   for (it = f_grouping.begin(); it != f_grouping.end(); it++) {
     const ExpressionType *type = it->getExpressionType();
     int argNo = it->getArgNo();
     list<RecordAttribute> projections = it->getProjections();
-    expressions::InputArgument *attrExpr =
-        new expressions::InputArgument(type, argNo, projections);
+    auto *attrExpr = new expressions::InputArgument(type, argNo, projections);
 
-    expressions::AttributeConstruction attr =
-        expressions::AttributeConstruction(attrPlaceholder, attrExpr);
+    expressions::AttributeConstruction attr{attrPlaceholder, attrExpr};
     atts->push_back(attr);
 
     // Only used as placeholder to kickstart hashing later
-    RecordAttribute *recAttr = new RecordAttribute();
+    auto *recAttr = new RecordAttribute();
     recordAtts.push_back(recAttr);
   }
-  RecordType *recType = new RecordType(recordAtts);
-  this->f_grouping = new expressions::RecordConstruction(recType, *atts);
+  this->f_grouping = new expressions::RecordConstruction(*atts);
 
   // Prepare extra output binding
   this->aggregateName += string(htName);
@@ -147,22 +143,18 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
 
   // Storing values in struct to be materialized in HT. Two steps
   // 2a. Materializing all 'activeTuples' (i.e. positional indices) met so far
-  ProteusValueMemory mem_activeTuple;
   {
-    map<RecordAttribute, ProteusValueMemory>::const_iterator memSearch;
-    for (memSearch = bindings.begin(); memSearch != bindings.end();
-         memSearch++) {
-      RecordAttribute currAttr = memSearch->first;
+    for (const auto &memSearch : bindings) {
+      RecordAttribute currAttr = memSearch.first;
       if (currAttr.getAttrName() == activeLoop) {
-        mem_activeTuple = memSearch->second;
+        auto mem_activeTuple = memSearch.second;
         Value *val_activeTuple = Builder->CreateLoad(mem_activeTuple.mem);
         // OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR
         // EXTRA OFFSET
-        vector<Value *> idxList = vector<Value *>();
-        idxList.push_back(context->createInt32(0));
-        idxList.push_back(context->createInt32(offsetInStruct++));
         // Shift in struct ptr
-        Value *structPtr = Builder->CreateGEP(mem_payload, idxList);
+        Value *structPtr = Builder->CreateGEP(
+            mem_payload,
+            {context->createInt32(0), context->createInt32(offsetInStruct++)});
         Builder->CreateStore(val_activeTuple, structPtr);
       }
     }
@@ -171,10 +163,8 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
   // 2b. Materializing all explicitly requested fields
   int offsetInWanted = 0;
   const vector<RecordAttribute *> &wantedFields = mat.getWantedFields();
-  for (vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
-       it != wantedFields.end(); ++it) {
-    map<RecordAttribute, ProteusValueMemory>::const_iterator memSearch =
-        bindings.find(*(*it));
+  for (const auto &wantedField : wantedFields) {
+    auto memSearch = bindings.find(*wantedField);
 
     Value *llvmCurrVal = nullptr;
     if (memSearch != bindings.end()) {
@@ -195,7 +185,7 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
       //            llvmCurrVal = currVal.value;
 
       string error_msg =
-          string("[NEST: ] Binding not found") + (*it)->getAttrName();
+          string("[NEST: ] Binding not found") + wantedField->getAttrName();
       LOG(ERROR) << error_msg;
       throw runtime_error(error_msg);
     }

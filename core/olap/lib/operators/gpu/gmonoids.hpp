@@ -58,16 +58,16 @@ class Monoid {
 
 class MaxMonoid : public Monoid {
   llvm::Value *create(Context *const context, llvm::Value *val_accumulating,
-                      llvm::Value *val_in);
+                      llvm::Value *val_in) override;
 
   void createUpdate(Context *const context, llvm::Value *val_accumulating,
-                    llvm::Value *val_in);
+                    llvm::Value *val_in) override;
 
   void createAtomicUpdate(
       Context *const context, llvm::Value *accumulator_ptr, llvm::Value *val_in,
-      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic);
+      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic) override;
 
-  inline std::string to_string() const { return "max"; }
+  inline std::string to_string() const override { return "max"; }
 };
 
 class MinMonoid : public Monoid {
@@ -78,77 +78,77 @@ class MinMonoid : public Monoid {
 
  public:
   llvm::Value *create(Context *const context, llvm::Value *val_accumulating,
-                      llvm::Value *val_in);
+                      llvm::Value *val_in) override;
 
   void createUpdate(Context *const context, llvm::Value *val_accumulating,
-                    llvm::Value *val_in);
+                    llvm::Value *val_in) override;
 
   void createAtomicUpdate(
       Context *const context, llvm::Value *accumulator_ptr, llvm::Value *val_in,
-      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic);
+      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic) override;
 
-  inline std::string to_string() const { return "min"; }
+  inline std::string to_string() const override { return "min"; }
 };
 
 class SumMonoid : public Monoid {
   llvm::Value *create(Context *const context, llvm::Value *val_accumulating,
-                      llvm::Value *val_in);
+                      llvm::Value *val_in) override;
 
   void createAtomicUpdate(
       Context *const context, llvm::Value *accumulator_ptr, llvm::Value *val_in,
-      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic);
+      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic) override;
 
-  inline std::string to_string() const { return "sum"; }
+  inline std::string to_string() const override { return "sum"; }
 };
 
 class LogOrMonoid : public Monoid {
   llvm::Value *create(Context *const context, llvm::Value *val_accumulating,
-                      llvm::Value *val_in);
+                      llvm::Value *val_in) override;
 
   void createAtomicUpdate(
       Context *const context, llvm::Value *accumulator_ptr, llvm::Value *val_in,
-      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic);
+      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic) override;
 
   llvm::Value *createWarpAggregateToAll(Context *const context,
-                                        llvm::Value *val_in);
+                                        llvm::Value *val_in) override;
 
-  inline std::string to_string() const { return "lor"; }
+  inline std::string to_string() const override { return "lor"; }
 };
 
 class LogAndMonoid : public Monoid {
   llvm::Value *create(Context *const context, llvm::Value *val_accumulating,
-                      llvm::Value *val_in);
+                      llvm::Value *val_in) override;
 
   void createAtomicUpdate(
       Context *const context, llvm::Value *accumulator_ptr, llvm::Value *val_in,
-      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic);
+      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic) override;
 
   llvm::Value *createWarpAggregateToAll(Context *const context,
-                                        llvm::Value *val_in);
+                                        llvm::Value *val_in) override;
 
-  inline std::string to_string() const { return "land"; }
+  inline std::string to_string() const override { return "land"; }
 };
 
 class BitOrMonoid : public Monoid {
   llvm::Value *create(Context *const context, llvm::Value *val_accumulating,
-                      llvm::Value *val_in);
+                      llvm::Value *val_in) override;
 
   void createAtomicUpdate(
       Context *const context, llvm::Value *accumulator_ptr, llvm::Value *val_in,
-      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic);
+      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic) override;
 
-  inline std::string to_string() const { return "bor"; }
+  inline std::string to_string() const override { return "bor"; }
 };
 
 class BitAndMonoid : public Monoid {
   llvm::Value *create(Context *const context, llvm::Value *al_accumulating,
-                      llvm::Value *val_in);
+                      llvm::Value *val_in) override;
 
   void createAtomicUpdate(
       Context *const context, llvm::Value *accumulator_ptr, llvm::Value *val_in,
-      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic);
+      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic) override;
 
-  inline std::string to_string() const { return "band"; }
+  inline std::string to_string() const override { return "band"; }
 };
 
 }  // namespace gpu

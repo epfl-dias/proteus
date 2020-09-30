@@ -105,60 +105,47 @@ enum class gran_t { GRID, BLOCK, THREAD };
       gpuAssert((ans), __FILE__, __LINE__);        \
   } while (0)
 
-[[noreturn]] __host__ inline void gpuAssert(std::string str, const char *file,
-                                            int line) {
+[[noreturn]] __host__ inline void gpuAssert(const std::string &str,
+                                            const char *file, int line) {
   auto msg = std::string{"GPUassert: "} + str;
   google::LogMessage(file, line, google::GLOG_ERROR).stream() << msg;
   throw std::runtime_error{msg};
 }
 
 __host__ __device__ inline void gpuAssert(cudaError_t code, const char *file,
-                                          int line, bool doAbort = true) {
+                                          int line) {
   if (code != cudaSuccess) {
 #ifndef __CUDA_ARCH__
-    try {
-      gpuAssert(cudaGetErrorString(code), file, line);
-    } catch (std::runtime_error e) {
-      if (doAbort) throw;
-    }
+    gpuAssert(cudaGetErrorString(code), file, line);
 #else
     printf("GPUassert: %s %s %d\n", "error", file, line);
-    if (doAbort) exit(code);
+    exit(code);
 #endif
   }
 }
 
 __host__ __device__ inline void gpuAssert(CUresult code, const char *file,
-                                          int line, bool doAbort = true) {
+                                          int line) {
   if (code != CUDA_SUCCESS) {
 #ifndef __CUDA_ARCH__
-    try {
-      const char *msg;
-      cuGetErrorString(code, &msg);
-      gpuAssert(msg, file, line);
-    } catch (std::runtime_error e) {
-      if (doAbort) throw;
-    }
+    const char *msg;
+    cuGetErrorString(code, &msg);
+    gpuAssert(msg, file, line);
 #else
     printf("GPUassert: %s %s %d\n", "error", file, line);
-    if (doAbort) exit(code);
+    exit(code);
 #endif
   }
 }
 
 __host__ __device__ inline void gpuAssert(nvmlReturn_enum code,
-                                          const char *file, int line,
-                                          bool doAbort = true) {
+                                          const char *file, int line) {
   if (code != NVML_SUCCESS) {
 #ifndef __CUDA_ARCH__
-    try {
-      gpuAssert(nvmlErrorString(code), file, line);
-    } catch (std::runtime_error e) {
-      if (doAbort) throw;
-    }
+    gpuAssert(nvmlErrorString(code), file, line);
 #else
     printf("GPUassert: %s %s %d\n", "error", file, line);
-    if (doAbort) exit(code);
+    exit(code);
 #endif
   }
 }

@@ -53,19 +53,14 @@ bool TPCC::exec_txn(const void *stmts, uint64_t xid, ushort master_ver,
   switch (q->query_type) {
     case NEW_ORDER:
       return exec_neworder_txn(q, xid, partition_id, master_ver, delta_ver);
-      break;
     case PAYMENT:
       return exec_payment_txn(q, xid, partition_id, master_ver, delta_ver);
-      break;
     case ORDER_STATUS:
       return exec_orderstatus_txn(q, xid, partition_id, master_ver, delta_ver);
-      break;
     case DELIVERY:
       return exec_delivery_txn(q, xid, partition_id, master_ver, delta_ver);
-      break;
     case STOCK_LEVEL:
       return exec_stocklevel_txn(q, xid, partition_id, master_ver, delta_ver);
-      break;
     default:
       assert(false);
       break;

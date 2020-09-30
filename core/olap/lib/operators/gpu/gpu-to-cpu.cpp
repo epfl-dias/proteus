@@ -567,8 +567,7 @@ void GpuToCpu::open(Pipeline *pip) {
 
   lock = (int32_t *)MemoryManager::mallocGpu(sizeof(int32_t) * 2);
 
-  cudaStream_t strm;
-  gpu_run(cudaStreamCreateWithFlags(&strm, cudaStreamNonBlocking));
+  cudaStream_t strm = createNonBlockingStream();
   gpu_run(cudaMemsetAsync(lock, 0, sizeof(int32_t) * 2, strm));
   last = lock + 1;
 
@@ -590,8 +589,7 @@ void GpuToCpu::open(Pipeline *pip) {
   cpip->setStateVar<int32_t *>(eofVar_id_catch, (int32_t *)eof);
   nvtxRangePop();
 
-  gpu_run(cudaStreamSynchronize(strm));
-  gpu_run(cudaStreamDestroy(strm));
+  syncAndDestroyStream(strm);
 
   std::thread *t = new std::thread(kick_start, std::move(cpip), device);
 

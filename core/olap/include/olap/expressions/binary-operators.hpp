@@ -54,61 +54,61 @@ class BinaryOperator {
 };
 
 class Eq : public BinaryOperator {
-  opID getID() { return EQ; }
+  opID getID() override { return EQ; }
 };
 class Neq : public BinaryOperator {
-  opID getID() { return NEQ; }
+  opID getID() override { return NEQ; }
 };
 class Ge : public BinaryOperator {
-  opID getID() { return GE; }
+  opID getID() override { return GE; }
 };
 class Gt : public BinaryOperator {
-  opID getID() { return GT; }
+  opID getID() override { return GT; }
 };
 class Le : public BinaryOperator {
-  opID getID() { return LE; }
+  opID getID() override { return LE; }
 };
 class Lt : public BinaryOperator {
-  opID getID() { return LT; }
+  opID getID() override { return LT; }
 };
 class Add : public BinaryOperator {
-  opID getID() { return ADD; }
+  opID getID() override { return ADD; }
 };
 class Sub : public BinaryOperator {
-  opID getID() { return SUB; }
+  opID getID() override { return SUB; }
 };
 class Mult : public BinaryOperator {
-  opID getID() { return MULT; }
+  opID getID() override { return MULT; }
 };
 class Div : public BinaryOperator {
-  opID getID() { return DIV; }
+  opID getID() override { return DIV; }
 };
 class Mod : public BinaryOperator {
-  opID getID() { return MOD; }
+  opID getID() override { return MOD; }
 };
 class And : public BinaryOperator {
-  opID getID() { return AND; }
+  opID getID() override { return AND; }
 };
 class Or : public BinaryOperator {
-  opID getID() { return OR; }
+  opID getID() override { return OR; }
 };
 class Max : public BinaryOperator {
-  opID getID() { return MAX; }
+  opID getID() override { return MAX; }
 };
 class Min : public BinaryOperator {
-  opID getID() { return MIN; }
+  opID getID() override { return MIN; }
 };
 class Shl : public BinaryOperator {
-  opID getID() { return SHL; }
+  opID getID() override { return SHL; }
 };
 class Lshr : public BinaryOperator {
-  opID getID() { return LSHR; }
+  opID getID() override { return LSHR; }
 };
 class Ashr : public BinaryOperator {
-  opID getID() { return ASHR; }
+  opID getID() override { return ASHR; }
 };
 class Xor : public BinaryOperator {
-  opID getID() { return XOR; }
+  opID getID() override { return XOR; }
 };
 }  // namespace expressions
 

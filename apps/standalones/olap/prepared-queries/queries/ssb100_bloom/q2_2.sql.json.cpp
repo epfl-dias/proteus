@@ -30,9 +30,9 @@ constexpr auto query = "ssb100_Q2_2";
 PreparedStatement Query::prepare22(bool memmv, size_t bloomSize) {
   auto rel23990 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
-              "inputs/ssbm100/date.csv", {"d_datekey", "d_year"},
-              getCatalog())  // (table=[[SSB, ssbm_date]], fields=[[0, 4]],
+          .scan(
+              "inputs/ssbm100/date.csv", {"d_datekey", "d_year"}, getCatalog(),
+              pg{Tplugin::type})  // (table=[[SSB, ssbm_date]], fields=[[0, 4]],
           // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .membrdcst(dop, true, true)
           .router(
@@ -46,8 +46,8 @@ PreparedStatement Query::prepare22(bool memmv, size_t bloomSize) {
       ;
   auto rel23995 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>("inputs/ssbm100/supplier.csv",
-                         {"s_suppkey", "s_region"}, getCatalog())
+          .scan("inputs/ssbm100/supplier.csv", {"s_suppkey", "s_region"},
+                getCatalog(), pg{Tplugin::type})
           .membrdcst(dop, memmv || !(dev == DeviceType::CPU), !memmv)
           .router(
               [&](const auto &arg) -> std::optional<expression_t> {
@@ -64,9 +64,10 @@ PreparedStatement Query::prepare22(bool memmv, size_t bloomSize) {
           });
   auto rel23999 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
+          .scan(
               "inputs/ssbm100/part.csv", {"p_partkey", "p_brand1"},
-              getCatalog())  // (table=[[SSB, ssbm_part]], fields=[[0, 4]],
+              getCatalog(),
+              pg{Tplugin::type})  // (table=[[SSB, ssbm_part]], fields=[[0, 4]],
           // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .membrdcst(dop, true, true)
           .router(
@@ -91,10 +92,9 @@ PreparedStatement Query::prepare22(bool memmv, size_t bloomSize) {
           .unpack();
   auto rel =
       getBuilder<Tplugin>()
-          .scan<Tplugin>(
-              "inputs/ssbm100/lineorder.csv",
-              {"lo_partkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},
-              getCatalog())
+          .scan("inputs/ssbm100/lineorder.csv",
+                {"lo_partkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},
+                getCatalog(), pg{Tplugin::type})
           .router(8, RoutingPolicy::LOCAL, DeviceType::CPU)
           //          .unpack()
           .bloomfilter_repack(
@@ -206,8 +206,8 @@ PreparedStatement Query::prepare22(bool memmv, size_t bloomSize) {
 PreparedStatement Query::prepare22_b(bool memmv, size_t bloomSize) {
   auto rel =
       getBuilder<Tplugin>()
-          .scan<Tplugin>("inputs/ssbm100/lineorder.csv", {"lo_partkey"},
-                         getCatalog())
+          .scan("inputs/ssbm100/lineorder.csv", {"lo_partkey"}, getCatalog(),
+                pg{Tplugin::type})
           .router(8, RoutingPolicy::LOCAL, DeviceType::CPU)
           .unpack()
           .bloomfilter_probe([&](const auto &arg) { return arg["lo_partkey"]; },

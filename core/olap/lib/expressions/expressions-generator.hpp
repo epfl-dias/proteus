@@ -24,6 +24,8 @@
 #ifndef EXPRESSIONS_VISITOR_HPP_
 #define EXPRESSIONS_VISITOR_HPP_
 
+#include <utility>
+
 #include "common/common.hpp"
 #include "lib/util/caching.hpp"
 #include "lib/util/catalog.hpp"
@@ -35,74 +37,68 @@
 class ExpressionGeneratorVisitor : public ExprVisitor {
  public:
   ExpressionGeneratorVisitor(Context *const context,
-                             const OperatorState &currState)
-      : context(context), currState(currState), activeRelation("") {}
-  ExpressionGeneratorVisitor(Context *const context,
                              const OperatorState &currState,
-                             string activeRelation)
+                             std::string activeRelation = "")
       : context(context),
         currState(currState),
-        activeRelation(activeRelation) {}
-  ProteusValue visit(const expressions::IntConstant *e);
-  ProteusValue visit(const expressions::Int64Constant *e);
-  ProteusValue visit(const expressions::DateConstant *e);
-  ProteusValue visit(const expressions::FloatConstant *e);
-  ProteusValue visit(const expressions::BoolConstant *e);
-  ProteusValue visit(const expressions::StringConstant *e);
-  ProteusValue visit(const expressions::DStringConstant *e);
-  ProteusValue visit(const expressions::InputArgument *e);
-  ProteusValue visit(const expressions::RecordProjection *e);
+        activeRelation(std::move(activeRelation)) {}
+  ProteusValue visit(const expressions::IntConstant *e) override;
+  ProteusValue visit(const expressions::Int64Constant *e) override;
+  ProteusValue visit(const expressions::DateConstant *e) override;
+  ProteusValue visit(const expressions::FloatConstant *e) override;
+  ProteusValue visit(const expressions::BoolConstant *e) override;
+  ProteusValue visit(const expressions::StringConstant *e) override;
+  ProteusValue visit(const expressions::DStringConstant *e) override;
+  ProteusValue visit(const expressions::InputArgument *e) override;
+  ProteusValue visit(const expressions::RecordProjection *e) override;
   /*
    * XXX How is nullptr propagated? What if one of the attributes is nullptr;
    * XXX Did not have to test it yet -> Applicable to output only
    */
-  ProteusValue visit(const expressions::RecordConstruction *e);
-  ProteusValue visit(const expressions::IfThenElse *e);
+  ProteusValue visit(const expressions::RecordConstruction *e) override;
+  ProteusValue visit(const expressions::IfThenElse *e) override;
   // XXX Do binary operators require explicit handling of nullptr?
-  ProteusValue visit(const expressions::EqExpression *e);
-  ProteusValue visit(const expressions::NeExpression *e);
-  ProteusValue visit(const expressions::GeExpression *e);
-  ProteusValue visit(const expressions::GtExpression *e);
-  ProteusValue visit(const expressions::LeExpression *e);
-  ProteusValue visit(const expressions::LtExpression *e);
-  ProteusValue visit(const expressions::AddExpression *e);
-  ProteusValue visit(const expressions::SubExpression *e);
-  ProteusValue visit(const expressions::MultExpression *e);
-  ProteusValue visit(const expressions::DivExpression *e);
-  ProteusValue visit(const expressions::ModExpression *e);
-  ProteusValue visit(const expressions::AndExpression *e);
-  ProteusValue visit(const expressions::OrExpression *e);
-  ProteusValue visit(const expressions::ProteusValueExpression *e);
-  ProteusValue visit(const expressions::MinExpression *e);
-  ProteusValue visit(const expressions::MaxExpression *e);
-  ProteusValue visit(const expressions::HashExpression *e);
-  ProteusValue visit(const expressions::RefExpression *e);
-  ProteusValue visit(const expressions::AssignExpression *e);
-  ProteusValue visit(const expressions::NegExpression *e);
-  ProteusValue visit(const expressions::ExtractExpression *e);
-  ProteusValue visit(const expressions::TestNullExpression *e);
-  ProteusValue visit(const expressions::CastExpression *e);
+  ProteusValue visit(const expressions::EqExpression *e) override;
+  ProteusValue visit(const expressions::NeExpression *e) override;
+  ProteusValue visit(const expressions::GeExpression *e) override;
+  ProteusValue visit(const expressions::GtExpression *e) override;
+  ProteusValue visit(const expressions::LeExpression *e) override;
+  ProteusValue visit(const expressions::LtExpression *e) override;
+  ProteusValue visit(const expressions::AddExpression *e) override;
+  ProteusValue visit(const expressions::SubExpression *e) override;
+  ProteusValue visit(const expressions::MultExpression *e) override;
+  ProteusValue visit(const expressions::DivExpression *e) override;
+  ProteusValue visit(const expressions::ModExpression *e) override;
+  ProteusValue visit(const expressions::AndExpression *e) override;
+  ProteusValue visit(const expressions::OrExpression *e) override;
+  ProteusValue visit(const expressions::ProteusValueExpression *e) override;
+  ProteusValue visit(const expressions::MinExpression *e) override;
+  ProteusValue visit(const expressions::MaxExpression *e) override;
+  ProteusValue visit(const expressions::HashExpression *e) override;
+  ProteusValue visit(const expressions::RefExpression *e) override;
+  ProteusValue visit(const expressions::AssignExpression *e) override;
+  ProteusValue visit(const expressions::NegExpression *e) override;
+  ProteusValue visit(const expressions::ExtractExpression *e) override;
+  ProteusValue visit(const expressions::TestNullExpression *e) override;
+  ProteusValue visit(const expressions::CastExpression *e) override;
 
-  ProteusValue visit(const expressions::ShiftLeftExpression *e);
-  ProteusValue visit(const expressions::LogicalShiftRightExpression *e);
-  ProteusValue visit(const expressions::ArithmeticShiftRightExpression *e);
-  ProteusValue visit(const expressions::XORExpression *e);
+  ProteusValue visit(const expressions::ShiftLeftExpression *e) override;
+  ProteusValue visit(
+      const expressions::LogicalShiftRightExpression *e) override;
+  ProteusValue visit(
+      const expressions::ArithmeticShiftRightExpression *e) override;
+  ProteusValue visit(const expressions::XORExpression *e) override;
 
-  /**
-   *
-   */
-
-  void setActiveRelation(string relName) { activeRelation = relName; }
-  string getActiveRelation(string relName) { return activeRelation; }
+  void setActiveRelation(std::string relName) {
+    activeRelation = std::move(relName);
+  }
+  std::string getActiveRelation() { return activeRelation; }
 
  private:
   Context *const context;
   const OperatorState &currState;
 
-  string activeRelation;
-
-  /* Plugins are responsible for this action */
-  // ProteusValue retrieveValue(CacheInfo info, Plugin *pg);
+  std::string activeRelation;
 };
 
 static_assert(!std::is_abstract<ExpressionGeneratorVisitor>(),

@@ -84,7 +84,7 @@ class StateVar {
       : index_in_pip(index), pip(pip) {}
 
  private:
-  size_t getIndex() const { return index_in_pip; }
+  [[nodiscard]] size_t getIndex() const { return index_in_pip; }
   friend class Context;
   friend class Pipeline;
   friend class PipelineGen;
@@ -114,11 +114,11 @@ class Context {
   const std::string moduleName;
 
  public:
-  typedef llvm::Value *(init_func_t)(llvm::Value *);
-  typedef void(deinit_func_t)(llvm::Value *, llvm::Value *);
+  using init_func_t = llvm::Value *(llvm::Value *);
+  using deinit_func_t = void(llvm::Value *, llvm::Value *);
 
  protected:
-  Context(const string &moduleName);
+  explicit Context(const string &moduleName);
 
  public:
   virtual ~Context() {
@@ -132,19 +132,23 @@ class Context {
     //            delete TheFunction;
   }
 
-  std::string getModuleName() const { return moduleName; }
+  [[nodiscard]] std::string getModuleName() const { return moduleName; }
 
-  llvm::LLVMContext &getLLVMContext() { return getModule()->getContext(); }
+  [[nodiscard]] llvm::LLVMContext &getLLVMContext() const {
+    return getModule()->getContext();
+  }
 
   virtual void prepareFunction(llvm::Function *F) = 0;
 
   virtual void setGlobalFunction(bool leaf);
   virtual void setGlobalFunction(llvm::Function *F = nullptr,
                                  bool leaf = false);
-  llvm::Function *getGlobalFunction() const { return TheFunction; }
-  virtual llvm::Module *getModule() const = 0;
-  virtual llvm::IRBuilder<> *getBuilder() const = 0;
-  virtual llvm::Function *getFunction(string funcName) const;
+  [[nodiscard]] llvm::Function *getGlobalFunction() const {
+    return TheFunction;
+  }
+  [[nodiscard]] virtual llvm::Module *getModule() const = 0;
+  [[nodiscard]] virtual llvm::IRBuilder<> *getBuilder() const = 0;
+  [[nodiscard]] virtual llvm::Function *getFunction(string funcName) const;
 
   llvm::ConstantInt *createInt8(char val);
   llvm::ConstantInt *createInt32(int val);
@@ -161,7 +165,6 @@ class Context {
   virtual size_t getSizeOf(llvm::Type *type) const;
   virtual size_t getSizeOf(llvm::Value *val) const;
 
-  llvm::Type *CreateCustomType(char *typeName);
   llvm::StructType *CreateJSMNStruct();
   static llvm::StructType *CreateJSMNStruct(llvm::LLVMContext &);
   llvm::StructType *CreateStringStruct();
@@ -301,8 +304,8 @@ class Context {
 
   virtual void registerFunction(const char *, llvm::Function *);
   virtual llvm::BasicBlock *getEndingBlock() { return codeEnd; }
-  virtual void setEndingBlock(llvm::BasicBlock *codeEnd) {
-    this->codeEnd = codeEnd;
+  virtual void setEndingBlock(llvm::BasicBlock *cdEnd) {
+    this->codeEnd = cdEnd;
   }
   virtual llvm::BasicBlock *getCurrentEntryBlock() {
     assert(currentCodeEntry != nullptr && "No entry block is set!");
@@ -372,15 +375,12 @@ class Context {
     llvm::Type *int64_type = llvm::Type::getInt64Ty(ctx);
     llvm::Type *keyType = int64_type;
     llvm::Type *bucketSizeType = int64_type;
-    vector<llvm::Type *> types_htMetadata{keyType, bucketSizeType};
-    int htMetadataSize = (keyType->getPrimitiveSizeInBits() / 8);
-    htMetadataSize += (bucketSizeType->getPrimitiveSizeInBits() / 8);
 
     // Result type specified
-    return llvm::StructType::get(ctx, types_htMetadata);
+    return llvm::StructType::get(ctx, {keyType, bucketSizeType});
   }
 
-  llvm::StructType *getHashtableMetadataType() {
+  [[nodiscard]] llvm::StructType *getHashtableMetadataType() const {
     return getHashtableMetadataType(getLLVMContext());
   }
 
@@ -397,7 +397,7 @@ class Context {
   virtual llvm::Value *allocateStateVar(llvm::Type *t);
   virtual void deallocateStateVar(llvm::Value *v);
 
-  virtual llvm::Value *getStateVar(const StateVar &id) const;
+  [[nodiscard]] virtual llvm::Value *getStateVar(const StateVar &id) const;
 
  protected:
   virtual void prepareStateVars();
@@ -433,10 +433,10 @@ class Context {
   std::vector<llvm::Value *> state_vars;
 };
 
-typedef struct HashtableBucketMetadata {
+struct HashtableBucketMetadata {
   size_t hashKey;
   size_t bucketSize;
-} HashtableBucketMetadata;
+};
 
 class save_current_blocks_and_restore_at_exit_scope {
   llvm::BasicBlock *current;
@@ -445,7 +445,7 @@ class save_current_blocks_and_restore_at_exit_scope {
   Context *context;
 
  public:
-  save_current_blocks_and_restore_at_exit_scope(Context *context)
+  explicit save_current_blocks_and_restore_at_exit_scope(Context *context)
       : context(context),
         entry(context->getCurrentEntryBlock()),
         ending(context->getEndingBlock()),

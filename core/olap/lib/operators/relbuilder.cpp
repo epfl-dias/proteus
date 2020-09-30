@@ -31,6 +31,7 @@
 #include <lib/operators/bloom-filter/bloom-filter-repack.hpp>
 #include <lib/plugins/vector/vector-plugin.hpp>
 #include <lib/util/flush-operator-tree.hpp>
+#include <utility>
 
 #include "block-to-tuples.hpp"
 #include "cpu-to-gpu.hpp"
@@ -96,19 +97,18 @@ RelBuilder::RelBuilder() : RelBuilder(new ParallelContext("main", false)) {}
 RelBuilder::RelBuilder(ParallelContext *ctx) : RelBuilder(ctx, nullptr) {}
 
 const RecordType &RelBuilder::getRecordType(CatalogParser &catalog,
-                                            std::string relName) const {
-  auto inputInfo = catalog.getInputInfo(relName);
+                                            std::string relName) {
+  auto inputInfo = catalog.getInputInfo(std::move(relName));
 
-  CollectionType &collType =
-      dynamic_cast<CollectionType &>(*(inputInfo->exprType));
+  auto &collType = dynamic_cast<CollectionType &>(*(inputInfo->exprType));
 
   const ExpressionType &nestedType = collType.getNestedType();
   return dynamic_cast<const RecordType &>(nestedType);
 }
 
 void RelBuilder::setOIDType(CatalogParser &catalog, std::string relName,
-                            ExpressionType *type) const {
-  catalog.getInputInfo(relName)->oidType = type;
+                            ExpressionType *type) {
+  catalog.getInputInfo(std::move(relName))->oidType = type;
 }
 
 RelBuilder RelBuilder::apply(Operator *op) const {
@@ -167,7 +167,7 @@ RelBuilder RelBuilder::membrdcst(DegreeOfParallelism fanout, bool to_cpu,
             ret.emplace_back(new RecordAttribute{attr});
           }
         }
-        assert(ret.size() != 0);
+        assert(!ret.empty());
         return ret;
       },
       fanout, to_cpu, always_share);
@@ -194,7 +194,7 @@ RelBuilder RelBuilder::membrdcst_scaleout(size_t fanout, bool to_cpu,
             ret.emplace_back(new RecordAttribute{attr});
           }
         }
-        assert(ret.size() != 0);
+        assert(!ret.empty());
         return ret;
       },
       fanout, to_cpu, always_share);
@@ -220,7 +220,7 @@ RelBuilder RelBuilder::memmove_scaleout(size_t slack) const {
             ret.emplace_back(new RecordAttribute{attr});
           }
         }
-        assert(ret.size() != 0);
+        assert(!ret.empty());
         return ret;
       },
       slack);
@@ -293,11 +293,12 @@ RelBuilder RelBuilder::unpack(const vector<expression_t> &projections,
 RelBuilder RelBuilder::pack(const vector<expression_t> &projections,
                             expression_t hashExpr, size_t numOfBuckets) const {
   if (root->getDeviceType() == DeviceType::GPU) {
-    auto op =
-        new GpuHashRearrange(root, ctx, numOfBuckets, projections, hashExpr);
+    auto op = new GpuHashRearrange(root, ctx, numOfBuckets, projections,
+                                   std::move(hashExpr));
     return apply(op);
   } else {
-    auto op = new HashRearrange(root, numOfBuckets, projections, hashExpr);
+    auto op =
+        new HashRearrange(root, numOfBuckets, projections, std::move(hashExpr));
     return apply(op);
   }
 }
@@ -306,6 +307,7 @@ RelBuilder RelBuilder::reduce(const vector<expression_t> &e,
                               const vector<Monoid> &accs) const {
   assert(e.size() == accs.size());
   std::vector<agg_t> aggs;
+  aggs.reserve(e.size());
   for (size_t i = 0; i < e.size(); ++i) {
     aggs.emplace_back(e[i], accs[i]);
   }
@@ -394,12 +396,12 @@ RelBuilder RelBuilder::print(const vector<expression_t> &e, Plugin *pg,
   datasetInfo->exprType =
       new BagType{RecordType{std::vector<RecordAttribute *>{args}}};
 
-  auto op = new Flush(e, root, ctx, outrel);
+  auto op = new Flush(e, root, outrel);
   return apply(op);
 }
 
 RelBuilder RelBuilder::unnest(expression_t e) const {
-  auto op = new Unnest(true, e, root);
+  auto op = new Unnest(true, std::move(e), root);
   return apply(op);
 }
 
@@ -418,11 +420,12 @@ RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
                               RoutingPolicy p, DeviceType target,
                               std::unique_ptr<Affinitizer> aff) const {
   if (aff) {
-    auto op =
-        new Router(root, fanout, wantedFields, slack, hash, p, std::move(aff));
+    auto op = new Router(root, fanout, wantedFields, slack, std::move(hash), p,
+                         std::move(aff));
     return apply(op);
   } else {
-    auto op = new Router(root, fanout, wantedFields, slack, hash, p, target);
+    auto op = new Router(root, fanout, wantedFields, slack, std::move(hash), p,
+                         target);
     return apply(op);
   }
 }
@@ -483,8 +486,8 @@ RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
         ctx->getSizeOf(e.getExpressionType()->getLLVMType(llvmContext)) * 8);
   }
 
-  return join(build, build_k, build_e, build_w, probe_k, probe_e, probe_w,
-              hash_bits, maxBuildInputSize);
+  return join(build, std::move(build_k), build_e, build_w, std::move(probe_k),
+              probe_e, probe_w, hash_bits, maxBuildInputSize);
 }
 
 RelBuilder RelBuilder::morsel_join(RelBuilder build, expression_t build_k,
@@ -539,8 +542,9 @@ RelBuilder RelBuilder::morsel_join(RelBuilder build, expression_t build_k,
         ctx->getSizeOf(e.getExpressionType()->getLLVMType(llvmContext)) * 8);
   }
 
-  return morsel_join(build, build_k, build_e, build_w, probe_k, probe_e,
-                     probe_w, hash_bits, maxBuildInputSize);
+  return morsel_join(build, std::move(build_k), build_e, build_w,
+                     std::move(probe_k), probe_e, probe_w, hash_bits,
+                     maxBuildInputSize);
 }
 
 RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
@@ -551,15 +555,15 @@ RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
                             const std::vector<size_t> &probe_w, int hash_bits,
                             size_t maxBuildInputSize) const {
   if (root->getDeviceType() == DeviceType::GPU) {
-    auto op = new GpuHashJoinChained(build_e, build_w, build_k, build.root,
-                                     probe_e, probe_w, probe_k, root, hash_bits,
-                                     maxBuildInputSize);
+    auto op = new GpuHashJoinChained(
+        build_e, build_w, std::move(build_k), build.root, probe_e, probe_w,
+        std::move(probe_k), root, hash_bits, maxBuildInputSize);
     build.apply(op);
     return apply(op);
   } else {
-    auto op = new HashJoinChained(build_e, build_w, build_k, build.root,
-                                  probe_e, probe_w, probe_k, root, hash_bits,
-                                  maxBuildInputSize);
+    auto op = new HashJoinChained(
+        build_e, build_w, std::move(build_k), build.root, probe_e, probe_w,
+        std::move(probe_k), root, hash_bits, maxBuildInputSize);
     build.apply(op);
     return apply(op);
   }
@@ -574,27 +578,27 @@ RelBuilder RelBuilder::morsel_join(RelBuilder build, expression_t build_k,
                                    int hash_bits,
                                    size_t maxBuildInputSize) const {
   if (root->getDeviceType() == DeviceType::GPU) {
-    auto op = new GpuHashJoinChained(build_e, build_w, build_k, build.root,
-                                     probe_e, probe_w, probe_k, root, hash_bits,
-                                     maxBuildInputSize);
+    auto op = new GpuHashJoinChained(
+        build_e, build_w, std::move(build_k), build.root, probe_e, probe_w,
+        std::move(probe_k), root, hash_bits, maxBuildInputSize);
     build.apply(op);
     return apply(op);
   } else {
     assert(this->root->getDOP() == build->getDOP());
-    auto op = new HashJoinChainedMorsel(build_e, build_w, build_k, build.root,
-                                        probe_e, probe_w, probe_k, root,
-                                        hash_bits, maxBuildInputSize);
+    auto op = new HashJoinChainedMorsel(
+        build_e, build_w, std::move(build_k), build.root, probe_e, probe_w,
+        std::move(probe_k), root, hash_bits, maxBuildInputSize);
     build.apply(op);
     return apply(op);
   }
 }
 
-void RelBuilder::registerPlugin(const std::string &relName, Plugin *pg) const {
+void RelBuilder::registerPlugin(const std::string &relName, Plugin *pg) {
   Catalog::getInstance().registerPlugin(relName, pg);
 }
 
 typedef Plugin *(*plugin_creator_t)(ParallelContext *, std::string, RecordType,
-                                    std::vector<RecordAttribute *> &);
+                                    const std::vector<RecordAttribute *> &);
 
 std::string hyphenatedPluginToCamel(const std::string &line);
 
@@ -602,7 +606,7 @@ auto getPluginFactory(const std::string &pgType) {
   auto name = hyphenatedPluginToCamel(pgType);
   std::string conv = "create" + name + "Plugin";
 
-  std::cout << "PluginName: " << name << std::endl;
+  LOG(INFO) << "PluginName: " << name;
 
   static auto handle = dlopen(nullptr, 0);
 
@@ -617,12 +621,12 @@ auto getPluginFactory(const std::string &pgType) {
   return create;
 }
 
-Plugin *RelBuilder::createPlugin(RecordType rec,
-                                 std::vector<RecordAttribute *> projs,
+Plugin *RelBuilder::createPlugin(const RecordType &rec,
+                                 const std::vector<RecordAttribute *> &projs,
                                  const std::string &pgType) const {
   auto create = getPluginFactory(pgType);
 
-  assert(rec.getArgs().size() > 0);
+  assert(!rec.getArgs().empty());
   auto fileName = rec.getArgs().front()->getRelationName();
   LOG(INFO) << fileName << " " << pgType;
   auto pg = create(ctx, fileName, rec, projs);
@@ -699,7 +703,7 @@ RelBuilder RelBuilder::print(pg pgType, std::string outrel) const {
         }
         return es;
       },
-      pgType, outrel);
+      std::move(pgType), outrel);
 }
 
 RelBuilder RelBuilder::print(pg pgType) const {
@@ -740,7 +744,7 @@ RelBuilder RelBuilder::print(
 RelBuilder RelBuilder::print(
     std::function<std::vector<expression_t>(const expressions::InputArgument &)>
         exprs) const {
-  return print(exprs, pg("pm-csv"));
+  return print(std::move(exprs), pg("pm-csv"));
 }
 
 RelBuilder RelBuilder::unionAll(const std::vector<RelBuilder> &children) const {

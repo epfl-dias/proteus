@@ -39,14 +39,14 @@ class DictScan : public UnaryOperator {
         regAs(regAs) {
     assert(this->context && "Only ParallelContext supported");
   }
-  virtual ~DictScan() { LOG(INFO) << "Collapsing dictscan operator"; }
+  ~DictScan() override { LOG(INFO) << "Collapsing dictscan operator"; }
   virtual Operator *const getChild() const final {
     throw runtime_error(string("Dictscan operator has no children"));
   }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context,
-                       const OperatorState &childState) {
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override {
     ParallelContext *ctx = dynamic_cast<ParallelContext *>(context);
     if (!ctx) {
       string error_msg =
@@ -60,15 +60,15 @@ class DictScan : public UnaryOperator {
 
   virtual void consume(ParallelContext *const context,
                        const OperatorState &childState);
-  virtual bool isFiltering() const { return true; }
+  bool isFiltering() const override { return true; }
 
-  virtual RecordType getRowType() const {
+  RecordType getRowType() const override {
     // FIXME: implement
     throw runtime_error("unimplemented");
   }
 
-  virtual DeviceType getDeviceType() const { return DeviceType::CPU; }
-  virtual DegreeOfParallelism getDOP() const { return DegreeOfParallelism{1}; }
+  DeviceType getDeviceType() const override { return DeviceType::CPU; }
+  DegreeOfParallelism getDOP() const override { return DegreeOfParallelism{1}; }
 
   virtual DictMatchIter begin() const;
   virtual DictMatchIter end() const;

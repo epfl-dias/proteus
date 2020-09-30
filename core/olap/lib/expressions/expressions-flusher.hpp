@@ -48,73 +48,75 @@ class ExpressionFlusherVisitor : public ExprVisitor {
       : context(context),
         currState(currState),
         outputFile(outputFile),
-        activeRelation(""),
-        pg(nullptr) {
-    // Only used as a token return value that is passed along by each visitor
-    placeholder.isNull = context->createTrue();
-    placeholder.value = nullptr;
-    outputFileLLVM = nullptr;
+        outputFileLLVM(nullptr),
+        pg(nullptr),
+        // Only used as a token return value that is passed along by each
+        // visitor
+        placeholder{nullptr, context->createFalse()} {
     pg = new jsonPipelined::JSONPlugin(context, outputFile, nullptr);
   }
   ExpressionFlusherVisitor(Context *const context,
                            const OperatorState &currState,
-                           const char *outputFile, string activeRelation)
+                           const char *outputFile, std::string activeRelation)
       : context(context),
         currState(currState),
         outputFile(outputFile),
-        activeRelation(activeRelation) {
-    placeholder.isNull = context->createTrue();
-    placeholder.value = nullptr;
-    outputFileLLVM = nullptr;
-    pg = Catalog::getInstance().getPlugin(activeRelation);
+        activeRelation(std::move(activeRelation)),
+        outputFileLLVM(nullptr),
+        // Only used as a token return value that is passed along by each
+        // visitor
+        placeholder{nullptr, context->createTrue()} {
+    pg = Catalog::getInstance().getPlugin(this->activeRelation);
   }
-  ProteusValue visit(const expressions::IntConstant *e);
-  ProteusValue visit(const expressions::Int64Constant *e);
-  ProteusValue visit(const expressions::DateConstant *e);
-  ProteusValue visit(const expressions::FloatConstant *e);
-  ProteusValue visit(const expressions::BoolConstant *e);
-  ProteusValue visit(const expressions::StringConstant *e);
-  ProteusValue visit(const expressions::DStringConstant *e);
-  ProteusValue visit(const expressions::InputArgument *e);
-  ProteusValue visit(const expressions::RecordProjection *e);
-  ProteusValue visit(const expressions::IfThenElse *e);
+  ProteusValue visit(const expressions::IntConstant *e) override;
+  ProteusValue visit(const expressions::Int64Constant *e) override;
+  ProteusValue visit(const expressions::DateConstant *e) override;
+  ProteusValue visit(const expressions::FloatConstant *e) override;
+  ProteusValue visit(const expressions::BoolConstant *e) override;
+  ProteusValue visit(const expressions::StringConstant *e) override;
+  ProteusValue visit(const expressions::DStringConstant *e) override;
+  ProteusValue visit(const expressions::InputArgument *e) override;
+  ProteusValue visit(const expressions::RecordProjection *e) override;
+  ProteusValue visit(const expressions::IfThenElse *e) override;
   // XXX Do binary operators require explicit handling of nullptr?
-  ProteusValue visit(const expressions::EqExpression *e);
-  ProteusValue visit(const expressions::NeExpression *e);
-  ProteusValue visit(const expressions::GeExpression *e);
-  ProteusValue visit(const expressions::GtExpression *e);
-  ProteusValue visit(const expressions::LeExpression *e);
-  ProteusValue visit(const expressions::LtExpression *e);
-  ProteusValue visit(const expressions::AddExpression *e);
-  ProteusValue visit(const expressions::SubExpression *e);
-  ProteusValue visit(const expressions::MultExpression *e);
-  ProteusValue visit(const expressions::DivExpression *e);
-  ProteusValue visit(const expressions::ModExpression *e);
-  ProteusValue visit(const expressions::AndExpression *e);
-  ProteusValue visit(const expressions::OrExpression *e);
-  ProteusValue visit(const expressions::RecordConstruction *e);
-  ProteusValue visit(const expressions::ProteusValueExpression *e);
-  ProteusValue visit(const expressions::MinExpression *e);
-  ProteusValue visit(const expressions::MaxExpression *e);
-  ProteusValue visit(const expressions::HashExpression *e);
-  ProteusValue visit(const expressions::RefExpression *e);
-  ProteusValue visit(const expressions::AssignExpression *e);
-  ProteusValue visit(const expressions::NegExpression *e);
-  ProteusValue visit(const expressions::ExtractExpression *e);
-  ProteusValue visit(const expressions::TestNullExpression *e);
-  ProteusValue visit(const expressions::CastExpression *e);
+  ProteusValue visit(const expressions::EqExpression *e) override;
+  ProteusValue visit(const expressions::NeExpression *e) override;
+  ProteusValue visit(const expressions::GeExpression *e) override;
+  ProteusValue visit(const expressions::GtExpression *e) override;
+  ProteusValue visit(const expressions::LeExpression *e) override;
+  ProteusValue visit(const expressions::LtExpression *e) override;
+  ProteusValue visit(const expressions::AddExpression *e) override;
+  ProteusValue visit(const expressions::SubExpression *e) override;
+  ProteusValue visit(const expressions::MultExpression *e) override;
+  ProteusValue visit(const expressions::DivExpression *e) override;
+  ProteusValue visit(const expressions::ModExpression *e) override;
+  ProteusValue visit(const expressions::AndExpression *e) override;
+  ProteusValue visit(const expressions::OrExpression *e) override;
+  ProteusValue visit(const expressions::RecordConstruction *e) override;
+  ProteusValue visit(const expressions::ProteusValueExpression *e) override;
+  ProteusValue visit(const expressions::MinExpression *e) override;
+  ProteusValue visit(const expressions::MaxExpression *e) override;
+  ProteusValue visit(const expressions::HashExpression *e) override;
+  ProteusValue visit(const expressions::RefExpression *e) override;
+  ProteusValue visit(const expressions::AssignExpression *e) override;
+  ProteusValue visit(const expressions::NegExpression *e) override;
+  ProteusValue visit(const expressions::ExtractExpression *e) override;
+  ProteusValue visit(const expressions::TestNullExpression *e) override;
+  ProteusValue visit(const expressions::CastExpression *e) override;
 
-  ProteusValue visit(const expressions::ShiftLeftExpression *e);
-  ProteusValue visit(const expressions::LogicalShiftRightExpression *e);
-  ProteusValue visit(const expressions::ArithmeticShiftRightExpression *e);
-  ProteusValue visit(const expressions::XORExpression *e);
+  ProteusValue visit(const expressions::ShiftLeftExpression *e) override;
+  ProteusValue visit(
+      const expressions::LogicalShiftRightExpression *e) override;
+  ProteusValue visit(
+      const expressions::ArithmeticShiftRightExpression *e) override;
+  ProteusValue visit(const expressions::XORExpression *e) override;
   /* Reduce produces accumulated value internally.
    * It makes no sense to probe a plugin in order to flush this value out */
   void flushValue(llvm::Value *val, typeID val_type);
 
-  void setActiveRelation(string relName) {
+  void setActiveRelation(const string &relName) {
     activeRelation = relName;
-    if (relName != "") {
+    if (!relName.empty()) {
       pg = Catalog::getInstance().getPlugin(activeRelation);
     } else {
       pg = Catalog::getInstance().getPlugin(outputFile);

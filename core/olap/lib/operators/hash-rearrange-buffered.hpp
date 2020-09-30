@@ -42,13 +42,14 @@ class HashRearrangeBuffered : public UnaryOperator {
         hashProject(hashProject),
         blockSize(BlockManager::block_size) {}  // FIMXE: default blocksize...
 
-  virtual ~HashRearrangeBuffered() {
+  ~HashRearrangeBuffered() override {
     LOG(INFO) << "Collapsing HashRearrangeBuffered operator";
   }
 
-  virtual void produce_(ParallelContext *context);
-  virtual void consume(Context *const context, const OperatorState &childState);
-  virtual bool isFiltering() const { return false; }
+  void produce_(ParallelContext *context) override;
+  void consume(Context *const context,
+               const OperatorState &childState) override;
+  bool isFiltering() const override { return false; }
 
   llvm::Value *hash(llvm::Value *key, llvm::Value *old_seed = nullptr);
   llvm::Value *hash(const std::vector<expression_t> &exprs,

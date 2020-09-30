@@ -92,16 +92,16 @@ class Operator {
 class UnaryOperator : public Operator {
  public:
   UnaryOperator(Operator *const child) : Operator(), child(child) {}
-  virtual ~UnaryOperator() { LOG(INFO) << "Collapsing unary operator"; }
+  ~UnaryOperator() override { LOG(INFO) << "Collapsing unary operator"; }
 
   Operator *const getChild() const { return child; }
   void setChild(Operator *const child) { this->child = child; }
 
-  virtual DeviceType getDeviceType() const {
+  DeviceType getDeviceType() const override {
     return getChild()->getDeviceType();
   }
 
-  virtual DegreeOfParallelism getDOP() const { return getChild()->getDOP(); }
+  DegreeOfParallelism getDOP() const override { return getChild()->getDOP(); }
 
  private:
   Operator *child;
@@ -114,19 +114,19 @@ class BinaryOperator : public Operator {
   BinaryOperator(Operator *leftChild, Operator *rightChild,
                  Plugin *const leftPlugin, Plugin *const rightPlugin)
       : Operator(), leftChild(leftChild), rightChild(rightChild) {}
-  virtual ~BinaryOperator() { LOG(INFO) << "Collapsing binary operator"; }
+  ~BinaryOperator() override { LOG(INFO) << "Collapsing binary operator"; }
   Operator *getLeftChild() const { return leftChild; }
   Operator *getRightChild() const { return rightChild; }
   void setLeftChild(Operator *leftChild) { this->leftChild = leftChild; }
   void setRightChild(Operator *rightChild) { this->rightChild = rightChild; }
 
-  virtual DeviceType getDeviceType() const {
+  DeviceType getDeviceType() const override {
     auto dev = getLeftChild()->getDeviceType();
     assert(dev == getRightChild()->getDeviceType());
     return dev;
   }
 
-  virtual DegreeOfParallelism getDOP() const {
+  DegreeOfParallelism getDOP() const override {
     auto dop = getLeftChild()->getDOP();
     assert(dop == getRightChild()->getDOP());
     return dop;

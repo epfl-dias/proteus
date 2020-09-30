@@ -22,6 +22,7 @@
 */
 #include <gflags/gflags.h>
 
+#include <cli-flags.hpp>
 #include <iostream>
 #include <memory/memory-manager.hpp>
 #include <olap/common/olap-common.hpp>

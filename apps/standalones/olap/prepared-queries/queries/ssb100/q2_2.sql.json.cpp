@@ -30,8 +30,8 @@ constexpr auto query = "ssb100_Q2_2";
 PreparedStatement Query::prepare22(bool memmv) {
   auto rel17693 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>("inputs/ssbm100/date.csv", {"d_datekey", "d_year"},
-                         getCatalog())
+          .scan("inputs/ssbm100/date.csv", {"d_datekey", "d_year"},
+                getCatalog(), pg{Tplugin::type})
           .membrdcst(dop, true, true)
           .router(
               [&](const auto &arg) -> std::optional<expression_t> {
@@ -44,8 +44,8 @@ PreparedStatement Query::prepare22(bool memmv) {
       ;
   auto rel17698 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>("inputs/ssbm100/supplier.csv",
-                         {"s_suppkey", "s_region"}, getCatalog())
+          .scan("inputs/ssbm100/supplier.csv", {"s_suppkey", "s_region"},
+                getCatalog(), pg{Tplugin::type})
           .membrdcst(dop, true, true)
           .router(
               [&](const auto &arg) -> std::optional<expression_t> {
@@ -67,8 +67,8 @@ PreparedStatement Query::prepare22(bool memmv) {
       ;
   auto rel17702 =
       getBuilder<Tplugin>()
-          .scan<Tplugin>("inputs/ssbm100/part.csv", {"p_partkey", "p_brand1"},
-                         getCatalog())
+          .scan("inputs/ssbm100/part.csv", {"p_partkey", "p_brand1"},
+                getCatalog(), pg{Tplugin::type})
           .membrdcst(dop, true, true)
           .router(
               [&](const auto &arg) -> std::optional<expression_t> {
@@ -84,12 +84,12 @@ PreparedStatement Query::prepare22(bool memmv) {
               // trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle],
               // isS=[false])
       ;
-  auto rel = getBuilder<Tplugin>()
-                 .scan<Tplugin>(
-                     "inputs/ssbm100/lineorder.csv",
-                     {"lo_partkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},
-                     getCatalog())
-                 .router(dop, 8, RoutingPolicy::LOCAL, dev, aff_parallel());
+  auto rel =
+      getBuilder<Tplugin>()
+          .scan("inputs/ssbm100/lineorder.csv",
+                {"lo_partkey", "lo_suppkey", "lo_orderdate", "lo_revenue"},
+                getCatalog(), pg{Tplugin::type})
+          .router(dop, 8, RoutingPolicy::LOCAL, dev, aff_parallel());
 
   if (memmv) rel = rel.memmove(8, dev);
 

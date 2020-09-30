@@ -372,7 +372,7 @@ void MemMoveLocalTo::close(Pipeline *pip) {
   gpu_run(cudaStreamDestroy(mmc->strm2));
 
   nvtxRangePushA("MemMoveLocalTo::release");
-  workunit *start_wu;
+  workunit *start_wu = nullptr;
   // void     * start_wu_data;
   for (size_t i = 0; i < slack; ++i) {
     workunit *wu = mmc->idle.pop_unsafe();
