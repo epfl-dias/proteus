@@ -132,9 +132,10 @@ class alignas(4096) ColumnStore : public Table {
   const decltype(columns) &getColumns() { return columns; }
 };
 
+
 class alignas(4096) Column {
  public:
-  Column(std::string name, uint64_t initial_num_records, ColumnStore *parent,
+  Column(std::string name, uint64_t initial_num_records,
          data_type type, size_t unit_size, size_t cummulative_offset,
          bool single_version_only = false, bool partitioned = true,
          int numa_idx = -1);
@@ -152,7 +153,7 @@ class alignas(4096) Column {
   void *insertElemBatch(uint64_t vid, uint64_t num_elem);
   void insertElemBatch(uint64_t vid, uint64_t num_elem, void *data);
   void initializeMetaColumn();
-  void initializeMVColumn();
+  void initializeMVColumn(size_t num_attributes);
 
   // void updateElem(uint64_t offset, void *elem, ushort master_ver);
   // void deleteElem(uint64_t offset, ushort master_ver);
@@ -185,8 +186,6 @@ class alignas(4096) Column {
   const size_t elem_size;
   const size_t cummulative_offset;
   const data_type type;
-
-  ColumnStore *parent;
 
  private:
   uint num_partitions;

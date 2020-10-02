@@ -118,7 +118,7 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
         sizeof(Column),
         storage::NUMAPartitionPolicy::getInstance().getDefaultPartition());
     meta_column = new (obj_ptr)
-        Column(name + "_meta", initial_num_records, this, META,
+        Column(name + "_meta", initial_num_records, META,
                sizeof(global_conf::IndexVal), 0, true, partitioned, numa_idx);
 
     loaders.emplace_back(
@@ -132,7 +132,7 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
   size_t col_offset = 0;
   this->columns.reserve(columns.getColumns().size());
   for (const auto& t : columns.getColumns()) {
-    this->columns.emplace_back(std::get<0>(t), initial_num_records, this,
+    this->columns.emplace_back(std::get<0>(t), initial_num_records,
                                std::get<1>(t), std::get<2>(t), col_offset,
                                false, partitioned, numa_idx);
     col_offset += std::get<2>(t);
@@ -167,10 +167,10 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
         sizeof(Column),
         storage::NUMAPartitionPolicy::getInstance().getDefaultPartition());
     mv_attr_list_column =
-        new (mv_obj_ptr) Column(name + "_mv", initial_num_records, this, MV,
+        new (mv_obj_ptr) Column(name + "_mv", initial_num_records, MV,
                                 mv_col_size, 0, true, partitioned, numa_idx);
     loaders.emplace_back(
-        [this]() { this->mv_attr_list_column->initializeMVColumn(); });
+        [this]() { this->mv_attr_list_column->initializeMVColumn(this->columns.size()); });
   }
 
   // ------
@@ -184,6 +184,7 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
     std::cout << "Table: " << name << std::endl;
     std::cout << "\trecord size: " << rec_size << " bytes" << std::endl;
     std::cout << "\tnum_records: " << initial_num_records << std::endl;
+
     if (mv::mv_type::isPerAttributeMVList) {
       std::cout
           << "\tAttributeMVCol: size_per_tuple: "
@@ -626,18 +627,14 @@ Column::~Column() {
   }
 }
 
-Column::Column(std::string name, uint64_t initial_num_records,
-               ColumnStore* parent, data_type type, size_t unit_size,
+Column::Column(std::string name, uint64_t initial_num_records, data_type type, size_t unit_size,
                size_t cummulative_offset, bool single_version_only,
                bool partitioned, int numa_idx)
     : name(std::move(name)),
-      parent(parent),
       elem_size(unit_size),
       cummulative_offset(cummulative_offset),
       type(type) {
   // time_block t("T_ColumnCreate_: ");
-
-  this->parent = parent;
 
   if (partitioned)
     this->num_partitions = g_num_partitions;
@@ -756,10 +753,10 @@ Column::Column(std::string name, uint64_t initial_num_records,
   for (uint i = 0; i < this->num_partitions; i++) this->touched[i] = false;
 }
 
-void Column::initializeMVColumn() {
+void Column::initializeMVColumn(size_t num_attributes) {
   assert(this->type == MV);
   std::vector<proteus::thread> loaders;
-  const auto num_attributes = this->parent->getColumns().size();
+  //const auto num_attributes = this->parent->getColumns().size();
   for (auto j = 0; j < this->num_partitions; j++) {
     for (const auto& chunk : master_versions[0][j]) {
       char* ptr = (char*)chunk.data;
