@@ -24,7 +24,7 @@
 #ifndef PROTEUS_ZIPF_HPP
 #define PROTEUS_ZIPF_HPP
 
-#define USE_DRAND true
+#define USE_DRAND false
 
 #include <cassert>
 #include <cmath>
@@ -36,15 +36,16 @@
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 
-// FIXME: broken DRAND
-
-namespace utils {
+namespace bench_utils {
 
 template <typename T>
 class ZipfianGenerator {
+ public:
   static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>,
                 "ZipfianGenerator must be instantiated with unsigned integral "
                 "type template only.");
+
+
 
   ZipfianGenerator(size_t n_records, double theta, size_t n_workers = 1,
                    size_t n_partitions = 1, bool partition_local = false,
@@ -74,8 +75,9 @@ class ZipfianGenerator {
            (1.0 - zeta(2, theta) / (zeta(n_to_use, theta)));
 
 #if USE_DRAND
-    this->rand_buffer = (struct drand48_data **)calloc(
-        n_partitions, sizeof(struct drand48_data *));
+
+    this->rand_buffer = (struct drand48_data **)MemoryManager::mallocPinned(
+        n_partitions * sizeof(struct drand48_data *));
     for (uint i = 0; i < n_partitions; i++) {
       exec_location{
           topology::getInstance()
@@ -88,13 +90,21 @@ class ZipfianGenerator {
           std::ceil(n_workers / n_partitions) * sizeof(struct drand48_data));
     }
 
-
     int c = 0;
     for (ushort i = 0; i < n_partitions; i++) {
       for (int j = 0; j < (n_workers / n_partitions); j++) {
         srand48_r(c++, &rand_buffer[i][j]);
       }
     }
+#endif
+  }
+
+  ~ZipfianGenerator() {
+#if USE_DRAND
+    for (ushort i = 0; i < this->_n_partitions; i++) {
+      MemoryManager::freePinned(rand_buffer[i]);
+    }
+    MemoryManager::freePinned(rand_buffer);
 #endif
   }
 
@@ -131,7 +141,7 @@ class ZipfianGenerator {
     return sum;
   }
 
-  inline double val(double u) {
+  inline double val(double u) const {
     static thread_local double alpha_half_pow = 1 + pow(0.5, _theta);
     static thread_local auto _thread_local_zetan = _zetan;
     static thread_local auto _thread_local_eta = _eta;

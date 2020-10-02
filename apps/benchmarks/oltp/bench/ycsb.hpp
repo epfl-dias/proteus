@@ -39,10 +39,12 @@
 #include "storage/table.hpp"
 #include "topology/topology.hpp"
 #include "util/percentile.hpp"
+#include "zipf.hpp"
 
 namespace bench {
 
-#define THREAD_LOCAL 0
+#define THREAD_LOCAL false
+#define PARTITION_LOCAL false
 #define YCSB_MIXED_OPS 0
 
 /*
@@ -71,10 +73,11 @@ class YCSB : public Benchmark {
 
   const int num_fields;
   const int num_records;
-  const double theta;
   // const int num_iterations_per_worker;
   const int num_ops_per_txn;
   const double write_threshold;
+
+  bench_utils::ZipfianGenerator<size_t> zipf;
 
   // uint64_t recs_per_server;
   storage::Schema *schema;
@@ -86,13 +89,6 @@ class YCSB : public Benchmark {
 
   std::vector<ushort> col_idx_upd;
   std::vector<ushort> col_idx_read;
-
-  // zipf stuff
-  struct drand48_data **rand_buffer;
-  double g_zetan;
-  double g_zeta2;
-  double g_eta;
-  double g_alpha_half_pow;
 
   struct YCSB_TXN_OP {
     uint64_t key;
@@ -188,6 +184,9 @@ class YCSB : public Benchmark {
 
 #endif
     txn->n_ops = num_ops_per_txn;
+    if(txn->n_ops ==  txn::OPTYPE_LOOKUP ){
+      txn->n_ops = num_ops_per_txn*5;
+    }
     //    if(op == txn::OPTYPE_LOOKUP){
     //      txn->n_ops = num_ops_per_txn;
     //    } else {
@@ -217,7 +216,7 @@ class YCSB : public Benchmark {
 #else
       do {
         // make op
-        zipf_val(wid, partition_id, &txn->ops[i]);
+        txn->ops[i].key = zipf.nextval(partition_id,wid);
         is_duplicate = false;
 
         for (int j = 0; j < i; j++) {
@@ -319,104 +318,7 @@ class YCSB : public Benchmark {
     return true;
   }
 
-  void deinit() override {
-    for (ushort i = 0; i < num_partitions; i++) {
-      storage::memory::MemoryManager::free(rand_buffer[i]);
-    }
-
-    free(rand_buffer);
-  }
-
-  void init() override {
-    printf("Initializing zipf\n");
-
-    rand_buffer = (struct drand48_data **)calloc(num_partitions,
-                                                 sizeof(struct drand48_data *));
-    for (ushort i = 0; i < num_partitions; i++) {
-      rand_buffer[i] =
-          (struct drand48_data *)storage::memory::MemoryManager::alloc(
-              (num_max_workers / num_partitions) * sizeof(struct drand48_data),
-              i, MADV_DONTFORK);
-
-      // rand_buffer[i] = (struct drand48_data *)calloc(
-      //   num_max_workers / num_partitions, sizeof(struct drand48_data));
-    }
-
-    int c = 0;
-    for (ushort i = 0; i < num_partitions; i++) {
-      for (int j = 0; j < (num_max_workers / num_partitions); j++) {
-        srand48_r(c++, &rand_buffer[i][j]);
-      }
-    }
-
-    uint64_t n = num_records - 1;
-    g_zetan = zeta(n, theta);
-    g_zeta2 = zeta(2, theta);
-
-    g_eta = (1 - pow(2.0 / n, 1 - theta)) / (1 - g_zeta2 / g_zetan);
-    g_alpha_half_pow = 1 + pow(0.5, theta);
-    printf("n = %lu\n", n + 1);
-    printf("theta = %.2f\n", theta);
-  }
-
-  inline void zipf_val(int wid, ushort partition_id, struct YCSB_TXN_OP *op) {
-    uint64_t n = num_records - 1;
-
-    // elasticity hack when we will increase num_server on runtime
-    // wid = wid % num_workers;
-
-    // copying class variables as thread_local variables in order to remove
-    // false sharing of cachelines
-    // static thread_local uint64_t recs_per_server_tlocal =
-    // this->recs_per_server;
-    static thread_local auto g_eta_tlocal = this->g_eta;
-    static thread_local auto g_alpha_half_pow_tlocal = this->g_alpha_half_pow;
-    static thread_local auto g_zetan_tlocal = this->g_zetan;
-    static thread_local auto theta_tlocal = this->theta;
-    static thread_local auto max_worker_per_partition =
-        this->num_max_workers / this->num_partitions;
-
-    static thread_local auto num_workers = this->num_active_workers;
-    static thread_local auto g_nrecs = this->num_records;
-
-    static thread_local double alpha = 1 / (1 - theta_tlocal);
-    double u;
-
-    drand48_r(&rand_buffer[partition_id][wid % max_worker_per_partition], &u);
-
-    double uz = u * g_zetan_tlocal;
-
-    if (uz < 1) {
-      op->key = 0;
-    } else if (uz < g_alpha_half_pow_tlocal) {
-      op->key = 1;
-    } else {
-      op->key = (uint64_t)(n * pow(g_eta_tlocal * u - g_eta_tlocal + 1, alpha));
-    }
-
-    // Aunn's comment: i still dont understand what is the need for following
-    // calculations.
-
-    //    // Trireme
-    //    //------------
-    //    // get the server id for the key
-    //    uint tserver = op->key % num_workers;
-    //    // get the key count for the key
-    //    uint64_t key_cnt = op->key / num_workers;
-    //
-    //    uint64_t recs_per_server = g_nrecs / num_workers;
-    //    op->key = tserver * recs_per_server + key_cnt;
-
-    assert(op->key < g_nrecs);
-
-    // End trireme
-  }
-
-  static inline double zeta(uint64_t n, double theta_z) {
-    double sum = 0;
-    for (uint64_t i = 1; i <= n; i++) sum += std::pow(1.0 / i, theta_z);
-    return sum;
-  }
+  void deinit() override { zipf.~ZipfianGenerator(); }
 
   ~YCSB() override = default;
 
@@ -427,15 +329,18 @@ class YCSB : public Benchmark {
        int num_active_workers = -1, int num_max_workers = -1,
        ushort num_partitions = 1, bool layout_column_store = true,
        uint num_of_col_upd = 1, uint num_of_col_read = 1,
-       uint num_col_read_offset = 0, std::string cdf_path = "")
+       uint num_col_read_offset = 0, const std::string& cdf_path = "")
       : Benchmark(std::move(name), num_active_workers, num_max_workers,
                   num_partitions),
         num_fields(num_fields),
         num_records(num_records),
-        theta(theta),
         // num_iterations_per_worker(num_iterations_per_worker),
         num_ops_per_txn(num_ops_per_txn),
         write_threshold(write_threshold),
+        zipf(num_records, theta,
+             num_max_workers == -1 ? topology::getInstance().getCoreCount()
+                                   : num_max_workers,
+             num_partitions, PARTITION_LOCAL, THREAD_LOCAL),
         num_of_col_upd_per_op(num_of_col_upd),
         num_of_col_read_per_op(num_of_col_read),
         num_col_read_offset_per_op(num_col_read_offset),
@@ -469,9 +374,6 @@ class YCSB : public Benchmark {
       col_idx_read.emplace_back(t);
     }
 
-    // assert(col_idx.size() == num_of_col_upd_per_op);
-
-    // this->recs_per_server = this->num_records / this->num_max_workers;
     this->schema = &storage::Schema::getInstance();
     LOG(INFO) << "workers: " << this->num_active_workers;
     LOG(INFO) << "Max-Workers: " << this->num_max_workers;
