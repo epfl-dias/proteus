@@ -50,7 +50,6 @@ class Version {
   virtual ~Version() = default;
 };
 
-
 class VersionSingle : public Version {
  public:
   VersionSingle *next;
@@ -113,7 +112,7 @@ class VersionMultiAttr : public Version {
   }
 
   void create_partial_mask(std::vector<size_t> &ver_offsets,
-                           std::bitset<64> attr_mask){
+                           std::bitset<64> attr_mask) {
     this->offsets = std::move(ver_offsets);
     this->attribute_mask = attr_mask;
   }
@@ -150,7 +149,7 @@ class VersionMultiAttr : public Version {
   static size_t get_partial_mask_size(std::vector<size_t> &attribute_widths,
                                       std::vector<size_t> &ver_offsets,
                                       std::bitset<64> &attr_mask,
-                             const ushort *col_idx, short num_cols) {
+                                      const ushort *col_idx, short num_cols) {
     size_t ver_rec_size = 0;
     ver_offsets.reserve(num_cols > 0 ? num_cols : attribute_widths.size());
 
@@ -254,9 +253,7 @@ class MVattributeListCol {
   friend class MV_attributeList;
 };
 
-
-
-//class VersionDAG {
+// class VersionDAG {
 //  const uint64_t *t_min;
 //  const uint64_t *t_max;
 //  std::bitset<64> attribute_mask;
@@ -265,8 +262,8 @@ class MVattributeListCol {
 //  VersionDAG** next;
 //};
 //
-//template <typename T = VersionDAG>
-//class VersionChainDAG {
+// template <typename T = VersionDAG>
+// class VersionChainDAG {
 //  VersionChainDAG() { head = nullptr; }
 //
 //  inline void insert(typename T::version_t *val) {

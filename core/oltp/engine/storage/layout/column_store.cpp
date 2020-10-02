@@ -358,90 +358,6 @@ void ColumnStore::getRecordByKey(global_conf::IndexVal* idx_ptr,
       }
     }
   }
-
-  //
-  //    // OLD CODE BELOW
-  //
-  //    // Sanity-check: verify delta-tag so we are sure that we are not reading
-  //    // version from a garbage-collected memory.
-  //
-  //    // For per-record list, delta-tag is stored and verified from the index
-  //    // structure itself.
-  //    // For per-attribute list, delta-tag is stored inside the
-  //    MVattributeListCol
-  //    // structure hence, checked inside the get_readable_version function.
-  //
-  //    // TODO: move the delta-tag for record-based list inside the
-  //    versionChain,
-  //    //  and use VersionChain as a ptr instead of directly point to the head
-  //    for
-  //    //  modularity.
-  //
-  //    if constexpr (!storage::mv::mv_type::isPerAttributeMVList) {
-  //      /*auto tagTmp =
-  //          this->deltaStore[CC_get_delta_id(idx_ptr->delta_ver_tag)]->getTag();
-  //      assert(tagTmp == CC_get_delta_tag(idx_ptr->delta_ver_tag));*/
-  //
-  //      assert(this->deltaStore[CC_get_delta_id(idx_ptr->delta_ver_tag)]->verifyTag(idx_ptr->delta_ver_tag));
-  //    }
-  //
-  //    // FIXME: for the un-updated column, this tag would be invalid and
-  //    causes
-  //    // assertion!
-  //
-  //    // TODO: URGENT! move verification of tag inside the
-  //    get_readable_version.
-  //
-  //    // TODO: check for directly readable columns before or after?
-  //    //  or inside the readable code, so we can have a assertion within.
-  //
-  ////    auto done_mask = mv::mv_type::get_readable_version(
-  ////        idx_ptr->delta_ver, txn_id, write_loc,
-  ///this->column_size_offset_pairs, /        col_idx, num_cols);
-  //
-  //    // FIXME: theoretically, the ones which are not present in delta should
-  //    be
-  //    //  read from the main-storage. but how to verify the correctness here?
-  //    //  have t-min/t-max per attribute? thats gonna blow up the database
-  //    size!
-  //
-  //    if (!done_mask.all()) {
-  //      // the fields which were never updated,
-  //      // get it from main storage.
-  //
-  //      // FIXME: this is dangerous as there is no way to verify if the list
-  //      //        was broken and it returned unread column which is NOT
-  //      supposed
-  //      //        to be read from main but this will read it directly from
-  //      //        main store.
-  //
-  //      auto remaining_col = done_mask.size() - done_mask.count();
-  //      std::vector<size_t> return_col_offsets;
-  //      return_col_offsets.reserve(remaining_col);
-  //
-  //      // calculate the write-offset in the return-write-location
-  //      for (auto i = 0, cumm_offset = 0; i < num_cols; i++) {
-  //        cumm_offset += column_size_offset_pairs[col_idx[i]].first;
-  //        if (done_mask[i] == false) {
-  //          return_col_offsets.emplace_back(cumm_offset);
-  //        }
-  //      }
-  //
-  //      auto required_mask = ~done_mask;
-  //      for (auto i = 0; i < done_mask.size(); i++) {
-  //        if (done_mask[i] == true) {
-  //          continue;
-  //        }
-  //        // Offset of column in the requested set of columns.
-  //        auto offset_idx_output =
-  //            return_col_offsets[(required_mask >> (required_mask.size() - i))
-  //                                   .count()];
-  //        columns[i].getElem(idx_ptr->VID,
-  //                           (write_loc +
-  //                           return_col_offsets[offset_idx_output]));
-  //      }
-  //    }
-  //  }
 }
 
 void ColumnStore::getRecordByKey(uint64_t vid, const ushort* col_idx,
@@ -503,7 +419,7 @@ void ColumnStore::updateRecord(uint64_t xid, global_conf::IndexVal* hash_ptr,
       Column* col = &(columns.at(idx));
       memcpy(version_ptr.at(i)->data, col->getElem(old_vid), col->elem_size);
       //((mv::MVattributeListCol<storage::mv::mv_version_chain>*)(hash_ptr->delta_ver))->setUpdated(idx,
-      //xid);
+      // xid);
 
       // update column
       col->updateElem(hash_ptr->VID,
@@ -1506,7 +1422,8 @@ void Column::ETL(uint numa_node_index) {
     // }
   }
 }
-
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
 void ColumnStore::sync_master_snapshots(ushort master_ver_idx) {
   assert(global_conf::num_master_versions > 1);
   for (auto& col : this->columns) {
@@ -1515,7 +1432,10 @@ void ColumnStore::sync_master_snapshots(ushort master_ver_idx) {
     }
   }
 }
+#pragma clang diagnostic pop
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
 // master_ver_idx is the inactive master, that is the snapshot.
 void Column::sync_master_snapshots(ushort master_ver_idx) {
   assert(global_conf::num_master_versions > 1);
@@ -1622,5 +1542,6 @@ void Column::sync_master_snapshots(ushort master_ver_idx) {
     }
   }
 }
+#pragma clang diagnostic pop
 
 };  // namespace storage

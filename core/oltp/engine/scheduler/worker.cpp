@@ -350,7 +350,7 @@ void Worker::run_bench() {
     //                              this->curr_master);
   }
   state = TERMINATED;
-  pool->txn_bench->free_query_struct_ptr(txn_mem);
+  pool->_txn_bench->free_query_struct_ptr(txn_mem);
 
   if constexpr (global_conf::save_txn_cdf) {
     pool->latencies.add(this->latencies);

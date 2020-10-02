@@ -1088,7 +1088,7 @@ void OLAPSequence::execute(OLTP &txn_engine, int repeat,
       if (per_query_snapshot) {
         txn_engine.snapshot();
 
-        if (conf.schedule_policy != SchedulingPolicy::S2_ISOLATED ||
+        if (conf.schedule_policy != SchedulingPolicy::S2_ISOLATED &&
             conf.schedule_policy != SchedulingPolicy::S1_COLOCATED) {
           if (time_diff(std::chrono::system_clock::now(), last_etl) >=
               etl_interval_ms) {

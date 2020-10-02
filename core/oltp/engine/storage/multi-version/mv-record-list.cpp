@@ -260,13 +260,11 @@ MV_RecordList_Partial::create_versions(
     uint64_t xid, global_conf::IndexVal* idx_ptr, void* list_ptr,
     std::vector<size_t>& attribute_widths, storage::DeltaStore& deltaStore,
     ushort partition_id, const ushort* col_idx, short num_cols) {
-
-
   std::vector<size_t> ver_offsets;
   std::bitset<64> attr_mask;
 
-  auto ver_data_size = MV_RecordList_Partial::version_t::get_partial_mask_size(attribute_widths,
-                                                                ver_offsets,attr_mask, col_idx, num_cols  );
+  auto ver_data_size = MV_RecordList_Partial::version_t::get_partial_mask_size(
+      attribute_widths, ver_offsets, attr_mask, col_idx, num_cols);
 
   auto* ver = (MV_RecordList_Partial::version_t*)deltaStore.insert_version(
       idx_ptr, ver_data_size, partition_id);
