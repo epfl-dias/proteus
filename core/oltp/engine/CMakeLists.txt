@@ -14,6 +14,7 @@ set(txn_engine_cxx
         snapshot/cow_arena.cpp
         snapshot/cor_const_arena.cpp
         indexes/hash_array.cpp
+        indexes/ART/adaptive_radix_tree_index.cpp
         oltp-cli-flags.cpp
         storage/multi-version/mv-record-list.cpp
         storage/multi-version/mv-attribute-list.cpp
