@@ -5,7 +5,7 @@ set(txn_engine_cxx
         glo.cpp
         scheduler/worker.cpp
         storage/table.cpp
-        storage/layout/row_store.cpp
+        # storage/layout/row_store.cpp
         storage/layout/column_store.cpp
         storage/multi-version/delta_storage.cpp
         transactions/transaction_manager.cpp
