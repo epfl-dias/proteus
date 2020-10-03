@@ -31,16 +31,22 @@
 
 namespace storage {
 
+std::map<uint8_t, DeltaStore*> DeltaChunk::deltaStore_map;
+std::map<uint8_t, char*> DeltaChunk::list_memory_base;
+std::map<uint8_t, char*> DeltaChunk::data_memory_base;
+
 DeltaStore::DeltaStore(uint32_t delta_id, uint64_t ver_list_capacity,
                        uint64_t ver_data_capacity, int num_partitions)
     : touched(false) {
   this->delta_id = delta_id;
-
-  LOG(INFO) << "DELTA SIZEING: " << g_delta_size;
+  DeltaChunk::deltaStore_map.emplace(delta_id, this);
 
   ver_list_capacity = ver_list_capacity * (1024 * 1024 * 1024);  // GB
   ver_list_capacity = ver_list_capacity / 2;
   ver_data_capacity = ver_data_capacity * (1024 * 1024 * 1024);  // GB
+
+  assert(ver_data_capacity < std::pow(2, DeltaChunk::offset_bits));
+
   for (int i = 0; i < num_partitions; i++) {
     const auto& numa_idx = storage::NUMAPartitionPolicy::getInstance()
                                .getPartitionInfo(i)
@@ -64,6 +70,11 @@ DeltaStore::DeltaStore(uint32_t delta_id, uint64_t ver_list_capacity,
         storage::memory::mem_chunk(mem_list, ver_list_capacity, numa_idx),
         (char*)mem_data,
         storage::memory::mem_chunk(mem_data, ver_data_capacity, numa_idx), i));
+
+    // Insert references into delta-chunk.
+    auto idx = DeltaChunk::create_delta_idx_pid_pair(delta_id, i);
+    DeltaChunk::list_memory_base.emplace(idx, (char*)mem_list);
+    DeltaChunk::data_memory_base.emplace(idx, (char*)mem_data);
   }
 
   if (DELTA_DEBUG) {
