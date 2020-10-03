@@ -33,14 +33,16 @@
 #include "utils/lock.hpp"
 #include "utils/spinlock.h"
 
+#include "storage/multi-version/delta_storage.hpp"
+
 namespace txn {
 
 class CC_MV2PL;
 
-#define CC_extract_offset(v) (v & 0x000000FFFFFFFFFF)
-#define CC_extract_pid(v) ((v & 0x0000FF0000000000) >> 40)
-#define CC_extract_m_ver(v) ((v & 0x00FF000000000000) >> 48)
-#define CC_extract_delta_id(v) ((v & 0xFF00000000000000) >> 56)
+#define CC_extract_offset(v) (v & 0x000000FFFFFFFFFFu)
+#define CC_extract_pid(v) ((v & 0x0000FF0000000000u) >> 40u)
+#define CC_extract_m_ver(v) ((v & 0x00FF000000000000u) >> 48u)
+//#define CC_extract_delta_id(v) ((v & 0xFF00000000000000u) >> 56u)
 // #define CC_gen_vid(v, p, m, d)                                 \
 //   ((v & 0x000000FFFFFFFFFF) | ((p & 0x00FF) << 40) | \
 //    ((m & 0x00FF) << 48)((d & 0x00FF) << 56))
@@ -54,11 +56,13 @@ class CC_MV2PL {
     lock::Spinlock_Weak latch;
     lock::AtomicTryLock write_lck;
 
-    void *delta_ver;       // delta-list
-    size_t delta_ver_tag;  // 4 byte delta_idx| 4-byte delta-tag
+    storage::DeltaList delta_list;
+
+//    void *delta_ver;       // delta-list
+//    size_t delta_ver_tag;  // 4 byte delta_idx| 4-byte delta-tag
 
     PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid)
-        : t_min(tid), VID(vid), delta_ver(nullptr), delta_ver_tag(0) {}
+        : t_min(tid), VID(vid) {}
   };
 
   // TODO: this needs to be modified as we changed the format of TIDs

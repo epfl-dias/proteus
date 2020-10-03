@@ -31,21 +31,20 @@
 
 namespace storage {
 
-std::map<uint8_t, DeltaStore*> DeltaChunk::deltaStore_map;
-std::map<uint8_t, char*> DeltaChunk::list_memory_base;
-std::map<uint8_t, char*> DeltaChunk::data_memory_base;
+std::map<uint8_t, DeltaStore*> DeltaList::deltaStore_map;
+std::map<uint8_t, char*> DeltaList::list_memory_base;
 
-DeltaStore::DeltaStore(uint32_t delta_id, uint64_t ver_list_capacity,
+DeltaStore::DeltaStore(uint8_t delta_id, uint64_t ver_list_capacity,
                        uint64_t ver_data_capacity, int num_partitions)
     : touched(false) {
   this->delta_id = delta_id;
-  DeltaChunk::deltaStore_map.emplace(delta_id, this);
+  DeltaList::deltaStore_map.emplace(delta_id, this);
 
   ver_list_capacity = ver_list_capacity * (1024 * 1024 * 1024);  // GB
   ver_list_capacity = ver_list_capacity / 2;
   ver_data_capacity = ver_data_capacity * (1024 * 1024 * 1024);  // GB
 
-  assert(ver_data_capacity < std::pow(2, DeltaChunk::offset_bits));
+  assert(ver_data_capacity < std::pow(2, DeltaList::offset_bits));
 
   for (int i = 0; i < num_partitions; i++) {
     const auto& numa_idx = storage::NUMAPartitionPolicy::getInstance()
@@ -72,9 +71,8 @@ DeltaStore::DeltaStore(uint32_t delta_id, uint64_t ver_list_capacity,
         storage::memory::mem_chunk(mem_data, ver_data_capacity, numa_idx), i));
 
     // Insert references into delta-chunk.
-    auto idx = DeltaChunk::create_delta_idx_pid_pair(delta_id, i);
-    DeltaChunk::list_memory_base.emplace(idx, (char*)mem_list);
-    DeltaChunk::data_memory_base.emplace(idx, (char*)mem_data);
+    auto idx = DeltaList::create_delta_idx_pid_pair(delta_id, i);
+    DeltaList::list_memory_base.emplace(idx, (char*)mem_list);
   }
 
   if (DELTA_DEBUG) {
@@ -126,14 +124,14 @@ void DeltaStore::print_info() {
   }
 }
 
-void* insert_version_per_list() {
-  // two variant, one is which insert in all lists.
-  // the other one only in one list.
-
-  // also cater for cascade update, so take number of elements in interface
-  // also.
-  return nullptr;
-}
+//void* insert_version_per_list() {
+//  // two variant, one is which insert in all lists.
+//  // the other one only in one list.
+//
+//  // also cater for cascade update, so take number of elements in interface
+//  // also.
+//  return nullptr;
+//}
 
 void* DeltaStore::validate_or_create_list(void* list_ptr, size_t& delta_ver_tag,
                                           ushort partition_id) {
@@ -158,36 +156,35 @@ void* DeltaStore::create_version(size_t size, ushort partition_id) {
   return cnk;
 }
 
-void* DeltaStore::insert_version(global_conf::IndexVal* idx_ptr, uint rec_size,
+void* DeltaStore::insert_version(DeltaList& delta_chunk, uint64_t t_min,
+                                 uint64_t t_max, uint rec_size,
                                  ushort partition_id) {
   assert(!storage::mv::mv_type::isPerAttributeMVList);
+
   char* cnk = (char*)partitions[partition_id]->getVersionDataChunk(rec_size);
 
-  storage::mv::mv_version* val = new ((void*)cnk) storage::mv::mv_version(
-      idx_ptr->t_min, 0, cnk + sizeof(storage::mv::mv_version));
+  auto *version_ptr = new ((void*)cnk) storage::mv::mv_version(
+      t_min, t_max, cnk + sizeof(storage::mv::mv_version));
 
-  auto curr_tag = create_delta_tag(this->delta_id, tag);
+  auto* delta_ptr = (storage::mv::mv_version_chain*)(delta_chunk.ptr());
 
-  // LOG(INFO) << "ver-data-struct-size: " << sizeof(storage::mv::mv_version);
-  // LOG(INFO) << "Tag: " << tag << "| DeltaId: " << this->delta_id << "|
-  // FullTag: " << curr_tag;
-
-  if (idx_ptr->delta_ver_tag != curr_tag) {
+  if (delta_ptr == nullptr) {
     // none/stale list
-    idx_ptr->delta_ver_tag = curr_tag;
+    auto* list_ptr = (storage::mv::mv_version_chain*)partitions[partition_id]
+                         ->getListChunk();
 
-    storage::mv::mv_version_chain* list_ptr =
-        (storage::mv::mv_version_chain*)partitions[partition_id]
-            ->getListChunk();
-    idx_ptr->delta_ver = list_ptr;
-    list_ptr->head = val;
+    list_ptr->head = version_ptr;
+    delta_chunk.update(reinterpret_cast<const char*>(list_ptr),
+                       tag.load(std::memory_order_acquire), this->delta_id,
+                       partition_id);
+
   } else {
     // valid list
-    ((storage::mv::mv_version_chain*)(idx_ptr->delta_ver))->insert(val);
+    delta_ptr->insert(version_ptr);
   }
 
   if (!touched) touched = true;
-  return val;
+  return version_ptr;
 }
 
 void DeltaStore::gc() {

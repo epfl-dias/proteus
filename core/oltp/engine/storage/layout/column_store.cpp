@@ -48,29 +48,20 @@ namespace storage {
 
 std::mutex print_mutex;
 
-[[maybe_unused]] static inline uint32_t __attribute__((always_inline))
-CC_get_delta_tag(uint64_t delta_ver_tag) {
-  return static_cast<uint32_t>(delta_ver_tag);
-}
-
-[[maybe_unused]] static inline uint32_t __attribute__((always_inline))
-CC_get_delta_id(uint64_t delta_ver_tag) {
-  return static_cast<uint32_t>(delta_ver_tag >> 32);
-}
 
 static inline uint64_t __attribute__((always_inline))
 CC_gen_vid(uint64_t vid, ushort partition_id, ushort master_ver,
            ushort delta_version) {
-  return ((vid & 0x000000FFFFFFFFFF) |
-          ((uint64_t)(partition_id & 0x00FF) << 40) |
-          ((uint64_t)(master_ver & 0x00FF) << 48) |
-          ((uint64_t)(delta_version & 0x00FF) << 56));
+  return ((vid & 0x000000FFFFFFFFFFu) |
+          ((uint64_t)(partition_id & 0x00FFu) << 40u) |
+          ((uint64_t)(master_ver & 0x00FFu) << 48u) |
+          ((uint64_t)(delta_version & 0x00FFu) << 56u));
 }
 
 static inline uint64_t __attribute__((always_inline))
 CC_upd_vid(uint64_t vid, ushort master_ver, ushort delta_version) {
-  return ((vid & 0x0000FFFFFFFFFFFF) | ((uint64_t)(master_ver & 0x00FF) << 48) |
-          ((uint64_t)(delta_version & 0x00FF) << 56));
+  return ((vid & 0x0000FFFFFFFFFFFFu) | ((uint64_t)(master_ver & 0x00FFu) << 48u) |
+          ((uint64_t)(delta_version & 0x00FFu) << 56u));
 }
 
 ColumnStore::~ColumnStore() {
@@ -237,7 +228,9 @@ void* ColumnStore::insertRecordBatch(void* rec_batch, uint recs_to_ins,
       hash_ptr[i].VID = CC_gen_vid(idx_st + i, partition_id, master_ver, 0);
 
       if (mv::mv_type::isPerAttributeMVList) {
-        hash_ptr[i].delta_ver = (void*)(mv_list_ptr + i);
+        // FIXME:
+        assert(false);
+        //hash_ptr[i].delta_ver = (void*)(mv_list_ptr + i);
       }
       // hash_ptr += 1;
     }
@@ -276,7 +269,10 @@ void* ColumnStore::insertRecord(void* rec, uint64_t xid, ushort partition_id,
       mv_list_ptr = (mv::MVattributeListCol<storage::mv::mv_version_chain>*)this
                         ->mv_attr_list_column->getElem(indexed_cc_vid);
       assert(mv_list_ptr != nullptr);
-      hash_ptr->delta_ver = (void*)mv_list_ptr;
+
+      // FIXME:
+      assert(false);
+      //hash_ptr->delta_ver = (void*)mv_list_ptr;
     }
   }
 
@@ -328,9 +324,10 @@ void ColumnStore::getRecordByKey(global_conf::IndexVal* idx_ptr,
       }
     }
   } else {
+
     auto done_mask = mv::mv_type::get_readable_version(
-        idx_ptr, idx_ptr->delta_ver, txn_id, write_loc,
-        this->column_size_offset_pairs, this->deltaStore, col_idx, num_cols);
+        idx_ptr->delta_list, txn_id, write_loc,
+        this->column_size_offset_pairs, col_idx, num_cols);
 
     if (!done_mask.all()) {
       // LOG(INFO) << "reading from main";
@@ -401,7 +398,7 @@ void ColumnStore::updateRecord(uint64_t xid, global_conf::IndexVal* hash_ptr,
   hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
 
   auto version_ptr = mv::mv_type::create_versions(
-      xid, hash_ptr, hash_ptr->delta_ver, column_size,
+      xid, hash_ptr, column_size,
       *(this->deltaStore[curr_delta]), pid, col_idx, num_cols);
 
   auto n_cols = (num_cols > 0 ? num_cols : columns.size());
@@ -517,7 +514,10 @@ void ColumnStore::insertIndexRecord(uint64_t rid, uint64_t xid,
     mv_list_ptr = (mv::MVattributeListCol<storage::mv::mv_version_chain>*)this
                       ->mv_attr_list_column->getElem(vid);
     assert(mv_list_ptr != nullptr);
-    hash_ptr->delta_ver = (void*)mv_list_ptr;
+
+    // FIXME.
+    assert(false);
+    //hash_ptr->delta_ver = (void*)mv_list_ptr;
   }
 }
 

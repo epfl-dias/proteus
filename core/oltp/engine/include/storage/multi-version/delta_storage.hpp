@@ -31,7 +31,6 @@
 #include <limits>
 #include <mutex>
 
-#include "glo.hpp"
 #include "storage/memory_manager.hpp"
 
 #define DELTA_DEBUG 1
@@ -41,18 +40,18 @@ namespace storage {
 
 /* Currently DeltaStore is not resizeable*/
 
-class DeltaChunk;
+class DeltaList;
 
 class alignas(4096) DeltaStore {
  public:
-  DeltaStore(uint32_t delta_id, uint64_t ver_list_capacity = g_delta_size,
-             uint64_t ver_data_capacity = g_delta_size,
-             int num_partitions = g_num_partitions);
+  DeltaStore(uint8_t delta_id, uint64_t ver_list_capacity = 4,
+             uint64_t ver_data_capacity = 4,
+             int num_partitions = 1);
   ~DeltaStore();
 
   void print_info();
-  void *insert_version(global_conf::IndexVal *idx_ptr, uint rec_size,
-                       ushort parition_id);
+  void *insert_version(DeltaList &delta_chunk, uint64_t t_min, uint64_t t_max,
+                       uint rec_size, ushort partition_id);
   void *validate_or_create_list(void *list_ptr, size_t &delta_ver_tag,
                                 ushort partition_id);
   void *create_version(size_t size, ushort partition_id);
@@ -151,7 +150,7 @@ class alignas(4096) DeltaStore {
     }
 
     void reset() {
-      if (__likely(touched)) {
+      if (__builtin_expect(touched, 1)) {
         ver_list_cursor = (char *)ver_list_mem.data;
         ver_data_cursor = (char *)ver_data_mem.data;
 
@@ -190,39 +189,36 @@ class alignas(4096) DeltaStore {
     friend class DeltaStore;
   };
 
-  std::atomic<size_t> tag;
+  std::atomic<size_t> tag{};
   uint64_t max_active_epoch;
   uint32_t delta_id;
   std::vector<DeltaPartition *> partitions;
-  std::atomic<uint> readers;
-  std::atomic<short> gc_lock;
+  std::atomic<uint> readers{};
+  std::atomic<short> gc_lock{};
   bool touched;
-  std::atomic<uint> gc_reset_success;
-  std::atomic<uint> gc_requests;
-  std::atomic<uint> ops;
+  std::atomic<uint> gc_reset_success{};
+  std::atomic<uint> gc_requests{};
+  std::atomic<uint> ops{};
 
  public:
   uint64_t total_mem_reserved;
 
-  friend class DeltaChunk;
+  friend class DeltaList;
 };
 
-class DeltaChunk {
+class DeltaList {
   //  4 bit     |  4 bit       | 20 bit  | 36-bit ( 64GB addressable)
   //  delta-idx | partition-id | tag     | offset-in-partition
 
-  //  in offset, maybe keep a single-bit to see if it is a list-chunk
-  //  or a data-chunk.
-  // FIXME: merge list and data delta- in deltaPartitions.
-
  public:
-  explicit DeltaChunk(size_t val) : _val(val) {}
-  explicit DeltaChunk(uint64_t offset, uint32_t tag, uint8_t delta_idx,
-                      uint8_t pid) {
+  DeltaList() = default;
+  explicit DeltaList(size_t val) : _val(val) {}
+  explicit DeltaList(uint64_t offset, uint32_t tag, uint8_t delta_idx,
+                     uint8_t pid) {
     this->update(offset, tag, delta_idx, pid);
   }
-  DeltaChunk(DeltaChunk &) = default;
-  DeltaChunk(DeltaChunk &&) = default;
+  DeltaList(DeltaList &) = default;
+  DeltaList(DeltaList &&) = default;
 
   inline void update(uint64_t val) { this->_val = val; }
 
@@ -233,6 +229,13 @@ class DeltaChunk {
     _val |= (static_cast<uint64_t>(tag & 0x000fffffu)) << 36u;
     _val |= (static_cast<uint64_t>(pid & 0x0fu)) << 56u;
     _val |= (static_cast<uint64_t>(delta_idx & 0x0fu)) << 60u;
+  }
+
+  inline void update(const char *list_ptr, uint32_t tag, uint8_t delta_idx,
+                     uint8_t pid) {
+    auto offset = (list_ptr -
+                   list_memory_base[create_delta_idx_pid_pair(delta_idx, pid)]);
+    this->update(offset, tag, delta_idx, pid);
   }
 
   [[nodiscard]] constexpr inline uint8_t get_delta_idx() const {
@@ -260,19 +263,12 @@ class DeltaChunk {
     return ((((delta_id & 0x0fu)) << 4u) | (pid & 0x0fu));
   }
 
-  [[nodiscard]] inline char *ptr(bool type_list = true) const {
+  [[nodiscard]] inline char *ptr() const {
     // first-verify tag, else return nullptr and log error.
     if (deltaStore_map[this->get_delta_idx()]->verifyTag(this->get_tag())) {
-      // the deference the pointer and return the pointer to actual memory loc.
-      // only problem is we have different list and memory chunks at the moment.
-      if (type_list) {
-        // deference ptr.
-        return list_memory_base[this->get_delta_idx_pid_pair()] +
-               this->get_offset();
-      } else {
-        assert(false && "are you sure?");
-      }
-
+      // deference ptr.
+      return list_memory_base[this->get_delta_idx_pid_pair()] +
+             this->get_offset();
     } else {
       // invalid list
       return nullptr;
@@ -285,7 +281,6 @@ class DeltaChunk {
   // to verify tag directly with required delta-store.
   static std::map<uint8_t, DeltaStore *> deltaStore_map;
   static std::map<uint8_t, char *> list_memory_base;
-  static std::map<uint8_t, char *> data_memory_base;
 
  public:
   [[maybe_unused]] static constexpr size_t offset_bits = 36u;

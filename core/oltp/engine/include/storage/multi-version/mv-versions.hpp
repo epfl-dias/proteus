@@ -28,6 +28,7 @@
 #include <iostream>
 #include <vector>
 
+#include "glo.hpp"
 #include "delta_storage.hpp"
 
 namespace storage::mv {
