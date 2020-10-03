@@ -176,113 +176,13 @@ std::vector<MV_DAG::version_t*> MV_DAG::create_versions(
     MV_DAG::attributeVerList_t* mv_list_ptr,
     std::vector<size_t>& attribute_widths, storage::DeltaStore& deltaStore,
     ushort partition_id, const ushort* col_idx, short num_cols) {
+
   // the main thing here is join the version into single one. and then connect
   // appropriately. tmin thing here would be tricky here.
 
   return {};
-  //
-  //  MV_DAG::version_t* version_pointer;
-  //
-  //
-  //  // Create one big version.
-  //
-  //  // variable to be set by mask_creator
-  //  std::vector<size_t> ver_offsets;
-  //  std::bitset<64> attr_mask;
-  //
-  //  auto ver_data_size =
-  //  MV_DAG::version_t::get_partial_mask_size(attribute_widths,
-  //                                                                ver_offsets,attr_mask,
-  //                                                                col_idx,
-  //                                                                num_cols  );
-  //
-  //  void* ver_chunk = deltaStore.create_version(ver_data_size, partition_id);
-  //  MV_DAG::version_t *ver_tmp = new (ver_chunk) MV_DAG::version_t(
-  //      TMIN, TMAX,
-  //      (((char*)ver_chunk) + sizeof(MV_DAG::version_t)), attr_mask,
-  //      ver_offsets);
-  //
-  //  //ver_tmp->create_partial_mask(ver_offsets, attr_mask);
-  //
-  //  // Now the we have the big memory for version, now create links and alter
-  //  the DAG.
-  //
-  //
-  //  if (__likely(num_cols > 0 && col_idx != nullptr)) {
-  //    for (auto i = 0; i < num_cols; i++) {
-  //      // check if the old-list is valid, if not then create-new.
-  //      // 1) if the current list is valid, then used the last-upd-tmin from
-  //      the
-  //      // list 2) if the list is new, then get the minimum active txn and use
-  //      // that.
-  //
-  //      mv_list_ptr->attr_lists[i].versions =
-  //          (MV_DAG::
-  //          version_chain_t*)(deltaStore.validate_or_create_list(
-  //              mv_list_ptr->attr_lists[i].versions,
-  //              mv_list_ptr->attr_lists[i].delta_tag, partition_id));
-  //
-  ////      void* ver_chunk = deltaStore.create_version(
-  ////          attribute_widths.at(col_idx[i]), partition_id);
-  ////
-  ////      auto* tmp = new (ver_chunk) MV_DAG::version_t(
-  ////          mv_list_ptr->attr_lists[i].versions->last_updated_tmin, 0,
-  ////          (((char*)ver_chunk) + sizeof(MV_DAG::version_t)));
-  //
-  //      mv_list_ptr->attr_lists[i].versions->insert(ver_tmp);
-  ////      version_pointers.emplace_back(tmp);
-  //
-  //      // in the end, update the list-last-upd-tmin to current xid.
-  //      mv_list_ptr->attr_lists[i].versions->last_updated_tmin = xid;
-  //    }
-  //  } else {
-  //    uint i = 0;
-  //    for (auto& col_width : attribute_widths) {
-  //      mv_list_ptr->attr_lists[i].versions =
-  //          (MV_DAG::
-  //          version_chain_t*)(deltaStore.validate_or_create_list(
-  //              mv_list_ptr->attr_lists[i].versions,
-  //              mv_list_ptr->attr_lists[i].delta_tag, partition_id));
-  //
-  //      mv_list_ptr->attr_lists[i].versions->insert(ver_tmp);
-  //
-  //      // in the end, update the list-last-upd-tmin to current xid.
-  //      mv_list_ptr->attr_lists[i].versions->last_updated_tmin = xid;
-  //      i++;
-  //    }
-  //  }
-  //
-  //
-  //
-  //  return {version_pointer};
 }
 
-// void init_reading_mask(std::bitset<64> &done_mask,std::bitset<64>
-// &required_mask, std::vector<uint> &return_col_offsets,
-//                 const std::vector<std::pair<size_t, size_t>>&
-//                 column_size_offset_pairs,
-//                       const ushort *col_idx, ushort num_cols){
-//  // CREATE containment mask.
-//
-//  if (num_cols > 0) {
-//    assert(num_cols <= 64 && "MAX columns supported: 64");
-//
-//    done_mask.set();
-//    for (auto i = 0, offset = 0; i < num_cols; i++) {
-//      done_mask.reset(col_idx[i]);
-//      required_mask.set(col_idx[i]);
-//
-//      offset += column_size_offset_pairs[col_idx[i]].first;
-//      return_col_offsets.push_back(offset);
-//    }
-//  } else {
-//    for (auto i = column_size_offset_pairs.size(); i < done_mask.size(); i++)
-//      done_mask.reset(i);
-//  }
-//  required_mask = ~done_mask;
-//
-//  assert(!(done_mask.all()) && "havent even started and its done?");
-//}
 
 std::bitset<64> MV_DAG::get_readable_version(
     global_conf::IndexVal* idx_ptr,
@@ -292,19 +192,6 @@ std::bitset<64> MV_DAG::get_readable_version(
     storage::DeltaStore** deltaStore, const ushort* col_idx, ushort num_cols) {
   std::bitset<64> tmp;
   return tmp;
-
-  // this is tricky, once traversed, then how to get the other attribute.
-
-  // -------
-  // create-mask for required and done attributes.
-
-  // first filter-out all those attributes which are not-readable from MV
-  // (readable from main)
-
-  // from remaining, choose one list, and get readable.
-
-  // think: keep track of other attributes you encounter.
-  // or get the version, if check if other attribute is there, and then see...
 }
 
 }  // namespace storage::mv

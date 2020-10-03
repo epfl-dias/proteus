@@ -47,8 +47,6 @@ class MV_perAttribute {
                               storage::DeltaStore &deltaStore,
                               ushort partition_id, const ushort *col_idx,
                               short num_cols) {
-    // static_cast<T&>(*this).destroy_snapshot_();
-    // T::create_versions(list_ptr, attribute_widths, col_idx, num_cols);
     auto *tmp_list_ptr = (typename T::attributeVerList_t *)list_ptr;
 
     return T::create_versions(xid, idx_ptr, tmp_list_ptr, attribute_widths,
@@ -79,19 +77,6 @@ class MV_attributeList {
   typedef VersionSingle version_t;
   typedef VersionChain<MV_attributeList> version_chain_t;
   typedef MVattributeListCol<version_chain_t> attributeVerList_t;
-
-  // required stuff to create versions
-  // - pointer to mv-lists
-  // - column_indexes
-  // - column_sizes (attribute_sizes) .. this is somewhere already saved i
-  // guess. (column_size)
-
-  // return: pointers (ordered with col_idxes) where columnstore can create
-  // versions directly. diff in dag vs multi: nothing here, but in list
-  // connections!
-  //  static std::vector<MV_attributeList::version_t*> create_versions(
-  //      void *list_ptr, std::vector<size_t> &attribute_widths,
-  //      const ushort *col_idx, short num_cols);
 
   static std::vector<MV_attributeList::version_t *> create_versions(
       uint64_t xid, global_conf::IndexVal *idx_ptr,
@@ -132,20 +117,11 @@ class MV_DAG {
   typedef MVattributeListCol<version_chain_t> attributeVerList_t;
 
   static std::vector<MV_DAG::version_t *> create_versions(
-      void *list_ptr, std::vector<size_t> &attribute_widths,
-      const ushort *col_idx, short num_cols);
-
-  static std::vector<MV_DAG::version_t *> create_versions(
       uint64_t xid, global_conf::IndexVal *idx_ptr,
       MV_DAG::attributeVerList_t *list_ptr,
       std::vector<size_t> &attribute_widths, storage::DeltaStore &deltaStore,
       ushort partition_id, const ushort *col_idx, short num_cols);
 
-  //  static std::bitset<64> get_readable_version(
-  //      version_t *head, uint64_t xid, char *write_loc,
-  //      const std::vector<std::pair<size_t, size_t>>
-  //      &column_size_offset_pairs, const ushort *col_idx = nullptr, ushort
-  //      num_cols = 0);
   static std::bitset<64> get_readable_version(
       global_conf::IndexVal *idx_ptr,
       MV_attributeList::attributeVerList_t *list_ptr, uint64_t xid,
