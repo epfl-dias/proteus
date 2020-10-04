@@ -21,11 +21,12 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include "indexes/ART/adaptive_radix_tree_index.hpp"
+
 #include <memory>
 #include <mutex>
 
 #include "common/common.hpp"
-#include "indexes/ART/adaptive_radix_tree_index.hpp"
 #include "indexes/ART/adaptive_radix_tree_nodes.hpp"
 
 namespace indexes {

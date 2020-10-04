@@ -45,8 +45,6 @@ class ZipfianGenerator {
                 "ZipfianGenerator must be instantiated with unsigned integral "
                 "type template only.");
 
-
-
   ZipfianGenerator(size_t n_records, double theta, size_t n_workers = 1,
                    size_t n_partitions = 1, bool partition_local = false,
                    bool worker_local = false)
@@ -185,6 +183,6 @@ class ZipfianGenerator {
 #endif
 };
 
-};  // namespace utils
+};  // namespace bench_utils
 
 #endif  // PROTEUS_ZIPF_HPP

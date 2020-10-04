@@ -29,11 +29,10 @@
 #include <utility>
 #include <vector>
 
+#include "storage/multi-version/delta_storage.hpp"
 #include "transactions/txn_utils.hpp"
 #include "utils/lock.hpp"
 #include "utils/spinlock.h"
-
-#include "storage/multi-version/delta_storage.hpp"
 
 namespace txn {
 

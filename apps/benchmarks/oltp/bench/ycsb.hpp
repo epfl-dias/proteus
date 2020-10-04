@@ -184,8 +184,8 @@ class YCSB : public Benchmark {
 
 #endif
     txn->n_ops = num_ops_per_txn;
-    if(txn->n_ops ==  txn::OPTYPE_LOOKUP ){
-      txn->n_ops = num_ops_per_txn*5;
+    if (txn->n_ops == txn::OPTYPE_LOOKUP) {
+      txn->n_ops = num_ops_per_txn * 5;
     }
     //    if(op == txn::OPTYPE_LOOKUP){
     //      txn->n_ops = num_ops_per_txn;
@@ -216,7 +216,7 @@ class YCSB : public Benchmark {
 #else
       do {
         // make op
-        txn->ops[i].key = zipf.nextval(partition_id,wid);
+        txn->ops[i].key = zipf.nextval(partition_id, wid);
         is_duplicate = false;
 
         for (int j = 0; j < i; j++) {
@@ -329,7 +329,7 @@ class YCSB : public Benchmark {
        int num_active_workers = -1, int num_max_workers = -1,
        ushort num_partitions = 1, bool layout_column_store = true,
        uint num_of_col_upd = 1, uint num_of_col_read = 1,
-       uint num_col_read_offset = 0, const std::string& cdf_path = "")
+       uint num_col_read_offset = 0, const std::string &cdf_path = "")
       : Benchmark(std::move(name), num_active_workers, num_max_workers,
                   num_partitions),
         num_fields(num_fields),
