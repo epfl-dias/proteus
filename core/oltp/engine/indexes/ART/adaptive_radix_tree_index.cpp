@@ -88,12 +88,12 @@ bool AdaptiveRadixTreeIndex<K, V>::find(BinaryComparableKey<K> key, V& val) {
 
     LOG(INFO) << "node-cap: "
               << (std::dynamic_pointer_cast<ARTInnerNode<K, V>>(curr))
-    ->node_capacity();
+                     ->node_capacity();
     depth += curr->_prefix_len;
     std::bitset<8> y(key[depth]);
     LOG(INFO) << "Y: " << y;
     auto next = (std::dynamic_pointer_cast<ARTInnerNode<K, V>>(curr))
-    ->find_child(key[depth]);
+                    ->find_child(key[depth]);
     depth += 1;
     curr = next;
     LOG(INFO) << "inc depth: " << depth;
@@ -139,15 +139,15 @@ std::mutex st_lock;
 template <class K, class V>
 inline void AdaptiveRadixTreeIndex<K, V>::replace(
     std::shared_ptr<ARTNode<K, V>> parent,
-std::shared_ptr<ARTNode<K, V>> old_node,
-std::shared_ptr<ARTNode<K, V>> new_node) {
-if (parent == nullptr) {
-_root = new_node;
-} else {
-assert(parent->isLeaf() == false);
-(std::dynamic_pointer_cast<ARTInnerNode<K, V>>(parent))
-->set_child(old_node->_prefix[0], new_node);
-}
+    std::shared_ptr<ARTNode<K, V>> old_node,
+    std::shared_ptr<ARTNode<K, V>> new_node) {
+  if (parent == nullptr) {
+    _root = new_node;
+  } else {
+    assert(parent->isLeaf() == false);
+    (std::dynamic_pointer_cast<ARTInnerNode<K, V>>(parent))
+        ->set_child(old_node->_prefix[0], new_node);
+  }
 }
 
 template <class K, class V>
@@ -606,4 +606,3 @@ void AdaptiveRadixTreeIndex<K, V>::insert(K key_in, V& value) {
 // template class AdaptiveRadixTreeIndex<uint64_t, void*>;
 
 }  // namespace indexes
-

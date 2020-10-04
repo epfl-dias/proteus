@@ -48,17 +48,14 @@ void* MV_RecordList_Full::get_readable_version(version_t* head,
 }
 
 std::bitset<1> MV_RecordList_Full::get_readable_version(
-    const DeltaList &delta_list, uint64_t tid_self,
-    char* write_loc,
+    const DeltaList& delta_list, uint64_t tid_self, char* write_loc,
     const std::vector<std::pair<size_t, size_t>>& column_size_offset_pairs,
-    const ushort* col_idx,
-    const ushort num_cols) {
+    const ushort* col_idx, const ushort num_cols) {
   static thread_local std::bitset<1> ret_bitmask("1");
 
+  auto* delta_list_ptr = (version_chain_t*)(delta_list.ptr());
 
-  auto *delta_list_ptr = (version_chain_t*)(delta_list.ptr());
-
-  if(delta_list_ptr == nullptr){
+  if (delta_list_ptr == nullptr) {
     assert(false && "delta-tag verification failed");
   }
 
@@ -87,15 +84,12 @@ std::bitset<1> MV_RecordList_Full::get_readable_version(
 }
 
 std::bitset<64> MV_RecordList_Partial::get_readable_version(
-    const DeltaList &delta_list, uint64_t tid_self,
-    char* write_loc,
+    const DeltaList& delta_list, uint64_t tid_self, char* write_loc,
     const std::vector<std::pair<size_t, size_t>>& column_size_offset_pairs,
     const ushort* col_idx, ushort num_cols) {
+  auto* delta_list_ptr = (version_chain_t*)(delta_list.ptr());
 
-
-  auto *delta_list_ptr = (version_chain_t*)(delta_list.ptr());
-
-  if(delta_list_ptr == nullptr){
+  if (delta_list_ptr == nullptr) {
     assert(false && "delta-tag verification failed");
   }
 
@@ -129,7 +123,6 @@ std::bitset<64> MV_RecordList_Partial::get_readable_version(
   // Traverse the list
   version_t* curr = head;
   while (curr != nullptr && !(done_mask.all())) {
-
     if (global_conf::ConcurrencyControl::is_readable(curr->t_min, tid_self)) {
       // So this version is readable, now check if it contains what we need or
       // not.
@@ -181,8 +174,8 @@ std::vector<MV_RecordList_Full::version_t*> MV_RecordList_Full::create_versions(
     ver_size += attr_w;
   }
 
-  auto* ver = (MV_RecordList_Full::version_t*) deltaStore.insert_version
-              (idx_ptr->delta_list, idx_ptr->t_min,0, ver_size,partition_id);
+  auto* ver = (MV_RecordList_Full::version_t*)deltaStore.insert_version(
+      idx_ptr->delta_list, idx_ptr->t_min, 0, ver_size, partition_id);
 
   assert(ver != nullptr && ver->data != nullptr);
 
@@ -190,18 +183,20 @@ std::vector<MV_RecordList_Full::version_t*> MV_RecordList_Full::create_versions(
 }
 
 std::vector<MV_RecordList_Partial::version_t*>
-MV_RecordList_Partial::create_versions(
-    uint64_t xid, global_conf::IndexVal* idx_ptr,
-    std::vector<size_t>& attribute_widths, storage::DeltaStore& deltaStore,
-    ushort partition_id, const ushort* col_idx, short num_cols) {
+MV_RecordList_Partial::create_versions(uint64_t xid,
+                                       global_conf::IndexVal* idx_ptr,
+                                       std::vector<size_t>& attribute_widths,
+                                       storage::DeltaStore& deltaStore,
+                                       ushort partition_id,
+                                       const ushort* col_idx, short num_cols) {
   std::vector<size_t> ver_offsets;
   std::bitset<64> attr_mask;
 
   auto ver_data_size = MV_RecordList_Partial::version_t::get_partial_mask_size(
       attribute_widths, ver_offsets, attr_mask, col_idx, num_cols);
 
-  auto* ver = (MV_RecordList_Partial::version_t*) deltaStore.insert_version
-      (idx_ptr->delta_list, idx_ptr->t_min,0, ver_data_size,partition_id);
+  auto* ver = (MV_RecordList_Partial::version_t*)deltaStore.insert_version(
+      idx_ptr->delta_list, idx_ptr->t_min, 0, ver_data_size, partition_id);
   assert(ver != nullptr && ver->data != nullptr);
 
   ver->create_partial_mask(ver_offsets, attr_mask);

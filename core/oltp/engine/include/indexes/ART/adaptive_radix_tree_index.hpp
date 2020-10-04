@@ -75,11 +75,11 @@ class AdaptiveRadixTreeIndex : public Index<K, V> {
   static inline uint getKeyLenInBytes(K &key) { return (log2(key) / 8) + 1; }
 
   inline void replace(std::shared_ptr<ARTNode<K, V>> parent,
-  std::shared_ptr<ARTNode<K, V>> old_node,
-  std::shared_ptr<ARTNode<K, V>> new_node);
+                      std::shared_ptr<ARTNode<K, V>> old_node,
+                      std::shared_ptr<ARTNode<K, V>> new_node);
 
   friend std::ostream &operator<<<>(std::ostream &out,
-  const AdaptiveRadixTreeIndex<K, V> &r);
+                                    const AdaptiveRadixTreeIndex<K, V> &r);
 };
 
 // template <class K = uint64_t, class V = void *>
@@ -185,6 +185,5 @@ class AdaptiveRadixTreeIndex : public Index<K, V> {
 ////                         const indexes::AdaptiveRadixTreeIndex<K, V> &r);
 
 }  // namespace indexes
-
 
 #endif  // PROTEUS_ADPATIVE_RADIX_TREE_INDEX_HPP

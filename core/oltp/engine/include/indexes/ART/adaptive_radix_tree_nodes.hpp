@@ -259,9 +259,9 @@ class ARTInnerNode_16 : public ARTInnerNode<K, V> {
     // FIXME: https://stackoverflow.com/a/11571531
     // m128 has misalignment issue.
     int bitfield = _mm_movemask_epi8(_mm_cmpeq_epi8(
-        _mm_set1_epi8(partial_key),
-        _mm_loadu_si128((__m128i *)&_partial_keys[0]))) &
-        ((1 << ARTInnerNode<K, V>::n_children) - 1);
+                       _mm_set1_epi8(partial_key),
+                       _mm_loadu_si128((__m128i *)&_partial_keys[0]))) &
+                   ((1 << ARTInnerNode<K, V>::n_children) - 1);
 
     return (bool)bitfield ? _children[__builtin_ctz(bitfield)] : nullptr;
 #else
@@ -469,6 +469,5 @@ std::ostream &operator<<(std::ostream &out, const ARTNode<K, V> &r) {
 }
 
 }  // namespace indexes
-
 
 #endif  // PROTEUS_ADPATIVE_RADIX_TREE_NODES_HPP

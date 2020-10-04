@@ -29,7 +29,7 @@
 #include "indexes/hash_array.hpp"
 #include "indexes/hash_index.hpp"
 #include "indexes/index.hpp"
-#include "indexes/ART/adaptive_radix_tree_index.hpp"
+//#include "indexes/ART/adaptive_radix_tree_index.hpp"
 #include "snapshot/arena.hpp"
 #include "snapshot/snapshot_manager.hpp"
 #include "transactions/cc.hpp"

@@ -34,15 +34,32 @@ namespace storage::mv {
 /* MV_attributeList
  *
  * */
+
 std::vector<MV_attributeList::version_t*> MV_attributeList::create_versions(
     uint64_t xid, global_conf::IndexVal* idx_ptr,
-    MV_attributeList::attributeVerList_t* mv_list_ptr,
-    std::vector<size_t>& attribute_widths, storage::DeltaStore& deltaStore,
-    ushort partition_id, const ushort* col_idx, short num_cols) {
+    const std::vector<size_t>& attribute_widths,
+    storage::DeltaStore& deltaStore, ushort partition_id, const ushort* col_idx,
+    short num_cols) {
   std::vector<MV_attributeList::version_t*> version_pointers;
   version_pointers.reserve(num_cols > 0 ? num_cols : attribute_widths.size());
 
   // first check if the list-ptr is valid (revisit the init logic)
+
+  auto* mv_list_ptr = (attributeVerList_t*)idx_ptr->delta_list.ptr();
+  if (mv_list_ptr == nullptr) {
+    // deltaStore.validate_or_create_list();
+    // basically we dont want a regular version_list which contains head and
+    // all.
+    // we just want a chunk. so have a interface in delta-storage, from
+    // list-partition, not data, which will give you the chunk of your required
+    // size.
+
+    auto size = attributeVerList_t::getSize(attribute_widths.size());
+    mv_list_ptr = (attributeVerList_t*)deltaStore.getTransientChunk(
+        idx_ptr->delta_list, size, partition_id);
+
+    attributeVerList_t::create(mv_list_ptr, attribute_widths.size());
+  }
 
   // the for each updated column, create a version for it.
   if (__likely(num_cols > 0 && col_idx != nullptr)) {
@@ -54,46 +71,77 @@ std::vector<MV_attributeList::version_t*> MV_attributeList::create_versions(
 
       auto c_idx = col_idx[i];
 
-      mv_list_ptr->attr_lists[c_idx].versions =
-          (MV_attributeList::
-               version_chain_t*)(deltaStore.validate_or_create_list(
-              mv_list_ptr->attr_lists[c_idx].versions,
-              mv_list_ptr->attr_lists[c_idx].delta_tag, partition_id));
+      //-----
 
+      // refresh the following.
+
+      //      mv_list_ptr->attr_lists[c_idx].versions =
+      //          (MV_attributeList::
+      //               version_chain_t*)(deltaStore.validate_or_create_list(
+      //              mv_list_ptr->attr_lists[c_idx].versions,
+      //              mv_list_ptr->attr_lists[c_idx].delta_tag, partition_id));
+
+      auto* attr_ver_list_ptr =
+          (MV_attributeList::version_chain_t*)
+              deltaStore.validate_or_create_list(
+                  mv_list_ptr->version_list[c_idx], partition_id);
+
+      //-----
       void* ver_chunk =
           deltaStore.create_version(attribute_widths.at(c_idx), partition_id);
+      //-----
+
+      // auto* tmp = new (ver_chunk) MV_attributeList::version_t(
+      //    mv_list_ptr->attr_lists[c_idx].versions->last_updated_tmin, 0,
+      //    (((char*)ver_chunk) + sizeof(MV_attributeList::version_t)));
 
       auto* tmp = new (ver_chunk) MV_attributeList::version_t(
-          mv_list_ptr->attr_lists[c_idx].versions->last_updated_tmin, 0,
+          attr_ver_list_ptr->last_updated_tmin, 0,
           (((char*)ver_chunk) + sizeof(MV_attributeList::version_t)));
 
-      mv_list_ptr->attr_lists[c_idx].versions->insert(tmp);
+      //-----
+      // mv_list_ptr->attr_lists[c_idx].versions->insert(tmp);
+      attr_ver_list_ptr->insert(tmp);
       version_pointers.emplace_back(tmp);
 
+      //-----
       // in the end, update the list-last-upd-tmin to current xid.
-      mv_list_ptr->attr_lists[c_idx].versions->last_updated_tmin = xid;
+      // mv_list_ptr->attr_lists[c_idx].versions->last_updated_tmin = xid;
+      attr_ver_list_ptr->last_updated_tmin = xid;
     }
     assert(version_pointers.size() == num_cols);
   } else {
     uint i = 0;
     for (auto& col_width : attribute_widths) {
-      mv_list_ptr->attr_lists[i].versions =
-          (MV_attributeList::
-               version_chain_t*)(deltaStore.validate_or_create_list(
-              mv_list_ptr->attr_lists[i].versions,
-              mv_list_ptr->attr_lists[i].delta_tag, partition_id));
+      //      mv_list_ptr->attr_lists[i].versions =
+      //          (MV_attributeList::
+      //               version_chain_t*)(deltaStore.validate_or_create_list(
+      //              mv_list_ptr->attr_lists[i].versions,
+      //              mv_list_ptr->attr_lists[i].delta_tag, partition_id));
+
+      auto* attr_ver_list_ptr =
+          (MV_attributeList::version_chain_t*)
+              deltaStore.validate_or_create_list(mv_list_ptr->version_list[i],
+                                                 partition_id);
 
       void* ver_chunk = deltaStore.create_version(col_width, partition_id);
 
+      //      auto* tmp = new (ver_chunk) MV_attributeList::version_t(
+      //          mv_list_ptr->attr_lists[i].versions->last_updated_tmin, 0,
+      //          (((char*)ver_chunk) + sizeof(MV_attributeList::version_t)));
+
       auto* tmp = new (ver_chunk) MV_attributeList::version_t(
-          mv_list_ptr->attr_lists[i].versions->last_updated_tmin, 0,
+          attr_ver_list_ptr->last_updated_tmin, 0,
           (((char*)ver_chunk) + sizeof(MV_attributeList::version_t)));
 
-      mv_list_ptr->attr_lists[i].versions->insert(tmp);
+      // mv_list_ptr->attr_lists[i].versions->insert(tmp);
+      attr_ver_list_ptr->insert(tmp);
+
       version_pointers.emplace_back(tmp);
 
       // in the end, update the list-last-upd-tmin to current xid.
-      mv_list_ptr->attr_lists[i].versions->last_updated_tmin = xid;
+      // mv_list_ptr->attr_lists[i].versions->last_updated_tmin = xid;
+      attr_ver_list_ptr->last_updated_tmin = xid;
       i++;
     }
 
@@ -104,58 +152,96 @@ std::vector<MV_attributeList::version_t*> MV_attributeList::create_versions(
 }
 
 std::bitset<64> MV_attributeList::get_readable_version(
-    global_conf::IndexVal* idx_ptr,
-    MV_attributeList::attributeVerList_t* list_ptr, uint64_t xid,
-    char* write_loc,
+    const DeltaList& delta_list, uint64_t xid, char* write_loc,
     const std::vector<std::pair<size_t, size_t>>& column_size_offset_pairs,
-    storage::DeltaStore** deltaStore, const ushort* col_idx, ushort num_cols) {
-  std::bitset<64> done_mask;
-  done_mask.set();
+    const ushort* col_idx, ushort num_cols) {
+  std::bitset<64> done_mask(0xffffffffffffffff);
+
+  // MV_attributeList::attributeVerList_t *list_ptr,
+
+  auto* mv_col_list = (MV_attributeList::attributeVerList_t*)delta_list.ptr();
 
   if (__unlikely(num_cols == 0 || col_idx == nullptr)) {
     uint i = 0;
+
+    if (mv_col_list == nullptr) {
+      done_mask.reset();
+      return done_mask;
+    }
+
     for (auto& col_so_pair : column_size_offset_pairs) {
-      auto delta_idx = storage::DeltaStore::extract_delta_idx(
-          list_ptr->attr_lists[i].delta_tag);
-      bool is_valid_list =
-          deltaStore[delta_idx]->verifyTag(list_ptr->attr_lists[i].delta_tag);
+      //      auto delta_idx = storage::DeltaStore::extract_delta_idx(
+      //          list_ptr->attr_lists[i].delta_tag);
+      //      bool is_valid_list =
+      //          deltaStore[delta_idx]->verifyTag(list_ptr->attr_lists[i].delta_tag);
 
       // if the list is not valid, then need to be read from main!
       // list is valid, then check if the last_updated_in_list. if it is >=,
       // meaning this attribute is readable from main
 
-      if (!is_valid_list ||
-          xid >= list_ptr->attr_lists[i].versions->last_updated_tmin) {
+      //      if (!is_valid_list ||
+      //          xid >= list_ptr->attr_lists[i].versions->last_updated_tmin) {
+      //        i++;
+      //        done_mask.reset(i);
+      //        continue;
+      //      }
+
+      auto* col_ver_list =
+          (MV_attributeList::version_chain_t*)mv_col_list->version_list[i]
+              .ptr();
+      if (col_ver_list == nullptr || xid >= col_ver_list->last_updated_tmin) {
         i++;
         done_mask.reset(i);
         continue;
       }
 
-      auto version =
-          list_ptr->attr_lists[i].versions->get_readable_version(xid);
+      // auto version =
+      //    list_ptr->attr_lists[i].versions->get_readable_version(xid);
+      auto* version = col_ver_list->get_readable_version(xid);
+
       assert(version != nullptr);
       memcpy(write_loc + col_so_pair.second, version->data, col_so_pair.first);
       // done_mask.set(i);
       i++;
     }
   } else {
+    if (mv_col_list == nullptr) {
+      for (auto j = 0; j < num_cols; j++) {
+        done_mask.reset(col_idx[j]);
+      }
+      return done_mask;
+    }
+
     for (auto j = 0; j < num_cols; j++) {
       auto c_idx = col_idx[j];
 
-      auto delta_idx = storage::DeltaStore::extract_delta_idx(
-          list_ptr->attr_lists[c_idx].delta_tag);
-      bool is_valid_list = deltaStore[delta_idx]->verifyTag(
-          list_ptr->attr_lists[c_idx].delta_tag);
+      //      auto delta_idx = storage::DeltaStore::extract_delta_idx(
+      //          list_ptr->attr_lists[c_idx].delta_tag);
+      //      bool is_valid_list = deltaStore[delta_idx]->verifyTag(
+      //          list_ptr->attr_lists[c_idx].delta_tag);
 
-      if (!is_valid_list ||
-          xid >= list_ptr->attr_lists[c_idx].versions->last_updated_tmin) {
+      auto* col_ver_list =
+          (MV_attributeList::version_chain_t*)mv_col_list->version_list[c_idx]
+              .ptr();
+
+      //      if (!is_valid_list ||
+      //          xid >=
+      //          list_ptr->attr_lists[c_idx].versions->last_updated_tmin) {
+      //        done_mask.reset(c_idx);
+      //        continue;
+      //      }
+
+      if (col_ver_list == nullptr || xid >= col_ver_list->last_updated_tmin) {
         done_mask.reset(c_idx);
         continue;
       }
 
       auto col_width = column_size_offset_pairs.at(c_idx).first;
-      auto version =
-          list_ptr->attr_lists[c_idx].versions->get_readable_version(xid);
+
+      //      auto version =
+      //          list_ptr->attr_lists[c_idx].versions->get_readable_version(xid);
+      auto* version = col_ver_list->get_readable_version(xid);
+
       assert(version != nullptr);
       memcpy(write_loc, version->data, col_width);
 
@@ -171,27 +257,27 @@ std::bitset<64> MV_attributeList::get_readable_version(
  *
  * */
 
-std::vector<MV_DAG::version_t*> MV_DAG::create_versions(
-    uint64_t xid, global_conf::IndexVal* idx_ptr,
-    MV_DAG::attributeVerList_t* mv_list_ptr,
-    std::vector<size_t>& attribute_widths, storage::DeltaStore& deltaStore,
-    ushort partition_id, const ushort* col_idx, short num_cols) {
-
-  // the main thing here is join the version into single one. and then connect
-  // appropriately. tmin thing here would be tricky here.
-
-  return {};
-}
-
-
-std::bitset<64> MV_DAG::get_readable_version(
-    global_conf::IndexVal* idx_ptr,
-    MV_attributeList::attributeVerList_t* list_ptr, uint64_t xid,
-    char* write_loc,
-    const std::vector<std::pair<size_t, size_t>>& column_size_offset_pairs,
-    storage::DeltaStore** deltaStore, const ushort* col_idx, ushort num_cols) {
-  std::bitset<64> tmp;
-  return tmp;
-}
+// std::vector<MV_DAG::version_t*> MV_DAG::create_versions(
+//    uint64_t xid, global_conf::IndexVal* idx_ptr,
+//    const std::vector<size_t>& attribute_widths, storage::DeltaStore&
+//    deltaStore, ushort partition_id, const ushort* col_idx, short num_cols) {
+//
+//  // the main thing here is join the version into single one. and then connect
+//  // appropriately. tmin thing here would be tricky here.
+//
+//  return {};
+//}
+//
+//
+// std::bitset<64> MV_DAG::get_readable_version(
+//    global_conf::IndexVal* idx_ptr,
+//    uint64_t xid,
+//    char* write_loc,
+//    const std::vector<std::pair<size_t, size_t>>& column_size_offset_pairs,
+//    storage::DeltaStore** deltaStore, const ushort* col_idx, ushort num_cols)
+//    {
+//  std::bitset<64> tmp;
+//  return tmp;
+//}
 
 }  // namespace storage::mv

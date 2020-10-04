@@ -42,28 +42,20 @@ class MV_perAttribute {
   typedef typename T::version_chain_t version_chain_t;
 
   static auto create_versions(uint64_t xid, global_conf::IndexVal *idx_ptr,
-                              void *list_ptr,
-                              std::vector<size_t> &attribute_widths,
+                              const std::vector<size_t> &attribute_widths,
                               storage::DeltaStore &deltaStore,
                               ushort partition_id, const ushort *col_idx,
                               short num_cols) {
-    auto *tmp_list_ptr = (typename T::attributeVerList_t *)list_ptr;
-
-    return T::create_versions(xid, idx_ptr, tmp_list_ptr, attribute_widths,
-                              deltaStore, partition_id, col_idx, num_cols);
+    return T::create_versions(xid, idx_ptr, attribute_widths, deltaStore,
+                              partition_id, col_idx, num_cols);
   }
 
   static auto get_readable_version(
-      global_conf::IndexVal *idx_ptr, void *list_ptr, uint64_t xid,
-      char *write_loc,
+      const DeltaList &delta_list, uint64_t xid, char *write_loc,
       const std::vector<std::pair<size_t, size_t>> &column_size_offset_pairs,
-      storage::DeltaStore **deltaStore, const ushort *col_idx = nullptr,
-      ushort num_cols = 0) {
-    auto *tmp_list_ptr = (typename T::attributeVerList_t *)list_ptr;
-
-    return T::get_readable_version(idx_ptr, tmp_list_ptr, xid, write_loc,
-                                   column_size_offset_pairs, deltaStore,
-                                   col_idx, num_cols);
+      const ushort *col_idx = nullptr, ushort num_cols = 0) {
+    return T::get_readable_version(delta_list, xid, write_loc,
+                                   column_size_offset_pairs, col_idx, num_cols);
   }
 };
 
@@ -76,21 +68,18 @@ class MV_attributeList {
   // Single-version as each version contains a single-attribute only.
   typedef VersionSingle version_t;
   typedef VersionChain<MV_attributeList> version_chain_t;
-  typedef MVattributeListCol<version_chain_t> attributeVerList_t;
+  typedef MVattributeListCol attributeVerList_t;
 
   static std::vector<MV_attributeList::version_t *> create_versions(
       uint64_t xid, global_conf::IndexVal *idx_ptr,
-      MV_attributeList::attributeVerList_t *list_ptr,
-      std::vector<size_t> &attribute_widths, storage::DeltaStore &deltaStore,
-      ushort partition_id, const ushort *col_idx, short num_cols);
+      const std::vector<size_t> &attribute_widths,
+      storage::DeltaStore &deltaStore, ushort partition_id,
+      const ushort *col_idx, short num_cols);
 
   static std::bitset<64> get_readable_version(
-      global_conf::IndexVal *idx_ptr,
-      MV_attributeList::attributeVerList_t *list_ptr, uint64_t xid,
-      char *write_loc,
+      const DeltaList &delta_list, uint64_t xid, char *write_loc,
       const std::vector<std::pair<size_t, size_t>> &column_size_offset_pairs,
-      storage::DeltaStore **deltaStore, const ushort *col_idx = nullptr,
-      ushort num_cols = 0);
+      const ushort *col_idx = nullptr, ushort num_cols = 0);
 
   // friend class MV_perAttribute<MV_attributeList>;
 };
@@ -114,21 +103,18 @@ class MV_DAG {
   // Multi-version as each version contains a multiple-attribute.
   typedef VersionMultiAttr version_t;
   typedef VersionChain<MV_DAG> version_chain_t;
-  typedef MVattributeListCol<version_chain_t> attributeVerList_t;
+  typedef MVattributeListCol attributeVerList_t;
 
   static std::vector<MV_DAG::version_t *> create_versions(
       uint64_t xid, global_conf::IndexVal *idx_ptr,
-      MV_DAG::attributeVerList_t *list_ptr,
-      std::vector<size_t> &attribute_widths, storage::DeltaStore &deltaStore,
-      ushort partition_id, const ushort *col_idx, short num_cols);
+      const std::vector<size_t> &attribute_widths,
+      storage::DeltaStore &deltaStore, ushort partition_id,
+      const ushort *col_idx, short num_cols);
 
   static std::bitset<64> get_readable_version(
-      global_conf::IndexVal *idx_ptr,
-      MV_attributeList::attributeVerList_t *list_ptr, uint64_t xid,
-      char *write_loc,
+      const DeltaList &delta_list, uint64_t xid, char *write_loc,
       const std::vector<std::pair<size_t, size_t>> &column_size_offset_pairs,
-      storage::DeltaStore **deltaStore, const ushort *col_idx = nullptr,
-      ushort num_cols = 0);
+      const ushort *col_idx = nullptr, ushort num_cols = 0);
 };
 
 }  // namespace storage::mv

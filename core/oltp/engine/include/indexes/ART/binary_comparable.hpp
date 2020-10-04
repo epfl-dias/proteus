@@ -24,7 +24,6 @@
 #ifndef PROTEUS_BINARY_COMPARABLE_HPP
 #define PROTEUS_BINARY_COMPARABLE_HPP
 
-
 #include <array>
 #include <cassert>
 #include <functional>
@@ -160,7 +159,7 @@ class BinaryComparableKey {
  private:
   uint8_t byte_arr[sizeof(K)];
   friend std::ostream &operator<<<>(std::ostream &out,
-  const BinaryComparableKey<K> &r);
+                                    const BinaryComparableKey<K> &r);
 };
 
 template <typename K>
@@ -168,6 +167,5 @@ std::ostream &operator<<(std::ostream &out, const BinaryComparableKey<K> &r) {
   out << r.getRawValue();
   return out;
 }
-
 
 #endif  // PROTEUS_BINARY_COMPARABLE_HPP

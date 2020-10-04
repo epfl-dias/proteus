@@ -91,7 +91,6 @@ DeltaStore::DeltaStore(uint8_t delta_id, uint64_t ver_list_capacity,
   this->readers.store(0);
   this->gc_reset_success.store(0);
   this->gc_requests.store(0);
-  this->ops.store(0);
   this->gc_lock.store(0);
   this->tag = 1;
   this->max_active_epoch = 0;
@@ -111,43 +110,54 @@ DeltaStore::~DeltaStore() {
 
 void DeltaStore::print_info() {
   LOG(INFO) << "[DeltaStore # " << this->delta_id
-            << "] Number of GC Requests: " << this->gc_requests.load();
-
-  LOG(INFO) << "[DeltaStore # " << this->delta_id
             << "] Number of Successful GC Resets: "
             << this->gc_reset_success.load();
+
+#if DELTA_DEBUG
   LOG(INFO) << "[DeltaStore # " << this->delta_id
-            << "] Number of Operations: " << this->ops.load();
+            << "] Number of GC Requests: " << this->gc_requests.load();
+#endif
 
   for (auto& p : partitions) {
     p->report();
   }
 }
 
-//void* insert_version_per_list() {
-//  // two variant, one is which insert in all lists.
-//  // the other one only in one list.
-//
-//  // also cater for cascade update, so take number of elements in interface
-//  // also.
-//  return nullptr;
-//}
+void* DeltaStore::getTransientChunk(DeltaList& delta_chunk, uint size,
+                                    ushort partition_id) {
+  auto* ptr = partitions[partition_id]->getChunk(size);
 
-void* DeltaStore::validate_or_create_list(void* list_ptr, size_t& delta_ver_tag,
+  delta_chunk.update(reinterpret_cast<const char*>(ptr),
+                     tag.load(std::memory_order_acquire), this->delta_id,
+                     partition_id);
+
+  if (!touched) touched = true;
+  return ptr;
+}
+
+void* DeltaStore::validate_or_create_list(DeltaList& delta_chunk,
                                           ushort partition_id) {
-  auto curr_tag = create_delta_tag(this->delta_id, tag.load());
-  if (list_ptr == nullptr || delta_ver_tag != curr_tag) {
-    // none or stale list
-    delta_ver_tag = curr_tag;
-    list_ptr = partitions[partition_id]->getListChunk();
+  auto* delta_ptr = (storage::mv::mv_version_chain*)(delta_chunk.ptr());
+
+  if (delta_ptr == nullptr) {
+    // none/stale list
+    auto* list_ptr = (storage::mv::mv_version_chain*)new (
+        partitions[partition_id]->getListChunk())
+        storage::mv::mv_version_chain();
+    delta_chunk.update(reinterpret_cast<const char*>(list_ptr),
+                       tag.load(std::memory_order_acquire), this->delta_id,
+                       partition_id);
 
     // logic for transient timestamps instead of persistent.
-    ((storage::mv::mv_type::version_chain_t*)list_ptr)->last_updated_tmin =
+    list_ptr->last_updated_tmin =
         scheduler::WorkerPool::getInstance().get_min_active_txn();
 
     if (!touched) touched = true;
+
+    return list_ptr;
   }
-  return list_ptr;
+
+  return delta_ptr;
 }
 
 void* DeltaStore::create_version(size_t size, ushort partition_id) {
@@ -163,15 +173,16 @@ void* DeltaStore::insert_version(DeltaList& delta_chunk, uint64_t t_min,
 
   char* cnk = (char*)partitions[partition_id]->getVersionDataChunk(rec_size);
 
-  auto *version_ptr = new ((void*)cnk) storage::mv::mv_version(
+  auto* version_ptr = new ((void*)cnk) storage::mv::mv_version(
       t_min, t_max, cnk + sizeof(storage::mv::mv_version));
 
   auto* delta_ptr = (storage::mv::mv_version_chain*)(delta_chunk.ptr());
 
   if (delta_ptr == nullptr) {
     // none/stale list
-    auto* list_ptr = (storage::mv::mv_version_chain*)partitions[partition_id]
-                         ->getListChunk();
+    auto* list_ptr = (storage::mv::mv_version_chain*)new (
+        partitions[partition_id]->getListChunk())
+        storage::mv::mv_version_chain();
 
     list_ptr->head = version_ptr;
     delta_chunk.update(reinterpret_cast<const char*>(list_ptr),
@@ -190,8 +201,9 @@ void* DeltaStore::insert_version(DeltaList& delta_chunk, uint64_t t_min,
 void DeltaStore::gc() {
   short e = 0;
   if (gc_lock.compare_exchange_strong(e, -1)) {
-    // gc_requests++;
-
+#if DELTA_DEBUG
+    gc_requests++;
+#endif
     uint64_t last_alive_txn =
         scheduler::WorkerPool::getInstance().get_min_active_txn();
     if (this->readers == 0 && should_gc() &&
@@ -202,7 +214,7 @@ void DeltaStore::gc() {
       tag++;
       gc_lock.store(0);
       touched = false;
-      gc_reset_success++;
+      gc_reset_success.fetch_add(1, std::memory_order_relaxed);
     } else {
       // gc_lock.unlock();
       gc_lock.store(0);
@@ -257,6 +269,14 @@ void* DeltaStore::DeltaPartition::getListChunk() {
   return tmp;
 }
 
+void* DeltaStore::DeltaPartition::getChunk(size_t size) {
+  char* tmp = ver_list_cursor.fetch_add(size, std::memory_order_relaxed);
+
+  assert((tmp + size) <= list_cursor_max);
+  touched = true;
+  return tmp;
+}
+
 void* DeltaStore::DeltaPartition::getVersionDataChunk(size_t rec_size) {
   constexpr uint slack_size = 8192;
 
@@ -269,7 +289,7 @@ void* DeltaStore::DeltaPartition::getVersionDataChunk(size_t rec_size) {
   size_t req = rec_size + sizeof(storage::mv::mv_version);
 
   // works.
-  if (reset_listeners[tid] == true) {
+  if (reset_listeners[tid]) {
     remaining_slack = 0;
     reset_listeners[tid] = false;
   }

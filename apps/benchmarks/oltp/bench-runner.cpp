@@ -83,8 +83,6 @@ int main(int argc, char** argv) {
   LOG(INFO) << "PARTITIONS: " << g_num_partitions << std::endl;
 
   g_delta_size = FLAGS_delta_size;
-  LOG(INFO) << "DeltaSize: " << FLAGS_delta_size;
-  g_delta_size = 6;
 
   storage::Schema* schema = &storage::Schema::getInstance();
 

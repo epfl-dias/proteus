@@ -57,11 +57,10 @@ bool update_query(uint64_t xid, ushort master_ver, ushort delta_ver,
     hash_ptr->latch.acquire();
     ushort col_update_idx = 1;
     record[col_update_idx] = 15;
-    tbl->updateRecord(hash_ptr, &(record[col_update_idx]), master_ver,
+    tbl->updateRecord(xid, hash_ptr, &(record[col_update_idx]), master_ver,
                       delta_ver, &col_update_idx, 1);
-    hash_ptr->t_min = xid;
-    hash_ptr->write_lck.unlock();
     hash_ptr->latch.release();
+    hash_ptr->write_lck.unlock();
     LOG(INFO) << "UPDATE QUERY SUCCESS";
     return true;
   } else {
@@ -78,13 +77,7 @@ bool select_query(uint64_t xid, ushort master_ver, ushort delta_ver,
 
   if (hash_ptr != nullptr) {
     hash_ptr->latch.acquire();
-    if (txn::CC_MV2PL::is_readable(hash_ptr->t_min, xid)) {
-      tbl->getRecordByKey(hash_ptr->VID, nullptr, 0, &(record[0]));
-    } else {
-      auto *v = (size_t *)hash_ptr->delta_ver->get_readable_ver(xid);
-      record[0] = v[0];
-      record[1] = v[1];
-    }
+    tbl->getRecordByKey(hash_ptr->VID, nullptr, 0, &(record[0]));
     hash_ptr->latch.release();
     LOG(INFO) << "SELECT VALUE GOT: [0]: " << record[0];
     LOG(INFO) << "SELECT VALUE GOT: [1]: " << record[1];

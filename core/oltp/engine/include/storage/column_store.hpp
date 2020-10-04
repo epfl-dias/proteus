@@ -54,7 +54,7 @@ using ColumnVector =
 
 class alignas(4096) ColumnStore : public Table {
  public:
-  ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
+  ColumnStore(uint8_t table_id, const std::string &name, ColumnDef columns,
               uint64_t initial_num_records = 10000000, bool indexed = true,
               bool partitioned = true, int numa_idx = -1);
   uint64_t insertRecord(void *rec, ushort partition_id, ushort master_ver);
@@ -119,11 +119,11 @@ class alignas(4096) ColumnStore : public Table {
  private:
   ColumnVector columns;
   Column *meta_column;
-  Column *mv_attr_list_column;
+  // Column *mv_attr_list_column;
   // Column **secondary_index_vals;
   uint64_t offset;
   ushort num_data_partitions;
-  size_t nParts;
+  size_t nParts{};
   std::vector<std::pair<size_t, size_t>> column_size_offset_pairs;
   std::vector<size_t> column_size_offsets;
   std::vector<size_t> column_size;
@@ -132,11 +132,10 @@ class alignas(4096) ColumnStore : public Table {
   const decltype(columns) &getColumns() { return columns; }
 };
 
-
 class alignas(4096) Column {
  public:
-  Column(std::string name, uint64_t initial_num_records,
-         data_type type, size_t unit_size, size_t cummulative_offset,
+  Column(std::string name, uint64_t initial_num_records, data_type type,
+         size_t unit_size, size_t cummulative_offset,
          bool single_version_only = false, bool partitioned = true,
          int numa_idx = -1);
 

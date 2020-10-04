@@ -58,11 +58,10 @@ class CC_MV2PL {
 
     storage::DeltaList delta_list;
 
-//    void *delta_ver;       // delta-list
-//    size_t delta_ver_tag;  // 4 byte delta_idx| 4-byte delta-tag
+    //    void *delta_ver;       // delta-list
+    //    size_t delta_ver_tag;  // 4 byte delta_idx| 4-byte delta-tag
 
-    PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid)
-        : t_min(tid), VID(vid) {}
+    PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid) : t_min(tid), VID(vid) {}
   };
 
   // TODO: this needs to be modified as we changed the format of TIDs

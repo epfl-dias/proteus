@@ -48,7 +48,6 @@ namespace storage {
 
 std::mutex print_mutex;
 
-
 static inline uint64_t __attribute__((always_inline))
 CC_gen_vid(uint64_t vid, ushort partition_id, ushort master_ver,
            ushort delta_version) {
@@ -60,7 +59,8 @@ CC_gen_vid(uint64_t vid, ushort partition_id, ushort master_ver,
 
 static inline uint64_t __attribute__((always_inline))
 CC_upd_vid(uint64_t vid, ushort master_ver, ushort delta_version) {
-  return ((vid & 0x0000FFFFFFFFFFFFu) | ((uint64_t)(master_ver & 0x00FFu) << 48u) |
+  return ((vid & 0x0000FFFFFFFFFFFFu) |
+          ((uint64_t)(master_ver & 0x00FFu) << 48u) |
           ((uint64_t)(delta_version & 0x00FFu) << 56u));
 }
 
@@ -75,17 +75,13 @@ ColumnStore::~ColumnStore() {
     meta_column->~Column();
     storage::memory::MemoryManager::free(meta_column);
   }
-  if (mv::mv_type::isPerAttributeMVList) {
-    mv_attr_list_column->~Column();
-    storage::memory::MemoryManager::free(mv_attr_list_column);
-  }
 
   if (p_index) delete p_index;
 }
 
-ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
-                         uint64_t initial_num_records, bool indexed,
-                         bool partitioned, int numa_idx)
+ColumnStore::ColumnStore(uint8_t table_id, const std::string& name,
+                         ColumnDef columns, uint64_t initial_num_records,
+                         bool indexed, bool partitioned, int numa_idx)
     : Table(name, table_id, COLUMN_STORE, columns),
       columns(
           proteus::memory::ExplicitSocketPinnedMemoryAllocator<storage::Column>(
@@ -146,51 +142,16 @@ ColumnStore::ColumnStore(uint8_t table_id, std::string name, ColumnDef columns,
   this->offset = 0;
   this->initial_num_recs = initial_num_records;
 
-  // ------
-  // ADD a column for storing MV pointers. so that our list is always active.
-  //
-
-  if (mv::mv_type::isPerAttributeMVList) {
-    auto mv_col_size =
-        mv::MVattributeListCol<storage::mv::mv_version_chain>::getSize(
-            columns.size());
-    void* mv_obj_ptr = storage::memory::MemoryManager::alloc(
-        sizeof(Column),
-        storage::NUMAPartitionPolicy::getInstance().getDefaultPartition());
-    mv_attr_list_column =
-        new (mv_obj_ptr) Column(name + "_mv", initial_num_records, MV,
-                                mv_col_size, 0, true, partitioned, numa_idx);
-    loaders.emplace_back(
-        [this]() { this->mv_attr_list_column->initializeMVColumn(this->columns.size()); });
-  }
-
-  // ------
-
   for (auto& th : loaders) {
     th.join();
   }
 
-  {
-    std::unique_lock<std::mutex> lk(print_mutex);
-    std::cout << "Table: " << name << std::endl;
-    std::cout << "\trecord size: " << rec_size << " bytes" << std::endl;
-    std::cout << "\tnum_records: " << initial_num_records << std::endl;
+  if (indexed) total_mem_reserved += meta_column->total_mem_reserved;
 
-    if (mv::mv_type::isPerAttributeMVList) {
-      std::cout
-          << "\tAttributeMVCol: size_per_tuple: "
-          << mv::MVattributeListCol<storage::mv::mv_version_chain>::getSize(
-                 columns.size())
-          << std::endl;
-      total_mem_reserved += mv_attr_list_column->total_mem_reserved;
-    }
-
-    if (indexed) total_mem_reserved += meta_column->total_mem_reserved;
-
-    std::cout << "\tMem reserved: "
-              << (double)total_mem_reserved / (1024 * 1024 * 1024) << "GB"
-              << std::endl;
-  }
+  LOG(INFO) << "Table: " << name << "\n\trecord size: " << rec_size << " bytes"
+            << "\n\tnum_records: " << initial_num_records
+            << "\n\tMem reserved: "
+            << (double)total_mem_reserved / (1024 * 1024 * 1024) << "GB";
 
   elastic_mappings.reserve(columns.size());
 }
@@ -214,25 +175,9 @@ void* ColumnStore::insertRecordBatch(void* rec_batch, uint recs_to_ins,
         st_vid_meta, recs_to_ins);
     assert(hash_ptr != nullptr);
 
-    mv::MVattributeListCol<storage::mv::mv_version_chain>* mv_list_ptr =
-        nullptr;
-    if (mv::mv_type::isPerAttributeMVList) {
-      mv_list_ptr =
-          (mv::MVattributeListCol<storage::mv::mv_version_chain>*)this
-              ->mv_attr_list_column->insertElemBatch(st_vid_meta, recs_to_ins);
-      assert(mv_list_ptr != nullptr);
-    }
-
     for (uint i = 0; i < recs_to_ins; i++) {
       hash_ptr[i].t_min = xid;
       hash_ptr[i].VID = CC_gen_vid(idx_st + i, partition_id, master_ver, 0);
-
-      if (mv::mv_type::isPerAttributeMVList) {
-        // FIXME:
-        assert(false);
-        //hash_ptr[i].delta_ver = (void*)(mv_list_ptr + i);
-      }
-      // hash_ptr += 1;
     }
   }
 
@@ -262,18 +207,6 @@ void* ColumnStore::insertRecord(void* rec, uint64_t xid, ushort partition_id,
     assert(hash_ptr != nullptr);
     hash_ptr->t_min = xid;
     hash_ptr->VID = curr_vid;
-
-    if constexpr (mv::mv_type::isPerAttributeMVList) {
-      mv::MVattributeListCol<storage::mv::mv_version_chain>* mv_list_ptr =
-          nullptr;
-      mv_list_ptr = (mv::MVattributeListCol<storage::mv::mv_version_chain>*)this
-                        ->mv_attr_list_column->getElem(indexed_cc_vid);
-      assert(mv_list_ptr != nullptr);
-
-      // FIXME:
-      assert(false);
-      //hash_ptr->delta_ver = (void*)mv_list_ptr;
-    }
   }
 
   char* rec_ptr = (char*)rec;
@@ -324,10 +257,9 @@ void ColumnStore::getRecordByKey(global_conf::IndexVal* idx_ptr,
       }
     }
   } else {
-
     auto done_mask = mv::mv_type::get_readable_version(
-        idx_ptr->delta_list, txn_id, write_loc,
-        this->column_size_offset_pairs, col_idx, num_cols);
+        idx_ptr->delta_list, txn_id, write_loc, this->column_size_offset_pairs,
+        col_idx, num_cols);
 
     if (!done_mask.all()) {
       // LOG(INFO) << "reading from main";
@@ -398,8 +330,8 @@ void ColumnStore::updateRecord(uint64_t xid, global_conf::IndexVal* hash_ptr,
   hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
 
   auto version_ptr = mv::mv_type::create_versions(
-      xid, hash_ptr, column_size,
-      *(this->deltaStore[curr_delta]), pid, col_idx, num_cols);
+      xid, hash_ptr, column_size, *(this->deltaStore[curr_delta]), pid, col_idx,
+      num_cols);
 
   auto n_cols = (num_cols > 0 ? num_cols : columns.size());
   uint idx = 0;
@@ -415,8 +347,6 @@ void ColumnStore::updateRecord(uint64_t xid, global_conf::IndexVal* hash_ptr,
       }
       Column* col = &(columns.at(idx));
       memcpy(version_ptr.at(i)->data, col->getElem(old_vid), col->elem_size);
-      //((mv::MVattributeListCol<storage::mv::mv_version_chain>*)(hash_ptr->delta_ver))->setUpdated(idx,
-      // xid);
 
       // update column
       col->updateElem(hash_ptr->VID,
@@ -507,18 +437,6 @@ void ColumnStore::insertIndexRecord(uint64_t rid, uint64_t xid,
   hash_ptr->VID = CC_gen_vid(curr_vid, partition_id, master_ver, 0);
   void* pano = (void*)hash_ptr;
   this->p_index->insert(rid, pano);
-
-  if constexpr (mv::mv_type::isPerAttributeMVList) {
-    mv::MVattributeListCol<storage::mv::mv_version_chain>* mv_list_ptr =
-        nullptr;
-    mv_list_ptr = (mv::MVattributeListCol<storage::mv::mv_version_chain>*)this
-                      ->mv_attr_list_column->getElem(vid);
-    assert(mv_list_ptr != nullptr);
-
-    // FIXME.
-    assert(false);
-    //hash_ptr->delta_ver = (void*)mv_list_ptr;
-  }
 }
 
 /*  Class Column
@@ -527,25 +445,25 @@ void ColumnStore::insertIndexRecord(uint64_t rid, uint64_t xid,
 
 Column::~Column() {
 #if HTAP_ETL
-  for (ushort j = 0; j < this->num_partitions; j++) {
+  for (uint j = 0; j < this->num_partitions; j++) {
     if (this->etl_mem[j])
       storage::memory::MemoryManager::free(this->etl_mem[j]);
   }
 #endif
 
-  for (auto i = 0; i < global_conf::num_master_versions; i++) {
+  for (auto& master_version : master_versions) {
     for (auto j = 0; j < g_num_partitions; j++) {
-      for (auto& chunk : master_versions[i][j]) {
+      for (auto& chunk : master_version[j]) {
         storage::memory::MemoryManager::free(chunk.data);
       }
-      master_versions[i][j].clear();
+      master_version[j].clear();
     }
   }
 }
 
-Column::Column(std::string name, uint64_t initial_num_records, data_type type, size_t unit_size,
-               size_t cummulative_offset, bool single_version_only,
-               bool partitioned, int numa_idx)
+Column::Column(std::string name, uint64_t initial_num_records, data_type type,
+               size_t unit_size, size_t cummulative_offset,
+               bool single_version_only, bool partitioned, int numa_idx)
     : name(std::move(name)),
       elem_size(unit_size),
       cummulative_offset(cummulative_offset),
@@ -667,27 +585,6 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type, s
   }
 
   for (uint i = 0; i < this->num_partitions; i++) this->touched[i] = false;
-}
-
-void Column::initializeMVColumn(size_t num_attributes) {
-  assert(this->type == MV);
-  std::vector<proteus::thread> loaders;
-  //const auto num_attributes = this->parent->getColumns().size();
-  for (auto j = 0; j < this->num_partitions; j++) {
-    for (const auto& chunk : master_versions[0][j]) {
-      char* ptr = (char*)chunk.data;
-      assert(chunk.size % this->elem_size == 0);
-      loaders.emplace_back([this, chunk, ptr, num_attributes]() {
-        for (uint64_t i = 0; i < (chunk.size / this->elem_size); i++) {
-          mv::MVattributeListCol<storage::mv::mv_version_chain>::create(
-              0, (ptr + (i * this->elem_size)), num_attributes);
-        }
-      });
-    }
-  }
-  for (auto& th : loaders) {
-    th.join();
-  }
 }
 
 void Column::initializeMetaColumn() {

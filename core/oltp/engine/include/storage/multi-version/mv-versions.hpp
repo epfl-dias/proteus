@@ -28,21 +28,21 @@
 #include <iostream>
 #include <vector>
 
-#include "glo.hpp"
 #include "delta_storage.hpp"
+#include "glo.hpp"
 
 namespace storage::mv {
 
 class Version {
  public:
   const uint64_t t_min;
-  const uint64_t t_max;
+  [[maybe_unused]] const uint64_t t_max;
   void *data;
 
   Version(uint64_t t_min, uint64_t t_max, void *data)
       : t_min(t_min), t_max(t_max), data(data) {}
 
-  virtual void set_attr_mask(std::bitset<64> mask) = 0;
+  [[maybe_unused]] virtual void set_attr_mask(std::bitset<64> mask) = 0;
   virtual size_t get_offset(size_t col_idx) = 0;
   virtual void set_offsets(std::vector<size_t> col_offsets) = 0;
   virtual size_t create_partial_mask(std::vector<size_t> &attribute_widths,
@@ -55,7 +55,7 @@ class VersionSingle : public Version {
  public:
   VersionSingle *next;
 
-  VersionSingle(uint64_t t_min, uint64_t t_max, void *data)
+  [[maybe_unused]] VersionSingle(uint64_t t_min, uint64_t t_max, void *data)
       : Version(t_min, t_max, data), next(nullptr) {}
 
   inline void set_attr_mask(std::bitset<64> mask) override {}
@@ -190,7 +190,7 @@ class VersionChain {
   //                                   num_cols);
   //  }
 
-  VersionChain() { head = nullptr; }
+  VersionChain() : last_updated_tmin(0), head(nullptr) {}
 
   inline void insert(typename T::version_t *val) {
     val->next = head;
@@ -200,7 +200,7 @@ class VersionChain {
   inline void reset_head(typename T::version_t *val) { head = val; }
 
   auto get_readable_version(uint64_t xid) {
-    typename T::version_t *tmp = nullptr;
+    typename T::version_t *tmp;
     {
       tmp = head;
       while (tmp != nullptr) {
@@ -215,40 +215,44 @@ class VersionChain {
     return tmp;
   }
 
-  typename T::version_t *head;
-  uint64_t last_updated_tmin;
+  typename T::version_t *head{};
+  uint64_t last_updated_tmin{};
 
   friend class storage::DeltaStore;
   friend T;
 };
 
-template <class versionChain>
 class MVattributeListCol {
  private:
-  struct col_mv_list {
-    size_t delta_tag;
-    versionChain *versions;
-  };
+  DeltaList *version_list;
 
-  struct col_mv_list *attr_lists;
+  //  struct col_mv_list {
+  //    size_t delta_tag;
+  //    versionChain *versions;
+  //  };
+  //
+  //  struct col_mv_list *attr_lists;
 
  public:
   static size_t getSize(size_t num_attributes) {
-    return sizeof(MVattributeListCol) + (sizeof(col_mv_list) * num_attributes);
+    return sizeof(MVattributeListCol) + (sizeof(DeltaList) * num_attributes);
   }
 
-  static void create(size_t delta_tag, void *ptr, size_t num_attr) {
+  static void create(void *ptr, size_t num_attr) {
     auto *tmp = new (ptr) MVattributeListCol();
-    tmp->attr_lists =
-        (col_mv_list *)(((char *)ptr) + sizeof(MVattributeListCol));
+    tmp->version_list =
+        (DeltaList *)(((char *)ptr) + sizeof(MVattributeListCol));
+
+    // FIXME: is the following necessary?
     for (auto i = 0; i < num_attr; i++) {
-      tmp->attr_lists[i].versions = nullptr;
-      tmp->attr_lists[i].delta_tag = delta_tag;
+      // tmp->version_list[i] = (DeltaList*) new (tmp->version_list + i)
+      // DeltaList();
+      tmp->version_list[i].update(0);
     }
   }
 
  private:
-  explicit MVattributeListCol() : attr_lists(nullptr) {}
+  explicit MVattributeListCol() : version_list(nullptr) {}
 
   friend class MV_DAG;
   friend class MV_attributeList;

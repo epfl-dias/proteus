@@ -45,15 +45,17 @@ class DeltaList;
 class alignas(4096) DeltaStore {
  public:
   DeltaStore(uint8_t delta_id, uint64_t ver_list_capacity = 4,
-             uint64_t ver_data_capacity = 4,
-             int num_partitions = 1);
+             uint64_t ver_data_capacity = 4, int num_partitions = 1);
   ~DeltaStore();
 
   void print_info();
   void *insert_version(DeltaList &delta_chunk, uint64_t t_min, uint64_t t_max,
                        uint rec_size, ushort partition_id);
-  void *validate_or_create_list(void *list_ptr, size_t &delta_ver_tag,
-                                ushort partition_id);
+  //  void *validate_or_create_list(void *list_ptr, size_t &delta_ver_tag,
+  //                                ushort partition_id);
+  void *validate_or_create_list(DeltaList &delta_chunk, ushort partition_id);
+  void *getTransientChunk(DeltaList &delta_chunk, uint size,
+                          ushort partition_id);
   void *create_version(size_t size, ushort partition_id);
   void gc();
   // void gc_with_counter_arr(int wrk_id);
@@ -89,35 +91,6 @@ class alignas(4096) DeltaStore {
     if (readers.fetch_sub(1) <= 1 && touched) {
       gc();
     }
-  }
-
-  [[maybe_unused]] inline auto getTag() { return tag.load(); }
-
-  [[maybe_unused]] inline auto getFullTag() {
-    return create_delta_tag(this->delta_id, tag.load());
-  }
-
-  [[maybe_unused]] inline bool verifyTag(uint64_t d_tag_ver) const {
-    // return (create_delta_tag(this->delta_id, tag.load()) == d_tag_ver);
-
-    return static_cast<size_t>(d_tag_ver & 0x00000000FFFFFFFF) ==
-           tag.load(std::memory_order_acquire);
-  }
-
-  static inline uint64_t __attribute__((always_inline))
-  create_delta_tag(uint64_t delta_idx, uint32_t delta_tag) {
-    // 2 byte delta_idx | 4-byte delta-tag
-    return (delta_idx << 32u) | (delta_tag);
-  }
-
-  static inline uint32_t __attribute__((always_inline))
-  extract_delta_idx(uint64_t delta_tag) {
-    // 2 byte delta_idx | 4-byte delta-tag
-
-    return static_cast<uint32_t>((delta_tag >> 32u) & 0x000000000000FFFFu);
-
-    // 0x00 00 00 00 00 00 00 00
-    // 0x00 00 00 00 00 00 FF FF
   }
 
  private:
@@ -164,6 +137,8 @@ class alignas(4096) DeltaStore {
     }
     void *getListChunk();
 
+    void *getChunk(size_t size);
+
     void *getVersionDataChunk(size_t rec_size);
 
     inline double usage() {
@@ -189,7 +164,7 @@ class alignas(4096) DeltaStore {
     friend class DeltaStore;
   };
 
-  std::atomic<size_t> tag{};
+  std::atomic<uint32_t> tag{};
   uint64_t max_active_epoch;
   uint32_t delta_id;
   std::vector<DeltaPartition *> partitions;
@@ -198,7 +173,6 @@ class alignas(4096) DeltaStore {
   bool touched;
   std::atomic<uint> gc_reset_success{};
   std::atomic<uint> gc_requests{};
-  std::atomic<uint> ops{};
 
  public:
   uint64_t total_mem_reserved;
@@ -263,9 +237,20 @@ class DeltaList {
     return ((((delta_id & 0x0fu)) << 4u) | (pid & 0x0fu));
   }
 
+  [[nodiscard]] inline bool verifyTag() const {
+    auto dTag = deltaStore_map[this->get_delta_idx()]->tag.load(
+        std::memory_order_acquire);
+    dTag &= 0x000FFFFFu;
+
+    if (dTag == this->get_tag())
+      return true;
+    else
+      return false;
+  }
+
   [[nodiscard]] inline char *ptr() const {
     // first-verify tag, else return nullptr and log error.
-    if (deltaStore_map[this->get_delta_idx()]->verifyTag(this->get_tag())) {
+    if (this->verifyTag()) {
       // deference ptr.
       return list_memory_base[this->get_delta_idx_pid_pair()] +
              this->get_offset();

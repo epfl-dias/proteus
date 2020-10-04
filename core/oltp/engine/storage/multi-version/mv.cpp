@@ -30,4 +30,4 @@ MultiVersionStorage_impl<MV_RecordList_Partial> two;
 MultiVersionStorage_impl<MV_perAttribute<MV_attributeList>> three;
 MultiVersionStorage_impl<MV_perAttribute<MV_DAG>> four;
 
-}
+}  // namespace storage::mv
