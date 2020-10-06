@@ -57,18 +57,18 @@ const auto q18_rel =
     std::vector<std::string>{"tpcc_customer", "tpcc_order", "tpcc_orderline"};
 const auto q19_rel = std::vector<std::string>{"tpcc_item", "tpcc_orderline"};
 
-typedef std::function<std::unique_ptr<Affinitizer>()> red_t;
+using red_t = std::function<std::unique_ptr<Affinitizer>()>;
 
-typedef std::function<PreparedStatement(DegreeOfParallelism, aff_t, red_t)>
-    prep_t;
+using prep_t =
+    std::function<PreparedStatement(DegreeOfParallelism, aff_t, red_t)>;
 
-std::vector<PreparedQuery> q4_reverse;
+static std::vector<PreparedQuery> q4_reverse;
 
-typedef std::function<prep_t(pg)> prep_wrapper_t;
+using prep_wrapper_t = std::function<prep_t(pg)>;
 
 class RDEPolicyFactory : public AffinitizationFactory {
-  typedef std::function<std::unique_ptr<Affinitizer>()> aff_t;
-  typedef std::function<std::unique_ptr<Affinitizer>()> red_t;
+  using aff_t = std::function<std::unique_ptr<Affinitizer>()>;
+  using red_t = std::function<std::unique_ptr<Affinitizer>()>;
 
   aff_t parAffFactory;
   RoutingPolicy parPolicy;
@@ -163,28 +163,29 @@ prep_wrapper_t qs_old() {
   };
 }
 
-std::vector<std::pair<std::vector<std::string>, prep_wrapper_t>> ch_map = {
-    {q01_rel, qs("Q01.sql.json")},
-    //    {q02_rel, qs("Q02_simplified.sql.json")},
-    //    {q02_rel, qs("Q02_simplified_red.sql.json")},
-    ////    {q03_rel, qs("Q03_simplified.sql.json")},
-    //    {q04_rel, qs("Q04.sql.json")},
-    {q04_rel, qs("Q04_morsel.sql.json")},
-    //    {q04_rel, qs("Q04.sql.json")},
-    {q06_rel, qs("Q06.sql.json")},
-    //    //    {q18_rel, qs("Q18.sql.json")},
-    {q19_rel, qs("Q19_simplified.sql.json")},
-    //    {q01_rel, qs_old<1, plugin_t>()},
-    //    {q04_rel, qs_old<4, plugin_t>()},
-    //    {q09_rel, qs("Q09_simplified.sql.json")},
-    //    {q12_rel, qs("Q12.sql.json")},
-    //    {q15_rel, qs("Q15.sql.json")},
-    //    {q18_rel, qs("Q18.sql.json")},
-    //    {q19_rel, qs("Q19_simplified.sql.json")},
-    //    {q01_rel, qs_old<1>()},
-    //    {q04_rel, qs_old<4, plugin_t>()},
-    //    {q06_rel, qs_old<6>()},
-    //    {q19_rel, qs_old<19>()},
+static std::vector<std::pair<std::vector<std::string>, prep_wrapper_t>> ch_map =
+    {
+        {q01_rel, qs("Q01.sql.json")},
+        //    {q02_rel, qs("Q02_simplified.sql.json")},
+        //    {q02_rel, qs("Q02_simplified_red.sql.json")},
+        ////    {q03_rel, qs("Q03_simplified.sql.json")},
+        //    {q04_rel, qs("Q04.sql.json")},
+        {q04_rel, qs("Q04_morsel.sql.json")},
+        //    {q04_rel, qs("Q04.sql.json")},
+        {q06_rel, qs("Q06.sql.json")},
+        //    //    {q18_rel, qs("Q18.sql.json")},
+        {q19_rel, qs("Q19_simplified.sql.json")},
+        //    {q01_rel, qs_old<1, plugin_t>()},
+        //    {q04_rel, qs_old<4, plugin_t>()},
+        //    {q09_rel, qs("Q09_simplified.sql.json")},
+        //    {q12_rel, qs("Q12.sql.json")},
+        //    {q15_rel, qs("Q15.sql.json")},
+        //    {q18_rel, qs("Q18.sql.json")},
+        //    {q19_rel, qs("Q19_simplified.sql.json")},
+        //    {q01_rel, qs_old<1>()},
+        //    {q04_rel, qs_old<4, plugin_t>()},
+        //    {q06_rel, qs_old<6>()},
+        //    {q19_rel, qs_old<19>()},
 };
 
 auto OLAPSequence::getIsolatedOLAPResources() {

@@ -53,31 +53,32 @@ class RowStore : public Table {
            uint64_t initial_num_records = 10000000, bool indexed = true,
            bool partitioned = true, int numa_idx = -1);
 
-  uint64_t insertRecord(void *rec, ushort partition_id, ushort master_ver);
+  uint64_t insertRecord(void *rec, ushort partition_id,
+                        ushort master_ver) override;
   void *insertRecord(void *rec, uint64_t xid, ushort partition_id,
-                     ushort master_ver);
+                     ushort master_ver) override;
   void *insertRecordBatch(void *rec_batch, uint recs_to_ins,
                           uint capacity_offset, uint64_t xid,
-                          ushort partition_id, ushort master_ver);
+                          ushort partition_id, ushort master_ver) override;
 
   void updateRecord(uint64_t xid, global_conf::IndexVal *hash_ptr,
                     const void *rec, ushort curr_master, ushort curr_delta,
-                    const ushort *col_idx = nullptr, short num_cols = -1);
+                    const ushort *col_idx = nullptr,
+                    short num_cols = -1) override;
 
   void getRecordByKey(uint64_t vid, const ushort *col_idx, ushort num_cols,
-                      void *loc);
+                      void *loc) override;
 
-  void touchRecordByKey(uint64_t vid);
+  void touchRecordByKey(uint64_t vid) override;
 
   storage::mv::mv_version_chain *getVersions(uint64_t vid);
 
-  void deleteRecord(uint64_t vid, ushort master_ver) {
+  void deleteRecord(uint64_t vid, ushort master_ver) override {
     assert(false && "Not implemented");
   }
 
-  [[noreturn]] std::vector<const void *> getRecordByKey(uint64_t vid,
-                                                        const ushort *col_idx,
-                                                        ushort num_cols) {
+  [[noreturn]] std::vector<const void *> getRecordByKey(
+      uint64_t vid, const ushort *col_idx, ushort num_cols) override {
     assert(false && "Not implemented");
   }
 
@@ -90,16 +91,18 @@ class RowStore : public Table {
   [[noreturn]] void getRecordByKey(global_conf::IndexVal *idx_ptr,
                                    uint64_t txn_id, ushort curr_delta,
                                    const ushort *col_idx, ushort num_cols,
-                                   void *loc) {
+                                   void *loc) override {
     assert(false && "Not implemented");
   }
 
   [[noreturn]] void insertIndexRecord(uint64_t rid, uint64_t xid,
-                                      ushort partition_id, ushort master_ver) {
+                                      ushort partition_id,
+                                      ushort master_ver) override {
     assert(false && "Not implemented");
   }
 
-  [[noreturn]] void snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
+  [[noreturn]] void snapshot(uint64_t epoch,
+                             uint8_t snapshot_master_ver) override {
     assert(false && "Not implemented");
   }
 

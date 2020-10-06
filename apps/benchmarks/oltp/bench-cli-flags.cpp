@@ -20,9 +20,9 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
-#include <gflags/gflags.h>
+#include "bench-cli-flags.hpp"
 
-#include <iostream>
+#include <gflags/gflags.h>
 
 // YCSB
 DEFINE_double(ycsb_write_ratio, 0.5, "Writer to reader ratio");

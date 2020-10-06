@@ -46,7 +46,7 @@
 
 namespace storage {
 
-std::mutex print_mutex;
+static std::mutex print_mutex;
 
 static inline uint64_t __attribute__((always_inline))
 CC_gen_vid(uint64_t vid, ushort partition_id, ushort master_ver,

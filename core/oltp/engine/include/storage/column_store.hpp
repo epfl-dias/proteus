@@ -57,45 +57,47 @@ class alignas(4096) ColumnStore : public Table {
   ColumnStore(uint8_t table_id, const std::string &name, ColumnDef columns,
               uint64_t initial_num_records = 10000000, bool indexed = true,
               bool partitioned = true, int numa_idx = -1);
-  uint64_t insertRecord(void *rec, ushort partition_id, ushort master_ver);
+  uint64_t insertRecord(void *rec, ushort partition_id,
+                        ushort master_ver) override;
   void *insertRecord(void *rec, uint64_t xid, ushort partition_id,
-                     ushort master_ver);
+                     ushort master_ver) override;
   void *insertRecordBatch(void *rec_batch, uint recs_to_ins,
                           uint capacity_offset, uint64_t xid,
-                          ushort partition_id, ushort master_ver);
+                          ushort partition_id, ushort master_ver) override;
 
   void updateRecord(uint64_t xid, global_conf::IndexVal *hash_ptr,
                     const void *rec, ushort curr_master, ushort curr_delta,
-                    const ushort *col_idx, short num_cols);
+                    const ushort *col_idx, short num_cols) override;
   // void updateRecord(ushort pid, uint64_t &vid, const void *rec,
   //                   ushort curr_master, ushort curr_delta, uint64_t tmin,
   //                   const ushort *col_idx = nullptr, short num_cols =
   //                   -1);
 
-  void deleteRecord(uint64_t vid, ushort master_ver) {
+  void deleteRecord(uint64_t vid, ushort master_ver) override {
     assert(false && "Not implemented");
   }
 
   /*  Utils for loading data from binary or offseting datasets
    * */
-  void insertIndexRecord(uint64_t rid, uint64_t xid, ushort partition_id,
-                         ushort master_ver);  // hack for loading binary files
+  void insertIndexRecord(
+      uint64_t rid, uint64_t xid, ushort partition_id,
+      ushort master_ver) override;  // hack for loading binary files
   void offsetVID(uint64_t offset);
   uint64_t load_data_from_binary(std::string col_name, std::string file_path);
 
-  void touchRecordByKey(uint64_t vid);
+  void touchRecordByKey(uint64_t vid) override;
 
   void getRecordByKey(global_conf::IndexVal *idx_ptr, uint64_t txn_id,
                       ushort curr_delta, const ushort *col_idx, ushort num_cols,
-                      void *loc);
+                      void *loc) override;
   void getRecordByKey(uint64_t vid, const ushort *col_idx, ushort num_cols,
-                      void *loc);
+                      void *loc) override;
 
   // global_conf::mv_version_list *getVersions(uint64_t vid);
 
   void sync_master_snapshots(ushort master_ver_idx);
-  void snapshot(uint64_t epoch, uint8_t snapshot_master_ver);
-  void ETL(uint numa_node_idx);
+  void snapshot(uint64_t epoch, uint8_t snapshot_master_ver) override;
+  void ETL(uint numa_node_idx) override;
   void num_upd_tuples();
   int64_t *snapshot_get_number_tuples(bool olap_snapshot = false,
                                       bool elastic_scan = false);
@@ -110,7 +112,7 @@ class alignas(4096) ColumnStore : public Table {
     void createIndex(std::string col_name);
   */
 
-  ~ColumnStore();
+  ~ColumnStore() override;
   // uint64_t *plugin_ptr[global_conf::num_master_versions][NUM_SOCKETS];
   std::vector<std::vector<std::pair<storage::memory::mem_chunk, size_t>>>
       elastic_mappings;

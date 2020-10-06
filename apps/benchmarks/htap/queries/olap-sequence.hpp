@@ -34,7 +34,7 @@
 #include "prepared-query.hpp"
 
 using exec_nodes = std::vector<topology::numanode *>;
-typedef std::chrono::time_point<std::chrono::system_clock> timepoint_t;
+using timepoint_t = std::chrono::time_point<std::chrono::system_clock>;
 
 namespace SchedulingPolicy {
 

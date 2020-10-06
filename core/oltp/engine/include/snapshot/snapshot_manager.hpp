@@ -44,7 +44,7 @@ class SnapshotManager_impl {
  private:
 };
 
-typedef SnapshotManager_impl<CircularMasterProvider> SnapshotManager;
+using SnapshotManager = SnapshotManager_impl<CircularMasterProvider>;
 
 }  // namespace snapshot
 }  // namespace aeolus

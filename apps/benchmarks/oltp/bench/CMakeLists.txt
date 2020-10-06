@@ -45,14 +45,3 @@ install(TARGETS aeolus_bench EXPORT ${PROJECT_NAME}Config
 #export(TARGETS codegen FILE ${PROJECT_NAME}Config.cmake)
 
 add_library(aeolus::bench ALIAS aeolus_bench)
-#enable_testing()
-#add_test(UT codegen-tests) # Add codegen-specific tests?
-
-# FIXME: remove after old warnings are fixed
-target_compile_options(
-			aeolus_bench
-		PRIVATE # Not PUBLIC to at least avoid leaking the issue across libs
-			"-Wno-error=suggest-override"
-			"-Wno-error=suggest-destructor-override"
-			"-Wno-missing-variable-declarations"
-)

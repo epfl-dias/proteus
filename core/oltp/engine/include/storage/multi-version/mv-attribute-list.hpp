@@ -27,7 +27,8 @@
 #include "glo.hpp"
 #include "mv-versions.hpp"
 
-namespace storage::mv {
+namespace storage {
+namespace mv {
 
 class MV_attributeList;
 class MV_DAG;
@@ -38,8 +39,8 @@ class MV_perAttribute {
   static constexpr bool isPerAttributeMVList = true;
   static constexpr bool isAttributeLevelMV = true;
 
-  typedef typename T::version_t version_t;
-  typedef typename T::version_chain_t version_chain_t;
+  using version_t = typename T::version_t;
+  using version_chain_t = typename T::version_chain_t;
 
   static auto create_versions(uint64_t xid, global_conf::IndexVal *idx_ptr,
                               const std::vector<size_t> &attribute_widths,
@@ -66,9 +67,9 @@ class MV_attributeList {
   // typedef MVattributeListCol<VERSION_CHAIN> MVattributeLists;
 
   // Single-version as each version contains a single-attribute only.
-  typedef VersionSingle version_t;
-  typedef VersionChain<MV_attributeList> version_chain_t;
-  typedef MVattributeListCol attributeVerList_t;
+  using version_t = VersionSingle;
+  using version_chain_t = VersionChain<MV_attributeList>;
+  using attributeVerList_t = MVattributeListCol;
 
   static std::vector<MV_attributeList::version_t *> create_versions(
       uint64_t xid, global_conf::IndexVal *idx_ptr,
@@ -101,9 +102,9 @@ class MV_DAG {
   static constexpr bool isAttributeLevelMV = true;
 
   // Multi-version as each version contains a multiple-attribute.
-  typedef VersionMultiAttr version_t;
-  typedef VersionChain<MV_DAG> version_chain_t;
-  typedef MVattributeListCol attributeVerList_t;
+  using version_t = VersionMultiAttr;
+  using version_chain_t = VersionChain<MV_DAG>;
+  using attributeVerList_t = MVattributeListCol;
 
   static std::vector<MV_DAG::version_t *> create_versions(
       uint64_t xid, global_conf::IndexVal *idx_ptr,
@@ -117,6 +118,7 @@ class MV_DAG {
       const ushort *col_idx = nullptr, ushort num_cols = 0);
 };
 
-}  // namespace storage::mv
+}  // namespace mv
+}  // namespace storage
 
 #endif  // PROTEUS_MV_ATTRIBUTE_LIST_HPP

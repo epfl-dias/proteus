@@ -20,6 +20,8 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
+#include "htap-cli-flags.hpp"
+
 #include <gflags/gflags.h>
 
 #include <iostream>

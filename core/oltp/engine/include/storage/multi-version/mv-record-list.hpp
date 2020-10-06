@@ -31,7 +31,8 @@
 
 #include "mv-versions.hpp"
 
-namespace storage::mv {
+namespace storage {
+namespace mv {
 
 class MV_RecordList_Full;
 class MV_RecordList_Partial;
@@ -53,8 +54,8 @@ class MV_RecordList_Full {
   static constexpr bool isAttributeLevelMV = false;
   static constexpr bool isPerAttributeMVList = false;
 
-  typedef VersionSingle version_t;
-  typedef VersionChain<MV_RecordList_Full> version_chain_t;
+  using version_t = VersionSingle;
+  using version_chain_t = VersionChain<MV_RecordList_Full>;
 
   static std::bitset<1> get_readable_version(
       const DeltaList& delta_list, uint64_t tid_self, char* write_loc,
@@ -80,8 +81,8 @@ class MV_RecordList_Partial {
   static constexpr bool isAttributeLevelMV = true;
   static constexpr bool isPerAttributeMVList = false;
 
-  typedef VersionMultiAttr version_t;
-  typedef VersionChain<MV_RecordList_Partial> version_chain_t;
+  using version_t = VersionMultiAttr;
+  using version_chain_t = VersionChain<MV_RecordList_Partial>;
 
   static std::bitset<64> get_readable_version(
       const DeltaList& delta_list, uint64_t tid_self, char* write_loc,
@@ -94,6 +95,7 @@ class MV_RecordList_Partial {
       ushort partition_id, const ushort* col_idx, short num_cols);
 };
 
-}  // namespace storage::mv
+}  // namespace mv
+}  // namespace storage
 
 #endif  // PROTEUS_MV_RECORD_LIST_HPP

@@ -84,8 +84,8 @@ class AtomicBitSet {
   /**
    * Read bit idx.
    */
-  bool test(size_t idx,
-            std::memory_order order = std::memory_order_seq_cst) const;
+  [[nodiscard]] bool test(
+      size_t idx, std::memory_order order = std::memory_order_seq_cst) const;
 
   /**
    * Same as test() with the default memory order.
@@ -94,27 +94,30 @@ class AtomicBitSet {
 
   // Additions:
 
-  size_t count(std::memory_order order = std::memory_order_seq_cst) const;
+  [[nodiscard]] size_t count(
+      std::memory_order order = std::memory_order_seq_cst) const;
   void reset(std::memory_order order = std::memory_order_seq_cst);
-  bool all(std::memory_order order = std::memory_order_seq_cst) const;
-  bool any(std::memory_order order = std::memory_order_seq_cst) const;
+  [[nodiscard]] bool all(
+      std::memory_order order = std::memory_order_seq_cst) const;
+  [[nodiscard]] bool any(
+      std::memory_order order = std::memory_order_seq_cst) const;
 
   /**
    * Return the size of the bitset.
    */
-  constexpr size_t size() const { return N; }
+  [[nodiscard]] constexpr size_t size() const { return N; }
 
  private:
   // Pick the largest lock-free type available
 #if (ATOMIC_LLONG_LOCK_FREE == 2)
-  typedef unsigned long long BlockType;
+  using BlockType = unsigned long long;
 #elif (ATOMIC_LONG_LOCK_FREE == 2)
   typedef unsigned long BlockType;
 #else
   // Even if not lock free, what can we do?
   typedef unsigned int BlockType;
 #endif
-  typedef std::atomic<BlockType> AtomicBlockType;
+  using AtomicBlockType = std::atomic<BlockType>;
 
   static constexpr size_t kBitsPerBlock =
       std::numeric_limits<BlockType>::digits;

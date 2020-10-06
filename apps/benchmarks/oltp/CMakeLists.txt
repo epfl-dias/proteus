@@ -24,15 +24,6 @@ foreach(target
 		LIBRARY DESTINATION lib
 		ARCHIVE DESTINATION lib
 		)
-
-	# FIXME: remove after old warnings are fixed
-	target_compile_options(
-				oltp-${target}
-			PRIVATE # Not PUBLIC to at least avoid leaking the issue across libs
-				"-Wno-error=suggest-override"
-				"-Wno-error=suggest-destructor-override"
-				"-Wno-missing-variable-declarations"
-	)
 endforeach(target)
 
 

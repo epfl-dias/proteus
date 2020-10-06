@@ -32,7 +32,8 @@
 #include "topology/affinity_manager.hpp"
 #include "topology/topology.hpp"
 
-namespace storage::memory {
+namespace storage {
+namespace memory {
 
 class MemoryManager {
  public:
@@ -79,6 +80,7 @@ struct mem_chunk {
       : data(data), size(size), numa_id(numa_id) {}
 };
 
-};  // namespace storage::memory
+}  // namespace memory
+};  // namespace storage
 
 #endif /* STORAGE_MEMORY_MANAGER_HPP_ */

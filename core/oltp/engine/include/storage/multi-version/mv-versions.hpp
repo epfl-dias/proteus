@@ -31,7 +31,8 @@
 #include "delta_storage.hpp"
 #include "glo.hpp"
 
-namespace storage::mv {
+namespace storage {
+namespace mv {
 
 class Version {
  public:
@@ -298,6 +299,7 @@ class MVattributeListCol {
 //  friend T;
 //};
 
-}  // namespace storage::mv
+}  // namespace mv
+}  // namespace storage
 
 #endif /* PROTEUS_MV_VERSIONS_HPP */

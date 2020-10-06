@@ -111,7 +111,7 @@ enum TPCC_QUERY_TYPE {
   STOCK_LEVEL
 };
 
-typedef uint64_t date_t;
+using date_t = uint64_t;
 constexpr char csv_delim = '|';
 
 class TPCC : public Benchmark {
@@ -346,7 +346,7 @@ class TPCC : public Benchmark {
   void create_tbl_region(uint64_t num_region);
   void create_tbl_nation(uint64_t num_nation);
 
-  void load_data(int num_threads = 1);
+  void load_data(int num_threads = 1) override;
   void load_stock(int w_id, uint64_t xid, ushort partition_id,
                   ushort master_ver);
   void load_item(int w_id, uint64_t xid, ushort partition_id,
@@ -369,8 +369,10 @@ class TPCC : public Benchmark {
   void load_region(int w_id, uint64_t xid, ushort partition_id,
                    ushort master_ver);
 
-  void pre_run(int wid, uint64_t xid, ushort partition_id, ushort master_ver);
-  void post_run(int wid, uint64_t xid, ushort partition_id, ushort master_ver) {
+  void pre_run(int wid, uint64_t xid, ushort partition_id,
+               ushort master_ver) override;
+  void post_run(int wid, uint64_t xid, ushort partition_id,
+                ushort master_ver) override {
     if (wid == 0) {
       table_order->reportUsage();
       table_new_order->reportUsage();
@@ -448,7 +450,7 @@ class TPCC : public Benchmark {
                            ushort master_ver, ushort delta_ver,
                            ushort partition_id);
 
-  void *get_query_struct_ptr(ushort pid) {
+  void *get_query_struct_ptr(ushort pid) override {
     return storage::memory::MemoryManager::alloc(
         sizeof(struct tpcc_query),
         storage::NUMAPartitionPolicy::getInstance()
@@ -456,15 +458,15 @@ class TPCC : public Benchmark {
             .numa_idx,
         MADV_DONTFORK);
   }
-  void free_query_struct_ptr(void *ptr) {
+  void free_query_struct_ptr(void *ptr) override {
     storage::memory::MemoryManager::free(ptr);  //, sizeof(struct tpcc_query));
   }
   bool exec_txn(const void *stmts, uint64_t xid, ushort master_ver,
-                ushort delta_ver, ushort partition_id);
-  void gen_txn(int wid, void *txn_ptr, ushort partition_id);
+                ushort delta_ver, ushort partition_id) override;
+  void gen_txn(int wid, void *txn_ptr, ushort partition_id) override;
   void print_tpcc_query(void *arg);
 
-  ~TPCC();
+  ~TPCC() override;
   TPCC(std::string name = "TPCC", int num_warehouses = 1,
        int active_warehouse = 1, bool layout_column_store = true,
        uint tpch_scale_factor = 0, int g_dist_threshold = 0,

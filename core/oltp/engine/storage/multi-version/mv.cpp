@@ -24,10 +24,9 @@
 
 namespace storage::mv {
 
-// instantiate to create them
-MultiVersionStorage_impl<MV_RecordList_Full> one;
-MultiVersionStorage_impl<MV_RecordList_Partial> two;
-MultiVersionStorage_impl<MV_perAttribute<MV_attributeList>> three;
-MultiVersionStorage_impl<MV_perAttribute<MV_DAG>> four;
+// template MultiVersionStorage_impl<MV_RecordList_Full>;
+// template MultiVersionStorage_impl<MV_RecordList_Partial>;
+// template MultiVersionStorage_impl<MV_perAttribute<MV_attributeList>>;
+// template MultiVersionStorage_impl<MV_perAttribute<MV_DAG>>;
 
 }  // namespace storage::mv

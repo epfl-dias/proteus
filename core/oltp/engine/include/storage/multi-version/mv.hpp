@@ -29,7 +29,8 @@
 #include "storage/multi-version/mv-attribute-list.hpp"
 #include "storage/multi-version/mv-record-list.hpp"
 
-namespace storage::mv {
+namespace storage {
+namespace mv {
 
 using mv_type = MV_RecordList_Full;
 // using mv_type = MV_RecordList_Partial;
@@ -46,8 +47,8 @@ class MultiVersionStorage_impl {
   static constexpr bool isPerAttributeMVList = MvType::isPerAttributeMVList;
   static constexpr bool isAttributeLevelMV = MvType::isAttributeLevelMV;
 
-  typedef typename MvType::version_t version_t;
-  typedef typename MvType::version_chain_t version_chain_t;
+  using version_t = typename MvType::version_t;
+  using version_chain_t = typename MvType::version_chain_t;
 
   MultiVersionStorage_impl<MvType> getType() const { return {}; }
   static auto create_versions(uint64_t xid, global_conf::IndexVal *idx_ptr,
@@ -71,6 +72,7 @@ class MultiVersionStorage_impl {
   }
 };
 
-}  // namespace storage::mv
+}  // namespace mv
+}  // namespace storage
 
 #endif  // PROTEUS_OLTP_MV_HPP

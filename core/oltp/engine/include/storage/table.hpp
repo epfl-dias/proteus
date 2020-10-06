@@ -38,7 +38,7 @@
 #include "storage/memory_manager.hpp"
 #include "storage/multi-version/delta_storage.hpp"
 
-typedef std::map<uint64_t, std::string> dict_dstring_t;
+using dict_dstring_t = std::map<uint64_t, std::string>;
 
 namespace storage {
 

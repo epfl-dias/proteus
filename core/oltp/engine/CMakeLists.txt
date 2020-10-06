@@ -49,15 +49,6 @@ target_include_directories(aeolus_engine
 target_compile_features(aeolus_engine
         PUBLIC cxx_std_17)
 
-# FIXME: remove after old warnings are fixed
-target_compile_options(
-        aeolus_engine
-    PRIVATE # Not PUBLIC to at least avoid leaking the issue across libs
-        "-Wno-error=suggest-override"
-        "-Wno-error=suggest-destructor-override"
-        "-Wno-missing-variable-declarations"
-)
-
 # Depend on a library that we defined in the top-level file
 target_link_libraries(aeolus_engine
         PUBLIC

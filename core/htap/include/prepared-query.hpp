@@ -27,8 +27,8 @@
 #include "olap/plan/prepared-statement.hpp"
 
 // std::vector<std::string relName, std::vector<std::string> relAttrs>
-typedef std::vector<std::pair<std::string, std::vector<std::string>>>
-    query_rel_t;
+using query_rel_t =
+    std::vector<std::pair<std::string, std::vector<std::string>>>;
 
 class PreparedQuery : public PreparedStatement {
  public:
