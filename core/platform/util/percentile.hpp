@@ -25,122 +25,173 @@
 #define PROTEUS_PERCENTILE_HPP
 
 #include <cassert>
+#include <deque>
 #include <fstream>
+#include <map>
+#include <mutex>
 #include <utility>
-#include <vector>
+
+#include "common/common.hpp"
+#include "memory/allocator.hpp"
 
 namespace proteus::utils {
 
-template <class T = size_t>
-class Percentile {
+class threadLocal_percentile;
+class percentile_point_rdtsc;
+
+template <class T = std::chrono::nanoseconds>
+class percentile_point_clock;
+
+using percentile_point_ns = percentile_point_clock<std::chrono::nanoseconds>;
+using percentile_point_us = percentile_point_clock<std::chrono::microseconds>;
+using percentile_point_ms = percentile_point_clock<std::chrono::milliseconds>;
+using percentile_point_s = percentile_point_clock<std::chrono::seconds>;
+
+using percentile_point = percentile_point_rdtsc;
+
+class [[nodiscard]] Percentile {
  public:
-  Percentile(std::string output_path = "") : path(std::move(output_path)) {}
-  Percentile(size_t reserved_capacity, const std::string output_path = "")
-      : Percentile(output_path) {
+  explicit Percentile() { points.reserve(std::pow(2, 10)); }
+  explicit Percentile(size_t reserved_capacity) : Percentile() {
     points.reserve(reserved_capacity);
   }
-  ~Percentile() {
-    if (this->path.length() > 2) {
-      this->save_cdf(this->path);
-    }
-  }
+
+  explicit Percentile(std::string key);
+
+  ~Percentile() = default;
 
   inline void reserve(size_t quantity) { points.reserve(quantity); }
 
-  inline void add(const T &value) { points.push_back(value); }
+  inline void add(size_t value) { this->points.push_back(value); }
 
-  inline void add(const Percentile &p) {
+  inline void add(const Percentile& p) {
     std::copy(p.points.begin(), p.points.end(), std::back_inserter(points));
   }
 
-  inline void add(const std::vector<T> &v) {
+  inline void add(const std::vector<size_t>& v) {
     std::copy(v.begin(), v.end(), std::back_inserter(points));
   }
 
-  T nth(double n) {
-    assert(n > 0 && n <= 100);
+  size_t size() { return points.size(); }
 
-    if (points.size() == 0) {
-      return 0;
-    }
+  // Following shouldn't be on critical path.
+  size_t nth(double n);
 
-    // Sort the data points
-    std::sort(points.begin(), points.end());
+  void save_cdf(const std::string& out_path, size_t step = 1000);
 
-    auto sz = points.size();
-    auto i = static_cast<decltype(sz)>(ceil(n / 100 * sz)) - 1;
-
-    assert(i >= 0 && i < points.size());
-
-    return points[i];
-  }
-
-  // shouldn't be on critical path.
-  void save_cdf(const std::string &out_path, size_t step = 1000) {
-    if (points.size() == 0) {
-      return;
-    }
-
-    if (path.empty()) {
-      return;
-    }
-
-    // Sort the data points
-    std::sort(points.begin(), points.end());
-
-    std::ofstream cdf;
-    cdf.open(path);
-
-    cdf << "value\tcdf" << std::endl;
-    auto step_size = std::max(1, int(points.size() * 0.99 / step));
-
-    std::vector<T> cdf_result;
-
-    for (auto i = 0u; i < 0.99 * points.size(); i += step_size) {
-      cdf_result.push_back(points[i]);
-    }
-
-    for (auto i = 0u; i < cdf_result.size(); i++) {
-      cdf << cdf_result[i] << "\t" << 1.0 * (i + 1) / cdf_result.size()
-          << std::endl;
-    }
-
-    cdf.close();
-  }
-
-  Percentile operator+(const Percentile &p) {
-    Percentile tmp;
-    tmp.add(this->points);
-    tmp.add(p.points);
-    return tmp;
-  }
-
-  T operator[](double n) {
+  size_t operator[](double n) {
     assert(n > 0 && n <= 100);
     return nth(n);
   }
 
  private:
-  std::vector<T> points;
-  std::string path;
+  std::vector<size_t, proteus::memory::PinnedMemoryAllocator<size_t>> points;
 };
 
-class percentile_point {
+class PercentileRegistry {
+ public:
+  static inline bool register_global(const std::string& key,
+                                     Percentile* global_cdf) {
+    // The bool component is true if the insertion took place
+    // and false if the assignment took place.
+    LOG(INFO) << "registering global: " << key;
+    return PercentileRegistry::global_registry.insert_or_assign(key, global_cdf)
+        .second;
+  }
+
+  static inline Percentile* get_global(const std::string& key) {
+    return PercentileRegistry::global_registry[key];
+  }
+
+  static void for_each(void (*f)(std::string key, Percentile* p)) {
+    for (const auto& [key, value] : global_registry) {
+      LOG(INFO) << "[GlobalPercentileRegistry][for_each] Key: " << key;
+      f(key, value);
+    }
+  }
+
+  static void for_each(void (*f)(std::string key, Percentile* p, void* args),
+                       void* args) {
+    for (const auto& [key, value] : global_registry) {
+      LOG(INFO) << "[GlobalPercentileRegistry][for_each] Key: " << key;
+      f(key, value, args);
+    }
+  }
+
+ private:
+  PercentileRegistry() = default;
+
+  static std::map<std::string, Percentile*> global_registry;
+  static std::mutex g_lock;
+
+  friend class threadLocal_percentile;
+  friend class Percentile;
+};
+
+class threadLocal_percentile {
+ public:
+  explicit threadLocal_percentile(const std::string& key) : key(key) {
+    LOG(INFO) << "threadLocal_percentile registered: " << key;
+    if (PercentileRegistry::global_registry.find(key) ==
+        PercentileRegistry::global_registry.end()) {
+      throw std::runtime_error("global cdf not registered.");
+    }
+  }
+
+  ~threadLocal_percentile() {
+    std::unique_lock<std::mutex> lk(PercentileRegistry::g_lock);
+    PercentileRegistry::global_registry[this->key]->add(this->p);
+  }
+
+ private:
+  Percentile p{};
+  const std::string key;
+
+  friend class percentile_point_parent;
+};
+
+class [[nodiscard]] percentile_point_parent {
+ protected:
+  explicit percentile_point_parent(Percentile& registry) : registry(registry) {}
+  explicit percentile_point_parent(threadLocal_percentile& p_reg)
+      : registry(p_reg.p) {}
+  Percentile& registry;
+};
+
+template <typename T>
+class [[nodiscard]] percentile_point_clock : public percentile_point_parent {
+ public:
+  inline explicit percentile_point_clock(Percentile& registry)
+      : percentile_point_parent(registry),
+        start(std::chrono::system_clock::now()) {}
+
+  inline explicit percentile_point_clock(threadLocal_percentile& p_reg)
+      : percentile_point_parent(p_reg),
+        start(std::chrono::system_clock::now()) {}
+
+  inline ~percentile_point_clock() {
+    registry.add(
+        std::chrono::duration_cast<T>(std::chrono::system_clock::now() - start)
+            .count());
+  }
+
  private:
   std::chrono::time_point<std::chrono::system_clock> start;
-  Percentile<size_t> &registry;
-
- public:
-  inline explicit percentile_point(Percentile<size_t> &registry)
-      : start(std::chrono::system_clock::now()), registry(registry) {}
-
-  inline ~percentile_point() {
-    auto end = std::chrono::system_clock::now();
-    auto d = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    registry.add(d.count());
-  }
 };
 
+class [[nodiscard]] percentile_point_rdtsc : public percentile_point_parent {
+ public:
+  inline explicit percentile_point_rdtsc(Percentile& registry)
+      : percentile_point_parent(registry), start(__rdtsc()) {}
+
+  inline explicit percentile_point_rdtsc(threadLocal_percentile& p_reg)
+      : percentile_point_parent(p_reg), start(__rdtsc()) {}
+
+  inline ~percentile_point_rdtsc() { registry.add(__rdtsc() - start); }
+
+ private:
+  const uint64_t start;
+};
 }  // namespace proteus::utils
 
 #endif  // PROTEUS_PERCENTILE_HPP

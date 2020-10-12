@@ -19,6 +19,7 @@ set(codegen_cxx
     topology/affinity_manager.cpp
     topology/device-manager.cpp
     topology/topology.cpp
+    util/percentile.cpp
     util/profiling.cpp
     util/time-registry.cpp
     util/radix/aggregations/radix-aggr.cpp
