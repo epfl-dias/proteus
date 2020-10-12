@@ -24,6 +24,7 @@
 #ifndef GLO_HPP_
 #define GLO_HPP_
 
+#include <iostream>
 #include <mutex>
 
 #include "indexes/hash_array.hpp"
@@ -33,9 +34,11 @@
 #include "snapshot/arena.hpp"
 #include "snapshot/snapshot_manager.hpp"
 #include "transactions/cc.hpp"
+#include "util/percentile.hpp"
 
 #define DEFAULT_OLAP_SOCKET 0
-#define HTAP_ETL true  // for this, double master should be turned on too.
+#define HTAP_ETL false  // for this, double master should be turned on too.
+#define INSTRUMENTATION false
 
 extern uint g_num_partitions;
 extern uint g_delta_size;
@@ -46,7 +49,6 @@ extern uint g_delta_size;
 namespace global_conf {
 
 constexpr int MAX_PARTITIONS = 8;
-constexpr bool save_txn_cdf = true;
 
 using SnapshotManager = aeolus::snapshot::SnapshotManager;
 using ConcurrencyControl = txn::CC_MV2PL;
@@ -64,6 +66,11 @@ constexpr bool reverse_partition_numa_mapping = false;
 
 // for row-store inline bit, fix it to have bit-mask separate.
 constexpr short HTAP_UPD_BIT_COUNT = 1;
+
+extern proteus::utils::Percentile read_cdf;
+extern proteus::utils::Percentile read_mv_cdf;
+extern proteus::utils::Percentile update_cdf;
+extern proteus::utils::Percentile insert_cdf;
 
 }  // namespace global_conf
 

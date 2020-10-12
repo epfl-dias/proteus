@@ -96,7 +96,6 @@ class Worker {
   uint64_t num_commits;
   uint64_t num_aborts;
   uint64_t txn_start_tsc;
-  proteus::utils::Percentile<size_t> latencies;
 
   std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>
       txn_start_time;
@@ -121,8 +120,6 @@ class Worker {
         num_commits(0),
         num_aborts(0) {
     pause = false;
-
-    if constexpr (global_conf::save_txn_cdf) latencies.reserve(1000000);
   }
 
  private:
@@ -182,8 +179,6 @@ class WorkerPool {
   void resume();
 
  public:
-  proteus::utils::Percentile<size_t> latencies;
-
  private:
   WorkerPool() {
     worker_counter = 0;

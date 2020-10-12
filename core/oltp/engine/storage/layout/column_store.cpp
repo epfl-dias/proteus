@@ -194,6 +194,12 @@ void* ColumnStore::insertRecordBatch(void* rec_batch, uint recs_to_ins,
 
 void* ColumnStore::insertRecord(void* rec, uint64_t xid, ushort partition_id,
                                 ushort master_ver) {
+#if INSTRUMENTATION
+  static thread_local proteus::utils::threadLocal_percentile ins_cdf(
+      "insert_cdf");
+  proteus::utils::percentile_point cd(ins_cdf);
+#endif
+
   partition_id = partition_id % this->num_data_partitions;
   uint64_t idx = vid[partition_id].fetch_add(1);
   uint64_t curr_vid = CC_gen_vid(idx, partition_id, master_ver, 0);
@@ -241,6 +247,14 @@ void ColumnStore::getRecordByKey(global_conf::IndexVal* idx_ptr,
                                  uint64_t txn_id, ushort curr_delta,
                                  const ushort* col_idx, ushort num_cols,
                                  void* loc) {
+#if INSTRUMENTATION
+  static thread_local proteus::utils::threadLocal_percentile rd_cdf("read_cdf");
+  static thread_local proteus::utils::threadLocal_percentile rd_mv_cdf(
+      "read_mv_cdf");
+  proteus::utils::percentile_point cd(rd_cdf);
+  // proteus::utils::percentile_point mv_cd(rd_mv_cdf);
+#endif
+
   char* write_loc = (char*)loc;
 
   if (txn::CC_MV2PL::is_readable(idx_ptr->t_min, txn_id)) {
@@ -257,6 +271,9 @@ void ColumnStore::getRecordByKey(global_conf::IndexVal* idx_ptr,
       }
     }
   } else {
+#if INSTRUMENTATION
+    proteus::utils::percentile_point mv_cd(rd_mv_cdf);
+#endif
     auto done_mask = mv::mv_type::get_readable_version(
         idx_ptr->delta_list, txn_id, write_loc, this->column_size_offset_pairs,
         col_idx, num_cols);
@@ -320,6 +337,13 @@ void ColumnStore::updateRecord(uint64_t xid, global_conf::IndexVal* hash_ptr,
                                const void* rec, ushort curr_master,
                                ushort curr_delta, const ushort* col_idx,
                                short num_cols) {
+#if INSTRUMENTATION
+  static thread_local proteus::utils::threadLocal_percentile update_cdf(
+      "update_cdf");
+  proteus::utils::percentile_point cd(update_cdf);
+
+#endif
+
   assert((num_cols > 0 && col_idx != nullptr) || num_cols <= 0);
 
   ushort pid = CC_extract_pid(hash_ptr->VID);

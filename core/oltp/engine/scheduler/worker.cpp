@@ -321,12 +321,6 @@ void Worker::run_bench() {
       num_aborts++;
     num_txns++;
 
-    if constexpr (global_conf::save_txn_cdf) {
-      // FIXME: use rdtsc instead of system_clock
-      //  better yet, just subtract txn_ids as they are already rdtsc.
-      latencies.add((std::chrono::system_clock::now() - txn_time).count());
-    }
-
     if (num_txns == num_iters) break;
   }
 
@@ -351,10 +345,6 @@ void Worker::run_bench() {
   }
   state = TERMINATED;
   pool->_txn_bench->free_query_struct_ptr(txn_mem);
-
-  if constexpr (global_conf::save_txn_cdf) {
-    pool->latencies.add(this->latencies);
-  }
 }
 
 std::vector<uint64_t> WorkerPool::get_active_txns() {

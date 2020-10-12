@@ -68,18 +68,18 @@ void TPCC::init_tpcc_seq_array() {
 }
 
 TPCC::~TPCC() {
-  schema->destroy_table(table_warehouse);
-  schema->destroy_table(table_district);
-  schema->destroy_table(table_customer);
-  schema->destroy_table(table_history);
-  schema->destroy_table(table_new_order);
-  schema->destroy_table(table_order);
-  schema->destroy_table(table_order_line);
-  schema->destroy_table(table_stock);
-  schema->destroy_table(table_item);
-  schema->destroy_table(table_region);
-  schema->destroy_table(table_nation);
-  schema->destroy_table(table_supplier);
+  schema->drop_table(table_warehouse);
+  schema->drop_table(table_district);
+  schema->drop_table(table_customer);
+  schema->drop_table(table_history);
+  schema->drop_table(table_new_order);
+  schema->drop_table(table_order);
+  schema->drop_table(table_order_line);
+  schema->drop_table(table_stock);
+  schema->drop_table(table_item);
+  schema->drop_table(table_region);
+  schema->drop_table(table_nation);
+  schema->drop_table(table_supplier);
 }
 
 void TPCC::print_tpcc_query(void *arg) {
@@ -199,16 +199,10 @@ TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
     this->create_tbl_region(5);
   }
 
-  std::cout << "Total Memory Reserved for Tables: "
-            << (double)this->schema->total_mem_reserved / (1024 * 1024 * 1024)
-            << " GB" << std::endl;
-  std::cout << "Total Memory Reserved for Deltas: "
-            << (double)this->schema->total_delta_mem_reserved /
-                   (1024 * 1024 * 1024)
-            << " GB" << std::endl;
   cust_sec_index = new indexes::HashIndex<uint64_t, struct secondary_record>();
   // cust_sec_index->reserve(max_customers);
 
+  this->schema->memoryReport();
   init_tpcc_seq_array();
 }
 

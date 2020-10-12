@@ -37,6 +37,7 @@
 #include "snapshot/snapshot_manager.hpp"
 #include "storage/memory_manager.hpp"
 #include "storage/multi-version/delta_storage.hpp"
+#include "util/percentile.hpp"
 
 using dict_dstring_t = std::map<uint64_t, std::string>;
 
@@ -93,7 +94,7 @@ class NUMAPartitionPolicy {
     explicit TablePartition(uint pid, uint numa_idx)
         : pid(pid), numa_idx(numa_idx) {}
 
-    inline bool operator==(const TablePartition &o) {
+    inline bool operator==(const TablePartition &o) const {
       return (pid == o.pid && numa_idx == o.numa_idx);
     }
     friend std::ostream &operator<<(std::ostream &out, const TablePartition &r);
@@ -105,7 +106,7 @@ class NUMAPartitionPolicy {
   }
 
   uint getDefaultPartition() {
-    assert(PartitionVector.size() > 0);
+    assert(!PartitionVector.empty());
     return PartitionVector[0].numa_idx;
   }
 
@@ -138,68 +139,69 @@ class Schema {
   void operator=(Schema const &) = delete;  // Don't implement
 
   Table *getTable(int idx);
-  Table *getTable(std::string name);
+  Table *getTable(const std::string &name);
   std::vector<Table *> getAllTables();
+  std::vector<Table *> getTables() { return tables; }
 
   /* returns pointer to the table */
   Table *create_table(std::string name, layout_type layout, ColumnDef columns,
                       uint64_t initial_num_records = 10000000,
                       bool indexed = true, bool partitioned = true,
                       int numa_idx = -1);
-  void destroy_table(Table *);
 
-  [[noreturn]] void drop_table(std::string name);
-  [[noreturn]] void drop_table(int idx);
+  void drop_table(Table *);
+  void drop_table(const std::string &name);
 
-  void initiate_gc(ushort ver);
+  void teardown(const std::string &cdf_out_path = "");
+
+  // delta-based multi-versioning
   void add_active_txn(ushort ver, uint64_t epoch, uint8_t worker_id);
   void remove_active_txn(ushort ver, uint64_t epoch, uint8_t worker_id);
   void switch_delta(ushort prev, ushort curr, uint64_t epoch,
                     uint8_t worker_id);
 
-  void teardown();
+  // twin-column/ HTAP snapshotting
   void snapshot(uint64_t epoch, uint8_t snapshot_master_ver);
   void ETL(uint numa_node_idx);
-
   bool is_sync_in_progress() { return snapshot_sync_in_progress.load(); }
 
+  // utilitiy functions
   void report();
-
-  std::vector<Table *> getTables() { return tables; }
-  uint64_t total_mem_reserved;
-  uint64_t total_delta_mem_reserved;
-
-  DeltaStore *deltaStore[global_conf::num_delta_storages];
-
-  // volatile std::atomic<uint64_t> rid;
-  // inline uint64_t __attribute__((always_inline)) get_next_rid() {
-  //   return rid.fetch_add(1);
-  // }
+  void memoryReport() const;
+  static void save_cdf(const std::string &out_path);
 
  private:
-  uint8_t num_tables;
   std::vector<Table *> tables;
+  DeltaStore *deltaStore[global_conf::num_delta_storages]{};
+
+  // stats
+  uint8_t num_tables;
+  uint64_t total_mem_reserved;
+  uint64_t total_delta_mem_reserved;
 
   // snapshotting
   std::future<bool> snapshot_sync;
   std::atomic<bool> snapshot_sync_in_progress;
   bool sync_master_ver_tbl(const storage::Table *tbl,
-                           const uint8_t snapshot_master_ver);
-  bool sync_master_ver_schema(const uint8_t snapshot_master_ver);
+                           uint8_t snapshot_master_ver);
+  bool sync_master_ver_schema(uint8_t snapshot_master_ver);
 
   Schema()
       : total_mem_reserved(0),
         total_delta_mem_reserved(0),
-        snapshot_sync_in_progress(0) {
+        snapshot_sync_in_progress(false),
+        num_tables(0) {
     aeolus::snapshot::SnapshotManager::init();
 
     for (int i = 0; i < global_conf::num_delta_storages; i++) {
-      deltaStore[i] = new DeltaStore(i);
+      deltaStore[i] =
+          new DeltaStore(i, g_delta_size, g_delta_size, g_num_partitions);
       this->total_delta_mem_reserved += deltaStore[i]->total_mem_reserved;
     }
   }
 
   friend class Table;
+  friend class ColumnStore;
 };
 
 class Table {
@@ -214,8 +216,8 @@ class Table {
 
   virtual void updateRecord(uint64_t xid, global_conf::IndexVal *hash_ptr,
                             const void *rec, ushort curr_master,
-                            ushort curr_delta, const ushort *col_idx = nullptr,
-                            short num_cols = -1) = 0;
+                            ushort curr_delta, const ushort *col_idx,
+                            short num_cols) = 0;
 
   // virtual void updateRecord(ushort pid, uint64_t &vid, const void *rec,
   //                           ushort curr_master, ushort curr_delta,

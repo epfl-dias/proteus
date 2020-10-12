@@ -95,11 +95,6 @@ bool Schema::sync_master_ver_schema(const uint8_t snapshot_master_ver) {
     task.get();
   }
 
-  // for (auto& tbl : tables) {
-  //   std::cout << "[Table] Sync: " << tbl->name << std::endl;
-  //   this->sync_master_ver_tbl(tbl, snapshot_master_ver);
-  // }
-
   this->snapshot_sync_in_progress.store(false);
   return true;
 }
@@ -115,6 +110,15 @@ bool Schema::sync_master_ver_tbl(const storage::Table* tbl,
   return true;
 }
 
+void Schema::memoryReport() const {
+  LOG(INFO) << "Total Memory Reserved for Tables: "
+            << (double)this->total_mem_reserved / (1024 * 1024 * 1024) << " GB"
+            << std::endl;
+  LOG(INFO) << "Total Memory Reserved for Deltas: "
+            << (double)this->total_delta_mem_reserved / (1024 * 1024 * 1024)
+            << " GB" << std::endl;
+}
+
 void Schema::report() {
   //  for (int i = 0; i < global_conf::num_delta_storages; i++) {
   //    deltaStore[i]->print_info();
@@ -124,9 +128,6 @@ void Schema::report() {
     // tbl->p_index->report();
     tbl->reportUsage();
   }
-}
-
-void Schema::initiate_gc(ushort ver) {  // deltaStore[ver]->try_reset_gc();
 }
 
 void Schema::add_active_txn(ushort ver, uint64_t epoch, uint8_t worker_id) {
@@ -145,7 +146,11 @@ void Schema::switch_delta(ushort prev, ushort curr, uint64_t epoch,
   deltaStore[curr]->increment_reader(epoch, worker_id);
 }
 
-void Schema::teardown() {
+void Schema::teardown(const std::string& cdf_out_path) {
+  // if(!cdf_out_path.empty()){
+  save_cdf("");
+  //}
+
   for (auto& dt : deltaStore) {
     dt->~DeltaStore();
   }
@@ -160,12 +165,12 @@ std::vector<Table*> Schema::getAllTables() { return tables; }
 
 Table* Schema::getTable(const int idx) { return tables.at(idx); }
 
-Table* Schema::getTable(std::string name) {
+Table* Schema::getTable(const std::string& name) {
   // TODO: a better way would be to store table-idx mapping in a hashmap from
   // STL.
 
   for (const auto& t : tables) {
-    if (name.compare(t->name) == 0) return t;
+    if (name == t->name) return t;
   }
   return nullptr;
 }
@@ -207,26 +212,35 @@ Table* Schema::create_table(std::string name, layout_type layout,
   return tbl;
 }
 
-void Schema::destroy_table(Table* table) {
+void Schema::drop_table(Table* table) {
+  this->total_mem_reserved -= table->total_mem_reserved;
+  this->num_tables--;
+
   table->~Table();
   storage::memory::MemoryManager::free(table);
 }
 
-void Schema::drop_table(std::string name) {
-  assert(false && "Not Implemented");
-  // int index = -1;
-  // for (const auto& t : tables) {
-  //   if (name.compare(t->name) == 0) {
-  //     index = std::distance(tables.begin(), &t);
-  //   }
-  // }
-
-  // if (index != -1) this->drop_table(index);
+void Schema::drop_table(const std::string& name) {
+  int index = -1;
+  for (const auto& t : tables) {
+    if (name == t->name) {
+      drop_table(t);
+    }
+  }
 }
 
-void Schema::drop_table(int idx) {
-  // TODO: drop table impl
-  assert(false && "Not Implemented");
+void Schema::save_cdf(const std::string& out_path) {
+  proteus::utils::PercentileRegistry::for_each(
+      [](std::string key, proteus::utils::Percentile* p, void* args) {
+        LOG(INFO) << "\t\tP50\tP90\tP99: " << p->nth(50) << "\t" << p->nth(90)
+                  << "\t" << p->nth(99);
+
+        auto* path = (std::string*)args;
+        if (!(path->empty())) {
+          p->save_cdf(*path + key + ".cdf");
+        }
+      },
+      (void*)&out_path);
 }
 
 void Table::reportUsage() {
