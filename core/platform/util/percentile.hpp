@@ -51,16 +51,10 @@ using percentile_point = percentile_point_rdtsc;
 
 class [[nodiscard]] Percentile {
  public:
-  explicit Percentile() { points.reserve(std::pow(2, 10)); }
-  explicit Percentile(size_t reserved_capacity) : Percentile() {
-    points.reserve(reserved_capacity);
-  }
-
+  explicit Percentile() = default;
   explicit Percentile(std::string key);
 
   ~Percentile() = default;
-
-  inline void reserve(size_t quantity) { points.reserve(quantity); }
 
   inline void add(size_t value) { this->points.push_back(value); }
 
@@ -85,10 +79,10 @@ class [[nodiscard]] Percentile {
   }
 
  private:
-  std::vector<size_t, proteus::memory::PinnedMemoryAllocator<size_t>> points;
+  std::deque<size_t> points;
 };
 
-class PercentileRegistry {
+class [[nodiscard]] PercentileRegistry {
  public:
   static inline bool register_global(const std::string& key,
                                      Percentile* global_cdf) {
@@ -99,22 +93,24 @@ class PercentileRegistry {
         .second;
   }
 
-  static inline Percentile* get_global(const std::string& key) {
+  [[maybe_unused]] static inline Percentile* get_global(
+      const std::string& key) {
     return PercentileRegistry::global_registry[key];
   }
 
-  static void for_each(void (*f)(std::string key, Percentile* p)) {
-    for (const auto& [key, value] : global_registry) {
-      LOG(INFO) << "[GlobalPercentileRegistry][for_each] Key: " << key;
-      f(key, value);
+  [[maybe_unused]] static inline void for_each(void (*f)(std::string key,
+                                                         Percentile* p)) {
+    for (const auto& [k, val] : global_registry) {
+      LOG(INFO) << "[GlobalPercentileRegistry][for_each] Key: " << k;
+      f(k, val);
     }
   }
 
-  static void for_each(void (*f)(std::string key, Percentile* p, void* args),
-                       void* args) {
-    for (const auto& [key, value] : global_registry) {
-      LOG(INFO) << "[GlobalPercentileRegistry][for_each] Key: " << key;
-      f(key, value, args);
+  [[maybe_unused]] static inline void for_each(
+      void (*f)(std::string key, Percentile* p, void* args), void* args) {
+    for (const auto& [k, val] : global_registry) {
+      LOG(INFO) << "[GlobalPercentileRegistry][for_each] Key: " << k;
+      f(k, val, args);
     }
   }
 
@@ -128,7 +124,7 @@ class PercentileRegistry {
   friend class Percentile;
 };
 
-class threadLocal_percentile {
+class [[nodiscard]] threadLocal_percentile {
  public:
   explicit threadLocal_percentile(const std::string& key) : key(key) {
     LOG(INFO) << "threadLocal_percentile registered: " << key;

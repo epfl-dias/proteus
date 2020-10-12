@@ -134,8 +134,7 @@ int main(int argc, char** argv) {
         (FLAGS_elastic_workload > 0 ? topology::getInstance().getCoreCount()
                                     : FLAGS_num_workers),
         g_num_partitions, FLAGS_layout_column_store, FLAGS_ycsb_num_col_upd,
-        FLAGS_ycsb_num_col_read, FLAGS_ycsb_num_col_read_offset,
-        FLAGS_cdf_path);
+        FLAGS_ycsb_num_col_read, FLAGS_ycsb_num_col_read_offset);
   }
 
   scheduler::WorkerPool::getInstance().init(

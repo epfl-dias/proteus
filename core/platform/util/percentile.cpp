@@ -23,6 +23,9 @@
 
 #include "percentile.hpp"
 
+#include <algorithm>
+#include <cmath>
+
 namespace proteus::utils {
 
 std::map<std::string, Percentile*> PercentileRegistry::global_registry;
@@ -43,7 +46,7 @@ size_t Percentile::nth(double n) {
   std::sort(points.begin(), points.end());
 
   auto sz = points.size();
-  auto i = static_cast<decltype(sz)>(ceil(n / 100 * sz)) - 1;
+  auto i = static_cast<decltype(sz)>(std::ceil(n / 100 * sz)) - 1;
 
   assert(i >= 0 && i < points.size());
 

@@ -38,7 +38,6 @@
 #include "storage/memory_manager.hpp"
 #include "storage/table.hpp"
 #include "topology/topology.hpp"
-#include "util/percentile.hpp"
 #include "zipf.hpp"
 
 namespace bench {
@@ -66,11 +65,6 @@ namespace bench {
 
 class YCSB : public Benchmark {
  private:
-  proteus::utils::Percentile<size_t> read_cdf;
-  proteus::utils::Percentile<size_t> write_cdf;
-  proteus::utils::Percentile<size_t> cdf;
-  bool gen_cdf;
-
   const int num_fields;
   const int num_records;
   // const int num_iterations_per_worker;
@@ -246,9 +240,6 @@ class YCSB : public Benchmark {
         hash_ptrs_lock_acquired(this->num_ops_per_txn, nullptr);
     uint num_locks = 0;
 
-    // proteus::utils::percentile_point p(txn_stmts->read_only? read_cdf :
-    // write_cdf);
-
     /* Acquire locks for updates*/
     for (int i = 0; i < n; i++) {
       struct YCSB_TXN_OP op = txn_stmts->ops[i];
@@ -329,7 +320,7 @@ class YCSB : public Benchmark {
        int num_active_workers = -1, int num_max_workers = -1,
        ushort num_partitions = 1, bool layout_column_store = true,
        uint num_of_col_upd = 1, uint num_of_col_read = 1,
-       uint num_col_read_offset = 0, const std::string &cdf_path = "")
+       uint num_col_read_offset = 0)
       : Benchmark(std::move(name), num_active_workers, num_max_workers,
                   num_partitions),
         num_fields(num_fields),
@@ -343,19 +334,11 @@ class YCSB : public Benchmark {
              num_partitions, PARTITION_LOCAL, THREAD_LOCAL),
         num_of_col_upd_per_op(num_of_col_upd),
         num_of_col_read_per_op(num_of_col_read),
-        num_col_read_offset_per_op(num_col_read_offset),
-        read_cdf(cdf_path.length() > 2 ? cdf_path + "_ycsb_read.cdf" : ""),
-        write_cdf(cdf_path.length() > 2 ? cdf_path + "_ycsb_write.cdf" : ""),
-        cdf(cdf_path.length() > 2 ? cdf_path + "_ycsb.cdf" : "") {
+        num_col_read_offset_per_op(num_col_read_offset) {
     if (num_max_workers == -1)
       num_max_workers = topology::getInstance().getCoreCount();
     if (num_active_workers == -1)
       num_active_workers = topology::getInstance().getCoreCount();
-
-    if (cdf_path.length() > 2) {
-      gen_cdf = true;
-      LOG(INFO) << "CDF mode ON";
-    }
 
     assert(num_of_col_upd_per_op <= num_fields);
     assert(this->num_records % this->num_max_workers == 0 &&
