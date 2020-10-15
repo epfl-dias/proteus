@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "util/sort/gpu/sort-util.cuh"
+#include "util/sort/gpu/sort-util.hpp"
 
 // NOTE: Clang fails to compile thrust, but that is fine if we call this part
 // only from generated code

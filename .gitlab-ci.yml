@@ -107,20 +107,20 @@ before_script:
 codestyle:
  stage: Code quality
  script:
- # clang-format comes from the llvm repo: https://apt.llvm.org/
- # remember to update it every time we pop the LLVM version!
- # if grep returns an error, it didn't find a match, which is OK for us
- - find . \( -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' -o -name '*.cuh' \) | xargs -n1 clang-format -output-replacements-xml --style=file | grep "replacement " || exit 0
- # otherwise, print message and exist with error code
- - echo "Non conforming format"
- - exit 1
+  # clang-format comes from the llvm repo: https://apt.llvm.org/
+  # remember to update it every time we pop the LLVM version!
+  # if grep returns an error, it didn't find a match, which is OK for us
+  - find . \( -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' -o -name '*.cuh' \) | xargs -n1 clang-format -output-replacements-xml --style=file | grep "replacement " || exit 0
+  # otherwise, print message and exist with error code
+  - echo "Non conforming format"
+  - exit 1
  <<: *cache
  <<: *restrict_precommit
 
 licenses:
  stage: Code quality
  script:
- - python tools/check_licenses.py
+  - python tools/check_licenses.py
  <<: *cache
  <<: *restrict_precommit
 
@@ -153,9 +153,12 @@ test-configuration:
 build:
  stage: Build
  script:
+  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
   - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
   - mkdir -p ${build_path}
-  - cmake --build ${build_path} --target all -- -j`nproc --all`
+  - CCACHE_DIR=${ccache_dir} ccache --zero-stats
+  - CCACHE_DIR=${ccache_dir} CCACHE_NOHASHDIR=1 CCACHE_BASEDIR=${build_path} cmake --build ${build_path} --target all -- -j`nproc --all`
+  - CCACHE_DIR=${ccache_dir} ccache --show-stats
   - echo "Building... done"
  <<: *cache
  <<: *restrict_precommit
@@ -163,45 +166,49 @@ build:
 install:
  stage: Install
  script:
+  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
   - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
   - mkdir -p ${build_path}
-  - cmake --build ${build_path} --target install
+  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - echo "Installing... done"
  <<: *cache
  <<: *restrict_precommit
 
 #----------------------------------------------------------------------------
 # Functional Tests
-1/9 test - Threads:
+Test 01 - Threads:
  <<: *test
  script:
+  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
   - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
   - mkdir -p ${build_path}
-  - cmake --build ${build_path} --target install
+  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-threads --gtest_output="xml:$CWD/report-threads.xml"
  artifacts:
   reports:
    junit: report-threads.xml
 
-2/9 test - Plan Parsing:
+Test 02 - Plan Parsing:
  <<: *test
  script:
+  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
   - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
   - mkdir -p ${build_path}
-  - cmake --build ${build_path} --target install
+  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-plan-parsing --gtest_output="xml:$CWD/report-plan-parsing.xml"
  artifacts:
   reports:
    junit: report-plan-parsing.xml
 
-3/9 test - JSON:
+Test 03 - JSON:
  <<: *test
  script:
+  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
   - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
   - mkdir -p ${build_path}
-  - cmake --build ${build_path} --target install
+  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-json --gtest_output="xml:$CWD/report-json.xml"
  allow_failure: true
@@ -209,12 +216,13 @@ install:
   reports:
    junit: report-json.xml
 
-4/9 test - Joins:
+Test 04 - Joins:
  <<: *test
  script:
+  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
   - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
   - mkdir -p ${build_path}
-  - cmake --build ${build_path} --target install
+  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-joins --gtest_output="xml:$CWD/report-joins.xml"
  allow_failure: true
@@ -222,65 +230,89 @@ install:
   reports:
    junit: report-joins.xml
 
-5/9 test - Output:
+Test 05 - Output:
  <<: *test
  script:
+  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
   - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
   - mkdir -p ${build_path}
-  - cmake --build ${build_path} --target install
+  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-output --gtest_output="xml:$CWD/report-output.xml"
  artifacts:
   reports:
    junit: report-output.xml
 
-6/9 test - GPU SSB SF100:
+Test 06 - GPU SSB SF100:
  <<: *test
  script:
+  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
   - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
   - mkdir -p ${build_path}
-  - cmake --build ${build_path} --target install
+  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-gpu-ssb --gtest_output="xml:$CWD/report-gpu.xml"
  artifacts:
   reports:
    junit: report-gpu.xml
 
-7/9 test - CPU SSB SF100:
+Test 07 - CPU SSB SF100:
  <<: *test
  script:
+  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
   - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
   - mkdir -p ${build_path}
-  - cmake --build ${build_path} --target install
+  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-cpu-ssb --gtest_output="xml:$CWD/report-cpu.xml"
  artifacts:
   reports:
    junit: report-cpu.xml
 
-8/9 test - Hybrid SSB SF100:
+Test 08 - Hybrid SSB SF100:
  <<: *test
  script:
+  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
   - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
   - mkdir -p ${build_path}
-  - cmake --build ${build_path} --target install
+  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-hyb-ssb --gtest_output="xml:$CWD/report-hyb.xml"
  artifacts:
   reports:
    junit: report-hyb.xml
 
-9/9 test - COW:
+Test 09 - COW:
  <<: *test
  script:
+  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
   - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
   - mkdir -p ${build_path}
-  - cmake --build ${build_path} --target install
+  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-cow --gtest_output="xml:$CWD/report-cow.xml"
  artifacts:
   reports:
    junit: report-cow.xml
+
+Test 10 - Planner:
+ <<: *test
+ script:
+  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
+  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+  - mkdir -p ${build_path}
+  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
+  - ln -s ${build_path}/opt/pelago/inputs ${build_path}/core/planner/CMakeFiles/clotho.dir/inputs
+  - export CWD=$(pwd)
+  - export OUTPUT=0
+  - cd ${build_path}/core/planner/CMakeFiles/clotho.dir && sbt test || export OUTPUT=1
+  - mv ${build_path}/core/planner/CMakeFiles/clotho.dir/target/test-reports/TEST-*.xml $CWD
+  - exit $OUTPUT
+ allow_failure: true
+ artifacts:
+  reports:
+   junit: TEST-*.xml
+
 
 #----------------------------------------------------------------------------
 # Performance Tests
@@ -289,6 +321,19 @@ install:
  stage: Benchmark
  script:
   - echo "Bench... done"
+ <<: *cache
+ <<: *restrict_precommit
+
+SSB100 Benchmark:
+ stage: Benchmark
+ script:
+  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
+  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+  - mkdir -p ${build_path}
+  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
+  - export CWD=$(pwd)
+  - cd ${build_path}/opt/pelago && java -jar ../../opt/lib/clotho.jar --server inputs/plans/schema.json & disown && sleep 30
+  - JAVA_CLASSPATH=/avatica-1.13.0.jar sqlline --color=true --maxWidth=1024 -u "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF" < testsperf/ssb100.sql
  <<: *cache
  <<: *restrict_precommit
 

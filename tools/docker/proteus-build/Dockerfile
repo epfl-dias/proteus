@@ -27,3 +27,16 @@ RUN apt update  -y && \
 
 RUN ldconfig /usr/local/cuda/lib64
 
+RUN curl -O https://repo1.maven.org/maven2/org/apache/calcite/avatica/avatica/1.13.0/avatica-1.13.0.jar
+
+COPY ccache.patch /tmp/ccache.patch
+RUN curl -L -O https://github.com/ccache/ccache/releases/download/v3.7.12/ccache-3.7.12.tar.gz && \
+    tar xzf ccache-3.7.12.tar.gz && \
+    rm ccache-3.7.12.tar.gz && \
+    cd ccache-3.7.12 && \
+    cd src && patch language.c /tmp/ccache.patch && cd .. && \
+    ./configure && \
+    make && \
+    make install
+
+ENV CCACHE_COMPILERCHECK=content

@@ -126,8 +126,8 @@ class PelagoRouter protected(cluster: RelOptCluster, traitSet: RelTraitSet, inpu
     if (getDistribution.getType != RelDistribution.Type.BROADCAST_DISTRIBUTED && getTraitSet.containsIfApplicable(RelPacking.Packed)) {
       json = ("operator", "mem-move-device") ~
         ("input", json) ~
-        ("to_cpu", target != RelDeviceType.NVPTX) ~
-        ("do_transfer", getRowType.getFieldList.asScala.map(_ => true))
+        ("to_cpu", target != RelDeviceType.NVPTX) // ~
+        // ("do_transfer", getRowType.getFieldList.asScala.map(_ => true))
     }
 
     val ret: (Binding, JValue) = (childBinding, json)
