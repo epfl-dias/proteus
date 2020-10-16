@@ -39,4 +39,12 @@ RUN curl -L -O https://github.com/ccache/ccache/releases/download/v3.7.12/ccache
     make && \
     make install
 
+RUN apt update  -y && \
+    apt upgrade -y && \
+    apt install -y --no-install-recommends libpostgresql-jdbc-java && \
+    apt autoremove -y && \
+    apt autoclean
+
+RUN pip install --user wheel && pip install --user JayDeBeApi JPype1==0.6.3
+
 ENV CCACHE_COMPILERCHECK=content

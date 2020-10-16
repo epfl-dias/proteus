@@ -338,6 +338,7 @@ SSB100 Benchmark - CPU only:
   - for f in core/planner/src/test/resources/tests/ssb100/queries/q*.sql; do cat $f $f $f $f $f >> queries.sql ; done ;
   - echo "select * from SessionTimings ;" >> queries.sql
   - JAVA_CLASSPATH=/avatica-1.13.0.jar sqlline --color=true --maxWidth=1024 -u "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF" < queries.sql
+  - JAVA_AVATICA_CLASSPATH=/avatica-1.13.0.jar python ./tools/save_session_timings.py
  <<: *cache
  <<: *restrict_precommit
 
@@ -355,6 +356,7 @@ SSB100 Benchmark - GPU only:
   - for f in core/planner/src/test/resources/tests/ssb100/queries/q*.sql; do cat $f $f $f $f $f >> queries.sql ; done ;
   - echo "select * from SessionTimings ;" >> queries.sql
   - JAVA_CLASSPATH=/avatica-1.13.0.jar sqlline --color=true --maxWidth=1024 -u "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF" < queries.sql
+  - JAVA_AVATICA_CLASSPATH=/avatica-1.13.0.jar python ./tools/save_session_timings.py
  <<: *cache
  <<: *restrict_precommit
 
@@ -372,6 +374,7 @@ SSB100 Benchmark - Hybrid:
   - for f in core/planner/src/test/resources/tests/ssb100/queries/q*.sql; do cat $f $f $f $f $f >> queries.sql ; done ;
   - echo "select * from SessionTimings ;" >> queries.sql
   - JAVA_CLASSPATH=/avatica-1.13.0.jar sqlline --color=true --maxWidth=1024 -u "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF" < queries.sql
+  - JAVA_AVATICA_CLASSPATH=/avatica-1.13.0.jar python ./tools/save_session_timings.py
  <<: *cache
  <<: *restrict_precommit
 

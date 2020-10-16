@@ -19,11 +19,9 @@ import org.apache.calcite.prepare.RelOptTableImpl
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.convert.ConverterImpl
 import org.apache.calcite.rel.metadata.RelMetadataQuery
-import org.apache.calcite.rel.rel2sql.RelToSqlConverter
 import org.apache.calcite.rel.{RelNode, RelWriter}
 import org.apache.calcite.rex.RexInputRef
 import org.apache.calcite.sql.SqlExplainLevel
-import org.apache.calcite.sql.dialect.CalciteSqlDialect
 import org.apache.calcite.util.Sources
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods._
@@ -129,10 +127,6 @@ class PelagoToEnumerableConverter protected(cluster: RelOptCluster, traits: RelT
         PelagoExecutor.files = files;
         (
           if (mock) "mock" else PelagoExecutor.run("prepare plan from file " + Repl.planfile, "prepare statement",
-            if (Repl.timings) {
-              RelOptUtil.toString(getInput, SqlExplainLevel.EXPPLAN_ATTRIBUTES) // FIXME
-            } else
-              null,
             if (Repl.timings)
               RelOptUtil.toString(getInput, SqlExplainLevel.EXPPLAN_ATTRIBUTES)
             else
