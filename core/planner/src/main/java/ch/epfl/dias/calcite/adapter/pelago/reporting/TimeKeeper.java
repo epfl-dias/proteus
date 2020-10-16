@@ -60,9 +60,11 @@ public class TimeKeeper {
         lastTimestamp = new Timestamp(System.currentTimeMillis());
     }
 
-    public void refreshTable() {
+    public void refreshTable(String query, String cmd_type, String hwmode, String plan) {
         if (lastTimestamp == null) addTimestamp();
-        TimeKeeperTable.addTimings(tExecutor + tPlanning + tPlanToJson, tPlanning, tPlanToJson, tExecutor, tCodegen, tDataLoad, tCodeOpt, tCodeOptAndLoad, tExec, lastTimestamp);
+        TimeKeeperTable.addTimings(tExecutor + tPlanning + tPlanToJson, tPlanning, tPlanToJson, tExecutor,
+            tCodegen, tDataLoad, tCodeOpt, tCodeOptAndLoad, tExec, lastTimestamp,
+            query, cmd_type, hwmode, plan);
         reset();
     }
 
@@ -71,7 +73,7 @@ public class TimeKeeper {
     public String toString() {
         String format;
         if (Repl.timingscsv()) {
-            format = "Timings,%d,%d,%d,%d,%d,%d,%d,%d,%d";
+            format = "Timings,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%s";
         } else {
             format = "Total time: %dms, "
                     + "Planning time: %dms, "

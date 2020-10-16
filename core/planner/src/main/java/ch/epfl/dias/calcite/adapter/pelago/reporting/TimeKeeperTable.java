@@ -39,6 +39,10 @@ public class TimeKeeperTable extends PelagoMutableArrayTable {
         sb.add("code_optnload_time", SqlTypeName.BIGINT);
         sb.add("execution_time", SqlTypeName.BIGINT);
         sb.add("timestamp", SqlTypeName.VARCHAR);
+        sb.add("query", SqlTypeName.VARCHAR);
+        sb.add("cmd_type", SqlTypeName.VARCHAR);
+        sb.add("hwmode", SqlTypeName.VARCHAR);
+        sb.add("plan", SqlTypeName.VARCHAR);
 
         InitializerExpressionFactory ief = new NullInitializerExpressionFactory();
 
@@ -49,8 +53,14 @@ public class TimeKeeperTable extends PelagoMutableArrayTable {
             long tplan2json_ms, long texecutor_ms, long tcodegen_ms,
             long tdataload_ms,
             long tcode_opt_time_ms, long tcode_optnload_time_ms,
-            long texecution_ms, Timestamp timestamp){
-        Object[] arr = {ttotal_ms, tplanning_ms, tplan2json_ms, texecutor_ms, tcodegen_ms, tdataload_ms, tcode_opt_time_ms, tcode_optnload_time_ms, texecution_ms, timestamp.toString()};
+            long texecution_ms, Timestamp timestamp,
+            String query,
+            String cmd_type,
+            String hwmode,
+            String plan){
+        Object[] arr = {ttotal_ms, tplanning_ms, tplan2json_ms, texecutor_ms, tcodegen_ms, tdataload_ms,
+            tcode_opt_time_ms, tcode_optnload_time_ms, texecution_ms, timestamp.toString(),
+            query, cmd_type, hwmode, plan};
         INSTANCE.getModifiableCollection().add(arr);
     }
 }
