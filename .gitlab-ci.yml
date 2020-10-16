@@ -324,7 +324,7 @@ Test 10 - Planner:
  <<: *cache
  <<: *restrict_precommit
 
-SSB100 Benchmark:
+SSB100 Benchmark - CPU only:
  stage: Benchmark
  script:
   - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
@@ -333,7 +333,45 @@ SSB100 Benchmark:
   - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && java -jar ../../opt/lib/clotho.jar --server inputs/plans/schema.json & disown && sleep 30
-  - JAVA_CLASSPATH=/avatica-1.13.0.jar sqlline --color=true --maxWidth=1024 -u "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF" < testsperf/ssb100.sql
+  - echo "select sum(d_datekey) from ssbm_date;" > queries.sql
+  - echo "alter session set hwmode=cpuonly;" >> queries.sql
+  - for f in core/planner/src/test/resources/tests/ssb100/queries/q*.sql; do cat $f $f $f $f $f >> queries.sql ; done ;
+  - echo "select * from SessionTimings ;" >> queries.sql
+  - JAVA_CLASSPATH=/avatica-1.13.0.jar sqlline --color=true --maxWidth=1024 -u "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF" < queries.sql
+ <<: *cache
+ <<: *restrict_precommit
+
+SSB100 Benchmark - GPU only:
+ stage: Benchmark
+ script:
+  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
+  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+  - mkdir -p ${build_path}
+  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
+  - export CWD=$(pwd)
+  - cd ${build_path}/opt/pelago && java -jar ../../opt/lib/clotho.jar --server inputs/plans/schema.json & disown && sleep 30
+  - echo "select sum(d_datekey) from ssbm_date;" > queries.sql
+  - echo "alter session set hwmode=gpuonly;" >> queries.sql
+  - for f in core/planner/src/test/resources/tests/ssb100/queries/q*.sql; do cat $f $f $f $f $f >> queries.sql ; done ;
+  - echo "select * from SessionTimings ;" >> queries.sql
+  - JAVA_CLASSPATH=/avatica-1.13.0.jar sqlline --color=true --maxWidth=1024 -u "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF" < queries.sql
+ <<: *cache
+ <<: *restrict_precommit
+
+SSB100 Benchmark - Hybrid:
+ stage: Benchmark
+ script:
+  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
+  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+  - mkdir -p ${build_path}
+  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
+  - export CWD=$(pwd)
+  - cd ${build_path}/opt/pelago && java -jar ../../opt/lib/clotho.jar --server inputs/plans/schema.json & disown && sleep 30
+  - echo "select sum(d_datekey) from ssbm_date;" > queries.sql
+  - echo "alter session set hwmode=hybrid;" >> queries.sql
+  - for f in core/planner/src/test/resources/tests/ssb100/queries/q*.sql; do cat $f $f $f $f $f >> queries.sql ; done ;
+  - echo "select * from SessionTimings ;" >> queries.sql
+  - JAVA_CLASSPATH=/avatica-1.13.0.jar sqlline --color=true --maxWidth=1024 -u "jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF" < queries.sql
  <<: *cache
  <<: *restrict_precommit
 
