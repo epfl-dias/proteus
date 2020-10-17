@@ -52,7 +52,10 @@ git stash push -q --include-untracked -m $STASH_NAME-upon-failure
 git stash apply -q --index # --index to re-instate index!
 
 # Save unstage changes, to reapply in case the commit is accepted
-git commit -q --no-verify -m $STASH_NAME
+git commit -q --no-verify -m $STASH_NAME --allow-empty
+
+# To avoid empty stash from getting rejected
+touch .githooks/.githookinprogress
 git stash push -q --include-untracked --keep-index -m $STASH_NAME-upon-success
 git reset -q --soft HEAD~
 
@@ -81,6 +84,7 @@ else
 fi
 
 # Clean-up
+rm .githooks/.githookinprogress || true
 git stash drop -q
 git stash drop -q
 
