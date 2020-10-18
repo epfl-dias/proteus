@@ -884,7 +884,7 @@ uint64_t Column::num_upd_tuples(const ushort master_ver,
     if (__likely(num_records != nullptr)) {
       uint64_t recs_scanned = 0;
       for (auto& chunk : upd_bit_masks[master_ver][j]) {
-        counter += chunk.count(std::memory_order::memory_order_acquire);
+        counter += chunk.count(std::memory_order_acquire);
         recs_scanned += BIT_PACK_SIZE;
         if (recs_scanned >= num_records[j]) {
           break;
@@ -1277,7 +1277,7 @@ void Column::ETL(uint numa_node_index) {
         if (msk * BIT_PACK_SIZE >= olap_num_rec) break;
 
         if (upd_bit_masks[snap_arena.master_ver][i][msk].any(
-                std::memory_order::memory_order_acquire)) {
+                std::memory_order_acquire)) {
           size_t to_cpy = BIT_PACK_SIZE * this->elem_size;
           size_t st = msk * to_cpy;
 
@@ -1289,7 +1289,7 @@ void Column::ETL(uint numa_node_index) {
           }
 
           upd_bit_masks[snap_arena.master_ver][i][msk].reset(
-              std::memory_order::memory_order_release);
+              std::memory_order_release);
         }
       }
     }

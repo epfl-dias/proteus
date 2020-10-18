@@ -154,6 +154,9 @@ string(STRIP "${WARNING_FLAGS} -Wno-unknown-cuda-version" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-zero-length-array" WARNING_FLAGS)
 string(STRIP "${WARNING_FLAGS} -Wno-packed" WARNING_FLAGS)
 
+# LLVM & RapidJSON generated following.
+string(STRIP "${WARNING_FLAGS} -Wno-ambiguous-reversed-operator" WARNING_FLAGS)
+
 # Unit-tests:
 string(STRIP "${WARNING_FLAGS} -Wno-shift-sign-overflow" WARNING_FLAGS)
 
@@ -436,7 +439,7 @@ if (TRUE)
 	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/rapidjson-src
 			${CMAKE_CURRENT_BINARY_DIR}/rapidjson-build
 			)
-	message(STATUS ${CMAKE_CURRENT_BINARY_DIR})
+
 	#set(rapidJSON_DIR ${CMAKE_CURRENT_BINARY_DIR}/rapidjson-build)
 
 	find_package(RapidJSON PATHS ${CMAKE_CURRENT_BINARY_DIR} NO_DEFAULT_PATH)
