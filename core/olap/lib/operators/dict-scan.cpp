@@ -82,9 +82,13 @@ class DictMatchIter {
 
   pointer operator->() const { return &val; }
 
-  bool operator==(const DictMatchIter &other) { return curr == other.curr; }
+  bool operator==(const DictMatchIter &other) const {
+    return curr == other.curr;
+  }
 
-  bool operator!=(const DictMatchIter &other) { return curr != other.curr; }
+  bool operator!=(const DictMatchIter &other) const {
+    return curr != other.curr;
+  }
 };
 
 DictMatchIter DictScan::begin() const { return DictMatchIter{*this, regex}; }

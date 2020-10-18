@@ -1,7 +1,4 @@
-cmake_minimum_required(VERSION 3.10.2)
-
-include(GNUInstallDirs)
-include(GetPrerequisites)
+cmake_minimum_required(VERSION 3.17.3)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules")
 
@@ -38,6 +35,8 @@ endif (POLICY CMP0048)
 # Now that the compilers are set, define project name and version
 project(proteus VERSION 2.0)
 
+include(GNUInstallDirs)
+include(GetPrerequisites)
 #-----------------------------------------------------------------------
 # Which binaries to build:
 #-----------------------------------------------------------------------
@@ -75,7 +74,7 @@ set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 # Otherwise the -std=gnu++XX is used instead of the -std=c++XX, as one
 # would expect from the property above
 set(CMAKE_CXX_EXTENSIONS FALSE)

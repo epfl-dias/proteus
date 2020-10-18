@@ -291,9 +291,9 @@ std::future<std::vector<mem_file>> StorageManager::getOrLoadFile(
 
 FileRequest StorageManager::request(std::string name, size_t type_size,
                                     data_loc loc) {
-  return FileRequest{[=, aff = exec_location{}]() {
+  return FileRequest{[=, this, aff = exec_location{}]() {
     set_exec_location_on_scope e{aff};
-    return getOrLoadFile(name, type_size, loc);
+    return this->getOrLoadFile(name, type_size, loc);
   }};
 }
 

@@ -37,7 +37,9 @@ class DegreeOfParallelism {
 
   operator size_t() const { return dop; }
 
-  inline bool operator==(const DegreeOfParallelism &o) { return dop == o.dop; }
+  inline bool operator==(const DegreeOfParallelism &o) const {
+    return dop == o.dop;
+  }
 };
 
 #endif /* DEGREE_OF_PARALLELISM_HPP_ */
