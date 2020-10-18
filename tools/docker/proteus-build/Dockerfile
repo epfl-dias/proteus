@@ -39,6 +39,15 @@ RUN curl -L -O https://github.com/ccache/ccache/releases/download/v3.7.12/ccache
     make && \
     make install
 
+RUN git clone https://gitlab.kitware.com/cmake/cmake.git && \
+    cd cmake && \
+    git checkout e647949539f4704a00eddac2357d59ceeb8bc0ca && \
+    ./bootstrap --parallel=$(nproc --all) -- -DCMAKE_USE_OPENSSL=OFF && \
+    make -j$(nproc --all) && \
+    make install && \
+    cd .. && \
+    rm -rf cmake
+
 RUN apt update  -y && \
     apt upgrade -y && \
     apt install -y --no-install-recommends libpostgresql-jdbc-java && \
