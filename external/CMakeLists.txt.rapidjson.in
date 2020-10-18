@@ -3,9 +3,10 @@ cmake_minimum_required(VERSION 2.8.2)
 project(rapidjson-download NONE)
 
 include(ExternalProject)
-ExternalProject_Add(rapidjson
+
+ExternalProject_Add(rapidjson-ext
   GIT_REPOSITORY    https://github.com/Tencent/rapidjson.git
-  GIT_TAG           6534506e829a489bda78bc5eac5faa34da0a2c51
+  GIT_TAG           0ccdbf364c577803e2a751f5aededce935314313
   SOURCE_DIR        "${CMAKE_CURRENT_BINARY_DIR}/rapidjson-src"
   BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/rapidjson-build"
   CONFIGURE_COMMAND ""

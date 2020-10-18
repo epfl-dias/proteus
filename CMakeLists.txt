@@ -436,10 +436,16 @@ if (TRUE)
 	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/rapidjson-src
 			${CMAKE_CURRENT_BINARY_DIR}/rapidjson-build
 			)
+	message(STATUS ${CMAKE_CURRENT_BINARY_DIR})
+	#set(rapidJSON_DIR ${CMAKE_CURRENT_BINARY_DIR}/rapidjson-build)
 
-	add_library(RapidJSON::RapidJSON INTERFACE IMPORTED)
-	set_target_properties(RapidJSON::RapidJSON PROPERTIES
-		INTERFACE_INCLUDE_DIRECTORIES "${RapidJSON_SOURCE_DIR}/include")
+	find_package(RapidJSON PATHS ${CMAKE_CURRENT_BINARY_DIR} NO_DEFAULT_PATH)
+
+	set_target_properties(rapidjson PROPERTIES IMPORTED_GLOBAL TRUE)
+
+	add_library(RapidJSON::RapidJSON ALIAS rapidjson)
+#	set_target_properties(RapidJSON::RapidJSON PROPERTIES
+#		INTERFACE_INCLUDE_DIRECTORIES "${RapidJSON_SOURCE_DIR}/include")
 endif()
 
 #-----------------------------------------------------------------------
