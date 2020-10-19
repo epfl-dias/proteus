@@ -226,6 +226,28 @@ message(STATUS "Using LLVM definitions: ${LLVM_DEFINITIONS}")
 link_directories(${LLVM_LIBRARY_DIR})
 message(STATUS "Using LLVM library dir: ${LLVM_LIBRARY_DIR}")
 
+
+add_library(LLVM_VIRTUAL_TARGET INTERFACE)
+target_include_directories(LLVM_VIRTUAL_TARGET
+  SYSTEM PUBLIC INTERFACE
+		${LLVM_INCLUDE_DIRS})
+target_link_libraries(LLVM_VIRTUAL_TARGET
+	PUBLIC INTERFACE
+		${llvm_libs})
+
+
+# 'make install' to the correct locations (provided by GNUInstallDirs).
+install(TARGETS LLVM_VIRTUAL_TARGET EXPORT LLVMVTConfig.cmake
+		ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR})  # This is for Windows
+
+install(EXPORT LLVMVTConfig.cmake DESTINATION share/LLVMVT/cmake)
+export(TARGETS LLVM_VIRTUAL_TARGET FILE LLVMVTConfig.cmake)
+
+
+add_library(LLVM::LLVM ALIAS LLVM_VIRTUAL_TARGET)
+
 #-----------------------------------------------------------------------
 # Various dependencies
 #-----------------------------------------------------------------------

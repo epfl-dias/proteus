@@ -144,11 +144,6 @@ target_include_directories(olap
         ${CMAKE_CURRENT_SOURCE_DIR}
     )
 
-target_include_directories(olap
-    SYSTEM PUBLIC
-        ${LLVM_INCLUDE_DIRS}
-    )
-
 # If we have compiler requirements for this library, list them
 # here
 target_compile_features(olap
@@ -157,11 +152,11 @@ target_compile_features(olap
 # Depend on a library that we defined in the top-level file
 target_link_libraries(olap
     PUBLIC
-        ${llvm_libs}
+        RapidJSON::RapidJSON
+        LLVM::LLVM
         codegen::codegen
         jsmn::jsmn
-        cli-flags::cli-flags
-        RapidJSON::RapidJSON)
+        cli-flags::cli-flags)
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
 install(TARGETS olap EXPORT ${PROJECT_NAME}Targets
