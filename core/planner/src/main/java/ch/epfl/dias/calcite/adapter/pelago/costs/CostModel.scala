@@ -72,7 +72,7 @@ object CostModel {
           } else if (router.getTraitSet.containsIfApplicable(RelPacking.Packed)){
             blockSize
           } else {
-            blockSize * 2000 //FIXME: patch until we implement exclicit mem-moves in the plans
+            blockSize * 0.2 //FIXME: patch until we implement exclicit mem-moves in the plans
           }
         })
     case cross: PelagoDeviceCross if cross.getDeviceType() == RelDeviceType.NVPTX && cross.getTraitSet.containsIfApplicable(RelPacking.UnPckd) =>
