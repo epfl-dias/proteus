@@ -54,45 +54,49 @@ BinaryBlockPlugin::BinaryBlockPlugin(
     : fnamePrefix(fnamePrefix),
       rec(std::move(rec)),
       wantedFields(ensureRelName(whichFields, fnamePrefix)) {
-  LLVMContext &llvmContext = context->getLLVMContext();
-
   if (load) {
-    if (wantedFields.empty()) {
-      string error_msg{"[BinaryBlockPlugin: ] Invalid number of fields"};
-      LOG(ERROR) << error_msg;
-      throw runtime_error(error_msg);
-    }
-
-    // std::vector<Type *> parts_array;
-    for (const auto &in : wantedFields) {
-      string fileName = fnamePrefix + "." + in->getAttrName();
-
-      const auto llvm_type = in->getOriginalType()->getLLVMType(llvmContext);
-      size_t type_size = context->getSizeOf(llvm_type);
-      fieldSizes.emplace_back(type_size);
-
-      wantedFieldsFiles.emplace_back(StorageManager::getInstance().request(
-          fileName, type_size, ALLSOCKETS));
-      // Show the intent to the storage manager
-      wantedFieldsFiles.back().registerIntent();
-
-      // wantedFieldsFiles.emplace_back(StorageManager::getFile(fileName));
-      // FIXME: consider if address space should be global memory rather than
-      // generic
-      // Type * t = PointerType::get(((const PrimitiveType *)
-      // tin)->getLLVMType(llvmContext), /* address space */ 0);
-
-      // wantedFieldsArg_id.push_back(context->appendParameter(t, true, true));
-
-      if (in->getOriginalType()->getTypeID() == DSTRING) {
-        // fetch the dictionary
-        void *dict = StorageManager::getInstance().getDictionaryOf(fileName);
-        ((DStringType *)(in->getOriginalType()))->setDictionary(dict);
-      }
-    }
-
+    loadData(context, ALLSOCKETS);
     finalize_data(context);
   }
+}
+
+void BinaryBlockPlugin::loadData(ParallelContext *context, data_loc loc) {
+  LLVMContext &llvmContext = context->getLLVMContext();
+  if (wantedFields.empty()) {
+    string error_msg{"[BinaryBlockPlugin: ] Invalid number of fields"};
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  }
+
+  // std::vector<Type *> parts_array;
+  for (const auto &in : wantedFields) {
+    string fileName = fnamePrefix + "." + in->getAttrName();
+
+    const auto llvm_type = in->getOriginalType()->getLLVMType(llvmContext);
+    size_t type_size = context->getSizeOf(llvm_type);
+    fieldSizes.emplace_back(type_size);
+
+    wantedFieldsFiles.emplace_back(
+        StorageManager::getInstance().request(fileName, type_size, loc));
+    // Show the intent to the storage manager
+    wantedFieldsFiles.back().registerIntent();
+
+    // wantedFieldsFiles.emplace_back(StorageManager::getFile(fileName));
+    // FIXME: consider if address space should be global memory rather than
+    // generic
+    // Type * t = PointerType::get(((const PrimitiveType *)
+    // tin)->getLLVMType(llvmContext), /* address space */ 0);
+
+    // wantedFieldsArg_id.push_back(context->appendParameter(t, true, true));
+
+    if (in->getOriginalType()->getTypeID() == DSTRING) {
+      // fetch the dictionary
+      void *dict = StorageManager::getInstance().getDictionaryOf(fileName);
+      ((DStringType *)(in->getOriginalType()))->setDictionary(dict);
+    }
+  }
+
+  finalize_data(context);
 }
 
 void BinaryBlockPlugin::finalize_data(ParallelContext *context) {

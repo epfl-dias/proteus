@@ -34,20 +34,7 @@ class ParallelContext;
 class BinaryBlockPlugin : public Plugin {
  public:
   static constexpr auto type = "block";
-  /**
-   * Plugin for scanning columns on the gpu side.
-   *
-   * Support for
-   * -> integers
-   * -> floats
-   * -> chars & booleans
-   *
-   *
-   * Conventions / Assumptions:
-   * -> integers, floats, chars and booleans are stored as tight arrays
-   * -> varchars are not yet supported
-   * -> dates require more sophisticated serialization (boost?)
-   */
+
  protected:
   BinaryBlockPlugin(ParallelContext *context, const string &fnamePrefix,
                     RecordType rec,
@@ -161,6 +148,8 @@ class BinaryBlockPlugin : public Plugin {
   [[nodiscard]] RecordType getRowType() const override;
 
  protected:
+  void loadData(ParallelContext *context, data_loc loc);
+
   void flushOutputInternal(Context *context, std::string fileName,
                            const ExpressionType *type);
 
@@ -173,14 +162,14 @@ class BinaryBlockPlugin : public Plugin {
     throw runtime_error(error_msg);
   }
 
-  void flushValue(ProteusValueMemory mem_value, const ExpressionType *type,
+  void flushValue(ProteusValueMemory mem_value, const ExpressionType *,
                   llvm::Value *fileName) override {
     string error_msg = "Reached a deprecated function";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
 
-  void flushValueEager(ProteusValue value, const ExpressionType *type,
+  void flushValueEager(ProteusValue value, const ExpressionType *,
                        llvm::Value *fileName) override {
     string error_msg = "Reached a deprecated function";
     LOG(ERROR) << error_msg;

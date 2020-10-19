@@ -22,10 +22,21 @@
 */
 
 #include <lib/plugins/distributed-binary-block-plugin.hpp>
+#include <storage/storage-manager.hpp>
+#include <utility>
 
 extern "C" Plugin *createDistributedBlockPlugin(
     ParallelContext *context, std::string fnamePrefix, RecordType rec,
     std::vector<RecordAttribute *> &whichFields) {
-  return new DistributedBinaryBlockPlugin(context, fnamePrefix, rec,
+  return new DistributedBinaryBlockPlugin(context, fnamePrefix, std::move(rec),
                                           whichFields);
+}
+
+DistributedBinaryBlockPlugin::DistributedBinaryBlockPlugin(
+    ParallelContext *const context, const std::string &fnamePrefix,
+    RecordType rec, vector<RecordAttribute *> &whichFields)
+    : BinaryBlockPlugin(context, fnamePrefix, std::move(rec), whichFields,
+                        false) {
+  loadData(context, DISTRIBUTED);
+  finalize_data(context);
 }

@@ -25,47 +25,16 @@
 #define DISTRIBUTED_BINARY_BLOCK_PLUGIN_HPP_
 
 #include <memory>
+#include <utility>
 
 #include "olap/plugins/binary-block-plugin.hpp"
-#include "storage/storage-manager.hpp"
 
 class DistributedBinaryBlockPlugin : public BinaryBlockPlugin {
  public:
-  DistributedBinaryBlockPlugin(ParallelContext *const context,
-                               string fnamePrefix, RecordType rec,
-                               vector<RecordAttribute *> &whichFields)
-      : BinaryBlockPlugin(context, fnamePrefix, rec, whichFields, false) {
-    auto &llvmContext = context->getLLVMContext();
-
-    // std::vector<Type *> parts_array;
-    for (const auto &in : wantedFields) {
-      string fileName = fnamePrefix + "." + in->getAttrName();
-
-      const auto llvm_type = in->getOriginalType()->getLLVMType(llvmContext);
-      size_t type_size = context->getSizeOf(llvm_type);
-      fieldSizes.emplace_back(type_size);
-
-      wantedFieldsFiles.emplace_back(StorageManager::getInstance().request(
-          fileName, type_size, DISTRIBUTED));
-      // Show the intent to the storage manager
-      wantedFieldsFiles.back().registerIntent();
-      // wantedFieldsFiles.emplace_back(StorageManager::getFile(fileName));
-      // FIXME: consider if address space should be global memory rather than
-      // generic
-      // Type * t = PointerType::get(((const PrimitiveType *)
-      // tin)->getLLVMType(llvmContext), /* address space */ 0);
-
-      // wantedFieldsArg_id.push_back(context->appendParameter(t, true, true));
-
-      if (in->getOriginalType()->getTypeID() == DSTRING) {
-        // fetch the dictionary
-        void *dict = StorageManager::getInstance().getDictionaryOf(fileName);
-        ((DStringType *)(in->getOriginalType()))->setDictionary(dict);
-      }
-    }
-
-    finalize_data(context);
-  }
+  static constexpr auto type = "distributed-block";
+  DistributedBinaryBlockPlugin(ParallelContext *context,
+                               const std::string &fnamePrefix, RecordType rec,
+                               vector<RecordAttribute *> &whichFields);
 };
 
 #endif /* DISTRIBUTED_BINARY_BLOCK_PLUGIN_HPP_ */

@@ -61,6 +61,8 @@ FileRecord FileRecord::load(const std::string &name, size_t type_size,
 
   if (loc == EVERYWHERE) return loadEverywhere(name, type_size, 1, 1);
 
+  if (loc == DISTRIBUTED) return loadDistributed(name, type_size);
+
   time_block t("Topen (" + name + "): ",
                TimeRegistry::Key{"Data loading (current)"});
 
