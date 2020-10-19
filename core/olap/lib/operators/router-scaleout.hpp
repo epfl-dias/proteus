@@ -38,15 +38,6 @@
 #include "util/async_containers.hpp"
 #include "util/logging.hpp"
 
-class Router;
-
-extern "C" {
-void *acquireBuffer(int target, Router *xch);
-void *try_acquireBuffer(int target, Router *xch);
-void releaseBuffer(int target, Router *xch, void *buff);
-void freeBuffer(int target, Router *xch, void *buff);
-}
-
 class RouterScaleOut : public Router {
   size_t cnt = 0;
 
@@ -56,7 +47,8 @@ class RouterScaleOut : public Router {
                  std::optional<expression_t> hash, RoutingPolicy policy_type,
                  DeviceType targets, int producers)
       : Router(child, numOfParents, wantedFields, slack, std::move(hash),
-               policy_type, targets) {
+               policy_type, targets),
+        sub(nullptr) {
     setProducers(producers);
   }
 
@@ -71,27 +63,22 @@ class RouterScaleOut : public Router {
 
   //  void fire(int target, PipelineGen *pipGen);
 
-  virtual void fire(int target, PipelineGen *pipGen);
+  void fire(int target, PipelineGen *pipGen) override;
 
  protected:
-  void *acquireBuffer(int target, bool polling = false);
-  void releaseBuffer(int target, void *buff);
-  void freeBuffer(int target, void *buff);
-  bool get_ready(int target, void *&buff);
+  void *acquireBuffer(int target, bool polling) override;
+  void releaseBuffer(int target, void *buff) override;
+  void freeBuffer(int target, void *buff) override;
+  bool get_ready(int target, void *&buff) override;
 
   std::atomic<size_t> closed = 0;
   subscription *sub;
   bool strmclosed = false;
 
-  //  friend void *acquireBuffer(int target, Router *xch);
-  //  friend void *try_acquireBuffer(int target, Router *xch);
-  //  friend void releaseBuffer(int target, Router *xch, void *buff);
-  //  friend void freeBuffer(int target, Router *xch, void *buff);
-
  protected:
   // void open(Pipeline *pip);
-  virtual void open(Pipeline *pip);
-  virtual void close(Pipeline *pip);
+  void open(Pipeline *pip) override;
+  void close(Pipeline *pip) override;
   // void open(Pipeline *pip);
   virtual void fire_close(Pipeline *pip);
 };

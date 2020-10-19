@@ -41,17 +41,15 @@
 
 class Router;
 
-extern "C" {
 [[nodiscard]] void *acquireBuffer(int target, Router *xch);
 [[nodiscard]] void *try_acquireBuffer(int target, Router *xch);
 void releaseBuffer(int target, Router *xch, void *buff);
 void freeBuffer(int target, Router *xch, void *buff);
-}
 
 class Router : public experimental::UnaryOperator {
  public:
   Router(Operator *const child, DegreeOfParallelism numOfParents,
-         vector<RecordAttribute *> wantedFields, int slack,
+         std::vector<RecordAttribute *> wantedFields, int slack,
          std::optional<expression_t> hash, RoutingPolicy policy_type,
          std::unique_ptr<Affinitizer> aff)
       : UnaryOperator(child),
@@ -71,11 +69,11 @@ class Router : public experimental::UnaryOperator {
   }
 
   Router(Operator *const child, DegreeOfParallelism numOfParents,
-         vector<RecordAttribute *> wantedFields, int slack,
+         std::vector<RecordAttribute *> wantedFields, int slack,
          std::optional<expression_t> hash, RoutingPolicy policy_type,
          DeviceType targets)
-      : Router(child, numOfParents, wantedFields, slack, hash, policy_type,
-               getDefaultAffinitizer(targets)) {}
+      : Router(child, numOfParents, std::move(wantedFields), slack,
+               std::move(hash), policy_type, getDefaultAffinitizer(targets)) {}
 
   void produce_(ParallelContext *context) override;
   void consume(ParallelContext *context,
@@ -90,29 +88,29 @@ class Router : public experimental::UnaryOperator {
  protected:
   virtual void generate_catch(ParallelContext *context);
 
-  void fire(int target, PipelineGen *pipGen);
+  virtual void fire(int target, PipelineGen *pipGen);
 
   virtual std::unique_ptr<routing::RoutingPolicy> getPolicy() const;
 
  protected:
-  [[nodiscard]] void *acquireBuffer(int target, bool polling = false);
-  void releaseBuffer(int target, void *buff);
-  void freeBuffer(int target, void *buff);
-  bool get_ready(int target, void *&buff);
+  [[nodiscard]] virtual void *acquireBuffer(int target, bool polling);
+  virtual void releaseBuffer(int target, void *buff);
+  virtual void freeBuffer(int target, void *buff);
+  virtual bool get_ready(int target, void *&buff);
 
   friend void *acquireBuffer(int target, Router *xch);
   friend void *try_acquireBuffer(int target, Router *xch);
   friend void releaseBuffer(int target, Router *xch, void *buff);
   friend void freeBuffer(int target, Router *xch, void *buff);
 
-  inline void setProducers(int producers) {
-    this->producers = producers;
-    remaining_producers = producers;
+  inline void setProducers(int prods) {
+    this->producers = prods;
+    remaining_producers = prods;
   }
 
  protected:
-  void open(Pipeline *pip);
-  void close(Pipeline *pip);
+  virtual void open(Pipeline *pip);
+  virtual void close(Pipeline *pip);
 
   virtual void spawnWorker(size_t i);
 
@@ -127,8 +125,6 @@ class Router : public experimental::UnaryOperator {
   const int slack;
   size_t buf_size;
 
-  AsyncQueueMPSC<void *> *ready_fifo;
-
   std::unique_ptr<Affinitizer> aff;
   std::mutex init_mutex;
 
@@ -137,10 +133,14 @@ class Router : public experimental::UnaryOperator {
 
   llvm::Type *params_type;
 
+ protected:
+  AsyncQueueMPSC<void *> *ready_fifo;
+
   std::stack<void *> *free_pool;
   std::mutex *free_pool_mutex;
   std::condition_variable *free_pool_cv;
 
+ private:
   std::optional<expression_t> hashExpr;
 
   bool need_cnt;

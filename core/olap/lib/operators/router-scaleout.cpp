@@ -110,6 +110,12 @@ void RouterScaleOut::open(Pipeline *pip) {
   std::lock_guard<std::mutex> guard(init_mutex);
 
   if (firers.empty()) {
+    free_pool = new std::stack<void *>[fanout];
+    free_pool_mutex = new std::mutex[fanout];
+    free_pool_cv = new std::condition_variable[fanout];
+    ready_fifo = new AsyncQueueMPSC<void *>[fanout];
+    assert(free_pool);
+
     for (int i = 0; i < 2; ++i) {
       ready_fifo[i].reset();
     }
@@ -159,4 +165,11 @@ void RouterScaleOut::close(Pipeline *pip) {
   LOG(INFO) << "data: " << (bytes{buf_size * cnt});
   cnt = 0;
   closed = 0;
+
+  if (rem == 0) {
+    delete[] free_pool;
+    delete[] free_pool_mutex;
+    delete[] free_pool_cv;
+    delete[] ready_fifo;
+  }
 }

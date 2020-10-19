@@ -318,7 +318,6 @@ void Router::fire(int target, PipelineGen *pipGen) {
   eventlogger.log(this, log_op::EXCHANGE_CONSUME_CLOSE_END);
 }
 
-extern "C" {
 void *acquireBuffer(int target, Router *xch) {
   return xch->acquireBuffer(target, false);
 }
@@ -333,7 +332,6 @@ void releaseBuffer(int target, Router *xch, void *buff) {
 
 void freeBuffer(int target, Router *xch, void *buff) {
   return xch->freeBuffer(target, buff);
-}
 }
 
 std::unique_ptr<routing::RoutingPolicy> Router::getPolicy() const {
@@ -419,15 +417,9 @@ void Router::consume(ParallelContext *const context,
       ConstantInt::get(llvmContext, APInt(64, ((uint64_t)this)));
   Value *exchange = Builder->CreateIntToPtr(exchangePtr, charPtrType);
 
-  vector<Value *> kernel_args{target, exchange};
-
-  Function *acquireBuffer;
-  if (r.may_retry)
-    acquireBuffer = context->getFunction("try_acquireBuffer");
-  else
-    acquireBuffer = context->getFunction("acquireBuffer");
-
-  Value *param_ptr = Builder->CreateCall(acquireBuffer, kernel_args);
+  auto param_ptr = context->gen_call(
+      (r.may_retry) ? (::try_acquireBuffer) : (::acquireBuffer),
+      {target, exchange});
 
   Value *null_ptr =
       ConstantPointerNull::get(((PointerType *)param_ptr->getType()));
@@ -438,15 +430,14 @@ void Router::consume(ParallelContext *const context,
 
   Builder->SetInsertPoint(contBB);
 
-  param_ptr =
-      Builder->CreateBitCast(param_ptr, PointerType::get(params->getType(), 0));
+  param_ptr = Builder->CreateBitCast(param_ptr,
+                                     PointerType::getUnqual(params->getType()));
 
   Builder->CreateStore(params, param_ptr);
 
-  Function *releaseBuffer = context->getFunction("releaseBuffer");
-  kernel_args.push_back(Builder->CreateBitCast(param_ptr, charPtrType));
-
-  Builder->CreateCall(releaseBuffer, kernel_args);
+  context->gen_call(
+      ::releaseBuffer,
+      {target, exchange, Builder->CreateBitCast(param_ptr, charPtrType)});
 }
 
 void Router::spawnWorker(size_t i) {

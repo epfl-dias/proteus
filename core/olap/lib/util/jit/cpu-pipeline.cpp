@@ -148,39 +148,6 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
   registerFunction("step_mmc_mem_move_broadcast_device",
                    fstep_mmc_mem_move_broadcast_device);
 
-  FunctionType *acquireBuffer = FunctionType::get(
-      charPtrType, std::vector<Type *>{int32_type, charPtrType}, false);
-  Function *facquireBuffer = Function::Create(
-      acquireBuffer, Function::ExternalLinkage, "acquireBuffer", getModule());
-  {
-    std::vector<std::pair<unsigned, Attribute>> attrs;
-    Attribute def = Attribute::getWithDereferenceableBytes(
-        getModule()->getContext(),
-        BlockManager::block_size);  // FIXME: at some point this should
-                                    // change...
-    attrs.emplace_back(0, def);
-    facquireBuffer->setAttributes(
-        AttributeList::get(getModule()->getContext(), attrs));
-  }
-  registerFunction("acquireBuffer", facquireBuffer);
-
-  FunctionType *try_acquireBuffer = FunctionType::get(
-      charPtrType, std::vector<Type *>{int32_type, charPtrType}, false);
-  Function *ftry_acquireBuffer =
-      Function::Create(try_acquireBuffer, Function::ExternalLinkage,
-                       "try_acquireBuffer", getModule());
-  {
-    std::vector<std::pair<unsigned, Attribute>> attrs;
-    Attribute def = Attribute::getWithDereferenceableOrNullBytes(
-        getModule()->getContext(),
-        BlockManager::block_size);  // FIXME: at some point this should
-                                    // change...
-    attrs.emplace_back(0, def);
-    ftry_acquireBuffer->setAttributes(
-        AttributeList::get(getModule()->getContext(), attrs));
-  }
-  registerFunction("try_acquireBuffer", ftry_acquireBuffer);
-
   FunctionType *allocate =
       FunctionType::get(charPtrType, std::vector<Type *>{size_type}, false);
   Function *fallocate = Function::Create(allocate, Function::ExternalLinkage,
@@ -198,20 +165,6 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
   Function *fdeallocate = Function::Create(
       deallocate, Function::ExternalLinkage, "deallocate_pinned", getModule());
   registerFunction("deallocate", fdeallocate);
-
-  FunctionType *releaseBuffer = FunctionType::get(
-      void_type, std::vector<Type *>{int32_type, charPtrType, charPtrType},
-      false);
-  Function *freleaseBuffer = Function::Create(
-      releaseBuffer, Function::ExternalLinkage, "releaseBuffer", getModule());
-  registerFunction("releaseBuffer", freleaseBuffer);
-
-  FunctionType *freeBuffer = FunctionType::get(
-      void_type, std::vector<Type *>{int32_type, charPtrType, charPtrType},
-      false);
-  Function *ffreeBuffer = Function::Create(
-      freeBuffer, Function::ExternalLinkage, "freeBuffer", getModule());
-  registerFunction("freeBuffer", ffreeBuffer);
 
   FunctionType *crand =
       FunctionType::get(int32_type, std::vector<Type *>{}, false);
