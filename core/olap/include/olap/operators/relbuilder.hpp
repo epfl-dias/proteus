@@ -89,6 +89,9 @@ class RelBuilder {
   typedef std::function<std::vector<expression_t>(
       const expressions::InputArgument&)>
       MultiExpressionFactory;
+  typedef std::function<std::optional<expression_t>(
+      const expressions::InputArgument&)>
+      OptionalExpressionFactory;
 
   RelBuilder scan(Plugin& pg) const;
 
@@ -192,10 +195,8 @@ class RelBuilder {
 
   [[nodiscard]] RelBuilder memmove_scaleout(size_t slack) const;
 
-  template <typename T>
-  RelBuilder memmove_scaleout(T attr, size_t slack) const {
-    return memmove_scaleout(attr(getOutputArg()), slack);
-  }
+  [[nodiscard]] RelBuilder memmove_scaleout(const MultiAttributeFactory& attr,
+                                            size_t slack) const;
 
   template <typename T>
   RelBuilder membrdcst(T attr, DegreeOfParallelism fanout, bool to_cpu,
@@ -217,7 +218,7 @@ class RelBuilder {
                                               bool always_share = false) const;
 
   template <typename T, typename Thash>
-  [[nodiscard]] [[nodiscard]] RelBuilder router(
+  [[nodiscard]] RelBuilder router(
       T attr, Thash hash, DegreeOfParallelism fanout, size_t slack,
       RoutingPolicy p, DeviceType target,
       std::unique_ptr<Affinitizer> aff = nullptr) const {
@@ -225,13 +226,14 @@ class RelBuilder {
                   target, std::move(aff));
   }
 
-  template <typename T, typename Thash>
-  RelBuilder router_scaleout(T attr, Thash hash, DegreeOfParallelism fanout,
-                             size_t slack, RoutingPolicy p, DeviceType targets,
-                             int producers) const {
-    return router_scaleout(attr(getOutputArg()), hash(getOutputArg()), fanout,
-                           slack, p, targets, producers);
-  }
+  [[nodiscard]] RelBuilder router_scaleout(
+      const MultiAttributeFactory& attr, const OptionalExpressionFactory& hash,
+      DegreeOfParallelism fanout, size_t slack, RoutingPolicy p,
+      DeviceType targets, int producers) const;
+
+  [[nodiscard]] RelBuilder router_scaleout(
+      const OptionalExpressionFactory& hash, DegreeOfParallelism fanout,
+      size_t slack, RoutingPolicy p, DeviceType target, int producers) const;
 
   template <typename Thash>
   [[nodiscard]] RelBuilder router(
@@ -252,25 +254,18 @@ class RelBuilder {
         hash, fanout, slack, p, target, std::move(aff));
   }
 
+  [[nodiscard]] RelBuilder router_scaleout(DegreeOfParallelism fanout,
+                                           size_t slack, RoutingPolicy p,
+                                           DeviceType target,
+                                           int producers) const;
+
   [[nodiscard]] RelBuilder router(
       DegreeOfParallelism fanout, size_t slack, RoutingPolicy p,
-      DeviceType target, std::unique_ptr<Affinitizer> aff = nullptr) const {
-    assert(p != RoutingPolicy::HASH_BASED);
-    return router(
-        [&](const auto& arg) -> std::optional<expression_t> {
-          return std::nullopt;
-        },
-        fanout, slack, p, target, std::move(aff));
-  }
+      DeviceType target, std::unique_ptr<Affinitizer> aff = nullptr) const;
 
   [[nodiscard]] RelBuilder router(
       size_t slack, RoutingPolicy p, DeviceType target,
-      std::unique_ptr<Affinitizer> aff = nullptr) const {
-    size_t dop = (target == DeviceType::CPU)
-                     ? topology::getInstance().getCoreCount()
-                     : topology::getInstance().getGpuCount();
-    return router(DegreeOfParallelism{dop}, slack, p, target, std::move(aff));
-  }
+      std::unique_ptr<Affinitizer> aff = nullptr) const;
 
   [[nodiscard]] RelBuilder unionAll(
       const std::vector<RelBuilder>& children) const;
@@ -280,15 +275,7 @@ class RelBuilder {
   [[nodiscard]] RelBuilder to_cpu(gran_t granularity = gran_t::THREAD,
                                   size_t size = 1024 * 1024 / 4) const;
 
-  [[nodiscard]] RelBuilder unpack() const {
-    return unpack([&](const auto& arg) -> std::vector<expression_t> {
-      std::vector<expression_t> attrs;
-      for (const auto& attr : arg.getProjections()) {
-        attrs.emplace_back(arg[attr]);
-      }
-      return attrs;
-    });
-  }
+  [[nodiscard]] RelBuilder unpack() const;
 
   [[nodiscard]] RelBuilder bloomfilter_repack(
       std::function<expression_t(expressions::InputArgument)> pred,
@@ -366,17 +353,7 @@ class RelBuilder {
     return pack(expr(getOutputArg()), hashExpr(getOutputArg()), numOfBuckets);
   }
 
-  [[nodiscard]] RelBuilder pack() const {
-    return pack(
-        [&](const auto& arg) -> std::vector<expression_t> {
-          std::vector<expression_t> attrs;
-          for (const auto& attr : arg.getProjections()) {
-            attrs.emplace_back(arg[attr]);
-          }
-          return attrs;
-        },
-        [](const auto& arg) { return expression_t{0}; }, 1);
-  }
+  [[nodiscard]] RelBuilder pack() const;
 
   template <typename T>
   RelBuilder project(T expr) const {

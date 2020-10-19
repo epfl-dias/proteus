@@ -211,6 +211,11 @@ RelBuilder RelBuilder::memmove(size_t slack, DeviceType to) const {
   return memmove(ret, slack, to);
 }
 
+RelBuilder RelBuilder::memmove_scaleout(const MultiAttributeFactory &attr,
+                                        size_t slack) const {
+  return memmove_scaleout(attr(getOutputArg()), slack);
+}
+
 RelBuilder RelBuilder::memmove_scaleout(size_t slack) const {
   return memmove_scaleout(
       [&](const auto &arg) -> std::vector<RecordAttribute *> {
@@ -439,6 +444,64 @@ RelBuilder RelBuilder::router_scaleout(
   auto op = new RouterScaleOut(root, DegreeOfParallelism{fanout}, wantedFields,
                                slack, std::move(hash), p, targets, producers);
   return apply(op);
+}
+
+RelBuilder RelBuilder::router_scaleout(const MultiAttributeFactory &attr,
+                                       const OptionalExpressionFactory &hash,
+                                       DegreeOfParallelism fanout, size_t slack,
+                                       RoutingPolicy p, DeviceType targets,
+                                       int producers) const {
+  return router_scaleout(attr(getOutputArg()), hash(getOutputArg()), fanout,
+                         slack, p, targets, producers);
+}
+
+RelBuilder RelBuilder::router_scaleout(const OptionalExpressionFactory &hash,
+                                       DegreeOfParallelism fanout, size_t slack,
+                                       RoutingPolicy p, DeviceType target,
+                                       int producers) const {
+  return router_scaleout(
+      [&](const auto &arg) -> std::vector<RecordAttribute *> {
+        std::vector<RecordAttribute *> attrs;
+        for (const auto &attr : arg.getProjections()) {
+          if (p == RoutingPolicy::HASH_BASED &&
+              attr.getAttrName() == "__broadcastTarget") {
+            continue;
+          }
+          attrs.emplace_back(new RecordAttribute{attr});
+        }
+        return attrs;
+      },
+      hash, fanout, slack, p, target, producers);
+}
+
+RelBuilder RelBuilder::router_scaleout(DegreeOfParallelism fanout, size_t slack,
+                                       RoutingPolicy p, DeviceType target,
+                                       int producers) const {
+  assert(p != RoutingPolicy::HASH_BASED);
+  return router_scaleout(
+      [&](const auto &arg) -> std::optional<expression_t> {
+        return std::nullopt;
+      },
+      fanout, slack, p, target, producers);
+}
+
+RelBuilder RelBuilder::router(DegreeOfParallelism fanout, size_t slack,
+                              RoutingPolicy p, DeviceType target,
+                              std::unique_ptr<Affinitizer> aff) const {
+  assert(p != RoutingPolicy::HASH_BASED);
+  return router(
+      [&](const auto &arg) -> std::optional<expression_t> {
+        return std::nullopt;
+      },
+      fanout, slack, p, target, std::move(aff));
+}
+
+RelBuilder RelBuilder::router(size_t slack, RoutingPolicy p, DeviceType target,
+                              std::unique_ptr<Affinitizer> aff) const {
+  size_t dop = (target == DeviceType::CPU)
+                   ? topology::getInstance().getCoreCount()
+                   : topology::getInstance().getGpuCount();
+  return router(DegreeOfParallelism{dop}, slack, p, target, std::move(aff));
 }
 
 RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
@@ -797,6 +860,28 @@ RelBuilder RelBuilder::update(
 RelBuilder RelBuilder::update(expression_t e) const {
   auto op = new Update(root, std::move(e));
   return apply(op);
+}
+
+RelBuilder RelBuilder::unpack() const {
+  return unpack([&](const auto &arg) -> std::vector<expression_t> {
+    std::vector<expression_t> attrs;
+    for (const auto &attr : arg.getProjections()) {
+      attrs.emplace_back(arg[attr]);
+    }
+    return attrs;
+  });
+}
+
+RelBuilder RelBuilder::pack() const {
+  return pack(
+      [&](const auto &arg) -> std::vector<expression_t> {
+        std::vector<expression_t> attrs;
+        for (const auto &attr : arg.getProjections()) {
+          attrs.emplace_back(arg[attr]);
+        }
+        return attrs;
+      },
+      [](const auto &arg) { return expression_t{0}; }, 1);
 }
 
 std::ostream &operator<<(std::ostream &out, const RelBuilder &builder) {
