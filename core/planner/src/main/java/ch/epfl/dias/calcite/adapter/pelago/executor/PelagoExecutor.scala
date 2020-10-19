@@ -2,7 +2,7 @@ package ch.epfl.dias.calcite.adapter.pelago.executor
 
 import java.io.File
 
-import ch.epfl.dias.calcite.adapter.pelago.PelagoResultTable
+import ch.epfl.dias.calcite.adapter.pelago.{PelagoResultTable, PelagoToEnumerableConverter}
 import ch.epfl.dias.calcite.adapter.pelago.reporting.{PelagoTimeInterval, TimeKeeper}
 import ch.epfl.dias.repl.Repl
 import org.apache.calcite.DataContext
@@ -43,6 +43,7 @@ object PelagoExecutor {
       builder = new ProcessBuilder(Repl.executor_server).redirectErrorStream(true)
       process = builder.start()
       loadedfiles = null
+      PelagoToEnumerableConverter.preparedStatementsCache.clear()
 
       stdinWriter  = new java.io.PrintWriter((new java.io.OutputStreamWriter(new java.io.BufferedOutputStream(process.getOutputStream()))), true)
       stdoutReader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))
