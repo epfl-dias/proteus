@@ -90,7 +90,7 @@ class CatalogParser {
 
  private:
   void parseCatalogFile(const std::filesystem::path &dir);
-  void parseDir(const std::filesystem::path &dir);
+  bool parseDir(const std::filesystem::path &dir);
 
   map<std::string, InputInfo *> inputs;
 };

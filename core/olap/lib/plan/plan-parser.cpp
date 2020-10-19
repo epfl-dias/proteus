@@ -522,11 +522,6 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
 
     size_t maxInputSize = val["maxInputSize"].GetUint64();
 
-    assert(dynamic_cast<ParallelContext *>(this->ctx));
-    // newOp = new GpuHashGroupByChained(e, widths, key_expr, child, hash_bits,
-    //                     dynamic_cast<ParallelContext *>(this->ctx),
-    //                     maxInputSize);
-
     return childOp.groupby(
         [&](const auto &arg) {
           assert(val.HasMember("k"));
@@ -2037,16 +2032,21 @@ void CatalogParser::clear() {
   parseDir("inputs");
 }
 
-void CatalogParser::parseDir(const std::filesystem::path &dir) {
-  LOG(INFO) << "Scanning for catalogs: " << dir;
+bool CatalogParser::parseDir(const std::filesystem::path &dir) {
+  bool foundCatalog = false;
 
   for (const auto &entry : std::filesystem::directory_iterator(dir)) {
     if (std::filesystem::is_directory(entry)) {
-      parseDir(entry);
+      auto dive = parseDir(entry);
+      foundCatalog = dive || foundCatalog;
     } else if (entry.path().filename() == "catalog.json") {
+      foundCatalog = true;
       parseCatalogFile(entry);
     }
   }
+  LOG_IF(INFO, !foundCatalog) << "No catalog in: " << dir;
+
+  return foundCatalog;
 }
 
 /**

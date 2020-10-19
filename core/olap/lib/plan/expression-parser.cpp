@@ -146,11 +146,11 @@ expression_t ExpressionParser::parseExpression(const rapidjson::Value &val,
 
     InputInfo *datasetInfo =
         (this->catalogParser).getOrCreateInputInfo(reg_as->getRelationName());
-    RecordType *rec = new RecordType{dynamic_cast<const RecordType &>(
+    auto *rec = new RecordType{dynamic_cast<const RecordType &>(
         dynamic_cast<CollectionType *>(datasetInfo->exprType)
             ->getNestedType())};
-    std::cout << "Registered: " << reg_as->getRelationName() << "."
-              << reg_as->getAttrName() << std::endl;
+    LOG(INFO) << "Registered: " << reg_as->getRelationName() << "."
+              << reg_as->getAttrName();
     rec->appendAttribute(reg_as);
 
     datasetInfo->exprType = new BagType{*rec};
