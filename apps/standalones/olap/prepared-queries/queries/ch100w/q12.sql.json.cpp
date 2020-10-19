@@ -182,19 +182,16 @@ PreparedStatement Query::prepare12(bool memmv) {
                        // trait=[Pelago.[].unpckd.NVPTX.homSingle.hetSingle])
           .sort(
               [&](const auto &arg) -> std::vector<expression_t> {
-                return {arg["$0"], arg["$1"], arg["$2"]};
+                return {arg["$0"].as("tmp", "o_ol_cnt"),
+                        arg["$1"].as("tmp", "high_line_count"),
+                        arg["$2"].as("tmp", "low_line_count")};
               },
               {direction::ASC, direction::NONE,
                direction::
                    NONE})  // (sort0=[$0], dir0=[ASC],
                            // trait=[Pelago.[0].unpckd.X86_64.homSingle.hetSingle])
           .print(
-              [&](const auto &arg,
-                  std::string outrel) -> std::vector<expression_t> {
-                return {arg["$0"].as(outrel, "o_ol_cnt"),
-                        arg["$1"].as(outrel, "high_line_count"),
-                        arg["$2"].as(outrel, "low_line_count")};
-              },
+              pg{"pm-csv"},
               std::string{query} +
                   (memmv
                        ? "mv"

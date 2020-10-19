@@ -106,20 +106,20 @@ PreparedStatement Query::prepare01(bool memmv) {
           //              },
           //              {direction::ASC, direction::NONE, direction::NONE,
           //               direction::NONE})
+          .project([&](const auto &arg) -> std::vector<expression_t> {
+            return {arg["$0"].as("tmp", "ol_number"),
+                    arg["$1"].as("tmp", "sum_qty"),
+                    arg["$3"].as("tmp", "sum_amount"),
+                    (arg["$1"].template as<FloatType>() /
+                     arg["$2"].template as<FloatType>())
+                        .as("tmp", "avg_qty"),
+                    (arg["$3"].template as<FloatType>() /
+                     arg["$2"].template as<FloatType>())
+                        .as("tmp", "avg_amount"),
+                    arg["$2"].as("tmp", "count_order")};
+          })
           .print(
-              [&](const auto &arg,
-                  std::string outrel) -> std::vector<expression_t> {
-                return {arg["$0"].as(outrel, "ol_number"),
-                        arg["$1"].as(outrel, "sum_qty"),
-                        arg["$3"].as(outrel, "sum_amount"),
-                        (arg["$1"].template as<FloatType>() /
-                         arg["$2"].template as<FloatType>())
-                            .as(outrel, "avg_qty"),
-                        (arg["$3"].template as<FloatType>() /
-                         arg["$2"].template as<FloatType>())
-                            .as(outrel, "avg_amount"),
-                        arg["$2"].as(outrel, "count_order")};
-              },
+              pg{"pm-csv"},
               std::string{query} +
                   (memmv
                        ? "mv"

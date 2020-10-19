@@ -107,8 +107,6 @@ PreparedStatement Q_19_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
           {SUM})  // (group=[{}], revenue=[SUM($0)],
                   // trait=[Pelago.[].X86_64.unpckd.homSingle.hetSingle.cX86_64],
                   // global=[true])
-      .print([&](const auto &arg) -> std::vector<expression_t> {
-        return {arg["revenue"]};
-      })  // (trait=[ENUMERABLE.[].X86_64.unpckd.homSingle.hetSingle.cX86_64])
+      .print(pg{"pm-csv"})
       .prepare();
 }

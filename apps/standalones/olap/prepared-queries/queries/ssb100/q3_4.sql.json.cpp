@@ -217,14 +217,14 @@ PreparedStatement Query::prepare34(bool memmv) {
                                   // sort1=[$3], dir0=[ASC],
                                   // dir1=[DESC], trait=[Pelago.[2, 3
                                   // DESC].unpckd.X86_64.homSingle.hetSingle])
+          .project([&](const auto &arg) -> std::vector<expression_t> {
+            return {arg["$0"].as("outrel", "c_city"),
+                    arg["$1"].as("outrel", "s_city"),
+                    arg["$2"].as("outrel", "d_year"),
+                    arg["$3"].as("outrel", "lo_revenue")};
+          })
           .print(
-              [&](const auto &arg,
-                  std::string outrel) -> std::vector<expression_t> {
-                return {arg["$0"].as(outrel, "c_city"),
-                        arg["$1"].as(outrel, "s_city"),
-                        arg["$2"].as(outrel, "d_year"),
-                        arg["$3"].as(outrel, "lo_revenue")};
-              },
+              pg{"pm-csv"},
               std::string{query} +
                   (memmv ? "mv"
                          : "nmv"))  // (trait=[ENUMERABLE.[2, 3

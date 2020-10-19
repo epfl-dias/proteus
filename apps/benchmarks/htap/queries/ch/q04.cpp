@@ -202,10 +202,6 @@ PreparedStatement Q_4_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
               direction::ASC,
           })  // (sort0=[$0], dir0=[ASC],
               // trait=[Pelago.[0].X86_64.unpckd.homSingle.hetSingle.cX86_64])
-      .print([&](const auto &arg,
-                 std::string outrel) -> std::vector<expression_t> {
-        return {arg["$0"].as(outrel, "o_ol_cnt"),
-                arg["$1"].as(outrel, "order_count")};
-      })  // (trait=[ENUMERABLE.[0].X86_64.unpckd.homSingle.hetSingle.cX86_64])
+      .print(pg{"pm-csv"})
       .prepare();
 }

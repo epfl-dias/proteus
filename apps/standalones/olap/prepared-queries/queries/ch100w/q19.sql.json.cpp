@@ -111,15 +111,12 @@ PreparedStatement Query::prepare19(bool memmv) {
               aff_reduce())  // (trait=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .reduce(
               [&](const auto &arg) -> std::vector<expression_t> {
-                return {(arg["$0"]).as("PelagoAggregate#2319", "$0")};
+                return {(arg["$0"]).as("PelagoAggregate#2319", "revenue")};
               },
               {SUM})  // (group=[{}], revenue=[SUM($0)],
                       // trait=[Pelago.[].unpckd.NVPTX.homSingle.hetSingle])
           .print(
-              [&](const auto &arg,
-                  std::string outrel) -> std::vector<expression_t> {
-                return {arg["$0"].as(outrel, "revenue")};
-              },
+              pg{"pm-csv"},
               std::string{query} +
                   (memmv
                        ? "mv"

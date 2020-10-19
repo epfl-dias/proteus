@@ -140,9 +140,8 @@ int main(int argc, char *argv[]) {
 
   auto builder =
       factory.getBuilder()
-          .template scan<AeolusRemotePlugin>("table_one<block-remote>",
-                                             {"col_1", "col_2"},
-                                             CatalogParser::getInstance())
+          .scan("table_one<block-remote>", {"col_1", "col_2"},
+                CatalogParser::getInstance(), pg{AeolusRemotePlugin::type})
           .unpack()
           .filter([](const auto &arg) -> expression_t {
             return lt(arg["col_1"], int64_t{5});
@@ -164,9 +163,8 @@ int main(int argc, char *argv[]) {
   auto builder2 =
       RelBuilderFactory{"f2"}
           .getBuilder()
-          .template scan<AeolusRemotePlugin>("table_one<block-remote>",
-                                             {"col_1", "col_2"},
-                                             CatalogParser::getInstance())
+          .scan("table_one<block-remote>", {"col_1", "col_2"},
+                CatalogParser::getInstance(), pg{AeolusRemotePlugin::type})
           .unpack()
           .filter([](const auto &arg) -> expression_t {
             return lt(arg["col_1"], int64_t{10});

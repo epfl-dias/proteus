@@ -126,8 +126,8 @@ PreparedStatement Q_1_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
               direction::NONE,
           })  // (sort0=[$0], dir0=[ASC],
               // trait=[Pelago.[0].X86_64.unpckd.homSingle.hetSingle.cX86_64])
-      .print([&](const auto &arg,
-                 std::string outrel) -> std::vector<expression_t> {
+      .project([&](const auto &arg) -> std::vector<expression_t> {
+        auto outrel = "tmp";
         return {arg["$0"].as(outrel, "ol_number"),
                 arg["$1"].as(outrel, "sum_qty"),
                 arg["$2"].as(outrel, "sum_amount"),
@@ -135,5 +135,6 @@ PreparedStatement Q_1_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                 arg["$4"].as(outrel, "avg_amount"),
                 arg["$5"].as(outrel, "count_order")};
       })  // (trait=[ENUMERABLE.[0].X86_64.unpckd.homSingle.hetSingle.cX86_64])
+      .print(pg{"pm-csv"})
       .prepare();
 }
