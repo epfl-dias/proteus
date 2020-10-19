@@ -331,11 +331,11 @@ auto getModuleRef(LLVMContext &llvmContext) {
 Expected<llvm::orc::JITTargetMachineBuilder> detectGPU() {
   llvm::orc::JITTargetMachineBuilder TMBuilder(Triple{"nvptx64-nvidia-cuda"});
 
-  llvm::StringMap<bool> FeatureMap;
-  //  llvm::sys::getHostCPUFeatures(FeatureMap);
-  FeatureMap["+ptx64"] = true;
-  for (auto &Feature : FeatureMap)
-    TMBuilder.getFeatures().AddFeature(Feature.first(), Feature.second);
+  //  llvm::StringMap<bool> FeatureMap;
+  //  //  llvm::sys::getHostCPUFeatures(FeatureMap);
+  //  FeatureMap["+ptx64"] = true;
+  //  for (auto &Feature : FeatureMap)
+  TMBuilder.getFeatures().AddFeature("+ptx64", true);
 
   TMBuilder.setCPU(getGPU());
 

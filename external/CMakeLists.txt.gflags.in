@@ -1,15 +1,10 @@
 cmake_minimum_required(VERSION 2.8.2)
 
-project(gflags-download NONE)
-
-include(ExternalProject)
-ExternalProject_Add(gflags
+include(FetchContent)
+FetchContent_Declare(
+  gflags-download
   GIT_REPOSITORY    https://github.com/gflags/gflags.git
   GIT_TAG           6c8f50b567ece95ac5d7b3ebe80dc75b5c3e68bc
-  SOURCE_DIR        "${CMAKE_CURRENT_BINARY_DIR}/gflags-src"
-  BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/gflags-build"
-  CONFIGURE_COMMAND ""
-  BUILD_COMMAND     ""
-  INSTALL_COMMAND   ""
-  TEST_COMMAND      ""
 )
+
+FetchContent_MakeAvailable(gflags-download)

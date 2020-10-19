@@ -75,9 +75,9 @@ add_custom_command(OUTPUT ${CUDA_WORKDIR}/buffer-manager.bc.o
         ${CMAKE_CURRENT_SOURCE_DIR}/memory/buffer-manager.cu
         --cuda-device-only -c -emit-llvm -O3
         # TODO: correctly accept the CXX flags
-        --std=c++17 ${BMFLAGS}
+        --std=c++20 ${BMFLAGS}
         # TODO: correctly accept the includes flags
-        -I${CMAKE_CURRENT_SOURCE_DIR} -isystem ${CMAKE_BINARY_DIR}/glog-build -isystem ${CMAKE_BINARY_DIR}/glog-src/src
+        -I${CMAKE_CURRENT_SOURCE_DIR} -isystem ${CMAKE_BINARY_DIR}/_deps/glog-download-build -isystem ${CMAKE_BINARY_DIR}/_deps/glog-download-src/src
     # Embed the generated file into the library
     COMMAND ld -r -b binary buffer-manager*.bc
         -o ${CUDA_WORKDIR}/buffer-manager.bc.o
@@ -111,7 +111,7 @@ target_include_directories(codegen
 # If we have compiler requirements for this library, list them
 # here
 target_compile_features(codegen
-        PUBLIC cxx_std_17)
+        PUBLIC cxx_std_20)
 
 # Depend on a library that we defined in the top-level file
 target_link_libraries(codegen

@@ -28,7 +28,7 @@ target_include_directories(aeolus_plugin
 # If we have compiler requirements for this library, list them
 # here
 target_compile_features(aeolus_plugin
-        PUBLIC cxx_std_17)
+        PUBLIC cxx_std_20)
 
 target_link_libraries(aeolus_plugin
         PUBLIC

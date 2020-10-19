@@ -152,7 +152,7 @@ target_include_directories(olap
 # If we have compiler requirements for this library, list them
 # here
 target_compile_features(olap
-        PUBLIC cxx_std_17)
+        PUBLIC cxx_std_20)
 
 # Depend on a library that we defined in the top-level file
 target_link_libraries(olap

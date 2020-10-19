@@ -311,27 +311,7 @@ if (TRUE)
 	set(GFLAGS_REGISTER_INSTALL_PREFIX OFF)
 	set(GFLAGS_LIBRARY_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR})
 	# Add google test here, so that we do not propagate to it the WARNING_FLAGS
-	configure_file(external/CMakeLists.txt.gflags.in gflags-download/CMakeLists.txt)
-	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-		RESULT_VARIABLE result
-		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/gflags-download )
-	if(result)
-		message(FATAL_ERROR "CMake step for gflags failed: ${result}")
-	endif()
-
-	execute_process(COMMAND ${CMAKE_COMMAND} --build .
-		RESULT_VARIABLE result
-		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/gflags-download )
-	if(result)
-		message(FATAL_ERROR "Build step for gflags failed: ${result}")
-	endif()
-
-	# Add gflags directly to our build. This defines
-	# the gtest and gtest_main targets.
-	add_subdirectory(
-			${CMAKE_CURRENT_BINARY_DIR}/gflags-src
-			${CMAKE_CURRENT_BINARY_DIR}/gflags-build
-			)
+	include(external/CMakeLists.txt.gflags.in)
 
 	# patch around gflags::gflags exporting their targets in two export sets
 	add_subdirectory(patches/cli-flags)
@@ -355,25 +335,7 @@ if (TRUE)
 		endif()
 	endmacro()
 
-	# Add glog here, so that we do not propagate to it the WARNING_FLAGS
-	configure_file(external/CMakeLists.txt.glog.in glog-download/CMakeLists.txt)
-	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-			RESULT_VARIABLE result
-			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/glog-download )
-	if(result)
-		message(FATAL_ERROR "CMake step for glog failed: ${result}")
-	endif()
-
-	execute_process(COMMAND ${CMAKE_COMMAND} --build .
-			RESULT_VARIABLE result
-			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/glog-download )
-	if(result)
-		message(FATAL_ERROR "Build step for glog failed: ${result}")
-	endif()
-
-	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/glog-src
-			${CMAKE_CURRENT_BINARY_DIR}/glog-build
-			)
+	include(external/CMakeLists.txt.glog.in)
 
 	# Make glog appear as system library to avoid header warnings
 	get_target_property(glog_INCLUDE_DIR glog INTERFACE_INCLUDE_DIRECTORIES)
@@ -386,26 +348,7 @@ endif()
 # GoogleTest
 if (TRUE)
 	# Add google test here, so that we do not propagate to it the WARNING_FLAGS
-	configure_file(external/CMakeLists.txt.gtest.in googletest-download/CMakeLists.txt)
-	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-		RESULT_VARIABLE result
-		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
-	if(result)
-		message(FATAL_ERROR "CMake step for googletest failed: ${result}")
-	endif()
-
-	execute_process(COMMAND ${CMAKE_COMMAND} --build .
-		RESULT_VARIABLE result
-		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
-	if(result)
-		message(FATAL_ERROR "Build step for googletest failed: ${result}")
-	endif()
-
-	# Add googletest directly to our build. This defines
-	# the gtest and gtest_main targets.
-	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
-		${CMAKE_CURRENT_BINARY_DIR}/googletest-build
-		)
+	include(external/CMakeLists.txt.gtest.in)
 
 	set(GTEST gtest)
 	set(GTEST_MAIN gtest_main)
@@ -419,36 +362,13 @@ if (TRUE)
 	set(RAPIDJSON_BUILD_CXX11 ON CACHE BOOL "" FORCE)
 	set(RAPIDJSON_HAS_CXX11_RVALUE_REFS ON CACHE BOOL "" FORCE)
 
-	set(GTEST_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/googletest-src)
+	set(GTEST_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/googletest-download-src)
 
-	configure_file(external/CMakeLists.txt.rapidjson.in rapidjson-download/CMakeLists.txt)
-	execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-			RESULT_VARIABLE result
-			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/rapidjson-download )
-	if(result)
-		message(FATAL_ERROR "CMake step for rapidjson failed: ${result}")
-	endif()
+	include(external/CMakeLists.txt.rapidjson.in)
 
-	execute_process(COMMAND ${CMAKE_COMMAND} --build .
-			RESULT_VARIABLE result
-			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/rapidjson-download )
-	if(result)
-		message(FATAL_ERROR "CMake step for rapidjson failed: ${result}")
-	endif()
-
-	add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/rapidjson-src
-			${CMAKE_CURRENT_BINARY_DIR}/rapidjson-build
-			)
-
-	#set(rapidJSON_DIR ${CMAKE_CURRENT_BINARY_DIR}/rapidjson-build)
-
-	find_package(RapidJSON PATHS ${CMAKE_CURRENT_BINARY_DIR} NO_DEFAULT_PATH)
-
-	set_target_properties(rapidjson PROPERTIES IMPORTED_GLOBAL TRUE)
-
-	add_library(RapidJSON::RapidJSON ALIAS rapidjson)
-#	set_target_properties(RapidJSON::RapidJSON PROPERTIES
-#		INTERFACE_INCLUDE_DIRECTORIES "${RapidJSON_SOURCE_DIR}/include")
+	add_library(RapidJSON::RapidJSON INTERFACE IMPORTED)
+	target_include_directories(RapidJSON::RapidJSON
+	  SYSTEM PUBLIC INTERFACE "${RapidJSON_SOURCE_DIR}/include")
 endif()
 
 #-----------------------------------------------------------------------

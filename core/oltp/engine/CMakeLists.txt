@@ -47,7 +47,7 @@ target_include_directories(aeolus_engine
 # If we have compiler requirements for this library, list them
 # here
 target_compile_features(aeolus_engine
-        PUBLIC cxx_std_17)
+        PUBLIC cxx_std_20)
 
 # Depend on a library that we defined in the top-level file
 target_link_libraries(aeolus_engine
