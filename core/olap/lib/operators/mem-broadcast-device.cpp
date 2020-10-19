@@ -391,7 +391,7 @@ void MemBroadcastDevice::open(Pipeline *pip) {
   mmc->num_of_targets = targets.size();
   mmc->to_cpu = to_cpu;
   mmc->always_share = always_share;
-  // mmc->slack          = slack;
+  mmc->slack = slack;
   // mmc->next_e         = 0;
   // // mmc->events         = new cudaEvent_t[slack];
   // mmc->old_buffs      = new void      *[slack];

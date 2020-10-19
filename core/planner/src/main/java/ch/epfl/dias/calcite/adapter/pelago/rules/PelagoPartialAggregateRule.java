@@ -75,14 +75,14 @@ public class PelagoPartialAggregateRule extends RelOptRule {
     ImmutableBitSet topGroupSet = ImmutableBitSet.builder().set(0, rel.getGroupCount()).build();
 
     var locagg = rel.copy(
-        rel.getInput(),
+        convert(rel.getInput(), RelHomDistribution.RANDOM),
         false, true
     );
 
     call.transformTo(
       call.getPlanner().register(
         PelagoAggregate.create(
-            locagg,
+            convert(locagg, RelHomDistribution.SINGLE),
             topGroupSet,
             ImmutableList.of(topGroupSet),
             aggCalls,
