@@ -342,7 +342,7 @@ endif()
 #-----------------------------------------------------------------------
 # GoogleLog
 if (TRUE)
-    set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+	set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 	set(WITH_THREADS ON CACHE BOOL "" FORCE)
 	set(WITH_GFLAGS ON CACHE BOOL "" FORCE)
 
@@ -387,10 +387,11 @@ if (TRUE)
 	set(GTEST_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/googletest-download-src)
 
 	include(external/CMakeLists.txt.rapidjson.in)
+	find_package(RapidJSON CONFIG PATHS ${RapidJSON_BINARY_DIR} NO_DEFAULT_PATH)
 
 	add_library(RapidJSON::RapidJSON INTERFACE IMPORTED)
 	target_include_directories(RapidJSON::RapidJSON
-	  SYSTEM PUBLIC INTERFACE "${RapidJSON_SOURCE_DIR}/include")
+			SYSTEM PUBLIC INTERFACE "${RapidJSON_INCLUDE_DIRS}")
 endif()
 
 #-----------------------------------------------------------------------
