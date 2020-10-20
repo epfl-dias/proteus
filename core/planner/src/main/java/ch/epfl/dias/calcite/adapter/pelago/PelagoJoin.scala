@@ -108,12 +108,12 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     } catch {
       case _: Throwable => 1e20
     }
-    Math.min(exprow, 256 * 1024 * 1024)
+    Math.min(exprow, 64 * 1024 * 1024)
   }.asInstanceOf[Long]
 
   protected lazy val maxEst: Long = {
     val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getLeft)
-    if (maxrow != null) Math.min(maxrow, 256 * 1024 * 1024) else 256 * 1024 * 1024
+    if (maxrow != null) Math.min(maxrow, 64 * 1024 * 1024) else 64 * 1024 * 1024
   }.asInstanceOf[Long]
 
   protected lazy val maxBuildInputSize: Long = {
@@ -145,8 +145,8 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
       .item("sel", sel)
       .item("hash_bits", hash_bits)
       .item("maxBuildInputSize", maxBuildInputSize)
-//      .item("buildcountrow", getCluster.getMetadataQuery.getRowCount(getLeft))
-//      .item("probecountrow", getCluster.getMetadataQuery.getRowCount(getRight))
+      .item("buildcountrow", getCluster.getMetadataQuery.getRowCount(getLeft))
+      .item("probecountrow", getCluster.getMetadataQuery.getRowCount(getRight))
       .item("ht", left.getRowType.toString)
   }
 

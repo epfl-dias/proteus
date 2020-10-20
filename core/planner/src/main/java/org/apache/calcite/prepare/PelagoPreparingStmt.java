@@ -385,10 +385,13 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             .addRuleInstance(CoreRules.FILTER_INTO_JOIN)
             // Pull Projects up
             .addRuleInstance(CoreRules.JOIN_PROJECT_BOTH_TRANSPOSE)
+            .addGroupBegin()
             .addRuleInstance(CoreRules.JOIN_PROJECT_LEFT_TRANSPOSE)
             .addRuleInstance(CoreRules.JOIN_PROJECT_RIGHT_TRANSPOSE)
+            .addGroupEnd()
             .addRuleInstance(PruneEmptyRules.PROJECT_INSTANCE)
             .addRuleInstance(CoreRules.PROJECT_REMOVE)
+            .addRuleInstance(CoreRules.PROJECT_MERGE)
             .build();
 
         HepProgram hepPushDownProjects = new HepProgramBuilder()
