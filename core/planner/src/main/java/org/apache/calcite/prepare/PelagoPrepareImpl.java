@@ -180,9 +180,9 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
 //        Hook.PLANNER.run(planner); // allow test to add or remove rules
 
 //        RelOptPlanner planner = super.createPlanner(prepareContext, externalContext, cFactory);
+        planner.addRelTraitDef(RelPackingTraitDef        .INSTANCE);
         planner.addRelTraitDef(RelDeviceTypeTraitDef     .INSTANCE);
         planner.addRelTraitDef(RelHomDistributionTraitDef.INSTANCE);
-        planner.addRelTraitDef(RelPackingTraitDef        .INSTANCE);
 
         planner.addRelTraitDef(RelHetDistributionTraitDef.INSTANCE);
         if (Repl.isHybrid()) planner.addRelTraitDef(RelSplitPointTraitDef.INSTANCE);
@@ -199,9 +199,9 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         for (RelOptRule rule: PelagoRules.RULES) {
             planner.addRule(rule);
         }
-        for (var enrule: EnumerableRules.ENUMERABLE_RULES){
-            planner.removeRule(enrule);
-        }
+//        for (var enrule: EnumerableRules.ENUMERABLE_RULES){
+//            planner.removeRule(enrule);
+//        }
         planner.removeRule(CoreRules.JOIN_COMMUTE);
 
         planner.removeRule(EnumerableRules.TO_INTERPRETER);

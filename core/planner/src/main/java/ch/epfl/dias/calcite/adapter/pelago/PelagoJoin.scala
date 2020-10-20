@@ -108,12 +108,12 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
     } catch {
       case _: Throwable => 1e20
     }
-    if (exprow != null) Math.min(exprow, 64 * 1024 * 1024) else 64 * 1024 * 1024
+    Math.min(exprow, 256 * 1024 * 1024)
   }.asInstanceOf[Long]
 
   protected lazy val maxEst: Long = {
     val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getLeft)
-    if (maxrow != null) Math.min(maxrow, 64 * 1024 * 1024) else 64 * 1024 * 1024
+    if (maxrow != null) Math.min(maxrow, 256 * 1024 * 1024) else 256 * 1024 * 1024
   }.asInstanceOf[Long]
 
   protected lazy val maxBuildInputSize: Long = {

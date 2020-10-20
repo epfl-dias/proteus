@@ -63,8 +63,8 @@ object CostModel {
     case router: PelagoRouter if router.getHomDistribution == RelHomDistribution.BRDCST && router.getTraitSet.containsIfApplicable(RelPacking.UnPckd)  =>
       InfiniteCost()
     case router: PelagoRouter =>
-      MemBW(router.getRowType.getFieldCount /* 10 for sync cost */ ) + // FIXME: or 100?
-        InterconnectBW(router.getRowType.getFieldCount * 4e-2 * {
+      MemBW(router.getRowType.getFieldCount * 10 /* 10 for sync cost */ ) + // FIXME: or 100?
+        InterconnectBW(router.getRowType.getFieldCount * 4 * {
           if (!router.hasMemMove
             || router.getInput.isInstanceOf[PelagoSplit] // FIXME: Input may be a Subset, in which case we do not know what's the actual input, we need explicit mem-moves in the plan
             || router.getInput.isInstanceOf[PelagoUnion]){
@@ -105,7 +105,7 @@ object CostModel {
     case red: PelagoAggregate if red.getGroupCount == 0 =>
       Compute(16) + MemBW(0.01 * (8/blockSize) * red.getRowType.getFieldCount)
     case agg: PelagoAggregate if agg.getGroupCount > 0 =>
-      Compute(16) + RandomMemBW(0.1*agg.getRowType.getFieldCount + 0.01 * agg.getInput.getRowType.getFieldCount)
+      Compute(16) + RandomMemBW(agg.getRowType.getFieldCount + 0.01 * agg.getInput.getRowType.getFieldCount)
     case project: PelagoProject =>
       Compute(project.getRowType.getFieldCount * 16 /* naive estimation for number of instr / expr */ ) +
         MemBW(1)
