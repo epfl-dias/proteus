@@ -92,7 +92,7 @@ public class PelagoRelFactories {
     @Override public RelNode createAggregate(final RelNode input, final List<RelHint> hints,
         final ImmutableBitSet groupSet,
         final ImmutableList<ImmutableBitSet> groupSets, final List<AggregateCall> aggCalls) {
-      return PelagoAggregate.create(input, groupSet, groupSets, aggCalls);
+      return PelagoAggregate.create(input, ImmutableList.copyOf(hints), groupSet, groupSets, aggCalls);
     }
   }
 }

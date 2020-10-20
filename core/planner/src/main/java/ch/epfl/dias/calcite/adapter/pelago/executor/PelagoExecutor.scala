@@ -32,13 +32,13 @@ object PelagoExecutor {
     if (rowType == null) {
       pt.scan(root)
     } else {
-      val path = run("execute plan from statement " + label, "execute statement", label)
+      val path = run("execute plan from statement " + label, "execute statement", label, null)
 
       new PelagoResultTable(Sources.of(new File(path)), rowType, false).scan(root)
     }
   }
 
-  def run(command: String, cmd_type: String, plan: String): String = {
+  def run(command: String, cmd_type: String, plan: String, query_name: String): String = {
     if (process == null || !process.isAlive){
       builder = new ProcessBuilder(Repl.executor_server).redirectErrorStream(true)
       process = builder.start()
@@ -116,7 +116,7 @@ object PelagoExecutor {
       System.out.println(TimeKeeper.INSTANCE)
       // refresh the times
       TimeKeeper.INSTANCE.refreshTable(path,
-        cmd_type, if (Repl.isHybrid()) "hybrid" else if (Repl.isCpuonly()) "cpuonly" else "gpuonly", plan)
+        cmd_type, if (Repl.isHybrid()) "hybrid" else if (Repl.isCpuonly()) "cpuonly" else "gpuonly", plan, query_name)
     }
 
     path

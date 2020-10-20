@@ -27,6 +27,9 @@ import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.core.Sort;
 import org.apache.calcite.rel.externalize.RelWriterImpl;
+import org.apache.calcite.rel.hint.HintPredicates;
+import org.apache.calcite.rel.hint.HintStrategy;
+import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
@@ -36,6 +39,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexOver;
 import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.sql.SqlExplainLevel;
+import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.RelDecorrelator;
 import org.apache.calcite.sql2rel.RelFieldTrimmer;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
@@ -90,6 +94,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
     private final EnumerableRel.Prefer prefer;
     private final Map<String, Object> internalParameters =
             Maps.newLinkedHashMap();
+    private final RelOptCluster cluster;
 
     PelagoPreparingStmt(PelagoPrepareImpl prepare,
                          CalcitePrepare.Context context,
@@ -102,10 +107,24 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                          SqlRexConvertletTable convertletTable) {
         super(prepare, context, catalogReader, typeFactory, schema, prefer, cluster, resultConvention, convertletTable);
         this.prefer = prefer;
+        this.cluster = cluster;
     }
 
     public Map<String, Object> getInternalParameters() {
         return internalParameters;
+    }
+
+    @Override protected SqlToRelConverter getSqlToRelConverter(
+        SqlValidator validator,
+        CatalogReader catalogReader,
+        SqlToRelConverter.Config config) {
+        var config2 = SqlToRelConverter.configBuilder().withConfig(config).withHintStrategyTable(
+            HintStrategyTable.builder().hintStrategy("query_info", HintStrategy.builder(HintPredicates.or(
+                HintPredicates.AGGREGATE, HintPredicates.JOIN, HintPredicates.CALC, HintPredicates.PROJECT, HintPredicates.TABLE_SCAN))
+            .build()).build()
+        ).build();
+        return new SqlToRelConverter(this, validator, catalogReader, cluster,
+            convertletTable, config2);
     }
 
     /** Program that de-correlates a query.
@@ -544,5 +563,4 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             )
         );
     }
-
 }

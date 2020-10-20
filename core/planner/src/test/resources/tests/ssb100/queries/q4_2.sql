@@ -1,4 +1,4 @@
-select d_year, s_nation, p_category, sum(lo_revenue - lo_supplycost) as profit
+select /*+ QUERY_INFO(name='SSB100::Q4.2') */ d_year, s_nation, p_category, sum(lo_revenue - lo_supplycost) as profit
 from ssbm_date, ssbm_customer, ssbm_supplier, ssbm_part, ssbm_lineorder
 where lo_custkey = c_custkey
  and lo_suppkey = s_suppkey

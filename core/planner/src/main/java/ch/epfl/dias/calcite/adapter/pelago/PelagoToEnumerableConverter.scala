@@ -18,6 +18,7 @@ import org.apache.calcite.plan._
 import org.apache.calcite.prepare.RelOptTableImpl
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.convert.ConverterImpl
+import org.apache.calcite.rel.hint.{Hintable, RelHint}
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rel.{RelNode, RelWriter}
 import org.apache.calcite.rex.RexInputRef
@@ -34,14 +35,14 @@ import scala.collection.mutable
   * Relational expression representing a scan of a table in a Pelago data source.
   */
 
-class PelagoToEnumerableConverter protected(cluster: RelOptCluster, traits: RelTraitSet, input: RelNode)
-  extends ConverterImpl(cluster, ConventionTraitDef.INSTANCE, traits, input) with EnumerableRel {
+class PelagoToEnumerableConverter protected(cluster: RelOptCluster, traits: RelTraitSet, input: RelNode, val hints: ImmutableList[RelHint])
+  extends ConverterImpl(cluster, ConventionTraitDef.INSTANCE, traits, input) with EnumerableRel with Hintable {
 
   implicit val formats: DefaultFormats.type = DefaultFormats
 
   override def copy(traitSet: RelTraitSet, inputs: util.List[RelNode]): RelNode = copy(traitSet, inputs.get(0))
 
-  def copy(traitSet: RelTraitSet, input: RelNode): RelNode = PelagoToEnumerableConverter.create(input)
+  def copy(traitSet: RelTraitSet, input: RelNode): RelNode = PelagoToEnumerableConverter.create(input, hints)
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
     super.computeSelfCost(planner, mq).multiplyBy(getRowType.getFieldCount.toDouble * 0.1)
@@ -124,13 +125,16 @@ class PelagoToEnumerableConverter protected(cluster: RelOptCluster, traits: RelT
         TimeKeeper.INSTANCE.addTplan2json(planTimer.getDifferenceMilli)
 
         val files = visit(getInput)
-        PelagoExecutor.files = files;
+        PelagoExecutor.files = files
         (
           if (mock) "mock" else PelagoExecutor.run("prepare plan from file " + Repl.planfile, "prepare statement",
             if (Repl.timings)
               RelOptUtil.toString(getInput, SqlExplainLevel.EXPPLAN_ATTRIBUTES)
             else
-              null
+              null,
+            getHints.asList().asScala.find(p => p.hintName.toLowerCase == "query_info").map(
+              p => p.kvOptions.get("name")
+            ).orNull
           ),
           files,
           getRowType
@@ -161,15 +165,20 @@ class PelagoToEnumerableConverter protected(cluster: RelOptCluster, traits: RelT
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = super.explainTerms(pw).item("trait", getTraitSet.toString)
+
+  def withHints(hintList: ImmutableList[RelHint]): RelNode = {
+    PelagoToEnumerableConverter.create(getInput, hintList)
+  }
+  override def getHints: ImmutableList[RelHint] = hints
 }
 
 object PelagoToEnumerableConverter {
-  def create(input: RelNode): RelNode = {
+  def create(input: RelNode, hints: ImmutableList[RelHint]): RelNode = {
     val cluster = input.getCluster
     val traitSet = input.getTraitSet.replace(EnumerableConvention.INSTANCE)
       .replaceIf(RelHomDistributionTraitDef.INSTANCE, () => cluster.getMetadataQuery.asInstanceOf[PelagoRelMetadataQuery].homDistribution(input))
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => cluster.getMetadataQuery.asInstanceOf[PelagoRelMetadataQuery].deviceType(input))
-    new PelagoToEnumerableConverter(input.getCluster, traitSet, input)
+    new PelagoToEnumerableConverter(input.getCluster, traitSet, input, hints)
   }
 
   var preparedStatementsCache: mutable.Map[String, (String, Set[String], RelDataType)] = mutable.Map[String, (String, Set[String], RelDataType)]()

@@ -83,6 +83,7 @@ public class PelagoPartialAggregateRule extends RelOptRule {
       call.getPlanner().register(
         PelagoAggregate.create(
             convert(locagg, RelHomDistribution.SINGLE),
+            rel.getHints(),
             topGroupSet,
             ImmutableList.of(topGroupSet),
             aggCalls,

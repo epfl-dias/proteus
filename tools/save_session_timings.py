@@ -27,8 +27,9 @@ conn = jaydebeapi.connect('org.postgresql.Driver', 'jdbc:postgresql://db:5432/po
 curs = conn.cursor()
 
 def escape(s):
-    for c in "\"'":
-        s = s.replace(c, "_")
+    if s is not None:
+        for c in "\"'":
+            s = s.replace(c, "_")
     return s
 
 curs.execute("INSERT INTO results_repo(commithash, repourl, branch) VALUES" +str((commithash, os.environ['CI_PROJECT_URL'], escape(os.environ['CI_COMMIT_REF_NAME']))))
@@ -49,7 +50,7 @@ cursprot.execute('SELECT * FROM SessionTimings')
 for t in cursprot.fetchall():
     t = tuple(int(x) if isinstance(x, (int, long)) else str(escape(x)) for x in t)
     try:
-        curs.execute('INSERT INTO SessionTimings VALUES ' + str(t + (os.environ['CI_PROJECT_URL'], commithash)))
+        curs.execute('INSERT INTO SessionTimings VALUES ' + str((os.environ['CI_PROJECT_URL'], commithash) + t))
     except:
-        print('INSERT INTO SessionTimings VALUES ' + str(t + (os.environ['CI_PROJECT_URL'], commithash)))
+        print('INSERT INTO SessionTimings VALUES ' + str((os.environ['CI_PROJECT_URL'], commithash) + t))
         raise

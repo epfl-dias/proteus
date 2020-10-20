@@ -9,6 +9,7 @@ import ch.epfl.dias.calcite.adapter.pelago.RelDeviceTypeTraitDef;
 import ch.epfl.dias.calcite.adapter.pelago.RelHetDistribution;
 import ch.epfl.dias.calcite.adapter.pelago.RelHomDistribution;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.calcite.adapter.enumerable.EnumerableConvention;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelTraitSet;
@@ -16,6 +17,7 @@ import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.RelDistributions;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.convert.ConverterRule;
+import org.apache.calcite.rel.hint.Hintable;
 import org.apache.calcite.tools.RelBuilderFactory;
 
 /**
@@ -50,7 +52,8 @@ public class PelagoToEnumerableConverterRule extends ConverterRule {
             .replace(RelComputeDevice.X86_64NVPTX)
             .replace(RelHetDistribution.SINGLETON);
 
-        return PelagoToEnumerableConverter.create(convert(rel, traitSet));
+        return PelagoToEnumerableConverter.create(convert(rel, traitSet),
+            rel instanceof Hintable ? ((Hintable) rel).getHints() : ImmutableList.of());
     }
 
     public boolean matches(RelOptRuleCall call) {

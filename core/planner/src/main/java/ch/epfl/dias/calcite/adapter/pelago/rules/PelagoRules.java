@@ -205,7 +205,7 @@ public class PelagoRules {
                 .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
 
             RelNode inp = convert(agg.getInput(), traitSet);
-            return PelagoAggregate.create(inp, agg.getGroupSet(), agg.getGroupSets(), agg.getAggCallList(), true, false);
+            return PelagoAggregate.create(inp, agg.getHints(), agg.getGroupSet(), agg.getGroupSets(), agg.getAggCallList(), true, false);
         }
     }
 

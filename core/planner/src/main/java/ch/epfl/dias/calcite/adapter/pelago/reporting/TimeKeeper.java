@@ -60,11 +60,11 @@ public class TimeKeeper {
         lastTimestamp = new Timestamp(System.currentTimeMillis());
     }
 
-    public void refreshTable(String query, String cmd_type, String hwmode, String plan) {
+    public void refreshTable(String query, String cmd_type, String hwmode, String plan, String query_name) {
         if (lastTimestamp == null) addTimestamp();
         TimeKeeperTable.addTimings(tExecutor + tPlanning + tPlanToJson, tPlanning, tPlanToJson, tExecutor,
             tCodegen, tDataLoad, tCodeOpt, tCodeOptAndLoad, tExec, lastTimestamp,
-            query, cmd_type, hwmode, plan);
+            query, cmd_type, hwmode, plan, query_name);
         reset();
     }
 

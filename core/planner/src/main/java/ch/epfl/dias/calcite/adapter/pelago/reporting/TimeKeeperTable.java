@@ -43,6 +43,7 @@ public class TimeKeeperTable extends PelagoMutableArrayTable {
         sb.add("cmd_type", SqlTypeName.VARCHAR);
         sb.add("hwmode", SqlTypeName.VARCHAR);
         sb.add("plan", SqlTypeName.VARCHAR);
+        sb.add("query_name", SqlTypeName.VARCHAR);
 
         InitializerExpressionFactory ief = new NullInitializerExpressionFactory();
 
@@ -57,10 +58,11 @@ public class TimeKeeperTable extends PelagoMutableArrayTable {
             String query,
             String cmd_type,
             String hwmode,
-            String plan){
+            String plan,
+            String query_name){
         Object[] arr = {ttotal_ms, tplanning_ms, tplan2json_ms, texecutor_ms, tcodegen_ms, tdataload_ms,
             tcode_opt_time_ms, tcode_optnload_time_ms, texecution_ms, timestamp.toString(),
-            query, cmd_type, hwmode, plan};
+            query, cmd_type, hwmode, plan, query_name};
         INSTANCE.getModifiableCollection().add(arr);
     }
 }

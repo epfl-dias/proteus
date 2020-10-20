@@ -1,4 +1,4 @@
-select c_nation, s_nation, d_year, sum(lo_revenue) as lo_revenue
+select /*+ QUERY_INFO(name='SSB100::Q3.1') */ c_nation, s_nation, d_year, sum(lo_revenue) as lo_revenue
 from ssbm_customer, ssbm_lineorder, ssbm_supplier, ssbm_date
 where lo_custkey = c_custkey
  and lo_suppkey = s_suppkey
