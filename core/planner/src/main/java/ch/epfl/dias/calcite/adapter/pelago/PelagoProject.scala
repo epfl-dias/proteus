@@ -5,10 +5,12 @@ import java.util
 import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdHomDistribution}
 import ch.epfl.dias.emitter.Binding
 import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema, getFields}
+import com.google.common.collect.ImmutableList
 import org.apache.calcite.plan.{RelOptCluster, RelOptCost, RelOptPlanner, RelTraitSet}
 import org.apache.calcite.rel._
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.core.Project
+import org.apache.calcite.rel.hint.RelHint
 import org.apache.calcite.rel.metadata.{RelMdCollation, RelMetadataQuery}
 import org.apache.calcite.rex.RexNode
 import org.json4s.JsonDSL._
@@ -20,12 +22,13 @@ import scala.collection.JavaConverters._
   * Implementation of {@link org.apache.calcite.rel.core.Project}
   * relational expression in Pelago.
   */
-class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode, projects: util.List[_ <: RexNode], rowType: RelDataType) //        assert getConvention() == input.getConvention();
-  extends Project(cluster, traitSet, input, projects, rowType) with PelagoRel {
+class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, hints: ImmutableList[RelHint],
+                               input: RelNode, projects: util.List[_ <: RexNode], rowType: RelDataType) //        assert getConvention() == input.getConvention();
+  extends Project(cluster, traitSet, hints, input, projects, rowType) with PelagoRel {
 //  assert(getConvention eq PelagoRel.CONVENTION())
 
   override def copy(traitSet: RelTraitSet, input: RelNode, projects: util.List[RexNode], rowType: RelDataType) = {
-    PelagoProject.create(input, projects, rowType)
+    PelagoProject.create(input, projects, rowType, hints)
   }
 
 
@@ -72,7 +75,7 @@ class PelagoProject protected (cluster: RelOptCluster, traitSet: RelTraitSet, in
 
 
 object PelagoProject{
-  def create(input: RelNode, projects: util.List[_ <: RexNode], rowType: RelDataType): PelagoProject = {
+  def create(input: RelNode, projects: util.List[_ <: RexNode], rowType: RelDataType, hints: ImmutableList[RelHint]): PelagoProject = {
     val cluster  = input.getCluster
     val mq       = cluster.getMetadataQuery
     val dev      = PelagoRelMdDeviceType.project(mq, input, projects)
@@ -82,6 +85,6 @@ object PelagoProject{
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => dev);
     assert(traitSet.containsIfApplicable(RelPacking.UnPckd))
-    new PelagoProject(cluster, traitSet, input, projects, rowType)
+    new PelagoProject(cluster, traitSet, hints, input, projects, rowType)
   }
 }

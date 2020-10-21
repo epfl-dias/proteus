@@ -92,7 +92,8 @@ public class PelagoProjectTableScanRule extends RelOptRule {
             scan.pelagoTable(),
             fields),
         projs,
-        project.getRowType()
+        project.getRowType(),
+        project.getHints()
     );
 //
 //    call.transformTo(

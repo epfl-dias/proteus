@@ -89,7 +89,7 @@ public class PelagoRules {
                 .replace(RelHomDistribution.SINGLE)
                 .replaceIf(RelPackingTraitDef.INSTANCE, () -> RelPacking.UnPckd);
 
-            return PelagoProject.create(convert(project.getInput(), traitSet), project.getProjects(), project.getRowType());
+            return PelagoProject.create(convert(project.getInput(), traitSet), project.getProjects(), project.getRowType(), project.getHints());
         }
     }
 

@@ -62,7 +62,7 @@ public class PelagoRelFactories {
         final List<String> fieldNames) {
       RelOptCluster cluster = input.getCluster();
       RelDataType   rowType = RexUtil.createStructType(cluster.getTypeFactory(), projects, fieldNames);
-      return PelagoProject.create(input, projects, rowType);
+      return PelagoProject.create(input, projects, rowType, ImmutableList.copyOf(hints));
     }
   }
 
