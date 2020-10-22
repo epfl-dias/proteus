@@ -342,7 +342,7 @@ if (TRUE)
 	include(external/CMakeLists.txt.gflags.in)
 
 	# patch around gflags::gflags exporting their targets in two export sets
-	add_subdirectory(patches/cli-flags)
+	add_subdirectory(external/patches/cli-flags)
 endif()
 
 #-----------------------------------------------------------------------
@@ -431,7 +431,7 @@ add_definitions(-DTEST_OUTPUTS="outputs")
 #-----------------------------------------------------------------------
 # Copy data files too in the destination folder
 #-----------------------------------------------------------------------
-install(DIRECTORY "inputs" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago)					# Creates <..>/pelago/inputs
+install(DIRECTORY "tests/inputs" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago)					# Creates <..>/pelago/inputs
 install(DIRECTORY "tests/olap/testResults/" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/outputs)	# Creates <..>/pelago/outputs
 install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/generated_code) 			# Creates <..>/pelago/generated_code
 
@@ -444,22 +444,21 @@ string(STRIP "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS}" CMAKE_CXX_FLAGS)
 string(STRIP "${CMAKE_C_FLAGS} ${WARNING_FLAGS}" CMAKE_C_FLAGS)
 
 # build libjsmn
-add_subdirectory(jsmn)
+add_subdirectory(external/jsmn)
 
 # code generation library
 add_subdirectory(core/platform)
 add_subdirectory(core/planner)
 add_subdirectory(core/olap)
+add_subdirectory(core/oltp)
+add_subdirectory(core/htap)
 
 #-----------------------------------------------------------------------
 # Build our executables
 #-----------------------------------------------------------------------
 add_subdirectory(apps/standalones)
 
-add_subdirectory(core/oltp)
 add_subdirectory(apps/benchmarks/oltp)
-
-add_subdirectory(core/htap)
 add_subdirectory(apps/benchmarks/htap)
 
 

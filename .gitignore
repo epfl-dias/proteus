@@ -53,13 +53,13 @@ target/
 r00*
 
 #Large mock test files
-inputs/CIDR15
+tests/inputs/CIDR15
 clinical*.csv
 genetic*.csv
 inputs/json/spam/*.json
-inputs/ssbm**
-inputs/tpch**
-inputs/ch**
+tests/inputs/ssbm**
+tests/inputs/tpch**
+tests/inputs/ch**
 
 #Generated code folder
 generated_code/**

@@ -66,8 +66,8 @@ external_files = [
     "core/platform/util/radix/joins/types.h",
     "core/platform/util/radix/prj_params.h",
     "core/platform/util/radix/types.h",
-    "jsmn/jsmn.c",
-    "jsmn/jsmn.h"
+    "external/jsmn/jsmn.c",
+    "external/jsmn/jsmn.h"
 ]
 
 exclude_dirs = [
