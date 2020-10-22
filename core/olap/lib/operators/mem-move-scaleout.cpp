@@ -22,15 +22,12 @@
 */
 
 #include "mem-move-scaleout.hpp"
-// #include "common/gpu/gpu-common.hpp"
-// #include "cuda.h"
-// #include "cuda_runtime_api.h"
+
 #include <memory/block-manager.hpp>
 #include <memory/memory-manager.hpp>
-
-#include "network/infiniband/infiniband-manager.hpp"
-#include "threadpool/threadpool.hpp"
-#include "util/logging.hpp"
+#include <network/infiniband/infiniband-manager.hpp>
+#include <threadpool/threadpool.hpp>
+#include <util/logging.hpp>
 
 MemMoveScaleOut::MemMoveConf *MemMoveScaleOut::createMoveConf() const {
   void *pmmc = MemoryManager::mallocPinned(sizeof(MemMoveConf));
@@ -58,7 +55,7 @@ buff_pair MemMoveScaleOut::MemMoveConf::push(void *src, size_t bytes,
 
   BlockManager::share_host_buffer((int32_t *)src);
   auto x = InfiniBandManager::read(src, bytes);
-  // InfiniBandManager::flush_read();
+  //  InfiniBandManager::flush_read();
   return buff_pair{new std::pair(x, true), src};
 }
 
@@ -69,7 +66,7 @@ void *MemMoveScaleOut::MemMoveConf::pull(void *buff) {
   auto p = *ptr;
   delete ptr;
   if (p.second) {
-    return ((subscription *)p.first)->wait().release();
+    return ((subscription *)p.first)->wait().release().release();
   } else {
     return p.first;
   }
@@ -85,4 +82,11 @@ void MemMoveScaleOut::close(Pipeline *pip) {
   LOG(INFO) << "closing...";
   InfiniBandManager::flush_read();
   MemMoveDevice::close(pip);
+}
+
+ProteusValueMemory MemMoveScaleOut::getServerId(
+    ParallelContext *, const OperatorState &childState) const {
+  RecordAttribute srcServer{wantedFields[0]->getRelationName(), "srcServer",
+                            new Int64Type()};  // FIXME: OID type for blocks ?
+  return childState[srcServer];
 }

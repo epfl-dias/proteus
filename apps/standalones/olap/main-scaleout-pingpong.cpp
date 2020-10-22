@@ -145,14 +145,14 @@ int main(int argc, char *argv[]) {
             if (x.size == 0) break;
             assert(x.size % 4 == 0);
             size_t size = x.size / 4;
-            int32_t *data = (int32_t *)x.data;
+            int32_t *data = (int32_t *)x.data.release();
             if (data) {
               for (size_t i = 0; i < size; ++i) {
                 sum += data[i];
               }
             }
             // MemoryManager::freePinned(sub.wait().data);
-            // BlockManager::release_buffer(data);
+            BlockManager::release_buffer(data);
           } while (true);
         }
         nvtxRangePop();
@@ -238,7 +238,7 @@ int main(int argc, char *argv[]) {
     {
       auto x = sub.wait();
       assert(x.size == sizeof(buffkey));
-      auto kb = ((buffkey *)x.data)[0];
+      auto kb = ((buffkey *)x.data.release())[0];
       LOG(INFO) << kb.first << " " << kb.second;
 
       auto v = StorageManager::getInstance()
@@ -274,18 +274,19 @@ int main(int argc, char *argv[]) {
           {
             time_block t{"T: "};
             for (size_t i = 0; i < v[0].size; i += buff_size) {
-              InfiniBandManager::write_to(((char *)v_data) + i,
-                                          std::min(buff_size, v[0].size - i),
-                                          {((char *)kb.first) + i, kb.second});
+              InfiniBandManager::write_to(
+                  proteus::managed_ptr{((char *)v_data) + i},
+                  std::min(buff_size, v[0].size - i),
+                  {((char *)kb.first) + i, kb.second});
               // InfiniBandManager::write(((char *)v_data) + i,
               //                          std::min(buff_size, v[0].size - i));
             }
           }
-          InfiniBandManager::write((char *)v_data, 0);
+          InfiniBandManager::write(proteus::managed_ptr{v_data}, 0);
           InfiniBandManager::flush();
 
           auto x = sub.wait();
-          LOG(INFO) << ((int32_t *)x.data)[0] << std::endl;
+          LOG(INFO) << ((int32_t *)x.data.release())[0] << std::endl;
         });
         // for (size_t k = 0; k < 1; ++k) {
         //   time_block t{"Tg:read:" + std::to_string(bytes{buff_size}) + ": "};

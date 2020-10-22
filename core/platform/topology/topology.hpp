@@ -25,6 +25,7 @@
 #define TOPOLOGY_HPP_
 
 #include <iostream>
+#include <network/infiniband/devices/ib.hpp>
 #include <unordered_map>
 #include <vector>
 
@@ -163,6 +164,7 @@ class topology {
  private:
   std::vector<cpunumanode> cpu_info;
   std::vector<gpunode> gpu_info;
+  std::vector<ib> ib_info;
 
   std::vector<core> core_info;
 
@@ -190,17 +192,27 @@ class topology {
     return instance;
   }
 
-  inline uint32_t getGpuCount() const { return gpu_cnt; }
+  [[nodiscard]] inline uint32_t getGpuCount() const { return gpu_cnt; }
 
-  inline uint32_t getCoreCount() const { return core_cnt; }
+  [[nodiscard]] inline uint32_t getCoreCount() const { return core_cnt; }
 
-  inline uint32_t getCpuNumaNodeCount() const { return cpu_info.size(); }
+  [[nodiscard]] inline uint32_t getCpuNumaNodeCount() const {
+    return cpu_info.size();
+  }
 
-  inline const std::vector<gpunode> &getGpus() const { return gpu_info; }
+  [[nodiscard]] inline size_t getIBCount() const { return ib_info.size(); }
 
-  inline const std::vector<core> &getCores() const { return core_info; }
+  [[nodiscard]] inline const std::vector<gpunode> &getGpus() const {
+    return gpu_info;
+  }
 
-  inline const std::vector<cpunumanode> &getCpuNumaNodes() const {
+  [[nodiscard]] inline const std::vector<core> &getCores() const {
+    return core_info;
+  }
+
+  [[nodiscard]] inline const std::vector<ib> &getIBs() const { return ib_info; }
+
+  [[nodiscard]] inline const std::vector<cpunumanode> &getCpuNumaNodes() const {
     return cpu_info;
   }
 
@@ -231,7 +243,8 @@ class topology {
 #endif
   }
 
-  const topology::cpunumanode &findLocalCPUNumaNode(ibv_device *ib_dev) const;
+  [[nodiscard]] const topology::cpunumanode &findLocalCPUNumaNode(
+      const ib &ib) const;
 
   inline const core &getCoreById(uint32_t id) const {
     return core_info[cpucore_index[id]];
@@ -259,6 +272,7 @@ class topology {
   friend int numa_node_of_gpu(int device);
   friend int get_rand_core_local_to_ptr(const void *p);
   friend std::ostream &operator<<(std::ostream &stream, const topology &topo);
+  size_t getIBCount();
 };
 
 std::ostream &operator<<(std::ostream &stream, const topology &topo);

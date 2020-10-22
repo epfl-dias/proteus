@@ -32,37 +32,43 @@ using namespace llvm;
 
 static std::queue<void *> pending;
 
-void *RouterScaleOut::acquireBuffer(int target, bool polling) {
+proteus::managed_ptr RouterScaleOut::acquireBuffer(int target, bool polling) {
   if (target == InfiniBandManager::server_id()) {
     return Router::acquireBuffer(target, polling);
   } else {
-    if (fanout == 1) LOG(INFO) << "test";
-    return BlockManager::get_buffer();
+    return proteus::managed_ptr{BlockManager::get_buffer()};
   }
 }
 
-void RouterScaleOut::releaseBuffer(int target, void *buff) {
+void RouterScaleOut::releaseBuffer(int target, proteus::managed_ptr buff) {
   // FIXME: we do not have to send the whole block. Usually we will have to send
-  // just a couple of bytes. Use that instead
+  //  just a couple of bytes. Use that instead
   if (target == InfiniBandManager::server_id()) {
-    Router::releaseBuffer(target, buff);
+    Router::releaseBuffer(target, std::move(buff));
   } else {
     // BlockManager::share_host_buffer((int32_t *)buff);
-    InfiniBandManager::write(buff, buf_size, sub->id);
+    InfiniBandManager::write(std::move(buff), buf_size, sub->id);
     ++cnt;
     if (cnt % (slack / 2) == 0) InfiniBandManager::flush();
   }
 }
 
-void RouterScaleOut::freeBuffer(int target, void *buff) {
-  if (target == InfiniBandManager::server_id()) {
-    Router::freeBuffer(target, buff);
+void RouterScaleOut::freeBuffer(int target, proteus::managed_ptr buff) {
+  if (!(((uintptr_t)buff.get()) & 1u)) {
+    Router::freeBuffer(InfiniBandManager::server_id(), std::move(buff));
+    //    Router::freeBuffer(target, buff);
   } else {
-    BlockManager::release_buffer(buff);
+    //    LOG(INFO) << buff;
+    BlockManager::release_buffer(proteus::managed_ptr{
+        (void *)(((uintptr_t)buff.release()) & ~uintptr_t{1})});
+    ////    assert(false);
+    //    Router::freeBuffer(InfiniBandManager::server_id(), buff);
+    ////    Router::freeBuffer(InfiniBandManager::server_id(), buff);
+    //    BlockManager::release_buffer(buff);
   }
 }
 
-bool RouterScaleOut::get_ready(int target, void *&buff) {
+bool RouterScaleOut::get_ready(int target, proteus::managed_ptr &buff) {
   if (target == InfiniBandManager::server_id()) {
     return Router::get_ready(target, buff);
   } else {
@@ -70,12 +76,17 @@ bool RouterScaleOut::get_ready(int target, void *&buff) {
       // auto &sub = InfiniBandManager::subscribe();
       auto x = sub->wait();
       if (x.size == 3) {
+        LOG(INFO) << "exit and close local queue if needed";
         if (++closed == 2) ready_fifo[InfiniBandManager::server_id()].close();
         strmclosed = true;
+        BlockManager::release_buffer(x.release());
         return false;
       }
       assert(x.size != 2);
-      Router::releaseBuffer(InfiniBandManager::server_id(), x.release());
+      Router::releaseBuffer(
+          InfiniBandManager::server_id(),
+          proteus::managed_ptr{
+              (void *)(((uintptr_t)x.release().release()) | 1u)});
     }
   }
 }
@@ -93,9 +104,9 @@ void RouterScaleOut::fire(int target, PipelineGen *pipGen) {
   std::this_thread::yield();  // if we remove that, following opens may allocate
                               // memory to wrong socket!
 
-  void *p;
+  proteus::managed_ptr p;
   while (get_ready(target, p)) {
-    freeBuffer(target, p);
+    freeBuffer(target, std::move(p));
   }
 }
 
@@ -138,7 +149,8 @@ void RouterScaleOut::close(Pipeline *pip) {
     ready_fifo[InfiniBandManager::server_id()].close();
   }
   // Send msg: "You are now allowed to proceed to your close statement"
-  InfiniBandManager::write(BlockManager::get_buffer(), 3, sub->id);
+  InfiniBandManager::write(proteus::managed_ptr{BlockManager::get_buffer()}, 3,
+                           sub->id);
   InfiniBandManager::flush();
 
   int rem = --remaining_producers;
@@ -155,7 +167,8 @@ void RouterScaleOut::close(Pipeline *pip) {
 
   // Send msg: I am done and I will exit as soon as you all tell me you are also
   // done
-  InfiniBandManager::write(BlockManager::get_buffer(), 2, sub->id);
+  InfiniBandManager::write(proteus::managed_ptr{BlockManager::get_buffer()}, 2,
+                           sub->id);
   InfiniBandManager::flush();
 
   LOG(INFO) << "waiting for other end...";
@@ -163,6 +176,7 @@ void RouterScaleOut::close(Pipeline *pip) {
   auto x = sub->wait();
   LOG(INFO) << "received closed " << x.size;
   LOG(INFO) << "data: " << (bytes{buf_size * cnt});
+  BlockManager::release_buffer(x.release());
   cnt = 0;
   closed = 0;
 

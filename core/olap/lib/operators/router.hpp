@@ -25,6 +25,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <memory/block-manager.hpp>
 #include <mutex>
 #include <queue>
 #include <stack>
@@ -93,10 +94,11 @@ class Router : public experimental::UnaryOperator {
   virtual std::unique_ptr<routing::RoutingPolicy> getPolicy() const;
 
  protected:
-  [[nodiscard]] virtual void *acquireBuffer(int target, bool polling);
-  virtual void releaseBuffer(int target, void *buff);
-  virtual void freeBuffer(int target, void *buff);
-  virtual bool get_ready(int target, void *&buff);
+  [[nodiscard]] virtual proteus::managed_ptr acquireBuffer(int target,
+                                                           bool polling);
+  virtual void releaseBuffer(int target, proteus::managed_ptr buff);
+  virtual void freeBuffer(int target, proteus::managed_ptr buff);
+  virtual bool get_ready(int target, proteus::managed_ptr &buff);
 
   friend void *acquireBuffer(int target, Router *xch);
   friend void *try_acquireBuffer(int target, Router *xch);

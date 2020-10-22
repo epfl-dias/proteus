@@ -34,12 +34,14 @@
 #include <sys/types.h>
 
 #include <cassert>
+#include <common/error-handling.hpp>
 #include <condition_variable>
 #include <iostream>
 #include <map>
 #include <memory/block-manager.hpp>
 #include <memory/memory-manager.hpp>
 #include <mutex>
+#include <network/infiniband/devices/ib.hpp>
 #include <thread>
 
 #include "infiniband-handler.hpp"
@@ -52,7 +54,7 @@ subscription::value_type subscription::wait() {
   return ret;
 }
 
-void subscription::publish(void *data, size_t size
+void subscription::publish(proteus::managed_ptr data, size_t size
 #ifndef NDEBUG
                            ,
                            decltype(__builtin_FILE()) file,
@@ -60,7 +62,7 @@ void subscription::publish(void *data, size_t size
 #endif
 ) {
   std::unique_lock<std::mutex> lk{m};
-  q.emplace(data, size
+  q.emplace(std::move(data), size
 #ifndef NDEBUG
             ,
             file, line
@@ -69,79 +71,109 @@ void subscription::publish(void *data, size_t size
   cv.notify_one();
 }
 
-IBHandler *InfiniBandManager::ib = nullptr;
+std::vector<IBHandler *> InfiniBandManager::ib;
 uint64_t InfiniBandManager::srv_id;
 
 uint64_t InfiniBandManager::server_id() { return srv_id; }
 
 void InfiniBandManager::send(void *data, size_t bytes) {
-  ib->send(data, bytes);
+  assert(!ib.empty());
+  ib.front()->send(data, bytes);  // FIXME
 }
 
-void InfiniBandManager::write(void *data, size_t bytes, size_t sub_id) {
-  ib->write(data, bytes, sub_id);
+void InfiniBandManager::write(proteus::managed_ptr data, size_t bytes,
+                              size_t sub_id) {
+  ib.front()->write(std::move(data), bytes, sub_id);  // FIXME
 }
 
-void InfiniBandManager::write_to(void *data, size_t bytes, buffkey b) {
-  ib->write_to(data, bytes, b);
+void InfiniBandManager::write_to(proteus::managed_ptr data, size_t bytes,
+                                 buffkey b) {
+  ib.front()->write_to(std::move(data), bytes, b);  // FIXME
 }
 
-subscription *InfiniBandManager::write_silent(void *data, size_t bytes) {
-  return ib->write_silent(data, bytes);
+subscription *InfiniBandManager::write_silent(proteus::managed_ptr data,
+                                              size_t bytes) {
+  return ib.front()->write_silent(std::move(data), bytes);  // FIXME
 }
 
 subscription *InfiniBandManager::read(void *data, size_t bytes) {
-  return ib->read(data, bytes);
+  return ib.front()->read(data, bytes);  // FIXME
 }
 
-subscription *InfiniBandManager::read_event() { return ib->read_event(); }
+subscription *InfiniBandManager::read_event() {
+  return ib.front()->read_event();  // FIXME
+}
 
-void InfiniBandManager::flush() { ib->flush(); }
-void InfiniBandManager::flush_read() { ib->flush_read(); }
+void InfiniBandManager::flush() {
+  ib.front()->flush();  // FIXME
+}
+void InfiniBandManager::flush_read() {
+  ib.front()->flush_read();  // FIXME
+}
 
-buffkey InfiniBandManager::get_buffer() { return ib->get_buffer(); }
+buffkey InfiniBandManager::get_buffer() {
+  return ib.front()->get_buffer();
+  // FIXME
+}
 
-void InfiniBandManager::deinit() { delete ib; }
+void InfiniBandManager::release_buffer(proteus::managed_ptr p) {
+  return ib.front()->release_buffer(std::move(p));
+  // FIXME
+}
+
+void InfiniBandManager::deinit() {
+  for (auto &i : ib) delete i;
+}
 
 subscription &InfiniBandManager::subscribe() {
-  return ib->register_subscriber();
+  return ib.front()->register_subscriber();  // FIXME
 }
 
 subscription &InfiniBandManager::create_subscription() {
-  return ib->create_subscription();
+  return ib.front()->create_subscription();  // FIXME
 }
 
 void InfiniBandManager::unsubscribe(subscription &sub) {
-  ib->unregister_subscriber(sub);
+  ib.front()->unregister_subscriber(sub);  // FIXME
 }
 
-void InfiniBandManager::disconnectAll() { ib->disconnect(); }
+void InfiniBandManager::disconnectAll() {
+  for (auto &i : ib) i->disconnect();
+  //  ib.front()->disconnect();  // FIXME
+}
 
 IBHandler *createServer(uint16_t port, bool ipv4,
                         int cq_backlog = /* arbitrary */ cq_ack_backlog);
-IBHandler *createClient(const std::string &url, uint16_t port, bool ipv4,
+IBHandler *createClient(size_t i, const std::string &url, uint16_t port,
+                        bool ipv4,
                         int cq_backlog = /* arbitrary */ cq_ack_backlog);
 
 void InfiniBandManager::init(const std::string &url, uint16_t port,
                              bool primary, bool ipv4) {
-  // int num_of_devices = 0;
-  // ibv_context **devs = rdma_get_devices(&num_of_devices);
-  // for (int i = 0; i < num_of_devices; ++i) {
-  //   std::cout << "IB: " << devs[i]->device->dev_name << " "
-  //             << devs[i]->device->dev_path << " " << devs[i]->device->name
-  //             << " " << ibv_node_type_str(devs[i]->device->node_type)
-  //             << std::endl;
-  // }
-  // rdma_free_devices(devs);
-  if (primary) {
-    srv_id = 0;
-    ib = createServer(port, ipv4);
-  } else {
-    srv_id = 1;
-    ib = createClient(url, port, ipv4);
+  for (const auto &ib : topology::getInstance().getIBs()) {
+    BlockManager::reg(ib.getMemRegistry());
+  }
+  for (const auto &ib : topology::getInstance().getIBs()) {
+    ib.ensure_listening();
   }
 
-  ib->start();
+  if (primary) {
+    srv_id = 0;
+  } else {
+    srv_id = 1;
+  }
+
+  auto addr = [&]() {
+    if (primary) {
+      return topology::getInstance().getIBs().front().get_client(port);
+    } else {
+      return topology::getInstance().getIBs().front().get_server(url, port);
+    }
+  }();
+  LOG(INFO) << addr;
+
+  ib.emplace_back(new IBHandler(8, topology::getInstance().getIBs().front()));
+  ib.front()->start();
 }
 
 #include <endian.h>
@@ -173,15 +205,16 @@ void gid_to_wire_gid(const union ibv_gid *gid, char wgid[]) {
 }
 
 buffkey InfiniBandManager::reg(const void *mem, size_t bytes) {
-  if (ib) return ib->reg2(mem, bytes);
+  if (!ib.empty()) return ib.front()->reg2(mem, bytes);
   return {nullptr, 0};
 }
 
 void InfiniBandManager::unreg(const void *mem) {
-  if (ib) ib->unreg(mem);
+  if (!ib.empty()) ib.front()->unreg(mem);
 }
 
 subscription::value_type::~value_type() {
   if (line == 441) LOG(INFO) << file << " " << line;
-  BlockManager::release_buffer(data);
+  assert(data == nullptr);
+  BlockManager::release_buffer(data.release());
 }

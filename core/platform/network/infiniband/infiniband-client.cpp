@@ -50,10 +50,9 @@ void ib_connect(ibv_qp *qp, const ib_addr &rem, uint8_t ib_port, uint32_t psn,
 int open_addr_exchange_connection(uint16_t port,
                                   const char *servername = nullptr);
 
-static ib_addr get_server_addr(const std::string &server, ibv_qp *qp,
-                               uint16_t port, const ib_addr &loc,
-                               uint8_t ib_port, uint32_t psn, ibv_mtu mtu,
-                               uint8_t ib_sl, uint8_t sgid_idx) {
+ib_addr get_server_addr(const std::string &server, ibv_qp *qp, uint16_t port,
+                        const ib_addr &loc, uint8_t ib_port, uint32_t psn,
+                        ibv_mtu mtu, uint8_t ib_sl, uint8_t sgid_idx) {
   auto connfd = open_addr_exchange_connection(port, server.c_str());
 
   constexpr size_t gid_size = 32;
@@ -100,22 +99,4 @@ static ib_addr get_server_addr(const std::string &server, ibv_qp *qp,
   ib_connect(qp, ret, ib_port, psn, mtu, ib_sl, sgid_idx);
 
   return ret;
-}
-
-class IBHandlerClient : public IBHandler {
- public:
-  IBHandlerClient(const std::string &url, uint16_t port, bool ipv4,
-                  int cq_backlog = /* arbitrary */ cq_ack_backlog)
-      : IBHandler(cq_backlog) {
-    rem_addr = get_server_addr(url, qp, port, addr, ib_port, addr.psn,
-                               IBV_MTU_4096, ib_sl, ib_gidx);
-
-    LOG(INFO) << "Remote IB address: " << rem_addr;
-    active_connections.emplace(uint64_t{0}, nullptr);
-  }
-};
-
-IBHandler *createClient(const std::string &url, uint16_t port, bool ipv4,
-                        int cq_backlog) {
-  return new IBHandlerClient(url, port, ipv4, cq_backlog);
 }

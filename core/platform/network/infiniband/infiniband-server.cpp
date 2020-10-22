@@ -137,9 +137,9 @@ int open_addr_exchange_connection(uint16_t port,
   return connfd;
 }
 
-static ib_addr get_client_addr(ibv_qp *qp, uint16_t port, const ib_addr &loc,
-                               uint8_t ib_port, uint32_t psn, ibv_mtu mtu,
-                               uint8_t ib_sl, uint8_t sgid_idx) {
+ib_addr get_client_addr(ibv_qp *qp, uint16_t port, const ib_addr &loc,
+                        uint8_t ib_port, uint32_t psn, ibv_mtu mtu,
+                        uint8_t ib_sl, uint8_t sgid_idx) {
   auto connfd = open_addr_exchange_connection(port);
 
   constexpr size_t gid_size = 32;
@@ -186,20 +186,4 @@ static ib_addr get_client_addr(ibv_qp *qp, uint16_t port, const ib_addr &loc,
 
   close(connfd);
   return ret;
-}
-
-class IBHandlerServer : public IBHandler {
- public:
-  IBHandlerServer(uint16_t port, bool ipv4,
-                  int cq_backlog = /* arbitrary */ cq_ack_backlog)
-      : IBHandler(cq_backlog) {
-    rem_addr = get_client_addr(qp, port, addr, ib_port, addr.psn, IBV_MTU_4096,
-                               ib_sl, ib_gidx);
-
-    LOG(INFO) << "Remote IB address: " << rem_addr;
-  }
-};
-
-IBHandler *createServer(uint16_t port, bool ipv4, int cq_backlog) {
-  return new IBHandlerServer(port, ipv4, cq_backlog);
 }

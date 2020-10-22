@@ -10,6 +10,8 @@ set(codegen_cxx
     memory/block-manager.cpp
     memory/memory-allocator.cpp
     memory/memory-manager.cpp
+    network/infiniband/devices/ib.cpp
+    network/infiniband/private/ib_impl.cpp
     network/infiniband/infiniband-client.cpp
     network/infiniband/infiniband-handler.cpp
     network/infiniband/infiniband-manager.cpp

@@ -38,7 +38,7 @@ buff_pair MemMoveDevice::MemMoveConf::push(void *src, size_t bytes,
                                            uint64_t srcServer) {
   assert(srcServer == 0);
   const auto *d = topology::getInstance().getGpuAddressed(src);
-  int dev = d ? d->id : -1;
+  int dev = d ? static_cast<int>(d->id) : -1;
 
   if (dev == target_device) {
     return buff_pair::not_moved(src);  // block in correct device
@@ -78,10 +78,10 @@ void MemMoveDevice::produce_(ParallelContext *context) {
   auto oidType = pg->getOIDType()->getLLVMType(llvmContext);
 
   std::vector<llvm::Type *> tr_types;
-  for (size_t i = 0; i < wantedFields.size(); ++i) {
-    tr_types.push_back(wantedFields[i]->getLLVMType(llvmContext));
-    tr_types.push_back(wantedFields[i]->getLLVMType(
-        llvmContext));  // old buffer, to be released
+  for (auto wantedField : wantedFields) {
+    tr_types.push_back(wantedField->getLLVMType(llvmContext));
+    tr_types.push_back(
+        wantedField->getLLVMType(llvmContext));  // old buffer, to be released
   }
   tr_types.push_back(oidType);  // cnt
   tr_types.push_back(oidType);  // oid
@@ -117,15 +117,6 @@ void MemMoveDevice::produce_(ParallelContext *context) {
   auto release = context->getFunction("release_buffer");
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
-    ProteusValueMemory mem_valWrapper;
-
-    mem_valWrapper.mem = context->CreateEntryBlockAlloca(
-        F, wantedFields[i]->getAttrName() + "_ptr",
-        wantedFields[i]->getOriginalType()->getLLVMType(llvmContext));
-    mem_valWrapper.isNull =
-        context->createFalse();  // FIMXE: should we alse transfer this
-                                 // information ?
-
     auto param = Builder->CreateExtractValue(params, 2 * i);
 
     auto src = Builder->CreateExtractValue(params, 2 * i + 1);
@@ -144,32 +135,18 @@ void MemMoveDevice::produce_(ParallelContext *context) {
 
     Builder->SetInsertPoint(merBB);
 
-    Builder->CreateStore(param, mem_valWrapper.mem);
-
-    variableBindings[*(wantedFields[i])] = mem_valWrapper;
+    variableBindings[*(wantedFields[i])] =
+        context->toMem(param, context->createFalse());
   }
 
-  ProteusValueMemory mem_cntWrapper;
-  mem_cntWrapper.mem = context->CreateEntryBlockAlloca(F, "activeCnt", oidType);
-  mem_cntWrapper.isNull =
-      context
-          ->createFalse();  // FIMXE: should we alse transfer this information ?
-
   auto cnt = Builder->CreateExtractValue(params, 2 * wantedFields.size());
-  Builder->CreateStore(cnt, mem_cntWrapper.mem);
 
-  variableBindings[tupleCnt] = mem_cntWrapper;
-
-  ProteusValueMemory mem_oidWrapper;
-  mem_oidWrapper.mem = context->CreateEntryBlockAlloca(F, activeLoop, oidType);
-  mem_oidWrapper.isNull =
-      context
-          ->createFalse();  // FIMXE: should we alse transfer this information ?
+  variableBindings[tupleCnt] = context->toMem(cnt, context->createFalse());
 
   auto oid = Builder->CreateExtractValue(params, 2 * wantedFields.size() + 1);
-  Builder->CreateStore(oid, mem_oidWrapper.mem);
 
-  variableBindings[tupleIdentifier] = mem_oidWrapper;
+  variableBindings[tupleIdentifier] =
+      context->toMem(oid, context->createFalse());
 
   context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
@@ -199,17 +176,18 @@ void MemMoveDevice::produce_(ParallelContext *context) {
   // cu_stream_var       = context->appendStateVar(charPtrType);
   memmvconf_var = context->appendStateVar(charPtrType);
 
-  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
-    this->open(pip);
-  });
-  ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
-    this->close(pip);
-  });
+  context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
+  context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
   getChild()->produce(context);
 }
 
-void MemMoveDevice::consume(Context *const context,
+ProteusValueMemory MemMoveDevice::getServerId(
+    ParallelContext *context, const OperatorState &childState) const {
+  return context->toMem(context->createInt64(0), context->createFalse());
+}
+
+void MemMoveDevice::consume(ParallelContext *context,
                             const OperatorState &childState) {
   // Prepare
   auto &llvmContext = context->getLLVMContext();
@@ -229,11 +207,7 @@ void MemMoveDevice::consume(Context *const context,
 
   ProteusValueMemory mem_cntWrapper = childState[tupleCnt];
 
-  RecordAttribute srcServer{wantedFields[0]->getRelationName(), "srcServer",
-                            new Int64Type()};  // FIXME: OID type for blocks ?
-  ProteusValueMemory mem_srcServer = context->toMem(
-      context->createInt64(0),
-      context->createFalse());  //, llvm::Value *isNull)childState[srcServer];
+  ProteusValueMemory mem_srcServer = getServerId(context, childState);
 
   auto make_mem_move = context->getFunction("make_mem_move_device");
 
@@ -331,8 +305,7 @@ void MemMoveDevice::destroyMoveConf(MemMoveDevice::MemMoveConf *mmc) const {
 }
 
 void MemMoveDevice::open(Pipeline *pip) {
-  workunit *wu =
-      (workunit *)MemoryManager::mallocPinned(sizeof(workunit) * slack);
+  auto *wu = (workunit *)MemoryManager::mallocPinned(sizeof(workunit) * slack);
 
   // nvtxRangePushA("memmove::open");
   cudaStream_t strm = createNonBlockingStream();
@@ -406,7 +379,7 @@ void MemMoveDevice::close(Pipeline *pip) {
   eventlogger.log(this, log_op::MEMMOVE_CLOSE_START);
   // int device = get_device();
   // cudaStream_t strm = pip->getStateVar<cudaStream_t>(cu_stream_var);
-  MemMoveConf *mmc = pip->getStateVar<MemMoveConf *>(memmvconf_var);
+  auto *mmc = pip->getStateVar<MemMoveConf *>(memmvconf_var);
 
   mmc->tran.close();
 

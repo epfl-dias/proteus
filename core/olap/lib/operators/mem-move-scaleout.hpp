@@ -50,7 +50,10 @@ class MemMoveScaleOut : public MemMoveDevice {
       : MemMoveDevice(child, context, wantedFields, slack, true) {}
 
  protected:
-  MemMoveScaleOut::MemMoveConf *createMoveConf() const override;
+  [[nodiscard]] MemMoveScaleOut::MemMoveConf *createMoveConf() const override;
+
+  [[nodiscard]] ProteusValueMemory getServerId(
+      ParallelContext *context, const OperatorState &childState) const override;
 
   // virtual void open(Pipeline *pip);
   void close(Pipeline *pip) override;

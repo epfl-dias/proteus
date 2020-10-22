@@ -233,6 +233,8 @@ void topology::init_() {
       }
     }
   }
+
+  ib_info = ib::discover();
 }
 
 topology::topology() {}
@@ -256,13 +258,14 @@ std::ostream &operator<<(std::ostream &out, const topology &topo) {
   out << "numa nodes: " << topo.getCpuNumaNodeCount() << "\n";
   out << "core count: " << topo.getCoreCount() << "\n";
   out << "gpu  count: " << topo.getGpuCount() << "\n";
+  out << "IB   count: " << topo.getIBCount() << "\n";
 
   out << '\n';
 
   char core_mask[topo.core_cnt + 1];
   core_mask[topo.core_cnt] = '\0';
 
-  uint32_t digits = (uint32_t)std::ceil(std::log10(topo.core_cnt));
+  auto digits = (uint32_t)std::ceil(std::log10(topo.core_cnt));
 
   for (uint32_t k = digits; k > 0; --k) {
     uint32_t base = std::pow(10, k - 1);
@@ -330,6 +333,26 @@ std::ostream &operator<<(std::ostream &out, const topology &topo) {
     //     out << std::setw(4) << cpu_id << " ";
     // }
     // out << '\n';
+  }
+
+  out << '\n';
+
+  for (const auto &ib : topo.getIBs()) {
+    out << "ib:   " << std::setw(6) << ib.id << " | ";
+
+    const auto &numanode = topo.findLocalCPUNumaNode(ib);
+    out << "node : " << std::setw(4) << numanode.id << " | ";
+    out << "cores: ";
+
+    for (uint32_t i = 0; i < topo.core_cnt; ++i) core_mask[i] = ' ';
+
+    for (auto cpu_id : numanode.local_cores) {
+      core_mask[cpu_id] = 'x';
+    }
+
+    out << core_mask;
+    out << " | name: " << ib;
+    out << '\n';
   }
 
   // size_t sockets = topo.cpu_info.size();

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2020
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -21,31 +21,32 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef BLOCK_MANAGER_HPP
-#define BLOCK_MANAGER_HPP
+#ifndef PROTEUS_MAGANED_POINTER_HPP
+#define PROTEUS_MAGANED_POINTER_HPP
 
-#include "buffer-manager.cuh"
-#include "maganed-pointer.hpp"
-#include "util/memory-registry.hpp"
+#include <memory>
+#include <string>
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-class BlockManager : public buffer_manager<int32_t> {
+namespace proteus {
+class internal_error : public std::runtime_error {
  public:
-  static constexpr size_t block_size = buffer_manager<int32_t>::buffer_size;
-
-  static __host__ __device__ __forceinline__ void release_buffer(void* buff) {
-    buffer_manager<int32_t>::release_buffer((int32_t*)buff);
-  }
-#pragma clang diagnostic pop
-
-  template <typename T>
-  static __host__ __device__ __forceinline__ void release_buffer(
-      proteus::managed<T> p) {
-    release_buffer(p.release());
-  }
-
-  static void reg(MemoryRegistry&);
-  static void unreg(MemoryRegistry& registry);
+  using runtime_error::runtime_error;
 };
-#endif /* BLOCK_MANAGER_HPP */
+}  // namespace proteus
+
+template <typename T>
+struct ManagedPointerDeleter {
+  void operator()(T* ptr) const {
+    if (!ptr) return;
+    throw proteus::internal_error{"Leaked pointer " +
+                                  std::to_string((uintptr_t)ptr)};
+  }
+};
+
+namespace proteus {
+template <typename T>
+using managed = std::unique_ptr<T, ManagedPointerDeleter<T>>;
+using managed_ptr = managed<void>;
+}  // namespace proteus
+
+#endif  // PROTEUS_MAGANED_POINTER_HPP

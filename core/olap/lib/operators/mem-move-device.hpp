@@ -38,7 +38,7 @@ struct buff_pair {
   static buff_pair not_moved(void *buff);
 };
 
-class MemMoveDevice : public UnaryOperator {
+class MemMoveDevice : public experimental::UnaryOperator {
  public:
   struct workunit {
     void *data;
@@ -86,11 +86,10 @@ class MemMoveDevice : public UnaryOperator {
                 const vector<RecordAttribute *> &wantedFields, size_t slack,
                 bool to_cpu, std::vector<bool> do_transfer)
       : UnaryOperator(child),
-        context(context),
         wantedFields(wantedFields),
         slack(slack),
         to_cpu(to_cpu),
-        do_transfer(do_transfer) {}
+        do_transfer(std::move(do_transfer)) {}
 
   MemMoveDevice(Operator *const child, ParallelContext *const context,
                 const vector<RecordAttribute *> &wantedFields, size_t slack,
@@ -99,22 +98,19 @@ class MemMoveDevice : public UnaryOperator {
                       //                      {true, true, false, false}
                       std::vector<bool>(wantedFields.size(), true)) {}
 
-  ~MemMoveDevice() override {
-    LOG(INFO) << "Collapsing MemMoveDevice operator";
-  }
-
   void produce_(ParallelContext *context) override;
-  void consume(Context *const context,
+  void consume(ParallelContext *context,
                const OperatorState &childState) override;
-  bool isFiltering() const override { return false; }
+  [[nodiscard]] bool isFiltering() const override { return false; }
 
-  RecordType getRowType() const override { return wantedFields; }
+  [[nodiscard]] RecordType getRowType() const override { return wantedFields; }
 
  protected:
-  virtual MemMoveConf *createMoveConf() const;
+  [[nodiscard]] virtual MemMoveConf *createMoveConf() const;
   virtual void destroyMoveConf(MemMoveConf *mmc) const;
 
-  ParallelContext *const context;
+  [[nodiscard]] virtual ProteusValueMemory getServerId(
+      ParallelContext *context, const OperatorState &childState) const;
 
   const vector<RecordAttribute *> wantedFields;
   StateVar device_id_var;

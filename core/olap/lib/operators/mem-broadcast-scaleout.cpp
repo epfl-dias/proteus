@@ -35,7 +35,7 @@ buff_pair MemBroadcastScaleOut::MemBroadcastConf::pushBroadcast(
   }
 
   // BlockManager::share_host_buffer((int32_t *)src);
-  auto x = InfiniBandManager::write_silent(src, bytes);
+  auto x = InfiniBandManager::write_silent(proteus::managed_ptr{src}, bytes);
   return buff_pair{new std::pair(x, true), src};
 }
 
@@ -44,7 +44,7 @@ void MemBroadcastScaleOut::MemBroadcastConf::propagateBroadcast(
   tran.push(buff);
 
   if (target_device == InfiniBandManager::server_id()) return;
-
+  assert(slack);
   ++cnt;
   if (cnt % (slack / 2) == 0) InfiniBandManager::flush();
 }
@@ -55,7 +55,7 @@ void *MemBroadcastScaleOut::MemBroadcastConf::pull(void *buff) {
   delete ptr;
   if (p.second) {
     auto x = ((subscription *)p.first)->wait();
-    return x.release();
+    return x.release().release();
   } else {
     return p.first;
   }

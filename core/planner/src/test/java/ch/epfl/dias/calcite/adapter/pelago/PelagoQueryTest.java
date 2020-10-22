@@ -45,23 +45,84 @@ public class PelagoQueryTest {
   @AfterAll
   public static void deinit() throws SQLException {
     // Print timing results
-    ResultSet rs = PelagoTestConnectionFactory.get()
-      .createConnection()
-      .createStatement()
-      .executeQuery("SELECT * FROM SessionTimings");
-
-    ResultSetMetaData rsmd = rs.getMetaData();
-    int columnsN = rsmd.getColumnCount();
-    while (rs.next()){
-      // Keep lines in a string and print whole lines each time,
-      // otherwise in junit prints each part a separate info line.
-      ImmutableList.Builder builder = ImmutableList.<String>builder();
-      for (int i = 1 ; i <= columnsN ; ++i){
-        String columnValue = rs.getString(i);
-        builder.add(rsmd.getColumnName(i) + "=" + columnValue);
-      }
-      System.out.println(String.join("; ", builder.build()));
-    }
+    var conn =
+        PelagoTestConnectionFactory.get()
+            .createConnection();
+//
+//    conn
+//        .createStatement()
+////        .executeQuery("")
+//        .execute("CREATE TABLE t (i INTEGER)");
+//
+//    conn
+//        .createStatement()
+////        .executeQuery("")
+//        .execute("INSERT INTO t VALUES (5)");
+//    {
+//
+//      var stmt = conn.prepareStatement("SELECT d_datekey FROM ssbm_date");
+//
+//      for (int j = 0 ; j < 5 ; ++j) {
+//        stmt.execute();
+//        ResultSet rs = stmt.getResultSet();
+//
+//
+//        ResultSetMetaData rsmd = rs.getMetaData();
+//        int columnsN = rsmd.getColumnCount();
+//        while (rs.next()){
+//          // Keep lines in a string and print whole lines each time,
+//          // otherwise in junit prints each part a separate info line.
+//          ImmutableList.Builder builder = ImmutableList.<String>builder();
+//          for (int i = 1 ; i <= columnsN ; ++i){
+//            String columnValue = rs.getString(i);
+//            builder.add(rsmd.getColumnName(i) + "=" + columnValue);
+//          }
+//          System.out.println(String.join("; ", builder.build()));
+//        }
+//      }
+//    }
+//
+//    conn.createStatement()
+////        .executeQuery("")
+////        .execute("INSERT INTO t SELECT d_datekey FROM ssbm_date");
+//        .executeQuery("SELECT d_datekey FROM ssbm_date");
+//
+//    conn.createStatement()
+////        .executeQuery("")
+////        .execute("INSERT INTO t SELECT d_datekey FROM ssbm_date");
+//        .executeQuery("SELECT d_datekey FROM ssbm_date");
+//
+//
+//
+//
+//    conn.createStatement()
+////        .executeQuery("")
+////        .execute("INSERT INTO t SELECT d_datekey FROM ssbm_date");
+//        .execute("CREATE TABLE D AS SELECT d_datekey FROM ssbm_date");
+////        .execute("CREATE TABLE D AS VALUES (1, 'a'), (2, 'bc')");//SELECT d_datekey FROM ssbm_date");
+//
+//    conn.createStatement()
+////        .executeQuery("")
+////        .execute("INSERT INTO t SELECT d_datekey FROM ssbm_date");
+//        .execute("INSERT INTO D SELECT d_datekey FROM ssbm_date");
+////        .execute("CREATE TABLE D AS VALUES (1, 'a'), (2, 'bc')");//SELECT d_datekey FROM ssbm_date");
+//    ResultSet rs = PelagoTestConnectionFactory.get()
+//      .createConnection()
+//      .createStatement()
+//      .executeQuery("SELECT * FROM SessionTimings");
+//
+//    ResultSetMetaData rsmd = rs.getMetaData();
+//    int columnsN = rsmd.getColumnCount();
+//    while (rs.next()){
+//      // Keep lines in a string and print whole lines each time,
+//      // otherwise in junit prints each part a separate info line.
+//      ImmutableList.Builder builder = ImmutableList.<String>builder();
+//      for (int i = 1 ; i <= columnsN ; ++i){
+//        String columnValue = rs.getString(i);
+//        builder.add(rsmd.getColumnName(i) + "=" + columnValue);
+//      }
+//      System.out.println(String.join("; ", builder.build()));
+//    }
   }
 
   private CalciteAssert.AssertQuery testParseAndExecute(String sql) throws SQLException {
@@ -145,6 +206,7 @@ public class PelagoQueryTest {
       Paths.get(PelagoQueryTest.class.getResource("/tests").getPath()),
       (sql, resultFile) -> Assertions.assertDoesNotThrow(() -> {
         Repl.setCpuonly();
+        System.out.println(sql);
         testQueryOrdered(sql, resultFile);
       })
     );

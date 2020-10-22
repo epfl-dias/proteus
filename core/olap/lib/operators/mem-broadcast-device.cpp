@@ -238,7 +238,7 @@ void MemBroadcastDevice::produce_(ParallelContext *context) {
   getChild()->produce(context);
 }
 
-void MemBroadcastDevice::consume(Context *const context,
+void MemBroadcastDevice::consume(ParallelContext *context,
                                  const OperatorState &childState) {
   // Prepare
   auto &llvmContext = context->getLLVMContext();

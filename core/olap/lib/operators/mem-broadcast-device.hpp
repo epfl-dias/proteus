@@ -71,10 +71,10 @@ class MemBroadcastDevice : public MemMoveDevice {
   }
 
   void produce_(ParallelContext *context) override;
-  void consume(Context *const context,
+  void consume(ParallelContext *context,
                const OperatorState &childState) override;
 
-  RecordType getRowType() const override {
+  [[nodiscard]] RecordType getRowType() const override {
     std::string relName = wantedFields[0]->getRelationName();
 
     std::vector<RecordAttribute *> ret;
@@ -84,13 +84,13 @@ class MemBroadcastDevice : public MemMoveDevice {
       assert(dynamic_cast<const BlockType *>(ret.back()->getOriginalType()));
     }
 
-    RecordAttribute *reg_as =
+    auto *reg_as =
         new RecordAttribute(relName, "__broadcastTarget", new IntType());
     ret.emplace_back(reg_as);
     return ret;
   }
 
-  MemBroadcastConf *createMoveConf() const override;
+  [[nodiscard]] MemBroadcastConf *createMoveConf() const override;
 
  private:
   std::vector<int> targets;

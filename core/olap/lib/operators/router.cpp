@@ -154,7 +154,7 @@ void Router::generate_catch(ParallelContext *context) {
   // Builder->CreateRetVoid();
 }
 
-void *Router::acquireBuffer(int target, bool polling) {
+proteus::managed_ptr Router::acquireBuffer(int target, bool polling) {
   nvtxRangePushA("acq_buff");
 
   if (free_pool[target].empty() && polling) {
@@ -186,10 +186,10 @@ void *Router::acquireBuffer(int target, bool polling) {
 
   lock.unlock();
   nvtxRangePushA("got_acq_buff");
-  return buff;
+  return proteus::managed_ptr{buff};
 }
 
-void Router::releaseBuffer(int target, void *buff) {
+void Router::releaseBuffer(int target, proteus::managed_ptr buff) {
   eventlogger.log(this, log_op::EXCHANGE_PRODUCE_PUSH_START);
   nvtxRangePop();
   // std::unique_lock<std::mutex> lock(ready_pool_mutex[target]);
@@ -197,21 +197,21 @@ void Router::releaseBuffer(int target, void *buff) {
   // ready_pool[target].emplace(buff);
   // ready_pool_cv[target].notify_one();
   // lock.unlock();
-  ready_fifo[target].push(buff);
+  ready_fifo[target].push(buff.release());
   nvtxRangePop();
   eventlogger.log(this, log_op::EXCHANGE_PRODUCE_PUSH_END);
 }
 
-void Router::freeBuffer(int target, void *buff) {
+void Router::freeBuffer(int target, proteus::managed_ptr buff) {
   nvtxRangePushA("waiting_to_release");
   std::unique_lock<std::mutex> lock(free_pool_mutex[target]);
   nvtxRangePop();
-  free_pool[target].emplace(buff);
+  free_pool[target].emplace(buff.release());
   free_pool_cv[target].notify_one();
   lock.unlock();
 }
 
-bool Router::get_ready(int target, void *&buff) {
+bool Router::get_ready(int target, proteus::managed_ptr &buff) {
   // // while (ready_pool[target].empty() && remaining_producers > 0);
 
   // std::unique_lock<std::mutex> lock(ready_pool_mutex[target]);
@@ -236,7 +236,10 @@ bool Router::get_ready(int target, void *&buff) {
   // lock.unlock();
   // return true;
 
-  return ready_fifo[target].pop(buff);
+  void *ptr;
+  auto r = ready_fifo[target].pop(ptr);
+  if (r) buff = proteus::managed_ptr{ptr};
+  return r;
 }
 
 void Router::fire(int target, PipelineGen *pipGen) {
@@ -260,7 +263,7 @@ void Router::fire(int target, PipelineGen *pipGen) {
     assert(buf_size);
     mem = MemoryManager::mallocPinned(buf_size * slack);
     for (int j = 0; j < slack; ++j) {
-      freeBuffer(target, ((char *)mem) + j * buf_size);
+      freeBuffer(target, proteus::managed_ptr{((char *)mem) + j * buf_size});
     }
   }
   nvtxRangePushA(
@@ -275,7 +278,7 @@ void Router::fire(int target, PipelineGen *pipGen) {
     // time_block t("Texchange consume (target=" + std::to_string(target) + "):
     // ");
     do {
-      void *p;
+      proteus::managed_ptr p = nullptr;
       if (!get_ready(target, p)) break;
       // ++packets;
       nvtxRangePushA((pipGen->getName() + ":cons").c_str());
@@ -292,23 +295,25 @@ void Router::fire(int target, PipelineGen *pipGen) {
       {
         //          time_block t{"Tfire_" + std::to_string(pip->getGroup()) +
         //          "_" + std::to_string((uintptr_t) this) + ": "};
-        pip->consume(0, p);
+        pip->consume(0, (void *)(((uintptr_t)p.get()) & ~uintptr_t(1)));
       }
       nvtxRangePop();
 
-      freeBuffer(target, p);  // FIXME: move this inside the generated code
-
+      freeBuffer(target, std::move(p));
       // std::this_thread::yield();
     } while (true);
   }
 
   eventlogger.log(this, log_op::EXCHANGE_CONSUME_CLOSE_START);
-
   nvtxRangePushA(
       (pipGen->getName() + ":" + std::to_string(target) + "close").c_str());
   pip->close();
   nvtxRangePop();
 
+  for (int j = 0; j < slack; ++j) {
+    /* Release and ignore, it will be handled by the following freePinned */
+    ((void)acquireBuffer(target, false).release());
+  }
   MemoryManager::freePinned(mem);
   // std::cout << "Xchange pipeline packets (target=" << target << "): " <<
   // packets << std::endl;
@@ -319,19 +324,19 @@ void Router::fire(int target, PipelineGen *pipGen) {
 }
 
 void *acquireBuffer(int target, Router *xch) {
-  return xch->acquireBuffer(target, false);
+  return xch->acquireBuffer(target, false).release();
 }
 
 void *try_acquireBuffer(int target, Router *xch) {
-  return xch->acquireBuffer(target, true);
+  return xch->acquireBuffer(target, true).release();
 }
 
 void releaseBuffer(int target, Router *xch, void *buff) {
-  return xch->releaseBuffer(target, buff);
+  return xch->releaseBuffer(target, proteus::managed_ptr{buff});
 }
 
 void freeBuffer(int target, Router *xch, void *buff) {
-  return xch->freeBuffer(target, buff);
+  return xch->freeBuffer(target, proteus::managed_ptr{buff});
 }
 
 std::unique_ptr<routing::RoutingPolicy> Router::getPolicy() const {

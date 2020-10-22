@@ -34,6 +34,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <future>
+#include <memory/block-manager.hpp>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -70,26 +71,26 @@ constexpr size_t cq_ack_backlog = 1024;
 class subscription {
   class value_type {
    public:
-    void *data;
+    proteus::managed_ptr data;
     size_t size;
 #ifndef NDEBUG
     decltype(__builtin_FILE()) file;
     decltype(__builtin_LINE()) line;
 #endif
 
-    value_type(void *data, size_t size
+    value_type(proteus::managed_ptr data, size_t size
 #ifndef NDEBUG
                ,
                decltype(__builtin_FILE()) file, decltype(__builtin_LINE()) line
 #endif
                )
-        : data(data), size(size), file(file), line(line) {
+        : data(std::move(data)), size(size), file(file), line(line) {
     }
     value_type(const value_type &) = delete;
     value_type &operator=(const value_type &) = delete;
     value_type &operator=(value_type &&) = delete;
-    value_type(value_type &&other)
-        : value_type(other.data, other.size
+    value_type(value_type &&other) noexcept
+        : value_type(std::move(other.data), other.size
 #ifndef NDEBUG
                      ,
                      other.file, other.line
@@ -99,11 +100,7 @@ class subscription {
     }
     ~value_type();
 
-    void *release() {
-      void *tmp = data;
-      data = nullptr;
-      return tmp;
-    }
+    proteus::managed_ptr release() { return std::move(data); }
   };
 
   std::mutex m;
@@ -117,7 +114,7 @@ class subscription {
 
   value_type wait();
 
-  void publish(void *data, size_t size
+  void publish(proteus::managed_ptr data, size_t size
 #ifndef NDEBUG
                ,
                decltype(__builtin_FILE()) file = __builtin_FILE(),
@@ -131,14 +128,16 @@ class InfiniBandManager {
   static void init(const std::string &url, uint16_t port = 12345,
                    bool primary = false, bool ipv4 = false);
   static void send(void *data, size_t bytes);
-  static void write(void *data, size_t bytes, size_t sub_id = 0);
-  static void write_to(void *data, size_t bytes, buffkey b);
-  [[nodiscard]] static subscription *write_silent(void *data, size_t bytes);
+  static void write(proteus::managed_ptr data, size_t bytes, size_t sub_id = 0);
+  static void write_to(proteus::managed_ptr data, size_t bytes, buffkey b);
+  [[nodiscard]] static subscription *write_silent(proteus::managed_ptr data,
+                                                  size_t bytes);
   [[nodiscard]] static subscription *read(void *data, size_t bytes);
   [[nodiscard]] static subscription *read_event();
   static void flush();
   static void flush_read();
   static buffkey get_buffer();
+  static void release_buffer(proteus::managed_ptr p);
   static void disconnectAll();
   static void deinit();
 
@@ -152,7 +151,7 @@ class InfiniBandManager {
   static uint64_t server_id();
 
  private:
-  static IBHandler *ib;
+  static std::vector<IBHandler *> ib;
   static uint64_t srv_id;
 };
 

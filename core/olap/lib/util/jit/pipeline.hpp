@@ -312,6 +312,8 @@ class Pipeline {
   void consume(size_t N,
                const Tin *...src) {  // FIXME: cleanup + remove synchronization
     // ((void (*)(const Tin * ..., size_t, void *)) cons)(src..., N, state);
+    assert(this);
+    assert(cons);
     ((void (*)(const Tin *..., void *))cons)(src..., state);
   }  //;// cnt_t N, vid_t v, cid_t c){
 

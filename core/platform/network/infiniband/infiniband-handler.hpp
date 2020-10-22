@@ -30,13 +30,13 @@
 #include "topology/topology.hpp"
 #include "util/async_containers.hpp"
 #include "util/memory-registry.hpp"
-
-struct ib_addr {
-  ibv_gid gid;
-  uint16_t lid;
-  uint32_t psn;
-  uint32_t qpn;
-};
+//
+// struct ib_addr {
+//  ibv_gid gid;
+//  uint16_t lid;
+//  uint32_t psn;
+//  uint32_t qpn;
+//};
 
 std::ostream &operator<<(std::ostream &out, const ibv_gid &gid);
 std::ostream &operator<<(std::ostream &out, const ib_addr &addr);
@@ -60,14 +60,12 @@ class IBHandler : public MemoryRegistry {
 
   std::mutex m_reg;
   std::condition_variable cv_reg;
-  std::map<const void *, ibv_mr *> reged_mem;
+
   std::map<const void *, decltype(ibv_mr::rkey)> reged_remote_mem;
 
   std::thread listener;
 
-  ibv_pd *pd;
-  ibv_comp_channel *comp_channel;
-  ibv_cq *cq;
+  const ib &ibd;
 
   std::thread poller;
 
@@ -78,23 +76,12 @@ class IBHandler : public MemoryRegistry {
   int dev_cnt;
 
   // New attributes
-  ibv_context *context;
+  //  ibv_context *context;
   const topology::cpunumanode &local_cpu;
 
-  ibv_qp *qp;
+  //  ib_addr rem_addr;
 
-  // ibv_pd *pd;
-  // ibv_comp_channel *comp_channel;
-  // ibv_cq *cq;
-  ib_addr addr;
-
-  uint8_t ib_port;
-  uint8_t ib_sl;
-  uint8_t ib_gidx;
-
-  ib_addr rem_addr;
-
-  std::deque<void *> b;
+  std::deque<proteus::managed_ptr> b;
   std::deque<buffkey> pend_buffers;
   std::mutex pend_buffers_m;
   std::condition_variable pend_buffers_cv;
@@ -102,10 +89,13 @@ class IBHandler : public MemoryRegistry {
   // subscription buffers;
 
   // std::deque<std::pair<std::promise<void *>, void *>> read_promises;
-  std::deque<std::pair<subscription, void *>> read_promises;
+  std::deque<
+      std::tuple<subscription, proteus::managed_ptr, proteus::managed_ptr>>
+      read_promises;
   std::mutex read_promises_m;
 
-  AsyncQueueSPSC<std::pair<subscription, void *> *> write_promises;
+  AsyncQueueSPSC<std::pair<subscription, proteus::managed_ptr> *>
+      write_promises;
   // std::deque<std::pair<subscription, void *>> write_promises;
   std::mutex write_promises_m;
 
@@ -124,7 +114,7 @@ class IBHandler : public MemoryRegistry {
   int send(ibv_send_wr &wr, bool retry = true);
 
  public:
-  explicit IBHandler(int cq_backlog);
+  explicit IBHandler(int cq_backlog, const ib &ibd);
 
   ~IBHandler() override;
 
@@ -150,12 +140,12 @@ class IBHandler : public MemoryRegistry {
   void poll_cq();
 
   void sendGoodBye();
-  decltype(read_promises)::value_type &create_promise(void *buff);
+  decltype(read_promises)::value_type &create_promise(void *buff, void *from);
   decltype(write_promises)::value_type create_write_promise(void *buff);
 
   void flush_write();
-  subscription *write_to_int(void *data, size_t bytes, buffkey dst,
-                             void *buffpromise = nullptr);
+  subscription *write_to_int(proteus::managed_ptr data, size_t bytes,
+                             buffkey dst, void *buffpromise = nullptr);
 
   void send_sge(uintptr_t wr_id, ibv_sge *sg_list, size_t sge_cnt,
                 decltype(ibv_send_wr::imm_data) imm);
@@ -165,13 +155,17 @@ class IBHandler : public MemoryRegistry {
  public:
   void send(void *data, size_t bytes, decltype(ibv_send_wr::imm_data) imm = 5);
 
-  void write(void *data, size_t bytes, size_t sub_id = 0);
-  void write_to(void *data, size_t bytes, buffkey dst);
-  [[nodiscard]] subscription *write_silent(void *data, size_t bytes);
+  void write(proteus::managed_ptr data, size_t bytes, size_t sub_id = 0);
+  void write_to(proteus::managed_ptr data, size_t bytes, buffkey dst);
+  [[nodiscard]] subscription *write_silent(proteus::managed_ptr data,
+                                           size_t bytes);
   [[nodiscard]] subscription *read(void *data, size_t bytes);
   [[nodiscard]] subscription *read_event();
 
   buffkey get_buffer();
+  void release_buffer(proteus::managed_ptr p);
 
   void disconnect();
 };
+
+size_t getIBCnt();

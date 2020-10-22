@@ -135,7 +135,6 @@ class AsyncQueueSPSC {
     cv.notify_all();
 
     nvtxRangePushA("AsyncQueue_t");
-
     cv.wait(lock, [this]() { return (cache_size == 0) && data.empty(); });
 
     lock.unlock();

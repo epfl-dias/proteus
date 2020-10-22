@@ -66,10 +66,10 @@ class RouterScaleOut : public Router {
   void fire(int target, PipelineGen *pipGen) override;
 
  protected:
-  void *acquireBuffer(int target, bool polling) override;
-  void releaseBuffer(int target, void *buff) override;
-  void freeBuffer(int target, void *buff) override;
-  bool get_ready(int target, void *&buff) override;
+  proteus::managed_ptr acquireBuffer(int target, bool polling) override;
+  void releaseBuffer(int target, proteus::managed_ptr buff) override;
+  void freeBuffer(int target, proteus::managed_ptr buff) override;
+  bool get_ready(int target, proteus::managed_ptr &buff) override;
 
   std::atomic<size_t> closed = 0;
   subscription *sub;
