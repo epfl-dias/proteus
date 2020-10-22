@@ -66,6 +66,13 @@ DEFINE_bool(print_generated_code, false,
             "Print generated code into files (use only for debugging as it "
             "will slow down excecution significnatly)");
 
+DEFINE_int32(secondary_port, 27106,
+             "Port for secondary-nodes to listen on. can be different for each "
+             "secondary node.");
+DEFINE_string(
+    secondary_url, "localhost",
+    "url for the secondary-node / skipping to find interface ourself.");
+
 static bool validatePort(const char *flag, int32_t value) {
   if (value > 0 && value < 0x8000) return true;  // max port value: 32768
   std::cout << "Invalid value for --" << flag << ": " << value << std::endl;

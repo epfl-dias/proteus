@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2020
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -22,26 +22,9 @@
 */
 #include <gflags/gflags.h>
 
-#include <memory>
-#include <olap/common/olap-common.hpp>
+#ifndef PROTEUS_NDP_CLI_FLAGS_HPP
+#define PROTEUS_NDP_CLI_FLAGS_HPP
 
-DECLARE_bool(query_topology);
-DECLARE_bool(trace_allocations);
-DECLARE_double(gpu_buffers);
-DECLARE_double(cpu_buffers);
-DECLARE_int64(log_buffer_usage);
-DECLARE_bool(primary);
-DECLARE_bool(secondary);
-DECLARE_bool(ipv4);
-DECLARE_int32(port);
-DECLARE_string(url);
-DECLARE_int32(repeat);
-DECLARE_bool(print_generated_code);
+DECLARE_bool(master_node);
 
-DECLARE_int32(secondary_port);
-DECLARE_string(secondary_url);
-
-namespace proteus::from_cli {
-proteus::olap olap(const std::string &usage, int *argc, char ***argv);
-proteus::olap olap();
-}  // namespace proteus::from_cli
+#endif  // PROTEUS_NDP_CLI_FLAGS_HPP

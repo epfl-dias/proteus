@@ -74,7 +74,7 @@ set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 # Otherwise the -std=gnu++XX is used instead of the -std=c++XX, as one
 # would expect from the property above
 set(CMAKE_CXX_EXTENSIONS FALSE)
@@ -111,7 +111,7 @@ string(STRIP "${COMPILER_FLAGS} -O3" COMPILER_FLAGS)
 string(STRIP "${WARNING_FLAGS} -pedantic -Weverything" WARNING_FLAGS)
 
 # Turn warnings into errors
-string(STRIP "${WARNING_FLAGS} -Werror" WARNING_FLAGS)
+#string(STRIP "${WARNING_FLAGS} -Werror" WARNING_FLAGS)
 # Disable warning-as-error for deprecated calls
 string(STRIP "${WARNING_FLAGS} -Wno-error=deprecated" WARNING_FLAGS)
 
@@ -159,6 +159,8 @@ string(STRIP "${WARNING_FLAGS} -Wno-ambiguous-reversed-operator" WARNING_FLAGS)
 
 # Unit-tests:
 string(STRIP "${WARNING_FLAGS} -Wno-shift-sign-overflow" WARNING_FLAGS)
+
+
 
 #-----------------------------------------------------------------------
 # Add the compiler flags
@@ -453,12 +455,13 @@ add_subdirectory(core/planner)
 add_subdirectory(core/olap)
 add_subdirectory(core/oltp)
 add_subdirectory(core/htap)
+add_subdirectory(distributed-runtime)
 
 #-----------------------------------------------------------------------
 # Build our executables
 #-----------------------------------------------------------------------
-add_subdirectory(apps/standalones)
 
+add_subdirectory(apps/standalones)
 add_subdirectory(apps/benchmarks/oltp)
 add_subdirectory(apps/benchmarks/htap)
 

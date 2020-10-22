@@ -1,0 +1,108 @@
+/*
+    Proteus -- High-performance query processing on heterogeneous hardware.
+
+                            Copyright (c) 2020
+        Data Intensive Applications and Systems Laboratory (DIAS)
+                École Polytechnique Fédérale de Lausanne
+
+                            All Rights Reserved.
+
+    Permission to use, copy, modify and distribute this software and
+    its documentation is hereby granted, provided that both the
+    copyright notice and this permission notice appear in all copies of
+    the software, derivative works or modified versions, and any
+    portions thereof, and that both notices appear in supporting
+    documentation.
+
+    This code is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
+    DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
+    RESULTING FROM THE USE OF THIS SOFTWARE.
+*/
+
+syntax = "proto3";
+
+package proteus.distributed;
+
+// Every executor would register with master
+//  and gets master-info data in return.
+service NodeControlPlane {
+  rpc registerExecutor(NodeInfo) returns (NodeRegistrationReply) {}
+  rpc sendCommand(NodeCommand) returns (NodeStatusUpdate) {}
+
+  rpc prepareStatement(QueryPlan) returns (genericReply) {}
+  rpc executeStatement(QueryPlan) returns (genericReply) {}
+
+  //rpc Heartbeat(HeartbeatRequest) returns (HeartbeatReply) {}
+  //rpc changeNodeStatus(NodeStatusUpdate) returns (genericReply) {}
+}
+
+
+message NodeCommand {
+  enum Command {
+    SHUTDOWN = 0;
+  }
+  Command command = 1;
+}
+
+message QueryPlan{
+  string query_uuid = 1;
+  bytes jsonPlan = 2;
+}
+
+message NodeStatusUpdate{
+  enum Status {
+    AVAILABLE = 0;
+    BUSY = 1;
+    SHUTDOWN = 2;
+  };
+  Status status = 1;
+}
+
+message genericReply{
+  enum Reply {
+    ACK = 0;
+    ERROR = 1;
+  }
+  Reply reply = 1;
+}
+
+
+message NodeTopology{
+
+  // cpu
+  int32 n_numa_nodes = 1;
+  int32 n_cores_per_numa = 2;
+  int32 n_cpu_memory = 3;
+
+  // gpus
+  int32 n_gpus = 4;
+  int32 n_gpus_per_numa = 5;
+  int32 n_gpu_memory = 6;
+  bool gds_enabled  = 7;
+
+  // network
+  int32 n_infiniband = 8;
+  int32 n_infiniband_per_numa = 9;
+  string interface_address = 10;
+
+  // storage
+  int32 n_nvme = 11;
+  int32 n_nvme_per_numa = 12;
+  bool nvmeof_enabled = 13;
+
+
+}
+
+
+message NodeInfo{
+  NodeTopology topology = 1;
+  string control_address = 2; // so that master save this node for return message.
+}
+
+message NodeRegistrationReply {
+  int32 slave_id = 1;
+
+}
+

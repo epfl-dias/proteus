@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2020
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -20,28 +20,47 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
-#include <gflags/gflags.h>
 
-#include <memory>
-#include <olap/common/olap-common.hpp>
+syntax = "proto3";
 
-DECLARE_bool(query_topology);
-DECLARE_bool(trace_allocations);
-DECLARE_double(gpu_buffers);
-DECLARE_double(cpu_buffers);
-DECLARE_int64(log_buffer_usage);
-DECLARE_bool(primary);
-DECLARE_bool(secondary);
-DECLARE_bool(ipv4);
-DECLARE_int32(port);
-DECLARE_string(url);
-DECLARE_int32(repeat);
-DECLARE_bool(print_generated_code);
+package proteus.catalog;
 
-DECLARE_int32(secondary_port);
-DECLARE_string(secondary_url);
+//----------------------------
+// Catalog Service
+//----------------------------
 
-namespace proteus::from_cli {
-proteus::olap olap(const std::string &usage, int *argc, char ***argv);
-proteus::olap olap();
-}  // namespace proteus::from_cli
+service Catalog {
+
+  // all information related to relation
+  rpc getRelInfo(RelInfoRequest) returns (RelInfoReply) {}
+
+  // for info-asking specific columns
+  rpc getRelDetail(RelDetailRequest) returns (RelDetailReply) {}
+}
+
+
+// should contain all fields which a catalog contains for a single relation.
+message RelInfoRequest {
+  string relName = 1;
+}
+
+message RelInfoReply {
+  repeated RelDetailRequest relDetails= 1;
+}
+
+// details about specific columns
+message RelDetailRequest{
+  string relName = 1;
+  string attrName = 2;
+
+}
+message RelDetailReply{
+  string relName = 1;
+  string attrName = 2;
+  string dataType = 3;
+  string access_plugin = 4;
+  uint64 total_blocks = 5;
+}
+
+
+
