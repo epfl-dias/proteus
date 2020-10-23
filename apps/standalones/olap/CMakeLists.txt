@@ -9,7 +9,7 @@ set(MAINS
 
 foreach(target ${MAINS})
     add_executable(proteus${target} ${target}.cpp)
-    target_link_libraries(proteus${target} codegen::olap_flags codegen::olap)
+    target_link_libraries(proteus${target} codegen::olap_flags codegen::olap proteus::command_provider)
     install(TARGETS proteus${target}
             ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
             LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}

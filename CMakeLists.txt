@@ -455,7 +455,7 @@ add_subdirectory(core/planner)
 add_subdirectory(core/olap)
 add_subdirectory(core/oltp)
 add_subdirectory(core/htap)
-add_subdirectory(distributed-runtime)
+add_subdirectory(runtime)
 
 #-----------------------------------------------------------------------
 # Build our executables

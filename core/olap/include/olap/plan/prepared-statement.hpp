@@ -25,6 +25,7 @@
 #define PREPARED_STATEMENT_HPP_
 
 #include <memory>
+#include <storage/mmap-file.hpp>
 #include <utility>
 #include <vector>
 
@@ -51,6 +52,12 @@ class PreparedStatement {
   static PreparedStatement from(const std::string& planPath,
                                 const std::string& label,
                                 const std::string& catalogJSON);
+  static PreparedStatement from(const std::span<const std::byte>& plan,
+                                const std::string& label);
+  static PreparedStatement from(const std::span<const std::byte>& plan,
+                                const std::string& label,
+                                const std::string& catalogJSON);
+
   static PreparedStatement from(
       const std::string& planPath, const std::string& label,
       std::unique_ptr<AffinitizationFactory> affFactory);

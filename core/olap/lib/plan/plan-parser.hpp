@@ -27,6 +27,8 @@
 #include <olap/operators/relbuilder-factory.hpp>
 #include <olap/operators/relbuilder.hpp>
 #include <olap/routing/affinitization-factory.hpp>
+#include <span>
+#include <utility>
 
 #include "expression-parser.hpp"
 #include "olap/expressions/expressions.hpp"
@@ -56,6 +58,11 @@ class ParserAffinitizationFactory {
 class PlanExecutor {
  private:
   PlanExecutor(const char *planPath, CatalogParser &cat,
+               const char *moduleName = "llvmModule");
+  PlanExecutor(const std::span<const std::byte> &plan, CatalogParser &cat,
+               const char *moduleName = "llvmModule");
+  PlanExecutor(const std::span<const std::byte> &plan, CatalogParser &cat,
+               std::unique_ptr<ParserAffinitizationFactory> parFactory,
                const char *moduleName = "llvmModule");
   PlanExecutor(const char *planPath, CatalogParser &cat,
                std::unique_ptr<ParserAffinitizationFactory> parFactory,
@@ -97,7 +104,7 @@ class PlanExecutor {
                                    int defaultAttrNo = -1) {
     return ExpressionParser{catalogParser,
                             {new RecordType(std::vector<RecordAttribute *>{})}}
-        .parseRecordAttr(val, relName, defaultType, defaultAttrNo);
+        .parseRecordAttr(val, std::move(relName), defaultType, defaultAttrNo);
   }
   ExpressionType *parseExpressionType(const rapidjson::Value &val) {
     return ExpressionParser{catalogParser,

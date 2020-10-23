@@ -98,6 +98,11 @@ PreparedStatement PreparedStatement::from(const std::string &planPath,
 }
 
 PreparedStatement PreparedStatement::from(
+    const std::span<const std::byte> &plan, const std::string &label) {
+  return from(plan, label, defaultCatalogJSON);
+}
+
+PreparedStatement PreparedStatement::from(
     const std::string &planPath, const std::string &label,
     std::unique_ptr<AffinitizationFactory> affFactory) {
   {
@@ -125,6 +130,12 @@ PreparedStatement PreparedStatement::from(
 PreparedStatement PreparedStatement::from(const std::string &planPath,
                                           const std::string &label,
                                           const std::string &catalogJSON) {
+  return from(mmap_file{planPath, PAGEABLE}.asSpan(), label, catalogJSON);
+}
+
+PreparedStatement PreparedStatement::from(
+    const std::span<const std::byte> &planPath, const std::string &label,
+    const std::string &catalogJSON) {
   {
     Catalog *catalog = &Catalog::getInstance();
     CachingService *caches = &CachingService::getInstance();
@@ -138,7 +149,7 @@ PreparedStatement PreparedStatement::from(const std::string &planPath,
     auto ctx = new ParallelContext(label, false);
     CatalogParser catalog{catalogJSON.c_str(), ctx};
     auto label_ptr = new std::string{label};
-    PlanExecutor exec{planPath.c_str(), catalog, label_ptr->c_str()};
+    PlanExecutor exec{planPath, catalog, label_ptr->c_str()};
 
     exec.compileAndLoad();
 

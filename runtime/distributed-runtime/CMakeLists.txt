@@ -2,12 +2,6 @@ cmake_minimum_required(VERSION 3.5.1)
 
 project(distributed-runtime VERSION 0.1 LANGUAGES CXX)
 
-#-----------------------------------------------------------------------
-# gRPC (sample: https://github.com/grpc/grpc/blob/master/examples/cpp/helloworld/CMakeLists.txt)
-#-----------------------------------------------------------------------
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-
 find_package(Threads REQUIRED)
 
 message(STATUS "Using gRPC via add_subdirectory (FetchContent).")
@@ -29,11 +23,6 @@ if(CMAKE_CROSSCOMPILING)
 else()
     set(_GRPC_CPP_PLUGIN_EXECUTABLE $<TARGET_FILE:grpc_cpp_plugin>)
 endif()
-
-
-message(STATUS "CMAKE_CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
-message(STATUS "CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
-
 
 # Proto file
 get_filename_component(hw_proto "protos/clustercontrolplane.proto" ABSOLUTE)
@@ -110,25 +99,26 @@ add_library(distributed-runtime SHARED ${distributed_runtime_cxx})
 # compiling the library, and will be added to consumers' build
 # paths.
 target_include_directories(distributed-runtime
-        PUBLIC
+    PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
-        PRIVATE
+    PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
+    SYSTEM PRIVATE
         ${CMAKE_CURRENT_BINARY_DIR}
         )
 
 # If we have compiler requirements for this library, list them
 # here
 target_compile_features(distributed-runtime
-        PUBLIC cxx_std_11)
+        PUBLIC cxx_std_20)
 
 
 # Depend on a library that we defined in the top-level file
 target_link_libraries(distributed-runtime
-        PUBLIC
+    PUBLIC
         codegen::olap
-        PRIVATE
+    PRIVATE
         ${_REFLECTION}
         ${_GRPC_GRPCPP}
         ${_PROTOBUF_LIBPROTOBUF})

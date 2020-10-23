@@ -22,6 +22,7 @@
 */
 
 #include <cli-flags.hpp>
+#include <command-provider/local-command-provider.hpp>
 #include <iostream>
 #include <olap/plan/prepared-statement.hpp>
 #include <storage/storage-manager.hpp>
@@ -46,87 +47,6 @@ bool starts_with(const std::string &s1, const std::string &s2) {
 
 constexpr size_t clen(const char *str) {
   return (*str == 0) ? 0 : clen(str + 1) + 1;
-}
-
-static const char *catalogJSON = "inputs";
-
-class unlink_upon_exit {
-  size_t query;
-  std::string label_prefix;
-
-  std::string last_label;
-
-  std::unique_ptr<QueryResult> last_result;
-
- public:
-  unlink_upon_exit()
-      : query(0),
-        label_prefix("raw_server_" + std::to_string(getpid()) + "_q"),
-        last_label("") {}
-
-  unlink_upon_exit(size_t unique_id)
-      : query(0),
-        label_prefix("raw_server_" + std::to_string(unique_id) + "_q"),
-        last_label("") {}
-
-  std::string get_label() const { return last_label; }
-
-  std::string inc_label() {
-    last_label = label_prefix + std::to_string(query++);
-    return last_label;
-  }
-
-  void store(QueryResult &&qr) {
-    last_result = std::make_unique<QueryResult>(std::move(qr));
-  }
-
-  void reset() { last_result.reset(); }
-};
-
-static std::map<std::string, PreparedStatement> preparedStatements;
-
-std::string preparePlanFile(const std::string &plan, unlink_upon_exit &uue) {
-  std::string label = uue.inc_label();
-
-  preparedStatements.emplace(label,
-                             PreparedStatement::from(plan, label, catalogJSON));
-
-  return label;
-}
-
-std::string runPreparedStatement(const std::string &label,
-                                 unlink_upon_exit &uue, bool echo = true) {
-  uue.reset();  // Reset before exec to avoid conflicting with the output file
-  auto &prepared = preparedStatements.at(label);
-  for (size_t i = 1; i < FLAGS_repeat; ++i) prepared.execute();
-  auto qr = prepared.execute();
-
-  if (echo) {
-    std::cout << "result echo" << std::endl;
-    std::cout << qr << std::endl;
-  }
-
-  uue.store(std::move(qr));
-
-  return label;
-}
-
-std::string runPlanFile(const std::string &plan, unlink_upon_exit &uue,
-                        bool echo = true) {
-  std::string label = uue.inc_label();
-
-  auto prepared = PreparedStatement::from(plan, label, catalogJSON);
-  for (size_t i = 1; i < FLAGS_repeat; ++i) prepared.execute();
-  auto qr = prepared.execute();
-
-  if (echo) {
-    std::cout << "result echo" << std::endl;
-    std::cout << qr << std::endl;
-  }
-
-  uue.store(std::move(qr));
-
-  return label;
 }
 
 /**
@@ -210,12 +130,12 @@ int main(int argc, char *argv[]) {
   LOG(INFO) << "Finished initialization";
   std::cout << "ready" << std::endl;
 
+  LocalCommandProvider provider{};
+
   if (argc >= 2) {
-    unlink_upon_exit uue;
-    runPlanFile(argv[argc - 1], uue, true);
+    provider.runStatement(argv[argc - 1], true);
   } else {
     std::string line;
-    unlink_upon_exit uue;
     while (std::getline(std::cin, line)) {
       std::string cmd = trim(line);
 
@@ -228,7 +148,7 @@ int main(int argc, char *argv[]) {
         if (starts_with(cmd, "prepare plan from file ")) {
           constexpr size_t prefix_size = clen("prepare plan from file ");
           std::string plan = cmd.substr(prefix_size);
-          std::string label = preparePlanFile(plan, uue);
+          std::string label = provider.prepareStatement(fs::path{plan});
 
           std::cout << "prepared statement with label " << label << std::endl;
         } else {
@@ -238,15 +158,15 @@ int main(int argc, char *argv[]) {
         if (starts_with(cmd, "execute plan from file ")) {
           constexpr size_t prefix_size = clen("execute plan from file ");
           std::string plan = cmd.substr(prefix_size);
-          std::string label = runPlanFile(plan, uue, echo);
+          std::string label = provider.runStatement(plan, echo);
 
-          std::cout << "result in file /dev/shm/" << label << std::endl;
+          std::cout << "result in file " << label << std::endl;
         } else if (starts_with(cmd, "execute plan from statement ")) {
           constexpr size_t prefix_size = clen("execute plan from statement ");
           std::string plan = cmd.substr(prefix_size);
-          std::string label = runPreparedStatement(plan, uue, echo);
+          std::string label = provider.runPreparedStatement(plan, echo);
 
-          std::cout << "result in file /dev/shm/" << label << std::endl;
+          std::cout << "result in file " << label << std::endl;
         } else {
           std::cout << "error (command not supported)" << std::endl;
         }

@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 
 #include <cassert>
+#include <common/error-handling.hpp>
 
 #include "common/gpu/gpu-common.hpp"
 #include "memory/memory-manager.hpp"
@@ -38,8 +39,8 @@
 static bool allow_readwrite = false;
 
 size_t getFileSize(const char *filename) {
-  struct stat st;
-  stat(filename, &st);
+  struct stat st {};
+  linux_run(stat(filename, &st));
   return st.st_size;
 }
 
@@ -48,7 +49,9 @@ mmap_file::mmap_file(std::string name, data_loc loc)
 
 mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
                      size_t offset = 0)
-    : loc(loc), filesize(bytes) {
+    : loc(loc) {
+  size_t filesize = bytes;
+
   time_block t("Topen (" + name + ", " + std::to_string(offset) + ":" +
                std::to_string(offset + filesize) + "): ");
   readonly = false;
@@ -80,6 +83,8 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
     assert(data != MAP_FAILED);
   }
 
+  void *gpu_data2;
+
   // gpu_run(cudaHostRegister(data, filesize, 0));
   if (loc == PINNED) {
     if (readonly) {
@@ -93,27 +98,50 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
       munmap(data, filesize);
       close(fd);
       data = data2;
-      gpu_data = data;
+      gpu_data2 = data;
     } else {
       time_block t("Talloc: ");
-      gpu_data = NUMAPinnedMemAllocator::reg(data, filesize);
+      gpu_data2 = NUMAPinnedMemAllocator::reg(data, filesize);
     }
   } else {
-    gpu_data = data;
+    gpu_data2 = data;
   }
 
   if (loc == GPU_RESIDENT) {
     std::cout << "Dataset on device: "
               << topology::getInstance().getActiveGpu().id << std::endl;
-    gpu_data = MemoryManager::mallocGpu(filesize);
-    gpu_run(cudaMemcpy(gpu_data, data, filesize, cudaMemcpyDefault));
+    gpu_data2 = MemoryManager::mallocGpu(filesize);
+    gpu_run(cudaMemcpy(gpu_data2, data, filesize, cudaMemcpyDefault));
     munmap(data, filesize);
     close(fd);
   }
+  gpu_data = std::span<std::byte>((std::byte *)gpu_data2, filesize);
+}
+
+mmap_file::mmap_file(mmap_file &&other) noexcept
+    : fd(other.fd),
+      data(other.data),
+      gpu_data(other.gpu_data),
+      loc(other.loc),
+      readonly(other.readonly) {
+  other.gpu_data = std::span<std::byte>{};
+  other.data = nullptr;
+}
+
+mmap_file &mmap_file::operator=(mmap_file &&other) noexcept {
+  fd = other.fd;
+  data = other.data;
+  gpu_data = other.gpu_data;
+  loc = other.loc;
+  readonly = other.readonly;
+  other.gpu_data = std::span<std::byte>{};
+  other.data = nullptr;
+  return *this;
 }
 
 mmap_file::~mmap_file() {
-  if (loc == GPU_RESIDENT) gpu_run(cudaFree(gpu_data));
+  if (gpu_data.empty() && !data) return;
+  if (loc == GPU_RESIDENT) gpu_run(cudaFree(gpu_data.data()));
 
   // gpu_run(cudaHostUnregister(data));
   // if (loc == PINNED)       gpu_run(cudaFreeHost(data));
@@ -121,18 +149,20 @@ mmap_file::~mmap_file() {
     if (readonly) {
       MemoryManager::freePinned(data);
     } else {
-      NUMAPinnedMemAllocator::unreg(gpu_data);
-      munmap(data, filesize);
+      NUMAPinnedMemAllocator::unreg(gpu_data.data());
+      munmap(data, gpu_data.size());
       close(fd);
     }
   }
 
   if (loc == PAGEABLE) {
-    munmap(data, filesize);
+    munmap(data, gpu_data.size());
     close(fd);
   }
 }
 
-const void *mmap_file::getData() const { return gpu_data; }
+std::span<std::byte> &mmap_file::asSpan() { return gpu_data; }
 
-size_t mmap_file::getFileSize() const { return filesize; }
+const void *mmap_file::getData() const { return gpu_data.data(); }
+
+size_t mmap_file::getFileSize() const { return gpu_data.size(); }

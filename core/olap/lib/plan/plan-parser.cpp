@@ -96,9 +96,20 @@ PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
     : PlanExecutor(planPath, cat,
                    std::make_unique<ParserAffinitizationFactory>(),
                    moduleName) {}
+PlanExecutor::PlanExecutor(const std::span<const std::byte> &plan,
+                           CatalogParser &cat, const char *moduleName)
+    : PlanExecutor(plan, cat, std::make_unique<ParserAffinitizationFactory>(),
+                   moduleName) {}
 
 PlanExecutor::PlanExecutor(
     const char *planPath, CatalogParser &cat,
+    std::unique_ptr<ParserAffinitizationFactory> parFactory,
+    const char *moduleName)
+    : PlanExecutor(mmap_file{planPath, PAGEABLE}.asSpan(), cat,
+                   std::move(parFactory), moduleName) {}
+
+PlanExecutor::PlanExecutor(
+    const std::span<const std::byte> &plan, CatalogParser &cat,
     std::unique_ptr<ParserAffinitizationFactory> parFactory,
     const char *moduleName)
     : handle(dlopen(nullptr, 0)),
@@ -107,29 +118,11 @@ PlanExecutor::PlanExecutor(
       factory(moduleName),
       ctx(factory.getBuilder().ctx),
       parFactory(std::move(parFactory)) {
-  // Input Path
-  const char *nameJSON = planPath;
-  // Prepare Input
-  struct stat statbuf;
-  stat(nameJSON, &statbuf);
-  size_t fsize = statbuf.st_size;
-
-  int fd = open(nameJSON, O_RDONLY);
-  if (fd == -1) {
-    throw runtime_error(string("json.open"));
-  }
-
-  const char *bufJSON =
-      (const char *)mmap(nullptr, fsize, PROT_READ, MAP_PRIVATE, fd, 0);
-  if (bufJSON == MAP_FAILED) {
-    const char *err = "json.mmap";
-    LOG(ERROR) << err;
-    throw runtime_error(err);
-  }
+  const char *bufJSON = reinterpret_cast<const char *>(plan.data());
 
   rapidjson::Document document;  // Default template parameter uses UTF8 and
                                  // MemoryPoolAllocator.
-  auto &parsed = document.Parse(bufJSON);
+  auto &parsed = document.Parse(bufJSON, plan.size_bytes());
   if (parsed.HasParseError()) {
     auto ok = (rapidjson::ParseResult)parsed;
     auto *err =

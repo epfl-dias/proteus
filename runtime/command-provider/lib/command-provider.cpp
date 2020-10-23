@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2020
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -20,50 +20,3 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
-
-#ifndef MMAP_FILE_HPP_
-#define MMAP_FILE_HPP_
-
-#include <span>
-#include <string>
-
-enum data_loc {
-  GPU_RESIDENT,
-  PINNED,
-  PAGEABLE,
-  ALLSOCKETS,
-  ALLGPUS,
-  EVERYWHERE,
-  DISTRIBUTED,
-};
-
-struct mmap_file {
- private:
-  int fd;
-
-  void *data;
-
-  std::span<std::byte> gpu_data;
-
-  data_loc loc;
-
-  bool readonly;
-
- public:
-  mmap_file(std::string name, data_loc loc);
-  mmap_file(std::string name, data_loc loc, size_t bytes, size_t offset);
-  mmap_file(const mmap_file &) = delete;
-  mmap_file &operator=(const mmap_file &) = delete;
-  mmap_file(mmap_file &&) noexcept;
-  mmap_file &operator=(mmap_file &&) noexcept;
-  ~mmap_file();
-
-  [[nodiscard]] std::span<std::byte> &asSpan();
-
-  [[nodiscard]] const void *getData() const;
-  [[nodiscard]] size_t getFileSize() const;
-};
-
-size_t getFileSize(const char *filename);
-
-#endif /* MMAP_FILE_HPP_ */
