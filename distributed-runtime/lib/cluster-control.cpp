@@ -36,9 +36,6 @@
 
 namespace proteus::distributed {
 
-// FIXME: AS both primary/secondary runs a gRRPC server, there can be a
-//  conflict of ip/port pair if both are running on the same server.
-
 void ClusterControl::startServer(bool is_primary_node,
                                  const std::string& primary_node_addr,
                                  int primary_control_port) {
@@ -116,7 +113,7 @@ void ClusterControl::registerSelfToPrimary() {
   if (status.ok()) {
     this->self_executor_id = registerReply.slave_id();
   } else {
-    LOG(INFO) << "Secondary registration failed.";
+    LOG(ERROR) << "Secondary registration failed.";
     throw std::runtime_error("Secondary registration failed.");
   }
 }

@@ -34,33 +34,30 @@
 #include "distributed-runtime/cluster-manager.hpp"
 #include "util/async_containers.hpp"
 
-// using grpc::Channel;
-// using grpc::ClientContext;
-// using grpc::Server;
-// using grpc::ServerBuilder;
-// using grpc::ServerContext;
-// using grpc::Status;
-// using helloworld::Greeter;
-// using helloworld::HelloReply;
-// using helloworld::HelloRequest;
+/*
+ * CusterManager.hpp
+ *
+ * class ClusterControl
+ *    implementation-interface for cluster manager, an intermediary for
+ *    cluster manager and actual communication primitive implementation,
+ *    which in proteus' case, is gRPC server.
+ *
+ *    startServer: starts a gRPC server. if not-primary, then it selects
+ *    an available port, starts a listening server and then registers
+ *    itself to primary node with it's listenening address for control commands.
+ *
+ *
+ *  NodeControlServiceImpl
+ *     Implementation of gRPC methods as defined in the
+ *     `clustercontrolplane.proto`, including serialization/deserialization
+ *     of messages, as provided by the gRPC library.
+ *
+ */
 
 namespace proteus::distributed {
 
 class NodeControlServiceImpl final
     : public proteus::distributed::NodeControlPlane::Service {
-  //  grpc::Status SayHello(grpc::ServerContext* context, const HelloRequest*
-  //  request,
-  //                        HelloReply* reply) override {
-  //    std::string prefix("Hello ");
-  //    reply->set_message(prefix + request->name());
-  //    return Status::OK;
-  //  }
-
-  //  rpc registerExecutor(NodeInfo) returns (NodeRegistrationReply) {}
-  //  rpc sendCommand(NodeCommand) returns (NodeStatusUpdate) {}
-  //  rpc prepareStatement(QueryPlan) returns (genericReply) {}
-  //  rpc executeStatement(QueryPlan) returns (genericReply) {}
-
   grpc::Status registerExecutor(
       grpc::ServerContext* context,
       const proteus::distributed::NodeInfo* request,

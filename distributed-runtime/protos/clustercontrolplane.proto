@@ -25,20 +25,58 @@ syntax = "proto3";
 
 package proteus.distributed;
 
-// Every executor would register with master
-//  and gets master-info data in return.
+/*
+*   NodeControlPlane
+*     A gRPC-based command and control plane service for distributed
+*     runtime of proteus. It enables inter-cluster control traffic,
+*     including but not limited to node-discovery/registration,
+*     start query-execution in remote-nodes.
+*
+*     This service should only be used for control-traffic across
+*     execution nodes, specifically for node-control commands.
+*     for query execution, each query should open exclusive channels,
+*     given the type of network topolofy the query prefers, for example,
+*     inifiniband RDMA-based channels.
+*
+*/
+
+
 service NodeControlPlane {
+
+  // Node-discovery protocol. every non-primary node calls this RPC
+  //  in order to register themselves as executors to the primary node.
   rpc registerExecutor(NodeInfo) returns (NodeRegistrationReply) {}
+
+  // Command-Control. A generic RPC-protocol for sending control
+  //  commands between nodes. Should be extended as needed.
   rpc sendCommand(NodeCommand) returns (NodeStatusUpdate) {}
 
+
+  // Statement preparation/execution: RPC methods for
+  // communication query plans and synchronizing query execution
+  // across execution-nodes.
   rpc prepareStatement(QueryPlan) returns (genericReply) {}
   rpc executeStatement(QueryPlan) returns (genericReply) {}
+
+
+  // Optional RPCs as per standard distributed systems. Should be
+  //  used/implemented as-per-need. The purpose of these RPCs is
+  //  to have a single control-and-command service across
+  // management of execution nodes. This service shouldn't be
+  // used in critical-paths or inside query-execution.
 
   //rpc Heartbeat(HeartbeatRequest) returns (HeartbeatReply) {}
   //rpc changeNodeStatus(NodeStatusUpdate) returns (genericReply) {}
 }
 
+//-----------------------
+// Message structures for RPCs. extend and add information as-per-need.
+//-----------------------
 
+//-----------------------
+// message NodeCommand
+//      for sending generic control commands.
+//-----------------------
 message NodeCommand {
   enum Command {
     SHUTDOWN = 0;
@@ -46,11 +84,19 @@ message NodeCommand {
   Command command = 1;
 }
 
+//-----------------------
+// message QueryPlan
+//      for sending query plan with cluster-wide UUID.
+//-----------------------
 message QueryPlan{
   string query_uuid = 1;
   bytes jsonPlan = 2;
 }
 
+//-----------------------
+// message NodeStatusUpdate
+//      for reporting an internal status update of node.
+//-----------------------
 message NodeStatusUpdate{
   enum Status {
     AVAILABLE = 0;
@@ -60,6 +106,10 @@ message NodeStatusUpdate{
   Status status = 1;
 }
 
+//-----------------------
+// message genericReply
+//      for generic reply, including ACK, ERRORs.
+//-----------------------
 message genericReply{
   enum Reply {
     ACK = 0;
@@ -68,7 +118,10 @@ message genericReply{
   Reply reply = 1;
 }
 
-
+//-----------------------
+// message NodeTopology
+//      for reporting detailed node topology.
+//-----------------------
 message NodeTopology{
 
   // cpu
@@ -95,12 +148,19 @@ message NodeTopology{
 
 }
 
-
+//-----------------------
+// message NodeInfo
+//      for reporting node properties including control-address for listener.
+//-----------------------
 message NodeInfo{
   NodeTopology topology = 1;
   string control_address = 2; // so that master save this node for return message.
 }
 
+//-----------------------
+// message NodeRegistrationReply
+//      reply for node-registration service with assigned executor id.
+//-----------------------
 message NodeRegistrationReply {
   int32 slave_id = 1;
 

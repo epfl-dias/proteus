@@ -24,6 +24,40 @@
 #ifndef PROTEUS_CLUSTER_MANAGER_HPP
 #define PROTEUS_CLUSTER_MANAGER_HPP
 
+/*
+ * CusterManager.hpp
+ *
+ * struct Query
+ *    Provides a container for query plan, which can be communicated across
+ *    executor processes.
+ *
+ *    Attributes:
+ *    - `query_uuid`: Unique identifier for a query across cluster-runtime.
+ *    - `query_plan`: Query plan in string which can be parsed, prepared and
+ *          executed across executor nodes.
+ *
+ *
+ *  ClusterManager
+ *      Cluster Manager provides functionalities for inter-cluster
+ *      communication protocol and provides following services. It provides
+ *      control-plane layer for cluster-management, communication, and
+ *      executor management.
+ *
+ *     - Node Discovery and Registration: primary-node starts a listening server
+ *        to which all secondary nodes can communicate with. Secondary-nodes,
+ *        registers with the primary-node, notifying presence of additional
+ *        executor node and the fully-qualified-communication listener address.
+ *     - Get/Broadcast Query: sending/receiving query plans across execution
+ *        nodes.
+ *     - Notify Ready/Finished: Distributed condition variable, intended to be
+ *        used for control synchronization.
+ *
+ *      Implementation-specific: Underlying ClusterManager, proteus uses a
+ *        gRPC server on each node. all nodes have a bi-directional link with
+ *        the primary node. The communication primitives and protocol is defined
+ *        in the `clustercontrolplan.proto` file.
+ */
+
 #include <iostream>
 #include <map>
 #include <thread>
