@@ -58,6 +58,7 @@
  *        in the `clustercontrolplan.proto` file.
  */
 
+#include <command-provider/command-provider.hpp>
 #include <iostream>
 #include <map>
 #include <olap/plan/query-result.hpp>
@@ -68,6 +69,7 @@
 #include <vector>
 
 namespace proteus::distributed {
+
 class Query {
  private:
   std::string query_uuid;
@@ -105,20 +107,34 @@ class ClusterManager {
                int primary_control_port);
   void disconnect();
 
+  void setCommandProvider(std::shared_ptr<CommandProvider> provider) {
+    cmdProvider = provider;
+  }
+
+  auto getCommandProvider() { return cmdProvider; }
+
   [[nodiscard]] Query getQuery() const;
   void broadcastQuery(Query query) const;
   void notifyReady(std::string query_uuid);
   void notifyFinished(std::string query_uuid, QueryResult result);
 
   size_t getNumExecutors();
+  [[nodiscard]] int32_t getResultServerId() { return 0; }
+
+  void waitUntilShutdown();
 
  private:
   ClusterManager() : initialized(false), terminate(false), is_primary(false) {}
+  ~ClusterManager() {
+    if (!terminate) disconnect();
+  }
 
  private:
   bool terminate;
   bool initialized;
   bool is_primary;
+
+  std::shared_ptr<CommandProvider> cmdProvider;
 };
 
 }  // namespace proteus::distributed

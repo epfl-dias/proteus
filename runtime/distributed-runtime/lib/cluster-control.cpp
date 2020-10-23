@@ -37,6 +37,11 @@
 
 namespace proteus::distributed {
 
+void ClusterControl::wait() {
+  this->listener_thread.join();
+  return;
+}
+
 void ClusterControl::startServer(bool is_primary_node,
                                  const std::string& primary_node_addr,
                                  int primary_control_port) {
@@ -55,28 +60,6 @@ void ClusterControl::startServer(bool is_primary_node,
     this->server_address = primary_node_address;
     LOG(INFO) << "Primary Node:: " << is_primary_node;
     LOG(INFO) << "ServerAddress:: " << primary_node_address;
-
-    //    {
-    //      // also-add self to executor list.
-    //      std::unique_lock<std::mutex> safety_lock(this->registration_lock);
-    //
-    //      this->executors.emplace_back(*node);
-    //      auto exec_id = ++executor_id_ctr;
-    //      this->executors.back().set_executor_id(exec_id);
-    //      exec_id_map.insert({exec_id, &(this->executors.back())});
-    //      exec_address_map.insert(
-    //          {std::string{this->server_address}, &(this->executors.back())});
-    //
-    //      LOG(INFO) << "[Self-Registration] Executor node with address " <<
-    //      this->server_address
-    //                << " registered with ID: " << exec_id;
-    //
-    //      // address in gRPC is a fully-qualified one.
-    //      std::string target_addr = std::string{node->control_address()};
-    //      client_conn.insert(
-    //          {exec_id, NodeControlPlane::NewStub(grpc::CreateChannel(
-    //              target_addr, grpc::InsecureChannelCredentials()))});
-    //    }
   }
 
   // start-listener-thread
@@ -130,7 +113,6 @@ void ClusterControl::shutdownServer(bool rpc_initiated) {
   }
 
   this->server->Shutdown();
-  this->listener_thread.join();
   LOG(INFO) << "Shutdown procedure completed.";
 }
 
@@ -313,10 +295,15 @@ grpc::Status NodeControlServiceImpl::prepareStatement(
     grpc::ServerContext* context,
     const proteus::distributed::QueryPlan* request,
     proteus::distributed::genericReply* reply) {
+  LOG(INFO) << "Received query in the queue, Now preparing.";
+
   Query tmp{request->query_uuid(), request->jsonplan()};
-  ClusterControl::getInstance().query_queue.push(std::move(tmp));
-  LOG(INFO) << "Received query in the queue";
-  reply->set_reply(proteus::distributed::genericReply::ACK);
+  ClusterManager::getInstance().getCommandProvider()->prepareStatement(
+      request->query_uuid(), tmp.getQueryPlan());
+
+  // ClusterControl::getInstance().query_queue.push(std::move(tmp));
+  // reply->set_reply(proteus::distributed::genericReply::ACK);
+
   return grpc::Status::OK;
 }
 grpc::Status NodeControlServiceImpl::sendCommand(
@@ -332,7 +319,7 @@ grpc::Status NodeControlServiceImpl::sendCommand(
     reply->set_status(proteus::distributed::NodeStatusUpdate::SHUTDOWN);
     return grpc::Status::OK;
   } else {
-    throw std::runtime_error("Unknown command recieved.");
+    throw std::runtime_error("Unknown command received.");
   }
 }
 
@@ -349,7 +336,22 @@ grpc::Status NodeControlServiceImpl::executeStatement(
     grpc::ServerContext* context,
     const proteus::distributed::QueryPlan* request,
     proteus::distributed::genericReply* reply) {
-  throw std::runtime_error("Unimplemented");
+  Query tmp{request->query_uuid(), request->jsonplan()};
+
+  ThreadPool::getInstance().enqueue([tmp = std::move(tmp)]() {
+    try {
+      LOG(INFO) << "Executing query: " << tmp.getUUID();
+      ClusterManager::getInstance().getCommandProvider()->runPreparedStatement(
+          tmp.getUUID());
+    } catch (proteus::unprepared_plan_execution& exception) {
+      LOG(INFO) << "Preparing & Executing query: " << tmp.getUUID();
+      ClusterManager::getInstance().getCommandProvider()->prepareStatement(
+          tmp.getUUID(), tmp.getQueryPlan());
+      ClusterManager::getInstance().getCommandProvider()->runPreparedStatement(
+          tmp.getUUID());
+    }
+  });
+
   return grpc::Status::OK;
 }
 

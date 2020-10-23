@@ -119,6 +119,7 @@ target_link_libraries(distributed-runtime
     PUBLIC
         codegen::olap
     PRIVATE
+        proteus::command_provider
         ${_REFLECTION}
         ${_GRPC_GRPCPP}
         ${_PROTOBUF_LIBPROTOBUF})

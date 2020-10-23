@@ -31,13 +31,23 @@ class LocalCommandProvider : public CommandProvider {
   struct impl;
   std::unique_ptr<impl> p_impl;
 
- public: /**
-          * Prepare statement from JSON byte-stream
-          *
-          * @param plan NULL-terminated byte-stream containing the
-          * JSON-serialized plan
-          * @returns label identifying the prepared statement
-          */
+ public:
+  /**
+   * Prepare statement from JSON byte-stream
+   *
+   * @param plan NULL-terminated byte-stream containing the JSON-serialized plan
+   * @param label identifying the prepared statement
+   */
+  void prepareStatement(const std::string &label,
+                        const std::span<const std::byte> &plan) override;
+
+  /**
+   * Prepare statement from JSON byte-stream
+   *
+   * @param plan NULL-terminated byte-stream containing the
+   * JSON-serialized plan
+   * @returns label identifying the prepared statement
+   */
   std::string prepareStatement(const std::span<const std::byte> &plan) override;
 
   /**

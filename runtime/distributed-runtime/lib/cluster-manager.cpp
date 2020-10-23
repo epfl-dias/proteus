@@ -53,6 +53,7 @@ void ClusterManager::connect(bool is_primary_node,
   // start GRPC server.
   ClusterControl::getInstance().startServer(is_primary_node, primary_node_addr,
                                             primary_control_port);
+
   initialized = true;
 }
 
@@ -81,6 +82,10 @@ void ClusterManager::notifyReady(std::string query_uuid) {
 void ClusterManager::notifyFinished(std::string query_uuid,
                                     QueryResult result) {
   throw std::runtime_error("Unimplemented.");
+}
+
+void ClusterManager::waitUntilShutdown() {
+  ClusterControl::getInstance().wait();
 }
 
 const std::string &Query::getUUID() const { return query_uuid; }

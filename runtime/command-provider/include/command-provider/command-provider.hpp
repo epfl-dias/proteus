@@ -40,11 +40,22 @@ namespace filesystem = std::experimental::filesystem;
 namespace proteus {
 class shutdown_command : public std::exception {};
 
+class unprepared_plan_execution : public std::exception {};
+
 class query_interrupt_command : public std::exception {};
 }  // namespace proteus
 
 class CommandProvider {
  public:
+  /**
+   * Prepare statement from JSON byte-stream
+   *
+   * @param plan NULL-terminated byte-stream containing the JSON-serialized plan
+   * @param label identifying the prepared statement
+   */
+  virtual void prepareStatement(const std::string &label,
+                                const std::span<const std::byte> &plan) = 0;
+
   /**
    * Prepare statement from JSON byte-stream
    *

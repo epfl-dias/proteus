@@ -58,6 +58,8 @@ class unlink_upon_exit {
     return last_label;
   }
 
+  void set_label(std::string label) { last_label = std::move(label); }
+
   void store(QueryResult &&qr) {
     last_result = std::make_unique<QueryResult>(std::move(qr));
   }
@@ -82,6 +84,14 @@ std::string LocalCommandProvider::prepareStatement(
       label, PreparedStatement::from(plan, label, catalogJSON));
 
   return label;
+}
+
+void LocalCommandProvider::prepareStatement(
+    const std::string &label, const std::span<const std::byte> &plan) {
+  // std::string label = p_impl->uue.inc_label();
+  p_impl->uue.set_label(label);
+  p_impl->preparedStatements.emplace(
+      label, PreparedStatement::from(plan, label, catalogJSON));
 }
 
 fs::path LocalCommandProvider::runStatement(const fs::path &plan, bool echo) {

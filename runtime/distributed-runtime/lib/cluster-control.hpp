@@ -107,6 +107,8 @@ class ClusterControl {
     return this->executors.size();
   }
 
+  void wait();
+
  private:
   void listenerThread();
 
