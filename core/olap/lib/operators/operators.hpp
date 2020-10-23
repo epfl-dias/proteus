@@ -84,6 +84,7 @@ class Operator {
 
   virtual DeviceType getDeviceType() const = 0;
   virtual DegreeOfParallelism getDOP() const = 0;
+  virtual DegreeOfParallelism getDOPServers() const = 0;
 
  private:
   Operator *parent;
@@ -94,7 +95,7 @@ class UnaryOperator : public Operator {
   UnaryOperator(Operator *const child) : Operator(), child(child) {}
   ~UnaryOperator() override { LOG(INFO) << "Collapsing unary operator"; }
 
-  Operator *const getChild() const { return child; }
+  virtual Operator *const getChild() const { return child; }
   void setChild(Operator *const child) { this->child = child; }
 
   DeviceType getDeviceType() const override {
@@ -102,6 +103,9 @@ class UnaryOperator : public Operator {
   }
 
   DegreeOfParallelism getDOP() const override { return getChild()->getDOP(); }
+  DegreeOfParallelism getDOPServers() const override {
+    return getChild()->getDOPServers();
+  }
 
  private:
   Operator *child;
@@ -129,6 +133,12 @@ class BinaryOperator : public Operator {
   DegreeOfParallelism getDOP() const override {
     auto dop = getLeftChild()->getDOP();
     assert(dop == getRightChild()->getDOP());
+    return dop;
+  }
+
+  DegreeOfParallelism getDOPServers() const override {
+    auto dop = getLeftChild()->getDOPServers();
+    assert(dop == getRightChild()->getDOPServers());
     return dop;
   }
 

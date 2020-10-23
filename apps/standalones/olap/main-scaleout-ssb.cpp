@@ -336,7 +336,7 @@ auto ssb_q11_scaleout(ParallelContext *ctx, CatalogParser &catalog,
                 return arg["__broadcastTarget"];
               },
               DegreeOfParallelism{2}, slack, RoutingPolicy::HASH_BASED,
-              DeviceType::CPU, 1)
+              DeviceType::CPU)
           .unpack()
           .filter([&](const auto &arg) -> expression_t {
             return eq(arg[d_year], 1993);
@@ -360,7 +360,7 @@ auto ssb_q11_scaleout(ParallelContext *ctx, CatalogParser &catalog,
                 return std::nullopt;
               },
               DegreeOfParallelism{2}, slack, RoutingPolicy::RANDOM,
-              DeviceType::CPU, 1)
+              DeviceType::CPU)
           .memmove_scaleout(slack)
           .unpack()
           .filter([&](const auto &arg) -> expression_t {
@@ -397,7 +397,7 @@ auto ssb_q11_scaleout(ParallelContext *ctx, CatalogParser &catalog,
               },
               [&](const auto &arg) -> std::optional<expression_t> { return 0; },
               DegreeOfParallelism{1}, slack, RoutingPolicy::HASH_BASED,
-              DeviceType::CPU, 1)
+              DeviceType::CPU)
           .reduce(
               [&](const auto &arg) -> std::vector<expression_t> {
                 return {arg[revenue]};
@@ -430,7 +430,7 @@ auto ssb_q11_par_scaleout(ParallelContext *ctx, CatalogParser &catalog,
                 return arg["__broadcastTarget"];
               },
               DegreeOfParallelism{2}, slack, RoutingPolicy::HASH_BASED,
-              DeviceType::CPU, 1)
+              DeviceType::CPU)
           .membrdcst(DegreeOfParallelism{dop}, true)
           .router(
               [&](const auto &arg) -> std::vector<RecordAttribute *> {
@@ -465,7 +465,7 @@ auto ssb_q11_par_scaleout(ParallelContext *ctx, CatalogParser &catalog,
                 return (int)InfiniBandManager::server_id();  // std::nullopt;
               },
               DegreeOfParallelism{2}, slack, RoutingPolicy::HASH_BASED,
-              DeviceType::CPU, 1)
+              DeviceType::CPU)
           .memmove_scaleout(16 * 1024)
           .router(DegreeOfParallelism{dop}, slack, RoutingPolicy::LOCAL,
                   DeviceType::CPU)
@@ -511,7 +511,7 @@ auto ssb_q11_par_scaleout(ParallelContext *ctx, CatalogParser &catalog,
               },
               [&](const auto &arg) -> std::optional<expression_t> { return 0; },
               DegreeOfParallelism{1}, slack, RoutingPolicy::HASH_BASED,
-              DeviceType::CPU, 1)
+              DeviceType::CPU)
           .reduce(
               [&](const auto &arg) -> std::vector<expression_t> {
                 return {arg[revenue]};
@@ -548,7 +548,7 @@ auto ssb_q13_par_scaleout(ParallelContext *ctx, CatalogParser &catalog,
                 return arg["__broadcastTarget"];
               },
               DegreeOfParallelism{2}, slack, RoutingPolicy::HASH_BASED,
-              DeviceType::CPU, 1)
+              DeviceType::CPU)
           .membrdcst(DegreeOfParallelism{dop}, true)
           .router(
               [&](const auto &arg) -> std::vector<RecordAttribute *> {
@@ -585,7 +585,7 @@ auto ssb_q13_par_scaleout(ParallelContext *ctx, CatalogParser &catalog,
                 return (int)InfiniBandManager::server_id();  // std::nullopt;
               },
               DegreeOfParallelism{2}, slack, RoutingPolicy::HASH_BASED,
-              DeviceType::CPU, 1)
+              DeviceType::CPU)
           .memmove_scaleout(16 * 1024)
           .router(DegreeOfParallelism{dop}, slack, RoutingPolicy::LOCAL,
                   DeviceType::CPU)
@@ -631,7 +631,7 @@ auto ssb_q13_par_scaleout(ParallelContext *ctx, CatalogParser &catalog,
               },
               [&](const auto &arg) -> std::optional<expression_t> { return 0; },
               DegreeOfParallelism{1}, slack, RoutingPolicy::HASH_BASED,
-              DeviceType::CPU, 1)
+              DeviceType::CPU)
           .reduce(
               [&](const auto &arg) -> std::vector<expression_t> {
                 return {arg[revenue]};

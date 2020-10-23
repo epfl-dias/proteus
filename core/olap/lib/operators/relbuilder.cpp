@@ -438,27 +438,28 @@ RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
 RelBuilder RelBuilder::router_scaleout(
     const vector<RecordAttribute *> &wantedFields,
     std::optional<expression_t> hash, DegreeOfParallelism fanout, size_t slack,
-    RoutingPolicy p, DeviceType targets, int producers) const {
+    RoutingPolicy p, DeviceType targets) const {
   assert((p == RoutingPolicy::HASH_BASED) == (hash.has_value()));
   assert((p != RoutingPolicy::RANDOM) || (!hash.has_value()));
-  auto op = new RouterScaleOut(root, DegreeOfParallelism{fanout}, wantedFields,
-                               slack, std::move(hash), p, targets, producers);
+  auto op =
+      new RouterScaleOut(root, DegreeOfParallelism{fanout}, wantedFields, slack,
+                         std::move(hash), p, targets, root->getDOPServers());
   return apply(op);
 }
 
 RelBuilder RelBuilder::router_scaleout(const MultiAttributeFactory &attr,
                                        const OptionalExpressionFactory &hash,
                                        DegreeOfParallelism fanout, size_t slack,
-                                       RoutingPolicy p, DeviceType targets,
-                                       int producers) const {
+                                       RoutingPolicy p,
+                                       DeviceType targets) const {
   return router_scaleout(attr(getOutputArg()), hash(getOutputArg()), fanout,
-                         slack, p, targets, producers);
+                         slack, p, targets);
 }
 
 RelBuilder RelBuilder::router_scaleout(const OptionalExpressionFactory &hash,
                                        DegreeOfParallelism fanout, size_t slack,
-                                       RoutingPolicy p, DeviceType target,
-                                       int producers) const {
+                                       RoutingPolicy p,
+                                       DeviceType target) const {
   return router_scaleout(
       [&](const auto &arg) -> std::vector<RecordAttribute *> {
         std::vector<RecordAttribute *> attrs;
@@ -471,18 +472,18 @@ RelBuilder RelBuilder::router_scaleout(const OptionalExpressionFactory &hash,
         }
         return attrs;
       },
-      hash, fanout, slack, p, target, producers);
+      hash, fanout, slack, p, target);
 }
 
 RelBuilder RelBuilder::router_scaleout(DegreeOfParallelism fanout, size_t slack,
-                                       RoutingPolicy p, DeviceType target,
-                                       int producers) const {
+                                       RoutingPolicy p,
+                                       DeviceType target) const {
   assert(p != RoutingPolicy::HASH_BASED);
   return router_scaleout(
       [&](const auto &arg) -> std::optional<expression_t> {
         return std::nullopt;
       },
-      fanout, slack, p, target, producers);
+      fanout, slack, p, target);
 }
 
 RelBuilder RelBuilder::router(DegreeOfParallelism fanout, size_t slack,

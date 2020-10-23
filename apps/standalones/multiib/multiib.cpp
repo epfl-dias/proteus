@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
                   return (int)(1 - InfiniBandManager::server_id());
                 },
                 DegreeOfParallelism{2}, 8, RoutingPolicy::HASH_BASED,
-                DeviceType::CPU, 2)
+                DeviceType::CPU)
             .memmove_scaleout(8)
             .router(DegreeOfParallelism{topology::getInstance().getCoreCount()},
                     8, RoutingPolicy::LOCAL, DeviceType::CPU)
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
                   return (int)0;  // std::nullopt;
                 },
                 DegreeOfParallelism{2}, 8, RoutingPolicy::HASH_BASED,
-                DeviceType::CPU, 2)
+                DeviceType::CPU)
             .reduce(
                 [&](const auto &arg) -> std::vector<expression_t> {
                   return {arg[lo_orderdate]};

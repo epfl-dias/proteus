@@ -53,6 +53,9 @@ class RouterScaleOut : public Router {
   }
 
   DegreeOfParallelism getDOP() const override { return DegreeOfParallelism{1}; }
+  DegreeOfParallelism getDOPServers() const override {
+    return Router::getDOP();
+  }
 
   // virtual void produce();
   // virtual void consume(Context *const context, const OperatorState

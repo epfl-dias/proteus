@@ -93,7 +93,7 @@ class LocalCommandProvider : public CommandProvider {
   fs::path runStatement(const fs::path &plan, bool echo = true) override;
 
   LocalCommandProvider();
-  ~LocalCommandProvider();
+  ~LocalCommandProvider() override;
 };
 
 #endif /* PROTEUS_LOCAL_COMMAND_PROVIDER_HPP */

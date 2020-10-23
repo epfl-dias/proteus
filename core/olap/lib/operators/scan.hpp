@@ -34,7 +34,7 @@ class Scan : public UnaryOperator {
   //        this->setParent(parent);
   //    }
   ~Scan() override { LOG(INFO) << "Collapsing scan operator"; }
-  virtual Operator *const getChild() const final {
+  Operator *const getChild() const final {
     throw runtime_error(string("Scan operator has no children"));
   }
 
@@ -47,6 +47,10 @@ class Scan : public UnaryOperator {
 
   DeviceType getDeviceType() const override { return DeviceType::CPU; }
   DegreeOfParallelism getDOP() const override { return DegreeOfParallelism{1}; }
+  DegreeOfParallelism getDOPServers() const override {
+    LOG(WARNING) << "Setting arbitrary number for #servers == 2 !";
+    return DegreeOfParallelism{2};
+  }
 
  private:
   Context *const __attribute__((unused)) context;

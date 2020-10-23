@@ -254,7 +254,7 @@ int main(int argc, char *argv[]) {
                 return std::nullopt;
               },
               DegreeOfParallelism{2}, slack, RoutingPolicy::RANDOM,
-              DeviceType::CPU, 1)
+              DeviceType::CPU)
           .memmove_scaleout(slack)
           .unpack()
           .reduce(
@@ -270,7 +270,7 @@ int main(int argc, char *argv[]) {
               [&](const auto &arg) -> std::optional<expression_t> { return 0; },
 
               DegreeOfParallelism{1}, slack, RoutingPolicy::HASH_BASED,
-              DeviceType::CPU, 1)
+              DeviceType::CPU)
           .reduce(
               [&](const auto &arg) -> std::vector<expression_t> {
                 return {arg[lo_orderdate]};

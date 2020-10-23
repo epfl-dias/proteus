@@ -95,6 +95,57 @@ class RelBuilder {
 
   RelBuilder scan(Plugin& pg) const;
 
+  /**
+   * All (global) plans start with scans.
+   * Scans read the metadata from the catalogs and allow data format
+   * plugins to inject their logic for interpreting data.
+   * The latter happens by the plugin registering itself as the source
+   * of tuples. Then during expression evaluation the source of each
+   * input is invoked to determine how a field is processed.
+   *
+   * @param   relName   The name of the table we access. In general, this is
+   *                    an arbitrary string, but for files fetched using the
+   *                    same path across all servers, it can be that path.
+   *                    The file name extension provides no information
+   *                    the plugin that will be used for this table.
+   *
+   *                    For example, the name may end with .csv for a file
+   *                    generated from a csv file as input, but containing
+   *                    the binary data in columnar formats.
+   *                    The "block" plugin is Proteus default plugin for
+   *                    high-performance analytics and it signifies that the
+   *                    data are in binary columnar format.
+   *                    The plugin will use the relName as teh basis for
+   *                    finding the rest of the column, but the actual files
+   *                    will be "inputs/ssbm100/date.bin.d_datekey" etc.
+   *
+   * @param   relAttrs  The columns participating in this query.
+   *                    For hierarchical data, this would usually be the
+   *                    top level columns and unnest will follow for inner
+   *                    attributes.
+   *                    In general any plugin is allowed to interpret the
+   *                    attribute names as it prefers.
+   *
+   * @param   catalog   Both the scan and the plugin may require to fetch
+   *                    extra information from the catalog, as for example
+   *                    the rest of the participating columns, statistics
+   *                    and/or plugin-specific information (like which
+   *                    global partitions is on this server for this rel)
+   *
+   * @param   pg        The plugin type that will be used for this relation.
+   *                    Example plugins are "block", "json", "pm-csv",
+   *                    "distributed-block".
+   *                    The plugin name is used to locate the factory
+   *                    function for instantiating the plugin.
+   *                    If the name is a "::"-separated list of strings,
+   *                    the last string is interpreted as the plugin type,
+   *                    the string before the last is interpreted as the
+   *                    dynamic library name and any additional strings
+   *                    will cause the 1-to-(N-1) strings to be interpreted
+   *                    as a path.
+   *
+   * @see Input plugins: Karpathiotakis et al, VLDB2016
+   */
   RelBuilder scan(std::string relName, const std::vector<std::string>& relAttrs,
                   CatalogParser& catalog, const pg& pg) const;
 
@@ -137,6 +188,11 @@ class RelBuilder {
 
   [[nodiscard]] RelBuilder print(pg pgType, std::string outrel) const;
 
+  /**
+   * Print the results using the given plugin.
+   *
+   * @param     pgType  Plugin to be used for output.
+   */
   [[nodiscard]] RelBuilder print(pg pgType) const;
 
   [[deprecated]] RelBuilder print(std::function<std::vector<expression_t>(
@@ -191,6 +247,16 @@ class RelBuilder {
     return print(std::move(expr), getModuleName());
   }
 
+  /**
+   * Pull data into the current NUMA node, if not already there.
+   *
+   * @param     slack   slack between the two ends of the memmove pipe,
+   *                    used for load balancing
+   *                    (limits the on-the-fly transfers)
+   * @param     to      the type of the current NUMA node
+   *
+   * @see Chrysogelos et al, VLDB2019
+   */
   [[nodiscard]] RelBuilder memmove(size_t slack, DeviceType to) const;
 
   [[nodiscard]] RelBuilder memmove_scaleout(size_t slack) const;
@@ -229,11 +295,33 @@ class RelBuilder {
   [[nodiscard]] RelBuilder router_scaleout(
       const MultiAttributeFactory& attr, const OptionalExpressionFactory& hash,
       DegreeOfParallelism fanout, size_t slack, RoutingPolicy p,
-      DeviceType targets, int producers) const;
+      DeviceType targets) const;
 
+  /**
+   * Similar to router, but the scale-out case.
+   *
+   * RouterScaleout distributes the inputs to @p fanout executors (machines)
+   *
+   * How inputs are distributed across executors depends on the
+   * RoutingPolicies.
+   *
+   * The RoutingPolicy::HASH_BASED specifies that we are going to send the
+   * data to a specific node, given by the @p hash expression.
+   *
+   * Note that routers do not transfer data but only commands, such as
+   * which data are going to be pulled from the other side.
+   *
+   * @param     hash    expression used for directing the routing, either to
+   *                    specific machines through a constant, or using
+   *                    a data property (for example for hash-based routing)
+   * @param     fanout  Number of target executors
+   * @param     slack   Slack in each pipe, used for load-balancing and
+   *                    backpressure. Limits the number of on-the-fly
+   *                    requests.
+   */
   [[nodiscard]] RelBuilder router_scaleout(
       const OptionalExpressionFactory& hash, DegreeOfParallelism fanout,
-      size_t slack, RoutingPolicy p, DeviceType target, int producers) const;
+      size_t slack, RoutingPolicy p, DeviceType target) const;
 
   template <typename Thash>
   [[nodiscard]] RelBuilder router(
@@ -256,9 +344,20 @@ class RelBuilder {
 
   [[nodiscard]] RelBuilder router_scaleout(DegreeOfParallelism fanout,
                                            size_t slack, RoutingPolicy p,
-                                           DeviceType target,
-                                           int producers) const;
+                                           DeviceType target) const;
 
+  /**
+   * Router distributes the inputs to @p fanout workers and handles the
+   * affinity of the workers.
+   *
+   * How inputs are distributed across workers depends on the
+   * RoutingPolicies.
+   * Affinity of the workers depends on the target and the affinitization
+   * policy. The default affinitization policy does a round-robin across
+   * NUMA nodes.
+   *
+   * @see Chrysogelos et al, VLDB2019
+   */
   [[nodiscard]] RelBuilder router(
       DegreeOfParallelism fanout, size_t slack, RoutingPolicy p,
       DeviceType target, std::unique_ptr<Affinitizer> aff = nullptr) const;
@@ -288,6 +387,14 @@ class RelBuilder {
     return bloomfilter_repack(pred(arg), attrs, filterSize, bloomId);
   }
 
+  /**
+   * Filters tuples using a predicate.
+   *
+   * Yields each tuple for which the predicate is true, to the next
+   * operator.
+   *
+   * @param     pred    Predicate used for filtering.
+   */
   template <typename T>
   RelBuilder filter(T pred) const {
     return filter(pred(getOutputArg()));
@@ -353,13 +460,35 @@ class RelBuilder {
     return pack(expr(getOutputArg()), hashExpr(getOutputArg()), numOfBuckets);
   }
 
+  /**
+   * Pack tuples to blocks
+   *
+   * @see Chrysogelos et al, VLDB2019
+   */
   [[nodiscard]] RelBuilder pack() const;
 
+  /**
+   * Project (calculate) tuple-wise expressions.
+   *
+   * @param     expr    List of expressions to evaluate.
+   *
+   * @note  expressions usually perserve types and they look like c++
+   *        default expression in terms of type convergences, without
+   *        c++'s defeult automatic casts.
+   */
   template <typename T>
   RelBuilder project(T expr) const {
     return project(expr(getOutputArg()));
   }
 
+  /**
+   * Performs simple aggregations with a single group.
+   *
+   * @param     expr    Inputs to the (monoid) aggregates
+   * @param     accs    Aggregate type (ie. SUM for a summation)
+   *                    The attribute name of an aggregate is the same as
+   *                    the input name.
+   */
   [[nodiscard]] RelBuilder reduce(const MultiExpressionFactory& expr,
                                   const vector<Monoid>& accs) const {
     return reduce(expr(getOutputArg()), accs);
@@ -455,8 +584,7 @@ class RelBuilder {
   [[nodiscard]] RelBuilder router_scaleout(
       const vector<RecordAttribute*>& wantedFields,
       std::optional<expression_t> hash, DegreeOfParallelism fanout,
-      size_t slack, RoutingPolicy p, DeviceType cpu_targets,
-      int producers) const;
+      size_t slack, RoutingPolicy p, DeviceType cpu_targets) const;
 
   [[nodiscard]] RelBuilder unionAll(
       const std::vector<RelBuilder>& children,
