@@ -195,6 +195,104 @@ Query ClusterControl::getQuery() {
   return tmp;
 }
 
+void ClusterControl::broadcastPrepareQuery(Query query) {
+  proteus::distributed::QueryPlan request;
+  request.set_query_uuid(query.getUUID());
+  auto s = query.getQueryPlan();
+  request.set_jsonplan({(const char*)s.data(), s.size_bytes()});
+
+  for (auto& cl : this->client_conn) {
+    LOG(INFO) << "Broadcasting query to executor # " << cl.first;
+
+    proteus::distributed::genericReply queryReply;
+    grpc::ClientContext context;
+    grpc::Status status =
+        cl.second->prepareStatement(&context, request, &queryReply);
+
+    if (status.ok()) {
+      switch (queryReply.reply()) {
+        case queryReply.ACK:
+          LOG(INFO) << "prepareStatement: exec-" << cl.first << " ACK";
+          break;
+        case queryReply.ERROR:
+          LOG(INFO) << "prepareStatement: exec-" << cl.first << " ERROR";
+          break;
+        default:
+          LOG(INFO) << "Unknown reply";
+          break;
+      }
+    } else {
+      LOG(INFO) << "RPC Failed for exec- " << cl.first << ": "
+                << status.error_code() << ": " << status.error_message()
+                << std::endl;
+    }
+  }
+}
+void ClusterControl::broadcastExecuteQuery(std::string query_uuid) {
+  proteus::distributed::QueryPlan request;
+  request.set_query_uuid(query_uuid);
+
+  for (auto& cl : this->client_conn) {
+    LOG(INFO) << "Broadcasting query to executor # " << cl.first;
+
+    proteus::distributed::genericReply queryReply;
+    grpc::ClientContext context;
+    grpc::Status status =
+        cl.second->executeStatement(&context, request, &queryReply);
+
+    if (status.ok()) {
+      switch (queryReply.reply()) {
+        case queryReply.ACK:
+          LOG(INFO) << "prepareStatement: exec-" << cl.first << " ACK";
+          break;
+        case queryReply.ERROR:
+          LOG(INFO) << "prepareStatement: exec-" << cl.first << " ERROR";
+          break;
+        default:
+          LOG(INFO) << "Unknown reply";
+          break;
+      }
+    } else {
+      LOG(INFO) << "RPC Failed for exec- " << cl.first << ": "
+                << status.error_code() << ": " << status.error_message()
+                << std::endl;
+    }
+  }
+}
+void ClusterControl::broadcastPrepareExecuteQuery(Query query) {
+  proteus::distributed::QueryPlan request;
+  request.set_query_uuid(query.getUUID());
+  auto s = query.getQueryPlan();
+  request.set_jsonplan({(const char*)s.data(), s.size_bytes()});
+
+  for (auto& cl : this->client_conn) {
+    LOG(INFO) << "Broadcasting query to executor # " << cl.first;
+
+    proteus::distributed::genericReply queryReply;
+    grpc::ClientContext context;
+    grpc::Status status =
+        cl.second->executeStatement(&context, request, &queryReply);
+
+    if (status.ok()) {
+      switch (queryReply.reply()) {
+        case queryReply.ACK:
+          LOG(INFO) << "prepareStatement: exec-" << cl.first << " ACK";
+          break;
+        case queryReply.ERROR:
+          LOG(INFO) << "prepareStatement: exec-" << cl.first << " ERROR";
+          break;
+        default:
+          LOG(INFO) << "Unknown reply";
+          break;
+      }
+    } else {
+      LOG(INFO) << "RPC Failed for exec- " << cl.first << ": "
+                << status.error_code() << ": " << status.error_message()
+                << std::endl;
+    }
+  }
+}
+
 void ClusterControl::broadcastQuery(Query query) {
   proteus::distributed::QueryPlan request;
   request.set_query_uuid(query.getUUID());
@@ -298,11 +396,15 @@ grpc::Status NodeControlServiceImpl::prepareStatement(
   LOG(INFO) << "Received query in the queue, Now preparing.";
 
   Query tmp{request->query_uuid(), request->jsonplan()};
-  ClusterManager::getInstance().getCommandProvider()->prepareStatement(
-      request->query_uuid(), tmp.getQueryPlan());
 
-  // ClusterControl::getInstance().query_queue.push(std::move(tmp));
-  // reply->set_reply(proteus::distributed::genericReply::ACK);
+  ThreadPool::getInstance().enqueue([tmp = std::move(tmp)]() {
+    LOG(INFO) << "Preparing query: " << tmp.getUUID();
+    ClusterManager::getInstance().getCommandProvider()->prepareStatement(
+        tmp.getUUID(), tmp.getQueryPlan());
+    // ClusterControl::getInstance().query_queue.push(std::move(tmp));
+  });
+
+  reply->set_reply(proteus::distributed::genericReply::ACK);
 
   return grpc::Status::OK;
 }
@@ -344,6 +446,10 @@ grpc::Status NodeControlServiceImpl::executeStatement(
       ClusterManager::getInstance().getCommandProvider()->runPreparedStatement(
           tmp.getUUID());
     } catch (proteus::unprepared_plan_execution& exception) {
+      if (tmp.getQueryPlan().empty()) {
+        throw std::runtime_error(
+            "Execute called without prepartion/query-plan");
+      }
       LOG(INFO) << "Preparing & Executing query: " << tmp.getUUID();
       ClusterManager::getInstance().getCommandProvider()->prepareStatement(
           tmp.getUUID(), tmp.getQueryPlan());

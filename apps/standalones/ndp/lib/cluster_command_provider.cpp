@@ -27,6 +27,7 @@
 
 #include <cli-flags.hpp>
 #include <command-provider/local-command-provider.hpp>
+#include <common/common.hpp>
 #include <distributed-runtime/cluster-manager.hpp>
 #include <map>
 #include <ndp/cluster_command_provider.hpp>
@@ -69,17 +70,22 @@ class unlink_upon_exit {
   void reset() { last_result.reset(); }
 };
 
-struct ClusterCommandProvider::impl {
-  unlink_upon_exit uue;
+class ClusterCommandProvider::impl {
+ public:
+  unlink_upon_exit uue{};
   std::vector<std::string> prepared_statements{};
   // std::map<std::string, PreparedStatement> preparedStatements;
 };
 
 std::string ClusterCommandProvider::prepareStatement(const fs::path& plan) {
+  LOG(INFO) << "Broadcasting prepare plan with label: " << plan;
   std::string label = p_impl->uue.inc_label();
-  proteus::distributed::ClusterManager::getInstance().broadcastQuery(
-      {label, std::make_unique<mmap_file>(plan, PAGEABLE)});
 
+  LOG(INFO) << "Broadcasting prepare plan with label: " << plan;
+  proteus::distributed::ClusterManager::getInstance().broadcastPrepareQuery(
+      {label, std::make_unique<mmap_file>(plan, PAGEABLE)});
+  p_impl->prepared_statements.emplace_back(label);
+  LOG(INFO) << "[Done] Broadcasting prepare plan with label: " << label;
   return label;
 }
 
@@ -90,23 +96,32 @@ std::string ClusterCommandProvider::prepareStatement(
 
 fs::path ClusterCommandProvider::runPreparedStatement(const std::string& label,
                                                       bool echo) {
+  proteus::distributed::ClusterManager::getInstance().broadcastExecuteQuery(
+      label);
+
+  // FIXME: get path of outputs
   return fs::path();
 }
 
 fs::path ClusterCommandProvider::runStatement(const fs::path& plan, bool echo) {
-  //  std::string label = p_impl->uue.inc_label();
-  //  proteus::distributed::ClusterManager::getInstance().broadcastQuery(
-  //      {label, std::make_unique<mmap_file>(plan, PAGEABLE)});
+  std::string label = p_impl->uue.inc_label();
+  proteus::distributed::ClusterManager::getInstance()
+      .broadcastPrepareExecuteQuery(
+          {label, std::make_unique<mmap_file>(plan, PAGEABLE)});
+  p_impl->prepared_statements.emplace_back(label);
 
   // FIXME: how to get output-path of distributed query.
   return fs::path();
 }
 void ClusterCommandProvider::prepareStatement(
-    const std::string& label, const std::span<const std::byte>& plan) {}
+    const std::string& label, const std::span<const std::byte>& plan) {
+  throw std::runtime_error("Unimplemented");
+}
 fs::path ClusterCommandProvider::runStatement(
     const std::span<const std::byte>& plan, bool echo) {
-  return fs::path();
+  throw std::runtime_error("Unimplemented");
 }
 
-ClusterCommandProvider::ClusterCommandProvider() = default;
+ClusterCommandProvider::ClusterCommandProvider()
+    : p_impl(std::make_unique<ClusterCommandProvider::impl>()) {}
 ClusterCommandProvider::~ClusterCommandProvider() = default;

@@ -28,7 +28,7 @@
 #include <memory>
 
 class LocalCommandProvider : public CommandProvider {
-  struct impl;
+  class impl;
   std::unique_ptr<impl> p_impl;
 
  public:

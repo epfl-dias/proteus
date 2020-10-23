@@ -24,12 +24,15 @@
 #include <gflags/gflags.h>
 
 #include <ndp/ndp-common.hpp>
+#include <olap/common/olap-common.hpp>
 
 #include "mock-plan-parser.hpp"
 
 namespace proteus {
+
 class ndp::impl {
  private:
+  proteus::olap olap;
   MockPlanParser parser;
   CommandExecutor executor;
 
@@ -46,7 +49,8 @@ class ndp::impl {
   // Detect local files and configurations
   void discoverLocalCatalog() {}
 
-  impl() {
+  impl() : olap(0.1, 0.1, 0) {
+    LOG(INFO) << "TEST";
     /*
      * For now, all libraries are pre-linked, but the following function can be
      * extended to load and configure the different parts so that the context
@@ -74,7 +78,7 @@ proteus::distributed::ClusterManager &ndp::getClusterManager() const {
 ThreadPool &ndp::getThreadPool() { return ThreadPool::getInstance(); }
 CommandExecutor &ndp::getExecutor() { return p_impl->getExecutor(); }
 
-ndp::ndp() = default;
+ndp::ndp() : p_impl(std::make_unique<ndp::impl>()){};
 ndp::~ndp() = default;
 
 proteus::ndp from_cli::ndp(const string &usage, int *argc, char ***argv) {
@@ -83,7 +87,7 @@ proteus::ndp from_cli::ndp(const string &usage, int *argc, char ***argv) {
 
   google::InitGoogleLogging((*argv)[0]);
   FLAGS_logtostderr = true;  // FIXME: the command line flags/defs seem to fail
-
+  LOG(INFO) << "AM I CALLED";
   return proteus::ndp{};
 }
 }  // namespace proteus

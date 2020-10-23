@@ -67,7 +67,8 @@ class unlink_upon_exit {
   void reset() { last_result.reset(); }
 };
 
-struct LocalCommandProvider::impl {
+class LocalCommandProvider::impl {
+ public:
   unlink_upon_exit uue;
   std::map<std::string, PreparedStatement> preparedStatements;
 };
@@ -135,5 +136,6 @@ fs::path LocalCommandProvider::runPreparedStatement(const std::string &label,
   return fs::path{"/dev/shm"} / label;
 }
 
-LocalCommandProvider::LocalCommandProvider() = default;
+LocalCommandProvider::LocalCommandProvider()
+    : p_impl(std::make_unique<LocalCommandProvider::impl>()){};
 LocalCommandProvider::~LocalCommandProvider() = default;

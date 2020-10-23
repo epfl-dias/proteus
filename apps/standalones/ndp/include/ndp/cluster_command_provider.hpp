@@ -32,7 +32,7 @@
  */
 class ClusterCommandProvider : public CommandProvider {
  private:
-  struct impl;
+  class impl;
   std::unique_ptr<impl> p_impl;
 
  public:

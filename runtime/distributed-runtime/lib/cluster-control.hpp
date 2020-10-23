@@ -97,10 +97,14 @@ class ClusterControl {
   void startServer(bool is_primary_node, const std::string& primary_node_addr,
                    int primary_control_port);
   void shutdownServer(bool rpc_initiated = false);
-
-  Query getQuery();
-  void broadcastQuery(Query query);
   int registerExecutor(const proteus::distributed::NodeInfo*);
+
+  [[deprecated]] Query getQuery();
+  [[deprecated]] void broadcastQuery(Query query);
+
+  void broadcastPrepareQuery(Query query);
+  void broadcastExecuteQuery(std::string query_uuid);
+  void broadcastPrepareExecuteQuery(Query query);
 
   size_t getNumExecutors() {
     std::unique_lock<std::mutex> safety_lock(this->registration_lock);

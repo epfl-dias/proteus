@@ -68,6 +68,19 @@ Query ClusterManager::getQuery() const {
   assert(initialized && "Cluster manager not connected.");
   return ClusterControl::getInstance().getQuery();
 }
+
+void ClusterManager::broadcastPrepareQuery(Query query) {
+  return ClusterControl::getInstance().broadcastPrepareQuery(std::move(query));
+}
+void ClusterManager::broadcastExecuteQuery(std::string query_uuid) {
+  return ClusterControl::getInstance().broadcastExecuteQuery(
+      std::move(query_uuid));
+}
+void ClusterManager::broadcastPrepareExecuteQuery(Query query) {
+  return ClusterControl::getInstance().broadcastPrepareExecuteQuery(
+      std::move(query));
+}
+
 void ClusterManager::broadcastQuery(Query query) const {
   assert(initialized && "Cluster manager not connected.");
   return ClusterControl::getInstance().broadcastQuery(std::move(query));

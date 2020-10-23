@@ -36,6 +36,26 @@ namespace proteus {
 
 class NDPCommandProvider : public ClusterCommandProvider {};
 
+class MockLocalCommandProvider : public LocalCommandProvider {
+ private:
+  ndp engine;
+  std::map<std::string, PreparedStatement> stmts;
+
+ public:
+  void prepareStatement(const std::string &label,
+                        const std::span<const std::byte> &plan) override {
+    LOG(INFO) << "Mock prepare Query";
+    auto builder = engine.getPlanParser().parse(plan, label);
+    stmts.emplace(label, builder.prepare());
+  }
+
+  fs::path runPreparedStatement(const std::string &label, bool echo) override {
+    auto result = engine.getExecutor().run(stmts.at(label));
+    return fs::path();
+  }
+  MockLocalCommandProvider() = default;
+  ~MockLocalCommandProvider() override = default;
+};
 }  // namespace proteus
 
 // https://stackoverflow.com/a/25829178/1237824
@@ -98,6 +118,8 @@ int main(int argc, char *argv[]) {
     while (ctx.getClusterManager().getNumExecutors() >= FLAGS_min_executors)
       ;
 
+    LOG(INFO) << "Ready.";
+
     std::string line;
     while (std::getline(std::cin, line)) {
       std::string cmd = trim(line);
@@ -144,7 +166,11 @@ int main(int argc, char *argv[]) {
     // LocalCommandProvider provides functionalities to parse and execute plans,
     // regardless of operators inside the plan are single-server or
     // runs in a distributed fashion.
-    auto secondaryProvider = std::make_shared<LocalCommandProvider>();
+    // auto secondaryProvider = std::make_shared<LocalCommandProvider>();
+
+    auto secondaryProvider =
+        std::make_shared<proteus::MockLocalCommandProvider>();
+
     ctx.getClusterManager().setCommandProvider(secondaryProvider);
 
     ctx.getClusterManager().waitUntilShutdown();

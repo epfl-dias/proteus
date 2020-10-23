@@ -113,8 +113,12 @@ class ClusterManager {
 
   auto getCommandProvider() { return cmdProvider; }
 
-  [[nodiscard]] Query getQuery() const;
-  void broadcastQuery(Query query) const;
+  void broadcastPrepareQuery(Query query);
+  void broadcastExecuteQuery(std::string query_uuid);
+  void broadcastPrepareExecuteQuery(Query query);
+
+  [[deprecated]] [[nodiscard]] Query getQuery() const;
+  [[deprecated]] void broadcastQuery(Query query) const;
   void notifyReady(std::string query_uuid);
   void notifyFinished(std::string query_uuid, QueryResult result);
 

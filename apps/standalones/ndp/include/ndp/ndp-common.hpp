@@ -42,7 +42,7 @@ class CommandExecutor {
 class [[nodiscard]] ndp {
  private:
   class impl;
-  const std::unique_ptr<impl> p_impl;
+  const std::unique_ptr<impl> p_impl{};
 
  public:
   explicit ndp();
