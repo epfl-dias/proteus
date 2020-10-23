@@ -74,6 +74,10 @@ class NodeControlServiceImpl final
       grpc::ServerContext* context,
       const proteus::distributed::NodeCommand* request,
       proteus::distributed::NodeStatusUpdate* reply) override;
+  grpc::Status changeNodeStatus(
+      grpc::ServerContext* context,
+      const proteus::distributed::NodeStatusUpdate* request,
+      proteus::distributed::genericReply* reply) override;
 
  private:
   std::unique_ptr<proteus::distributed::NodeControlPlane::Stub> stub_;
@@ -92,7 +96,7 @@ class ClusterControl {
 
   void startServer(bool is_primary_node, const std::string& primary_node_addr,
                    int primary_control_port);
-  void shutdownServer();
+  void shutdownServer(bool rpc_initiated = false);
 
   Query getQuery();
   void broadcastQuery(Query query);
@@ -105,7 +109,12 @@ class ClusterControl {
 
  private:
   void listenerThread();
+
+  // Methods for secondary-nodes
   void registerSelfToPrimary();
+
+  // Methods for primary-node.
+  void updateNodeStatus(const proteus::distributed::NodeStatusUpdate* request);
 
   ClusterControl()
       : is_primary(false), executor_id_ctr(0), self_executor_id(0) {}

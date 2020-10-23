@@ -25,6 +25,6 @@
 #ifndef PROTEUS_NDP_CLI_FLAGS_HPP
 #define PROTEUS_NDP_CLI_FLAGS_HPP
 
-DECLARE_bool(master_node);
+DECLARE_int32(min_executors);
 
 #endif  // PROTEUS_NDP_CLI_FLAGS_HPP

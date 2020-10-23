@@ -55,13 +55,35 @@ void ClusterControl::startServer(bool is_primary_node,
     this->server_address = primary_node_address;
     LOG(INFO) << "Primary Node:: " << is_primary_node;
     LOG(INFO) << "ServerAddress:: " << primary_node_address;
+
+    //    {
+    //      // also-add self to executor list.
+    //      std::unique_lock<std::mutex> safety_lock(this->registration_lock);
+    //
+    //      this->executors.emplace_back(*node);
+    //      auto exec_id = ++executor_id_ctr;
+    //      this->executors.back().set_executor_id(exec_id);
+    //      exec_id_map.insert({exec_id, &(this->executors.back())});
+    //      exec_address_map.insert(
+    //          {std::string{this->server_address}, &(this->executors.back())});
+    //
+    //      LOG(INFO) << "[Self-Registration] Executor node with address " <<
+    //      this->server_address
+    //                << " registered with ID: " << exec_id;
+    //
+    //      // address in gRPC is a fully-qualified one.
+    //      std::string target_addr = std::string{node->control_address()};
+    //      client_conn.insert(
+    //          {exec_id, NodeControlPlane::NewStub(grpc::CreateChannel(
+    //              target_addr, grpc::InsecureChannelCredentials()))});
+    //    }
   }
 
   // start-listener-thread
   std::thread t1(&ClusterControl::listenerThread, this);
   this->listener_thread.swap(t1);
 }
-void ClusterControl::shutdownServer() {
+void ClusterControl::shutdownServer(bool rpc_initiated) {
   LOG(INFO) << "Shutting down Cluster Control Service.";
 
   if (is_primary) {
@@ -89,6 +111,24 @@ void ClusterControl::shutdownServer() {
     client_conn.clear();
   }
 
+  if (!is_primary && !rpc_initiated) {
+    // Notify primary that this-executor is shutting down.
+    proteus::distributed::NodeStatusUpdate request;
+    request.set_executor_id(this->self_executor_id);
+    request.set_status(proteus::distributed::NodeStatusUpdate::SHUTDOWN);
+    proteus::distributed::genericReply reply;
+
+    grpc::ClientContext context;
+    grpc::Status status =
+        this->primary_conn->changeNodeStatus(&context, request, &reply);
+
+    if (!status.ok()) {
+      LOG(INFO) << "RPC Failed for exec- " << this->self_executor_id << ": "
+                << status.error_code() << ": " << status.error_message()
+                << std::endl;
+    }
+  }
+
   this->server->Shutdown();
   this->listener_thread.join();
   LOG(INFO) << "Shutdown procedure completed.";
@@ -108,7 +148,7 @@ void ClusterControl::registerSelfToPrimary() {
       &context, registerRequest, &registerReply);
 
   if (status.ok()) {
-    this->self_executor_id = registerReply.slave_id();
+    this->self_executor_id = registerReply.executor_id();
   } else {
     LOG(ERROR) << "Secondary registration failed.";
     throw std::runtime_error("Secondary registration failed.");
@@ -214,6 +254,7 @@ int ClusterControl::registerExecutor(
   std::unique_lock<std::mutex> safety_lock(this->registration_lock);
   this->executors.emplace_back(*node);
   auto exec_id = ++executor_id_ctr;
+  this->executors.back().set_executor_id(exec_id);
   exec_id_map.insert({exec_id, &(this->executors.back())});
   exec_address_map.insert(
       {std::string{node->control_address()}, &(this->executors.back())});
@@ -230,6 +271,31 @@ int ClusterControl::registerExecutor(
   return exec_id;
 }
 
+void ClusterControl::updateNodeStatus(
+    const proteus::distributed::NodeStatusUpdate* request) {
+  assert(is_primary && "secondary node getting executor update request??");
+
+  std::unique_lock<std::mutex> safety_lock(this->registration_lock);
+
+  auto exec_id = request->executor_id();
+  // remove from client_conn
+  client_conn.erase(exec_id);
+
+  // remove from exec_address_map
+  exec_address_map.erase(exec_id_map[exec_id]->control_address());
+
+  // remove from executors
+  executors.erase(
+      std::remove_if(executors.begin(), executors.end(),
+                     [exec_id](auto x) { return x.executor_id() == exec_id; }),
+      executors.end());
+
+  // remove from exec_id_map
+  exec_id_map.erase(exec_id);
+
+  LOG(INFO) << "Removed executor-" << exec_id << ".";
+}
+
 //---------------------------------------
 // gRPC Stub Handlers
 //---------------------------------------
@@ -239,7 +305,7 @@ grpc::Status NodeControlServiceImpl::registerExecutor(
     proteus::distributed::NodeRegistrationReply* reply) {
   auto& exec_address = request->control_address();
   auto executor_id = ClusterControl::getInstance().registerExecutor(request);
-  reply->set_slave_id(executor_id);
+  reply->set_executor_id(executor_id);
   return grpc::Status::OK;
 }
 
@@ -257,10 +323,25 @@ grpc::Status NodeControlServiceImpl::sendCommand(
     grpc::ServerContext* context,
     const proteus::distributed::NodeCommand* request,
     proteus::distributed::NodeStatusUpdate* reply) {
-  ThreadPool::getInstance().enqueue(
-      []() { ClusterManager::getInstance().disconnect(); });
+  if (request->command() == proteus::distributed::NodeCommand::SHUTDOWN) {
+    ThreadPool::getInstance().enqueue([]() {
+      // ClusterManager::getInstance().disconnect();
+      ClusterControl::getInstance().shutdownServer(true);
+    });
 
-  reply->set_status(proteus::distributed::NodeStatusUpdate::SHUTDOWN);
+    reply->set_status(proteus::distributed::NodeStatusUpdate::SHUTDOWN);
+    return grpc::Status::OK;
+  } else {
+    throw std::runtime_error("Unknown command recieved.");
+  }
+}
+
+grpc::Status NodeControlServiceImpl::changeNodeStatus(
+    grpc::ServerContext* context,
+    const proteus::distributed::NodeStatusUpdate* request,
+    proteus::distributed::genericReply* reply) {
+  ClusterControl::getInstance().updateNodeStatus(request);
+  reply->set_reply(proteus::distributed::genericReply::ACK);
   return grpc::Status::OK;
 }
 

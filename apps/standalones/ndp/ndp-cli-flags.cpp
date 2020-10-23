@@ -24,3 +24,5 @@
 #include "ndp-cli-flags.hpp"
 
 #include <gflags/gflags.h>
+
+DEFINE_int32(min_executors, 1, "wait for atleast # of executors");

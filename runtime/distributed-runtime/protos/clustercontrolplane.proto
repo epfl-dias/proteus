@@ -66,7 +66,7 @@ service NodeControlPlane {
   // used in critical-paths or inside query-execution.
 
   //rpc Heartbeat(HeartbeatRequest) returns (HeartbeatReply) {}
-  //rpc changeNodeStatus(NodeStatusUpdate) returns (genericReply) {}
+  rpc changeNodeStatus(NodeStatusUpdate) returns (genericReply) {}
 }
 
 //-----------------------
@@ -103,7 +103,8 @@ message NodeStatusUpdate{
     BUSY = 1;
     SHUTDOWN = 2;
   };
-  Status status = 1;
+  int32 executor_id = 1;
+  Status status = 2;
 }
 
 //-----------------------
@@ -155,6 +156,7 @@ message NodeTopology{
 message NodeInfo{
   NodeTopology topology = 1;
   string control_address = 2; // so that master save this node for return message.
+  int32 executor_id = 3;  // to-be assigned my primary-node only.
 }
 
 //-----------------------
@@ -162,7 +164,7 @@ message NodeInfo{
 //      reply for node-registration service with assigned executor id.
 //-----------------------
 message NodeRegistrationReply {
-  int32 slave_id = 1;
+  int32 executor_id = 1;
 
 }
 
