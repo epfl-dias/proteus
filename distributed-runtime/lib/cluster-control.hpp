@@ -108,14 +108,10 @@ class ClusterControl {
   void registerSelfToPrimary();
 
   ClusterControl()
-      : network_control_port(-1),
-        is_primary(false),
-        executor_id_ctr(0),
-        self_executor_id(0) {}
+      : is_primary(false), executor_id_ctr(0), self_executor_id(0) {}
 
  private:
   bool is_primary;
-  int network_control_port;
   std::string server_address;
   std::string primary_node_address;
   std::thread listener_thread;

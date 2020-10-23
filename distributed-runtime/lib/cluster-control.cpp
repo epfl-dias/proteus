@@ -33,6 +33,7 @@
 #include "common/common.hpp"
 #include "common/error-handling.hpp"
 #include "distributed-runtime/cluster-manager.hpp"
+#include "threadpool/threadpool.hpp"
 
 namespace proteus::distributed {
 
@@ -84,16 +85,12 @@ void ClusterControl::shutdownServer() {
                   << status.error_code() << ": " << status.error_message()
                   << std::endl;
       }
-      cl.second.release();
-      client_conn.erase(cl.first);
     }
-    // Sanity-check. All client-connections should have been closed by now.
-    assert(client_conn.empty());
-
-  } else {
-    this->primary_conn.release();
-    this->server->Shutdown();
+    client_conn.clear();
   }
+
+  this->server->Shutdown();
+  this->listener_thread.join();
   LOG(INFO) << "Shutdown procedure completed.";
 }
 
@@ -261,9 +258,9 @@ grpc::Status NodeControlServiceImpl::sendCommand(
     grpc::ServerContext* context,
     const proteus::distributed::NodeCommand* request,
     proteus::distributed::NodeStatusUpdate* reply) {
-  // FIXME: need another thread to start shutdown, as RPC needs to reply
-  //  also before shutting down.
-  ClusterManager::getInstance().disconnect();
+  ThreadPool::getInstance().enqueue(
+      []() { ClusterManager::getInstance().disconnect(); });
+
   reply->set_status(proteus::distributed::NodeStatusUpdate::SHUTDOWN);
   return grpc::Status::OK;
 }
