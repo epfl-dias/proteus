@@ -46,22 +46,12 @@
 
 namespace proteus::distributed {
 
-// const std::string& server_addr,
-//                                 int port,
-//                                 bool is_primary_node,
-//                                 const std::string& primary_node_addr,
-//                                 int primary_control_port
-void ClusterManager::connect(const std::string& self_server_addr,
-                             int self_server_port, bool is_primary_node,
-                             const std::string& primary_node_addr,
+void ClusterManager::connect(bool is_primary_node,
+                             const std::string primary_node_addr,
                              int primary_control_port) {
   if (initialized) {
     LOG(ERROR) << "ClusterManager already initialized.";
   }
-  assert(self_server_port != -1 && "Port cannot be -1");
-
-  self_server_address = self_server_addr;
-  primary_server_address = primary_node_addr;
 
   this->is_primary = is_primary_node;
   this->terminate = false;
@@ -72,15 +62,16 @@ void ClusterManager::connect(const std::string& self_server_addr,
   }
 
   // start GRPC server.
-  ClusterControl::getInstance().startServer(self_server_addr, self_server_port,
-                                            is_primary_node, primary_node_addr,
+  ClusterControl::getInstance().startServer(is_primary_node, primary_node_addr,
                                             primary_control_port);
   initialized = true;
 }
 
 void ClusterManager::disconnect() {
-  ClusterControl::getInstance().shutdownServer();
-  this->terminate = true;
+  if (!terminate) {
+    this->terminate = true;
+    ClusterControl::getInstance().shutdownServer();
+  }
 }
 
 Query ClusterManager::getQuery() const {

@@ -46,8 +46,7 @@ class ClusterManager {
   void operator=(ClusterManager const &) = delete;
   void operator=(ClusterManager const &&) = delete;
 
-  void connect(const std::string &self_server_addr, int self_server_port,
-               bool is_primary_node, const std::string &primary_node_addr,
+  void connect(bool is_primary_node, const std::string primary_node_addr,
                int primary_control_port);
   void disconnect();
 
@@ -65,9 +64,6 @@ class ClusterManager {
   bool terminate;
   bool initialized;
   bool is_primary;
-
-  std::string self_server_address;
-  std::string primary_server_address;
 };
 
 }  // namespace proteus::distributed

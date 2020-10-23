@@ -93,8 +93,7 @@ class ClusterControl {
   void operator=(ClusterControl const&) = delete;
   void operator=(ClusterControl const&&) = delete;
 
-  void startServer(const std::string& server_addr, int port,
-                   bool is_primary_node, const std::string& primary_node_addr,
+  void startServer(bool is_primary_node, const std::string& primary_node_addr,
                    int primary_control_port);
   void shutdownServer();
 
@@ -109,6 +108,7 @@ class ClusterControl {
 
  private:
   void listenerThread();
+  void registerSelfToPrimary();
 
   ClusterControl()
       : network_control_port(-1),

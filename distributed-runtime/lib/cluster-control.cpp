@@ -26,10 +26,12 @@
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
+#include <unistd.h>
 
 #include <utility>
 
 #include "common/common.hpp"
+#include "common/error-handling.hpp"
 #include "distributed-runtime/cluster-manager.hpp"
 
 namespace proteus::distributed {
@@ -37,52 +39,29 @@ namespace proteus::distributed {
 // FIXME: AS both primary/secondary runs a gRRPC server, there can be a
 //  conflict of ip/port pair if both are running on the same server.
 
-void ClusterControl::startServer(const std::string& self_server_addr,
-                                 int self_server_port, bool is_primary_node,
+void ClusterControl::startServer(bool is_primary_node,
                                  const std::string& primary_node_addr,
                                  int primary_control_port) {
   LOG(INFO) << "Starting Cluster Control Service.";
-  assert(self_server_port > 0 && self_server_port < 65536);
 
-  std::string full_server_add =
-      self_server_addr + ":" + std::to_string(self_server_port);
+  // Sanity-check for primary-node address and port.
+  assert(!primary_node_addr.empty());
+  assert(primary_control_port > 0 && primary_control_port < 65536);
 
-  this->server_address = std::move(full_server_add);
-  this->network_control_port = self_server_port;
+  // Form a socket-style address by concatenating listening port with address.
   this->is_primary = is_primary_node;
   this->primary_node_address = std::string{primary_node_addr} + ":" +
                                std::to_string(primary_control_port);
 
-  LOG(INFO) << "ServerAddres:: " << server_address;
-  LOG(INFO) << "PrimaryAddres:: " << primary_node_address;
+  if (is_primary_node) {
+    this->server_address = primary_node_address;
+    LOG(INFO) << "Primary Node:: " << is_primary_node;
+    LOG(INFO) << "ServerAddress:: " << primary_node_address;
+  }
 
   // start-listener-thread
   std::thread t1(&ClusterControl::listenerThread, this);
   this->listener_thread.swap(t1);
-
-  if (!is_primary_node) {
-    assert(!primary_node_addr.empty());
-    assert(primary_control_port > 0 && primary_control_port < 65536);
-
-    // register itself to primary node.
-    this->primary_conn = NodeControlPlane::NewStub(grpc::CreateChannel(
-        primary_node_address, grpc::InsecureChannelCredentials()));
-
-    proteus::distributed::NodeInfo registerRequest;
-    registerRequest.set_control_address(server_address);
-    proteus::distributed::NodeRegistrationReply registerReply;
-
-    grpc::ClientContext context;
-    grpc::Status status = this->primary_conn->registerExecutor(
-        &context, registerRequest, &registerReply);
-
-    if (status.ok()) {
-      this->self_executor_id = registerReply.slave_id();
-    } else {
-      LOG(INFO) << "Secondary registration failed.";
-      throw std::runtime_error("Secondary registration failed.");
-    }
-  }
 }
 void ClusterControl::shutdownServer() {
   LOG(INFO) << "Shutting down Cluster Control Service.";
@@ -108,44 +87,92 @@ void ClusterControl::shutdownServer() {
                   << status.error_code() << ": " << status.error_message()
                   << std::endl;
       }
+      cl.second.release();
+      client_conn.erase(cl.first);
     }
+    // Sanity-check. All client-connections should have been closed by now.
+    assert(client_conn.empty());
 
-    client_conn.clear();
   } else {
-    primary_conn.release();
+    this->primary_conn.release();
+    this->server->Shutdown();
   }
-
-  this->server->Shutdown();
-  this->listener_thread.join();
-  query_queue.close();
   LOG(INFO) << "Shutdown procedure completed.";
 }
 
+void ClusterControl::registerSelfToPrimary() {
+  // register itself to primary node.
+  this->primary_conn = NodeControlPlane::NewStub(grpc::CreateChannel(
+      primary_node_address, grpc::InsecureChannelCredentials()));
+
+  proteus::distributed::NodeInfo registerRequest;
+  registerRequest.set_control_address(server_address);
+  proteus::distributed::NodeRegistrationReply registerReply;
+
+  grpc::ClientContext context;
+  grpc::Status status = this->primary_conn->registerExecutor(
+      &context, registerRequest, &registerReply);
+
+  if (status.ok()) {
+    this->self_executor_id = registerReply.slave_id();
+  } else {
+    LOG(INFO) << "Secondary registration failed.";
+    throw std::runtime_error("Secondary registration failed.");
+  }
+}
+
 void ClusterControl::listenerThread() {
+  std::string secondary_hostname;
+
+  if (!is_primary) {
+    // if not primary node, get the hostname from system.
+
+    char hostname_buffer[512];
+    linux_run(gethostname(hostname_buffer, 512));
+    secondary_hostname = std::string{hostname_buffer};
+    this->server_address = secondary_hostname + ":" + std::to_string(0);
+    LOG(INFO) << "Got Hostname: " << this->server_address;
+  }
+
   grpc::EnableDefaultHealthCheckService(true);
   grpc::reflection::InitProtoReflectionServerBuilderPlugin();
-
   grpc::ServerBuilder builder;
+
   // Listen on the given address without any authentication mechanism.
+  // if the port is 0, system will select an available port automatically,
+  // and update the `sec_port` variable.
+
+  int sec_port = 0;
   builder.AddListeningPort(this->server_address,
-                           grpc::InsecureServerCredentials());
+                           grpc::InsecureServerCredentials(), &sec_port);
+
   // Register "service" as the instance through which we'll communicate with
-  // clients. In this case it corresponds to an *synchronous* service.
+  // clients and finally, assemble and start the server.
   builder.RegisterService(&controlService);
-  // Finally assemble the server.
   this->server = builder.BuildAndStart();
 
+  // If not a primary-node, register itself to primary as a executor node.
+  if (!is_primary) {
+    this->server_address = secondary_hostname + ":" + std::to_string(sec_port);
+    this->registerSelfToPrimary();
+  }
+
   LOG(INFO) << "Server listening on " << server_address << std::endl;
+
   // Wait for the server to shutdown. Note that some other thread must be
   // responsible for shutting down the server for this call to ever return.
   server->Wait();
+
+  // Clean-up.
+  query_queue.close();
+  LOG(INFO) << "Listener-thread completed.";
 }
 
 Query ClusterControl::getQuery() {
   // Blocks until a new query is available.
   Query tmp;
   LOG(INFO) << "waiting for query to arrive.";
-  auto status = query_queue.pop(tmp);
+  auto status = this->query_queue.pop(tmp);
   if (!status) {
     LOG(INFO) << "Query_queue returned false";
   }
@@ -159,7 +186,7 @@ void ClusterControl::broadcastQuery(Query query) {
 
   for (auto& cl : this->client_conn) {
     LOG(INFO) << "Broadcasting query to executor # " << cl.first;
-    // loaders.emplace_back([request, ex_id, cl]() {
+
     proteus::distributed::genericReply queryReply;
     grpc::ClientContext context;
     grpc::Status status =
@@ -182,7 +209,6 @@ void ClusterControl::broadcastQuery(Query query) {
                 << status.error_code() << ": " << status.error_message()
                 << std::endl;
     }
-    //});
   }
 }
 
@@ -202,13 +228,16 @@ int ClusterControl::registerExecutor(
 
   // address in gRPC is a fully-qualified one.
   std::string target_addr = std::string{node->control_address()};
-  //+ ":" +std::to_string(network_control_port);
   client_conn.insert(
       {exec_id, NodeControlPlane::NewStub(grpc::CreateChannel(
                     target_addr, grpc::InsecureChannelCredentials()))});
 
   return exec_id;
 }
+
+//---------------------------------------
+// gRPC Stub Handlers
+//---------------------------------------
 
 grpc::Status NodeControlServiceImpl::registerExecutor(
     grpc::ServerContext* context, const proteus::distributed::NodeInfo* request,
@@ -235,6 +264,8 @@ grpc::Status NodeControlServiceImpl::sendCommand(
     grpc::ServerContext* context,
     const proteus::distributed::NodeCommand* request,
     proteus::distributed::NodeStatusUpdate* reply) {
+  // FIXME: need another thread to start shutdown, as RPC needs to reply
+  //  also before shutting down.
   ClusterManager::getInstance().disconnect();
   reply->set_status(proteus::distributed::NodeStatusUpdate::SHUTDOWN);
   return grpc::Status::OK;
@@ -245,7 +276,6 @@ grpc::Status NodeControlServiceImpl::executeStatement(
     const proteus::distributed::QueryPlan* request,
     proteus::distributed::genericReply* reply) {
   throw std::runtime_error("Unimplemented");
-
   return grpc::Status::OK;
 }
 

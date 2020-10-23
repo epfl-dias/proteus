@@ -34,13 +34,7 @@ int main(int argc, char *argv[]) {
 
   auto &clusterManager = proteus::distributed::ClusterManager::getInstance();
 
-  if (FLAGS_primary) {
-    clusterManager.connect(FLAGS_url, FLAGS_port, FLAGS_primary, FLAGS_url,
-                           FLAGS_port);
-  } else {
-    clusterManager.connect(FLAGS_secondary_url, FLAGS_secondary_port,
-                           FLAGS_primary, FLAGS_url, FLAGS_port);
-  }
+  clusterManager.connect(FLAGS_primary, FLAGS_url, FLAGS_port);
 
   sleep(2);
 
