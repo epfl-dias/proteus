@@ -26,6 +26,7 @@
 #include <sys/types.h>
 
 #include <algorithm>
+#include <olap/plan/query-result.hpp>
 #include <utility>
 
 #include "cluster-control.hpp"
@@ -77,8 +78,23 @@ size_t ClusterManager::getNumExecutors() {
 void ClusterManager::notifyReady(std::string query_uuid) {
   throw std::runtime_error("Unimplemented.");
 }
-void ClusterManager::notifyFinished(std::string query_uuid, void* result) {
+void ClusterManager::notifyFinished(std::string query_uuid,
+                                    QueryResult result) {
   throw std::runtime_error("Unimplemented.");
 }
 
+const std::string &Query::getUUID() const { return query_uuid; }
+
+struct decode_query {
+  std::span<const std::byte> operator()(const std::string &s) {
+    return std::span<const std::byte>{(const std::byte *)s.data(), s.size()};
+  }
+  std::span<const std::byte> operator()(const std::unique_ptr<mmap_file> &f) {
+    return f->asSpan();
+  }
+};
+
+std::span<const std::byte> Query::getQueryPlan() const {
+  return std::visit(decode_query{}, query_plan);
+}
 }  // namespace proteus::distributed

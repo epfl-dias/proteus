@@ -21,37 +21,34 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <cli-flags.hpp>
-#include <distributed-runtime/cluster-manager.hpp>
-#include <topology/affinity_manager.hpp>
-#include <topology/topology.hpp>
+#ifndef PROTEUS_MOCK_PLAN_PARSER_HPP
+#define PROTEUS_MOCK_PLAN_PARSER_HPP
 
-#include "ndp-cli-flags.hpp"
+#include <plan-parser/plan-parser.hpp>
 
-int main(int argc, char *argv[]) {
-  auto ctx = proteus::from_cli::olap("NDP", &argc, &argv);
-  set_exec_location_on_scope exec(topology::getInstance().getCpuNumaNodes()[0]);
+namespace proteus {
 
-  auto &clusterManager = proteus::distributed::ClusterManager::getInstance();
-
-  clusterManager.connect(FLAGS_primary, FLAGS_url, FLAGS_port);
-
-  sleep(2);
-
-  if (FLAGS_primary) {
-    while (clusterManager.getNumExecutors() < 1)
-      ;
-    LOG(INFO) << "Primary broadcasting query";
-    clusterManager.broadcastQuery({"qq", "qq"});
-  } else {
-    LOG(INFO) << "Waiting for query now";
-    auto q = clusterManager.getQuery();
-    LOG(INFO) << "secondary got query with uuid: " << q.getUUID();
+class MockPlanParser : public PlanParser {
+ public:
+  RelBuilder parse(const std::span<const std::byte> &plan,
+                   std::string query_name) override {
+    /*
+     * In the full system, interprets the plan (which is encoded as a JSON)
+     * to decide how to call the RelBuilder.
+     *
+     * Instead, here we provide example plans to showcase NDP's expressiveness
+     */
+    return getBuilder(query_name)
+        .scan("inputs/ssbm100/date.csv", {"d_datekey", "d_year"}, getCatalog(),
+              pg{"distributed-block"})
+        .unpack()
+        .reduce(
+            [&](const auto &arg) -> std::vector<expression_t> {
+              return {arg["d_datekey"] + arg["d_year"]};
+            },
+            {SUM});
   }
+};
+}  // namespace proteus
 
-  sleep(2);
-
-  clusterManager.disconnect();
-
-  return 0;
-}
+#endif /* PROTEUS_MOCK_PLAN_PARSER_HPP */

@@ -21,37 +21,36 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <cli-flags.hpp>
-#include <distributed-runtime/cluster-manager.hpp>
-#include <topology/affinity_manager.hpp>
-#include <topology/topology.hpp>
+#ifndef PROTEUS_PLAN_PARSER_HPP
+#define PROTEUS_PLAN_PARSER_HPP
 
-#include "ndp-cli-flags.hpp"
+#include <olap/operators/relbuilder-factory.hpp>
+#include <olap/plan/catalog-parser.hpp>
+#include <span>
 
-int main(int argc, char *argv[]) {
-  auto ctx = proteus::from_cli::olap("NDP", &argc, &argv);
-  set_exec_location_on_scope exec(topology::getInstance().getCpuNumaNodes()[0]);
+namespace proteus {
 
-  auto &clusterManager = proteus::distributed::ClusterManager::getInstance();
-
-  clusterManager.connect(FLAGS_primary, FLAGS_url, FLAGS_port);
-
-  sleep(2);
-
-  if (FLAGS_primary) {
-    while (clusterManager.getNumExecutors() < 1)
-      ;
-    LOG(INFO) << "Primary broadcasting query";
-    clusterManager.broadcastQuery({"qq", "qq"});
-  } else {
-    LOG(INFO) << "Waiting for query now";
-    auto q = clusterManager.getQuery();
-    LOG(INFO) << "secondary got query with uuid: " << q.getUUID();
+class PlanParser {
+ protected:
+  /*
+   * RelBuilder factory to be used when requesting new RelBuilders.
+   */
+  virtual RelBuilderFactory getRelBuilderFactory(std::string name) {
+    return RelBuilderFactory{std::move(name)};
   }
 
-  sleep(2);
+  virtual RelBuilder getBuilder(std::string name) {
+    return getRelBuilderFactory(std::move(name)).getBuilder();
+  }
 
-  clusterManager.disconnect();
+  virtual CatalogParser &getCatalog() { return CatalogParser::getInstance(); }
 
-  return 0;
-}
+ public:
+  virtual RelBuilder parse(const std::span<const std::byte> &plan,
+                           std::string query_name) = 0;
+
+  virtual ~PlanParser() = default;
+};
+}  // namespace proteus
+
+#endif /* PROTEUS_PLAN_PARSER_HPP */

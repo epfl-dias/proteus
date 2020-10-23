@@ -58,10 +58,13 @@ struct mmap_file {
   mmap_file &operator=(mmap_file &&) noexcept;
   ~mmap_file();
 
+  [[nodiscard]] const std::span<std::byte> &asSpan() const;
   [[nodiscard]] std::span<std::byte> &asSpan();
 
   [[nodiscard]] const void *getData() const;
   [[nodiscard]] size_t getFileSize() const;
+
+  [[nodiscard]] static mmap_file from(std::string blob);
 };
 
 size_t getFileSize(const char *filename);

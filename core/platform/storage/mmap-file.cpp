@@ -161,6 +161,7 @@ mmap_file::~mmap_file() {
   }
 }
 
+const std::span<std::byte> &mmap_file::asSpan() const { return gpu_data; }
 std::span<std::byte> &mmap_file::asSpan() { return gpu_data; }
 
 const void *mmap_file::getData() const { return gpu_data.data(); }

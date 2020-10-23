@@ -60,14 +60,35 @@
 
 #include <iostream>
 #include <map>
+#include <olap/plan/query-result.hpp>
+#include <span>
+#include <storage/mmap-file.hpp>
 #include <thread>
+#include <variant>
 #include <vector>
 
 namespace proteus::distributed {
-
-struct Query {
+class Query {
+ private:
   std::string query_uuid;
-  std::string query_plan;
+  std::variant<std::unique_ptr<mmap_file>, std::string> query_plan;
+
+ public:
+  Query() = default;
+  Query(std::string query_uuid, std::unique_ptr<mmap_file> query_plan)
+      : query_uuid(std::move(query_uuid)), query_plan(std::move(query_plan)) {}
+  Query(std::string query_uuid, std::string query_plan)
+      : query_uuid(std::move(query_uuid)), query_plan(std::move(query_plan)) {}
+
+ public:
+  /*
+   * @returns plan blob with the lifetime as the Query object itself
+   */
+  [[nodiscard]] std::span<const std::byte> getQueryPlan() const;
+  /*
+   * @returns plan blob with the lifetime as the Query object itself
+   */
+  [[nodiscard]] const std::string &getUUID() const;
 };
 
 class ClusterManager {
@@ -80,14 +101,14 @@ class ClusterManager {
   void operator=(ClusterManager const &) = delete;
   void operator=(ClusterManager const &&) = delete;
 
-  void connect(bool is_primary_node, const std::string primary_node_addr,
+  void connect(bool is_primary_node, std::string primary_node_addr,
                int primary_control_port);
   void disconnect();
 
-  Query getQuery() const;
+  [[nodiscard]] Query getQuery() const;
   void broadcastQuery(Query query) const;
   void notifyReady(std::string query_uuid);
-  void notifyFinished(std::string query_uuid, void *results = nullptr);
+  void notifyFinished(std::string query_uuid, QueryResult result);
 
   size_t getNumExecutors();
 

@@ -142,13 +142,13 @@ class AsyncQueueSPSC {
     nvtxRangePop();
   }
 
-  void push(const T x) {
+  void push(T x) {
     // nvtxRangePushA(("AsyncQueue_push" + std::to_string((uint64_t)
     // x)).c_str());
     assert(!terminating);
     std::unique_lock<std::mutex> lock(m);
     // nvtxRangePushA("AsyncQueue_push_w_lock");
-    data.push(x);
+    data.push(std::move(x));
     cv.notify_all();
     // nvtxRangePop();
     lock.unlock();
@@ -157,7 +157,7 @@ class AsyncQueueSPSC {
 
   bool pop(T &x) {
     if (cache_size > 0) {
-      x = cache_data[--cache_size];
+      x = std::move(cache_data[--cache_size]);
       return true;
     }
 
@@ -180,7 +180,7 @@ class AsyncQueueSPSC {
       return false;
     }
 
-    x = data.front();
+    x = std::move(data.front());
     // nvtxRangePushA(("AsyncQueue_pop" + std::to_string((uint64_t)
     // x)).c_str());
     data.pop();
@@ -188,7 +188,7 @@ class AsyncQueueSPSC {
     size_t to_retrieve = std::min(data.size(), (size_t)8);
     cache_size = to_retrieve;
     for (size_t i = 0; i < to_retrieve; ++i) {
-      cache_data[to_retrieve - i - 1] = data.front();
+      cache_data[to_retrieve - i - 1] = std::move(data.front());
       data.pop();
     }
 

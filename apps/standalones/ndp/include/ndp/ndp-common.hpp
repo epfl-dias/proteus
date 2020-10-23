@@ -21,37 +21,43 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <cli-flags.hpp>
+#ifndef PROTEUS_NDP_HPP
+#define PROTEUS_NDP_HPP
+
+#include <command-provider/command-provider.hpp>
 #include <distributed-runtime/cluster-manager.hpp>
-#include <topology/affinity_manager.hpp>
-#include <topology/topology.hpp>
+#include <memory>
+#include <plan-parser/plan-parser.hpp>
+#include <span>
+#include <threadpool/threadpool.hpp>
+#include <utility>
 
-#include "ndp-cli-flags.hpp"
+namespace proteus {
 
-int main(int argc, char *argv[]) {
-  auto ctx = proteus::from_cli::olap("NDP", &argc, &argv);
-  set_exec_location_on_scope exec(topology::getInstance().getCpuNumaNodes()[0]);
+class CommandExecutor {
+ public:
+  QueryResult run(PreparedStatement &statement) { return statement.execute(); }
+};
 
-  auto &clusterManager = proteus::distributed::ClusterManager::getInstance();
+class [[nodiscard]] ndp {
+ private:
+  class impl;
+  const std::unique_ptr<impl> p_impl;
 
-  clusterManager.connect(FLAGS_primary, FLAGS_url, FLAGS_port);
+ public:
+  explicit ndp();
+  ~ndp();
 
-  sleep(2);
+  [[nodiscard]] proteus::distributed::ClusterManager &getClusterManager() const;
+  ThreadPool &getThreadPool();
+  PlanParser &getPlanParser();
+  CommandProvider &getCommandProvider();
+  CommandExecutor &getExecutor();
+};
+}  // namespace proteus
 
-  if (FLAGS_primary) {
-    while (clusterManager.getNumExecutors() < 1)
-      ;
-    LOG(INFO) << "Primary broadcasting query";
-    clusterManager.broadcastQuery({"qq", "qq"});
-  } else {
-    LOG(INFO) << "Waiting for query now";
-    auto q = clusterManager.getQuery();
-    LOG(INFO) << "secondary got query with uuid: " << q.getUUID();
-  }
+namespace proteus::from_cli {
+proteus::ndp ndp(const std::string &usage, int *argc, char ***argv);
+}  // namespace proteus::from_cli
 
-  sleep(2);
-
-  clusterManager.disconnect();
-
-  return 0;
-}
+#endif /* PROTEUS_NDP_HPP */

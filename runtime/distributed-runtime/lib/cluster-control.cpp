@@ -175,8 +175,9 @@ Query ClusterControl::getQuery() {
 
 void ClusterControl::broadcastQuery(Query query) {
   proteus::distributed::QueryPlan request;
-  request.set_query_uuid(query.query_uuid);
-  request.set_jsonplan(query.query_plan);
+  request.set_query_uuid(query.getUUID());
+  auto s = query.getQueryPlan();
+  request.set_jsonplan({(const char*)s.data(), s.size_bytes()});
 
   for (auto& cl : this->client_conn) {
     LOG(INFO) << "Broadcasting query to executor # " << cl.first;
@@ -246,10 +247,8 @@ grpc::Status NodeControlServiceImpl::prepareStatement(
     grpc::ServerContext* context,
     const proteus::distributed::QueryPlan* request,
     proteus::distributed::genericReply* reply) {
-  Query tmp;
-  tmp.query_plan = request->jsonplan();
-  tmp.query_uuid = request->query_uuid();
-  ClusterControl::getInstance().query_queue.push(tmp);
+  Query tmp{request->query_uuid(), request->jsonplan()};
+  ClusterControl::getInstance().query_queue.push(std::move(tmp));
   LOG(INFO) << "Received query in the queue";
   reply->set_reply(proteus::distributed::genericReply::ACK);
   return grpc::Status::OK;

@@ -37,6 +37,12 @@ namespace filesystem = std::experimental::filesystem;
 }
 #endif
 
+namespace proteus {
+class shutdown_command : public std::exception {};
+
+class query_interrupt_command : public std::exception {};
+}  // namespace proteus
+
 class CommandProvider {
  public:
   /**
