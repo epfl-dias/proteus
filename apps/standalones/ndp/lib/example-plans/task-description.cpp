@@ -166,9 +166,9 @@ RelBuilder generateSingleThreadedPlan(RelBuilder builder,
        *
        * @param     expr    List of expressions to evaluate.
        *
-       * @note  expressions usually perserve types and they look like c++
+       * @note  expressions usually preserve types and they look like c++
        *        default expression in terms of type convergences, without
-       *        c++'s defeult automatic casts.
+       *        c++'s default automatic casts.
        */
       .project(
           /* expr */

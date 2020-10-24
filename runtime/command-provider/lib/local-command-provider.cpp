@@ -73,6 +73,10 @@ class LocalCommandProvider::impl {
   std::map<std::string, PreparedStatement> preparedStatements;
 };
 
+void LocalCommandProvider::store(QueryResult qs) {
+  this->p_impl->uue.store(std::move(qs));
+}
+
 std::string LocalCommandProvider::prepareStatement(const fs::path &plan) {
   mmap_file planfile{plan, PAGEABLE};
   return prepareStatement(planfile.asSpan());

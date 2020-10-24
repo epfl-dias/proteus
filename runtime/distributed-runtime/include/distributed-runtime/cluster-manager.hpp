@@ -103,9 +103,9 @@ class ClusterManager {
   void operator=(ClusterManager const &) = delete;
   void operator=(ClusterManager const &&) = delete;
 
-  void connect(bool is_primary_node, std::string primary_node_addr,
-               int primary_control_port);
-  void disconnect();
+  virtual void connect(bool is_primary_node, std::string primary_node_addr,
+                       int primary_control_port);
+  virtual void disconnect();
 
   void setCommandProvider(std::shared_ptr<CommandProvider> provider) {
     cmdProvider = provider;
@@ -113,31 +113,29 @@ class ClusterManager {
 
   auto getCommandProvider() { return cmdProvider; }
 
-  void broadcastPrepareQuery(Query query);
-  void broadcastExecuteQuery(std::string query_uuid);
-  void broadcastPrepareExecuteQuery(Query query);
+  virtual void broadcastPrepareQuery(Query query);
+  virtual void broadcastExecuteQuery(std::string query_uuid);
+  virtual void broadcastPrepareExecuteQuery(Query query);
 
-  [[deprecated]] [[nodiscard]] Query getQuery() const;
-  [[deprecated]] void broadcastQuery(Query query) const;
   void notifyReady(std::string query_uuid);
   void notifyFinished(std::string query_uuid, QueryResult result);
 
-  size_t getNumExecutors();
-  [[nodiscard]] int32_t getResultServerId() { return 0; }
+  virtual size_t getNumExecutors();
+  [[nodiscard]] int32_t getResultServerId() { return 1; }
 
-  void waitUntilShutdown();
+  virtual void waitUntilShutdown();
 
- private:
-  ClusterManager() : initialized(false), terminate(false), is_primary(false) {}
-  ~ClusterManager() {
+  virtual ~ClusterManager() {
     if (!terminate) disconnect();
   }
+
+ protected:
+  ClusterManager() : initialized(false), terminate(false), is_primary(false) {}
 
  private:
   bool terminate;
   bool initialized;
   bool is_primary;
-
   std::shared_ptr<CommandProvider> cmdProvider;
 };
 

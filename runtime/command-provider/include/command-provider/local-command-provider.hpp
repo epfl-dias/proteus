@@ -26,10 +26,14 @@
 
 #include <command-provider/command-provider.hpp>
 #include <memory>
+#include <olap/plan/query-result.hpp>
 
 class LocalCommandProvider : public CommandProvider {
+ protected:
   class impl;
   std::unique_ptr<impl> p_impl;
+
+  void store(QueryResult qs);
 
  public:
   /**

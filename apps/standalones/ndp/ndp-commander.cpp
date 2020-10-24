@@ -51,8 +51,10 @@ class MockLocalCommandProvider : public LocalCommandProvider {
 
   fs::path runPreparedStatement(const std::string &label, bool echo) override {
     auto result = engine.getExecutor().run(stmts.at(label));
-    return fs::path();
+    this->store(std::move(result));
+    return fs::path("/dev/shm/" + label);
   }
+
   MockLocalCommandProvider() = default;
   ~MockLocalCommandProvider() override = default;
 };
@@ -148,14 +150,14 @@ int main(int argc, char *argv[]) {
           std::string plan = cmd.substr(prefix_size);
           std::string label = primaryProvider->runStatement(plan, false);
 
-          std::cout << "result in file " << label << std::endl;
+          //          std::cout << "result in file " << label << std::endl;
         } else if (starts_with(cmd, "execute plan from statement ")) {
           constexpr size_t prefix_size = clen("execute plan from statement ");
           std::string plan = cmd.substr(prefix_size);
           std::string label =
               primaryProvider->runPreparedStatement(plan, false);
 
-          std::cout << "result in file " << label << std::endl;
+          //          std::cout << "result in file " << label << std::endl;
         } else {
           std::cout << "error (command not supported)" << std::endl;
         }

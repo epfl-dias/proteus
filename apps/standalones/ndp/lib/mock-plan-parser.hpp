@@ -40,13 +40,14 @@ class MockPlanParser : public PlanParser {
      */
     return getBuilder(query_name)
         .scan("inputs/ssbm100/date.csv", {"d_datekey", "d_year"}, getCatalog(),
-              pg{"distributed-block"})
+              pg{"block"})
         .unpack()
         .reduce(
             [&](const auto &arg) -> std::vector<expression_t> {
-              return {arg["d_datekey"] + arg["d_year"]};
+              return {(arg["d_datekey"] + arg["d_year"]).as("tmp", "ass")};
             },
-            {SUM});
+            {SUM})
+        .print(pg{"pm-csv"});
   }
 };
 }  // namespace proteus
