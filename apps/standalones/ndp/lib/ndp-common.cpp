@@ -84,11 +84,11 @@ ndp::ndp(const string &usage, int *argc, char ***argv)
 ndp::~ndp() = default;
 
 proteus::ndp from_cli::ndp(const string &usage, int *argc, char ***argv) {
-  gflags::SetUsageMessage(usage);
-  gflags::ParseCommandLineFlags(argc, argv, true);
-
-  google::InitGoogleLogging((*argv)[0]);
-  FLAGS_logtostderr = true;
+//  gflags::SetUsageMessage(usage);
+//  gflags::ParseCommandLineFlags(argc, argv, true);
+//
+//  google::InitGoogleLogging((*argv)[0]);
+//  FLAGS_logtostderr = true;
 
   return proteus::ndp{usage, argc, argv};
 }

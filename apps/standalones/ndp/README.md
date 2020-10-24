@@ -14,14 +14,14 @@ The [ClusterCommandProvier](./include/ndp/cluster_command_provider.hpp) provides
 
 The [ndp](./include/ndp/ndp-common.hpp) provides the entry point for the configurations.
 
-The main executable entry point is the [ndp-commander.cpp](./ndp-commander.cpp) which has two modes:
+The main executable entry point is the [ndp.cpp](ndp.cpp) which has two modes:
 
 * __primary__ where it acts as the command receiver from the query optimizer.
-    Commands are received through stdin and contain a statement preparation, statement execution or
-    execution of a prepared statement directive. These directives are relayed to the secondaries for the actual execution. Additionally, the primary is located in the same node as the main ResultServer (which is a secondary) to facilitate data exchange through shared memory.
+    Commands are received through stdin and contains a statement preparation, statement execution or
+    execution of a prepared statement directive. These directives are relayed to the secondary nodes for the actual execution. Additionally, the primary is located in the same node as the main ResultServer (which is a secondary) to facilitate data exchange through shared memory.
     The primary also waits for secondary nodes to register with it and exchange necessary configuration parameters, thus in the current implementation it should be started first.
 * __secondary__ where it follows the directives send by the primary.
-    Secondaries wait for RPC directives from the primary and join the query execution as soon
+    Secondary nodes wait for RPC directives from the primary and join the query execution as soon
     as the primary directs them.
 
 
@@ -29,12 +29,15 @@ The main executable entry point is the [ndp-commander.cpp](./ndp-commander.cpp) 
 Main execution flow
 =
 
-Queries arrive to the JDBC connection and get optimized. The final, NDP-aware plan is serialized as a JSON file and communicated to the primary.
-Then the primary prepares the statement/query by notifying the participating nodes (specified by the ClusterManager, which is customizable and either use all the register nodes (default) or consult the catalog and resource manager to target specific ndoes).
-When the primary gets notified that the nodes are ready to start executing the query, it sends them the execution command and waits for them to report when they have finished executing.
+Queries arrive to the JDBC connection and get optimized. The final, NDP-aware plan is serialized as a 
+JSON file and communicated to the primary. Then the primary prepares the statement/query by notifying 
+the participating nodes (specified by the ClusterManager, which is customizable and either use all 
+the registered nodes (default) or consult the catalog and resource manager to target specific nodes).
+When the primary gets notified that the nodes are ready to start executing the query, it sends them 
+the execution command and waits for them to report when they have finished executing.
 As soon as all participating nodes complete, the result is returned to the user/JDBC connection.
 
-Linearizing and simplifyign the execution of a single query the flow is similar to the following:
+Linearizing and simplifying the execution of a single query the flow is similar to the following:
 
 ```c++
   /*
@@ -113,7 +116,7 @@ Linearizing and simplifyign the execution of a single query the flow is similar 
          */
         auto result = ctx.getExecutor().run(preparedStatement);
         /*
-         * The plan already contains the infomration on how to ship and save the
+         * The plan already contains the information on how to ship and save the
          * result set, but here we are lso notifying the ClusterManager that the
          * query execution in this node finished.
          *

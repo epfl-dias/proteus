@@ -39,47 +39,47 @@ RelBuilder generateAlternativePathsNonSymmetricPlan(
     RelBuilder builder, CatalogParser &catalog,
     proteus::distributed::ClusterManager &clusterManager) {
   auto builder2 = builder
-      /**
-       * The scan will return empty results in compute nodes
-       * where there are no data.
-       */
-      .scan(
-          /* relName */ "inputs/ssbm100/date.bin",
-          /* relAttrs */ {"d_datekey", "d_year"},
-          /* catalog */ catalog,
-          /* pg */ pg{"distributed-block"})
-          /**
-           * Splits the data flow into multiple ones to allow
-           * different alternatives.
-           * The policy will determine which alternative is selected
-           * for each input, in combination with the target type and
-           * the affinitization policies.
-           * The slack provides load balancing and backpressure.
-           *
-           * @param     alternatives    number of output flows
-           * @param     slack           max number of on-the-fly
-           *                            tasks on each flow
-           * @param     p               policy determine how
-           *                            the target flow is selected
-           * @param     target          the target processing units
-           */
-      .split(
-          /* alternatives */ 2,
-          /* slack */ 8000,
-          /* p */ RoutingPolicy::RANDOM,
-          /* target */ DeviceType::CPU);
+                      /**
+                       * The scan will return empty results in compute nodes
+                       * where there are no data.
+                       */
+                      .scan(
+                          /* relName */ "inputs/ssbm100/date.bin",
+                          /* relAttrs */ {"d_datekey", "d_year"},
+                          /* catalog */ catalog,
+                          /* pg */ pg{"distributed-block"})
+                      /**
+                       * Splits the data flow into multiple ones to allow
+                       * different alternatives.
+                       * The policy will determine which alternative is selected
+                       * for each input, in combination with the target type and
+                       * the affinitization policies.
+                       * The slack provides load balancing and backpressure.
+                       *
+                       * @param     alternatives    number of output flows
+                       * @param     slack           max number of on-the-fly
+                       *                            tasks on each flow
+                       * @param     p               policy determine how
+                       *                            the target flow is selected
+                       * @param     target          the target processing units
+                       */
+                      .split(
+                          /* alternatives */ 2,
+                          /* slack */ 8000,
+                          /* p */ RoutingPolicy::RANDOM,
+                          /* target */ DeviceType::CPU);
 
   auto alt1 = naivelyParallelize(builder2, generateLocalReductionTask)
-      .router_scaleout(
-          /* hash */
-          [&](const auto &arg) -> std::optional<expression_t> {
-            return clusterManager.getResultServerId();
-          },
-          /* fanout */
-          DegreeOfParallelism{clusterManager.getNumExecutors()},
-          /* slack */ 8,
-          /* p */ RoutingPolicy::HASH_BASED,
-          /* target */ DeviceType::CPU);
+                  .router_scaleout(
+                      /* hash */
+                      [&](const auto &arg) -> std::optional<expression_t> {
+                        return clusterManager.getResultServerId();
+                      },
+                      /* fanout */
+                      DegreeOfParallelism{clusterManager.getNumExecutors()},
+                      /* slack */ 8,
+                      /* p */ RoutingPolicy::HASH_BASED,
+                      /* target */ DeviceType::CPU);
 
   auto alt2 =
       naivelyParallelize(builder2,
@@ -104,11 +104,11 @@ RelBuilder generateAlternativePathsNonSymmetricPlan(
               RoutingPolicy::RANDOM, DeviceType::CPU)
           .memmove_scaleout(8)
           .unpack()
-              /*
-               * The router above distributed blocks, so this reduce will provide
-               * worker-local results, we need another router afterwards to
-               * combine them.
-               */
+          /*
+           * The router above distributed blocks, so this reduce will provide
+           * worker-local results, we need another router afterwards to
+           * combine them.
+           */
           .reduce(
               [&](const auto &arg) -> std::vector<expression_t> {
                 return {

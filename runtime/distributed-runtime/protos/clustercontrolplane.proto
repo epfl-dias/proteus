@@ -35,8 +35,8 @@ package proteus.distributed;
 *     This service should only be used for control-traffic across
 *     execution nodes, specifically for node-control commands.
 *     for query execution, each query should open exclusive channels,
-*     given the type of network topolofy the query prefers, for example,
-*     inifiniband RDMA-based channels.
+*     given the type of network topology the query prefers, for example,
+*     infiniband RDMA-based channels.
 *
 */
 

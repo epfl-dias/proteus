@@ -14,7 +14,6 @@ set(ndp_cxx
 
 set(MAINS
         ${STANDALONE_DIR}
-        ${STANDALONE_DIR}-commander
         )
 
 foreach(target ${MAINS})
