@@ -384,8 +384,13 @@ class RelBuilder {
       size_t alternatives, size_t slack, RoutingPolicy p, DeviceType target,
       std::unique_ptr<Affinitizer> aff = nullptr) const;
 
+  /**
+   * Union the items from the current flow and the others
+   *
+   * @param     others  flows to unify with current one
+   */
   [[nodiscard]] RelBuilder unionAll(
-      const std::vector<RelBuilder>& children) const;
+      const std::vector<RelBuilder>& others) const;
 
   [[nodiscard]] RelBuilder to_gpu() const;
 

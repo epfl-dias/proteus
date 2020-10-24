@@ -207,7 +207,15 @@ RelBuilder generateAlternativePathsNonSymmetricPlan(
               /* p */ RoutingPolicy::HASH_BASED,
               /* target */ DeviceType::CPU);
 
-  return alt1.unionAll({alt2})
+  /* Now combine the two paths */
+
+  return alt1
+      /**
+       * Union the items from the current flow and the others
+       *
+       * @param     others  flows to unify with current one
+       */
+      .unionAll(/* others */ {alt2})
       .reduce(
           [&](const auto &arg) -> std::vector<expression_t> {
             return {(arg["d_year"] * arg["d_year"]).as("tmp", "year_sq_sum"),
