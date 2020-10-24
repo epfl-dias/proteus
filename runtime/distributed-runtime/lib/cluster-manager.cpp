@@ -64,9 +64,13 @@ void ClusterManager::disconnect() {
   }
 }
 
-Query ClusterManager::getQuery() const {
-  assert(initialized && "Cluster manager not connected.");
-  return ClusterControl::getInstance().getQuery();
+// Query ClusterManager::getQuery() const {
+//  assert(initialized && "Cluster manager not connected.");
+//  return ClusterControl::getInstance().getQuery();
+//}
+
+int32_t ClusterManager::getResultServerId() {
+  return ClusterControl::getInstance().getResultServerId();
 }
 
 void ClusterManager::broadcastPrepareQuery(Query query) {
@@ -81,10 +85,10 @@ void ClusterManager::broadcastPrepareExecuteQuery(Query query) {
       std::move(query));
 }
 
-void ClusterManager::broadcastQuery(Query query) const {
-  assert(initialized && "Cluster manager not connected.");
-  return ClusterControl::getInstance().broadcastQuery(std::move(query));
-}
+// void ClusterManager::broadcastQuery(Query query) const {
+//  assert(initialized && "Cluster manager not connected.");
+//  return ClusterControl::getInstance().broadcastQuery(std::move(query));
+//}
 size_t ClusterManager::getNumExecutors() {
   return ClusterControl::getInstance().getNumExecutors();
 }

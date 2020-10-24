@@ -88,7 +88,7 @@ class Query {
    */
   [[nodiscard]] std::span<const std::byte> getQueryPlan() const;
   /*
-   * @returns plan blob with the lifetime as the Query object itself
+   * @returns plan's cluster-wide unique identifier.
    */
   [[nodiscard]] const std::string &getUUID() const;
 };
@@ -121,7 +121,7 @@ class ClusterManager {
   void notifyFinished(std::string query_uuid, QueryResult result);
 
   virtual size_t getNumExecutors();
-  [[nodiscard]] int32_t getResultServerId() { return 1; }
+  virtual int32_t getResultServerId();
 
   virtual void waitUntilShutdown();
 

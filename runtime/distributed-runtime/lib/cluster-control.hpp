@@ -110,6 +110,7 @@ class ClusterControl {
     std::unique_lock<std::mutex> safety_lock(this->registration_lock);
     return this->executors.size();
   }
+  int32_t getResultServerId();
 
   void wait();
 

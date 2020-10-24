@@ -351,6 +351,12 @@ int ClusterControl::registerExecutor(
   return exec_id;
 }
 
+int32_t ClusterControl::getResultServerId() {
+  auto eid = exec_address_map[this->primary_node_address]->executor_id();
+  LOG(INFO) << "Result server-id: " << eid;
+  return eid;
+}
+
 void ClusterControl::updateNodeStatus(
     const proteus::distributed::NodeStatusUpdate* request) {
   assert(is_primary && "secondary node getting executor update request??");
@@ -455,6 +461,8 @@ grpc::Status NodeControlServiceImpl::executeStatement(
           tmp.getUUID(), tmp.getQueryPlan());
       ClusterManager::getInstance().getCommandProvider()->runPreparedStatement(
           tmp.getUUID());
+
+      // TODO: Notify-finish.
     }
   });
 
