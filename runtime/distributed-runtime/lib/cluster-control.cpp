@@ -202,17 +202,18 @@ void ClusterControl::broadcastPrepareQuery(Query query) {
     if (status.ok()) {
       switch (queryReply.reply()) {
         case queryReply.ACK:
-          LOG(INFO) << "prepareStatement: exec-" << cl.first << " ACK";
+          LOG(INFO) << "broadcastPrepareQuery: executor#" << cl.first << " ACK";
           break;
         case queryReply.ERROR:
-          LOG(INFO) << "prepareStatement: exec-" << cl.first << " ERROR";
+          LOG(INFO) << "broadcastPrepareQuery: executor#" << cl.first
+                    << " ERROR";
           break;
         default:
           LOG(INFO) << "Unknown reply";
           break;
       }
     } else {
-      LOG(INFO) << "RPC Failed for exec- " << cl.first << ": "
+      LOG(INFO) << "RPC Failed for executor# " << cl.first << ": "
                 << status.error_code() << ": " << status.error_message()
                 << std::endl;
     }
@@ -236,17 +237,18 @@ void ClusterControl::broadcastExecuteQuery(std::string query_uuid) {
     if (status.ok()) {
       switch (queryReply.reply()) {
         case queryReply.ACK:
-          LOG(INFO) << "prepareStatement: exec-" << cl.first << " ACK";
+          LOG(INFO) << "broadcastExecuteQuery: executor#" << cl.first << " ACK";
           break;
         case queryReply.ERROR:
-          LOG(INFO) << "prepareStatement: exec-" << cl.first << " ERROR";
+          LOG(INFO) << "broadcastExecuteQuery: executor#" << cl.first
+                    << " ERROR";
           break;
         default:
           LOG(INFO) << "Unknown reply";
           break;
       }
     } else {
-      LOG(INFO) << "RPC Failed for exec- " << cl.first << ": "
+      LOG(INFO) << "RPC Failed for executor# " << cl.first << ": "
                 << status.error_code() << ": " << status.error_message()
                 << std::endl;
     }
@@ -272,17 +274,19 @@ void ClusterControl::broadcastPrepareExecuteQuery(Query query) {
     if (status.ok()) {
       switch (queryReply.reply()) {
         case queryReply.ACK:
-          LOG(INFO) << "prepareStatement: exec-" << cl.first << " ACK";
+          LOG(INFO) << "broadcastPrepareExecuteQuery: executor#" << cl.first
+                    << " ACK";
           break;
         case queryReply.ERROR:
-          LOG(INFO) << "prepareStatement: exec-" << cl.first << " ERROR";
+          LOG(INFO) << "broadcastPrepareExecuteQuery: executor#" << cl.first
+                    << " ERROR";
           break;
         default:
           LOG(INFO) << "Unknown reply";
           break;
       }
     } else {
-      LOG(INFO) << "RPC Failed for exec- " << cl.first << ": "
+      LOG(INFO) << "RPC Failed for executor#" << cl.first << ": "
                 << status.error_code() << ": " << status.error_message()
                 << std::endl;
     }
@@ -365,19 +369,19 @@ void ClusterControl::notifyQueryStatus(
 }
 
 void ClusterControl::_updateQueryStatus(
-    proteus::distributed::QueryNotification notification) {
+    const proteus::distributed::QueryNotification& notification) {
   switch (notification.status()) {
-    case QueryNotification::Status::QueryNotification_Status_PREPARED:
+    case (QueryNotification::Status::QueryNotification_Status_PREPARED):
       LOG(INFO) << "Query[" << notification.query_uuid()
                 << "][Executor:" << notification.sender_executor_id()
                 << "] status update: PREPARED";
       break;
-    case QueryNotification::Status::QueryNotification_Status_EXECUTED:
+    case (QueryNotification::Status::QueryNotification_Status_EXECUTED):
       LOG(INFO) << "Query[" << notification.query_uuid()
                 << "][Executor:" << notification.sender_executor_id()
                 << "] status update: EXECUTED";
       break;
-    case QueryNotification::Status::QueryNotification_Status_ERROR:
+    case (QueryNotification::Status::QueryNotification_Status_ERROR):
       LOG(INFO) << "Query[" << notification.query_uuid()
                 << "][Executor:" << notification.sender_executor_id()
                 << "] status update: ERROR: " << notification.error_message();
@@ -390,7 +394,7 @@ void ClusterControl::_updateQueryStatus(
   }
   {
     std::unique_lock<std::mutex> safety_lock(this->query_status_lock);
-    if (query_status_map.contains(notification.query_uuid())) {
+    if (query_status_map.contains(notification.query_uuid()) == true) {
       this->query_status_map.at(notification.query_uuid())
           .push_back(notification);
     } else {
@@ -491,7 +495,8 @@ grpc::Status NodeControlServiceImpl::executeStatement(
       if (tmp.getQueryPlan().empty()) {
         queryStatus.set_status(proteus::distributed::QueryNotification::ERROR);
         queryStatus.set_error_message(
-            "Execute called without preparation/query-plan");
+            "Execute called without preparation/query-plan :" +
+            std::string{exception.what()});
         LOG(ERROR) << "Execute called without preparation/query-plan";
       }
 

@@ -106,9 +106,7 @@ void ClusterCommandProvider::prepareStatement(
 fs::path ClusterCommandProvider::runPreparedStatement(const std::string& label,
                                                       bool echo) {
   ctx.getClusterManager().broadcastExecuteQuery(label);
-
-  // FIXME: get path of from query status.
-  return fs::path("/dev/shm/" + label);
+  return fs::path(getResultLocation(label));
 }
 
 fs::path ClusterCommandProvider::runStatement(const fs::path& plan, bool echo) {
@@ -117,8 +115,7 @@ fs::path ClusterCommandProvider::runStatement(const fs::path& plan, bool echo) {
       {label, std::make_unique<mmap_file>(plan, PAGEABLE)});
   p_impl->prepared_statements.emplace_back(label);
 
-  // FIXME: get path of from query status.
-  return fs::path("/dev/shm/" + label);
+  return fs::path(getResultLocation(label));
 }
 
 fs::path ClusterCommandProvider::runStatement(
@@ -127,8 +124,28 @@ fs::path ClusterCommandProvider::runStatement(
   ctx.getClusterManager().broadcastPrepareExecuteQuery({label, plan});
   p_impl->prepared_statements.emplace_back(label);
 
-  // FIXME: get path of from query status.
-  return fs::path("/dev/shm/" + label);
+  return fs::path(getResultLocation(label));
+}
+
+std::string ClusterCommandProvider::getResultLocation(
+    const std::string& label) {
+  std::vector<proteus::distributed::QueryStatus> query_status;
+
+  auto pr_id = ctx.getClusterManager().getResultServerId();
+  while (true) {
+    query_status = ctx.getClusterManager().getQueryStatus(label, pr_id);
+    if (query_status.size() > 0) {
+      break;
+    }
+  }
+  std::string result_location;
+  if (query_status[0].status == proteus::distributed::QueryStatus::EXECUTED) {
+    result_location = query_status[0].result_location;
+  } else {
+    LOG(ERROR) << "Query status is not executed, but: "
+               << query_status[0].status;
+  }
+  return result_location;
 }
 
 ClusterCommandProvider::ClusterCommandProvider(proteus::ndp& ctx)

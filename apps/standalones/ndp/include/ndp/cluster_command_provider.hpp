@@ -100,6 +100,9 @@ class ClusterCommandProvider : public CommandProvider {
 
   explicit ClusterCommandProvider(proteus::ndp &ctx);
   ~ClusterCommandProvider() override;
+
+ private:
+  std::string getResultLocation(const std::string &label);
 };
 
 #endif /* PROTEUS_CLUSTER_COMMAND_PROVIDER_HPP */

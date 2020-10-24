@@ -76,8 +76,32 @@ int32_t ClusterManager::getLocalServerId() {
   return ClusterControl::getInstance().getLocalServerId();
 }
 
-auto ClusterManager::getQueryStatus(std::string query_uuid) {
-  return ClusterControl::getInstance().getQueryStatus(query_uuid);
+std::vector<QueryStatus> ClusterManager::getQueryStatus(std::string query_uuid,
+                                                        int32_t executor_id) {
+  std::vector<QueryStatus> q_status;
+  for (auto st : ClusterControl::getInstance().getQueryStatus(query_uuid)) {
+    if (executor_id != -1 && st.sender_executor_id() != executor_id) {
+      continue;
+    }
+    QueryStatus::Status s;
+    switch (st.status()) {
+      case QueryNotification::Status::QueryNotification_Status_EXECUTED:
+        s = QueryStatus::Status::EXECUTED;
+        break;
+      case QueryNotification::Status::QueryNotification_Status_PREPARED:
+        s = QueryStatus::Status::PREPARED;
+        break;
+      case QueryNotification::Status::QueryNotification_Status_ERROR:
+      default:
+        s = QueryStatus::Status::ERROR;
+        break;
+    }
+
+    q_status.emplace_back(QueryStatus{
+        s, st.query_uuid(), st.result_location(), st.result_server_address(),
+        st.error_message(), st.sender_executor_id(), st.timestamp()});
+  }
+  return q_status;
 }
 
 void ClusterManager::broadcastPrepareQuery(Query query) {

@@ -70,6 +70,32 @@
 
 namespace proteus::distributed {
 
+class QueryStatus {
+ public:
+  enum Status { PREPARED = 0, EXECUTED, ERROR };
+
+  Status status;
+  std::string query_uuid;
+  std::string result_location;
+  std::string result_server_address;
+  std::string error_message;
+  int32_t sender_executor_id;
+  uint64_t timestamp;
+
+  explicit QueryStatus(Status status, std::string query_uuid,
+                       std::string result_location,
+                       std::string result_server_address,
+                       std::string error_message, int32_t sender_executor_id,
+                       uint64_t timestamp)
+      : status(status),
+        query_uuid(query_uuid),
+        result_location(result_location),
+        result_server_address(result_server_address),
+        error_message(error_message),
+        sender_executor_id(sender_executor_id),
+        timestamp(timestamp) {}
+};
+
 class Query {
  private:
   std::string query_uuid;
@@ -127,7 +153,8 @@ class ClusterManager {
   virtual size_t getNumExecutors();
   virtual int32_t getResultServerId();
   int32_t getLocalServerId();
-  auto getQueryStatus(std::string query_uuid);
+  std::vector<QueryStatus> getQueryStatus(std::string query_uuid,
+                                          int32_t executor_id = -1);
 
   virtual void waitUntilShutdown();
 
