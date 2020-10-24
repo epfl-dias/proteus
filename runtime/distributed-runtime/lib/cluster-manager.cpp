@@ -77,6 +77,10 @@ int32_t ClusterManager::getLocalServerId() {
   return ClusterControl::getInstance().getLocalServerId();
 }
 
+auto ClusterManager::getQueryStatus(std::string query_uuid) {
+  return ClusterControl::getInstance().getQueryStatus(query_uuid);
+}
+
 void ClusterManager::broadcastPrepareQuery(Query query) {
   return ClusterControl::getInstance().broadcastPrepareQuery(std::move(query));
 }

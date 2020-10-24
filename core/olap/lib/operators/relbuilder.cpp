@@ -811,8 +811,8 @@ RelBuilder RelBuilder::print(
   return print(std::move(exprs), pg("pm-csv"));
 }
 
-RelBuilder RelBuilder::split(size_t alternatives,
-                             size_t slack, RoutingPolicy p, DeviceType target,
+RelBuilder RelBuilder::split(size_t alternatives, size_t slack, RoutingPolicy p,
+                             DeviceType target,
                              std::unique_ptr<Affinitizer> aff) const {
   // FIXME: implement!!!!
   throw proteus::unsupported_operation("unimplemented");

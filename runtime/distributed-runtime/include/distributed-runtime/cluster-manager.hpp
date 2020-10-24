@@ -123,6 +123,7 @@ class ClusterManager {
   virtual size_t getNumExecutors();
   virtual int32_t getResultServerId();
   int32_t getLocalServerId();
+  auto getQueryStatus(std::string query_uuid);
 
   virtual void waitUntilShutdown();
 

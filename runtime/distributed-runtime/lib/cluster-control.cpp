@@ -188,6 +188,9 @@ void ClusterControl::broadcastPrepareQuery(Query query) {
   auto s = query.getQueryPlan();
   request.set_jsonplan({(const char*)s.data(), s.size_bytes()});
 
+  LOG(INFO) << "clearing previous query statuses";
+  this->_clearQueryStatus(query.getUUID());
+
   for (auto& cl : this->client_conn) {
     LOG(INFO) << "Broadcasting query to executor # " << cl.first;
 
@@ -218,6 +221,9 @@ void ClusterControl::broadcastPrepareQuery(Query query) {
 void ClusterControl::broadcastExecuteQuery(std::string query_uuid) {
   proteus::distributed::QueryPlan request;
   request.set_query_uuid(query_uuid);
+
+  LOG(INFO) << "clearing previous query statuses";
+  this->_clearQueryStatus(query_uuid);
 
   for (auto& cl : this->client_conn) {
     LOG(INFO) << "Broadcasting query to executor # " << cl.first;
@@ -251,6 +257,9 @@ void ClusterControl::broadcastPrepareExecuteQuery(Query query) {
   request.set_query_uuid(query.getUUID());
   auto s = query.getQueryPlan();
   request.set_jsonplan({(const char*)s.data(), s.size_bytes()});
+
+  LOG(INFO) << "clearing previous query statuses";
+  this->_clearQueryStatus(query.getUUID());
 
   for (auto& cl : this->client_conn) {
     LOG(INFO) << "Broadcasting query to executor # " << cl.first;
@@ -469,7 +478,6 @@ grpc::Status NodeControlServiceImpl::executeStatement(
   ThreadPool::getInstance().enqueue([tmp = std::move(tmp)]() {
     proteus::distributed::QueryNotification queryStatus;
     queryStatus.set_query_uuid(tmp.getUUID());
-
     try {
       LOG(INFO) << "Executing query: " << tmp.getUUID();
       auto resultPath = ClusterManager::getInstance()

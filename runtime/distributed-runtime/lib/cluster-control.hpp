@@ -128,6 +128,10 @@ class ClusterControl {
   void notifyQueryStatus(
       proteus::distributed::QueryNotification&& notification);
   void _updateQueryStatus(proteus::distributed::QueryNotification notification);
+  void _clearQueryStatus(std::string query_uuid) {
+    std::unique_lock<std::mutex> safety_lock(this->query_status_lock);
+    query_status_map.erase(query_uuid);
+  }
 
   // Methods for primary-node.
   void updateNodeStatus(const proteus::distributed::NodeStatusUpdate* request);
