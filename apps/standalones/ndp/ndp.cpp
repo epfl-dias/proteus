@@ -59,30 +59,34 @@ class MockLocalCommandProvider : public LocalCommandProvider {
      * RelBuilder instance.
      */
 
-    // auto builder = engine->getPlanParser().parse(plan, label);
+    //auto builder = engine->getPlanParser().parse(plan, label);
 
     // sample-plans-hardcoded.
+    //
+
     auto _builder = RelBuilderFactory{__FUNCTION__}.getBuilder();
     auto &_catalog = CatalogParser::getInstance();
     auto &_cluster_mgr = this->engine->getClusterManager();
 
     static std::vector<RelBuilder> plans{
-        generateSingleThreadedPlan(_builder, _catalog),
-        generateMultiThreadedPlan(_builder, _catalog),
-        generateSingleThreadedPlan(_builder, _catalog),
-        generateMultiThreadedPlan(_builder, _catalog),
-        generatePlanComposition(_builder, _catalog),
-        generateMultiServerPlan(_builder, _catalog, _cluster_mgr),
+        generateSingleThreadedPlan(_builder, _catalog),             // Q0
+        generateMultiThreadedPlan(_builder, _catalog),              // Q1
+        generateSingleThreadedPlan(_builder, _catalog),             // Q2
+        generateMultiThreadedPlan(_builder, _catalog),              // Q3
+        generatePlanComposition(_builder, _catalog),                // Q4
+        generateMultiServerPlan(_builder, _catalog, _cluster_mgr),  // Q5
         generateMultiServerParallelReductionPlan(_builder, _catalog,
-                                                 _cluster_mgr),
-        generatePushFilterToStorageNodesPlan(_builder, _catalog, _cluster_mgr),
+                                                 _cluster_mgr),  // Q6
+        generatePushFilterToStorageNodesPlan(_builder, _catalog,
+                                             _cluster_mgr),  // Q7
         generatePushFullTaskToStorageNodesPlan(_builder, _catalog,
-                                               _cluster_mgr),
-        generateAlternativePathsSymmetricPlan(_builder, _catalog, _cluster_mgr),
+                                               _cluster_mgr),  // Q8
+        generateAlternativePathsSymmetricPlan(_builder, _catalog,
+                                              _cluster_mgr),  // Q9
         generateAlternativePathsNonSymmetricPlan(_builder, _catalog,
-                                                 _cluster_mgr),
+                                                 _cluster_mgr),  // Q10
     };
-
+    stmts.emplace(label, plans[plan_id++ % plans.size()].prepare());
     /*
      * The RelBuilder will then start invoking the plan preparation.
      * In Proteus, as it's a JIT-based engine, this will spawn the code
@@ -90,7 +94,7 @@ class MockLocalCommandProvider : public LocalCommandProvider {
      * For an non-JITed engine, it would do any final transformations and/or
      * initializations required before the query plan can be executed.
      */
-    stmts.emplace(label, plans[plan_id++ % plans.size()].prepare());
+    //stmts.emplace(label, builder.prepare());
     /*
      * After successful preparation of query statements, ClusterManager will
      * send notification to primary-node from each secondary node, stating that
