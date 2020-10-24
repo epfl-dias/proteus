@@ -84,9 +84,7 @@ RelBuilder generateAlternativePathsSymmetricPlan(
           /* target */ DeviceType::CPU)
       .reduce(
           [&](const auto &arg) -> std::vector<expression_t> {
-            return {(arg["d_year"] * arg["d_year"]).as("tmp", "year_sq_sum"),
-                    arg["d_year"].as("tmp", "year_sum"),
-                    expression_t{1}.as("tmp", "cnt")};
+            return {arg["year_sq_sum"], arg["year_sum"], arg["cnt"]};
           },
           {SUM, SUM, SUM})
       .project(
