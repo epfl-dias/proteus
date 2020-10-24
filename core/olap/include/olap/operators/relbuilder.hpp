@@ -366,6 +366,24 @@ class RelBuilder {
       size_t slack, RoutingPolicy p, DeviceType target,
       std::unique_ptr<Affinitizer> aff = nullptr) const;
 
+  /**
+   * Splits the data flow into multiple ones to allow different alternatives.
+   * The policy will determine which alternative is selected for each input, in
+   * combination with the target type and the affinitization policies
+   *
+   * The slack provides load balancing and backpressure.
+   *
+   * @param     alternatives    number of output flows
+   * @param     slack           max number of on-the-fly
+   *                            tasks on each flow
+   * @param     p               policy determine how
+   *                            the target flow is selected
+   * @param     target          the target processing units
+   */
+  [[nodiscard]] RelBuilder split(
+      size_t alternatives, size_t slack, RoutingPolicy p, DeviceType target,
+      std::unique_ptr<Affinitizer> aff = nullptr) const;
+
   [[nodiscard]] RelBuilder unionAll(
       const std::vector<RelBuilder>& children) const;
 
