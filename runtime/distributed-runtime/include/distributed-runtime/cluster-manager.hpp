@@ -122,6 +122,7 @@ class ClusterManager {
 
   virtual size_t getNumExecutors();
   virtual int32_t getResultServerId();
+  int32_t getLocalServerId();
 
   virtual void waitUntilShutdown();
 

@@ -73,6 +73,10 @@ int32_t ClusterManager::getResultServerId() {
   return ClusterControl::getInstance().getResultServerId();
 }
 
+int32_t ClusterManager::getLocalServerId() {
+  return ClusterControl::getInstance().getLocalServerId();
+}
+
 void ClusterManager::broadcastPrepareQuery(Query query) {
   return ClusterControl::getInstance().broadcastPrepareQuery(std::move(query));
 }

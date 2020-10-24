@@ -32,7 +32,7 @@
 
 #include "clustercontrolplane.grpc.pb.h"
 #include "distributed-runtime/cluster-manager.hpp"
-#include "util/async_containers.hpp"
+//#include "util/async_containers.hpp"
 
 /*
  * CusterManager.hpp
@@ -78,6 +78,10 @@ class NodeControlServiceImpl final
       grpc::ServerContext* context,
       const proteus::distributed::NodeStatusUpdate* request,
       proteus::distributed::genericReply* reply) override;
+  grpc::Status QueryStatus(
+      grpc::ServerContext* context,
+      const proteus::distributed::QueryNotification* request,
+      proteus::distributed::genericReply* reply) override;
 
  private:
   std::unique_ptr<proteus::distributed::NodeControlPlane::Stub> stub_;
@@ -98,9 +102,7 @@ class ClusterControl {
                    int primary_control_port);
   void shutdownServer(bool rpc_initiated = false);
   int registerExecutor(const proteus::distributed::NodeInfo*);
-
-  [[deprecated]] Query getQuery();
-  [[deprecated]] void broadcastQuery(Query query);
+  void wait();
 
   void broadcastPrepareQuery(Query query);
   void broadcastExecuteQuery(std::string query_uuid);
@@ -111,14 +113,21 @@ class ClusterControl {
     return this->executors.size();
   }
   int32_t getResultServerId();
+  int32_t getLocalServerId() { return self_executor_id; }
 
-  void wait();
+  auto getQueryStatus(std::string uuid) {
+    std::unique_lock<std::mutex> safety_lock(this->query_status_lock);
+    return query_status_map[uuid];
+  }
 
  private:
   void listenerThread();
 
   // Methods for secondary-nodes
   void registerSelfToPrimary();
+  void notifyQueryStatus(
+      proteus::distributed::QueryNotification&& notification);
+  void _updateQueryStatus(proteus::distributed::QueryNotification notification);
 
   // Methods for primary-node.
   void updateNodeStatus(const proteus::distributed::NodeStatusUpdate* request);
@@ -149,8 +158,8 @@ class ClusterControl {
   // If secondary, connection stub to primary.
   std::unique_ptr<proteus::distributed::NodeControlPlane::Stub> primary_conn;
 
-  AsyncQueueMPSC<Query> query_queue;
-  // std::map<std::string, Query> query_map;
+  std::mutex query_status_lock;
+  std::map<std::string, std::vector<QueryNotification>> query_status_map;
 
   friend class NodeControlServiceImpl;
 };

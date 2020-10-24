@@ -58,6 +58,12 @@ service NodeControlPlane {
   rpc prepareStatement(QueryPlan) returns (genericReply) {}
   rpc executeStatement(QueryPlan) returns (genericReply) {}
 
+  // secondary-server updates primary for status of each query.
+  rpc QueryStatus(QueryNotification) returns (genericReply) {}
+
+  // [Optional] Primary-node can request explicitly for status also.
+  //rpc QueryStatusRequest(QueryNotification) returns (QueryNotification){}
+
 
   // Optional RPCs as per standard distributed systems. Should be
   //  used/implemented as-per-need. The purpose of these RPCs is
@@ -72,6 +78,24 @@ service NodeControlPlane {
 //-----------------------
 // Message structures for RPCs. extend and add information as-per-need.
 //-----------------------
+
+message QueryNotification{
+
+  enum Status {
+    PREPARED = 0;
+    EXECUTED = 1;
+    ERROR = 2;
+  }
+  string query_uuid = 1;
+  Status status = 2;
+  string result_location = 3;
+  string result_server_address = 4;
+  string error_message = 5;
+  int32 sender_executor_id = 6;
+
+  uint64 timestamp = 7;
+
+}
 
 //-----------------------
 // message NodeCommand
