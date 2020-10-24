@@ -115,7 +115,7 @@ class ClusterControl {
   int32_t getResultServerId();
   int32_t getLocalServerId() { return self_executor_id; }
 
-  auto getQueryStatus(std::string uuid) {
+  std::vector<QueryNotification> getQueryStatus(std::string uuid) {
     std::unique_lock<std::mutex> safety_lock(this->query_status_lock);
     return query_status_map[uuid];
   }

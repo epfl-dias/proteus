@@ -31,7 +31,6 @@
 
 #include "cluster-control.hpp"
 #include "common/common.hpp"
-#include "threadpool/thread.hpp"
 
 namespace proteus::distributed {
 
@@ -121,6 +120,9 @@ struct decode_query {
   }
   std::span<const std::byte> operator()(const std::unique_ptr<mmap_file> &f) {
     return f->asSpan();
+  }
+  std::span<const std::byte> operator()(const std::span<const std::byte> &f) {
+    return f;
   }
 };
 

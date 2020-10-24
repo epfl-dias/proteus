@@ -23,6 +23,7 @@
 
 #include <gflags/gflags.h>
 
+#include <cli-flags.hpp>
 #include <ndp/ndp-common.hpp>
 #include <olap/common/olap-common.hpp>
 
@@ -49,8 +50,8 @@ class ndp::impl {
   // Detect local files and configurations
   void discoverLocalCatalog() {}
 
-  impl() : olap(0.1, 0.1, 0) {
-    LOG(INFO) << "TEST";
+  impl(const string &usage, int *argc, char ***argv)
+      : olap(proteus::from_cli::olap(usage, argc, argv)) {
     /*
      * For now, all libraries are pre-linked, but the following function can be
      * extended to load and configure the different parts so that the context
@@ -78,7 +79,8 @@ proteus::distributed::ClusterManager &ndp::getClusterManager() const {
 ThreadPool &ndp::getThreadPool() { return ThreadPool::getInstance(); }
 CommandExecutor &ndp::getExecutor() { return p_impl->getExecutor(); }
 
-ndp::ndp() : p_impl(std::make_unique<ndp::impl>()){};
+ndp::ndp(const string &usage, int *argc, char ***argv)
+    : p_impl(std::make_unique<ndp::impl>(usage, argc, argv)){};
 ndp::~ndp() = default;
 
 proteus::ndp from_cli::ndp(const string &usage, int *argc, char ***argv) {
@@ -86,8 +88,8 @@ proteus::ndp from_cli::ndp(const string &usage, int *argc, char ***argv) {
   gflags::ParseCommandLineFlags(argc, argv, true);
 
   google::InitGoogleLogging((*argv)[0]);
-  FLAGS_logtostderr = true;  // FIXME: the command line flags/defs seem to fail
-  LOG(INFO) << "AM I CALLED";
-  return proteus::ndp{};
+  FLAGS_logtostderr = true;
+
+  return proteus::ndp{usage, argc, argv};
 }
 }  // namespace proteus

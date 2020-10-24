@@ -34,28 +34,78 @@
 
 namespace proteus {
 
-class NDPCommandProvider : public ClusterCommandProvider {};
+class NDPCommandProvider : public ClusterCommandProvider {
+ public:
+  explicit NDPCommandProvider(proteus::ndp &ctx)
+      : ClusterCommandProvider(ctx) {}
+};
 
 class MockLocalCommandProvider : public LocalCommandProvider {
  private:
-  ndp engine;
-  std::map<std::string, PreparedStatement> stmts;
+  ndp *engine;
+  std::map<std::string, PreparedStatement> stmts{};
 
  public:
   void prepareStatement(const std::string &label,
                         const std::span<const std::byte> &plan) override {
     LOG(INFO) << "Mock prepare Query";
-    auto builder = engine.getPlanParser().parse(plan, label);
+
+    /* The query contains the query plan that describes the global execution
+     * plan and the nodes participating in the query execution.
+     *
+     * Deserialize the query plan into a DAG of operators, represented by a
+     * RelBuilder instance.
+     */
+    auto builder = engine->getPlanParser().parse(plan, label);
+
+    /*
+     * The RelBuilder will then start invoking the plan preparation.
+     * In Proteus, as it's a JIT-based engine, this will spawn the code
+     * generation sequence.
+     * For an non-JITed engine, it would do any final transformations and/or
+     * initializations required before the query plan can be executed.
+     */
     stmts.emplace(label, builder.prepare());
+    /*
+     * After successful preparation of query statements, ClusterManager will
+     * send notification to primary-node from each secondary node, stating that
+     * query has been successfully prepared, or error otherwise.
+     * */
   }
 
   fs::path runPreparedStatement(const std::string &label, bool echo) override {
-    auto result = engine.getExecutor().run(stmts.at(label));
+    /*
+     * The plan already contains the infomration on how to ship and save the
+     * result set, but here we are lso notifying the ClusterManager that the
+     * query execution in this node finished.
+     *
+     * If the result shipping from the saved location to the jdbc connection
+     * is blocking, that's the point where the primary will notify the JDBC
+     * connection to read the data.
+     * Similarly, if the results are save on disk, this is the point where
+     * the ClusterManager of the primary will notify the user that the
+     * results are ready.
+     *
+     * Note that the plan will take care of collecting all the results in
+     * the nodes marked as output nodes through the final router operation.
+     * Thus, ClusterManagers on non-output nodes can ignore this call.
+     *
+     * Usually, the only output node will be the primary. Even if we flush
+     * multiple partitions across multiple output nodes, the primary will
+     * collect through the last router the location of those files to
+     * register them with the application/user.
+     */
+    auto result = engine->getExecutor().run(stmts.at(label));
     this->store(std::move(result));
     return fs::path("/dev/shm/" + label);
+    /*
+     * After successful execution of query statements, ClusterManager will
+     * send notification to primary-node from each secondary node, stating that
+     * query has been successfully executed, or error otherwise.
+     * */
   }
 
-  MockLocalCommandProvider() = default;
+  explicit MockLocalCommandProvider(ndp *engine) : engine(engine) {}
   ~MockLocalCommandProvider() override = default;
 };
 }  // namespace proteus
@@ -112,9 +162,20 @@ int main(int argc, char *argv[]) {
    */
   ctx.getClusterManager().connect(FLAGS_primary, FLAGS_url, FLAGS_port);
 
+  /*
+   * Phase 2. Serving queries
+   */
+
   // Primary-node act as an interface to OLAP engine.
   if (FLAGS_primary) {
-    auto primaryProvider = std::make_shared<proteus::NDPCommandProvider>();
+    /*
+     * In case of primary-node, the process will run a REPL loop, parse
+     * incoming commands from query planner, and broadcast/relay those query
+     * preparation/execution commands to secondary executors through the
+     * NDPCommandProvider, which in turns, uses interfaces provided by
+     * the ClusterManager.
+     * */
+    auto primaryProvider = std::make_shared<proteus::NDPCommandProvider>(ctx);
     ctx.getClusterManager().setCommandProvider(primaryProvider);
 
     while (ctx.getClusterManager().getNumExecutors() >= FLAGS_min_executors)
@@ -148,16 +209,15 @@ int main(int argc, char *argv[]) {
         if (starts_with(cmd, "execute plan from file ")) {
           constexpr size_t prefix_size = clen("execute plan from file ");
           std::string plan = cmd.substr(prefix_size);
-          std::string label = primaryProvider->runStatement(plan, false);
+          std::string path = primaryProvider->runStatement(plan, false);
+          std::cout << "result in file " << path << std::endl;
 
-          //          std::cout << "result in file " << label << std::endl;
         } else if (starts_with(cmd, "execute plan from statement ")) {
           constexpr size_t prefix_size = clen("execute plan from statement ");
           std::string plan = cmd.substr(prefix_size);
-          std::string label =
-              primaryProvider->runPreparedStatement(plan, false);
+          std::string path = primaryProvider->runPreparedStatement(plan, false);
+          std::cout << "result in file " << path << std::endl;
 
-          //          std::cout << "result in file " << label << std::endl;
         } else {
           std::cout << "error (command not supported)" << std::endl;
         }
@@ -165,13 +225,24 @@ int main(int argc, char *argv[]) {
     }
 
   } else {
+    /*
+     * Secondary nodes initializes the command provider and load it into
+     * the cluster manager. From there on, secondary-nodes acts on events,
+     * generated by the primary node. for each command by primary-node,
+     * secondary node handler is called by the cluster-manager and processed
+     * accordingly.
+     *
+     * The main thread waits indefinitely until the primary-node commands to
+     * shutdown to all secondary nodes.
+     * */
+
     // LocalCommandProvider provides functionalities to parse and execute plans,
     // regardless of operators inside the plan are single-server or
     // runs in a distributed fashion.
     // auto secondaryProvider = std::make_shared<LocalCommandProvider>();
 
     auto secondaryProvider =
-        std::make_shared<proteus::MockLocalCommandProvider>();
+        std::make_shared<proteus::MockLocalCommandProvider>(&ctx);
 
     ctx.getClusterManager().setCommandProvider(secondaryProvider);
 

@@ -45,7 +45,7 @@ class [[nodiscard]] ndp {
   const std::unique_ptr<impl> p_impl{};
 
  public:
-  explicit ndp();
+  explicit ndp(const string &usage, int *argc, char ***argv);
   ~ndp();
 
   [[nodiscard]] proteus::distributed::ClusterManager &getClusterManager() const;

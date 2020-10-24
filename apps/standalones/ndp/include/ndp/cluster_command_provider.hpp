@@ -27,6 +27,8 @@
 #include <command-provider/command-provider.hpp>
 #include <memory>
 
+#include "ndp-common.hpp"
+
 /*
  * Receives commands from the query optimizer and spawns them over the cluster
  */
@@ -34,6 +36,7 @@ class ClusterCommandProvider : public CommandProvider {
  private:
   class impl;
   std::unique_ptr<impl> p_impl;
+  proteus::ndp &ctx;
 
  public:
   /**
@@ -95,7 +98,7 @@ class ClusterCommandProvider : public CommandProvider {
    */
   fs::path runStatement(const fs::path &plan, bool echo = false) override;
 
-  ClusterCommandProvider();
+  explicit ClusterCommandProvider(proteus::ndp &ctx);
   ~ClusterCommandProvider() override;
 };
 

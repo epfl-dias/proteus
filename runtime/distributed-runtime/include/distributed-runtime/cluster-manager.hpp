@@ -73,13 +73,17 @@ namespace proteus::distributed {
 class Query {
  private:
   std::string query_uuid;
-  std::variant<std::unique_ptr<mmap_file>, std::string> query_plan;
+  std::variant<std::unique_ptr<mmap_file>, std::string,
+               std::span<const std::byte>>
+      query_plan;
 
  public:
   Query() = default;
   Query(std::string query_uuid, std::unique_ptr<mmap_file> query_plan)
       : query_uuid(std::move(query_uuid)), query_plan(std::move(query_plan)) {}
   Query(std::string query_uuid, std::string query_plan)
+      : query_uuid(std::move(query_uuid)), query_plan(std::move(query_plan)) {}
+  Query(std::string query_uuid, std::span<const std::byte> query_plan)
       : query_uuid(std::move(query_uuid)), query_plan(std::move(query_plan)) {}
 
  public:
