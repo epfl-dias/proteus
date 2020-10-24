@@ -1297,6 +1297,11 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 }
 
 ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::RandExpression *e) {
+  return {context->gen_call(rand, {}), context->createFalse()};
+}
+
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::NegExpression *e) {
   ProteusValue v = e->getExpr().accept(*this);
   if (v.value->getType()->isFloatingPointTy()) {

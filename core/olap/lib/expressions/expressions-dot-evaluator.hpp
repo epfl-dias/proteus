@@ -100,6 +100,8 @@ class ExpressionDotVisitor : public ExprTandemVisitor {
                      const expressions::MaxExpression *e2) override;
   ProteusValue visit(const expressions::MinExpression *e1,
                      const expressions::MinExpression *e2) override;
+  ProteusValue visit(const expressions::RandExpression *e1,
+                     const expressions::RandExpression *e2) override;
   ProteusValue visit(const expressions::HashExpression *e1,
                      const expressions::HashExpression *e2) override;
   ProteusValue visit(const expressions::RefExpression *e1,

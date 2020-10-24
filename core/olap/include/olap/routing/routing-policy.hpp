@@ -25,6 +25,7 @@
 #define ROUTING_POLICY_HPP_
 
 #include <olap/routing/routing-policy-types.hpp>
+#include <utility>
 
 #include "affinitizers.hpp"
 #include "olap/expressions/expressions.hpp"
@@ -41,7 +42,7 @@ namespace routing {
 class RoutingPolicy {
  public:
   virtual ~RoutingPolicy() = default;
-  virtual routing_target evaluate(ParallelContext *const context,
+  virtual routing_target evaluate(ParallelContext *context,
                                   const OperatorState &childState) = 0;
 };
 
@@ -49,8 +50,8 @@ class Random : public RoutingPolicy {
   size_t fanout;
 
  public:
-  Random(size_t fanout) : fanout(fanout) {}
-  routing_target evaluate(ParallelContext *const context,
+  explicit Random(size_t fanout) : fanout(fanout) {}
+  routing_target evaluate(ParallelContext *context,
                           const OperatorState &childState) override;
 };
 
@@ -59,8 +60,8 @@ class HashBased : public RoutingPolicy {
   expression_t e;
 
  public:
-  HashBased(size_t fanout, expression_t e) : fanout(fanout), e(e) {}
-  routing_target evaluate(ParallelContext *const context,
+  HashBased(size_t fanout, expression_t e) : fanout(fanout), e(std::move(e)) {}
+  routing_target evaluate(ParallelContext *context,
                           const OperatorState &childState) override;
 };
 
@@ -72,7 +73,7 @@ class Local : public RoutingPolicy {
  public:
   Local(size_t fanout, const std::vector<RecordAttribute *> &wantedFields,
         const AffinityPolicy *aff);
-  routing_target evaluate(ParallelContext *const context,
+  routing_target evaluate(ParallelContext *context,
                           const OperatorState &childState) override;
 };
 

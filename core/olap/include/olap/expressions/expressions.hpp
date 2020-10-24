@@ -49,6 +49,7 @@ enum ExpressionId {
   RECORD_CONSTRUCTION,
   IF_THEN_ELSE,
   BINARY,
+  EXPRESSION_RAND,
   EXPRESSION_HASHER,
   TESTNULL_EXPRESSION,
   EXTRACT,
@@ -615,6 +616,19 @@ class HashExpression : public ExpressionCRTP<HashExpression> {
   expression_t expr;
 };
 
+class RandExpression : public ExpressionCRTP<RandExpression> {
+ public:
+  RandExpression() : ExpressionCRTP(new IntType()) {}
+
+  [[nodiscard]] ExpressionId getTypeID() const override {
+    return EXPRESSION_RAND;
+  }
+
+  inline bool operator<(const RandExpression &r) const override {
+    return getTypeID() != r.getTypeID();
+  }
+};
+
 class ProteusValueExpression : public ExpressionCRTP<ProteusValueExpression> {
  public:
   ProteusValueExpression(const ExpressionType *type, ProteusValue expr)
@@ -1155,6 +1169,7 @@ class ExprVisitor {
   virtual ProteusValue visit(const expressions::ProteusValueExpression *e) = 0;
   virtual ProteusValue visit(const expressions::MinExpression *e) = 0;
   virtual ProteusValue visit(const expressions::MaxExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::RandExpression *e) = 0;
   virtual ProteusValue visit(const expressions::HashExpression *e) = 0;
   //  virtual ProteusValue visit(const expressions::AtExpression *e) = 0;
   virtual ProteusValue visit(const expressions::RefExpression *e) = 0;
@@ -1236,6 +1251,8 @@ class ExprTandemVisitorT {
                   const expressions::MinExpression *e2) = 0;
   virtual T visit(const expressions::MaxExpression *e1,
                   const expressions::MaxExpression *e2) = 0;
+  virtual T visit(const expressions::RandExpression *e1,
+                  const expressions::RandExpression *e2) = 0;
   virtual T visit(const expressions::HashExpression *e1,
                   const expressions::HashExpression *e2) = 0;
   virtual T visit(const expressions::RefExpression *e1,
@@ -1366,6 +1383,10 @@ inline expressions::ShiftLeftExpression operator<<(const expression_t &lhs,
                                                    const expression_t &rhs) {
   return {lhs, rhs};
 }
+
+namespace expressions {
+inline expressions::RandExpression rand() { return {}; }
+}  // namespace expressions
 
 inline expressions::ArithmeticShiftRightExpression operator>>(
     expression_t lhs, expression_t rhs) {

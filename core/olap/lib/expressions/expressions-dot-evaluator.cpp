@@ -542,6 +542,13 @@ ProteusValue ExpressionDotVisitor::visit(
 }
 
 ProteusValue ExpressionDotVisitor::visit(
+    const expressions::RandExpression *e1,
+    const expressions::RandExpression *e2) {
+  ExpressionGeneratorVisitor visitor{context, currStateLeft};
+  return eq(*e1, *e2).accept(visitor);
+}
+
+ProteusValue ExpressionDotVisitor::visit(
     const expressions::HashExpression *e1,
     const expressions::HashExpression *e2) {
   assert(false && "This does not really make sense");

@@ -834,6 +834,14 @@ ProteusValue ExpressionFlusherVisitor::visit(
 }
 
 ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::RandExpression *e) {
+  ExpressionGeneratorVisitor v(context, currState);
+  ProteusValue rv = e->accept(v);
+  expressions::ProteusValueExpression rve(e->getExpressionType(), rv);
+  return rve.accept(*this);
+}
+
+ProteusValue ExpressionFlusherVisitor::visit(
     const expressions::HashExpression *e) {
   ExpressionGeneratorVisitor v(context, currState);
   ProteusValue rv = e->accept(v);
