@@ -59,7 +59,7 @@ class MockLocalCommandProvider : public LocalCommandProvider {
      * RelBuilder instance.
      */
 
-    //auto builder = engine->getPlanParser().parse(plan, label);
+    // auto builder = engine->getPlanParser().parse(plan, label);
 
     // sample-plans-hardcoded.
     //
@@ -94,7 +94,7 @@ class MockLocalCommandProvider : public LocalCommandProvider {
      * For an non-JITed engine, it would do any final transformations and/or
      * initializations required before the query plan can be executed.
      */
-    //stmts.emplace(label, builder.prepare());
+    // stmts.emplace(label, builder.prepare());
     /*
      * After successful preparation of query statements, ClusterManager will
      * send notification to primary-node from each secondary node, stating that
