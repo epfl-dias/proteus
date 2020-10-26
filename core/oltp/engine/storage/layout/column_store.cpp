@@ -286,19 +286,19 @@ void ColumnStore::getRecordByKey(global_conf::IndexVal* idx_ptr,
         assert(false && "Impossible for full-record versioning!");
       }
 
-      // cumm_offset is the cummulative offset in the write_location.
+      // write_offset is the cumulative offset in the write_location.
       if (__unlikely(col_idx == nullptr)) {
-        for (auto i = 0, cumm_offset = 0; i < this->num_columns; i++) {
+        for (auto i = 0; i < this->num_columns; i++) {
           if (!done_mask[i]) {
-            cumm_offset += column_size[i];
-            columns[i].getElem(idx_ptr->VID, (write_loc + cumm_offset));
+            columns[i].getElem(idx_ptr->VID,
+                               (write_loc + this->column_size_offsets[i]));
           }
         }
       } else {
-        for (auto i = 0, cumm_offset = 0; i < num_cols; i++) {
+        for (auto i = 0, write_offset = 0; i < num_cols; i++) {
+          write_offset += column_size[col_idx[i]];
           if (!done_mask[i]) {
-            cumm_offset += column_size[col_idx[i]];
-            columns[i].getElem(idx_ptr->VID, (write_loc + cumm_offset));
+            columns[i].getElem(idx_ptr->VID, (write_loc + write_offset));
           }
         }
       }
