@@ -75,7 +75,7 @@ add_custom_command(OUTPUT ${CUDA_WORKDIR}/buffer-manager.bc.o
         ${CMAKE_CURRENT_SOURCE_DIR}/memory/buffer-manager.cu
         --cuda-device-only -c -emit-llvm -O3
         # TODO: correctly accept the CXX flags
-        --std=c++20 ${BMFLAGS}
+        ${BMFLAGS}
         # TODO: correctly accept the includes flags
         -I${CMAKE_CURRENT_SOURCE_DIR} -isystem ${CMAKE_BINARY_DIR}/_deps/glog-download-build -isystem ${CMAKE_BINARY_DIR}/_deps/glog-download-src/src
     # Embed the generated file into the library

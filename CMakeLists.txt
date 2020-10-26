@@ -207,9 +207,13 @@ if (USE_LIBCXX)
 	# Also add libc++ to the llvm_libs so that we get std::filesystem; apparently -stdlib=libc++ is not enough
 	find_library(libc++ c++ PATHS "${LLVM_LIBRARY_DIR}" NO_DEFAULT_PATH)
 	list(APPEND llvm_libs ${llvm_libs} ${libc++})
+	list(APPEND PROTEUS_FORCE_CPPSTD_FOR_CUDA "--std=c++20")
 else()
 	# Patch for GCC shipping libstdc++fs separately from libstdc++
 	list(APPEND llvm_libs ${llvm_libs} stdc++fs)
+	# Using c++20 with cuda and libstdc++-10-dev causes compilation issues
+	list(APPEND PROTEUS_FORCE_CPPSTD_FOR_CUDA "--stdlib=libstdc++")
+	list(APPEND PROTEUS_FORCE_CPPSTD_FOR_CUDA "--std=c++17")
 endif()
 
 if (CMAKE_CXX_FLAGS MATCHES ".*-stdlib=libc\\+\\+.*")
@@ -281,7 +285,7 @@ if(CUDA_FOUND)
 	endforeach(line)
 
 	# C++ & CUDA hybrid files
-	string(STRIP "${CUDA_CXXFLAGS} -Wno-format-pedantic" CUDA_CXXFLAGS)
+	string(STRIP "${CUDA_CXXFLAGS} -Wno-format-pedantic -stdlib=libc++" CUDA_CXXFLAGS)
 	string(STRIP "${CUDA_CXXFLAGS} -x cuda" CUDA_CXXFLAGS)
 	string(STRIP "${CUDA_CXXFLAGS} --cuda-path=${CUDA_TOOLKIT_ROOT_DIR}" CUDA_CXXFLAGS)
 	# Enable llvm::*->dump()
@@ -289,8 +293,10 @@ if(CUDA_FOUND)
 
 	# Convert the list to a string
 	string(REGEX REPLACE [[;]] " " CUDA_CXX_ARCHS "${CUDA_CXX_ARCHS}")
+	string(REGEX REPLACE [[;]] " " PROTEUS_FORCE_CPPSTD_FOR_CUDA "${PROTEUS_FORCE_CPPSTD_FOR_CUDA}")
 	string(STRIP "${CUDA_CXXFLAGS} ${CUDA_CXX_ARCHS}" CUDA_CXXFLAGS)
 	string(STRIP "${CUDA_CXXFLAGS} -DMAXRREGCOUNT=32" CUDA_CXXFLAGS)
+	string(STRIP "${CUDA_CXXFLAGS} ${PROTEUS_FORCE_CPPSTD_FOR_CUDA}" CUDA_CXXFLAGS)
 
 	# Because of how the "command" function works, we have to use a
 	# CMAKE list, and not a string for CUDA_CUFLAGS
