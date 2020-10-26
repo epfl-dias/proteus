@@ -4,22 +4,30 @@ PROJECT_ROOT="$(git rev-parse --show-toplevel)"
 RETVAL=0
 CLANG_FORMAT_VERSION=11
 
+# When commit is empty, return success, although we do not encourage it...
+if ! [[ $(git diff-index --cached --name-only HEAD) ]]; then
+  exit 0
+fi
+
+
+
+
 if ! [ -x "$(command -v clang-format-$CLANG_FORMAT_VERSION)" ]; then
   echo "*****************************************************************"
-  echo "*                                                               *"
-  echo "* Error: clang-format-$CLANG_FORMAT_VERSION is not installed.                      *"
-  echo "*                                                               *"
-  echo "*****************************************************************"
-  echo "Error: clang-format-$CLANG_FORMAT_VERSION is not installed" >&2
-  exit 1
+echo "*                                                               *"
+echo "* Error: clang-format-$CLANG_FORMAT_VERSION is not installed.                      *"
+echo "*                                                               *"
+echo "*****************************************************************"
+echo "Error: clang-format-$CLANG_FORMAT_VERSION is not installed" >&2
+exit 1
 fi
 
 format_file() {
   file="${1}"
   if [ -f $file ]; then
-    clang-format-$CLANG_FORMAT_VERSION -i ${1}
-    ${PROJECT_ROOT}/tools/check_licenses.py ${1} || RETVAL=1
-    git add ${1}
+  clang-format-$CLANG_FORMAT_VERSION -i ${1}
+  ${PROJECT_ROOT}/tools/check_licenses.py ${1} || RETVAL=1
+  git add ${1} 2> /dev/null
   fi
 }
 
@@ -39,6 +47,7 @@ panicked_bail_out() {
   echo "*                                                          *"
   echo "************************************************************"
   git reset -q --hard
+  git reset --soft HEAD~
   git stash push -q --include-untracked -m $STASH_NAME-garbage
   git stash apply -q --index stash@{2}
   git stash drop -q
@@ -47,17 +56,59 @@ panicked_bail_out() {
 
 STASH_NAME="pre-commit-$(date +%s)"
 
-# Save current state to allow undoing if commit is rejected
-git stash push -q --include-untracked -m $STASH_NAME-upon-failure
-git stash apply -q --index # --index to re-instate index!
+# There are two states:
+#                          untracked, unstaged, partially staged, staged
+# 1. commit is accepted => as-is    , as-is   , un/st: as-is/com, committed
+# 2. commit is rejected => as-is    , as-is   , as-is           , as-is
+#
+# We need to go over a state that has formatted the partially staged files and
+# and staged files. This requires two intermediate states:
+# A. unstaged changed of partially staged files are reverted.
+# B. unstaged parts of partially staged files are merged back to the files
+# (Note: we can not format full partially-staged files as then we will not
+# know which parts originated from the original commit)
+#
+# Between A and B we are going to apply the formatting, and returning back to B,
+# we may create conflicts, in which case we wat to end up in state 2 (rejected).
+#
+# Thus, we need to save the initial state for the reject case.
+# We need to remove unstaged parts of partially staged files, to reapply them
+# after formatting.
+#
+#
+# start => remove unstaged changes => (A) => format =>
+#   if success => (B) => reapply unstaged changes =>
+#       if success => done, cleanup
+#       if failure => revert all changes, cleanup
+#   if failure => revert all changes, cleanup
 
-# Save unstage changes, to reapply in case the commit is accepted
-git commit -q --no-verify -m $STASH_NAME --allow-empty
+################################################################################
+# Save current state to allow undoing if commit is rejected
+################################################################################
+
+#   Assumes:
+#     1. .gitignore is not touched
+#     2. commit not empty!
+git stash push -q --include-untracked -m $STASH_NAME-upon-failure || echo "This failed ${LINENO}"
+# Above command removed all changes, we need to redo them by applying it (with --index for
+# reinstating both the working dir and the index)
+git stash apply -q --index || echo "This failed ${LINENO}" # --index to re-instate index!
+
+
+###############################################################################
+# Save current state to allow undoing if commit is rejected
+###############################################################################
+
+# git stash does not allow saving only unstashed changes,
+# so let's do a temporary commit to capture only unstaged changes
+
+# Save unstaged changes, to reapply in case the commit is accepted
+git commit -q --no-verify -m $STASH_NAME --allow-empty || echo "This failed ${LINENO}"
 
 # To avoid empty stash from getting rejected
 touch .githooks/.githookinprogress
-git stash push -q --include-untracked --keep-index -m $STASH_NAME-upon-success
-git reset -q --soft HEAD~
+git stash push -q --include-untracked --keep-index -m $STASH_NAME-upon-success || echo "This failed ${LINENO}"
+git reset -q --soft HEAD~ || echo "This failed ${LINENO}"
 
 for file in $(git diff-index --cached --name-only HEAD \*.{cpp,hpp,cu,cuh}) ; do
   format_file "${file}"
@@ -77,14 +128,19 @@ fi
 
 if [ $RETVAL -ne 0 ]; then
   # Reset working directory
-  git reset -q --hard
-  git stash apply -q --index stash@{1}  # --index to re-instate index!
+  git reset -q --hard || echo "This failed ${LINENO}"
+  git stash apply -q --index stash@{1} || echo "This failed ${LINENO}" # --index to re-instate index!
 else
-  git stash apply --index || panicked_bail_out
+  # Need to commit, otherwise the stash may complain that the index is dirty!
+  git commit -q --no-verify -m $STASH_NAME --allow-empty || echo "This failed ${LINENO}"
+  git stash apply -q > /dev/null || panicked_bail_out
+  if [ $RETVAL -eq 0 ]; then
+    git reset -q --soft HEAD~ || echo "This failed ${LINENO}"
+    rm .githooks/.githookinprogress
+  fi
 fi
 
 # Clean-up
-rm .githooks/.githookinprogress || true
 git stash drop -q
 git stash drop -q
 
