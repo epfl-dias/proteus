@@ -524,3 +524,19 @@ if(REALWORLD_EXPERIMENTS)
 	# sigmod versions
 	add_subdirectory(apps/experiments/realworld)
 endif()
+
+#-----------------------------------------------------------------------
+# Build our packages
+#-----------------------------------------------------------------------
+include(InstallRequiredSystemLibraries)
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_PACKAGE_VERSION_MAJOR "${${PROJECT_NAME}_VERSION_MAJOR}")
+set(CPACK_PACKAGE_VERSION_MINOR "${${PROJECT_NAME}_VERSION_MINOR}")
+
+# Build separate package by default
+set(CPACK_COMPONENTS_GROUPING ONE_PER_GROUP)
+#set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
+set(CPACK_DEB_COMPONENT_INSTALL ON)
+
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+include(CPack)
