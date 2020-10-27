@@ -48,9 +48,15 @@ RUN git clone https://gitlab.kitware.com/cmake/cmake.git && \
     cd .. && \
     rm -rf cmake
 
+
+RUN apt update -y && \
+    apt install -y --no-install-recommends software-properties-common && \
+    add-apt-repository -y ppa:ubuntu-toolchain-r/test && \
+    apt purge -y software-properties-common
+
 RUN apt update  -y && \
     apt upgrade -y && \
-    apt install -y --no-install-recommends libpostgresql-jdbc-java && \
+    apt install -y --no-install-recommends libpostgresql-jdbc-java libstdc++-10-dev && \
     apt autoremove -y && \
     apt autoclean
 
