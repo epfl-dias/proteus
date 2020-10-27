@@ -50,16 +50,12 @@ class CC_MV2PL {
  public:
   struct __attribute__((packed)) PRIMARY_INDEX_VAL {
     uint64_t t_min;  //  | 1-byte w_id | 6 bytes xid |
-    uint64_t VID;    // | 1-byte delta-id | 1-byte master_ver | 1-byte
+    uint64_t VID;    // | empty 1-byte | 1-byte master_ver | 1-byte
                      // partition_id | 5-byte VID |
     lock::Spinlock_Weak latch;
     lock::AtomicTryLock write_lck;
 
-    storage::DeltaList delta_list;
-
-    //    void *delta_ver;       // delta-list
-    //    size_t delta_ver_tag;  // 4 byte delta_idx| 4-byte delta-tag
-
+    storage::DeltaList delta_list{};
     PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid) : t_min(tid), VID(vid) {}
   };
 
@@ -71,8 +67,8 @@ class CC_MV2PL {
     // because two threads can read_tsc at the same time. it doesnt mean thread
     // with lesser ID comes first.
 
-    uint64_t w_tid = tid & 0x00FFFFFFFFFFFFFF;
-    uint64_t w_tmin = tmin & 0x00FFFFFFFFFFFFFF;
+    uint64_t w_tid = tid & 0x00FFFFFFFFFFFFFFu;
+    uint64_t w_tmin = tmin & 0x00FFFFFFFFFFFFFFu;
 
     assert(w_tmin != w_tid);
 
@@ -83,7 +79,6 @@ class CC_MV2PL {
     }
   }
 
-  static inline bool is_mv() { return true; }
   static inline void __attribute__((always_inline)) release_locks(
       std::vector<CC_MV2PL::PRIMARY_INDEX_VAL *> &hash_ptrs_lock_acquired) {
     for (auto c : hash_ptrs_lock_acquired) c->write_lck.unlock();

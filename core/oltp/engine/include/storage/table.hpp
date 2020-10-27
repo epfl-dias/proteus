@@ -219,22 +219,11 @@ class Table {
                             ushort curr_delta, const ushort *col_idx,
                             short num_cols) = 0;
 
-  // virtual void updateRecord(ushort pid, uint64_t &vid, const void *rec,
-  //                           ushort curr_master, ushort curr_delta,
-  //                           uint64_t tmin, const ushort *col_idx = nullptr,
-  //                           short num_cols = -1) = 0;
   virtual void deleteRecord(uint64_t vid, ushort master_ver) = 0;
-  virtual std::vector<const void *> getRecordByKey(uint64_t rec_vid,
-                                                   const ushort *col_idx,
-                                                   ushort num_cols) {
-    assert(false && "Not implemented");
-  }
 
-  virtual void getRecordByKey(uint64_t vid, const ushort *col_idx,
-                              ushort num_cols, void *loc) = 0;
   virtual void getRecordByKey(global_conf::IndexVal *idx_ptr, uint64_t txn_id,
-                              ushort curr_delta, const ushort *col_idx,
-                              ushort num_cols, void *loc) = 0;
+                              const ushort *col_idx, ushort num_cols,
+                              void *loc) = 0;
 
   virtual void touchRecordByKey(uint64_t vid) = 0;
 
@@ -256,7 +245,6 @@ class Table {
   global_conf::PrimaryIndex<uint64_t> *p_index;
   global_conf::PrimaryIndex<uint64_t> **s_index;
   uint64_t total_mem_reserved;
-  // volatile std::atomic<uint64_t> vid[NUM_SOCKETS];
   std::deque<std::atomic<uint64_t>> vid;
   const std::string name;
   const uint8_t table_id;

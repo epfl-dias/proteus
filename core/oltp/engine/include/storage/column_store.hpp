@@ -57,6 +57,8 @@ class alignas(4096) ColumnStore : public Table {
   ColumnStore(uint8_t table_id, const std::string &name, ColumnDef columns,
               uint64_t initial_num_records = 10000000, bool indexed = true,
               bool partitioned = true, int numa_idx = -1);
+  ~ColumnStore() override;
+
   uint64_t insertRecord(void *rec, ushort partition_id,
                         ushort master_ver) override;
   void *insertRecord(void *rec, uint64_t xid, ushort partition_id,
@@ -68,10 +70,6 @@ class alignas(4096) ColumnStore : public Table {
   void updateRecord(uint64_t xid, global_conf::IndexVal *hash_ptr,
                     const void *rec, ushort curr_master, ushort curr_delta,
                     const ushort *col_idx, short num_cols) override;
-  // void updateRecord(ushort pid, uint64_t &vid, const void *rec,
-  //                   ushort curr_master, ushort curr_delta, uint64_t tmin,
-  //                   const ushort *col_idx = nullptr, short num_cols =
-  //                   -1);
 
   void deleteRecord(uint64_t vid, ushort master_ver) override {
     assert(false && "Not implemented");
@@ -88,13 +86,10 @@ class alignas(4096) ColumnStore : public Table {
   void touchRecordByKey(uint64_t vid) override;
 
   void getRecordByKey(global_conf::IndexVal *idx_ptr, uint64_t txn_id,
-                      ushort curr_delta, const ushort *col_idx, ushort num_cols,
-                      void *loc) override;
-  void getRecordByKey(uint64_t vid, const ushort *col_idx, ushort num_cols,
+                      const ushort *col_idx, ushort num_cols,
                       void *loc) override;
 
-  // global_conf::mv_version_list *getVersions(uint64_t vid);
-
+  // HTAP / Snapshotting Methods
   void sync_master_snapshots(ushort master_ver_idx);
   void snapshot(uint64_t epoch, uint8_t snapshot_master_ver) override;
   void ETL(uint numa_node_idx) override;
@@ -106,18 +101,6 @@ class alignas(4096) ColumnStore : public Table {
       size_t scan_idx, std::vector<RecordAttribute *> &wantedFields,
       bool olap_local, bool elastic_scan);
 
-  /*
-    No secondary indexes supported as of yet so dont need the following
-    void createIndex(int col_idx);
-    void createIndex(std::string col_name);
-  */
-
-  ~ColumnStore() override;
-  // uint64_t *plugin_ptr[global_conf::num_master_versions][NUM_SOCKETS];
-  std::vector<std::vector<std::pair<storage::memory::mem_chunk, size_t>>>
-      elastic_mappings;
-  std::set<size_t> elastic_offsets;
-
  private:
   ColumnVector columns;
   Column *meta_column;
@@ -128,12 +111,17 @@ class alignas(4096) ColumnStore : public Table {
   std::vector<uint16_t> column_size_offsets;
   std::vector<uint16_t> column_size;
 
+  std::vector<std::vector<std::pair<storage::memory::mem_chunk, size_t>>>
+      elastic_mappings;
+  std::set<size_t> elastic_offsets;
+
  public:
   const decltype(columns) &getColumns() { return columns; }
 };
 
 class alignas(4096) Column {
  public:
+  ~Column();
   Column(std::string name, uint64_t initial_num_records, data_type type,
          size_t unit_size, size_t cumulative_offset,
          bool single_version_only = false, bool partitioned = true,
@@ -141,8 +129,8 @@ class alignas(4096) Column {
 
   Column(const Column &) = delete;
   Column(Column &&) = default;
-  ~Column();
 
+ private:
   void *getElem(uint64_t vid);
   void touchElem(uint64_t vid);
   void getElem(uint64_t vid, void *copy_location);
@@ -153,36 +141,30 @@ class alignas(4096) Column {
   void insertElemBatch(uint64_t vid, uint64_t num_elem, void *data);
   void initializeMetaColumn();
 
-  // void updateElem(uint64_t offset, void *elem, ushort master_ver);
-  // void deleteElem(uint64_t offset, ushort master_ver);
+ public:
+  [[nodiscard]] size_t getSize() const { return this->total_mem_reserved; }
 
   void sync_master_snapshots(ushort master_ver_idx);
   void snapshot(const uint64_t *n_recs_part, uint64_t epoch,
                 uint8_t snapshot_master_ver);
-
   void ETL(uint numa_node_idx);
-
   uint64_t num_upd_tuples(ushort master_ver = 0,
                           const uint64_t *num_records = nullptr,
                           bool print = false);
-
-  [[nodiscard]] size_t getSize() const { return this->total_mem_reserved; }
-
-  // snapshot stuff
   [[nodiscard]] std::vector<std::pair<storage::memory::mem_chunk, size_t>>
   snapshot_get_data(bool olap_local = false, bool elastic_scan = false) const;
 
   std::vector<std::pair<storage::memory::mem_chunk, size_t>> elastic_partition(
       uint pid, std::set<size_t> &segment_boundaries);
 
+ private:
+  uint num_partitions;
+  volatile bool touched[global_conf::MAX_PARTITIONS];
+
   const std::string name;
   const size_t elem_size;
   const size_t cumulative_offset;
   const data_type type;
-
- private:
-  uint num_partitions;
-  volatile bool touched[global_conf::MAX_PARTITIONS];
 
   size_t total_mem_reserved;
   size_t size_per_part;

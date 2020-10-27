@@ -276,9 +276,8 @@ class YCSB : public Benchmark {
 
           hash_ptr->latch.acquire();
 
-          ycsb_tbl->getRecordByKey(hash_ptr, xid, delta_ver,
-                                   col_idx_read_local.data(), num_col_read,
-                                   read_loc.data());
+          ycsb_tbl->getRecordByKey(hash_ptr, xid, col_idx_read_local.data(),
+                                   num_col_read, read_loc.data());
           hash_ptr->latch.release();
           break;
         }

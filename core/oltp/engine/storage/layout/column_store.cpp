@@ -49,19 +49,16 @@ namespace storage {
 static std::mutex print_mutex;
 
 static inline uint64_t __attribute__((always_inline))
-CC_gen_vid(uint64_t vid, ushort partition_id, ushort master_ver,
-           ushort delta_version) {
+CC_gen_vid(uint64_t vid, ushort partition_id, ushort master_ver) {
   return ((vid & 0x000000FFFFFFFFFFu) |
           ((uint64_t)(partition_id & 0x00FFu) << 40u) |
-          ((uint64_t)(master_ver & 0x00FFu) << 48u) |
-          ((uint64_t)(delta_version & 0x00FFu) << 56u));
+          ((uint64_t)(master_ver & 0x00FFu) << 48u));
 }
 
 static inline uint64_t __attribute__((always_inline))
-CC_upd_vid(uint64_t vid, ushort master_ver, ushort delta_version) {
-  return ((vid & 0x0000FFFFFFFFFFFFu) |
-          ((uint64_t)(master_ver & 0x00FFu) << 48u) |
-          ((uint64_t)(delta_version & 0x00FFu) << 56u));
+CC_upd_vid_mVer(uint64_t vid, ushort master_version) {
+  return (vid & 0xFF00FFFFFFFFFFFFu) |
+         ((uint64_t)(master_version & 0x00FFu) << 48u);
 }
 
 ColumnStore::~ColumnStore() {
@@ -165,8 +162,8 @@ void* ColumnStore::insertRecordBatch(void* rec_batch, uint recs_to_ins,
   partition_id = partition_id % this->num_data_partitions;
   uint64_t idx_st = vid[partition_id].fetch_add(recs_to_ins);
   // get batch from meta column
-  uint64_t st_vid = CC_gen_vid(idx_st, partition_id, master_ver, 0);
-  uint64_t st_vid_meta = CC_gen_vid(idx_st, partition_id, 0, 0);
+  uint64_t st_vid = CC_gen_vid(idx_st, partition_id, master_ver);
+  uint64_t st_vid_meta = CC_gen_vid(idx_st, partition_id, 0);
 
   global_conf::IndexVal* hash_ptr = nullptr;
   if (this->indexed) {
@@ -177,7 +174,7 @@ void* ColumnStore::insertRecordBatch(void* rec_batch, uint recs_to_ins,
 
     for (uint i = 0; i < recs_to_ins; i++) {
       hash_ptr[i].t_min = xid;
-      hash_ptr[i].VID = CC_gen_vid(idx_st + i, partition_id, master_ver, 0);
+      hash_ptr[i].VID = CC_gen_vid(idx_st + i, partition_id, master_ver);
     }
   }
 
@@ -202,12 +199,12 @@ void* ColumnStore::insertRecord(void* rec, uint64_t xid, ushort partition_id,
 
   partition_id = partition_id % this->num_data_partitions;
   uint64_t idx = vid[partition_id].fetch_add(1);
-  uint64_t curr_vid = CC_gen_vid(idx, partition_id, master_ver, 0);
+  uint64_t curr_vid = CC_gen_vid(idx, partition_id, master_ver);
 
   global_conf::IndexVal* hash_ptr = nullptr;
 
   if (indexed) {
-    auto indexed_cc_vid = CC_gen_vid(idx, partition_id, 0, 0);
+    auto indexed_cc_vid = CC_gen_vid(idx, partition_id, 0);
     hash_ptr =
         (global_conf::IndexVal*)this->meta_column->getElem(indexed_cc_vid);
     assert(hash_ptr != nullptr);
@@ -228,7 +225,7 @@ uint64_t ColumnStore::insertRecord(void* rec, ushort partition_id,
   assert(false && "deprecated");
   partition_id = partition_id % this->num_data_partitions;
   uint64_t curr_vid =
-      CC_gen_vid(vid[partition_id].fetch_add(1), partition_id, master_ver, 0);
+      CC_gen_vid(vid[partition_id].fetch_add(1), partition_id, master_ver);
 
   char* rec_ptr = (char*)rec;
   for (auto& col : columns) {
@@ -244,9 +241,8 @@ void ColumnStore::touchRecordByKey(uint64_t vid) {
 }
 
 void ColumnStore::getRecordByKey(global_conf::IndexVal* idx_ptr,
-                                 uint64_t txn_id, ushort curr_delta,
-                                 const ushort* col_idx, ushort num_cols,
-                                 void* loc) {
+                                 uint64_t txn_id, const ushort* col_idx,
+                                 ushort num_cols, void* loc) {
 #if INSTRUMENTATION
   static thread_local proteus::utils::threadLocal_percentile rd_cdf("read_cdf");
   static thread_local proteus::utils::threadLocal_percentile rd_mv_cdf(
@@ -306,32 +302,13 @@ void ColumnStore::getRecordByKey(global_conf::IndexVal* idx_ptr,
   }
 }
 
-void ColumnStore::getRecordByKey(uint64_t vid, const ushort* col_idx,
-                                 ushort num_cols, void* loc) {
-  assert(false && "deprecated.");
-  // FIX ME: GET AND VERIFY TAG FOR UPDATES, USE TXN ID/ TimeStamp!!!
-  char* write_loc = (char*)loc;
-  if (__unlikely(col_idx == nullptr)) {
-    for (auto& col : columns) {
-      col.getElem(vid, write_loc);
-      write_loc += col.elem_size;
-    }
-  } else {
-    for (ushort i = 0; i < num_cols; i++) {
-      auto& col = columns.at(col_idx[i]);
-      col.getElem(vid, write_loc);
-      write_loc += col.elem_size;
-    }
-  }
-}
-
 /*  TODO: required functionality of batch update.
  * */
 
 /*
   FIXME: [Maybe] Update records create a delta version not in the local
-  partition to the worker but local to record-master partition. this create
-  version creation over QPI.
+   partition to the worker but local to record-master partition. this create
+   version creation over QPI.
 */
 void ColumnStore::updateRecord(uint64_t xid, global_conf::IndexVal* hash_ptr,
                                const void* rec, ushort curr_master,
@@ -351,7 +328,7 @@ void ColumnStore::updateRecord(uint64_t xid, global_conf::IndexVal* hash_ptr,
   char* cursor = (char*)rec;
 
   auto old_vid = hash_ptr->VID;
-  hash_ptr->VID = CC_upd_vid(hash_ptr->VID, curr_master, curr_delta);
+  hash_ptr->VID = CC_upd_vid_mVer(hash_ptr->VID, curr_master);
 
   auto version_ptr = mv::mv_type::create_versions(
       xid, hash_ptr, column_size, *(this->deltaStore[curr_delta]), pid, col_idx,
@@ -455,10 +432,10 @@ void ColumnStore::insertIndexRecord(uint64_t rid, uint64_t xid,
   assert(this->indexed);
   uint64_t curr_vid = vid[partition_id].fetch_add(1);
 
-  auto vid = CC_gen_vid(curr_vid, partition_id, 0, 0);
+  auto vid = CC_gen_vid(curr_vid, partition_id, 0);
   auto* hash_ptr = (global_conf::IndexVal*)this->meta_column->getElem(vid);
   hash_ptr->t_min = xid;
-  hash_ptr->VID = CC_gen_vid(curr_vid, partition_id, master_ver, 0);
+  hash_ptr->VID = CC_gen_vid(curr_vid, partition_id, master_ver);
   void* pano = (void*)hash_ptr;
   this->p_index->insert(rid, pano);
 }
@@ -621,7 +598,7 @@ void Column::initializeMetaColumn() {
       loaders.emplace_back([this, chunk, j, ptr]() {
         for (uint64_t i = 0; i < (chunk.size / this->elem_size); i++) {
           void* c = new (ptr + (i * this->elem_size))
-              global_conf::IndexVal(0, CC_gen_vid(i, j, 0, 0));
+              global_conf::IndexVal(0, CC_gen_vid(i, j, 0));
         }
       });
     }

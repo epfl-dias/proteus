@@ -70,7 +70,9 @@ bool TPCC::consistency_check_1() {
     double wh_ytd = 0.0;
     const ushort w_col_scan[] = {8};  // position in columns
     auto w_idx_ptr = (global_conf::IndexVal *)table_warehouse->p_index->find(i);
-    table_warehouse->getRecordByKey(w_idx_ptr->VID, w_col_scan, 1, &wh_ytd);
+
+    table_warehouse->getRecordByKey(w_idx_ptr, UINT64_MAX, w_col_scan, 1,
+                                    &wh_ytd);
 
     double district_ytd = 0.0;
     for (uint j = 0; j < TPCC_NDIST_PER_WH; j++) {
@@ -79,7 +81,8 @@ bool TPCC::consistency_check_1() {
       const ushort d_col_scan[] = {9};  // position in columns
       auto d_idx_ptr = (global_conf::IndexVal *)table_district->p_index->find(
           MAKE_DIST_KEY(i, j));
-      table_district->getRecordByKey(d_idx_ptr->VID, d_col_scan, 1, &tmp_d_ytd);
+      table_district->getRecordByKey(d_idx_ptr, UINT64_MAX, d_col_scan, 1,
+                                     &tmp_d_ytd);
       district_ytd += tmp_d_ytd;
     }
 
