@@ -59,12 +59,13 @@ class MV_RecordList_Full {
 
   static std::bitset<1> get_readable_version(
       const DeltaList& delta_list, uint64_t tid_self, char* write_loc,
-      const std::vector<std::pair<size_t, size_t>>& column_size_offset_pairs,
+      const std::vector<std::pair<uint16_t, uint16_t>>&
+          column_size_offset_pairs,
       const ushort* col_idx = nullptr, ushort num_cols = 0);
 
   static std::vector<MV_RecordList_Full::version_t*> create_versions(
       uint64_t xid, global_conf::IndexVal* idx_ptr,
-      std::vector<size_t>& attribute_widths, storage::DeltaStore& deltaStore,
+      std::vector<uint16_t>& attribute_widths, storage::DeltaStore& deltaStore,
       ushort partition_id, const ushort* col_idx, short num_cols);
 
  private:
@@ -86,12 +87,13 @@ class MV_RecordList_Partial {
 
   static std::bitset<64> get_readable_version(
       const DeltaList& delta_list, uint64_t tid_self, char* write_loc,
-      const std::vector<std::pair<size_t, size_t>>& column_size_offset_pairs,
+      const std::vector<std::pair<uint16_t, uint16_t>>&
+          column_size_offset_pairs,
       const ushort* col_idx = nullptr, ushort num_cols = 0);
 
   static std::vector<MV_RecordList_Partial::version_t*> create_versions(
       uint64_t xid, global_conf::IndexVal* idx_ptr,
-      std::vector<size_t>& attribute_widths, storage::DeltaStore& deltaStore,
+      std::vector<uint16_t>& attribute_widths, storage::DeltaStore& deltaStore,
       ushort partition_id, const ushort* col_idx, short num_cols);
 };
 

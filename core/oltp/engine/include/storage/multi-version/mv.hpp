@@ -31,10 +31,10 @@
 
 namespace storage::mv {
 
- using mv_type = MV_RecordList_Full;
+using mv_type = MV_RecordList_Full;
 // using mv_type = MV_RecordList_Partial;
 
-//using mv_type = MV_perAttribute<MV_attributeList>;
+// using mv_type = MV_perAttribute<MV_attributeList>;
 // using mv_type = MV_perAttribute<MV_DAG>;
 
 using mv_version_chain = mv_type::version_chain_t;
@@ -51,7 +51,7 @@ using mv_version = mv_type::version_t;
 //
 //  MultiVersionStorage_impl<MvType> getType() const { return {}; }
 //  static auto create_versions(uint64_t xid, global_conf::IndexVal *idx_ptr,
-//                              std::vector<size_t> &attribute_widths,
+//                              std::vector<uint16_t> &attribute_widths,
 //                              storage::DeltaStore &deltaStore,
 //                              ushort partition_id, const ushort *col_idx,
 //                              short num_cols) {
@@ -62,15 +62,15 @@ using mv_version = mv_type::version_t;
 //  static auto get_readable_version(
 //      global_conf::IndexVal *idx_ptr, void *list_ptr, uint64_t xid,
 //      char *write_loc,
-//      const std::vector<std::pair<size_t, size_t>> &column_size_offset_pairs,
-//      storage::DeltaStore **deltaStore, const ushort *col_idx = nullptr,
-//      ushort num_cols = 0) {
+//      const std::vector<std::pair<uint16_t, uint16_t>>
+//      &column_size_offset_pairs, storage::DeltaStore **deltaStore, const
+//      ushort *col_idx = nullptr, ushort num_cols = 0) {
 //    return MvType::get_readable_version(idx_ptr, list_ptr, xid, write_loc,
 //                                        column_size_offset_pairs, deltaStore,
 //                                        col_idx, num_cols);
 //  }
 //};
 
-}  // namespace storage
+}  // namespace storage::mv
 
 #endif  // PROTEUS_OLTP_MV_HPP

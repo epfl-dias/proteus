@@ -37,7 +37,7 @@ namespace storage::mv {
 
 std::vector<MV_attributeList::version_t*> MV_attributeList::create_versions(
     uint64_t xid, global_conf::IndexVal* idx_ptr,
-    const std::vector<size_t>& attribute_widths,
+    const std::vector<uint16_t>& attribute_widths,
     storage::DeltaStore& deltaStore, ushort partition_id, const ushort* col_idx,
     short num_cols) {
   std::vector<MV_attributeList::version_t*> version_pointers;
@@ -121,7 +121,7 @@ std::vector<MV_attributeList::version_t*> MV_attributeList::create_versions(
 
 std::bitset<64> MV_attributeList::get_readable_version(
     const DeltaList& delta_list, uint64_t xid, char* write_loc,
-    const std::vector<std::pair<size_t, size_t>>& column_size_offset_pairs,
+    const std::vector<std::pair<uint16_t, uint16_t>>& column_size_offset_pairs,
     const ushort* col_idx, ushort num_cols) {
   std::bitset<64> done_mask(0xffffffffffffffff);
 
@@ -191,7 +191,7 @@ std::bitset<64> MV_attributeList::get_readable_version(
 
 // std::vector<MV_DAG::version_t*> MV_DAG::create_versions(
 //    uint64_t xid, global_conf::IndexVal* idx_ptr,
-//    const std::vector<size_t>& attribute_widths, storage::DeltaStore&
+//    const std::vector<uint16_t>& attribute_widths, storage::DeltaStore&
 //    deltaStore, ushort partition_id, const ushort* col_idx, short num_cols) {
 //
 //  // the main thing here is join the version into single one. and then connect
@@ -205,8 +205,9 @@ std::bitset<64> MV_attributeList::get_readable_version(
 //    global_conf::IndexVal* idx_ptr,
 //    uint64_t xid,
 //    char* write_loc,
-//    const std::vector<std::pair<size_t, size_t>>& column_size_offset_pairs,
-//    storage::DeltaStore** deltaStore, const ushort* col_idx, ushort num_cols)
+//    const std::vector<std::pair<uint16_t, uint16_t>>&
+//    column_size_offset_pairs, storage::DeltaStore** deltaStore, const ushort*
+//    col_idx, ushort num_cols)
 //    {
 //  std::bitset<64> tmp;
 //  return tmp;

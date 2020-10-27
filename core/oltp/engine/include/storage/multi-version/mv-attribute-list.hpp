@@ -43,7 +43,7 @@ class MV_perAttribute {
   using version_chain_t = typename T::version_chain_t;
 
   static auto create_versions(uint64_t xid, global_conf::IndexVal *idx_ptr,
-                              const std::vector<size_t> &attribute_widths,
+                              const std::vector<uint16_t> &attribute_widths,
                               storage::DeltaStore &deltaStore,
                               ushort partition_id, const ushort *col_idx,
                               short num_cols) {
@@ -53,7 +53,8 @@ class MV_perAttribute {
 
   static auto get_readable_version(
       const DeltaList &delta_list, uint64_t xid, char *write_loc,
-      const std::vector<std::pair<size_t, size_t>> &column_size_offset_pairs,
+      const std::vector<std::pair<uint16_t, uint16_t>>
+          &column_size_offset_pairs,
       const ushort *col_idx = nullptr, ushort num_cols = 0) {
     return T::get_readable_version(delta_list, xid, write_loc,
                                    column_size_offset_pairs, col_idx, num_cols);
@@ -73,13 +74,14 @@ class MV_attributeList {
 
   static std::vector<MV_attributeList::version_t *> create_versions(
       uint64_t xid, global_conf::IndexVal *idx_ptr,
-      const std::vector<size_t> &attribute_widths,
+      const std::vector<uint16_t> &attribute_widths,
       storage::DeltaStore &deltaStore, ushort partition_id,
       const ushort *col_idx, short num_cols);
 
   static std::bitset<64> get_readable_version(
       const DeltaList &delta_list, uint64_t xid, char *write_loc,
-      const std::vector<std::pair<size_t, size_t>> &column_size_offset_pairs,
+      const std::vector<std::pair<uint16_t, uint16_t>>
+          &column_size_offset_pairs,
       const ushort *col_idx = nullptr, ushort num_cols = 0);
 
   // friend class MV_perAttribute<MV_attributeList>;
@@ -108,13 +110,14 @@ class MV_DAG {
 
   static std::vector<MV_DAG::version_t *> create_versions(
       uint64_t xid, global_conf::IndexVal *idx_ptr,
-      const std::vector<size_t> &attribute_widths,
+      const std::vector<uint16_t> &attribute_widths,
       storage::DeltaStore &deltaStore, ushort partition_id,
       const ushort *col_idx, short num_cols);
 
   static std::bitset<64> get_readable_version(
       const DeltaList &delta_list, uint64_t xid, char *write_loc,
-      const std::vector<std::pair<size_t, size_t>> &column_size_offset_pairs,
+      const std::vector<std::pair<uint16_t, uint16_t>>
+          &column_size_offset_pairs,
       const ushort *col_idx = nullptr, ushort num_cols = 0);
 };
 

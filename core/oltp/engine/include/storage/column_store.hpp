@@ -121,14 +121,12 @@ class alignas(4096) ColumnStore : public Table {
  private:
   ColumnVector columns;
   Column *meta_column;
-  // Column *mv_attr_list_column;
-  // Column **secondary_index_vals;
   uint64_t offset;
   ushort num_data_partitions;
   size_t nParts{};
-  std::vector<std::pair<size_t, size_t>> column_size_offset_pairs;
-  std::vector<size_t> column_size_offsets;
-  std::vector<size_t> column_size;
+  std::vector<std::pair<uint16_t, uint16_t>> column_size_offset_pairs;
+  std::vector<uint16_t> column_size_offsets;
+  std::vector<uint16_t> column_size;
 
  public:
   const decltype(columns) &getColumns() { return columns; }
@@ -137,7 +135,7 @@ class alignas(4096) ColumnStore : public Table {
 class alignas(4096) Column {
  public:
   Column(std::string name, uint64_t initial_num_records, data_type type,
-         size_t unit_size, size_t cummulative_offset,
+         size_t unit_size, size_t cumulative_offset,
          bool single_version_only = false, bool partitioned = true,
          int numa_idx = -1);
 
@@ -154,7 +152,6 @@ class alignas(4096) Column {
   void *insertElemBatch(uint64_t vid, uint64_t num_elem);
   void insertElemBatch(uint64_t vid, uint64_t num_elem, void *data);
   void initializeMetaColumn();
-  void initializeMVColumn(size_t num_attributes);
 
   // void updateElem(uint64_t offset, void *elem, ushort master_ver);
   // void deleteElem(uint64_t offset, ushort master_ver);
@@ -165,27 +162,22 @@ class alignas(4096) Column {
 
   void ETL(uint numa_node_idx);
 
-  uint64_t num_upd_tuples(const ushort master_ver = 0,
+  uint64_t num_upd_tuples(ushort master_ver = 0,
                           const uint64_t *num_records = nullptr,
                           bool print = false);
 
-  size_t getSize() { return this->total_mem_reserved; }
-
-  // const std::vector<mem_chunk *> get_data(ushort master_version = 0) {
-  //   assert(master_version <= global_conf::num_master_versions);
-  //   return master_versions[master_version];
-  // }
+  [[nodiscard]] size_t getSize() const { return this->total_mem_reserved; }
 
   // snapshot stuff
-  std::vector<std::pair<storage::memory::mem_chunk, size_t>> snapshot_get_data(
-      bool olap_local = false, bool elastic_scan = false) const;
+  [[nodiscard]] std::vector<std::pair<storage::memory::mem_chunk, size_t>>
+  snapshot_get_data(bool olap_local = false, bool elastic_scan = false) const;
 
   std::vector<std::pair<storage::memory::mem_chunk, size_t>> elastic_partition(
       uint pid, std::set<size_t> &segment_boundaries);
 
   const std::string name;
   const size_t elem_size;
-  const size_t cummulative_offset;
+  const size_t cumulative_offset;
   const data_type type;
 
  private:

@@ -108,7 +108,7 @@ class VersionMultiAttr : public Version {
     this->attribute_mask = attr_mask;
   }
 
-  static size_t get_partial_mask_size(std::vector<size_t> &attribute_widths,
+  static size_t get_partial_mask_size(std::vector<uint16_t> &attribute_widths,
                                       std::vector<uint16_t> &ver_offsets,
                                       std::bitset<64> &attr_mask,
                                       const ushort *col_idx, short num_cols) {

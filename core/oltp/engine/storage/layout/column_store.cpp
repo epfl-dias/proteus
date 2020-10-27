@@ -185,7 +185,7 @@ void* ColumnStore::insertRecordBatch(void* rec_batch, uint recs_to_ins,
   for (auto& col : columns) {
     col.insertElemBatch(
         st_vid, recs_to_ins,
-        ((char*)rec_batch) + (col.cummulative_offset * capacity_offset));
+        ((char*)rec_batch) + (col.cumulative_offset * capacity_offset));
   }
 
   // return starting address of batch meta.
@@ -217,7 +217,7 @@ void* ColumnStore::insertRecord(void* rec, uint64_t xid, ushort partition_id,
 
   char* rec_ptr = (char*)rec;
   for (auto& col : columns) {
-    col.insertElem(curr_vid, rec_ptr + col.cummulative_offset);
+    col.insertElem(curr_vid, rec_ptr + col.cumulative_offset);
   }
 
   return (void*)hash_ptr;
@@ -232,7 +232,7 @@ uint64_t ColumnStore::insertRecord(void* rec, ushort partition_id,
 
   char* rec_ptr = (char*)rec;
   for (auto& col : columns) {
-    col.insertElem(curr_vid, rec_ptr + col.cummulative_offset);
+    col.insertElem(curr_vid, rec_ptr + col.cumulative_offset);
   }
   return curr_vid;
 }
@@ -416,7 +416,7 @@ void ColumnStore::updateRecord(uint64_t xid, global_conf::IndexVal* hash_ptr,
     char* version_data_ptr = (char*)(version_ptr.at(0)->data);
     assert(version_data_ptr != nullptr);
     for (auto& col : columns) {
-      memcpy(version_data_ptr + col.cummulative_offset, col.getElem(old_vid),
+      memcpy(version_data_ptr + col.cumulative_offset, col.getElem(old_vid),
              col.elem_size);
     }
 
@@ -490,7 +490,7 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
                bool single_version_only, bool partitioned, int numa_idx)
     : name(std::move(name)),
       elem_size(unit_size),
-      cummulative_offset(cummulative_offset),
+      cumulative_offset(cummulative_offset),
       type(type) {
   // time_block t("T_ColumnCreate_: ");
 
