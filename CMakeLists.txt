@@ -37,10 +37,12 @@ if (POLICY CMP0077)
 endif (POLICY CMP0077)
 
 # Now that the compilers are set, define project name and version
-project(proteus VERSION 2.0)
+project(proteus VERSION 2.0 LANGUAGES C CXX)
 
+# This has to be done after enabling languages
 include(GNUInstallDirs)
 include(GetPrerequisites)
+
 #-----------------------------------------------------------------------
 # Which binaries to build:
 #-----------------------------------------------------------------------
