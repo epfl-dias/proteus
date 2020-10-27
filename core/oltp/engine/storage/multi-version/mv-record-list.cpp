@@ -26,6 +26,7 @@
 #include <iostream>
 
 #include "glo.hpp"
+#include "memory/allocator.hpp"
 
 namespace storage::mv {
 
@@ -98,17 +99,22 @@ std::bitset<64> MV_RecordList_Partial::get_readable_version(
   // CREATE containment mask.
   std::bitset<64> done_mask;
   std::bitset<64> required_mask;
-  std::vector<uint> return_col_offsets;
+
+  // keep a thread-local allocated vector to remove allocations
+  // on the critical path.
+  static thread_local std::vector<
+      uint16_t, proteus::memory::PinnedMemoryAllocator<uint16_t>>
+      return_col_offsets(64, 0);
 
   if (num_cols > 0 && col_idx != nullptr) {
     assert(num_cols <= 64 && "MAX columns supported: 64");
     done_mask.set();
     for (auto i = 0, offset = 0; i < num_cols; i++) {
       done_mask.reset(col_idx[i]);
-      required_mask.set(col_idx[i]);
+      // required_mask.set(col_idx[i]);
 
       offset += column_size_offset_pairs[col_idx[i]].first;
-      return_col_offsets.push_back(offset);
+      return_col_offsets[i] = offset;
     }
   } else {
     for (auto i = column_size_offset_pairs.size(); i < done_mask.size(); i++) {
@@ -134,7 +140,7 @@ std::bitset<64> MV_RecordList_Partial::get_readable_version(
         done_mask |= tmp;
 
         // so this version contains some of the required stuff.
-        // Possible optimization: use intrinsic to find first set bit and
+        // FIXME: use intrinsic to find first set bit and
         // start i from there
         for (auto i = 0; i < tmp.size(); i++) {
           if (tmp[i] == false) {
@@ -189,17 +195,26 @@ MV_RecordList_Partial::create_versions(uint64_t xid,
                                        storage::DeltaStore& deltaStore,
                                        ushort partition_id,
                                        const ushort* col_idx, short num_cols) {
-  std::vector<size_t> ver_offsets;
   std::bitset<64> attr_mask;
+  static thread_local std::vector<uint16_t> ver_offsets{64, 0};
 
   auto ver_data_size = MV_RecordList_Partial::version_t::get_partial_mask_size(
       attribute_widths, ver_offsets, attr_mask, col_idx, num_cols);
+
+  auto offset_arr_sz = attr_mask.count() * sizeof(uint16_t);
+
+  ver_data_size += offset_arr_sz;
 
   auto* ver = (MV_RecordList_Partial::version_t*)deltaStore.insert_version(
       idx_ptr->delta_list, idx_ptr->t_min, 0, ver_data_size, partition_id);
   assert(ver != nullptr && ver->data != nullptr);
 
-  ver->create_partial_mask(ver_offsets, attr_mask);
+  char* offset_arr =
+      (char*)ver + sizeof(MV_RecordList_Partial::version_t) + ver_data_size;
+
+  memcpy(offset_arr, ver_offsets.data(), offset_arr_sz);
+
+  ver->create_partial_mask((uint16_t*)offset_arr, attr_mask);
 
   // LOG(INFO) << "ver-rec-size: " << ver_rec_size << "| ver-mask: " <<
   // ver->attribute_mask << "| tag: " << idx_ptr->delta_ver_tag;

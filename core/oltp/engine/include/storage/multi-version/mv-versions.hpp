@@ -31,8 +31,7 @@
 #include "delta_storage.hpp"
 #include "glo.hpp"
 
-namespace storage {
-namespace mv {
+namespace storage::mv {
 
 class Version {
  public:
@@ -44,10 +43,11 @@ class Version {
       : t_min(t_min), t_max(t_max), data(data) {}
 
   [[maybe_unused]] virtual void set_attr_mask(std::bitset<64> mask) = 0;
-  virtual size_t get_offset(size_t col_idx) = 0;
-  virtual void set_offsets(std::vector<size_t> col_offsets) = 0;
-  virtual size_t create_partial_mask(std::vector<size_t> &attribute_widths,
-                                     const ushort *col_idx, short num_cols) = 0;
+  virtual uint16_t get_offset(uint16_t col_idx) = 0;
+  //  virtual size_t create_partial_mask(std::vector<uint16_t>
+  //  &attribute_widths,
+  //                                     const ushort *col_idx, short num_cols)
+  //                                     = 0;
 
   virtual ~Version() = default;
 };
@@ -61,25 +61,15 @@ class VersionSingle : public Version {
 
   inline void set_attr_mask(std::bitset<64> mask) override {}
 
-  [[noreturn]] inline size_t get_offset(size_t col_idx) override {
+  [[noreturn]] inline uint16_t get_offset(uint16_t col_idx) override {
     throw std::runtime_error("record-list doesnt need offsets");
-  }
-
-  [[noreturn]] inline void set_offsets(
-      std::vector<size_t> col_offsets) override {
-    throw std::runtime_error("record-list doesnt need offsets");
-  }
-
-  size_t create_partial_mask(std::vector<size_t> &attribute_widths,
-                             const ushort *col_idx, short num_cols) override {
-    return 0;
   }
 };
 
 class VersionMultiAttr : public Version {
  public:
   std::bitset<64> attribute_mask;
-  std::vector<size_t> offsets;  // FIXME: THIS IS A MEMORY LEAKK!!
+  uint16_t *attribute_offsets;
   VersionMultiAttr *next;
 
   VersionMultiAttr(uint64_t t_min, uint64_t t_max, void *data)
@@ -93,87 +83,53 @@ class VersionMultiAttr : public Version {
         attribute_mask(attribute_mask) {}
 
   VersionMultiAttr(uint64_t t_min, uint64_t t_max, void *data,
-                   std::bitset<64> attribute_mask,
-                   std::vector<size_t> &col_offsets)
+                   std::bitset<64> attribute_mask, uint16_t *attr_offsets)
       : Version(t_min, t_max, data),
         next(nullptr),
         attribute_mask(attribute_mask),
-        offsets(std::move(col_offsets)) {}
+        attribute_offsets(attr_offsets) {}
 
   inline void set_attr_mask(std::bitset<64> mask) override {
     attribute_mask = mask;
   }
-  inline void set_offsets(std::vector<size_t> col_offsets) override {
-    this->offsets = std::move(col_offsets);
+
+  inline void set_attr_offsets(uint16_t *attr_offsets) {
+    attribute_offsets = attr_offsets;
   }
 
-  inline size_t get_offset(size_t col_idx) override {
+  inline uint16_t get_offset(uint16_t col_idx) override {
     auto idx_in_ver =
         (attribute_mask >> (attribute_mask.size() - col_idx)).count();
-    return offsets[idx_in_ver];
+    return attribute_offsets[idx_in_ver];
   }
 
-  void create_partial_mask(std::vector<size_t> &ver_offsets,
-                           std::bitset<64> attr_mask) {
-    this->offsets = std::move(ver_offsets);
+  void create_partial_mask(uint16_t *attr_offsets, std::bitset<64> attr_mask) {
+    this->attribute_offsets = attr_offsets;
     this->attribute_mask = attr_mask;
   }
 
-  size_t create_partial_mask(std::vector<size_t> &attribute_widths,
-                             const ushort *col_idx, short num_cols) override {
-    size_t ver_rec_size = 0;
-    offsets.reserve(num_cols > 0 ? num_cols : attribute_widths.size());
-    offsets.clear();
-
-    if (__likely(attribute_widths.size() <= 64)) {
-      if (__unlikely(num_cols == 0 || col_idx == nullptr)) {
-        this->attribute_mask.set();
-        for (auto &attr : attribute_widths) {
-          this->offsets.push_back(ver_rec_size);
-          ver_rec_size += attr;
-        }
-      } else {
-        this->attribute_mask.reset();
-        for (ushort i = 0; i < num_cols; i++) {
-          attribute_mask.set(col_idx[i]);
-          this->offsets.push_back(ver_rec_size);
-          ver_rec_size += attribute_widths.at(col_idx[i]);
-        }
-      }
-
-    } else {
-      assert(false && "for now only max 64 columns supported.");
-    }
-    // LOG(INFO) << "CREATED MASK: " << this->attribute_mask;
-    return ver_rec_size;
-  }
-
   static size_t get_partial_mask_size(std::vector<size_t> &attribute_widths,
-                                      std::vector<size_t> &ver_offsets,
+                                      std::vector<uint16_t> &ver_offsets,
                                       std::bitset<64> &attr_mask,
                                       const ushort *col_idx, short num_cols) {
     size_t ver_rec_size = 0;
-    ver_offsets.reserve(num_cols > 0 ? num_cols : attribute_widths.size());
 
-    if (__likely(attribute_widths.size() <= 64)) {
-      if (__unlikely(col_idx == nullptr || num_cols == 0)) {
-        attr_mask.set();
-        for (auto &attr : attribute_widths) {
-          ver_offsets.push_back(ver_rec_size);
-          ver_rec_size += attr;
-        }
-      } else {
-        attr_mask.reset();
-        for (ushort i = 0; i < num_cols; i++) {
-          attr_mask.set(col_idx[i]);
-          ver_offsets.push_back(ver_rec_size);
-          ver_rec_size += attribute_widths.at(col_idx[i]);
-        }
+    assert(attribute_widths.size() <= 64 && "max 64-columns supported");
+    if (__unlikely(col_idx == nullptr || num_cols == 0)) {
+      attr_mask.set();
+      for (auto &attr : attribute_widths) {
+        ver_offsets.push_back(ver_rec_size);
+        ver_rec_size += attr;
       }
-
     } else {
-      assert(false && "for now only max 64 columns supported.");
+      attr_mask.reset();
+      for (ushort i = 0; i < num_cols; i++) {
+        attr_mask.set(col_idx[i]);
+        ver_offsets.push_back(ver_rec_size);
+        ver_rec_size += attribute_widths.at(col_idx[i]);
+      }
     }
+
     return ver_rec_size;
   }
 };
@@ -181,16 +137,6 @@ class VersionMultiAttr : public Version {
 template <typename T>
 class VersionChain {
  public:
-  //  auto get_readable_version(
-  //      uint64_t xid, char *write_loc,
-  //      const std::vector<std::pair<size_t, size_t>>
-  //      &column_size_offset_pairs, const ushort *col_idx = nullptr, ushort
-  //      num_cols = 0) {
-  //    return T::get_readable_version(head, xid, write_loc,
-  //                                   column_size_offset_pairs, col_idx,
-  //                                   num_cols);
-  //  }
-
   VersionChain() : last_updated_tmin(0), head(nullptr) {}
 
   inline void insert(typename T::version_t *val) {
@@ -226,13 +172,6 @@ class VersionChain {
 class MVattributeListCol {
  private:
   DeltaList *version_list;
-
-  //  struct col_mv_list {
-  //    size_t delta_tag;
-  //    versionChain *versions;
-  //  };
-  //
-  //  struct col_mv_list *attr_lists;
 
  public:
   static size_t getSize(size_t num_attributes) {
@@ -299,7 +238,6 @@ class MVattributeListCol {
 //  friend T;
 //};
 
-}  // namespace mv
-}  // namespace storage
+}  // namespace storage::mv
 
 #endif /* PROTEUS_MV_VERSIONS_HPP */
