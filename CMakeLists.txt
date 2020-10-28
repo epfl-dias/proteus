@@ -466,6 +466,7 @@ add_subdirectory(apps/benchmarks/htap)
 # Unit-tests
 if(UNIT_TESTS)
 	add_subdirectory(tests/olap)
+	add_subdirectory(tests/oltp)
 endif()
 
 # Deprecated unit-tests

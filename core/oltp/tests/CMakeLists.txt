@@ -17,13 +17,13 @@ foreach (target ${gtest_src})
 endforeach (target)
 
 # One test to rule them all
-add_executable(unit-tests-oltp ${gtest_src} test-utils.cpp)
-target_link_libraries(unit-tests-oltp ${gtest_libs})
-install(TARGETS unit-tests-oltp
+add_executable(unit-tests-oltp-engine ${gtest_src} test-utils.cpp)
+target_link_libraries(unit-tests-oltp-engine ${gtest_libs})
+install(TARGETS unit-tests-oltp-engine
         RUNTIME DESTINATION pelago
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
         )
 
 enable_testing()
-add_test(UT unit-tests-oltp)
+add_test(UT unit-tests-oltp-engine)
