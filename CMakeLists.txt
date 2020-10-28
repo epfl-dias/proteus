@@ -190,7 +190,7 @@ message(STATUS "Linking with LLVM components: ${llvm_libs}")
 set(USE_LIBCXX FALSE)
 
 foreach(llvm_lib ${llvm_libs})
-find_library(lib ${llvm_lib} PATHS "${LLVM_LIBRARY_DIR}" NO_DEFAULT_PATH)
+find_library(lib ${llvm_lib} PATHS "${LLVM_LIBRARY_DIR}" NO_DEFAULT_PATH REQUIRED)
 get_prerequisites("${lib}" _prereqs FALSE TRUE "" "${LLVM_LIBRARY_DIR}")
 if (_prereqs MATCHES "/libc\\+\\+")
 	set(USE_LIBCXX TRUE)
@@ -205,7 +205,7 @@ if (USE_LIBCXX)
 	set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -stdlib=libc++")
 
 	# Also add libc++ to the llvm_libs so that we get std::filesystem; apparently -stdlib=libc++ is not enough
-	find_library(libc++ c++ PATHS "${LLVM_LIBRARY_DIR}" NO_DEFAULT_PATH)
+	find_library(libc++ c++ PATHS "${LLVM_LIBRARY_DIR}" NO_DEFAULT_PATH REQUIRED)
 	list(APPEND llvm_libs ${llvm_libs} ${libc++})
 	list(APPEND PROTEUS_FORCE_CPPSTD_FOR_CUDA "--std=c++20")
 else()
@@ -214,6 +214,7 @@ else()
 	# Using c++20 with cuda and libstdc++-10-dev causes compilation issues
 	list(APPEND PROTEUS_FORCE_CPPSTD_FOR_CUDA "--stdlib=libstdc++")
 	list(APPEND PROTEUS_FORCE_CPPSTD_FOR_CUDA "--std=c++17")
+	list(APPEND PROTEUS_FORCE_CPPSTD_FOR_CUDA "-Wno-error=zero-as-null-pointer-constant")
 endif()
 
 if (CMAKE_CXX_FLAGS MATCHES ".*-stdlib=libc\\+\\+.*")
