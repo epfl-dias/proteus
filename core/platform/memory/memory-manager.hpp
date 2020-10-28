@@ -160,6 +160,7 @@ class MemoryManager {
   static void freeGpu(void *ptr);
 
   static void *mallocPinned(size_t bytes);
+  static void *mallocPinnedOnNode(size_t bytes, int node = -1);
   static void freePinned(void *ptr);
 
  private:

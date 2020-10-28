@@ -32,13 +32,13 @@
 static storage::Table *tbl;
 static auto num_fields = 2;
 static size_t record[] = {1, 2};
-static auto intial_records = 100;
+static auto initial_records = 100;
 
 bool insert_query(uint64_t xid, ushort master_ver, ushort delta_ver,
                   ushort partition_id) {
   // INSERT INTO T VALUES (5, 10);
 
-  for (auto i = 0; i < intial_records; i++) {
+  for (auto i = 0; i < initial_records; i++) {
     record[0] = i + 2;
     record[1] = i + 1175;
     void *hash_idx = tbl->insertRecord(record, xid, partition_id, master_ver);
@@ -81,7 +81,7 @@ bool select_query(uint64_t xid, ushort master_ver, ushort delta_ver,
 
   if (hash_ptr != nullptr) {
     hash_ptr->latch.acquire();
-    tbl->getRecordByKey(hash_ptr->VID, nullptr, 0, &(record[0]));
+    tbl->getRecordByKey(hash_ptr, UINT64_MAX, nullptr, 0, &(record[0]));
     hash_ptr->latch.release();
     LOG(INFO) << "SELECT VALUE GOT: [0]: " << record[0];
     LOG(INFO) << "SELECT VALUE GOT: [1]: " << record[1];
@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
   }
 
   tbl = storage::Schema::getInstance().create_table(
-      "table_one", storage::COLUMN_STORE, columns, intial_records * 10);
+      "table_one", storage::COLUMN_STORE, columns, initial_records * 10);
 
   // Insert multiple values.
   // INSERT INTO T VALUES (5, 10);

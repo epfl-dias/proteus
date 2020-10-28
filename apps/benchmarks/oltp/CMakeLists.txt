@@ -13,8 +13,8 @@ foreach(target
 	)
 	add_executable(oltp-${target} ${target}.cpp ${txn_bench_cxx})
 	target_link_libraries(oltp-${target}
-			aeolus::engine
-			aeolus::bench
+			oltp::engine
+			oltp::bench
 			gflags::gflags
 			codegen::olap_flags
 			Threads::Threads

@@ -29,6 +29,7 @@
 #include <string>
 
 #include "aeolus-plugin.hpp"
+#include "olap/plan/catalog-parser.hpp"
 #include "olap/plan/prepared-statement.hpp"
 #include "olap/routing/affinitizers.hpp"
 #include "olap/routing/degree-of-parallelism.hpp"

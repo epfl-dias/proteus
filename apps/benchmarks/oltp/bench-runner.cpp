@@ -33,14 +33,13 @@
 #include <tuple>
 
 // OLTP Engine
-#include "glo.hpp"
-#include "interfaces/bench.hpp"
-#include "oltp-cli-flags.hpp"
-#include "scheduler/worker.hpp"
-#include "storage/table.hpp"
-#include "topology/topology.hpp"
-#include "transactions/transaction_manager.hpp"
-#include "utils/utils.hpp"
+#include "oltp/common/constants.hpp"
+#include "oltp/common/oltp-cli-flags.hpp"
+#include "oltp/common/utils.hpp"
+#include "oltp/execution/worker.hpp"
+#include "oltp/interface/bench.hpp"
+#include "oltp/storage/table.hpp"
+#include "oltp/transaction/transaction_manager.hpp"
 
 // Bench Includes
 

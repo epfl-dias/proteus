@@ -29,9 +29,10 @@
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <oltp/common/utils.hpp>
+#include <threadpool/thread.hpp>
 
-#include "threadpool/thread.hpp"
-#include "utils/utils.hpp"
+#define NDEFAULT_RIDS 16
 
 namespace bench {
 

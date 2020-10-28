@@ -26,18 +26,18 @@
 
 #include <cassert>
 #include <cmath>
+#include <common/common.hpp>
 #include <cstdlib>
 #include <iostream>
+#include <memory/memory-manager.hpp>
 #include <mutex>
+#include <oltp/common/constants.hpp>
+#include <oltp/interface/bench.hpp>
+#include <oltp/storage/table.hpp>
 #include <thread>
+#include <topology/topology.hpp>
 #include <utility>
 
-#include "common/common.hpp"
-#include "glo.hpp"
-#include "interfaces/bench.hpp"
-#include "storage/memory_manager.hpp"
-#include "storage/table.hpp"
-#include "topology/topology.hpp"
 #include "zipf.hpp"
 
 namespace bench {
@@ -139,15 +139,15 @@ class YCSB : public Benchmark {
 
   void free_query_struct_ptr(void *ptr) override {
     auto *txn = (struct YCSB_TXN *)ptr;
-    storage::memory::MemoryManager::free(txn->ops);
-    storage::memory::MemoryManager::free(txn);
+    MemoryManager::freePinned(txn->ops);
+    MemoryManager::freePinned(txn);
   }
 
   void *get_query_struct_ptr(ushort pid) override {
-    auto *txn = (struct YCSB_TXN *)storage::memory::MemoryManager::alloc(
-        sizeof(struct YCSB_TXN), pid, MADV_DONTFORK);
-    txn->ops = (struct YCSB_TXN_OP *)storage::memory::MemoryManager::alloc(
-        sizeof(struct YCSB_TXN_OP) * num_ops_per_txn, pid, MADV_DONTFORK);
+    auto *txn = (struct YCSB_TXN *)MemoryManager::mallocPinnedOnNode(
+        sizeof(struct YCSB_TXN), pid);
+    txn->ops = (struct YCSB_TXN_OP *)MemoryManager::mallocPinnedOnNode(
+        sizeof(struct YCSB_TXN_OP) * num_ops_per_txn, pid);
     return txn;
   }
 

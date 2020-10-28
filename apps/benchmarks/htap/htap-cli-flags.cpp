@@ -24,10 +24,6 @@
 
 #include <gflags/gflags.h>
 
-#include <iostream>
-
-#include "glo.hpp"
-
 DEFINE_uint64(num_olap_clients, 1, "Number of OLAP clients");
 DEFINE_uint64(num_olap_repeat, 10,
               "Number of OLAP clients repeat query sequence");

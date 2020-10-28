@@ -23,8 +23,8 @@ foreach(target
 	)
 	add_executable(htap-${target} ${target}.cpp ${htap_bench_cxx})
 	target_link_libraries(htap-${target}
-			aeolus::bench
-			aeolus::plugin
+			oltp::bench
+			oltp::adaptor
 			codegen::olap
 			htap::engine
 			gflags::gflags

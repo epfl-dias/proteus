@@ -2,7 +2,8 @@ project(htap VERSION 0.1 LANGUAGES CXX)
 
 # Pure, regular C++ files
 set(htap_cxx
-	utils/utils.cpp
+	# utils/utils.cpp
+        include/queries/query-interface.cpp
     )
 
 foreach(target ${htap_cxx})
@@ -39,8 +40,8 @@ target_link_libraries(htap_engine
         PUBLIC
             ${llvm_libs}
             codegen::olap
-            aeolus::engine
-            aeolus::plugin
+            oltp::engine
+            oltp::adaptor
             )
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).

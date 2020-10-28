@@ -35,7 +35,7 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
     PUBLIC
         codegen::olap
-        aeolus::plugin)
+        oltp::adaptor)
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
 install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}Targets

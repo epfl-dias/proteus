@@ -20,29 +20,20 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
-#include <sys/mman.h>
 
-#include <algorithm>
-#include <cctype>
 #include <chrono>
-#include <cstring>
-#include <ctime>
-#include <fstream>
 #include <functional>
-#include <iomanip>
 #include <iostream>
-#include <limits>
-#include <locale>
 #include <olap/operators/relbuilder-factory.hpp>
 #include <olap/plan/catalog-parser.hpp>
 #include <olap/plan/prepared-statement.hpp>
 #include <olap/routing/degree-of-parallelism.hpp>
+#include <oltp/common/utils.hpp>
+#include <oltp/storage/layout/column_store.hpp>
 #include <string>
+#include <threadpool/thread.hpp>
 
-#include "storage/column_store.hpp"
-#include "threadpool/thread.hpp"
 #include "tpcc_64.hpp"
-#include "utils/utils.hpp"
 
 namespace bench {
 

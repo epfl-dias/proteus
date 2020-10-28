@@ -28,14 +28,13 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <memory/memory-manager.hpp>
 #include <olap/plan/prepared-statement.hpp>
+#include <oltp/common/constants.hpp>
+#include <oltp/interface/bench.hpp>
+#include <oltp/storage/table.hpp>
 #include <string>
 #include <thread>
-
-#include "glo.hpp"
-#include "interfaces/bench.hpp"
-#include "storage/memory_manager.hpp"
-#include "storage/table.hpp"
 
 // FIXME: REPLICATED_ITEM_TABLE - broken, incomplete stuff.
 #define REPLICATED_ITEM_TABLE false
@@ -289,7 +288,6 @@ class TPCC : public Benchmark {
     int sr_idx;
     int sr_nids;
     uint32_t *sr_rids;
-#define NDEFAULT_RIDS 16
   };
 
   struct cust_read {
@@ -451,15 +449,13 @@ class TPCC : public Benchmark {
                            ushort partition_id);
 
   void *get_query_struct_ptr(ushort pid) override {
-    return storage::memory::MemoryManager::alloc(
-        sizeof(struct tpcc_query),
-        storage::NUMAPartitionPolicy::getInstance()
-            .getPartitionInfo(pid)
-            .numa_idx,
-        MADV_DONTFORK);
+    return MemoryManager::mallocPinnedOnNode(
+        sizeof(struct tpcc_query), storage::NUMAPartitionPolicy::getInstance()
+                                       .getPartitionInfo(pid)
+                                       .numa_idx);
   }
   void free_query_struct_ptr(void *ptr) override {
-    storage::memory::MemoryManager::free(ptr);  //, sizeof(struct tpcc_query));
+    MemoryManager::freePinned(ptr);  //, sizeof(struct tpcc_query));
   }
   bool exec_txn(const void *stmts, uint64_t xid, ushort master_ver,
                 ushort delta_ver, ushort partition_id) override;

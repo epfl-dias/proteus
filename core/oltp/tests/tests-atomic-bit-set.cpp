@@ -23,7 +23,7 @@
 
 #include <gtest/gtest.h>
 
-#include "utils/atomic_bit_set.hpp"
+#include "oltp/common/atomic_bit_set.hpp"
 
 // ::testing::Environment *const pools_env =
 //     ::testing::AddGlobalTestEnvironment(new testing::TestEnvironment);

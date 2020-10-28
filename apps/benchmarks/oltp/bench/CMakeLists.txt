@@ -1,19 +1,19 @@
-project(aeolus_bench VERSION 0.1 LANGUAGES CXX)
+project(oltp_bench VERSION 0.1 LANGUAGES CXX)
 # Pure, regular C++ files
-set(aeolus_bench_cxx
+set(oltp_bench_cxx
         tpcc/tpcc_64.cpp
 		tpcc/txn.cpp
 		tpcc/utils.cpp
 		tpcc/consistency_verifiers.cpp)
 
-add_library(aeolus_bench SHARED
-        ${aeolus_bench_cxx}
+add_library(oltp_bench SHARED
+        ${oltp_bench_cxx}
     )
 
 # Define headers for this library. PUBLIC headers are used for
 # compiling the library, and will be added to consumers' build
 # paths.
-target_include_directories(aeolus_bench
+target_include_directories(oltp_bench
 		PUBLIC
 			$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 			$<INSTALL_INTERFACE:.>
@@ -22,16 +22,16 @@ target_include_directories(aeolus_bench
 
 # If we have compiler requirements for this library, list them
 # here
-target_compile_features(aeolus_bench
+target_compile_features(oltp_bench
 		PUBLIC cxx_std_17)
 
 # Depend on a library that we defined in the top-level file
-target_link_libraries(aeolus_bench
-        aeolus_engine
-		aeolus_plugin)
+target_link_libraries(oltp_bench
+        oltp
+		oltp_adaptor)
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
-install(TARGETS aeolus_bench EXPORT ${PROJECT_NAME}Config
+install(TARGETS oltp_bench EXPORT ${PROJECT_NAME}Config
 		ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
 		LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
 		RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR})  # This is for Windows
@@ -44,4 +44,4 @@ install(TARGETS aeolus_bench EXPORT ${PROJECT_NAME}Config
 # This makes the project importable from the build directory
 #export(TARGETS codegen FILE ${PROJECT_NAME}Config.cmake)
 
-add_library(aeolus::bench ALIAS aeolus_bench)
+add_library(oltp::bench ALIAS oltp_bench)

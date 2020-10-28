@@ -22,29 +22,21 @@
 */
 
 #include <gflags/gflags.h>
-#include <unistd.h>
 
 #include <cmath>
 #include <iostream>
-#include <string>
 
 // HTAP
 #include "htap-cli-flags.hpp"
 
 // UTILS
-#include "util/profiling.hpp"
 #include "util/timing.hpp"
 
 // OLAP
 #include <cli-flags.hpp>
 #include <olap/common/olap-common.hpp>
 
-#include "memory/memory-manager.hpp"
-#include "queries/olap-sequence.hpp"
-#include "storage/storage-manager.hpp"
-
 // OLTP
-#include "aeolus-plugin.hpp"
 #include "oltp.hpp"
 #include "tpcc/tpcc_64.hpp"
 #include "ycsb.hpp"

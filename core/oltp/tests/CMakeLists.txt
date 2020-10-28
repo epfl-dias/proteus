@@ -1,8 +1,7 @@
-set(gtest_libs ${GTEST_MAIN} ${GTEST} aeolus_engine)
+set(gtest_libs ${GTEST_MAIN} ${GTEST} codegen::olap oltp::engine)
 
 set(gtest_src
         #tests-snapshotting
-        tests-atomic-bit-set
         )
 
 foreach (target ${gtest_src})
