@@ -48,7 +48,15 @@ std::vector<ib> ib::discover() {
   std::vector<ib> ibs;
 
   int dev_cnt;
-  ibv_device **dev_list = linux_run(ibv_get_device_list(&dev_cnt));
+  ibv_device **dev_list = ibv_get_device_list(&dev_cnt);
+  if (dev_list == nullptr) {
+    if (errno == ENOSYS) {
+      LOG(ERROR) << "Error reading IB devices";
+      dev_cnt = 0;
+    } else {
+      linux_run(dev_list);
+    }
+  }
   ibs.reserve(dev_cnt);
   for (size_t ib_indx = 0; ib_indx < dev_cnt; ++ib_indx) {
     ibv_device *ib_dev = dev_list[ib_indx];
@@ -57,7 +65,7 @@ std::vector<ib> ib::discover() {
     ibs.emplace_back(ib_indx, ib_dev, construction_guard{});
   }
 
-  ibv_free_device_list(dev_list);
+  if (dev_list) ibv_free_device_list(dev_list);
 
   return ibs;
 }

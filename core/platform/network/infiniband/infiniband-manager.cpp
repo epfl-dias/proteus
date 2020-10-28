@@ -162,18 +162,19 @@ void InfiniBandManager::init(const std::string &url, uint16_t port,
   } else {
     srv_id = 1;
   }
+  if (topology::getInstance().getIBCount()) {
+    auto addr = [&]() {
+      if (primary) {
+        return topology::getInstance().getIBs().front().get_client(port);
+      } else {
+        return topology::getInstance().getIBs().front().get_server(url, port);
+      }
+    }();
+    LOG(INFO) << addr;
 
-  auto addr = [&]() {
-    if (primary) {
-      return topology::getInstance().getIBs().front().get_client(port);
-    } else {
-      return topology::getInstance().getIBs().front().get_server(url, port);
-    }
-  }();
-  LOG(INFO) << addr;
-
-  ib.emplace_back(new IBHandler(8, topology::getInstance().getIBs().front()));
-  ib.front()->start();
+    ib.emplace_back(new IBHandler(8, topology::getInstance().getIBs().front()));
+    ib.front()->start();
+  }
 }
 
 #include <endian.h>
