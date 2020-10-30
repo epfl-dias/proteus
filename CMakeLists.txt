@@ -32,6 +32,10 @@ if (POLICY CMP0048)
 	cmake_policy(SET CMP0048 NEW)
 endif (POLICY CMP0048)
 
+if (POLICY CMP0077)
+	cmake_policy(SET CMP0077 NEW)
+endif (POLICY CMP0077)
+
 # Now that the compilers are set, define project name and version
 project(proteus VERSION 2.0)
 
@@ -401,6 +405,11 @@ if (TRUE)
 	add_library(RapidJSON::RapidJSON INTERFACE IMPORTED)
 	target_include_directories(RapidJSON::RapidJSON
 			SYSTEM PUBLIC INTERFACE "${RapidJSON_INCLUDE_DIRS}")
+endif()
+
+if (TRUE)
+	set(gRPC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+	include(external/CMakeLists.txt.grpc.in)
 endif()
 
 #-----------------------------------------------------------------------

@@ -1,0 +1,9 @@
+cmake_minimum_required(VERSION 2.8.2)
+
+include(FetchContent)
+FetchContent_Declare(
+        grpc-download
+        GIT_REPOSITORY https://github.com/grpc/grpc.git
+        GIT_TAG       v1.33.1)
+
+FetchContent_MakeAvailable(grpc-download)
