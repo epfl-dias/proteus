@@ -45,9 +45,9 @@ class MemMoveScaleOut : public MemMoveDevice {
     bool getPropagated(MemMoveDevice::workunit **ret) override;
   };
 
-  MemMoveScaleOut(Operator *const child, ParallelContext *const context,
+  MemMoveScaleOut(Operator *const child,
                   const vector<RecordAttribute *> &wantedFields, size_t slack)
-      : MemMoveDevice(child, context, wantedFields, slack, true) {}
+      : MemMoveDevice(child, wantedFields, slack, true) {}
 
  protected:
   [[nodiscard]] MemMoveScaleOut::MemMoveConf *createMoveConf() const override;

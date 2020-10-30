@@ -26,66 +26,31 @@
 #include <future>
 #include <thread>
 
+#include "mem-move-device.hpp"
 #include "olap/util/parallel-context.hpp"
 #include "operators.hpp"
 #include "topology/affinity_manager.hpp"
 #include "util/async_containers.hpp"
 
-// void * make_mem_move_device(char * src, size_t bytes, int target_device,
-// cudaStream_t strm);
-
-class MemMoveLocalTo : public UnaryOperator {
+class MemMoveLocalTo : public MemMoveDevice {
  public:
-  struct workunit {
-    void *data;
-    cudaEvent_t event;
+  class MemMoveConf : public MemMoveDevice::MemMoveConf {
+   public:
+    void propagate(MemMoveDevice::workunit *buff, bool is_noop) override;
+
+    buff_pair push(void *src, size_t bytes, int target_device,
+                   uint64_t srcServer) override;
+
+    bool getPropagated(MemMoveDevice::workunit **ret) override;
   };
 
-  struct MemMoveConf {
-    AsyncStackSPSC<workunit *> idle;
-    AsyncQueueSPSC<workunit *> tran;
-
-    std::future<void> worker;
-    cudaStream_t strm;
-    cudaStream_t strm2;
-
-    size_t slack;
-    cudaEvent_t *events;
-    void **old_buffs;
-    size_t next_e;
-  };
-
+ public:
   MemMoveLocalTo(Operator *const child,
                  const vector<RecordAttribute *> &wantedFields,
                  size_t slack = 8)
-      : UnaryOperator(child), wantedFields(wantedFields), slack(slack) {}
+      : MemMoveDevice(child, wantedFields, slack, true) {}
 
-  ~MemMoveLocalTo() override {
-    LOG(INFO) << "Collapsing MemMoveLocalTo operator";
-  }
-
-  void produce_(ParallelContext *context) override;
-  void consume(Context *const context,
-               const OperatorState &childState) override;
-  bool isFiltering() const override { return false; }
-
-  RecordType getRowType() const override { return wantedFields; }
-
- private:
-  const vector<RecordAttribute *> wantedFields;
-  StateVar device_id_var;
-  StateVar memmvconf_var;
-
-  PipelineGen *catch_pip;
-  llvm::Type *data_type;
-
-  size_t slack;
-
-  void open(Pipeline *pip);
-  void close(Pipeline *pip);
-
-  void catcher(MemMoveConf *conf, int group_id,
-               const exec_location &target_dev);
+  [[nodiscard]] MemMoveConf *createMoveConf() const override;
 };
 
 #endif /* MEM_MOVE_LOCAL_TO_HPP_ */

@@ -82,7 +82,7 @@ class MemMoveDevice : public experimental::UnaryOperator {
     virtual void release(MemMoveDevice::workunit *buff);
   };
 
-  MemMoveDevice(Operator *const child, ParallelContext *const context,
+  MemMoveDevice(Operator *const child,
                 const vector<RecordAttribute *> &wantedFields, size_t slack,
                 bool to_cpu, std::vector<bool> do_transfer)
       : UnaryOperator(child),
@@ -91,10 +91,10 @@ class MemMoveDevice : public experimental::UnaryOperator {
         to_cpu(to_cpu),
         do_transfer(std::move(do_transfer)) {}
 
-  MemMoveDevice(Operator *const child, ParallelContext *const context,
+  MemMoveDevice(Operator *const child,
                 const vector<RecordAttribute *> &wantedFields, size_t slack,
                 bool to_cpu)
-      : MemMoveDevice(child, context, wantedFields, slack, to_cpu,
+      : MemMoveDevice(child, wantedFields, slack, to_cpu,
                       //                      {true, true, false, false}
                       std::vector<bool>(wantedFields.size(), true)) {}
 

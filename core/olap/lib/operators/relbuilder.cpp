@@ -132,8 +132,7 @@ RelBuilder RelBuilder::memmove(const vector<RecordAttribute *> &wantedFields,
   for (const auto &attr : wantedFields) {
     assert(dynamic_cast<const BlockType *>(attr->getOriginalType()));
   }
-  auto op =
-      new MemMoveDevice(root, ctx, wantedFields, slack, to == DeviceType::CPU);
+  auto op = new MemMoveDevice(root, wantedFields, slack, to == DeviceType::CPU);
   return apply(op);
 }
 
@@ -142,7 +141,7 @@ RelBuilder RelBuilder::memmove_scaleout(
   for (const auto &attr : wantedFields) {
     assert(dynamic_cast<const BlockType *>(attr->getOriginalType()));
   }
-  auto op = new MemMoveScaleOut(root, ctx, wantedFields, slack);
+  auto op = new MemMoveScaleOut(root, wantedFields, slack);
   return apply(op);
 }
 
@@ -152,8 +151,8 @@ RelBuilder RelBuilder::membrdcst(const vector<RecordAttribute *> &wantedFields,
   for (const auto &attr : wantedFields) {
     assert(dynamic_cast<const BlockType *>(attr->getOriginalType()));
   }
-  auto op = new MemBroadcastDevice(root, ctx, wantedFields, fanout, to_cpu,
-                                   always_share);
+  auto op =
+      new MemBroadcastDevice(root, wantedFields, fanout, to_cpu, always_share);
   return apply(op);
 }
 

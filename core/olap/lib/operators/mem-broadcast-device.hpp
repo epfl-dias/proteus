@@ -58,10 +58,10 @@ class MemBroadcastDevice : public MemMoveDevice {
     //  virtual void *pull(void *buff) { return buff; }
   };
 
-  MemBroadcastDevice(Operator *const child, ParallelContext *const context,
+  MemBroadcastDevice(Operator *const child,
                      const vector<RecordAttribute *> &wantedFields,
                      int num_of_targets, bool to_cpu, bool always_share = false)
-      : MemMoveDevice(child, context, wantedFields, 8 * num_of_targets, to_cpu),
+      : MemMoveDevice(child, wantedFields, 8 * num_of_targets, to_cpu),
         always_share(always_share) {
     for (int i = 0; i < num_of_targets; ++i) {
       targets.push_back(

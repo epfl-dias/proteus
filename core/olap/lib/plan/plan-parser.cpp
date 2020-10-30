@@ -833,8 +833,8 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     Operator *mml_build =
         new MemMoveLocalTo(fwd_build, build_hashed_attr_block, 4);
     fwd_build->setParent(mml_build);
-    Operator *mmd_build = new MemMoveDevice(mml_build, (ParallelContext *)ctx,
-                                            build_hashed_attr_block, 4, false);
+    Operator *mmd_build =
+        new MemMoveDevice(mml_build, build_hashed_attr_block, 4, false);
     mml_build->setParent(mmd_build);
     Operator *ctg_build = new CpuToGpu(mmd_build, build_hashed_attr_block);
     mmd_build->setParent(ctg_build);
@@ -853,8 +853,8 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     Operator *mml_probe =
         new MemMoveLocalTo(fwd_probe, probe_hashed_attr_block, 4);
     fwd_probe->setParent(mml_probe);
-    Operator *mmd_probe = new MemMoveDevice(mml_probe, (ParallelContext *)ctx,
-                                            probe_hashed_attr_block, 4, false);
+    Operator *mmd_probe =
+        new MemMoveDevice(mml_probe, probe_hashed_attr_block, 4, false);
     mml_probe->setParent(mmd_probe);
     Operator *ctg_probe = new CpuToGpu(mmd_probe, probe_hashed_attr_block);
     mmd_probe->setParent(ctg_probe);

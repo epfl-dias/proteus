@@ -48,10 +48,10 @@ class MemBroadcastScaleOut : public MemBroadcastDevice {
                        const vector<RecordAttribute *> &wantedFields,
                        int num_of_targets, bool to_cpu,
                        bool always_share = false)
-      : MemBroadcastDevice(child, context, wantedFields, num_of_targets, to_cpu,
+      : MemBroadcastDevice(child, wantedFields, num_of_targets, to_cpu,
                            always_share) {}
 
-  MemBroadcastConf *createMoveConf() const override;
+  [[nodiscard]] MemBroadcastConf *createMoveConf() const override;
 };
 
 #endif /* MEM_BROADCAST_SCALEOUT_HPP_ */

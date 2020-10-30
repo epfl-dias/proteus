@@ -99,13 +99,13 @@ void MemMoveDevice::produce_(ParallelContext *context) {
                                    true);
   context->setGlobalFunction();
 
-  auto *Builder = context->getBuilder();
-  auto *entryBB = Builder->GetInsertBlock();
-  auto *F = entryBB->getParent();
+  auto Builder = context->getBuilder();
+  auto entryBB = Builder->GetInsertBlock();
+  auto F = entryBB->getParent();
 
-  auto *mainBB = llvm::BasicBlock::Create(llvmContext, "main", F);
+  auto mainBB = llvm::BasicBlock::Create(llvmContext, "main", F);
 
-  auto *endBB = llvm::BasicBlock::Create(llvmContext, "end", F);
+  auto endBB = llvm::BasicBlock::Create(llvmContext, "end", F);
   context->setEndingBlock(endBB);
 
   Builder->SetInsertPoint(entryBB);
