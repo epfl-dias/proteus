@@ -34,33 +34,25 @@
 #include "olap/plugins/binary-block-plugin.hpp"
 #ifndef NCUDA
 #include "lib/operators/cpu-to-gpu.hpp"
-#include "lib/operators/gpu/gpu-hash-group-by-chained.hpp"
-#include "lib/operators/gpu/gpu-hash-join-chained.hpp"
-#include "lib/operators/gpu/gpu-hash-rearrange.hpp"
 #include "lib/operators/gpu/gpu-partitioned-hash-join-chained.hpp"
-#include "lib/operators/gpu/gpu-reduce.hpp"
 #include "lib/operators/gpu/gpu-to-cpu.hpp"
 #endif
+#include <lib/operators/mem-move/mem-move-device.hpp>
+#include <lib/operators/mem-move/mem-move-local-to.hpp>
 #include <olap/routing/affinitization-factory.hpp>
 
 #include "lib/operators/block-to-tuples.hpp"
 #include "lib/operators/dict-scan.hpp"
 #include "lib/operators/flush.hpp"
 #include "lib/operators/hash-group-by-chained.hpp"
-#include "lib/operators/hash-join-chained.hpp"
 #include "lib/operators/hash-rearrange.hpp"
-#include "lib/operators/mem-broadcast-device.hpp"
-#include "lib/operators/mem-move-device.hpp"
-#include "lib/operators/mem-move-local-to.hpp"
 #include "lib/operators/outer-unnest.hpp"
 #include "lib/operators/packet-zip.hpp"
 #include "lib/operators/print.hpp"
 #include "lib/operators/radix-join.hpp"
 #include "lib/operators/radix-nest.hpp"
-#include "lib/operators/reduce-opt.hpp"
 #include "lib/operators/root.hpp"
 #include "lib/operators/router.hpp"
-#include "lib/operators/scan.hpp"
 #include "lib/operators/select.hpp"
 #include "lib/operators/split.hpp"
 #include "lib/operators/unnest.hpp"
@@ -830,12 +822,9 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
         new ZipForward(attr_target, initiator, (ParallelContext *)ctx,
                        build_hashed_expr, "forwarder", coord->getStateLeft());
 
-    Operator *mml_build =
-        new MemMoveLocalTo(fwd_build, build_hashed_attr_block, 4);
-    fwd_build->setParent(mml_build);
     Operator *mmd_build =
-        new MemMoveDevice(mml_build, build_hashed_attr_block, 4, false);
-    mml_build->setParent(mmd_build);
+        new MemMoveDevice(fwd_build, build_hashed_attr_block, 4, false);
+    fwd_build->setParent(mmd_build);
     Operator *ctg_build = new CpuToGpu(mmd_build, build_hashed_attr_block);
     mmd_build->setParent(ctg_build);
     Operator *btt_build2 =
@@ -850,12 +839,9 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
         new ZipForward(attr_target, initiator, (ParallelContext *)ctx,
                        probe_hashed_expr, "forwarder", coord->getStateRight());
 
-    Operator *mml_probe =
-        new MemMoveLocalTo(fwd_probe, probe_hashed_attr_block, 4);
-    fwd_probe->setParent(mml_probe);
     Operator *mmd_probe =
-        new MemMoveDevice(mml_probe, probe_hashed_attr_block, 4, false);
-    mml_probe->setParent(mmd_probe);
+        new MemMoveDevice(fwd_probe, probe_hashed_attr_block, 4, false);
+    fwd_probe->setParent(mmd_probe);
     Operator *ctg_probe = new CpuToGpu(mmd_probe, probe_hashed_attr_block);
     mmd_probe->setParent(ctg_probe);
     Operator *btt_probe2 =

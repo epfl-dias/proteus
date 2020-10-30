@@ -26,9 +26,9 @@
 #include <future>
 #include <thread>
 
+#include "lib/operators/operators.hpp"
 #include "mem-move-device.hpp"
 #include "olap/util/parallel-context.hpp"
-#include "operators.hpp"
 #include "topology/affinity_manager.hpp"
 #include "util/async_containers.hpp"
 

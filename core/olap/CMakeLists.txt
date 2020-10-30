@@ -27,6 +27,11 @@ set(olap_cxx
         lib/operators/gpu/gpu-reduce.cpp
         lib/operators/gpu/gpu-sort.cpp
         lib/operators/gpu/gpu-to-cpu.cpp
+        lib/operators/mem-move/mem-broadcast-device.cpp
+        lib/operators/mem-move/mem-broadcast-scaleout.cpp
+        lib/operators/mem-move/mem-move-device.cpp
+        lib/operators/mem-move/mem-move-local-to.cpp
+        lib/operators/mem-move/mem-move-scaleout.cpp
         lib/operators/agg-t.cpp
         lib/operators/hash-group-by-chained.cpp
         lib/operators/hash-join-chained.cpp
@@ -56,11 +61,6 @@ set(olap_cxx
         lib/operators/split.cpp
         lib/operators/unionall.cpp
         lib/operators/unnest.cpp
-        lib/operators/mem-broadcast-device.cpp
-        lib/operators/mem-broadcast-scaleout.cpp
-        lib/operators/mem-move-device.cpp
-        lib/operators/mem-move-local-to.cpp
-        lib/operators/mem-move-scaleout.cpp
         lib/operators/block-to-tuples.cpp
         lib/operators/update.cpp
         lib/operators/gpu/gpu-hash-rearrange.cpp
