@@ -23,8 +23,8 @@
 #ifndef UNIONALL_HPP_
 #define UNIONALL_HPP_
 
+#include "lib/operators/router/router.hpp"
 #include "olap/util/parallel-context.hpp"
-#include "router.hpp"
 
 class UnionAll : public Router {
  public:

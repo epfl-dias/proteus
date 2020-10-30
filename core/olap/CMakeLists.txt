@@ -32,6 +32,8 @@ set(olap_cxx
         lib/operators/mem-move/mem-move-device.cpp
         lib/operators/mem-move/mem-move-local-to.cpp
         lib/operators/mem-move/mem-move-scaleout.cpp
+        lib/operators/router/router.cpp
+        lib/operators/router/router-scaleout.cpp
         lib/operators/agg-t.cpp
         lib/operators/hash-group-by-chained.cpp
         lib/operators/hash-join-chained.cpp
@@ -53,8 +55,6 @@ set(olap_cxx
         lib/operators/relbuilder.cpp
         lib/operators/relbuilder-factory.cpp
         lib/operators/root.cpp
-        lib/operators/router.cpp
-        lib/operators/router-scaleout.cpp
         lib/operators/scan.cpp
         lib/operators/select.cpp
         lib/operators/sort.cpp

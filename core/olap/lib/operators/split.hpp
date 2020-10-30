@@ -23,7 +23,7 @@
 #ifndef SPLIT_HPP_
 #define SPLIT_HPP_
 
-#include "router.hpp"
+#include "lib/operators/router/router.hpp"
 
 class Split : public Router {
  public:

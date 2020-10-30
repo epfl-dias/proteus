@@ -32,9 +32,9 @@
 #include <threadpool/threadvector.hpp>
 #include <utility>
 
+#include "lib/operators/operators.hpp"
 #include "olap/routing/routing-policy.hpp"
 #include "olap/util/parallel-context.hpp"
-#include "operators.hpp"
 #include "topology/affinity_manager.hpp"
 #include "topology/device-manager.hpp"
 #include "util/async_containers.hpp"

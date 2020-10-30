@@ -52,7 +52,6 @@
 #include "lib/operators/radix-join.hpp"
 #include "lib/operators/radix-nest.hpp"
 #include "lib/operators/root.hpp"
-#include "lib/operators/router.hpp"
 #include "lib/operators/select.hpp"
 #include "lib/operators/split.hpp"
 #include "lib/operators/unnest.hpp"
