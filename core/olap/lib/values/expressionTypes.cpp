@@ -29,6 +29,19 @@ bool recordComparator(RecordAttribute *x, RecordAttribute *y) {
   return (x->getAttrNo() < y->getAttrNo());
 }
 
+bool operator<(const RecordAttribute &l, const RecordAttribute &r) {
+  if (l.getRelationName() == r.getRelationName()) {
+    return l.getAttrName() < r.getAttrName();
+  } else {
+    return l.getRelationName() < r.getRelationName();
+  }
+}
+
+bool operator==(const RecordAttribute &l, const RecordAttribute &r) {
+  return (l.getRelationName() == r.getRelationName()) &&
+         (l.getAttrName() == r.getAttrName());
+}
+
 int RecordType::getIndex(RecordAttribute *x) const {
 #ifndef NDEBUG
   size_t cnt = 0;

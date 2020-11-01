@@ -450,17 +450,8 @@ inline bool operator<(const ExpressionType &l, const ExpressionType &r) {
 }
 
 bool recordComparator(RecordAttribute *x, RecordAttribute *y);
-inline bool operator<(const RecordAttribute &l, const RecordAttribute &r) {
-  if (l.getRelationName() == r.getRelationName()) {
-    return l.getAttrName() < r.getAttrName();
-  } else {
-    return l.getRelationName() < r.getRelationName();
-  }
-}
-inline bool operator==(const RecordAttribute &l, const RecordAttribute &r) {
-  return (l.getRelationName() == r.getRelationName()) &&
-         (l.getAttrName() == r.getAttrName());
-}
+bool operator<(const RecordAttribute &l, const RecordAttribute &r);
+bool operator==(const RecordAttribute &l, const RecordAttribute &r);
 //
 //
 // inline bool operator<(const RecordType& l, const RecordType& r) {

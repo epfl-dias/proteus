@@ -44,19 +44,19 @@
  * results?
  * XXX  Hashing keys is not enough - also need to compare the actual keys
  */
-class Nest : public UnaryOperator {
+class Nest : public experimental::UnaryOperator {
  public:
   Nest(Monoid acc, expressions::Expression *outputExpr,
        expressions::Expression *pred,
        const list<expressions::InputArgument> &f_grouping,
-       const list<expressions::InputArgument> &g_nullToZero,
-       Operator *const child, char *opLabel, Materializer &mat);
+       const list<expressions::InputArgument> &g_nullToZero, Operator *child,
+       char *opLabel, Materializer &mat);
   ~Nest() override { LOG(INFO) << "Collapsing Nest operator"; }
   void produce_(ParallelContext *context) override;
-  void consume(Context *const context,
+  void consume(ParallelContext *context,
                const OperatorState &childState) override;
   Materializer &getMaterializer() { return mat; }
-  bool isFiltering() const override { return true; }
+  [[nodiscard]] bool isFiltering() const override { return true; }
 
  private:
   void generateInsert(Context *context, const OperatorState &childState);
@@ -66,13 +66,13 @@ class Nest : public UnaryOperator {
    * was called. Any info needed is (should be) in the HT that will now be
    * probed.
    */
-  void generateProbe(Context *const context) const;
-  void generateSum(Context *const context, const OperatorState &state,
+  void generateProbe(ParallelContext *context) const;
+  void generateSum(ParallelContext *context, const OperatorState &state,
                    llvm::AllocaInst *mem_accumulating) const;
   /**
    * We need a new accumulator for every resulting bucket of the HT
    */
-  llvm::AllocaInst *resetAccumulator() const;
+  llvm::AllocaInst *resetAccumulator(ParallelContext *context) const;
 
   Monoid acc;
   expressions::Expression *outputExpr;
@@ -85,8 +85,6 @@ class Nest : public UnaryOperator {
 
   char *htName;
   Materializer &mat;
-
-  Context *context;
 };
 
 #endif /* NEST_HPP_ */

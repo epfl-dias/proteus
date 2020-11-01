@@ -34,6 +34,6 @@ void Print::consume(Context *const context, const OperatorState &childState) {
   context->getBuilder()->CreateCall(print, toPrint.value);
 
   // Trigger parent
-  OperatorState newState{*this, childState.getBindings()};
+  OperatorState newState{*this, childState};
   getParent()->consume(context, newState);
 }

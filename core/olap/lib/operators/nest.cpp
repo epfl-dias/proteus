@@ -32,34 +32,24 @@ Nest::Nest(Monoid acc, expressions::Expression *outputExpr,
            expressions::Expression *pred,
            const list<expressions::InputArgument> &f_grouping,
            const list<expressions::InputArgument> &g_nullToZero,
-           Operator *const child, char *opLabel, Materializer &mat)
+           Operator *child, char *opLabel, Materializer &mat)
     : UnaryOperator(child),
       acc(acc),
       outputExpr(outputExpr),
       g_nullToZero(g_nullToZero),
       pred(pred),
       mat(mat),
-      htName(opLabel),
-      context(nullptr) {
+      htName(opLabel) {
   // Prepare 'f' -> Turn it into expression (record construction)
-  list<expressions::InputArgument>::const_iterator it;
-  auto *atts = new list<expressions::AttributeConstruction>();
-  list<RecordAttribute *> recordAtts;
-  string attrPlaceholder = string("attr_");
-  for (it = f_grouping.begin(); it != f_grouping.end(); it++) {
-    const ExpressionType *type = it->getExpressionType();
-    int argNo = it->getArgNo();
-    list<RecordAttribute> projections = it->getProjections();
-    auto *attrExpr = new expressions::InputArgument(type, argNo, projections);
+  list<expressions::AttributeConstruction> atts;
+  string attrPlaceholder("attr_");
+  for (const auto &it : f_grouping) {
+    const auto *type = it.getExpressionType();
+    int argNo = it.getArgNo();
 
-    expressions::AttributeConstruction attr{attrPlaceholder, attrExpr};
-    atts->push_back(attr);
-
-    // Only used as placeholder to kickstart hashing later
-    auto *recAttr = new RecordAttribute();
-    recordAtts.push_back(recAttr);
+    atts.emplace_back(attrPlaceholder, expressions::InputArgument{type, argNo});
   }
-  this->f_grouping = new expressions::RecordConstruction(*atts);
+  this->f_grouping = new expressions::RecordConstruction(atts);
 
   // Prepare extra output binding
   this->aggregateName += string(htName);
@@ -74,10 +64,10 @@ Nest::Nest(Monoid acc, expressions::Expression *outputExpr,
 void Nest::produce_(ParallelContext *context) {
   getChild()->produce(context);
 
-  generateProbe(this->context);
+  generateProbe(context);
 }
 
-void Nest::consume(Context *const context, const OperatorState &childState) {
+void Nest::consume(ParallelContext *context, const OperatorState &childState) {
   generateInsert(context, childState);
 }
 
@@ -86,8 +76,6 @@ void Nest::consume(Context *const context, const OperatorState &childState) {
  * cause two code paths to be generated.
  */
 void Nest::generateInsert(Context *context, const OperatorState &childState) {
-  this->context = context;
-
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
@@ -125,10 +113,10 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
   LOG(INFO) << "[NEST: ] Creating payload";
   const map<RecordAttribute, ProteusValueMemory> &bindings =
       childState.getBindings();
-  OutputPlugin *pg = new OutputPlugin(context, mat, &bindings);
+  OutputPlugin pg(context, mat, &bindings);
 
   // Result type specified during output plugin construction
-  llvm::StructType *payloadType = pg->getPayloadType();
+  llvm::StructType *payloadType = pg.getPayloadType();
   // Creating space for the payload. XXX Might have to set alignment explicitly
   AllocaInst *mem_payload = context->CreateEntryBlockAlloca(
       TheFunction, string("valueInHT"), payloadType);
@@ -139,7 +127,7 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
   // Creating and Populating Payload Struct
   int offsetInStruct =
       0;  // offset inside the struct (+current field manipulated)
-  vector<Type *> *materializedTypes = pg->getMaterializedTypes();
+  vector<Type *> *materializedTypes = pg.getMaterializedTypes();
 
   // Storing values in struct to be materialized in HT. Two steps
   // 2a. Materializing all 'activeTuples' (i.e. positional indices) met so far
@@ -192,8 +180,8 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
 
     // FIXME FIX THE NECESSARY CONVERSIONS HERE
     Value *valToMaterialize =
-        pg->convert(llvmCurrVal->getType(),
-                    materializedTypes->at(offsetInWanted), llvmCurrVal);
+        pg.convert(llvmCurrVal->getType(),
+                   materializedTypes->at(offsetInWanted), llvmCurrVal);
     vector<Value *> idxList = vector<Value *>();
     idxList.push_back(context->createInt32(0));
     idxList.push_back(context->createInt32(offsetInStruct));
@@ -215,7 +203,7 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
   ArgsV.push_back(groupKey.value);
   ArgsV.push_back(voidCast);
   // Passing size as well
-  ArgsV.push_back(context->createInt32(pg->getPayloadTypeSize()));
+  ArgsV.push_back(context->createInt32(pg.getPayloadTypeSize()));
   Function *insert = context->getFunction("insertHT");
   Builder->CreateCall(insert, ArgsV);
 #ifdef DEBUG
@@ -226,7 +214,7 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
 #endif
 }
 
-void Nest::generateProbe(Context *const context) const {
+void Nest::generateProbe(ParallelContext *context) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
@@ -325,7 +313,7 @@ void Nest::generateProbe(Context *const context) const {
   AllocaInst *mem_valuesCounter = context->CreateEntryBlockAlloca(
       TheFunction, "ht_val_counter", int64_type);
   Builder->CreateStore(context->createInt64(0), mem_valuesCounter);
-  AllocaInst *mem_accumulating = resetAccumulator();
+  AllocaInst *mem_accumulating = resetAccumulator(context);
   Builder->CreateBr(loopCondBucket);
 
   // Condition: are there any more values in the bucket?
@@ -353,7 +341,7 @@ void Nest::generateProbe(Context *const context) const {
   Value *idx = context->createInt32(typeIdx);
   Type *structType = Catalog::getInstance().getTypeInternal(typeIdx);
   PointerType *structPtrType = context->getPointerType(structType);
-  StructType *str = (llvm::StructType *)structType;
+  auto *str = (llvm::StructType *)structType;
 
   // Casting currValue from void* back to appropriate type
   AllocaInst *mem_currValueCasted = context->CreateEntryBlockAlloca(
@@ -362,34 +350,28 @@ void Nest::generateProbe(Context *const context) const {
   Builder->CreateStore(currValueCasted, mem_currValueCasted);
 
   unsigned elemNo = str->getNumElements();
-  map<RecordAttribute, ProteusValueMemory> *allBucketBindings =
-      new map<RecordAttribute, ProteusValueMemory>();
+  std::map<RecordAttribute, ProteusValueMemory> allBucketBindings;
   int i = 0;
   // Retrieving activeTuple(s) from HT
   AllocaInst *mem_activeTuple = nullptr;
   Value *activeTuple = nullptr;
   const vector<RecordAttribute *> &tuplesIdentifiers = mat.getWantedOIDs();
-  for (vector<RecordAttribute *>::const_iterator it = tuplesIdentifiers.begin();
-       it != tuplesIdentifiers.end(); it++) {
-    RecordAttribute *attr = *it;
+  for (auto attr : tuplesIdentifiers) {
     mem_activeTuple = context->CreateEntryBlockAlloca(
         TheFunction, "mem_activeTuple", str->getElementType(i));
     Value *currValueCasted = Builder->CreateLoad(mem_currValueCasted);
     activeTuple = context->getStructElem(currValueCasted, i);
     Builder->CreateStore(activeTuple, mem_activeTuple);
 
-    ProteusValueMemory mem_valWrapper;
-    mem_valWrapper.mem = mem_activeTuple;
-    mem_valWrapper.isNull = context->createFalse();
-    (*allBucketBindings)[*attr] = mem_valWrapper;
+    ProteusValueMemory mem_valWrapper{mem_activeTuple, context->createFalse()};
+    allBucketBindings[*attr] = mem_valWrapper;
     i++;
   }
 
   const vector<RecordAttribute *> &wantedFields = mat.getWantedFields();
   Value *field = nullptr;
-  for (vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
-       it != wantedFields.end(); ++it) {
-    string currField = (*it)->getName();
+  for (auto wantedField : wantedFields) {
+    string currField = wantedField->getName();
     AllocaInst *mem_field = context->CreateEntryBlockAlloca(
         TheFunction, currField + "mem", str->getElementType(i));
 
@@ -397,13 +379,11 @@ void Nest::generateProbe(Context *const context) const {
     Builder->CreateStore(field, mem_field);
     i++;
 
-    ProteusValueMemory mem_valWrapper;
-    mem_valWrapper.mem = mem_field;
-    mem_valWrapper.isNull = context->createFalse();
-    (*allBucketBindings)[*(*it)] = mem_valWrapper;
+    ProteusValueMemory mem_valWrapper{mem_field, context->createFalse()};
+    allBucketBindings[*wantedField] = mem_valWrapper;
     LOG(INFO) << "[HT Bucket Traversal: ] Binding name: " << currField;
   }
-  OperatorState newState = OperatorState(*this, *allBucketBindings);
+  OperatorState newState(*this, allBucketBindings);
 
 #ifdef DEBUG
 //    cout << "[Nest ] Bindings after probing HT:" << endl;
@@ -477,18 +457,14 @@ void Nest::generateProbe(Context *const context) const {
       RecordAttribute(htName, aggregateName, outputExpr->getExpressionType());
   catalog.registerPlugin(htName, htPlugin);
   // cout << "Registering custom pg for " << htName << endl;
-  ProteusValueMemory mem_aggrWrapper;
-  mem_aggrWrapper.mem = mem_accumulating;
-  mem_aggrWrapper.isNull = context->createFalse();
-  (*allBucketBindings)[attr_aggr] = mem_aggrWrapper;
+  ProteusValueMemory mem_aggrWrapper{mem_accumulating, context->createFalse()};
+  allBucketBindings[attr_aggr] = mem_aggrWrapper;
 
   /* Explicit oid (i.e., bucketNo) materialization */
-  ProteusValueMemory mem_oidWrapper;
-  mem_oidWrapper.mem = mem_bucketCounter;
-  mem_oidWrapper.isNull = context->createFalse();
+  ProteusValueMemory mem_oidWrapper{mem_bucketCounter, context->createFalse()};
   ExpressionType *oidType = new IntType();
-  RecordAttribute attr_oid = RecordAttribute(htName, activeLoop, oidType);
-  (*allBucketBindings)[attr_oid] = mem_oidWrapper;
+  RecordAttribute attr_oid(htName, activeLoop, oidType);
+  allBucketBindings[attr_oid] = mem_oidWrapper;
   //#ifdef DEBUG
   //        ArgsV.clear();
   //        Function* debugInt64 = context->getFunction("printi");
@@ -501,8 +477,8 @@ void Nest::generateProbe(Context *const context) const {
   //        ArgsV.clear();
   //#endif
 
-  OperatorState *groupState = new OperatorState(*this, *allBucketBindings);
-  getParent()->consume(context, *groupState);
+  OperatorState groupState(*this, allBucketBindings);
+  getParent()->consume(context, groupState);
 
   /**
    * [INC - HT BUCKET NO.] Continue outer loop
@@ -520,7 +496,7 @@ void Nest::generateProbe(Context *const context) const {
   Builder->SetInsertPoint(loopEndHT);
 }
 
-void Nest::generateSum(Context *const context, const OperatorState &state,
+void Nest::generateSum(ParallelContext *context, const OperatorState &state,
                        AllocaInst *mem_accumulating) const {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -543,14 +519,12 @@ void Nest::generateSum(Context *const context, const OperatorState &state,
   /**
    * IF(pred) Block
    */
-  ExpressionGeneratorVisitor outputExprGenerator =
-      ExpressionGeneratorVisitor(context, state);
-  ProteusValue val_output;
+  ExpressionGeneratorVisitor outputExprGenerator(context, state);
   Builder->SetInsertPoint(entryBlock);
   Builder->CreateCondBr(condition.value, ifBlock, endBlock);
 
   Builder->SetInsertPoint(ifBlock);
-  val_output = outputExpr->accept(outputExprGenerator);
+  auto val_output = outputExpr->accept(outputExprGenerator);
   Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
 
   switch (outputExpr->getExpressionType()->getTypeID()) {
@@ -596,7 +570,7 @@ void Nest::generateSum(Context *const context, const OperatorState &state,
   Builder->SetInsertPoint(endBlock);
 }
 
-AllocaInst *Nest::resetAccumulator() const {
+AllocaInst *Nest::resetAccumulator(ParallelContext *context) const {
   AllocaInst *mem_accumulating = nullptr;
 
   IRBuilder<> *Builder = context->getBuilder();
@@ -699,7 +673,7 @@ AllocaInst *Nest::resetAccumulator() const {
         case BOOL: {
           mem_accumulating =
               context->CreateEntryBlockAlloca(f, string("dest_acc"), int1Type);
-          Value *val_zero = Builder->getInt1(0);
+          Value *val_zero = Builder->getInt1(false);
           Builder->CreateStore(val_zero, mem_accumulating);
           break;
         }
@@ -716,7 +690,7 @@ AllocaInst *Nest::resetAccumulator() const {
         case BOOL: {
           mem_accumulating =
               context->CreateEntryBlockAlloca(f, string("dest_acc"), int1Type);
-          Value *val_zero = Builder->getInt1(1);
+          Value *val_zero = Builder->getInt1(true);
           Builder->CreateStore(val_zero, mem_accumulating);
           break;
         }
