@@ -441,6 +441,18 @@ if(VTUNE AND VTUNE_ENABLE)
 	message(STATUS "Vtune include: ${VTUNE_ROOT}/include")
 endif()
 
+find_package(Doxygen)
+if(DOXYGEN_FOUND)
+	doxygen_add_docs(
+			doxygen
+				${CMAKE_CURRENT_SOURCE_DIR}/apps
+				${CMAKE_CURRENT_SOURCE_DIR}/core
+				${CMAKE_CURRENT_SOURCE_DIR}/runtime
+			ALL
+			COMMENT "Generate doxygen pages"
+	)
+endif()
+
 
 set(PROTEUS_DEVELOPMENT_COMPONENT "Development")
 set(PROTEUS_RUNTIME_COMPONENT "Runtime")
