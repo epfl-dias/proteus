@@ -288,9 +288,7 @@ PreparedStatement Query::prepare41(bool memmv, size_t bloomSize) {
                direction::NONE})  // (sort0=[$0], sort1=[$1], dir0=[ASC],
                                   // dir1=[ASC], trait=[Pelago.[0,
                                   // 1].unpckd.X86_64.homSingle.hetSingle])
-          .print([&](const auto &arg) -> std::vector<expression_t> {
-            return {arg["d_year"], arg["c_nation"], arg["profit"]};
-          })  // (trait=[ENUMERABLE.[2, 3
+          .print(pg{"pm-csv"})    // (trait=[ENUMERABLE.[2, 3
       // DESC].unpckd.X86_64.homSingle.hetSingle])
       ;
   return rel.prepare();
@@ -322,9 +320,7 @@ PreparedStatement Query::prepare41_b(bool memmv, size_t bloomSize) {
                 return {arg["cnt"]};
               },
               {SUM})
-          .print([&](const auto &arg) -> std::vector<expression_t> {
-            return {arg["cnt"]};
-          });
+          .print(pg{"pm-csv"});
 
   return rel.prepare();
 }

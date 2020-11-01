@@ -89,8 +89,8 @@ class IBHandler : public MemoryRegistry {
   // subscription buffers;
 
   // std::deque<std::pair<std::promise<void *>, void *>> read_promises;
-  std::deque<
-      std::tuple<subscription, proteus::managed_ptr, proteus::managed_ptr>>
+  std::deque<std::tuple<subscription, proteus::managed_ptr,
+                        proteus::remote_managed_ptr>>
       read_promises;
   std::mutex read_promises_m;
 
@@ -140,7 +140,8 @@ class IBHandler : public MemoryRegistry {
   void poll_cq();
 
   void sendGoodBye();
-  decltype(read_promises)::value_type &create_promise(void *buff, void *from);
+  decltype(read_promises)::value_type &create_promise(
+      proteus::managed_ptr buff, proteus::remote_managed_ptr from);
   decltype(write_promises)::value_type create_write_promise(void *buff);
 
   void flush_write();
@@ -155,15 +156,45 @@ class IBHandler : public MemoryRegistry {
  public:
   void send(void *data, size_t bytes, decltype(ibv_send_wr::imm_data) imm = 5);
 
+  /**
+   * Write local data to remote memory based on a subscription.
+   *
+   * The InfiniBand managers are responsible for providing the remote
+   * memory.
+   * @p data is passed by value, signaling that ownership of the
+   * source data is transferred to the manager, who will deallocate
+   * it as soon as it deems appropriate. No writes are allowed to
+   * happen on an alias of this pointer.
+   *
+   * The function may return before write completes.
+   *
+   * @param data    A proteus manager pointer to the source data
+   * @param bytes   Bytes to copy, must be less that BlockManager#block_size
+   * @param sub_id  Target subscription
+   */
   void write(proteus::managed_ptr data, size_t bytes, size_t sub_id = 0);
   void write_to(proteus::managed_ptr data, size_t bytes, buffkey dst);
   [[nodiscard]] subscription *write_silent(proteus::managed_ptr data,
                                            size_t bytes);
-  [[nodiscard]] subscription *read(void *data, size_t bytes);
+  /**
+   * Request remote data read.
+   *
+   * The function may return before read is complete. Wait on the
+   * subscription to block until the results are ready.
+   *
+   * The ownership of data is handed over to the handler who will
+   * release the pointer on will.
+   *
+   * @param data    Pointer in remote server
+   * @param bytes   Number of bytes to read
+   * @return        Subscription to block for the results of this operation
+   */
+  [[nodiscard]] subscription *read(proteus::remote_managed_ptr data,
+                                   size_t bytes);
   [[nodiscard]] subscription *read_event();
 
   buffkey get_buffer();
-  void release_buffer(proteus::managed_ptr p);
+  void release_buffer(proteus::remote_managed_ptr p);
 
   void disconnect();
 };

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2020
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -21,34 +21,33 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef BLOCK_MANAGER_HPP
-#define BLOCK_MANAGER_HPP
+#ifndef PROTEUS_REMOTE_MANAGED_POINTER_HPP
+#define PROTEUS_REMOTE_MANAGED_POINTER_HPP
 
-#include "buffer-manager.cuh"
-#include "maganed-pointer.hpp"
-#include "util/memory-registry.hpp"
+#include <memory/maganed-pointer.hpp>
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-class BlockManager : public buffer_manager<int32_t> {
+using server_id_t = uint64_t;
+
+namespace proteus {
+template <typename T>
+class remote_managed {
+  proteus::managed_ptr ptr;
+  server_id_t server;
+
  public:
-  /**
-   * Max block size in bytes
-   */
-  static constexpr size_t block_size = buffer_manager<int32_t>::buffer_size;
+  remote_managed(decltype(ptr) ptr, decltype(server) server)
+      : ptr(std::move(ptr)), server(server) {}
 
-  static __host__ __device__ __forceinline__ void release_buffer(void* buff) {
-    buffer_manager<int32_t>::release_buffer((int32_t*)buff);
-  }
-#pragma clang diagnostic pop
+  remote_managed(nullptr_t) : remote_managed(nullptr, 0) {}
 
-  template <typename T>
-  static __host__ __device__ __forceinline__ void release_buffer(
-      proteus::managed<T> p) {
-    release_buffer(p.release());
-  }
+  void *get() { return ptr.get(); }
 
-  static void reg(MemoryRegistry&);
-  static void unreg(MemoryRegistry& registry);
+  auto release() { return ptr.release(); }
+
+  [[nodiscard]] explicit operator bool() const { return (bool)ptr; }
 };
-#endif /* BLOCK_MANAGER_HPP */
+
+using remote_managed_ptr = remote_managed<void>;
+}  // namespace proteus
+
+#endif  // PROTEUS_REMOTE_MANAGED_POINTER_HPP

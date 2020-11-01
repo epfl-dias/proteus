@@ -96,8 +96,9 @@ subscription *InfiniBandManager::write_silent(proteus::managed_ptr data,
   return ib.front()->write_silent(std::move(data), bytes);  // FIXME
 }
 
-subscription *InfiniBandManager::read(void *data, size_t bytes) {
-  return ib.front()->read(data, bytes);  // FIXME
+subscription *InfiniBandManager::read(proteus::remote_managed_ptr data,
+                                      size_t bytes) {
+  return ib.front()->read(std::move(data), bytes);  // FIXME
 }
 
 subscription *InfiniBandManager::read_event() {
@@ -116,7 +117,7 @@ buffkey InfiniBandManager::get_buffer() {
   // FIXME
 }
 
-void InfiniBandManager::release_buffer(proteus::managed_ptr p) {
+void InfiniBandManager::release_buffer(proteus::remote_managed_ptr p) {
   return ib.front()->release_buffer(std::move(p));
   // FIXME
 }

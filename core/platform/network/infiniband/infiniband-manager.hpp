@@ -40,6 +40,7 @@
 #include <thread>
 
 #include "common/common.hpp"
+#include "network/infiniband/remote-managed-pointer.hpp"
 
 namespace errorhanding {
 [[noreturn]] inline void failedRDMARun(const char *str, const char *file,
@@ -106,6 +107,7 @@ class subscription {
   std::mutex m;
   std::condition_variable cv;
 
+ public:
   std::queue<value_type> q;
 
  public:
@@ -128,16 +130,44 @@ class InfiniBandManager {
   static void init(const std::string &url, uint16_t port = 12345,
                    bool primary = false, bool ipv4 = false);
   static void send(void *data, size_t bytes);
+
+  /**
+   * Write local data to remote memory based on a subscription.
+   *
+   * The InfiniBand managers are responsible for providing the remote
+   * memory.
+   * @p data is passed by value, signaling that ownership of the
+   * source data is transferred to the manager, who will deallocate
+   * it as soon as it deems appropriate. No writes are allowed to
+   * happen on an alias of this pointer.
+   *
+   * The function may return before write completes.
+   *
+   * @param data    A proteus manager pointer to the source data
+   * @param bytes   Bytes to copy, must be less that BlockManager#block_size
+   * @param sub_id  Target subscription
+   */
   static void write(proteus::managed_ptr data, size_t bytes, size_t sub_id = 0);
   static void write_to(proteus::managed_ptr data, size_t bytes, buffkey b);
   [[nodiscard]] static subscription *write_silent(proteus::managed_ptr data,
                                                   size_t bytes);
-  [[nodiscard]] static subscription *read(void *data, size_t bytes);
+  /**
+   * Request remote data read.
+   *
+   * The function may return before read is complete. Wait on the
+   * subscription to block until the results are ready.
+   *
+   * @param data    Pointer in remote server
+   * @param bytes   Number of bytes to read
+   * @return        Subscription to block for the results of this operation
+   */
+  [[nodiscard]] static subscription *read(proteus::remote_managed_ptr data,
+                                          size_t bytes);
   [[nodiscard]] static subscription *read_event();
   static void flush();
   static void flush_read();
   static buffkey get_buffer();
-  static void release_buffer(proteus::managed_ptr p);
+  static void release_buffer(proteus::remote_managed_ptr p);
   static void disconnectAll();
   static void deinit();
 

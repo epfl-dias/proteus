@@ -47,7 +47,7 @@
 #include "util/logging.hpp"
 #include "util/timing.hpp"
 
-constexpr size_t packNotifications = 64;
+constexpr size_t packNotifications = 256;
 constexpr size_t buffnum = 2 * packNotifications;
 
 std::ostream &operator<<(std::ostream &out, const ib_addr &addr) {
@@ -90,6 +90,7 @@ void IBHandler::post_recv(ibv_qp *qp) {
   //   LOG(INFO) << recv_region;
   //   ibv_mr *recv_mr =                           // linux_run(
   //       ibv_reg_mr(pd, recv_region, buff_size,  // BlockManager::buffer_size,
+  //                  IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);  //);
   //                  IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);  //);
   //   LOG(INFO) << recv_region << " registered: " << recv_mr;
   // }
@@ -257,6 +258,23 @@ IBHandler::~IBHandler() {
   linux_run(ibv_destroy_qp(ibd.getIBImpl().qp));
   linux_run(ibv_destroy_cq(ibd.getIBImpl().cq));
   linux_run(ibv_destroy_comp_channel(ibd.getIBImpl().comp_channel));
+
+  try {
+    while (!b.empty()) {
+      b.back().release();
+      b.pop_back();
+    }
+    //    while (!sub_named.empty()){
+    //      sub_named.back().release();
+    //      sub_named.pop_back();
+    //    }
+    if (!sub.q.empty()) {
+      BlockManager::release_buffer(
+          sub.wait().data);  // FIXME: not really, should wait on something more
+    }
+    // general...
+  } catch (proteus::internal_error &) {
+  }
 }
 
 void IBHandler::start() {
@@ -319,11 +337,11 @@ void IBHandler::poll_cq() {
         throw std::runtime_error(msg);
       }
 
-      ibv_mr *recv_mr = nullptr;
       // ibv_mr *recv_mr = (ibv_mr *)wc.wr_id;
       if (wc.opcode & IBV_WC_RECV) {
         proteus::managed_ptr data{reinterpret_cast<void *>(wc.wr_id)};
-        recv_mr = (--ibd.getIBImpl().reged_mem.upper_bound(data.get()))->second;
+        ibv_mr *recv_mr =
+            (--ibd.getIBImpl().reged_mem.upper_bound(data.get()))->second;
         if (wc.imm_data == 1 && wc.opcode != IBV_WC_RECV_RDMA_WITH_IMM) {
           BlockManager::release_buffer(std::move(data));
           auto databuf = BlockManager::get_buffer();
@@ -501,6 +519,7 @@ void IBHandler::poll_cq() {
           // LOG(INFO) << "read completed successfull_y";
           // BlockManager::release_buffer(p.second);
           std::get<0>(p).publish(std::move(std::get<1>(p)), 0);
+          InfiniBandManager::release_buffer(std::move(std::get<2>(p)));
           // p.first.set_value(p.second);
           // read_promises.pop_front();
         }
@@ -612,9 +631,9 @@ void IBHandler::flush_read() {
 static void *old_cnts = nullptr;
 
 decltype(IBHandler::read_promises)::value_type &IBHandler::create_promise(
-    void *buff, void *from) {
+    proteus::managed_ptr buff, proteus::remote_managed_ptr from) {
   std::unique_lock<std::mutex> lock{read_promises_m};
-  read_promises.emplace_back(5, buff, from);
+  read_promises.emplace_back(5, std::move(buff), std::move(from));
   return read_promises.back();
 }
 
@@ -664,27 +683,20 @@ subscription *IBHandler::read_event() {
   return &std::get<0>(p);
 }
 
-subscription *IBHandler::read(void *data, size_t bytes) {
+subscription *IBHandler::read(proteus::remote_managed_ptr data, size_t bytes) {
   eventlogger.log(this, IB_CREATE_RDMA_READ_START);
-  auto buff = BlockManager::get_buffer();
+  auto buff = proteus::managed_ptr{BlockManager::get_buffer()};
 
-  // auto p = new std::promise<void *>;
-  // auto d = new std::pair<decltype(p), void *>;
-  // d->first = p;
-  // d->second = buff;
-
-  // LOG(INFO) << bytes << " " << (void *)nullptr << " " << data;
-  auto &p = create_promise(buff, data);
-
-  assert(ibd.getIBImpl().reged_mem.upper_bound(buff) !=
+  assert(ibd.getIBImpl().reged_mem.upper_bound(buff.get()) !=
          ibd.getIBImpl().reged_mem.begin());
-  ibv_mr *send_reg = (--(ibd.getIBImpl().reged_mem.upper_bound(buff)))->second;
+  ibv_mr *send_reg =
+      (--(ibd.getIBImpl().reged_mem.upper_bound(buff.get())))->second;
 
   ibv_sge sge{/* 0 everything out via value initialization */};
 
   static_assert(sizeof(void *) == sizeof(decltype(ibv_sge::addr)));
   // super dangerous cast, do not remove above static_assert!
-  sge.addr = reinterpret_cast<decltype(ibv_sge::addr)>(buff);
+  sge.addr = reinterpret_cast<decltype(ibv_sge::addr)>(buff.get());
   assert(bytes <= std::numeric_limits<decltype(ibv_sge::length)>::max());
   sge.length = static_cast<decltype(ibv_sge::length)>(bytes);
   sge.lkey = send_reg->lkey;
@@ -703,12 +715,14 @@ subscription *IBHandler::read(void *data, size_t bytes) {
   // Can pass an arbitrary value to receiver, consider for
   // the consumed buffer
   wr.wr.rdma.remote_addr =
-      reinterpret_cast<decltype(wr.wr.rdma.remote_addr)>(data);
-  wr.wr.rdma.rkey = (--reged_remote_mem.upper_bound(data))->second;
+      reinterpret_cast<decltype(wr.wr.rdma.remote_addr)>(data.get());
+  wr.wr.rdma.rkey = (--reged_remote_mem.upper_bound(data.get()))->second;
 
   if (wr.send_flags & IBV_SEND_SIGNALED) reads = 0;
 
-  // LOG(INFO) << bytes << " " << buff << " " << data;
+  // create promise before submitting the work request
+  auto &p = create_promise(std::move(buff), std::move(data));
+
   linux_run(send(wr));
 
   eventlogger.log(this, IB_CREATE_RDMA_READ_END);
@@ -852,11 +866,19 @@ void IBHandler::request_buffers_unsafe() { send_sge(0, nullptr, 0, 1); }
 static std::mutex m2;
 static std::map<void *, decltype(buffkey::second)> keys;
 
-void IBHandler::release_buffer(proteus::managed_ptr p) {
+void IBHandler::release_buffer(proteus::remote_managed_ptr p) {
   if (!p) return;
   // FIXME: Unsafe if the buffer is from a file or MemoryManager
-  std::unique_lock<std::mutex> lock{pend_buffers_m};
-  pend_buffers.emplace_front(p.get(), keys.at(p.get()));
+  try {
+    // try to get the key, before locking
+    auto k = keys.at(p.get());
+    // if key exists, this is a remote buffer and we have ownership
+    // FIXME: what about shared buffers? We may not have ownership
+    std::unique_lock<std::mutex> lock{pend_buffers_m};
+    pend_buffers.emplace_front(p.get(), k);
+  } catch (std::out_of_range &) {
+    // The ptr didn't come from the buffer manager, ignore
+  }
   ((void)/* Release and ignore */ p.release());
 }
 

@@ -66,9 +66,9 @@ int main(int argc, char *argv[]) {
                 [&](const auto &arg) -> std::optional<expression_t> {
                   return (int)(1 - InfiniBandManager::server_id());
                 },
-                DegreeOfParallelism{2}, 8, RoutingPolicy::HASH_BASED,
+                DegreeOfParallelism{2}, 128, RoutingPolicy::HASH_BASED,
                 DeviceType::CPU)
-            .memmove_scaleout(8)
+            .memmove_scaleout(128)
             .router(DegreeOfParallelism{topology::getInstance().getCoreCount()},
                     8, RoutingPolicy::LOCAL, DeviceType::CPU)
             .memmove(8, DeviceType::CPU)

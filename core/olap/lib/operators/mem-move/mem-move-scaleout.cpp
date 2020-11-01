@@ -53,10 +53,12 @@ buff_pair MemMoveScaleOut::MemMoveConf::push(void *src, size_t bytes,
     return {new std::pair(src, false), nullptr};
   }
 
-  BlockManager::share_host_buffer((int32_t *)src);
-  auto x = InfiniBandManager::read(src, bytes);
+  //  BlockManager::share_host_buffer((int32_t *)src);
+  auto x = InfiniBandManager::read(
+      proteus::remote_managed_ptr{proteus::managed_ptr{src}, srcServer}, bytes);
   //  InfiniBandManager::flush_read();
-  return buff_pair{new std::pair(x, true), src};
+  return buff_pair{new std::pair(x, true),
+                   reinterpret_cast<void *>(uintptr_t{1})};
 }
 
 void *MemMoveScaleOut::MemMoveConf::pull(void *buff) {
