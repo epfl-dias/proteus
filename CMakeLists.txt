@@ -449,7 +449,6 @@ if(DOXYGEN_FOUND)
 				${CMAKE_CURRENT_SOURCE_DIR}/apps
 				${CMAKE_CURRENT_SOURCE_DIR}/core
 				${CMAKE_CURRENT_SOURCE_DIR}/runtime
-			ALL
 			COMMENT "Generate doxygen pages"
 	)
 endif()
