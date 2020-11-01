@@ -1,4 +1,4 @@
-set(gtest_libs ${GTEST_MAIN} ${GTEST} codegen::olap oltp::engine)
+set(gtest_libs ${GTEST_MAIN} ${GTEST} proteus::olap oltp::engine)
 
 set(gtest_src
         #tests-snapshotting

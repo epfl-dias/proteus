@@ -1,4 +1,4 @@
-set(gtest_libs ${GTEST_MAIN} ${GTEST} codegen::olap)
+set(gtest_libs ${GTEST_MAIN} ${GTEST} proteus::olap)
 
 foreach(target
 	tests-csv

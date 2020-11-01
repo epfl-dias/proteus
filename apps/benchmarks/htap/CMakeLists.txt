@@ -25,7 +25,7 @@ foreach(target
 	target_link_libraries(htap-${target}
 			oltp::bench
 			oltp::adaptor
-			codegen::olap
+			proteus::olap
 			htap::engine
 			gflags::gflags
 			codegen::olap_flags

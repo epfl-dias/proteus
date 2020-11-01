@@ -435,6 +435,10 @@ if(VTUNE AND VTUNE_ENABLE)
 	message(STATUS "Vtune include: ${VTUNE_ROOT}/include")
 endif()
 
+
+set(PROTEUS_DEVELOPMENT_COMPONENT "Development")
+set(PROTEUS_RUNTIME_COMPONENT "Runtime")
+
 #-----------------------------------------------------------------------
 # Define path to installed resources
 add_definitions(-DTEST_INPUTS="inputs")

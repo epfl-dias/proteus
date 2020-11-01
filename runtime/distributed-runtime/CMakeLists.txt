@@ -44,7 +44,7 @@ target_compile_features(${PROJECT_NAME}
 # Depend on a library that we defined in the top-level file
 target_link_libraries(${PROJECT_NAME}
     PUBLIC
-        codegen::olap
+        proteus::olap
     PRIVATE
         ${_REFLECTION}
         ${_GRPC_GRPCPP}

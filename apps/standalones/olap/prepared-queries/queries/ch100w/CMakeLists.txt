@@ -34,7 +34,7 @@ target_include_directories(${PROJECT_NAME}
 # Depend on a library that we defined in the top-level file
 target_link_libraries(${PROJECT_NAME}
     PUBLIC
-        codegen::olap
+        proteus::olap
         oltp::adaptor)
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).

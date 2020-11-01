@@ -28,7 +28,7 @@ target_include_directories(command_provider
 # Depend on a library that we defined in the top-level file
 target_link_libraries(command_provider
     PRIVATE
-        codegen::olap
+        proteus::olap
         codegen::olap_flags
     PUBLIC
         cli-flags::cli-flags)

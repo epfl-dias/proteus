@@ -39,7 +39,7 @@ target_compile_features(htap_engine
 target_link_libraries(htap_engine
         PUBLIC
             ${llvm_libs}
-            codegen::olap
+            proteus::olap
             oltp::engine
             oltp::adaptor
             )

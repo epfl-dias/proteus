@@ -3,6 +3,6 @@
 include(CMakeFindDependencyMacro)
 find_dependency(Gflags REQUIRED COMPONENTS shared)
 
-#if(NOT TARGET codegen)
-    include(${CMAKE_CURRENT_LIST_DIR}/codegen-targets.cmake)
+#if(NOT TARGET platform)
+    include(${CMAKE_CURRENT_LIST_DIR}/platform-targets.cmake)
 #endif()

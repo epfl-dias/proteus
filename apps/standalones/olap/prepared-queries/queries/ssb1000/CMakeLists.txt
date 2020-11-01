@@ -40,7 +40,7 @@ target_include_directories(${PROJECT_NAME}
 # Depend on a library that we defined in the top-level file
 target_link_libraries(${PROJECT_NAME}
     PUBLIC
-        codegen::olap)
+        proteus::olap)
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
 install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}Targets

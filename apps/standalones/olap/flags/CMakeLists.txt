@@ -32,7 +32,7 @@ target_include_directories(olap_flags
 # Depend on a library that we defined in the top-level file
 target_link_libraries(olap_flags
     PRIVATE
-        codegen::olap
+        proteus::olap
     PUBLIC
         cli-flags::cli-flags)
 

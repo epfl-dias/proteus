@@ -70,7 +70,7 @@ target_compile_features(oltp
 target_link_libraries(oltp
         PUBLIC
         ${llvm_libs}
-        codegen::olap
+        proteus::olap
         cuckoo::cuckoo
         cli-flags)
 

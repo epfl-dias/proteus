@@ -10,7 +10,7 @@ set(DMAINS
 
 foreach(target ${DMAINS})
     add_executable(deprecated-proteus${target} ${target}.cpp)
-    target_link_libraries(deprecated-proteus${target} codegen::olap)
+    target_link_libraries(deprecated-proteus${target} proteus::olap)
     install(TARGETS deprecated-proteus${target}
             ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
             LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}

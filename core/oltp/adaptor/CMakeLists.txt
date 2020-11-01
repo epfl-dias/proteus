@@ -35,7 +35,7 @@ target_compile_features(oltp_adaptor
 target_link_libraries(oltp_adaptor
         PUBLIC
         oltp::engine
-        codegen::olap)
+        proteus::olap)
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
 install(TARGETS oltp_adaptor EXPORT ${PROJECT_NAME}Config
