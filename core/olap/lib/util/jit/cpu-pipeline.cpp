@@ -23,8 +23,8 @@
 
 #include "cpu-pipeline.hpp"
 
-#include "memory/block-manager.hpp"
-#include "util/timing.hpp"
+#include <platform/memory/block-manager.hpp>
+#include <platform/util/timing.hpp>
 
 using namespace llvm;
 

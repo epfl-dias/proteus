@@ -28,9 +28,8 @@
 
 #include <cassert>
 #include <iostream>
+#include <platform/common/error-handling.hpp>
 #include <thread>
-
-#include "common/error-handling.hpp"
 
 #if __has_include(<filesystem>)
 #include <filesystem>

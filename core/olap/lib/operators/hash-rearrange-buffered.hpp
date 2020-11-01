@@ -23,7 +23,8 @@
 #ifndef HASH_REARRANGE_BUFFERED_HPP_
 #define HASH_REARRANGE_BUFFERED_HPP_
 
-#include "memory/block-manager.hpp"
+#include <platform/memory/block-manager.hpp>
+
 #include "olap/util/parallel-context.hpp"
 #include "operators.hpp"
 

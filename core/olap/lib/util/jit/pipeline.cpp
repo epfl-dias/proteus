@@ -23,15 +23,15 @@
 
 #include "pipeline.hpp"
 
-#include <thread>
-#include <util/timing.hpp>
+#include <llvm/InitializePasses.h>
+#include <llvm/Support/DynamicLibrary.h>
+#include <llvm/Support/TargetSelect.h>
 
-#include "common/gpu/gpu-common.hpp"
-#include "llvm/InitializePasses.h"
-#include "llvm/Support/DynamicLibrary.h"
-#include "llvm/Support/TargetSelect.h"
-#include "memory/memory-manager.hpp"
-#include "olap/util/parallel-context.hpp"
+#include <olap/util/parallel-context.hpp>
+#include <platform/common/gpu/gpu-common.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/util/timing.hpp>
+#include <thread>
 
 using namespace llvm;
 

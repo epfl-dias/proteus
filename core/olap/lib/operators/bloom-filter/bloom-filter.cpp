@@ -23,12 +23,12 @@
 
 #include "bloom-filter.hpp"
 
-#include <memory/memory-manager.hpp>
-#include <olap/values/indexed-seq.hpp>
-#include <topology/affinity_manager.hpp>
-#include <topology/topology.hpp>
+#include <llvm/IR/Intrinsics.h>
 
-#include "llvm/IR/Intrinsics.h"
+#include <olap/values/indexed-seq.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
 
 static std::map<std::pair<uint64_t, decltype(topology::cpunumanode::id)>,
                 void *>

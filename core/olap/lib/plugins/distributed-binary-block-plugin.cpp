@@ -22,7 +22,7 @@
 */
 
 #include <lib/plugins/distributed-binary-block-plugin.hpp>
-#include <storage/storage-manager.hpp>
+#include <platform/storage/storage-manager.hpp>
 #include <utility>
 
 extern "C" Plugin *createDistributedBlockPlugin(

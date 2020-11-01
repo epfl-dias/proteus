@@ -23,12 +23,13 @@
 
 #include "gpu-to-cpu.hpp"
 
+#include <platform/memory/memory-manager.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
+
 #include "lib/util/catalog.hpp"
 #include "lib/util/gpu/gpu-intrinsics.hpp"
 #include "lib/util/jit/gpu-pipeline.hpp"
-#include "memory/memory-manager.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
 
 using namespace llvm;
 

@@ -24,7 +24,8 @@
 #ifndef CATALOG_HPP_
 #define CATALOG_HPP_
 
-#include "common/common.hpp"
+#include <platform/common/common.hpp>
+
 #include "olap/plugins/plugins.hpp"
 #include "olap/values/expressionTypes.hpp"
 

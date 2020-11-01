@@ -31,7 +31,8 @@
 #ifndef ATOIS_HPP_
 #define ATOIS_HPP_
 
-#include "common/common.hpp"
+#include <platform/common/common.hpp>
+
 #include "olap/util/context.hpp"
 
 //#define DEBUGATOIS

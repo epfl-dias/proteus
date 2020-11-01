@@ -28,11 +28,11 @@
 
 #include <cassert>
 #include <cmath>
-#include <memory/memory-manager.hpp>
 #include <oltp/storage/table.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
 #include <random>
-#include <topology/affinity_manager.hpp>
-#include <topology/topology.hpp>
 #include <type_traits>
 
 namespace bench_utils {

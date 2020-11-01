@@ -24,7 +24,8 @@
 #ifndef PATH_HPP_
 #define PATH_HPP_
 
-#include "common/common.hpp"
+#include <platform/common/common.hpp>
+
 #include "lib/util/catalog.hpp"
 #include "olap/expressions/expressions.hpp"
 #include "olap/plugins/plugins.hpp"

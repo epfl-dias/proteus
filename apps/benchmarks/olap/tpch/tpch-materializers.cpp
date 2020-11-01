@@ -21,7 +21,8 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "common/common.hpp"
+#include <platform/common/common.hpp>
+
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions.hpp"
 #include "operators/materializer-expr.hpp"

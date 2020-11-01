@@ -30,8 +30,8 @@
 #include <olap/routing/degree-of-parallelism.hpp>
 #include <oltp/common/utils.hpp>
 #include <oltp/storage/layout/column_store.hpp>
+#include <platform/threadpool/thread.hpp>
 #include <string>
-#include <threadpool/thread.hpp>
 
 #include "tpcc_64.hpp"
 

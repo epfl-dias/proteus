@@ -26,16 +26,16 @@
 
 #include <cassert>
 #include <cmath>
-#include <common/common.hpp>
 #include <cstdlib>
 #include <iostream>
-#include <memory/memory-manager.hpp>
 #include <mutex>
 #include <oltp/common/constants.hpp>
 #include <oltp/interface/bench.hpp>
 #include <oltp/storage/table.hpp>
+#include <platform/common/common.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/topology/topology.hpp>
 #include <thread>
-#include <topology/topology.hpp>
 #include <utility>
 
 #include "zipf.hpp"

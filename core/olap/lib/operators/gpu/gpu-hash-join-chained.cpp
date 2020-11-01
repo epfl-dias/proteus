@@ -23,9 +23,10 @@
 
 #include "gpu-hash-join-chained.hpp"
 
+#include <platform/memory/memory-manager.hpp>
+#include <platform/topology/topology.hpp>
+
 #include "lib/util/jit/pipeline.hpp"
-#include "memory/memory-manager.hpp"
-#include "topology/topology.hpp"
 
 void GpuHashJoinChained::open_build(Pipeline *pip) {
   std::vector<void *> next_w_values;

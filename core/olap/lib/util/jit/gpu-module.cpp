@@ -55,8 +55,8 @@
 #include <llvm/Transforms/Utils/Cloning.h>
 #pragma pop_macro("NDEBUG")
 
-#include "topology/affinity_manager.hpp"
-#include "util/timing.hpp"
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/util/timing.hpp>
 
 void initializeModule(CUmodule &cudaModule);
 
@@ -326,7 +326,7 @@ auto getModuleRef(LLVMContext &llvmContext) {
   return llvm::CloneModule(*mod);
 }
 
-#include <threadpool/threadpool.hpp>
+#include <platform/threadpool/threadpool.hpp>
 
 Expected<llvm::orc::JITTargetMachineBuilder> detectGPU() {
   llvm::orc::JITTargetMachineBuilder TMBuilder(Triple{"nvptx64-nvidia-cuda"});

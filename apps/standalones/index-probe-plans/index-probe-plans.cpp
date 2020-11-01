@@ -26,8 +26,8 @@
 #include <olap/operators/relbuilder-factory.hpp>
 #include <olap/plan/catalog-parser.hpp>
 #include <oltp.hpp>
-#include <topology/affinity_manager.hpp>
-#include <topology/topology.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
 
 static storage::Table *tbl;
 static auto num_fields = 2;

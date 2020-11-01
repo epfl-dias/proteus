@@ -28,8 +28,8 @@
 #include <distributed-runtime/cluster-manager.hpp>
 #include <memory>
 #include <plan-parser/plan-parser.hpp>
+#include <platform/threadpool/threadpool.hpp>
 #include <span>
-#include <threadpool/threadpool.hpp>
 #include <utility>
 
 namespace proteus {

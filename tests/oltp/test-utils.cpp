@@ -23,8 +23,9 @@
 
 #include "test-utils.hpp"
 
-#include "common/common.hpp"
-#include "memory/memory-manager.hpp"
+#include <platform/common/common.hpp>
+#include <platform/memory/memory-manager.hpp>
+
 #include "olap/common/olap-common.hpp"
 
 void TestEnvironment::SetUp() {

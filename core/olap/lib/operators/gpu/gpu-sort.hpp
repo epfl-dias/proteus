@@ -24,7 +24,9 @@
 #ifndef GPU_SORT_HPP_
 #define GPU_SORT_HPP_
 
-#include "common/gpu/gpu-common.hpp"
+#include <platform/common/gpu/gpu-common.hpp>
+#include <platform/util/sort/sort-direction.hpp>
+
 #include "lib/operators/operators.hpp"
 #include "lib/operators/sort.hpp"
 #include "olap/util/parallel-context.hpp"

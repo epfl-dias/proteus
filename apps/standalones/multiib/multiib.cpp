@@ -23,13 +23,13 @@
 
 #include <chrono>
 #include <cli-flags.hpp>
-#include <network/infiniband/infiniband-manager.hpp>
 #include <olap/operators/relbuilder-factory.hpp>
 #include <olap/operators/relbuilder.hpp>
 #include <olap/plan/catalog-parser.hpp>
-#include <storage/storage-manager.hpp>
-#include <topology/affinity_manager.hpp>
-#include <topology/topology.hpp>
+#include <platform/network/infiniband/infiniband-manager.hpp>
+#include <platform/storage/storage-manager.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
 
 static std::string date = "inputs/ssbm1000/date.csv";
 

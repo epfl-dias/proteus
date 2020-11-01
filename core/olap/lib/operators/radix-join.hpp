@@ -24,16 +24,16 @@
 #ifndef _RADIX_JOIN_HPP_
 #define _RADIX_JOIN_HPP_
 
-#include <lib/operators/join/radix/radix-join-build.hpp>
+#include <olap/util/parallel-context.hpp>
+#include <platform/util/radix/joins/radix-join.hpp>
 
 #include "lib/expressions/expressions-generator.hpp"
+#include "lib/operators/join/radix/radix-join-build.hpp"
 #include "lib/plugins/binary-internal-plugin.hpp"
 #include "lib/util/caching.hpp"
 #include "lib/util/functions.hpp"
-#include "olap/util/parallel-context.hpp"
 #include "operators.hpp"
 #include "scan.hpp"
-#include "util/radix/joins/radix-join.hpp"
 
 class RadixJoin : public BinaryOperator {
  public:

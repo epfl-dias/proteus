@@ -32,11 +32,11 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <platform/common/common.hpp>
 #include <utility>
 #include <vector>
 
 #include "binary_comparable.hpp"
-#include "common/common.hpp"
 
 #if defined(__i386__) || defined(__amd64__)
 #include <emmintrin.h>

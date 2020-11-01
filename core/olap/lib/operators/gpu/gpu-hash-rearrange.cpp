@@ -24,16 +24,15 @@
 #include "gpu-hash-rearrange.hpp"
 
 #include <algorithm>
+#include <olap/util/jit/control-flow/if-statement.hpp>
+#include <platform/common/gpu/gpu-common.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/topology/topology.hpp>
 
-#include "common/gpu/gpu-common.hpp"
 #include "lib/expressions/expressions-generator.hpp"
 #include "lib/expressions/expressions-hasher.hpp"
 #include "lib/util/gpu/gpu-intrinsics.hpp"
 #include "lib/util/jit/pipeline.hpp"
-#include "memory/buffer-manager.cuh"
-#include "memory/memory-manager.hpp"
-#include "olap/util/jit/control-flow/if-statement.hpp"
-#include "topology/topology.hpp"
 
 using namespace llvm;
 

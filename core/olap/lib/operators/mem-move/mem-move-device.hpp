@@ -24,12 +24,12 @@
 #define MEM_MOVE_DEVICE_HPP_
 
 #include <future>
+#include <olap/util/parallel-context.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/util/async_containers.hpp>
 #include <thread>
 
 #include "lib/operators/operators.hpp"
-#include "olap/util/parallel-context.hpp"
-#include "topology/affinity_manager.hpp"
-#include "util/async_containers.hpp"
 
 struct buff_pair {
   void *new_buff;

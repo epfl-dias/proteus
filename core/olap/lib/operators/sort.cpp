@@ -24,10 +24,10 @@
 #include "sort.hpp"
 
 #include <lib/util/project-record.hpp>
+#include <platform/memory/block-manager.hpp>
 
 #include "lib/expressions/expressions-flusher.hpp"
 #include "lib/expressions/expressions-generator.hpp"
-#include "memory/block-manager.hpp"
 
 using namespace llvm;
 

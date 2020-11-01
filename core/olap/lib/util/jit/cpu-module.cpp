@@ -45,9 +45,8 @@
 #include <llvm/Transforms/Utils/Cloning.h>
 #pragma pop_macro("NDEBUG")
 
-#include <threadpool/threadpool.hpp>
-
-#include "util/timing.hpp"
+#include <platform/threadpool/threadpool.hpp>
+#include <platform/util/timing.hpp>
 
 using namespace llvm;
 

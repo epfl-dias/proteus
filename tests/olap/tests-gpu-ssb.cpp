@@ -56,14 +56,14 @@
 //
 // </TechnicalDetails>
 
+#include <platform/common/common.hpp>
+#include <platform/common/gpu/gpu-common.hpp>
+#include <platform/storage/storage-manager.hpp>
+#include <platform/topology/topology.hpp>
 #include <thread>
 #include <vector>
 
-#include "common/common.hpp"
-#include "common/gpu/gpu-common.hpp"
-#include "storage/storage-manager.hpp"
 #include "test-utils.hpp"
-#include "topology/topology.hpp"
 
 using namespace llvm;
 

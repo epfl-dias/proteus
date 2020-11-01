@@ -34,14 +34,15 @@
 
 #include <llvm/IR/IRBuilder.h>
 
-#include "common/common.hpp"
+#include <platform/common/common.hpp>
+#include <platform/memory/memory-allocator.hpp>
+
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
-#include "memory/memory-allocator.hpp"
 #include "olap/operators/operator-state.hpp"
 #include "olap/util/jit/control-flow/if-statement.hpp"
 #include "olap/values/expressionTypes.hpp"

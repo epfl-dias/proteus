@@ -24,7 +24,8 @@
 #ifndef EXPRESSIONS_HASHER_VISITOR_HPP_
 #define EXPRESSIONS_HASHER_VISITOR_HPP_
 
-#include "common/common.hpp"
+#include <platform/common/common.hpp>
+
 #include "expressions-generator.hpp"
 #include "lib/util/functions.hpp"
 #include "olap/plugins/plugins.hpp"

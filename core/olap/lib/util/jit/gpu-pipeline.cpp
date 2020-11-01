@@ -28,13 +28,13 @@
 #include <llvm/IR/IntrinsicsNVPTX.h>
 #pragma pop_macro("NDEBUG")
 
-#include <threadpool/threadpool.hpp>
-#include <util/timing.hpp>
+#include <olap/util/parallel-context.hpp>
+#include <platform/threadpool/threadpool.hpp>
+#include <platform/topology/topology.hpp>
+#include <platform/util/timing.hpp>
 
 #include "cpu-pipeline.hpp"
 #include "lib/util/gpu/gpu-intrinsics.hpp"
-#include "olap/util/parallel-context.hpp"
-#include "topology/topology.hpp"
 
 using namespace llvm;
 

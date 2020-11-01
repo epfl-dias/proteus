@@ -25,8 +25,9 @@
 // test logic needs is declared.
 //
 // Don't forget gtest.h, which declares the testing framework.
+#include <platform/storage/storage-manager.hpp>
+
 #include "gtest/gtest.h"
-#include "storage/storage-manager.hpp"
 #include "test-utils.hpp"
 
 // Step 2. Use the TEST macro to define your tests.

@@ -28,11 +28,11 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
-#include <memory/memory-manager.hpp>
 #include <olap/plan/prepared-statement.hpp>
 #include <oltp/common/constants.hpp>
 #include <oltp/interface/bench.hpp>
 #include <oltp/storage/table.hpp>
+#include <platform/memory/memory-manager.hpp>
 #include <string>
 #include <thread>
 

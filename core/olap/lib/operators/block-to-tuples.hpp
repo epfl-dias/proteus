@@ -23,7 +23,8 @@
 #ifndef BLOCK_TO_TUPLES_HPP_
 #define BLOCK_TO_TUPLES_HPP_
 
-#include "common/gpu/gpu-common.hpp"
+#include <platform/common/gpu/gpu-common.hpp>
+
 #include "olap/util/parallel-context.hpp"
 #include "operators.hpp"
 

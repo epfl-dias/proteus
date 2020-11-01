@@ -30,7 +30,7 @@
 #include "htap-cli-flags.hpp"
 
 // UTILS
-#include "util/timing.hpp"
+#include <platform/util/timing.hpp>
 
 // OLAP
 #include <cli-flags.hpp>
@@ -43,9 +43,10 @@
 
 // Platform
 
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
+
 #include "queries/ch/ch-queries.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
 
 DEFINE_string(ch_export_dir, "/scratch1/export",
               "Export dir for ch-data-export");

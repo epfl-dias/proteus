@@ -25,7 +25,7 @@
 #define PREPARED_STATEMENT_HPP_
 
 #include <memory>
-#include <storage/mmap-file.hpp>
+#include <platform/storage/mmap-file.hpp>
 #include <utility>
 #include <vector>
 

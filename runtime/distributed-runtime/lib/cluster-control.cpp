@@ -28,12 +28,12 @@
 #include <grpcpp/health_check_service_interface.h>
 #include <unistd.h>
 
+#include <platform/common/common.hpp>
+#include <platform/common/error-handling.hpp>
+#include <platform/threadpool/threadpool.hpp>
 #include <utility>
 
-#include "common/common.hpp"
-#include "common/error-handling.hpp"
 #include "distributed-runtime/cluster-manager.hpp"
-#include "threadpool/threadpool.hpp"
 
 namespace proteus::distributed {
 

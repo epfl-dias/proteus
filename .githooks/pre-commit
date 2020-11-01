@@ -110,7 +110,7 @@ touch .githooks/.githookinprogress
 git stash push -q --include-untracked --keep-index -m $STASH_NAME-upon-success || echo "This failed ${LINENO}"
 git reset -q --soft HEAD~ || echo "This failed ${LINENO}"
 
-for file in $(git diff-index --cached --name-only HEAD \*.{cpp,hpp,cu,cuh}) ; do
+for file in $(git diff-index --cached --name-only HEAD \*.{cpp,hpp,cu,cuh,c,h}) ; do
   format_file "${file}"
 done
 

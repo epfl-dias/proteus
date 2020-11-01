@@ -30,7 +30,7 @@
 #include <iomanip>
 #include <iostream>
 #include <oltp/common/utils.hpp>
-#include <threadpool/thread.hpp>
+#include <platform/threadpool/thread.hpp>
 
 #define NDEFAULT_RIDS 16
 

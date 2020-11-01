@@ -30,14 +30,14 @@
 #include <future>
 #include <iostream>
 #include <memory>
+#include <platform/topology/topology.hpp>
+#include <platform/util/percentile.hpp>
 #include <queue>
 #include <thread>
 #include <unordered_map>
 
 #include "oltp/common/constants.hpp"
 #include "oltp/interface/bench.hpp"
-#include "topology/topology.hpp"
-#include "util/percentile.hpp"
 
 namespace scheduler {
 

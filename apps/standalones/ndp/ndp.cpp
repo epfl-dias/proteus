@@ -25,13 +25,12 @@
 #include <ndp/ndp-common.hpp>
 #include <olap/plan/prepared-statement.hpp>
 #include <olap/plan/query-result.hpp>
-#include <util/glog.hpp>
+#include <platform/util/glog.hpp>
 
 #include "command-provider/local-command-provider.hpp"
 #include "lib/examples.hpp"
 #include "ndp-cli-flags.hpp"
 #include "ndp/cluster_command_provider.hpp"
-#include "ndp/ndp-common.hpp"
 
 namespace proteus {
 

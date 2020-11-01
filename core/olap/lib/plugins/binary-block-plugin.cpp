@@ -24,12 +24,12 @@
 #include "olap/plugins/binary-block-plugin.hpp"
 
 #include <lib/expressions/expressions-flusher.hpp>
-#include <memory/memory-manager.hpp>
+#include <platform/memory/block-manager.hpp>
+#include <platform/memory/memory-manager.hpp>
 #include <utility>
 
 #include "lib/expressions/expressions-hasher.hpp"
 #include "lib/operators/operators.hpp"
-#include "memory/block-manager.hpp"
 #include "olap/util/parallel-context.hpp"
 
 using namespace llvm;

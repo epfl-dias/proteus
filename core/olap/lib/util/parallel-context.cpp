@@ -21,15 +21,15 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "olap/util/parallel-context.hpp"
+#include <olap/util/parallel-context.hpp>
+#include <platform/common/gpu/gpu-common.hpp>
+#include <platform/util/timing.hpp>
 
-#include "common/gpu/gpu-common.hpp"
 #include "lib/util/jit/cpu-pipeline.hpp"
 #include "lib/util/jit/gpu-pipeline.hpp"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/TargetMachine.h"
-#include "util/timing.hpp"
 
 void ParallelContext::createJITEngine() {
   //     LLVMLinkInMCJIT();

@@ -22,14 +22,14 @@
 */
 //
 //#include "operators/gpu/gpu-partitioned-hash-join-chained.hpp"
-//#include "memory/memory-manager.hpp"
+//#include <platform/memory/memory-manager.hpp>
 //#include "expressions/expressions-generator.hpp"
 //#include "operators/gpu/gmonoids.hpp"
 //#include "util/gpu/gpu-intrinsics.hpp"
 
 #include <cassert>
+#include <platform/common/gpu/gpu-common.hpp>
 
-#include "common/gpu/gpu-common.hpp"
 #include "cuda.h"
 #include "cuda_runtime.h"
 

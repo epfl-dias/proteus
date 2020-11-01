@@ -23,8 +23,8 @@
 
 #include "hash-join-chained-morsel.hpp"
 
-#include <memory/memory-manager.hpp>
-#include <util/timing.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/util/timing.hpp>
 
 #include "lib/util/jit/pipeline.hpp"
 

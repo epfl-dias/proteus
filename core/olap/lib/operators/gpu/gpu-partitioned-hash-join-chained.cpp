@@ -23,13 +23,14 @@
 
 #include "gpu-partitioned-hash-join-chained.hpp"
 
+#include <platform/memory/memory-manager.hpp>
+#include <platform/topology/topology.hpp>
+
 #include "cuda.h"
 #include "cuda_runtime.h"
 #include "gmonoids.hpp"
 #include "lib/expressions/expressions-generator.hpp"
 #include "lib/util/gpu/gpu-intrinsics.hpp"
-#include "memory/memory-manager.hpp"
-#include "topology/topology.hpp"
 
 using namespace llvm;
 

@@ -24,11 +24,11 @@
 
 #include <cli-flags.hpp>
 #include <iostream>
-#include <memory/memory-manager.hpp>
 #include <olap/common/olap-common.hpp>
 #include <olap/util/context.hpp>
-#include <topology/topology.hpp>
-#include <util/glog.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/topology/topology.hpp>
+#include <platform/util/glog.hpp>
 
 static bool validatePercentage(const char *flagname, double value) {
   if (value >= 0.0 && value <= 1.0) return true;

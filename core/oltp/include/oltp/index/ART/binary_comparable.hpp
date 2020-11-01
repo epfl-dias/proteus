@@ -30,10 +30,9 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <platform/common/common.hpp>
 #include <utility>
 #include <vector>
-
-#include "common/common.hpp"
 
 template <typename K = uint64_t>
 class BinaryComparableKey;

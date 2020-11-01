@@ -23,10 +23,10 @@
 
 #include "dict-scan.hpp"
 
+#include <platform/storage/storage-manager.hpp>
 #include <regex>
 
 #include "lib/util/catalog.hpp"
-#include "storage/storage-manager.hpp"
 
 using namespace llvm;
 

@@ -26,17 +26,17 @@
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
+#include <platform/network/infiniband/infiniband-manager.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/util/async_containers.hpp>
+#include <platform/util/logging.hpp>
 #include <queue>
 #include <stack>
 #include <thread>
 #include <utility>
 
-#include "network/infiniband/infiniband-manager.hpp"
 #include "olap/util/parallel-context.hpp"
 #include "router.hpp"
-#include "topology/affinity_manager.hpp"
-#include "util/async_containers.hpp"
-#include "util/logging.hpp"
 
 class RouterScaleOut : public Router {
   size_t cnt = 0;

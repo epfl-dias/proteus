@@ -56,16 +56,16 @@ exts = [".cpp", ".hpp", ".cu", ".cuh", ".c", ".h"]
 
 # Files that should not contain the header (usually files from external projects)
 external_files = [
-    "core/platform/util/radix/aggregations/prj_params.h",
-    "core/platform/util/radix/aggregations/radix-aggr.cpp",
-    "core/platform/util/radix/aggregations/radix-aggr.hpp",
-    "core/platform/util/radix/aggregations/types.h",
-    "core/platform/util/radix/joins/prj_params.h",
-    "core/platform/util/radix/joins/radix-join.cpp",
-    "core/platform/util/radix/joins/radix-join.hpp",
-    "core/platform/util/radix/joins/types.h",
-    "core/platform/util/radix/prj_params.h",
-    "core/platform/util/radix/types.h",
+    "core/platform/include/platform/util/radix/aggregations/prj_params.h",
+    "core/platform/include/platform/util/radix/aggregations/radix-aggr.hpp",
+    "core/platform/include/platform/util/radix/aggregations/types.h",
+    "core/platform/include/platform/util/radix/joins/prj_params.h",
+    "core/platform/include/platform/util/radix/joins/radix-join.hpp",
+    "core/platform/include/platform/util/radix/joins/types.h",
+    "core/platform/include/platform/util/radix/prj_params.h",
+    "core/platform/include/platform/util/radix/types.h",
+    "core/platform/lib/util/radix/aggregations/radix-aggr.cpp",
+    "core/platform/lib/util/radix/joins/radix-join.cpp",
     "external/jsmn/jsmn.c",
     "external/jsmn/jsmn.h"
 ]

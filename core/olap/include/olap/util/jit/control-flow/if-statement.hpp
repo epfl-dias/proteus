@@ -25,9 +25,8 @@
 #define IF_STATEMENT_HPP_
 
 #include <olap/values/expressionTypes.hpp>
-
-#include "common/common.hpp"
-#include "memory/memory-allocator.hpp"
+#include <platform/common/common.hpp>
+#include <platform/memory/memory-allocator.hpp>
 
 class Context;
 

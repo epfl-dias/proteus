@@ -23,13 +23,14 @@
 
 #include "mem-move-device.hpp"
 
+#include <platform/memory/block-manager.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/threadpool/threadpool.hpp>
+#include <platform/util/logging.hpp>
+#include <platform/util/timing.hpp>
+
 #include "lib/util/catalog.hpp"
 #include "lib/util/jit/pipeline.hpp"
-#include "memory/block-manager.hpp"
-#include "memory/memory-manager.hpp"
-#include "threadpool/threadpool.hpp"
-#include "util/logging.hpp"
-#include "util/timing.hpp"
 
 buff_pair buff_pair::not_moved(void *buff) { return {buff, buff}; }
 

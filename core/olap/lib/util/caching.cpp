@@ -23,7 +23,7 @@
 
 #include "caching.hpp"
 
-#include <memory/memory-allocator.hpp>
+#include <platform/memory/memory-allocator.hpp>
 
 void CachingService::clear() {
   binCaches.clear();

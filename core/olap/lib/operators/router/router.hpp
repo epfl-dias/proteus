@@ -25,20 +25,20 @@
 
 #include <atomic>
 #include <condition_variable>
-#include <memory/block-manager.hpp>
 #include <mutex>
+#include <olap/routing/routing-policy.hpp>
+#include <olap/util/parallel-context.hpp>
+#include <platform/memory/block-manager.hpp>
+#include <platform/threadpool/threadvector.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/device-manager.hpp>
+#include <platform/util/async_containers.hpp>
+#include <platform/util/logging.hpp>
 #include <queue>
 #include <stack>
-#include <threadpool/threadvector.hpp>
 #include <utility>
 
 #include "lib/operators/operators.hpp"
-#include "olap/routing/routing-policy.hpp"
-#include "olap/util/parallel-context.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/device-manager.hpp"
-#include "util/async_containers.hpp"
-#include "util/logging.hpp"
 
 class Router;
 

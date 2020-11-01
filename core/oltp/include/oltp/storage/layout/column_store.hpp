@@ -28,14 +28,14 @@
 #include <deque>
 #include <iostream>
 #include <map>
+#include <platform/memory/allocator.hpp>
+#include <platform/memory/memory-manager.hpp>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <tuple>
 #include <vector>
 
-#include "memory/allocator.hpp"
-#include "memory/memory-manager.hpp"
 #include "oltp/common/atomic_bit_set.hpp"
 #include "oltp/common/constants.hpp"
 #include "oltp/common/memory-chunk.hpp"

@@ -37,8 +37,9 @@
 //#include "indexes/ART/adaptive_radix_tree_index.hpp"
 #include "oltp/snapshot/snapshot_manager.hpp"
 //#include "oltp/snapshot/arena.hpp"
+#include <platform/util/percentile.hpp>
+
 #include "oltp/transaction/concurrency-control/concurrency-control.hpp"
-#include "util/percentile.hpp"
 
 extern uint g_num_partitions;
 extern uint g_delta_size;

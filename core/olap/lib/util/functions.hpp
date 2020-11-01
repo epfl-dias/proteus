@@ -24,12 +24,11 @@
 #ifndef FUNCTIONS_HPP_
 #define FUNCTIONS_HPP_
 
+#include <platform/util/radix/aggregations/radix-aggr.hpp>
+#include <platform/util/radix/joins/radix-join.hpp>
+#include <platform/util/string-object.hpp>
+#include <platform/util/timing.hpp>
 #include <string>
-
-#include "util/radix/aggregations/radix-aggr.hpp"
-#include "util/radix/joins/radix-join.hpp"
-#include "util/string-object.hpp"
-#include "util/timing.hpp"
 
 class ParallelContext;
 struct HashtableBucketMetadata;

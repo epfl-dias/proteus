@@ -23,9 +23,9 @@
 
 #include "test-utils.hpp"
 
-#include <common/common.hpp>
-#include <memory/memory-manager.hpp>
 #include <olap/common/olap-common.hpp>
+#include <platform/common/common.hpp>
+#include <platform/memory/memory-manager.hpp>
 
 void TestEnvironment::SetUp() {
   if (has_already_been_setup) {

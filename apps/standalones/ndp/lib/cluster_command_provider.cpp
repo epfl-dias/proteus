@@ -27,11 +27,11 @@
 
 #include <cli-flags.hpp>
 #include <command-provider/local-command-provider.hpp>
-#include <common/common.hpp>
 #include <distributed-runtime/cluster-manager.hpp>
 #include <map>
 #include <olap/plan/query-result.hpp>
-#include <storage/mmap-file.hpp>
+#include <platform/common/common.hpp>
+#include <platform/storage/mmap-file.hpp>
 
 static auto catalogJSON = "inputs";
 

@@ -31,9 +31,8 @@
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
 #include <future>
+#include <platform/common/gpu/gpu-common.hpp>
 #include <utility>
-
-#include "common/gpu/gpu-common.hpp"
 
 class Pipeline;
 

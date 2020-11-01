@@ -27,10 +27,10 @@
 
 #include <algorithm>
 #include <olap/plan/query-result.hpp>
+#include <platform/common/common.hpp>
 #include <utility>
 
 #include "cluster-control.hpp"
-#include "common/common.hpp"
 
 namespace proteus::distributed {
 

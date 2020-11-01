@@ -26,8 +26,8 @@
 
 #include <deque>
 #include <olap/plan/prepared-statement.hpp>
-#include <topology/device-types.hpp>
-#include <topology/topology.hpp>
+#include <platform/topology/device-types.hpp>
+#include <platform/topology/topology.hpp>
 #include <vector>
 
 #include "oltp.hpp"

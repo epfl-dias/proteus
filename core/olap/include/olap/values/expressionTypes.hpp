@@ -27,9 +27,8 @@
 #include <cassert>
 #include <memory>
 #include <ostream>
+#include <platform/common/common.hpp>
 #include <utility>
-
-#include "common/common.hpp"
 
 /* Original.*/
 // enum typeID    { BOOL, STRING, FLOAT, INT, RECORD, LIST, BAG, SET, BLOCK };

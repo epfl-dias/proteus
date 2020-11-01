@@ -23,8 +23,9 @@
 #ifndef GPU_HASH_REARRANGE_HPP_
 #define GPU_HASH_REARRANGE_HPP_
 
+#include <platform/memory/block-manager.hpp>
+
 #include "lib/operators/operators.hpp"
-#include "memory/block-manager.hpp"
 #include "olap/util/parallel-context.hpp"
 
 class GpuHashRearrange : public experimental::UnaryOperator {

@@ -28,6 +28,7 @@
 #include <future>
 #include <iostream>
 #include <map>
+#include <platform/util/percentile.hpp>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -36,7 +37,6 @@
 #include "oltp/common/constants.hpp"
 #include "oltp/snapshot/snapshot_manager.hpp"
 #include "oltp/storage/multi-version/delta_storage.hpp"
-#include "util/percentile.hpp"
 
 using dict_dstring_t = std::map<uint64_t, std::string>;
 

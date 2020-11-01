@@ -24,16 +24,17 @@
 #ifndef _NEST_RADIX_HPP_
 #define _NEST_RADIX_HPP_
 
+#include <olap/expressions/expressions.hpp>
+#include <olap/operators/monoids.hpp>
+#include <olap/util/parallel-context.hpp>
+#include <platform/util/radix/aggregations/radix-aggr.hpp>
+
 #include "lib/expressions/expressions-dot-evaluator.hpp"
 #include "lib/expressions/expressions-generator.hpp"
 #include "lib/expressions/expressions-hasher.hpp"
 #include "lib/expressions/path.hpp"
-#include "olap/expressions/expressions.hpp"
-#include "olap/operators/monoids.hpp"
-#include "olap/util/parallel-context.hpp"
 #include "operators.hpp"
 #include "radix-join.hpp"
-#include "util/radix/aggregations/radix-aggr.hpp"
 
 #define DEBUGRADIX_NEST
 /**

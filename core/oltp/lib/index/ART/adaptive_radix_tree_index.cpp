@@ -25,8 +25,8 @@
 
 #include <memory>
 #include <mutex>
+#include <platform/common/common.hpp>
 
-#include "common/common.hpp"
 #include "indexes/ART/adaptive_radix_tree_nodes.hpp"
 
 namespace indexes {

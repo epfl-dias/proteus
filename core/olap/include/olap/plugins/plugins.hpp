@@ -26,8 +26,7 @@
 
 #include <olap/util/context.hpp>
 #include <olap/util/parallel-context.hpp>
-
-#include "common/common.hpp"
+#include <platform/common/common.hpp>
 //#include "expressions/expressions.hpp"
 //#include "operators/operators.hpp"
 #include "olap/util/cache-info.hpp"

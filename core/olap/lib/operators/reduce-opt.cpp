@@ -23,8 +23,9 @@
 
 #include "reduce-opt.hpp"
 
+#include <platform/memory/memory-manager.hpp>
+
 #include "lib/util/jit/pipeline.hpp"
-#include "memory/memory-manager.hpp"
 #include "olap/util/parallel-context.hpp"
 
 using namespace llvm;

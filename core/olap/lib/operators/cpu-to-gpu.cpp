@@ -23,10 +23,11 @@
 
 #include "cpu-to-gpu.hpp"
 
+#include <platform/topology/topology.hpp>
+#include <platform/util/logging.hpp>
+
 #include "lib/util/catalog.hpp"
 #include "lib/util/jit/cpu-pipeline.hpp"
-#include "topology/topology.hpp"
-#include "util/logging.hpp"
 
 using namespace llvm;
 

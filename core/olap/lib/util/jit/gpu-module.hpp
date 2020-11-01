@@ -24,7 +24,8 @@
 #ifndef GPU_MODULE_HPP_
 #define GPU_MODULE_HPP_
 
-#include "common/gpu/gpu-common.hpp"
+#include <platform/common/gpu/gpu-common.hpp>
+
 #include "jit-module.hpp"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/LegacyPassManager.h"

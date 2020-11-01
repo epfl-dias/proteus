@@ -24,14 +24,14 @@
 #ifndef ROUTING_POLICY_HPP_
 #define ROUTING_POLICY_HPP_
 
+#include <olap/expressions/expressions.hpp>
 #include <olap/routing/routing-policy-types.hpp>
+#include <olap/util/parallel-context.hpp>
+#include <platform/topology/device-types.hpp>
+#include <platform/topology/topology.hpp>
 #include <utility>
 
 #include "affinitizers.hpp"
-#include "olap/expressions/expressions.hpp"
-#include "olap/util/parallel-context.hpp"
-#include "topology/device-types.hpp"
-#include "topology/topology.hpp"
 
 struct routing_target {
   llvm::Value *target;

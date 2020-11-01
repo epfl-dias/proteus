@@ -24,9 +24,10 @@
 #ifndef SORT_HPP_
 #define SORT_HPP_
 
-#include "olap/util/parallel-context.hpp"
+#include <olap/util/parallel-context.hpp>
+#include <platform/util/sort/sort-direction.hpp>
+
 #include "operators.hpp"
-#include "util/sort/sort-direction.hpp"
 
 class Sort : public UnaryOperator {
  public:

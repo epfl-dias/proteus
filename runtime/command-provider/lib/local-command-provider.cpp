@@ -28,7 +28,7 @@
 #include <map>
 #include <olap/plan/prepared-statement.hpp>
 #include <olap/plan/query-result.hpp>
-#include <storage/mmap-file.hpp>
+#include <platform/storage/mmap-file.hpp>
 
 static auto catalogJSON = "inputs";
 

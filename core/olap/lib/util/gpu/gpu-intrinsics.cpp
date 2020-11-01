@@ -23,7 +23,8 @@
 
 #include "gpu-intrinsics.hpp"
 
-#include "common/gpu/gpu-common.hpp"
+#include <platform/common/gpu/gpu-common.hpp>
+
 #include "llvm/ADT/APFloat.h"
 #include "llvm/IR/InlineAsm.h"
 

@@ -25,14 +25,14 @@
 #define OPERATORS_HPP_
 
 #include <olap/util/parallel-context.hpp>
+#include <platform/common/common.hpp>
+#include <platform/topology/device-types.hpp>
 
-#include "common/common.hpp"
 #include "lib/plugins/output/plugins-output.hpp"
 #include "llvm/IR/IRBuilder.h"
 #include "olap/expressions/expressions.hpp"
 #include "olap/plugins/plugins.hpp"
 #include "olap/routing/degree-of-parallelism.hpp"
-#include "topology/device-types.hpp"
 
 // Fwd declaration
 class Plugin;

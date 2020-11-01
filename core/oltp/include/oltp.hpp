@@ -34,7 +34,7 @@
 #include "oltp/transaction/transaction_manager.hpp"
 
 //
-#include "util/timing.hpp"
+#include <platform/util/timing.hpp>
 
 // TODO: Currently this is made for HTAP. make this standard entry point for
 // OLTP, so that even OLTP specific benchmarks can use this file.

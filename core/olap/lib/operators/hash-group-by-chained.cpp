@@ -23,13 +23,13 @@
 
 #include "hash-group-by-chained.hpp"
 
-#include <util/bitwise-ops.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/util/bitwise-ops.hpp>
 #include <utility>
 
 #include "lib/expressions/expressions-generator.hpp"
 #include "lib/expressions/expressions-hasher.hpp"
 #include "lib/operators/gpu/gmonoids.hpp"
-#include "memory/memory-manager.hpp"
 
 using namespace llvm;
 

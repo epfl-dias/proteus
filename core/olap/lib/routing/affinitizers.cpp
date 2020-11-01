@@ -21,8 +21,9 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include <platform/topology/topology.hpp>
+
 #include "olap/routing/routing-policy.hpp"
-#include "topology/topology.hpp"
 
 AffinityPolicy::AffinityPolicy(size_t fanout, const Affinitizer *aff)
     : aff(aff) {

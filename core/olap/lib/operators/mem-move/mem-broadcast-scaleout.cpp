@@ -23,9 +23,9 @@
 
 #include "mem-broadcast-scaleout.hpp"
 
-#include "memory/block-manager.hpp"
-#include "network/infiniband/infiniband-manager.hpp"
-#include "util/timing.hpp"
+#include <platform/memory/block-manager.hpp>
+#include <platform/network/infiniband/infiniband-manager.hpp>
+#include <platform/util/timing.hpp>
 
 buff_pair MemBroadcastScaleOut::MemBroadcastConf::pushBroadcast(
     void *src, size_t bytes, int target_device, bool disable_noop) {

@@ -23,7 +23,8 @@
 
 #include "project.hpp"
 
-#include "memory/memory-manager.hpp"
+#include <platform/memory/memory-manager.hpp>
+
 #include "olap/util/parallel-context.hpp"
 
 Project::Project(vector<expression_t> outputExprs, string relName,

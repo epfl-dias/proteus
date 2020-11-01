@@ -23,8 +23,8 @@
 
 #include "hash-rearrange.hpp"
 
-#include <memory/memory-manager.hpp>
-#include <util/bitwise-ops.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/util/bitwise-ops.hpp>
 //#include <values/indexed-seq.hpp>
 
 #include "lib/expressions/expressions-generator.hpp"

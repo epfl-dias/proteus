@@ -23,11 +23,11 @@
 
 #include "mem-move-scaleout.hpp"
 
-#include <memory/block-manager.hpp>
-#include <memory/memory-manager.hpp>
-#include <network/infiniband/infiniband-manager.hpp>
-#include <threadpool/threadpool.hpp>
-#include <util/logging.hpp>
+#include <platform/memory/block-manager.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/network/infiniband/infiniband-manager.hpp>
+#include <platform/threadpool/threadpool.hpp>
+#include <platform/util/logging.hpp>
 
 MemMoveScaleOut::MemMoveConf *MemMoveScaleOut::createMoveConf() const {
   void *pmmc = MemoryManager::mallocPinned(sizeof(MemMoveConf));

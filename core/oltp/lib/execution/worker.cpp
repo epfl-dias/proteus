@@ -31,16 +31,16 @@
 #include <future>
 #include <limits>
 #include <mutex>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
+#include <platform/util/timing.hpp>
 #include <queue>
 #include <string>
 #include <thread>
 
-#include "memory/memory-manager.hpp"
 #include "oltp/storage/table.hpp"
 #include "oltp/transaction/transaction_manager.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
-#include "util/timing.hpp"
 
 namespace scheduler {
 

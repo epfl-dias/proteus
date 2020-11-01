@@ -23,7 +23,8 @@
 
 #include "update.hpp"
 
-#include "memory/memory-manager.hpp"
+#include <platform/memory/memory-manager.hpp>
+
 #include "olap/util/parallel-context.hpp"
 
 using namespace llvm;

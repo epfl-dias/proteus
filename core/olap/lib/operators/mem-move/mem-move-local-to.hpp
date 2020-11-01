@@ -24,13 +24,13 @@
 #define MEM_MOVE_LOCAL_TO_HPP_
 
 #include <future>
+#include <olap/util/parallel-context.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/util/async_containers.hpp>
 #include <thread>
 
 #include "lib/operators/operators.hpp"
 #include "mem-move-device.hpp"
-#include "olap/util/parallel-context.hpp"
-#include "topology/affinity_manager.hpp"
-#include "util/async_containers.hpp"
 
 class MemMoveLocalTo : public MemMoveDevice {
  public:

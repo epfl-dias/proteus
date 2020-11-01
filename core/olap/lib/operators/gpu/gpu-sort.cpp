@@ -23,10 +23,11 @@
 
 #include "gpu-sort.hpp"
 
+#include <platform/memory/block-manager.hpp>
+
 #include "lib/expressions/expressions-flusher.hpp"
 #include "lib/expressions/expressions-generator.hpp"
 #include "lib/util/gpu/gpu-intrinsics.hpp"
-#include "memory/block-manager.hpp"
 
 using namespace llvm;
 

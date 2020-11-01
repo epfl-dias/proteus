@@ -32,16 +32,16 @@
 #include "htap-cli-flags.hpp"
 
 // UTILS
-#include "util/profiling.hpp"
-#include "util/timing.hpp"
+#include <platform/util/profiling.hpp>
+#include <platform/util/timing.hpp>
 
 // OLAP
 #include <cli-flags.hpp>
 #include <olap/common/olap-common.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/storage/storage-manager.hpp>
 
-#include "memory/memory-manager.hpp"
 #include "queries/olap-sequence.hpp"
-#include "storage/storage-manager.hpp"
 
 // OLTP
 #include "aeolus-plugin.hpp"
@@ -51,8 +51,8 @@
 
 // Platform
 
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
 
 int main(int argc, char *argv[]) {
   auto olap = proteus::from_cli::olap(

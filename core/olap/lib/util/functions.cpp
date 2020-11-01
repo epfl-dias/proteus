@@ -24,16 +24,14 @@
 #include "functions.hpp"
 
 #include <chrono>
-#include <common/error-handling.hpp>
 #include <ctime>
-#include <fstream>
-#include <iomanip>
 #include <iostream>
+#include <olap/util/parallel-context.hpp>
 #include <ostream>
-#include <storage/storage-manager.hpp>
+#include <platform/common/error-handling.hpp>
+#include <platform/storage/storage-manager.hpp>
 
 #include "catalog.hpp"
-#include "olap/util/parallel-context.hpp"
 
 #ifdef __AVX2__
 #include <immintrin.h>

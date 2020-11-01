@@ -23,9 +23,9 @@
 #ifndef HASH_REARRANGE_HPP_
 #define HASH_REARRANGE_HPP_
 
+#include <platform/memory/block-manager.hpp>
 #include <utility>
 
-#include "memory/block-manager.hpp"
 #include "olap/util/parallel-context.hpp"
 #include "operators.hpp"
 

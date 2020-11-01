@@ -21,10 +21,9 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "common/common.hpp"
-
 #include <lib/util/jit/pipeline.hpp>
 #include <olap/common/olap-common.hpp>
+#include <platform/common/common.hpp>
 
 namespace proteus {
 

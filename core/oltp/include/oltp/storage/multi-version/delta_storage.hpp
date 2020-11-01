@@ -30,8 +30,8 @@
 #include <iostream>
 #include <limits>
 #include <mutex>
+#include <platform/memory/memory-manager.hpp>
 
-#include "memory/memory-manager.hpp"
 #include "oltp/common/memory-chunk.hpp"
 
 #define DELTA_DEBUG 1

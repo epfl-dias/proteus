@@ -32,7 +32,7 @@
 #include <olap/routing/degree-of-parallelism.hpp>
 #include <olap/routing/routing-policy-types.hpp>
 #include <olap/values/types.hpp>
-#include <util/sort/sort-direction.hpp>
+#include <platform/util/sort/sort-direction.hpp>
 #include <utility>
 
 class PreparedStatement;

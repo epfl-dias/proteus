@@ -24,6 +24,6 @@
 #ifndef PROTEUS_COMMON_HPP
 #define PROTEUS_COMMON_HPP
 
-#include "common/common.hpp"
+#include <platform/common/common.hpp>
 
 #endif  // PROTEUS_COMMON_HPP

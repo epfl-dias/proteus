@@ -25,10 +25,10 @@
 #include <command-provider/local-command-provider.hpp>
 #include <iostream>
 #include <olap/plan/prepared-statement.hpp>
-#include <storage/storage-manager.hpp>
-#include <topology/affinity_manager.hpp>
-#include <topology/topology.hpp>
-#include <util/glog.hpp>
+#include <platform/storage/storage-manager.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
+#include <platform/util/glog.hpp>
 
 extern bool print_generated_code;
 

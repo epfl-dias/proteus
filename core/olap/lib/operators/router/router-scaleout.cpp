@@ -23,10 +23,11 @@
 
 #include "router-scaleout.hpp"
 
+#include <platform/memory/block-manager.hpp>
+#include <platform/network/infiniband/infiniband-manager.hpp>
+#include <platform/util/timing.hpp>
+
 #include "lib/util/jit/pipeline.hpp"
-#include "memory/block-manager.hpp"
-#include "network/infiniband/infiniband-manager.hpp"
-#include "util/timing.hpp"
 
 using namespace llvm;
 

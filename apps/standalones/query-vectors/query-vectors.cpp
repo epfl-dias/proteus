@@ -24,8 +24,8 @@
 #include <cli-flags.hpp>
 #include <memory>
 #include <olap/operators/relbuilder-factory.hpp>
-#include <topology/affinity_manager.hpp>
-#include <topology/topology.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
 
 int main(int argc, char *argv[]) {
   auto ctx = proteus::from_cli::olap("Template", &argc, &argv);

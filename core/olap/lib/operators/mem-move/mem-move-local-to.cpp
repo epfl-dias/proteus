@@ -24,9 +24,9 @@
 #include "mem-move-local-to.hpp"
 
 #include <future>
-#include <memory/block-manager.hpp>
-#include <memory/memory-manager.hpp>
-#include <topology/affinity_manager.hpp>
+#include <platform/memory/block-manager.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/topology/affinity_manager.hpp>
 
 MemMoveLocalTo::MemMoveConf *MemMoveLocalTo::createMoveConf() const {
   void *pmmc = MemoryManager::mallocPinned(sizeof(MemMoveConf));

@@ -27,10 +27,9 @@
 #include <sys/mman.h>
 
 #include <new>
-
-#include "memory/memory-manager.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
+#include <platform/memory/memory-manager.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
 
 namespace oltp::common {
 

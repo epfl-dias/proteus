@@ -23,12 +23,13 @@
 
 #include "test-utils.hpp"
 
-#include "memory/memory-manager.hpp"
+#include <platform/memory/memory-manager.hpp>
+#include <platform/storage/storage-manager.hpp>
+
 #include "olap/common/olap-common.hpp"
 #include "olap/plan/prepared-statement.hpp"
 #include "rapidjson/error/en.h"
 #include "rapidjson/stringbuffer.h"
-#include "storage/storage-manager.hpp"
 
 void TestEnvironment::SetUp() {
   assert(!has_already_been_setup);

@@ -24,9 +24,9 @@
 #ifndef EXPRESSIONS_VISITOR_HPP_
 #define EXPRESSIONS_VISITOR_HPP_
 
+#include <platform/common/common.hpp>
 #include <utility>
 
-#include "common/common.hpp"
 #include "lib/util/caching.hpp"
 #include "lib/util/catalog.hpp"
 #include "olap/plugins/plugins.hpp"

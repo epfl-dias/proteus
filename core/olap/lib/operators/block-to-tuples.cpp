@@ -22,12 +22,13 @@
 */
 #include "block-to-tuples.hpp"
 
+#include <olap/plugins/plugins.hpp>
+#include <platform/memory/block-manager.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/util/logging.hpp>
+
 #include "lib/util/catalog.hpp"
 #include "lib/util/jit/pipeline.hpp"
-#include "memory/buffer-manager.cuh"
-#include "memory/memory-manager.hpp"
-#include "olap/plugins/plugins.hpp"
-#include "util/logging.hpp"
 
 using namespace llvm;
 
@@ -259,7 +260,7 @@ void BlockToTuples::close(Pipeline *pip) {
   }
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
-    buffer_manager<int32_t>::release_buffer((int32_t *)h_buffs[i]);
+    BlockManager::release_buffer((int32_t *)h_buffs[i]);
   }
 
   if (gpu)

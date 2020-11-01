@@ -23,9 +23,9 @@
 #ifndef GPU_TO_CPU_HPP_
 #define GPU_TO_CPU_HPP_
 
+#include <platform/common/gpu/gpu-common.hpp>
 #include <utility>
 
-#include "common/gpu/gpu-common.hpp"
 #include "lib/operators/device-cross.hpp"
 #include "lib/operators/operators.hpp"
 #include "olap/util/parallel-context.hpp"

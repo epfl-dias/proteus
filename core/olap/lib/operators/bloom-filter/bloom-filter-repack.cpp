@@ -25,12 +25,12 @@
 
 #include <llvm/IR/IntrinsicsX86.h>
 
-#include <lib/expressions/expressions-generator.hpp>
-#include <lib/util/jit/pipeline.hpp>
-#include <memory/block-manager.hpp>
-#include <memory/buffer-manager.cuh>
-#include <memory/memory-manager.hpp>
-#include <util/logging.hpp>
+#include <platform/memory/block-manager.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/util/logging.hpp>
+
+#include "lib/expressions/expressions-generator.hpp"
+#include "lib/util/jit/pipeline.hpp"
 
 void BloomFilterRepack::produce_(ParallelContext *context) {
   context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });

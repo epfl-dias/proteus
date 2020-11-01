@@ -25,7 +25,8 @@
 // test logic needs is declared.
 //
 // Don't forget gtest.h, which declares the testing framework.
-#include "common/common.hpp"
+#include <platform/common/common.hpp>
+
 #include "expressions/binary-operators.hpp"
 #include "expressions/expressions-hasher.hpp"
 #include "expressions/expressions.hpp"

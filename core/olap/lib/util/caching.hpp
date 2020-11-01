@@ -24,7 +24,8 @@
 #ifndef CACHING_HPP_
 #define CACHING_HPP_
 
-#include "common/common.hpp"
+#include <platform/common/common.hpp>
+
 #include "olap/expressions/expressions.hpp"
 
 #define CACHING_ON

@@ -22,29 +22,24 @@
 */
 
 #include <arpa/inet.h>
-#include <err.h>
 #include <gflags/gflags.h>
-#include <netdb.h>
 #include <rdma/rdma_cma.h>
-#include <sys/socket.h>
 #include <sys/types.h>
 
+#include <olap/plan/prepared-statement.hpp>
+#include <platform/common/error-handling.hpp>
+#include <platform/memory/block-manager.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/network/infiniband/infiniband-manager.hpp>
+#include <platform/storage/storage-manager.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
+#include <platform/util/logging.hpp>
+#include <platform/util/profiling.hpp>
+#include <platform/util/timing.hpp>
 #include <type_traits>
-#include <util/timing.hpp>
 
 #include "cli-flags.hpp"
-#include "common/error-handling.hpp"
-#include "memory/block-manager.hpp"
-#include "memory/memory-manager.hpp"
-#include "network/infiniband/infiniband-manager.hpp"
-#include "olap/operators/relbuilder.hpp"
-#include "olap/plan/prepared-statement.hpp"
-#include "olap/plugins/binary-block-plugin.hpp"
-#include "storage/storage-manager.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
-#include "util/logging.hpp"
-#include "util/profiling.hpp"
 
 void handshake(subscription &sub) {
   for (int i = 0; i < 1; ++i) {

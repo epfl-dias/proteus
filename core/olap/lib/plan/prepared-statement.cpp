@@ -21,19 +21,18 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "olap/plan/prepared-statement.hpp"
-
+#include <olap/plan/prepared-statement.hpp>
+#include <olap/util/parallel-context.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
+#include <platform/util/profiling.hpp>
+#include <platform/util/timing.hpp>
 #include <utility>
 
 #include "lib/util/caching.hpp"
 #include "lib/util/catalog.hpp"
 #include "lib/util/jit/pipeline.hpp"
-#include "olap/util/parallel-context.hpp"
 #include "plan-parser.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
-#include "util/profiling.hpp"
-#include "util/timing.hpp"
 
 static constexpr auto defaultCatalogJSON = "inputs";
 

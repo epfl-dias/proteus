@@ -29,13 +29,13 @@
 #include <atomic>
 #include <chrono>
 #include <iostream>
+#include <platform/util/timing.hpp>
 
 #include "oltp/common/constants.hpp"
 #include "oltp/execution/worker.hpp"
 #include "oltp/storage/table.hpp"
 #include "oltp/transaction/concurrency-control/concurrency-control.hpp"
 #include "oltp/transaction/txn_utils.hpp"
-#include "util/timing.hpp"
 
 namespace txn {
 

@@ -56,12 +56,12 @@
 //
 // </TechnicalDetails>
 
+#include <platform/storage/storage-manager.hpp>
+#include <platform/topology/topology.hpp>
 #include <thread>
 #include <vector>
 
-#include "storage/storage-manager.hpp"
 #include "test-utils.hpp"
-#include "topology/topology.hpp"
 
 using namespace llvm;
 

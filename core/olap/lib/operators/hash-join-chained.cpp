@@ -23,12 +23,12 @@
 
 #include "hash-join-chained.hpp"
 
+#include <platform/memory/memory-manager.hpp>
 #include <utility>
 
 #include "lib/expressions/expressions-hasher.hpp"
 #include "lib/operators/gpu/gmonoids.hpp"
 #include "lib/util/jit/pipeline.hpp"
-#include "memory/memory-manager.hpp"
 
 using namespace llvm;
 

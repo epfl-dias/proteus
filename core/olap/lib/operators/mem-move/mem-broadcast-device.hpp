@@ -24,13 +24,13 @@
 #define MEM_BROADCAST_DEVICE_HPP_
 
 #include <future>
+#include <olap/util/parallel-context.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/util/async_containers.hpp>
 #include <thread>
 #include <unordered_map>
 
 #include "mem-move-device.hpp"
-#include "olap/util/parallel-context.hpp"
-#include "topology/affinity_manager.hpp"
-#include "util/async_containers.hpp"
 
 // void * make_mem_move_device(char * src, size_t bytes, int target_device,
 // cudaStream_t strm);

@@ -28,11 +28,11 @@
 #include <olap/routing/affinitization-factory.hpp>
 #include <olap/routing/affinitizers.hpp>
 #include <olap/routing/degree-of-parallelism.hpp>
-#include <topology/affinity_manager.hpp>
-#include <topology/topology.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
+#include <platform/util/profiling.hpp>
+#include <platform/util/timing.hpp>
 #include <type_traits>
-#include <util/profiling.hpp>
-#include <util/timing.hpp>
 
 #include "../htap-cli-flags.hpp"
 #include "ch/ch-queries.hpp"

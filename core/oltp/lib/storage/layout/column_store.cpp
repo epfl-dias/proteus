@@ -28,19 +28,19 @@
 #include <cstring>
 #include <iostream>
 #include <olap/values/expressionTypes.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/threadpool/thread.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
+#include <platform/util/timing.hpp>
 #include <string>
 #include <utility>
 
-#include "memory/memory-manager.hpp"
 #include "oltp/common/constants.hpp"
 #include "oltp/storage/multi-version/delta_storage.hpp"
 #include "oltp/storage/multi-version/mv-versions.hpp"
 #include "oltp/storage/multi-version/mv.hpp"
 #include "oltp/storage/table.hpp"
-#include "threadpool/thread.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
-#include "util/timing.hpp"
 
 #define HTAP_UPD_BIT_ON_INSERT false
 

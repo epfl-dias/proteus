@@ -72,21 +72,21 @@
 #include <unistd.h>
 
 #include <numeric>
+#include <platform/common/common.hpp>
+#include <platform/common/gpu/gpu-common.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/storage/storage-manager.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
 #include <thread>
 #include <vector>
 
-#include "common/common.hpp"
-#include "common/gpu/gpu-common.hpp"
-#include "memory/memory-manager.hpp"
 #include "plan/plan-parser.hpp"
 #include "snapshot/cor_arena.hpp"
 #include "snapshot/cor_const_arena.hpp"
 #include "snapshot/cow_arena.hpp"
 #include "snapshot/snapshot_manager.hpp"
-#include "storage/storage-manager.hpp"
 #include "test-utils.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
 
 ::testing::Environment *const pools_env =
     ::testing::AddGlobalTestEnvironment(new TestEnvironment);

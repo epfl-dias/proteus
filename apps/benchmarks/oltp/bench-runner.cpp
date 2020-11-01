@@ -49,10 +49,10 @@
 #include "tpcc/tpcc_64.hpp"
 
 // Platform Includes
-#include "common/common.hpp"
-#include "topology/affinity_manager.hpp"
-#include "topology/topology.hpp"
-#include "util/profiling.hpp"
+#include <platform/common/common.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
+#include <platform/util/profiling.hpp>
 
 int main(int argc, char** argv) {
   auto olap = proteus::from_cli::olap(

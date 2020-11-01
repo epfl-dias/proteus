@@ -24,7 +24,8 @@
 #ifndef EXPRESSIONS_DOT_VISITOR_HPP_
 #define EXPRESSIONS_DOT_VISITOR_HPP_
 
-#include "common/common.hpp"
+#include <platform/common/common.hpp>
+
 #include "expressions-generator.hpp"
 #include "expressions-hasher.hpp"
 #include "lib/util/functions.hpp"

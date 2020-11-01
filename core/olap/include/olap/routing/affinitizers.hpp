@@ -24,10 +24,9 @@
 #ifndef AFFINITIZERS_HPP_
 #define AFFINITIZERS_HPP_
 
-#include <topology/gpu-index.hpp>
-
-#include "topology/device-types.hpp"
-#include "topology/topology.hpp"
+#include <platform/topology/device-types.hpp>
+#include <platform/topology/gpu-index.hpp>
+#include <platform/topology/topology.hpp>
 
 class Affinitizer {
  public:

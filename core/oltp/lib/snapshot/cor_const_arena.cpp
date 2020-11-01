@@ -28,11 +28,10 @@
 
 #include <cassert>
 #include <cstring>
+#include <platform/common/common.hpp>
+#include <platform/memory/memory-manager.hpp>
 #include <stdexcept>
 #include <string>
-
-#include "common/common.hpp"
-#include "memory/memory-manager.hpp"
 
 namespace aeolus {
 namespace snapshot {

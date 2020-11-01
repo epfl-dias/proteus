@@ -25,9 +25,9 @@
 #define GPU_PHASH_JOIN_CHAINED_HPP_
 
 #include <optional>
+#include <platform/common/gpu/gpu-common.hpp>
 #include <unordered_map>
 
-#include "common/gpu/gpu-common.hpp"
 #include "lib/operators/operators.hpp"
 #include "lib/util/jit/pipeline.hpp"
 #include "olap/operators/gpu/gpu-materializer-expr.hpp"

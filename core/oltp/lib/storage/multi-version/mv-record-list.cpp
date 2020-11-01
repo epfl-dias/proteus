@@ -24,8 +24,8 @@
 #include "oltp/storage/multi-version/mv-record-list.hpp"
 
 #include <iostream>
+#include <platform/memory/allocator.hpp>
 
-#include "memory/allocator.hpp"
 #include "oltp/common/constants.hpp"
 
 namespace storage::mv {

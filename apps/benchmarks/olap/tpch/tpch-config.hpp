@@ -25,9 +25,8 @@
 #define TPCH_CONFIG_HPP_
 
 //#include "expressions/expressions.hpp"
+#include <platform/common/common.hpp>
 #include <values/expressionTypes.hpp>
-
-#include "common/common.hpp"
 /* Constants and macros to be used by micro-benchmark queries */
 
 //#define TPCH_LOCAL

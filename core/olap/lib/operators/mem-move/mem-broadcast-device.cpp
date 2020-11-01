@@ -24,12 +24,13 @@
 #include "mem-broadcast-device.hpp"
 
 #include "lib/util/catalog.hpp"
-// #include "common/gpu/gpu-common.hpp"
+// #include <platform/common/gpu/gpu-common.hpp>
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
+#include <platform/memory/block-manager.hpp>
+#include <platform/threadpool/threadpool.hpp>
+
 #include "lib/util/jit/pipeline.hpp"
-#include "memory/block-manager.hpp"
-#include "threadpool/threadpool.hpp"
 
 using namespace llvm;
 

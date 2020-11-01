@@ -30,13 +30,13 @@
 #include <mutex>
 #include <olap/plan/catalog-parser.hpp>
 #include <olap/values/expressionTypes.hpp>
+#include <platform/threadpool/threadpool.hpp>
+#include <platform/util/timing.hpp>
 #include <string>
 
 #include "oltp/common/constants.hpp"
 #include "oltp/storage/layout/column_store.hpp"
 #include "oltp/storage/multi-version/delta_storage.hpp"
-#include "threadpool/threadpool.hpp"
-#include "util/timing.hpp"
 
 namespace storage {
 
