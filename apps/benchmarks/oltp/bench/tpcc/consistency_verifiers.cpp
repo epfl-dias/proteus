@@ -134,13 +134,7 @@ std::vector<PreparedStatement> TPCC::consistency_check_2_query_builder() {
                 return {arg["o_w_id"], arg["o_d_id"], arg["o_id"]};
               },
               {direction::ASC, direction::ASC, direction::NONE})
-          .print([&](const auto &arg) -> std::vector<expression_t> {
-            return {
-                arg["o_w_id"],
-                arg["o_d_id"],
-                arg["o_id"],
-            };
-          })
+          .print(pg{"pm-csv"})
           .prepare();
 
   PreparedStatement no_max =
@@ -182,13 +176,7 @@ std::vector<PreparedStatement> TPCC::consistency_check_2_query_builder() {
                 return {arg["no_w_id"], arg["no_d_id"], arg["no_o_id"]};
               },
               {direction::ASC, direction::ASC, direction::NONE})
-          .print([&](const auto &arg) -> std::vector<expression_t> {
-            return {
-                arg["no_w_id"],
-                arg["no_d_id"],
-                arg["no_o_id"],
-            };
-          })
+          .print(pg{"pm-csv"})
           .prepare();
 
   PreparedStatement d_next_oid =
@@ -208,13 +196,7 @@ std::vector<PreparedStatement> TPCC::consistency_check_2_query_builder() {
                     (arg["d_next_o_id"] - ((int64_t)1))
                         .as("PelagoProject#13144", "d_next_o_id")};
           })
-          .print([&](const auto &arg) -> std::vector<expression_t> {
-            return {
-                arg["d_w_id"],
-                arg["d_id"],
-                arg["d_next_o_id"],
-            };
-          })
+          .print(pg{"pm-csv"})
           .prepare();
 
   return {o_max, no_max, d_next_oid};
@@ -344,14 +326,7 @@ std::vector<PreparedStatement> TPCC::consistency_check_3_query_builder() {
               },
               {direction::ASC, direction::ASC, direction::NONE,
                direction::NONE})
-          .print([&](const auto &arg) -> std::vector<expression_t> {
-            return {
-                arg["no_w_id"],
-                arg["no_d_id"],
-                arg["expected_count"],
-                arg["actual_count"],
-            };
-          })
+          .print(pg{"pm-csv"})
           .prepare();
   return {new_order_stats};
 }
