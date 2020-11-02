@@ -114,7 +114,9 @@ void MemoryManager::destroy() {
   delete[] cpu_managers;
 }
 
-constexpr inline size_t fixSize(size_t bytes) { return (bytes + 0xF) & ~0xF; }
+constexpr inline size_t fixSize(size_t bytes) {
+  return (std::max(bytes, size_t{1}) + 0xF) & ~0xF;
+}
 
 void *MemoryManager::mallocGpu(size_t bytes) {
   eventlogger.log(nullptr, log_op::MEMORY_MANAGER_ALLOC_GPU_START);
