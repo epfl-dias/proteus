@@ -118,28 +118,18 @@ foreach(target ${olap_cxx_cu} ${olap_cu})
     set_source_files_properties(${target} PROPERTIES COMPILE_FLAGS ${CUDA_CXXFLAGS})
 endforeach()
 
-#-----------------------------------------------------------------------------
-# LSC: Hopefully we will soon be able to remove this section, where we call
-#      straight to NVCC
-set(CUDA_WORKDIR ${CMAKE_CURRENT_BINARY_DIR}/cubin)
-file(MAKE_DIRECTORY ${CUDA_WORKDIR})
-
-add_library(olap SHARED
+add_library(${PROJECT_NAME} SHARED
         ${olap_cxx_cu}
         ${olap_cxx}
         )
 
-#set_target_properties(olap PROPERTIES
-#        LINK_FLAGS "-Wl,--no-allow-shlib-undefined -Wl,-z,defs ")
-
-
 # If we have compiler requirements for this library, list them
 # here
-target_compile_features(olap
+target_compile_features(${PROJECT_NAME}
         PUBLIC cxx_std_20)
 
 # Depend on a library that we defined in the top-level file
-target_link_libraries(olap
+target_link_libraries(${PROJECT_NAME}
     PUBLIC
         RapidJSON::RapidJSON
         LLVM::LLVM
