@@ -38,9 +38,6 @@ DECLARE_string(url);
 DECLARE_int32(repeat);
 DECLARE_bool(print_generated_code);
 
-DECLARE_int32(secondary_port);
-DECLARE_string(secondary_url);
-
 namespace proteus::from_cli {
 proteus::olap olap(const std::string &usage, int *argc, char ***argv);
 proteus::olap olap();
