@@ -28,6 +28,7 @@
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
 #include <platform/util/logging.hpp>
+#include <platform/util/rdtsc.hpp>
 #include <thread>
 
 double diff(struct timespec st, struct timespec end) {
@@ -93,16 +94,6 @@ struct log_info {
 static stringstream global_log;
 // std::mutex                      global_log_lock    ;
 
-#if defined(__powerpc64__) || defined(__ppc64__)
-uint64_t __rdtsc() {
-  uint64_t c;
-  asm volatile("mfspr %0, 268" : "=r"(c));
-  return c;
-}
-#else
-#include <x86intrin.h>
-#endif
-
 // logger::~logger(){
 //     std::lock_guard<std::mutex> lg(global_log_lock);
 //     for (const auto &t: data) t.flush();
@@ -110,7 +101,7 @@ uint64_t __rdtsc() {
 
 void logger::log(void *dop, log_op op) {
   data->push_back(
-      log_info{dop, __rdtsc(), sched_getcpu(), std::this_thread::get_id(), op});
+      log_info{dop, rdtsc(), sched_getcpu(), std::this_thread::get_id(), op});
 }
 
 class flush_log {

@@ -31,6 +31,7 @@
 #include <mutex>
 #include <platform/common/common.hpp>
 #include <platform/memory/allocator.hpp>
+#include <platform/util/rdtsc.hpp>
 #include <utility>
 
 namespace proteus::utils {
@@ -177,12 +178,12 @@ class [[nodiscard]] percentile_point_clock : public percentile_point_parent {
 class [[nodiscard]] percentile_point_rdtsc : public percentile_point_parent {
  public:
   inline explicit percentile_point_rdtsc(Percentile& registry)
-      : percentile_point_parent(registry), start(__rdtsc()) {}
+      : percentile_point_parent(registry), start(rdtsc()) {}
 
   inline explicit percentile_point_rdtsc(threadLocal_percentile& p_reg)
-      : percentile_point_parent(p_reg), start(__rdtsc()) {}
+      : percentile_point_parent(p_reg), start(rdtsc()) {}
 
-  inline ~percentile_point_rdtsc() { registry.add(__rdtsc() - start); }
+  inline ~percentile_point_rdtsc() { registry.add(rdtsc() - start); }
 
  private:
   const uint64_t start;
