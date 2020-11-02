@@ -115,7 +115,7 @@ target_link_libraries(platform
             -lc++abi
       	    -lrt
             ${CUDA_LIBS}
-            cli-flags)
+            cli-flags::cli-flags)
 
 if(VTUNE AND VTUNE_ENABLE)
 target_link_libraries(platform PUBLIC vtune::vtune)

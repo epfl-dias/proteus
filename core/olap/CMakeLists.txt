@@ -144,7 +144,6 @@ target_link_libraries(olap
         RapidJSON::RapidJSON
         LLVM::LLVM
         proteus::platform
-        jsmn::jsmn
-        cli-flags::cli-flags)
+        jsmn::jsmn)
 
 include(proteus-lib)

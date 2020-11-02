@@ -212,7 +212,7 @@ if (USE_LIBCXX)
 
 	# Also add libc++ to the llvm_libs so that we get std::filesystem; apparently -stdlib=libc++ is not enough
 	find_library(libc++ c++ PATHS "${LLVM_LIBRARY_DIR}" NO_DEFAULT_PATH REQUIRED)
-	list(APPEND llvm_libs ${llvm_libs} ${libc++})
+	list(APPEND llvm_libs ${libc++})
 	list(APPEND PROTEUS_FORCE_CPPSTD_FOR_CUDA "--std=c++20")
 else()
 	# Patch for GCC shipping libstdc++fs separately from libstdc++
@@ -243,7 +243,7 @@ target_include_directories(LLVM_VIRTUAL_TARGET
   SYSTEM PUBLIC INTERFACE
 		${LLVM_INCLUDE_DIRS})
 target_link_libraries(LLVM_VIRTUAL_TARGET
-	PUBLIC INTERFACE
+	INTERFACE
 		${llvm_libs})
 
 
