@@ -185,6 +185,7 @@ Test 01 - Threads:
   - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-threads --gtest_output="xml:$CWD/report-threads.xml"
+    #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='ThreadTest.*' --gtest_output="xml:$CWD/report-threads.xml"
  artifacts:
   reports:
    junit: report-threads.xml
@@ -198,6 +199,7 @@ Test 02 - Plan Parsing:
   - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-plan-parsing --gtest_output="xml:$CWD/report-plan-parsing.xml"
+    #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='PlanTest.*' --gtest_output="xml:$CWD/report-plan-parsing.xml"
  artifacts:
   reports:
    junit: report-plan-parsing.xml
@@ -211,6 +213,7 @@ Test 03 - JSON:
   - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-json --gtest_output="xml:$CWD/report-json.xml"
+    #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='JSONTest.*' --gtest_output="xml:$CWD/report-json.xml"
  allow_failure: true
  artifacts:
   reports:
@@ -225,6 +228,7 @@ Test 04 - Joins:
   - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-joins --gtest_output="xml:$CWD/report-joins.xml"
+    #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='SailorsTest.*' --gtest_output="xml:$CWD/report-joins.xml"
  allow_failure: true
  artifacts:
   reports:
@@ -239,6 +243,7 @@ Test 05 - Output:
   - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-output --gtest_output="xml:$CWD/report-output.xml"
+    #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='OutputTest.*' --gtest_output="xml:$CWD/report-output.xml"
  artifacts:
   reports:
    junit: report-output.xml
@@ -252,6 +257,7 @@ Test 06 - GPU SSB SF100:
   - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-gpu-ssb --gtest_output="xml:$CWD/report-gpu.xml"
+    #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='GPUSSBTest.*' --gtest_output="xml:$CWD/report-gpu.xml"
  artifacts:
   reports:
    junit: report-gpu.xml
@@ -265,6 +271,7 @@ Test 07 - CPU SSB SF100:
   - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-cpu-ssb --gtest_output="xml:$CWD/report-cpu.xml"
+    #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='CPUSSBTest.*' --gtest_output="xml:$CWD/report-cpu.xml"
  artifacts:
   reports:
    junit: report-cpu.xml
@@ -278,6 +285,7 @@ Test 08 - Hybrid SSB SF100:
   - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-hyb-ssb --gtest_output="xml:$CWD/report-hyb.xml"
+    #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='HYBSSBTest.*' --gtest_output="xml:$CWD/report-hyb.xml"
  artifacts:
   reports:
    junit: report-hyb.xml
@@ -291,6 +299,7 @@ Test 09 - COW:
   - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-cow --gtest_output="xml:$CWD/report-cow.xml"
+    #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='ThreadCOW.*' --gtest_output="xml:$CWD/report-cow.xml"
  artifacts:
   reports:
    junit: report-cow.xml
@@ -332,7 +341,7 @@ SSB100 Benchmark - CPU only:
   - mkdir -p ${build_path}
   - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
-  - cd ${build_path}/opt/pelago && java -jar ../../opt/lib/clotho.jar --server inputs/plans/schema.json & disown && sleep 30
+  - cd ${build_path}/opt/pelago && java -jar ../../opt/pelago/clotho.jar --server inputs/plans/schema.json & disown && sleep 30
   - echo "select sum(d_datekey) from ssbm_date;" > queries.sql
   - echo "alter session set hwmode=cpuonly;" >> queries.sql
   - for f in core/planner/src/test/resources/tests/ssb100/queries/q*.sql; do cat $f $f $f $f $f >> queries.sql ; done ;
@@ -350,7 +359,7 @@ SSB100 Benchmark - GPU only:
   - mkdir -p ${build_path}
   - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
-  - cd ${build_path}/opt/pelago && java -jar ../../opt/lib/clotho.jar --server inputs/plans/schema.json & disown && sleep 30
+  - cd ${build_path}/opt/pelago && java -jar ../../opt/pelago/clotho.jar --server inputs/plans/schema.json & disown && sleep 30
   - echo "select /*+ QUERY_INFO(name='warmup') */ sum(d_datekey) from ssbm_date;" > queries.sql
   - echo "alter session set hwmode=gpuonly;" >> queries.sql
   - for f in core/planner/src/test/resources/tests/ssb100/queries/q*.sql; do cat $f $f $f $f $f >> queries.sql ; done ;
@@ -368,7 +377,7 @@ SSB100 Benchmark - Hybrid:
   - mkdir -p ${build_path}
   - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install
   - export CWD=$(pwd)
-  - cd ${build_path}/opt/pelago && java -jar ../../opt/lib/clotho.jar --server inputs/plans/schema.json & disown && sleep 30
+  - cd ${build_path}/opt/pelago && java -jar ../../opt/pelago/clotho.jar --server inputs/plans/schema.json & disown && sleep 30
   - echo "select /*+ QUERY_INFO(name='warmup') */ sum(d_datekey) from ssbm_date;" > queries.sql
   - echo "alter session set hwmode=hybrid;" >> queries.sql
   - for f in core/planner/src/test/resources/tests/ssb100/queries/q*.sql; do cat $f $f $f $f $f >> queries.sql ; done ;

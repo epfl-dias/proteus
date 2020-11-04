@@ -1,36 +1,33 @@
-get_filename_component(STANDALONE_DIR ${CMAKE_CURRENT_SOURCE_DIR} NAME)
+# Set the name of the app from the folder name
+get_filename_component(APP_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
 
-project(${STANDALONE_DIR} VERSION 0.1 LANGUAGES CXX)
+project(${APP_NAME} VERSION 0.1 LANGUAGES CXX)
+add_executable(${PROJECT_NAME}
+	ndp.cpp
+	ndp-cli-flags.cpp
+	lib/ndp-common.cpp
+	lib/cluster_command_provider.cpp
+	lib/example-plans/alternative-paths.cpp
+	lib/example-plans/scheduling-paths.cpp
+	lib/example-plans/task-description.cpp
+	lib/example-plans/task-offloading.cpp
+)
 
-set(ndp_cxx
-        ndp-cli-flags.cpp
-        lib/ndp-common.cpp
-        lib/cluster_command_provider.cpp
-        lib/example-plans/alternative-paths.cpp
-        lib/example-plans/scheduling-paths.cpp
-        lib/example-plans/task-description.cpp
-        lib/example-plans/task-offloading.cpp
-        )
+# Depending on the olap libraries
+target_link_libraries(${PROJECT_NAME}
+	codegen::olap_flags
+	proteus::runtime
+	proteus::plan-parser
+	proteus::command_provider
+)
 
-set(MAINS
-        ${STANDALONE_DIR}
-        )
+# Add paths to the local pseudo-library
+target_include_directories(${PROJECT_NAME}
+	PUBLIC
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+		$<INSTALL_INTERFACE:include>
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}
+)
 
-foreach(target ${MAINS})
-    add_executable(proteus${target} ${target}.cpp ${ndp_cxx})
-    target_link_libraries(proteus${target} codegen::olap_flags proteus::runtime
-        proteus::plan-parser proteus::command_provider)
-    target_include_directories(proteus${target}
-        PUBLIC
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-            $<INSTALL_INTERFACE:include>
-        PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}
-    )
-    install(TARGETS proteus${target}
-            ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}
-            )
-endforeach(target)
-
+include(proteus-experiment)

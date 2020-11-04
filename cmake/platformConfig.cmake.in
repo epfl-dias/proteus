@@ -1,8 +1,0 @@
-@PACKAGE_INIT@
-
-include(CMakeFindDependencyMacro)
-find_dependency(Gflags REQUIRED COMPONENTS shared)
-
-#if(NOT TARGET platform)
-    include(${CMAKE_CURRENT_LIST_DIR}/platform-targets.cmake)
-#endif()

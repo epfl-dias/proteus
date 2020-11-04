@@ -1,18 +1,16 @@
-get_filename_component(STANDALONE_DIR ${CMAKE_CURRENT_SOURCE_DIR} NAME)
+# Set the name of the app from the folder name
+get_filename_component(APP_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
 
-project(${STANDALONE_DIR} VERSION 0.1 LANGUAGES CXX)
+# Include all source files, should be changed to a manual list to be safer.
+file(GLOB APP_SRCS *.cpp)
 
-set(MAINS
-    ${STANDALONE_DIR}
-    )
+project(${APP_NAME} VERSION 0.1 LANGUAGES CXX)
+add_executable(${PROJECT_NAME} ${APP_SRCS})
 
-foreach(target ${MAINS})
-  add_executable(proteus${target} ${target}.cpp)
-  target_link_libraries(proteus${target} codegen::olap_flags proteus::olap)
-  install(TARGETS proteus${target}
-      ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-      LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-      RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}
-      )
-endforeach(target)
+# Depending on the olap libraries
+target_link_libraries(${PROJECT_NAME}
+	codegen::olap_flags
+	proteus::olap
+)
 
+include(proteus-experiment)

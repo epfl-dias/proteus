@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "tpcc_64.hpp"
+#include "tpcc/tpcc_64.hpp"
 
 #include <chrono>
 #include <cstring>

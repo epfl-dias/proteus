@@ -11,11 +11,11 @@ foreach(target
 	spam-csv-cached-columnar
 	spam-json-cached
 	)
-	add_executable(${target} ${target}.cpp)
-	target_link_libraries(${target} proteus::olap)
-	install(TARGETS ${target}
-		RUNTIME DESTINATION pelago
-		LIBRARY DESTINATION lib
-		ARCHIVE DESTINATION lib
-		)
+
+	project(${target} VERSION 0.1 LANGUAGES CXX)
+	add_executable(${PROJECT_NAME} ${target}.cpp)
+
+	target_link_libraries(${PROJECT_NAME}
+		proteus::olap
+	)
 endforeach(target)

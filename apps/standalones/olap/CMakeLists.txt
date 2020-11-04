@@ -1,19 +1,18 @@
-project(olap-apps VERSION 0.1 LANGUAGES CXX)
+foreach(target
+		scaleout-brdcst
+		scaleout-pingpong
+		scaleout-ssb
+	)
+	project(${target} VERSION 0.1 LANGUAGES CXX)
 
-set(MAINS
-        main-scaleout-brdcst
-        main-scaleout-pingpong
-        main-scaleout-ssb
-        main-server  # Interface to the executor
-        )
+	add_executable(${target} main-${target}.cpp)
 
-foreach(target ${MAINS})
-    add_executable(proteus${target} ${target}.cpp)
-    target_link_libraries(proteus${target} codegen::olap_flags proteus::olap proteus::command_provider)
-    install(TARGETS proteus${target}
-            ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}
-            )
+	target_link_libraries(${target}
+		codegen::olap_flags
+		proteus::olap
+		proteus::command_provider
+	)
+
+	include(proteus-experiment)
 endforeach(target)
 

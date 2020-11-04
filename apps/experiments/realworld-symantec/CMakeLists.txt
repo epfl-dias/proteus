@@ -1,11 +1,8 @@
-foreach(target
-	symantec-json
-	)
-	add_executable(${target} ${target}.cpp)
-	target_link_libraries(${target} proteus::olap)
-	install(TARGETS ${target}
-		RUNTIME DESTINATION pelago
-		LIBRARY DESTINATION lib
-		ARCHIVE DESTINATION lib
-		)
-endforeach(target)
+project(symantec-json VERSION 0.1 LANGUAGES CXX)
+
+add_executable(${PROJECT_NAME} ${PROJECT_NAME}.cpp)
+
+target_link_libraries(${PROJECT_NAME}
+        proteus::olap
+
+include(proteus-experiment)

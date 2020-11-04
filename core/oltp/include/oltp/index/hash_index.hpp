@@ -24,8 +24,8 @@
 #ifndef INDEXES_HASH_INDEX_HPP_
 #define INDEXES_HASH_INDEX_HPP_
 
+#include <cuckoo/cuckoohash_map.hh>
 #include <iostream>
-#include <libcuckoo/cuckoohash_map.hh>
 
 namespace indexes {
 

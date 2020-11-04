@@ -1,3 +1,4 @@
+add_subdirectory(proteusd)
 add_subdirectory(index-probe-plans)
 add_subdirectory(multiib)
 add_subdirectory(olap)

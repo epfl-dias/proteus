@@ -45,8 +45,8 @@
 
 //#include "benchmarks/micro_ssb.hpp"
 #include "bench-cli-flags.hpp"
-#include "bench/ycsb.hpp"
 #include "tpcc/tpcc_64.hpp"
+#include "ycsb.hpp"
 
 // Platform Includes
 #include <platform/common/common.hpp>

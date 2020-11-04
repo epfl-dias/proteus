@@ -1,6 +1,25 @@
-set(gtest_libs ${GTEST_MAIN} ${GTEST} proteus::olap)
+if(FALSE)
+set(TS_NAME unit-tests-olap)
 
-set(gtest_src
+add_executable(${TS_NAME}
+#	tests-joins.cpp
+#	tests-json.cpp
+	tests-cow.cpp
+	tests-cpu-ssb.cpp
+	tests-gpu-ssb.cpp
+	tests-hyb-ssb.cpp
+	tests-output.cpp
+	tests-plan-parsing.cpp
+	tests-threads.cpp
+	test-utils.cpp
+)
+
+target_link_libraries(${TS_NAME}
+	proteus::olap
+)
+else()
+
+set(TS_TESTS
 #	tests-joins
 #	tests-json
 	tests-cow
@@ -10,27 +29,15 @@ set(gtest_src
 	tests-output
 	tests-plan-parsing
 	tests-threads
-	)
+)
 
-foreach(target ${gtest_src})
-	get_filename_component(target_name ${target} NAME_WE)
-	add_executable(unit-${target_name} ${target} test-utils.cpp)
-	target_link_libraries(unit-${target_name} ${gtest_libs})
-	install(TARGETS unit-${target_name}
-		ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-		LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-		RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}
-		)
-endforeach(target)
+set(TS_COMMON_SRCS
+	test-utils.cpp
+)
 
-# One test to rule them all
-add_executable(unit-tests ${gtest_src} test-utils.cpp)
-target_link_libraries(unit-tests ${gtest_libs})
-install(TARGETS unit-tests
-	RUNTIME DESTINATION pelago
-	LIBRARY DESTINATION lib
-	ARCHIVE DESTINATION lib
-	)
+set(TS_COMMON_LIBS
+	proteus::olap
+)
+endif()
 
-enable_testing()
-add_test(UT unit-tests)
+include(proteus-test)

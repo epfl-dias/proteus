@@ -54,7 +54,7 @@ object Repl extends App {
     }
   }
 
-  var executor_server = "./proteusmain-server"
+  var executor_server = "./proteusd"
 
   val topology = Process(executor_server + " --query-topology").!!
   val gpudop_regex = """gpu  count: (\d+)""".r.unanchored

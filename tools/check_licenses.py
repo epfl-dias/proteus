@@ -67,7 +67,7 @@ external_files = [
     "core/platform/lib/util/radix/aggregations/radix-aggr.cpp",
     "core/platform/lib/util/radix/joins/radix-join.cpp",
     "external/jsmn/jsmn.c",
-    "external/jsmn/jsmn.h"
+    "external/jsmn/include/jsmn.h"
 ]
 
 exclude_dirs = [

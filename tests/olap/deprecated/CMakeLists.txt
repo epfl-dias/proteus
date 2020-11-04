@@ -1,6 +1,24 @@
-set(gtest_libs ${GTEST_MAIN} ${GTEST} proteus::olap)
+if(FALSE)
+set(TS_NAME unit-tests-olap-deprecated)
 
-foreach(target
+add_executable(${TS_NAME}
+	tests-csv.cpp
+	tests-hashing.cpp
+	tests-json.cpp
+	tests-nest.cpp
+	tests-operators.cpp
+	tests-output.cpp
+	tests-sailors.cpp
+	tests-string.cpp
+)
+
+target_link_libraries(${TS_NAME}
+	proteus::olap
+)
+
+else()
+
+set(TS_TESTS
 	tests-csv
 	tests-hashing
 	tests-json
@@ -8,26 +26,14 @@ foreach(target
 	tests-operators
 	tests-output
 	tests-sailors
-	tests-string
-	)
-	add_executable(dunit-${target} ${target}.cpp)
-	target_link_libraries(dunit-${target} ${gtest_libs})
-	install(TARGETS dunit-${target}
-		RUNTIME DESTINATION pelago
-		LIBRARY DESTINATION lib
-		ARCHIVE DESTINATION lib
-		)
-endforeach(target)
+)
 
-# One test to rule them all
-file(GLOB gtest_src *.cpp)
-add_executable(dunit-tests ${gtest_src})
-target_link_libraries(dunit-tests ${gtest_libs})
-install(TARGETS dunit-tests
-	RUNTIME DESTINATION pelago
-	LIBRARY DESTINATION lib
-	ARCHIVE DESTINATION lib
-	)
+set(TS_COMMON_SRCS
+)
 
-enable_testing()
-add_test(UT dunit-tests)
+set(TS_COMMON_LIBS
+	proteus::olap
+)
+endif()
+
+include(proteus-test)

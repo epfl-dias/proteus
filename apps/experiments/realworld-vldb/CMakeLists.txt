@@ -1,9 +1,11 @@
-# One test to rule them all
-file(GLOB spam_all_vldb *.cpp)
-add_executable(spam-workload-vldb ${spam_all_vldb})
-target_link_libraries(spam-workload-vldb proteus::olap)
-install(TARGETS spam-workload-vldb
-	RUNTIME DESTINATION pelago
-	LIBRARY DESTINATION lib
-	ARCHIVE DESTINATION lib
-	)
+# Include all source files, should be changed to a manual list to be safer.
+file(GLOB APP_SRCS *.cpp)
+
+project(spam_all_vldb VERSION 0.1 LANGUAGES CXX)
+
+add_executable(${PROJECT_NAME} ${APP_SRCS})
+
+target_link_libraries(${PROJECT_NAME}
+        proteus::olap
+
+include(proteus-experiment)

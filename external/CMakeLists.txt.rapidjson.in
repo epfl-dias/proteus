@@ -2,9 +2,13 @@ cmake_minimum_required(VERSION 2.8.2)
 
 include(FetchContent)
 FetchContent_Declare(
-  rapidjson-download
-  GIT_REPOSITORY    https://github.com/Tencent/rapidjson.git
-  GIT_TAG           0ccdbf364c577803e2a751f5aededce935314313
+	rapidjson-download
+	#LSC: I can't get the patch to be applied and cmake to be appy and go on with the build.
+	#GIT_REPOSITORY      https://github.com/Tencent/rapidjson.git
+	#GIT_TAG             0ccdbf364c577803e2a751f5aededce935314313
+	#PATCH /usr/bin/patch -p1 -d ${CMAKE_CURRENT_BINARY_DIR}/_deps/rapidjson-download-src < ${CMAKE_CURRENT_SOURCE_DIR}/external/patches/rapidjson.patch
+	GIT_REPOSITORY      https://github.com/epfl-dias/rapidjson.git
+	GIT_TAG             173bb8bf808cb78343dcc86c1dcb5a232a3a4bd0
 )
 
 FetchContent_MakeAvailable(rapidjson-download)

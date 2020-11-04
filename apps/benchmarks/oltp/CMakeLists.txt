@@ -1,31 +1,20 @@
-# Pure, regular C++ files
-
+project(oltp-bench-runner VERSION 0.1 LANGUAGES CXX)
 
 add_subdirectory(bench)
-set(txn_bench_cxx
-		bench-cli-flags.cpp
-    )
+
+add_executable(${PROJECT_NAME}
+	bench-runner.cpp
+	bench-cli-flags.cpp
+)
+
+target_link_libraries(${PROJECT_NAME}
+	oltp::engine
+	oltp::bench
+	gflags::gflags
+	codegen::olap_flags
+	Threads::Threads
+)
 
 find_package(Threads REQUIRED)
 
-foreach(target
-	bench-runner
-	)
-	add_executable(oltp-${target} ${target}.cpp ${txn_bench_cxx})
-	target_link_libraries(oltp-${target}
-			oltp::engine
-			oltp::bench
-			gflags::gflags
-			codegen::olap_flags
-			Threads::Threads
-			-lc++abi)
-	install(TARGETS oltp-${target}
-		RUNTIME DESTINATION pelago
-		LIBRARY DESTINATION lib
-		ARCHIVE DESTINATION lib
-		)
-endforeach(target)
-
-
-
-
+include(proteus-benchmark)

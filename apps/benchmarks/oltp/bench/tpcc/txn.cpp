@@ -33,7 +33,7 @@
 #include <oltp/storage/layout/column_store.hpp>
 #include <string>
 
-#include "tpcc_64.hpp"
+#include "tpcc/tpcc_64.hpp"
 
 namespace bench {
 

@@ -1,7 +1,11 @@
-# Pure, regular C++ files
+foreach(target
+		ch-bench
+		ch-export-data
+	)
+	project(htap-${target} VERSION 0.1 LANGUAGES CXX)
 
-
-set(htap_bench_cxx
+	add_executable(htap-${target}
+		${target}.cpp
 		htap-cli-flags.cpp
 		queries/ch/q01.cpp
 		queries/ch/q02.cpp
@@ -11,35 +15,23 @@ set(htap_bench_cxx
 		queries/ch/ch-queries.cpp
 		queries/olap-sequence.cpp
 		queries/ch/data-export/data-export-ch.cpp
-    )
-
-#find_package(Threads REQUIRED)
-
-install(DIRECTORY "queries/clotho" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/benchmarks/htap/queries)
-
-foreach(target
-		ch-bench
-		ch-export-data
 	)
-	add_executable(htap-${target} ${target}.cpp ${htap_bench_cxx})
+
 	target_link_libraries(htap-${target}
-			oltp::bench
-			oltp::adaptor
-			proteus::olap
-			htap::engine
-			gflags::gflags
-			codegen::olap_flags
-			#queries::ch100w
-			)
-	target_include_directories(htap-${target}
-		PUBLIC
-			$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-			$<INSTALL_INTERFACE:include>
-		PRIVATE
-			src)
-	install(TARGETS htap-${target}
-		RUNTIME DESTINATION pelago
-		LIBRARY DESTINATION lib
-		ARCHIVE DESTINATION lib
-		)
+		oltp::bench
+		oltp::adaptor
+		proteus::olap
+		htap::engine
+		gflags::gflags
+		codegen::olap_flags
+		#queries::ch100w
+	)
+
+	install(DIRECTORY "queries/clotho"
+		DESTINATION ${CMAKE_INSTALL_BINDIR}/benchmarks/htap/queries
+		#COMPONENT htap-${target}_${PROTEUS_CPACK_COMP_SUFFIX_BENCHMARKS}
+		COMPONENT ${PROTEUS_CPACK_COMP_BENCHMARKS}
+	)
+
+	include(proteus-benchmark)
 endforeach(target)

@@ -1,17 +1,18 @@
 project(cli-flags VERSION 0.1 LANGUAGES CXX)
 
-install(EXPORT gflags-targets DESTINATION share/gflags/cmake)
+add_library(${PROJECT_NAME} INTERFACE)
 
-add_library(cli-flags SHARED empty.cpp)
-target_link_libraries(cli-flags PUBLIC gflags::gflags)
+target_link_libraries(${PROJECT_NAME}
+	PUBLIC INTERFACE
+		gflags::gflags
+)
 
-# 'make install' to the correct locations (provided by GNUInstallDirs).
-install(TARGETS cli-flags EXPORT ${PROJECT_NAME}Config.cmake
-        ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR})  # This is for Windows
+include(proteus-headers-lib)
 
-install(EXPORT ${PROJECT_NAME}Config.cmake DESTINATION share/${PROJECT_NAME}/cmake)
-export(TARGETS cli-flags gflags_shared FILE ${PROJECT_NAME}Config.cmake)
+add_library(cli-flags::cli-flags ALIAS ${PROJECT_NAME})
 
-add_library(cli-flags::cli-flags ALIAS cli-flags)
+# There are multiple definitions for gflags, so we need to specify which
+# one we are interested in.
+export(TARGETS ${PROJECT_NAME} gflags_shared FILE ${PROJECT_NAME}Config.cmake)
+
+install(EXPORT gflags-targets DESTINATION lib/cmake/gflags)
