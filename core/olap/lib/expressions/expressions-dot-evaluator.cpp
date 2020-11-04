@@ -549,6 +549,12 @@ ProteusValue ExpressionDotVisitor::visit(
 }
 
 ProteusValue ExpressionDotVisitor::visit(
+    const expressions::HintExpression *e1,
+    const expressions::HintExpression *e2) {
+  return e1->getExpr().acceptTandem(*this, e2->getExpr());
+}
+
+ProteusValue ExpressionDotVisitor::visit(
     const expressions::HashExpression *e1,
     const expressions::HashExpression *e2) {
   assert(false && "This does not really make sense");

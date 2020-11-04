@@ -842,6 +842,11 @@ ProteusValue ExpressionFlusherVisitor::visit(
 }
 
 ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::HintExpression *e) {
+  return e->getExpr().accept(*this);
+}
+
+ProteusValue ExpressionFlusherVisitor::visit(
     const expressions::HashExpression *e) {
   ExpressionGeneratorVisitor v(context, currState);
   ProteusValue rv = e->accept(v);

@@ -370,6 +370,11 @@ class ExpressionComparatorVisitor : public ExprTandemVisitorT<ProteusValue> {
     res = C<expressions::RandExpression>{}(*e1, *e2);
     return {};
   }
+  ProteusValue visit(const expressions::HintExpression *e1,
+                     const expressions::HintExpression *e2) override {
+    res = C<expressions::HintExpression>{}(*e1, *e2);
+    return {};
+  }
   ProteusValue visit(const expressions::HashExpression *e1,
                      const expressions::HashExpression *e2) override {
     res = C<expressions::HashExpression>{}(*e1, *e2);
@@ -708,6 +713,9 @@ class DefaultedExprVisitor : public ExprVisitor {
     return f(*e);
   }
   ProteusValue visit(const expressions::RandExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::HintExpression *e) override {
     return f(*e);
   }
   ProteusValue visit(const expressions::HashExpression *e) override {

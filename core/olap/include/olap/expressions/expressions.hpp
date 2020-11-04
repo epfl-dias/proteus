@@ -50,6 +50,7 @@ enum ExpressionId {
   IF_THEN_ELSE,
   BINARY,
   EXPRESSION_RAND,
+  EXPRESSION_HINT,
   EXPRESSION_HASHER,
   TESTNULL_EXPRESSION,
   EXTRACT,
@@ -593,6 +594,38 @@ class RecordProjection : public ExpressionCRTP<RecordProjection> {
  private:
   expression_t expr;
   RecordAttribute attribute;
+};
+
+class Selectivity {
+ public:
+  const double sel;
+  explicit Selectivity(double sel) : sel(sel) {}
+};
+
+class HintExpression : public ExpressionCRTP<HintExpression> {
+ private:
+  expression_t expr;
+  Selectivity sel;
+
+ public:
+  HintExpression(expression_t expr, Selectivity sel)
+      : ExpressionCRTP(expr.getExpressionType()),
+        expr(std::move(expr)),
+        sel(sel) {}
+  [[nodiscard]] ExpressionId getTypeID() const override {
+    return EXPRESSION_HINT;
+  }
+
+  expression_t getExpr() const { return expr; }
+  Selectivity getSelectivity() const { return sel; }
+
+  bool operator<(const expressions::HintExpression &r) const final {
+    if (this->getTypeID() == r.getTypeID()) {
+      return this->getExpr() < r.getExpr();
+    } else {
+      return this->getTypeID() < r.getTypeID();
+    }
+  }
 };
 
 class HashExpression : public ExpressionCRTP<HashExpression> {
@@ -1170,6 +1203,7 @@ class ExprVisitor {
   virtual ProteusValue visit(const expressions::MinExpression *e) = 0;
   virtual ProteusValue visit(const expressions::MaxExpression *e) = 0;
   virtual ProteusValue visit(const expressions::RandExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::HintExpression *e) = 0;
   virtual ProteusValue visit(const expressions::HashExpression *e) = 0;
   //  virtual ProteusValue visit(const expressions::AtExpression *e) = 0;
   virtual ProteusValue visit(const expressions::RefExpression *e) = 0;
@@ -1253,6 +1287,8 @@ class ExprTandemVisitorT {
                   const expressions::MaxExpression *e2) = 0;
   virtual T visit(const expressions::RandExpression *e1,
                   const expressions::RandExpression *e2) = 0;
+  virtual T visit(const expressions::HintExpression *e1,
+                  const expressions::HintExpression *e2) = 0;
   virtual T visit(const expressions::HashExpression *e1,
                   const expressions::HashExpression *e2) = 0;
   virtual T visit(const expressions::RefExpression *e1,
@@ -1386,6 +1422,9 @@ inline expressions::ShiftLeftExpression operator<<(const expression_t &lhs,
 
 namespace expressions {
 inline expressions::RandExpression rand() { return {}; }
+inline expressions::HintExpression hint(expression_t e, Selectivity sel) {
+  return {std::move(e), sel};
+}
 }  // namespace expressions
 
 inline expressions::ArithmeticShiftRightExpression operator>>(

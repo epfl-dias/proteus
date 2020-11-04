@@ -1302,6 +1302,11 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 }
 
 ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::HintExpression *e) {
+  return e->getExpr().accept(*this);
+}
+
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::NegExpression *e) {
   ProteusValue v = e->getExpr().accept(*this);
   if (v.value->getType()->isFloatingPointTy()) {

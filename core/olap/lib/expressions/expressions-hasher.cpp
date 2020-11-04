@@ -591,6 +591,11 @@ ProteusValue ExpressionHasherVisitor::visit(
 }
 
 ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::HintExpression *e) {
+  return e->getExpr().accept(*this);
+}
+
+ProteusValue ExpressionHasherVisitor::visit(
     const expressions::HashExpression *e) {
   assert(false && "This does not really make sense... Why to hash a hash?");
   return e->getExpr().accept(*this);

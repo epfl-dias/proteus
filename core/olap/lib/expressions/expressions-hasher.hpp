@@ -78,6 +78,7 @@ class ExpressionHasherVisitor : public ExprVisitor {
   ProteusValue visit(const expressions::MinExpression *e) override;
   ProteusValue visit(const expressions::MaxExpression *e) override;
   ProteusValue visit(const expressions::RandExpression *e) override;
+  ProteusValue visit(const expressions::HintExpression *e) override;
   ProteusValue visit(const expressions::HashExpression *e) override;
   ProteusValue visit(const expressions::RefExpression *e) override;
   ProteusValue visit(const expressions::AssignExpression *e) override;
