@@ -147,6 +147,13 @@ IBHandler *createClient(size_t i, const std::string &url, uint16_t port,
                         bool ipv4,
                         int cq_backlog = /* arbitrary */ cq_ack_backlog);
 
+class VirtualMemoryRegistry : public MemoryRegistry {
+  void reg(const void *mem, size_t bytes) override {
+    InfiniBandManager::reg(mem, bytes);
+  }
+  void unreg(const void *mem) override { InfiniBandManager::unreg(mem); }
+};
+
 void InfiniBandManager::init(const std::string &url, uint16_t port,
                              bool primary, bool ipv4) {
   for (const auto &ib : topology::getInstance().getIBs()) {
@@ -174,6 +181,10 @@ void InfiniBandManager::init(const std::string &url, uint16_t port,
     ib.emplace_back(new IBHandler(8, topology::getInstance().getIBs().front()));
     ib.front()->start();
   }
+  //  for (const auto &ib : topology::getInstance().getIBs()) {
+  VirtualMemoryRegistry vmr{};
+  BlockManager::reg(vmr);
+  //  }
 }
 
 #include <endian.h>

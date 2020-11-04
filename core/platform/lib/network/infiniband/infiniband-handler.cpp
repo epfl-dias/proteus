@@ -417,6 +417,8 @@ void IBHandler::poll_cq() {
               // LOG(INFO) << sizes[i];
               auto size = sizes[i].first;
               if (size == (-1)) {
+                //                BlockManager::release_buffer(std::move(b.front()));
+                b.front().release();  // FIXME why???
                 b.pop_front();
                 continue;
               } else if (((int64_t)size) >= 0) {
@@ -867,17 +869,17 @@ static std::map<void *, decltype(buffkey::second)> keys;
 
 void IBHandler::release_buffer(proteus::remote_managed_ptr p) {
   if (!p) return;
-  // FIXME: Unsafe if the buffer is from a file or MemoryManager
-  try {
-    // try to get the key, before locking
-    auto k = keys.at(p.get());
-    // if key exists, this is a remote buffer and we have ownership
-    // FIXME: what about shared buffers? We may not have ownership
-    std::unique_lock<std::mutex> lock{pend_buffers_m};
-    pend_buffers.emplace_front(p.get(), k);
-  } catch (std::out_of_range &) {
-    // The ptr didn't come from the buffer manager, ignore
-  }
+  //  // FIXME: Unsafe if the buffer is from a file or MemoryManager
+  //  try {
+  //    // try to get the key, before locking
+  //    auto k = keys.at(p.get());
+  //    // if key exists, this is a remote buffer and we have ownership
+  //    // FIXME: what about shared buffers? We may not have ownership
+  //    std::unique_lock<std::mutex> lock{pend_buffers_m};
+  //    pend_buffers.emplace_front(p.get(), k);
+  //  } catch (std::out_of_range &) {
+  //    // The ptr didn't come from the buffer manager, ignore
+  //  }
   ((void)/* Release and ignore */ p.release());
 }
 
