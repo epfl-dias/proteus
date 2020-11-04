@@ -38,6 +38,8 @@ class Select : public experimental::UnaryOperator {
     return getChild()->getRowType();
   }
 
+  [[nodiscard]] expression_t getFilter() const { return expr; }
+
  private:
   expression_t expr;
 };

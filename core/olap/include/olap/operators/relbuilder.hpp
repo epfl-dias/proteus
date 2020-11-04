@@ -458,6 +458,13 @@ class RelBuilder {
                        probe_w, hash_bits, maxBuildInputSize);
   }
 
+  [[nodiscard]] RelBuilder hintRowCount(double expectedRowCount) const;
+
+  template <typename Tbk, typename Tpk>
+  RelBuilder join(RelBuilder build, Tbk build_k, Tpk probe_k) const {
+    return join(build, build_k(build.getOutputArg()), probe_k(getOutputArg()));
+  }
+
   template <typename Tbk, typename Tpk>
   RelBuilder join(RelBuilder build, Tbk build_k, Tpk probe_k, int hash_bits,
                   size_t maxBuildInputSize) const {
@@ -641,6 +648,9 @@ class RelBuilder {
   [[nodiscard]] RelBuilder join(RelBuilder build, expression_t build_k,
                                 expression_t probe_k, int hash_bits,
                                 size_t maxBuildInputSize) const;
+
+  [[nodiscard]] RelBuilder join(RelBuilder build, expression_t build_k,
+                                expression_t probe_k) const;
 
   [[nodiscard]] RelBuilder morsel_join(RelBuilder build, expression_t build_k,
                                        expression_t probe_k, int hash_bits,

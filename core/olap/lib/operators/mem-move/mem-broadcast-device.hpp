@@ -92,6 +92,8 @@ class MemBroadcastDevice : public MemMoveDevice {
 
   [[nodiscard]] MemBroadcastConf *createMoveConf() const override;
 
+  [[nodiscard]] size_t getNumberOfTargets() const { return targets.size(); }
+
  private:
   std::vector<int> targets;
 

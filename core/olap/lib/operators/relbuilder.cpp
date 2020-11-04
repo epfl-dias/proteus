@@ -504,6 +504,94 @@ RelBuilder RelBuilder::router(size_t slack, RoutingPolicy p, DeviceType target,
   return router(DegreeOfParallelism{dop}, slack, p, target, std::move(aff));
 }
 
+class HintRowCount : public experimental::UnaryOperator {
+ public:
+  const double expected;
+
+  HintRowCount(Operator *op, double expected)
+      : UnaryOperator(op), expected(expected) {}
+
+  [[nodiscard]] RecordType getRowType() const override {
+    return getChild()->getRowType();
+  }
+  [[nodiscard]] DegreeOfParallelism getDOP() const override {
+    return getChild()->getDOP();
+  }
+  void produce_(ParallelContext *context) override {
+    return getChild()->produce(context);
+  }
+  void consume(ParallelContext *context,
+               const OperatorState &binding) override {
+    getParent()->consume(context, binding);
+  }
+  [[nodiscard]] bool isFiltering() const override { return false; }
+};
+
+[[nodiscard]] RelBuilder RelBuilder::hintRowCount(
+    double expectedRowCount) const {
+  auto op = new HintRowCount(root, expectedRowCount);
+  return apply(op);
+}
+
+using v_t = std::variant<Router *, MemBroadcastDevice *, MemMoveDevice *,
+                         BlockToTuples *, HintRowCount *, Select *, Project *>;
+double expected(Operator *op);
+
+class ExpectedTuplesOutputSize {
+ public:
+  double operator()(Router *op) const {
+    return expected(op->getChild()) * op->getChild()->getDOP() / op->getDOP();
+  }
+  double operator()(MemBroadcastDevice *op) const {
+    return expected(op->getChild()) * op->getNumberOfTargets();
+  }
+  double operator()(MemMoveDevice *op) const {
+    return expected(op->getChild());
+  }
+  double operator()(BlockToTuples *op) const {
+    return expected(op->getChild());
+  }
+  double operator()(HintRowCount *op) const { return op->expected; }
+  double operator()(Select *op) const {
+    double sel = 1;
+    if (auto hint = dynamic_cast<const expressions::HintExpression *>(
+            op->getFilter().getUnderlyingExpression())) {
+      sel = hint->getSelectivity().sel;
+    }
+
+    return expected(op->getChild()) * sel;
+  }
+  double operator()(Project *op) const { return expected(op->getChild()); }
+};
+
+template <typename VT, size_t index = 0>
+struct vinit {
+  VT get(Operator *op) {
+    if constexpr (index >= std::variant_size_v<VT>) {
+      throw proteus::unsupported_operation{std::string{"unsupported type "} +
+                                           typeid(*op).name()};
+    } else {
+      if (auto sop = dynamic_cast<std::variant_alternative_t<index, VT>>(op)) {
+        return VT{sop};
+      }
+      return vinit<VT, index + 1>{}.get(op);
+    }
+  }
+};
+
+double expected(Operator *op) {
+  auto obj = vinit<v_t>{}.get(op);
+  return std::visit(ExpectedTuplesOutputSize{}, obj);
+}
+
+RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
+                            expression_t probe_k) const {
+  size_t bsize = expected(build.root) * 1.1;  // 10% overestimate for safety
+
+  return join(build, std::move(build_k), std::move(probe_k),
+              static_cast<int>(std::ceil(std::log2(bsize))) + 1, bsize);
+}
+
 RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
                             expression_t probe_k, int hash_bits,
                             size_t maxBuildInputSize) const {
@@ -713,7 +801,7 @@ Plugin *RelBuilder::createPlugin(const RecordType &rec,
 
 RelBuilder RelBuilder::scan(
     const std::vector<
-        std::pair<RecordAttribute *, std::shared_ptr<proteus_any_vector> > >
+        std::pair<RecordAttribute *, std::shared_ptr<proteus_any_vector>>>
         &data) const {
   auto pg = new VectorPlugin(ctx, data);
 
