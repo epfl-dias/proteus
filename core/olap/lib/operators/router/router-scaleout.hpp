@@ -82,8 +82,6 @@ class RouterScaleOut : public Router {
   // void open(Pipeline *pip);
   void open(Pipeline *pip) override;
   void close(Pipeline *pip) override;
-  // void open(Pipeline *pip);
-  virtual void fire_close(Pipeline *pip);
 };
 
 #endif /* ROUTER_SCALEOUT_HPP_ */

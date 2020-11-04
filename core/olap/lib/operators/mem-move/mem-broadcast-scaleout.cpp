@@ -36,7 +36,7 @@ buff_pair MemBroadcastScaleOut::MemBroadcastConf::pushBroadcast(
 
   // BlockManager::share_host_buffer((int32_t *)src);
   auto x = InfiniBandManager::write_silent(proteus::managed_ptr{src}, bytes);
-  return buff_pair{new std::pair(x, true), src};
+  return buff_pair{new std::pair(x, true), nullptr};
 }
 
 void MemBroadcastScaleOut::MemBroadcastConf::propagateBroadcast(

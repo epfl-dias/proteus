@@ -367,13 +367,16 @@ void MemMoveDevice::open(Pipeline *pip) {
   // pip->getGroup(), exec_location{});
   eventlogger.log(this, log_op::MEMMOVE_OPEN_END);
 
-  int device = -1;
-  if (!to_cpu) device = topology::getInstance().getActiveGpu().id;
-  pip->setStateVar<int>(device_id_var, device);
+  pip->setStateVar<int>(device_id_var, getTargetDevice());
 
   // pip->setStateVar<cudaStream_t>(cu_stream_var, strm  );
   pip->setStateVar<void *>(memmvconf_var, mmc);
   // nvtxRangePop();
+}
+
+int MemMoveDevice::getTargetDevice() const {
+  if (to_cpu) return -1;
+  return topology::getInstance().getActiveGpu().id;
 }
 
 void MemMoveDevice::close(Pipeline *pip) {

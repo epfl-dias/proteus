@@ -127,6 +127,7 @@ class MemMoveDevice : public experimental::UnaryOperator {
   void catcher(MemMoveConf *conf, int group_id, exec_location target_dev);
 
  protected:
+  [[nodiscard]] int getTargetDevice() const;
   virtual void open(Pipeline *pip);
   virtual void close(Pipeline *pip);
 };

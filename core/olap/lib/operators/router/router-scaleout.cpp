@@ -111,11 +111,6 @@ void RouterScaleOut::fire(int target, PipelineGen *pipGen) {
   }
 }
 
-void RouterScaleOut::fire_close(Pipeline *pip) {
-  // time_block t("Tterm_exchange: ");
-  LOG(INFO) << "closing";
-}
-
 void RouterScaleOut::open(Pipeline *pip) {
   // time_block t("Tinit_exchange: ");
 
