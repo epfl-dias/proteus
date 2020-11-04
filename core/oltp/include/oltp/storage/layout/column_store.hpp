@@ -29,6 +29,7 @@
 #include <iostream>
 #include <map>
 #include <platform/memory/allocator.hpp>
+#include <platform/memory/block-manager.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <set>
 #include <stdexcept>
@@ -37,6 +38,7 @@
 #include <vector>
 
 #include "oltp/common/atomic_bit_set.hpp"
+#include "oltp/common/common.hpp"
 #include "oltp/common/constants.hpp"
 #include "oltp/common/memory-chunk.hpp"
 #include "oltp/storage/table.hpp"
@@ -49,144 +51,171 @@ namespace storage {
 
 class Column;
 
-using ColumnVector =
-    std::vector<storage::Column,
-                proteus::memory::ExplicitSocketPinnedMemoryAllocator<Column>>;
-
-class alignas(4096) ColumnStore : public Table {
+class alignas(BlockManager::block_size) ColumnStore : public Table {
  public:
-  ColumnStore(uint8_t table_id, const std::string &name, ColumnDef columns,
-              uint64_t initial_num_records = 10000000, bool indexed = true,
-              bool partitioned = true, int numa_idx = -1);
+  ColumnStore(table_id_t table_id, std::string name, TableDef columns,
+              bool indexed = true, bool numa_partitioned = true,
+              size_t reserved_capacity = 1000000, int numa_idx = -1);
+
   ~ColumnStore() override;
 
-  uint64_t insertRecord(void *rec, ushort partition_id,
-                        ushort master_ver) override;
-  void *insertRecord(void *rec, uint64_t xid, ushort partition_id,
-                     ushort master_ver) override;
-  void *insertRecordBatch(void *rec_batch, uint recs_to_ins,
-                          uint capacity_offset, uint64_t xid,
-                          ushort partition_id, ushort master_ver) override;
+  global_conf::IndexVal *insertRecord(const void *data, xid_t transaction_id,
+                                      partition_id_t partition_id,
+                                      master_version_t master_ver = 0) override;
+  global_conf::IndexVal *insertRecordBatch(
+      const void *data, size_t num_records, size_t max_capacity,
+      xid_t transaction_id, partition_id_t partition_id,
+      master_version_t master_ver = 0) override;
 
-  void updateRecord(uint64_t xid, global_conf::IndexVal *hash_ptr,
-                    const void *rec, ushort curr_master, ushort curr_delta,
-                    const ushort *col_idx, short num_cols) override;
+  void updateRecord(xid_t transaction_id, global_conf::IndexVal *index_ptr,
+                    void *data, delta_id_t current_delta_id,
+                    const column_id_t *col_idx = nullptr,
+                    short num_columns = -1,
+                    master_version_t master_ver = 0) override;
 
-  void deleteRecord(uint64_t vid, ushort master_ver) override {
-    assert(false && "Not implemented");
+  [[noreturn]] void updateRecordBatch(
+      xid_t transaction_id, global_conf::IndexVal *index_ptr, void *data,
+      size_t num_records, delta_id_t current_delta_id,
+      const column_id_t *col_idx = nullptr, short num_columns = -1,
+      master_version_t master_ver = 0) override {
+    throw std::runtime_error("Unimplemented");
   }
 
-  /*  Utils for loading data from binary or offseting datasets
-   * */
-  void insertIndexRecord(
-      uint64_t rid, uint64_t xid, ushort partition_id,
-      ushort master_ver) override;  // hack for loading binary files
-  void offsetVID(uint64_t offset);
-  uint64_t load_data_from_binary(std::string col_name, std::string file_path);
+  void deleteRecord(xid_t transaction_id, global_conf::IndexVal *index_ptr,
+                    master_version_t master_ver = 0) override {
+    throw std::runtime_error("Unimplemented");
+  }
 
-  void touchRecordByKey(uint64_t vid) override;
+  void getIndexedRecord(xid_t transaction_id, global_conf::IndexVal *index_ptr,
+                        void *destination, const column_id_t *col_idx = nullptr,
+                        short num_cols = -1) override;
 
-  void getRecordByKey(global_conf::IndexVal *idx_ptr, uint64_t txn_id,
-                      const ushort *col_idx, ushort num_cols,
-                      void *loc) override;
+  void getRecord(xid_t transaction_id, rowid_t rowid, void *destination,
+                 const column_id_t *col_idx = nullptr,
+                 short num_cols = -1) override;
 
-  // HTAP / Snapshotting Methods
-  void sync_master_snapshots(ushort master_ver_idx);
-  void snapshot(uint64_t epoch, uint8_t snapshot_master_ver) override;
-  void ETL(uint numa_node_idx) override;
-  void num_upd_tuples();
+  //------------------TwinColumn
+  // TwinColumn snapshotting (TwinColumn is misleading as in theory,
+  //  we can have N copies where N-1 are snapshots.
+  void twinColumn_snapshot(xid_t epoch,
+                           master_version_t snapshot_master_version) override;
+  void twinColumn_syncMasters(master_version_t master_idx) override;
+
+  //------------------ETL
+  void ETL(uint numa_affinity_idx) override;
+
+  // OLAP-plugin interfaces
   int64_t *snapshot_get_number_tuples(bool olap_snapshot = false,
                                       bool elastic_scan = false);
-
   std::vector<std::pair<oltp::common::mem_chunk, size_t>> snapshot_get_data(
       size_t scan_idx, std::vector<RecordAttribute *> &wantedFields,
       bool olap_local, bool elastic_scan);
 
+  //-----------------Utilities
+  void num_upd_tuples();
+
+  const auto &getColumns() { return columns; }
+
  private:
   ColumnVector columns;
-  Column *meta_column;
-  uint64_t offset;
-  ushort num_data_partitions;
+  Column *metaColumn{};
+
+  // OLAP-TwinColumn Snapshot
   size_t nParts{};
-  std::vector<std::pair<uint16_t, uint16_t>> column_size_offset_pairs;
-  std::vector<uint16_t> column_size_offsets;
-  std::vector<uint16_t> column_size;
-
   std::vector<std::vector<std::pair<oltp::common::mem_chunk, size_t>>>
-      elastic_mappings;
-  std::set<size_t> elastic_offsets;
+      elastic_mappings{};
+  std::set<size_t> elastic_offsets{};
 
- public:
-  const decltype(columns) &getColumns() { return columns; }
+  friend class Column;
 };
 
-class alignas(4096) Column {
+class alignas(BlockManager::block_size) Column {
  public:
   ~Column();
-  Column(std::string name, uint64_t initial_num_records, data_type type,
-         size_t unit_size, size_t cumulative_offset,
-         bool single_version_only = false, bool partitioned = true,
+  Column(column_id_t column_id, std::string name, data_type type,
+         size_t unit_size, size_t offset_inRecord, bool numa_partitioned = true,
+         size_t reserved_capacity = 1000000, bool single_version = false,
          int numa_idx = -1);
 
   Column(const Column &) = delete;
   Column(Column &&) = default;
 
  private:
-  void *getElem(uint64_t vid);
-  void touchElem(uint64_t vid);
-  void getElem(uint64_t vid, void *copy_location);
-  void updateElem(uint64_t vid, void *elem);
-  void insertElem(uint64_t vid, void *elem);
-  void *insertElem(uint64_t vid);
-  void *insertElemBatch(uint64_t vid, uint64_t num_elem);
-  void insertElemBatch(uint64_t vid, uint64_t num_elem, void *data);
-  void initializeMetaColumn();
+  void *getElem(rowid_t vid);
+  void getElem(rowid_t vid, void *copy_destination);
+  void updateElem(rowid_t vid, void *data);
+  void insertElem(rowid_t vid, void *data);
+  void *insertElem(rowid_t vid);
+  void *insertElemBatch(rowid_t vid, uint16_t num_elem);
+  void insertElemBatch(rowid_t vid, uint16_t num_elem, void *data);
+  void initializeMetaColumn() const;
 
  public:
-  [[nodiscard]] size_t getSize() const { return this->total_mem_reserved; }
+  //-------Snapshotting
 
-  void sync_master_snapshots(ushort master_ver_idx);
-  void snapshot(const uint64_t *n_recs_part, uint64_t epoch,
-                uint8_t snapshot_master_ver);
-  void ETL(uint numa_node_idx);
-  uint64_t num_upd_tuples(ushort master_ver = 0,
-                          const uint64_t *num_records = nullptr,
-                          bool print = false);
+  //------------------TwinColumn
+  // TwinColumn snapshotting (TwinColumn is misleading as in theory,
+  //  we can have N copies where N-1 are snapshots.
+  void twinColumn_snapshot(const rowid_t *num_rec_per_part, xid_t epoch,
+                           master_version_t snapshot_master_ver);
+  void twinColumn_syncMasters(master_version_t inactive_master_idx);
+
+  //------------------ETL
+  void ETL(uint numa_affinity_idx = 0);
+
+  //------------------OLAP-plugin utilities
   [[nodiscard]] std::vector<std::pair<oltp::common::mem_chunk, size_t>>
   snapshot_get_data(bool olap_local = false, bool elastic_scan = false) const;
 
   std::vector<std::pair<oltp::common::mem_chunk, size_t>> elastic_partition(
       uint pid, std::set<size_t> &segment_boundaries);
 
+  //------------------Utilities
+
+  size_t num_upd_tuples(master_version_t master_ver, const size_t *num_records,
+                        bool print);
+
  private:
-  uint num_partitions;
-  volatile bool touched[global_conf::MAX_PARTITIONS];
-
-  const std::string name;
-  const size_t elem_size;
-  const size_t cumulative_offset;
-  const data_type type;
-
-  size_t total_mem_reserved;
-  size_t size_per_part;
-  uint64_t initial_num_records;
-  uint64_t initial_num_records_per_part;
+  volatile bool touched[global_conf::MAX_PARTITIONS]{};
 
   std::vector<oltp::common::mem_chunk>
       master_versions[global_conf::num_master_versions]
                      [global_conf::MAX_PARTITIONS];
 
+  // bit-mask for dirty-records.
   std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>>
       upd_bit_masks[global_conf::num_master_versions]
                    [global_conf::MAX_PARTITIONS];
 
+ public:
+  // meta-data
+  const std::string name;
+  const column_id_t column_id;
+  const size_t unit_size;
+  const data_type type;
+  const partition_id_t n_partitions;
+  const size_t byteOffset_record;
+  const bool single_version_only;
+
+ protected:
+  // stats
+  size_t total_size;
+  size_t total_size_per_partition;
+  //  size_t total_num_blocks;
+  //  size_t total_num_blocks_per_partition;
+  size_t capacity;
+  size_t capacity_per_partition;
+
   // Snapshotting Utils
   std::vector<decltype(global_conf::SnapshotManager::create(0))>
       snapshot_arenas[global_conf::MAX_PARTITIONS];
+
   std::vector<decltype(global_conf::SnapshotManager::create(0))>
       etl_arenas[global_conf::MAX_PARTITIONS];
 
-  void *etl_mem[global_conf::MAX_PARTITIONS];
+  // FIXME: ETL memory should be owned by SnapshotManager.
+  std::vector<oltp::common::mem_chunk>
+      readonly_etl_snapshot[global_conf::MAX_PARTITIONS];
 
   friend class ColumnStore;
 };

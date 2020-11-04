@@ -39,7 +39,6 @@ namespace snapshot {
 
 class CircularMasterArena : public Arena<CircularMasterArena> {
  protected:
- protected:
   class guard {
    private:
     guard(int) {}

@@ -21,8 +21,8 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef CC_HPP_
-#define CC_HPP_
+#ifndef CONCURRENCY_CONTROL_HPP_
+#define CONCURRENCY_CONTROL_HPP_
 
 #include <iostream>
 #include <mutex>
@@ -38,37 +38,33 @@ namespace txn {
 
 class CC_MV2PL;
 
-#define CC_extract_offset(v) (v & 0x000000FFFFFFFFFFu)
-#define CC_extract_pid(v) ((v & 0x0000FF0000000000u) >> 40u)
-#define CC_extract_m_ver(v) ((v & 0x00FF000000000000u) >> 48u)
-//#define CC_extract_delta_id(v) ((v & 0xFF00000000000000u) >> 56u)
-// #define CC_gen_vid(v, p, m, d)                                 \
-//   ((v & 0x000000FFFFFFFFFF) | ((p & 0x00FF) << 40) | \
-//    ((m & 0x00FF) << 48)((d & 0x00FF) << 56))
+#define CC_extract_offset(v) ((v)&0x000000FFFFFFFFFFu)
+#define CC_extract_pid(v) (((v)&0x0000FF0000000000u) >> 40u)
+#define CC_extract_m_ver(v) (((v)&0x00FF000000000000u) >> 48u)
 
 class CC_MV2PL {
  public:
   struct __attribute__((packed)) PRIMARY_INDEX_VAL {
-    uint64_t t_min;  //  | 1-byte w_id | 6 bytes xid |
-    uint64_t VID;    // | empty 1-byte | 1-byte master_ver | 1-byte
-                     // partition_id | 5-byte VID |
+    xid_t t_min;  //  | 1-byte w_id | 6 bytes xid |
+    rowid_t VID;  // | empty 1-byte | 1-byte master_ver | 1-byte
+                  // partition_id | 5-byte VID |
     lock::Spinlock_Weak latch;
     lock::AtomicTryLock write_lck;
 
     storage::DeltaList delta_list{};
-    PRIMARY_INDEX_VAL(uint64_t tid, uint64_t vid) : t_min(tid), VID(vid) {}
+    PRIMARY_INDEX_VAL(xid_t tid, rowid_t vid) : t_min(tid), VID(vid) {}
   };
 
   // TODO: this needs to be modified as we changed the format of TIDs
   static inline bool __attribute__((always_inline))
-  is_readable(uint64_t tmin, uint64_t tid) {
+  is_readable(xid_t tmin, xid_t tid) {
     // FIXME: the following is wrong as we have encoded the worker_id in the
-    // txn_id. the comparision should be of the xid only and if same then idk
-    // because two threads can read_tsc at the same time. it doesnt mean thread
-    // with lesser ID comes first.
+    //  txn_id. the comparison should be of the xid only and if same then idk
+    //  because two threads can read_tsc at the same time. it doesnt mean thread
+    //  with lesser ID comes first.
 
-    uint64_t w_tid = tid & 0x00FFFFFFFFFFFFFFu;
-    uint64_t w_tmin = tmin & 0x00FFFFFFFFFFFFFFu;
+    xid_t w_tid = tid & 0x00FFFFFFFFFFFFFFu;
+    xid_t w_tmin = tmin & 0x00FFFFFFFFFFFFFFu;
 
     assert(w_tmin != w_tid);
 
@@ -94,4 +90,4 @@ class CC_MV2PL {
 
 }  // namespace txn
 
-#endif /* CC_HPP_ */
+#endif /* CONCURRENCY_CONTROL_HPP_ */

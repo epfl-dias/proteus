@@ -75,14 +75,14 @@ class YCSB : public Benchmark {
 
   // uint64_t recs_per_server;
   storage::Schema *schema;
-  storage::Table *ycsb_tbl;
+  storage::Table *ycsb_tbl{};
 
   const uint num_of_col_upd_per_op;
   const uint num_of_col_read_per_op;
   const uint num_col_read_offset_per_op;
 
-  std::vector<ushort> col_idx_upd;
-  std::vector<ushort> col_idx_read;
+  std::vector<column_id_t> col_idx_upd{};
+  std::vector<column_id_t> col_idx_read{};
 
   struct YCSB_TXN_OP {
     uint64_t key;
@@ -99,8 +99,8 @@ class YCSB : public Benchmark {
   };  // __attribute__((aligned(64)));
 
  public:
-  void pre_run(int wid, uint64_t xid, ushort partition_id,
-               ushort master_ver) override {
+  void pre_run(worker_id_t wid, xid_t xid, partition_id_t partition_id,
+               master_version_t master_ver) override {
     uint64_t to_ins = num_records / num_max_workers;
     uint64_t start = to_ins * wid;
 
@@ -143,7 +143,7 @@ class YCSB : public Benchmark {
     MemoryManager::freePinned(txn);
   }
 
-  void *get_query_struct_ptr(ushort pid) override {
+  void *get_query_struct_ptr(partition_id_t pid) override {
     auto *txn = (struct YCSB_TXN *)MemoryManager::mallocPinnedOnNode(
         sizeof(struct YCSB_TXN), pid);
     txn->ops = (struct YCSB_TXN_OP *)MemoryManager::mallocPinnedOnNode(
@@ -151,7 +151,8 @@ class YCSB : public Benchmark {
     return txn;
   }
 
-  void gen_txn(int wid, void *txn_ptr, ushort partition_id) override {
+  void gen_txn(worker_id_t wid, void *txn_ptr,
+               partition_id_t partition_id) override {
     auto *txn = (struct YCSB_TXN *)txn_ptr;
     // txn->read_only = false;
 
@@ -224,16 +225,18 @@ class YCSB : public Benchmark {
     }
   }
 
-  bool exec_txn(const void *stmts, uint64_t xid, ushort master_ver,
-                ushort delta_ver, ushort partition_id) override {
+  bool exec_txn(const void *stmts, xid_t xid, master_version_t master_ver,
+                delta_id_t delta_ver, partition_id_t partition_id) override {
     auto *txn_stmts = (struct YCSB_TXN *)stmts;
     int n = txn_stmts->n_ops;
 
     // static thread_local int n = this->num_ops_per_txn;
     static thread_local ushort num_col_upd = this->num_of_col_upd_per_op;
     static thread_local ushort num_col_read = this->num_of_col_read_per_op;
-    static thread_local std::vector<ushort> col_idx_read_local(col_idx_read);
-    static thread_local std::vector<ushort> col_idx_update_local(col_idx_upd);
+    static thread_local std::vector<column_id_t> col_idx_read_local(
+        col_idx_read);
+    static thread_local std::vector<column_id_t> col_idx_update_local(
+        col_idx_upd);
     static thread_local std::vector<uint64_t> read_loc(num_fields, 0);
 
     static thread_local std::vector<global_conf::IndexVal *>
@@ -275,9 +278,8 @@ class YCSB : public Benchmark {
               (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
 
           hash_ptr->latch.acquire();
-
-          ycsb_tbl->getRecordByKey(hash_ptr, xid, col_idx_read_local.data(),
-                                   num_col_read, read_loc.data());
+          ycsb_tbl->getIndexedRecord(xid, hash_ptr, read_loc.data(),
+                                     col_idx_read_local.data(), num_col_read);
           hash_ptr->latch.release();
           break;
         }
@@ -287,8 +289,9 @@ class YCSB : public Benchmark {
               (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
 
           hash_ptr->latch.acquire();
-          ycsb_tbl->updateRecord(xid, hash_ptr, op.rec, master_ver, delta_ver,
-                                 col_idx_update_local.data(), num_col_upd);
+          ycsb_tbl->updateRecord(xid, hash_ptr, op.rec, delta_ver,
+                                 col_idx_update_local.data(), num_col_upd,
+                                 master_ver);
           hash_ptr->latch.release();
           hash_ptr->write_lck.unlock();
           break;
@@ -337,7 +340,7 @@ class YCSB : public Benchmark {
     if (num_max_workers == -1)
       num_max_workers = topology::getInstance().getCoreCount();
     if (num_active_workers == -1)
-      num_active_workers = topology::getInstance().getCoreCount();
+      this->num_active_workers = topology::getInstance().getCoreCount();
 
     assert(num_of_col_upd_per_op <= num_fields);
     assert(this->num_records % this->num_max_workers == 0 &&
@@ -361,7 +364,7 @@ class YCSB : public Benchmark {
     LOG(INFO) << "Max-Workers: " << this->num_max_workers;
     init();
 
-    storage::ColumnDef columns;
+    storage::TableDef columns;
     for (int i = 0; i < num_fields; i++) {
       columns.emplace_back("col_" + std::to_string(i + 1), storage::INTEGER,
                            sizeof(uint64_t));

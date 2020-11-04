@@ -29,7 +29,9 @@
 #include <cstdlib>
 #include <iostream>
 #include <olap/plan/prepared-statement.hpp>
+#include <oltp/common/common.hpp>
 #include <oltp/common/constants.hpp>
+#include <oltp/common/numa-partition-policy.hpp>
 #include <oltp/interface/bench.hpp>
 #include <oltp/storage/table.hpp>
 #include <platform/memory/memory-manager.hpp>
@@ -86,14 +88,14 @@
 #define TPCC_NDIST_PER_WH 10
 #define TPCC_ORD_PER_DIST 3000
 
-#define MAKE_STOCK_KEY(w, s) (w * TPCC_MAX_ITEMS + s)
-#define MAKE_DIST_KEY(w, d) (w * TPCC_NDIST_PER_WH + d)
-#define MAKE_CUST_KEY(w, d, c) (MAKE_DIST_KEY(w, d) * TPCC_NCUST_PER_DIST + c)
+#define MAKE_STOCK_KEY(w, s) ((w)*TPCC_MAX_ITEMS + (s))
+#define MAKE_DIST_KEY(w, d) ((w)*TPCC_NDIST_PER_WH + (d))
+#define MAKE_CUST_KEY(w, d, c) (MAKE_DIST_KEY(w, d) * TPCC_NCUST_PER_DIST + (c))
 
 #define MAKE_ORDER_KEY(w, d, o) \
-  ((MAKE_DIST_KEY(w, d) * TPCC_MAX_ORD_PER_DIST) + o)
+  ((MAKE_DIST_KEY(w, d) * TPCC_MAX_ORD_PER_DIST) + (o))
 #define MAKE_OL_KEY(w, d, o, ol) \
-  (MAKE_ORDER_KEY(w, d, o) * TPCC_MAX_OL_PER_ORDER + ol)
+  (MAKE_ORDER_KEY(w, d, o) * TPCC_MAX_OL_PER_ORDER + (ol))
 
 namespace bench {
 
@@ -345,37 +347,34 @@ class TPCC : public Benchmark {
   void create_tbl_nation(uint64_t num_nation);
 
   void load_data(int num_threads = 1) override;
-  void load_stock(int w_id, uint64_t xid, ushort partition_id,
-                  ushort master_ver);
-  void load_item(int w_id, uint64_t xid, ushort partition_id,
-                 ushort master_ver);
-  void load_warehouse(int w_id, uint64_t xid, ushort partition_id,
-                      ushort master_ver);
-  void load_district(int w_id, uint64_t xid, ushort partition_id,
-                     ushort master_ver);
-  void load_history(int w_id, uint64_t xid, ushort partition_id,
-                    ushort master_ver);
-  void load_order(int w_id, uint64_t xid, ushort partition_id,
-                  ushort master_ver);
-  void load_customer(int w_id, uint64_t xid, ushort partition_id,
-                     ushort master_ver);
+  void load_stock(int w_id, xid_t xid, partition_id_t partition_id,
+                  master_version_t master_ver);
+  void load_item(int w_id, xid_t xid, partition_id_t partition_id,
+                 master_version_t master_ver);
+  void load_warehouse(int w_id, xid_t xid, partition_id_t partition_id,
+                      master_version_t master_ver);
+  void load_district(int w_id, xid_t xid, partition_id_t partition_id,
+                     master_version_t master_ver);
+  void load_history(int w_id, xid_t xid, partition_id_t partition_id,
+                    master_version_t master_ver);
+  void load_order(int w_id, xid_t xid, partition_id_t partition_id,
+                  master_version_t master_ver);
+  void load_customer(int w_id, xid_t xid, partition_id_t partition_id,
+                     master_version_t master_ver);
 
-  void load_supplier(int w_id, uint64_t xid, ushort partition_id,
-                     ushort master_ver);
-  void load_nation(int w_id, uint64_t xid, ushort partition_id,
-                   ushort master_ver);
-  void load_region(int w_id, uint64_t xid, ushort partition_id,
-                   ushort master_ver);
+  void load_supplier(int w_id, xid_t xid, partition_id_t partition_id,
+                     master_version_t master_ver);
+  void load_nation(int w_id, xid_t xid, partition_id_t partition_id,
+                   master_version_t master_ver);
+  void load_region(int w_id, xid_t xid, partition_id_t partition_id,
+                   master_version_t master_ver);
 
-  void pre_run(int wid, uint64_t xid, ushort partition_id,
-               ushort master_ver) override;
-  void post_run(int wid, uint64_t xid, ushort partition_id,
-                ushort master_ver) override {
+  void pre_run(worker_id_t wid, xid_t xid, partition_id_t partition_id,
+               master_version_t master_ver) override;
+  void post_run(worker_id_t wid, xid_t xid, partition_id_t partition_id,
+                master_version_t master_ver) override {
     if (wid == 0) {
-      table_order->reportUsage();
-      table_new_order->reportUsage();
-      table_order_line->reportUsage();
-      // consistency check parallelizes itself, doesnt need a worker to do it.
+      // consistency check parallelize itself, doesnt need a worker to do it.
       // moreover, it is not performance-critical.
       verify_consistency();
     }
@@ -419,36 +418,36 @@ class TPCC : public Benchmark {
   }
 
   // cust_utils
-  uint64_t cust_derive_key(char *c_last, int c_d_id, int c_w_id);
+  uint64_t cust_derive_key(const char *c_last, int c_d_id, int c_w_id);
   int set_last_name(int num, char *name);
   uint fetch_cust_records(const struct secondary_record &sr,
-                          struct cust_read *c_recs, uint64_t xid,
-                          ushort delta_ver);
+                          struct cust_read *c_recs, xid_t xid,
+                          delta_id_t delta_ver);
 
   // get queries
-  void tpcc_get_next_payment_query(int wid, void *arg);
-  void tpcc_get_next_neworder_query(int wid, void *arg);
-  void tpcc_get_next_orderstatus_query(int wid, void *arg);
-  void tpcc_get_next_delivery_query(int wid, void *arg);
-  void tpcc_get_next_stocklevel_query(int wid, void *arg);
+  void tpcc_get_next_payment_query(int wid, void *arg) const;
+  void tpcc_get_next_neworder_query(int wid, void *arg) const;
+  void tpcc_get_next_orderstatus_query(int wid, void *arg) const;
+  void tpcc_get_next_delivery_query(int wid, void *arg) const;
+  void tpcc_get_next_stocklevel_query(int wid, void *arg) const;
 
-  bool exec_neworder_txn(const struct tpcc_query *stmts, uint64_t xid,
-                         ushort master_ver, ushort delta_ver,
-                         ushort partition_id);
-  bool exec_payment_txn(struct tpcc_query *stmts, uint64_t xid,
-                        ushort master_ver, ushort delta_ver,
-                        ushort partition_id);
-  bool exec_orderstatus_txn(struct tpcc_query *stmts, uint64_t xid,
-                            ushort master_ver, ushort delta_ver,
-                            ushort partition_id);
-  bool exec_delivery_txn(struct tpcc_query *stmts, uint64_t xid,
-                         ushort master_ver, ushort delta_ver,
-                         ushort partition_id);
-  bool exec_stocklevel_txn(struct tpcc_query *stmts, uint64_t xid,
-                           ushort master_ver, ushort delta_ver,
-                           ushort partition_id);
+  bool exec_neworder_txn(const struct tpcc_query *stmts, xid_t xid,
+                         master_version_t master_ver, delta_id_t delta_ver,
+                         partition_id_t partition_id);
+  bool exec_payment_txn(const struct tpcc_query *stmts, xid_t xid,
+                        master_version_t master_ver, delta_id_t delta_ver,
+                        partition_id_t partition_id);
+  bool exec_orderstatus_txn(const struct tpcc_query *stmts, xid_t xid,
+                            master_version_t master_ver, delta_id_t delta_ver,
+                            partition_id_t partition_id);
+  bool exec_delivery_txn(const struct tpcc_query *stmts, xid_t xid,
+                         master_version_t master_ver, delta_id_t delta_ver,
+                         partition_id_t partition_id);
+  bool exec_stocklevel_txn(const struct tpcc_query *stmts, xid_t xid,
+                           master_version_t master_ver, delta_id_t delta_ver,
+                           partition_id_t partition_id);
 
-  void *get_query_struct_ptr(ushort pid) override {
+  void *get_query_struct_ptr(partition_id_t pid) override {
     return MemoryManager::mallocPinnedOnNode(
         sizeof(struct tpcc_query), storage::NUMAPartitionPolicy::getInstance()
                                        .getPartitionInfo(pid)
@@ -457,9 +456,10 @@ class TPCC : public Benchmark {
   void free_query_struct_ptr(void *ptr) override {
     MemoryManager::freePinned(ptr);  //, sizeof(struct tpcc_query));
   }
-  bool exec_txn(const void *stmts, uint64_t xid, ushort master_ver,
-                ushort delta_ver, ushort partition_id) override;
-  void gen_txn(int wid, void *txn_ptr, ushort partition_id) override;
+  bool exec_txn(const void *stmts, xid_t xid, master_version_t master_ver,
+                delta_id_t delta_ver, partition_id_t partition_id) override;
+  void gen_txn(worker_id_t wid, void *txn_ptr,
+               partition_id_t partition_id) override;
   void print_tpcc_query(void *arg);
 
   ~TPCC() override;

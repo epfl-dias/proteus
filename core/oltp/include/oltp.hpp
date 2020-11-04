@@ -105,16 +105,16 @@ class OLTP {
 
   inline void scale_back() { this->worker_pool->scale_back(); }
 
-  inline void scale_up(const uint &num_workers) {
+  inline void scale_up(const worker_id_t &num_workers) {
     this->worker_pool->scale_back();
   }
-  inline void scale_down(const uint &num_workers) {
+  inline void scale_down(const worker_id_t &num_workers) {
     this->worker_pool->scale_down(num_workers);
   }
 
-  inline void migrate_worker(const uint &num_workers) {
+  inline void migrate_worker(const worker_id_t &num_workers) {
     static bool workers_in_home = false;
-    for (uint i = 0; i < (num_workers / 2); i++) {
+    for (auto i = 0; i < (num_workers / 2); i++) {
       this->worker_pool->migrate_worker(workers_in_home);
     }
 
@@ -127,7 +127,7 @@ class OLTP {
     size_t total_olap = 0;
     size_t total_oltp = 0;
 
-    for (auto tbl : db->getAllTables()) {
+    for (auto &tbl : db->getTables()) {
       auto tmp = _getFreshnessRelation(tbl);
       total_olap += tmp.first;
       total_oltp += tmp.second;

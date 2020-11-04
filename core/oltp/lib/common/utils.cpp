@@ -1,7 +1,7 @@
 /*
-     Proteus -- High-performance query processing on heterogeneous hardware.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2019
+                            Copyright (c) 2020
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -21,27 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef INDEXES_HASH_INDEX_HPP_
-#define INDEXES_HASH_INDEX_HPP_
+#include "oltp/common/utils.hpp"
 
-#include <cuckoo/cuckoohash_map.hh>
-#include <iostream>
-
-#include "oltp/index/index.hpp"
-
-namespace indexes {
-
-template <class K, class V = void*>
-class HashIndex : public cuckoohash_map<K, V>, public Index<K, V> {
- public:
-  // HashIndex(std::string name ): cuckoohash_map<K, V>(), Index<K,V>(name) {}
-
-  HashIndex(std::string name = "", rowid_t reserved_capacity = 72000000)
-      : cuckoohash_map<K, V>(), Index<K, V>(name, reserved_capacity) {
-    this->reserve(reserved_capacity);
-  }
-};
-
-};  // namespace indexes
-
-#endif /* INDEXES_HASH_INDEX_HPP_ */
+bool timed_func::terminate = false;
+int timed_func::num_active_runners = 0;

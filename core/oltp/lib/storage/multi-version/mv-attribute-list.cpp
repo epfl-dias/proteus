@@ -33,10 +33,10 @@ namespace storage::mv {
  * */
 
 std::vector<MV_attributeList::version_t*> MV_attributeList::create_versions(
-    uint64_t xid, global_conf::IndexVal* idx_ptr,
+    xid_t xid, global_conf::IndexVal* idx_ptr,
     const std::vector<uint16_t>& attribute_widths,
-    storage::DeltaStore& deltaStore, ushort partition_id, const ushort* col_idx,
-    short num_cols) {
+    storage::DeltaStore& deltaStore, partition_id_t partition_id,
+    const column_id_t* col_idx, short num_cols) {
   std::vector<MV_attributeList::version_t*> version_pointers;
   version_pointers.reserve(num_cols > 0 ? num_cols : attribute_widths.size());
 
@@ -88,7 +88,7 @@ std::vector<MV_attributeList::version_t*> MV_attributeList::create_versions(
     }
     assert(version_pointers.size() == num_cols);
   } else {
-    uint i = 0;
+    column_id_t i = 0;
     for (auto& col_width : attribute_widths) {
       auto* attr_ver_list_ptr =
           (MV_attributeList::version_chain_t*)
@@ -117,15 +117,15 @@ std::vector<MV_attributeList::version_t*> MV_attributeList::create_versions(
 }
 
 std::bitset<64> MV_attributeList::get_readable_version(
-    const DeltaList& delta_list, uint64_t xid, char* write_loc,
+    const DeltaList& delta_list, xid_t xid, char* write_loc,
     const std::vector<std::pair<uint16_t, uint16_t>>& column_size_offset_pairs,
-    const ushort* col_idx, ushort num_cols) {
+    const column_id_t* col_idx, short num_cols) {
   std::bitset<64> done_mask(0xffffffffffffffff);
 
   auto* mv_col_list = (MV_attributeList::attributeVerList_t*)delta_list.ptr();
 
-  if (__unlikely(num_cols == 0 || col_idx == nullptr)) {
-    uint i = 0;
+  if (__unlikely(num_cols <= 0 || col_idx == nullptr)) {
+    column_id_t i = 0;
 
     if (mv_col_list == nullptr) {
       done_mask.reset();

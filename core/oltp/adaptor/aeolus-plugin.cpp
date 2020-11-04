@@ -284,17 +284,17 @@ void AeolusPlugin::freePartitionSizes(ParallelContext *context,
 }
 
 struct session {
-  uint64_t xid;
-  ushort master_ver;
-  ushort delta_ver;
-  ushort partition_id;
+  xid_t xid;
+  master_version_t master_ver;
+  delta_id_t delta_ver;
+  partition_id_t partition_id;
 };
 
 extern session TheSession;
 session TheSession;
 
-void update_query(storage::Table *tbl, int64_t vid, ushort col_update_idx,
-                  const void *rec) {
+void update_query(storage::Table *tbl, int64_t vid, column_id_t col_update_idx,
+                  void *rec) {
   auto xid = TheSession.xid;
   auto master_ver = TheSession.master_ver;
   auto delta_ver = TheSession.delta_ver;
@@ -309,8 +309,8 @@ void update_query(storage::Table *tbl, int64_t vid, ushort col_update_idx,
   }
   hash_ptr->latch.acquire();
 
-  tbl->updateRecord(xid, hash_ptr, rec, master_ver, delta_ver, &col_update_idx,
-                    1);
+  tbl->updateRecord(xid, hash_ptr, rec, delta_ver, &col_update_idx, 1,
+                    master_ver);
   hash_ptr->t_min = xid;
   hash_ptr->write_lck.unlock();
   hash_ptr->latch.release();

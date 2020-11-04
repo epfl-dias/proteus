@@ -31,7 +31,7 @@
 namespace storage::mv {
 
 void* MV_RecordList_Full::get_readable_version(version_t* head,
-                                               uint64_t tid_self) {
+                                               xid_t tid_self) {
   version_t* tmp = nullptr;
   {
     tmp = head;
@@ -49,9 +49,9 @@ void* MV_RecordList_Full::get_readable_version(version_t* head,
 }
 
 std::bitset<1> MV_RecordList_Full::get_readable_version(
-    const DeltaList& delta_list, uint64_t tid_self, char* write_loc,
+    const DeltaList& delta_list, xid_t tid_self, char* write_loc,
     const std::vector<std::pair<uint16_t, uint16_t>>& column_size_offset_pairs,
-    const ushort* col_idx, const ushort num_cols) {
+    const column_id_t* col_idx, const short num_cols) {
   static thread_local std::bitset<1> ret_bitmask("1");
 
   auto* delta_list_ptr = (version_chain_t*)(delta_list.ptr());
@@ -74,7 +74,7 @@ std::bitset<1> MV_RecordList_Full::get_readable_version(
 
   } else {
     // copy the required attr
-    for (ushort i = 0; i < num_cols; i++) {
+    for (auto i = 0; i < num_cols; i++) {
       auto& col_s_pair = column_size_offset_pairs[col_idx[i]];
       // assumption: full row is in the version.
       memcpy(write_loc, version + col_s_pair.second, col_s_pair.first);
@@ -85,9 +85,9 @@ std::bitset<1> MV_RecordList_Full::get_readable_version(
 }
 
 std::bitset<64> MV_RecordList_Partial::get_readable_version(
-    const DeltaList& delta_list, uint64_t tid_self, char* write_loc,
+    const DeltaList& delta_list, xid_t tid_self, char* write_loc,
     const std::vector<std::pair<uint16_t, uint16_t>>& column_size_offset_pairs,
-    const ushort* col_idx, ushort num_cols) {
+    const column_id_t* col_idx, short num_cols) {
   auto* delta_list_ptr = (version_chain_t*)(delta_list.ptr());
 
   if (delta_list_ptr == nullptr) {
@@ -172,9 +172,9 @@ std::bitset<64> MV_RecordList_Partial::get_readable_version(
 }
 
 std::vector<MV_RecordList_Full::version_t*> MV_RecordList_Full::create_versions(
-    uint64_t xid, global_conf::IndexVal* idx_ptr,
+    xid_t xid, global_conf::IndexVal* idx_ptr,
     std::vector<uint16_t>& attribute_widths, storage::DeltaStore& deltaStore,
-    ushort partition_id, const ushort* col_idx, short num_cols) {
+    partition_id_t partition_id, const column_id_t* col_idx, short num_cols) {
   size_t ver_size = 0;
   for (auto& attr_w : attribute_widths) {
     ver_size += attr_w;
@@ -189,12 +189,10 @@ std::vector<MV_RecordList_Full::version_t*> MV_RecordList_Full::create_versions(
 }
 
 std::vector<MV_RecordList_Partial::version_t*>
-MV_RecordList_Partial::create_versions(uint64_t xid,
-                                       global_conf::IndexVal* idx_ptr,
-                                       std::vector<uint16_t>& attribute_widths,
-                                       storage::DeltaStore& deltaStore,
-                                       ushort partition_id,
-                                       const ushort* col_idx, short num_cols) {
+MV_RecordList_Partial::create_versions(
+    xid_t xid, global_conf::IndexVal* idx_ptr,
+    std::vector<uint16_t>& attribute_widths, storage::DeltaStore& deltaStore,
+    partition_id_t partition_id, const column_id_t* col_idx, short num_cols) {
   std::bitset<64> attr_mask;
   static thread_local std::vector<uint16_t> ver_offsets{64, 0};
 

@@ -25,17 +25,18 @@
 
 #include <sys/mman.h>
 
+#include "oltp/common/numa-partition-policy.hpp"
 #include "oltp/execution/worker.hpp"
 #include "oltp/storage/multi-version/mv.hpp"
-#include "oltp/storage/table.hpp"
 
 namespace storage {
 
-std::map<uint8_t, DeltaStore*> DeltaList::deltaStore_map;
-std::map<uint8_t, char*> DeltaList::list_memory_base;
+std::map<delta_id_t, DeltaStore*> DeltaList::deltaStore_map;
+std::map<delta_id_t, char*> DeltaList::list_memory_base;
 
-DeltaStore::DeltaStore(uint8_t delta_id, uint64_t ver_list_capacity,
-                       uint64_t ver_data_capacity, int num_partitions)
+DeltaStore::DeltaStore(delta_id_t delta_id, uint64_t ver_list_capacity,
+                       uint64_t ver_data_capacity,
+                       partition_id_t num_partitions)
     : touched(false) {
   this->delta_id = delta_id;
   DeltaList::deltaStore_map.emplace(delta_id, this);
@@ -55,8 +56,6 @@ DeltaStore::DeltaStore(uint8_t delta_id, uint64_t ver_list_capacity,
         MemoryManager::mallocPinnedOnNode(ver_list_capacity, numa_idx);
     void* mem_data =
         MemoryManager::mallocPinnedOnNode(ver_data_capacity, numa_idx);
-    assert(mem_list != NULL);
-    assert(mem_data != NULL);
 
     assert(mem_list != nullptr);
     assert(mem_data != nullptr);
@@ -99,7 +98,7 @@ DeltaStore::DeltaStore(uint8_t delta_id, uint64_t ver_list_capacity,
 
 DeltaStore::~DeltaStore() {
   print_info();
-  LOG(INFO) << "[" << this->delta_id
+  LOG(INFO) << "[" << (int)(this->delta_id)
             << "] Delta Partitions: " << partitions.size();
 
   for (auto& p : partitions) {
@@ -109,12 +108,12 @@ DeltaStore::~DeltaStore() {
 }
 
 void DeltaStore::print_info() {
-  LOG(INFO) << "[DeltaStore # " << this->delta_id
+  LOG(INFO) << "[DeltaStore # " << (int)(this->delta_id)
             << "] Number of Successful GC Resets: "
             << this->gc_reset_success.load();
 
 #if DELTA_DEBUG
-  LOG(INFO) << "[DeltaStore # " << this->delta_id
+  LOG(INFO) << "[DeltaStore # " << (int)(this->delta_id)
             << "] Number of GC Requests: " << this->gc_requests.load();
 #endif
 
@@ -123,8 +122,8 @@ void DeltaStore::print_info() {
   }
 }
 
-void* DeltaStore::getTransientChunk(DeltaList& delta_chunk, uint size,
-                                    ushort partition_id) {
+void* DeltaStore::getTransientChunk(DeltaList& delta_chunk, size_t size,
+                                    partition_id_t partition_id) {
   auto* ptr = partitions[partition_id]->getChunk(size);
 
   delta_chunk.update(reinterpret_cast<const char*>(ptr),
@@ -136,7 +135,7 @@ void* DeltaStore::getTransientChunk(DeltaList& delta_chunk, uint size,
 }
 
 void* DeltaStore::validate_or_create_list(DeltaList& delta_chunk,
-                                          ushort partition_id) {
+                                          partition_id_t partition_id) {
   auto* delta_ptr = (storage::mv::mv_version_chain*)(delta_chunk.ptr());
 
   if (delta_ptr == nullptr) {
@@ -160,15 +159,15 @@ void* DeltaStore::validate_or_create_list(DeltaList& delta_chunk,
   return delta_ptr;
 }
 
-void* DeltaStore::create_version(size_t size, ushort partition_id) {
+void* DeltaStore::create_version(size_t size, partition_id_t partition_id) {
   char* cnk = (char*)partitions[partition_id]->getVersionDataChunk(size);
   if (!touched) touched = true;
   return cnk;
 }
 
-void* DeltaStore::insert_version(DeltaList& delta_chunk, uint64_t t_min,
-                                 uint64_t t_max, uint rec_size,
-                                 ushort partition_id) {
+void* DeltaStore::insert_version(DeltaList& delta_chunk, xid_t t_min,
+                                 xid_t t_max, size_t rec_size,
+                                 partition_id_t partition_id) {
   assert(!storage::mv::mv_type::isPerAttributeMVList);
 
   char* cnk = (char*)partitions[partition_id]->getVersionDataChunk(rec_size);
@@ -204,7 +203,7 @@ void DeltaStore::gc() {
 #if DELTA_DEBUG
     gc_requests++;
 #endif
-    uint64_t last_alive_txn =
+    xid_t last_alive_txn =
         scheduler::WorkerPool::getInstance().get_min_active_txn();
     if (this->readers == 0 && should_gc() &&
         last_alive_txn > max_active_epoch) {
@@ -226,7 +225,7 @@ DeltaStore::DeltaPartition::DeltaPartition(char* ver_list_cursor,
                                            oltp::common::mem_chunk ver_list_mem,
                                            char* ver_data_cursor,
                                            oltp::common::mem_chunk ver_data_mem,
-                                           int pid)
+                                           partition_id_t pid)
     : ver_list_mem(ver_list_mem),
       ver_data_mem(ver_data_mem),
       ver_list_cursor(ver_list_cursor),
@@ -237,27 +236,26 @@ DeltaStore::DeltaPartition::DeltaPartition(char* ver_list_cursor,
       pid(pid) {
   printed = false;
   // warm-up mem-list
-  if (DELTA_DEBUG)
-    std::cout << "\t warming up delta storage P" << pid << std::endl;
+  LOG(INFO) << "\t warming up delta storage P" << (int)pid << std::endl;
 
-  uint64_t* pt = (uint64_t*)ver_list_cursor;
+  auto* pt = (uint64_t*)ver_list_cursor;
   uint64_t warmup_size = ver_list_mem.size / sizeof(uint64_t);
   pt[0] = 3;
-  for (int i = 1; i < warmup_size; i++) pt[i] = i * 2;
+  for (auto i = 1; i < warmup_size; i++) pt[i] = i * 2;
 
   // warm-up mem-data
   pt = (uint64_t*)ver_data_cursor;
   warmup_size = ver_data_mem.size / sizeof(uint64_t);
   pt[0] = 1;
-  for (int i = 1; i < warmup_size; i++) pt[i] = i * 2;
+  for (auto i = 1; i < warmup_size; i++) pt[i] = i * 2;
 
-  size_t max_workers_in_partition =
+  auto max_workers_in_partition =
       topology::getInstance()
           .getCpuNumaNodes()[storage::NUMAPartitionPolicy::getInstance()
                                  .getPartitionInfo(pid)
                                  .numa_idx]
           .local_cores.size();
-  for (int i = 0; i < max_workers_in_partition; i++) {
+  for (auto i = 0; i < max_workers_in_partition; i++) {
     reset_listeners.push_back(false);
   }
 }
@@ -309,7 +307,7 @@ void* DeltaStore::DeltaPartition::getVersionDataChunk(size_t rec_size) {
       if (!printed) {
         printed = true;
         std::cout << "#######" << std::endl;
-        std::cout << "PID: " << pid << std::endl;
+        std::cout << "PID: " << (int)pid << std::endl;
         report();
         std::cout << "#######" << std::endl;
         assert(false);

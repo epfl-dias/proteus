@@ -36,66 +36,39 @@
 #include <thread>
 #include <unordered_map>
 
+#include "oltp/common/common.hpp"
 #include "oltp/common/constants.hpp"
 #include "oltp/interface/bench.hpp"
 
 namespace scheduler {
 
-/*
-  TODO: we need some sort of stats collector/logger/display mechanism per worker
-  in order to report txn throughput after every x interval or at the very end
-  when workers go down.
-
-  if worker is not running a benchmark then throughput would be meaningless.
-*/
-
-/*enum WORKER_TYPE {
-  TXN,    // dequeue task and perform those tasks
-  CUSTOM  // custom function on threads (data_load, etc.)
-};*/
-
-// struct STATS {
-//   double id;
-//   double tps;
-//   double num_commits;
-//   double num_aborts;
-//   double num_txns;
-//   double runtime_duration;
-// };
-
-// struct GLOBAL_STATS {
-//   std::vector<struct STATS> global_stats;
-//   std::vector<struct STATS> worker_stats;
-//   std::vector<struct STATS> socket_stats;
-// };
-
 enum WORKER_STATE { READY, RUNNING, PAUSED, TERMINATED, PRERUN, POSTRUN };
 
 class Worker {
-  uint8_t id;
+  worker_id_t id;
   volatile bool terminate;
   volatile bool pause;
   volatile bool change_affinity;
   volatile WORKER_STATE state;
   volatile bool revert_affinity;
 
-  uint partition_id;
+  partition_id_t partition_id;
 
   const topology::core *exec_core;
   topology::core *affinity_core;
 
-  uint64_t curr_txn;
-  uint64_t prev_delta;
-  uint64_t curr_delta;
-  volatile ushort curr_master;
+  xid_t curr_txn;
+  xid_t prev_delta_epoch;
+  xid_t curr_delta_epoch;
+  volatile master_version_t curr_master;
   bool is_hotplugged;
   volatile int64_t num_iters;
 
   // STATS
-  uint64_t num_txns;
-  uint64_t num_commits;
-  uint64_t num_aborts;
-  uint64_t txn_start_tsc;
+  size_t num_txns;
+  size_t num_commits;
+  size_t num_aborts;
+  size_t txn_start_tsc;
 
   std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>
       txn_start_time;
@@ -104,8 +77,8 @@ class Worker {
       txn_end_time;
 
  public:
-  Worker(uint8_t id, const topology::core *exec_core, int64_t num_iters = -1,
-         uint partition_id = 0)
+  Worker(worker_id_t id, const topology::core *exec_core,
+         int64_t num_iters = -1, partition_id_t partition_id = 0)
       : id(id),
         num_iters(num_iters),
         terminate(false),
@@ -129,7 +102,6 @@ class Worker {
 };
 
 class WorkerPool {
- protected:
  public:
   // Singleton
   static WorkerPool &getInstance() {
@@ -144,36 +116,38 @@ class WorkerPool {
   WorkerPool(WorkerPool &&) = delete;
   WorkerPool &operator=(WorkerPool &&) = delete;
 
-  void init(bench::Benchmark *txn_bench = nullptr, uint num_workers = 1,
-            uint num_partitions = 1, uint worker_sched_mode = 0,
-            int num_iter_per_worker = -1, bool elastic_workload = false);
+  void init(bench::Benchmark *txn_bench = nullptr, worker_id_t num_workers = 1,
+            partition_id_t num_partitions = 1, uint worker_sched_mode = 0,
+            int num_iter_per_worker = -1, bool is_elastic_workload = false);
   void shutdown(bool print_stats = false);
   void shutdown_manual();
 
   void start_workers();
-  void add_worker(const topology::core *exec_location, short partition_id = -1);
+  void add_worker(const topology::core *exec_location, int partition_id = -1);
   void remove_worker(const topology::core *exec_location);
   void migrate_worker(bool return_back = false);
 
-  const std::vector<uint> &scale_down(uint num_cores = 1);
+  const std::vector<worker_id_t> &scale_down(uint num_cores = 1);
   void scale_back();
 
   void print_worker_stats(bool global_only = true);
   void print_worker_stats_diff();
   std::pair<double, double> get_worker_stats_diff(bool print = false);
 
-  std::vector<uint64_t> get_active_txns();
-  uint64_t get_min_active_txn();
-  uint64_t get_max_active_txn();
-  bool is_all_worker_on_master_id(ushort master_id);
+  std::vector<xid_t> get_active_txns();
+  xid_t get_min_active_txn();
+  xid_t get_max_active_txn();
+  bool is_all_worker_on_master_id(master_version_t master_id);
 
   //  template <class F, class... Args>
   //  std::future<typename std::result_of<F(Args...)>::type> enqueueTask(
   //      F &&f, Args &&... args);
 
-  void enqueueTask(std::function<bool(uint64_t, ushort, ushort, ushort)>);
+  void enqueueTask(
+      std::function<bool(xid_t, master_version_t, delta_id_t, partition_id_t)>
+          query);
 
-  uint8_t size() { return workers.size(); }
+  worker_id_t size() { return workers.size(); }
   std::string get_benchmark_name() { return this->_txn_bench->name; }
   void pause();
   void resume();
@@ -187,7 +161,7 @@ class WorkerPool {
     pre_barrier = false;
   }
 
-  int worker_counter;
+  worker_id_t worker_counter;
   std::atomic<bool> terminate;
   std::atomic<bool> proc_completed;
 
@@ -196,11 +170,11 @@ class WorkerPool {
   std::mutex pre_m;
 
   std::unordered_map<uint, std::pair<std::thread *, Worker *>> workers;
-  std::vector<uint> elastic_set;
+  std::vector<worker_id_t> elastic_set;
 
   uint num_iter_per_worker;
   uint worker_sched_mode;
-  uint num_partitions;
+  partition_id_t num_partitions;
   bool elastic_workload;
 
   // Stats
@@ -215,7 +189,9 @@ class WorkerPool {
   bench::Benchmark *_txn_bench;
 
   // External TXN Queue
-  std::queue<std::function<bool(uint64_t, ushort, ushort, ushort)>> tasks;
+  std::queue<
+      std::function<bool(xid_t, master_version_t, delta_id_t, partition_id_t)>>
+      tasks;
 
   std::mutex m;
   std::condition_variable cv;

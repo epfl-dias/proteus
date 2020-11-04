@@ -24,29 +24,29 @@
 #include "oltp/index/hash_array.hpp"
 
 #include "oltp/common/constants.hpp"
-#include "oltp/storage/table.hpp"
+#include "oltp/common/numa-partition-policy.hpp"
 
 namespace indexes {
 
 template <class K, class V>
-HashArray<K, V>::HashArray(std::string name, uint64_t num_obj)
-    : capacity(num_obj), name(name) {
-  uint FLAGS_num_partitions = g_num_partitions;
-
-  this->partitions = FLAGS_num_partitions;
-
-  capacity_per_partition = (num_obj / partitions) + (num_obj % partitions);
+HashArray<K, V>::HashArray(std::string name, rowid_t reserved_capacity)
+    : Index<K, V>(name, reserved_capacity),
+      capacity(reserved_capacity),
+      partitions(g_num_partitions) {
+  capacity_per_partition =
+      (reserved_capacity / partitions) + (reserved_capacity % partitions);
   capacity = capacity_per_partition * partitions;
 
-  std::cout << "Creating a hashindex[" << name << "] of size: " << num_obj
-            << " with partitions:" << FLAGS_num_partitions
-            << " each with: " << capacity_per_partition << std::endl;
+  LOG(INFO) << "Creating a hashindex[" << name
+            << "] of size: " << reserved_capacity
+            << " with partitions:" << partitions
+            << " each with: " << capacity_per_partition;
 
   arr = (char ***)malloc(sizeof(char *) * partitions);
 
   size_t size_per_part = capacity_per_partition * sizeof(char *);
 
-  for (int i = 0; i < partitions; i++) {
+  for (auto i = 0; i < partitions; i++) {
     arr[i] = (char **)MemoryManager::mallocPinnedOnNode(
         size_per_part, storage::NUMAPartitionPolicy::getInstance()
                            .getPartitionInfo(i)
@@ -55,8 +55,8 @@ HashArray<K, V>::HashArray(std::string name, uint64_t num_obj)
     filler[i] = 0;
   }
 
-  for (int i = 0; i < partitions; i++) {
-    uint64_t *pt = (uint64_t *)arr[i];
+  for (auto i = 0; i < partitions; i++) {
+    auto *pt = (uint64_t *)arr[i];
     uint64_t warmup_max = size_per_part / sizeof(uint64_t);
 #pragma clang loop vectorize(enable)
     for (uint64_t j = 0; j < warmup_max; j++) pt[j] = 0;
@@ -65,7 +65,7 @@ HashArray<K, V>::HashArray(std::string name, uint64_t num_obj)
 
 template <class K, class V>
 HashArray<K, V>::~HashArray() {
-  for (int i = 0; i < partitions; i++) {
+  for (auto i = 0; i < partitions; i++) {
     MemoryManager::freePinned(arr[i]);
   }
 }

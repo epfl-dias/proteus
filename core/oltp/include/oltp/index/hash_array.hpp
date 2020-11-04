@@ -31,6 +31,7 @@
 #include <iostream>
 
 #include "oltp/common/common.hpp"
+#include "oltp/index/index.hpp"
 
 namespace indexes {
 
@@ -40,18 +41,16 @@ namespace indexes {
 // DECLARE_uint64(num_partitions);
 
 template <class K = uint64_t, class V = void *>
-class HashArray {
+class HashArray : public Index<K, V> {
  public:
   char ***arr;
-  uint64_t capacity;
-  size_t capacity_per_partition;
-  uint partitions;
+  rowid_t capacity;
+  rowid_t capacity_per_partition;
+  partition_id_t partitions;
   std::atomic<uint64_t> filler[4];
 
-  std::string name;
-
-  HashArray(std::string name = "", uint64_t num_obj = 72000000);
-  ~HashArray();
+  HashArray(std::string name = "", rowid_t reserved_capacity = 72000000);
+  ~HashArray() override;
 
   //~HashArray() { storage::MemoryManager::free(arr, capacity * sizeof(V)); }
 
@@ -138,7 +137,7 @@ class HashArray {
       std::cout << "capacity_per_partition: " << capacity_per_partition
                 << std::endl;
       std::cout << "partitions: " << partitions << std::endl;
-      std::cout << name << std::endl;
+      std::cout << this->name << std::endl;
       assert(false);
       return false;
     }

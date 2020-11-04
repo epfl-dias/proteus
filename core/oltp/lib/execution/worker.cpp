@@ -26,17 +26,13 @@
 #include <atomic>
 #include <cassert>
 #include <condition_variable>
-#include <deque>
 #include <functional>
-#include <future>
 #include <limits>
-#include <mutex>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
 #include <platform/util/timing.hpp>
 #include <queue>
-#include <string>
 #include <thread>
 
 #include "oltp/storage/table.hpp"
@@ -83,6 +79,7 @@ calculate_delta_ver(uint64_t txn_id, uint64_t start_time) {
 
   return duration >> 20;  // Magic Number
 }
+
 void Worker::run_interactive() {
   set_exec_location_on_scope d{
       topology::getInstance().getCores()[exec_core->index_in_topo]};
@@ -91,17 +88,17 @@ void Worker::run_interactive() {
   txn::TransactionManager* txnManager = &txn::TransactionManager::getInstance();
   storage::Schema* schema = &storage::Schema::getInstance();
 
-  this->curr_delta = 0;
-  this->prev_delta = 0;
+  this->curr_delta_epoch = 0;
+  this->prev_delta_epoch = 0;
 
   this->txn_start_tsc = txnManager->get_next_xid(this->id);
-  uint64_t tx_st = txnManager->txn_start_time;
+  auto tx_st = txnManager->txn_start_time;
   this->curr_master = txnManager->current_master;
   this->curr_txn = txnManager->get_next_xid(this->id);
-  this->prev_delta = this->curr_delta;
-  this->curr_delta = calculate_delta_ver(this->curr_txn, tx_st);
-  schema->add_active_txn(curr_delta % global_conf::num_delta_storages,
-                         this->curr_delta, this->id);
+  this->prev_delta_epoch = this->curr_delta_epoch;
+  this->curr_delta_epoch = calculate_delta_ver(this->curr_txn, tx_st);
+  schema->add_active_txn(curr_delta_epoch % global_conf::num_delta_storages,
+                         this->curr_delta_epoch, this->id);
 
   this->txn_start_time = std::chrono::system_clock::now();
   this->state = RUNNING;
@@ -124,8 +121,8 @@ void Worker::run_interactive() {
     if (pause) {
       state = PAUSED;
       schema->remove_active_txn(
-          this->curr_delta % global_conf::num_delta_storages, this->curr_delta,
-          this->id);
+          this->curr_delta_epoch % global_conf::num_delta_storages,
+          this->curr_delta_epoch, this->id);
 
       while (pause && !terminate) {
         std::this_thread::yield();
@@ -135,11 +132,11 @@ void Worker::run_interactive() {
 
       this->curr_master = txnManager->current_master;
       this->curr_txn = txnManager->get_next_xid(this->id);
-      this->prev_delta = this->curr_delta;
-      this->curr_delta = calculate_delta_ver(this->curr_txn, tx_st);
+      this->prev_delta_epoch = this->curr_delta_epoch;
+      this->curr_delta_epoch = calculate_delta_ver(this->curr_txn, tx_st);
 
-      schema->add_active_txn(curr_delta % global_conf::num_delta_storages,
-                             this->curr_delta, this->id);
+      schema->add_active_txn(curr_delta_epoch % global_conf::num_delta_storages,
+                             this->curr_delta_epoch, this->id);
       continue;
     }
 
@@ -148,20 +145,25 @@ void Worker::run_interactive() {
 
     // Delta versioning
     this->curr_txn = txnManager->get_next_xid(this->id);
-    this->prev_delta = this->curr_delta;
-    this->curr_delta = calculate_delta_ver(this->curr_txn, tx_st);
+    this->prev_delta_epoch = this->curr_delta_epoch;
+    this->curr_delta_epoch = calculate_delta_ver(this->curr_txn, tx_st);
 
-    ushort curr_delta_id = curr_delta % global_conf::num_delta_storages;
-    ushort prev_delta_id = prev_delta % global_conf::num_delta_storages;
+    delta_id_t curr_delta_id =
+        curr_delta_epoch % global_conf::num_delta_storages;
+    delta_id_t prev_delta_id =
+        prev_delta_epoch % global_conf::num_delta_storages;
 
-    if (prev_delta != curr_delta) {  // && curr_delta_id != prev_delta_id
-      schema->switch_delta(prev_delta_id, curr_delta_id, curr_delta, this->id);
+    if (prev_delta_epoch !=
+        curr_delta_epoch) {  // && curr_delta_id != prev_delta_id
+      schema->switch_delta(prev_delta_id, curr_delta_id, curr_delta_epoch,
+                           this->id);
 
     }  // else didnt switch.
 
     // run query
 
-    std::function<bool(uint64_t, ushort, ushort, ushort)> task;
+    std::function<bool(xid_t, master_version_t, delta_id_t, partition_id_t)>
+        task;
     std::unique_lock<std::mutex> lock(pool->m);
     if (!pool->tasks.empty()) {
       //    NO-WAIT -> If task in queue, exec ELSE gen/exec txn
@@ -179,22 +181,13 @@ void Worker::run_interactive() {
   }
 
   txn_end_time = std::chrono::system_clock::now();
-  schema->remove_active_txn(this->curr_delta % global_conf::num_delta_storages,
-                            this->curr_delta, this->id);
+  schema->remove_active_txn(
+      this->curr_delta_epoch % global_conf::num_delta_storages,
+      this->curr_delta_epoch, this->id);
   state = TERMINATED;
 }
 
 void Worker::run_bench() {
-  // std::cout << "[WORKER] Worker (TID:" << (int)(this->id)
-  //          << "): Assigining Core ID:" << this->exec_core->id << std::endl;
-  // AffinityManager::getInstance().set(this->exec_core);
-
-  //
-
-  // std::cout << exec_core->id << std::endl;
-  // std::cout << exec_core->local_cpu << std::endl;
-  // std::cout << exec_core->local_cpu_index << std::endl;
-  // std::cout << exec_core->index_in_topo << std::endl;
   set_exec_location_on_scope d{
       topology::getInstance().getCores()[exec_core->index_in_topo]};
 
@@ -203,17 +196,17 @@ void Worker::run_bench() {
   storage::Schema* schema = &storage::Schema::getInstance();
   void* txn_mem = pool->_txn_bench->get_query_struct_ptr(this->partition_id);
 
-  curr_delta = 0;
-  prev_delta = 0;
+  curr_delta_epoch = 0;
+  prev_delta_epoch = 0;
 
   this->txn_start_tsc = txnManager->get_next_xid(this->id);
-  uint64_t tx_st = txnManager->txn_start_time;
+  auto tx_st = txnManager->txn_start_time;
   this->curr_master = txnManager->current_master;
   this->curr_txn = txnManager->get_next_xid(this->id);
-  this->prev_delta = this->curr_delta;
-  this->curr_delta = calculate_delta_ver(this->curr_txn, tx_st);
-  schema->add_active_txn(curr_delta % global_conf::num_delta_storages,
-                         this->curr_delta, this->id);
+  this->prev_delta_epoch = this->curr_delta_epoch;
+  this->curr_delta_epoch = calculate_delta_ver(this->curr_txn, tx_st);
+  schema->add_active_txn(curr_delta_epoch % global_conf::num_delta_storages,
+                         this->curr_delta_epoch, this->id);
 
   if (!is_hotplugged) {
     this->state = PRERUN;
@@ -275,8 +268,8 @@ void Worker::run_bench() {
       // garbage collection for no reason.
 
       schema->remove_active_txn(
-          this->curr_delta % global_conf::num_delta_storages, this->curr_delta,
-          this->id);
+          this->curr_delta_epoch % global_conf::num_delta_storages,
+          this->curr_delta_epoch, this->id);
 
       while (pause && !terminate) {
         // std::this_thread::sleep_for(std::chrono::microseconds(50));
@@ -287,11 +280,11 @@ void Worker::run_bench() {
 
       this->curr_master = txnManager->current_master;
       this->curr_txn = txnManager->get_next_xid(this->id);
-      this->prev_delta = this->curr_delta;
-      this->curr_delta = calculate_delta_ver(this->curr_txn, tx_st);
+      this->prev_delta_epoch = this->curr_delta_epoch;
+      this->curr_delta_epoch = calculate_delta_ver(this->curr_txn, tx_st);
 
-      schema->add_active_txn(curr_delta % global_conf::num_delta_storages,
-                             this->curr_delta, this->id);
+      schema->add_active_txn(curr_delta_epoch % global_conf::num_delta_storages,
+                             this->curr_delta_epoch, this->id);
       continue;
     }
 
@@ -300,14 +293,18 @@ void Worker::run_bench() {
 
     // Delta versioning
     this->curr_txn = txnManager->get_next_xid(this->id);
-    this->prev_delta = this->curr_delta;
-    this->curr_delta = calculate_delta_ver(this->curr_txn, tx_st);
+    this->prev_delta_epoch = this->curr_delta_epoch;
+    this->curr_delta_epoch = calculate_delta_ver(this->curr_txn, tx_st);
 
-    ushort curr_delta_id = curr_delta % global_conf::num_delta_storages;
-    ushort prev_delta_id = prev_delta % global_conf::num_delta_storages;
+    delta_id_t curr_delta_id =
+        curr_delta_epoch % global_conf::num_delta_storages;
+    delta_id_t prev_delta_id =
+        prev_delta_epoch % global_conf::num_delta_storages;
 
-    if (prev_delta != curr_delta) {  // && curr_delta_id != prev_delta_id
-      schema->switch_delta(prev_delta_id, curr_delta_id, curr_delta, this->id);
+    if (prev_delta_epoch !=
+        curr_delta_epoch) {  // && curr_delta_id != prev_delta_id
+      schema->switch_delta(prev_delta_id, curr_delta_id, curr_delta_epoch,
+                           this->id);
 
     }  // else didnt switch.
 
@@ -325,8 +322,9 @@ void Worker::run_bench() {
 
   txn_end_time = std::chrono::system_clock::now();
 
-  schema->remove_active_txn(this->curr_delta % global_conf::num_delta_storages,
-                            this->curr_delta, this->id);
+  schema->remove_active_txn(
+      this->curr_delta_epoch % global_conf::num_delta_storages,
+      this->curr_delta_epoch, this->id);
 
   // POST RUN
   if (!is_hotplugged) {
@@ -334,20 +332,20 @@ void Worker::run_bench() {
     this->curr_txn = txnManager->get_next_xid(this->id);
     this->curr_master = txnManager->current_master;
 
-    //    if (this->id == 0) {
-    //      txnManager->snapshot();
-    //      while (schema->is_sync_in_progress())
-    //        ;
-    //    }
-    //    pool->txn_bench->post_run(this->id, curr_txn, this->partition_id,
-    //                              this->curr_master);
+    if (this->id == 0) {
+      txnManager->snapshot();
+      while (schema->is_sync_in_progress())
+        ;
+    }
+    pool->_txn_bench->post_run(this->id, curr_txn, this->partition_id,
+                               this->curr_master);
   }
   state = TERMINATED;
   pool->_txn_bench->free_query_struct_ptr(txn_mem);
 }
 
-std::vector<uint64_t> WorkerPool::get_active_txns() {
-  std::vector<uint64_t> ret = std::vector<uint64_t>(this->size());
+std::vector<xid_t> WorkerPool::get_active_txns() {
+  std::vector<xid_t> ret = std::vector<xid_t>(this->size());
 
   for (auto& wr : workers) {
     if (wr.second.second->state == RUNNING)
@@ -357,33 +355,33 @@ std::vector<uint64_t> WorkerPool::get_active_txns() {
   return ret;
 }
 
-uint64_t WorkerPool::get_min_active_txn() {
-  uint64_t min_epoch = std::numeric_limits<uint64_t>::max();
+xid_t WorkerPool::get_min_active_txn() {
+  xid_t min_epoch = std::numeric_limits<uint64_t>::max();
 
   for (auto& wr : workers) {
     if (wr.second.second->state == RUNNING &&
-        wr.second.second->curr_delta < min_epoch) {
-      min_epoch = wr.second.second->curr_delta;
+        wr.second.second->curr_delta_epoch < min_epoch) {
+      min_epoch = wr.second.second->curr_delta_epoch;
     }
   }
 
   return min_epoch;
 }
 
-uint64_t WorkerPool::get_max_active_txn() {
-  uint64_t max_epoch = std::numeric_limits<uint64_t>::min();
+xid_t WorkerPool::get_max_active_txn() {
+  xid_t max_epoch = std::numeric_limits<uint64_t>::min();
 
   for (auto& wr : workers) {
     if (wr.second.second->state == RUNNING &&
-        wr.second.second->curr_delta > max_epoch) {
-      max_epoch = wr.second.second->curr_delta;
+        wr.second.second->curr_delta_epoch > max_epoch) {
+      max_epoch = wr.second.second->curr_delta_epoch;
     }
   }
 
   return max_epoch;
 }
 
-bool WorkerPool::is_all_worker_on_master_id(ushort master_id) {
+bool WorkerPool::is_all_worker_on_master_id(master_version_t master_id) {
   for (auto& wr : workers) {
     if (wr.second.second->state == RUNNING &&
         wr.second.second->curr_master != master_id) {
@@ -603,10 +601,10 @@ void WorkerPool::print_worker_stats(bool global_only) {
   // if (this->terminate) proc_completed = true;
 }
 
-void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
-                      uint n_partitions, uint worker_scheduling_mode,
+void WorkerPool::init(bench::Benchmark* txn_bench, worker_id_t num_workers,
+                      partition_id_t n_partitions, uint worker_scheduling_mode,
                       int num_iterations_per_worker, bool is_elastic_workload) {
-  std::cout << "[WorkerPool] Init" << std::endl;
+  LOG(INFO) << "[WorkerPool] Init";
 
   if (txn_bench == nullptr) {
     this->_txn_bench = new bench::Benchmark();
@@ -614,10 +612,9 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
     this->_txn_bench = txn_bench;
   }
   if (txn_bench != nullptr)
-    std::cout << "[WorkerPool] TXN Bench: " << this->_txn_bench->name
-              << std::endl;
+    LOG(INFO) << "[WorkerPool] TXN Bench: " << this->_txn_bench->name;
   else
-    std::cout << "[WorkerPool] Interactive mode";
+    LOG(INFO) << "[WorkerPool] Interactive mode";
 
   this->num_iter_per_worker = num_iterations_per_worker;
   this->worker_sched_mode = worker_scheduling_mode;
@@ -627,15 +624,11 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
   prev_time_tps.reserve(topology::getInstance().getCoreCount());
   prev_sum_tps.reserve(topology::getInstance().getCoreCount());
 
-  std::cout << "[WorkerPool] start_workers -- requested_num_workers: "
-            << num_workers << std::endl;
-
-  std::cout << "[WorkerPool] Number of Workers " << num_workers << std::endl;
-  std::cout << "[WorkerPool] Scheduling Mode: " << worker_sched_mode
-            << std::endl;
+  LOG(INFO) << "[WorkerPool] Number of Workers " << (int)num_workers;
+  LOG(INFO) << "[WorkerPool] Scheduling Mode: " << worker_sched_mode;
 
   pre_barrier.store(0);
-  int i = 0;
+  worker_id_t i = 0;
 
   if (worker_sched_mode <= 2) {  // default / inteleave
 
@@ -659,9 +652,8 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
       wrkr->partition_id = (exec_core.local_cpu_index % num_partitions);
       wrkr->num_iters = num_iter_per_worker;
 
-      std::cout << "Worker-" << (uint)wrkr->id << "(" << exec_core.id
-                << "): Allocated partition # " << wrkr->partition_id
-                << std::endl;
+      LOG(INFO) << "Worker-" << (int)wrkr->id << "(" << exec_core.id
+                << "): Allocated partition # " << (int)wrkr->partition_id;
       std::thread* thd = new (thd_ptr)
           std::thread((txn_bench != nullptr ? &Worker::run_bench
                                             : &Worker::run_interactive),
@@ -678,7 +670,7 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
     }
 
   } else if (worker_sched_mode == 3) {  // reversed
-    // assert(false && "Turned off due to buggy code");
+    assert(false && "Turned off due to buggy code");
 
     const auto& sys_cores = topology::getInstance().getCores();
     uint ctr = 0;
@@ -703,7 +695,7 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
       wrkr->num_iters = num_iter_per_worker;
 
       std::cout << "Worker-" << (uint)wrkr->id << "(" << sys_cores[ci].id
-                << "): Allocated partition # " << wrkr->partition_id
+                << "): Allocated partition # " << (int)wrkr->partition_id
                 << std::endl;
       std::thread* thd = new (thd_ptr)
           std::thread((txn_bench != nullptr ? &Worker::run_bench
@@ -760,7 +752,7 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
       wrkr->num_iters = num_iter_per_worker;
 
       std::cout << "Worker-" << (uint)wrkr->id << "(" << exec_core.id
-                << "): Allocated partition # " << wrkr->partition_id
+                << "): Allocated partition # " << (int)wrkr->partition_id
                 << std::endl;
 
       std::thread* thd = new (thd_ptr)
@@ -810,7 +802,7 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
       wrkr->num_iters = num_iter_per_worker;
 
       std::cout << "Worker-" << (uint)wrkr->id << "(" << exec_core.id
-                << "): Allocated partition # " << wrkr->partition_id
+                << "): Allocated partition # " << (int)wrkr->partition_id
                 << std::endl;
       std::thread* thd = new (thd_ptr)
           std::thread((txn_bench != nullptr ? &Worker::run_bench
@@ -942,7 +934,7 @@ void WorkerPool::migrate_worker(bool return_back) {
     worker_num -= 1;
 }
 
-const std::vector<uint>& WorkerPool::scale_down(uint num_cores) {
+const std::vector<worker_id_t>& WorkerPool::scale_down(uint num_cores) {
   // std::vector<uint> core_ids{num_cores};
 
   uint ctr = 0;
@@ -1020,7 +1012,7 @@ void WorkerPool::scale_back() {
 
 // Hot Plug
 void WorkerPool::add_worker(const topology::core* exec_location,
-                            short partition_id) {
+                            int partition_id) {
   // assert(workers.find(exec_location->id) == workers.end());
   void* obj_ptr = MemoryManager::mallocPinnedOnNode(
       sizeof(Worker), exec_location->local_cpu_index);
@@ -1099,7 +1091,8 @@ void WorkerPool::shutdown(bool print_stats) {
 }
 
 void WorkerPool::enqueueTask(
-    std::function<bool(uint64_t, ushort, ushort, ushort)> query) {
+    std::function<bool(xid_t, master_version_t, delta_id_t, partition_id_t)>
+        query) {
   {
     std::unique_lock<std::mutex> lock(this->m);
     tasks.emplace(std::move(query));

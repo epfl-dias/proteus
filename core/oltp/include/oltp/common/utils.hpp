@@ -21,8 +21,8 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef TXN_ENGINE_UTILS_HPP_
-#define TXN_ENGINE_UTILS_HPP_
+#ifndef PROTEUS_OLTP_UTILS_HPP
+#define PROTEUS_OLTP_UTILS_HPP
 
 #include <unistd.h>
 
@@ -210,4 +210,4 @@ static inline int make_numeric_string(unsigned int *seed, int min, int max,
 
 //};
 
-#endif /* TXN_ENGINE_UTILS_HPP_ */
+#endif /* PROTEUS_OLTP_UTILS_HPP */

@@ -35,11 +35,11 @@ namespace storage::mv {
 
 class Version {
  public:
-  const uint64_t t_min;
-  [[maybe_unused]] const uint64_t t_max;
+  const xid_t t_min;
+  [[maybe_unused]] const xid_t t_max;
   void *data;
 
-  Version(uint64_t t_min, uint64_t t_max, void *data)
+  Version(xid_t t_min, xid_t t_max, void *data)
       : t_min(t_min), t_max(t_max), data(data) {}
 
   [[maybe_unused]] virtual void set_attr_mask(std::bitset<64> mask) = 0;
@@ -56,7 +56,7 @@ class VersionSingle : public Version {
  public:
   VersionSingle *next;
 
-  [[maybe_unused]] VersionSingle(uint64_t t_min, uint64_t t_max, void *data)
+  [[maybe_unused]] VersionSingle(xid_t t_min, xid_t t_max, void *data)
       : Version(t_min, t_max, data), next(nullptr) {}
 
   inline void set_attr_mask(std::bitset<64> mask) override {}
@@ -72,17 +72,17 @@ class VersionMultiAttr : public Version {
   uint16_t *attribute_offsets;
   VersionMultiAttr *next;
 
-  VersionMultiAttr(uint64_t t_min, uint64_t t_max, void *data)
+  VersionMultiAttr(xid_t t_min, xid_t t_max, void *data)
       : Version(t_min, t_max, data), next(nullptr) {
     attribute_mask.set();
   }
-  VersionMultiAttr(uint64_t t_min, uint64_t t_max, void *data,
+  VersionMultiAttr(xid_t t_min, xid_t t_max, void *data,
                    std::bitset<64> attribute_mask)
       : Version(t_min, t_max, data),
         next(nullptr),
         attribute_mask(attribute_mask) {}
 
-  VersionMultiAttr(uint64_t t_min, uint64_t t_max, void *data,
+  VersionMultiAttr(xid_t t_min, xid_t t_max, void *data,
                    std::bitset<64> attribute_mask, uint16_t *attr_offsets)
       : Version(t_min, t_max, data),
         next(nullptr),
@@ -111,7 +111,8 @@ class VersionMultiAttr : public Version {
   static size_t get_partial_mask_size(std::vector<uint16_t> &attribute_widths,
                                       std::vector<uint16_t> &ver_offsets,
                                       std::bitset<64> &attr_mask,
-                                      const ushort *col_idx, short num_cols) {
+                                      const column_id_t *col_idx,
+                                      short num_cols) {
     size_t ver_rec_size = 0;
 
     assert(attribute_widths.size() <= 64 && "max 64-columns supported");
@@ -123,7 +124,7 @@ class VersionMultiAttr : public Version {
       }
     } else {
       attr_mask.reset();
-      for (ushort i = 0; i < num_cols; i++) {
+      for (auto i = 0; i < num_cols; i++) {
         attr_mask.set(col_idx[i]);
         ver_offsets.push_back(ver_rec_size);
         ver_rec_size += attribute_widths.at(col_idx[i]);
@@ -146,7 +147,7 @@ class VersionChain {
 
   inline void reset_head(typename T::version_t *val) { head = val; }
 
-  auto get_readable_version(uint64_t xid) {
+  auto get_readable_version(xid_t xid) {
     typename T::version_t *tmp;
     {
       tmp = head;

@@ -59,15 +59,15 @@ class TransactionManager {
 
     scheduler::WorkerPool::getInstance().pause();
     ushort snapshot_master_ver = this->switch_master();
-    storage::Schema::getInstance().snapshot(this->get_next_xid(0),
-                                            snapshot_master_ver);
+    storage::Schema::getInstance().twinColumn_snapshot(this->get_next_xid(0),
+                                                       snapshot_master_ver);
     // storage::Schema::getInstance().snapshot(this->get_next_xid(0), 0);
     scheduler::WorkerPool::getInstance().resume();
     return true;
   }
 
   ushort switch_master() {
-    ushort curr_master = this->current_master.load();
+    master_version_t curr_master = this->current_master.load();
 
     /*
           - switch master_id
@@ -77,7 +77,7 @@ class TransactionManager {
 
     // Before switching, clear up the new master. OR proteus do it.
 
-    ushort tmp = (curr_master + 1) % global_conf::num_master_versions;
+    master_version_t tmp = (curr_master + 1) % global_conf::num_master_versions;
     current_master.store(tmp);
 
     // while (scheduler::WorkerPool::getInstance().is_all_worker_on_master_id(
@@ -88,36 +88,32 @@ class TransactionManager {
     return curr_master;
   }
 
+  static __inline__ auto rdtsc() {
 #if defined(__i386__)
 
-  static __inline__ uint64_t rdtsc(void) {
     uint64_t x;
     __asm__ volatile(".byte 0x0f, 0x31" : "=A"(x));
     return x;
-  }
+
 #elif defined(__x86_64__)
 
-  static __inline__ uint64_t rdtsc(void) {
     uint32_t hi, lo;
     __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
-    return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
-  }
+    return ((uint64_t)lo) | (((uint64_t)hi) << 32u);
 
 #elif defined(__powerpc64__) || defined(__ppc64__)
-  static __inline__ uint64_t rdtsc() {
     uint64_t c;
     asm volatile("mfspr %0, 268" : "=r"(c));
     return c;
+#endif
   }
 
-#endif
-
-  inline uint64_t __attribute__((always_inline)) get_next_xid(uint8_t wid) {
-    return (rdtsc() & 0x00FFFFFFFFFFFFFF) | (((uint64_t)wid) << 56);
+  inline xid_t __attribute__((always_inline)) get_next_xid(worker_id_t wid) {
+    return (rdtsc() & 0x00FFFFFFFFFFFFFF) | (((uint64_t)wid) << 56u);
   }
 
   uint64_t txn_start_time;
-  std::atomic<ushort> current_master;
+  std::atomic<master_version_t> current_master;
 
  private:
   TransactionManager()

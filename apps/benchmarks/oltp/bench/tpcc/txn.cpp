@@ -37,20 +37,20 @@
 
 namespace bench {
 
-bool TPCC::exec_txn(const void *stmts, uint64_t xid, ushort master_ver,
-                    ushort delta_ver, ushort partition_id) {
-  struct tpcc_query *q = (struct tpcc_query *)stmts;
+bool TPCC::exec_txn(const void *stmts, xid_t xid, master_version_t master_ver,
+                    delta_id_t delta_ver, partition_id_t partition_id) {
+  auto *q = (struct tpcc_query *)stmts;
   switch (q->query_type) {
     case NEW_ORDER:
-      return exec_neworder_txn(q, xid, partition_id, master_ver, delta_ver);
+      return exec_neworder_txn(q, xid, master_ver, delta_ver, partition_id);
     case PAYMENT:
-      return exec_payment_txn(q, xid, partition_id, master_ver, delta_ver);
+      return exec_payment_txn(q, xid, master_ver, delta_ver, partition_id);
     case ORDER_STATUS:
-      return exec_orderstatus_txn(q, xid, partition_id, master_ver, delta_ver);
+      return exec_orderstatus_txn(q, xid, master_ver, delta_ver, partition_id);
     case DELIVERY:
-      return exec_delivery_txn(q, xid, partition_id, master_ver, delta_ver);
+      return exec_delivery_txn(q, xid, master_ver, delta_ver, partition_id);
     case STOCK_LEVEL:
-      return exec_stocklevel_txn(q, xid, partition_id, master_ver, delta_ver);
+      return exec_stocklevel_txn(q, xid, master_ver, delta_ver, partition_id);
     default:
       assert(false);
       break;
@@ -58,8 +58,7 @@ bool TPCC::exec_txn(const void *stmts, uint64_t xid, ushort master_ver,
   return true;
 }
 
-void TPCC::gen_txn(int wid, void *q, ushort partition_id) {
-  // mprotect(q, sizeof(struct tpcc_query), PROT_WRITE);
+void TPCC::gen_txn(worker_id_t wid, void *q, partition_id_t partition_id) {
   static thread_local uint sequence_counter = 0;
   static thread_local TPCC_QUERY_TYPE *seq = sequence;
 
@@ -90,9 +89,9 @@ void TPCC::gen_txn(int wid, void *q, ushort partition_id) {
   // mprotect(q, sizeof(struct tpcc_query), PROT_READ);
 }
 
-bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
-                             ushort partition_id, ushort master_ver,
-                             ushort delta_ver) {
+bool TPCC::exec_neworder_txn(const struct tpcc_query *q, xid_t xid,
+                             master_version_t master_ver, delta_id_t delta_ver,
+                             partition_id_t partition_id) {
   // plus one for district
   global_conf::IndexVal *idx_w_locks[TPCC_MAX_OL_PER_ORDER + 1] = {};
   uint num_locks = 0;
@@ -121,7 +120,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
   // assert(dt_k / (18 * TPCC_NDIST_PER_WH) == partition_id);
 
   bool e_false = false;
-  assert(idx_w_locks[num_locks] != NULL || idx_w_locks[num_locks] != nullptr);
+  assert(idx_w_locks[num_locks] != nullptr);
   if (idx_w_locks[num_locks]->write_lck.try_lock()) {
 #if !tpcc_dist_txns
     assert(CC_extract_pid(idx_w_locks[num_locks]->VID) == partition_id);
@@ -139,7 +138,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
     idx_w_locks[num_locks] =
         (global_conf::IndexVal *)table_stock->p_index->find(stock_key);
 
-    assert(idx_w_locks[num_locks] != NULL || idx_w_locks[num_locks] != nullptr);
+    assert(idx_w_locks[num_locks] != nullptr);
     bool e_false_s = false;
     if (idx_w_locks[num_locks]->write_lck.try_lock()) {
 #if !tpcc_dist_txns
@@ -175,19 +174,19 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
     uint32_t s_remote_cnt;
   };
   struct st_read st_rec = {};
-  const ushort stock_col_rw[] = {2, TPCC_NDIST_PER_WH + 3,
-                                 TPCC_NDIST_PER_WH + 4, TPCC_NDIST_PER_WH + 5};
+  const column_id_t stock_col_rw[] = {
+      2, TPCC_NDIST_PER_WH + 3, TPCC_NDIST_PER_WH + 4, TPCC_NDIST_PER_WH + 5};
 
   for (uint32_t ol_number = 0; ol_number < q->ol_cnt; ol_number++) {
     uint32_t ol_quantity = q->item[ol_number].ol_quantity;
     assert((ol_number + 1) < num_locks);
 
     global_conf::IndexVal *st_idx_ptr = idx_w_locks[ol_number + 1];
-    assert(st_idx_ptr != NULL || st_idx_ptr != nullptr);
+    assert(st_idx_ptr != nullptr);
 
     st_idx_ptr->latch.acquire();
 
-    table_stock->getRecordByKey(st_idx_ptr, xid, stock_col_rw, 4, &st_rec);
+    table_stock->getIndexedRecord(xid, st_idx_ptr, &st_rec, stock_col_rw, 4);
 
     // NOW UPDATE
     // update = s_ytd, s_order_cnt, s_remote_cnt, s_quantity
@@ -206,8 +205,9 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
 
     st_rec.s_quantity = quantity;
 
-    table_stock->updateRecord(xid, st_idx_ptr, &st_rec, master_ver, delta_ver,
-                              stock_col_rw, 4);
+    table_stock->updateRecord(xid, st_idx_ptr, &st_rec, delta_ver, stock_col_rw,
+                              4, master_ver);
+
     // early release of locks?
     st_idx_ptr->latch.release();
   }
@@ -217,8 +217,8 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
    * WHERE d _id = :d_id AN D d _w _id = :w _id ;
    */
 
-  const ushort dist_col_scan[] = {8, 10};
-  const ushort dist_col_upd[] = {10};
+  const column_id_t dist_col_scan[] = {8, 10};
+  const column_id_t dist_col_upd[] = {10};
 
   struct __attribute__((packed)) dist_read {
     double d_tax;
@@ -232,12 +232,12 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
 
   d_idx_ptr->latch.acquire();
 
-  table_district->getRecordByKey(d_idx_ptr, xid, dist_col_scan, 2,
-                                 &dist_no_read);
+  table_district->getIndexedRecord(xid, d_idx_ptr, &dist_no_read, dist_col_scan,
+                                   2);
 
   uint64_t d_next_o_id_upd = dist_no_read.d_next_o_id + 1;
-  table_district->updateRecord(xid, d_idx_ptr, &d_next_o_id_upd, master_ver,
-                               delta_ver, dist_col_upd, 1);
+  table_district->updateRecord(xid, d_idx_ptr, &d_next_o_id_upd, delta_ver,
+                               dist_col_upd, 1, master_ver);
 
   d_idx_ptr->latch.release();
 
@@ -266,7 +266,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
    */
 
   double w_tax = 0.0;
-  const ushort w_col_scan[] = {7};  // position in columns
+  const column_id_t w_col_scan[] = {7};  // position in columns
   // std::cout << "WID::" << w_id << std::endl;
   global_conf::IndexVal *w_idx_ptr =
       (global_conf::IndexVal *)table_warehouse->p_index->find(
@@ -276,13 +276,13 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
 #endif
 
   w_idx_ptr->latch.acquire();
-  table_warehouse->getRecordByKey(w_idx_ptr, xid, w_col_scan, 1, &w_tax);
+  table_warehouse->getIndexedRecord(xid, w_idx_ptr, &w_tax, w_col_scan, 1);
   w_idx_ptr->latch.release();
 
   // CUSTOMER
 
   // const ushort cust_col_scan[] = {5, 13, 15};
-  const ushort cust_col_scan[] = {15};
+  const column_id_t cust_col_scan[] = {15};
   struct __attribute__((packed)) cust_read {
     // char c_last[LAST_NAME_LEN + 1];
     // char c_credit[2];
@@ -293,7 +293,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
   global_conf::IndexVal *c_idx_ptr =
       (global_conf::IndexVal *)table_customer->p_index->find(
           (uint64_t)MAKE_CUST_KEY(q->w_id, q->d_id, q->c_id));
-  assert(c_idx_ptr != NULL || c_idx_ptr != nullptr);
+  assert(c_idx_ptr != nullptr);
 
   c_idx_ptr->latch.acquire();
 
@@ -312,8 +312,8 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
   assert(CC_extract_pid(c_idx_ptr->VID) == partition_id);
 #endif
 
-  table_customer->getRecordByKey(c_idx_ptr, xid, cust_col_scan, 1,
-                                 &cust_no_read);
+  table_customer->getIndexedRecord(xid, c_idx_ptr, &cust_no_read, cust_col_scan,
+                                   1);
   c_idx_ptr->latch.release();
 
   // INSERTS: Order Processing
@@ -379,7 +379,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
   table_new_order->p_index->insert(order_key, no_idx_ptr);
 #endif
 
-  const ushort i_col_scan[] = {3};
+  const column_id_t i_col_scan[] = {3};
 
 #if batch_insert_no_ol
   // Row-store
@@ -406,7 +406,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
         (global_conf::IndexVal *)table_item->p_index->find(
             (uint64_t)(q->item[ol_number].ol_i_id));
     item_idx_ptr->latch.acquire();
-    table_item->getRecordByKey(item_idx_ptr, xid, i_col_scan, 1, &i_price);
+    table_item->getIndexedRecord(xid, item_idx_ptr, &i_price, i_col_scan, 1);
     item_idx_ptr->latch.release();
 
     // char *i_name = i_r->i_name;
@@ -505,7 +505,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
     ol_ptr = ol_ins_batch_row;
   }
 
-  global_conf::IndexVal *ol_idx_ptr_batch =
+  auto *ol_idx_ptr_batch =
       (global_conf::IndexVal *)table_order_line->insertRecordBatch(
           ol_ptr, q->ol_cnt, TPCC_MAX_OL_PER_ORDER, xid, partition_id,
           master_ver);
@@ -520,9 +520,10 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, uint64_t xid,
   return true;
 }
 
-inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *q, uint64_t xid,
-                                       ushort partition_id, ushort master_ver,
-                                       ushort delta_ver) {
+bool TPCC::exec_orderstatus_txn(const struct tpcc_query *q, xid_t xid,
+                                master_version_t master_ver,
+                                delta_id_t delta_ver,
+                                partition_id_t partition_id) {
   // int ol_number = 1;
 
   uint32_t cust_id = std::numeric_limits<uint32_t>::max();
@@ -551,7 +552,7 @@ inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *q, uint64_t xid,
       EXEC SQL CLOSE c_name;
      */
 
-    struct secondary_record sr;
+    struct secondary_record sr {};
 
     if (!this->cust_sec_index->find(
             cust_derive_key(q->c_last, q->c_d_id, q->c_w_id), sr)) {
@@ -599,7 +600,7 @@ inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *q, uint64_t xid,
     global_conf::IndexVal *c_idx_ptr =
         (global_conf::IndexVal *)table_customer->p_index->find(cust_id);
 
-    assert(c_idx_ptr != nullptr || c_idx_ptr != NULL);
+    assert(c_idx_ptr != nullptr);
 
     struct __attribute__((packed)) cust_read_t {
       char c_first[FIRST_NAME_LEN + 1];
@@ -608,12 +609,13 @@ inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *q, uint64_t xid,
       double c_balance;
     };
 
-    const ushort cust_col_scan_read[] = {3, 4, 5, 15};
-    struct cust_read_t c_r;
+    const column_id_t cust_col_scan_read[] = {3, 4, 5, 15};
+    struct cust_read_t c_r {};
 
     c_idx_ptr->latch.acquire();
 
-    table_customer->getRecordByKey(c_idx_ptr, xid, cust_col_scan_read, 4, &c_r);
+    table_customer->getIndexedRecord(xid, c_idx_ptr, &c_r, cust_col_scan_read,
+                                     4);
     c_idx_ptr->latch.release();
 
     /* EXEC SQL SELECT o_id, o_carrier_id, o_entry_d
@@ -637,7 +639,7 @@ inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *q, uint64_t xid,
       uint32_t o_carrier_id;
       uint32_t entdate;
       uint32_t o_ol_cnt;
-    } p_or[TPCC_NCUST_PER_DIST];
+    } p_or[TPCC_NCUST_PER_DIST]{};
 
     struct __attribute__((packed)) p_orderline_read {
       uint32_t ol_o_id;
@@ -645,32 +647,32 @@ inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *q, uint64_t xid,
       date_t ol_delivery_d;
       uint32_t ol_quantity;
       double ol_amount;
-    } p_ol_r;
+    } p_ol_r{};
 
-    const ushort o_col_scan[] = {0, 4, 5, 6};
-    const ushort ol_col_scan[] = {0, 5, 6, 7, 8};
+    const column_id_t o_col_scan[] = {0, 4, 5, 6};
+    const column_id_t ol_col_scan[] = {0, 5, 6, 7, 8};
 
     for (int o = TPCC_NCUST_PER_DIST - 1, i = 0; o > 0; o--, i++) {
       global_conf::IndexVal *o_idx_ptr =
           (global_conf::IndexVal *)table_order->p_index->find(
               MAKE_ORDER_KEY(q->w_id, q->d_id, o));
 
-      assert(o_idx_ptr != nullptr || o_idx_ptr != NULL);
+      assert(o_idx_ptr != nullptr);
 
       o_idx_ptr->latch.acquire();
-      table_order->getRecordByKey(o_idx_ptr, xid, o_col_scan, 4, &p_or[i]);
+      table_order->getIndexedRecord(xid, o_idx_ptr, &p_or[i], o_col_scan, 4);
       o_idx_ptr->latch.release();
 
-      for (ushort ol_number = 0; ol_number < p_or[i].o_ol_cnt; ++ol_number) {
+      for (auto ol_number = 0; ol_number < p_or[i].o_ol_cnt; ++ol_number) {
         global_conf::IndexVal *ol_idx_ptr =
             (global_conf::IndexVal *)table_order_line->p_index->find(
                 MAKE_OL_KEY(q->w_id, q->d_id, p_or[i].o_id, ol_number));
 
-        assert(ol_idx_ptr != nullptr || ol_idx_ptr != NULL);
+        assert(ol_idx_ptr != nullptr);
 
         ol_idx_ptr->latch.acquire();
-        table_order_line->getRecordByKey(ol_idx_ptr, xid, ol_col_scan, 5,
-                                         &p_ol_r);
+        table_order_line->getIndexedRecord(xid, ol_idx_ptr, &p_ol_r,
+                                           ol_col_scan, 5);
         ol_idx_ptr->latch.release();
       }
     }
@@ -679,9 +681,10 @@ inline bool TPCC::exec_orderstatus_txn(struct tpcc_query *q, uint64_t xid,
   return true;
 }
 
-inline bool TPCC::exec_stocklevel_txn(struct tpcc_query *q, uint64_t xid,
-                                      ushort partition_id, ushort master_ver,
-                                      ushort delta_ver) {
+bool TPCC::exec_stocklevel_txn(const struct tpcc_query *q, xid_t xid,
+                               master_version_t master_ver,
+                               delta_id_t delta_ver,
+                               partition_id_t partition_id) {
   /*
   This transaction accesses
   order_line,
@@ -699,14 +702,14 @@ inline bool TPCC::exec_stocklevel_txn(struct tpcc_query *q, uint64_t xid,
       (global_conf::IndexVal *)table_district->p_index->find(
           MAKE_DIST_KEY(q->w_id, q->d_id));
 
-  assert(d_idx_ptr != nullptr || d_idx_ptr != NULL);
+  assert(d_idx_ptr != nullptr);
 
-  const ushort dist_col_scan_read[] = {10};
+  const column_id_t dist_col_scan_read[] = {10};
   uint32_t o_id = 0;
 
   d_idx_ptr->latch.acquire();
-
-  table_district->getRecordByKey(d_idx_ptr, xid, dist_col_scan_read, 1, &o_id);
+  table_district->getIndexedRecord(xid, d_idx_ptr, &o_id, dist_col_scan_read,
+                                   1);
   d_idx_ptr->latch.release();
 
   /*
@@ -722,8 +725,8 @@ inline bool TPCC::exec_stocklevel_txn(struct tpcc_query *q, uint64_t xid,
   uint32_t ol_number = -1;
   uint32_t stock_count = 0;
 
-  const ushort ol_col_scan_read[] = {4};
-  const ushort st_col_scan_read[] = {2};
+  const column_id_t ol_col_scan_read[] = {4};
+  const column_id_t st_col_scan_read[] = {2};
 
   while (ol_o_id < o_id) {
     while (ol_number < TPCC_MAX_OL_PER_ORDER) {
@@ -740,8 +743,8 @@ inline bool TPCC::exec_stocklevel_txn(struct tpcc_query *q, uint64_t xid,
       int32_t s_quantity;
 
       ol_idx_ptr->latch.acquire();
-      table_order_line->getRecordByKey(ol_idx_ptr, xid, ol_col_scan_read, 1,
-                                       &ol_i_id);
+      table_order_line->getIndexedRecord(xid, ol_idx_ptr, &ol_i_id,
+                                         ol_col_scan_read, 1);
       ol_idx_ptr->latch.release();
 
       // stock
@@ -749,11 +752,11 @@ inline bool TPCC::exec_stocklevel_txn(struct tpcc_query *q, uint64_t xid,
           (global_conf::IndexVal *)table_stock->p_index->find(
               MAKE_STOCK_KEY(q->w_id, ol_i_id));
 
-      assert(st_idx_ptr != nullptr || st_idx_ptr != NULL);
+      assert(st_idx_ptr != nullptr);
 
       st_idx_ptr->latch.acquire();
-      table_stock->getRecordByKey(st_idx_ptr, xid, st_col_scan_read, 1,
-                                  &s_quantity);
+      table_stock->getIndexedRecord(xid, st_idx_ptr, &s_quantity,
+                                    st_col_scan_read, 1);
       st_idx_ptr->latch.release();
 
       if (s_quantity < q->threshold) {
@@ -767,8 +770,8 @@ inline bool TPCC::exec_stocklevel_txn(struct tpcc_query *q, uint64_t xid,
 }
 
 inline uint TPCC::fetch_cust_records(const struct secondary_record &sr,
-                                     struct cust_read *c_recs, uint64_t xid,
-                                     ushort delta_ver) {
+                                     struct cust_read *c_recs, xid_t xid,
+                                     delta_id_t delta_ver) {
   uint nmatch = 0;
 
   // struct cust_read {
@@ -779,18 +782,18 @@ inline uint TPCC::fetch_cust_records(const struct secondary_record &sr,
   //   char c_last[LAST_NAME_LEN + 1];
   // };
 
-  const ushort c_col_scan[] = {0, 1, 2, 3, 5};  // position in columns
+  const column_id_t c_col_scan[] = {0, 1, 2, 3, 5};  // position in columns
 
   for (int i = 0; i < sr.sr_nids; i++) {
     global_conf::IndexVal *c_idx_ptr =
         (global_conf::IndexVal *)table_customer->p_index->find(
             (uint64_t)(sr.sr_rids[i]));
 
-    assert(c_idx_ptr != nullptr || c_idx_ptr != NULL);
+    assert(c_idx_ptr != nullptr);
 
     c_idx_ptr->latch.acquire();
-    table_customer->getRecordByKey(c_idx_ptr, xid, c_col_scan, 5,
-                                   &c_recs[nmatch]);
+    table_customer->getIndexedRecord(xid, c_idx_ptr, &c_recs[nmatch],
+                                     c_col_scan, 5);
     c_idx_ptr->latch.release();
 
     nmatch++;
@@ -799,9 +802,9 @@ inline uint TPCC::fetch_cust_records(const struct secondary_record &sr,
   return nmatch;
 }
 
-inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
-                                   ushort partition_id, ushort master_ver,
-                                   ushort delta_ver) {
+bool TPCC::exec_payment_txn(const struct tpcc_query *q, xid_t xid,
+                            master_version_t master_ver, delta_id_t delta_ver,
+                            partition_id_t partition_id) {
   // // Updates..
 
   // // update warehouse (ytd) / district (ytd),
@@ -816,7 +819,7 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
   global_conf::IndexVal *w_idx_ptr =
       (global_conf::IndexVal *)table_warehouse->p_index->find(q->w_id);
 
-  assert(w_idx_ptr != NULL || w_idx_ptr != nullptr);
+  assert(w_idx_ptr != nullptr);
   bool e_false = false;
   if (!(w_idx_ptr->write_lck.try_lock())) {
     return false;
@@ -827,7 +830,7 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
       (global_conf::IndexVal *)table_district->p_index->find(
           MAKE_DIST_KEY(q->w_id, q->d_id));
 
-  assert(d_idx_ptr != NULL || d_idx_ptr != nullptr);
+  assert(d_idx_ptr != nullptr);
   e_false = false;
   if (!(d_idx_ptr->write_lck.try_lock())) {
     w_idx_ptr->write_lck.unlock();
@@ -847,7 +850,7 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
       WHERE c_last=:c_last AND c_d_id=:c_d_id AND c_w_id=:c_w_id;
       +==========================================================*/
 
-    struct secondary_record sr;
+    struct secondary_record sr {};
 
     if (!this->cust_sec_index->find(
             cust_derive_key(q->c_last, q->c_d_id, q->c_w_id), sr)) {
@@ -902,7 +905,7 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
   global_conf::IndexVal *c_idx_ptr =
       (global_conf::IndexVal *)table_customer->p_index->find(cust_id);
 
-  assert(c_idx_ptr != NULL || c_idx_ptr != nullptr);
+  assert(c_idx_ptr != nullptr);
   e_false = false;
   if (!(c_idx_ptr->write_lck.try_lock())) {
     w_idx_ptr->write_lck.unlock();
@@ -926,14 +929,13 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
   // update warehouse and then release the write lock
 
   double w_ytd = 0.0;
-  const ushort wh_col_scan_upd[] = {7};
+  const column_id_t wh_col_scan_upd[] = {7};
   w_idx_ptr->latch.acquire();
-  table_warehouse->getRecordByKey(w_idx_ptr, xid, wh_col_scan_upd, 1, &w_ytd);
+  table_warehouse->getIndexedRecord(xid, w_idx_ptr, &w_ytd, wh_col_scan_upd, 1);
 
   w_ytd += q->h_amount;
-  table_warehouse->updateRecord(xid, w_idx_ptr, &w_ytd, master_ver, delta_ver,
-                                wh_col_scan_upd, 1);
-
+  table_warehouse->updateRecord(xid, w_idx_ptr, &w_ytd, delta_ver,
+                                wh_col_scan_upd, 1, master_ver);
   w_idx_ptr->write_lck.unlock();
   w_idx_ptr->latch.release();
 
@@ -949,14 +951,14 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
   +====================================================================*/
 
   double d_ytd = 0.0;
-  const ushort d_col_scan_upd[] = {8};
+  const column_id_t d_col_scan_upd[] = {8};
   d_idx_ptr->latch.acquire();
 
-  table_district->getRecordByKey(d_idx_ptr, xid, d_col_scan_upd, 1, &d_ytd);
+  table_district->getIndexedRecord(xid, d_idx_ptr, &d_ytd, d_col_scan_upd, 1);
   d_ytd += q->h_amount;
 
-  table_district->updateRecord(xid, d_idx_ptr, &d_ytd, master_ver, delta_ver,
-                               d_col_scan_upd, 1);
+  table_district->updateRecord(xid, d_idx_ptr, &d_ytd, delta_ver,
+                               d_col_scan_upd, 1, master_ver);
 
   d_idx_ptr->write_lck.unlock();
   d_idx_ptr->latch.release();
@@ -976,14 +978,14 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
     char c_credit[2];
   };
 
-  const ushort cust_col_scan_read[] = {15, 16, 17, 19, 12};
+  const column_id_t cust_col_scan_read[] = {15, 16, 17, 19, 12};
   ushort num_col_upd = 3;
 
   struct cust_rw_t cust_rw = {};
 
   c_idx_ptr->latch.acquire();
-  table_customer->getRecordByKey(c_idx_ptr, xid, cust_col_scan_read, 5,
-                                 &cust_rw);
+  table_customer->getIndexedRecord(xid, c_idx_ptr, &cust_rw, cust_col_scan_read,
+                                   5);
 
   if (cust_rw.c_credit[0] == 'B' && cust_rw.c_credit[1] == 'C') {
     num_col_upd++;
@@ -1000,8 +1002,8 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
     strncat(cust_rw.c_data, cust_rw.c_data, 500 - strlen(cust_rw.c_data));
   }
 
-  table_customer->updateRecord(xid, c_idx_ptr, &cust_rw, master_ver, delta_ver,
-                               cust_col_scan_read, num_col_upd);
+  table_customer->updateRecord(xid, c_idx_ptr, &cust_rw, delta_ver,
+                               cust_col_scan_read, num_col_upd, master_ver);
 
   c_idx_ptr->write_lck.unlock();
   c_idx_ptr->latch.release();
@@ -1025,7 +1027,7 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
     :h_amount, :h_data);
     +=============================================================================*/
 
-  struct tpcc_history h_ins;
+  struct tpcc_history h_ins {};
   h_ins.h_c_id = q->c_id;
   h_ins.h_c_d_id = q->c_d_id;
   h_ins.h_c_w_id = q->c_w_id;
@@ -1040,9 +1042,9 @@ inline bool TPCC::exec_payment_txn(struct tpcc_query *q, uint64_t xid,
   return true;
 }
 
-inline bool TPCC::exec_delivery_txn(struct tpcc_query *q, uint64_t xid,
-                                    ushort partition_id, ushort master_ver,
-                                    ushort delta_ver) {
+bool TPCC::exec_delivery_txn(const struct tpcc_query *q, xid_t xid,
+                             master_version_t master_ver, delta_id_t delta_ver,
+                             partition_id_t partition_id) {
   static thread_local uint64_t delivered_orders[TPCC_NDIST_PER_WH] = {0};
 
   date_t delivery_d = get_timestamp();
@@ -1246,19 +1248,19 @@ inline bool TPCC::exec_delivery_txn(struct tpcc_query *q, uint64_t xid,
   return true;
 }
 
-inline void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
+inline void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) const {
   // mprotect(arg, sizeof(struct tpcc_query), PROT_WRITE);
   static thread_local unsigned int seed_t = this->seed;
   static thread_local unsigned int n_wh = this->num_warehouse;
   // static thread_local unsigned int n_actv_wh = this->num_active_workers;
 
 #if PARTITION_LOCAL_ITEM_TABLE
-  static thread_local uint64_t start = wid * (TPCC_MAX_ITEMS / n_wh);
-  static thread_local uint64_t end = start + (TPCC_MAX_ITEMS / n_wh);
+  static thread_local auto start = wid * (TPCC_MAX_ITEMS / n_wh);
+  static thread_local auto end = start + (TPCC_MAX_ITEMS / n_wh);
 #endif
 
   int ol_cnt, dup;
-  struct tpcc_query *q = (struct tpcc_query *)arg;
+  auto *q = (struct tpcc_query *)arg;
 
   q->query_type = NEW_ORDER;
   q->w_id = wid % n_wh;
@@ -1322,9 +1324,9 @@ inline void TPCC::tpcc_get_next_neworder_query(int wid, void *arg) {
   // mprotect(arg, sizeof(struct tpcc_query), PROT_READ);
 }
 
-inline void TPCC::tpcc_get_next_orderstatus_query(int wid, void *arg) {
+inline void TPCC::tpcc_get_next_orderstatus_query(int wid, void *arg) const {
   static thread_local unsigned int seed_t = this->seed;
-  struct tpcc_query *q = (struct tpcc_query *)arg;
+  auto *q = (struct tpcc_query *)arg;
   q->query_type = ORDER_STATUS;
   q->w_id = wid;
   q->d_id = URand(&seed_t, 0, TPCC_NDIST_PER_WH - 1);
@@ -1347,9 +1349,9 @@ inline void TPCC::tpcc_get_next_orderstatus_query(int wid, void *arg) {
 #endif
 }
 
-inline void TPCC::tpcc_get_next_payment_query(int wid, void *arg) {
+inline void TPCC::tpcc_get_next_payment_query(int wid, void *arg) const {
   static thread_local unsigned int seed_t = this->seed;
-  struct tpcc_query *q = (struct tpcc_query *)arg;
+  auto *q = (struct tpcc_query *)arg;
   q->query_type = PAYMENT;
   q->w_id = wid;
   q->d_w_id = wid;
@@ -1400,18 +1402,18 @@ inline void TPCC::tpcc_get_next_payment_query(int wid, void *arg) {
 #endif
 }
 
-inline void TPCC::tpcc_get_next_delivery_query(int wid, void *arg) {
+inline void TPCC::tpcc_get_next_delivery_query(int wid, void *arg) const {
   static thread_local unsigned int seed_t = this->seed;
-  struct tpcc_query *q = (struct tpcc_query *)arg;
+  auto *q = (struct tpcc_query *)arg;
   q->query_type = DELIVERY;
   q->w_id = wid;
   // q->d_id = URand(&seed_t, 0, TPCC_NDIST_PER_WH - 1);
   q->o_carrier_id = URand(&seed_t, 1, 10);
 }
 
-inline void TPCC::tpcc_get_next_stocklevel_query(int wid, void *arg) {
+inline void TPCC::tpcc_get_next_stocklevel_query(int wid, void *arg) const {
   static thread_local unsigned int seed_t = this->seed;
-  struct tpcc_query *q = (struct tpcc_query *)arg;
+  auto *q = (struct tpcc_query *)arg;
   q->query_type = STOCK_LEVEL;
   q->w_id = wid;
   q->d_id = URand(&seed_t, 0, TPCC_NDIST_PER_WH - 1);

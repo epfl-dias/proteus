@@ -69,18 +69,40 @@ void TPCC::init_tpcc_seq_array() {
 }
 
 TPCC::~TPCC() {
-  schema->drop_table(table_warehouse);
-  schema->drop_table(table_district);
-  schema->drop_table(table_customer);
-  schema->drop_table(table_history);
-  schema->drop_table(table_new_order);
-  schema->drop_table(table_order);
-  schema->drop_table(table_order_line);
-  schema->drop_table(table_stock);
-  schema->drop_table(table_item);
-  schema->drop_table(table_region);
-  schema->drop_table(table_nation);
-  schema->drop_table(table_supplier);
+  if (schema->getTable("tpcc_warehouse") != nullptr)
+    schema->drop_table("tpcc_warehouse");
+
+  if (schema->getTable("tpcc_district") != nullptr)
+    schema->drop_table("tpcc_district");
+
+  if (schema->getTable("tpcc_customer") != nullptr)
+    schema->drop_table("tpcc_customer");
+
+  if (schema->getTable("tpcc_history") != nullptr)
+    schema->drop_table("tpcc_history");
+
+  if (schema->getTable("tpcc_neworder") != nullptr)
+    schema->drop_table("tpcc_neworder");
+
+  if (schema->getTable("tpcc_order") != nullptr)
+    schema->drop_table("tpcc_order");
+
+  if (schema->getTable("tpcc_orderline") != nullptr)
+    schema->drop_table("tpcc_orderline");
+
+  if (schema->getTable("tpcc_stock") != nullptr)
+    schema->drop_table("tpcc_stock");
+
+  if (schema->getTable("tpcc_item") != nullptr) schema->drop_table("tpcc_item");
+
+  if (schema->getTable("tpcc_region") != nullptr)
+    schema->drop_table("tpcc_region");
+
+  if (schema->getTable("tpcc_nation") != nullptr)
+    schema->drop_table("tpcc_nation");
+
+  if (schema->getTable("tpcc_supplier") != nullptr)
+    schema->drop_table("tpcc_supplier");
 }
 
 void TPCC::print_tpcc_query(void *arg) {
@@ -209,9 +231,9 @@ TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
 
 void TPCC::create_tbl_warehouse(uint64_t num_warehouses) {
   // Primary Key: W_ID
-  storage::ColumnDef columns;
+  storage::TableDef columns;
 
-  struct tpcc_warehouse tmp;
+  struct tpcc_warehouse tmp {};
 
   columns.emplace_back("w_id", storage::INTEGER, sizeof(tmp.w_id));
 
@@ -226,6 +248,8 @@ void TPCC::create_tbl_warehouse(uint64_t num_warehouses) {
   columns.emplace_back("w_tax", storage::FLOAT, sizeof(tmp.w_tax));
   columns.emplace_back("w_ytd", storage::FLOAT, sizeof(tmp.w_ytd));
 
+  LOG(INFO) << "Number of warehouses: " << num_warehouses;
+
   table_warehouse = schema->create_table(
       "tpcc_warehouse",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
@@ -235,9 +259,9 @@ void TPCC::create_tbl_warehouse(uint64_t num_warehouses) {
 void TPCC::create_tbl_district(uint64_t num_districts) {
   // Primary Key: (D_W_ID, D_ID) D_W_ID
   // Foreign Key, references W_ID
-  storage::ColumnDef columns;
+  storage::TableDef columns;
 
-  struct tpcc_district tmp;
+  struct tpcc_district tmp {};
 
   columns.emplace_back("d_id", storage::INTEGER, sizeof(tmp.d_id));
   columns.emplace_back("d_w_id", storage::INTEGER, sizeof(tmp.d_w_id));
@@ -260,7 +284,7 @@ void TPCC::create_tbl_district(uint64_t num_districts) {
 
 void TPCC::create_tbl_item(uint64_t num_item) {
   // Primary Key: I_ID
-  storage::ColumnDef columns;
+  storage::TableDef columns;
 
   struct tpcc_item tmp;
 
@@ -280,7 +304,7 @@ void TPCC::create_tbl_stock(uint64_t num_stock) {
   // Primary Key: (S_W_ID, S_I_ID)
   // S_W_ID Foreign Key, references W_ID
   // S_I_ID Foreign Key, references I_ID
-  storage::ColumnDef columns;
+  storage::TableDef columns;
 
   struct tpcc_stock tmp;
 
@@ -318,7 +342,7 @@ void TPCC::create_tbl_history(uint64_t num_history) {
   // (H_C_W_ID, H_C_D_ID, H_C_ID) Foreign Key, references (C_W_ID, C_D_ID,
   // C_ID)
   // (H_W_ID, H_D_ID) Foreign Key, references (D_W_ID, D_ID)
-  storage::ColumnDef columns;
+  storage::TableDef columns;
 
   struct tpcc_history tmp;
 
@@ -346,7 +370,7 @@ void TPCC::create_tbl_customer(uint64_t num_cust) {
 
   struct tpcc_customer tmp;
 
-  storage::ColumnDef columns;
+  storage::TableDef columns;
 
   columns.emplace_back("c_id", storage::INTEGER, sizeof(tmp.c_id));
 
@@ -394,7 +418,7 @@ void TPCC::create_tbl_new_order(uint64_t num_new_order) {
 
   struct tpcc_new_order tmp;
 
-  storage::ColumnDef columns;
+  storage::TableDef columns;
 
   columns.emplace_back("no_o_id", storage::INTEGER, sizeof(tmp.no_o_id));
 
@@ -410,7 +434,7 @@ void TPCC::create_tbl_new_order(uint64_t num_new_order) {
 void TPCC::create_tbl_order(uint64_t num_order) {
   // Primary Key: (O_W_ID, O_D_ID, O_ID)
   // (O_W_ID, O_D_ID, O_C_ID) Foreign Key, references (C_W_ID, C_D_ID, C_ID)
-  storage::ColumnDef columns;
+  storage::TableDef columns;
 
   struct tpcc_order tmp;
 
@@ -441,7 +465,7 @@ void TPCC::create_tbl_order_line(uint64_t num_order_line) {
 
   struct tpcc_orderline tmp = {};
 
-  storage::ColumnDef columns;
+  storage::TableDef columns;
 
   columns.emplace_back("ol_o_id", storage::INTEGER, sizeof(tmp.ol_o_id));
 
@@ -478,7 +502,7 @@ void TPCC::create_tbl_supplier(uint64_t num_supp) {
   */
 
   struct ch_supplier tmp;
-  storage::ColumnDef columns;
+  storage::TableDef columns;
 
   columns.emplace_back("su_suppkey", storage::INTEGER, sizeof(tmp.suppkey));
 
@@ -510,7 +534,7 @@ void TPCC::create_tbl_region(uint64_t num_region) {
 
   struct ch_region tmp;
 
-  storage::ColumnDef columns;
+  storage::TableDef columns;
 
   columns.emplace_back("r_regionkey", storage::INTEGER,
                        sizeof(tmp.r_regionkey));
@@ -531,7 +555,7 @@ void TPCC::create_tbl_nation(uint64_t num_nation) {
      char n_comment[115];  // var
   */
   struct ch_nation tmp;
-  storage::ColumnDef columns;
+  storage::TableDef columns;
 
   columns.emplace_back("n_nationkey", storage::INTEGER,
                        sizeof(tmp.n_nationkey));
@@ -547,8 +571,8 @@ void TPCC::create_tbl_nation(uint64_t num_nation) {
 }
 
 /* A/C TPCC Specs*/
-void TPCC::load_stock(int w_id, uint64_t xid, ushort partition_id,
-                      ushort master_ver) {
+void TPCC::load_stock(int w_id, xid_t xid, partition_id_t partition_id,
+                      master_version_t master_ver) {
   // Primary Key: (S_W_ID, S_I_ID)
   // S_W_ID Foreign Key, references W_ID
   // S_I_ID Foreign Key, references I_ID
@@ -596,8 +620,8 @@ void TPCC::load_stock(int w_id, uint64_t xid, ushort partition_id,
 }
 
 /* A/C TPCC Specs*/
-void TPCC::load_item(int w_id, uint64_t xid, ushort partition_id,
-                     ushort master_ver) {
+void TPCC::load_item(int w_id, xid_t xid, partition_id_t partition_id,
+                     master_version_t master_ver) {
   // Primary Key: I_ID
 
   struct tpcc_item item_temp;
@@ -634,8 +658,8 @@ void TPCC::load_item(int w_id, uint64_t xid, ushort partition_id,
 }
 
 /* A/C TPCC Specs*/
-void TPCC::load_district(int w_id, uint64_t xid, ushort partition_id,
-                         ushort master_ver) {
+void TPCC::load_district(int w_id, xid_t xid, partition_id_t partition_id,
+                         master_version_t master_ver) {
   // Primary Key: (D_W_ID, D_ID) D_W_ID
   // Foreign Key, references W_ID
 
@@ -697,8 +721,8 @@ void TPCC::load_district(int w_id, uint64_t xid, ushort partition_id,
 }
 
 /* A/C TPCC Specs*/
-void TPCC::load_warehouse(int w_id, uint64_t xid, ushort partition_id,
-                          ushort master_ver) {
+void TPCC::load_warehouse(int w_id, xid_t xid, partition_id_t partition_id,
+                          master_version_t master_ver) {
   // Primary Key: W_ID
   struct tpcc_warehouse *w_temp = new struct tpcc_warehouse;
 
@@ -721,8 +745,8 @@ void TPCC::load_warehouse(int w_id, uint64_t xid, ushort partition_id,
 }
 
 /* A/C TPCC Specs*/
-void TPCC::load_history(int w_id, uint64_t xid, ushort partition_id,
-                        ushort master_ver) {
+void TPCC::load_history(int w_id, xid_t xid, partition_id_t partition_id,
+                        master_version_t master_ver) {
   // Primary Key: none
   // (H_C_W_ID, H_C_D_ID, H_C_ID) Foreign Key, references (C_W_ID, C_D_ID,
   // C_ID)
@@ -771,8 +795,8 @@ void init_permutation(unsigned int *seed, uint64_t *cperm) {
 }
 
 /* A/C TPCC Specs*/
-void TPCC::load_order(int w_id, uint64_t xid, ushort partition_id,
-                      ushort master_ver) {
+void TPCC::load_order(int w_id, xid_t xid, partition_id_t partition_id,
+                      master_version_t master_ver) {
   // Order
   // Primary Key: (O_W_ID, O_D_ID, O_ID)
   // (O_W_ID, O_D_ID, O_C_ID) Foreign Key, references (C_W_ID, C_D_ID, C_ID)
@@ -937,7 +961,7 @@ int TPCC::set_last_name(int num, char *name) {
   return strlen(name);
 }
 
-uint64_t TPCC::cust_derive_key(char *c_last, int c_d_id, int c_w_id) {
+uint64_t TPCC::cust_derive_key(const char *c_last, int c_d_id, int c_w_id) {
   uint64_t key = 0;
   char offset = 'A';
   for (uint32_t i = 0; i < strlen(c_last); i++)
@@ -949,8 +973,8 @@ uint64_t TPCC::cust_derive_key(char *c_last, int c_d_id, int c_w_id) {
 }
 
 /* A/C TPCC Specs*/
-void TPCC::load_customer(int w_id, uint64_t xid, ushort partition_id,
-                         ushort master_ver) {
+void TPCC::load_customer(int w_id, xid_t xid, partition_id_t partition_id,
+                         master_version_t master_ver) {
   // Primary Key: (C_W_ID, C_D_ID, C_ID)
   // (C_W_ID, C_D_ID) Foreign Key, references (D_W_ID, D_ID)
 
@@ -1057,8 +1081,8 @@ void TPCC::load_customer(int w_id, uint64_t xid, ushort partition_id,
   delete r;
 }
 
-void TPCC::load_nation(int w_id, uint64_t xid, ushort partition_id,
-                       ushort master_ver) {
+void TPCC::load_nation(int w_id, xid_t xid, partition_id_t partition_id,
+                       master_version_t master_ver) {
   struct Nation {
     int id;
     std::string name;
@@ -1114,8 +1138,8 @@ void TPCC::load_nation(int w_id, uint64_t xid, ushort partition_id,
   }
 }
 
-void TPCC::load_region(int w_id, uint64_t xid, ushort partition_id,
-                       ushort master_ver) {
+void TPCC::load_region(int w_id, xid_t xid, partition_id_t partition_id,
+                       master_version_t master_ver) {
   const char *regions[] = {"AFRICA", "AMERICA", "ASIA", "EUROPE",
                            "MIDDLE EAST"};
   // Region
@@ -1134,8 +1158,8 @@ void TPCC::load_region(int w_id, uint64_t xid, ushort partition_id,
   }
 }
 
-void TPCC::load_supplier(int w_id, uint64_t xid, ushort partition_id,
-                         ushort master_ver) {
+void TPCC::load_supplier(int w_id, xid_t xid, partition_id_t partition_id,
+                         master_version_t master_ver) {
   // Supplier
   for (int suId = 0; suId < 10000; suId++) {
     struct ch_supplier supp_ins = {};
@@ -1180,8 +1204,8 @@ void TPCC::load_supplier(int w_id, uint64_t xid, ushort partition_id,
 
 void TPCC::load_data(int num_threads) { assert(false && "Not Implemented"); }
 
-void TPCC::pre_run(int wid, uint64_t xid, ushort partition_id,
-                   ushort master_ver) {
+void TPCC::pre_run(worker_id_t wid, xid_t xid, partition_id_t partition_id,
+                   master_version_t master_ver) {
   // static std::mutex print_mutex;
   // {
   //   std::unique_lock<std::mutex> lk(print_mutex);

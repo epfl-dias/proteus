@@ -37,6 +37,7 @@
 #include <utility>
 
 #include "oltp/common/constants.hpp"
+#include "oltp/common/numa-partition-policy.hpp"
 #include "oltp/storage/multi-version/delta_storage.hpp"
 #include "oltp/storage/multi-version/mv-versions.hpp"
 #include "oltp/storage/multi-version/mv.hpp"
@@ -48,107 +49,102 @@ namespace storage {
 
 static std::mutex print_mutex;
 
-static inline uint64_t __attribute__((always_inline))
-CC_gen_vid(uint64_t vid, ushort partition_id, ushort master_ver) {
+static inline rowid_t __attribute__((always_inline))
+CC_gen_vid(rowid_t vid, partition_id_t partition_id,
+           master_version_t master_ver) {
   return ((vid & 0x000000FFFFFFFFFFu) |
           ((uint64_t)(partition_id & 0x00FFu) << 40u) |
           ((uint64_t)(master_ver & 0x00FFu) << 48u));
 }
 
-static inline uint64_t __attribute__((always_inline))
-CC_upd_vid_mVer(uint64_t vid, ushort master_version) {
+static inline rowid_t __attribute__((always_inline))
+CC_upd_vid_mVer(rowid_t vid, master_version_t master_version) {
   return (vid & 0xFF00FFFFFFFFFFFFu) |
          ((uint64_t)(master_version & 0x00FFu) << 48u);
 }
 
+//-----------------------------------------------------------------
+// ColumnStore
+//-----------------------------------------------------------------
+
 ColumnStore::~ColumnStore() {
-  // TODO: Implement and clean memory.
-  //  for (auto& col : columns) {
-  //    col.~Column();
-  //    // MemoryManager::free(col);
-  //    // delete col;
-  //  }
-  if (meta_column) {
-    meta_column->~Column();
-    MemoryManager::freePinned(meta_column);
+  if (metaColumn) {
+    metaColumn->~Column();
+    MemoryManager::freePinned(metaColumn);
   }
 
   if (p_index) delete p_index;
 }
 
-ColumnStore::ColumnStore(uint8_t table_id, const std::string& name,
-                         ColumnDef columns, uint64_t initial_num_records,
-                         bool indexed, bool partitioned, int numa_idx)
-    : Table(name, table_id, COLUMN_STORE, columns),
+ColumnStore::ColumnStore(table_id_t table_id, std::string name,
+                         TableDef columns, bool indexed, bool numa_partitioned,
+                         size_t reserved_capacity, int numa_idx)
+    : Table(table_id, name, COLUMN_STORE, columns),
       columns(
           proteus::memory::ExplicitSocketPinnedMemoryAllocator<storage::Column>(
               storage::NUMAPartitionPolicy::getInstance()
                   .getDefaultPartition())) {
-  this->total_mem_reserved = 0;
   this->indexed = indexed;
   this->deltaStore = storage::Schema::getInstance().deltaStore;
-
-  if (partitioned)
-    this->num_data_partitions = g_num_partitions;
-  else
-    this->num_data_partitions = 1;
-
-  for (int i = 0; i < g_num_partitions; i++) this->vid[i] = 0;
+  this->n_columns = columns.size();
+  this->n_partitions = (numa_partitioned ? g_num_partitions : 1);
 
   std::vector<proteus::thread> loaders;
 
+  // MetaColumn.
+  void* obj_ptr = MemoryManager::mallocPinnedOnNode(
+      sizeof(Column),
+      storage::NUMAPartitionPolicy::getInstance().getDefaultPartition());
+  metaColumn = new (obj_ptr)
+      Column(0, name + "_meta", META, sizeof(global_conf::IndexVal), 0,
+             numa_partitioned, reserved_capacity, true, numa_idx);
+
+  loaders.emplace_back([this]() { this->metaColumn->initializeMetaColumn(); });
+
+  // If Indexed, register index.
   if (indexed) {
-    void* obj_ptr = MemoryManager::mallocPinnedOnNode(
-        sizeof(Column),
-        storage::NUMAPartitionPolicy::getInstance().getDefaultPartition());
-    meta_column = new (obj_ptr)
-        Column(name + "_meta", initial_num_records, META,
-               sizeof(global_conf::IndexVal), 0, true, partitioned, numa_idx);
-
-    loaders.emplace_back(
-        [this]() { this->meta_column->initializeMetaColumn(); });
-
     this->p_index =
-        new global_conf::PrimaryIndex<uint64_t>(name, initial_num_records);
+        new global_conf::PrimaryIndex<uint64_t>(name, reserved_capacity);
+
+    // TODO: register index w/ IndexManager
   }
 
   // create columns
+  column_id_t col_id_ctr = 0;
   size_t col_offset = 0;
-  this->columns.reserve(columns.getColumns().size());
-  for (const auto& t : columns.getColumns()) {
-    this->columns.emplace_back(std::get<0>(t), initial_num_records,
-                               std::get<1>(t), std::get<2>(t), col_offset,
-                               false, partitioned, numa_idx);
-    col_offset += std::get<2>(t);
-    column_size.push_back(std::get<2>(t));
-    column_size_offsets.push_back(col_offset);
-    column_size_offset_pairs.emplace_back(std::get<2>(t), col_offset);
-  }
-  for (const auto& t : this->columns) {
-    total_mem_reserved += t.total_mem_reserved;
-  }
-
-  this->num_columns = columns.size();
-
   size_t rec_size = 0;
-  for (auto& co : this->columns) {
-    rec_size += co.elem_size;
+  this->columns.reserve(columns.getColumns().size());
+
+  for (const auto& t : columns.getColumns()) {
+    auto col_width = t.getSize();
+    this->columns.emplace_back(col_id_ctr++, t.getName(), t.getType(),
+                               col_width, col_offset, numa_partitioned,
+                               reserved_capacity, false, numa_idx);
+
+    col_offset += col_width;
+    rec_size += col_width;
+    column_size.push_back(col_width);
+    column_size_offsets.push_back(col_offset);
+    column_size_offset_pairs.emplace_back(col_width, col_offset);
   }
-  this->rec_size = rec_size;
+
+  for (const auto& t : this->columns) {
+    total_memory_reserved += t.total_size;
+  }
+
+  this->record_size = rec_size;
   assert(rec_size == col_offset);
-  this->offset = 0;
-  this->initial_num_recs = initial_num_records;
+  this->record_capacity = reserved_capacity;
 
   for (auto& th : loaders) {
     th.join();
   }
 
-  if (indexed) total_mem_reserved += meta_column->total_mem_reserved;
+  if (indexed) total_memory_reserved += metaColumn->total_size;
 
   LOG(INFO) << "Table: " << name << "\n\trecord size: " << rec_size << " bytes"
-            << "\n\tnum_records: " << initial_num_records
-            << "\n\tMem reserved: "
-            << (double)total_mem_reserved / (1024 * 1024 * 1024) << "GB";
+            << "\n\tnum_records: " << reserved_capacity << "\n\tMem reserved: "
+            << (double)total_memory_reserved / (1024 * 1024 * 1024) << " GB";
 
   elastic_mappings.reserve(columns.size());
 }
@@ -156,11 +152,12 @@ ColumnStore::ColumnStore(uint8_t table_id, const std::string& name,
 /* ColumnStore::insertRecordBatch assumes that the  void* rec has columns in the
  * same order as the actual columns
  */
-void* ColumnStore::insertRecordBatch(void* rec_batch, uint recs_to_ins,
-                                     uint capacity_offset, uint64_t xid,
-                                     ushort partition_id, ushort master_ver) {
-  partition_id = partition_id % this->num_data_partitions;
-  uint64_t idx_st = vid[partition_id].fetch_add(recs_to_ins);
+global_conf::IndexVal* ColumnStore::insertRecordBatch(
+    const void* data, size_t num_records, size_t max_capacity,
+    xid_t transaction_id, partition_id_t partition_id,
+    master_version_t master_ver) {
+  partition_id = partition_id % this->n_partitions;
+  uint64_t idx_st = vid[partition_id].fetch_add(num_records);
   // get batch from meta column
   uint64_t st_vid = CC_gen_vid(idx_st, partition_id, master_ver);
   uint64_t st_vid_meta = CC_gen_vid(idx_st, partition_id, 0);
@@ -168,12 +165,12 @@ void* ColumnStore::insertRecordBatch(void* rec_batch, uint recs_to_ins,
   global_conf::IndexVal* hash_ptr = nullptr;
   if (this->indexed) {
     // meta stuff
-    hash_ptr = (global_conf::IndexVal*)this->meta_column->insertElemBatch(
-        st_vid_meta, recs_to_ins);
+    hash_ptr = (global_conf::IndexVal*)this->metaColumn->insertElemBatch(
+        st_vid_meta, num_records);
     assert(hash_ptr != nullptr);
 
-    for (uint i = 0; i < recs_to_ins; i++) {
-      hash_ptr[i].t_min = xid;
+    for (uint i = 0; i < num_records; i++) {
+      hash_ptr[i].t_min = transaction_id;
       hash_ptr[i].VID = CC_gen_vid(idx_st + i, partition_id, master_ver);
     }
   }
@@ -181,23 +178,26 @@ void* ColumnStore::insertRecordBatch(void* rec_batch, uint recs_to_ins,
   // for loop to copy all columns.
   for (auto& col : columns) {
     col.insertElemBatch(
-        st_vid, recs_to_ins,
-        ((char*)rec_batch) + (col.cumulative_offset * capacity_offset));
+        st_vid, num_records,
+        ((char*)data) + (col.byteOffset_record *
+                         (max_capacity == 0 ? num_records : max_capacity)));
   }
 
   // return starting address of batch meta.
-  return (void*)hash_ptr;
+  return hash_ptr;
 }
 
-void* ColumnStore::insertRecord(void* rec, uint64_t xid, ushort partition_id,
-                                ushort master_ver) {
+global_conf::IndexVal* ColumnStore::insertRecord(const void* data,
+                                                 xid_t transaction_id,
+                                                 partition_id_t partition_id,
+                                                 master_version_t master_ver) {
 #if INSTRUMENTATION
   static thread_local proteus::utils::threadLocal_percentile ins_cdf(
-      "insert_cdf");
+      "columnStore-InsertRecord");
   proteus::utils::percentile_point cd(ins_cdf);
 #endif
 
-  partition_id = partition_id % this->num_data_partitions;
+  partition_id = partition_id % this->n_partitions;
   uint64_t idx = vid[partition_id].fetch_add(1);
   uint64_t curr_vid = CC_gen_vid(idx, partition_id, master_ver);
 
@@ -206,43 +206,32 @@ void* ColumnStore::insertRecord(void* rec, uint64_t xid, ushort partition_id,
   if (indexed) {
     auto indexed_cc_vid = CC_gen_vid(idx, partition_id, 0);
     hash_ptr =
-        (global_conf::IndexVal*)this->meta_column->getElem(indexed_cc_vid);
+        (global_conf::IndexVal*)this->metaColumn->getElem(indexed_cc_vid);
     assert(hash_ptr != nullptr);
-    hash_ptr->t_min = xid;
+    hash_ptr->t_min = transaction_id;
     hash_ptr->VID = curr_vid;
   }
 
-  char* rec_ptr = (char*)rec;
+  char* rec_ptr = (char*)data;
   for (auto& col : columns) {
-    col.insertElem(curr_vid, rec_ptr + col.cumulative_offset);
+    col.insertElem(curr_vid, rec_ptr + col.byteOffset_record);
   }
 
-  return (void*)hash_ptr;
+  return hash_ptr;
 }
 
-uint64_t ColumnStore::insertRecord(void* rec, ushort partition_id,
-                                   ushort master_ver) {
-  assert(false && "deprecated");
-  partition_id = partition_id % this->num_data_partitions;
-  uint64_t curr_vid =
-      CC_gen_vid(vid[partition_id].fetch_add(1), partition_id, master_ver);
-
-  char* rec_ptr = (char*)rec;
-  for (auto& col : columns) {
-    col.insertElem(curr_vid, rec_ptr + col.cumulative_offset);
-  }
-  return curr_vid;
+void ColumnStore::getRecord(xid_t transaction_id, rowid_t rowid,
+                            void* destination, const column_id_t* col_idx,
+                            const short num_cols) {
+  auto* metaPtr = (global_conf::IndexVal*)metaColumn->getElem(rowid);
+  return getIndexedRecord(transaction_id, metaPtr, destination, col_idx,
+                          num_cols);
 }
 
-void ColumnStore::touchRecordByKey(uint64_t vid) {
-  for (auto& col : columns) {
-    col.touchElem(vid);
-  }
-}
-
-void ColumnStore::getRecordByKey(global_conf::IndexVal* idx_ptr,
-                                 uint64_t txn_id, const ushort* col_idx,
-                                 ushort num_cols, void* loc) {
+void ColumnStore::getIndexedRecord(xid_t transaction_id,
+                                   global_conf::IndexVal* index_ptr,
+                                   void* destination,
+                                   const column_id_t* col_idx, short num_cols) {
 #if INSTRUMENTATION
   static thread_local proteus::utils::threadLocal_percentile rd_cdf("read_cdf");
   static thread_local proteus::utils::threadLocal_percentile rd_mv_cdf(
@@ -251,28 +240,29 @@ void ColumnStore::getRecordByKey(global_conf::IndexVal* idx_ptr,
   // proteus::utils::percentile_point mv_cd(rd_mv_cdf);
 #endif
 
-  char* write_loc = (char*)loc;
+  char* write_loc = static_cast<char*>(destination);
 
-  if (txn::CC_MV2PL::is_readable(idx_ptr->t_min, txn_id)) {
+  if (txn::CC_MV2PL::is_readable(index_ptr->t_min, transaction_id)) {
     if (__unlikely(col_idx == nullptr)) {
       for (auto& col : columns) {
-        col.getElem(idx_ptr->VID, write_loc);
-        write_loc += col.elem_size;
+        col.getElem(index_ptr->VID, write_loc);
+        write_loc += col.unit_size;
       }
     } else {
-      for (ushort i = 0; i < num_cols; i++) {
+      for (auto i = 0; i < num_cols; i++) {
         auto& col = columns.at(col_idx[i]);
-        col.getElem(idx_ptr->VID, write_loc);
-        write_loc += col.elem_size;
+        col.getElem(index_ptr->VID, write_loc);
+        write_loc += col.unit_size;
       }
     }
   } else {
 #if INSTRUMENTATION
     proteus::utils::percentile_point mv_cd(rd_mv_cdf);
 #endif
+
     auto done_mask = mv::mv_type::get_readable_version(
-        idx_ptr->delta_list, txn_id, write_loc, this->column_size_offset_pairs,
-        col_idx, num_cols);
+        index_ptr->delta_list, transaction_id, write_loc,
+        this->column_size_offset_pairs, col_idx, num_cols);
 
     if (!done_mask.all()) {
       // LOG(INFO) << "reading from main";
@@ -284,9 +274,9 @@ void ColumnStore::getRecordByKey(global_conf::IndexVal* idx_ptr,
 
       // write_offset is the cumulative offset in the write_location.
       if (__unlikely(col_idx == nullptr)) {
-        for (auto i = 0; i < this->num_columns; i++) {
+        for (auto i = 0; i < this->n_columns; i++) {
           if (!done_mask[i]) {
-            columns[i].getElem(idx_ptr->VID,
+            columns[i].getElem(index_ptr->VID,
                                (write_loc + this->column_size_offsets[i]));
           }
         }
@@ -294,7 +284,7 @@ void ColumnStore::getRecordByKey(global_conf::IndexVal* idx_ptr,
         for (auto i = 0, write_offset = 0; i < num_cols; i++) {
           write_offset += column_size[col_idx[i]];
           if (!done_mask[i]) {
-            columns[i].getElem(idx_ptr->VID, (write_loc + write_offset));
+            columns[i].getElem(index_ptr->VID, (write_loc + write_offset));
           }
         }
       }
@@ -302,18 +292,18 @@ void ColumnStore::getRecordByKey(global_conf::IndexVal* idx_ptr,
   }
 }
 
-/*  TODO: required functionality of batch update.
- * */
-
 /*
   FIXME: [Maybe] Update records create a delta version not in the local
    partition to the worker but local to record-master partition. this create
    version creation over QPI.
 */
-void ColumnStore::updateRecord(uint64_t xid, global_conf::IndexVal* hash_ptr,
-                               const void* rec, ushort curr_master,
-                               ushort curr_delta, const ushort* col_idx,
-                               short num_cols) {
+
+void ColumnStore::updateRecord(xid_t transaction_id,
+                               global_conf::IndexVal* index_ptr, void* data,
+                               delta_id_t current_delta_id,
+                               const column_id_t* col_idx,
+                               const short num_columns,
+                               master_version_t master_ver) {
 #if INSTRUMENTATION
   static thread_local proteus::utils::threadLocal_percentile update_cdf(
       "update_cdf");
@@ -321,39 +311,39 @@ void ColumnStore::updateRecord(uint64_t xid, global_conf::IndexVal* hash_ptr,
 
 #endif
 
-  assert((num_cols > 0 && col_idx != nullptr) || num_cols <= 0);
+  assert((num_columns > 0 && col_idx != nullptr) || num_columns <= 0);
 
-  ushort pid = CC_extract_pid(hash_ptr->VID);
-  ushort m_ver = CC_extract_m_ver(hash_ptr->VID);
-  char* cursor = (char*)rec;
+  partition_id_t pid = CC_extract_pid(index_ptr->VID);
+  master_version_t m_ver = CC_extract_m_ver(index_ptr->VID);
+  char* cursor = static_cast<char*>(data);
 
-  auto old_vid = hash_ptr->VID;
-  hash_ptr->VID = CC_upd_vid_mVer(hash_ptr->VID, curr_master);
+  auto old_vid = index_ptr->VID;
+  index_ptr->VID = CC_upd_vid_mVer(index_ptr->VID, master_ver);
 
   auto version_ptr = mv::mv_type::create_versions(
-      xid, hash_ptr, column_size, *(this->deltaStore[curr_delta]), pid, col_idx,
-      num_cols);
+      transaction_id, index_ptr, column_size,
+      *(this->deltaStore[current_delta_id]), pid, col_idx, num_columns);
 
-  auto n_cols = (num_cols > 0 ? num_cols : columns.size());
+  auto n_cols = (num_columns > 0 ? num_columns : columns.size());
   uint idx = 0;
 
   if constexpr (storage::mv::mv_type::isPerAttributeMVList) {
     // multiple version pointers.
 
     for (auto i = 0; i < n_cols; i++) {
-      if (__likely(num_cols > 0)) {
+      if (__likely(num_columns > 0)) {
         idx = col_idx[i];
       } else {
         idx = i;
       }
       Column* col = &(columns.at(idx));
-      memcpy(version_ptr.at(i)->data, col->getElem(old_vid), col->elem_size);
+      memcpy(version_ptr.at(i)->data, col->getElem(old_vid), col->unit_size);
 
       // update column
-      col->updateElem(hash_ptr->VID,
-                      (rec == nullptr ? nullptr : (void*)cursor));
-      if (__likely(rec != nullptr)) {
-        cursor += col->elem_size;
+      col->updateElem(index_ptr->VID,
+                      (data == nullptr ? nullptr : (void*)cursor));
+      if (__likely(data != nullptr)) {
+        cursor += col->unit_size;
       }
     }
   }
@@ -367,21 +357,21 @@ void ColumnStore::updateRecord(uint64_t xid, global_conf::IndexVal* hash_ptr,
     // LOG(INFO) << "ColumStore! " << version_ptr[0]->attribute_mask;
 
     for (auto i = 0; i < n_cols; i++) {
-      if (__likely(num_cols > 0)) {
+      if (__likely(num_columns > 0)) {
         idx = col_idx[i];
       } else {
         idx = i;
       }
       Column* col = &(columns.at(idx));
 
-      memcpy(version_data_ptr, col->getElem(old_vid), col->elem_size);
-      version_data_ptr += col->elem_size;
+      memcpy(version_data_ptr, col->getElem(old_vid), col->unit_size);
+      version_data_ptr += col->unit_size;
 
       // update column
-      col->updateElem(hash_ptr->VID,
-                      (rec == nullptr ? nullptr : (void*)cursor));
-      if (__likely(rec != nullptr)) {
-        cursor += col->elem_size;
+      col->updateElem(index_ptr->VID,
+                      (data == nullptr ? nullptr : (void*)cursor));
+      if (__likely(data != nullptr)) {
+        cursor += col->unit_size;
       }
     }
   }
@@ -393,56 +383,33 @@ void ColumnStore::updateRecord(uint64_t xid, global_conf::IndexVal* hash_ptr,
     char* version_data_ptr = (char*)(version_ptr.at(0)->data);
     assert(version_data_ptr != nullptr);
     for (auto& col : columns) {
-      memcpy(version_data_ptr + col.cumulative_offset, col.getElem(old_vid),
-             col.elem_size);
+      memcpy(version_data_ptr + col.byteOffset_record, col.getElem(old_vid),
+             col.unit_size);
     }
 
     // do actual update
     for (auto i = 0; i < n_cols; i++) {
-      if (__likely(num_cols > 0)) {
+      if (__likely(num_columns > 0)) {
         idx = col_idx[i];
       } else {
         idx = i;
       }
       Column* col = &(columns.at(idx));
       // update column
-      col->updateElem(hash_ptr->VID,
-                      (rec == nullptr ? nullptr : (void*)cursor));
-      if (__likely(rec != nullptr)) {
-        cursor += col->elem_size;
+      col->updateElem(index_ptr->VID,
+                      (data == nullptr ? nullptr : (void*)cursor));
+      if (__likely(data != nullptr)) {
+        cursor += col->unit_size;
       }
     }
   }
 
-  hash_ptr->t_min = xid;
+  index_ptr->t_min = transaction_id;
 }
 
-/* Utils for loading data from binary or offseting datasets
- *
- * */
-
-void ColumnStore::offsetVID(uint64_t offset_vid) {
-  for (int i = 0; i < vid.size(); i++) vid[i].store(offset_vid);
-  this->offset = offset_vid;
-}
-
-void ColumnStore::insertIndexRecord(uint64_t rid, uint64_t xid,
-                                    ushort partition_id, ushort master_ver) {
-  partition_id = partition_id % this->num_data_partitions;
-  assert(this->indexed);
-  uint64_t curr_vid = vid[partition_id].fetch_add(1);
-
-  auto vid = CC_gen_vid(curr_vid, partition_id, 0);
-  auto* hash_ptr = (global_conf::IndexVal*)this->meta_column->getElem(vid);
-  hash_ptr->t_min = xid;
-  hash_ptr->VID = CC_gen_vid(curr_vid, partition_id, master_ver);
-  void* pano = (void*)hash_ptr;
-  this->p_index->insert(rid, pano);
-}
-
-/*  Class Column
- *
- * */
+//-----------------------------------------------------------------
+// Column
+//-----------------------------------------------------------------
 
 Column::~Column() {
 #if HTAP_ETL
@@ -461,83 +428,86 @@ Column::~Column() {
   }
 }
 
-Column::Column(std::string name, uint64_t initial_num_records, data_type type,
-               size_t unit_size, size_t cummulative_offset,
-               bool single_version_only, bool partitioned, int numa_idx)
-    : name(std::move(name)),
-      elem_size(unit_size),
-      cumulative_offset(cummulative_offset),
-      type(type) {
-  // time_block t("T_ColumnCreate_: ");
-
-  if (partitioned)
-    this->num_partitions = g_num_partitions;
-  else
-    this->num_partitions = 1;
-
+Column::Column(column_id_t column_id, std::string name, data_type type,
+               size_t unit_size, size_t offset_inRecord, bool numa_partitioned,
+               size_t reserved_capacity, bool single_version, int numa_idx)
+    // Column::Column(std::string name, uint64_t initial_num_records, data_type
+    // type,
+    //               size_t unit_size, size_t cumulative_offset,
+    //               bool single_version_only, bool partitioned, int numa_idx)
+    : column_id(column_id),
+      name(std::move(name)),
+      unit_size(unit_size),
+      byteOffset_record(offset_inRecord),
+      type(type),
+      n_partitions(numa_partitioned ? g_num_partitions : 1),
+      single_version_only(single_version) {
   assert(g_num_partitions <= topology::getInstance().getCpuNumaNodeCount());
 
-  this->initial_num_records = initial_num_records;
-  this->initial_num_records_per_part =
-      (initial_num_records / this->num_partitions) +
-      initial_num_records % this->num_partitions;
+  this->capacity = reserved_capacity;
+  this->capacity_per_partition =
+      (reserved_capacity / n_partitions) + (reserved_capacity % n_partitions);
 
-  size_t size_per_partition = initial_num_records_per_part * unit_size;
-  size_t size = size_per_partition * this->num_partitions;
-  if (single_version_only) {
-    this->total_mem_reserved = size;
-  } else {
-    this->total_mem_reserved = size * global_conf::num_master_versions;
+  this->total_size_per_partition = capacity_per_partition * unit_size;
+  this->total_size = this->total_size_per_partition * this->n_partitions;
+
+  //  {
+  //    std::unique_lock<std::mutex> lk(print_mutex);
+  //    LOG(INFO) << "Name: " << this->name;
+  //    LOG(INFO) << "reserved_capacity: " << reserved_capacity;
+  //    LOG(INFO) << "capacity: " << this->capacity;
+  //    LOG(INFO) << "capacity_per_partition: " << this->capacity_per_partition;
+  //    LOG(INFO) << "total_size: " << this->total_size;
+  //    LOG(INFO) << "total_size_per_partition: " <<
+  //    this->total_size_per_partition;
+  //  }
+
+  if (!single_version) {
+    this->total_size *= global_conf::num_master_versions;
   }
-
-  this->size_per_part = size_per_partition;
-
   // snapshot arenas
   for (uint j = 0; j < g_num_partitions; j++) {
     snapshot_arenas[j].emplace_back(
-        global_conf::SnapshotManager::create(size_per_partition));
-
-    etl_arenas[j].emplace_back(
-        global_conf::SnapshotManager::create(size_per_partition));
+        global_conf::SnapshotManager::create(this->total_size_per_partition));
 
     snapshot_arenas[j][0]->create_snapshot(
         {0, 0, 0, static_cast<uint8_t>(j), false});
 
+#if HTAP_ETL
+    etl_arenas[j].emplace_back(
+        global_conf::SnapshotManager::create(this->total_size_per_partition));
     etl_arenas[j][0]->create_snapshot({0, 0, 0, static_cast<uint8_t>(j), true});
+#endif
   }
 
 #if HTAP_ETL
-  // essentially this is memory allocation for proteus where it will do the ETL
+  // essentially this is memory allocation for OLAP where it will do the ETL
   // and update its snapshots.
-
-  // FIXME: hack for expr to make memory in proteus sockets
-  uint total_numa_nodes = topology::getInstance().getCpuNumaNodeCount();
-
-  for (auto j = 0; j < this->num_partitions; j++) {
+  for (auto j = 0; j < this->n_partitions; j++) {
     if (g_num_partitions == 1) {
-      this->etl_mem[j] = MemoryManager::mallocPinnedOnNode(size_per_partition,
-                                                           DEFAULT_OLAP_SOCKET);
+      this->readonly_etl_snapshot[j].emplace_back(
+          MemoryManager::mallocPinnedOnNode(this->total_size_per_partition,
+                                            global_conf::DEFAULT_OLAP_SOCKET),
+          this->total_size_per_partition, global_conf::DEFAULT_OLAP_SOCKET);
       // assert((total_numa_nodes - j - 1) == 1);
       // MemoryManager::alloc_shm(name + "__" + std::to_string(j),
       //                          size_per_partition, total_numa_nodes - j - 1);
-      assert(this->etl_mem[j] != nullptr || this->etl_mem[j] != NULL);
-    } else {
-      this->etl_mem[j] = nullptr;
+      assert(this->readonly_etl_snapshot[j][0].data != nullptr);
     }
   }
-
 #endif
 
   std::vector<proteus::thread> loaders;
 
   for (auto i = 0; i < global_conf::num_master_versions; i++) {
-    for (auto j = 0; j < this->num_partitions; j++) {
+    for (auto j = 0; j < this->n_partitions; j++) {
       void* mem = MemoryManager::mallocPinnedOnNode(
-          size_per_partition, storage::NUMAPartitionPolicy::getInstance()
-                                  .getPartitionInfo(j)
-                                  .numa_idx);
-      assert(mem != nullptr || mem != NULL);
-      loaders.emplace_back([mem, size_per_partition, j]() {
+          this->total_size_per_partition,
+          storage::NUMAPartitionPolicy::getInstance()
+              .getPartitionInfo(j)
+              .numa_idx);
+      assert(mem != nullptr);
+      loaders.emplace_back([mem, this, j]() {
         set_exec_location_on_scope d{
             topology::getInstance()
                 .getCpuNumaNodes()[storage::NUMAPartitionPolicy::getInstance()
@@ -545,20 +515,20 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
                                        .numa_idx]};
 
         auto* pt = (uint64_t*)mem;
-        uint64_t warmup_max = size_per_partition / sizeof(uint64_t);
+        uint64_t warmup_max = this->total_size_per_partition / sizeof(uint64_t);
 #pragma clang loop vectorize(enable)
         for (uint64_t k = 0; k < warmup_max; k++) pt[k] = 0;
       });
 
       master_versions[i][j].emplace_back(
-          mem, size_per_partition,
+          mem, this->total_size_per_partition,
           storage::NUMAPartitionPolicy::getInstance()
               .getPartitionInfo(j)
               .numa_idx);
 
-      if (!single_version_only) {
-        uint num_bit_packs = (initial_num_records_per_part / BIT_PACK_SIZE) +
-                             (initial_num_records_per_part % BIT_PACK_SIZE);
+      if (!single_version) {
+        size_t num_bit_packs = (capacity_per_partition / BIT_PACK_SIZE) +
+                               (capacity_per_partition % BIT_PACK_SIZE);
 
         loaders.emplace_back([this, i, j, num_bit_packs]() {
           set_exec_location_on_scope d{
@@ -577,26 +547,27 @@ Column::Column(std::string name, uint64_t initial_num_records, data_type type,
         });
       }
     }
-    if (single_version_only) break;
+    if (single_version) break;
   }
 
   for (auto& th : loaders) {
     th.join();
   }
 
-  for (uint i = 0; i < this->num_partitions; i++) this->touched[i] = false;
+  for (auto i = 0; i < this->n_partitions; i++) this->touched[i] = false;
 }
 
-void Column::initializeMetaColumn() {
+void Column::initializeMetaColumn() const {
   assert(this->type == META);
+  assert(this->single_version_only);
   std::vector<proteus::thread> loaders;
-  for (auto j = 0; j < this->num_partitions; j++) {
+  for (auto j = 0; j < this->n_partitions; j++) {
     for (const auto& chunk : master_versions[0][j]) {
       char* ptr = (char*)chunk.data;
-      assert(chunk.size % this->elem_size == 0);
+      assert(chunk.size % this->unit_size == 0);
       loaders.emplace_back([this, chunk, j, ptr]() {
-        for (uint64_t i = 0; i < (chunk.size / this->elem_size); i++) {
-          void* c = new (ptr + (i * this->elem_size))
+        for (uint64_t i = 0; i < (chunk.size / this->unit_size); i++) {
+          void* c = new (ptr + (i * this->unit_size))
               global_conf::IndexVal(0, CC_gen_vid(i, j, 0));
         }
       });
@@ -611,96 +582,66 @@ void Column::initializeMetaColumn() {
  *
  */
 
-void Column::touchElem(uint64_t vid) {
-  ushort pid = CC_extract_pid(vid);
-  ushort m_ver = CC_extract_m_ver(vid);
-  uint64_t offset = CC_extract_offset(vid);
-  uint64_t data_idx = offset * elem_size;
-
-  assert(!master_versions[m_ver][pid].empty());
-
-  for (const auto& chunk : master_versions[m_ver][pid]) {
-    if (__likely(chunk.size >= ((size_t)data_idx + elem_size))) {
-      char* loc = ((char*)chunk.data) + data_idx;
-      //      upd_bit_masks[m_ver][pid][offset / BIT_PACK_SIZE].set(offset %
-      //                                                            BIT_PACK_SIZE);
-      //      this->touched[pid] = true;
-      char tmp = 'a';
-      for (int i = 0; i < elem_size; i++) {
-        tmp += *loc;
-      }
-    }
-  }
-}
-
-void* Column::getElem(uint64_t vid) {
-  ushort pid = CC_extract_pid(vid);
-  uint64_t data_idx = CC_extract_offset(vid) * elem_size;
+void* Column::getElem(rowid_t vid) {
+  partition_id_t pid = CC_extract_pid(vid);
+  size_t data_idx = CC_extract_offset(vid) * unit_size;
 
   assert(CC_extract_m_ver(vid) == 0 &&
-         "shouldnt be used for attribute columns");
+         "shouldn't be used for attribute columns");
   assert(!master_versions[0][pid].empty());
 
   for (const auto& chunk : master_versions[0][pid]) {
-    if (__likely(chunk.size >= ((size_t)data_idx + elem_size))) {
+    if (__likely(chunk.size >= ((size_t)data_idx + unit_size))) {
       return ((char*)chunk.data) + data_idx;
     }
   }
-
-  /*std::cout << "-----------" << std::endl;
-  std::cout << this->name << std::endl;
-  std::cout << "offset: " << (uint)CC_extract_offset(vid) << std::endl;
-  std::cout << "elem_size: " << (uint)this->elem_size << std::endl;
-  std::cout << "pid: " << (uint)pid << std::endl;
-  std::cout << "mver: " << (uint)m_ver << std::endl;
-  std::cout << "data_idx: " << data_idx << std::endl;*/
 
   assert(false && "Out-of-Bound-Access");
   return nullptr;
 }
 
-void Column::getElem(uint64_t vid, void* copy_location) {
-  ushort pid = CC_extract_pid(vid);
-  ushort m_ver = CC_extract_m_ver(vid);
-  uint64_t data_idx = CC_extract_offset(vid) * elem_size;
+void Column::getElem(rowid_t vid, void* copy_location) {
+  partition_id_t pid = CC_extract_pid(vid);
+  master_version_t m_ver = CC_extract_m_ver(vid);
+  size_t data_idx = CC_extract_offset(vid) * unit_size;
 
   assert(master_versions[m_ver][pid].size() != 0);
 
   for (const auto& chunk : master_versions[m_ver][pid]) {
-    if (__likely(chunk.size >= ((size_t)data_idx + elem_size))) {
+    if (__likely(chunk.size >= ((size_t)data_idx + unit_size))) {
       std::memcpy(copy_location, ((char*)chunk.data) + data_idx,
-                  this->elem_size);
+                  this->unit_size);
       return;
     }
   }
   assert(false && "Out-of-Bound-Access");
 }
 
-void Column::updateElem(uint64_t vid, void* elem) {
-  ushort pid = CC_extract_pid(vid);
-  uint64_t offset = CC_extract_offset(vid);
-  uint64_t data_idx = offset * elem_size;
-  uint8_t mver = CC_extract_m_ver(vid);
+void Column::updateElem(rowid_t vid, void* elem) {
+  partition_id_t pid = CC_extract_pid(vid);
+  master_version_t mver = CC_extract_m_ver(vid);
+  size_t offset = CC_extract_offset(vid);
+  size_t data_idx = offset * unit_size;
 
   assert(pid < g_num_partitions);
-  assert(data_idx < size_per_part);
+  assert(data_idx < total_size_per_partition);
 
   for (const auto& chunk : master_versions[mver][pid]) {
-    if (__likely(chunk.size >= (data_idx + elem_size))) {
+    if (__likely(chunk.size >= (data_idx + unit_size))) {
       void* dst = (void*)(((char*)chunk.data) + data_idx);
 
       char* src_t = (char*)chunk.data;
       char* dst_t = (char*)dst;
 
       assert(src_t <= dst_t);
-      assert((src_t + chunk.size) >= (dst_t + this->elem_size));
+      assert((src_t + chunk.size) >= (dst_t + this->unit_size));
 
       // assert(elem != nullptr);
       if (__unlikely(elem == nullptr)) {
         // YCSB update hack.
         (*((uint64_t*)dst_t))++;
       } else {
-        std::memcpy(dst, elem, this->elem_size);
+        std::memcpy(dst, elem, this->unit_size);
       }
 
       upd_bit_masks[mver][pid][offset / BIT_PACK_SIZE].set(offset %
@@ -713,19 +654,20 @@ void Column::updateElem(uint64_t vid, void* elem) {
   assert(false && "Out Of Memory Error");
 }
 
-void* Column::insertElem(uint64_t vid) {
+void* Column::insertElem(rowid_t vid) {
   assert(this->type == META);
-  ushort pid = CC_extract_pid(vid);
-  uint64_t data_idx = CC_extract_offset(vid) * elem_size;
-  ushort mver = CC_extract_m_ver(vid);
+
+  partition_id_t pid = CC_extract_pid(vid);
+  master_version_t mver = CC_extract_m_ver(vid);
+  size_t data_idx = CC_extract_offset(vid) * unit_size;
 
   assert(pid < g_num_partitions);
-  assert((data_idx / elem_size) < initial_num_records_per_part);
-  assert(data_idx < size_per_part);
+  assert((data_idx / unit_size) < capacity_per_partition);
+  assert(data_idx < total_size_per_partition);
 
   bool ins = false;
   for (const auto& chunk : master_versions[mver][pid]) {
-    if (__likely(chunk.size >= (data_idx + elem_size))) {
+    if (__likely(chunk.size >= (data_idx + unit_size))) {
       return (void*)(((char*)chunk.data) + data_idx);
     }
   }
@@ -734,30 +676,19 @@ void* Column::insertElem(uint64_t vid) {
   return nullptr;
 }
 
-void Column::insertElem(uint64_t vid, void* elem) {
-  ushort pid = CC_extract_pid(vid);
-  ushort mver = CC_extract_m_ver(vid);
-  uint64_t offset = CC_extract_offset(vid);
-  uint64_t data_idx = offset * elem_size;
+void Column::insertElem(rowid_t vid, void* elem) {
+  partition_id_t pid = CC_extract_pid(vid);
+  master_version_t mver = CC_extract_m_ver(vid);
+  size_t offset = CC_extract_offset(vid);
+  size_t data_idx = offset * unit_size;
 
   assert(pid < g_num_partitions);
+  assert(data_idx < total_size_per_partition);
 
-  /*if (data_idx >= size_per_part) {
-    std::cout << "-----------" << std::endl;
-    std::cout << this->name << std::endl;
-    std::cout << "pid: " << (uint)pid << std::endl;
-    std::cout << "mver: " << (uint)mver << std::endl;
-    std::cout << "offset: " << offset << std::endl;
-  }*/
-
-  assert(data_idx < size_per_part);
-
-  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
+  for (auto i = 0; i < global_conf::num_master_versions; i++) {
     bool ins = false;
     for (const auto& chunk : master_versions[i][pid]) {
-      // assert(pid == chunk.numa_id);
-
-      if (__likely(chunk.size >= (data_idx + elem_size))) {
+      if (__likely(chunk.size >= (data_idx + unit_size))) {
         void* dst = (void*)(((char*)chunk.data) + data_idx);
         if (__unlikely(elem == nullptr)) {
           uint64_t* tptr = (uint64_t*)dst;
@@ -767,9 +698,9 @@ void Column::insertElem(uint64_t vid, void* elem) {
           char* dst_t = (char*)dst;
 
           assert(src_t <= dst_t);
-          assert((src_t + chunk.size) >= (dst_t + this->elem_size));
+          assert((src_t + chunk.size) >= (dst_t + this->unit_size));
 
-          std::memcpy(dst, elem, this->elem_size);
+          std::memcpy(dst, elem, this->unit_size);
         }
 
         ins = true;
@@ -778,41 +709,36 @@ void Column::insertElem(uint64_t vid, void* elem) {
     }
 #if HTAP_UPD_BIT_ON_INSERT
     if (__likely(i == mver)) {
-      // if (this->name[0] == 'd') {
-      //   std::cout << "bitpack: " << (offset / BIT_PACK_SIZE)
-      //             << "| bit-offset: " << (offset % BIT_PACK_SIZE) <<
-      //             std::endl;
-      // }
       upd_bit_masks[mver][pid][offset / BIT_PACK_SIZE].set(offset %
                                                            BIT_PACK_SIZE);
       if (!this->touched[pid]) this->touched[pid] = true;
     }
 #endif
     if (__unlikely(ins == false)) {
-      std::cout << "(1) ALLOCATE MORE MEMORY:\t" << this->name
-                << ",vid: " << vid << ", idx:" << (data_idx / elem_size)
-                << ", pid: " << pid << std::endl;
+      LOG(INFO) << "(1) ALLOCATE MORE MEMORY:\t" << this->name
+                << ",vid: " << vid << ", idx:" << (data_idx / unit_size)
+                << ", pid: " << pid;
 
       assert(false && "Out Of Memory Error");
     }
   }
 }
 
-void* Column::insertElemBatch(uint64_t vid, uint64_t num_elem) {
+void* Column::insertElemBatch(rowid_t vid, uint16_t num_elem) {
   assert(this->type == META);
 
-  ushort pid = CC_extract_pid(vid);
-  uint64_t data_idx_st = CC_extract_offset(vid) * elem_size;
-  uint64_t data_idx_en = data_idx_st + (num_elem * elem_size);
-  ushort mver = CC_extract_m_ver(vid);
+  partition_id_t pid = CC_extract_pid(vid);
+  master_version_t mver = CC_extract_m_ver(vid);
+  size_t data_idx_st = CC_extract_offset(vid) * unit_size;
+  size_t data_idx_en = data_idx_st + (num_elem * unit_size);
 
   assert(pid < g_num_partitions);
-  assert((data_idx_en / elem_size) < initial_num_records_per_part);
-  assert(data_idx_en < size_per_part);
+  assert((data_idx_en / unit_size) < capacity_per_partition);
+  assert(data_idx_en < total_size_per_partition);
 
   bool ins = false;
   for (const auto& chunk : master_versions[mver][pid]) {
-    if (__likely(chunk.size >= (data_idx_en + elem_size))) {
+    if (__likely(chunk.size >= (data_idx_en + unit_size))) {
       return (void*)(((char*)chunk.data) + data_idx_st);
     }
   }
@@ -821,23 +747,23 @@ void* Column::insertElemBatch(uint64_t vid, uint64_t num_elem) {
   return nullptr;
 }
 
-void Column::insertElemBatch(uint64_t vid, uint64_t num_elem, void* data) {
-  ushort pid = CC_extract_pid(vid);
-  uint64_t offset = CC_extract_offset(vid);
-  uint64_t data_idx_st = offset * elem_size;
-  size_t copy_size = num_elem * this->elem_size;
-  uint64_t data_idx_en = data_idx_st + copy_size;
+void Column::insertElemBatch(rowid_t vid, uint16_t num_elem, void* data) {
+  partition_id_t pid = CC_extract_pid(vid);
+  size_t offset = CC_extract_offset(vid);
+  size_t data_idx_st = offset * unit_size;
+  size_t copy_size = num_elem * this->unit_size;
+  size_t data_idx_en = data_idx_st + copy_size;
 
   assert(pid < g_num_partitions);
-  assert((data_idx_en / elem_size) < initial_num_records_per_part);
-  assert(data_idx_en < size_per_part);
+  assert((data_idx_en / unit_size) < capacity_per_partition);
+  assert(data_idx_en < total_size_per_partition);
 
-  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
+  for (auto i = 0; i < global_conf::num_master_versions; i++) {
     bool ins = false;
     for (const auto& chunk : master_versions[i][pid]) {
       //      assert(pid == chunk.numa_id);
 
-      if (__likely(chunk.size >= (data_idx_en + elem_size))) {
+      if (__likely(chunk.size >= (data_idx_en + unit_size))) {
         void* dst = (void*)(((char*)chunk.data) + data_idx_st);
         std::memcpy(dst, data, copy_size);
 
@@ -848,7 +774,7 @@ void Column::insertElemBatch(uint64_t vid, uint64_t num_elem, void* data) {
 
 #if HTAP_UPD_BIT_ON_INSERT
     if (__likely(i == mver)) {
-      for (size_t st = 0; st < num_elem; st++) {
+      for (auto st = 0; st < num_elem; st++) {
         upd_bit_masks[mver][pid][(offset + st) / BIT_PACK_SIZE].set(
             (offset + st) % BIT_PACK_SIZE);
       }
@@ -875,14 +801,14 @@ void ColumnStore::num_upd_tuples() {
   }
 }
 
-uint64_t Column::num_upd_tuples(const ushort master_ver,
-                                const uint64_t* num_records, bool print) {
-  uint64_t counter = 0;
+size_t Column::num_upd_tuples(master_version_t master_ver,
+                              const size_t* num_records, bool print) {
+  size_t counter = 0;
   for (int j = 0; j < g_num_partitions; j++) {
     if (touched[j] == false) continue;
 
     if (__likely(num_records != nullptr)) {
-      uint64_t recs_scanned = 0;
+      size_t recs_scanned = 0;
       for (auto& chunk : upd_bit_masks[master_ver][j]) {
         counter += chunk.count(std::memory_order_acquire);
         recs_scanned += BIT_PACK_SIZE;
@@ -905,7 +831,8 @@ uint64_t Column::num_upd_tuples(const ushort master_ver,
   return counter;
 }
 
-void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
+void ColumnStore::twinColumn_snapshot(
+    xid_t epoch, master_version_t snapshot_master_version) {
   uint64_t partitions_n_recs[global_conf::MAX_PARTITIONS];
 
   for (uint i = 0; i < g_num_partitions; i++) {
@@ -915,22 +842,7 @@ void ColumnStore::snapshot(uint64_t epoch, uint8_t snapshot_master_ver) {
   }
 
   for (auto& col : this->columns) {
-    col.snapshot(partitions_n_recs, epoch, snapshot_master_ver);
-  }
-}
-
-void Column::snapshot(const uint64_t* n_recs_part, uint64_t epoch,
-                      uint8_t snapshot_master_ver) {
-  for (int i = 0; i < g_num_partitions; i++) {
-    assert(snapshot_arenas[i].size() == 1);
-
-    snapshot_arenas[i][0]->create_snapshot(
-        {n_recs_part[i], epoch, snapshot_master_ver, static_cast<uint8_t>(i),
-         this->touched[i]});
-
-    if (this->touched[i]) etl_arenas[i][0]->setUpdated();
-
-    this->touched[i] = false;
+    col.twinColumn_snapshot(partitions_n_recs, epoch, snapshot_master_version);
   }
 }
 
@@ -943,7 +855,7 @@ int64_t* ColumnStore::snapshot_get_number_tuples(bool olap_snapshot,
     const auto& totalNumRecords =
         columns[0].snapshot_arenas[0][0]->getMetadata().numOfRecords;
 
-    int64_t* arr = (int64_t*)malloc(sizeof(int64_t*) * nParts);
+    auto* arr = (int64_t*)malloc(sizeof(int64_t*) * nParts);
 
     size_t i = 0;
     size_t sum = 0;
@@ -967,8 +879,8 @@ int64_t* ColumnStore::snapshot_get_number_tuples(bool olap_snapshot,
 
     return arr;
   } else {
-    const uint num_parts = this->columns[0].num_partitions;
-    int64_t* arr = (int64_t*)malloc(sizeof(int64_t*) * num_parts);
+    const uint num_parts = this->columns[0].n_partitions;
+    auto* arr = (int64_t*)malloc(sizeof(int64_t*) * num_parts);
 
     for (uint i = 0; i < num_parts; i++) {
       if (__unlikely(olap_snapshot)) {
@@ -1056,20 +968,20 @@ ColumnStore::snapshot_get_data(size_t scan_idx,
       }
 
     } else {
-      size_t elem_size = 0;
+      size_t unit_size = 0;
       for (size_t j = 0; j < wantedFields.size(); j++) {
         for (const auto& cl : this->columns) {
           if (cl.name.compare(wantedFields[j]->getAttrName()) == 0) {
-            elem_size = cl.elem_size;
+            unit_size = cl.unit_size;
           }
         }
       }
 
-      assert(elem_size != 0);
+      assert(unit_size != 0);
       for (const auto& ofs : elastic_offsets) {
         bool added = false;
         for (auto& sy : getit) {
-          if (((char*)sy.first.data + (ofs * elem_size)) <=
+          if (((char*)sy.first.data + (ofs * unit_size)) <=
               ((char*)sy.first.data + sy.first.size)) {
             ret.emplace_back(std::make_pair(sy.first, ofs));
             added = true;
@@ -1101,7 +1013,7 @@ std::vector<std::pair<oltp::common::mem_chunk, size_t>>
 Column::snapshot_get_data(bool olap_local, bool elastic_scan) const {
   std::vector<std::pair<oltp::common::mem_chunk, size_t>> ret;
 
-  for (uint i = 0; i < num_partitions; i++) {
+  for (uint i = 0; i < n_partitions; i++) {
     assert(master_versions[0][i].size() == 1);
     if (olap_local) {
       LOG(INFO) << "OLAP_LOCAL Requested: ";
@@ -1110,13 +1022,14 @@ Column::snapshot_get_data(bool olap_local, bool elastic_scan) const {
 
       LOG(INFO) << "[SnapshotData][" << this->name << "][P:" << i
                 << "] Mode: LOCAL "
-                << ((double)(olap_arena.numOfRecords * this->elem_size)) /
+                << ((double)(olap_arena.numOfRecords * this->unit_size)) /
                        (1024 * 1024 * 1024)
                 << " GB";
 
       ret.emplace_back(std::make_pair(
-          oltp::common::mem_chunk(
-              this->etl_mem[i], olap_arena.numOfRecords * this->elem_size, -1),
+          oltp::common::mem_chunk(this->readonly_etl_snapshot[i][0].data,
+                                  olap_arena.numOfRecords * this->unit_size,
+                                  -1),
           olap_arena.numOfRecords));
 
     } else {
@@ -1126,7 +1039,7 @@ Column::snapshot_get_data(bool olap_local, bool elastic_scan) const {
 
       LOG(INFO) << "[SnapshotData][" << this->name << "][P:" << i
                 << "] Mode: REMOTE2 "
-                << ((double)(snap_arena.numOfRecords * this->elem_size)) /
+                << ((double)(snap_arena.numOfRecords * this->unit_size)) /
                        (1024 * 1024 * 1024)
                 << " GB";
 
@@ -1140,7 +1053,7 @@ Column::snapshot_get_data(bool olap_local, bool elastic_scan) const {
     //     assert(HTAP_ETL && "OLAP local mode is not turned on");
     //     ret.emplace_back(std::make_pair(
     //         mem_chunk(this->etl_mem[i],
-    //                   snap_arena.numOfRecords * this->elem_size, -1),
+    //                   snap_arena.numOfRecords * this->unit_size, -1),
     //         snap_arena.numOfRecords));
     //   } else {
     //     ret.emplace_back(std::make_pair(chunk, snap_arena.numOfRecords));
@@ -1174,7 +1087,7 @@ Column::elastic_partition(uint pid, std::set<size_t>& segment_boundaries) {
 
     LOG(INFO) << "[SnapshotData][" << this->name << "][P:" << pid
               << "] Mode: ELASTIC-REMOTE "
-              << ((double)(snap_arena.numOfRecords * this->elem_size)) /
+              << ((double)(snap_arena.numOfRecords * this->unit_size)) /
                      (1024 * 1024 * 1024);
 
     ret.emplace_back(
@@ -1189,11 +1102,11 @@ Column::elastic_partition(uint pid, std::set<size_t>& segment_boundaries) {
 
       LOG(INFO) << "[SnapshotData][" << this->name << "][P:" << pid
                 << "] Mode: ELASTIC-LOCAL "
-                << ((double)(olap_arena.numOfRecords * this->elem_size)) /
+                << ((double)(olap_arena.numOfRecords * this->unit_size)) /
                        (1024 * 1024 * 1024);
       ret.emplace_back(std::make_pair(
-          oltp::common::mem_chunk(this->etl_mem[pid],
-                                  olap_arena.numOfRecords * this->elem_size,
+          oltp::common::mem_chunk(this->readonly_etl_snapshot[pid][0].data,
+                                  olap_arena.numOfRecords * this->unit_size,
                                   -1),
           olap_arena.numOfRecords));
 
@@ -1207,8 +1120,8 @@ Column::elastic_partition(uint pid, std::set<size_t>& segment_boundaries) {
       size_t diff = snap_arena.numOfRecords - olap_arena.numOfRecords;
       // local-part
       ret.emplace_back(std::make_pair(
-          oltp::common::mem_chunk(this->etl_mem[pid],
-                                  olap_arena.numOfRecords * this->elem_size,
+          oltp::common::mem_chunk(this->readonly_etl_snapshot[pid][0].data,
+                                  olap_arena.numOfRecords * this->unit_size,
                                   -1),
           olap_arena.numOfRecords));
 
@@ -1219,10 +1132,10 @@ Column::elastic_partition(uint pid, std::set<size_t>& segment_boundaries) {
 
       char* oltp_mem =
           (char*)master_versions[snap_arena.master_ver][pid][0].data;
-      oltp_mem += olap_arena.numOfRecords * this->elem_size;
+      oltp_mem += olap_arena.numOfRecords * this->unit_size;
 
       ret.emplace_back(std::make_pair(
-          oltp::common::mem_chunk(oltp_mem, diff * this->elem_size, -1), diff));
+          oltp::common::mem_chunk(oltp_mem, diff * this->unit_size, -1), diff));
 
       // if (this->name.compare("ol_number") == 0) {
       //    uint32_t* ls = (uint32_t*)data;
@@ -1239,11 +1152,12 @@ Column::elastic_partition(uint pid, std::set<size_t>& segment_boundaries) {
   return ret;
 }
 
-void ColumnStore::ETL(uint numa_node_idx) {
+void ColumnStore::ETL(uint numa_affinity_idx) {
   std::vector<proteus::thread> workers;
 
   for (auto& col : this->columns) {
-    workers.emplace_back([&col, numa_node_idx]() { col.ETL(numa_node_idx); });
+    workers.emplace_back(
+        [&col, numa_affinity_idx]() { col.ETL(numa_affinity_idx); });
   }
 
   for (auto& th : workers) {
@@ -1251,12 +1165,12 @@ void ColumnStore::ETL(uint numa_node_idx) {
   }
 }
 
-void Column::ETL(uint numa_node_index) {
+void Column::ETL(uint numa_affinity_idx) {
   // TODO: ETL with respect to the bit-mask.
   set_exec_location_on_scope d{
-      topology::getInstance().getCpuNumaNodes()[numa_node_index]};
+      topology::getInstance().getCpuNumaNodes()[numa_affinity_idx]};
 
-  for (uint i = 0; i < this->num_partitions; i++) {
+  for (uint i = 0; i < this->n_partitions; i++) {
     // zero assume no runtime column expansion
     const auto& snap_arena = snapshot_arenas[i][0]->getMetadata();
     const auto& olap_arena = etl_arenas[i][0]->getMetadata();
@@ -1277,14 +1191,15 @@ void Column::ETL(uint numa_node_index) {
 
         if (upd_bit_masks[snap_arena.master_ver][i][msk].any(
                 std::memory_order_acquire)) {
-          size_t to_cpy = BIT_PACK_SIZE * this->elem_size;
+          size_t to_cpy = BIT_PACK_SIZE * this->unit_size;
           size_t st = msk * to_cpy;
 
           if (__likely(st + to_cpy <= chunk.size)) {
-            memcpy((char*)(etl_mem[i]) + st, (char*)chunk.data + st, to_cpy);
+            memcpy((char*)(readonly_etl_snapshot[i][0].data) + st,
+                   (char*)chunk.data + st, to_cpy);
           } else {
-            memcpy((char*)(etl_mem[i]) + st, (char*)chunk.data + st,
-                   chunk.size - st);
+            memcpy((char*)(readonly_etl_snapshot[i][0].data) + st,
+                   (char*)chunk.data + st, chunk.size - st);
           }
 
           upd_bit_masks[snap_arena.master_ver][i][msk].reset(
@@ -1294,53 +1209,65 @@ void Column::ETL(uint numa_node_index) {
     }
 
     if (__likely(snap_arena.numOfRecords > olap_num_rec)) {
-      // std::cout << this->name << " : new_records: " <<
-      // snap_arena.numOfRecords
-      //           << " | " << snap_arena.prev_numOfRecords << std::endl;
-
       //      LOG(INFO) << "ETL-" << this->name << " | inserted records: "
       //                << (snap_arena.numOfRecords - olap_num_rec) << ", Size:
       //                "
       //                << (double)((snap_arena.numOfRecords - olap_num_rec) *
-      //                            this->elem_size) /
+      //                            this->unit_size) /
       //                       (1024 * 1024 * 1024);
-      size_t st = olap_num_rec * this->elem_size;
+      size_t st = olap_num_rec * this->unit_size;
       size_t to_cpy =
-          (snap_arena.numOfRecords - olap_num_rec) * this->elem_size;
-      memcpy(((char*)(etl_mem[i])) + st, ((char*)chunk.data) + st, to_cpy);
+          (snap_arena.numOfRecords - olap_num_rec) * this->unit_size;
+      memcpy(((char*)(readonly_etl_snapshot[i][0].data)) + st,
+             ((char*)chunk.data) + st, to_cpy);
     }
 
     // for (const auto& chunk : master_versions[snap_arena.master_ver][i]) {
     //   if (snap_arena.upd_since_last_snapshot) {
     //     memcpy(etl_mem[i], chunk.data,
-    //            snap_arena.numOfRecords * this->elem_size);
+    //            snap_arena.numOfRecords * this->unit_size);
     //   }
     // }
   }
 }
+
+void Column::twinColumn_snapshot(const rowid_t* num_rec_per_part, xid_t epoch,
+                                 master_version_t snapshot_master_ver) {
+  for (auto i = 0; i < g_num_partitions; i++) {
+    assert(snapshot_arenas[i].size() == 1);
+
+    snapshot_arenas[i][0]->create_snapshot(
+        {num_rec_per_part[i], epoch, snapshot_master_ver,
+         static_cast<uint8_t>(i), this->touched[i]});
+
+#if HTAP_ETL
+    if (this->touched[i]) etl_arenas[i][0]->setUpdated();
+#endif
+
+    this->touched[i] = false;
+  }
+}
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
-void ColumnStore::sync_master_snapshots(ushort master_ver_idx) {
+
+void ColumnStore::twinColumn_syncMasters(master_version_t master_idx) {
   assert(global_conf::num_master_versions > 1);
   for (auto& col : this->columns) {
     if (!(col.type == STRING || col.type == VARCHAR)) {
-      col.sync_master_snapshots(master_ver_idx);
+      col.twinColumn_syncMasters(master_idx);
     }
   }
 }
-#pragma clang diagnostic pop
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-noreturn"
-// master_ver_idx is the inactive master, that is the snapshot.
-void Column::sync_master_snapshots(ushort master_ver_idx) {
+void Column::twinColumn_syncMasters(master_version_t inactive_master_idx) {
   assert(global_conf::num_master_versions > 1);
 
-  for (ushort i = 0; i < global_conf::num_master_versions; i++) {
-    if (i == master_ver_idx) continue;
-    for (ushort j = 0; j < this->num_partitions; j++) {
+  for (auto i = 0; i < global_conf::num_master_versions; i++) {
+    if (i == inactive_master_idx) continue;
+    for (auto j = 0; j < this->n_partitions; j++) {
       // std::cout << "sync: p_id: " << j << std::endl;
-      assert(master_versions[master_ver_idx][j].size() ==
+      assert(master_versions[inactive_master_idx][j].size() ==
              master_versions[i][j].size());
 
       // assert(upd_bit_masks[master_ver_idx][j].size() ==
@@ -1359,7 +1286,7 @@ void Column::sync_master_snapshots(ushort master_ver_idx) {
       //        "Expandable memory not supported");
 
       const auto& dst = master_versions[i][j][0];
-      const auto& src = master_versions[master_ver_idx][j][0];
+      const auto& src = master_versions[inactive_master_idx][j][0];
       assert(dst.size == src.size);
 
       const auto& snap_arena = snapshot_arenas[j][0]->getMetadata();
@@ -1374,17 +1301,17 @@ void Column::sync_master_snapshots(ushort master_ver_idx) {
       //           << std::endl;
       // std::cout << "Total SnapRec: " << snap_arena.numOfRecords << std::endl;
 
-      for (size_t msk = 0; msk < upd_bit_masks[master_ver_idx][j].size();
+      for (auto msk = 0; msk < upd_bit_masks[inactive_master_idx][j].size();
            msk++) {
         // std::cout << "msk: " << msk << std::endl;
-        const auto& src_msk = upd_bit_masks[master_ver_idx][j][msk];
+        const auto& src_msk = upd_bit_masks[inactive_master_idx][j][msk];
         const auto& actv_msk = upd_bit_masks[i][j][msk];
 
         if ((msk * BIT_PACK_SIZE) > snap_arena.numOfRecords) break;
 
         if (!src_msk.any() || actv_msk.all()) continue;
 
-        for (ushort bb = 0; bb < BIT_PACK_SIZE; bb++) {
+        for (auto bb = 0; bb < BIT_PACK_SIZE; bb++) {
           size_t data_idx = (msk * BIT_PACK_SIZE) + bb;
 
           // scan only the records snapshotted, not everything.
@@ -1393,11 +1320,11 @@ void Column::sync_master_snapshots(ushort master_ver_idx) {
           if (src_msk.test(bb) && !actv_msk.test(bb)) {
             // do the sync
 
-            size_t mem_idx = data_idx * elem_size;
+            size_t mem_idx = data_idx * unit_size;
             assert(mem_idx < dst.size);
             assert(mem_idx < src.size);
 
-            switch (this->elem_size) {
+            switch (this->unit_size) {
               case 1: {  // uint8_t
                 uint8_t old_val = (*(actv_ptr + mem_idx));
                 uint8_t new_val = (*(src_ptr + mem_idx));
@@ -1427,9 +1354,10 @@ void Column::sync_master_snapshots(ushort master_ver_idx) {
                 break;
               }
               default: {
-                // std::unique_lock<std::mutex> lk(print_mutex);
-                std::cout << "col fucked: " << this->name << std::endl;
-                assert(false);
+                LOG(INFO) << "Unsupported column width for snapshotting: "
+                          << this->name;
+                throw std::runtime_error(
+                    "Unsupported column width for snapshotting: " + this->name);
               }
             }
           }
@@ -1438,6 +1366,7 @@ void Column::sync_master_snapshots(ushort master_ver_idx) {
     }
   }
 }
+
 #pragma clang diagnostic pop
 
 };  // namespace storage

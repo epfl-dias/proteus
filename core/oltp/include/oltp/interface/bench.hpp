@@ -27,26 +27,30 @@
 #include <iostream>
 #include <string>
 
+#include "oltp/common/common.hpp"
+
 namespace bench {
 
 class Benchmark {
  public:
   const std::string name;
-  ushort num_active_workers;
-  const ushort num_max_workers;
-  const ushort num_partitions;
+  worker_id_t num_active_workers;
+  const worker_id_t num_max_workers;
+  const partition_id_t num_partitions;
 
   virtual void init() {}
   virtual void deinit() {}
   virtual void load_data(int num_threads = 1) {}
-  virtual void gen_txn(int wid, void *txn_ptr, ushort partition_id) {}
-  virtual bool exec_txn(const void *stmts, uint64_t xid, ushort master_ver,
-                        ushort delta_ver, ushort partition_id) {
+  virtual void gen_txn(worker_id_t wid, void *txn_ptr,
+                       partition_id_t partition_id) {}
+  virtual bool exec_txn(const void *stmts, xid_t xid,
+                        master_version_t master_ver, delta_id_t delta_ver,
+                        partition_id_t partition_id) {
     return true;
   }
 
   // Should return a memory pointer which will be used to describe a query.
-  virtual void *get_query_struct_ptr(ushort pid) { return nullptr; }
+  virtual void *get_query_struct_ptr(partition_id_t pid) { return nullptr; }
   virtual void free_query_struct_ptr(void *ptr) {}
 
   // NOTE: Following will run before/after the workers starts the execution. it
@@ -54,13 +58,14 @@ class Benchmark {
   // workers finish the pre-run and a worker will not start post-run unless all
   // workers are ready to start the post run. Moreover, this will not apply to
   // the hot-plugged workers.
-  virtual void post_run(int wid, uint64_t xid, ushort partition_id,
-                        ushort master_ver) {}
-  virtual void pre_run(int wid, uint64_t xid, ushort partition_id,
-                       ushort master_ver) {}
+  virtual void post_run(worker_id_t wid, xid_t xid, partition_id_t partition_id,
+                        master_version_t master_ver) {}
+  virtual void pre_run(worker_id_t wid, xid_t xid, partition_id_t partition_id,
+                       master_version_t master_ver) {}
 
-  Benchmark(std::string name = "BENNCH-DUMMY", ushort num_active_workers = 1,
-            ushort num_max_workers = 1, ushort num_partitions = 1)
+  Benchmark(std::string name = "BENNCH-DUMMY",
+            worker_id_t num_active_workers = 1, worker_id_t num_max_workers = 1,
+            partition_id_t num_partitions = 1)
       : name(name),
         num_active_workers(num_active_workers),
         num_max_workers(num_max_workers),

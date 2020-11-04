@@ -30,8 +30,7 @@
 #include "oltp/snapshot/cor_const_arena.hpp"
 #include "oltp/snapshot/cow_arena.hpp"
 
-namespace aeolus {
-namespace snapshot {
+namespace aeolus::snapshot {
 
 template <typename T>
 class SnapshotManager_impl {
@@ -46,7 +45,6 @@ class SnapshotManager_impl {
 
 using SnapshotManager = SnapshotManager_impl<CircularMasterProvider>;
 
-}  // namespace snapshot
-}  // namespace aeolus
+}  // namespace aeolus::snapshot
 
 #endif /* AEOLUS_SNAPSHOT_SNAPSHOT_MANAGER_HPP_ */

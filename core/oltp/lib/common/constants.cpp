@@ -25,15 +25,8 @@
 
 #include "oltp/common/utils.hpp"
 
-uint g_num_partitions = 1;
-uint g_delta_size = 4;
-
-bool timed_func::terminate = false;
-int timed_func::num_active_runners = 0;
-
-namespace global_conf {
-proteus::utils::Percentile read_cdf("read_cdf");
-proteus::utils::Percentile read_mv_cdf("read_mv_cdf");
-proteus::utils::Percentile update_cdf("update_cdf");
-proteus::utils::Percentile insert_cdf("insert_cdf");
-}  // namespace global_conf
+// uint g_num_partitions = 1;
+// uint g_delta_size = 4;
+//
+// bool timed_func::terminate = false;
+// int timed_func::num_active_runners = 0;

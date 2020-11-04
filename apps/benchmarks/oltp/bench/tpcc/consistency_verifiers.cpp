@@ -49,31 +49,33 @@ bool TPCC::consistency_check_1() {
   //     GROUP BY tpcc_warehouse.w_id
   //     HAVING sum(w_ytd) != sum(d_ytd)
 
-  bool db_consistent = true;
-  std::vector<proteus::thread> workers;
   // TODO: parallelize
 
-  //  loaders.emplace_back(
-  //      [this]() { this->create_tbl_warehouse(this->num_warehouse); });
+  LOG(INFO) << "##########\tConsistency Check - 1";
+
+  bool db_consistent = true;
+  // std::vector<proteus::thread> workers;
+
+  const column_id_t w_col_scan[] = {8};  // position in columns
+  const column_id_t d_col_scan[] = {9};  // position in columns
 
   for (uint64_t i = 0; i < this->num_warehouse; i++) {
     // Get wh ytd.
     double wh_ytd = 0.0;
-    const ushort w_col_scan[] = {8};  // position in columns
     auto w_idx_ptr = (global_conf::IndexVal *)table_warehouse->p_index->find(i);
 
-    table_warehouse->getRecordByKey(w_idx_ptr, UINT64_MAX, w_col_scan, 1,
-                                    &wh_ytd);
+    table_warehouse->getIndexedRecord(UINT64_MAX, w_idx_ptr, &wh_ytd,
+                                      w_col_scan, 1);
 
     double district_ytd = 0.0;
     for (uint j = 0; j < TPCC_NDIST_PER_WH; j++) {
       // Get all district ytd and sum it.
       double tmp_d_ytd = 0.0;
-      const ushort d_col_scan[] = {9};  // position in columns
+
       auto d_idx_ptr = (global_conf::IndexVal *)table_district->p_index->find(
           MAKE_DIST_KEY(i, j));
-      table_district->getRecordByKey(d_idx_ptr, UINT64_MAX, d_col_scan, 1,
-                                     &tmp_d_ytd);
+      table_district->getIndexedRecord(UINT64_MAX, d_idx_ptr, &tmp_d_ytd,
+                                       d_col_scan, 1);
       district_ytd += tmp_d_ytd;
     }
 
@@ -85,9 +87,11 @@ bool TPCC::consistency_check_1() {
     }
   }
 
-  for (auto &th : workers) {
-    th.join();
-  }
+  //  for (auto &th : workers) {
+  //    th.join();
+  //  }
+
+  LOG(INFO) << "##########\tConsistency Check - 1 Completed.";
   return db_consistent;
 }
 
@@ -228,6 +232,8 @@ bool TPCC::consistency_check_2() {
   //  Comment 2: For Consistency Conditions 2 and 4 (Clauses 3.3.2.2
   //  and 3.3.2.4), sampling the first, last, and two random warehouses is
   //  sufficient.
+
+  LOG(INFO) << "##########\tConsistency Check - 2";
   bool db_consistent = true;
 
   auto queries = consistency_check_2_query_builder();
@@ -257,6 +263,7 @@ bool TPCC::consistency_check_2() {
     LOG(INFO) << "Orders, DistOrders";
     print_inconsistency(s_orders, s_dist_orders);
   }
+  LOG(INFO) << "##########\tConsistency Check - 2 Completed.";
   return db_consistent;
 }
 
@@ -266,21 +273,21 @@ std::vector<PreparedStatement> TPCC::consistency_check_3_query_builder() {
   PreparedStatement new_order_stats =
       ctx.getBuilder()
           .scan("tpcc_neworder<block-remote>",
-                {"no_o_id", "no_d_id", "no_w_id"}, CatalogParser::getInstance(),
+                {"no_w_id", "no_d_id", "no_o_id"}, CatalogParser::getInstance(),
                 pg{"block-remote"})
           .router(DegreeOfParallelism{48}, 32, RoutingPolicy::LOCAL,
                   DeviceType::CPU)
-
           .groupby(
               [&](const auto &arg) -> std::vector<expression_t> {
                 return {arg["no_w_id"], arg["no_d_id"]};
               },
               [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
-                return {GpuAggrMatExpr{(arg["no_o_id"]), 1, 0, MAX},
-                        GpuAggrMatExpr{(arg["no_o_id"]), 2, 0, MIN},
-                        GpuAggrMatExpr{(expression_t{INT64_C(1)})
-                                           .as("PelagoAggregate#1052", "count"),
-                                       3, 0, SUM}};
+                return {
+                    GpuAggrMatExpr{(arg["no_o_id"]), 1, 0, MAX},
+                    GpuAggrMatExpr{(arg["no_o_id"]), 2, 0, MIN},
+                    GpuAggrMatExpr{(expression_t{INT32_C(1)})
+                                       .as("PelagoAggregate#1050", "noCount"),
+                                   3, 0, SUM}};
               },
               log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1,
               log2(this->num_warehouse * TPCC_NDIST_PER_WH) + (1024 * 1024))
@@ -296,26 +303,26 @@ std::vector<PreparedStatement> TPCC::consistency_check_3_query_builder() {
               [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
                 return {GpuAggrMatExpr{
                             (arg["no_o_id"])
-                                .as("PelagoAggregate#1052", "max_neworder"),
+                                .as("PelagoAggregate#1052", "maxNeworder"),
                             1, 0, MAX},
                         GpuAggrMatExpr{
                             (arg["no_o_id"])
-                                .as("PelagoAggregate#1052", "min_neworder"),
+                                .as("PelagoAggregate#1052", "minNeworder"),
                             2, 0, MIN},
                         GpuAggrMatExpr{
-                            (expression_t{1})
-                                .as("PelagoAggregate#1052", "count_neworder"),
+                            (arg["noCount"])
+                                .as("PelagoAggregate#1052", "countNeworder"),
                             3, 0, SUM}};
               },
               log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1, 1024 * 1024)
 
           .project([&](const auto &arg) -> std::vector<expression_t> {
-            return {(arg["no_w_id"]).as("PelagoProject#13144", "no_w_id"),
-                    (arg["no_d_id"]).as("PelagoProject#13144", "no_d_id"),
-                    (arg["max_neworder"] - arg["min_neworder"] + 1)
-                        .as("PelagoProject#13144", "expected_count"),
-                    (arg["count_neworder"])
-                        .as("PelagoProject#13144", "actual_count")
+            return {
+                (arg["no_w_id"]).as("PelagoProject#13144", "no_w_id"),
+                (arg["no_d_id"]).as("PelagoProject#13144", "no_d_id"),
+                (arg["maxNeworder"] - arg["minNeworder"] + 1)
+                    .as("PelagoProject#13144", "expected_count"),
+                (arg["countNeworder"]).as("PelagoProject#13144", "actual_count")
 
             };
           })
@@ -346,6 +353,7 @@ bool TPCC::consistency_check_3() {
   //     GROUP BY no_w_id, no_d_id
   //     HAVING max(no_o_id)-min(no_o_id)+1 != count(no_o_id)
 
+  LOG(INFO) << "##########\tConsistency Check - 3";
   bool db_consistent = true;
 
   auto query = consistency_check_3_query_builder();
@@ -353,10 +361,20 @@ bool TPCC::consistency_check_3() {
   LOG(INFO) << query[0].execute();
   LOG(INFO) << "CHECK-3";
 
+  LOG(INFO) << "##########\tConsistency Check - 3 Completed.";
+
   return db_consistent;
 }
 
 std::vector<PreparedStatement> TPCC::consistency_check_4_query_builder() {
+  // uint warehouse_id, uint district_id
+  //  RelBuilderFactory ctx_one{"tpcc_consistency_check_4_1"};
+  //  RelBuilderFactory ctx_two{"tpcc_consistency_check_4_2"};
+  //  CatalogParser &catalog = CatalogParser::getInstance();
+  // PreparedStatement order; // =
+  // ctx_one.getBuilder()
+  // PreparedStatement orderline;
+
   return {};
 }
 
@@ -438,8 +456,9 @@ void TPCC::verify_consistency() {
   //  set_exec_location_on_scope d{all_cpu_set};
 
   // execute consistency checks.
-  if (consistency_check_1() && consistency_check_2() && consistency_check_3() /*&&
-      consistency_check_4()*/) {
+  if (consistency_check_1() && consistency_check_2()) {
+    //&& consistency_check_3()) { /*&&
+    //// consistency_check_4()*/
     LOG(INFO) << "DB IS CONSISTENT.";
   } else {
     LOG(FATAL) << "DB IS NOT CONSISTENT.";

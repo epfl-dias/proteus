@@ -59,10 +59,10 @@ bool update_query(uint64_t xid, ushort master_ver, ushort delta_ver,
   auto *hash_ptr = (global_conf::IndexVal *)tbl->p_index->find(5);
   if (hash_ptr->write_lck.try_lock()) {
     hash_ptr->latch.acquire();
-    ushort col_update_idx = 1;
+    column_id_t col_update_idx = 1;
     record[col_update_idx] = 15;
-    tbl->updateRecord(xid, hash_ptr, &(record[col_update_idx]), master_ver,
-                      delta_ver, &col_update_idx, 1);
+    tbl->updateRecord(xid, hash_ptr, &(record[col_update_idx]), delta_ver,
+                      &col_update_idx, 1, master_ver);
     hash_ptr->latch.release();
     hash_ptr->write_lck.unlock();
     LOG(INFO) << "UPDATE QUERY SUCCESS";
@@ -81,7 +81,7 @@ bool select_query(uint64_t xid, ushort master_ver, ushort delta_ver,
 
   if (hash_ptr != nullptr) {
     hash_ptr->latch.acquire();
-    tbl->getRecordByKey(hash_ptr, UINT64_MAX, nullptr, 0, &(record[0]));
+    tbl->getIndexedRecord(xid, hash_ptr, &(record[0]), nullptr, 0);
     hash_ptr->latch.release();
     LOG(INFO) << "SELECT VALUE GOT: [0]: " << record[0];
     LOG(INFO) << "SELECT VALUE GOT: [1]: " << record[1];
@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
   oltp_engine.init();
 
   // CREATE TABLE T(a INTEGER, b INTEGER)
-  storage::ColumnDef columns;
+  storage::TableDef columns;
   for (int i = 0; i < num_fields; i++) {
     columns.emplace_back("col_" + std::to_string(i + 1), storage::INTEGER,
                          sizeof(uint64_t));

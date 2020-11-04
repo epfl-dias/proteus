@@ -26,26 +26,18 @@
 
 #include <iostream>
 
-namespace indexes {
+#include "oltp/common/common.hpp"
 
-// class Index {
-// public:
-//  Index() { std::cout << "Index constructor\n" << std::endl; };
-//
-//  void put(void* key, void* val);
-//  void* getByKey(void* key);
-//
-//  void gc();
-//};
+namespace indexes {
 
 template <class K = uint64_t, class V = void *>
 class Index {
  public:
   Index() = default;
   Index(std::string name) : name(std::move(name)) {}
-  Index(std::string name, uint64_t initial_capacity) : name(std::move(name)) {}
-  virtual V find(K key) = 0;
-  virtual bool insert(K key, V &value) = 0;
+  Index(std::string name, rowid_t initial_capacity) : name(std::move(name)) {}
+  //  virtual V find(K key) = 0;
+  //  virtual bool insert(K key, V &value) = 0;
   virtual ~Index() {}
 
   const std::string name;

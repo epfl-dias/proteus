@@ -25,9 +25,11 @@
 #define STORAGE_TABLE_HPP_
 
 #include <cassert>
+#include <deque>
 #include <future>
 #include <iostream>
 #include <map>
+#include <olap/values/expressionTypes.hpp>
 #include <platform/util/percentile.hpp>
 #include <stdexcept>
 #include <string>
@@ -37,226 +39,89 @@
 #include "oltp/common/constants.hpp"
 #include "oltp/snapshot/snapshot_manager.hpp"
 #include "oltp/storage/multi-version/delta_storage.hpp"
-
-using dict_dstring_t = std::map<uint64_t, std::string>;
+#include "oltp/storage/schema.hpp"
 
 namespace storage {
 
-class Schema;
-class Table;
-class ColumnStore;
-class RowStore;
-class Column;
-class DeltaStore;
-
-enum layout_type { ROW_STORE, COLUMN_STORE };
-
-enum data_type { META, MV, INTEGER, STRING, FLOAT, VARCHAR, DATE, DSTRING };
-
-class ColumnDef {
-  std::vector<
-      std::tuple<std::string, storage::data_type, size_t, dict_dstring_t *>>
-      columns;
-
- public:
-  void emplace_back(std::string name, data_type dt, size_t width,
-                    dict_dstring_t *dict = nullptr) {
-    columns.emplace_back(name, dt, width, dict);
-  }
-
-  size_t size() { return columns.size(); }
-
-  std::vector<
-      std::tuple<std::string, storage::data_type, size_t, dict_dstring_t *>>
-
-  getColumns() {
-    return columns;
-  }
-};
-
-class NUMAPartitionPolicy {
- public:
-  // Singleton
-  static inline NUMAPartitionPolicy &getInstance() {
-    static NUMAPartitionPolicy instance;
-    return instance;
-  }
-  NUMAPartitionPolicy(NUMAPartitionPolicy const &) = delete;  // Don't Implement
-  void operator=(NUMAPartitionPolicy const &) = delete;       // Don't implement
-
-  class TablePartition {
-   public:
-    const uint pid;
-    const uint numa_idx;
-
-   public:
-    explicit TablePartition(uint pid, uint numa_idx)
-        : pid(pid), numa_idx(numa_idx) {}
-
-    inline bool operator==(const TablePartition &o) const {
-      return (pid == o.pid && numa_idx == o.numa_idx);
-    }
-    friend std::ostream &operator<<(std::ostream &out, const TablePartition &r);
-  };
-
-  const TablePartition &getPartitionInfo(uint pid) {
-    assert(pid < PartitionVector.size());
-    return PartitionVector[pid];
-  }
-
-  uint getDefaultPartition() {
-    assert(!PartitionVector.empty());
-    return PartitionVector[0].numa_idx;
-  }
-
- private:
-  std::vector<TablePartition> PartitionVector;
-
-  NUMAPartitionPolicy() {
-    auto num_numa_nodes = topology::getInstance().getCpuNumaNodeCount();
-    for (uint i = 0; i < g_num_partitions; i++) {
-      if (global_conf::reverse_partition_numa_mapping)
-        PartitionVector.emplace_back(TablePartition{i, num_numa_nodes - i - 1});
-      else
-        PartitionVector.emplace_back(TablePartition{i, i});
-    }
-    LOG(INFO) << *this;
-  }
-
-  friend std::ostream &operator<<(std::ostream &out,
-                                  const NUMAPartitionPolicy &r);
-};
-
-class Schema {
- public:
-  // Singleton
-  static inline Schema &getInstance() {
-    static Schema instance;
-    return instance;
-  }
-  Schema(Schema const &) = delete;          // Don't Implement
-  void operator=(Schema const &) = delete;  // Don't implement
-
-  Table *getTable(int idx);
-  Table *getTable(const std::string &name);
-  std::vector<Table *> getAllTables();
-  std::vector<Table *> getTables() { return tables; }
-
-  /* returns pointer to the table */
-  Table *create_table(std::string name, layout_type layout, ColumnDef columns,
-                      uint64_t initial_num_records = 10000000,
-                      bool indexed = true, bool partitioned = true,
-                      int numa_idx = -1);
-
-  void drop_table(Table *);
-  void drop_table(const std::string &name);
-
-  void teardown(const std::string &cdf_out_path = "");
-
-  // delta-based multi-versioning
-  void add_active_txn(ushort ver, uint64_t epoch, uint8_t worker_id);
-  void remove_active_txn(ushort ver, uint64_t epoch, uint8_t worker_id);
-  void switch_delta(ushort prev, ushort curr, uint64_t epoch,
-                    uint8_t worker_id);
-
-  // twin-column/ HTAP snapshotting
-  void snapshot(uint64_t epoch, uint8_t snapshot_master_ver);
-  void ETL(uint numa_node_idx);
-  bool is_sync_in_progress() { return snapshot_sync_in_progress.load(); }
-
-  // utilitiy functions
-  void report();
-  void memoryReport() const;
-  static void save_cdf(const std::string &out_path);
-
- private:
-  std::vector<Table *> tables;
-  DeltaStore *deltaStore[global_conf::num_delta_storages]{};
-
-  // stats
-  uint8_t num_tables;
-  uint64_t total_mem_reserved;
-  uint64_t total_delta_mem_reserved;
-
-  // snapshotting
-  std::future<bool> snapshot_sync;
-  std::atomic<bool> snapshot_sync_in_progress;
-  bool sync_master_ver_tbl(const storage::Table *tbl,
-                           uint8_t snapshot_master_ver);
-  bool sync_master_ver_schema(uint8_t snapshot_master_ver);
-
-  Schema()
-      : total_mem_reserved(0),
-        total_delta_mem_reserved(0),
-        snapshot_sync_in_progress(false),
-        num_tables(0) {
-    aeolus::snapshot::SnapshotManager::init();
-
-    for (int i = 0; i < global_conf::num_delta_storages; i++) {
-      deltaStore[i] =
-          new DeltaStore(i, g_delta_size, g_delta_size, g_num_partitions);
-      this->total_delta_mem_reserved += deltaStore[i]->total_mem_reserved;
-    }
-  }
-
-  friend class Table;
-  friend class ColumnStore;
-};
-
 class Table {
  public:
-  virtual uint64_t insertRecord(void *rec, ushort partition_id,
-                                ushort master_ver) = 0;
-  virtual void *insertRecord(void *rec, uint64_t xid, ushort partition_id,
-                             ushort master_ver) = 0;
-  virtual void *insertRecordBatch(void *rec_batch, uint recs_to_ins,
-                                  uint capacity_offset, uint64_t xid,
-                                  ushort partition_id, ushort master_ver) = 0;
+  virtual global_conf::IndexVal *insertRecord(const void *data,
+                                              xid_t transaction_id,
+                                              partition_id_t partition_id,
+                                              master_version_t master_ver) = 0;
+  virtual global_conf::IndexVal *insertRecordBatch(
+      const void *data, size_t num_records, size_t max_capacity,
+      xid_t transaction_id, partition_id_t partition_id,
+      master_version_t master_ver) = 0;
 
-  virtual void updateRecord(uint64_t xid, global_conf::IndexVal *hash_ptr,
-                            const void *rec, ushort curr_master,
-                            ushort curr_delta, const ushort *col_idx,
-                            short num_cols) = 0;
+  virtual void updateRecord(xid_t transaction_id,
+                            global_conf::IndexVal *index_ptr, void *data,
+                            delta_id_t current_delta_id,
+                            const column_id_t *col_idx, short num_columns,
+                            master_version_t master_ver) = 0;
 
-  virtual void deleteRecord(uint64_t vid, ushort master_ver) = 0;
+  virtual void updateRecordBatch(xid_t transaction_id,
+                                 global_conf::IndexVal *index_ptr, void *data,
+                                 size_t num_records,
+                                 delta_id_t current_delta_id,
+                                 const column_id_t *col_idx, short num_columns,
+                                 master_version_t master_ver) = 0;
 
-  virtual void getRecordByKey(global_conf::IndexVal *idx_ptr, uint64_t txn_id,
-                              const ushort *col_idx, ushort num_cols,
-                              void *loc) = 0;
+  virtual void deleteRecord(xid_t transaction_id,
+                            global_conf::IndexVal *index_ptr,
+                            master_version_t master_ver) = 0;
 
-  virtual void touchRecordByKey(uint64_t vid) = 0;
+  virtual void getIndexedRecord(xid_t transaction_id,
+                                global_conf::IndexVal *index_ptr,
+                                void *destination, const column_id_t *col_idx,
+                                short num_cols) = 0;
 
-  // hack for loading binary files
-  virtual void insertIndexRecord(uint64_t rid, uint64_t xid,
-                                 ushort partition_id, ushort master_ver) = 0;
+  virtual void getRecord(xid_t transaction_id, rowid_t rowid, void *destination,
+                         const column_id_t *col_idx, short num_cols) = 0;
 
-  virtual void snapshot(uint64_t epoch, uint8_t snapshot_master_ver) = 0;
-
-  virtual void ETL(uint numa_node_idx) = 0;
-
-  // uint64_t getNumRecords() { return (vid.load() - 1); }
-
-  void reportUsage();
-  Table(std::string name, uint8_t table_id, layout_type storage_layout,
-        ColumnDef columns);
-  virtual ~Table();
-
-  global_conf::PrimaryIndex<uint64_t> *p_index;
-  global_conf::PrimaryIndex<uint64_t> **s_index;
-  uint64_t total_mem_reserved;
-  std::deque<std::atomic<uint64_t>> vid;
-  const std::string name;
-  const uint8_t table_id;
-
-  const layout_type storage_layout;
+  // Snapshot / HTAP
+  virtual void twinColumn_snapshot(
+      xid_t epoch, master_version_t snapshot_master_version) = 0;
+  virtual void twinColumn_syncMasters(master_version_t master_idx) = 0;
+  virtual void ETL(uint numa_affinity_idx) = 0;
 
  protected:
-  int num_columns;
-  DeltaStore **deltaStore;
+  Table(table_id_t table_id, std::string &name, layout_type storage_layout,
+        TableDef &columns);
+  virtual ~Table();
 
-  size_t rec_size;
-  uint64_t initial_num_recs;
-  bool indexed;
+ public:
+  const std::string name;
+  const table_id_t table_id;
+  const layout_type storage_layout;
+
+  global_conf::PrimaryIndex<uint64_t> *p_index{};
+
+  // global_conf::PrimaryIndex<uint64_t> **s_index;
+
+ protected:
+  std::deque<std::atomic<rowid_t>> vid{};
+  DeltaStore **deltaStore{};
+
+  uint64_t total_memory_reserved;
+  size_t record_size{};
+  uint64_t record_capacity{};
+
+  partition_id_t n_partitions{};
+  column_id_t n_columns{};
+  bool indexed{};
+
+  std::vector<std::pair<uint16_t, uint16_t>> column_size_offset_pairs{};
+  std::vector<uint16_t> column_size_offsets{};
+  std::vector<uint16_t> column_size{};
+
+ public:
+  // Utilities
+  void reportUsage();
+  static ExpressionType *getProteusType(const ColumnDef &column);
+  [[nodiscard]] inline auto numColumns() const { return this->n_columns; }
+  [[nodiscard]] inline auto numPartitions() const { return this->n_partitions; }
+  [[nodiscard]] inline auto isIndexed() const { return indexed; }
 
   friend class Schema;
 };

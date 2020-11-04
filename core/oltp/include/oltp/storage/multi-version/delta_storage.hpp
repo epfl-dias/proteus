@@ -32,6 +32,7 @@
 #include <mutex>
 #include <platform/memory/memory-manager.hpp>
 
+#include "oltp/common/common.hpp"
 #include "oltp/common/memory-chunk.hpp"
 
 #define DELTA_DEBUG 1
@@ -45,19 +46,20 @@ class DeltaList;
 
 class alignas(4096) DeltaStore {
  public:
-  DeltaStore(uint8_t delta_id, uint64_t ver_list_capacity = 4,
-             uint64_t ver_data_capacity = 4, int num_partitions = 1);
+  DeltaStore(delta_id_t delta_id, uint64_t ver_list_capacity = 4,
+             uint64_t ver_data_capacity = 4, partition_id_t num_partitions = 1);
   ~DeltaStore();
 
   void print_info();
-  void *insert_version(DeltaList &delta_chunk, uint64_t t_min, uint64_t t_max,
-                       uint rec_size, ushort partition_id);
+  void *insert_version(DeltaList &delta_chunk, xid_t t_min, xid_t t_max,
+                       size_t rec_size, partition_id_t partition_id);
   //  void *validate_or_create_list(void *list_ptr, size_t &delta_ver_tag,
   //                                ushort partition_id);
-  void *validate_or_create_list(DeltaList &delta_chunk, ushort partition_id);
-  void *getTransientChunk(DeltaList &delta_chunk, uint size,
-                          ushort partition_id);
-  void *create_version(size_t size, ushort partition_id);
+  void *validate_or_create_list(DeltaList &delta_chunk,
+                                partition_id_t partition_id);
+  void *getTransientChunk(DeltaList &delta_chunk, size_t size,
+                          partition_id_t partition_id);
+  void *create_version(size_t size, partition_id_t partition_id);
   void gc();
   // void gc_with_counter_arr(int wrk_id);
 
@@ -77,7 +79,7 @@ class alignas(4096) DeltaStore {
   }
 
   inline void __attribute__((always_inline))
-  increment_reader(uint64_t epoch, uint8_t worker_id) {
+  increment_reader(uint64_t epoch, worker_id_t worker_id) {
     while (gc_lock < 0 && !should_gc())
       ;
 
@@ -88,7 +90,7 @@ class alignas(4096) DeltaStore {
   }
 
   inline void __attribute__((always_inline))
-  decrement_reader(uint64_t epoch, uint8_t worker_id) {
+  decrement_reader(uint64_t epoch, worker_id_t worker_id) {
     if (readers.fetch_sub(1) <= 1 && touched) {
       gc();
     }
@@ -98,7 +100,7 @@ class alignas(4096) DeltaStore {
   class alignas(4096) DeltaPartition {
     std::atomic<char *> ver_list_cursor;
     std::atomic<char *> ver_data_cursor;
-    int pid;
+    partition_id_t pid;
     const oltp::common::mem_chunk ver_list_mem;
     const oltp::common::mem_chunk ver_data_mem;
     bool touched;
@@ -112,11 +114,11 @@ class alignas(4096) DeltaStore {
    public:
     DeltaPartition(char *ver_list_cursor, oltp::common::mem_chunk ver_list_mem,
                    char *ver_data_cursor, oltp::common::mem_chunk ver_data_mem,
-                   int pid);
+                   partition_id_t pid);
 
     ~DeltaPartition() {
       if (DELTA_DEBUG) {
-        LOG(INFO) << "Clearing DeltaPartition-" << pid;
+        LOG(INFO) << "Clearing DeltaPartition-" << (int)pid;
       }
       MemoryManager::freePinned(ver_list_mem.data);
       MemoryManager::freePinned(ver_data_mem.data);
@@ -165,9 +167,9 @@ class alignas(4096) DeltaStore {
   };
 
   std::atomic<uint32_t> tag{};
-  uint64_t max_active_epoch;
-  uint32_t delta_id;
-  std::vector<DeltaPartition *> partitions;
+  xid_t max_active_epoch;
+  delta_id_t delta_id;
+  std::vector<DeltaPartition *> partitions{};
   std::atomic<uint> readers{};
   std::atomic<short> gc_lock{};
   bool touched;
@@ -187,8 +189,8 @@ class DeltaList {
  public:
   DeltaList() = default;
   explicit DeltaList(size_t val) : _val(val) {}
-  explicit DeltaList(uint64_t offset, uint32_t tag, uint8_t delta_idx,
-                     uint8_t pid) {
+  explicit DeltaList(uint64_t offset, uint32_t tag, delta_id_t delta_idx,
+                     partition_id_t pid) {
     this->update(offset, tag, delta_idx, pid);
   }
   DeltaList(DeltaList &) = default;
@@ -196,8 +198,8 @@ class DeltaList {
 
   inline void update(uint64_t val) { this->_val = val; }
 
-  inline void update(uint64_t offset, uint32_t tag, uint8_t delta_idx,
-                     uint8_t pid) {
+  inline void update(uint64_t offset, uint32_t tag, delta_id_t delta_idx,
+                     partition_id_t pid) {
     _val = 0;
     _val |= (offset & 0x0000000fffffffffu);
     _val |= (static_cast<uint64_t>(tag & 0x000fffffu)) << 36u;
@@ -205,8 +207,8 @@ class DeltaList {
     _val |= (static_cast<uint64_t>(delta_idx & 0x0fu)) << 60u;
   }
 
-  inline void update(const char *list_ptr, uint32_t tag, uint8_t delta_idx,
-                     uint8_t pid) {
+  inline void update(const char *list_ptr, uint32_t tag, delta_id_t delta_idx,
+                     partition_id_t pid) {
     auto offset = (list_ptr -
                    list_memory_base[create_delta_idx_pid_pair(delta_idx, pid)]);
     this->update(offset, tag, delta_idx, pid);
@@ -233,7 +235,7 @@ class DeltaList {
   }
 
   [[nodiscard]] static constexpr inline uint8_t create_delta_idx_pid_pair(
-      uint8_t delta_id, uint8_t pid) {
+      delta_id_t delta_id, partition_id_t pid) {
     return ((((delta_id & 0x0fu)) << 4u) | (pid & 0x0fu));
   }
 
@@ -264,8 +266,8 @@ class DeltaList {
   uint64_t _val{};
 
   // to verify tag directly with required delta-store.
-  static std::map<uint8_t, DeltaStore *> deltaStore_map;
-  static std::map<uint8_t, char *> list_memory_base;
+  static std::map<delta_id_t, DeltaStore *> deltaStore_map;
+  static std::map<delta_id_t, char *> list_memory_base;
 
  public:
   [[maybe_unused]] static constexpr size_t offset_bits = 36u;
