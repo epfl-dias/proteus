@@ -124,7 +124,7 @@ RelBuilder RelBuilder::apply(Operator *op) const {
 }
 
 RelBuilder RelBuilder::scan(Plugin &pg) const {
-  return RelBuilder{ctx, new Scan(ctx, pg)};
+  return RelBuilder{ctx, new Scan(pg)};
 }
 
 RelBuilder RelBuilder::memmove(const vector<RecordAttribute *> &wantedFields,

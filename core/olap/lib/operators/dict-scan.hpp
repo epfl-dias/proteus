@@ -40,7 +40,7 @@ class DictScan : public UnaryOperator {
     assert(this->context && "Only ParallelContext supported");
   }
   ~DictScan() override { LOG(INFO) << "Collapsing dictscan operator"; }
-  virtual Operator *const getChild() const final {
+  [[nodiscard]] Operator *getChild() const final {
     throw runtime_error(string("Dictscan operator has no children"));
   }
 

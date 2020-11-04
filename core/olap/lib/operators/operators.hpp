@@ -95,8 +95,8 @@ class UnaryOperator : public Operator {
   UnaryOperator(Operator *const child) : Operator(), child(child) {}
   ~UnaryOperator() override { LOG(INFO) << "Collapsing unary operator"; }
 
-  virtual Operator *const getChild() const { return child; }
-  void setChild(Operator *const child) { this->child = child; }
+  [[nodiscard]] virtual Operator *getChild() const { return child; }
+  void setChild(Operator *child) { this->child = child; }
 
   DeviceType getDeviceType() const override {
     return getChild()->getDeviceType();

@@ -25,35 +25,32 @@
 
 #include "operators.hpp"
 
-class Scan : public UnaryOperator {
+class Scan : public experimental::UnaryOperator {
  public:
-  Scan(Context *const context, Plugin &pg)
-      : UnaryOperator(nullptr), context(context), pg(pg) {}
-  //    Scan(Context* const context, Plugin& pg, Operator* parent) :
-  //            UnaryOperator(nullptr), context(context), pg(pg) {
-  //        this->setParent(parent);
-  //    }
-  ~Scan() override { LOG(INFO) << "Collapsing scan operator"; }
-  Operator *const getChild() const final {
+  explicit Scan(Plugin &pg) : UnaryOperator(nullptr), pg(pg) {}
+  [[nodiscard]] Operator *getChild() const final {
     throw runtime_error(string("Scan operator has no children"));
   }
 
   void produce_(ParallelContext *context) override;
-  void consume(Context *const context,
+  void consume(ParallelContext *context,
                const OperatorState &childState) override;
-  bool isFiltering() const override { return false; }
+  [[nodiscard]] bool isFiltering() const override { return false; }
 
-  RecordType getRowType() const override;
+  [[nodiscard]] RecordType getRowType() const override;
 
-  DeviceType getDeviceType() const override { return DeviceType::CPU; }
-  DegreeOfParallelism getDOP() const override { return DegreeOfParallelism{1}; }
-  DegreeOfParallelism getDOPServers() const override {
+  [[nodiscard]] DeviceType getDeviceType() const override {
+    return DeviceType::CPU;
+  }
+  [[nodiscard]] DegreeOfParallelism getDOP() const override {
+    return DegreeOfParallelism{1};
+  }
+  [[nodiscard]] DegreeOfParallelism getDOPServers() const override {
     LOG(WARNING) << "Setting arbitrary number for #servers == 2 !";
     return DegreeOfParallelism{2};
   }
 
  private:
-  Context *const __attribute__((unused)) context;
   Plugin &pg;
 };
 
