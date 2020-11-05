@@ -29,8 +29,46 @@
 #include <iostream>
 #include <utility>
 
-namespace aeolus {
-namespace snapshot {
+#include "oltp/common/common.hpp"
+
+namespace aeolus::snapshot {
+
+class ArenaV2 {
+ public:
+  struct metadata {
+    rowid_t numOfRecords;
+    // rowid_t prev_numOfRecords;
+    xid_t epoch_id;
+    // rowid_t num_updated_records;
+    master_version_t master_ver;
+    partition_id_t partition_id;
+    bool upd_since_last_snapshot;
+  };
+
+ protected:
+  metadata duringSnapshot{};
+  ArenaV2() = default;
+
+ public:
+  ArenaV2(const ArenaV2&) = delete;
+  ArenaV2(ArenaV2&&) = delete;
+  ArenaV2& operator=(const ArenaV2&) = delete;
+  ArenaV2& operator=(ArenaV2&&) = delete;
+
+  virtual ~ArenaV2() = default;
+
+  virtual void create_snapshot(metadata save) = 0;
+  virtual void destroy_snapshot() = 0;
+
+  virtual void setUpdated() = 0;
+  virtual const metadata& getMetadata() = 0;
+
+  [[nodiscard]] virtual void* oltp() const = 0;
+  [[nodiscard]] virtual void* olap() const = 0;
+
+  virtual void init(size_t size) = 0;
+  virtual void deinit() = 0;
+};
 
 template <typename T>
 class Arena {
@@ -68,12 +106,8 @@ class Arena {
 
   void* oltp() const { return T::oltp(); }
   void* olap() const { return T::olap(); }
-
-  static void init(size_t size) { T::init(size); }
-  static void deinit() { T::deinit(); }
 };
 
-}  // namespace snapshot
-}  // namespace aeolus
+}  // namespace aeolus::snapshot
 
 #endif /* AEOLUS_SNAPSHOT_ARENA_HPP_ */

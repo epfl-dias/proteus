@@ -121,9 +121,9 @@ llvm::Value *MinMonoid::evalCondition(Context *const context,
   auto Builder = context->getBuilder();
 
   if (val_accumulating->getType()->isIntegerTy()) {
-    return Builder->CreateICmpSGT(val_in, val_accumulating);
+    return Builder->CreateICmpSLT(val_in, val_accumulating);
   } else if (val_accumulating->getType()->isFloatingPointTy()) {
-    return Builder->CreateFCmpOGT(val_in, val_accumulating);
+    return Builder->CreateFCmpOLT(val_in, val_accumulating);
   } else {
     string error_msg =
         string("[MinMonoid: ] Min accumulator operates on numerics");

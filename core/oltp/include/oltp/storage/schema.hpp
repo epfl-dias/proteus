@@ -50,9 +50,14 @@ enum layout_type { ROW_STORE, COLUMN_STORE };
 
 enum data_type { META, MV, INTEGER, STRING, FLOAT, VARCHAR, DATE, DSTRING };
 
-using ColumnVector = std::vector<
-    storage::Column,
-    proteus::memory::ExplicitSocketPinnedMemoryAllocator<storage::Column>>;
+// using ColumnVector = std::vector<
+//    storage::Column,
+//    proteus::memory::ExplicitSocketPinnedMemoryAllocator<storage::Column>>;
+
+// using ColumnVector = std::vector<std::unique_ptr<storage::Column>,
+//    proteus::memory::ExplicitSocketPinnedMemoryAllocator<std::unique_ptr<storage::Column>>>;
+
+using ColumnVector = std::vector<std::unique_ptr<storage::Column>>;
 
 class ColumnDef {
  public:
@@ -60,22 +65,27 @@ class ColumnDef {
   inline auto getType() const { return std::get<1>(col); }
   inline auto getWidth() const { return std::get<2>(col); }
   inline auto getSize() const { return getWidth(); }
-  inline auto getDict() const { return std::get<3>(col); }
+  inline auto getSnapshotType() const { return std::get<3>(col); }
+  inline auto getDict() const { return std::get<4>(col); }
   inline auto getColumnDef() const { return col; }
 
   explicit ColumnDef(std::string name, data_type dType, size_t width,
+                     SnapshotTypes snapshotType = DefaultSnapshotMechanism,
                      dict_dstring_t *dict = nullptr)
-      : col(name, dType, width, dict) {}
+      : col(name, dType, width, snapshotType, dict) {}
 
  private:
-  std::tuple<std::string, storage::data_type, size_t, dict_dstring_t *> col;
+  std::tuple<std::string, storage::data_type, size_t, SnapshotTypes,
+             dict_dstring_t *>
+      col;
 };
 
 class TableDef {
  public:
   void emplace_back(std::string name, data_type dt, size_t width,
+                    SnapshotTypes snapshotType = DefaultSnapshotMechanism,
                     dict_dstring_t *dict = nullptr) {
-    columns.emplace_back(name, dt, width, dict);
+    columns.emplace_back(name, dt, width, snapshotType, dict);
   }
 
   size_t size() { return columns.size(); }

@@ -26,9 +26,11 @@
 
 #include <cstdlib>
 
+#include "oltp/common/common.hpp"
 #include "oltp/snapshot/circular_master_arena.hpp"
 #include "oltp/snapshot/cor_const_arena.hpp"
 #include "oltp/snapshot/cow_arena.hpp"
+#include "oltp/snapshot/lazy_master_arena.hpp"
 
 namespace aeolus::snapshot {
 

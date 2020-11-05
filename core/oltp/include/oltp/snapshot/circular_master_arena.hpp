@@ -34,8 +34,36 @@
 
 #include "oltp/snapshot/arena.hpp"
 
-namespace aeolus {
-namespace snapshot {
+namespace aeolus::snapshot {
+
+class CircularMasterArenaV2 : public ArenaV2 {
+ public:
+  CircularMasterArenaV2() : ArenaV2() {}
+
+  CircularMasterArenaV2(const CircularMasterArenaV2&) = delete;
+  CircularMasterArenaV2(CircularMasterArenaV2&&) = delete;
+  CircularMasterArenaV2& operator=(const CircularMasterArenaV2&) = delete;
+  CircularMasterArenaV2& operator=(CircularMasterArenaV2&&) = delete;
+
+ public:
+  void create_snapshot(metadata save) override {
+    this->duringSnapshot = std::move(save);
+  }
+
+  void setUpdated() override { duringSnapshot.upd_since_last_snapshot = true; }
+
+  const metadata& getMetadata() override { return duringSnapshot; }
+
+  void destroy_snapshot() override {}
+
+  void init(size_t size) override {}
+  void deinit() override {}
+
+  [[nodiscard]] void* oltp() const override { return nullptr; }
+  [[nodiscard]] void* olap() const override { return nullptr; }
+
+  ~CircularMasterArenaV2() override = default;
+};
 
 class CircularMasterArena : public Arena<CircularMasterArena> {
  protected:
@@ -50,8 +78,8 @@ class CircularMasterArena : public Arena<CircularMasterArena> {
   CircularMasterArena(size_t size, guard g) {}
   ~CircularMasterArena() {}
 
-  int *oltp() const { return nullptr; }
-  int *olap() const { return nullptr; }
+  int* oltp() const { return nullptr; }
+  int* olap() const { return nullptr; }
 
  protected:
   void create_snapshot_() {}
@@ -90,7 +118,6 @@ class CircularMasterProvider {
   friend class CircularMasterArena;
 };
 
-}  // namespace snapshot
-}  // namespace aeolus
+}  // namespace aeolus::snapshot
 
 #endif /* AEOLUS_SNAPSHOT_CIRCULAR_MASTER_ARENA_HPP_ */
