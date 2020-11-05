@@ -275,64 +275,65 @@ std::vector<PreparedStatement> TPCC::consistency_check_3_query_builder() {
           .scan("tpcc_neworder<block-remote>",
                 {"no_w_id", "no_d_id", "no_o_id"}, CatalogParser::getInstance(),
                 pg{"block-remote"})
-          .router(DegreeOfParallelism{48}, 32, RoutingPolicy::LOCAL,
-                  DeviceType::CPU)
+          .router(32, RoutingPolicy::LOCAL, DeviceType::CPU)
+          .unpack()
+          .project([&](const auto &arg) -> std::vector<expression_t> {
+            return {
+                (arg["no_w_id"]).as("tmpRelationProject", "no_w_id"),
+                (arg["no_d_id"]).as("tmpRelationProject", "no_d_id"),
+                (arg["no_o_id"]).as("tmpRelationProject", "no_o_id_min"),
+                (arg["no_o_id"]).as("tmpRelationProject", "no_o_id_max"),
+            };
+          })
           .groupby(
               [&](const auto &arg) -> std::vector<expression_t> {
-                return {arg["no_w_id"], arg["no_d_id"]};
+                return {(arg["no_w_id"]).as("tmpRelation", "no_w_id"),
+                        (arg["no_d_id"]).as("tmpRelation", "no_d_id")};
               },
               [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
                 return {
-                    GpuAggrMatExpr{(arg["no_o_id"]), 1, 0, MAX},
-                    GpuAggrMatExpr{(arg["no_o_id"]), 2, 0, MIN},
-                    GpuAggrMatExpr{(expression_t{INT32_C(1)})
-                                       .as("PelagoAggregate#1050", "noCount"),
-                                   3, 0, SUM}};
+                    GpuAggrMatExpr{
+                        (arg["no_o_id_max"]).as("tmpRelation", "maxCount"), 1,
+                        0, MAX},
+                    GpuAggrMatExpr{
+                        (arg["no_o_id_min"]).as("tmpRelation", "minCount"), 2,
+                        0, MIN},
+                    GpuAggrMatExpr{
+                        (expression_t{INT32_C(1)}).as("tmpRelation", "noCount"),
+                        3, 0, SUM}};
               },
               log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1,
-              log2(this->num_warehouse * TPCC_NDIST_PER_WH) + (1024 * 1024))
+              this->num_warehouse * TPCC_NDIST_PER_WH)
           .pack()
           .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
                   DeviceType::CPU)
           .unpack()
           .groupby(
               [&](const auto &arg) -> std::vector<expression_t> {
-                return {(arg["no_w_id"]).as("PelagoAggregate#1052", "no_w_id"),
-                        (arg["no_d_id"]).as("PelagoAggregate#1052", "no_d_id")};
+                return {(arg["no_w_id"]), (arg["no_d_id"])};
               },
               [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
-                return {GpuAggrMatExpr{
-                            (arg["no_o_id"])
-                                .as("PelagoAggregate#1052", "maxNeworder"),
-                            1, 0, MAX},
-                        GpuAggrMatExpr{
-                            (arg["no_o_id"])
-                                .as("PelagoAggregate#1052", "minNeworder"),
-                            2, 0, MIN},
-                        GpuAggrMatExpr{
-                            (arg["noCount"])
-                                .as("PelagoAggregate#1052", "countNeworder"),
-                            3, 0, SUM}};
+                return {GpuAggrMatExpr{(arg["maxCount"]), 1, 0, MAX},
+                        GpuAggrMatExpr{(arg["minCount"]), 2, 0, MIN},
+                        GpuAggrMatExpr{(arg["noCount"]), 3, 0, SUM}};
               },
-              log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1, 1024 * 1024)
+              log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1,
+              this->num_warehouse * TPCC_NDIST_PER_WH)
 
           .project([&](const auto &arg) -> std::vector<expression_t> {
-            return {
-                (arg["no_w_id"]).as("PelagoProject#13144", "no_w_id"),
-                (arg["no_d_id"]).as("PelagoProject#13144", "no_d_id"),
-                (arg["maxNeworder"] - arg["minNeworder"] + 1)
-                    .as("PelagoProject#13144", "expected_count"),
-                (arg["countNeworder"]).as("PelagoProject#13144", "actual_count")
+            return {(arg["no_w_id"]).as("PelagoProject#13144", "no_w_id"),
+                    (arg["no_d_id"]).as("PelagoProject#13144", "no_d_id"),
+                    (arg["maxCount"]).as("PelagoProject#13144", "maxCount"),
+                    (arg["minCount"]).as("PelagoProject#13144", "minCount"),
+                    (arg["maxCount"] - 2100 + 1)
+                        .as("PelagoProject#13144", "expected_count"),
+                    (arg["noCount"]).as("PelagoProject#13144", "actual_count")
 
             };
           })
-          .sort(
-              [&](const auto &arg) -> std::vector<expression_t> {
-                return {arg["no_w_id"], arg["no_d_id"], arg["expected_count"],
-                        arg["actual_count"]};
-              },
-              {direction::ASC, direction::ASC, direction::NONE,
-               direction::NONE})
+          .filter([&](const auto &arg) -> expression_t {
+            return ne(arg["expected_count"], arg["actual_count"]);
+          })
           .print(pg{"pm-csv"})
           .prepare();
   return {new_order_stats};
@@ -357,9 +358,15 @@ bool TPCC::consistency_check_3() {
   bool db_consistent = true;
 
   auto query = consistency_check_3_query_builder();
-  LOG(INFO) << "CHECK-3";
-  LOG(INFO) << query[0].execute();
-  LOG(INFO) << "CHECK-3";
+  std::ostringstream stream_new_orders;
+  stream_new_orders << query[0].execute();
+  std::string n_orders = stream_new_orders.str();
+
+  if (n_orders.size() > 1) {
+    LOG(INFO) << "Consistency Check # 3 failed.";
+    db_consistent = false;
+    LOG(INFO) << n_orders;
+  }
 
   LOG(INFO) << "##########\tConsistency Check - 3 Completed.";
 
@@ -456,7 +463,7 @@ void TPCC::verify_consistency() {
   //  set_exec_location_on_scope d{all_cpu_set};
 
   // execute consistency checks.
-  if (consistency_check_1() && consistency_check_2()) {
+  if (consistency_check_1() && consistency_check_2() & consistency_check_3()) {
     //&& consistency_check_3()) { /*&&
     //// consistency_check_4()*/
     LOG(INFO) << "DB IS CONSISTENT.";
