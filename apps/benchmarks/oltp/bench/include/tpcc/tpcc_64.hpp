@@ -207,7 +207,7 @@ class TPCC : public Benchmark {
     char d_zip[9];
     double d_tax;
     double d_ytd;
-    uint64_t d_next_o_id;
+    uint32_t d_next_o_id;
   };
   struct __attribute__((packed)) tpcc_history {
     uint32_t h_c_id;
@@ -384,10 +384,11 @@ class TPCC : public Benchmark {
 
   // consistency checks
   void verify_consistency();
-  bool consistency_check_1();
-  bool consistency_check_2();
-  bool consistency_check_3();
-  bool consistency_check_4();
+  [[nodiscard]] bool consistency_check_1(
+      bool print_inconsistent_rows = false) const;
+  bool consistency_check_2(bool print_inconsistent_rows = false);
+  bool consistency_check_3(bool print_inconsistent_rows = false);
+  bool consistency_check_4(bool print_inconsistent_rows = false);
 
   // CSV Loaders
 
@@ -491,9 +492,13 @@ class TPCC : public Benchmark {
   friend std::ostream &operator<<(std::ostream &out,
                                   const TPCC::tpcc_new_order &r);
 
-  std::vector<PreparedStatement> consistency_check_2_query_builder();
-  std::vector<PreparedStatement> consistency_check_3_query_builder();
-  std::vector<PreparedStatement> consistency_check_4_query_builder();
+ public:
+  std::vector<PreparedStatement> consistency_check_2_query_builder(
+      bool return_aggregate = true, string olap_plugin = "block-remote");
+  PreparedStatement consistency_check_3_query_builder(
+      bool return_aggregate = true, string olap_plugin = "block-remote");
+  PreparedStatement consistency_check_4_query_builder(
+      bool return_aggregate = true, string olap_plugin = "block-remote");
 };
 
 std::ostream &operator<<(std::ostream &out, const TPCC::ch_nation &r);

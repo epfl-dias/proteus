@@ -37,7 +37,7 @@
 
 namespace bench {
 
-bool TPCC::consistency_check_1() {
+bool TPCC::consistency_check_1(bool print_inconsistent_rows) const {
   // Check-1
   // Entries in the WAREHOUSE and DISTRICT tables must satisfy the relationship:
   // W_YTD = sum(D_YTD)
@@ -95,7 +95,8 @@ bool TPCC::consistency_check_1() {
   return db_consistent;
 }
 
-std::vector<PreparedStatement> TPCC::consistency_check_2_query_builder() {
+std::vector<PreparedStatement> TPCC::consistency_check_2_query_builder(
+    bool return_aggregate, string olap_plugin) {
   RelBuilderFactory ctx_one{"tpcc_consistency_check_2_1"};
   RelBuilderFactory ctx_two{"tpcc_consistency_check_2_2"};
   RelBuilderFactory ctx_three{"tpcc_consistency_check_2_3"};
@@ -197,7 +198,7 @@ std::vector<PreparedStatement> TPCC::consistency_check_2_query_builder() {
           .project([&](const auto &arg) -> std::vector<expression_t> {
             return {(arg["d_w_id"]).as("PelagoProject#13144", "d_w_id"),
                     (arg["d_id"]).as("PelagoProject#13144", "d_id"),
-                    (arg["d_next_o_id"] - ((int64_t)1))
+                    (arg["d_next_o_id"] - (INT32_C(1)))
                         .as("PelagoProject#13144", "d_next_o_id")};
           })
           .print(pg{"pm-csv"})
@@ -220,7 +221,7 @@ static void print_inconsistency(std::string a, std::string b) {
   }
 }
 
-bool TPCC::consistency_check_2() {
+bool TPCC::consistency_check_2(bool print_inconsistent_rows) {
   // Check-2
   // Entries in the DISTRICT, ORDER, and NEW-ORDER tables must satisfy the
   // relationship: D_NEXT_O_ID - 1 = max(O_ID) = max(NO_O_ID)
@@ -267,10 +268,11 @@ bool TPCC::consistency_check_2() {
   return db_consistent;
 }
 
-std::vector<PreparedStatement> TPCC::consistency_check_3_query_builder() {
+PreparedStatement TPCC::consistency_check_3_query_builder(bool return_aggregate,
+                                                          string olap_plugin) {
   RelBuilderFactory ctx{"tpcc_consistency_check_3"};
   CatalogParser &catalog = CatalogParser::getInstance();
-  PreparedStatement new_order_stats =
+  auto tpcc_check_3 =
       ctx.getBuilder()
           .scan("tpcc_neworder<block-remote>",
                 {"no_w_id", "no_d_id", "no_o_id"}, CatalogParser::getInstance(),
@@ -333,13 +335,22 @@ std::vector<PreparedStatement> TPCC::consistency_check_3_query_builder() {
           })
           .filter([&](const auto &arg) -> expression_t {
             return ne(arg["expected_count"], arg["actual_count"]);
-          })
-          .print(pg{"pm-csv"})
-          .prepare();
-  return {new_order_stats};
+          });
+
+  if (return_aggregate)
+    tpcc_check_3 = tpcc_check_3.reduce(
+        [&](const auto &arg) -> std::vector<expression_t> {
+          return {(expression_t{INT32_C(1)})
+                      .as("tmpRelation#6", "count_inconsistent_rec")};
+        },
+        {SUM});
+
+  tpcc_check_3 = tpcc_check_3.print(pg{"pm-csv"});
+
+  return tpcc_check_3.prepare();
 }
 
-bool TPCC::consistency_check_3() {
+bool TPCC::consistency_check_3(bool print_inconsistent_rows) {
   // Check-3
   // Entries in the NEW-ORDER table must satisfy the relationship:
   // max(NO_O_ID) - min(NO_O_ID) + 1 =
@@ -359,33 +370,160 @@ bool TPCC::consistency_check_3() {
 
   auto query = consistency_check_3_query_builder();
   std::ostringstream stream_new_orders;
-  stream_new_orders << query[0].execute();
+  stream_new_orders << query.execute();
   std::string n_orders = stream_new_orders.str();
 
-  if (n_orders.size() > 1) {
-    LOG(INFO) << "Consistency Check # 3 failed.";
-    db_consistent = false;
-    LOG(INFO) << n_orders;
-  }
+  int n_failed_rows = stoi(n_orders);
 
+  if (n_failed_rows) {
+    LOG(INFO) << "Consistency Check # 3 failed."
+              << "\n\t# of inconsistent rows: " << n_failed_rows;
+    db_consistent = false;
+    if (print_inconsistent_rows) {
+      LOG(INFO) << consistency_check_3_query_builder(false).execute();
+    }
+  }
   LOG(INFO) << "##########\tConsistency Check - 3 Completed.";
 
   return db_consistent;
 }
 
-std::vector<PreparedStatement> TPCC::consistency_check_4_query_builder() {
-  // uint warehouse_id, uint district_id
-  //  RelBuilderFactory ctx_one{"tpcc_consistency_check_4_1"};
-  //  RelBuilderFactory ctx_two{"tpcc_consistency_check_4_2"};
-  //  CatalogParser &catalog = CatalogParser::getInstance();
-  // PreparedStatement order; // =
-  // ctx_one.getBuilder()
-  // PreparedStatement orderline;
+PreparedStatement TPCC::consistency_check_4_query_builder(bool return_aggregate,
+                                                          string olap_plugin) {
+  // orders
+  // o_w_id, o_d_id, sum(o_ol_cnt)
 
-  return {};
+  RelBuilderFactory ctx_o{"tpcc_consistency_check_4_order"};
+  CatalogParser &catalog = CatalogParser::getInstance();
+  auto tpcc_check_4_order =
+      ctx_o.getBuilder()
+          .scan("tpcc_order<" + olap_plugin + ">",
+                {"o_w_id", "o_d_id", "o_ol_cnt"}, CatalogParser::getInstance(),
+                pg{olap_plugin})
+          .router(32, RoutingPolicy::LOCAL, DeviceType::CPU)
+          .unpack()
+          .groupby(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {(arg["o_w_id"]).as("tmpRelation", "o_w_id"),
+                        (arg["o_d_id"]).as("tmpRelation", "o_d_id")};
+              },
+              [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
+                return {GpuAggrMatExpr{
+                    (arg["o_ol_cnt"]).as("tmpRelation", "sum_o_ol_cnt"), 1, 0,
+                    SUM}};
+              },
+              log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1,
+              this->num_warehouse * TPCC_NDIST_PER_WH)
+          .pack()
+          .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
+                  DeviceType::CPU)
+          .unpack()
+          .groupby(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {(arg["o_w_id"]), (arg["o_d_id"])};
+              },
+              [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
+                return {GpuAggrMatExpr{(arg["sum_o_ol_cnt"]), 1, 0, SUM}};
+              },
+              log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1,
+              this->num_warehouse * TPCC_NDIST_PER_WH)
+
+          .project([&](const auto &arg) -> std::vector<expression_t> {
+            return {
+                (arg["o_w_id"]).as("tmpRelation#2", "o_w_id"),
+                (arg["o_d_id"]).as("tmpRelation#2", "o_d_id"),
+                (arg["sum_o_ol_cnt"]).as("tmpRelation#2", "sum_o_ol_cnt"),
+            };
+          });
+
+  // orderline
+  // ol_w_id, ol_d_id, count(ol_o_id)
+  auto tpcc_check_4_orderLine =
+      ctx_o.getBuilder()
+          .scan("tpcc_orderline<" + olap_plugin + ">",
+                {"ol_w_id", "ol_d_id", "ol_o_id"}, CatalogParser::getInstance(),
+                pg{olap_plugin})
+          .router(32, RoutingPolicy::LOCAL, DeviceType::CPU)
+          .unpack()
+          .groupby(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {(arg["ol_w_id"]).as("tmpRelation#3", "ol_w_id"),
+                        (arg["ol_d_id"]).as("tmpRelation#3", "ol_d_id")};
+              },
+              [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
+                return {GpuAggrMatExpr{(expression_t{INT32_C(1)})
+                                           .as("tmpRelation#3", "cnt_ol_o_id"),
+                                       1, 0, SUM}};
+              },
+              log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1,
+              this->num_warehouse * TPCC_NDIST_PER_WH)
+          .pack()
+          .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
+                  DeviceType::CPU)
+          .unpack()
+          .groupby(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {(arg["ol_w_id"]), (arg["ol_d_id"])};
+              },
+              [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
+                return {GpuAggrMatExpr{(arg["cnt_ol_o_id"]), 1, 0, SUM}};
+              },
+              log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1,
+              this->num_warehouse * TPCC_NDIST_PER_WH)
+
+          .project([&](const auto &arg) -> std::vector<expression_t> {
+            return {
+                (arg["ol_w_id"]).as("tmpRelation#4", "ol_w_id"),
+                (arg["ol_d_id"]).as("tmpRelation#4", "ol_d_id"),
+                (arg["cnt_ol_o_id"]).as("tmpRelation#4", "cnt_ol_o_id"),
+            };
+          });
+
+  auto tpcc_check_4 =
+      tpcc_check_4_orderLine
+          .join(
+              tpcc_check_4_order,
+              [&](const auto &build_arg) -> expression_t {
+                return expressions::RecordConstruction{
+                    build_arg["o_w_id"].as("PelagoJoin#2030", "bk_0"),
+                    build_arg["o_d_id"].as("PelagoJoin#2030", "bk_1")}
+                    .as("PelagoJoin#2030", "bk");
+              },
+              [&](const auto &probe_arg) -> expression_t {
+                return expressions::RecordConstruction{
+                    probe_arg["ol_w_id"].as("PelagoJoin#2030", "pk_0"),
+                    probe_arg["ol_d_id"].as("PelagoJoin#2030", "pk_1")}
+                    .as("PelagoJoin#2030", "pk");
+              },
+              log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1,
+              this->num_warehouse * TPCC_NDIST_PER_WH)
+          .filter([&](const auto &arg) -> expression_t {
+            return ne(arg["sum_o_ol_cnt"], arg["cnt_ol_o_id"]);
+          })
+          .project([&](const auto &arg) -> std::vector<expression_t> {
+            return {
+                (arg["o_w_id"]).as("tmpRelation#5", "w_id"),
+                (arg["o_d_id"]).as("tmpRelation#5", "d_id"),
+                (arg["sum_o_ol_cnt"]).as("tmpRelation#5", "o_count"),
+                (arg["cnt_ol_o_id"]).as("tmpRelation#5", "ol_count"),
+            };
+          });
+
+  if (return_aggregate)
+    tpcc_check_4 = tpcc_check_4.reduce(
+        [&](const auto &arg) -> std::vector<expression_t> {
+          // return {INT32_C(1)}.as("tmpRelation#5", "ol_count");
+          return {(expression_t{INT32_C(1)})
+                      .as("tmpRelation#6", "count_inconsistent_rec")};
+        },
+        {SUM});
+
+  tpcc_check_4 = tpcc_check_4.print(pg{"pm-csv"});
+
+  return tpcc_check_4.prepare();
 }
 
-bool TPCC::consistency_check_4() {
+bool TPCC::consistency_check_4(bool print_inconsistent_rows) {
   // Check-4
   // Entries in the ORDER and ORDER-LINE tables must satisfy the relationship:
   // sum(O_OL_CNT) = [number of rows in the ORDER-LINE table for this district]
@@ -408,32 +546,25 @@ bool TPCC::consistency_check_4() {
   //     AND o.o_d_id = ol.ol_d_id
   //     AND o_count != ol_count
 
+  LOG(INFO) << "##########\tConsistency Check - 4";
   bool db_consistent = true;
-  std::vector<proteus::thread> workers;
 
-  // TODO: parallelize
+  std::ostringstream check4_result;
+  check4_result << consistency_check_4_query_builder().execute();
+  std::string n_orders_str = check4_result.str();
 
-  for (uint i = 0; i < this->num_warehouse; i++) {
-    for (uint j = 0; j < TPCC_NDIST_PER_WH; j++) {
-      size_t o_ol_sum = 0;
-      // TODO: Get sum(o_ol_cnt)
+  int n_failed_rows = stoi(n_orders_str);
 
-      // TODO: Get count(ol_o_id)
-      size_t ol_count = 0;
-
-      if (o_ol_sum != ol_count) {
-        LOG(INFO) << "FAILED CONSISTENCY CHECK-4"
-                  << "\n\tWH: " << i << " | DT: " << j
-                  << "\n\to_ol_count: " << o_ol_sum
-                  << " | ol_count: " << ol_count;
-        db_consistent = false;
-      }
+  if (n_failed_rows) {
+    LOG(INFO) << "Consistency Check # 4 failed."
+              << "\n\t# of inconsistent rows: " << n_failed_rows;
+    db_consistent = false;
+    if (print_inconsistent_rows) {
+      LOG(INFO) << consistency_check_4_query_builder(false).execute();
     }
   }
+  LOG(INFO) << "##########\tConsistency Check - 4 Completed.";
 
-  for (auto &th : workers) {
-    th.join();
-  }
   return db_consistent;
 }
 
@@ -463,9 +594,8 @@ void TPCC::verify_consistency() {
   //  set_exec_location_on_scope d{all_cpu_set};
 
   // execute consistency checks.
-  if (consistency_check_1() && consistency_check_2() & consistency_check_3()) {
-    //&& consistency_check_3()) { /*&&
-    //// consistency_check_4()*/
+  if (consistency_check_1() && consistency_check_2() & consistency_check_3() &&
+      consistency_check_4()) {
     LOG(INFO) << "DB IS CONSISTENT.";
   } else {
     LOG(FATAL) << "DB IS NOT CONSISTENT.";

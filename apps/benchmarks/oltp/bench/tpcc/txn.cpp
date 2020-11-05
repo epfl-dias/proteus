@@ -222,7 +222,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, xid_t xid,
 
   struct __attribute__((packed)) dist_read {
     double d_tax;
-    uint64_t d_next_o_id;
+    uint32_t d_next_o_id;
   };
   struct dist_read dist_no_read = {};
 
@@ -235,7 +235,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, xid_t xid,
   table_district->getIndexedRecord(xid, d_idx_ptr, &dist_no_read, dist_col_scan,
                                    2);
 
-  uint64_t d_next_o_id_upd = dist_no_read.d_next_o_id + 1;
+  uint32_t d_next_o_id_upd = dist_no_read.d_next_o_id + 1;
   table_district->updateRecord(xid, d_idx_ptr, &d_next_o_id_upd, delta_ver,
                                dist_col_upd, 1, master_ver);
 
