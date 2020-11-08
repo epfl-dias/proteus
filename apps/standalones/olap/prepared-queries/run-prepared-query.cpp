@@ -24,7 +24,7 @@
 
 #include <cli-flags.hpp>
 #include <platform/util/timing.hpp>
-#include <ssb100/query.hpp>
+#include <ssb/query.hpp>
 
 int main(int argc, char *argv[]) {
   auto olap = proteus::from_cli::olap("Prepared query runner", &argc, &argv);
@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
     std::vector<std::chrono::milliseconds> codegen_times;
     for (const auto &memmv : {true, false}) {
       time_block t{[&](const auto &x) { codegen_times.emplace_back(x); }};
-      auto v = ssb100::Query{}.prepareAll(memmv);
+      auto v = ssb::Query{}.prepareAll(memmv);
       statements.insert(statements.end(), std::make_move_iterator(v.begin()),
                         std::make_move_iterator(v.end()));
     }

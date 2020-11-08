@@ -25,9 +25,10 @@
 #define PROTEUS_SSB100_QUERY_HPP
 
 #include <olap/plan/prepared-statement.hpp>
+#include <query-shaping/input-prefix-query-shaper.hpp>
 #include <query-shaping/query-shaper.hpp>
 
-namespace ssb100 {
+namespace ssb {
 class Query {
  public:
   static PreparedStatement prepare11(proteus::QueryShaper &morph);
@@ -59,7 +60,11 @@ class Query {
         // EOQ
     };
   }
+
+  static std::map<std::string,
+                  std::function<double(proteus::InputPrefixQueryShaper &)>>
+  getStats(size_t SF);
 };
-};  // namespace ssb100
+};  // namespace ssb
 
 #endif /* PROTEUS_SSB100_QUERY_HPP */

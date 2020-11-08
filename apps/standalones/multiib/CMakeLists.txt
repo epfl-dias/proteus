@@ -11,7 +11,7 @@ add_executable(${PROJECT_NAME} ${APP_SRCS})
 target_link_libraries(${PROJECT_NAME}
   codegen::olap_flags
   proteus::olap
-  queries::ssb100
+  queries::ssb
   )
 
 include(proteus-experiment)

@@ -21,40 +21,40 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <ssb100/query.hpp>
+#include <ssb/query.hpp>
 
-constexpr auto query = "ssb100_Q2_1";
+constexpr auto query = "ssb100_Q2_2";
 
-PreparedStatement ssb100::Query::prepare21(proteus::QueryShaper &morph) {
+PreparedStatement ssb::Query::prepare22(proteus::QueryShaper &morph) {
   morph.setQueryName(query);
 
-  auto rel11407 =
+  auto rel17693 =
       morph.distribute_build(morph.scan("date", {"d_datekey", "d_year"}))
           .unpack();
 
-  auto rel11412 =
+  auto rel17698 =
       morph.distribute_build(morph.scan("supplier", {"s_suppkey", "s_region"}))
           .unpack()
           .filter([&](const auto &arg) -> expression_t {
-            return expressions::hint(eq(arg["s_region"], "AMERICA"),
+            return expressions::hint(eq(arg["s_region"], "ASIA"),
                                      expressions::Selectivity{1.0 / 5});
           })
           .project([&](const auto &arg) -> std::vector<expression_t> {
             return {arg["s_suppkey"]};
           });
 
-  auto rel11417 =
-      morph
-          .distribute_build(
-              morph.scan("part", {"p_partkey", "p_category", "p_brand1"}))
+  auto rel17702 =
+      morph.distribute_build(morph.scan("part", {"p_partkey", "p_brand1"}))
           .unpack()
           .filter([&](const auto &arg) -> expression_t {
-            return expressions::hint(eq(arg["p_category"], "MFGR#12"),
-                                     expressions::Selectivity{1.0 / 25});
+            return expressions::hint(ge(arg["p_brand1"], "MFGR#2221") &
+                                         le(arg["p_brand1"], "MFGR#2228"),
+                                     expressions::Selectivity{1.0 / 125});
           })
           .project([&](const auto &arg) -> std::vector<expression_t> {
             return {arg["p_partkey"], arg["p_brand1"]};
           });
+
   auto rel =
       morph
           .distribute_probe(morph.scan(
@@ -62,7 +62,7 @@ PreparedStatement ssb100::Query::prepare21(proteus::QueryShaper &morph) {
               {"lo_partkey", "lo_suppkey", "lo_orderdate", "lo_revenue"}))
           .unpack()
           .join(
-              rel11417,
+              rel17702,
               [&](const auto &build_arg) -> expression_t {
                 return build_arg["p_partkey"];
               },
@@ -70,7 +70,7 @@ PreparedStatement ssb100::Query::prepare21(proteus::QueryShaper &morph) {
                 return probe_arg["lo_partkey"];
               })
           .join(
-              rel11412,
+              rel17698,
               [&](const auto &build_arg) -> expression_t {
                 return build_arg["s_suppkey"];
               },
@@ -78,7 +78,7 @@ PreparedStatement ssb100::Query::prepare21(proteus::QueryShaper &morph) {
                 return probe_arg["lo_suppkey"];
               })
           .join(
-              rel11407,
+              rel17693,
               [&](const auto &build_arg) -> expression_t {
                 return build_arg["d_datekey"];
               },
@@ -87,17 +87,18 @@ PreparedStatement ssb100::Query::prepare21(proteus::QueryShaper &morph) {
               })
           .groupby(
               [&](const auto &arg) -> std::vector<expression_t> {
-                return {arg["d_year"].as("PelagoProject#11438", "d_year"),
-                        arg["p_brand1"].as("PelagoProject#11438", "p_brand1")};
+                return {
+                    arg["d_year"].as("PelagoAggregate#11428", "d_year"),
+                    arg["p_brand1"].as("PelagoAggregate#11428", "p_brand1")};
               },
               [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
                 return {GpuAggrMatExpr{
-                    arg["lo_revenue"].as("PelagoProject#11438", "EXPR$0"), 1, 0,
-                    SUM}};
+                    (arg["lo_revenue"]).as("PelagoAggregate#11428", "EXPR$0"),
+                    1, 0, SUM}};
               },
-              10,
-              128 * 1024)  // FIXME: depend on scale factor
+              10, 128 * 1024)
           .pack();
+
   rel = morph.collect(rel)
             .unpack()
             .groupby(
@@ -108,9 +109,6 @@ PreparedStatement ssb100::Query::prepare21(proteus::QueryShaper &morph) {
                   return {GpuAggrMatExpr{arg["EXPR$0"], 1, 0, SUM}};
                 },
                 10, 128 * 1024)
-            .project([&](const auto &arg) -> std::vector<expression_t> {
-              return {arg["EXPR$0"], arg["d_year"], arg["p_brand1"]};
-            })
             .sort(
                 [&](const auto &arg) -> std::vector<expression_t> {
                   return {arg["EXPR$0"], arg["d_year"], arg["p_brand1"]};

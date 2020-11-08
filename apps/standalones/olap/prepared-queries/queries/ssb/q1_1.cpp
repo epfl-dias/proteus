@@ -21,20 +21,19 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <ssb100/query.hpp>
+#include <ssb/query.hpp>
 
-constexpr auto query = "ssb100_Q1_2";
+constexpr auto query = "ssb100_Q1_1";
 
-PreparedStatement ssb100::Query::prepare12(proteus::QueryShaper &morph) {
+PreparedStatement ssb::Query::prepare11(proteus::QueryShaper &morph) {
   morph.setQueryName(query);
 
-  auto rel4483 =
-      morph
-          .distribute_build(morph.scan("date", {"d_datekey", "d_yearmonthnum"}))
+  auto rel2337 =
+      morph.distribute_build(morph.scan("date", {"d_datekey", "d_year"}))
           .unpack()
           .filter([&](const auto &arg) -> expression_t {
-            return expressions::hint(eq(arg["d_yearmonthnum"], 199401),
-                                     expressions::Selectivity{1.0 / 84});
+            return expressions::hint(eq(arg["d_year"], 1993),
+                                     expressions::Selectivity(1.0 / 7));
           })
           .project([&](const auto &arg) -> std::vector<expression_t> {
             return {(arg["d_datekey"])};
@@ -45,28 +44,26 @@ PreparedStatement ssb100::Query::prepare12(proteus::QueryShaper &morph) {
       {"lo_orderdate", "lo_quantity", "lo_extendedprice", "lo_discount"}));
 
   rel = rel.unpack()
+            .filter([&](const auto &arg) -> expression_t {
+              return expressions::hint(
+                  ge(arg["lo_discount"], 1) & le(arg["lo_discount"], 3) &
+                      lt(arg["lo_quantity"], 25),
+                  expressions::Selectivity(0.5 * 3.0 / 11));
+            })
             .join(
-                rel4483,
+                rel2337,
                 [&](const auto &build_arg) -> expression_t {
                   return build_arg["d_datekey"];
                 },
                 [&](const auto &probe_arg) -> expression_t {
                   return probe_arg["lo_orderdate"];
-                },
-                6, 32)
-            .filter([&](const auto &arg) -> expression_t {
-              return expressions::hint(
-                  ge(arg["lo_discount"], 4) & le(arg["lo_discount"], 6) &
-                      ge(arg["lo_quantity"], 26) & le(arg["lo_quantity"], 35),
-                  expressions::Selectivity{0.2 * 3.0 / 11});
-            })
+                })
             .reduce(
                 [&](const auto &arg) -> std::vector<expression_t> {
                   return {(arg["lo_extendedprice"] * arg["lo_discount"])
                               .as("tmp", "revenue")};
                 },
                 {SUM});
-
   rel = morph.collect_unpacked(rel)
             .reduce(
                 [&](const auto &arg) -> std::vector<expression_t> {

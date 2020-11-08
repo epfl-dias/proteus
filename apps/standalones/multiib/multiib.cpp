@@ -33,7 +33,7 @@
 #include <platform/util/timing.hpp>
 #include <query-shaping/input-prefix-query-shaper.hpp>
 #include <query-shaping/scale-out-query-shaper.hpp>
-#include <ssb100/query.hpp>
+#include <ssb/query.hpp>
 
 int main(int argc, char* argv[]) {
   auto ctx = proteus::from_cli::olap("Multi IB", &argc, &argv);
@@ -41,16 +41,7 @@ int main(int argc, char* argv[]) {
   set_exec_location_on_scope exec(topology::getInstance().getCpuNumaNodes()[0]);
 
   size_t SF = 1000;
-  std::map<std::string, std::function<double(proteus::InputPrefixQueryShaper&)>>
-      stats{{"sf", [SF](auto&) { return SF; }},
-            {"date", [](auto&) { return 2556; }},
-            {"customer", [](auto& s) { return s.sf() * 30'000; }},
-            {"supplier", [](auto& s) { return s.sf() * 2'000; }},
-            {"part",
-             [](auto& s) {
-               return 200'000 * std::ceil(1 + std::log2((double)s.sf()));
-             }},
-            {"lineorder", [](auto& s) { return s.sf() * 6'000'000; }}};
+  auto stats = ssb::Query::getStats(SF);
 
   std::vector<std::unique_ptr<proteus::QueryShaper>> shapers;
   //  shapers.emplace_back(std::make_unique<proteus::InputPrefixQueryShaper>(
@@ -68,22 +59,22 @@ int main(int argc, char* argv[]) {
     StorageManager::getInstance().unloadAll();
     auto& shaper = *shaper_ptr;
     std::vector<PreparedStatement> rel{
-        ssb100::Query::prepare11(shaper),
-        ssb100::Query::prepare12(shaper),
-        ssb100::Query::prepare13(shaper),
+        ssb::Query::prepare11(shaper),
+        ssb::Query::prepare12(shaper),
+        ssb::Query::prepare13(shaper),
         //
-        ssb100::Query::prepare21(shaper),
-        ssb100::Query::prepare22(shaper),
-        ssb100::Query::prepare23(shaper),
+        ssb::Query::prepare21(shaper),
+        ssb::Query::prepare22(shaper),
+        ssb::Query::prepare23(shaper),
         //
-        ssb100::Query::prepare31(shaper),
-        ssb100::Query::prepare32(shaper),
-        ssb100::Query::prepare33(shaper),
-        ssb100::Query::prepare34(shaper),
+        ssb::Query::prepare31(shaper),
+        ssb::Query::prepare32(shaper),
+        ssb::Query::prepare33(shaper),
+        ssb::Query::prepare34(shaper),
         //
-        ssb100::Query::prepare41(shaper),
-        ssb100::Query::prepare42(shaper),
-        ssb100::Query::prepare43(shaper),
+        ssb::Query::prepare41(shaper),
+        ssb::Query::prepare42(shaper),
+        ssb::Query::prepare43(shaper),
     };
 
     using namespace std::chrono_literals;

@@ -21,52 +21,61 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <ssb100/query.hpp>
+#include <ssb/query.hpp>
 
-constexpr auto query = "ssb100_Q3_4";
+constexpr auto query = "ssb100_Q4_1";
 
-PreparedStatement ssb100::Query::prepare34(proteus::QueryShaper &morph) {
+PreparedStatement ssb::Query::prepare41(proteus::QueryShaper &morph) {
   morph.setQueryName(query);
 
-  auto rel44853 =
-      morph
-          .distribute_build(
-              morph.scan("date", {"d_datekey", "d_year", "d_yearmonth"}))
+  auto rel51013 =
+      morph.distribute_build(morph.scan("date", {"d_datekey", "d_year"}))
+          .unpack();
+
+  auto rel51018 =
+      morph.distribute_build(morph.scan("part", {"p_partkey", "p_mfgr"}))
           .unpack()
           .filter([&](const auto &arg) -> expression_t {
-            return expressions::hint(eq(arg["d_yearmonth"], "Dec1997"),
-                                     expressions::Selectivity{1.0 / 84});
+            return expressions::hint(
+                eq(arg["p_mfgr"], "MFGR#1") | eq(arg["p_mfgr"], "MFGR#2"),
+                expressions::Selectivity{2.0 / 5});
           })
           .project([&](const auto &arg) -> std::vector<expression_t> {
-            return {arg["d_datekey"], arg["d_year"]};
+            return {arg["p_partkey"]};
           });
 
-  auto rel44857 =
-      morph.distribute_build(morph.scan("customer", {"c_custkey", "c_city"}))
+  auto rel51023 =
+      morph
+          .distribute_build(
+              morph.scan("customer", {"c_custkey", "c_nation", "c_region"}))
           .unpack()
           .filter([&](const auto &arg) -> expression_t {
-            return expressions::hint(eq(arg["c_city"], "UNITED KI1") |
-                                         eq(arg["c_city"], "UNITED KI5"),
-                                     expressions::Selectivity{1.0 / 125});
+            return expressions::hint(eq(arg["c_region"], "AMERICA"),
+                                     expressions::Selectivity{1.0 / 5});
+          })
+          .project([&](const auto &arg) -> std::vector<expression_t> {
+            return {arg["c_custkey"], arg["c_nation"]};
           });
 
-  auto rel44861 =
-      morph.distribute_build(morph.scan("supplier", {"s_suppkey", "s_city"}))
+  auto rel51028 =
+      morph.distribute_build(morph.scan("supplier", {"s_suppkey", "s_region"}))
           .unpack()
           .filter([&](const auto &arg) -> expression_t {
-            return expressions::hint(eq(arg["s_city"], "UNITED KI1") |
-                                         eq(arg["s_city"], "UNITED KI5"),
-                                     expressions::Selectivity{1.0 / 125});
+            return expressions::hint(eq(arg["s_region"], "AMERICA"),
+                                     expressions::Selectivity{1.0 / 5});
+          })
+          .project([&](const auto &arg) -> std::vector<expression_t> {
+            return {arg["s_suppkey"]};
           });
 
   auto rel =
       morph
           .distribute_probe(morph.scan(
-              "lineorder",
-              {"lo_custkey", "lo_suppkey", "lo_orderdate", "lo_revenue"}))
+              "lineorder", {"lo_custkey", "lo_partkey", "lo_suppkey",
+                            "lo_orderdate", "lo_revenue", "lo_supplycost"}))
           .unpack()
           .join(
-              rel44861,
+              rel51028,
               [&](const auto &build_arg) -> expression_t {
                 return build_arg["s_suppkey"];
               },
@@ -74,7 +83,7 @@ PreparedStatement ssb100::Query::prepare34(proteus::QueryShaper &morph) {
                 return probe_arg["lo_suppkey"];
               })
           .join(
-              rel44857,
+              rel51023,
               [&](const auto &build_arg) -> expression_t {
                 return build_arg["c_custkey"];
               },
@@ -82,7 +91,15 @@ PreparedStatement ssb100::Query::prepare34(proteus::QueryShaper &morph) {
                 return probe_arg["lo_custkey"];
               })
           .join(
-              rel44853,
+              rel51018,
+              [&](const auto &build_arg) -> expression_t {
+                return build_arg["p_partkey"];
+              },
+              [&](const auto &probe_arg) -> expression_t {
+                return probe_arg["lo_partkey"];
+              })
+          .join(
+              rel51013,
               [&](const auto &build_arg) -> expression_t {
                 return build_arg["d_datekey"];
               },
@@ -91,34 +108,33 @@ PreparedStatement ssb100::Query::prepare34(proteus::QueryShaper &morph) {
               })
           .groupby(
               [&](const auto &arg) -> std::vector<expression_t> {
-                return {arg["c_city"].as("tmp", "c_city"),
-                        arg["s_city"].as("tmp", "s_city"),
-                        arg["d_year"].as("tmp", "d_year")};
+                return {arg["d_year"].as("tmp", "d_year"),
+                        arg["c_nation"].as("tmp", "c_nation")};
               },
               [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
-                return {GpuAggrMatExpr{
-                    arg["lo_revenue"].as("tmp", "lo_revenue"), 1, 0, SUM}};
+                return {
+                    GpuAggrMatExpr{(arg["lo_revenue"] - arg["lo_supplycost"])
+                                       .as("tmp", "profit"),
+                                   1, 0, SUM}};
               },
-              10, 131072)
+              10, 128 * 1024)
           .pack();
 
   rel = morph.collect(rel)
             .unpack()
             .groupby(
                 [&](const auto &arg) -> std::vector<expression_t> {
-                  return {arg["c_city"], arg["s_city"], arg["d_year"]};
+                  return {arg["d_year"], arg["c_nation"]};
                 },
                 [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
-                  return {GpuAggrMatExpr{arg["lo_revenue"], 1, 0, SUM}};
+                  return {GpuAggrMatExpr{arg["profit"], 1, 0, SUM}};
                 },
-                10, 16)
+                10, 64)
             .sort(
                 [&](const auto &arg) -> std::vector<expression_t> {
-                  return {arg["c_city"], arg["s_city"], arg["d_year"],
-                          arg["lo_revenue"]};
+                  return {arg["d_year"], arg["c_nation"], arg["profit"]};
                 },
-                {direction::NONE, direction::NONE, direction::ASC,
-                 direction::DESC})
+                {direction::ASC, direction::ASC, direction::NONE})
             .print(pg{"pm-csv"});
   return rel.prepare();
 }

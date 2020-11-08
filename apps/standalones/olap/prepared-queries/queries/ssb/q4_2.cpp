@@ -21,11 +21,11 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <ssb100/query.hpp>
+#include <ssb/query.hpp>
 
 constexpr auto query = "ssb100_Q4_2";
 
-PreparedStatement ssb100::Query::prepare42(proteus::QueryShaper &morph) {
+PreparedStatement ssb::Query::prepare42(proteus::QueryShaper &morph) {
   morph.setQueryName(query);
 
   auto rel57931 =
