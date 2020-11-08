@@ -121,7 +121,6 @@ routing_target PreferLocal::evaluate(ParallelContext *context,
   phi->addIncoming(p1, b1);
   phi->addIncoming(p2, b2);
 
-  Builder->GetInsertBlock()->getParent()->dump();
   return {phi, true};
 }
 
