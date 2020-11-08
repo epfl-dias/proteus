@@ -346,7 +346,7 @@ std::unique_ptr<routing::RoutingPolicy> Router::getPolicy() const {
       return std::make_unique<routing::HashBased>(fanout, hashExpr.value());
     }
     case RoutingPolicy::LOCAL: {
-      return std::make_unique<routing::Local>(
+      return std::make_unique<routing::PreferLocal>(
           fanout, wantedFields, new AffinityPolicy(fanout, aff.get()));
     }
     case RoutingPolicy::RANDOM: {
@@ -386,12 +386,13 @@ void Router::consume(ParallelContext *const context,
 
     params = Builder->CreateInsertValue(params, vi, i);
   }
-
+  auto retry_cnt =
+      context->toMem(context->createInt32(0), context->createFalse());
   BasicBlock *tryBB = BasicBlock::Create(llvmContext, "tryAcq", F);
   Builder->CreateBr(tryBB);
   Builder->SetInsertPoint(tryBB);
 
-  auto r = getPolicy()->evaluate(context, childState);
+  auto r = getPolicy()->evaluate(context, childState, retry_cnt);
 
   r.target->setName("target");
   auto target =
@@ -429,6 +430,10 @@ void Router::consume(ParallelContext *const context,
   Value *null_ptr =
       ConstantPointerNull::get(((PointerType *)param_ptr->getType()));
   Value *is_null = Builder->CreateICmpEQ(param_ptr, null_ptr);
+
+  Builder->CreateStore(Builder->CreateAdd(Builder->CreateLoad(retry_cnt.mem),
+                                          context->createInt32(1)),
+                       retry_cnt.mem);
 
   BasicBlock *contBB = BasicBlock::Create(llvmContext, "cont", F);
   Builder->CreateCondBr(is_null, tryBB, contBB);

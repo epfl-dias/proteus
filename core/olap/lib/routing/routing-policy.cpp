@@ -35,7 +35,8 @@ extern "C" size_t random_local_cu(void *ptr, AffinityPolicy *aff) {
 
 namespace routing {
 ::routing_target Random::evaluate(ParallelContext *const context,
-                                  const OperatorState &childState) {
+                                  const OperatorState &childState,
+                                  ProteusValueMemory retrycnt) {
   if (fanout == 1) return {context->createInt64(0), false};
   auto Builder = context->getBuilder();
 
@@ -47,7 +48,8 @@ namespace routing {
 }
 
 ::routing_target HashBased::evaluate(ParallelContext *const context,
-                                     const OperatorState &childState) {
+                                     const OperatorState &childState,
+                                     ProteusValueMemory retrycnt) {
   auto Builder = context->getBuilder();
 
   ExpressionGeneratorVisitor exprGenerator{context, childState};
@@ -58,7 +60,8 @@ namespace routing {
 }
 
 ::routing_target Local::evaluate(ParallelContext *const context,
-                                 const OperatorState &childState) {
+                                 const OperatorState &childState,
+                                 ProteusValueMemory retrycnt) {
   if (fanout == 1) return {context->createInt64(0), false};
 
   auto Builder = context->getBuilder();
@@ -79,5 +82,47 @@ namespace routing {
 Local::Local(size_t fanout, const std::vector<RecordAttribute *> &wantedFields,
              const AffinityPolicy *aff)
     : fanout(fanout), wantedField(*wantedFields[0]), aff(aff) {}
+
+PreferLocal::PreferLocal(size_t fanout,
+                         const std::vector<RecordAttribute *> &wantedFields,
+                         const AffinityPolicy *aff)
+    : priority(fanout, wantedFields, aff), alternative(fanout) {}
+
+routing_target PreferLocal::evaluate(ParallelContext *context,
+                                     const OperatorState &childState,
+                                     ProteusValueMemory retrycnt) {
+  auto Builder = context->getBuilder();
+
+  llvm::BasicBlock *b1;
+  llvm::BasicBlock *b2;
+  llvm::Value *p1;
+  llvm::Value *p2;
+  auto phi_type = llvm::IntegerType::getInt64Ty(context->getLLVMContext());
+
+  context
+      ->gen_if(lt(
+                   expressions::ProteusValueExpression{
+                       new IntType(),
+                       {Builder->CreateLoad(retrycnt.mem), retrycnt.isNull}},
+                   1),
+               childState)([&]() {
+        p1 = Builder->CreateZExt(
+            priority.evaluate(context, childState, retrycnt).target, phi_type);
+        b1 = Builder->GetInsertBlock();
+      })
+      .gen_else([&]() {
+        p2 = Builder->CreateZExt(
+            alternative.evaluate(context, childState, retrycnt).target,
+            phi_type);
+        b2 = Builder->GetInsertBlock();
+      });
+
+  auto phi = Builder->CreatePHI(phi_type, 2);
+  phi->addIncoming(p1, b1);
+  phi->addIncoming(p2, b2);
+
+  Builder->GetInsertBlock()->getParent()->dump();
+  return {phi, true};
+}
 
 }  // namespace routing
