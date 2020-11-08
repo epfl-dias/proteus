@@ -252,10 +252,10 @@ class JITer_impl {
           });
     }
 
-    ObjectLayer.setNotifyEmitted(
-        [](llvm::orc::VModuleKey k, std::unique_ptr<MemoryBuffer> mb) {
-          LOG(INFO) << "Emitted " << k << " " << mb.get();
-        });
+    //    ObjectLayer.setNotifyEmitted(
+    //        [](llvm::orc::VModuleKey k, std::unique_ptr<MemoryBuffer> mb) {
+    //          LOG(INFO) << "Emitted " << k << " " << mb.get();
+    //        });
 
     ES.setDispatchMaterialization(
         [&p = pool](std::unique_ptr<llvm::orc::MaterializationUnit> MU,

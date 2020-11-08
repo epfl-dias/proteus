@@ -503,7 +503,7 @@ void HashJoinChained::generate_probe(ParallelContext *context,
     } else {
       allJoinBindings[mexpr.expr.getRegisteredAs()] =
           childState[mexpr.expr.getRegisteredAs()];
-      LOG(INFO) << "Lazy: " << mexpr.expr.getRegisteredAs();
+      //      LOG(INFO) << "Lazy: " << mexpr.expr.getRegisteredAs();
     }
   }
 
