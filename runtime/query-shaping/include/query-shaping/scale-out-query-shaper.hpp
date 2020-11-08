@@ -30,22 +30,26 @@ namespace proteus {
 
 class ScaleOutQueryShaper : public proteus::InputPrefixQueryShaper {
  public:
-  explicit ScaleOutQueryShaper(std::string base_path);
+  explicit ScaleOutQueryShaper(std::string base_path,
+                               decltype(input_sizes) input_sizes);
 
   [[nodiscard]] pg getPlugin() const override;
 
   [[nodiscard]] DeviceType getDevice() override;
   [[nodiscard]] int getSlack() override;
 
+  [[nodiscard]] RelBuilder getBuilder() const override;
+
   [[nodiscard]] virtual DegreeOfParallelism getServerDOP();
-  RelBuilder scan(const std::string& relName,
-                  std::initializer_list<std::string> relAttrs) override;
 
   [[nodiscard]] RelBuilder distribute_build(RelBuilder input) override;
   [[nodiscard]] RelBuilder distribute_probe(RelBuilder input) override;
 
   [[nodiscard]] RelBuilder collect_unpacked(RelBuilder input) override;
   [[nodiscard]] RelBuilder collect(RelBuilder input) override;
+
+ protected:
+  double getRowHint(const std::string &relName) override;
 };
 
 }  // namespace proteus

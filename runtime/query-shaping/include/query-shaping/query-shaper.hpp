@@ -50,7 +50,7 @@ class QueryShaper {
   virtual void setQueryName(std::string name);
   virtual ~QueryShaper() = default;
 
-  [[nodiscard]] virtual int sf();
+  [[nodiscard]] virtual size_t sf();
 
   [[nodiscard]] virtual RelBuilder distribute_probe(RelBuilder input);
   [[nodiscard]] virtual RelBuilder distribute_build(RelBuilder input);

@@ -50,7 +50,7 @@ DeviceType QueryShaper::getDevice() { return DeviceType::GPU; }
 int QueryShaper::getSlack() { return 64; }
 int QueryShaper::getSlackReduce() { return 128; }
 bool QueryShaper::doMove() { return true; }
-int QueryShaper::sf() { return 100; }
+size_t QueryShaper::sf() { return 100; }
 
 DegreeOfParallelism QueryShaper::getDOP() {
   return DegreeOfParallelism{(getDevice() == DeviceType::CPU)

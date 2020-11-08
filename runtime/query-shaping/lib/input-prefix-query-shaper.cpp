@@ -21,25 +21,47 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include <olap/plan/catalog-parser.hpp>
 #include <query-shaping/input-prefix-query-shaper.hpp>
 
 namespace proteus {
-InputPrefixQueryShaper::InputPrefixQueryShaper(std::string base_path)
-    : base_path(std::move(base_path)) {}
+InputPrefixQueryShaper::InputPrefixQueryShaper(
+    std::string base_path, decltype(input_sizes) input_sizes = {})
+    : base_path(std::move(base_path)),
+      input_sizes(std::move(input_sizes)),
+      sf_(100) {
+  try {
+    sf_ = this->input_sizes.at("sf")(*this);
+  } catch (const std::out_of_range&) {
+  }
+}
 
 std::string InputPrefixQueryShaper::getRelName(const std::string& base) {
   return base_path + base + ".csv";
 }
 
-int InputPrefixQueryShaper::sf() {
-  return (base_path.find("1000") != std::string::npos) ? 1000 : 100;
+double InputPrefixQueryShaper::getRowHint(const std::string& relName) {
+  return input_sizes.at(relName)(*this);
 }
 
+RelBuilder InputPrefixQueryShaper::scan(
+    const std::string& relName, std::initializer_list<std::string> relAttrs) {
+  auto rel = getBuilder().scan(getRelName(relName), relAttrs,
+                               CatalogParser::getInstance(), getPlugin());
+  //  try {
+  rel = rel.hintRowCount(getRowHint(relName));
+  //  } catch (const std::out_of_range&) {}
+
+  return rel;
+}
+
+size_t InputPrefixQueryShaper::sf() { return sf_; }
+
 [[nodiscard]] pg InputPrefixQueryShaper::getPlugin() const {
-  return pg{"distributed-block"};
+  return pg{"block"};
 }
 
 [[nodiscard]] DeviceType InputPrefixQueryShaper::getDevice() {
-  return DeviceType::CPU;
+  return DeviceType::GPU;
 }
 }  // namespace proteus

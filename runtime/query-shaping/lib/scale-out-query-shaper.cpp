@@ -23,12 +23,14 @@
 
 #include "query-shaping/scale-out-query-shaper.hpp"
 
+#include <olap/operators/relbuilder-factory.hpp>
 #include <olap/plan/catalog-parser.hpp>
 #include <platform/network/infiniband/infiniband-manager.hpp>
 
 namespace proteus {
-ScaleOutQueryShaper::ScaleOutQueryShaper(std::string base_path)
-    : InputPrefixQueryShaper(std::move(base_path)) {}
+ScaleOutQueryShaper::ScaleOutQueryShaper(std::string base_path,
+                                         decltype(input_sizes) input_sizes)
+    : InputPrefixQueryShaper(std::move(base_path), std::move(input_sizes)) {}
 
 [[nodiscard]] pg ScaleOutQueryShaper::getPlugin() const {
   return pg{"distributed-block"};
@@ -44,10 +46,9 @@ ScaleOutQueryShaper::ScaleOutQueryShaper(std::string base_path)
   return DegreeOfParallelism{2};
 }
 
-RelBuilder ScaleOutQueryShaper::scan(
-    const std::string& relName, std::initializer_list<std::string> relAttrs) {
-  return getBuilder().scan(getRelName(relName), relAttrs,
-                           CatalogParser::getInstance(), getPlugin());
+RelBuilder ScaleOutQueryShaper::getBuilder() const {
+  static RelBuilderFactory ctx{query + "distributed"};
+  return ctx.getBuilder();
 }
 
 [[nodiscard]] RelBuilder ScaleOutQueryShaper::distribute_build(
@@ -70,17 +71,25 @@ RelBuilder ScaleOutQueryShaper::scan(
   auto rel = input
                  .router_scaleout(
                      [&](const auto& arg) -> std::optional<expression_t> {
-                       return (int)(InfiniBandManager::server_id());
+                       return (int)(1 - InfiniBandManager::server_id());
                      },
                      getServerDOP(), getSlack(), RoutingPolicy::HASH_BASED,
                      getDevice())
                  .memmove_scaleout(getSlack());
-  return InputPrefixQueryShaper::distribute_probe(rel);
+
+  rel = rel.router(getDOP(), 2, RoutingPolicy::LOCAL, getDevice(),
+                   getAffinitizer());
+
+  //  if (doMove()) rel = rel.memmove(2, getDevice());
+
+  if (getDevice() == DeviceType::GPU) rel = rel.to_gpu();
+
+  return rel;
+  //  return InputPrefixQueryShaper::distribute_probe(rel);
 }
 
 [[nodiscard]] RelBuilder ScaleOutQueryShaper::collect_unpacked(
     RelBuilder input) {
-  StorageManager::getInstance().unloadAll();
   return InputPrefixQueryShaper::collect_unpacked(input).router_scaleout(
       [&](const auto& arg) -> std::optional<expression_t> {
         return (int)0;  // std::nullopt;
@@ -90,5 +99,14 @@ RelBuilder ScaleOutQueryShaper::scan(
 
 [[nodiscard]] RelBuilder ScaleOutQueryShaper::collect(RelBuilder input) {
   return collect_unpacked(input).memmove_scaleout(getSlackReduce());
+}
+
+double ScaleOutQueryShaper::getRowHint(const std::string& relName) {
+  auto rowhint = InputPrefixQueryShaper::getRowHint(relName);
+  // if table size is too small to break across servers, it won't so
+  // let's use the block size as a type-invariant heuristic, until
+  // we have a proper interface to ask the plugins or the catalog
+  if (rowhint <= BlockManager::block_size) return rowhint;
+  return rowhint / getServerDOP();
 }
 }  // namespace proteus
