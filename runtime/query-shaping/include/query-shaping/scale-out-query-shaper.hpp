@@ -50,6 +50,11 @@ class ScaleOutQueryShaper : public proteus::InputPrefixQueryShaper {
 
  protected:
   double getRowHint(const std::string &relName) override;
+
+  [[nodiscard]] virtual RelBuilder distribute_probe_interserver(
+      RelBuilder input);
+  [[nodiscard]] virtual RelBuilder distribute_probe_intraserver(
+      RelBuilder input);
 };
 
 }  // namespace proteus

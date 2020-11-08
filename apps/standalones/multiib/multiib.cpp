@@ -35,6 +35,33 @@
 #include <query-shaping/scale-out-query-shaper.hpp>
 #include <ssb/query.hpp>
 
+class CPUOnlyShuffleAll : public proteus::ScaleOutQueryShaper {
+  using proteus::ScaleOutQueryShaper::ScaleOutQueryShaper;
+
+ protected:
+  [[nodiscard]] RelBuilder distribute_probe_interserver(
+      RelBuilder input) override {
+    return input
+        .router_scaleout(
+            [&](const auto& arg) -> std::optional<expression_t> {
+              return (int)(1 - InfiniBandManager::server_id());
+            },
+            getServerDOP(), getSlack(), RoutingPolicy::HASH_BASED, getDevice())
+        .memmove_scaleout(getSlack());
+  }
+};
+
+class CPUOnlyNoShuffle : public proteus::ScaleOutQueryShaper {
+  using proteus::ScaleOutQueryShaper::ScaleOutQueryShaper;
+};
+
+template <typename T>
+std::unique_ptr<T> make_shaper(
+    size_t SF, decltype(ssb::Query::getStats(std::declval<size_t>())) stat) {
+  return std::make_unique<T>("inputs/ssbm" + std::to_string(SF) + "/",
+                             std::move(stat));
+}
+
 int main(int argc, char* argv[]) {
   auto ctx = proteus::from_cli::olap("Multi IB", &argc, &argv);
 
@@ -46,8 +73,8 @@ int main(int argc, char* argv[]) {
   std::vector<std::unique_ptr<proteus::QueryShaper>> shapers;
   //  shapers.emplace_back(std::make_unique<proteus::InputPrefixQueryShaper>(
   //      "inputs/ssbm" + std::to_string(SF) + "/", stats));
-  shapers.emplace_back(std::make_unique<proteus::ScaleOutQueryShaper>(
-      "inputs/ssbm" + std::to_string(SF) + "/", stats));
+  //  shapers.emplace_back(make_shaper<CPUOnlyShuffleAll>(SF, stats));
+  shapers.emplace_back(make_shaper<CPUOnlyNoShuffle>(SF, stats));
 
   std::vector<std::vector<std::vector<std::chrono::milliseconds>>> times_all;
 

@@ -66,19 +66,21 @@ RelBuilder ScaleOutQueryShaper::getBuilder() const {
   return InputPrefixQueryShaper::distribute_build(rel);
 }
 
-[[nodiscard]] RelBuilder ScaleOutQueryShaper::distribute_probe(
+[[nodiscard]] RelBuilder ScaleOutQueryShaper::distribute_probe_interserver(
     RelBuilder input) {
-  auto rel = input
-                 .router_scaleout(
-                     [&](const auto& arg) -> std::optional<expression_t> {
-                       return (int)(1 - InfiniBandManager::server_id());
-                     },
-                     getServerDOP(), getSlack(), RoutingPolicy::HASH_BASED,
-                     getDevice())
-                 .memmove_scaleout(getSlack());
+  return input
+      .router_scaleout(
+          [&](const auto& arg) -> std::optional<expression_t> {
+            return (int)InfiniBandManager::server_id();
+          },
+          getServerDOP(), getSlack(), RoutingPolicy::HASH_BASED, getDevice())
+      .memmove_scaleout(getSlack());
+}
 
-  rel = rel.router(getDOP(), 2, RoutingPolicy::LOCAL, getDevice(),
-                   getAffinitizer());
+[[nodiscard]] RelBuilder ScaleOutQueryShaper::distribute_probe_intraserver(
+    RelBuilder input) {
+  auto rel = input.router(getDOP(), 2, RoutingPolicy::LOCAL, getDevice(),
+                          getAffinitizer());
 
   //  if (doMove()) rel = rel.memmove(2, getDevice());
 
@@ -86,6 +88,11 @@ RelBuilder ScaleOutQueryShaper::getBuilder() const {
 
   return rel;
   //  return InputPrefixQueryShaper::distribute_probe(rel);
+}
+
+[[nodiscard]] RelBuilder ScaleOutQueryShaper::distribute_probe(
+    RelBuilder input) {
+  return distribute_probe_intraserver(distribute_probe_interserver(input));
 }
 
 [[nodiscard]] RelBuilder ScaleOutQueryShaper::collect_unpacked(
