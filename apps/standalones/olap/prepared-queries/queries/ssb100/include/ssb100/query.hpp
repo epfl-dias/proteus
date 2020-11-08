@@ -25,34 +25,37 @@
 #define PROTEUS_SSB100_QUERY_HPP
 
 #include <olap/plan/prepared-statement.hpp>
+#include <query-shaping/query-shaper.hpp>
 
 namespace ssb100 {
 class Query {
  public:
-  PreparedStatement prepare11(bool memmv);
-  PreparedStatement prepare12(bool memmv);
-  PreparedStatement prepare13(bool memmv);
-  PreparedStatement prepare21(bool memmv);
-  PreparedStatement prepare22(bool memmv);
-  PreparedStatement prepare23(bool memmv);
-  PreparedStatement prepare31(bool memmv);
-  PreparedStatement prepare32(bool memmv);
-  PreparedStatement prepare33(bool memmv);
-  PreparedStatement prepare34(bool memmv);
-  PreparedStatement prepare41(bool memmv);
-  PreparedStatement prepare42(bool memmv);
-  PreparedStatement prepare43(bool memmv);
+  static PreparedStatement prepare11(proteus::QueryShaper &morph);
+  static PreparedStatement prepare12(proteus::QueryShaper &morph);
+  static PreparedStatement prepare13(proteus::QueryShaper &morph);
+  static PreparedStatement prepare21(proteus::QueryShaper &morph);
+  static PreparedStatement prepare22(proteus::QueryShaper &morph);
+  static PreparedStatement prepare23(proteus::QueryShaper &morph);
+  static PreparedStatement prepare31(proteus::QueryShaper &morph);
+  static PreparedStatement prepare32(proteus::QueryShaper &morph);
+  static PreparedStatement prepare33(proteus::QueryShaper &morph);
+  static PreparedStatement prepare34(proteus::QueryShaper &morph);
+  static PreparedStatement prepare41(proteus::QueryShaper &morph);
+  static PreparedStatement prepare42(proteus::QueryShaper &morph);
+  static PreparedStatement prepare43(proteus::QueryShaper &morph);
 
-  std::vector<PreparedStatement> prepareAll(bool memmv) {
+  static std::vector<PreparedStatement> prepareAll(bool memmv) {
+    proteus::QueryShaperControlMoves shaper{memmv};
     return {
         // Q1.*
-        prepare11(memmv), prepare12(memmv), prepare13(memmv),
+        prepare11(shaper), prepare12(shaper), prepare13(shaper),
         // Q2.*
-        prepare21(memmv), prepare22(memmv), prepare23(memmv),
+        prepare21(shaper), prepare22(shaper), prepare23(shaper),
         // Q3.*
-        prepare31(memmv), prepare32(memmv), prepare33(memmv), prepare34(memmv),
+        prepare31(shaper), prepare32(shaper), prepare33(shaper),
+        prepare34(shaper),
         // Q4.*
-        prepare41(memmv), prepare42(memmv), prepare43(memmv)
+        prepare41(shaper), prepare42(shaper), prepare43(shaper)
         // EOQ
     };
   }

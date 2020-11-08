@@ -30,85 +30,97 @@
 #include <platform/storage/storage-manager.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
+#include <platform/util/timing.hpp>
+#include <query-shaping/input-prefix-query-shaper.hpp>
+#include <query-shaping/scale-out-query-shaper.hpp>
+#include <ssb100/query.hpp>
 
-static std::string date = "inputs/ssbm1000/date.csv";
-
-static std::string d_datekey = "d_datekey";
-static std::string d_year = "d_year";
-static std::string d_weeknuminyear = "d_weeknuminyear";
-
-static std::string lineorder = "inputs/ssbm1000/lineorder.csv";
-
-static std::string lo_quantity = "lo_quantity";
-static std::string lo_discount = "lo_discount";
-static std::string lo_extendedprice = "lo_extendedprice";
-static std::string lo_orderdate = "lo_orderdate";
-
-static std::string revenue = "revenue";
-
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   auto ctx = proteus::from_cli::olap("Multi IB", &argc, &argv);
 
   set_exec_location_on_scope exec(topology::getInstance().getCpuNumaNodes()[0]);
 
+  size_t SF = 1000;
+  std::map<std::string, std::function<double(proteus::InputPrefixQueryShaper&)>>
+      stats{{"sf", [SF](auto&) { return SF; }},
+            {"date", [](auto&) { return 2556; }},
+            {"customer", [](auto& s) { return s.sf() * 30'000; }},
+            {"supplier", [](auto& s) { return s.sf() * 2'000; }},
+            {"part",
+             [](auto& s) {
+               return 200'000 * std::ceil(1 + std::log2((double)s.sf()));
+             }},
+            {"lineorder", [](auto& s) { return s.sf() * 6'000'000; }}};
+
+  std::vector<std::unique_ptr<proteus::QueryShaper>> shapers;
+  //  shapers.emplace_back(std::make_unique<proteus::InputPrefixQueryShaper>(
+  //      "inputs/ssbm" + std::to_string(SF) + "/", stats));
+  shapers.emplace_back(std::make_unique<proteus::ScaleOutQueryShaper>(
+      "inputs/ssbm" + std::to_string(SF) + "/", stats));
+
+  std::vector<std::vector<std::vector<std::chrono::milliseconds>>> times_all;
+
   assert(FLAGS_port <= std::numeric_limits<uint16_t>::max());
   InfiniBandManager::init(FLAGS_url, static_cast<uint16_t>(FLAGS_port),
                           FLAGS_primary, FLAGS_ipv4);
-  std::vector<PreparedStatement> rel;
-  rel.reserve(5);
-  for (size_t i = 0; i < 1; ++i) {
-    rel.push_back(
-        RelBuilderFactory{__FUNCTION__ + std::to_string(i)}
-            .getBuilder()
-            .scan("inputs/ssbm1000/lineorder.csv", {lo_orderdate},
-                  CatalogParser::getInstance(), pg{"distributed-block"})
-            .router_scaleout(
-                [&](const auto &arg) -> std::optional<expression_t> {
-                  return (int)(1 - InfiniBandManager::server_id());
-                },
-                DegreeOfParallelism{2}, 128, RoutingPolicy::HASH_BASED,
-                DeviceType::CPU)
-            .memmove_scaleout(128)
-            .router(DegreeOfParallelism{topology::getInstance().getCoreCount()},
-                    8, RoutingPolicy::LOCAL, DeviceType::CPU)
-            .memmove(8, DeviceType::CPU)
-            //          .to_gpu()
-            .unpack()
-            .reduce(
-                [&](const auto &arg) -> std::vector<expression_t> {
-                  return {arg[lo_orderdate]};
-                },
-                {SUM})
-            //          .to_cpu()
-            .router(DegreeOfParallelism{1}, 8, RoutingPolicy::RANDOM,
-                    DeviceType::CPU)
-            .router_scaleout(
-                [&](const auto &arg) -> std::optional<expression_t> {
-                  return (int)0;  // std::nullopt;
-                },
-                DegreeOfParallelism{2}, 8, RoutingPolicy::HASH_BASED,
-                DeviceType::CPU)
-            .reduce(
-                [&](const auto &arg) -> std::vector<expression_t> {
-                  return {arg[lo_orderdate]};
-                },
-                {SUM})
-            .print(pg{"pm-csv"})
-            .prepare());
-  }
 
-  using namespace std::chrono_literals;
-  std::this_thread::sleep_for(5s);
+  for (auto& shaper_ptr : shapers) {
+    StorageManager::getInstance().unloadAll();
+    auto& shaper = *shaper_ptr;
+    std::vector<PreparedStatement> rel{
+        ssb100::Query::prepare11(shaper),
+        ssb100::Query::prepare12(shaper),
+        ssb100::Query::prepare13(shaper),
+        //
+        ssb100::Query::prepare21(shaper),
+        ssb100::Query::prepare22(shaper),
+        ssb100::Query::prepare23(shaper),
+        //
+        ssb100::Query::prepare31(shaper),
+        ssb100::Query::prepare32(shaper),
+        ssb100::Query::prepare33(shaper),
+        ssb100::Query::prepare34(shaper),
+        //
+        ssb100::Query::prepare41(shaper),
+        ssb100::Query::prepare42(shaper),
+        ssb100::Query::prepare43(shaper),
+    };
 
-  for (size_t i = 0; i < 5; ++i) {
-    LOG(INFO) << rel[0].execute();
-    std::this_thread::sleep_for(5s);
+    using namespace std::chrono_literals;
+    std::this_thread::sleep_for(1s);
+
+    for (auto& st : rel) {
+      for (size_t i = 0; i < 1; ++i) {
+        LOG(INFO) << st.execute();
+      }
+    }
+
+    times_all.emplace_back();
+    auto& times = times_all.back();
+
+    for (auto& st : rel) {
+      times.emplace_back();
+      for (size_t i = 0; i < 7; ++i) {
+        time_block t{[&](auto tms) { times.back().emplace_back(tms); }};
+        st.execute();
+      }
+    }
   }
 
   if (!FLAGS_primary) InfiniBandManager::disconnectAll();
 
   StorageManager::getInstance().unloadAll();
   InfiniBandManager::deinit();
+
+  for (auto& times : times_all) {
+    for (auto& st : times) {
+      for (const auto ms : st) {
+        std::cout << ms.count() << '\t';
+      }
+      std::cout << '\n';
+    }
+    std::cout << "\n\n\n";
+  }
 
   return 0;
 }
