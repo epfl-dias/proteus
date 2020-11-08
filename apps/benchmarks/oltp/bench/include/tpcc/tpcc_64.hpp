@@ -378,17 +378,14 @@ class TPCC : public Benchmark {
       // moreover, it is not performance-critical.
       verify_consistency();
     }
-
-    // TODO: Implement verify consistency after txn run.
   }
 
   // consistency checks
   void verify_consistency();
-  [[nodiscard]] bool consistency_check_1(
-      bool print_inconsistent_rows = false) const;
-  bool consistency_check_2(bool print_inconsistent_rows = false);
-  bool consistency_check_3(bool print_inconsistent_rows = false);
-  bool consistency_check_4(bool print_inconsistent_rows = false);
+  bool consistency_check_1(bool print_inconsistent_rows = true);
+  bool consistency_check_2(bool print_inconsistent_rows = true);
+  bool consistency_check_3(bool print_inconsistent_rows = true);
+  bool consistency_check_4(bool print_inconsistent_rows = true);
 
   // CSV Loaders
 
@@ -493,6 +490,8 @@ class TPCC : public Benchmark {
                                   const TPCC::tpcc_new_order &r);
 
  public:
+  PreparedStatement consistency_check_1_query_builder(
+      bool return_aggregate = true, string olap_plugin = "block-remote");
   std::vector<PreparedStatement> consistency_check_2_query_builder(
       bool return_aggregate = true, string olap_plugin = "block-remote");
   PreparedStatement consistency_check_3_query_builder(

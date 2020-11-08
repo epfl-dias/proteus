@@ -37,7 +37,119 @@
 
 namespace bench {
 
-bool TPCC::consistency_check_1(bool print_inconsistent_rows) const {
+PreparedStatement TPCC::consistency_check_1_query_builder(bool return_aggregate,
+                                                          string olap_plugin) {
+  // SQL: (EXPECTED 0 ROWS)
+  //     SELECT sum(w_ytd), sum(d_ytd)
+  //     FROM tpcc_warehouse, tpcc_district
+  //     WHERE tpcc_warehouse.w_id = tpcc_district.d_w_id
+  //     GROUP BY tpcc_warehouse.w_id
+  //     HAVING sum(w_ytd) != sum(d_ytd)
+
+  // auto dop = DegreeOfParallelism {topology::getInstance().getCoreCount()};
+
+  RelBuilderFactory ctx{"tpcc_consistency_check_1"};
+  CatalogParser &catalog = CatalogParser::getInstance();
+  auto wh_scan =
+      ctx.getBuilder()
+          .scan("tpcc_warehouse<" + olap_plugin + ">", {"w_id", "w_ytd"},
+                CatalogParser::getInstance(), pg{olap_plugin})
+          .router(32, RoutingPolicy::LOCAL, DeviceType::CPU)
+          .unpack();
+
+  auto tpcc_check_1 =
+      ctx.getBuilder()
+          .scan("tpcc_district<" + olap_plugin + ">", {"d_w_id", "d_ytd"},
+                CatalogParser::getInstance(), pg{olap_plugin})
+          .router(32, RoutingPolicy::LOCAL, DeviceType::CPU)
+          .unpack()
+          .join(
+              wh_scan,
+              [&](const auto &build_arg) -> expression_t {
+                return expressions::RecordConstruction{
+                    build_arg["w_id"].as("PelagoJoin#2030", "bk_0")}
+                    .as("PelagoJoin#2030", "bk");
+              },
+              [&](const auto &probe_arg) -> expression_t {
+                return expressions::RecordConstruction{
+                    probe_arg["d_w_id"].as("PelagoJoin#2030", "pk_0")}
+                    .as("PelagoJoin#2030", "pk");
+              },
+              log2(this->num_warehouse) + 1, this->num_warehouse)
+          .groupby(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {(arg["w_id"]).as("tmpRelation", "w_id")};
+              },
+              [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
+                return {GpuAggrMatExpr{
+                            (arg["w_ytd"]).as("tmpRelation", "warehouse_ytd"),
+                            1, 0, SUM},
+                        GpuAggrMatExpr{
+                            (arg["d_ytd"]).as("tmpRelation", "district_ytd"), 2,
+                            0, SUM}};
+              },
+              log2(this->num_warehouse) + 1, this->num_warehouse)
+          // Cast to floatType as pack-requires same width of data-types.
+          .project([&](const auto &arg) -> std::vector<expression_t> {
+            return {(arg["w_id"].template as<FloatType>())
+                        .as("tmpRelation#2", "w_id"),
+                    arg["warehouse_ytd"].as("tmpRelation#2", "warehouse_ytd"),
+                    arg["district_ytd"].as("tmpRelation#2", "district_ytd")
+
+            };
+          })
+          .pack()
+          .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
+                  DeviceType::CPU)
+          .unpack()
+          .project([&](const auto &arg) -> std::vector<expression_t> {
+            return {(arg["w_id"].template as<Int64Type>())
+                        .as("tmpRelation#3", "w_id"),
+                    arg["warehouse_ytd"].as("tmpRelation#3", "warehouse_ytd"),
+                    arg["district_ytd"].as("tmpRelation#3", "district_ytd")
+
+            };
+          })
+          .groupby(
+              [&](const auto &arg) -> std::vector<expression_t> {
+                return {(arg["w_id"])};
+              },
+              [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
+                return {GpuAggrMatExpr{(arg["warehouse_ytd"]), 1, 0, SUM},
+                        GpuAggrMatExpr{(arg["district_ytd"]), 2, 0, SUM}};
+              },
+              log2(this->num_warehouse) + 1, this->num_warehouse)
+          // Cast as Int64 to avoid precision mis-matches.
+          .project([&](const auto &arg) -> std::vector<expression_t> {
+            return {(arg["w_id"])
+                        .template as<Int64Type>()
+                        .as("PelagoProject#13144", "w_id"),
+                    (arg["warehouse_ytd"].template as<Int64Type>())
+                        .as("PelagoProject#13144", "warehouse_ytd"),
+                    (arg["district_ytd"].template as<Int64Type>())
+                        .as("PelagoProject#13144", "district_ytd")
+
+            };
+          })
+          .filter([&](const auto &arg) -> expression_t {
+            return ne(arg["warehouse_ytd"], arg["district_ytd"]);
+          });
+
+  if (return_aggregate) {
+    tpcc_check_1 = tpcc_check_1.reduce(
+        [&](const auto &arg) -> std::vector<expression_t> {
+          return {(expression_t{INT32_C(1)})
+                      .as("PelagoProject#6", "count_inconsistent_rec")};
+        },
+        {SUM});
+  }
+
+  tpcc_check_1 = tpcc_check_1.print(pg{"pm-csv"});
+
+  return tpcc_check_1.prepare();
+}
+
+bool TPCC::consistency_check_1(bool print_inconsistent_rows) {
   // Check-1
   // Entries in the WAREHOUSE and DISTRICT tables must satisfy the relationship:
   // W_YTD = sum(D_YTD)
@@ -49,49 +161,25 @@ bool TPCC::consistency_check_1(bool print_inconsistent_rows) const {
   //     GROUP BY tpcc_warehouse.w_id
   //     HAVING sum(w_ytd) != sum(d_ytd)
 
-  // TODO: parallelize
-
   LOG(INFO) << "##########\tConsistency Check - 1";
-
   bool db_consistent = true;
-  // std::vector<proteus::thread> workers;
 
-  const column_id_t w_col_scan[] = {8};  // position in columns
-  const column_id_t d_col_scan[] = {9};  // position in columns
+  std::ostringstream check1_result;
+  check1_result << consistency_check_1_query_builder().execute();
 
-  for (uint64_t i = 0; i < this->num_warehouse; i++) {
-    // Get wh ytd.
-    double wh_ytd = 0.0;
-    auto w_idx_ptr = (global_conf::IndexVal *)table_warehouse->p_index->find(i);
+  std::string n_orders_str = check1_result.str();
+  int n_failed_rows = stoi(n_orders_str);
 
-    table_warehouse->getIndexedRecord(UINT64_MAX, w_idx_ptr, &wh_ytd,
-                                      w_col_scan, 1);
-
-    double district_ytd = 0.0;
-    for (uint j = 0; j < TPCC_NDIST_PER_WH; j++) {
-      // Get all district ytd and sum it.
-      double tmp_d_ytd = 0.0;
-
-      auto d_idx_ptr = (global_conf::IndexVal *)table_district->p_index->find(
-          MAKE_DIST_KEY(i, j));
-      table_district->getIndexedRecord(UINT64_MAX, d_idx_ptr, &tmp_d_ytd,
-                                       d_col_scan, 1);
-      district_ytd += tmp_d_ytd;
-    }
-
-    if ((size_t)wh_ytd != (size_t)district_ytd) {
-      LOG(INFO) << "FAILED CONSISTENCY CHECK-1"
-                << "\n\tWH: " << i << "\n\twh_ytd: " << wh_ytd << " | "
-                << "district_ytd: " << district_ytd;
-      db_consistent = false;
+  if (n_failed_rows) {
+    LOG(INFO) << "Consistency Check # 1 failed."
+              << "\n\t# of inconsistent rows: " << n_failed_rows;
+    db_consistent = false;
+    if (print_inconsistent_rows) {
+      LOG(INFO) << consistency_check_1_query_builder(false).execute();
     }
   }
-
-  //  for (auto &th : workers) {
-  //    th.join();
-  //  }
-
   LOG(INFO) << "##########\tConsistency Check - 1 Completed.";
+
   return db_consistent;
 }
 
@@ -206,6 +294,7 @@ std::vector<PreparedStatement> TPCC::consistency_check_2_query_builder(
 
   return {o_max, no_max, d_next_oid};
 }
+
 static void print_inconsistency(std::string a, std::string b) {
   std::stringstream check1(a);
   std::string i1;
