@@ -533,8 +533,10 @@ class HintRowCount : public experimental::UnaryOperator {
   return apply(op);
 }
 
-using v_t = std::variant<Router *, MemBroadcastDevice *, MemMoveDevice *,
-                         BlockToTuples *, HintRowCount *, Select *, Project *>;
+using v_t =
+    std::variant<RouterScaleOut *, Router *, DeviceCross *,
+                 MemBroadcastScaleOut *, MemBroadcastDevice *, MemMoveDevice *,
+                 BlockToTuples *, HintRowCount *, Select *, Project *>;
 double expected(Operator *op);
 
 class ExpectedTuplesOutputSize {
@@ -542,12 +544,20 @@ class ExpectedTuplesOutputSize {
   double operator()(Router *op) const {
     return expected(op->getChild()) * op->getChild()->getDOP() / op->getDOP();
   }
+  double operator()(RouterScaleOut *op) const {
+    return expected(op->getChild()) * op->getChild()->getDOPServers() /
+           op->getDOPServers();
+  }
   double operator()(MemBroadcastDevice *op) const {
     return expected(op->getChild()) * op->getNumberOfTargets();
+  }
+  double operator()(MemBroadcastScaleOut *op) const {
+    return expected(op->getChild()) * op->getDOPServers();
   }
   double operator()(MemMoveDevice *op) const {
     return expected(op->getChild());
   }
+  double operator()(DeviceCross *op) const { return expected(op->getChild()); }
   double operator()(BlockToTuples *op) const {
     return expected(op->getChild());
   }
@@ -586,10 +596,11 @@ double expected(Operator *op) {
 
 RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
                             expression_t probe_k) const {
-  size_t bsize = expected(build.root) * 1.1;  // 10% overestimate for safety
+  double expct = expected(build.root);
+  size_t bsize = expct * 1.1;  // 10% overestimate for safety
 
   return join(build, std::move(build_k), std::move(probe_k),
-              static_cast<int>(std::ceil(std::log2(bsize))) + 1, bsize);
+              static_cast<int>(std::ceil(std::log2(expct))) + 1, bsize);
 }
 
 RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
