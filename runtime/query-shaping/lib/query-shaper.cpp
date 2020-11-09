@@ -94,12 +94,16 @@ RelBuilder QueryShaper::scan(const std::string& relName,
 
 pg QueryShaper::getPlugin() const { return pg{BinaryBlockPlugin::type}; }
 
-RelBuilder QueryShaper::getBuilder() const {
-  static RelBuilderFactory ctx{query + getPlugin().getType()};
-  return ctx.getBuilder();
+RelBuilder QueryShaper::getBuilder() const { return ctx->getBuilder(); }
+
+void QueryShaper::setQueryName(std::string name) {
+  query = std::move(name);
+  ctx = std::make_unique<RelBuilderFactory>(query);
 }
 
-void QueryShaper::setQueryName(std::string name) { query = std::move(name); }
+QueryShaper::QueryShaper()
+    : ctx(std::make_unique<RelBuilderFactory>("unnamed")) {}
+QueryShaper::~QueryShaper() = default;
 
 QueryShaperControlMoves::QueryShaperControlMoves(bool allow_moves)
     : allow_moves(allow_moves) {}

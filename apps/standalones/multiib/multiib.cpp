@@ -55,6 +55,51 @@ class CPUOnlyNoShuffle : public proteus::ScaleOutQueryShaper {
   using proteus::ScaleOutQueryShaper::ScaleOutQueryShaper;
 };
 
+class GPUOnlySingleSever : public proteus::InputPrefixQueryShaper {
+  using proteus::InputPrefixQueryShaper::InputPrefixQueryShaper;
+};
+
+class CPUOnlySingleSever : public proteus::InputPrefixQueryShaper {
+  using proteus::InputPrefixQueryShaper::InputPrefixQueryShaper;
+
+ protected:
+  [[nodiscard]] DeviceType getDevice() override { return DeviceType::CPU; }
+
+  std::unique_ptr<Affinitizer> getAffinitizer() override {
+    return std::make_unique<CpuNumaNodeAffinitizer>();
+  }
+};
+
+class GPUOnlyHalfFile : public proteus::InputPrefixQueryShaper {
+  using proteus::InputPrefixQueryShaper::InputPrefixQueryShaper;
+
+ protected:
+  [[nodiscard]] RelBuilder scan(
+      const std::string& relName,
+      std::initializer_list<std::string> relAttrs) override {
+    if (relName != "lineorder") {
+      return proteus::InputPrefixQueryShaper::scan(relName, relAttrs);
+    }
+    auto rel = getBuilder().scan(getRelName(relName), relAttrs,
+                                 CatalogParser::getInstance(),
+                                 pg{"distributed-block"});
+    rel = rel.hintRowCount(getRowHint(relName) / 2);
+
+    return rel;
+  }
+};
+
+class CPUOnlyHalfFile : public GPUOnlyHalfFile {
+  using GPUOnlyHalfFile::GPUOnlyHalfFile;
+
+ protected:
+  [[nodiscard]] DeviceType getDevice() override { return DeviceType::CPU; }
+
+  [[nodiscard]] std::unique_ptr<Affinitizer> getAffinitizer() override {
+    return std::make_unique<CpuNumaNodeAffinitizer>();
+  }
+};
+
 template <typename T>
 std::unique_ptr<T> make_shaper(
     size_t SF, decltype(ssb::Query::getStats(std::declval<size_t>())) stat) {
@@ -74,13 +119,17 @@ int main(int argc, char* argv[]) {
   //  shapers.emplace_back(std::make_unique<proteus::InputPrefixQueryShaper>(
   //      "inputs/ssbm" + std::to_string(SF) + "/", stats));
   //  shapers.emplace_back(make_shaper<CPUOnlyShuffleAll>(SF, stats));
-  shapers.emplace_back(make_shaper<CPUOnlyNoShuffle>(SF, stats));
+  //  shapers.emplace_back(make_shaper<CPUOnlyNoShuffle>(SF, stats));
+  //  shapers.emplace_back(make_shaper<GPUOnlySingleSever>(SF, stats));
+  //  shapers.emplace_back(make_shaper<CPUOnlySingleSever>(SF, stats));
+  //  shapers.emplace_back(make_shaper<CPUOnlyHalfFile>(SF, stats));
+  shapers.emplace_back(make_shaper<GPUOnlyHalfFile>(SF, stats));
 
   std::vector<std::vector<std::vector<std::chrono::milliseconds>>> times_all;
 
   assert(FLAGS_port <= std::numeric_limits<uint16_t>::max());
-  InfiniBandManager::init(FLAGS_url, static_cast<uint16_t>(FLAGS_port),
-                          FLAGS_primary, FLAGS_ipv4);
+  //  InfiniBandManager::init(FLAGS_url, static_cast<uint16_t>(FLAGS_port),
+  //                          FLAGS_primary, FLAGS_ipv4);
 
   for (auto& shaper_ptr : shapers) {
     StorageManager::getInstance().unloadAll();
@@ -125,10 +174,10 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  if (!FLAGS_primary) InfiniBandManager::disconnectAll();
-
-  StorageManager::getInstance().unloadAll();
-  InfiniBandManager::deinit();
+  //  if (!FLAGS_primary) InfiniBandManager::disconnectAll();
+  //
+  //  StorageManager::getInstance().unloadAll();
+  //  InfiniBandManager::deinit();
 
   for (auto& times : times_all) {
     for (auto& st : times) {

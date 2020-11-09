@@ -95,8 +95,7 @@ PreparedStatement ssb::Query::prepare21(proteus::QueryShaper &morph) {
                     arg["lo_revenue"].as("PelagoProject#11438", "EXPR$0"), 1, 0,
                     SUM}};
               },
-              10,
-              128 * 1024)  // FIXME: depend on scale factor
+              10, 1024 * 1024)
           .pack();
   rel = morph.collect(rel)
             .unpack()

@@ -27,9 +27,12 @@
 #include <olap/operators/relbuilder.hpp>
 #include <olap/plugins/binary-block-plugin.hpp>
 
+class RelBuilderFactory;
+
 namespace proteus {
 class QueryShaper {
  protected:
+  std::unique_ptr<RelBuilderFactory> ctx;
   std::string query;
 
   [[nodiscard]] virtual std::string getRelName(const std::string &base);
@@ -47,8 +50,9 @@ class QueryShaper {
   [[nodiscard]] virtual DegreeOfParallelism getDOP();
 
  public:
+  QueryShaper();
   virtual void setQueryName(std::string name);
-  virtual ~QueryShaper() = default;
+  virtual ~QueryShaper();
 
   [[nodiscard]] virtual size_t sf();
 

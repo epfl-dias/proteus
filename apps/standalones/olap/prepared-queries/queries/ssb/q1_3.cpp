@@ -26,6 +26,8 @@
 constexpr auto query = "ssb100_Q1_3";
 
 PreparedStatement ssb::Query::prepare13(proteus::QueryShaper &morph) {
+  morph.setQueryName(query);
+
   auto rel6631 =
       morph
           .distribute_build(

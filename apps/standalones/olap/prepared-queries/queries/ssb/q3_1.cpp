@@ -103,7 +103,7 @@ PreparedStatement ssb::Query::prepare31(proteus::QueryShaper &morph) {
                 return {GpuAggrMatExpr{
                     arg["lo_revenue"].as("tmp", "lo_revenue"), 1, 0, SUM}};
               },
-              10, 131072)
+              10, 1024 * 1024)
           .pack();
   rel = morph.collect(rel)
             .unpack()
