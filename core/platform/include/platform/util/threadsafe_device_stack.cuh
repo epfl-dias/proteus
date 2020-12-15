@@ -84,7 +84,7 @@ class threadsafe_device_stack {  // FIXME: must have a bug
       LOG(INFO) << "------------------------------------------------------->dev"
                 << dev << "_stack: " << cnt << " " << size << std::endl;
     }
-    // assert(cnt == size);
+    assert(cnt <= size);
   }
 
  public:

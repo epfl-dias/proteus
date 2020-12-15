@@ -131,9 +131,7 @@ PreparedStatement Query::prepare12(bool memmv, SLAZY conf, size_t bloomSize) {
                   return {arg["revenue"]};
                 },
                 {SUM})
-            .print([&](const auto &arg) -> std::vector<expression_t> {
-              return {arg["revenue"]};
-            });
+            .print(pg{"pm-csv"});
   return rel.prepare();
 }
 
@@ -171,9 +169,7 @@ PreparedStatement Query::prepare12_b(bool memmv, size_t bloomSize) {
                 return {arg["cnt"]};
               },
               {SUM})
-          .print([&](const auto &arg) -> std::vector<expression_t> {
-            return {arg["cnt"]};
-          });
+          .print(pg{"pm-csv"});
 
   return rel.prepare();
 }

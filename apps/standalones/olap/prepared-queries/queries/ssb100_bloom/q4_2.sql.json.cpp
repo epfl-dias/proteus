@@ -312,9 +312,7 @@ PreparedStatement Query::prepare42_b(bool memmv, size_t bloomSize) {
                 return {arg["cnt"]};
               },
               {SUM})
-          .print([&](const auto &arg) -> std::vector<expression_t> {
-            return {arg["cnt"]};
-          });
+          .print(pg{"pm-csv"});
 
   return rel.prepare();
 }

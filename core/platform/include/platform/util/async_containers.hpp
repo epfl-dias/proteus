@@ -208,7 +208,8 @@ class AsyncQueueSPSC {
     return x;
   }
 
-  bool empty_unsafe() { return (cache_size == 0) && data.empty(); }
+  bool empty_unsafe() const { return (cache_size == 0) && data.empty(); }
+  size_t size_unsafe() const { return cache_size + data.size(); }
 };
 
 template <typename T>

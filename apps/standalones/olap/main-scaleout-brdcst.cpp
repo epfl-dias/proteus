@@ -244,7 +244,8 @@ int main(int argc, char *argv[]) {
   auto rel =
       RelBuilderFactory{"main"}
           .getBuilder()
-          .scan<BinaryBlockPlugin>(lineorder, {lo_orderdate}, catalog2)
+          .scan(lineorder, {lo_orderdate}, catalog2,
+                pg{BinaryBlockPlugin::type})
           .router_scaleout(
               [&](const auto &arg) -> std::vector<RecordAttribute *> {
                 return {
