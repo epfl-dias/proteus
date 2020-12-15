@@ -36,17 +36,50 @@ class internal_error : public std::runtime_error {
 
 template <typename T>
 struct ManagedPointerDeleter {
-  void operator()(T* ptr) const {
+  void operator()(T *ptr) const {
     if (!ptr) return;
     throw proteus::internal_error{"Leaked pointer " +
                                   std::to_string((uintptr_t)ptr)};
   }
 };
 
+template <typename T>
+class ManagedUniquePtr {
+ private:
+  std::unique_ptr<T, ManagedPointerDeleter<T>> p;
+
+ public:
+  explicit ManagedUniquePtr(T *ptr) : p(ptr) {}
+  constexpr ManagedUniquePtr(std::nullptr_t = nullptr) noexcept : p(nullptr) {}
+
+  [[nodiscard]] inline auto get() const noexcept { return p.get(); }
+
+  auto &operator=(std::nullptr_t) noexcept {
+    p = nullptr;
+    return *this;
+  }
+
+  auto operator<=>(const ManagedUniquePtr<T> &other) const {
+    return p <=> other.p;
+  }
+
+  friend auto operator==(const ManagedUniquePtr<T> &po, std::nullptr_t) {
+    return po.p == nullptr;
+  }
+
+  explicit operator bool() const noexcept { return (bool)p; }
+
+  auto release() { return p.release(); }
+};
+
 namespace proteus {
 template <typename T>
-using managed = std::unique_ptr<T, ManagedPointerDeleter<T>>;
+using managed = ManagedUniquePtr<T>;
 using managed_ptr = managed<void>;
 }  // namespace proteus
 
+static_assert(
+    sizeof(proteus::managed_ptr) == sizeof(void *),
+    "Many modules assume that managed pointers can fit in normal pointers,"
+    "do not break");
 #endif  // PROTEUS_MAGANED_POINTER_HPP
