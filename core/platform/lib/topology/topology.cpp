@@ -199,7 +199,7 @@ void topology::init_() {
   // Now create the GPU nodes
   for (uint32_t i = 0; i < gpu_cnt; ++i) {
     gpu_info.emplace_back(i, i, core_info);
-    const auto &ind = cpunuma_index[gpu_info.back().local_cpu];
+    const auto &ind = cpunuma_index[gpu_info.back().local_cpu_id];
     cpu_info[ind].local_gpus.push_back(i);
   }
 
@@ -314,7 +314,7 @@ std::ostream &operator<<(std::ostream &out, const topology &topo) {
     gpu_run(nvmlDeviceGetIndex(gpu.handle, &nvml_ind));
     out << "gpu : " << std::setw(2) << gpu.id;
     out << std::setw(4) << ("(" + std::to_string(nvml_ind) + ")") << " | ";
-    out << "node : " << std::setw(4) << gpu.local_cpu << " | ";
+    out << "node : " << std::setw(4) << gpu.local_cpu_id << " | ";
     out << "cores: ";
 
     for (uint32_t i = 0; i < topo.core_cnt; ++i) core_mask[i] = ' ';
@@ -409,14 +409,14 @@ topology::gpunode::gpunode(uint32_t id, uint32_t index_in_topo,
     if (CPU_ISSET(c.id, &(local_cpu_set))) {
       local_cores.push_back(c.id);
 
-      uint32_t cpu = c.local_cpu;
+      uint32_t cpu = c.local_cpu_id;
       assert(tmp_cpu == invalid || tmp_cpu == cpu);
       tmp_cpu = cpu;
     }
   }
 
   assert(tmp_cpu != invalid);
-  local_cpu = tmp_cpu;
+  local_cpu_id = tmp_cpu;
 #else
   assert(false);
 #endif
@@ -514,11 +514,11 @@ extern "C" int rand_local_cpu(const void *p, uint64_t fanout) {
 }
 
 const topology::cpunumanode &topology::gpunode::getLocalCPUNumaNode() const {
-  return topology::getInstance().getCpuNumaNodeById(local_cpu);
+  return topology::getInstance().getCpuNumaNodeById(local_cpu_id);
 }
 
 const topology::cpunumanode &topology::core::getLocalCPUNumaNode() const {
-  return topology::getInstance().getCpuNumaNodeById(local_cpu);
+  return topology::getInstance().getCpuNumaNodeById(local_cpu_id);
 }
 
 set_exec_location_on_scope topology::cpunumanode::set_on_scope() const {

@@ -93,7 +93,7 @@ class exec_location {
 
   exec_location(const topology::core &core)
       : gpu_device(-1),
-        cpu(topology::getInstance().getCpuNumaNodeById(core.local_cpu)),
+        cpu(topology::getInstance().getCpuNumaNodeById(core.local_cpu_id)),
         cores(core) {}
 
   exec_location(const topology::cpunumanode &cpu)

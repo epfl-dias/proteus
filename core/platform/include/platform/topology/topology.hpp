@@ -98,7 +98,7 @@ class topology {
   class core : public cu {
    public:
     const uint32_t id;
-    const uint32_t local_cpu;
+    const uint32_t local_cpu_id;
     const uint32_t local_cpu_index;
     const uint32_t index_in_topo;
     const std::vector<uint32_t> ht_pairs_id;
@@ -109,7 +109,7 @@ class topology {
          // do not remove argument!!!
          topologyonly_construction = {})
         : id(id),
-          local_cpu(local_cpu),
+          local_cpu_id(local_cpu),
           index_in_topo(index_in_topo),
           local_cpu_index(local_cpu_index),
           ht_pairs_id(ht_pairs) {}
@@ -141,7 +141,7 @@ class topology {
 
     std::vector<uint32_t> local_cores;
     cpu_set_t local_cpu_set;
-    uint32_t local_cpu;
+    uint32_t local_cpu_id;
 
     // Use only if *absolutely* necessary!
     cudaDeviceProp properties;
@@ -216,17 +216,13 @@ class topology {
     return cpu_info;
   }
 
-  inline const gpunode &getActiveGpu() const {
+  [[nodiscard]] inline const gpunode &getActiveGpu() const {
     int device = -1;
     gpu_run(cudaGetDevice(&device));
     return gpu_info[device];
   }
 
   const cpunumanode *getCpuNumaNodeAddressed(const void *m) const;
-
-  [[deprecated]] uint32_t getCpuNumaNodeOfCore(uint32_t core_id) const {
-    return core_info[core_id].local_cpu;
-  }
 
   template <typename T>
   const gpunode *getGpuAddressed(const T *p) const {
@@ -241,6 +237,12 @@ class topology {
 #else
     return nullptr;
 #endif
+  }
+
+  const numanode &getNumaAddressed(const void *ptr) const {
+    auto gpunode = getGpuAddressed(ptr);
+    if (gpunode) return *gpunode;
+    return *getCpuNumaNodeAddressed(ptr);
   }
 
   [[nodiscard]] const topology::cpunumanode &findLocalCPUNumaNode(
@@ -263,6 +265,7 @@ class topology {
     return gpu_info[index];
   }
 
+ public:
   inline const cpunumanode &getCpuNumaNodeById(uint32_t id) const {
     return cpu_info[cpunuma_index[id]];
   }
@@ -270,6 +273,7 @@ class topology {
   friend class exec_location;
   friend class affinity;
   friend int numa_node_of_gpu(int device);
+  friend int node_of_gpu(int device);
   friend int get_rand_core_local_to_ptr(const void *p);
   friend std::ostream &operator<<(std::ostream &stream, const topology &topo);
   size_t getIBCount();

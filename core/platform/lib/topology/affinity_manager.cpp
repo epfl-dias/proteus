@@ -32,14 +32,14 @@ exec_location::exec_location(int gpu)
     : exec_location(topology::getInstance().getGpuByIndex(gpu)) {}
 
 int numa_node_of_gpu(int device) {
-  return topology::getInstance().getGpuByIndex(device).local_cpu;
+  return topology::getInstance().getGpuByIndex(device).local_cpu_id;
 }
 
 exec_location::exec_location(const topology::gpunode &gpu)
     : gpu_device(gpu.id),
-      cpu(topology::getInstance().getCpuNumaNodeById(gpu.local_cpu)),
+      cpu(topology::getInstance().getCpuNumaNodeById(gpu.local_cpu_id)),
       cores(topology::getInstance()
-                .getCpuNumaNodeById(gpu.local_cpu)
+                .getCpuNumaNodeById(gpu.local_cpu_id)
                 .local_cpu_set) {}
 
 void affinity::set(const topology::cpunumanode &cpu) {
@@ -47,7 +47,7 @@ void affinity::set(const topology::cpunumanode &cpu) {
 }
 
 void affinity::set(const topology::core &core) {
-  thread_cpu_numa_node_affinity = core.local_cpu;
+  thread_cpu_numa_node_affinity = core.local_cpu_id;
   CPU_ZERO(&thread_core_affinity);
   CPU_SET(core.id, &thread_core_affinity);
 
