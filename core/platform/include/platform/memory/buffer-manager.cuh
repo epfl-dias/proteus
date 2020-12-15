@@ -141,10 +141,23 @@ class [[deprecated("Access through BlockManager")]] buffer_manager {
   static __host__ void __release_buffer_host(T * buff);
 
  public:
+  static inline bool isGpuBuffer(void *buff) {
+    auto gpu = topology::getInstance().getGpuAddressed(buff);
+    if (!gpu) return false;
+    return buff >= h_buff_start[gpu->id] && buff < h_buff_end[gpu->id];
+  }
+
   static __host__ __forceinline__ bool share_host_buffer(T * buff) {
     const auto &it = buffer_cache.find(buff);
-    if (it == buffer_cache.end()) return true;
-    (it->second)++;
+    if (it == buffer_cache.end()) {
+      assert(!isGpuBuffer(buff) && "Unimplemented");
+      return true;
+    }
+#ifndef NDEBUG
+    auto oldcnt =
+#endif
+        (it->second)++;
+    assert(oldcnt && "Sharing a released buffer");
     return true;
   }
 
