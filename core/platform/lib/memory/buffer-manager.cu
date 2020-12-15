@@ -440,10 +440,6 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
         // cout << "Device " << j << " : data = " << m << endl;
         assert(topology::getInstance().getGpuAddressed(m)->id == j);
       }
-      {  // FIXME: why are we including device buffers in the cache?
-        std::lock_guard<std::mutex> guard(buff_cache);
-        for (const auto b : buffs) buffer_cache[b] = 0;
-      }
 
       pool_t *tmp = cuda_new<pool_t>(gpu, size, buffs, gpu);
       gpu_run(cudaMemcpyToSymbol(pool, &tmp, sizeof(pool_t *)));
