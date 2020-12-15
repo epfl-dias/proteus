@@ -42,18 +42,47 @@ class topology {
  private:
   class topologyonly_construction {
    private:
-    topologyonly_construction() {}
+    topologyonly_construction() = default;
     friend class topology;
   };
 
  public:
   class cu {
    public:
+    inline explicit cu(
+        // do not remove argument!!!
+        topologyonly_construction = {}) {}
+
+    // Do not allow copies
+    cu(const cu &) = delete;
+    cu &operator=(const cu &) = delete;
+
+    // Allow construction through moving, but do not allow moving to overwrite
+    cu(cu &&) noexcept = default;
+    cu &operator=(cu &&) noexcept = delete;
+
     [[nodiscard]] virtual set_exec_location_on_scope set_on_scope() const = 0;
     virtual ~cu() = default;
   };
 
-  class numanode : public cu {};
+  class numanode : public cu {
+   public:
+    inline explicit numanode(
+        // do not remove argument!!!
+        topologyonly_construction = {}) {}
+
+    // Do not allow copies
+    numanode(const numanode &) = delete;
+    numanode &operator=(const numanode &) = delete;
+
+    // Allow construction through moving, but do not allow moving to overwrite
+    numanode(numanode &&) noexcept = default;
+    numanode &operator=(numanode &&) noexcept = delete;
+
+    inline bool operator==(const numanode &other) const noexcept {
+      return this == &other;
+    }
+  };
 
   class core;
 

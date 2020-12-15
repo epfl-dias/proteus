@@ -156,9 +156,9 @@ __host__ void buffer_manager<T>::__release_buffer_host(T *buff) {
 void buffer_manager_destroy() { buffer_manager<int32_t>::destroy(); }
 
 template <typename T, typename... Args>
-__host__ T *cuda_new(const topology::gpunode &gpu, Args... args) {
+__host__ T *cuda_new(const topology::gpunode &gpu, Args &&...args) {
   set_device_on_scope d{gpu};
-  T *tmp = new T(args...);
+  T *tmp = new T(std::forward<Args>(args)...);
   T *res = (T *)MemoryManager::mallocGpu(sizeof(T));
   gpu_run(cudaMemcpy(res, tmp, sizeof(T), cudaMemcpyDefault));
   gpu_run(cudaDeviceSynchronize());
@@ -170,7 +170,7 @@ __host__ T *cuda_new(const topology::gpunode &gpu, Args... args) {
 }
 
 template <typename T, typename... Args>
-__host__ void cuda_delete(T *obj, Args... args) {
+__host__ void cuda_delete(T *obj, Args &&...args) {
   if (topology::getInstance().getGpuAddressed(obj)) {
     T *tmp = (T *)malloc(sizeof(T));
     gpu_run(cudaDeviceSynchronize());
@@ -407,7 +407,7 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
 
   std::vector<std::thread> buffer_pool_constrs;
   for (const auto &gpu : topo.getGpus()) {
-    buffer_pool_constrs.emplace_back([gpu, gpu_mem_pool_percentage,
+    buffer_pool_constrs.emplace_back([&gpu, gpu_mem_pool_percentage,
                                       buff_buffer_size, &buff_cache] {
       size_t size =
           gpu_mem_pool_percentage * (gpu.getMemorySize() / buffer_size);
@@ -574,7 +574,7 @@ __host__ void buffer_manager<T>::destroy() {
   // assert(cores > 0);
 
   // int cpu_numa_nodes = numa_num_task_nodes();
-
+  assert(!terminating && "Already terminated");
   terminating = true;
 
   if (buffer_logger) buffer_logger->join();
@@ -600,7 +600,7 @@ __host__ void buffer_manager<T>::destroy() {
   std::vector<std::thread> buffer_pool_constrs;
   for (const auto &gpu : topo.getGpus()) {
 #ifndef NCUDA
-    buffer_pool_constrs.emplace_back([gpu] {
+    buffer_pool_constrs.emplace_back([&gpu] {
       uint32_t j = gpu.id;
       set_device_on_scope d(j);
 
@@ -647,7 +647,7 @@ __host__ void buffer_manager<T>::destroy() {
 
   for (auto &t : buffer_pool_constrs) t.join();
 
-  terminating = false;
+  //  terminating = false;
   delete[] device_buffs_mutex;
   delete[] device_buffs_cv;
   delete[] device_buffs_thrds;

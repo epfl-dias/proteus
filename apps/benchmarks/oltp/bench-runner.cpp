@@ -159,7 +159,7 @@ int main(int argc, char** argv) {
     bool removal = false;
     const auto& worker_cores = topology::getInstance().getCores();
     timed_func::interval_runner(
-        [curr_active_worker, removal, worker_cores]() mutable {
+        [curr_active_worker, removal, &worker_cores]() mutable {
           if (curr_active_worker < FLAGS_num_workers && !removal) {
             std::cout << "Adding Worker: " << (curr_active_worker + 1)
                       << std::endl;

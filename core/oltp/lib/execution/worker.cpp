@@ -841,12 +841,13 @@ void WorkerPool::init(bench::Benchmark* txn_bench, uint num_workers,
 
       for (int ew = _txn_bench->num_active_workers;
            ew < _txn_bench->num_max_workers; i++) {
-        loaders.emplace_back([this, ew, wrks_crs, curr_master]() {
-          auto tid = txn::TransactionManager::getInstance().get_next_xid(ew);
-          this->_txn_bench->pre_run(
-              ew, tid, wrks_crs.at(ew).local_cpu_index % num_partitions,
-              curr_master);
-        });
+        loaders.emplace_back(
+            [this, ew, curr_master](auto partition_id) {
+              auto tid =
+                  txn::TransactionManager::getInstance().get_next_xid(ew);
+              this->_txn_bench->pre_run(ew, tid, partition_id, curr_master);
+            },
+            wrks_crs.at(ew).local_cpu_index % num_partitions);
       }
 
       for (auto& th : loaders) {
