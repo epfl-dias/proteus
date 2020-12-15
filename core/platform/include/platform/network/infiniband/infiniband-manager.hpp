@@ -165,8 +165,8 @@ class InfiniBandManager {
   [[nodiscard]] static subscription *read_event();
   static void flush();
   static void flush_read();
-  static buffkey get_buffer();
-  static void release_buffer(proteus::remote_managed_ptr p);
+  //  static buffkey get_buffer();
+  //  static void release_buffer(proteus::remote_managed_ptr p);
   static void disconnectAll();
   static void deinit();
 

@@ -110,16 +110,6 @@ void InfiniBandManager::flush_read() {
   ib.front()->flush_read();  // FIXME
 }
 
-buffkey InfiniBandManager::get_buffer() {
-  return ib.front()->get_buffer();
-  // FIXME
-}
-
-void InfiniBandManager::release_buffer(proteus::remote_managed_ptr p) {
-  return ib.front()->release_buffer(std::move(p));
-  // FIXME
-}
-
 void InfiniBandManager::deinit() {
   for (auto &i : ib) delete i;
 }
