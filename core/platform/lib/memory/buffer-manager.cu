@@ -106,21 +106,26 @@ __host__ void buffer_manager<T>::__release_buffer_host(T *buff) {
     set_device_on_scope d(*gpu);
     std::unique_lock<std::mutex> lock(device_buffs_mutex[gpu->id]);
     device_buffs_pool[gpu->id].push_back(buff);
-    size_t size = device_buffs_pool[gpu->id].size();
-    if (size > keep_threshold) {
-      uint32_t devid = gpu->id;
-      nvtxRangePushA("release_buffer_host_devbuffer_overflow");
-      for (size_t i = 0; i < device_buff_size; ++i)
-        device_buff[devid][i] = device_buffs_pool[devid][size - i - 1];
-      device_buffs_pool[devid].erase(
-          device_buffs_pool[devid].end() - device_buff_size,
-          device_buffs_pool[devid].end());
-      release_buffer_host<<<1, 1, 0, release_streams[devid]>>>(
-          (void **)device_buff[devid], device_buff_size);
-      gpu_run(cudaStreamSynchronize(release_streams[devid]));
-      // gpu_run(cudaPeekAtLastError()  );
-      // gpu_run(cudaDeviceSynchronize());
-      nvtxRangePop();
+    while (true) {
+      size_t size = device_buffs_pool[gpu->id].size();
+      if (size > keep_threshold) {
+        uint32_t devid = gpu->id;
+        nvtxRangePushA("release_buffer_host_devbuffer_overflow");
+        for (size_t i = 0; i < device_buff_size; ++i)
+          device_buff[devid][i] = device_buffs_pool[devid][size - i - 1];
+        device_buffs_pool[devid].erase(
+            device_buffs_pool[devid].end() - device_buff_size,
+            device_buffs_pool[devid].end());
+        LOG(INFO) << "release spawned";
+        release_buffer_host<<<1, 1, 0, release_streams[devid]>>>(
+            (void **)device_buff[devid], device_buff_size);
+        gpu_run(cudaStreamSynchronize(release_streams[devid]));
+        LOG(INFO) << "release done";
+        // gpu_run(cudaPeekAtLastError()  );
+        // gpu_run(cudaDeviceSynchronize());
+        nvtxRangePop();
+      } else
+        break;
     }
     device_buffs_cv[gpu->id].notify_all();
     nvtxRangePop();
