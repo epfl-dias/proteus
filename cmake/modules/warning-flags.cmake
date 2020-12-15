@@ -3,6 +3,7 @@
 
 # Turn on maximum code compliance and all the warnings
 string(STRIP "${WARNING_FLAGS} -pedantic -Weverything" WARNING_FLAGS)
+string(STRIP "${WARNING_FLAGS} -Wreturn-type-c-linkage -Werror=return-type-c-linkage" WARNING_FLAGS)
 
 # Turn warnings into errors
 #string(STRIP "${WARNING_FLAGS} -Werror" WARNING_FLAGS)
