@@ -254,10 +254,7 @@ IBHandler::~IBHandler() {
   assert(ibd.getIBImpl().reged_mem.size() == 1 &&
          "Should only contain ~nullptr");
 
-  linux_run(ibv_destroy_qp(ibd.getIBImpl().qp));
-  linux_run(ibv_destroy_cq(ibd.getIBImpl().cq));
-  linux_run(ibv_destroy_comp_channel(ibd.getIBImpl().comp_channel));
-
+  assert(write_promises.empty_unsafe());
   try {
     while (!b.empty()) {
       b.back().release();
