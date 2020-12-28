@@ -541,6 +541,7 @@ void HashGroupByChained::generate_build(ParallelContext *context,
   Builder->SetInsertPoint(MergeBB);
 }
 
+static std::mutex garbage_m;
 static std::map<std::pair<void *, int32_t>, std::vector<void *>> garbage;
 
 void HashGroupByChained::generate_scan(ParallelContext *context) {
@@ -563,6 +564,7 @@ void HashGroupByChained::generate_scan(ParallelContext *context) {
   }
 
   context->registerClose(this, [this](Pipeline *pip) {
+    std::lock_guard<std::mutex> lock{garbage_m};
     for (const auto &ptr : garbage[std::make_pair(this, pip->getGroup())]) {
       MemoryManager::freePinned(ptr);
     }
@@ -885,6 +887,7 @@ void HashGroupByChained::close(Pipeline *pip) {
   // probe_pip->close();
 
   // FIXME: should get them from the parameters of the scan kernel
+  std::lock_guard<std::mutex> lock{garbage_m};
   auto &v = garbage[std::make_pair(this, pip->getGroup())];
   v.clear();
 
