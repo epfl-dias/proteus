@@ -38,7 +38,7 @@ object PelagoExecutor {
     }
   }
 
-  def run(command: String, cmd_type: String, plan: String, query_name: String): String = {
+  def run(command: String, cmd_type: String, plan: String, query_name: String): String = this.synchronized {
     if (process == null || !process.isAlive){
       builder = new ProcessBuilder(Repl.executor_server).redirectErrorStream(true)
       process = builder.start()
