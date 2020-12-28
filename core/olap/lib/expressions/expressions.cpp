@@ -34,6 +34,8 @@ expression_t toExpression(Monoid m, expression_t lhs, expression_t rhs) {
       return lhs + rhs;
     case MULTIPLY:
       return lhs * rhs;
+    case MIN:
+      return expression_t::make<expressions::MinExpression>(lhs, rhs);
     case MAX:
       return expression_t::make<expressions::MaxExpression>(lhs, rhs);
     case OR:

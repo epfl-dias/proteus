@@ -115,6 +115,7 @@ void Reduce::consume(ParallelContext *context,
       case SUM:
       case MULTIPLY:
       case MAX:
+      case MIN:
       case OR:
       case AND: {
         BasicBlock *cBB = Builder->GetInsertBlock();
@@ -234,6 +235,7 @@ void Reduce::generate_flush(ParallelContext *context) {
     switch (agg.getMonoid()) {
       case SUM:
       case MULTIPLY:
+      case MIN:
       case MAX:
       case OR:
       case AND: {
@@ -367,6 +369,7 @@ StateVar Reduce::resetAccumulator(const agg_t &agg, bool is_first, bool is_last,
     case SUM:
     case MULTIPLY:
     case MAX:
+    case MIN:
     case OR:
     case AND: {
       Type *t = agg.getExpressionType()->getLLVMType(context->getLLVMContext());
@@ -388,10 +391,12 @@ StateVar Reduce::resetAccumulator(const agg_t &agg, bool is_first, bool is_last,
 
             // Even for floating points, 00000000 = 0.0, so cast to integer type
             // of same length to avoid problems with initialization of floats
-            Value *val = Builder->CreateBitCast(
-                val_id, Type::getIntNTy(context->getLLVMContext(),
-                                        context->getSizeOf(val_id) * 8));
-            context->CodegenMemset(mem_acc, val,
+            //            Value *val = Builder->CreateBitCast(
+            //                val_id, Type::getIntNTy(context->getLLVMContext(),
+            //                                        context->getSizeOf(val_id)
+            //                                        * 8));
+            auto init = context->toMem(val_id, context->createFalse());
+            context->CodegenMemcpy(mem_acc, init.mem,
                                    (t->getPrimitiveSizeInBits() + 7) / 8);
 
             return mem_acc;
