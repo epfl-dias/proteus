@@ -53,7 +53,8 @@ BinaryBlockPlugin::BinaryBlockPlugin(
     const std::vector<RecordAttribute *> &whichFields, bool load)
     : fnamePrefix(fnamePrefix),
       rec(std::move(rec)),
-      wantedFields(ensureRelName(whichFields, fnamePrefix)) {
+      wantedFields(ensureRelName(whichFields, fnamePrefix)),
+      Nparts(0) {
   if (load) {
     loadData(context, ALLSOCKETS);
     finalize_data(context);
@@ -468,6 +469,8 @@ void freeTuplesPerPartition(int64_t *p, BinaryBlockPlugin *pg) {
 }
 
 int64_t *BinaryBlockPlugin::getTuplesPerPartition() {
+  assert(!wantedFields.empty() && "Unimplemented zero column scan");
+  assert(!wantedFieldsFiles.empty() && "Unimplemented zero column scan");
   auto N_parts_init =
       (int64_t *)MemoryManager::mallocPinned(Nparts * sizeof(void *));
 
