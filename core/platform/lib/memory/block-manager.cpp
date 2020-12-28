@@ -57,3 +57,23 @@ void BlockManager::unreg(MemoryRegistry &registry) {
     registry.unreg(h_buff_start[gpu.id]);
   }
 }
+
+proteus::managed_ptr BlockManager::get_buffer(decltype(__builtin_FILE()) file,
+                                              decltype(__builtin_LINE()) line) {
+  return proteus::managed_ptr{buffer_manager<int32_t>::get_buffer()};
+}
+
+proteus::managed_ptr BlockManager::get_buffer_numa(
+    const topology::cpunumanode &cpu) {
+  return proteus::managed_ptr{buffer_manager<int32_t>::get_buffer_numa(cpu)};
+}
+
+proteus::managed_ptr BlockManager::h_get_buffer(int dev) {
+  return proteus::managed_ptr{buffer_manager<int32_t>::h_get_buffer(dev)};
+}
+
+proteus::managed_ptr BlockManager::share_host_buffer(
+    const proteus::managed_ptr &p) {
+  buffer_manager<int32_t>::share_host_buffer((int32_t *)p.get());
+  return proteus::managed_ptr{p.get()};
+}

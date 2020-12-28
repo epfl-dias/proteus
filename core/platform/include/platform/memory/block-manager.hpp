@@ -48,6 +48,15 @@ class BlockManager : public buffer_manager<int32_t> {
     release_buffer(p.release());
   }
 
+  static proteus::managed_ptr get_buffer(
+      decltype(__builtin_FILE()) file = __builtin_FILE(),
+      decltype(__builtin_LINE()) line = __builtin_LINE());
+
+  static proteus::managed_ptr get_buffer_numa(const topology::cpunumanode& cpu);
+  static proteus::managed_ptr h_get_buffer(int dev);
+
+  static proteus::managed_ptr share_host_buffer(const proteus::managed_ptr& d);
+
   static void reg(MemoryRegistry&);
   static void unreg(MemoryRegistry& registry);
 };

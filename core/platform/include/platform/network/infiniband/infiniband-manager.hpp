@@ -111,7 +111,7 @@ class subscription {
 
  public:
   size_t id;
-  subscription(size_t id = 0) : id(id) {}
+  explicit subscription(size_t id = 0) : id(id) {}
 
   value_type wait();
 
@@ -128,7 +128,7 @@ class InfiniBandManager {
  public:
   static void init(const std::string &url, uint16_t port = 12345,
                    bool primary = false, bool ipv4 = false);
-  static void send(void *data, size_t bytes);
+  static void send(proteus::managed_ptr data, size_t bytes);
 
   /**
    * Write local data to remote memory based on a subscription.

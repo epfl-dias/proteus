@@ -88,6 +88,12 @@ enum log_op {
   IB_WAITING_DATA_END = 51,
   IB_CREATE_RDMA_READ_START = 52,
   IB_CREATE_RDMA_READ_END = 53,
+  EXCHANGE_CONSUMER_START = 54,
+  EXCHANGE_CONSUMER_END = 55,
+  IB_SENDING_BUFFERS_START = 56,
+  IB_SENDING_BUFFERS_END = 57,
+  IB_SENDING_BUFFERS_WAITING_START = 58,
+  IB_SENDING_BUFFERS_WAITING_END = 59,
 };
 
 // #define NLOG
@@ -111,5 +117,18 @@ class logger {
 #endif
 
 extern thread_local logger eventlogger;
+
+template <log_op op>
+class [[nodiscard]] event_range {
+  void *t;
+
+ public:
+  constexpr explicit event_range(void *t) noexcept : t(t) {
+    eventlogger.log(t, static_cast<log_op>(op & ~1));
+  }
+  constexpr ~event_range() noexcept {
+    eventlogger.log(t, static_cast<log_op>(op | 1));
+  }
+};
 
 #endif /* LOGGING_HPP_ */

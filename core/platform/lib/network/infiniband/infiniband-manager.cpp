@@ -66,7 +66,7 @@ void subscription::publish(proteus::managed_ptr data, size_t size
             file, line
 #endif
   );
-  cv.notify_one();
+  cv.notify_all();
 }
 
 std::vector<IBHandler *> InfiniBandManager::ib;
@@ -74,9 +74,9 @@ uint64_t InfiniBandManager::srv_id;
 
 uint64_t InfiniBandManager::server_id() { return srv_id; }
 
-void InfiniBandManager::send(void *data, size_t bytes) {
+void InfiniBandManager::send(proteus::managed_ptr data, size_t bytes) {
   assert(!ib.empty());
-  ib.front()->send(data, bytes);  // FIXME
+  ib.front()->send(std::move(data), bytes);  // FIXME
 }
 
 void InfiniBandManager::write(proteus::managed_ptr data, size_t bytes,
@@ -146,11 +146,11 @@ class VirtualMemoryRegistry : public MemoryRegistry {
 
 void InfiniBandManager::init(const std::string &url, uint16_t port,
                              bool primary, bool ipv4) {
-  for (const auto &ib : topology::getInstance().getIBs()) {
-    BlockManager::reg(ib.getMemRegistry());
+  for (const auto &ibd : topology::getInstance().getIBs()) {
+    BlockManager::reg(ibd.getMemRegistry());
   }
-  for (const auto &ib : topology::getInstance().getIBs()) {
-    ib.ensure_listening();
+  for (const auto &ibd : topology::getInstance().getIBs()) {
+    ibd.ensure_listening();
   }
 
   if (primary) {
@@ -215,7 +215,6 @@ void InfiniBandManager::unreg(const void *mem) {
 }
 
 subscription::value_type::~value_type() {
-  if (line == 441) LOG(INFO) << file << " " << line;
   assert(data == nullptr);
   BlockManager::release_buffer(data.release());
 }

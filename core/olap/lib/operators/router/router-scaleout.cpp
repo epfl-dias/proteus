@@ -47,10 +47,9 @@ void RouterScaleOut::releaseBuffer(int target, proteus::managed_ptr buff) {
   if (target == InfiniBandManager::server_id()) {
     Router::releaseBuffer(target, std::move(buff));
   } else {
-    // BlockManager::share_host_buffer((int32_t *)buff);
     InfiniBandManager::write(std::move(buff), buf_size, sub->id);
     ++cnt;
-    if (cnt % (slack / 2) == 0) InfiniBandManager::flush();
+    if (cnt % (slack / (slack / 16)) == 0) InfiniBandManager::flush();
   }
 }
 
@@ -77,8 +76,12 @@ bool RouterScaleOut::get_ready(int target, proteus::managed_ptr &buff) {
       // auto &sub = InfiniBandManager::subscribe();
       auto x = sub->wait();
       if (x.size == 3) {
-        LOG(INFO) << "exit and close local queue if needed";
-        if (++closed == 2) ready_fifo[InfiniBandManager::server_id()].close();
+        LOG(INFO) << "exit and close local queue if needed " << sub->id << " "
+                  << closed;
+        if (++closed == 2) {
+          ready_fifo[InfiniBandManager::server_id()].close();
+          LOG(INFO) << "closed from here";
+        }
         strmclosed = true;
         BlockManager::release_buffer(x.release());
         return false;
@@ -142,8 +145,10 @@ void RouterScaleOut::open(Pipeline *pip) {
 void RouterScaleOut::close(Pipeline *pip) {
   // time_block t("Tterm_exchange: ");
   if (++closed == 2) {
+    InfiniBandManager::flush();
     ready_fifo[InfiniBandManager::server_id()].close();
   }
+  InfiniBandManager::flush();
   // Send msg: "You are now allowed to proceed to your close statement"
   InfiniBandManager::write(proteus::managed_ptr{BlockManager::get_buffer()}, 3,
                            sub->id);

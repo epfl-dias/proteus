@@ -45,9 +45,9 @@ void handshake(subscription &sub) {
   for (int i = 0; i < 1; ++i) {
     if (FLAGS_primary) {
       LOG(INFO) << "send";
-      void *ptr = BlockManager::get_buffer();
-      ((int *)ptr)[0] = 45;
-      InfiniBandManager::send(ptr, 4);
+      auto ptr = BlockManager::get_buffer();
+      ((int *)ptr.get())[0] = 45;
+      InfiniBandManager::send(std::move(ptr), 4);
       LOG(INFO) << "send done";
     } else {
       sleep(2);
@@ -64,9 +64,9 @@ void handshake(subscription &sub) {
       //      BlockManager::release_buffer((int32_t *) v.data);
     } else {
       LOG(INFO) << "send";
-      void *ptr = BlockManager::get_buffer();
-      ((int *)ptr)[0] = 44;
-      InfiniBandManager::send(ptr, 4);
+      auto ptr = BlockManager::get_buffer();
+      ((int *)ptr.get())[0] = 44;
+      InfiniBandManager::send(std::move(ptr), 4);
       LOG(INFO) << "send done";
     }
   }
@@ -115,9 +115,9 @@ int main(int argc, char *argv[]) {
       auto x = InfiniBandManager::reg(v_data, v_size);
       LOG(INFO) << x.first << " " << x.second;
 
-      void *ptr = BlockManager::get_buffer();
-      ((decltype(x) *)ptr)[0] = x;
-      InfiniBandManager::send(ptr, sizeof(decltype(x)));
+      auto ptr = BlockManager::get_buffer();
+      ((decltype(x) *)ptr.get())[0] = x;
+      InfiniBandManager::send(std::move(ptr), sizeof(decltype(x)));
     }
 
     sub.wait();
@@ -140,21 +140,21 @@ int main(int argc, char *argv[]) {
             if (x.size == 0) break;
             assert(x.size % 4 == 0);
             size_t size = x.size / 4;
-            int32_t *data = (int32_t *)x.data.release();
+            auto *data = (int32_t *)x.data.get();
             if (data) {
               for (size_t i = 0; i < size; ++i) {
                 sum += data[i];
               }
             }
             // MemoryManager::freePinned(sub.wait().data);
-            BlockManager::release_buffer(data);
+            BlockManager::release_buffer(std::move(x.data));
           } while (true);
         }
         nvtxRangePop();
         // std::cout << sum << std::endl;
         auto f = BlockManager::get_buffer();
-        f[0] = sum;
-        InfiniBandManager::send(f, 4);
+        ((int32_t *)f.get())[0] = sum;
+        InfiniBandManager::send(std::move(f), 4);
         // std::cout << sum << std::endl;
       });
       // for (size_t k = 0; k < 1; ++k) {
@@ -259,7 +259,7 @@ int main(int argc, char *argv[]) {
       LOG(INFO) << v_data << " " << bytes{v_size};
       // InfiniBandManager::reg((void *)v[0].data, v[0].size);
       profiling::resume();
-      InfiniBandManager::send((char *)v_data, 0);
+      InfiniBandManager::send(proteus::managed_ptr{v_data}, 0);
       // int32_t j = 0;
       assert(v.size() == 1);
       iterate_over_buffsizes([&](auto buff_size) {

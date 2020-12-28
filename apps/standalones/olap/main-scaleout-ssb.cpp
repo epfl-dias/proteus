@@ -918,9 +918,9 @@ int main(int argc, char *argv[]) {
     auto &sub = InfiniBandManager::subscribe();
     if (FLAGS_primary) {
       std::cout << "send" << std::endl;
-      void *ptr = BlockManager::get_buffer();
-      ((int *)ptr)[0] = 45;
-      InfiniBandManager::send(ptr, 4);
+      auto ptr = BlockManager::get_buffer();
+      ((int *)ptr.get())[0] = 45;
+      InfiniBandManager::send(std::move(ptr), 4);
       std::cout << "send done" << std::endl;
     } else {
       sleep(2);
@@ -937,9 +937,9 @@ int main(int argc, char *argv[]) {
       //      BlockManager::release_buffer((int32_t *) v.data);
     } else {
       std::cout << "send" << std::endl;
-      void *ptr = BlockManager::get_buffer();
-      ((int *)ptr)[0] = 44;
-      InfiniBandManager::send(ptr, 4);
+      auto ptr = BlockManager::get_buffer();
+      ((int *)ptr.get())[0] = 44;
+      InfiniBandManager::send(std::move(ptr), 4);
       std::cout << "send done" << std::endl;
     }
   }

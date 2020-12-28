@@ -42,15 +42,52 @@ std::ostream &operator<<(std::ostream &out, const ib_addr &addr);
 
 typedef std::pair<size_t, size_t> packet_t;
 
+class IBPoller;
+
+template <typename T>
+class threadsafe_autoresizeable_deque {
+  static constexpr size_t dqpage = 1024;
+
+  std::atomic<size_t> size = 0;
+  std::atomic<int> active = 0;
+  std::mutex resize_m;
+
+  std::deque<std::shared_ptr<std::deque<T>>> data[2];
+
+  void resize(size_t i) {
+    std::lock_guard<std::mutex> lock{resize_m};
+    while (i >= size) {
+      auto old_active = active.load();
+      auto new_active = 1 - old_active;
+      data[new_active].emplace_back(std::make_shared<std::deque<T>>());
+      auto &v = *data[new_active].back();
+      for (size_t j = 0; j < dqpage; ++j) {
+        v.emplace_back(size + j);
+      }
+      active = new_active;
+      size += dqpage;
+      data[old_active].emplace_back(data[new_active].back());
+    }
+  }
+
+ public:
+  T &at(size_t i) {
+    if (i >= size) resize(i);
+    return (*data[active][i / dqpage])[i % dqpage];
+  }
+};
+
 class IBHandler : public MemoryRegistry {
   static_assert(
       std::is_same_v<buffkey::second_type, decltype(ibv_send_wr::wr.rdma.rkey)>,
       "wrong buffkey type");
 
  protected:
+  friend class IBPoller;
+  std::mutex m_sub_named;
   subscription sub;
-  std::deque<subscription> sub_named;
-  std::atomic<size_t> subcnts = 1;
+  threadsafe_autoresizeable_deque<subscription> sub_named;
+  std::atomic<size_t> subcnts;
 
   std::map<uint64_t, void *> active_connections;
 
@@ -67,20 +104,23 @@ class IBHandler : public MemoryRegistry {
   const ib &ibd;
 
   std::thread poller;
+  std::thread flusher;
 
   size_t pending;
 
-  bool saidGoodBye = false;
+  std::atomic<bool> saidGoodBye = false;
 
   int dev_cnt;
 
+  subscription &getNamedSubscription(size_t subs);
   // New attributes
   //  ibv_context *context;
   const topology::cpunumanode &local_cpu;
 
+  ibv_sge sge_for_buff(void *data, size_t bytes);
   //  ib_addr rem_addr;
 
-  std::deque<proteus::managed_ptr> b;
+  std::deque<proteus::managed_ptr> send_buffers;
   std::deque<buffkey> pend_buffers;
   std::mutex pend_buffers_m;
   std::condition_variable pend_buffers_cv;
@@ -102,12 +142,12 @@ class IBHandler : public MemoryRegistry {
   size_t actual_writes;
   packet_t *cnts;
 
-  bool has_requested_buffers;
+  std::atomic<bool> has_requested_buffers;
+
+  std::unique_ptr<IBPoller> poll_cq;
 
  protected:
   void post_recv(ibv_qp *qp);
-
-  void run();
 
   int send(ibv_send_wr &wr, ibv_send_wr **save_on_error, bool retry = true);
   int send(ibv_send_wr &wr, bool retry = true);
@@ -136,8 +176,6 @@ class IBHandler : public MemoryRegistry {
   void flush_read();
 
  private:
-  void poll_cq();
-
   void sendGoodBye();
   decltype(read_promises)::value_type &create_promise(
       proteus::managed_ptr buff, proteus::remote_managed_ptr from);
@@ -147,13 +185,14 @@ class IBHandler : public MemoryRegistry {
   subscription *write_to_int(proteus::managed_ptr data, size_t bytes,
                              buffkey dst, void *buffpromise = nullptr);
 
-  void send_sge(uintptr_t wr_id, ibv_sge *sg_list, size_t sge_cnt,
-                decltype(ibv_send_wr::imm_data) imm);
+  void send_sge(proteus::managed_ptr release_upon_send, ibv_sge *sg_list,
+                size_t sge_cnt, decltype(ibv_send_wr::imm_data) imm);
 
   void request_buffers_unsafe();
 
  public:
-  void send(void *data, size_t bytes, decltype(ibv_send_wr::imm_data) imm = 5);
+  void send(proteus::managed_ptr data, size_t bytes,
+            decltype(ibv_send_wr::imm_data) imm = 5);
 
   /**
    * Write local data to remote memory based on a subscription.

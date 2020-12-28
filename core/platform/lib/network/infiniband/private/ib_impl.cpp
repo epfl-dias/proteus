@@ -52,7 +52,7 @@ ib_addr IBimpl::get_client(uint16_t port) const {
 void IBimpl::post_recv() {
   // FIXME: should request a buffer local to the card
   constexpr size_t buff_size = BlockManager::buffer_size;
-  void *recv_region = BlockManager::get_buffer();
+  void *recv_region = BlockManager::get_buffer().release();
   ibv_mr *recv_mr = (--reged_mem.upper_bound(recv_region))->second;
   ibv_sge sge{};
   sge.addr = (decltype(sge.addr))recv_region;
@@ -189,10 +189,10 @@ IBimpl::IBimpl(ibv_device *device)
 }
 
 IBimpl::~IBimpl() {
-  ibv_destroy_qp(qp);
-  if (cq) ibv_destroy_cq(cq);
-  ibv_destroy_comp_channel(comp_channel);
-  ibv_dealloc_pd(pd);
+  linux_run(ibv_destroy_qp(qp));
+  linux_run(ibv_destroy_cq(cq));
+  linux_run(ibv_destroy_comp_channel(comp_channel));
+  linux_run(ibv_dealloc_pd(pd));
 }
 
 void IBimpl::reg(const void *mem, size_t bytes) {
