@@ -25,6 +25,7 @@
 #define MEMORY_MANAGER_HPP_
 
 #include <atomic>
+#include <map>
 #include <mutex>
 #include <stack>
 #include <unordered_map>
@@ -108,8 +109,8 @@ class SingleDeviceMemoryManager {
   //  std::unordered_set<void *> big_units;
   std::unordered_map<void *, size_t> big_units;
 
-  std::unordered_map<void *, alloc_unit_info> units;
-  std::unordered_map<void *, void *> mappings;
+  std::map<void *, alloc_unit_info> units;
+  //  std::unordered_map<void *, void *> mappings;
   //  std::unordered_map<void *, std::pair<void **, size_t>> dmappings;
   std::stack<allocation_t> allocations;
 

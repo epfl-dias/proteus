@@ -152,7 +152,7 @@ void *MemoryManager::mallocPinnedOnNode(size_t bytes, int node) {
 
 void *MemoryManager::mallocPinned(size_t bytes) {
   // const auto &topo = topology::getInstance();
-  eventlogger.log(nullptr, log_op::MEMORY_MANAGER_ALLOC_PINNED_START);
+  //  eventlogger.log(nullptr, log_op::MEMORY_MANAGER_ALLOC_PINNED_START);
   nvtxRangePushA("mallocPinned");
   bytes = fixSize(bytes);
   const auto &cpu = affinity::get();
@@ -160,7 +160,7 @@ void *MemoryManager::mallocPinned(size_t bytes) {
   void *ptr = cpu_managers[node]->malloc(bytes);
   assert(ptr);
   nvtxRangePop();
-  eventlogger.log(nullptr, log_op::MEMORY_MANAGER_ALLOC_PINNED_END);
+  //  eventlogger.log(nullptr, log_op::MEMORY_MANAGER_ALLOC_PINNED_END);
   // std::cout << "Alloc: " << node << " " << ptr << " " << bytes << " " <<
   // topo.getCpuNumaNodeAddressed(ptr)->id; //std::endl;
   return ptr;
@@ -283,7 +283,9 @@ SingleDeviceMemoryManager<allocator, unit_cap>::~SingleDeviceMemoryManager() {
 #endif
 
   assert(allocations.empty());
-  assert(mappings.empty());
+  //#ifndef NDEBUG
+  //  assert(mappings.empty());
+  //#endif
   assert(units.empty());
   assert(big_units.empty());
   assert(free_cache.empty());
@@ -373,7 +375,10 @@ void *SingleDeviceMemoryManager<allocator, unit_cap>::malloc(size_t bytes) {
     void *ptr = ((void *)(((char *)info->base) + info->fill));
     info->fill += bytes;
     info->sub_units += 1;
-    mappings.emplace(ptr, info->base);
+
+    //#ifndef NDEBUG
+    //    mappings.emplace(ptr, info->base);
+    //#endif
 
     //    {
     //      void ** bt = new void*[32];
@@ -402,21 +407,31 @@ void SingleDeviceMemoryManager<allocator, unit_cap>::free(void *ptr) {
 
   {
     std::lock_guard<std::mutex> lock(m);
-    auto f = mappings.find(ptr);
-    if (f == mappings.end()) {
-      for (auto &t : mappings) {
-        std::cout << t.first << " " << t.second << std::endl;
-      }
-    }
-    assert(f != mappings.end() && "Mapping does not exist!");
+    auto itabove = units.upper_bound(ptr);
+    assert(itabove != units.begin() && "Unit not found!");
+    auto fu = --itabove;
+    assert((ptr <= ((char *)itabove->second.base) + unit_cap) &&
+           "Mapping does not exist!");
+    alloc_unit_info &info = fu->second;
+    auto base = info.base;
 
-    void *base = f->second;
-    mappings.erase(f);
+    //#ifndef NDEBUG
+    //    {
+    //      auto f = mappings.find(ptr);
+    //      if (f == mappings.end()) {
+    //        for (auto &t : mappings) {
+    //          std::cout << t.first << " " << t.second << std::endl;
+    //        }
+    //      }
+    //      assert(f != mappings.end() && "Mapping does not exist!");
+    //
+    //      assert(base == f->second);
+    //      mappings.erase(f);
+    //    }
+    //#endif
+
     //    dmappings.erase(dmappings.find(ptr));
 
-    auto fu = units.find(base);
-    assert(fu != units.end() && "Unit not found!");
-    alloc_unit_info &info = fu->second;
     assert(info.sub_units > 0);
     info.sub_units = info.sub_units - 1;
     if (info.sub_units == 0) {
