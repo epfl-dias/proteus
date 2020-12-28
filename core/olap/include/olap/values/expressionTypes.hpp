@@ -382,7 +382,7 @@ class RecordType : public ExpressionTypeVisitable<RecordType, ExpressionType> {
   llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const override;
 
   [[nodiscard]] typeID getTypeID() const override { return RECORD; }
-  [[nodiscard]] list<RecordAttribute *> getArgs() const { return args; }
+  [[nodiscard]] const list<RecordAttribute *> &getArgs() const { return args; }
   map<string, RecordAttribute *> &getArgsMap() { return argsMap; }
   [[nodiscard]] int getArgsNo() const { return args.size(); }
   [[nodiscard]] bool isPrimitive() const override { return false; }
