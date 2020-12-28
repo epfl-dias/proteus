@@ -309,6 +309,11 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
         return dCnt.getOrDefault(cols, null);
     }
 
+    public Pair<Object, Object> getRangeValues(ImmutableBitSet cols) {
+        if (ranges == null) initStatistics();
+        return ranges.getOrDefault(cols, null);
+    }
+
     public static BigInteger stringToNum(String x, int chars){
         BigInteger ret = BigInteger.valueOf(0);
         int len = Math.min(chars, x.length());
