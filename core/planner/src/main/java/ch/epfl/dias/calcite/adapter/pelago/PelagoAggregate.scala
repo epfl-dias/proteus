@@ -1,7 +1,5 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
-import java.util
-
 import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMetadataQuery}
 import ch.epfl.dias.emitter.PlanToJSON._
 import ch.epfl.dias.emitter.{Binding, PlanConversionException}
@@ -17,6 +15,7 @@ import org.apache.calcite.util.ImmutableBitSet
 import org.json4s.JsonDSL._
 import org.json4s._
 
+import java.util
 import scala.collection.JavaConverters._
 
 class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode,
@@ -65,8 +64,41 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
     planner.getCostFactory.makeCost(base.getRows, cpuCost, base.getIo)
   }
 
+  protected lazy val rowEst: Long = {
+    val exprow: Double = try {
+      getCluster.getMetadataQuery.getRowCount(getInput)
+    } catch {
+      case _: Throwable => 1e20
+    }
+    Math.min(exprow, 256 * 1024 * 1024)
+  }.asInstanceOf[Long]
+
+  protected lazy val maxEst: Long = {
+    val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getInput)
+    if (maxrow != null) Math.min(maxrow, 1024 * 1024 * 1024) else 1024 * 1024 * 1024
+  }.asInstanceOf[Long]
+
+  protected lazy val expectedKeyCardinality: Double = {
+    val distinctRowCount = getCluster.getMetadataQuery.getDistinctRowCount(getInput, getGroupSet, null)
+    if (distinctRowCount != null){
+      distinctRowCount
+    } else {
+      rowEst
+    }
+  }
+
+  protected lazy val maxInputSize: Long = {
+    Math.min(rowEst, (expectedKeyCardinality * 1.5).asInstanceOf[Long])
+  }
+
+  protected lazy val hash_bits: Long = {
+    Math.ceil(Math.log(expectedKeyCardinality)/Math.log(2)) + 1
+  }.asInstanceOf[Long]
+
   override def explainTerms(pw: RelWriter): RelWriter = {
     super.explainTerms(pw).item("trait", getTraitSet.toString).item("global", isGlobalAgg)
+      .item("hash_bits", hash_bits)
+      .item("maxInputSize", maxInputSize)
   }
 
   override def implement(target: RelDeviceType, alias2: String): (Binding, JValue) = {
@@ -135,19 +167,12 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
         }
       }
 
-      //FIXME: reconsider these upper limits
-      val rowEst = Math.min(getCluster.getMetadataQuery.getRowCount(getInput), 1*1024*1024) //1 vs 128 vs 64
-      val maxrow = getCluster.getMetadataQuery.getMaxRowCount(getInput)
-      val maxEst = 256*1024 //if (maxrow != null) Math.min(maxrow, 32*1024*1024) else 32*1024*1024 //1 vs 128 vs 64
-
-      val hash_bits = 10 //Math.min(1 + Math.ceil(Math.log(rowEst)/Math.log(2)).asInstanceOf[Int], 10)
-
       val json = op ~
         ("gpu"          , getTraitSet.containsIfApplicable(RelDeviceType.NVPTX) ) ~
         ("k"            , aggK                                                  ) ~
         ("e"            , aggE                                                  ) ~
         ("hash_bits"    , hash_bits                                             ) ~
-        ("maxInputSize" , maxEst.asInstanceOf[Int]                              ) ~
+        ("maxInputSize" , maxInputSize.asInstanceOf[Long]                       ) ~
         ("input"        , childOp                                               )
       val binding: Binding = Binding(alias, getFields(getRowType))
       val ret: (Binding, JValue) = (binding, json)

@@ -33,6 +33,7 @@ public class PelagoRelMetadataProvider extends ChainedRelMetadataProvider {
             PelagoRelMdExpressionLineage.SOURCE,
             PelagoRelMdTableReferences  .SOURCE,
             PelagoRelMdSelectivity      .SOURCE,
+            PelagoRelMdDistinctRowCount .SOURCE(),
             PelagoRelMdNonCumulativeCost.SOURCE(),
             PelagoRelMdPercentageOriginalRows.SOURCE,
             DefaultRelMetadataProvider  .INSTANCE));
