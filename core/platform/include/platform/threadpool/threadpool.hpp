@@ -102,10 +102,10 @@ class ThreadPool {
     {
       std::unique_lock<std::mutex> lock(m);
       tasks.emplace([task]() { (*task)(); });
-      if (elastic && idleWorkers == 0) addThread();
+      if (elastic && idleWorkers < tasks.size()) addThread();
     }
 
-    cv.notify_one();
+    cv.notify_all();
     return res;
   }
 
