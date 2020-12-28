@@ -413,7 +413,7 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
   std::vector<std::thread> buffer_pool_constrs;
   for (const auto &gpu : topo.getGpus()) {
     buffer_pool_constrs.emplace_back([&gpu, gpu_mem_pool_percentage,
-                                      buff_buffer_size, &buff_cache] {
+                                      buff_buffer_size] {
       size_t size =
           gpu_mem_pool_percentage * (gpu.getMemorySize() / buffer_size);
       LOG(INFO) << "Using " << size << " " << bytes{buffer_size}
@@ -467,6 +467,8 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
       device_buff[j] = bf;
 
       device_buffs_thrds[j] = new std::thread(dev_buff_manager, j);
+      pthread_setname_np(device_buffs_thrds[j]->native_handle(),
+                         ("devblockmgr" + std::to_string(j)).c_str());
     });
   }
 
@@ -515,7 +517,7 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
             for (const auto b : buffs) buffer_cache[b] = 0;
           }
 
-          h_pool_t *p = new h_pool_t(h_size, buffs);
+          auto *p = new h_pool_t(h_size, buffs);
 
           h_pool_numa[cpu.id] = p;
 
@@ -559,11 +561,13 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
   if (log_buffers) {
     buffer_logger =
         new std::thread{buffer_manager<T>::log_buffers, log_buffers};
+    pthread_setname_np(buffer_logger->native_handle(), "block log");
   } else {
     buffer_logger = nullptr;
   }
 
   buffer_gc = new std::thread(buffer_manager<T>::find_released_buffers, 50);
+  pthread_setname_np(buffer_gc->native_handle(), "block gc");
 }
 
 template <typename T>
