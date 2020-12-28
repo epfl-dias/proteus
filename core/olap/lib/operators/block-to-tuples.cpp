@@ -108,10 +108,21 @@ void BlockToTuples::consume(ParallelContext *context,
   //   Builder->CreateCall(warpsync, {activemask});
   // }
 
-  Plugin *pg =
-      Catalog::getInstance().getPlugin(wantedFields[0].getRegisteredRelName());
+  auto relName = [&]() {
+    if (wantedFields.empty()) {
+      for (const auto &t : childState.getBindings()) {
+        if (t.first.getAttrName() == "activeCnt") {
+          return t.first.getRelationName();
+        }
+      }
+    } else {
+      return wantedFields[0].getRegisteredRelName();
+    }
+  }();
 
-  RecordAttribute tupleCnt{wantedFields[0].getRegisteredRelName(), "activeCnt",
+  Plugin *pg = Catalog::getInstance().getPlugin(relName);
+
+  RecordAttribute tupleCnt{relName, "activeCnt",
                            pg->getOIDType()};  // FIXME: OID type for blocks ?
   Value *cnt = Builder->CreateLoad(childState[tupleCnt].mem, "cnt");
 
@@ -160,8 +171,7 @@ void BlockToTuples::consume(ParallelContext *context,
     // More general/lazy plugins will only perform this action,
     // instead of eagerly 'converting' fields
     // FIXME This action corresponds to materializing the oid. Do we want this?
-    RecordAttribute tupleIdentifier{wantedFields[0].getRegisteredRelName(),
-                                    activeLoop, pg->getOIDType()};
+    RecordAttribute tupleIdentifier{relName, activeLoop, pg->getOIDType()};
 
     ProteusValueMemory mem_posWrapper{mem_itemCtr, context->createFalse()};
 
@@ -221,7 +231,7 @@ void BlockToTuples::consume(ParallelContext *context,
 }
 
 void BlockToTuples::open(Pipeline *pip) {
-  eventlogger.log(this, log_op::BLOCK2TUPLES_OPEN_START);
+  //  eventlogger.log(this, log_op::BLOCK2TUPLES_OPEN_START);
 
   void **buffs;
 
@@ -241,7 +251,7 @@ void BlockToTuples::open(Pipeline *pip) {
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     pip->setStateVar<void *>(old_buffs[i], buffs + i);
   }
-  eventlogger.log(this, log_op::BLOCK2TUPLES_OPEN_END);
+  //  eventlogger.log(this, log_op::BLOCK2TUPLES_OPEN_END);
 }
 
 void BlockToTuples::close(Pipeline *pip) {
