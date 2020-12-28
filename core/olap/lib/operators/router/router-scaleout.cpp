@@ -120,9 +120,7 @@ void RouterScaleOut::open(Pipeline *pip) {
   std::lock_guard<std::mutex> guard(init_mutex);
 
   if (firers.empty()) {
-    free_pool = new std::stack<void *>[fanout];
-    free_pool_mutex = new std::mutex[fanout];
-    free_pool_cv = new std::condition_variable[fanout];
+    free_pool = new threadsafe_set<void *>[fanout];
     ready_fifo = new AsyncQueueMPSC<void *>[fanout];
     assert(free_pool);
 
@@ -158,11 +156,11 @@ void RouterScaleOut::close(Pipeline *pip) {
   assert(rem >= 0);
 
   if (rem == 0) {
-    eventlogger.log(this, log_op::EXCHANGE_JOIN_START);
+    //    eventlogger.log(this, log_op::EXCHANGE_JOIN_START);
     nvtxRangePushA("Exchange_waiting_to_close");
     for (auto &t : firers) t.get();
     nvtxRangePop();
-    eventlogger.log(this, log_op::EXCHANGE_JOIN_END);
+    //    eventlogger.log(this, log_op::EXCHANGE_JOIN_END);
     firers.clear();
   }
 
@@ -172,9 +170,10 @@ void RouterScaleOut::close(Pipeline *pip) {
                            sub->id);
   InfiniBandManager::flush();
 
-  LOG(INFO) << "waiting for other end...";
+  LOG(INFO) << "waiting for other end..." << sub->id;
   // auto &sub = InfiniBandManager::subscribe();
   auto x = sub->wait();
+  assert(x.size == 2);
   LOG(INFO) << "received closed " << x.size;
   LOG(INFO) << "data: " << (bytes{buf_size * cnt});
   BlockManager::release_buffer(x.release());
@@ -183,8 +182,7 @@ void RouterScaleOut::close(Pipeline *pip) {
 
   if (rem == 0) {
     delete[] free_pool;
-    delete[] free_pool_mutex;
-    delete[] free_pool_cv;
     delete[] ready_fifo;
   }
+  sub = nullptr;
 }

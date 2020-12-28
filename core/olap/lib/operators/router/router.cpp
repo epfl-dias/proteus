@@ -157,40 +157,18 @@ void Router::generate_catch(ParallelContext *context) {
 proteus::managed_ptr Router::acquireBuffer(int target, bool polling) {
   nvtxRangePushA("acq_buff");
 
-  if (free_pool[target].empty() && polling) {
+  if (free_pool[target].empty_unsafe() && polling) {
     nvtxRangePop();
     return nullptr;
   }
 
-  std::unique_lock<std::mutex> lock(free_pool_mutex[target]);
+  auto buff = free_pool[target].pop();
 
-  if (free_pool[target].empty()) {
-    if (polling) {
-      lock.unlock();
-      nvtxRangePop();
-      return nullptr;
-    }
-    nvtxRangePushA("cv_buff");
-    // std::cout << "Blocking" << std::endl;
-    eventlogger.log(this, log_op::EXCHANGE_PRODUCER_WAIT_START);
-    free_pool_cv[target].wait(
-        lock, [this, target]() { return !free_pool[target].empty(); });
-    eventlogger.log(this, log_op::EXCHANGE_PRODUCER_WAIT_END);
-    nvtxRangePop();
-  }
-
-  nvtxRangePushA("stack_buff");
-  void *buff = free_pool[target].top();
-  free_pool[target].pop();
-  nvtxRangePop();
-
-  lock.unlock();
-  nvtxRangePushA("got_acq_buff");
   return proteus::managed_ptr{buff};
 }
 
 void Router::releaseBuffer(int target, proteus::managed_ptr buff) {
-  eventlogger.log(this, log_op::EXCHANGE_PRODUCE_PUSH_START);
+  //  eventlogger.log(this, log_op::EXCHANGE_PRODUCE_PUSH_START);
   nvtxRangePop();
   // std::unique_lock<std::mutex> lock(ready_pool_mutex[target]);
   // eventlogger.log(this, log_op::EXCHANGE_PRODUCE);
@@ -199,16 +177,11 @@ void Router::releaseBuffer(int target, proteus::managed_ptr buff) {
   // lock.unlock();
   ready_fifo[target].push(buff.release());
   nvtxRangePop();
-  eventlogger.log(this, log_op::EXCHANGE_PRODUCE_PUSH_END);
+  //  eventlogger.log(this, log_op::EXCHANGE_PRODUCE_PUSH_END);
 }
 
 void Router::freeBuffer(int target, proteus::managed_ptr buff) {
-  nvtxRangePushA("waiting_to_release");
-  std::unique_lock<std::mutex> lock(free_pool_mutex[target]);
-  nvtxRangePop();
   free_pool[target].emplace(buff.release());
-  free_pool_cv[target].notify_one();
-  lock.unlock();
 }
 
 bool Router::get_ready(int target, proteus::managed_ptr &buff) {
@@ -244,13 +217,14 @@ bool Router::get_ready(int target, proteus::managed_ptr &buff) {
 
 void Router::fire(int target, PipelineGen *pipGen) {
   nvtxRangePushA((pipGen->getName() + ":" + std::to_string(target)).c_str());
+  pthread_setname_np(pthread_self(), (std::to_string((uintptr_t)this) +
+                                      "::" + std::to_string(target))
+                                         .c_str());
 
-  eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_START);
+  //  eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_START);
 
   // size_t packets = 0;
   // time_block t("Xchange pipeline (target=" + std::to_string(target) + "): ");
-
-  eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_END);
 
   const auto &cu = aff->getAvailableCU(target);
   // set_exec_location_on_scope d(cu);
@@ -270,9 +244,8 @@ void Router::fire(int target, PipelineGen *pipGen) {
       (pipGen->getName() + ":" + std::to_string(target) + "open").c_str());
   pip->open();
   nvtxRangePop();
-  eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_START);
 
-  eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_END);
+  //  eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_END);
 
   {
     // time_block t("Texchange consume (target=" + std::to_string(target) + "):
@@ -304,7 +277,7 @@ void Router::fire(int target, PipelineGen *pipGen) {
     } while (true);
   }
 
-  eventlogger.log(this, log_op::EXCHANGE_CONSUME_CLOSE_START);
+  //  eventlogger.log(this, log_op::EXCHANGE_CONSUME_CLOSE_START);
   nvtxRangePushA(
       (pipGen->getName() + ":" + std::to_string(target) + "close").c_str());
   pip->close();
@@ -320,7 +293,7 @@ void Router::fire(int target, PipelineGen *pipGen) {
 
   nvtxRangePop();
 
-  eventlogger.log(this, log_op::EXCHANGE_CONSUME_CLOSE_END);
+  //  eventlogger.log(this, log_op::EXCHANGE_CONSUME_CLOSE_END);
 }
 
 void *acquireBuffer(int target, Router *xch) {
@@ -458,9 +431,7 @@ void Router::open(Pipeline *pip) {
   std::lock_guard<std::mutex> guard(init_mutex);
 
   if (firers.empty()) {
-    free_pool = new std::stack<void *>[fanout];
-    free_pool_mutex = new std::mutex[fanout];
-    free_pool_cv = new std::condition_variable[fanout];
+    free_pool = new threadsafe_set<void *>[fanout];
     ready_fifo = new AsyncQueueMPSC<void *>[fanout];
     assert(free_pool);
 
@@ -468,10 +439,10 @@ void Router::open(Pipeline *pip) {
       ready_fifo[i].reset();
     }
 
-    eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_START);
+    //    eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_START);
     remaining_producers = producers;
     for (int i = 0; i < fanout; ++i) spawnWorker(i);
-    eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_END);
+    //    eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_END);
   }
 }
 
@@ -486,16 +457,14 @@ void Router::close(Pipeline *pip) {
   if (rem == 0) {
     for (int i = 0; i < fanout; ++i) ready_fifo[i].close();
 
-    eventlogger.log(this, log_op::EXCHANGE_JOIN_START);
+    //    eventlogger.log(this, log_op::EXCHANGE_JOIN_START);
     nvtxRangePushA("Exchange_waiting_to_close");
     for (auto &t : firers) t.get();
     nvtxRangePop();
-    eventlogger.log(this, log_op::EXCHANGE_JOIN_END);
+    //    eventlogger.log(this, log_op::EXCHANGE_JOIN_END);
     firers.clear();
 
     delete[] free_pool;
-    delete[] free_pool_mutex;
-    delete[] free_pool_cv;
     delete[] ready_fifo;
   }
 }

@@ -47,6 +47,42 @@ class Router;
 void releaseBuffer(int target, Router *xch, void *buff);
 void freeBuffer(int target, Router *xch, void *buff);
 
+template <typename T>
+class threadsafe_set {
+ private:
+  std::stack<T> data;
+  std::mutex m;
+  std::condition_variable cv;
+
+ public:
+  [[nodiscard]] bool empty_unsafe() const noexcept { return data.empty(); }
+
+  [[nodiscard]] bool empty() noexcept {
+    std::lock_guard<std::mutex> lock{m};
+    return empty_unsafe();
+  }
+
+  template <typename... Args>
+  void emplace(Args &&...args) noexcept {
+    std::lock_guard<std::mutex> lock{m};
+    data.push(std::forward<Args>(args)...);
+    cv.notify_all();
+  }
+
+  T pop() noexcept {
+    std::unique_lock<std::mutex> lock{m};
+    while (empty_unsafe()) {
+      cv.wait_for(lock, std::chrono::milliseconds{10},
+                  [this]() { return !empty_unsafe(); });
+      LOG_IF_EVERY_N(INFO, empty_unsafe(), 1000)
+          << "woke up to check, but is empty";
+    }
+    T v = std::move(data.top());
+    data.pop();
+    return std::move(v);
+  }
+};
+
 class Router : public experimental::UnaryOperator {
  public:
   Router(Operator *const child, DegreeOfParallelism numOfParents,
@@ -138,9 +174,7 @@ class Router : public experimental::UnaryOperator {
  protected:
   AsyncQueueMPSC<void *> *ready_fifo;
 
-  std::stack<void *> *free_pool;
-  std::mutex *free_pool_mutex;
-  std::condition_variable *free_pool_cv;
+  threadsafe_set<void *> *free_pool;
 
  private:
   std::optional<expression_t> hashExpr;
