@@ -92,6 +92,11 @@ class StateVar {
   friend class GpuPipelineGen;
 };
 
+struct pb {
+  void *p1;
+  void *p2;
+};
+
 std::string getFunctionName(void *f);
 
 class While {
@@ -297,10 +302,10 @@ class Context {
   }
 
   // Not used atm
-  void CodegenMemcpy(llvm::Value *dst, llvm::Value *src, int size);
+  void CodegenMemcpy(llvm::Value *dst, llvm::Value *src, size_t size);
   void CodegenMemcpy(llvm::Value *dst, llvm::Value *src, llvm::Value *size);
 
-  void CodegenMemset(llvm::Value *dst, llvm::Value *byte, int size);
+  void CodegenMemset(llvm::Value *dst, llvm::Value *byte, size_t size);
   void CodegenMemset(llvm::Value *dst, llvm::Value *bytes, llvm::Value *size);
 
   virtual void registerFunction(const char *, llvm::Function *);
@@ -346,6 +351,10 @@ class Context {
       return llvm::Type::getFloatTy(getLLVMContext());
     } else if constexpr (std::is_same_v<T, std::string>) {
       return CreateStringStruct();
+    } else if constexpr (std::is_same_v<T, pb>) {
+      auto charPtrType = toLLVM<char *>();
+      return llvm::StructType::get(getLLVMContext(),
+                                   {charPtrType, charPtrType});
     } else {
       LOG(INFO) << "Unknown type " << typeid(T).name()
                 << " substituting with sized placeholder";
@@ -355,9 +364,16 @@ class Context {
 
   template <typename R, typename... Args>
   llvm::Value *gen_call(R (*func)(Args...),
-                        std::initializer_list<llvm::Value *> args) {
+                        std::initializer_list<llvm::Value *> args,
+                        llvm::Type *ret) {
     auto fname = getFunctionName((void *)func);
-    return gen_call(fname, args, toLLVM<std::remove_cv_t<R>>());
+    return gen_call(fname, args, ret);
+  }
+
+  template <typename R, typename... Args>
+  llvm::Value *gen_call(R (*func)(Args...),
+                        std::initializer_list<llvm::Value *> args) {
+    return gen_call(func, args, toLLVM<std::remove_cv_t<R>>());
   }
 
   virtual llvm::Value *gen_call(std::string func,

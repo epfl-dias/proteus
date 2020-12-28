@@ -127,7 +127,7 @@ size_t Context::getSizeOf(llvm::Value *val) const {
   return getSizeOf(val->getType());
 }
 
-void Context::CodegenMemcpy(Value *dst, Value *src, int size) {
+void Context::CodegenMemcpy(Value *dst, Value *src, size_t size) {
   LLVMContext &ctx = getLLVMContext();
 
   CodegenMemcpy(dst, src, createSizeT(size));
@@ -139,7 +139,7 @@ void Context::CodegenMemcpy(Value *dst, Value *src, Value *size) {
   // away
   //  DCHECK(PointerType::classof(dst->getType()));
   //  DCHECK(PointerType::classof(src->getType()));
-  Value *false_value_ = ConstantInt::get(ctx, APInt(1, false, true));
+  //  Value *false_value_ = ConstantInt::get(ctx, APInt(1, false, true));
 
   PointerType *ptr_type = PointerType::getInt8PtrTy(ctx);
 
@@ -152,18 +152,25 @@ void Context::CodegenMemcpy(Value *dst, Value *src, Value *size) {
     throw runtime_error(string("Could not load memcpy intrinsic"));
   }
 
+  // Type *int32_type = IntegerType::getInt32Ty(ctx);
+  size = getBuilder()->CreateZExtOrTrunc(
+      size, memcpy_fn->getFunctionType()->params()[2]);
+
   // The fourth argument is the alignment.  For non-zero values, the caller
   // must guarantee that the src and dst values are aligned to that byte
   // boundary.
   // TODO: We should try to take advantage of this since our tuples are well
   // aligned.
-  Value *args[] = {
-      dst, src, size, false_value_  // is_volatile.
-  };
+  std::vector<Value *> args = {dst, src, size};
+  if (memcpy_fn->getFunctionType()->getNumParams() == 4) {
+    // FIXME: for now assume CPU side if 4 attributes, in which case the
+    // fourth argume is `isvolatiles`
+    args.push_back(createFalse());
+  }
   getBuilder()->CreateCall(memcpy_fn, args);
 }
 
-void Context::CodegenMemset(Value *dst, Value *byte, int size) {
+void Context::CodegenMemset(Value *dst, Value *byte, size_t size) {
   LLVMContext &ctx = getLLVMContext();
 
   CodegenMemset(dst, byte, createSizeT(size));
