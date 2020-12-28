@@ -68,6 +68,8 @@ class ThreadPool {
                   [i % topology::getInstance().getCpuNumaNodeCount()]};
           // eventlogger.log(this, log_op::THREADPOOL_THREAD_START);
           while (true) {
+            pthread_setname_np(pthread_self(), "idle (pool)");
+
             decltype(tasks)::value_type task;
 
             {
@@ -81,6 +83,8 @@ class ThreadPool {
               task = std::move(tasks.front());
               tasks.pop();
             }
+
+            pthread_setname_np(pthread_self(), "working");
 
             task();
           }
