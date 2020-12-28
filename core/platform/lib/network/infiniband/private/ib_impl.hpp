@@ -68,6 +68,10 @@ class IBimpl final : public MemoryRegistry {
 
  public:
   explicit IBimpl(ibv_device *device);
+  IBimpl(const IBimpl &) = delete;
+  IBimpl(IBimpl &&) noexcept = delete;
+  IBimpl &operator=(const IBimpl &) = delete;
+  IBimpl &operator=(const IBimpl &&) noexcept = delete;
 
   ~IBimpl() override;
 
