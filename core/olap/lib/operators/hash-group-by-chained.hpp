@@ -79,7 +79,7 @@ class HashGroupByChained : public experimental::UnaryOperator {
   std::vector<StateVar> out_param_ids;
   StateVar cnt_param_id;
 
-  int hash_bits;
+  unsigned int hash_bits;
   size_t maxInputSize;
 
   std::string opLabel;

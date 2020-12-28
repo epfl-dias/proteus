@@ -149,24 +149,23 @@ void HashGroupByChained::buildHashTableFormat(ParallelContext *context) {
   Type *t_cnt = PointerType::get(int32_type, /* address space */ 0);
   cnt_param_id = context->appendStateVar(t_cnt);  //, true, false);
 
-  Type *t_head_ptr = PointerType::get(
-      ArrayType::get(int32_type, 1 << hash_bits), /* address space */ 0);
+  auto t_head = ArrayType::get(int32_type, size_t{1} << hash_bits);
+  auto t_head_ptr = PointerType::get(t_head, /* address space */ 0);
   head_param_id = context->appendStateVar(
       t_head_ptr,
 
       [=](llvm::Value *) {
         IRBuilder<> *Builder = context->getBuilder();
 
-        Value *mem_acc = context->allocateStateVar(
-            ArrayType::get(int32_type, 1 << hash_bits));
+        Value *mem_acc = context->allocateStateVar(t_head);
 
         context->CodegenMemset(mem_acc, context->createInt8(-1),
-                               (1 << hash_bits) * sizeof(int32_t));
+                               t_head->getArrayNumElements() * sizeof(int32_t));
 
         return mem_acc;
       },
 
-      [=](llvm::Value *, llvm::Value *s) {
+      [=, this](llvm::Value *, llvm::Value *s) {
         std::vector<Value *> args;
         args.emplace_back(context->getStateVar(cnt_param_id));
         for (const auto &params : out_param_ids) {
