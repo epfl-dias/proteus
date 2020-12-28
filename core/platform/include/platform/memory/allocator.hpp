@@ -65,7 +65,9 @@ class PinnedMemoryAllocator {
  public:
   typedef T value_type;
 
-  inline explicit PinnedMemoryAllocator() = default;
+  PinnedMemoryAllocator() = default;
+  template <class U>
+  constexpr PinnedMemoryAllocator(const PinnedMemoryAllocator<U> &) noexcept {}
 
   [[nodiscard]] T *allocate(size_t n) {
     if (n > std::numeric_limits<size_t>::max() / sizeof(T))
