@@ -32,41 +32,67 @@
 #include "lib/util/catalog.hpp"
 #include "lib/util/jit/pipeline.hpp"
 
-buff_pair buff_pair::not_moved(void *buff) { return {buff, buff}; }
+buff_pair buff_pair::not_moved(proteus::managed_ptr buff) {
+  return {std::move(buff), nullptr};
+}
 
-buff_pair MemMoveDevice::MemMoveConf::push(void *src, size_t bytes,
-                                           int target_device,
+bool buff_pair::moved() const { return !old_buff; }
+
+proteus::managed_ptr MemMoveDevice::MemMoveConf::force_push(
+    const proteus::managed_ptr &src, size_t bytes, int target_device,
+    uint64_t srcServer, cudaStream_t movestrm) {
+  // FIXME: buffer manager should be able to provide blocks of arbitrary size
+  assert(bytes <= BlockManager::block_size);
+  auto buff = BlockManager::h_get_buffer(target_device);
+
+  if (bytes > 0) {
+    BlockManager::overwrite_bytes(buff.get(), src.get(), bytes, movestrm,
+                                  false);
+  }
+
+  return buff;
+}
+
+buff_pair MemMoveDevice::MemMoveConf::push(proteus::managed_ptr src,
+                                           size_t bytes, int target_device,
                                            uint64_t srcServer) {
   assert(srcServer == 0);
-  const auto *d = topology::getInstance().getGpuAddressed(src);
+  const auto *d = topology::getInstance().getGpuAddressed(src.get());
   int dev = d ? static_cast<int>(d->id) : -1;
 
   if (dev == target_device) {
-    return buff_pair::not_moved(src);  // block in correct device
+    return buff_pair::not_moved(std::move(src));  // block in correct device
   }
 
-  assert(bytes <=
-         BlockManager::block_size);  // FIMXE: buffer manager should be able
-                                     // to provide blocks of arbitary size
-  char *buff = (char *)BlockManager::h_get_buffer(target_device);
-
-  if (bytes > 0) {
-    BlockManager::overwrite_bytes(buff, src, bytes, strm, false);
-  }
-
-  return buff_pair{buff, src};
+  auto buff = force_push(src, bytes, target_device, srcServer, strm);
+  return buff_pair{std::move(buff), std::move(src)};
 }
 
 extern "C" {
-buff_pair make_mem_move_device(char *src, size_t bytes, int target_device,
-                               uint64_t srcServer,
-                               MemMoveDevice::MemMoveConf *mmc) {
-  return mmc->push(src, bytes, target_device, srcServer);
+pb make_mem_move_device(char *src, size_t bytes, int target_device,
+                        uint64_t srcServer,
+                        MemMoveDevice::MemMoveConf *mmc) noexcept {
+  auto x =
+      mmc->push(proteus::managed_ptr{src}, bytes, target_device, srcServer);
+  return {x.new_buff.release(), x.old_buff.release()};
 }
 
-void *MemMoveConf_pull(void *buff, MemMoveDevice::MemMoveConf *mmc) {
-  return mmc->pull(buff);
+MemMoveDevice::workunit *acquireWorkUnit(
+    MemMoveDevice::MemMoveConf *mmc) noexcept {
+  return mmc->acquire();
 }
+
+void propagateWorkUnit(MemMoveDevice::MemMoveConf *mmc,
+                       MemMoveDevice::workunit *buff, bool is_noop) noexcept {
+  mmc->propagate(buff, is_noop);
+}
+}
+
+void MemMoveDevice::genReleaseOldBuffer(ParallelContext *context,
+                                        llvm::Value *src) const {
+  auto charPtrType = llvm::Type::getInt8PtrTy(context->getLLVMContext());
+  context->gen_call(release_buffer,
+                    {context->getBuilder()->CreateBitCast(src, charPtrType)});
 }
 
 void MemMoveDevice::produce_(ParallelContext *context) {
@@ -115,26 +141,12 @@ void MemMoveDevice::produce_(ParallelContext *context) {
 
   map<RecordAttribute, ProteusValueMemory> variableBindings;
 
-  auto release = context->getFunction("release_buffer");
-
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     auto param = Builder->CreateExtractValue(params, 2 * i);
 
     auto src = Builder->CreateExtractValue(params, 2 * i + 1);
 
-    auto relBB = llvm::BasicBlock::Create(llvmContext, "rel", F);
-    auto merBB = llvm::BasicBlock::Create(llvmContext, "mer", F);
-
-    auto do_rel = Builder->CreateICmpEQ(param, src);
-    Builder->CreateCondBr(do_rel, merBB, relBB);
-
-    Builder->SetInsertPoint(relBB);
-
-    Builder->CreateCall(release, Builder->CreateBitCast(src, charPtrType));
-
-    Builder->CreateBr(merBB);
-
-    Builder->SetInsertPoint(merBB);
+    genReleaseOldBuffer(context, src);
 
     variableBindings[*(wantedFields[i])] =
         context->toMem(param, context->createFalse());
@@ -210,8 +222,6 @@ void MemMoveDevice::consume(ParallelContext *context,
 
   ProteusValueMemory mem_srcServer = getServerId(context, childState);
 
-  auto make_mem_move = context->getFunction("make_mem_move_device");
-
   Builder->SetInsertPoint(context->getCurrentEntryBlock());
 
   auto device_id = ((ParallelContext *)context)->getStateVar(device_id_var);
@@ -251,10 +261,9 @@ void MemMoveDevice::consume(ParallelContext *context,
     llvm::Value *moved = mv;
     llvm::Value *to_release = mv;
     if (do_transfer[i]) {
-      vector<llvm::Value *> mv_args{mv, size, device_id, srcS, memmv};
-
       // Do actual mem move
-      auto moved_buffpair = Builder->CreateCall(make_mem_move, mv_args);
+      auto moved_buffpair = context->gen_call(
+          make_mem_move_device, {mv, size, device_id, srcS, memmv});
       moved = Builder->CreateExtractValue(moved_buffpair, 0);
       to_release = Builder->CreateExtractValue(moved_buffpair, 1);
     } else {
@@ -278,9 +287,7 @@ void MemMoveDevice::consume(ParallelContext *context,
     d = Builder->CreateInsertValue(d, pushed[i], i);
   }
 
-  auto acquire = context->getFunction("acquireWorkUnit");
-
-  auto workunit_ptr8 = Builder->CreateCall(acquire, memmv);
+  auto workunit_ptr8 = context->gen_call(acquireWorkUnit, {memmv});
   auto workunit_ptr = Builder->CreateBitCast(
       workunit_ptr8, llvm::PointerType::getUnqual(workunit_type));
 
@@ -290,9 +297,7 @@ void MemMoveDevice::consume(ParallelContext *context,
       Builder->CreateBitCast(d_ptr, llvm::PointerType::getUnqual(data_type));
   Builder->CreateStore(d, d_ptr);
 
-  auto propagate = context->getFunction("propagateWorkUnit");
-  Builder->CreateCall(
-      propagate, std::vector<llvm::Value *>{memmv, workunit_ptr8, is_noop});
+  context->gen_call(propagateWorkUnit, {memmv, workunit_ptr8, is_noop});
 }
 
 MemMoveDevice::MemMoveConf *MemMoveDevice::createMoveConf() const {
@@ -319,7 +324,6 @@ void MemMoveDevice::open(Pipeline *pip) {
 
   MemMoveConf *mmc = createMoveConf();
 
-  eventlogger.log(this, log_op::MEMMOVE_OPEN_END);
 #ifndef NCUDA
   mmc->strm = strm;
   // mmc->strm2          = strm2;
@@ -330,7 +334,6 @@ void MemMoveDevice::open(Pipeline *pip) {
   // mmc->old_buffs      = new void      *[slack];
   mmc->data_buffs = MemoryManager::mallocPinned(data_size * slack);
   char *data_buff = (char *)mmc->data_buffs;
-  eventlogger.log(this, log_op::MEMMOVE_OPEN_START);
   for (size_t i = 0; i < slack; ++i) {
     wu[i].data = ((void *)(data_buff + i * data_size));
     // // gpu_run(cudaEventCreateWithFlags(&(wu[i].event),
@@ -344,7 +347,6 @@ void MemMoveDevice::open(Pipeline *pip) {
     // | cudaEventBlockingSync)); gpu_run(cudaEventCreate(mmc->events + i));
     // mmc->old_buffs[i] = nullptr;
   }
-  eventlogger.log(this, log_op::MEMMOVE_OPEN_END);
   // nvtxRangePushA("memmove::open2");
   for (size_t i = 0; i < slack; ++i) {
     gpu_run(cudaEventCreateWithFlags(
@@ -360,7 +362,6 @@ void MemMoveDevice::open(Pipeline *pip) {
   }
   // nvtxRangePop();
 
-  eventlogger.log(this, log_op::MEMMOVE_OPEN_START);
   mmc->worker = ThreadPool::getInstance().enqueue(
       &MemMoveDevice::catcher, this, mmc, pip->getGroup(), exec_location{});
   // mmc->worker = new thread(&MemMoveDevice::catcher, this, mmc,
@@ -475,27 +476,6 @@ void MemMoveDevice::MemMoveConf::release(MemMoveDevice::workunit *buff) {
   idle.push(buff);
 }
 
-extern "C" {
-MemMoveDevice::workunit *acquireWorkUnit(MemMoveDevice::MemMoveConf *mmc) {
-  return mmc->acquire();
-}
-
-void propagateWorkUnit(MemMoveDevice::MemMoveConf *mmc,
-                       MemMoveDevice::workunit *buff, bool is_noop) {
-  mmc->propagate(buff, is_noop);
-}
-
-bool acquirePendingWorkUnit(MemMoveDevice::MemMoveConf *mmc,
-                            MemMoveDevice::workunit **ret) {
-  return mmc->getPropagated(ret);
-}
-
-void releaseWorkUnit(MemMoveDevice::MemMoveConf *mmc,
-                     MemMoveDevice::workunit *buff) {
-  mmc->release(buff);
-}
-}
-
 void MemMoveDevice::catcher(MemMoveConf *mmc, int group_id,
                             exec_location target_dev) {
   // std::cout << target_dev. << std::endl;
@@ -515,18 +495,19 @@ void MemMoveDevice::catcher(MemMoveConf *mmc, int group_id,
       MemMoveDevice::workunit *p = nullptr;
       if (!mmc->getPropagated(&p)) break;
       for (size_t i = 0; i < wantedFields.size(); ++i) {
-        ((void **)(p->data))[i * 2] =
-            MemMoveConf_pull(((void **)(p->data))[i * 2], mmc);
+        ((proteus::managed_ptr *)(p->data))[i * 2] =
+            mmc->pull(std::move(((proteus::managed_ptr *)(p->data))[i * 2]));
       }
 
       nvtxRangePushA("memmove::catch_cons");
       pip->consume(0, p->data);
       nvtxRangePop();
 
-      mmc->release(p);  // FIXME: move this inside the generated code
+      mmc->release(p);
     } while (true);
   }
 
+  event_range<log_op::MEMMOVE_CLOSE_START> er{this};
   nvtxRangePushA("memmove::catch_close");
   pip->close();
   nvtxRangePop();

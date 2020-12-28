@@ -40,27 +40,31 @@ void MemMoveLocalTo::MemMoveConf::propagate(MemMoveDevice::workunit *buff,
   tran.push(buff);
 }
 
-buff_pair MemMoveLocalTo::MemMoveConf::push(void *src, size_t bytes,
-                                            int target_device, uint64_t) {
-  const auto *d2 = topology::getInstance().getGpuAddressed(src);
+buff_pair MemMoveLocalTo::MemMoveConf::push(proteus::managed_ptr src,
+                                            size_t bytes, int target_device,
+                                            uint64_t) {
+  const auto *d2 = topology::getInstance().getGpuAddressed(src.get());
   int dev = d2 ? d2->id : -1;
 
   if (dev == target_device || bytes <= 0 || dev < 0 ||
-      numa_node_of_gpu(dev) == numa_node_of_gpu(target_device))
-    return buff_pair::not_moved(src);  // block already in correct device
+      numa_node_of_gpu(dev) == numa_node_of_gpu(target_device)) {
+    return buff_pair::not_moved(
+        std::move(src));  // block already in correct device
+  }
 
   set_exec_location_on_scope d(*d2);
 
   assert(bytes <=
          BlockManager::block_size);  // FIMXE: buffer manager should be able
   // to provide blocks of arbitary size
-  char *buff =
-      (char *)BlockManager::get_buffer_numa(numa_node_of_gpu(target_device));
+  auto buff =
+      BlockManager::get_buffer_numa(topology::getInstance().getCpuNumaNodeById(
+          numa_node_of_gpu(target_device)));
 
-  BlockManager::overwrite_bytes(buff, src, bytes, strm, false);
+  BlockManager::overwrite_bytes(buff.get(), src.get(), bytes, strm, false);
   // buffer-manager<int32_t>::release_buffer ((int32_t *) src );
 
-  return buff_pair{buff, src};
+  return buff_pair{std::move(buff), std::move(src)};
 }
 
 bool MemMoveLocalTo::MemMoveConf::getPropagated(MemMoveDevice::workunit **ret) {

@@ -24,6 +24,7 @@
 #define MEM_BROADCAST_SCALEOUT_HPP_
 
 #include <future>
+#include <platform/memory/maganed-pointer.hpp>
 #include <thread>
 #include <unordered_map>
 
@@ -36,10 +37,10 @@ class MemBroadcastScaleOut : public MemBroadcastDevice {
     void propagateBroadcast(MemMoveDevice::workunit *buff,
                             int target_device) override;
 
-    buff_pair pushBroadcast(void *src, size_t bytes, int target_device,
-                            bool disable_noop) override;
+    buff_pair pushBroadcast(const proteus::managed_ptr &src, size_t bytes,
+                            int target_device, bool disable_noop) override;
 
-    void *pull(void *buff) override;
+    proteus::managed_ptr pull(proteus::managed_ptr buff) override;
 
     bool getPropagated(MemMoveDevice::workunit **ret) override;
   };

@@ -25,6 +25,7 @@
 
 #include <future>
 #include <olap/util/parallel-context.hpp>
+#include <platform/memory/maganed-pointer.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/util/async_containers.hpp>
 #include <thread>
@@ -32,10 +33,11 @@
 #include "lib/operators/operators.hpp"
 
 struct buff_pair {
-  void *new_buff;
-  void *old_buff;
+  proteus::managed_ptr new_buff;
+  proteus::managed_ptr old_buff;
 
-  static buff_pair not_moved(void *buff);
+  static buff_pair not_moved(proteus::managed_ptr buff);
+  [[nodiscard]] bool moved() const;
 };
 
 class MemMoveDevice : public experimental::UnaryOperator {
@@ -74,9 +76,15 @@ class MemMoveDevice : public experimental::UnaryOperator {
     virtual MemMoveDevice::workunit *acquire();
     virtual void propagate(MemMoveDevice::workunit *buff, bool is_noop);
 
-    virtual buff_pair push(void *src, size_t bytes, int target_device,
-                           uint64_t srcServer);
-    virtual void *pull(void *buff) { return buff; }
+    virtual buff_pair push(proteus::managed_ptr src, size_t bytes,
+                           int target_device, uint64_t srcServer);
+    virtual proteus::managed_ptr force_push(const proteus::managed_ptr &src,
+                                            size_t bytes, int target_device,
+                                            uint64_t srcServer,
+                                            cudaStream_t movestrm);
+    virtual proteus::managed_ptr pull(proteus::managed_ptr buff) {
+      return buff;
+    }
 
     virtual bool getPropagated(MemMoveDevice::workunit **ret);
     virtual void release(MemMoveDevice::workunit *buff);
@@ -112,6 +120,9 @@ class MemMoveDevice : public experimental::UnaryOperator {
   [[nodiscard]] virtual ProteusValueMemory getServerId(
       ParallelContext *context, const OperatorState &childState) const;
 
+  virtual void genReleaseOldBuffer(ParallelContext *context,
+                                   llvm::Value *pValue) const;
+
   const vector<RecordAttribute *> wantedFields;
   StateVar device_id_var;
   StateVar memmvconf_var;
@@ -131,5 +142,10 @@ class MemMoveDevice : public experimental::UnaryOperator {
   virtual void open(Pipeline *pip);
   virtual void close(Pipeline *pip);
 };
+
+extern "C" {
+MemMoveDevice::workunit *acquireWorkUnit(
+    MemMoveDevice::MemMoveConf *mmc) noexcept;
+}
 
 #endif /* MEM_MOVE_DEVICE_HPP_ */

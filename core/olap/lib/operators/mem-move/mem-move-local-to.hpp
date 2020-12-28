@@ -38,7 +38,7 @@ class MemMoveLocalTo : public MemMoveDevice {
    public:
     void propagate(MemMoveDevice::workunit *buff, bool is_noop) override;
 
-    buff_pair push(void *src, size_t bytes, int target_device,
+    buff_pair push(proteus::managed_ptr src, size_t bytes, int target_device,
                    uint64_t srcServer) override;
 
     bool getPropagated(MemMoveDevice::workunit **ret) override;

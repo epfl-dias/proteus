@@ -103,34 +103,6 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
 
   Type *pair_type = StructType::get(
       getModule()->getContext(), std::vector<Type *>{charPtrType, charPtrType});
-  FunctionType *make_mem_move_device =
-      FunctionType::get(pair_type,
-                        std::vector<Type *>{charPtrType, size_type, int32_type,
-                                            int64_type, charPtrType},
-                        false);
-  Function *fmake_mem_move_device =
-      Function::Create(make_mem_move_device, Function::ExternalLinkage,
-                       "make_mem_move_device", getModule());
-  registerFunction("make_mem_move_device", fmake_mem_move_device);
-
-  FunctionType *MemMoveConf_pull = FunctionType::get(
-      charPtrType, std::vector<Type *>{charPtrType, charPtrType}, false);
-  Function *fMemMoveConf_pull =
-      Function::Create(MemMoveConf_pull, Function::ExternalLinkage,
-                       "MemMoveConf_pull", getModule());
-  registerFunction("MemMoveConf_pull", fMemMoveConf_pull);
-
-  FunctionType *make_mem_move_broadcast_device =
-      FunctionType::get(pair_type,
-                        std::vector<Type *>{charPtrType, size_type, int32_type,
-                                            charPtrType, bool_type},
-                        false);  // cpp_bool_type
-  Function *fmake_mem_move_broadcast_device = Function::Create(
-      make_mem_move_broadcast_device, Function::ExternalLinkage,
-      "make_mem_move_broadcast_device", getModule());
-  registerFunction("make_mem_move_broadcast_device",
-                   fmake_mem_move_broadcast_device);
-
   FunctionType *make_mem_move_local_to = FunctionType::get(
       pair_type,
       std::vector<Type *>{charPtrType, size_type, int32_type, charPtrType},
@@ -218,65 +190,6 @@ CpuPipelineGen::CpuPipelineGen(Context *context, std::string pipName,
   Function *frand_local_cpu = Function::Create(
       rand_local_cpu, Function::ExternalLinkage, "rand_local_cpu", getModule());
   registerFunction("rand_local_cpu", frand_local_cpu);
-
-  FunctionType *acquireWorkUnit =
-      FunctionType::get(charPtrType, std::vector<Type *>{charPtrType}, false);
-  Function *facquireWorkUnit =
-      Function::Create(acquireWorkUnit, Function::ExternalLinkage,
-                       "acquireWorkUnit", getModule());
-  registerFunction("acquireWorkUnit", facquireWorkUnit);
-
-  FunctionType *propagateWorkUnit = FunctionType::get(
-      void_type, std::vector<Type *>{charPtrType, charPtrType, bool_type},
-      false);
-  Function *fpropagateWorkUnit =
-      Function::Create(propagateWorkUnit, Function::ExternalLinkage,
-                       "propagateWorkUnit", getModule());
-  registerFunction("propagateWorkUnit", fpropagateWorkUnit);
-
-  FunctionType *acquirePendingWorkUnit = FunctionType::get(
-      bool_type, std::vector<Type *>{charPtrType, charPtrType}, false);
-  Function *facquirePendingWorkUnit =
-      Function::Create(acquirePendingWorkUnit, Function::ExternalLinkage,
-                       "acquirePendingWorkUnit", getModule());
-  registerFunction("acquirePendingWorkUnit", facquirePendingWorkUnit);
-
-  FunctionType *releaseWorkUnit = FunctionType::get(
-      void_type, std::vector<Type *>{charPtrType, charPtrType}, false);
-  Function *freleaseWorkUnit =
-      Function::Create(releaseWorkUnit, Function::ExternalLinkage,
-                       "releaseWorkUnit", getModule());
-  registerFunction("releaseWorkUnit", freleaseWorkUnit);
-
-  FunctionType *acquireWorkUnitBroadcast =
-      FunctionType::get(charPtrType, std::vector<Type *>{charPtrType}, false);
-  Function *facquireWorkUnitBroadcast =
-      Function::Create(acquireWorkUnitBroadcast, Function::ExternalLinkage,
-                       "acquireWorkUnitBroadcast", getModule());
-  registerFunction("acquireWorkUnitBroadcast", facquireWorkUnitBroadcast);
-
-  FunctionType *propagateWorkUnitBroadcast = FunctionType::get(
-      void_type, std::vector<Type *>{charPtrType, charPtrType, int32_type},
-      false);
-  Function *fpropagateWorkUnitBroadcast =
-      Function::Create(propagateWorkUnitBroadcast, Function::ExternalLinkage,
-                       "propagateWorkUnitBroadcast", getModule());
-  registerFunction("propagateWorkUnitBroadcast", fpropagateWorkUnitBroadcast);
-
-  FunctionType *acquirePendingWorkUnitBroadcast = FunctionType::get(
-      bool_type, std::vector<Type *>{charPtrType, charPtrType}, false);
-  Function *facquirePendingWorkUnitBroadcast = Function::Create(
-      acquirePendingWorkUnitBroadcast, Function::ExternalLinkage,
-      "acquirePendingWorkUnitBroadcast", getModule());
-  registerFunction("acquirePendingWorkUnitBroadcast",
-                   facquirePendingWorkUnitBroadcast);
-
-  FunctionType *releaseWorkUnitBroadcast = FunctionType::get(
-      void_type, std::vector<Type *>{charPtrType, charPtrType}, false);
-  Function *freleaseWorkUnitBroadcast =
-      Function::Create(releaseWorkUnitBroadcast, Function::ExternalLinkage,
-                       "releaseWorkUnitBroadcast", getModule());
-  registerFunction("releaseWorkUnitBroadcast", freleaseWorkUnitBroadcast);
 
   FunctionType *mem_move_local_to_acquireWorkUnit =
       FunctionType::get(charPtrType, std::vector<Type *>{charPtrType}, false);

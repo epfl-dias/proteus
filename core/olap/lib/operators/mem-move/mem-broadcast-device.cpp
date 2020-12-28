@@ -23,10 +23,7 @@
 
 #include "mem-broadcast-device.hpp"
 
-#include "lib/util/catalog.hpp"
-// #include <platform/common/gpu/gpu-common.hpp>
-// #include "cuda.h"
-// #include "cuda_runtime_api.h"
+#include <lib/util/catalog.hpp>
 #include <platform/memory/block-manager.hpp>
 #include <platform/threadpool/threadpool.hpp>
 
@@ -35,96 +32,85 @@
 using namespace llvm;
 
 void MemBroadcastDevice::MemBroadcastConf::prepareNextBatch() {
-  if (!to_cpu) return;
+  //  if (!to_cpu) return;
   for (size_t i = 0; i < 16; ++i) {
-    targetbuffer[i] = nullptr;  // FIXME: can be much much more simple and
-                                // optimal if codegen'ed
+    //    BlockManager::release_buffer(targetbuffer[i]);
+    // FIXME: can be much much simpler and optimal if codegen'ed
+    targetbuffer[i] = nullptr;
   }
 }
 
 buff_pair MemBroadcastDevice::MemBroadcastConf::pushBroadcast(
-    void *src, size_t bytes, int target_device, bool disable_noop) {
+    const proteus::managed_ptr &src, size_t bytes, int target_device,
+    bool disable_noop) {
   const auto &topo = topology::getInstance();
-  if (!(to_cpu)) {
-    const auto &dev_ptr = topo.getGpuAddressed(src);
-    int dev = (dev_ptr) ? dev_ptr->id : -1;
 
-    // assert(bytes <= sizeof(int32_t) * h_vector_size); //FIMXE: buffer manager
-    // should be able to provide blocks of arbitary size
-    if (!disable_noop && dev == target_device)
-      return buff_pair{src, nullptr};  // block already in correct device
-    // set_device_on_scope d(dev);
+  // FIXME: CPU handling is a little bit broken
+  auto target_device_offset =
+      to_cpu
+          ? target_device % (int)topology::getInstance().getCpuNumaNodeCount()
+          : target_device;
 
-    // std::cout << target_device << std::endl;
+  // FIXME: That's a hack until we share GPU buffers correctly
+  auto force_share =
+      dynamic_cast<const topology::gpunode *>(
+          &topology::getInstance().getNumaAddressed(src.get())) !=
+      nullptr;  // overwrites always_share!
 
-    // if (dev >= 0) set_affinity_local_to_gpu(dev);
-    assert(bytes <=
-           BlockManager::block_size);  // FIMXE: buffer manager should be able
-                                       // to provide blocks of arbitary size
-    char *buff = (char *)BlockManager::h_get_buffer(target_device);
+  auto on_target_numa = [&]() {
+    auto &src_numa = topology::getInstance().getNumaAddressed(src.get());
+    auto &tgt_numa =
+        to_cpu
+            ? static_cast<const topology::numanode &>(
+                  topology::getInstance().getCpuNumaNodes().at(
+                      target_device_offset))
+            : static_cast<const topology::numanode &>(
+                  topology::getInstance().getGpus().at(target_device_offset));
 
-    assert(target_device >= 0);
-    if (bytes > 0)
-      BlockManager::overwrite_bytes(buff, src, bytes, strm[target_device],
-                                    false);
+    return src_numa == tgt_numa;
+  };
 
-    return buff_pair{buff, src};
-  } else { /* CPU targets! */
-    const auto &cpus = topo.getCpuNumaNodes();
-    const auto &numa = cpus[target_device % cpus.size()];
-    if (topo.getGpuAddressed(src)) {
-      char *buff = (char *)BlockManager::get_buffer_numa(numa);
-      assert(target_device >= 0);
-      if (bytes > 0)
-        BlockManager::overwrite_bytes(buff, src, bytes, strm[target_device],
-                                      false);
-
-      return buff_pair{buff, src};
-    } else {
-      int node_index = topo.getCpuNumaNodeAddressed(src)->index_in_topo;
-
-      int target_node_index = always_share ? 0 : numa.index_in_topo;
-      if (always_share || node_index == target_node_index) {
-        if (!disable_noop) {
-          targetbuffer[target_node_index] = src;
-          return buff_pair{src, nullptr};
-        }
-        if (BlockManager::share_host_buffer((int32_t *)src)) {
-          targetbuffer[target_node_index] = src;
-          return buff_pair{src, src};
-        }
-      } else {
-        char *dst = (char *)targetbuffer[target_node_index];
-        if (dst) {
-          if (BlockManager::share_host_buffer((int32_t *)dst)) {
-            targetbuffer[target_node_index] = dst;
-            return buff_pair{dst, dst};
-          }
-        }
-      }
-
-      char *buff = (char *)BlockManager::get_buffer_numa(numa);
-      assert(target_device >= 0);
-      if (bytes > 0)
-        BlockManager::overwrite_bytes(buff, src, bytes, strm[target_device],
-                                      false);
-
-      targetbuffer[target_node_index] = buff;
-      return buff_pair{buff, src};
+  if (!force_share && (always_share || on_target_numa())) {
+    // just share buffer, no movement
+    targetbuffer[target_device_offset] = src.get();
+  } else {
+    if (!targetbuffer[target_device_offset] || force_share) {
+      auto buff = force_push(src, bytes, (to_cpu) ? -1 : target_device_offset,
+                             0, strm.at(target_device_offset));
+      targetbuffer[target_device_offset] = buff.get();
+      // bypass normal path, to avoid weird ownership manipulations
+      return buff_pair::not_moved(std::move(buff));
     }
   }
+
+  // This is also weird though... essentially targetbuffer is a currently
+  // non-owning cache, for which we know the pointers are still active
+  // somewhere, as we are still creating the transfer descriptions.
+  proteus::managed_ptr tb{targetbuffer[target_device_offset]};
+  auto ret = BlockManager::share_host_buffer(tb);
+  tb.release();
+  return {std::move(ret), nullptr};
 }
 
 extern "C" {
 void step_mmc_mem_move_broadcast_device(
-    MemBroadcastDevice::MemBroadcastConf *mmc) {
+    MemBroadcastDevice::MemBroadcastConf *mmc) noexcept {
   mmc->prepareNextBatch();
 }
 
-buff_pair make_mem_move_broadcast_device(
-    char *src, size_t bytes, int target_device,
-    MemBroadcastDevice::MemBroadcastConf *mmc, bool disable_noop) {
-  return mmc->pushBroadcast(src, bytes, target_device, disable_noop);
+pb make_mem_move_broadcast_device(char *src, size_t bytes, int target_device,
+                                  MemBroadcastDevice::MemBroadcastConf *mmc,
+                                  bool disable_noop) noexcept {
+  auto tmp =
+      mmc->pushBroadcast(reinterpret_cast<const proteus::managed_ptr &>(src),
+                         bytes, target_device, disable_noop);
+  return {tmp.new_buff.release(), tmp.old_buff.release()};
+}
+
+void propagateWorkUnitBroadcast(MemBroadcastDevice::MemBroadcastConf *mmc,
+                                MemBroadcastDevice::workunit *buff,
+                                int target_device) noexcept {
+  mmc->propagateBroadcast(buff, target_device);
 }
 }
 
@@ -138,10 +124,10 @@ void MemBroadcastDevice::produce_(ParallelContext *context) {
   auto oidType = pg->getOIDType()->getLLVMType(llvmContext);
 
   std::vector<llvm::Type *> tr_types;
-  for (size_t i = 0; i < wantedFields.size(); ++i) {
-    tr_types.push_back(wantedFields[i]->getLLVMType(llvmContext));
-    tr_types.push_back(wantedFields[i]->getLLVMType(
-        llvmContext));  // old buffer, to be released
+  for (auto wantedField : wantedFields) {
+    tr_types.push_back(wantedField->getLLVMType(llvmContext));
+    tr_types.push_back(
+        wantedField->getLLVMType(llvmContext));  // old buffer, to be released
   }
   tr_types.push_back(int32_type);
   tr_types.push_back(oidType);  // cnt
@@ -230,12 +216,8 @@ void MemBroadcastDevice::produce_(ParallelContext *context) {
   // cu_stream_var       = context->appendStateVar(charPtrType);
   memmvconf_var = context->appendStateVar(charPtrType);
 
-  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
-    this->open(pip);
-  });
-  ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
-    this->close(pip);
-  });
+  context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
+  context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
   getChild()->produce(context);
 }
 
@@ -262,8 +244,6 @@ void MemBroadcastDevice::consume(ParallelContext *context,
 
   ProteusValueMemory mem_cntWrapper = childState[tupleCnt];
 
-  auto make_mem_move = context->getFunction("make_mem_move_broadcast_device");
-
   Builder->SetInsertPoint(context->getCurrentEntryBlock());
 
   // auto device_id = ((ParallelContext *)context)->getStateVar(device_id_var);
@@ -279,14 +259,14 @@ void MemBroadcastDevice::consume(ParallelContext *context,
   ProteusValueMemory mem_oidWrapper = childState[tupleIdentifier];
   auto oid = Builder->CreateLoad(mem_oidWrapper.mem);
 
-  auto memmv = ((ParallelContext *)context)->getStateVar(memmvconf_var);
+  auto memmv = context->getStateVar(memmvconf_var);
 
   std::vector<std::vector<Value *>> pushed{targets.size()};
 
   auto null_ptr =
       llvm::ConstantPointerNull::get((llvm::PointerType *)charPtrType);
-  for (size_t i = 0; i < wantedFields.size(); ++i) {
-    RecordAttribute block_attr(*(wantedFields[i]), true);
+  for (auto wantedField : wantedFields) {
+    RecordAttribute block_attr(*wantedField, true);
 
     ProteusValueMemory mem_valWrapper = childState[block_attr];
 
@@ -301,21 +281,16 @@ void MemBroadcastDevice::consume(ParallelContext *context,
     auto Nloc = Builder->CreateZExtOrBitCast(N, size->getType());
     size = Builder->CreateMul(size, Nloc);
 
-    auto step_mmc = context->getFunction("step_mmc_mem_move_broadcast_device");
-    Builder->CreateCall(step_mmc, std::vector<llvm::Value *>{memmv});
+    context->gen_call(step_mmc_mem_move_broadcast_device, {memmv});
 
     llvm::Value *any_noop = context->createFalse();
     for (size_t t_i = 0; t_i < targets.size(); ++t_i) {
       auto target_id = context->createInt32(targets[t_i]);
 
-      vector<llvm::Value *> mv_args{
-          mv, size, target_id, memmv,
-          any_noop};  // Builder->CreateZExtOrBitCast(any_noop, cpp_bool_type)};
-
       // Do actual mem move
-      // Builder->CreateZExtOrBitCast(any_noop,
-      // cpp_bool_type)->getType()->dump();
-      auto moved_buffpair = Builder->CreateCall(make_mem_move, mv_args);
+      auto moved_buffpair =
+          context->gen_call(make_mem_move_broadcast_device,
+                            {mv, size, target_id, memmv, any_noop});
       auto moved = Builder->CreateExtractValue(moved_buffpair, 0);
       auto to_release = Builder->CreateExtractValue(moved_buffpair, 1);
 
@@ -328,9 +303,9 @@ void MemBroadcastDevice::consume(ParallelContext *context,
           ConstantPointerNull::get((llvm::PointerType *)block_type);
 
       if (t_i == targets.size() - 1) {
-        auto rel = Builder->CreateSelect(any_noop, null_block, block);
+        //        auto rel = Builder->CreateSelect(any_noop, null_block, block);
 
-        pushed[t_i].push_back(rel);
+        pushed[t_i].push_back(block);
       } else {
         pushed[t_i].push_back(null_block);
       }
@@ -349,10 +324,7 @@ void MemBroadcastDevice::consume(ParallelContext *context,
       d = Builder->CreateInsertValue(d, pushed[t_i][i], i);
     }
 
-    auto acquire = context->getFunction("acquireWorkUnit");
-
-    // acquire->getFunctionType()->dump();
-    auto workunit_ptr8 = Builder->CreateCall(acquire, memmv);
+    auto workunit_ptr8 = context->gen_call(acquireWorkUnit, {memmv});
     auto workunit_ptr = Builder->CreateBitCast(
         workunit_ptr8, PointerType::getUnqual(workunit_type));
 
@@ -362,10 +334,8 @@ void MemBroadcastDevice::consume(ParallelContext *context,
     Builder->CreateStore(d, d_ptr);
 
     auto target_id = context->createInt32(targets[t_i]);
-
-    auto propagate = context->getFunction("propagateWorkUnitBroadcast");
-    // propagate->getFunctionType()->dump();
-    Builder->CreateCall(propagate, {memmv, workunit_ptr8, target_id});
+    context->gen_call(propagateWorkUnitBroadcast,
+                      {memmv, workunit_ptr8, target_id});
   }
 }
 
@@ -436,6 +406,7 @@ void MemBroadcastDevice::close(Pipeline *pip) {
   // int device = get_device();
   // cudaStream_t strm = pip->getStateVar<cudaStream_t>(cu_stream_var);
   auto mmc = pip->getStateVar<MemBroadcastConf *>(memmvconf_var);
+  pip->setStateVar<void *>(memmvconf_var, nullptr);
 
   mmc->tran.close();
 
@@ -498,12 +469,4 @@ void MemBroadcastDevice::MemBroadcastConf::propagateBroadcast(
   gpu_run(cudaEventRecord(buff->event, strm[target_device]));
 
   tran.push(buff);
-}
-
-extern "C" {
-void propagateWorkUnitBroadcast(MemBroadcastDevice::MemBroadcastConf *mmc,
-                                MemBroadcastDevice::workunit *buff,
-                                int target_device) {
-  mmc->propagateBroadcast(buff, target_device);
-}
 }

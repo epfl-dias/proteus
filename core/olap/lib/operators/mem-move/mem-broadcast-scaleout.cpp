@@ -27,16 +27,23 @@
 #include <platform/network/infiniband/infiniband-manager.hpp>
 #include <platform/util/timing.hpp>
 
-buff_pair MemBroadcastScaleOut::MemBroadcastConf::pushBroadcast(
-    void *src, size_t bytes, int target_device, bool disable_noop) {
-  if (target_device == InfiniBandManager::server_id()) {
-    return buff_pair{new std::pair(src, false),
-                     nullptr};  // block already in correct device
-  }
+static std::atomic<size_t> cnt = 0;
 
-  // BlockManager::share_host_buffer((int32_t *)src);
-  auto x = InfiniBandManager::write_silent(proteus::managed_ptr{src}, bytes);
-  return buff_pair{new std::pair(x, true), nullptr};
+buff_pair MemBroadcastScaleOut::MemBroadcastConf::pushBroadcast(
+    const proteus::managed_ptr &src, size_t bytes, int target_device,
+    bool disable_noop) {
+  auto newbuff = BlockManager::share_host_buffer(src);
+  if (target_device == InfiniBandManager::server_id()) {
+    // block already in correct device
+    return buff_pair{proteus::managed_ptr{
+                         new std::pair<void *, bool>(newbuff.release(), false)},
+                     nullptr};
+  }
+  //  LOG_EVERY_N(WARNING, 100) << ++::cnt;
+
+  auto x = InfiniBandManager::write_silent(std::move(newbuff), bytes);
+  auto y = new std::pair<void *, bool>(x, true);
+  return buff_pair{proteus::managed_ptr{y}, nullptr};
 }
 
 void MemBroadcastScaleOut::MemBroadcastConf::propagateBroadcast(
@@ -49,15 +56,16 @@ void MemBroadcastScaleOut::MemBroadcastConf::propagateBroadcast(
   if (cnt % (slack / 2) == 0) InfiniBandManager::flush();
 }
 
-void *MemBroadcastScaleOut::MemBroadcastConf::pull(void *buff) {
-  auto ptr = (std::pair<void *, bool> *)buff;
+proteus::managed_ptr MemBroadcastScaleOut::MemBroadcastConf::pull(
+    proteus::managed_ptr buff) {
+  auto ptr = (std::pair<void *, bool> *)buff.release();
   auto p = *ptr;
   delete ptr;
   if (p.second) {
     auto x = ((subscription *)p.first)->wait();
-    return x.release().release();
+    return x.release();
   } else {
-    return p.first;
+    return proteus::managed_ptr{p.first};
   }
 }
 

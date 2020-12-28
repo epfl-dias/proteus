@@ -38,9 +38,9 @@ class MemMoveScaleOut : public MemMoveDevice {
    public:
     void propagate(MemMoveDevice::workunit *buff, bool is_noop) override;
 
-    buff_pair push(void *src, size_t bytes, int target_device,
+    buff_pair push(proteus::managed_ptr src, size_t bytes, int target_device,
                    uint64_t srcServer) override;
-    void *pull(void *buff) override;
+    proteus::managed_ptr pull(proteus::managed_ptr buff) override;
 
     bool getPropagated(MemMoveDevice::workunit **ret) override;
   };
@@ -54,6 +54,9 @@ class MemMoveScaleOut : public MemMoveDevice {
 
   [[nodiscard]] ProteusValueMemory getServerId(
       ParallelContext *context, const OperatorState &childState) const override;
+
+  void genReleaseOldBuffer(ParallelContext *context,
+                           llvm::Value *src) const override;
 
   // virtual void open(Pipeline *pip);
   void close(Pipeline *pip) override;

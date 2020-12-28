@@ -45,14 +45,15 @@ class MemBroadcastDevice : public MemMoveDevice {
     bool to_cpu;
     bool always_share;
 
-    void *targetbuffer[16];
+    void *targetbuffer[16]{nullptr};
 
     virtual void prepareNextBatch();
 
     virtual void propagateBroadcast(MemMoveDevice::workunit *buff,
                                     int target_device);
 
-    virtual buff_pair pushBroadcast(void *src, size_t bytes, int target_device,
+    virtual buff_pair pushBroadcast(const proteus::managed_ptr &src,
+                                    size_t bytes, int target_device,
                                     bool disable_noop);
     //  virtual buff_pair push(void *src, size_t bytes, int target_device);
     //  virtual void *pull(void *buff) { return buff; }
