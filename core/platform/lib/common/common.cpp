@@ -121,10 +121,12 @@ class flush_log {
     for (const auto &data : logs) {
       for (const auto &t : data) t.flush();
     }
-    ofstream out("../../src/panorama/public/assets/timeline.csv");
-    out << "timestamp,operator,thread_id,coreid,op" << std::endl;
-    out << global_log.str();
-    std::cout << "log flushed" << std::endl;
+    ofstream out("timeline.csv");
+    if (out.is_open()) {
+      out << "timestamp,operator,thread_id,coreid,op" << std::endl;
+      out << global_log.str();
+      std::cout << "log flushed" << std::endl;
+    }
   }
 };
 
