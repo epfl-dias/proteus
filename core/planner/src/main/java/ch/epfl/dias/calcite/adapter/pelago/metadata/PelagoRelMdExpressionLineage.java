@@ -159,7 +159,7 @@ public class PelagoRelMdExpressionLineage implements MetadataHandler<BuiltInMeta
     outputExpression.accept(inputFinder);
 
     // Extract input fields referenced by expression
-    final ImmutableBitSet inputFieldsUsed = inputFinder.inputBitSet.build();
+    final ImmutableBitSet inputFieldsUsed = inputFinder.build();
 
     // Infer column origin expressions for given references
     final Map<RexInputRef, Set<RexNode>> mapping = new LinkedHashMap<>();
