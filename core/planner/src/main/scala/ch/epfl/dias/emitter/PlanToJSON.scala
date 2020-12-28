@@ -240,21 +240,33 @@ object PlanToJSON {
 
       //Binary operations containing string only operate on strings, so its safe to pass null as other
 
-      val l_isInt   = SqlTypeUtil.isIntType(ltype)
-      val r_isInt   = SqlTypeUtil.isIntType(rtype)
+      val l_isInt   = SqlTypeUtil.isIntType(ltype) || SqlTypeUtil.isBigint(ltype);
+      val r_isInt   = SqlTypeUtil.isIntType(rtype) || SqlTypeUtil.isBigint(rtype);
       // NOTE: should re-check all this... especially the div cases
       if (op == SqlStdOperatorTable.DIVIDE) {
-        // Make sure that both sides are doubles
-        if (ltype.getSqlTypeName != SqlTypeName.DOUBLE) {
-          left = emitCast(args.get(0), emitPrimitiveType(SqlTypeName.DOUBLE), f, input)
-        } else {
-          left  = emitExpression(args.get(0), f, args.get(1), input)
-        }
+        if (!l_isInt || !r_isInt) {
+          // Make sure that both sides are doubles
+          if (ltype.getSqlTypeName != SqlTypeName.DOUBLE) {
+            left = emitCast(args.get(0), emitPrimitiveType(SqlTypeName.DOUBLE), f, input)
+          } else {
+            left = emitExpression(args.get(0), f, args.get(1), input)
+          }
 
-        if (rtype.getSqlTypeName != SqlTypeName.DOUBLE) {
-          right = emitCast(args.get(1), emitPrimitiveType(SqlTypeName.DOUBLE), f, input)
+          if (rtype.getSqlTypeName != SqlTypeName.DOUBLE) {
+            right = emitCast(args.get(1), emitPrimitiveType(SqlTypeName.DOUBLE), f, input)
+          } else {
+            right = emitExpression(args.get(1), f, args.get(0), input)
+          }
         } else {
-          right = emitExpression(args.get(1), f, args.get(0), input)
+          if (castLeft(ltype, rtype)){
+            System.out.println("Cast: " + ltype + "->" + rtype)
+            left  = emitCast      (args.get(0), emitType(rtype, f), f, input)
+            right = emitExpression(args.get(1), f, args.get(0), input)
+          } else {
+            System.out.println("Cast: " + rtype + "->" + ltype)
+            left  = emitExpression(args.get(0), f, args.get(1), input)
+            right = emitCast      (args.get(1), emitType(ltype, f), f, input)
+          }
         }
       } else if (op == SqlStdOperatorTable.DIVIDE_INTEGER) {
         if (!l_isInt || !r_isInt){
