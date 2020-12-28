@@ -453,7 +453,7 @@ void flush(const T &toFlush, const char *fileName) {
 
 void flushInt(int toFlush, char *fileName) { flush(toFlush, fileName); }
 
-void flushInt64(size_t toFlush, char *fileName) { flush(toFlush, fileName); }
+void flushInt64(int64_t toFlush, char *fileName) { flush(toFlush, fileName); }
 
 void flushDate(int64_t toFlush, char *fileName) {
   flush(time_t{toFlush}, fileName);
