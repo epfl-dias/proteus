@@ -44,6 +44,9 @@ public class PelagoCost extends VolcanoCost {
   }
 
   public RelOptCost plus(RelOptCost other) {
+    if (!(other instanceof PelagoCost)){
+      other = PelagoCostFactory.INSTANCE.makeCost(other.getRows(), other.getCpu(), other.getIo());
+    }
     PelagoCost that = (PelagoCost) other;
     if ((this == INFINITY) || (that == INFINITY)) {
       return INFINITY;

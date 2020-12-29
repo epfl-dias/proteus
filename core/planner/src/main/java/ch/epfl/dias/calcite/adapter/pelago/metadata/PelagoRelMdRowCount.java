@@ -92,7 +92,7 @@ public class PelagoRelMdRowCount implements MetadataHandler<BuiltInMetadata.RowC
   }
 
   public Double getRowCount(PelagoTableScan rel, RelMetadataQuery mq) {
-    double rc = rel.getTable().getRowCount() * 1e8;
+    double rc = rel.getTable().getRowCount();
     // FIXME: using CostModel.blockSize() breaks jo/in ordering in ssbm100
     if (rel.getTraitSet().containsIfApplicable(RelPacking.Packed)) rc /= CostModel.blockSize();
     return rc;

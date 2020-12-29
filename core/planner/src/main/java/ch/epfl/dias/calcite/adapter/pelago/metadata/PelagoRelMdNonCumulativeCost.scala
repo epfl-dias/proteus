@@ -77,7 +77,7 @@ class PelagoRelMdNonCumulativeCost protected() extends MetadataHandler[BuiltInMe
         val c = CostModel.getNonCumulativeCost(rel)
         if (c == null) {
           assert(!rel.isInstanceOf[PelagoRel])
-          rel.computeSelfCost(rel.getCluster.getPlanner, mq)
+          rel.computeSelfCost(rel.getCluster.getPlanner, mq).multiplyBy(1e200)
         } else {
           c.toRelCost(rel.getCluster.getPlanner.getCostFactory, rel.getTraitSet, rowCount)
         }
