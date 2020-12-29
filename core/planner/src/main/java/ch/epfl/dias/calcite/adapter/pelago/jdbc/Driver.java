@@ -1,19 +1,13 @@
 package ch.epfl.dias.calcite.adapter.pelago.jdbc;
 
-import org.apache.calcite.avatica.AvaticaFactory;
-import org.apache.calcite.avatica.BuiltInConnectionProperty;
-import org.apache.calcite.avatica.ConnectionProperty;
-import org.apache.calcite.avatica.DriverVersion;
-import org.apache.calcite.config.CalciteConnectionProperty;
-import org.apache.calcite.config.Lex;
+import org.apache.calcite.avatica.*;
 import org.apache.calcite.jdbc.CalcitePrepare;
+import org.apache.calcite.jdbc.PelagoMetaImpl;
 import org.apache.calcite.linq4j.function.Function0;
 import org.apache.calcite.prepare.PelagoPrepareImpl;
 
 import java.sql.Connection;
-import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
-import java.util.*;
 
 public class Driver extends org.apache.calcite.jdbc.Driver {
     public static final String CONNECT_STRING_PREFIX = "jdbc:pelago:";
@@ -42,6 +36,10 @@ public class Driver extends org.apache.calcite.jdbc.Driver {
                 return new PelagoPrepareImpl();
             }
         };
+    }
+
+    @Override public Meta createMeta(AvaticaConnection connection) {
+        return new PelagoMetaImpl(connection);
     }
 
     public Connection connect(String url, java.util.Properties info) throws SQLException{
