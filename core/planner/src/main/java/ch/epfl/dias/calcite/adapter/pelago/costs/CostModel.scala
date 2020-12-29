@@ -93,8 +93,8 @@ object CostModel {
           }
         })
     // Relational Operators
-    case _: PelagoTableScan =>
-      MemBW(16.0/blockSize)
+    case scan: PelagoTableScan =>
+      MemBW(16.0/blockSize + scan.getRowType.getFieldCount * 10000)
     case _: PelagoDictTableScan => // FIXME: tune
       MemBW(8) + Compute(1024)
     case join: PelagoJoin => getNonCumulativeCost(join.asInstanceOf[Join])
@@ -105,7 +105,7 @@ object CostModel {
     case red: PelagoAggregate if red.getGroupCount == 0 =>
       Compute(16) + MemBW(0.01 * (8/blockSize) * red.getRowType.getFieldCount)
     case agg: PelagoAggregate if agg.getGroupCount > 0 =>
-      Compute(16) + RandomMemBW(agg.getRowType.getFieldCount + 0.01 * agg.getInput.getRowType.getFieldCount)
+      Compute(16) + RandomMemBW(agg.getRowType.getFieldCount + 0.01 * agg.getInput.getRowType.getFieldCount * 10000000)
     case project: PelagoProject =>
       Compute(project.getRowType.getFieldCount * 16 /* naive estimation for number of instr / expr */ ) +
         MemBW(1)

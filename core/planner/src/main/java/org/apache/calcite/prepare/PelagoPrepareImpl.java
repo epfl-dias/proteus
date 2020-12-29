@@ -24,6 +24,7 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.logical.LogicalTableModify;
 import org.apache.calcite.rel.rules.*;
@@ -64,6 +65,9 @@ import java.sql.Types;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import static org.apache.calcite.plan.RelOptRule.any;
+import static org.apache.calcite.plan.RelOptRule.operand;
 
 public class PelagoPrepareImpl extends CalcitePrepareImpl {
 
@@ -199,14 +203,56 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         for (RelOptRule rule: PelagoRules.RULES) {
             planner.addRule(rule);
         }
-//        for (var enrule: EnumerableRules.ENUMERABLE_RULES){
-//            planner.removeRule(enrule);
-//        }
+        for (var enrule: EnumerableRules.ENUMERABLE_RULES){
+            planner.removeRule(enrule);
+        }
         planner.removeRule(CoreRules.JOIN_COMMUTE);
 
         planner.removeRule(EnumerableRules.TO_INTERPRETER);
+        planner.addRule(EnumerableRules.ENUMERABLE_PROJECT_TO_CALC_RULE);
+        planner.addRule(EnumerableRules.ENUMERABLE_FILTER_TO_CALC_RULE);
+        planner.addRule(EnumerableRules.ENUMERABLE_TABLE_SCAN_RULE);
         planner.addRule(PelagoProjectPushBelowUnpack.INSTANCE);
         planner.addRule(CoreRules.PROJECT_MERGE);
+        planner.addRule(new RelOptRule(operand(Aggregate.class, operand(RelNode.class, operand(RelNode.class, any()))), "PelagoNoInputAggregate") {
+            @Override
+            public boolean matches(RelOptRuleCall call) {
+                Aggregate agg = call.rel(0);
+
+                if (!agg.getGroupSet().isEmpty()) return false;
+
+                for (var aggCall : agg.getAggCallList()) {
+                    if (!aggCall.getArgList().isEmpty()) return false;
+                    if (aggCall.filterArg > 0) return false;
+                }
+
+                return (call.rel(2) instanceof PelagoTableScan)
+                    && (call.rel(1) instanceof PelagoUnpack);
+            }
+
+            @Override
+            public void onMatch(RelOptRuleCall call) {
+                Aggregate       agg  = call.rel(0);
+                PelagoTableScan scan = call.rel(2);
+
+                var nscan =
+                    PelagoTableScan.create(
+                        scan.getCluster(),
+                        scan.getTable(),
+                        scan.pelagoTable(),
+                        new int[]{}
+                    );
+
+                var nnscan = call.getPlanner().register(nscan, null);
+
+                RelNode in = call.getPlanner().register(PelagoUnpack.create(nnscan, RelPacking.UnPckd), null);
+
+                call.transformTo(agg.copy(
+                    agg.getTraitSet(),
+                    List.of(in)
+                ));
+            }
+        });
 //
 //        List<RelOptRule> rules = new ArrayList<RelOptRule>();
 //        rules.add(new TableScanRule(PelagoRelFactories.PELAGO_BUILDER));

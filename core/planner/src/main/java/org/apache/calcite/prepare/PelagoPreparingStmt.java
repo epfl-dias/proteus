@@ -1,9 +1,11 @@
 package org.apache.calcite.prepare;
 
+import ch.epfl.dias.calcite.adapter.pelago.*;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
 import org.apache.calcite.adapter.enumerable.EnumerableRel;
+import org.apache.calcite.adapter.enumerable.EnumerableRules;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
@@ -20,21 +22,18 @@ import org.apache.calcite.rel.RelShuttle;
 import org.apache.calcite.rel.RelShuttleImpl;
 import org.apache.calcite.rel.RelVisitor;
 import org.apache.calcite.rel.RelWriter;
-import org.apache.calcite.rel.core.CorrelationId;
-import org.apache.calcite.rel.core.Join;
-import org.apache.calcite.rel.core.JoinRelType;
-import org.apache.calcite.rel.core.Project;
-import org.apache.calcite.rel.core.RelFactories;
-import org.apache.calcite.rel.core.Sort;
+import org.apache.calcite.rel.core.*;
 import org.apache.calcite.rel.externalize.RelWriterImpl;
 import org.apache.calcite.rel.hint.HintPredicates;
 import org.apache.calcite.rel.hint.HintStrategy;
 import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rel.hint.RelHint;
+import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.rules.*;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexOver;
 import org.apache.calcite.runtime.Hook;
@@ -49,21 +48,10 @@ import org.apache.calcite.tools.Programs;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.Holder;
 
-import ch.epfl.dias.calcite.adapter.pelago.PelagoJoin;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoLogicalJoin;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoProject;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoRelFactories;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoSort;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoSplit;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPartialAggregateRule;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectPushBelowUnpack;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectTableScanRule;
 
-import ch.epfl.dias.calcite.adapter.pelago.PelagoToEnumerableConverter;
-import ch.epfl.dias.calcite.adapter.pelago.RelBuilderWriter;
-import ch.epfl.dias.calcite.adapter.pelago.RelComputeDevice;
-import ch.epfl.dias.calcite.adapter.pelago.RelDeviceType;
-import ch.epfl.dias.calcite.adapter.pelago.RelHomDistribution;
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 import ch.epfl.dias.calcite.adapter.pelago.rules.LikeToJoinRule;
 import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPackTransfers;
@@ -77,13 +65,14 @@ import ch.epfl.dias.repl.Repl;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import ch.epfl.dias.calcite.adapter.pelago.reporting.PelagoTimeInterval;
 import ch.epfl.dias.calcite.adapter.pelago.reporting.TimeKeeper;
+import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.mapping.Mapping;
+import org.apache.calcite.util.mapping.MappingType;
+import org.apache.calcite.util.mapping.Mappings;
 import scala.MatchError;
 import scala.NotImplementedError;
 
@@ -487,6 +476,11 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             ))
             .build(), false, PelagoRelMetadataProvider.INSTANCE);
 
+        final Program programFinalize = Programs.of(new HepProgramBuilder()
+          .addRuleInstance(EnumerableRules.ENUMERABLE_FILTER_TO_CALC_RULE)
+          .addRuleInstance(EnumerableRules.ENUMERABLE_PROJECT_TO_CALC_RULE)
+          .build(), false, PelagoRelMetadataProvider.INSTANCE);
+
         HepProgram hepReduceProjects = new HepProgramBuilder()
 //            .addRuleInstance(PruneEmptyRules.PROJECT_INSTANCE)
             .addMatchOrder(HepMatchOrder.BOTTOM_UP)
@@ -556,6 +550,10 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                 timedSequence(
                     "Parallelization: ",
                     Programs.ofRules(hetRuleBuilder.build())
+                ),
+                timedSequence(
+                    "Finalization: ",
+                    programFinalize
                 ),
                 new PelagoProgram(),
                 new PelagoProgram2(),
