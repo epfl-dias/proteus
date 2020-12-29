@@ -22,7 +22,7 @@ testem.log
 bower.json.ember-try
 package.json.ember-try
 timeline*.csv
-deprecated/public/assets/flare*.json
+flare*.json
 
 # See http://help.github.com/ignore-files/ for more about ignoring files.
 
