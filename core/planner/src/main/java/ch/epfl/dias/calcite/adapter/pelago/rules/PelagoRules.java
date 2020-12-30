@@ -6,6 +6,7 @@ import org.apache.calcite.plan.*;
 import org.apache.calcite.rel.*;
 import org.apache.calcite.rel.convert.ConverterRule;
 import org.apache.calcite.rel.core.*;
+import org.apache.calcite.rel.hint.Hintable;
 import org.apache.calcite.rel.logical.*;
 import org.apache.calcite.rel.metadata.BuiltInMetadata;
 import org.apache.calcite.rel.rules.JoinCommuteRule;
@@ -291,7 +292,8 @@ public class PelagoRules {
 
             RelNode inp = convert(sort.getInput(), traitSet);
 
-           return PelagoSort.create(inp, sort.collation, sort.offset, sort.fetch);
+            return PelagoSort.create(inp, sort.collation, sort.offset, sort.fetch,
+                sort.getInput() instanceof Hintable ? ((Hintable) sort.getInput()).getHints() : ImmutableList.of());
         }
     }
 
