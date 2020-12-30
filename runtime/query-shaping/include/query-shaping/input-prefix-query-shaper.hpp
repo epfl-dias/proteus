@@ -27,7 +27,7 @@
 #include <query-shaping/query-shaper.hpp>
 
 namespace proteus {
-class InputPrefixQueryShaper : public QueryShaper {
+class InputPrefixQueryShaper : public QueryShaperControlMoves {
  private:
   size_t sf_;
 
@@ -40,7 +40,8 @@ class InputPrefixQueryShaper : public QueryShaper {
 
  public:
   explicit InputPrefixQueryShaper(std::string base_path,
-                                  decltype(input_sizes) input_sizes);
+                                  decltype(input_sizes) input_sizes = {},
+                                  bool allowMoves = true);
 
   RelBuilder scan(const std::string& relName,
                   std::initializer_list<std::string> relAttrs) override;

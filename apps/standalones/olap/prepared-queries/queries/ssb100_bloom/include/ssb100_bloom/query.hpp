@@ -73,20 +73,18 @@ class Query {
                                             size_t bloomSize) {
     return {
         // Q1.*
-        //        prepare11(memmv, conf, bloomSize)
-        //        , prepare12(memmv), prepare13(memmv),
-        //        // Q2.*
-        //                prepare21(memmv, bloomSize),
-        //        prepare22(memmv),
-        //        prepare42(memmv, bloomSize),
-        //        // Q3.*
-        //        prepare31(memmv), prepare32(memmv), prepare33(memmv),
-        //        prepare34(memmv),
-        //        // Q4.*
-        //        prepare41(memmv, bloomSize),
-        //        prepare42(memmv, bloomSize),
-        //        prepare42(memmv), prepare43(memmv)
-        //        // EOQ
+        prepare11(memmv, conf, bloomSize), prepare12(memmv, conf, bloomSize),
+        prepare13(memmv, conf, bloomSize),
+        // Q2.*
+        prepare21(memmv, bloomSize), prepare22(memmv, bloomSize),
+        prepare42(memmv, bloomSize),
+        // Q3.*
+        prepare31(memmv, bloomSize), prepare32(memmv, bloomSize),
+        prepare33(memmv, bloomSize), prepare34(memmv, bloomSize),
+        // Q4.*
+        prepare41(memmv, bloomSize), prepare42(memmv, bloomSize),
+        prepare42(memmv, bloomSize), prepare43(memmv, bloomSize)
+        // EOQ
     };
   }
 };

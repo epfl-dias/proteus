@@ -25,6 +25,7 @@
 #include <cli-flags.hpp>
 #include <platform/util/timing.hpp>
 #include <ssb/query.hpp>
+#include <ssb100_bloom/query.hpp>
 
 int main(int argc, char *argv[]) {
   auto olap = proteus::from_cli::olap("Prepared query runner", &argc, &argv);
@@ -32,6 +33,9 @@ int main(int argc, char *argv[]) {
   LOG(INFO) << "Finished initialization";
 
   LOG(INFO) << "Preparing queries...";
+
+  size_t SF = 100;
+  auto stats = ssb::Query::getStats(SF);
 
   {
     std::vector<PreparedStatement> statements;
@@ -44,36 +48,36 @@ int main(int argc, char *argv[]) {
     //    }
     std::vector<std::chrono::milliseconds> codegen_times;
     for (const auto &memmv : {true, false}) {
+      proteus::InputPrefixQueryShaper shaper{
+          "inputs/ssbm" + std::to_string(SF) + "/", stats, memmv};
       time_block t{[&](const auto &x) { codegen_times.emplace_back(x); }};
-      auto v = ssb::Query{}.prepareAll(memmv);
+      auto v = ssb::Query::prepareAll(shaper);
       statements.insert(statements.end(), std::make_move_iterator(v.begin()),
                         std::make_move_iterator(v.end()));
     }
-    //    for (auto bloomSize : {
-    //             size_t{32}, size_t{64}, size_t{128}, size_t{256},
-    //             size_t{512}, 1_K,        2_K,        4_K,         8_K, 16_K,
-    //             32_K,       64_K,       128_K,       256_K,       512_K,
-    //             1_M,        2_M,        4_M,         8_M,         16_M,
-    //             32_M,       64_M,       128_M,       256_M,       512_M,
-    //             //                           1_G,
-    //             //                           2_G
-    //         }) {
-    //      for (const auto &memmv : {true, false}) {
-    //        //      for (const auto &conf : {  BLOOM_CPUFILTER_PROJECT,
-    //        //                                 BLOOM_CPUFILTER_NOPROJECT,
-    //        //                                 BLOOM_GPUFILTER_NOPROJECT,}) {
-    //        time_block t{[&](const auto &x) { codegen_times.emplace_back(x);
-    //        }}; auto v = ssb100_bloom::Query{}.prepareAll(
-    //            memmv, BLOOM_CPUFILTER_NOPROJECT, bloomSize);
-    //        statements.insert(statements.end(),
-    //        std::make_move_iterator(v.begin()),
-    //                          std::make_move_iterator(v.end()));
-    //
-    //        cnts.emplace_back(ssb100_bloom::Query{}.prepare41_b(memmv,
-    //        bloomSize));
-    //        //      }
-    //      }
-    //    }
+    for (auto bloomSize : {
+             size_t{32}, size_t{64}, size_t{128}, size_t{256}, size_t{512},
+             1_K,        2_K,        4_K,         8_K,         16_K,
+             32_K,       64_K,       128_K,       256_K,       512_K,
+             1_M,        2_M,        4_M,         8_M,         16_M,
+             32_M,       64_M,       128_M,       256_M,       512_M,
+             //                           1_G,
+             //                           2_G
+         }) {
+      for (const auto &memmv : {true, false}) {
+        //      for (const auto &conf : {  BLOOM_CPUFILTER_PROJECT,
+        //                                 BLOOM_CPUFILTER_NOPROJECT,
+        //                                 BLOOM_GPUFILTER_NOPROJECT,}) {
+        time_block t{[&](const auto &x) { codegen_times.emplace_back(x); }};
+        auto v = ssb100_bloom::Query{}.prepareAll(
+            memmv, BLOOM_CPUFILTER_NOPROJECT, bloomSize);
+        statements.insert(statements.end(), std::make_move_iterator(v.begin()),
+                          std::make_move_iterator(v.end()));
+
+        cnts.emplace_back(ssb100_bloom::Query{}.prepare41_b(memmv, bloomSize));
+        //      }
+      }
+    }
 
     std::vector<std::vector<std::chrono::milliseconds>> times;
     for (size_t i = 0; i < 5; ++i) {

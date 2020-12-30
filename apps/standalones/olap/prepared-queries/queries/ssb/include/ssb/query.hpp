@@ -45,8 +45,8 @@ class Query {
   static PreparedStatement prepare42(proteus::QueryShaper &morph);
   static PreparedStatement prepare43(proteus::QueryShaper &morph);
 
-  static std::vector<PreparedStatement> prepareAll(bool memmv) {
-    proteus::QueryShaperControlMoves shaper{memmv};
+  static std::vector<PreparedStatement> prepareAll(
+      proteus::QueryShaper &shaper) {
     return {
         // Q1.*
         prepare11(shaper), prepare12(shaper), prepare13(shaper),
