@@ -88,7 +88,9 @@ class PelagoAggregate protected(cluster: RelOptCluster, traitSet: RelTraitSet, i
   }
 
   protected lazy val maxInputSize: Long = {
-    Math.min(rowEst, (expectedKeyCardinality * 1.5).asInstanceOf[Long])
+    Math.min(maxEst, (expectedKeyCardinality * 1.5 + {
+      if (getTraitSet.contains(RelDeviceType.NVPTX)) 1024 * 1024 else 0
+    }).asInstanceOf[Long])
   }
 
   protected lazy val hash_bits: Long = {

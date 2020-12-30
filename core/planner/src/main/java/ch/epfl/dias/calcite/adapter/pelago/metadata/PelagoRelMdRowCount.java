@@ -30,6 +30,8 @@ import ch.epfl.dias.calcite.adapter.pelago.PelagoUnpack;
 import ch.epfl.dias.calcite.adapter.pelago.RelPacking;
 import ch.epfl.dias.calcite.adapter.pelago.costs.CostModel;
 
+import java.util.Objects;
+
 public class PelagoRelMdRowCount implements MetadataHandler<BuiltInMetadata.RowCount> {
   private static final PelagoRelMdRowCount INSTANCE = new PelagoRelMdRowCount();
 
@@ -64,11 +66,9 @@ public class PelagoRelMdRowCount implements MetadataHandler<BuiltInMetadata.RowC
     // rowCount is the cardinality of the group by columns
     Double distinctRowCount =
         mq.getDistinctRowCount(rel.getInput(), groupKey, null);
-    if (distinctRowCount == null) {
-      return def.getRowCount(rel, mq) * 1e-6;
-    }
 
-    return def.getRowCount(rel, mq); // groupby's are generally very selective
+    // groupby's are generally very selective
+    return Objects.requireNonNullElseGet(distinctRowCount, () -> def.getRowCount(rel, mq) / 10);
   }
 
   public Double getRowCount(PelagoUnpack rel, RelMetadataQuery mq) {
