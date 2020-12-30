@@ -91,7 +91,7 @@ class PelagoRelMdDistinctRowCount private() extends MetadataHandler[BuiltInMetad
 
 
                 val lin = mq.getExpressionLineage(rel.getInput, call.getOperands.get(0))
-                if (lin.size() == 1){
+                if (lin.size() == 1) {
                   try {
                     val tbl = lin.asScala.head.asInstanceOf[RexTableInputRef].getTableRef.getTable.unwrap(classOf[PelagoTable])
                     val ind = lin.asScala.head.asInstanceOf[RexTableInputRef].getIndex
@@ -101,8 +101,6 @@ class PelagoRelMdDistinctRowCount private() extends MetadataHandler[BuiltInMetad
                     case _: Throwable => System.err.println("Range fetching failed, ignoring")
                   }
                 }
-
-
 
 
                 val divfactor = call.getOperands.get(1).asInstanceOf[RexLiteral].getValue3.asInstanceOf[java.math.BigDecimal];
@@ -176,10 +174,19 @@ class PelagoRelMdDistinctRowCount private() extends MetadataHandler[BuiltInMetad
     RelMdUtil.numDistinctVals(distinctRowCount, mq.getRowCount(rel))
   }
 
-
   def getDistinctRowCount(rel: PelagoTableScan, mq: RelMetadataQuery,
                           groupKey: ImmutableBitSet, predicate: RexNode): java.lang.Double = {
     if (groupKey.isEmpty) return 1
-    rel.getTable.unwrap(classOf[PelagoTable]).getDistrinctValues(groupKey)
+    val cols = ImmutableBitSet.of(groupKey.asScala.map(e => rel.fields(e).asInstanceOf[java.lang.Integer]).asJava)
+    val x = rel.getTable.unwrap(classOf[PelagoTable]).getDistrinctValues(cols)
+    if (x == null) {
+      RelMdUtil.numDistinctVals(
+        cols.asScala
+          .map(e => rel.getTable.unwrap(classOf[PelagoTable]).getDistrinctValues(ImmutableBitSet.of(e)))
+          .reduce(_ * _), mq.getRowCount(rel)
+      )
+    } else {
+      x
+    }
   }
 }
