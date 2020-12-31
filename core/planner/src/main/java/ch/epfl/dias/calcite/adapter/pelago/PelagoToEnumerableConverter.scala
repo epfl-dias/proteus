@@ -42,7 +42,9 @@ class PelagoToEnumerableConverter protected(cluster: RelOptCluster, traits: RelT
 
   override def copy(traitSet: RelTraitSet, inputs: util.List[RelNode]): RelNode = copy(traitSet, inputs.get(0))
 
-  def copy(traitSet: RelTraitSet, input: RelNode): RelNode = PelagoToEnumerableConverter.create(input, hints)
+  def copy(traitSet: RelTraitSet, input: RelNode): RelNode = PelagoToEnumerableConverter.create(input,
+    if (hints.isEmpty && input.isInstanceOf[Hintable]) input.asInstanceOf[Hintable].getHints else hints
+  )
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
     super.computeSelfCost(planner, mq).multiplyBy(getRowType.getFieldCount.toDouble * 0.1)
