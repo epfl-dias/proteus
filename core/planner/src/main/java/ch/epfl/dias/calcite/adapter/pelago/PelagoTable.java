@@ -33,6 +33,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Based on:
@@ -69,11 +70,7 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
 
         this.protoRowType   = protoRowType;
 
-        if (constraints != null) {
-            this.constraints = constraints;
-        } else {
-            this.constraints = new ArrayList<>();
-        }
+        this.constraints = Objects.requireNonNullElseGet(constraints, ArrayList::new);
     }
 
     private PelagoTable(String name, RelDataType rowType, List<Map<String, ?>> constraints) {
@@ -87,11 +84,7 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
         this.protoRowType   = null;
         this.rowType        = rowType;
 
-        if (constraints != null) {
-            this.constraints = constraints;
-        } else {
-            this.constraints = new ArrayList<>();
-        }
+        this.constraints = Objects.requireNonNullElseGet(constraints, ArrayList::new);
     }
 
     private PelagoTable(Source source, Map<String, ?> type, Map<String, ?> plugin, long linehint, List<Map<String, ?>> constraints, String alias) {
@@ -105,11 +98,7 @@ public class PelagoTable extends AbstractTable implements TranslatableTable {
 
         this.protoRowType = null;
 
-        if (constraints != null) {
-            this.constraints = constraints;
-        } else {
-            this.constraints = new ArrayList<>();
-        }
+        this.constraints = Objects.requireNonNullElseGet(constraints, ArrayList::new);
     }
 
     public RelDataType getRowType(RelDataTypeFactory typeFactory) {

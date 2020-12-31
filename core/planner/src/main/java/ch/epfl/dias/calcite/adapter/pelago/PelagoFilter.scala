@@ -1,16 +1,16 @@
 package ch.epfl.dias.calcite.adapter.pelago
 
-import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMdDistribution, PelagoRelMetadataQuery}
-import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema}
+import ch.epfl.dias.calcite.adapter.pelago.metadata.{PelagoRelMdDeviceType, PelagoRelMetadataQuery}
 import ch.epfl.dias.emitter.Binding
-import com.google.common.collect.ImmutableList
+import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema}
 import org.apache.calcite.plan._
-import org.apache.calcite.rel.{RelDistributionTraitDef, RelNode, RelWriter}
 import org.apache.calcite.rel.core.Filter
 import org.apache.calcite.rel.metadata.RelMetadataQuery
-import org.apache.calcite.rex.{RexBuilder, RexCall, RexNode, RexSimplify, RexUtil}
+import org.apache.calcite.rel.{RelNode, RelWriter}
+import org.apache.calcite.rex.{RexBuilder, RexCall, RexNode, RexUtil}
 import org.json4s.JsonDSL._
 import org.json4s._
+
 import scala.collection.JavaConverters._
 
 class PelagoFilter protected (cluster: RelOptCluster, traitSet: RelTraitSet, input: RelNode, condition: RexNode) extends Filter(cluster, traitSet, input, condition) with PelagoRel {

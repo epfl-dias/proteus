@@ -108,3 +108,4 @@ ccache*
 ## Gradle
 .idea/**/gradle.xml
 .idea/**/libraries
+/core/planner/plan.json*
