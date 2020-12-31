@@ -125,10 +125,19 @@ IBimpl::IBimpl(ibv_device *device)
     int max_sge = std::min(2048, attr.max_sge);
     assert(max_sge > 0);
 
-    cq = linux_run(
-        ibv_create_cq(context.get(), max_cqe, nullptr, comp_channel, 0));
     {
-      ibv_qp_init_attr init_attr{};
+      //      ibv_cq_init_attr_ex ceq_attr{};
+      //      ceq_attr.cqe = max_cqe;
+      //      ceq_attr.cq_context = nullptr;
+      //      ceq_attr.channel = comp_channel;
+      //      ceq_attr.comp_vector = 0;
+      //      ceq_attr.parent_domain = pd;
+      cq = linux_run(
+          ibv_create_cq(context.get(), max_cqe, nullptr, comp_channel, 0));
+    }
+
+    {
+      ibv_qp_init_attr_ex init_attr{};
       init_attr.send_cq = cq;
       init_attr.recv_cq = cq;
       init_attr.cap.max_send_wr = max_cqe - 1;
@@ -136,8 +145,16 @@ IBimpl::IBimpl(ibv_device *device)
       init_attr.cap.max_send_sge = max_sge;
       init_attr.cap.max_recv_sge = max_sge;
       init_attr.qp_type = IBV_QPT_RC;
+      init_attr.comp_mask |= IBV_QP_INIT_ATTR_PD;
+      //      init_attr.comp_mask |=
+      //          IBV_QP_INIT_ATTR_SEND_OPS_FLAGS | IBV_QP_INIT_ATTR_PD;
+      //      init_attr.send_ops_flags |=
+      //          IBV_QP_EX_WITH_SEND | IBV_QP_EX_WITH_RDMA_WRITE |
+      //          IBV_QP_EX_WITH_RDMA_READ | IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD
+      //          | IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP;
+      init_attr.pd = pd;
 
-      qp = linux_run(ibv_create_qp(pd, &init_attr));
+      qp = linux_run(ibv_create_qp_ex(context.get(), &init_attr));
     }
   }
 
