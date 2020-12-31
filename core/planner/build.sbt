@@ -4,7 +4,7 @@ version := "0.1"
 
 scalaVersion := "2.12.3"
 
-val calciteVersion = "1.24.0"
+val calciteVersion = "1.26.0"
 
 // https://mvnrepository.com/artifact/org.apache.calcite/calcite-core
 // Include Calcite Core
@@ -24,7 +24,7 @@ libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.13"
 libraryDependencies += "org.slf4j" % "slf4j-log4j12" % "1.7.13"
 
 // https://mvnrepository.com/artifact/org.apache.calcite.avatica/avatica
-libraryDependencies += "org.apache.calcite.avatica" % "avatica-server" % "1.16.0"
+libraryDependencies += "org.apache.calcite.avatica" % "avatica-server" % "1.17.0"
 // https://mvnrepository.com/artifact/com.google.guava/guava
 libraryDependencies += "com.google.guava" % "guava" % "19.0"
 // https://mvnrepository.com/artifact/au.com.bytecode/opencsv

@@ -63,7 +63,7 @@ public class PelagoProjectTableScanRule extends RelOptRule {
     final Mappings.TargetMapping mapping = project.getMapping();
 
     SortedSet<Integer> projects2 = new TreeSet();
-    for (RexNode x: project.getChildExps()){
+    for (RexNode x: project.getProjects()){
       RelOptUtil.InputReferencedVisitor vis = new RelOptUtil.InputReferencedVisitor();
       x.accept(vis);
       projects2.addAll(vis.inputPosReferenced);

@@ -103,7 +103,7 @@ public class PelagoRelMdExpressionLineage implements MetadataHandler<BuiltInMeta
     final Set<RelDataTypeField> inputExtraFields = new LinkedHashSet<>();
     final RelOptUtil.InputFinder inputFinder = new RelOptUtil.InputFinder(inputExtraFields);
     expr.accept(inputFinder);
-    return inputFinder.inputBitSet.build();
+    return inputFinder.build();
   }
 
   @Nullable protected static Set<RexNode> createAllPossibleExpressions(RexBuilder rexBuilder,

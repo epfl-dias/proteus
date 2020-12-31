@@ -46,6 +46,7 @@ import org.apache.calcite.sql.type.ExtraSqlTypes;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.ChainedSqlOperatorTable;
 import org.apache.calcite.sql.util.SqlBuilder;
+import org.apache.calcite.sql.util.SqlOperatorTables;
 import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.tools.*;
@@ -441,8 +442,10 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         final SqlOperatorTable opTab0 =
             context.config().fun(SqlOperatorTable.class,
                 SqlStdOperatorTable.instance());
-        final SqlOperatorTable opTab =
-            ChainedSqlOperatorTable.of(opTab0, catalogReader);
+        final List<SqlOperatorTable> list = new ArrayList<>();
+        list.add(opTab0);
+        list.add(catalogReader);
+        final SqlOperatorTable opTab = SqlOperatorTables.chain(list);
         final JavaTypeFactory typeFactory = context.getTypeFactory();
         final CalciteConnectionConfig connectionConfig = context.config();
         final SqlValidator.Config config = SqlValidator.Config.DEFAULT
