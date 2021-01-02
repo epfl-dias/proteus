@@ -1,51 +1,29 @@
 package ch.epfl.dias.calcite.adapter.pelago.metadata;
 
-import org.apache.calcite.jdbc.CalciteSchema;
-import org.apache.calcite.plan.RelOptTable;
+import com.google.common.collect.ImmutableRangeSet;
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeSet;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.prepare.RelOptTableImpl;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.Aggregate;
-import org.apache.calcite.rel.core.EquiJoin;
-import org.apache.calcite.rel.core.Union;
 import org.apache.calcite.rel.metadata.BuiltInMetadata;
 import org.apache.calcite.rel.metadata.ChainedRelMetadataProvider;
 import org.apache.calcite.rel.metadata.MetadataDef;
 import org.apache.calcite.rel.metadata.MetadataHandler;
 import org.apache.calcite.rel.metadata.ReflectiveRelMetadataProvider;
-import org.apache.calcite.rel.metadata.RelMdRowCount;
 import org.apache.calcite.rel.metadata.RelMdSelectivity;
 import org.apache.calcite.rel.metadata.RelMdUtil;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.calcite.rex.RexCall;
-import org.apache.calcite.rex.RexLiteral;
-import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexTableInputRef;
-import org.apache.calcite.rex.RexUtil;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rex.*;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.util.BuiltInMethod;
-import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.calcite.util.Pair;
+import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.util.*;
 
 import com.google.common.collect.ImmutableList;
-
-import ch.epfl.dias.calcite.adapter.pelago.PelagoDeviceCross;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoPack;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoRouter;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoSchema;
 import ch.epfl.dias.calcite.adapter.pelago.PelagoTable;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoTableScan;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoUnion;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoUnnest;
-import ch.epfl.dias.calcite.adapter.pelago.PelagoUnpack;
-import ch.epfl.dias.calcite.adapter.pelago.RelPacking;
-import scala.Immutable;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class PelagoRelMdSelectivity implements MetadataHandler<BuiltInMetadata.Selectivity> {
   private static final PelagoRelMdSelectivity INSTANCE = new PelagoRelMdSelectivity();
@@ -89,6 +67,14 @@ public class PelagoRelMdSelectivity implements MetadataHandler<BuiltInMetadata.S
 //  }
 
 
+  private static Double guessEqSelectivity(RexTableInputRef attr) {
+    PelagoTable table = attr.getTableRef().getTable().unwrap(PelagoTable.class);
+
+    Double distinctValues = table.getDistrinctValues(ImmutableBitSet.of(attr.getIndex()));
+    if (distinctValues == null) return null;
+    return 1 / distinctValues;
+  }
+
   public Double guessEqSelectivity(RelNode rel, RelMetadataQuery mq, RexNode predicate){
     if (!(predicate instanceof RexCall)) return null;
     if (!predicate.isA(SqlKind.EQUALS)) return null;
@@ -112,12 +98,7 @@ public class PelagoRelMdSelectivity implements MetadataHandler<BuiltInMetadata.S
     RexNode a = ls.iterator().next();
     if (!(a instanceof RexTableInputRef)) return null;
 
-    RexTableInputRef attr = (RexTableInputRef) a;
-    PelagoTable table = attr.getTableRef().getTable().unwrap(PelagoTable.class);
-
-    Double distinctValues = table.getDistrinctValues(ImmutableBitSet.of(attr.getIndex()));
-    if (distinctValues == null) return null;
-    return 1/distinctValues;
+    return guessEqSelectivity((RexTableInputRef) a);
   }
 
   public static RexTableInputRef getReferencedAttr(RexCall predicate, RelMetadataQuery mq, RelNode rel){
@@ -168,6 +149,148 @@ public class PelagoRelMdSelectivity implements MetadataHandler<BuiltInMetadata.S
     return table.getPercentile(ImmutableBitSet.of(attr.getIndex()), lit, rel.getCluster().getRexBuilder());
   }
 
+  private static class Estimator <C extends Comparable<C>> implements RangeSets.Consumer<C> {
+    private double ret = 0;
+    private final ImmutableList.Builder<RexNode> remaining = ImmutableList.builder();
+    private final RexBuilder rexBuilder;
+    private final RelDataType type;
+    private final PelagoTable table;
+    private final RexTableInputRef attr;
+    private final RexNode ref;
+
+    Estimator(RexBuilder rexBuilder, RelDataType type, RexTableInputRef attr, RexNode ref){
+      this.rexBuilder = rexBuilder;
+      this.type = type;
+      this.table = attr.getTableRef().getTable().unwrap(PelagoTable.class);
+      this.attr = attr;
+      this.ref = ref;
+    }
+
+    public Double getResult() {
+      var rems = remaining.build();
+      if (!rems.isEmpty()) {
+        ret += RelMdUtil.guessSelectivity(RexUtil.composeConjunction(rexBuilder, rems));
+      }
+      return ret;
+    }
+
+    private RexLiteral getLiteral(C v) {
+      return (RexLiteral) rexBuilder.makeLiteral(v, type, false, false);
+    }
+
+    private Double getPercentile(C v) {
+      return table.getPercentile(ImmutableBitSet.of(attr.getIndex()), getLiteral(v), rexBuilder);
+    }
+
+    @Override
+    public void all() {
+      ret += 1;
+    }
+
+    @Override
+    public void atLeast(C lower) {
+      greaterThan(lower);
+    }
+
+    @Override
+    public void atMost(C upper) {
+      lessThan(upper);
+    }
+
+    @Override
+    public void greaterThan(C lower) {
+      Double local_sel = getPercentile(lower);
+      if (local_sel == null) {
+        remaining.add(rexBuilder.makeCall(SqlStdOperatorTable.GREATER_THAN, ref, getLiteral(lower)));
+      } else {
+        ret += 1 - local_sel;
+      }
+    }
+
+    @Override
+    public void lessThan(C upper) {
+      Double local_sel = getPercentile(upper);
+      if (local_sel == null) {
+        remaining.add(rexBuilder.makeCall(SqlStdOperatorTable.LESS_THAN, ref, getLiteral(upper)));
+      } else {
+        ret += local_sel;
+      }
+    }
+
+    @Override
+    public void singleton(C value) {
+      var eq = guessEqSelectivity(attr);
+      if (eq == null) {
+        remaining.add(rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, ref, getLiteral(value)));
+      } else {
+        ret += eq;
+      }
+    }
+
+    @Override
+    public void closed(C lower, C upper) {
+      var up = getPercentile(upper);
+      var dn = getPercentile(lower);
+      if (up == null || dn == null) {
+        remaining.add(rexBuilder.makeCall(SqlStdOperatorTable.SEARCH, ref, rexBuilder.makeSearchArgumentLiteral(
+            Sarg.of(false, ImmutableRangeSet.of(Range.closed(lower, upper))),
+            ref.getType()
+        )));
+      } else {
+        ret += getPercentile(upper) - getPercentile(lower);
+      }
+    }
+
+    @Override
+    public void closedOpen(C lower, C upper) {
+      closed(lower, upper);
+    }
+
+    @Override
+    public void openClosed(C lower, C upper) {
+      closed(lower, upper);
+    }
+
+    @Override
+    public void open(C lower, C upper) {
+      closed(lower, upper);
+    }
+  }
+
+  public <C extends Comparable<C>> Double guessBetweenSelectivity(RelNode rel, RelMetadataQuery mq, RexNode predicate) {
+    if (!(predicate instanceof RexCall)) return null;
+    if (!predicate.isA(SqlKind.SEARCH)) return null;
+
+    RexCall call = (RexCall) predicate;
+
+    RexTableInputRef attr = getReferencedAttr((RexCall) predicate, mq, rel);
+    if (attr == null) return null;
+
+
+    final RexBuilder rexBuilder = rel.getCluster().getRexBuilder();
+    final RexNode ref = call.operands.get(0);
+    final RexLiteral literal = (RexLiteral) call.operands.get(1);
+    final Sarg<C> sarg = literal.getValueAs(Sarg.class);
+    double ret = 0.0;
+
+    if (sarg.containsNull) {
+      ret += 0.1; // TODO: ask statistics for percentage of null values
+    }
+    if (sarg.isComplementedPoints()) {
+      // Generate 'ref <> value1 AND ... AND ref <> valueN'
+
+      // TODO: expand with more detailed statistics, as for now it assumes equal probability
+      //  for all values and all values to be part of the domain
+      ret += 1 - sarg.rangeSet.asRanges().size() * guessEqSelectivity(attr);
+    } else {
+      var consumer = new Estimator<C>(rexBuilder, literal.getType(), attr, ref);
+      RangeSets.forEach(sarg.rangeSet, consumer);
+      ret += consumer.getResult();
+    }
+
+    return Math.min(Math.max(ret, 0), 1);
+  }
+
   public Double guessSelectivity(RelNode rel, RelMetadataQuery mq, RexNode predicate) {
     if (predicate == null) return null;
     double sel = 1.0;
@@ -200,6 +323,8 @@ public class PelagoRelMdSelectivity implements MetadataHandler<BuiltInMetadata.S
       } else if (pred.isA(SqlKind.OR)) {
         local_sel = ((RexCall) pred).getOperands().stream().map((e) -> guessSelectivity(rel, mq, e)).reduce(0.0, (a, b) -> a+b);
         local_sel = Math.min(Math.max(local_sel, 0), 1);
+      } else if (pred.isA(SqlKind.SEARCH)) {
+        local_sel = guessBetweenSelectivity(rel, mq, pred);
       }
 
       if (local_sel == null) {
