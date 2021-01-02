@@ -124,8 +124,13 @@ object CostModel {
 //    if (rel.getCluster.getMetadataQuery.getRowCount(rel.getLeft) > rel.getCluster.getMetadataQuery.getRowCount(rel.getRight)){
 //      InfiniteCost()
 //    } else {
-      val buildTupleBytes = (rel.getLeft.getRowType.getFieldCount * 8 + 2) * Math.log(rel.getCluster.getMetadataQuery.getRowCount(rel.getLeft))
-      RandomMemBW(buildTupleBytes * rel.getRight.getRowType.getFieldCount)
+      val (build, probe) = rel match {
+        case lj: PelagoLogicalJoin => (lj.getLeft, lj.getRight)
+        case pj: PelagoJoin => (pj.getRight, pj.getLeft)
+      }
+
+      val buildTupleBytes = (build.getRowType.getFieldCount * 8 + 2) * Math.log(rel.getCluster.getMetadataQuery.getRowCount(build))
+      RandomMemBW(buildTupleBytes * probe.getRowType.getFieldCount)
       //        RandomMemBW(800 * 1024 * 1024 * join.getCluster.getMetadataQuery.getPercentageOriginalRows(join.getLeft))
 //    }
   }
