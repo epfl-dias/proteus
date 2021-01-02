@@ -539,7 +539,11 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                 ),
                 timedSequence(
                     "Physical optimization: ",
-                    Programs.ofRules(planner.getRules()),
+                    Programs.ofRules(planner.getRules())
+                ),
+                timedSequence(
+                    "Join commute: ",
+                    Programs.ofRules(JoinCommuteRule.Config.DEFAULT.withOperandFor(PelagoJoin.class).toRule()),
                     new PelagoProgram()
                 ),
                 timedSequence(
