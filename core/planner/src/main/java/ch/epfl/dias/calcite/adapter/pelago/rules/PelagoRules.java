@@ -292,8 +292,7 @@ public class PelagoRules {
 
             RelNode inp = convert(sort.getInput(), traitSet);
 
-            return PelagoSort.create(inp, sort.collation, sort.offset, sort.fetch,
-                sort.getInput() instanceof Hintable ? ((Hintable) sort.getInput()).getHints() : ImmutableList.of());
+            return PelagoSort.create(inp, sort.collation, sort.offset, sort.fetch);
         }
     }
 

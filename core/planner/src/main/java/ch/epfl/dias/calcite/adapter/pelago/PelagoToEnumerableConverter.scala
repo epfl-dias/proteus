@@ -134,9 +134,19 @@ class PelagoToEnumerableConverter protected(cluster: RelOptCluster, traits: RelT
               RelOptUtil.toString(getInput, SqlExplainLevel.EXPPLAN_ATTRIBUTES)
             else
               null,
-            getHints.asList().asScala.find(p => p.hintName.toLowerCase == "query_info").map(
-              p => p.kvOptions.get("name")
-            ).orNull
+            {
+              def visitInfo(node: RelNode): Option[String] = {
+                (node match {
+                  case hintable: Hintable =>
+                    hintable.getHints.asScala.toList.find(p => p.hintName.toLowerCase == "query_info").map(
+                      p => p.kvOptions.get("name")
+                    )
+                  case _ =>
+                    Option.empty[String]
+                }).orElse(node.getInputs.asScala.map(e => visitInfo(e)).reduce(_.orElse(_)))
+              }
+              visitInfo(this).orNull
+            }
           ),
           files,
           getRowType

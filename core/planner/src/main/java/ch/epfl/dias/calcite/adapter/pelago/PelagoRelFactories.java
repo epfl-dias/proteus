@@ -84,7 +84,7 @@ public class PelagoRelFactories {
   private static class PelagoSortFactoryImpl implements SortFactory {
     @Override
     public RelNode createSort(RelNode input, RelCollation collation, RexNode offset, RexNode fetch) {
-      return PelagoSort.create(input, collation, offset, fetch, ImmutableList.of());
+      return PelagoSort.create(input, collation, offset, fetch);
     }
   }
 

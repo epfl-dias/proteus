@@ -3,32 +3,27 @@ package ch.epfl.dias.calcite.adapter.pelago
 import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMdDeviceType
 import ch.epfl.dias.emitter.Binding
 import ch.epfl.dias.emitter.PlanToJSON.{emitExpression, emitSchema, getFields}
-import com.google.common.collect.ImmutableList
 import org.apache.calcite.plan.{RelOptCluster, RelOptCost, RelOptPlanner, RelTraitSet}
 import org.apache.calcite.rel._
 import org.apache.calcite.rel.core.Sort
-import org.apache.calcite.rel.hint.{Hintable, RelHint}
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rex.{RexInputRef, RexNode}
 import org.apache.calcite.util.Util
 import org.json4s.JsonDSL._
 import org.json4s.{JsonAST, _}
 
-import java.util
 import scala.collection.JavaConverters._
 
 /**
   * Implementation of {@link org.apache.calcite.rel.core.Sort}
   * relational expression in Pelago.
   */
-class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: RelNode, collation: RelCollation, offset: RexNode, fetch: RexNode,
-                           val hints: ImmutableList[RelHint]) //        assert getConvention() == input.getConvention();
-  extends Sort(cluster, traits, child, collation, offset, fetch) with PelagoRel with Hintable {
+class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: RelNode, collation: RelCollation, offset: RexNode, fetch: RexNode) //        assert getConvention() == input.getConvention();
+  extends Sort(cluster, traits, child, collation, offset, fetch) with PelagoRel {
   //  assert(getConvention eq PelagoRel.CONVENTION())
 
   override def copy(traitSet: RelTraitSet, input: RelNode, collation: RelCollation, offset: RexNode, fetch: RexNode): PelagoSort = {
-    PelagoSort.create(input, collation, offset, fetch,
-      if (hints.isEmpty && input.isInstanceOf[Hintable]) input.asInstanceOf[Hintable].getHints else hints)
+    PelagoSort.create(input, collation, offset, fetch)
   }
 
 
@@ -159,20 +154,16 @@ class PelagoSort protected (cluster: RelOptCluster, traits: RelTraitSet, child: 
     val ret: (Binding, JValue) = (binding, json)
     ret
   }
-
-  override def getHints: ImmutableList[RelHint] = hints
-
-  override def withHints(hintList: util.List[RelHint]): RelNode = PelagoSort.create(input, collation, offset, fetch, ImmutableList.copyOf(hintList.iterator()))
 }
 
 object PelagoSort{
-  def create(input: RelNode, collation: RelCollation, offset: RexNode, fetch: RexNode, hints: ImmutableList[RelHint]): PelagoSort = {
+  def create(input: RelNode, collation: RelCollation, offset: RexNode, fetch: RexNode): PelagoSort = {
     val cluster  = input.getCluster
     val mq       = cluster.getMetadataQuery
     val traitSet = input.getTraitSet.replace(PelagoRel.CONVENTION)
       .replace(RelCollationTraitDef.INSTANCE.canonize(collation))
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => PelagoRelMdDeviceType.sort(mq, input))
       .replaceIf(RelComputeDeviceTraitDef.INSTANCE, () => RelComputeDevice.from(input))
-    new PelagoSort(cluster, traitSet, input, collation, offset, fetch, hints)
+    new PelagoSort(cluster, traitSet, input, collation, offset, fetch)
   }
 }
