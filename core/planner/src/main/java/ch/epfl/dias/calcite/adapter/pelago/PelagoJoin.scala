@@ -238,7 +238,7 @@ class PelagoJoin private (cluster: RelOptCluster, traitSet: RelTraitSet, left: R
       ("hash_bits"        , hash_bits                                                                   ) ~
       ("maxBuildInputSize", maxBuildInputSize                                                           ) ~
       ("probe_input"      , probe_child                                                                 )
-    val binding: Binding = Binding(alias, getFields(getRowType))
+    val binding: Binding = Binding(alias, build_binding.fields ++ probe_binding.fields)
     val ret: (Binding, JValue) = (binding,json)
     ret
   }
