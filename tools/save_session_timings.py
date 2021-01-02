@@ -34,6 +34,8 @@ class NULL:
 def escape(s):
     for c in "\"'":
         s = s.replace(c, "_")
+    s = s.replace('\u221e', "Inf")
+    s = ''.join([i if ord(i) < 128 else '?' for i in s]).encode('ascii')
     return s
 
 def escape2(s):
