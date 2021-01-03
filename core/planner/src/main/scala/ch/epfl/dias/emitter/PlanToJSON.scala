@@ -1,8 +1,8 @@
 package ch.epfl.dias.emitter
 
-import java.io.{PrintWriter, StringWriter}
+import ch.epfl.dias.calcite.adapter.pelago.schema.PelagoTable
 
-import ch.epfl.dias.calcite.adapter.pelago.PelagoTable
+import java.io.{PrintWriter, StringWriter}
 import com.google.common.collect.ImmutableList
 import org.apache.calcite.avatica.util.TimeUnitRange
 import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeField, RelRecordType}
