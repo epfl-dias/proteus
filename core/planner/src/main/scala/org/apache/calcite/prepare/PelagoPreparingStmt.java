@@ -13,7 +13,6 @@ import org.apache.calcite.adapter.enumerable.EnumerableRules;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
-import org.apache.calcite.linq4j.function.Function2;
 import org.apache.calcite.plan.*;
 import org.apache.calcite.plan.hep.HepMatchOrder;
 import org.apache.calcite.plan.hep.HepPlanner;
@@ -29,11 +28,8 @@ import org.apache.calcite.rel.externalize.RelWriterImpl;
 import org.apache.calcite.rel.hint.HintPredicates;
 import org.apache.calcite.rel.hint.HintStrategy;
 import org.apache.calcite.rel.hint.HintStrategyTable;
-import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.rules.*;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexOver;
 import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.validate.SqlValidator;
@@ -69,10 +65,7 @@ import ch.epfl.dias.calcite.adapter.pelago.reporting.TimeKeeper;
 import scala.MatchError;
 import scala.NotImplementedError;
 
-import static org.apache.calcite.plan.RelOptRule.operand;
-
 public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt {
-    private final EnumerableRel.Prefer prefer;
     private final Map<String, Object> internalParameters =
             Maps.newLinkedHashMap();
     private final RelOptCluster cluster;
@@ -87,7 +80,6 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                          Convention resultConvention,
                          SqlRexConvertletTable convertletTable) {
         super(prepare, context, catalogReader, typeFactory, schema, prefer, cluster, resultConvention, convertletTable);
-        this.prefer = prefer;
         this.cluster = cluster;
     }
 
@@ -99,11 +91,11 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
         SqlValidator validator,
         CatalogReader catalogReader,
         SqlToRelConverter.Config config) {
-        var config2 = SqlToRelConverter.configBuilder().withConfig(config).withHintStrategyTable(
+        var config2 = config.withHintStrategyTable(
             HintStrategyTable.builder().hintStrategy("query_info", HintStrategy.builder(HintPredicates.or(
                 HintPredicates.AGGREGATE, HintPredicates.JOIN, HintPredicates.CALC, HintPredicates.PROJECT, HintPredicates.TABLE_SCAN))
             .build()).build()
-        ).build();
+        );
         return new SqlToRelConverter(this, validator, catalogReader, cluster,
             convertletTable, config2);
     }
@@ -123,7 +115,8 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             final CalciteConnectionConfig config =
                     planner.getContext().unwrap(CalciteConnectionConfig.class);
             if (config != null && config.forceDecorrelate()) {
-                return RelDecorrelator.decorrelateQuery(rel);
+                return RelDecorrelator.decorrelateQuery(rel,
+                    RelFactories.LOGICAL_BUILDER.create(rel.getCluster(), null));
             }
             return rel;
         }
@@ -143,11 +136,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                 program,
                 p.getContext(),
                 true,
-                new Function2<RelNode, RelNode, Void>() {
-                    public Void apply(RelNode oldNode, RelNode newNode) {
-                        return null;
-                    }
-                },
+                (oldNode, newNode) -> null,
                 RelOptCostImpl.FACTORY);
 
             planner.setRoot(rel);
@@ -186,16 +175,6 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             RelTraitSet requiredOutputTraits,
             List<RelOptMaterialization> materializations,
             List<RelOptLattice> lattices) {
-            System.out.println(RelOptUtil.toString(rel, SqlExplainLevel.ALL_ATTRIBUTES));
-            return rel;
-        }
-    }
-    private static class PelagoProgram5 implements Program {
-        public RelNode run(RelOptPlanner planner, RelNode rel,
-            RelTraitSet requiredOutputTraits,
-            List<RelOptMaterialization> materializations,
-            List<RelOptLattice> lattices) {
-            System.out.println("asdasd");
             System.out.println(RelOptUtil.toString(rel, SqlExplainLevel.ALL_ATTRIBUTES));
             return rel;
         }
@@ -282,8 +261,8 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
 
     /** Program that does time measurement between pairs invocations with same PelagoTimeInterval object */
     private static class PelagoTimer implements Program {
-        private PelagoTimeInterval tm;
-        private String message;
+        final private PelagoTimeInterval tm;
+        final private String message;
 
         public PelagoTimer(PelagoTimeInterval tm, String message) {
             this.tm = tm;
@@ -310,10 +289,9 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
     /** Timed sequence - helper class for timedSequence method */
     private static class PelagoTimedSequence implements Program {
         private final ImmutableList<Program> programs;
-        private final PelagoTimeInterval timer;
 
         PelagoTimedSequence(String message, Program... programs) {
-            timer = new PelagoTimeInterval();
+            PelagoTimeInterval timer = new PelagoTimeInterval();
 
             PelagoTimer startTimer = new PelagoTimer(timer, message);
             PelagoTimer endTimer = new PelagoTimer(timer, message);
@@ -343,8 +321,6 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
         if (holder.get() != null) {
             return holder.get();
         }
-
-        PelagoTimeInterval tm = new PelagoTimeInterval();
 
         boolean cpu_only = Repl.isCpuonly();
         boolean gpu_only = Repl.isGpuonly();
@@ -414,18 +390,13 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             .addRuleInstance(CoreRules.PROJECT_FILTER_TRANSPOSE)
 //            .addRuleInstance(SortProjectTransposeRule.INSTANCE)
             // Push Projects down
-            .addRuleInstance(new ProjectJoinTransposeRule(Project.class, PelagoLogicalJoin.class, expr -> !(expr instanceof RexOver),
+            .addRuleInstance(ProjectJoinTransposeRule.Config.DEFAULT.withOperandFor(Project.class, PelagoLogicalJoin.class)
+                .withRelBuilderFactory(
                     RelBuilder.proto(
-                            new RelFactories.JoinFactory() {
-                                @Override public RelNode createJoin(final RelNode left, final RelNode right,
-                                                                    final List<RelHint> hints,
-                                                                    final RexNode condition, final Set<CorrelationId> variablesSet, final JoinRelType joinType,
-                                                                    final boolean semiJoinDone) {
-                                    return new PelagoLogicalJoin(left.getCluster(), left.getTraitSet(), left, right, condition, variablesSet, joinType);
-                                }
-                            }
+                        (RelFactories.JoinFactory) (left, right, hints, condition, variablesSet, joinType, semiJoinDone)
+                            -> new PelagoLogicalJoin(left.getCluster(), left.getTraitSet(), left, right, condition, variablesSet, joinType)
                     )
-            ))
+            ).toRule())
             .addRuleInstance(PruneEmptyRules.PROJECT_INSTANCE)
             .addRuleInstance(CoreRules.PROJECT_REMOVE)
             .addRuleInstance(CoreRules.PROJECT_MERGE)
@@ -454,18 +425,12 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
         // Do not add JoinCommuteRule and JoinPushThroughJoinRule, as
         // they cause exhaustive search.
         final Program program2 = Programs.of(new HepProgramBuilder()
-            .addRuleInstance(new LoptOptimizeJoinRule(
+            .addRuleInstance(LoptOptimizeJoinRule.Config.DEFAULT.withRelBuilderFactory(
                 RelBuilder.proto(
-                    new RelFactories.JoinFactory() {
-                        @Override public RelNode createJoin(final RelNode left, final RelNode right,
-                            final List<RelHint> hints,
-                            final RexNode condition, final Set<CorrelationId> variablesSet, final JoinRelType joinType,
-                            final boolean semiJoinDone) {
-                            return new PelagoLogicalJoin(left.getCluster(), left.getTraitSet(), left, right, condition, variablesSet, joinType);
-                        }
-                    }
+                    (RelFactories.JoinFactory) (left, right, hints, condition, variablesSet, joinType, semiJoinDone)
+                        -> new PelagoLogicalJoin(left.getCluster(), left.getTraitSet(), left, right, condition, variablesSet, joinType)
                 )
-            ))
+            ).toRule())
             .build(), false, PelagoRelMetadataProvider.INSTANCE);
 
         final Program programFinalize = Programs.of(new HepProgramBuilder()
@@ -489,13 +454,12 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
 //                "JoinProjectTransposeRule(Other-Project)",
 //                false,
 //                PelagoRelFactories.PELAGO_BUILDER))
-            .addRuleInstance(new ProjectJoinTransposeRule(
-               PelagoProject.class, PelagoJoin.class,
-               expr -> !(expr instanceof RexOver),
-               PelagoRelFactories.PELAGO_BUILDER
-            ))
-            .addRuleInstance(new ProjectRemoveRule(PelagoRelFactories.PELAGO_BUILDER))
-            .addRuleInstance(new ProjectMergeRule(true, ProjectMergeRule.DEFAULT_BLOAT, PelagoRelFactories.PELAGO_BUILDER))
+            .addRuleInstance(ProjectJoinTransposeRule.Config.DEFAULT
+                .withOperandFor(PelagoProject.class, PelagoJoin.class)
+                .withRelBuilderFactory(PelagoRelFactories.PELAGO_BUILDER)
+                .toRule())
+            .addRuleInstance(ProjectRemoveRule.Config.DEFAULT.withRelBuilderFactory(PelagoRelFactories.PELAGO_BUILDER).toRule())
+            .addRuleInstance(ProjectMergeRule.Config.DEFAULT.withForce(true).withRelBuilderFactory(PelagoRelFactories.PELAGO_BUILDER).toRule())
             .build();
 
         return Programs.sequence(
