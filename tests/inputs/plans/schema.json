@@ -13,7 +13,7 @@
     {
       "name": "SSB",
       "type": "custom",
-      "factory": "ch.epfl.dias.calcite.adapter.pelago.PelagoSchemaFactory",
+      "factory": "ch.epfl.dias.calcite.adapter.pelago.schema.PelagoSchemaFactory",
       "operand": {
         "directory": ".."
       }
