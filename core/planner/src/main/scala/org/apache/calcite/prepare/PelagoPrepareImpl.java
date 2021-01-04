@@ -1,7 +1,10 @@
 package org.apache.calcite.prepare;
 
+import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 import ch.epfl.dias.calcite.adapter.pelago.rel.PelagoTableScan;
 import ch.epfl.dias.calcite.adapter.pelago.rel.PelagoUnpack;
+import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectPushBelowUnpack;
+import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules;
 import ch.epfl.dias.calcite.adapter.pelago.traits.*;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -49,9 +52,6 @@ import org.apache.calcite.tools.*;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 
-import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
-import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectPushBelowUnpack;
-import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoRules;
 import ch.epfl.dias.repl.Repl;
 
 import java.io.PrintStream;
@@ -180,13 +180,13 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
 //        Hook.PLANNER.run(planner); // allow test to add or remove rules
 
 //        RelOptPlanner planner = super.createPlanner(prepareContext, externalContext, cFactory);
-        planner.addRelTraitDef(RelPackingTraitDef.INSTANCE);
-        planner.addRelTraitDef(RelDeviceTypeTraitDef     .INSTANCE);
-        planner.addRelTraitDef(RelHomDistributionTraitDef.INSTANCE);
+        planner.addRelTraitDef(RelPackingTraitDef.INSTANCE());
+        planner.addRelTraitDef(RelDeviceTypeTraitDef     .INSTANCE());
+        planner.addRelTraitDef(RelHomDistributionTraitDef.INSTANCE());
 
-        planner.addRelTraitDef(RelHetDistributionTraitDef.INSTANCE);
-        if (Repl.isHybrid()) planner.addRelTraitDef(RelSplitPointTraitDef.INSTANCE);
-        if (Repl.isHybrid() || Repl.isCpuonly()) planner.addRelTraitDef(RelComputeDeviceTraitDef  .INSTANCE);
+        planner.addRelTraitDef(RelHetDistributionTraitDef.INSTANCE());
+        if (Repl.isHybrid()) planner.addRelTraitDef(RelSplitPointTraitDef.INSTANCE());
+        if (Repl.isHybrid() || Repl.isCpuonly()) planner.addRelTraitDef(RelComputeDeviceTraitDef  .INSTANCE());
 //
 //        planner.clear();
 //
@@ -196,7 +196,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
 //
 //        planner.addRule(AbstractConverter.ExpandConversionRule.INSTANCE);
 ////        System.out.println(planner.getRules());
-        for (RelOptRule rule: PelagoRules.RULES) {
+        for (RelOptRule rule: PelagoRules.RULES()) {
             planner.addRule(rule);
         }
         for (var enrule: EnumerableRules.ENUMERABLE_RULES){
@@ -208,7 +208,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         planner.addRule(EnumerableRules.ENUMERABLE_PROJECT_TO_CALC_RULE);
         planner.addRule(EnumerableRules.ENUMERABLE_FILTER_TO_CALC_RULE);
         planner.addRule(EnumerableRules.ENUMERABLE_TABLE_SCAN_RULE);
-        planner.addRule(PelagoProjectPushBelowUnpack.INSTANCE);
+        planner.addRule(PelagoProjectPushBelowUnpack.INSTANCE());
         planner.addRule(CoreRules.PROJECT_MERGE);
         planner.addRule(new RelOptRule(operand(Aggregate.class, operand(RelNode.class, operand(RelNode.class, any()))), "PelagoNoInputAggregate") {
             @Override
@@ -241,7 +241,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
 
                 var nnscan = call.getPlanner().register(nscan, null);
 
-                RelNode in = call.getPlanner().register(PelagoUnpack.create(nnscan, RelPacking.UnPckd), null);
+                RelNode in = call.getPlanner().register(PelagoUnpack.create(nnscan, RelPacking.UnPckd()), null);
 
                 call.transformTo(agg.copy(
                     agg.getTraitSet(),
@@ -395,7 +395,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         RexBuilder rexBuilder) {
 
         RelOptCluster cluster = PelagoRelOptCluster.create(planner, rexBuilder);//super.createCluster(planner, rexBuilder);
-        cluster.setMetadataProvider(PelagoRelMetadataProvider.INSTANCE);
+        cluster.setMetadataProvider(PelagoRelMetadataProvider.INSTANCE());
         return cluster;
     }
 

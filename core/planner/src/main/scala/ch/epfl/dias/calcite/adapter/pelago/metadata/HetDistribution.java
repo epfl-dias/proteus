@@ -1,3 +1,26 @@
+/*
+    Proteus -- High-performance query processing on heterogeneous hardware.
+
+                            Copyright (c) 2017
+        Data Intensive Applications and Systems Laboratory (DIAS)
+                École Polytechnique Fédérale de Lausanne
+
+                            All Rights Reserved.
+
+    Permission to use, copy, modify and distribute this software and
+    its documentation is hereby granted, provided that both the
+    copyright notice and this permission notice appear in all copies of
+    the software, derivative works or modified versions, and any
+    portions thereof, and that both notices appear in supporting
+    documentation.
+
+    This code is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
+    DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
+    RESULTING FROM THE USE OF THIS SOFTWARE.
+ */
+
 package ch.epfl.dias.calcite.adapter.pelago.metadata;
 
 import org.apache.calcite.linq4j.tree.Types;
@@ -11,17 +34,6 @@ import ch.epfl.dias.calcite.adapter.pelago.traits.RelHetDistribution;
 
 import java.lang.reflect.Method;
 
-/** Metadata about how a relational expression is distributed to heterogeneous hardware.
- *
- * <p>If you are an operator consuming a relational expression, which subset
- * of the rows are you seeing? You might be seeing all of them (BROADCAST
- * or SINGLETON), only those whose key column values have a particular hash
- * code (HASH) or only those whose column values have particular values or
- * ranges of values (RANGE).
- *
- * <p>When a relational expression is partitioned, it is often partitioned
- * among nodes, but it may be partitioned among threads running on the same
- * node. */
 public interface HetDistribution extends Metadata {
   Method method = Types.lookupMethod(HetDistribution.class, "hetDistribution");
   MetadataDef<HetDistribution> DEF = MetadataDef.of(HetDistribution.class,

@@ -1,34 +1,26 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to you under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *//*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to you under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+    Proteus -- High-performance query processing on heterogeneous hardware.
+
+                            Copyright (c) 2017
+        Data Intensive Applications and Systems Laboratory (DIAS)
+                École Polytechnique Fédérale de Lausanne
+
+                            All Rights Reserved.
+
+    Permission to use, copy, modify and distribute this software and
+    its documentation is hereby granted, provided that both the
+    copyright notice and this permission notice appear in all copies of
+    the software, derivative works or modified versions, and any
+    portions thereof, and that both notices appear in supporting
+    documentation.
+
+    This code is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
+    DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
+    RESULTING FROM THE USE OF THIS SOFTWARE.
  */
+
 package ch.epfl.dias.calcite.adapter.pelago.metadata
 
 import ch.epfl.dias.calcite.adapter.pelago.costs.CostModel
@@ -45,14 +37,16 @@ import scala.collection.mutable
   */
 object PelagoRelMdNonCumulativeCost {
   val SOURCE: RelMetadataProvider =
-        ReflectiveRelMetadataProvider.reflectiveSource(
-          BuiltInMethod.NON_CUMULATIVE_COST.method,
-          new PelagoRelMdNonCumulativeCost
-        )
+    ReflectiveRelMetadataProvider.reflectiveSource(
+      BuiltInMethod.NON_CUMULATIVE_COST.method,
+      new PelagoRelMdNonCumulativeCost
+    )
 }
 
-class PelagoRelMdNonCumulativeCost protected() extends MetadataHandler[BuiltInMetadata.NonCumulativeCost] {
-  override def getDef: MetadataDef[BuiltInMetadata.NonCumulativeCost] = BuiltInMetadata.NonCumulativeCost.DEF
+class PelagoRelMdNonCumulativeCost protected ()
+    extends MetadataHandler[BuiltInMetadata.NonCumulativeCost] {
+  override def getDef: MetadataDef[BuiltInMetadata.NonCumulativeCost] =
+    BuiltInMetadata.NonCumulativeCost.DEF
 
   private val cache = mutable.WeakHashMap[RelNode, RelOptCost]()
 
@@ -66,27 +60,36 @@ class PelagoRelMdNonCumulativeCost protected() extends MetadataHandler[BuiltInMe
     computeAndCacheNonCumulativeCost(rel, mq)
   }
 
-  protected def computeAndCacheNonCumulativeCost[T <: RelNode](rel: T, mq: RelMetadataQuery): RelOptCost = {
+  protected def computeAndCacheNonCumulativeCost[T <: RelNode](
+      rel: T,
+      mq: RelMetadataQuery
+  ): RelOptCost = {
 //    if (rel.isInstanceOf[PelagoUnion])
-      cache.remove(rel)
+    cache.remove(rel)
     mq.clearCache(rel)
     try {
-      cache.getOrElseUpdate(rel, {
-        val rowCount = mq.getRowCount(rel)
-        assert(rowCount != null)
-        val c = CostModel.getNonCumulativeCost(rel)
-        if (c == null) {
-          assert(!rel.isInstanceOf[PelagoRel])
-          rel.computeSelfCost(rel.getCluster.getPlanner, mq).multiplyBy(1e200)
-        } else {
-          c.toRelCost(rel.getCluster.getPlanner.getCostFactory, rel.getTraitSet, rowCount)
+      cache.getOrElseUpdate(
+        rel, {
+          val rowCount = mq.getRowCount(rel)
+          assert(rowCount != null)
+          val c = CostModel.getNonCumulativeCost(rel)
+          if (c == null) {
+            assert(!rel.isInstanceOf[PelagoRel])
+            rel.computeSelfCost(rel.getCluster.getPlanner, mq).multiplyBy(1e200)
+          } else {
+            c.toRelCost(
+              rel.getCluster.getPlanner.getCostFactory,
+              rel.getTraitSet,
+              rowCount
+            )
+          }
         }
-      })
+      )
     } catch {
-      case _: CyclicMetadataException => rel.getCluster.getPlanner.getCostFactory.makeInfiniteCost()
+      case _: CyclicMetadataException =>
+        rel.getCluster.getPlanner.getCostFactory.makeInfiniteCost()
     }
   }
-
 
   def getNonCumulativeCost(rel: PelagoRel, mq: RelMetadataQuery): RelOptCost = {
     computeAndCacheNonCumulativeCost(rel, mq)

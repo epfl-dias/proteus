@@ -1,7 +1,11 @@
 package org.apache.calcite.prepare;
 
 import ch.epfl.dias.calcite.adapter.pelago.*;
+import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
 import ch.epfl.dias.calcite.adapter.pelago.rel.*;
+import ch.epfl.dias.calcite.adapter.pelago.reporting.PelagoTimeInterval;
+import ch.epfl.dias.calcite.adapter.pelago.reporting.TimeKeeper;
+import ch.epfl.dias.calcite.adapter.pelago.rules.*;
 import ch.epfl.dias.calcite.adapter.pelago.traits.RelComputeDevice;
 import ch.epfl.dias.calcite.adapter.pelago.traits.RelDeviceType;
 import ch.epfl.dias.calcite.adapter.pelago.traits.RelHomDistribution;
@@ -42,17 +46,6 @@ import org.apache.calcite.tools.Programs;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.Holder;
 
-import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPartialAggregateRule;
-import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectPushBelowUnpack;
-import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoProjectTableScanRule;
-
-import ch.epfl.dias.calcite.adapter.pelago.metadata.PelagoRelMetadataProvider;
-import ch.epfl.dias.calcite.adapter.pelago.rules.LikeToJoinRule;
-import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPackTransfers;
-import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPullUnionUp;
-import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushDeviceCrossDown;
-import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushRouterDown;
-import ch.epfl.dias.calcite.adapter.pelago.rules.PelagoPushSplitDown;
 import ch.epfl.dias.repl.Repl;
 
 import java.io.FileNotFoundException;
@@ -60,8 +53,6 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.*;
 
-import ch.epfl.dias.calcite.adapter.pelago.reporting.PelagoTimeInterval;
-import ch.epfl.dias.calcite.adapter.pelago.reporting.TimeKeeper;
 import scala.MatchError;
 import scala.NotImplementedError;
 
@@ -129,7 +120,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             List<RelOptLattice> lattices) {
 
             HepProgram program = HepProgram.builder()
-                .addRuleInstance(LikeToJoinRule.INSTANCE)
+                .addRuleInstance(LikeToJoinRule.INSTANCE())
                 .build();
 
             HepPlanner planner = new HepPlanner(
@@ -149,9 +140,9 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             .replace(this.resultConvention)
 //            .replace(PelagoRel.CONVENTION()) //this.resultConvention)
             .replace(root.collation)
-            .replace(RelHomDistribution.SINGLE)
-            .replace(RelDeviceType.X86_64)
-            .replace(RelComputeDevice.X86_64NVPTX)
+            .replace(RelHomDistribution.SINGLE())
+            .replace(RelDeviceType.X86_64())
+            .replace(RelComputeDevice.X86_64NVPTX())
             .simplify();
 //        return root.rel.getTraitSet().replace(this.resultConvention).replace(root.collation).replace(RelDeviceType.X86_64).simplify();
     }
@@ -278,10 +269,10 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                 tm.start();
             } else {
                 tm.stop();
-                TimeKeeper.INSTANCE.addTplanning(tm);
+                TimeKeeper.INSTANCE().addTplanning(tm);
                 System.out.println(message + tm.getDifferenceMilli() + "ms");
             }
-            TimeKeeper.INSTANCE.addTimestamp();
+            TimeKeeper.INSTANCE().addTimestamp();
             return rel;
         }
     }
@@ -332,15 +323,15 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
 
 //        hetRuleBuilder.add(PelagoRules.RULES);
 
-        if (!cpu_only) hetRuleBuilder.add(PelagoPushDeviceCrossDown.RULES);
+        if (!cpu_only) hetRuleBuilder.add(PelagoPushDeviceCrossDown.RULES());
 //        if (hybrid) hetRuleBuilder.add(PelagoPushDeviceCrossNSplitDown.RULES);
 
-        if (!(cpu_only && cpudop == 1) && !(gpu_only && gpudop == 1)) hetRuleBuilder.add(PelagoPushRouterDown.RULES);
-        if (hybrid) hetRuleBuilder.add(PelagoPushSplitDown.RULES);
-        if (hybrid) hetRuleBuilder.add(PelagoPullUnionUp.RULES);
+        if (!(cpu_only && cpudop == 1) && !(gpu_only && gpudop == 1)) hetRuleBuilder.add(PelagoPushRouterDown.RULES());
+        if (hybrid) hetRuleBuilder.add(PelagoPushSplitDown.RULES());
+        if (hybrid) hetRuleBuilder.add(PelagoPullUnionUp.RULES());
 
-        hetRuleBuilder.add(PelagoPackTransfers.RULES);
-        hetRuleBuilder.add(PelagoPartialAggregateRule.INSTANCE);
+        hetRuleBuilder.add(PelagoPackTransfers.RULES());
+        hetRuleBuilder.add(PelagoPartialAggregateRule.INSTANCE());
 
         hetRuleBuilder.add(AbstractConverter.ExpandConversionRule.INSTANCE);
 
@@ -379,8 +370,8 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             .addRuleInstance(CoreRules.PROJECT_REMOVE)
             .addRuleInstance(CoreRules.PROJECT_MERGE)
             .addRuleInstance(CoreRules.PROJECT_TABLE_SCAN)
-            .addRuleInstance(PelagoProjectTableScanRule.INSTANCE)
-            .addRuleInstance(PelagoProjectPushBelowUnpack.INSTANCE)
+            .addRuleInstance(PelagoProjectTableScanRule.INSTANCE())
+            .addRuleInstance(PelagoProjectPushBelowUnpack.INSTANCE())
             .build();
 
 
@@ -401,8 +392,8 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
             .addRuleInstance(CoreRules.PROJECT_REMOVE)
             .addRuleInstance(CoreRules.PROJECT_MERGE)
             .addRuleInstance(CoreRules.PROJECT_TABLE_SCAN)
-            .addRuleInstance(PelagoProjectTableScanRule.INSTANCE)
-            .addRuleInstance(PelagoProjectPushBelowUnpack.INSTANCE)
+            .addRuleInstance(PelagoProjectTableScanRule.INSTANCE())
+            .addRuleInstance(PelagoProjectPushBelowUnpack.INSTANCE())
             .build();
 
         // program1, program2 are based on Programs.heuristicJoinOrder
@@ -418,7 +409,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
 //            .addRuleInstance(PelagoRules.PelagoFilterRule.INSTANCE)
             .build();
         final Program program1 =
-            Programs.of(hep, false, PelagoRelMetadataProvider.INSTANCE);
+            Programs.of(hep, false, PelagoRelMetadataProvider.INSTANCE());
 
         // Create a program that contains a rule to expand a MultiJoin
         // into heuristically ordered joins.
@@ -431,12 +422,12 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                         -> new PelagoLogicalJoin(left.getCluster(), left.getTraitSet(), left, right, condition, variablesSet, joinType)
                 )
             ).toRule())
-            .build(), false, PelagoRelMetadataProvider.INSTANCE);
+            .build(), false, PelagoRelMetadataProvider.INSTANCE());
 
         final Program programFinalize = Programs.of(new HepProgramBuilder()
           .addRuleInstance(EnumerableRules.ENUMERABLE_FILTER_TO_CALC_RULE)
           .addRuleInstance(EnumerableRules.ENUMERABLE_PROJECT_TO_CALC_RULE)
-          .build(), false, PelagoRelMetadataProvider.INSTANCE);
+          .build(), false, PelagoRelMetadataProvider.INSTANCE());
 
         HepProgram hepReduceProjects = new HepProgramBuilder()
 //            .addRuleInstance(PruneEmptyRules.PROJECT_INSTANCE)
@@ -456,17 +447,17 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
 //                PelagoRelFactories.PELAGO_BUILDER))
             .addRuleInstance(ProjectJoinTransposeRule.Config.DEFAULT
                 .withOperandFor(PelagoProject.class, PelagoJoin.class)
-                .withRelBuilderFactory(PelagoRelFactories.PELAGO_BUILDER)
+                .withRelBuilderFactory(PelagoRelFactories.PELAGO_BUILDER())
                 .toRule())
-            .addRuleInstance(ProjectRemoveRule.Config.DEFAULT.withRelBuilderFactory(PelagoRelFactories.PELAGO_BUILDER).toRule())
-            .addRuleInstance(ProjectMergeRule.Config.DEFAULT.withForce(true).withRelBuilderFactory(PelagoRelFactories.PELAGO_BUILDER).toRule())
+            .addRuleInstance(ProjectRemoveRule.Config.DEFAULT.withRelBuilderFactory(PelagoRelFactories.PELAGO_BUILDER()).toRule())
+            .addRuleInstance(ProjectMergeRule.Config.DEFAULT.withForce(true).withRelBuilderFactory(PelagoRelFactories.PELAGO_BUILDER()).toRule())
             .build();
 
         return Programs.sequence(
             timedSequence("Optimization time: ",
                 timedSequence(
                     "Subqueries: ",
-                    Programs.subQuery(PelagoRelMetadataProvider.INSTANCE),
+                    Programs.subQuery(PelagoRelMetadataProvider.INSTANCE()),
                     new DecorrelateProgram(),
                     new TrimFieldsProgram()
                 ),
@@ -476,8 +467,8 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                 ),
                 timedSequence(
                     "Project consolidation: ",
-                    Programs.of(hepPushDownProjects, false, PelagoRelMetadataProvider.INSTANCE),
-                    Programs.of(hepPullUpProjects, false, PelagoRelMetadataProvider.INSTANCE)
+                    Programs.of(hepPushDownProjects, false, PelagoRelMetadataProvider.INSTANCE()),
+                    Programs.of(hepPullUpProjects, false, PelagoRelMetadataProvider.INSTANCE())
                 ),
                 timedSequence(
                     "To multi-join: ",
@@ -490,7 +481,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                 ),
                 timedSequence(
                     "Push down projects: ",
-                    Programs.of(hepPushDownProjects2, false, PelagoRelMetadataProvider.INSTANCE)
+                    Programs.of(hepPushDownProjects2, false, PelagoRelMetadataProvider.INSTANCE())
 //                    new PelagoProgram()
                 ),
                 timedSequence(
@@ -504,7 +495,7 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                 ),
                 timedSequence(
                     "Reduce projects: ",
-                    Programs.of(hepReduceProjects, false, PelagoRelMetadataProvider.INSTANCE)
+                    Programs.of(hepReduceProjects, false, PelagoRelMetadataProvider.INSTANCE())
 //                    new PelagoProgram()
                 ),
                 timedSequence(

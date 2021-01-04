@@ -5,6 +5,7 @@ import os
 import sys
 import argparse
 import datetime
+import subprocess
 
 parser = argparse.ArgumentParser(description='Check licenses.')
 parser.add_argument('--print-license', action='store_true',
@@ -20,6 +21,7 @@ year = r"""(\d+)"""
 escchar = "\\"
 optstart = r"""("""
 optend = r""")?"""
+ending = optstart + r""" """ + optend
 
 if args.print_license:
     projectline = r"""Proteus -- High-performance query processing on heterogeneous hardware."""
@@ -27,6 +29,7 @@ if args.print_license:
     escchar = ""
     optstart = ""
     optend = ""
+    ending = ""
 
 header = r"""/""" + escchar + r"""*""" + optstart + r"""
     """ + projectline + r"""
@@ -49,10 +52,10 @@ header = r"""/""" + escchar + r"""*""" + optstart + r"""
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
-""" + escchar + r"""*/
+""" + ending + escchar + r"""*/
 """
 
-exts = [".cpp", ".hpp", ".cu", ".cuh", ".c", ".h"]
+exts = [".cpp", ".hpp", ".cu", ".cuh", ".c", ".h", ".scala", ".java"]
 
 # Files that should not contain the header (usually files from external projects)
 external_files = [
@@ -78,7 +81,7 @@ exclude_dirs = [
 root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 found_bad = False
 
-def check_files(files, d):
+def check_files(files, d, ignore_gitignored_files):
     global found_bad
     for f in files:
         for ext in exts:
@@ -94,21 +97,22 @@ def check_files(files, d):
                             found_bad = True
                     else:
                         if (not re.match(header, file.read())):
-                            print("Missing license: " + str(relpath))
-                            found_bad = True
+                            if (not ignore_gitignored_files) or subprocess.Popen(["git", "check-ignore", "-q", relpath]).wait() != 0:
+                                print("Missing license: " + str(relpath))
+                                found_bad = True
 
 if args.print_license:
     if len(args.file) > 0:
         print("WARNING: Ignoring passed files")
     sys.stdout.write(header)
 elif len(args.file) > 0:
-    check_files(args.file, root)
+    check_files(args.file, root, False)
 else:
     for d, subdirs, files in os.walk(root, followlinks=False):
         reldir = os.path.relpath(d, root)
         if reldir in exclude_dirs: continue
         if any([reldir.startswith(exclude + os.path.sep) for exclude in exclude_dirs]): continue
-        check_files(files, d)
+        check_files(files, d, True)
 
 if found_bad:
     sys.exit(-1)

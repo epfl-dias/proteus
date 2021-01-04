@@ -1,3 +1,26 @@
+/*
+    Proteus -- High-performance query processing on heterogeneous hardware.
+
+                            Copyright (c) 2017
+        Data Intensive Applications and Systems Laboratory (DIAS)
+                École Polytechnique Fédérale de Lausanne
+
+                            All Rights Reserved.
+
+    Permission to use, copy, modify and distribute this software and
+    its documentation is hereby granted, provided that both the
+    copyright notice and this permission notice appear in all copies of
+    the software, derivative works or modified versions, and any
+    portions thereof, and that both notices appear in supporting
+    documentation.
+
+    This code is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
+    DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
+    RESULTING FROM THE USE OF THIS SOFTWARE.
+ */
+
 package ch.epfl.dias.calcite.adapter.pelago.traits
 
 import org.apache.calcite.plan.volcano.{StealSetId, VolcanoPlanner}
@@ -26,23 +49,28 @@ object RelSplitPoint {
     s
   }
 
-  var split_cnt: Long = 0;
+  var split_cnt: Long = 0
   val mem = new collection.mutable.WeakHashMap[Any, Long]
 
   def getOrCreateId(input: RelNode): Option[Long] = {
-    val set = input.getCluster.getPlanner.asInstanceOf[VolcanoPlanner].getSet(input)
+    val set =
+      input.getCluster.getPlanner.asInstanceOf[VolcanoPlanner].getSet(input)
     if (set == null) {
       println(input)
       println(input.getInputs.get(0))
-      return Option.empty;
+      return Option.empty
     }
     val id = if (set == null) input else StealSetId.getSetId(set)
-    Option(mem.getOrElseUpdate(id, {
-      println(split_cnt + ": " + input)
-      val splitId = split_cnt
-      split_cnt += 1
-      splitId
-    }))
+    Option(
+      mem.getOrElseUpdate(
+        id, {
+          println(split_cnt + ": " + input)
+          val splitId = split_cnt
+          split_cnt += 1
+          splitId
+        }
+      )
+    )
   }
 
   def merge(s1: RelSplitPoint, s2: RelSplitPoint): RelSplitPoint = {
@@ -55,16 +83,19 @@ object RelSplitPoint {
   def of(r: RelNode): RelSplitPoint = of(getOrCreateId(r).get)
 }
 
-class RelSplitPoint private(val point: Set[Long]) extends PelagoTrait {
+class RelSplitPoint private (val point: Set[Long]) extends PelagoTrait {
   override def toString: String = {
     if (this == RelSplitPoint.NONE) return "NoSplit"
     "Split" + point
   }
 
-  override def getTraitDef: RelSplitPointTraitDef = RelSplitPointTraitDef.INSTANCE
+  override def getTraitDef: RelSplitPointTraitDef =
+    RelSplitPointTraitDef.INSTANCE
 
-  override def satisfies(t: RelTrait): Boolean = t.isInstanceOf[RelSplitPoint] && (t.asInstanceOf[RelSplitPoint].point == point)
+  override def satisfies(t: RelTrait): Boolean =
+    t.isInstanceOf[RelSplitPoint] && (t
+      .asInstanceOf[RelSplitPoint]
+      .point == point)
 
-  override def register(planner: RelOptPlanner): Unit = {
-  }
+  override def register(planner: RelOptPlanner): Unit = {}
 }

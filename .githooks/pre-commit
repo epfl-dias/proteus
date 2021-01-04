@@ -25,9 +25,13 @@ fi
 format_file() {
   file="${1}"
   if [ -f $file ]; then
-  clang-format-$CLANG_FORMAT_VERSION -i ${1}
-  ${PROJECT_ROOT}/tools/check_licenses.py ${1} || RETVAL=1
-  git add ${1} 2> /dev/null
+    if [[ $file =~ .*\.(scala|java) ]]; then
+      echo $file
+    else
+      clang-format-$CLANG_FORMAT_VERSION -i ${1}
+    fi
+    ${PROJECT_ROOT}/tools/check_licenses.py ${1} || RETVAL=1
+    git add ${1} 2> /dev/null
   fi
 }
 

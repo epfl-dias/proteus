@@ -31,8 +31,8 @@ public class PelagoResultTable extends AbstractTable implements ScannableTable {
     protected final RelProtoDataType    protoRowType;
     protected final Source              source      ;
     protected RelDataType               rowType     ;
-    protected Map<String, ?>            type        ;
-    protected Map<String, ?>            plugin      ;
+    protected Map<String, Object>       type        ;
+    protected Map<String, Object>            plugin      ;
     protected Long                      linehint    ;
     protected final boolean             mock        ;
 
@@ -45,7 +45,7 @@ public class PelagoResultTable extends AbstractTable implements ScannableTable {
         this.mock           = mock      ;
     }
 
-    PelagoResultTable(Source source, Map<String, ?> type, Map<String, ?> plugin, long linehint, boolean mock) {
+    PelagoResultTable(Source source, Map<String, Object> type, Map<String, Object> plugin, long linehint, boolean mock) {
         this.source     = source    ;
         this.type       = type      ;
         this.rowType    = null      ;

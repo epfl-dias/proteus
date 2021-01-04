@@ -60,7 +60,7 @@ public class PelagoSchema extends AbstractSchema {
         System.err.println("Error in catalog: relation type is expected to be \"bag\", but \"" + fileType + "\" found. Ignoring table: " + e.getKey());
         continue;
       }
-      Map<String, ?> lineType = (Map<String, ?>) fileEntry.getOrDefault("inner", null);
+      var lineType = (Map<String, Object>) fileEntry.getOrDefault("inner", null);
       if (lineType != null && !lineType.getOrDefault("type", null).equals("record")) lineType = null;
       if (lineType == null) {
         System.err.println("Error in catalog: \"bag\" expected to contain records. Ignoring table: " + e.getKey());
@@ -68,13 +68,13 @@ public class PelagoSchema extends AbstractSchema {
       }
       Source source = Sources.of(new File((String) description.get("path")));
 
-      Map<String, ?> plugin = (Map<String, ?>) description.getOrDefault("plugin", null);
+      var plugin = (Map<String, Object>) description.getOrDefault("plugin", null);
       if (plugin == null) {
         System.err.println("Error in catalog: plugin information not found for table. Ignoring table: " + e.getKey());
         continue;
       }
 
-      List<Map<String, ?>> constraints = (List<Map<String, ?>>) description.getOrDefault("constraints", null);
+      var constraints = (List<Map<String, Object>>) description.getOrDefault("constraints", null);
       if (constraints == null) constraints = new ArrayList<>();
 
       try {
@@ -84,7 +84,6 @@ public class PelagoSchema extends AbstractSchema {
       } catch (MalformedPlugin malformedPlugin) {
         System.err.println("Error in catalog: " + malformedPlugin.getMessage  ());
         System.err.println("Ignoring table  : " + malformedPlugin.getTableName());
-        continue;
       }
     }
   }
@@ -117,7 +116,7 @@ public class PelagoSchema extends AbstractSchema {
     recursiveParse(directoryFile, builder);
 
     // FIXME adding the time keeper table
-    builder.put("SessionTimings", TimeKeeperTable.INSTANCE);
+    builder.put("SessionTimings", TimeKeeperTable.INSTANCE());
 
     Map<String, Table> t = builder.build();
 

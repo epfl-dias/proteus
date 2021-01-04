@@ -56,10 +56,12 @@ test in assembly := {}
 // Credits: https://github.com/sbt/sbt/issues/1789#issue-53027223
 def listFilesRecursively(dir: File): Seq[File] = {
   val list = sbt.IO.listFiles(dir)
-  list.filter(_.isFile) ++ list.filter(_.isDirectory).flatMap(listFilesRecursively)
+  list.filter(_.isFile) ++ list
+    .filter(_.isDirectory)
+    .flatMap(listFilesRecursively)
 }
 
-sourceGenerators in Compile += Def.task{
+sourceGenerators in Compile += Def.task {
   val codegenDir = baseDirectory.value / "src" / "main" / "codegen"
   // * Create a cached function which generates the output files
   //   only if the input files have changed.
@@ -68,38 +70,48 @@ sourceGenerators in Compile += Def.task{
   // * The second parameter is the function to process the input
   //   files and return the output files
   val cached = FileFunction.cached(
-     baseDirectory.value / ".cache" / "codegen"
+    baseDirectory.value / ".cache" / "codegen"
   ) { (in: Set[File]) =>
     val fmppFolder = (sourceManaged in Compile).value / "fmpp"
     val javaccFolder = (sourceManaged in Compile).value / "javacc"
     //  Def.task {
-    fmpp.tools.CommandLine.execute(Array(
-      "-C", (codegenDir / "config.fmpp").toString,
-      "-S",(codegenDir / "templates").toString,
-      "-O", fmppFolder.toString
-    ), null, null)
-    org.javacc.parser.Main.mainProgram(Array(
-      "-STATIC=false",
-      "-LOOKAHEAD=2",
-      "-OUTPUT_DIRECTORY=" + javaccFolder.toString,
-      (fmppFolder / "javacc" / "Parser.jj").toString
-    ))
+    fmpp.tools.CommandLine.execute(
+      Array(
+        "-C",
+        (codegenDir / "config.fmpp").toString,
+        "-S",
+        (codegenDir / "templates").toString,
+        "-O",
+        fmppFolder.toString
+      ),
+      null,
+      null
+    )
+    org.javacc.parser.Main.mainProgram(
+      Array(
+        "-STATIC=false",
+        "-LOOKAHEAD=2",
+        "-OUTPUT_DIRECTORY=" + javaccFolder.toString,
+        (fmppFolder / "javacc" / "Parser.jj").toString
+      )
+    )
     listFilesRecursively(javaccFolder).toSet
   }
-  cached(listFilesRecursively(codegenDir).toSet + baseDirectory.value / "build.sbt").toSeq
+  cached(
+    listFilesRecursively(codegenDir).toSet + baseDirectory.value / "build.sbt"
+  ).toSeq
 }.taskValue
-
 
 resolvers += Resolver.jcenterRepo
 testOptions += Tests.Argument(jupiterTestFramework, "-q")
 
 assemblyMergeStrategy in assembly := {
   case PathList("META-INF", "services", xs @ _*) => MergeStrategy.first
-  case PathList("META-INF", xs @ _*) => MergeStrategy.discard
-  case PathList("org", "apache", "calcite", "sql", "ddl", xs @ _*) => MergeStrategy.first
+  case PathList("META-INF", xs @ _*)             => MergeStrategy.discard
+  case PathList("org", "apache", "calcite", "sql", "ddl", xs @ _*) =>
+    MergeStrategy.first
   case x if x.endsWith("module-info.class") => MergeStrategy.discard
   case x =>
     val oldStrategy = (assemblyMergeStrategy in assembly).value
     oldStrategy(x)
 }
-

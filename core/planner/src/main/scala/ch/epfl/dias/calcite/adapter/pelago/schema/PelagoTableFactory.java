@@ -37,7 +37,7 @@ public class PelagoTableFactory implements TableFactory<PelagoTable> {
                 rowType != null ? RelDataTypeImpl.proto(rowType) : null;
 
         try {
-            return PelagoTable.create(source, name, (Map<String, ?>) operand.get("plugin"), protoRowType);
+            return PelagoTable.create(source, name, (Map<String, Object>) operand.get("plugin"), protoRowType);
         } catch (MalformedPlugin malformedPlugin) {
             malformedPlugin.printStackTrace();
             return null;

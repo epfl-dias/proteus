@@ -316,6 +316,7 @@ Test 10 - Planner:
   - export OUTPUT=0
   - cd ${build_path}/core/planner/CMakeFiles/clotho.dir && sbt test || export OUTPUT=1
   - mv ${build_path}/core/planner/CMakeFiles/clotho.dir/target/test-reports/TEST-*.xml $CWD
+  - rm ${build_path}/core/planner/CMakeFiles/clotho.dir/inputs || true
   - exit $OUTPUT
  allow_failure: true
  artifacts:
