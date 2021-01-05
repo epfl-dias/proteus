@@ -334,6 +334,11 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
         hetRuleBuilder.add(PelagoPartialAggregateRule.INSTANCE());
 
         hetRuleBuilder.add(AbstractConverter.ExpandConversionRule.INSTANCE);
+        hetRuleBuilder.add(JoinCommuteRule.Config.DEFAULT.withOperandFor(PelagoJoin.class).withRelBuilderFactory(
+                RelBuilder.proto(
+                    PelagoRelFactories.PELAGO_PROJECT_FACTORY()
+                )
+        ).toRule());
 
 //        hetRuleBuilder.add(new ProjectJoinTransposeRule(
 //            PelagoProject.class, PelagoJoin.class,

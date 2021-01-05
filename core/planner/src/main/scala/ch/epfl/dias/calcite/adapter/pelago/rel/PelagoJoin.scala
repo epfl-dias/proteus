@@ -59,7 +59,7 @@ class PelagoJoin private (
       right: RelNode,
       joinType: JoinRelType,
       semiJoinDone: Boolean
-  ) = {
+  ): PelagoJoin = {
     PelagoJoin.create(left, right, conditionExpr, getVariablesSet, joinType)
   }
 
@@ -351,7 +351,7 @@ object PelagoJoin {
       condition: RexNode,
       variablesSet: util.Set[CorrelationId],
       joinType: JoinRelType
-  ) = {
+  ): PelagoJoin = {
     val info = JoinInfo.of(left, right, condition)
 //    assert(info.isEqui, "should had been equi-join!")
 
@@ -380,6 +380,24 @@ object PelagoJoin {
             left.getTraitSet.getTrait(RelSplitPointTraitDef.INSTANCE),
             right.getTraitSet.getTrait(RelSplitPointTraitDef.INSTANCE)
           )
+        }
+      )
+      .replaceIf(
+        RelHomDistributionTraitDef.INSTANCE,
+        () => {
+          (
+            left.getTraitSet.getTrait(RelHomDistributionTraitDef.INSTANCE),
+            right.getTraitSet.getTrait(RelHomDistributionTraitDef.INSTANCE)
+          ) match {
+            case (RelHomDistribution.BRDCST, RelHomDistribution.BRDCST) =>
+              RelHomDistribution.BRDCST
+            case (RelHomDistribution.RANDOM, RelHomDistribution.BRDCST) =>
+              RelHomDistribution.RANDOM
+            case (RelHomDistribution.BRDCST, RelHomDistribution.RANDOM) =>
+              RelHomDistribution.RANDOM
+            case (RelHomDistribution.SINGLE, RelHomDistribution.SINGLE) =>
+              RelHomDistribution.SINGLE
+          }
         }
       )
 

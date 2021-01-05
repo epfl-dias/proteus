@@ -184,8 +184,8 @@ object CostModel {
 //      InfiniteCost()
 //    } else {
     val (build, probe) = rel match {
-      case lj: PelagoLogicalJoin => (lj.getLeft, lj.getRight)
-      case pj: PelagoJoin        => (pj.getRight, pj.getLeft)
+      case lj: PelagoLogicalJoin => (lj.getRight, lj.getLeft)
+      case pj: PelagoJoin        => (pj.getLeft, pj.getRight)
     }
 
     val buildTupleBytes = (build.getRowType.getFieldCount * 8 + 2) * Math.log(
