@@ -53,16 +53,6 @@
 #define DEBUGCTX
 //#endif
 
-void addOptimizerPipelineDefault(llvm::legacy::FunctionPassManager *TheFPM);
-
-#if MODULEPASS
-void __attribute__((unused))
-addOptimizerPipelineInlining(ModulePassManager *TheMPM);
-#endif
-
-void __attribute__((unused))
-addOptimizerPipelineVectorization(llvm::legacy::FunctionPassManager *TheFPM);
-
 extern bool print_generated_code;
 
 class StateVar {
@@ -113,6 +103,25 @@ class While {
  public:
   template <typename Fbody>
   void operator()(Fbody body) &&;
+};
+
+class DoWhile {
+ private:
+  std::function<void()> body;
+  Context *context;
+
+ private:
+  DoWhile(std::function<void()> body, Context *context)
+      : body(std::move(body)), context(context) {
+    assert(context);
+  }
+
+  friend class Context;
+
+ public:
+  ~DoWhile() { assert(!context && "gen_do without body?"); }
+
+  void gen_while(const std::function<ProteusValue()> &cond) &&;
 };
 
 class Context {
@@ -324,6 +333,7 @@ class Context {
   }
 
   virtual While gen_while(std::function<ProteusValue()> cond);
+  [[nodiscard]] virtual DoWhile gen_do(std::function<void()> whileBody);
 
   virtual if_branch gen_if(ProteusValue cond);
 
@@ -401,8 +411,6 @@ class Context {
     return getHashtableMetadataType(getLLVMContext());
   }
 
-  llvm::Value *getMemResultCtr() { return mem_resultCtr; }
-
   const char *getName();
 
   virtual StateVar appendStateVar(llvm::Type *ptype, std::string name = "");
@@ -418,7 +426,6 @@ class Context {
 
  protected:
   virtual void prepareStateVars();
-  virtual void endStateVars();
 
   llvm::Module *TheModule;
   llvm::IRBuilder<> *TheBuilder = nullptr;

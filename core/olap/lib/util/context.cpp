@@ -38,41 +38,6 @@ bool print_generated_code = true;
 
 using namespace llvm;
 
-void addOptimizerPipelineDefault(legacy::FunctionPassManager *TheFPM) {
-  // Provide basic AliasAnalysis support for GVN.
-  TheFPM->add(createBasicAAWrapperPass());
-  // Promote allocas to registers.
-  TheFPM->add(createPromoteMemoryToRegisterPass());
-  // Do simple "peephole" optimizations and bit-twiddling optzns.
-  TheFPM->add(createInstructionCombiningPass());
-  // Reassociate expressions.
-  TheFPM->add(createReassociatePass());
-  // Eliminate Common SubExpressions.
-  TheFPM->add(createNewGVNPass());
-  // Simplify the control flow graph (deleting unreachable blocks, etc).
-  TheFPM->add(createCFGSimplificationPass());
-  // Aggressive Dead Code Elimination. Make sure work takes place
-  TheFPM->add(createAggressiveDCEPass());
-}
-
-#if MODULEPASS
-void __attribute__((unused))
-addOptimizerPipelineInlining(ModulePassManager *TheMPM) {
-  /* Inlining: Not sure it works */
-  // LSC: FIXME: No add member to a ModulePassManager
-  TheMPM->add(createFunctionInliningPass());
-  TheMPM->add(createAlwaysInlinerPass());
-}
-#endif
-
-void __attribute__((unused))
-addOptimizerPipelineVectorization(legacy::FunctionPassManager *TheFPM) {
-  /* Vectorization */
-  // TheFPM->add(createBBVectorizePass());
-  TheFPM->add(createLoopVectorizePass());
-  TheFPM->add(createSLPVectorizerPass());
-}
-
 // FIXME: memory leak
 const char *Context::getName() {
   return (new std::string{getModule()->getName().str()})->c_str();
@@ -642,46 +607,6 @@ void Context::prepareStateVars() {
   // return id;
 }
 
-void Context::endStateVars() {
-  // //save current block
-  // BasicBlock *currBlock = getBuilder()->GetInsertBlock();
-  // //go to entry block
-  // getBuilder()->SetInsertPoint(getCurrentEntryBlock());
-
-  // //save new entry block
-  // setCurrentEntryBlock(getBuilder()->GetInsertBlock());
-  // //restore insert point
-  // getBuilder()->SetInsertPoint(currBlock);
-  for (size_t i = 0; i < to_prepare_state_vars.size(); ++i) {
-    Value *pip = nullptr;  // FIXME should introduce a pipeline ptr
-    std::get<3>(to_prepare_state_vars[i])(pip, state_vars[i]);
-  }
-  // size_t id = state_vars.size();
-
-  // AllocaInst * var     = CreateEntryBlockAlloca(
-  //                         getBuilder()->GetInsertBlock()->getParent(),
-  //                         name + std::to_string(id),
-  //                         ptype
-  //                     );
-  // state_vars.emplace_back(var);
-  // return id;
-
-  // size_t id = appendStateVar(ptype, name);
-
-  // //save current block
-  // BasicBlock *currBlock = getBuilder()->GetInsertBlock();
-  // //go to entry block
-  // getBuilder()->SetInsertPoint(getCurrentEntryBlock());
-
-  // init(getStateVar(id));
-
-  // //save new entry block
-  // setCurrentEntryBlock(getBuilder()->GetInsertBlock());
-  // //restore insert point
-  // getBuilder()->SetInsertPoint(currBlock);
-  // return id;
-}
-
 llvm::Value *Context::gen_call(llvm::Function *f,
                                std::initializer_list<llvm::Value *> args) {
   return getBuilder()->CreateCall(f, args);
@@ -719,6 +644,33 @@ if_branch Context::gen_if(const expression_t &expr,
 
 While Context::gen_while(std::function<ProteusValue()> cond) {
   return {std::move(cond), this};
+}
+
+DoWhile Context::gen_do(std::function<void()> whileBody) {
+  return {std::move(whileBody), this};
+}
+
+void DoWhile::gen_while(const std::function<ProteusValue()> &cond) && {
+  assert(context && "Double do while condition?");
+  auto &llvmContext = context->getLLVMContext();
+  auto F = context->getBuilder()->GetInsertBlock()->getParent();
+
+  auto BodyBB = llvm::BasicBlock::Create(llvmContext, "body", F);
+  auto AfterBB = llvm::BasicBlock::Create(llvmContext, "after", F);
+
+  auto Builder = context->getBuilder();
+  Builder->CreateBr(BodyBB);
+  Builder->SetInsertPoint(BodyBB);
+
+  body();
+
+  auto condition = cond();
+
+  Builder->CreateCondBr(condition.value, BodyBB, AfterBB);
+
+  Builder->SetInsertPoint(AfterBB);
+
+  context = nullptr;
 }
 
 std::string getFunctionName(void *f) {
