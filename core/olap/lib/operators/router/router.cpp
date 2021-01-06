@@ -334,8 +334,6 @@ void Router::consume(ParallelContext *const context,
   // Generate throw code
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
-  BasicBlock *insBB = Builder->GetInsertBlock();
-  Function *F = insBB->getParent();
 
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
 
@@ -359,17 +357,6 @@ void Router::consume(ParallelContext *const context,
 
     params = Builder->CreateInsertValue(params, vi, i);
   }
-  auto retry_cnt =
-      context->toMem(context->createInt32(0), context->createFalse());
-  BasicBlock *tryBB = BasicBlock::Create(llvmContext, "tryAcq", F);
-  Builder->CreateBr(tryBB);
-  Builder->SetInsertPoint(tryBB);
-
-  auto r = getPolicy()->evaluate(context, childState, retry_cnt);
-
-  r.target->setName("target");
-  auto target =
-      Builder->CreateTruncOrBitCast(r.target, Type::getInt32Ty(llvmContext));
 
   RecordAttribute tupleIdentifier(wantedFields[0]->getRelationName(),
                                   activeLoop, pg->getOIDType());
@@ -396,22 +383,35 @@ void Router::consume(ParallelContext *const context,
       ConstantInt::get(llvmContext, APInt(64, ((uint64_t)this)));
   Value *exchange = Builder->CreateIntToPtr(exchangePtr, charPtrType);
 
-  auto param_ptr = context->gen_call(
-      (r.may_retry) ? (::try_acquireBuffer) : (::acquireBuffer),
-      {target, exchange});
+  auto retry_cnt =
+      context->toMem(context->createInt32(0), context->createFalse());
 
-  Value *null_ptr =
-      ConstantPointerNull::get(((PointerType *)param_ptr->getType()));
-  Value *is_null = Builder->CreateICmpEQ(param_ptr, null_ptr);
+  Value *param_ptr;
+  Value *target;
+  context
+      ->gen_do([&]() {
+        auto r = getPolicy()->evaluate(context, childState, retry_cnt);
 
-  Builder->CreateStore(Builder->CreateAdd(Builder->CreateLoad(retry_cnt.mem),
-                                          context->createInt32(1)),
-                       retry_cnt.mem);
+        r.target->setName("target");
+        target = Builder->CreateTruncOrBitCast(r.target,
+                                               Type::getInt32Ty(llvmContext));
 
-  BasicBlock *contBB = BasicBlock::Create(llvmContext, "cont", F);
-  Builder->CreateCondBr(is_null, tryBB, contBB);
+        param_ptr = context->gen_call(
+            (r.may_retry) ? (::try_acquireBuffer) : (::acquireBuffer),
+            {target, exchange});
 
-  Builder->SetInsertPoint(contBB);
+        Builder->CreateStore(
+            Builder->CreateAdd(Builder->CreateLoad(retry_cnt.mem),
+                               context->createInt32(1)),
+            retry_cnt.mem);
+      })
+      .gen_while([&]() {
+        Value *null_ptr =
+            ConstantPointerNull::get(((PointerType *)param_ptr->getType()));
+        Value *is_null = Builder->CreateICmpEQ(param_ptr, null_ptr);
+
+        return ProteusValue{is_null, context->createFalse()};
+      });
 
   param_ptr = Builder->CreateBitCast(param_ptr,
                                      PointerType::getUnqual(params->getType()));
