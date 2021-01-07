@@ -54,7 +54,7 @@ void MemMoveScaleOut::MemMoveConf::propagate(MemMoveDevice::workunit *buff,
   tran.push(buff);
 
   ++cnt;
-  if (cnt % (slack / (slack / 2)) == 0) InfiniBandManager::flush_read();
+  if (cnt % (slack / (slack / 32)) == 0) InfiniBandManager::flush_read();
 }
 
 buff_pair MemMoveScaleOut::MemMoveConf::push(proteus::managed_ptr src,
@@ -72,7 +72,7 @@ buff_pair MemMoveScaleOut::MemMoveConf::push(proteus::managed_ptr src,
   auto x = InfiniBandManager::read(
       proteus::remote_managed_ptr{std::move(src), srcServer}, bytes);
   ++cnt;
-  if (cnt % (slack / (slack / 2)) == 0) InfiniBandManager::flush_read();
+  if (cnt % (slack / (slack / 32)) == 0) InfiniBandManager::flush_read();
   auto x_mem = MemoryManager::mallocPinned(sizeof(std::pair(x, false)));
   return buff_pair::not_moved(
       proteus::managed_ptr{new (x_mem) std::pair(x, true)});

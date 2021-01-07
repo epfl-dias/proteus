@@ -91,13 +91,6 @@ const topology::cpunumanode &topology::findLocalCPUNumaNode(
   return getCpuNumaNodeById(ib.local_cpu);
 }
 
-size_t getIBCnt() {
-  int dev_cnt = 0;
-  ibv_device **dev_list = linux_run(ibv_get_device_list(&dev_cnt));
-  ibv_free_device_list(dev_list);
-  return dev_cnt;
-}
-
 // static ibv_context *getIBdev(int *dev_cnt, size_t ib_indx) {
 //  ibv_device **dev_list = linux_run(ibv_get_device_list(dev_cnt));
 //
@@ -131,7 +124,6 @@ IBHandler::IBHandler(int cq_backlog, const ib &ibd)
     : sub_named(),
       subcnts(0),
       pending(0),
-      dev_cnt(0),
       ibd(ibd),
       local_cpu(topology::getInstance().findLocalCPUNumaNode(ibd)),
       write_cnt(0),
@@ -324,22 +316,17 @@ void IBPoller::run() {
           assert(false);
       } else if (wc.opcode == IBV_WC_RDMA_READ) {
         event_range<log_op::IB_CQ_PROCESSING_EVENT_START> er{this};
-        std::unique_lock<std::mutex> lock{handler.read_promises_m};
-        for (size_t i = 0; i < (size_t)wc.wr_id; ++i) {
-          assert(!handler.read_promises.empty());
-          auto &p =
-              handler.read_promises.at(IBV_WC_RDMA_READ_cnt++);  //.front();
-          // auto &p = read_promises.front();
-          // LOG(INFO) << "read completed successfull_y";
-          // BlockManager::release_buffer(p.second);
-          std::get<0>(p).publish(std::move(std::get<1>(p)), 0);
-          ThreadPool::getInstance().enqueue(
-              [this, p_inner = std::move(std::get<2>(p))]() mutable {
-                handler.release_buffer(std::move(p_inner));
-              });
-          // p.first.set_value(p.second);
-          // read_promises.pop_front();
-        }
+        auto start = IBV_WC_RDMA_READ_cnt;
+        IBV_WC_RDMA_READ_cnt += wc.wr_id;
+        ThreadPool::getInstance().enqueue(
+            [this, cnt = (size_t)wc.wr_id, start]() {
+              for (size_t i = 0; i < cnt; ++i) {
+                auto &p = handler.read_promises.at(start + i);
+
+                std::get<0>(p).publish(std::move(std::get<1>(p)), 0);
+                handler.release_buffer(std::move(std::get<2>(p)));
+              }
+            });
       } else {
         LOG(FATAL) << "Unknown: " << wc.opcode;
       }
@@ -392,14 +379,12 @@ void IBPoller::handle_wc_recv(const ibv_wc &wc) {
           handler.send_buffers.emplace_back(std::move(buff));
         }
       }
-      LOG(INFO) << "Here";
       ibv_sge sge =
           handler.sge_for_buff(databuf.get(), buffnum * sizeof(buffkey));
 
       handler.send_sge(std::move(databuf), &sge, 1, 2);
 
       //    handler.post_recv(handler.ibd.getIBImpl().qp);
-      LOG(INFO) << "To here";
     });
     return;
   }
@@ -422,7 +407,6 @@ void IBPoller::handle_wc_recv(const ibv_wc &wc) {
     invocation_cnts[2]++;
     std::unique_lock<std::mutex> lock{handler.pend_buffers_m};
 
-    LOG(INFO) << "Here";
     avail_remote_buffs += buffnum;
     assert(wc.byte_len == buffnum * sizeof(buffkey));
     for (size_t i = 0; i < buffnum; ++i) {
@@ -432,7 +416,6 @@ void IBPoller::handle_wc_recv(const ibv_wc &wc) {
 
     handler.has_requested_buffers = false;
     handler.pend_buffers_cv.notify_all();
-    LOG(INFO) << "Here";
   } else if (wc.imm_data == 13 && wc.opcode != IBV_WC_RECV_RDMA_WITH_IMM) {
     invocation_cnts[3]++;
     //        handler.post_recv(handler.ibd.getIBImpl().qp);
@@ -582,8 +565,10 @@ static void *old_cnts = nullptr;
 decltype(IBHandler::read_promises)::value_type &IBHandler::create_promise(
     proteus::managed_ptr buff, proteus::remote_managed_ptr from) {
   assert(!read_promises_m.try_lock());
-  read_promises.emplace_back(5, std::move(buff), std::move(from));
-  return read_promises.back();
+  auto &pr = read_promises.at(read_promise_cnt++);
+  std::get<1>(pr) = std::move(buff);
+  std::get<2>(pr) = std::move(from);
+  return pr;
 }
 
 decltype(IBHandler::write_promises)::value_type IBHandler::create_write_promise(
@@ -642,6 +627,14 @@ subscription *IBHandler::read(proteus::remote_managed_ptr data, size_t bytes) {
   ibv_sge sge = sge_for_buff(buff.get(), bytes);
   ibv_send_wr wr{/* 0 everything out via value initialization */};
   auto &p = [&]() -> auto & {
+    wr.opcode = IBV_WR_RDMA_READ;
+    wr.sg_list = &sge;
+    wr.num_sge = 1;
+
+    wr.wr.rdma.remote_addr =
+        reinterpret_cast<decltype(wr.wr.rdma.remote_addr)>(data.get());
+    wr.wr.rdma.rkey = (--reged_remote_mem.upper_bound(data.get()))->second;
+
     std::lock_guard<std::mutex> lock{read_promises_m};
     //  assert(topology::getInstance()
     //             .getGpus()[local_cpu.local_gpus.front()]
@@ -652,17 +645,11 @@ subscription *IBHandler::read(proteus::remote_managed_ptr data, size_t bytes) {
     ++reads;
 
     wr.wr_id = (uintptr_t)reads;  // readable locally on work completion
-    wr.opcode = IBV_WR_RDMA_READ;
-    wr.sg_list = &sge;
-    wr.num_sge = 1;
-    wr.send_flags = ((reads % 8) ? 0 : IBV_SEND_SIGNALED);
+    wr.send_flags = ((reads % 64) ? 0 : IBV_SEND_SIGNALED);
     // assert(!sigoverflow || (c > 2));
     // wr.imm_data = c + 3;  // NOTE: only sent when singaled == true
     // Can pass an arbitrary value to receiver, consider for
     // the consumed buffer
-    wr.wr.rdma.remote_addr =
-        reinterpret_cast<decltype(wr.wr.rdma.remote_addr)>(data.get());
-    wr.wr.rdma.rkey = (--reged_remote_mem.upper_bound(data.get()))->second;
 
     if (wr.send_flags & IBV_SEND_SIGNALED) reads = 0;
 
@@ -823,7 +810,7 @@ static std::map<void *, decltype(buffkey::second)> keys;
 static size_t leak_release = 0;
 
 static std::mutex m3;
-static void *released[32]{nullptr};
+static void *released[128]{nullptr};
 static size_t released_cnt = 0;
 
 void IBHandler::release_buffer(proteus::remote_managed_ptr p) {
@@ -834,7 +821,7 @@ void IBHandler::release_buffer(proteus::remote_managed_ptr p) {
   // TODO: support sharing of remote buffers
 
   released[released_cnt++] = p.release();
-  if (released_cnt == 32) {
+  if (released_cnt == 128) {
     auto databuf = BlockManager::get_buffer();
     size_t relnum = released_cnt;
     for (size_t i = 0; i < relnum; ++i) {

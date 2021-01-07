@@ -29,13 +29,6 @@
 #include <platform/topology/topology.hpp>
 #include <platform/util/async_containers.hpp>
 #include <platform/util/memory-registry.hpp>
-//
-// struct ib_addr {
-//  ibv_gid gid;
-//  uint16_t lid;
-//  uint32_t psn;
-//  uint32_t qpn;
-//};
 
 std::ostream &operator<<(std::ostream &out, const ibv_gid &gid);
 std::ostream &operator<<(std::ostream &out, const ib_addr &addr);
@@ -44,7 +37,15 @@ typedef std::pair<size_t, size_t> packet_t;
 
 class IBPoller;
 
-template <typename T>
+class FidEmplaceBack {
+ public:
+  template <typename T>
+  void operator()(T &c, size_t i) const {
+    c.emplace_back(i);
+  }
+};
+
+template <typename T, typename F = FidEmplaceBack>
 class threadsafe_autoresizeable_deque {
   static constexpr size_t dqpage = 1024;
 
@@ -56,13 +57,14 @@ class threadsafe_autoresizeable_deque {
 
   void resize(size_t i) {
     std::lock_guard<std::mutex> lock{resize_m};
+    F f{};
     while (i >= size) {
       auto old_active = active.load();
       auto new_active = 1 - old_active;
       data[new_active].emplace_back(std::make_shared<std::deque<T>>());
       auto &v = *data[new_active].back();
       for (size_t j = 0; j < dqpage; ++j) {
-        v.emplace_back(size + j);
+        f(v, size + j);
       }
       active = new_active;
       size += dqpage;
@@ -71,6 +73,20 @@ class threadsafe_autoresizeable_deque {
   }
 
  public:
+  using value_type = T;
+
+  /**
+   * Access element at position @p i
+   *
+   * If index @p i is out of bounds, the container is automatically resized to
+   * contain the specified index.
+   *
+   * If the index is already contained in the deque, the call is guaranteed to
+   * be wait-free.
+   *
+   * @param i index of the fetched element
+   * @return Reference to the @p i-th item of the container
+   */
   T &at(size_t i) {
     if (i >= size) resize(i);
     return (*data[active][i / dqpage])[i % dqpage];
@@ -94,9 +110,6 @@ class IBHandler : public MemoryRegistry {
   std::mutex m;
   std::condition_variable cv;
 
-  std::mutex m_reg;
-  std::condition_variable cv_reg;
-
   std::map<const void *, decltype(ibv_mr::rkey)> reged_remote_mem;
 
   std::thread listener;
@@ -110,26 +123,34 @@ class IBHandler : public MemoryRegistry {
 
   std::atomic<bool> saidGoodBye = false;
 
-  int dev_cnt;
-
   subscription &getNamedSubscription(size_t subs);
-  // New attributes
-  //  ibv_context *context;
+
   const topology::cpunumanode &local_cpu;
 
   ibv_sge sge_for_buff(void *data, size_t bytes);
-  //  ib_addr rem_addr;
 
   std::deque<proteus::managed_ptr> send_buffers;
   std::deque<buffkey> pend_buffers;
   std::mutex pend_buffers_m;
   std::condition_variable pend_buffers_cv;
 
-  // subscription buffers;
+ private:
+  using read_promise_t = std::tuple<subscription, proteus::managed_ptr,
+                                    proteus::remote_managed_ptr>;
 
-  // std::deque<std::pair<std::promise<void *>, void *>> read_promises;
-  std::deque<std::tuple<subscription, proteus::managed_ptr,
-                        proteus::remote_managed_ptr>>
+  class CreateReadPromise {
+   public:
+    template <typename T>
+    void operator()(T &c, size_t) const {
+      c.emplace_back(
+          5, proteus::managed_ptr{nullptr},
+          proteus::remote_managed_ptr{proteus::managed_ptr{nullptr}, 0});
+    }
+  };
+
+ public:
+  std::atomic<size_t> read_promise_cnt = 0;
+  threadsafe_autoresizeable_deque<read_promise_t, CreateReadPromise>
       read_promises;
   std::mutex read_promises_m;
 
@@ -236,5 +257,3 @@ class IBHandler : public MemoryRegistry {
 
   void disconnect();
 };
-
-size_t getIBCnt();
