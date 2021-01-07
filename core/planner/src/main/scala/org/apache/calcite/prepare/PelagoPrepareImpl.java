@@ -208,7 +208,9 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         planner.addRule(EnumerableRules.ENUMERABLE_PROJECT_TO_CALC_RULE);
         planner.addRule(EnumerableRules.ENUMERABLE_FILTER_TO_CALC_RULE);
         planner.addRule(EnumerableRules.ENUMERABLE_TABLE_SCAN_RULE);
+        planner.addRule(EnumerableRules.ENUMERABLE_VALUES_RULE);
         planner.addRule(PelagoProjectPushBelowUnpack.INSTANCE());
+        planner.addRule(CoreRules.PROJECT_VALUES_MERGE);
         planner.addRule(CoreRules.PROJECT_MERGE);
         planner.addRule(new RelOptRule(operand(Aggregate.class, operand(RelNode.class, operand(RelNode.class, any()))), "PelagoNoInputAggregate") {
             @Override

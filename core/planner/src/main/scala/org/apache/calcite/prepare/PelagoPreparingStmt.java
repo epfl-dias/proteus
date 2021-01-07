@@ -339,6 +339,11 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                     PelagoRelFactories.PELAGO_PROJECT_FACTORY()
                 )
         ).toRule());
+        hetRuleBuilder.add(ProjectMergeRule.Config.DEFAULT.withOperandFor(PelagoProject.class).withRelBuilderFactory(
+            RelBuilder.proto(
+                PelagoRelFactories.PELAGO_PROJECT_FACTORY()
+            )
+        ).toRule());
 
 //        hetRuleBuilder.add(new ProjectJoinTransposeRule(
 //            PelagoProject.class, PelagoJoin.class,
@@ -481,8 +486,8 @@ public class PelagoPreparingStmt extends CalcitePrepareImpl.CalcitePreparingStmt
                 ),
                 timedSequence(
                     "Join ordering: ",
-                    program2//,
-//                    new PelagoProgram()
+                    program2,
+                    new PelagoProgram()
                 ),
                 timedSequence(
                     "Push down projects: ",

@@ -103,8 +103,8 @@ class PelagoProjectTableScanRule(relBuilderFactory: RelBuilderFactory)
       "PelagoProjectTableScanRule"
     ) {
   override def onMatch(call: RelOptRuleCall): Unit = {
-    val project = call.rel(0)
-    val scan = call.rel(1)
+    val project: Project = call.rel(0)
+    val scan: PelagoTableScan = call.rel(1)
     call.transformTo(PelagoProjectTableScanRule.merge(project, scan))
   }
 //  private int[] getProjectFields(List<RexNode> exps, PelagoTableScan scan) {

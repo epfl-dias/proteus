@@ -240,7 +240,7 @@ object PelagoRules {
     override def onMatch(call: RelOptRuleCall): Unit = {
       val correlate = call.rel(0).asInstanceOf[LogicalCorrelate]
       if (!correlate.getTraitSet.contains(Convention.NONE)) return
-      val input = call.rel(1)
+      val input = call.rel(1).asInstanceOf[RelNode]
       val uncollect = call.rel(2).asInstanceOf[Uncollect]
       val proj = call.rel(3).asInstanceOf[LogicalProject]
       val traitSet = uncollect.getTraitSet
