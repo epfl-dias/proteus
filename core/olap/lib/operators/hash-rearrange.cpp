@@ -23,13 +23,9 @@
 
 #include "hash-rearrange.hpp"
 
+#include <lib/expressions/expressions-generator.hpp>
+#include <lib/util/jit/pipeline.hpp>
 #include <platform/memory/memory-manager.hpp>
-#include <platform/util/bitwise-ops.hpp>
-//#include <values/indexed-seq.hpp>
-
-#include "lib/expressions/expressions-generator.hpp"
-#include "lib/expressions/expressions-hasher.hpp"
-#include "lib/util/jit/pipeline.hpp"
 
 using namespace llvm;
 
@@ -224,13 +220,6 @@ void HashRearrange::consume(ParallelContext *context,
     vals.emplace_back(e.accept(exprGenerator));
   }
 
-  auto base = next_power_of_2(wantedFields.size());
-  auto vtype = llvm::VectorType::get(vals[0].value->getType(), base);
-  auto vptrtype = llvm::VectorType::get(
-      llvm::PointerType::getUnqual(vals[0].value->getType()), base);
-  llvm::Value *v = llvm::UndefValue::get(vtype);
-  llvm::Value *ptr = llvm::UndefValue::get(vptrtype);
-
   std::vector<Value *> els;
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     auto block = Builder->CreateLoad(Builder->CreateInBoundsGEP(
@@ -241,30 +230,16 @@ void HashRearrange::consume(ParallelContext *context,
     Value *el_ptr = Builder->CreateInBoundsGEP(block, indx);
 
     Value *el = vals[i].value;
-    assert(el);
     auto ld = dyn_cast<llvm::LoadInst>(el);
-    if (ld) ld->setMetadata(LLVMContext::MD_alias_scope, n);
-    //    assert(ld);
+    assert(ld);
+    ld->setMetadata(LLVMContext::MD_alias_scope, n);
 
-    v = Builder->CreateInsertElement(v, el, i);
-    ptr = Builder->CreateInsertElement(ptr, block, i);
-
-    //      auto s = Builder->CreateStore(el, el_ptr);
-    //      s->setMetadata(LLVMContext::MD_noalias, n);
-    //      //    s->setMetadata("nontemporal", ntemp); //awful performance
+    auto s = Builder->CreateStore(el, el_ptr);
+    s->setMetadata(LLVMContext::MD_noalias, n);
+    //    s->setMetadata("nontemporal", ntemp); //awful performance
 
     els.push_back(block);
   }
-  ptr = Builder->CreateInBoundsGEP(vals[0].value->getType(), ptr,
-                                   Builder->CreateVectorSplat(base, indx));
-  std::vector<llvm::Constant *> maskc;
-  for (size_t i = 0; i < base; ++i) {
-    maskc.emplace_back((i < wantedFields.size()) ? context->createTrue()
-                                                 : context->createFalse());
-  }
-  auto mask = llvm::ConstantVector::get(maskc);
-  Builder->CreateMaskedScatter(
-      v, ptr, context->getSizeOf(vtype->getElementType()), mask);
 
   //
   //  std::vector<Value *> els;
