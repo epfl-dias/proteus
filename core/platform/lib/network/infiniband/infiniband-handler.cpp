@@ -22,27 +22,20 @@
 */
 
 #include <arpa/inet.h>
-#include <err.h>
 #include <glog/logging.h>
 #include <malloc.h>
-#include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 
 #include <cassert>
-#include <condition_variable>
-#include <future>
 #include <iomanip>
-#include <iostream>
-#include <mutex>
 #include <platform/common/error-handling.hpp>
 #include <platform/memory/block-manager.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/network/infiniband/infiniband-handler.hpp>
 #include <platform/threadpool/threadpool.hpp>
 #include <platform/util/logging.hpp>
-#include <platform/util/timing.hpp>
 #include <thread>
 
 #include "private/ib_impl.hpp"
@@ -53,6 +46,19 @@ constexpr size_t buffnum = 8 * packNotifications;
 constexpr unsigned int BUFFRELEASE = 19;
 
 static std::atomic<size_t> avail_remote_buffs = 0;
+
+static std::mutex m2;
+static std::map<void *, decltype(buffkey::second)> keys;
+
+static std::mutex m3;
+static void *released[128]{nullptr};
+static size_t released_cnt = 0;
+
+static std::mutex buffmgmnt;
+
+static std::atomic<size_t> reads = 0;
+
+static size_t invocation_cnts[10]{};
 
 std::ostream &operator<<(std::ostream &out, const ib_addr &addr) {
   out << "LID 0x" << std::setfill('0') << std::setw(4) << std::hex << addr.lid
@@ -91,38 +97,20 @@ const topology::cpunumanode &topology::findLocalCPUNumaNode(
   return getCpuNumaNodeById(ib.local_cpu);
 }
 
-// static ibv_context *getIBdev(int *dev_cnt, size_t ib_indx) {
-//  ibv_device **dev_list = linux_run(ibv_get_device_list(dev_cnt));
-//
-//  ibv_device *ib_dev = dev_list[ib_indx];
-//  LOG(INFO) << ibv_get_device_name(ib_dev) << " " << std::hex
-//            << ibv_get_device_guid(ib_dev) << std::dec << " "
-//            << (void *)ib_dev->dev_path << " " << (void *)ib_dev->ibdev_path
-//            << " " << (void *)ib_dev->dev_name << " " << (void *)ib_dev->name;
-//  assert(ib_dev && "No IB devices detected");
-//
-//  auto context = linux_run(ibv_open_device(ib_dev));
-//
-//  ibv_free_device_list(dev_list);
-//
-//  return context;
-//}
-
 class IBPoller {
   IBHandler &handler;
   bool ready2exit = false;
 
   void handle_wc_recv(const ibv_wc &wc);
-  void handle_wc_failure(const ibv_wc &wc);
+  static void handle_wc_failure(const ibv_wc &wc);
 
  public:
   explicit IBPoller(IBHandler &handler) : handler(handler) {}
   void run();
 };
 
-IBHandler::IBHandler(int cq_backlog, const ib &ibd)
+IBHandler::IBHandler(const ib &ibd)
     : sub_named(),
-      subcnts(0),
       pending(0),
       ibd(ibd),
       local_cpu(topology::getInstance().findLocalCPUNumaNode(ibd)),
@@ -142,14 +130,12 @@ IBHandler::IBHandler(int cq_backlog, const ib &ibd)
   flusher = std::thread([this]() {
     while (!saidGoodBye) {
       std::this_thread::sleep_for(std::chrono::milliseconds{10});
-      //      post_recv(this->ibd.getIBImpl().qp);
       flush_read();
       flush();
     }
   });
 
   request_buffers_unsafe();
-  //  for (size_t i = 0; i < 10; ++i) post_recv(this->ibd.getIBImpl().qp);
 }
 
 IBHandler::~IBHandler() {
@@ -168,15 +154,9 @@ IBHandler::~IBHandler() {
       BlockManager::release_buffer(std::move(send_buffers.back()));
       send_buffers.pop_back();
     }
-    //    while (!sub_named.empty()){
-    //      sub_named.back().release();
-    //      sub_named.pop_back();
-    //    }
     if (!sub.q.empty()) {
-      BlockManager::release_buffer(
-          sub.wait().data);  // FIXME: not really, should wait on something more
+      BlockManager::release_buffer(sub.wait().data);
     }
-    // general...
   } catch (proteus::internal_error &) {
   }
 }
@@ -186,20 +166,10 @@ void IBHandler::start() {}
 subscription &IBHandler::register_subscriber() { return sub; }
 
 subscription &IBHandler::getNamedSubscription(size_t subs) {
-  //  event_range<log_op::IB_CREATE_RDMA_READ_END> er{this};
-  //  std::unique_lock<std::mutex> lock{m_sub_named};// bottleneck
-  //  while (subs >= sub_named.size()) {
-  //    sub_named.emplace_back(sub_named.size());
-  //  }
   return sub_named.at(subs);
 }
 
-subscription &IBHandler::create_subscription() {
-  //  sub_named.emplace_back(sub_named.size());
-  //  auto &x = sub_named.back();
-  auto xcnt = ++subcnts;
-  return getNamedSubscription(xcnt - 1);
-}
+subscription &IBHandler::create_subscription() { return sub_named.add(); }
 
 void IBHandler::unregister_subscriber(subscription &) {}
 
@@ -226,26 +196,9 @@ class IBSend {
   static void make() {}
   static void work_completion_event_on_invoker(const ibv_wc &wc) {
     proteus::managed_ptr data{reinterpret_cast<void *>(wc.wr_id)};
-    if (data) {
-      BlockManager::release_buffer(std::move(data));
-      // LOG(INFO) << "out "
-      //           <<
-      //           std::chrono::duration_cast<std::chrono::milliseconds>(
-      //                  std::chrono::system_clock::now() - ::start)
-      //                  .count();
-      // recv_mr = (--reged_mem.upper_bound(data))->second;
-      // time_block t{"dereg"};
-      // eventlogger.log(this, IBV_DEREG_START);
-      // linux_run(ibv_dereg_mr(recv_mr));
-      // eventlogger.log(this, IBV_DEREG_END);
-
-      // {
-      //   std::unique_lock<std::mutex> lk{m};
-      //   --pending;
-      //   cv.notify_all();
-      // }
-    }
+    BlockManager::release_buffer(std::move(data));
   }
+
   [[noreturn]] static void work_completion_event_on_passive() {
     throw proteus::unexpected_call();
   }
@@ -253,23 +206,10 @@ class IBSend {
 
 void IBPoller::run() {
   set_exec_location_on_scope loc{handler.local_cpu};
-  LOG(INFO) << "Local CPU numa node: " << handler.local_cpu.id;
-  // FIXME: remove
-  // ibv_cq *cq;
-  // void *ctx;  // used to return consumer-supplied CQ context
 
-  size_t i = 0;
   size_t IBV_WC_RDMA_READ_cnt = 0;
-  // size_t IBV_WC_RDMA_WRITE_cnt = 0;
 
   while (true) {
-    // linux_run(ibv_get_cq_event(comp_channel, &cq, &ctx));
-    // if (++i == cq_ack_backlog) {
-    //   ibv_ack_cq_events(cq, i);
-    //   i = 0;
-    // }
-    // linux_run(ibv_req_notify_cq(cq, 0));
-
     ibv_wc wc{};
     while (ibv_poll_cq(handler.ibd.getIBImpl().cq, 1, &wc)) {
       if (wc.status != IBV_WC_SUCCESS) {
@@ -330,21 +270,14 @@ void IBPoller::run() {
       } else {
         LOG(FATAL) << "Unknown: " << wc.opcode;
       }
-      // }
     }
 
     if (ready2exit) {
       LOG(INFO) << "Bailing out...";
-      ibv_ack_cq_events(handler.ibd.getIBImpl().cq, i);
-      LOG(INFO) << "Bailing out";
       return;
     }
   }
 }
-
-static std::mutex buffmgmnt;
-
-static size_t invocation_cnts[10]{};
 
 void IBPoller::handle_wc_recv(const ibv_wc &wc) {
   proteus::managed_ptr data{reinterpret_cast<void *>(wc.wr_id)};
@@ -354,7 +287,7 @@ void IBPoller::handle_wc_recv(const ibv_wc &wc) {
     ready2exit = true;
     handler.sub.publish(std::move(data), wc.byte_len);
     for (size_t invocation_cnt : invocation_cnts) {
-      LOG(ERROR) << invocation_cnt;
+      LOG(INFO) << invocation_cnt;
     }
     return;
   }
@@ -530,31 +463,24 @@ void IBHandler::flush() {
   flush_write();
 }
 
-static size_t reads = 0;
-
 void IBHandler::flush_read() {
+  if (reads == 0) return;
+
   ibv_send_wr wr{/* 0 everything out via value initialization */};
 
   {
-    std::lock_guard<std::mutex> lock{read_promises_m};
-
-    if (reads == 0) return;
-
-    wr.wr_id = (uintptr_t)reads;  // readable locally on work completion
     wr.opcode = IBV_WR_RDMA_READ;
     wr.sg_list = nullptr;
     wr.num_sge = 0;
-    wr.send_flags = IBV_SEND_SIGNALED |
-                    IBV_SEND_FENCE;  //(++reads % 64) ? 0 : IBV_SEND_SIGNALED;
-    // assert(!sigoverflow || (c > 2));
-    // wr.imm_data = c + 3;  // NOTE: only sent when singaled == true
-    // Can pass an arbitrary value to receiver, consider for
-    // the consumed buffer
+    wr.send_flags = IBV_SEND_SIGNALED | IBV_SEND_FENCE;
     wr.wr.rdma.remote_addr =
         reinterpret_cast<decltype(wr.wr.rdma.remote_addr)>(nullptr);
     wr.wr.rdma.rkey = 0;
 
-    if (wr.send_flags & IBV_SEND_SIGNALED) reads = 0;
+    std::lock_guard<std::mutex> lock{read_promises_m};
+
+    wr.wr_id =
+        (uintptr_t)reads.exchange(0);  // readable locally on work completion
   }
   // LOG(INFO) << bytes << " " << buff << " " << data;
   linux_run(send(wr));
@@ -565,7 +491,7 @@ static void *old_cnts = nullptr;
 decltype(IBHandler::read_promises)::value_type &IBHandler::create_promise(
     proteus::managed_ptr buff, proteus::remote_managed_ptr from) {
   assert(!read_promises_m.try_lock());
-  auto &pr = read_promises.at(read_promise_cnt++);
+  auto &pr = read_promises.add();
   std::get<1>(pr) = std::move(buff);
   std::get<2>(pr) = std::move(from);
   return pr;
@@ -579,45 +505,6 @@ decltype(IBHandler::write_promises)::value_type IBHandler::create_write_promise(
   write_promises.push(ptr);
   // write_promises.emplace_back(5, buff);
   return ptr;
-}
-
-subscription *IBHandler::read_event() {
-  assert(false);
-  eventlogger.log(this, IB_CREATE_RDMA_READ_START);
-  // auto buff = BlockManager::get_buffer();
-
-  // auto p = new std::promise<void *>;
-  // auto d = new std::pair<decltype(p), void *>;
-  // d->first = p;
-  // d->second = buff;
-
-  // LOG(INFO) << bytes << " " << (void *)nullptr << " " << data;
-  auto &p = create_promise(nullptr, nullptr);
-
-  ibv_send_wr wr{/* 0 everything out via value initialization */};
-
-  ++reads;
-
-  wr.wr_id = (uintptr_t)reads;  // readable locally on work completion
-  wr.opcode = IBV_WR_RDMA_READ;
-  wr.sg_list = nullptr;
-  wr.num_sge = 0;
-  wr.send_flags = (reads % 512) ? 0 : IBV_SEND_SIGNALED;
-  // assert(!sigoverflow || (c > 2));
-  // wr.imm_data = c + 3;  // NOTE: only sent when singaled == true
-  // Can pass an arbitrary value to receiver, consider for
-  // the consumed buffer
-  wr.wr.rdma.remote_addr =
-      reinterpret_cast<decltype(wr.wr.rdma.remote_addr)>(nullptr);
-  wr.wr.rdma.rkey = 0;
-
-  if (wr.send_flags & IBV_SEND_SIGNALED) reads = 0;
-
-  // LOG(INFO) << bytes << " " << buff << " " << data;
-  linux_run(send(wr));
-
-  eventlogger.log(this, IB_CREATE_RDMA_READ_END);
-  return &std::get<0>(p);
 }
 
 subscription *IBHandler::read(proteus::remote_managed_ptr data, size_t bytes) {
@@ -636,20 +523,14 @@ subscription *IBHandler::read(proteus::remote_managed_ptr data, size_t bytes) {
     wr.wr.rdma.rkey = (--reged_remote_mem.upper_bound(data.get()))->second;
 
     std::lock_guard<std::mutex> lock{read_promises_m};
-    //  assert(topology::getInstance()
-    //             .getGpus()[local_cpu.local_gpus.front()]
-    //             .index_in_topo == local_cpu.local_gpus.front());
-    //  auto buff = proteus::managed_ptr{BlockManager::h_get_buffer(
-    //      topology::getInstance().getGpus()[local_cpu.local_gpus.front()].id)};
 
-    ++reads;
+    // FIXME: there is certainly a race condition here, as the
+    //  readcnt/promise creation and the send is outside the critical (locked)
+    //  section
+    auto rid = ++reads;
 
-    wr.wr_id = (uintptr_t)reads;  // readable locally on work completion
-    wr.send_flags = ((reads % 64) ? 0 : IBV_SEND_SIGNALED);
-    // assert(!sigoverflow || (c > 2));
-    // wr.imm_data = c + 3;  // NOTE: only sent when singaled == true
-    // Can pass an arbitrary value to receiver, consider for
-    // the consumed buffer
+    wr.wr_id = (uintptr_t)rid;  // readable locally on work completion
+    wr.send_flags = ((rid % 64) ? 0 : IBV_SEND_SIGNALED);
 
     if (wr.send_flags & IBV_SEND_SIGNALED) reads = 0;
 
@@ -754,7 +635,7 @@ void IBHandler::flush_write() {
 subscription *IBHandler::write_to_int(proteus::managed_ptr data, size_t bytes,
                                       buffkey buff, void *buffpromise) {
   assert(!write_promises_m.try_lock());
-  bool should_flush = false;
+  bool should_flush;
   subscription *ret;
   {
     // std::unique_lock<std::mutex> lock{write_promises_m};
@@ -791,7 +672,7 @@ subscription *IBHandler::write_to_int(proteus::managed_ptr data, size_t bytes,
 
     linux_run(send(wr));
     // TODO: save_on_error contains a pointer to the "bad" request, handle
-    // more gracefully
+    //  more gracefully
 
     ret = &p->first;
     should_flush = ((write_cnt % packNotifications) == 0);
@@ -803,15 +684,6 @@ subscription *IBHandler::write_to_int(proteus::managed_ptr data, size_t bytes,
 }
 
 void IBHandler::request_buffers_unsafe() { send_sge(nullptr, nullptr, 0, 1); }
-
-static std::mutex m2;
-static std::map<void *, decltype(buffkey::second)> keys;
-
-static size_t leak_release = 0;
-
-static std::mutex m3;
-static void *released[128]{nullptr};
-static size_t released_cnt = 0;
 
 void IBHandler::release_buffer(proteus::remote_managed_ptr p) {
   if (!p) return;
@@ -887,11 +759,9 @@ void IBHandler::disconnect() {
   LOG(INFO) << "send good bye";
   sendGoodBye();
   LOG(INFO) << "waiting for confirmation";
-  BlockManager::release_buffer(
-      sub.wait().data);  // FIXME: not really, should wait on something more
-                         // general...
+  // FIXME: not really, should wait on something more general...
+  BlockManager::release_buffer(sub.wait().data);
   LOG(INFO) << "done!";
-  // linux_run(rdma_disconnect(active_connections[0]));
 }
 
 void IBHandler::reg(const void *mem, size_t bytes) {

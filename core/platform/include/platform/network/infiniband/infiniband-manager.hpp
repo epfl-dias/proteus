@@ -162,7 +162,6 @@ class InfiniBandManager {
    */
   [[nodiscard]] static subscription *read(proteus::remote_managed_ptr data,
                                           size_t bytes);
-  [[nodiscard]] static subscription *read_event();
   static void flush();
   static void flush_read();
   //  static buffkey get_buffer();

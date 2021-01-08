@@ -45,13 +45,18 @@ class FidEmplaceBack {
   }
 };
 
+template <typename T, typename F>
+class threadsafe_autoresizeable_deque_with_emplace;
+
 template <typename T, typename F = FidEmplaceBack>
 class threadsafe_autoresizeable_deque {
   static constexpr size_t dqpage = 1024;
 
-  std::atomic<size_t> size = 0;
   std::atomic<int> active = 0;
   std::mutex resize_m;
+
+ protected:
+  std::atomic<size_t> size = 0;
 
   std::deque<std::shared_ptr<std::deque<T>>> data[2];
 
@@ -72,6 +77,14 @@ class threadsafe_autoresizeable_deque {
     }
   }
 
+ protected:
+  T &access(size_t i) const {
+    assert(i < size);
+    return (*data[active][i / dqpage])[i % dqpage];
+  }
+
+  friend class threadsafe_autoresizeable_deque_with_emplace<T, F>;
+
  public:
   using value_type = T;
 
@@ -89,8 +102,26 @@ class threadsafe_autoresizeable_deque {
    */
   T &at(size_t i) {
     if (i >= size) resize(i);
-    return (*data[active][i / dqpage])[i % dqpage];
+    return access(i);
   }
+};
+
+/**
+ * A threadsafe deque that supprots accessing items before they get "added"
+ * and guarantees wait-free reads
+ */
+template <typename T, typename F = FidEmplaceBack>
+class threadsafe_autoresizeable_deque_with_emplace {
+ private:
+  threadsafe_autoresizeable_deque<T, F> deq;
+  std::atomic<size_t> cnt = 0;
+
+ public:
+  using value_type = typename decltype(deq)::value_type;
+
+  [[nodiscard]] T &at(size_t i) { return deq.at(i); }
+
+  T &add() { return deq.at(cnt++); }
 };
 
 class IBHandler : public MemoryRegistry {
@@ -98,17 +129,31 @@ class IBHandler : public MemoryRegistry {
       std::is_same_v<buffkey::second_type, decltype(ibv_send_wr::wr.rdma.rkey)>,
       "wrong buffkey type");
 
+ private:
+  using read_promise_t = std::tuple<subscription, proteus::managed_ptr,
+                                    proteus::remote_managed_ptr>;
+
+  class CreateReadPromise {
+   public:
+    template <typename T>
+    void operator()(T &c, size_t) const {
+      c.emplace_back(
+          5, proteus::managed_ptr{nullptr},
+          proteus::remote_managed_ptr{proteus::managed_ptr{nullptr}, 0});
+    }
+  };
+
  protected:
   friend class IBPoller;
-  std::mutex m_sub_named;
   subscription sub;
-  threadsafe_autoresizeable_deque<subscription> sub_named;
-  std::atomic<size_t> subcnts;
+  threadsafe_autoresizeable_deque_with_emplace<subscription> sub_named;
+  threadsafe_autoresizeable_deque_with_emplace<read_promise_t,
+                                               CreateReadPromise>
+      read_promises;
 
   std::map<uint64_t, void *> active_connections;
 
   std::mutex m;
-  std::condition_variable cv;
 
   std::map<const void *, decltype(ibv_mr::rkey)> reged_remote_mem;
 
@@ -134,24 +179,7 @@ class IBHandler : public MemoryRegistry {
   std::mutex pend_buffers_m;
   std::condition_variable pend_buffers_cv;
 
- private:
-  using read_promise_t = std::tuple<subscription, proteus::managed_ptr,
-                                    proteus::remote_managed_ptr>;
-
-  class CreateReadPromise {
-   public:
-    template <typename T>
-    void operator()(T &c, size_t) const {
-      c.emplace_back(
-          5, proteus::managed_ptr{nullptr},
-          proteus::remote_managed_ptr{proteus::managed_ptr{nullptr}, 0});
-    }
-  };
-
  public:
-  std::atomic<size_t> read_promise_cnt = 0;
-  threadsafe_autoresizeable_deque<read_promise_t, CreateReadPromise>
-      read_promises;
   std::mutex read_promises_m;
 
   AsyncQueueSPSC<std::pair<subscription, proteus::managed_ptr> *>
@@ -174,7 +202,7 @@ class IBHandler : public MemoryRegistry {
   int send(ibv_send_wr &wr, bool retry = true);
 
  public:
-  explicit IBHandler(int cq_backlog, const ib &ibd);
+  explicit IBHandler(const ib &ibd);
 
   ~IBHandler() override;
 
@@ -250,7 +278,6 @@ class IBHandler : public MemoryRegistry {
    */
   [[nodiscard]] subscription *read(proteus::remote_managed_ptr data,
                                    size_t bytes);
-  [[nodiscard]] subscription *read_event();
 
   buffkey get_buffer();
   void release_buffer(proteus::remote_managed_ptr p);

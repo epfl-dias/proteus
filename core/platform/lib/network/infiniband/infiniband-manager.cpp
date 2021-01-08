@@ -99,10 +99,6 @@ subscription *InfiniBandManager::read(proteus::remote_managed_ptr data,
   return ib.front()->read(std::move(data), bytes);  // FIXME
 }
 
-subscription *InfiniBandManager::read_event() {
-  return ib.front()->read_event();  // FIXME
-}
-
 void InfiniBandManager::flush() {
   ib.front()->flush();  // FIXME
 }
@@ -168,7 +164,7 @@ void InfiniBandManager::init(const std::string &url, uint16_t port,
     }();
     LOG(INFO) << addr;
 
-    ib.emplace_back(new IBHandler(8, topology::getInstance().getIBs().front()));
+    ib.emplace_back(new IBHandler(topology::getInstance().getIBs().front()));
     ib.front()->start();
   }
   //  for (const auto &ib : topology::getInstance().getIBs()) {
