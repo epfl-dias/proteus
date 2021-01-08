@@ -30,6 +30,11 @@
 #include <platform/util/logging.hpp>
 #include <platform/util/timing.hpp>
 
+MemMoveScaleOut::MemMoveScaleOut(Operator *const child,
+                                 const vector<RecordAttribute *> &wantedFields,
+                                 size_t slack)
+    : MemMoveDevice(child, wantedFields, slack, true) {}
+
 MemMoveScaleOut::MemMoveConf *MemMoveScaleOut::createMoveConf() const {
   void *pmmc = MemoryManager::mallocPinned(sizeof(MemMoveConf));
   return new (pmmc) MemMoveScaleOut::MemMoveConf;
