@@ -801,6 +801,8 @@ __host__ void buffer_manager<T>::find_released_buffers(size_t freq) {
   MemoryManager::freePinned(stage);
 }
 
+size_t get_avail_remote_buffs();
+
 template <typename T>
 __host__ void buffer_manager<T>::log_buffers(size_t freq) {
   const auto &topo = topology::getInstance();
@@ -848,6 +850,7 @@ __host__ void buffer_manager<T>::log_buffers(size_t freq) {
     for (uint32_t i = 0; i < devices; ++i) {
       out << bytes{MemoryManager::gpu_managers[i]->usage_unsafe()} << " ";
     }
+    out << get_avail_remote_buffs() << " ";
     out << "\t\t"
         << progress[(iter++) % (sizeof(progress) - 1)];  // for null character
     // out << "\0338";
