@@ -60,7 +60,10 @@ DegreeOfParallelism QueryShaper::getDOP() {
 
 RelBuilder QueryShaper::distribute_build(RelBuilder input) {
   auto rel =
-      input.membrdcst(getDOP(), getDevice() == DeviceType::CPU, !doMove())
+      input
+          .membrdcst(
+              getDOP(), getDevice() == DeviceType::CPU,
+              false)  //!(doMove() )) // || getDevice() == DeviceType::GPU
           .router(
               [&](const auto& arg) -> std::optional<expression_t> {
                 return arg["__broadcastTarget"];
