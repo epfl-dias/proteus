@@ -366,8 +366,14 @@ class Context {
       return llvm::StructType::get(getLLVMContext(),
                                    {charPtrType, charPtrType});
     } else {
-      LOG(INFO) << "Unknown type " << typeid(T).name()
-                << " substituting with sized placeholder";
+      {
+        static std::set<decltype(typeid(T).name())> unknown_types;
+        static std::mutex m;
+        std::lock_guard<std::mutex> lock{m};
+        LOG_IF(INFO, unknown_types.emplace(typeid(T).name()).second)
+            << "Unknown type " << typeid(T).name()
+            << " substituting with sized placeholder";
+      }
       return llvm::Type::getIntNTy(getLLVMContext(), sizeof(T) * 8);
     }
   }
