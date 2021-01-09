@@ -109,3 +109,5 @@ ccache*
 .idea/**/gradle.xml
 .idea/**/libraries
 /core/planner/plan.json*
+
+/apps/standalones/.gitignore
