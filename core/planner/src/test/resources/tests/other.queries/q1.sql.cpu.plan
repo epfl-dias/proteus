@@ -1,0 +1,8 @@
+PelagoToEnumerableConverter
+  PelagoProject
+    PelagoAggregate
+      PelagoRouter
+        PelagoAggregate
+          PelagoUnpack
+            PelagoRouter
+              PelagoTableScan
