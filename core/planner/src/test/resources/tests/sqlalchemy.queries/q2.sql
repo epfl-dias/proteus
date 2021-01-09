@@ -1,0 +1,1 @@
+SELECT CAST('test unicode returns' AS VARCHAR(60)) AS anon_1;
