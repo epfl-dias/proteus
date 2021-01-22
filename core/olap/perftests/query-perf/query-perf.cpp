@@ -109,8 +109,9 @@ PreparedStatement sumQuery(proteus::QueryShaper &morph) {
       .prepare();
 }
 
-SALIAS(CPUonly, proteus::CPUOnlySingleSever);
-SALIAS(GPUonly, proteus::GPUOnlySingleSever);
+SALIAS(CPUonly, proteus::CPUOnlySingleServer);
+SALIAS(GPUonly, proteus::GPUOnlySingleServer);
+SALIAS(Hybrid, proteus::HybridSingleServer);
 
 template <typename Qprep, typename Shaper>
 void query_perf(benchmark::State &state) {
@@ -139,6 +140,6 @@ using QuerySet = std::tuple<
     // Sum Query
     Qsum>;
 
-using ShaperSet = std::tuple<CPUonly, GPUonly>;
+using ShaperSet = std::tuple<CPUonly, GPUonly, Hybrid>;
 
 BENCHMARK_NAMED_MACRO(query_perf, query, QuerySet, shaper, ShaperSet);

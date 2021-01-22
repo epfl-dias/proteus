@@ -36,7 +36,8 @@ std::unique_ptr<Affinitizer> CPUOnlyShuffleAll::getAffinitizer() {
   return input
       .router_scaleout(
           [&](const auto& arg) -> std::optional<expression_t> {
-            return (int)(1 - InfiniBandManager::server_id());
+            return (int)((InfiniBandManager::server_id() + 1) %
+                         static_cast<size_t>(getServerDOP()));
           },
           getServerDOP(), getSlack(), RoutingPolicy::HASH_BASED, getDevice())
       .memmove_scaleout(getSlack());
@@ -50,7 +51,8 @@ std::unique_ptr<Affinitizer> CPUOnlyShuffleAll::getAffinitizer() {
   return input
       .router_scaleout(
           [&](const auto& arg) -> std::optional<expression_t> {
-            return (int)(1 - InfiniBandManager::server_id());
+            return (int)((InfiniBandManager::server_id() + 1) %
+                         static_cast<size_t>(getServerDOP()));
           },
           getServerDOP(), getSlack(), RoutingPolicy::HASH_BASED, getDevice())
       .memmove_scaleout(getSlack());
@@ -68,9 +70,9 @@ std::unique_ptr<Affinitizer> CPUOnlyShuffleAll::getAffinitizer() {
   return rel;
 }
 
-[[nodiscard]] RelBuilder GPUOnlyShuffleAll::collect(RelBuilder input) {
-  return ScaleOutQueryShaper::collect(input).memmove(getSlackReduce(),
-                                                     DeviceType::CPU);
+[[nodiscard]] RelBuilder GPUOnlyShuffleAll::collect_packed(RelBuilder input) {
+  return ScaleOutQueryShaper::collect_packed(input).memmove(getSlackReduce(),
+                                                            DeviceType::CPU);
 }
 
 std::unique_ptr<Affinitizer> CPUOnlyShuffleAllCorrectPlan::getAffinitizer() {
@@ -85,7 +87,8 @@ std::unique_ptr<Affinitizer> CPUOnlyShuffleAllCorrectPlan::getAffinitizer() {
 CPUOnlyShuffleAllCorrectPlan::distribute_probe_interserver(RelBuilder input) {
   return input.router_scaleout(
       [&](const auto& arg) -> std::optional<expression_t> {
-        return (int)(1 - InfiniBandManager::server_id());
+        return (int)((InfiniBandManager::server_id() + 1) %
+                     static_cast<size_t>(getServerDOP()));
       },
       getServerDOP(), getSlack(), RoutingPolicy::HASH_BASED, getDevice());
 }
@@ -93,7 +96,7 @@ CPUOnlyShuffleAllCorrectPlan::distribute_probe_interserver(RelBuilder input) {
 [[nodiscard]] RelBuilder
 CPUOnlyShuffleAllCorrectPlan::distribute_probe_intraserver(RelBuilder input) {
   auto rel = input
-                 .router(getDOP(), 32, RoutingPolicy::RANDOM, getDevice(),
+                 .router(getDOP(), 2, RoutingPolicy::RANDOM, getDevice(),
                          getAffinitizer())
                  .memmove_scaleout(256);
 
@@ -115,7 +118,8 @@ std::unique_ptr<Affinitizer> GPUOnlyShuffleAllCorrectPlan::getAffinitizer() {
 GPUOnlyShuffleAllCorrectPlan::distribute_probe_interserver(RelBuilder input) {
   return input.router_scaleout(
       [&](const auto& arg) -> std::optional<expression_t> {
-        return (int)(1 - InfiniBandManager::server_id());
+        return (int)((InfiniBandManager::server_id() + 1) %
+                     static_cast<size_t>(getServerDOP()));
       },
       getServerDOP(), getSlack(), RoutingPolicy::HASH_BASED, getDevice());
 }
@@ -135,10 +139,10 @@ GPUOnlyShuffleAllCorrectPlan::distribute_probe_intraserver(RelBuilder input) {
   return rel;
 }
 
-[[nodiscard]] RelBuilder GPUOnlyShuffleAllCorrectPlan::collect(
+[[nodiscard]] RelBuilder GPUOnlyShuffleAllCorrectPlan::collect_packed(
     RelBuilder input) {
-  return ScaleOutQueryShaper::collect(input).memmove(getSlackReduce(),
-                                                     DeviceType::CPU);
+  return ScaleOutQueryShaper::collect_packed(input).memmove(getSlackReduce(),
+                                                            DeviceType::CPU);
 }
 
 [[nodiscard]] bool LazyGPUNoShuffle::doMove() { return false; }
@@ -147,9 +151,9 @@ GPUOnlyShuffleAllCorrectPlan::distribute_probe_intraserver(RelBuilder input) {
   return DeviceType::GPU;
 }
 
-[[nodiscard]] RelBuilder LazyGPUNoShuffle::collect(RelBuilder input) {
-  return ScaleOutQueryShaper::collect(input).memmove(getSlackReduce(),
-                                                     DeviceType::CPU);
+[[nodiscard]] RelBuilder LazyGPUNoShuffle::collect_packed(RelBuilder input) {
+  return ScaleOutQueryShaper::collect_packed(input).memmove(getSlackReduce(),
+                                                            DeviceType::CPU);
 }
 
 [[nodiscard]] RelBuilder
@@ -178,7 +182,7 @@ GPUOnlyLocalAllCorrectPlan::distribute_probe_intraserver(RelBuilder input) {
 
 [[nodiscard]] RelBuilder
 LazyGPUOnlyLocalAllCorrectPlan::distribute_probe_intraserver(RelBuilder input) {
-  auto rel = input.router(getDOP(), 8, RoutingPolicy::RANDOM, getDevice(),
+  auto rel = input.router(getDOP(), 8, RoutingPolicy::LOCAL, getDevice(),
                           getAffinitizer());  // FIXME
 
   //    if (doMove()) rel = rel.memmove(2, getDevice());
@@ -189,20 +193,21 @@ LazyGPUOnlyLocalAllCorrectPlan::distribute_probe_intraserver(RelBuilder input) {
   return rel;
 }
 
-[[nodiscard]] bool LazyGPUOnlySingleSever::doMove() { return false; }
-[[nodiscard]] int LazyGPUOnlySingleSever::getSlack() { return 256; }
-[[nodiscard]] int LazyGPUOnlySingleSever::getSlackReduce() { return 32; }
+[[nodiscard]] bool LazyGPUOnlySingleServer::doMove() { return false; }
+[[nodiscard]] int LazyGPUOnlySingleServer::getSlack() { return 1024; }
+[[nodiscard]] int LazyGPUOnlySingleServer::getSlackReduce() { return 32; }
 
-[[nodiscard]] RelBuilder LazyGPUOnlySingleSever::collect(RelBuilder input) {
-  return InputPrefixQueryShaper::collect(input).memmove(getSlackReduce(),
-                                                        DeviceType::CPU);
+[[nodiscard]] RelBuilder LazyGPUOnlySingleServer::collect_packed(
+    RelBuilder input) {
+  return InputPrefixQueryShaper::collect_packed(input).memmove(getSlackReduce(),
+                                                               DeviceType::CPU);
 }
 
-[[nodiscard]] DeviceType CPUOnlySingleSever::getDevice() {
+[[nodiscard]] DeviceType CPUOnlySingleServer::getDevice() {
   return DeviceType::CPU;
 }
 
-std::unique_ptr<Affinitizer> CPUOnlySingleSever::getAffinitizer() {
+std::unique_ptr<Affinitizer> CPUOnlySingleServer::getAffinitizer() {
   return std::make_unique<CpuNumaNodeAffinitizer>();
 }
 
@@ -227,4 +232,134 @@ std::unique_ptr<Affinitizer> CPUOnlySingleSever::getAffinitizer() {
   return std::make_unique<CpuNumaNodeAffinitizer>();
 }
 
+RelBuilder HybridSingleServer::parallel(
+    RelBuilder probe, const std::vector<RelBuilder>& builds,
+    const std::function<RelBuilder(RelBuilder, const std::vector<RelBuilder>&)>&
+        pathBuilder) {
+  CPUOnlySingleServer morph_cpu{base_path, input_sizes, doMove(), 2};
+  GPUOnlySingleServer morph_gpu{base_path, input_sizes, doMove(), 8};
+
+  std::vector<RelBuilder> parallelizedBuilds_g;
+  parallelizedBuilds_g.reserve(builds.size());
+  std::vector<RelBuilder> parallelizedBuilds_c;
+  parallelizedBuilds_c.reserve(builds.size());
+  for (auto& build : builds) {
+    auto pb = build.membrdcst(DegreeOfParallelism{2}, true, true)
+                  .split(2, 8, RoutingPolicy::HASH_BASED);
+    parallelizedBuilds_g.emplace_back(morph_gpu.distribute_build(pb));
+    parallelizedBuilds_c.emplace_back(morph_cpu.distribute_build(pb));
+  }
+
+  auto parallelizedProbe = probe.split(2, 2, RoutingPolicy::RANDOM);
+
+  auto rel_g = morph_gpu.distribute_probe(parallelizedProbe);
+  auto rel_c = morph_cpu.distribute_probe(parallelizedProbe);
+
+  auto rel_CPU = morph_cpu.collect(pathBuilder(rel_c, parallelizedBuilds_c));
+  auto rel_GPU = morph_gpu.collect(pathBuilder(rel_g, parallelizedBuilds_g));
+
+  return rel_GPU.unionAll({rel_CPU}).router(
+      DegreeOfParallelism{1}, 1024, RoutingPolicy::RANDOM, DeviceType::CPU);
+}
+
+RelBuilder LazyHybridSingleServer::parallel(
+    RelBuilder probe, const std::vector<RelBuilder>& builds,
+    const std::function<RelBuilder(RelBuilder, const std::vector<RelBuilder>&)>&
+        pathBuilder) {
+  CPUOnlySingleServer morph_cpu{base_path, input_sizes, doMove(), 2};
+  LazyGPUOnlySingleServer morph_gpu{base_path, input_sizes, doMove(), 8};
+
+  std::vector<RelBuilder> parallelizedBuilds_g;
+  parallelizedBuilds_g.reserve(builds.size());
+  std::vector<RelBuilder> parallelizedBuilds_c;
+  parallelizedBuilds_c.reserve(builds.size());
+  for (auto& build : builds) {
+    auto pb = build.membrdcst(DegreeOfParallelism{2}, true, true)
+                  .split(2, 8, RoutingPolicy::HASH_BASED);
+    parallelizedBuilds_g.emplace_back(morph_gpu.distribute_build(pb));
+    parallelizedBuilds_c.emplace_back(morph_cpu.distribute_build(pb));
+  }
+
+  auto parallelizedProbe = probe.split(2, 2, RoutingPolicy::RANDOM);
+
+  auto rel_g = morph_gpu.distribute_probe(parallelizedProbe);
+  auto rel_c = morph_cpu.distribute_probe(parallelizedProbe);
+
+  auto rel_CPU = morph_cpu.collect(pathBuilder(rel_c, parallelizedBuilds_c));
+  auto rel_GPU = morph_gpu.collect(pathBuilder(rel_g, parallelizedBuilds_g));
+
+  return rel_GPU.unionAll({rel_CPU}).router(
+      DegreeOfParallelism{1}, 1024, RoutingPolicy::RANDOM, DeviceType::CPU);
+}
+
+RelBuilder HybridSingleServerMorsel::parallel(
+    RelBuilder probe, const std::vector<RelBuilder>& builds,
+    const std::function<RelBuilder(RelBuilder, const std::vector<RelBuilder>&)>&
+        pathBuilder) {
+  CPUOnlySingleServerMorsel morph_cpu{base_path, input_sizes, doMove(), 2};
+  GPUOnlySingleServer morph_gpu{base_path, input_sizes, doMove(), 8};
+
+  std::vector<RelBuilder> parallelizedBuilds_g;
+  parallelizedBuilds_g.reserve(builds.size());
+  std::vector<RelBuilder> parallelizedBuilds_c;
+  parallelizedBuilds_c.reserve(builds.size());
+  for (auto& build : builds) {
+    auto pb = build.membrdcst(DegreeOfParallelism{2}, true, true)
+                  .split(2, 8, RoutingPolicy::HASH_BASED);
+    parallelizedBuilds_g.emplace_back(morph_gpu.distribute_build(pb));
+    parallelizedBuilds_c.emplace_back(morph_cpu.distribute_build(pb));
+  }
+
+  auto parallelizedProbe = probe.split(2, 2, RoutingPolicy::RANDOM);
+
+  auto rel_g = morph_gpu.distribute_probe(parallelizedProbe);
+  auto rel_c = morph_cpu.distribute_probe(parallelizedProbe);
+
+  auto rel_CPU = morph_cpu.collect(pathBuilder(rel_c, parallelizedBuilds_c));
+  auto rel_GPU = morph_gpu.collect(pathBuilder(rel_g, parallelizedBuilds_g));
+
+  return rel_GPU.unionAll({rel_CPU}).router(
+      DegreeOfParallelism{1}, 1024, RoutingPolicy::RANDOM, DeviceType::CPU);
+}
+
+RelBuilder LazyHybridSingleServerMorsel::parallel(
+    RelBuilder probe, const std::vector<RelBuilder>& builds,
+    const std::function<RelBuilder(RelBuilder, const std::vector<RelBuilder>&)>&
+        pathBuilder) {
+  CPUOnlySingleServerMorsel morph_cpu{base_path, input_sizes, doMove(), 2};
+  LazyGPUOnlySingleServer morph_gpu{base_path, input_sizes, doMove(), 8};
+
+  std::vector<RelBuilder> parallelizedBuilds_g;
+  parallelizedBuilds_g.reserve(builds.size());
+  std::vector<RelBuilder> parallelizedBuilds_c;
+  parallelizedBuilds_c.reserve(builds.size());
+  for (auto& build : builds) {
+    auto pb = build.membrdcst(DegreeOfParallelism{2}, true, true)
+                  .split(2, 8, RoutingPolicy::HASH_BASED);
+    parallelizedBuilds_g.emplace_back(morph_gpu.distribute_build(pb));
+    parallelizedBuilds_c.emplace_back(morph_cpu.distribute_build(pb));
+  }
+
+  auto parallelizedProbe = probe.split(2, 2, RoutingPolicy::RANDOM);
+
+  auto rel_g = morph_gpu.distribute_probe(parallelizedProbe);
+  auto rel_c = morph_cpu.distribute_probe(parallelizedProbe);
+
+  auto rel_CPU = morph_cpu.collect(pathBuilder(rel_c, parallelizedBuilds_c));
+  auto rel_GPU = morph_gpu.collect(pathBuilder(rel_g, parallelizedBuilds_g));
+
+  return rel_GPU.unionAll({rel_CPU}).router(
+      DegreeOfParallelism{1}, 1024, RoutingPolicy::RANDOM, DeviceType::CPU);
+}
+
+RelBuilder CPUOnlySingleServerMorsel::distribute_build(RelBuilder input) {
+  auto rel = input
+                 .router(getDOP(), getSlack(), RoutingPolicy::LOCAL,
+                         getDevice(), getAffinitizer())
+                 .memmove(8, getDevice());
+
+  if (getDevice() == DeviceType::GPU) rel = rel.to_gpu();
+
+  return rel;
+}
 }  // namespace proteus

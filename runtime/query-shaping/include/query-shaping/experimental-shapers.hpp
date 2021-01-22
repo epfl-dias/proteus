@@ -49,7 +49,7 @@ class GPUOnlyShuffleAll : public proteus::ScaleOutQueryShaper {
   [[nodiscard]] RelBuilder distribute_probe_intraserver(
       RelBuilder input) override;
 
-  [[nodiscard]] RelBuilder collect(RelBuilder input) override;
+  [[nodiscard]] RelBuilder collect_packed(RelBuilder input) override;
 };
 
 class CPUOnlyShuffleAllCorrectPlan : public proteus::ScaleOutQueryShaper {
@@ -78,7 +78,9 @@ class GPUOnlyShuffleAllCorrectPlan : public proteus::ScaleOutQueryShaper {
   [[nodiscard]] RelBuilder distribute_probe_intraserver(
       RelBuilder input) override;
 
-  [[nodiscard]] RelBuilder collect(RelBuilder input) override;
+  [[nodiscard]] RelBuilder collect_packed(RelBuilder input) override;
+
+  friend class HybridShuffleAllCorrectPlan;
 };
 
 class CPUOnlyNoShuffle : public proteus::ScaleOutQueryShaper {
@@ -93,7 +95,7 @@ class LazyGPUNoShuffle : public CPUOnlyNoShuffle {
   [[nodiscard]] int getSlack() override;
   [[nodiscard]] DeviceType getDevice() override;
 
-  [[nodiscard]] RelBuilder collect(RelBuilder input) override;
+  [[nodiscard]] RelBuilder collect_packed(RelBuilder input) override;
 };
 
 class GPUOnlyLocalAllCorrectPlan : public GPUOnlyShuffleAllCorrectPlan {
@@ -115,22 +117,22 @@ class LazyGPUOnlyLocalAllCorrectPlan : public GPUOnlyLocalAllCorrectPlan {
       RelBuilder input) override;
 };
 
-class GPUOnlySingleSever : public proteus::InputPrefixQueryShaper {
+class GPUOnlySingleServer : public proteus::InputPrefixQueryShaper {
   using proteus::InputPrefixQueryShaper::InputPrefixQueryShaper;
 };
 
-class LazyGPUOnlySingleSever : public GPUOnlySingleSever {
-  using GPUOnlySingleSever::GPUOnlySingleSever;
+class LazyGPUOnlySingleServer : public GPUOnlySingleServer {
+  using GPUOnlySingleServer::GPUOnlySingleServer;
 
  protected:
   [[nodiscard]] bool doMove() override;
   [[nodiscard]] int getSlack() override;
   [[nodiscard]] int getSlackReduce() override;
 
-  [[nodiscard]] RelBuilder collect(RelBuilder input) override;
+  [[nodiscard]] RelBuilder collect_packed(RelBuilder input) override;
 };
 
-class CPUOnlySingleSever : public proteus::InputPrefixQueryShaper {
+class CPUOnlySingleServer : public proteus::InputPrefixQueryShaper {
   using proteus::InputPrefixQueryShaper::InputPrefixQueryShaper;
 
  protected:
@@ -139,12 +141,59 @@ class CPUOnlySingleSever : public proteus::InputPrefixQueryShaper {
   std::unique_ptr<Affinitizer> getAffinitizer() override;
 };
 
+class CPUOnlySingleServerMorsel : public CPUOnlySingleServer {
+  using CPUOnlySingleServer::CPUOnlySingleServer;
+
+ public:
+  [[nodiscard]] RelBuilder distribute_build(RelBuilder input) override;
+};
+
+class HybridSingleServer : public proteus::InputPrefixQueryShaper {
+  using proteus::InputPrefixQueryShaper::InputPrefixQueryShaper;
+
+ protected:
+  [[nodiscard]] RelBuilder parallel(
+      RelBuilder probe, const std::vector<RelBuilder> &builds,
+      const std::function<RelBuilder(
+          RelBuilder, const std::vector<RelBuilder> &)> &pathBuilder) override;
+};
+
+class LazyHybridSingleServer : public proteus::InputPrefixQueryShaper {
+  using proteus::InputPrefixQueryShaper::InputPrefixQueryShaper;
+
+ protected:
+  [[nodiscard]] RelBuilder parallel(
+      RelBuilder probe, const std::vector<RelBuilder> &builds,
+      const std::function<RelBuilder(
+          RelBuilder, const std::vector<RelBuilder> &)> &pathBuilder) override;
+};
+
+class LazyHybridSingleServerMorsel : public proteus::InputPrefixQueryShaper {
+  using proteus::InputPrefixQueryShaper::InputPrefixQueryShaper;
+
+ protected:
+  [[nodiscard]] RelBuilder parallel(
+      RelBuilder probe, const std::vector<RelBuilder> &builds,
+      const std::function<RelBuilder(
+          RelBuilder, const std::vector<RelBuilder> &)> &pathBuilder) override;
+};
+
+class HybridSingleServerMorsel : public proteus::InputPrefixQueryShaper {
+  using proteus::InputPrefixQueryShaper::InputPrefixQueryShaper;
+
+ protected:
+  [[nodiscard]] RelBuilder parallel(
+      RelBuilder probe, const std::vector<RelBuilder> &builds,
+      const std::function<RelBuilder(
+          RelBuilder, const std::vector<RelBuilder> &)> &pathBuilder) override;
+};
+
 class GPUOnlyHalfFile : public proteus::InputPrefixQueryShaper {
   using proteus::InputPrefixQueryShaper::InputPrefixQueryShaper;
 
  protected:
   [[nodiscard]] RelBuilder scan(
-      const std::string& relName,
+      const std::string &relName,
       std::initializer_list<std::string> relAttrs) override;
 };
 
