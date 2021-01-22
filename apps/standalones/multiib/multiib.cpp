@@ -33,178 +33,9 @@
 #include <platform/topology/topology.hpp>
 #include <platform/util/profiling.hpp>
 #include <platform/util/timing.hpp>
+#include <query-shaping/experimental-shapers.hpp>
 #include <query-shaping/input-prefix-query-shaper.hpp>
-#include <query-shaping/scale-out-query-shaper.hpp>
 #include <ssb/query.hpp>
-
-class CPUOnlyShuffleAll : public proteus::ScaleOutQueryShaper {
-  using proteus::ScaleOutQueryShaper::ScaleOutQueryShaper;
-
- protected:
-  std::unique_ptr<Affinitizer> getAffinitizer() override {
-    return std::make_unique<CpuNumaNodeAffinitizer>();
-  }
-
-  [[nodiscard]] RelBuilder distribute_probe_interserver(
-      RelBuilder input) override {
-    return input
-        .router_scaleout(
-            [&](const auto& arg) -> std::optional<expression_t> {
-              return (int)(1 - InfiniBandManager::server_id());
-            },
-            getServerDOP(), getSlack(), RoutingPolicy::HASH_BASED, getDevice())
-        .memmove_scaleout(getSlack());
-  }
-};
-
-class GPUOnlyShuffleAll : public proteus::ScaleOutQueryShaper {
-  using proteus::ScaleOutQueryShaper::ScaleOutQueryShaper;
-
- protected:
-  [[nodiscard]] DeviceType getDevice() override { return DeviceType::GPU; }
-  [[nodiscard]] RelBuilder distribute_probe_interserver(
-      RelBuilder input) override {
-    return input
-        .router_scaleout(
-            [&](const auto& arg) -> std::optional<expression_t> {
-              return (int)(1 - InfiniBandManager::server_id());
-            },
-            getServerDOP(), getSlack(), RoutingPolicy::HASH_BASED, getDevice())
-        .memmove_scaleout(getSlack());
-  }
-
-  [[nodiscard]] RelBuilder distribute_probe_intraserver(
-      RelBuilder input) override {
-    auto rel = input.router(getDOP(), 2, RoutingPolicy::LOCAL, getDevice(),
-                            getAffinitizer());
-
-    if (doMove()) rel = rel.memmove(2, getDevice());
-
-    if (getDevice() == DeviceType::GPU) rel = rel.to_gpu();
-
-    return rel;
-  }
-
-  [[nodiscard]] RelBuilder collect(RelBuilder input) override {
-    return ScaleOutQueryShaper::collect(input).memmove(getSlackReduce(),
-                                                       DeviceType::CPU);
-  }
-};
-
-class CPUOnlyNoShuffle : public proteus::ScaleOutQueryShaper {
-  using proteus::ScaleOutQueryShaper::ScaleOutQueryShaper;
-};
-
-class LazyGPUNoShuffle : public CPUOnlyNoShuffle {
-  using CPUOnlyNoShuffle::CPUOnlyNoShuffle;
-
- protected:
-  [[nodiscard]] bool doMove() override { return false; }
-  [[nodiscard]] int getSlack() override { return 1024; }
-  [[nodiscard]] DeviceType getDevice() override { return DeviceType::GPU; }
-
-  [[nodiscard]] RelBuilder collect(RelBuilder input) override {
-    return ScaleOutQueryShaper::collect(input).memmove(getSlackReduce(),
-                                                       DeviceType::CPU);
-  }
-  //  [[nodiscard]] RelBuilder distribute_probe_interserver(
-  //      RelBuilder input) override {
-  //    return input
-  //        .router_scaleout(
-  //            [&](const auto& arg) -> std::optional<expression_t> {
-  //              return (int)(1 - InfiniBandManager::server_id());
-  //            },
-  //            getServerDOP(), getSlack(), RoutingPolicy::HASH_BASED,
-  //            getDevice())
-  //        .memmove_scaleout(getSlack());
-  //  }
-  //
-  //  [[nodiscard]] RelBuilder distribute_probe_intraserver(
-  //      RelBuilder input) override{return input;}
-  //
-  //  [[nodiscard]] RelBuilder distribute_build(
-  //      RelBuilder input) override{
-  //    auto rel = input
-  //        .membrdcst_scaleout(getServerDOP().operator unsigned long(),
-  //                            true, false)
-  //        .router_scaleout(
-  //            [&](const auto& arg) -> std::optional<expression_t> {
-  //              return arg["__broadcastTarget"];
-  //            },
-  //            getServerDOP(), getSlack(), RoutingPolicy::HASH_BASED,
-  //            getDevice());
-  //
-  //    return rel;//InputPrefixQueryShaper::distribute_probe(rel);
-  //  }
-  //
-  //  [[nodiscard]] RelBuilder collect_unpacked(
-  //      RelBuilder input) override{
-  //    return input.router_scaleout(
-  //        [&](const auto& arg) -> std::optional<expression_t> {
-  //          return (int)0;  // std::nullopt;
-  //        },
-  //        getServerDOP(), getSlack(), RoutingPolicy::HASH_BASED, getDevice());
-  //  }
-};
-
-class GPUOnlySingleSever : public proteus::InputPrefixQueryShaper {
-  using proteus::InputPrefixQueryShaper::InputPrefixQueryShaper;
-};
-
-class LazyGPUOnlySingleSever : public GPUOnlySingleSever {
-  using GPUOnlySingleSever::GPUOnlySingleSever;
-
- protected:
-  [[nodiscard]] bool doMove() override { return false; }
-  [[nodiscard]] int getSlack() override { return 128; }
-};
-
-class CPUOnlySingleSever : public proteus::InputPrefixQueryShaper {
-  using proteus::InputPrefixQueryShaper::InputPrefixQueryShaper;
-
- protected:
-  [[nodiscard]] DeviceType getDevice() override { return DeviceType::CPU; }
-
-  std::unique_ptr<Affinitizer> getAffinitizer() override {
-    return std::make_unique<CpuNumaNodeAffinitizer>();
-  }
-};
-
-class GPUOnlyHalfFile : public proteus::InputPrefixQueryShaper {
-  using proteus::InputPrefixQueryShaper::InputPrefixQueryShaper;
-
- protected:
-  [[nodiscard]] RelBuilder scan(
-      const std::string& relName,
-      std::initializer_list<std::string> relAttrs) override {
-    if (relName != "lineorder") {
-      return proteus::InputPrefixQueryShaper::scan(relName, relAttrs);
-    }
-    auto rel = getBuilder().scan(getRelName(relName), relAttrs,
-                                 CatalogParser::getInstance(),
-                                 pg{"distributed-block"});
-    rel = rel.hintRowCount(getRowHint(relName) / 2);
-    return rel;
-  }
-};
-
-class CPUOnlyHalfFile : public GPUOnlyHalfFile {
-  using GPUOnlyHalfFile::GPUOnlyHalfFile;
-
- protected:
-  [[nodiscard]] DeviceType getDevice() override { return DeviceType::CPU; }
-
-  [[nodiscard]] std::unique_ptr<Affinitizer> getAffinitizer() override {
-    return std::make_unique<CpuNumaNodeAffinitizer>();
-  }
-};
-
-template <typename T>
-std::unique_ptr<T> make_shaper(
-    size_t SF, decltype(ssb::Query::getStats(std::declval<size_t>())) stat) {
-  return std::make_unique<T>("inputs/ssbm" + std::to_string(SF) + "/",
-                             std::move(stat));
-}
 
 int main(int argc, char* argv[]) {
   FLAGS_colorlogtostderr = true;
@@ -222,12 +53,12 @@ int main(int argc, char* argv[]) {
   std::vector<std::unique_ptr<proteus::QueryShaper>> shapers;
   //  shapers.emplace_back(std::make_unique<proteus::InputPrefixQueryShaper>(
   //      "inputs/ssbm" + std::to_string(SF) + "/", stats));
-  shapers.emplace_back(make_shaper<CPUOnlyShuffleAll>(SF, stats));
+  shapers.emplace_back(make_shaper<proteus::CPUOnlyShuffleAll>(SF, stats));
   //  //  shapers.emplace_back(make_shaper<GPUOnlyShuffleAll>(SF, stats));
-  shapers.emplace_back(make_shaper<CPUOnlyNoShuffle>(SF, stats));
+  shapers.emplace_back(make_shaper<proteus::CPUOnlyNoShuffle>(SF, stats));
   //  //    shapers.emplace_back(make_shaper<GPUOnlySingleSever>(SF, stats));
   //  shapers.emplace_back(make_shaper<CPUOnlySingleSever>(SF, stats));
-  shapers.emplace_back(make_shaper<CPUOnlyHalfFile>(SF, stats));
+  shapers.emplace_back(make_shaper<proteus::CPUOnlyHalfFile>(SF, stats));
   //  //  shapers.emplace_back(make_shaper<GPUOnlyHalfFile>(SF, stats));
   //  //  shapers.emplace_back(make_shaper<LazyGPUNoShuffle>(SF, stats));
   //  //  shapers.emplace_back(make_shaper<LazyGPUOnlySingleSever>(SF, stats));

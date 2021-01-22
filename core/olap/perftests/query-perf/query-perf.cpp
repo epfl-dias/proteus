@@ -26,6 +26,7 @@
 #include <olap/util/demangle.hpp>
 #include <platform/util/glog.hpp>
 #include <platform/util/timing.hpp>
+#include <query-shaping/experimental-shapers.hpp>
 #include <ssb/query.hpp>
 
 void actualRun(PreparedStatement st, benchmark::State &state) {
@@ -44,36 +45,6 @@ void actualRun(PreparedStatement st, benchmark::State &state) {
   }
 
   state.counters["Exec (ms)"] = (exeTime / (its - 1)).count();
-}
-
-namespace proteus {
-class CPUOnlySingleSever : public proteus::InputPrefixQueryShaper {
-  using proteus::InputPrefixQueryShaper::InputPrefixQueryShaper;
-
- protected:
-  [[nodiscard]] DeviceType getDevice() override { return DeviceType::CPU; }
-
-  std::unique_ptr<Affinitizer> getAffinitizer() override {
-    return std::make_unique<CpuNumaNodeAffinitizer>();
-  }
-};
-class GPUOnlySingleSever : public proteus::InputPrefixQueryShaper {
-  using proteus::InputPrefixQueryShaper::InputPrefixQueryShaper;
-
- protected:
-  [[nodiscard]] DeviceType getDevice() override { return DeviceType::GPU; }
-
-  std::unique_ptr<Affinitizer> getAffinitizer() override {
-    return std::make_unique<GPUAffinitizer>();
-  }
-};
-}  // namespace proteus
-
-template <typename T>
-std::unique_ptr<T> make_shaper(
-    size_t SF, decltype(ssb::Query::getStats(std::declval<size_t>())) stat) {
-  return std::make_unique<T>("inputs/ssbm" + std::to_string(SF) + "/",
-                             std::move(stat));
 }
 
 #define QALIAS(name, prepFunction)                                \

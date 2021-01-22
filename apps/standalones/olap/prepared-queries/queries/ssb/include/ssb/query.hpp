@@ -69,4 +69,11 @@ class Query {
 
 };  // namespace ssb
 
+template <typename T>
+std::unique_ptr<T> make_shaper(
+    size_t SF, decltype(ssb::Query::getStats(std::declval<size_t>())) stat) {
+  return std::make_unique<T>("inputs/ssbm" + std::to_string(SF) + "/",
+                             std::move(stat));
+}
+
 #endif /* PROTEUS_SSB100_QUERY_HPP */
