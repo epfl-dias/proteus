@@ -367,9 +367,18 @@ void Router::consume(ParallelContext *const context,
   params = Builder->CreateInsertValue(
       params, Builder->CreateLoad(mem_oidWrapper.mem), wantedFields.size());
 
-  params = Builder->CreateInsertValue(
-      params, context->createInt64(InfiniBandManager::server_id()),
-      wantedFields.size() + 1);
+  auto srcServer = [&]() -> llvm::Value * {
+    try {
+      return Builder->CreateLoad(childState[{wantedFields[0]->getRelationName(),
+                                             "srcServer", new Int64Type()}]
+                                     .mem);
+    } catch (const std::out_of_range &) {
+      return context->createInt64(InfiniBandManager::server_id());
+    }
+  }();
+
+  params =
+      Builder->CreateInsertValue(params, srcServer, wantedFields.size() + 1);
 
   if (need_cnt) {
     RecordAttribute tupleCnt(wantedFields[0]->getRelationName(), "activeCnt",
