@@ -420,9 +420,8 @@ void GpuHashGroupByChained::close(Pipeline *pip) {
   gpu_run(cudaMemcpy(&h_cnt, pip->getStateVar<int32_t *>(cnt_param_id),
                      sizeof(int32_t), cudaMemcpyDefault));
   LOG_IF(INFO, h_cnt < 0.5 * maxInputSize || h_cnt >= maxInputSize)
-      << "Actual build "
-         "input size: "
-      << h_cnt;
+      << "Actual build input size: " << h_cnt << " (capacity: " << maxInputSize
+      << ")";
   assert(((size_t)h_cnt) <= maxInputSize &&
          "Build input sized exceeded given parameter");
   // for (int32_t i = 0 ; i < cnt ; ++i){

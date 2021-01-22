@@ -260,6 +260,7 @@ void BlockToTuples::close(Pipeline *pip) {
 
   if (gpu) {
     h_buffs = (void **)malloc(sizeof(void *) * wantedFields.size());
+    assert(h_buffs);
     cudaStream_t strm = createNonBlockingStream();
     gpu_run(cudaMemcpyAsync(h_buffs, buffs,
                             sizeof(void *) * wantedFields.size(),

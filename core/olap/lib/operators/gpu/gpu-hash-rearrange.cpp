@@ -837,6 +837,7 @@ void GpuHashRearrange::close(Pipeline *pip) {
   // gpu_run(cudaMallocHost ((void **) &h_buffs, h_buffs_bytes + h_cnts_bytes +
   // mv_descs_bytes));
   h_buffs = (void **)malloc(h_buffs_bytes + h_cnts_bytes);
+  assert(h_buffs);
   mv_descs = (mv_description *)MemoryManager::mallocPinned(mv_descs_bytes);
   gpu_run(cudaMemcpyAsync(h_buffs, buffs, h_buffs_bytes + h_cnts_bytes,
                           cudaMemcpyDefault, strm));

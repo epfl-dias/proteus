@@ -65,6 +65,7 @@ void *topology::cpunumanode::alloc(size_t bytes) const {
   bytes = fixSize(bytes);
   void *mem = mmap(nullptr, bytes, PROT_READ | PROT_WRITE,
                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+  LOG_IF(FATAL, mem == MAP_FAILED) << "mmap failed (" << strerror(errno) << ")";
   assert(mem != MAP_FAILED);
   assert((((uintptr_t)mem) % hugepage) == 0);
   linux_run(madvise(mem, bytes, MADV_DONTFORK));
