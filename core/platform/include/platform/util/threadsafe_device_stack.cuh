@@ -96,7 +96,10 @@ class threadsafe_device_stack {  // FIXME: must have a bug
       ;
 
     // assert(cnt < size);
-    data[cnt++] = v;
+    auto x = cnt++;
+    assert(x < size);
+
+    data[x] = v;
     // printf("pushed %p\n", v);
 
     // lock = 0;       //FIXME: atomicExch() is probably needed here. This

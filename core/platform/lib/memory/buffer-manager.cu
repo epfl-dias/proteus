@@ -443,7 +443,8 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
 
       pool_t *tmp = cuda_new<pool_t>(gpu, size, buffs, gpu);
       gpu_run(cudaMemcpyToSymbol(pool, &tmp, sizeof(pool_t *)));
-      pool_t *tmp2 = cuda_new<pool_t>(gpu, size * 8, std::vector<T *>{}, gpu);
+      pool_t *tmp2 =
+          cuda_new<pool_t>(gpu, size * 1024, std::vector<T *>{}, gpu);
       gpu_run(cudaMemcpyToSymbol(npool, &tmp2, sizeof(pool_t *)));
       gpu_run(cudaMemcpyToSymbol(deviceId, &j, sizeof(int)));
       gpu_run(cudaMemcpyToSymbol(buff_start, &mem, sizeof(void *)));
@@ -745,7 +746,7 @@ __host__ void buffer_manager<T>::find_released_buffers(size_t freq) {
   if (devices <= 0) return;
 
   // std::ostream &out = std::cerr;
-  size_t maxFetchedBuffs = 1024;
+  size_t maxFetchedBuffs = 1024 * 1024;
   auto stage = (T **)MemoryManager::mallocPinned(maxFetchedBuffs * sizeof(T *) *
                                                  devices);
 
@@ -761,7 +762,7 @@ __host__ void buffer_manager<T>::find_released_buffers(size_t freq) {
                                          lowest));
   }
 
-  while (!terminating) {
+  while (true) {
     std::this_thread::sleep_for(std::chrono::milliseconds{freq});
 
     for (uint32_t i = 0; i < devices; ++i) {
@@ -775,6 +776,8 @@ __host__ void buffer_manager<T>::find_released_buffers(size_t freq) {
                                                          maxFetchedBuffs);
     }
 
+    bool no_releases = true;
+
     for (uint32_t i = 0; i < devices; ++i) {
       set_device_on_scope d(topo.getGpus()[i]);
 
@@ -787,7 +790,10 @@ __host__ void buffer_manager<T>::find_released_buffers(size_t freq) {
         if (!b) break;
         buffer_manager<T>::release_buffer(b);
       }
+      no_releases = no_releases && (buffs[0] == nullptr);
     }
+
+    if (no_releases && terminating) break;
   }
 
   for (uint32_t i = 0; i < devices; ++i)
