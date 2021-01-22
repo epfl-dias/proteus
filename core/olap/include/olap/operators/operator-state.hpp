@@ -28,6 +28,27 @@
 
 class Operator;
 
+class attribute_not_found_in_state : public std::out_of_range {
+ public:
+  static std::string createWhatFromBindings(
+      const RecordAttribute &key,
+      const map<RecordAttribute, ProteusValueMemory> &vars) {
+    std::stringstream ss;
+    ss << "Looking for: " << key;
+    for (const auto &v : vars) {
+      ss << "  Active binding: " << v.first;
+    }
+    return ss.str();
+  }
+
+  attribute_not_found_in_state(
+      const RecordAttribute &key,
+      const map<RecordAttribute, ProteusValueMemory> &vars,
+      std::out_of_range &source)
+      : std::out_of_range(createWhatFromBindings(key, vars) + '\n' +
+                          source.what()) {}
+};
+
 class OperatorState {
  public:
   OperatorState(const Operator &producer,
@@ -54,13 +75,11 @@ class OperatorState {
   const ProteusValueMemory &operator[](const RecordAttribute &key) const {
     try {
       return activeVariables.at(key);
-    } catch (std::out_of_range &) {
-      LOG(INFO) << "Looking for: " << key;
+    } catch (std::out_of_range &e) {
       for (const auto &v : activeVariables) {
-        LOG(INFO) << "  Active binding: " << v.first;
         if (v.first.getAttrName() == key.getAttrName()) return v.second;
       }
-      throw;
+      throw attribute_not_found_in_state(key, activeVariables, e);
     }
   }
 
