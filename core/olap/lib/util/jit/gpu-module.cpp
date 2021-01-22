@@ -69,8 +69,6 @@ using namespace llvm;
 constexpr uint64_t nvptx_max_regs = NVPTX_MAX_REGS;
 
 LLVMTargetMachine *GpuModule::TheTargetMachine = nullptr;
-legacy::PassManager GpuModule::Passes;
-PassManagerBuilder GpuModule::Builder;
 
 GpuModule::GpuModule(Context *context, std::string pipName)
     : JITModule(context, pipName) {
@@ -150,51 +148,6 @@ void GpuModule::init() {
       opt, RM,
       llvm::Optional<llvm::CodeModel::Model>{},  // CodeModel::Model::Default,
       llvm::CodeGenOpt::Aggressive);
-
-  // // Override function attributes based on CPUStr, FeaturesStr, and command
-  // line
-  // // flags.
-  // setFunctionAttributes(CPUStr, FeaturesStr, *M);
-
-  // TheTargetMachine->setDataLayout("e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-"
-  //                        "i64:64:64-f32:32:32-f64:64:64-v16:16:16-v32:32:32-"
-  //                        "v64:64:64-v128:128:128-n16:32:64");
-  llvm::Triple ModuleTriple(TargetTriple);
-  llvm::TargetLibraryInfoImpl TLII(ModuleTriple);
-
-  Passes.add(new llvm::TargetLibraryInfoWrapperPass(TLII));
-
-  // Add internal analysis passes from the target machine.
-  Passes.add(createTargetTransformInfoWrapperPass(
-      TheTargetMachine->getTargetIRAnalysis()));
-
-  // FPasses.reset(new llvm::legacy::FunctionPassManager(getModule()));
-  // FPasses->add(createTargetTransformInfoWrapperPass(TheTargetMachine->getTargetIRAnalysis()));
-
-  llvm::Pass *TPC = TheTargetMachine->createPassConfig(Passes);
-  Passes.add(TPC);
-
-  // if (!NoVerify || VerifyEach)
-  //   FPM.add(createVerifierPass()); // Verify that input is correct
-
-  Builder.OptLevel = 3;
-  Builder.SizeLevel = 0;
-
-  Builder.Inliner = llvm::createFunctionInliningPass(3, 0, false);
-
-  Builder.DisableUnrollLoops = false;
-  Builder.LoopVectorize = true;
-
-  // When #pragma vectorize is on for SLP, do the same as above
-  Builder.SLPVectorize = true;
-
-  TheTargetMachine->adjustPassManager(Builder);
-
-  // if (Coroutines)
-  //   addCoroutinePassesToExtensionPoints(Builder);
-
-  // Builder.populateFunctionPassManager(*FPasses);
-  Builder.populateModulePassManager(Passes);
 }
 
 class GpuPassConfiguration {
@@ -221,6 +174,9 @@ class GpuPassConfiguration {
     Pass *TPC =
         dynamic_cast<LLVMTargetMachine *>(JTM.get())->createPassConfig(Passes);
     Passes.add(TPC);
+    Passes.add(createGlobalDCEPass());
+    //    Passes.add(createDeadCodeEliminationPass());
+    //    Passes.add(createWarnMissedTransformationsPass());
 
     Passes.add(new TargetLibraryInfoWrapperPass(TLII));
 
@@ -243,23 +199,6 @@ class GpuPassConfiguration {
     Builder.populateModulePassManager(Passes);
   }
 };
-
-void GpuModule::optimizeModule(llvm::Module *M) {
-  time_block t("Optimization time: ");
-
-  llvm::legacy::FunctionPassManager FPasses{M};
-  FPasses.add(createTargetTransformInfoWrapperPass(
-      TheTargetMachine->getTargetIRAnalysis()));
-
-  Builder.populateFunctionPassManager(FPasses);
-
-  FPasses.doInitialization();
-  for (llvm::Function &F : *M) FPasses.run(F);
-  FPasses.doFinalization();
-
-  // Now that we have all of the passes ready, run them.
-  Passes.run(*M);
-}
 
 constexpr size_t BUFFER_SIZE = 8192;
 static char error_log[BUFFER_SIZE];
@@ -530,6 +469,15 @@ llvm::orc::ThreadSafeModule optimizeGpuModule(
       // Now that we have all of the passes ready, run them.
       pc.Passes.run(M);
     }
+
+    if (print_generated_code) {
+      std::error_code EC;
+      llvm::raw_fd_ostream out(
+          ("generated_code/" + M.getName() + "_opt.ll").str(), EC,
+          llvm::sys::fs::OpenFlags::F_None);
+
+      M.print(out, nullptr, false, true);
+    }
   });
   return TSM;
 }
@@ -716,19 +664,6 @@ void GpuModule::compileAndLoad() {
     nm.setSourceFileName("this_gpu_" + pipName);
   });
   getGPUJiter().p_impl->addModule(std::move(ptr));
-
-  // Dump to see final (optimized) form
-#ifdef DEBUGCTX
-  // getModule()->dump();
-
-  if (print_generated_code) {
-    std::error_code EC;
-    llvm::raw_fd_ostream out("generated_code/" + pipName + "_opt.ll", EC,
-                             llvm::sys::fs::OpenFlags::F_None);
-
-    getModule()->print(out, nullptr, false, true);
-  }
-#endif
 
   //  string ptx;
   //  {

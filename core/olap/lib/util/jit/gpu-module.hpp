@@ -34,8 +34,6 @@
 class GpuModule : public JITModule {
  protected:
   static llvm::LLVMTargetMachine *TheTargetMachine;
-  static llvm::legacy::PassManager Passes;
-  static llvm::PassManagerBuilder Builder;
   // static std::unique_ptr<llvm::legacy::FunctionPassManager>   FPasses ;
 
  protected:
@@ -55,7 +53,6 @@ class GpuModule : public JITModule {
 
  protected:
   std::set<std::string> preserveFromInternalization;
-  virtual void optimizeModule(llvm::Module *M);
 };
 
 #endif /* GPU_MODULE_HPP_ */
