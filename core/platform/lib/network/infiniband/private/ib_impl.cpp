@@ -170,7 +170,8 @@ IBimpl::IBimpl(ibv_device *device)
     attr.qp_state = IBV_QPS_INIT;
     // attr.pkey_index = 0;
     attr.port_num = ib_port;
-    attr.qp_access_flags = IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ;
+    attr.qp_access_flags = static_cast<unsigned int>(IBV_ACCESS_LOCAL_WRITE) |
+                           IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ;
 
     linux_run(ibv_modify_qp(qp, &attr,
                             static_cast<unsigned int>(IBV_QP_STATE) |
@@ -213,14 +214,29 @@ IBimpl::~IBimpl() {
 }
 
 void IBimpl::reg(const void *mem, size_t bytes) {
-  LOG(INFO) << "reg: " << mem << "-" << ((void *)(((char *)mem) + bytes));
-
   ibv_mr *mr = ibv_reg_mr(pd, const_cast<void *>(mem), bytes,
                           static_cast<unsigned int>(IBV_ACCESS_LOCAL_WRITE) |
                               IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ);
   if (!mr) {
-    mr = linux_run(
-        ibv_reg_mr(pd, const_cast<void *>(mem), bytes, IBV_ACCESS_REMOTE_READ));
+    LOG(INFO) << strerror(errno) << " " << errno << " " << ENOMEM;
+    mr = ibv_reg_mr(pd, const_cast<void *>(mem), bytes,
+                    static_cast<unsigned int>(IBV_ACCESS_LOCAL_WRITE) |
+                        IBV_ACCESS_REMOTE_READ);
+    if (!mr) {
+      LOG(INFO) << strerror(errno) << " " << errno << " " << ENOMEM;
+      mr = linux_run(ibv_reg_mr(pd, const_cast<void *>(mem), bytes,
+                                IBV_ACCESS_REMOTE_READ));
+      assert(errno != ENOMEM);
+      LOG(INFO) << "reg (local): " << mem << "-"
+                << ((void *)(((char *)mem) + bytes)) << "(ro)";
+
+    } else {
+      LOG(INFO) << "reg (local): " << mem << "-"
+                << ((void *)(((char *)mem) + bytes)) << "(ro,local-write)";
+    }
+  } else {
+    LOG(INFO) << "reg (local): " << mem << "-"
+              << ((void *)(((char *)mem) + bytes)) << "(rw)";
   }
   assert(mr->addr == mem);
 
