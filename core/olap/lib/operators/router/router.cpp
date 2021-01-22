@@ -342,9 +342,11 @@ void Router::consume(ParallelContext *const context,
   Plugin *pg =
       Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
 
+  auto rec = childState.getProducer().getRowType();
+  ExpressionGeneratorVisitor vis{context, childState};
   for (size_t i = 0; i < wantedFields.size(); ++i) {
-    ProteusValueMemory mem_valWrapper = childState[*(wantedFields[i])];
-    auto v = Builder->CreateLoad(mem_valWrapper.mem);
+    auto v =
+        expressions::InputArgument{&rec}[*wantedFields[i]].accept(vis).value;
 
     auto vi =
         (v->getType()->isPointerTy() &&
@@ -353,7 +355,7 @@ void Router::consume(ParallelContext *const context,
              params_type->getStructElementType(i)->getPointerElementType())
             ? Builder->CreateInBoundsGEP(
                   v, {context->createInt32(0), context->createInt32(0)})
-            : v;
+            : v;  // Is this still relevant?
 
     params = Builder->CreateInsertValue(params, vi, i);
   }
