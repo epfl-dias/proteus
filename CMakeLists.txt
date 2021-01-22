@@ -144,6 +144,8 @@ if (DOXYGEN_FOUND)
   )
 endif ()
 
+install(DIRECTORY "frontends/R/" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/frontends/R/)	# Creates <..>/pelago/frontends/R
+
 #-----------------------------------------------------------------------
 # Build our libraries
 #-----------------------------------------------------------------------

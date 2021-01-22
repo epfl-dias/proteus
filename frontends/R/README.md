@@ -32,7 +32,8 @@ In order to use these templates, please:
 To build this project, you will need to run the following:
 
 ```sh
-make
+# make
+R CMD build R
 ```
 
 ### Installation
@@ -40,7 +41,9 @@ make
 To install the software on the system you can use:
 
 ```sh
-make install
+# make install
+R -e "install.packages(c('DBI', 'lazyeval', 'jsonlite', 'dbplyr', 'dplyr', 'rlang', 'RJDBC', 'purrr', 'stringi', 'Rcpp'), repos='http://cran.rstudio.com/')"
+R -e "install.packages('ViDaR_0.1.5.tar.gz', dependencies = TRUE)"
 ```
 
 ### Usage

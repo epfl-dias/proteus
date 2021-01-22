@@ -33,19 +33,19 @@ sql_select.ViDaRConnection <- function(con, select, from, where = NULL,
   }
 
 
-  out$select <- dbplyr:::sql_clause_select(select, con, distinct)
+  out$select <- dbplyr:::sql_clause_select(con = con, select, distinct)
 
-  out$from <- dbplyr:::sql_clause_from(from, con)
+  out$from <- dbplyr:::sql_clause_from(con = con, from)
 
-  out$where <- dbplyr:::sql_clause_where(where, con)
+  out$where <- dbplyr:::sql_clause_where(con = con, where)
 
   # TO CHECK case for not querying when the condition is (0 = 1) - lazy load
   #if(where == translate_sql(0L == 1L))
   #  return(escape(build_sql(sql("LAZY "), from)))
 
-  out$group_by <- dbplyr:::sql_clause_group_by(group_by, con)
-  out$having <- dbplyr:::sql_clause_having(having, con)
-  out$order_by <- dbplyr:::sql_clause_order_by(order_by, con)
+  out$group_by <- dbplyr:::sql_clause_group_by(con = con, group_by)
+  out$having <- dbplyr:::sql_clause_having(con = con, having)
+  out$order_by <- dbplyr:::sql_clause_order_by(con = con, order_by)
 
   # Limits are not supported (yet)
   #out$limit <- dbplyr:::sql_clause_limit(limit, con)

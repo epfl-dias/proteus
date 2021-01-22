@@ -92,21 +92,21 @@ setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"
   else
     is.print = FALSE
 
-  # case for loading 0 rows
-  if(grepl("(0 = 1)",as.character(statement))){
-
-    if(is.print) {
-      print('raw statement:')
-      print(as.character(statement))
-    }
-
-    env$conn <- conn
-    env$query <- statement
-    env$lazy <- TRUE
-    env$table_name <- extractFrom(as.character(statement), conn@identifier.quote)
-
-    return(new("ViDaRResult", env=env))
-  }
+  # # case for loading 0 rows
+  # if(grepl("(0 = 1)",as.character(statement))){
+  #
+  #   if(is.print) {
+  #     print('raw statement:')
+  #     print(as.character(statement))
+  #   }
+  #
+  #   env$conn <- conn
+  #   env$query <- statement
+  #   env$lazy <- TRUE
+  #   env$table_name <- extractFrom(as.character(statement), conn@identifier.quote)
+  #
+  #   return(new("ViDaRResult", env=env))
+  # }
 
   # send the query to ViDa for execution
   if(is.print) {
@@ -122,7 +122,7 @@ setMethod("dbSendQuery", signature(conn="ViDaRConnection", statement="character"
   env$query <- statement
   env$lazy <- FALSE
 
-  invisible(new("ViDaRResult", jr=jdbcres@jr, md=jdbcres@md, stat=jdbcres@stat, pull=jdbcres@pull,  env=env))
+  invisible(new("ViDaRResult", jr=jdbcres@jr, md=jdbcres@md, stat=jdbcres@stat,  env=env))
   })
 
 setMethod("dbSendStatement", signature(conn="ViDaRConnection", statement="character"), def = function(conn, statement, ...){

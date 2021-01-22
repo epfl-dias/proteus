@@ -41,6 +41,17 @@ vidar.default.connection(con)
 #              delimiter = ",", policy = 2, brackets = FALSE, name = "iris1")
 # unnest test
 
+# pure SQL query - DBI
+query <- paste0("SELECT sum(d_year), count(*), sum(lo_revenue-lo_supplycost) as profit ",
+                "from dates, customer, supplier, part, lineorder ",
+                "where lo_custkey=c_custkey and lo_suppkey=s_suppkey and lo_partkey=p_partkey ",
+                "and lo_orderdate=d_datekey and c_region='AMERICA' and s_region='AMERICA' ",
+                "and (p_mfgr='MFGR#1' or p_mfgr='MFGR#2')")
+
+tmp_tbl <- dbGetQuery(con, query) # wraps around dbSendQuery and dbFetch
+tmp_tbl
+
+
 a <- tbl(con, "A")
 a %>% select(A1)
 
