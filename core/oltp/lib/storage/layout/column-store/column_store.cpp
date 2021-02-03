@@ -40,25 +40,12 @@
 #include "oltp/common/numa-partition-policy.hpp"
 #include "oltp/storage/multi-version/delta_storage.hpp"
 #include "oltp/storage/multi-version/mv.hpp"
+#include "oltp/storage/storage-utils.hpp"
 #include "oltp/storage/table.hpp"
 
 namespace storage {
 
 static std::mutex print_mutex;
-
-static inline rowid_t __attribute__((always_inline))
-CC_gen_vid(rowid_t vid, partition_id_t partition_id,
-           master_version_t master_ver) {
-  return ((vid & 0x000000FFFFFFFFFFu) |
-          ((uint64_t)(partition_id & 0x00FFu) << 40u) |
-          ((uint64_t)(master_ver & 0x00FFu) << 48u));
-}
-
-static inline rowid_t __attribute__((always_inline))
-CC_upd_vid_mVer(rowid_t vid, master_version_t master_version) {
-  return (vid & 0xFF00FFFFFFFFFFFFu) |
-         ((uint64_t)(master_version & 0x00FFu) << 48u);
-}
 
 //-----------------------------------------------------------------
 // ColumnStore
@@ -86,6 +73,8 @@ ColumnStore::ColumnStore(table_id_t table_id, std::string name,
   this->deltaStore = storage::Schema::getInstance().deltaStore;
   this->n_columns = columns.size();
   this->n_partitions = (numa_partitioned ? g_num_partitions : 1);
+
+  assert(g_num_partitions <= topology::getInstance().getCpuNumaNodeCount());
 
   std::vector<proteus::thread> loaders;
 
@@ -130,10 +119,9 @@ ColumnStore::ColumnStore(table_id_t table_id, std::string name,
                 numa_partitioned, reserved_capacity, numa_idx));
         break;
       case SnapshotTypes::LazyMaster:
-        //        this->columns.emplace_back(std::make_unique<storage::LazyColumn>(
-        //            col_id_ctr++, t.getName(), t.getType(), col_width,
-        //            col_offset, numa_partitioned, reserved_capacity,
-        //            numa_idx));
+        this->columns.emplace_back(std::make_unique<storage::LazyColumn>(
+            col_id_ctr++, t.getName(), t.getType(), col_width, col_offset,
+            numa_partitioned, reserved_capacity, numa_idx));
         break;
       default:
         throw std::runtime_error(
@@ -179,8 +167,9 @@ global_conf::IndexVal* ColumnStore::insertRecordBatch(
   partition_id = partition_id % this->n_partitions;
   uint64_t idx_st = vid[partition_id].fetch_add(num_records);
   // get batch from meta column
-  uint64_t st_vid = CC_gen_vid(idx_st, partition_id, master_ver);
-  uint64_t st_vid_meta = CC_gen_vid(idx_st, partition_id, 0);
+
+  uint64_t st_vid = StorageUtils::create_vid(idx_st, partition_id, master_ver);
+  uint64_t st_vid_meta = StorageUtils::create_vid(idx_st, partition_id, 0);
 
   global_conf::IndexVal* hash_ptr = nullptr;
   if (this->indexed) {
@@ -191,7 +180,8 @@ global_conf::IndexVal* ColumnStore::insertRecordBatch(
 
     for (uint i = 0; i < num_records; i++) {
       hash_ptr[i].t_min = transaction_id;
-      hash_ptr[i].VID = CC_gen_vid(idx_st + i, partition_id, master_ver);
+      hash_ptr[i].VID =
+          StorageUtils::create_vid(idx_st + i, partition_id, master_ver);
     }
   }
 
@@ -219,12 +209,12 @@ global_conf::IndexVal* ColumnStore::insertRecord(const void* data,
 
   partition_id = partition_id % this->n_partitions;
   uint64_t idx = vid[partition_id].fetch_add(1);
-  uint64_t curr_vid = CC_gen_vid(idx, partition_id, master_ver);
+  uint64_t curr_vid = StorageUtils::create_vid(idx, partition_id, master_ver);
 
   global_conf::IndexVal* hash_ptr = nullptr;
 
   if (indexed) {
-    auto indexed_cc_vid = CC_gen_vid(idx, partition_id, 0);
+    auto indexed_cc_vid = StorageUtils::create_vid(idx, partition_id, 0);
     hash_ptr =
         (global_conf::IndexVal*)this->metaColumn->getElem(indexed_cc_vid);
     assert(hash_ptr != nullptr);
@@ -333,12 +323,12 @@ void ColumnStore::updateRecord(xid_t transaction_id,
 
   assert((num_columns > 0 && col_idx != nullptr) || num_columns <= 0);
 
-  partition_id_t pid = CC_extract_pid(index_ptr->VID);
-  master_version_t m_ver = CC_extract_m_ver(index_ptr->VID);
+  partition_id_t pid = StorageUtils::get_pid(index_ptr->VID);
+  master_version_t m_ver = StorageUtils::get_m_version(index_ptr->VID);
   char* cursor = static_cast<char*>(data);
 
   auto old_vid = index_ptr->VID;
-  index_ptr->VID = CC_upd_vid_mVer(index_ptr->VID, master_ver);
+  index_ptr->VID = StorageUtils::update_mVer(index_ptr->VID, master_ver);
 
   auto version_ptr = mv::mv_type::create_versions(
       transaction_id, index_ptr, column_size,

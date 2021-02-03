@@ -27,6 +27,7 @@
 #include <cstdlib>
 
 #include "oltp/common/common.hpp"
+#include "oltp/snapshot/arena.hpp"
 #include "oltp/snapshot/circular_master_arena.hpp"
 #include "oltp/snapshot/cor_const_arena.hpp"
 #include "oltp/snapshot/cow_arena.hpp"
@@ -48,5 +49,82 @@ class SnapshotManager_impl {
 using SnapshotManager = SnapshotManager_impl<CircularMasterProvider>;
 
 }  // namespace aeolus::snapshot
+
+namespace oltp::snapshot {
+
+class SnapshotMaster {
+ public:
+  static inline SnapshotMaster &getInstance() {
+    static SnapshotMaster instance;
+    return instance;
+  }
+  SnapshotMaster(SnapshotMaster const &) = delete;  // Don't Implement
+  void operator=(SnapshotMaster const &) = delete;  // Don't implement
+
+  // typedef std::shared_ptr<std::array<aeolus::snapshot::ArenaV2,
+  // MAX_PARTITIONS>>&  SnapshotEntity;
+
+  // first vector -> partition.
+  // second vector -> segment within the partitions.
+  typedef std::vector<std::vector<std::shared_ptr<aeolus::snapshot::ArenaV2>>>
+      SnapshotEntity;
+
+  // returns snapshotEntity ID.
+  std::tuple<size_t, SnapshotEntity> registerSnapshotEntity(
+      SnapshotTypes type, std::string name, partition_id_t n_partitions,
+      size_t segments_per_partition = 1);
+
+  //  std::vector<std::pair<void*, size_t>>
+  //  snapshot_get_data(size_t scan_idx,
+  //                                 std::vector<RecordAttribute*>&
+  //                                 wantedFields, bool olap_local, bool
+  //                                 elastic_scan);
+
+  [[maybe_unused]] inline SnapshotEntity &getSnapshotArena(size_t entity_id) {
+    assert(snapshot_arenas.contains(entity_id));
+    return snapshot_arenas[entity_id];
+  }
+  [[maybe_unused]] inline SnapshotEntity &getSnapshotArena(
+      std::string entity_name) {
+    assert(entity_id_map.contains(entity_name));
+    return snapshot_arenas[entity_id_map[entity_name]];
+  }
+
+  [[nodiscard]] inline bool isMechanismActive(SnapshotTypes type) const {
+    switch (type) {
+      case CircularMaster:
+        return isCircularMaster_used;
+      case LazyMaster:
+        return isLazyMaster_used;
+      case None:
+      case MVCC:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  void snapshot();
+
+ private:
+  SnapshotMaster()
+      : isCircularMaster_used(false),
+        isLazyMaster_used(false),
+        entity_id_assignment(0) {}
+
+  void createCircularMasterEntity(size_t entity_id, partition_id_t n_partitions,
+                                  size_t segments_per_partition = 1);
+
+ private:
+  bool isCircularMaster_used;
+  bool isLazyMaster_used;
+  std::atomic<size_t> entity_id_assignment;
+
+ private:
+  std::map<std::string, size_t> entity_id_map{};
+  std::map<size_t, SnapshotEntity> snapshot_arenas{};
+};
+
+}  // namespace oltp::snapshot
 
 #endif /* AEOLUS_SNAPSHOT_SNAPSHOT_MANAGER_HPP_ */

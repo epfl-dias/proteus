@@ -38,6 +38,7 @@
 #include "oltp/common/numa-partition-policy.hpp"
 #include "oltp/storage/layout/column_store.hpp"
 #include "oltp/storage/multi-version/delta_storage.hpp"
+#include "oltp/storage/storage-utils.hpp"
 #include "oltp/storage/table.hpp"
 
 namespace storage {
@@ -74,8 +75,6 @@ CircularMasterColumn::CircularMasterColumn(
     int numa_idx)
     : Column(SnapshotTypes::CircularMaster, column_id, name, type, unit_size,
              offset_inRecord, numa_partitioned) {
-  assert(g_num_partitions <= topology::getInstance().getCpuNumaNodeCount());
-
   this->capacity = reserved_capacity;
   this->capacity_per_partition =
       (reserved_capacity / n_partitions) + (reserved_capacity % n_partitions);
@@ -182,10 +181,10 @@ void CircularMasterColumn::initializeMetaColumn() const {
  */
 
 void* CircularMasterColumn::getElem(rowid_t vid) {
-  partition_id_t pid = CC_extract_pid(vid);
-  size_t data_idx = CC_extract_offset(vid) * unit_size;
+  partition_id_t pid = StorageUtils::get_pid(vid);
+  size_t data_idx = StorageUtils::get_offset(vid) * unit_size;
 
-  assert(CC_extract_m_ver(vid) == 0 &&
+  assert(StorageUtils::get_m_version(vid) == 0 &&
          "shouldn't be used for attribute columns");
   assert(!master_versions[0][pid].empty());
 
@@ -200,9 +199,9 @@ void* CircularMasterColumn::getElem(rowid_t vid) {
 }
 
 void CircularMasterColumn::getElem(rowid_t vid, void* copy_location) {
-  partition_id_t pid = CC_extract_pid(vid);
-  master_version_t m_ver = CC_extract_m_ver(vid);
-  size_t data_idx = CC_extract_offset(vid) * unit_size;
+  partition_id_t pid = StorageUtils::get_pid(vid);
+  master_version_t m_ver = StorageUtils::get_m_version(vid);
+  size_t data_idx = StorageUtils::get_offset(vid) * unit_size;
 
   assert(master_versions[m_ver][pid].size() != 0);
 
@@ -217,48 +216,31 @@ void CircularMasterColumn::getElem(rowid_t vid, void* copy_location) {
 }
 
 void CircularMasterColumn::updateElem(rowid_t vid, void* elem) {
-  partition_id_t pid = CC_extract_pid(vid);
-  master_version_t mver = CC_extract_m_ver(vid);
-  size_t offset = CC_extract_offset(vid);
-  size_t data_idx = offset * unit_size;
+  partition_id_t pid = StorageUtils::get_pid(vid);
+  master_version_t mver = StorageUtils::get_m_version(vid);
+  size_t offset = StorageUtils::get_offset(vid);
 
-  assert(pid < g_num_partitions);
-  assert(data_idx < total_size_per_partition);
+  assert(pid < n_partitions);
+  assert(offset < capacity_per_partition);
 
-  for (const auto& chunk : master_versions[mver][pid]) {
-    if (__likely(chunk.size >= (data_idx + unit_size))) {
-      void* dst = (void*)(((char*)chunk.data) + data_idx);
+  if (__likely(
+          UpdateInPlace(master_versions[mver][pid], offset, unit_size, elem))) {
+    upd_bit_masks[mver][pid][offset / BIT_PACK_SIZE].set(offset %
+                                                         BIT_PACK_SIZE);
 
-      char* src_t = (char*)chunk.data;
-      char* dst_t = (char*)dst;
+    if (!this->touched[pid]) this->touched[pid] = true;
 
-      assert(src_t <= dst_t);
-      assert((src_t + chunk.size) >= (dst_t + this->unit_size));
-
-      // assert(elem != nullptr);
-      if (__unlikely(elem == nullptr)) {
-        // YCSB update hack.
-        (*((uint64_t*)dst_t))++;
-      } else {
-        std::memcpy(dst, elem, this->unit_size);
-      }
-
-      upd_bit_masks[mver][pid][offset / BIT_PACK_SIZE].set(offset %
-                                                           BIT_PACK_SIZE);
-      if (!this->touched[pid]) this->touched[pid] = true;
-      return;
-    }
+  } else {
+    assert(false && "Out Of Memory Error");
   }
-
-  assert(false && "Out Of Memory Error");
 }
 
 void* CircularMasterColumn::insertElem(rowid_t vid) {
   assert(this->type == META);
 
-  partition_id_t pid = CC_extract_pid(vid);
-  master_version_t mver = CC_extract_m_ver(vid);
-  size_t data_idx = CC_extract_offset(vid) * unit_size;
+  partition_id_t pid = StorageUtils::get_pid(vid);
+  master_version_t mver = StorageUtils::get_m_version(vid);
+  size_t data_idx = StorageUtils::get_offset(vid) * unit_size;
 
   assert(pid < g_num_partitions);
   assert((data_idx / unit_size) < capacity_per_partition);
@@ -276,36 +258,22 @@ void* CircularMasterColumn::insertElem(rowid_t vid) {
 }
 
 void CircularMasterColumn::insertElem(rowid_t vid, void* elem) {
-  partition_id_t pid = CC_extract_pid(vid);
-  master_version_t mver = CC_extract_m_ver(vid);
-  size_t offset = CC_extract_offset(vid);
-  size_t data_idx = offset * unit_size;
+  partition_id_t pid = StorageUtils::get_pid(vid);
+  master_version_t mver = StorageUtils::get_m_version(vid);
+  size_t offset = StorageUtils::get_offset(vid);
 
-  assert(pid < g_num_partitions);
-  assert(data_idx < total_size_per_partition);
+  assert(pid < n_partitions);
+  assert(offset < capacity_per_partition);
 
   for (auto i = 0; i < global_conf::num_master_versions; i++) {
-    bool ins = false;
-    for (const auto& chunk : master_versions[i][pid]) {
-      if (__likely(chunk.size >= (data_idx + unit_size))) {
-        void* dst = (void*)(((char*)chunk.data) + data_idx);
-        if (__unlikely(elem == nullptr)) {
-          uint64_t* tptr = (uint64_t*)dst;
-          (*tptr)++;
-        } else {
-          char* src_t = (char*)chunk.data;
-          char* dst_t = (char*)dst;
+    if (__unlikely(UpdateInPlace(master_versions[i][pid], offset, unit_size,
+                                 elem) == false)) {
+      LOG(INFO) << "(1) ALLOCATE MORE MEMORY:\t" << this->name
+                << ",vid: " << vid << ", idx:" << offset << ", pid: " << pid;
 
-          assert(src_t <= dst_t);
-          assert((src_t + chunk.size) >= (dst_t + this->unit_size));
-
-          std::memcpy(dst, elem, this->unit_size);
-        }
-
-        ins = true;
-        break;
-      }
+      assert(false && "Out Of Memory Error");
     }
+
 #if HTAP_UPD_BIT_ON_INSERT
     if (__likely(i == mver)) {
       upd_bit_masks[mver][pid][offset / BIT_PACK_SIZE].set(offset %
@@ -313,22 +281,15 @@ void CircularMasterColumn::insertElem(rowid_t vid, void* elem) {
       if (!this->touched[pid]) this->touched[pid] = true;
     }
 #endif
-    if (__unlikely(ins == false)) {
-      LOG(INFO) << "(1) ALLOCATE MORE MEMORY:\t" << this->name
-                << ",vid: " << vid << ", idx:" << (data_idx / unit_size)
-                << ", pid: " << pid;
-
-      assert(false && "Out Of Memory Error");
-    }
   }
 }
 
 void* CircularMasterColumn::insertElemBatch(rowid_t vid, uint16_t num_elem) {
   assert(this->type == META);
 
-  partition_id_t pid = CC_extract_pid(vid);
-  master_version_t mver = CC_extract_m_ver(vid);
-  size_t data_idx_st = CC_extract_offset(vid) * unit_size;
+  partition_id_t pid = StorageUtils::get_pid(vid);
+  master_version_t mver = StorageUtils::get_m_version(vid);
+  size_t data_idx_st = StorageUtils::get_offset(vid) * unit_size;
   size_t data_idx_en = data_idx_st + (num_elem * unit_size);
 
   assert(pid < g_num_partitions);
@@ -348,8 +309,8 @@ void* CircularMasterColumn::insertElemBatch(rowid_t vid, uint16_t num_elem) {
 
 void CircularMasterColumn::insertElemBatch(rowid_t vid, uint16_t num_elem,
                                            void* data) {
-  partition_id_t pid = CC_extract_pid(vid);
-  size_t offset = CC_extract_offset(vid);
+  partition_id_t pid = StorageUtils::get_pid(vid);
+  size_t offset = StorageUtils::get_offset(vid);
   size_t data_idx_st = offset * unit_size;
   size_t copy_size = num_elem * this->unit_size;
   size_t data_idx_en = data_idx_st + copy_size;

@@ -24,21 +24,24 @@
 #ifndef STORAGE_ROW_STORE_HPP_
 #define STORAGE_ROW_STORE_HPP_
 
-#include <assert.h>
-
+#include <cassert>
+#include <deque>
 #include <iostream>
 #include <map>
+#include <platform/memory/allocator.hpp>
+#include <platform/memory/block-manager.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <tuple>
 #include <vector>
 
-#include "constants.hpp"
-#include "indexes/hash_index.hpp"
-#include "storage/memory_manager.hpp"
-#include "storage/multi-version/delta_storage.hpp"
-#include "storage/multi-version/mv.hpp"
-#include "storage/table.hpp"
+#include "oltp/common/atomic_bit_set.hpp"
+#include "oltp/common/common.hpp"
+#include "oltp/common/constants.hpp"
+#include "oltp/common/memory-chunk.hpp"
+#include "oltp/storage/table.hpp"
 
 namespace storage {
 
@@ -49,62 +52,46 @@ class RowStore;
 
 class RowStore : public Table {
  public:
-  RowStore(uint8_t table_id, std::string name, ColumnDef columns,
-           uint64_t initial_num_records = 10000000, bool indexed = true,
-           bool partitioned = true, int numa_idx = -1);
+  RowStore(table_id_t table_id, std::string name, TableDef columns,
+           bool indexed = true, bool numa_partitioned = true,
+           size_t reserved_capacity = 1000000, int numa_idx = -1);
 
-  uint64_t insertRecord(void *rec, ushort partition_id,
-                        ushort master_ver) override;
-  void *insertRecord(void *rec, uint64_t xid, ushort partition_id,
-                     ushort master_ver) override;
-  void *insertRecordBatch(void *rec_batch, uint recs_to_ins,
-                          uint capacity_offset, uint64_t xid,
-                          ushort partition_id, ushort master_ver) override;
+  ~RowStore() override;
 
-  void updateRecord(uint64_t xid, global_conf::IndexVal *hash_ptr,
-                    const void *rec, ushort curr_master, ushort curr_delta,
-                    const ushort *col_idx = nullptr,
-                    short num_cols = -1) override;
+  global_conf::IndexVal *insertRecord(const void *data, xid_t transaction_id,
+                                      partition_id_t partition_id,
+                                      master_version_t master_ver = 0) override;
+  global_conf::IndexVal *insertRecordBatch(
+      const void *data, size_t num_records, size_t max_capacity,
+      xid_t transaction_id, partition_id_t partition_id,
+      master_version_t master_ver = 0) override;
 
-  void getRecordByKey(uint64_t vid, const ushort *col_idx, ushort num_cols,
-                      void *loc) override;
+  void updateRecord(xid_t transaction_id, global_conf::IndexVal *index_ptr,
+                    void *data, delta_id_t current_delta_id,
+                    const column_id_t *col_idx = nullptr,
+                    short num_columns = -1,
+                    master_version_t master_ver = 0) override;
 
-  void touchRecordByKey(uint64_t vid) override;
-
-  storage::mv::mv_version_chain *getVersions(uint64_t vid);
-
-  void deleteRecord(uint64_t vid, ushort master_ver) override {
-    assert(false && "Not implemented");
+  [[noreturn]] void updateRecordBatch(
+      xid_t transaction_id, global_conf::IndexVal *index_ptr, void *data,
+      size_t num_records, delta_id_t current_delta_id,
+      const column_id_t *col_idx = nullptr, short num_columns = -1,
+      master_version_t master_ver = 0) override {
+    throw std::runtime_error("Unimplemented");
   }
 
-  [[noreturn]] std::vector<const void *> getRecordByKey(
-      uint64_t vid, const ushort *col_idx, ushort num_cols) override {
-    assert(false && "Not implemented");
+  void deleteRecord(xid_t transaction_id, global_conf::IndexVal *index_ptr,
+                    master_version_t master_ver = 0) override {
+    throw std::runtime_error("Unimplemented");
   }
 
-  [[noreturn]] void getRecordByKey(uint64_t vid, ushort master_ver,
-                                   const std::vector<ushort> *col_idx,
-                                   void *loc) {
-    assert(false && "Not implemented");
-  }
+  void getIndexedRecord(xid_t transaction_id, global_conf::IndexVal *index_ptr,
+                        void *destination, const column_id_t *col_idx = nullptr,
+                        short num_cols = -1) override;
 
-  [[noreturn]] void getRecordByKey(global_conf::IndexVal *idx_ptr,
-                                   uint64_t txn_id, ushort curr_delta,
-                                   const ushort *col_idx, ushort num_cols,
-                                   void *loc) override {
-    assert(false && "Not implemented");
-  }
-
-  [[noreturn]] void insertIndexRecord(uint64_t rid, uint64_t xid,
-                                      ushort partition_id,
-                                      ushort master_ver) override {
-    assert(false && "Not implemented");
-  }
-
-  [[noreturn]] void snapshot(uint64_t epoch,
-                             uint8_t snapshot_master_ver) override {
-    assert(false && "Not implemented");
-  }
+  void getRecord(xid_t transaction_id, rowid_t rowid, void *destination,
+                 const column_id_t *col_idx = nullptr,
+                 short num_cols = -1) override;
 
  private:
   size_t rec_size;
@@ -113,10 +100,10 @@ class RowStore : public Table {
   std::vector<std::pair<size_t, size_t>> column_width;
   std::vector<data_type> column_data_types;
   // vector of partitions.
-  std::vector<std::vector<storage::memory::mem_chunk>>
-      data[global_conf::num_master_versions];
+  std::vector<std::vector<oltp::common::mem_chunk>>
+      data_[global_conf::num_master_versions];
 
-  std::vector<std::vector<storage::memory::mem_chunk>> metadata;
+  std::vector<std::vector<oltp::common::mem_chunk>> metadata;
 
   bool indexed;
   uint64_t vid_offset;
@@ -126,6 +113,7 @@ class RowStore : public Table {
   uint64_t initial_num_records;
   uint64_t initial_num_records_per_part;
 
+ private:
   void initializeMetaColumn();
 
   // void *getRow(uint64_t idx, ushort master_ver);

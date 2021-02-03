@@ -24,13 +24,23 @@
 #include "row_store.hpp"
 
 #include <cassert>
+#include <cmath>
 #include <cstring>
 #include <iostream>
+#include <olap/values/expressionTypes.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/threadpool/thread.hpp>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
+#include <platform/util/timing.hpp>
 #include <string>
+#include <utility>
 
 #include "oltp/common/constants.hpp"
-#include "oltp/indexe/hash_index.hpp"
+#include "oltp/common/numa-partition-policy.hpp"
 #include "oltp/storage/multi-version/delta_storage.hpp"
+#include "oltp/storage/multi-version/mv-versions.hpp"
+#include "oltp/storage/multi-version/mv.hpp"
 #include "oltp/storage/table.hpp"
 
 namespace storage {
@@ -302,12 +312,18 @@ void RowStore::initializeMetaColumn() {
   }
 }
 
-RowStore::RowStore(uint8_t table_id, std::string name, ColumnDef columns,
-                   uint64_t initial_num_records, bool indexed, bool partitioned,
-                   int numa_idx)
-    : Table(name, table_id, ROW_STORE, columns),
+RowStore::RowStore(table_id_t table_id, std::string name, TableDef columns,
+                   bool indexed, bool numa_partitioned,
+                   size_t reserved_capacity, int numa_idx)
+    : Table(table_id, name, ROW_STORE, columns),
       indexed(indexed),
-      initial_num_records(initial_num_records) {
+      initial_num_records(reserved_capacity) {
+  this->indexed = indexed;
+  this->deltaStore = storage::Schema::getInstance().deltaStore;
+  this->n_columns = columns.size();
+  this->n_partitions = (numa_partitioned ? g_num_partitions : 1);
+
+  //----------------
   this->rec_size = global_conf::HTAP_UPD_BIT_COUNT;  // upd bit
   this->total_mem_reserved = 0;
   this->deltaStore = storage::Schema::getInstance().deltaStore;

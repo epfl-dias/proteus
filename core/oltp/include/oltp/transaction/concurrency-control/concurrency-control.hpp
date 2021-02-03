@@ -36,18 +36,11 @@
 
 namespace txn {
 
-class CC_MV2PL;
-
-#define CC_extract_offset(v) ((v)&0x000000FFFFFFFFFFu)
-#define CC_extract_pid(v) (((v)&0x0000FF0000000000u) >> 40u)
-#define CC_extract_m_ver(v) (((v)&0x00FF000000000000u) >> 48u)
-
 class CC_MV2PL {
  public:
   struct __attribute__((packed)) PRIMARY_INDEX_VAL {
     xid_t t_min;  //  | 1-byte w_id | 6 bytes xid |
-    rowid_t VID;  // | empty 1-byte | 1-byte master_ver | 1-byte
-                  // partition_id | 5-byte VID |
+    rowid_t VID;  // internal encoding defined in storage-utils.hpp
     lock::Spinlock_Weak latch;
     lock::AtomicTryLock write_lck;
 

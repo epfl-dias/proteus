@@ -43,6 +43,7 @@
 #include "oltp/common/memory-chunk.hpp"
 #include "oltp/snapshot/snapshot_manager.hpp"
 #include "oltp/storage/table.hpp"
+#include "oltp/util/interval-map.hpp"
 
 #define BIT_PACK_SIZE 8192
 
@@ -142,7 +143,8 @@ class alignas(BlockManager::block_size) Column {
   virtual ~Column();
   Column(column_id_t column_id, std::string name, data_type type,
          size_t unit_size, size_t offset_inRecord, bool numa_partitioned = true,
-         size_t reserved_capacity = 1000000, int numa_idx = -1);
+         size_t reserved_capacity = 1000000, int numa_idx = -1,
+         SnapshotTypes snapshotType = SnapshotTypes::None);
 
   Column(const Column &) = delete;
   Column(Column &&) = default;
@@ -189,6 +191,10 @@ class alignas(BlockManager::block_size) Column {
     throw std::runtime_error("Unsupported for single-version standard Columns");
   }
 
+  template <typename T>
+  static inline bool UpdateInPlace(T &data_vector, size_t offset,
+                                   size_t unit_size, void *data);
+
  public:
   // meta-data
   const column_id_t column_id;
@@ -206,8 +212,8 @@ class alignas(BlockManager::block_size) Column {
   size_t capacity{};
   size_t capacity_per_partition{};
 
- private:
-  std::vector<oltp::common::mem_chunk> data[global_conf::MAX_PARTITIONS]{};
+  std::vector<oltp::common::mem_chunk>
+      primaryData[global_conf::MAX_PARTITIONS]{};
 
   friend class ColumnStore;
 };
@@ -293,81 +299,116 @@ class alignas(BlockManager::block_size) CircularMasterColumn : public Column {
   friend class ColumnStore;
 };
 
-// class alignas(BlockManager::block_size) LazyColumn : public Column {
-// public:
-//  ~LazyColumn() override;
-//  [[maybe_unused]] LazyColumn(column_id_t column_id, std::string name,
-//  data_type type, size_t unit_size, size_t offset_inRecord, bool
-//  numa_partitioned = true,
-//      size_t reserved_capacity = 1000000, int numa_idx = -1);
-//
-//  LazyColumn(const CircularMasterColumn &) = delete;
-//  LazyColumn(LazyColumn &&) = default;
-//
-//  void *getElem(rowid_t vid) final;
-//  void getElem(rowid_t vid, void *copy_destination) final;
-//  void updateElem(rowid_t vid, void *data) final;
-//  void insertElem(rowid_t vid, void *data) final;
-//  void *insertElem(rowid_t vid) final;
-//  void *insertElemBatch(rowid_t vid, uint16_t num_elem) final;
-//  void insertElemBatch(rowid_t vid, uint16_t num_elem, void *data) final;
-//  void initializeMetaColumn() const final;
-//
-//
-//  //-------Snapshotting
-//
-//  void snapshot(const rowid_t *num_rec_per_part, xid_t epoch,
-//                master_version_t snapshot_master_ver) override;
-//  void syncSnapshot(master_version_t inactive_master_idx) override;
-//
-//
-//  //------------------ETL
-//  void ETL(uint numa_affinity_idx = 0) override;
-//
-//  //------------------OLAP-plugin utilities
-//  [[nodiscard]] std::vector<std::pair<oltp::common::mem_chunk, size_t>>
-//  snapshot_get_data(bool olap_local = false, bool elastic_scan = false) const
-//  override;
-//
-//  std::vector<std::pair<oltp::common::mem_chunk, size_t>> elastic_partition(
-//      uint pid, std::set<size_t> &segment_boundaries) override;
-//
-//  size_t num_upd_tuples(master_version_t master_ver, const size_t
-//  *num_records,
-//                        bool print) override;
-//
-//  ArenaVector &getSnapshotArena(partition_id_t pid) override{
-//    return snapshot_arenas[pid];
-//  }
-//  ArenaVector &getETLArena(partition_id_t pid) override{
-//    return etl_arenas[pid];
-//  }
-//
-// private:
-//  volatile bool touched[global_conf::MAX_PARTITIONS]{};
-//
-//  std::vector<oltp::common::mem_chunk>
-//      master_versions[global_conf::num_master_versions]
-//  [global_conf::MAX_PARTITIONS];
-//
-//  // bit-mask for dirty-records.
-//  std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>>
-//      upd_bit_masks[global_conf::num_master_versions]
-//  [global_conf::MAX_PARTITIONS];
-//
-// protected:
-//
-//  // Snapshotting Utils
-//  ArenaVector snapshot_arenas[global_conf::MAX_PARTITIONS];
-//
-//  ArenaVector etl_arenas[global_conf::MAX_PARTITIONS];
-//
-////  // FIXME: ETL memory should be owned by SnapshotManager.
-////  std::vector<oltp::common::mem_chunk>
-////      readonly_etl_snapshot[global_conf::MAX_PARTITIONS];
-//
-//  friend class ColumnStore;
-//};
+class alignas(BlockManager::block_size) LazyColumn : public Column {
+ public:
+  ~LazyColumn() override;
+  LazyColumn(column_id_t column_id, std::string name, data_type type,
+             size_t unit_size, size_t offset_inRecord,
+             bool numa_partitioned = true, size_t reserved_capacity = 1000000,
+             int numa_idx = -1);
+
+  LazyColumn(const LazyColumn &) = delete;
+
+  void *getElem(rowid_t vid) final;
+  void getElem(rowid_t vid, void *copy_destination) final;
+  void updateElem(rowid_t vid, void *data) final;
+
+  //      Following logic does-not change as of yet from base class.
+  //        if changes, override them.
+  //  void insertElem(rowid_t vid, void *data) final;
+  //  void insertElemBatch(rowid_t vid, uint16_t num_elem, void *data) final;
+  //  void *insertElem(rowid_t vid) final;
+  //  void *insertElemBatch(rowid_t vid, uint16_t num_elem) final;
+  //  void initializeMetaColumn() const final;
+
+  //-------Snapshotting
+
+  //  void snapshot(const rowid_t *num_rec_per_part, xid_t epoch,
+  //                master_version_t snapshot_master_ver) override;
+  //  void syncSnapshot(master_version_t inactive_master_idx) override;
+
+  //------------------ETL
+  //  void ETL(uint numa_affinity_idx = 0) override;
+
+  //------------------OLAP-plugin utilities
+  //  [[nodiscard]] std::vector<std::pair<oltp::common::mem_chunk, size_t>>
+  //  snapshot_get_data(bool olap_local = false, bool elastic_scan = false)
+  //  const override;
+  //
+  //  std::vector<std::pair<oltp::common::mem_chunk, size_t>> elastic_partition(
+  //      uint pid, std::set<size_t> &segment_boundaries) override;
+  //
+  //  size_t num_upd_tuples(master_version_t master_ver, const size_t
+  //  *num_records,
+  //                        bool print) override;
+
+  //  ArenaVector &getSnapshotArena(partition_id_t pid) override{
+  //    return snapshot_arenas[pid];
+  //  }
+  //  ArenaVector &getETLArena(partition_id_t pid) override{
+  //    return etl_arenas[pid];
+  //  }
+
+ private:
+  //  typedef std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>,
+  //                     proteus::memory::ExplicitSocketPinnedMemoryAllocator<utils::AtomicBitSet<BIT_PACK_SIZE>>>
+  //      bitpack_deque;
+
+  volatile bool touched[global_conf::MAX_PARTITIONS]{};
+  std::atomic<snapshot_version_t> active_snapshot_idx;
+
+  // TODO: make it partitioned
+  utils::IntervalMap<vid_t, snapshot_version_t> rid_snapshot_map;
+
+  // Primary == Data (defined in base class)
+  // std::deque<oltp::common::mem_chunk> primary[global_conf::MAX_PARTITIONS];
+
+  std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>>
+      dirty_upd_mask[global_conf::MAX_PARTITIONS];
+  std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>>
+      dirty_delete_mask[global_conf::MAX_PARTITIONS];
+
+  class LazySecondary {
+   public:
+    LazySecondary(size_t capacity, size_t unit_size, partition_id_t pid);
+    ~LazySecondary();
+
+    // Increases total capacity by given factor.
+    // uses current capacity to calculate additional size
+    void increaseCapacity(double factor = 1.0);
+
+    std::atomic<bool> is_locked;
+    volatile bool touched;
+
+    size_t capacity;
+    const size_t initial_capacity;
+    const size_t unit_size;
+    const partition_id_t pid;
+
+    // index within the secondary.
+    typedef size_t secondary_vid_t;
+    std::atomic<secondary_vid_t> secondary_vid;
+
+    cuckoohash_map<vid_t, secondary_vid_t> sec_idx{};
+
+    std::deque<oltp::common::mem_chunk> data{};
+    std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>> dirty_upd_mask{};
+    std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>> dirty_delete_mask{};
+
+    friend class LazyColumn;
+  };
+
+  // Secondaries
+  std::deque<LazySecondary> secondary[global_conf::MAX_PARTITIONS];
+
+ protected:
+  // Snapshotting Utils
+  //  ArenaVector snapshot_arenas[global_conf::MAX_PARTITIONS];
+  //  ArenaVector etl_arenas[global_conf::MAX_PARTITIONS];
+
+  friend class ColumnStore;
+  friend class LazySecondary;
+};
 
 };  // namespace storage
 

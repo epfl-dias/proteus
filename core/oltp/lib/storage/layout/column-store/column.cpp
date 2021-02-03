@@ -22,10 +22,8 @@
 */
 
 #include <cassert>
-#include <cmath>
 #include <cstring>
 #include <iostream>
-#include <olap/values/expressionTypes.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/threadpool/thread.hpp>
 #include <platform/topology/affinity_manager.hpp>
@@ -36,11 +34,21 @@
 
 #include "oltp/common/constants.hpp"
 #include "oltp/common/numa-partition-policy.hpp"
+#include "oltp/snapshot/snapshot_manager.hpp"
 #include "oltp/storage/layout/column_store.hpp"
 #include "oltp/storage/multi-version/delta_storage.hpp"
+#include "oltp/storage/storage-utils.hpp"
 #include "oltp/storage/table.hpp"
 
 namespace storage {
+
+template bool Column::UpdateInPlace<std::vector<oltp::common::mem_chunk>>(
+    std::vector<oltp::common::mem_chunk>& data_vector, size_t offset,
+    size_t unit_size, void* data);
+
+template bool Column::UpdateInPlace<std::deque<oltp::common::mem_chunk>>(
+    std::deque<oltp::common::mem_chunk>& data_vector, size_t offset,
+    size_t unit_size, void* data);
 
 //-----------------------------------------------------------------
 // Column
@@ -57,20 +65,23 @@ Column::Column(SnapshotTypes snapshotType, column_id_t column_id,
       type(type),
       n_partitions(numa_partitioned ? g_num_partitions : 1),
       single_version_only(false),
-      snapshotType(snapshotType) {}
+      snapshotType(snapshotType) {
+  // oltp::snapshot::SnapshotMaster::getInstance().turnOnMechanism(snapshotType);
+}
 
 Column::~Column() {
   for (auto j = 0; j < g_num_partitions; j++) {
-    for (auto& chunk : data[j]) {
+    for (auto& chunk : primaryData[j]) {
       MemoryManager::freePinned(chunk.data);
     }
-    data[j].clear();
+    primaryData[j].clear();
   }
 }
 
 Column::Column(column_id_t column_id, std::string name, data_type type,
                size_t unit_size, size_t offset_inRecord, bool numa_partitioned,
-               size_t reserved_capacity, int numa_idx)
+               size_t reserved_capacity, int numa_idx,
+               SnapshotTypes snapshotType)
     : column_id(column_id),
       name(std::move(name)),
       unit_size(unit_size),
@@ -78,7 +89,7 @@ Column::Column(column_id_t column_id, std::string name, data_type type,
       type(type),
       n_partitions(numa_partitioned ? g_num_partitions : 1),
       single_version_only(true),
-      snapshotType(SnapshotTypes::None) {
+      snapshotType(snapshotType) {
   assert(g_num_partitions <= topology::getInstance().getCpuNumaNodeCount());
 
   this->capacity = reserved_capacity;
@@ -110,21 +121,15 @@ Column::Column(column_id_t column_id, std::string name, data_type type,
       for (uint64_t k = 0; k < warmup_max; k++) pt[k] = 0;
     });
 
-    data[j].emplace_back(mem, this->total_size_per_partition,
-                         storage::NUMAPartitionPolicy::getInstance()
-                             .getPartitionInfo(j)
-                             .numa_idx);
+    primaryData[j].emplace_back(mem, this->total_size_per_partition,
+                                storage::NUMAPartitionPolicy::getInstance()
+                                    .getPartitionInfo(j)
+                                    .numa_idx);
   }
 
   for (auto& th : loaders) {
     th.join();
   }
-}
-
-static inline rowid_t __attribute__((always_inline))
-CC_gen_vid(rowid_t vid, partition_id_t partition_id) {
-  return ((vid & 0x000000FFFFFFFFFFu) |
-          ((uint64_t)(partition_id & 0x00FFu) << 40u));
 }
 
 void Column::initializeMetaColumn() const {
@@ -133,13 +138,13 @@ void Column::initializeMetaColumn() const {
 
   std::vector<proteus::thread> loaders;
   for (auto j = 0; j < this->n_partitions; j++) {
-    for (const auto& chunk : data[j]) {
+    for (const auto& chunk : primaryData[j]) {
       char* ptr = (char*)chunk.data;
       assert(chunk.size % this->unit_size == 0);
       loaders.emplace_back([this, chunk, j, ptr]() {
         for (uint64_t i = 0; i < (chunk.size / this->unit_size); i++) {
           void* c = new (ptr + (i * this->unit_size))
-              global_conf::IndexVal(0, CC_gen_vid(i, j));
+              global_conf::IndexVal(0, StorageUtils::create_vid(i, j));
         }
       });
     }
@@ -154,14 +159,14 @@ void Column::initializeMetaColumn() const {
  */
 
 void* Column::getElem(rowid_t vid) {
-  partition_id_t pid = CC_extract_pid(vid);
-  size_t data_idx = CC_extract_offset(vid) * unit_size;
+  partition_id_t pid = StorageUtils::get_pid(vid);
+  size_t data_idx = StorageUtils::get_offset(vid) * unit_size;
 
-  assert(CC_extract_m_ver(vid) == 0 &&
+  assert(StorageUtils::get_m_version(vid) == 0 &&
          "shouldn't be used for attribute columns");
-  assert(!data[pid].empty());
+  assert(!primaryData[pid].empty());
 
-  for (const auto& chunk : data[pid]) {
+  for (const auto& chunk : primaryData[pid]) {
     if (__likely(chunk.size >= ((size_t)data_idx + unit_size))) {
       return ((char*)chunk.data) + data_idx;
     }
@@ -172,10 +177,10 @@ void* Column::getElem(rowid_t vid) {
 }
 
 void Column::getElem(rowid_t vid, void* copy_location) {
-  partition_id_t pid = CC_extract_pid(vid);
-  size_t data_idx = CC_extract_offset(vid) * unit_size;
+  partition_id_t pid = StorageUtils::get_pid(vid);
+  size_t data_idx = StorageUtils::get_offset(vid) * unit_size;
 
-  for (const auto& chunk : data[pid]) {
+  for (const auto& chunk : primaryData[pid]) {
     if (__likely(chunk.size >= ((size_t)data_idx + unit_size))) {
       std::memcpy(copy_location, ((char*)chunk.data) + data_idx,
                   this->unit_size);
@@ -186,48 +191,27 @@ void Column::getElem(rowid_t vid, void* copy_location) {
 }
 
 void Column::updateElem(rowid_t vid, void* elem) {
-  partition_id_t pid = CC_extract_pid(vid);
-  size_t offset = CC_extract_offset(vid);
-  size_t data_idx = offset * unit_size;
+  partition_id_t pid = StorageUtils::get_pid(vid);
+  size_t offset = StorageUtils::get_offset(vid);
 
-  assert(pid < g_num_partitions);
-  assert(data_idx < total_size_per_partition);
+  assert(pid < n_partitions);
+  assert(offset < capacity_per_partition);
 
-  for (const auto& chunk : data[pid]) {
-    if (__likely(chunk.size >= (data_idx + unit_size))) {
-      void* dst = (void*)(((char*)chunk.data) + data_idx);
-
-      char* src_t = (char*)chunk.data;
-      char* dst_t = (char*)dst;
-
-      assert(src_t <= dst_t);
-      assert((src_t + chunk.size) >= (dst_t + this->unit_size));
-
-      // assert(elem != nullptr);
-      if (__unlikely(elem == nullptr)) {
-        // YCSB update hack.
-        (*((uint64_t*)dst_t))++;
-      } else {
-        std::memcpy(dst, elem, this->unit_size);
-      }
-
-      return;
-    }
+  if (!UpdateInPlace(primaryData[pid], offset, unit_size, elem)) {
+    assert(false && "Out Of Memory Error");
   }
-
-  assert(false && "Out Of Memory Error");
 }
 
 void* Column::insertElem(rowid_t vid) {
   assert(this->type == META);
-  partition_id_t pid = CC_extract_pid(vid);
-  size_t data_idx = CC_extract_offset(vid) * unit_size;
+  partition_id_t pid = StorageUtils::get_pid(vid);
+  size_t data_idx = StorageUtils::get_offset(vid) * unit_size;
 
   assert(pid < g_num_partitions);
   assert((data_idx / unit_size) < capacity_per_partition);
   assert(data_idx < total_size_per_partition);
 
-  for (const auto& chunk : data[pid]) {
+  for (const auto& chunk : primaryData[pid]) {
     if (__likely(chunk.size >= (data_idx + unit_size))) {
       return (void*)(((char*)chunk.data) + data_idx);
     }
@@ -238,14 +222,21 @@ void* Column::insertElem(rowid_t vid) {
 }
 
 void Column::insertElem(rowid_t vid, void* elem) {
-  partition_id_t pid = CC_extract_pid(vid);
-  size_t offset = CC_extract_offset(vid);
-  size_t data_idx = offset * unit_size;
+  partition_id_t pid = StorageUtils::get_pid(vid);
+  size_t offset = StorageUtils::get_offset(vid);
 
-  assert(pid < g_num_partitions);
-  assert(data_idx < total_size_per_partition);
+  assert(pid < n_partitions);
+  assert(offset < this->capacity_per_partition);
 
-  for (const auto& chunk : data[pid]) {
+  if (!UpdateInPlace(primaryData[pid], offset, unit_size, elem)) {
+    LOG(INFO) << "ALLOCATE MORE MEMORY:\t" << this->name << ",vid: " << vid
+              << ", idx:" << offset << ", pid: " << pid;
+
+    assert(false && "Out Of Memory Error");
+  }
+
+  /*
+  for (const auto& chunk : primaryData[pid]) {
     if (__likely(chunk.size >= (data_idx + unit_size))) {
       void* dst = (void*)(((char*)chunk.data) + data_idx);
       if (__unlikely(elem == nullptr)) {
@@ -269,13 +260,14 @@ void Column::insertElem(rowid_t vid, void* elem) {
             << ", idx:" << (data_idx / unit_size) << ", pid: " << pid;
 
   assert(false && "Out Of Memory Error");
+   */
 }
 
 void* Column::insertElemBatch(rowid_t vid, uint16_t num_elem) {
   assert(this->type == META);
 
-  partition_id_t pid = CC_extract_pid(vid);
-  size_t data_idx_st = CC_extract_offset(vid) * unit_size;
+  partition_id_t pid = StorageUtils::get_pid(vid);
+  size_t data_idx_st = StorageUtils::get_offset(vid) * unit_size;
   size_t data_idx_en = data_idx_st + (num_elem * unit_size);
 
   assert(pid < g_num_partitions);
@@ -283,7 +275,7 @@ void* Column::insertElemBatch(rowid_t vid, uint16_t num_elem) {
   assert(data_idx_en < total_size_per_partition);
 
   bool ins = false;
-  for (const auto& chunk : data[pid]) {
+  for (const auto& chunk : primaryData[pid]) {
     if (__likely(chunk.size >= (data_idx_en + unit_size))) {
       return (void*)(((char*)chunk.data) + data_idx_st);
     }
@@ -295,8 +287,8 @@ void* Column::insertElemBatch(rowid_t vid, uint16_t num_elem) {
 
 void Column::insertElemBatch(rowid_t vid, uint16_t num_elem,
                              void* source_data) {
-  partition_id_t pid = CC_extract_pid(vid);
-  size_t offset = CC_extract_offset(vid);
+  partition_id_t pid = StorageUtils::get_pid(vid);
+  size_t offset = StorageUtils::get_offset(vid);
   size_t data_idx_st = offset * unit_size;
   size_t copy_size = num_elem * this->unit_size;
   size_t data_idx_en = data_idx_st + copy_size;
@@ -305,7 +297,7 @@ void Column::insertElemBatch(rowid_t vid, uint16_t num_elem,
   assert((data_idx_en / unit_size) < capacity_per_partition);
   assert(data_idx_en < total_size_per_partition);
 
-  for (const auto& chunk : this->data[pid]) {
+  for (const auto& chunk : this->primaryData[pid]) {
     //      assert(pid == chunk.numa_id);
 
     if (__likely(chunk.size >= (data_idx_en + unit_size))) {
@@ -316,6 +308,35 @@ void Column::insertElemBatch(rowid_t vid, uint16_t num_elem,
   }
 
   assert(false && "Out Of Memory Error");
+}
+
+template <typename T>
+inline bool Column::UpdateInPlace(T& data_vector, size_t offset,
+                                  size_t unit_size, void* data) {
+  offset = offset * unit_size;
+
+  for (const auto& chunk : data_vector) {
+    if (__likely(chunk.size >= (offset + unit_size))) {
+      void* dst = (void*)(((char*)chunk.data) + offset);
+
+      char* src_t = (char*)chunk.data;
+      char* dst_t = (char*)dst;
+
+      assert(src_t <= dst_t);
+      assert((src_t + chunk.size) >= (dst_t + unit_size));
+
+      // assert(elem != nullptr);
+      if (__unlikely(data == nullptr)) {
+        // YCSB update hack.
+        (*((uint64_t*)dst_t))++;
+      } else {
+        std::memcpy(dst, data, unit_size);
+      }
+
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace storage

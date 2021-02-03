@@ -31,6 +31,7 @@
 #include <olap/routing/degree-of-parallelism.hpp>
 #include <oltp/common/utils.hpp>
 #include <oltp/storage/layout/column_store.hpp>
+#include <oltp/storage/storage-utils.hpp>
 #include <string>
 
 #include "tpcc/tpcc_64.hpp"
@@ -123,7 +124,8 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, xid_t xid,
   assert(idx_w_locks[num_locks] != nullptr);
   if (idx_w_locks[num_locks]->write_lck.try_lock()) {
 #if !tpcc_dist_txns
-    assert(CC_extract_pid(idx_w_locks[num_locks]->VID) == partition_id);
+    assert(storage::StorageUtils::get_pid(idx_w_locks[num_locks]->VID) ==
+           partition_id);
 #endif
     num_locks++;
   } else {
@@ -142,7 +144,8 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, xid_t xid,
     bool e_false_s = false;
     if (idx_w_locks[num_locks]->write_lck.try_lock()) {
 #if !tpcc_dist_txns
-      assert(CC_extract_pid(idx_w_locks[num_locks]->VID) == partition_id);
+      assert(storage::StorageUtils::get_pid(idx_w_locks[num_locks]->VID) ==
+             partition_id);
 #endif
 
       num_locks++;
@@ -227,8 +230,9 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, xid_t xid,
   struct dist_read dist_no_read = {};
 
   global_conf::IndexVal *d_idx_ptr = idx_w_locks[0];
-  // assert(CC_extract_pid(idx_w_locks[0]->VID) == partition_id);
-  // assert(CC_extract_pid(d_idx_ptr->VID) == partition_id);
+  // assert(storage::StorageUtils::get_pid(idx_w_locks[0]->VID) ==
+  // partition_id); assert(storage::StorageUtils::get_pid(d_idx_ptr->VID) ==
+  // partition_id);
 
   d_idx_ptr->latch.acquire();
 
@@ -272,7 +276,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, xid_t xid,
       (global_conf::IndexVal *)table_warehouse->p_index->find(
           (uint64_t)q->w_id);
 #if !tpcc_dist_txns
-  assert(CC_extract_pid(w_idx_ptr->VID) == partition_id);
+  assert(storage::StorageUtils::get_pid(w_idx_ptr->VID) == partition_id);
 #endif
 
   w_idx_ptr->latch.acquire();
@@ -297,7 +301,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, xid_t xid,
 
   c_idx_ptr->latch.acquire();
 
-  // if (CC_extract_pid(c_idx_ptr->VID) != partition_id) {
+  // if (storage::StorageUtils::get_pid(c_idx_ptr->VID) != partition_id) {
   //   std::unique_lock<std::mutex> lk(print_mutex);
   //   std::cout << "q->c_id: " << q->c_id << std::endl;
   //   std::cout << "q->w_id: " << q->w_id << std::endl;
@@ -309,7 +313,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, xid_t xid,
   // }
 
 #if !tpcc_dist_txns
-  assert(CC_extract_pid(c_idx_ptr->VID) == partition_id);
+  assert(storage::StorageUtils::get_pid(c_idx_ptr->VID) == partition_id);
 #endif
 
   table_customer->getIndexedRecord(xid, c_idx_ptr, &cust_no_read, cust_col_scan,
@@ -1133,7 +1137,8 @@ bool TPCC::exec_delivery_txn(const struct tpcc_query *q, xid_t xid,
   //             idx_w_locks[num_locks] != nullptr);
   //      if (idx_w_locks[num_locks]->write_lck.try_lock()) {
   //#if !tpcc_dist_txns
-  //        assert(CC_extract_pid(idx_w_locks[num_locks]->VID) == partition_id);
+  //        assert(storage::StorageUtils::get_pid(idx_w_locks[num_locks]->VID)
+  //        == partition_id);
   //#endif
   //        num_locks++;
   //      } else {
@@ -1150,7 +1155,8 @@ bool TPCC::exec_delivery_txn(const struct tpcc_query *q, xid_t xid,
   //             idx_w_locks[num_locks] != nullptr);
   //      if (idx_w_locks[num_locks]->write_lck.try_lock()) {
   //#if !tpcc_dist_txns
-  //        assert(CC_extract_pid(idx_w_locks[num_locks]->VID) == partition_id);
+  //        assert(storage::StorageUtils::get_pid(idx_w_locks[num_locks]->VID)
+  //        == partition_id);
   //#endif
   //        num_locks++;
   //      } else {
@@ -1170,8 +1176,8 @@ bool TPCC::exec_delivery_txn(const struct tpcc_query *q, xid_t xid,
   //        bool e_false_s = false;
   //        if (idx_w_locks[num_locks]->write_lck.try_lock()) {
   //#if !tpcc_dist_txns
-  //          assert(CC_extract_pid(idx_w_locks[num_locks]->VID) ==
-  //          partition_id);
+  //          assert(storage::StorageUtils::get_pid(idx_w_locks[num_locks]->VID)
+  //          == partition_id);
   //#endif
   //          num_locks++;
   //        } else {

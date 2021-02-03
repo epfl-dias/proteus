@@ -40,9 +40,18 @@ typedef uint64_t xid_t;
 typedef uint8_t worker_id_t;
 typedef uint8_t table_id_t;
 typedef uint8_t column_id_t;
-typedef uint8_t master_version_t;
 typedef uint8_t partition_id_t;
+
+constexpr auto MAX_N_COLUMNS = UINT8_MAX;
+
+// TODO: replace column-widths with
 // typedef uint16_t column_width_t;
+
+// Circular-Master
+typedef uint8_t master_version_t;
+
+// Lazy-Master
+typedef int8_t snapshot_version_t;
 
 typedef std::map<uint64_t, std::string> dict_dstring_t;
 
@@ -51,6 +60,8 @@ extern uint g_delta_size;
 
 enum SnapshotTypes { None, CircularMaster, LazyMaster, MVCC };
 
-constexpr auto DefaultSnapshotMechanism = SnapshotTypes::CircularMaster;
+constexpr auto DefaultSnapshotMechanism = SnapshotTypes::LazyMaster;
+
+constexpr int MAX_PARTITIONS = 8;
 
 #endif  // PROTEUS_OLTP_COMMON_HPP
