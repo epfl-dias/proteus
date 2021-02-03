@@ -231,7 +231,7 @@ DeltaStore::DeltaPartition::DeltaPartition(char* ver_list_cursor,
       ver_list_cursor(ver_list_cursor),
       ver_data_cursor(ver_data_cursor),
       list_cursor_max(ver_list_cursor + ver_list_mem.size),
-      data_cursor_max(ver_list_cursor + ver_data_mem.size),
+      data_cursor_max(ver_data_cursor + ver_data_mem.size),
       touched(false),
       pid(pid) {
   printed = false;
