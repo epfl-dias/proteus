@@ -89,7 +89,6 @@ external_files = [
     "core/planner/src/main/scala/ch/epfl/dias/calcite/adapter/pelago/rel/PelagoFilter.scala",
     "core/planner/src/main/scala/ch/epfl/dias/calcite/adapter/pelago/rel/PelagoDeviceCross.scala",
     "core/planner/src/main/scala/ch/epfl/dias/calcite/adapter/pelago/rel/PelagoLogicalJoin.scala",
-    "core/planner/src/main/scala/ch/epfl/dias/calcite/adapter/pelago/rel/PelagoValues.scala",
     "core/planner/src/main/scala/ch/epfl/dias/calcite/adapter/pelago/rel/PelagoUnion.scala",
     "core/planner/src/main/scala/ch/epfl/dias/calcite/adapter/pelago/rel/PelagoUnnest.scala",
     "core/planner/src/main/scala/ch/epfl/dias/calcite/adapter/pelago/rel/PelagoSort.scala",
