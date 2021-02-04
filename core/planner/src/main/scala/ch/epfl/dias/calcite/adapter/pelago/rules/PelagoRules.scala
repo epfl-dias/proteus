@@ -99,7 +99,7 @@ object PelagoRules {
     override def matches(call: RelOptRuleCall) = true
     override def convert(rel: RelNode) = {
       val project = rel.asInstanceOf[Project]
-      val traitSet = project.getInput.getTraitSet
+      val traitSet = project.getTraitSet
         .replace(out)
         .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64)
         .replace(RelHomDistribution.SINGLE)
