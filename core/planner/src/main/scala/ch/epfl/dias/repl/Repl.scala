@@ -1,5 +1,6 @@
 package ch.epfl.dias.repl
 
+import ch.epfl.dias.calcite.adapter.pelago.executor.PelagoExecutor
 import org.apache.calcite.avatica.jdbc.JdbcMeta
 import org.apache.calcite.avatica.remote.Driver.Serialization
 import org.apache.calcite.avatica.remote.LocalService
@@ -12,8 +13,10 @@ object Repl extends App {
   Class.forName("ch.epfl.dias.calcite.adapter.pelago.jdbc.Driver")
 
   val arglist = args.toList
-  val defaultMock = new java.io.File(".").getCanonicalPath+"/src/main/resources/mock.csv"
-  val defaultSchema = new java.io.File(".").getCanonicalPath+"/src/main/resources/schema.json"
+  val defaultMock =
+    new java.io.File(".").getCanonicalPath + "/src/main/resources/mock.csv"
+  val defaultSchema =
+    new java.io.File(".").getCanonicalPath + "/src/main/resources/schema.json"
 
   type OptionMap = Map[Symbol, Any]
 
@@ -42,8 +45,11 @@ object Repl extends App {
       case "--mock" :: tail =>
         nextOption(map ++ Map('mock -> true), tail)
       case string :: Nil => nextOption(map ++ Map('schema -> string), list.tail)
-      case option :: _ => println("Unknown option " + option)
-        println("Usage: [--port] [--echo-results] [--timings-csv] [--planfile <path-to-write-plan>] [--mockfile <path-to-mock-file>|--mock] [path-to-schema.json]")
+      case option :: _ =>
+        println("Unknown option " + option)
+        println(
+          "Usage: [--port] [--echo-results] [--timings-csv] [--planfile <path-to-write-plan>] [--mockfile <path-to-mock-file>|--mock] [path-to-schema.json]"
+        )
         System.exit(1)
         null
     }
@@ -55,39 +61,50 @@ object Repl extends App {
   val gpudop_regex = """gpu {2}count: (\d+)""".r.unanchored
   val detected_gpudop = topology match {
     case gpudop_regex(g) => g.toInt
-    case _ => 0
+    case _               => 0
   }
   val cpudop_regex = """core count: (\d+)""".r.unanchored
   val detected_cpudop = topology match {
-    case cpudop_regex(c) => c.toInt/2             // We want by default to ignore hyperthreads
+    case cpudop_regex(c) =>
+      c.toInt / 2 // We want by default to ignore hyperthreads
     case _ => 48
   }
 
   System.out.println(topology)
 
-  val options = nextOption(Map(
-                                'port -> 8081, 'cpudop -> detected_cpudop, 'gpudop -> detected_gpudop,
-                                'echoResults -> false, 'mock -> false, 'timings -> true, 'timingscsv -> false,
-                                'mockfile -> defaultMock,
-                                'cpuonly -> (detected_gpudop <= 0), 'planfile -> "plan.json", 'schema -> defaultSchema,
-                                'onlyinit -> false, 'printplan -> false,
-                              ), arglist)
+  val options = nextOption(
+    Map(
+      'port -> 8081,
+      'cpudop -> detected_cpudop,
+      'gpudop -> detected_gpudop,
+      'echoResults -> false,
+      'mock -> false,
+      'timings -> true,
+      'timingscsv -> false,
+      'mockfile -> defaultMock,
+      'cpuonly -> (detected_gpudop <= 0),
+      'planfile -> "plan.json",
+      'schema -> defaultSchema,
+      'onlyinit -> false,
+      'printplan -> false
+    ),
+    arglist
+  )
 
   System.out.println(options)
 
-  var mockfile    = options('mockfile   ).asInstanceOf[String ]
-  var isMockRun   = options('mock       ).asInstanceOf[Boolean]
+  var mockfile = options('mockfile).asInstanceOf[String]
+  var isMockRun = options('mock).asInstanceOf[Boolean]
   var echoResults = options('echoResults).asInstanceOf[Boolean]
-  var planfile    = options('planfile   ).asInstanceOf[String ]
-  var printplan   = options('printplan  ).asInstanceOf[Boolean]
-  var timingscsv  = options('timingscsv ).asInstanceOf[Boolean]
-  var timings     = options('timings    ).asInstanceOf[Boolean]
+  var planfile = options('planfile).asInstanceOf[String]
+  var printplan = options('printplan).asInstanceOf[Boolean]
+  var timingscsv = options('timingscsv).asInstanceOf[Boolean]
+  var timings = options('timings).asInstanceOf[Boolean]
 
-
-  var cpus_on     = true //options('cpuonly    ).asInstanceOf[Boolean]
-  var gpus_on     = true
-  var cpudop      = options('cpudop     ).asInstanceOf[Int    ]
-  var gpudop      = options('gpudop     ).asInstanceOf[Int    ]
+  var cpus_on = true //options('cpuonly    ).asInstanceOf[Boolean]
+  var gpus_on = true
+  var cpudop = options('cpudop).asInstanceOf[Int]
+  var gpudop = options('gpudop).asInstanceOf[Int]
 
   //default to hybrid execution
   setHybrid()
@@ -120,8 +137,12 @@ object Repl extends App {
   } else {
     val meta = new JdbcMeta("jdbc:pelago:model=" + schemaPath)
     val service = new LocalService(meta)
-    val server = new HttpServer.Builder().withHandler(service, Serialization.PROTOBUF).withPort(options('port).asInstanceOf[Int]).build()
+    val server = new HttpServer.Builder()
+      .withHandler(service, Serialization.PROTOBUF)
+      .withPort(options('port).asInstanceOf[Int])
+      .build()
 
+    PelagoExecutor.restartEngine()
     server.start()
     server.join()
   }
