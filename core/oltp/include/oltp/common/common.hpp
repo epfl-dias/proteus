@@ -41,6 +41,7 @@ typedef uint8_t worker_id_t;
 typedef uint8_t table_id_t;
 typedef uint8_t column_id_t;
 typedef uint8_t partition_id_t;
+typedef uint32_t column_uuid_t;
 
 constexpr auto MAX_N_COLUMNS = UINT8_MAX;
 

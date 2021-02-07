@@ -68,6 +68,23 @@ class StorageUtils {
   static inline auto get_m_version(rowid_t vid) {
     return (((vid)&0x00FF000000000000u) >> 48u);
   }
+
+  static inline column_uuid_t get_column_uuid(table_id_t tableId,
+                                              column_id_t columnId) {
+    // top-16 bits for table_id
+    // bottom-16 bits for column_id
+    column_uuid_t ret = columnId;
+    ret |= (((column_uuid_t)tableId) << 16u);
+    return ret;
+  }
+
+  static inline table_id_t get_tableId_from_columnUuid(column_uuid_t columnUuid){
+    return ((table_id_t)(columnUuid >> 16u));
+  }
+
+  static inline column_id_t get_columnId_from_columnUuid(column_uuid_t columnUuid){
+    return ((column_id_t)(columnUuid & 0x0000FFFFu));
+  }
 };
 
 }  // namespace storage
