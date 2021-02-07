@@ -30,11 +30,84 @@
 // class AtomicBitSetTest : public ::testing::Test {
 
 // };
+using IntervalMap = utils::IntervalMap<size_t, size_t>;
 
-// TEST(IntervalTree<size_t, size_t>, Simple) {
-//
-//  IntervalTree<size_t, size_t> tree;
-//  tree.insert(0, 0);
-//
-//  tree.upsert(10, 1);
-//}
+TEST(IntervalMap, Simple) {
+  IntervalMap map;
+  map.upsert(5, 1);
+
+  for (uint i = 0; i < 5; i++) {
+    EXPECT_EQ(map.getValue(i), 0);
+  }
+  EXPECT_EQ(map.getValue(5), 1);
+  EXPECT_EQ(map.getValue(6), 0);
+
+  map.upsert(5, 2);
+  EXPECT_EQ(map.getValue(5), 2);
+
+  for (uint i = 0; i < 5; i++) {
+    EXPECT_EQ(map.getValue(i), 0);
+  }
+  EXPECT_EQ(map.getValue(5), 2);
+  EXPECT_EQ(map.getValue(6), 0);
+
+  map.upsert(5, 2);
+  EXPECT_EQ(map.getValue(5), 2);
+
+  map.upsert(1, 2);
+  EXPECT_EQ(map.getValue(1), 2);
+  EXPECT_EQ(map.getValue(2), 0);
+  EXPECT_EQ(map.getValue(7), 0);
+  EXPECT_EQ(map.getValue(0), 0);
+
+  map.upsert(0, 5);
+  map.upsert(5, 0);
+  std::cout << map << std::endl;
+  map.consolidate();
+  std::cout << "Consolidated" << std::endl;
+  std::cout << map << std::endl;
+}
+
+TEST(IntervalMap, UpdateByValue) {
+  IntervalMap map;
+  map.upsert(5, 1);
+
+  for (uint i = 0; i < 5; i++) {
+    EXPECT_EQ(map.getValue(i), 0);
+  }
+  EXPECT_EQ(map.getValue(5), 1);
+  EXPECT_EQ(map.getValue(6), 0);
+
+  map.upsert(5, 2);
+  EXPECT_EQ(map.getValue(5), 2);
+
+  for (uint i = 0; i < 5; i++) {
+    EXPECT_EQ(map.getValue(i), 0);
+  }
+  EXPECT_EQ(map.getValue(5), 2);
+  EXPECT_EQ(map.getValue(6), 0);
+
+  map.upsert(5, 2);
+  EXPECT_EQ(map.getValue(5), 2);
+
+  map.upsert(1, 2);
+  EXPECT_EQ(map.getValue(1), 2);
+  EXPECT_EQ(map.getValue(2), 0);
+  EXPECT_EQ(map.getValue(7), 0);
+  EXPECT_EQ(map.getValue(0), 0);
+
+  map.upsert(0, 5);
+
+  map.upsert(7, 6);
+  map.upsert(20, 6);
+  map.upsert(50, 6);
+  map.upsert(10, 6);
+
+  std::cout << map << std::endl;
+  auto count = map.updateByValue_withCount(6, 0);
+  std::cout << "UpdateByValue count:" << count << std::endl;
+  std::cout << map << std::endl;
+  map.consolidate();
+  std::cout << "Consolidated" << std::endl;
+  std::cout << map << std::endl;
+}

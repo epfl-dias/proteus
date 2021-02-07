@@ -28,9 +28,12 @@
 #include <deque>
 #include <map>
 #include <platform/memory/allocator.hpp>
+#include <platform/util/timing.hpp>
 #include <shared_mutex>
 #include <type_traits>
 #include <vector>
+
+#include "oltp/util/monitored-lock.hpp"
 
 namespace utils {
 
@@ -45,6 +48,13 @@ namespace utils {
 // and assumes until the next starting point
 // the value is same.
 
+// FIXME: currently, entire map is either shared_lock or unique_lock
+//  for gurading concurrent accesses, in general, if only value is being
+//  inserted or removed, then map should be locked, else the value should be
+//  latched.
+//  need more thoughts in making it better concurrent (similar to b+tree in
+//  literature for locking and concurrent accesses.
+
 template <typename V = size_t>
 class IntervalValue {
  public:
@@ -52,8 +62,6 @@ class IntervalValue {
 
   V value;
 };
-
-// FIXME: not concurrent at the moment.
 
 // LOGIC: map stores the starting position and value associated.
 // end is based on the either next value or infinite.
@@ -65,15 +73,13 @@ class IntervalMap {
   typedef K key_t;
 
   IntervalMap(K start, V val) : upper_bound(start) { map.emplace(start, val); }
-  IntervalMap() : upper_bound(std::numeric_limits<K>::max()) {
-    map.emplace(0, 0);
-  }
+  IntervalMap() : upper_bound(0) { map.emplace(0, 0); }
 
   V getValue(K key) {
     std::shared_lock(this->map_latch);
 
     if (key >= upper_bound) {
-      return map.rend()->second.value;
+      return map.rbegin()->second.value;
     } else {
       auto bound_iter = this->map.lower_bound(key);
       if (bound_iter->first == key) {
@@ -93,7 +99,7 @@ class IntervalMap {
   }
 
   void upsert(K key, V value) {
-    std::shared_lock(this->map_latch);
+    std::unique_lock(this->map_latch);
 
     // actually directly check if key exists in the map or not.
     auto bound_iter = this->map.lower_bound(key);
@@ -109,6 +115,7 @@ class IntervalMap {
       } else {
         map.emplace_hint(map.end(), key + 1, map.rbegin()->second.value);
         map.emplace_hint(map.end(), key, value);
+        upper_bound = key + 1;
       }
     } else {
       // greater or equal key exist in the map.
@@ -124,8 +131,10 @@ class IntervalMap {
       } else {
         // greater than key exists.
         // how much greater? by doing minus one do the job?
+        // LOG(INFO) << "BoundIter: " << bound_iter->first;
         bound_iter--;
-        assert(bound_iter->first > key);
+        // LOG(INFO) << "BoundIter: " << bound_iter->first;
+        assert(bound_iter->first < key);
 
         if (bound_iter->second.value == value) {
           return;
@@ -135,6 +144,59 @@ class IntervalMap {
         }
       }
     }
+  }
+
+  void updateByValue(V oldval, V newval) {
+    std::unique_lock<std::shared_mutex>(this->map_latch);
+
+    auto map_it = map.begin();
+    for (; map_it != map.end(); map_it++) {
+      if (map_it->second.value == oldval) {
+        map_it->second.value = newval;
+      }
+    }
+  }
+
+  size_t updateByValue_withCount(V oldval, V newval) {
+    std::unique_lock(this->map_latch);
+    size_t ctr = 0;
+    auto map_it = map.begin();
+    for (; map_it != map.end(); map_it++) {
+      if (map_it->second.value == oldval) {
+        map_it->second.value = newval;
+        ctr++;
+      }
+    }
+    return ctr;
+  }
+
+  void consolidate() {
+    std::unique_lock(this->map_latch);
+    time_block t("T_mapConsolidate");
+    LOG(INFO) << "MapSize: " << map.size();
+    auto map_it = map.begin();
+    auto nx = std::next(map_it, 1);
+
+    while (nx != map.end() && map_it != map.end()) {
+      if (map_it->second.value == nx->second.value) {
+        map.erase(nx);
+        nx = std::next(map_it, 1);
+        continue;
+      }
+
+      map_it++;
+      nx = std::next(map_it, 1);
+    }
+    upper_bound = map.rbegin()->first;
+    LOG(INFO) << "MapSizeAfterCleaning: " << map.size();
+  }
+
+  size_t updateAndConsolidate(V oldval, V newval) {
+    // TODO: by calling two sub-functions, this makes the complexity of
+    //  map traversal by twice. implement and utilize both functions together.
+    size_t ctr = updateByValue_withCount(oldval, newval);
+    consolidate();
+    return ctr;
   }
 
  private:
@@ -147,6 +209,14 @@ class IntervalMap {
   // K lower_bound; // min starting point
 
   std::shared_mutex map_latch;
+
+  friend std::ostream &operator<<(std::ostream &out,
+                                  const IntervalMap<K, V> &r) {
+    for (const auto &[key, val] : r.map) {
+      out << "[" << key << ", )\t:\t" << val.value << "\n";
+    }
+    return out;
+  }
 };
 
 }  // namespace utils
