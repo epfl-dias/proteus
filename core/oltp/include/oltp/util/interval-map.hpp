@@ -76,7 +76,7 @@ class IntervalMap {
   IntervalMap() : upper_bound(0) { map.emplace(0, 0); }
 
   V getValue(K key) {
-    std::shared_lock(this->map_latch);
+    std::shared_lock<std::shared_mutex>(this->map_latch);
 
     if (key >= upper_bound) {
       return map.rbegin()->second.value;
@@ -93,13 +93,13 @@ class IntervalMap {
   }
 
   void reset(V value) {
-    std::unique_lock(this->map_latch);
+    std::unique_lock<std::shared_mutex>(this->map_latch);
     map.clear();
     map.emplace(0, value);
   }
 
   void upsert(K key, V value) {
-    std::unique_lock(this->map_latch);
+    std::unique_lock<std::shared_mutex>(this->map_latch);
 
     // actually directly check if key exists in the map or not.
     auto bound_iter = this->map.lower_bound(key);
@@ -158,7 +158,7 @@ class IntervalMap {
   }
 
   size_t updateByValue_withCount(V oldval, V newval) {
-    std::unique_lock(this->map_latch);
+    std::unique_lock<std::shared_mutex>(this->map_latch);
     size_t ctr = 0;
     auto map_it = map.begin();
     for (; map_it != map.end(); map_it++) {
@@ -171,7 +171,7 @@ class IntervalMap {
   }
 
   void consolidate() {
-    std::unique_lock(this->map_latch);
+    std::unique_lock<std::shared_mutex>(this->map_latch);
     time_block t("T_mapConsolidate");
     LOG(INFO) << "MapSize: " << map.size();
     auto map_it = map.begin();
@@ -210,6 +210,7 @@ class IntervalMap {
 
   std::shared_mutex map_latch;
 
+ public:
   friend std::ostream &operator<<(std::ostream &out,
                                   const IntervalMap<K, V> &r) {
     for (const auto &[key, val] : r.map) {
