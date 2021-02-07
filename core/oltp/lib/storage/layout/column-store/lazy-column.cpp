@@ -107,8 +107,8 @@ LazyColumn::LazyColumn(column_id_t column_id, std::string name, data_type type,
 
 // Ops
 
-inline void* getElemOffset(std::deque<oltp::common::mem_chunk>& data,
-                           size_t unit_size, size_t offset) {
+static inline void* getElemByOffset(std::deque<oltp::common::mem_chunk>& data,
+                                    size_t unit_size, size_t offset) {
   size_t data_idx = offset * unit_size;
   for (const auto& chunk : data) {
     if (__likely(chunk.size >= ((size_t)data_idx + unit_size))) {
@@ -122,7 +122,7 @@ void* LazyColumn::getElem(rowid_t vid) {
   auto snap_id = rid_snapshot_map.getValue(vid);
   partition_id_t pid = StorageUtils::get_pid(vid);
 
-  if (snap_id == 0) {
+  if (__likely(snap_id == 0)) {
     // primary-ver
     return Column::getElem(vid);
   } else {
@@ -131,7 +131,7 @@ void* LazyColumn::getElem(rowid_t vid) {
     auto& sec = secondary[pid][snap_id - 1];
     auto internal_vid = sec.sec_idx.find(vid);
     // get element from secondary.
-    return getElemOffset(sec.data, unit_size, internal_vid);
+    return getElemByOffset(sec.data, unit_size, internal_vid);
   }
 }
 
@@ -154,7 +154,7 @@ void LazyColumn::updateElem(rowid_t vid, void* data) {
     size_t offset = StorageUtils::get_offset(vid);
     if (!UpdateInPlace(this->primaryData[pid], offset, unit_size, data)) {
       // FIXME: this should trigger the call to increase capacity.
-      assert(false && "couldn't insert.");
+      assert(false && "couldn't insert into primary due to space.");
     }
 
     //    2) set dirty-bitmask for this index.
@@ -166,8 +166,7 @@ void LazyColumn::updateElem(rowid_t vid, void* data) {
     // secondary snapshot
 
     auto& sec = secondary[pid][snapIdx - 1];
-    assert(sec.is_locked.load(std::memory_order_relaxed) &&
-           "How come accessing locked secondary.");
+    assert(sec.is_locked && "How come accessing locked secondary.");
 
     LazySecondary::secondary_vid_t internal_vid;
     if (sec.sec_idx.find(vid, internal_vid) == false) {
@@ -183,7 +182,15 @@ void LazyColumn::updateElem(rowid_t vid, void* data) {
 
     if (!UpdateInPlace(sec.data, internal_vid, unit_size, data)) {
       // FIXME: this should trigger the call to increase capacity.
-      assert(false && "couldn't insert.");
+      LOG(INFO) << "Increasing capacity of secondary.";
+
+      {
+        time_block t("T_increase_secondary_capacity");
+        sec.increaseCapacity(2);
+      }
+      if (!UpdateInPlace(sec.data, internal_vid, unit_size, data)) {
+        assert(false && "couldn't insert even after increasing capacity.");
+      }
     }
   }
 
@@ -242,6 +249,8 @@ LazyColumn::LazySecondary::~LazySecondary() {
 void LazyColumn::LazySecondary::increaseCapacity(double factor) {
   size_t incSize = capacity * factor;
   incSize += incSize % unit_size;
+
+  // FIXME: make sure capacity doesnt go beyond the size of primary.
 
   auto numa_idx = storage::NUMAPartitionPolicy::getInstance()
                       .getPartitionInfo(pid)

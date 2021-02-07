@@ -192,8 +192,8 @@ class alignas(BlockManager::block_size) Column {
   }
 
   template <typename T>
-  static inline bool UpdateInPlace(T &data_vector, size_t offset,
-                                   size_t unit_size, void *data);
+  static bool UpdateInPlace(T &data_vector, size_t offset, size_t unit_size,
+                            void *data);
 
  public:
   // meta-data
@@ -377,7 +377,7 @@ class alignas(BlockManager::block_size) LazyColumn : public Column {
     // uses current capacity to calculate additional size
     void increaseCapacity(double factor = 1.0);
 
-    std::atomic<bool> is_locked;
+    volatile bool is_locked;
     volatile bool touched;
 
     size_t capacity;
