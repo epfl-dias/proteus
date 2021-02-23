@@ -571,6 +571,15 @@ expression_t ExpressionParser::parseExpressionWithoutRegistering(
     string err = string("(Still) unsupported expression: ") + valExpression;
     LOG(ERROR) << err;
     throw runtime_error(err);
+  } else if (strcmp(valExpression, "placeholder") == 0) {
+    assert(val.HasMember("index"));
+    assert(val["index"].IsUint64());
+    size_t index = val["index"].GetUint64();
+
+    assert(val.HasMember("type"));
+    auto type = parseExpressionType(val["type"]);
+
+    return expressions::PlaceholderExpression{type, index};
   } else {
     string err = string("Unknown expression: ") + valExpression;
     LOG(ERROR) << err;

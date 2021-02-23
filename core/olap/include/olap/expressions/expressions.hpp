@@ -58,6 +58,7 @@ enum ExpressionId {
   CAST_EXPRESSION,
   REF_EXPRESSION,
   ASSIGN_EXPRESSION,
+  PLACEHOLDER,
 };
 
 class RefExpression;
@@ -662,6 +663,25 @@ class RandExpression : public ExpressionCRTP<RandExpression> {
   }
 };
 
+class PlaceholderExpression : public ExpressionCRTP<PlaceholderExpression> {
+ public:
+  PlaceholderExpression(const ExpressionType *type, size_t index)
+      : ExpressionCRTP(type), index(index) {}
+
+  [[nodiscard]] size_t getPlaceholderIndex() const { return index; }
+  [[nodiscard]] ExpressionId getTypeID() const override { return PLACEHOLDER; }
+  inline bool operator<(const PlaceholderExpression &r) const override {
+    if (this->getTypeID() == r.getTypeID()) {
+      return getPlaceholderIndex() < r.getPlaceholderIndex();
+    } else {
+      return this->getTypeID() < r.getTypeID();
+    }
+  }
+
+ private:
+  size_t index;
+};
+
 class ProteusValueExpression : public ExpressionCRTP<ProteusValueExpression> {
  public:
   ProteusValueExpression(const ExpressionType *type, ProteusValue expr)
@@ -1199,6 +1219,7 @@ class ExprVisitor {
   virtual ProteusValue visit(const expressions::ModExpression *e) = 0;
   virtual ProteusValue visit(const expressions::AndExpression *e) = 0;
   virtual ProteusValue visit(const expressions::OrExpression *e) = 0;
+  virtual ProteusValue visit(const expressions::PlaceholderExpression *e) = 0;
   virtual ProteusValue visit(const expressions::ProteusValueExpression *e) = 0;
   virtual ProteusValue visit(const expressions::MinExpression *e) = 0;
   virtual ProteusValue visit(const expressions::MaxExpression *e) = 0;
@@ -1279,6 +1300,8 @@ class ExprTandemVisitorT {
                   const expressions::AndExpression *e2) = 0;
   virtual T visit(const expressions::OrExpression *e1,
                   const expressions::OrExpression *e2) = 0;
+  virtual T visit(const expressions::PlaceholderExpression *e1,
+                  const expressions::PlaceholderExpression *e2) = 0;
   virtual T visit(const expressions::ProteusValueExpression *e1,
                   const expressions::ProteusValueExpression *e2) = 0;
   virtual T visit(const expressions::MinExpression *e1,

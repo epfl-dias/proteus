@@ -63,6 +63,8 @@ class ExpressionDotVisitor : public ExprTandemVisitor {
                      const expressions::DStringConstant *e2) override;
   ProteusValue visit(const expressions::InputArgument *e1,
                      const expressions::InputArgument *e2) override;
+  ProteusValue visit(const expressions::PlaceholderExpression *e1,
+                     const expressions::PlaceholderExpression *e2) override;
   ProteusValue visit(const expressions::ProteusValueExpression *e1,
                      const expressions::ProteusValueExpression *e2) override;
   ProteusValue visit(const expressions::RecordProjection *e1,

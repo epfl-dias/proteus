@@ -473,7 +473,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
     }
 
     private static String getClassName(RelDataType type) {
-        return null;
+        return Object.class.getName();
     }
 
     private static int getScale(RelDataType type) {

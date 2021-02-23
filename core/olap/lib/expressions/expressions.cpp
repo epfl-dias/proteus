@@ -357,6 +357,11 @@ class ExpressionComparatorVisitor : public ExprTandemVisitorT<ProteusValue> {
     res = C<expressions::XORExpression>{}(*e1, *e2);
     return NilValue();
   }
+  ProteusValue visit(const expressions::PlaceholderExpression *e1,
+                     const expressions::PlaceholderExpression *e2) override {
+    res = C<expressions::PlaceholderExpression>{}(*e1, *e2);
+    return NilValue();
+  }
   ProteusValue visit(const expressions::ProteusValueExpression *e1,
                      const expressions::ProteusValueExpression *e2) override {
     res = C<expressions::ProteusValueExpression>{}(*e1, *e2);
@@ -708,6 +713,9 @@ class DefaultedExprVisitor : public ExprVisitor {
     return f(*e);
   }
   ProteusValue visit(const expressions::XORExpression *e) override {
+    return f(*e);
+  }
+  ProteusValue visit(const expressions::PlaceholderExpression *e) override {
     return f(*e);
   }
   ProteusValue visit(const expressions::ProteusValueExpression *e) override {

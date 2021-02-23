@@ -172,6 +172,27 @@ ProteusValue ExpressionFlusherVisitor::visit(
 }
 
 ProteusValue ExpressionFlusherVisitor::visit(
+    const expressions::PlaceholderExpression *e) {
+  Catalog &catalog = Catalog::getInstance();
+
+  Plugin *plugin = catalog.getPlugin(activeRelation);
+
+  // Resetting activeRelation here would break nested-record-projections
+  // activeRelation = "";
+  if (plugin == nullptr) {
+    string error_msg = string("[Expression Generator: ] No plugin provided");
+    LOG(ERROR) << error_msg;
+    throw runtime_error(error_msg);
+  } else {
+    ExpressionGeneratorVisitor gen{context, currState};
+
+    plugin->flushValueEager(context, e->accept(gen), e->getExpressionType(),
+                            outputFile);
+  }
+  return placeholder;
+}
+
+ProteusValue ExpressionFlusherVisitor::visit(
     const expressions::ProteusValueExpression *e) {
   Catalog &catalog = Catalog::getInstance();
 

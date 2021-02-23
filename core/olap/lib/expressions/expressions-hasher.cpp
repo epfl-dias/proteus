@@ -263,6 +263,11 @@ ProteusValue ExpressionHasherVisitor::visit(
 }
 
 ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::PlaceholderExpression *e) {
+  return hashPrimitive(e);
+}
+
+ProteusValue ExpressionHasherVisitor::visit(
     const expressions::ProteusValueExpression *e) {
   if (e->getExpressionType()->isPrimitive()) return hashPrimitive(e);
 

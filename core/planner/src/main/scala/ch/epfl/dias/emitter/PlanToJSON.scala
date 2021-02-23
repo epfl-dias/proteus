@@ -194,6 +194,10 @@ object PlanToJSON {
             ("expression", exprType \ "type") ~ ("v", v)
           }
         }
+      case dyn: RexDynamicParam =>
+        ("expression", "placeholder") ~
+          ("index", dyn.getIndex) ~
+          ("type", emitType(dyn.getType, f))
       case _ =>
         val msg: String =
           "Unsupported expression " + e.toString + " (" + e.getClass.toString + ")"

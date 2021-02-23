@@ -572,6 +572,15 @@ ProteusValue ExpressionDotVisitor::visit(const expressions::InputArgument *e1,
 }
 
 ProteusValue ExpressionDotVisitor::visit(
+    const expressions::PlaceholderExpression *e1,
+    const expressions::PlaceholderExpression *e2) {
+  // left or right should not matter for ProteusValueExpressions, as
+  // the bindings will not be used
+  ExpressionGeneratorVisitor visitor{context, currStateLeft};
+  return eq(*e1, *e2).accept(visitor);
+}
+
+ProteusValue ExpressionDotVisitor::visit(
     const expressions::ProteusValueExpression *e1,
     const expressions::ProteusValueExpression *e2) {
   // left or right should not matter for ProteusValueExpressions, as

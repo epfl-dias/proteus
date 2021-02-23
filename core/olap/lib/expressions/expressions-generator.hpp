@@ -71,6 +71,7 @@ class ExpressionGeneratorVisitor : public ExprVisitor {
   ProteusValue visit(const expressions::ModExpression *e) override;
   ProteusValue visit(const expressions::AndExpression *e) override;
   ProteusValue visit(const expressions::OrExpression *e) override;
+  ProteusValue visit(const expressions::PlaceholderExpression *e) override;
   ProteusValue visit(const expressions::ProteusValueExpression *e) override;
   ProteusValue visit(const expressions::MinExpression *e) override;
   ProteusValue visit(const expressions::MaxExpression *e) override;

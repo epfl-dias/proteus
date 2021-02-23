@@ -961,6 +961,41 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 }
 
 ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::PlaceholderExpression *e) {
+  auto ctx = dynamic_cast<const ParallelContext *>(context);
+  assert(ctx);
+  auto session = ctx->getSessionParametersPtr();
+  auto Builder = context->getBuilder();
+  auto pan = Builder->CreateInBoundsGEP(
+      session, context->createSizeT(e->getPlaceholderIndex()));
+  auto par = Builder->CreatePointerCast(
+      pan, llvm::PointerType::getUnqual(
+               e->getExpressionType()->getLLVMType(context->getLLVMContext())));
+  auto *val = Builder->CreateLoad(par);
+
+  {
+    llvm::Metadata *Args2[] = {nullptr};
+    MDNode *n2 = MDNode::get(context->getLLVMContext(), Args2);
+    n2->replaceOperandWith(0, n2);
+
+    llvm::Metadata *Args[] = {nullptr, n2};
+    MDNode *n = MDNode::get(context->getLLVMContext(), Args);
+    n->replaceOperandWith(0, n);
+    val->setMetadata(LLVMContext::MD_alias_scope, n);
+  }
+
+  {  // Loaded value will be the same in all the places it will be loaded
+    //! invariant.load !{i32 1}
+    llvm::Metadata *Args[] = {
+        llvm::ValueAsMetadata::get(context->createInt32(1))};
+    MDNode *n = MDNode::get(context->getLLVMContext(), Args);
+    val->setMetadata(LLVMContext::MD_invariant_load, n);
+  }
+
+  return {val, context->createFalse()};
+}
+
+ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::AddExpression *e) {
   IRBuilder<> *const TheBuilder = context->getBuilder();
   ProteusValue left = e->getLeftOperand().accept(*this);
