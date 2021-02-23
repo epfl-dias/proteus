@@ -464,7 +464,7 @@ void GpuHashGroupByChained::close(Pipeline *pip) {
   // int32_t * cnts  = pip->getStateVar<int32_t *>(cntVar_id    );
 
   auto probe_pip = probe_gen->getPipeline(pip->getGroup());
-  probe_pip->open();
+  probe_pip->open(pip->getSession());
 
   std::vector<void *> args;
   args.push_back(pip->getStateVar<int32_t *>(cnt_param_id));

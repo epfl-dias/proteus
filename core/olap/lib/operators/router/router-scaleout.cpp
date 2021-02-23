@@ -95,9 +95,10 @@ bool RouterScaleOut::get_ready(int target, proteus::managed_ptr &buff) {
   }
 }
 
-void RouterScaleOut::fire(int target, PipelineGen *pipGen) {
+void RouterScaleOut::fire(int target, PipelineGen *pipGen,
+                          const void *session) {
   if (target == InfiniBandManager::server_id()) {
-    return Router::fire(target, pipGen);
+    return Router::fire(target, pipGen, session);
   }
 
   nvtxRangePushA((pipGen->getName() + ":" + std::to_string(target)).c_str());
@@ -134,7 +135,8 @@ void RouterScaleOut::open(Pipeline *pip) {
     eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_START);
     remaining_producers = 1;
     for (int i = 0; i < 2; ++i) {
-      firers.emplace_back(&RouterScaleOut::fire, this, i, catch_pip);
+      firers.emplace_back(&RouterScaleOut::fire, this, i, catch_pip,
+                          pip->getSession());
     }
     eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_END);
   }

@@ -132,6 +132,10 @@ StateVar ParallelContext::appendStateVar(llvm::Type *ptype,
   return generators.back()->appendStateVar(ptype, init, deinit);
 }
 
+[[nodiscard]] llvm::Value *ParallelContext::getSessionParametersPtr() const {
+  return generators.back()->getSessionParametersPtr();
+}
+
 llvm::Argument *ParallelContext::getArgument(size_t id) const {
   return getCurrentPipeline()->getArgument(id);
 }

@@ -135,7 +135,8 @@ class MemMoveDevice : public experimental::UnaryOperator {
 
   std::vector<bool> do_transfer;
 
-  void catcher(MemMoveConf *conf, int group_id, exec_location target_dev);
+  void catcher(MemMoveConf *conf, int group_id, exec_location target_dev,
+               const void *session);
 
  protected:
   [[nodiscard]] int getTargetDevice() const;

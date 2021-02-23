@@ -363,7 +363,8 @@ void MemMoveDevice::open(Pipeline *pip) {
   // nvtxRangePop();
 
   mmc->worker = ThreadPool::getInstance().enqueue(
-      &MemMoveDevice::catcher, this, mmc, pip->getGroup(), exec_location{});
+      &MemMoveDevice::catcher, this, mmc, pip->getGroup(), exec_location{},
+      pip->getSession());
   // mmc->worker = new thread(&MemMoveDevice::catcher, this, mmc,
   // pip->getGroup(), exec_location{});
   eventlogger.log(this, log_op::MEMMOVE_OPEN_END);
@@ -477,8 +478,7 @@ void MemMoveDevice::MemMoveConf::release(MemMoveDevice::workunit *buff) {
 }
 
 void MemMoveDevice::catcher(MemMoveConf *mmc, int group_id,
-                            exec_location target_dev) {
-  // std::cout << target_dev. << std::endl;
+                            exec_location target_dev, const void *session) {
   set_exec_location_on_scope d(target_dev);
   std::this_thread::yield();
 
@@ -487,7 +487,7 @@ void MemMoveDevice::catcher(MemMoveConf *mmc, int group_id,
   auto pip = catch_pip->getPipeline(group_id);
 
   nvtxRangePushA("memmove::catch_open");
-  pip->open();
+  pip->open(session);
   nvtxRangePop();
 
   {

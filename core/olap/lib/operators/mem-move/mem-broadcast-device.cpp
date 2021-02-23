@@ -389,9 +389,9 @@ void MemBroadcastDevice::open(Pipeline *pip) {
   }
   nvtxRangePop();
 
-  mmc->worker =
-      ThreadPool::getInstance().enqueue(&MemBroadcastDevice::catcher, this, mmc,
-                                        pip->getGroup(), exec_location{});
+  mmc->worker = ThreadPool::getInstance().enqueue(
+      &MemBroadcastDevice::catcher, this, mmc, pip->getGroup(), exec_location{},
+      pip->getSession());
 
   int device = -1;
   if (!to_cpu) device = topology::getInstance().getActiveGpu().id;

@@ -230,19 +230,16 @@ void ZipInitiate::ctrl(Pipeline *pip) {
 
   auto jpip = join_pip->getPipeline(pip->getGroup());
 
-  jpip->open();
+  jpip->open(pip->getSession());
 
   for (int i = 0; i < targs; i++) {
     *(partition_ptr[pip->getGroup()]) = partitions[pip->getGroup()][i];
 
-    std::cout << "TIME TO CONSUME " << *(partition_ptr[pip->getGroup()])
-              << std::endl;
-
-    lpip->open();
+    lpip->open(pip->getSession());
     lpip->consume(0);
     lpip->close();
 
-    rpip->open();
+    rpip->open(pip->getSession());
     rpip->consume(0);
     rpip->close();
 

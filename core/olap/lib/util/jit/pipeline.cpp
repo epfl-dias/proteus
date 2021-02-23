@@ -50,6 +50,10 @@ StateVar PipelineGen::appendStateVar(llvm::Type *ptype) {
       [](Value *, Value *) {});
 }
 
+const int64_t *getSession(Pipeline *p) {
+  return static_cast<const int64_t *>(p->getSession());
+}
+
 StateVar PipelineGen::appendStateVar(llvm::Type *ptype,
                                      std::function<init_func_t> init,
                                      std::function<deinit_func_t> deinit) {
@@ -298,7 +302,7 @@ PipelineGen::PipelineGen(Context *context, std::string pipName,
   //     context)->TheTargetMachine)); Pass *TPC = (Pass *)
   //     LTM.createPassConfig(*ThePM); ThePM->add(TPC);
   // }
-};
+}
 
 void PipelineGen::registerSubPipeline() {
   if (copyStateFrom) {
@@ -455,8 +459,19 @@ Value *PipelineGen::getStateLLVMValue() {
   return getBuilder()->CreateLoad(getArgument(args.size() - 1));
 }
 
+llvm::Value *PipelineGen::getSessionParametersPtr() const {
+  assert(session_parameters_ptr != StateVar{});
+
+  return getStateVar(session_parameters_ptr);
+}
+
 Function *PipelineGen::prepare() {
   assert(!F);
+  session_parameters_ptr = appendStateVar(
+      IntegerType::getInt64PtrTy(context->getLLVMContext()),
+      [=](llvm::Value *pip) { return context->gen_call(getSession, {pip}); },
+      [](auto, auto) {});
+
   size_t state_id = prepareStateArgument();
 
   prepareFunction();
@@ -503,7 +518,7 @@ std::unique_ptr<Pipeline> PipelineGen::getPipeline(int group_id) {
 
     openers.insert(openers.begin(),
                    std::make_pair(this, [copyFrom, this](Pipeline *pip) {
-                     copyFrom->open();
+                     copyFrom->open(pip->getSession());
                      pip->setStateVar({0, this}, copyFrom->state);
                    }));
     // closers.emplace_back([copyFrom](Pipeline *
@@ -591,7 +606,8 @@ size_t Pipeline::getSizeOf(llvm::Type *t) const {
 
 int32_t Pipeline::getGroup() const { return group_id; }
 
-void Pipeline::open() {
+void Pipeline::open(const void *s) {
+  this->session = s;
   // TODO: for sure it can be done in at least N log N by sorting...
   // for (size_t i = openers.size() ; i > 0 ; --i) {
   //     bool is_last = true;
@@ -664,7 +680,7 @@ void Pipeline::close() {
   // for (size_t i = closers.size() ; i > 0 ; --i) closers[i - 1](this);
 
   if (execute_after_close) {
-    execute_after_close->open();
+    execute_after_close->open(getSession());
     execute_after_close->consume(0);
     execute_after_close->close();
   }

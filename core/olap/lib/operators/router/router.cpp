@@ -215,7 +215,7 @@ bool Router::get_ready(int target, proteus::managed_ptr &buff) {
   return r;
 }
 
-void Router::fire(int target, PipelineGen *pipGen) {
+void Router::fire(int target, PipelineGen *pipGen, const void *session) {
   nvtxRangePushA((pipGen->getName() + ":" + std::to_string(target)).c_str());
   pthread_setname_np(pthread_self(), (std::to_string((uintptr_t)this) +
                                       "::" + std::to_string(target))
@@ -242,7 +242,7 @@ void Router::fire(int target, PipelineGen *pipGen) {
   }
   nvtxRangePushA(
       (pipGen->getName() + ":" + std::to_string(target) + "open").c_str());
-  pip->open();
+  pip->open(session);
   nvtxRangePop();
 
   //  eventlogger.log(this, log_op::EXCHANGE_CONSUME_OPEN_END);
@@ -434,8 +434,8 @@ void Router::consume(ParallelContext *const context,
       {target, exchange, Builder->CreateBitCast(param_ptr, charPtrType)});
 }
 
-void Router::spawnWorker(size_t i) {
-  firers.emplace_back(&Router::fire, this, i, catch_pip);
+void Router::spawnWorker(size_t i, const void *session) {
+  firers.emplace_back(&Router::fire, this, i, catch_pip, session);
 }
 
 void Router::open(Pipeline *pip) {
@@ -452,7 +452,7 @@ void Router::open(Pipeline *pip) {
 
     //    eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_START);
     remaining_producers = producers;
-    for (int i = 0; i < fanout; ++i) spawnWorker(i);
+    for (int i = 0; i < fanout; ++i) spawnWorker(i, pip->getSession());
     //    eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_END);
   }
 }

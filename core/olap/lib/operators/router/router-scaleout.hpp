@@ -66,7 +66,7 @@ class RouterScaleOut : public Router {
 
   //  void fire(int target, PipelineGen *pipGen);
 
-  void fire(int target, PipelineGen *pipGen) override;
+  void fire(int target, PipelineGen *pipGen, const void *session) override;
 
  protected:
   proteus::managed_ptr acquireBuffer(int target, bool polling) override;

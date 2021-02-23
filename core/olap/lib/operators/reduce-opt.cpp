@@ -378,8 +378,6 @@ StateVar Reduce::resetAccumulator(const agg_t &agg, bool is_first, bool is_last,
           PointerType::getUnqual(t),
 
           [=](llvm::Value *) {
-            IRBuilder<> *Builder = context->getBuilder();
-
             Value *mem_acc = context->allocateStateVar(t);
 
             Constant *val_id = getIdentityElementIfSimple(

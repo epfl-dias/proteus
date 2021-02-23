@@ -23,6 +23,7 @@
 
 #include <olap/plan/prepared-statement.hpp>
 #include <olap/util/parallel-context.hpp>
+#include <platform/memory/memory-manager.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
 #include <platform/util/profiling.hpp>
@@ -56,6 +57,10 @@ QueryResult PreparedStatement::execute(bool deterministic_affinity) {
     }
   }
 
+  static uint32_t year = 1993;
+  void *session = MemoryManager::mallocPinned(sizeof(int64_t));
+  *static_cast<uint32_t *>(session) = ++year;
+
   {
     time_block t("Texecute w sync: ");
 
@@ -67,7 +72,7 @@ QueryResult PreparedStatement::execute(bool deterministic_affinity) {
         {
           time_block t("T: ");
 
-          p->open();
+          p->open(session);
           p->consume(0);
           p->close();
 
@@ -85,6 +90,8 @@ QueryResult PreparedStatement::execute(bool deterministic_affinity) {
       gpu_run(cudaDeviceSynchronize());
     }
   }
+
+  MemoryManager::freePinned(session);
 
   profiling::pause();
 

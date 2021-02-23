@@ -532,12 +532,13 @@ void GpuToCpu::generate_catch(ParallelContext *context) {
   Builder->SetInsertPoint(context->getEndingBlock());
 }
 
-void kick_start(std::unique_ptr<Pipeline> cpip, int device) {
+void kick_start(std::unique_ptr<Pipeline> cpip, int device,
+                const void *session) {
   set_exec_location_on_scope d(topology::getInstance().getGpus()[device]);
 
   nvtxRangePushA("gpu2cpu_reads");
   nvtxRangePushA("gpu2cpu_open");
-  cpip->open();
+  cpip->open(session);
   nvtxRangePop();
   nvtxRangePushA("gpu2cpu_cons");
   cpip->consume(0);
@@ -592,7 +593,8 @@ void GpuToCpu::open(Pipeline *pip) {
 
   syncAndDestroyStream(strm);
 
-  std::thread *t = new std::thread(kick_start, std::move(cpip), device);
+  auto *t =
+      new std::thread(kick_start, std::move(cpip), device, pip->getSession());
 
   pip->setStateVar<void *>(threadVar_id, t);
   nvtxRangePop();

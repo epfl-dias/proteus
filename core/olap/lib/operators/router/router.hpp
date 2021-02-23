@@ -125,7 +125,7 @@ class Router : public experimental::UnaryOperator {
  protected:
   virtual void generate_catch(ParallelContext *context);
 
-  virtual void fire(int target, PipelineGen *pipGen);
+  virtual void fire(int target, PipelineGen *pipGen, const void *session);
 
   virtual std::unique_ptr<routing::RoutingPolicy> getPolicy() const;
 
@@ -150,7 +150,7 @@ class Router : public experimental::UnaryOperator {
   virtual void open(Pipeline *pip);
   virtual void close(Pipeline *pip);
 
-  virtual void spawnWorker(size_t i);
+  virtual void spawnWorker(size_t i, const void *session);
 
   threadvector firers;
 

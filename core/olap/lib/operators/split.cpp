@@ -46,6 +46,6 @@ void Split::produce_(ParallelContext *context) {
   getChild()->produce(context);
 }
 
-void Split::spawnWorker(size_t i) {
-  firers.emplace_back(&Split::fire, this, i, catch_pip[i]);
+void Split::spawnWorker(size_t i, const void *session) {
+  firers.emplace_back(&Split::fire, this, i, catch_pip[i], session);
 }

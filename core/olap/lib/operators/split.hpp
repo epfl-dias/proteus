@@ -50,7 +50,7 @@ class Split : public Router {
   DegreeOfParallelism getDOP() const override { return getChild()->getDOP(); }
 
  protected:
-  void spawnWorker(size_t i) override;
+  void spawnWorker(size_t i, const void *session) override;
 
  private:
   size_t produce_calls;

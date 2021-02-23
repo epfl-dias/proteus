@@ -42,6 +42,8 @@ class ParallelContext : public Context {
                           std::function<deinit_func_t> deinit,
                           std::string name = "") override;
 
+  [[nodiscard]] virtual llvm::Value *getSessionParametersPtr() const;
+
   [[nodiscard]] virtual llvm::Argument *getArgument(size_t id) const;
   [[nodiscard]] llvm::Value *getStateVar(const StateVar &id) const override;
   [[nodiscard]] virtual llvm::Value *getStateVar() const;

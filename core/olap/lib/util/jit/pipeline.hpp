@@ -101,6 +101,8 @@ class PipelineGen {
   unsigned int maxBlockSize;
   unsigned int maxGridSize;
 
+  StateVar session_parameters_ptr;
+
  public:
   llvm::Function *F;
 
@@ -194,6 +196,7 @@ class PipelineGen {
       llvm::Function *f, std::vector<llvm::Value *> args) const;
 
   std::vector<llvm::Type *> getStateVars() const;
+  [[nodiscard]] llvm::Value *getSessionParametersPtr() const;
 
   static void init();
 
@@ -274,6 +277,8 @@ class Pipeline {
   friend class GpuPipelineGen;
   friend class CpuPipelineGen;
 
+  const void *session = nullptr;
+
  public:
   void *state;
 
@@ -291,6 +296,11 @@ class Pipeline {
     *((T *)(((char *)state) + offset)) = value;
   }
 
+  [[nodiscard]] const void *getSession() const {
+    assert(session);
+    return session;
+  }
+
   template <typename T>
   T getStateVar(StateVar state_id) {
     size_t offset = layout.getStructLayout(state_type)
@@ -305,7 +315,7 @@ class Pipeline {
     return execution_conf{};
   }
 
-  virtual void open();
+  virtual void open(const void *session);
 
   template <typename... Tin>
   void consume(size_t N,
@@ -313,6 +323,7 @@ class Pipeline {
     // ((void (*)(const Tin * ..., size_t, void *)) cons)(src..., N, state);
     assert(this);
     assert(cons);
+    assert(getSession());
     ((void (*)(const Tin *..., void *))cons)(src..., state);
   }  //;// cnt_t N, vid_t v, cid_t c){
 

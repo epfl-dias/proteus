@@ -710,7 +710,7 @@ std::unique_ptr<Pipeline> GpuPipelineGen::getPipeline(int group_id) {
 
     openers.insert(openers.begin(),
                    std::make_pair(this, [copyFrom, this](Pipeline *pip) {
-                     copyFrom->open();
+                     copyFrom->open(pip->getSession());
                      pip->setStateVar({0, this}, copyFrom->state);
                    }));
     // closers.emplace_back([copyFrom](Pipeline *
