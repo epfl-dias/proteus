@@ -204,7 +204,7 @@ class JITer_impl {
       llvm::orc::JITTargetMachineBuilder JTMB =
           llvm::cantFail(llvm::orc::JITTargetMachineBuilder::detectHost())
               .setCodeGenOptLevel(CodeGenOpt::Aggressive))
-      : pool(false, 4 * std::thread::hardware_concurrency()),
+      : pool(false, std::thread::hardware_concurrency()),
         DL(llvm::cantFail(JTMB.getDefaultDataLayoutForTarget())),
         Mangle(ES, this->DL),
         Ctx(std::make_unique<LLVMContext>()),
@@ -279,10 +279,6 @@ class JITer_impl {
 
   LLVMContext &getContext() { return *Ctx.getContext(); }
 
-  void addModule(std::unique_ptr<Module> M) {
-    addModule(llvm::orc::ThreadSafeModule(std::move(M), Ctx));
-  }
-
   void addModule(llvm::orc::ThreadSafeModule M) {
     llvm::cantFail(PrintGeneratedIRLayer.add(MainJD, std::move(M)));
   }
@@ -342,29 +338,31 @@ void CpuModule::compileAndLoad() {
   });
   getJiter().p_impl->addModule(std::move(ptr));
 
-#ifdef DEBUGCTX
-  if (print_generated_code) {
-    string assembly;
-    {
-      raw_string_ostream stream(assembly);
-      buffer_ostream ostream(stream);
-
-      legacy::PassManager PM;
-
-      // Ask the target to add backend passes as necessary.
-      TheExecutionEngine->getTargetMachine()->addPassesToEmitFile(
-          PM, ostream,
-#if LLVM_VERSION_MAJOR >= 7
-          nullptr,
-#endif
-          llvm::CGFT_AssemblyFile, false);
-
-      PM.run(*(getModule()));
-    }
-    std::ofstream oassembly("generated_code/" + pipName + ".s");
-    oassembly << assembly;
-  }
-#endif
+  ::ThreadPool::getInstance().enqueue(
+      [name = getModule()->getName()]() { getJiter().p_impl->lookup(name); });
+  //#ifdef DEBUGCTX
+  //  if (print_generated_code) {
+  //    string assembly;
+  //    {
+  //      raw_string_ostream stream(assembly);
+  //      buffer_ostream ostream(stream);
+  //
+  //      legacy::PassManager PM;
+  //
+  //      // Ask the target to add backend passes as necessary.
+  //      TheExecutionEngine->getTargetMachine()->addPassesToEmitFile(
+  //          PM, ostream,
+  //#if LLVM_VERSION_MAJOR >= 7
+  //          nullptr,
+  //#endif
+  //          llvm::CGFT_AssemblyFile, false);
+  //
+  //      PM.run(*(getModule()));
+  //    }
+  //    std::ofstream oassembly("generated_code/" + pipName + ".s");
+  //    oassembly << assembly;
+  //  }
+  //#endif
   //  for (Function &f : *getModule()) {
   //    if (!f.isDeclaration()) {
   //      auto addr = getJiter().p_impl->lookup(f.getName());

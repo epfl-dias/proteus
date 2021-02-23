@@ -28,6 +28,8 @@
 #define dumpDispatchInfo(x, y) (5)
 #include <llvm/Analysis/BasicAliasAnalysis.h>
 #include <llvm/Analysis/TargetTransformInfo.h>
+#include <llvm/Bitcode/BitcodeReader.h>
+#include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/CodeGen/TargetPassConfig.h>
 #include <llvm/ExecutionEngine/JITEventListener.h>
 #include <llvm/ExecutionEngine/JITSymbol.h>
@@ -51,12 +53,15 @@
 #include <llvm/Support/SmallVectorMemoryBuffer.h>
 #include <llvm/Support/SourceMgr.h>
 #include <llvm/Support/TargetRegistry.h>
+#include <llvm/Transforms/IPO/GlobalDCE.h>
 #include <llvm/Transforms/IPO/Internalize.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #pragma pop_macro("NDEBUG")
 
+#include <platform/threadpool/threadpool.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/util/timing.hpp>
+#include <utility>
 
 void initializeModule(CUmodule &cudaModule);
 
@@ -71,7 +76,7 @@ constexpr uint64_t nvptx_max_regs = NVPTX_MAX_REGS;
 LLVMTargetMachine *GpuModule::TheTargetMachine = nullptr;
 
 GpuModule::GpuModule(Context *context, std::string pipName)
-    : JITModule(context, pipName) {
+    : JITModule(context, std::move(pipName)) {
   uint32_t gpu_cnt = topology::getInstance().getGpuCount();
   cudaModule = (CUmodule *)malloc(gpu_cnt * sizeof(CUmodule));
 
@@ -80,38 +85,13 @@ GpuModule::GpuModule(Context *context, std::string pipName)
   // Inform the module about the current configuration
   getModule()->setDataLayout(TheTargetMachine->createDataLayout());
   getModule()->setTargetTriple(TheTargetMachine->getTargetTriple().getTriple());
-
-  // string ErrStr;
-  // TheExecutionEngine =
-  //     EngineBuilder(std::unique_ptr<Module>(getModule())).setErrorStr(&ErrStr).create();
-  // if (TheExecutionEngine == nullptr) {
-  //     fprintf(stderr, "Could not create ExecutionEngine: %s\n",
-  //             ErrStr.c_str());
-  //     exit(1);
-  // }
-
-  // // JITEventListener* vtuneProfiler =
-  // JITEventListener::createIntelJITEventListener();
-  // // if (vtuneProfiler == nullptr) {
-  // //     fprintf(stderr, "Could not create VTune listener\n");
-  // // } else {
-  // //     TheExecutionEngine->RegisterJITEventListener(vtuneProfiler);
-  // // }
-
-  // JITEventListener* gdbDebugger =
-  // JITEventListener::createGDBRegistrationListener(); if (gdbDebugger ==
-  // nullptr) {
-  //     fprintf(stderr, "Could not create GDB listener\n");
-  // } else {
-  //     TheExecutionEngine->RegisterJITEventListener(gdbDebugger);
-  // }
 }
 
 auto getGPU() {
   assert(topology::getInstance().getGpuCount() > 0);
   int dev = 0;
   gpu_run(cudaGetDevice(&dev));
-  cudaDeviceProp deviceProp;
+  cudaDeviceProp deviceProp{};
   gpu_run(cudaGetDeviceProperties(&deviceProp, dev));
   return "sm_" + std::to_string(deviceProp.major * 10 + deviceProp.minor);
 }
@@ -135,10 +115,10 @@ void GpuModule::init() {
 
   llvm::TargetOptions opt;
   opt.DisableIntegratedAS = 1;
-  opt.MCOptions.ShowMCEncoding = 1;
-  opt.MCOptions.MCUseDwarfDirectory = 1;
+  opt.MCOptions.ShowMCEncoding = true;
+  opt.MCOptions.MCUseDwarfDirectory = true;
   // opt.MCOptions.AsmVerbose            = 1;
-  opt.MCOptions.PreserveAsmComments = 1;
+  opt.MCOptions.PreserveAsmComments = true;
 
   auto RM = llvm::Optional<llvm::Reloc::Model>();
   TheTargetMachine = (llvm::LLVMTargetMachine *)Target->createTargetMachine(
@@ -204,7 +184,7 @@ constexpr size_t BUFFER_SIZE = 8192;
 static char error_log[BUFFER_SIZE];
 static char info_log[BUFFER_SIZE];
 
-std::pair<char *, char *> discover_bc() {
+static llvm::StringRef discover_bc() {
   // FIXME: should use a loop instead of nested ifs... also, we should cache
   // the result per sm
   // Compute symbol name for one of the GPU architecture, and use that to
@@ -214,7 +194,7 @@ std::pair<char *, char *> discover_bc() {
   //        assuming it is going to be available...
   int dev = 0;
   gpu_run(cudaGetDevice(&dev));
-  cudaDeviceProp deviceProp;
+  cudaDeviceProp deviceProp{};
   gpu_run(cudaGetDeviceProperties(&deviceProp, dev));
   auto sm_code = std::to_string(deviceProp.major * 10 + deviceProp.minor);
 
@@ -240,32 +220,22 @@ std::pair<char *, char *> discover_bc() {
             << (void *)_binary_buffer_manager_cubin_start
             << ", end: " << (void *)_binary_buffer_manager_cubin_end;
 
-  return {_binary_buffer_manager_cubin_start, _binary_buffer_manager_cubin_end};
+  auto start = (const char *)_binary_buffer_manager_cubin_start;
+  auto end = (const char *)_binary_buffer_manager_cubin_end;
+  size_t size = end - start;
+  return {start, size};
 }
 
-auto createModule(LLVMContext &llvmContext) {
-  auto binary_bc = discover_bc();
-  auto start = (const char *)binary_bc.first;
-  auto end = (const char *)binary_bc.second;
-  size_t size = end - start;
-  auto mb2 =
-      llvm::MemoryBuffer::getMemBuffer(llvm::StringRef{start, size}, "", false);
-  assert(mb2);
-  llvm::SMDiagnostic error;
-
-  auto mod = llvm::parseIR(mb2->getMemBufferRef(), error, llvmContext);
-  assert(mod);
-
-  return mod;
+auto getCachedBC() {
+  static auto bounds{discover_bc()};
+  return bounds;
 }
 
 auto getModuleRef(LLVMContext &llvmContext) {
-  static auto mod{createModule(llvmContext)};
-  if (&llvmContext != &mod->getContext()) mod = createModule(llvmContext);
-  return llvm::CloneModule(*mod);
+  return cantFail(llvm::getOwningLazyBitcodeModule(
+      llvm::MemoryBuffer::getMemBuffer(getCachedBC(), "", false), llvmContext,
+      false, false));
 }
-
-#include <platform/threadpool/threadpool.hpp>
 
 Expected<llvm::orc::JITTargetMachineBuilder> detectGPU() {
   llvm::orc::JITTargetMachineBuilder TMBuilder(Triple{"nvptx64-nvidia-cuda"});
@@ -291,7 +261,7 @@ class GPUJITer {
   GPUJITer();
   ~GPUJITer();
 
-  LLVMContext &getContext();
+  LLVMContext &getContext() const;
 };
 
 GPUJITer::GPUJITer() : p_impl(std::make_unique<GPUJITer_impl>()) {}
@@ -348,6 +318,7 @@ class NVPTXLinkLayer final : public llvm::orc::ObjectLayer {
       values[7] = (void *)4;
 
       {
+        time_block tInit{"Tload: ", TimeRegistry::Key{"NVML compile module"}};
         for (const auto &gpu : topology::getInstance().getGpus()) {
           set_device_on_scope d(gpu);
 
@@ -357,9 +328,16 @@ class NVPTXLinkLayer final : public llvm::orc::ObjectLayer {
 
           if (info_log[0] != '\0') LOG(INFO) << info_log;
           if (x != CUDA_SUCCESS) {
-            LOG(INFO) << error_log;
-            gpu_run(x);
+            LOG(ERROR) << error_log;
+            R.failMaterialization();
           }
+        }
+      }
+      {
+        time_block tInit{"Tinit: ", TimeRegistry::Key{"Init GPU module"}};
+        for (const auto &gpu : topology::getInstance().getGpus()) {
+          set_device_on_scope d(gpu);
+
           initializeModule(cudaModule[gpu.id]);
         }
       }
@@ -408,7 +386,7 @@ class ConcurrentNVPTXCompiler : public llvm::orc::IRCompileLayer::IRCompiler {
         JTMB(std::move(JTMB)),
         ObjCache(ObjCache) {}
 
-  void setObjectCache(ObjectCache *ObjCache) { this->ObjCache = ObjCache; }
+  void setObjectCache(ObjectCache *objCache) { this->ObjCache = objCache; }
 
  protected:
   llvm::orc::JITTargetMachineBuilder JTMB;
@@ -482,6 +460,9 @@ llvm::orc::ThreadSafeModule optimizeGpuModule(
   return TSM;
 }
 
+Expected<llvm::orc::ThreadSafeModule> printIR(orc::ThreadSafeModule module,
+                                              const std::string &suffix = "");
+
 class GPUJITer_impl {
  public:
   ::ThreadPool pool;
@@ -495,15 +476,21 @@ class GPUJITer_impl {
   llvm::orc::ExecutionSession ES;
   NVPTXLinkLayer ObjectLayer;
   llvm::orc::IRCompileLayer CompileLayer;
+  llvm::orc::IRTransformLayer PrintOptimizedIRLayer;
   llvm::orc::IRTransformLayer TransformLayer;
+  llvm::orc::IRTransformLayer InternalizeLayer;
+  llvm::orc::IRTransformLayer PrintGeneratedIRLayer;
 
   llvm::orc::JITDylib &MainJD;
+
+  std::mutex preserve_m;
+  std::map<llvm::orc::VModuleKey, std::set<std::string>> preserve;
 
  public:
   explicit GPUJITer_impl(llvm::orc::JITTargetMachineBuilder JTMB =
                              llvm::cantFail(detectGPU())
                                  .setCodeGenOptLevel(CodeGenOpt::Aggressive))
-      : pool(false, 4 * std::thread::hardware_concurrency()),
+      : pool(false, std::thread::hardware_concurrency()),
         DL(llvm::cantFail(JTMB.getDefaultDataLayoutForTarget())),
         Mangle(ES, this->DL),
         Ctx(std::make_unique<LLVMContext>()),
@@ -511,8 +498,16 @@ class GPUJITer_impl {
         ObjectLayer(ES),
         CompileLayer(ES, ObjectLayer,
                      std::make_unique<ConcurrentNVPTXCompiler>(JTMB)),
-        TransformLayer(
+        PrintOptimizedIRLayer(
             ES, CompileLayer,
+            [](llvm::orc::ThreadSafeModule TSM,
+               const llvm::orc::MaterializationResponsibility &R)
+                -> Expected<llvm::orc::ThreadSafeModule> {
+              if (print_generated_code) return printIR(std::move(TSM), "_opt");
+              return std::move(TSM);
+            }),
+        TransformLayer(
+            ES, PrintOptimizedIRLayer,
             [JTMB = std::move(JTMB)](
                 llvm::orc::ThreadSafeModule TSM,
                 const llvm::orc::MaterializationResponsibility &R) mutable
@@ -521,11 +516,59 @@ class GPUJITer_impl {
               if (!TM) return TM.takeError();
               return optimizeGpuModule(std::move(TSM), std::move(TM.get()));
             }),
+        InternalizeLayer(
+            ES, TransformLayer,
+            [this](llvm::orc::ThreadSafeModule TSM,
+                   const llvm::orc::MaterializationResponsibility &R)
+                -> Expected<llvm::orc::ThreadSafeModule> {
+              auto preserveFromInternalization = [&]() {
+                std::unique_lock<std::mutex> lock{preserve_m};
+                auto it = preserve.find(R.getVModuleKey());
+                assert(it != preserve.end());
+                auto tmp = std::move(it->second);
+                preserve.erase(it);
+                return tmp;
+              }();
+              TSM.withModuleDo([&preserveFromInternalization](Module &mod) {
+                time_block tlink{"Link and internalize (GPU)"};
+                llvm::Linker::linkModules(mod, getModuleRef(mod.getContext()),
+                                          llvm::Linker::LinkOnlyNeeded);
+
+                {
+                  llvm::ModulePassManager mpm;
+                  llvm::ModuleAnalysisManager mam;
+
+                  PassBuilder b;
+                  b.registerModuleAnalyses(mam);
+
+                  std::set<std::string> gs{
+                      // "pool", "npool", "deviceId", "buff_start", "buff_end",
+                  };
+
+                  mpm.addPass(llvm::InternalizePass([&](const GlobalValue &g) {
+                    if (gs.count(g.getName().str())) return true;
+                    if (g.getName().startswith(mod.getName())) return true;
+                    return preserveFromInternalization.count(
+                               g.getName().str()) > 0;
+                  }));
+                  mpm.addPass(llvm::GlobalDCEPass{});
+                  mpm.run(mod, mam);
+                }
+              });
+              return std::move(TSM);
+            }),
+        PrintGeneratedIRLayer(
+            ES, InternalizeLayer,
+            [](llvm::orc::ThreadSafeModule TSM,
+               const llvm::orc::MaterializationResponsibility &R)
+                -> Expected<llvm::orc::ThreadSafeModule> {
+              if (print_generated_code) return printIR(std::move(TSM));
+              return std::move(TSM);
+            }),
         MainJD(llvm::cantFail(ES.createJITDylib("main"))) {
     ObjectLayer.setNotifyEmitted(
         [](llvm::orc::VModuleKey k, std::unique_ptr<MemoryBuffer> mb) {
-          LOG(INFO) << "GPU Emitted " << k << " "
-                    << mb.get();  //->getBufferIdentifier().str();
+          LOG(INFO) << "GPU Emitted " << k << " " << mb.get();
         });
 
     ES.setDispatchMaterialization(
@@ -550,12 +593,14 @@ class GPUJITer_impl {
 
   LLVMContext &getContext() { return *Ctx.getContext(); }
 
-  void addModule(std::unique_ptr<Module> M) {
-    addModule(llvm::orc::ThreadSafeModule(std::move(M), Ctx));
-  }
-
-  void addModule(llvm::orc::ThreadSafeModule M) {
-    llvm::cantFail(TransformLayer.add(MainJD, std::move(M)));
+  void addModule(llvm::orc::ThreadSafeModule M,
+                 std::set<std::string> preserveFromInternalization) {
+    llvm::orc::VModuleKey key = ES.allocateVModule();
+    {
+      std::unique_lock<std::mutex> lock{preserve_m};
+      preserve.emplace(key, std::move(preserveFromInternalization));
+    }
+    llvm::cantFail(PrintGeneratedIRLayer.add(MainJD, std::move(M), key));
   }
 
  private:
@@ -578,54 +623,15 @@ class GPUJITer_impl {
   }
 };
 
-LLVMContext &GPUJITer::getContext() { return p_impl->getContext(); }
-#include "llvm/Bitcode/BitcodeReader.h"
-#include "llvm/Bitcode/BitcodeWriter.h"
+LLVMContext &GPUJITer::getContext() const { return p_impl->getContext(); }
+
 auto &getGPUJiter() {
   static GPUJITer jiter;
   return jiter;
 }
 
 void GpuModule::compileAndLoad() {
-#ifndef NCUDA
-  time_block t(pipName + " G: ", TimeRegistry::Key{"Compile and Load (GPU)"});
-
-#ifdef DEBUGCTX
-  // getModule()->dump();
-
-  if (print_generated_code) {
-    std::error_code EC;
-    llvm::raw_fd_ostream out("generated_code/" + pipName + ".ll", EC,
-                             llvm::sys::fs::OpenFlags::F_None);
-
-    getModule()->print(out, nullptr, false, true);
-  }
-#endif
-  auto mod = getModuleRef(getModule()->getContext());
-
-  {
-    time_block tlink{"Link and internalize (GPU)"};
-    llvm::Linker::linkModules(*getModule(), std::move(mod));
-
-    {
-      llvm::ModulePassManager mpm;
-      llvm::ModuleAnalysisManager mam;
-
-      PassBuilder b;
-      b.registerModuleAnalyses(mam);
-
-      std::set<std::string> gs{
-          //        "pool", "npool", "deviceId", "buff_start", "buff_end",
-      };
-
-      mpm.addPass(llvm::InternalizePass([&](const GlobalValue &g) {
-        if (gs.count(g.getName().str())) return true;
-        if (g.getName().startswith(getModule()->getName())) return true;
-        return preserveFromInternalization.count(g.getName().str()) > 0;
-      }));
-      mpm.run(*getModule(), mam);
-    }
-  }
+  time_block t(TimeRegistry::Key{"Compile and Load (GPU)"});
 
   //  optimizeModule(getModule());
   llvm::orc::ThreadSafeModule ptr;
@@ -663,34 +669,12 @@ void GpuModule::compileAndLoad() {
   ptr.withModuleDo([pipName = this->pipName](Module &nm) {
     nm.setSourceFileName("this_gpu_" + pipName);
   });
-  getGPUJiter().p_impl->addModule(std::move(ptr));
+  getGPUJiter().p_impl->addModule(std::move(ptr),
+                                  std::move(preserveFromInternalization));
 
-  //  string ptx;
-  //  {
-  //    llvm::raw_string_ostream stream(ptx);
-  //    llvm::buffer_ostream ostream(stream);
-  //
-  //    llvm::legacy::PassManager PM;
-  //
-  //    // Ask the target to add backend passes as necessary.
-  //    TheTargetMachine->addPassesToEmitFile(PM, ostream,
-  //#if LLVM_VERSION_MAJOR >= 7
-  //                                          nullptr,
-  //#endif
-  //                                          llvm::CGFT_AssemblyFile, false);
-  //
-  //    PM.run(*(getModule()));
-  //  }  // flushes stream and ostream
-  //#ifdef DEBUGCTX
-  //  if (print_generated_code) {
-  //    std::ofstream optx("generated_code/" + pipName + ".ptx");
-  //    optx << ptx;
-  //  }
-  //#endif
-
-#else
-  assert(false);
-#endif
+  ::ThreadPool::getInstance().enqueue([name = getModule()->getName()]() {
+    getGPUJiter().p_impl->lookup(name);
+  });
   //  auto addr = getGPUJiter().p_impl->lookup(getModule()->getName());
   //  LOG(INFO) << getModule()->getName().str() << " " << (void
   //  *)addr.getAddress();
