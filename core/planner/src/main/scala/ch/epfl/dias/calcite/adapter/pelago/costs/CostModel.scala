@@ -17,6 +17,7 @@ import ch.epfl.dias.calcite.adapter.pelago.rel.{
   PelagoTableScan,
   PelagoToEnumerableConverter,
   PelagoUnion,
+  PelagoUnnest,
   PelagoUnpack,
   PelagoValues
 }
@@ -171,6 +172,8 @@ object CostModel {
       case _: PelagoTableModify =>
         MemBW(64)
       case _: PelagoValues =>
+        Compute(16)
+      case _: PelagoUnnest =>
         Compute(16)
     }
 
