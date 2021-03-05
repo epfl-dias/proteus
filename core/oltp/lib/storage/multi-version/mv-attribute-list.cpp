@@ -32,6 +32,7 @@ namespace storage::mv {
  *
  * */
 
+/*
 std::vector<MV_attributeList::version_t*> MV_attributeList::create_versions(
     xid_t xid, global_conf::IndexVal* idx_ptr,
     const std::vector<uint16_t>& attribute_widths,
@@ -181,6 +182,7 @@ std::bitset<64> MV_attributeList::get_readable_version(
 
   return done_mask;
 }
+*/
 
 /* MV_DAG
  *

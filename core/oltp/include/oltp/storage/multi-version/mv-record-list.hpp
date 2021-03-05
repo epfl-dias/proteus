@@ -65,9 +65,6 @@ class MV_RecordList_Full {
       xid_t xid, global_conf::IndexVal* idx_ptr,
       std::vector<uint16_t>& attribute_widths, storage::DeltaStore& deltaStore,
       partition_id_t partition_id, const column_id_t* col_idx, short num_cols);
-
- private:
-  static void* get_readable_version(version_t* head, xid_t tid_self);
 };
 
 /* Class: MV_RecordList_Partial

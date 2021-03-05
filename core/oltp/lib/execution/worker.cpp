@@ -470,8 +470,8 @@ std::pair<double, double> WorkerPool::get_worker_stats_diff(bool print) {
 
     duration += diff.count();
     duration_ctr += 1;
-    tps += ((tmp->num_txns - prev_sum_tps[wl]) / 1000000.0) / diff.count();
-    prev_sum_tps[wl] = tmp->num_txns;
+    tps += ((tmp->num_commits - prev_sum_tps[wl]) / 1000000.0) / diff.count();
+    prev_sum_tps[wl] = tmp->num_commits;
     prev_time_tps[wl] = curr_time;
 
     // tps += ((double) (p->q_idx - prev_sum_tps[i])) / (cur_time -
@@ -515,8 +515,8 @@ void WorkerPool::print_worker_stats_diff() {
 
     duration += diff.count();
     duration_ctr += 1;
-    tps += ((tmp->num_txns - prev_sum_tps[wl]) / 1000000.0) / diff.count();
-    prev_sum_tps[wl] = tmp->num_txns;
+    tps += ((tmp->num_commits - prev_sum_tps[wl]) / 1000000.0) / diff.count();
+    prev_sum_tps[wl] = tmp->num_commits;
     prev_time_tps[wl] = curr_time;
 
     // tps += ((double) (p->q_idx - prev_sum_tps[i])) / (cur_time -
@@ -567,15 +567,15 @@ void WorkerPool::print_worker_stats(bool global_only) {
                 << std::endl;
       std::cout << "\t# of aborts\t" << (tmp->num_aborts / 1000000.0) << " M"
                 << std::endl;
-      std::cout << "\tTPS\t\t" << (tmp->num_txns / 1000000.0) / diff.count()
+      std::cout << "\tTPS\t\t" << (tmp->num_commits / 1000000.0) / diff.count()
                 << " MTPS" << std::endl;
     }
     socket_tps[tmp->exec_core->local_cpu_index] +=
-        (tmp->num_txns / 1000000.0) / diff.count();
+        (tmp->num_commits / 1000000.0) / diff.count();
     duration += diff.count();
     duration_ctr += 1;
 
-    tps += (tmp->num_txns / 1000000.0) / diff.count();
+    tps += (tmp->num_commits / 1000000.0) / diff.count();
     num_commits += (tmp->num_commits / 1000000.0);
     num_aborts += (tmp->num_aborts / 1000000.0);
     num_txns += (tmp->num_txns / 1000000.0);

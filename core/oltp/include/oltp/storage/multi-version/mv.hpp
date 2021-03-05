@@ -31,8 +31,8 @@
 
 namespace storage::mv {
 
-// using mv_type = MV_RecordList_Full;
-using mv_type = MV_RecordList_Partial;
+using mv_type = MV_RecordList_Full;
+// using mv_type = MV_RecordList_Partial;
 
 // using mv_type = MV_perAttribute<MV_attributeList>;
 // using mv_type = MV_perAttribute<MV_DAG>;

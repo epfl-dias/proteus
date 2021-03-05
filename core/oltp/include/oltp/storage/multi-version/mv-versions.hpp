@@ -54,10 +54,11 @@ class Version {
 
 class VersionSingle : public Version {
  public:
-  VersionSingle *next;
+  // VersionSingle *next;
+  TaggedDeltaDataPtr<VersionSingle> next;
 
   [[maybe_unused]] VersionSingle(xid_t t_min, xid_t t_max, void *data)
-      : Version(t_min, t_max, data), next(nullptr) {}
+      : Version(t_min, t_max, data), next(0) {}
 
   inline void set_attr_mask(std::bitset<64> mask) override {}
 
@@ -138,32 +139,42 @@ class VersionMultiAttr : public Version {
 template <typename T>
 class VersionChain {
  public:
-  VersionChain() : last_updated_tmin(0), head(nullptr) {}
+  VersionChain() : last_updated_tmin(0), head(0) {}
 
-  inline void insert(typename T::version_t *val) {
-    val->next = head;
+  //  inline void insert(typename T::version_t *val) {
+  //    val->next = head;
+  //    head = val;
+  //  }
+
+  //  inline void reset_head(typename T::version_t *val) { head = val; }
+
+  inline void insert(TaggedDeltaDataPtr<typename T::version_t> val) {
+    assert(val.ptr() != nullptr);
+    val.ptr()->next = head;
     head = val;
   }
 
-  inline void reset_head(typename T::version_t *val) { head = val; }
-
-  auto get_readable_version(xid_t xid) {
-    typename T::version_t *tmp;
-    {
-      tmp = head;
-      while (tmp != nullptr) {
-        // if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
-        if (global_conf::ConcurrencyControl::is_readable(tmp->t_min, xid)) {
-          return tmp;
-        } else {
-          tmp = tmp->next;
-        }
-      }
-    }
-    return tmp;
+  inline void reset_head(TaggedDeltaDataPtr<typename T::version_t> val) {
+    head = val;
   }
 
-  typename T::version_t *head{};
+  void *get_readable_version(xid_t xid) {
+    TaggedDeltaDataPtr<typename T::version_t> tmp = this->head;
+
+    while (tmp.is_valid()) {
+      auto ptr = tmp.ptr();
+      // if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
+      if (global_conf::ConcurrencyControl::is_readable(ptr->t_min, xid)) {
+        return ptr->data;
+      } else {
+        tmp = ptr->next;
+      }
+    }
+    return nullptr;
+  }
+
+  // typename T::version_t *head{};
+  TaggedDeltaDataPtr<typename T::version_t> head{};
   uint64_t last_updated_tmin{};
 
   friend class storage::DeltaStore;
@@ -188,7 +199,7 @@ class MVattributeListCol {
     for (auto i = 0; i < num_attr; i++) {
       // tmp->version_list[i] = (DeltaList*) new (tmp->version_list + i)
       // DeltaList();
-      tmp->version_list[i].update(0);
+      tmp->version_list[i].updateVal(0);
     }
   }
 

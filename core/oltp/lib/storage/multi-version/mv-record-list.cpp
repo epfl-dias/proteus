@@ -30,24 +30,6 @@
 
 namespace storage::mv {
 
-void* MV_RecordList_Full::get_readable_version(version_t* head,
-                                               xid_t tid_self) {
-  version_t* tmp = nullptr;
-  {
-    tmp = head;
-    // C++ standard says that (x == NULL) <=> (x==nullptr)
-    while (tmp != nullptr) {
-      // if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
-      if (global_conf::ConcurrencyControl::is_readable(tmp->t_min, tid_self)) {
-        return tmp->data;
-      } else {
-        tmp = tmp->next;
-      }
-    }
-  }
-  return nullptr;
-}
-
 std::bitset<1> MV_RecordList_Full::get_readable_version(
     const DeltaList& delta_list, xid_t tid_self, char* write_loc,
     const std::vector<std::pair<uint16_t, uint16_t>>& column_size_offset_pairs,
@@ -60,10 +42,9 @@ std::bitset<1> MV_RecordList_Full::get_readable_version(
     assert(false && "delta-tag verification failed");
   }
 
-  version_t* head = delta_list_ptr->head;
+  auto* version =
+      reinterpret_cast<char*>(delta_list_ptr->get_readable_version(tid_self));
 
-  char* version =
-      (char*)MV_RecordList_Full::get_readable_version(head, tid_self);
   assert(version != nullptr);
 
   if (__unlikely(col_idx == nullptr || num_cols == 0)) {
@@ -83,7 +64,7 @@ std::bitset<1> MV_RecordList_Full::get_readable_version(
   }
   return ret_bitmask;
 }
-
+/*
 std::bitset<64> MV_RecordList_Partial::get_readable_version(
     const DeltaList& delta_list, xid_t tid_self, char* write_loc,
     const std::vector<std::pair<uint16_t, uint16_t>>& column_size_offset_pairs,
@@ -170,6 +151,7 @@ std::bitset<64> MV_RecordList_Partial::get_readable_version(
 
   return done_mask;
 }
+*/
 
 std::vector<MV_RecordList_Full::version_t*> MV_RecordList_Full::create_versions(
     xid_t xid, global_conf::IndexVal* idx_ptr,
@@ -188,6 +170,7 @@ std::vector<MV_RecordList_Full::version_t*> MV_RecordList_Full::create_versions(
   return {ver};
 }
 
+/*
 std::vector<MV_RecordList_Partial::version_t*>
 MV_RecordList_Partial::create_versions(
     xid_t xid, global_conf::IndexVal* idx_ptr,
@@ -219,5 +202,6 @@ MV_RecordList_Partial::create_versions(
 
   return {ver};
 }
+*/
 
 }  // namespace storage::mv

@@ -51,13 +51,13 @@ class alignas(4096) DeltaStore {
   ~DeltaStore();
 
   void print_info();
-  void *insert_version(DeltaList &delta_chunk, xid_t t_min, xid_t t_max,
+  void *insert_version(DeltaList &delta_list, xid_t t_min, xid_t t_max,
                        size_t rec_size, partition_id_t partition_id);
   //  void *validate_or_create_list(void *list_ptr, size_t &delta_ver_tag,
   //                                ushort partition_id);
-  void *validate_or_create_list(DeltaList &delta_chunk,
+  void *validate_or_create_list(DeltaList &delta_list,
                                 partition_id_t partition_id);
-  void *getTransientChunk(DeltaList &delta_chunk, size_t size,
+  void *getTransientChunk(DeltaList &delta_list, size_t size,
                           partition_id_t partition_id);
   void *create_version(size_t size, partition_id_t partition_id);
   void gc();
@@ -97,7 +97,7 @@ class alignas(4096) DeltaStore {
   }
 
  private:
-  class alignas(4096) DeltaPartition {
+  class alignas(2 * 1024 * 1024) DeltaPartition {
     std::atomic<char *> ver_list_cursor;
     std::atomic<char *> ver_data_cursor;
     partition_id_t pid;
@@ -168,7 +168,7 @@ class alignas(4096) DeltaStore {
 
   std::atomic<uint32_t> tag{};
   xid_t max_active_epoch;
-  delta_id_t delta_id;
+
   std::vector<DeltaPartition *> partitions{};
   std::atomic<uint> readers{};
   std::atomic<short> gc_lock{};
@@ -177,29 +177,35 @@ class alignas(4096) DeltaStore {
   std::atomic<uint> gc_requests{};
 
  public:
+  const delta_id_t delta_id;
   uint64_t total_mem_reserved;
 
-  friend class DeltaList;
+  friend class DeltaMemoryPtr;
 };
 
-class DeltaList {
+class DeltaMemoryPtr {
   //  4 bit     |  4 bit       | 20 bit  | 36-bit ( 64GB addressable)
   //  delta-idx | partition-id | tag     | offset-in-partition
 
  public:
-  DeltaList() = default;
-  explicit DeltaList(size_t val) : _val(val) {}
-  explicit DeltaList(uint64_t offset, uint32_t tag, delta_id_t delta_idx,
-                     partition_id_t pid) {
-    this->update(offset, tag, delta_idx, pid);
-  }
-  DeltaList(DeltaList &) = default;
-  DeltaList(DeltaList &&) = default;
+  [[maybe_unused]] static constexpr size_t offset_bits = 36u;
+  [[maybe_unused]] static constexpr size_t pid_bits = 4u;
+  [[maybe_unused]] static constexpr size_t delta_id_bits = 4u;
+  [[maybe_unused]] static constexpr size_t tag_bits = 20u;
 
-  inline void update(uint64_t val) { this->_val = val; }
+  enum ptrType { LIST_PTR, DATA_PTR };
 
-  inline void update(uint64_t offset, uint32_t tag, delta_id_t delta_idx,
-                     partition_id_t pid) {
+ protected:
+  // DeltaMemoryPtr() = default;
+  explicit DeltaMemoryPtr(size_t val) : _val(val) {}
+  //  explicit DeltaMemoryPtr(uint64_t offset, uint32_t tag, delta_id_t
+  //  delta_idx, partition_id_t pid, ptrType type): type(type) {
+  //    this->update(offset, tag, delta_idx, pid);
+  //  }
+
+ protected:
+  inline void updateInternal(uintptr_t offset, uint32_t tag,
+                             delta_id_t delta_idx, partition_id_t pid) {
     _val = 0;
     _val |= (offset & 0x0000000fffffffffu);
     _val |= (static_cast<uint64_t>(tag & 0x000fffffu)) << 36u;
@@ -207,12 +213,8 @@ class DeltaList {
     _val |= (static_cast<uint64_t>(delta_idx & 0x0fu)) << 60u;
   }
 
-  inline void update(const char *list_ptr, uint32_t tag, delta_id_t delta_idx,
-                     partition_id_t pid) {
-    auto offset = (list_ptr -
-                   list_memory_base[create_delta_idx_pid_pair(delta_idx, pid)]);
-    this->update(offset, tag, delta_idx, pid);
-  }
+ public:
+  inline void updateVal(uint64_t val) { this->_val = val; }
 
   [[nodiscard]] constexpr inline uint8_t get_delta_idx() const {
     return static_cast<uint8_t>(this->_val >> (60u));
@@ -250,12 +252,40 @@ class DeltaList {
       return false;
   }
 
+ public:
+  uint64_t _val{};
+
+  // to verify tag directly with required delta-store.
+  static std::map<delta_id_t, DeltaStore *> deltaStore_map;
+
+  friend class DeltaStore;
+};
+
+class DeltaList : public DeltaMemoryPtr {
+ public:
+  // static constexpr ptrType type = DeltaMemoryPtr::ptrType::LIST_PTR;
+
+ public:
+  // DeltaList() = default;
+  explicit DeltaList(size_t val) : DeltaMemoryPtr(val) {}
+
+  inline void update(const char *list_ptr, uint32_t tag, delta_id_t delta_idx,
+                     partition_id_t pid) {
+    assert(reinterpret_cast<uintptr_t>(list_ptr) >=
+           list_memory_base[create_delta_idx_pid_pair(delta_idx, pid)]);
+
+    auto offset = reinterpret_cast<uintptr_t>(list_ptr) -
+                  list_memory_base[create_delta_idx_pid_pair(delta_idx, pid)];
+    this->DeltaMemoryPtr::updateInternal(offset, tag, delta_idx, pid);
+  }
+
   [[nodiscard]] inline char *ptr() const {
     // first-verify tag, else return nullptr and log error.
     if (this->verifyTag()) {
       // deference ptr.
-      return list_memory_base[this->get_delta_idx_pid_pair()] +
-             this->get_offset();
+      return reinterpret_cast<char *>(
+          list_memory_base[this->get_delta_idx_pid_pair()] +
+          this->get_offset());
     } else {
       // invalid list
       return nullptr;
@@ -263,19 +293,104 @@ class DeltaList {
   }
 
  private:
-  uint64_t _val{};
-
-  // to verify tag directly with required delta-store.
-  static std::map<delta_id_t, DeltaStore *> deltaStore_map;
-  static std::map<delta_id_t, char *> list_memory_base;
-
- public:
-  [[maybe_unused]] static constexpr size_t offset_bits = 36u;
-  [[maybe_unused]] static constexpr size_t pid_bits = 4u;
-  [[maybe_unused]] static constexpr size_t delta_id_bits = 4u;
-  [[maybe_unused]] static constexpr size_t tag_bits = 20u;
+  static std::map<delta_id_t, uintptr_t> list_memory_base;
 
   friend class DeltaStore;
+};
+
+class DeltaDataPtr : public DeltaMemoryPtr {
+ public:
+  // static constexpr ptrType type = DeltaMemoryPtr::ptrType::DATA_PTR;
+
+ public:
+  // DeltaDataPtr() = default;
+  virtual ~DeltaDataPtr() = default;
+  explicit DeltaDataPtr(size_t val) : DeltaMemoryPtr(val) {}
+
+  explicit DeltaDataPtr(const char *data_ptr, uint32_t tag,
+                        delta_id_t delta_idx, partition_id_t pid)
+      : DeltaMemoryPtr(0) {
+    this->update(data_ptr, tag, delta_idx, pid);
+  }
+
+  inline void update(const char *data_ptr, uint32_t tag, delta_id_t delta_idx,
+                     partition_id_t pid) {
+    assert(reinterpret_cast<uintptr_t>(data_ptr) >=
+           data_memory_base[create_delta_idx_pid_pair(delta_idx, pid)]);
+
+    auto offset = reinterpret_cast<uintptr_t>(data_ptr) -
+                  data_memory_base[create_delta_idx_pid_pair(delta_idx, pid)];
+    // LOG(INFO) << "offset: " << offset;
+
+    this->DeltaMemoryPtr::updateInternal(offset, tag, delta_idx, pid);
+
+    if (reinterpret_cast<uintptr_t>(data_ptr) <
+        data_memory_base[create_delta_idx_pid_pair(delta_idx, pid)]) {
+      LOG(INFO) << "Delta-ID: " << (uint32_t)this->get_delta_idx();
+      LOG(INFO) << "Offset: " << (uint32_t)this->get_offset();
+      LOG(INFO) << "Tag: " << (uint32_t)this->get_tag();
+      LOG(INFO) << "Data-ptr: " << reinterpret_cast<uintptr_t>(data_ptr);
+      LOG(INFO) << "d_memory_base: "
+                << data_memory_base[create_delta_idx_pid_pair(delta_idx, pid)];
+    }
+
+    assert(reinterpret_cast<uintptr_t>(data_ptr) >=
+           data_memory_base[create_delta_idx_pid_pair(delta_idx, pid)]);
+  }
+
+  inline bool is_valid() {
+    if (__likely(this->verifyTag())) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  inline char *get_ptr() const {
+    // first-verify tag, else return nullptr and log error.
+    if (this->verifyTag()) {
+      // deference ptr.
+      return reinterpret_cast<char *>(
+          data_memory_base[this->get_delta_idx_pid_pair()] +
+          this->get_offset());
+    } else {
+      // invalid list
+      return nullptr;
+    }
+  }
+
+ protected:
+  static std::map<delta_id_t, uintptr_t> data_memory_base;
+
+  friend class DeltaStore;
+};
+
+template <class X>
+class TaggedDeltaDataPtr final : public DeltaDataPtr {
+ public:
+  // TaggedDeltaDataPtr() = default;
+  explicit TaggedDeltaDataPtr(size_t val) : DeltaDataPtr(val) {}
+
+  explicit TaggedDeltaDataPtr(const char *data_ptr, uint32_t tag,
+                              delta_id_t delta_idx, partition_id_t pid)
+      : DeltaDataPtr(0) {
+    this->update(data_ptr, tag, delta_idx, pid);
+  }
+
+  [[nodiscard]] inline X *ptr() const {
+    return reinterpret_cast<X *>(this->DeltaDataPtr::get_ptr());
+  }
+
+  //  X* operator->(){
+  //    return this->ptr();
+  //  }
+
+  //  ~TaggedDeltaDataPtr(){
+  //    LOG(INFO) << "Destructor data ptr called!";
+  //  }
+
+  friend class DeltaStore;
+  friend class DeltaDataPtr;
 };
 
 }  // namespace storage

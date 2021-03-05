@@ -41,32 +41,29 @@ class StorageUtils {
  public:
   static inline rowid_t create_vid(rowid_t vid, partition_id_t partition_id,
                                    master_version_t master_ver) {
-    return ((vid & 0x000000FFFFFFFFFFu) |
-            ((uint64_t)(partition_id & 0x00FFu) << 40u) |
-            ((uint64_t)(master_ver & 0x00FFu) << 48u));
+    return ((vid & 0x000000FFFFFFFFFFu) | ((uint64_t)(partition_id) << 40u) |
+            ((uint64_t)(master_ver) << 48u));
   }
 
   static inline rowid_t create_vid(rowid_t vid, partition_id_t partition_id) {
-    return ((vid & 0x000000FFFFFFFFFFu) |
-            ((uint64_t)(partition_id & 0x00FFu) << 40u));
+    return ((vid & 0x000000FFFFFFFFFFu) | ((uint64_t)(partition_id) << 40u));
   }
 
   static inline rowid_t update_mVer(rowid_t vid,
                                     master_version_t master_version) {
-    return (vid & 0xFF00FFFFFFFFFFFFu) |
-           ((uint64_t)(master_version & 0x00FFu) << 48u);
+    return (vid & 0xFF00FFFFFFFFFFFFu) | ((uint64_t)(master_version) << 48u);
   }
 
-  static inline auto get_offset(rowid_t vid) {
+  static inline rowid_t get_offset(rowid_t vid) {
     return (vid & 0x000000FFFFFFFFFFu);
   }
 
   static inline auto get_pid(rowid_t vid) {
-    return (((vid)&0x0000FF0000000000u) >> 40u);
+    return static_cast<partition_id_t>(((vid)&0x0000FF0000000000u) >> 40u);
   }
 
   static inline auto get_m_version(rowid_t vid) {
-    return (((vid)&0x00FF000000000000u) >> 48u);
+    return static_cast<master_version_t>((((vid)&0x00FF000000000000u) >> 48u));
   }
 
   static inline column_uuid_t get_column_uuid(table_id_t tableId,
@@ -78,11 +75,13 @@ class StorageUtils {
     return ret;
   }
 
-  static inline table_id_t get_tableId_from_columnUuid(column_uuid_t columnUuid){
+  static inline table_id_t get_tableId_from_columnUuid(
+      column_uuid_t columnUuid) {
     return ((table_id_t)(columnUuid >> 16u));
   }
 
-  static inline column_id_t get_columnId_from_columnUuid(column_uuid_t columnUuid){
+  static inline column_id_t get_columnId_from_columnUuid(
+      column_uuid_t columnUuid) {
     return ((column_id_t)(columnUuid & 0x0000FFFFu));
   }
 };

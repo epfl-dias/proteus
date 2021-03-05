@@ -45,7 +45,7 @@ set(oltp_cxx
 
         #-------- Transaction
         lib/transactions/transaction_manager.cpp
-        lib/transactions/transaction.cpp
+        #lib/transactions/transaction.cpp
         #lib/transactions/concurrency-control/cc.cpp
         )
 
@@ -77,11 +77,3 @@ target_link_libraries(${PROJECT_NAME}
 
 include(proteus-lib)
 add_library(oltp::engine ALIAS ${PROJECT_NAME})
-
-
-add_subdirectory(adaptor)
-
-# Unit-tests
-if (UNIT_TESTS)
-    add_subdirectory(tests)
-endif ()

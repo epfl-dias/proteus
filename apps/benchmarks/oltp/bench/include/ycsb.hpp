@@ -44,7 +44,7 @@ namespace bench {
 
 #define THREAD_LOCAL false
 #define PARTITION_LOCAL false
-#define YCSB_MIXED_OPS 0
+#define YCSB_MIXED_OPS 1
 
 /*
 
@@ -179,9 +179,9 @@ class YCSB : public Benchmark {
 
 #endif
     txn->n_ops = num_ops_per_txn;
-    if (txn->n_ops == txn::OPTYPE_LOOKUP) {
-      txn->n_ops = num_ops_per_txn * 5;
-    }
+    //    if (txn->n_ops == txn::OPTYPE_LOOKUP) {
+    //      txn->n_ops = num_ops_per_txn;
+    //    }
     //    if(op == txn::OPTYPE_LOOKUP){
     //      txn->n_ops = num_ops_per_txn;
     //    } else {
