@@ -35,6 +35,23 @@
 #include <queue>
 #include <thread>
 
+namespace details {
+namespace ThreadPool {
+template <class F, class C, class... Args>
+auto call(F &&f, C &&c, Args &&...args) -> decltype(
+    (std::forward<C>(c)->*std::forward<F>(f))(std::forward<Args>(args)...)) {
+  return (std::forward<C>(c)->*(std::forward<F>(f)))(
+      std::forward<Args>(args)...);
+}
+
+template <class F, class... Args>
+auto call(F &&f, Args &&...args)
+    -> decltype(std::forward<F>(f)(std::forward<Args>(args)...)) {
+  return (std::forward<F>(f))(std::forward<Args>(args)...);
+}
+};  // namespace ThreadPool
+};  // namespace details
+
 /*
  * Based on: https://github.com/progschj/ThreadPool
  */
@@ -99,8 +116,29 @@ class ThreadPool {
     using packaged_task_t =
         std::packaged_task<typename std::result_of<F(Args...)>::type()>;
 
-    std::shared_ptr<packaged_task_t> task(new packaged_task_t(
-        std::bind(std::forward<F>(f), std::forward<Args>(args)...)));
+    class wrapper {
+      std::decay_t<F> callable;
+      std::tuple<std::decay_t<Args>...> _args;
+
+     public:
+      wrapper(F &&f, Args &&...args)
+          : callable(std::forward<F>(f)),
+            _args(std::make_tuple(std::forward<Args>(args)...)) {}
+
+      auto operator()() {
+        return [&]<std::size_t... indices>(std::index_sequence<indices...>) {
+          return details::ThreadPool::call(
+              std::move(callable), std::move(std::get<indices>(_args))...);
+        }
+        (std::make_index_sequence<sizeof...(Args)>{});
+      }
+    };
+
+    auto w = std::make_shared<wrapper>(std::forward<F>(f),
+                                       std::forward<Args>(args)...);
+
+    auto task = std::make_shared<packaged_task_t>(std::bind(
+        [](std::shared_ptr<wrapper> p) { return (*p)(); }, std::move(w)));
 
     auto res = task->get_future();
     {
