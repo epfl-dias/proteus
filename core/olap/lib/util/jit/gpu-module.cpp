@@ -284,7 +284,7 @@ class NVPTXLinkLayer final : public llvm::orc::ObjectLayer {
   template <typename F>
   void setNotifyEmitted(F &&f) {}
 
-  void emit(llvm::orc::MaterializationResponsibility R,
+  void emit(std::unique_ptr<llvm::orc::MaterializationResponsibility> R,
             std::unique_ptr<MemoryBuffer> Obj) override {
     //    llvm::orc::LocalJITCompileCallbackManager<llvm::orc::OrcGenericABI>::Create();
 
@@ -329,7 +329,7 @@ class NVPTXLinkLayer final : public llvm::orc::ObjectLayer {
           if (info_log[0] != '\0') LOG(INFO) << info_log;
           if (x != CUDA_SUCCESS) {
             LOG(ERROR) << error_log;
-            R.failMaterialization();
+            R->failMaterialization();
           }
         }
       }
@@ -345,7 +345,7 @@ class NVPTXLinkLayer final : public llvm::orc::ObjectLayer {
 
     std::vector<std::pair<std::string, JITSymbolFlags>> reqKernels;
 
-    for (auto &r : R.getSymbols()) {
+    for (auto &r : R->getSymbols()) {
       reqKernels.emplace_back(*r.getFirst(), r.getSecond());
 
       CUfunction func = nullptr;
@@ -354,7 +354,7 @@ class NVPTXLinkLayer final : public llvm::orc::ObjectLayer {
           (*r.getFirst()).str().c_str()));
 
       JITEvaluatedSymbol sym{pointerToJITTargetAddress(func), r.getSecond()};
-      cantFail(R.notifyResolved({{r.getFirst(), sym}}));
+      cantFail(R->notifyResolved({{r.getFirst(), sym}}));
     }
 
     // merging with above invalidates the loop iterator
@@ -363,17 +363,17 @@ class NVPTXLinkLayer final : public llvm::orc::ObjectLayer {
         auto kernel_name = gpuMangle(s.first, gpu.id);
         auto intern = getExecutionSession().intern(kernel_name);
 
-        cantFail(R.defineMaterializing({{intern, s.second}}));
+        cantFail(R->defineMaterializing({{intern, s.second}}));
 
         CUfunction func = nullptr;
         gpu_run(
             cuModuleGetFunction(&func, cudaModule[gpu.id], s.first.c_str()));
         JITEvaluatedSymbol sym{pointerToJITTargetAddress(func), s.second};
-        cantFail(R.notifyResolved({{intern, sym}}));
+        cantFail(R->notifyResolved({{intern, sym}}));
       }
     }
 
-    cantFail(R.notifyEmitted());
+    cantFail(R->notifyEmitted());
   }
 };
 
@@ -463,7 +463,7 @@ llvm::orc::ThreadSafeModule optimizeGpuModule(
 Expected<llvm::orc::ThreadSafeModule> printIR(orc::ThreadSafeModule module,
                                               const std::string &suffix = "");
 
-class GPUJITer_impl {
+class GPUJITer_impl : public llvm::orc::ResourceManager {
  public:
   ::ThreadPool pool;
 
@@ -484,7 +484,26 @@ class GPUJITer_impl {
   llvm::orc::JITDylib &MainJD;
 
   std::mutex preserve_m;
-  std::map<llvm::orc::VModuleKey, std::set<std::string>> preserve;
+  std::map<llvm::orc::ResourceKey, std::set<std::string>> preserve;
+
+  Error handleRemoveResources(llvm::orc::ResourceKey K) override {
+    std::unique_lock<std::mutex> lock{preserve_m};
+    preserve.erase(K);
+
+    return Error::success();
+  }
+
+  void handleTransferResources(llvm::orc::ResourceKey DstK,
+                               llvm::orc::ResourceKey SrcK) override {
+    std::unique_lock<std::mutex> lock{preserve_m};
+    if (preserve.contains(SrcK)) {
+      auto &src = preserve[SrcK];
+      auto &dst = preserve[DstK];
+      std::move(src.begin(), src.end(), std::inserter(dst, dst.begin()));
+
+      preserve.erase(SrcK);
+    }
+  }
 
  public:
   explicit GPUJITer_impl(llvm::orc::JITTargetMachineBuilder JTMB =
@@ -522,11 +541,15 @@ class GPUJITer_impl {
                    const llvm::orc::MaterializationResponsibility &R)
                 -> Expected<llvm::orc::ThreadSafeModule> {
               auto preserveFromInternalization = [&]() {
-                std::unique_lock<std::mutex> lock{preserve_m};
-                auto it = preserve.find(R.getVModuleKey());
-                assert(it != preserve.end());
-                auto tmp = std::move(it->second);
-                preserve.erase(it);
+                decltype(preserve)::value_type::second_type tmp;
+
+                cantFail(R.withResourceKeyDo([this, &tmp](const auto &key) {
+                  std::unique_lock<std::mutex> lock{preserve_m};
+                  auto it = preserve.find(key);
+                  assert(it != preserve.end());
+                  tmp = it->second;
+                }));
+
                 return tmp;
               }();
               TSM.withModuleDo([&preserveFromInternalization](Module &mod) {
@@ -566,41 +589,76 @@ class GPUJITer_impl {
               return std::move(TSM);
             }),
         MainJD(llvm::cantFail(ES.createJITDylib("main"))) {
-    ObjectLayer.setNotifyEmitted(
-        [](llvm::orc::VModuleKey k, std::unique_ptr<MemoryBuffer> mb) {
-          LOG(INFO) << "GPU Emitted " << k << " " << mb.get();
-        });
+    ObjectLayer.setNotifyEmitted([](llvm::orc::MaterializationResponsibility &R,
+                                    std::unique_ptr<MemoryBuffer> mb) {
+      cantFail(R.withResourceKeyDo([&](const auto &k) {
+        LOG(INFO) << "GPU Emitted " << k << " " << mb.get();
+      }));
+    });
 
     ES.setDispatchMaterialization(
-        [&p = pool](std::unique_ptr<llvm::orc::MaterializationUnit> MU,
-                    llvm::orc::MaterializationResponsibility MR) {
+        [&p = pool](
+            std::unique_ptr<llvm::orc::MaterializationUnit> MU,
+            std::unique_ptr<llvm::orc::MaterializationResponsibility> MR) {
           auto SharedMU =
               std::shared_ptr<llvm::orc::MaterializationUnit>(std::move(MU));
-          auto SharedMR =
-              std::make_shared<llvm::orc::MaterializationResponsibility>(
-                  std::move(MR));
-          p.enqueue([SharedMU, SharedMR]() {
-            SharedMU->materialize(std::move(*SharedMR));
-          });
+          p.enqueue(
+              [SharedMU](
+                  std::unique_ptr<llvm::orc::MaterializationResponsibility>
+                      MRinner) { SharedMU->materialize(std::move(MRinner)); },
+              std::move(MR));
         });
+
+    ES.registerResourceManager(*this);
 
     MainJD.addGenerator(llvm::cantFail(
         llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
             this->DL.getGlobalPrefix())));
   }
 
-  const DataLayout &getDataLayout() const { return DL; }
+  ~GPUJITer_impl() override {
+    if (auto Err = ES.endSession()) ES.reportError(std::move(Err));
+  }
 
   LLVMContext &getContext() { return *Ctx.getContext(); }
 
   void addModule(llvm::orc::ThreadSafeModule M,
                  std::set<std::string> preserveFromInternalization) {
-    llvm::orc::VModuleKey key = ES.allocateVModule();
-    {
-      std::unique_lock<std::mutex> lock{preserve_m};
-      preserve.emplace(key, std::move(preserveFromInternalization));
-    }
-    llvm::cantFail(PrintGeneratedIRLayer.add(MainJD, std::move(M), key));
+    class PreserveMaterializationUnit : public orc::IRMaterializationUnit {
+     private:
+      std::function<void(std::unique_ptr<orc::MaterializationResponsibility>,
+                         llvm::orc::ThreadSafeModule M)>
+          Materialize;
+
+     public:
+      PreserveMaterializationUnit(
+          llvm::orc::ExecutionSession &ES,
+          const llvm::orc::IRSymbolMapper::ManglingOptions &MO,
+          decltype(Materialize) Materialize, llvm::orc::ThreadSafeModule M)
+          : IRMaterializationUnit(ES, MO, std::move(M)),
+            Materialize(std::move(Materialize)) {}
+
+      void materialize(
+          std::unique_ptr<orc::MaterializationResponsibility> R) override {
+        Materialize(std::move(R), std::move(TSM));
+      }
+    };
+
+    auto MU = std::make_unique<PreserveMaterializationUnit>(
+        ES, *PrintGeneratedIRLayer.getManglingOptions(),
+        [this, preserveFromInternalization](
+            std::unique_ptr<llvm::orc::MaterializationResponsibility> R,
+            llvm::orc::ThreadSafeModule M2) {
+          cantFail(R->withResourceKeyDo([&](const auto &key) {
+            std::unique_lock<std::mutex> lock{preserve_m};
+            preserve.emplace(key, std::move(preserveFromInternalization));
+          }));
+          PrintGeneratedIRLayer.emit(std::move(R), std::move(M2));
+        },
+        std::move(M));
+
+    auto RT = MainJD.getDefaultResourceTracker();
+    llvm::cantFail(RT->getJITDylib().define(std::move(MU), std::move(RT)));
   }
 
  private:

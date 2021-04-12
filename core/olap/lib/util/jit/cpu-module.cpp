@@ -26,6 +26,7 @@
 #define NDEBUG
 #define dumpDispatchInfo(x, y) (5)
 #include <llvm/Analysis/BasicAliasAnalysis.h>
+#include <llvm/Analysis/TargetLibraryInfo.h>
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/CodeGen/TargetPassConfig.h>
 #include <llvm/ExecutionEngine/JITEventListener.h>
@@ -273,6 +274,10 @@ class JITer_impl {
   JITEventListener *vtuneProfiler;
 
  public:
+  ~JITer_impl() {
+    if (auto Err = ES.endSession()) ES.reportError(std::move(Err));
+  }
+
   explicit JITer_impl(
       llvm::orc::JITTargetMachineBuilder JTMB =
           llvm::cantFail(llvm::orc::JITTargetMachineBuilder::detectHost())
@@ -319,10 +324,13 @@ class JITer_impl {
       LOG(WARNING) << "Could not create VTune listener";
     } else {
       ObjectLayer.setNotifyLoaded(
-          [this](llvm::orc::VModuleKey k, const object::ObjectFile &Obj,
+          [this](llvm::orc::MaterializationResponsibility &R,
+                 const object::ObjectFile &Obj,
                  const RuntimeDyld::LoadedObjectInfo &loi) {
             std::scoped_lock<std::mutex> lock{vtuneLock};
-            vtuneProfiler->notifyObjectLoaded(k, Obj, loi);
+            cantFail(R.withResourceKeyDo([&](llvm::orc::ResourceKey k) {
+              vtuneProfiler->notifyObjectLoaded(k, Obj, loi);
+            }));
           });
     }
 
@@ -332,16 +340,16 @@ class JITer_impl {
     //        });
 
     ES.setDispatchMaterialization(
-        [&p = pool](std::unique_ptr<llvm::orc::MaterializationUnit> MU,
-                    llvm::orc::MaterializationResponsibility MR) {
+        [&p = pool](
+            std::unique_ptr<llvm::orc::MaterializationUnit> MU,
+            std::unique_ptr<llvm::orc::MaterializationResponsibility> MR) {
           auto SharedMU =
               std::shared_ptr<llvm::orc::MaterializationUnit>(std::move(MU));
-          auto SharedMR =
-              std::make_shared<llvm::orc::MaterializationResponsibility>(
-                  std::move(MR));
-          p.enqueue([SharedMU, SharedMR]() {
-            SharedMU->materialize(std::move(*SharedMR));
-          });
+          p.enqueue(
+              [SharedMU](
+                  std::unique_ptr<llvm::orc::MaterializationResponsibility>
+                      MRinner) { SharedMU->materialize(std::move(MRinner)); },
+              std::move(MR));
         });
 
     MainJD.addGenerator(llvm::cantFail(

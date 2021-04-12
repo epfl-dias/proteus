@@ -141,7 +141,8 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
   llvm::Value *vse2 = Builder->CreateInBoundsGEP(
       Builder->CreateLoad(childState[e.getRegisteredAs()].mem), offset);
   auto te = llvm::PointerType::getUnqual(
-      llvm::VectorType::get(vse2->getType()->getPointerElementType(), vsize));
+      llvm::VectorType::get(vse2->getType()->getPointerElementType(),
+                            llvm::ElementCount::getFixed(vsize)));
   auto vse = Builder->CreateAlignedLoad(Builder->CreateBitCast(vse2, te),
                                         llvm::MaybeAlign{512});
 
@@ -187,8 +188,9 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
   llvm::MDNode *n = llvm::MDNode::get(context->getLLVMContext(), Args);
   n->replaceOperandWith(0, n);
 
-  llvm::Value *hits2 = llvm::UndefValue::get(llvm::VectorType::get(
-      llvm::Type::getInt32Ty(context->getLLVMContext()), vsize));
+  llvm::Value *hits2 = llvm::UndefValue::get(
+      llvm::VectorType::get(llvm::Type::getInt32Ty(context->getLLVMContext()),
+                            llvm::ElementCount::getFixed(vsize)));
   std::vector<uint32_t> mask;
   for (size_t s = 0; s < vsize; s += 16) {
     std::vector<uint32_t> mind;
@@ -203,12 +205,13 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
 
     auto tmp = Builder->CreateCall(
         gather, {llvm::UndefValue::get(llvm::VectorType::get(
-                     llvm::Type::getInt32Ty(context->getLLVMContext()), 16)),
+                     llvm::Type::getInt32Ty(context->getLLVMContext()),
+                     llvm::ElementCount::getFixed(16))),
                  Builder->CreateBitCast(
                      f, llvm::Type::getInt8PtrTy(context->getLLVMContext())),
                  ind,
-                 llvm::ConstantVector::getSplat(llvm::ElementCount(16, false),
-                                                context->createTrue()),
+                 llvm::ConstantVector::getSplat(
+                     llvm::ElementCount::getFixed(16), context->createTrue()),
                  context->createInt32(4)});
 
     for (size_t j = 0; j < 16; ++j) {
@@ -246,7 +249,7 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
   //        inds);
   //  }();
   auto indMask = llvm::ConstantVector::getSplat(
-      llvm::ElementCount(vsize, false), context->createTrue());
+      llvm::ElementCount::getFixed(vsize), context->createTrue());
 
   llvm::Value *hits = Builder->CreateICmpNE(
       Builder->CreateAnd(
@@ -320,8 +323,9 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
       b_ptr->getType()->dump();
       llvm::Value *vs_tmp = Builder->CreateInBoundsGEP(
           Builder->CreateLoad(childState[attr.getRegisteredAs()].mem), offset);
-      auto t = llvm::PointerType::getUnqual(llvm::VectorType::get(
-          vs_tmp->getType()->getPointerElementType(), vsize));
+      auto t = llvm::PointerType::getUnqual(
+          llvm::VectorType::get(vs_tmp->getType()->getPointerElementType(),
+                                llvm::ElementCount::getFixed(vsize)));
       auto ld = Builder->CreateAlignedLoad(Builder->CreateBitCast(vs_tmp, t),
                                            512 / 8);
       loads.emplace_back(std::make_pair(ld, b_ptr));

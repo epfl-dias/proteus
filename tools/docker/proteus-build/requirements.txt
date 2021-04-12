@@ -18,11 +18,11 @@ python-setuptools
 python-dev
 openjdk-11-jre-headless
 # Formatting the code and style checks
-clang-format-11
+clang-format-12
 # LLVM to build subprojects as stand-alones
-clang-11
-llvm-11-dev
-libc++abi-11-dev
+clang-12
+llvm-12-dev
+libc++abi-12-dev
 libgoogle-glog-dev
 rapidjson-dev
 libxml2-dev

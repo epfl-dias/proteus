@@ -38,8 +38,8 @@
 namespace details {
 namespace ThreadPool {
 template <class F, class C, class... Args>
-auto call(F &&f, C &&c, Args &&...args) -> decltype(
-    (std::forward<C>(c)->*std::forward<F>(f))(std::forward<Args>(args)...)) {
+auto call(F &&f, C &&c, Args &&...args) -> decltype((
+    std::forward<C>(c)->*std::forward<F>(f))(std::forward<Args>(args)...)) {
   return (std::forward<C>(c)->*(std::forward<F>(f)))(
       std::forward<Args>(args)...);
 }

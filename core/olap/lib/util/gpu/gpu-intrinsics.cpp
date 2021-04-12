@@ -206,9 +206,11 @@ llvm::Value *shfl_bfly(ParallelContext *const context, llvm::Value *val_in,
   llvm::Type *inttype = llvm::IntegerType::get(llvmContext, 32 * elems);
   if (bits % 32) val_in = Builder->CreateZExtOrBitCast(val_in, inttype);
 
-  llvm::Type *packtype = llvm::VectorType::get(int32_type, elems);
+  llvm::Type *packtype =
+      llvm::VectorType::get(int32_type, llvm::ElementCount::getFixed(elems));
 
-  llvm::Type *intcast = llvm::VectorType::get(val_in->getType(), 1);
+  llvm::Type *intcast =
+      llvm::VectorType::get(val_in->getType(), llvm::ElementCount::getFixed(1));
 
   val_in = Builder->CreateZExtOrBitCast(val_in, intcast, "interm");
 
