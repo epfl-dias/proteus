@@ -6,3 +6,8 @@
 # find . \( -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' -o -name '*.cuh' \) -exec clang-format -i --style=file '{}' \;
 Language: Cpp
 BasedOnStyle: Google
+
+---
+
+Language: TableGen
+BasedOnStyle: Google

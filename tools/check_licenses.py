@@ -55,7 +55,7 @@ header = r"""/""" + escchar + r"""*""" + optstart + r"""
 """ + ending + escchar + r"""*/
 """
 
-exts = [".cpp", ".hpp", ".cu", ".cuh", ".c", ".h", ".scala", ".java"]
+exts = [".cpp", ".hpp", ".cu", ".cuh", ".c", ".h", ".scala", ".java", ".td"]
 
 # Files that should not contain the header (usually files from external projects)
 external_files = [
