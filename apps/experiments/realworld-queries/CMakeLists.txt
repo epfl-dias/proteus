@@ -1,5 +1,5 @@
 # Include all source files, should be changed to a manual list to be safer.
-file(GLOB APP_SRCS *.cpp)
+file(GLOB APP_SRCS CONFIGURE_DEPENDS *.cpp)
 
 project(spam_workload VERSION 0.1 LANGUAGES CXX)
 
