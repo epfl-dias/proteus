@@ -492,8 +492,9 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
 
           // T * mem;
           // gpu_run(cudaMallocHost(&mem, h_vector_size*sizeof(T)*h_size));
-          printf("Memory at %p is at node %d (expected: %d)\n", mem,
-                 topo.getCpuNumaNodeAddressed(mem)->id, affinity::get().id);
+          LOG(INFO) << "Memory at " << mem << "is at node "
+                    << topo.getCpuNumaNodeAddressed(mem)->id
+                    << " (expected: " << affinity::get().id << ")";
           // assert(topo.getCpuNumaNodeAddressed(mem)->id == cpu.id); //FIXME:
           // fails on power9, should reenable after we fix it
 
