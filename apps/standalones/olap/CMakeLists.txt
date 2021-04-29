@@ -1,18 +1,18 @@
-foreach(target
-		scaleout-brdcst
-		scaleout-pingpong
-		scaleout-ssb
-	)
-	project(proteus${target} VERSION 0.1 LANGUAGES CXX)
+foreach (target
+  scaleout-brdcst
+  scaleout-pingpong
+  scaleout-ssb
+  )
+  project(proteus${target} VERSION 0.1 LANGUAGES CXX)
 
-	add_executable(proteus${target} main-${target}.cpp)
+  add_executable(proteus${target} main-${target}.cpp)
 
-	target_link_libraries(proteus${target}
-		codegen::olap_flags
-		proteus::olap
-		proteus::command_provider
-	)
+  target_link_libraries(proteus${target}
+    codegen::olap_flags
+    proteus::olap
+    proteus::command_provider
+    )
 
-	include(proteus-experiment)
-endforeach(target)
+  include(proteus-experiment)
+endforeach (target)
 

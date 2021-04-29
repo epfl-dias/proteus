@@ -9,10 +9,10 @@ add_executable(${PROJECT_NAME} ${APP_SRCS})
 
 # Depending on the olap libraries
 target_link_libraries(${PROJECT_NAME}
-	codegen::olap_flags
-	proteus::olap
-	oltp::engine
-	oltp::adaptor
-)
+  codegen::olap_flags
+  proteus::olap
+  oltp::engine
+  oltp::adaptor
+  )
 
 include(proteus-experiment)

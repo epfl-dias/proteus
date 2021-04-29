@@ -3,9 +3,9 @@ project(cli-flags VERSION 0.1 LANGUAGES CXX)
 add_library(${PROJECT_NAME} INTERFACE)
 
 target_link_libraries(${PROJECT_NAME}
-	PUBLIC INTERFACE
-		gflags::gflags
-)
+  PUBLIC INTERFACE
+  gflags::gflags
+  )
 
 include(proteus-headers-lib)
 

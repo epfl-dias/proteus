@@ -45,11 +45,11 @@ set(PROTEUS_CPACK_COMP_EXPERIMENTS "proteus-${PROTEUS_CPACK_COMP_SUFFIX_EXPERIME
 
 #-----------------------------------------------------------------------
 if (POLICY CMP0048)
-	cmake_policy(SET CMP0048 NEW)
+  cmake_policy(SET CMP0048 NEW)
 endif (POLICY CMP0048)
 
 if (POLICY CMP0077)
-	cmake_policy(SET CMP0077 NEW)
+  cmake_policy(SET CMP0077 NEW)
 endif (POLICY CMP0077)
 
 #-----------------------------------------------------------------------
@@ -79,12 +79,12 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # the RPATH to be used when installing, but only if it's not a system directory
 list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/lib" isSystemDir)
-if("${isSystemDir}" STREQUAL "-1")
-	# LSC: Make path relative to executable, so it works from build
-	#      or install directories, without having to set
-	#      LD_LIBRARY_PATH.
-	set(CMAKE_INSTALL_RPATH "\$ORIGIN/../lib")
-endif("${isSystemDir}" STREQUAL "-1")
+if ("${isSystemDir}" STREQUAL "-1")
+  # LSC: Make path relative to executable, so it works from build
+  #      or install directories, without having to set
+  #      LD_LIBRARY_PATH.
+  set(CMAKE_INSTALL_RPATH "\$ORIGIN/../lib")
+endif ("${isSystemDir}" STREQUAL "-1")
 
 #-----------------------------------------------------------------------
 # Setup Compilation flags
@@ -134,15 +134,15 @@ include(vtune)
 # Build Documentation
 #-----------------------------------------------------------------------
 find_package(Doxygen)
-if(DOXYGEN_FOUND)
-	doxygen_add_docs(
-			doxygen
-				${CMAKE_CURRENT_SOURCE_DIR}/apps
-				${CMAKE_CURRENT_SOURCE_DIR}/core
-				${CMAKE_CURRENT_SOURCE_DIR}/runtime
-			COMMENT "Generate doxygen pages"
-	)
-endif()
+if (DOXYGEN_FOUND)
+  doxygen_add_docs(
+    doxygen
+    ${CMAKE_CURRENT_SOURCE_DIR}/apps
+    ${CMAKE_CURRENT_SOURCE_DIR}/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/runtime
+    COMMENT "Generate doxygen pages"
+  )
+endif ()
 
 #-----------------------------------------------------------------------
 # Build our libraries
@@ -191,32 +191,32 @@ set(CPACK_ARCHIVE_THREADS 0) # Use all cpu threads for compression, when support
 include(CPack)
 
 cpack_add_component(${PROTEUS_CPACK_COMP_BINARIES}
-	DISPLAY_NAME Binaries
-	DESCRIPTION  "Main daemon and tools"
-	REQUIRED
-	BOLD_TITLE
-)
+  DISPLAY_NAME Binaries
+  DESCRIPTION "Main daemon and tools"
+  REQUIRED
+  BOLD_TITLE
+  )
 
 cpack_add_component(${PROTEUS_CPACK_COMP_DEV}
-	DISPLAY_NAME Development
-	DESCRIPTION  "Header files, library archives"
-	DISABLED
-	BOLD_TITLE
-)
+  DISPLAY_NAME Development
+  DESCRIPTION "Header files, library archives"
+  DISABLED
+  BOLD_TITLE
+  )
 
 cpack_add_component(${PROTEUS_CPACK_COMP_TESTS}
-	DISPLAY_NAME Tests
-	DESCRIPTION  "Tests"
-	DISABLED
-	BOLD_TITLE
-)
+  DISPLAY_NAME Tests
+  DESCRIPTION "Tests"
+  DISABLED
+  BOLD_TITLE
+  )
 
 cpack_add_component(${PROTEUS_CPACK_COMP_BENCHMARKS}
-	DISPLAY_NAME Benchmarks
-	DESCRIPTION  "Benchmarks"
-	DISABLED
-	BOLD_TITLE
-)
+  DISPLAY_NAME Benchmarks
+  DESCRIPTION "Benchmarks"
+  DISABLED
+  BOLD_TITLE
+  )
 
 #cpack_add_component(${PROTEUS_CPACK_COMP_EXPERIMENTS}
 #	DISPLAY_NAME Experiments

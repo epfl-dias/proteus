@@ -12,25 +12,25 @@ set(_PROTOBUF_PROTOC $<TARGET_FILE:protoc>)
 set(_GRPC_GRPCPP grpc++)
 
 add_library(${PROJECT_NAME} SHARED
-	lib/cluster-manager.cpp
-	lib/cluster-control.cpp
-)
+  lib/cluster-manager.cpp
+  lib/cluster-control.cpp
+  )
 
 # Additional (to the proteus-lib default includes) include directories
 target_include_directories(${PROJECT_NAME}
-	SYSTEM PRIVATE
-		${CMAKE_CURRENT_BINARY_DIR}
-)
+  SYSTEM PRIVATE
+  ${CMAKE_CURRENT_BINARY_DIR}
+  )
 
 target_link_libraries(${PROJECT_NAME}
-	PUBLIC
-		proteus::olap
-	PRIVATE
-		${_REFLECTION}
-		${_GRPC_GRPCPP}
-		proteus::command_provider
-		proteus::protos
-)
+  PUBLIC
+  proteus::olap
+  PRIVATE
+  ${_REFLECTION}
+  ${_GRPC_GRPCPP}
+  proteus::command_provider
+  proteus::protos
+  )
 
 include(proteus-lib)
 add_library(proteus::runtime ALIAS ${PROJECT_NAME})

@@ -6,7 +6,7 @@ project(spam_workload VERSION 0.1 LANGUAGES CXX)
 add_executable(${PROJECT_NAME} ${APP_SRCS})
 
 target_link_libraries(${PROJECT_NAME}
-        proteus::olap
-)
+  proteus::olap
+  )
 
 include(proteus-experiment)

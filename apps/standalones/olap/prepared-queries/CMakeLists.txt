@@ -9,18 +9,18 @@ add_subdirectory(queries/ssb100_bloom)
 add_subdirectory(queries/ssb1000)
 
 add_executable(${PROJECT_NAME}
-	run-prepared-query.cpp
-)
+  run-prepared-query.cpp
+  )
 
 # Depending on the olap libraries
 target_link_libraries(${PROJECT_NAME}
-	proteus::olap
-	codegen::olap_flags
-	proteus::platform
-	queries::ch100w
-	queries::ssb100
-	queries::ssb100_bloom
-	queries::ssb1000
-)
+  proteus::olap
+  codegen::olap_flags
+  proteus::platform
+  queries::ch100w
+  queries::ssb100
+  queries::ssb100_bloom
+  queries::ssb1000
+  )
 
 include(proteus-experiment)
