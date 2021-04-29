@@ -317,17 +317,15 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
     size_t i = 0;
     for (const auto &attr : wantedFields) {
       auto tmp = Builder->CreateLoad(outputBuffs[i++].mem);
-      tmp->getType()->dump();
       auto b_ptr =
           Builder->CreateInBoundsGEP(tmp, {context->createInt32(0), cnt});
-      b_ptr->getType()->dump();
       llvm::Value *vs_tmp = Builder->CreateInBoundsGEP(
           Builder->CreateLoad(childState[attr.getRegisteredAs()].mem), offset);
       auto t = llvm::PointerType::getUnqual(
           llvm::VectorType::get(vs_tmp->getType()->getPointerElementType(),
                                 llvm::ElementCount::getFixed(vsize)));
       auto ld = Builder->CreateAlignedLoad(Builder->CreateBitCast(vs_tmp, t),
-                                           512 / 8);
+                                           llvm::MaybeAlign{512 / 8});
       loads.emplace_back(std::make_pair(ld, b_ptr));
 
       //    buffs[attr].assign(buffs[attr] +
