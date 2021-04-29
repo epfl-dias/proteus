@@ -1,0 +1,309 @@
+body {
+  /*background: url(images/texture-noise.png);*/
+  overflow: hidden;
+  margin: 0;
+  /*font-size: 14px;*/
+  /*font-family: "Helvetica Neue", Helvetica;*/
+}
+
+.hiddenCanvas { display: none; }
+
+canvas {
+  vertical-align: top;
+}
+
+img {
+  vertical-align: top;
+}
+
+#chart, #header, #footer {
+  position: absolute;
+  top: 0;
+}
+
+text{
+  white-space: pre-wrap;
+}
+
+#header, #footer {
+  z-index: 1;
+  display: block;
+  font-size: 36px;
+  font-weight: 300;
+  text-shadow: 0 1px 0 #fff;
+}
+
+#header.inverted, #footer.inverted {
+  color: #fff;
+  text-shadow: 0 1px 4px #000;
+}
+
+.nodeAttr{
+  fill: #777;
+}
+
+#header {
+  top: 80px;
+  left: 140px;
+  width: 1000px;
+}
+
+#footer {
+  top: 680px;
+  right: 140px;
+  text-align: right;
+}
+
+rect {
+  /*fill: none;*/
+  pointer-events: all;
+}
+
+pre {
+  font-size: 12px;
+}
+
+line {
+  stroke: #000;
+  stroke-width: 1.5px;
+}
+
+.string, .regexp {
+  color: #f39;
+}
+
+.keyword {
+  color: #00c;
+}
+
+.comment {
+  color: #777;
+  font-style: oblique;
+}
+
+.number {
+  color: #369;
+}
+
+.class, .special {
+  color: #1181B8;
+}
+
+/*
+a:link, a:visited {
+  color: #000;
+  text-decoration: none;
+}
+
+a:hover {
+  color: #666;
+}*/
+
+.hint {
+  position: absolute;
+  right: 0;
+  width: 1280px;
+  font-size: 12px;
+  color: #999;
+}
+
+.gpu2cpuNode{
+  r: 15px;
+  fill: green    ;
+  stroke: steelblue;
+  stroke-width: 10px;
+}
+
+.cpu2gpuNode{
+  r: 15px;
+  fill: steelblue;
+  stroke: green;
+  stroke-width: 10px;
+}
+
+.gpu2cpuBlockNode{
+  r: 15px;
+  fill: green    ;
+  stroke: steelblue;
+  stroke-width: 10px;
+  /*stroke-dasharray: 2,2;*/
+}
+
+.cpu2gpuBlockNode{
+  r: 15px;
+  fill: steelblue;
+  stroke: green;
+  stroke-width: 10px;*/
+  /*stroke-dasharray: 2,2;*/
+}
+
+.gpuNode{
+  fill: green;
+  stroke-width: 2.5px;
+}
+
+.cpuNode{
+  fill: steelblue;
+  stroke-width: 1.5px;
+}
+
+.gpuBlockNode{
+  fill: green;
+  stroke-width: 5px;
+  stroke-dasharray: 2,2;
+}
+
+.cpuBlockNode{
+  fill: steelblue;
+  stroke-width: 3px;
+  stroke-dasharray: 2,2;
+}
+
+.node {
+  cursor: pointer;
+}
+
+/*  .node circle {
+  fill: #fff;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+}*/
+ 
+/*.node text {
+  font-size:10px; 
+  font-family:sans-serif;
+}*/
+
+.link {
+  fill: none;
+  stroke: #ccc;
+  stroke-width: 1.5px;
+}
+
+.templink {
+  fill: none;
+  stroke: red;
+  stroke-width: 1.75px;
+}
+
+.ghostCircle.show{
+    display:block;
+}
+
+.ghostCircle, .activeDrag .ghostCircle{
+     display: none;
+}
+
+form * {
+  display: block;
+  margin: 10px;
+  left: 0;
+  position: fixed;
+}
+
+div.ttip { 
+  position: absolute;     
+  /*text-align: center;     
+  /*width: 60px;          
+  height: 28px;         */
+  /*padding: 2px;       */
+  font: 10px sans-serif;    
+  background: lightsteelblue; 
+  border: 0px;    
+  border-radius: 8px;     
+  pointer-events: none;     
+}
+
+/*input {
+  border: 2px dashed #226fbe;
+}
+
+input:hover {
+  background: transparent;
+  color: #226fbe;
+}*/
+
+/* Hide the link that should open and close the topnav on small screens */
+.links .icon {
+    float: right;
+    display: none;
+}
+
+.links {
+/*vertical-align: bottom;*/
+  /*position: fixed;*/
+  /*display:table;*/
+}
+
+.links a {
+    /*float: left;
+    display: block;
+    color: #f2f2f2;*/
+    /*background-color: inherit;*/
+    /*text-align: center;*/
+    /*vertical-align: text-bottom;*/
+    /*line-height: inherit;*/
+    /*height: inherit;*/
+    /*display:table-cell;
+    vertical-align:text-bottom;*/
+    /*padding: 14px 16px;
+    text-decoration: none;*/
+    /*font-size: 17px;*/
+}
+
+
+.links a:first-child {
+  height: inherit;
+}
+
+/* Change the color of links on hover */
+/*.links a:hover {
+    background-color: #ddd;
+    color: black;
+}
+*/
+/* When the screen is less than 600 pixels wide, hide all links, except for the first one ("Home"). Show the link that contains should open and close the links (.icon) */
+@media screen and (max-width: 600px) {
+  .links a:not(:first-child) {display: none;}
+  .links a.icon {
+    float: right;
+    display: block;
+    padding: 14px 14px;
+/*    position: absolute;
+    right: 0;
+    top: 0;*/
+  }
+
+  .menu {
+    height: 2.8em;
+  }
+
+  .menu h1 {
+    font-size: 1.3em;
+  }
+
+  .links a:not(:first-child) {
+    font-size: 1em;
+  }
+}
+
+/* The "responsive" class is added to the links with JavaScript when the user clicks on the icon. This class makes the links look good on small screens (display the links vertically instead of horizontally) */
+@media screen and (max-width: 600px) {
+  .links.responsive {position: relative;}
+  .links.responsive a.icon {
+    position: absolute;
+    right: 0;
+    top: 0;
+  }
+
+  .links.responsive a:not(:first-child) {
+    text-align: center;
+    padding: 14px 14px;
+    text-decoration: none;
+    /*font-size: 17px;*/
+    background-color: inherit;
+    float: none;
+    display: block;
+    text-align: left;
+  }
+}

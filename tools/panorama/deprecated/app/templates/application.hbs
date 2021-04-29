@@ -1,0 +1,116 @@
+<!-- <div class="container"> -->
+{{!--
+  <nav class="navbar navbar-inverse navbar-expand-lg">
+    <div class="container-fluid">
+--}}
+{{!--      <div class="navbar-header">
+<!--        <a class="navbar-brand" href="#">Proteus</a> -->
+        {{#link-to "index" class="navbar-brand"}}
+<!--          <h1>
+            <em>Proteus</em>
+          </h1> -->
+          Proteus
+        {{/link-to}}
+
+      </div>
+--}}
+{{!--
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggler" data-toggle="collapse" data-target="#proteusNavBar">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        {{#link-to "index" class="navbar-brand"}}
+          Proteus
+        {{/link-to}}
+      </div>
+      <div class="collapse navbar-collapse" id="proteusNavBar">
+        <ul class="nav navbar-nav">
+          {{#link-to "sqltab" tagName="li"}}
+            {{#link-to "sqltab" class="menu-sqltab"}}
+              SQL
+            {{/link-to}}
+          {{/link-to}}
+          {{#link-to "plan" tagName="li"}}
+            {{#link-to "plan" class="menu-plan"}}
+              Query Plan
+            {{/link-to}}
+          {{/link-to}}
+          {{#link-to "timeline" tagName="li"}}
+            {{#link-to "timeline" class="menu-timeline"}}
+              Execution Timeline
+            {{/link-to}}
+          {{/link-to}}
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <div class="body">
+    {{outlet}}
+  </div>
+<!-- </div> -->
+--}}
+{{!--
+<nav class="navbar navbar-expand-sm menu">
+  {{#link-to "index" class="navbar-brand"}}
+    <h1>
+      <em>Proteus</em>
+    </h1>
+  {{/link-to}}
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+
+  <div class="collapse navbar-collapse" id="navbarSupportedContent">
+    <div class="navbar-nav mr-auto">
+      {{#link-to "sqltab" class="menu-sqltab nav-link nav-item"}}
+        SQL
+      {{/link-to}}
+      {{#link-to "plan" class="menu-plan nav-link nav-item"}}
+        Query Plan
+      {{/link-to}}
+      {{#link-to "timeline" class="menu-timeline nav-link nav-item"}}
+        Execution Timeline
+      {{/link-to}}
+    </div>
+  </div>
+</nav>
+<div class="body">
+  {{outlet}}
+</div>
+--}}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<script type="text/javascript">
+/* Toggle between adding and removing the "responsive" class to topnav when the user clicks on the icon */
+function myFunction() {
+    var x = document.getElementById("topnav");
+    if (!x.className.includes("responsive")) {
+        x.className += " responsive";
+    } else {
+        x.className = x.className.replace(" responsive", "");
+    }
+}
+</script>
+<div class="container">
+  <div class="menu links" id="topnav">
+    {{#link-to "index"}}
+      <h1>
+        <em>Proteus</em>
+      </h1>
+    {{/link-to}}
+    {{#link-to "sqltab" class="menu-sqltab"}}
+      SQL
+    {{/link-to}}
+    {{#link-to "plan" class="menu-plan"}}
+      Query Plan
+    {{/link-to}}
+    {{#link-to "timeline" class="menu-timeline"}}
+      Execution Timeline
+    {{/link-to}}
+    <a href="javascript:void(0);" class="icon" onclick="myFunction()">
+      <i class="fa fa-bars"></i>
+    </a>
+  </div>
+  <div class="body">
+    {{outlet}}
+  </div>
+</div>
