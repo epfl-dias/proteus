@@ -17,6 +17,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -201,9 +203,9 @@ public class PelagoQueryTest {
   }
 
   @TestFactory
-  Stream<DynamicNode> tests_cpu() throws IOException {
+  Stream<DynamicNode> tests_cpu() throws IOException, URISyntaxException {
     return testsFromFileTree(
-      Paths.get(PelagoQueryTest.class.getResource("/tests").getPath()),
+      Path.of(Objects.requireNonNull(PelagoQueryTest.class.getResource("/tests")).toURI()),
       (sql, resultFile) -> Assertions.assertDoesNotThrow(() -> {
         Repl.setCpuonly();
         System.out.println(sql);
@@ -213,9 +215,9 @@ public class PelagoQueryTest {
   }
 
   @TestFactory
-  Stream<DynamicNode> tests_gpu() throws IOException {
+  Stream<DynamicNode> tests_gpu() throws IOException, URISyntaxException {
     return testsFromFileTree(
-      Paths.get(PelagoQueryTest.class.getResource("/tests").getPath()),
+      Path.of(Objects.requireNonNull(PelagoQueryTest.class.getResource("/tests")).toURI()),
       (sql, resultFile) -> Assertions.assertDoesNotThrow(() -> {
         Repl.setGpuonly();
         testQueryOrdered(sql, resultFile);
@@ -224,9 +226,9 @@ public class PelagoQueryTest {
   }
 
   @TestFactory
-  Stream<DynamicNode> tests_hyb() throws IOException {
+  Stream<DynamicNode> tests_hyb() throws IOException, URISyntaxException {
     return testsFromFileTree(
-      Paths.get(PelagoQueryTest.class.getResource("/tests").getPath()),
+      Path.of(Objects.requireNonNull(PelagoQueryTest.class.getResource("/tests")).toURI()),
       (sql, resultFile) -> Assertions.assertDoesNotThrow(() -> {
         Repl.setHybrid();
         testQueryOrdered(sql, resultFile);
@@ -243,7 +245,7 @@ public class PelagoQueryTest {
    *
    * @throws IOException for exception relating to traversing the root of the tree
    */
-  private static Stream<DynamicNode> testsFromFileTree(Path path, BiConsumer<String, Path> test) throws IOException {
+  private static Stream<DynamicNode> testsFromFileTree(Path path, BiConsumer<String, Path> test) throws IOException, URISyntaxException {
     return Stream.concat(
       Files.list(path)  // we want to control the order of traversal, otherwise we would use the Files.walk function
         .filter(Files::isRegularFile)
