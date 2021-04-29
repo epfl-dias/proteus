@@ -1,0 +1,16 @@
+title: PROJECT_NAME
+description: A new awesome project
+
+# Enable or disable the site search
+search_enabled: true
+
+# Aux links for the upper right navigation
+aux_links:
+  "DIAS":
+    - "https://dias.epfl.ch/"
+  "Twitter":
+    - "https://twitter.com/dias_EPFL"
+  "GitHub":
+    - "https://github.com/epfl-dias/PROJECT_NAME"
+
+remote_theme: pmarsceill/just-the-docs
