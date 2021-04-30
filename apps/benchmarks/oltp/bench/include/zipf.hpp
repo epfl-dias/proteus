@@ -157,7 +157,9 @@ class ZipfianGenerator {
                          std::pow(_thread_local_eta * u - _thread_local_eta + 1,
                                   _thread_local_alpha));
     }
-    assert(v >= 0 && v < _n_rec);
+    // LOG_IF(FATAL, v >= 0 && v <= _n_rec) << "v: " << v << " | _n_rec:"
+    // <<_n_rec;
+    assert(v >= 0 && v <= _n_rec);
     return v;
   }
 

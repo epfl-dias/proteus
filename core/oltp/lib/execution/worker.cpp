@@ -36,6 +36,7 @@
 #include <thread>
 
 #include "oltp/storage/table.hpp"
+#include "oltp/transaction/transaction.hpp"
 #include "oltp/transaction/transaction_manager.hpp"
 
 namespace scheduler {
@@ -77,7 +78,8 @@ calculate_delta_ver(uint64_t txn_id, uint64_t start_time) {
   // std::cout << duration << std::endl;
   // return duration >> 6;  //(duration / global_conf::num_delta_storages);
 
-  return duration >> 20;  // Magic Number
+  // return duration >> 20;  // Magic Number
+  return duration >> 10;  // Magic Number
 }
 
 void Worker::run_interactive() {
@@ -91,9 +93,9 @@ void Worker::run_interactive() {
   this->curr_delta_epoch = 0;
   this->prev_delta_epoch = 0;
 
-  this->txn_start_tsc = txnManager->get_next_xid(this->id);
+  // this->txn_start_tsc = txnManager->get_next_xid(this->id);
   auto tx_st = txnManager->txn_start_time;
-  this->curr_master = txnManager->current_master;
+  this->curr_master = txnManager->get_current_master_version();
   this->curr_txn = txnManager->get_next_xid(this->id);
   this->prev_delta_epoch = this->curr_delta_epoch;
   this->curr_delta_epoch = calculate_delta_ver(this->curr_txn, tx_st);
@@ -126,11 +128,11 @@ void Worker::run_interactive() {
 
       while (pause && !terminate) {
         std::this_thread::yield();
-        this->curr_master = txnManager->current_master;
+        this->curr_master = txnManager->get_current_master_version();
       }
       state = RUNNING;
 
-      this->curr_master = txnManager->current_master;
+      this->curr_master = txnManager->get_current_master_version();
       this->curr_txn = txnManager->get_next_xid(this->id);
       this->prev_delta_epoch = this->curr_delta_epoch;
       this->curr_delta_epoch = calculate_delta_ver(this->curr_txn, tx_st);
@@ -141,7 +143,7 @@ void Worker::run_interactive() {
     }
 
     // Master-version upd
-    this->curr_master = txnManager->current_master;
+    this->curr_master = txnManager->get_current_master_version();
 
     // Delta versioning
     this->curr_txn = txnManager->get_next_xid(this->id);
@@ -199,10 +201,11 @@ void Worker::run_bench() {
   curr_delta_epoch = 0;
   prev_delta_epoch = 0;
 
-  this->txn_start_tsc = txnManager->get_next_xid(this->id);
+  // this->txn_start_tsc = txnManager->get_next_xid(this->id);
   auto tx_st = txnManager->txn_start_time;
-  this->curr_master = txnManager->current_master;
-  this->curr_txn = txnManager->get_next_xid(this->id);
+  this->curr_master = txnManager->get_current_master_version();
+
+  this->curr_txn = txnManager->get_next_xid(0);
   this->prev_delta_epoch = this->curr_delta_epoch;
   this->curr_delta_epoch = calculate_delta_ver(this->curr_txn, tx_st);
   schema->add_active_txn(curr_delta_epoch % global_conf::num_delta_storages,
@@ -224,13 +227,8 @@ void Worker::run_bench() {
     }
   }
 
-  this->txn_start_time = std::chrono::system_clock::now();
   this->state = RUNNING;
-
   this->txn_start_time = std::chrono::system_clock::now();
-
-  std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>
-      txn_time = std::chrono::system_clock::now();
 
   while (!terminate) {
     if (change_affinity) {
@@ -274,12 +272,12 @@ void Worker::run_bench() {
       while (pause && !terminate) {
         // std::this_thread::sleep_for(std::chrono::microseconds(50));
         std::this_thread::yield();
-        this->curr_master = txnManager->current_master;
+        this->curr_master = txnManager->get_current_master_version();
       }
       state = RUNNING;
 
-      this->curr_master = txnManager->current_master;
-      this->curr_txn = txnManager->get_next_xid(this->id);
+      this->curr_master = txnManager->get_current_master_version();
+      this->curr_txn = txnManager->get_next_xid(0);
       this->prev_delta_epoch = this->curr_delta_epoch;
       this->curr_delta_epoch = calculate_delta_ver(this->curr_txn, tx_st);
 
@@ -289,10 +287,14 @@ void Worker::run_bench() {
     }
 
     // Master-version upd
-    this->curr_master = txnManager->current_master;
+    this->curr_master = txnManager->get_current_master_version();
+
+    auto txn = txn::Txn(txn_mem);
 
     // Delta versioning
-    this->curr_txn = txnManager->get_next_xid(this->id);
+    // this->curr_txn = txnManager->get_next_xid(this->id);
+    this->curr_txn = txn.txnTs.txn_id;
+
     this->prev_delta_epoch = this->curr_delta_epoch;
     this->curr_delta_epoch = calculate_delta_ver(this->curr_txn, tx_st);
 
@@ -310,8 +312,8 @@ void Worker::run_bench() {
 
     pool->_txn_bench->gen_txn((uint)this->id, txn_mem, this->partition_id);
 
-    if (pool->_txn_bench->exec_txn(txn_mem, curr_txn, this->curr_master,
-                                   curr_delta_id, this->partition_id))
+    if (pool->_txn_bench->exec_txn_mv2pl(txn, this->curr_master, curr_delta_id,
+                                         this->partition_id))
       num_commits++;
     else
       num_aborts++;
@@ -319,6 +321,7 @@ void Worker::run_bench() {
 
     if (num_txns == num_iters) break;
   }
+  // LOG(INFO) << "Worker-" << (uint)(this->id) << " - terminate sequence";
 
   txn_end_time = std::chrono::system_clock::now();
 
@@ -329,16 +332,16 @@ void Worker::run_bench() {
   // POST RUN
   if (!is_hotplugged) {
     this->state = POSTRUN;
-    this->curr_txn = txnManager->get_next_xid(this->id);
-    this->curr_master = txnManager->current_master;
+    this->curr_txn = txnManager->get_next_xid(0);
+    this->curr_master = txnManager->get_current_master_version();
 
-    if (this->id == 0) {
-      txnManager->snapshot();
-      while (schema->is_sync_in_progress())
-        ;
-    }
-    pool->_txn_bench->post_run(this->id, curr_txn, this->partition_id,
-                               this->curr_master);
+    //    if (this->id == 0) {
+    //      txnManager->snapshot();
+    //      while (schema->is_sync_in_progress())
+    //        ;
+    //    }
+    //    pool->_txn_bench->post_run(this->id, curr_txn, this->partition_id,
+    //                               this->curr_master);
   }
   state = TERMINATED;
   pool->_txn_bench->free_query_struct_ptr(txn_mem);
@@ -827,7 +830,7 @@ void WorkerPool::init(bench::Benchmark* txn_bench, worker_id_t num_workers,
       // hack: initiate pre-run for hotplugged workers
       std::vector<std::thread> loaders;
       auto curr_master =
-          txn::TransactionManager::getInstance().current_master.load();
+          txn::TransactionManager::getInstance().get_current_master_version();
 
       const auto& wrks_crs = topology::getInstance().getCores();
 

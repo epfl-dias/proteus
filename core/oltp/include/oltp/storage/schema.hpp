@@ -140,6 +140,9 @@ class Schema {
   void ETL(uint numa_affinity_idx);
   bool is_sync_in_progress() { return snapshot_sync_in_progress.load(); }
 
+  void snapshot(xid_t epoch,
+                std::vector<column_uuid_t> *snapshot_columns = nullptr);
+
   // utility functions
   void report();
   void memoryReport() const;

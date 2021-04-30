@@ -81,7 +81,7 @@ bool select_query(uint64_t xid, ushort master_ver, ushort delta_ver,
 
   if (hash_ptr != nullptr) {
     hash_ptr->latch.acquire();
-    tbl->getIndexedRecord(xid, hash_ptr, &(record[0]), nullptr, 0);
+    // tbl->getIndexedRecord(xid, hash_ptr, &(record[0]), nullptr, 0);
     hash_ptr->latch.release();
     LOG(INFO) << "SELECT VALUE GOT: [0]: " << record[0];
     LOG(INFO) << "SELECT VALUE GOT: [1]: " << record[1];

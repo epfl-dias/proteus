@@ -60,6 +60,11 @@ class Table {
                             const column_id_t *col_idx, short num_columns,
                             master_version_t master_ver) = 0;
 
+  virtual void updateRollback(const txn::TxnTs &txnTs,
+                              global_conf::IndexVal *index_ptr,
+                              const column_id_t *col_idx,
+                              const short num_columns) = 0;
+
   virtual void updateRecordBatch(xid_t transaction_id,
                                  global_conf::IndexVal *index_ptr, void *data,
                                  size_t num_records,
@@ -71,19 +76,37 @@ class Table {
                             global_conf::IndexVal *index_ptr,
                             master_version_t master_ver) = 0;
 
-  virtual void getIndexedRecord(xid_t transaction_id,
-                                global_conf::IndexVal *index_ptr,
+  virtual void getIndexedRecord(const txn::TxnTs &txnTs,
+                                const global_conf::IndexVal &index_ptr,
                                 void *destination, const column_id_t *col_idx,
                                 short num_cols) = 0;
 
-  virtual void getRecord(xid_t transaction_id, rowid_t rowid, void *destination,
-                         const column_id_t *col_idx, short num_cols) = 0;
+  virtual void getRecord(const txn::TxnTs &txnTs, rowid_t rowid,
+                         void *destination, const column_id_t *col_idx,
+                         short num_cols) = 0;
+
+  virtual void createVersion(xid_t transaction_id,
+                             global_conf::IndexVal *index_ptr,
+                             delta_id_t current_delta_id,
+                             const column_id_t *col_idx,
+                             const short num_columns) = 0;
+
+  virtual void updateRecordWithoutVersion(
+      xid_t transaction_id, global_conf::IndexVal *index_ptr, void *data,
+      delta_id_t current_delta_id, const column_id_t *col_idx,
+      const short num_columns, master_version_t master_ver) = 0;
+
+  // virtual std::vector<vid_t> getNumberOfRecords(xid_t epoch) = 0;
 
   // Snapshot / HTAP
-  virtual void twinColumn_snapshot(
-      xid_t epoch, master_version_t snapshot_master_version) = 0;
+  //  virtual void twinColumn_snapshot(
+  //      xid_t epoch, master_version_t snapshot_master_version) = 0;
   virtual void twinColumn_syncMasters(master_version_t master_idx) = 0;
+
   virtual void ETL(uint numa_affinity_idx) = 0;
+
+  virtual void snapshot(xid_t epoch, column_id_t columnId) = 0;
+  virtual void snapshot(xid_t epoch) = 0;
 
  protected:
   Table(table_id_t table_id, std::string &name, layout_type storage_layout,

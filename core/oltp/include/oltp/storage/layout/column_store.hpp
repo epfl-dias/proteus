@@ -75,6 +75,10 @@ class alignas(BlockManager::block_size) ColumnStore : public Table {
                     short num_columns = -1,
                     master_version_t master_ver = 0) override;
 
+  void updateRollback(const txn::TxnTs &txnTs, global_conf::IndexVal *index_ptr,
+                      const column_id_t *col_idx = nullptr,
+                      const short num_columns = -1) override;
+
   [[noreturn]] void updateRecordBatch(
       xid_t transaction_id, global_conf::IndexVal *index_ptr, void *data,
       size_t num_records, delta_id_t current_delta_id,
@@ -88,20 +92,37 @@ class alignas(BlockManager::block_size) ColumnStore : public Table {
     throw std::runtime_error("Unimplemented");
   }
 
-  void getIndexedRecord(xid_t transaction_id, global_conf::IndexVal *index_ptr,
+  void getIndexedRecord(const txn::TxnTs &txnTs,
+                        const global_conf::IndexVal &index_ptr,
                         void *destination, const column_id_t *col_idx = nullptr,
                         short num_cols = -1) override;
 
-  void getRecord(xid_t transaction_id, rowid_t rowid, void *destination,
+  void getRecord(const txn::TxnTs &txnTs, rowid_t rowid, void *destination,
                  const column_id_t *col_idx = nullptr,
                  short num_cols = -1) override;
+
+  void createVersion(xid_t transaction_id, global_conf::IndexVal *index_ptr,
+                     delta_id_t current_delta_id,
+                     const column_id_t *col_idx = nullptr,
+                     const short num_columns = -1) override;
+
+  void updateRecordWithoutVersion(xid_t transaction_id,
+                                  global_conf::IndexVal *index_ptr, void *data,
+                                  delta_id_t current_delta_id,
+                                  const column_id_t *col_idx = nullptr,
+                                  const short num_columns = -1,
+                                  master_version_t master_ver = 0) override;
 
   //------------------TwinColumn
   // TwinColumn snapshotting (TwinColumn is misleading as in theory,
   //  we can have N copies where N-1 are snapshots.
-  void twinColumn_snapshot(xid_t epoch,
-                           master_version_t snapshot_master_version) override;
+  //  void twinColumn_snapshot(xid_t epoch,
+  //                           master_version_t snapshot_master_version)
+  //                           override;
   void twinColumn_syncMasters(master_version_t master_idx) override;
+
+  void snapshot(xid_t epoch, column_id_t columnId) override;
+  void snapshot(xid_t epoch) override;
 
   //------------------ETL
   void ETL(uint numa_affinity_idx) override;
@@ -156,12 +177,18 @@ class alignas(BlockManager::block_size) Column {
   [[maybe_unused]] virtual void *insertElem(rowid_t vid);
   virtual void *insertElemBatch(rowid_t vid, uint16_t num_elem);
   virtual void insertElemBatch(rowid_t vid, uint16_t num_elem, void *data);
+
   virtual void initializeMetaColumn() const;
 
-  virtual void snapshot(const rowid_t *num_rec_per_part, xid_t epoch,
-                        master_version_t snapshot_master_ver) {
+  //  virtual void snapshot(const rowid_t *num_rec_per_part, xid_t epoch,
+  //                        master_version_t snapshot_master_ver) {
+  //    throw std::runtime_error("Unsupported for single-version standard
+  //    Columns");
+  //  }
+  virtual void snapshot(const rowid_t *num_rec_per_part, xid_t epoch) {
     throw std::runtime_error("Unsupported for single-version standard Columns");
   }
+
   virtual void syncSnapshot(master_version_t inactive_master_idx) {
     throw std::runtime_error("Unsupported for single-version standard Columns");
   }
@@ -245,8 +272,7 @@ class alignas(BlockManager::block_size) CircularMasterColumn : public Column {
   //------------------TwinColumn
   // TwinColumn snapshotting (TwinColumn is misleading as in theory,
   //  we can have N copies where N-1 are snapshots.
-  void snapshot(const rowid_t *num_rec_per_part, xid_t epoch,
-                master_version_t snapshot_master_ver) override;
+  void snapshot(const rowid_t *num_rec_per_part, xid_t epoch) override;
   void syncSnapshot(master_version_t inactive_master_idx) override;
 
   //------------------ETL
@@ -313,6 +339,8 @@ class alignas(BlockManager::block_size) LazyColumn : public Column {
   void getElem(rowid_t vid, void *copy_destination) final;
   void updateElem(rowid_t vid, void *data) final;
 
+  void snapshot(const rowid_t *num_rec_per_part, xid_t epoch) final;
+
   //      Following logic does-not change as of yet from base class.
   //        if changes, override them.
   //  void insertElem(rowid_t vid, void *data) final;
@@ -331,9 +359,10 @@ class alignas(BlockManager::block_size) LazyColumn : public Column {
   //  void ETL(uint numa_affinity_idx = 0) override;
 
   //------------------OLAP-plugin utilities
-  //  [[nodiscard]] std::vector<std::pair<oltp::common::mem_chunk, size_t>>
-  //  snapshot_get_data(bool olap_local = false, bool elastic_scan = false)
-  //  const override;
+  [[nodiscard]] std::vector<std::pair<oltp::common::mem_chunk, size_t>>
+  snapshot_get_data(bool olap_local = false,
+                    bool elastic_scan = false) const override;
+
   //
   //  std::vector<std::pair<oltp::common::mem_chunk, size_t>> elastic_partition(
   //      uint pid, std::set<size_t> &segment_boundaries) override;
@@ -342,12 +371,9 @@ class alignas(BlockManager::block_size) LazyColumn : public Column {
   //  *num_records,
   //                        bool print) override;
 
-  //  ArenaVector &getSnapshotArena(partition_id_t pid) override{
-  //    return snapshot_arenas[pid];
-  //  }
-  //  ArenaVector &getETLArena(partition_id_t pid) override{
-  //    return etl_arenas[pid];
-  //  }
+  ArenaVector &getSnapshotArena(partition_id_t pid) override {
+    return snapshot_arenas[pid];
+  }
 
  private:
   //  typedef std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>,
@@ -358,10 +384,13 @@ class alignas(BlockManager::block_size) LazyColumn : public Column {
   std::atomic<snapshot_version_t> active_snapshot_idx;
 
   // TODO: make it partitioned
-  utils::IntervalMap<vid_t, snapshot_version_t> rid_snapshot_map;
+  std::deque<utils::IntervalMap<vid_t, snapshot_version_t>>
+      rid_snapshot_map[global_conf::MAX_PARTITIONS];
 
   // Primary == Data (defined in base class)
   // std::deque<oltp::common::mem_chunk> primary[global_conf::MAX_PARTITIONS];
+
+  std::vector<bool> primaryMaskCopy;
 
   std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>>
       dirty_upd_mask[global_conf::MAX_PARTITIONS];
@@ -395,6 +424,8 @@ class alignas(BlockManager::block_size) LazyColumn : public Column {
     std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>> dirty_upd_mask{};
     std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>> dirty_delete_mask{};
 
+    std::mutex capacity_lock;
+
     friend class LazyColumn;
   };
 
@@ -404,6 +435,7 @@ class alignas(BlockManager::block_size) LazyColumn : public Column {
  protected:
   // Snapshotting Utils
   //  ArenaVector snapshot_arenas[global_conf::MAX_PARTITIONS];
+  ArenaVector snapshot_arenas[global_conf::MAX_PARTITIONS];
   //  ArenaVector etl_arenas[global_conf::MAX_PARTITIONS];
 
   friend class ColumnStore;

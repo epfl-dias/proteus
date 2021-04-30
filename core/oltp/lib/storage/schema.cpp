@@ -27,6 +27,7 @@
 
 #include "oltp/common/numa-partition-policy.hpp"
 #include "oltp/storage/layout/column_store.hpp"
+#include "oltp/storage/storage-utils.hpp"
 #include "oltp/storage/table.hpp"
 
 namespace storage {
@@ -58,9 +59,10 @@ void Schema::twinColumn_snapshot(xid_t epoch,
     LOG(INFO) << "Done - snap_mver: " << (uint)snapshot_master_ver;
   }
 
-  for (const auto& tbl : tables) {
-    tbl->twinColumn_snapshot(epoch, snapshot_master_ver);
-  }
+  assert(false);
+  //  for (const auto& tbl : tables) {
+  //    tbl->twinColumn_snapshot(epoch, snapshot_master_ver);
+  //  }
 
   if (global_conf::num_master_versions > 1) {
     // start an async task (threadpool) to sync master..
@@ -97,6 +99,28 @@ bool Schema::sync_master_ver_tbl(storage::Table* tbl,
                                  master_version_t snapshot_master_ver) {
   tbl->twinColumn_syncMasters(snapshot_master_ver);
   return true;
+}
+
+void Schema::snapshot(xid_t epoch,
+                      std::vector<column_uuid_t>* snapshot_columns) {
+  if (snapshot_columns != nullptr) {
+    for (const auto& col_uuid : *snapshot_columns) {
+      auto tableId =
+          storage::StorageUtils::get_tableId_from_columnUuid(col_uuid);
+      auto colId =
+          storage::StorageUtils::get_columnId_from_columnUuid(col_uuid);
+      getTable(tableId)->snapshot(epoch, colId);
+    }
+  } else {
+    for (const auto& tbl : tables) {
+      if (tbl->name.compare("tpcc_orderline") == 0 ||
+          tbl->name.compare("tpcc_order") == 0 ||
+          tbl->name.compare("tpcc_neworder") == 0) {
+        continue;
+      }
+      tbl->snapshot(epoch);
+    }
+  }
 }
 
 void Schema::memoryReport() const {

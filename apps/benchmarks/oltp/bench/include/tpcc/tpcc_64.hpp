@@ -429,19 +429,19 @@ class TPCC : public Benchmark {
   void tpcc_get_next_delivery_query(int wid, void *arg) const;
   void tpcc_get_next_stocklevel_query(int wid, void *arg) const;
 
-  bool exec_neworder_txn(const struct tpcc_query *stmts, xid_t xid,
+  bool exec_neworder_txn(const struct tpcc_query *stmts, txn::Txn &txn,
                          master_version_t master_ver, delta_id_t delta_ver,
                          partition_id_t partition_id);
-  bool exec_payment_txn(const struct tpcc_query *stmts, xid_t xid,
+  bool exec_payment_txn(const struct tpcc_query *stmts, txn::Txn &txn,
                         master_version_t master_ver, delta_id_t delta_ver,
                         partition_id_t partition_id);
-  bool exec_orderstatus_txn(const struct tpcc_query *stmts, xid_t xid,
+  bool exec_orderstatus_txn(const struct tpcc_query *stmts, txn::Txn &txn,
                             master_version_t master_ver, delta_id_t delta_ver,
                             partition_id_t partition_id);
-  bool exec_delivery_txn(const struct tpcc_query *stmts, xid_t xid,
+  bool exec_delivery_txn(const struct tpcc_query *stmts, txn::Txn &txn,
                          master_version_t master_ver, delta_id_t delta_ver,
                          partition_id_t partition_id);
-  bool exec_stocklevel_txn(const struct tpcc_query *stmts, xid_t xid,
+  bool exec_stocklevel_txn(const struct tpcc_query *stmts, txn::Txn &txn,
                            master_version_t master_ver, delta_id_t delta_ver,
                            partition_id_t partition_id);
 
@@ -454,8 +454,14 @@ class TPCC : public Benchmark {
   void free_query_struct_ptr(void *ptr) override {
     MemoryManager::freePinned(ptr);  //, sizeof(struct tpcc_query));
   }
-  bool exec_txn(const void *stmts, xid_t xid, master_version_t master_ver,
+  bool exec_txn(txn::Txn &txn, master_version_t master_ver,
                 delta_id_t delta_ver, partition_id_t partition_id) override;
+  inline bool exec_txn_mv2pl(txn::Txn &txn, master_version_t master_ver,
+                             delta_id_t delta_ver,
+                             partition_id_t partition_id) override {
+    return this->exec_txn(txn, master_ver, delta_ver, partition_id);
+  }
+
   void gen_txn(worker_id_t wid, void *txn_ptr,
                partition_id_t partition_id) override;
   void print_tpcc_query(void *arg);

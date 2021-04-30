@@ -28,6 +28,7 @@
 #include <string>
 
 #include "oltp/common/common.hpp"
+#include "oltp/transaction/transaction.hpp"
 
 namespace bench {
 
@@ -43,9 +44,21 @@ class Benchmark {
   virtual void load_data(int num_threads = 1) {}
   virtual void gen_txn(worker_id_t wid, void *txn_ptr,
                        partition_id_t partition_id) {}
-  virtual bool exec_txn(const void *stmts, xid_t xid,
-                        master_version_t master_ver, delta_id_t delta_ver,
-                        partition_id_t partition_id) {
+
+  virtual bool exec_txn(txn::Txn &txn, master_version_t master_ver,
+                        delta_id_t delta_ver, partition_id_t partition_id) {
+    return true;
+  }
+
+  virtual bool exec_txn_mvocc(txn::Txn &txn, master_version_t master_ver,
+                              delta_id_t delta_ver,
+                              partition_id_t partition_id) {
+    return true;
+  }
+
+  virtual bool exec_txn_mv2pl(txn::Txn &txn, master_version_t master_ver,
+                              delta_id_t delta_ver,
+                              partition_id_t partition_id) {
     return true;
   }
 

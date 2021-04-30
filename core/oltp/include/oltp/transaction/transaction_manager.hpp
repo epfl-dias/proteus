@@ -49,7 +49,7 @@ class TransactionManager {
   void operator=(TransactionManager const &) = delete;      // Don't implement
 
   // TODO: move the following to snapshot manager
-  bool snapshot() {
+  bool snapshot_twinColumn() {
     time_block t("[TransactionManger] snapshot_: ");
     /* FIXME: full-barrier is needed only to get num_records of each relation
      *        which is implementation specific. it can be saved by the
@@ -62,6 +62,26 @@ class TransactionManager {
     storage::Schema::getInstance().twinColumn_snapshot(this->get_next_xid(0),
                                                        snapshot_master_ver);
     // storage::Schema::getInstance().snapshot(this->get_next_xid(0), 0);
+    scheduler::WorkerPool::getInstance().resume();
+    return true;
+  }
+
+  inline auto get_snapshot_masterVersion(xid_t epoch) {
+    assert(epoch_to_master_ver_map.contains(epoch));
+    return epoch_to_master_ver_map[epoch];
+  }
+
+  bool snapshot() {
+    time_block t("[TransactionManger] snapshot_: ");
+
+    scheduler::WorkerPool::getInstance().pause();
+    ushort snapshot_master_ver = this->switch_master();
+    auto snapshot_epoch = this->get_next_xid(0);
+    epoch_to_master_ver_map.emplace(snapshot_epoch, snapshot_master_ver);
+    //    storage::Schema::getInstance().twinColumn_snapshot(this->get_next_xid(0),
+    //                                                       snapshot_master_ver);
+
+    storage::Schema::getInstance().snapshot(this->get_next_xid(0), nullptr);
     scheduler::WorkerPool::getInstance().resume();
     return true;
   }
@@ -88,42 +108,48 @@ class TransactionManager {
     return curr_master;
   }
 
-  static __inline__ auto rdtsc() {
-#if defined(__i386__)
-
-    uint64_t x;
-    __asm__ volatile(".byte 0x0f, 0x31" : "=A"(x));
-    return x;
-
-#elif defined(__x86_64__)
-
-    uint32_t hi, lo;
-    __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
-    return ((uint64_t)lo) | (((uint64_t)hi) << 32u);
-
-#elif defined(__powerpc64__) || defined(__ppc64__)
-    uint64_t c;
-    asm volatile("mfspr %0, 268" : "=r"(c));
-    return c;
-#endif
-  }
-
   inline xid_t __attribute__((always_inline)) get_next_xid(worker_id_t wid) {
-    return (rdtsc() & 0x00FFFFFFFFFFFFFF) | (((uint64_t)wid) << 56u);
+    // return (rdtsc() & 0x00FFFFFFFFFFFFFF) | (((uint64_t)wid) << 56u);
+    // return (commit_ts_gen++ & 0x00FFFFFFFFFFFFFF) | (((uint64_t)wid) << 56u);
+    return commit_ts_gen++;
   }
 
-  uint64_t txn_start_time;
-  std::atomic<master_version_t> current_master;
+  [[maybe_unused]] inline std::pair<xid_t, xid_t> get_txnID_startTime_Pair() {
+    if (txn_id_gen <= UINT64_C(134217727)) {
+      LOG(INFO) << "FUCK" << txn_id_gen;
+    }
+    assert(txn_id_gen > UINT64_C(134217727));
+    return std::make_pair(txn_id_gen++, commit_ts_gen++);
+  }
+
+  //  [[maybe_unused]] inline xid_t get_start_ts() { return txn_id_gen++; }
+
+  [[maybe_unused]] inline xid_t get_commit_ts() { return commit_ts_gen++; }
+
+  inline master_version_t get_current_master_version() {
+    return current_master.load();
+  }
 
  private:
-  TransactionManager()
-      : txn_start_time(std::chrono::duration_cast<std::chrono::nanoseconds>(
-                           std::chrono::system_clock::now().time_since_epoch())
-                           .count()) {
-    // curr_master = 0;
+  TransactionManager() : txn_start_time(rdtsc() & 0x00FFFFFFFFFFFFFF) {
+    /*: txn_start_time(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                         std::chrono::system_clock::now().time_since_epoch())
+                         .count()) {*/
+
     current_master = 0;
-    txn_start_time = get_next_xid(0);
+    txn_id_gen = std::pow(2, 27);
+    LOG(INFO) << "Starting txn_id_gen: " << txn_id_gen;
+    commit_ts_gen = 10;
   }
+
+  std::map<xid_t, master_version_t> epoch_to_master_ver_map{};
+  std::atomic<size_t> txn_id_gen{};
+  std::atomic<size_t> commit_ts_gen{};
+
+  std::atomic<master_version_t> current_master;
+
+ public:
+  const size_t txn_start_time;
 };
 
 };  // namespace txn

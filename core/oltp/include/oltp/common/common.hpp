@@ -45,6 +45,8 @@ typedef uint32_t column_uuid_t;
 
 constexpr auto MAX_N_COLUMNS = UINT8_MAX;
 
+constexpr size_t TXN_ID_BASE = (((size_t)1) << 27);
+
 // TODO: replace column-widths with
 // typedef uint16_t column_width_t;
 
@@ -52,7 +54,7 @@ constexpr auto MAX_N_COLUMNS = UINT8_MAX;
 typedef uint8_t master_version_t;
 
 // Lazy-Master
-typedef int8_t snapshot_version_t;
+typedef uint8_t snapshot_version_t;
 
 typedef std::map<uint64_t, std::string> dict_dstring_t;
 
@@ -61,7 +63,7 @@ extern uint g_delta_size;
 
 enum SnapshotTypes { None, CircularMaster, LazyMaster, MVCC };
 
-constexpr auto DefaultSnapshotMechanism = SnapshotTypes::LazyMaster;
+constexpr auto DefaultSnapshotMechanism = SnapshotTypes::CircularMaster;
 
 constexpr int MAX_PARTITIONS = 8;
 

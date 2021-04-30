@@ -52,6 +52,45 @@ using SnapshotManager = SnapshotManager_impl<CircularMasterProvider>;
 
 namespace oltp::snapshot {
 
+// somehow keep track of the users so that once nobody wants to use it,
+// we can safely mark it as this can be destroyed (snapshot can be released)
+class SnapshotEntity {
+  typedef std::vector<std::vector<std::shared_ptr<aeolus::snapshot::ArenaV2>>>
+      EntityVector;
+
+ public:
+  auto &getPartition(partition_id_t partitionId) {
+    assert(entities.size() > partitionId);
+    return entities[partitionId];
+  }
+
+  // get by vid? -> probe
+  // scan? -> should give pointers.. the interface in column..
+
+  SnapshotEntity *create() { return nullptr; }
+
+  SnapshotEntity *destroy() { return nullptr; }
+
+ private:
+  // first vector -> partition.
+  // second vector -> segment within the partitions.
+  const EntityVector entities;
+  const column_uuid_t columnUuid;
+
+ private:
+  SnapshotEntity(column_uuid_t columnUuid, EntityVector entity)
+      : columnUuid(columnUuid), entities(entity) {}
+};
+
+class SnapshotCtx {
+  SnapshotEntity &getEntity(column_uuid_t columnUuid);
+
+ private:
+  // maps table_id/col_id to index in entity vector
+  std::map<column_uuid_t, uint32_t> entity_idx_map;
+  std::deque<SnapshotEntity> snapshot_entities;
+};
+
 class SnapshotMaster {
  public:
   static inline SnapshotMaster &getInstance() {

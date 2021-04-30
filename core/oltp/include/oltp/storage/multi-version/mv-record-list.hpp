@@ -29,6 +29,7 @@
 #include <iostream>
 #include <utility>
 
+#include "oltp/storage/layout/column_store.hpp"
 #include "oltp/storage/multi-version/mv-versions.hpp"
 
 namespace storage::mv {
@@ -56,15 +57,21 @@ class MV_RecordList_Full {
   using version_chain_t = VersionChain<MV_RecordList_Full>;
 
   static std::bitset<1> get_readable_version(
-      const DeltaList& delta_list, xid_t tid_self, char* write_loc,
+      const DeltaList& delta_list, const txn::TxnTs& txTs, char* write_loc,
       const std::vector<std::pair<uint16_t, uint16_t>>&
           column_size_offset_pairs,
-      const column_id_t* col_idx = nullptr, short num_cols = 0);
+      const column_id_t* col_idx = nullptr, short num_cols = 0,
+      bool read_committed_only = false);
 
   static std::vector<MV_RecordList_Full::version_t*> create_versions(
       xid_t xid, global_conf::IndexVal* idx_ptr,
       std::vector<uint16_t>& attribute_widths, storage::DeltaStore& deltaStore,
       partition_id_t partition_id, const column_id_t* col_idx, short num_cols);
+
+  static void rollback(const txn::TxnTs& txTs, global_conf::IndexVal* idx_ptr,
+                       ColumnVector& columns,
+                       const column_id_t* col_idx = nullptr,
+                       short num_cols = 0);
 };
 
 /* Class: MV_RecordList_Partial
@@ -81,15 +88,21 @@ class MV_RecordList_Partial {
   using version_chain_t = VersionChain<MV_RecordList_Partial>;
 
   static std::bitset<64> get_readable_version(
-      const DeltaList& delta_list, xid_t tid_self, char* write_loc,
+      const DeltaList& delta_list, const txn::TxnTs& txTs, char* write_loc,
       const std::vector<std::pair<uint16_t, uint16_t>>&
           column_size_offset_pairs,
-      const column_id_t* col_idx = nullptr, short num_cols = 0);
+      const column_id_t* col_idx = nullptr, short num_cols = 0,
+      bool read_committed_only = false);
 
   static std::vector<MV_RecordList_Partial::version_t*> create_versions(
       xid_t xid, global_conf::IndexVal* idx_ptr,
       std::vector<uint16_t>& attribute_widths, storage::DeltaStore& deltaStore,
       partition_id_t partition_id, const column_id_t* col_idx, short num_cols);
+
+  static void rollback(const txn::TxnTs& txTs, global_conf::IndexVal* idx_ptr,
+                       ColumnVector& columns,
+                       const column_id_t* col_idx = nullptr,
+                       short num_cols = 0);
 };
 
 }  // namespace storage::mv

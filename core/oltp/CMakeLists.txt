@@ -1,6 +1,5 @@
 project(oltp VERSION 0.1 LANGUAGES CXX)
 
-
 add_subdirectory(adaptor)
 
 # Unit-tests
@@ -45,27 +44,25 @@ set(oltp_cxx
 
         #-------- Transaction
         lib/transactions/transaction_manager.cpp
-        #lib/transactions/transaction.cpp
+        lib/transactions/transaction.cpp
         #lib/transactions/concurrency-control/cc.cpp
         )
 
-
-foreach (target ${txn_engine_cxx})
-    set_source_files_properties(${target} PROPERTIES LANGUAGE CXX)
-endforeach ()
 
 foreach (target ${txn_engine_cxx})
     set_source_files_properties(${target} PROPERTIES COMPILE_FLAGS ${CUDA_CXXFLAGS})
 endforeach ()
 
 add_library(${PROJECT_NAME} SHARED
-        ${oltp_cxx}
-        )
+  ${oltp_cxx}
+  )
 
 # If we have compiler requirements for this library, list them
 # here
 target_compile_features(${PROJECT_NAME}
-        PUBLIC cxx_std_20)
+  PUBLIC
+  cxx_std_20
+  )
 
 # Depend on a library that we defined in the top-level file
 target_link_libraries(${PROJECT_NAME}

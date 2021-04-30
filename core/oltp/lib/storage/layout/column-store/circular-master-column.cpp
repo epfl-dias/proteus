@@ -40,6 +40,7 @@
 #include "oltp/storage/multi-version/delta_storage.hpp"
 #include "oltp/storage/storage-utils.hpp"
 #include "oltp/storage/table.hpp"
+#include "oltp/transaction/transaction_manager.hpp"
 
 namespace storage {
 
@@ -597,8 +598,9 @@ void CircularMasterColumn::ETL(uint numa_affinity_idx) {
 }
 
 void CircularMasterColumn::snapshot(const rowid_t* num_rec_per_part,
-                                    xid_t epoch,
-                                    master_version_t snapshot_master_ver) {
+                                    xid_t epoch) {
+  master_version_t snapshot_master_ver =
+      txn::TransactionManager::getInstance().get_snapshot_masterVersion(epoch);
   for (auto i = 0; i < g_num_partitions; i++) {
     assert(snapshot_arenas[i].size() == 1);
 

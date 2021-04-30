@@ -42,6 +42,7 @@
 #include "oltp/storage/multi-version/mv.hpp"
 #include "oltp/storage/storage-utils.hpp"
 #include "oltp/storage/table.hpp"
+#include "oltp/transaction/transaction.hpp"
 
 namespace storage {
 
@@ -230,16 +231,15 @@ global_conf::IndexVal* ColumnStore::insertRecord(const void* data,
   return hash_ptr;
 }
 
-void ColumnStore::getRecord(xid_t transaction_id, rowid_t rowid,
+void ColumnStore::getRecord(const txn::TxnTs& txnTs, rowid_t rowid,
                             void* destination, const column_id_t* col_idx,
                             const short num_cols) {
   auto* metaPtr = (global_conf::IndexVal*)metaColumn->getElem(rowid);
-  return getIndexedRecord(transaction_id, metaPtr, destination, col_idx,
-                          num_cols);
+  return getIndexedRecord(txnTs, *metaPtr, destination, col_idx, num_cols);
 }
 
-void ColumnStore::getIndexedRecord(xid_t transaction_id,
-                                   global_conf::IndexVal* index_ptr,
+void ColumnStore::getIndexedRecord(const txn::TxnTs& txnTs,
+                                   const global_conf::IndexVal& index_ptr,
                                    void* destination,
                                    const column_id_t* col_idx, short num_cols) {
 #if INSTRUMENTATION
@@ -252,16 +252,16 @@ void ColumnStore::getIndexedRecord(xid_t transaction_id,
 
   char* write_loc = static_cast<char*>(destination);
 
-  if (txn::CC_MV2PL::is_readable(index_ptr->t_min, transaction_id)) {
+  if (txn::CC_MV2PL::is_readable(index_ptr, txnTs)) {
     if (__unlikely(col_idx == nullptr)) {
       for (auto& col : columns) {
-        col->getElem(index_ptr->VID, write_loc);
+        col->getElem(index_ptr.VID, write_loc);
         write_loc += col->unit_size;
       }
     } else {
       for (auto i = 0; i < num_cols; i++) {
         auto& col = columns.at(col_idx[i]);
-        col->getElem(index_ptr->VID, write_loc);
+        col->getElem(index_ptr.VID, write_loc);
         write_loc += col->unit_size;
       }
     }
@@ -269,10 +269,9 @@ void ColumnStore::getIndexedRecord(xid_t transaction_id,
 #if INSTRUMENTATION
     proteus::utils::percentile_point mv_cd(rd_mv_cdf);
 #endif
-
     auto done_mask = mv::mv_type::get_readable_version(
-        index_ptr->delta_list, transaction_id, write_loc,
-        this->column_size_offset_pairs, col_idx, num_cols);
+        index_ptr.delta_list, txnTs, write_loc, this->column_size_offset_pairs,
+        col_idx, num_cols);
 
     if (!done_mask.all()) {
       // LOG(INFO) << "reading from main";
@@ -286,7 +285,7 @@ void ColumnStore::getIndexedRecord(xid_t transaction_id,
       if (__unlikely(col_idx == nullptr)) {
         for (auto i = 0; i < this->n_columns; i++) {
           if (!done_mask[i]) {
-            columns[i]->getElem(index_ptr->VID,
+            columns[i]->getElem(index_ptr.VID,
                                 (write_loc + this->column_size_offsets[i]));
           }
         }
@@ -294,7 +293,7 @@ void ColumnStore::getIndexedRecord(xid_t transaction_id,
         for (auto i = 0, write_offset = 0; i < num_cols; i++) {
           write_offset += column_size[col_idx[i]];
           if (!done_mask[i]) {
-            columns[i]->getElem(index_ptr->VID, (write_loc + write_offset));
+            columns[i]->getElem(index_ptr.VID, (write_loc + write_offset));
           }
         }
       }
@@ -307,6 +306,179 @@ void ColumnStore::getIndexedRecord(xid_t transaction_id,
    partition to the worker but local to record-master partition. this create
    version creation over QPI.
 */
+
+void ColumnStore::updateRollback(const txn::TxnTs& txnTs,
+                                 global_conf::IndexVal* index_ptr,
+                                 const column_id_t* col_idx,
+                                 const short num_columns) {
+  // transaction_id should be my start_time
+  mv::mv_type::rollback(txnTs, index_ptr, columns, col_idx, num_columns);
+
+  // NOTES: rollback will be MV-type dependent.
+  // FIXME: what if multiple writes happened to the same record?
+
+  /*
+   *
+   * */
+
+  // IMPLEMENT ROLLBACK IN DELTA VERSION
+  //  if constexpr (!storage::mv::mv_type::isPerAttributeMVList &&
+  //                !storage::mv::mv_type::isAttributeLevelMV) {
+  //    char *write_loc =
+  //    static_cast<char*>(MemoryManager::mallocPinned(this->record_size));
+  //
+  //    // install back the latest committed version
+  //    auto done_mask = mv::mv_type::get_readable_version(
+  //        index_ptr->delta_list, txnTs, write_loc,
+  //        this->column_size_offset_pairs, col_idx, num_columns, true);
+  //    assert(done_mask.all());
+  //
+  //
+  //    // full record version.
+  //    for (auto& col : columns) {
+  //      col->updateElem(index_ptr->VID,
+  //                      write_loc + col->byteOffset_record);
+  //    }
+  //
+  //    MemoryManager::freePinned(write_loc);
+  //
+  //  } else {
+  //    // for full-record, its okay. for granular MV, it needs to follow the
+  //    approach
+  //    // of undo buffer as some attribute would be committed in one version
+  //    while others
+  //    // in different version.
+  //    throw std::runtime_error("not implemented for granular MV");
+  //  }
+
+  // if (top has my txn-id, then do else whats the need?
+
+  //
+
+  //  auto done_mask = mv::mv_type::get_readable_version(
+  //      index_ptr->delta_list, transaction_id, write_loc,
+  //      this->column_size_offset_pairs, col_idx, num_cols);
+
+  // get the write locations in vector, in same order as col_idx
+  // and then let the delta-store rollback?
+
+  /*
+
+   while(exists something which is readable by me, put it back).
+
+   if(something is greater than me, then me it has been updated over me)
+    -> cant happen with 2PL because record would be write-locked but after it
+   released,
+    -> it is assumed that it go success? not really
+
+    -> 2PL says you cant acquire after first release..
+
+   * */
+}
+
+void ColumnStore::createVersion(xid_t transaction_id,
+                                global_conf::IndexVal* index_ptr,
+                                delta_id_t current_delta_id,
+                                const column_id_t* col_idx,
+                                const short num_columns) {
+  assert((num_columns > 0 && col_idx != nullptr) || num_columns <= 0);
+
+  partition_id_t pid = StorageUtils::get_pid(index_ptr->VID);
+
+  auto version_ptr = mv::mv_type::create_versions(
+      transaction_id, index_ptr, column_size,
+      *(this->deltaStore[current_delta_id]), pid, col_idx, num_columns);
+
+  auto n_cols = (num_columns > 0 ? num_columns : columns.size());
+  uint idx = 0;
+
+  if constexpr (storage::mv::mv_type::isPerAttributeMVList) {
+    // multiple version pointers.
+
+    for (auto i = 0; i < n_cols; i++) {
+      if (__likely(num_columns > 0)) {
+        idx = col_idx[i];
+      } else {
+        idx = i;
+      }
+
+      auto& col = columns.at(idx);
+      memcpy(version_ptr.at(i)->data, col->getElem(index_ptr->VID),
+             col->unit_size);
+    }
+  }
+
+  if constexpr (!storage::mv::mv_type::isPerAttributeMVList &&
+                storage::mv::mv_type::isAttributeLevelMV) {
+    // single data pointer, but only copy specific attributes
+    char* version_data_ptr = (char*)(version_ptr.at(0)->data);
+    assert(version_data_ptr != nullptr);
+
+    // LOG(INFO) << "ColumStore! " << version_ptr[0]->attribute_mask;
+
+    for (auto i = 0; i < n_cols; i++) {
+      if (__likely(num_columns > 0)) {
+        idx = col_idx[i];
+      } else {
+        idx = i;
+      }
+      auto& col = columns.at(idx);
+
+      memcpy(version_data_ptr, col->getElem(index_ptr->VID), col->unit_size);
+      version_data_ptr += col->unit_size;
+    }
+  }
+  if constexpr (!storage::mv::mv_type::isPerAttributeMVList &&
+                !storage::mv::mv_type::isAttributeLevelMV) {
+    // full record version.
+
+    // first copy entire record.
+    char* version_data_ptr = (char*)(version_ptr.at(0)->data);
+    assert(version_data_ptr != nullptr);
+
+    for (auto& col : columns) {
+      memcpy(version_data_ptr + col->byteOffset_record,
+             col->getElem(index_ptr->VID), col->unit_size);
+    }
+  }
+}
+
+void ColumnStore::updateRecordWithoutVersion(
+    xid_t transaction_id, global_conf::IndexVal* index_ptr, void* data,
+    delta_id_t current_delta_id, const column_id_t* col_idx,
+    const short num_columns, master_version_t master_ver) {
+  assert((num_columns > 0 && col_idx != nullptr) || num_columns <= 0);
+
+  partition_id_t pid = StorageUtils::get_pid(index_ptr->VID);
+  char* cursor = static_cast<char*>(data);
+  if constexpr (global_conf::num_master_versions > 1) {
+    index_ptr->VID = StorageUtils::update_mVer(index_ptr->VID, master_ver);
+  }
+
+  // do actual update
+  if (__likely(num_columns > 0)) {
+    for (auto i = 0; i < num_columns; i++) {
+      auto& col = columns.at(col_idx[i]);
+      // update column
+      col->updateElem(index_ptr->VID,
+                      (data == nullptr ? nullptr : (void*)cursor));
+      if (__likely(data != nullptr)) {
+        cursor += col->unit_size;
+      }
+    }
+
+  } else {
+    for (const auto& col : this->columns) {
+      col->updateElem(index_ptr->VID,
+                      (data == nullptr ? nullptr : (void*)cursor));
+      if (__likely(data != nullptr)) {
+        cursor += col->unit_size;
+      }
+    }
+  }
+
+  // index_ptr->t_min = transaction_id;
+}
 
 void ColumnStore::updateRecord(xid_t transaction_id,
                                global_conf::IndexVal* index_ptr, void* data,
@@ -324,11 +496,12 @@ void ColumnStore::updateRecord(xid_t transaction_id,
   assert((num_columns > 0 && col_idx != nullptr) || num_columns <= 0);
 
   partition_id_t pid = StorageUtils::get_pid(index_ptr->VID);
-  master_version_t m_ver = StorageUtils::get_m_version(index_ptr->VID);
   char* cursor = static_cast<char*>(data);
 
   auto old_vid = index_ptr->VID;
-  index_ptr->VID = StorageUtils::update_mVer(index_ptr->VID, master_ver);
+  if constexpr (global_conf::num_master_versions > 1) {
+    index_ptr->VID = StorageUtils::update_mVer(index_ptr->VID, master_ver);
+  }
 
   auto version_ptr = mv::mv_type::create_versions(
       transaction_id, index_ptr, column_size,
@@ -393,6 +566,7 @@ void ColumnStore::updateRecord(xid_t transaction_id,
     // first copy entire record.
     char* version_data_ptr = (char*)(version_ptr.at(0)->data);
     assert(version_data_ptr != nullptr);
+
     for (auto& col : columns) {
       memcpy(version_data_ptr + col->byteOffset_record, col->getElem(old_vid),
              col->unit_size);
@@ -443,8 +617,7 @@ void ColumnStore::ETL(uint numa_affinity_idx) {
   }
 }
 
-void ColumnStore::twinColumn_snapshot(
-    xid_t epoch, master_version_t snapshot_master_version) {
+void ColumnStore::snapshot(xid_t epoch) {
   uint64_t partitions_n_recs[global_conf::MAX_PARTITIONS];
 
   for (uint i = 0; i < g_num_partitions; i++) {
@@ -454,9 +627,36 @@ void ColumnStore::twinColumn_snapshot(
   }
 
   for (auto& col : this->columns) {
-    col->snapshot(partitions_n_recs, epoch, snapshot_master_version);
+    col->snapshot(partitions_n_recs, epoch);
   }
 }
+
+void ColumnStore::snapshot(xid_t epoch, column_id_t columnId) {
+  uint64_t partitions_n_recs[global_conf::MAX_PARTITIONS];
+
+  for (uint i = 0; i < g_num_partitions; i++) {
+    partitions_n_recs[i] = this->vid[i].load();
+    LOG(INFO) << "Snapshot " << this->name << " : Records in P[" << i
+              << "]: " << partitions_n_recs[i];
+  }
+
+  this->columns[columnId]->snapshot(partitions_n_recs, epoch);
+}
+
+// void ColumnStore::twinColumn_snapshot(
+//    xid_t epoch, master_version_t snapshot_master_version) {
+//  uint64_t partitions_n_recs[global_conf::MAX_PARTITIONS];
+//
+//  for (uint i = 0; i < g_num_partitions; i++) {
+//    partitions_n_recs[i] = this->vid[i].load();
+//    LOG(INFO) << "Snapshot " << this->name << " : Records in P[" << i
+//              << "]: " << partitions_n_recs[i];
+//  }
+//
+//  for (auto& col : this->columns) {
+//    col->snapshot(partitions_n_recs, epoch, snapshot_master_version);
+//  }
+//}
 
 int64_t* ColumnStore::snapshot_get_number_tuples(bool olap_snapshot,
                                                  bool elastic_scan) {
@@ -614,9 +814,25 @@ ColumnStore::snapshot_get_data(size_t scan_idx,
   }
 
   else {
-    for (auto& cl : this->columns) {
-      if (cl->name.compare(wantedFields[scan_idx]->getAttrName()) == 0) {
-        return cl->snapshot_get_data(olap_local, false);
+    auto n = wantedFields[scan_idx]->getAttrName().find("_bitmask");
+    if (n == std::string::npos) {
+      for (auto& cl : this->columns) {
+        if (cl->name.compare(wantedFields[scan_idx]->getAttrName()) == 0) {
+          return cl->snapshot_get_data(olap_local, false);
+        }
+      }
+    } else {
+      // extract the name
+      auto strSize = wantedFields[scan_idx]->getAttrName().size();
+      auto colName =
+          wantedFields[scan_idx]->getAttrName().substr(0, strSize - 8);
+      LOG(INFO) << "Bitmask Column name extraction::::: " << colName;
+
+      for (auto& cl : this->columns) {
+        if (cl->name.compare(colName) == 0) {
+          // for lazy, elastic scan means return bitmask for now.
+          return cl->snapshot_get_data(olap_local, true);
+        }
       }
     }
 
@@ -630,8 +846,10 @@ ColumnStore::snapshot_get_data(size_t scan_idx,
 void ColumnStore::twinColumn_syncMasters(master_version_t master_idx) {
   assert(global_conf::num_master_versions > 1);
   for (auto& col : this->columns) {
-    if (!(col->type == STRING || col->type == VARCHAR)) {
-      col->syncSnapshot(master_idx);
+    if (col->snapshotType == SnapshotTypes::CircularMaster) {
+      if (!(col->type == STRING || col->type == VARCHAR)) {
+        col->syncSnapshot(master_idx);
+      }
     }
   }
 }

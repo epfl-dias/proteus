@@ -33,6 +33,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "oltp/common/common.hpp"
 #include "oltp/util/monitored-lock.hpp"
 
 namespace utils {
@@ -55,13 +56,13 @@ namespace utils {
 //  need more thoughts in making it better concurrent (similar to b+tree in
 //  literature for locking and concurrent accesses.
 
-template <typename V = size_t>
-class IntervalValue {
- public:
-  explicit IntervalValue(V value) : value(value) {}
-
-  V value;
-};
+// template <typename V = size_t>
+// class IntervalValue {
+// public:
+//  explicit IntervalValue(V value) : value(value) {}
+//
+//  V value;
+//};
 
 // LOGIC: map stores the starting position and value associated.
 // end is based on the either next value or infinite.
@@ -69,116 +70,153 @@ class IntervalValue {
 template <typename K = size_t, typename V = size_t>
 class IntervalMap {
  public:
-  typedef IntervalValue<V> value_t;
+  // typedef IntervalValue<V> value_t;
+  typedef V value_t;
   typedef K key_t;
 
-  IntervalMap(K start, V val) : upper_bound(start) { map.emplace(start, val); }
-  IntervalMap() : upper_bound(0) { map.emplace(0, 0); }
+  IntervalMap(K start, V val) : upper_bound(start), touched(false) {
+    map.emplace(start, val);
+  }
+  IntervalMap() : upper_bound(0), touched(false) { map.emplace(0, 0); }
 
   V getValue(K key) {
-    std::shared_lock<std::shared_mutex>(this->map_latch);
-
-    if (key >= upper_bound) {
-      return map.rbegin()->second.value;
-    } else {
+    // std::shared_lock<std::shared_mutex> slk(this->map_latch);
+    if (__likely(!touched || key >= upper_bound)) {
+      // intuition is that snapshot always start at zero, and during insert,
+      //  always a +1 is inserted with default value, meaning the upper-bound
+      //  will be always zero.
+      return 0;
+    }
+    /*else if (key == upper_bound) {
+      return map.rbegin()->second;
+    } */
+    else {
+      std::shared_lock<std::shared_mutex> slk(this->map_latch);
       auto bound_iter = this->map.lower_bound(key);
       if (bound_iter->first == key) {
-        return bound_iter->second.value;
+        return bound_iter->second;
       } else {
         // FIXME: check if it wasnt already at the first one.
         bound_iter--;
-        return bound_iter->second.value;
+        return bound_iter->second;
       }
     }
   }
 
   void reset(V value) {
-    std::unique_lock<std::shared_mutex>(this->map_latch);
+    std::unique_lock<std::shared_mutex> ulk(this->map_latch);
     map.clear();
     map.emplace(0, value);
   }
 
   void upsert(K key, V value) {
-    std::unique_lock<std::shared_mutex>(this->map_latch);
+    {
+      std::shared_lock<std::shared_mutex> slk(this->map_latch, std::defer_lock);
 
-    // actually directly check if key exists in the map or not.
-    auto bound_iter = this->map.lower_bound(key);
+      slk.lock();
 
-    if (bound_iter == map.end()) {
-      // key is greater than any in the map.
-      assert(key > upper_bound);
-      if (map.rbegin()->second.value == value) {
-        // case: last value: 10, snap: 0
-        // insert 11, snap: 0
-        // in this case, the value is already contained, no need to insert.
-        return;
-      } else {
-        map.emplace_hint(map.end(), key + 1, map.rbegin()->second.value);
-        map.emplace_hint(map.end(), key, value);
-        upper_bound = key + 1;
-      }
-    } else {
-      // greater or equal key exist in the map.
+      // actually directly check if key exists in the map or not.
+      auto bound_iter = this->map.lower_bound(key);
 
-      if (bound_iter->first == key) {
-        // same key exists
-        if (bound_iter->second.value == value) {
+      if (__likely(bound_iter == map.end())) {
+        // key is greater than any in the map.
+        // assert(key > upper_bound);
+        if (__unlikely(map.rbegin()->second == value)) {
+          // case: last value: 10, snap: 0
+          // insert 11, snap: 0
+          // in this case, the value is already contained, no need to insert.
           return;
         } else {
-          map.try_emplace(bound_iter, (key + 1), bound_iter->second.value);
-          bound_iter->second.value = value;
+          {
+            slk.unlock();
+            std::unique_lock<std::shared_mutex> ulk(this->map_latch);
+            upper_bound = key + 1;
+            map.emplace_hint(map.end(), key + 1, map.rbegin()->second);
+            map.emplace_hint(map.end(), key, value);
+
+            if (!touched) touched = true;
+          }
         }
       } else {
-        // greater than key exists.
-        // how much greater? by doing minus one do the job?
-        // LOG(INFO) << "BoundIter: " << bound_iter->first;
-        bound_iter--;
-        // LOG(INFO) << "BoundIter: " << bound_iter->first;
-        assert(bound_iter->first < key);
+        // greater or equal key exist in the map.
 
-        if (bound_iter->second.value == value) {
-          return;
+        if (__likely(bound_iter->first == key)) {
+          // same key exists
+          if (bound_iter->second == value) {
+            return;
+          } else {
+            {
+              slk.unlock();
+              std::unique_lock<std::shared_mutex> ulk(this->map_latch);
+              map.try_emplace(bound_iter, (key + 1), bound_iter->second);
+              bound_iter->second = value;
+              if (!touched) touched = true;
+            }
+          }
         } else {
-          map.try_emplace(bound_iter, (key + 1), bound_iter->second.value);
-          map.emplace_hint(bound_iter, key, value);
+          // greater than key exists.
+          // how much greater? by doing minus one do the job?
+          // LOG(INFO) << "BoundIter: " << bound_iter->first;
+          bound_iter--;
+          // LOG(INFO) << "BoundIter: " << bound_iter->first;
+          assert(bound_iter->first < key);
+
+          if (bound_iter->second == value) {
+            return;
+          } else {
+            {
+              slk.unlock();
+              std::unique_lock<std::shared_mutex> ulk(this->map_latch);
+              map.try_emplace(bound_iter, (key + 1), bound_iter->second);
+              map.emplace_hint(bound_iter, key, value);
+              if (!touched) touched = true;
+            }
+          }
         }
       }
     }
   }
 
   void updateByValue(V oldval, V newval) {
-    std::unique_lock<std::shared_mutex>(this->map_latch);
-
-    auto map_it = map.begin();
-    for (; map_it != map.end(); map_it++) {
-      if (map_it->second.value == oldval) {
-        map_it->second.value = newval;
+    {
+      std::unique_lock<std::shared_mutex>(this->map_latch);
+      auto map_it = map.begin();
+      for (; map_it != map.end(); map_it++) {
+        if (map_it->second == oldval) {
+          map_it->second = newval;
+        }
       }
     }
+
+    if (!touched) touched = true;
   }
 
   size_t updateByValue_withCount(V oldval, V newval) {
-    std::unique_lock<std::shared_mutex>(this->map_latch);
     size_t ctr = 0;
-    auto map_it = map.begin();
-    for (; map_it != map.end(); map_it++) {
-      if (map_it->second.value == oldval) {
-        map_it->second.value = newval;
-        ctr++;
+    {
+      std::unique_lock<std::shared_mutex> slk(this->map_latch);
+      auto map_it = map.begin();
+      for (; map_it != map.end(); map_it++) {
+        if (map_it->second == oldval) {
+          map_it->second = newval;
+          ctr++;
+        }
       }
     }
+    if (!touched) touched = true;
     return ctr;
   }
 
   void consolidate() {
-    std::unique_lock<std::shared_mutex>(this->map_latch);
+    if (!touched) return;
+    std::unique_lock<std::shared_mutex> slk(this->map_latch);
     time_block t("T_mapConsolidate");
     LOG(INFO) << "MapSize: " << map.size();
     auto map_it = map.begin();
     auto nx = std::next(map_it, 1);
 
     while (nx != map.end() && map_it != map.end()) {
-      if (map_it->second.value == nx->second.value) {
+      if (map_it->second == nx->second) {
         map.erase(nx);
         nx = std::next(map_it, 1);
         continue;
@@ -188,6 +226,7 @@ class IntervalMap {
       nx = std::next(map_it, 1);
     }
     upper_bound = map.rbegin()->first;
+
     LOG(INFO) << "MapSizeAfterCleaning: " << map.size();
   }
 
@@ -200,21 +239,22 @@ class IntervalMap {
   }
 
  private:
-  //  std::map<
-  //      key_t, value_t,
-  //      proteus::memory::PinnedMemoryAllocator<std::pair<const key_t,
-  //      value_t>>> map{};
-  std::map<key_t, value_t> map{};
-  K upper_bound;  // max starting point.
+  std::map<
+      key_t, value_t, std::less<key_t>,
+      proteus::memory::PinnedMemoryAllocator<std::pair<const key_t, value_t>>>
+      map{};
+  // std::map<key_t, value_t> map{};
+  std::atomic<K> upper_bound;  // max starting point.
   // K lower_bound; // min starting point
 
   std::shared_mutex map_latch;
+  volatile bool touched;
 
  public:
   friend std::ostream &operator<<(std::ostream &out,
                                   const IntervalMap<K, V> &r) {
     for (const auto &[key, val] : r.map) {
-      out << "[" << key << ", )\t:\t" << val.value << "\n";
+      out << "[" << key << ", )\t:\t" << val << "\n";
     }
     return out;
   }

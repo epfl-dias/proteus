@@ -57,6 +57,8 @@ Table::Table(table_id_t table_id, std::string& name, layout_type storage_layout,
   for (const auto& c : columns.getColumns()) {
     attrs.emplace_back(
         new RecordAttribute(this->name, c.getName(), getProteusType(c)));
+    attrs.emplace_back(new RecordAttribute(this->name, c.getName() + "_bitmask",
+                                           new BoolType()));
   }
 
   auto exprType = new BagType(

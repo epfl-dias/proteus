@@ -68,7 +68,7 @@ class Worker {
   size_t num_txns;
   size_t num_commits;
   size_t num_aborts;
-  size_t txn_start_tsc;
+  // size_t txn_start_tsc;
 
   std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>
       txn_start_time;

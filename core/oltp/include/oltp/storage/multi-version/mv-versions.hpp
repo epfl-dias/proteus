@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "oltp/common/constants.hpp"
+#include "oltp/storage/multi-version/delta-memory-ptr.hpp"
 #include "oltp/storage/multi-version/delta_storage.hpp"
 
 namespace storage::mv {
@@ -71,22 +72,20 @@ class VersionMultiAttr : public Version {
  public:
   std::bitset<64> attribute_mask;
   uint16_t *attribute_offsets;
-  VersionMultiAttr *next;
+  TaggedDeltaDataPtr<VersionMultiAttr> next;
 
   VersionMultiAttr(xid_t t_min, xid_t t_max, void *data)
-      : Version(t_min, t_max, data), next(nullptr) {
+      : Version(t_min, t_max, data), next(0) {
     attribute_mask.set();
   }
   VersionMultiAttr(xid_t t_min, xid_t t_max, void *data,
                    std::bitset<64> attribute_mask)
-      : Version(t_min, t_max, data),
-        next(nullptr),
-        attribute_mask(attribute_mask) {}
+      : Version(t_min, t_max, data), next(0), attribute_mask(attribute_mask) {}
 
   VersionMultiAttr(xid_t t_min, xid_t t_max, void *data,
                    std::bitset<64> attribute_mask, uint16_t *attr_offsets)
       : Version(t_min, t_max, data),
-        next(nullptr),
+        next(0),
         attribute_mask(attribute_mask),
         attribute_offsets(attr_offsets) {}
 
@@ -141,13 +140,6 @@ class VersionChain {
  public:
   VersionChain() : last_updated_tmin(0), head(0) {}
 
-  //  inline void insert(typename T::version_t *val) {
-  //    val->next = head;
-  //    head = val;
-  //  }
-
-  //  inline void reset_head(typename T::version_t *val) { head = val; }
-
   inline void insert(TaggedDeltaDataPtr<typename T::version_t> val) {
     assert(val.ptr() != nullptr);
     val.ptr()->next = head;
@@ -158,14 +150,21 @@ class VersionChain {
     head = val;
   }
 
-  void *get_readable_version(xid_t xid) {
+  typename T::version_t *get_readable_version(const txn::TxnTs &txTs,
+                                              bool read_committed = false) {
     TaggedDeltaDataPtr<typename T::version_t> tmp = this->head;
 
     while (tmp.is_valid()) {
       auto ptr = tmp.ptr();
       // if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
-      if (global_conf::ConcurrencyControl::is_readable(ptr->t_min, xid)) {
-        return ptr->data;
+
+      // if(!read_committed || (read_committed && ptr->t_min < highTs ) )
+      // either read_uncommitted or committed by checking Ts should be less than
+      // highTs.
+
+      if ((!read_committed || (ptr->t_min < TXN_ID_BASE)) &&
+          (global_conf::ConcurrencyControl::is_readable(ptr->t_min, txTs))) {
+        return ptr;
       } else {
         tmp = ptr->next;
       }
@@ -173,7 +172,6 @@ class VersionChain {
     return nullptr;
   }
 
-  // typename T::version_t *head{};
   TaggedDeltaDataPtr<typename T::version_t> head{};
   uint64_t last_updated_tmin{};
 

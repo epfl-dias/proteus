@@ -170,6 +170,7 @@ void* Column::getElem(rowid_t vid) {
     if (__likely(chunk.size >= ((size_t)data_idx + unit_size))) {
       return ((char*)chunk.data) + data_idx;
     }
+    data_idx -= chunk.size;
   }
 
   assert(false && "Out-of-Bound-Access");
@@ -186,6 +187,7 @@ void Column::getElem(rowid_t vid, void* copy_location) {
                   this->unit_size);
       return;
     }
+    data_idx -= chunk.size;
   }
   assert(false && "Out-of-Bound-Access");
 }
@@ -215,6 +217,7 @@ void* Column::insertElem(rowid_t vid) {
     if (__likely(chunk.size >= (data_idx + unit_size))) {
       return (void*)(((char*)chunk.data) + data_idx);
     }
+    data_idx -= chunk.size;
   }
 
   assert(false && "Out Of Memory Error");
@@ -314,8 +317,14 @@ template <typename T>
 inline bool Column::UpdateInPlace(T& data_vector, size_t offset,
                                   size_t unit_size, void* data) {
   offset = offset * unit_size;
+  // bool second_idx = false;
 
   for (const auto& chunk : data_vector) {
+    //    if(second_idx){
+    //      LOG(INFO) << "Offset: " << offset;
+    //      LOG(INFO) << "Chunk Size: " << chunk.size;
+    //      LOG(INFO) << "X: " << offset + unit_size;
+    //    }
     if (__likely(chunk.size >= (offset + unit_size))) {
       void* dst = (void*)(((char*)chunk.data) + offset);
 
@@ -335,6 +344,12 @@ inline bool Column::UpdateInPlace(T& data_vector, size_t offset,
 
       return true;
     }
+    //    LOG(INFO) << "__Offset: " << offset;
+    //    LOG(INFO) << "__(chunk.size): " << chunk.size;
+    offset -= chunk.size;
+    //    LOG(INFO) << "__Offset2: " << offset;
+    LOG(INFO) << "Going to second index";
+    //    second_idx = true;
   }
   return false;
 }
