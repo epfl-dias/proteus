@@ -323,6 +323,34 @@ Test 10 - Planner:
   reports:
    junit: TEST-*.xml
 
+Test 11 - OLTP YCSB:
+ <<: *test
+ script:
+  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
+  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+  - mkdir -p ${build_path}
+  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
+  - export CWD=$(pwd)
+  - cd ${build_path}/opt/pelago && ./unit-tests-ycsb --gtest_output="xml:$CWD/report-ycsb.xml"
+  #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='ThreadCOW.*' --gtest_output="xml:$CWD/report-cow.xml"
+ artifacts:
+  reports:
+   junit: report-ycsb.xml
+
+Test 12 - OLTP TPCC:
+ <<: *test
+ script:
+  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
+  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+  - mkdir -p ${build_path}
+  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
+  - export CWD=$(pwd)
+  - cd ${build_path}/opt/pelago && ./unit-tests-tpcc --gtest_output="xml:$CWD/report-tpcc.xml"
+  #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='ThreadCOW.*' --gtest_output="xml:$CWD/report-cow.xml"
+ artifacts:
+  reports:
+   junit: report-tpcc.xml
+
 
 #----------------------------------------------------------------------------
 # Performance Tests
