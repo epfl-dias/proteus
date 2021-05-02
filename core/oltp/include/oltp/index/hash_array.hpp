@@ -131,14 +131,11 @@ class HashArray : public Index<K, V> {
       arr[pid][idx] = (char *)value;
       return true;
     } else {
-      std::cout << "key: " << key << std::endl;
-      std::cout << "pid: " << pid << std::endl;
-      std::cout << "idx: " << idx << std::endl;
-      std::cout << "capacity_per_partition: " << capacity_per_partition
-                << std::endl;
-      std::cout << "partitions: " << partitions << std::endl;
-      std::cout << this->name << std::endl;
-      assert(false);
+      LOG(FATAL) << "key: " << key << " | pid: " << pid << " | idx: " << idx
+                 << " | capacity_per_partition: " << capacity_per_partition
+                 << " | partitions: " << (uint32_t)partitions
+                 << " | table: " << this->name;
+
       return false;
     }
 

@@ -31,6 +31,7 @@
 #include <iostream>
 #include <oltp/common/utils.hpp>
 #include <platform/threadpool/thread.hpp>
+#include <utility>
 
 #define NDEFAULT_RIDS 16
 
@@ -142,11 +143,11 @@ void TPCC::print_tpcc_query(void *arg) {
 TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
            bool layout_column_store, uint tpch_scale_factor,
            int g_dist_threshold, std::string csv_path, bool is_ch_benchmark)
-    : Benchmark(name, active_warehouse, proteus::thread::hardware_concurrency(),
-                g_num_partitions),
+    : Benchmark(std::move(name), active_warehouse,
+                proteus::thread::hardware_concurrency(), g_num_partitions),
       num_warehouse(num_warehouses),
       g_dist_threshold(g_dist_threshold),
-      csv_path(csv_path),
+      csv_path(std::move(csv_path)),
       is_ch_benchmark(is_ch_benchmark),
       layout_column_store(layout_column_store),
       tpch_scale_factor(tpch_scale_factor) {
@@ -161,7 +162,8 @@ TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
   // std::cout << "MAX ORDERS: " << max_orders << std::endl;
   // std::cout << "g_num_partitions: " << g_num_partitions << std::endl;
   // uint64_t max_order_line = TPCC_MAX_OL_PER_ORDER * max_orders;
-  uint64_t max_order_line = 10 * max_orders;
+
+  uint64_t max_order_line = TPCC_MAX_OL_PER_ORDER * max_orders;
   uint64_t max_stock = TPCC_MAX_ITEMS * (this->num_warehouse);
 
   std::vector<proteus::thread> loaders;
@@ -839,106 +841,110 @@ void TPCC::load_order(int w_id, xid_t xid, partition_id_t partition_id,
   for (int d = 0; d < TPCC_NDIST_PER_WH; d++) {
     init_permutation(&this->seed, cperm);
 
-    loaders.emplace_back([this, d, order_per_dist, cperm, pre_orders, w_id, xid,
-                          partition_id, master_ver]() {
-      for (uint64_t o = 0; o < order_per_dist; o++) {
-        struct tpcc_order r = {};  // new struct tpcc_order;
+    //    loaders.emplace_back([this, d, order_per_dist, cperm, pre_orders,
+    //    w_id, xid,
+    //                          partition_id, master_ver]() {
+    for (uint64_t o = 0; o < order_per_dist; o++) {
+      struct tpcc_order r = {};  // new struct tpcc_order;
 
-        uint64_t ckey = MAKE_ORDER_KEY(w_id, d, o);
+      uint64_t ckey = MAKE_ORDER_KEY(w_id, d, o);
 
-        // if (ckey >= TPCC_MAX_ORDER_INITIAL_CAP) {
-        //   std::cout << "w_id: " << w_id << std::endl;
-        //   std::cout << " d_id: " << d << std::endl;
-        //   std::cout << "o_id: " << o << std::endl;
-        //   std::cout << "partition_id: " << partition_id << std::endl;
-        //   std::cout << "ckey: " << ckey << std::endl;
-        //   std::cout << "distk: " << MAKE_DIST_KEY(w_id, d) << std::endl;
-        //   std::cout << "TPCC_MAX_ORD_PER_DIST: " << TPCC_MAX_ORD_PER_DIST
-        //             << std::endl;
-        //   std::cout << "-----------------" << std::endl;
-        // }
+      // if (ckey >= TPCC_MAX_ORDER_INITIAL_CAP) {
+      //   std::cout << "w_id: " << w_id << std::endl;
+      //   std::cout << " d_id: " << d << std::endl;
+      //   std::cout << "o_id: " << o << std::endl;
+      //   std::cout << "partition_id: " << partition_id << std::endl;
+      //   std::cout << "ckey: " << ckey << std::endl;
+      //   std::cout << "distk: " << MAKE_DIST_KEY(w_id, d) << std::endl;
+      //   std::cout << "TPCC_MAX_ORD_PER_DIST: " << TPCC_MAX_ORD_PER_DIST
+      //             << std::endl;
+      //   std::cout << "-----------------" << std::endl;
+      // }
 
-        int c_id = cperm[o % TPCC_NCUST_PER_DIST];
+      int c_id = cperm[o % TPCC_NCUST_PER_DIST];
 
-        r.o_id = o;
-        r.o_c_id = c_id;
-        r.o_d_id = d;
-        r.o_w_id = w_id;
+      r.o_id = o;
+      r.o_c_id = c_id;
+      r.o_d_id = d;
+      r.o_w_id = w_id;
 
-        r.o_entry_d = get_timestamp();
+      r.o_entry_d = get_timestamp();
+
+      if (o < pre_orders) {
+        // if (o < 2100) {
+        r.o_carrier_id = URand(&this->seed, 1, 10);
+      } else
+        r.o_carrier_id = 0;
+
+      int o_ol_cnt = TPCC_MAX_OL_PER_ORDER;  // URand(&this->seed, 5, 15);
+
+      if (tpch_scale_factor != 0) {
+        o_ol_cnt = TPCC_MAX_OL_PER_ORDER;
+      }
+
+      r.o_ol_cnt = o_ol_cnt;
+      r.o_all_local = 1;
+
+      // insert order here
+      void *hash_ptr_o =
+          table_order->insertRecord(&r, xid, partition_id, master_ver);
+#if index_on_order_tbl
+      assert(hash_ptr_o != nullptr);
+      this->table_order->p_index->insert(ckey, hash_ptr_o);
+#endif
+
+      for (int ol = 0; ol < o_ol_cnt; ol++) {
+        struct tpcc_orderline r_ol = {};  // new struct tpcc_orderline;
+
+        uint64_t ol_pkey = MAKE_OL_KEY(w_id, d, o, ol);
+
+        r_ol.ol_o_id = o;
+        r_ol.ol_d_id = d;
+        r_ol.ol_w_id = w_id;
+        r_ol.ol_number = ol;
+        r_ol.ol_i_id = URand(&this->seed, 0, TPCC_MAX_ITEMS - 1);
+        r_ol.ol_supply_w_id = w_id;
 
         if (o < pre_orders) {
-          // if (o < 2100) {
-          r.o_carrier_id = URand(&this->seed, 1, 10);
-        } else
-          r.o_carrier_id = 0;
-
-        int o_ol_cnt = 15;  // URand(&this->seed, 5, 15);
-
-        if (tpch_scale_factor != 0) {
-          o_ol_cnt = 15;
+          r_ol.ol_delivery_d = r.o_entry_d;
+          r_ol.ol_amount = 0;
+        } else {
+          r_ol.ol_delivery_d = 0;
+          r_ol.ol_amount = ((double)URand(&this->seed, 1, 999999)) / 100.0;
         }
+        r_ol.ol_quantity = 5;
+        // make_alpha_string(&this->seed, 24, 24, r_ol.ol_dist_info);
 
-        r.o_ol_cnt = o_ol_cnt;
-        r.o_all_local = 1;
-
-        // insert order here
-        void *hash_ptr_o =
-            table_order->insertRecord(&r, xid, partition_id, master_ver);
+        // insert orderline here
+        void *hash_ptr_ol = table_order_line->insertRecord(
+            &r_ol, xid, partition_id, master_ver);
 #if index_on_order_tbl
-        assert(hash_ptr_o != nullptr || hash_ptr_o != NULL);
-        this->table_order->p_index->insert(ckey, hash_ptr_o);
+        assert(hash_ptr_ol != nullptr);
+        //          LOG(INFO) << "X: " << ol_pkey << " | w_id: " << (uint)w_id
+        //          <<" |d: " << (uint)d << " | o: " << (uint)o << " |ol: " <<
+        //          (uint)ol;
+        this->table_order_line->p_index->insert(ol_pkey, hash_ptr_ol);
 #endif
-
-        for (int ol = 0; ol < o_ol_cnt; ol++) {
-          struct tpcc_orderline r_ol = {};  // new struct tpcc_orderline;
-
-          uint64_t ol_pkey = MAKE_OL_KEY(w_id, d, o, ol);
-
-          r_ol.ol_o_id = o;
-          r_ol.ol_d_id = d;
-          r_ol.ol_w_id = w_id;
-          r_ol.ol_number = ol;
-          r_ol.ol_i_id = URand(&this->seed, 0, TPCC_MAX_ITEMS - 1);
-          r_ol.ol_supply_w_id = w_id;
-
-          if (o < pre_orders) {
-            r_ol.ol_delivery_d = r.o_entry_d;
-            r_ol.ol_amount = 0;
-          } else {
-            r_ol.ol_delivery_d = 0;
-            r_ol.ol_amount = ((double)URand(&this->seed, 1, 999999)) / 100.0;
-          }
-          r_ol.ol_quantity = 5;
-          // make_alpha_string(&this->seed, 24, 24, r_ol.ol_dist_info);
-
-          // insert orderline here
-          void *hash_ptr_ol = table_order_line->insertRecord(
-              &r_ol, xid, partition_id, master_ver);
-#if index_on_order_tbl
-          assert(hash_ptr_ol != nullptr || hash_ptr_ol != NULL);
-          this->table_order_line->p_index->insert(ol_pkey, hash_ptr_ol);
-#endif
-        }
-
-        // NEW ORDER
-        if (o >= pre_orders) {
-          struct tpcc_new_order r_no = {};  // new struct tpcc_new_order;
-
-          r_no.no_o_id = o;
-          r_no.no_d_id = d;
-          r_no.no_w_id = w_id;
-          // insert new order here
-
-          void *hash_ptr_no = table_new_order->insertRecord(
-              &r_no, xid, partition_id, master_ver);
-#if index_on_order_tbl
-          assert(hash_ptr_no != nullptr || hash_ptr_no != NULL);
-          this->table_new_order->p_index->insert(ckey, hash_ptr_no);
-#endif
-        }
       }
-    });
+
+      // NEW ORDER
+      if (o >= pre_orders) {
+        struct tpcc_new_order r_no = {};  // new struct tpcc_new_order;
+
+        r_no.no_o_id = o;
+        r_no.no_d_id = d;
+        r_no.no_w_id = w_id;
+        // insert new order here
+
+        void *hash_ptr_no =
+            table_new_order->insertRecord(&r_no, xid, partition_id, master_ver);
+#if index_on_order_tbl
+        assert(hash_ptr_no != nullptr || hash_ptr_no != NULL);
+        this->table_new_order->p_index->insert(ckey, hash_ptr_no);
+#endif
+      }
+    }
+    //});
   }
 
   for (auto &th : loaders) {

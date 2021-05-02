@@ -660,6 +660,12 @@ bool TPCC::consistency_check_4(bool print_inconsistent_rows) {
   return db_consistent;
 }
 
+class OltpInconsistentException : public std::runtime_error {
+ public:
+  explicit OltpInconsistentException(const char *message)
+      : std::runtime_error(message) {}
+};
+
 void TPCC::verify_consistency() {
   LOG(INFO) << "##############################################################";
   LOG(INFO) << "Verifying consistency...";
@@ -687,16 +693,16 @@ void TPCC::verify_consistency() {
 
   // execute consistency checks.
   if (!consistency_check_1()) {
-    LOG(FATAL) << "DB IS NOT CONSISTENT: Check 1 failed.";
+    throw OltpInconsistentException("DB IS NOT CONSISTENT: Check 1 failed");
   }
   if (!consistency_check_2()) {
-    LOG(FATAL) << "DB IS NOT CONSISTENT: Check 2 failed.";
+    throw OltpInconsistentException("DB IS NOT CONSISTENT: Check 2 failed");
   }
   if (!consistency_check_3()) {
-    LOG(FATAL) << "DB IS NOT CONSISTENT: Check 3 failed.";
+    throw OltpInconsistentException("DB IS NOT CONSISTENT: Check 3 failed");
   }
   if (!consistency_check_4()) {
-    LOG(FATAL) << "DB IS NOT CONSISTENT: Check 4 failed.";
+    throw OltpInconsistentException("DB IS NOT CONSISTENT: Check 4 failed");
   }
   LOG(INFO) << "##############################################################";
 }
