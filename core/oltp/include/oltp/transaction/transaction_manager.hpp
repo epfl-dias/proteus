@@ -75,18 +75,18 @@ class TransactionManager {
     time_block t("[TransactionManger] snapshot_: ");
 
     scheduler::WorkerPool::getInstance().pause();
-    ushort snapshot_master_ver = this->switch_master();
+    auto snapshot_master_ver = this->switch_master();
     auto snapshot_epoch = this->get_next_xid(0);
     epoch_to_master_ver_map.emplace(snapshot_epoch, snapshot_master_ver);
     //    storage::Schema::getInstance().twinColumn_snapshot(this->get_next_xid(0),
     //                                                       snapshot_master_ver);
 
-    storage::Schema::getInstance().snapshot(this->get_next_xid(0), nullptr);
+    storage::Schema::getInstance().snapshot(snapshot_epoch, nullptr);
     scheduler::WorkerPool::getInstance().resume();
     return true;
   }
 
-  ushort switch_master() {
+  master_version_t switch_master() {
     master_version_t curr_master = this->current_master.load();
 
     /*

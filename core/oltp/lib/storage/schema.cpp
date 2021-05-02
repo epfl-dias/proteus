@@ -113,11 +113,6 @@ void Schema::snapshot(xid_t epoch,
     }
   } else {
     for (const auto& tbl : tables) {
-      if (tbl->name.compare("tpcc_orderline") == 0 ||
-          tbl->name.compare("tpcc_order") == 0 ||
-          tbl->name.compare("tpcc_neworder") == 0) {
-        continue;
-      }
       tbl->snapshot(epoch);
     }
   }
@@ -150,8 +145,8 @@ void Schema::teardown(const std::string& cdf_out_path) {
   save_cdf("");
   //}
 
-  for (const auto& dt : deltaStore) {
-    dt->~DeltaStore();
+  for (auto dt : deltaStore) {
+    delete dt;
   }
 
   for (const auto& tbl : tables) {

@@ -334,14 +334,15 @@ void Worker::run_bench() {
     this->state = POSTRUN;
     this->curr_txn = txnManager->get_next_xid(0);
     this->curr_master = txnManager->get_current_master_version();
+    // FIXME: CONDITION VARIABLE FOR ALL THREADS TO CONVERGE HERE.
 
-    //    if (this->id == 0) {
-    //      txnManager->snapshot();
-    //      while (schema->is_sync_in_progress())
-    //        ;
-    //    }
-    //    pool->_txn_bench->post_run(this->id, curr_txn, this->partition_id,
-    //                               this->curr_master);
+    if (this->id == 0) {
+      txnManager->snapshot();
+      while (schema->is_sync_in_progress())
+        ;
+    }
+    pool->_txn_bench->post_run(this->id, curr_txn, this->partition_id,
+                               this->curr_master);
   }
   state = TERMINATED;
   pool->_txn_bench->free_query_struct_ptr(txn_mem);

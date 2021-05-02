@@ -75,7 +75,7 @@ PreparedStatement TPCC::consistency_check_1_query_builder(bool return_aggregate,
                     probe_arg["d_w_id"].as("PelagoJoin#2030", "pk_0")}
                     .as("PelagoJoin#2030", "pk");
               },
-              log2(this->num_warehouse) + 1, this->num_warehouse)
+              log2(this->num_warehouse) + 1, this->num_warehouse + 10)
           .groupby(
               [&](const auto &arg) -> std::vector<expression_t> {
                 return {(arg["w_id"]).as("tmpRelation", "w_id")};
@@ -88,7 +88,7 @@ PreparedStatement TPCC::consistency_check_1_query_builder(bool return_aggregate,
                             (arg["d_ytd"]).as("tmpRelation", "district_ytd"), 2,
                             0, SUM}};
               },
-              log2(this->num_warehouse) + 1, this->num_warehouse)
+              log2(this->num_warehouse) + 1, this->num_warehouse + 10)
           // Cast to floatType as pack-requires same width of data-types.
           .project([&](const auto &arg) -> std::vector<expression_t> {
             return {(arg["w_id"].template as<FloatType>())
@@ -98,10 +98,10 @@ PreparedStatement TPCC::consistency_check_1_query_builder(bool return_aggregate,
 
             };
           })
-          .pack()
+          //.pack()
           .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
                   DeviceType::CPU)
-          .unpack()
+          //.unpack()
           .project([&](const auto &arg) -> std::vector<expression_t> {
             return {(arg["w_id"].template as<Int64Type>())
                         .as("tmpRelation#3", "w_id"),
@@ -178,7 +178,7 @@ bool TPCC::consistency_check_1(bool print_inconsistent_rows) {
       LOG(INFO) << consistency_check_1_query_builder(false).execute();
     }
   }
-  LOG(INFO) << "##########\tConsistency Check - 1 Completed.";
+  LOG(INFO) << "##########\tConsistency Check - 1 Completed: " << db_consistent;
 
   return db_consistent;
 }
@@ -207,10 +207,10 @@ std::vector<PreparedStatement> TPCC::consistency_check_2_query_builder(
               },
               log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1,
               log2(this->num_warehouse * TPCC_NDIST_PER_WH) + (1024 * 1024))
-          .pack()
+          //.pack()
           .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
                   DeviceType::CPU)
-          .unpack()
+          //.unpack()
           .groupby(
               [&](const auto &arg) -> std::vector<expression_t> {
                 return {arg["o_w_id"], arg["o_d_id"]};
@@ -249,10 +249,10 @@ std::vector<PreparedStatement> TPCC::consistency_check_2_query_builder(
               },
               log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1,
               log2(this->num_warehouse * TPCC_NDIST_PER_WH) + (1024 * 1024))
-          .pack()
+          //.pack()
           .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
                   DeviceType::CPU)
-          .unpack()
+          //.unpack()
           .groupby(
               [&](const auto &arg) -> std::vector<expression_t> {
                 return {arg["no_w_id"], arg["no_d_id"]};
@@ -351,9 +351,12 @@ bool TPCC::consistency_check_2(bool print_inconsistent_rows) {
     LOG(INFO) << "Orders and District Orders doesnt match.";
     db_consistent = false;
     LOG(INFO) << "Orders, DistOrders";
+    LOG(INFO) << s_orders;
+    LOG(INFO) << "##########";
+    LOG(INFO) << s_dist_orders;
     print_inconsistency(s_orders, s_dist_orders);
   }
-  LOG(INFO) << "##########\tConsistency Check - 2 Completed.";
+  LOG(INFO) << "##########\tConsistency Check - 2 Completed: " << db_consistent;
   return db_consistent;
 }
 
@@ -395,10 +398,10 @@ PreparedStatement TPCC::consistency_check_3_query_builder(bool return_aggregate,
               },
               log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1,
               this->num_warehouse * TPCC_NDIST_PER_WH)
-          .pack()
+          //.pack()
           .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
                   DeviceType::CPU)
-          .unpack()
+          //.unpack()
           .groupby(
               [&](const auto &arg) -> std::vector<expression_t> {
                 return {(arg["no_w_id"]), (arg["no_d_id"])};
@@ -472,7 +475,7 @@ bool TPCC::consistency_check_3(bool print_inconsistent_rows) {
       LOG(INFO) << consistency_check_3_query_builder(false).execute();
     }
   }
-  LOG(INFO) << "##########\tConsistency Check - 3 Completed.";
+  LOG(INFO) << "##########\tConsistency Check - 3 Completed: " << db_consistent;
 
   return db_consistent;
 }
@@ -503,10 +506,10 @@ PreparedStatement TPCC::consistency_check_4_query_builder(bool return_aggregate,
               },
               log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1,
               this->num_warehouse * TPCC_NDIST_PER_WH)
-          .pack()
+          //.pack()
           .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
                   DeviceType::CPU)
-          .unpack()
+          //.unpack()
           .groupby(
               [&](const auto &arg) -> std::vector<expression_t> {
                 return {(arg["o_w_id"]), (arg["o_d_id"])};
@@ -546,10 +549,10 @@ PreparedStatement TPCC::consistency_check_4_query_builder(bool return_aggregate,
               },
               log2(this->num_warehouse * TPCC_NDIST_PER_WH) + 1,
               this->num_warehouse * TPCC_NDIST_PER_WH)
-          .pack()
+          // .pack()
           .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
                   DeviceType::CPU)
-          .unpack()
+          // .unpack()
           .groupby(
               [&](const auto &arg) -> std::vector<expression_t> {
                 return {(arg["ol_w_id"]), (arg["ol_d_id"])};
@@ -652,7 +655,7 @@ bool TPCC::consistency_check_4(bool print_inconsistent_rows) {
       LOG(INFO) << consistency_check_4_query_builder(false).execute();
     }
   }
-  LOG(INFO) << "##########\tConsistency Check - 4 Completed.";
+  LOG(INFO) << "##########\tConsistency Check - 4 Completed: " << db_consistent;
 
   return db_consistent;
 }
@@ -683,11 +686,17 @@ void TPCC::verify_consistency() {
   //  set_exec_location_on_scope d{all_cpu_set};
 
   // execute consistency checks.
-  if (consistency_check_1() && consistency_check_2() & consistency_check_3() &&
-      consistency_check_4()) {
-    LOG(INFO) << "DB IS CONSISTENT.";
-  } else {
-    LOG(FATAL) << "DB IS NOT CONSISTENT.";
+  if (!consistency_check_1()) {
+    LOG(FATAL) << "DB IS NOT CONSISTENT: Check 1 failed.";
+  }
+  if (!consistency_check_2()) {
+    LOG(FATAL) << "DB IS NOT CONSISTENT: Check 2 failed.";
+  }
+  if (!consistency_check_3()) {
+    LOG(FATAL) << "DB IS NOT CONSISTENT: Check 3 failed.";
+  }
+  if (!consistency_check_4()) {
+    LOG(FATAL) << "DB IS NOT CONSISTENT: Check 4 failed.";
   }
   LOG(INFO) << "##############################################################";
 }

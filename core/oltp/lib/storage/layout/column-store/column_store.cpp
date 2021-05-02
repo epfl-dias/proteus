@@ -57,8 +57,7 @@ ColumnStore::~ColumnStore() {
     metaColumn->~Column();
     MemoryManager::freePinned(metaColumn);
   }
-
-  if (p_index) delete p_index;
+  delete p_index;
 }
 
 ColumnStore::ColumnStore(table_id_t table_id, std::string name,
