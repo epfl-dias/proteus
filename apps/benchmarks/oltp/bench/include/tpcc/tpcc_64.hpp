@@ -48,7 +48,7 @@
 #define debug_dont_load_order false
 
 // SIGMOD 20
-#define index_on_order_tbl false  // also cascade to orderlne, neworder table
+#define index_on_order_tbl true  // also cascade to orderlne, neworder table
 
 //#if diascld40
 //#define TPCC_MAX_ORD_PER_DIST 200000  // 2 master - 2 socket
@@ -60,13 +60,13 @@
 //#define TPCC_MAX_ORD_PER_DIST 200000
 //#endif
 
-#define TPCC_MAX_ORD_PER_DIST 200000
+#define TPCC_MAX_ORD_PER_DIST 50000
 
-#define NO_MIX 100
-#define P_MIX 0
-#define OS_MIX 0
-#define D_MIX 0
-#define SL_MIX 0  // DONT CHANGE, BROKEN
+#define NO_MIX 96
+#define P_MIX 0   // FIXME
+#define OS_MIX 0  // FIXME
+#define D_MIX 0   // FIXME
+#define SL_MIX 4
 #define MIX_COUNT 100
 
 // #define NO_MIX 45
@@ -120,24 +120,24 @@ class TPCC : public Benchmark {
   const uint tpch_scale_factor;
 
   storage::Schema *schema;
-  storage::Table *table_warehouse;
-  storage::Table *table_district;
-  storage::Table *table_customer;
-  storage::Table *table_history;
-  storage::Table *table_new_order;
-  storage::Table *table_order;
-  storage::Table *table_order_line;
-  storage::Table *table_stock;
-  storage::Table *table_item;
+  storage::Table *table_warehouse{};
+  storage::Table *table_district{};
+  storage::Table *table_customer{};
+  storage::Table *table_history{};
+  storage::Table *table_new_order{};
+  storage::Table *table_order{};
+  storage::Table *table_order_line{};
+  storage::Table *table_stock{};
+  storage::Table *table_item{};
 
-  storage::Table *table_region;
-  storage::Table *table_nation;
-  storage::Table *table_supplier;
+  storage::Table *table_region{};
+  storage::Table *table_nation{};
+  storage::Table *table_supplier{};
 
   int num_warehouse;
   int g_dist_threshold;
   unsigned int seed;
-  TPCC_QUERY_TYPE sequence[MIX_COUNT];
+  TPCC_QUERY_TYPE sequence[MIX_COUNT]{};
   std::string csv_path;
   const bool is_ch_benchmark;
   const bool layout_column_store;

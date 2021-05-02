@@ -55,9 +55,8 @@ bool TPCC::exec_txn(txn::Txn &txn, master_version_t master_ver,
       //    case DELIVERY:
       //      return exec_delivery_txn(q, xid, master_ver, delta_ver,
       //      partition_id);
-      //    case STOCK_LEVEL:
-      //      return exec_stocklevel_txn(q, xid, master_ver, delta_ver,
-      //      partition_id);
+    case STOCK_LEVEL:
+      return exec_stocklevel_txn(q, txn, master_ver, delta_ver, partition_id);
     default:
       assert(false);
       break;
@@ -697,94 +696,105 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, txn::Txn &txn,
 //  return true;
 //}
 //
-// bool TPCC::exec_stocklevel_txn(const struct tpcc_query *q, xid_t xid,
-//                               master_version_t master_ver,
-//                               delta_id_t delta_ver,
-//                               partition_id_t partition_id) {
-//  /*
-//  This transaction accesses
-//  order_line,
-//  stock,
-//  district
-//  */
-//
-//  /*
-//   * EXEC SQL SELECT d_next_o_id INTO :o_id
-//   * FROM district
-//   * WHERE d_w_id=:w_id AND d_id=:d_id;
-//   */
-//
-//  global_conf::IndexVal *d_idx_ptr =
-//      (global_conf::IndexVal *)table_district->p_index->find(
-//          MAKE_DIST_KEY(q->w_id, q->d_id));
-//
-//  assert(d_idx_ptr != nullptr);
-//
-//  const column_id_t dist_col_scan_read[] = {10};
-//  uint32_t o_id = 0;
-//
-//  d_idx_ptr->latch.acquire();
-//  table_district->getIndexedRecord(txn.txnTs, d_idx_ptr, &o_id,
-//  dist_col_scan_read,
-//                                   1);
-//  d_idx_ptr->latch.release();
-//
-//  /*
-//   * EXEC SQL SELECT COUNT(DISTINCT (s_i_id)) INTO :stock_count
-//   * FROM order_line, stock
-//   * WHERE ol_w_id=:w_id AND
-//   * ol_d_id=:d_id AND ol_o_id<:o_id AND
-//   * ol_o_id>=:o_id-20 AND s_w_id=:w_id AND
-//   * s_i_id=ol_i_id AND s_quantity < :threshold;
-//   */
-//
-//  uint32_t ol_o_id = o_id - 20;
-//  uint32_t ol_number = -1;
-//  uint32_t stock_count = 0;
-//
-//  const column_id_t ol_col_scan_read[] = {4};
-//  const column_id_t st_col_scan_read[] = {2};
-//
-//  while (ol_o_id < o_id) {
-//    while (ol_number < TPCC_MAX_OL_PER_ORDER) {
-//      ol_number++;
-//
-//      // orderline first
-//      global_conf::IndexVal *ol_idx_ptr =
-//          (global_conf::IndexVal *)table_order_line->p_index->find(
-//              MAKE_OL_KEY(q->w_id, q->d_id, ol_o_id, ol_number));
-//
-//      if (ol_idx_ptr == nullptr) continue;
-//
-//      uint32_t ol_i_id;
-//      int32_t s_quantity;
-//
-//      ol_idx_ptr->latch.acquire();
-//      table_order_line->getIndexedRecord(txn.txnTs, ol_idx_ptr, &ol_i_id,
-//                                         ol_col_scan_read, 1);
-//      ol_idx_ptr->latch.release();
-//
-//      // stock
-//      global_conf::IndexVal *st_idx_ptr =
-//          (global_conf::IndexVal *)table_stock->p_index->find(
-//              MAKE_STOCK_KEY(q->w_id, ol_i_id));
-//
-//      assert(st_idx_ptr != nullptr);
-//
-//      st_idx_ptr->latch.acquire();
-//      table_stock->getIndexedRecord(txn.txnTs, st_idx_ptr, &s_quantity,
-//                                    st_col_scan_read, 1);
-//      st_idx_ptr->latch.release();
-//
-//      if (s_quantity < q->threshold) {
-//        stock_count++;
-//      }
-//    }
-//    ol_o_id = ol_o_id + 1;
-//  }
-//
-//  return true;
-//}
+bool TPCC::exec_stocklevel_txn(const struct tpcc_query *q, txn::Txn &txn,
+                               master_version_t master_ver,
+                               delta_id_t delta_ver,
+                               partition_id_t partition_id) {
+  assert(index_on_order_tbl &&
+         "stocklevel txn requires index on orderline table");
+  /*
+  This transaction accesses
+  order_line,
+  stock,
+  district
+  */
+
+  /*
+   * EXEC SQL SELECT d_next_o_id INTO :o_id
+   * FROM district
+   * WHERE d_w_id=:w_id AND d_id=:d_id;
+   */
+
+  auto *d_idx_ptr = (global_conf::IndexVal *)table_district->p_index->find(
+      MAKE_DIST_KEY(q->w_id, q->d_id));
+
+  assert(d_idx_ptr != nullptr);
+
+  const column_id_t dist_col_scan_read[] = {10};
+  uint32_t o_id = 0;
+
+  d_idx_ptr->latch.acquire();
+  table_district->getIndexedRecord(txn.txnTs, *d_idx_ptr, &o_id,
+                                   dist_col_scan_read, 1);
+  d_idx_ptr->latch.release();
+
+  /*
+   * EXEC SQL SELECT COUNT(DISTINCT (s_i_id)) INTO :stock_count
+   * FROM order_line, stock
+   * WHERE ol_w_id=:w_id AND
+   * ol_d_id=:d_id AND ol_o_id<:o_id AND
+   * ol_o_id>=:o_id-20 AND s_w_id=:w_id AND
+   * s_i_id=ol_i_id AND s_quantity < :threshold;
+   */
+
+  uint32_t ol_o_id = (o_id > 20) ? (o_id - 20) : 0;
+  uint32_t ol_number = 0;
+  uint32_t stock_count = 0;
+  uint32_t rec_ol_count = 0;
+
+  const column_id_t o_col_scan_read[] = {6};
+  const column_id_t ol_col_scan_read[] = {4};
+  const column_id_t st_col_scan_read[] = {2};
+
+  while (ol_o_id < o_id) {
+    ol_number = 0;
+    // FIXME: probe order record also to get number of orderlines.
+    auto *o_idx_ptr = (global_conf::IndexVal *)table_order->p_index->find(
+        MAKE_ORDER_KEY(q->w_id, q->d_id, ol_o_id));
+    assert(o_idx_ptr != nullptr);
+    o_idx_ptr->latch.acquire();
+    table_order->getIndexedRecord(txn.txnTs, *o_idx_ptr, &rec_ol_count,
+                                  o_col_scan_read, 1);
+    o_idx_ptr->latch.release();
+    //---
+
+    while (ol_number < rec_ol_count) {
+      // orderline first
+      auto *ol_idx_ptr =
+          (global_conf::IndexVal *)table_order_line->p_index->find(
+              MAKE_OL_KEY(q->w_id, q->d_id, ol_o_id, ol_number));
+
+      if (ol_idx_ptr == nullptr) continue;
+
+      uint32_t ol_i_id;
+      int32_t s_quantity;
+
+      ol_idx_ptr->latch.acquire();
+      table_order_line->getIndexedRecord(txn.txnTs, *ol_idx_ptr, &ol_i_id,
+                                         ol_col_scan_read, 1);
+      ol_idx_ptr->latch.release();
+
+      // stock
+      auto *st_idx_ptr = (global_conf::IndexVal *)table_stock->p_index->find(
+          MAKE_STOCK_KEY(q->w_id, ol_i_id));
+
+      assert(st_idx_ptr != nullptr);
+
+      st_idx_ptr->latch.acquire();
+      table_stock->getIndexedRecord(txn.txnTs, *st_idx_ptr, &s_quantity,
+                                    st_col_scan_read, 1);
+      st_idx_ptr->latch.release();
+
+      if (s_quantity < q->threshold) {
+        stock_count++;
+      }
+      ol_number++;
+    }
+    ol_o_id++;
+  }
+
+  return true;
+}
 //
 // inline uint TPCC::fetch_cust_records(const struct secondary_record &sr,
 //                                     struct cust_read *c_recs, xid_t xid,
