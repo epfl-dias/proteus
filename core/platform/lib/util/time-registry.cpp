@@ -29,6 +29,9 @@ const TimeRegistry::Key TimeRegistry::Ignore{"Ignore"};
 TimeRegistry::~TimeRegistry() {
   for (const auto &rec : registry) {
     LOG(INFO) << "Total time in " << rec.first.getKey() << ": "
-              << rec.second.count() << "ms";
+              << std::chrono::duration_cast<std::chrono::milliseconds>(
+                     rec.second)
+                     .count()
+              << "ms";
   }
 }

@@ -57,14 +57,15 @@ class TimeRegistry {
 
  private:
   std::mutex m;
-  std::map<Key, std::chrono::milliseconds> registry;
+  std::map<Key, std::chrono::nanoseconds> registry;
 
   TimeRegistry() = default;
 
  public:
   ~TimeRegistry();
 
-  inline void emplace(const Key &k, const std::chrono::milliseconds &t) {
+  template <typename Rep, typename Dur>
+  inline void emplace(const Key &k, const std::chrono::duration<Rep, Dur> &t) {
     if (k == Ignore) return;
     std::scoped_lock<std::mutex> lock{m};  // to protect insert/reference
     registry[k] += t;
