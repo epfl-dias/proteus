@@ -100,6 +100,7 @@ set(olap_cxx
   lib/util/jit/pipeline.cpp
   lib/util/parallel-context.cpp
   lib/util/project-record.cpp
+  lib/util/slack-limiter.cpp
   lib/values/expressionTypes.cpp
   lib/values/indexed-seq.cpp
   )
