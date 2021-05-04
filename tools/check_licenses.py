@@ -115,6 +115,19 @@ external_files = [
     "core/planner/src/test/scala/ch/epfl/dias/calcite/adapter/pelago/PelagoPlannerTest.java",
     "core/planner/src/test/scala/ch/epfl/dias/calcite/adapter/pelago/PelagoTestConnectionFactory.java",
     "core/planner/src/test/scala/ch/epfl/dias/calcite/adapter/pelago/PelagoQueryTest.java",
+    # Template files that use "include" to include the license
+    "core/planner/.idea/fileTemplates/includes/File Header.java",
+    "core/planner/.idea/fileTemplates/internal/Package Object.scala",
+    "core/planner/.idea/fileTemplates/internal/Scala Object.scala",
+    "core/planner/.idea/fileTemplates/internal/Scala CaseClass.scala",
+    "core/planner/.idea/fileTemplates/internal/Class.java",
+    "core/planner/.idea/fileTemplates/internal/AnnotationType.java",
+    "core/planner/.idea/fileTemplates/internal/Scala CaseObject.scala",
+    "core/planner/.idea/fileTemplates/internal/Scala Class.scala",
+    "core/planner/.idea/fileTemplates/internal/Enum.java",
+    "core/planner/.idea/fileTemplates/internal/Record.java",
+    "core/planner/.idea/fileTemplates/internal/Interface.java",
+    "core/planner/.idea/fileTemplates/internal/Scala Trait.scala",
 ]
 
 exclude_dirs = [
