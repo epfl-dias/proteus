@@ -177,6 +177,79 @@ Expected<llvm::orc::ThreadSafeModule> printIR(orc::ThreadSafeModule module,
   return std::move(module);
 }
 
+extern "C" void __register_frame(void *);
+extern "C" void __deregister_frame(void *);
+
+namespace proteus {
+
+static const char *processFDE(const char *Entry, bool isDeregister) {
+  const char *P = Entry;
+  uint32_t Length = *((const uint32_t *)P);
+  P += 4;
+  uint32_t Offset = *((const uint32_t *)P);
+  if (Offset != 0) {
+    if (isDeregister)
+      __deregister_frame(const_cast<char *>(Entry));
+    else
+      __register_frame(const_cast<char *>(Entry));
+  }
+  return P + Length;
+}
+
+// This implementation handles frame registration for local targets.
+// Memory managers for remote targets should re-implement this function
+// and use the LoadAddr parameter.
+void registerEHFramesInProcess(uint8_t *Addr, size_t Size) {
+  // On OS X OS X __register_frame takes a single FDE as an argument.
+  // See http://lists.llvm.org/pipermail/llvm-dev/2013-April/061737.html
+  // and projects/libunwind/src/UnwindLevel1-gcc-ext.c.
+  const char *P = (const char *)Addr;
+  const char *End = P + Size;
+  do {
+    P = processFDE(P, false);
+  } while (P != End);
+}
+
+void deregisterEHFramesInProcess(uint8_t *Addr, size_t Size) {
+  const char *P = (const char *)Addr;
+  const char *End = P + Size;
+  do {
+    P = processFDE(P, true);
+  } while (P != End);
+}
+
+/**
+ * Patches the default SectionMemoryManager to silence "FDE is really a CIE".
+ *
+ * LLVM bug link: https://bugs.llvm.org/show_bug.cgi?id=44074
+ *
+ * Details:
+ *  LLVM detects which libunwind library is used based on the __APPLE__ flag.
+ *  If __APPLE__ is set, it assumes the LLVM's lib, otherwise it assumes
+ *  the GCC lib. We use LLVM's lib, even on Linux, for which case, LLVM
+ *  peaks the wrong path and causes the JITer to populate the log with
+ *  "libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE"
+ *  messages.
+ *
+ *  This patch overwrites the default path, silencing the issue.
+ *  Please keep an eye for when the default path is fixed and/or for any
+ *  updates on the overwritten functions.
+ */
+class SectionMemoryManager : public llvm::SectionMemoryManager {
+  void registerEHFrames(uint8_t *Addr, uint64_t LoadAddr,
+                        size_t Size) override {
+    proteus::registerEHFramesInProcess(Addr, Size);
+    EHFrames.push_back({Addr, Size});
+  }
+
+  void deregisterEHFrames() override {
+    for (auto &Frame : EHFrames)
+      proteus::deregisterEHFramesInProcess(Frame.Addr, Frame.Size);
+    EHFrames.clear();
+  }
+};
+}  // namespace proteus
+
 class JITer_impl {
  public:
   ::ThreadPool pool;
@@ -209,8 +282,9 @@ class JITer_impl {
         Mangle(ES, this->DL),
         Ctx(std::make_unique<LLVMContext>()),
         PassConf(llvm::cantFail(JTMB.createTargetMachine())),
-        ObjectLayer(ES,
-                    []() { return std::make_unique<SectionMemoryManager>(); }),
+        ObjectLayer(
+            ES,
+            []() { return std::make_unique<proteus::SectionMemoryManager>(); }),
         CompileLayer(ES, ObjectLayer,
                      std::make_unique<llvm::orc::ConcurrentIRCompiler>(JTMB)),
         PrintOptimizedIRLayer(
