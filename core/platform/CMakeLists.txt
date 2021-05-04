@@ -23,6 +23,7 @@ set(platform_cxx
   lib/topology/topology.cpp
   lib/util/percentile.cpp
   lib/util/profiling.cpp
+  lib/util/stacktrace.cpp
   lib/util/time-registry.cpp
   lib/util/radix/aggregations/radix-aggr.cpp
   lib/util/radix/joins/radix-join.cpp
