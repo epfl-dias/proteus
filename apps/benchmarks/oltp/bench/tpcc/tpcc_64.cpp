@@ -38,35 +38,36 @@
 namespace bench {
 
 void TPCC::init_tpcc_seq_array() {
+  this->query_sequence.reserve(MIX_COUNT);
   int total = 0;
   for (int i = 0; i < NO_MIX; ++i) {
-    sequence[i] = NEW_ORDER;
+    query_sequence.emplace_back(NEW_ORDER);
   }
   total = NO_MIX;
   for (int i = 0; i < P_MIX; ++i) {
-    sequence[i + total] = PAYMENT;
+    query_sequence.emplace_back(PAYMENT);
   }
   total = total + P_MIX;
   for (int i = 0; i < OS_MIX; ++i) {
-    sequence[i + total] = ORDER_STATUS;
+    query_sequence.emplace_back(ORDER_STATUS);
   }
   total = total + OS_MIX;
   for (int i = 0; i < D_MIX; ++i) {
-    sequence[i + total] = DELIVERY;
+    query_sequence.emplace_back(DELIVERY);
   }
   total = total + D_MIX;
   for (int i = 0; i < SL_MIX; ++i) {
-    sequence[i + total] = STOCK_LEVEL;
+    query_sequence.emplace_back(STOCK_LEVEL);
   }
   total = total + SL_MIX;
-  // shuffle elements of the sequence array
-  srand(time(nullptr));
-  for (int i = MIX_COUNT - 1; i > 0; i--) {
-    int j = rand() % (i + 1);
-    TPCC_QUERY_TYPE temp = sequence[i];
-    sequence[i] = sequence[j];
-    sequence[j] = temp;
-  }
+  //  // shuffle elements of the sequence array
+  //  srand(time(nullptr));
+  //  for (int i = MIX_COUNT - 1; i > 0; i--) {
+  //    int j = rand() % (i + 1);
+  //    TPCC_QUERY_TYPE temp = sequence[i];
+  //    sequence[i] = sequence[j];
+  //    sequence[j] = temp;
+  //  }
 }
 
 TPCC::~TPCC() {
@@ -141,8 +142,9 @@ void TPCC::print_tpcc_query(void *arg) {
 }
 
 TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
-           bool layout_column_store, uint tpch_scale_factor,
-           int g_dist_threshold, std::string csv_path, bool is_ch_benchmark)
+           bool layout_column_store, std::vector<TPCC_QUERY_TYPE> query_seq,
+           uint tpch_scale_factor, int g_dist_threshold, std::string csv_path,
+           bool is_ch_benchmark)
     : Benchmark(std::move(name), active_warehouse,
                 proteus::thread::hardware_concurrency(), g_num_partitions),
       num_warehouse(num_warehouses),
@@ -228,7 +230,12 @@ TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
   // cust_sec_index->reserve(max_customers);
 
   this->schema->memoryReport();
-  init_tpcc_seq_array();
+
+  if (query_seq.empty()) {
+    init_tpcc_seq_array();
+  } else {
+    this->query_sequence = query_seq;
+  }
 }
 
 void TPCC::create_tbl_warehouse(uint64_t num_warehouses) {

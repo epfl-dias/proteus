@@ -93,14 +93,14 @@ int main(int argc, char** argv) {
     bench =
         new bench::TPCC("TPCC", FLAGS_tpcc_num_wh,
                         (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
-                        FLAGS_layout_column_store, FLAGS_ch_scale_factor);
+                        FLAGS_layout_column_store, {}, FLAGS_ch_scale_factor);
 
   } else if (FLAGS_benchmark == 2) {
     if (FLAGS_tpcc_num_wh == 0) FLAGS_tpcc_num_wh = FLAGS_num_workers;
     bench =
         new bench::TPCC("TPCC", FLAGS_tpcc_num_wh,
                         (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
-                        FLAGS_layout_column_store, FLAGS_ch_scale_factor,
+                        FLAGS_layout_column_store, {}, FLAGS_ch_scale_factor,
                         FLAGS_tpcc_dist_threshold, FLAGS_tpcc_csv_dir);
 
   } else if (FLAGS_benchmark == 3) {

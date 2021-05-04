@@ -66,10 +66,10 @@ int main(int argc, char *argv[]) {
 
   LOG(INFO) << "[OLTP] CH Scale Factor: " << FLAGS_ch_scale_factor;
 
-  oltp_engine.init(new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers,
-                                   true, FLAGS_ch_scale_factor, 0, "", false),
-                   oltp_num_workers, oltp_data_partitions,
-                   FLAGS_ch_scale_factor);
+  oltp_engine.init(
+      new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers, true, {},
+                      FLAGS_ch_scale_factor, 0, "", false),
+      oltp_num_workers, oltp_data_partitions, FLAGS_ch_scale_factor);
 
   LOG(INFO) << "[OLTP] Initialization completed.";
 

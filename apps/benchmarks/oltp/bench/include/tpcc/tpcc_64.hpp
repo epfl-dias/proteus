@@ -35,11 +35,9 @@
 #include <oltp/interface/bench.hpp>
 #include <oltp/storage/table.hpp>
 #include <platform/memory/memory-manager.hpp>
+#include <random>
 #include <string>
 #include <thread>
-
-// FIXME: REPLICATED_ITEM_TABLE - broken, incomplete stuff.
-#define REPLICATED_ITEM_TABLE false
 
 #define PARTITION_LOCAL_ITEM_TABLE true
 #define tpcc_dist_txns false
@@ -137,7 +135,8 @@ class TPCC : public Benchmark {
   int num_warehouse;
   int g_dist_threshold;
   unsigned int seed;
-  TPCC_QUERY_TYPE sequence[MIX_COUNT]{};
+  // TPCC_QUERY_TYPE sequence[MIX_COUNT]{};
+  std::vector<TPCC_QUERY_TYPE> query_sequence;
   std::string csv_path;
   const bool is_ch_benchmark;
   const bool layout_column_store;
@@ -469,8 +468,9 @@ class TPCC : public Benchmark {
   ~TPCC() override;
   TPCC(std::string name = "TPCC", int num_warehouses = 1,
        int active_warehouse = 1, bool layout_column_store = true,
-       uint tpch_scale_factor = 0, int g_dist_threshold = 0,
-       std::string csv_path = "", bool is_ch_benchmark = false);
+       std::vector<TPCC_QUERY_TYPE> query_seq = {}, uint tpch_scale_factor = 0,
+       int g_dist_threshold = 0, std::string csv_path = "",
+       bool is_ch_benchmark = false);
 
   static_assert(!(D_MIX > 0 && !index_on_order_tbl),
                 "Delivery Txn requires index on order tables");
@@ -504,6 +504,13 @@ class TPCC : public Benchmark {
       bool return_aggregate = true, string olap_plugin = "block-remote");
   PreparedStatement consistency_check_4_query_builder(
       bool return_aggregate = true, string olap_plugin = "block-remote");
+
+ private:
+  static inline void shuffle_sequence(std::vector<TPCC_QUERY_TYPE> &q_seq) {
+    static std::random_device rd;
+    static std::mt19937 g(rd());
+    std::shuffle(q_seq.begin(), q_seq.end(), g);
+  }
 };
 
 std::ostream &operator<<(std::ostream &out, const TPCC::ch_nation &r);

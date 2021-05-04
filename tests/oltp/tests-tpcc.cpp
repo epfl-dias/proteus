@@ -30,33 +30,33 @@ constexpr size_t runtime_sec = 10;
 ::testing::Environment* const pools_env =
     ::testing::AddGlobalTestEnvironment(new TestEnvironment);
 
-TEST(TPCC, tpcc_vanilla_one_partition) {
-  EXPECT_NO_THROW({
-    auto oltp_num_workers =
-        topology::getInstance().getCpuNumaNodes()[0].local_cores.size();
-    auto npartitions = 1;
-    LOG(INFO) << "N_Partitions: " << npartitions;
-
-    g_num_partitions = npartitions;
-    OLTP oltp_engine{};
-    bench::Benchmark* bench =
-        new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers, true);
-
-    oltp_engine.init(bench, oltp_num_workers, npartitions);
-    LOG(INFO) << "[OLTP] Initialization completed.";
-
-    oltp_engine.print_storage_stats();
-    oltp_engine.run();
-
-    usleep((runtime_sec)*1000000);
-    oltp_engine.shutdown(true);
-
-    bench->deinit();
-    delete bench;
-  }
-
-  );
-}
+// TEST(TPCC, tpcc_vanilla_one_partition) {
+//  EXPECT_NO_THROW({
+//    auto oltp_num_workers =
+//        topology::getInstance().getCpuNumaNodes()[0].local_cores.size();
+//    auto npartitions = 1;
+//    LOG(INFO) << "N_Partitions: " << npartitions;
+//
+//    g_num_partitions = npartitions;
+//    OLTP oltp_engine{};
+//    bench::Benchmark* bench =
+//        new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers, true);
+//
+//    oltp_engine.init(bench, oltp_num_workers, npartitions);
+//    LOG(INFO) << "[OLTP] Initialization completed.";
+//
+//    oltp_engine.print_storage_stats();
+//    oltp_engine.run();
+//
+//    usleep((runtime_sec)*1000000);
+//    oltp_engine.shutdown(true);
+//
+//    bench->deinit();
+//    delete bench;
+//  }
+//
+//  );
+//}
 
 TEST(TPCC, tpcc_vanilla_all_partition) {
   EXPECT_NO_THROW({

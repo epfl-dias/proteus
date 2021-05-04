@@ -66,9 +66,15 @@ bool TPCC::exec_txn(txn::Txn &txn, master_version_t master_ver,
 
 void TPCC::gen_txn(worker_id_t wid, void *q, partition_id_t partition_id) {
   static thread_local uint sequence_counter = 0;
-  static thread_local TPCC_QUERY_TYPE *seq = sequence;
+  // static thread_local TPCC_QUERY_TYPE *seq = sequence;
+  static thread_local auto query_seq_local = this->query_sequence;
 
-  switch (seq[sequence_counter++ % MIX_COUNT]) {
+  if (sequence_counter >= query_seq_local.size()) {
+    sequence_counter = 0;
+    shuffle_sequence(query_seq_local);
+  }
+
+  switch (query_seq_local[sequence_counter++]) {
     case bench::NEW_ORDER:
       tpcc_get_next_neworder_query(wid, q);
       break;
@@ -85,10 +91,7 @@ void TPCC::gen_txn(worker_id_t wid, void *q, partition_id_t partition_id) {
       tpcc_get_next_stocklevel_query(wid, q);
       break;
     default: {
-      LOG(INFO) << "Unknown query type: "
-                << sequence[sequence_counter++ % MIX_COUNT] << std::endl;
-
-      assert(false);
+      LOG(FATAL) << "Unknown query type: " << query_seq_local[sequence_counter];
       break;
     }
   }
