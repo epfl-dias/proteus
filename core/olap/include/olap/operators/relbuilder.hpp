@@ -666,8 +666,8 @@ class RelBuilder {
   // Helpers
 
   template <typename T>
-  [[nodiscard]] [[nodiscard]] RelBuilder unpack(T expr) const {
-    return unpack(expr(getOutputArgUnnested()));
+  [[nodiscard]] RelBuilder unpack(T expr) const {
+    return unpack(expr(getOutputArg()));
   }
 
   friend class PlanExecutor;

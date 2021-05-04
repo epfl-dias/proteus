@@ -37,11 +37,15 @@ void BlockToTuples::produce_(ParallelContext *context) {
   context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
   for (const auto &wantedField : wantedFields) {
-    old_buffs.push_back(context->appendStateVar(llvm::PointerType::getUnqual(
-        RecordAttribute{wantedField.getRegisteredAs(), true}.getLLVMType(
-            context->getLLVMContext()))));
+    if (dynamic_cast<const BlockType *>(wantedField.getExpressionType())) {
+      old_buffs.push_back(context->appendStateVar(llvm::PointerType::getUnqual(
+          RecordAttribute{wantedField.getRegisteredAs()}.getLLVMType(
+              context->getLLVMContext()))));
+    }
   }
 
+  assert(!old_buffs.empty() &&
+         "There should be at least one BlockType'd argument");
   getChild()->produce(context);
 }
 
@@ -87,10 +91,14 @@ void BlockToTuples::consume(ParallelContext *context,
   // FIXME: assumes thread 0 gets to execute block2tuples
   context->gen_if(is_leader, childState)([&]() {
     Type *charPtrType = Type::getInt8PtrTy(llvmContext);
-    for (size_t i = 0; i < wantedFields.size(); ++i) {
-      RecordAttribute attr{wantedFields[i].getRegisteredAs(), true};
+    size_t j = 0;
+    for (const auto &wantedField : wantedFields) {
+      if (!dynamic_cast<const BlockType *>(wantedField.getExpressionType())) {
+        continue;
+      }
+      RecordAttribute attr{wantedField.getRegisteredAs()};
       Value *arg = Builder->CreateLoad(childState[attr].mem);
-      Value *old = Builder->CreateLoad(context->getStateVar(old_buffs[i]));
+      Value *old = Builder->CreateLoad(context->getStateVar(old_buffs[j]));
       old = Builder->CreateBitCast(old, charPtrType);
 
       Function *f = context->getFunction(
@@ -98,8 +106,11 @@ void BlockToTuples::consume(ParallelContext *context,
                                // Assumes 1 block per kernel!
       Builder->CreateCall(f, {old});
 
-      Builder->CreateStore(arg, context->getStateVar(old_buffs[i]));
+      Builder->CreateStore(arg, context->getStateVar(old_buffs[j]));
+
+      ++j;
     }
+    assert(j == old_buffs.size());
   });
 
   // FIXME: do we need that?
@@ -115,6 +126,7 @@ void BlockToTuples::consume(ParallelContext *context,
           return t.first.getRelationName();
         }
       }
+      assert(false);
     } else {
       return wantedFields[0].getRegisteredRelName();
     }
@@ -185,7 +197,14 @@ void BlockToTuples::consume(ParallelContext *context,
 
     // Actual Work (Loop through attributes etc.)
     for (const auto &field : wantedFields) {
-      RecordAttribute attr{field.getRegisteredAs(), true};
+      if (!dynamic_cast<const BlockType *>(field.getExpressionType())) {
+        Value *arg =
+            Builder->CreateLoad(childState[field.getRegisteredAs()].mem);
+        variableBindings[field.getRegisteredAs()] =
+            context->toMem(arg, context->createFalse());
+        continue;
+      }
+      RecordAttribute attr{field.getRegisteredAs()};
 
       Value *arg = Builder->CreateLoad(childState[attr].mem);
 
@@ -237,18 +256,17 @@ void BlockToTuples::open(Pipeline *pip) {
 
   if (gpu) {
     buffs =
-        (void **)MemoryManager::mallocGpu(sizeof(void *) * wantedFields.size());
+        (void **)MemoryManager::mallocGpu(sizeof(void *) * old_buffs.size());
     cudaStream_t strm = createNonBlockingStream();
-    gpu_run(
-        cudaMemsetAsync(buffs, 0, sizeof(void *) * wantedFields.size(), strm));
+    gpu_run(cudaMemsetAsync(buffs, 0, sizeof(void *) * old_buffs.size(), strm));
     syncAndDestroyStream(strm);
   } else {
-    buffs = (void **)MemoryManager::mallocPinned(sizeof(void *) *
-                                                 wantedFields.size());
-    memset(buffs, 0, sizeof(void *) * wantedFields.size());
+    buffs =
+        (void **)MemoryManager::mallocPinned(sizeof(void *) * old_buffs.size());
+    memset(buffs, 0, sizeof(void *) * old_buffs.size());
   }
 
-  for (size_t i = 0; i < wantedFields.size(); ++i) {
+  for (size_t i = 0; i < old_buffs.size(); ++i) {
     pip->setStateVar<void *>(old_buffs[i], buffs + i);
   }
   //  eventlogger.log(this, log_op::BLOCK2TUPLES_OPEN_END);
@@ -256,21 +274,20 @@ void BlockToTuples::open(Pipeline *pip) {
 
 void BlockToTuples::close(Pipeline *pip) {
   void **h_buffs;
-  void **buffs = pip->getStateVar<void **>(old_buffs[0]);
+  void **buffs = pip->getStateVar<void **>(old_buffs.at(0));
 
   if (gpu) {
-    h_buffs = (void **)malloc(sizeof(void *) * wantedFields.size());
+    h_buffs = (void **)malloc(sizeof(void *) * old_buffs.size());
     assert(h_buffs);
     cudaStream_t strm = createNonBlockingStream();
-    gpu_run(cudaMemcpyAsync(h_buffs, buffs,
-                            sizeof(void *) * wantedFields.size(),
+    gpu_run(cudaMemcpyAsync(h_buffs, buffs, sizeof(void *) * old_buffs.size(),
                             cudaMemcpyDefault, strm));
     syncAndDestroyStream(strm);
   } else {
     h_buffs = buffs;
   }
 
-  for (size_t i = 0; i < wantedFields.size(); ++i) {
+  for (size_t i = 0; i < old_buffs.size(); ++i) {
     BlockManager::release_buffer((int32_t *)h_buffs[i]);
   }
 

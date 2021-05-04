@@ -49,8 +49,9 @@ class Sort : public UnaryOperator {
     for (const auto &attr : orderByFields) {
       attrs.emplace_back(new RecordAttribute{attr.getRegisteredAs()});
     }
-    return std::vector<RecordAttribute *>{new RecordAttribute{
-        attrs[0]->getRelationName(), "__sorted", new RecordType{attrs}}};
+    return std::vector<RecordAttribute *>{
+        new RecordAttribute{attrs[0]->getRelationName(), "__sorted",
+                            new BlockType(*(new RecordType{attrs}))}};
   }
 
  protected:
