@@ -1445,6 +1445,12 @@ inline expressions::ShiftLeftExpression operator<<(const expression_t &lhs,
 
 namespace expressions {
 inline expressions::RandExpression rand() { return {}; }
+inline expressions::TestNullExpression is_not_null(expression_t e) {
+  return TestNullExpression{std::move(e), false};
+}
+inline expressions::TestNullExpression is_null(expression_t e) {
+  return TestNullExpression{std::move(e), true};
+}
 inline expressions::HintExpression hint(expression_t e, Selectivity sel) {
   return {std::move(e), sel};
 }
