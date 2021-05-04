@@ -105,6 +105,11 @@ class HashJoinChained : public BinaryOperator {
     return ret;
   }
 
+  [[nodiscard]] proteus::traits::HomReplication getHomReplication()
+      const override {
+    return getRightChild()->getHomReplication();
+  }
+
  protected:
   void generate_build(ParallelContext *context,
                       const OperatorState &childState);

@@ -146,6 +146,13 @@ class GpuPartitionedHashJoinChained : public BinaryOperator {
     throw runtime_error("unimplemented");
   }
 
+  [[nodiscard]] proteus::traits::HomReplication getHomReplication()
+      const override {
+    auto ret = getRightChild()->getHomReplication();
+    assert(ret == getLeftChild()->getHomReplication());
+    return ret;
+  }
+
  private:
   void generate_materialize_left(Context *const context,
                                  const OperatorState &childState);

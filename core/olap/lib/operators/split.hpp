@@ -49,6 +49,16 @@ class Split : public Router {
 
   DegreeOfParallelism getDOP() const override { return getChild()->getDOP(); }
 
+  [[nodiscard]] proteus::traits::HomReplication getHomReplication()
+      const override {
+    /* Split converts the replication trait to replication across
+     * heterogeneous devices.
+     * Thus, it always produces UNIQUE replication across homogeneous
+     * traits (more specifically it produces a DOP of 1)
+     */
+    return proteus::traits::HomReplication::UNIQUE;
+  }
+
  protected:
   void spawnWorker(size_t i, const void *session) override;
 

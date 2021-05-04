@@ -38,6 +38,25 @@
 class Plugin;
 class OperatorState;
 
+namespace proteus::traits {
+
+/**
+ * Trait controlled by MemMoves (broadcast)
+ */
+enum class HomReplication {
+  UNIQUE, /**< Each element exists in (exactly) one stream */
+  BRDCST, /**< Each element exists in all streams */
+};
+
+/**
+ * Trait controlled by Router
+ */
+enum class HomParallelization {
+  SINGLE,   /**< There is only a single stream */
+  PARALLEL, /**< Multiple streams running in parallel */
+};
+}  // namespace proteus::traits
+
 class Operator {
  public:
   Operator() : parent(nullptr) {}
@@ -80,11 +99,21 @@ class Operator {
   //  }
   /* Used by caching service. Aim is finding whether data to be cached has been
    * filtered by some of the children operators of the plan */
-  virtual bool isFiltering() const = 0;
+  [[nodiscard]] virtual bool isFiltering() const = 0;
 
-  virtual DeviceType getDeviceType() const = 0;
-  virtual DegreeOfParallelism getDOP() const = 0;
-  virtual DegreeOfParallelism getDOPServers() const = 0;
+  // Traits
+
+  [[nodiscard]] virtual DeviceType getDeviceType() const = 0;
+  [[nodiscard]] virtual DegreeOfParallelism getDOP() const = 0;
+  [[nodiscard]] virtual DegreeOfParallelism getDOPServers() const = 0;
+  [[nodiscard]] virtual proteus::traits::HomReplication getHomReplication()
+      const = 0;
+  [[nodiscard]] virtual proteus::traits::HomParallelization
+  getHomParallelization() const {
+    return (getDOP() == 1) ? proteus::traits::HomParallelization::SINGLE
+                           : proteus::traits::HomParallelization::PARALLEL;
+  }
+  [[nodiscard]] virtual bool isPacked() const = 0;
 
  private:
   Operator *parent;
@@ -98,13 +127,22 @@ class UnaryOperator : public Operator {
   [[nodiscard]] virtual Operator *getChild() const { return child; }
   void setChild(Operator *child) { this->child = child; }
 
-  DeviceType getDeviceType() const override {
+  [[nodiscard]] DeviceType getDeviceType() const override {
     return getChild()->getDeviceType();
   }
 
-  DegreeOfParallelism getDOP() const override { return getChild()->getDOP(); }
-  DegreeOfParallelism getDOPServers() const override {
+  [[nodiscard]] DegreeOfParallelism getDOP() const override {
+    return getChild()->getDOP();
+  }
+  [[nodiscard]] DegreeOfParallelism getDOPServers() const override {
     return getChild()->getDOPServers();
+  }
+  [[nodiscard]] bool isPacked() const override {
+    return getChild()->isPacked();
+  }
+  [[nodiscard]] proteus::traits::HomReplication getHomReplication()
+      const override {
+    return getChild()->getHomReplication();
   }
 
  private:
@@ -124,22 +162,28 @@ class BinaryOperator : public Operator {
   void setLeftChild(Operator *leftChild) { this->leftChild = leftChild; }
   void setRightChild(Operator *rightChild) { this->rightChild = rightChild; }
 
-  DeviceType getDeviceType() const override {
+  [[nodiscard]] DeviceType getDeviceType() const override {
     auto dev = getLeftChild()->getDeviceType();
     assert(dev == getRightChild()->getDeviceType());
     return dev;
   }
 
-  DegreeOfParallelism getDOP() const override {
+  [[nodiscard]] DegreeOfParallelism getDOP() const override {
     auto dop = getLeftChild()->getDOP();
     assert(dop == getRightChild()->getDOP());
     return dop;
   }
 
-  DegreeOfParallelism getDOPServers() const override {
+  [[nodiscard]] DegreeOfParallelism getDOPServers() const override {
     auto dop = getLeftChild()->getDOPServers();
     assert(dop == getRightChild()->getDOPServers());
     return dop;
+  }
+
+  [[nodiscard]] bool isPacked() const override {
+    auto pckd = getLeftChild()->isPacked();
+    assert(pckd == getRightChild()->isPacked());
+    return pckd;
   }
 
  protected:

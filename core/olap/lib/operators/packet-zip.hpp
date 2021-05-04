@@ -90,6 +90,13 @@ class ZipCollect : public BinaryOperator {
     throw runtime_error("unimplemented");
   }
 
+  [[nodiscard]] proteus::traits::HomReplication getHomReplication()
+      const override {
+    auto ret = getRightChild()->getHomReplication();
+    assert(ret == getLeftChild()->getHomReplication());
+    return ret;
+  }
+
  private:
   void cacheFormatLeft();
   void cacheFormatRight();

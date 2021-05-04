@@ -95,6 +95,11 @@ class MemBroadcastDevice : public MemMoveDevice {
 
   [[nodiscard]] size_t getNumberOfTargets() const { return targets.size(); }
 
+  [[nodiscard]] proteus::traits::HomReplication getHomReplication()
+      const override {
+    return proteus::traits::HomReplication::BRDCST;
+  }
+
  private:
   std::vector<int> targets;
 

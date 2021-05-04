@@ -496,6 +496,12 @@ RelBuilder RelBuilder::router(DegreeOfParallelism fanout, size_t slack,
       fanout, slack, p, target, std::move(aff));
 }
 
+DegreeOfParallelism RelBuilder::getDefaultDOP(DeviceType targetType) {
+  return DegreeOfParallelism{(targetType == DeviceType::CPU)
+                                 ? topology::getInstance().getCoreCount()
+                                 : topology::getInstance().getGpuCount()};
+}
+
 RelBuilder RelBuilder::router(size_t slack, RoutingPolicy p, DeviceType target,
                               std::unique_ptr<Affinitizer> aff) const {
   size_t dop = (target == DeviceType::CPU)
@@ -989,6 +995,8 @@ RelBuilder RelBuilder::pack() const {
       },
       [](const auto &arg) { return expression_t{0}; }, 1);
 }
+
+[[nodiscard]] bool RelBuilder::isPacked() const { return root->isPacked(); }
 
 std::ostream &operator<<(std::ostream &out, const RelBuilder &builder) {
   return out << *(builder.operator->());

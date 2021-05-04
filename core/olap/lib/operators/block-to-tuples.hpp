@@ -63,6 +63,11 @@ class BlockToTuples : public experimental::UnaryOperator {
     return attrs;
   }
 
+  [[nodiscard]] bool isPacked() const override {
+    assert(getChild()->isPacked());
+    return false;
+  }
+
  private:
   void nextEntry(llvm::Value *mem_itemCtr, ParallelContext *context);
   virtual void open(Pipeline *pip);

@@ -182,6 +182,7 @@ class Plugin {
   virtual ExpressionType *getOIDType() = 0;
   virtual PluginType getPluginType() = 0;
   [[nodiscard]] virtual RecordType getRowType() const = 0;
+  [[nodiscard]] virtual bool isPacked() const { return false; }
 
  protected:
   virtual void flushBeginList(llvm::Value *fileName) = 0;

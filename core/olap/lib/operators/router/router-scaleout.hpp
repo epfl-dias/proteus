@@ -68,6 +68,16 @@ class RouterScaleOut : public Router {
 
   void fire(int target, PipelineGen *pipGen, const void *session) override;
 
+  [[nodiscard]] proteus::traits::HomReplication getHomReplication()
+      const override {
+    /* RouterScaleOut converts the replication trait to replication across
+     * multiple servers.
+     * Thus, it always produces UNIQUE replication across homogeneous
+     * single-servers (more specifically it produces a DOP of 1)
+     */
+    return proteus::traits::HomReplication::UNIQUE;
+  }
+
  protected:
   proteus::managed_ptr acquireBuffer(int target, bool polling) override;
   void releaseBuffer(int target, proteus::managed_ptr buff) override;

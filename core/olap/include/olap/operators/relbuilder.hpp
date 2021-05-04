@@ -82,10 +82,15 @@ class RelBuilder {
 
   static void registerPlugin(const std::string& relName, Plugin* pg);
 
+ protected:
+  [[nodiscard]] static DegreeOfParallelism getDefaultDOP(DeviceType targetType);
+
  public:
   typedef std::function<std::vector<RecordAttribute*>(
       const expressions::InputArgument&)>
       MultiAttributeFactory;
+  typedef std::function<expression_t(const expressions::InputArgument&)>
+      ExpressionFactory;
   typedef std::function<std::vector<expression_t>(
       const expressions::InputArgument&)>
       MultiExpressionFactory;
@@ -544,6 +549,8 @@ class RelBuilder {
   Operator* operator->() const { return root; }
 
   PreparedStatement prepare();
+
+  [[nodiscard]] bool isPacked() const;
 
  private:
   [[nodiscard]] RelBuilder memmove(const vector<RecordAttribute*>& wantedFields,

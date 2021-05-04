@@ -196,6 +196,8 @@ class BinaryBlockPlugin : public Plugin {
 
   bool isLazy() override { return true; }
 
+  [[nodiscard]] bool isPacked() const override { return true; }
+
   std::vector<RecordAttribute *> wantedFields;
 
  protected:

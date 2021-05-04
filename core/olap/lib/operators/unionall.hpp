@@ -64,6 +64,17 @@ class UnionAll : public Router {
     return children[0]->getDeviceType();
   }
 
+  [[nodiscard]] bool isPacked() const override {
+    assert(children.size() > 0);
+    auto x = children[0]->isPacked();
+#ifndef NDEBUG
+    for (const auto &c : children) {
+      assert(x == c->isPacked());
+    }
+#endif
+    return x;
+  }
+
   std::vector<Operator *> getChildren() const { return children; }
 
  private:

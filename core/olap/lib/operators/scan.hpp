@@ -49,6 +49,11 @@ class Scan : public experimental::UnaryOperator {
     LOG(WARNING) << "Setting arbitrary number for #servers == 2 !";
     return DegreeOfParallelism{2};
   }
+  [[nodiscard]] bool isPacked() const override { return pg.isPacked(); }
+  [[nodiscard]] proteus::traits::HomReplication getHomReplication()
+      const override {
+    return proteus::traits::HomReplication::UNIQUE;
+  }
 
  private:
   Plugin &pg;

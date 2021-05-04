@@ -69,6 +69,11 @@ class GpuHashRearrange : public experimental::UnaryOperator {
     return attr;
   }
 
+  [[nodiscard]] bool isPacked() const override {
+    assert(!getChild()->isPacked());
+    return true;
+  }
+
  protected:
   virtual void consume_flush(ParallelContext *context,
                              llvm::IntegerType *target_type);

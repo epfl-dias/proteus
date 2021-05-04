@@ -67,6 +67,11 @@ class RadixJoin : public BinaryOperator {
     return ret;
   }
 
+  [[nodiscard]] proteus::traits::HomReplication getHomReplication()
+      const override {
+    return getRightChild()->getHomReplication();
+  }
+
  private:
   void runRadix() const;
   // Value *radix_cluster_nopadding(size_t mem_tuplesNo_id, size_t mem_kv_id)
