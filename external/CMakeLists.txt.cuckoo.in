@@ -1,0 +1,10 @@
+cmake_minimum_required(VERSION 3.1.0)
+
+include(FetchContent)
+FetchContent_Declare(
+        libcuckoo-download
+        GIT_REPOSITORY https://github.com/efficient/libcuckoo.git
+        GIT_TAG       v0.3
+        SOURCE_SUBDIR  libcuckoo)
+
+FetchContent_MakeAvailable(libcuckoo-download)

@@ -24,20 +24,21 @@
 #ifndef INDEXES_HASH_INDEX_HPP_
 #define INDEXES_HASH_INDEX_HPP_
 
-#include <cuckoo/cuckoohash_map.hh>
 #include <iostream>
+#include <libcuckoo/cuckoohash_map.hh>
 
 #include "oltp/index/index.hpp"
 
 namespace indexes {
 
 template <class K, class V = void*>
-class HashIndex : public cuckoohash_map<K, V>, public Index<K, V> {
+class HashIndex : public libcuckoo::cuckoohash_map<K, V>, public Index<K, V> {
  public:
   // HashIndex(std::string name ): cuckoohash_map<K, V>(), Index<K,V>(name) {}
 
   HashIndex(std::string name = "", rowid_t reserved_capacity = 72000000)
-      : cuckoohash_map<K, V>(), Index<K, V>(name, reserved_capacity) {
+      : libcuckoo::cuckoohash_map<K, V>(),
+        Index<K, V>(name, reserved_capacity) {
     this->reserve(reserved_capacity);
   }
 };

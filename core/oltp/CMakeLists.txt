@@ -1,6 +1,13 @@
 project(oltp VERSION 0.1 LANGUAGES CXX)
 
-# Pure, regular C++ files
+
+add_subdirectory(adaptor)
+
+# Unit-tests
+if (UNIT_TESTS)
+    add_subdirectory(tests)
+endif ()
+
 set(oltp_cxx
 
         #-------- Common
@@ -62,10 +69,11 @@ target_compile_features(${PROJECT_NAME}
 
 # Depend on a library that we defined in the top-level file
 target_link_libraries(${PROJECT_NAME}
-    PUBLIC
-        proteus::olap
-        cuckoo::cuckoo
-        cli-flags)
+  PUBLIC
+  cuckoo::cuckoo
+  proteus::olap
+  cli-flags
+  )
 
 include(proteus-lib)
 add_library(oltp::engine ALIAS ${PROJECT_NAME})

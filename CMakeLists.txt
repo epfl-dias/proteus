@@ -128,6 +128,7 @@ include(gflags)
 include(glog)
 include(gtest)
 include(grpc)
+include(cuckoo)
 include(vtune)
 
 #-----------------------------------------------------------------------

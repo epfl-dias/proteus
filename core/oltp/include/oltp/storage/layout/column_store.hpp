@@ -389,7 +389,7 @@ class alignas(BlockManager::block_size) LazyColumn : public Column {
     typedef size_t secondary_vid_t;
     std::atomic<secondary_vid_t> secondary_vid;
 
-    cuckoohash_map<vid_t, secondary_vid_t> sec_idx{};
+    libcuckoo::cuckoohash_map<vid_t, secondary_vid_t> sec_idx{};
 
     std::deque<oltp::common::mem_chunk> data{};
     std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>> dirty_upd_mask{};
