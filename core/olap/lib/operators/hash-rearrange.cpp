@@ -87,6 +87,43 @@ llvm::StoreInst *HashRearrange::setIndex(ParallelContext *context,
   return Builder->CreateStore(newIndex, getIndexPtr(context, target));
 }
 
+void insertAtEntryBlock(ParallelContext *context,
+                        const std::function<void()> &gen) {
+  IRBuilder<> *Builder = context->getBuilder();
+  BasicBlock *insBB = Builder->GetInsertBlock();
+  Builder->SetInsertPoint(context->getCurrentEntryBlock());
+  gen();
+  Builder->SetInsertPoint(insBB);
+}
+
+void insertAtEndingBlock(ParallelContext *context,
+                         const std::function<void()> &gen) {
+  IRBuilder<> *Builder = context->getBuilder();
+  BasicBlock *insBB = Builder->GetInsertBlock();
+  Builder->SetInsertPoint(context->getEndingBlock());
+  gen();
+  Builder->SetInsertPoint(insBB);
+}
+
+void yield(::Operator *op, ParallelContext *context,
+           const std::map<RecordAttribute, ProteusValueMemory> &bindings) {
+#ifndef NDEBUG
+  auto rowType = op->getRowType();
+  for (auto &binding : bindings) {
+    auto attrPtr = rowType.getArg(binding.first.getAttrName());
+    if (attrPtr == nullptr) {
+      LOG(WARNING) << "Yielded attribute " << binding.first
+                   << " not found in RowType";
+    } else if (*rowType.getArg(binding.first.getAttrName()) != binding.first) {
+      LOG(ERROR) << "Invalid yield of " << binding.first
+                 << " does not match the attribute in RowType";
+    }
+  }
+#endif
+
+  op->getParent()->consume(context, {*op, bindings});
+}
+
 void HashRearrange::consume(ParallelContext *context,
                             const OperatorState &childState) {
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -113,17 +150,15 @@ void HashRearrange::consume(ParallelContext *context,
 
   std::map<RecordAttribute, ProteusValueMemory> variableBindings;
 
-  Builder->SetInsertPoint(context->getCurrentEntryBlock());
+  insertAtEntryBlock(context, [&] {
+    RecordAttribute tupCnt{wantedFields[0].getRegisteredRelName(), "activeCnt",
+                           pg->getOIDType()};  // FIXME: OID type for blocks ?
+    variableBindings[tupCnt] = context->toMem(capacity, context->createFalse());
 
-  RecordAttribute tupCnt{wantedFields[0].getRegisteredRelName(), "activeCnt",
-                         pg->getOIDType()};  // FIXME: OID type for blocks ?
-  variableBindings[tupCnt] = context->toMem(capacity, context->createFalse());
-
-  AllocaInst *ready_cnt =
-      context->CreateEntryBlockAlloca(F, "readyN", int32_type);
-  Builder->CreateStore(ConstantInt::get(int32_type, 0), ready_cnt);
-
-  Builder->SetInsertPoint(insBB);
+    //    auto ready_cnt = context->CreateEntryBlockAlloca(F, "readyN",
+    //    int32_type); Builder->CreateStore(ConstantInt::get(int32_type, 0),
+    //    ready_cnt);
+  });
 
   // Generate target
   ExpressionGeneratorVisitor exprGenerator{context, childState};
@@ -147,16 +182,13 @@ void HashRearrange::consume(ParallelContext *context,
   //  expressions::ProteusValueExpression ij{pg->getOIDType(),
   //                                         {indx, context->createFalse()}};
 
-  auto bb = Builder->GetInsertBlock();
-  Builder->SetInsertPoint(context->getCurrentEntryBlock());
-
   Value *blocks;      // = context->getStateVar(blkVar_id);
   LoadInst *blocks2;  // = context->getStateVar(blkVar_id);
   Value *alloc;
   Value *alloc_index;
   Value *alloc_oid;
   Value *sPtr;
-  {
+  insertAtEntryBlock(context, [&] {
     sPtr = context->getBuilder()->CreateInBoundsGEP(
         (*context)->getStateVarPtr(),
         {context->createInt64(0),
@@ -164,38 +196,36 @@ void HashRearrange::consume(ParallelContext *context,
     blocks2 = context->getBuilder()->CreateLoad(sPtr);
     auto b = Builder->CreateLoad(blocks2);
 
-    llvm::Metadata *Args[] = {
-        llvm::ValueAsMetadata::get(context->createInt64(10000))};
-    blocks2->setMetadata(LLVMContext::MD_dereferenceable,
-                         MDNode::get(llvmContext, Args));
+    //    llvm::Metadata *Args[] = {
+    //        llvm::ValueAsMetadata::get(context->createInt64(10000))};
+    //    blocks2->setMetadata(LLVMContext::MD_dereferenceable,
+    //                         MDNode::get(llvmContext, Args));
 
-    //    alloc = context->CreateEntryBlockAlloca("asd", blocks2->getType());
-    //    blocks2->getType()->dump();
-    //    alloc->getType()->dump();
-    //    Builder->CreateStore(blocks2, alloc);
-    //    blocks = Builder->CreateLoad(alloc);
-    //
-
-    blocks = context->CreateEntryBlockAlloca("asd", b->getType());
+    // Same for block pointers (store to local storage)
+    blocks = context->CreateEntryBlockAlloca("blocks", b->getType());
     Builder->CreateStore(b, blocks);
 
+    // Instead of doing the load of all cntVar_id every time, save them in local
+    // storage (hint to the compiler)
     auto init_index = Builder->CreateLoad(context->getStateVar(cntVar_id));
-    alloc_index = context->CreateEntryBlockAlloca("asd", init_index->getType());
+    alloc_index =
+        context->CreateEntryBlockAlloca("cntVar_id", init_index->getType());
     Builder->CreateStore(init_index, alloc_index);
 
+    // Same for oidVar_id (store to local storage)
     auto init_oid = Builder->CreateLoad(context->getStateVar(oidVar_id), "oid");
-    alloc_oid = context->CreateEntryBlockAlloca("oid_ptr", init_oid->getType());
+    alloc_oid =
+        context->CreateEntryBlockAlloca("oidVar_id", init_oid->getType());
     Builder->CreateStore(init_oid, alloc_oid);
-  }
-  Builder->SetInsertPoint(context->getEndingBlock());
+  });
 
-  Builder->CreateStore(Builder->CreateLoad(alloc_index),
-                       context->getStateVar(cntVar_id));
-  Builder->CreateStore(Builder->CreateLoad(blocks), blocks2);
-  Builder->CreateStore(Builder->CreateLoad(alloc_oid),
-                       context->getStateVar(oidVar_id));
-
-  Builder->SetInsertPoint(bb);
+  insertAtEndingBlock(context, [&] {
+    Builder->CreateStore(Builder->CreateLoad(alloc_index),
+                         context->getStateVar(cntVar_id));
+    Builder->CreateStore(Builder->CreateLoad(blocks), blocks2);
+    Builder->CreateStore(Builder->CreateLoad(alloc_oid),
+                         context->getStateVar(oidVar_id));
+  });
 
   auto indx = Builder->CreateLoad(Builder->CreateInBoundsGEP(
       alloc_index, {context->createInt32(0), target}));
@@ -235,8 +265,8 @@ void HashRearrange::consume(ParallelContext *context,
     ld->setMetadata(LLVMContext::MD_alias_scope, n);
 
     auto s = Builder->CreateStore(el, el_ptr);
-    s->setMetadata(LLVMContext::MD_noalias, n);
-    //    s->setMetadata("nontemporal", ntemp); //awful performance
+    //    s->setMetadata(LLVMContext::MD_noalias, n);
+    //    //    s->setMetadata("nontemporal", ntemp); //awful performance
 
     els.push_back(block);
   }
@@ -279,7 +309,7 @@ void HashRearrange::consume(ParallelContext *context,
               context->toMem(els[i], context->createFalse());
         }
 
-        getParent()->consume(context, {*this, variableBindings});
+        yield(this, context, variableBindings);
 
         Function *get_buffer = context->getFunction("get_buffer");
 
@@ -310,7 +340,14 @@ void HashRearrange::consume(ParallelContext *context,
         //        target); s->setMetadata("noalias", n);
       })
       .gen_else([&]() {  // ElseBB
+        //        context->log(context->createInt32(2));
+        //        context->log(target);
         for (size_t i = 0; i < wantedFields.size(); ++i) {
+          //          context->log(curblk);
+          //          context->log(Builder->CreatePtrToInt(Builder->CreateInBoundsGEP(
+          //              curblk, {context->createInt32(0),
+          //                       context->createInt32(i)}),
+          //                       Type::getInt64Ty(llvmContext)));
           Builder->CreateStore(els[i], Builder->CreateInBoundsGEP(
                                            curblk, {context->createInt32(0),
                                                     context->createInt32(i)}));
