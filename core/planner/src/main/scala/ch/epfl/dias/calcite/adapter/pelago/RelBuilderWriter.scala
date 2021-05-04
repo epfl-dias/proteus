@@ -195,6 +195,12 @@ class RelBuilderWriter(
         s.append("-")
         append(operands(1), s, cluster)
         s.append(")")
+      case SqlKind.PLUS =>
+        s.append("(")
+        append(operands.head, s, cluster)
+        s.append("+")
+        append(operands(1), s, cluster)
+        s.append(")")
       case SqlKind.MINUS_PREFIX =>
         s.append("(-")
         append(operands.head, s, cluster)
@@ -217,6 +223,16 @@ class RelBuilderWriter(
 //          }
 //        }
         ???
+      case SqlKind.SEARCH =>
+        expr(
+          RexUtil.expandSearch(cluster.getRexBuilder, null, e),
+          s,
+          cluster
+        )
+      case SqlKind.IS_NOT_NULL =>
+        s.append("expressions::is_not_null(")
+        append(operands.head, s, cluster)
+        s.append(")")
       case _ => ???
     }
   }
@@ -257,8 +273,18 @@ class RelBuilderWriter(
             append(lit.getValue2, s, cluster)
           case SqlTypeName.SYMBOL =>
             s.append(lit.getValue)
-
-          case SqlTypeName.DATE => ???
+          case SqlTypeName.DATE =>
+            s.append("expressions::DateConstant(")
+              .append({
+                val sw = new StringWriter
+                val pw = new PrintWriter(sw)
+                pw.print('"')
+                lit.printAsJava(pw)
+                pw.print('"')
+                pw.flush()
+                sw.toString
+              })
+              .append(")")
         }
     }
 
