@@ -61,5 +61,5 @@ target_link_libraries(${PROJECT_NAME}
   ${_PROTOBUF_LIBPROTOBUF}
   )
 
-include(proteus-lib)
+include(proteus-generated-lib)
 add_library(proteus::${PROJECT_NAME} ALIAS ${PROJECT_NAME})

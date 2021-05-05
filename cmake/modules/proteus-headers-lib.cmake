@@ -7,6 +7,8 @@ target_include_directories(${PROJECT_NAME}
 		$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
+target_enable_default_warnings(${PROJECT_NAME} INTERFACE)
+
 set(_proteus_install_target ${PROJECT_NAME})
 
 include(_proteus-install-lib)

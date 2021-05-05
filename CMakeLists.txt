@@ -119,6 +119,9 @@ string(STRIP "${COMPILER_FLAGS} -O3" COMPILER_FLAGS)
 string(STRIP "${CMAKE_CXX_FLAGS} ${COMPILER_FLAGS}" CMAKE_CXX_FLAGS)
 string(STRIP "${CMAKE_C_FLAGS} ${COMPILER_FLAGS}" CMAKE_C_FLAGS)
 
+# Add utilities to enable the warning flags
+include(warning-flags)
+
 #-----------------------------------------------------------------------
 # Various dependencies
 include(llvm-virtual)
@@ -150,11 +153,6 @@ install(DIRECTORY "frontends/R/" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/fron
 #-----------------------------------------------------------------------
 # Build our libraries
 #-----------------------------------------------------------------------
-
-# Add the warning flags
-include(warning-flags)
-string(STRIP "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS}" CMAKE_CXX_FLAGS)
-string(STRIP "${CMAKE_C_FLAGS} ${WARNING_FLAGS}" CMAKE_C_FLAGS)
 
 # build libjsmn
 add_subdirectory(external/jsmn)

@@ -10,7 +10,8 @@ if(FALSE)
 target_link_libraries(${TS_NAME}
 	${GTEST_MAIN}
 	${GTEST}
-)
+	)
+target_enable_default_warnings(${TS_NAME})
 
 set(_proteus_install_target ${TS_NAME})
 
@@ -41,6 +42,7 @@ else()
 foreach(target ${TS_TESTS})
 	add_executable(unit-${target} ${target}.cpp ${TS_COMMON_SRCS})
 	target_link_libraries(unit-${target} ${TS_COMMON_LIBS} ${GTEST_MAIN} ${GTEST})
+	target_enable_default_warnings(unit-${target})
 
 	set(_proteus_install_target unit-${target})
 	set(_proteus_install_dev ${PROTEUS_CPACK_COMP_DEV})
