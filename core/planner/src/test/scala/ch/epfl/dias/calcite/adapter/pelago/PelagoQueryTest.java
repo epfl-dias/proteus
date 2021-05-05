@@ -129,20 +129,20 @@ public class PelagoQueryTest {
 
   private CalciteAssert.AssertQuery testParseAndExecute(String sql) throws SQLException {
     return CalciteAssert.that()
-      .with(PelagoTestConnectionFactory.get())
-      .query(sql)
-      ;
+        .with(PelagoTestConnectionFactory.get())
+        .query(sql)
+        ;
   }
 
-  public static String getModeAsString(){
+  public static String getModeAsString() {
     if (Repl.isHybrid()) return "hyb";
     if (Repl.isGpuonly()) return "gpu";
     if (Repl.isCpuonly()) return "cpu";
-    assert(false);
+    assert (false);
     return "";
   }
 
-  private static Path validationFile(String queryFile){
+  private static Path validationFile(String queryFile) {
     final Path p = Paths.get(queryFile + "." + getModeAsString() + ".plan");
     if (Files.exists(p) && Files.isRegularFile(p)) return p;
     return null;
@@ -156,10 +156,10 @@ public class PelagoQueryTest {
     if (resultFile != null) {
       final String suffix = ".resultset";
       String f = resultFile.toString();
-      assert(f.endsWith(suffix));
+      assert (f.endsWith(suffix));
       final String filename = f.substring(0, f.length() - suffix.length());
       final Path p = validationFile(filename);
-      if (p != null){
+      if (p != null) {
         String plan = new String(Files.readAllBytes(p)).trim();
         plan = plan.replaceAll("\\s*--[^\n]*", "");
         explainContains = "PLAN=" + plan;
@@ -193,7 +193,7 @@ public class PelagoQueryTest {
     q = q.explainMatches("EXCLUDING ATTRIBUTES ", CalciteAssert.checkResultContains(explainContains));
     Repl.planfile_$eq(pf);
 
-    if (resultFile != null && !Repl.isMockRun()){
+    if (resultFile != null && !Repl.isMockRun()) {
       List<String> lines = Files.readAllLines(resultFile);
       q.returnsOrdered(lines.toArray(new String[lines.size()]));
     } else {
@@ -205,34 +205,34 @@ public class PelagoQueryTest {
   @TestFactory
   Stream<DynamicNode> tests_cpu() throws IOException, URISyntaxException {
     return testsFromFileTree(
-      Path.of(Objects.requireNonNull(PelagoQueryTest.class.getResource("/tests")).toURI()),
-      (sql, resultFile) -> Assertions.assertDoesNotThrow(() -> {
-        Repl.setCpuonly();
-        System.out.println(sql);
-        testQueryOrdered(sql, resultFile);
-      })
+        Path.of(Objects.requireNonNull(PelagoQueryTest.class.getResource("/tests")).toURI()),
+        (sql, resultFile) -> Assertions.assertDoesNotThrow(() -> {
+          Repl.setCpuonly();
+          System.out.println(sql);
+          testQueryOrdered(sql, resultFile);
+        })
     );
   }
 
   @TestFactory
   Stream<DynamicNode> tests_gpu() throws IOException, URISyntaxException {
     return testsFromFileTree(
-      Path.of(Objects.requireNonNull(PelagoQueryTest.class.getResource("/tests")).toURI()),
-      (sql, resultFile) -> Assertions.assertDoesNotThrow(() -> {
-        Repl.setGpuonly();
-        testQueryOrdered(sql, resultFile);
-      })
+        Path.of(Objects.requireNonNull(PelagoQueryTest.class.getResource("/tests")).toURI()),
+        (sql, resultFile) -> Assertions.assertDoesNotThrow(() -> {
+          Repl.setGpuonly();
+          testQueryOrdered(sql, resultFile);
+        })
     );
   }
 
   @TestFactory
   Stream<DynamicNode> tests_hyb() throws IOException, URISyntaxException {
     return testsFromFileTree(
-      Path.of(Objects.requireNonNull(PelagoQueryTest.class.getResource("/tests")).toURI()),
-      (sql, resultFile) -> Assertions.assertDoesNotThrow(() -> {
-        Repl.setHybrid();
-        testQueryOrdered(sql, resultFile);
-      })
+        Path.of(Objects.requireNonNull(PelagoQueryTest.class.getResource("/tests")).toURI()),
+        (sql, resultFile) -> Assertions.assertDoesNotThrow(() -> {
+          Repl.setHybrid();
+          testQueryOrdered(sql, resultFile);
+        })
     );
   }
 
@@ -242,51 +242,50 @@ public class PelagoQueryTest {
    * @param path path to a folder, root of the tree structure under consideration
    * @param test function to execute per sql query
    * @return a stream of DynamicTests
-   *
    * @throws IOException for exception relating to traversing the root of the tree
    */
   private static Stream<DynamicNode> testsFromFileTree(Path path, BiConsumer<String, Path> test) throws IOException, URISyntaxException {
     return Stream.concat(
-      Files.list(path)  // we want to control the order of traversal, otherwise we would use the Files.walk function
-        .filter(Files::isRegularFile)
-        .filter((x) -> x.getFileName().toString().endsWith(".sql"))
-        .sorted()       // sorted in order to guarantee the order between different invocations
-        .map((file) -> {
-          try {
-            // find file containing the verification set: same path/filename but extended with .resultset
-            Path rFile = Paths.get(file.toString() + ".resultset");
-            final Path resultFile = (Files.exists(rFile) && Files.isRegularFile(rFile)) ? rFile : null;
+        Files.list(path)  // we want to control the order of traversal, otherwise we would use the Files.walk function
+            .filter(Files::isRegularFile)
+            .filter((x) -> x.getFileName().toString().endsWith(".sql"))
+            .sorted()       // sorted in order to guarantee the order between different invocations
+            .map((file) -> {
+              try {
+                // find file containing the verification set: same path/filename but extended with .resultset
+                Path rFile = Paths.get(file.toString() + ".resultset");
+                final Path resultFile = (Files.exists(rFile) && Files.isRegularFile(rFile)) ? rFile : null;
 //            if (resultFile == null) return null;
-            // clean the sql command from comments and final ';'
-            String sql = new String(Files.readAllBytes(file));
-            sql = sql.replaceAll("--[^\n]*", "").trim();
-            assert(sql.lastIndexOf(';') == sql.length() - 1);
-            final String q = sql.substring(0, sql.length() - 1);
+                // clean the sql command from comments and final ';'
+                String sql = new String(Files.readAllBytes(file));
+                sql = sql.replaceAll("--[^\n]*", "").trim();
+                assert (sql.lastIndexOf(';') == sql.length() - 1);
+                final String q = sql.substring(0, sql.length() - 1);
 
-            // create the test
-            return (DynamicNode) dynamicTest(file.getFileName().toString(),
-              () -> assertTimeoutPreemptively(
-                  ofSeconds((PelagoTestConnectionFactory.isDebug) ? Long.MAX_VALUE/1000 : 2000),
-                  () -> test.accept(q, resultFile)
-              ));
-          } catch (IOException e) {
-            logger.warn(e.getMessage());
-            return null;
-          }
-        })
-        .filter(Objects::nonNull),
-      Files.list(path)
-        .filter((x) -> !x.getFileName().toString().equals("current"))
-        .filter(Files::isDirectory)
-        .sorted()       // sorted in order to guarantee the order between different invocations
-        .map((file) -> {
-          try {
-            return (DynamicNode) dynamicContainer(file.getFileName().toString(), testsFromFileTree(file, test));
-          } catch (IOException e) {
-            logger.warn(e.getMessage());
-            return null;
-          }
-        })
-        .filter(Objects::nonNull));
+                // create the test
+                return (DynamicNode) dynamicTest(file.getFileName().toString(),
+                    () -> assertTimeoutPreemptively(
+                        ofSeconds((PelagoTestConnectionFactory.isDebug) ? Long.MAX_VALUE / 1000 : 2000),
+                        () -> test.accept(q, resultFile)
+                    ));
+              } catch (IOException e) {
+                logger.warn(e.getMessage());
+                return null;
+              }
+            })
+            .filter(Objects::nonNull),
+        Files.list(path)
+            .filter((x) -> !x.getFileName().toString().equals("current"))
+            .filter(Files::isDirectory)
+            .sorted()       // sorted in order to guarantee the order between different invocations
+            .map((file) -> {
+              try {
+                return (DynamicNode) dynamicContainer(file.getFileName().toString(), testsFromFileTree(file, test));
+              } catch (IOException | URISyntaxException e) {
+                logger.warn(e.getMessage());
+                return null;
+              }
+            })
+            .filter(Objects::nonNull));
   }
 }
