@@ -1,5 +1,6 @@
 resolvers += Resolver.jcenterRepo
 addSbtPlugin("net.aichler" % "sbt-jupiter-interface" % "0.7.0")
+addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.0")
 
 libraryDependencies += "net.sourceforge.fmpp" % "fmpp" % "0.9.16"
 // https://mvnrepository.com/artifact/net.java.dev.javacc/javacc
