@@ -111,3 +111,4 @@ ccache*
 /core/planner/plan.json*
 
 /apps/standalones/.gitignore
+/frontends/ScalaSlick/.bsp/sbt.json
