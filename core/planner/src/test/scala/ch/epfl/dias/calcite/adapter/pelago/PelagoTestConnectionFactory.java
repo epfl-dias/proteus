@@ -14,7 +14,7 @@ import java.util.Properties;
 
 class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
   static final boolean isDebug = ManagementFactory.getRuntimeMXBean().getInputArguments().toString().contains("jdwp");
-  private static final String schemaPath = "../../tests/inputs/plans/schema.json";
+  private static final String schemaPath = "inputs/plans/schema.json";
 
   private static PelagoTestConnectionFactory instance = null;
 
