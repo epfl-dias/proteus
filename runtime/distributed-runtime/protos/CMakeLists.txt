@@ -47,7 +47,7 @@ target_compile_features(${PROJECT_NAME}
   )
 
 target_include_directories(${PROJECT_NAME}
-  SYSTEM PUBLIC INTERFACE
+  SYSTEM PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/proto>
   $<INSTALL_INTERFACE:proto>
   PRIVATE
