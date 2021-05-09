@@ -11,7 +11,7 @@ RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B
 
 # LLVM repository with the version we are building
 # used to install clang-format without building LLVM, for style checks
-RUN echo "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-12 main" >> /etc/apt/sources.list.d/llvm.list
+#RUN echo "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-12 main" >> /etc/apt/sources.list.d/llvm.list
 RUN apt-key adv --fetch-keys https://apt.llvm.org/llvm-snapshot.gpg.key
 
 RUN apt update  -y && \
@@ -19,11 +19,12 @@ RUN apt update  -y && \
     apt install -y --no-install-recommends $(sed s/#.*$//g tmp/requirements.txt) && \
     apt autoremove -y && \
     apt autoclean && \
-    rm -rf /var/lib/apt/lists/* /var/log/dpkg.log && \
-    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-12 100 && \
-    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-12 100 && \
-    update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-12 100 && \
-    update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-12 100
+    rm -rf /var/lib/apt/lists/* /var/log/dpkg.log 
+# && \
+#    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-12 100 && \
+#    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-12 100 && \
+#    update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-12 100 && \
+#    update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-12 100
 
 RUN ldconfig /usr/local/cuda/lib64
 
@@ -48,14 +49,14 @@ RUN git clone https://gitlab.kitware.com/cmake/cmake.git && \
     cd .. && \
     rm -rf cmake
 
-RUN apt update -y && \
-    apt install -y --no-install-recommends software-properties-common && \
-    add-apt-repository -y ppa:ubuntu-toolchain-r/test && \
-    apt purge -y software-properties-common
+COPY LLVM-12.0.0-Linux.deb /tmp/LLVM-12.0.0-Linux.deb
+
+RUN dpkg -i /tmp/LLVM-12.0.0-Linux.deb && \
+    rm /tmp/LLVM-12.0.0-Linux.deb
 
 RUN apt update  -y && \
-    apt upgrade -y && \
-    apt install -y --no-install-recommends libpostgresql-jdbc-java libstdc++-11-dev && \
+    # apt upgrade -y && \
+    apt install -y --no-install-recommends libpostgresql-jdbc-java && \
     apt autoremove -y && \
     apt autoclean
 
