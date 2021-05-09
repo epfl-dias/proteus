@@ -129,11 +129,11 @@ ColumnStore::ColumnStore(table_id_t table_id, std::string name,
             t.getName());
     }
 
-    col_offset += col_width;
-    rec_size += col_width;
     column_size.push_back(col_width);
     column_size_offsets.push_back(col_offset);
     column_size_offset_pairs.emplace_back(col_width, col_offset);
+    col_offset += col_width;
+    rec_size += col_width;
   }
 
   for (const auto& t : this->columns) {
