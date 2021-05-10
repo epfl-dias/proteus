@@ -1,5 +1,5 @@
-EnumerableSort
-  PelagoToEnumerableConverter
+PelagoToEnumerableConverter
+  PelagoSort
     PelagoProject
       PelagoAggregate
         PelagoUnpack
