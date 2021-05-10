@@ -1,4 +1,4 @@
-name := "clotho"
+name := "planner"
 
 version := "0.1"
 
@@ -49,6 +49,8 @@ fork in Test := true
 
 // disable tests during `sbt assembly`
 test in assembly := {}
+
+assembly / assemblyJarName := "proteusplanner.jar"
 
 //fork in Test := true
 //baseDirectory in Test := file("/cloud_store/periklis/pelago_cidr2/opt/raw")

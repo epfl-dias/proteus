@@ -311,12 +311,12 @@ Test 10 - Planner:
   - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
   - mkdir -p ${build_path}
   - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
-  - ln -s ${build_path}/opt/pelago/inputs ${build_path}/core/planner/CMakeFiles/clotho.dir/inputs
+  - ln -s ${build_path}/opt/pelago/inputs ${build_path}/core/planner/CMakeFiles/planner.dir/inputs
   - export CWD=$(pwd)
   - export OUTPUT=0
-  - cd ${build_path}/core/planner/CMakeFiles/clotho.dir && sbt test || export OUTPUT=1
-  - mv ${build_path}/core/planner/CMakeFiles/clotho.dir/target/test-reports/TEST-*.xml $CWD
-  - rm ${build_path}/core/planner/CMakeFiles/clotho.dir/inputs || true
+  - cd ${build_path}/core/planner/CMakeFiles/planner.dir && sbt test || export OUTPUT=1
+  - mv ${build_path}/core/planner/CMakeFiles/planner.dir/target/test-reports/TEST-*.xml $CWD
+  - rm ${build_path}/core/planner/CMakeFiles/planner.dir/inputs || true
   - exit $OUTPUT
  allow_failure: true
  artifacts:
@@ -370,7 +370,7 @@ SSB100 Benchmark - CPU only:
   - mkdir -p ${build_path}
   - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
   - export CWD=$(pwd)
-  - cd ${build_path}/opt/pelago && java -jar ../../opt/pelago/clotho.jar inputs/plans/schema.json & disown && sleep 30
+  - cd ${build_path}/opt/pelago && java -jar ../../opt/pelago/proteusplanner.jar inputs/plans/schema.json & disown && sleep 30
   - echo "select sum(d_datekey) from ssbm_date;" > queries.sql
   - echo "alter session set hwmode=cpuonly;" >> queries.sql
   - for f in core/planner/src/test/resources/tests/ssb100/queries/q*.sql; do cat $f $f $f $f $f >> queries.sql ; done ;
@@ -388,7 +388,7 @@ SSB100 Benchmark - GPU only:
   - mkdir -p ${build_path}
   - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
   - export CWD=$(pwd)
-  - cd ${build_path}/opt/pelago && java -jar ../../opt/pelago/clotho.jar inputs/plans/schema.json & disown && sleep 30
+  - cd ${build_path}/opt/pelago && java -jar ../../opt/pelago/proteusplanner.jar inputs/plans/schema.json & disown && sleep 30
   - echo "select /*+ QUERY_INFO(name='warmup') */ sum(d_datekey) from ssbm_date;" > queries.sql
   - echo "alter session set hwmode=gpuonly;" >> queries.sql
   - for f in core/planner/src/test/resources/tests/ssb100/queries/q*.sql; do cat $f $f $f $f $f >> queries.sql ; done ;
@@ -406,7 +406,7 @@ SSB100 Benchmark - Hybrid:
   - mkdir -p ${build_path}
   - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
   - export CWD=$(pwd)
-  - cd ${build_path}/opt/pelago && java -jar ../../opt/pelago/clotho.jar inputs/plans/schema.json & disown && sleep 30
+  - cd ${build_path}/opt/pelago && java -jar ../../opt/pelago/proteusplanner.jar inputs/plans/schema.json & disown && sleep 30
   - echo "select /*+ QUERY_INFO(name='warmup') */ sum(d_datekey) from ssbm_date;" > queries.sql
   - echo "alter session set hwmode=hybrid;" >> queries.sql
   - for f in core/planner/src/test/resources/tests/ssb100/queries/q*.sql; do cat $f $f $f $f $f >> queries.sql ; done ;
