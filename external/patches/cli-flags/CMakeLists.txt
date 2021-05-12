@@ -13,6 +13,6 @@ add_library(cli-flags::cli-flags ALIAS ${PROJECT_NAME})
 
 # There are multiple definitions for gflags, so we need to specify which
 # one we are interested in.
-export(TARGETS ${PROJECT_NAME} gflags_shared FILE ${PROJECT_NAME}Config.cmake)
+export(TARGETS gflags_shared APPEND FILE ${PROJECT_NAME}Config.cmake)
 
 install(EXPORT gflags-targets DESTINATION lib/cmake/gflags)

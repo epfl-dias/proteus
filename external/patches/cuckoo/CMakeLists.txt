@@ -5,7 +5,7 @@ target_compile_features (cuckoo INTERFACE cxx_std_17)
 
 target_include_directories(${PROJECT_NAME} SYSTEM
   INTERFACE
-  $<BUILD_INTERFACE:${libcuckoo_SOURCE_DIR}>
+  $<BUILD_INTERFACE:${libcuckoo-download_SOURCE_DIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
 
