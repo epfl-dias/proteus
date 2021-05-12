@@ -58,6 +58,7 @@ CpuModule::CpuModule(Context *context, std::string pipName)
                            .setErrorStr(&ErrStr)
                            .setMCPU(llvm::sys::getHostCPUName())
                            .setOptLevel(CodeGenOpt::Aggressive)
+                           .setCodeModel(llvm::CodeModel::Model::Medium)
                            .create();
   if (TheExecutionEngine == nullptr) {
     fprintf(stderr, "Could not create ExecutionEngine: %s\n", ErrStr.c_str());
@@ -281,7 +282,8 @@ class JITer_impl {
   explicit JITer_impl(
       llvm::orc::JITTargetMachineBuilder JTMB =
           llvm::cantFail(llvm::orc::JITTargetMachineBuilder::detectHost())
-              .setCodeGenOptLevel(CodeGenOpt::Aggressive))
+              .setCodeGenOptLevel(CodeGenOpt::Aggressive)
+              .setCodeModel(llvm::CodeModel::Model::Large))
       : pool(false, std::thread::hardware_concurrency()),
         DL(llvm::cantFail(JTMB.getDefaultDataLayoutForTarget())),
         Mangle(ES, this->DL),

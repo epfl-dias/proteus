@@ -508,7 +508,8 @@ class GPUJITer_impl : public llvm::orc::ResourceManager {
  public:
   explicit GPUJITer_impl(llvm::orc::JITTargetMachineBuilder JTMB =
                              llvm::cantFail(detectGPU())
-                                 .setCodeGenOptLevel(CodeGenOpt::Aggressive))
+                                 .setCodeGenOptLevel(CodeGenOpt::Aggressive)
+                                 .setCodeModel(llvm::CodeModel::Model::Large))
       : pool(false, std::thread::hardware_concurrency()),
         DL(llvm::cantFail(JTMB.getDefaultDataLayoutForTarget())),
         Mangle(ES, this->DL),
