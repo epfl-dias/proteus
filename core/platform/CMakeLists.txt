@@ -17,6 +17,7 @@ set(platform_cxx
   lib/network/infiniband/infiniband-manager.cpp
   lib/network/infiniband/infiniband-server.cpp
   lib/storage/mmap-file.cpp
+  lib/storage/storage-load-policy-registry.cpp
   lib/storage/storage-manager.cpp
   lib/topology/affinity_manager.cpp
   lib/topology/device-manager.cpp

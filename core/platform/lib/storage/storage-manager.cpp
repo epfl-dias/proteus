@@ -32,6 +32,8 @@
 #include <platform/topology/topology.hpp>
 #include <platform/util/timing.hpp>
 
+#include "storage-load-policy-registry.hpp"
+
 StorageManager &StorageManager::getInstance() {
   static StorageManager sm;
   return sm;
@@ -62,6 +64,10 @@ FileRecord FileRecord::load(const std::string &name, size_t type_size,
 
   if (loc == DISTRIBUTED) return loadDistributed(name, type_size);
 
+  if (loc == FROM_REGISTRY) {
+    return StorageManager::getInstance().getLoader(name)(type_size);
+  }
+
   time_block t("Topen (" + name + "): ",
                TimeRegistry::Key{"Data loading (current)"});
 
@@ -75,7 +81,7 @@ FileRecord FileRecord::loadDistributed(const std::string &name,
   time_block t("Topen distributed (" + name + "): ");
   size_t factor = type_size / sizeof(int32_t);
 
-  auto devices = 2;
+  auto devices = InfiniBandManager::server_count();
 
   size_t filesize = ::getFileSize(name.c_str()) / factor;
 
@@ -318,4 +324,38 @@ void *StorageManager::getDictionaryOf(std::string name) {
   }
 
   return dicts[name];
+}
+
+StorageManager::StorageManager()
+    : loadRegistry(std::make_unique<proteus::StorageLoadPolicyRegistry>(
+          [](StorageManager &stManager, const std::string &fileName,
+             size_t typeSize) {
+            return FileRecord::load(fileName, typeSize, ALLSOCKETS);
+          })) {}
+
+void StorageManager::setDefaultLoader(Loader ld, bool force) {
+  if (force) {
+    // Unload all so that next time we use the new policy
+    unloadAll();
+  }
+
+  loadRegistry->setDefaultLoader(std::move(ld));
+}
+
+void StorageManager::setLoader(std::string fileName, Loader ld, bool force) {
+  if (force) {
+    // Remove file from loaded files, to force loading with new policy next time
+    files.erase(fileName);
+  }
+  loadRegistry->setLoader(std::move(fileName), std::move(ld));
+}
+
+void StorageManager::dropAllCustomLoaders() {
+  loadRegistry->dropAllCustomLoaders();
+}
+
+std::function<FileRecord(size_t)> StorageManager::getLoader(
+    const std::string &fileName) {
+  return [this, ld = loadRegistry->at(fileName),
+          f = fileName](size_t typeSize) { return ld(*this, f, typeSize); };
 }

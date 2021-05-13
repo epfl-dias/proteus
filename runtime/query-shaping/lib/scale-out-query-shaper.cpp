@@ -33,7 +33,7 @@ ScaleOutQueryShaper::ScaleOutQueryShaper(std::string base_path,
     : InputPrefixQueryShaper(std::move(base_path), std::move(input_sizes)) {}
 
 [[nodiscard]] pg ScaleOutQueryShaper::getPlugin() const {
-  return pg{"distributed-block"};
+  return pg{"registry-based-block"};
 }
 
 [[nodiscard]] DeviceType ScaleOutQueryShaper::getDevice() {

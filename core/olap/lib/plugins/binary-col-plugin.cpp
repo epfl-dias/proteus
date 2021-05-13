@@ -66,15 +66,20 @@ BinaryColPlugin::BinaryColPlugin(Context *const context, string fnamePrefix,
     throw runtime_error(error_msg);
   }
 
+  LLVMContext &llvmContext = context->getLLVMContext();
+
   vector<RecordAttribute *>::iterator it;
   int cnt = 0;
   LOG(INFO) << "[BinaryColPlugin: ] " << fnamePrefix;
   for (it = wantedFields.begin(); it != wantedFields.end(); it++) {
     string fileName = fnamePrefix + "." + (*it)->getAttrName();
 
+    const auto llvm_type = (*it)->getOriginalType()->getLLVMType(llvmContext);
+    size_t type_size = context->getSizeOf(llvm_type);
+
     std::vector<mem_file> file_parts =
         StorageManager::getInstance()
-            .getOrLoadFile(fileName.c_str(), PINNED)
+            .getOrLoadFile(fileName.c_str(), type_size, PINNED)
             .get();  // open(name_c, O_RDONLY);
     assert(file_parts.size() == 1 &&
            "Plug-in does not handle (in-memory) partitioned files");

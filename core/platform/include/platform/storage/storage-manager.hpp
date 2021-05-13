@@ -140,12 +140,20 @@ class FileRequest {
   }
 };
 
+namespace proteus {
+class StorageLoadPolicyRegistry;
+}
+
 class StorageManager {
  private:
   std::map<std::string, std::shared_future<FileRecord>> files;
   std::map<std::string, std::map<int, std::string> *> dicts;
+  std::unique_ptr<proteus::StorageLoadPolicyRegistry> loadRegistry;
 
  public:
+  using Loader = std::function<FileRecord(StorageManager &, const std::string &,
+                                          size_t typeSize)>;
+  StorageManager();
   ~StorageManager();
 
   static StorageManager &getInstance();
@@ -164,10 +172,15 @@ class StorageManager {
 
   [[nodiscard]] std::future<std::vector<mem_file>> getFile(std::string name);
   [[nodiscard]] std::future<std::vector<mem_file>> getOrLoadFile(
-      std::string name, size_t type_size, data_loc loc = PINNED);
+      std::string name, size_t type_size, data_loc loc = FROM_REGISTRY);
   [[nodiscard]] FileRequest request(std::string name, size_t type_size,
                                     data_loc loc);
   void unloadFile(std::string name);
+
+  void setDefaultLoader(Loader ld, bool force = false);
+  void setLoader(std::string fileName, Loader ld, bool force = false);
+  std::function<FileRecord(size_t)> getLoader(const std::string &fileName);
+  void dropAllCustomLoaders();
 };
 
 #endif /* STORAGE_MANAGER_HPP_ */

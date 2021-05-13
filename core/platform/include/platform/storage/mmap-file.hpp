@@ -35,6 +35,7 @@ enum data_loc {
   ALLGPUS,
   EVERYWHERE,
   DISTRIBUTED,
+  FROM_REGISTRY
 };
 
 struct mmap_file {

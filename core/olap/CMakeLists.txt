@@ -79,6 +79,7 @@ set(olap_cxx
   lib/plugins/distributed-binary-block-plugin.cpp
   lib/plugins/json-jsmn-plugin.cpp
   lib/plugins/json-plugin.cpp
+  lib/plugins/registry-based-binary-block-plugin.cpp
   lib/plugins/output/plugins-output.cpp
   lib/routing/affinitization-factory.cpp
   lib/routing/affinitizers.cpp
