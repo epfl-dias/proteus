@@ -23,6 +23,9 @@ bower.json.ember-try
 package.json.ember-try
 timeline*.csv
 flare*.json
+ib-buffs.csv
+ib-log.csv
+slack-log.csv
 
 # See http://help.github.com/ignore-files/ for more about ignoring files.
 

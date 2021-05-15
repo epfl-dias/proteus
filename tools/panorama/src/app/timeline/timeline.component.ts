@@ -1,7 +1,6 @@
 import {Component, OnInit} from '@angular/core';
 import * as d3 from 'd3';
 import {schemeDark2} from 'd3-scale-chromatic';
-import * as assert from 'assert';
 import {Selection} from 'd3-selection';
 
 class Operation {
@@ -105,7 +104,7 @@ class RangeEvent {
   constructor(start: number, e: Event) {
     this.start = start;
     this.end = e.timestamp;
-    assert(this.start <= this.end);
+    // assert(this.start <= this.end);
     this.e = e.e;
   }
 
@@ -338,7 +337,7 @@ export class TimelineComponent implements OnInit {
                     console.log(Operation.opNames[item.e.getClass()]);
                     return;
                   }
-                  assert(x.timestamp < item.timestamp);
+                  // assert(x.timestamp < item.timestamp);
                   out.push(new RangeEvent(x.timestamp, item));
                   delete d[item.e.getThreadId()][item.e.getClass()];
                 } else {

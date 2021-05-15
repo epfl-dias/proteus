@@ -4,11 +4,15 @@ import { NgModule } from '@angular/core';
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
 import { TimelineComponent } from './timeline/timeline.component';
+import { BwProfileComponent } from './bw-profile/bw-profile.component';
+import { OverviewComponent } from './overview/overview.component';
 
 @NgModule({
   declarations: [
     AppComponent,
-    TimelineComponent
+    TimelineComponent,
+    BwProfileComponent,
+    OverviewComponent
   ],
   imports: [
     BrowserModule,
