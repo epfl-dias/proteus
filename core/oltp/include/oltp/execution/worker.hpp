@@ -165,7 +165,8 @@ class WorkerPool {
   std::atomic<bool> terminate;
   std::atomic<bool> proc_completed;
 
-  std::atomic<uint> pre_barrier;
+  std::atomic<size_t> post_barrier;
+  std::atomic<size_t> pre_barrier;
   std::condition_variable pre_cv;
   std::mutex pre_m;
 

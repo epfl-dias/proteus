@@ -334,13 +334,23 @@ void Worker::run_bench() {
     this->state = POSTRUN;
     this->curr_txn = txnManager->get_next_xid(0);
     this->curr_master = txnManager->get_current_master_version();
-    // FIXME: CONDITION VARIABLE FOR ALL THREADS TO CONVERGE HERE.
+
+    pool->post_barrier++;
 
     if (this->id == 0) {
+      // thread-0 waits until all reaches above, then take snapshot.
+      while (pool->post_barrier != pool->workers.size())
+        std::this_thread::yield();
+
       txnManager->snapshot();
-      while (schema->is_sync_in_progress())
-        ;
+      while (schema->is_sync_in_progress()) std::this_thread::yield();
+
+      pool->post_barrier++;
     }
+
+    // all-threads wait for +1
+    while (pool->post_barrier != pool->workers.size() + 1)
+      std::this_thread::yield();
     pool->_txn_bench->post_run(this->id, curr_txn, this->partition_id,
                                this->curr_master);
   }
@@ -632,6 +642,7 @@ void WorkerPool::init(bench::Benchmark* txn_bench, worker_id_t num_workers,
   LOG(INFO) << "[WorkerPool] Scheduling Mode: " << worker_sched_mode;
 
   pre_barrier.store(0);
+  post_barrier.store(0);
   worker_id_t i = 0;
 
   if (worker_sched_mode <= 2) {  // default / inteleave
@@ -1076,11 +1087,15 @@ void WorkerPool::shutdown(bool print_stats) {
 
   // cv.notify_all();
   for (auto& worker : workers) {
-    if (!worker.second.second->terminate) {
-      worker.second.second->terminate = true;
+    worker.second.second->terminate = true;
+  }
+
+  for (auto& worker : workers) {
+    if (worker.second.first->joinable()) {
       worker.second.first->join();
     }
   }
+
   print_worker_stats();
 
   for (auto& worker : workers) {
