@@ -57,11 +57,10 @@ class MV_RecordList_Full {
   using version_chain_t = VersionChain<MV_RecordList_Full>;
 
   static std::bitset<1> get_readable_version(
-      const DeltaList& delta_list, const txn::TxnTs& txTs, char* write_loc,
+      const DeltaMemoryPtr& delta_list, const txn::TxnTs& txTs, char* write_loc,
       const std::vector<std::pair<uint16_t, uint16_t>>&
           column_size_offset_pairs,
-      const column_id_t* col_idx = nullptr, short num_cols = 0,
-      bool read_committed_only = false);
+      const column_id_t* col_idx = nullptr, short num_cols = 0);
 
   static std::vector<MV_RecordList_Full::version_t*> create_versions(
       xid_t xid, global_conf::IndexVal* idx_ptr,
@@ -88,11 +87,10 @@ class MV_RecordList_Partial {
   using version_chain_t = VersionChain<MV_RecordList_Partial>;
 
   static std::bitset<64> get_readable_version(
-      const DeltaList& delta_list, const txn::TxnTs& txTs, char* write_loc,
+      const DeltaMemoryPtr& delta_list, const txn::TxnTs& txTs, char* write_loc,
       const std::vector<std::pair<uint16_t, uint16_t>>&
           column_size_offset_pairs,
-      const column_id_t* col_idx = nullptr, short num_cols = 0,
-      bool read_committed_only = false);
+      const column_id_t* col_idx = nullptr, short num_cols = 0);
 
   static std::vector<MV_RecordList_Partial::version_t*> create_versions(
       xid_t xid, global_conf::IndexVal* idx_ptr,

@@ -43,6 +43,7 @@ namespace storage {
 /* Currently DeltaStore is not resizeable*/
 
 class DeltaList;
+class DeltaDataPtr;
 
 class alignas(4096) DeltaStore {
  public:
@@ -51,7 +52,7 @@ class alignas(4096) DeltaStore {
   ~DeltaStore();
 
   void print_info();
-  void *insert_version(DeltaList &delta_list, xid_t t_min, xid_t t_max,
+  void *insert_version(DeltaDataPtr &delta_list, xid_t t_min, xid_t t_max,
                        size_t rec_size, partition_id_t partition_id);
   //  void *validate_or_create_list(void *list_ptr, size_t &delta_ver_tag,
   //                                ushort partition_id);

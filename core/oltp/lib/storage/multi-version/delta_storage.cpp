@@ -196,7 +196,7 @@ void* DeltaStore::create_version(size_t size, partition_id_t partition_id) {
   return cnk;
 }
 
-void* DeltaStore::insert_version(DeltaList& delta_list, xid_t t_min,
+void* DeltaStore::insert_version(DeltaDataPtr& delta_list, xid_t t_min,
                                  xid_t t_max, size_t rec_size,
                                  partition_id_t partition_id) {
   assert(!storage::mv::mv_type::isPerAttributeMVList);
@@ -207,48 +207,16 @@ void* DeltaStore::insert_version(DeltaList& delta_list, xid_t t_min,
   auto* version_ptr = new ((void*)cnk) storage::mv::mv_version(
       t_min, t_max, cnk + sizeof(storage::mv::mv_version));
 
-  auto* delta_ptr = (storage::mv::mv_version_chain*)(delta_list.ptr());
-
-  /*
-   * if list_ptr is not on current delta, then also create a new list-ptr.
-   * THEN when traversing list, we have to see if the next version ptr is
-   *  really a valid ptr or not.
-   *
-   *  Although, this will increase memory footprint as there will be shifting
-   *  lists, which wont be garbage collected at all.
-   * */
-
-  if (delta_ptr == nullptr || delta_list.get_delta_idx() != this->delta_id) {
-    // create a new list
-
-    auto* list_ptr = (storage::mv::mv_version_chain*)new (
-        partitions[partition_id]->getListChunk())
-        storage::mv::mv_version_chain();
-
-    // list_ptr->head = version_ptr;
-    auto tag_tmp = tag.load(std::memory_order_acquire);
-    list_ptr->head.update(reinterpret_cast<char*>(version_ptr), tag_tmp,
-                          this->delta_id, partition_id);
-
-    // if existing list is not a nullptr, append the list.
-    if (delta_ptr != nullptr) {
-      version_ptr->next = delta_ptr->head;
-
-      // maybe here if the old-list is valid and is on another delta, that means
-      // we are abandoning a list. we can tell the other delta that this list
-      // chunk is up for sale (use dequeue push/pop for reusing lists?).
-    }
-
-    delta_list.update(reinterpret_cast<const char*>(list_ptr), tag_tmp,
-                      this->delta_id, partition_id);
-
-  } else {
-    // valid list
-    TaggedDeltaDataPtr<storage::mv::mv_version> tmp(
-        reinterpret_cast<char*>(version_ptr),
-        tag.load(std::memory_order_acquire), this->delta_id, partition_id);
-    delta_ptr->insert(tmp);
+  // point next version to previous head, regardless it is valid or not.
+  if (delta_list.get_ptr() != nullptr) {
+    version_ptr->next._val = delta_list._val;
   }
+
+  // update pointer on delta_list (which is inside index) to point to latest
+  // version.
+  delta_list.update(reinterpret_cast<const char*>(version_ptr),
+                    tag.load(std::memory_order_acquire), this->delta_id,
+                    partition_id);
 
   if (!touched) touched = true;
   return version_ptr;

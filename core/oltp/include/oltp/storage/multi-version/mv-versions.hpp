@@ -135,6 +135,9 @@ class VersionMultiAttr : public Version {
   }
 };
 
+// Should be used when the head of the list contains information
+// Example: shouldn't be used for single-list as each version
+// can point to next directly.
 template <typename T>
 class VersionChain {
  public:
@@ -150,26 +153,25 @@ class VersionChain {
     head = val;
   }
 
-  typename T::version_t *get_readable_version(const txn::TxnTs &txTs,
-                                              bool read_committed = false) {
-    TaggedDeltaDataPtr<typename T::version_t> tmp = this->head;
+  static typename T::version_t *get_readable_ver(
+      TaggedDeltaDataPtr<typename T::version_t> &head_ref,
+      const txn::TxnTs &txTs) {
+    TaggedDeltaDataPtr<typename T::version_t> tmp = head_ref;
 
     while (tmp.is_valid()) {
       auto ptr = tmp.ptr();
-      // if (CC_MV2PL::is_readable(tmp->t_min, tmp->t_max, tid_self)) {
-
-      // if(!read_committed || (read_committed && ptr->t_min < highTs ) )
-      // either read_uncommitted or committed by checking Ts should be less than
-      // highTs.
-
-      if ((!read_committed || (ptr->t_min < TXN_ID_BASE)) &&
-          (global_conf::ConcurrencyControl::is_readable(ptr->t_min, txTs))) {
+      if (global_conf::ConcurrencyControl::is_readable(ptr->t_min, txTs)) {
         return ptr;
       } else {
         tmp = ptr->next;
       }
+      return nullptr;
     }
     return nullptr;
+  }
+
+  typename T::version_t *get_readable_version(const txn::TxnTs &txTs) {
+    return get_readable_ver(this->head, txTs);
   }
 
   TaggedDeltaDataPtr<typename T::version_t> head{};

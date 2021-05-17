@@ -38,7 +38,7 @@ class DeltaMemoryPtr {
   [[maybe_unused]] static constexpr size_t delta_id_bits = 4u;
   [[maybe_unused]] static constexpr size_t tag_bits = 20u;
 
- protected:
+ public:
   explicit DeltaMemoryPtr(size_t val) : _val(val) {}
 
  protected:
@@ -104,6 +104,8 @@ class DeltaList : public DeltaMemoryPtr {
   // DeltaList() = default;
   explicit DeltaList(size_t val) : DeltaMemoryPtr(val) {}
 
+  explicit DeltaList(DeltaMemoryPtr other) : DeltaMemoryPtr(other._val) {}
+
   inline void update(const char *list_ptr, uint32_t tag, delta_id_t delta_idx,
                      partition_id_t pid) {
     assert(reinterpret_cast<uintptr_t>(list_ptr) >=
@@ -136,6 +138,8 @@ class DeltaList : public DeltaMemoryPtr {
 class DeltaDataPtr : public DeltaMemoryPtr {
  public:
   explicit DeltaDataPtr(size_t val) : DeltaMemoryPtr(val) {}
+
+  explicit DeltaDataPtr(DeltaMemoryPtr other) : DeltaMemoryPtr(other._val) {}
 
   explicit DeltaDataPtr(const char *data_ptr, uint32_t tag,
                         delta_id_t delta_idx, partition_id_t pid)
@@ -183,6 +187,9 @@ class TaggedDeltaDataPtr final : public DeltaDataPtr {
  public:
   // TaggedDeltaDataPtr() = default;
   explicit TaggedDeltaDataPtr(size_t val) : DeltaDataPtr(val) {}
+
+  explicit TaggedDeltaDataPtr(DeltaMemoryPtr other)
+      : DeltaDataPtr(other._val) {}
 
   explicit TaggedDeltaDataPtr(const char *data_ptr, uint32_t tag,
                               delta_id_t delta_idx, partition_id_t pid)
