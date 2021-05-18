@@ -40,19 +40,15 @@ RUN curl -L -O https://github.com/ccache/ccache/releases/download/v3.7.12/ccache
     make && \
     make install
 
-RUN git clone https://gitlab.kitware.com/cmake/cmake.git && \
-    cd cmake && \
-    git checkout e647949539f4704a00eddac2357d59ceeb8bc0ca && \
-    ./bootstrap --parallel=$(nproc --all) -- -DCMAKE_USE_OPENSSL=OFF && \
-    make -j$(nproc --all) && \
-    make install && \
-    cd .. && \
-    rm -rf cmake
-
 COPY LLVM-12.0.0-Linux.deb /tmp/LLVM-12.0.0-Linux.deb
 
 RUN dpkg -i /tmp/LLVM-12.0.0-Linux.deb && \
     rm /tmp/LLVM-12.0.0-Linux.deb
+
+COPY cmake-3.20.2-Linux-x86_64.deb /tmp/cmake-3.20.2-Linux-x86_64.deb
+
+RUN dpkg -i /tmp/cmake-3.20.2-Linux-x86_64.deb && \
+    rm /tmp/cmake-3.20.2-Linux-x86_64.deb
 
 RUN apt update  -y && \
     # apt upgrade -y && \
