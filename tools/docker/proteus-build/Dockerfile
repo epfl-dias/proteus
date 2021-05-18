@@ -17,6 +17,7 @@ RUN apt-key adv --fetch-keys https://apt.llvm.org/llvm-snapshot.gpg.key
 RUN apt update  -y && \
     apt upgrade -y && \
     apt install -y --no-install-recommends $(sed s/#.*$//g tmp/requirements.txt) && \
+    apt purge -y cmake && \
     apt autoremove -y && \
     apt autoclean && \
     rm -rf /var/lib/apt/lists/* /var/log/dpkg.log 
