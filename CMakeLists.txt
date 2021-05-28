@@ -92,7 +92,7 @@ endif ("${isSystemDir}" STREQUAL "-1")
 set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 # Otherwise the -std=gnu++XX is used instead of the -std=c++XX, as one
 # would expect from the property above
 set(CMAKE_CXX_EXTENSIONS FALSE)
