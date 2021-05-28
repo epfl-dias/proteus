@@ -1,3 +1,5 @@
+include_guard(GLOBAL)
+
 find_package(LLVM REQUIRED VERSION ${LLVM_REQUIRED_VERSION} CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
