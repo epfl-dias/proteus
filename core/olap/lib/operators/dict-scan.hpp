@@ -23,6 +23,8 @@
 #ifndef DICTSCAN_HPP_
 #define DICTSCAN_HPP_
 
+#include <platform/network/infiniband/infiniband-manager.hpp>
+
 #include "olap/util/parallel-context.hpp"
 #include "operators.hpp"
 
@@ -63,8 +65,17 @@ class DictScan : public UnaryOperator {
   bool isFiltering() const override { return true; }
 
   RecordType getRowType() const override {
-    // FIXME: implement
-    throw runtime_error("unimplemented");
+    return {std::vector{new RecordAttribute{regAs}}};
+  }
+
+  [[nodiscard]] DegreeOfParallelism getDOPServers() const override {
+    LOG(WARNING) << "Setting arbitrary number for #servers == " << 1 << " !";
+    return DegreeOfParallelism{1};
+  }
+  [[nodiscard]] bool isPacked() const override { return false; }
+  [[nodiscard]] proteus::traits::HomReplication getHomReplication()
+      const override {
+    return proteus::traits::HomReplication::UNIQUE;
   }
 
   DeviceType getDeviceType() const override { return DeviceType::CPU; }

@@ -110,12 +110,12 @@ extern "C" int32_t getDictScan(DictMatchIter *begin) { return **begin; }
 extern "C" void nextDictScan(DictMatchIter *begin) { ++(*begin); }
 
 void DictScan::produce_(ParallelContext *context) {
+  context->setGlobalFunction(true);
+
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
 
   size_t iter_size = sizeof(DictMatchIter) * 8;
-
-  context->setGlobalFunction(true);
   context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
   Function *F = context->getGlobalFunction();
