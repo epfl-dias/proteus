@@ -415,7 +415,10 @@ PreparedStatement RelBuilder::prepare() {
   ctx->compileAndLoad();
   auto p = dynamic_cast<Flush *>(root);
   std::string outputFile = (p) ? p->getOutputPath() : ctx->getModuleName();
-  return {ctx->getPipelines(), outputFile};
+  return {ctx->getPipelines(), outputFile,
+          // FIXME: we have no lifetime specs for ops, so here we leak
+          //  root on purpose. We should fix the issue on its root.
+          std::shared_ptr<Operator>(std::shared_ptr<Operator>{}, root)};
 }
 
 RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,

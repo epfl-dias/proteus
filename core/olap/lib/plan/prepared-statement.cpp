@@ -32,6 +32,7 @@
 
 #include "lib/util/caching.hpp"
 #include "lib/util/catalog.hpp"
+#include "lib/util/flush-operator-tree.hpp"
 #include "lib/util/jit/pipeline.hpp"
 #include "plan-parser.hpp"
 
@@ -127,9 +128,7 @@ PreparedStatement PreparedStatement::from(
     PlanExecutor exec{planPath.c_str(), catalog, std::move(affFactory),
                       label_ptr->c_str()};
 
-    exec.compileAndLoad();
-
-    return {exec.ctx->getPipelines(), exec.ctx->getModuleName()};
+    return exec.builtPlan.prepare();
   }
 }
 
@@ -157,9 +156,7 @@ PreparedStatement PreparedStatement::from(
     auto label_ptr = new std::string{label};
     PlanExecutor exec{planPath, catalog, label_ptr->c_str()};
 
-    exec.compileAndLoad();
-
-    return {exec.ctx->getPipelines(), exec.ctx->getModuleName()};
+    return exec.builtPlan.prepare();
   }
 }
 
@@ -172,6 +169,12 @@ std::vector<std::shared_ptr<Pipeline>> uniqueToShared(
 }
 
 PreparedStatement::PreparedStatement(
-    std::vector<std::unique_ptr<Pipeline>> pips, std::string outputFile)
+    std::vector<std::unique_ptr<Pipeline>> pips, std::string outputFile,
+    std::shared_ptr<Operator> planRoot)
     : pipelines(uniqueToShared(std::move(pips))),
-      outputFile(std::move(outputFile)) {}
+      outputFile(std::move(outputFile)),
+      planRoot(std::move(planRoot)) {}
+
+std::ostream &operator<<(std::ostream &out, const PreparedStatement &p) {
+  return out << *p.planRoot;
+}

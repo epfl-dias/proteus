@@ -33,16 +33,18 @@
 
 class Pipeline;
 class AffinitizationFactory;
+class Operator;
 
 class PreparedStatement {
  private:
   // Both fields are non-const to allow moving PreparedStatements
   std::vector<std::shared_ptr<Pipeline>> pipelines;
   std::string outputFile;
+  std::shared_ptr<Operator> planRoot;
 
  protected:
   PreparedStatement(std::vector<std::unique_ptr<Pipeline>> pips,
-                    std::string outputFile);
+                    std::string outputFile, std::shared_ptr<Operator> planRoot);
 
  public:
   QueryResult execute(bool deterministic_affinity = true);
@@ -63,6 +65,9 @@ class PreparedStatement {
       std::unique_ptr<AffinitizationFactory> affFactory);
 
   friend class RelBuilder;
+  friend std::ostream& operator<<(std::ostream&, const PreparedStatement&);
 };
+
+std::ostream& operator<<(std::ostream& out, const PreparedStatement& p);
 
 #endif /* PREPARED_STATEMENT_HPP_ */

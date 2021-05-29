@@ -57,8 +57,6 @@ class ParserAffinitizationFactory {
 
 class PlanExecutor {
  private:
-  PlanExecutor(const char *planPath, CatalogParser &cat,
-               const char *moduleName = "llvmModule");
   PlanExecutor(const std::span<const std::byte> &plan, CatalogParser &cat,
                const char *moduleName = "llvmModule");
   PlanExecutor(const std::span<const std::byte> &plan, CatalogParser &cat,
@@ -84,7 +82,9 @@ class PlanExecutor {
   //    std::unique_ptr<ParserAffinitizationFactory> parFactory;
 
   [[deprecated]] ParallelContext *ctx;
-  void parsePlan(const rapidjson::Document &doc, bool execute = false);
+  RelBuilder builtPlan;
+
+  RelBuilder parsePlan(const rapidjson::Document &doc);
   /* When processing tree root, parent will be nullptr */
   RelBuilder parseOperator(const rapidjson::Value &val);
   expression_t parseExpression(const rapidjson::Value &val,
@@ -117,8 +117,6 @@ class PlanExecutor {
   }
 
   Plugin *parsePlugin(const rapidjson::Value &val);
-
-  void compileAndLoad();
 
   void cleanUp();
 };

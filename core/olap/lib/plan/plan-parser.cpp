@@ -82,11 +82,6 @@ std::string hyphenatedPluginToCamel(const std::string &line) {
   return {conv};
 }
 
-PlanExecutor::PlanExecutor(const char *planPath, CatalogParser &cat,
-                           const char *moduleName)
-    : PlanExecutor(planPath, cat,
-                   std::make_unique<ParserAffinitizationFactory>(),
-                   moduleName) {}
 PlanExecutor::PlanExecutor(const std::span<const std::byte> &plan,
                            CatalogParser &cat, const char *moduleName)
     : PlanExecutor(plan, cat, std::make_unique<ParserAffinitizationFactory>(),
@@ -132,21 +127,12 @@ PlanExecutor::PlanExecutor(
   assert(document["operator"].IsString());
   printf("operator = %s\n", document["operator"].GetString());
 
-  parsePlan(document, false);
+  builtPlan = parsePlan(document);
 }
 
-void PlanExecutor::parsePlan(const rapidjson::Document &doc, bool execute) {
+RelBuilder PlanExecutor::parsePlan(const rapidjson::Document &doc) {
   splitOps.clear();
-  auto root = parseOperator(doc);
-
-  root->produce(ctx);
-  ctx->prepareFunction(ctx->getGlobalFunction());
-
-  if (execute) {
-    Catalog &catalog = Catalog::getInstance();
-    /* XXX Remove when testing caches (?) */
-    catalog.clear();
-  }
+  return parseOperator(doc);
 }
 
 void PlanExecutor::cleanUp() {
@@ -2073,8 +2059,6 @@ InputInfo *CatalogParser::getOrCreateInputInfo(string inputName,
 
   return ret;
 }
-
-void PlanExecutor::compileAndLoad() { return ctx->compileAndLoad(); }
 
 std::ostream &operator<<(std::ostream &out, const rapidjson::Value &val) {
   rapidjson::StringBuffer buffer;
