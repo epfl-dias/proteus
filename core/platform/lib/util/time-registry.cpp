@@ -21,17 +21,17 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <platform/util/glog.hpp>
+#include <fstream>
 #include <platform/util/time-registry.hpp>
 
 const TimeRegistry::Key TimeRegistry::Ignore{"Ignore"};
 
 TimeRegistry::~TimeRegistry() {
+  std::ofstream timeout{"time-registry.txt"};
   for (const auto &rec : registry) {
-    LOG(INFO) << "Total time in " << rec.first.getKey() << ": "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(
-                     rec.second)
-                     .count()
-              << "ms";
+    timeout << "Total time in " << rec.first.getKey() << ": "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(rec.second)
+                   .count()
+            << "ms\n";
   }
 }
