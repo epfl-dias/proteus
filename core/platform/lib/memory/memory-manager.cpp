@@ -139,15 +139,11 @@ void MemoryManager::freeGpu(void *ptr) {
   nvtxRangePop();
 }
 
-void *MemoryManager::mallocPinnedOnNode(size_t bytes, int node) {
+void *MemoryManager::mallocPinnedOnNode(size_t bytes, uint32_t node) {
   static const auto &numaNodes = topology::getInstance().getCpuNumaNodes();
-  if (node >= 0) {
-    assert(node < numaNodes.size());
-    set_exec_location_on_scope d{numaNodes[node]};
-    return mallocPinned(bytes);
-  } else {
-    return mallocPinned(bytes);
-  }
+  assert(node < numaNodes.size());
+  set_exec_location_on_scope d{numaNodes[node]};
+  return mallocPinned(bytes);
 }
 
 void *MemoryManager::mallocPinned(size_t bytes) {
