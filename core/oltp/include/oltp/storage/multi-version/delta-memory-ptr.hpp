@@ -80,14 +80,22 @@ class DeltaMemoryPtr {
   }
 
   [[nodiscard]] inline bool verifyTag() const {
-    auto dTag = deltaStore_map[this->get_delta_idx()]->tag.load(
-        std::memory_order_acquire);
+    auto dTag = deltaStore_map[this->get_delta_idx()]->tag.load();
     dTag &= 0x000FFFFFu;
 
     if (dTag == this->get_tag())
       return true;
     else
       return false;
+  }
+
+  void debug() {
+    auto dTag = deltaStore_map[this->get_delta_idx()]->tag.load();
+    dTag &= 0x000FFFFFu;
+
+    if (dTag != this->get_tag())
+      LOG(INFO) << "DTag: " << dTag << " | getTag: " << this->get_tag()
+                << " DiD: " << (uint)get_delta_idx();
   }
 
  public:
@@ -162,6 +170,7 @@ class DeltaDataPtr : public DeltaMemoryPtr {
       return false;
     }
   }
+  inline void debug() { this->DeltaMemoryPtr::debug(); }
 
   inline char *get_ptr() const {
     // first-verify tag, else return nullptr and log error.
@@ -200,6 +209,8 @@ class TaggedDeltaDataPtr final : public DeltaDataPtr {
   [[nodiscard]] inline X *ptr() const {
     return reinterpret_cast<X *>(this->DeltaDataPtr::get_ptr());
   }
+
+  void debug() { this->DeltaDataPtr::debug(); }
 
   //  X* operator->(){
   //    return this->ptr();
