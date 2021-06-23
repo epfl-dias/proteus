@@ -123,7 +123,10 @@ class Table {
   // global_conf::PrimaryIndex<uint64_t> **s_index;
 
  protected:
-  std::deque<std::atomic<rowid_t>> vid{};
+  struct {
+    std::atomic<rowid_t> vid_part;
+  } vid[MAX_PARTITIONS]{};
+
   DeltaStore **deltaStore{};
 
   uint64_t total_memory_reserved;

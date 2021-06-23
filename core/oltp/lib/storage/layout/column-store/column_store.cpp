@@ -165,7 +165,7 @@ global_conf::IndexVal* ColumnStore::insertRecordBatch(
     xid_t transaction_id, partition_id_t partition_id,
     master_version_t master_ver) {
   partition_id = partition_id % this->n_partitions;
-  uint64_t idx_st = vid[partition_id].fetch_add(num_records);
+  uint64_t idx_st = vid[partition_id].vid_part.fetch_add(num_records);
   // get batch from meta column
 
   uint64_t st_vid = StorageUtils::create_vid(idx_st, partition_id, master_ver);
@@ -208,7 +208,7 @@ global_conf::IndexVal* ColumnStore::insertRecord(const void* data,
 #endif
 
   partition_id = partition_id % this->n_partitions;
-  uint64_t idx = vid[partition_id].fetch_add(1);
+  uint64_t idx = vid[partition_id].vid_part.fetch_add(1);
   uint64_t curr_vid = StorageUtils::create_vid(idx, partition_id, master_ver);
 
   global_conf::IndexVal* hash_ptr = nullptr;
@@ -620,7 +620,7 @@ void ColumnStore::snapshot(xid_t epoch) {
   uint64_t partitions_n_recs[global_conf::MAX_PARTITIONS];
 
   for (uint i = 0; i < g_num_partitions; i++) {
-    partitions_n_recs[i] = this->vid[i].load();
+    partitions_n_recs[i] = this->vid[i].vid_part.load();
     LOG(INFO) << "Snapshot " << this->name << " : Records in P[" << i
               << "]: " << partitions_n_recs[i];
   }
@@ -634,7 +634,7 @@ void ColumnStore::snapshot(xid_t epoch, column_id_t columnId) {
   uint64_t partitions_n_recs[global_conf::MAX_PARTITIONS];
 
   for (uint i = 0; i < g_num_partitions; i++) {
-    partitions_n_recs[i] = this->vid[i].load();
+    partitions_n_recs[i] = this->vid[i].vid_part.load();
     LOG(INFO) << "Snapshot " << this->name << " : Records in P[" << i
               << "]: " << partitions_n_recs[i];
   }

@@ -48,8 +48,8 @@ Table::Table(table_id_t table_id, std::string& name, layout_type storage_layout,
       total_memory_reserved(0),
       storage_layout(storage_layout) {
   for (int i = 0; i < topology::getInstance().getCpuNumaNodeCount(); i++) {
-    vid.emplace_back();
-    vid[i].store(0);
+    // vid.emplace_back();
+    vid[i].vid_part.store(0);
   }
 
   std::vector<RecordAttribute*> attrs;
@@ -81,7 +81,7 @@ Table::Table(table_id_t table_id, std::string& name, layout_type storage_layout,
 void Table::reportUsage() {
   std::cout << "Table: " << this->name << std::endl;
   for (auto i = 0; i < g_num_partitions; i++) {
-    auto curr = vid[i].load();
+    auto curr = vid[i].vid_part.load();
     double percent =
         ((double)curr / ((double)(record_capacity / g_num_partitions))) * 100;
 
