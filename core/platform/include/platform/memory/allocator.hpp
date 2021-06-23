@@ -38,25 +38,25 @@ class ExplicitSocketPinnedMemoryAllocator {
 
  public:
   typedef T value_type;
-
   inline explicit ExplicitSocketPinnedMemoryAllocator(int numa)
       : numa_memset_id(numa) {}
-
+  template <class U>
+  constexpr ExplicitSocketPinnedMemoryAllocator(
+      const ExplicitSocketPinnedMemoryAllocator<U> &o) noexcept
+      : numa_memset_id(o.numa_memset_id) {}
   [[nodiscard]] T *allocate(size_t n) {
     if (n > std::numeric_limits<size_t>::max() / sizeof(T))
       throw std::bad_alloc();
-
     if (numa_memset_id >= 0) {
       static const auto &nodes = topology::getInstance().getCpuNumaNodes();
       set_exec_location_on_scope d{nodes[numa_memset_id]};
-
       return static_cast<T *>(MemoryManager::mallocPinned(n * sizeof(T)));
-
     } else {
       return static_cast<T *>(MemoryManager::mallocPinned(n * sizeof(T)));
     }
   }
-
+  template <typename U>
+  friend class ExplicitSocketPinnedMemoryAllocator;
   void deallocate(T *mem, size_t) noexcept { MemoryManager::freePinned(mem); }
 };
 
