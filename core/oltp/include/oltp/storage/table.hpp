@@ -124,7 +124,8 @@ class Table {
 
  protected:
   struct {
-    std::atomic<rowid_t> vid_part;
+    alignas(
+        hardware_destructive_interference_size) std::atomic<rowid_t> vid_part;
   } vid[MAX_PARTITIONS]{};
 
   DeltaStore **deltaStore{};

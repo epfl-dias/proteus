@@ -23,11 +23,12 @@
 
 #include "oltp/storage/multi-version/delta_storage.hpp"
 
-#include <sys/mman.h>
+#include <oltp/common/utils.hpp>
 
 #include "oltp/common/numa-partition-policy.hpp"
 #include "oltp/execution/worker.hpp"
 #include "oltp/storage/multi-version/mv.hpp"
+#include "oltp/transaction/transaction_manager.hpp"
 #include "platform/common/error-handling.hpp"
 
 namespace storage {
@@ -94,36 +95,55 @@ DeltaStore::DeltaStore(delta_id_t delta_id, uint64_t ver_list_capacity,
   }
 
   if (DELTA_DEBUG) {
-    std::cout << "\tDelta size: "
+    LOG(INFO) << "Delta ID: " << (uint)(this->delta_id);
+    LOG(INFO) << "\tDelta size: "
               << ((double)(ver_list_capacity + ver_data_capacity) /
                   (1024 * 1024 * 1024))
-              << " GB * " << num_partitions << " Partitions" << std::endl;
-    std::cout << "\tDelta size: "
+              << " GB * " << (uint)num_partitions << " Partitions" << std::endl;
+    LOG(INFO) << "\tDelta size: "
               << ((double)(ver_list_capacity + ver_data_capacity) *
-                  num_partitions / (1024 * 1024 * 1024))
+                  (uint)num_partitions / (1024 * 1024 * 1024))
               << " GB" << std::endl;
   }
   this->total_mem_reserved =
       (ver_list_capacity + ver_data_capacity) * num_partitions;
 
-  this->readers.store(0);
-  this->gc_reset_success.store(0);
-  this->gc_requests.store(0);
-  this->gc_lock.store(0);
+  this->deltaMeta.readers.store(0);
+  this->gc_reset_success = 0;
+  this->gc_requests = 0;
+  // this->gc_lock.store(0);
   this->tag = 1;
-  this->max_active_epoch = 0;
+  this->deltaMeta.max_active_epoch = 0;
   // this->min_active_epoch = std::numeric_limits<uint64_t>::max();
 
-  LOG(INFO) << "Sizeof(char*): " << sizeof(char*);
-  LOG(INFO) << "Sizeof(uintptr_t): " << sizeof(uintptr_t);
-  LOG(INFO) << "sizeof(TaggedDeltaDataPtr<storage::mv::mv_version>): "
-            << sizeof(TaggedDeltaDataPtr<storage::mv::mv_version>);
-  LOG(INFO) << "sizeof(DeltaList): " << sizeof(DeltaList);
-  LOG(INFO) << "sizeof(DeltaDataPtr): " << sizeof(DeltaDataPtr);
-  LOG(INFO) << "sizeof(DeltaPartition): " << sizeof(DeltaPartition);
+  //  LOG(INFO) << "Sizeof(char*): " << sizeof(char*);
+  //  LOG(INFO) << "Sizeof(uintptr_t): " << sizeof(uintptr_t);
+  //  LOG(INFO) << "sizeof(TaggedDeltaDataPtr<storage::mv::mv_version>): "
+  //            << sizeof(TaggedDeltaDataPtr<storage::mv::mv_version>);
+  //  LOG(INFO) << "sizeof(DeltaList): " << sizeof(DeltaList);
+  //  LOG(INFO) << "sizeof(DeltaDataPtr): " << sizeof(DeltaDataPtr);
+  //  LOG(INFO) << "sizeof(DeltaPartition): " << sizeof(DeltaPartition);
+
+  //   timed_func::interval_runner(
+  //       [this](){
+  //         for (auto &p : partitions) {
+  //           if (p->usage() > ((double)GC_CAPACITY_MIN_PERCENT) / 100) {
+  //             if(this->delta_id != 0)
+  //              LOG(INFO) << "\t\tDeltaID: " << (uint)(this->delta_id) << " |
+  //              usage: " << p->usage()*100;
+  //             else
+  //               LOG(INFO) << "DeltaID: " << (uint)(this->delta_id) << " |
+  //               usage: " << p->usage()*100;
+  //           }
+  //         }
+  //
+  //      }, (500)); // 500ms
 }
 
 DeltaStore::~DeltaStore() {
+  deltaMeta.readers = 0;
+  deltaMeta.max_active_epoch =
+      std::numeric_limits<decltype(deltaMeta.max_active_epoch)>::max();
   print_info();
   LOG(INFO) << "[" << (int)(this->delta_id)
             << "] Delta Partitions: " << partitions.size();
@@ -136,13 +156,12 @@ DeltaStore::~DeltaStore() {
 
 void DeltaStore::print_info() {
   LOG(INFO) << "[DeltaStore # " << (int)(this->delta_id)
-            << "] Number of Successful GC Resets: "
-            << this->gc_reset_success.load();
+            << "] Number of Successful GC Resets: " << this->gc_reset_success;
 
-#if DELTA_DEBUG
-  LOG(INFO) << "[DeltaStore # " << (int)(this->delta_id)
-            << "] Number of GC Requests: " << this->gc_requests.load();
-#endif
+  if constexpr (DELTA_DEBUG) {
+    LOG(INFO) << "[DeltaStore # " << (int)(this->delta_id)
+              << "] Number of GC Requests: " << this->gc_requests;
+  }
 
   for (auto& p : partitions) {
     p->report();
@@ -179,7 +198,7 @@ void* DeltaStore::validate_or_create_list(DeltaList& delta_list,
 
     // logic for transient timestamps instead of persistent.
     list_ptr->last_updated_tmin =
-        scheduler::WorkerPool::getInstance().get_min_active_txn();
+        txn::TransactionManager::getInstance().get_min_activeTxn();
 
     if (!touched) touched = true;
 
@@ -193,6 +212,7 @@ void* DeltaStore::create_version(size_t size, partition_id_t partition_id) {
   throw std::runtime_error("deprecated after delta-list-bug fix");
   char* cnk = (char*)partitions[partition_id]->getVersionDataChunk(size);
   if (!touched) touched = true;
+
   return cnk;
 }
 
@@ -214,39 +234,31 @@ void* DeltaStore::insert_version(DeltaDataPtr& delta_list, xid_t t_min,
 
   // update pointer on delta_list (which is inside index) to point to latest
   // version.
-  delta_list.update(reinterpret_cast<const char*>(version_ptr),
-                    tag.load(std::memory_order_acquire), this->delta_id,
-                    partition_id);
+  delta_list.update(reinterpret_cast<const char*>(version_ptr), tag.load(),
+                    this->delta_id, partition_id);
 
   if (!touched) touched = true;
   return version_ptr;
 }
 
 void DeltaStore::gc() {
-  short e = 0;
-  if (gc_lock.compare_exchange_strong(e, -1)) {
+  static thread_local auto& txnManager = txn::TransactionManager::getInstance();
+  int64_t e = 0;
+  if (deltaMeta.readers.compare_exchange_weak(e, -10000)) {
 #if DELTA_DEBUG
     gc_requests++;
 #endif
-    xid_t last_alive_txn =
-        scheduler::WorkerPool::getInstance().get_min_active_txn();
-    if (this->readers == 0 && should_gc() &&
-        last_alive_txn > max_active_epoch) {
-      // LOG(INFO) << "ACTUAL GC START";
+
+    if (txnManager.get_min_activeTxn() > deltaMeta.max_active_epoch) {
       tag++;
       for (auto& p : partitions) {
         p->reset();
       }
-      gc_lock.store(0);
       touched = false;
-      gc_reset_success.fetch_add(1, std::memory_order_relaxed);
-      // LOG(INFO) << "GC HAPPENED";
-    } else {
-      // gc_lock.unlock();
-      gc_lock.store(0);
+      gc_reset_success++;
     }
+    deltaMeta.readers = 0;
   }
-  // LOG(INFO) << "GC END";
 }
 
 DeltaStore::DeltaPartition::DeltaPartition(char* ver_list_cursor,
@@ -265,7 +277,6 @@ DeltaStore::DeltaPartition::DeltaPartition(char* ver_list_cursor,
       pid(pid),
       delta_id(delta_id),
       delta_uuid(create_delta_uuid(delta_id, pid)) {
-  printed = false;
   // warm-up mem-list
   LOG(INFO) << "\t warming up delta storage P" << (uint32_t)pid << std::endl;
 
@@ -329,7 +340,7 @@ void* DeltaStore::DeltaPartition::getVersionDataChunk_ThreadLocal(
 
   // n_delta_storage * n_threads
 
-  static thread_local std::map<uint16_t, threadLocalSlack, std::less<uint16_t>,
+  static thread_local std::map<uint16_t, threadLocalSlack, std::less<>,
                                proteus::memory::PinnedMemoryAllocator<
                                    std::pair<const uint16_t, threadLocalSlack>>>
       local_slack_map{};
@@ -354,6 +365,11 @@ void* DeltaStore::DeltaPartition::getVersionDataChunk_ThreadLocal(
   if (__unlikely(request_size > slackRef.remaining_slack)) {
     slackRef.ptr = ver_data_cursor.fetch_add(slack_size);
     slackRef.remaining_slack = slack_size;
+
+    LOG_IF(FATAL, (slackRef.ptr < (char*)(ver_data_mem.data) ||
+                   slackRef.ptr >= data_cursor_max))
+        << "Issue: id: " << get_delta_id(this->delta_uuid)
+        << " | pid: " << get_delta_pid(delta_uuid);
 
     assert(slackRef.ptr >= (char*)(ver_data_mem.data) &&
            slackRef.ptr < data_cursor_max);

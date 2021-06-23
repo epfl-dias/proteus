@@ -1215,8 +1215,6 @@ void TPCC::load_supplier(int w_id, xid_t xid, partition_id_t partition_id,
   }
 }
 
-void TPCC::load_data(int num_threads) { assert(false && "Not Implemented"); }
-
 void TPCC::pre_run(worker_id_t wid, xid_t xid, partition_id_t partition_id,
                    master_version_t master_ver) {
   // static std::mutex print_mutex;

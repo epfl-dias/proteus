@@ -52,14 +52,12 @@ class MV_perAttribute {
   }
 
   static auto get_readable_version(
-      const DeltaList &delta_list, const txn::TxnTs &txTs, char *write_loc,
+      const DeltaMemoryPtr &delta_list, const txn::TxnTs &txTs, char *write_loc,
       const std::vector<std::pair<uint16_t, uint16_t>>
           &column_size_offset_pairs,
-      const column_id_t *col_idx = nullptr, short num_cols = 0,
-      bool read_committed_only = false) {
+      const column_id_t *col_idx = nullptr, short num_cols = 0) {
     return T::get_readable_version(delta_list, txTs, write_loc,
-                                   column_size_offset_pairs, col_idx, num_cols,
-                                   read_committed_only);
+                                   column_size_offset_pairs, col_idx, num_cols);
   }
 
   static void rollback(const txn::TxnTs &txTs, global_conf::IndexVal *idx_ptr,
@@ -88,11 +86,10 @@ class MV_attributeList {
       const column_id_t *col_idx, short num_cols);
 
   static std::bitset<64> get_readable_version(
-      const DeltaList &delta_list, const txn::TxnTs &txTs, char *write_loc,
+      const DeltaMemoryPtr &delta_list, const txn::TxnTs &txTs, char *write_loc,
       const std::vector<std::pair<uint16_t, uint16_t>>
           &column_size_offset_pairs,
-      const column_id_t *col_idx = nullptr, short num_cols = 0,
-      bool read_committed_only = false);
+      const column_id_t *col_idx = nullptr, short num_cols = 0);
 
   // friend class MV_perAttribute<MV_attributeList>;
 };
@@ -125,7 +122,7 @@ class MV_DAG {
       const column_id_t *col_idx, short num_cols);
 
   static std::bitset<64> get_readable_version(
-      const DeltaList &delta_list, xid_t xid, char *write_loc,
+      const DeltaMemoryPtr &delta_list, xid_t xid, char *write_loc,
       const std::vector<std::pair<uint16_t, uint16_t>>
           &column_size_offset_pairs,
       const column_id_t *col_idx = nullptr, short num_cols = 0);

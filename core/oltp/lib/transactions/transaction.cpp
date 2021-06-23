@@ -21,16 +21,54 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include "oltp/transaction/transaction.hpp"
+
+#include "oltp/common/common.hpp"
 #include "oltp/transaction/transaction_manager.hpp"
 
 namespace txn {
 
-xid_t Txn::getCommitTs() {
-  return TransactionManager::getInstance().get_commit_ts();
+Txn::Txn(TxnTs txnTs, worker_id_t workerId, partition_id_t partitionId,
+         master_version_t master_version, bool read_only)
+    : txnTs(txnTs),
+      worker_id(workerId),
+      partition_id(partitionId),
+      master_version(master_version),
+      delta_version(TransactionManager::get_delta_ver(txnTs.txn_start_time)),
+      read_only(read_only) {}
+
+Txn::Txn(TxnTs txnTs, worker_id_t workerId, partition_id_t partitionId,
+         bool read_only)
+    : txnTs(txnTs),
+      worker_id(workerId),
+      partition_id(partitionId),
+      master_version(
+          TransactionManager::getInstance().get_current_master_version()),
+      delta_version(TransactionManager::get_delta_ver(txnTs.txn_start_time)),
+      read_only(read_only) {
+  assert(delta_version < global_conf::num_delta_storages);
 }
 
-TxnTs TxnTs::getTimestamps() {
-  return {TransactionManager::getInstance().get_txnID_startTime_Pair()};
+Txn::Txn(worker_id_t workerId, partition_id_t partitionId, bool read_only)
+    : Txn({TransactionManager::getInstance().get_txnID_startTime_Pair()},
+          workerId, partitionId, read_only) {}
+
+Txn Txn::getTxn(worker_id_t workerId, partition_id_t partitionId,
+                bool readOnly) {
+  static thread_local auto &txnManager = TransactionManager::getInstance();
+
+  return Txn(txnManager.get_txnID_startTime_Pair(), workerId, partitionId,
+             txnManager.get_current_master_version(), readOnly);
+}
+
+xid_t Txn::getTxn(Txn *txnPtr, worker_id_t workerId, partition_id_t partitionId,
+                  bool readOnly) {
+  static thread_local auto &txnManager = TransactionManager::getInstance();
+
+  txnPtr = new (txnPtr)
+      Txn(txnManager.get_txnID_startTime_Pair(), workerId, partitionId,
+          txnManager.get_current_master_version(), readOnly);
+  return txnPtr->txnTs.txn_start_time;
 }
 
 }  // namespace txn

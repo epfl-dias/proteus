@@ -66,10 +66,10 @@ class OLTP {
     this->txn_manager = &txn::TransactionManager::getInstance();
   }
 
-  inline void enqueue_query(
-      std::function<bool(uint64_t, ushort, ushort, ushort)> query) {
-    this->worker_pool->enqueueTask(std::move(query));
-  }
+  //  inline void enqueue_query(
+  //      std::function<bool(uint64_t, ushort, ushort, ushort)> query) {
+  //    //this->worker_pool->enqueueTask(std::move(query));
+  //  }
 
   inline void run() { this->worker_pool->start_workers(); }
 

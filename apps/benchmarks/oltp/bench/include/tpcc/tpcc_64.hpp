@@ -46,7 +46,7 @@
 #define debug_dont_load_order false
 
 // SIGMOD 20
-#define index_on_order_tbl true  // also cascade to orderlne, neworder table
+#define index_on_order_tbl false  // also cascade to orderlne, neworder table
 
 //#if diascld40
 //#define TPCC_MAX_ORD_PER_DIST 200000  // 2 master - 2 socket
@@ -58,13 +58,13 @@
 //#define TPCC_MAX_ORD_PER_DIST 200000
 //#endif
 
-#define TPCC_MAX_ORD_PER_DIST 50000
+#define TPCC_MAX_ORD_PER_DIST 150000
 
-#define NO_MIX 96
+#define NO_MIX 100
 #define P_MIX 0   // FIXME
 #define OS_MIX 0  // FIXME
 #define D_MIX 0   // FIXME
-#define SL_MIX 4
+#define SL_MIX 0
 #define MIX_COUNT 100
 
 // #define NO_MIX 45
@@ -112,6 +112,8 @@ enum TPCC_QUERY_TYPE {
 
 using date_t = uint64_t;
 constexpr char csv_delim = '|';
+
+class TpccTxnGen;
 
 class TPCC : public Benchmark {
  private:
@@ -345,7 +347,6 @@ class TPCC : public Benchmark {
   void create_tbl_region(uint64_t num_region);
   void create_tbl_nation(uint64_t num_nation);
 
-  void load_data(int num_threads = 1) override;
   void load_stock(int w_id, xid_t xid, partition_id_t partition_id,
                   master_version_t master_ver);
   void load_item(int w_id, xid_t xid, partition_id_t partition_id,
@@ -369,9 +370,9 @@ class TPCC : public Benchmark {
                    master_version_t master_ver);
 
   void pre_run(worker_id_t wid, xid_t xid, partition_id_t partition_id,
-               master_version_t master_ver) override;
+               master_version_t master_ver);
   void post_run(worker_id_t wid, xid_t xid, partition_id_t partition_id,
-                master_version_t master_ver) override {
+                master_version_t master_ver) {
     if (wid == 0) {
       // consistency check parallelize itself, doesnt need a worker to do it.
       // moreover, it is not performance-critical.
@@ -444,26 +445,25 @@ class TPCC : public Benchmark {
                            master_version_t master_ver, delta_id_t delta_ver,
                            partition_id_t partition_id);
 
-  void *get_query_struct_ptr(partition_id_t pid) override {
-    return MemoryManager::mallocPinnedOnNode(
-        sizeof(struct tpcc_query), storage::NUMAPartitionPolicy::getInstance()
-                                       .getPartitionInfo(pid)
-                                       .numa_idx);
-  }
-  void free_query_struct_ptr(void *ptr) override {
-    MemoryManager::freePinned(ptr);  //, sizeof(struct tpcc_query));
-  }
+  bool exec_txn(txn::TransactionExecutor &executor, txn::Txn &txn,
+                void *params);
+
   bool exec_txn(txn::Txn &txn, master_version_t master_ver,
-                delta_id_t delta_ver, partition_id_t partition_id) override;
+                delta_id_t delta_ver, partition_id_t partition_id);
   inline bool exec_txn_mv2pl(txn::Txn &txn, master_version_t master_ver,
                              delta_id_t delta_ver,
-                             partition_id_t partition_id) override {
+                             partition_id_t partition_id) {
     return this->exec_txn(txn, master_ver, delta_ver, partition_id);
   }
 
-  void gen_txn(worker_id_t wid, void *txn_ptr,
-               partition_id_t partition_id) override;
+  void gen_txn(worker_id_t wid, void *txn_ptr, partition_id_t partition_id);
   void print_tpcc_query(void *arg);
+
+  BenchQueue *getBenchQueue(worker_id_t workerId,
+                            partition_id_t partitionId) override {
+    return dynamic_cast<BenchQueue *>(
+        new TpccTxnGen(*this, workerId, partitionId));
+  }
 
   ~TPCC() override;
   TPCC(std::string name = "TPCC", int num_warehouses = 1,
@@ -513,6 +513,50 @@ class TPCC : public Benchmark {
     static std::mt19937 g(rd());
     std::shuffle(q_seq.begin(), q_seq.end(), g);
   }
+
+ public:
+  //-- generator
+  class TpccTxnGen : public bench::BenchQueue {
+    TpccTxnGen(TPCC &TpccTxnGen, worker_id_t wid, partition_id_t partition_id)
+        : tpccBench(TpccTxnGen), wid(wid), partition_id(partition_id) {
+      this->_txn_mem =
+          static_cast<struct tpcc_query *>(MemoryManager::mallocPinnedOnNode(
+              sizeof(struct tpcc_query),
+              storage::NUMAPartitionPolicy::getInstance()
+                  .getPartitionInfo(partition_id)
+                  .numa_idx));
+    }
+    ~TpccTxnGen() override { MemoryManager::freePinned(_txn_mem); }
+
+    txn::StoredProcedure pop(worker_id_t workerId,
+                             partition_id_t partitionId) override {
+      tpccBench.gen_txn(this->wid, this->_txn_mem, this->partition_id);
+
+      return txn::StoredProcedure(
+          [&](txn::TransactionExecutor &executor, txn::Txn &txn, void *params) {
+            return tpccBench.exec_txn(executor, txn, params);
+          },
+          this->_txn_mem);
+    }
+
+    void pre_run() override { tpccBench.pre_run(wid, 0, partition_id, 0); }
+    void post_run() override {
+      // FIXME: master_ver will be zero or get from txnManager?
+      tpccBench.post_run(wid, std::numeric_limits<xid_t>::max(), partition_id,
+                         0);
+    }
+
+   private:
+    struct tpcc_query *_txn_mem;
+    TPCC &tpccBench;
+    const worker_id_t wid;
+    const partition_id_t partition_id;
+
+    friend class TPCC;
+  };
+  //-- END generator
+
+  friend class TpccTxnGen;
 };
 
 std::ostream &operator<<(std::ostream &out, const TPCC::ch_nation &r);

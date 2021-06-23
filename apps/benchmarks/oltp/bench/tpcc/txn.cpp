@@ -25,27 +25,24 @@
 #include <cstring>
 #include <functional>
 #include <iostream>
-#include <limits>
 #include <olap/operators/relbuilder-factory.hpp>
 #include <olap/plan/catalog-parser.hpp>
 #include <olap/routing/degree-of-parallelism.hpp>
 #include <oltp/common/utils.hpp>
 #include <oltp/storage/layout/column_store.hpp>
 #include <oltp/storage/storage-utils.hpp>
-#include <string>
 
 #include "tpcc/tpcc_64.hpp"
 
 namespace bench {
 
-bool TPCC::exec_txn(txn::Txn &txn, master_version_t master_ver,
-                    delta_id_t delta_ver, partition_id_t partition_id) {
-  //    const void *stmts, xid_t xid, master_version_t master_ver,
-  //                    delta_id_t delta_ver, partition_id_t partition_id) {
-  auto *q = (struct tpcc_query *)txn.stmts;
+bool TPCC::exec_txn(txn::TransactionExecutor &executor, txn::Txn &txn,
+                    void *params) {
+  auto *q = static_cast<struct tpcc_query *>(params);
   switch (q->query_type) {
     case NEW_ORDER:
-      return exec_neworder_txn(q, txn, master_ver, delta_ver, partition_id);
+      return exec_neworder_txn(q, txn, txn.master_version, txn.delta_version,
+                               txn.partition_id);
       //    case PAYMENT:
       //      return exec_payment_txn(q, xid, master_ver, delta_ver,
       //      partition_id);
@@ -56,7 +53,8 @@ bool TPCC::exec_txn(txn::Txn &txn, master_version_t master_ver,
       //      return exec_delivery_txn(q, xid, master_ver, delta_ver,
       //      partition_id);
     case STOCK_LEVEL:
-      return exec_stocklevel_txn(q, txn, master_ver, delta_ver, partition_id);
+      return exec_stocklevel_txn(q, txn, txn.master_version, txn.delta_version,
+                                 txn.partition_id);
     default:
       assert(false);
       break;
@@ -92,6 +90,7 @@ void TPCC::gen_txn(worker_id_t wid, void *q, partition_id_t partition_id) {
       break;
     default: {
       LOG(FATAL) << "Unknown query type: " << query_seq_local[sequence_counter];
+      // break;
     }
   }
   // mprotect(q, sizeof(struct tpcc_query), PROT_READ);

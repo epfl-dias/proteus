@@ -24,31 +24,53 @@
 #ifndef CONCURRENCY_CONTROL_HPP_
 #define CONCURRENCY_CONTROL_HPP_
 
+constexpr bool optimistic_read = true;
+
 #include <iostream>
 #include <mutex>
 #include <utility>
 #include <vector>
-//#include <shared_mutex>
 
 #include "oltp/common/lock.hpp"
 #include "oltp/common/spinlock.h"
 #include "oltp/storage/multi-version/delta-memory-ptr.hpp"
 #include "oltp/transaction/transaction.hpp"
 #include "oltp/transaction/txn_utils.hpp"
+#include "oltp/util/hybrid-lock.hpp"
 
 namespace txn {
 
 class CC_MV2PL {
  public:
-  struct PRIMARY_INDEX_VAL {
+  class PRIMARY_INDEX_VAL {
+   public:
     xid_t t_min;  //  | 1-byte w_id | 6 bytes xid |
     rowid_t VID;  // internal encoding defined in storage-utils.hpp
-    lock::Spinlock_Weak latch;
+    // lock::Spinlock_Weak latch;
+    // lock::HybridLatch latch;
+    lock::SpinLatch latch;
 
     lock::AtomicTryLock write_lck;
 
     storage::DeltaMemoryPtr delta_list{0};
     PRIMARY_INDEX_VAL(xid_t tid, rowid_t vid) : t_min(tid), VID(vid) {}
+
+    template <class lambda>
+    inline void writeWithLatch(lambda &&func) {
+      latch.template writeWithLatch(func, this);
+    }
+
+    template <class lambda>
+    inline void readWithLatch(lambda &&func) {
+      latch.template readWithLatch(func, this);
+    }
+
+    template <class lambda>
+    inline void withLatch(lambda &&func) {
+      this->latch.acquire();
+      func(this);
+      this->latch.release();
+    }
   };
 
   static inline bool __attribute__((always_inline))

@@ -29,53 +29,43 @@
 
 #include "oltp/common/common.hpp"
 #include "oltp/transaction/transaction.hpp"
+#include "oltp/transaction/txn-queue.hpp"
 
 namespace bench {
 
+class BenchQueue : public txn::TxnQueue {
+ public:
+  virtual txn::StoredProcedure pop(worker_id_t workerId,
+                                   partition_id_t partitionId) override = 0;
+  virtual void post_run() = 0;
+  virtual void pre_run() = 0;
+
+  void enqueue(txn::StoredProcedure xact) override {
+    assert(false && "enqueue not possible in bench");
+  }
+};
+
 class Benchmark {
  public:
-  const std::string name;
-  worker_id_t num_active_workers;
-  const worker_id_t num_max_workers;
-  const partition_id_t num_partitions;
-
   virtual void init() {}
   virtual void deinit() {}
-  virtual void load_data(int num_threads = 1) {}
-  virtual void gen_txn(worker_id_t wid, void *txn_ptr,
-                       partition_id_t partition_id) {}
 
-  virtual bool exec_txn(txn::Txn &txn, master_version_t master_ver,
-                        delta_id_t delta_ver, partition_id_t partition_id) {
-    return true;
-  }
-
-  virtual bool exec_txn_mvocc(txn::Txn &txn, master_version_t master_ver,
-                              delta_id_t delta_ver,
-                              partition_id_t partition_id) {
-    return true;
-  }
-
-  virtual bool exec_txn_mv2pl(txn::Txn &txn, master_version_t master_ver,
-                              delta_id_t delta_ver,
-                              partition_id_t partition_id) {
-    return true;
-  }
-
-  // Should return a memory pointer which will be used to describe a query.
-  virtual void *get_query_struct_ptr(partition_id_t pid) { return nullptr; }
-  virtual void free_query_struct_ptr(void *ptr) {}
+  virtual BenchQueue* getBenchQueue(worker_id_t workerId,
+                                    partition_id_t partitionId) = 0;
 
   // NOTE: Following will run before/after the workers starts the execution. it
   // will be synchronized, i.e., worker will not start transaction until all
   // workers finish the pre-run and a worker will not start post-run unless all
   // workers are ready to start the post run. Moreover, this will not apply to
   // the hot-plugged workers.
-  virtual void post_run(worker_id_t wid, xid_t xid, partition_id_t partition_id,
-                        master_version_t master_ver) {}
-  virtual void pre_run(worker_id_t wid, xid_t xid, partition_id_t partition_id,
-                       master_version_t master_ver) {}
+  //  virtual void post_run(worker_id_t wid, xid_t xid, partition_id_t
+  //  partition_id,
+  //                        master_version_t master_ver) = 0;
+  //  virtual void pre_run(worker_id_t wid, xid_t xid, partition_id_t
+  //  partition_id,
+  //                       master_version_t master_ver) = 0;
 
+ protected:
   Benchmark(std::string name = "BENNCH-DUMMY",
             worker_id_t num_active_workers = 1, worker_id_t num_max_workers = 1,
             partition_id_t num_partitions = 1)
@@ -84,7 +74,14 @@ class Benchmark {
         num_max_workers(num_max_workers),
         num_partitions(num_partitions) {}
 
-  virtual ~Benchmark() {}
+ public:
+  const std::string name;
+  worker_id_t num_active_workers;
+  const worker_id_t num_max_workers;
+  const partition_id_t num_partitions;
+
+ public:
+  virtual ~Benchmark() { LOG(INFO) << "~Benchmark"; }
 };
 
 }  // namespace bench

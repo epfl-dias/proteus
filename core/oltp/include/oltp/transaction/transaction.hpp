@@ -24,6 +24,8 @@
 #ifndef PROTEUS_TRANSACTION_HPP
 #define PROTEUS_TRANSACTION_HPP
 
+#include "oltp/common/common.hpp"
+
 namespace txn {
 
 class Txn;
@@ -33,14 +35,17 @@ class TxnTs {
   const xid_t txn_id;
   const xid_t txn_start_time;
 
- private:
   TxnTs(xid_t txn_id, xid_t txn_start_time)
       : txn_id(txn_id), txn_start_time(txn_start_time) {}
-  TxnTs(std::pair<xid_t, xid_t> txnId_startTime_pair)
+  explicit TxnTs(std::pair<xid_t, xid_t> txnId_startTime_pair)
       : txn_id(txnId_startTime_pair.first),
         txn_start_time(txnId_startTime_pair.second) {}
 
-  static TxnTs getTimestamps();
+  struct TxnTsCmp {
+    bool operator()(const TxnTs& a, const TxnTs& b) const {
+      return a.txn_start_time < b.txn_start_time;
+    }
+  };
 
   friend class Txn;
 };
@@ -48,15 +53,36 @@ class TxnTs {
 class Txn {
  public:
   const TxnTs txnTs;
-  const void* stmts;
+
+  const bool read_only;
+  const worker_id_t worker_id;
+  const partition_id_t partition_id;
+
+  const master_version_t master_version;
+  const delta_id_t delta_version;
+
+  xid_t commit_ts{};
 
  public:
-  Txn(void* stmts) : txnTs(TxnTs::getTimestamps()), stmts(stmts) {}
+  static Txn getTxn(worker_id_t workerId, partition_id_t partitionId,
+                    bool read_only = false);
+  static xid_t getTxn(Txn* txnPtr, worker_id_t workerId,
+                      partition_id_t partitionId, bool read_only = false);
 
-  // for bench pre-runners
-  Txn(void* stmts, xid_t xid) : txnTs(xid, xid), stmts(stmts) {}
+ private:
+  Txn(TxnTs txnTs, worker_id_t workerId, partition_id_t partitionId,
+      master_version_t master_version, bool read_only = false);
 
-  xid_t getCommitTs();
+  Txn(TxnTs txnTs, worker_id_t workerId, partition_id_t partitionId,
+      bool read_only = false);
+
+  Txn(worker_id_t workerId, partition_id_t partitionId, bool read_only = false);
+
+  struct [[maybe_unused]] TxnCmp {
+    bool operator()(const Txn& a, const Txn& b) const {
+      return a.txnTs.txn_start_time < b.txnTs.txn_start_time;
+    }
+  };
 };
 
 }  // namespace txn

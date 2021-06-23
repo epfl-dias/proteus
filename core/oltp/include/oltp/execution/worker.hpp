@@ -55,14 +55,12 @@ class Worker {
   partition_id_t partition_id;
 
   const topology::core *exec_core;
-  topology::core *affinity_core;
+  topology::core *affinity_core{};
 
-  xid_t curr_txn;
-  xid_t prev_delta_epoch;
-  xid_t curr_delta_epoch;
-  volatile master_version_t curr_master;
   bool is_hotplugged;
   volatile int64_t num_iters;
+
+  txn::TxnQueue *txnQueue{};
 
   // STATS
   size_t num_txns;
@@ -96,8 +94,7 @@ class Worker {
   }
 
  private:
-  void run_bench();
-  void run_interactive();
+  void run();
   friend class WorkerPool;
 };
 
@@ -120,7 +117,6 @@ class WorkerPool {
             partition_id_t num_partitions = 1, uint worker_sched_mode = 0,
             int num_iter_per_worker = -1, bool is_elastic_workload = false);
   void shutdown(bool print_stats = false);
-  void shutdown_manual();
 
   void start_workers();
   void add_worker(const topology::core *exec_location, int partition_id = -1);
@@ -134,49 +130,32 @@ class WorkerPool {
   void print_worker_stats_diff();
   std::pair<double, double> get_worker_stats_diff(bool print = false);
 
-  std::vector<xid_t> get_active_txns();
-  xid_t get_min_active_txn();
-  xid_t get_max_active_txn();
-  bool is_all_worker_on_master_id(master_version_t master_id);
-
-  //  template <class F, class... Args>
-  //  std::future<typename std::result_of<F(Args...)>::type> enqueueTask(
-  //      F &&f, Args &&... args);
-
-  void enqueueTask(
-      std::function<bool(xid_t, master_version_t, delta_id_t, partition_id_t)>
-          query);
-
-  worker_id_t size() { return workers.size(); }
-  std::string get_benchmark_name() { return this->_txn_bench->name; }
+  inline worker_id_t size() const { return workers.size(); }
   void pause();
   void resume();
 
- public:
  private:
-  WorkerPool() {
-    worker_counter = 0;
-    terminate = false;
-    proc_completed = false;
-    pre_barrier = false;
-  }
+  WorkerPool() = default;
+  ~WorkerPool() = default;
 
-  worker_id_t worker_counter;
-  std::atomic<bool> terminate;
-  std::atomic<bool> proc_completed;
+  txn::TxnQueue *txnQueue{};
+  bench::Benchmark *_txn_bench{};
 
-  std::atomic<size_t> post_barrier;
-  std::atomic<size_t> pre_barrier;
+  worker_id_t worker_counter{};
+  std::atomic<bool> terminate{};
+
+  std::atomic<size_t> post_barrier{};
+  std::atomic<size_t> pre_barrier{};
   std::condition_variable pre_cv;
   std::mutex pre_m;
 
   std::unordered_map<uint, std::pair<std::thread *, Worker *>> workers;
   std::vector<worker_id_t> elastic_set;
 
-  uint num_iter_per_worker;
-  uint worker_sched_mode;
-  partition_id_t num_partitions;
-  bool elastic_workload;
+  uint num_iter_per_worker{};
+  uint worker_sched_mode{};
+  partition_id_t num_partitions{};
+  bool elastic_workload{};
 
   // Stats
 
@@ -186,36 +165,6 @@ class WorkerPool {
 
   std::vector<double> prev_sum_tps;
 
-  // TXN benchmark
-  bench::Benchmark *_txn_bench;
-
-  // External TXN Queue
-  std::queue<
-      std::function<bool(xid_t, master_version_t, delta_id_t, partition_id_t)>>
-      tasks;
-
-  std::mutex m;
-  std::condition_variable cv;
-
-  ~WorkerPool() {
-    // if (terminate == true) {
-    //   if (!proc_completed) {
-    //     print_worker_stats();
-    //   }
-    // } else {
-    //   std::cout << "[destructor] shutting down workers" << std::endl;
-    //   terminate = true;
-    //   // cv.notify_all();
-    //   for (auto &worker : workers) {
-    //     if (!worker.second.second->terminate) {
-    //       worker.second.second->terminate = true;
-    //       worker.second.first->join();
-    //     }
-    //   }
-    //   print_worker_stats();
-    //   workers.clear();
-    // }
-  }
   friend class Worker;
 };
 

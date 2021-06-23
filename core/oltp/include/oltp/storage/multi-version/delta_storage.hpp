@@ -27,6 +27,7 @@
 #include <sys/mman.h>
 
 #include <cstdlib>
+#include <forward_list>
 #include <iostream>
 #include <limits>
 #include <mutex>
@@ -36,7 +37,7 @@
 #include "oltp/common/memory-chunk.hpp"
 
 #define DELTA_DEBUG 1
-#define GC_CAPACITY_MIN_PERCENT 75
+#define GC_CAPACITY_MIN_PERCENT 0
 
 namespace storage {
 
@@ -47,13 +48,19 @@ class DeltaDataPtr;
 
 class alignas(4096) DeltaStore {
  public:
-  DeltaStore(delta_id_t delta_id, uint64_t ver_list_capacity = 4,
-             uint64_t ver_data_capacity = 4, partition_id_t num_partitions = 1);
+  explicit DeltaStore(delta_id_t delta_id, uint64_t ver_list_capacity = 4,
+                      uint64_t ver_data_capacity = 4,
+                      partition_id_t num_partitions = 1);
   ~DeltaStore();
 
   void print_info();
+  // for single-list
   void *insert_version(DeltaDataPtr &delta_list, xid_t t_min, xid_t t_max,
                        size_t rec_size, partition_id_t partition_id);
+  // for list-per-attribute
+  std::pair<void *, void *> insert_version(DeltaList &delta_list, xid_t t_min,
+                                           xid_t t_max, size_t rec_size,
+                                           partition_id_t partition_id);
   //  void *validate_or_create_list(void *list_ptr, size_t &delta_ver_tag,
   //                                ushort partition_id);
   void *validate_or_create_list(DeltaList &delta_list,
@@ -62,14 +69,13 @@ class alignas(4096) DeltaStore {
                           partition_id_t partition_id);
   void *create_version(size_t size, partition_id_t partition_id);
   void gc();
-  // void gc_with_counter_arr(int wrk_id);
 
   inline bool should_gc() {
 #if (GC_CAPACITY_MIN_PERCENT > 0)
     for (auto &p : partitions) {
-      // std::cout << "usage: " << p->usage() << std::endl;
+      // LOG(INFO) << "usage: " << p->usage() ;
       if (p->usage() > ((double)GC_CAPACITY_MIN_PERCENT) / 100) {
-        // std::cout << "usage: " << p->usage() << std::endl;
+        // LOG(INFO) << "usage: " << p->usage()*100;
         return true;
       }
     }
@@ -79,26 +85,41 @@ class alignas(4096) DeltaStore {
 #endif
   }
 
+  inline void update_active_epoch(xid_t epoch, worker_id_t worker_id) {
+    //    xid_t e = max_active_epoch;
+    //    while(max_active_epoch < epoch &&
+    //    !(max_active_epoch.compare_exchange_weak(e, epoch,
+    //    std::memory_order_relaxed))){
+    //      e = max_active_epoch;
+    //    }
+
+    while (deltaMeta.max_active_epoch < epoch) {
+      deltaMeta.max_active_epoch = epoch;
+    }
+  }
+
   inline void __attribute__((always_inline))
-  increment_reader(uint64_t epoch, worker_id_t worker_id) {
-    while (gc_lock < 0 && !should_gc())
+  increment_reader(xid_t epoch, worker_id_t worker_id) {
+    while (deltaMeta.readers < 0)
       ;
 
-    if (max_active_epoch < epoch) {
-      max_active_epoch = epoch;
+    deltaMeta.readers++;
+
+    while (deltaMeta.max_active_epoch < epoch) {
+      deltaMeta.max_active_epoch = epoch;
     }
-    this->readers++;
   }
 
   inline void __attribute__((always_inline))
   decrement_reader(uint64_t epoch, worker_id_t worker_id) {
-    if (readers.fetch_sub(1) <= 1 && touched) {
+    if (deltaMeta.readers.fetch_sub(1, std::memory_order_relaxed) == 1 &&
+        touched) {
       gc();
     }
   }
 
  private:
-  class alignas(256) DeltaPartition {
+  class alignas(hardware_destructive_interference_size) DeltaPartition {
     std::atomic<char *> ver_list_cursor;
     std::atomic<char *> ver_data_cursor;
     const delta_id_t delta_id;
@@ -107,8 +128,6 @@ class alignas(4096) DeltaStore {
     const oltp::common::mem_chunk ver_list_mem;
     const oltp::common::mem_chunk ver_data_mem;
     bool touched;
-    std::mutex print_lock;
-    bool printed;
     const char *list_cursor_max;
     const char *data_cursor_max;
 
@@ -129,11 +148,18 @@ class alignas(4096) DeltaStore {
                    char *ver_data_cursor, oltp::common::mem_chunk ver_data_mem,
                    partition_id_t pid, delta_id_t delta_id);
 
-    inline uint16_t create_delta_uuid(delta_id_t delta_id, partition_id_t pid) {
+    static inline uint16_t create_delta_uuid(delta_id_t d_id,
+                                             partition_id_t partitionId) {
       uint16_t tmp = 0;
-      tmp = (tmp | delta_id) << 8u;
-      tmp |= pid;
+      tmp = (tmp | d_id) << 8u;
+      tmp |= partitionId;
       return tmp;
+    }
+    static inline auto get_delta_id(uint16_t delta_uuid) {
+      return (size_t)(delta_uuid >> 8u);
+    }
+    static inline auto get_delta_pid(uint16_t delta_uuid) {
+      return (size_t)(delta_uuid & 0x00FF);
     }
 
     ~DeltaPartition() {
@@ -187,18 +213,25 @@ class alignas(4096) DeltaStore {
     friend class DeltaStore;
   };
 
-  std::atomic<uint32_t> tag{};
-  xid_t max_active_epoch;
-
-  std::vector<DeltaPartition *> partitions{};
-  std::atomic<uint> readers{};
-  std::atomic<short> gc_lock{};
-  bool touched;
-  std::atomic<uint> gc_reset_success{};
-  std::atomic<uint> gc_requests{};
-
  public:
   const delta_id_t delta_id;
+
+ private:
+  bool touched;
+  std::atomic<uint32_t> tag{};
+  std::vector<DeltaPartition *> partitions{};
+
+  struct meta {
+    volatile xid_t max_active_epoch;
+    std::atomic<int64_t> readers{};
+  };
+
+  alignas(hardware_destructive_interference_size) meta deltaMeta;
+
+  volatile uint gc_reset_success{};
+  volatile uint gc_requests{};
+
+ public:
   uint64_t total_mem_reserved;
 
   friend class DeltaMemoryPtr;

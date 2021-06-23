@@ -98,31 +98,35 @@ class YCSB : public Benchmark {
     ~YCSB_TXN() { delete ops; }
   };  // __attribute__((aligned(64)));
 
+  auto *get_query_struct(partition_id_t pid) const {
+    auto _txn_mem = (struct YCSB_TXN *)MemoryManager::mallocPinnedOnNode(
+        sizeof(struct YCSB_TXN), pid);
+    _txn_mem->ops = (struct YCSB_TXN_OP *)MemoryManager::mallocPinnedOnNode(
+        sizeof(struct YCSB_TXN_OP) * num_ops_per_txn, pid);
+    return _txn_mem;
+  }
+  static void free_query_struct(struct YCSB_TXN *_txn_mem) {
+    MemoryManager::freePinned(_txn_mem->ops);
+    MemoryManager::freePinned(_txn_mem);
+  }
+
  public:
   void pre_run(worker_id_t wid, xid_t xid, partition_id_t partition_id,
-               master_version_t master_ver) override {
+               master_version_t master_ver) {
     assert(xid < TXN_ID_BASE);
-    LOG(INFO) << "PRE_RUN_XID: " << xid;
     uint64_t to_ins = num_records / num_max_workers;
     uint64_t start = to_ins * wid;
 
-    auto *q_ptr = (struct YCSB_TXN *)get_query_struct_ptr(partition_id);
+    struct YCSB_TXN *q_ptr = get_query_struct(partition_id);
+    txn::TransactionExecutor executorTmp;
 
     for (uint64_t i = start; i < (start + to_ins); i++) {
       std::vector<uint64_t> tmp(num_fields, i);
       gen_insert_txn(i, &tmp, q_ptr);
-      auto pseudoTxn = txn::Txn(q_ptr, xid);
-      this->exec_txn(pseudoTxn, master_ver, 0, partition_id);
+      auto pseudoTxn = txn::Txn::getTxn(wid, partition_id);
+      this->exec_txn(executorTmp, pseudoTxn, q_ptr);
     }
-    free_query_struct_ptr(q_ptr);
-
-    //    LOG(INFO) << "################";
-    //    LOG(INFO)<< "\n" << *(ycsb_tbl->p_index);
-    //    LOG(INFO) << "################";
-  }
-
-  void load_data(int num_threads) override {
-    assert(false && "Not implemented");
+    free_query_struct(q_ptr);
   }
 
   static void gen_insert_txn(uint64_t key, void *rec, struct YCSB_TXN *q_ptr) {
@@ -140,25 +144,8 @@ class YCSB : public Benchmark {
     q_ptr->n_ops = 1;
   }
 
-  void free_query_struct_ptr(void *ptr) override {
-    auto *txn = (struct YCSB_TXN *)ptr;
-    MemoryManager::freePinned(txn->ops);
-    MemoryManager::freePinned(txn);
-  }
-
-  void *get_query_struct_ptr(partition_id_t pid) override {
-    auto *txn = (struct YCSB_TXN *)MemoryManager::mallocPinnedOnNode(
-        sizeof(struct YCSB_TXN), pid);
-    txn->ops = (struct YCSB_TXN_OP *)MemoryManager::mallocPinnedOnNode(
-        sizeof(struct YCSB_TXN_OP) * num_ops_per_txn, pid);
-    return txn;
-  }
-
-  void gen_txn(worker_id_t wid, void *txn_ptr,
-               partition_id_t partition_id) override {
+  void gen_txn(worker_id_t wid, void *txn_ptr, partition_id_t partition_id) {
     auto *txn = (struct YCSB_TXN *)txn_ptr;
-    // txn->read_only = false;
-
     static thread_local auto recs_per_thread =
         this->num_records / this->num_active_workers;
     static thread_local uint64_t rec_key_iter = 0;
@@ -182,14 +169,6 @@ class YCSB : public Benchmark {
 
 #endif
     txn->n_ops = num_ops_per_txn;
-    //    if (txn->n_ops == txn::OPTYPE_LOOKUP) {
-    //      txn->n_ops = num_ops_per_txn;
-    //    }
-    //    if(op == txn::OPTYPE_LOOKUP){
-    //      txn->n_ops = num_ops_per_txn;
-    //    } else {
-    //      txn->n_ops = num_ops_per_txn;
-    //    }
     for (int i = 0; i < txn->n_ops; i++) {
       // txn->ops[i].data_table = ycsb_tbl;
       txn->ops[i].rec = nullptr;
@@ -228,17 +207,9 @@ class YCSB : public Benchmark {
     }
   }
 
-  bool exec_txn(txn::Txn &txn, master_version_t master_ver,
-                delta_id_t delta_ver, partition_id_t partition_id) override {
-    return exec_txn_mv2pl(txn, master_ver, delta_ver, partition_id);
-  }
-
-  bool exec_txn_mv2pl(txn::Txn &txn, master_version_t master_ver,
-                      delta_id_t delta_ver,
-                      partition_id_t partition_id) override {
-    // In MV2PL, txn.txnTs.txn_start_time == txn.txnTs.txn_commit_time
-
-    auto *txn_stmts = (struct YCSB_TXN *)txn.stmts;
+  bool exec_txn(txn::TransactionExecutor &executor, txn::Txn &txn,
+                void *params) {
+    auto *txn_stmts = static_cast<struct YCSB_TXN *>(params);
     int n = txn_stmts->n_ops;
 
     // static thread_local int n = this->num_ops_per_txn;
@@ -262,7 +233,6 @@ class YCSB : public Benchmark {
         case txn::OPTYPE_UPDATE: {
           auto *hash_ptr =
               (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
-
           if (hash_ptr->write_lck.try_lock()) {
             hash_ptrs_lock_acquired[num_locks] = hash_ptr;
             num_locks++;
@@ -285,32 +255,33 @@ class YCSB : public Benchmark {
       struct YCSB_TXN_OP op = txn_stmts->ops[i];
       switch (op.op_type) {
         case txn::OPTYPE_LOOKUP: {
-          auto *hash_ptr =
+          auto *recordPtr =
               (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
 
-          hash_ptr->latch.acquire();
-          ycsb_tbl->getIndexedRecord(txn.txnTs, *hash_ptr, read_loc.data(),
-                                     col_idx_read_local.data(), num_col_read);
-          hash_ptr->latch.release();
+          recordPtr->readWithLatch([&](global_conf::IndexVal *idx_ptr) {
+            ycsb_tbl->getIndexedRecord(txn.txnTs, *idx_ptr, read_loc.data(),
+                                       col_idx_read_local.data(), num_col_read);
+          });
           break;
         }
 
         case txn::OPTYPE_UPDATE: {
-          auto *hash_ptr =
+          auto *recordPtr =
               (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
 
-          hash_ptr->latch.acquire();
-          ycsb_tbl->updateRecord(txn.txnTs.txn_start_time, hash_ptr, op.rec,
-                                 delta_ver, col_idx_update_local.data(),
-                                 num_col_upd, master_ver);
-          hash_ptr->latch.release();
-          hash_ptr->write_lck.unlock();
+          recordPtr->writeWithLatch([&](global_conf::IndexVal *idx_ptr) {
+            ycsb_tbl->updateRecord(
+                txn.txnTs.txn_start_time, idx_ptr, op.rec, txn.delta_version,
+                col_idx_update_local.data(), num_col_upd, txn.master_version);
+          });
+          recordPtr->write_lck.unlock();
           break;
         }
         case txn::OPTYPE_INSERT: {
-          void *hash_ptr = ycsb_tbl->insertRecord(
-              op.rec, txn.txnTs.txn_start_time, partition_id, master_ver);
-          ycsb_tbl->p_index->insert(op.key, hash_ptr);
+          void *recordPtr =
+              ycsb_tbl->insertRecord(op.rec, txn.txnTs.txn_start_time,
+                                     txn.partition_id, txn.master_version);
+          ycsb_tbl->p_index->insert(op.key, recordPtr);
           break;
         }
         default:
@@ -322,264 +293,15 @@ class YCSB : public Benchmark {
     return true;
   }
 
-  bool exec_txn_mvocc(txn::Txn &txn, master_version_t master_ver,
-                      delta_id_t delta_ver,
-                      partition_id_t partition_id) override {
-    auto *txn_stmts = (struct YCSB_TXN *)txn.stmts;
-    int n = txn_stmts->n_ops;
-
-    // static thread_local int n = this->num_ops_per_txn;
-    static thread_local ushort num_col_upd = this->num_of_col_upd_per_op;
-    static thread_local ushort num_col_read = this->num_of_col_read_per_op;
-    static thread_local std::vector<column_id_t> col_idx_read_local(
-        col_idx_read);
-    static thread_local std::vector<column_id_t> col_idx_update_local(
-        col_idx_upd);
-    static thread_local std::vector<uint64_t> read_loc(num_fields, 0);
-
-    bool abort = false;
-    bool read_only = true;
-    int i = 0;
-    assert(txn.txnTs.txn_start_time < txn.txnTs.txn_id);
-
-    // xid = transaction_id
-    // startTime = higherTs
-    // commitTime = commitTs (lowerTs
-
-    static thread_local std::vector<global_conf::IndexVal *> indexSearches(
-        n, nullptr);
-
-    for (i = 0; i < n && !abort; i++) {
-      struct YCSB_TXN_OP op = txn_stmts->ops[i];
-
-      switch (op.op_type) {
-        case txn::OPTYPE_UPDATE: {
-          read_only = false;
-          indexSearches[i] =
-              (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
-
-          // check if somebody hasnt updated it yet.
-          auto old_val = indexSearches[i]->t_min;
-          if (old_val < txn.txnTs.txn_start_time) {
-            // if(hash_ptr->write_lck.try_lock()){
-            // nobody has overwrote this one yet.
-
-            // CORRECT 1
-            //            hash_ptr->latch.acquire();
-            //            ycsb_tbl->updateRecord(txn.txnTs.txn_id, hash_ptr,
-            //            op.rec,
-            //                                   delta_ver,
-            //                                   col_idx_update_local.data(),
-            //                                   num_col_upd, master_ver);
-            //            hash_ptr->t_min = txn.txnTs.txn_id;
-            //            hash_ptr->latch.release();
-            //            assert(hash_ptr->t_min == txn.txnTs.txn_id && "I
-            //            update so it should be!!");
-
-            // CORRECT 2
-            ycsb_tbl->createVersion(txn.txnTs.txn_id, indexSearches[i],
-                                    delta_ver, col_idx_update_local.data(),
-                                    num_col_upd);
-            // hash_ptr->t_min = txn.txnTs.txn_id;
-            // auto old_val = hash_ptr->t_min;
-            if (__sync_bool_compare_and_swap(&(indexSearches[i]->t_min),
-                                             old_val, txn.txnTs.txn_id)) {
-              ycsb_tbl->updateRecordWithoutVersion(
-                  txn.txnTs.txn_id, indexSearches[i], op.rec, delta_ver,
-                  col_idx_update_local.data(), num_col_upd, master_ver);
-              // std::atomic_thread_fence(std::memory_order_seq_cst);
-            } else {
-              abort = true;
-            }
-
-            // first create version
-            // then update Ts
-            // then update Data
-
-            // in this case, even someone read new Ts, goes to delta, they will
-            // find something.
-
-            // create-version
-            /*ycsb_tbl->createVersion(txn.txnTs.txn_start_time,
-                                    hash_ptr,
-                                       delta_ver,
-                                    col_idx_update_local.data(),
-                                    num_col_upd);*/
-
-            // updateTs
-            // this should be compare-and-swap
-
-            // what if someone created version but failed on C&S Ts?
-            // for now lets latch it to prevent false access?
-            // because the delta-list is not concurrent protected.
-            // otherwise we will need a latch in writing version anyway/
-
-            // updateData
-            /*ycsb_tbl->updateRecordWithoutVersion(txn.txnTs.txn_id,
-                                                    hash_ptr, op.rec,
-                                                    delta_ver,
-                                                    col_idx_update_local.data(),
-                                                    num_col_upd,
-                                                    master_ver);*/
-
-          } else {
-            // LOG(INFO) << "Abort Txn: " << txn.txnTs.txn_id << " | record: "
-            // << op.key << "| i: " << i;
-            abort = true;
-          }
-
-          break;
-        }
-        case txn::OPTYPE_LOOKUP: {
-          indexSearches[i] =
-              (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
-
-          // following only compares with xid. if myself has written this record
-          // then it will return wrong result.
-          // hash_ptr->latch.acquire();
-          auto tmin = indexSearches[i]->t_min;
-          ycsb_tbl->getIndexedRecord(txn.txnTs, *indexSearches[i],
-                                     read_loc.data(), col_idx_read_local.data(),
-                                     num_col_read);
-          // hash_ptr->latch.release();
-
-          // compiler fence for re-order.
-          //          if (__unlikely(tmin != indexSearches[i]->t_min)) {
-          //            // failed, fall back to latch
-          //            //indexSearches[i]->latch.acquire();
-          ////            ycsb_tbl->getIndexedRecord(txn.txnTs,
-          ///*indexSearches[i], read_loc.data(), / col_idx_read_local.data(),
-          /// num_col_read);
-          //            //indexSearches[i]->latch.release();
-          //            abort = true;
-          //          }
-
-          // read TS, try reading data, and re-verify Ts, to verify if read was
-          // successful? try optimistic, and if read fails, either acquire
-          // latch, or abort (read-write conflict)
-
-          // do we need the following check?
-          //          if(hash_ptr->t_min < xid.txn_id || hash_ptr->t_min==
-          //          xid.txn_start_time){
-          //            // nobody has overwrote this one yet.
-          //            // can read the top version.
-          //          }
-
-          break;
-        }
-
-        case txn::OPTYPE_INSERT: {
-          read_only = false;
-          void *hash_ptr = ycsb_tbl->insertRecord(
-              op.rec, txn.txnTs.txn_start_time, partition_id, master_ver);
-          ycsb_tbl->p_index->insert(op.key, hash_ptr);
-          indexSearches[i] =
-              static_cast<txn::CC_MV2PL::PRIMARY_INDEX_VAL *>(hash_ptr);
-          break;
-        }
-        default: {
-          throw std::runtime_error("YCSB: unknown op");
-        }
-      }
-    }
-
-    if (__unlikely(!read_only)) {
-      if (__unlikely(abort)) {
-        // aborted on op i, so start rollback from i-1
-
-        for (i = i - 2; i >= 0; i--) {
-          struct YCSB_TXN_OP *op = &(txn_stmts->ops[i]);
-
-          // instead of finding again, we can also save the pointers.
-          switch (op->op_type) {
-            case txn::OPTYPE_UPDATE: {
-              // LOG(INFO) << "Rollback Txn: " << txn.txnTs.txn_id << " |
-              // record: " << op.key << "| i: " << i;
-              if (__unlikely(indexSearches[i] == nullptr)) {
-                indexSearches[i] =
-                    (global_conf::IndexVal *)ycsb_tbl->p_index->find(op->key);
-              }
-
-              //              if(hash_ptr->t_min != txn.txnTs.txn_id){
-              //                LOG(INFO) << "Mismatch: " << op.key << " :: " <<
-              //                hash_ptr->t_min << " | " << txn.txnTs.txn_id;
-              //              }
-
-              // assert(indexSearches[i]->t_min == txn.txnTs.txn_id);
-              // hash_ptr->latch.acquire();
-
-              ycsb_tbl->updateRollback(txn.txnTs, indexSearches[i],
-                                       col_idx_update_local.data(),
-                                       num_col_upd);
-              // hash_ptr->latch.release();
-
-              // assert(indexSearches[i]->t_min < txn.txnTs.txn_start_time);
-
-              break;
-            }
-            case txn::OPTYPE_INSERT: {
-              LOG(INFO) << "Rollback insert txn, what to do?";
-              break;
-            }
-            case txn::OPTYPE_LOOKUP:
-            default:
-              break;
-          }
-        }
-
-      } else {
-        auto commitTs = txn.getCommitTs();
-
-        // validate
-        // write-write conflicts are detected earlier
-        // read-write conflict detection:
-        //    modified object
-        //    deleted object
-        //    created object
-        //    created-and-deleted object
-
-        // go into commit procedure
-
-        for (i = 0; i < n; i++) {
-          struct YCSB_TXN_OP *op = &(txn_stmts->ops[i]);
-
-          // instead of finding again, we can also save the pointers.
-
-          //          auto *hash_ptr =
-          //              (global_conf::IndexVal
-          //              *)ycsb_tbl->p_index->find(op->key);
-
-          switch (op->op_type) {
-            // update the txnTs of inserted records.
-            // update the txnTs of updated records.
-            // also update the TS in delta store (undo-buffer)?
-            // will be needed when an record is update twice in same Txn.
-            case txn::OPTYPE_INSERT:
-            case txn::OPTYPE_UPDATE: {
-              if (__unlikely(indexSearches[i] == nullptr)) {
-                indexSearches[i] =
-                    (global_conf::IndexVal *)ycsb_tbl->p_index->find(op->key);
-              }
-              // hash_ptr->latch.acquire();
-              indexSearches[i]->t_min = commitTs;
-              // std::atomic_thread_fence(std::memory_order_seq_cst);
-              // hash_ptr->latch.release();
-              break;
-            }
-            case txn::OPTYPE_LOOKUP:
-            default:
-              break;
-          }
-        }
-      }
-    }
-
-    return !abort;
-  }
-
+  void init() override {}
   void deinit() override { zipf.~ZipfianGenerator(); }
-
   ~YCSB() override = default;
+
+  BenchQueue *getBenchQueue(worker_id_t workerId,
+                            partition_id_t partitionId) override {
+    return dynamic_cast<BenchQueue *>(
+        new YCSBTxnGen(*this, workerId, partitionId));
+  }
 
   // private:
   YCSB(std::string name = "YCSB", int num_fields = 2, int num_records = 1000000,
@@ -627,7 +349,7 @@ class YCSB : public Benchmark {
     this->schema = &storage::Schema::getInstance();
     LOG(INFO) << "workers: " << (uint)(this->num_active_workers);
     LOG(INFO) << "Max-Workers: " << (uint)(this->num_max_workers);
-    init();
+    this->YCSB::init();
 
     storage::TableDef columns;
     for (int i = 0; i < num_fields; i++) {
@@ -639,6 +361,43 @@ class YCSB : public Benchmark {
         (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
         columns, num_records);
   }
+
+ public:
+  //-- generator
+  class YCSBTxnGen : public bench::BenchQueue {
+    YCSBTxnGen(YCSB &ycsbBench, worker_id_t wid, partition_id_t partition_id)
+        : ycsbBench(ycsbBench), wid(wid), partition_id(partition_id) {
+      this->_txn_mem = ycsbBench.get_query_struct(partition_id);
+
+      this->type = txn::BENCH_QUEUE;
+    }
+    ~YCSBTxnGen() override { bench::YCSB::free_query_struct(_txn_mem); }
+
+    txn::StoredProcedure pop(worker_id_t workerId,
+                             partition_id_t partitionId) override {
+      ycsbBench.gen_txn(this->wid, this->_txn_mem, this->partition_id);
+
+      return txn::StoredProcedure(
+          [&](txn::TransactionExecutor &executor, txn::Txn &txn, void *params) {
+            return ycsbBench.exec_txn(executor, txn, params);
+          },
+          this->_txn_mem);
+    }
+
+    void pre_run() override { ycsbBench.pre_run(wid, 0, partition_id, 0); }
+    void post_run() override {}
+
+   private:
+    struct YCSB_TXN *_txn_mem;
+    YCSB &ycsbBench;
+    const worker_id_t wid;
+    const partition_id_t partition_id;
+
+    friend class YCSB;
+  };
+  //-- END generator
+
+  friend class YCSBTxnGen;
 };
 
 }  // namespace bench

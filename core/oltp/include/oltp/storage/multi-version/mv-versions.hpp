@@ -165,8 +165,8 @@ class VersionChain {
       } else {
         tmp = ptr->next;
       }
-      return nullptr;
     }
+    assert(false && "if asked then why there is no version?");
     return nullptr;
   }
 
@@ -175,7 +175,8 @@ class VersionChain {
   }
 
   TaggedDeltaDataPtr<typename T::version_t> head{};
-  uint64_t last_updated_tmin{};
+  xid_t last_updated_tmin{};
+  xid_t last_updated_tmax{};
 
   friend class storage::DeltaStore;
   friend T;

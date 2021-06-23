@@ -128,10 +128,21 @@ class Schema {
                                 worker_id_t worker_id) {
     this->deltaStore[ver]->decrement_reader(epoch, worker_id);
   }
+  inline void update_delta_epoch(delta_id_t delta_id, xid_t epoch,
+                                 worker_id_t worker_id) {
+    this->deltaStore[delta_id]->update_active_epoch(epoch, worker_id);
+  }
   inline void switch_delta(delta_id_t prev, delta_id_t curr, xid_t epoch,
                            worker_id_t worker_id) {
-    this->deltaStore[prev]->decrement_reader(epoch, worker_id);
-    this->deltaStore[curr]->increment_reader(epoch, worker_id);
+    if (prev == curr) {
+      this->deltaStore[prev]->update_active_epoch(epoch, worker_id);
+    } else {
+      this->deltaStore[prev]->decrement_reader(epoch, worker_id);
+      this->deltaStore[curr]->increment_reader(epoch, worker_id);
+    }
+
+    //    this->deltaStore[prev]->decrement_reader(epoch, worker_id);
+    //    this->deltaStore[curr]->increment_reader(epoch, worker_id);
   }
 
   // twin-column/ HTAP snapshotting

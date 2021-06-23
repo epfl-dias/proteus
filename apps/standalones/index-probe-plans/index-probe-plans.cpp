@@ -123,21 +123,20 @@ int main(int argc, char *argv[]) {
   tbl = storage::Schema::getInstance().create_table(
       "table_one", storage::COLUMN_STORE, columns, initial_records * 10);
 
-  //FIXME: enqueue_query interface broken due to OLTP interface changes.
-
+  // FIXME: enqueue_query interface broken due to OLTP interface changes.
 
   // Insert multiple values.
   // INSERT INTO T VALUES (5, 10);
-  //oltp_engine.enqueue_query(insert_query);
+  // oltp_engine.enqueue_query(insert_query);
 
   // SELECT * FROM T WHERE a=5;
-  //oltp_engine.enqueue_query(select_query);
+  // oltp_engine.enqueue_query(select_query);
 
   // UPDATE T SET b = 15 WHERE a=5;
   //  oltp_engine.enqueue_query(update_query);
 
   // SELECT * FROM T WHERE a=5;
-  //oltp_engine.enqueue_query(select_query);
+  // oltp_engine.enqueue_query(select_query);
 
   RelBuilderFactory factory{__FUNCTION__};
 
@@ -180,22 +179,22 @@ int main(int argc, char *argv[]) {
           .prepare();
 
   oltp_engine.snapshot();
-//  oltp_engine.enqueue_query([&](auto xid, auto master_ver, auto delta_ver,
-//                                auto partition_id) -> bool {
-//    TheSession = session{xid, master_ver, delta_ver, partition_id};
-//    LOG(INFO) << builder.execute();
-//    return true;
-//  });
+  //  oltp_engine.enqueue_query([&](auto xid, auto master_ver, auto delta_ver,
+  //                                auto partition_id) -> bool {
+  //    TheSession = session{xid, master_ver, delta_ver, partition_id};
+  //    LOG(INFO) << builder.execute();
+  //    return true;
+  //  });
 
   std::this_thread::sleep_for(std::chrono::seconds{5});
 
   oltp_engine.snapshot();
-//  oltp_engine.enqueue_query([&](auto xid, auto master_ver, auto delta_ver,
-//                                auto partition_id) -> bool {
-//    TheSession = session{xid, master_ver, delta_ver, partition_id};
-//    LOG(INFO) << builder2.execute();
-//    return true;
-//  });
+  //  oltp_engine.enqueue_query([&](auto xid, auto master_ver, auto delta_ver,
+  //                                auto partition_id) -> bool {
+  //    TheSession = session{xid, master_ver, delta_ver, partition_id};
+  //    LOG(INFO) << builder2.execute();
+  //    return true;
+  //  });
 
   std::this_thread::sleep_for(std::chrono::seconds{5});
 
