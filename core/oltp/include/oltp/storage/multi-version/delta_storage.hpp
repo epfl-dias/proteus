@@ -103,7 +103,14 @@ class alignas(4096) DeltaStore {
     while (deltaMeta.readers < 0)
       ;
 
-    deltaMeta.readers++;
+    auto x = deltaMeta.readers++;
+
+    // safety-check
+    while (x < 0) {
+      while (deltaMeta.readers < 0)
+        ;
+      x = deltaMeta.readers++;
+    }
 
     while (deltaMeta.max_active_epoch < epoch) {
       deltaMeta.max_active_epoch = epoch;
