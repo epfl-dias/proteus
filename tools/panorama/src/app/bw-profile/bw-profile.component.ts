@@ -1,17 +1,16 @@
-import {Component, OnInit} from '@angular/core';
+import {Component, EventEmitter, Input, OnInit, Output} from '@angular/core';
 import * as d3 from 'd3';
-import VisualizationSpec, {default as vegaEmbed} from 'vega-embed';
+import {default as vegaEmbed} from 'vega-embed';
 import {JoinAggregateTransformNode} from 'vega-lite/build/src/compile/data/joinaggregate';
 import {JoinAggregateFieldDef, JoinAggregateTransform} from 'vega-lite/src/transform';
 import {VgJoinAggregateTransform} from 'vega-lite/src/vega.schema';
+import {timestamp} from 'rxjs/operators';
+import {VisualizationSpec, Result} from 'vega-embed';
+import {EventTimelineService} from '../event-timeline.service';
+import {Operation} from '../operation';
 
 class TimeAdjustment {
-  start: number;
-  freq: number;
-
-  constructor(start: number, end: number, freq: number) {
-    this.start = start;
-    this.freq = freq;
+  constructor(public start: number, public end: number, public freq: number, public startOffsetInTime: number) {
   }
 }
 
@@ -21,6 +20,8 @@ class TimeAdjustment {
   styleUrls: ['./bw-profile.component.sass']
 })
 export class BwProfileComponent implements OnInit {
+  @Output() timerange = new EventEmitter<number[]>();
+  private privatetimeselection: number[];
 
   // var margin = {top: 20, right: 20, bottom: 40, left: 40}
   // width = 500
@@ -28,43 +29,37 @@ export class BwProfileComponent implements OnInit {
   // gap = 0,
   // ease = 'cubic-in-out';
   // var svg, duration = 500;
+  private plots: Promise<Result>;
 
-
-  constructor() {
+  constructor(private timelineService: EventTimelineService) {
   }
-
-  private svg;
 
   static adjustTimestamps<T>(v: (T & { timestamp: number })[], adjust: TimeAdjustment): (T & { timestamp: number })[] {
     return v.map(e => {
-      e.timestamp = ((e.timestamp - adjust.start) / adjust.freq);  /* sec */
+      e.timestamp = ((e.timestamp - adjust.start) / adjust.freq) + adjust.startOffsetInTime;  /* sec */
       return e;
     });
   }
 
-  private createSvg(): void {
-    this.svg = d3.select('div#bw-profile').node();
-    console.log(this.svg);
-    // .append('svg')
-    // .attr('width', this.width + (this.margin * 2))
-    // .attr('height', this.height + (this.margin * 2))
-    // .append('g')
-    // .attr('transform', 'translate(' + this.margin + ',' + this.margin + ')');
-  }
-
   ngOnInit(): void {
-    this.createSvg();
-
     const buffRaw = d3.csv('/assets/ib-buffs.csv').then(
       d => d.map(e => ({timestamp: +e.timestamp, buffs: +e.buffs, handler: e.handler})).sort()
     );
 
-    const params = buffRaw.then(d => {
+    const params = Promise.all([buffRaw, this.timelineService.getTimeline()
+      .toPromise()
+      .then(data => {
+        return data.find(d => Operation.opNames[d.e.getOp()] === 'IB_BUFFS_GET_START_TIMESTAMP').start /  /* to convert to sec */ 1000.0;
+      }), this.timelineService.getKFrequency()
+      .toPromise()]).then(x => {
+      console.log(x[1]);
+      const d = x[0];
       const start = d[0].timestamp;
       const end = d[d.length - 1].timestamp;
       console.log(end - start);
-      const freq = (end - start) / 69.0; // ticks per second
-      return new TimeAdjustment(start, end, freq);
+      const freq = x[2] * 1000;
+      console.log('offset: ' + x[1] + ' freq: ' + freq);
+      return new TimeAdjustment(start, end, freq, x[1]);
     });
 
     const buffs = Promise.all([buffRaw, params]).then(dall => {
@@ -81,32 +76,43 @@ export class BwProfileComponent implements OnInit {
 
     const ibLog = Promise.all([d3.csv('/assets/ib-log.csv').then(d => d.map(e => ({
       timestamp: +e.timestamp,
+      handler: +e.handler,
       MB: (+e.bytes / (1024.0 * 1024))
     })).sort()), params]).then(dall => BwProfileComponent.adjustTimestamps(dall[0], dall[1]));
 
     const bw = ibLog.then(val => {
       let i = 0;
       const data = [];
-      let size = 0.0;
-      let time = 0.0;
-      const bwGBps = 25.0; // GBps
-      const step = 25.0 / (1000 * 1000); // usec
+      const size: { [id: number]: number; } = {};
+      let time = val[0].timestamp;
+      const bwGBps = 12.5; // GBps
+      const step = 25 * 100 / (1000 * 1000); // usec
       const mbperstep = (bwGBps * step) * 1024;
       console.log(mbperstep);
       console.log('--------------------');
-      while (i < val.length || size > 0) {
+      while (i < val.length) {
         while (i < val.length && val[i].timestamp < time) {
-          size += val[i].MB;
+          if (!(val[i].handler in size)) {
+            size[val[i].handler] = 0;
+          }
+          size[val[i].handler] += val[i].MB;
           ++i;
         }
 
-        const consume = Math.min(size, mbperstep);
-
-        data.push({
-          timestamp: time,
-          MB: consume / step,
-        });
-        size -= consume;
+        let anyPos = false;
+        for (const key in size) {
+          const consume = Math.min(size[key], mbperstep);
+          data.push({
+            timestamp: time,
+            MB: consume / step,
+            handler: key,
+          });
+          size[key] -= consume;
+          anyPos = anyPos || (size[key] > 0);
+        }
+        if (!anyPos && i >= val.length) {
+          break;
+        }
         time += step;
       }
 
@@ -120,7 +126,7 @@ export class BwProfileComponent implements OnInit {
       const ibCntReady = v[3];
 
       console.log(v);
-      vegaEmbed('#vega-lite', {
+      this.plots = vegaEmbed('#vega-lite', {
           $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
           // padding: 5,
 
@@ -159,6 +165,10 @@ export class BwProfileComponent implements OnInit {
                 aggregate: 'average', // sum',
                 field: 'MB'
               },
+              color: {
+                field: 'handler',
+                type: 'ordinal',
+              }
             },
           }, {
             data: {
@@ -362,10 +372,90 @@ export class BwProfileComponent implements OnInit {
                 field: 'big'
               },
             },
+          }, {
+            data: {
+              values: ibCntReady
+            },
+            width: 1500,
+            height: 100,
+            selection: {
+              brush: {
+                type: 'interval',
+                encodings: ['x'],
+                bind: 'scales',
+              },
+            },
+            transform: [
+              {calculate: 'datum.MB >= 1', as: 'big'}
+            ],
+            mark: 'image',
+            url: {value: 'https://vega.github.io/images/idl-logo.png'},
+            encoding: {
+              x: {
+                field: 'timestamp',
+                type: 'quantitative',
+                bin: {
+                  maxbins: 100,
+                  extent: {
+                    // @ts-ignore
+                    selection: 'brush',
+                  },
+                },
+                axis: {
+                  labelAngle: -45,
+                  labelOverlap: false,
+                },
+                title: 'time (s)',
+              },
+              y: {
+                aggregate: 'count',
+              },
+              color: {
+                field: 'big'
+              },
+              enter: {
+                url: {value: 'https://vega.github.io/images/idl-logo.png'},
+              }
+            },
           }],
+          resolve: {scale: {x: 'shared'}},
           config: {view: {stroke: null}}
         }
-      );
+      ).then(plot => {
+        this.timerange.emit(plot.view.signal('brush').timestamp);
+        plot.view.addSignalListener('brush', (signal, e) => {
+          console.log(signal + ' new val in listener: ' + JSON.stringify(e));
+          this.timerange.emit(e.timestamp);
+        });
+
+        return plot;
+      }).then(plot => {
+        this.select(this.privatetimeselection);
+        return plot;
+      });
     });
+  }
+
+  private eqArray(a: number[], b: number[]): boolean {
+    if (!a || !b || a.length !== b.length) {
+      return false;
+    }
+    return a.every((f, i) => Math.abs(f - b[i]) < 1e-9);
+  }
+
+  select(timerange: number[]): void {
+    this.plots.then(plot => {
+      if (!this.eqArray(plot.view.signal('brush').timestamp, timerange)) {
+        console.log('new selection: ' + plot.view.signal('brush').timestamp + ' => ' + timerange);
+        plot.view.signal('brush_timestamp', timerange).runAsync();
+      }
+    });
+  }
+
+  @Input()
+  set timeselection(e: number[]) {
+    console.log('Timeselection set to: ' + e);
+    this.privatetimeselection = e;
+    this.select(e);
   }
 }

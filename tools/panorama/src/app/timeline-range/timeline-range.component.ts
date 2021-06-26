@@ -1,21 +1,21 @@
 import {Component, EventEmitter, Input, OnInit, Output} from '@angular/core';
 import * as d3 from 'd3';
-import {schemeDark2} from 'd3-scale-chromatic';
 import {Selection} from 'd3-selection';
 import {RangeEvent, Event} from '../range-event';
+import {schemeDark2} from 'd3-scale-chromatic';
 import {Operation} from '../operation';
 import {OperationDetails} from '../operation-details';
 import {EventTimelineService} from '../event-timeline.service';
 
-
 @Component({
-  selector: 'app-timeline',
-  templateUrl: './timeline.component.html',
-  styleUrls: ['./timeline.component.sass']
+  selector: 'app-timeline-range',
+  templateUrl: './timeline-range.component.html',
+  styleUrls: ['./timeline-range.component.sass']
 })
-export class TimelineComponent implements OnInit {
+export class TimelineRangeComponent implements OnInit {
   @Output() timerange = new EventEmitter<number[]>();
   private privatetimeselection: number[];
+
   private svg;
   private margin = 50;
   private width = 750 - (this.margin * 2);
@@ -35,22 +35,25 @@ export class TimelineComponent implements OnInit {
   private activeBrushOrZoomEvent = false;
   private mapHeightPercent = 0.10;
   private mapImage: any;
+  /**
+   * Active selection, measured in pixels
+   *
+   * FIXME: it would be more intuitive to be in `ms` or `sec`
+   */
   public selection: number[];
-  //
-  // private filterStartOfTime: number;
-  // private filterEndOfTime: number;
 
-  constructor(private timelineService: EventTimelineService /*, private route: ActivatedRoute */) {
+  constructor(private timelineService: EventTimelineService) {
   }
 
   private createSvg(): void {
-    this.svg = d3.select('figure#timeline');
+    this.svg = d3.select('figure#timeline-range');
     // .append('svg')
     // .attr('width', this.width + (this.margin * 2))
     // .attr('height', this.height + (this.margin * 2))
     // .append('g')
     // .attr('transform', 'translate(' + this.margin + ',' + this.margin + ')');
   }
+
 
   private draw(canvas, hidden): void {
     const context = canvas.node().getContext('2d');
@@ -75,6 +78,9 @@ export class TimelineComponent implements OnInit {
       if (x > this.width) {
         return;
       }
+
+      const y = this.yScale(node.attr('y'));
+
       let end = +node.attr('end');
       if (end !== 0) {
         end = this.xScale(end);
@@ -82,8 +88,6 @@ export class TimelineComponent implements OnInit {
       if (end < 0) {
         return;
       }
-
-      const y = this.yScale(node.attr('y'));
 
       const width = end - x;
       context.fillStyle = hidden ? node.attr('fillStyleHidden') : node.attr('fillStyle');
@@ -98,10 +102,6 @@ export class TimelineComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // this.route.queryParams.subscribe(params => {
-    //   this.filterStartOfTime = params.filterStartOfTime;
-    //   this.filterEndOfTime = params.filterEndOfTime;
-    // });
     this.createSvg();
     //
     // this.get('data').forEach((d, index) => {
@@ -199,8 +199,23 @@ export class TimelineComponent implements OnInit {
     // console.log(d3.select('#container').node().getBoundingClientRect().top);
     //
     window.onresize = () => this.resize();
-    this.timelineService.getTimeline()
+
+
+    Promise.all([this.timelineService.getTimeline()
       .toPromise()
+      .then(data => {
+        return (data.find(d => Operation.opNames[d.e.getOp()] === 'CUPTI_GET_START_TIMESTAMP') || data[0]).start;
+      }), d3.csv('/assets/cupti.csv')
+    ]).then(d => {
+        const startOfTime = d[0];
+        const data = d[1];
+        return data.map((item) => {
+          const details = new OperationDetails(-1, -1, 'GPU Kernel: ' + item.kernel_name);
+          const event = new Event((+item.end / (1000 * 1000)) + startOfTime, -1, details);
+          return new RangeEvent((+item.start / (1000 * 1000)) + startOfTime, event);
+        });
+      }
+    )
       .then(data => {
         return data.map((e, index) => {
           e.start = Math.floor(e.start * 100000) / 100000;
@@ -213,8 +228,8 @@ export class TimelineComponent implements OnInit {
         });
       })
       .then(data => {
-        const startOfTime = data.map(e => e.start).reduce((e1, e2) => Math.min(e1, e2));
-        const endOfTime = data.map(e => e.end).reduce((e1, e2) => Math.max(e1, e2));
+        const startOfTime = 0; // data.map(e => e.start).reduce((e1, e2) => Math.min(e1, e2));
+        const endOfTime = (data.length !== 0) ? data.map(e => e.end).reduce((e1, e2) => Math.max(e1, e2)) : startOfTime;
 
         this.xScale =
           d3.scaleLinear().domain([startOfTime, endOfTime]).range([0, this.width]);
@@ -231,8 +246,13 @@ export class TimelineComponent implements OnInit {
           .unknown(d3.scaleImplicit);
         // this.get('data').apply(e => console.log(cScale(e.content.op)));
 
+        const ycalc = (e: RangeEvent) => {
+          const t = e.getOperator();
+          return t.slice(t.lastIndexOf('('));
+        };
+
         this.yScale = d3.scaleBand()
-          .domain(data.map(e => e['getGroup']()).sort().filter((value, index, self) => index === 0 || self[index - 1] !== value))
+          .domain(data.map(ycalc).sort().filter((value, index, self) => index === 0 || self[index - 1] !== value))
           .range([0, this.height])
           .paddingInner(this.whiteSpace);
 
@@ -244,30 +264,32 @@ export class TimelineComponent implements OnInit {
 
         const join = this.custom.selectAll('custom.rect').data(data);
 
-        const enterSel = join.enter()
-          .append('custom')
-          .attr('class', 'rect')
-          .attr('end', 0)
-          .attr('x', (e) => e.start)
-          .attr('y', (e) => e['getGroup']())
-          .attr('width', 5)
-          .attr('height', 5);
+        if (data) {
+          const enterSel = join.enter()
+              .append('custom')
+              .attr('class', 'rect')
+              .attr('end', 0)
+              .attr('x', (e) => e.start)
+              .attr('y', ycalc)
+              .attr('width', 5)
+              .attr('height', 5);
 
-        join.merge(enterSel)
-          .attr('end', (e) => e.end)
-          .attr('fillStyle', (e) => cScale(e.getCategory()))
-          .attr('fillStyleHidden', (d) => d.rgbid);
+          join.merge(enterSel)
+              .attr('end', (e) => e.end)
+              .attr('fillStyle', (e) => cScale(e.getCategory()))
+              .attr('fillStyleHidden', (d) => d.rgbid);
 
-        join.exit()
-          .attr('width', 0)
-          .attr('height', 0)
-          .remove();
+          join.exit()
+              .attr('width', 0)
+              .attr('height', 0)
+              .remove();
+        }
 
         this.data = data;
         this.draw(mainCanvas, false);
 
         this.map =
-          d3.select('figure#timeline')
+          d3.select('figure#timeline-range')
             .append('svg')
             .attr('width', this.width)
             .attr('height', this.mapHeight)
@@ -322,7 +344,7 @@ export class TimelineComponent implements OnInit {
 
     this.activeBrushOrZoomEvent = true;
     const t = event.transform; // || this.xScaleBrush.domain();
-    console.log('x=>' + t);
+    console.log(t);
     this.xScale.domain(t.rescaleX(this.xScaleBrush).domain());
 
     this.map.call(this.brush.move,
@@ -340,8 +362,8 @@ export class TimelineComponent implements OnInit {
       return;
     }
 
-    console.log('brushed: ' + this.selection + ' => ' + s);
     this.selection = s;
+    console.log('brushed-range: ' + s);
     if (this.activeBrushOrZoomEvent) {
       this.timerange.emit(this.selection.map(this.xScaleBrush.invert).map(x => x / 1000));
       return; // ignore brush-by-zoom
@@ -371,14 +393,14 @@ export class TimelineComponent implements OnInit {
   }
 
   private resize(/*event*/): void {
-    const fig = d3.select('figure#timeline').attr('style', 'margin-top: 0px; margin-bottom: 0px');
+    const fig = d3.select('figure#timeline-range').attr('style', 'margin-top: 0px; margin-bottom: 0px');
 
     // Align canvas with Vega axis
     fig.attr('style', 'margin-top: 0px; margin-bottom: 0px; margin-left: 58px');
     // @ts-ignore
     const bb = fig.node().getBoundingClientRect();
     const top = +bb.top;
-    const bbheight = +window.innerHeight * 7 / 8 - 16 /* body top+bottom padding */;
+    const bbheight = +window.innerHeight / 8 - 16 /* body top+bottom padding */;
     const mapHeight =
       (bbheight - top) * this.mapHeightPercent;
     this.mapHeight = mapHeight;
@@ -386,7 +408,7 @@ export class TimelineComponent implements OnInit {
     const oldHeight = this.height;
     const oldWidth = this.width;
 
-    this.height = 1000; // bbheight - top - mapHeight;
+    this.height = bbheight - top - mapHeight;
     this.width = 1500; // +bb.width;
 
     const s = this.selection;

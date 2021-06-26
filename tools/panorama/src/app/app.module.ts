@@ -6,13 +6,15 @@ import { AppComponent } from './app.component';
 import { TimelineComponent } from './timeline/timeline.component';
 import { BwProfileComponent } from './bw-profile/bw-profile.component';
 import { OverviewComponent } from './overview/overview.component';
+import { TimelineRangeComponent } from './timeline-range/timeline-range.component';
 
 @NgModule({
   declarations: [
     AppComponent,
     TimelineComponent,
     BwProfileComponent,
-    OverviewComponent
+    OverviewComponent,
+    TimelineRangeComponent
   ],
   imports: [
     BrowserModule,

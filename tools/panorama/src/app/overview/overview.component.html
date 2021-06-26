@@ -1,2 +1,3 @@
-<app-timeline></app-timeline>
-<app-bw-profile></app-bw-profile>
+<app-timeline-range [timeselection]="timerange" (timerange)="updateSelection($event)"></app-timeline-range>
+<app-timeline [timeselection]="timerange" (timerange)="updateSelection($event)"></app-timeline>
+<!--<app-bw-profile [timeselection]="timerange" (timerange)="updateSelection($event)"></app-bw-profile >-->

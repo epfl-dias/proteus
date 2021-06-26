@@ -73,3 +73,5 @@ testem.log
 .DS_Store
 Thumbs.db
 
+# Auto-pulled assets
+src/assets
