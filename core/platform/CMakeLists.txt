@@ -116,6 +116,8 @@ target_link_libraries(platform
   RDMA::RDMA
   ${CUDA_LIBS}
   cli-flags::cli-flags
+  PRIVATE
+  magic_enum::magic_enum
   )
 
 if (VTUNE AND VTUNE_ENABLE)

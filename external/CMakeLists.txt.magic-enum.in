@@ -1,0 +1,9 @@
+cmake_minimum_required(VERSION 3.11.4)
+
+include(FetchContent)
+FetchContent_Declare(
+        magic-enum-download
+        GIT_REPOSITORY https://github.com/Neargye/magic_enum.git
+        GIT_TAG       v0.7.2)
+
+FetchContent_MakeAvailable(magic-enum-download)

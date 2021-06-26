@@ -507,7 +507,7 @@ void MemMoveDevice::catcher(MemMoveConf *mmc, int group_id,
     } while (true);
   }
 
-  event_range<log_op::MEMMOVE_CLOSE_START> er{this};
+  event_range<range_log_op::MEMMOVE_OPEN> er{this, catch_pip, pip->getGroup()};
   nvtxRangePushA("memmove::catch_close");
   pip->close();
   nvtxRangePop();

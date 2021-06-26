@@ -21,6 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include <magic_enum.hpp>
 #include <mutex>
 #include <platform/common/common.hpp>
 #include <platform/memory/memory-manager.hpp>
@@ -90,7 +91,23 @@ struct log_info {
   void flush() const;
 };
 
+struct ranged_log_info {
+  const void *dop;
+  unsigned long long timestamp_start;
+  unsigned long long timestamp_end;
+  int start_cpu_id;
+  int end_cpu_id;  // start may differ from end, if a context switch happened
+                   // in-between
+  std::thread::id tid;
+  range_log_op op;
+  void *pipeline_id;
+  int64_t instance_id;  // Similar to PipelineGroupId
+
+  void flush() const;
+};
+
 // the definition order matters!
+static stringstream global_ranged_log;
 static stringstream global_log;
 // std::mutex                      global_log_lock    ;
 
@@ -102,6 +119,19 @@ static stringstream global_log;
 void logger::log(void *dop, log_op op) {
   data->push_back(
       log_info{dop, rdtsc(), sched_getcpu(), std::this_thread::get_id(), op});
+}
+
+ranged_logger::start_rec ranged_logger::log_start(const void *dop,
+                                                  range_log_op op,
+                                                  void *pipeline_id,
+                                                  int64_t instance_id) {
+  return start_rec{dop, rdtsc(), sched_getcpu(), op, pipeline_id, instance_id};
+}
+
+void ranged_logger::log(ranged_logger::start_rec r) {
+  data->push_back(ranged_log_info{r.dop, r.timestamp_start, rdtsc(), r.cpu_id,
+                                  sched_getcpu(), std::this_thread::get_id(),
+                                  r.op, r.pipeline_id, r.instance_id});
 }
 
 class flush_log {
@@ -118,32 +148,115 @@ class flush_log {
   }
 
   ~flush_log() {
+    event_range<range_log_op::LOGGER_TIMESTAMP> markrange{
+        reinterpret_cast<void *>(static_cast<uintptr_t>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::high_resolution_clock::now().time_since_epoch())
+                .count()))};
     for (const auto &data : logs) {
       for (const auto &t : data) t.flush();
     }
-    ofstream out("timeline.csv");
-    if (out.is_open()) {
-      out << "timestamp,operator,thread_id,coreid,op" << std::endl;
-      out << global_log.str();
-      std::cout << "log flushed" << std::endl;
+    {
+      ofstream out("timeline.csv");
+      if (out.is_open()) {
+        out << "timestamp,operator,thread_id,coreid,op\n";
+        out << global_log.str();
+        LOG(INFO) << "event log flushed";
+      }
+    }
+    {
+      std::ofstream out{"timeline-oplegend.csv"};
+      if (out.is_open()) {
+        out << "op,value\n";
+        for (auto &e : magic_enum::enum_entries<decltype(logs[0][0].op)>()) {
+          out << e.second << ',' << e.first << '\n';
+        }
+      }
+    }
+  }
+};
+
+class flush_range_log {
+  std::mutex m;
+  std::deque<std::deque<ranged_log_info>> logs;
+
+ public:
+  flush_range_log() {}
+
+  std::deque<ranged_log_info> *create_logger() {
+    std::lock_guard<std::mutex> lock(m);
+    logs.emplace_back();
+    return &(logs.back());
+  }
+
+  ~flush_range_log() {
+    event_range<range_log_op::LOGGER_TIMESTAMP> markrange{
+        reinterpret_cast<void *>(static_cast<uintptr_t>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::high_resolution_clock::now().time_since_epoch())
+                .count()))};
+    for (const auto &data : logs) {
+      for (const auto &t : data) t.flush();
+    }
+    {
+      ofstream out("timeline-ranges.csv");
+      if (out.is_open()) {
+        out << "timestamp_start,timestamp_end,operator,thread_id,coreid_start,"
+               "coreid_end,op,pipeline_id,instance_id\n";
+        out << global_ranged_log.str();
+        LOG(INFO) << "range log flushed";
+      }
+    }
+    {
+      std::ofstream out{"timeline-ranges-oplegend.csv"};
+      if (out.is_open()) {
+        out << "op,value\n";
+        for (auto &e : magic_enum::enum_entries<decltype(logs[0][0].op)>()) {
+          out << e.second << ',' << static_cast<int>(e.first) << '\n';
+        }
+      }
     }
   }
 };
 
 // the definition order matters!
+static flush_range_log global_exchange_flush_range_lock;
 static flush_log global_exchange_flush_lock;
 #endif
 
+thread_local ranged_logger rangelogger;
 thread_local logger eventlogger;
 
 #ifndef NLOG
-logger::logger() { data = global_exchange_flush_lock.create_logger(); }
+logger::logger() {
+  data = global_exchange_flush_lock.create_logger();
+  event_range<range_log_op::LOGGER_TIMESTAMP> markrange{
+      reinterpret_cast<void *>(static_cast<uintptr_t>(
+          std::chrono::duration_cast<std::chrono::nanoseconds>(
+              std::chrono::high_resolution_clock::now().time_since_epoch())
+              .count()))};
+}
 
 void log_info::flush() const {
   global_log << timestamp << "," << dop << "," << tid << "," << cpu_id << ","
              << op << "\n";
 }
 
+ranged_logger::ranged_logger() {
+  data = global_exchange_flush_range_lock.create_logger();
+  event_range<range_log_op::LOGGER_TIMESTAMP> markrange{
+      reinterpret_cast<void *>(static_cast<uintptr_t>(
+          std::chrono::duration_cast<std::chrono::nanoseconds>(
+              std::chrono::high_resolution_clock::now().time_since_epoch())
+              .count()))};
+}
+
+void ranged_log_info::flush() const {
+  global_ranged_log << timestamp_start << ',' << timestamp_end << "," << dop
+                    << "," << tid << "," << start_cpu_id << ',' << end_cpu_id
+                    << "," << static_cast<int>(op) << ',' << pipeline_id << ','
+                    << instance_id << "\n";
+}
 #endif
 
 namespace proteus {

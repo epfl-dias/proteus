@@ -27,41 +27,19 @@
 #include <deque>
 
 struct log_info;
+struct ranged_log_info;
 
 // <0  : point event
 // >=0 : start/stop events
 //     : % 2 == 0 ---> start
 //     : % 2 == 1 ---> stop
 enum log_op {
-  EXCHANGE_PRODUCE = -1,
-  EXCHANGE_CONSUME_OPEN_START = 0,
-  EXCHANGE_CONSUME_OPEN_END = 1,
-  EXCHANGE_CONSUME_CLOSE_START = 2,
-  EXCHANGE_CONSUME_CLOSE_END = 3,
-  EXCHANGE_CONSUME_START = 4,
-  EXCHANGE_CONSUME_END = 5,
-  EXCHANGE_CONSUMER_WAIT_START = 6,
-  EXCHANGE_CONSUMER_WAIT_END = 7,
-  EXCHANGE_PRODUCER_WAIT_START = 8,
-  EXCHANGE_PRODUCER_WAIT_END = 9,
-  EXCHANGE_PRODUCER_WAIT_FOR_FREE_START = 10,
-  EXCHANGE_CONSUMER_WAIT_FOR_FREE_END = 11,
-  MEMORY_MANAGER_ALLOC_PINNED_START = 12,
-  MEMORY_MANAGER_ALLOC_PINNED_END = 13,
   MEMORY_MANAGER_ALLOC_GPU_START = 14,
   MEMORY_MANAGER_ALLOC_GPU_END = 15,
-  EXCHANGE_PRODUCE_START = 16,
-  EXCHANGE_PRODUCE_END = 17,
-  EXCHANGE_PRODUCE_PUSH_START = 18,
-  EXCHANGE_PRODUCE_PUSH_END = 19,
   EXCHANGE_INIT_CONS_START = 20,
   EXCHANGE_INIT_CONS_END = 21,
   MEMMOVE_OPEN_START = 22,
   MEMMOVE_OPEN_END = 23,
-  MEMMOVE_CONSUME_WAIT_START = 24,
-  MEMMOVE_CONSUME_WAIT_END = 25,
-  MEMMOVE_CONSUME_START = 26,
-  MEMMOVE_CONSUME_END = 27,
   MEMMOVE_CLOSE_START = 28,
   MEMMOVE_CLOSE_END = 29,
   MEMMOVE_CLOSE_CLEAN_UP_START = 30,
@@ -70,30 +48,34 @@ enum log_op {
   CPU2GPU_OPEN_END = 33,
   CPU2GPU_CLOSE_START = 34,
   CPU2GPU_CLOSE_END = 35,
-  EXCHANGE_JOIN_START = 36,
-  EXCHANGE_JOIN_END = 37,
-  KERNEL_LAUNCH_START = 38,
-  KERNEL_LAUNCH_END = 39,
-  THREADPOOL_THREAD_START = 40,
-  THREADPOOL_THREAD_END = 41,
-  BLOCK2TUPLES_OPEN_START = 42,
-  BLOCK2TUPLES_OPEN_END = 43,
-  IB_LOCK_CONN_START = 44,
-  IB_LOCK_CONN_END = 45,
-  IB_CQ_PROCESSING_EVENT_START = 46,
-  IB_CQ_PROCESSING_EVENT_END = 47,
-  IB_RDMA_WAIT_BUFFER_START = 48,
-  IB_RDMA_WAIT_BUFFER_END = 49,
-  IB_WAITING_DATA_START = 50,
-  IB_WAITING_DATA_END = 51,
-  IB_CREATE_RDMA_READ_START = 52,
-  IB_CREATE_RDMA_READ_END = 53,
-  EXCHANGE_CONSUMER_START = 54,
-  EXCHANGE_CONSUMER_END = 55,
-  IB_SENDING_BUFFERS_START = 56,
-  IB_SENDING_BUFFERS_END = 57,
-  IB_SENDING_BUFFERS_WAITING_START = 58,
-  IB_SENDING_BUFFERS_WAITING_END = 59,
+  LAST_LOG_OP,
+};
+
+enum class range_log_op {
+  NON_RANGE = LAST_LOG_OP,
+  CUPTI_GET_START_TIMESTAMP,
+  LOGGER_TIMESTAMP,
+  IB_BUFFS_GET_START_TIMESTAMP,
+  IB_BUFFS_GET_END_TIMESTAMP,
+  IB_LOCK_CONN,
+  IB_CQ_PROCESSING_EVENT,
+  IB_SENDING_BUFFERS,
+  IB_SENDING_BUFFERS_WAITING,
+  CPU2GPU_LAUNCH,
+  EXCHANGE_INIT_CONS,
+  EXCHANGE_CONSUMER_WAIT,
+  EXCHANGE_PRODUCE,
+  EXCHANGE_PRODUCE_PUSH,
+  ROUTER_ACQUIRING_FREE_QUEUE_SLOT,
+  ROUTER_WAITING_FOR_TASK,
+  SPLIT_GET,
+  SPLIT_RELEASE,
+  MEMMOVE_OPEN,
+  MEMMOVE_CONSUME,
+  MEMMOVE_CLOSE,
+  MEMMOVE_CLOSE_CLEAN_UP,
+  AFFINITY_QUERY_DEVICE,
+  UNPACK_OPEN,
 };
 
 // #define NLOG
@@ -109,26 +91,55 @@ class logger {
 
   void log(void *dop, log_op op);
 };
+
+class ranged_logger {
+  std::deque<ranged_log_info> *data;
+
+ public:
+  ranged_logger();
+
+  // ~logger();
+  struct start_rec {
+    const void *dop;
+    unsigned long long timestamp_start;
+    int cpu_id;
+    range_log_op op;
+    void *pipeline_id;
+    int64_t instance_id;  // Similar to PipelineGroupId
+  };
+
+  static start_rec log_start(const void *dop, range_log_op op,
+                             void *pipeline_id, int64_t instance_id);
+  void log(ranged_logger::start_rec r);
+};
 #else
 class logger {
  public:
   inline void log(void *dop, log_op op){};
 };
+
+class ranged_logger {
+ public:
+  struct start_rec {};
+
+  static start_rec log_start(void *dop, log_op op) { return {}; };
+  inline void log(void *dop, log_op op){};
+};
 #endif
 
+extern thread_local ranged_logger rangelogger;
 extern thread_local logger eventlogger;
 
-template <log_op op>
+template <range_log_op op>
 class [[nodiscard]] event_range {
-  void *t;
+  ranged_logger::start_rec r;
 
  public:
-  constexpr explicit event_range(void *t) noexcept : t(t) {
-    eventlogger.log(t, static_cast<log_op>(op & ~1));
-  }
-  constexpr ~event_range() noexcept {
-    eventlogger.log(t, static_cast<log_op>(op | 1));
-  }
+  constexpr explicit event_range(const void *t, void *pipeline_id = nullptr,
+                                 int64_t instance_id = -1) noexcept
+      : r(ranged_logger::log_start(t, op, pipeline_id, instance_id)) {}
+
+  constexpr ~event_range() noexcept { rangelogger.log(r); }
 };
 
 #endif /* LOGGING_HPP_ */

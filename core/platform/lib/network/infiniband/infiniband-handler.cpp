@@ -224,7 +224,6 @@ void IBPoller::run() {
         //        event_range2 er{this};
         IBSend::work_completion_event_on_invoker(wc);
       } else if (wc.opcode == IBV_WC_RDMA_WRITE) {
-        event_range<log_op::IB_CQ_PROCESSING_EVENT_START> er{this};
         proteus::managed_ptr data{reinterpret_cast<void *>(wc.wr_id)};
         if (data) {
           {
@@ -255,7 +254,6 @@ void IBPoller::run() {
         } else
           assert(false);
       } else if (wc.opcode == IBV_WC_RDMA_READ) {
-        event_range<log_op::IB_CQ_PROCESSING_EVENT_START> er{this};
         auto start = IBV_WC_RDMA_READ_cnt;
         IBV_WC_RDMA_READ_cnt += wc.wr_id;
         ThreadPool::getInstance().enqueue(
@@ -300,7 +298,6 @@ void IBPoller::handle_wc_recv(const ibv_wc &wc) {
       auto databuf = BlockManager::get_buffer();
       {
         std::lock_guard<std::mutex> lock{buffmgmnt};
-        event_range<log_op::IB_SENDING_BUFFERS_START> er{this};
         BlockManager::release_buffer(std::move(data));
         for (size_t i = 0; i < buffnum; ++i) {
           auto buff = BlockManager::get_buffer();
@@ -735,7 +732,6 @@ buffkey IBHandler::get_buffer() {
   }
 
   if (pend_buffers.empty()) {
-    event_range<log_op::IB_SENDING_BUFFERS_WAITING_START> er{this};
     pend_buffers_cv.wait(lock, [&]() { return !pend_buffers.empty(); });
   }
 
