@@ -135,9 +135,16 @@ class [[nodiscard]] event_range {
   ranged_logger::start_rec r;
 
  public:
+  static constexpr range_log_op event_type = op;
+
   constexpr explicit event_range(const void *t, void *pipeline_id = nullptr,
                                  int64_t instance_id = -1) noexcept
       : r(ranged_logger::log_start(t, op, pipeline_id, instance_id)) {}
+
+  event_range(event_range &&) noexcept = delete;
+  event_range &operator=(event_range &&) noexcept = delete;
+  event_range(const event_range &) = delete;
+  event_range &operator=(const event_range &) = delete;
 
   constexpr ~event_range() noexcept { rangelogger.log(r); }
 };
