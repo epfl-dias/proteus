@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <magic_enum.hpp>
 #include <platform/memory/block-manager.hpp>
 #include <platform/network/infiniband/infiniband-manager.hpp>
 #include <platform/storage/storage-manager.hpp>
@@ -283,7 +284,8 @@ std::future<std::vector<mem_file>> StorageManager::getFile(std::string name) {
 std::future<std::vector<mem_file>> StorageManager::getOrLoadFile(
     std::string name, size_t type_size, data_loc loc) {
   if (files.count(name) == 0) {
-    LOG(INFO) << "File " << name << " not loaded, loading it to " << loc;
+    LOG(INFO) << "File " << name << " not loaded, loading it to "
+              << magic_enum::enum_name(loc);
     load(name, type_size, loc);
   }
   return getFile(name);
