@@ -40,8 +40,25 @@ namespace routing {
   if (fanout == 1) return {context->createInt64(0), false};
   auto Builder = context->getBuilder();
 
-  auto crand = context->getFunction("rand");
-  auto target = Builder->CreateCall(crand, {});
+  auto state = [&] {
+    save_current_blocks_and_restore_at_exit_scope e{context};
+    Builder->SetInsertPoint(context->getCurrentEntryBlock());
+    ExpressionGeneratorVisitor vis{context, childState};
+    return context->toMem(expressions::rand().accept(vis));
+  }();
+
+  auto target = Builder->CreateLoad(state.mem);
+  ExpressionGeneratorVisitor vis{context, childState};
+  Builder->CreateStore(
+      Builder->CreateZExtOrTrunc(
+          expressions::HashExpression{
+              expressions::ProteusValueExpression{
+                  new IntType(), ProteusValue{target, state.isNull}}}
+              .accept(vis)
+              .value,
+          target->getType()),
+      state.mem);
+
   auto fanoutV =
       llvm::ConstantInt::get((llvm::IntegerType *)target->getType(), fanout);
   return {Builder->CreateURem(target, fanoutV), true};
@@ -73,8 +90,7 @@ namespace routing {
   auto this_ptr = Builder->CreateIntToPtr(context->createInt64((uintptr_t)aff),
                                           charPtrType);
 
-  auto target = context->gen_call("random_local_cu", {ptr8, this_ptr},
-                                  context->createSizeType());
+  auto target = context->gen_call(random_local_cu, {ptr8, this_ptr});
 
   return {target, true};
 }
