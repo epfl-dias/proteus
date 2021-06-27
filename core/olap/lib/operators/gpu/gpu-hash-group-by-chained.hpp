@@ -33,8 +33,9 @@
 
 class GpuHashGroupByChained : public HashGroupByChained {
  public:
-  // inherit constructor
-  using HashGroupByChained::HashGroupByChained;
+  GpuHashGroupByChained(std::vector<GpuAggrMatExpr> agg_exprs,
+                        std::vector<expression_t> key_expr, Operator *child,
+                        int hash_bits, size_t maxInputSize);
 
   void produce_(ParallelContext *context) override;
 

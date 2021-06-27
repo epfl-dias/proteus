@@ -23,6 +23,7 @@
 
 #include "gpu-hash-group-by-chained.hpp"
 
+#include <cmath>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/topology/topology.hpp>
 
@@ -31,6 +32,16 @@
 #include "lib/util/gpu/gpu-intrinsics.hpp"
 
 using namespace llvm;
+
+GpuHashGroupByChained::GpuHashGroupByChained(
+    std::vector<GpuAggrMatExpr> agg_exprs, std::vector<expression_t> key_expr,
+    Operator *child, int hash_bits, size_t maxInputSize_pre)
+    : HashGroupByChained(std::move(agg_exprs), std::move(key_expr), child,
+                         hash_bits,
+                         std::max(maxInputSize_pre, size_t{128} * 1024)) {
+  VLOG_IF(1, maxInputSize_pre != maxInputSize)
+      << "GroupBy's hashtable too small for GPU algo, auto-resizing";
+}
 
 void GpuHashGroupByChained::produce_(ParallelContext *context) {
   context->pushPipeline();
