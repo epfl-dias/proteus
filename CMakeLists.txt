@@ -135,6 +135,8 @@ include(googlebenchmark)
 include(magic-enum)
 include(cuckoo)
 include(vtune)
+include(tests)
+include(perftests)
 
 #-----------------------------------------------------------------------
 # Build Documentation

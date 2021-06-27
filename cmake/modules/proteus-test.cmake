@@ -40,23 +40,13 @@ else()
 # - TS_COMMON_SRCS Additional source files shared among all unit tests.
 # - TS_COMMON_LIBS Additional libraries shared among all unit tests.
 foreach(target ${TS_TESTS})
-	add_executable(unit-${target} ${target}.cpp ${TS_COMMON_SRCS})
-	target_link_libraries(unit-${target} ${TS_COMMON_LIBS} ${GTEST_MAIN} ${GTEST})
-	target_enable_default_warnings(unit-${target})
+	add_proteus_unit_test_nolib(unit-${target} ${target}.cpp ${TS_COMMON_SRCS})
 
-	set(_proteus_install_target unit-${target})
-	set(_proteus_install_dev ${PROTEUS_CPACK_COMP_DEV})
-	set(_proteus_install_bin ${PROTEUS_CPACK_COMP_TESTS})
-	include(_proteus-install)
+	target_link_libraries(unit-${target} ${TS_COMMON_LIBS})
 
 	# Not sure we need to do it for each target, we might be able to
 	# do it only once.
 	enable_testing()
-
-	add_test(NAME UT-${target}
-		COMMAND unit-${target}
-		WORKING_DIRECTORY ${CMAKE_INSTALL_BINDIR}
-	)
 endforeach(target)
 
 endif()
