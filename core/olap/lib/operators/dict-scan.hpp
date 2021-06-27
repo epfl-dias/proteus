@@ -69,8 +69,9 @@ class DictScan : public UnaryOperator {
   }
 
   [[nodiscard]] DegreeOfParallelism getDOPServers() const override {
-    LOG(WARNING) << "Setting arbitrary number for #servers == " << 1 << " !";
-    return DegreeOfParallelism{1};
+    LOG(WARNING) << "Setting arbitrary number for #servers == "
+                 << InfiniBandManager::server_count() << " !";
+    return DegreeOfParallelism{InfiniBandManager::server_count()};
   }
   [[nodiscard]] bool isPacked() const override { return false; }
   [[nodiscard]] proteus::traits::HomReplication getHomReplication()
