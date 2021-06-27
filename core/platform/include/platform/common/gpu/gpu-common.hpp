@@ -25,13 +25,14 @@
 #define GPU_COMMON_HPP_
 
 #ifndef NCUDA
-#include <platform/common/common.hpp>
+#include <cuda.h>
+#include <cuda_profiler_api.h>
+#include <cuda_runtime_api.h>
+#include <cupti.h>
+#include <nvToolsExt.h>
+#include <nvml.h>
 
-#include "cuda.h"
-#include "cuda_profiler_api.h"
-#include "cuda_runtime_api.h"
-#include "nvToolsExt.h"
-#include "nvml.h"
+#include <platform/common/common.hpp>
 #else
 #define __device__
 #define __host__
@@ -118,6 +119,23 @@ __host__ __device__ inline void gpuAssert(cudaError_t code, const char *file,
   if (code != cudaSuccess) {
 #ifndef __CUDA_ARCH__
     gpuAssert(cudaGetErrorString(code), file, line);
+#else
+    printf("GPUassert: %s %s %d\n", "error", file, line);
+    exit(code);
+#endif
+  }
+}
+
+__host__ __device__ inline void gpuAssert(CUptiResult code, const char *file,
+                                          int line) {
+  if (code != CUPTI_SUCCESS) {
+#ifndef __CUDA_ARCH__
+    const char *errstr;
+    if (cuptiGetResultString(code, &errstr)) {
+      gpuAssert(errstr, file, line);
+    } else {
+      gpuAssert("Unknown CUPTI error", file, line);
+    }
 #else
     printf("GPUassert: %s %s %d\n", "error", file, line);
     exit(code);

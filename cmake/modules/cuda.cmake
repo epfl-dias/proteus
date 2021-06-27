@@ -45,6 +45,7 @@ if(CUDA_FOUND)
 
 	set(CUDA_LIBS -lnvToolsExt -lcuda ${CUDA_LIBRARIES}
 			-lnvidia-ml
+			-lcupti
 			${CUDA_cudadevrt_LIBRARY} -lnvvm)
 
 	include_directories(
