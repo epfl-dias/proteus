@@ -55,6 +55,7 @@ object PelagoRules {
     PelagoFilterRule.INSTANCE,
     PelagoUnnestRule.INSTANCE,
     PelagoScanRule.INSTANCE,
+    PelagoDictTableScanRule.INSTANCE,
     PelagoValuesRule.INSTANCE, //        PelagoJoinSeq.INSTANCE,
     PelagoJoinSeq.INSTANCE2
   ) //Use the instance that swaps, as Lopt seems to generate left deep plans only
@@ -286,6 +287,30 @@ object PelagoRules {
   }
 
   /**
+    * Rule to convert a {@link ch.epfl.dias.calcite.adapter.pelago.rel.LogicalPelagoDictTableScan}
+    * to a {@link PelagoDictTableScan}.
+    */
+  private object PelagoDictTableScanRule {
+    val INSTANCE = new PelagoRules.PelagoDictTableScanRule
+  }
+  private class PelagoDictTableScanRule private ()
+      extends PelagoRules.PelagoConverterRule(
+        classOf[LogicalPelagoDictTableScan],
+        "PelagoDictTableScan"
+      ) {
+    override def matches(call: RelOptRuleCall) = true
+    override def convert(rel: RelNode): PelagoDictTableScan = {
+      val scan = rel.asInstanceOf[LogicalPelagoDictTableScan]
+      PelagoDictTableScan.create(
+        scan.getCluster,
+        scan.getTable,
+        scan.regex,
+        scan.attrIndex
+      )
+    }
+  }
+
+  /**
     * Rule to convert a {@link org.apache.calcite.rel.logical.LogicalFilter} to a
     * {@link PelagoFilter}.
     */
@@ -328,7 +353,7 @@ object PelagoRules {
     final private val leftDistribution = RelHomDistribution.SINGLE
     final private val rightDistribution = RelHomDistribution.SINGLE
     override def matches(call: RelOptRuleCall): Boolean = {
-      val join = call.rel(0).asInstanceOf[Join]
+      val join: Join = call.rel(0).asInstanceOf[Join]
 //            if (join.getLeft().getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE) != join.getRight().getTraitSet().getTrait(RelDeviceTypeTraitDef.INSTANCE)) return false;
       var condition = join.getCondition
       if (condition.isAlwaysTrue) return false

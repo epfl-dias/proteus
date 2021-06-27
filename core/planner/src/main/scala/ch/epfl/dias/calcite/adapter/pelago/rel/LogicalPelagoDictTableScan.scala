@@ -23,84 +23,82 @@
 
 package ch.epfl.dias.calcite.adapter.pelago.rel
 
-import ch.epfl.dias.calcite.adapter.pelago.schema.PelagoTable
 import ch.epfl.dias.calcite.adapter.pelago.traits._
-import ch.epfl.dias.emitter.Binding
-import ch.epfl.dias.emitter.PlanToJSON._
 import org.apache.calcite.plan._
 import org.apache.calcite.rel._
+import org.apache.calcite.rel.`type`.RelDataType
+import org.apache.calcite.rel.core.TableScan
 import org.apache.calcite.rel.metadata.RelMetadataQuery
-import org.json4s.JsonDSL._
-import org.json4s._
 
 import java.util
 
 /**
   * Relational expression representing a scan of a Pelago dict file.
   */
-class PelagoDictTableScan protected (
+class LogicalPelagoDictTableScan protected (
     cluster: RelOptCluster,
     traitSet: RelTraitSet,
     table: RelOptTable,
     sql_regex: String,
-    attrIndex: Int
-) extends LogicalPelagoDictTableScan(
-      cluster,
-      traitSet,
-      table,
-      sql_regex,
-      attrIndex
-    )
-    with PelagoRel {
+    val attrIndex: Int
+) extends TableScan(cluster, traitSet, util.List.of(), table) {
+  lazy val regex: String = sql_regex
+    .replaceAll("\\\\", "\\\\")
+    .replaceAll("\\*", "\\*")
+    .replaceAll("\\.", "\\.")
+    .replaceAll("\\^", "\\^")
+    .replaceAll("\\$", "\\$")
+    .replaceAll("%", ".*")
+    .replaceAll("_", ".+")
+
   override def copy(
       traitSet: RelTraitSet,
       inputs: util.List[RelNode]
   ): RelNode = {
     assert(inputs.isEmpty)
-    PelagoDictTableScan.create(getCluster, table, regex, attrIndex)
+    LogicalPelagoDictTableScan.create(getCluster, table, sql_regex, attrIndex)
   }
 
-  override def computeBaseSelfCost(
+  override def explainTerms(pw: RelWriter): RelWriter =
+    super
+      .explainTerms(pw)
+      .item("regex", regex)
+      .item("traits", getTraitSet.toString)
+
+  override def deriveRowType: RelDataType = {
+    getCluster.getTypeFactory.builder
+      .add(
+        table.getRowType.getFieldList.get(attrIndex).getName,
+        table.getRowType.getFieldList.get(attrIndex).getType
+      )
+      .build()
+  }
+
+  override def computeSelfCost(
       planner: RelOptPlanner,
       mq: RelMetadataQuery
   ): RelOptCost = {
-    super
-      .computeSelfCost(planner, mq)
-      .multiplyBy(
-        10 * (10000 + 2d) / (table.getRowType.getFieldCount.toDouble + 2d)
-      )
+    mq.getNonCumulativeCost(this)
   }
 
-  override def implement(target: RelDeviceType): (Binding, JValue) = {
-    implement(target, null)
+  def getHomDistribution: RelHomDistribution = {
+    RelHomDistribution.SINGLE
   }
 
-  def implement(target: RelDeviceType, alias: String): (Binding, JValue) = {
-    val dictPath = table.unwrap(classOf[PelagoTable]).getPelagoRelName
-    val fieldName = table.getRowType.getFieldList.get(attrIndex).getName
-    val op = ("operator", "dict-scan") ~
-      ("relName", dictPath) ~
-      ("attrName", fieldName) ~
-      ("regex", regex)
-
-    val binding: Binding = Binding(
-      PelagoTable.create(dictPath + ".dict." + fieldName, getRowType),
-      getFields(getRowType)
-    )
-    val ret: (Binding, JValue) = (binding, op)
-    ret
+  def getDeviceType: RelDeviceType = {
+    RelDeviceType.X86_64
   }
 }
 
-object PelagoDictTableScan {
+object LogicalPelagoDictTableScan {
   def create(
       cluster: RelOptCluster,
       table: RelOptTable,
       regex: String,
       attrIndex: Int
-  ): PelagoDictTableScan = {
+  ): LogicalPelagoDictTableScan = {
     val traitSet = cluster.traitSet
-      .replace(PelagoRel.CONVENTION)
+      .replace(Convention.NONE)
       .replace(RelHomDistribution.SINGLE)
       .replaceIf(RelDeviceTypeTraitDef.INSTANCE, () => RelDeviceType.X86_64)
       .replaceIf(
@@ -112,6 +110,6 @@ object PelagoDictTableScan {
         () => RelComputeDevice.from(RelDeviceType.X86_64)
       )
       .replaceIf(RelPackingTraitDef.INSTANCE, () => RelPacking.UnPckd)
-    new PelagoDictTableScan(cluster, traitSet, table, regex, attrIndex)
+    new LogicalPelagoDictTableScan(cluster, traitSet, table, regex, attrIndex)
   }
 }

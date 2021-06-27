@@ -2008,7 +2008,9 @@ bool CatalogParser::parseDir(const std::filesystem::path &dir) {
       parseCatalogFile(entry);
     }
   }
-  LOG_IF(INFO, !foundCatalog) << "No catalog in: " << dir;
+  // `--vmodule=plan-parser=1` or in env `GLOG_vmodule=plan-parser=1` to show
+  // although glog cli flags are not working properly with our linking
+  VLOG_IF(1, !foundCatalog) << "No catalog in: " << dir;
 
   return foundCatalog;
 }

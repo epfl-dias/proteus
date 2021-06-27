@@ -1,6 +1,7 @@
 package ch.epfl.dias.calcite.adapter.pelago.costs
 
 import ch.epfl.dias.calcite.adapter.pelago.rel.{
+  LogicalPelagoDictTableScan,
   PelagoAggregate,
   PelagoDeviceCross,
   PelagoDictTableScan,
@@ -144,6 +145,8 @@ object CostModel {
       // Relational Operators
       case scan: PelagoTableScan =>
         MemBW(16.0 / blockSize + scan.getRowType.getFieldCount * 10000)
+      case _: LogicalPelagoDictTableScan => // FIXME: tune
+        MemBW(8) + Compute(1024)
       case _: PelagoDictTableScan => // FIXME: tune
         MemBW(8) + Compute(1024)
       case join: PelagoJoin => getNonCumulativeCost(join.asInstanceOf[Join])

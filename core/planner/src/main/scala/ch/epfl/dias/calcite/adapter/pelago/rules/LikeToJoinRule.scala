@@ -1,16 +1,15 @@
 package ch.epfl.dias.calcite.adapter.pelago.rules
 
-import ch.epfl.dias.calcite.adapter.pelago.PelagoRelBuilder
-import ch.epfl.dias.calcite.adapter.pelago.rel.PelagoDictTableScan
+import ch.epfl.dias.calcite.adapter.pelago.rel.LogicalPelagoDictTableScan
 import com.google.common.collect.ImmutableList
 import org.apache.calcite.plan.RelOptRule.{any, operand}
-import org.apache.calcite.plan.{RelOptRule, RelOptRuleCall, RelOptUtil}
+import org.apache.calcite.plan.{RelOptRule, RelOptRuleCall}
 import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rel.core.{Filter, JoinRelType}
 import org.apache.calcite.rex._
-import org.apache.calcite.sql.{SqlExplainLevel, SqlKind}
+import org.apache.calcite.sql.SqlKind
 import org.apache.calcite.sql.fun.SqlStdOperatorTable
-import org.apache.calcite.tools.Frameworks
+import org.apache.calcite.tools.RelBuilder
 import org.apache.calcite.util.NlsString
 
 import scala.collection.JavaConverters._
@@ -20,20 +19,16 @@ object LikeToJoinRule { val INSTANCE = new LikeToJoinRule }
 class LikeToJoinRule protected ()
     extends RelOptRule(operand(classOf[Filter], any)) {
 
-  private[rules] class FindLikes(val builder: RexBuilder, var input: RelNode)
-      extends RexShuttle {
+  private[rules] class FindLikes(
+      val builder: RexBuilder,
+      var input: RelNode,
+      var relBuilder: RelBuilder
+  ) extends RexShuttle {
 
     private[rules] var cnt = input.getRowType.getFieldCount
-    final private[rules] var relBuilder =
-      PelagoRelBuilder.create(Frameworks.newConfigBuilder.build)
 
     override def visitCall(call: RexCall): RexNode = {
       if (call.getKind eq SqlKind.LIKE) {
-//        val name = "." + call.getOperands
-//          .get(0)
-//          .asInstanceOf[RexInputRef]
-//          .getName + ".dict"
-
         val ref = input.getCluster.getMetadataQuery
           .getExpressionLineage(input, call.getOperands.get(0))
         assert(
@@ -55,7 +50,7 @@ class LikeToJoinRule protected ()
         input = relBuilder
           .push(input)
           .push(
-            PelagoDictTableScan
+            LogicalPelagoDictTableScan
               .create(input.getCluster, table, regex, attrIndex)
           )
           .join(JoinRelType.INNER, builder.makeLiteral(true))
@@ -79,9 +74,11 @@ class LikeToJoinRule protected ()
     val filter: Filter = call.rel(0)
     val cond = filter.getCondition
     val rexBuilder = filter.getCluster.getRexBuilder
-    val fl = new FindLikes(rexBuilder, filter.getInput)
+    val input: RelNode = filter.getInput
+    val fl = new FindLikes(rexBuilder, input, call.builder())
     val new_cond = cond.accept(fl)
-    if (fl.getNewInput ne filter.getInput) { // do not consider the matched node again!
+    if (fl.getNewInput ne input) {
+      // do not consider the matched node again!
       call.getPlanner.prune(filter)
       val projs = ImmutableList.builder[RexNode]
 
@@ -93,9 +90,6 @@ class LikeToJoinRule protected ()
         .filter(new_cond)
         .project(projs.build)
         .build
-      System.out.println(
-        RelOptUtil.toString(replacement, SqlExplainLevel.ALL_ATTRIBUTES)
-      )
 
       // push transformation
       call.transformTo(replacement)
