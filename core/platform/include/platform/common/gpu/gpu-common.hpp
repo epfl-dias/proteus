@@ -379,6 +379,8 @@ void launch_kernel(CUfunction function, void **args, dim3 gridDim,
                    cudaStream_t strm = nullptr);
 void launch_kernel(CUfunction function, void **args,
                    cudaStream_t strm = nullptr);
+extern "C" void launch_kernel_strm(CUfunction function, void **args,
+                                   cudaStream_t strm);
 
 extern "C" {
 int get_ptr_device(const void *p);

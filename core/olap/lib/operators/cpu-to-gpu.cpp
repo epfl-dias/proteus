@@ -178,11 +178,9 @@ void CpuToGpu::consume(ParallelContext *const context,
   Builder->SetInsertPoint(context->getCurrentEntryBlock());
 
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
-  Type *int64Type = Type::getInt64Ty(llvmContext);
   Type *ptr_t = PointerType::get(charPtrType, 0);
 
-  const map<RecordAttribute, ProteusValueMemory> &activeVars =
-      childState.getBindings();
+  const auto &activeVars = childState.getBindings();
 
   Type *kernel_params_type = ArrayType::get(
       charPtrType, wantedFields.size() + 3);  // input + N + oid + state
@@ -204,27 +202,19 @@ void CpuToGpu::consume(ParallelContext *const context,
   Plugin *pg =
       Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
 
-  RecordAttribute tupleOID =
-      RecordAttribute(wantedFields[0]->getRelationName(), activeLoop,
-                      pg->getOIDType());  // FIXME: OID type for blocks ?
+  RecordAttribute tupleOID(wantedFields[0]->getRelationName(), activeLoop,
+                           pg->getOIDType());  // FIXME: OID type for blocks ?
 
-  auto it = activeVars.find(tupleOID);
-  assert(it != activeVars.end());
-
-  ProteusValueMemory mem_oidWrapper = it->second;
+  ProteusValueMemory mem_oidWrapper = activeVars.at(tupleOID);
 
   kernel_params = Builder->CreateInsertValue(
       kernel_params, Builder->CreateBitCast(mem_oidWrapper.mem, charPtrType),
       wantedFields.size());
 
-  RecordAttribute tupleCnt =
-      RecordAttribute(wantedFields[0]->getRelationName(), "activeCnt",
-                      pg->getOIDType());  // FIXME: OID type for blocks ?
+  RecordAttribute tupleCnt(wantedFields[0]->getRelationName(), "activeCnt",
+                           pg->getOIDType());  // FIXME: OID type for blocks ?
 
-  it = activeVars.find(tupleCnt);
-  assert(it != activeVars.end());
-
-  ProteusValueMemory mem_cntWrapper = it->second;
+  ProteusValueMemory mem_cntWrapper = activeVars.at(tupleCnt);
 
   kernel_params = Builder->CreateInsertValue(
       kernel_params, Builder->CreateBitCast(mem_cntWrapper.mem, charPtrType),
@@ -240,17 +230,10 @@ void CpuToGpu::consume(ParallelContext *const context,
   Value *entry = context->getStateVar(childVar_id);
   Value *strm = context->getStateVar(strmVar_id);
 
-  // Value * entryPtr = ConstantInt::get(llvmContext, APInt(64, ((uint64_t)
-  // entry_point))); Value * entry    = Builder->CreateIntToPtr(entryPtr,
-  // charPtrType);
-
-  vector<Value *> kernel_args{
-      entry, Builder->CreateBitCast(kernel_params_addr, ptr_t), strm};
-
-  Function *launchk = context->getFunction("launch_kernel_strm");
-
   Builder->SetInsertPoint(insBB);
 
   // Launch GPU kernel
-  Builder->CreateCall(launchk, kernel_args);
+  context->gen_call(
+      launch_kernel_strm,
+      {entry, Builder->CreateBitCast(kernel_params_addr, ptr_t), strm});
 }
