@@ -101,7 +101,6 @@ void BinaryBlockPlugin::loadData(ParallelContext *context, data_loc loc) {
 }
 
 void BinaryBlockPlugin::finalize_data(ParallelContext *context) {
-  time_block t{"Tfinalize: ", TimeRegistry::Key{"Finalizing Data"}};
   Nparts = wantedFieldsFiles[0].getSegmentCount();
 }
 

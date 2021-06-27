@@ -74,7 +74,6 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
 
   // Execute mmap
   {
-    time_block t("Tmmap: ");
     data =
         mmap(nullptr, filesize, PROT_READ | (readonly ? 0 : PROT_WRITE),
              (readonly ? MAP_PRIVATE : MAP_SHARED) | MAP_POPULATE, fd, offset);
@@ -86,19 +85,13 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
   // gpu_run(cudaHostRegister(data, filesize, 0));
   if (loc == PINNED) {
     if (readonly) {
-      void *data2;
-      {
-        time_block t("Talloc-readonly: ");
-
-        data2 = MemoryManager::mallocPinned(filesize);
-      }
+      void *data2 = MemoryManager::mallocPinned(filesize);
       memcpy(data2, data, filesize);
       munmap(data, filesize);
       close(fd);
       data = data2;
       gpu_data2 = data;
     } else {
-      time_block t("Talloc: ");
       gpu_data2 = NUMAPinnedMemAllocator::reg(data, filesize);
     }
   } else {

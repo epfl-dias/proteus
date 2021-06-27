@@ -291,7 +291,7 @@ class NVPTXLinkLayer final : public llvm::orc::ObjectLayer {
     CUmodule cudaModule[topology::getInstance().getGpuCount()];
 
     {
-      time_block t("TloadModule: ", TimeRegistry::Key{"Load GPU module"});
+      time_block t(TimeRegistry::Key{"Load GPU module"});
       // FIXME: Currently requires all GPUs to be of the same compute
       //  capability, or to be more precise, all of them to be compatible with
       //  the CC of the current device
@@ -318,7 +318,7 @@ class NVPTXLinkLayer final : public llvm::orc::ObjectLayer {
       values[7] = (void *)4;
 
       {
-        time_block tInit{"Tload: ", TimeRegistry::Key{"NVML compile module"}};
+        time_block tInit{TimeRegistry::Key{"NVML compile module"}};
         for (const auto &gpu : topology::getInstance().getGpus()) {
           set_device_on_scope d(gpu);
 
@@ -334,7 +334,7 @@ class NVPTXLinkLayer final : public llvm::orc::ObjectLayer {
         }
       }
       {
-        time_block tInit{"Tinit: ", TimeRegistry::Key{"Init GPU module"}};
+        time_block tInit{TimeRegistry::Key{"Init GPU module"}};
         for (const auto &gpu : topology::getInstance().getGpus()) {
           set_device_on_scope d(gpu);
 
@@ -554,7 +554,8 @@ class GPUJITer_impl : public llvm::orc::ResourceManager {
                 return tmp;
               }();
               TSM.withModuleDo([&preserveFromInternalization](Module &mod) {
-                time_block tlink{"Link and internalize (GPU)"};
+                time_block tlink{
+                    TimeRegistry::Key{"Link and internalize (GPU)"}};
                 llvm::Linker::linkModules(mod, getModuleRef(mod.getContext()),
                                           llvm::Linker::LinkOnlyNeeded);
 
