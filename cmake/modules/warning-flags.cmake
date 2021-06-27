@@ -13,7 +13,7 @@ function(target_enable_default_warnings target)
     -Wreturn-type-c-linkage
     -Werror=return-type-c-linkage
     # Turn warnings into errors
-    #    -Werror
+    -Werror
 
     # Our Code generates the following warnings:
     -Wno-assign-enum
@@ -50,13 +50,15 @@ function(target_enable_default_warnings target)
     -Wno-vla-extension
     -Wno-weak-vtables
     -Wno-atomic-implicit-seq-cst
-    -Wno-unknown-cuda-version
+    -Wno-error=unknown-cuda-version
+
+    # Negative thread safety analysis is too strict some times
+    -Wno-error=thread-safety-negative
+    # Thread safety analysis is creating some false-positives
+    -Wno-error=thread-safety-analysis
 
     -Wno-zero-length-array
     -Wno-packed
-
-    # LLVM & RapidJSON generated following.
-    -Wno-ambiguous-reversed-operator
 
     # Unit-tests:
     -Wno-shift-sign-overflow

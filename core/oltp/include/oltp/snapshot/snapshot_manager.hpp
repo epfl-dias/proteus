@@ -75,7 +75,7 @@ class SnapshotEntity {
   // first vector -> partition.
   // second vector -> segment within the partitions.
   const EntityVector entities;
-  const column_uuid_t columnUuid;
+  [[maybe_unused]] const column_uuid_t columnUuid;
 
  private:
   SnapshotEntity(column_uuid_t columnUuid, EntityVector entity)

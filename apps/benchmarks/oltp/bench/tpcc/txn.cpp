@@ -92,7 +92,6 @@ void TPCC::gen_txn(worker_id_t wid, void *q, partition_id_t partition_id) {
       break;
     default: {
       LOG(FATAL) << "Unknown query type: " << query_seq_local[sequence_counter];
-      break;
     }
   }
   // mprotect(q, sizeof(struct tpcc_query), PROT_READ);

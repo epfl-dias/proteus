@@ -360,7 +360,7 @@ LazyColumn::LazySecondary::~LazySecondary() {
 }
 
 void LazyColumn::LazySecondary::increaseCapacity(double factor) {
-  std::unique_lock t(capacity_lock, std::defer_lock);
+  std::unique_lock<std::mutex> t(capacity_lock, std::defer_lock);
 
   if (t.try_lock()) {
     size_t incSize = capacity * factor;
