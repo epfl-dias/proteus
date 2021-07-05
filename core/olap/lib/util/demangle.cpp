@@ -21,11 +21,10 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "demangle.hpp"
-
 #include <cxxabi.h>
 
 #include <memory>
+#include <olap/util/demangle.hpp>
 
 std::string demangle(const char* name) {
   int status = 0;

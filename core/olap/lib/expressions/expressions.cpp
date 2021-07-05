@@ -23,8 +23,8 @@
 
 #include "olap/expressions/expressions.hpp"
 
-#include <lib/util/demangle.hpp>
 #include <olap/util/context.hpp>
+#include <olap/util/demangle.hpp>
 
 expression_t toExpression(Monoid m, expression_t lhs, expression_t rhs) {
   switch (m) {

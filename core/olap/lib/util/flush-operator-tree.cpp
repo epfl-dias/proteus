@@ -24,8 +24,7 @@
 #include <lib/operators/scan.hpp>
 #include <lib/operators/unionall.hpp>
 #include <lib/util/flush-operator-tree.hpp>
-
-#include "demangle.hpp"
+#include <olap/util/demangle.hpp>
 
 class [[nodiscard]] spacer {
  public:
