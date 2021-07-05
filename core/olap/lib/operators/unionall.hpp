@@ -41,13 +41,16 @@ class UnionAll : public Router {
   ~UnionAll() override { LOG(INFO) << "Collapsing UnionAll operator"; }
 
   void produce_(ParallelContext *context) override;
-  //     virtual void consume(   Context * const context, const
-  //     OperatorState& childState); virtual void consume(ParallelContext *
-  //     const context, const OperatorState& childState); virtual bool
-  //     isFiltering() const {return false;}
 
-  // protected:
-  //     virtual void generate_catch();
+  DegreeOfParallelism getDOPServers() const override {
+    auto dop = children[0]->getDOPServers();
+#ifdef NDEBUG
+    for (const auto &op : children) {
+      assert(dop == op->getDOPServers());
+    }
+#endif
+    return dop;
+  }
 
   DegreeOfParallelism getDOP() const override {
     auto dop = children[0]->getDOP();
