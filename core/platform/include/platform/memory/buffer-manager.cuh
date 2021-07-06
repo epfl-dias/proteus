@@ -65,7 +65,7 @@ class [[deprecated("Access through BlockManager")]] buffer_manager {
   static std::mutex *device_buffs_mutex;
   static std::condition_variable *device_buffs_cv;
   static std::thread **device_buffs_thrds;
-  static std::vector<T *> *device_buffs_pool;
+  static std::deque<T *> *device_buffs_pool;
   static T ***device_buff;
   static size_t device_buff_size;
   static size_t keep_threshold;

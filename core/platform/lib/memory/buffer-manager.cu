@@ -389,7 +389,7 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
     device_buffs_mutex = new std::mutex[devices];
     device_buffs_cv = new std::condition_variable[devices];
     device_buffs_thrds = new std::thread *[devices];
-    device_buffs_pool = new std::vector<T *>[devices];
+    device_buffs_pool = new std::deque<T *>[devices];
     release_streams = new cudaStream_t[devices];
 
     h_pool = new h_pool_t *[cores];
@@ -956,7 +956,7 @@ template <typename T>
 bool buffer_manager<T>::terminating;
 
 template <typename T>
-vector<T *> *buffer_manager<T>::device_buffs_pool;
+std::deque<T *> *buffer_manager<T>::device_buffs_pool;
 
 template <typename T>
 T ***buffer_manager<T>::device_buff;
