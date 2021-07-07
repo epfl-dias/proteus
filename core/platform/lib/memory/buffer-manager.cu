@@ -116,10 +116,12 @@ __host__ void buffer_manager<T>::__release_buffer_host(T *buff) {
         device_buffs_pool[devid].erase(
             device_buffs_pool[devid].end() - device_buff_size,
             device_buffs_pool[devid].end());
+        lock.unlock();
         LOG(INFO) << "release spawned";
         release_buffer_host<<<1, 1, 0, release_streams[devid]>>>(
             (void **)device_buff[devid], device_buff_size);
         gpu_run(cudaStreamSynchronize(release_streams[devid]));
+        lock.lock();
         LOG(INFO) << "release done";
         // gpu_run(cudaPeekAtLastError()  );
         // gpu_run(cudaDeviceSynchronize());
@@ -702,29 +704,35 @@ void buffer_manager<T>::dev_buff_manager(int dev) {
     bool sleep = false;
     int added = 0;
     {
-      std::unique_lock<std::mutex> lk(device_buffs_mutex[dev]);
+      {
+        std::unique_lock<std::mutex> lk(device_buffs_mutex[dev]);
 
-      device_buffs_cv[dev].wait(
-          lk, [dev] { return device_buffs_pool[dev].empty() || terminating; });
+        device_buffs_cv[dev].wait(lk, [dev] {
+          return (device_buffs_pool[dev].size() < (device_buff_size / 4)) ||
+                 terminating;
+        });
 
-      if (terminating) break;
+        if (terminating) break;
+      }
 
       get_buffer_host<<<1, 1, 0, release_streams[dev]>>>(
           (void **)device_buff[dev], device_buff_size);
       gpu_run(cudaStreamSynchronize(release_streams[dev]));
 
-      for (size_t i = 0; i < device_buff_size; ++i) {
-        if (device_buff[dev][i]) {
-          device_buffs_pool[dev].push_back(device_buff[dev][i]);
-          ++added;
+      {
+        std::unique_lock<std::mutex> lk(device_buffs_mutex[dev]);
+
+        for (size_t i = 0; i < device_buff_size; ++i) {
+          if (device_buff[dev][i]) {
+            device_buffs_pool[dev].push_back(device_buff[dev][i]);
+            ++added;
+          }
         }
+
+        device_buffs_cv[dev].notify_all();
+
+        sleep = device_buffs_pool[dev].empty();
       }
-
-      device_buffs_cv[dev].notify_all();
-
-      sleep = device_buffs_pool[dev].empty();
-
-      lk.unlock();
     }
 
     if (sleep) {
