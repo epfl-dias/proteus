@@ -145,12 +145,14 @@ class AsyncQueueSPSC {
     // nvtxRangePushA(("AsyncQueue_push" + std::to_string((uint64_t)
     // x)).c_str());
     assert(!terminating);
-    std::unique_lock<std::mutex> lock(m);
-    // nvtxRangePushA("AsyncQueue_push_w_lock");
-    data.push(std::move(x));
-    cv.notify_all();
+    {
+      std::unique_lock<std::mutex> lock(m);
+      // nvtxRangePushA("AsyncQueue_push_w_lock");
+      data.push(std::move(x));
+    }
+    cv.notify_one();
     // nvtxRangePop();
-    lock.unlock();
+    //    lock.unlock();
     // nvtxRangePop();
   }
 
