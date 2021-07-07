@@ -146,4 +146,5 @@ add_library(proteus::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 # Unit-tests
 if (UNIT_TESTS)
   add_subdirectory(tests)
+  add_subdirectory(perftests)
 endif ()
