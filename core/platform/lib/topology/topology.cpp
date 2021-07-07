@@ -31,6 +31,7 @@
 #include <platform/common/error-handling.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
+#include <platform/util/logging.hpp>
 #include <platform/util/topology_parser.hpp>
 #include <regex>
 #include <stdexcept>
@@ -271,6 +272,241 @@ void topology::init() {
   std::cout << topology::getInstance() << std::endl;
 }
 
+static uint64_t profilingStartTimestamp = 0;
+
+class CUPTILogger {
+ public:
+  struct entry {
+    /* Relative to profilingStartTimestamp */
+    uint64_t start_ns;
+    uint64_t end_ns;
+    std::string kernel_name;
+    uint32_t dev;
+  };
+
+ private:
+  std::deque<entry> log;
+
+ public:
+  ~CUPTILogger() {
+    std::ofstream out{"cupti.csv"};
+    out << "start,end,kernel_name\n";
+    for (auto &e : log) {
+      out << e.start_ns << ',' << e.end_ns << ',' << e.kernel_name << "_("
+          << e.dev << ")" << '\n';
+    }
+  }
+
+ public:
+  void push(entry s) { log.emplace_back(std::move(s)); }
+};
+
+template <typename T>
+class Monitor {
+  std::mutex m;
+  T obj;
+
+ public:
+  template <typename F>
+  auto withLockDo(const F &f) {
+    std::unique_lock<std::mutex> lock{m};
+    return f(obj);
+  }
+};
+
+static Monitor<CUPTILogger> cuptiLogger;
+
+void CUPTIAPI bufferCompleted(CUcontext ctx, uint32_t streamId, uint8_t *buffer,
+                              size_t size, size_t validSize) noexcept {
+  if (validSize > 0) {
+    cuptiLogger.withLockDo([&](auto &log) {
+      CUpti_Activity *record = nullptr;
+      while (true) {
+        auto status = cuptiActivityGetNextRecord(buffer, validSize, &record);
+        if (status == CUPTI_SUCCESS) {
+          switch (record->kind) {
+            case CUPTI_ACTIVITY_KIND_INVALID:
+              break;
+            case CUPTI_ACTIVITY_KIND_MEMCPY: {
+              CUpti_ActivityMemcpy4 *kernel = (CUpti_ActivityMemcpy4 *)record;
+              if (kernel->start == 0 && kernel->end == 0) {
+                LOG(WARNING) << "Ignoring memcpy event without time info";
+              } else {
+                log.push({.start_ns = kernel->start - profilingStartTimestamp,
+                          .end_ns = kernel->end - profilingStartTimestamp,
+                          .kernel_name = "memcpy",
+                          .dev = kernel->deviceId});
+              }
+              break;
+            }
+            case CUPTI_ACTIVITY_KIND_MEMSET:
+              break;
+            case CUPTI_ACTIVITY_KIND_KERNEL:
+            case CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL: {
+              const char *kindString =
+                  (record->kind == CUPTI_ACTIVITY_KIND_KERNEL) ? "KERNEL"
+                                                               : "CONC KERNEL";
+              CUpti_ActivityKernel3 *kernel = (CUpti_ActivityKernel3 *)record;
+              if (kernel->start == 0 && kernel->end == 0) {
+                LOG(WARNING)
+                    << "Ignoring " << kindString << " event without time info";
+              } else {
+                log.push({.start_ns = kernel->start - profilingStartTimestamp,
+                          .end_ns = kernel->end - profilingStartTimestamp,
+                          .kernel_name = kernel->name,
+                          .dev = kernel->deviceId});
+                //  LOG(WARNING)
+                //      << kindString << '"' << kernel->name << '"' << " [ "
+                //      << kernel->start << " - " << kernel->end << " ] "
+                //      << kernel->deviceId << " ctx=" << kernel->contextId
+                //      << ", strm=" << kernel->streamId
+                //      << ", corr=" << kernel->correlationId;
+              }
+              break;
+            }
+            case CUPTI_ACTIVITY_KIND_DRIVER:
+              break;
+            case CUPTI_ACTIVITY_KIND_RUNTIME:
+              break;
+            case CUPTI_ACTIVITY_KIND_EVENT:
+              break;
+            case CUPTI_ACTIVITY_KIND_METRIC:
+              break;
+            case CUPTI_ACTIVITY_KIND_DEVICE:
+              break;
+            case CUPTI_ACTIVITY_KIND_CONTEXT:
+              break;
+            case CUPTI_ACTIVITY_KIND_NAME:
+              break;
+            case CUPTI_ACTIVITY_KIND_MARKER:
+              break;
+            case CUPTI_ACTIVITY_KIND_MARKER_DATA:
+              break;
+            case CUPTI_ACTIVITY_KIND_SOURCE_LOCATOR:
+              break;
+            case CUPTI_ACTIVITY_KIND_GLOBAL_ACCESS:
+              break;
+            case CUPTI_ACTIVITY_KIND_BRANCH:
+              break;
+            case CUPTI_ACTIVITY_KIND_OVERHEAD:
+              break;
+            case CUPTI_ACTIVITY_KIND_CDP_KERNEL:
+              break;
+            case CUPTI_ACTIVITY_KIND_PREEMPTION:
+              break;
+            case CUPTI_ACTIVITY_KIND_ENVIRONMENT:
+              break;
+            case CUPTI_ACTIVITY_KIND_EVENT_INSTANCE:
+              break;
+            case CUPTI_ACTIVITY_KIND_MEMCPY2:
+              break;
+            case CUPTI_ACTIVITY_KIND_METRIC_INSTANCE:
+              break;
+            case CUPTI_ACTIVITY_KIND_INSTRUCTION_EXECUTION:
+              break;
+            case CUPTI_ACTIVITY_KIND_UNIFIED_MEMORY_COUNTER:
+              break;
+            case CUPTI_ACTIVITY_KIND_FUNCTION:
+              break;
+            case CUPTI_ACTIVITY_KIND_MODULE:
+              break;
+            case CUPTI_ACTIVITY_KIND_DEVICE_ATTRIBUTE:
+              break;
+            case CUPTI_ACTIVITY_KIND_SHARED_ACCESS:
+              break;
+            case CUPTI_ACTIVITY_KIND_PC_SAMPLING:
+              break;
+            case CUPTI_ACTIVITY_KIND_PC_SAMPLING_RECORD_INFO:
+              break;
+            case CUPTI_ACTIVITY_KIND_INSTRUCTION_CORRELATION:
+              break;
+            case CUPTI_ACTIVITY_KIND_OPENACC_DATA:
+              break;
+            case CUPTI_ACTIVITY_KIND_OPENACC_LAUNCH:
+              break;
+            case CUPTI_ACTIVITY_KIND_OPENACC_OTHER:
+              break;
+            case CUPTI_ACTIVITY_KIND_CUDA_EVENT:
+              break;
+            case CUPTI_ACTIVITY_KIND_STREAM:
+              break;
+            case CUPTI_ACTIVITY_KIND_SYNCHRONIZATION:
+              break;
+            case CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION:
+              break;
+            case CUPTI_ACTIVITY_KIND_NVLINK:
+              break;
+            case CUPTI_ACTIVITY_KIND_INSTANTANEOUS_EVENT:
+              break;
+            case CUPTI_ACTIVITY_KIND_INSTANTANEOUS_EVENT_INSTANCE:
+              break;
+            case CUPTI_ACTIVITY_KIND_INSTANTANEOUS_METRIC:
+              break;
+            case CUPTI_ACTIVITY_KIND_INSTANTANEOUS_METRIC_INSTANCE:
+              break;
+            case CUPTI_ACTIVITY_KIND_MEMORY: {
+              CUpti_ActivityMemory2 *kernel = (CUpti_ActivityMemory2 *)record;
+              log.push(
+                  {.start_ns = kernel->timestamp - profilingStartTimestamp,
+                   .end_ns = kernel->timestamp + 1 - profilingStartTimestamp,
+                   .kernel_name = kernel->name,
+                   .dev = kernel->deviceId});
+              break;
+            }
+            case CUPTI_ACTIVITY_KIND_PCIE:
+              break;
+            case CUPTI_ACTIVITY_KIND_OPENMP:
+              break;
+            case CUPTI_ACTIVITY_KIND_INTERNAL_LAUNCH_API:
+              break;
+            case CUPTI_ACTIVITY_KIND_MEMORY2:
+              break;
+            case CUPTI_ACTIVITY_KIND_MEMORY_POOL:
+              break;
+            case CUPTI_ACTIVITY_KIND_COUNT:
+              break;
+            case CUPTI_ACTIVITY_KIND_FORCE_INT:
+              break;
+          }
+        } else if (status == CUPTI_ERROR_MAX_LIMIT_REACHED)
+          break;
+        else {
+          LOG(ERROR) << "error";
+          exit(-1);
+          //        gpu_run(status);
+        }
+      }
+
+      // report any records dropped from the queue
+      size_t dropped = 0;
+      cuptiActivityGetNumDroppedRecords(ctx, streamId, &dropped);
+      if (dropped != 0) {
+        LOG(WARNING) << "Dropped " << dropped << " activity records";
+      }
+    });
+  }
+
+  free(buffer);
+  //  BlockManager::release_buffer(buffer);
+}
+
+void CUPTIAPI bufferRequested(uint8_t **buffer, size_t *size,
+                              size_t *maxNumRecords) {
+  uint8_t *bfr = (uint8_t *)malloc(1024 * 1024 + 8);
+  if (bfr == nullptr) {
+    printf("Error: out of memory\n");
+    exit(-1);
+  }
+
+  *size = 1024 * 1024;
+#define ALIGN_BUFFER(buffer, align)                                 \
+  (((uintptr_t)(buffer) & ((align)-1))                              \
+       ? ((buffer) + (align) - ((uintptr_t)(buffer) & ((align)-1))) \
+       : (buffer))
+  *buffer = ALIGN_BUFFER(bfr, 8);
+  *maxNumRecords = 0;
+}
+
 void topology::init_() {
   // Check if topology is already initialized and if yes, return early
   // This should only happen when a unit-test is reinitializing proteus but it
@@ -345,6 +581,31 @@ void topology::init_() {
     gpu_info.emplace_back(i, i, core_info);
     const auto &ind = cpunuma_index[gpu_info.back().local_cpu_id];
     cpu_info[ind].local_gpus.push_back(i);
+  }
+
+  if (/* DISABLES CODE */ (false)) {
+    size_t attrValue = 1024 * 1024;  // BlockManager::block_size;
+    size_t attrValueSize = sizeof(size_t);
+    size_t poolLimit = 20;
+
+    gpu_run(cuptiActivityEnable(CUPTI_ACTIVITY_KIND_DEVICE));
+    gpu_run(cuptiActivityEnable(CUPTI_ACTIVITY_KIND_KERNEL));
+    gpu_run(cuptiActivityEnable(CUPTI_ACTIVITY_KIND_MEMCPY));
+    gpu_run(cuptiActivityEnable(CUPTI_ACTIVITY_KIND_MEMORY2));
+    gpu_run(cuptiActivitySetAttribute(CUPTI_ACTIVITY_ATTR_DEVICE_BUFFER_SIZE,
+                                      &attrValueSize, &attrValue));
+    gpu_run(
+        cuptiActivitySetAttribute(CUPTI_ACTIVITY_ATTR_DEVICE_BUFFER_POOL_LIMIT,
+                                  &attrValueSize, &poolLimit));
+
+    {
+      event_range<range_log_op::CUPTI_GET_START_TIMESTAMP> ev{this};
+      gpu_run(cuptiGetTimestamp(&profilingStartTimestamp));
+    }
+
+    // Register callbacks for buffer requests and for buffers completed by
+    // CUPTI.
+    gpu_run(cuptiActivityRegisterCallbacks(bufferRequested, bufferCompleted));
   }
 
   // warm-up GPUs
