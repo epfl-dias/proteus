@@ -130,6 +130,7 @@ class ranged_logger {
 extern thread_local ranged_logger rangelogger;
 extern thread_local logger eventlogger;
 
+#ifndef NLOG
 template <range_log_op op>
 class [[nodiscard]] event_range {
   ranged_logger::start_rec r;
@@ -148,5 +149,25 @@ class [[nodiscard]] event_range {
 
   constexpr ~event_range() noexcept { rangelogger.log(r); }
 };
+
+#else
+
+template <range_log_op op>
+class [[nodiscard]] event_range {
+ public:
+  static constexpr range_log_op event_type = op;
+
+  constexpr explicit event_range(const void *t, void *pipeline_id = nullptr,
+                                 int64_t instance_id = -1) noexcept {}
+
+  event_range(event_range &&) noexcept = delete;
+  event_range &operator=(event_range &&) noexcept = delete;
+  event_range(const event_range &) = delete;
+  event_range &operator=(const event_range &) = delete;
+
+  constexpr ~event_range() noexcept {}
+};
+
+#endif
 
 #endif /* LOGGING_HPP_ */
