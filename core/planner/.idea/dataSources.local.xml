@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="dataSourceStorageLocal" created-in="IU-211.7628.21">
+    <data-source name="Proteus" uuid="73fde7c7-256b-4c2f-9ecf-ada1d3661ccb">
+      <database-info product="Avatica" version="unknown version" jdbc-version="4.1" driver-name="Avatica Remote JDBC Driver" driver-version="unknown version" dbms="UNKNOWN" exact-version="0.0" exact-driver-version="0.0">
+        <identifier-quote-string>&quot;</identifier-quote-string>
+      </database-info>
+      <case-sensitivity plain-identifiers="upper" quoted-identifiers="exact" />
+      <secret-storage>master_key</secret-storage>
+      <schema-mapping>
+        <introspection-scope>
+          <node kind="database" qname="@">
+            <node kind="schema" qname="@" />
+          </node>
+        </introspection-scope>
+      </schema-mapping>
+    </data-source>
+  </component>
+</project>

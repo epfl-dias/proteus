@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
+    <data-source source="LOCAL" name="Proteus" uuid="73fde7c7-256b-4c2f-9ecf-ada1d3661ccb">
+      <synchronize>true</synchronize>
+      <configured-by-url>true</configured-by-url>
+      <jdbc-driver>org.apache.calcite.avatica.remote.Driver</jdbc-driver>
+      <jdbc-url>jdbc:avatica:remote:url=http://localhost:8081;serialization=PROTOBUF</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
+  </component>
+</project>
