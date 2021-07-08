@@ -1,3 +1,1 @@
-git update-index --skip-worktree \
-    core/planner/.idea/dataSources.xml \
-    && echo "Done."
+git update-index --skip-worktree $(cat "$(git rev-parse --show-toplevel)/tools/gitworktree-ignoredfiles.txt")

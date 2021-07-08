@@ -22,6 +22,9 @@ echo "Error: clang-format-$CLANG_FORMAT_VERSION is not installed" >&2
 exit 1
 fi
 
+WORKTREESKIPFILES=$(git ls-files -v . | grep ^S | sed "s/^S //g")
+git update-index --no-skip-worktree $WORKTREESKIPFILES || true
+
 format_file() {
   file="${1}"
   if [ -f $file ]; then
@@ -147,5 +150,7 @@ fi
 # Clean-up
 git stash drop -q
 git stash drop -q
+
+git update-index --skip-worktree $WORKTREESKIPFILES || true
 
 exit $RETVAL
