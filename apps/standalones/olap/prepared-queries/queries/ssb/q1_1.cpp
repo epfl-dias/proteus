@@ -69,10 +69,10 @@ PreparedStatement ssb::Query::prepare11(proteus::QueryShaper &morph) {
                       return {(arg["lo_extendedprice"] * arg["lo_discount"])
                                   .as("tmp", "revenue")};
                     },
-                    {SUM})
-                .pack();
+                    {SUM});
+            //                .pack();
           })
-      .unpack()
+      //      .unpack()
       .reduce(
           [&](const auto &arg) -> std::vector<expression_t> {
             return {arg["revenue"]};
