@@ -26,6 +26,7 @@
 //
 // Don't forget gtest.h, which declares the testing framework.
 #include <olap/operators/relbuilder-factory.hpp>
+#include <olap/test/environment.hpp>
 #include <platform/storage/storage-manager.hpp>
 
 #include "gtest/gtest.h"
@@ -56,7 +57,7 @@
 // </TechnicalDetails>
 
 ::testing::Environment *const pools_env =
-    ::testing::AddGlobalTestEnvironment(new TestEnvironment);
+    ::testing::AddGlobalTestEnvironment(new OLAPTestEnvironment);
 
 class OutputTest : public ::testing::Test {
  protected:

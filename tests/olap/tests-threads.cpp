@@ -62,6 +62,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <olap/test/environment.hpp>
 #include <platform/common/common.hpp>
 #include <platform/common/gpu/gpu-common.hpp>
 #include <platform/memory/memory-manager.hpp>
@@ -77,7 +78,7 @@
 using namespace llvm;
 
 ::testing::Environment *const pools_env =
-    ::testing::AddGlobalTestEnvironment(new TestEnvironment);
+    ::testing::AddGlobalTestEnvironment(new OLAPTestEnvironment);
 
 class ThreadTest : public ::testing::Test {
  protected:

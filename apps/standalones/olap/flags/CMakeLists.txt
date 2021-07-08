@@ -14,3 +14,4 @@ target_link_libraries(olap_flags
 
 include(proteus-lib)
 add_library(codegen::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+add_library(proteus::olap-flags ALIAS ${PROJECT_NAME})

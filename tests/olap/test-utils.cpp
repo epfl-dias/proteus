@@ -28,30 +28,6 @@
 
 #include "olap/common/olap-common.hpp"
 #include "olap/plan/prepared-statement.hpp"
-#include "rapidjson/error/en.h"
-#include "rapidjson/stringbuffer.h"
-
-void TestEnvironment::SetUp() {
-  assert(!has_already_been_setup);
-
-  setbuf(stdout, nullptr);
-
-  google::InstallFailureSignalHandler();
-
-  // FIXME: reenable tracing as soon as we find the issue with libunwind
-  set_trace_allocations(false, true);
-
-  olap = std::make_unique<proteus::olap>();
-
-  has_already_been_setup = true;
-}
-
-void TestEnvironment::TearDown() {
-  if (!is_noop) {
-    olap.reset();
-    has_already_been_setup = false;
-  }
-}
 
 bool verifyTestResult(const char *testsPath, const char *testLabel,
                       bool unordered) {
@@ -171,5 +147,3 @@ void runAndVerify(const char *testLabel, const char *planPath,
 
   EXPECT_TRUE(verifyTestResult(testPath, testLabel, unordered));  // FIXME:!!!!
 }
-
-bool TestEnvironment::has_already_been_setup = false;

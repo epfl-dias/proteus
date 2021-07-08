@@ -55,16 +55,6 @@
 //
 // </TechnicalDetails>
 
-class TestEnvironment : public ::testing::Environment {
-  bool is_noop = false;
-  static bool has_already_been_setup;
-  std::unique_ptr<proteus::olap> olap;
-
- public:
-  void SetUp() override;
-  void TearDown() override;
-};
-
 // ::testing::Environment *const pools_env =
 // ::testing::AddGlobalTestEnvironment(new TestEnvironment);
 

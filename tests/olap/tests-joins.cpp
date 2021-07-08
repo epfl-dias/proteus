@@ -25,6 +25,7 @@
 // test logic needs is declared.
 //
 // Don't forget gtest.h, which declares the testing framework.
+#include <olap/test/environment.hpp>
 #include <platform/common/common.hpp>
 
 #include "expressions/binary-operators.hpp"
@@ -65,7 +66,7 @@
 // </TechnicalDetails>
 
 ::testing::Environment *const pools_env =
-    ::testing::AddGlobalTestEnvironment(new TestEnvironment);
+    ::testing::AddGlobalTestEnvironment(new OLAPTestEnvironment);
 
 class SailorsTest : public ::testing::Test {
  protected:

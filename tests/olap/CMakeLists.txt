@@ -37,6 +37,7 @@ else ()
 
   set(TS_COMMON_LIBS
     proteus::olap
+    proteus::olap-test
     )
 endif ()
 

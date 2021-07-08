@@ -56,19 +56,17 @@
 //
 // </TechnicalDetails>
 
-#include <platform/common/common.hpp>
+#include <olap/test/environment.hpp>
 #include <platform/common/gpu/gpu-common.hpp>
 #include <platform/storage/storage-manager.hpp>
 #include <platform/topology/topology.hpp>
-#include <thread>
-#include <vector>
 
 #include "test-utils.hpp"
 
 using namespace llvm;
 
 ::testing::Environment *const pools_env =
-    ::testing::AddGlobalTestEnvironment(new TestEnvironment);
+    ::testing::AddGlobalTestEnvironment(new OLAPTestEnvironment);
 
 class GPUSSBTest : public ::testing::Test {
  protected:

@@ -1,6 +1,14 @@
+function(proteus_target_link_test_libraries target)
+  target_link_libraries(${target} PUBLIC ${GTEST})
+endfunction()
+
+function(proteus_target_link_test_runner target)
+  target_link_libraries(${target} PUBLIC ${GTEST_MAIN})
+endfunction()
+
 function(add_proteus_unit_test_nolib target)
   add_executable(${target} ${ARGN})
-  target_link_libraries(${target} ${GTEST_MAIN} ${GTEST})
+  proteus_target_link_test_libraries(${target})
   target_enable_default_warnings(${target})
 
   set(_proteus_install_target ${target})
@@ -16,6 +24,6 @@ endfunction()
 
 function(add_proteus_unit_test target testedlib)
   add_proteus_unit_test_nolib(${target} ${ARGN})
-  target_link_libraries(${target} ${testedlib})
+  target_link_libraries(${target} PUBLIC ${testedlib})
   target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:${testedlib},INCLUDE_DIRECTORIES>)
 endfunction()

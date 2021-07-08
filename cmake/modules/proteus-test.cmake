@@ -8,6 +8,7 @@ if(FALSE)
 # - TS_NAME Target name of the test suite.
 
 target_link_libraries(${TS_NAME}
+	PUBLIC
 	${GTEST_MAIN}
 	${GTEST}
 	)
@@ -41,8 +42,9 @@ else()
 # - TS_COMMON_LIBS Additional libraries shared among all unit tests.
 foreach(target ${TS_TESTS})
 	add_proteus_unit_test_nolib(unit-${target} ${target}.cpp ${TS_COMMON_SRCS})
+	proteus_target_link_test_runner(unit-${target})
 
-	target_link_libraries(unit-${target} ${TS_COMMON_LIBS})
+	target_link_libraries(unit-${target} PUBLIC ${TS_COMMON_LIBS})
 
 	# Not sure we need to do it for each target, we might be able to
 	# do it only once.

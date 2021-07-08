@@ -25,6 +25,7 @@
 // test logic needs is declared.
 //
 // Don't forget gtest.h, which declares the testing framework.
+#include <olap/test/environment.hpp>
 #include <platform/storage/storage-manager.hpp>
 
 #include "gtest/gtest.h"
@@ -55,7 +56,7 @@
 // </TechnicalDetails>
 
 ::testing::Environment *const pools_env =
-    ::testing::AddGlobalTestEnvironment(new TestEnvironment);
+    ::testing::AddGlobalTestEnvironment(new OLAPTestEnvironment);
 
 class PlanTest : public ::testing::Test {
  protected:

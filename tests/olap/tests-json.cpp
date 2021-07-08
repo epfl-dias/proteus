@@ -21,6 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include <olap/test/environment.hpp>
 #include <platform/common/common.hpp>
 
 #include "expressions/binary-operators.hpp"
@@ -45,7 +46,7 @@
 #include "values/expressionTypes.hpp"
 
 ::testing::Environment *const pools_env =
-    ::testing::AddGlobalTestEnvironment(new TestEnvironment);
+    ::testing::AddGlobalTestEnvironment(new OLAPTestEnvironment);
 
 class JSONTest : public ::testing::Test {
  protected:

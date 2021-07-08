@@ -73,7 +73,7 @@
 using namespace llvm;
 
 // ::testing::Environment *const pools_env =
-//     ::testing::AddGlobalTestEnvironment(new TestEnvironment);
+//     ::testing::AddGlobalTestEnvironment(new OLAPTestEnvironment);
 
 class ThreadCOW : public ::testing::Test {
  protected:
