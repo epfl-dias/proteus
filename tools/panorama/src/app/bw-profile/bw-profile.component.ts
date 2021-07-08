@@ -102,11 +102,13 @@ export class BwProfileComponent implements OnInit {
         let anyPos = false;
         for (const key in size) {
           const consume = Math.min(size[key], mbperstep);
-          data.push({
-            timestamp: time,
-            MB: consume / step,
-            handler: key,
-          });
+          if (consume > 0) {
+            data.push({
+              timestamp: time,
+              MB: consume / step,
+              handler: key,
+            });
+          }
           size[key] -= consume;
           anyPos = anyPos || (size[key] > 0);
         }
@@ -417,7 +419,8 @@ export class BwProfileComponent implements OnInit {
                 url: {value: 'https://vega.github.io/images/idl-logo.png'},
               }
             },
-          }],
+          }
+          ],
           resolve: {scale: {x: 'shared'}},
           config: {view: {stroke: null}}
         }
