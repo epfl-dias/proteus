@@ -24,15 +24,12 @@
 #ifndef PLUGINS_LLVM_HPP_
 #define PLUGINS_LLVM_HPP_
 
+#include <olap/util/cache-info.hpp>
 #include <olap/util/context.hpp>
 #include <olap/util/parallel-context.hpp>
+#include <olap/values/expressionTypes.hpp>
 #include <platform/common/common.hpp>
-//#include "expressions/expressions.hpp"
-//#include "operators/operators.hpp"
-#include "olap/util/cache-info.hpp"
-////#include "util/catalog.hpp"
-//#include "util/context.hpp"
-#include "olap/values/expressionTypes.hpp"
+#include <platform/common/unsupported-operation.hpp>
 
 /* Leads to incomplete type */
 class OperatorState;
@@ -52,18 +49,6 @@ typedef struct Bindings {
   const OperatorState *state;
   const ProteusValue record;
 } Bindings;
-
-namespace proteus {
-class unsupported_operation : public std::runtime_error {
- public:
-  using std::runtime_error::runtime_error;
-};
-
-class abort : public std::runtime_error {
- public:
-  abort() : runtime_error("tx abort") {}
-};
-}  // namespace proteus
 
 enum PluginType { PGCSV, PGJSON, PGBINARY };
 /**********************************/
