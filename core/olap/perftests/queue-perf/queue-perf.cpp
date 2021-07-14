@@ -265,7 +265,7 @@ void BM_MultiThreaded_core(benchmark::State &state) {
     size_t maxitems = 1024 * 1024;
     totalcnt += maxitems;
     for (size_t i = 0; i < maxitems; ++i) {
-      while (origin_ptr->size_unsafe() < 64 * 1024) std::this_thread::yield();
+      while (origin_ptr->size_unsafe() < 8 * 1024) std::this_thread::yield();
       origin_ptr->emplace(i);
     }
     origin_ptr->close();
@@ -622,9 +622,9 @@ BENCHMARK_TEMPLATE(BM_MultiThreaded_sym_atomiccntfight_socket,
 //    ->Unit(benchmark::kMillisecond)
 ////    ->MinTime(10 /* seconds */)
 //    ->UseRealTime();
-
-int main(int argc, char **argv) {
-  auto ctx = proteus::olap(0.02, 0.001);
-  benchmark::Initialize(&argc, argv);
-  benchmark::RunSpecifiedBenchmarks();
-}
+//
+// int main(int argc, char **argv) {
+//  auto ctx = proteus::olap(0.02, 0.001);
+//  benchmark::Initialize(&argc, argv);
+//  benchmark::RunSpecifiedBenchmarks();
+//}
