@@ -147,6 +147,13 @@ class bytes {
   bytes(size_t b) : b(b) {}
 
   friend std::ostream &operator<<(std::ostream &out, const bytes &b);
+
+  bytes &operator+=(const bytes &o) {
+    b += o.b;
+    return *this;
+  }
+
+  [[nodiscard]] explicit operator size_t() const { return b; }
 };
 
 namespace std {
