@@ -23,7 +23,8 @@
 #ifndef BINARY_COL_PLUGIN_HPP_
 #define BINARY_COL_PLUGIN_HPP_
 
-#include "olap/plugins/plugins.hpp"
+#include <olap/plugins/plugins.hpp>
+#include <storage/storage-manager.hpp>
 
 //#ifdef DEBUG
 #define DEBUGBINCOL
@@ -203,6 +204,7 @@ class BinaryColPlugin : public Plugin {
   RecordType getRowType() const override { return {wantedFields}; }
 
  private:
+  std::vector<FileRequest> files;
   // Schema info provided
   RecordType rec;
   vector<RecordAttribute *> wantedFields;

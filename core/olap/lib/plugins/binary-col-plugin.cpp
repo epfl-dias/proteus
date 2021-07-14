@@ -71,19 +71,23 @@ BinaryColPlugin::BinaryColPlugin(Context *const context, string fnamePrefix,
   vector<RecordAttribute *>::iterator it;
   int cnt = 0;
   LOG(INFO) << "[BinaryColPlugin: ] " << fnamePrefix;
+  files.reserve(wantedFields.size());
   for (it = wantedFields.begin(); it != wantedFields.end(); it++) {
     string fileName = fnamePrefix + "." + (*it)->getAttrName();
 
     const auto llvm_type = (*it)->getOriginalType()->getLLVMType(llvmContext);
     size_t type_size = context->getSizeOf(llvm_type);
 
-    std::vector<mem_file> file_parts =
-        StorageManager::getInstance()
-            .getOrLoadFile(fileName.c_str(), type_size, PINNED)
-            .get();  // open(name_c, O_RDONLY);
+    files
+        .emplace_back(StorageManager::getInstance().request(fileName.c_str(),
+                                                            type_size, PINNED))
+        .pin();
+
+    std::vector<mem_file> file_parts = files.back().getSegments();
+
     assert(file_parts.size() == 1 &&
            "Plug-in does not handle (in-memory) partitioned files");
-    buf[cnt] = file_parts[0].getPointerToPotentiallyRemoteData();
+    buf[cnt] = file_parts[0].getPointerToData();
     colFilesize[cnt] = file_parts[0].getSize();
 
     if ((*it)->getOriginalType()->getTypeID() == STRING) {
@@ -140,7 +144,9 @@ BinaryColPlugin::BinaryColPlugin(Context *const context, string fnamePrefix,
 //    LOG(INFO) << "[BinaryColPlugin *as cache*]";
 //}
 
-BinaryColPlugin::~BinaryColPlugin() {}
+BinaryColPlugin::~BinaryColPlugin() {
+  for (auto &f : files) f.unpin();
+}
 
 /* No STRING yet in this mode */
 /* The constructor of a previous colPlugin has taken care of the populated
