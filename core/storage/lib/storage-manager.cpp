@@ -283,10 +283,10 @@ std::future<std::vector<mem_file>> StorageManager::getFile(std::string name) {
   return ThreadPool::getInstance().enqueue(
       [](auto ffut) {
         const auto &f = ffut.get().data;
-        std::vector<mem_file> mfiles{f.size()};
-        for (size_t i = 0; i < mfiles.size(); ++i) {
-          mfiles[i].data = f[i]->getData();
-          mfiles[i].size = f[i]->getFileSize();
+        std::vector<mem_file> mfiles;
+        mfiles.reserve(f.size());
+        for (const auto &fi : f) {
+          mfiles.emplace_back(mem_file::fromLocal(*fi));
         }
         return mfiles;
       },

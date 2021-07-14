@@ -28,12 +28,66 @@
 #include <map>
 #include <platform/common/common.hpp>
 #include <platform/common/gpu/gpu-common.hpp>
+#include <platform/common/unsupported-operation.hpp>
+#include <platform/network/infiniband/infiniband-manager.hpp>
 #include <storage/mmap-file.hpp>
 #include <vector>
 
-struct mem_file {
+class mem_file {
+ private:
   const void *data;
   size_t size;
+
+  size_t server_id = InfiniBandManager::server_id();
+
+  mem_file(const void *data, size_t size) : data(data), size(size) {}
+  mem_file(const void *data, size_t size, size_t sid)
+      : data(data), size(size), server_id(sid) {}
+
+ public:
+  class remote_data : public proteus::unsupported_operation {
+   public:
+    remote_data(size_t s)
+        : unsupported_operation("Remote data (located on server " +
+                                std::to_string(s) + ")") {}
+  };
+
+  static mem_file fromLocal(const mem_region &f) {
+    if (f.isServerLocalRegion()) {
+      return {f.getData(), f.getFileSize()};
+    } else {
+      auto &f2 = dynamic_cast<const remote_mem_region &>(f);
+      return {f.getData(), f.getFileSize(), f2.getServerId()};
+    }
+  }
+
+  /**
+   * If there data are in the current server, retrieves a pointer to the data
+   * Otherwise it throws a mem_file::remote_data exception.
+   *
+   * @return pointer to data, if server local
+   * @throws mem_file::remote_data if pointer on another machine
+   */
+  [[nodiscard]] const void *getPointerToData() const {
+    if (server_id != InfiniBandManager::server_id()) {
+      throw remote_data(server_id);
+    }
+
+    return data;
+  }
+
+  /**
+   * Returns file size in bytes
+   *
+   * @return size in bytes
+   */
+  [[nodiscard]] size_t getSize() const { return size; }
+
+  [[nodiscard]] size_t getServerId() const { return server_id; }
+
+  [[nodiscard]] const void *getPointerToPotentiallyRemoteData() const {
+    return data;
+  }
 };
 
 /**

@@ -40,13 +40,27 @@ enum data_loc {
   MANAGEDMEMORY
 };
 
-struct mmap_file {
+class mem_region {
+ protected:
+  std::span<std::byte> actual_data;
+
+ public:
+  virtual ~mem_region() = default;
+
+  [[nodiscard]] virtual const std::span<std::byte> &asSpan() const;
+  [[nodiscard]] virtual std::span<std::byte> &asSpan();
+
+  [[nodiscard]] virtual const void *getData() const;
+  [[nodiscard]] virtual size_t getFileSize() const;
+
+  [[nodiscard]] virtual bool isServerLocalRegion() const { return true; }
+};
+
+class mmap_file : public mem_region {
  private:
   int fd;
 
   void *data;
-
-  std::span<std::byte> gpu_data;
 
   data_loc loc;
 
@@ -60,15 +74,26 @@ struct mmap_file {
   mmap_file &operator=(const mmap_file &) = delete;
   mmap_file(mmap_file &&) noexcept;
   mmap_file &operator=(mmap_file &&) noexcept;
-  ~mmap_file();
-
-  [[nodiscard]] const std::span<std::byte> &asSpan() const;
-  [[nodiscard]] std::span<std::byte> &asSpan();
-
-  [[nodiscard]] const void *getData() const;
-  [[nodiscard]] size_t getFileSize() const;
+  ~mmap_file() override;
 
   [[nodiscard]] static mmap_file from(std::string blob);
+};
+
+class remote_mem_region : public mem_region {
+  size_t srv_id;
+  std::function<void()> release;
+
+ public:
+  remote_mem_region(void *data, size_t size, size_t srv_id,
+                    std::function<void()> release);
+  remote_mem_region(const remote_mem_region &) = delete;
+  remote_mem_region &operator=(const remote_mem_region &) = delete;
+  remote_mem_region(remote_mem_region &&) noexcept = default;
+  remote_mem_region &operator=(remote_mem_region &&) noexcept = default;
+  ~remote_mem_region() override;
+
+  [[nodiscard]] bool isServerLocalRegion() const override;
+  [[nodiscard]] size_t getServerId() const { return srv_id; }
 };
 
 size_t getFileSize(const char *filename);

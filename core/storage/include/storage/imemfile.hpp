@@ -47,8 +47,10 @@ class imemfile {
         : req(StorageManager::getInstance().request(path, 1, PAGEABLE)),
           mf(getSingleMemFile(req)) {}
 
-    [[nodiscard]] size_t size() const { return mf.size; }
-    [[nodiscard]] auto data() const { return mf.data; }
+    [[nodiscard]] size_t size() const { return mf.getSize(); }
+    [[nodiscard]] auto data() const {
+      return mf.getPointerToPotentiallyRemoteData();
+    }
 
     inline ~voidimemfile() { req.unpin(); }
   };

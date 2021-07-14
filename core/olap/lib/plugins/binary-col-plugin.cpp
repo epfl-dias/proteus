@@ -83,8 +83,8 @@ BinaryColPlugin::BinaryColPlugin(Context *const context, string fnamePrefix,
             .get();  // open(name_c, O_RDONLY);
     assert(file_parts.size() == 1 &&
            "Plug-in does not handle (in-memory) partitioned files");
-    buf[cnt] = file_parts[0].data;
-    colFilesize[cnt] = file_parts[0].size;
+    buf[cnt] = file_parts[0].getPointerToPotentiallyRemoteData();
+    colFilesize[cnt] = file_parts[0].getSize();
 
     if ((*it)->getOriginalType()->getTypeID() == STRING) {
       struct stat statbuf;

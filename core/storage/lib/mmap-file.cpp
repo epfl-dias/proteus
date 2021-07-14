@@ -29,6 +29,7 @@
 #include <platform/common/error-handling.hpp>
 #include <platform/common/gpu/gpu-common.hpp>
 #include <platform/memory/memory-manager.hpp>
+#include <platform/network/infiniband/infiniband-manager.hpp>
 #include <platform/topology/topology.hpp>
 #include <platform/util/timing.hpp>
 #include <storage/mmap-file.hpp>
@@ -89,7 +90,7 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
     //      LOG(INFO)<< "offset is: " << offset;
     data = mmap(nullptr, filesize, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, fd,
                 offset);
-  } else {
+  } else if (loc != PINNED || !readonly) {
     data =
         mmap(nullptr, filesize, PROT_READ | (readonly ? 0 : PROT_WRITE),
              (readonly ? MAP_PRIVATE : MAP_SHARED) | MAP_POPULATE, fd, offset);
@@ -106,8 +107,22 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
   if (loc == PINNED) {
     if (readonly) {
       void *data2 = MemoryManager::mallocPinned(filesize);
-      memcpy(data2, data, filesize);
-      munmap(data, filesize);
+
+      auto readall = [](int pfd, void *p, size_t size, size_t offs) {
+        auto buff = static_cast<char *>(p);
+        while (size > 0) {
+          auto rdsize = pread(pfd, buff, size, offs);
+          if (rdsize < 0) linux_run(rdsize);
+          LOG_IF(FATAL, rdsize == 0) << "Unexpected EOF";
+          buff += rdsize;
+          offs += rdsize;
+          size -= rdsize;
+        }
+      };
+
+      readall(fd, data2, filesize, offset);
+      //      memcpy(data2, data, filesize);
+      //      munmap(data, filesize);
       close(fd);
       data = data2;
       gpu_data2 = data;
@@ -124,38 +139,34 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
     munmap(data, filesize);
     close(fd);
   }
-  gpu_data = std::span<std::byte>((std::byte *)gpu_data2, filesize);
+  actual_data = std::span<std::byte>((std::byte *)gpu_data2, filesize);
 }
 
 mmap_file::mmap_file(mmap_file &&other) noexcept
-    : fd(other.fd),
-      data(other.data),
-      gpu_data(other.gpu_data),
-      loc(other.loc),
-      readonly(other.readonly) {
-  other.gpu_data = std::span<std::byte>{};
+    : fd(other.fd), data(other.data), loc(other.loc), readonly(other.readonly) {
+  actual_data = other.actual_data;
+  other.actual_data = std::span<std::byte>{};
   other.data = nullptr;
 }
 
 mmap_file &mmap_file::operator=(mmap_file &&other) noexcept {
   fd = other.fd;
   data = other.data;
-  gpu_data = other.gpu_data;
+  actual_data = other.actual_data;
   loc = other.loc;
   readonly = other.readonly;
-  other.gpu_data = std::span<std::byte>{};
+  other.actual_data = std::span<std::byte>{};
   other.data = nullptr;
   return *this;
 }
 
-mmap_file::mmap_file(void *ptr, size_t bytes)
-    : loc(MANAGEDMEMORY),
-      data(ptr),
-      gpu_data(std::span<std::byte>((std::byte *)ptr, bytes)) {}
+mmap_file::mmap_file(void *ptr, size_t bytes) : loc(MANAGEDMEMORY), data(ptr) {
+  actual_data = std::span<std::byte>((std::byte *)ptr, bytes);
+}
 
 mmap_file::~mmap_file() {
-  if (gpu_data.empty() && !data) return;
-  if (loc == GPU_RESIDENT) MemoryManager::freeGpu(gpu_data.data());
+  if (actual_data.empty() && !data) return;
+  if (loc == GPU_RESIDENT) MemoryManager::freeGpu(actual_data.data());
 
   // gpu_run(cudaHostUnregister(data));
   // if (loc == PINNED)       gpu_run(cudaFreeHost(data));
@@ -163,14 +174,14 @@ mmap_file::~mmap_file() {
     if (readonly) {
       MemoryManager::freePinned(data);
     } else {
-      NUMAPinnedMemAllocator::unreg(gpu_data.data());
-      munmap(data, gpu_data.size());
+      NUMAPinnedMemAllocator::unreg(actual_data.data());
+      munmap(data, actual_data.size());
       close(fd);
     }
   }
 
   if (loc == PAGEABLE) {
-    munmap(data, gpu_data.size());
+    munmap(data, actual_data.size());
     close(fd);
   }
 
@@ -183,9 +194,21 @@ mmap_file::~mmap_file() {
   }
 }
 
-const std::span<std::byte> &mmap_file::asSpan() const { return gpu_data; }
-std::span<std::byte> &mmap_file::asSpan() { return gpu_data; }
+const std::span<std::byte> &mem_region::asSpan() const { return actual_data; }
+std::span<std::byte> &mem_region::asSpan() { return actual_data; }
 
-const void *mmap_file::getData() const { return gpu_data.data(); }
+const void *mem_region::getData() const { return actual_data.data(); }
 
-size_t mmap_file::getFileSize() const { return gpu_data.size(); }
+size_t mem_region::getFileSize() const { return actual_data.size(); }
+
+remote_mem_region::remote_mem_region(void *data, size_t size, size_t srv_id,
+                                     std::function<void()> release)
+    : srv_id(srv_id), release(std::move(release)) {
+  actual_data = std::span<std::byte>((std::byte *)data, size);
+}
+
+[[nodiscard]] bool remote_mem_region::isServerLocalRegion() const {
+  return srv_id == InfiniBandManager::server_id();
+}
+
+remote_mem_region::~remote_mem_region() { release(); }

@@ -465,7 +465,7 @@ const void **BinaryBlockPlugin::getDataForField(size_t i) {
 
   size_t j = 0;
   for (const auto &t : wantedFieldsFiles[i].getSegments())
-    fieldPtr[j++] = t.data;
+    fieldPtr[j++] = t.getPointerToPotentiallyRemoteData();
   if (j != Nparts) {
     string error_msg{"Columns do not have the same number of partitions"};
     LOG(ERROR) << error_msg;
@@ -510,7 +510,7 @@ int64_t *BinaryBlockPlugin::getTuplesPerPartition() {
   for (const auto &t : wantedFieldsFiles[0].getSegments()) {
     //    assert((t.size % context->getSizeOf(
     //        wantedFields[0]->getLLVMType(llvmContext))) == 0);
-    size_t pack_N = t.size / fieldSizes[0];
+    size_t pack_N = t.getSize() / fieldSizes[0];
 #ifndef NDEBUG
     N_parts_init_sizes.push_back(pack_N);
 #endif
@@ -527,8 +527,8 @@ int64_t *BinaryBlockPlugin::getTuplesPerPartition() {
     const size_t size = fieldSizes[j];
     for (size_t i = 0; i < files.size(); ++i) {
       const auto &t = files[i];
-      assert((t.size % size) == 0);
-      size_t pack_N = t.size / size;
+      assert((t.getSize() % size) == 0);
+      size_t pack_N = t.getSize() / size;
       assert(pack_N == N_parts_init_sizes[i]);
     }
   }
