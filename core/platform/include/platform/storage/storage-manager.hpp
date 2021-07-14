@@ -65,6 +65,16 @@ struct mem_file {
   size_t size;
 };
 
+/**
+ * Object representing a pinned file and it's associated resources.
+ *
+ * Treat with care, as this can be a very expensive object to create/manipulate.
+ * Only the loading policies and the StorageManager have to work with this
+ * calls.
+ *
+ * To request a file from the Storage layers, see StorageManager#request
+ * and StorageManager#setLoader.
+ */
 class FileRecord {
  public:
   std::vector<std::unique_ptr<mmap_file>> data;
@@ -112,22 +122,56 @@ class FileRequest {
   friend class StorageManager;
 
  public:
+  /**
+   * Returns whether the file is currently pinned, by this file request.
+   *
+   * @return true if the file is pinned
+   */
   [[nodiscard]] bool isPinned() const { return pinned; }
 
+  /**
+   * Force the file to be accessible until unpinned, potentially loading it if
+   * needed
+   */
   void pin() {
     assert(!pinned);
     pinned = true;
     data = generator();
   }
 
+  /**
+   * Allow the file to be unloaded.
+   *
+   * While after unpin returns the file may be unloaded, the unload is not
+   * enforced and it's up to the storage subsystem to decide when to really
+   * unload the file.
+   */
   void unpin() {
     assert(pinned);
     pinned = false;
     data = std::shared_future<segments_t>{};
   }
 
+  /**
+   * Register the intent to pin this file soon, potentially prefetching it.
+   *
+   * This may allow the storage subsystem to start loading the file in the
+   * background, but no guarantees are provided. The storage subsystem in
+   * combination with the loading policy are free to load the file
+   * asynchronously, block until the file is completely loaded, completely
+   * ignore the registered intent or do anything else they deem appropriate,
+   * like unloading other files to create space.
+   */
   void registerIntent() { generator(); }
 
+  /**
+   * Return the number of segments for the file.
+   *
+   * If the file is pinned, then this should be equivalent getSegments().size(),
+   * otherwise this call may be as expensive as pinning and unpinning the file.
+   *
+   * @return the number of segments representing the file.
+   */
   size_t getSegmentCount() {
     bool was_pinned = isPinned();
     if (!was_pinned) pin();
@@ -136,6 +180,12 @@ class FileRequest {
     return s;
   }
 
+  /**
+   * Return a reference to the file segments
+   *
+   * @pre the file should be pinned
+   * @return vectors of segments
+   */
   const segments_t &getSegments() {
     assert(isPinned());
     return get();
@@ -176,6 +226,27 @@ class StorageManager {
   [[nodiscard]] std::future<std::vector<mem_file>> getFile(std::string name);
   [[nodiscard]] std::future<std::vector<mem_file>> getOrLoadFile(
       std::string name, size_t type_size, data_loc loc = FROM_REGISTRY);
+
+ public:
+  /**
+   * Request a handle to a (logical) file, used to manipulate the file.
+   *
+   * Provides the main entry point to the storage manager, giving access
+   * to manipulating files.
+   *
+   * NOTE: @p type_size and @p loc will be ignored by future versions and
+   * should be consider unreliable until then. Use load policies to set these
+   * parameters, through #setLoader and #setDefaultLoader.
+   *
+   * @param name        logical file name
+   * @param type_size   preferred atomic word unit for opening the file
+   * @param loc         preferred file loading policy
+   * @return Handle that allows pinning/unpinning etc the file
+   *
+   * @see FileRequest
+   * @see #setLoader
+   * @see #setDefaultLoader
+   */
   [[nodiscard]] FileRequest request(std::string name, size_t type_size,
                                     data_loc loc);
   void unloadFile(std::string name);
