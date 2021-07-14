@@ -124,6 +124,56 @@ class DoWhile {
   void gen_while(const std::function<ProteusValue()> &cond) &&;
 };
 
+template <typename T>
+concept aggregate = std::is_aggregate_v<T>;
+
+template <typename T, typename... Args>
+concept aggregate_initializable = aggregate<T> && requires {
+  T{std::declval<Args>()...};
+};
+
+namespace detail {
+struct any {
+  template <typename T>
+  constexpr operator T() const noexcept;
+};
+}  // namespace detail
+
+namespace detail {
+template <std::size_t I>
+using indexed_any = any;
+
+template <aggregate T, typename Indices>
+struct aggregate_initializable_from_indices;
+
+template <aggregate T, std::size_t... Indices>
+struct aggregate_initializable_from_indices<T, std::index_sequence<Indices...>>
+    : std::bool_constant<aggregate_initializable<T, indexed_any<Indices>...>> {
+};
+}  // namespace detail
+
+template <typename T, std::size_t N>
+concept aggregate_initializable_with_n_args =
+    aggregate<T> && detail::aggregate_initializable_from_indices<
+        T, std::make_index_sequence<N>>::value;
+
+namespace detail {
+template <aggregate T, std::size_t N, bool CanInitialize>
+struct aggregate_field_count
+    : aggregate_field_count<T, N + 1,
+                            aggregate_initializable_with_n_args<T, N + 1>> {};
+
+template <aggregate T, std::size_t N>
+struct aggregate_field_count<T, N, false>
+    : std::integral_constant<std::size_t, N - 1> {};
+}  // namespace detail
+
+template <aggregate T>
+struct num_aggregate_fields : detail::aggregate_field_count<T, 0, true> {};
+
+template <aggregate T>
+constexpr std::size_t num_aggregate_fields_v = num_aggregate_fields<T>::value;
+
 class Context {
  private:
   const std::string moduleName;
@@ -341,6 +391,34 @@ class Context {
   virtual if_branch gen_if(const expression_t &expr,
                            const OperatorState &state);
 
+ private:
+  template <typename, typename = void>
+  static constexpr bool is_type_complete_v = false;
+
+  template <typename T>
+  static constexpr bool
+      is_type_complete_v<T, std::void_t<decltype(sizeof(T))>> = true;
+
+  template <typename T, size_t i>
+  static constexpr auto extract() {
+    auto [a, b] = std::declval<T>();
+    return std::get<i>(std::make_tuple(a, b));
+  }
+
+ public:
+  template <typename T>
+  llvm::Type *toLLVMUnknown() {
+    {
+      static std::set<decltype(typeid(T).name())> unknown_types;
+      static std::mutex m;
+      std::lock_guard<std::mutex> lock{m};
+      LOG_IF(INFO, unknown_types.emplace(typeid(T).name()).second)
+          << "Unknown type " << typeid(T).name()
+          << " substituting with sized placeholder";
+    }
+    return llvm::Type::getIntNTy(getLLVMContext(), sizeof(T) * 8);
+  }
+
   template <typename T>
   llvm::Type *toLLVM() {
     if constexpr (std::is_void_v<T>) {
@@ -348,6 +426,9 @@ class Context {
     } else if constexpr (std::is_pointer_v<T>) {
       if constexpr (std::is_void_v<
                         std::remove_cv_t<std::remove_pointer_t<T>>>) {
+        // No void ptr type in llvm ir
+        return llvm::PointerType::getUnqual(toLLVM<char>());
+      } else if (!is_type_complete_v<std::remove_pointer_t<T>>) {
         // No void ptr type in llvm ir
         return llvm::PointerType::getUnqual(toLLVM<char>());
       } else {
@@ -366,16 +447,17 @@ class Context {
       auto charPtrType = toLLVM<char *>();
       return llvm::StructType::get(getLLVMContext(),
                                    {charPtrType, charPtrType});
-    } else {
-      {
-        static std::set<decltype(typeid(T).name())> unknown_types;
-        static std::mutex m;
-        std::lock_guard<std::mutex> lock{m};
-        LOG_IF(INFO, unknown_types.emplace(typeid(T).name()).second)
-            << "Unknown type " << typeid(T).name()
-            << " substituting with sized placeholder";
+    } else if constexpr (!std::is_same_v<T, std::stringstream> &&
+                         std::is_aggregate_v<T>) {
+      if constexpr (num_aggregate_fields_v<T> == 2) {
+        return llvm::StructType::get(getLLVMContext(),
+                                     {toLLVM<decltype(extract<T, 0>())>(),
+                                      toLLVM<decltype(extract<T, 1>())>()});
+      } else {
+        return toLLVMUnknown<T>();
       }
-      return llvm::Type::getIntNTy(getLLVMContext(), sizeof(T) * 8);
+    } else {
+      return toLLVMUnknown<T>();
     }
   }
 

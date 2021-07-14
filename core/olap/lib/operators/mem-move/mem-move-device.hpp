@@ -45,6 +45,7 @@ class MemMoveDevice : public experimental::UnaryOperator {
   struct workunit {
     void *data;
     cudaEvent_t event;
+    [[maybe_unused]] bool unused;  // FIXME: remove
     // cudaStream_t strm;
   };
 
