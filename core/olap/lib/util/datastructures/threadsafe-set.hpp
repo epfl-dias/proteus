@@ -111,7 +111,10 @@ class alignas(2 * 1024 * 1024)
   }
 
   [[nodiscard]] bool empty_unsafe() const noexcept { return occ == occrev; }
-  [[nodiscard]] auto size_unsafe() const noexcept { return occ - occrev; }
+  [[nodiscard]] auto size_unsafe() const noexcept {
+    size_t size = occ - occrev;
+    return size > 2 * data.size() ? /* producers wait for jobs */ 0 : size;
+  }
 
   [[nodiscard]] bool empty() noexcept {
     std::lock_guard<std::mutex> lock{m};
@@ -125,7 +128,7 @@ class alignas(2 * 1024 * 1024)
       auto locc = occ++;
       while (occrev + N <= locc) std::this_thread::yield();
       //      while (data.at(locc % N).second == locc - N);
-      data.at(locc % N).first = T{args...};
+      data.at(locc % N).first = T{std::forward<Args>(args)...};
       data.at(locc % N).second = locc;
       //      data.push(std::forward<Args>(args)...);
       //      ++occ;
@@ -143,10 +146,10 @@ class alignas(2 * 1024 * 1024)
     while (pop(x))
       ;
     terminating = false;
-    cnt = 0;
     //    occ = 0;
     //    occrev = 0;
     occrev = occ.load();
+    cnt = occ.load();
   }
 
   void close() noexcept {
