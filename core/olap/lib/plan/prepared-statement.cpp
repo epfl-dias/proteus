@@ -43,8 +43,26 @@ QueryResult PreparedStatement::execute() {
   return execute(tlog);
 }
 
+static auto defaultTimeBlockFactory(const char *s) { return time_block(s); }
+
+time_block PreparedStatement::SilentExecution(const char *s) {
+  return time_block([](const auto &t) {});
+}
+
+QueryResult PreparedStatement::execute(
+    std::function<time_block(const char *)> f) {
+  std::vector<std::chrono::milliseconds> tlog;
+  return execute(tlog, std::move(f));
+}
+
 QueryResult PreparedStatement::execute(
     std::vector<std::chrono::milliseconds> &tlog) {
+  return execute(tlog, defaultTimeBlockFactory);
+}
+
+QueryResult PreparedStatement::execute(
+    std::vector<std::chrono::milliseconds> &tlog,
+    std::function<time_block(const char *)> f) {
   bool deterministic_affinity = true;
   auto &topo = topology::getInstance();
 
@@ -70,16 +88,16 @@ QueryResult PreparedStatement::execute(
   *static_cast<uint32_t *>(session) = ++year;
 
   {
-    time_block twsync("Texecute w sync: ");
+    time_block twsync = f("Texecute w sync: ");
 
     {
-      time_block texecute("Texecute       : ");
+      time_block texecute = f("Texecute       : ");
 
       for (auto &p : pipelines) {
         nvtxRangePushA("pip");
         {
           time_block t2([&](const auto &tmil) { tlog.emplace_back(tmil); });
-          time_block t("T: ");
+          time_block t = f("T: ");
 
           p->open(session);
           p->consume(0);

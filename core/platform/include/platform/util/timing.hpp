@@ -70,6 +70,29 @@ class nested_time_block {
   }
 };
 
+class Glog {
+ private:
+  int severity;
+
+ public:
+  inline constexpr explicit Glog(int s) : severity(s) {}
+
+  friend class Severity;
+  template <typename Tduration, typename Tclock>
+  friend class time_blockT;
+};
+
+class Severity {
+ public:
+  static constexpr Glog VVVERBOSE{-3};
+  static constexpr Glog VVERBOSE{-2};
+  static constexpr Glog VERBOSE{-1};
+  static constexpr Glog INFO{google::GLOG_INFO};
+  static constexpr Glog WARNING{google::GLOG_WARNING};
+  static constexpr Glog ERROR{google::GLOG_ERROR};
+  static constexpr Glog FATAL{google::GLOG_FATAL};
+};
+
 template <typename Tduration = std::chrono::milliseconds,
           typename Tclock = std::chrono::system_clock>
 class [[nodiscard]] time_blockT {
@@ -90,17 +113,30 @@ class [[nodiscard]] time_blockT {
 
   inline explicit time_blockT(
       std::string text = "", TimeRegistry::Key k = TimeRegistry::Ignore,
+      Glog glogSeverity = Severity::INFO,
       decltype(__builtin_FILE()) file = __builtin_FILE(),
       decltype(__builtin_LINE()) line = __builtin_LINE())
       : time_blockT(
-            [text{std::move(text)}, file, line](const auto &t) {
+            [text{std::move(text)}, file, line, glogSeverity](const auto &t) {
               auto s = --nested_time_block::getNestLevel();
-              google::LogMessage(file, line, google::GLOG_INFO).stream()
-                  << '\t' << std::string(s, '|') << text << t;
+              if (glogSeverity.severity >= 0 ||
+                  VLOG_IS_ON(-glogSeverity.severity)) {
+                google::LogMessage(file, line,
+                                   std::max(glogSeverity.severity, 0))
+                        .stream()
+                    << '\t' << std::string(s, '|') << text << t;
+              }
             },
             std::move(k)) {
     ++nested_time_block::getNestLevel();
   }
+
+  inline explicit time_blockT(
+      std::string text, Glog glogSeverity,
+      decltype(__builtin_FILE()) file = __builtin_FILE(),
+      decltype(__builtin_LINE()) line = __builtin_LINE())
+      : time_blockT(std::move(text), TimeRegistry::Ignore,
+                    std::move(glogSeverity), file, line) {}
 
   inline explicit time_blockT(TimeRegistry::Key k = TimeRegistry::Ignore)
       : reg([](const auto &t) {}), start(clock::now()), k(std::move(k)) {}

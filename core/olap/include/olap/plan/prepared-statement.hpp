@@ -25,6 +25,7 @@
 #define PREPARED_STATEMENT_HPP_
 
 #include <memory>
+#include <platform/util/timing.hpp>
 #include <storage/mmap-file.hpp>
 #include <utility>
 #include <vector>
@@ -47,7 +48,12 @@ class PreparedStatement {
                     std::string outputFile, std::shared_ptr<Operator> planRoot);
 
  public:
+  static time_block SilentExecution(const char* s);
+
+  QueryResult execute(std::vector<std::chrono::milliseconds>& tlog,
+                      std::function<time_block(const char*)> f);
   QueryResult execute(std::vector<std::chrono::milliseconds>& tlog);
+  QueryResult execute(std::function<time_block(const char*)> f);
   QueryResult execute();
 
   static PreparedStatement from(const std::string& planPath,
