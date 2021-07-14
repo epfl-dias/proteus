@@ -32,7 +32,8 @@ void StorageLoadPolicyRegistry::setDefaultLoader(Loader ld) {
 
 void StorageLoadPolicyRegistry::setLoader(std::string fileName, Loader ld) {
   std::lock_guard<std::mutex> lock{m};
-  loaders.emplace(std::move(fileName), std::move(ld));
+  // do not use emplace, to force substitution
+  loaders[std::move(fileName)] = std::move(ld);
 }
 
 void StorageLoadPolicyRegistry::dropAllCustomLoaders() {
