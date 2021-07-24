@@ -135,7 +135,7 @@ object Repl extends App {
   if (options('onlyinit).asInstanceOf[Boolean]) {
     // Done, return from object initialization
   } else {
-    val meta = new JdbcMeta("jdbc:pelago:model=" + schemaPath)
+    val meta = new JdbcMeta("jdbc:proteus:model=" + schemaPath)
     val service = new LocalService(meta)
     val server = new HttpServer.Builder()
       .withHandler(service, Serialization.PROTOBUF)

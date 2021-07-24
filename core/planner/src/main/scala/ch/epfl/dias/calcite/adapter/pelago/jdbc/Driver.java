@@ -13,7 +13,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 public class Driver extends org.apache.calcite.jdbc.Driver {
-    public static final String CONNECT_STRING_PREFIX = "jdbc:pelago:";
+    public static final String CONNECT_STRING_PREFIX = "jdbc:proteus:";
 
     static {
         new Driver().register();
@@ -27,18 +27,14 @@ public class Driver extends org.apache.calcite.jdbc.Driver {
         return DriverVersion.load(
                 Driver.class,
                 "ch-epfl-dias-pelago-jdbc.properties",
-                "Pelago JDBC Driver",
+                "Proteus JDBC Driver",
                 "unknown version",
-                "Pelago",
+                "Proteus",
                 "unknown version");
     }
 
     protected Function0<CalcitePrepare> createPrepareFactory() {
-        return new Function0<CalcitePrepare>() {
-            public CalcitePrepare apply() {
-                return new PelagoPrepareImpl();
-            }
-        };
+        return PelagoPrepareImpl::new;
     }
 
     @Override public Meta createMeta(AvaticaConnection connection) {

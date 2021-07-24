@@ -39,6 +39,6 @@ class PelagoTestConnectionFactory extends CalciteAssert.ConnectionFactory{
 
   @Override public Connection createConnection() throws SQLException {
     Properties info = new Properties();
-    return DriverManager.getConnection("jdbc:pelago:model=" + schemaPath, info);
+    return DriverManager.getConnection("jdbc:proteus:model=" + schemaPath, info);
   }
 }
