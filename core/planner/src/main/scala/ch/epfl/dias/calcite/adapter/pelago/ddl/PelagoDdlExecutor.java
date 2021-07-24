@@ -1,6 +1,7 @@
 package ch.epfl.dias.calcite.adapter.pelago.ddl;
 
 import ch.epfl.dias.calcite.adapter.pelago.schema.PelagoTableFactory;
+import ch.epfl.dias.repl.Repl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,15 +24,14 @@ import org.apache.calcite.schema.impl.ViewTable;
 import org.apache.calcite.schema.impl.ViewTableMacro;
 import org.apache.calcite.server.DdlExecutor;
 import org.apache.calcite.server.ServerDdlExecutor;
-import org.apache.calcite.sql.SqlIdentifier;
-import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlUtil;
-import org.apache.calcite.sql.SqlWriterConfig;
+import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.ddl.SqlCreatePelagoTable;
 import org.apache.calcite.sql.ddl.SqlCreateTable;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
+import org.apache.calcite.sql.parser.SqlAbstractParserImpl;
 import org.apache.calcite.sql.parser.SqlParseException;
+import org.apache.calcite.sql.parser.SqlParserImplFactory;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.calcite.sql.validate.SqlValidator;
@@ -42,6 +42,7 @@ import org.apache.calcite.tools.*;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 
+import java.io.Reader;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -51,11 +52,26 @@ import java.util.Map;
 import static org.apache.calcite.util.Static.RESOURCE;
 
 public class PelagoDdlExecutor extends ServerDdlExecutor {
-  public static DdlExecutor getInstance(){
-    return new PelagoDdlExecutor();
-  }
+  public static final PelagoDdlExecutor INSTANCE = new PelagoDdlExecutor();
 
-  /** Returns the schema in which to create an object. */
+  @SuppressWarnings("unused") // Used by Driver, through reflection, to setup the parser
+  public static final SqlParserImplFactory PARSER_FACTORY =
+      new SqlParserImplFactory() {
+        @Override
+        public SqlAbstractParserImpl getParser(Reader stream) {
+          return ch.epfl.dias.calcite.sql.parser.ddl.SqlDdlParserImpl.FACTORY.getParser(stream);
+        }
+
+        @Override
+        public DdlExecutor getDdlExecutor() {
+          return PelagoDdlExecutor.INSTANCE;
+        }
+      };
+
+
+  /**
+   * Returns the schema in which to create an object.
+   */
   static Pair<CalciteSchema, String> schema(CalcitePrepare.Context context,
                                             boolean mutable, SqlIdentifier id) {
     final String name;
@@ -75,7 +91,9 @@ public class PelagoDdlExecutor extends ServerDdlExecutor {
     return Pair.of(schema, name);
   }
 
-  /** Column definition. */
+  /**
+   * Column definition.
+   */
   private static class ColumnDef {
     final SqlNode expr;
     final RelDataType type;
@@ -107,7 +125,9 @@ public class PelagoDdlExecutor extends ServerDdlExecutor {
     return new ContextSqlValidator(context, mutable);
   }
 
-  /** Executes a {@code CREATE TABLE} command. */
+  /**
+   * Executes a {@code CREATE TABLE} command.
+   */
   public void execute(SqlCreateTable create,
                       CalcitePrepare.Context context) {
     final Pair<CalciteSchema, String> pair =
@@ -185,13 +205,15 @@ public class PelagoDdlExecutor extends ServerDdlExecutor {
     final List<ColumnDef> columns = b.build();
     final InitializerExpressionFactory ief =
         new NullInitializerExpressionFactory() {
-          @Override public ColumnStrategy generationStrategy(RelOptTable table,
-                                                             int iColumn) {
+          @Override
+          public ColumnStrategy generationStrategy(RelOptTable table,
+                                                   int iColumn) {
             return columns.get(iColumn).strategy;
           }
 
-          @Override public RexNode newColumnDefaultValue(RelOptTable table,
-                                                         int iColumn, InitializerContext context) {
+          @Override
+          public RexNode newColumnDefaultValue(RelOptTable table,
+                                               int iColumn, InitializerContext context) {
             final ColumnDef c = columns.get(iColumn);
             if (c.expr != null) {
               // REVIEW Danny 2019-10-09: Should we support validation for DDL nodes?
@@ -240,7 +262,10 @@ public class PelagoDdlExecutor extends ServerDdlExecutor {
     }
   }
 
-  /** Populates the table called {@code name} by executing {@code query}. */
+
+  /**
+   * Populates the table called {@code name} by executing {@code query}.
+   */
   static void populate(SqlIdentifier name, SqlNode query,
                        CalcitePrepare.Context context) {
     // Generate, prepare and execute an "INSERT INTO table query" statement.
@@ -270,6 +295,103 @@ public class PelagoDdlExecutor extends ServerDdlExecutor {
     } catch (SqlParseException | ValidationException
         | RelConversionException | SQLException e) {
       throw new RuntimeException(e);
+    }
+  }
+
+  public void execute(SqlSetOption node, CalcitePrepare.Context context) {
+    switch (node.getName().names.get(0)) {
+      case "compute_units":
+      case "compute":
+      case "hwmode":
+      case "cu": {
+        SqlNode value = node.getValue();
+        String option;
+        if (value instanceof SqlIdentifier) {
+          SqlIdentifier id = (SqlIdentifier) value;
+          option = id.toString();
+        } else if (value instanceof SqlLiteral) {
+          SqlLiteral lit = (SqlLiteral) value;
+          option = lit.toValue();
+        } else {
+          throw new UnsupportedOperationException();
+        }
+        option = option.toLowerCase();
+        switch (option) {
+          case "cpu":
+          case "cpuonly": {
+            Repl.setCpuonly();
+            return;
+          }
+          case "gpu":
+          case "gpuonly": {
+            Repl.setGpuonly();
+            return;
+          }
+          case "all":
+          case "hybrid": {
+            Repl.setHybrid();
+            return;
+          }
+          default:
+            throw new UnsupportedOperationException();
+        }
+      }
+      case "cpudop": {
+        SqlNode value = node.getValue();
+        if (value instanceof SqlLiteral) {
+          SqlLiteral lit = (SqlLiteral) value;
+          int new_cpudop = lit.intValue(true);
+          if (new_cpudop > 0) {
+            Repl.cpudop_$eq(new_cpudop);
+            return;
+          }
+        }
+        throw new UnsupportedOperationException();
+      }
+      case "gpudop": {
+        SqlNode value = node.getValue();
+        if (value instanceof SqlLiteral) {
+          SqlLiteral lit = (SqlLiteral) value;
+          int new_gpudop = lit.intValue(true);
+          if (new_gpudop >= 0) {
+            Repl.gpudop_$eq(new_gpudop);
+            return;
+          }
+        }
+        throw new UnsupportedOperationException();
+      }
+      case "timings": {
+        SqlNode value = node.getValue();
+        String option;
+        if (value instanceof SqlIdentifier) {
+          SqlIdentifier id = (SqlIdentifier) value;
+          option = id.toString();
+        } else if (value instanceof SqlLiteral) {
+          SqlLiteral lit = (SqlLiteral) value;
+          option = lit.toValue();
+        } else {
+          throw new UnsupportedOperationException();
+        }
+        option = option.toLowerCase();
+        switch (option) {
+          case "csv": {
+            Repl.timingscsv_$eq(true);
+            Repl.timings_$eq(true);
+            return;
+          }
+          case "text":
+          case "on": {
+            Repl.timingscsv_$eq(false);
+            Repl.timings_$eq(true);
+            return;
+          }
+          case "off": {
+            Repl.timings_$eq(false);
+            return;
+          }
+        }
+        throw new UnsupportedOperationException();
+      }
     }
   }
 }

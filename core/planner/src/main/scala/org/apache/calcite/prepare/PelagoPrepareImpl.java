@@ -37,12 +37,14 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.runtime.Bindable;
 import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.runtime.Typed;
+import org.apache.calcite.server.DdlExecutor;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.ddl.SqlCreatePelagoTable;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.parser.SqlParserImplFactory;
+import org.apache.calcite.sql.parser.impl.SqlParserImpl;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.calcite.sql.type.ExtraSqlTypes;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -527,7 +529,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         return typeFactory.builder().add("$0", type).build();
     }
 
-    private static String origin(List<String> origins, int offsetFromEnd) {
+    private static String origin(List<? extends String> origins, int offsetFromEnd) {
         return origins == null || offsetFromEnd >= origins.size()
                 ? null
                 : origins.get(origins.size() - 1 - offsetFromEnd);
@@ -569,7 +571,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
 
     private ColumnMetaData metaData(JavaTypeFactory typeFactory, int ordinal,
                                     String fieldName, RelDataType type, RelDataType fieldType,
-                                    List<String> origins) {
+                                    List<? extends String> origins) {
         final ColumnMetaData.AvaticaType avaticaType =
                 avaticaType(typeFactory, type, fieldType);
         return new ColumnMetaData(
@@ -599,7 +601,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
 
     private List<ColumnMetaData> getColumnMetaDataList(
             JavaTypeFactory typeFactory, RelDataType x, RelDataType jdbcType,
-            List<List<String>> originList) {
+            List<? extends List<String>> originList) {
         final List<ColumnMetaData> columns = new ArrayList<>();
         for (Ord<RelDataTypeField> pair : Ord.zip(jdbcType.getFieldList())) {
             final RelDataTypeField field = pair.e;
@@ -612,111 +614,6 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         }
         return columns;
     }
-
-    @Override
-    public void executeDdl(Context context, SqlNode node) {
-        if (node.getKind().belongsTo(Arrays.asList(SqlKind.SET_OPTION))){
-            if (node instanceof SqlSetOption){
-                SqlSetOption setOption = (SqlSetOption) node;
-                switch (setOption.getName().names.get(0)){
-                    case "compute_units":
-                    case "compute":
-                    case "hwmode":
-                    case "cu": {
-                        SqlNode value = setOption.getValue();
-                        String option;
-                        if (value instanceof SqlIdentifier) {
-                            SqlIdentifier id = (SqlIdentifier) value;
-                            option = id.toString();
-                        } else if (value instanceof SqlLiteral) {
-                            SqlLiteral lit = (SqlLiteral) value;
-                            option = lit.toValue();
-                        } else {
-                            throw new UnsupportedOperationException();
-                        }
-                        option = option.toLowerCase();
-                        switch(option){
-                            case "cpu":
-                            case "cpuonly":{
-                                Repl.setCpuonly();
-                                return;
-                            }
-                            case "gpu":
-                            case "gpuonly":{
-                                Repl.setGpuonly();
-                                return;
-                            }
-                            case "all":
-                            case "hybrid":{
-                                Repl.setHybrid();
-                                return;
-                            }
-                            default:
-                                throw new UnsupportedOperationException();
-                        }
-                    }
-                    case "cpudop": {
-                        SqlNode value = setOption.getValue();
-                        if (value instanceof SqlLiteral) {
-                            SqlLiteral lit = (SqlLiteral) value;
-                            int new_cpudop = lit.intValue(true);
-                            if (new_cpudop > 0) {
-                                Repl.cpudop_$eq(new_cpudop);
-                                return;
-                            }
-                        }
-                        throw new UnsupportedOperationException();
-                    }
-                    case "gpudop": {
-                        SqlNode value = setOption.getValue();
-                        if (value instanceof SqlLiteral) {
-                            SqlLiteral lit = (SqlLiteral) value;
-                            int new_gpudop = lit.intValue(true);
-                            if (new_gpudop >= 0) {
-                                Repl.gpudop_$eq(new_gpudop);
-                                return;
-                            }
-                        }
-                        throw new UnsupportedOperationException();
-                    }
-                    case "timings": {
-                        SqlNode value = setOption.getValue();
-                        String option;
-                        if (value instanceof SqlIdentifier) {
-                            SqlIdentifier id = (SqlIdentifier) value;
-                            option = id.toString();
-                        } else if (value instanceof SqlLiteral) {
-                            SqlLiteral lit = (SqlLiteral) value;
-                            option = lit.toValue();
-                        } else {
-                            throw new UnsupportedOperationException();
-                        }
-                        option = option.toLowerCase();
-                        switch (option){
-                            case "csv":{
-                                Repl.timingscsv_$eq(true);
-                                Repl.timings_$eq(true);
-                                return;
-                            }
-                            case "text":
-                            case "on":{
-                                Repl.timingscsv_$eq(false);
-                                Repl.timings_$eq(true);
-                                return;
-                            }
-                            case "off":{
-                                Repl.timings_$eq(false);
-                                return;
-                            }
-                        }
-                        throw new UnsupportedOperationException();
-                    }
-                }
-            }
-        }
-        super.executeDdl(context, node);
-    }
-
 
     @Override
     <T> CalciteSignature<T> prepare2_(
@@ -746,16 +643,16 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         final Meta.StatementType statementType;
         if (query.sql != null) {
             final CalciteConnectionConfig config = context.config();
-            final SqlParser.ConfigBuilder parserConfig = createParserConfig()
-                    .setQuotedCasing(config.quotedCasing())
-                    .setUnquotedCasing(config.unquotedCasing())
-                    .setQuoting(config.quoting())
-                    .setConformance(config.conformance())
-                    .setCaseSensitive(config.caseSensitive());
+            SqlParser.Config parserConfig = parserConfig()
+                .withQuotedCasing(config.quotedCasing())
+                .withUnquotedCasing(config.unquotedCasing())
+                .withQuoting(config.quoting())
+                .withConformance(config.conformance())
+                .withCaseSensitive(config.caseSensitive());
             final SqlParserImplFactory parserFactory =
                     config.parserFactory(SqlParserImplFactory.class, null);
             if (parserFactory != null) {
-                parserConfig.setParserFactory(parserFactory);
+                parserConfig = parserConfig.withParserFactory(parserFactory);
             }
             SqlParser parser = createParser(query.sql,  parserConfig);
             SqlNode sqlNode;
@@ -770,10 +667,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
             Hook.PARSE_TREE.run(new Object[] {query.sql, sqlNode});
 
             if (sqlNode.getKind().belongsTo(SqlKind.DDL)) {
-                executeDdl(context, sqlNode);
-
-                if (sqlNode.isA(Set.of(SqlKind.CREATE_TABLE))){
-                    assert(sqlNode instanceof SqlCreatePelagoTable);
+                if (sqlNode.isA(Set.of(SqlKind.CREATE_TABLE)) && sqlNode instanceof SqlCreatePelagoTable){
                     var n = ((SqlCreatePelagoTable) sqlNode).query;
                     if (n != null){
                         var name = ((SqlCreatePelagoTable) sqlNode).name;
@@ -807,7 +701,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
                         System.out.println(x);
                         RelDataType jdbcType = makeStruct(typeFactory, x);
                         System.out.println(jdbcType);
-                        final List<List<String>> originList = preparedResult.getFieldOrigins();
+                        final List<? extends List<String>> originList = preparedResult.getFieldOrigins();
                         final List<ColumnMetaData> columns =
                             getColumnMetaDataList(typeFactory, x, jdbcType, originList);
                         Class resultClazz = null;
@@ -836,6 +730,8 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
                             bindable,
                             getStatementType(SqlKind.INSERT));
                     }
+                } else {
+                    executeDdl(context, sqlNode);
                 }
 
                 return new CalciteSignature<>(query.sql,
@@ -891,7 +787,7 @@ public class PelagoPrepareImpl extends CalcitePrepareImpl {
         }
 
         RelDataType jdbcType = makeStruct(typeFactory, x);
-        final List<List<String>> originList = preparedResult.getFieldOrigins();
+        final List<? extends List<String>> originList = preparedResult.getFieldOrigins();
         final List<ColumnMetaData> columns =
                 getColumnMetaDataList(typeFactory, x, jdbcType, originList);
         Class resultClazz = null;

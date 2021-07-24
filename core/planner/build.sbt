@@ -4,7 +4,7 @@ version := "0.1"
 
 scalaVersion := "2.12.3"
 
-val calciteVersion = "1.26.0"
+val calciteVersion = "1.27.0"
 
 // https://mvnrepository.com/artifact/org.apache.calcite/calcite-core
 // Include Calcite Core
@@ -76,27 +76,45 @@ sourceGenerators in Compile += Def.task {
   ) { (in: Set[File]) =>
     val fmppFolder = (sourceManaged in Compile).value / "fmpp"
     val javaccFolder = (sourceManaged in Compile).value / "javacc"
+    val externalFmppFolder = (sourceManaged in Compile).value / "external-fmpp"
+    (dependencyClasspath in Compile).value filter {
+      _.data.getName.startsWith("calcite-core")
+    } foreach { f =>
+      IO.unzip(f.data, externalFmppFolder)
+    }
     //  Def.task {
-    fmpp.tools.CommandLine.execute(
-      Array(
-        "-C",
-        (codegenDir / "config.fmpp").toString,
-        "-S",
-        (codegenDir / "templates").toString,
-        "-O",
-        fmppFolder.toString
-      ),
-      null,
-      null
-    )
-    org.javacc.parser.Main.mainProgram(
-      Array(
-        "-STATIC=false",
-        "-LOOKAHEAD=2",
-        "-OUTPUT_DIRECTORY=" + javaccFolder.toString,
-        (fmppFolder / "javacc" / "Parser.jj").toString
-      )
-    )
+    val templatesFile = externalFmppFolder / "codegen" / "templates"
+
+    if (
+      fmpp.tools.CommandLine.execute(
+        Array(
+          "-C",
+          (codegenDir / "config.fmpp").toString,
+          "-S",
+          templatesFile.toString,
+          "-O",
+          fmppFolder.toString,
+          "--data",
+          "tdd(" + (codegenDir / "config.fmpp").toString + "), default: tdd(" + templatesFile / ".." / "default_config.fmpp" + ")"
+        ),
+        null,
+        null
+      ) != 0
+    ) {
+      throw new Exception("fmpp failed");
+    }
+    if (
+      org.javacc.parser.Main.mainProgram(
+        Array(
+          "-STATIC=false",
+          "-LOOKAHEAD=2",
+          "-OUTPUT_DIRECTORY=" + javaccFolder.toString,
+          (fmppFolder / "javacc" / "Parser.jj").toString
+        )
+      ) != 0
+    ) {
+      throw new Exception("javacc failed");
+    }
     listFilesRecursively(javaccFolder).toSet
   }
   cached(

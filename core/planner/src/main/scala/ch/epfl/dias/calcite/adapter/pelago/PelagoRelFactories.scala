@@ -62,7 +62,7 @@ object PelagoRelFactories {
         input: RelNode,
         hints: util.List[RelHint],
         projects: util.List[_ <: RexNode],
-        fieldNames: util.List[String]
+        fieldNames: util.List[_ <: String]
     ): PelagoProject = {
       val cluster = input.getCluster
       val rowType = RexUtil.createStructType(

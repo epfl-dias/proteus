@@ -24,9 +24,8 @@
 package ch.epfl.dias.calcite.adapter.pelago.types
 
 import org.apache.calcite.linq4j.tree.Primitive
-import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeFactory}
+import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeFactory, StructKind}
 import org.apache.calcite.sql.`type`.SqlTypeName
-import org.apache.calcite.util.Pair
 
 import java.io.IOException
 import java.util
@@ -211,6 +210,6 @@ object PelagoTypeParser {
       )
       names.add(attr.get("attrName").asInstanceOf[String])
     }
-    typeFactory.createStructType(Pair.zip(names, types))
+    typeFactory.createStructType(StructKind.FULLY_QUALIFIED, types, names)
   }
 }

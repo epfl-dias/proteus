@@ -5,7 +5,6 @@ import ch.epfl.dias.emitter.Binding
 import org.apache.calcite.plan.{Convention, RelOptCost, RelOptPlanner, RelTraitSet}
 import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rel.metadata.RelMetadataQuery
-import org.apache.calcite.util.Pair
 import org.json4s.JValue
 
 object PelagoRel {
@@ -66,9 +65,9 @@ object PelagoRel {
       //                    toTraits.containsIfApplicable(RelSplitPoint.NONE()))) return false;
       //            if (!fromTraits.containsIfApplicable(RelHomDistribution.SINGLE) && !toTraits.containsIfApplicable(RelHomDistribution.SINGLE)) return false;
       import scala.collection.JavaConverters._
-      for (pair <- Pair.zip(fromTraits, toTraits).asScala) {
-        if (!pair.left.satisfies(pair.right)) { //                    // Do not count device crossing as extra conversion
-          if (!pair.left.isInstanceOf[RelComputeDevice]) {
+      for (pair <- fromTraits.asScala.zip(toTraits.asScala)) {
+        if (!pair._1.satisfies(pair._2)) { //                    // Do not count device crossing as extra conversion
+          if (!pair._1.isInstanceOf[RelComputeDevice]) {
             //                    if (pair.left instanceof RelSplitPoint && (
             //                        pair.left != RelSplitPoint.NONE() &&
             //                        pair.right != RelSplitPoint.NONE()
