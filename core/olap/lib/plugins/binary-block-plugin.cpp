@@ -943,3 +943,63 @@ extern "C" Plugin *createBlockPlugin(
     const std::vector<RecordAttribute *> &whichFields) {
   return new BinaryBlockPlugin(context, fnamePrefix, rec, whichFields);
 }
+
+void BinaryBlockPlugin::forEachInCollection(
+    ParallelContext *context, ProteusValue val_parentObject,
+    ProteusBareValue offset, ProteusBareValue step,
+    ProteusBareValue val_parentObjectSize,
+    const std::function<void(ProteusValueMemory mem_currentChild,
+                             llvm::MDNode *LoopID)> &f) {
+  LLVMContext &llvmContext = context->getLLVMContext();
+  IRBuilder<> *Builder = context->getBuilder();
+
+  auto cnt = val_parentObjectSize.value;
+
+  auto mem_itemCtr = context->CreateEntryBlockAlloca("i_ptr", cnt->getType());
+  Builder->CreateStore(offset.value, mem_itemCtr);
+  Value *lhs;
+
+  /**
+   * Equivalent:
+   * while(itemCtr < size)
+   */
+  context->gen_while([&]() {
+    // Check whether we reached the end
+    lhs = Builder->CreateLoad(mem_itemCtr, "i");
+
+    return ProteusValue{Builder->CreateICmpSLT(lhs, cnt),
+                        context->createFalse()};
+  })([&](BranchInst *loop_cond) {
+    MDNode *LoopID;
+
+    {
+      // Request this loop to be vectorized and interleaved, if possible
+      MDString *vec_st =
+          MDString::get(llvmContext, "llvm.loop.vectorize.enable");
+      Type *int1Type = Type::getInt1Ty(llvmContext);
+      Metadata *one = ConstantAsMetadata::get(ConstantInt::get(int1Type, 1));
+      llvm::Metadata *vec_en[] = {vec_st, one};
+      MDNode *vectorize_enable = MDNode::get(llvmContext, vec_en);
+
+      MDString *itr_st =
+          MDString::get(llvmContext, "llvm.loop.interleave.count");
+      Type *int32Type = Type::getInt32Ty(llvmContext);
+      Metadata *count = ConstantAsMetadata::get(ConstantInt::get(int32Type, 4));
+      llvm::Metadata *itr_en[] = {itr_st, count};
+      MDNode *interleave_count = MDNode::get(llvmContext, itr_en);
+
+      llvm::Metadata *Args[] = {nullptr, vectorize_enable, interleave_count};
+      LoopID = MDNode::get(llvmContext, Args);
+      LoopID->replaceOperandWith(0, LoopID);
+
+      loop_cond->setMetadata(LLVMContext::MD_loop, LoopID);
+    }
+
+    f(ProteusValueMemory{mem_itemCtr, context->createFalse()}, LoopID);
+
+    // Forward inside the collection
+    Value *val_curr_itemCtr = Builder->CreateLoad(mem_itemCtr);
+    Value *val_new_itemCtr = Builder->CreateAdd(val_curr_itemCtr, step.value);
+    Builder->CreateStore(val_new_itemCtr, mem_itemCtr);
+  });
+}

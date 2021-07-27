@@ -49,6 +49,18 @@ void BlockToTuples::produce_(ParallelContext *context) {
   getChild()->produce(context);
 }
 
+ProteusBareValue BlockToTuples::step(ParallelContext *context,
+                                     llvm::IntegerType *type) {
+  auto Builder = context->getBuilder();
+  Value *inc;
+  if (gpu && granularity == gran_t::GRID) {
+    inc = Builder->CreateIntCast(context->threadNum(), type, false);
+  } else {
+    inc = ConstantInt::get(type, 1);
+  }
+  return {inc};
+}
+
 void BlockToTuples::nextEntry(llvm::Value *mem_itemCtr,
                               ParallelContext *context) {
   // Prepare
@@ -58,13 +70,7 @@ void BlockToTuples::nextEntry(llvm::Value *mem_itemCtr,
 
   Value *val_curr_itemCtr = Builder->CreateLoad(mem_itemCtr);
 
-  Value *inc;
-  if (gpu && granularity == gran_t::GRID) {
-    inc = Builder->CreateIntCast(context->threadNum(),
-                                 val_curr_itemCtr->getType(), false);
-  } else {
-    inc = ConstantInt::get((IntegerType *)val_curr_itemCtr->getType(), 1);
-  }
+  Value *inc = step(context, (IntegerType *)val_curr_itemCtr->getType()).value;
 
   Value *val_new_itemCtr = Builder->CreateAdd(val_curr_itemCtr, inc);
   Builder->CreateStore(val_new_itemCtr, mem_itemCtr);
@@ -143,110 +149,89 @@ void BlockToTuples::consume(ParallelContext *context,
       Builder->CreateIntCast(context->threadId(), cnt->getType(), false),
       mem_itemCtr);
 
-  Value *lhs;
+  ProteusBareValue offset{
+      Builder->CreateIntCast(context->threadId(), cnt->getType(), false)};
 
-  /**
-   * Equivalent:
-   * while(itemCtr < size)
-   */
-  context->gen_while([&]() {
-    lhs = Builder->CreateLoad(mem_itemCtr, "i");
+  pg->forEachInCollection(
+      context,
+      {nullptr
+       /* FIXME: we should pass a real collection here, but the blocks
+           are currently multiple ones, that we "zip" */
+       ,
+       context->createFalse()},
+      offset, step(context, static_cast<IntegerType *>(cnt->getType())), {cnt},
+      [&](ProteusValueMemory indexPtr, llvm::MDNode *LoopID) {
+        auto lhs = Builder->CreateLoad(indexPtr.mem);
 
-    return ProteusValue{Builder->CreateICmpSLT(lhs, cnt),
-                        context->createFalse()};
-  })([&](BranchInst *loop_cond) {
-    MDNode *LoopID;
+        // Get the 'oid' of each record and pass it along.
+        // More general/lazy plugins will only perform this action,
+        // instead of eagerly 'converting' fields
+        // FIXME This action corresponds to materializing the oid. Do we want
+        // this?
+        RecordAttribute tupleIdentifier{relName, activeLoop, pg->getOIDType()};
 
-    {
-      MDString *vec_st =
-          MDString::get(llvmContext, "llvm.loop.vectorize.enable");
-      Type *int1Type = Type::getInt1Ty(llvmContext);
-      Metadata *one = ConstantAsMetadata::get(ConstantInt::get(int1Type, 1));
-      llvm::Metadata *vec_en[] = {vec_st, one};
-      MDNode *vectorize_enable = MDNode::get(llvmContext, vec_en);
+        ProteusValueMemory mem_posWrapper{mem_itemCtr, context->createFalse()};
 
-      MDString *itr_st =
-          MDString::get(llvmContext, "llvm.loop.interleave.count");
-      Type *int32Type = Type::getInt32Ty(llvmContext);
-      Metadata *count = ConstantAsMetadata::get(ConstantInt::get(int32Type, 4));
-      llvm::Metadata *itr_en[] = {itr_st, count};
-      MDNode *interleave_count = MDNode::get(llvmContext, itr_en);
-
-      llvm::Metadata *Args[] = {nullptr, vectorize_enable, interleave_count};
-      LoopID = MDNode::get(llvmContext, Args);
-      LoopID->replaceOperandWith(0, LoopID);
-
-      loop_cond->setMetadata(LLVMContext::MD_loop, LoopID);
-    }
-
-    // Get the 'oid' of each record and pass it along.
-    // More general/lazy plugins will only perform this action,
-    // instead of eagerly 'converting' fields
-    // FIXME This action corresponds to materializing the oid. Do we want this?
-    RecordAttribute tupleIdentifier{relName, activeLoop, pg->getOIDType()};
-
-    ProteusValueMemory mem_posWrapper{mem_itemCtr, context->createFalse()};
-
-    std::map<RecordAttribute, ProteusValueMemory> variableBindings;
-    variableBindings[tupleIdentifier] = mem_posWrapper;
-    for (const auto &w : wantedFields) {
-      RecordAttribute tIdentifier{w.getRegisteredRelName(), activeLoop,
-                                  pg->getOIDType()};
-      variableBindings[tIdentifier] = mem_posWrapper;
-    }
-
-    // Actual Work (Loop through attributes etc.)
-    for (const auto &field : wantedFields) {
-      if (!dynamic_cast<const BlockType *>(field.getExpressionType())) {
-        Value *arg =
-            Builder->CreateLoad(childState[field.getRegisteredAs()].mem);
-        variableBindings[field.getRegisteredAs()] =
-            context->toMem(arg, context->createFalse());
-        continue;
-      }
-      RecordAttribute attr{field.getRegisteredAs()};
-
-      Value *arg = Builder->CreateLoad(childState[attr].mem);
-
-      auto bufVarStr = field.getRegisteredRelName();
-      auto currBufVar = bufVarStr + "." + attr.getAttrName();
-
-      Value *ptr = Builder->CreateGEP(arg, lhs);
-
-      // Function    * pfetch =
-      // Intrinsic::getDeclaration(Builder->GetInsertBlock()->getParent()->getParent(),
-      // Intrinsic::prefetch);
-
-      // Instruction * ins = Builder->CreateCall(pfetch, std::vector<Value*>{
-      //                     Builder->CreateBitCast(ptr, charPtrType),
-      //                     context->createInt32(0),
-      //                     context->createInt32(3),
-      //                     context->createInt32(1)}
-      //                     );
-      // {
-      //     ins->setMetadata("llvm.mem.parallel_loop_access", LoopID);
-      // }
-
-      if (!pg->isLazy()) {
-        // If not lazy, load the data now
-        Instruction *parsed =
-            Builder->CreateLoad(ptr);  // TODO : use CreateAlignedLoad
-        {
-          parsed->setMetadata(LLVMContext::MD_mem_parallel_loop_access, LoopID);
+        std::map<RecordAttribute, ProteusValueMemory> variableBindings;
+        variableBindings[tupleIdentifier] = mem_posWrapper;
+        for (const auto &w : wantedFields) {
+          RecordAttribute tIdentifier{w.getRegisteredRelName(), activeLoop,
+                                      pg->getOIDType()};
+          variableBindings[tIdentifier] = mem_posWrapper;
         }
-        ptr = parsed;
-      }
 
-      variableBindings[field.getRegisteredAs()] =
-          context->toMem(ptr, context->createFalse());
-    }
+        // Actual Work (Loop through attributes etc.)
+        for (const auto &field : wantedFields) {
+          if (!dynamic_cast<const BlockType *>(field.getExpressionType())) {
+            Value *arg =
+                Builder->CreateLoad(childState[field.getRegisteredAs()].mem);
+            variableBindings[field.getRegisteredAs()] =
+                context->toMem(arg, context->createFalse());
+            continue;
+          }
+          RecordAttribute attr{field.getRegisteredAs()};
 
-    // Triggering parent
-    OperatorState state{*this, variableBindings};
-    getParent()->consume(context, state);
+          Value *arg = Builder->CreateLoad(childState[attr].mem);
 
-    nextEntry(mem_itemCtr, context);
-  });
+          auto bufVarStr = field.getRegisteredRelName();
+          auto currBufVar = bufVarStr + "." + attr.getAttrName();
+
+          Value *ptr = Builder->CreateGEP(arg, lhs);
+
+          // Function    * pfetch =
+          // Intrinsic::getDeclaration(Builder->GetInsertBlock()->getParent()->getParent(),
+          // Intrinsic::prefetch);
+
+          // Instruction * ins = Builder->CreateCall(pfetch,
+          // std::vector<Value*>{
+          //                     Builder->CreateBitCast(ptr, charPtrType),
+          //                     context->createInt32(0),
+          //                     context->createInt32(3),
+          //                     context->createInt32(1)}
+          //                     );
+          // {
+          //     ins->setMetadata("llvm.mem.parallel_loop_access", LoopID);
+          // }
+
+          if (!pg->isLazy()) {
+            // If not lazy, load the data now
+            Instruction *parsed =
+                Builder->CreateLoad(ptr);  // TODO : use CreateAlignedLoad
+            {
+              parsed->setMetadata(LLVMContext::MD_mem_parallel_loop_access,
+                                  LoopID);
+            }
+            ptr = parsed;
+          }
+
+          variableBindings[field.getRegisteredAs()] =
+              context->toMem(ptr, context->createFalse());
+        }
+
+        // Triggering parent
+        OperatorState state{*this, variableBindings};
+        getParent()->consume(context, state);
+      });
 }
 
 void BlockToTuples::open(Pipeline *pip) {

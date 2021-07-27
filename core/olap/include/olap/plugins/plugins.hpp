@@ -153,6 +153,17 @@ class Plugin {
   virtual ProteusValueMemory collectionGetNext(
       ProteusValueMemory mem_currentChild) = 0;
 
+  virtual void forEachInCollection(
+      ParallelContext *context, ProteusValue val_parentObject,
+      ProteusBareValue offset, ProteusBareValue step,
+      ProteusBareValue val_parentObjectSize /* soon to be removed, the plugin
+                                           should know the collection size */
+      ,
+      const std::function<void(ProteusValueMemory mem_currentChild,
+                               llvm::MDNode *LoopID)> &) {
+    throw proteus::unsupported_operation("for each in collection");
+  }
+
   /**
    * Relevant when needed to materialize EAGERLY.
    * Otherwise, allocated type info suffices

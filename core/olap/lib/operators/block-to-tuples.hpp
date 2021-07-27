@@ -69,6 +69,7 @@ class BlockToTuples : public experimental::UnaryOperator {
   }
 
  private:
+  ProteusBareValue step(ParallelContext *context, llvm::IntegerType *type);
   void nextEntry(llvm::Value *mem_itemCtr, ParallelContext *context);
   virtual void open(Pipeline *pip);
   virtual void close(Pipeline *pip);

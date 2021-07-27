@@ -87,6 +87,13 @@ class BinaryBlockPlugin : public Plugin {
     throw runtime_error(error_msg);
   }
 
+  void forEachInCollection(
+      ParallelContext *context, ProteusValue val_parentObject,
+      ProteusBareValue offset, ProteusBareValue step,
+      ProteusBareValue val_parentObjectSize,
+      const std::function<void(ProteusValueMemory mem_currentChild,
+                               llvm::MDNode *LoopID)> &) override;
+
   void flushTuple(ProteusValueMemory mem_value,
                   llvm::Value *fileName) override {
     string error_msg = "[BinaryBlockPlugin: ] Flush not implemented yet";
@@ -274,6 +281,9 @@ class BinaryBlockPlugin : public Plugin {
   friend void freeDataForField(size_t i, const void **d, BinaryBlockPlugin *pg);
   friend int64_t *getTuplesPerPartition(BinaryBlockPlugin *pg);
   friend void freeTuplesPerPartition(int64_t *, BinaryBlockPlugin *pg);
+
+  void nextEntryInBlock(llvm::Value *mem_itemCtr, ParallelContext *context,
+                        ProteusBareValue step);
 };
 
 #endif /* BINARY_BLOCK_PLUGIN_HPP_ */
