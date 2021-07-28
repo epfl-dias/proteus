@@ -28,11 +28,12 @@
 class Split : public Router {
  public:
   Split(Operator *const child, size_t numOfParents,
-        const vector<RecordAttribute *> &wantedFields, int slack,
+        const vector<RecordAttribute *> &wantedFields, size_t slack,
         std::optional<expression_t> hash = std::nullopt,
         RoutingPolicy policy_type = RoutingPolicy::LOCAL)
       : Router(child, DegreeOfParallelism{numOfParents}, wantedFields, slack,
-               hash, policy_type, getDefaultAffinitizer(DeviceType::CPU)),
+               std::move(hash), policy_type,
+               getDefaultAffinitizer(DeviceType::CPU)),
         produce_calls(0) {
     producers = 1;  // Set so that it does not get overwritten by Routers' cnstr
   }

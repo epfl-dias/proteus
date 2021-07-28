@@ -61,13 +61,11 @@ RelBuilder generateAlternativePathsNonSymmetricPlan(
                        *                            tasks on each flow
                        * @param     p               policy determine how
                        *                            the target flow is selected
-                       * @param     target          the target processing units
                        */
                       .split(
                           /* alternatives */ 2,
                           /* slack */ 8000,
-                          /* p */ RoutingPolicy::RANDOM,
-                          /* target */ DeviceType::CPU);
+                          /* p */ RoutingPolicy::RANDOM);
 
   auto alt1 = naivelyParallelize(builder2, generateLocalReductionTask)
                   .router_scaleout(

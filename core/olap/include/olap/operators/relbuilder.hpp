@@ -383,10 +383,9 @@ class RelBuilder {
    *                            tasks on each flow
    * @param     p               policy determine how
    *                            the target flow is selected
-   * @param     target          the target processing units
    */
   [[nodiscard]] RelBuilder split(
-      size_t alternatives, size_t slack, RoutingPolicy p, DeviceType target,
+      size_t alternatives, size_t slack, RoutingPolicy p,
       std::unique_ptr<Affinitizer> aff = nullptr) const;
 
   /**

@@ -58,6 +58,7 @@
 #include "scan.hpp"
 #include "select.hpp"
 #include "sort.hpp"
+#include "split.hpp"
 #include "unionall.hpp"
 #include "unnest.hpp"
 #include "update.hpp"
@@ -919,10 +920,25 @@ RelBuilder RelBuilder::print(
 }
 
 RelBuilder RelBuilder::split(size_t alternatives, size_t slack, RoutingPolicy p,
-                             DeviceType target,
                              std::unique_ptr<Affinitizer> aff) const {
-  // FIXME: implement!!!!
-  throw proteus::unsupported_operation("unimplemented");
+  return apply(new Split(
+      root, alternatives,
+      [&] {
+        std::vector<RecordAttribute *> attrs;
+        for (const auto &attr : getOutputArg().getProjections()) {
+          if (p == RoutingPolicy::HASH_BASED &&
+              attr.getAttrName() == "__broadcastTarget") {
+            continue;
+          }
+          attrs.emplace_back(new RecordAttribute{attr});
+        }
+        return attrs;
+      }(),
+      slack,
+      (p == RoutingPolicy::HASH_BASED)
+          ? std::optional<expression_t>{getOutputArg()["__broadcastTarget"]}
+          : std::nullopt,
+      p));
 }
 
 RelBuilder RelBuilder::unionAll(const std::vector<RelBuilder> &children) const {
