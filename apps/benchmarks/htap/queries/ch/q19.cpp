@@ -37,10 +37,10 @@ PreparedStatement Q_19_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                         // traits=[Pelago.[].X86_64.packed.homSingle.hetSingle.none])
           .membrdcst(dop, true, true)
           .router(
-              [&](const auto &arg) -> std::optional<expression_t> {
+              [&](const auto &arg) -> expression_t {
                 return arg["__broadcastTarget"];
               },
-              dop, 128, RoutingPolicy::HASH_BASED, dev,
+              dop, 128, dev,
               aff_parallel())  // (trait=[Pelago.[].X86_64.packed.homBrdcst.hetSingle.none])
           .unpack()  // (trait=[Pelago.[].X86_64.unpckd.homBrdcst.hetSingle.cX86_64])
           .filter([&](const auto &arg) -> expression_t {

@@ -41,10 +41,10 @@ PreparedStatement Query::prepare42(bool memmv, size_t bloomSize) {
           // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .membrdcst(dop, true, true)
           .router(
-              [&](const auto &arg) -> std::optional<expression_t> {
+              [&](const auto &arg) -> expression_t {
                 return arg["__broadcastTarget"];
               },
-              dop, 1, RoutingPolicy::HASH_BASED, dev,
+              dop, 1, dev,
               aff_parallel())  // (trait=[Pelago.[].packed.X86_64.homBrdcst.hetSingle])
           .to_gpu()  // (trait=[Pelago.[].packed.NVPTX.homBrdcst.hetSingle])
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle])
@@ -67,10 +67,10 @@ PreparedStatement Query::prepare42(bool memmv, size_t bloomSize) {
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .membrdcst(dop, true, true)
           .router(
-              [&](const auto &arg) -> std::optional<expression_t> {
+              [&](const auto &arg) -> expression_t {
                 return arg["__broadcastTarget"];
               },
-              dop, 1, RoutingPolicy::HASH_BASED, dev,
+              dop, 1, dev,
               aff_parallel())  // (trait=[Pelago.[].packed.X86_64.homBrdcst.hetSingle])
           .to_gpu()  // (trait=[Pelago.[].packed.NVPTX.homBrdcst.hetSingle])
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle])
@@ -90,10 +90,10 @@ PreparedStatement Query::prepare42(bool memmv, size_t bloomSize) {
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .membrdcst(dop, true, true)
           .router(
-              [&](const auto &arg) -> std::optional<expression_t> {
+              [&](const auto &arg) -> expression_t {
                 return arg["__broadcastTarget"];
               },
-              dop, 1, RoutingPolicy::HASH_BASED, dev,
+              dop, 1, dev,
               aff_parallel())  // (trait=[Pelago.[].packed.X86_64.homBrdcst.hetSingle])
           .to_gpu()  // (trait=[Pelago.[].packed.NVPTX.homBrdcst.hetSingle])
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle])
@@ -118,10 +118,10 @@ PreparedStatement Query::prepare42(bool memmv, size_t bloomSize) {
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .membrdcst(dop, true, true)
           .router(
-              [&](const auto &arg) -> std::optional<expression_t> {
+              [&](const auto &arg) -> expression_t {
                 return arg["__broadcastTarget"];
               },
-              dop, 128, RoutingPolicy::HASH_BASED, dev,
+              dop, 128, dev,
               aff_parallel())  // (trait=[Pelago.[].packed.X86_64.homBrdcst.hetSingle])
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle])
           .filter([&](const auto &arg) -> expression_t {

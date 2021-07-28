@@ -105,12 +105,11 @@ void HashJoinChainedMorsel::close_build(Pipeline *pip) {}
 void HashJoinChainedMorsel::close_probe(Pipeline *pip) {
   std::lock_guard<std::mutex> lock(init_lock);
   if (--workerCnt == 0) {
-    LOG(INFO) << "release";
-
     auto *head = (uint32_t *)confs[0].back();
     auto *cnt = (int32_t *)(head + (1 << hash_bits));
 
     int32_t h_cnt = *cnt;
+    LOG(INFO) << h_cnt << " " << maxBuildInputSize;
     LOG_IF(INFO, h_cnt < 0.5 * maxBuildInputSize || h_cnt > maxBuildInputSize)
         << "Actual build "
            "input size: "

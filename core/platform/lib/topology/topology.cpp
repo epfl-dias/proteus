@@ -43,8 +43,9 @@
 const topology::cpunumanode *topology::getCpuNumaNodeAddressed(
     const void *m) const {
   int numa_id = -1;
-  linux_run(get_mempolicy(&numa_id, nullptr, 0, const_cast<void *>(m),
-                          MPOL_F_NODE | MPOL_F_ADDR));
+  auto x = get_mempolicy(&numa_id, nullptr, 0, const_cast<void *>(m),
+                         MPOL_F_NODE | MPOL_F_ADDR);
+  if (x) return nullptr;
   assert(numa_id >= 0);
   return (cpu_info.data() + cpunuma_index[numa_id]);
 }

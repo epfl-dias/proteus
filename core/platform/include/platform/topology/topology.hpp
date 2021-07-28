@@ -287,7 +287,7 @@ class topology {
     for (const auto &t : getCpuNumaNodes()) {
       if (CPU_EQUAL(&t.local_cpu_set, &cpus)) return t;
     }
-    throw new std::runtime_error("unsupported affinity");
+    throw std::runtime_error("unsupported affinity");
   }
 
   inline const gpunode &getGpuByIndex(uint32_t index) const {
@@ -301,6 +301,7 @@ class topology {
 
   friend class exec_location;
   friend class affinity;
+  friend class InfiniBandManager;
   friend int numa_node_of_gpu(int device);
   friend int node_of_gpu(int device);
   friend int get_rand_core_local_to_ptr(const void *p);

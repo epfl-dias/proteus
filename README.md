@@ -15,7 +15,7 @@ git config core.hooksPath .githooks
 Allocate HugePages
 ========
 ```
-echo 32768 | sudo tee /sys/devices/system/node/node{0,1}/hugepages/hugepages-2048kB/nr_hugepages
+echo 76800 | sudo tee /sys/devices/system/node/node{0,1}/hugepages/hugepages-2048kB/nr_hugepages
 ```
 
 Update include paths in Clion after LLVM update

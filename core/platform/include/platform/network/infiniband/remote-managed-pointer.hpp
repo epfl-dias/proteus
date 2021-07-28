@@ -44,6 +44,8 @@ class remote_managed {
 
   auto release() { return ptr.release(); }
 
+  [[nodiscard]] inline auto getServerId() const { return server; }
+
   [[nodiscard]] explicit operator bool() const { return (bool)ptr; }
 };
 

@@ -37,10 +37,10 @@ PreparedStatement Q_4_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                           // traits=[Pelago.[].X86_64.packed.homSingle.hetSingle.none])
           .membrdcst(dop, true, true)
           .router(
-              [&](const auto &arg) -> std::optional<expression_t> {
+              [&](const auto &arg) -> expression_t {
                 return arg["__broadcastTarget"];
               },
-              dop, 1, RoutingPolicy::HASH_BASED, dev,
+              dop, 1, dev,
               aff_parallel())  // (trait=[Pelago.[].X86_64.packed.homBrdcst.hetSingle.none])
           .unpack()  // (trait=[Pelago.[].X86_64.unpckd.homBrdcst.hetSingle.cX86_64])
           .filter([&](const auto &arg) -> expression_t {
@@ -122,10 +122,10 @@ PreparedStatement Q_4_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
           .pack()
           .membrdcst(dop, true, true)
           .router(
-              [&](const auto &arg) -> std::optional<expression_t> {
+              [&](const auto &arg) -> expression_t {
                 return arg["__broadcastTarget"];
               },
-              dop, 1, RoutingPolicy::HASH_BASED, dev,
+              dop, 1, dev,
               aff_parallel())  // (trait=[Pelago.[].X86_64.unpckd.homBrdcst.hetSingle.cX86_64])
           .unpack();
   return scan("tpcc_order", {"o_id",

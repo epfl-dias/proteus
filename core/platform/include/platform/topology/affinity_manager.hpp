@@ -68,7 +68,7 @@ class affinity {
 };
 
 class exec_location {
- private:
+ public:
   int gpu_device;
   const topology::cpunumanode &cpu;
   const cpu_set_t cores;

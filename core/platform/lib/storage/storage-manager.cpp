@@ -105,6 +105,11 @@ FileRecord FileRecord::loadDistributed(const std::string &name,
 }
 
 FileRecord FileRecord::loadToGpus(const std::string &name, size_t type_size) {
+  return loadToGpus(name, type_size, ::getFileSize(name.c_str()), 0);
+}
+
+FileRecord FileRecord::loadToGpus(const std::string &name, size_t type_size,
+                                  size_t psize, size_t offset) {
   time_block t("Topen (" + name + "): ",
                TimeRegistry::Key{"Data loading (GPUs)"});
   const auto &topo = topology::getInstance();
@@ -113,7 +118,7 @@ FileRecord FileRecord::loadToGpus(const std::string &name, size_t type_size) {
 
   auto devices = topo.getGpuCount();
 
-  size_t filesize = ::getFileSize(name.c_str()) / factor;
+  size_t filesize = psize / factor;
 
   size_t pack_alignment = sysconf(_SC_PAGE_SIZE);  // required by mmap
   // in order to do that without the schema, we have to take the worst case
@@ -135,7 +140,7 @@ FileRecord FileRecord::loadToGpus(const std::string &name, size_t type_size) {
       partitions.emplace_back(std::make_unique<mmap_file>(
           name, GPU_RESIDENT,
           std::min(part_size, filesize - part_size * d) * factor,
-          part_size * d * factor));
+          part_size * d * factor + offset));
     }
     ++d;
   }

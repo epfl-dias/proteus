@@ -56,6 +56,7 @@ class threadsafe_set {
 
  public:
   [[nodiscard]] bool empty_unsafe() const noexcept { return data.empty(); }
+  [[nodiscard]] auto size_unsafe() const noexcept { return data.size(); }
 
   [[nodiscard]] bool empty() noexcept {
     std::lock_guard<std::mutex> lock{m};
@@ -86,7 +87,7 @@ class threadsafe_set {
 class Router : public experimental::UnaryOperator {
  public:
   Router(Operator *const child, DegreeOfParallelism numOfParents,
-         std::vector<RecordAttribute *> wantedFields, int slack,
+         std::vector<RecordAttribute *> wantedFields, size_t slack,
          std::optional<expression_t> hash, RoutingPolicy policy_type,
          std::unique_ptr<Affinitizer> aff)
       : UnaryOperator(child),
@@ -160,7 +161,7 @@ class Router : public experimental::UnaryOperator {
   PipelineGen *catch_pip;
 
   std::atomic<int> remaining_producers;
-  const int slack;
+  const size_t slack;
   size_t buf_size;
 
   std::unique_ptr<Affinitizer> aff;
@@ -176,12 +177,12 @@ class Router : public experimental::UnaryOperator {
 
   threadsafe_set<void *> *free_pool;
 
+  const RoutingPolicy policy_type;
+
  private:
   std::optional<expression_t> hashExpr;
 
   bool need_cnt;
-
-  const RoutingPolicy policy_type;
 };
 
 #endif /* ROUTER_HPP_ */

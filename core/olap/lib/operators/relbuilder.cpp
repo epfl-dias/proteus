@@ -173,6 +173,11 @@ RelBuilder RelBuilder::membrdcst(DegreeOfParallelism fanout, bool to_cpu,
       fanout, to_cpu, always_share);
 }
 
+RelBuilder RelBuilder::membrdcst(DeviceType target, bool always_share) const {
+  return membrdcst(getDefaultDOP(target), target == DeviceType::CPU,
+                   always_share);
+}
+
 RelBuilder RelBuilder::membrdcst_scaleout(
     const vector<RecordAttribute *> &wantedFields, size_t fanout, bool to_cpu,
     bool always_share) const {
@@ -201,6 +206,7 @@ RelBuilder RelBuilder::membrdcst_scaleout(size_t fanout, bool to_cpu,
 }
 
 RelBuilder RelBuilder::memmove(size_t slack, DeviceType to) const {
+  assert(root->isPacked() && "MemMove is not applicable to unpacked inputs");
   std::vector<RecordAttribute *> ret;
   for (const auto &attr : getOutputArg().getProjections()) {
     if (dynamic_cast<const BlockType *>(attr.getOriginalType())) {
@@ -247,15 +253,15 @@ RelBuilder RelBuilder::to_cpu(gran_t granularity, size_t size) const {
   const auto arg = getOutputArg();
   std::vector<RecordAttribute *> ret;
   for (const auto &attr : arg.getProjections()) {
-    if (dynamic_cast<const BlockType *>(attr.getOriginalType())) {
-      ret.emplace_back(new RecordAttribute{attr});
-    }
+    //    if (dynamic_cast<const BlockType *>(attr.getOriginalType())) {
+    ret.emplace_back(new RecordAttribute{attr});
+    //    }
   }
-  if (ret.empty()) {
-    for (const auto &attr : arg.getProjections()) {
-      ret.emplace_back(new RecordAttribute{attr});
-    }
-  }
+  //  if (ret.empty()) {
+  //    for (const auto &attr : arg.getProjections()) {
+  //      ret.emplace_back(new RecordAttribute{attr});
+  //    }
+  //  }
   return to_cpu(ret, granularity, size);
 }
 
@@ -411,6 +417,7 @@ RelBuilder RelBuilder::unnest(expression_t e) const {
 }
 
 PreparedStatement RelBuilder::prepare() {
+  LOG(INFO) << '\n' << *this;
   root->produce(ctx);
   ctx->prepareFunction(ctx->getGlobalFunction());
   ctx->compileAndLoad();
@@ -478,6 +485,24 @@ RelBuilder RelBuilder::router_scaleout(const OptionalExpressionFactory &hash,
       hash, fanout, slack, p, target);
 }
 
+RelBuilder RelBuilder::router_scaleout(const ExpressionFactory &hash,
+                                       DegreeOfParallelism fanout, size_t slack,
+                                       DeviceType target) const {
+  return router_scaleout(
+      [&](const auto &arg) -> std::vector<RecordAttribute *> {
+        std::vector<RecordAttribute *> attrs;
+        for (const auto &attr : arg.getProjections()) {
+          if (attr.getAttrName() == "__broadcastTarget") {
+            continue;
+          }
+          attrs.emplace_back(new RecordAttribute{attr});
+        }
+        return attrs;
+      },
+      [&](const auto &arg) -> std::optional<expression_t> { return hash(arg); },
+      fanout, slack, RoutingPolicy::HASH_BASED, target);
+}
+
 RelBuilder RelBuilder::router_scaleout(DegreeOfParallelism fanout, size_t slack,
                                        RoutingPolicy p,
                                        DeviceType target) const {
@@ -494,6 +519,17 @@ RelBuilder RelBuilder::router(DegreeOfParallelism fanout, size_t slack,
                               std::unique_ptr<Affinitizer> aff) const {
   assert(p != RoutingPolicy::HASH_BASED);
   return router(
+      [&](const auto &arg) -> std::vector<RecordAttribute *> {
+        std::vector<RecordAttribute *> attrs;
+        for (const auto &attr : arg.getProjections()) {
+          if (p == RoutingPolicy::HASH_BASED &&
+              attr.getAttrName() == "__broadcastTarget") {
+            continue;
+          }
+          attrs.emplace_back(new RecordAttribute{attr});
+        }
+        return attrs;
+      },
       [&](const auto &arg) -> std::optional<expression_t> {
         return std::nullopt;
       },
@@ -508,10 +544,7 @@ DegreeOfParallelism RelBuilder::getDefaultDOP(DeviceType targetType) {
 
 RelBuilder RelBuilder::router(size_t slack, RoutingPolicy p, DeviceType target,
                               std::unique_ptr<Affinitizer> aff) const {
-  size_t dop = (target == DeviceType::CPU)
-                   ? topology::getInstance().getCoreCount()
-                   : topology::getInstance().getGpuCount();
-  return router(DegreeOfParallelism{dop}, slack, p, target, std::move(aff));
+  return router(getDefaultDOP(target), slack, p, target, std::move(aff));
 }
 
 class HintRowCount : public experimental::UnaryOperator {
@@ -607,6 +640,14 @@ double expected(Operator *op) {
 RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
                             expression_t probe_k) const {
   double expct = expected(build.root);
+
+  if (!(build.root->getHomReplication() ==
+            proteus::traits::HomReplication::BRDCST ||
+        root->getHomParallelization() ==
+            proteus::traits::HomParallelization::SINGLE)) {
+    expct = expct * build.root->getDOP();
+  }
+
   size_t bsize = expct * 1.1;  // 10% overestimate for safety
 
   return join(build, std::move(build_k), std::move(probe_k),
@@ -662,63 +703,6 @@ RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
               probe_e, probe_w, hash_bits, maxBuildInputSize);
 }
 
-RelBuilder RelBuilder::morsel_join(RelBuilder build, expression_t build_k,
-                                   expression_t probe_k, int hash_bits,
-                                   size_t maxBuildInputSize) const {
-  auto &llvmContext = ctx->getLLVMContext();
-  std::vector<size_t> build_w;
-  std::vector<GpuMatExpr> build_e;
-  build_w.emplace_back(
-      32 +
-      ctx->getSizeOf(build_k.getExpressionType()->getLLVMType(llvmContext)) *
-          8);
-  size_t ind = 1;
-  auto build_arg = build.getOutputArg();
-  for (const auto &p : build_arg.getProjections()) {
-    auto relName = build_k.getRegisteredRelName();
-    auto e = build_arg[p];
-
-    if (build_k.isRegistered() &&
-        build_k.getRegisteredAs() == e.getRegisteredAs())
-      continue;
-
-    auto rc = dynamic_cast<const expressions::RecordConstruction *>(
-        build_k.getUnderlyingExpression());
-    if (rc && dynamic_cast<const RecordType *>(rc->getExpressionType())
-                  ->getArg(p.getAttrName()))
-      continue;
-    LOG(INFO) << p;
-
-    build_e.emplace_back(e, ind++, 0);
-    build_w.emplace_back(
-        ctx->getSizeOf(e.getExpressionType()->getLLVMType(llvmContext)) * 8);
-  }
-  std::vector<size_t> probe_w;
-  std::vector<GpuMatExpr> probe_e;
-  probe_w.emplace_back(
-      32 +
-      ctx->getSizeOf(probe_k.getExpressionType()->getLLVMType(llvmContext)) *
-          8);
-  ind = 1;
-  auto probe_arg = getOutputArg();
-  for (const auto &p : probe_arg.getProjections()) {
-    auto relName = probe_k.getRegisteredRelName();
-    auto e = probe_arg[p];
-
-    if (probe_k.isRegistered() &&
-        probe_k.getRegisteredAs() == e.getRegisteredAs())
-      continue;
-
-    probe_e.emplace_back(e, ind++, 0);
-    probe_w.emplace_back(
-        ctx->getSizeOf(e.getExpressionType()->getLLVMType(llvmContext)) * 8);
-  }
-
-  return morsel_join(build, std::move(build_k), build_e, build_w,
-                     std::move(probe_k), probe_e, probe_w, hash_bits,
-                     maxBuildInputSize);
-}
-
 RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
                             const std::vector<GpuMatExpr> &build_e,
                             const std::vector<size_t> &build_w,
@@ -727,41 +711,33 @@ RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
                             const std::vector<size_t> &probe_w, int hash_bits,
                             size_t maxBuildInputSize) const {
   if (root->getDeviceType() == DeviceType::GPU) {
-    auto op = new GpuHashJoinChained(
-        build_e, build_w, std::move(build_k), build.root, probe_e, probe_w,
-        std::move(probe_k), root, hash_bits, maxBuildInputSize);
-    build.apply(op);
-    return apply(op);
-  } else {
-    auto op = new HashJoinChained(
-        build_e, build_w, std::move(build_k), build.root, probe_e, probe_w,
-        std::move(probe_k), root, hash_bits, maxBuildInputSize);
-    build.apply(op);
-    return apply(op);
-  }
-}
+    assert(build.root->getHomReplication() ==
+               proteus::traits::HomReplication::BRDCST ||
+           root->getHomParallelization() ==
+               proteus::traits::HomParallelization::SINGLE);
 
-RelBuilder RelBuilder::morsel_join(RelBuilder build, expression_t build_k,
-                                   const std::vector<GpuMatExpr> &build_e,
-                                   const std::vector<size_t> &build_w,
-                                   expression_t probe_k,
-                                   const std::vector<GpuMatExpr> &probe_e,
-                                   const std::vector<size_t> &probe_w,
-                                   int hash_bits,
-                                   size_t maxBuildInputSize) const {
-  if (root->getDeviceType() == DeviceType::GPU) {
     auto op = new GpuHashJoinChained(
         build_e, build_w, std::move(build_k), build.root, probe_e, probe_w,
         std::move(probe_k), root, hash_bits, maxBuildInputSize);
     build.apply(op);
     return apply(op);
   } else {
-    assert(this->root->getDOP() == build->getDOP());
-    auto op = new HashJoinChainedMorsel(
-        build_e, build_w, std::move(build_k), build.root, probe_e, probe_w,
-        std::move(probe_k), root, hash_bits, maxBuildInputSize);
-    build.apply(op);
-    return apply(op);
+    if (build.root->getHomReplication() ==
+            proteus::traits::HomReplication::BRDCST ||
+        root->getHomParallelization() ==
+            proteus::traits::HomParallelization::SINGLE) {
+      auto op = new HashJoinChained(
+          build_e, build_w, std::move(build_k), build.root, probe_e, probe_w,
+          std::move(probe_k), root, hash_bits, maxBuildInputSize);
+      build.apply(op);
+      return apply(op);
+    } else {
+      auto op = new HashJoinChainedMorsel(
+          build_e, build_w, std::move(build_k), build.root, probe_e, probe_w,
+          std::move(probe_k), root, hash_bits, maxBuildInputSize);
+      build.apply(op);
+      return apply(op);
+    }
   }
 }
 
@@ -994,25 +970,41 @@ RelBuilder RelBuilder::update(expression_t e) const {
 }
 
 RelBuilder RelBuilder::unpack() const {
-  return unpack([&](const auto &arg) -> std::vector<expression_t> {
-    std::vector<expression_t> attrs;
-    for (const auto &attr : arg.getProjections()) {
-      attrs.emplace_back(arg[attr]);
-    }
-    return attrs;
-  });
-}
-
-RelBuilder RelBuilder::pack() const {
-  return pack(
-      [&](const auto &arg) -> std::vector<expression_t> {
+  return unpack(
+      [&](const expressions::InputArgument &arg) -> std::vector<expression_t> {
         std::vector<expression_t> attrs;
         for (const auto &attr : arg.getProjections()) {
           attrs.emplace_back(arg[attr]);
         }
         return attrs;
+      });
+}
+
+RelBuilder RelBuilder::pack() const {
+  return pack([](const auto &arg) { return expression_t{0}; }, 1);
+}
+
+[[nodiscard]] RelBuilder RelBuilder::pack(ExpressionFactory hashExpr,
+                                          size_t numOfBuckets) const {
+  return pack(
+      [&](const expressions::InputArgument &arg) -> std::vector<expression_t> {
+        if (hashExpr(arg).isRegistered()) {
+          auto relName = hashExpr(arg).getRegisteredRelName();
+          std::vector<expression_t> attrs;
+          for (const auto &attr : arg.getProjections()) {
+            LOG(INFO) << arg[attr].as(relName, attr.getAttrName());
+            attrs.emplace_back(arg[attr].as(relName, attr.getAttrName()));
+          }
+          return attrs;
+        } else {
+          std::vector<expression_t> attrs;
+          for (const auto &attr : arg.getProjections()) {
+            attrs.emplace_back(arg[attr]);
+          }
+          return attrs;
+        }
       },
-      [](const auto &arg) { return expression_t{0}; }, 1);
+      hashExpr, numOfBuckets);
 }
 
 [[nodiscard]] bool RelBuilder::isPacked() const { return root->isPacked(); }

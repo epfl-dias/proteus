@@ -763,8 +763,6 @@ Function *GpuPipelineGen::getFunction(string funcName) const {
   if (wrapperModuleActive) {
     auto it = availableWrapperFunctions.find(funcName);
     if (it == availableWrapperFunctions.end()) {
-      for (auto &t : availableWrapperFunctions)
-        std::cout << t.first << std::endl;
       throw runtime_error(string("Unknown function name: ") + funcName + " (" +
                           pipName + ")");
     }

@@ -44,6 +44,7 @@ class Query {
   static PreparedStatement prepare41(proteus::QueryShaper &morph);
   static PreparedStatement prepare42(proteus::QueryShaper &morph);
   static PreparedStatement prepare43(proteus::QueryShaper &morph);
+  static PreparedStatement prepare41_pushdown(proteus::QueryShaper &morph);
 
   static std::vector<PreparedStatement> prepareAll(
       proteus::QueryShaper &shaper) {
@@ -65,6 +66,7 @@ class Query {
                   std::function<double(proteus::InputPrefixQueryShaper &)>>
   getStats(size_t SF);
 };
+
 };  // namespace ssb
 
 #endif /* PROTEUS_SSB100_QUERY_HPP */

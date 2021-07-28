@@ -23,6 +23,7 @@
 
 #include "olap/routing/routing-policy.hpp"
 
+#include <platform/network/infiniband/infiniband-manager.hpp>
 #include <platform/topology/topology.hpp>
 
 #include "lib/expressions/expressions-generator.hpp"
@@ -99,6 +100,9 @@ Local::Local(size_t fanout, const std::vector<RecordAttribute *> &wantedFields,
              const AffinityPolicy *aff)
     : fanout(fanout), wantedField(*wantedFields[0]), aff(aff) {}
 
+LocalServer::LocalServer(size_t fanout)
+    : HashBased(fanout, (int)InfiniBandManager::server_id()) {}
+
 PreferLocal::PreferLocal(size_t fanout,
                          const std::vector<RecordAttribute *> &wantedFields,
                          const AffinityPolicy *aff)
@@ -107,6 +111,45 @@ PreferLocal::PreferLocal(size_t fanout,
 routing_target PreferLocal::evaluate(ParallelContext *context,
                                      const OperatorState &childState,
                                      ProteusValueMemory retrycnt) {
+  auto Builder = context->getBuilder();
+
+  llvm::BasicBlock *b1;
+  llvm::BasicBlock *b2;
+  llvm::Value *p1;
+  llvm::Value *p2;
+  auto phi_type = llvm::IntegerType::getInt64Ty(context->getLLVMContext());
+
+  context
+      ->gen_if(lt(
+                   expressions::ProteusValueExpression{
+                       new IntType(),
+                       {Builder->CreateLoad(retrycnt.mem), retrycnt.isNull}},
+                   1),
+               childState)([&]() {
+        p1 = Builder->CreateZExt(
+            priority.evaluate(context, childState, retrycnt).target, phi_type);
+        b1 = Builder->GetInsertBlock();
+      })
+      .gen_else([&]() {
+        p2 = Builder->CreateZExt(
+            alternative.evaluate(context, childState, retrycnt).target,
+            phi_type);
+        b2 = Builder->GetInsertBlock();
+      });
+
+  auto phi = Builder->CreatePHI(phi_type, 2);
+  phi->addIncoming(p1, b1);
+  phi->addIncoming(p2, b2);
+
+  return {phi, true};
+}
+
+PreferLocalServer::PreferLocalServer(size_t fanout)
+    : priority(fanout), alternative(fanout) {}
+
+routing_target PreferLocalServer::evaluate(ParallelContext *context,
+                                           const OperatorState &childState,
+                                           ProteusValueMemory retrycnt) {
   auto Builder = context->getBuilder();
 
   llvm::BasicBlock *b1;

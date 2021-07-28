@@ -81,6 +81,8 @@ class FileRecord {
   ~FileRecord();
 
   static FileRecord loadToGpus(const std::string &name, size_t type_size);
+  static FileRecord loadToGpus(const std::string &name, size_t type_size,
+                               size_t psize, size_t offset);
   static FileRecord loadDistributed(const std::string &name, size_t type_size);
   static FileRecord loadToCpus(const std::string &name, size_t type_size);
   static FileRecord loadToCpus(const std::string &name, size_t type_size,
@@ -153,6 +155,7 @@ class StorageManager {
  public:
   using Loader = std::function<FileRecord(StorageManager &, const std::string &,
                                           size_t typeSize)>;
+  static double StorageFilePercentage;
   StorageManager();
   ~StorageManager();
 

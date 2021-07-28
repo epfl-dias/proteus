@@ -47,7 +47,8 @@ class PreparedStatement {
                     std::string outputFile, std::shared_ptr<Operator> planRoot);
 
  public:
-  QueryResult execute(bool deterministic_affinity = true);
+  QueryResult execute(std::vector<std::chrono::milliseconds>& tlog);
+  QueryResult execute();
 
   static PreparedStatement from(const std::string& planPath,
                                 const std::string& label);

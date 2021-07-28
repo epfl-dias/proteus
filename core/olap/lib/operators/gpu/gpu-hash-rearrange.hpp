@@ -46,6 +46,11 @@ class GpuHashRearrange : public experimental::UnaryOperator {
           context->getSizeOf(matExpr[attr_i].getExpressionType()->getLLVMType(
               context->getLLVMContext()));
     }
+    if (this->hashProject == nullptr && hashExpr.isRegistered()) {
+      this->hashProject = new RecordAttribute(
+          this->matExpr.size(), this->hashExpr.getRegisteredRelName(),
+          this->hashExpr.getRegisteredAttrName(), new Int64Type());
+    }
     // packet_widths(packet_widths){
   }  // FIMXE: default blocksize...
 
@@ -63,9 +68,7 @@ class GpuHashRearrange : public experimental::UnaryOperator {
     for (const auto &t : matExpr) {
       attr.emplace_back(new RecordAttribute(t.getRegisteredAs(), true));
     }
-    if (hashExpr.isRegistered()) {
-      attr.emplace_back(new RecordAttribute(hashExpr.getRegisteredAs()));
-    }
+    if (hashProject) attr.emplace_back(hashProject);
     return attr;
   }
 

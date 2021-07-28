@@ -45,10 +45,10 @@ class ScaleOutQueryShaper : public proteus::InputPrefixQueryShaper {
   [[nodiscard]] RelBuilder distribute_build(RelBuilder input) override;
   [[nodiscard]] RelBuilder distribute_probe(RelBuilder input) override;
 
-  [[nodiscard]] RelBuilder collect_unpacked(RelBuilder input) override;
-  [[nodiscard]] RelBuilder collect(RelBuilder input) override;
-
  protected:
+  [[nodiscard]] RelBuilder collect_unpacked(RelBuilder input) override;
+  [[nodiscard]] RelBuilder collect_packed(RelBuilder input) override;
+
   double getRowHint(const std::string &relName) override;
 
   [[nodiscard]] virtual RelBuilder distribute_probe_interserver(

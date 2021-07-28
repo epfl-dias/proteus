@@ -23,9 +23,27 @@
 
 #include <olap/operators/relbuilder-factory.hpp>
 #include <olap/plan/catalog-parser.hpp>
+#include <platform/network/infiniband/infiniband-manager.hpp>
 #include <query-shaping/query-shaper.hpp>
 
 namespace proteus {
+
+RelBuilder QueryShaper::parallel(
+    RelBuilder probe, const std::vector<RelBuilder> &builds,
+    const std::function<RelBuilder(RelBuilder, const std::vector<RelBuilder> &)>
+        &pathBuilder) {
+  std::vector<RelBuilder> parallelizedBuilds;
+  parallelizedBuilds.reserve(builds.size());
+  for (auto &build : builds) {
+    parallelizedBuilds.emplace_back(distribute_build(build));
+  }
+
+  auto parallelizedProbe = distribute_probe(probe);
+
+  auto rel = pathBuilder(parallelizedProbe, parallelizedBuilds);
+
+  return collect(rel);
+}
 
 RelBuilder QueryShaper::distribute_probe(RelBuilder input) {
   auto rel = input.router(getDOP(), getSlack(), RoutingPolicy::LOCAL,
@@ -39,7 +57,11 @@ RelBuilder QueryShaper::distribute_probe(RelBuilder input) {
 }
 
 std::unique_ptr<Affinitizer> QueryShaper::getAffinitizer() {
-  return std::make_unique<GPUAffinitizer>();
+  if (getDevice() == DeviceType::GPU) {
+    return std::make_unique<GPUAffinitizer>();
+  } else {
+    return std::make_unique<CpuNumaNodeAffinitizer>();
+  }
 }
 
 std::unique_ptr<Affinitizer> QueryShaper::getAffinitizerReduce() {
@@ -47,15 +69,22 @@ std::unique_ptr<Affinitizer> QueryShaper::getAffinitizerReduce() {
 }
 
 DeviceType QueryShaper::getDevice() { return DeviceType::GPU; }
-int QueryShaper::getSlack() { return 64; }
+int QueryShaper::getSlack() { return slack; }
 int QueryShaper::getSlackReduce() { return 128; }
 bool QueryShaper::doMove() { return true; }
 size_t QueryShaper::sf() { return 100; }
 
+double QueryShaper::StorageDOPFactor = 1.0;
+
 DegreeOfParallelism QueryShaper::getDOP() {
-  return DegreeOfParallelism{(getDevice() == DeviceType::CPU)
-                                 ? topology::getInstance().getCoreCount()
-                                 : topology::getInstance().getGpuCount()};
+  return DegreeOfParallelism{
+      (getDevice() == DeviceType::CPU)
+          ? (size_t)(topology::getInstance().getCoreCount() *
+                     (InfiniBandManager::server_id() <
+                              ((int)(InfiniBandManager::server_count() / 2))
+                          ? 1
+                          : StorageDOPFactor))
+          : topology::getInstance().getGpuCount()};
 }
 
 RelBuilder QueryShaper::distribute_build(RelBuilder input) {
@@ -65,11 +94,10 @@ RelBuilder QueryShaper::distribute_build(RelBuilder input) {
               getDOP(), getDevice() == DeviceType::CPU,
               false)  //!(doMove() )) // || getDevice() == DeviceType::GPU
           .router(
-              [&](const auto& arg) -> std::optional<expression_t> {
+              [&](const auto &arg) -> expression_t {
                 return arg["__broadcastTarget"];
               },
-              getDOP(), getSlack(), RoutingPolicy::HASH_BASED, getDevice(),
-              getAffinitizer());
+              getDOP(), getSlack(), getDevice(), getAffinitizer());
 
   if (getDevice() == DeviceType::GPU) rel = rel.to_gpu();
 
@@ -83,13 +111,21 @@ RelBuilder QueryShaper::collect_unpacked(RelBuilder input) {
                       getAffinitizerReduce());
 }
 
-RelBuilder QueryShaper::collect(RelBuilder input) {
+RelBuilder QueryShaper::collect_packed(RelBuilder input) {
   return collect_unpacked(input).memmove(getSlackReduce(), DeviceType::CPU);
 }
 
-std::string QueryShaper::getRelName(const std::string& base) { return base; }
+RelBuilder QueryShaper::collect(RelBuilder input) {
+  if (input.isPacked()) {
+    return collect_packed(input);
+  } else {
+    return collect_unpacked(input);
+  }
+}
 
-RelBuilder QueryShaper::scan(const std::string& relName,
+std::string QueryShaper::getRelName(const std::string &base) { return base; }
+
+RelBuilder QueryShaper::scan(const std::string &relName,
                              std::initializer_list<std::string> relAttrs) {
   return getBuilder().scan(getRelName(relName), relAttrs,
                            CatalogParser::getInstance(), getPlugin());
@@ -104,12 +140,12 @@ void QueryShaper::setQueryName(std::string name) {
   ctx = std::make_unique<RelBuilderFactory>(query);
 }
 
-QueryShaper::QueryShaper()
-    : ctx(std::make_unique<RelBuilderFactory>("unnamed")) {}
+QueryShaper::QueryShaper(size_t slack)
+    : ctx(std::make_unique<RelBuilderFactory>("unnamed")), slack(slack) {}
 QueryShaper::~QueryShaper() = default;
 
-QueryShaperControlMoves::QueryShaperControlMoves(bool allow_moves)
-    : allow_moves(allow_moves) {}
+QueryShaperControlMoves::QueryShaperControlMoves(bool allow_moves, size_t slack)
+    : QueryShaper(slack), allow_moves(allow_moves) {}
 
 bool QueryShaperControlMoves::doMove() { return allow_moves; }
 

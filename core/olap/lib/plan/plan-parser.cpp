@@ -992,31 +992,17 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
 
     size_t maxBuildInputSize = val["maxBuildInputSize"].GetUint64();
 
-    if (val.HasMember("morsel") && val["morsel"].GetBool()) {
-      return probe_op.morsel_join(
-          build_op,
-          [&](const auto &build_arg) {
-            assert(val.HasMember("build_k"));
-            return parseExpression(val["build_k"], build_arg);
-          },
-          [&](const auto &probe_arg) {
-            assert(val.HasMember("probe_k"));
-            return parseExpression(val["probe_k"], probe_arg);
-          },
-          hash_bits, maxBuildInputSize);
-    } else {
-      return probe_op.join(
-          build_op,
-          [&](const auto &build_arg) {
-            assert(val.HasMember("build_k"));
-            return parseExpression(val["build_k"], build_arg);
-          },
-          [&](const auto &probe_arg) {
-            assert(val.HasMember("probe_k"));
-            return parseExpression(val["probe_k"], probe_arg);
-          },
-          hash_bits, maxBuildInputSize);
-    }
+    return probe_op.join(
+        build_op,
+        [&](const auto &build_arg) {
+          assert(val.HasMember("build_k"));
+          return parseExpression(val["build_k"], build_arg);
+        },
+        [&](const auto &probe_arg) {
+          assert(val.HasMember("probe_k"));
+          return parseExpression(val["probe_k"], probe_arg);
+        },
+        hash_bits, maxBuildInputSize);
   } else if (strcmp(opName, "join") == 0) {
     assert(!(val.HasMember("gpu") && val["gpu"].GetBool()));
     const char *keyMatLeft = "leftFields";
@@ -1585,11 +1571,11 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     if (val.HasMember("target")) {
       assert(policy_type == RoutingPolicy::HASH_BASED);
       return childOp.router(
-          [&](const auto &arg) -> std::optional<expression_t> {
+          [&](const auto &arg) -> expression_t {
             assert(val["target"].IsObject());
             return parseExpression(val["target"], arg);
           },
-          dop, slack, policy_type, targets, std::move(aff));
+          dop, slack, targets, std::move(aff));
     } else {
       return childOp.router(dop, slack, policy_type, targets, std::move(aff));
     }

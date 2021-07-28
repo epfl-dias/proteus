@@ -347,6 +347,7 @@ Test 12 - OLTP TPCC:
   - export CWD=$(pwd)
   - cd ${build_path}/opt/pelago && ./unit-tests-tpcc --gtest_output="xml:$CWD/report-tpcc.xml"
   #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='ThreadCOW.*' --gtest_output="xml:$CWD/report-cow.xml"
+ allow_failure: true
  artifacts:
   reports:
    junit: report-tpcc.xml

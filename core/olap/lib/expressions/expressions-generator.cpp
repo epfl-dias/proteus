@@ -1212,7 +1212,7 @@ ProteusValue ExpressionGeneratorVisitor::visit(
       case INT64:
       case INT:
       case BOOL:
-        valWrapper.value = TheBuilder->CreateSRem(left.value, right.value);
+        valWrapper.value = TheBuilder->CreateURem(left.value, right.value);
         return valWrapper;
       case FLOAT:
         valWrapper.value = TheBuilder->CreateFRem(left.value, right.value);

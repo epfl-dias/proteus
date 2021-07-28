@@ -39,7 +39,13 @@ class HashRearrange : public experimental::UnaryOperator {
         wantedFields(std::move(wantedFields)),
         hashExpr(std::move(hashExpr)),
         hashProject(hashProject),
-        blockSize(BlockManager::block_size) {}  // FIMXE: default blocksize...
+        blockSize(BlockManager::block_size) {
+    if (this->hashProject == nullptr && hashExpr.isRegistered()) {
+      this->hashProject = new RecordAttribute(
+          this->wantedFields.size(), this->hashExpr.getRegisteredRelName(),
+          this->hashExpr.getRegisteredAttrName(), new Int64Type());
+    }
+  }  // FIMXE: default blocksize...
 
   void produce_(ParallelContext *context) override;
   void consume(ParallelContext *context,
@@ -51,9 +57,7 @@ class HashRearrange : public experimental::UnaryOperator {
     for (const auto &t : wantedFields) {
       attr.emplace_back(new RecordAttribute(t.getRegisteredAs(), true));
     }
-    if (hashExpr.isRegistered()) {
-      attr.emplace_back(new RecordAttribute(hashExpr.getRegisteredAs()));
-    }
+    if (hashProject) attr.emplace_back(hashProject);
     return attr;
   }
 

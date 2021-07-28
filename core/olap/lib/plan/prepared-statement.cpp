@@ -38,7 +38,14 @@
 
 static constexpr auto defaultCatalogJSON = "inputs";
 
-QueryResult PreparedStatement::execute(bool deterministic_affinity) {
+QueryResult PreparedStatement::execute() {
+  std::vector<std::chrono::milliseconds> tlog;
+  return execute(tlog);
+}
+
+QueryResult PreparedStatement::execute(
+    std::vector<std::chrono::milliseconds> &tlog) {
+  bool deterministic_affinity = true;
   auto &topo = topology::getInstance();
 
   // just to be sure...
@@ -63,14 +70,15 @@ QueryResult PreparedStatement::execute(bool deterministic_affinity) {
   *static_cast<uint32_t *>(session) = ++year;
 
   {
-    time_block t("Texecute w sync: ");
+    time_block twsync("Texecute w sync: ");
 
     {
-      time_block t("Texecute       : ");
+      time_block texecute("Texecute       : ");
 
       for (auto &p : pipelines) {
         nvtxRangePushA("pip");
         {
+          time_block t2([&](const auto &tmil) { tlog.emplace_back(tmil); });
           time_block t("T: ");
 
           p->open(session);

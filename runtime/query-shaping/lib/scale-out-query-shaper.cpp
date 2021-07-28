@@ -43,7 +43,7 @@ ScaleOutQueryShaper::ScaleOutQueryShaper(std::string base_path,
 [[nodiscard]] int ScaleOutQueryShaper::getSlack() { return 128; }
 
 [[nodiscard]] DegreeOfParallelism ScaleOutQueryShaper::getServerDOP() {
-  return DegreeOfParallelism{2};
+  return DegreeOfParallelism{InfiniBandManager::server_count()};
 }
 
 RelBuilder ScaleOutQueryShaper::getBuilder() const {
@@ -104,7 +104,7 @@ RelBuilder ScaleOutQueryShaper::getBuilder() const {
       getServerDOP(), getSlack(), RoutingPolicy::HASH_BASED, getDevice());
 }
 
-[[nodiscard]] RelBuilder ScaleOutQueryShaper::collect(RelBuilder input) {
+[[nodiscard]] RelBuilder ScaleOutQueryShaper::collect_packed(RelBuilder input) {
   return collect_unpacked(input).memmove_scaleout(getSlackReduce());
 }
 

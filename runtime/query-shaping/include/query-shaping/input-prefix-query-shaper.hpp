@@ -41,7 +41,7 @@ class InputPrefixQueryShaper : public QueryShaperControlMoves {
  public:
   explicit InputPrefixQueryShaper(std::string base_path,
                                   decltype(input_sizes) input_sizes = {},
-                                  bool allowMoves = true);
+                                  bool allowMoves = true, size_t slack = 64);
 
   RelBuilder scan(const std::string& relName,
                   std::initializer_list<std::string> relAttrs) override;

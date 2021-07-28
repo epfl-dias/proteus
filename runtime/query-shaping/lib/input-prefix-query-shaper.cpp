@@ -26,8 +26,9 @@
 
 namespace proteus {
 InputPrefixQueryShaper::InputPrefixQueryShaper(
-    std::string base_path, decltype(input_sizes) input_sizes, bool allowMoves)
-    : QueryShaperControlMoves(allowMoves),
+    std::string base_path, decltype(input_sizes) input_sizes, bool allowMoves,
+    size_t slack)
+    : QueryShaperControlMoves(allowMoves, slack),
       base_path(std::move(base_path)),
       input_sizes(std::move(input_sizes)),
       sf_(100) {

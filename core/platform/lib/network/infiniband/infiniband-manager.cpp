@@ -71,8 +71,11 @@ void subscription::publish(proteus::managed_ptr data, size_t size
 
 std::vector<IBHandler *> InfiniBandManager::ib;
 uint64_t InfiniBandManager::srv_id;
+uint64_t InfiniBandManager::srv_cnt = 1;
+int InfiniBandManager::currentIBlistenFD = 0;
 
 uint64_t InfiniBandManager::server_id() { return srv_id; }
+uint64_t InfiniBandManager::server_count() { return srv_cnt; }
 
 void InfiniBandManager::send(proteus::managed_ptr data, size_t bytes) {
   assert(!ib.empty());

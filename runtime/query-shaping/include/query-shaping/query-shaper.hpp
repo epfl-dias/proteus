@@ -34,6 +34,7 @@ class QueryShaper {
  protected:
   std::unique_ptr<RelBuilderFactory> ctx;
   std::string query;
+  size_t slack;
 
   [[nodiscard]] virtual std::string getRelName(const std::string &base);
   [[nodiscard]] virtual RelBuilder getBuilder() const;
@@ -47,28 +48,45 @@ class QueryShaper {
   [[nodiscard]] virtual int getSlackReduce();
   [[nodiscard]] virtual bool doMove();
 
+ public:
+  static double StorageDOPFactor;
   [[nodiscard]] virtual DegreeOfParallelism getDOP();
 
  public:
-  QueryShaper();
+  QueryShaper(size_t slack = 64);
   virtual void setQueryName(std::string name);
   virtual ~QueryShaper();
 
   [[nodiscard]] virtual size_t sf();
 
+  [[nodiscard]] virtual RelBuilder parallelize(RelBuilder input) {
+    return distribute_probe(input);
+  }
+
+  [[nodiscard]] virtual RelBuilder parallel(
+      RelBuilder probe, const std::vector<RelBuilder> &builds,
+      const std::function<RelBuilder(
+          RelBuilder, const std::vector<RelBuilder> &)> &pathBuilder);
+
+  [[nodiscard]] virtual RelBuilder serialize(RelBuilder input) {
+    return collect_packed(input);
+  }
   [[nodiscard]] virtual RelBuilder distribute_probe(RelBuilder input);
   [[nodiscard]] virtual RelBuilder distribute_build(RelBuilder input);
-  [[nodiscard]] virtual RelBuilder collect_unpacked(RelBuilder input);
   [[nodiscard]] virtual RelBuilder collect(RelBuilder input);
   [[nodiscard]] virtual RelBuilder scan(
       const std::string &relName, std::initializer_list<std::string> relAttrs);
+
+ protected:
+  [[nodiscard]] virtual RelBuilder collect_unpacked(RelBuilder input);
+  [[nodiscard]] virtual RelBuilder collect_packed(RelBuilder input);
 };
 
 class QueryShaperControlMoves : public QueryShaper {
   bool allow_moves;
 
  public:
-  explicit QueryShaperControlMoves(bool allow_moves);
+  explicit QueryShaperControlMoves(bool allow_moves, size_t slack = 64);
 
   [[nodiscard]] bool doMove() override;
   void setQueryName(std::string name) override;

@@ -81,6 +81,11 @@ class Local : public RoutingPolicy {
                           ProteusValueMemory retrycnt) override;
 };
 
+class LocalServer : public HashBased {
+ public:
+  LocalServer(size_t fanout);
+};
+
 class PreferLocal : public RoutingPolicy {
   Local priority;
   Random alternative;
@@ -88,6 +93,17 @@ class PreferLocal : public RoutingPolicy {
  public:
   PreferLocal(size_t fanout, const std::vector<RecordAttribute *> &wantedFields,
               const AffinityPolicy *aff);
+  routing_target evaluate(ParallelContext *context,
+                          const OperatorState &childState,
+                          ProteusValueMemory retrycnt) override;
+};
+
+class PreferLocalServer : public RoutingPolicy {
+  LocalServer priority;
+  Random alternative;
+
+ public:
+  PreferLocalServer(size_t fanout);
   routing_target evaluate(ParallelContext *context,
                           const OperatorState &childState,
                           ProteusValueMemory retrycnt) override;

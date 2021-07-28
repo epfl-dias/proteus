@@ -37,10 +37,10 @@ PreparedStatement Query::prepare19(bool memmv) {
                              // traits=[Pelago.[].packed.X86_64.homSingle.hetSingle])
           .membrdcst(dop, true, true)
           .router(
-              [&](const auto &arg) -> std::optional<expression_t> {
+              [&](const auto &arg) -> expression_t {
                 return arg["__broadcastTarget"];
               },
-              dop, 1, RoutingPolicy::HASH_BASED, dev,
+              dop, 1, dev,
               aff_parallel())  // (trait=[Pelago.[].packed.X86_64.homBrdcst.hetSingle])
       ;
 

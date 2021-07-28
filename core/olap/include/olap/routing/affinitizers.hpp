@@ -100,6 +100,9 @@ class GPUAffinitizer : public Affinitizer {
     const auto *g = topo.getGpuAddressed(p);
     if (g) return g->index_in_topo;
     auto *c = topo.getCpuNumaNodeAddressed(p);
+    if (!c) {
+      return topology::getInstance().getGpus()[rand() % size()].index_in_topo;
+    }
     assert(c);
     const auto &gpus = c->local_gpus;
     return gpus[rand() % gpus.size()];

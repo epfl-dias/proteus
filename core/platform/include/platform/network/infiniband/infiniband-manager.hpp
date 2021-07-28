@@ -169,10 +169,6 @@ class InfiniBandManager {
   static void disconnectAll();
   static void deinit();
 
-  inline static size_t server_count() {
-    return 1;  // FIXME: implement
-  }
-
   static subscription &subscribe();
   static void unsubscribe(subscription &);
   static subscription &create_subscription();
@@ -181,10 +177,13 @@ class InfiniBandManager {
   static void unreg(const void *mem);
 
   static uint64_t server_id();
+  static uint64_t server_count();
 
  private:
   static std::vector<IBHandler *> ib;
   static uint64_t srv_id;
+  static uint64_t srv_cnt;
+  static int currentIBlistenFD;
 };
 
 #endif /* INFINIBAND_MANAGER_HPP_ */

@@ -322,6 +322,10 @@ std::unique_ptr<routing::RoutingPolicy> Router::getPolicy() const {
       return std::make_unique<routing::PreferLocal>(
           fanout, wantedFields, new AffinityPolicy(fanout, aff.get()));
     }
+    case RoutingPolicy::FORCE_LOCAL: {
+      return std::make_unique<routing::Local>(
+          fanout, wantedFields, new AffinityPolicy(fanout, aff.get()));
+    }
     case RoutingPolicy::RANDOM: {
       return std::make_unique<routing::Random>(fanout);
     }

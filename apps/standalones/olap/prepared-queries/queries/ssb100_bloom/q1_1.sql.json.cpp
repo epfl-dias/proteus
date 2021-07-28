@@ -38,10 +38,10 @@ PreparedStatement Query::prepare11(bool memmv, SLAZY conf, size_t bloomSize) {
           //          .to_gpu()
           .membrdcst(dop, true, true)
           .router(
-              [&](const auto &arg) -> std::optional<expression_t> {
+              [&](const auto &arg) -> expression_t {
                 return arg["__broadcastTarget"];
               },
-              dop, 128, RoutingPolicy::HASH_BASED, dev,
+              dop, 128, dev,
               aff_parallel())  // (trait=[Pelago.[].packed.X86_64.homBrdcst.hetSingle])
           .unpack()  // (trait=[Pelago.[].unpckd.NVPTX.homBrdcst.hetSingle])
           .filter([&](const auto &arg) -> expression_t {
@@ -133,9 +133,7 @@ PreparedStatement Query::prepare11(bool memmv, SLAZY conf, size_t bloomSize) {
                   return {arg["revenue"]};
                 },
                 {SUM})
-            .print([&](const auto &arg) -> std::vector<expression_t> {
-              return {arg["revenue"]};
-            });
+            .print(pg{"pm-csv"});
   return rel.prepare();
 }
 
@@ -173,9 +171,7 @@ PreparedStatement Query::prepare11_b(bool memmv, size_t bloomSize) {
                 return {arg["cnt"]};
               },
               {SUM})
-          .print([&](const auto &arg) -> std::vector<expression_t> {
-            return {arg["cnt"]};
-          });
+          .print(pg{"pm-csv"});
 
   return rel.prepare();
 }

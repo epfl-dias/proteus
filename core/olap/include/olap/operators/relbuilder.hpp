@@ -278,6 +278,9 @@ class RelBuilder {
   [[nodiscard]] RelBuilder membrdcst(DegreeOfParallelism fanout, bool to_cpu,
                                      bool always_share = false) const;
 
+  [[nodiscard]] RelBuilder membrdcst(DeviceType target,
+                                     bool always_share = false) const;
+
   template <typename T>
   RelBuilder membrdcst_scaleout(T attr, size_t fanout, bool to_cpu,
                                 bool always_share = false) const {
@@ -328,23 +331,29 @@ class RelBuilder {
       const OptionalExpressionFactory& hash, DegreeOfParallelism fanout,
       size_t slack, RoutingPolicy p, DeviceType target) const;
 
-  template <typename Thash>
+  [[nodiscard]] RelBuilder router_scaleout(const ExpressionFactory& hash,
+                                           DegreeOfParallelism fanout,
+                                           size_t slack,
+                                           DeviceType target) const;
+
   [[nodiscard]] RelBuilder router(
-      Thash hash, DegreeOfParallelism fanout, size_t slack, RoutingPolicy p,
+      ExpressionFactory hash, DegreeOfParallelism fanout, size_t slack,
       DeviceType target, std::unique_ptr<Affinitizer> aff = nullptr) const {
     return router(
         [&](const auto& arg) -> std::vector<RecordAttribute*> {
           std::vector<RecordAttribute*> attrs;
           for (const auto& attr : arg.getProjections()) {
-            if (p == RoutingPolicy::HASH_BASED &&
-                attr.getAttrName() == "__broadcastTarget") {
+            if (attr.getAttrName() == "__broadcastTarget") {
               continue;
             }
             attrs.emplace_back(new RecordAttribute{attr});
           }
           return attrs;
         },
-        hash, fanout, slack, p, target, std::move(aff));
+        [&](const auto& arg) -> std::optional<expression_t> {
+          return hash(arg);
+        },
+        fanout, slack, RoutingPolicy::HASH_BASED, target, std::move(aff));
   }
 
   [[nodiscard]] RelBuilder router_scaleout(DegreeOfParallelism fanout,
@@ -451,17 +460,6 @@ class RelBuilder {
                 probe_e(getOutputArg()), probe_w, hash_bits, maxBuildInputSize);
   }
 
-  template <typename Tbk, typename Tbe, typename Tpk, typename Tpe>
-  RelBuilder morsel_join(RelBuilder build, Tbk build_k, Tbe build_e,
-                         std::vector<size_t> build_w, Tpk probe_k, Tpe probe_e,
-                         std::vector<size_t> probe_w, int hash_bits,
-                         size_t maxBuildInputSize) const {
-    return morsel_join(build, build_k(build.getOutputArg()),
-                       build_e(build.getOutputArg()), build_w,
-                       probe_k(getOutputArg()), probe_e(getOutputArg()),
-                       probe_w, hash_bits, maxBuildInputSize);
-  }
-
   [[nodiscard]] RelBuilder hintRowCount(double expectedRowCount) const;
 
   template <typename Tbk, typename Tpk>
@@ -476,13 +474,6 @@ class RelBuilder {
                 hash_bits, maxBuildInputSize);
   }
 
-  template <typename Tbk, typename Tpk>
-  RelBuilder morsel_join(RelBuilder build, Tbk build_k, Tpk probe_k,
-                         int hash_bits, size_t maxBuildInputSize) const {
-    return morsel_join(build, build_k(build.getOutputArg()),
-                       probe_k(getOutputArg()), hash_bits, maxBuildInputSize);
-  }
-
   template <typename T>
   RelBuilder unpack(T expr, gran_t granularity) const {
     return unpack(expr(getOutputArgUnnested()), granularity);
@@ -493,6 +484,9 @@ class RelBuilder {
                                               size_t numOfBuckets) const {
     return pack(expr(getOutputArg()), hashExpr(getOutputArg()), numOfBuckets);
   }
+
+  [[nodiscard]] [[nodiscard]] RelBuilder pack(ExpressionFactory hashExpr,
+                                              size_t numOfBuckets) const;
 
   /**
    * Pack tuples to blocks
@@ -638,15 +632,6 @@ class RelBuilder {
                                 const std::vector<size_t>& probe_w,
                                 int hash_bits, size_t maxBuildInputSize) const;
 
-  [[nodiscard]] RelBuilder morsel_join(RelBuilder build, expression_t build_k,
-                                       const std::vector<GpuMatExpr>& build_e,
-                                       const std::vector<size_t>& build_w,
-                                       expression_t probe_k,
-                                       const std::vector<GpuMatExpr>& probe_e,
-                                       const std::vector<size_t>& probe_w,
-                                       int hash_bits,
-                                       size_t maxBuildInputSize) const;
-
   [[nodiscard]] RelBuilder membrdcst_scaleout(
       const vector<RecordAttribute*>& wantedFields, size_t fanout, bool to_cpu,
       bool always_share = false) const;
@@ -657,10 +642,6 @@ class RelBuilder {
 
   [[nodiscard]] RelBuilder join(RelBuilder build, expression_t build_k,
                                 expression_t probe_k) const;
-
-  [[nodiscard]] RelBuilder morsel_join(RelBuilder build, expression_t build_k,
-                                       expression_t probe_k, int hash_bits,
-                                       size_t maxBuildInputSize) const;
 
   // Helpers
 
