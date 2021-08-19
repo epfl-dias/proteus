@@ -24,6 +24,8 @@
 #ifndef GMONOIDS_HPP_
 #define GMONOIDS_HPP_
 
+#include <platform/common/unsupported-operation.hpp>
+
 #include "olap/operators/monoids.hpp"
 #include "olap/util/context.hpp"
 
@@ -39,6 +41,10 @@ class Monoid {
   virtual void createUpdate(Context *const context,
                             llvm::Value *val_accumulating, llvm::Value *val_in);
 
+  virtual llvm::Value *createUnary(Context *context, llvm::Value *val_in) {
+    return val_in;
+  }
+
   virtual void createAtomicUpdate(
       Context *const context, llvm::Value *accumulator_ptr, llvm::Value *val_in,
       llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic) = 0;
@@ -53,7 +59,30 @@ class Monoid {
 
   virtual inline std::string to_string() const = 0;
 
+  virtual const ExpressionType *getOutputType(const ExpressionType *eType);
+  virtual llvm::Type *getStorageType(Context *context, llvm::Type *updateType);
+
   static Monoid *get(::Monoid m);
+};
+
+class CollectMonoid : public Monoid {
+ public:
+  llvm::Value *create(Context *const context, llvm::Value *val_accumulating,
+                      llvm::Value *val_in) override;
+
+  void createUpdate(Context *const context, llvm::Value *val_accumulating,
+                    llvm::Value *val_in) override;
+
+  void createAtomicUpdate(
+      Context *const context, llvm::Value *accumulator_ptr, llvm::Value *val_in,
+      llvm::AtomicOrdering order = llvm::AtomicOrdering::Monotonic) override;
+
+  llvm::Value *createUnary(Context *context, llvm::Value *val_in) override;
+
+  const ExpressionType *getOutputType(const ExpressionType *eType) override;
+  llvm::Type *getStorageType(Context *context, llvm::Type *updateType) override;
+
+  inline std::string to_string() const override { return "collect"; }
 };
 
 class MaxMonoid : public Monoid {

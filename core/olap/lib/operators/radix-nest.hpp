@@ -131,7 +131,7 @@ class Nest : public UnaryOperator {
    */
   void generateProbe(Context *const context) const;
 
-  std::map<RecordAttribute, ProteusValueMemory> *reconstructResults(
+  std::map<RecordAttribute, ProteusValueMemory> reconstructResults(
       llvm::Value *htBuffer, llvm::Value *idx,
       const StateVar &relR_mem_relation_id) const;
   /**

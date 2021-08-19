@@ -24,6 +24,8 @@
 #ifndef HASH_GROUP_BY_CHAINED_HPP_
 #define HASH_GROUP_BY_CHAINED_HPP_
 
+#include <lib/operators/gpu/gmonoids.hpp>
+
 #include "lib/util/jit/pipeline.hpp"
 #include "olap/expressions/expressions.hpp"
 #include "olap/operators/gpu-aggr-mat-expr.hpp"
@@ -55,7 +57,11 @@ class HashGroupByChained : public experimental::UnaryOperator {
       attrs.emplace_back(new RecordAttribute{attr.getRegisteredAs()});
     }
     for (const auto &attr : agg_exprs) {
-      attrs.emplace_back(new RecordAttribute{attr.expr.getRegisteredAs()});
+      auto m = gpu::Monoid::get(attr.m);
+      auto r = attr.expr.getRegisteredAs();
+      attrs.emplace_back(
+          new RecordAttribute{r.getRelationName(), r.getAttrName(),
+                              m->getOutputType(r.getOriginalType())});
     }
     return attrs;
   }

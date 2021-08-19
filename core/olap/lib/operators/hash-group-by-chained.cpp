@@ -25,7 +25,6 @@
 
 #include <platform/memory/memory-manager.hpp>
 #include <platform/util/bitwise-ops.hpp>
-#include <utility>
 
 #include "lib/expressions/expressions-generator.hpp"
 #include "lib/expressions/expressions-hasher.hpp"
@@ -107,8 +106,12 @@ void HashGroupByChained::prepareDescription(ParallelContext *context) {
       }
 
       const ExpressionType *out_type = agg_exprs[i].expr.getExpressionType();
+      auto llvm_type = out_type->getLLVMType(context->getLLVMContext());
 
-      Type *llvm_type = out_type->getLLVMType(context->getLLVMContext());
+      if (agg_exprs[i].is_aggregation()) {
+        gpu::Monoid *gm = gpu::Monoid::get(agg_exprs[i].m);
+        llvm_type = gm->getStorageType(context, llvm_type);
+      }
 
       body.push_back(llvm_type);
       bindex = agg_exprs[i].bitoffset + context->getSizeOf(llvm_type) * 8;
@@ -282,6 +285,11 @@ void HashGroupByChained::generate_build(ParallelContext *context,
   for (const GpuAggrMatExpr &mexpr : agg_exprs) {
     ExpressionGeneratorVisitor exprGenerator(context, childState);
     ProteusValue valWrapper = mexpr.expr.accept(exprGenerator);
+
+    if (mexpr.is_aggregation()) {
+      gpu::Monoid *gm = gpu::Monoid::get(mexpr.m);
+      valWrapper.value = gm->createUnary(context, valWrapper.value);
+    }
 
     out_vals[mexpr.packet] = Builder->CreateInsertValue(
         out_vals[mexpr.packet], valWrapper.value, mexpr.packind);
@@ -467,53 +475,44 @@ void HashGroupByChained::generate_build(ParallelContext *context,
 
   Builder->SetInsertPoint(EndFoundBB);
 
-  BasicBlock *CreateBucketBB =
-      BasicBlock::Create(llvmContext, "CreateBucket", TheFunction);
-  BasicBlock *ContLinkingBB =
-      BasicBlock::Create(llvmContext, "ContLinking", TheFunction);
-
   // if (!written){
-  Builder->CreateCondBr(Builder->CreateLoad(mem_written), ContLinkingBB,
-                        CreateBucketBB);
+  context->gen_if(
+      {Builder->CreateNot(Builder->CreateLoad(mem_written))})([&]() {
+    // index
+    old_cnt = context->workerScopedAtomicAdd(
+        out_cnt,
+        ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1));
+    Builder->CreateStore(old_cnt, mem_idx);
 
-  Builder->SetInsertPoint(CreateBucketBB);
+    // next[idx].sum  = val;
+    // next[idx].key  = key;
+    // next[idx].next =  -1;
+    // Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Xchg,
+    Builder->CreateStore(
+        eochain, Builder->CreateBitCast(
+                     Builder->CreateInBoundsGEP(
+                         context->getStateVar(out_param_ids[0]), old_cnt),
+                     PointerType::getInt32PtrTy(
+                         llvmContext)));  //,
+                                          // eochain,
+                                          // llvm::AtomicOrdering::Monotonic);
 
-  // index
-  old_cnt = context->workerScopedAtomicAdd(
-      out_cnt,
-      ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1));
-  Builder->CreateStore(old_cnt, mem_idx);
+    for (size_t i = 1; i < out_param_ids.size(); ++i) {
+      Value *out_ptr = context->getStateVar(out_param_ids[i]);
 
-  // next[idx].sum  = val;
-  // next[idx].key  = key;
-  // next[idx].next =  -1;
-  // Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Xchg,
-  Builder->CreateStore(
-      eochain, Builder->CreateBitCast(
-                   Builder->CreateInBoundsGEP(
-                       context->getStateVar(out_param_ids[0]), old_cnt),
-                   PointerType::getInt32PtrTy(
-                       llvmContext)));  //,
-                                        // eochain,
-                                        // llvm::AtomicOrdering::Monotonic);
+      Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
+      Builder->CreateAlignedStore(out_vals[i], out_ptr_i, packet_widths[i] / 8,
+                                  true);
+    }
 
-  for (size_t i = 1; i < out_param_ids.size(); ++i) {
-    Value *out_ptr = context->getStateVar(out_param_ids[i]);
+    // written = true;
+    Builder->CreateStore(v_true, mem_written);
 
-    Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
-    Builder->CreateAlignedStore(out_vals[i], out_ptr_i, packet_widths[i] / 8,
-                                true);
-  }
+    // __threadfence();
+    // }
+    context->workerScopedMembar();
+  });
 
-  // written = true;
-  Builder->CreateStore(v_true, mem_written);
-
-  // __threadfence();
-  // }
-  context->workerScopedMembar();
-  Builder->CreateBr(ContLinkingBB);
-
-  Builder->SetInsertPoint(ContLinkingBB);
   // new_next = atomicCAS(&(next[current].next), -1, idx);
   std::vector<Value *> tmp{current, context->createInt32(0)};
   Value *n_ptr =
@@ -547,8 +546,6 @@ void HashGroupByChained::generate_scan(ParallelContext *context) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
 
-  Type *charPtrType = Type::getInt8PtrTy(llvmContext);
-  Type *int64Type = Type::getInt64Ty(llvmContext);
   Type *int32_type = Type::getInt32Ty(llvmContext);
 
   // Container for the variable bindings
@@ -579,8 +576,8 @@ void HashGroupByChained::generate_scan(ParallelContext *context) {
   // BasicBlock *rlAfterBB = BasicBlock::Create(llvmContext, "releaseEnd" , F);
 
   Value *tId = context->threadId();
-  Value *is_leader =
-      Builder->CreateICmpEQ(tId, ConstantInt::get(tId->getType(), 0));
+  //  Value *is_leader =
+  //      Builder->CreateICmpEQ(tId, ConstantInt::get(tId->getType(), 0));
 
   // Get the ENTRY BLOCK
   // context->setCurrentEntryBlock(Builder->GetInsertBlock());

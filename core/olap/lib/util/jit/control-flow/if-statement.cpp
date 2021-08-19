@@ -42,7 +42,7 @@ if_branch::if_branch(const expression_t &expr, const OperatorState &state,
                      Context *context)
     : if_branch(expr, state, context, nullptr) {}
 
-void if_then::openCase(const ProteusValue &cond) {
+void if_then::openCase(const ProteusBareValue &cond) {
   auto Builder = context->getBuilder();
   llvm::LLVMContext &llvmContext = context->getLLVMContext();
   llvm::Function *F = Builder->GetInsertBlock()->getParent();

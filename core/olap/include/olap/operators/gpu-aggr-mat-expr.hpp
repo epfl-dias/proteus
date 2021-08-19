@@ -52,7 +52,7 @@ class GpuAggrMatExpr {
         m(SUM),
         is_m(false) {}
 
-  bool is_aggregation() { return is_m; }
+  bool is_aggregation() const { return is_m; }
 };
 
 #endif /* PROTEUS_GPU_AGGR_MAT_EXPR_HPP */

@@ -57,6 +57,15 @@ class Type;
 class LLVMContext;
 }  // namespace llvm
 
+namespace proteus {
+
+class unmapped_type : public std::runtime_error {
+ public:
+  unmapped_type(std::string typeName)
+      : std::runtime_error("unmapped type: " + typeName) {}
+};
+};  // namespace proteus
+
 class ExpressionType {
  public:
   [[nodiscard]] virtual string getType() const = 0;
@@ -64,11 +73,7 @@ class ExpressionType {
   virtual ~ExpressionType() = default;
   [[nodiscard]] virtual bool isPrimitive() const = 0;
   virtual llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const {
-    string error_msg =
-        string("Type " + getType() + " is not mapped into an LLVM-type.");
-    LOG(INFO) << error_msg;
-    // throw runtime_error(error_msg);
-    return nullptr;
+    throw proteus::unmapped_type(getType());
   }
 
   virtual void accept(ExprTypeVisitor &v) const = 0;

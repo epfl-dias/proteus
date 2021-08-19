@@ -635,7 +635,10 @@ llvm::Value *Context::gen_call(std::string func,
   return gen_call(f, args);
 }
 
-if_branch Context::gen_if(ProteusValue cond) { return if_branch(cond, this); }
+if_branch Context::gen_if(ProteusBareValue cond) {
+  return if_branch(cond, this);
+}
+if_branch Context::gen_if(ProteusValue cond) { return gen_if({cond.value}); }
 
 if_branch Context::gen_if(const expression_t &expr,
                           const OperatorState &state) {

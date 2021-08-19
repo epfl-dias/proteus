@@ -516,7 +516,10 @@ void CSVPlugin::flushValue(ProteusValueMemory mem_value,
       context->getBuilder()->CreateCall(flushFunc, ArgsV);
       return;
     }
-    case BAG:
+    case BAG: {
+      context->gen_call(flushIntDequeAsBag, {val_attr, fileName});
+      return;
+    }
     case LIST:
     case SET:
       LOG(ERROR) << "[CSV PLUGIN: ] CSV files do not contain collections";

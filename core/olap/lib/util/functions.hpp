@@ -131,6 +131,9 @@ extern "C" void flushInt(int toFlush, char *fileName);
 
 extern "C" void flushDString(int toFlush, void *dict, char *fileName);
 
+extern "C" void flushIntDequeAsBag(std::deque<int32_t> *toFlush,
+                                   char *fileName);
+
 extern "C" void flushInt64(int64_t toFlush, char *fileName);
 
 extern "C" void flushDate(int64_t toFlush, char *fileName);

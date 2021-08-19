@@ -32,22 +32,17 @@ namespace radix {
 
 expression_t getGrouping(const std::vector<expression_t> &f_grouping) {
   if (f_grouping.size() > 1) {
-    list<expressions::AttributeConstruction> *attrs =
-        new list<expressions::AttributeConstruction>();
+    list<expressions::AttributeConstruction> attrs;
     std::string attrName = "__key";
     for (auto expr : f_grouping) {
       assert(expr.isRegistered() &&
              "All output expressions must be registered!");
-      expressions::AttributeConstruction *newAttr =
-          new expressions::AttributeConstruction(expr.getRegisteredAttrName(),
-                                                 expr);
-      attrs->push_back(*newAttr);
+      attrs.emplace_back(expr.getRegisteredAttrName(), expr);
       attrName += "_" + expr.getRegisteredAttrName();
     }
 
-    expressions::RecordConstruction f(*attrs);
-    f.registerAs(f_grouping[0].getRegisteredRelName(), attrName);
-    return f;
+    return expressions::RecordConstruction(std::move(attrs))
+        .as(f_grouping[0].getRegisteredRelName(), attrName);
   } else {
     return f_grouping[0];
   }
@@ -145,8 +140,6 @@ Nest::Nest(Context *const context, vector<Monoid> accs,
   htEntryMembers.push_back(he_type->getLLVMType(llvmContext));  // 32 ?
   htEntryMembers.push_back(int64_type);
   htEntryType = StructType::get(context->getLLVMContext(), htEntryMembers);
-  int htEntrySize = context->getSizeOf(htEntryType);  // sizeof(int32_t) + ...
-
   keyType = htEntryMembers[0];
 
   /* Arbitrary initial buffer sizes */
@@ -226,7 +219,7 @@ void Nest::consume(Context *const context, const OperatorState &childState) {
          "correctly set as child of this operator?");
 }
 
-map<RecordAttribute, ProteusValueMemory> *Nest::reconstructResults(
+map<RecordAttribute, ProteusValueMemory> Nest::reconstructResults(
     Value *htBuffer, Value *idx, const StateVar &relR_mem_relation_id) const {
   Function *F = context->getGlobalFunction();
   IRBuilder<> *Builder = context->getBuilder();
@@ -236,8 +229,7 @@ map<RecordAttribute, ProteusValueMemory> *Nest::reconstructResults(
    * -> Need to do this at this point to check key equality
    */
   Value *htRshiftedPtr_hit = Builder->CreateInBoundsGEP(htBuffer, idx);
-  map<RecordAttribute, ProteusValueMemory> *allGroupBindings =
-      new map<RecordAttribute, ProteusValueMemory>();
+  map<RecordAttribute, ProteusValueMemory> allGroupBindings;
 
   /* Payloads (Relative Offsets): size_t */
   /* Must be added to relR accordingly */
@@ -315,7 +307,7 @@ map<RecordAttribute, ProteusValueMemory> *Nest::reconstructResults(
       mem_valWrapper.mem = mem_field;
       mem_valWrapper.isNull = context->createFalse();
 
-      (*allGroupBindings)[expr2.getRegisteredAs()] = mem_valWrapper;
+      allGroupBindings[expr2.getRegisteredAs()] = mem_valWrapper;
       i++;
     }
   }
@@ -609,9 +601,9 @@ void Nest::probeHT() const {
       val_idx = Builder->CreateAShr(val_idx, val_num_radix_bits64);
 
       /* Also getting value to reassemble ACTUAL KEY when needed */
-      auto *currKeyBindings =
+      auto currKeyBindings =
           reconstructResults(htRshiftedPtr, val_j, relR_mem_relation_id);
-      OperatorState currKeyState(*this, *currKeyBindings);
+      OperatorState currKeyState(*this, currKeyBindings);
 
       /**
        * Checking actual hits (when applicable)
@@ -622,7 +614,7 @@ void Nest::probeHT() const {
                              "hitLoopEnd", &hitLoopCond, &hitLoopBody,
                              &hitLoopInc, &hitLoopEnd);
 
-      map<RecordAttribute, ProteusValueMemory> *retrievedBindings;
+      map<RecordAttribute, ProteusValueMemory> retrievedBindings;
       {
         AllocaInst *mem_hit = Builder->CreateAlloca(int32_type, nullptr, "hit");
         //(ht->bucket)
@@ -666,7 +658,7 @@ void Nest::probeHT() const {
         {
           retrievedBindings = reconstructResults(htRshiftedPtr, val_hit_idx_dec,
                                                  relR_mem_relation_id);
-          OperatorState retrievedState(*this, *retrievedBindings);
+          OperatorState retrievedState(*this, retrievedBindings);
 
           /* Condition: Checking dot equality */
           ExpressionDotVisitor dotVisitor{context, currKeyState,
@@ -842,7 +834,7 @@ void Nest::probeHT() const {
             ProteusValueMemory mem_aggrWrapper;
             mem_aggrWrapper.mem = mem_accumulating;
             mem_aggrWrapper.isNull = context->createFalse();
-            (*retrievedBindings)[attr_aggr] = mem_aggrWrapper;
+            retrievedBindings[attr_aggr] = mem_aggrWrapper;
           }
 
           Builder->CreateBr(hitLoopInc);
@@ -884,9 +876,9 @@ void Nest::probeHT() const {
       mem_oidWrapper.isNull = context->createFalse();
       ExpressionType *oidType = new IntType();
       RecordAttribute attr_oid = RecordAttribute(htName, activeLoop, oidType);
-      (*retrievedBindings)[attr_oid] = mem_oidWrapper;
+      retrievedBindings[attr_oid] = mem_oidWrapper;
       OperatorState *retrievedState =
-          new OperatorState(*this, *retrievedBindings);
+          new OperatorState(*this, std::move(retrievedBindings));
 
       val_groupCnt = Builder->CreateLoad(mem_groupCnt);
       val_groupCnt = Builder->CreateAdd(val_groupCnt, val_one);

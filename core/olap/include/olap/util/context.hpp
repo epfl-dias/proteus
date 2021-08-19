@@ -336,6 +336,7 @@ class Context {
   [[nodiscard]] virtual DoWhile gen_do(std::function<void()> whileBody);
 
   virtual if_branch gen_if(ProteusValue cond);
+  virtual if_branch gen_if(ProteusBareValue cond);
 
   virtual if_branch gen_if(const expression_t &expr,
                            const OperatorState &state);

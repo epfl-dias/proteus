@@ -45,12 +45,12 @@ class OperatorState;
 
 class if_branch {
  private:
-  ProteusValue condition;
+  ProteusBareValue condition;
   Context *const context;
   llvm::BasicBlock *afterBB;
 
  public:
-  inline constexpr if_branch(ProteusValue condition, Context *context,
+  inline constexpr if_branch(ProteusBareValue condition, Context *context,
                              llvm::BasicBlock *afterBB)
       : condition(condition), context(context), afterBB(afterBB) {}
 
@@ -58,7 +58,7 @@ class if_branch {
             Context *context, llvm::BasicBlock *afterBB);
 
  public:
-  inline constexpr if_branch(ProteusValue condition, Context *context)
+  inline constexpr if_branch(ProteusBareValue condition, Context *context)
       : if_branch(condition, context, nullptr) {}
 
   // inline constexpr if_branch(    expressions::Expression *expr    ,
@@ -92,7 +92,7 @@ class if_then {
   llvm::BasicBlock *ElseBB;
   llvm::BasicBlock *AfterBB;
 
-  void openCase(const ProteusValue &cond);
+  void openCase(const ProteusBareValue &cond);
   void closeCase();
 
   void openElseCase();
@@ -102,7 +102,7 @@ class if_then {
 
  public:
   template <typename Fthen>
-  if_then(ProteusValue cond, Fthen then, Context *context,
+  if_then(ProteusBareValue cond, Fthen then, Context *context,
           llvm::BasicBlock *endBB = nullptr)
       : context(context), AfterBB(endBB) {
     // if (cond.value) {
@@ -127,7 +127,7 @@ class if_then {
   }
 
   template <typename Felse>
-  if_branch gen_else_if(ProteusValue cond) {
+  if_branch gen_else_if(ProteusBareValue cond) {
     assert(ElseBB && "gen_else* called twice in same gen_if");
     openElseCase();
     ElseBB = nullptr;

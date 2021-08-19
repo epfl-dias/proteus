@@ -37,6 +37,14 @@ void Monoid::createUpdate(Context *const context, llvm::Value *val_accumulating,
       val_accumulating);
 }
 
+const ExpressionType *Monoid::getOutputType(const ExpressionType *eType) {
+  return eType;
+}
+
+llvm::Type *Monoid::getStorageType(Context *context, llvm::Type *updateType) {
+  return updateType;
+}
+
 llvm::Value *MaxMonoid::create(Context *const context,
                                llvm::Value *val_accumulating,
                                llvm::Value *val_in) {
@@ -329,6 +337,8 @@ Monoid *Monoid::get(::Monoid m) {
       return new LogOrMonoid;
     case AND:
       return new LogAndMonoid;
+    case BAGUNION:
+      return new CollectMonoid;
     default:
       string error_msg =
           string("[gpu::Monoids: ] Unimplemented monoid for gpu");
@@ -359,6 +369,56 @@ llvm::Value *LogOrMonoid::createWarpAggregateToAll(Context *const context,
 llvm::Value *LogAndMonoid::createWarpAggregateToAll(Context *const context,
                                                     llvm::Value *val_in) {
   return gpu_intrinsic::all((ParallelContext *const)context, val_in);
+}
+
+llvm::Value *CollectMonoid::create(Context *const context,
+                                   llvm::Value *val_accumulating,
+                                   llvm::Value *val_in) {
+  throw proteus::unsupported_operation(
+      "unimplemented out-of-place update for collect as it's too expensive");
+}
+
+std::deque<int32_t> *create_proteus_int_collection(int32_t v) {
+  auto x = new std::deque<int32_t>;
+  x->emplace_back(v);
+  return x;
+}
+
+void insert_proteus_int_collection(std::deque<int32_t> *col,
+                                   std::deque<int32_t> *v) {
+  assert(v->size() == 1);
+  col->emplace_back(v->front());
+  delete v;
+}
+
+void CollectMonoid::createUpdate(Context *const context,
+                                 llvm::Value *val_accumulating,
+                                 llvm::Value *val_in) {
+  context->gen_call(
+      insert_proteus_int_collection,
+      {context->getBuilder()->CreateLoad(val_accumulating), val_in});
+}
+
+llvm::Value *CollectMonoid::createUnary(Context *context, llvm::Value *val_in) {
+  return context->gen_call(create_proteus_int_collection, {val_in});
+}
+
+void CollectMonoid::createAtomicUpdate(Context *const context,
+                                       llvm::Value *accumulator_ptr,
+                                       llvm::Value *val_in,
+                                       llvm::AtomicOrdering order) {
+  throw proteus::unsupported_operation("atomic collect is unimplemented");
+}
+
+const ExpressionType *CollectMonoid::getOutputType(
+    const ExpressionType *eType) {
+  return new BagType(*eType);
+}
+
+llvm::Type *CollectMonoid::getStorageType(Context *context,
+                                          llvm::Type *updateType) {
+  return context->toLLVM<
+      std::invoke_result_t<decltype(create_proteus_int_collection), int32_t>>();
 }
 
 }  // namespace gpu

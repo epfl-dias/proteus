@@ -455,6 +455,19 @@ void flushInt(int toFlush, char *fileName) { flush(toFlush, fileName); }
 
 void flushInt64(int64_t toFlush, char *fileName) { flush(toFlush, fileName); }
 
+[[maybe_unused]] /* called by codegen */
+void flushIntDequeAsBag(std::deque<int32_t> *toFlush, char *fileName) {
+  auto &out = Catalog::getInstance().getSerializer(fileName);
+  out << "[";
+  bool first = true;
+  for (const auto &x : *toFlush) {
+    if (!first) out << "|";
+    out << x;
+    first = false;
+  }
+  out << "]";
+}
+
 void flushDate(int64_t toFlush, char *fileName) {
   flush(time_t{toFlush}, fileName);
   // std::put_time(std::localtime(&t), L"%Y-%m-%d");
