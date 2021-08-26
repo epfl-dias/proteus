@@ -44,7 +44,6 @@ class Table;
 class RowStore;
 class ColumnStore;
 class Column;
-class DeltaStore;
 
 enum layout_type { ROW_STORE, COLUMN_STORE };
 
@@ -82,7 +81,7 @@ class ColumnDef {
 
 class TableDef {
  public:
-  void emplace_back(std::string name, data_type dt, size_t width,
+  void emplace_back(const std::string &name, data_type dt, size_t width,
                     SnapshotTypes snapshotType = DefaultSnapshotMechanism,
                     dict_dstring_t *dict = nullptr) {
     columns.emplace_back(name, dt, width, snapshotType, dict);
@@ -125,18 +124,23 @@ class Schema {
   // delta-based multi-versioning
   inline void add_active_txn(delta_id_t ver, xid_t epoch,
                              worker_id_t worker_id) {
+    assert(ver < global_conf::num_delta_storages);
     this->deltaStore[ver]->increment_reader(epoch, worker_id);
   }
   inline void remove_active_txn(delta_id_t ver, xid_t epoch,
                                 worker_id_t worker_id) {
+    assert(ver < global_conf::num_delta_storages);
     this->deltaStore[ver]->decrement_reader(epoch, worker_id);
   }
   inline void update_delta_epoch(delta_id_t delta_id, xid_t epoch,
                                  worker_id_t worker_id) {
+    assert(delta_id < global_conf::num_delta_storages);
     this->deltaStore[delta_id]->update_active_epoch(epoch, worker_id);
   }
   inline void switch_delta(delta_id_t prev, delta_id_t curr, xid_t epoch,
                            worker_id_t worker_id) {
+    assert(prev < global_conf::num_delta_storages);
+    assert(curr < global_conf::num_delta_storages);
     if (prev == curr) {
       this->deltaStore[prev]->update_active_epoch(epoch, worker_id);
     } else {

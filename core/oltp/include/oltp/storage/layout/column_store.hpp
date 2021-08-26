@@ -69,15 +69,12 @@ class alignas(BlockManager::block_size) ColumnStore : public Table {
       xid_t transaction_id, partition_id_t partition_id,
       master_version_t master_ver = 0) override;
 
-  void updateRecord(xid_t transaction_id, global_conf::IndexVal *index_ptr,
-                    void *data, delta_id_t current_delta_id,
-                    const column_id_t *col_idx = nullptr,
-                    short num_columns = -1,
-                    master_version_t master_ver = 0) override;
-
-  void updateRollback(const txn::TxnTs &txnTs, global_conf::IndexVal *index_ptr,
-                      const column_id_t *col_idx = nullptr,
-                      const short num_columns = -1) override;
+  [[maybe_unused]] void updateRecord(xid_t transaction_id,
+                                     global_conf::IndexVal *index_ptr,
+                                     void *data, delta_id_t current_delta_id,
+                                     const column_id_t *col_idx = nullptr,
+                                     short num_columns = -1,
+                                     master_version_t master_ver = 0) override;
 
   [[noreturn]] void updateRecordBatch(
       xid_t transaction_id, global_conf::IndexVal *index_ptr, void *data,
@@ -100,18 +97,6 @@ class alignas(BlockManager::block_size) ColumnStore : public Table {
   void getRecord(const txn::TxnTs &txnTs, rowid_t rowid, void *destination,
                  const column_id_t *col_idx = nullptr,
                  short num_cols = -1) override;
-
-  void createVersion(xid_t transaction_id, global_conf::IndexVal *index_ptr,
-                     delta_id_t current_delta_id,
-                     const column_id_t *col_idx = nullptr,
-                     const short num_columns = -1) override;
-
-  void updateRecordWithoutVersion(xid_t transaction_id,
-                                  global_conf::IndexVal *index_ptr, void *data,
-                                  delta_id_t current_delta_id,
-                                  const column_id_t *col_idx = nullptr,
-                                  const short num_columns = -1,
-                                  master_version_t master_ver = 0) override;
 
   //------------------TwinColumn
   // TwinColumn snapshotting (TwinColumn is misleading as in theory,
@@ -258,12 +243,9 @@ class alignas(BlockManager::block_size) CircularMasterColumn : public Column {
   CircularMasterColumn(const CircularMasterColumn &) = delete;
   CircularMasterColumn(CircularMasterColumn &&) = default;
 
-  void *getElem(rowid_t vid) final;
   void getElem(rowid_t vid, void *copy_destination) final;
   void updateElem(rowid_t vid, void *data) final;
   void insertElem(rowid_t vid, void *data) final;
-  void *insertElem(rowid_t vid) final;
-  void *insertElemBatch(rowid_t vid, uint16_t num_elem) final;
   void insertElemBatch(rowid_t vid, uint16_t num_elem, void *data) final;
   void initializeMetaColumn() const final;
 

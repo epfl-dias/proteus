@@ -59,13 +59,16 @@ Column::Column(SnapshotTypes snapshotType, column_id_t column_id,
                std::string name, data_type type, size_t unit_size,
                size_t offset_inRecord, bool numa_partitioned)
     : column_id(column_id),
-      name(name),
+      name(std::move(name)),
       unit_size(unit_size),
       byteOffset_record(offset_inRecord),
       type(type),
       n_partitions(numa_partitioned ? g_num_partitions : 1),
       single_version_only(false),
       snapshotType(snapshotType) {
+  LOG(INFO) << "Creating column: " << this->name
+            << " ID: " << (uint)(this->column_id)
+            << " byteOffset: " << this->byteOffset_record;
   // oltp::snapshot::SnapshotMaster::getInstance().turnOnMechanism(snapshotType);
 }
 
@@ -143,8 +146,10 @@ void Column::initializeMetaColumn() const {
       assert(chunk.size % this->unit_size == 0);
       loaders.emplace_back([this, chunk, j, ptr]() {
         for (uint64_t i = 0; i < (chunk.size / this->unit_size); i++) {
-          void* c = new (ptr + (i * this->unit_size))
+          auto* c = new (ptr + (i * this->unit_size))
               global_conf::IndexVal(0, StorageUtils::create_vid(i, j));
+          c->latch.acquire();
+          c->latch.release();
         }
       });
     }
@@ -159,18 +164,23 @@ void Column::initializeMetaColumn() const {
  */
 
 void* Column::getElem(rowid_t vid) {
+  LOG_IF(FATAL, this->type != META)
+      << "direct memory reference should be used for meta-column only";
+  LOG_IF(FATAL, StorageUtils::get_m_version(vid) != 0)
+      << "meta-column cannot have more than one master-version";
+
   partition_id_t pid = StorageUtils::get_pid(vid);
   size_t data_idx = StorageUtils::get_offset(vid) * unit_size;
 
-  assert(StorageUtils::get_m_version(vid) == 0 &&
-         "shouldn't be used for attribute columns");
   assert(!primaryData[pid].empty());
 
   for (const auto& chunk : primaryData[pid]) {
     if (__likely(chunk.size >= ((size_t)data_idx + unit_size))) {
       return ((char*)chunk.data) + data_idx;
     }
+
     data_idx -= chunk.size;
+    assert(false && "currently unexpandable");
   }
 
   assert(false && "Out-of-Bound-Access");
@@ -337,7 +347,9 @@ inline bool Column::UpdateInPlace(T& data_vector, size_t offset,
       // assert(elem != nullptr);
       if (__unlikely(data == nullptr)) {
         // YCSB update hack.
-        (*((uint64_t*)dst_t))++;
+        // assert(*((uint64_t*)dst_t) == 1);
+        *((uint64_t*)dst_t) = 25;
+        //(*((uint64_t*)dst_t))++;
       } else {
         std::memcpy(dst, data, unit_size);
       }

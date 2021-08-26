@@ -181,30 +181,12 @@ void CircularMasterColumn::initializeMetaColumn() const {
  *
  */
 
-void* CircularMasterColumn::getElem(rowid_t vid) {
-  partition_id_t pid = StorageUtils::get_pid(vid);
-  size_t data_idx = StorageUtils::get_offset(vid) * unit_size;
-
-  assert(StorageUtils::get_m_version(vid) == 0 &&
-         "shouldn't be used for attribute columns");
-  assert(!master_versions[0][pid].empty());
-
-  for (const auto& chunk : master_versions[0][pid]) {
-    if (__likely(chunk.size >= ((size_t)data_idx + unit_size))) {
-      return ((char*)chunk.data) + data_idx;
-    }
-  }
-
-  assert(false && "Out-of-Bound-Access");
-  return nullptr;
-}
-
 void CircularMasterColumn::getElem(rowid_t vid, void* copy_location) {
   partition_id_t pid = StorageUtils::get_pid(vid);
   master_version_t m_ver = StorageUtils::get_m_version(vid);
   size_t data_idx = StorageUtils::get_offset(vid) * unit_size;
 
-  assert(master_versions[m_ver][pid].size() != 0);
+  assert(!(master_versions[m_ver][pid].empty()));
 
   for (const auto& chunk : master_versions[m_ver][pid]) {
     if (__likely(chunk.size >= ((size_t)data_idx + unit_size))) {
@@ -236,28 +218,6 @@ void CircularMasterColumn::updateElem(rowid_t vid, void* elem) {
   }
 }
 
-void* CircularMasterColumn::insertElem(rowid_t vid) {
-  assert(this->type == META);
-
-  partition_id_t pid = StorageUtils::get_pid(vid);
-  master_version_t mver = StorageUtils::get_m_version(vid);
-  size_t data_idx = StorageUtils::get_offset(vid) * unit_size;
-
-  assert(pid < g_num_partitions);
-  assert((data_idx / unit_size) < capacity_per_partition);
-  assert(data_idx < total_size_per_partition);
-
-  bool ins = false;
-  for (const auto& chunk : master_versions[mver][pid]) {
-    if (__likely(chunk.size >= (data_idx + unit_size))) {
-      return (void*)(((char*)chunk.data) + data_idx);
-    }
-  }
-
-  assert(false && "Out Of Memory Error");
-  return nullptr;
-}
-
 void CircularMasterColumn::insertElem(rowid_t vid, void* elem) {
   partition_id_t pid = StorageUtils::get_pid(vid);
   master_version_t mver = StorageUtils::get_m_version(vid);
@@ -266,8 +226,8 @@ void CircularMasterColumn::insertElem(rowid_t vid, void* elem) {
   assert(pid < n_partitions);
   assert(offset < capacity_per_partition);
 
-  for (auto i = 0; i < global_conf::num_master_versions; i++) {
-    if (__unlikely(UpdateInPlace(master_versions[i][pid], offset, unit_size,
+  for (auto& master_version : master_versions) {
+    if (__unlikely(UpdateInPlace(master_version[pid], offset, unit_size,
                                  elem) == false)) {
       LOG(INFO) << "(1) ALLOCATE MORE MEMORY:\t" << this->name
                 << ",vid: " << vid << ", idx:" << offset << ", pid: " << pid;
@@ -285,29 +245,6 @@ void CircularMasterColumn::insertElem(rowid_t vid, void* elem) {
   }
 }
 
-void* CircularMasterColumn::insertElemBatch(rowid_t vid, uint16_t num_elem) {
-  assert(this->type == META);
-
-  partition_id_t pid = StorageUtils::get_pid(vid);
-  master_version_t mver = StorageUtils::get_m_version(vid);
-  size_t data_idx_st = StorageUtils::get_offset(vid) * unit_size;
-  size_t data_idx_en = data_idx_st + (num_elem * unit_size);
-
-  assert(pid < g_num_partitions);
-  assert((data_idx_en / unit_size) < capacity_per_partition);
-  assert(data_idx_en < total_size_per_partition);
-
-  bool ins = false;
-  for (const auto& chunk : master_versions[mver][pid]) {
-    if (__likely(chunk.size >= (data_idx_en + unit_size))) {
-      return (void*)(((char*)chunk.data) + data_idx_st);
-    }
-  }
-
-  assert(false && "Out Of Memory Error");
-  return nullptr;
-}
-
 void CircularMasterColumn::insertElemBatch(rowid_t vid, uint16_t num_elem,
                                            void* data) {
   partition_id_t pid = StorageUtils::get_pid(vid);
@@ -320,9 +257,9 @@ void CircularMasterColumn::insertElemBatch(rowid_t vid, uint16_t num_elem,
   assert((data_idx_en / unit_size) < capacity_per_partition);
   assert(data_idx_en < total_size_per_partition);
 
-  for (auto i = 0; i < global_conf::num_master_versions; i++) {
+  for (auto& master_version : master_versions) {
     bool ins = false;
-    for (const auto& chunk : master_versions[i][pid]) {
+    for (const auto& chunk : master_version[pid]) {
       //      assert(pid == chunk.numa_id);
 
       if (__likely(chunk.size >= (data_idx_en + unit_size))) {

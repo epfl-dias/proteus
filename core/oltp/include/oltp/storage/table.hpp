@@ -60,11 +60,6 @@ class Table {
                             const column_id_t *col_idx, short num_columns,
                             master_version_t master_ver) = 0;
 
-  virtual void updateRollback(const txn::TxnTs &txnTs,
-                              global_conf::IndexVal *index_ptr,
-                              const column_id_t *col_idx,
-                              const short num_columns) = 0;
-
   virtual void updateRecordBatch(xid_t transaction_id,
                                  global_conf::IndexVal *index_ptr, void *data,
                                  size_t num_records,
@@ -84,17 +79,6 @@ class Table {
   virtual void getRecord(const txn::TxnTs &txnTs, rowid_t rowid,
                          void *destination, const column_id_t *col_idx,
                          short num_cols) = 0;
-
-  virtual void createVersion(xid_t transaction_id,
-                             global_conf::IndexVal *index_ptr,
-                             delta_id_t current_delta_id,
-                             const column_id_t *col_idx,
-                             const short num_columns) = 0;
-
-  virtual void updateRecordWithoutVersion(
-      xid_t transaction_id, global_conf::IndexVal *index_ptr, void *data,
-      delta_id_t current_delta_id, const column_id_t *col_idx,
-      const short num_columns, master_version_t master_ver) = 0;
 
   // virtual std::vector<vid_t> getNumberOfRecords(xid_t epoch) = 0;
 
