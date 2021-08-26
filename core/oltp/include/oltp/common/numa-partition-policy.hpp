@@ -42,11 +42,11 @@ class NUMAPartitionPolicy {
 
   class TablePartition {
    public:
-    const uint pid;
-    const uint numa_idx;
+    const int pid;
+    const int numa_idx;
 
    public:
-    explicit TablePartition(uint pid, uint numa_idx)
+    explicit TablePartition(int pid, int numa_idx)
         : pid(pid), numa_idx(numa_idx) {}
 
     inline bool operator==(const TablePartition &o) const {
@@ -59,6 +59,8 @@ class NUMAPartitionPolicy {
     assert(pid < PartitionVector.size());
     return PartitionVector[pid];
   }
+
+  [[maybe_unused]] auto getPartitions() { return PartitionVector; }
 
   uint getDefaultPartition() {
     assert(!PartitionVector.empty());

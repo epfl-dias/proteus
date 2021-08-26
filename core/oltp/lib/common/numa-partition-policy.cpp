@@ -30,9 +30,10 @@ namespace storage {
 
 NUMAPartitionPolicy::NUMAPartitionPolicy() {
   auto num_numa_nodes = topology::getInstance().getCpuNumaNodeCount();
-  for (uint i = 0; i < g_num_partitions; i++) {
+  for (int i = 0; i < g_num_partitions; i++) {
     if (global_conf::reverse_partition_numa_mapping)
-      PartitionVector.emplace_back(TablePartition{i, num_numa_nodes - i - 1});
+      PartitionVector.emplace_back(
+          TablePartition{i, static_cast<int>(num_numa_nodes - i - 1)});
     else
       PartitionVector.emplace_back(TablePartition{i, i});
   }
