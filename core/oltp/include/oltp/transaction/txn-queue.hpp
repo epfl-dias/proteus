@@ -50,6 +50,13 @@ class TxnQueue {
     assert(false && "unimplemented");
   }
 
+  virtual StoredProcedure popEmpty(worker_id_t workerId,
+                                   partition_id_t partitionId) {
+    return txn::StoredProcedure([](txn::TransactionExecutor &executor,
+                                   txn::Txn &txn,
+                                   void *params) { return true; });
+  }
+
   virtual ~TxnQueue() = default;  //{ /*LOG(INFO) << "~TxnQueue()";*/ }
 
  public:
