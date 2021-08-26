@@ -39,6 +39,7 @@ class BenchQueue : public txn::TxnQueue {
                                    partition_id_t partitionId) override = 0;
   virtual void post_run() = 0;
   virtual void pre_run() = 0;
+  virtual void dump(std::string name) = 0;
 
   void enqueue(txn::StoredProcedure xact) override {
     assert(false && "enqueue not possible in bench");

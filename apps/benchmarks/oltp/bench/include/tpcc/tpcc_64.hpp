@@ -545,6 +545,7 @@ class TPCC : public Benchmark {
       tpccBench.post_run(wid, std::numeric_limits<xid_t>::max(), partition_id,
                          0);
     }
+    void dump(std::string name) override {}
 
    private:
     struct tpcc_query *_txn_mem;

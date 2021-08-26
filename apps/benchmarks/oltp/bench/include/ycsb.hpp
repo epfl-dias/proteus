@@ -29,6 +29,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <mutex>
+#include <olap/operators/relbuilder-factory.hpp>
 #include <oltp/common/constants.hpp>
 #include <oltp/interface/bench.hpp>
 #include <oltp/storage/table.hpp>
@@ -38,6 +39,9 @@
 #include <thread>
 #include <utility>
 
+#include "aeolus-plugin.hpp"
+#include "olap/operators/relbuilder.hpp"
+#include "olap/plan/catalog-parser.hpp"
 #include "zipf.hpp"
 
 namespace bench {
@@ -160,8 +164,8 @@ class YCSB : public Benchmark {
     q_ptr->n_ops = 1;
   }
 
-  void gen_txn(worker_id_t wid, void *txn_ptr, partition_id_t partition_id) {
-    auto *txn = (struct YCSB_TXN *)txn_ptr;
+  void gen_txn(worker_id_t wid, struct YCSB_TXN *txn,
+               partition_id_t partition_id) {
     static thread_local auto recs_per_thread =
         this->num_records / this->num_active_workers;
     static thread_local uint64_t rec_key_iter = 0;
@@ -389,30 +393,53 @@ class YCSB : public Benchmark {
         columns, num_records);
   }
 
+ private:
+  static PreparedStatement export_tbl(bool output_binary,
+                                      std::string output = "ycsb_tbl") {
+    constexpr static auto csv_plugin = "pm-csv";
+    constexpr static auto bin_plugin = "block";
+    static RelBuilderFactory ctx{"YCSBDataExporter_CH"};
+
+    auto rel =
+        ctx.getBuilder()
+            .scan("ycsb_tbl<block-remote>", {"col_1"},
+                  CatalogParser::getInstance(), pg{AeolusRemotePlugin::type})
+            .unpack()
+            .print((output_binary ? pg(bin_plugin) : pg(csv_plugin)),
+                   (output_binary ? "ycsb_tbl" : "ycsb_tbl.tbl"));
+    return rel.prepare();
+  }
+
  public:
   //-- generator
   class YCSBTxnGen : public bench::BenchQueue {
     YCSBTxnGen(YCSB &ycsbBench, worker_id_t wid, partition_id_t partition_id)
         : ycsbBench(ycsbBench), wid(wid), partition_id(partition_id) {
       this->_txn_mem = ycsbBench.get_query_struct(partition_id);
-
       this->type = txn::BENCH_QUEUE;
     }
     ~YCSBTxnGen() override { bench::YCSB::free_query_struct(_txn_mem); }
 
     txn::StoredProcedure pop(worker_id_t workerId,
                              partition_id_t partitionId) override {
-      ycsbBench.gen_txn(this->wid, this->_txn_mem, this->partition_id);
+      ycsbBench.gen_txn(workerId, this->_txn_mem, partitionId);
 
       return txn::StoredProcedure(
-          [&](txn::TransactionExecutor &executor, txn::Txn &txn, void *params) {
-            return ycsbBench.exec_txn(executor, txn, params);
+          [this](txn::TransactionExecutor &executor, txn::Txn &txn,
+                 void *params) {
+            return this->ycsbBench.exec_txn(executor, txn, params);
           },
           this->_txn_mem);
     }
 
     void pre_run() override { ycsbBench.pre_run(wid, 0, partition_id, 0); }
     void post_run() override {}
+    void dump(std::string name) override {
+      if (this->wid == 0) {
+        auto qry = YCSB::export_tbl(false, ycsbBench.name + name);
+        LOG(INFO) << qry.execute();
+      }
+    }
 
    private:
     struct YCSB_TXN *_txn_mem;

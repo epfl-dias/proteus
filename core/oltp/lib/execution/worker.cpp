@@ -113,6 +113,7 @@ void Worker::run() {
       txnManager->snapshot();
       while (schema->is_sync_in_progress()) std::this_thread::yield();
 
+      // benchQueue->dump("post");
       pool->post_barrier++;
     }
 
