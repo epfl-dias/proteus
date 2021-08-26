@@ -53,6 +53,13 @@ class naiveRWLock {
 // based on: Scalable and Robust Latches for Database Systems
 template <class RWLock = naiveRWLock>
 class HybridLock {
+ public:
+  HybridLock(HybridLock &&) = delete;
+  HybridLock &operator=(HybridLock &&) = delete;
+  HybridLock(const HybridLock &) = delete;
+  HybridLock &operator=(const HybridLock &) = delete;
+
+ private:
   RWLock rwLock;
   std::atomic<uint64_t> version;
 
@@ -72,7 +79,7 @@ class HybridLock {
   }
 
   template <class lambda, class Arg>
-  inline bool tryReadOptimistically(lambda&& readCallback, Arg arg) {
+  inline bool tryReadOptimistically(lambda &&readCallback, Arg arg) {
     if (rwLock.isLockedExclusive()) {
       return false;
     }
@@ -92,7 +99,7 @@ class HybridLock {
   }
 
   template <class Lambda, class Arg>
-  inline void readWithLatch(Lambda&& readCallback, Arg arg) {
+  inline void readWithLatch(Lambda &&readCallback, Arg arg) {
     if constexpr (optimisticRead) {
       if (!tryReadOptimistically(readCallback, arg)) {
         // Fall back to pessimistic locking
@@ -108,7 +115,7 @@ class HybridLock {
   }
 
   template <class Lambda, class Arg>
-  inline void writeWithLatch(Lambda&& readCallback, Arg arg) {
+  inline void writeWithLatch(Lambda &&readCallback, Arg arg) {
     rwLock.lock();
     readCallback(arg);
     rwLock.unlock();
@@ -118,13 +125,21 @@ class HybridLock {
 using HybridLatch = HybridLock<naiveRWLock>;
 
 class SpinLatch {
+ public:
+  SpinLatch(SpinLatch &&) = delete;
+  SpinLatch &operator=(SpinLatch &&) = delete;
+  SpinLatch(const SpinLatch &) = delete;
+  SpinLatch &operator=(const SpinLatch &) = delete;
+
+  SpinLatch() : lk(false) {}
+
  private:
   std::atomic<bool> lk{};
 
  public:
   inline bool try_acquire() {
     bool e_false = false;
-    if (lk.compare_exchange_weak(e_false, true, std::memory_order_acquire))
+    if (lk.compare_exchange_strong(e_false, true))
       return true;
     else
       return false;
@@ -133,7 +148,7 @@ class SpinLatch {
   inline bool try_acquire100() {
     for (auto tries = 0; tries < 100; tries++) {
       bool e_false = false;
-      if (lk.compare_exchange_weak(e_false, true, std::memory_order_acquire)) {
+      if (lk.compare_exchange_strong(e_false, true)) {
         return true;
       }
     }
@@ -143,27 +158,26 @@ class SpinLatch {
   inline void acquire() {
     for (int tries = 0; true; ++tries) {
       bool e_false = false;
-      if (lk.compare_exchange_weak(e_false, true, std::memory_order_acquire))
-        return;
+      if (lk.compare_exchange_strong(e_false, true)) return;
       if (tries == 100) {
         tries = 0;
         sched_yield();
       }
     }
   }
-  inline void release() { lk.store(false, std::memory_order_release); }
+  inline void release() { lk.store(false); }
 
   template <class Lambda, class Arg>
-  inline void readWithLatch(Lambda&& readCallback, Arg arg) {
+  inline void readWithLatch(Lambda &&readCallback, Arg arg) {
     this->acquire();
     readCallback(arg);
     this->release();
   }
 
   template <class Lambda, class Arg>
-  inline void writeWithLatch(Lambda&& readCallback, Arg arg) {
+  inline void writeWithLatch(Lambda &&writeCallback, Arg arg) {
     this->acquire();
-    readCallback(arg);
+    writeCallback(arg);
     this->release();
   }
 };
