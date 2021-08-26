@@ -27,8 +27,11 @@
 #include <platform/common/common.hpp>
 #include <platform/memory/memory-manager.hpp>
 
+#include "oltp/storage/schema.hpp"
+
 void TestEnvironment::SetUp() {
   if (has_already_been_setup) {
+    LOG(INFO) << "TestEnvironment::SetUp()::has_already_been_setup";
     is_noop = true;
     return;
   }
@@ -42,10 +45,13 @@ void TestEnvironment::SetUp() {
   olap = std::make_unique<proteus::olap>();
 
   has_already_been_setup = true;
+  LOG(INFO) << "TestEnvironment::SetUp()";
 }
 
 void TestEnvironment::TearDown() {
   if (!is_noop) {
+    LOG(INFO) << "TestEnvironment::TearDown()";
+    storage::Schema::getInstance().teardown();
     olap.reset();
     has_already_been_setup = false;
   }
