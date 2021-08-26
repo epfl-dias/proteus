@@ -24,6 +24,9 @@
 #ifndef PROTEUS_TRANSACTION_HPP
 #define PROTEUS_TRANSACTION_HPP
 
+#include <cassert>
+#include <unordered_map>
+
 #include "oltp/common/common.hpp"
 
 namespace txn {
@@ -32,8 +35,8 @@ class Txn;
 
 class TxnTs {
  public:
-  const xid_t txn_id;
-  const xid_t txn_start_time;
+  xid_t txn_id;
+  xid_t txn_start_time;
 
   TxnTs(xid_t txn_id, xid_t txn_start_time)
       : txn_id(txn_id), txn_start_time(txn_start_time) {}
@@ -52,24 +55,11 @@ class TxnTs {
 
 class Txn {
  public:
-  const TxnTs txnTs;
+  Txn(Txn&& other) = default;
+  Txn& operator=(Txn&& other) = default;
+  Txn(const Txn& other) = delete;
+  Txn& operator=(const Txn& other) = delete;
 
-  const bool read_only;
-  const worker_id_t worker_id;
-  const partition_id_t partition_id;
-
-  const master_version_t master_version;
-  const delta_id_t delta_version;
-
-  xid_t commit_ts{};
-
- public:
-  static Txn getTxn(worker_id_t workerId, partition_id_t partitionId,
-                    bool read_only = false);
-  static xid_t getTxn(Txn* txnPtr, worker_id_t workerId,
-                      partition_id_t partitionId, bool read_only = false);
-
- private:
   Txn(TxnTs txnTs, worker_id_t workerId, partition_id_t partitionId,
       master_version_t master_version, bool read_only = false);
 
@@ -78,11 +68,31 @@ class Txn {
 
   Txn(worker_id_t workerId, partition_id_t partitionId, bool read_only = false);
 
+ public:
+  static Txn getTxn(worker_id_t workerId, partition_id_t partitionId,
+                    bool read_only = false);
+  static xid_t getTxn(Txn* txnPtr, worker_id_t workerId,
+                      partition_id_t partitionId, bool read_only = false);
+
   struct [[maybe_unused]] TxnCmp {
     bool operator()(const Txn& a, const Txn& b) const {
       return a.txnTs.txn_start_time < b.txnTs.txn_start_time;
     }
   };
+
+ public:
+  TxnTs txnTs;
+  bool read_only;
+  worker_id_t worker_id;
+  partition_id_t partition_id;
+
+  master_version_t master_version;
+  delta_id_t delta_version;
+
+  xid_t commit_ts{};
+
+  // undoLog also contains data, but our data will be in the chain itself.
+  std::unordered_map<table_id_t, std::vector<vid_t>> undoLogMap{};
 };
 
 }  // namespace txn

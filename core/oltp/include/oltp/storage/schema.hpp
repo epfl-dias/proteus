@@ -161,6 +161,9 @@ class Schema {
   void snapshot(xid_t epoch,
                 std::vector<column_uuid_t> *snapshot_columns = nullptr);
 
+  void steamGC(std::map<table_id_t, std::vector<vid_t>> &cleanable,
+               txn::TxnTs globalMin);
+
   // utility functions
   void report();
   void memoryReport() const;

@@ -39,13 +39,13 @@ using ConcurrencyControl = txn::CC_MV2PL;
 using IndexVal = ConcurrencyControl::PRIMARY_INDEX_VAL;
 
 template <typename T_KEY = uint64_t>
-using PrimaryIndex = indexes::HashArray<T_KEY>;
-// using PrimaryIndex = indexes::HashIndex<T_KEY>;
+// using PrimaryIndex = indexes::HashArray<T_KEY>;
+using PrimaryIndex = indexes::HashIndex<T_KEY>;
 // using PrimaryIndex = indexes::AdaptiveRadixTreeIndex<T_KEY, void*>;
 
 constexpr int MAX_PARTITIONS = 8;
 constexpr master_version_t num_master_versions = 1;
-constexpr delta_id_t num_delta_storages = 2;
+constexpr delta_id_t num_delta_storages = 1;
 constexpr bool reverse_partition_numa_mapping = false;
 constexpr uint DEFAULT_OLAP_SOCKET = 0;
 

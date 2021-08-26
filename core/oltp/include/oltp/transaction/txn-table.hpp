@@ -32,46 +32,50 @@
 #include <platform/memory/block-manager.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/topology/topology.hpp>
+#include <shared_mutex>
 
 #include "oltp/common/common.hpp"
 #include "oltp/transaction/transaction.hpp"
 
 namespace txn {
 
-// BlockManager::block_size
 class alignas(hardware_destructive_interference_size)
     ThreadLocal_TransactionTable {
  public:
-  Txn& endTxn(Txn& txn);
-  Txn& beginTxn(worker_id_t workerId, partition_id_t partitionId,
-                bool read_only = false);
+  ThreadLocal_TransactionTable(ThreadLocal_TransactionTable &&) = delete;
+  ThreadLocal_TransactionTable &operator=(ThreadLocal_TransactionTable &&) =
+      delete;
+  ThreadLocal_TransactionTable(const ThreadLocal_TransactionTable &) = delete;
+  ThreadLocal_TransactionTable &operator=(
+      const ThreadLocal_TransactionTable &) = delete;
 
-  //  auto size()const{
-  //    return active_txn.size();
-  //  }
+ public:
+  void endTxn(Txn &txn);
+  Txn beginTxn(worker_id_t workerId, partition_id_t partitionId,
+               bool read_only = false);
 
-  inline xid_t get_min_active_tx() const {
-    return min_active.load();
-    //    std::unique_lock<std::mutex> lk(changeLk);
-    //    if(!active_txn.empty()){
-    //      return active_txn.cbegin()->first.txn_start_time;
-    //    } else {
-    //      return 0;
-    //    }
-  }
+  inline xid_t get_last_alive_tx() { return max_last_alive.load(); }
+
+  inline xid_t get_min_active_tx() { return min_active.load(); }
+
+  void steamGC(txn::TxnTs global_min);
 
   explicit ThreadLocal_TransactionTable(worker_id_t workerId);
   ~ThreadLocal_TransactionTable();
 
  private:
+  const worker_id_t workerID;
+  const std::thread::id thread_id;
+
   std::atomic<xid_t> min_active;
-  std::mutex changeLk{};
-  //  std::set<Txn, Txn::TxnCmp, proteus::memory::PinnedMemoryAllocator<Txn>>
-  //  active_txn_map{}; std::set<Txn, Txn::TxnCmp,
-  //  proteus::memory::PinnedMemoryAllocator<Txn>> committed_txn_map{};
-  Txn* activeTxnPtr;
-  std::map<TxnTs, Txn, TxnTs::TxnTsCmp> active_txn;
-  std::map<TxnTs, Txn, TxnTs::TxnTsCmp> finished_txn;
+  std::atomic<xid_t> max_last_alive;
+  Txn *activeTxnPtr;
+  std::deque<Txn> _committedTxn;
+
+  // we dont need set for activeTxn as we only have one active txn per thread in
+  // the system.
+  // std::set<Txn, Txn::TxnCmp, proteus::memory::PinnedMemoryAllocator<Txn>>
+  // _activeTxn;
 };
 
 }  // namespace txn

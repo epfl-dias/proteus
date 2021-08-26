@@ -34,33 +34,36 @@ bool TransactionManager::executeFullQueue(StoredProcedure& storedProcedure,
   static thread_local ThreadLocal_TransactionTable txnTable(workerId);
   static thread_local storage::Schema& schema = storage::Schema::getInstance();
 
-  static thread_local int32_t current_delta_id = -1;
-
   // if current_delta_id == -1, means not registered anywhere
   // if exist, that is, this thread is registered somewhere.
 
   // begin
-  auto& txn =
-      txnTable.beginTxn(workerId, partitionId, storedProcedure.readOnly);
+  auto txn = txnTable.beginTxn(workerId, partitionId, storedProcedure.readOnly);
 
-  auto txn_st_time = txn.txnTs.txn_start_time;
+  // LOG(INFO) << "W " << (uint)workerId << " - " << txn.txnTs.txn_start_time;
 
-  // FIXME: what about readOnly? lets ignore them for now.
+  //  LOG(INFO) << "Starting Txn: " << txn.txnTs.txn_start_time;
+  if constexpr (GcMechanism == GcTypes::OneShot) {
+    static thread_local int32_t current_delta_id = -1;
+    auto txn_st_time = txn.txnTs.txn_start_time;
 
-  if (__unlikely(current_delta_id == -1)) {
-    // first-time
-    current_delta_id = txn.delta_version;
-    schema.add_active_txn(current_delta_id, txn_st_time, workerId);
-  } else {
-    if (current_delta_id != txn.delta_version) {
-      // we need to switch delta
-      // switching means unregister from old, and add to new.
-      schema.switch_delta(current_delta_id, txn.delta_version, txn_st_time,
-                          workerId);
+    // FIXME: what about readOnly? lets ignore them for now.
+
+    if (__unlikely(current_delta_id == -1)) {
+      // first-time
       current_delta_id = txn.delta_version;
+      schema.add_active_txn(current_delta_id, txn_st_time, workerId);
     } else {
-      // just update the max_active_epoch.
-      schema.update_delta_epoch(current_delta_id, txn_st_time, workerId);
+      if (current_delta_id != txn.delta_version) {
+        // we need to switch delta
+        // switching means unregister from old, and add to new.
+        schema.switch_delta(current_delta_id, txn.delta_version, txn_st_time,
+                            workerId);
+        current_delta_id = txn.delta_version;
+      } else {
+        // just update the max_active_epoch.
+        schema.update_delta_epoch(current_delta_id, txn_st_time, workerId);
+      }
     }
   }
 
@@ -68,7 +71,21 @@ bool TransactionManager::executeFullQueue(StoredProcedure& storedProcedure,
   bool success = storedProcedure.tx(executor, txn, storedProcedure.params);
 
   // end
-  auto& finishedTxn = txnTable.endTxn(txn);
+  // auto& finishedTxn =
+  txnTable.endTxn(txn);
+
+  // for STEAM-BASIC, perform thread-local GC.
+  // for Committed txns, if they have fall behind the global min, clean them.
+
+  if constexpr (GcMechanism == GcTypes::SteamGC) {
+    // what if there is a single txn in the system only. then min becomes
+    // numeric_limitsx<max>
+    // auto min = this->get_min_activeTxn();
+    if (!txn.undoLogMap.empty()) {
+      auto min = this->get_last_alive();
+      txnTable.steamGC({min << txnPairGen::baseShift, min});
+    }
+  }
 
   return success;
 }
@@ -80,27 +97,29 @@ bool TransactionManager::execute(StoredProcedure& storedProcedure,
   static thread_local ThreadLocal_TransactionTable txnTable(workerId);
   static thread_local storage::Schema& schema = storage::Schema::getInstance();
 
-  // begin
-  auto& txn =
-      txnTable.beginTxn(workerId, partitionId, storedProcedure.readOnly);
+  //  // begin
+  //  auto& txn =
+  //      txnTable.beginTxn(workerId, partitionId, storedProcedure.readOnly);
+  //
+  //  auto dver = txn.delta_version;
+  //  auto txn_st_time = txn.txnTs.txn_start_time;
+  //
+  //  if (__likely(!storedProcedure.readOnly))
+  //    schema.add_active_txn(dver, txn_st_time, workerId);
+  //
+  //  // execute
+  //  bool success = storedProcedure.tx(executor, txn, storedProcedure.params);
+  //
+  //  // end
+  //
+  //  auto& finishedTxn = txnTable.endTxn(txn);
+  //
+  //  if (__likely(!storedProcedure.readOnly))
+  //    schema.remove_active_txn(dver, txn_st_time, workerId);
+  //
+  //  return success;
 
-  auto dver = txn.delta_version;
-  auto txn_st_time = txn.txnTs.txn_start_time;
-
-  if (__likely(!storedProcedure.readOnly))
-    schema.add_active_txn(dver, txn_st_time, workerId);
-
-  // execute
-  bool success = storedProcedure.tx(executor, txn, storedProcedure.params);
-
-  // end
-
-  auto& finishedTxn = txnTable.endTxn(txn);
-
-  if (__likely(!storedProcedure.readOnly))
-    schema.remove_active_txn(dver, txn_st_time, workerId);
-
-  return success;
+  return false;
 }
 
 /*

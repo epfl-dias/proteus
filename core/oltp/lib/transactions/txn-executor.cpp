@@ -28,9 +28,10 @@
 namespace txn {
 
 xid_t TransactionExecutor::get_commit_ts() {
-  static thread_local TransactionManager &txnManager =
-      TransactionManager::getInstance();
-  return txnManager.get_commit_ts();
+  //  static thread_local TransactionManager &txnManager =
+  //      TransactionManager::getInstance();
+  //  return txnManager.get_commit_ts();
+  assert(false);
 }
 
 }  // namespace txn

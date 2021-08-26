@@ -98,6 +98,9 @@ class alignas(BlockManager::block_size) ColumnStore : public Table {
                  const column_id_t *col_idx = nullptr,
                  short num_cols = -1) override;
 
+  void steamGC(const std::vector<vid_t> &row_vector,
+               txn::TxnTs globalMin) override;
+
   //------------------TwinColumn
   // TwinColumn snapshotting (TwinColumn is misleading as in theory,
   //  we can have N copies where N-1 are snapshots.

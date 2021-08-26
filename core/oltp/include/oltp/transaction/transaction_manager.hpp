@@ -49,27 +49,24 @@ class TransactionManager {
     static TransactionManager instance;
     return instance;
   }
-  TransactionManager(TransactionManager const&) = delete;  // Don't Implement
-  void operator=(TransactionManager const&) = delete;      // Don't implement
+  ~TransactionManager() { LOG(INFO) << "Destructing TxnManager"; }
+  TransactionManager(TransactionManager const&) = delete;
+  void operator=(TransactionManager const&) = delete;
 
-  //  static inline auto extractEpoch(xid_t xid) {
-  //    // epochs are time-based or txnId rolling basis?
-  //    // if time-based, then we need to account for txnTime, not txnId.
-  //    // if rolling basis, then it is not really an epoch, is it?
-  //
-  //    // TxnID basis:
-  //    // 10 bit means change delta every 1024 transactions.
-  //    return xid >> 10;
-  //  }
+  TransactionManager(TransactionManager&&) = delete;
+  void operator=(TransactionManager&&) = delete;
 
   static constexpr auto delta_switch_bit = 10;
-  static constexpr auto extract_epoch(xid_t xid) {
-    return (xid >> (delta_switch_bit)) << delta_switch_bit;
-    // return xid;
-  }
+  //  static constexpr auto extract_epoch(xid_t xid) {
+  //    return (xid >> (delta_switch_bit)) << delta_switch_bit;
+  //    // return xid;
+  //  }
   static constexpr delta_id_t get_delta_ver(xid_t xid) {
     // return extract_epoch(xid) % global_conf::num_delta_storages;
-    return (xid >> (delta_switch_bit)) % global_conf::num_delta_storages;
+    if constexpr (GcMechanism == GcTypes::SteamGC)
+      return 0;
+    else
+      return (xid >> (delta_switch_bit)) % global_conf::num_delta_storages;
   }
 
   // TODO: move the following to snapshot manager
@@ -138,25 +135,52 @@ class TransactionManager {
 
   static bool execute(StoredProcedure& storedProcedure, worker_id_t workerId,
                       partition_id_t partitionId);
-  static bool executeFullQueue(StoredProcedure& storedProcedure,
-                               worker_id_t workerId,
-                               partition_id_t partitionId);
+  bool executeFullQueue(StoredProcedure& storedProcedure, worker_id_t workerId,
+                        partition_id_t partitionId);
 
   const auto& getTxnTables() { return registry; }
 
-  void registerTxnTable(ThreadLocal_TransactionTable* tbl) {
-    registry.emplace_back(tbl);
+  [[nodiscard]] xid_t get_last_alive() const {
+    xid_t min = std::numeric_limits<xid_t>::max();
+    for (const auto& t : registry) {
+      auto x = t->get_last_alive_tx();
+      if (x < min) {
+        min = x;
+      }
+    }
+    return min;
   }
 
   [[nodiscard]] xid_t get_min_activeTxn() const {
     xid_t min = std::numeric_limits<xid_t>::max();
     for (const auto& t : registry) {
       auto x = t->get_min_active_tx();
+
       if (x < min) {
         min = x;
       }
     }
+    LOG(INFO) << std::this_thread::get_id() << " -===--";
     return min;
+  }
+
+  std::vector<xid_t> get_all_activeTxn() {
+    // needed by steam gc
+    // sorted list of active txns.
+
+    constexpr xid_t max = std::numeric_limits<xid_t>::max();
+    std::vector<xid_t> activeTxns;
+
+    for (const auto& t : registry) {
+      auto x = t->get_min_active_tx();
+      if (x != max) {
+        activeTxns.push_back(x);
+      }
+    }
+
+    std::sort(activeTxns.begin(), activeTxns.end());
+
+    return activeTxns;
   }
 
  private:
@@ -176,23 +200,22 @@ class TransactionManager {
   class txnPairGen {
     //    std::atomic<size_t> txn_id_gen{};
     //    std::atomic<size_t> commit_ts_gen{};
-    std::atomic<size_t> gen{};
-    static constexpr auto baseShift = 27u;
+    std::atomic<xid_t> gen{};
 
    public:
     txnPairGen() : gen(1) {}
     //, commit_ts_gen(1), txn_id_gen(std::pow(2, 27)){}
 
     inline TxnTs __attribute__((always_inline)) get_txnID_startTime_Pair() {
-      auto x = gen.fetch_add(1, std::memory_order_relaxed);
-
+      auto x = gen.fetch_add(1);
       return {x << baseShift, x};
       // return {txn_id_gen++, commit_ts_gen++};
     }
     inline xid_t __attribute__((always_inline)) get_commit_ts() {
       //  return commit_ts_gen++;
-      return gen.fetch_add(1, std::memory_order_relaxed);
+      return gen.fetch_add(1);
     }
+    static constexpr auto baseShift = 27u;
   };
 
   alignas(hardware_destructive_interference_size) txnPairGen txn_gen;
@@ -213,6 +236,18 @@ class TransactionManager {
     // return (commit_ts_gen++ & 0x00FFFFFFFFFFFFFF) | (((uint64_t)wid) << 56u);
     // return commit_ts_gen++;
     return txn_gen.get_commit_ts();
+  }
+
+ private:
+  std::mutex registryLock;
+  void registerTxnTable(ThreadLocal_TransactionTable* tbl) {
+    std::unique_lock<std::mutex> lk(registryLock);
+    registry.emplace_back(tbl);
+  }
+  void deregisterTxnTable(ThreadLocal_TransactionTable* tbl) {
+    std::unique_lock<std::mutex> lk(registryLock);
+    registry.erase(std::remove(registry.begin(), registry.end(), tbl),
+                   registry.end());
   }
 
  private:

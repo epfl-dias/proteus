@@ -80,6 +80,9 @@ class Table {
                          void *destination, const column_id_t *col_idx,
                          short num_cols) = 0;
 
+  virtual void steamGC(const std::vector<vid_t> &row_vector,
+                       txn::TxnTs globalMin) = 0;
+
   // virtual std::vector<vid_t> getNumberOfRecords(xid_t epoch) = 0;
 
   // Snapshot / HTAP

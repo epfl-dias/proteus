@@ -107,8 +107,11 @@ class YCSB : public Benchmark {
   auto *get_query_struct(partition_id_t pid) const {
     auto _txn_mem = (struct YCSB_TXN *)MemoryManager::mallocPinnedOnNode(
         sizeof(struct YCSB_TXN), pid);
+    assert(_txn_mem);
+    assert(num_ops_per_txn > 0);
     _txn_mem->ops = (struct YCSB_TXN_OP *)MemoryManager::mallocPinnedOnNode(
         sizeof(struct YCSB_TXN_OP) * num_ops_per_txn, pid);
+    assert(_txn_mem->ops);
     return _txn_mem;
   }
   static void free_query_struct(struct YCSB_TXN *_txn_mem) {
@@ -123,15 +126,22 @@ class YCSB : public Benchmark {
     uint64_t to_ins = num_records / num_max_workers;
     uint64_t start = to_ins * wid;
 
-    struct YCSB_TXN *q_ptr = get_query_struct(partition_id);
+    auto q_ptr = get_query_struct(partition_id);
     txn::TransactionExecutor executorTmp;
 
+    auto *txnPtr = (txn::Txn *)malloc(sizeof(txn::Txn));
+
+    //    xid_t Txn::getTxn(Txn *txnPtr, worker_id_t workerId, partition_id_t
+    //    partitionId,
+    //                      bool readOnly)
+
     for (uint64_t i = start; i < (start + to_ins); i++) {
-      std::vector<uint64_t> tmp(num_fields, i);
-      gen_insert_txn(i, &tmp, q_ptr);
-      auto pseudoTxn = txn::Txn::getTxn(wid, partition_id);
-      this->exec_txn(executorTmp, pseudoTxn, q_ptr);
+      std::vector<uint64_t> tmp(num_fields, 1);
+      gen_insert_txn(i, tmp.data(), q_ptr);
+      txn::Txn::getTxn(txnPtr, wid, partition_id);
+      this->exec_txn(executorTmp, *txnPtr, q_ptr);
     }
+    free(txnPtr);
     free_query_struct(q_ptr);
   }
 
@@ -225,13 +235,14 @@ class YCSB : public Benchmark {
         col_idx_read);
     static thread_local std::vector<column_id_t> col_idx_update_local(
         col_idx_upd);
-    static thread_local std::vector<uint64_t> read_loc(num_fields, 0);
+    static thread_local std::vector<uint64_t> read_loc(num_fields + 2, 0);
 
     static thread_local std::vector<global_conf::IndexVal *>
         hash_ptrs_lock_acquired(this->num_ops_per_txn, nullptr);
     uint num_locks = 0;
 
     /* Acquire locks for updates*/
+
     for (int i = 0; i < n; i++) {
       struct YCSB_TXN_OP op = txn_stmts->ops[i];
 
@@ -256,6 +267,7 @@ class YCSB : public Benchmark {
       }
     }
 
+    txn.undoLogMap.reserve(n);
     // perform lookups/ updates / inserts
     for (int i = 0; i < n; i++) {
       struct YCSB_TXN_OP op = txn_stmts->ops[i];
@@ -275,11 +287,14 @@ class YCSB : public Benchmark {
           auto *recordPtr =
               (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
 
-          recordPtr->writeWithLatch([&](global_conf::IndexVal *idx_ptr) {
-            ycsb_tbl->updateRecord(
-                txn.txnTs.txn_start_time, idx_ptr, op.rec, txn.delta_version,
-                col_idx_update_local.data(), num_col_upd, txn.master_version);
-          });
+          recordPtr->writeWithLatch(
+              [&](global_conf::IndexVal *idx_ptr) {
+                ycsb_tbl->updateRecord(txn.txnTs.txn_start_time, idx_ptr,
+                                       op.rec, txn.delta_version,
+                                       col_idx_update_local.data(), num_col_upd,
+                                       txn.master_version);
+              },
+              txn, ycsb_tbl->table_id);
           recordPtr->write_lck.unlock();
           break;
         }
@@ -359,7 +374,7 @@ class YCSB : public Benchmark {
     }
 
     this->schema = &storage::Schema::getInstance();
-    LOG(INFO) << "workers: " << (uint)(this->num_active_workers);
+    LOG(INFO) << "Workers: " << (uint)(this->num_active_workers);
     LOG(INFO) << "Max-Workers: " << (uint)(this->num_max_workers);
     this->YCSB::init();
 

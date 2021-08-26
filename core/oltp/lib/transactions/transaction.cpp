@@ -56,7 +56,6 @@ Txn::Txn(worker_id_t workerId, partition_id_t partitionId, bool read_only)
 Txn Txn::getTxn(worker_id_t workerId, partition_id_t partitionId,
                 bool readOnly) {
   static thread_local auto &txnManager = TransactionManager::getInstance();
-
   return Txn(txnManager.get_txnID_startTime_Pair(), workerId, partitionId,
              txnManager.get_current_master_version(), readOnly);
 }
@@ -64,7 +63,6 @@ Txn Txn::getTxn(worker_id_t workerId, partition_id_t partitionId,
 xid_t Txn::getTxn(Txn *txnPtr, worker_id_t workerId, partition_id_t partitionId,
                   bool readOnly) {
   static thread_local auto &txnManager = TransactionManager::getInstance();
-
   txnPtr = new (txnPtr)
       Txn(txnManager.get_txnID_startTime_Pair(), workerId, partitionId,
           txnManager.get_current_master_version(), readOnly);

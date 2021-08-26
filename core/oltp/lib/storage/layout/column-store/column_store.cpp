@@ -158,6 +158,15 @@ ColumnStore::ColumnStore(table_id_t table_id, std::string name,
   elastic_mappings.reserve(columns.size());
 }
 
+void ColumnStore::steamGC(const std::vector<vid_t>& row_vector,
+                          txn::TxnTs globalMin) {
+  std::set<vid_t> s(row_vector.begin(), row_vector.end());
+  for (const auto& vid : s) {
+    auto idxPtr = (global_conf::IndexVal*)(this->metaColumn->getElem(vid));
+    mv::mv_type::gc(idxPtr, globalMin);
+  }
+}
+
 /* ColumnStore::insertRecordBatch assumes that the  void* rec has columns in the
  * same order as the actual columns
  */
@@ -333,6 +342,8 @@ void ColumnStore::updateRecord(xid_t transaction_id,
   auto version_ptr = mv::mv_type::create_versions(
       transaction_id, index_ptr, column_size,
       *(this->deltaStore[current_delta_id]), pid, col_idx, num_columns);
+
+  assert(index_ptr->delta_list.isValid());
 
   auto n_cols = (num_columns > 0 ? num_columns : columns.size());
   uint idx = 0;

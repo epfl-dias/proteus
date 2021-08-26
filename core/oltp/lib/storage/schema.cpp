@@ -211,6 +211,13 @@ void Schema::teardown(const std::string& cdf_out_path) {
   this->cleaned = true;
 }
 
+void Schema::steamGC(std::map<table_id_t, std::vector<vid_t>>& cleanable,
+                     txn::TxnTs globalMin) {
+  for (const auto& [table_id, row_vector] : cleanable) {
+    auto tbl = getTable(table_id);
+    tbl->steamGC(row_vector, globalMin);
+  }
+}
 
 void Schema::drop_table(const std::string& name) {
   std::unique_lock<std::mutex> lk(schema_lock);

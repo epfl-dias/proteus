@@ -57,8 +57,14 @@ void Worker::run() {
     benchQueue->pre_run();
     this->state = READY;
     {
-      std::unique_lock<std::mutex> lk(pool->pre_m);
       pool->pre_barrier++;
+      // following is that threads initialize there threadLocal txnTables
+      // and be ready for actual txns.
+
+      auto tx = this->txnQueue->popEmpty(this->id, this->partition_id);
+      bool res = txnManager->executeFullQueue(tx, this->id, this->partition_id);
+
+      std::unique_lock<std::mutex> lk(pool->pre_m);
       pool->pre_cv.wait(lk, [pool, this] {
         return pool->pre_barrier == pool->workers.size() + 1 || terminate;
       });
@@ -78,8 +84,7 @@ void Worker::run() {
     }
 
     auto tx = this->txnQueue->pop(this->id, this->partition_id);
-    bool res = txn::TransactionManager::executeFullQueue(tx, this->id,
-                                                         this->partition_id);
+    bool res = txnManager->executeFullQueue(tx, this->id, this->partition_id);
 
     if (__likely(res)) {
       num_commits++;

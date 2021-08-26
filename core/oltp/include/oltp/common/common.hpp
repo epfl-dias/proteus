@@ -77,4 +77,8 @@ constexpr auto DefaultSnapshotMechanism = SnapshotTypes::CircularMaster;
 
 constexpr int MAX_PARTITIONS = 8;
 
+enum GcTypes { NoGC, OneShot, SteamGC };
+constexpr auto GcMechanism = GcTypes::SteamGC;
+#define GC_STEAM 1
+
 #endif  // PROTEUS_OLTP_COMMON_HPP
