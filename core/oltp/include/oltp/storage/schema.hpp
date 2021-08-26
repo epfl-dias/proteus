@@ -61,15 +61,15 @@ using ColumnVector = std::vector<std::unique_ptr<storage::Column>>;
 
 class ColumnDef {
  public:
-  inline auto getName() const { return std::get<0>(col); }
-  inline auto getType() const { return std::get<1>(col); }
-  inline auto getWidth() const { return std::get<2>(col); }
-  inline auto getSize() const { return getWidth(); }
-  inline auto getSnapshotType() const { return std::get<3>(col); }
-  inline auto getDict() const { return std::get<4>(col); }
-  inline auto getColumnDef() const { return col; }
+  [[nodiscard]] inline auto getName() const { return std::get<0>(col); }
+  [[nodiscard]] inline auto getType() const { return std::get<1>(col); }
+  [[nodiscard]] inline auto getWidth() const { return std::get<2>(col); }
+  [[nodiscard]] inline auto getSize() const { return getWidth(); }
+  [[nodiscard]] inline auto getSnapshotType() const { return std::get<3>(col); }
+  [[nodiscard]] inline auto getDict() const { return std::get<4>(col); }
+  [[nodiscard]] inline auto getColumnDef() const { return col; }
 
-  explicit ColumnDef(std::string name, data_type dType, size_t width,
+  explicit ColumnDef(const std::string &name, data_type dType, size_t width,
                      SnapshotTypes snapshotType = DefaultSnapshotMechanism,
                      dict_dstring_t *dict = nullptr)
       : col(name, dType, width, snapshotType, dict) {}
