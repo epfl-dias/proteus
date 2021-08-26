@@ -31,45 +31,50 @@
 
 namespace storage::mv {
 
-using mv_type = MV_RecordList_Full;
+// using mv_type = MV_RecordList_Full;
 // using mv_type = MV_RecordList_Partial;
 
 // using mv_type = MV_perAttribute<MV_attributeList>;
 // using mv_type = MV_perAttribute<MV_DAG>;
 
-using mv_version_chain = mv_type::version_chain_t;
-using mv_version = mv_type::version_t;
+// using mv_version_chain = mv_type::version_chain_t;
+// using mv_version = mv_type::version_t;
 
-// template <typename MvType = mv_type>
-// class MultiVersionStorage_impl {
-// public:
-//  static constexpr bool isPerAttributeMVList = MvType::isPerAttributeMVList;
-//  static constexpr bool isAttributeLevelMV = MvType::isAttributeLevelMV;
-//
-//  using version_t = typename MvType::version_t;
-//  using version_chain_t = typename MvType::version_chain_t;
-//
-//  MultiVersionStorage_impl<MvType> getType() const { return {}; }
-//  static auto create_versions(uint64_t xid, global_conf::IndexVal *idx_ptr,
-//                              std::vector<uint16_t> &attribute_widths,
-//                              storage::DeltaStore &deltaStore,
-//                              ushort partition_id, const ushort *col_idx,
-//                              short num_cols) {
-//    return MvType::create_versions(xid, idx_ptr, attribute_widths, deltaStore,
-//                                   partition_id, col_idx, num_cols);
-//  }
-//
-//  static auto get_readable_version(
-//      global_conf::IndexVal *idx_ptr, void *list_ptr, uint64_t xid,
-//      char *write_loc,
-//      const std::vector<std::pair<uint16_t, uint16_t>>
-//      &column_size_offset_pairs, storage::DeltaStore **deltaStore, const
-//      ushort *col_idx = nullptr, ushort num_cols = 0) {
-//    return MvType::get_readable_version(idx_ptr, list_ptr, xid, write_loc,
-//                                        column_size_offset_pairs, deltaStore,
-//                                        col_idx, num_cols);
-//  }
-//};
+template <typename MvType = MV_RecordList_Full>
+class MultiVersionStorage_impl {
+ public:
+  static constexpr bool isPerAttributeMVList = MvType::isPerAttributeMVList;
+  static constexpr bool isAttributeLevelMV = MvType::isAttributeLevelMV;
+
+  using version_t = typename MvType::version_t;
+  using version_chain_t = typename MvType::version_chain_t;
+
+  MultiVersionStorage_impl<MvType> getType() const { return {}; }
+
+  static inline auto create_versions(
+      uint64_t xid, global_conf::IndexVal* idx_ptr,
+      std::vector<uint16_t>& attribute_widths, storage::DeltaStore& deltaStore,
+      partition_id_t partition_id, const column_id_t* col_idx, short num_cols) {
+    return MvType::create_versions(xid, idx_ptr, attribute_widths, deltaStore,
+                                   partition_id, col_idx, num_cols);
+  }
+
+  static inline auto get_readable_version(
+      const DeltaPtr& delta_list, const txn::TxnTs& txTs, char* write_loc,
+      const std::vector<std::pair<uint16_t, uint16_t>>&
+          column_size_offset_pairs,
+      const column_id_t* col_idx = nullptr, short num_cols = 0) {
+    return MvType::get_readable_version(delta_list, txTs, write_loc,
+                                        column_size_offset_pairs, col_idx,
+                                        num_cols);
+  }
+
+  static void gc(global_conf::IndexVal* idx_ptr, txn::TxnTs minTxnTs) {
+    MvType::gc(idx_ptr, minTxnTs);
+  }
+};
+
+using mv_type = MultiVersionStorage_impl<MV_RecordList_Full>;
 
 }  // namespace storage::mv
 

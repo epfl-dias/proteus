@@ -42,22 +42,37 @@ namespace txn {
 
 class CC_MV2PL {
  public:
-  class PRIMARY_INDEX_VAL {
+  class __attribute__((packed)) PRIMARY_INDEX_VAL {
    public:
     xid_t t_min;  //  | 1-byte w_id | 6 bytes xid |
     rowid_t VID;  // internal encoding defined in storage-utils.hpp
     // lock::Spinlock_Weak latch;
     // lock::HybridLatch latch;
     lock::SpinLatch latch;
-
     lock::AtomicTryLock write_lck;
 
-    storage::DeltaMemoryPtr delta_list{0};
+    storage::DeltaPtr delta_list{0};
     PRIMARY_INDEX_VAL(xid_t tid, rowid_t vid) : t_min(tid), VID(vid) {}
+
+    PRIMARY_INDEX_VAL(PRIMARY_INDEX_VAL &&) = delete;
+    PRIMARY_INDEX_VAL &operator=(PRIMARY_INDEX_VAL &&) = delete;
+
+    PRIMARY_INDEX_VAL(const PRIMARY_INDEX_VAL &) = delete;
+    PRIMARY_INDEX_VAL &operator=(const PRIMARY_INDEX_VAL &) = delete;
 
     template <class lambda>
     inline void writeWithLatch(lambda &&func) {
       latch.template writeWithLatch(func, this);
+    }
+
+    template <class lambda>
+    inline void writeWithLatch(lambda &&func, Txn &txn, table_id_t table_id) {
+      latch.template writeWithLatch(func, this);
+
+      if constexpr (GcMechanism == GcTypes::SteamGC) {
+        txn.undoLogMap[table_id].emplace_back(VID);
+      }
+      // std::atomic_thread_fence(std::memory_order_seq_cst);
     }
 
     template <class lambda>
@@ -75,7 +90,8 @@ class CC_MV2PL {
 
   static inline bool __attribute__((always_inline))
   is_readable(const PRIMARY_INDEX_VAL &indexVal, const TxnTs &xact) {
-    if (indexVal.t_min < xact.txn_start_time || indexVal.t_min == xact.txn_id) {
+    if (indexVal.t_min <= xact.txn_start_time ||
+        indexVal.t_min == xact.txn_id) {
       return true;
     } else {
       return false;
@@ -84,7 +100,7 @@ class CC_MV2PL {
 
   static inline bool __attribute__((always_inline))
   is_readable(const xid_t tmin, const TxnTs &xact) {
-    if (tmin < xact.txn_start_time || tmin == xact.txn_id) {
+    if (tmin <= xact.txn_start_time || tmin == xact.txn_id) {
       return true;
     } else {
       return false;

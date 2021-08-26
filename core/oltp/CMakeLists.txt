@@ -65,6 +65,7 @@ target_compile_options(${PROJECT_NAME} BEFORE PRIVATE
   -Wno-error=weak-template-vtables
   -Wno-error=unreachable-code
   -Wno-error=missing-noreturn
+  -Wno-address-of-packed-member
   )
 
 # If we have compiler requirements for this library, list them

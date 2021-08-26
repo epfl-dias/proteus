@@ -38,14 +38,15 @@ namespace storage::mv {
 //    const std::vector<uint16_t>& attribute_widths,
 //    storage::DeltaStore& deltaStore, partition_id_t partition_id,
 //    const column_id_t* col_idx, short num_cols) {
-//
 //  std::vector<MV_attributeList::version_t*> version_pointers;
 //
 //  version_pointers.reserve(num_cols > 0 ? num_cols : attribute_widths.size());
 //
 //  // first check if the list-ptr is valid (revisit the init logic)
 //
-//  auto* mv_list_ptr = (attributeVerList_t*)idx_ptr->delta_list.ptr();
+//  auto& delta_list = static_cast<DeltaList&>(idx_ptr->delta_list);
+//
+//  auto* mv_list_ptr = (attributeVerList_t*)delta_list.ptr();
 //  if (mv_list_ptr == nullptr) {
 //    // deltaStore.validate_or_create_list();
 //    // basically we dont want a regular version_list which contains head and
@@ -55,9 +56,15 @@ namespace storage::mv {
 //    required
 //    // size.
 //
+//    // why dont we keep this is in persistent fashion? because, even a single
+//    // attribute will trigger full thing
+//
 //    auto size = attributeVerList_t::getSize(attribute_widths.size());
 //    mv_list_ptr = (attributeVerList_t*)deltaStore.getTransientChunk(
-//        idx_ptr->delta_list, size, partition_id);
+//        delta_list, size, partition_id);
+//
+//    // sanity assert
+//    assert(delta_list._val == idx_ptr->delta_list._val);
 //
 //    attributeVerList_t::create(mv_list_ptr, attribute_widths.size());
 //  }
@@ -75,10 +82,22 @@ namespace storage::mv {
 //
 //      auto c_idx = col_idx[i];
 //
+//      //---
+//        // validate or create list along with version can be combined in it.
+//      auto list_ver_pair = deltaStore.insert_version(
+//          mv_list_ptr->version_list[c_idx], 0, 0,
+//          attribute_widths.at(c_idx), partition_id);
+//
+//      version_pointers.emplace_back(static_cast<MV_attributeList::version_t*>(list_ver_pair.second));
+//      static_cast<MV_attributeList::version_chain_t*>(list_ver_pair.second)->last_updated_tmin
+//      = xid;
+//      //--
+//
 //      auto* attr_ver_list_ptr =
 //          (MV_attributeList::version_chain_t*)
 //              deltaStore.validate_or_create_list(
 //                  mv_list_ptr->version_list[c_idx], partition_id);
+//
 //
 //      void* ver_chunk =
 //          deltaStore.create_version(attribute_widths.at(c_idx), partition_id);
@@ -122,14 +141,17 @@ namespace storage::mv {
 //
 //  return version_pointers;
 //}
-
+//
 // std::bitset<64> MV_attributeList::get_readable_version(
-//    const DeltaList& delta_list, xid_t xid, char* write_loc,
-//    const std::vector<std::pair<uint16_t, uint16_t>>&
+//    const DeltaMemoryPtr& delta_mem_ptr, const txn::TxnTs& txTs, char*
+//    write_loc, const std::vector<std::pair<uint16_t, uint16_t>>&
 //    column_size_offset_pairs, const column_id_t* col_idx, short num_cols) {
 //  std::bitset<64> done_mask(0xffffffffffffffff);
 //
-//  auto* mv_col_list = (MV_attributeList::attributeVerList_t*)delta_list.ptr();
+//  //TaggedDeltaDataPtr<version_t> delta_list_ptr(delta_list._val);
+//  DeltaList delta_list_tmp(delta_mem_ptr._val);
+//  auto* mv_col_list =
+//  (MV_attributeList::attributeVerList_t*)delta_list_tmp.ptr();
 //
 //  if (__unlikely(num_cols <= 0 || col_idx == nullptr)) {
 //    column_id_t i = 0;
@@ -143,13 +165,16 @@ namespace storage::mv {
 //      auto* col_ver_list =
 //          (MV_attributeList::version_chain_t*)mv_col_list->version_list[i]
 //              .ptr();
-//      if (col_ver_list == nullptr || xid >= col_ver_list->last_updated_tmin) {
+//      // FIXME: we have two timestamps, is the following condition valid
+//      //  when the txn wants to read its own record?
+//      if (col_ver_list == nullptr || txTs.txn_start_time >=
+//      col_ver_list->last_updated_tmin) {
 //        i++;
 //        done_mask.reset(i);
 //        continue;
 //      }
 //
-//      auto* version = col_ver_list->get_readable_version(xid);
+//      auto* version = col_ver_list->get_readable_version(txTs);
 //
 //      assert(version != nullptr);
 //      memcpy(write_loc + col_so_pair.second, version->data,
@@ -170,12 +195,13 @@ namespace storage::mv {
 //          (MV_attributeList::version_chain_t*)mv_col_list->version_list[c_idx]
 //              .ptr();
 //
-//      if (col_ver_list == nullptr || xid >= col_ver_list->last_updated_tmin) {
+//      if (col_ver_list == nullptr || txTs.txn_start_time >=
+//      col_ver_list->last_updated_tmin) {
 //        done_mask.reset(c_idx);
 //        continue;
 //      }
 //
-//      auto* version = col_ver_list->get_readable_version(xid);
+//      auto* version = col_ver_list->get_readable_version(txTs);
 //
 //      assert(version != nullptr);
 //      auto col_width = column_size_offset_pairs.at(c_idx).first;

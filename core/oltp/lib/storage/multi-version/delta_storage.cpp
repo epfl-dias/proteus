@@ -23,59 +23,80 @@
 
 #include "oltp/storage/multi-version/delta_storage.hpp"
 
-#include <oltp/common/utils.hpp>
+#include <platform/common/error-handling.hpp>
 
 #include "oltp/common/numa-partition-policy.hpp"
+#include "oltp/common/utils.hpp"
 #include "oltp/execution/worker.hpp"
+#include "oltp/storage/multi-version/delta-memory-ptr.hpp"
 #include "oltp/storage/multi-version/mv.hpp"
 #include "oltp/transaction/transaction_manager.hpp"
-#include "platform/common/error-handling.hpp"
 
 namespace storage {
 
-std::map<delta_id_t, DeltaStore*> DeltaMemoryPtr::deltaStore_map;
-std::map<delta_id_t, uintptr_t> DeltaList::list_memory_base;
-std::map<delta_id_t, uintptr_t> DeltaDataPtr::data_memory_base;
+std::unordered_map<delta_id_t, CircularDeltaStore*>
+    DeltaDataPtr::deltaStore_map;
+std::unordered_map<delta_id_t, uintptr_t> DeltaDataPtr::data_memory_base;
 
-DeltaStore::DeltaStore(delta_id_t delta_id, uint64_t ver_list_capacity,
-                       uint64_t ver_data_capacity,
-                       partition_id_t num_partitions)
+DeltaStoreMalloc* ClassicPtrWrapper::deltaStore = nullptr;
+
+DeltaStoreMalloc::DeltaStoreMalloc(delta_id_t delta_id,
+                                   uint64_t ver_data_capacity,
+                                   partition_id_t num_partitions) {
+  LOG(INFO) << "DeltaStoreMalloc: " << (uint)delta_id;
+  ClassicPtrWrapper::deltaStore = this;
+}
+
+ClassicPtrWrapper DeltaStoreMalloc::allocate(size_t sz,
+                                             partition_id_t partition_id) {
+  // std::unique_lock<std::mutex> l(lk);
+  //  static thread_local const auto& partPolicy =
+  //      storage::NUMAPartitionPolicy::getInstance().getPartitions();
+  //   auto *cnk = MemoryManager::mallocPinnedOnNode(sz,
+  //   partPolicy[partition_id].numa_idx);
+  //  auto* cnk = MemoryManager::mallocPinned(sz);
+
+  auto* cnk = malloc(sz);
+  assert(cnk);
+
+  return ClassicPtrWrapper{reinterpret_cast<uintptr_t>(cnk)};
+}
+
+void DeltaStoreMalloc::release(ClassicPtrWrapper& ptr) {
+  // std::unique_lock<std::mutex> l(lk);
+
+  // MemoryManager::freePinned(ptr.get_ptr());
+  free(ptr.get_ptr());
+}
+
+CircularDeltaStore::CircularDeltaStore(delta_id_t delta_id,
+                                       uint64_t ver_data_capacity,
+                                       partition_id_t num_partitions)
     : touched(false), delta_id(delta_id) {
-  DeltaList::deltaStore_map.emplace(delta_id, this);
-
-  ver_list_capacity = ver_list_capacity * (1024 * 1024 * 1024);  // GB
-  ver_list_capacity = ver_list_capacity / 2;
   ver_data_capacity = ver_data_capacity * (1024 * 1024 * 1024);  // GB
 
-  assert(ver_data_capacity < std::pow(2, DeltaList::offset_bits));
+  assert(ver_data_capacity < std::pow(2, DeltaDataPtr::offset_bits));
+
+  DeltaDataPtr::deltaStore_map.emplace(delta_id, this);
 
   for (int i = 0; i < num_partitions; i++) {
     const auto& numa_idx = storage::NUMAPartitionPolicy::getInstance()
                                .getPartitionInfo(i)
                                .numa_idx;
-
-    void* mem_list =
-        MemoryManager::mallocPinnedOnNode(ver_list_capacity, numa_idx);
     void* mem_data =
         MemoryManager::mallocPinnedOnNode(ver_data_capacity, numa_idx);
-
-    assert(mem_list != nullptr);
     assert(mem_data != nullptr);
 
     void* obj_data =
         MemoryManager::mallocPinnedOnNode(sizeof(DeltaPartition), numa_idx);
 
     partitions.emplace_back(new (obj_data) DeltaPartition(
-        (char*)mem_list,
-        oltp::common::mem_chunk(mem_list, ver_list_capacity, numa_idx),
-        (char*)mem_data,
+        reinterpret_cast<uintptr_t>(mem_data),
         oltp::common::mem_chunk(mem_data, ver_data_capacity, numa_idx), i,
         delta_id));
 
     // Insert references into delta-chunk.
-    auto idx = DeltaMemoryPtr::create_delta_idx_pid_pair(delta_id, i);
-    DeltaList::list_memory_base.emplace(idx,
-                                        reinterpret_cast<uintptr_t>(mem_list));
+    auto idx = DeltaDataPtr::create_delta_idx_pid_pair(delta_id, i);
     DeltaDataPtr::data_memory_base.emplace(
         idx, reinterpret_cast<uintptr_t>(mem_data));
 
@@ -97,16 +118,14 @@ DeltaStore::DeltaStore(delta_id_t delta_id, uint64_t ver_list_capacity,
   if (DELTA_DEBUG) {
     LOG(INFO) << "Delta ID: " << (uint)(this->delta_id);
     LOG(INFO) << "\tDelta size: "
-              << ((double)(ver_list_capacity + ver_data_capacity) /
-                  (1024 * 1024 * 1024))
+              << ((double)(ver_data_capacity) / (1024 * 1024 * 1024))
               << " GB * " << (uint)num_partitions << " Partitions" << std::endl;
     LOG(INFO) << "\tDelta size: "
-              << ((double)(ver_list_capacity + ver_data_capacity) *
-                  (uint)num_partitions / (1024 * 1024 * 1024))
+              << ((double)(ver_data_capacity) * (uint)num_partitions /
+                  (1024 * 1024 * 1024))
               << " GB" << std::endl;
   }
-  this->total_mem_reserved =
-      (ver_list_capacity + ver_data_capacity) * num_partitions;
+  this->total_mem_reserved = (ver_data_capacity)*num_partitions;
 
   this->deltaMeta.readers.store(0);
   this->gc_reset_success = 0;
@@ -140,7 +159,7 @@ DeltaStore::DeltaStore(delta_id_t delta_id, uint64_t ver_list_capacity,
   //      }, (500)); // 500ms
 }
 
-DeltaStore::~DeltaStore() {
+CircularDeltaStore::~CircularDeltaStore() {
   deltaMeta.readers = 0;
   deltaMeta.max_active_epoch =
       std::numeric_limits<decltype(deltaMeta.max_active_epoch)>::max();
@@ -154,12 +173,12 @@ DeltaStore::~DeltaStore() {
   }
 }
 
-void DeltaStore::print_info() {
-  LOG(INFO) << "[DeltaStore # " << (int)(this->delta_id)
+void CircularDeltaStore::print_info() {
+  LOG(INFO) << "[CircularDeltaStore # " << (int)(this->delta_id)
             << "] Number of Successful GC Resets: " << this->gc_reset_success;
 
   if constexpr (DELTA_DEBUG) {
-    LOG(INFO) << "[DeltaStore # " << (int)(this->delta_id)
+    LOG(INFO) << "[CircularDeltaStore # " << (int)(this->delta_id)
               << "] Number of GC Requests: " << this->gc_requests;
   }
 
@@ -168,85 +187,24 @@ void DeltaStore::print_info() {
   }
 }
 
-void* DeltaStore::getTransientChunk(DeltaList& delta_list, size_t size,
-                                    partition_id_t partition_id) {
-  throw std::runtime_error("deprecated after delta-list-bug fix");
-  auto* ptr = partitions[partition_id]->getChunk(size);
-
-  delta_list.update(reinterpret_cast<const char*>(ptr),
-                    tag.load(std::memory_order_acquire), this->delta_id,
-                    partition_id);
-
-  if (!touched) touched = true;
-  return ptr;
-}
-
-void* DeltaStore::validate_or_create_list(DeltaList& delta_list,
+DeltaDataPtr CircularDeltaStore::allocate(size_t sz,
                                           partition_id_t partition_id) {
-  throw std::runtime_error("deprecated after delta-list-bug fix");
-
-  auto* delta_ptr = (storage::mv::mv_version_chain*)(delta_list.ptr());
-
-  if (delta_ptr == nullptr) {
-    // none/stale list
-    auto* list_ptr = (storage::mv::mv_version_chain*)new (
-        partitions[partition_id]->getListChunk())
-        storage::mv::mv_version_chain();
-    delta_list.update(reinterpret_cast<const char*>(list_ptr),
-                      tag.load(std::memory_order_acquire), this->delta_id,
-                      partition_id);
-
-    // logic for transient timestamps instead of persistent.
-    list_ptr->last_updated_tmin =
-        txn::TransactionManager::getInstance().get_min_activeTxn();
-
-    if (!touched) touched = true;
-
-    return list_ptr;
-  }
-
-  return delta_ptr;
-}
-
-void* DeltaStore::create_version(size_t size, partition_id_t partition_id) {
-  throw std::runtime_error("deprecated after delta-list-bug fix");
-  char* cnk = (char*)partitions[partition_id]->getVersionDataChunk(size);
-  if (!touched) touched = true;
-
-  return cnk;
-}
-
-void* DeltaStore::insert_version(DeltaDataPtr& delta_list, xid_t t_min,
-                                 xid_t t_max, size_t rec_size,
-                                 partition_id_t partition_id) {
-  assert(!storage::mv::mv_type::isPerAttributeMVList);
-
-  char* cnk = (char*)partitions[partition_id]->getVersionDataChunk_ThreadLocal(
-      rec_size);
-
-  auto* version_ptr = new ((void*)cnk) storage::mv::mv_version(
-      t_min, t_max, cnk + sizeof(storage::mv::mv_version));
-
-  // point next version to previous head, regardless it is valid or not.
-  if (delta_list.get_ptr() != nullptr) {
-    version_ptr->next._val = delta_list._val;
-  }
-
-  // update pointer on delta_list (which is inside index) to point to latest
-  // version.
-  delta_list.update(reinterpret_cast<const char*>(version_ptr), tag.load(),
-                    this->delta_id, partition_id);
+  char* cnk =
+      (char*)partitions[partition_id]->getVersionDataChunk_ThreadLocal(sz);
 
   if (!touched) touched = true;
-  return version_ptr;
+  return DeltaDataPtr{cnk, tag.load(), this->delta_id, partition_id};
 }
 
-void DeltaStore::gc() {
+void CircularDeltaStore::release(DeltaDataPtr& ptr) { ptr._val = 0; }
+
+void CircularDeltaStore::gc() {
   static thread_local auto& txnManager = txn::TransactionManager::getInstance();
   int64_t e = 0;
   if (deltaMeta.readers.compare_exchange_weak(e, -10000)) {
 #if DELTA_DEBUG
     gc_requests++;
+    // eventlogger.log(this, OLTP_GC_REQUEST);
 #endif
 
     if (txnManager.get_min_activeTxn() > deltaMeta.max_active_epoch) {
@@ -256,22 +214,17 @@ void DeltaStore::gc() {
       }
       touched = false;
       gc_reset_success++;
+      // eventlogger.log(this, OLTP_GC_SUCCESS);
     }
     deltaMeta.readers = 0;
   }
 }
 
-DeltaStore::DeltaPartition::DeltaPartition(char* ver_list_cursor,
-                                           oltp::common::mem_chunk ver_list_mem,
-                                           char* ver_data_cursor,
-                                           oltp::common::mem_chunk ver_data_mem,
-                                           partition_id_t pid,
-                                           delta_id_t delta_id)
-    : ver_list_mem(ver_list_mem),
-      ver_data_mem(ver_data_mem),
-      ver_list_cursor(ver_list_cursor),
+CircularDeltaStore::DeltaPartition::DeltaPartition(
+    uintptr_t ver_data_cursor, oltp::common::mem_chunk ver_data_mem,
+    partition_id_t pid, delta_id_t delta_id)
+    : ver_data_mem(ver_data_mem),
       ver_data_cursor(ver_data_cursor),
-      list_cursor_max(ver_list_cursor + ver_list_mem.size),
       data_cursor_max(ver_data_cursor + ver_data_mem.size),
       touched(false),
       pid(pid),
@@ -280,14 +233,9 @@ DeltaStore::DeltaPartition::DeltaPartition(char* ver_list_cursor,
   // warm-up mem-list
   LOG(INFO) << "\t warming up delta storage P" << (uint32_t)pid << std::endl;
 
-  auto* pt = (uint64_t*)ver_list_cursor;
-  uint64_t warmup_size = ver_list_mem.size / sizeof(uint64_t);
-  pt[0] = 3;
-  for (auto i = 1; i < warmup_size; i++) pt[i] = i * 2;
-
   // warm-up mem-data
-  pt = (uint64_t*)ver_data_cursor;
-  warmup_size = ver_data_mem.size / sizeof(uint64_t);
+  auto* pt = (uint64_t*)ver_data_cursor;
+  uint64_t warmup_size = ver_data_mem.size / sizeof(uint64_t);
   pt[0] = 1;
   for (auto i = 1; i < warmup_size; i++) pt[i] = i * 2;
 
@@ -302,33 +250,17 @@ DeltaStore::DeltaPartition::DeltaPartition(char* ver_list_cursor,
   }
 }
 
-void* DeltaStore::DeltaPartition::getListChunk() {
-  char* tmp = ver_list_cursor.fetch_add(sizeof(storage::mv::mv_version_chain),
-                                        std::memory_order_relaxed);
+void* CircularDeltaStore::DeltaPartition::getVersionDataChunk(size_t rec_size) {
+  auto sz = rec_size;
+  auto tmp = ver_data_cursor.fetch_add(sz, std::memory_order_relaxed);
 
-  assert((tmp + sizeof(storage::mv::mv_version_chain)) <= list_cursor_max);
+  assert(tmp >= reinterpret_cast<uintptr_t>(ver_data_mem.data) &&
+         (tmp + sz) <= data_cursor_max);
   touched = true;
-  return tmp;
+  return reinterpret_cast<void*>(tmp);
 }
 
-void* DeltaStore::DeltaPartition::getChunk(size_t size) {
-  char* tmp = ver_list_cursor.fetch_add(size, std::memory_order_relaxed);
-
-  assert((tmp + size) <= list_cursor_max);
-  touched = true;
-  return tmp;
-}
-
-void* DeltaStore::DeltaPartition::getVersionDataChunk(size_t rec_size) {
-  auto sz = rec_size + sizeof(storage::mv::mv_version);
-  char* tmp = ver_data_cursor.fetch_add(sz, std::memory_order_relaxed);
-
-  assert(tmp >= (char*)(ver_data_mem.data) && (tmp + sz) <= data_cursor_max);
-  touched = true;
-  return tmp;
-}
-
-void* DeltaStore::DeltaPartition::getVersionDataChunk_ThreadLocal(
+void* CircularDeltaStore::DeltaPartition::getVersionDataChunk_ThreadLocal(
     size_t rec_size) {
   constexpr uint slack_size = 8192;
 
@@ -355,7 +287,7 @@ void* DeltaStore::DeltaPartition::getVersionDataChunk_ThreadLocal(
   }
 
   threadLocalSlack& slackRef = local_slack_map[delta_uuid];
-  size_t request_size = rec_size + sizeof(storage::mv::mv_version);
+  size_t request_size = rec_size;
 
   if (reset_listeners[tid]) {
     slackRef.remaining_slack = 0;
@@ -366,12 +298,13 @@ void* DeltaStore::DeltaPartition::getVersionDataChunk_ThreadLocal(
     slackRef.ptr = ver_data_cursor.fetch_add(slack_size);
     slackRef.remaining_slack = slack_size;
 
-    LOG_IF(FATAL, (slackRef.ptr < (char*)(ver_data_mem.data) ||
-                   slackRef.ptr >= data_cursor_max))
+    LOG_IF(FATAL,
+           (slackRef.ptr < reinterpret_cast<uintptr_t>(ver_data_mem.data) ||
+            slackRef.ptr >= data_cursor_max))
         << "Issue: id: " << get_delta_id(this->delta_uuid)
         << " | pid: " << get_delta_pid(delta_uuid);
 
-    assert(slackRef.ptr >= (char*)(ver_data_mem.data) &&
+    assert(slackRef.ptr >= reinterpret_cast<uintptr_t>(ver_data_mem.data) &&
            slackRef.ptr < data_cursor_max);
 
     LOG_IF(FATAL, (slackRef.ptr + slackRef.remaining_slack) > data_cursor_max)
@@ -383,22 +316,23 @@ void* DeltaStore::DeltaPartition::getVersionDataChunk_ThreadLocal(
   }
 
   assert(request_size <= slackRef.remaining_slack);
-  assert((slackRef.ptr >= (char*)(ver_data_mem.data)));
+  assert((slackRef.ptr >= reinterpret_cast<uintptr_t>(ver_data_mem.data)));
   assert((slackRef.ptr < data_cursor_max));
 
-  char* tmp = slackRef.ptr;
+  auto tmp = slackRef.ptr;
   slackRef.ptr += request_size;
   slackRef.remaining_slack -= request_size;
 
-  assert(slackRef.ptr >= (char*)(ver_data_mem.data) &&
+  assert(slackRef.ptr >= reinterpret_cast<uintptr_t>(ver_data_mem.data) &&
          slackRef.ptr < data_cursor_max);
-  assert(tmp >= (char*)(ver_data_mem.data) && tmp < data_cursor_max);
+  assert(tmp >= reinterpret_cast<uintptr_t>(ver_data_mem.data) &&
+         tmp < data_cursor_max);
 
   if (!touched) {
     touched = true;
   }
 
-  return tmp;
+  return reinterpret_cast<void*>(tmp);
 }
 
 }  // namespace storage

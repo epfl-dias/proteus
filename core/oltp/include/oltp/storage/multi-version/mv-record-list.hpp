@@ -34,9 +34,6 @@
 
 namespace storage::mv {
 
-class MV_RecordList_Full;
-class MV_RecordList_Partial;
-
 /* Class: MV_RecordList_Full
  * Description:
  *
@@ -54,10 +51,10 @@ class MV_RecordList_Full {
   static constexpr bool isPerAttributeMVList = false;
 
   using version_t = VersionSingle;
-  using version_chain_t = VersionChain<MV_RecordList_Full>;
+  using version_chain_t = size_t;  // VersionChain<MV_RecordList_Full>;
 
   static std::bitset<1> get_readable_version(
-      const DeltaMemoryPtr& delta_list, const txn::TxnTs& txTs, char* write_loc,
+      const DeltaPtr& delta_list, const txn::TxnTs& txTs, char* write_loc,
       const std::vector<std::pair<uint16_t, uint16_t>>&
           column_size_offset_pairs,
       const column_id_t* col_idx = nullptr, short num_cols = 0);
@@ -67,10 +64,7 @@ class MV_RecordList_Full {
       std::vector<uint16_t>& attribute_widths, storage::DeltaStore& deltaStore,
       partition_id_t partition_id, const column_id_t* col_idx, short num_cols);
 
-  static void rollback(const txn::TxnTs& txTs, global_conf::IndexVal* idx_ptr,
-                       ColumnVector& columns,
-                       const column_id_t* col_idx = nullptr,
-                       short num_cols = 0);
+  static void gc(global_conf::IndexVal* idx_ptr, txn::TxnTs minTxnTs);
 };
 
 /* Class: MV_RecordList_Partial
@@ -87,7 +81,7 @@ class MV_RecordList_Partial {
   using version_chain_t = VersionChain<MV_RecordList_Partial>;
 
   static std::bitset<64> get_readable_version(
-      const DeltaMemoryPtr& delta_list, const txn::TxnTs& txTs, char* write_loc,
+      const DeltaPtr& delta_list, const txn::TxnTs& txTs, char* write_loc,
       const std::vector<std::pair<uint16_t, uint16_t>>&
           column_size_offset_pairs,
       const column_id_t* col_idx = nullptr, short num_cols = 0);
@@ -97,10 +91,11 @@ class MV_RecordList_Partial {
       std::vector<uint16_t>& attribute_widths, storage::DeltaStore& deltaStore,
       partition_id_t partition_id, const column_id_t* col_idx, short num_cols);
 
-  static void rollback(const txn::TxnTs& txTs, global_conf::IndexVal* idx_ptr,
-                       ColumnVector& columns,
-                       const column_id_t* col_idx = nullptr,
-                       short num_cols = 0);
+  //  static void rollback(const txn::TxnTs& txTs, global_conf::IndexVal*
+  //  idx_ptr,
+  //                       ColumnVector& columns,
+  //                       const column_id_t* col_idx = nullptr,
+  //                       short num_cols = 0);
 };
 
 }  // namespace storage::mv

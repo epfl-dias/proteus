@@ -52,7 +52,7 @@ class MV_perAttribute {
   }
 
   static auto get_readable_version(
-      const DeltaMemoryPtr &delta_list, const txn::TxnTs &txTs, char *write_loc,
+      const DeltaPtr &delta_list, const txn::TxnTs &txTs, char *write_loc,
       const std::vector<std::pair<uint16_t, uint16_t>>
           &column_size_offset_pairs,
       const column_id_t *col_idx = nullptr, short num_cols = 0) {
@@ -86,7 +86,7 @@ class MV_attributeList {
       const column_id_t *col_idx, short num_cols);
 
   static std::bitset<64> get_readable_version(
-      const DeltaMemoryPtr &delta_list, const txn::TxnTs &txTs, char *write_loc,
+      const DeltaPtr &delta_list, const txn::TxnTs &txTs, char *write_loc,
       const std::vector<std::pair<uint16_t, uint16_t>>
           &column_size_offset_pairs,
       const column_id_t *col_idx = nullptr, short num_cols = 0);
@@ -122,7 +122,7 @@ class MV_DAG {
       const column_id_t *col_idx, short num_cols);
 
   static std::bitset<64> get_readable_version(
-      const DeltaMemoryPtr &delta_list, xid_t xid, char *write_loc,
+      const DeltaPtr &delta_list, xid_t xid, char *write_loc,
       const std::vector<std::pair<uint16_t, uint16_t>>
           &column_size_offset_pairs,
       const column_id_t *col_idx = nullptr, short num_cols = 0);

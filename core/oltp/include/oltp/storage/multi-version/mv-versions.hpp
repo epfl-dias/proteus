@@ -34,11 +34,17 @@
 
 namespace storage::mv {
 
-class Version {
+class __attribute__((packed)) Version {
  public:
-  const xid_t t_min;
-  [[maybe_unused]] const xid_t t_max;
-  void *data;
+  Version(Version &&) = delete;
+  Version &operator=(Version &&) = delete;
+  Version(const Version &) = delete;
+  Version &operator=(const Version &) = delete;
+
+ public:
+  const xid_t t_min{};
+  [[maybe_unused]] const xid_t t_max{};
+  void *data{};
 
   Version(xid_t t_min, xid_t t_max, void *data)
       : t_min(t_min), t_max(t_max), data(data) {}
@@ -53,10 +59,16 @@ class Version {
   virtual ~Version() = default;
 };
 
-class VersionSingle : public Version {
+class __attribute__((packed)) VersionSingle : public Version {
+ public:
+  VersionSingle(VersionSingle &&) = delete;
+  VersionSingle &operator=(VersionSingle &&) = delete;
+  VersionSingle(const VersionSingle &) = delete;
+  VersionSingle &operator=(const VersionSingle &) = delete;
+
  public:
   // VersionSingle *next;
-  TaggedDeltaDataPtr<VersionSingle> next;
+  TaggedDeltaDataPtr<VersionSingle> next{};
 
   [[maybe_unused]] VersionSingle(xid_t t_min, xid_t t_max, void *data)
       : Version(t_min, t_max, data), next(0) {}
@@ -153,20 +165,45 @@ class VersionChain {
     head = val;
   }
 
-  static typename T::version_t *get_readable_ver(
-      TaggedDeltaDataPtr<typename T::version_t> &head_ref,
-      const txn::TxnTs &txTs) {
-    TaggedDeltaDataPtr<typename T::version_t> tmp = head_ref;
+  // static typename T::version_t *get_readable_ver(
+  static const TaggedDeltaDataPtr<typename T::version_t> *get_readable_ver(
+      const txn::TxnTs &txTs,
+      const TaggedDeltaDataPtr<typename T::version_t> &head_ref,
+      bool force = true) {
+    auto tmp = &head_ref;
+    while (tmp->isValid()) {
+      auto ptr = tmp->typePtr();
 
-    while (tmp.is_valid()) {
-      auto ptr = tmp.ptr();
-      if (global_conf::ConcurrencyControl::is_readable(ptr->t_min, txTs)) {
-        return ptr;
+      if (ptr != nullptr &&
+          global_conf::ConcurrencyControl::is_readable(ptr->t_min, txTs)) {
+        return tmp;
       } else {
-        tmp = ptr->next;
+        tmp = &(ptr->next);
       }
     }
-    assert(false && "if asked then why there is no version?");
+    if (force) {
+      LOG(INFO) << "FAILED_MV:" << std::this_thread::get_id()
+                << " | txn_start_time: " << txTs.txn_start_time;
+      LOG(INFO) << "FAILED_MV:" << std::this_thread::get_id()
+                << " | txn_id: " << txTs.txn_id;
+      LOG(INFO) << "FAILED_MV:" << std::this_thread::get_id()
+                << " | tMin: " << head_ref.typePtr()->t_min;
+      tmp = &head_ref;
+      while (tmp->isValid()) {
+        auto ptr = tmp->typePtr();
+        LOG(INFO) << "FAILED_MV:" << std::this_thread::get_id()
+                  << " | tMin: " << ptr->t_min;
+        if (ptr != nullptr &&
+            global_conf::ConcurrencyControl::is_readable(ptr->t_min, txTs)) {
+          LOG(INFO) << "FAILED_MV:" << std::this_thread::get_id() << "Passed";
+          return tmp;
+        } else {
+          tmp = &(ptr->next);
+        }
+      }
+
+      assert(false && "if asked then why there is no version?");
+    }
     return nullptr;
   }
 
@@ -178,30 +215,32 @@ class VersionChain {
   xid_t last_updated_tmin{};
   xid_t last_updated_tmax{};
 
-  friend class storage::DeltaStore;
+  friend storage::DeltaStore;
   friend T;
 };
 
 class MVattributeListCol {
  private:
-  DeltaList *version_list;
+  DeltaPtr *version_list;
 
  public:
   static size_t getSize(size_t num_attributes) {
-    return sizeof(MVattributeListCol) + (sizeof(DeltaList) * num_attributes);
+    return sizeof(MVattributeListCol) + (sizeof(DeltaPtr) * num_attributes) +
+           alignof(DeltaPtr);
   }
 
   static void create(void *ptr, size_t num_attr) {
     auto *tmp = new (ptr) MVattributeListCol();
     tmp->version_list =
-        (DeltaList *)(((char *)ptr) + sizeof(MVattributeListCol));
+        (DeltaPtr *)(((char *)ptr) + sizeof(MVattributeListCol));
 
+    tmp->version_list =
+        new ((((char *)ptr) + sizeof(MVattributeListCol))) DeltaPtr[num_attr];
     // FIXME: is the following necessary?
-    for (auto i = 0; i < num_attr; i++) {
-      // tmp->version_list[i] = (DeltaList*) new (tmp->version_list + i)
-      // DeltaList();
-      tmp->version_list[i].updateVal(0);
-    }
+    //    for (auto i = 0; i < num_attr; i++) {
+    //      (DeltaPtr*) new (tmp->version_list + i) DeltaPtr(0);
+    //     // tmp->version_list[i].reset();
+    //    }
   }
 
  private:

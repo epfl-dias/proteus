@@ -41,49 +41,52 @@
 
 namespace storage {
 
-/* Currently DeltaStore is not resizeable*/
-
-class DeltaList;
 class DeltaDataPtr;
+class ClassicPtrWrapper;
+class CircularDeltaStore;
+class DeltaStoreMalloc;
 
-class alignas(4096) DeltaStore {
- public:
-  explicit DeltaStore(delta_id_t delta_id, uint64_t ver_list_capacity = 4,
-                      uint64_t ver_data_capacity = 4,
-                      partition_id_t num_partitions = 1);
-  ~DeltaStore();
-
-  void print_info();
-  // for single-list
-  void *insert_version(DeltaDataPtr &delta_list, xid_t t_min, xid_t t_max,
-                       size_t rec_size, partition_id_t partition_id);
-  // for list-per-attribute
-  std::pair<void *, void *> insert_version(DeltaList &delta_list, xid_t t_min,
-                                           xid_t t_max, size_t rec_size,
-                                           partition_id_t partition_id);
-  //  void *validate_or_create_list(void *list_ptr, size_t &delta_ver_tag,
-  //                                ushort partition_id);
-  void *validate_or_create_list(DeltaList &delta_list,
-                                partition_id_t partition_id);
-  void *getTransientChunk(DeltaList &delta_list, size_t size,
-                          partition_id_t partition_id);
-  void *create_version(size_t size, partition_id_t partition_id);
-  void gc();
-
-  inline bool should_gc() {
-#if (GC_CAPACITY_MIN_PERCENT > 0)
-    for (auto &p : partitions) {
-      // LOG(INFO) << "usage: " << p->usage() ;
-      if (p->usage() > ((double)GC_CAPACITY_MIN_PERCENT) / 100) {
-        // LOG(INFO) << "usage: " << p->usage()*100;
-        return true;
-      }
-    }
-    return false;
+#if GC_STEAM
+using DeltaStore = DeltaStoreMalloc;
 #else
-    return true;
+using DeltaStore = CircularDeltaStore;
 #endif
+
+class DeltaStoreMalloc {
+ public:
+  explicit DeltaStoreMalloc(delta_id_t delta_id, uint64_t ver_data_capacity = 4,
+                            partition_id_t num_partitions = 1);
+
+  ClassicPtrWrapper allocate(size_t sz, partition_id_t partition_id);
+  void release(ClassicPtrWrapper &ptr);
+
+  inline void update_active_epoch(xid_t epoch, worker_id_t worker_id) {
+    return;
   }
+
+  inline void increment_reader(xid_t epoch, worker_id_t worker_id) { return; }
+
+  inline void decrement_reader(uint64_t epoch, worker_id_t worker_id) {
+    return;
+  }
+
+ public:
+  const uint64_t total_mem_reserved{};
+  std::mutex lk;
+
+ public:
+  static ClassicPtrWrapper ptrType;
+};
+
+class alignas(4096) CircularDeltaStore {
+ public:
+  explicit CircularDeltaStore(delta_id_t delta_id,
+                              uint64_t ver_data_capacity = 4,
+                              partition_id_t num_partitions = 1);
+  ~CircularDeltaStore();
+
+  DeltaDataPtr allocate(size_t sz, partition_id_t partition_id);
+  void release(DeltaDataPtr &ptr);
 
   inline void update_active_epoch(xid_t epoch, worker_id_t worker_id) {
     //    xid_t e = max_active_epoch;
@@ -92,7 +95,7 @@ class alignas(4096) DeltaStore {
     //    std::memory_order_relaxed))){
     //      e = max_active_epoch;
     //    }
-
+    assert(deltaMeta.readers > 0);
     while (deltaMeta.max_active_epoch < epoch) {
       deltaMeta.max_active_epoch = epoch;
     }
@@ -125,35 +128,54 @@ class alignas(4096) DeltaStore {
     }
   }
 
+  static DeltaDataPtr ptrType;
+
+ private:
+  void print_info();
+  void gc();
+
+  inline bool should_gc() {
+#if (GC_CAPACITY_MIN_PERCENT > 0)
+    for (auto &p : partitions) {
+      // LOG(INFO) << "usage: " << p->usage() ;
+      if (p->usage() > ((double)GC_CAPACITY_MIN_PERCENT) / 100) {
+        // LOG(INFO) << "usage: " << p->usage()*100;
+        return true;
+      }
+    }
+    return false;
+#else
+    return true;
+#endif
+  }
+
  private:
   class alignas(hardware_destructive_interference_size) DeltaPartition {
-    std::atomic<char *> ver_list_cursor;
-    std::atomic<char *> ver_data_cursor;
+    std::atomic<uintptr_t> ver_data_cursor;
     const delta_id_t delta_id;
     const partition_id_t pid;
     const uint16_t delta_uuid;
-    const oltp::common::mem_chunk ver_list_mem;
     const oltp::common::mem_chunk ver_data_mem;
     bool touched;
-    const char *list_cursor_max;
-    const char *data_cursor_max;
+    const uintptr_t data_cursor_max;
 
     std::vector<bool> reset_listeners;
 
     class threadLocalSlack {
      public:
-      char *ptr{};
+      uintptr_t ptr{};
       int remaining_slack{};
-      threadLocalSlack() : ptr(nullptr), remaining_slack(0) {}
+      threadLocalSlack()
+          : ptr(reinterpret_cast<uintptr_t>(nullptr)), remaining_slack(0) {}
     };
 
     static_assert(sizeof(delta_id_t) == 1);
     static_assert(sizeof(partition_id_t) == 1);
 
    public:
-    DeltaPartition(char *ver_list_cursor, oltp::common::mem_chunk ver_list_mem,
-                   char *ver_data_cursor, oltp::common::mem_chunk ver_data_mem,
-                   partition_id_t pid, delta_id_t delta_id);
+    DeltaPartition(uintptr_t ver_data_cursor,
+                   oltp::common::mem_chunk ver_data_mem, partition_id_t pid,
+                   delta_id_t delta_id);
 
     static inline uint16_t create_delta_uuid(delta_id_t d_id,
                                              partition_id_t partitionId) {
@@ -173,14 +195,12 @@ class alignas(4096) DeltaStore {
       if (DELTA_DEBUG) {
         LOG(INFO) << "Clearing DeltaPartition-" << (int)pid;
       }
-      MemoryManager::freePinned(ver_list_mem.data);
       MemoryManager::freePinned(ver_data_mem.data);
     }
 
     void reset() {
       if (__builtin_expect(touched, 1)) {
-        ver_list_cursor = (char *)ver_list_mem.data;
-        ver_data_cursor = (char *)ver_data_mem.data;
+        ver_data_cursor = reinterpret_cast<uintptr_t>(ver_data_mem.data);
 
         for (auto &&reset_listener : reset_listeners) {
           reset_listener = true;
@@ -190,9 +210,6 @@ class alignas(4096) DeltaStore {
       }
       touched = false;
     }
-    void *getListChunk();
-
-    void *getChunk(size_t size);
 
     void *getVersionDataChunk(size_t rec_size);
     void *getVersionDataChunk_ThreadLocal(size_t rec_size);
@@ -217,7 +234,7 @@ class alignas(4096) DeltaStore {
                 << "GB  --  " << percent << "%%" << std::endl;
     }
 
-    friend class DeltaStore;
+    friend class CircularDeltaStore;
   };
 
  public:
@@ -241,7 +258,7 @@ class alignas(4096) DeltaStore {
  public:
   uint64_t total_mem_reserved;
 
-  friend class DeltaMemoryPtr;
+  friend class DeltaDataPtr;
 };
 
 }  // namespace storage
