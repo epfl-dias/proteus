@@ -24,6 +24,7 @@
 #include "oltp/storage/schema.hpp"
 
 #include <platform/threadpool/threadpool.hpp>
+#include <utility>
 
 #include "oltp/common/numa-partition-policy.hpp"
 #include "oltp/storage/layout/column_store.hpp"
@@ -32,12 +33,64 @@
 
 namespace storage {
 
+std::shared_ptr<Table> Schema::getTable(table_id_t tableId) {
+  std::unique_lock<std::mutex> lk(schema_lock);
+  if (tables.size() > tableId) {
+    return tables.at(tableId);
+  }
+  return {};
+}
+
+std::shared_ptr<Table> Schema::getTable(const std::string& name) {
+  std::unique_lock<std::mutex> lk(schema_lock);
+
+  if (this->table_name_map.contains(name)) {
+    return tables.at(table_name_map[name]);
+  }
+  return {};
+}
+
+std::shared_ptr<Table> Schema::create_table(
+    const std::string& name, layout_type layout, const TableDef& columns,
+    size_t initial_num_records, bool indexed, bool partitioned, int numa_idx) {
+  std::unique_lock<std::mutex> lk(schema_lock);
+  // auto proteusAllocator =
+  // proteus::memory::PinnedMemoryAllocator<ColumnStore>();
+
+  LOG(INFO) << "Creating table: " << name
+            << " | Capacity: " << initial_num_records;
+
+  if (numa_idx < 0)
+    numa_idx =
+        storage::NUMAPartitionPolicy::getInstance().getDefaultPartition();
+
+  switch (layout) {
+    case COLUMN_STORE: {
+      auto tblRef = tables.emplace(
+          this->num_tables,
+          std::allocate_shared<ColumnStore>(
+              proteus::memory::PinnedMemoryAllocator<ColumnStore>(),
+              (this->num_tables), name, columns, indexed, partitioned,
+              initial_num_records, numa_idx));
+
+      table_name_map.emplace(name, this->num_tables);
+      this->num_tables++;
+      this->total_mem_reserved += tblRef.first->second->total_memory_reserved;
+      return tblRef.first->second;
+    }
+    default:
+      throw std::runtime_error("Unknown layout type");
+  }
+}
+
 void Schema::ETL(uint numa_affinity_idx) {
   std::vector<std::thread> workers;
 
-  for (const auto& tbl : this->tables) {
-    workers.emplace_back(
-        [tbl, numa_affinity_idx]() { tbl->ETL(numa_affinity_idx); });
+  for (const auto& [tblID, tbl] : this->tables) {
+    auto table_id = tblID;
+    workers.emplace_back([this, table_id, numa_affinity_idx]() {
+      this->tables.at(table_id)->ETL(numa_affinity_idx);
+    });
   }
 
   for (auto& th : workers) {
@@ -83,7 +136,7 @@ bool Schema::sync_master_ver_schema(
   // start
   for (auto& tbl : tables) {
     sync_tasks.emplace_back(ThreadPool::getInstance().enqueue(
-        &Schema::sync_master_ver_tbl, this, tbl, snapshot_master_ver));
+        &Schema::sync_master_ver_tbl, this, tbl.second, snapshot_master_ver));
   }
 
   // wait for finish
@@ -95,7 +148,7 @@ bool Schema::sync_master_ver_schema(
   return true;
 }
 
-bool Schema::sync_master_ver_tbl(storage::Table* tbl,
+bool Schema::sync_master_ver_tbl(const std::shared_ptr<Table>& tbl,
                                  master_version_t snapshot_master_ver) {
   tbl->twinColumn_syncMasters(snapshot_master_ver);
   return true;
@@ -113,7 +166,7 @@ void Schema::snapshot(xid_t epoch,
     }
   } else {
     for (const auto& tbl : tables) {
-      tbl->snapshot(epoch);
+      tbl.second->snapshot(epoch);
     }
   }
 }
@@ -134,7 +187,7 @@ void Schema::report() {
 
   for (const auto& tbl : tables) {
     // tbl->p_index->report();
-    tbl->reportUsage();
+    tbl.second->reportUsage();
   }
 }
 
@@ -149,80 +202,26 @@ void Schema::teardown(const std::string& cdf_out_path) {
     delete dt;
   }
 
-  for (const auto& tbl : tables) {
-    tbl->~Table();
-    MemoryManager::freePinned(tbl);
-  }
+  //  for (const auto& tbl : tables) {
+  //    tbl->~Table();
+  //    MemoryManager::freePinned(tbl);
+  //  }
   tables.clear();
   table_name_map.clear();
+  this->cleaned = true;
 }
 
-Table* Schema::getTable(table_id_t tableId) {
-  std::unique_lock<std::mutex> lk(schema_lock);
-  if (tables.size() > tableId) {
-    return tables.at(tableId);
-  }
-  return nullptr;
-}
-
-Table* Schema::getTable(const std::string& name) {
-  std::unique_lock<std::mutex> lk(schema_lock);
-
-  if (this->table_name_map.contains(name)) {
-    return table_name_map[name];
-  }
-  return nullptr;
-}
-
-Table* Schema::create_table(std::string name, layout_type layout,
-                            TableDef columns, size_t initial_num_records,
-                            bool indexed, bool partitioned, int numa_idx) {
-  std::unique_lock<std::mutex> lk(schema_lock);
-
-  LOG(INFO) << "Creating table: " << name
-            << " | Capacity: " << initial_num_records;
-
-  Table* tbl = nullptr;
-  if (numa_idx < 0)
-    numa_idx =
-        storage::NUMAPartitionPolicy::getInstance().getDefaultPartition();
-
-  switch (layout) {
-    case COLUMN_STORE: {
-      void* obj_ptr =
-          MemoryManager::mallocPinnedOnNode(sizeof(ColumnStore), numa_idx);
-      tbl =
-          new (obj_ptr) ColumnStore((this->num_tables), name, columns, indexed,
-                                    partitioned, initial_num_records, numa_idx);
-      tables.push_back(tbl);
-      table_name_map.insert_or_assign(name, tbl);
-      this->num_tables++;
-      this->total_mem_reserved += tbl->total_memory_reserved;
-      break;
-    }
-    default:
-      throw std::runtime_error("Unknown layout type");
-  }
-
-  return tbl;
-}
-
-void Schema::drop_table(Table* table) {
-  std::unique_lock<std::mutex> lk(schema_lock);
-
-  this->total_mem_reserved -= table->total_memory_reserved;
-  this->num_tables--;
-
-  table->~Table();
-  MemoryManager::freePinned(table);
-}
 
 void Schema::drop_table(const std::string& name) {
   std::unique_lock<std::mutex> lk(schema_lock);
 
   if (table_name_map.contains(name)) {
-    drop_table(table_name_map[name]);
+    auto table_id = table_name_map[name];
     table_name_map.erase(name);
+    tables.erase(table_id);
+
+    LOG(INFO) << "Table " << name << " (table_id: " << table_id
+              << " ) dropped.";
   } else {
     throw std::runtime_error("Table not found");
   }

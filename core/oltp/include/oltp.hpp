@@ -24,6 +24,7 @@
 #ifndef OLTP_HPP_
 #define OLTP_HPP_
 
+#include <cassert>
 #include <utility>
 
 #include "oltp/common/constants.hpp"
@@ -128,7 +129,7 @@ class OLTP {
     size_t total_oltp = 0;
 
     for (auto &tbl : db->getTables()) {
-      auto tmp = _getFreshnessRelation(tbl);
+      auto tmp = _getFreshnessRelation(tbl.second);
       total_olap += tmp.first;
       total_oltp += tmp.second;
     }
@@ -178,12 +179,15 @@ class OLTP {
   scheduler::WorkerPool *worker_pool;
   txn::TransactionManager *txn_manager;
 
-  inline std::pair<size_t, size_t> _getFreshnessRelation(storage::Table *rel) {
+  inline std::pair<size_t, size_t> _getFreshnessRelation(
+      std::shared_ptr<storage::Table> rel) {
+    assert(rel->storage_layout == storage::COLUMN_STORE);
+
     int64_t *oltp_num_records =
-        ((storage::ColumnStore *)rel)
+        ((storage::ColumnStore *)rel.get())
             ->snapshot_get_number_tuples(false, false);  // oltp snapshot
     int64_t *olap_num_records =
-        ((storage::ColumnStore *)rel)
+        ((storage::ColumnStore *)rel.get())
             ->snapshot_get_number_tuples(true, false);  // olap snapshot
     size_t oltp_sum = 0;
     size_t olap_sum = 0;

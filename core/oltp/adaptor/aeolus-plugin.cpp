@@ -37,13 +37,17 @@ using namespace llvm;
 extern "C" {
 storage::ColumnStore *getRelation(std::string fnamePrefix,
                                   std::string opt_suffix = "") {
-  for (auto &tb : storage::Schema::getInstance().getTables()) {
-    if (fnamePrefix.compare(tb->name) == 0 ||
-        (fnamePrefix == (tb->name + opt_suffix))) {
-      // assert(tb->storage_layout == storage::COLUMN_STORE);
-      return (storage::ColumnStore *)tb;
+  auto tbl = storage::Schema::getInstance().getTable(fnamePrefix);
+  if (tbl) {
+    return (storage::ColumnStore *)tbl.get();
+  } else if (opt_suffix.length() > 0) {
+    auto nameCopy = fnamePrefix.substr(0, fnamePrefix.find(opt_suffix));
+    auto tblp = storage::Schema::getInstance().getTable(nameCopy);
+    if (tblp) {
+      return (storage::ColumnStore *)tblp.get();
     }
   }
+
   auto msg = std::string("Relation not found: ") + fnamePrefix;
   LOG(INFO) << msg;
   throw std::runtime_error(msg);

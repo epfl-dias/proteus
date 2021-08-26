@@ -120,19 +120,19 @@ class TPCC : public Benchmark {
   const uint tpch_scale_factor;
 
   storage::Schema *schema;
-  storage::Table *table_warehouse{};
-  storage::Table *table_district{};
-  storage::Table *table_customer{};
-  storage::Table *table_history{};
-  storage::Table *table_new_order{};
-  storage::Table *table_order{};
-  storage::Table *table_order_line{};
-  storage::Table *table_stock{};
-  storage::Table *table_item{};
+  std::shared_ptr<storage::Table> table_warehouse{};
+  std::shared_ptr<storage::Table> table_district{};
+  std::shared_ptr<storage::Table> table_customer{};
+  std::shared_ptr<storage::Table> table_history{};
+  std::shared_ptr<storage::Table> table_new_order{};
+  std::shared_ptr<storage::Table> table_order{};
+  std::shared_ptr<storage::Table> table_order_line{};
+  std::shared_ptr<storage::Table> table_stock{};
+  std::shared_ptr<storage::Table> table_item{};
 
-  storage::Table *table_region{};
-  storage::Table *table_nation{};
-  storage::Table *table_supplier{};
+  std::shared_ptr<storage::Table> table_region{};
+  std::shared_ptr<storage::Table> table_nation{};
+  std::shared_ptr<storage::Table> table_supplier{};
 
   int num_warehouse;
   int g_dist_threshold;

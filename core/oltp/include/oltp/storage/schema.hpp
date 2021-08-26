@@ -101,20 +101,23 @@ class Schema {
   // Singleton
   static inline Schema &getInstance() {
     static Schema instance;
+    assert(!instance.cleaned);
     return instance;
   }
   Schema(Schema const &) = delete;          // Don't Implement
   void operator=(Schema const &) = delete;  // Don't implement
 
   /* returns pointer to the table */
-  Table *create_table(std::string name, layout_type layout, TableDef columns,
-                      uint64_t initial_num_records = 10000000,
-                      bool indexed = true, bool partitioned = true,
-                      int numa_idx = -1);
+  std::shared_ptr<Table> create_table(
+      const std::string &name, layout_type layout, const TableDef &columns,
+      uint64_t initial_num_records = 10000000, bool indexed = true,
+      bool partitioned = true, int numa_idx = -1);
 
-  storage::Table *getTable(table_id_t tableId);
-  Table *getTable(const std::string &name);
-  const std::vector<Table *> &getTables() { return tables; }
+  std::shared_ptr<Table> getTable(table_id_t tableId);
+  std::shared_ptr<Table> getTable(const std::string &name);
+  const std::map<table_id_t, std::shared_ptr<Table>> &getTables() {
+    return tables;
+  }
   void drop_table(const std::string &name);
 
   void teardown(const std::string &cdf_out_path = "");
@@ -160,9 +163,10 @@ class Schema {
   static void save_cdf(const std::string &out_path);
 
  private:
-  std::vector<Table *> tables{};
+  std::map<table_id_t, std::shared_ptr<Table>> tables{};
+  std::map<std::string, table_id_t> table_name_map{};
+
   DeltaStore *deltaStore[global_conf::num_delta_storages]{};
-  std::map<std::string, Table *> table_name_map{};
 
   // serialization-lock
   std::mutex schema_lock;
@@ -177,25 +181,26 @@ class Schema {
   std::atomic<bool> snapshot_sync_in_progress;
 
  private:
-  void drop_table(Table *);
-  bool sync_master_ver_tbl(storage::Table *tbl,
+  bool sync_master_ver_tbl(const std::shared_ptr<Table> &tbl,
                            master_version_t snapshot_master_ver);
   bool sync_master_ver_schema(master_version_t snapshot_master_ver);
 
+  ~Schema() { LOG(INFO) << "Schema::~Schema()"; }
   Schema()
       : total_mem_reserved(0),
         total_delta_mem_reserved(0),
         snapshot_sync_in_progress(false),
         num_tables(0) {
-    aeolus::snapshot::SnapshotManager::init();
+    // aeolus::snapshot::SnapshotManager::init();
 
     for (int i = 0; i < global_conf::num_delta_storages; i++) {
-      deltaStore[i] =
-          new DeltaStore(i, g_delta_size, g_delta_size, g_num_partitions);
+      deltaStore[i] = new DeltaStore(i, g_delta_size, g_num_partitions);
       this->total_delta_mem_reserved += deltaStore[i]->total_mem_reserved;
     }
   }
 
+ private:
+  bool cleaned = false;
   friend class Table;
   friend class ColumnStore;
 };

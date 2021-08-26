@@ -64,6 +64,12 @@ namespace bench {
 */
 
 class YCSB : public Benchmark {
+ public:
+  YCSB(YCSB &&) = delete;
+  YCSB &operator=(YCSB &&) = delete;
+  YCSB(const YCSB &) = delete;
+  YCSB &operator=(const YCSB &) = delete;
+
  private:
   const int num_fields;
   const int num_records;
@@ -75,7 +81,7 @@ class YCSB : public Benchmark {
 
   // uint64_t recs_per_server;
   storage::Schema *schema;
-  storage::Table *ycsb_tbl{};
+  std::shared_ptr<storage::Table> ycsb_tbl{};
 
   const uint num_of_col_upd_per_op;
   const uint num_of_col_read_per_op;
@@ -290,11 +296,17 @@ class YCSB : public Benchmark {
     }
     // txn::CC_MV2PL::release_locks(hash_ptrs_lock_acquired.data(), num_locks);
 
+    // FIXME: commitTs should be acquire after acquiring all logs, not use the
+    // start_time. but then, all versions create need to be updated also.
+    txn.commit_ts = txn.txnTs.txn_start_time;
     return true;
   }
 
   void init() override {}
-  void deinit() override { zipf.~ZipfianGenerator(); }
+  void deinit() override {
+    ycsb_tbl.reset();
+    zipf.~ZipfianGenerator();
+  }
   ~YCSB() override = default;
 
   BenchQueue *getBenchQueue(worker_id_t workerId,

@@ -29,7 +29,7 @@
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
 
-static storage::Table *tbl;
+static std::shared_ptr<storage::Table> tbl;
 static auto num_fields = 2;
 static size_t record[] = {1, 2};
 static auto initial_records = 100;

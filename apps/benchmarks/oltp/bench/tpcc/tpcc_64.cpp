@@ -71,6 +71,20 @@ void TPCC::init_tpcc_seq_array() {
 }
 
 TPCC::~TPCC() {
+  // clear references from shared ptrs
+  table_warehouse.reset();
+  table_district.reset();
+  table_customer.reset();
+  table_history.reset();
+  table_new_order.reset();
+  table_order.reset();
+  table_order_line.reset();
+  table_stock.reset();
+  table_item.reset();
+  table_region.reset();
+  table_nation.reset();
+  table_supplier.reset();
+
   if (schema->getTable("tpcc_warehouse") != nullptr)
     schema->drop_table("tpcc_warehouse");
 

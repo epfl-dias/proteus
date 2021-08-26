@@ -39,7 +39,7 @@ namespace storage {
 
 static std::mutex m_catalog;
 
-Table::~Table() = default;
+Table::~Table() { LOG(INFO) << "Destructing table: " << this->name; };
 
 Table::Table(table_id_t table_id, std::string& name, layout_type storage_layout,
              TableDef& columns)
@@ -51,7 +51,6 @@ Table::Table(table_id_t table_id, std::string& name, layout_type storage_layout,
     // vid.emplace_back();
     vid[i].vid_part.store(0);
   }
-
   std::vector<RecordAttribute*> attrs;
   attrs.reserve(columns.size());
   for (const auto& c : columns.getColumns()) {
@@ -64,7 +63,6 @@ Table::Table(table_id_t table_id, std::string& name, layout_type storage_layout,
   auto exprType = new BagType(
       *(new RecordType(attrs)));  // new and derefernce is needed due to the
   // BagType getting a reference
-
   std::lock_guard<std::mutex> lock{m_catalog};
   // FIXME: the table should not require knowledge of all the plugin types
   //  one possible solution is to register the tables "variants" when asking
@@ -79,15 +77,15 @@ Table::Table(table_id_t table_id, std::string& name, layout_type storage_layout,
 }
 
 void Table::reportUsage() {
-  std::cout << "Table: " << this->name << std::endl;
+  LOG(INFO) << "Table: " << this->name;
   for (auto i = 0; i < g_num_partitions; i++) {
     auto curr = vid[i].vid_part.load();
     double percent =
         ((double)curr / ((double)(record_capacity / g_num_partitions))) * 100;
 
-    std::cout << "P" << i << ": " << curr << " / "
-              << (record_capacity / g_num_partitions) << " | " << percent << "%"
-              << std::endl;
+    LOG(INFO) << "P" << i << ": " << curr << " / "
+              << (record_capacity / g_num_partitions) << " | " << percent
+              << "%";
   }
 }
 
