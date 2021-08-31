@@ -91,11 +91,7 @@ class MV_RecordList_Partial {
       std::vector<uint16_t>& attribute_widths, storage::DeltaStore& deltaStore,
       partition_id_t partition_id, const column_id_t* col_idx, short num_cols);
 
-  //  static void rollback(const txn::TxnTs& txTs, global_conf::IndexVal*
-  //  idx_ptr,
-  //                       ColumnVector& columns,
-  //                       const column_id_t* col_idx = nullptr,
-  //                       short num_cols = 0);
+  static void gc(global_conf::IndexVal* idx_ptr, txn::TxnTs minTxnTs);
 };
 
 }  // namespace storage::mv

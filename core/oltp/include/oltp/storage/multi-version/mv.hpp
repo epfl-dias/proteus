@@ -31,15 +31,6 @@
 
 namespace storage::mv {
 
-// using mv_type = MV_RecordList_Full;
-// using mv_type = MV_RecordList_Partial;
-
-// using mv_type = MV_perAttribute<MV_attributeList>;
-// using mv_type = MV_perAttribute<MV_DAG>;
-
-// using mv_version_chain = mv_type::version_chain_t;
-// using mv_version = mv_type::version_t;
-
 template <typename MvType = MV_RecordList_Full>
 class MultiVersionStorage_impl {
  public:
@@ -75,6 +66,9 @@ class MultiVersionStorage_impl {
 };
 
 using mv_type = MultiVersionStorage_impl<MV_RecordList_Full>;
+// using mv_type = MultiVersionStorage_impl<MV_RecordList_Partial>;
+// using mv_type = MultiVersionStorage_impl<MV_perAttribute<MV_attributeList>>;
+// using mv_type = MultiVersionStorage_impl<MV_perAttribute<MV_DAG>>;
 
 }  // namespace storage::mv
 
