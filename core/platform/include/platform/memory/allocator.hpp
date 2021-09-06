@@ -35,7 +35,14 @@ namespace proteus::memory {
 template <typename T>
 class PinnedMemoryAllocator {
  public:
-  typedef T value_type;
+  using type = PinnedMemoryAllocator<T>;
+  using other = PinnedMemoryAllocator<T>;
+
+  using value_type = T;
+  using size_type = std::size_t;
+  using difference_type = std::ptrdiff_t;
+  using propagate_on_container_move_assignment = std::true_type;
+  using is_always_equal = std::true_type;
 
   PinnedMemoryAllocator() = default;
   template <class U>
@@ -53,6 +60,9 @@ class PinnedMemoryAllocator {
   }
 
  public:
+  template <class U>
+  using rebind = PinnedMemoryAllocator<U>;
+
   /**
    * @param n requested allocation size
    * @return An aligned pointer to the allocated memory
