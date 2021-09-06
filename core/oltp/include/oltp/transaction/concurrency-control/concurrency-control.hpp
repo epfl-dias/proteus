@@ -68,11 +68,7 @@ class CC_MV2PL {
     template <class lambda>
     inline void writeWithLatch(lambda &&func, Txn &txn, table_id_t table_id) {
       latch.template writeWithLatch(func, this);
-
-      if constexpr (GcMechanism == GcTypes::SteamGC) {
-        txn.undoLogMap[table_id].emplace_back(VID);
-      }
-      // std::atomic_thread_fence(std::memory_order_seq_cst);
+      txn.undoLogMap[table_id].emplace_back(VID);
     }
 
     template <class lambda>

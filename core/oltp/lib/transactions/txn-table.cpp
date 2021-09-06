@@ -45,11 +45,15 @@ ThreadLocal_TransactionTable::~ThreadLocal_TransactionTable() {
   assert(thread_id == std::this_thread::get_id());
 
   TransactionManager::getInstance().deregisterTxnTable(this);
-  while (!_committedTxn.empty()) {
-    auto min_last_alive = TransactionManager::getInstance().get_last_alive();
-    this->steamGC({min_last_alive << TransactionManager::txnPairGen::baseShift,
-                   min_last_alive});
-  }
+  //  if(GcMechanism == GcTypes::SteamGC){
+  //    while (!_committedTxn.empty()) {
+  //      auto min_last_alive =
+  //      TransactionManager::getInstance().get_last_alive();
+  //      this->steamGC({min_last_alive <<
+  //      TransactionManager::txnPairGen::baseShift,
+  //                     min_last_alive});
+  //    }
+  //  }
   free(activeTxnPtr);
   LOG(INFO) << "[~ThreadLocal_TransactionTable()] END - worker_id: "
             << (uint)(this->workerID);
@@ -101,9 +105,11 @@ void ThreadLocal_TransactionTable::endTxn(Txn &txn) {
                                                  txn.txnTs.txn_start_time);
   }
 
-  if constexpr (GcMechanism == GcTypes::SteamGC) {
-    _committedTxn.emplace_back(std::move(txn));
-  }
+  //  if constexpr (GcMechanism == GcTypes::SteamGC) {
+  //    _committedTxn.emplace_back(std::move(txn));
+  //  }
+  // this drops a little bit (1.8 -> 1.5)
+  _committedTxn.emplace_back(std::move(txn));
 }
 
 }  // namespace txn

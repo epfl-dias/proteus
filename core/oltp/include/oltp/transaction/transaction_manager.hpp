@@ -63,10 +63,10 @@ class TransactionManager {
   //  }
   static constexpr delta_id_t get_delta_ver(xid_t xid) {
     // return extract_epoch(xid) % global_conf::num_delta_storages;
-    if constexpr (GcMechanism == GcTypes::SteamGC)
-      return 0;
-    else
+    if constexpr (GcMechanism == GcTypes::OneShot)
       return (xid >> (delta_switch_bit)) % global_conf::num_delta_storages;
+    else
+      return 0;
   }
 
   // TODO: move the following to snapshot manager
@@ -160,7 +160,7 @@ class TransactionManager {
         min = x;
       }
     }
-    LOG(INFO) << std::this_thread::get_id() << " -===--";
+    //    LOG(INFO) << std::this_thread::get_id() << " -===--";
     return min;
   }
 
