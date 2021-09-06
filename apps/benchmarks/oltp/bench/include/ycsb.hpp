@@ -416,7 +416,6 @@ class YCSB : public Benchmark {
     YCSBTxnGen(YCSB &ycsbBench, worker_id_t wid, partition_id_t partition_id)
         : ycsbBench(ycsbBench), wid(wid), partition_id(partition_id) {
       this->_txn_mem = ycsbBench.get_query_struct(partition_id);
-      this->type = txn::BENCH_QUEUE;
     }
     ~YCSBTxnGen() override { bench::YCSB::free_query_struct(_txn_mem); }
 

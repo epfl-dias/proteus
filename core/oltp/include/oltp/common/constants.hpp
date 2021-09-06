@@ -45,12 +45,16 @@ using PrimaryIndex = indexes::HashIndex<T_KEY>;
 
 constexpr int MAX_PARTITIONS = 8;
 constexpr master_version_t num_master_versions = 1;
-constexpr delta_id_t num_delta_storages = 1;
+constexpr delta_id_t num_delta_storages = 2;
 constexpr bool reverse_partition_numa_mapping = false;
 constexpr uint DEFAULT_OLAP_SOCKET = 0;
 
 static_assert((!HTAP_ETL) || (HTAP_ETL && num_master_versions >= 2),
               "For ETL-based HTAP, # of master-versions should be >= 2");
+
+static_assert(!(GcMechanism == GcTypes::OneShot) ||
+                  ((GcMechanism == GcTypes::OneShot) && num_delta_storages > 1),
+              "OneShot GC requires number of delta storages > 1");
 
 }  // namespace global_conf
 

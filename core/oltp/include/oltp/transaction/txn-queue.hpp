@@ -40,6 +40,7 @@ enum QueueType { FIFO_QUEUE, BENCH_QUEUE };
 class TxnQueue {
  public:
   TxnQueue() : type(QueueType::FIFO_QUEUE) {}
+  explicit TxnQueue(QueueType type) : type(type) {}
 
   virtual StoredProcedure pop(worker_id_t workerId,
                               partition_id_t partitionId) {
@@ -60,7 +61,7 @@ class TxnQueue {
   virtual ~TxnQueue() = default;  //{ /*LOG(INFO) << "~TxnQueue()";*/ }
 
  public:
-  QueueType type;
+  const QueueType type;
 
  private:
   //  TxnQueue():terminate(false){}

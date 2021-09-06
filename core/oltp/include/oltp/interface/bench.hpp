@@ -35,6 +35,8 @@ namespace bench {
 
 class BenchQueue : public txn::TxnQueue {
  public:
+  BenchQueue() : txn::TxnQueue(txn::BENCH_QUEUE) {}
+
   virtual txn::StoredProcedure pop(worker_id_t workerId,
                                    partition_id_t partitionId) override = 0;
   virtual void post_run() = 0;

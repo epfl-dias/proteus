@@ -72,13 +72,11 @@ extern uint g_num_partitions;
 extern uint g_delta_size;
 
 enum SnapshotTypes { None, CircularMaster, LazyMaster, MVCC };
-
 constexpr auto DefaultSnapshotMechanism = SnapshotTypes::CircularMaster;
 
 constexpr int MAX_PARTITIONS = 8;
 
 enum GcTypes { NoGC, OneShot, SteamGC };
-constexpr auto GcMechanism = GcTypes::SteamGC;
-#define GC_STEAM 1
+constexpr auto GcMechanism = GcTypes::OneShot;
 
 #endif  // PROTEUS_OLTP_COMMON_HPP

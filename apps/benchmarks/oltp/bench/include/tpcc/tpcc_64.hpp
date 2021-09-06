@@ -34,6 +34,7 @@
 #include <oltp/common/numa-partition-policy.hpp>
 #include <oltp/interface/bench.hpp>
 #include <oltp/storage/table.hpp>
+#include <oltp/transaction/transaction_manager.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <random>
 #include <string>
@@ -58,7 +59,7 @@
 //#define TPCC_MAX_ORD_PER_DIST 200000
 //#endif
 
-#define TPCC_MAX_ORD_PER_DIST 150000
+#define TPCC_MAX_ORD_PER_DIST 100000
 
 #define NO_MIX 100
 #define P_MIX 0   // FIXME
@@ -541,9 +542,9 @@ class TPCC : public Benchmark {
 
     void pre_run() override { tpccBench.pre_run(wid, 0, partition_id, 0); }
     void post_run() override {
-      // FIXME: master_ver will be zero or get from txnManager?
-      tpccBench.post_run(wid, std::numeric_limits<xid_t>::max(), partition_id,
-                         0);
+      tpccBench.post_run(
+          wid, std::numeric_limits<xid_t>::max(), partition_id,
+          txn::TransactionManager::getInstance().get_current_master_version());
     }
     void dump(std::string name) override {}
 

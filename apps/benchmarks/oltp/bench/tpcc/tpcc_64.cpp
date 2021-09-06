@@ -1231,13 +1231,6 @@ void TPCC::load_supplier(int w_id, xid_t xid, partition_id_t partition_id,
 
 void TPCC::pre_run(worker_id_t wid, xid_t xid, partition_id_t partition_id,
                    master_version_t master_ver) {
-  // static std::mutex print_mutex;
-  // {
-  //   std::unique_lock<std::mutex> lk(print_mutex);
-  //   std::cout << "pre-run-------------------------------" << std::endl;
-  //   std::cout << "pid: " << partition_id << std::endl;
-  //   std::cout << "wid: " << wid << std::endl;
-  // }
   if (wid >= this->num_warehouse) return;
 
   assert(partition_id < g_num_partitions);

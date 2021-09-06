@@ -210,8 +210,7 @@ void CircularDeltaStore::print_info() {
 
 DeltaDataPtr CircularDeltaStore::allocate(size_t sz,
                                           partition_id_t partition_id) {
-  char* cnk =
-      (char*)partitions[partition_id]->getVersionDataChunk_ThreadLocal(sz);
+  char* cnk = (char*)partitions[partition_id]->getVersionDataChunk(sz);
 
   if (!touched) touched = true;
   return DeltaDataPtr{cnk, tag.load(), this->delta_id, partition_id};
