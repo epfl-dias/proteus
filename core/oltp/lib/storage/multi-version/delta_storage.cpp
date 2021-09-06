@@ -28,6 +28,7 @@
 #include "oltp/common/numa-partition-policy.hpp"
 #include "oltp/common/utils.hpp"
 #include "oltp/execution/worker.hpp"
+#include "oltp/storage/memory-pool.hpp"
 #include "oltp/storage/multi-version/delta-memory-ptr.hpp"
 #include "oltp/storage/multi-version/mv.hpp"
 #include "oltp/transaction/transaction_manager.hpp"
@@ -47,6 +48,22 @@ DeltaStoreMalloc::DeltaStoreMalloc(delta_id_t delta_id,
   ClassicPtrWrapper::deltaStore = this;
 }
 
+DeltaStoreMalloc::~DeltaStoreMalloc() {
+  oltp::mv::memorypool::BucketMemoryPool<128>::getInstance().destruct();
+}
+
+inline void* alloc_or_free(bool alloc, void* ptr = nullptr) {
+  static thread_local oltp::mv::memorypool::BucketMemoryPool_threadLocal<128>
+      memPool;
+
+  if (alloc) {
+    return memPool.get();
+  } else {
+    memPool.free(ptr);
+    return nullptr;
+  }
+}
+
 ClassicPtrWrapper DeltaStoreMalloc::allocate(size_t sz,
                                              partition_id_t partition_id) {
   // std::unique_lock<std::mutex> l(lk);
@@ -56,7 +73,10 @@ ClassicPtrWrapper DeltaStoreMalloc::allocate(size_t sz,
   //   partPolicy[partition_id].numa_idx);
   //  auto* cnk = MemoryManager::mallocPinned(sz);
 
-  auto* cnk = malloc(sz);
+  assert(sz <= 128);
+
+  // auto* cnk = malloc(sz);
+  auto* cnk = alloc_or_free(true);
   assert(cnk);
 
   return ClassicPtrWrapper{reinterpret_cast<uintptr_t>(cnk)};
@@ -66,7 +86,8 @@ void DeltaStoreMalloc::release(ClassicPtrWrapper& ptr) {
   // std::unique_lock<std::mutex> l(lk);
 
   // MemoryManager::freePinned(ptr.get_ptr());
-  free(ptr.get_ptr());
+  // free(ptr.get_ptr());
+  alloc_or_free(false, ptr.get_ptr());
 }
 
 CircularDeltaStore::CircularDeltaStore(delta_id_t delta_id,

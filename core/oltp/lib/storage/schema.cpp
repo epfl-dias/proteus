@@ -33,6 +33,15 @@
 
 namespace storage {
 
+void Schema::initMemoryPools(partition_id_t partition_id) {
+  if constexpr (GcMechanism != GcTypes::OneShot) {
+    for (auto& i : this->deltaStore) {
+      auto x = i->allocate(8, partition_id);
+      i->release(x);
+    }
+  }
+}
+
 std::shared_ptr<Table> Schema::getTable(table_id_t tableId) {
   std::unique_lock<std::mutex> lk(schema_lock);
   if (tables.size() > tableId) {
@@ -202,10 +211,6 @@ void Schema::teardown(const std::string& cdf_out_path) {
     delete dt;
   }
 
-  //  for (const auto& tbl : tables) {
-  //    tbl->~Table();
-  //    MemoryManager::freePinned(tbl);
-  //  }
   tables.clear();
   table_name_map.clear();
   this->cleaned = true;
@@ -237,8 +242,8 @@ void Schema::drop_table(const std::string& name) {
 void Schema::save_cdf(const std::string& out_path) {
   proteus::utils::PercentileRegistry::for_each(
       [](std::string key, proteus::utils::Percentile* p, void* args) {
-        LOG(INFO) << "\t\tP50\tP90\tP99: " << p->nth(50) << "\t" << p->nth(90)
-                  << "\t" << p->nth(99);
+        LOG(INFO) << "\t\tP50\tP90\tP99\t99.9: " << p->nth(50) << "\t"
+                  << p->nth(90) << "\t" << p->nth(99) << "\t" << p->nth(99.9);
 
         auto* path = (std::string*)args;
         if (!(path->empty())) {

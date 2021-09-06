@@ -42,6 +42,7 @@ void Worker::run() {
   WorkerPool* pool = &WorkerPool::getInstance();
   txn::TransactionManager* txnManager = &txn::TransactionManager::getInstance();
   storage::Schema* schema = &storage::Schema::getInstance();
+  schema->initMemoryPools(this->partition_id);
 
   if (pool->_txn_bench != nullptr) {
     this->txnQueue = dynamic_cast<txn::TxnQueue*>(

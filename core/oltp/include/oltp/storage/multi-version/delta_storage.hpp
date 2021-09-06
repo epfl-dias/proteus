@@ -46,16 +46,15 @@ class ClassicPtrWrapper;
 class CircularDeltaStore;
 class DeltaStoreMalloc;
 
-#if GC_STEAM
-using DeltaStore = DeltaStoreMalloc;
-#else
-using DeltaStore = CircularDeltaStore;
-#endif
+using DeltaStore = std::conditional<GcMechanism == GcTypes::OneShot,
+                                    CircularDeltaStore, DeltaStoreMalloc>::type;
 
 class DeltaStoreMalloc {
  public:
   explicit DeltaStoreMalloc(delta_id_t delta_id, uint64_t ver_data_capacity = 4,
                             partition_id_t num_partitions = 1);
+
+  ~DeltaStoreMalloc();
 
   ClassicPtrWrapper allocate(size_t sz, partition_id_t partition_id);
   void release(ClassicPtrWrapper &ptr);

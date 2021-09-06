@@ -128,6 +128,11 @@ class DeltaDataPtr : public DeltaMemoryPtr<DeltaDataPtr> {
     this->update(data_ptr, tag, delta_idx, pid);
   }
 
+  DeltaDataPtr(const DeltaDataPtr &) = delete;
+  DeltaDataPtr &operator=(const DeltaDataPtr &) = delete;
+  DeltaDataPtr(DeltaDataPtr &&) noexcept = default;
+  DeltaDataPtr &operator=(DeltaDataPtr &&) noexcept = default;
+
  public:
   [[nodiscard]] constexpr inline uint8_t get_delta_idx() const {
     return static_cast<uint8_t>(this->_val >> (60u));

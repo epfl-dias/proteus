@@ -41,6 +41,7 @@ set(oltp_cxx
   lib/storage/multi-version/mv.cpp
   lib/storage/multi-version/mv-record-list.cpp
   lib/storage/multi-version/mv-attribute-list.cpp
+  lib/storage/memory-pool.cpp
 
   #-------- Transaction
   lib/transactions/transaction_manager.cpp

@@ -164,6 +164,8 @@ class Schema {
   void steamGC(std::map<table_id_t, std::vector<vid_t>> &cleanable,
                txn::TxnTs globalMin);
 
+  void initMemoryPools(partition_id_t partition_id);
+
   // utility functions
   void report();
   void memoryReport() const;
