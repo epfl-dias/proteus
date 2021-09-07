@@ -404,8 +404,13 @@ void ColumnStore::updateRecord(xid_t transaction_id,
     // first copy entire record.
     char* version_data_ptr = (char*)(version_ptr.at(0)->data);
     assert(version_data_ptr != nullptr);
+    // std::atomic_thread_fence(std::memory_order_seq_cst);
+    LOG_IF(FATAL, version_ptr.at(0)->size != this->record_size)
+        << "Tbl: " << this->name
+        << " | Failed: ver-size: " << version_ptr.at(0)->size
+        << " | rec: " << this->record_size;
 
-    for (auto& col : columns) {
+    for (const auto& col : columns) {
       col->getElem(old_vid, version_data_ptr + col->byteOffset_record);
     }
 

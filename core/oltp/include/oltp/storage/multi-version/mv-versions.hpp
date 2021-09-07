@@ -45,9 +45,10 @@ class __attribute__((packed)) Version {
   const xid_t t_min{};
   [[maybe_unused]] const xid_t t_max{};
   void *data{};
+  const size_t size;
 
-  Version(xid_t t_min, xid_t t_max, void *data)
-      : t_min(t_min), t_max(t_max), data(data) {}
+  Version(xid_t t_min, xid_t t_max, void *data, size_t sz)
+      : t_min(t_min), t_max(t_max), data(data), size(sz) {}
 
   [[maybe_unused]] virtual void set_attr_mask(std::bitset<64> mask) = 0;
   virtual uint16_t get_offset(uint16_t col_idx) = 0;
@@ -70,8 +71,9 @@ class __attribute__((packed)) VersionSingle : public Version {
   // VersionSingle *next;
   TaggedDeltaDataPtr<VersionSingle> next{};
 
-  [[maybe_unused]] VersionSingle(xid_t t_min, xid_t t_max, void *data)
-      : Version(t_min, t_max, data), next(0) {}
+  [[maybe_unused]] VersionSingle(xid_t t_min, xid_t t_max, void *data,
+                                 size_t sz)
+      : Version(t_min, t_max, data, sz), next(0) {}
 
   inline void set_attr_mask(std::bitset<64> mask) override {}
 
@@ -86,17 +88,20 @@ class VersionMultiAttr : public Version {
   uint16_t *attribute_offsets;
   TaggedDeltaDataPtr<VersionMultiAttr> next;
 
-  VersionMultiAttr(xid_t t_min, xid_t t_max, void *data)
-      : Version(t_min, t_max, data), next(0) {
+  VersionMultiAttr(xid_t t_min, xid_t t_max, void *data, size_t sz)
+      : Version(t_min, t_max, data, sz), next(0) {
     attribute_mask.set();
   }
   VersionMultiAttr(xid_t t_min, xid_t t_max, void *data,
-                   std::bitset<64> attribute_mask)
-      : Version(t_min, t_max, data), next(0), attribute_mask(attribute_mask) {}
+                   std::bitset<64> attribute_mask, size_t sz)
+      : Version(t_min, t_max, data, sz),
+        next(0),
+        attribute_mask(attribute_mask) {}
 
   VersionMultiAttr(xid_t t_min, xid_t t_max, void *data,
-                   std::bitset<64> attribute_mask, uint16_t *attr_offsets)
-      : Version(t_min, t_max, data),
+                   std::bitset<64> attribute_mask, uint16_t *attr_offsets,
+                   size_t sz)
+      : Version(t_min, t_max, data, sz),
         next(0),
         attribute_mask(attribute_mask),
         attribute_offsets(attr_offsets) {}
