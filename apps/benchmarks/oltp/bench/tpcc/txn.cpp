@@ -117,18 +117,6 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, txn::Txn &txn,
       (global_conf::IndexVal *)table_district->p_index->find(
           (uint64_t)MAKE_DIST_KEY(q->w_id, q->d_id));
 
-  // uint64_t dt_k = MAKE_DIST_KEY(w_id, d_id);
-
-  // if (dt_k / (18 * TPCC_NDIST_PER_WH) != partition_id) {
-  //   std::unique_lock<std::mutex> lk(print_mutex);
-
-  //   std::cout << "WID: " << w_id << std::endl;
-  //   std::cout << "d_id: " << d_id << std::endl;
-  //   std::cout << "d_key: " << dt_k << std::endl;
-  //   std::cout << "partition_id: " << partition_id << std::endl;
-  // }
-  // assert(dt_k / (18 * TPCC_NDIST_PER_WH) == partition_id);
-
   bool e_false = false;
   assert(idx_w_locks[num_locks] != nullptr);
   if (idx_w_locks[num_locks]->write_lck.try_lock()) {
@@ -164,7 +152,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, txn::Txn &txn,
     }
   }
 
-  // Until this point, we have acquire all the necessary write locks,
+  // Until this point, we have acquired all the necessary write locks,
   // we may now begin with reads and inserts which are never gonna abort in
   // MV2PL.
 
@@ -195,34 +183,32 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, txn::Txn &txn,
 
     global_conf::IndexVal *st_idx_ptr = idx_w_locks[ol_number + 1];
     assert(st_idx_ptr != nullptr);
+    st_idx_ptr->writeWithLatch(
+        [&](global_conf::IndexVal *idx_ptr) {
+          table_stock->getIndexedRecord(txn.txnTs, *st_idx_ptr, &st_rec,
+                                        stock_col_rw, 4);
+          // NOW UPDATE
+          // update = s_ytd, s_order_cnt, s_remote_cnt, s_quantity
 
-    st_idx_ptr->latch.acquire();
+          int32_t s_quantity = st_rec.s_quantity;
+          st_rec.s_ytd += ol_quantity;
+          st_rec.s_order_cnt++;
+          if (q->remote) {
+            st_rec.s_remote_cnt++;
+          }
+          int32_t quantity;
+          if (s_quantity > ol_quantity + 10)
+            quantity = s_quantity - ol_quantity;
+          else
+            quantity = s_quantity - ol_quantity + 91;
 
-    table_stock->getIndexedRecord(txn.txnTs, *st_idx_ptr, &st_rec, stock_col_rw,
-                                  4);
+          st_rec.s_quantity = quantity;
 
-    // NOW UPDATE
-    // update = s_ytd, s_order_cnt, s_remote_cnt, s_quantity
-
-    uint32_t s_quantity = st_rec.s_quantity;
-    st_rec.s_ytd += ol_quantity;
-    st_rec.s_order_cnt++;
-    if (q->remote) {
-      st_rec.s_remote_cnt++;
-    }
-    uint32_t quantity;
-    if (s_quantity > ol_quantity + 10)
-      quantity = s_quantity - ol_quantity;
-    else
-      quantity = s_quantity - ol_quantity + 91;
-
-    st_rec.s_quantity = quantity;
-
-    table_stock->updateRecord(txn.txnTs.txn_start_time, st_idx_ptr, &st_rec,
-                              delta_ver, stock_col_rw, 4, master_ver);
-
-    // early release of locks?
-    st_idx_ptr->latch.release();
+          table_stock->updateRecord(txn.txnTs.txn_start_time, idx_ptr, &st_rec,
+                                    txn.delta_version, stock_col_rw, 4,
+                                    txn.master_version);
+        },
+        txn, table_stock->table_id);
   }
 
   /*
@@ -238,38 +224,24 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, txn::Txn &txn,
     uint32_t d_next_o_id;
   };
   struct dist_read dist_no_read = {};
-
   global_conf::IndexVal *d_idx_ptr = idx_w_locks[0];
-  // assert(storage::StorageUtils::get_pid(idx_w_locks[0]->VID) ==
-  // partition_id); assert(storage::StorageUtils::get_pid(d_idx_ptr->VID) ==
-  // partition_id);
 
-  d_idx_ptr->latch.acquire();
+  d_idx_ptr->writeWithLatch(
+      [&](global_conf::IndexVal *idx_ptr) {
+        table_district->getIndexedRecord(txn.txnTs, *d_idx_ptr, &dist_no_read,
+                                         dist_col_scan, 2);
 
-  table_district->getIndexedRecord(txn.txnTs, *d_idx_ptr, &dist_no_read,
-                                   dist_col_scan, 2);
+        uint32_t d_next_o_id_upd = dist_no_read.d_next_o_id + 1;
 
-  uint32_t d_next_o_id_upd = dist_no_read.d_next_o_id + 1;
-  table_district->updateRecord(txn.txnTs.txn_start_time, d_idx_ptr,
-                               &d_next_o_id_upd, delta_ver, dist_col_upd, 1,
-                               master_ver);
-
-  d_idx_ptr->latch.release();
+        table_district->updateRecord(txn.txnTs.txn_start_time, idx_ptr,
+                                     &d_next_o_id_upd, txn.delta_version,
+                                     dist_col_upd, 1, txn.master_version);
+      },
+      txn, table_district->table_id);
 
   // TIME TO RELEASE LOCKS AS WE ARE NOT GONNA UPDATE ANYTHING
   txn::CC_MV2PL::release_locks(idx_w_locks, num_locks);
 
-  // if (dist_no_read.d_next_o_id >= TPCC_MAX_ORD_PER_DIST) {
-  //   std::unique_lock<std::mutex> lk(print_mutex);
-  //   table_order->reportUsage();
-  //   std::cout << "---Overflow" << std::endl;
-
-  //   std::cout << "WID::" << q->w_id << std::endl;
-  //   std::cout << "DID::" << q->d_id << std::endl;
-  //   std::cout << "dist_no_read.d_next_o_id::" << dist_no_read.d_next_o_id
-  //             << std::endl;
-  //   std::cout << "PID::" << partition_id << std::endl;
-  // }
   assert(dist_no_read.d_next_o_id < TPCC_MAX_ORD_PER_DIST - 1);
 
   /*
@@ -282,21 +254,18 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, txn::Txn &txn,
 
   double w_tax = 0.0;
   const column_id_t w_col_scan[] = {7};  // position in columns
-  // std::cout << "WID::" << w_id << std::endl;
-  global_conf::IndexVal *w_idx_ptr =
-      (global_conf::IndexVal *)table_warehouse->p_index->find(
-          (uint64_t)q->w_id);
+  auto *w_idx_ptr = static_cast<global_conf::IndexVal *>(
+      table_warehouse->p_index->find((uint64_t)(q->w_id)));
 #if !tpcc_dist_txns
   assert(storage::StorageUtils::get_pid(w_idx_ptr->VID) == partition_id);
 #endif
 
-  w_idx_ptr->latch.acquire();
-  table_warehouse->getIndexedRecord(txn.txnTs, *w_idx_ptr, &w_tax, w_col_scan,
-                                    1);
-  w_idx_ptr->latch.release();
+  w_idx_ptr->readWithLatch([&](global_conf::IndexVal *idx_ptr) {
+    table_warehouse->getIndexedRecord(txn.txnTs, *idx_ptr, &w_tax, w_col_scan,
+                                      1);
+  });
 
   // CUSTOMER
-
   // const ushort cust_col_scan[] = {5, 13, 15};
   const column_id_t cust_col_scan[] = {15};
   struct __attribute__((packed)) cust_read {
@@ -306,31 +275,19 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, txn::Txn &txn,
   };
   struct cust_read cust_no_read = {};
 
-  global_conf::IndexVal *c_idx_ptr =
-      (global_conf::IndexVal *)table_customer->p_index->find(
-          (uint64_t)MAKE_CUST_KEY(q->w_id, q->d_id, q->c_id));
-  assert(c_idx_ptr != nullptr);
-
-  c_idx_ptr->latch.acquire();
-
-  // if (storage::StorageUtils::get_pid(c_idx_ptr->VID) != partition_id) {
-  //   std::unique_lock<std::mutex> lk(print_mutex);
-  //   std::cout << "q->c_id: " << q->c_id << std::endl;
-  //   std::cout << "q->w_id: " << q->w_id << std::endl;
-  //   std::cout << "q->d_id: " << q->d_id << std::endl;
-
-  //   std::cout << "partition_id: " << partition_id << std::endl;
-
-  //   table_customer->reportUsage();
-  // }
+  auto *c_idx_ptr =
+      static_cast<global_conf::IndexVal *>(table_customer->p_index->find(
+          (uint64_t)MAKE_CUST_KEY(q->w_id, q->d_id, q->c_id)));
+  assert(c_idx_ptr);
 
 #if !tpcc_dist_txns
   assert(storage::StorageUtils::get_pid(c_idx_ptr->VID) == partition_id);
 #endif
 
-  table_customer->getIndexedRecord(txn.txnTs, *c_idx_ptr, &cust_no_read,
-                                   cust_col_scan, 1);
-  c_idx_ptr->latch.release();
+  c_idx_ptr->readWithLatch([&](global_conf::IndexVal *idx_ptr) {
+    table_customer->getIndexedRecord(txn.txnTs, *idx_ptr, &cust_no_read,
+                                     cust_col_scan, 1);
+  });
 
   // INSERTS: Order Processing
 
@@ -343,23 +300,6 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, txn::Txn &txn,
 
   uint64_t order_key =
       MAKE_ORDER_KEY(q->w_id, q->d_id, dist_no_read.d_next_o_id);
-  // assert(order_key < TPCC_MAX_ORDER_INITIAL_CAP);
-
-  // if (order_key / 72000000 != partition_id) {
-  //   std::unique_lock<std::mutex> lk(print_mutex);
-  //   std::cout << "key: " << order_key << std::endl;
-  //   std::cout << "q->w_id: " << q->w_id << std::endl;
-  //   std::cout << "q->d_id: " << q->d_id << std::endl;
-  //   std::cout << "dist_no_read.d_next_o_id: " << dist_no_read.d_next_o_id
-  //             << std::endl;
-  //   std::cout << "partition_id: " << partition_id << std::endl;
-  //   std::cout << "pky: " << (order_key / 72000000) << std::endl;
-
-  //   table_order->reportUsage();
-  //   table_order_line->reportUsage();
-  // }
-  // assert(order_key / TPCC_MAX_ORDER_INITIAL_CAP_PER_PARTITION ==
-  // partition_id);
 
   struct tpcc_order o_r = {};
 
@@ -417,14 +357,13 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, txn::Txn &txn,
      */
 
     double i_price = 0.0;
+    auto *item_idx_ptr = static_cast<global_conf::IndexVal *>(
+        table_item->p_index->find((uint64_t)(q->item[ol_number].ol_i_id)));
 
-    global_conf::IndexVal *item_idx_ptr =
-        (global_conf::IndexVal *)table_item->p_index->find(
-            (uint64_t)(q->item[ol_number].ol_i_id));
-    item_idx_ptr->latch.acquire();
-    table_item->getIndexedRecord(txn.txnTs, *item_idx_ptr, &i_price, i_col_scan,
-                                 1);
-    item_idx_ptr->latch.release();
+    item_idx_ptr->readWithLatch([&](global_conf::IndexVal *idx_ptr) {
+      table_item->getIndexedRecord(txn.txnTs, *idx_ptr, &i_price, i_col_scan,
+                                   1);
+    });
 
     // char *i_name = i_r->i_name;
     // char *i_data = i_r->i_data;
