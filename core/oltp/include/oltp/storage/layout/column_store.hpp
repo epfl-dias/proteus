@@ -98,7 +98,7 @@ class alignas(BlockManager::block_size) ColumnStore : public Table {
                  const column_id_t *col_idx = nullptr,
                  short num_cols = -1) override;
 
-  void steamGC(const std::vector<vid_t> &row_vector,
+  void steamGC(const std::set<vid_t> &row_vector,
                txn::TxnTs globalMin) override;
 
   //------------------TwinColumn

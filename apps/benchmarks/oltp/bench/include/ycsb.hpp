@@ -271,7 +271,7 @@ class YCSB : public Benchmark {
       }
     }
 
-    txn.undoLogMap.reserve(n);
+    txn.undoLogVector.reserve(n);
     // perform lookups/ updates / inserts
     for (int i = 0; i < n; i++) {
       struct YCSB_TXN_OP op = txn_stmts->ops[i];

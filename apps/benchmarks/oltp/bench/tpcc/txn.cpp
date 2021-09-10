@@ -103,6 +103,9 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, txn::Txn &txn,
   global_conf::IndexVal *idx_w_locks[TPCC_MAX_OL_PER_ORDER + 1] = {};
   uint num_locks = 0;
 
+  // stockUpd (ol_cnt) + distUpd
+  txn.undoLogVector.reserve(q->ol_cnt + 1);
+
   /*
    * EXEC SQL SELECT d_next_o_id, d_tax
    *  INTO :d_next_o_id, :d_tax

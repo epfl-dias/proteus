@@ -219,8 +219,17 @@ void Schema::teardown(const std::string& cdf_out_path) {
 void Schema::steamGC(std::map<table_id_t, std::vector<vid_t>>& cleanable,
                      txn::TxnTs globalMin) {
   for (const auto& [table_id, row_vector] : cleanable) {
+    std::set<vid_t> row_set(row_vector.begin(), row_vector.end());
     auto tbl = getTable(table_id);
-    tbl->steamGC(row_vector, globalMin);
+    tbl->steamGC(row_set, globalMin);
+  }
+}
+
+void Schema::steamGC(std::map<table_id_t, std::set<vid_t>>& cleanable,
+                     txn::TxnTs globalMin) {
+  for (const auto& [table_id, row_set] : cleanable) {
+    auto tbl = getTable(table_id);
+    tbl->steamGC(row_set, globalMin);
   }
 }
 

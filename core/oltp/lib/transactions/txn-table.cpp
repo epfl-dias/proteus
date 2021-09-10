@@ -23,6 +23,7 @@
 
 #include "oltp/transaction/txn-table.hpp"
 
+#include "oltp/common/common.hpp"
 #include "oltp/transaction/transaction.hpp"
 #include "oltp/transaction/transaction_manager.hpp"
 
@@ -64,16 +65,16 @@ void ThreadLocal_TransactionTable::steamGC(txn::TxnTs global_min) {
   assert(thread_id == std::this_thread::get_id());
 
   // inverted map for getting all cleanable for same table together.
-  std::map<table_id_t, std::vector<vid_t>> cleanables;
+  std::map<table_id_t, std::set<vid_t>> cleanables;
 
   // committedTxn will be sorted, so
   auto it = _committedTxn.begin();
 
   for (; it != _committedTxn.end(); it++) {
     if (it->commit_ts <= global_min.txn_start_time) {
-      for (const auto &[table_id, row_vector] : it->undoLogMap) {
-        cleanables[table_id].insert(cleanables[table_id].end(),
-                                    row_vector.begin(), row_vector.end());
+      for (const auto &elem : it->undoLogVector) {
+        cleanables[storage::StorageUtils::get_tableId_from_rowUuid(elem)]
+            .emplace(storage::StorageUtils::get_rowId_from_rowUuid(elem));
       }
     } else {
       break;

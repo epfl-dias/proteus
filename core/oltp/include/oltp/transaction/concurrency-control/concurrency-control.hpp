@@ -34,6 +34,7 @@ constexpr bool optimistic_read = true;
 #include "oltp/common/lock.hpp"
 #include "oltp/common/spinlock.h"
 #include "oltp/storage/multi-version/delta-memory-ptr.hpp"
+#include "oltp/storage/storage-utils.hpp"
 #include "oltp/transaction/transaction.hpp"
 #include "oltp/transaction/txn_utils.hpp"
 #include "oltp/util/hybrid-lock.hpp"
@@ -61,14 +62,10 @@ class CC_MV2PL {
     PRIMARY_INDEX_VAL &operator=(const PRIMARY_INDEX_VAL &) = delete;
 
     template <class lambda>
-    inline void writeWithLatch(lambda &&func) {
-      latch.template writeWithLatch(func, this);
-    }
-
-    template <class lambda>
     inline void writeWithLatch(lambda &&func, Txn &txn, table_id_t table_id) {
       latch.template writeWithLatch(func, this);
-      txn.undoLogMap[table_id].emplace_back(VID);
+      txn.undoLogVector.emplace_back(
+          storage::StorageUtils::get_row_uuid(table_id, VID));
     }
 
     template <class lambda>

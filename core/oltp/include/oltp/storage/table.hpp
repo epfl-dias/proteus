@@ -80,7 +80,7 @@ class Table {
                          void *destination, const column_id_t *col_idx,
                          short num_cols) = 0;
 
-  virtual void steamGC(const std::vector<vid_t> &row_vector,
+  virtual void steamGC(const std::set<vid_t> &row_vector,
                        txn::TxnTs globalMin) = 0;
 
   // virtual std::vector<vid_t> getNumberOfRecords(xid_t epoch) = 0;
@@ -118,14 +118,16 @@ class Table {
   DeltaStore **deltaStore{};
 
   uint64_t total_memory_reserved;
-  size_t record_size{};
+
   uint64_t record_capacity{};
 
   partition_id_t n_partitions{};
   column_id_t n_columns{};
   bool indexed{};
 
+ public:
   std::vector<std::pair<uint16_t, uint16_t>> column_size_offset_pairs{};
+  size_t record_size{};
   std::vector<uint16_t> column_size_offsets{};
   std::vector<uint16_t> column_size{};
 

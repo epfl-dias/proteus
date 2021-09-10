@@ -25,7 +25,8 @@
 #define PROTEUS_TRANSACTION_HPP
 
 #include <cassert>
-#include <unordered_map>
+#include <functional>
+#include <vector>
 
 #include "oltp/common/common.hpp"
 
@@ -91,8 +92,7 @@ class Txn {
 
   xid_t commit_ts{};
 
-  // undoLog also contains data, but our data will be in the chain itself.
-  std::unordered_map<table_id_t, std::vector<vid_t>> undoLogMap{};
+  std::vector<row_uuid_t> undoLogVector;
 };
 
 }  // namespace txn
