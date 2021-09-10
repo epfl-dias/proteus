@@ -56,6 +56,8 @@ class Benchmark {
   virtual BenchQueue* getBenchQueue(worker_id_t workerId,
                                     partition_id_t partitionId) = 0;
 
+  virtual void clearBenchQueue(BenchQueue* pt) { delete pt; }
+
   // NOTE: Following will run before/after the workers starts the execution. it
   // will be synchronized, i.e., worker will not start transaction until all
   // workers finish the pre-run and a worker will not start post-run unless all

@@ -126,7 +126,12 @@ void Worker::run() {
   }
 
   this->state = TERMINATED;
-  delete dynamic_cast<bench::BenchQueue*>(this->txnQueue);
+
+  if (txnQueue->type == txn::BENCH_QUEUE) {
+    // delete dynamic_cast<bench::BenchQueue*>(this->txnQueue);
+    pool->_txn_bench->clearBenchQueue(
+        dynamic_cast<bench::BenchQueue*>(this->txnQueue));
+  }
 }
 
 void WorkerPool::init(bench::Benchmark* txn_bench, worker_id_t num_workers,

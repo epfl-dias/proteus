@@ -462,8 +462,19 @@ class TPCC : public Benchmark {
 
   BenchQueue *getBenchQueue(worker_id_t workerId,
                             partition_id_t partitionId) override {
-    return dynamic_cast<BenchQueue *>(
-        new TpccTxnGen(*this, workerId, partitionId));
+    auto *benchQueuePtr =
+        MemoryManager::mallocPinned(sizeof(TpccTxnGen) + alignof(TpccTxnGen));
+    auto *benchQueue =
+        new (benchQueuePtr) TpccTxnGen(*this, workerId, partitionId);
+
+    return benchQueue;
+    //    return dynamic_cast<BenchQueue *>(
+    //        new TpccTxnGen(*this, workerId, partitionId));
+  }
+
+  void clearBenchQueue(BenchQueue *pt) override {
+    pt->~BenchQueue();
+    MemoryManager::freePinned(pt);
   }
 
   ~TPCC() override;

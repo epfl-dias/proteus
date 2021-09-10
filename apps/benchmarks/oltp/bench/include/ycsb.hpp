@@ -47,7 +47,7 @@
 namespace bench {
 
 #define THREAD_LOCAL false
-#define PARTITION_LOCAL false
+#define PARTITION_LOCAL true
 #define YCSB_MIXED_OPS 1
 
 /*
@@ -330,8 +330,19 @@ class YCSB : public Benchmark {
 
   BenchQueue *getBenchQueue(worker_id_t workerId,
                             partition_id_t partitionId) override {
-    return dynamic_cast<BenchQueue *>(
-        new YCSBTxnGen(*this, workerId, partitionId));
+    auto *benchQueuePtr =
+        MemoryManager::mallocPinned(sizeof(YCSBTxnGen) + alignof(YCSBTxnGen));
+    auto *benchQueue =
+        new (benchQueuePtr) YCSBTxnGen(*this, workerId, partitionId);
+
+    return benchQueue;
+    //    return dynamic_cast<BenchQueue *>(
+    //        new YCSBTxnGen(*this, workerId, partitionId));
+  }
+
+  void clearBenchQueue(BenchQueue *pt) override {
+    pt->~BenchQueue();
+    MemoryManager::freePinned(pt);
   }
 
   // private:
