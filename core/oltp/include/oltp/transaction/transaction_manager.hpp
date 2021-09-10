@@ -135,8 +135,9 @@ class TransactionManager {
 
   static bool execute(StoredProcedure& storedProcedure, worker_id_t workerId,
                       partition_id_t partitionId);
-  bool executeFullQueue(StoredProcedure& storedProcedure, worker_id_t workerId,
-                        partition_id_t partitionId);
+  bool executeFullQueue(ThreadLocal_TransactionTable& txnTable,
+                        const StoredProcedure& storedProcedure,
+                        worker_id_t workerId, partition_id_t partitionId);
 
   const auto& getTxnTables() { return registry; }
 

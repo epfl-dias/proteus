@@ -39,8 +39,9 @@ void Worker::run() {
   set_exec_location_on_scope d{
       topology::getInstance().getCores()[exec_core->index_in_topo]};
 
-  WorkerPool* pool = &WorkerPool::getInstance();
-  txn::TransactionManager* txnManager = &txn::TransactionManager::getInstance();
+  auto* pool = &WorkerPool::getInstance();
+  auto* txnManager = &txn::TransactionManager::getInstance();
+  auto txnTable = txn::ThreadLocal_TransactionTable::allocate_shared(this->id);
   storage::Schema* schema = &storage::Schema::getInstance();
   schema->initMemoryPools(this->partition_id);
 
@@ -59,11 +60,9 @@ void Worker::run() {
     this->state = READY;
     {
       pool->pre_barrier++;
-      // following is that threads initialize there threadLocal txnTables
-      // and be ready for actual txns.
-
+      // warm-up txnTable with any thread_local init.
       auto tx = this->txnQueue->popEmpty(this->id, this->partition_id);
-      bool res = txnManager->executeFullQueue(tx, this->id, this->partition_id);
+      txnManager->executeFullQueue(*txnTable, tx, this->id, this->partition_id);
 
       std::unique_lock<std::mutex> lk(pool->pre_m);
       pool->pre_cv.wait(lk, [pool, this] {
@@ -85,7 +84,8 @@ void Worker::run() {
     }
 
     auto tx = this->txnQueue->pop(this->id, this->partition_id);
-    bool res = txnManager->executeFullQueue(tx, this->id, this->partition_id);
+    bool res = txnManager->executeFullQueue(*txnTable, tx, this->id,
+                                            this->partition_id);
 
     if (__likely(res)) {
       num_commits++;

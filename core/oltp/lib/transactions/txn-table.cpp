@@ -87,16 +87,16 @@ void ThreadLocal_TransactionTable::steamGC(txn::TxnTs global_min) {
   }
 }
 
-Txn ThreadLocal_TransactionTable::beginTxn(worker_id_t workerId,
-                                           partition_id_t partitionId,
-                                           bool read_only) {
-  assert(thread_id == std::this_thread::get_id());
-  auto tx = Txn::getTxn(workerId, partitionId, read_only);
-  min_active = tx.txnTs.txn_start_time;
-  return tx;
-}
+// Txn ThreadLocal_TransactionTable::beginTxn(worker_id_t workerId,
+//                                            partition_id_t partitionId,
+//                                            bool read_only) {
+//   assert(thread_id == std::this_thread::get_id());
+//   auto tx = Txn::getTxn(workerId, partitionId, read_only);
+//   min_active = tx.txnTs.txn_start_time;
+//   return tx;
+// }
 
-void ThreadLocal_TransactionTable::endTxn(Txn &txn) {
+const Txn &ThreadLocal_TransactionTable::endTxn(Txn &txn) {
   assert(thread_id == std::this_thread::get_id());
 
   this->min_active = std::numeric_limits<xid_t>::max();
@@ -106,11 +106,12 @@ void ThreadLocal_TransactionTable::endTxn(Txn &txn) {
                                                  txn.txnTs.txn_start_time);
   }
 
-  //  if constexpr (GcMechanism == GcTypes::SteamGC) {
-  //    _committedTxn.emplace_back(std::move(txn));
-  //  }
-  // this drops a little bit (1.8 -> 1.5)
-  _committedTxn.emplace_back(std::move(txn));
+  // the move is expensive in reality.
+  if constexpr (GcMechanism != GcTypes::OneShot) {
+    return _committedTxn.emplace_back(std::move(txn));
+  } else {
+    return txn;
+  }
 }
 
 }  // namespace txn
