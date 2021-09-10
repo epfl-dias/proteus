@@ -54,6 +54,7 @@ typedef uint8_t table_id_t;
 typedef uint8_t column_id_t;
 typedef uint8_t partition_id_t;
 typedef uint32_t column_uuid_t;
+typedef uint64_t row_uuid_t;  // encapsulates table_id, pid, and offset (vid)
 typedef uint8_t master_version_t;  // Circular-Master
 
 constexpr auto MAX_N_COLUMNS = UINT8_MAX;

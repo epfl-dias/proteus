@@ -32,6 +32,9 @@ class StorageUtils {
   static_assert(sizeof(rowid_t) == 8,
                 "Size of rowid_t is expected to be 64-bit value.");
 
+  // NOTE: 6 bytes should be dedicated for PID/VID, else it will cause issues
+  //  in other places.
+  // TODO: make the VID 4-byte.
   // Circular Master
   // | empty 1-byte | 1-byte master_ver | 1-byte partition_id | 5-byte VID |
 
@@ -83,6 +86,22 @@ class StorageUtils {
   static inline column_id_t get_columnId_from_columnUuid(
       column_uuid_t columnUuid) {
     return ((column_id_t)(columnUuid & 0x0000FFFFu));
+  }
+
+  static inline row_uuid_t get_row_uuid(table_id_t tableId, rowid_t vid) {
+    // clear anything else than pid/offset
+    row_uuid_t ret = (vid & 0x0000FFFFFFFFFFFFu);
+    // add table_id
+    ret |= (((uint64_t)(tableId)) << 48u);
+    return ret;
+  }
+
+  static inline table_id_t get_tableId_from_rowUuid(row_uuid_t row_uuid) {
+    return static_cast<table_id_t>(row_uuid >> 48u);
+  }
+
+  static inline rowid_t get_rowId_from_rowUuid(row_uuid_t row_uuid) {
+    return (row_uuid & 0x0000FFFFFFFFFFFFu);
   }
 };
 
