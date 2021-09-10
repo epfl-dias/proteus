@@ -159,8 +159,8 @@ TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
            bool layout_column_store, std::vector<TPCC_QUERY_TYPE> query_seq,
            uint tpch_scale_factor, int g_dist_threshold, std::string csv_path,
            bool is_ch_benchmark)
-    : Benchmark(std::move(name), active_warehouse,
-                proteus::thread::hardware_concurrency(), g_num_partitions),
+    : Benchmark(std::move(name), active_warehouse, num_warehouses,
+                g_num_partitions),
       num_warehouse(num_warehouses),
       g_dist_threshold(g_dist_threshold),
       csv_path(std::move(csv_path)),
@@ -252,6 +252,22 @@ TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
   }
 }
 
+size_t get_capacity(size_t num_records, size_t num_max_workers,
+                    size_t num_partitions) {
+  static auto worker_per_partition =
+      topology::getInstance().getCpuNumaNodes()[0].local_cores.size();
+
+  auto num_record_capacity = num_records;
+  auto rec_per_worker = num_records / num_max_workers;
+  if (num_max_workers % worker_per_partition != 0 && num_partitions > 1) {
+    num_record_capacity =
+        rec_per_worker * worker_per_partition * num_partitions;
+    LOG(WARNING) << "Table capacity coded to fill entire partition even if "
+                    "using partial worker in a socket.";
+  }
+  return num_record_capacity;
+}
+
 void TPCC::create_tbl_warehouse(uint64_t num_warehouses) {
   // Primary Key: W_ID
   storage::TableDef columns;
@@ -276,7 +292,9 @@ void TPCC::create_tbl_warehouse(uint64_t num_warehouses) {
   table_warehouse = schema->create_table(
       "tpcc_warehouse",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_warehouses);
+      columns,
+      get_capacity(num_warehouses, this->num_max_workers,
+                   this->num_partitions));
 }
 
 void TPCC::create_tbl_district(uint64_t num_districts) {
@@ -302,7 +320,8 @@ void TPCC::create_tbl_district(uint64_t num_districts) {
   table_district = schema->create_table(
       "tpcc_district",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_districts);
+      columns,
+      get_capacity(num_districts, this->num_max_workers, this->num_partitions));
 }
 
 void TPCC::create_tbl_item(uint64_t num_item) {
@@ -320,7 +339,8 @@ void TPCC::create_tbl_item(uint64_t num_item) {
   table_item = schema->create_table(
       "tpcc_item",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_item);
+      columns,
+      get_capacity(num_item, this->num_max_workers, this->num_partitions));
 }
 
 void TPCC::create_tbl_stock(uint64_t num_stock) {
@@ -357,7 +377,8 @@ void TPCC::create_tbl_stock(uint64_t num_stock) {
   table_stock = schema->create_table(
       "tpcc_stock",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_stock);
+      columns,
+      get_capacity(num_stock, this->num_max_workers, this->num_partitions));
 }  // namespace bench
 
 void TPCC::create_tbl_history(uint64_t num_history) {
@@ -382,7 +403,9 @@ void TPCC::create_tbl_history(uint64_t num_history) {
   table_history = schema->create_table(
       "tpcc_history",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_history, false);
+      columns,
+      get_capacity(num_history, this->num_max_workers, this->num_partitions),
+      false);
 }
 
 void TPCC::create_tbl_customer(uint64_t num_cust) {
@@ -431,7 +454,8 @@ void TPCC::create_tbl_customer(uint64_t num_cust) {
   table_customer = schema->create_table(
       "tpcc_customer",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_cust);
+      columns,
+      get_capacity(num_cust, this->num_max_workers, this->num_partitions));
 }
 
 void TPCC::create_tbl_new_order(uint64_t num_new_order) {
@@ -451,7 +475,9 @@ void TPCC::create_tbl_new_order(uint64_t num_new_order) {
   table_new_order = schema->create_table(
       "tpcc_neworder",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_new_order, index_on_order_tbl);
+      columns,
+      get_capacity(num_new_order, this->num_max_workers, this->num_partitions),
+      index_on_order_tbl);
 }
 
 void TPCC::create_tbl_order(uint64_t num_order) {
@@ -476,7 +502,9 @@ void TPCC::create_tbl_order(uint64_t num_order) {
   table_order = schema->create_table(
       "tpcc_order",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_order, index_on_order_tbl);
+      columns,
+      get_capacity(num_order, this->num_max_workers, this->num_partitions),
+      index_on_order_tbl);
 }
 
 void TPCC::create_tbl_order_line(uint64_t num_order_line) {
@@ -509,7 +537,9 @@ void TPCC::create_tbl_order_line(uint64_t num_order_line) {
   table_order_line = schema->create_table(
       "tpcc_orderline",
       (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_order_line, index_on_order_tbl);
+      columns,
+      get_capacity(num_order_line, this->num_max_workers, this->num_partitions),
+      index_on_order_tbl);
 }
 
 void TPCC::create_tbl_supplier(uint64_t num_supp) {

@@ -387,10 +387,19 @@ class YCSB : public Benchmark {
       columns.emplace_back("col_" + std::to_string(i + 1), storage::INTEGER,
                            sizeof(uint64_t));
     }
+    auto num_record_capacity = num_records;
+    auto rec_per_worker = num_records / num_max_workers;
+    auto worker_per_partition =
+        topology::getInstance().getCpuNumaNodes()[0].local_cores.size();
+    if (num_max_workers % worker_per_partition != 0 && num_partitions > 1) {
+      num_record_capacity =
+          rec_per_worker * worker_per_partition * num_partitions;
+    }
+
     ycsb_tbl = schema->create_table(
         "ycsb_tbl",
         (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-        columns, num_records);
+        columns, num_record_capacity);
   }
 
  private:
