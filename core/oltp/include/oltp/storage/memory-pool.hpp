@@ -34,7 +34,9 @@
 
 namespace oltp::mv::memorypool {
 
-constexpr size_t pool_size_gb = 1;
+constexpr size_t pool_size_mb = 1536;
+
+constexpr size_t pool_size = pool_size_mb * 1024 * 1024;
 
 template <size_t N>
 class BucketMemoryPool;
@@ -43,22 +45,23 @@ template <size_t N>
 class BucketMemoryPool_threadLocal {
  public:
   BucketMemoryPool_threadLocal() : destructed(false) {
-    // auto x = malloc(pool_size_gb*1024*1024*1024);
-    // auto x = aligned_alloc(N, pool_size_gb*1024*1024*1024);
-    auto x = MemoryManager::mallocPinned(pool_size_gb * 1024 * 1024 * 1024);
+    auto x = MemoryManager::mallocPinned(pool_size);
     assert(x);
     basePtr.emplace_back(x);
 
-    size_t totalChunks = (pool_size_gb * 1024 * 1024 * 1024) / N;
+    size_t totalChunks = pool_size / N;
     char* ptr = reinterpret_cast<char*>(x);
-    char* baseRef = ptr + (pool_size_gb * 1024 * 1024 * 1024);
+    char* baseRef = ptr + pool_size;
 
     for (size_t i = 0; i < totalChunks; i++) {
       assert(ptr <= baseRef);
+      *(reinterpret_cast<size_t*>(ptr)) = 0;
       _pool.push(reinterpret_cast<void*>(ptr));
       ptr += N;
     }
-    LOG(INFO) << "POOL SIZE: " << _pool.size();
+    LOG_FIRST_N(INFO, 1) << "POOL SIZE: " << _pool.size();
+    // LOG(INFO) << std::this_thread::get_id() <<" - POOL SIZE: " <<
+    // _pool.size();
     assert(!_pool.empty());
     BucketMemoryPool<N>::getInstance().registerThreadLocalPool(this);
   }
@@ -75,16 +78,10 @@ class BucketMemoryPool_threadLocal {
   BucketMemoryPool_threadLocal(BucketMemoryPool_threadLocal&&) = delete;
   void operator=(BucketMemoryPool_threadLocal&&) = delete;
 
-  inline void* get() {
-    auto ret = _pool.top();
-    _pool.pop();
-    return ret;
-  }
-
   inline void* allocate() {
     std::unique_lock<std::mutex> lk(_lock);
     assert(!destructed);
-    if (!_pool.empty()) {
+    if (!(_pool.empty())) {
       return this->get();
     } else {
       expand();
@@ -100,20 +97,27 @@ class BucketMemoryPool_threadLocal {
   }
 
  private:
+  inline void* get() {
+    auto ret = _pool.top();
+    _pool.pop();
+    return ret;
+  }
+
   inline void expand() {
-    auto x = aligned_alloc(N, pool_size_gb * 1024 * 1024 * 1024);
-    // auto x = malloc(pool_size_gb*1024*1024*1024);
+    assert(false);
+    auto x = MemoryManager::mallocPinned(pool_size);
     assert(x);
     basePtr.emplace_back(x);
 
-    size_t totalChunks = pool_size_gb / N;
+    size_t totalChunks = pool_size / N;
     char* ptr = reinterpret_cast<char*>(x);
     char* baseRef = ptr;
 
     for (size_t i = 0; i < totalChunks; i++) {
+      assert(ptr <= baseRef);
+      *(reinterpret_cast<size_t*>(ptr)) = 0;
       _pool.push(ptr);
       ptr += N;
-      assert(ptr <= baseRef);
     }
   }
 
@@ -172,17 +176,14 @@ class BucketMemoryPool {
   void registerThreadLocalPool(BucketMemoryPool_threadLocal<N>* tpool) {
     std::unique_lock<std::mutex> lk(registryLock);
     registry.emplace_back(tpool);
-    // LOG(INFO) << "[BucketMemoryPool] Registry.size()++: " << registry.size()
-    // << " | thread: " << std::this_thread::get_id();
   }
   void deregisterThreadLocalPool(BucketMemoryPool_threadLocal<N>* tpool) {
     std::unique_lock<std::mutex> lk(registryLock);
     registry.erase(std::remove(registry.begin(), registry.end(), tpool),
                    registry.end());
-    // LOG(INFO) << "[BucketMemoryPool] Registry.size()--: " << registry.size()
-    // << " | thread: " << std::this_thread::get_id();
   }
 
+ private:
   bool destructed;
 
   template <size_t>
