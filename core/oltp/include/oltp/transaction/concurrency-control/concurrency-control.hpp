@@ -43,7 +43,7 @@ namespace txn {
 
 class CC_MV2PL {
  public:
-  class __attribute__((packed)) PRIMARY_INDEX_VAL {
+  class PRIMARY_INDEX_VAL {
    public:
     xid_t t_min;  //  | 1-byte w_id | 6 bytes xid |
     rowid_t VID;  // internal encoding defined in storage-utils.hpp
