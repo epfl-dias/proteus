@@ -62,7 +62,7 @@ class NUMAPartitionPolicy {
 
   [[maybe_unused]] auto getPartitions() { return PartitionVector; }
 
-  uint getDefaultPartition() {
+  int getDefaultPartition() {
     assert(!PartitionVector.empty());
     return PartitionVector[0].numa_idx;
   }
