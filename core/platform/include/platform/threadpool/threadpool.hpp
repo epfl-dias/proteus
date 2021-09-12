@@ -111,10 +111,10 @@ class ThreadPool {
   }
 
   template <class F, class... Args>
-  std::future<typename std::result_of<F(Args...)>::type> enqueue(
+  std::future<typename std::invoke_result_t<F, Args...>> enqueue(
       F &&f, Args &&...args) {
     using packaged_task_t =
-        std::packaged_task<typename std::result_of<F(Args...)>::type()>;
+        std::packaged_task<typename std::invoke_result_t<F, Args...>()>;
 
     class wrapper {
       std::decay_t<F> callable;

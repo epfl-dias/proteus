@@ -1714,7 +1714,6 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
   // Lookup in catalog based on name
   InputInfo *datasetInfo =
       (this->catalogParser).getInputInfoIfKnown(datasetName);
-  bool pluginExisted = true;
 
   if (!datasetInfo) {
     auto *rec = new RecordType();
@@ -1740,8 +1739,6 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
       datasetInfo->oidType = nullptr;
       (this->catalogParser).setInputInfo(datasetName, datasetInfo);
     }
-
-    pluginExisted = false;
   }
 
   // Dynamic allocation because I have to pass reference later on

@@ -25,7 +25,11 @@
 #include <dlfcn.h>
 #pragma push_macro("NDEBUG")
 #define NDEBUG
+#if LLVM_VERSION_MAJOR >= 13
+#define dumpDispatchInfo(x) (5)
+#else
 #define dumpDispatchInfo(x, y) (5)
+#endif
 #include <llvm/Analysis/BasicAliasAnalysis.h>
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/Bitcode/BitcodeReader.h>
@@ -452,7 +456,7 @@ llvm::orc::ThreadSafeModule optimizeGpuModule(
       std::error_code EC;
       llvm::raw_fd_ostream out(
           ("generated_code/" + M.getName() + "_opt.ll").str(), EC,
-          llvm::sys::fs::OpenFlags::F_None);
+          llvm::sys::fs::OpenFlags::OF_None);
 
       M.print(out, nullptr, false, true);
     }
@@ -473,7 +477,12 @@ class GPUJITer_impl : public llvm::orc::ResourceManager {
 
   //  PassConfiguration PassConf;
 
+#if LLVM_VERSION_MAJOR >= 13
+  llvm::orc::ExecutionSession ES{
+      llvm::cantFail(llvm::orc::SelfExecutorProcessControl::Create())};
+#else
   llvm::orc::ExecutionSession ES;
+#endif
   NVPTXLinkLayer ObjectLayer;
   llvm::orc::IRCompileLayer CompileLayer;
   llvm::orc::IRTransformLayer PrintOptimizedIRLayer;
@@ -598,6 +607,11 @@ class GPUJITer_impl : public llvm::orc::ResourceManager {
       }));
     });
 
+#if LLVM_VERSION_MAJOR >= 13
+    ES.setDispatchTask([&p = pool](std::unique_ptr<llvm::orc::Task> T) {
+      p.enqueue([UnownedT = std::move(T)]() mutable { UnownedT->run(); });
+    });
+#else
     ES.setDispatchMaterialization(
         [&p = pool](
             std::unique_ptr<llvm::orc::MaterializationUnit> MU,
@@ -610,6 +624,7 @@ class GPUJITer_impl : public llvm::orc::ResourceManager {
                       MRinner) { SharedMU->materialize(std::move(MRinner)); },
               std::move(MR));
         });
+#endif
 
     ES.registerResourceManager(*this);
 

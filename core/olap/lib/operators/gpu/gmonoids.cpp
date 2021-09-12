@@ -126,7 +126,11 @@ void MaxMonoid::createAtomicUpdate(Context *const context,
       llvm::AtomicRMWInst::BinOp::Max,
       context->getBuilder()->CreateBitCast(accumulator_ptr,
                                            llvm::PointerType::getUnqual(type)),
+#if LLVM_VERSION_MAJOR >= 13
+      val_in, llvm::Align(context->getSizeOf(val_in)), order);
+#else
       val_in, order);
+#endif
 }
 
 llvm::Value *MinMonoid::evalCondition(Context *const context,
@@ -179,8 +183,12 @@ void MinMonoid::createAtomicUpdate(Context *const context,
                                    llvm::Value *accumulator_ptr,
                                    llvm::Value *val_in,
                                    llvm::AtomicOrdering order) {
-  context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Min,
-                                         accumulator_ptr, val_in, order);
+  context->getBuilder()->CreateAtomicRMW(
+      llvm::AtomicRMWInst::BinOp::Min, accumulator_ptr, val_in,
+#if LLVM_VERSION_MAJOR >= 13
+      llvm::Align(context->getSizeOf(val_in)),
+#endif
+      order);
 }
 
 llvm::Value *SumMonoid::create(Context *const context,
@@ -199,8 +207,12 @@ void SumMonoid::createAtomicUpdate(Context *const context,
                                    llvm::AtomicOrdering order) {
   if (val_in->getType()
           ->isIntegerTy()) {  // FIXME : llvm does not like non integer atomics
-    context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add,
-                                           accumulator_ptr, val_in, order);
+    context->getBuilder()->CreateAtomicRMW(
+        llvm::AtomicRMWInst::BinOp::Add, accumulator_ptr, val_in,
+#if LLVM_VERSION_MAJOR >= 13
+        llvm::Align(context->getSizeOf(val_in)),
+#endif
+        order);
 #if LLVM_VERSION_MAJOR <= 8
   } else if (val_in->getType()->isDoubleTy()) {
     llvm::Function *f = context->getFunction("atomicAdd_double");
@@ -212,8 +224,12 @@ void SumMonoid::createAtomicUpdate(Context *const context,
         f, std::vector<llvm::Value *>{accumulator_ptr, val_in});
 #else
   } else if (val_in->getType()->isFloatingPointTy()) {
-    context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::FAdd,
-                                           accumulator_ptr, val_in, order);
+    context->getBuilder()->CreateAtomicRMW(
+        llvm::AtomicRMWInst::BinOp::FAdd, accumulator_ptr, val_in,
+#if LLVM_VERSION_MAJOR >= 13
+        llvm::Align(context->getSizeOf(val_in)),
+#endif
+        order);
 #endif
   } else {
     string error_msg = string("[gpu::SumMonoid: ] Unimplemented atomic update");
@@ -319,16 +335,24 @@ void BitOrMonoid::createAtomicUpdate(Context *const context,
                                      llvm::Value *accumulator_ptr,
                                      llvm::Value *val_in,
                                      llvm::AtomicOrdering order) {
-  context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Or,
-                                         accumulator_ptr, val_in, order);
+  context->getBuilder()->CreateAtomicRMW(
+      llvm::AtomicRMWInst::BinOp::Or, accumulator_ptr, val_in,
+#if LLVM_VERSION_MAJOR >= 13
+      llvm::Align(context->getSizeOf(val_in)),
+#endif
+      order);
 }
 
 void BitAndMonoid::createAtomicUpdate(Context *const context,
                                       llvm::Value *accumulator_ptr,
                                       llvm::Value *val_in,
                                       llvm::AtomicOrdering order) {
-  context->getBuilder()->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::And,
-                                         accumulator_ptr, val_in, order);
+  context->getBuilder()->CreateAtomicRMW(
+      llvm::AtomicRMWInst::BinOp::And, accumulator_ptr, val_in,
+#if LLVM_VERSION_MAJOR >= 13
+      llvm::Align(context->getSizeOf(val_in)),
+#endif
+      order);
 }
 
 Monoid *Monoid::get(::Monoid m) {
@@ -423,8 +447,8 @@ const ExpressionType *CollectMonoid::getOutputType(
 
 llvm::Type *CollectMonoid::getStorageType(Context *context,
                                           llvm::Type *updateType) {
-  return context->toLLVM<
-      std::invoke_result_t<decltype(create_proteus_int_collection), int32_t>>();
+  return context->toLLVM<std::invoke_result_t<
+      decltype(create_proteus_int_collection), int32_t> >();
 }
 
 }  // namespace gpu

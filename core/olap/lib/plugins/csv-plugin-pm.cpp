@@ -1695,15 +1695,6 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
     }
     mem_pos = it->second;
   }
-  AllocaInst *fsizePtr;
-  {
-    map<string, AllocaInst *>::iterator it;
-    it = NamedValuesCSV.find(fsizeVar);
-    if (it == NamedValuesCSV.end()) {
-      throw runtime_error(string("Unknown variable name: ") + fsizeVar);
-    }
-    fsizePtr = it->second;
-  }
 
   /* Materialized OID */
   RecordAttribute tupleIdentifier =

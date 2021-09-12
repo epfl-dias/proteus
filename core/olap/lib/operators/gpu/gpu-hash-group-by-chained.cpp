@@ -105,6 +105,9 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
   Value *head_w_hash_ptr = Builder->CreateInBoundsGEP(head_ptr, hash);
   Value *current = Builder->CreateExtractValue(
       Builder->CreateAtomicCmpXchg(head_w_hash_ptr, eochain, eochain,
+#if LLVM_VERSION_MAJOR >= 13
+                                   llvm::Align(context->getSizeOf(eochain)),
+#endif
                                    llvm::AtomicOrdering::Monotonic,
                                    llvm::AtomicOrdering::Monotonic),
       0);
@@ -180,8 +183,8 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
       Value *out_ptr = context->getStateVar(out_param_ids[i]);
 
       Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
-      Builder->CreateAlignedStore(out_vals[i], out_ptr_i, packet_widths[i] / 8,
-                                  true);
+      Builder->CreateAlignedStore(out_vals[i], out_ptr_i,
+                                  llvm::Align(packet_widths[i] / 8), true);
     }
 
     // written = true;
@@ -191,8 +194,11 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
 
     // current = atomicCAS(&(first[bucket]), -1, idx);
     Value *old_current = Builder->CreateAtomicCmpXchg(
-        head_w_hash_ptr, eochain, old_cnt, llvm::AtomicOrdering::Monotonic,
-        llvm::AtomicOrdering::Monotonic);
+        head_w_hash_ptr, eochain, old_cnt,
+#if LLVM_VERSION_MAJOR >= 13
+        llvm::Align(context->getSizeOf(eochain)),
+#endif
+        llvm::AtomicOrdering::Monotonic, llvm::AtomicOrdering::Monotonic);
 
     Builder->CreateStore(Builder->CreateExtractValue(old_current, 0),
                          mem_current);
@@ -222,7 +228,7 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
   Value *next_bucket_ptr = Builder->CreateInBoundsGEP(
       context->getStateVar(out_param_ids[1]), current);
   Value *next_bucket = Builder->CreateAlignedLoad(
-      next_bucket_ptr, packet_widths[1] / 8, true, "next_bucket");
+      next_bucket_ptr, llvm::Align(packet_widths[1] / 8), true, "next_bucket");
 
   context->workerScopedMembar();
 
@@ -231,8 +237,11 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
           Builder->CreateInBoundsGEP(
               context->getStateVar(out_param_ids[0]),
               std::vector<Value *>{current, context->createInt32(0)}),
-          eochain, eochain, llvm::AtomicOrdering::Monotonic,
-          llvm::AtomicOrdering::Monotonic),
+          eochain, eochain,
+#if LLVM_VERSION_MAJOR >= 13
+          llvm::Align(context->getSizeOf(eochain)),
+#endif
+          llvm::AtomicOrdering::Monotonic, llvm::AtomicOrdering::Monotonic),
       0);
 
   // next_bucket_next->setName("next_bucket_next");
@@ -349,8 +358,8 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
       Value *out_ptr = context->getStateVar(out_param_ids[i]);
 
       Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
-      Builder->CreateAlignedStore(out_vals[i], out_ptr_i, packet_widths[i] / 8,
-                                  true);
+      Builder->CreateAlignedStore(out_vals[i], out_ptr_i,
+                                  llvm::Align(packet_widths[i] / 8), true);
     }
 
     // written = true;
@@ -367,8 +376,11 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
   auto activemask3 = gpu_intrinsic::activemask(context);
   Value *new_next = Builder->CreateAtomicCmpXchg(
       Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0]), tmp),
-      eochain, Builder->CreateLoad(mem_idx), llvm::AtomicOrdering::Monotonic,
-      llvm::AtomicOrdering::Monotonic);
+      eochain, Builder->CreateLoad(mem_idx),
+#if LLVM_VERSION_MAJOR >= 13
+      llvm::Align(context->getSizeOf(eochain)),
+#endif
+      llvm::AtomicOrdering::Monotonic, llvm::AtomicOrdering::Monotonic);
   Builder->CreateCall(warpsync, {activemask3});
   context->workerScopedMembar();
   // current = new_next;

@@ -77,15 +77,6 @@ inline void nvtxRangePop() {}
 #define WARPSIZE (32)
 #endif
 
-// FIXME: remove when upgrading LLVM to >9
-namespace proteus {
-inline __device__ unsigned int __activemask() {
-  unsigned int ret;
-  asm volatile("activemask.b32 %0;" : "=r"(ret));
-  return ret;
-}
-}  // namespace proteus
-
 // extern int                                                 cpu_cnt;
 // extern cpu_set_t                                          *gpu_affinity;
 // extern cpu_set_t                                          *cpu_numa_affinity;

@@ -37,6 +37,10 @@ llvm::Value *HashJoinChainedMorsel::nextIndex(ParallelContext *context) {
   auto v = context->getBuilder()->CreateAtomicRMW(
       llvm::AtomicRMWInst::BinOp::Add, out_cnt,
       llvm::ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1),
+#if LLVM_VERSION_MAJOR >= 13
+      llvm::Align(
+          context->getSizeOf(out_cnt->getType()->getPointerElementType())),
+#endif
       llvm::AtomicOrdering::SequentiallyConsistent);
 
   v->setName("index");
@@ -48,6 +52,9 @@ llvm::Value *HashJoinChainedMorsel::replaceHead(ParallelContext *context,
                                                 llvm::Value *index) {
   auto *old_head = context->getBuilder()->CreateAtomicRMW(
       llvm::AtomicRMWInst::BinOp::Xchg, h_ptr, index,
+#if LLVM_VERSION_MAJOR >= 13
+      llvm::Align(context->getSizeOf(index)),
+#endif
       llvm::AtomicOrdering::SequentiallyConsistent);
   old_head->setName("old_head");
   return old_head;

@@ -388,6 +388,9 @@ void GpuHashRearrange::consume(ParallelContext *context,
     // matter :P
     Value *new_idx = Builder->CreateAtomicRMW(
         AtomicRMWInst::BinOp::Add, cnt_ptr, Builder->CreateZExt(pop, idx_type),
+#if LLVM_VERSION_MAJOR >= 13
+        llvm::Align(context->getSizeOf(idx_type)),
+#endif
         AtomicOrdering::Monotonic);
     Builder->CreateStore(new_idx, indx_ptr);
   });
@@ -447,7 +450,11 @@ void GpuHashRearrange::consume(ParallelContext *context,
 
     Value *w = Builder->CreateAtomicRMW(
         AtomicRMWInst::BinOp::Add, Builder->CreateInBoundsGEP(wcnt, idx),
-        ConstantInt::get(idx_type, 1), AtomicOrdering::Monotonic);
+        ConstantInt::get(idx_type, 1),
+#if LLVM_VERSION_MAJOR >= 13
+        llvm::Align(context->getSizeOf(idx_type)),
+#endif
+        AtomicOrdering::Monotonic);
 
     expressions::ProteusValueExpression cExpr{
         new BoolType(),
@@ -468,14 +475,22 @@ void GpuHashRearrange::consume(ParallelContext *context,
       Function *threadfence_block = context->getFunction("threadfence_block");
       Builder->CreateCall(threadfence_block);
 
-      Builder->CreateAtomicRMW(
-          AtomicRMWInst::BinOp::Xchg, Builder->CreateInBoundsGEP(wcnt, idx),
-          ConstantInt::get(idx_type, 0), AtomicOrdering::Monotonic);
+      Builder->CreateAtomicRMW(AtomicRMWInst::BinOp::Xchg,
+                               Builder->CreateInBoundsGEP(wcnt, idx),
+                               ConstantInt::get(idx_type, 0),
+#if LLVM_VERSION_MAJOR >= 13
+                               llvm::Align(context->getSizeOf(idx_type)),
+#endif
+                               AtomicOrdering::Monotonic);
       Builder->CreateCall(threadfence_block);
 
-      Builder->CreateAtomicRMW(
-          AtomicRMWInst::BinOp::Xchg, Builder->CreateInBoundsGEP(cnt, idx),
-          ConstantInt::get(idx_type, 0), AtomicOrdering::Monotonic);
+      Builder->CreateAtomicRMW(AtomicRMWInst::BinOp::Xchg,
+                               Builder->CreateInBoundsGEP(cnt, idx),
+                               ConstantInt::get(idx_type, 0),
+#if LLVM_VERSION_MAJOR >= 13
+                               llvm::Align(context->getSizeOf(idx_type)),
+#endif
+                               AtomicOrdering::Monotonic);
       Builder->CreateCall(threadfence_block);
 
       Builder->CreateCall(warpsync, {activemask});
@@ -490,7 +505,11 @@ void GpuHashRearrange::consume(ParallelContext *context,
       Value *new_oid = Builder->CreateAtomicRMW(
           AtomicRMWInst::BinOp::Add,
           ((ParallelContext *)context)->getStateVar(oidVar_id),
-          ConstantInt::get(oid_type, cap), AtomicOrdering::Monotonic);
+          ConstantInt::get(oid_type, cap),
+#if LLVM_VERSION_MAJOR >= 13
+          llvm::Align(context->getSizeOf(oid_type)),
+#endif
+          AtomicOrdering::Monotonic);
       new_oid->setName("oid");
 
       RecordAttribute tupleIdentifier{matExpr[0].getRegisteredRelName(),
@@ -674,6 +693,9 @@ void GpuHashRearrange::consume_flush(ParallelContext *context,
   Value *new_oid = Builder->CreateAtomicRMW(
       AtomicRMWInst::BinOp::Add,
       ((ParallelContext *)context)->getStateVar(oidVar_id), cnt,
+#if LLVM_VERSION_MAJOR >= 13
+      llvm::Align(context->getSizeOf(cnt)),
+#endif
       AtomicOrdering::Monotonic);
   new_oid->setName("oid");
 

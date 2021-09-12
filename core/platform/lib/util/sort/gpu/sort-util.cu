@@ -26,6 +26,12 @@
 // NOTE: Clang fails to compile thrust, but that is fine if we call this part
 // only from generated code
 #define _CubLog(format, ...) printf(format, __VA_ARGS__)
+
+namespace std {
+template <class F, class... ArgTypes>
+using result_of = invoke_result<F, ArgTypes...>;
+};
+
 #define THRUST_CPP_DIALECT 2017
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>

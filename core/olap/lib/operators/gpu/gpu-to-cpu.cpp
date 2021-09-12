@@ -173,7 +173,11 @@ void GpuToCpu::consume(ParallelContext *const context,
     // while (atomicCAS((int *) &lock, 0, 1));
 
     Value *locked =
-        Builder->CreateAtomicCmpXchg(lock_ptr, zero, one, order, order);
+        Builder->CreateAtomicCmpXchg(lock_ptr, zero, one,
+#if LLVM_VERSION_MAJOR >= 13
+                                     llvm::Align(context->getSizeOf(one)),
+#endif
+                                     order, order);
 
     Value *got_lock = Builder->CreateExtractValue(locked, 1);
 
@@ -262,7 +266,11 @@ void GpuToCpu::consume(ParallelContext *const context,
     // while (atomicCAS((int *) &lock, 0, 1));
 
     Value *locked =
-        Builder->CreateAtomicCmpXchg(lock_ptr, zero, one, order, order);
+        Builder->CreateAtomicCmpXchg(lock_ptr, zero, one,
+#if LLVM_VERSION_MAJOR >= 13
+                                     llvm::MaybeAlign(context->getSizeOf(one)),
+#endif
+                                     order, order);
 
     Value *got_lock = Builder->CreateExtractValue(locked, 1);
 
@@ -368,6 +376,9 @@ void GpuToCpu::consume(ParallelContext *const context,
 
   // lock = 0;
   Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Xchg, lock_ptr, zero,
+#if LLVM_VERSION_MAJOR >= 13
+                           llvm::Align(context->getSizeOf(one)),
+#endif
                            order);
 
   Builder->CreateBr(afterBB);

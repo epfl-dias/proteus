@@ -24,6 +24,10 @@ function(target_enable_default_warnings target)
     -Wno-conversion
     -Wno-covered-switch-default
 
+    # FIXME: Expanding GLOG defines causes this warning
+    -Wno-unknown-warning-option
+    -Wno-reserved-identifier
+
     # Disable warning-as-error for deprecated calls
     -Wno-deprecated
     -Wno-double-promotion

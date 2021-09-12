@@ -774,8 +774,12 @@ Function *GpuPipelineGen::getFunction(string funcName) const {
 Value *GpuPipelineGen::workerScopedAtomicAdd(Value *ptr, Value *inc) {
   auto activemask = gpu_intrinsic::activemask((ParallelContext *)context);
   IRBuilder<> *Builder = context->getBuilder();
-  Value *old = Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, ptr,
-                                        inc, llvm::AtomicOrdering::Monotonic);
+  Value *old =
+      Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Add, ptr, inc,
+#if LLVM_VERSION_MAJOR >= 13
+                               llvm::Align(context->getSizeOf(inc)),
+#endif
+                               llvm::AtomicOrdering::Monotonic);
   auto warpsync = context->getFunction("llvm.nvvm.bar.warp.sync");
   Builder->CreateCall(warpsync, {activemask});
   return old;
@@ -784,8 +788,12 @@ Value *GpuPipelineGen::workerScopedAtomicAdd(Value *ptr, Value *inc) {
 Value *GpuPipelineGen::workerScopedAtomicXchg(Value *ptr, Value *val) {
   auto activemask = gpu_intrinsic::activemask((ParallelContext *)context);
   IRBuilder<> *Builder = context->getBuilder();
-  Value *old = Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Xchg, ptr,
-                                        val, llvm::AtomicOrdering::Monotonic);
+  Value *old =
+      Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Xchg, ptr, val,
+#if LLVM_VERSION_MAJOR >= 13
+                               llvm::Align(context->getSizeOf(val)),
+#endif
+                               llvm::AtomicOrdering::Monotonic);
   auto warpsync = context->getFunction("llvm.nvvm.bar.warp.sync");
   Builder->CreateCall(warpsync, {activemask});
   return old;

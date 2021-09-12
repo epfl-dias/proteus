@@ -361,8 +361,8 @@ void HashGroupByChained::generate_build(ParallelContext *context,
       Value *out_ptr = context->getStateVar(out_param_ids[i]);
 
       Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
-      Builder->CreateAlignedStore(out_vals[i], out_ptr_i, packet_widths[i] / 8,
-                                  true);
+      Builder->CreateAlignedStore(out_vals[i], out_ptr_i,
+                                  llvm::Align{packet_widths[i] / 8}, true);
     }
 
     // written = true;
@@ -372,8 +372,11 @@ void HashGroupByChained::generate_build(ParallelContext *context,
 
     // current = atomicCAS(&(first[bucket]), -1, idx);
     Value *old_current = Builder->CreateAtomicCmpXchg(
-        head_w_hash_ptr, eochain, old_cnt, llvm::AtomicOrdering::Monotonic,
-        llvm::AtomicOrdering::Monotonic);
+        head_w_hash_ptr, eochain, old_cnt,
+#if LLVM_VERSION_MAJOR >= 13
+        llvm::Align(context->getSizeOf(eochain)),
+#endif
+        llvm::AtomicOrdering::Monotonic, llvm::AtomicOrdering::Monotonic);
 
     Builder->CreateStore(Builder->CreateExtractValue(old_current, 0),
                          mem_current);
@@ -404,7 +407,7 @@ void HashGroupByChained::generate_build(ParallelContext *context,
   Value *next_bucket_ptr = Builder->CreateInBoundsGEP(
       context->getStateVar(out_param_ids[1]), current);
   Value *next_bucket = Builder->CreateAlignedLoad(
-      next_bucket_ptr, packet_widths[1] / 8, true, "next_bucket");
+      next_bucket_ptr, llvm::Align(packet_widths[1] / 8), true, "next_bucket");
 
   context->workerScopedMembar();
 
@@ -492,8 +495,8 @@ void HashGroupByChained::generate_build(ParallelContext *context,
 
         Value *out_ptr_i =
             Builder->CreateInBoundsGEP(out_ptr, Builder->CreateLoad(mem_idx));
-        out_vals.emplace_back(
-            Builder->CreateAlignedLoad(out_ptr_i, packet_widths[i] / 8));
+        out_vals.emplace_back(Builder->CreateAlignedLoad(
+            out_ptr_i, llvm::Align{packet_widths[i] / 8}));
       }
       destroyHashTableEntry(context, childState, std::move(out_vals));
     }
@@ -542,8 +545,8 @@ void HashGroupByChained::generate_build(ParallelContext *context,
       Value *out_ptr = context->getStateVar(out_param_ids[i]);
 
       Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
-      Builder->CreateAlignedStore(out_vals[i], out_ptr_i, packet_widths[i] / 8,
-                                  true);
+      Builder->CreateAlignedStore(out_vals[i], out_ptr_i,
+                                  llvm::Align(packet_widths[i] / 8), true);
     }
 
     // written = true;
@@ -727,7 +730,8 @@ void HashGroupByChained::generate_scan(ParallelContext *context) {
     Value *out_ptr = context->getArgument(out_param_ids_scan[i]);
 
     Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, lhs);
-    Value *val = Builder->CreateAlignedLoad(out_ptr_i, packet_widths[i] / 8);
+    Value *val = Builder->CreateAlignedLoad(out_ptr_i,
+                                            llvm::Align(packet_widths[i] / 8));
 
     in_vals.push_back(val);
   }

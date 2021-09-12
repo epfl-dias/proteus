@@ -183,10 +183,10 @@ class [[nodiscard]] platform {
 
 }  // namespace proteus
 
-constexpr size_t operator"" _K(unsigned long long int x) { return x * 1024; }
+constexpr size_t operator""_K(unsigned long long int x) { return x * 1024; }
 
-constexpr size_t operator"" _M(unsigned long long int x) { return x * 1024_K; }
+constexpr size_t operator""_M(unsigned long long int x) { return x * 1024_K; }
 
-constexpr size_t operator"" _G(unsigned long long int x) { return x * 1024_M; }
+constexpr size_t operator""_G(unsigned long long int x) { return x * 1024_M; }
 
 #endif /* COMMON_HPP_ */

@@ -211,14 +211,6 @@ void GpuSort::consume(ParallelContext *const context,
   IntegerType *int32_type = Type::getInt32Ty(llvmContext);
   IntegerType *int64_type = Type::getInt64Ty(llvmContext);
 
-  IntegerType *size_type;
-  if (sizeof(size_t) == 4)
-    size_type = int32_type;
-  else if (sizeof(size_t) == 8)
-    size_type = int64_type;
-  else
-    assert(false);
-
   // size_t max_width = 0;
   // for (const auto &e: orderByFields){
   //     max_width = std::max(max_width,
@@ -251,9 +243,12 @@ void GpuSort::consume(ParallelContext *const context,
 
   // StructType * partition = StructType::get(llvmContext, members);
 
-  Value *indx = Builder->CreateAtomicRMW(AtomicRMWInst::BinOp::Add, s_cnt_mem,
-                                         ConstantInt::get(oid_type, 1),
-                                         AtomicOrdering::Monotonic);
+  Value *indx = Builder->CreateAtomicRMW(
+      AtomicRMWInst::BinOp::Add, s_cnt_mem, ConstantInt::get(oid_type, 1),
+#if LLVM_VERSION_MAJOR >= 13
+      llvm::Align(context->getSizeOf(oid_type)),
+#endif
+      AtomicOrdering::Monotonic);
 
   // Value * indx = Builder->CreateLoad(ready_cnt_mem);
 
@@ -326,14 +321,6 @@ void GpuSort::flush_sorted() {
 
   IntegerType *int32_type = Type::getInt32Ty(llvmContext);
   IntegerType *int64_type = Type::getInt64Ty(llvmContext);
-
-  IntegerType *size_type;
-  if (sizeof(size_t) == 4)
-    size_type = int32_type;
-  else if (sizeof(size_t) == 8)
-    size_type = int64_type;
-  else
-    assert(false);
 
   // context->setGlobalFunction();
 

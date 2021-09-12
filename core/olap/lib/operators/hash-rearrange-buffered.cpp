@@ -157,14 +157,6 @@ void HashRearrangeBuffered::consume(Context *const context,
   IntegerType *int32_type = Type::getInt32Ty(llvmContext);
   IntegerType *int64_type = Type::getInt64Ty(llvmContext);
 
-  IntegerType *size_type;
-  if (sizeof(size_t) == 4)
-    size_type = int32_type;
-  else if (sizeof(size_t) == 8)
-    size_type = int64_type;
-  else
-    assert(false);
-
   size_t max_width = 0;
   for (const auto &e : wantedFields) {
     std::cout << e->getExpressionType()->getType() << std::endl;

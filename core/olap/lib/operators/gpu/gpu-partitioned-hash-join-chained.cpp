@@ -127,6 +127,10 @@ void HashPartitioner::consume(Context *const context,
   Value *old_cnt = Builder->CreateAtomicRMW(
       llvm::AtomicRMWInst::BinOp::Add, out_cnt,
       ConstantInt::get(out_cnt->getType()->getPointerElementType(), 1),
+#if LLVM_VERSION_MAJOR >= 13
+      llvm::Align(
+          context->getSizeOf(out_cnt->getType()->getPointerElementType())),
+#endif
       llvm::AtomicOrdering::Monotonic);
   old_cnt->setName("index");
 
@@ -952,10 +956,13 @@ void GpuPartitionedHashJoinChained::generate_build(
   Value *hash_val = GpuPartitionedHashJoinChained::hash(key_val);
 
   std::vector<Value *> hash_val_v{context->createInt32(0), hash_val};
-  Value *old_head =
-      Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Xchg,
-                               Builder->CreateInBoundsGEP(head_ptr, hash_val_v),
-                               wr_offset, llvm::AtomicOrdering::Monotonic);
+  Value *old_head = Builder->CreateAtomicRMW(
+      llvm::AtomicRMWInst::BinOp::Xchg,
+      Builder->CreateInBoundsGEP(head_ptr, hash_val_v), wr_offset,
+#if LLVM_VERSION_MAJOR >= 13
+      llvm::Align(context->getSizeOf(wr_offset)),
+#endif
+      llvm::AtomicOrdering::Monotonic);
 
   // Value *old_head =
   // Builder->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::Xchg,

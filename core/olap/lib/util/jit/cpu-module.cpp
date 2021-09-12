@@ -24,7 +24,11 @@
 
 #pragma push_macro("NDEBUG")
 #define NDEBUG
+#if LLVM_VERSION_MAJOR >= 13
+#define dumpDispatchInfo(x) (5)
+#else
 #define dumpDispatchInfo(x, y) (5)
+#endif
 #include <llvm/Analysis/BasicAliasAnalysis.h>
 #include <llvm/Analysis/TargetLibraryInfo.h>
 #include <llvm/Analysis/TargetTransformInfo.h>
@@ -173,7 +177,7 @@ Expected<llvm::orc::ThreadSafeModule> printIR(orc::ThreadSafeModule module,
   module.withModuleDo([&suffix](Module &m) {
     std::error_code EC;
     raw_fd_ostream out("generated_code/" + m.getName().str() + suffix + ".ll",
-                       EC, llvm::sys::fs::OpenFlags::F_None);
+                       EC, llvm::sys::fs::OpenFlags::OF_None);
     m.print(out, nullptr, false, true);
   });
   return std::move(module);
@@ -262,7 +266,12 @@ class JITer_impl {
 
   PassConfiguration PassConf;
 
+#if LLVM_VERSION_MAJOR >= 13
+  llvm::orc::ExecutionSession ES{
+      llvm::cantFail(llvm::orc::SelfExecutorProcessControl::Create())};
+#else
   llvm::orc::ExecutionSession ES;
+#endif
   llvm::orc::RTDyldObjectLinkingLayer ObjectLayer;
   llvm::orc::IRCompileLayer CompileLayer;
   llvm::orc::IRTransformLayer PrintOptimizedIRLayer;
@@ -341,6 +350,11 @@ class JITer_impl {
     //          LOG(INFO) << "Emitted " << k << " " << mb.get();
     //        });
 
+#if LLVM_VERSION_MAJOR >= 13
+    ES.setDispatchTask([&p = pool](std::unique_ptr<llvm::orc::Task> T) {
+      p.enqueue([UnownedT = std::move(T)]() mutable { UnownedT->run(); });
+    });
+#else
     ES.setDispatchMaterialization(
         [&p = pool](
             std::unique_ptr<llvm::orc::MaterializationUnit> MU,
@@ -353,6 +367,7 @@ class JITer_impl {
                       MRinner) { SharedMU->materialize(std::move(MRinner)); },
               std::move(MR));
         });
+#endif
 
     MainJD.addGenerator(llvm::cantFail(
         llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
