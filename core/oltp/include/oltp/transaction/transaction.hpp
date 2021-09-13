@@ -26,6 +26,7 @@
 
 #include <cassert>
 #include <functional>
+#include <memory>
 #include <vector>
 
 #include "oltp/common/common.hpp"
@@ -36,8 +37,8 @@ class Txn;
 
 class TxnTs {
  public:
-  xid_t txn_id;
   xid_t txn_start_time;
+  xid_t txn_id;
 
   TxnTs(xid_t txn_id, xid_t txn_start_time)
       : txn_id(txn_id), txn_start_time(txn_start_time) {}
@@ -74,6 +75,10 @@ class Txn {
                     bool read_only = false);
   static xid_t getTxn(Txn* txnPtr, worker_id_t workerId,
                       partition_id_t partitionId, bool read_only = false);
+
+  static std::unique_ptr<Txn> make_unique(worker_id_t workerId,
+                                          partition_id_t partitionId,
+                                          bool read_only = false);
 
   struct [[maybe_unused]] TxnCmp {
     bool operator()(const Txn& a, const Txn& b) const {

@@ -23,6 +23,8 @@
 
 #include "oltp/transaction/transaction.hpp"
 
+#include <memory>
+
 #include "oltp/common/common.hpp"
 #include "oltp/transaction/transaction_manager.hpp"
 
@@ -58,6 +60,15 @@ Txn Txn::getTxn(worker_id_t workerId, partition_id_t partitionId,
   static thread_local auto &txnManager = TransactionManager::getInstance();
   return Txn(txnManager.get_txnID_startTime_Pair(), workerId, partitionId,
              txnManager.get_current_master_version(), readOnly);
+}
+
+std::unique_ptr<Txn> Txn::make_unique(worker_id_t workerId,
+                                      partition_id_t partitionId,
+                                      bool read_only) {
+  static thread_local auto &txnManager = TransactionManager::getInstance();
+  return std::make_unique<Txn>(
+      txnManager.get_txnID_startTime_Pair(), workerId, partitionId,
+      txnManager.get_current_master_version(), read_only);
 }
 
 xid_t Txn::getTxn(Txn *txnPtr, worker_id_t workerId, partition_id_t partitionId,
