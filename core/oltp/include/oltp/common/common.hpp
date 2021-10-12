@@ -71,6 +71,7 @@ typedef std::map<uint64_t, std::string> dict_dstring_t;
 
 extern uint g_num_partitions;
 extern uint g_delta_size;
+extern bool g_use_hyperThreads;
 
 enum SnapshotTypes { None, CircularMaster, LazyMaster, MVCC };
 constexpr auto DefaultSnapshotMechanism = SnapshotTypes::CircularMaster;

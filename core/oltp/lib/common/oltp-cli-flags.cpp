@@ -38,6 +38,7 @@ DEFINE_uint32(report_stat_sec, 0, "Report stats every x secs");
 DEFINE_uint32(elastic_workload, 0, "if > 0, add a worker every x seconds");
 DEFINE_uint32(migrate_worker, 0, "if > 0, migrate worker to other side");
 DEFINE_uint32(switch_master_sec, 0, "if > 0, add a worker every x seconds");
+DEFINE_bool(use_hyperthreads, false, "OLTP workers to use hyperthreads.");
 
 // DEFINE_bool(reverse_partition_numa_mapping, true,
 //             "True: lowest PID mapped to highest NUMA ID");

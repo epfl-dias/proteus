@@ -25,3 +25,4 @@
 
 uint g_num_partitions = 1;
 uint g_delta_size = 4;
+bool g_use_hyperThreads = false;

@@ -84,6 +84,12 @@
 // Duration>; using sys_nanoseconds = sys_time<std::chrono::nanoseconds>;
 // sys_nanoseconds now = std::chrono::system_clock::now();
 
+/*
+ Class: timed_func
+ Example Usage:
+    timed_func::interval_runner(
+      [] { DoSomething(); }, (interval in milliseconds.));
+ * */
 class timed_func {
   static bool terminate;
   static int num_active_runners;

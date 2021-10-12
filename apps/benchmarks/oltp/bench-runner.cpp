@@ -26,11 +26,8 @@
 
 #include <bitset>
 #include <cli-flags.hpp>
-#include <functional>
 #include <iostream>
-#include <limits>
 #include <thread>
-#include <tuple>
 
 // OLTP Engine
 #include "oltp/common/constants.hpp"
@@ -42,8 +39,6 @@
 #include "oltp/transaction/transaction_manager.hpp"
 
 // Bench Includes
-
-//#include "benchmarks/micro_ssb.hpp"
 #include "bench-cli-flags.hpp"
 #include "tpcc/tpcc_64.hpp"
 #include "ycsb.hpp"
@@ -56,32 +51,55 @@
 
 int main(int argc, char** argv) {
   auto olap = proteus::from_cli::olap(
-      "Simple command line interface for aeolus", &argc, &argv);
+      "Simple command line interface for proteus-oltp", &argc, &argv);
 
   const auto& topo = topology::getInstance();
   const auto& nodes = topo.getCpuNumaNodes();
-  set_exec_location_on_scope d{nodes[0]};
+  if constexpr (global_conf::reverse_partition_numa_mapping) {
+    set_exec_location_on_scope d{nodes[nodes.size() - 1]};
+  } else {
+    set_exec_location_on_scope d{nodes[0]};
+  }
 
-  if (FLAGS_num_workers == 0)
-    FLAGS_num_workers = topology::getInstance().getCoreCount();
+  if (FLAGS_num_workers == 0) FLAGS_num_workers = topo.getCoreCount();
+
+  g_use_hyperThreads = FLAGS_use_hyperthreads;
+  g_delta_size = FLAGS_delta_size;
+
+  auto ht_size = topo.getCores()[0].ht_pairs_id.size();
+  auto n_physical_cores = topo.getCoreCount() / ht_size;
+  auto n_physical_cores_per_numa =
+      n_physical_cores / topo.getCpuNumaNodeCount();
+
+  if (FLAGS_num_workers > n_physical_cores) {
+    LOG(INFO) << "FLAGS_num_workers > n_physical_cores :: Using hyperThreads ( "
+                 "g_use_hyperThreads: "
+              << g_use_hyperThreads << " )";
+    g_use_hyperThreads = true;
+    FLAGS_use_hyperthreads = true;
+  }
 
   if (FLAGS_num_partitions == 0) {
     if (FLAGS_elastic_workload > 0) {
-      g_num_partitions = topology::getInstance().getCpuNumaNodeCount();
+      g_num_partitions = topo.getCpuNumaNodeCount();
     } else {
-      g_num_partitions =
-          ((FLAGS_num_workers - 1) /
-           topology::getInstance().getCpuNumaNodes()[0].local_cores.size()) +
-          1;
+      LOG(INFO) << "Use hyper-threads: " << g_use_hyperThreads;
+      if (g_use_hyperThreads) {
+        g_num_partitions = ((FLAGS_num_workers - 1) /
+                            topo.getCpuNumaNodes()[0].local_cores.size()) +
+                           1;
+      } else {
+        assert(FLAGS_num_workers <= n_physical_cores);
+
+        g_num_partitions =
+            ((FLAGS_num_workers - 1) / n_physical_cores_per_numa) + 1;
+      }
     }
 
   } else {
     g_num_partitions = FLAGS_num_partitions;
   }
-
   LOG(INFO) << "PARTITIONS: " << g_num_partitions << std::endl;
-
-  g_delta_size = FLAGS_delta_size;
 
   storage::Schema* schema = &storage::Schema::getInstance();
 
@@ -103,13 +121,10 @@ int main(int argc, char** argv) {
                         FLAGS_layout_column_store, {}, FLAGS_ch_scale_factor,
                         FLAGS_tpcc_dist_threshold, FLAGS_tpcc_csv_dir);
 
-  } else if (FLAGS_benchmark == 3) {
-    // bench = new bench::MicroSSB();
+  } else {  // Default YCSB
 
-  } else {  // Defult YCSB
-
-    std::cout << "Write Threshold: " << FLAGS_ycsb_write_ratio << std::endl;
-    std::cout << "Theta: " << FLAGS_ycsb_zipf_theta << std::endl;
+    LOG(INFO) << "Write Threshold: " << FLAGS_ycsb_write_ratio;
+    LOG(INFO) << "Theta: " << FLAGS_ycsb_zipf_theta;
     if (FLAGS_ycsb_num_records == 0) {
       FLAGS_ycsb_num_records = FLAGS_num_workers * 1000000;
     }
@@ -130,8 +145,7 @@ int main(int argc, char** argv) {
         FLAGS_ycsb_zipf_theta, FLAGS_num_iter_per_worker,
         FLAGS_ycsb_num_ops_per_txn, FLAGS_ycsb_write_ratio,
         (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
-        (FLAGS_elastic_workload > 0 ? topology::getInstance().getCoreCount()
-                                    : FLAGS_num_workers),
+        (FLAGS_elastic_workload > 0 ? topo.getCoreCount() : FLAGS_num_workers),
         g_num_partitions, FLAGS_layout_column_store, FLAGS_ycsb_num_col_upd,
         FLAGS_ycsb_num_col_read, FLAGS_ycsb_num_col_read_offset);
   }
@@ -157,18 +171,16 @@ int main(int argc, char** argv) {
   if (FLAGS_elastic_workload > 0) {
     uint curr_active_worker = 1;
     bool removal = false;
-    const auto& worker_cores = topology::getInstance().getCores();
+    const auto& worker_cores = topo.getCores();
     timed_func::interval_runner(
         [curr_active_worker, removal, &worker_cores]() mutable {
           if (curr_active_worker < FLAGS_num_workers && !removal) {
-            std::cout << "Adding Worker: " << (curr_active_worker + 1)
-                      << std::endl;
+            LOG(INFO) << "Adding Worker: " << (curr_active_worker + 1);
             scheduler::WorkerPool::getInstance().add_worker(
                 &worker_cores.at(curr_active_worker));
             curr_active_worker++;
           } else if (curr_active_worker > 2 && removal) {
-            std::cout << "Removing Worker: " << (curr_active_worker - 1)
-                      << std::endl;
+            LOG(INFO) << "Removing Worker: " << (curr_active_worker - 1);
             scheduler::WorkerPool::getInstance().remove_worker(
                 &worker_cores.at(curr_active_worker - 1));
             curr_active_worker--;
@@ -192,14 +204,10 @@ int main(int argc, char** argv) {
         (FLAGS_switch_master_sec * 1000));
   }
 
-  // timed_func::interval_runner(
-  //     [] { txn::TransactionManager::getInstance().snapshot(); }, (5 * 1000));
-
-  /* This shouldnt be a sleep, but this thread should sleep until all workers
+  /* This shouldn't be a sleep, but this thread should sleep until all workers
    * finished required number of txns. but dilemma here is that either the
    * worker executes transaction forever (using a benchmark) or finished after
    * executing certain number of txns/iterations. */
-
   usleep((FLAGS_runtime - 1) * 1000000);
 
   timed_func::terminate_all_timed();
@@ -212,13 +220,10 @@ int main(int argc, char** argv) {
   LOG(INFO) << "DBMS Storage: ";
   storage::Schema::getInstance().report();
 
-  // std::cout << "AFTER" << std::endl;
-  // for (auto& tb : storage::Schema::getInstance().getAllTables()) {
-  //   ((storage::ColumnStore*)tb)->num_upd_tuples();
-  // }
-
+  LOG(INFO) << "Storage teardown: ";
   storage::Schema::getInstance().teardown();
 
+  LOG(INFO) << "Bench deinit: ";
   bench->deinit();
   delete bench;
   return 0;
