@@ -278,8 +278,7 @@ void ColumnStore::getIndexedRecord(const txn::TxnTs& txnTs,
     proteus::utils::percentile_point mv_cd(rd_mv_cdf);
 #endif
     auto done_mask = mv::mv_type::get_readable_version(
-        index_ptr.delta_list, txnTs, write_loc, this->column_size_offset_pairs,
-        col_idx, num_cols);
+        index_ptr, txnTs, write_loc, *this, col_idx, num_cols);
 
     if (!done_mask.all()) {
       // LOG(INFO) << "reading from main";
@@ -315,12 +314,10 @@ void ColumnStore::getIndexedRecord(const txn::TxnTs& txnTs,
    version creation over QPI.
 */
 
-void ColumnStore::updateRecord(xid_t transaction_id,
+void ColumnStore::updateRecord(const txn::Txn& txn,
                                global_conf::IndexVal* index_ptr, void* data,
-                               delta_id_t current_delta_id,
                                const column_id_t* col_idx,
-                               const short num_columns,
-                               master_version_t master_ver) {
+                               const short num_columns) {
 #if INSTRUMENTATION
   static thread_local proteus::utils::threadLocal_percentile update_cdf(
       "update_cdf");
@@ -335,12 +332,14 @@ void ColumnStore::updateRecord(xid_t transaction_id,
 
   auto old_vid = index_ptr->VID;
   if constexpr (global_conf::num_master_versions > 1) {
-    index_ptr->VID = StorageUtils::update_mVer(index_ptr->VID, master_ver);
+    index_ptr->VID =
+        StorageUtils::update_mVer(index_ptr->VID, txn.master_version);
   }
 
-  auto version_ptr = mv::mv_type::create_versions(
-      transaction_id, index_ptr, column_size,
-      *(this->deltaStore[current_delta_id]), pid, col_idx, num_columns);
+  auto version_ptr =
+      mv::mv_type::create_versions(txn.txnTs.txn_start_time, index_ptr, *this,
+                                   *(this->deltaStore[txn.delta_version]),
+                                   txn.partition_id, col_idx, num_columns);
 
   assert(index_ptr->delta_list.isValid());
 
@@ -401,10 +400,10 @@ void ColumnStore::updateRecord(xid_t transaction_id,
     // full record version.
 
     // first copy entire record.
-    char* version_data_ptr = (char*)(version_ptr.at(0)->data);
+    char* version_data_ptr = (char*)(version_ptr[0]->data);
     assert(version_data_ptr != nullptr);
     // std::atomic_thread_fence(std::memory_order_seq_cst);
-    LOG_IF(FATAL, version_ptr.at(0)->size != this->record_size)
+    LOG_IF(FATAL, version_ptr.at(0)->size < this->record_size)
         << "Tbl: " << this->name
         << " | Failed: ver-size: " << version_ptr.at(0)->size
         << " | rec: " << this->record_size;
@@ -420,7 +419,7 @@ void ColumnStore::updateRecord(xid_t transaction_id,
       } else {
         idx = i;
       }
-      auto& col = columns.at(idx);
+      auto& col = columns[idx];
       // update column
       col->updateElem(index_ptr->VID,
                       (data == nullptr ? nullptr : (void*)cursor));
@@ -430,7 +429,8 @@ void ColumnStore::updateRecord(xid_t transaction_id,
     }
   }
 
-  index_ptr->t_min = transaction_id;
+  // FIXME: this should be the job of txn, not the storage.
+  index_ptr->t_min = txn.txnTs.txn_start_time;
 }
 
 /*  Snapshotting Functions

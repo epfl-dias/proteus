@@ -174,10 +174,7 @@ AeolusElasticNIPlugin::AeolusElasticNIPlugin(
 }
 
 struct session {
-  xid_t xid;
-  master_version_t master_ver;
-  delta_id_t delta_ver;
-  partition_id_t partition_id;
+  txn::Txn *txnPtr;
 };
 
 extern session TheSession;
@@ -185,25 +182,25 @@ session TheSession;
 
 void update_query(storage::Table *tbl, int64_t vid, column_id_t col_update_idx,
                   void *rec) {
-  auto xid = TheSession.xid;
-  auto master_ver = TheSession.master_ver;
-  auto delta_ver = TheSession.delta_ver;
-  auto partition_id = TheSession.partition_id;
-  LOG(INFO) << xid << " " << master_ver << " " << delta_ver << " "
-            << partition_id;
+  LOG(INFO) << TheSession.txnPtr->txnTs.txn_start_time << " "
+            << TheSession.txnPtr->master_version << " "
+            << TheSession.txnPtr->delta_version << " "
+            << TheSession.txnPtr->partition_id;
   LOG(INFO) << col_update_idx;
 
-  auto *hash_ptr = (global_conf::IndexVal *)tbl->p_index->find(vid);
-  if (!hash_ptr->write_lck.try_lock()) {
+  auto *index_ptr =
+      static_cast<global_conf::IndexVal *>(tbl->p_index->find(vid));
+  if (!(index_ptr->write_lck.try_lock())) {
     throw proteus::abort();
   }
-  hash_ptr->latch.acquire();
 
-  tbl->updateRecord(xid, hash_ptr, rec, delta_ver, &col_update_idx, 1,
-                    master_ver);
-  hash_ptr->t_min = xid;
-  hash_ptr->write_lck.unlock();
-  hash_ptr->latch.release();
+  index_ptr->writeWithLatch(
+      [&](global_conf::IndexVal *idx_ptr) {
+        tbl->updateRecord(*(TheSession.txnPtr), idx_ptr, rec, &col_update_idx,
+                          1);
+      },
+      *(TheSession.txnPtr), tbl->table_id);
+  index_ptr->write_lck.unlock();
   LOG(INFO) << "UPDATE QUERY SUCCESS";
 }
 

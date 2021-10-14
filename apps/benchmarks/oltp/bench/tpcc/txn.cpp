@@ -204,9 +204,7 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, txn::Txn &txn,
 
           st_rec.s_quantity = quantity;
 
-          table_stock->updateRecord(txn.txnTs.txn_start_time, idx_ptr, &st_rec,
-                                    txn.delta_version, stock_col_rw, 4,
-                                    txn.master_version);
+          table_stock->updateRecord(txn, idx_ptr, &st_rec, stock_col_rw, 4);
         },
         txn, table_stock->table_id);
   }
@@ -228,14 +226,15 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, txn::Txn &txn,
 
   d_idx_ptr->writeWithLatch(
       [&](global_conf::IndexVal *idx_ptr) {
-        table_district->getIndexedRecord(txn.txnTs, *d_idx_ptr, &dist_no_read,
+        constexpr column_id_t dist_col_scan[] = {8, 10};
+        constexpr column_id_t dist_col_upd[] = {10};
+        table_district->getIndexedRecord(txn.txnTs, *idx_ptr, &dist_no_read,
                                          dist_col_scan, 2);
 
         uint32_t d_next_o_id_upd = dist_no_read.d_next_o_id + 1;
 
-        table_district->updateRecord(txn.txnTs.txn_start_time, idx_ptr,
-                                     &d_next_o_id_upd, txn.delta_version,
-                                     dist_col_upd, 1, txn.master_version);
+        table_district->updateRecord(txn, idx_ptr, &d_next_o_id_upd,
+                                     dist_col_upd, 1);
       },
       txn, table_district->table_id);
 

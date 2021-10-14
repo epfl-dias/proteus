@@ -57,7 +57,8 @@ class alignas(BlockManager::block_size) ColumnStore : public Table {
  public:
   ColumnStore(table_id_t table_id, std::string name, TableDef columns,
               bool indexed = true, bool numa_partitioned = true,
-              size_t reserved_capacity = 1000000, int numa_idx = -1);
+              size_t reserved_capacity = 1000000, int numa_idx = -1,
+              size_t max_partition_size = 0);
 
   ~ColumnStore() override;
 
@@ -69,12 +70,9 @@ class alignas(BlockManager::block_size) ColumnStore : public Table {
       xid_t transaction_id, partition_id_t partition_id,
       master_version_t master_ver = 0) override;
 
-  [[maybe_unused]] void updateRecord(xid_t transaction_id,
-                                     global_conf::IndexVal *index_ptr,
-                                     void *data, delta_id_t current_delta_id,
-                                     const column_id_t *col_idx = nullptr,
-                                     short num_columns = -1,
-                                     master_version_t master_ver = 0) override;
+  void updateRecord(const txn::Txn &txn, global_conf::IndexVal *index_ptr,
+                    void *data, const column_id_t *col_idx = nullptr,
+                    const short num_columns = -1) override;
 
   [[noreturn]] void updateRecordBatch(
       xid_t transaction_id, global_conf::IndexVal *index_ptr, void *data,
@@ -128,8 +126,8 @@ class alignas(BlockManager::block_size) ColumnStore : public Table {
   const auto &getColumns() { return columns; }
 
  private:
-  ColumnVector columns;
   Column *metaColumn{};
+  alignas(64) ColumnVector columns;
 
   // OLAP-TwinColumn Snapshot
   size_t nParts{};
@@ -142,7 +140,7 @@ class alignas(BlockManager::block_size) ColumnStore : public Table {
 
 using ArenaVector = std::vector<std::unique_ptr<aeolus::snapshot::ArenaV2>>;
 
-class alignas(BlockManager::block_size) Column {
+class alignas(64) Column {
  protected:
   Column(SnapshotTypes snapshotType, column_id_t column_id, std::string name,
          data_type type, size_t unit_size, size_t offset_inRecord,

@@ -50,21 +50,24 @@ bool insert_query(uint64_t xid, ushort master_ver, ushort delta_ver,
   return true;
 }
 
-bool update_query(uint64_t xid, ushort master_ver, ushort delta_ver,
-                  ushort partition_id) {
-  LOG(INFO) << xid << " " << master_ver << " " << delta_ver << " "
-            << partition_id;
+bool update_query(txn::Txn &txn) {
+  LOG(INFO) << txn.txnTs.txn_start_time << " " << txn.master_version << " "
+            << txn.delta_version << " " << txn.partition_id;
   // UPDATE T SET b = 15 WHERE a=5;
 
-  auto *hash_ptr = (global_conf::IndexVal *)tbl->p_index->find(5);
+  auto *hash_ptr = static_cast<global_conf::IndexVal *>(tbl->p_index->find(5));
   if (hash_ptr->write_lck.try_lock()) {
-    hash_ptr->latch.acquire();
     column_id_t col_update_idx = 1;
     record[col_update_idx] = 15;
-    tbl->updateRecord(xid, hash_ptr, &(record[col_update_idx]), delta_ver,
-                      &col_update_idx, 1, master_ver);
-    hash_ptr->latch.release();
+
+    hash_ptr->writeWithLatch(
+        [&](global_conf::IndexVal *idx_ptr) {
+          tbl->updateRecord(txn, idx_ptr, &(record[col_update_idx]),
+                            &col_update_idx, 1);
+        },
+        txn, tbl->table_id);
     hash_ptr->write_lck.unlock();
+
     LOG(INFO) << "UPDATE QUERY SUCCESS";
     return true;
   } else {
@@ -73,16 +76,15 @@ bool update_query(uint64_t xid, ushort master_ver, ushort delta_ver,
   }
 }
 
-bool select_query(uint64_t xid, ushort master_ver, ushort delta_ver,
-                  ushort partition_id) {
+bool select_query(const txn::Txn &txn) {
   // SELECT * FROM T WHERE a=5;
 
-  auto *hash_ptr = (global_conf::IndexVal *)tbl->p_index->find(5);
+  auto *hash_ptr = static_cast<global_conf::IndexVal *>(tbl->p_index->find(5));
 
   if (hash_ptr != nullptr) {
-    hash_ptr->latch.acquire();
-    // tbl->getIndexedRecord(xid, hash_ptr, &(record[0]), nullptr, 0);
-    hash_ptr->latch.release();
+    hash_ptr->readWithLatch([&](global_conf::IndexVal *idx_ptr) {
+      tbl->getIndexedRecord(txn.txnTs, *idx_ptr, &(record[0]), nullptr, 0);
+    });
     LOG(INFO) << "SELECT VALUE GOT: [0]: " << record[0];
     LOG(INFO) << "SELECT VALUE GOT: [1]: " << record[1];
 
@@ -94,10 +96,7 @@ bool select_query(uint64_t xid, ushort master_ver, ushort delta_ver,
 }
 
 struct session {
-  uint64_t xid;
-  ushort master_ver;
-  ushort delta_ver;
-  ushort partition_id;
+  txn::Txn *txnPtr;
 };
 
 extern session TheSession;

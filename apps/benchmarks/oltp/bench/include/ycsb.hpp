@@ -293,10 +293,9 @@ class YCSB : public Benchmark {
 
           recordPtr->writeWithLatch(
               [&](global_conf::IndexVal *idx_ptr) {
-                ycsb_tbl->updateRecord(txn.txnTs.txn_start_time, idx_ptr,
-                                       op.rec, txn.delta_version,
-                                       col_idx_update_local.data(), num_col_upd,
-                                       txn.master_version);
+                ycsb_tbl->updateRecord(txn, idx_ptr, op.rec,
+                                       col_idx_update_local.data(),
+                                       num_col_upd);
               },
               txn, ycsb_tbl->table_id);
           recordPtr->write_lck.unlock();

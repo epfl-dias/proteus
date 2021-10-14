@@ -54,11 +54,9 @@ class Table {
       xid_t transaction_id, partition_id_t partition_id,
       master_version_t master_ver) = 0;
 
-  virtual void updateRecord(xid_t transaction_id,
+  virtual void updateRecord(const txn::Txn &txn,
                             global_conf::IndexVal *index_ptr, void *data,
-                            delta_id_t current_delta_id,
-                            const column_id_t *col_idx, short num_columns,
-                            master_version_t master_ver) = 0;
+                            const column_id_t *col_idx, short num_columns) = 0;
 
   virtual void updateRecordBatch(xid_t transaction_id,
                                  global_conf::IndexVal *index_ptr, void *data,
