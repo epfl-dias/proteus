@@ -63,18 +63,17 @@ class ThreadLocal_TransactionTable {
   inline Txn beginTxn(worker_id_t workerId, partition_id_t partitionId,
                       bool read_only = false) {
     assert(thread_id == std::this_thread::get_id());
+    // FIXME: instead of stack obj, create unique_ptr for easy move later.
     auto tx = Txn::getTxn(workerId, partitionId, read_only);
     min_active = tx.txnTs.txn_start_time;
     return tx;
   }
 
   const Txn &endTxn(Txn &txn);
-
-  inline xid_t get_last_alive_tx() { return max_last_alive.load(); }
-
-  inline xid_t get_min_active_tx() { return min_active.load(); }
-
   void steamGC(txn::TxnTs global_min);
+
+  inline xid_t get_last_alive_tx() const { return max_last_alive.load(); }
+  inline xid_t get_min_active_tx() { return min_active.load(); }
 
  private:
   const worker_id_t workerID;
@@ -82,7 +81,7 @@ class ThreadLocal_TransactionTable {
 
   std::atomic<xid_t> min_active;
   std::atomic<xid_t> max_last_alive;
-  Txn *activeTxnPtr;
+  std::mutex gcLock;
   std::deque<Txn> _committedTxn;
 
   // we dont need set for activeTxn as we only have one active txn per thread in

@@ -34,8 +34,8 @@ ThreadLocal_TransactionTable::ThreadLocal_TransactionTable(worker_id_t workerId)
       thread_id(std::this_thread::get_id()),
       min_active(std::numeric_limits<xid_t>::max()),
       max_last_alive(0) {
-  activeTxnPtr = static_cast<Txn *>(
-      aligned_alloc(hardware_destructive_interference_size, sizeof(Txn)));
+  //  activeTxnPtr = static_cast<Txn *>(
+  //      aligned_alloc(hardware_destructive_interference_size, sizeof(Txn)));
 
   TransactionManager::getInstance().registerTxnTable(this);
 }
@@ -55,7 +55,7 @@ ThreadLocal_TransactionTable::~ThreadLocal_TransactionTable() {
   //                     min_last_alive});
   //    }
   //  }
-  free(activeTxnPtr);
+  // free(activeTxnPtr);
   LOG(INFO) << "[~ThreadLocal_TransactionTable()] END - worker_id: "
             << (uint)(this->workerID);
 }
@@ -65,18 +65,23 @@ void ThreadLocal_TransactionTable::steamGC(txn::TxnTs global_min) {
   assert(thread_id == std::this_thread::get_id());
 
   // inverted map for getting all cleanable for same table together.
-  std::map<table_id_t, std::set<vid_t>> cleanables;
+  std::unordered_map<table_id_t, std::set<vid_t>> cleanables;
 
-  // committedTxn will be sorted, so
+  // lock to prevent any concurrent transaction on same thread to perform GC
+  // concurrently.
+  std::unique_lock<std::mutex> lk(gcLock);
+  if (_committedTxn.empty()) return;
+
   auto it = _committedTxn.begin();
 
   for (; it != _committedTxn.end(); it++) {
-    if (it->commit_ts <= global_min.txn_start_time) {
-      for (const auto &elem : it->undoLogVector) {
+    if ((*it).commit_ts <= global_min.txn_start_time) {
+      for (const auto &elem : (*it).undoLogVector) {
         cleanables[storage::StorageUtils::get_tableId_from_rowUuid(elem)]
             .emplace(storage::StorageUtils::get_rowId_from_rowUuid(elem));
       }
     } else {
+      // committedTxn will be sorted, therefore break loop on first un-cleanable
       break;
     }
   }
@@ -87,28 +92,21 @@ void ThreadLocal_TransactionTable::steamGC(txn::TxnTs global_min) {
   }
 }
 
-// Txn ThreadLocal_TransactionTable::beginTxn(worker_id_t workerId,
-//                                            partition_id_t partitionId,
-//                                            bool read_only) {
-//   assert(thread_id == std::this_thread::get_id());
-//   auto tx = Txn::getTxn(workerId, partitionId, read_only);
-//   min_active = tx.txnTs.txn_start_time;
-//   return tx;
-// }
-
 const Txn &ThreadLocal_TransactionTable::endTxn(Txn &txn) {
   assert(thread_id == std::this_thread::get_id());
 
-  this->min_active = std::numeric_limits<xid_t>::max();
-  auto lastAlive = this->max_last_alive.load();
-  while (lastAlive < txn.txnTs.txn_start_time) {
-    this->max_last_alive.compare_exchange_strong(lastAlive,
-                                                 txn.txnTs.txn_start_time);
+  // this->min_active = UINT64_MAX;
+  if (max_last_alive < txn.txnTs.txn_start_time) {
+    max_last_alive = txn.txnTs.txn_start_time;
   }
 
   // the move is expensive in reality.
-  if constexpr (GcMechanism != GcTypes::OneShot) {
-    return _committedTxn.emplace_back(std::move(txn));
+  if constexpr (GcMechanism == GcTypes::SteamGC) {
+    {
+      std::unique_lock<std::mutex> lk(gcLock);
+      auto &ret = _committedTxn.emplace_back(std::move(txn));
+      return ret;
+    }
   } else {
     return txn;
   }

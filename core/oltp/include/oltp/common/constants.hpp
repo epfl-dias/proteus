@@ -45,8 +45,14 @@ using PrimaryIndex = indexes::HashIndex<T_KEY>;
 
 constexpr int MAX_PARTITIONS = 8;
 constexpr master_version_t num_master_versions = 1;
+
+// 2D(5G), 4(2.5), 5(2), 6(1.67), 8(1.25), 10(1)
+// switch-bit: max 5(32tx), 4(16tx), 3(8tx), 2(4tx), 1 (2tx)[8-10Delta]
+constexpr uint delta_switch_bit = 5;
+constexpr double delta_size = 10;
 constexpr delta_id_t num_delta_storages =
-    (GcMechanism != GcTypes::OneShot) ? 1 : 2;
+    (GcMechanism != GcTypes::OneShot) ? 1 : 4;
+
 constexpr bool reverse_partition_numa_mapping = false;
 constexpr uint DEFAULT_OLAP_SOCKET = 0;
 
