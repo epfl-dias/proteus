@@ -163,183 +163,77 @@ void WorkerPool::init(bench::Benchmark* txn_bench, worker_id_t num_workers,
   post_barrier.store(0);
   worker_id_t i = 0;
 
-  if (worker_sched_mode <= 2) {  // default / inteleave
+  // FIXME: Assuming intel configuration, fix for IBM/AMD
+  auto ht_size = topology::getInstance().getCores()[0].ht_pairs_id.size();
+  if (ht_size == 0) {
+    ht_size = 1;
+  }
+  LOG(INFO) << "HT-Pair-Size: " << ht_size;
+  auto threadPerSocket = topology::getInstance().getCoreCount() /
+                         topology::getInstance().getCpuNumaNodeCount();
+  auto physicalCorePerSocket = threadPerSocket / ht_size;
 
-    for (const auto& exec_core : topology::getInstance().getCores()) {
-      // BROKEN
-      // if (worker_sched_mode == 1) {  // interleave - even
-      //   if (worker_counter % 2 != 0) {continue;}
-      // } else if (worker_sched_mode == 2) {  // interleave - odd
-      //   if (worker_counter % 2 == 0) continue;
-      // }
+  std::vector<const topology::core*> physicalCores;
+  std::vector<const topology::core*> hyperThreads;
 
-      void* obj_ptr = MemoryManager::mallocPinnedOnNode(
-          sizeof(Worker), exec_core.local_cpu_index);
-      void* thd_ptr = MemoryManager::mallocPinnedOnNode(
-          sizeof(std::thread), exec_core.local_cpu_index);
-
-      auto* wrkr = new (obj_ptr) Worker(worker_counter++, &exec_core);
-      // Worker* wrkr = new Worker(exec_core.id, &exec_core);
-      // worker_counter++;
-
-      wrkr->partition_id = (exec_core.local_cpu_index % num_partitions);
-      wrkr->num_iters = num_iter_per_worker;
-
-      LOG(INFO) << "Worker-" << (int)wrkr->id << "(" << exec_core.id
-                << "): Allocated partition # " << (int)wrkr->partition_id;
-      auto* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
-
-      workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
-      prev_time_tps.emplace_back(
-          std::chrono::time_point<std::chrono::system_clock,
-                                  std::chrono::nanoseconds>::min());
-      prev_sum_tps.emplace_back(0);
-      if (++i == num_workers) {
-        break;
-      }
+  worker_id_t core_counter = 0;
+  bool isPhysical = true;
+  for (const auto& exec_core : topology::getInstance().getCores()) {
+    if (core_counter >= physicalCorePerSocket) {
+      isPhysical = false;
+    } else if (core_counter == 0) {
+      isPhysical = true;
     }
 
-  } else if (worker_sched_mode == 3) {  // reversed
+    if (isPhysical) {
+      physicalCores.push_back(&exec_core);
+      core_counter++;
+    } else {
+      hyperThreads.push_back(&exec_core);
+      core_counter--;
+    }
+  }
+  assert(num_workers <= physicalCores.size() + hyperThreads.size());
+
+  if (worker_sched_mode <= 1) {
+    // NOTE: this will allocate all physical threads first,
+    //  then fills up logical threads
+
+    for (auto wi = 0; wi < num_workers; wi++) {
+      if (wi < physicalCores.size()) {
+        create_worker(*(physicalCores.at(wi)), true);
+      } else {
+        create_worker(*(hyperThreads.at(wi - physicalCores.size())), false);
+      }
+    }
+  } else if (worker_sched_mode == 2) {  // default / inteleave
+    assert(false && "Turned off due to buggy code");
+    // NOTE: this will fills a up core first
+    /*
+  for (auto wi = 0, l = 0, p = 0; wi < num_workers; wi++) {
+    if (wi % 2  == 0) {
+      LOG(INFO) << "Physical";
+      create_worker(*(physicalCores.at(p)), true);
+      p++;
+    } else {
+      LOG(INFO) << "Logical";
+      create_worker(*(hyperThreads.at(l)), false);
+      l++;
+    }
+  }
+*/
+  } else if (worker_sched_mode == 3) {
+    // reversed
     assert(false && "Turned off due to buggy code");
 
-    const auto& sys_cores = topology::getInstance().getCores();
-    uint ctr = 0;
-    for (int ci = sys_cores.size() - 1; ci >= 0; ci--) {
-      void* obj_ptr = MemoryManager::mallocPinnedOnNode(
-          sizeof(Worker), sys_cores[ci].local_cpu_index);
-      void* thd_ptr = MemoryManager::mallocPinnedOnNode(
-          sizeof(std::thread), sys_cores[ci].local_cpu_index);
-
-      Worker* wrkr = new (obj_ptr) Worker(worker_counter++, &(sys_cores[ci]));
-
-      wrkr->partition_id =
-          0;  //(sys_cores[i].local_cpu_index % num_partitions);
-
-      // if (global_conf::reverse_partition_numa_mapping) {
-      //   wrkr->partition_id = (sys_cores[i].local_cpu_index % num_partitions);
-      // } else {
-      //   wrkr->partition_id = num_partitions - 1 -
-      //                        (sys_cores[i].local_cpu_index % num_partitions);
-      // }
-
-      wrkr->num_iters = num_iter_per_worker;
-
-      std::cout << "Worker-" << (uint)wrkr->id << "(" << sys_cores[ci].id
-                << "): Allocated partition # " << (int)wrkr->partition_id
-                << std::endl;
-      auto* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
-
-      workers.emplace(
-          std::make_pair(sys_cores[ci].id, std::make_pair(thd, wrkr)));
-      prev_time_tps.emplace_back(
-          std::chrono::time_point<std::chrono::system_clock,
-                                  std::chrono::nanoseconds>::min());
-      prev_sum_tps.emplace_back(0);
-
-      if (++ctr == num_workers) {
-        break;
-      }
-    }
-
-  } else if (worker_sched_mode ==
-             4) {  // colocated - second-half of both socket
-    assert(topology::getInstance().getCpuNumaNodeCount() == 2);
-    // assert(false && "Turned off due to buggy code");
-    const auto remote_cores = topology::getInstance().getCores().size() / 4;
-
-    uint skipper1 = 0, skipper2 = 0;
-
-    for (const auto& exec_core : topology::getInstance().getCores()) {
-      if (skipper1 < remote_cores) {
-        // skip half of first-socket
-        skipper1++;
-        continue;
-      }
-
-      if (worker_counter == remote_cores && skipper2 < remote_cores) {
-        skipper2++;
-        continue;
-      }
-
-      void* obj_ptr = MemoryManager::mallocPinnedOnNode(
-          sizeof(Worker), exec_core.local_cpu_index);
-      void* thd_ptr = MemoryManager::mallocPinnedOnNode(
-          sizeof(std::thread), exec_core.local_cpu_index);
-
-      auto* wrkr = new (obj_ptr) Worker(worker_counter++, &exec_core);
-      // Worker* wrkr = new Worker(exec_core.id, &exec_core);
-      // worker_counter++;
-      if (global_conf::reverse_partition_numa_mapping) {
-        wrkr->partition_id =
-            num_partitions - 1 - (exec_core.local_cpu_index % num_partitions);
-      } else {
-        wrkr->partition_id = (exec_core.local_cpu_index % num_partitions);
-      }
-
-      wrkr->num_iters = num_iter_per_worker;
-
-      std::cout << "Worker-" << (uint)wrkr->id << "(" << exec_core.id
-                << "): Allocated partition # " << (int)wrkr->partition_id
-                << std::endl;
-
-      auto* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
-
-      workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
-      prev_time_tps.emplace_back(
-          std::chrono::time_point<std::chrono::system_clock,
-                                  std::chrono::nanoseconds>::min());
-      prev_sum_tps.emplace_back(0);
-      if (++i == num_workers) {
-        break;
-      }
-    }
+  } else if (worker_sched_mode == 4) {
+    // colocated - second-half of both socket
+    assert(false && "Turned off due to buggy code");
 
   } else if (worker_sched_mode == 5) {
     // colocated - interleaved, leaving first one.
+    assert(false && "Turned off due to buggy code");
     assert(topology::getInstance().getCpuNumaNodeCount() == 2);
-    // assert(false && "Turned off due to buggy code");
-    const auto remote_cores = topology::getInstance().getCores().size() / 4;
-
-    int skipper = -1;
-
-    for (const auto& exec_core : topology::getInstance().getCores()) {
-      skipper++;
-      if (skipper % 2 == 0) {
-        continue;
-      }
-
-      void* obj_ptr = MemoryManager::mallocPinnedOnNode(
-          sizeof(Worker), exec_core.local_cpu_index);
-      void* thd_ptr = MemoryManager::mallocPinnedOnNode(
-          sizeof(std::thread), exec_core.local_cpu_index);
-
-      auto* wrkr = new (obj_ptr) Worker(worker_counter++, &exec_core);
-      // Worker* wrkr = new Worker(exec_core.id, &exec_core);
-      // worker_counter++;
-      if (global_conf::reverse_partition_numa_mapping) {
-        wrkr->partition_id =
-            num_partitions - 1 - (exec_core.local_cpu_index % num_partitions);
-      } else {
-        wrkr->partition_id = (exec_core.local_cpu_index % num_partitions);
-      }
-
-      wrkr->num_iters = num_iter_per_worker;
-
-      std::cout << "Worker-" << (uint)wrkr->id << "(" << exec_core.id
-                << "): Allocated partition # " << (int)wrkr->partition_id
-                << std::endl;
-      auto* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
-
-      workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
-      prev_time_tps.emplace_back(
-          std::chrono::time_point<std::chrono::system_clock,
-                                  std::chrono::nanoseconds>::min());
-      prev_sum_tps.emplace_back(0);
-      if (++i == num_workers) {
-        break;
-      }
-    }
-
   } else {
     assert(false && "Unknown scheduling mode.");
   }
@@ -381,6 +275,33 @@ void WorkerPool::init(bench::Benchmark* txn_bench, worker_id_t num_workers,
   }
 }
 
+void WorkerPool::create_worker(const topology::core& exec_core,
+                               bool physical_thread) {
+  std::unique_lock<std::mutex> lk(worker_pool_lk);
+  void* obj_ptr = MemoryManager::mallocPinnedOnNode(sizeof(Worker),
+                                                    exec_core.local_cpu_index);
+  void* thd_ptr = MemoryManager::mallocPinnedOnNode(sizeof(std::thread),
+                                                    exec_core.local_cpu_index);
+
+  auto* wrkr = new (obj_ptr) Worker(worker_counter++, &exec_core);
+  wrkr->partition_id = (exec_core.local_cpu_index % num_partitions);
+
+  //      LOG(INFO) << "Worker-" << (int)wrkr->id << "(" <<
+  //      (uint)(exec_core.local_cpu_index);
+  wrkr->num_iters = num_iter_per_worker;
+
+  LOG(INFO) << "Worker-" << (int)wrkr->id << "(" << exec_core.id
+            << "): Allocated partition # " << (int)wrkr->partition_id << "\t\t("
+            << (physical_thread ? "Physical" : "HyperThread") << ")";
+  auto* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
+
+  workers.emplace(std::make_pair(exec_core.id, std::make_pair(thd, wrkr)));
+  prev_time_tps.emplace_back(
+      std::chrono::time_point<std::chrono::system_clock,
+                              std::chrono::nanoseconds>::min());
+  prev_sum_tps.emplace_back(0);
+}
+
 void WorkerPool::start_workers() {
   // this->txnQueue->type == txn::BENCH_QUEUE
   if (_txn_bench != nullptr) {
@@ -414,7 +335,7 @@ void WorkerPool::shutdown(bool print_stats) {
     }
   }
 
-  print_worker_stats();
+  print_worker_stats(false);
 
   for (auto& worker : workers) {
     // FIXME: why not using an allocator with the map?
@@ -538,7 +459,7 @@ void WorkerPool::print_worker_stats(bool global_only) {
                          : std::chrono::system_clock::now()) -
         tmp->txn_start_time;
 
-    if (!global_only) {
+    if (!global_only && tmp->id == 0) {
       std::cout << "Worker-" << (int)(tmp->id)
                 << "(core_id: " << tmp->exec_core->id << ")" << std::endl;
 
@@ -552,6 +473,7 @@ void WorkerPool::print_worker_stats(bool global_only) {
                 << std::endl;
       std::cout << "\tTPS\t\t" << (tmp->num_commits / 1000000.0) / diff.count()
                 << " MTPS" << std::endl;
+      continue;
     }
     socket_tps[tmp->exec_core->local_cpu_index] +=
         (tmp->num_commits / 1000000.0) / diff.count();

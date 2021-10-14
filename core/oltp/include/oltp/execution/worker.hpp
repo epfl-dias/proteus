@@ -135,6 +135,10 @@ class WorkerPool {
   void resume();
 
  private:
+  void create_worker(const topology::core &exec_core,
+                     bool physical_thread = true);
+
+ private:
   WorkerPool() = default;
   ~WorkerPool() = default;
 
@@ -143,6 +147,7 @@ class WorkerPool {
 
   worker_id_t worker_counter{};
   std::atomic<bool> terminate{};
+  std::mutex worker_pool_lk;
 
   std::atomic<size_t> post_barrier{};
   std::atomic<size_t> pre_barrier{};
