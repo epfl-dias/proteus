@@ -27,15 +27,17 @@
 #include <cassert>
 #include <mutex>
 #include <platform/common/common.hpp>
+#include <platform/memory/allocator.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <stack>
 #include <thread>
 #include <vector>
 
+#include "oltp/common/common.hpp"
+
 namespace oltp::mv::memorypool {
 
-constexpr size_t pool_size_mb = 1536;
-
+constexpr size_t pool_size_mb = 4096;
 constexpr size_t pool_size = pool_size_mb * 1024 * 1024;
 
 template <size_t N>
@@ -44,27 +46,7 @@ class BucketMemoryPool;
 template <size_t N>
 class BucketMemoryPool_threadLocal {
  public:
-  BucketMemoryPool_threadLocal() : destructed(false) {
-    auto x = MemoryManager::mallocPinned(pool_size);
-    assert(x);
-    basePtr.emplace_back(x);
-
-    size_t totalChunks = pool_size / N;
-    char* ptr = reinterpret_cast<char*>(x);
-    char* baseRef = ptr + pool_size;
-
-    for (size_t i = 0; i < totalChunks; i++) {
-      assert(ptr <= baseRef);
-      *(reinterpret_cast<size_t*>(ptr)) = 0;
-      _pool.push(reinterpret_cast<void*>(ptr));
-      ptr += N;
-    }
-    LOG_FIRST_N(INFO, 1) << "POOL SIZE: " << _pool.size();
-    // LOG(INFO) << std::this_thread::get_id() <<" - POOL SIZE: " <<
-    // _pool.size();
-    assert(!_pool.empty());
-    BucketMemoryPool<N>::getInstance().registerThreadLocalPool(this);
-  }
+  BucketMemoryPool_threadLocal() : destructed(false) {}
   ~BucketMemoryPool_threadLocal() {
     if (!destructed) {
       destruct();
@@ -81,6 +63,8 @@ class BucketMemoryPool_threadLocal {
   inline void* allocate() {
     std::unique_lock<std::mutex> lk(_lock);
     assert(!destructed);
+    // LOG(INFO) << "POOL SIZE( " <<std::this_thread::get_id() <<" ): " <<
+    // _pool.size();
     if (!(_pool.empty())) {
       return this->get();
     } else {
@@ -94,6 +78,38 @@ class BucketMemoryPool_threadLocal {
     std::unique_lock<std::mutex> lk(_lock);
     assert(!destructed);
     _pool.push(pt);
+    // LOG(INFO) << "POOL SIZE( " <<std::this_thread::get_id() <<" ): " <<
+    // _pool.size();
+  }
+
+  void init() {
+    auto x = MemoryManager::mallocPinned(pool_size);
+    assert(x);
+    basePtr.emplace_back(x);
+
+    size_t totalChunks = pool_size / N;
+    char* ptr = reinterpret_cast<char*>(x);
+    char* baseRef = ptr + pool_size;
+
+    for (size_t i = 0; i < totalChunks; i++) {
+      assert(ptr <= baseRef);
+      *(reinterpret_cast<size_t*>(ptr)) = 0;
+      _pool.push(reinterpret_cast<void*>(ptr));
+      ptr += N;
+    }
+    LOG_FIRST_N(INFO, 1) << "POOL SIZE( " << std::this_thread::get_id()
+                         << " ): " << _pool.size() << " (" << pool_size_mb
+                         << " MB)";
+    realSize = _pool.size();
+    // LOG(INFO) << std::this_thread::get_id() <<" - POOL SIZE: " <<
+    // _pool.size();
+    assert(!_pool.empty());
+    BucketMemoryPool<N>::getInstance().registerThreadLocalPool(this);
+  }
+
+  auto report() {
+    std::unique_lock<std::mutex> lk(_lock);
+    return _pool.size();
   }
 
  private:
@@ -104,6 +120,8 @@ class BucketMemoryPool_threadLocal {
   }
 
   inline void expand() {
+    LOG(FATAL) << std::this_thread::get_id() << " - PoolSize: " << _pool.size()
+               << " | RealSize: " << realSize;
     assert(false);
     auto x = MemoryManager::mallocPinned(pool_size);
     assert(x);
@@ -124,6 +142,8 @@ class BucketMemoryPool_threadLocal {
   void destruct() {
     std::unique_lock<std::mutex> lk(_lock);
     destructed = true;
+    LOG(INFO) << "POOL_DESTRUCT: " << std::this_thread::get_id()
+              << " |PoolSize: " << _pool.size();
 
     for (auto& x : basePtr) {
       MemoryManager::freePinned(x);
@@ -131,12 +151,13 @@ class BucketMemoryPool_threadLocal {
   }
 
  private:
-  std::stack<void*> _pool{};
+  std::stack<void*,
+             std::vector<void*, proteus::memory::PinnedMemoryAllocator<void*>>>
+      _pool{};
   std::mutex _lock{};
-
   std::vector<void*> basePtr{};
-
-  bool destructed;
+  std::atomic<bool> destructed;
+  size_t realSize;
 
   template <size_t>
   friend class BucketMemoryPool;
@@ -165,6 +186,16 @@ class BucketMemoryPool {
     }
     registry.clear();
     destructed = true;
+  }
+  void report() {
+    std::unique_lock<std::mutex> lk(registryLock);
+    auto i = 0;
+    LOG(INFO) << "MemoryPool Report()";
+    for (const auto& pool : registry) {
+      LOG(INFO) << "\tPool[" << i << "] [" << std::this_thread::get_id() << "]"
+                << " - " << pool->report();
+      i++;
+    }
   }
 
  private:
