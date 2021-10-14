@@ -24,6 +24,7 @@
 #ifndef INDEXES_INDEX_HPP_
 #define INDEXES_INDEX_HPP_
 
+#include <atomic>
 #include <iostream>
 
 #include "oltp/common/common.hpp"
@@ -34,13 +35,23 @@ template <class K = uint64_t, class V = void *>
 class Index {
  public:
   Index() = default;
-  Index(std::string name) : name(std::move(name)) {}
+  explicit Index(std::string name) : name(std::move(name)) {}
   Index(std::string name, rowid_t initial_capacity) : name(std::move(name)) {}
+
+  virtual ~Index() = default;
+
+ public:
+  const std::string name;
+
+  // public:
   //  virtual V find(K key) = 0;
   //  virtual bool insert(K key, V &value) = 0;
-  virtual ~Index() {}
-
-  const std::string name;
+  //  auto size(){
+  //    return _size.load();
+  //  }
+  //
+  // private:
+  //  std::atomic<size_t> _size;
 };
 
 };  // namespace indexes

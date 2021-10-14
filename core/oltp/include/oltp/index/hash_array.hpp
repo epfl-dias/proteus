@@ -38,21 +38,20 @@ namespace indexes {
 #define PARTITIONED_INDEX true
 #define debug_idx false
 
-// DECLARE_uint64(num_partitions);
-
 template <class K = uint64_t, class V = void *>
 class HashArray : public Index<K, V> {
  public:
   char ***arr;
   rowid_t capacity;
-  rowid_t capacity_per_partition;
+  rowid_t capacity_per_partition{};
   partition_id_t partitions;
-  std::atomic<uint64_t> filler[4];
+  //  std::atomic<uint64_t> filler[4];
+  uint64_t filler[4]{};
 
-  HashArray(std::string name = "", rowid_t reserved_capacity = 72000000);
+  HashArray(std::string name, rowid_t reserved_capacity);
+  HashArray(std::string name, size_t capacity_per_partition,
+            rowid_t reserved_capacity);
   ~HashArray() override;
-
-  //~HashArray() { storage::MemoryManager::free(arr, capacity * sizeof(V)); }
 
   void report() {
 #if debug_idx
@@ -122,12 +121,6 @@ class HashArray : public Index<K, V> {
 
     if (__builtin_expect((pid < partitions && idx < capacity_per_partition),
                          1)) {
-      // std::cout << "key: " << key << std::endl;
-      // std::cout << "pid: " << pid << std::endl;
-      // std::cout << "idx: " << idx << std::endl;
-      // std::cout << "capacity_per_partition: " << capacity_per_partition
-      //           << std::endl;
-      // std::cout << "partitions: " << partitions << std::endl;
       arr[pid][idx] = (char *)value;
       return true;
     } else {
@@ -151,26 +144,8 @@ class HashArray : public Index<K, V> {
 #endif
   }
 };
-// template <class K>
-// class HashIndex : public cuckoohash_map<K, void*> {
-// p_index->find(op.key, val
 
-// void* find(const K &key){
-
-//}
-
-/*template <key, hash_val>
-bool delete_fn(const K &key, F fn) {
-  const hash_value hv = hashed_key(key);
-  const auto b = snapshot_and_lock_two<normal_mode>(hv);
-  const table_position pos = cuckoo_find(key, hv.partial, b.i1, b.i2);
-  if (pos.status == ok) {
-    fn(buckets_[pos.index].mapped(pos.slot));
-    return true;
-  } else {
-    return false;
-  }*/
-//};
+extern template class HashArray<uint64_t, void *>;
 
 };  // namespace indexes
 

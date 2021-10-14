@@ -234,13 +234,8 @@ TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
     th.join();
   }
 
-  if (is_ch_benchmark) {
-    this->create_tbl_supplier(10000);
-    this->create_tbl_nation(150);
-    this->create_tbl_region(5);
-  }
-
-  cust_sec_index = new indexes::HashIndex<uint64_t, struct secondary_record>();
+  cust_sec_index = new indexes::HashIndex<uint64_t, struct secondary_record>(
+      "tpcc_customer_sec_index", max_customers);
   // cust_sec_index->reserve(max_customers);
 
   this->schema->memoryReport();

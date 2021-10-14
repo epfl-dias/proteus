@@ -23,10 +23,47 @@
 
 #include "oltp/index/hash_array.hpp"
 
-#include "oltp/common/constants.hpp"
+#include <platform/memory/memory-manager.hpp>
+
 #include "oltp/common/numa-partition-policy.hpp"
 
 namespace indexes {
+template <class K, class V>
+HashArray<K, V>::HashArray(std::string name, size_t capacity_per_partition,
+                           rowid_t reserved_capacity)
+    : Index<K, V>(name, reserved_capacity),
+      capacity(reserved_capacity),
+      partitions(g_num_partitions) {
+  this->capacity_per_partition = capacity_per_partition;
+  this->capacity = capacity_per_partition * capacity_per_partition;
+
+  assert(capacity > reserved_capacity);
+
+  LOG(INFO) << "Creating a hashindex[" << name
+            << "] of size: " << reserved_capacity
+            << " with partitions:" << partitions
+            << " each with atleast: " << capacity_per_partition;
+
+  arr = (char ***)malloc(sizeof(char *) * partitions);
+
+  size_t size_per_part = capacity_per_partition * sizeof(char *);
+
+  for (auto i = 0; i < partitions; i++) {
+    arr[i] = (char **)MemoryManager::mallocPinnedOnNode(
+        size_per_part, storage::NUMAPartitionPolicy::getInstance()
+                           .getPartitionInfo(i)
+                           .numa_idx);
+    assert(arr[i] != nullptr);
+    filler[i] = 0;
+  }
+
+  for (auto i = 0; i < partitions; i++) {
+    auto *pt = (uint64_t *)arr[i];
+    uint64_t warmup_max = size_per_part / sizeof(uint64_t);
+#pragma clang loop vectorize(enable)
+    for (uint64_t j = 0; j < warmup_max; j++) pt[j] = 0;
+  }
+}
 
 template <class K, class V>
 HashArray<K, V>::HashArray(std::string name, rowid_t reserved_capacity)

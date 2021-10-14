@@ -36,11 +36,14 @@ class HashIndex : public libcuckoo::cuckoohash_map<K, V>, public Index<K, V> {
  public:
   // HashIndex(std::string name ): cuckoohash_map<K, V>(), Index<K,V>(name) {}
 
-  HashIndex(std::string name = "", rowid_t reserved_capacity = 72000000)
+  HashIndex(std::string name, rowid_t reserved_capacity)
       : libcuckoo::cuckoohash_map<K, V>(),
         Index<K, V>(name, reserved_capacity) {
-    this->reserve(reserved_capacity);
+    if (reserved_capacity > 0) this->reserve(reserved_capacity);
   }
+  HashIndex(std::string name, size_t capacity_per_partition,
+            rowid_t reserved_capacity)
+      : HashIndex(name, reserved_capacity) {}
 };
 
 };  // namespace indexes
