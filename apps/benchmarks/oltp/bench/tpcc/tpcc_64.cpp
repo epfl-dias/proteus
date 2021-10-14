@@ -23,15 +23,8 @@
 
 #include "tpcc/tpcc_64.hpp"
 
-#include <chrono>
-#include <cstring>
-#include <ctime>
-#include <functional>
-#include <iomanip>
-#include <iostream>
 #include <oltp/common/utils.hpp>
 #include <platform/threadpool/thread.hpp>
-#include <utility>
 
 #define NDEFAULT_RIDS 16
 
@@ -122,7 +115,7 @@ TPCC::~TPCC() {
 }
 
 void TPCC::print_tpcc_query(void *arg) {
-  struct tpcc_query *q = (struct tpcc_query *)arg;
+  auto *q = static_cast<struct tpcc_query *>(arg);
   std::cout << "-------TPCC QUERY------" << std::endl;
   switch (q->query_type) {
     case NEW_ORDER:
@@ -156,7 +149,8 @@ void TPCC::print_tpcc_query(void *arg) {
 }
 
 TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
-           bool layout_column_store, std::vector<TPCC_QUERY_TYPE> query_seq,
+           bool layout_column_store,
+           const std::vector<TPCC_QUERY_TYPE> &query_seq,
            uint tpch_scale_factor, int g_dist_threshold, std::string csv_path,
            bool is_ch_benchmark)
     : Benchmark(std::move(name), active_warehouse, num_warehouses,
@@ -192,16 +186,19 @@ TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
   loaders.emplace_back(
       [this, max_customers]() { this->create_tbl_customer(max_customers); });
   loaders.emplace_back([this, max_orders, max_customers]() {
-    if (P_MIX > 0)
-      this->create_tbl_history(max_orders / 2);
-    else
+    if (P_MIX > 0 && payment_txn_insert_history) {
+      size_t p_txn = P_MIX;
+      p_txn *= max_orders;
+      p_txn /= 100;
+      this->create_tbl_history(p_txn);
+    } else {
       this->create_tbl_history(max_customers);
+    }
   });
   loaders.emplace_back([this]() { this->create_tbl_item(TPCC_MAX_ITEMS); });
   loaders.emplace_back(
       [this, max_stock]() { this->create_tbl_stock(max_stock); });
 
-#if !debug_dont_load_order
   loaders.emplace_back(
       [this, max_orders]() { this->create_tbl_new_order(max_orders); });
   loaders.emplace_back(
@@ -210,25 +207,12 @@ TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
   loaders.emplace_back([this, max_order_line]() {
     this->create_tbl_order_line(max_order_line);
   });
-#endif
 
-  // this->create_tbl_warehouse(this->num_warehouse);
-
-  // this->create_tbl_district(total_districts);
-
-  // this->create_tbl_customer(max_customers);
-
-  // this->create_tbl_history(max_customers);
-
-  // this->create_tbl_new_order(max_orders);
-
-  // this->create_tbl_order(max_orders);
-
-  // this->create_tbl_order_line(max_order_line);
-
-  // this->create_tbl_item(TPCC_MAX_ITEMS);
-
-  // this->create_tbl_stock(max_stock);
+  if (is_ch_benchmark) {
+    loaders.emplace_back([this]() { this->create_tbl_supplier(10000); });
+    loaders.emplace_back([this]() { this->create_tbl_nation(150); });
+    loaders.emplace_back([this]() { this->create_tbl_region(5); });
+  }
 
   for (auto &th : loaders) {
     th.join();
@@ -322,8 +306,7 @@ void TPCC::create_tbl_district(uint64_t num_districts) {
 void TPCC::create_tbl_item(uint64_t num_item) {
   // Primary Key: I_ID
   storage::TableDef columns;
-
-  struct tpcc_item tmp;
+  struct tpcc_item tmp {};
 
   columns.emplace_back("i_id", storage::INTEGER, sizeof(tmp.i_id));
   columns.emplace_back("i_im_id", storage::INTEGER, sizeof(tmp.i_im_id));
@@ -343,8 +326,7 @@ void TPCC::create_tbl_stock(uint64_t num_stock) {
   // S_W_ID Foreign Key, references W_ID
   // S_I_ID Foreign Key, references I_ID
   storage::TableDef columns;
-
-  struct tpcc_stock tmp;
+  struct tpcc_stock tmp {};
 
   columns.emplace_back("s_i_id", storage::INTEGER, sizeof(tmp.s_i_id));
   columns.emplace_back("s_w_id", storage::INTEGER, sizeof(tmp.s_w_id));
@@ -382,8 +364,7 @@ void TPCC::create_tbl_history(uint64_t num_history) {
   // C_ID)
   // (H_W_ID, H_D_ID) Foreign Key, references (D_W_ID, D_ID)
   storage::TableDef columns;
-
-  struct tpcc_history tmp;
+  struct tpcc_history tmp {};
 
   columns.emplace_back("h_c_id", storage::INTEGER, sizeof(tmp.h_c_id));
 
@@ -409,9 +390,8 @@ void TPCC::create_tbl_customer(uint64_t num_cust) {
 
   // TODO: get size of string vars from sizeof instead of hardcoded.
 
-  struct tpcc_customer tmp;
-
   storage::TableDef columns;
+  struct tpcc_customer tmp {};
 
   columns.emplace_back("c_id", storage::INTEGER, sizeof(tmp.c_id));
 
@@ -458,9 +438,8 @@ void TPCC::create_tbl_new_order(uint64_t num_new_order) {
   // (NO_W_ID, NO_D_ID, NO_O_ID) Foreign Key, references (O_W_ID, O_D_ID,
   // O_ID)
 
-  struct tpcc_new_order tmp;
-
   storage::TableDef columns;
+  struct tpcc_new_order tmp {};
 
   columns.emplace_back("no_o_id", storage::INTEGER, sizeof(tmp.no_o_id));
 
@@ -478,9 +457,9 @@ void TPCC::create_tbl_new_order(uint64_t num_new_order) {
 void TPCC::create_tbl_order(uint64_t num_order) {
   // Primary Key: (O_W_ID, O_D_ID, O_ID)
   // (O_W_ID, O_D_ID, O_C_ID) Foreign Key, references (C_W_ID, C_D_ID, C_ID)
-  storage::TableDef columns;
 
-  struct tpcc_order tmp;
+  struct tpcc_order tmp {};
+  storage::TableDef columns;
 
   columns.emplace_back("o_id", storage::INTEGER, sizeof(tmp.o_id));
 
@@ -509,12 +488,10 @@ void TPCC::create_tbl_order_line(uint64_t num_order_line) {
 
   // (OL_SUPPLY_W_ID, OL_I_ID) Foreign Key, references (S_W_ID, S_I_ID)
 
+  storage::TableDef columns;
   struct tpcc_orderline tmp = {};
 
-  storage::TableDef columns;
-
   columns.emplace_back("ol_o_id", storage::INTEGER, sizeof(tmp.ol_o_id));
-
   columns.emplace_back("ol_d_id", storage::INTEGER, sizeof(tmp.ol_d_id));
   columns.emplace_back("ol_w_id", storage::INTEGER, sizeof(tmp.ol_w_id));
   columns.emplace_back("ol_number", storage::INTEGER, sizeof(tmp.ol_number));
@@ -549,22 +526,17 @@ void TPCC::create_tbl_supplier(uint64_t num_supp) {
     char s_comment[101];  // var
   */
 
-  struct ch_supplier tmp;
   storage::TableDef columns;
+  struct ch_supplier tmp {};
 
   columns.emplace_back("su_suppkey", storage::INTEGER, sizeof(tmp.suppkey));
-
   columns.emplace_back("su_name", storage::STRING, sizeof(tmp.s_name));
-
   columns.emplace_back("su_address", storage::VARCHAR, sizeof(tmp.s_address));
-
   columns.emplace_back("su_nationkey", storage::INTEGER,
                        sizeof(tmp.s_nationkey));
 
   columns.emplace_back("su_phone", storage::STRING, sizeof(tmp.s_phone));
-
   columns.emplace_back("su_acctbal", storage::FLOAT, sizeof(tmp.s_acctbal));
-
   columns.emplace_back("su_comment", storage::VARCHAR, sizeof(tmp.s_comment));
 
   table_supplier = schema->create_table(
@@ -580,9 +552,8 @@ void TPCC::create_tbl_region(uint64_t num_region) {
       char r_comment[115];  // var
   */
 
-  struct ch_region tmp;
-
   storage::TableDef columns;
+  struct ch_region tmp {};
 
   columns.emplace_back("r_regionkey", storage::INTEGER,
                        sizeof(tmp.r_regionkey));
@@ -602,7 +573,7 @@ void TPCC::create_tbl_nation(uint64_t num_nation) {
      ushort n_regionkey;
      char n_comment[115];  // var
   */
-  struct ch_nation tmp;
+  struct ch_nation tmp {};
   storage::TableDef columns;
 
   columns.emplace_back("n_nationkey", storage::INTEGER,
@@ -627,8 +598,7 @@ void TPCC::load_stock(int w_id, xid_t xid, partition_id_t partition_id,
 
   uint32_t base_sid = w_id * TPCC_MAX_ITEMS;
 
-  struct tpcc_stock *stock_tmp = new struct tpcc_stock;
-  //(struct tpcc_stock *)malloc(sizeof(struct tpcc_stock));
+  auto *stock_tmp = new struct tpcc_stock;
 
   int orig[TPCC_MAX_ITEMS], pos;
   for (int i = 0; i < TPCC_MAX_ITEMS / 10; i++) orig[i] = 0;
@@ -645,8 +615,8 @@ void TPCC::load_stock(int w_id, xid_t xid, partition_id_t partition_id,
     stock_tmp->s_w_id = w_id;
     stock_tmp->s_quantity = URand(&this->seed, 10, 100);
 
-    for (int j = 0; j < 10; j++) {
-      make_alpha_string(&this->seed, 24, 24, stock_tmp->s_dist[j]);
+    for (auto &j : stock_tmp->s_dist) {
+      make_alpha_string(&this->seed, 24, 24, j);
     }
 
     stock_tmp->s_ytd = 0;
@@ -672,7 +642,7 @@ void TPCC::load_item(int w_id, xid_t xid, partition_id_t partition_id,
                      master_version_t master_ver) {
   // Primary Key: I_ID
 
-  struct tpcc_item item_temp;
+  struct tpcc_item item_temp {};
 
   int orig[TPCC_MAX_ITEMS], pos;
 
@@ -711,7 +681,7 @@ void TPCC::load_district(int w_id, xid_t xid, partition_id_t partition_id,
   // Primary Key: (D_W_ID, D_ID) D_W_ID
   // Foreign Key, references W_ID
 
-  struct tpcc_district *r = new struct tpcc_district;
+  auto *r = new struct tpcc_district;
 
   for (int d = 0; d < TPCC_NDIST_PER_WH; d++) {
     uint32_t dkey = MAKE_DIST_KEY(w_id, d);
@@ -728,42 +698,10 @@ void TPCC::load_district(int w_id, xid_t xid, partition_id_t partition_id,
     r->d_ytd = 30000.0;
     r->d_next_o_id = 3000;
 
-    // std::cout << "%%%%%%%%%%" << std::endl;
-    // char *dc = (char *)r;
-    // dc += 97;
-    // uint64_t *rr = (uint64_t *)(dc);
-    // std::cout << "sending1: " << r->d_next_o_id << std::endl;
-    // std::cout << "real offset: " << offsetof(struct tpcc_district,
-    // d_next_o_id)
-    //           << std::endl;
-    // std::cout << "sending2: " << *rr << std::endl;
-    // std::cout << "%%%%%%%%%%" << std::endl;
-
     void *hash_ptr =
         table_district->insertRecord(r, xid, partition_id, master_ver);
     this->table_district->p_index->insert((uint64_t)dkey, hash_ptr);
   }
-
-  // std::cout << "offset1: " << offsetof(struct tpcc_district, d_id) <<
-  // std::endl; std::cout << "offset2: " << offsetof(struct tpcc_district,
-  // d_w_id)
-  //           << std::endl;
-  // std::cout << "offset3: " << offsetof(struct tpcc_district, d_name)
-  //           << std::endl;
-  // std::cout << "offset4: " << offsetof(struct tpcc_district, d_street)
-  //           << std::endl;
-  // std::cout << "offset5: " << offsetof(struct tpcc_district, d_street[1])
-  //           << std::endl;
-  // std::cout << "offset6: " << offsetof(struct tpcc_district, d_city)
-  //           << std::endl;
-  // std::cout << "offset7: " << offsetof(struct tpcc_district, d_state)
-  //           << std::endl;
-  // std::cout << "offset8: " << offsetof(struct tpcc_district, d_zip)
-  //           << std::endl;
-  // std::cout << "offset9: " << offsetof(struct tpcc_district, d_tax)
-  //           << std::endl;
-  // std::cout << "offset10: " << offsetof(struct tpcc_district, d_ytd)
-  //           << std::endl;
 
   delete r;
 }
@@ -772,7 +710,7 @@ void TPCC::load_district(int w_id, xid_t xid, partition_id_t partition_id,
 void TPCC::load_warehouse(int w_id, xid_t xid, partition_id_t partition_id,
                           master_version_t master_ver) {
   // Primary Key: W_ID
-  struct tpcc_warehouse *w_temp = new struct tpcc_warehouse;
+  auto *w_temp = new struct tpcc_warehouse;
 
   w_temp->w_id = w_id;
   make_alpha_string(&this->seed, 6, 10, w_temp->w_name);
@@ -800,14 +738,13 @@ void TPCC::load_history(int w_id, xid_t xid, partition_id_t partition_id,
   // C_ID)
   // (H_W_ID, H_D_ID) Foreign Key, references (D_W_ID, D_ID)
 
-  struct tpcc_history *r = new struct tpcc_history;
+  auto *r = new struct tpcc_history;
 
   for (int d = 0; d < TPCC_NDIST_PER_WH; d++) {
     for (int c = 0; c < TPCC_NCUST_PER_DIST; c++) {
       uint32_t key = MAKE_CUST_KEY(w_id, d, c);
       // key = MAKE_HASH_KEY(HISTORY_TID, pkey);
 
-      // r = (struct tpcc_history *)e->value;
       r->h_c_id = c;
       r->h_c_d_id = d;
       r->h_c_w_id = w_id;
@@ -838,8 +775,6 @@ void init_permutation(unsigned int *seed, uint64_t *cperm) {
     cperm[i] = cperm[j];
     cperm[j] = tmp;
   }
-
-  return;
 }
 
 /* A/C TPCC Specs*/
@@ -877,9 +812,8 @@ void TPCC::load_order(int w_id, xid_t xid, partition_id_t partition_id,
 
   assert(order_per_dist < TPCC_MAX_ORD_PER_DIST);
 
-  uint64_t pre_orders = (uint64_t)((double)order_per_dist * 0.7);
-
-  uint64_t *cperm = (uint64_t *)malloc(sizeof(uint64_t) * TPCC_NCUST_PER_DIST);
+  auto pre_orders = (uint64_t)((double)order_per_dist * 0.7);
+  auto *cperm = (uint64_t *)malloc(sizeof(uint64_t) * TPCC_NCUST_PER_DIST);
   assert(cperm);
 
   std::vector<proteus::thread> loaders;
@@ -887,27 +821,11 @@ void TPCC::load_order(int w_id, xid_t xid, partition_id_t partition_id,
   for (int d = 0; d < TPCC_NDIST_PER_WH; d++) {
     init_permutation(&this->seed, cperm);
 
-    //    loaders.emplace_back([this, d, order_per_dist, cperm, pre_orders,
-    //    w_id, xid,
-    //                          partition_id, master_ver]() {
     for (uint64_t o = 0; o < order_per_dist; o++) {
       struct tpcc_order r = {};  // new struct tpcc_order;
 
       uint64_t ckey = MAKE_ORDER_KEY(w_id, d, o);
-
-      // if (ckey >= TPCC_MAX_ORDER_INITIAL_CAP) {
-      //   std::cout << "w_id: " << w_id << std::endl;
-      //   std::cout << " d_id: " << d << std::endl;
-      //   std::cout << "o_id: " << o << std::endl;
-      //   std::cout << "partition_id: " << partition_id << std::endl;
-      //   std::cout << "ckey: " << ckey << std::endl;
-      //   std::cout << "distk: " << MAKE_DIST_KEY(w_id, d) << std::endl;
-      //   std::cout << "TPCC_MAX_ORD_PER_DIST: " << TPCC_MAX_ORD_PER_DIST
-      //             << std::endl;
-      //   std::cout << "-----------------" << std::endl;
-      // }
-
-      int c_id = cperm[o % TPCC_NCUST_PER_DIST];
+      auto c_id = cperm[o % TPCC_NCUST_PER_DIST];
 
       r.o_id = o;
       r.o_c_id = c_id;
@@ -917,7 +835,6 @@ void TPCC::load_order(int w_id, xid_t xid, partition_id_t partition_id,
       r.o_entry_d = get_timestamp();
 
       if (o < pre_orders) {
-        // if (o < 2100) {
         r.o_carrier_id = URand(&this->seed, 1, 10);
       } else
         r.o_carrier_id = 0;
@@ -996,14 +913,10 @@ void TPCC::load_order(int w_id, xid_t xid, partition_id_t partition_id,
   for (auto &th : loaders) {
     th.join();
   }
-
-  // delete r;
-  // delete r_ol;
-  // delete r_no;
   free(cperm);
 }
 
-int TPCC::set_last_name(int num, char *name) {
+auto TPCC::set_last_name(size_t num, char *name) {
   static const char *n[] = {"BAR", "OUGHT", "ABLE",  "PRI",   "PRES",
                             "ESE", "ANTI",  "CALLY", "ATION", "EING"};
 
@@ -1013,7 +926,8 @@ int TPCC::set_last_name(int num, char *name) {
   return strlen(name);
 }
 
-uint64_t TPCC::cust_derive_key(const char *c_last, int c_d_id, int c_w_id) {
+size_t TPCC::cust_derive_key(const char *c_last, uint32_t c_d_id,
+                             uint32_t c_w_id) {
   uint64_t key = 0;
   char offset = 'A';
   for (uint32_t i = 0; i < strlen(c_last); i++)
@@ -1033,7 +947,7 @@ void TPCC::load_customer(int w_id, xid_t xid, partition_id_t partition_id,
   // void *hash_ptr = table_customer->insertRecord(r, 0, 0);
   // this->table_customer->p_index->insert(key, hash_ptr);
 
-  struct tpcc_customer *r = new tpcc_customer;
+  auto *r = new tpcc_customer;
   for (uint64_t d = 0; d < TPCC_NDIST_PER_WH; d++) {
     for (uint64_t c = 0; c < TPCC_NCUST_PER_DIST; c++) {
       uint64_t ckey = MAKE_CUST_KEY(w_id, d, c);
@@ -1090,7 +1004,7 @@ void TPCC::load_customer(int w_id, xid_t xid, partition_id_t partition_id,
       uint64_t sr_dkey = cust_derive_key(r->c_last, d, w_id);
 
       // pull up the record if its already there
-      struct secondary_record sr;
+      struct secondary_record sr {};
       int sr_idx, sr_nids;
 
       if (cust_sec_index->find(sr_dkey, sr)) {
@@ -1174,12 +1088,12 @@ void TPCC::load_nation(int w_id, xid_t xid, partition_id_t partition_id,
                             {121, "SINGAPORE", 2},    {122, "NORWAY", 3}};
 
   // Nation
-  for (int i = 0; i < 62; i++) {
+  for (const auto &nation : nations) {
     struct ch_nation ins = {};
 
-    memcpy(ins.n_name, nations[i].name.c_str(), 16);
-    ins.n_nationkey = nations[i].id;
-    ins.n_regionkey = nations[i].rId;
+    memcpy(ins.n_name, nation.name.c_str(), 16);
+    ins.n_nationkey = nation.id;
+    ins.n_regionkey = nation.rId;
 
     // TODO: from ch-benchmark.
     // ins.n_comment = ;
@@ -1269,18 +1183,11 @@ void TPCC::pre_run(worker_id_t wid, xid_t xid, partition_id_t partition_id,
   }
 
   load_warehouse(wid, xid, partition_id, master_ver);
-
   load_district(wid, xid, partition_id, master_ver);
-
   load_stock(wid, xid, partition_id, master_ver);
-
   load_history(wid, xid, partition_id, master_ver);
-
   load_customer(wid, xid, partition_id, master_ver);
-
-#if !debug_dont_load_order
   load_order(wid, xid, partition_id, master_ver);
-#endif
 }
 
 std::ostream &operator<<(std::ostream &out, const TPCC::ch_nation &r) {
@@ -1315,8 +1222,8 @@ std::ostream &operator<<(std::ostream &out, const TPCC::tpcc_stock &r) {
   out << r.s_i_id << csv_delim;
   out << r.s_w_id << csv_delim;
   out << r.s_quantity << csv_delim;
-  for (size_t i = 0; i < TPCC_NDIST_PER_WH; i++) {
-    out << r.s_dist[i] << csv_delim;
+  for (const auto &i : r.s_dist) {
+    out << i << csv_delim;
   }
   out << r.s_ytd << csv_delim;
   out << r.s_order_cnt << csv_delim;

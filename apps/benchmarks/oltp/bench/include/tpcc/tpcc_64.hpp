@@ -40,61 +40,7 @@
 #include <string>
 #include <thread>
 
-#define PARTITION_LOCAL_ITEM_TABLE true
-#define tpcc_dist_txns false
-#define tpcc_cust_sec_idx false
-#define batch_insert_no_ol true
-#define debug_dont_load_order false
-
-// SIGMOD 20
-#define index_on_order_tbl false  // also cascade to orderlne, neworder table
-
-//#if diascld40
-//#define TPCC_MAX_ORD_PER_DIST 200000  // 2 master - 2 socket
-//#elif diascld48
-//#define TPCC_MAX_ORD_PER_DIST 350000  // 2 master - 2 socket
-//#elif icc148
-//#define TPCC_MAX_ORD_PER_DIST 2000000  // 2 master - 1 socket
-//#else
-//#define TPCC_MAX_ORD_PER_DIST 200000
-//#endif
-
-#define TPCC_MAX_ORD_PER_DIST 100000
-
-#define NO_MIX 100
-#define P_MIX 0   // FIXME
-#define OS_MIX 0  // FIXME
-#define D_MIX 0   // FIXME
-#define SL_MIX 0
-#define MIX_COUNT 100
-
-// #define NO_MIX 45
-// #define P_MIX 43
-// #define OS_MIX 4
-// #define D_MIX 4
-// #define SL_MIX 4
-// #define MIX_COUNT 100
-
-#define FIRST_NAME_MIN_LEN 8
-#define FIRST_NAME_LEN 16
-#define LAST_NAME_LEN 16
-#define TPCC_MAX_OL_PER_ORDER 15
-#define MAX_OPS_PER_QUERY 255
-
-// From TPCC-SPEC
-#define TPCC_MAX_ITEMS 100000
-#define TPCC_NCUST_PER_DIST 3000
-#define TPCC_NDIST_PER_WH 10
-#define TPCC_ORD_PER_DIST 3000
-
-#define MAKE_STOCK_KEY(w, s) ((w)*TPCC_MAX_ITEMS + (s))
-#define MAKE_DIST_KEY(w, d) ((w)*TPCC_NDIST_PER_WH + (d))
-#define MAKE_CUST_KEY(w, d, c) (MAKE_DIST_KEY(w, d) * TPCC_NCUST_PER_DIST + (c))
-
-#define MAKE_ORDER_KEY(w, d, o) \
-  ((MAKE_DIST_KEY(w, d) * TPCC_MAX_ORD_PER_DIST) + (o))
-#define MAKE_OL_KEY(w, d, o, ol) \
-  (MAKE_ORDER_KEY(w, d, o) * TPCC_MAX_OL_PER_ORDER + (ol))
+#include "constants.hpp"
 
 namespace bench {
 
@@ -103,6 +49,10 @@ namespace bench {
   Spec: http://www.tpc.org/tpc_documents_current_versions/pdf/tpc-c_v5.11.0.pdf
 */
 
+static constexpr bool tpcc_micro_scan_worker_zero = false;
+
+class TpccTxnGen;
+
 enum TPCC_QUERY_TYPE {
   NEW_ORDER,
   PAYMENT,
@@ -110,11 +60,6 @@ enum TPCC_QUERY_TYPE {
   DELIVERY,
   STOCK_LEVEL
 };
-
-using date_t = uint64_t;
-constexpr char csv_delim = '|';
-
-class TpccTxnGen;
 
 class TPCC : public Benchmark {
  private:
@@ -417,11 +362,11 @@ class TPCC : public Benchmark {
   }
 
   // cust_utils
-  uint64_t cust_derive_key(const char *c_last, int c_d_id, int c_w_id);
-  int set_last_name(int num, char *name);
+  static size_t cust_derive_key(const char *c_last, uint32_t c_d_id,
+                                uint32_t c_w_id);
+  static auto set_last_name(size_t num, char *name);
   uint fetch_cust_records(const struct secondary_record &sr,
-                          struct cust_read *c_recs, xid_t xid,
-                          delta_id_t delta_ver);
+                          struct cust_read *c_recs, const txn::TxnTs &txnTs);
 
   // get queries
   void tpcc_get_next_payment_query(int wid, void *arg) const;
@@ -430,35 +375,19 @@ class TPCC : public Benchmark {
   void tpcc_get_next_delivery_query(int wid, void *arg) const;
   void tpcc_get_next_stocklevel_query(int wid, void *arg) const;
 
-  bool exec_neworder_txn(const struct tpcc_query *stmts, txn::Txn &txn,
-                         master_version_t master_ver, delta_id_t delta_ver,
-                         partition_id_t partition_id);
-  bool exec_payment_txn(const struct tpcc_query *stmts, txn::Txn &txn,
-                        master_version_t master_ver, delta_id_t delta_ver,
-                        partition_id_t partition_id);
-  bool exec_orderstatus_txn(const struct tpcc_query *stmts, txn::Txn &txn,
-                            master_version_t master_ver, delta_id_t delta_ver,
-                            partition_id_t partition_id);
-  bool exec_delivery_txn(const struct tpcc_query *stmts, txn::Txn &txn,
-                         master_version_t master_ver, delta_id_t delta_ver,
-                         partition_id_t partition_id);
-  bool exec_stocklevel_txn(const struct tpcc_query *stmts, txn::Txn &txn,
-                           master_version_t master_ver, delta_id_t delta_ver,
-                           partition_id_t partition_id);
+  bool exec_micro_scan_stock(txn::Txn &txn);
+
+  bool exec_neworder_txn(const struct tpcc_query *stmts, txn::Txn &txn);
+  bool exec_payment_txn(const struct tpcc_query *stmts, txn::Txn &txn);
+  bool exec_orderstatus_txn(const struct tpcc_query *stmts, txn::Txn &txn);
+  bool exec_delivery_txn(const struct tpcc_query *stmts, txn::Txn &txn);
+  bool exec_stocklevel_txn(const struct tpcc_query *stmts, txn::Txn &txn);
 
   bool exec_txn(txn::TransactionExecutor &executor, txn::Txn &txn,
                 void *params);
 
-  bool exec_txn(txn::Txn &txn, master_version_t master_ver,
-                delta_id_t delta_ver, partition_id_t partition_id);
-  inline bool exec_txn_mv2pl(txn::Txn &txn, master_version_t master_ver,
-                             delta_id_t delta_ver,
-                             partition_id_t partition_id) {
-    return this->exec_txn(txn, master_ver, delta_ver, partition_id);
-  }
-
   void gen_txn(worker_id_t wid, void *txn_ptr, partition_id_t partition_id);
-  void print_tpcc_query(void *arg);
+  [[maybe_unused]] static void print_tpcc_query(void *arg);
 
   BenchQueue *getBenchQueue(worker_id_t workerId,
                             partition_id_t partitionId) override {
@@ -478,11 +407,11 @@ class TPCC : public Benchmark {
   }
 
   ~TPCC() override;
-  TPCC(std::string name = "TPCC", int num_warehouses = 1,
-       int active_warehouse = 1, bool layout_column_store = true,
-       std::vector<TPCC_QUERY_TYPE> query_seq = {}, uint tpch_scale_factor = 0,
-       int g_dist_threshold = 0, std::string csv_path = "",
-       bool is_ch_benchmark = false);
+  explicit TPCC(std::string name = "TPCC", int num_warehouses = 1,
+                int active_warehouse = 1, bool layout_column_store = true,
+                const std::vector<TPCC_QUERY_TYPE> &query_seq = {},
+                uint tpch_scale_factor = 0, int g_dist_threshold = 0,
+                std::string csv_path = "", bool is_ch_benchmark = false);
 
   static_assert(!(D_MIX > 0 && !index_on_order_tbl),
                 "Delivery Txn requires index on order tables");
@@ -542,6 +471,17 @@ class TPCC : public Benchmark {
 
     txn::StoredProcedure pop(worker_id_t workerId,
                              partition_id_t partitionId) override {
+      if constexpr (tpcc_micro_scan_worker_zero) {
+        if (workerId == 0) {
+          return txn::StoredProcedure(
+              [&](txn::TransactionExecutor &executor, txn::Txn &txn,
+                  void *params) {
+                return tpccBench.exec_micro_scan_stock(txn);
+              },
+              this->_txn_mem, true);
+        }
+      }
+
       tpccBench.gen_txn(this->wid, this->_txn_mem, this->partition_id);
 
       return txn::StoredProcedure(
