@@ -81,4 +81,7 @@ constexpr int MAX_PARTITIONS = 8;
 enum GcTypes { NoGC, OneShot, SteamGC };
 constexpr auto GcMechanism = GcTypes::OneShot;
 
+constexpr bool OneShot_CONSOLIDATION = false;
+constexpr bool SteamGC_CONSOLIDATION = false;
+
 #endif  // PROTEUS_OLTP_COMMON_HPP

@@ -32,26 +32,34 @@
 
 namespace storage {
 
+Schema::Schema()
+    : total_mem_reserved(0),
+      total_delta_mem_reserved(0),
+      snapshot_sync_in_progress(false),
+      num_tables(0) {
+  // aeolus::snapshot::SnapshotManager::init();
+
+  for (int i = 0; i < global_conf::num_delta_storages; i++) {
+    deltaStore[i] =
+        new DeltaStore(i, global_conf::delta_size, g_num_partitions);
+    // deltaStore[i] = new DeltaStore(i, g_delta_size, g_num_partitions);
+    this->total_delta_mem_reserved += deltaStore[i]->total_mem_reserved;
+  }
+}
+
 void Schema::initMemoryPools(partition_id_t partition_id) {
-  if constexpr (GcMechanism != GcTypes::OneShot) {
-    for (auto& i : this->deltaStore) {
-      auto x = i->allocate(8, partition_id);
-      i->release(x);
-    }
+  for (auto& i : this->deltaStore) {
+    i->initThreadLocalPools(partition_id);
   }
 }
 
 std::shared_ptr<Table> Schema::getTable(table_id_t tableId) {
-  std::unique_lock<std::mutex> lk(schema_lock);
-  if (tables.size() > tableId) {
-    return tables.at(tableId);
-  }
-  return {};
+  //  std::shared_lock<std::shared_mutex> lock(schema_lock);
+  return tables.at(tableId);
 }
 
 std::shared_ptr<Table> Schema::getTable(const std::string& name) {
-  std::unique_lock<std::mutex> lk(schema_lock);
-
+  // std::shared_lock<std::shared_mutex> lock(schema_lock);
   if (this->table_name_map.contains(name)) {
     return tables.at(table_name_map[name]);
   }
@@ -64,6 +72,7 @@ std::shared_ptr<Table> Schema::create_table(
     size_t max_partition_size) {
   std::unique_lock<std::shared_mutex> lk(schema_lock);
   if (__unlikely(!infoSchema)) {
+    createInformationSchema();
   }
 
   LOG(INFO) << "Creating table: " << name
@@ -83,6 +92,7 @@ std::shared_ptr<Table> Schema::create_table(
               initial_num_records, numa_idx, max_partition_size));
 
       table_name_map.emplace(name, this->num_tables);
+      this->insertInfoSchema(this->num_tables);
       this->num_tables++;
       this->total_mem_reserved += tblRef.first->second->total_memory_reserved;
       return tblRef.first->second;
@@ -201,7 +211,7 @@ void Schema::report() {
 }
 
 void Schema::teardown(const std::string& cdf_out_path) {
-  std::unique_lock<std::mutex> lk(schema_lock);
+  std::unique_lock<std::shared_mutex> lk(schema_lock);
 
   // if(!cdf_out_path.empty()){
   save_cdf("");
@@ -213,6 +223,7 @@ void Schema::teardown(const std::string& cdf_out_path) {
 
   tables.clear();
   table_name_map.clear();
+  infoSchema.reset();
   this->cleaned = true;
 }
 
@@ -233,8 +244,16 @@ void Schema::steamGC(std::map<table_id_t, std::set<vid_t>>& cleanable,
   }
 }
 
+void Schema::steamGC(std::unordered_map<table_id_t, std::set<vid_t>>& cleanable,
+                     txn::TxnTs globalMin) {
+  for (const auto& [table_id, row_set] : cleanable) {
+    auto tbl = getTable(table_id);
+    tbl->steamGC(row_set, globalMin);
+  }
+}
+
 void Schema::drop_table(const std::string& name) {
-  std::unique_lock<std::mutex> lk(schema_lock);
+  std::unique_lock<std::shared_mutex> lk(schema_lock);
 
   if (table_name_map.contains(name)) {
     auto table_id = table_name_map[name];

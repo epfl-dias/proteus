@@ -29,6 +29,7 @@
 #include <iostream>
 #include <map>
 #include <platform/util/percentile.hpp>
+#include <shared_mutex>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -115,6 +116,13 @@ class Schema {
       bool partitioned = true, int numa_idx = -1,
       size_t max_partition_size = 0);
 
+  auto getInfoSchemaTable() {
+    if (__unlikely(!infoSchema)) {
+      std::unique_lock<std::shared_mutex> lk(schema_lock);
+      createInformationSchema();
+    }
+    return infoSchema;
+  }
   std::shared_ptr<Table> getTable(table_id_t tableId);
   std::shared_ptr<Table> getTable(const std::string &name);
   const std::map<table_id_t, std::shared_ptr<Table>> &getTables() {
@@ -168,6 +176,8 @@ class Schema {
                txn::TxnTs globalMin);
   void steamGC(std::map<table_id_t, std::set<vid_t>> &cleanable,
                txn::TxnTs globalMin);
+  void steamGC(std::unordered_map<table_id_t, std::set<vid_t>> &cleanable,
+               txn::TxnTs globalMin);
 
   void initMemoryPools(partition_id_t partition_id);
 
@@ -176,6 +186,11 @@ class Schema {
   void memoryReport() const;
   static void save_cdf(const std::string &out_path);
 
+  struct __attribute__((packed)) infoSchemaRecord {
+    uint32_t table_id;
+    size_t num_records_part[MAX_PARTITIONS];
+  };
+
  private:
   std::map<table_id_t, std::shared_ptr<Table>> tables{};
   std::map<std::string, table_id_t> table_name_map{};
@@ -183,7 +198,7 @@ class Schema {
   DeltaStore *deltaStore[global_conf::num_delta_storages]{};
 
   // serialization-lock
-  std::mutex schema_lock;
+  std::shared_mutex schema_lock;
 
   // stats
   table_id_t num_tables;
@@ -194,24 +209,18 @@ class Schema {
   std::future<bool> snapshot_sync;
   std::atomic<bool> snapshot_sync_in_progress;
 
+  std::shared_ptr<Table> infoSchema;
+
  private:
   bool sync_master_ver_tbl(const std::shared_ptr<Table> &tbl,
                            master_version_t snapshot_master_ver);
   bool sync_master_ver_schema(master_version_t snapshot_master_ver);
 
-  ~Schema() { LOG(INFO) << "Schema::~Schema()"; }
-  Schema()
-      : total_mem_reserved(0),
-        total_delta_mem_reserved(0),
-        snapshot_sync_in_progress(false),
-        num_tables(0) {
-    // aeolus::snapshot::SnapshotManager::init();
+  void insertInfoSchema(table_id_t table_id);
+  void createInformationSchema();
 
-    for (int i = 0; i < global_conf::num_delta_storages; i++) {
-      deltaStore[i] = new DeltaStore(i, g_delta_size, g_num_partitions);
-      this->total_delta_mem_reserved += deltaStore[i]->total_mem_reserved;
-    }
-  }
+  ~Schema() { LOG(INFO) << "Schema::~Schema()"; }
+  Schema();
 
  private:
   bool cleaned = false;

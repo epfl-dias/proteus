@@ -31,6 +31,7 @@ set(oltp_cxx
 
   #-------- Storage
   lib/storage/schema.cpp
+  lib/storage/schema-info.cpp
   lib/storage/table.cpp
   lib/storage/layout/column-store/column_store.cpp
   lib/storage/layout/column-store/circular-master-column.cpp
