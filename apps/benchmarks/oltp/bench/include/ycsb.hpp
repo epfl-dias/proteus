@@ -46,9 +46,11 @@
 
 namespace bench {
 
-#define THREAD_LOCAL false
+#define THREAD_LOCAL true
 #define PARTITION_LOCAL true
 #define YCSB_MIXED_OPS 1
+
+static constexpr bool ycsb_micro_scan_worker_zero = false;
 
 /*
 
@@ -204,13 +206,14 @@ class YCSB : public Benchmark {
 
 #endif
 
-#if THREAD_LOCAL
+      //#if THREAD_LOCAL
       // In a round-robin way, each thread will operate on its own data block,
       // so there will be no conflicts between two workers.
 
-      txn->ops[i].key =
-          (wid * recs_per_thread) + ((rec_key_iter++) % recs_per_thread);
-#else
+      //      txn->ops[i].key =
+      //          (wid * recs_per_thread) + ((rec_key_iter++) %
+      //          recs_per_thread);
+      //#else
       do {
         // make op
         txn->ops[i].key = zipf.nextval(partition_id, wid);
@@ -223,8 +226,30 @@ class YCSB : public Benchmark {
           }
         }
       } while (is_duplicate);
-#endif
+      //#endif
     }
+  }
+
+  bool exec_micro_scan_agg(txn::Txn &txn) {
+    constexpr column_id_t ycsb_col_read[] = {0};
+
+    auto *record_ptr = static_cast<global_conf::IndexVal *>(
+        ycsb_tbl->p_index->find((uint64_t)(0)));
+    assert(record_ptr != nullptr);
+
+    size_t accumulator = 0;
+    for (auto i = 0; i < num_records; i++, record_ptr++) {
+      uint64_t read_val = 0;
+
+      record_ptr->readWithLatch([&](global_conf::IndexVal *idx_ptr) {
+        ycsb_tbl->getIndexedRecord(txn.txnTs, *idx_ptr, &read_val,
+                                   ycsb_col_read, 1);
+      });
+
+      accumulator += read_val;
+    }
+
+    return true;
   }
 
   bool exec_txn(txn::TransactionExecutor &executor, txn::Txn &txn,
@@ -359,10 +384,8 @@ class YCSB : public Benchmark {
         // num_iterations_per_worker(num_iterations_per_worker),
         num_ops_per_txn(num_ops_per_txn),
         write_threshold(write_threshold),
-        zipf(num_records, theta,
-             num_max_workers == -1 ? topology::getInstance().getCoreCount()
-                                   : num_max_workers,
-             num_partitions, PARTITION_LOCAL, THREAD_LOCAL),
+        zipf(num_records, theta, num_active_workers, num_partitions,
+             PARTITION_LOCAL, THREAD_LOCAL),
         num_of_col_upd_per_op(num_of_col_upd),
         num_of_col_read_per_op(num_of_col_read),
         num_col_read_offset_per_op(num_col_read_offset) {
@@ -397,19 +420,28 @@ class YCSB : public Benchmark {
       columns.emplace_back("col_" + std::to_string(i + 1), storage::INTEGER,
                            sizeof(uint64_t));
     }
-    auto num_record_capacity = num_records;
-    auto rec_per_worker = num_records / num_max_workers;
-    auto worker_per_partition =
+
+    //----
+    static auto worker_per_partition =
         topology::getInstance().getCpuNumaNodes()[0].local_cores.size();
+
+    auto num_record_capacity = num_records;
+    size_t rec_per_worker = num_records / num_max_workers;
     if (num_max_workers % worker_per_partition != 0 && num_partitions > 1) {
       num_record_capacity =
           rec_per_worker * worker_per_partition * num_partitions;
+      LOG(WARNING) << "Table capacity coded to fill entire partition even if "
+                      "using partial worker in a socket.";
     }
+    LOG(INFO) << "YCSB: num_record_capacity: " << num_record_capacity;
+    //----
+    // FIXME: HARDCODED, IT SHOULD BE LINKED OT WORKER SCHEDULER.
+    auto partition_size = rec_per_worker * (worker_per_partition / 2);
 
     ycsb_tbl = schema->create_table(
         "ycsb_tbl",
         (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-        columns, num_record_capacity);
+        columns, num_record_capacity, true, true, -1, partition_size);
   }
 
  private:
@@ -440,6 +472,17 @@ class YCSB : public Benchmark {
 
     txn::StoredProcedure pop(worker_id_t workerId,
                              partition_id_t partitionId) override {
+      if constexpr (ycsb_micro_scan_worker_zero) {
+        if (workerId == 0) {
+          return txn::StoredProcedure(
+              [&](txn::TransactionExecutor &executor, txn::Txn &txn,
+                  void *params) {
+                return this->ycsbBench.exec_micro_scan_agg(txn);
+              },
+              this->_txn_mem, true);
+        }
+      }
+
       ycsbBench.gen_txn(workerId, this->_txn_mem, partitionId);
 
       return txn::StoredProcedure(

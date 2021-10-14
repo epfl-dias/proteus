@@ -55,8 +55,11 @@ class ZipfianGenerator {
         _partition_local(partition_local),
         _worker_local(worker_local) {
     _n_per_part = (n_records / n_partitions) - 1;
-    _n_per_worker = (n_records / _n_workers_per_partition) - 1;
+    _n_per_worker = (n_records / n_workers) - 1;
     _theta = theta;
+
+    LOG(INFO) << "_n_per_part: " << _n_per_part;
+    LOG(INFO) << "_n_per_worker: " << _n_per_worker;
 
     auto n_to_use = _n;
     if (_worker_local)
@@ -65,7 +68,7 @@ class ZipfianGenerator {
       n_to_use = _n_per_part;
     else
       n_to_use = _n;
-
+    assert(theta < 1.0 && "Theta should be less 1.0");
     _alpha = 1.0 / (1.0 - theta);
     _zetan = zeta(n_to_use, theta);
     _eta = (1.0 - std::pow(2.0 / n_to_use, 1.0 - theta)) /
@@ -123,10 +126,10 @@ class ZipfianGenerator {
     u = dist(engine);
 #endif
 
-    if (_partition_local)
-      return (partition_id * _n_per_part) + this->val(u);
-    else if (_worker_local)
+    if (_worker_local) {
       return (worker_id * _n_per_worker) + this->val(u);
+    } else if (_partition_local)
+      return (partition_id * _n_per_part) + this->val(u);
     else
       return this->val(u);
   }
