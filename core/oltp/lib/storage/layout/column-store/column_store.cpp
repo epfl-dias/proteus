@@ -62,7 +62,8 @@ ColumnStore::~ColumnStore() {
 
 ColumnStore::ColumnStore(table_id_t table_id, std::string name,
                          TableDef columns, bool indexed, bool numa_partitioned,
-                         size_t reserved_capacity, int numa_idx)
+                         size_t reserved_capacity, int numa_idx,
+                         size_t max_partition_size)
     : Table(table_id, name, COLUMN_STORE, columns)
 //      ,columns(
 //          proteus::memory::ExplicitSocketPinnedMemoryAllocator<std::unique_ptr<storage::Column>>(
@@ -92,8 +93,13 @@ ColumnStore::ColumnStore(table_id_t table_id, std::string name,
 
   // If Indexed, register index.
   if (indexed) {
-    this->p_index =
-        new global_conf::PrimaryIndex<uint64_t>(name, reserved_capacity);
+    if (max_partition_size > 0) {
+      this->p_index = new global_conf::PrimaryIndex<uint64_t>(
+          name, max_partition_size, reserved_capacity);
+    } else {
+      this->p_index =
+          new global_conf::PrimaryIndex<uint64_t>(name, reserved_capacity);
+    }
 
     // TODO: register index w/ IndexManager
   }
@@ -109,18 +115,33 @@ ColumnStore::ColumnStore(table_id_t table_id, std::string name,
 
     switch (t.getSnapshotType()) {
       case SnapshotTypes::None:
-        this->columns.emplace_back(std::make_unique<storage::Column>(
+        //        this->columns.emplace_back(std::make_unique<storage::Column>(
+        //            col_id_ctr++, t.getName(), t.getType(), col_width,
+        //            col_offset, numa_partitioned, reserved_capacity,
+        //            numa_idx));
+
+        this->columns.emplace_back(new storage::Column(
             col_id_ctr++, t.getName(), t.getType(), col_width, col_offset,
             numa_partitioned, reserved_capacity, numa_idx));
         break;
       case SnapshotTypes::CircularMaster:
-        this->columns.emplace_back(
-            std::make_unique<storage::CircularMasterColumn>(
-                col_id_ctr++, t.getName(), t.getType(), col_width, col_offset,
-                numa_partitioned, reserved_capacity, numa_idx));
+        //        this->columns.emplace_back(
+        //            std::make_unique<storage::CircularMasterColumn>(
+        //                col_id_ctr++, t.getName(), t.getType(), col_width,
+        //                col_offset, numa_partitioned, reserved_capacity,
+        //                numa_idx));
+
+        this->columns.emplace_back(new storage::CircularMasterColumn(
+            col_id_ctr++, t.getName(), t.getType(), col_width, col_offset,
+            numa_partitioned, reserved_capacity, numa_idx));
         break;
       case SnapshotTypes::LazyMaster:
-        this->columns.emplace_back(std::make_unique<storage::LazyColumn>(
+        //        this->columns.emplace_back(std::make_unique<storage::LazyColumn>(
+        //            col_id_ctr++, t.getName(), t.getType(), col_width,
+        //            col_offset, numa_partitioned, reserved_capacity,
+        //            numa_idx));
+
+        this->columns.emplace_back(new storage::LazyColumn(
             col_id_ctr++, t.getName(), t.getType(), col_width, col_offset,
             numa_partitioned, reserved_capacity, numa_idx));
         break;
@@ -151,7 +172,8 @@ ColumnStore::ColumnStore(table_id_t table_id, std::string name,
 
   if (indexed) total_memory_reserved += metaColumn->total_size;
 
-  LOG(INFO) << "Table: " << name << "\n\trecord size: " << rec_size << " bytes"
+  LOG(INFO) << "\n\tTable: " << name << "\n\ttable_id: " << (uint)this->table_id
+            << "\n\trecord size: " << rec_size << " bytes"
             << "\n\tnum_records: " << reserved_capacity << "\n\tMem reserved: "
             << (double)total_memory_reserved / (1024 * 1024 * 1024) << " GB";
 

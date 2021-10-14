@@ -56,7 +56,9 @@ enum data_type { META, MV, INTEGER, STRING, FLOAT, VARCHAR, DATE, DSTRING };
 // using ColumnVector = std::vector<std::unique_ptr<storage::Column>,
 //    proteus::memory::ExplicitSocketPinnedMemoryAllocator<std::unique_ptr<storage::Column>>>;
 
-using ColumnVector = std::vector<std::unique_ptr<storage::Column>>;
+// using ColumnVector = std::vector<std::unique_ptr<storage::Column>>;
+
+using ColumnVector = std::vector<storage::Column *>;
 
 class ColumnDef {
  public:
@@ -110,7 +112,8 @@ class Schema {
   std::shared_ptr<Table> create_table(
       const std::string &name, layout_type layout, const TableDef &columns,
       uint64_t initial_num_records = 10000000, bool indexed = true,
-      bool partitioned = true, int numa_idx = -1);
+      bool partitioned = true, int numa_idx = -1,
+      size_t max_partition_size = 0);
 
   std::shared_ptr<Table> getTable(table_id_t tableId);
   std::shared_ptr<Table> getTable(const std::string &name);

@@ -24,7 +24,6 @@
 #include "oltp/storage/schema.hpp"
 
 #include <platform/threadpool/threadpool.hpp>
-#include <utility>
 
 #include "oltp/common/numa-partition-policy.hpp"
 #include "oltp/storage/layout/column_store.hpp"
@@ -61,10 +60,11 @@ std::shared_ptr<Table> Schema::getTable(const std::string& name) {
 
 std::shared_ptr<Table> Schema::create_table(
     const std::string& name, layout_type layout, const TableDef& columns,
-    size_t initial_num_records, bool indexed, bool partitioned, int numa_idx) {
-  std::unique_lock<std::mutex> lk(schema_lock);
-  // auto proteusAllocator =
-  // proteus::memory::PinnedMemoryAllocator<ColumnStore>();
+    size_t initial_num_records, bool indexed, bool partitioned, int numa_idx,
+    size_t max_partition_size) {
+  std::unique_lock<std::shared_mutex> lk(schema_lock);
+  if (__unlikely(!infoSchema)) {
+  }
 
   LOG(INFO) << "Creating table: " << name
             << " | Capacity: " << initial_num_records;
@@ -80,7 +80,7 @@ std::shared_ptr<Table> Schema::create_table(
           std::allocate_shared<ColumnStore>(
               proteus::memory::PinnedMemoryAllocator<ColumnStore>(),
               (this->num_tables), name, columns, indexed, partitioned,
-              initial_num_records, numa_idx));
+              initial_num_records, numa_idx, max_partition_size));
 
       table_name_map.emplace(name, this->num_tables);
       this->num_tables++;
