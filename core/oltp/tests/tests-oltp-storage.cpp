@@ -73,9 +73,7 @@ void updateRecord(const std::shared_ptr<storage::Table> &table, txn::Txn &txn,
         [&](global_conf::IndexVal *idx_ptr) {
           LOG(INFO) << "\t VID: " << idx_ptr->VID;
           LOG(INFO) << "\tIDX_PTR:" << reinterpret_cast<uintptr_t>(idx_ptr);
-          table->updateRecord(txn.txnTs.txn_start_time, idx_ptr, record.data(),
-                              txn.delta_version, nullptr, -1,
-                              txn.master_version);
+          table->updateRecord(txn, idx_ptr, record.data(), nullptr, -1);
         },
         txn, table->table_id);
 
