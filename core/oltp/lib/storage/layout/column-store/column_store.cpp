@@ -57,6 +57,12 @@ ColumnStore::~ColumnStore() {
     metaColumn->~Column();
     MemoryManager::freePinned(metaColumn);
   }
+
+  for (auto col : columns) {
+    delete col;
+  }
+  columns.clear();
+
   delete p_index;
 }
 
