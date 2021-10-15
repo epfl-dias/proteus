@@ -37,7 +37,6 @@ set(oltp_cxx
   lib/storage/layout/column-store/circular-master-column.cpp
   lib/storage/layout/column-store/lazy-column.cpp
   lib/storage/layout/column-store/column.cpp
-  # lib/storage/layout/row_store.cpp
   lib/storage/multi-version/delta_storage.cpp
   lib/storage/multi-version/mv.cpp
   lib/storage/multi-version/mv-record-list.cpp
