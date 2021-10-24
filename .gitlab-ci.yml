@@ -36,6 +36,7 @@ before_script:
  # TODO: we should probably remove the next lines and fix that in executor
  - ln -s /data/ssbm100 tests/inputs/ssbm100
  - ln -s /data/tpch1 tests/inputs/tpch1
+ - ulimit -c 0
 
 # after_script:
 #  - true
