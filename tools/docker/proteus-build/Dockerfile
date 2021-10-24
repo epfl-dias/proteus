@@ -7,7 +7,7 @@ COPY requirements.txt /tmp/requirements.txt
 # RUN apt install -y software-properties-common
 # RUN apt-add-repository -y ppa:graphics-drivers/ppa
 
-RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | sudo tee /etc/apt/sources.list.d/sbt.list
+RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" > /etc/apt/sources.list.d/sbt.list
 RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823
 
 # LLVM repository with the version we are building
