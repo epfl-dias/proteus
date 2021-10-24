@@ -130,7 +130,7 @@ mmap_file &mmap_file::operator=(mmap_file &&other) noexcept {
 
 mmap_file::~mmap_file() {
   if (gpu_data.empty() && !data) return;
-  if (loc == GPU_RESIDENT) gpu_run(cudaFree(gpu_data.data()));
+  if (loc == GPU_RESIDENT) MemoryManager::freeGpu(gpu_data.data());
 
   // gpu_run(cudaHostUnregister(data));
   // if (loc == PINNED)       gpu_run(cudaFreeHost(data));
