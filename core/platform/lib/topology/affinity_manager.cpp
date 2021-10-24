@@ -21,6 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include <platform/common/error-handling.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
 
@@ -51,12 +52,8 @@ void affinity::set(const topology::core &core) {
   CPU_ZERO(&thread_core_affinity);
   CPU_SET(core.id, &thread_core_affinity);
 
-#ifndef NDEBUG
-  int err =
-#endif
-      pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t),
-                             &(thread_core_affinity));
-  assert(!err);
+  linux_run(pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t),
+                                   &(thread_core_affinity)));
 }
 
 void affinity::set_server(int32_t server) { thread_server_affinity = server; }
@@ -71,11 +68,7 @@ void affinity_cpu_set::set(const topology::cpunumanode &cpu, cpu_set_t cores) {
   thread_core_affinity = cores;
   thread_cpu_numa_node_affinity = cpu.id;
 
-#ifndef NDEBUG
-  int err =
-#endif
-      pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cores);
-  assert(!err);
+  linux_run(pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cores));
 }
 
 cpu_set_t affinity_cpu_set::get() { return thread_core_affinity; }
