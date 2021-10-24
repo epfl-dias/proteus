@@ -56,7 +56,7 @@ BinaryBlockPlugin::BinaryBlockPlugin(
       wantedFields(ensureRelName(whichFields, fnamePrefix)),
       Nparts(0) {
   if (load) {
-    loadData(context, ALLSOCKETS);
+    loadData(context, FROM_REGISTRY);
     finalize_data(context);
   }
 }
