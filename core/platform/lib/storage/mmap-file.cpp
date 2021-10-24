@@ -99,8 +99,6 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
   }
 
   if (loc == GPU_RESIDENT) {
-    std::cout << "Dataset on device: "
-              << topology::getInstance().getActiveGpu().id << std::endl;
     gpu_data2 = MemoryManager::mallocGpu(filesize);
     gpu_run(cudaMemcpy(gpu_data2, data, filesize, cudaMemcpyDefault));
     munmap(data, filesize);
