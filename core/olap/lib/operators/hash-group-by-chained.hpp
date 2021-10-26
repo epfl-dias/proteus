@@ -76,6 +76,12 @@ class HashGroupByChained : public experimental::UnaryOperator {
                             ParallelContext *context,
                             const OperatorState &childState);
 
+  virtual std::vector<llvm::Value *> prepareHashTableEntry(
+      ParallelContext *context, const OperatorState &childState) const;
+  void destroyHashTableEntry(ParallelContext *context,
+                             const OperatorState &childState,
+                             std::vector<llvm::Value *> packedMonoids) const;
+
   std::vector<GpuAggrMatExpr> agg_exprs;
   std::vector<size_t> packet_widths;
   std::vector<expression_t> key_expr;

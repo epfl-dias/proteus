@@ -41,9 +41,15 @@ class Monoid {
   virtual void createUpdate(Context *const context,
                             llvm::Value *val_accumulating, llvm::Value *val_in);
 
+  virtual void createUpdateFromBareValue(Context *const context,
+                                         llvm::Value *val_accumulating,
+                                         llvm::Value *val_in);
+
   virtual llvm::Value *createUnary(Context *context, llvm::Value *val_in) {
     return val_in;
   }
+
+  virtual void destroyUnary(Context *context, llvm::Value *val_in) {}
 
   virtual void createAtomicUpdate(
       Context *const context, llvm::Value *accumulator_ptr, llvm::Value *val_in,

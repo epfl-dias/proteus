@@ -209,6 +209,61 @@ Value *HashGroupByChained::hash(const std::vector<expression_t> &exprs,
   return context->getBuilder()->CreateURem(hash, size);
 }
 
+std::vector<llvm::Value *> HashGroupByChained::prepareHashTableEntry(
+    ParallelContext *context, const OperatorState &childState) const {
+  Value *head_ptr = context->getStateVar(head_param_id);
+  Value *eochain = ConstantInt::get((IntegerType *)head_ptr->getType()
+                                        ->getPointerElementType()
+                                        ->getArrayElementType(),
+                                    ~((size_t)0));
+
+  IRBuilder<> *Builder = context->getBuilder();
+
+  std::vector<Value *> out_vals;
+
+  for (size_t i = 0; i < out_param_ids.size(); ++i) {
+    Value *out_ptr = context->getStateVar(out_param_ids[i]);
+    out_ptr->setName(opLabel + "_data" + std::to_string(i) + "_ptr");
+    // out_ptrs.push_back(out_ptr);
+
+    // out_ptr->addAttr(Attribute::getWithAlignment(llvmContext,
+    // context->getSizeOf(out_ptr)));
+
+    // out_ptrs.push_back(Builder->CreateInBoundsGEP(out_ptr, old_cnt));
+    out_vals.push_back(
+        UndefValue::get(out_ptr->getType()->getPointerElementType()));
+  }
+
+  out_vals[0] = Builder->CreateInsertValue(out_vals[0], eochain, 0);
+
+  for (const GpuAggrMatExpr &mexpr : agg_exprs) {
+    ExpressionGeneratorVisitor exprGenerator(context, childState);
+    ProteusValue valWrapper = mexpr.expr.accept(exprGenerator);
+
+    if (mexpr.is_aggregation()) {
+      gpu::Monoid *gm = gpu::Monoid::get(mexpr.m);
+      valWrapper.value = gm->createUnary(context, valWrapper.value);
+    }
+
+    out_vals[mexpr.packet] = Builder->CreateInsertValue(
+        out_vals[mexpr.packet], valWrapper.value, mexpr.packind);
+  }
+
+  return out_vals;
+}
+
+void HashGroupByChained::destroyHashTableEntry(
+    ParallelContext *context, const OperatorState &childState,
+    std::vector<llvm::Value *> out_vals) const {
+  IRBuilder<> *Builder = context->getBuilder();
+  for (const GpuAggrMatExpr &mexpr : agg_exprs) {
+    if (!mexpr.is_aggregation()) continue;
+    auto v = Builder->CreateExtractValue(out_vals[mexpr.packet], mexpr.packind);
+    gpu::Monoid *gm = gpu::Monoid::get(mexpr.m);
+    gm->destroyUnary(context, v);
+  }
+}
+
 void HashGroupByChained::generate_build(ParallelContext *context,
                                         const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
@@ -264,37 +319,6 @@ void HashGroupByChained::generate_build(ParallelContext *context,
       TheFunction, "mem_written", v_false->getType());
   Builder->CreateStore(v_false, mem_written);
 
-  // std::vector<Value *> out_ptrs;
-  std::vector<Value *> out_vals;
-
-  for (size_t i = 0; i < out_param_ids.size(); ++i) {
-    Value *out_ptr = context->getStateVar(out_param_ids[i]);
-    out_ptr->setName(opLabel + "_data" + std::to_string(i) + "_ptr");
-    // out_ptrs.push_back(out_ptr);
-
-    // out_ptr->addAttr(Attribute::getWithAlignment(llvmContext,
-    // context->getSizeOf(out_ptr)));
-
-    // out_ptrs.push_back(Builder->CreateInBoundsGEP(out_ptr, old_cnt));
-    out_vals.push_back(
-        UndefValue::get(out_ptr->getType()->getPointerElementType()));
-  }
-
-  out_vals[0] = Builder->CreateInsertValue(out_vals[0], eochain, 0);
-
-  for (const GpuAggrMatExpr &mexpr : agg_exprs) {
-    ExpressionGeneratorVisitor exprGenerator(context, childState);
-    ProteusValue valWrapper = mexpr.expr.accept(exprGenerator);
-
-    if (mexpr.is_aggregation()) {
-      gpu::Monoid *gm = gpu::Monoid::get(mexpr.m);
-      valWrapper.value = gm->createUnary(context, valWrapper.value);
-    }
-
-    out_vals[mexpr.packet] = Builder->CreateInsertValue(
-        out_vals[mexpr.packet], valWrapper.value, mexpr.packind);
-  }
-
   // BasicBlock *InitCondBB  = BasicBlock::Create(llvmContext, "setHeadCond",
   // TheFunction);
   BasicBlock *InitThenBB =
@@ -330,30 +354,35 @@ void HashGroupByChained::generate_build(ParallelContext *context,
                                      old_cnt),
           PointerType::getInt32PtrTy(llvmContext)),
       eochain);
+  {
+    auto out_vals = prepareHashTableEntry(context, childState);
 
-  for (size_t i = 1; i < out_param_ids.size(); ++i) {
-    Value *out_ptr = context->getStateVar(out_param_ids[i]);
+    for (size_t i = 1; i < out_param_ids.size(); ++i) {
+      Value *out_ptr = context->getStateVar(out_param_ids[i]);
 
-    Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
-    Builder->CreateAlignedStore(out_vals[i], out_ptr_i, packet_widths[i] / 8,
-                                true);
+      Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
+      Builder->CreateAlignedStore(out_vals[i], out_ptr_i, packet_widths[i] / 8,
+                                  true);
+    }
+
+    // written = true;
+    Builder->CreateStore(v_true, mem_written);
+
+    context->workerScopedMembar();
+
+    // current = atomicCAS(&(first[bucket]), -1, idx);
+    Value *old_current = Builder->CreateAtomicCmpXchg(
+        head_w_hash_ptr, eochain, old_cnt, llvm::AtomicOrdering::Monotonic,
+        llvm::AtomicOrdering::Monotonic);
+
+    Builder->CreateStore(Builder->CreateExtractValue(old_current, 0),
+                         mem_current);
+    Value *suc =
+        Builder->CreateICmpEQ(Builder->CreateLoad(mem_current), eochain);
+
+    Builder->CreateCondBr(suc, MergeBB, InitMergeBB);
+    //   if (!suc) goto MergeBB
   }
-
-  // written = true;
-  Builder->CreateStore(v_true, mem_written);
-
-  context->workerScopedMembar();
-
-  // current = atomicCAS(&(first[bucket]), -1, idx);
-  Value *old_current = Builder->CreateAtomicCmpXchg(
-      head_w_hash_ptr, eochain, old_cnt, llvm::AtomicOrdering::Monotonic,
-      llvm::AtomicOrdering::Monotonic);
-
-  Builder->CreateStore(Builder->CreateExtractValue(old_current, 0),
-                       mem_current);
-  Value *suc = Builder->CreateICmpEQ(Builder->CreateLoad(mem_current), eochain);
-
-  Builder->CreateCondBr(suc, MergeBB, InitMergeBB);
   // }
   // Builder->CreateBr(InitMergeBB);
   Builder->SetInsertPoint(InitMergeBB);
@@ -389,9 +418,9 @@ void HashGroupByChained::generate_build(ParallelContext *context,
   //                                             llvm::AtomicOrdering::Monotonic,
   //                                             llvm::AtomicOrdering::Monotonic),
   //                                             0);
-  Value *next = Builder->CreateLoad(Builder->CreateInBoundsGEP(
-      context->getStateVar(out_param_ids[0]),
-      std::vector<Value *>{current, context->createInt32(0)}));
+  Value *next = Builder->CreateLoad(
+      Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0]),
+                                 {current, context->createInt32(0)}));
 
   // next_bucket_next->setName("next_bucket_next");
   //             // int32_t   next_bucket = next[current].next;
@@ -424,42 +453,53 @@ void HashGroupByChained::generate_build(ParallelContext *context,
 
   Builder->SetInsertPoint(BucketFoundBB);
 
-  BasicBlock *InvalidateEntryBB =
-      BasicBlock::Create(llvmContext, "InvalidateEntry", TheFunction);
-
   // atomicAdd(&(next[current].sum), val);
-  for (auto &agg_expr : agg_exprs) {
-    if (agg_expr.is_aggregation()) {
-      gpu::Monoid *gm = gpu::Monoid::get(agg_expr.m);
-      std::vector<Value *> tmp{current, context->createInt32(agg_expr.packind)};
+  {
+    for (auto &agg_expr : agg_exprs) {
+      if (agg_expr.is_aggregation()) {
+        gpu::Monoid *gm = gpu::Monoid::get(agg_expr.m);
+        std::vector<Value *> tmp{current,
+                                 context->createInt32(agg_expr.packind)};
 
-      Value *aggr = Builder->CreateExtractValue(out_vals[agg_expr.packet],
-                                                agg_expr.packind);
+        Value *gl_accum = Builder->CreateInBoundsGEP(
+            context->getStateVar(out_param_ids[agg_expr.packet]), tmp);
 
-      Value *gl_accum = Builder->CreateInBoundsGEP(
-          context->getStateVar(out_param_ids[agg_expr.packet]), tmp);
-
-      gm->createUpdate(context, gl_accum, aggr);
+        ExpressionGeneratorVisitor exprGenerator(context, childState);
+        ProteusValue valWrapper = agg_expr.expr.accept(exprGenerator);
+        gm->createUpdateFromBareValue(context, gl_accum, valWrapper.value);
+      }
     }
   }
 
-  Builder->CreateCondBr(Builder->CreateLoad(mem_written), InvalidateEntryBB,
-                        MergeBB);
   // if (written) next[idx].next = idx;
+  context->gen_if({Builder->CreateLoad(mem_written)})([&]() {
+    // Value * str = UndefValue::get(((const ParallelContext *)
+    // context)->getStateVar(out_param_ids[0])->getType()->getPointerElementType());
+    // str = Builder->CreateInsertValue(str, Builder->CreateLoad(mem_idx), 0);
+    Value *inv_ptr = Builder->CreateInBoundsGEP(
+        context->getStateVar(out_param_ids[0]),
+        {Builder->CreateLoad(mem_idx), context->createInt32(0)});
+
+    context->workerScopedAtomicXchg(inv_ptr, Builder->CreateLoad(mem_idx));
+    // Builder->CreateAlignedStore(str, , packet_widths[0]/8);
+
+    {
+      std::vector<llvm::Value *> out_vals;
+      out_vals.reserve(out_param_ids.size());
+      out_vals.emplace_back(nullptr);
+      for (size_t i = 1; i < out_param_ids.size(); ++i) {
+        Value *out_ptr = context->getStateVar(out_param_ids[i]);
+
+        Value *out_ptr_i =
+            Builder->CreateInBoundsGEP(out_ptr, Builder->CreateLoad(mem_idx));
+        out_vals.emplace_back(
+            Builder->CreateAlignedLoad(out_ptr_i, packet_widths[i] / 8));
+      }
+      destroyHashTableEntry(context, childState, std::move(out_vals));
+    }
+  });
+
   // break;
-  Builder->SetInsertPoint(InvalidateEntryBB);
-
-  // Value * str = UndefValue::get(((const ParallelContext *)
-  // context)->getStateVar(out_param_ids[0])->getType()->getPointerElementType());
-  // str = Builder->CreateInsertValue(str, Builder->CreateLoad(mem_idx), 0);
-  Value *inv_ptr = Builder->CreateInBoundsGEP(
-      context->getStateVar(out_param_ids[0]),
-      std::vector<Value *>{Builder->CreateLoad(mem_idx),
-                           context->createInt32(0)});
-
-  context->workerScopedAtomicXchg(inv_ptr, Builder->CreateLoad(mem_idx));
-  // Builder->CreateAlignedStore(str, , packet_widths[0]/8);
-
   Builder->CreateBr(MergeBB);
 
   Builder->SetInsertPoint(ContFollowBB);
@@ -497,6 +537,7 @@ void HashGroupByChained::generate_build(ParallelContext *context,
                                           // eochain,
                                           // llvm::AtomicOrdering::Monotonic);
 
+    auto out_vals = prepareHashTableEntry(context, childState);
     for (size_t i = 1; i < out_param_ids.size(); ++i) {
       Value *out_ptr = context->getStateVar(out_param_ids[i]);
 
@@ -524,9 +565,8 @@ void HashGroupByChained::generate_build(ParallelContext *context,
   //                                             llvm::AtomicOrdering::Monotonic,
   //                                             llvm::AtomicOrdering::Monotonic);
 
-  context->gen_if(ProteusValue{Builder->CreateICmpEQ(new_next, eochain),
-                               context->createFalse()})(
-      [=]() { Builder->CreateStore(Builder->CreateLoad(mem_idx), n_ptr); });
+  context->gen_if({Builder->CreateICmpEQ(new_next, eochain)})(
+      [&]() { Builder->CreateStore(Builder->CreateLoad(mem_idx), n_ptr); });
 
   context->workerScopedMembar();
   // current = new_next;
@@ -574,8 +614,6 @@ void HashGroupByChained::generate_scan(ParallelContext *context) {
   // // Create the "AFTER LOOP" block and insert it.
   // BasicBlock *releaseBB = BasicBlock::Create(llvmContext, "releaseIf", F);
   // BasicBlock *rlAfterBB = BasicBlock::Create(llvmContext, "releaseEnd" , F);
-
-  Value *tId = context->threadId();
   //  Value *is_leader =
   //      Builder->CreateICmpEQ(tId, ConstantInt::get(tId->getType(), 0));
 

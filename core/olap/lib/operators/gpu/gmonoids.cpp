@@ -37,6 +37,12 @@ void Monoid::createUpdate(Context *const context, llvm::Value *val_accumulating,
       val_accumulating);
 }
 
+void Monoid::createUpdateFromBareValue(Context *const context,
+                                       llvm::Value *val_accumulating,
+                                       llvm::Value *val_in) {
+  createUpdate(context, val_accumulating, createUnary(context, val_in));
+}
+
 const ExpressionType *Monoid::getOutputType(const ExpressionType *eType) {
   return eType;
 }
