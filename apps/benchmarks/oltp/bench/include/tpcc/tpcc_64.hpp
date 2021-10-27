@@ -498,6 +498,8 @@ class TPCC : public Benchmark {
  public:
   PreparedStatement consistency_check_1_query_builder(
       bool return_aggregate = true, string olap_plugin = "block-remote");
+  PreparedStatement consistency_check_1_query_builder_1t(
+      bool return_aggregate = true, string olap_plugin = "block-remote");
   std::vector<PreparedStatement> consistency_check_2_query_builder(
       bool return_aggregate = true, string olap_plugin = "block-remote");
   PreparedStatement consistency_check_3_query_builder(

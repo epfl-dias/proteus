@@ -31,112 +31,111 @@
 #include <oltp/common/utils.hpp>
 #include <oltp/storage/layout/column_store.hpp>
 #include <platform/threadpool/thread.hpp>
+#include <query-shaping/input-prefix-query-shaper.hpp>
 #include <string>
 
 #include "tpcc/tpcc_64.hpp"
 
 namespace bench {
+std::map<std::string, std::function<double(proteus::InputPrefixQueryShaper &)>>
+getStats(size_t SF) {
+  return {
+      {"sf", [SF](auto &) { return SF; }},
+      {"tpcc_warehouse", [SF](auto &) { return SF; }},
+      {"tpcc_district", [SF](auto &) { return SF * 10; }},
+      //            {"customer", [](auto& s) { return s.sf() * 30'000; }},
+      //            {"supplier", [](auto& s) { return s.sf() * 2'000; }},
+      //            {"part",
+      //             [](auto& s) {
+      //               return 200'000 * std::ceil(1 +
+      //               std::log2((double)s.sf()));
+      //             }},
+      //            {"lineorder", [](auto& s) { return s.sf() * 6'000'000; }}
+  };
+}
+
+class OLTPShaper : public proteus::InputPrefixQueryShaper {
+ public:
+  using InputPrefixQueryShaper::InputPrefixQueryShaper;
+
+  [[nodiscard]] pg getPlugin() const override { return pg{"block-remote"}; }
+
+  std::string getRelName(const std::string &base) override {
+    return base + "<block-remote>";
+  }
+
+  [[nodiscard]] DeviceType getDevice() override { return DeviceType::CPU; }
+};
 
 PreparedStatement TPCC::consistency_check_1_query_builder(bool return_aggregate,
                                                           string olap_plugin) {
-  // SQL: (EXPECTED 0 ROWS)
-  //     SELECT sum(w_ytd), sum(d_ytd)
-  //     FROM tpcc_warehouse, tpcc_district
-  //     WHERE tpcc_warehouse.w_id = tpcc_district.d_w_id
-  //     GROUP BY tpcc_warehouse.w_id
-  //     HAVING sum(w_ytd) != sum(d_ytd)
+  auto stats = getStats(144);
+  OLTPShaper shaper{"", stats, false};
 
-  // auto dop = DegreeOfParallelism {topology::getInstance().getCoreCount()};
+  auto rel_district = shaper.scan("tpcc_district", {"d_w_id", "d_ytd"});
 
-  RelBuilderFactory ctx{"tpcc_consistency_check_1"};
-  CatalogParser &catalog = CatalogParser::getInstance();
-  auto wh_scan =
-      ctx.getBuilder()
-          .scan("tpcc_warehouse<" + olap_plugin + ">", {"w_id", "w_ytd"},
-                CatalogParser::getInstance(), pg{olap_plugin})
-          .router(32, RoutingPolicy::LOCAL, DeviceType::CPU)
-          .unpack();
-
-  auto tpcc_check_1 =
-      ctx.getBuilder()
-          .scan("tpcc_district<" + olap_plugin + ">", {"d_w_id", "d_ytd"},
-                CatalogParser::getInstance(), pg{olap_plugin})
-          .router(32, RoutingPolicy::LOCAL, DeviceType::CPU)
-          .unpack()
-          .join(
-              wh_scan,
-              [&](const auto &build_arg) -> expression_t {
-                return expressions::RecordConstruction{
-                    build_arg["w_id"].as("PelagoJoin#2030", "bk_0")}
-                    .as("PelagoJoin#2030", "bk");
-              },
-              [&](const auto &probe_arg) -> expression_t {
-                return expressions::RecordConstruction{
-                    probe_arg["d_w_id"].as("PelagoJoin#2030", "pk_0")}
-                    .as("PelagoJoin#2030", "pk");
-              },
-              log2(this->num_warehouse) + 1, this->num_warehouse + 10)
+  auto agg_district =
+      shaper
+          .parallel(
+              rel_district, {},
+              [&](RelBuilder probe, const std::vector<RelBuilder> &) {
+                return probe.unpack().groupby(
+                    [&](const auto &arg) -> std::vector<expression_t> {
+                      return {(arg["d_w_id"]).as("tmpRelation", "d_w_id")};
+                    },
+                    [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
+                      return {GpuAggrMatExpr{
+                          (arg["d_ytd"]).as("tmpRelation", "district_ytd"), 1,
+                          0, SUM}};
+                    },
+                    log2(this->num_warehouse) + 1, this->num_warehouse + 10);
+              })
           .groupby(
               [&](const auto &arg) -> std::vector<expression_t> {
-                return {(arg["w_id"]).as("tmpRelation", "w_id")};
+                return {(arg["d_w_id"]).as("tmpRelation2", "d_w_id")};
               },
               [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
                 return {GpuAggrMatExpr{
-                            (arg["w_ytd"]).as("tmpRelation", "warehouse_ytd"),
-                            1, 0, SUM},
-                        GpuAggrMatExpr{
-                            (arg["d_ytd"]).as("tmpRelation", "district_ytd"), 2,
-                            0, SUM}};
+                    (arg["district_ytd"]).as("tmpRelation2", "district_ytd"), 1,
+                    0, SUM}};
               },
               log2(this->num_warehouse) + 1, this->num_warehouse + 10)
-          // Cast to floatType as pack-requires same width of data-types.
-          .project([&](const auto &arg) -> std::vector<expression_t> {
-            return {(arg["w_id"].template as<FloatType>())
-                        .as("tmpRelation#2", "w_id"),
-                    arg["warehouse_ytd"].as("tmpRelation#2", "warehouse_ytd"),
-                    arg["district_ytd"].as("tmpRelation#2", "district_ytd")
+          .pack();
 
-            };
-          })
-          //.pack()
-          .router(DegreeOfParallelism{1}, 128, RoutingPolicy::RANDOM,
-                  DeviceType::CPU)
-          //.unpack()
-          .project([&](const auto &arg) -> std::vector<expression_t> {
-            return {(arg["w_id"].template as<Int64Type>())
-                        .as("tmpRelation#3", "w_id"),
-                    arg["warehouse_ytd"].as("tmpRelation#3", "warehouse_ytd"),
-                    arg["district_ytd"].as("tmpRelation#3", "district_ytd")
+  auto rel_warehouse = shaper.scan("tpcc_warehouse", {"w_id", "w_ytd"});
 
-            };
-          })
-          .groupby(
-              [&](const auto &arg) -> std::vector<expression_t> {
-                return {(arg["w_id"])};
-              },
-              [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
-                return {GpuAggrMatExpr{(arg["warehouse_ytd"]), 1, 0, SUM},
-                        GpuAggrMatExpr{(arg["district_ytd"]), 2, 0, SUM}};
-              },
-              log2(this->num_warehouse) + 1, this->num_warehouse)
-          // Cast as Int64 to avoid precision mis-matches.
-          .project([&](const auto &arg) -> std::vector<expression_t> {
-            return {(arg["w_id"])
-                        .template as<Int64Type>()
-                        .as("PelagoProject#13144", "w_id"),
-                    (arg["warehouse_ytd"].template as<Int64Type>())
-                        .as("PelagoProject#13144", "warehouse_ytd"),
-                    (arg["district_ytd"].template as<Int64Type>())
-                        .as("PelagoProject#13144", "district_ytd")
+  auto ret = shaper.parallel(
+      rel_warehouse, {agg_district},
+      [&](RelBuilder probe, const std::vector<RelBuilder> &builds) {
+        return probe.unpack()
+            .join(
+                builds.at(0).unpack(),
+                [&](const auto &build_arg) -> expression_t {
+                  return build_arg["d_w_id"].as("PelagoJoin#2030", "bk");
+                },
+                [&](const auto &probe_arg) -> expression_t {
+                  return probe_arg["w_id"].as("PelagoJoin#2030", "pk");
+                },
+                log2(this->num_warehouse) + 1, this->num_warehouse + 10)
+            // Cast as Int64 to avoid precision mis-matches.
+            .project([&](const auto &arg) -> std::vector<expression_t> {
+              return {(arg["w_id"])
+                          .template as<Int64Type>()
+                          .as("PelagoProject#13144", "w_id"),
+                      (arg["w_ytd"].template as<Int64Type>())
+                          .as("PelagoProject#13144", "warehouse_ytd"),
+                      (arg["district_ytd"].template as<Int64Type>())
+                          .as("PelagoProject#13144", "district_ytd")
 
-            };
-          })
-          .filter([&](const auto &arg) -> expression_t {
-            return ne(arg["warehouse_ytd"], arg["district_ytd"]);
-          });
+              };
+            })
+            .filter([&](const auto &arg) -> expression_t {
+              return ne(arg["warehouse_ytd"], arg["district_ytd"]);
+            });
+      });
 
   if (return_aggregate) {
-    tpcc_check_1 = tpcc_check_1.reduce(
+    ret = ret.reduce(
         [&](const auto &arg) -> std::vector<expression_t> {
           return {(expression_t{INT32_C(1)})
                       .as("PelagoProject#6", "count_inconsistent_rec")};
@@ -144,9 +143,9 @@ PreparedStatement TPCC::consistency_check_1_query_builder(bool return_aggregate,
         {SUM});
   }
 
-  tpcc_check_1 = tpcc_check_1.print(pg{"pm-csv"});
+  ret = ret.print(pg{"pm-csv"});
 
-  return tpcc_check_1.prepare();
+  return ret.prepare();
 }
 
 bool TPCC::consistency_check_1(bool print_inconsistent_rows) {
@@ -160,6 +159,30 @@ bool TPCC::consistency_check_1(bool print_inconsistent_rows) {
   //     WHERE tpcc_warehouse.w_id = tpcc_district.d_w_id
   //     GROUP BY tpcc_warehouse.w_id
   //     HAVING sum(w_ytd) != sum(d_ytd)
+
+  //  LOG(INFO) << "##########PRINT WH#############";
+  //  RelBuilderFactory ctx{"tpcc_wh_scan_1"};
+  //  CatalogParser &catalog = CatalogParser::getInstance();
+  //  auto wh_scan = ctx.getBuilder()
+  //                     .scan("tpcc_warehouse<block-remote>", {"w_id",
+  //                     "w_ytd"},
+  //                           CatalogParser::getInstance(), pg{"block-remote"})
+  //                     .unpack()
+  //                     .print(pg{"pm-csv"})
+  //                     .prepare();
+  //  LOG(INFO) << wh_scan.execute();
+  //
+  //  LOG(INFO) << "##########PRINT DIST#############";
+  //  RelBuilderFactory ctx2{"tpcc_wh_scan_1"};
+  //
+  //  auto d_scan = ctx2.getBuilder()
+  //                    .scan("tpcc_district<block-remote>", {"d_w_id",
+  //                    "d_ytd"},
+  //                          CatalogParser::getInstance(), pg{"block-remote"})
+  //                    .unpack()
+  //                    .print(pg{"pm-csv"})
+  //                    .prepare();
+  //  LOG(INFO) << d_scan.execute();
 
   LOG(INFO) << "##########\tConsistency Check - 1";
   bool db_consistent = true;

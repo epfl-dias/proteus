@@ -17,6 +17,7 @@ target_link_libraries(${PROJECT_NAME}
   PRIVATE
   oltp::engine
   PUBLIC
+  proteus::query-shaping
   oltp::adaptor
   )
 
