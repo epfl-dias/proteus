@@ -37,6 +37,14 @@ before_script:
  - ln -s /data/ssbm100 tests/inputs/ssbm100
  - ln -s /data/tpch1 tests/inputs/tpch1
  - ulimit -c 0
+ - export ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
+ - export build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
+ - export CCACHE_DIR=${ccache_dir}
+ - export CCACHE_NOHASHDIR=1
+ - export CCACHE_BASEDIR=${build_path}
+ - mkdir -p ${build_path}
+ - export CWD=$(pwd)
+ - ccache --zero-stats
 
 # after_script:
 #  - true
@@ -128,10 +136,7 @@ licenses:
 configure:
  stage: Configure
  script:
-  - cache_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}
-  - mkdir -p ${cache_path}/cmake-build-debug
-  - export CWD=$(pwd)
-  - cd ${cache_path}/cmake-build-debug && cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=opt -G "CodeBlocks - Unix Makefiles" $CWD
+  - cd ${build_path} && cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=opt -G "CodeBlocks - Unix Makefiles" $CWD
   - echo "Configure... done"
  <<: *cache
  <<: *restrict_precommit
@@ -154,12 +159,8 @@ test-configuration:
 build:
  stage: Build
  script:
-  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
-  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
-  - mkdir -p ${build_path}
-  - CCACHE_DIR=${ccache_dir} ccache --zero-stats
-  - CCACHE_DIR=${ccache_dir} CCACHE_NOHASHDIR=1 CCACHE_BASEDIR=${build_path} cmake --build ${build_path} --target all -- -j`nproc --all`
-  - CCACHE_DIR=${ccache_dir} ccache --show-stats
+  - cmake --build ${build_path} --target all -- -j`nproc --all`
+  - ccache --show-stats
   - echo "Building... done"
  <<: *cache
  <<: *restrict_precommit
@@ -167,10 +168,7 @@ build:
 install:
  stage: Install
  script:
-  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
-  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
-  - mkdir -p ${build_path}
-  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
   - echo "Installing... done"
  <<: *cache
  <<: *restrict_precommit
@@ -180,11 +178,7 @@ install:
 Test 01 - Threads:
  <<: *test
  script:
-  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
-  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
-  - mkdir -p ${build_path}
-  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
-  - export CWD=$(pwd)
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
   - cd ${build_path}/opt/pelago && ./unit-tests-threads --gtest_output="xml:$CWD/report-threads.xml"
     #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='ThreadTest.*' --gtest_output="xml:$CWD/report-threads.xml"
  artifacts:
@@ -194,11 +188,7 @@ Test 01 - Threads:
 Test 02 - Plan Parsing:
  <<: *test
  script:
-  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
-  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
-  - mkdir -p ${build_path}
-  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
-  - export CWD=$(pwd)
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
   - cd ${build_path}/opt/pelago && ./unit-tests-plan-parsing --gtest_output="xml:$CWD/report-plan-parsing.xml"
     #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='PlanTest.*' --gtest_output="xml:$CWD/report-plan-parsing.xml"
  artifacts:
@@ -208,11 +198,7 @@ Test 02 - Plan Parsing:
 Test 03 - JSON:
  <<: *test
  script:
-  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
-  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
-  - mkdir -p ${build_path}
-  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
-  - export CWD=$(pwd)
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
   - cd ${build_path}/opt/pelago && ./unit-tests-json --gtest_output="xml:$CWD/report-json.xml"
     #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='JSONTest.*' --gtest_output="xml:$CWD/report-json.xml"
  allow_failure: true
@@ -223,11 +209,7 @@ Test 03 - JSON:
 Test 04 - Joins:
  <<: *test
  script:
-  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
-  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
-  - mkdir -p ${build_path}
-  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
-  - export CWD=$(pwd)
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
   - cd ${build_path}/opt/pelago && ./unit-tests-joins --gtest_output="xml:$CWD/report-joins.xml"
     #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='SailorsTest.*' --gtest_output="xml:$CWD/report-joins.xml"
  allow_failure: true
@@ -238,11 +220,7 @@ Test 04 - Joins:
 Test 05 - Output:
  <<: *test
  script:
-  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
-  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
-  - mkdir -p ${build_path}
-  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
-  - export CWD=$(pwd)
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
   - cd ${build_path}/opt/pelago && ./unit-tests-output --gtest_output="xml:$CWD/report-output.xml"
     #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='OutputTest.*' --gtest_output="xml:$CWD/report-output.xml"
  artifacts:
@@ -252,11 +230,7 @@ Test 05 - Output:
 Test 06 - GPU SSB SF100:
  <<: *test
  script:
-  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
-  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
-  - mkdir -p ${build_path}
-  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
-  - export CWD=$(pwd)
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
   - cd ${build_path}/opt/pelago && ./unit-tests-gpu-ssb --gtest_output="xml:$CWD/report-gpu.xml"
     #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='GPUSSBTest.*' --gtest_output="xml:$CWD/report-gpu.xml"
  artifacts:
@@ -266,11 +240,7 @@ Test 06 - GPU SSB SF100:
 Test 07 - CPU SSB SF100:
  <<: *test
  script:
-  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
-  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
-  - mkdir -p ${build_path}
-  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
-  - export CWD=$(pwd)
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
   - cd ${build_path}/opt/pelago && ./unit-tests-cpu-ssb --gtest_output="xml:$CWD/report-cpu.xml"
     #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='CPUSSBTest.*' --gtest_output="xml:$CWD/report-cpu.xml"
  artifacts:
@@ -280,11 +250,7 @@ Test 07 - CPU SSB SF100:
 Test 08 - Hybrid SSB SF100:
  <<: *test
  script:
-  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
-  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
-  - mkdir -p ${build_path}
-  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
-  - export CWD=$(pwd)
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
   - cd ${build_path}/opt/pelago && ./unit-tests-hyb-ssb --gtest_output="xml:$CWD/report-hyb.xml"
     #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='HYBSSBTest.*' --gtest_output="xml:$CWD/report-hyb.xml"
  artifacts:
@@ -294,11 +260,7 @@ Test 08 - Hybrid SSB SF100:
 Test 09 - COW:
  <<: *test
  script:
-  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
-  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
-  - mkdir -p ${build_path}
-  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
-  - export CWD=$(pwd)
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
   - cd ${build_path}/opt/pelago && ./unit-tests-cow --gtest_output="xml:$CWD/report-cow.xml"
     #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='ThreadCOW.*' --gtest_output="xml:$CWD/report-cow.xml"
  artifacts:
@@ -308,12 +270,8 @@ Test 09 - COW:
 Test 10 - Planner:
  <<: *test
  script:
-  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
-  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
-  - mkdir -p ${build_path}
-  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
   - ln -s ${build_path}/opt/pelago/inputs ${build_path}/core/planner/CMakeFiles/planner.dir/inputs
-  - export CWD=$(pwd)
   - export OUTPUT=0
   - cd ${build_path}/core/planner/CMakeFiles/planner.dir && sbt test || export OUTPUT=1
   - mv ${build_path}/core/planner/CMakeFiles/planner.dir/target/test-reports/TEST-*.xml $CWD
@@ -327,11 +285,7 @@ Test 10 - Planner:
 Test 11 - OLTP YCSB:
  <<: *test
  script:
-  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
-  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
-  - mkdir -p ${build_path}
-  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
-  - export CWD=$(pwd)
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
   - cd ${build_path}/opt/pelago && ./unit-tests-ycsb --gtest_output="xml:$CWD/report-ycsb.xml"
   #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='ThreadCOW.*' --gtest_output="xml:$CWD/report-cow.xml"
  artifacts:
@@ -341,11 +295,7 @@ Test 11 - OLTP YCSB:
 Test 12 - OLTP TPCC:
  <<: *test
  script:
-  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
-  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
-  - mkdir -p ${build_path}
-  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
-  - export CWD=$(pwd)
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
   - cd ${build_path}/opt/pelago && ./unit-tests-tpcc --gtest_output="xml:$CWD/report-tpcc.xml"
   #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='ThreadCOW.*' --gtest_output="xml:$CWD/report-cow.xml"
  artifacts:
@@ -366,11 +316,7 @@ Test 12 - OLTP TPCC:
 SSB100 Benchmark - CPU only:
  stage: Benchmark
  script:
-  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
-  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
-  - mkdir -p ${build_path}
-  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
-  - export CWD=$(pwd)
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
   - cd ${build_path}/opt/pelago && java -jar ../../opt/pelago/proteusplanner.jar inputs/plans/schema.json & disown && sleep 30
   - echo "select sum(d_datekey) from ssbm_date;" > queries.sql
   - echo "alter session set hwmode=cpuonly;" >> queries.sql
@@ -384,11 +330,7 @@ SSB100 Benchmark - CPU only:
 SSB100 Benchmark - GPU only:
  stage: Benchmark
  script:
-  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
-  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
-  - mkdir -p ${build_path}
-  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
-  - export CWD=$(pwd)
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
   - cd ${build_path}/opt/pelago && java -jar ../../opt/pelago/proteusplanner.jar inputs/plans/schema.json & disown && sleep 30
   - echo "select /*+ QUERY_INFO(name='warmup') */ sum(d_datekey) from ssbm_date;" > queries.sql
   - echo "alter session set hwmode=gpuonly;" >> queries.sql
@@ -402,11 +344,7 @@ SSB100 Benchmark - GPU only:
 SSB100 Benchmark - Hybrid:
  stage: Benchmark
  script:
-  - ccache_dir=$(pwd | sed "s/^\/builds/\/cache/g")/.ccache
-  - build_path=$(pwd | sed "s/^\/builds/\/cache/g")/${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHA}/cmake-build-debug
-  - mkdir -p ${build_path}
-  - CCACHE_DIR=${ccache_dir} cmake --build ${build_path} --target install -- -j`nproc --all`
-  - export CWD=$(pwd)
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
   - cd ${build_path}/opt/pelago && java -jar ../../opt/pelago/proteusplanner.jar inputs/plans/schema.json & disown && sleep 30
   - echo "select /*+ QUERY_INFO(name='warmup') */ sum(d_datekey) from ssbm_date;" > queries.sql
   - echo "alter session set hwmode=hybrid;" >> queries.sql
