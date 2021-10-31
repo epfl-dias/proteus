@@ -355,6 +355,16 @@ SSB100 Benchmark - Hybrid:
  <<: *cache
  <<: *restrict_precommit
 
+SSB100 Benchmark - Hybrid - Prepared Queries:
+ stage: Benchmark
+ script:
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
+  - cd ${build_path}/opt/pelago
+  - ./perftest-query-perf
+  - JAVA_AVATICA_CLASSPATH=/avatica-1.13.0.jar python ${CWD}/tools/save_benchmark_session_timings.py
+ <<: *cache
+ <<: *restrict_precommit
+
 #----------------------------------------------------------------------------
 # Execution Profiling 
 # unhide the jobs by removing the leading '.'

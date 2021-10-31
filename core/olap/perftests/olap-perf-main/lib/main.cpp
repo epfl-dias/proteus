@@ -26,8 +26,17 @@
 #include <cli-flags.hpp>
 #include <platform/util/glog.hpp>
 
+extern bool FLAGS_benchmark_counters_tabular;
+extern ::fLS::clstring FLAGS_benchmark_out;
+extern ::fLS::clstring FLAGS_benchmark_out_format;
+
 int main(int argc, char **argv) {
+  gflags::AllowCommandLineReparsing();
   auto ctx = proteus::from_cli::olap("Some proteus perftests", &argc, &argv);
+
+  FLAGS_benchmark_counters_tabular = true;
+  FLAGS_benchmark_out = "perf.json";
+  FLAGS_benchmark_out_format = "json";
   benchmark::Initialize(&argc, argv);
   if (benchmark::ReportUnrecognizedArguments(argc, argv)) return 1;
 
