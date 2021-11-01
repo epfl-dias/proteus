@@ -47,16 +47,45 @@ void actualRun(PreparedStatement st, benchmark::State &state) {
   state.counters["Exec (ms)"] = (exeTime / (its - 1)).count();
 }
 
-#define QALIAS(name, prepFunction)                                \
+#define QALIASSF(name, prepFunction, scale)                       \
   struct name {                                                   \
+    static constexpr size_t SF = scale;                           \
     PreparedStatement operator()(proteus::QueryShaper &s) const { \
       return prepFunction(s);                                     \
     }                                                             \
-  };
+  }
+#define QALIAS(name, prepFunction) QALIASSF(name, prepFunction, 100)
 #define SALIAS(name, shaperType) \
   struct name {                  \
     using shaper_t = shaperType; \
   };
+
+PreparedStatement small_scan(proteus::QueryShaper &morph) {
+  morph.setQueryName("small_scan");
+
+  return morph
+      .parallel(morph.scan("lineorder", {"lo_orderdate"}), {},
+                [&](auto probe, auto) {
+                  return probe.unpack()
+                      .filter([&](const auto &arg) -> expression_t {
+                        return expressions::hint(
+                            lt(arg["lo_orderdate"], 1),
+                            expressions::Selectivity(0.000001));
+                      })
+                      .reduce(
+                          [&](const auto &arg) -> std::vector<expression_t> {
+                            return {arg["lo_orderdate"]};
+                          },
+                          {SUM});
+                })
+      .reduce(
+          [&](const auto &arg) -> std::vector<expression_t> {
+            return {arg["lo_orderdate"]};
+          },
+          {SUM})
+      .print(pg{"pm-csv"})
+      .prepare();
+}
 
 namespace SSB {
 QALIAS(Q1_1, ssb::Query::prepare11);
@@ -74,12 +103,14 @@ QALIAS(Q4_2, ssb::Query::prepare42);
 QALIAS(Q4_3, ssb::Query::prepare43);
 }  // namespace SSB
 
+QALIAS(Qsum, small_scan);
+
 SALIAS(CPUonly, proteus::CPUOnlySingleSever);
 SALIAS(GPUonly, proteus::GPUOnlySingleSever);
 
 template <typename Qprep, typename Shaper>
 void query_perf(benchmark::State &state) {
-  size_t SF = 100;
+  size_t SF = Qprep::SF;
   auto stats = ssb::Query::getStats(SF);
 
   auto shaper = make_shaper<typename Shaper::shaper_t>(SF, stats);
@@ -129,7 +160,9 @@ using QuerySet = std::tuple<
     // Group 3
     SSB::Q3_1, SSB::Q3_2, SSB::Q3_3, SSB::Q3_4,
     // Group 4
-    SSB::Q4_1, SSB::Q4_2, SSB::Q4_3>;
+    SSB::Q4_1, SSB::Q4_2, SSB::Q4_3,
+    // Sum Query
+    Qsum>;
 
 using ShaperSet = std::tuple<CPUonly, GPUonly>;
 
