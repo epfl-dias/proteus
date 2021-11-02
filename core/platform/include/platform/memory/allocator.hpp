@@ -45,9 +45,11 @@ class PinnedMemoryAllocator {
   using is_always_equal = std::true_type;
 
   PinnedMemoryAllocator() = default;
+
+  // NOTE: do not put explicit in the following constructor, otherwise rebind
+  // fails for some data structures, including libcuckoo::cuckoohash_map
   template <class U>
-  constexpr explicit PinnedMemoryAllocator(
-      const PinnedMemoryAllocator<U> &o) noexcept {}
+  constexpr PinnedMemoryAllocator(const PinnedMemoryAllocator<U> &o) noexcept {}
 
  private:
   using metadata_t = T *;
