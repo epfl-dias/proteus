@@ -1350,7 +1350,19 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 
 ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::HintExpression *e) {
-  return e->getExpr().accept(*this);
+  auto tmp = e->getExpr().accept(*this);
+
+  auto withProb = llvm::Intrinsic::getDeclaration(
+      context->getModule(), llvm::Intrinsic::expect_with_probability,
+      tmp.value->getType());
+
+  tmp.value = context->getBuilder()->CreateCall(
+      withProb,
+      {tmp.value, context->createTrue(),
+       llvm::ConstantFP::get(llvm::Type::getDoubleTy(context->getLLVMContext()),
+                             e->getSelectivity().sel)});
+
+  return tmp;
 }
 
 ProteusValue ExpressionGeneratorVisitor::visit(
