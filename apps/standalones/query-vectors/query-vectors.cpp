@@ -38,9 +38,9 @@ int main(int argc, char *argv[]) {
   auto builder =
       RelBuilderFactory{__FUNCTION__}
           .getBuilder()
-          .scan({{new RecordAttribute{__FUNCTION__, "a", new IntType()},
+          .scan({{new RecordAttribute{"in", "a", new IntType()},
                   std::make_shared<proteus_any_vector>(std::move(v1))},
-                 {new RecordAttribute{__FUNCTION__, "b", new Int64Type()},
+                 {new RecordAttribute{"in", "b", new Int64Type()},
                   std::make_shared<proteus_any_vector>(std::move(v2))}})
           .unpack()
           .filter(
