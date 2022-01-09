@@ -163,6 +163,7 @@ add_subdirectory(external/jsmn)
 
 # code generation library
 add_subdirectory(core/platform)
+add_subdirectory(core/storage)
 add_subdirectory(core/planner)
 add_subdirectory(core/olap)
 add_subdirectory(core/oltp)

@@ -28,7 +28,6 @@
 #include <olap/plan/catalog-parser.hpp>
 #include <platform/common/error-handling.hpp>
 #include <platform/network/infiniband/infiniband-manager.hpp>
-#include <platform/storage/storage-manager.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
 #include <platform/util/profiling.hpp>
@@ -36,6 +35,7 @@
 #include <query-shaping/experimental-shapers.hpp>
 #include <query-shaping/input-prefix-query-shaper.hpp>
 #include <ssb/query.hpp>
+#include <storage/storage-manager.hpp>
 
 int main(int argc, char* argv[]) {
   FLAGS_colorlogtostderr = true;

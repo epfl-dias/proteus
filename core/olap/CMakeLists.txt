@@ -137,6 +137,7 @@ target_link_libraries(${PROJECT_NAME}
   RapidJSON::RapidJSON
   LLVM::LLVM
   proteus::platform
+  proteus::storage
   jsmn::jsmn
   )
 

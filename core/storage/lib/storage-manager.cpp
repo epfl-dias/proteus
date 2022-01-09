@@ -26,11 +26,12 @@
 #include <magic_enum.hpp>
 #include <platform/memory/block-manager.hpp>
 #include <platform/network/infiniband/infiniband-manager.hpp>
-#include <platform/storage/storage-manager.hpp>
 #include <platform/threadpool/threadpool.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
 #include <platform/util/timing.hpp>
+#include <storage/mmap-file.hpp>
+#include <storage/storage-manager.hpp>
 
 #include "storage-load-policy-registry.hpp"
 

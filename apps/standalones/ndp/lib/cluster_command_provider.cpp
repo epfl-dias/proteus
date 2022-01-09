@@ -31,7 +31,7 @@
 #include <map>
 #include <olap/plan/query-result.hpp>
 #include <platform/common/common.hpp>
-#include <platform/storage/mmap-file.hpp>
+#include <storage/mmap-file.hpp>
 
 static auto catalogJSON = "inputs";
 

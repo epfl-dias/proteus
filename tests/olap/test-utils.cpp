@@ -24,7 +24,7 @@
 #include "test-utils.hpp"
 
 #include <platform/memory/memory-manager.hpp>
-#include <platform/storage/storage-manager.hpp>
+#include <storage/storage-manager.hpp>
 
 #include "olap/common/olap-common.hpp"
 #include "olap/plan/prepared-statement.hpp"

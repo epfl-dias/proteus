@@ -28,37 +28,8 @@
 #include <map>
 #include <platform/common/common.hpp>
 #include <platform/common/gpu/gpu-common.hpp>
-#include <platform/storage/mmap-file.hpp>
+#include <storage/mmap-file.hpp>
 #include <vector>
-
-// class StorageManager;
-
-// class RawFileDescription{
-// private:
-//     std::string name;
-// public:
-//     RawFileDescription(std::string name): name(name){}
-// };
-
-// // class RawStorageDescription{
-// // private:
-// //     const RawFileDescription file_description;
-
-// // public:
-// //     RawStorageDescription(const RawFileDescription &desc):
-// file_description(desc){}
-// // };
-
-// class RawFile{
-// private:
-
-// public:
-//     void open();
-//     void * next();
-//     void close();
-
-// friend StorageManager;
-// };
 
 struct mem_file {
   const void *data;
@@ -251,6 +222,14 @@ class StorageManager {
                                     data_loc loc);
   void unloadFile(std::string name);
 
+  /**
+   * Sets a default file loader.
+   * @param ld loader to use unless a specific loader is set for a given file
+   * though @ref setLoader
+   * @param force bool, if true unload all files to force defaultLoader change.
+   *
+   * @see @ref setLoader
+   */
   void setDefaultLoader(Loader ld, bool force = false);
   void setLoader(std::string fileName, Loader ld, bool force = false);
   std::function<FileRecord(size_t)> getLoader(const std::string &fileName);

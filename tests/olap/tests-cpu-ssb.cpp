@@ -57,9 +57,9 @@
 // </TechnicalDetails>
 
 #include <olap/test/environment.hpp>
-#include <platform/storage/storage-manager.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
+#include <storage/storage-manager.hpp>
 
 #include "test-utils.hpp"
 

@@ -25,7 +25,6 @@
 #include <mutex>
 #include <platform/common/common.hpp>
 #include <platform/memory/memory-manager.hpp>
-#include <platform/storage/storage-manager.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
 #include <platform/util/logging.hpp>
@@ -307,8 +306,10 @@ class platform::impl {
   ~impl() {
     LOG(INFO) << "Shutting down...";
 
-    LOG(INFO) << "Unloading files...";
-    StorageManager::getInstance().unloadAll();
+    //    Unloading files on platform destruction is a little tricky, now that
+    //    we have moved storage into its own lib which depends on platform
+    //    LOG(INFO) << "Unloading files...";
+    //    StorageManager::getInstance().unloadAll();
 
     LOG(INFO) << "Shuting down memory manager...";
     MemoryManager::destroy();

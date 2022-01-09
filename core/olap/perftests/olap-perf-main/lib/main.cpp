@@ -25,12 +25,13 @@
 
 #include <cli-flags.hpp>
 #include <platform/util/glog.hpp>
+#include <storage/storage-manager.hpp>
 
 extern bool FLAGS_benchmark_counters_tabular;
 extern ::fLS::clstring FLAGS_benchmark_out;
 extern ::fLS::clstring FLAGS_benchmark_out_format;
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   gflags::AllowCommandLineReparsing();
   auto ctx = proteus::from_cli::olap("Some proteus perftests", &argc, &argv);
 
@@ -41,6 +42,9 @@ int main(int argc, char **argv) {
   if (benchmark::ReportUnrecognizedArguments(argc, argv)) return 1;
 
   benchmark::RunSpecifiedBenchmarks();
+
+  auto& sm = StorageManager::getInstance();
+  sm.unloadAll();
 
   return 0;
 }

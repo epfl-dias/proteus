@@ -75,9 +75,9 @@
 #include <platform/common/common.hpp>
 #include <platform/common/gpu/gpu-common.hpp>
 #include <platform/memory/memory-manager.hpp>
-#include <platform/storage/storage-manager.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
+#include <storage/storage-manager.hpp>
 #include <thread>
 #include <vector>
 

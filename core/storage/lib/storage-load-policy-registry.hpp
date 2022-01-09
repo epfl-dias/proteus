@@ -26,7 +26,7 @@
 
 #include <map>
 #include <mutex>
-#include <platform/storage/storage-manager.hpp>
+#include <storage/storage-manager.hpp>
 #include <string>
 
 namespace proteus {

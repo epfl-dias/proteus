@@ -23,7 +23,7 @@
 
 #include "binary-col-plugin.hpp"
 
-#include <platform/storage/storage-manager.hpp>
+#include <storage/storage-manager.hpp>
 
 #include "lib/operators/operators.hpp"
 

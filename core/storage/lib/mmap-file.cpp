@@ -29,9 +29,9 @@
 #include <platform/common/error-handling.hpp>
 #include <platform/common/gpu/gpu-common.hpp>
 #include <platform/memory/memory-manager.hpp>
-#include <platform/storage/mmap-file.hpp>
 #include <platform/topology/topology.hpp>
 #include <platform/util/timing.hpp>
+#include <storage/mmap-file.hpp>
 
 // Disable by default, as, active, it does not guarantee NUMA locality!
 static bool allow_readwrite = false;

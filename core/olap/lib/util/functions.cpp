@@ -29,7 +29,7 @@
 #include <olap/util/parallel-context.hpp>
 #include <ostream>
 #include <platform/common/error-handling.hpp>
-#include <platform/storage/storage-manager.hpp>
+#include <storage/storage-manager.hpp>
 
 #include "catalog.hpp"
 

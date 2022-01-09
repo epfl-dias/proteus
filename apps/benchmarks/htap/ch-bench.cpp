@@ -39,7 +39,7 @@
 #include <cli-flags.hpp>
 #include <olap/common/olap-common.hpp>
 #include <platform/memory/memory-manager.hpp>
-#include <platform/storage/storage-manager.hpp>
+#include <storage/storage-manager.hpp>
 
 #include "queries/olap-sequence.hpp"
 

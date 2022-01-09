@@ -25,7 +25,7 @@
 #define BINARY_BLOCK_PLUGIN_HPP_
 
 #include <memory>
-#include <platform/storage/storage-manager.hpp>
+#include <storage/storage-manager.hpp>
 
 #include "plugins.hpp"
 

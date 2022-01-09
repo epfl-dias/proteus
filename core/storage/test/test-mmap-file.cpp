@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2021
+                            Copyright (c) 2022
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -21,33 +21,26 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <glog/logging.h>
+#include <gtest/gtest.h>
 
-#include <olap/test/environment.hpp>
-#include <platform/memory/memory-manager.hpp>
+#include <platform/util/glog.hpp>
+#include <storage/mmap-file.hpp>
 
-void OLAPTestEnvironment::SetUp() {
-  assert(!has_already_been_setup);
+#include "storage-test.hpp"
 
-  setbuf(stdout, nullptr);
-
-  google::InstallFailureSignalHandler();
-
-  // FIXME: reenable tracing as soon as we find the issue with libunwind
-  set_trace_allocations(false, true);
-
-  olap = std::make_unique<proteus::olap>();
-
-  has_already_been_setup = true;
+void segfaultBlockbacked(const void* data) {
+  const int* int_data = reinterpret_cast<const int*>(data);
+  LOG(INFO) << int_data[0];
 }
 
-void OLAPTestEnvironment::TearDown() {
-  if (!is_noop) {
-    auto& sm = StorageManager::getInstance();
-    sm.unloadAll();
-    olap.reset();
-    has_already_been_setup = false;
-  }
+TEST(mmapFile, testVirtual) {
+  // Here nothing should have actually been loaded and we should segfault if we
+  // try to access the data
+  std::string input_file = "inputs/ssbm100/customer.csv.c_custkey";
+  validateInputFile(input_file);
+  auto anon_mmap_file = mmap_file(input_file, VIRTUAL);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wused-but-marked-unused"
+  EXPECT_DEATH(segfaultBlockbacked(anon_mmap_file.getData()), ".*");
+#pragma clang diagnostic pop
 }
-
-bool OLAPTestEnvironment::has_already_been_setup = false;

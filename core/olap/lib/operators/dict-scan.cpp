@@ -23,8 +23,8 @@
 
 #include "dict-scan.hpp"
 
-#include <platform/storage/storage-manager.hpp>
 #include <regex>
+#include <storage/storage-manager.hpp>
 
 #include "lib/util/catalog.hpp"
 
