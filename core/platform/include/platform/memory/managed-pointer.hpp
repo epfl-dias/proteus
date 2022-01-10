@@ -21,10 +21,11 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef PROTEUS_MAGANED_POINTER_HPP
-#define PROTEUS_MAGANED_POINTER_HPP
+#ifndef PROTEUS_MANAGED_POINTER_HPP
+#define PROTEUS_MANAGED_POINTER_HPP
 
 #include <memory>
+#include <sstream>
 #include <string>
 
 namespace proteus {
@@ -38,11 +39,18 @@ template <typename T>
 struct ManagedPointerDeleter {
   void operator()(T *ptr) const {
     if (!ptr) return;
-    throw proteus::internal_error{"Leaked pointer " +
-                                  std::to_string((uintptr_t)ptr)};
+    std::stringstream hex_ptr_str;
+    hex_ptr_str << "Leaked pointer " << std::hex << (uintptr_t)ptr;
+    throw proteus::internal_error{hex_ptr_str.str()};
   }
 };
 
+/**
+ * ManagedUniquePtr is essentially a std::unique_ptr BUT you must explicitly
+ * release. It does not release() on destruct. If a ManagedUniquePtr is not
+ * explicitly released, ManagedPointerDeleter will throw
+ * @tparam T type we point at
+ */
 template <typename T>
 class ManagedUniquePtr {
  private:
@@ -52,6 +60,10 @@ class ManagedUniquePtr {
   explicit ManagedUniquePtr(T *ptr) : p(ptr) {}
   constexpr ManagedUniquePtr(std::nullptr_t = nullptr) noexcept : p(nullptr) {}
 
+  /**
+   * Returns a pointer to the managed object or nullptr if no object is owned.
+   * @return Pointer to the managed object or nullptr if no object is owned
+   */
   [[nodiscard]] inline auto get() const noexcept { return p.get(); }
 
   auto &operator=(std::nullptr_t) noexcept {
@@ -69,6 +81,12 @@ class ManagedUniquePtr {
 
   explicit operator bool() const noexcept { return (bool)p; }
 
+  /**
+   * Releases the ownership of the managed object if any. get() returns nullptr
+after the call. The caller is responsible for deleting the object
+   * @return Pointer to the managed object or nullptr if there was no managed
+object, i.e. the value which would be returned by get() before the call.
+   */
   auto release() { return p.release(); }
 };
 
@@ -82,4 +100,4 @@ static_assert(
     sizeof(proteus::managed_ptr) == sizeof(void *),
     "Many modules assume that managed pointers can fit in normal pointers,"
     "do not break");
-#endif  // PROTEUS_MAGANED_POINTER_HPP
+#endif  // PROTEUS_MANAGED_POINTER_HPP

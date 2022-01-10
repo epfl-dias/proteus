@@ -25,7 +25,7 @@
 #define BLOCK_MANAGER_HPP
 
 #include <platform/memory/buffer-manager.cuh>
-#include <platform/memory/maganed-pointer.hpp>
+#include <platform/memory/managed-pointer.hpp>
 #include <platform/util/memory-registry.hpp>
 
 #pragma clang diagnostic push

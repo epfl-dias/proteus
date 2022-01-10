@@ -24,7 +24,7 @@
 #define MEM_BROADCAST_SCALEOUT_HPP_
 
 #include <future>
-#include <platform/memory/maganed-pointer.hpp>
+#include <platform/memory/managed-pointer.hpp>
 #include <thread>
 #include <unordered_map>
 

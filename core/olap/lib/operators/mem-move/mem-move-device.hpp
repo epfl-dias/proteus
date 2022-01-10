@@ -25,7 +25,7 @@
 
 #include <future>
 #include <olap/util/parallel-context.hpp>
-#include <platform/memory/maganed-pointer.hpp>
+#include <platform/memory/managed-pointer.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/util/async_containers.hpp>
 #include <thread>

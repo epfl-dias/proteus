@@ -24,7 +24,7 @@
 #ifndef PROTEUS_REMOTE_MANAGED_POINTER_HPP
 #define PROTEUS_REMOTE_MANAGED_POINTER_HPP
 
-#include <platform/memory/maganed-pointer.hpp>
+#include <platform/memory/managed-pointer.hpp>
 
 using server_id_t = uint64_t;
 
