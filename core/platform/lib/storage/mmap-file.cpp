@@ -38,7 +38,13 @@ static bool allow_readwrite = false;
 
 size_t getFileSize(const char *filename) {
   struct stat st {};
-  linux_run(stat(filename, &st));
+  try {
+    linux_run(stat(filename, &st));
+  } catch (const std::runtime_error &e) {
+    std::filesystem::filesystem_error error{
+        e.what(), filename, std::error_code{1, std::system_category()}};
+    throw error;
+  }
   return st.st_size;
 }
 
