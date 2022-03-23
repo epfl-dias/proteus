@@ -1,4 +1,5 @@
 FROM nvidia/cuda:11.3.0-devel-ubuntu18.04
+ARG LLVM_VERSION
 
 COPY requirements.txt /tmp/requirements.txt
 
@@ -41,10 +42,10 @@ RUN curl -L -O https://github.com/ccache/ccache/releases/download/v3.7.12/ccache
     make && \
     make install
 
-COPY LLVM-12.0.0-Linux.deb /tmp/LLVM-12.0.0-Linux.deb
+COPY LLVM-${LLVM_VERSION}-Linux.deb /tmp/LLVM-${LLVM_VERSION}-Linux.deb
 
-RUN dpkg -i /tmp/LLVM-12.0.0-Linux.deb && \
-    rm /tmp/LLVM-12.0.0-Linux.deb
+RUN dpkg -i /tmp/LLVM-${LLVM_VERSION}-Linux.deb && \
+    rm /tmp/LLVM-${LLVM_VERSION}-Linux.deb
 
 COPY cmake-3.20.2-Linux-x86_64.deb /tmp/cmake-3.20.2-Linux-x86_64.deb
 
