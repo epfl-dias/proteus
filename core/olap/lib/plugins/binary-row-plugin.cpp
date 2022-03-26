@@ -135,7 +135,8 @@ ProteusValue BinaryRowPlugin::hashValue(ProteusValueMemory mem_value,
   IRBuilder<> *Builder = context->getBuilder();
   ProteusValue value;
   value.isNull = mem_value.isNull;
-  value.value = Builder->CreateLoad(mem_value.mem);
+  value.value = Builder->CreateLoad(
+      mem_value.mem->getType()->getPointerElementType(), mem_value.mem);
   return value;
 }
 
@@ -221,7 +222,8 @@ void BinaryRowPlugin::skipLLVM(Value *offset) {
   }
 
   // Increment and store back
-  Value *val_curr_pos = Builder->CreateLoad(mem_pos);
+  Value *val_curr_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
   Value *val_new_pos = Builder->CreateAdd(val_curr_pos, offset);
   Builder->CreateStore(val_new_pos, mem_pos);
 }
@@ -249,7 +251,8 @@ void BinaryRowPlugin::readAsIntLLVM(
     }
     mem_pos = it->second;
   }
-  Value *val_pos = Builder->CreateLoad(mem_pos);
+  Value *val_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
 
   AllocaInst *buf;
   {
@@ -260,10 +263,13 @@ void BinaryRowPlugin::readAsIntLLVM(
     }
     buf = it->second;
   }
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, val_pos);
   Value *mem_result = Builder->CreateBitCast(bufShiftedPtr, ptrType_int32);
-  Value *parsedInt = Builder->CreateLoad(mem_result);
+  Value *parsedInt = Builder->CreateLoad(
+      mem_result->getType()->getPointerElementType(), mem_result);
 
   AllocaInst *mem_currResult =
       context->CreateEntryBlockAlloca(TheFunction, "currResult", int32Type);
@@ -299,7 +305,8 @@ void BinaryRowPlugin::readAsStringLLVM(
     }
     mem_pos = it->second;
   }
-  Value *val_pos = Builder->CreateLoad(mem_pos);
+  Value *val_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
 
   AllocaInst *buf;
   {
@@ -310,8 +317,10 @@ void BinaryRowPlugin::readAsStringLLVM(
     }
     buf = it->second;
   }
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, val_pos);
 
   StructType *strObjType = context->CreateStringStruct();
   AllocaInst *mem_strObj =
@@ -324,13 +333,17 @@ void BinaryRowPlugin::readAsStringLLVM(
   vector<Value *> idxList = vector<Value *>();
   idxList.push_back(val_0);
   idxList.push_back(val_0);
-  Value *structPtr = Builder->CreateGEP(mem_strObj, idxList);
+  Value *structPtr = Builder->CreateGEP(
+      mem_strObj->getType()->getNonOpaquePointerElementType(), mem_strObj,
+      idxList);
   Builder->CreateStore(bufShiftedPtr, structPtr);
 
   idxList.clear();
   idxList.push_back(val_0);
   idxList.push_back(val_1);
-  structPtr = Builder->CreateGEP(mem_strObj, idxList);
+  structPtr = Builder->CreateGEP(
+      mem_strObj->getType()->getNonOpaquePointerElementType(), mem_strObj,
+      idxList);
   Builder->CreateStore(context->createInt32(5), structPtr);
 
   LOG(INFO) << "[BINARYROW - READ STRING: ] Read Successful";
@@ -362,7 +375,8 @@ void BinaryRowPlugin::readAsBooleanLLVM(
     }
     mem_pos = it->second;
   }
-  Value *val_pos = Builder->CreateLoad(mem_pos);
+  Value *val_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
 
   AllocaInst *buf;
   {
@@ -373,10 +387,13 @@ void BinaryRowPlugin::readAsBooleanLLVM(
     }
     buf = it->second;
   }
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, val_pos);
   Value *mem_result = Builder->CreateBitCast(bufShiftedPtr, ptrType_bool);
-  Value *parsedInt = Builder->CreateLoad(mem_result);
+  Value *parsedInt = Builder->CreateLoad(
+      mem_result->getType()->getPointerElementType(), mem_result);
 
   AllocaInst *currResult =
       context->CreateEntryBlockAlloca(TheFunction, "currResult", int1Type);
@@ -410,7 +427,8 @@ void BinaryRowPlugin::readAsFloatLLVM(
     }
     mem_pos = it->second;
   }
-  Value *val_pos = Builder->CreateLoad(mem_pos);
+  Value *val_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
 
   AllocaInst *buf;
   {
@@ -421,10 +439,13 @@ void BinaryRowPlugin::readAsFloatLLVM(
     }
     buf = it->second;
   }
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, val_pos);
   Value *mem_result = Builder->CreateBitCast(bufShiftedPtr, ptrType_double);
-  Value *parsedInt = Builder->CreateLoad(mem_result);
+  Value *parsedInt = Builder->CreateLoad(
+      mem_result->getType()->getPointerElementType(), mem_result);
 
   AllocaInst *currResult =
       context->CreateEntryBlockAlloca(TheFunction, "currResult", doubleType);
@@ -486,8 +507,10 @@ void BinaryRowPlugin::generate(const ::Operator &producer,
    * Equivalent:
    * while(pos < fsize)
    */
-  Value *lhs = Builder->CreateLoad(pos);
-  Value *rhs = Builder->CreateLoad(fsizePtr);
+  Value *lhs =
+      Builder->CreateLoad(pos->getType()->getPointerElementType(), pos);
+  Value *rhs = Builder->CreateLoad(fsizePtr->getType()->getPointerElementType(),
+                                   fsizePtr);
   Value *cond = Builder->CreateICmpSLT(lhs, rhs);
 
   // Make the new basic block for the loop header (BODY), inserting after

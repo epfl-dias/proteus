@@ -136,7 +136,7 @@ class ARTNode {
     }
   }
 
-  friend std::ostream &operator<<<>(std::ostream &out, const ARTNode<K, V> &r);
+  friend std::ostream &operator<< <>(std::ostream &out, const ARTNode<K, V> &r);
 
  public:
   size_t _prefix_len{};

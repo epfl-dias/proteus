@@ -147,7 +147,8 @@ void HashPartitioner::consume(Context *const context,
   Value *key_ptr =
       ((const ParallelContext *)context)->getStateVar(param_pipe_ids[0]);
   key_ptr->setName(opLabel + "_key");
-  Value *key_ptr_offset = Builder->CreateInBoundsGEP(key_ptr, old_cnt);
+  Value *key_ptr_offset = Builder->CreateInBoundsGEP(
+      key_ptr->getType()->getNonOpaquePointerElementType(), key_ptr, old_cnt);
   Builder->CreateStore(valWrapper.value, key_ptr_offset);
 
   for (size_t i = 1; i < parts_mat_exprs.size(); i++) {
@@ -160,7 +161,8 @@ void HashPartitioner::consume(Context *const context,
     Value *col_ptr =
         ((const ParallelContext *)context)->getStateVar(param_pipe_ids[i]);
     col_ptr->setName(opLabel + "_col");
-    Value *col_ptr_offset = Builder->CreateInBoundsGEP(col_ptr, old_cnt);
+    Value *col_ptr_offset = Builder->CreateInBoundsGEP(
+        col_ptr->getType()->getNonOpaquePointerElementType(), col_ptr, old_cnt);
     Builder->CreateStore(valWrapper.value, col_ptr_offset);
   }
 
@@ -634,7 +636,9 @@ void GpuPartitionedHashJoinChained::generate_joinloop(Context *const context) {
       Builder->CreateTrunc(gpu_context->blockId(), int32_type),
       ConstantInt::get(Type::getInt32Ty(context->getLLVMContext()),
                        8 * SHMEM_SIZE));
-  mem_buffer = Builder->CreateInBoundsGEP(mem_buffer, buffer_offset);
+  mem_buffer = Builder->CreateInBoundsGEP(
+      mem_buffer->getType()->getNonOpaquePointerElementType(), mem_buffer,
+      buffer_offset);
 
   // Value* shared_keys = mem_buffer;
 
@@ -697,7 +701,8 @@ void GpuPartitionedHashJoinChained::generate_joinloop(Context *const context) {
   Value *mem_bucket_info =
       ((ParallelContext *)context)->getStateVar(bucket_info_id);
 
-  Value *buckets_used_val = Builder->CreateLoad(mem_buckets_used);
+  Value *buckets_used_val = Builder->CreateLoad(
+      mem_buckets_used->getType()->getPointerElementType(), mem_buckets_used);
 
   BasicBlock *CondBB = BasicBlock::Create(llvmContext, "PartCond", TheFunction);
   BasicBlock *LoopBB = BasicBlock::Create(llvmContext, "PartLoop", TheFunction);
@@ -725,7 +730,8 @@ void GpuPartitionedHashJoinChained::generate_joinloop(Context *const context) {
 
   Builder->SetInsertPoint(CondBB);
 
-  Value *current_bucket = Builder->CreateLoad(mem_bucket);
+  Value *current_bucket = Builder->CreateLoad(
+      mem_bucket->getType()->getPointerElementType(), mem_bucket);
   current_bucket->setName(opLabel + "_current_partition");
   kernelBindings["current_bucket"] = current_bucket;
   Value *bucket_cond = Builder->CreateICmpSLT(current_bucket, buckets_used_val);
@@ -742,8 +748,11 @@ void GpuPartitionedHashJoinChained::generate_joinloop(Context *const context) {
 
   BasicBlock *IfBB = BasicBlock::Create(llvmContext, "InitIf", TheFunction);
 
-  Value *current_info = Builder->CreateLoad(
-      Builder->CreateInBoundsGEP(mem_bucket_info, current_bucket));
+  auto currPtr = Builder->CreateInBoundsGEP(
+      mem_bucket_info->getType()->getNonOpaquePointerElementType(),
+      mem_bucket_info, current_bucket);
+  Value *current_info =
+      Builder->CreateLoad(currPtr->getType()->getPointerElementType(), currPtr);
   Builder->CreateCondBr(
       Builder->CreateICmpNE(
           current_info,
@@ -779,7 +788,8 @@ void GpuPartitionedHashJoinChained::generate_joinloop(Context *const context) {
   Builder->CreateBr(InitCondBB);
 
   Builder->SetInsertPoint(InitCondBB);
-  Value *val_it = Builder->CreateLoad(mem_it);
+  Value *val_it =
+      Builder->CreateLoad(mem_it->getType()->getPointerElementType(), mem_it);
   Value *init_cond = Builder->CreateICmpSLT(
       val_it, ConstantInt::get(Type::getInt32Ty(context->getLLVMContext()),
                                1 << hash_bits));
@@ -793,8 +803,11 @@ void GpuPartitionedHashJoinChained::generate_joinloop(Context *const context) {
 
   Builder->SetInsertPoint(InitLoopBB);
   std::vector<Value *> val_it_v{context->createInt32(0), val_it};
-  Builder->CreateStore(ConstantInt::get(int32_type, ~((size_t)0)),
-                       Builder->CreateInBoundsGEP(head_ptr, val_it_v));
+  Builder->CreateStore(
+      ConstantInt::get(int32_type, ~((size_t)0)),
+      Builder->CreateInBoundsGEP(
+          head_ptr->getType()->getNonOpaquePointerElementType(), head_ptr,
+          val_it_v));
   // Builder->CreateStore(ConstantInt::get(int32_type, ~((size_t) 0)),
   // Builder->CreateInBoundsGEP(head_ptr, val_it));
   Builder->CreateBr(InitIncBB);
@@ -834,9 +847,11 @@ void GpuPartitionedHashJoinChained::generate_build(
   Value *head_ptr = kernelBindings["head_shared"];
   // head_ptr->setName(opLabel + "_head_ptr");
 
-  Value *current_cnt_ptr =
-      Builder->CreateInBoundsGEP(out_cnts, current_partition);
-  Value *current_cnt = Builder->CreateLoad(current_cnt_ptr);
+  Value *current_cnt_ptr = Builder->CreateInBoundsGEP(
+      out_cnts->getType()->getNonOpaquePointerElementType(), out_cnts,
+      current_partition);
+  Value *current_cnt = Builder->CreateLoad(
+      current_cnt_ptr->getType()->getPointerElementType(), current_cnt_ptr);
   current_cnt->setName(opLabel + "_current_cnt_build");
 
   Value *mem_keys = gpu_context->getStateVar(keys_partitioned_build_id);
@@ -873,8 +888,10 @@ void GpuPartitionedHashJoinChained::generate_build(
   Builder->CreateBr(BlockCondBB);
 
   Builder->SetInsertPoint(BlockCondBB);
-  Value *base = Builder->CreateLoad(mem_base);
-  Value *bucket = Builder->CreateLoad(mem_bucket);
+  Value *base = Builder->CreateLoad(
+      mem_base->getType()->getPointerElementType(), mem_base);
+  Value *bucket = Builder->CreateLoad(
+      mem_bucket->getType()->getPointerElementType(), mem_bucket);
   base->setName(opLabel + "_base_offset_build");
   bucket->setName(opLabel + "_bucket_build");
   Value *block_cond = Builder->CreateICmpSLT(base, current_cnt);
@@ -882,8 +899,10 @@ void GpuPartitionedHashJoinChained::generate_build(
 
   Builder->SetInsertPoint(BlockIncBB);
   Value *next_base = Builder->CreateAdd(base, bucket_size_val);
-  Value *next_bucket =
-      Builder->CreateLoad(Builder->CreateInBoundsGEP(chains, bucket));
+  auto nextBPtr = Builder->CreateInBoundsGEP(
+      chains->getType()->getNonOpaquePointerElementType(), chains, bucket);
+  Value *next_bucket = Builder->CreateLoad(
+      nextBPtr->getType()->getPointerElementType(), nextBPtr);
   next_base->setName(opLabel + "_next_base_offset_build");
   next_bucket->setName(opLabel + "_next_bucket_build");
   Builder->CreateStore(next_base, mem_base);
@@ -911,7 +930,8 @@ void GpuPartitionedHashJoinChained::generate_build(
   Builder->CreateBr(InBlockCondBB);
 
   Builder->SetInsertPoint(InBlockCondBB);
-  Value *offset = Builder->CreateLoad(mem_offset);
+  Value *offset = Builder->CreateLoad(
+      mem_offset->getType()->getPointerElementType(), mem_offset);
   offset->setName(opLabel + "_inblock_offset_build");
   Value *inblock_cond = Builder->CreateICmpSLT(offset, this_block_size);
   Builder->CreateCondBr(inblock_cond, InBlockLoopBB, BlockIncBB);
@@ -933,24 +953,36 @@ void GpuPartitionedHashJoinChained::generate_build(
   Builder->SetInsertPoint(InBlockLoopBB);
 
   Value *absolute_offset = Builder->CreateAdd(block_offset, offset);
-  Value *keys_ptr = Builder->CreateInBoundsGEP(mem_keys, absolute_offset);
-  Value *idxs_ptr = Builder->CreateInBoundsGEP(mem_idxs, absolute_offset);
+  Value *keys_ptr = Builder->CreateInBoundsGEP(
+      mem_keys->getType()->getNonOpaquePointerElementType(), mem_keys,
+      absolute_offset);
+  Value *idxs_ptr = Builder->CreateInBoundsGEP(
+      mem_idxs->getType()->getNonOpaquePointerElementType(), mem_idxs,
+      absolute_offset);
 
   Value *wr_offset = Builder->CreateAdd(offset, base);
   std::vector<Value *> wr_offset_v{context->createInt32(0), wr_offset};
 
-  Value *keys_out_ptr = Builder->CreateInBoundsGEP(keys_cache, wr_offset_v);
-  Value *next_out_ptr = Builder->CreateInBoundsGEP(next_cache, wr_offset_v);
-  Value *idxs_out_ptr = Builder->CreateInBoundsGEP(idxs_cache, wr_offset_v);
+  Value *keys_out_ptr = Builder->CreateInBoundsGEP(
+      keys_cache->getType()->getNonOpaquePointerElementType(), keys_cache,
+      wr_offset_v);
+  Value *next_out_ptr = Builder->CreateInBoundsGEP(
+      next_cache->getType()->getNonOpaquePointerElementType(), next_cache,
+      wr_offset_v);
+  Value *idxs_out_ptr = Builder->CreateInBoundsGEP(
+      idxs_cache->getType()->getNonOpaquePointerElementType(), idxs_cache,
+      wr_offset_v);
 
   // Value* keys_out_ptr = Builder->CreateInBoundsGEP(keys_cache, wr_offset);
   // Value* next_out_ptr = Builder->CreateInBoundsGEP(next_cache, wr_offset);
   // Value* idxs_out_ptr = Builder->CreateInBoundsGEP(idxs_cache, wr_offset);
 
-  Value *key_val = Builder->CreateLoad(keys_ptr);
+  Value *key_val = Builder->CreateLoad(
+      keys_ptr->getType()->getPointerElementType(), keys_ptr);
   // Value* key_val = gpu_intrinsic::load_cs((ParallelContext*) context,
   // keys_ptr);
-  Value *idx_val = Builder->CreateLoad(idxs_ptr);
+  Value *idx_val = Builder->CreateLoad(
+      idxs_ptr->getType()->getPointerElementType(), idxs_ptr);
   // Value* idx_val = gpu_intrinsic::load_cs((ParallelContext*) context,
   // idxs_ptr);
   Value *hash_val = GpuPartitionedHashJoinChained::hash(key_val);
@@ -958,7 +990,10 @@ void GpuPartitionedHashJoinChained::generate_build(
   std::vector<Value *> hash_val_v{context->createInt32(0), hash_val};
   Value *old_head = Builder->CreateAtomicRMW(
       llvm::AtomicRMWInst::BinOp::Xchg,
-      Builder->CreateInBoundsGEP(head_ptr, hash_val_v), wr_offset,
+      Builder->CreateInBoundsGEP(
+          head_ptr->getType()->getNonOpaquePointerElementType(), head_ptr,
+          hash_val_v),
+      wr_offset,
 #if LLVM_VERSION_MAJOR >= 13
       llvm::Align(context->getSizeOf(wr_offset)),
 #endif
@@ -1017,9 +1052,11 @@ void GpuPartitionedHashJoinChained::generate_probe(
   Value *head_ptr = kernelBindings["head_shared"];
   // head_ptr->setName(opLabel + "_head_ptr_probe");
 
-  Value *current_cnt_ptr =
-      Builder->CreateInBoundsGEP(out_cnts, current_partition);
-  Value *current_cnt = Builder->CreateLoad(current_cnt_ptr);
+  Value *current_cnt_ptr = Builder->CreateInBoundsGEP(
+      out_cnts->getType()->getNonOpaquePointerElementType(), out_cnts,
+      current_partition);
+  Value *current_cnt = Builder->CreateLoad(
+      current_cnt_ptr->getType()->getPointerElementType(), current_cnt_ptr);
   // current_cnt->setName(opLabel + "_current_cnt_probe");
 
   Value *mem_keys = gpu_context->getStateVar(keys_partitioned_probe_id);
@@ -1059,8 +1096,10 @@ void GpuPartitionedHashJoinChained::generate_probe(
 
   Builder->SetInsertPoint(BlockCondBB);
 
-  Value *base = Builder->CreateLoad(mem_base);
-  Value *bucket = Builder->CreateLoad(mem_bucket);
+  Value *base = Builder->CreateLoad(
+      mem_base->getType()->getPointerElementType(), mem_base);
+  Value *bucket = Builder->CreateLoad(
+      mem_bucket->getType()->getPointerElementType(), mem_bucket);
   base->setName(opLabel + "_base_offset_probe");
   bucket->setName(opLabel + "_bucket_probe");
   Value *block_cond = Builder->CreateICmpSLT(base, current_cnt);
@@ -1068,8 +1107,10 @@ void GpuPartitionedHashJoinChained::generate_probe(
 
   Builder->SetInsertPoint(BlockIncBB);
   Value *next_base = Builder->CreateAdd(base, bucket_size_val);
-  Value *next_bucket =
-      Builder->CreateLoad(Builder->CreateInBoundsGEP(chains, bucket));
+  auto nextBPtr = Builder->CreateInBoundsGEP(
+      chains->getType()->getNonOpaquePointerElementType(), chains, bucket);
+  Value *next_bucket = Builder->CreateLoad(
+      nextBPtr->getType()->getPointerElementType(), nextBPtr);
   next_base->setName(opLabel + "_next_base_offset_probe");
   next_bucket->setName(opLabel + "_next_bucket_probe");
   Builder->CreateStore(next_base, mem_base);
@@ -1122,7 +1163,8 @@ void GpuPartitionedHashJoinChained::generate_probe(
   Builder->CreateBr(InBlockCondBB);
 
   Builder->SetInsertPoint(InBlockCondBB);
-  Value *offset = Builder->CreateLoad(mem_offset);
+  Value *offset = Builder->CreateLoad(
+      mem_offset->getType()->getPointerElementType(), mem_offset);
   offset->setName(opLabel + "_inblock_offset_probe");
 
   Value *inblock_cond = Builder->CreateICmpSLT(offset, this_block_size);
@@ -1139,20 +1181,29 @@ void GpuPartitionedHashJoinChained::generate_probe(
   Builder->SetInsertPoint(InBlockLoopBB);
 
   Value *absolute_offset = Builder->CreateAdd(block_offset, offset);
-  Value *keys_ptr = Builder->CreateInBoundsGEP(mem_keys, absolute_offset);
-  Value *idxs_ptr = Builder->CreateInBoundsGEP(mem_idxs, absolute_offset);
+  Value *keys_ptr = Builder->CreateInBoundsGEP(
+      mem_keys->getType()->getNonOpaquePointerElementType(), mem_keys,
+      absolute_offset);
+  Value *idxs_ptr = Builder->CreateInBoundsGEP(
+      mem_idxs->getType()->getNonOpaquePointerElementType(), mem_idxs,
+      absolute_offset);
 
-  Value *key_val = Builder->CreateLoad(keys_ptr);
-  Value *idx_val = Builder->CreateLoad(idxs_ptr);
+  Value *key_val = Builder->CreateLoad(
+      keys_ptr->getType()->getPointerElementType(), keys_ptr);
+  Value *idx_val = Builder->CreateLoad(
+      idxs_ptr->getType()->getPointerElementType(), idxs_ptr);
   // Value* key_val = gpu_intrinsic::load_cs((ParallelContext*) context,
   // keys_ptr); Value* idx_val = gpu_intrinsic::load_cs((ParallelContext*)
   // context, idxs_ptr);
 
   Value *hash_val = GpuPartitionedHashJoinChained::hash(key_val);
   std::vector<Value *> hash_val_v{context->createInt32(0), hash_val};
-  Value *first_ptr = Builder->CreateInBoundsGEP(head_ptr, hash_val_v);
+  Value *first_ptr = Builder->CreateInBoundsGEP(
+      head_ptr->getType()->getNonOpaquePointerElementType(), head_ptr,
+      hash_val_v);
   // Value* first_ptr = Builder->CreateInBoundsGEP(head_ptr, hash_val);
-  Value *first = Builder->CreateLoad(first_ptr);
+  Value *first = Builder->CreateLoad(
+      first_ptr->getType()->getPointerElementType(), first_ptr);
   // Value* first = gpu_intrinsic::load_ca((ParallelContext*) context,
   // first_ptr);
 
@@ -1181,15 +1232,19 @@ void GpuPartitionedHashJoinChained::generate_probe(
 
   Builder->SetInsertPoint(ChainCondBB);
 
-  Value *current = Builder->CreateLoad(mem_current);
+  Value *current = Builder->CreateLoad(
+      mem_current->getType()->getPointerElementType(), mem_current);
   std::vector<Value *> current_v{context->createInt32(0), current};
   Value *condition_chain = Builder->CreateICmpNE(
       current, ConstantInt::get(current->getType(), ~((size_t)0)));
   Builder->CreateCondBr(condition_chain, ChainThenBB, ChainMergeBB);
 
   Builder->SetInsertPoint(ChainIncBB);
-  Value *build_next =
-      Builder->CreateLoad(Builder->CreateInBoundsGEP(next_cache, current_v));
+  auto buildNextPtr = Builder->CreateInBoundsGEP(
+      next_cache->getType()->getNonOpaquePointerElementType(), next_cache,
+      current_v);
+  Value *build_next = Builder->CreateLoad(
+      buildNextPtr->getType()->getPointerElementType(), buildNextPtr);
   // Value* build_next =
   // Builder->CreateLoad(Builder->CreateInBoundsGEP(next_cache, current));
   // Value* build_next = gpu_intrinsic::load_ca((ParallelContext*) context,
@@ -1203,8 +1258,11 @@ void GpuPartitionedHashJoinChained::generate_probe(
 
   Builder->SetInsertPoint(ChainThenBB);
 
-  Value *build_key =
-      Builder->CreateLoad(Builder->CreateInBoundsGEP(keys_cache, current_v));
+  auto buildKeyPtr = Builder->CreateInBoundsGEP(
+      keys_cache->getType()->getNonOpaquePointerElementType(), keys_cache,
+      current_v);
+  Value *build_key = Builder->CreateLoad(
+      buildKeyPtr->getType()->getPointerElementType(), buildKeyPtr);
 
   // Value* build_key =
   // Builder->CreateLoad(Builder->CreateInBoundsGEP(keys_cache, current));
@@ -1214,8 +1272,11 @@ void GpuPartitionedHashJoinChained::generate_probe(
   Builder->CreateCondBr(condition_match, ChainMatchBB, ChainIncBB);
   Builder->SetInsertPoint(ChainMatchBB);
 
-  Value *build_idx =
-      Builder->CreateLoad(Builder->CreateInBoundsGEP(idxs_cache, current_v));
+  auto buildIdxPtr = Builder->CreateInBoundsGEP(
+      idxs_cache->getType()->getNonOpaquePointerElementType(), idxs_cache,
+      current_v);
+  Value *build_idx = Builder->CreateLoad(
+      buildIdxPtr->getType()->getPointerElementType(), buildIdxPtr);
 
   Value *minor_probe = nullptr;
   Value *minor_build = nullptr;
@@ -1230,9 +1291,11 @@ void GpuPartitionedHashJoinChained::generate_probe(
 #ifndef PARTITION_PAYLOAD
         Value *payload_right_ptr =
             gpu_context->getStateVar(probe_param_join_ids[i]);
-        Value *value_ptr =
-            Builder->CreateInBoundsGEP(payload_right_ptr, idx_val);
-        Value *value_val = Builder->CreateLoad(value_ptr);
+        Value *value_ptr = Builder->CreateInBoundsGEP(
+            payload_right_ptr->getType()->getNonOpaquePointerElementType(),
+            payload_right_ptr, idx_val);
+        Value *value_val = Builder->CreateLoad(
+            value_ptr->getType()->getPointerElementType(), value_ptr);
 #else
         Value *value_val = idx_val;
 #endif
@@ -1250,9 +1313,11 @@ void GpuPartitionedHashJoinChained::generate_probe(
 #ifndef PARTITION_PAYLOAD
         Value *payload_left_ptr =
             gpu_context->getStateVar(build_param_join_ids[i]);
-        Value *value_ptr =
-            Builder->CreateInBoundsGEP(payload_left_ptr, build_idx);
-        Value *val = Builder->CreateLoad(value_ptr);
+        Value *value_ptr = Builder->CreateInBoundsGEP(
+            payload_left_ptr->getType()->getNonOpaquePointerElementType(),
+            payload_left_ptr, build_idx);
+        Value *val = Builder->CreateLoad(
+            value_ptr->getType()->getPointerElementType(), value_ptr);
 #else
         Value *val = build_idx;
 #endif
@@ -1408,8 +1473,11 @@ void GpuPartitionedHashJoinChained::generate_probe(
 #ifndef PARTITION_PAYLOAD
     Value *payload_right_ptr =
         gpu_context->getStateVar(probe_param_join_ids[i]);
-    Value *value_ptr = Builder->CreateInBoundsGEP(payload_right_ptr, idx_val);
-    Value *value_val = Builder->CreateLoad(value_ptr);
+    Value *value_ptr = Builder->CreateInBoundsGEP(
+        payload_right_ptr->getType()->getNonOpaquePointerElementType(),
+        payload_right_ptr, idx_val);
+    Value *value_val = Builder->CreateLoad(
+        value_ptr->getType()->getPointerElementType(), value_ptr);
 #else
     Value *value_val = idx_val;
 #endif
@@ -1476,8 +1544,11 @@ void GpuPartitionedHashJoinChained::generate_probe(
 
 #ifndef PARTITION_PAYLOAD
     Value *payload_left_ptr = gpu_context->getStateVar(build_param_join_ids[i]);
-    Value *value_ptr = Builder->CreateInBoundsGEP(payload_left_ptr, build_idx);
-    Value *val = Builder->CreateLoad(value_ptr);
+    Value *value_ptr = Builder->CreateInBoundsGEP(
+        payload_left_ptr->getType()->getNonOpaquePointerElementType(),
+        payload_left_ptr, build_idx);
+    Value *val = Builder->CreateLoad(
+        value_ptr->getType()->getPointerElementType(), value_ptr);
 #else
     Value *val = build_idx;
 #endif

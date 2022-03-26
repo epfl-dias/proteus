@@ -32,7 +32,10 @@ namespace gpu {
 void Monoid::createUpdate(Context *const context, llvm::Value *val_accumulating,
                           llvm::Value *val_in) {
   context->getBuilder()->CreateStore(
-      create(context, context->getBuilder()->CreateLoad(val_accumulating),
+      create(context,
+             context->getBuilder()->CreateLoad(
+                 val_accumulating->getType()->getPointerElementType(),
+                 val_accumulating),
              val_in),
       val_accumulating);
 }
@@ -90,7 +93,8 @@ void MaxMonoid::createUpdate(Context *const context,
   llvm::BasicBlock *ifGtMaxBlock;
   context->CreateIfBlock(context->getGlobalFunction(), "maxCond",
                          &ifGtMaxBlock);
-  llvm::Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
+  llvm::Value *val_accumulating = Builder->CreateLoad(
+      mem_accumulating->getType()->getPointerElementType(), mem_accumulating);
 
   llvm::Value *maxCondition;
 
@@ -166,7 +170,8 @@ void MinMonoid::createUpdate(Context *const context,
 
   bool setEnding = (Builder->GetInsertBlock() == context->getEndingBlock());
 
-  auto curr = Builder->CreateLoad(mem_accumulating);
+  auto curr = Builder->CreateLoad(
+      mem_accumulating->getType()->getPointerElementType(), mem_accumulating);
 
   auto minCondition = evalCondition(context, curr, val_in);
 
@@ -424,9 +429,11 @@ void insert_proteus_int_collection(std::deque<int32_t> *col,
 void CollectMonoid::createUpdate(Context *const context,
                                  llvm::Value *val_accumulating,
                                  llvm::Value *val_in) {
-  context->gen_call(
-      insert_proteus_int_collection,
-      {context->getBuilder()->CreateLoad(val_accumulating), val_in});
+  context->gen_call(insert_proteus_int_collection,
+                    {context->getBuilder()->CreateLoad(
+                         val_accumulating->getType()->getPointerElementType(),
+                         val_accumulating),
+                     val_in});
 }
 
 llvm::Value *CollectMonoid::createUnary(Context *context, llvm::Value *val_in) {

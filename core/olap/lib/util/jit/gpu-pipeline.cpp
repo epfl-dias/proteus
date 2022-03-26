@@ -451,10 +451,12 @@ Function *GpuPipelineGen::prepareConsumeWrapper() {
   }
   mems.push_back(args);
 
-  Value *entry = Builder->CreateExtractValue(Builder->CreateLoad(args),
-                                             kernel_id.getIndex());
-  Value *strm = Builder->CreateExtractValue(Builder->CreateLoad(args),
-                                            strm_id.getIndex());
+  Value *entry = Builder->CreateExtractValue(
+      Builder->CreateLoad(args->getType()->getPointerElementType(), args),
+      kernel_id.getIndex());
+  Value *strm = Builder->CreateExtractValue(
+      Builder->CreateLoad(args->getType()->getPointerElementType(), args),
+      strm_id.getIndex());
 
   vector<Type *> types;
   for (auto &m : mems) types.push_back(m->getType());

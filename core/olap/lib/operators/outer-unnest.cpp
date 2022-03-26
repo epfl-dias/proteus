@@ -153,7 +153,8 @@ void OuterUnnest::generate(Context *const context,
         ExpressionGeneratorVisitor(context, *newState);
     ProteusValue condition = pred.accept(predExprGenerator);
     Value *invert_condition = Builder->CreateNot(condition.value);
-    Value *val_acc_current = Builder->CreateLoad(mem_accumulating);
+    Value *val_acc_current = Builder->CreateLoad(
+        mem_accumulating->getType()->getPointerElementType(), mem_accumulating);
     Value *val_acc_new = Builder->CreateAnd(invert_condition, val_acc_current);
     Builder->CreateStore(val_acc_new, mem_accumulating);
 
@@ -186,7 +187,8 @@ void OuterUnnest::generate(Context *const context,
                               "elseOuterNotNull", &ifOuterNull,
                               &elseOuterNotNull);
 
-  Value *ifCond = Builder->CreateLoad(mem_accumulating);
+  Value *ifCond = Builder->CreateLoad(
+      mem_accumulating->getType()->getPointerElementType(), mem_accumulating);
   Builder->CreateCondBr(ifCond, ifOuterNull, elseOuterNotNull);
 
   // attrNo does not make a difference

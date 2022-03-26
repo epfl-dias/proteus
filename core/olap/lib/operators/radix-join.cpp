@@ -454,7 +454,8 @@ void RadixJoin::runRadix() const {
   /* 1. Loop Condition - Unsigned integers operation */
   // Builder->CreateBr(loopCond);
   Builder->SetInsertPoint(loopCond);
-  Value *val_clusterCount = Builder->CreateLoad(mem_clusterCount);
+  Value *val_clusterCount = Builder->CreateLoad(
+      mem_clusterCount->getType()->getPointerElementType(), mem_clusterCount);
   Value *val_cond = Builder->CreateICmpULT(val_clusterCount, val_clusterNo);
   Builder->CreateCondBr(val_cond, loopBody, loopEnd);
 
@@ -484,8 +485,10 @@ void RadixJoin::runRadix() const {
     /* If clusters non-empty */
     Builder->SetInsertPoint(ifBlock);
 
-    Value *val_rCount = Builder->CreateLoad(mem_rCount);
-    Value *val_sCount = Builder->CreateLoad(mem_sCount);
+    Value *val_rCount = Builder->CreateLoad(
+        mem_rCount->getType()->getPointerElementType(), mem_rCount);
+    Value *val_sCount = Builder->CreateLoad(
+        mem_sCount->getType()->getPointerElementType(), mem_sCount);
 #ifdef DEBUGRADIX
     /* Cluster Counts */
     vector<Value *> ArgsV0;
@@ -499,18 +502,23 @@ void RadixJoin::runRadix() const {
 
     /* tmpR.tuples = relR->tuples + r; */
     Value *val_htR = context->getStateVar(htR_mem_kv_id);
-    Value *htRshiftedPtr = Builder->CreateInBoundsGEP(val_htR, val_rCount);
+    Value *htRshiftedPtr = Builder->CreateInBoundsGEP(
+        val_htR->getType()->getNonOpaquePointerElementType(), val_htR,
+        val_rCount);
 
     /* tmpS.tuples = relS->tuples + s; */
     Value *val_htS = context->getStateVar(htS_mem_kv_id);
-    Value *htSshiftedPtr = Builder->CreateInBoundsGEP(val_htS, val_sCount);
+    Value *htSshiftedPtr = Builder->CreateInBoundsGEP(
+        val_htS->getType()->getNonOpaquePointerElementType(), val_htS,
+        val_sCount);
 
     /* bucket_chaining_join_prepare(&tmpR, &(HT_per_cluster[i])); */
     Function *bucketChainingPrepare =
         context->getFunction("bucketChainingPrepare");
 
-    Value *val_htPerClusterShiftedPtr =
-        Builder->CreateInBoundsGEP(val_htPerCluster, val_clusterCount);
+    Value *val_htPerClusterShiftedPtr = Builder->CreateInBoundsGEP(
+        val_htPerCluster->getType()->getNonOpaquePointerElementType(),
+        val_htPerCluster, val_clusterCount);
 
     // Prepare args and call function
     vector<Value *> Args;
@@ -539,7 +547,8 @@ void RadixJoin::runRadix() const {
 
       /* Loop Condition */
       Builder->SetInsertPoint(sLoopCond);
-      Value *val_j = Builder->CreateLoad(mem_j);
+      Value *val_j =
+          Builder->CreateLoad(mem_j->getType()->getPointerElementType(), mem_j);
 
       val_cond = Builder->CreateICmpSLT(val_j, val_s_i_count);
 
@@ -548,9 +557,10 @@ void RadixJoin::runRadix() const {
       Builder->SetInsertPoint(sLoopBody);
 
 #ifdef DEBUGRADIX
-//          Value *val_probesNo = Builder->CreateLoad(mem_probesNo);
-//          val_probesNo = Builder->CreateAdd(val_probesNo, val_one);
-//          Builder->CreateStore(val_probesNo,mem_probesNo);
+//          Value *val_probesNo =
+//          Builder->CreateLoad(mem_probesNo->getType()->getPointerElementType(),
+//          mem_probesNo); val_probesNo = Builder->CreateAdd(val_probesNo,
+//          val_one); Builder->CreateStore(val_probesNo,mem_probesNo);
 //
 //          vector<Value*> ArgsV0;
 //          ArgsV0.push_back(val_j);
@@ -570,8 +580,12 @@ void RadixJoin::runRadix() const {
       Value *val_num_radix_bits = context->createInt32(NUM_RADIX_BITS);
       Value *val_mask = context->getStructElem(val_htPerClusterShiftedPtr, 2);
       // Get key of current s tuple (tmpS[j])
-      Value *htSshiftedPtr_j = Builder->CreateInBoundsGEP(htSshiftedPtr, val_j);
-      //          Value *tuple_s_j = Builder->CreateLoad(htSshiftedPtr_j);
+      Value *htSshiftedPtr_j = Builder->CreateInBoundsGEP(
+          htSshiftedPtr->getType()->getNonOpaquePointerElementType(),
+          htSshiftedPtr, val_j);
+      //          Value *tuple_s_j =
+      //          Builder->CreateLoad(htSshiftedPtr_j->getType()->getPointerElementType(),
+      //          htSshiftedPtr_j);
       Value *val_key_s_j = context->getStructElem(htSshiftedPtr_j, 0);
       Value *val_idx =
           Builder->CreateBinOp(Instruction::And, val_key_s_j, val_mask);
@@ -598,7 +612,8 @@ void RadixJoin::runRadix() const {
         Builder->CreateBr(hitLoopCond);
         /* 1. Loop Condition */
         Builder->SetInsertPoint(hitLoopCond);
-        Value *val_hit = Builder->CreateLoad(mem_hit);
+        Value *val_hit = Builder->CreateLoad(
+            mem_hit->getType()->getPointerElementType(), mem_hit);
         val_cond = Builder->CreateICmpSGT(val_hit, val_zero);
         Builder->CreateCondBr(val_cond, hitLoopBody, hitLoopEnd);
 
@@ -612,8 +627,9 @@ void RadixJoin::runRadix() const {
         {
           // Rtuples[hit - 1]
           Value *val_idx_dec = Builder->CreateSub(val_hit, val_one);
-          Value *htRshiftedPtr_hit =
-              Builder->CreateInBoundsGEP(htRshiftedPtr, val_idx_dec);
+          Value *htRshiftedPtr_hit = Builder->CreateInBoundsGEP(
+              htRshiftedPtr->getType()->getNonOpaquePointerElementType(),
+              htRshiftedPtr, val_idx_dec);
           // Rtuples[hit - 1].key
           Value *val_key_r = context->getStructElem(htRshiftedPtr_hit, 0);
 
@@ -658,10 +674,12 @@ void RadixJoin::runRadix() const {
 
           Value *val_relR = context->getStateVar(relR_mem_relation_id);
           Value *val_relS = context->getStateVar(relS_mem_relation_id);
-          Value *val_ptr_payloadR =
-              Builder->CreateInBoundsGEP(val_relR, val_payload_r_offset);
-          Value *val_ptr_payloadS =
-              Builder->CreateInBoundsGEP(val_relS, val_payload_s_offset);
+          Value *val_ptr_payloadR = Builder->CreateInBoundsGEP(
+              val_relR->getType()->getNonOpaquePointerElementType(), val_relR,
+              val_payload_r_offset);
+          Value *val_ptr_payloadS = Builder->CreateInBoundsGEP(
+              val_relS->getType()->getNonOpaquePointerElementType(), val_relS,
+              val_payload_s_offset);
 #ifdef DEBUGRADIX
           {
             /* Printing key(s) */
@@ -672,10 +690,12 @@ void RadixJoin::runRadix() const {
 #endif
           Value *mem_payload_r =
               Builder->CreateBitCast(val_ptr_payloadR, rPayloadPtrType);
-          Value *val_payload_r = Builder->CreateLoad(mem_payload_r);
+          Value *val_payload_r = Builder->CreateLoad(
+              mem_payload_r->getType()->getPointerElementType(), mem_payload_r);
           Value *mem_payload_s =
               Builder->CreateBitCast(val_ptr_payloadS, sPayloadPtrType);
-          Value *val_payload_s = Builder->CreateLoad(mem_payload_s);
+          Value *val_payload_s = Builder->CreateLoad(
+              mem_payload_s->getType()->getPointerElementType(), mem_payload_s);
 
           /* LEFT SIDE (RELATION R)*/
           // Retrieving activeTuple(s) from HT
@@ -687,9 +707,11 @@ void RadixJoin::runRadix() const {
               const auto &currField = expr2.getRegisteredAttrName();
 
               auto elem_ptr = Builder->CreateGEP(
+                  mem_payload_r->getType()->getNonOpaquePointerElementType(),
                   mem_payload_r,
                   {context->createInt32(0), context->createInt32(i)});
-              auto val_field = Builder->CreateLoad(elem_ptr);
+              auto val_field = Builder->CreateLoad(
+                  elem_ptr->getType()->getPointerElementType(), elem_ptr);
               auto mem_valWrapper = context->toMem(
                   val_field, context->createFalse(), "mem_" + currField);
 
@@ -707,9 +729,11 @@ void RadixJoin::runRadix() const {
               const auto &currField = expr2.getRegisteredAttrName();
 
               auto elem_ptr = Builder->CreateGEP(
+                  mem_payload_s->getType()->getNonOpaquePointerElementType(),
                   mem_payload_s,
                   {context->createInt32(0), context->createInt32(i)});
-              auto val_field = Builder->CreateLoad(elem_ptr);
+              auto val_field = Builder->CreateLoad(
+                  elem_ptr->getType()->getPointerElementType(), elem_ptr);
               auto mem_valWrapper = context->toMem(
                   val_field, context->createFalse(), "mem_" + currField);
 
@@ -729,7 +753,8 @@ void RadixJoin::runRadix() const {
           OperatorState newState{*this, allJoinBindings};
           getParent()->consume(context, newState);
 
-          Value *old_oid = Builder->CreateLoad(mem_outCount);
+          Value *old_oid = Builder->CreateLoad(
+              mem_outCount->getType()->getPointerElementType(), mem_outCount);
           Value *nxt_oid =
               Builder->CreateAdd(old_oid, ConstantInt::get(llvm_oid_type, 1));
           Builder->CreateStore(nxt_oid, mem_outCount);
@@ -754,7 +779,8 @@ void RadixJoin::runRadix() const {
       Builder->CreateBr(sLoopInc);
 
       Builder->SetInsertPoint(sLoopInc);
-      val_j = Builder->CreateLoad(mem_j);
+      val_j =
+          Builder->CreateLoad(mem_j->getType()->getPointerElementType(), mem_j);
       val_j = Builder->CreateAdd(val_j, val_one);
       Builder->CreateStore(val_j, mem_j);
       Builder->CreateBr(sLoopCond);
@@ -770,8 +796,10 @@ void RadixJoin::runRadix() const {
      * s += S_count_per_cluster[i];
      */
     Builder->SetInsertPoint(elseBlock);
-    val_rCount = Builder->CreateLoad(mem_rCount);
-    val_sCount = Builder->CreateLoad(mem_sCount);
+    val_rCount = Builder->CreateLoad(
+        mem_rCount->getType()->getPointerElementType(), mem_rCount);
+    val_sCount = Builder->CreateLoad(
+        mem_sCount->getType()->getPointerElementType(), mem_sCount);
     val_rCount = Builder->CreateAdd(val_rCount, val_r_i_count);
     val_sCount = Builder->CreateAdd(val_sCount, val_s_i_count);
     Builder->CreateStore(val_rCount, mem_rCount);
@@ -781,7 +809,8 @@ void RadixJoin::runRadix() const {
 
   /* 3. Loop Inc. */
   Builder->SetInsertPoint(loopInc);
-  val_clusterCount = Builder->CreateLoad(mem_clusterCount);
+  val_clusterCount = Builder->CreateLoad(
+      mem_clusterCount->getType()->getPointerElementType(), mem_clusterCount);
   val_clusterCount = Builder->CreateAdd(val_clusterCount, val_one);
   //#ifdef DEBUG
   //      vector<Value*> ArgsV0;

@@ -97,7 +97,8 @@ void GpuToCpu::consume(ParallelContext *const context,
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     auto it = childState[*(wantedFields[i])];
-    Value *mem_val = Builder->CreateLoad(it.mem);
+    Value *mem_val =
+        Builder->CreateLoad(it.mem->getType()->getPointerElementType(), it.mem);
 
     kernel_params = Builder->CreateInsertValue(kernel_params, mem_val, i);
   }
@@ -111,7 +112,10 @@ void GpuToCpu::consume(ParallelContext *const context,
   ProteusValueMemory mem_cntWrapper = childState[tupleCnt];
 
   kernel_params = Builder->CreateInsertValue(
-      kernel_params, Builder->CreateLoad(mem_cntWrapper.mem),
+      kernel_params,
+      Builder->CreateLoad(
+          mem_cntWrapper.mem->getType()->getPointerElementType(),
+          mem_cntWrapper.mem),
       wantedFields.size() + 1);
 
   RecordAttribute tupleOID(wantedFields[0]->getRelationName(), activeLoop,
@@ -120,7 +124,10 @@ void GpuToCpu::consume(ParallelContext *const context,
   ProteusValueMemory mem_oidWrapper = childState[tupleOID];
 
   kernel_params = Builder->CreateInsertValue(
-      kernel_params, Builder->CreateLoad(mem_oidWrapper.mem),
+      kernel_params,
+      Builder->CreateLoad(
+          mem_oidWrapper.mem->getType()->getPointerElementType(),
+          mem_oidWrapper.mem),
       wantedFields.size());
 
   // Value * subState   = ((ParallelContext *) context)->getSubStateVar();
@@ -195,7 +202,8 @@ void GpuToCpu::consume(ParallelContext *const context,
 
     Builder->CreateBr(maskMaintBB);
     Builder->SetInsertPoint(maskMaintBB);
-    Value *cmask = Builder->CreateLoad(mask_ptr);
+    Value *cmask = Builder->CreateLoad(
+        mask_ptr->getType()->getPointerElementType(), mask_ptr);
 
     Function *f_lanemask_lt =
         context->getFunction("llvm.nvvm.read.ptx.sreg.lanemask.lt");
@@ -287,13 +295,16 @@ void GpuToCpu::consume(ParallelContext *const context,
 
   Builder->SetInsertPoint(readLastBB);
 
-  Value *end_base = Builder->CreateLoad(last_ptr, true);
+  Value *end_base = Builder->CreateLoad(
+      last_ptr->getType()->getPointerElementType(), last_ptr, true);
   Value *end = Builder->CreateURem(
       Builder->CreateAdd(end_base, id),
       ConstantInt::get((IntegerType *)end_base->getType(), size));
 
-  Value *cflg_ptr = Builder->CreateInBoundsGEP(flags_ptr, end);
-  Value *cstr_ptr = Builder->CreateInBoundsGEP(store_ptr, end);
+  Value *cflg_ptr = Builder->CreateInBoundsGEP(
+      flags_ptr->getType()->getNonOpaquePointerElementType(), flags_ptr, end);
+  Value *cstr_ptr = Builder->CreateInBoundsGEP(
+      store_ptr->getType()->getNonOpaquePointerElementType(), store_ptr, end);
 
   Value *got_slot_ptr = context->CreateEntryBlockAlloca(
       F, "got_slot_ptr", context->createFalse()->getType());
@@ -316,10 +327,13 @@ void GpuToCpu::consume(ParallelContext *const context,
   Builder->SetInsertPoint(waitSlotBB);
   // auto activemask2 = gpu_intrinsic::activemask(context);
 
-  Builder->CreateCondBr(Builder->CreateLoad(got_slot_ptr), test_lockBB,
-                        get_slot_lockBB);
+  Builder->CreateCondBr(
+      Builder->CreateLoad(got_slot_ptr->getType()->getPointerElementType(),
+                          got_slot_ptr),
+      test_lockBB, get_slot_lockBB);
   Builder->SetInsertPoint(get_slot_lockBB);
-  Value *flag = Builder->CreateLoad(cflg_ptr, true);
+  Value *flag = Builder->CreateLoad(
+      cflg_ptr->getType()->getPointerElementType(), cflg_ptr, true);
 
   Builder->CreateStore(Builder->CreateICmpEQ(flag, zero), got_slot_ptr);
 
@@ -328,7 +342,8 @@ void GpuToCpu::consume(ParallelContext *const context,
   Builder->SetInsertPoint(test_lockBB);
   // Builder->CreateCall(warpsync, {activemask2});
 
-  Value *got_slot = Builder->CreateLoad(got_slot_ptr);
+  Value *got_slot = Builder->CreateLoad(
+      got_slot_ptr->getType()->getPointerElementType(), got_slot_ptr);
 
   Value *all_got_slot;
   if (granularity == gran_t::GRID || granularity == gran_t::BLOCK) {
@@ -430,11 +445,15 @@ void GpuToCpu::generate_catch(ParallelContext *context) {
 
   Builder->SetInsertPoint(infLoopBB);
 
-  Value *front = Builder->CreateLoad(front_ptr);
-  Value *cflg_ptr = Builder->CreateInBoundsGEP(flags_ptr, front);
-  Value *cstr_ptr = Builder->CreateInBoundsGEP(store_ptr, front);
+  Value *front = Builder->CreateLoad(
+      front_ptr->getType()->getPointerElementType(), front_ptr);
+  Value *cflg_ptr = Builder->CreateInBoundsGEP(
+      flags_ptr->getType()->getNonOpaquePointerElementType(), flags_ptr, front);
+  Value *cstr_ptr = Builder->CreateInBoundsGEP(
+      store_ptr->getType()->getNonOpaquePointerElementType(), store_ptr, front);
 
-  Value *rdy_flg = Builder->CreateLoad(cflg_ptr, true);
+  Value *rdy_flg = Builder->CreateLoad(
+      cflg_ptr->getType()->getPointerElementType(), cflg_ptr, true);
 
   Value *is_ready = Builder->CreateICmpEQ(rdy_flg, one);
 
@@ -442,8 +461,10 @@ void GpuToCpu::generate_catch(ParallelContext *context) {
 
   Builder->SetInsertPoint(isEOFBB);
 
-  Value *is_eof =
-      Builder->CreateICmpEQ(Builder->CreateLoad(eof_ptr, true), one);
+  Value *is_eof = Builder->CreateICmpEQ(
+      Builder->CreateLoad(eof_ptr->getType()->getPointerElementType(), eof_ptr,
+                          true),
+      one);
 
   Builder->CreateCondBr(is_eof, endBB, waitBB);
 
@@ -457,7 +478,8 @@ void GpuToCpu::generate_catch(ParallelContext *context) {
   Builder->SetInsertPoint(consumeBB);
 
   //      packet tmp = store[front];  //volatile
-  Value *packet = Builder->CreateLoad(cstr_ptr, true);
+  Value *packet = Builder->CreateLoad(
+      cstr_ptr->getType()->getPointerElementType(), cstr_ptr, true);
 
   // flags[front] = 0;           //volatile
   Builder->CreateStore(zero, cflg_ptr, true);

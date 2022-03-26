@@ -291,8 +291,9 @@ void HashGroupByChained::generate_build(ParallelContext *context,
   // Value * current =
   // Builder->CreateAlignedLoad(Builder->CreateInBoundsGEP(head_ptr, hash),
   // context->getSizeOf(head_ptr->getType()->getPointerElementType()));
-  Value *head_w_hash_ptr =
-      Builder->CreateInBoundsGEP(head_ptr, {context->createInt64(0), hash});
+  Value *head_w_hash_ptr = Builder->CreateInBoundsGEP(
+      head_ptr->getType()->getNonOpaquePointerElementType(), head_ptr,
+      {context->createInt64(0), hash});
   // head_w_hash_ptr->dump();
   // head_w_hash_ptr->getType()->dump();
   // Value * current =
@@ -302,7 +303,8 @@ void HashGroupByChained::generate_build(ParallelContext *context,
   //                                             llvm::AtomicOrdering::Monotonic,
   //                                             llvm::AtomicOrdering::Monotonic),
   //                                             0);
-  Value *current = Builder->CreateLoad(head_w_hash_ptr);
+  Value *current = Builder->CreateLoad(
+      head_w_hash_ptr->getType()->getPointerElementType(), head_w_hash_ptr);
 
   current->setName("current");
 
@@ -330,8 +332,10 @@ void HashGroupByChained::generate_build(ParallelContext *context,
       BasicBlock::Create(llvmContext, "chainFollow", TheFunction);
   BasicBlock *MergeBB = BasicBlock::Create(llvmContext, "cont", TheFunction);
 
-  Value *init_cond =
-      Builder->CreateICmpEQ(Builder->CreateLoad(mem_current), eochain);
+  Value *init_cond = Builder->CreateICmpEQ(
+      Builder->CreateLoad(mem_current->getType()->getPointerElementType(),
+                          mem_current),
+      eochain);
 
   // if (current == ((uint32_t) -1)){
   Builder->CreateCondBr(init_cond, InitThenBB, InitMergeBB);
@@ -350,7 +354,10 @@ void HashGroupByChained::generate_build(ParallelContext *context,
   // next[idx].next =  -1;
   context->workerScopedAtomicXchg(
       Builder->CreateBitCast(
-          Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0]),
+          Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0])
+                                         ->getType()
+                                         ->getNonOpaquePointerElementType(),
+                                     context->getStateVar(out_param_ids[0]),
                                      old_cnt),
           PointerType::getInt32PtrTy(llvmContext)),
       eochain);
@@ -360,7 +367,9 @@ void HashGroupByChained::generate_build(ParallelContext *context,
     for (size_t i = 1; i < out_param_ids.size(); ++i) {
       Value *out_ptr = context->getStateVar(out_param_ids[i]);
 
-      Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
+      Value *out_ptr_i = Builder->CreateInBoundsGEP(
+          out_ptr->getType()->getNonOpaquePointerElementType(), out_ptr,
+          old_cnt);
       Builder->CreateAlignedStore(out_vals[i], out_ptr_i,
                                   llvm::Align{packet_widths[i] / 8}, true);
     }
@@ -380,8 +389,10 @@ void HashGroupByChained::generate_build(ParallelContext *context,
 
     Builder->CreateStore(Builder->CreateExtractValue(old_current, 0),
                          mem_current);
-    Value *suc =
-        Builder->CreateICmpEQ(Builder->CreateLoad(mem_current), eochain);
+    Value *suc = Builder->CreateICmpEQ(
+        Builder->CreateLoad(mem_current->getType()->getPointerElementType(),
+                            mem_current),
+        eochain);
 
     Builder->CreateCondBr(suc, MergeBB, InitMergeBB);
     //   if (!suc) goto MergeBB
@@ -393,21 +404,28 @@ void HashGroupByChained::generate_build(ParallelContext *context,
   // if (current != ((uint32_t) -1)){
   //     while (true) {
 
-  Value *chain_cond =
-      Builder->CreateICmpNE(Builder->CreateLoad(mem_current), eochain);
+  Value *chain_cond = Builder->CreateICmpNE(
+      Builder->CreateLoad(mem_current->getType()->getPointerElementType(),
+                          mem_current),
+      eochain);
 
   Builder->CreateCondBr(chain_cond, ThenBB, MergeBB);
 
   Builder->SetInsertPoint(ThenBB);
-  current = Builder->CreateLoad(mem_current);
+  current = Builder->CreateLoad(mem_current->getType()->getPointerElementType(),
+                                mem_current);
 
   context->workerScopedMembar();
 
   // Keys
   Value *next_bucket_ptr = Builder->CreateInBoundsGEP(
+      context->getStateVar(out_param_ids[1])
+          ->getType()
+          ->getNonOpaquePointerElementType(),
       context->getStateVar(out_param_ids[1]), current);
   Value *next_bucket = Builder->CreateAlignedLoad(
-      next_bucket_ptr, llvm::Align(packet_widths[1] / 8), true, "next_bucket");
+      next_bucket_ptr->getType()->getPointerElementType(), next_bucket_ptr,
+      llvm::Align(packet_widths[1] / 8), true, "next_bucket");
 
   context->workerScopedMembar();
 
@@ -421,9 +439,14 @@ void HashGroupByChained::generate_build(ParallelContext *context,
   //                                             llvm::AtomicOrdering::Monotonic,
   //                                             llvm::AtomicOrdering::Monotonic),
   //                                             0);
-  Value *next = Builder->CreateLoad(
-      Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0]),
-                                 {current, context->createInt32(0)}));
+  auto nextPtr =
+      Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0])
+                                     ->getType()
+                                     ->getNonOpaquePointerElementType(),
+                                 context->getStateVar(out_param_ids[0]),
+                                 {current, context->createInt32(0)});
+  Value *next =
+      Builder->CreateLoad(nextPtr->getType()->getPointerElementType(), nextPtr);
 
   // next_bucket_next->setName("next_bucket_next");
   //             // int32_t   next_bucket = next[current].next;
@@ -465,6 +488,9 @@ void HashGroupByChained::generate_build(ParallelContext *context,
                                  context->createInt32(agg_expr.packind)};
 
         Value *gl_accum = Builder->CreateInBoundsGEP(
+            context->getStateVar(out_param_ids[agg_expr.packet])
+                ->getType()
+                ->getNonOpaquePointerElementType(),
             context->getStateVar(out_param_ids[agg_expr.packet]), tmp);
 
         ExpressionGeneratorVisitor exprGenerator(context, childState);
@@ -475,15 +501,23 @@ void HashGroupByChained::generate_build(ParallelContext *context,
   }
 
   // if (written) next[idx].next = idx;
-  context->gen_if({Builder->CreateLoad(mem_written)})([&]() {
+  context->gen_if({Builder->CreateLoad(
+      mem_written->getType()->getPointerElementType(), mem_written)})([&]() {
     // Value * str = UndefValue::get(((const ParallelContext *)
     // context)->getStateVar(out_param_ids[0])->getType()->getPointerElementType());
     // str = Builder->CreateInsertValue(str, Builder->CreateLoad(mem_idx), 0);
     Value *inv_ptr = Builder->CreateInBoundsGEP(
+        context->getStateVar(out_param_ids[0])
+            ->getType()
+            ->getNonOpaquePointerElementType(),
         context->getStateVar(out_param_ids[0]),
-        {Builder->CreateLoad(mem_idx), context->createInt32(0)});
+        {Builder->CreateLoad(mem_idx->getType()->getPointerElementType(),
+                             mem_idx),
+         context->createInt32(0)});
 
-    context->workerScopedAtomicXchg(inv_ptr, Builder->CreateLoad(mem_idx));
+    context->workerScopedAtomicXchg(
+        inv_ptr, Builder->CreateLoad(
+                     mem_idx->getType()->getPointerElementType(), mem_idx));
     // Builder->CreateAlignedStore(str, , packet_widths[0]/8);
 
     {
@@ -493,10 +527,13 @@ void HashGroupByChained::generate_build(ParallelContext *context,
       for (size_t i = 1; i < out_param_ids.size(); ++i) {
         Value *out_ptr = context->getStateVar(out_param_ids[i]);
 
-        Value *out_ptr_i =
-            Builder->CreateInBoundsGEP(out_ptr, Builder->CreateLoad(mem_idx));
+        Value *out_ptr_i = Builder->CreateInBoundsGEP(
+            out_ptr->getType()->getNonOpaquePointerElementType(), out_ptr,
+            Builder->CreateLoad(mem_idx->getType()->getPointerElementType(),
+                                mem_idx));
         out_vals.emplace_back(Builder->CreateAlignedLoad(
-            out_ptr_i, llvm::Align{packet_widths[i] / 8}));
+            out_ptr_i->getType()->getPointerElementType(), out_ptr_i,
+            llvm::Align{packet_widths[i] / 8}));
       }
       destroyHashTableEntry(context, childState, std::move(out_vals));
     }
@@ -519,8 +556,8 @@ void HashGroupByChained::generate_build(ParallelContext *context,
   Builder->SetInsertPoint(EndFoundBB);
 
   // if (!written){
-  context->gen_if(
-      {Builder->CreateNot(Builder->CreateLoad(mem_written))})([&]() {
+  context->gen_if({Builder->CreateNot(Builder->CreateLoad(
+      mem_written->getType()->getPointerElementType(), mem_written))})([&]() {
     // index
     old_cnt = context->workerScopedAtomicAdd(
         out_cnt,
@@ -534,6 +571,9 @@ void HashGroupByChained::generate_build(ParallelContext *context,
     Builder->CreateStore(
         eochain, Builder->CreateBitCast(
                      Builder->CreateInBoundsGEP(
+                         context->getStateVar(out_param_ids[0])
+                             ->getType()
+                             ->getNonOpaquePointerElementType(),
                          context->getStateVar(out_param_ids[0]), old_cnt),
                      PointerType::getInt32PtrTy(
                          llvmContext)));  //,
@@ -544,7 +584,9 @@ void HashGroupByChained::generate_build(ParallelContext *context,
     for (size_t i = 1; i < out_param_ids.size(); ++i) {
       Value *out_ptr = context->getStateVar(out_param_ids[i]);
 
-      Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
+      Value *out_ptr_i = Builder->CreateInBoundsGEP(
+          out_ptr->getType()->getNonOpaquePointerElementType(), out_ptr,
+          old_cnt);
       Builder->CreateAlignedStore(out_vals[i], out_ptr_i,
                                   llvm::Align(packet_widths[i] / 8), true);
     }
@@ -560,16 +602,24 @@ void HashGroupByChained::generate_build(ParallelContext *context,
   // new_next = atomicCAS(&(next[current].next), -1, idx);
   std::vector<Value *> tmp{current, context->createInt32(0)};
   Value *n_ptr =
-      Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0]), tmp);
-  Value *new_next = Builder->CreateLoad(n_ptr);
+      Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0])
+                                     ->getType()
+                                     ->getNonOpaquePointerElementType(),
+                                 context->getStateVar(out_param_ids[0]), tmp);
+  Value *new_next =
+      Builder->CreateLoad(n_ptr->getType()->getPointerElementType(), n_ptr);
   // Value * new_next = Builder->CreateAtomicCmpXchg(n_ptr,
   //                                             eochain,
   //                                             Builder->CreateLoad(mem_idx),
   //                                             llvm::AtomicOrdering::Monotonic,
   //                                             llvm::AtomicOrdering::Monotonic);
 
-  context->gen_if({Builder->CreateICmpEQ(new_next, eochain)})(
-      [&]() { Builder->CreateStore(Builder->CreateLoad(mem_idx), n_ptr); });
+  context->gen_if({Builder->CreateICmpEQ(new_next, eochain)})([&]() {
+    Builder->CreateStore(
+        Builder->CreateLoad(mem_idx->getType()->getPointerElementType(),
+                            mem_idx),
+        n_ptr);
+  });
 
   context->workerScopedMembar();
   // current = new_next;
@@ -654,7 +704,9 @@ void HashGroupByChained::generate_scan(ParallelContext *context) {
 
   RecordAttribute tupleCnt{relName, "activeCnt",
                            pg->getOIDType()};  // FIXME: OID type for blocks ?
-  Value *cnt = Builder->CreateLoad(context->getArgument(cnt_ptr_param), "cnt");
+  Value *cnt = Builder->CreateLoad(
+      context->getArgument(cnt_ptr_param)->getType()->getPointerElementType(),
+      context->getArgument(cnt_ptr_param), "cnt");
   if (pg->getOIDType()->getLLVMType(llvmContext)->isIntegerTy()) {
     cnt = Builder->CreateZExt(cnt, pg->getOIDType()->getLLVMType(llvmContext));
   }
@@ -673,7 +725,8 @@ void HashGroupByChained::generate_scan(ParallelContext *context) {
    * Equivalent:
    * while(itemCtr < size)
    */
-  Value *lhs = Builder->CreateLoad(mem_itemCtr, "i");
+  Value *lhs = Builder->CreateLoad(
+      mem_itemCtr->getType()->getPointerElementType(), mem_itemCtr, "i");
   Value *cond =
       Builder->CreateICmpSLT(lhs, Builder->CreateZExt(cnt, lhs->getType()));
 
@@ -729,9 +782,11 @@ void HashGroupByChained::generate_scan(ParallelContext *context) {
   for (size_t i = 0; i < out_param_ids_scan.size(); ++i) {
     Value *out_ptr = context->getArgument(out_param_ids_scan[i]);
 
-    Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, lhs);
-    Value *val = Builder->CreateAlignedLoad(out_ptr_i,
-                                            llvm::Align(packet_widths[i] / 8));
+    Value *out_ptr_i = Builder->CreateInBoundsGEP(
+        out_ptr->getType()->getNonOpaquePointerElementType(), out_ptr, lhs);
+    Value *val = Builder->CreateAlignedLoad(
+        out_ptr_i->getType()->getPointerElementType(), out_ptr_i,
+        llvm::Align(packet_widths[i] / 8));
 
     in_vals.push_back(val);
   }
@@ -771,7 +826,8 @@ void HashGroupByChained::generate_scan(ParallelContext *context) {
   Builder->SetInsertPoint(IncBB);
 
   // Increment and store back
-  Value *val_curr_itemCtr = Builder->CreateLoad(mem_itemCtr);
+  Value *val_curr_itemCtr = Builder->CreateLoad(
+      mem_itemCtr->getType()->getPointerElementType(), mem_itemCtr);
 
   Value *inc = Builder->CreateIntCast(context->threadNum(),
                                       val_curr_itemCtr->getType(), false);

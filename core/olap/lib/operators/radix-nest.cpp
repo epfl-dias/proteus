@@ -228,7 +228,8 @@ map<RecordAttribute, ProteusValueMemory> Nest::reconstructResults(
    * -> RECONSTRUCT RESULTS
    * -> Need to do this at this point to check key equality
    */
-  Value *htRshiftedPtr_hit = Builder->CreateInBoundsGEP(htBuffer, idx);
+  Value *htRshiftedPtr_hit = Builder->CreateInBoundsGEP(
+      htBuffer->getType()->getPointerElementType(), htBuffer, idx);
   map<RecordAttribute, ProteusValueMemory> allGroupBindings;
 
   /* Payloads (Relative Offsets): size_t */
@@ -241,7 +242,8 @@ map<RecordAttribute, ProteusValueMemory> Nest::reconstructResults(
   Value *val_relR = context->getStateVar(relR_mem_relation_id);
 
   Value *val_ptr_payloadR =
-      Builder->CreateInBoundsGEP(val_relR, val_payload_r_offset);
+      Builder->CreateInBoundsGEP(val_relR->getType()->getPointerElementType(),
+                                 val_relR, val_payload_r_offset);
 
   Value *mem_payload = Builder->CreateBitCast(val_ptr_payloadR, payloadPtrType);
 
@@ -267,8 +269,9 @@ map<RecordAttribute, ProteusValueMemory> Nest::reconstructResults(
     //             idxList.push_back(context->createInt32(i));
 
     //             Value *elem_ptr = Builder->CreateGEP(mem_payload, idxList);
-    //             Value *val_activeTuple = Builder->CreateLoad(elem_ptr);
-    //             StoreInst *store_activeTuple =
+    //             Value *val_activeTuple =
+    //             Builder->CreateLoad(elem_ptr->getType()->getPointerElementType(),
+    //             elem_ptr); StoreInst *store_activeTuple =
     //             Builder->CreateStore(val_activeTuple,
     //                     mem_activeTuple);
     //             store_activeTuple->setAlignment(8);
@@ -299,8 +302,11 @@ map<RecordAttribute, ProteusValueMemory> Nest::reconstructResults(
       idxList.push_back(context->createInt32(0));
       idxList.push_back(context->createInt32(i));
 
-      Value *elem_ptr = Builder->CreateGEP(mem_payload, idxList);
-      Value *val_field = Builder->CreateLoad(elem_ptr);
+      Value *elem_ptr = Builder->CreateGEP(
+          mem_payload->getType()->getNonOpaquePointerElementType(), mem_payload,
+          idxList);
+      Value *val_field = Builder->CreateLoad(
+          elem_ptr->getType()->getPointerElementType(), elem_ptr);
       Builder->CreateStore(val_field, mem_field);
 
       ProteusValueMemory mem_valWrapper;
@@ -452,7 +458,8 @@ void Nest::probeHT() const {
   /* 1. Loop Condition - Unsigned integers operation */
   // Builder->CreateBr(loopCond);
   Builder->SetInsertPoint(loopCond);
-  Value *val_clusterCount = Builder->CreateLoad(mem_clusterCount);
+  Value *val_clusterCount = Builder->CreateLoad(
+      mem_clusterCount->getType()->getPointerElementType(), mem_clusterCount);
   Value *val_cond = Builder->CreateICmpULT(val_clusterCount, val_clusterNo);
   Builder->CreateCondBr(val_cond, loopBody, loopEnd);
 
@@ -478,18 +485,22 @@ void Nest::probeHT() const {
     /* If clusters non-empty */
     Builder->SetInsertPoint(ifBlock);
     /* start index of next cluster */
-    Value *val_rCount = Builder->CreateLoad(mem_rCount);
+    Value *val_rCount = Builder->CreateLoad(
+        mem_rCount->getType()->getPointerElementType(), mem_rCount);
 
     /* tmpR.tuples = relR->tuples + r; */
     Value *val_htR = context->getStateVar(htR_mem_kv_id);
-    Value *htRshiftedPtr = Builder->CreateInBoundsGEP(val_htR, val_rCount);
+    Value *htRshiftedPtr = Builder->CreateInBoundsGEP(
+        val_htR->getType()->getNonOpaquePointerElementType(), val_htR,
+        val_rCount);
 
     Function *bucketChainingAggPrepare =
         context->getFunction("bucketChainingAggPrepare");
 
     PointerType *htClusterPtrType = PointerType::get(htClusterType, 0);
-    Value *val_htPerClusterShiftedPtr =
-        Builder->CreateInBoundsGEP(val_htPerCluster, val_clusterCount);
+    Value *val_htPerClusterShiftedPtr = Builder->CreateInBoundsGEP(
+        val_htPerCluster->getType()->getNonOpaquePointerElementType(),
+        val_htPerCluster, val_clusterCount);
 
     // Prepare args and call function
     vector<Value *> Args;
@@ -547,8 +558,10 @@ void Nest::probeHT() const {
 
       /* Loop Condition */
       Builder->SetInsertPoint(rLoopCond);
-      Value *val_j = Builder->CreateLoad(mem_j);
-      Value *val_groupCnt = Builder->CreateLoad(mem_groupCnt);
+      Value *val_j =
+          Builder->CreateLoad(mem_j->getType()->getPointerElementType(), mem_j);
+      Value *val_groupCnt = Builder->CreateLoad(
+          mem_groupCnt->getType()->getPointerElementType(), mem_groupCnt);
 
       val_cond = Builder->CreateICmpSLT(val_j, val_r_i_count);
 
@@ -594,7 +607,9 @@ void Nest::probeHT() const {
       }
       Value *val_mask64 = Builder->CreateZExt(val_mask, int64_type);
       // Get key of current tuple (tmpR[j])
-      Value *htRshiftedPtr_j = Builder->CreateInBoundsGEP(htRshiftedPtr, val_j);
+      Value *htRshiftedPtr_j = Builder->CreateInBoundsGEP(
+          htRshiftedPtr->getType()->getNonOpaquePointerElementType(),
+          htRshiftedPtr, val_j);
       Value *val_hashed_key_r_j = context->getStructElem(htRshiftedPtr_j, 0);
       Value *val_idx = Builder->CreateBinOp(Instruction::And,
                                             val_hashed_key_r_j, val_mask64);
@@ -627,7 +642,8 @@ void Nest::probeHT() const {
         Builder->CreateBr(hitLoopCond);
         /* 1. Loop Condition */
         Builder->SetInsertPoint(hitLoopCond);
-        Value *val_hit = Builder->CreateLoad(mem_hit);
+        Value *val_hit = Builder->CreateLoad(
+            mem_hit->getType()->getPointerElementType(), mem_hit);
         val_cond = Builder->CreateICmpSGT(val_hit, val_zero);
 
         Builder->CreateCondBr(val_cond, hitLoopBody, hitLoopEnd);
@@ -646,7 +662,8 @@ void Nest::probeHT() const {
         context->CreateIfBlock(context->getGlobalFunction(), "htMatchIfCond",
                                &ifNotMarked, hitLoopInc);
         {
-          Value *val_flag = Builder->CreateLoad(mem_toFlag);
+          Value *val_flag = Builder->CreateLoad(
+              mem_toFlag->getType()->getPointerElementType(), mem_toFlag);
           Value *val_isNotMarked = Builder->CreateICmpEQ(val_flag, val_false);
           Builder->CreateCondBr(val_isNotMarked, ifNotMarked, hitLoopInc);
           Builder->SetInsertPoint(ifNotMarked);
@@ -673,9 +690,13 @@ void Nest::probeHT() const {
             // t.first.getRelationName() << " " << t.first.getAttrName()
             // <<std::endl;
             ProteusValueMemory currKeyMem = currKeyState[k.getRegisteredAs()];
-            Value *currKey = Builder->CreateLoad(currKeyMem.mem);
+            Value *currKey = Builder->CreateLoad(
+                currKeyMem.mem->getType()->getPointerElementType(),
+                currKeyMem.mem);
             ProteusValueMemory retrKeyMem = retrievedState[k.getRegisteredAs()];
-            Value *retrKey = Builder->CreateLoad(retrKeyMem.mem);
+            Value *retrKey = Builder->CreateLoad(
+                retrKeyMem.mem->getType()->getPointerElementType(),
+                retrKeyMem.mem);
             //                expressions::ProteusValueExpression
             //                currKey{f_grouping->getExpressionType(), };
 
@@ -786,14 +807,18 @@ void Nest::probeHT() const {
 
                 // Load accumulator -> acc_value
                 ProteusValue acc_value;
-                acc_value.value = Builder->CreateLoad(mem_accumulating);
+                acc_value.value = Builder->CreateLoad(
+                    mem_accumulating->getType()->getPointerElementType(),
+                    mem_accumulating);
                 acc_value.isNull = context->createFalse();
 
                 ProteusValue acc_value2;
                 if (outputExpr.isRegistered() &&
                     retrievedState.contains(outputExpr.getRegisteredAs())) {
                   auto mem_val = retrievedState[outputExpr.getRegisteredAs()];
-                  acc_value2.value = Builder->CreateLoad(mem_val.mem);
+                  acc_value2.value = Builder->CreateLoad(
+                      mem_val.mem->getType()->getPointerElementType(),
+                      mem_val.mem);
                   acc_value2.isNull = mem_val.isNull;
                 } else {
                   acc_value2 = outputExpr.accept(outputExprGenerator);
@@ -860,8 +885,8 @@ void Nest::probeHT() const {
       /* No longer moving relCounter once.
        * -> Move until no position is marked!
        *
-      val_j = Builder->CreateLoad(mem_j);
-      val_j = Builder->CreateAdd(val_j, val_one);
+      val_j = Builder->CreateLoad(mem_j->getType()->getPointerElementType(),
+      mem_j); val_j = Builder->CreateAdd(val_j, val_one);
       Builder->CreateStore(val_j, mem_j);
       Builder->CreateBr(rLoopCond);
       */
@@ -880,7 +905,8 @@ void Nest::probeHT() const {
       OperatorState *retrievedState =
           new OperatorState(*this, std::move(retrievedBindings));
 
-      val_groupCnt = Builder->CreateLoad(mem_groupCnt);
+      val_groupCnt = Builder->CreateLoad(
+          mem_groupCnt->getType()->getPointerElementType(), mem_groupCnt);
       val_groupCnt = Builder->CreateAdd(val_groupCnt, val_one);
       Builder->CreateStore(val_groupCnt, mem_groupCnt);
 
@@ -895,9 +921,11 @@ void Nest::probeHT() const {
         Builder->CreateBr(nextUnmarkedCond);
         /* Create condition */
         Builder->SetInsertPoint(nextUnmarkedCond);
-        val_j = Builder->CreateLoad(mem_j);
+        val_j = Builder->CreateLoad(mem_j->getType()->getPointerElementType(),
+                                    mem_j);
         Value *mem_flag = context->getArrayElemMem(val_array_marked, val_j);
-        Value *val_flag = Builder->CreateLoad(mem_flag);
+        Value *val_flag = Builder->CreateLoad(
+            mem_flag->getType()->getPointerElementType(), mem_flag);
         Value *val_cond = Builder->CreateICmpEQ(val_flag, val_true);
         Builder->CreateCondBr(val_cond, nextUnmarkedLoopBody,
                               nextUnmarkedLoopEnd);
@@ -907,7 +935,8 @@ void Nest::probeHT() const {
         Builder->CreateBr(nextUnmarkedLoopInc);
 
         Builder->SetInsertPoint(nextUnmarkedLoopInc);
-        val_j = Builder->CreateLoad(mem_j);
+        val_j = Builder->CreateLoad(mem_j->getType()->getPointerElementType(),
+                                    mem_j);
         val_j = Builder->CreateAdd(val_j, val_one);
         Builder->CreateStore(val_j, mem_j);
         Builder->CreateBr(nextUnmarkedCond);
@@ -932,7 +961,8 @@ void Nest::probeHT() const {
      * r += R_count_per_cluster[i];
      */
     Builder->SetInsertPoint(elseBlock);
-    val_rCount = Builder->CreateLoad(mem_rCount);
+    val_rCount = Builder->CreateLoad(
+        mem_rCount->getType()->getPointerElementType(), mem_rCount);
     val_rCount = Builder->CreateAdd(val_rCount, val_r_i_count);
     Builder->CreateStore(val_rCount, mem_rCount);
     Builder->CreateBr(loopInc);
@@ -940,7 +970,8 @@ void Nest::probeHT() const {
 
   /* 3. Loop Inc. */
   Builder->SetInsertPoint(loopInc);
-  val_clusterCount = Builder->CreateLoad(mem_clusterCount);
+  val_clusterCount = Builder->CreateLoad(
+      mem_clusterCount->getType()->getPointerElementType(), mem_clusterCount);
   val_clusterCount = Builder->CreateAdd(val_clusterCount, val_one);
 #ifdef DEBUGRADIX_NEST
   //            vector<Value*> ArgsV0;

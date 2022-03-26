@@ -121,30 +121,40 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
   {
     size_t i = 0;
     for (const auto &attr : wantedFields) {
+      auto sv = context->getStateVar(out_buffs[i++]);
       outputBuffs.emplace_back(context->toMem(
-          Builder->CreateLoad(context->getStateVar(out_buffs[i++])),
+          Builder->CreateLoad(sv->getType()->getPointerElementType(), sv),
           context->createFalse()));
       variableBindings[attr.getRegisteredAs()] = outputBuffs.back();
     }
   }
-  auto outCnt =
-      context->toMem(Builder->CreateLoad(context->getStateVar(cntVar_id)),
-                     context->createFalse());
+  auto outCnt = context->toMem(
+      Builder->CreateLoad(
+          context->getStateVar(cntVar_id)->getType()->getPointerElementType(),
+          context->getStateVar(cntVar_id)),
+      context->createFalse());
 
   Builder->SetInsertPoint(context->getEndingBlock());
-  Builder->CreateStore(Builder->CreateLoad(outCnt.mem),
-                       context->getStateVar(cntVar_id));
+  Builder->CreateStore(
+      Builder->CreateLoad(outCnt.mem->getType()->getPointerElementType(),
+                          outCnt.mem),
+      context->getStateVar(cntVar_id));
 
   Builder->SetInsertPoint(BB);
 
   // Read a vector of hashed predicates
+  auto ld = Builder->CreateLoad(childState[e.getRegisteredAs()]
+                                    .mem->getType()
+                                    ->getNonOpaquePointerElementType(),
+                                childState[e.getRegisteredAs()].mem);
   llvm::Value *vse2 = Builder->CreateInBoundsGEP(
-      Builder->CreateLoad(childState[e.getRegisteredAs()].mem), offset);
+      ld->getType()->getNonOpaquePointerElementType(), ld, offset);
   auto te = llvm::PointerType::getUnqual(
       llvm::VectorType::get(vse2->getType()->getPointerElementType(),
                             llvm::ElementCount::getFixed(vsize)));
-  auto vse = Builder->CreateAlignedLoad(Builder->CreateBitCast(vse2, te),
-                                        llvm::MaybeAlign{512});
+  auto vse = Builder->CreateAlignedLoad(
+      Builder->CreateBitCast(vse2, te)->getType()->getPointerElementType(),
+      Builder->CreateBitCast(vse2, te), llvm::MaybeAlign{512});
 
   assert(!(filterSize & (filterSize - 1)));
   // byte offset
@@ -305,6 +315,7 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
                                       llvm::Intrinsic::ctpop, {intvec}),
       Builder->CreateBitCast(hits, intvec));
   auto cnt = Builder->CreateLoad(
+      outCnt.mem->getType()->getPointerElementType(),
       outCnt.mem);  // popCnt; // FIXME: Update next cnt to offset + popCnt
 
   context->gen_if({Builder->CreateICmpNE(
@@ -316,16 +327,24 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
 
     size_t i = 0;
     for (const auto &attr : wantedFields) {
-      auto tmp = Builder->CreateLoad(outputBuffs[i++].mem);
-      auto b_ptr =
-          Builder->CreateInBoundsGEP(tmp, {context->createInt32(0), cnt});
+      auto tmpPtr = outputBuffs[i++].mem;
+      auto tmp = Builder->CreateLoad(tmpPtr->getType()->getPointerElementType(),
+                                     tmpPtr);
+      auto b_ptr = Builder->CreateInBoundsGEP(
+          tmp->getType()->getNonOpaquePointerElementType(), tmp,
+          {context->createInt32(0), cnt});
+      auto ldb = Builder->CreateLoad(childState[attr.getRegisteredAs()]
+                                         .mem->getType()
+                                         ->getPointerElementType(),
+                                     childState[attr.getRegisteredAs()].mem);
       llvm::Value *vs_tmp = Builder->CreateInBoundsGEP(
-          Builder->CreateLoad(childState[attr.getRegisteredAs()].mem), offset);
+          ldb->getType()->getNonOpaquePointerElementType(), ldb, offset);
       auto t = llvm::PointerType::getUnqual(
           llvm::VectorType::get(vs_tmp->getType()->getPointerElementType(),
                                 llvm::ElementCount::getFixed(vsize)));
-      auto ld = Builder->CreateAlignedLoad(Builder->CreateBitCast(vs_tmp, t),
-                                           llvm::MaybeAlign{512 / 8});
+      auto ld = Builder->CreateAlignedLoad(
+          Builder->CreateBitCast(vs_tmp, t)->getType()->getPointerElementType(),
+          Builder->CreateBitCast(vs_tmp, t), llvm::MaybeAlign{512 / 8});
       loads.emplace_back(std::make_pair(ld, b_ptr));
 
       //    buffs[attr].assign(buffs[attr] +
@@ -378,8 +397,9 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
       Plugin *pg = Catalog::getInstance().getPlugin(
           wantedFields[0].getRegisteredRelName());
 
-      auto new_oid =
-          Builder->CreateLoad(context->getStateVar(oidVar_id), "oid");
+      auto new_oid = Builder->CreateLoad(
+          context->getStateVar(oidVar_id)->getType()->getPointerElementType(),
+          context->getStateVar(oidVar_id), "oid");
       Builder->CreateStore(
           Builder->CreateAdd(new_oid,
                              Builder->CreateZExt(nextCnt, new_oid->getType())),
@@ -429,14 +449,17 @@ void BloomFilterRepack::consume(ParallelContext *context,
   auto Builder = context->getBuilder();
   auto filter = context->getStateVar(filter_ptr);
   filter = Builder->CreateInBoundsGEP(
-      filter, {context->createInt64(0), context->createInt64(0)});
+      filter->getType()->getNonOpaquePointerElementType(), filter,
+      {context->createInt64(0), context->createInt64(0)});
 
   Plugin *pg =
       Catalog::getInstance().getPlugin(wantedFields[0].getRegisteredRelName());
 
   RecordAttribute tupleCnt{wantedFields[0].getRegisteredRelName(), "activeCnt",
                            pg->getOIDType()};  // FIXME: OID type for blocks ?
-  llvm::Value *cnt = Builder->CreateLoad(childState[tupleCnt].mem, "cnt");
+  llvm::Value *cnt = Builder->CreateLoad(
+      childState[tupleCnt].mem->getType()->getPointerElementType(),
+      childState[tupleCnt].mem, "cnt");
 
   auto mem_itemCtr = context->CreateEntryBlockAlloca("i_ptr", cnt->getType());
   Builder->CreateStore(
@@ -450,7 +473,8 @@ void BloomFilterRepack::consume(ParallelContext *context,
    * while(itemCtr < size)
    */
   context->gen_while([&]() {
-    lhs = Builder->CreateLoad(mem_itemCtr, "i");
+    lhs = Builder->CreateLoad(mem_itemCtr->getType()->getPointerElementType(),
+                              mem_itemCtr, "i");
 
     return ProteusValue{
         Builder->CreateICmpULT(
@@ -486,7 +510,8 @@ void BloomFilterRepack::consume(ParallelContext *context,
       loop_cond->setMetadata(llvm::LLVMContext::MD_loop, LoopID);
     }
 
-    auto offset = Builder->CreateLoad(mem_itemCtr);
+    auto offset = Builder->CreateLoad(
+        mem_itemCtr->getType()->getPointerElementType(), mem_itemCtr);
     consumeVector(context, childState, filter, vsize, offset, cnt);
 
     Builder->CreateStore(
@@ -524,15 +549,18 @@ void BloomFilterRepack::consume_flush(ParallelContext *context) {
   std::map<RecordAttribute, ProteusValueMemory> variableBindings;
   size_t i = 0;
   for (const auto &attr : wantedFields) {
+    auto sv = context->getStateVar(out_buffs[i++]);
     variableBindings[attr.getRegisteredAs()] = context->toMem(
-        Builder->CreateLoad(context->getStateVar(out_buffs[i++])),
+        Builder->CreateLoad(sv->getType()->getPointerElementType(), sv),
         context->createFalse());
   }
 
   Plugin *pg =
       Catalog::getInstance().getPlugin(wantedFields[0].getRegisteredRelName());
 
-  auto new_oid = Builder->CreateLoad(context->getStateVar(oidVar_id), "oid");
+  auto new_oid = Builder->CreateLoad(
+      context->getStateVar(oidVar_id)->getType()->getPointerElementType(),
+      context->getStateVar(oidVar_id), "oid");
 
   RecordAttribute tupleIdentifier{wantedFields[0].getRegisteredRelName(),
                                   activeLoop, pg->getOIDType()};
@@ -544,7 +572,10 @@ void BloomFilterRepack::consume_flush(ParallelContext *context) {
                          pg->getOIDType()};  // FIXME: OID type for blocks ?
 
   variableBindings[tupCnt] = context->toMem(
-      Builder->CreateZExt(Builder->CreateLoad(context->getStateVar(cntVar_id)),
+      Builder->CreateZExt(Builder->CreateLoad(context->getStateVar(cntVar_id)
+                                                  ->getType()
+                                                  ->getPointerElementType(),
+                                              context->getStateVar(cntVar_id)),
                           new_oid->getType()),
       context->createFalse());
 

@@ -226,28 +226,44 @@ void GpuHashRearrange::consume(ParallelContext *context,
   auto activemask = gpu_intrinsic::activemask(context);
   context->gen_if(condExpr, childState)([&] {
     for (size_t i = 0; i < buffs.size(); ++i) {
-      Value *buff_thrd = Builder->CreateInBoundsGEP(buffs[i], idx);
+      Value *buff_thrd = Builder->CreateInBoundsGEP(
+          buffs[i]->getType()->getNonOpaquePointerElementType(), buffs[i], idx);
       Value *stored_buff_thrd = Builder->CreateInBoundsGEP(
+          context->getStateVar(buffVar_id[i])
+              ->getType()
+              ->getNonOpaquePointerElementType(),
           context->getStateVar(buffVar_id[i]), idxStored);
 
       // Value * new_buff  = Builder->CreateCall(get_buffers);
 
       // new_buff          = Builder->CreateBitCast(new_buff,
       // buff_thrd->getType()->getPointerElementType());
-      Value *stored_buff = Builder->CreateLoad(stored_buff_thrd);
+      Value *stored_buff = Builder->CreateLoad(
+          stored_buff_thrd->getType()->getPointerElementType(),
+          stored_buff_thrd);
       Builder->CreateStore(stored_buff, buff_thrd, true);
     }
 
-    Value *cnt_thrd = Builder->CreateInBoundsGEP(cnt, idx);
+    Value *cnt_thrd = Builder->CreateInBoundsGEP(
+        cnt->getType()->getNonOpaquePointerElementType(), cnt, idx);
     Value *stored_cnt_ptr =
-        Builder->CreateInBoundsGEP(context->getStateVar(cntVar_id), idxStored);
-    Value *stored_cnt = Builder->CreateLoad(stored_cnt_ptr);
+        Builder->CreateInBoundsGEP(context->getStateVar(cntVar_id)
+                                       ->getType()
+                                       ->getNonOpaquePointerElementType(),
+                                   context->getStateVar(cntVar_id), idxStored);
+    Value *stored_cnt = Builder->CreateLoad(
+        stored_cnt_ptr->getType()->getPointerElementType(), stored_cnt_ptr);
     Builder->CreateStore(stored_cnt, cnt_thrd, true);
 
-    Value *wcnt_thrd = Builder->CreateInBoundsGEP(wcnt, idx);
+    Value *wcnt_thrd = Builder->CreateInBoundsGEP(
+        wcnt->getType()->getNonOpaquePointerElementType(), wcnt, idx);
     Value *stored_wcnt_ptr =
-        Builder->CreateInBoundsGEP(context->getStateVar(wcntVar_id), idxStored);
-    Value *stored_wcnt = Builder->CreateLoad(stored_wcnt_ptr);
+        Builder->CreateInBoundsGEP(context->getStateVar(wcntVar_id)
+                                       ->getType()
+                                       ->getNonOpaquePointerElementType(),
+                                   context->getStateVar(wcntVar_id), idxStored);
+    Value *stored_wcnt = Builder->CreateLoad(
+        stored_wcnt_ptr->getType()->getPointerElementType(), stored_wcnt_ptr);
     Builder->CreateStore(stored_wcnt, wcnt_thrd, true);
   });
   auto warpsync = context->getFunction("llvm.nvvm.bar.warp.sync");
@@ -272,28 +288,43 @@ void GpuHashRearrange::consume(ParallelContext *context,
   activemask = gpu_intrinsic::activemask(context);
   context->gen_if(condExpr, childState)([&] {
     for (size_t i = 0; i < buffs.size(); ++i) {
-      Value *buff_thrd = Builder->CreateInBoundsGEP(buffs[i], idx);
+      Value *buff_thrd = Builder->CreateInBoundsGEP(
+          buffs[i]->getType()->getNonOpaquePointerElementType(), buffs[i], idx);
       Value *stored_buff_thrd = Builder->CreateInBoundsGEP(
+          context->getStateVar(buffVar_id[i])
+              ->getType()
+              ->getNonOpaquePointerElementType(),
           context->getStateVar(buffVar_id[i]), idxStored);
 
       // Value * new_buff  = Builder->CreateCall(get_buffers);
 
       // new_buff          = Builder->CreateBitCast(new_buff,
       // buff_thrd->getType()->getPointerElementType());
-      Value *stored_buff = Builder->CreateLoad(buff_thrd, true);
+      Value *stored_buff = Builder->CreateLoad(
+          buff_thrd->getType()->getPointerElementType(), buff_thrd, true);
       Builder->CreateStore(stored_buff, stored_buff_thrd);
     }
 
-    auto cnt_thrd = Builder->CreateInBoundsGEP(cnt, idx);
+    auto cnt_thrd = Builder->CreateInBoundsGEP(
+        cnt->getType()->getNonOpaquePointerElementType(), cnt, idx);
     auto stored_cnt_ptr =
-        Builder->CreateInBoundsGEP(context->getStateVar(cntVar_id), idxStored);
-    auto stored_cnt = Builder->CreateLoad(cnt_thrd, true);
+        Builder->CreateInBoundsGEP(context->getStateVar(cntVar_id)
+                                       ->getType()
+                                       ->getNonOpaquePointerElementType(),
+                                   context->getStateVar(cntVar_id), idxStored);
+    auto stored_cnt = Builder->CreateLoad(
+        cnt_thrd->getType()->getPointerElementType(), cnt_thrd, true);
     Builder->CreateStore(stored_cnt, stored_cnt_ptr);
 
-    auto wcnt_thrd = Builder->CreateInBoundsGEP(wcnt, idx);
+    auto wcnt_thrd = Builder->CreateInBoundsGEP(
+        wcnt->getType()->getNonOpaquePointerElementType(), wcnt, idx);
     auto stored_wcnt_ptr =
-        Builder->CreateInBoundsGEP(context->getStateVar(wcntVar_id), idxStored);
-    auto stored_wcnt = Builder->CreateLoad(wcnt_thrd, true);
+        Builder->CreateInBoundsGEP(context->getStateVar(wcntVar_id)
+                                       ->getType()
+                                       ->getNonOpaquePointerElementType(),
+                                   context->getStateVar(wcntVar_id), idxStored);
+    auto stored_wcnt = Builder->CreateLoad(
+        wcnt_thrd->getType()->getPointerElementType(), wcnt_thrd, true);
     Builder->CreateStore(stored_wcnt, stored_wcnt_ptr);
   });
   Builder->CreateCall(warpsync, {activemask});
@@ -352,7 +383,10 @@ void GpuHashRearrange::consume(ParallelContext *context,
     Value *comp =
         Builder->CreateICmpEQ(target, ConstantInt::get(target_type, i));
     Value *vote = gpu_intrinsic::ballot(
-        context, Builder->CreateAnd(comp, Builder->CreateLoad(not_done_ptr)));
+        context, Builder->CreateAnd(
+                     comp, Builder->CreateLoad(
+                               not_done_ptr->getType()->getPointerElementType(),
+                               not_done_ptr)));
     mask = Builder->CreateSelect(comp, vote, mask);
   }
 
@@ -382,7 +416,8 @@ void GpuHashRearrange::consume(ParallelContext *context,
   activemask = gpu_intrinsic::activemask(context);
   context->gen_if(incCondExpr, childState)([&]() {
     idx[1] = target;
-    Value *cnt_ptr = Builder->CreateInBoundsGEP(cnt, idx);
+    Value *cnt_ptr = Builder->CreateInBoundsGEP(
+        cnt->getType()->getNonOpaquePointerElementType(), cnt, idx);
     Value *pop = Builder->CreateCall(popc, mask);
     // TODO: make it block atomic! but it is on shared memory, so it does not
     // matter :P
@@ -407,8 +442,11 @@ void GpuHashRearrange::consume(ParallelContext *context,
   Function *lanemask_lt =
       context->getFunction("llvm.nvvm.read.ptx.sreg.lanemask.lt");
 
-  std::vector<Value *> args{activemask, Builder->CreateLoad(indx_ptr),
-                            leader_id, context->createInt32(warp_size - 1)};
+  std::vector<Value *> args{
+      activemask,
+      Builder->CreateLoad(indx_ptr->getType()->getPointerElementType(),
+                          indx_ptr),
+      leader_id, context->createInt32(warp_size - 1)};
   Value *idx_g = Builder->CreateAdd(
       Builder->CreateCall(shfl, args),
       Builder->CreateCall(popc, std::vector<Value *>{Builder->CreateAnd(
@@ -436,9 +474,20 @@ void GpuHashRearrange::consume(ParallelContext *context,
     idx[1] = target;
     for (size_t i = 0; i < buffs.size(); ++i) {
       // out_vals.push_back(UndefValue::get(b->getType()->getPointerElementType()->getPointerElementType()));
-      buff_ptrs.push_back(
-          Builder->CreateLoad(Builder->CreateInBoundsGEP(buffs[i], idx), true));
-      Value *out_ptr = Builder->CreateInBoundsGEP(buff_ptrs.back(), idx_g);
+      buff_ptrs.push_back(Builder->CreateLoad(
+          Builder
+              ->CreateInBoundsGEP(
+                  buffs[i]->getType()->getNonOpaquePointerElementType(),
+                  buffs[i], idx)
+              ->getType()
+              ->getPointerElementType(),
+          Builder->CreateInBoundsGEP(
+              buffs[i]->getType()->getNonOpaquePointerElementType(), buffs[i],
+              idx),
+          true));
+      Value *out_ptr = Builder->CreateInBoundsGEP(
+          buff_ptrs.back()->getType()->getNonOpaquePointerElementType(),
+          buff_ptrs.back(), idx_g);
 
       ExpressionGeneratorVisitor exprGenerator(context, childState);
       ProteusValue valWrapper = matExpr[i].accept(exprGenerator);
@@ -449,7 +498,9 @@ void GpuHashRearrange::consume(ParallelContext *context,
     Builder->CreateCall(threadfence);
 
     Value *w = Builder->CreateAtomicRMW(
-        AtomicRMWInst::BinOp::Add, Builder->CreateInBoundsGEP(wcnt, idx),
+        AtomicRMWInst::BinOp::Add,
+        Builder->CreateInBoundsGEP(
+            wcnt->getType()->getNonOpaquePointerElementType(), wcnt, idx),
         ConstantInt::get(idx_type, 1),
 #if LLVM_VERSION_MAJOR >= 13
         llvm::Align(context->getSizeOf(idx_type)),
@@ -464,7 +515,8 @@ void GpuHashRearrange::consume(ParallelContext *context,
     context->gen_if(cExpr, childState)([&] {
       auto activemask = gpu_intrinsic::activemask(context);
       for (const auto &buff : buffs) {
-        Value *buff_thrd = Builder->CreateInBoundsGEP(buff, idx);
+        Value *buff_thrd = Builder->CreateInBoundsGEP(
+            buff->getType()->getNonOpaquePointerElementType(), buff, idx);
         Value *new_buff = Builder->CreateCall(get_buffers);
         new_buff = Builder->CreateBitCast(
             new_buff, buff_thrd->getType()->getPointerElementType());
@@ -475,22 +527,26 @@ void GpuHashRearrange::consume(ParallelContext *context,
       Function *threadfence_block = context->getFunction("threadfence_block");
       Builder->CreateCall(threadfence_block);
 
-      Builder->CreateAtomicRMW(AtomicRMWInst::BinOp::Xchg,
-                               Builder->CreateInBoundsGEP(wcnt, idx),
-                               ConstantInt::get(idx_type, 0),
+      Builder->CreateAtomicRMW(
+          AtomicRMWInst::BinOp::Xchg,
+          Builder->CreateInBoundsGEP(
+              wcnt->getType()->getNonOpaquePointerElementType(), wcnt, idx),
+          ConstantInt::get(idx_type, 0),
 #if LLVM_VERSION_MAJOR >= 13
-                               llvm::Align(context->getSizeOf(idx_type)),
+          llvm::Align(context->getSizeOf(idx_type)),
 #endif
-                               AtomicOrdering::Monotonic);
+          AtomicOrdering::Monotonic);
       Builder->CreateCall(threadfence_block);
 
-      Builder->CreateAtomicRMW(AtomicRMWInst::BinOp::Xchg,
-                               Builder->CreateInBoundsGEP(cnt, idx),
-                               ConstantInt::get(idx_type, 0),
+      Builder->CreateAtomicRMW(
+          AtomicRMWInst::BinOp::Xchg,
+          Builder->CreateInBoundsGEP(
+              cnt->getType()->getNonOpaquePointerElementType(), cnt, idx),
+          ConstantInt::get(idx_type, 0),
 #if LLVM_VERSION_MAJOR >= 13
-                               llvm::Align(context->getSizeOf(idx_type)),
+          llvm::Align(context->getSizeOf(idx_type)),
 #endif
-                               AtomicOrdering::Monotonic);
+          AtomicOrdering::Monotonic);
       Builder->CreateCall(threadfence_block);
 
       Builder->CreateCall(warpsync, {activemask});
@@ -538,7 +594,8 @@ void GpuHashRearrange::consume(ParallelContext *context,
 
   // Value *any = gpu_intrinsic::any(context,
   // Builder->CreateLoad(not_done_ptr));
-  Value *any = Builder->CreateLoad(not_done_ptr);
+  Value *any = Builder->CreateLoad(
+      not_done_ptr->getType()->getPointerElementType(), not_done_ptr);
 
   Builder->CreateCondBr(any, startInsBB, endIndBB);
 
@@ -636,15 +693,24 @@ void GpuHashRearrange::consume_flush(ParallelContext *context,
   std::vector<Value *> buff_ptrs;
   for (size_t i = 0; i < matExpr.size(); ++i) {
     Value *stored_buff_thrd = Builder->CreateInBoundsGEP(
+        context->getStateVar(buffVar_id[i])
+            ->getType()
+            ->getNonOpaquePointerElementType(),
         context->getStateVar(buffVar_id[i]), idxStored);
 
-    buff_ptrs.push_back(Builder->CreateLoad(stored_buff_thrd));
+    buff_ptrs.push_back(Builder->CreateLoad(
+        stored_buff_thrd->getType()->getPointerElementType(),
+        stored_buff_thrd));
   }
 
   // Value * cnt__thrd       = Builder->CreateInBoundsGEP(cnt , idx);
   Value *stored_cnt_ptr =
-      Builder->CreateInBoundsGEP(context->getStateVar(cntVar_id), idxStored);
-  Value *cnt = Builder->CreateLoad(stored_cnt_ptr);
+      Builder->CreateInBoundsGEP(context->getStateVar(cntVar_id)
+                                     ->getType()
+                                     ->getNonOpaquePointerElementType(),
+                                 context->getStateVar(cntVar_id), idxStored);
+  Value *cnt = Builder->CreateLoad(
+      stored_cnt_ptr->getType()->getPointerElementType(), stored_cnt_ptr);
 
   BasicBlock *emptyBB = BasicBlock::Create(llvmContext, "empty", F);
   BasicBlock *non_emptyBB = BasicBlock::Create(llvmContext, "non_empty", F);

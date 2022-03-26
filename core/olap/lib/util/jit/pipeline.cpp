@@ -163,7 +163,9 @@ Value *PipelineGen::getStateVar() const {
   if (Fcurrent == close_function) return state;
   if (Fcurrent == open__function) return state;
   if (Fcurrent != F) {
-    return context->getBuilder()->CreateLoad(Fcurrent->arg_end() - 1);
+    return context->getBuilder()->CreateLoad(
+        (Fcurrent->arg_end() - 1)->getType()->getPointerElementType(),
+        Fcurrent->arg_end() - 1);
   }
   return state;  // getArgument(args.size() - 1);
 }
@@ -409,7 +411,8 @@ void PipelineGen::prepareInitDeinit() {
 
     getBuilder()->SetInsertPoint(closeBB);
     Value *tmp = state;
-    state = getBuilder()->CreateLoad(args[1]);
+    state = getBuilder()->CreateLoad(
+        args[1]->getType()->getPointerElementType(), args[1]);
 
     for (size_t i = close_var.size(); i > 0; --i) {
       Value *var = nullptr;
@@ -456,7 +459,9 @@ void PipelineGen::prepareFunction() {
 }
 
 Value *PipelineGen::getStateLLVMValue() {
-  return getBuilder()->CreateLoad(getArgument(args.size() - 1));
+  return getBuilder()->CreateLoad(
+      getArgument(args.size() - 1)->getType()->getPointerElementType(),
+      getArgument(args.size() - 1));
 }
 
 llvm::Value *PipelineGen::getSessionParametersPtr() const {
@@ -543,7 +548,8 @@ std::unique_ptr<Pipeline> PipelineGen::getPipeline(int group_id) {
 llvm::Value *PipelineGen::workerScopedAtomicAdd(llvm::Value *ptr,
                                                 llvm::Value *inc) {
   IRBuilder<> *Builder = context->getBuilder();
-  Value *old = Builder->CreateLoad(ptr);
+  Value *old =
+      Builder->CreateLoad(ptr->getType()->getPointerElementType(), ptr);
   Builder->CreateStore(Builder->CreateAdd(old, inc), ptr);
   return old;
 }
@@ -551,7 +557,8 @@ llvm::Value *PipelineGen::workerScopedAtomicAdd(llvm::Value *ptr,
 llvm::Value *PipelineGen::workerScopedAtomicXchg(llvm::Value *ptr,
                                                  llvm::Value *val) {
   IRBuilder<> *Builder = context->getBuilder();
-  Value *old = Builder->CreateLoad(ptr);
+  Value *old =
+      Builder->CreateLoad(ptr->getType()->getPointerElementType(), ptr);
   Builder->CreateStore(val, ptr);
   return old;
 }

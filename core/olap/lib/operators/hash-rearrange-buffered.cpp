@@ -223,19 +223,36 @@ void HashRearrangeBuffered::consume(Context *const context,
   }
   members.push_back(target->getType());
 
-  Value *target_cache_cnt =
-      Builder->CreateLoad(Builder->CreateInBoundsGEP(mem_cache_cnt, target));
+  Value *target_cache_cnt = Builder->CreateLoad(
+      Builder
+          ->CreateInBoundsGEP(
+              mem_cache_cnt->getType()->getNonOpaquePointerElementType(),
+              mem_cache_cnt, target)
+          ->getType()
+          ->getPointerElementType(),
+      Builder->CreateInBoundsGEP(
+          mem_cache_cnt->getType()->getNonOpaquePointerElementType(),
+          mem_cache_cnt, target));
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     Value *cache_buffer = Builder->CreateLoad(
-        Builder->CreateInBoundsGEP(mem_cache, context->createInt32(i)));
+        Builder
+            ->CreateInBoundsGEP(
+                mem_cache->getType()->getNonOpaquePointerElementType(),
+                mem_cache, context->createInt32(i))
+            ->getType()
+            ->getPointerElementType(),
+        Builder->CreateInBoundsGEP(
+            mem_cache->getType()->getNonOpaquePointerElementType(), mem_cache,
+            context->createInt32(i)));
     Value *cache_buffer_cast = Builder->CreatePointerCast(
         cache_buffer,
         PointerType::get(
             wantedFields[i]->getExpressionType()->getLLVMType(llvmContext), 0));
 
-    Value *el_ptr =
-        Builder->CreateInBoundsGEP(cache_buffer_cast, target_cache_cnt);
+    Value *el_ptr = Builder->CreateInBoundsGEP(
+        cache_buffer_cast->getType()->getNonOpaquePointerElementType(),
+        cache_buffer_cast, target_cache_cnt);
 
     ExpressionGeneratorVisitor exprGenerator(context, childState);
     ProteusValue valWrapper = wantedFields[i]->accept(exprGenerator);
@@ -259,13 +276,19 @@ void HashRearrangeBuffered::consume(Context *const context,
   Builder->CreateCondBr(flush_cond, flushBB, incBB);
 
   Builder->SetInsertPoint(incBB);
-  Builder->CreateStore(target_cache_cnt_next,
-                       Builder->CreateInBoundsGEP(mem_cache_cnt, target));
+  Builder->CreateStore(
+      target_cache_cnt_next,
+      Builder->CreateInBoundsGEP(
+          mem_cache_cnt->getType()->getNonOpaquePointerElementType(),
+          mem_cache_cnt, target));
   Builder->CreateBr(mergecBB);
 
   Builder->SetInsertPoint(flushBB);
-  Builder->CreateStore(Builder->CreateMul(cache_capacity, target),
-                       Builder->CreateInBoundsGEP(mem_cache_cnt, target));
+  Builder->CreateStore(
+      Builder->CreateMul(cache_capacity, target),
+      Builder->CreateInBoundsGEP(
+          mem_cache_cnt->getType()->getNonOpaquePointerElementType(),
+          mem_cache_cnt, target));
 
   StructType *partition = StructType::get(llvmContext, members);
   Value *ready = context->CreateEntryBlockAlloca(
@@ -278,14 +301,20 @@ void HashRearrangeBuffered::consume(Context *const context,
   // indexes->getType()->dump();
   // ((ParallelContext *) context)->getStateVar(cntVar_id)->getType()->dump();
   Value *indx_addr = Builder->CreateInBoundsGEP(
+      ((ParallelContext *)context)
+          ->getStateVar(cntVar_id)
+          ->getType()
+          ->getNonOpaquePointerElementType(),
       ((ParallelContext *)context)->getStateVar(cntVar_id),
       std::vector<Value *>{context->createInt32(0), target});
-  Value *indx = Builder->CreateLoad(indx_addr);
+  Value *indx = Builder->CreateLoad(
+      indx_addr->getType()->getPointerElementType(), indx_addr);
   // Value * indx      = Builder->Load(indx_addr);
 
   Value *blocks = ((ParallelContext *)context)->getStateVar(blkVar_id);
   Value *curblk = Builder->CreateInBoundsGEP(
-      blocks, std::vector<Value *>{context->createInt32(0), target});
+      blocks->getType()->getNonOpaquePointerElementType(), blocks,
+      std::vector<Value *>{context->createInt32(0), target});
 
   Value *cache_offset = Builder->CreateMul(cache_capacity, target);
   AllocaInst *mem_loop_offset =
@@ -294,19 +323,26 @@ void HashRearrangeBuffered::consume(Context *const context,
 
   std::vector<Value *> els;
   for (size_t i = 0; i < wantedFields.size(); ++i) {
-    Value *block = Builder->CreateLoad(Builder->CreateInBoundsGEP(
-        curblk, std::vector<Value *>{context->createInt32(0),
-                                     context->createInt32(i)}));
+    auto blockPtr = Builder->CreateInBoundsGEP(
+        curblk->getType()->getNonOpaquePointerElementType(), curblk,
+        std::vector<Value *>{context->createInt32(0), context->createInt32(i)});
+    Value *block = Builder->CreateLoad(
+        blockPtr->getType()->getPointerElementType(), blockPtr);
+    auto cachePtr = Builder->CreateInBoundsGEP(
+        mem_cache->getType()->getNonOpaquePointerElementType(), mem_cache,
+        context->createInt32(i));
     Value *cache_buffer = Builder->CreateLoad(
-        Builder->CreateInBoundsGEP(mem_cache, context->createInt32(i)));
+        cachePtr->getType()->getPointerElementType(), cachePtr);
     Value *cache_buffer_cast = Builder->CreatePointerCast(
         cache_buffer,
         PointerType::get(
             wantedFields[i]->getExpressionType()->getLLVMType(llvmContext), 0));
 
-    Value *in_block_ptr = Builder->CreateInBoundsGEP(block, indx);
-    Value *in_cache_ptr =
-        Builder->CreateInBoundsGEP(cache_buffer_cast, cache_offset);
+    Value *in_block_ptr = Builder->CreateInBoundsGEP(
+        block->getType()->getNonOpaquePointerElementType(), block, indx);
+    Value *in_cache_ptr = Builder->CreateInBoundsGEP(
+        cache_buffer_cast->getType()->getNonOpaquePointerElementType(),
+        cache_buffer_cast, cache_offset);
 
     Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
 
@@ -374,6 +410,10 @@ void HashRearrangeBuffered::consume(Context *const context,
   (*variableBindings)[tupCnt] = mem_cntWrapper;
 
   Value *new_oid = Builder->CreateLoad(
+      ((ParallelContext *)context)
+          ->getStateVar(oidVar_id)
+          ->getType()
+          ->getPointerElementType(),
       ((ParallelContext *)context)->getStateVar(oidVar_id), "oid");
   Builder->CreateStore(Builder->CreateAdd(new_oid, capacity),
                        ((ParallelContext *)context)->getStateVar(oidVar_id));
@@ -424,9 +464,10 @@ void HashRearrangeBuffered::consume(Context *const context,
         Builder->CreateBitCast(new_buff, tblock.getLLVMType(llvmContext));
 
     Builder->CreateStore(
-        new_buff, Builder->CreateInBoundsGEP(
-                      curblk, std::vector<Value *>{context->createInt32(0),
-                                                   context->createInt32(i)}));
+        new_buff,
+        Builder->CreateInBoundsGEP(
+            curblk->getType()->getNonOpaquePointerElementType(), curblk,
+            {context->createInt32(0), context->createInt32(i)}));
   }
 
   Builder->CreateStore(ConstantInt::get(oid_type, 0), indx_addr);
@@ -524,7 +565,8 @@ void HashRearrangeBuffered::consume_flush1() {
 
   context->setEndingBlock(LoopMergeBB);
   Builder->SetInsertPoint(LoopCondBB);
-  Value *target = Builder->CreateLoad(mem_target);
+  Value *target = Builder->CreateLoad(
+      mem_target->getType()->getPointerElementType(), mem_target);
   Value *loopcond = Builder->CreateICmpSLT(target, numOfBucketsV);
 
   Builder->CreateCondBr(loopcond, LoopMainBB, LoopMergeBB);
@@ -563,6 +605,10 @@ void HashRearrangeBuffered::consume_flush1() {
       F, "complete_partitions", ArrayType::get(partition, 1024));
 
   Value *indx_addr = Builder->CreateInBoundsGEP(
+      ((ParallelContext *)context)
+          ->getStateVar(cntVar_id)
+          ->getType()
+          ->getNonOpaquePointerElementType(),
       ((ParallelContext *)context)->getStateVar(cntVar_id),
       std::vector<Value *>{context->createInt32(0), target});
 
@@ -570,13 +616,17 @@ void HashRearrangeBuffered::consume_flush1() {
 
   Value *blocks = ((ParallelContext *)context)->getStateVar(blkVar_id);
   Value *curblk = Builder->CreateInBoundsGEP(
-      blocks, std::vector<Value *>{context->createInt32(0), target});
+      blocks->getType()->getNonOpaquePointerElementType(), blocks,
+      std::vector<Value *>{context->createInt32(0), target});
 
   Value *cache_offset = Builder->CreateMul(cache_capacity, target);
   AllocaInst *mem_loop_offset =
       context->CreateEntryBlockAlloca(F, "mem_loop_offset", int32_type);
+  auto ptr = Builder->CreateInBoundsGEP(
+      mem_cache_cnt->getType()->getNonOpaquePointerElementType(), mem_cache_cnt,
+      target);
   Value *loop_end = Builder->CreateSub(
-      Builder->CreateLoad(Builder->CreateInBoundsGEP(mem_cache_cnt, target)),
+      Builder->CreateLoad(ptr->getType()->getPointerElementType(), ptr),
       cache_offset);
 
   Builder->CreateStore(context->createInt32(0), mem_loop_offset);
@@ -591,8 +641,10 @@ void HashRearrangeBuffered::consume_flush1() {
   Builder->CreateBr(InnerLoopCondBB);
 
   Builder->SetInsertPoint(InnerLoopCondBB);
-  Value *indx = Builder->CreateLoad(indx_addr);
-  Value *loop_offset = Builder->CreateLoad(mem_loop_offset);
+  Value *indx = Builder->CreateLoad(
+      indx_addr->getType()->getPointerElementType(), indx_addr);
+  Value *loop_offset = Builder->CreateLoad(
+      mem_loop_offset->getType()->getPointerElementType(), mem_loop_offset);
   Value *loop_cond = Builder->CreateICmpSLT(loop_offset, loop_end);
   Builder->CreateCondBr(loop_cond, InnerLoopMainBB, InnerLoopMergeBB);
 
@@ -600,23 +652,35 @@ void HashRearrangeBuffered::consume_flush1() {
 
   std::vector<Value *> els;
   for (size_t i = 0; i < wantedFields.size(); ++i) {
-    Value *block = Builder->CreateLoad(Builder->CreateInBoundsGEP(
-        curblk, std::vector<Value *>{context->createInt32(0),
-                                     context->createInt32(i)}));
+    auto blockPtr = Builder->CreateInBoundsGEP(
+        curblk->getType()->getNonOpaquePointerElementType(), curblk,
+        std::vector<Value *>{context->createInt32(0), context->createInt32(i)});
+    Value *block = Builder->CreateLoad(
+        blockPtr->getType()->getPointerElementType(), blockPtr);
+    auto cachePtr = Builder->CreateInBoundsGEP(
+        mem_cache->getType()->getNonOpaquePointerElementType(), mem_cache,
+        context->createInt32(i));
     Value *cache_buffer = Builder->CreateLoad(
-        Builder->CreateInBoundsGEP(mem_cache, context->createInt32(i)));
+        cachePtr->getType()->getPointerElementType(), cachePtr);
     Value *cache_buffer_cast = Builder->CreatePointerCast(
         cache_buffer,
         PointerType::get(
             wantedFields[i]->getExpressionType()->getLLVMType(llvmContext), 0));
 
-    Value *in_block_ptr = Builder->CreateInBoundsGEP(block, indx);
-    Value *in_cache_ptr =
-        Builder->CreateInBoundsGEP(cache_buffer_cast, cache_offset);
+    Value *in_block_ptr = Builder->CreateInBoundsGEP(
+        block->getType()->getNonOpaquePointerElementType(), block, indx);
+    Value *in_cache_ptr = Builder->CreateInBoundsGEP(
+        cache_buffer_cast->getType()->getNonOpaquePointerElementType(),
+        cache_buffer_cast, cache_offset);
 
-    Value *el_cache_ptr = Builder->CreateInBoundsGEP(in_cache_ptr, loop_offset);
+    Value *el_cache_ptr = Builder->CreateInBoundsGEP(
+        in_cache_ptr->getType()->getNonOpaquePointerElementType(), in_cache_ptr,
+        loop_offset);
     Value *el_block_ptr = in_block_ptr;
-    Builder->CreateStore(Builder->CreateLoad(el_cache_ptr), el_block_ptr);
+    Builder->CreateStore(
+        Builder->CreateLoad(el_cache_ptr->getType()->getPointerElementType(),
+                            el_cache_ptr),
+        el_block_ptr);
 
     els.push_back(block);
   }
@@ -642,6 +706,10 @@ void HashRearrangeBuffered::consume_flush1() {
   (*variableBindings)[tupCnt] = mem_cntWrapper;
 
   Value *new_oid = Builder->CreateLoad(
+      ((ParallelContext *)context)
+          ->getStateVar(oidVar_id)
+          ->getType()
+          ->getPointerElementType(),
       ((ParallelContext *)context)->getStateVar(oidVar_id), "oid");
   Builder->CreateStore(Builder->CreateAdd(new_oid, capacity),
                        ((ParallelContext *)context)->getStateVar(oidVar_id));
@@ -692,9 +760,11 @@ void HashRearrangeBuffered::consume_flush1() {
         Builder->CreateBitCast(new_buff, tblock.getLLVMType(llvmContext));
 
     Builder->CreateStore(
-        new_buff, Builder->CreateInBoundsGEP(
-                      curblk, std::vector<Value *>{context->createInt32(0),
-                                                   context->createInt32(i)}));
+        new_buff,
+        Builder->CreateInBoundsGEP(
+            curblk->getType()->getNonOpaquePointerElementType(), curblk,
+            std::vector<Value *>{context->createInt32(0),
+                                 context->createInt32(i)}));
   }
 
   Builder->CreateStore(ConstantInt::get(oid_type, 0), indx_addr);
@@ -810,7 +880,8 @@ void HashRearrangeBuffered::consume_flush() {
   Value *numOfBuckets = ConstantInt::get(target_type, this->numOfBuckets);
   numOfBuckets->setName("numOfBuckets");
 
-  Value *target = Builder->CreateLoad(mem_bucket, "target");
+  Value *target = Builder->CreateLoad(
+      mem_bucket->getType()->getPointerElementType(), mem_bucket, "target");
 
   Value *cond = Builder->CreateICmpSLT(target, numOfBuckets);
   // Insert the conditional branch into the end of CondBB.
@@ -835,21 +906,29 @@ void HashRearrangeBuffered::consume_flush() {
   }
 
   Value *indx_addr = Builder->CreateInBoundsGEP(
+      ((ParallelContext *)context)
+          ->getStateVar(cntVar_id)
+          ->getType()
+          ->getNonOpaquePointerElementType(),
       ((ParallelContext *)context)->getStateVar(cntVar_id),
       std::vector<Value *>{context->createInt32(0), target});
-  Value *indx = Builder->CreateLoad(indx_addr);
+  Value *indx = Builder->CreateLoad(
+      indx_addr->getType()->getPointerElementType(), indx_addr);
 
   Builder->CreateStore(indx, blockN_ptr);
 
   Value *blocks = ((ParallelContext *)context)->getStateVar(blkVar_id);
   Value *curblk = Builder->CreateInBoundsGEP(
-      blocks, std::vector<Value *>{context->createInt32(0), target});
+      blocks->getType()->getNonOpaquePointerElementType(), blocks,
+      std::vector<Value *>{context->createInt32(0), target});
 
   std::vector<Value *> block_ptr_addrs;
   for (size_t i = 0; i < wantedFields.size(); ++i) {
-    Value *block = Builder->CreateLoad(Builder->CreateInBoundsGEP(
-        curblk, std::vector<Value *>{context->createInt32(0),
-                                     context->createInt32(i)}));
+    auto blockPtr = Builder->CreateInBoundsGEP(
+        curblk->getType()->getNonOpaquePointerElementType(), curblk,
+        std::vector<Value *>{context->createInt32(0), context->createInt32(i)});
+    Value *block = Builder->CreateLoad(
+        blockPtr->getType()->getPointerElementType(), blockPtr);
     block_ptr_addrs.push_back(block);
   }
 
@@ -861,7 +940,9 @@ void HashRearrangeBuffered::consume_flush() {
   mem_cntWrapper.isNull = context->createFalse();
   variableBindings[tupCnt] = mem_cntWrapper;
 
-  Value *new_oid = Builder->CreateLoad(context->getStateVar(oidVar_id), "oid");
+  Value *new_oid = Builder->CreateLoad(
+      context->getStateVar(oidVar_id)->getType()->getPointerElementType(),
+      context->getStateVar(oidVar_id), "oid");
   Builder->CreateStore(Builder->CreateAdd(new_oid, indx),
                        context->getStateVar(oidVar_id));
 

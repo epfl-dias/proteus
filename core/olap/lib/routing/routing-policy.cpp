@@ -48,7 +48,8 @@ namespace routing {
     return context->toMem(expressions::rand().accept(vis));
   }();
 
-  auto target = Builder->CreateLoad(state.mem);
+  auto target = Builder->CreateLoad(
+      state.mem->getType()->getPointerElementType(), state.mem);
   ExpressionGeneratorVisitor vis{context, childState};
   Builder->CreateStore(
       Builder->CreateZExtOrTrunc(
@@ -85,7 +86,9 @@ namespace routing {
   auto Builder = context->getBuilder();
   auto charPtrType = llvm::Type::getInt8PtrTy(context->getLLVMContext());
 
-  auto ptr = Builder->CreateLoad(childState[wantedField].mem);
+  auto ptr = Builder->CreateLoad(
+      childState[wantedField].mem->getType()->getPointerElementType(),
+      childState[wantedField].mem);
   auto ptr8 = Builder->CreateBitCast(ptr, charPtrType);
 
   auto this_ptr = Builder->CreateIntToPtr(context->createInt64((uintptr_t)aff),
@@ -123,7 +126,10 @@ routing_target PreferLocal::evaluate(ParallelContext *context,
       ->gen_if(lt(
                    expressions::ProteusValueExpression{
                        new IntType(),
-                       {Builder->CreateLoad(retrycnt.mem), retrycnt.isNull}},
+                       {Builder->CreateLoad(
+                            retrycnt.mem->getType()->getPointerElementType(),
+                            retrycnt.mem),
+                        retrycnt.isNull}},
                    1),
                childState)([&]() {
         p1 = Builder->CreateZExt(
@@ -162,7 +168,10 @@ routing_target PreferLocalServer::evaluate(ParallelContext *context,
       ->gen_if(lt(
                    expressions::ProteusValueExpression{
                        new IntType(),
-                       {Builder->CreateLoad(retrycnt.mem), retrycnt.isNull}},
+                       {Builder->CreateLoad(
+                            retrycnt.mem->getType()->getPointerElementType(),
+                            retrycnt.mem),
+                        retrycnt.isNull}},
                    1),
                childState)([&]() {
         p1 = Builder->CreateZExt(

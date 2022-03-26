@@ -103,8 +103,10 @@ void GpuReduce::consume(ParallelContext *context,
         ExpressionGeneratorVisitor outputExprGenerator{context, childState};
 
         // Load accumulator -> acc_value
-        ProteusValue acc_value{Builder->CreateLoad(acc_mem),
-                               context->createFalse()};
+        ProteusValue acc_value{
+            Builder->CreateLoad(acc_mem->getType()->getPointerElementType(),
+                                acc_mem),
+            context->createFalse()};
 
         // new_value = acc_value op outputExpr
         expressions::ProteusValueExpression val{agg.getExpressionType(),
@@ -166,7 +168,8 @@ void GpuReduce::generate(const agg_t &agg, ParallelContext *context,
   BasicBlock *endBlock = context->getEndingBlock();
   Builder->SetInsertPoint(endBlock);
 
-  Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
+  Value *val_accumulating = Builder->CreateLoad(
+      mem_accumulating->getType()->getPointerElementType(), mem_accumulating);
 
   // Warp aggregate
   Value *aggr = gm->createWarpAggregateTo0(context, val_accumulating);

@@ -157,8 +157,8 @@ class BinaryComparableKey {
 
  private:
   uint8_t byte_arr[sizeof(K)];
-  friend std::ostream &operator<<<>(std::ostream &out,
-                                    const BinaryComparableKey<K> &r);
+  friend std::ostream &operator<< <>(std::ostream &out,
+                                     const BinaryComparableKey<K> &r);
 };
 
 template <typename K>

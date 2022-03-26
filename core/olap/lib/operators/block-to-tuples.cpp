@@ -68,7 +68,8 @@ void BlockToTuples::nextEntry(llvm::Value *mem_itemCtr,
 
   // Increment and store back
 
-  Value *val_curr_itemCtr = Builder->CreateLoad(mem_itemCtr);
+  Value *val_curr_itemCtr = Builder->CreateLoad(
+      mem_itemCtr->getType()->getNonOpaquePointerElementType(), mem_itemCtr);
 
   Value *inc = step(context, (IntegerType *)val_curr_itemCtr->getType()).value;
 
@@ -103,8 +104,13 @@ void BlockToTuples::consume(ParallelContext *context,
         continue;
       }
       RecordAttribute attr{wantedField.getRegisteredAs()};
-      Value *arg = Builder->CreateLoad(childState[attr].mem);
-      Value *old = Builder->CreateLoad(context->getStateVar(old_buffs[j]));
+      Value *arg = Builder->CreateLoad(
+          childState[attr].mem->getType()->getNonOpaquePointerElementType(),
+          childState[attr].mem);
+      Value *old = Builder->CreateLoad(context->getStateVar(old_buffs[j])
+                                           ->getType()
+                                           ->getNonOpaquePointerElementType(),
+                                       context->getStateVar(old_buffs[j]));
       old = Builder->CreateBitCast(old, charPtrType);
 
       Function *f = context->getFunction(
@@ -142,7 +148,9 @@ void BlockToTuples::consume(ParallelContext *context,
 
   RecordAttribute tupleCnt{relName, "activeCnt",
                            pg->getOIDType()};  // FIXME: OID type for blocks ?
-  Value *cnt = Builder->CreateLoad(childState[tupleCnt].mem, "cnt");
+  Value *cnt = Builder->CreateLoad(
+      childState[tupleCnt].mem->getType()->getNonOpaquePointerElementType(),
+      childState[tupleCnt].mem, "cnt");
 
   auto mem_itemCtr = context->CreateEntryBlockAlloca("i_ptr", cnt->getType());
   Builder->CreateStore(
@@ -161,7 +169,10 @@ void BlockToTuples::consume(ParallelContext *context,
        context->createFalse()},
       offset, step(context, static_cast<IntegerType *>(cnt->getType())), {cnt},
       [&](ProteusValueMemory indexPtr, llvm::MDNode *LoopID) {
-        auto lhs = Builder->CreateLoad(indexPtr.mem);
+        assert(indexPtr.mem->getType()->getNonOpaquePointerElementType());
+        auto lhs = Builder->CreateLoad(
+            indexPtr.mem->getType()->getNonOpaquePointerElementType(),
+            indexPtr.mem);
 
         // Get the 'oid' of each record and pass it along.
         // More general/lazy plugins will only perform this action,
@@ -184,19 +195,25 @@ void BlockToTuples::consume(ParallelContext *context,
         for (const auto &field : wantedFields) {
           if (!dynamic_cast<const BlockType *>(field.getExpressionType())) {
             Value *arg =
-                Builder->CreateLoad(childState[field.getRegisteredAs()].mem);
+                Builder->CreateLoad(childState[field.getRegisteredAs()]
+                                        .mem->getType()
+                                        ->getNonOpaquePointerElementType(),
+                                    childState[field.getRegisteredAs()].mem);
             variableBindings[field.getRegisteredAs()] =
                 context->toMem(arg, context->createFalse());
             continue;
           }
           RecordAttribute attr{field.getRegisteredAs()};
 
-          Value *arg = Builder->CreateLoad(childState[attr].mem);
+          Value *arg = Builder->CreateLoad(
+              childState[attr].mem->getType()->getNonOpaquePointerElementType(),
+              childState[attr].mem);
 
           auto bufVarStr = field.getRegisteredRelName();
           auto currBufVar = bufVarStr + "." + attr.getAttrName();
 
-          Value *ptr = Builder->CreateGEP(arg, lhs);
+          Value *ptr = Builder->CreateGEP(
+              arg->getType()->getNonOpaquePointerElementType(), arg, lhs);
 
           // Function    * pfetch =
           // Intrinsic::getDeclaration(Builder->GetInsertBlock()->getParent()->getParent(),
@@ -215,8 +232,9 @@ void BlockToTuples::consume(ParallelContext *context,
 
           if (!pg->isLazy()) {
             // If not lazy, load the data now
-            Instruction *parsed =
-                Builder->CreateLoad(ptr);  // TODO : use CreateAlignedLoad
+            Instruction *parsed = Builder->CreateLoad(
+                ptr->getType()->getNonOpaquePointerElementType(),
+                ptr);  // TODO : use CreateAlignedLoad
             {
               parsed->setMetadata(LLVMContext::MD_mem_parallel_loop_access,
                                   LoopID);

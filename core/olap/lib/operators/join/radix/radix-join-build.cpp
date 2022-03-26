@@ -103,7 +103,8 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
       },
       [=](llvm::Value *pip, llvm::Value *s) {
         IRBuilder<> *Builder = context->getBuilder();
-        Value *mem_rel = Builder->CreateLoad(s);
+        Value *mem_rel =
+            Builder->CreateLoad(s->getType()->getPointerElementType(), s);
         Value *this_ptr = context->CastPtrToLlvmPtr(char_ptr_type, this);
         Function *reg = context->getFunction("registerRelationMem");
         Builder->CreateCall(reg, vector<Value *>{pip, mem_rel, this_ptr});
@@ -180,7 +181,8 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
       },
       [=](llvm::Value *pip, llvm::Value *s) {
         IRBuilder<> *Builder = context->getBuilder();
-        Value *mem_kv = Builder->CreateLoad(s);
+        Value *mem_kv =
+            Builder->CreateLoad(s->getType()->getPointerElementType(), s);
         mem_kv = Builder->CreateBitCast(mem_kv, char_ptr_type);
         Value *this_ptr = context->CastPtrToLlvmPtr(char_ptr_type, this);
         Function *reg = context->getFunction("registerHTMemKV");
@@ -268,15 +270,27 @@ void RadixJoinBuild::consume(ParallelContext *const context,
      */
 
     Value *val_arena =
-        Builder->CreateLoad(context->getStateVar(rel.mem_relation_id));
+        Builder->CreateLoad(context->getStateVar(rel.mem_relation_id)
+                                ->getType()
+                                ->getPointerElementType(),
+                            context->getStateVar(rel.mem_relation_id));
     Value *offsetInArena =
-        Builder->CreateLoad(context->getStateVar(rel.mem_offset_id));
+        Builder->CreateLoad(context->getStateVar(rel.mem_offset_id)
+                                ->getType()
+                                ->getPointerElementType(),
+                            context->getStateVar(rel.mem_offset_id));
     Value *offsetPlusPayload =
         Builder->CreateAdd(offsetInArena, val_payloadSize);
     Value *arenaSize =
-        Builder->CreateLoad(context->getStateVar(rel.mem_size_id));
+        Builder->CreateLoad(context->getStateVar(rel.mem_size_id)
+                                ->getType()
+                                ->getPointerElementType(),
+                            context->getStateVar(rel.mem_size_id));
     Value *val_tuplesNo =
-        Builder->CreateLoad(context->getStateVar(rel.mem_tuplesNo_id));
+        Builder->CreateLoad(context->getStateVar(rel.mem_tuplesNo_id)
+                                ->getType()
+                                ->getPointerElementType(),
+                            context->getStateVar(rel.mem_tuplesNo_id));
 
     /* if(offsetInArena + payloadSize >= arenaSize) */
     BasicBlock *entryBlock = Builder->GetInsertBlock();
@@ -297,7 +311,8 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     AllocaInst *mem_arena_void =
         Builder->CreateAlloca(void_ptr_type, nullptr, "voidArenaPtr");
     Builder->CreateStore(val_arena, mem_arena_void);
-    Value *val_arena_void = Builder->CreateLoad(mem_arena_void);
+    Value *val_arena_void = Builder->CreateLoad(
+        mem_arena_void->getType()->getPointerElementType(), mem_arena_void);
     ArgsRealloc.push_back(val_arena_void);
     ArgsRealloc.push_back(arenaSize);
     Value *val_newArenaVoidPtr = Builder->CreateCall(reallocLLVM, ArgsRealloc);
@@ -305,7 +320,10 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     Builder->CreateStore(val_newArenaVoidPtr,
                          context->getStateVar(rel.mem_relation_id));
     Value *val_size =
-        Builder->CreateLoad(context->getStateVar(rel.mem_size_id));
+        Builder->CreateLoad(context->getStateVar(rel.mem_size_id)
+                                ->getType()
+                                ->getPointerElementType(),
+                            context->getStateVar(rel.mem_size_id));
     val_size = Builder->CreateMul(val_size, context->createInt64(2));
     Builder->CreateStore(val_size, context->getStateVar(rel.mem_size_id));
     Builder->CreateBr(endBlockArenaFull);
@@ -314,13 +332,20 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     Builder->SetInsertPoint(endBlockArenaFull);
 
     /* Repeat load - realloc() might have occurred */
-    val_arena = Builder->CreateLoad(context->getStateVar(rel.mem_relation_id));
-    val_size = Builder->CreateLoad(context->getStateVar(rel.mem_size_id));
+    val_arena = Builder->CreateLoad(context->getStateVar(rel.mem_relation_id)
+                                        ->getType()
+                                        ->getPointerElementType(),
+                                    context->getStateVar(rel.mem_relation_id));
+    val_size = Builder->CreateLoad(context->getStateVar(rel.mem_size_id)
+                                       ->getType()
+                                       ->getPointerElementType(),
+                                   context->getStateVar(rel.mem_size_id));
 
     /* XXX STORING PAYLOAD */
     /* 1. arena += (offset) */
-    Value *ptr_arenaShifted =
-        Builder->CreateInBoundsGEP(val_arena, offsetInArena);
+    Value *ptr_arenaShifted = Builder->CreateInBoundsGEP(
+        val_arena->getType()->getPointerElementType(), val_arena,
+        offsetInArena);
 
     /* 2. Casting */
     PointerType *ptr_payloadType = PointerType::get(payloadType, 0);
@@ -343,6 +368,7 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     //     << endl; if (currAttr.getAttrName() == activeLoop) {
     //         mem_activeTuple = memSearch->second;
     //         Value* val_activeTuple = Builder->CreateLoad(
+    //                 mem_activeTuple.mem->getType()->getPointerElementType(),
     //                 mem_activeTuple.mem);
     //         //OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON
     //         FOR EXTRA OFFSET vector<Value*> idxList = vector<Value*>();
@@ -399,7 +425,9 @@ void RadixJoinBuild::consume(ParallelContext *const context,
         if (memSearch != bindings.end()) {
           ProteusValueMemory currValMem = memSearch->second;
           /* FIX THE NECESSARY CONVERSIONS HERE */
-          Value *currVal = Builder->CreateLoad(currValMem.mem);
+          Value *currVal = Builder->CreateLoad(
+              currValMem.mem->getType()->getPointerElementType(),
+              currValMem.mem);
           valToMaterialize =
               pg->convert(currVal->getType(),
                           materializedTypes->at(offsetInWanted), currVal);
@@ -415,7 +443,9 @@ void RadixJoinBuild::consume(ParallelContext *const context,
       idxList.push_back(context->createInt32(offsetInStruct));
 
       // Shift in struct ptr
-      Value *structPtr = Builder->CreateGEP(cast_arenaShifted, idxList);
+      Value *structPtr = Builder->CreateGEP(
+          cast_arenaShifted->getType()->getNonOpaquePointerElementType(),
+          cast_arenaShifted, idxList);
 
       Builder->CreateStore(valToMaterialize, structPtr);
       offsetInStruct++;
@@ -433,8 +463,10 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     //                      bindings.find(*(*it));
     //              ProteusValueMemory currValMem = memSearch->second;
     //              /* FIX THE NECESSARY CONVERSIONS HERE */
-    //              Value* currVal = Builder->CreateLoad(currValMem.mem);
-    //              Value* valToMaterialize = pg->convert(currVal->getType(),
+    //              Value* currVal =
+    //              Builder->CreateLoad(currValMem.mem->getType()->getPointerElementType(),
+    //              currValMem.mem); Value* valToMaterialize =
+    //              pg->convert(currVal->getType(),
     //                      materializedTypes->at(offsetInWanted), currVal);
     //
     //              vector<Value*> idxList = vector<Value*>();
@@ -465,11 +497,15 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     BasicBlock *ifHTFull;
     context->CreateIfBlock(F, "IfHTFullCond", &ifHTFull, endBlockHTFull);
 
-    LoadInst *val_ht = Builder->CreateLoad(context->getStateVar(ht.mem_kv_id));
-    val_ht->setAlignment(llvm::Align(8));
+    LoadInst *val_ht = Builder->CreateAlignedLoad(
+        context->getStateVar(ht.mem_kv_id)->getType()->getPointerElementType(),
+        context->getStateVar(ht.mem_kv_id), ::llvm::Align{8});
 
     Value *offsetInHT =
-        Builder->CreateLoad(context->getStateVar(ht.mem_offset_id));
+        Builder->CreateLoad(context->getStateVar(ht.mem_offset_id)
+                                ->getType()
+                                ->getPointerElementType(),
+                            context->getStateVar(ht.mem_offset_id));
     //      Value *offsetPlusKey = Builder->CreateAdd(offsetInHT,val_keySize64);
     //      int payloadPtrSize = sizeof(size_t);
     //      Value *val_payloadPtrSize = context->createInt64(payloadPtrSize);
@@ -479,7 +515,10 @@ void RadixJoinBuild::consume(ParallelContext *const context,
                                      context->getSizeOf(htEntryType));
     Value *offsetPlusKVPair = Builder->CreateAdd(offsetInHT, kvSize);
 
-    Value *htSize = Builder->CreateLoad(context->getStateVar(ht.mem_size_id));
+    Value *htSize = Builder->CreateLoad(context->getStateVar(ht.mem_size_id)
+                                            ->getType()
+                                            ->getPointerElementType(),
+                                        context->getStateVar(ht.mem_size_id));
     offsetCond = Builder->CreateICmpSGE(offsetPlusKVPair, htSize);
 
     Builder->CreateCondBr(offsetCond, ifHTFull, endBlockHTFull);
@@ -497,7 +536,10 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     Value *val_newHTPtr =
         Builder->CreateBitCast(val_newVoidHTPtr, htEntryPtrType);
     Builder->CreateStore(val_newHTPtr, context->getStateVar(ht.mem_kv_id));
-    val_size = Builder->CreateLoad(context->getStateVar(ht.mem_size_id));
+    val_size = Builder->CreateLoad(context->getStateVar(ht.mem_size_id)
+                                       ->getType()
+                                       ->getPointerElementType(),
+                                   context->getStateVar(ht.mem_size_id));
     val_size = Builder->CreateMul(val_size, context->createInt64(2));
     Builder->CreateStore(val_size, context->getStateVar(ht.mem_size_id));
     Builder->CreateBr(endBlockHTFull);
@@ -506,14 +548,20 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     Builder->SetInsertPoint(endBlockHTFull);
 
     /* Repeat load - realloc() might have occurred */
-    val_ht = Builder->CreateLoad(context->getStateVar(ht.mem_kv_id));
-    val_ht->setAlignment(llvm::Align(8));
+    val_ht = Builder->CreateAlignedLoad(
+        context->getStateVar(ht.mem_kv_id)->getType()->getPointerElementType(),
+        context->getStateVar(ht.mem_kv_id), llvm::Align{8});
 
-    val_size = Builder->CreateLoad(context->getStateVar(ht.mem_size_id));
+    val_size = Builder->CreateLoad(context->getStateVar(ht.mem_size_id)
+                                       ->getType()
+                                       ->getPointerElementType(),
+                                   context->getStateVar(ht.mem_size_id));
 
     /* 1. kv += offset */
     /* Note that we already have a htEntry ptr here */
-    Value *ptr_kvShifted = Builder->CreateInBoundsGEP(val_ht, val_tuplesNo);
+    Value *ptr_kvShifted = Builder->CreateInBoundsGEP(
+        val_ht->getType()->getNonOpaquePointerElementType(), val_ht,
+        val_tuplesNo);
 
     /* 2a. kv_cast->keyPtr = &key */
     offsetInStruct = 0;
@@ -522,7 +570,9 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     idxList.push_back(context->createInt32(0));
     idxList.push_back(context->createInt32(offsetInStruct));
 
-    Value *structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
+    Value *structPtr = Builder->CreateGEP(
+        ptr_kvShifted->getType()->getNonOpaquePointerElementType(),
+        ptr_kvShifted, idxList);
     StoreInst *store_key = Builder->CreateStore(key.value, structPtr);
     store_key->setAlignment(llvm::Align(4));
 
@@ -531,7 +581,9 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     idxList.clear();
     idxList.push_back(context->createInt32(0));
     idxList.push_back(context->createInt32(offsetInStruct));
-    structPtr = Builder->CreateGEP(ptr_kvShifted, idxList);
+    structPtr = Builder->CreateGEP(
+        ptr_kvShifted->getType()->getNonOpaquePointerElementType(),
+        ptr_kvShifted, idxList);
 
     StoreInst *store_payloadPtr =
         Builder->CreateStore(offsetInArena, structPtr);
@@ -566,8 +618,10 @@ Value *RadixJoinBuild::radix_cluster_nopadding(ParallelContext *context,
   Function *partitionHT =
       context->getFunction(is_agg ? "partitionAggHT" : "partitionHT");
   vector<Value *> ArgsPartition;
-  Value *val_tuplesNo = Builder->CreateLoad(mem_tuplesNo);
-  Value *val_ht = Builder->CreateLoad(mem_kv_id);
+  Value *val_tuplesNo = Builder->CreateLoad(
+      mem_tuplesNo->getType()->getPointerElementType(), mem_tuplesNo);
+  Value *val_ht = Builder->CreateLoad(
+      mem_kv_id->getType()->getPointerElementType(), mem_kv_id);
   ArgsPartition.push_back(val_tuplesNo);
   ArgsPartition.push_back(val_ht);
 

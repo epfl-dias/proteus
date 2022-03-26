@@ -421,7 +421,9 @@ ProteusValue BinaryColPlugin::readCachedValue(
   }
   ProteusValueMemory mem_oidWrapper = it->second;
   /* OID is a plain integer - starts from 1!!! */
-  Value *val_oid = Builder->CreateLoad(mem_oidWrapper.mem);
+  Value *val_oid = Builder->CreateLoad(
+      mem_oidWrapper.mem->getType()->getPointerElementType(),
+      mem_oidWrapper.mem);
   val_oid = Builder->CreateSub(val_oid, context->createInt64(1));
 
   /* Need to find appropriate position in cache now -- should be OK(?) */
@@ -453,7 +455,8 @@ ProteusValue BinaryColPlugin::readCachedValue(
   Builder->CreateStore(val_cachedField, mem_cachedField);
 
   ProteusValue valWrapper;
-  valWrapper.value = Builder->CreateLoad(mem_cachedField);
+  valWrapper.value = Builder->CreateLoad(
+      mem_cachedField->getType()->getPointerElementType(), mem_cachedField);
   valWrapper.isNull = context->createFalse();
 #ifdef DEBUG
   {
@@ -472,8 +475,9 @@ ProteusValue BinaryColPlugin::readCachedValue(
 //    IRBuilder<>* Builder = context->getBuilder();
 //    ProteusValue value;
 //    value.isNull = mem_value.isNull;
-//    value.value = Builder->CreateLoad(mem_value.mem);
-//    return value;
+//    value.value =
+//    Builder->CreateLoad(mem_value.mem->getType()->getPointerElementType(),
+//    mem_value.mem); return value;
 //}
 ProteusValue BinaryColPlugin::hashValue(ProteusValueMemory mem_value,
                                         const ExpressionType *type,
@@ -483,7 +487,8 @@ ProteusValue BinaryColPlugin::hashValue(ProteusValueMemory mem_value,
     case BOOL: {
       Function *hashBoolean = context->getFunction("hashBoolean");
       vector<Value *> ArgsV;
-      ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
+      ArgsV.push_back(Builder->CreateLoad(
+          mem_value.mem->getType()->getPointerElementType(), mem_value.mem));
       Value *hashResult =
           context->getBuilder()->CreateCall(hashBoolean, ArgsV, "hashBoolean");
 
@@ -500,7 +505,8 @@ ProteusValue BinaryColPlugin::hashValue(ProteusValueMemory mem_value,
     case FLOAT: {
       Function *hashDouble = context->getFunction("hashDouble");
       vector<Value *> ArgsV;
-      ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
+      ArgsV.push_back(Builder->CreateLoad(
+          mem_value.mem->getType()->getPointerElementType(), mem_value.mem));
       Value *hashResult =
           context->getBuilder()->CreateCall(hashDouble, ArgsV, "hashDouble");
 
@@ -512,7 +518,8 @@ ProteusValue BinaryColPlugin::hashValue(ProteusValueMemory mem_value,
     case INT: {
       Function *hashInt = context->getFunction("hashInt");
       vector<Value *> ArgsV;
-      ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
+      ArgsV.push_back(Builder->CreateLoad(
+          mem_value.mem->getType()->getPointerElementType(), mem_value.mem));
       Value *hashResult =
           context->getBuilder()->CreateCall(hashInt, ArgsV, "hashInt");
 
@@ -625,7 +632,8 @@ void BinaryColPlugin::skipLLVM(RecordAttribute attName, Value *offset) {
   }
 
   // Increment and store back
-  Value *val_curr_pos = Builder->CreateLoad(mem_pos);
+  Value *val_curr_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
   Value *val_new_pos = Builder->CreateAdd(val_curr_pos, offset);
   Builder->CreateStore(val_new_pos, mem_pos);
 }
@@ -649,7 +657,8 @@ void BinaryColPlugin::nextEntry() {
   }
 
   // Increment and store back
-  Value *val_curr_itemCtr = Builder->CreateLoad(mem_itemCtr);
+  Value *val_curr_itemCtr = Builder->CreateLoad(
+      mem_itemCtr->getType()->getPointerElementType(), mem_itemCtr);
   Value *val_new_itemCtr =
       Builder->CreateAdd(val_curr_itemCtr, context->createInt64(1));
   Builder->CreateStore(val_new_itemCtr, mem_itemCtr);
@@ -684,7 +693,8 @@ void BinaryColPlugin::readAsIntLLVM(
     }
     mem_pos = it->second;
   }
-  Value *val_pos = Builder->CreateLoad(mem_pos);
+  Value *val_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
 
   AllocaInst *buf;
   {
@@ -695,9 +705,12 @@ void BinaryColPlugin::readAsIntLLVM(
     }
     buf = it->second;
   }
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-  Value *parsedInt = Builder->CreateLoad(bufShiftedPtr);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, val_pos);
+  Value *parsedInt = Builder->CreateLoad(
+      bufShiftedPtr->getType()->getPointerElementType(), bufShiftedPtr);
 
   AllocaInst *mem_currResult =
       context->CreateEntryBlockAlloca(TheFunction, "currResult", int32Type);
@@ -746,7 +759,8 @@ void BinaryColPlugin::readAsInt64LLVM(
     }
     mem_pos = it->second;
   }
-  Value *val_pos = Builder->CreateLoad(mem_pos);
+  Value *val_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
 
   AllocaInst *buf;
   {
@@ -757,10 +771,13 @@ void BinaryColPlugin::readAsInt64LLVM(
     }
     buf = it->second;
   }
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, val_pos);
   Value *mem_result = Builder->CreateBitCast(bufShiftedPtr, ptrType_int64);
-  Value *parsedInt = Builder->CreateLoad(mem_result);
+  Value *parsedInt = Builder->CreateLoad(
+      mem_result->getType()->getPointerElementType(), mem_result);
 
   AllocaInst *mem_currResult =
       context->CreateEntryBlockAlloca(TheFunction, "currResult", int64Type);
@@ -799,7 +816,8 @@ Value *BinaryColPlugin::readAsInt64LLVM(RecordAttribute attName) {
     }
     mem_pos = it->second;
   }
-  Value *val_pos = Builder->CreateLoad(mem_pos);
+  Value *val_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
 
   AllocaInst *buf;
   {
@@ -810,10 +828,13 @@ Value *BinaryColPlugin::readAsInt64LLVM(RecordAttribute attName) {
     }
     buf = it->second;
   }
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, val_pos);
   Value *mem_result = Builder->CreateBitCast(bufShiftedPtr, ptrType_int64);
-  Value *parsedInt64 = Builder->CreateLoad(mem_result);
+  Value *parsedInt64 = Builder->CreateLoad(
+      mem_result->getType()->getPointerElementType(), mem_result);
 
   return parsedInt64;
 }
@@ -855,7 +876,8 @@ void BinaryColPlugin::readAsBooleanLLVM(
     }
     mem_pos = it->second;
   }
-  Value *val_pos = Builder->CreateLoad(mem_pos);
+  Value *val_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
 
   AllocaInst *buf;
   {
@@ -866,9 +888,12 @@ void BinaryColPlugin::readAsBooleanLLVM(
     }
     buf = it->second;
   }
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-  Value *parsedInt = Builder->CreateLoad(bufShiftedPtr);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, val_pos);
+  Value *parsedInt = Builder->CreateLoad(
+      bufShiftedPtr->getType()->getPointerElementType(), bufShiftedPtr);
 
   AllocaInst *currResult =
       context->CreateEntryBlockAlloca(TheFunction, "currResult", int1Type);
@@ -907,7 +932,8 @@ void BinaryColPlugin::readAsFloatLLVM(
     }
     mem_pos = it->second;
   }
-  Value *val_pos = Builder->CreateLoad(mem_pos);
+  Value *val_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
 
   AllocaInst *buf;
   {
@@ -918,9 +944,12 @@ void BinaryColPlugin::readAsFloatLLVM(
     }
     buf = it->second;
   }
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-  Value *parsedFloat = Builder->CreateLoad(bufShiftedPtr);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, val_pos);
+  Value *parsedFloat = Builder->CreateLoad(
+      bufShiftedPtr->getType()->getPointerElementType(), bufShiftedPtr);
 
   AllocaInst *currResult =
       context->CreateEntryBlockAlloca(TheFunction, "currResult", doubleType);
@@ -966,7 +995,8 @@ void BinaryColPlugin::prepareArray(RecordAttribute attName) {
   }
 
   // Increment and store back
-  Value *val_curr_pos = Builder->CreateLoad(mem_pos);
+  Value *val_curr_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
   Value *val_new_pos;
   if (sizeInFile) {
     val_new_pos = Builder->CreateAdd(val_curr_pos, val_offset);
@@ -987,8 +1017,10 @@ void BinaryColPlugin::prepareArray(RecordAttribute attName) {
     }
     buf = it->second;
   }
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_new_pos);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, val_new_pos);
 
   /* Cast to appropriate form */
   typeID id = attName.getOriginalType()->getTypeID();
@@ -1069,7 +1101,8 @@ void BinaryColPlugin::scan(const ::Operator &producer) {
    * while(itemCtr < size)
    */
   AllocaInst *mem_itemCtr = NamedValuesBinaryCol[itemCtrVar];
-  Value *lhs = Builder->CreateLoad(mem_itemCtr);
+  Value *lhs = Builder->CreateLoad(
+      mem_itemCtr->getType()->getPointerElementType(), mem_itemCtr);
   Value *rhs = val_size;
   Value *cond = Builder->CreateICmpSLT(lhs, rhs);
 

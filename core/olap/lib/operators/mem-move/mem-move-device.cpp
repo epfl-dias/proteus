@@ -137,7 +137,9 @@ void MemMoveDevice::produce_(ParallelContext *context) {
 
   Builder->SetInsertPoint(entryBB);
 
-  auto params = Builder->CreateLoad(context->getArgument(p));
+  auto params = Builder->CreateLoad(
+      context->getArgument(p)->getType()->getPointerElementType(),
+      context->getArgument(p));
 
   map<RecordAttribute, ProteusValueMemory> variableBindings;
 
@@ -229,14 +231,19 @@ void MemMoveDevice::consume(ParallelContext *context,
   // context)->getStateVar(cu_stream_var);
 
   Builder->SetInsertPoint(insBB);
-  auto N = Builder->CreateLoad(mem_cntWrapper.mem);
-  auto srcS = Builder->CreateLoad(mem_srcServer.mem);
+  auto N = Builder->CreateLoad(
+      mem_cntWrapper.mem->getType()->getPointerElementType(),
+      mem_cntWrapper.mem);
+  auto srcS = Builder->CreateLoad(
+      mem_srcServer.mem->getType()->getPointerElementType(), mem_srcServer.mem);
 
   RecordAttribute tupleIdentifier{wantedFields[0]->getRelationName(),
                                   activeLoop, pg->getOIDType()};
 
   ProteusValueMemory mem_oidWrapper = childState[tupleIdentifier];
-  llvm::Value *oid = Builder->CreateLoad(mem_oidWrapper.mem);
+  llvm::Value *oid = Builder->CreateLoad(
+      mem_oidWrapper.mem->getType()->getPointerElementType(),
+      mem_oidWrapper.mem);
 
   llvm::Value *memmv = ((ParallelContext *)context)->getStateVar(memmvconf_var);
 
@@ -247,8 +254,11 @@ void MemMoveDevice::consume(ParallelContext *context,
 
     ProteusValueMemory mem_valWrapper = childState[block_attr];
 
-    auto mv = Builder->CreateBitCast(Builder->CreateLoad(mem_valWrapper.mem),
-                                     charPtrType);
+    auto mv = Builder->CreateBitCast(
+        Builder->CreateLoad(
+            mem_valWrapper.mem->getType()->getPointerElementType(),
+            mem_valWrapper.mem),
+        charPtrType);
 
     auto mv_block_type = mem_valWrapper.mem->getType()
                              ->getPointerElementType()
@@ -291,7 +301,8 @@ void MemMoveDevice::consume(ParallelContext *context,
   auto workunit_ptr = Builder->CreateBitCast(
       workunit_ptr8, llvm::PointerType::getUnqual(workunit_type));
 
-  auto workunit_dat = Builder->CreateLoad(workunit_ptr);
+  auto workunit_dat = Builder->CreateLoad(
+      workunit_ptr->getType()->getPointerElementType(), workunit_ptr);
   auto d_ptr = Builder->CreateExtractValue(workunit_dat, 0);
   d_ptr =
       Builder->CreateBitCast(d_ptr, llvm::PointerType::getUnqual(data_type));

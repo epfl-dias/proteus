@@ -102,7 +102,8 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
   // Value * current =
   // Builder->CreateAlignedLoad(Builder->CreateInBoundsGEP(head_ptr, hash),
   // context->getSizeOf(head_ptr->getType()->getPointerElementType()));
-  Value *head_w_hash_ptr = Builder->CreateInBoundsGEP(head_ptr, hash);
+  Value *head_w_hash_ptr = Builder->CreateInBoundsGEP(
+      head_ptr->getType()->getNonOpaquePointerElementType(), head_ptr, hash);
   Value *current = Builder->CreateExtractValue(
       Builder->CreateAtomicCmpXchg(head_w_hash_ptr, eochain, eochain,
 #if LLVM_VERSION_MAJOR >= 13
@@ -152,8 +153,10 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
       BasicBlock::Create(llvmContext, "chainFollow", TheFunction);
   BasicBlock *MergeBB = BasicBlock::Create(llvmContext, "cont", TheFunction);
 
-  Value *init_cond =
-      Builder->CreateICmpEQ(Builder->CreateLoad(mem_current), eochain);
+  Value *init_cond = Builder->CreateICmpEQ(
+      Builder->CreateLoad(mem_current->getType()->getPointerElementType(),
+                          mem_current),
+      eochain);
 
   // if (current == ((uint32_t) -1)){
 
@@ -174,7 +177,10 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
     // next[idx].next =  -1;
     context->workerScopedAtomicXchg(
         Builder->CreateBitCast(
-            Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0]),
+            Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0])
+                                           ->getType()
+                                           ->getNonOpaquePointerElementType(),
+                                       context->getStateVar(out_param_ids[0]),
                                        old_cnt),
             PointerType::getInt32PtrTy(llvmContext)),
         eochain);
@@ -182,7 +188,9 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
     for (size_t i = 1; i < out_param_ids.size(); ++i) {
       Value *out_ptr = context->getStateVar(out_param_ids[i]);
 
-      Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
+      Value *out_ptr_i = Builder->CreateInBoundsGEP(
+          out_ptr->getType()->getNonOpaquePointerElementType(), out_ptr,
+          old_cnt);
       Builder->CreateAlignedStore(out_vals[i], out_ptr_i,
                                   llvm::Align(packet_widths[i] / 8), true);
     }
@@ -211,8 +219,10 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
   // if (current != ((uint32_t) -1)){
   //     while (true) {
 
-  Value *chain_cond =
-      Builder->CreateICmpNE(Builder->CreateLoad(mem_current), eochain);
+  Value *chain_cond = Builder->CreateICmpNE(
+      Builder->CreateLoad(mem_current->getType()->getPointerElementType(),
+                          mem_current),
+      eochain);
 
   Builder->CreateCondBr(chain_cond, ThenBB, MergeBB);
 
@@ -220,21 +230,29 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
   Builder->CreateCall(warpsync, {gactivemask});
 
   Builder->SetInsertPoint(ThenBB);
-  current = Builder->CreateLoad(mem_current);
+  current = Builder->CreateLoad(mem_current->getType()->getPointerElementType(),
+                                mem_current);
 
   context->workerScopedMembar();
 
   // Keys
   Value *next_bucket_ptr = Builder->CreateInBoundsGEP(
+      context->getStateVar(out_param_ids[1])
+          ->getType()
+          ->getNonOpaquePointerElementType(),
       context->getStateVar(out_param_ids[1]), current);
   Value *next_bucket = Builder->CreateAlignedLoad(
-      next_bucket_ptr, llvm::Align(packet_widths[1] / 8), true, "next_bucket");
+      next_bucket_ptr->getType()->getPointerElementType(), next_bucket_ptr,
+      llvm::Align(packet_widths[1] / 8), true, "next_bucket");
 
   context->workerScopedMembar();
 
   Value *next = Builder->CreateExtractValue(
       Builder->CreateAtomicCmpXchg(
           Builder->CreateInBoundsGEP(
+              context->getStateVar(out_param_ids[0])
+                  ->getType()
+                  ->getNonOpaquePointerElementType(),
               context->getStateVar(out_param_ids[0]),
               std::vector<Value *>{current, context->createInt32(0)}),
           eochain, eochain,
@@ -286,6 +304,9 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
                                                 agg_exprs[i].packind);
 
       Value *gl_accum = Builder->CreateInBoundsGEP(
+          context->getStateVar(out_param_ids[agg_exprs[i].packet])
+              ->getType()
+              ->getNonOpaquePointerElementType(),
           context->getStateVar(out_param_ids[agg_exprs[i].packet]), tmp);
 
       gm->createAtomicUpdate(context, gl_accum, aggr,
@@ -297,14 +318,24 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
   // if (written) next[idx].next = idx;
   expressions::ProteusValueExpression writtenExpr{
       new BoolType(),
-      ProteusValue{Builder->CreateLoad(mem_written), context->createFalse()}};
+      ProteusValue{
+          Builder->CreateLoad(mem_written->getType()->getPointerElementType(),
+                              mem_written),
+          context->createFalse()}};
   context->gen_if(writtenExpr, childState)([&] {
     Value *inv_ptr = Builder->CreateInBoundsGEP(
+        context->getStateVar(out_param_ids[0])
+            ->getType()
+            ->getNonOpaquePointerElementType(),
         context->getStateVar(out_param_ids[0]),
-        std::vector<Value *>{Builder->CreateLoad(mem_idx),
-                             context->createInt32(0)});
+        std::vector<Value *>{
+            Builder->CreateLoad(mem_idx->getType()->getPointerElementType(),
+                                mem_idx),
+            context->createInt32(0)});
 
-    context->workerScopedAtomicXchg(inv_ptr, Builder->CreateLoad(mem_idx));
+    context->workerScopedAtomicXchg(
+        inv_ptr, Builder->CreateLoad(
+                     mem_idx->getType()->getPointerElementType(), mem_idx));
     // Builder->CreateAlignedStore(str, , packet_widths[0]/8);
   });
   Builder->CreateCall(warpsync, {activemask});
@@ -332,7 +363,8 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
 
   expressions::ProteusValueExpression condExpr{
       new BoolType(),
-      {Builder->CreateNot(Builder->CreateLoad(mem_written)),
+      {Builder->CreateNot(Builder->CreateLoad(
+           mem_written->getType()->getPointerElementType(), mem_written)),
        context->createFalse()}};
 
   activemask = gpu_intrinsic::activemask(context);
@@ -349,7 +381,10 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
     // next[idx].next =  -1;
     context->workerScopedAtomicXchg(
         Builder->CreateBitCast(
-            Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0]),
+            Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0])
+                                           ->getType()
+                                           ->getNonOpaquePointerElementType(),
+                                       context->getStateVar(out_param_ids[0]),
                                        old_cnt),
             PointerType::getInt32PtrTy(llvmContext)),
         eochain);
@@ -357,7 +392,9 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
     for (size_t i = 1; i < out_param_ids.size(); ++i) {
       Value *out_ptr = context->getStateVar(out_param_ids[i]);
 
-      Value *out_ptr_i = Builder->CreateInBoundsGEP(out_ptr, old_cnt);
+      Value *out_ptr_i = Builder->CreateInBoundsGEP(
+          out_ptr->getType()->getNonOpaquePointerElementType(), out_ptr,
+          old_cnt);
       Builder->CreateAlignedStore(out_vals[i], out_ptr_i,
                                   llvm::Align(packet_widths[i] / 8), true);
     }
@@ -375,8 +412,12 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
   std::vector<Value *> tmp{current, context->createInt32(0)};
   auto activemask3 = gpu_intrinsic::activemask(context);
   Value *new_next = Builder->CreateAtomicCmpXchg(
-      Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0]), tmp),
-      eochain, Builder->CreateLoad(mem_idx),
+      Builder->CreateInBoundsGEP(context->getStateVar(out_param_ids[0])
+                                     ->getType()
+                                     ->getNonOpaquePointerElementType(),
+                                 context->getStateVar(out_param_ids[0]), tmp),
+      eochain,
+      Builder->CreateLoad(mem_idx->getType()->getPointerElementType(), mem_idx),
 #if LLVM_VERSION_MAJOR >= 13
       llvm::Align(context->getSizeOf(eochain)),
 #endif

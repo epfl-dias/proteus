@@ -148,14 +148,18 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
       RecordAttribute currAttr = memSearch->first;
       if (currAttr.getAttrName() == activeLoop) {
         mem_activeTuple = memSearch->second;
-        Value *val_activeTuple = Builder->CreateLoad(mem_activeTuple.mem);
+        Value *val_activeTuple = Builder->CreateLoad(
+            mem_activeTuple.mem->getType()->getPointerElementType(),
+            mem_activeTuple.mem);
         // OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR
         // EXTRA OFFSET
         vector<Value *> idxList = vector<Value *>();
         idxList.push_back(context->createInt32(0));
         idxList.push_back(context->createInt32(offsetInStruct++));
         // Shift in struct ptr
-        Value *structPtr = Builder->CreateGEP(mem_payload, idxList);
+        Value *structPtr = Builder->CreateGEP(
+            mem_payload->getType()->getNonOpaquePointerElementType(),
+            mem_payload, idxList);
         Builder->CreateStore(val_activeTuple, structPtr);
       }
     }
@@ -172,7 +176,8 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
     Value *llvmCurrVal = nullptr;
     if (memSearch != bindings.end()) {
       ProteusValueMemory currValMem = memSearch->second;
-      llvmCurrVal = Builder->CreateLoad(currValMem.mem);
+      llvmCurrVal = Builder->CreateLoad(
+          currValMem.mem->getType()->getPointerElementType(), currValMem.mem);
     } else {
       //            /* Not in bindings yet => must actively materialize
       //               This code would be relevant if materializer also
@@ -201,7 +206,9 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
     idxList.push_back(context->createInt32(0));
     idxList.push_back(context->createInt32(offsetInStruct));
     // Shift in struct ptr
-    Value *structPtr = Builder->CreateGEP(mem_payload, idxList);
+    Value *structPtr = Builder->CreateGEP(
+        mem_payload->getType()->getNonOpaquePointerElementType(), mem_payload,
+        idxList);
     Builder->CreateStore(valToMaterialize, structPtr);
     offsetInStruct++;
     offsetInWanted++;
@@ -285,7 +292,8 @@ void Nest::generateProbe(Context *const context) const {
   Builder->SetInsertPoint(loopCondHT);
   // Condition:  current bucketSize in result array positions examined is set to
   // 0
-  Value *bucketCounter = Builder->CreateLoad(mem_bucketCounter);
+  Value *bucketCounter = Builder->CreateLoad(
+      mem_bucketCounter->getType()->getPointerElementType(), mem_bucketCounter);
   Value *mem_arrayShifted =
       context->getArrayElemMem(metadataArray, bucketCounter);
   Value *bucketSize = context->getStructElem(mem_arrayShifted, 1);
@@ -305,7 +313,8 @@ void Nest::generateProbe(Context *const context) const {
    */
   AllocaInst *mem_metadataStruct =
       context->CreateEntryBlockAlloca(TheFunction, "currKeyNest", metadataType);
-  Value *arrayShifted = Builder->CreateLoad(mem_arrayShifted);
+  Value *arrayShifted = Builder->CreateLoad(
+      mem_arrayShifted->getType()->getPointerElementType(), mem_arrayShifted);
 
   Builder->CreateStore(arrayShifted, mem_metadataStruct);
   Value *currKey = context->getStructElem(mem_metadataStruct, 0);
@@ -342,7 +351,8 @@ void Nest::generateProbe(Context *const context) const {
 
   // Condition: are there any more values in the bucket?
   Builder->SetInsertPoint(loopCondBucket);
-  Value *valuesCounter = Builder->CreateLoad(mem_valuesCounter);
+  Value *valuesCounter = Builder->CreateLoad(
+      mem_valuesCounter->getType()->getPointerElementType(), mem_valuesCounter);
   Value *cond = Builder->CreateICmpEQ(valuesCounter, currBucketSize);
   Builder->CreateCondBr(cond, loopEndBucket, loopBodyBucket);
 
@@ -388,7 +398,9 @@ void Nest::generateProbe(Context *const context) const {
     RecordAttribute *attr = *it;
     mem_activeTuple = context->CreateEntryBlockAlloca(
         TheFunction, "mem_activeTuple", str->getElementType(i));
-    Value *currValueCasted = Builder->CreateLoad(mem_currValueCasted);
+    Value *currValueCasted = Builder->CreateLoad(
+        mem_currValueCasted->getType()->getPointerElementType(),
+        mem_currValueCasted);
     activeTuple = context->getStructElem(currValueCasted, i);
     Builder->CreateStore(activeTuple, mem_activeTuple);
 
@@ -481,7 +493,8 @@ void Nest::generateProbe(Context *const context) const {
   Builder->CreateBr(loopIncBucket);
   Builder->SetInsertPoint(loopIncBucket);
 
-  valuesCounter = Builder->CreateLoad(mem_valuesCounter);
+  valuesCounter = Builder->CreateLoad(
+      mem_valuesCounter->getType()->getPointerElementType(), mem_valuesCounter);
   Value *inc_valuesCounter =
       Builder->CreateAdd(valuesCounter, context->createInt64(1));
   Builder->CreateStore(inc_valuesCounter, mem_valuesCounter);
@@ -503,8 +516,9 @@ void Nest::generateProbe(Context *const context) const {
   //#ifdef DEBUG
   //        ArgsV.clear();
   //        Function* debugInt64 = context->getFunction("printi");
-  //        Value* finalResult = Builder->CreateLoad(mem_accumulating);
-  //        ArgsV.push_back(finalResult);
+  //        Value* finalResult =
+  //        Builder->CreateLoad(mem_accumulating->getType()->getPointerElementType(),
+  //        mem_accumulating); ArgsV.push_back(finalResult);
   //        Builder->CreateCall(debugInt64, ArgsV);
   //        ArgsV.clear();
   //        ArgsV.push_back(context->createInt32(-7));
@@ -518,7 +532,8 @@ void Nest::generateProbe(Context *const context) const {
   /**
    * [INC - HT BUCKET NO.] Continue outer loop
    */
-  bucketCounter = Builder->CreateLoad(mem_bucketCounter);
+  bucketCounter = Builder->CreateLoad(
+      mem_bucketCounter->getType()->getPointerElementType(), mem_bucketCounter);
   Value *val_inc = Builder->getInt64(1);
   Value *val_new = Builder->CreateAdd(bucketCounter, val_inc);
   Builder->CreateStore(val_new, mem_bucketCounter);
@@ -563,7 +578,8 @@ void Nest::generateSum(expression_t outputExpr, Context *const context,
 
   Builder->SetInsertPoint(ifBlock);
   val_output = outputExpr.accept(outputExprGenerator);
-  Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
+  Value *val_accumulating = Builder->CreateLoad(
+      mem_accumulating->getType()->getPointerElementType(), mem_accumulating);
 
   switch (outputExpr.getExpressionType()->getTypeID()) {
     case INT: {
@@ -580,8 +596,9 @@ void Nest::generateSum(expression_t outputExpr, Context *const context,
 //        Builder->SetInsertPoint(endBlock);
 //        vector<Value*> ArgsV;
 //        Function* debugInt = context->getFunction("printi");
-//        Value* finalResult = Builder->CreateLoad(mem_accumulating);
-//        ArgsV.push_back(finalResult);
+//        Value* finalResult =
+//        Builder->CreateLoad(mem_accumulating->getType()->getPointerElementType(),
+//        mem_accumulating); ArgsV.push_back(finalResult);
 //        Builder->CreateCall(debugInt, ArgsV);
 //        //Back to 'normal' flow
 //        Builder->SetInsertPoint(ifBlock);
@@ -640,7 +657,8 @@ void Nest::generateMul(expression_t outputExpr, Context *const context,
 
   Builder->SetInsertPoint(ifBlock);
   val_output = outputExpr.accept(outputExprGenerator);
-  Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
+  Value *val_accumulating = Builder->CreateLoad(
+      mem_accumulating->getType()->getPointerElementType(), mem_accumulating);
 
   switch (outputExpr.getExpressionType()->getTypeID()) {
     case INT: {
@@ -657,8 +675,9 @@ void Nest::generateMul(expression_t outputExpr, Context *const context,
 //        Builder->SetInsertPoint(endBlock);
 //        vector<Value*> ArgsV;
 //        Function* debugInt = context->getFunction("printi");
-//        Value* finalResult = Builder->CreateLoad(mem_accumulating);
-//        ArgsV.push_back(finalResult);
+//        Value* finalResult =
+//        Builder->CreateLoad(mem_accumulating->getType()->getPointerElementType(),
+//        mem_accumulating); ArgsV.push_back(finalResult);
 //        Builder->CreateCall(debugInt, ArgsV);
 //        //Back to 'normal' flow
 //        Builder->SetInsertPoint(ifBlock);
@@ -717,7 +736,8 @@ void Nest::generateMax(expression_t outputExpr, Context *const context,
 
   Builder->SetInsertPoint(ifBlock);
   val_output = outputExpr.accept(outputExprGenerator);
-  Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
+  Value *val_accumulating = Builder->CreateLoad(
+      mem_accumulating->getType()->getPointerElementType(), mem_accumulating);
 
   switch (outputExpr.getExpressionType()->getTypeID()) {
     case INT: {
@@ -727,7 +747,9 @@ void Nest::generateMax(expression_t outputExpr, Context *const context,
       BasicBlock *ifGtMaxBlock;
       context->CreateIfBlock(context->getGlobalFunction(), "nestMaxCond",
                              &ifGtMaxBlock, endBlock);
-      Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
+      Value *val_accumulating = Builder->CreateLoad(
+          mem_accumulating->getType()->getPointerElementType(),
+          mem_accumulating);
       Value *maxCondition =
           Builder->CreateICmpSGT(val_output.value, val_accumulating);
       Builder->CreateCondBr(maxCondition, ifGtMaxBlock, endBlock);
@@ -741,7 +763,9 @@ void Nest::generateMax(expression_t outputExpr, Context *const context,
 #ifdef DEBUGNEST
       vector<Value *> ArgsV;
       Function *debugInt = context->getFunction("printi");
-      Value *finalResult = Builder->CreateLoad(mem_accumulating);
+      Value *finalResult = Builder->CreateLoad(
+          mem_accumulating->getType()->getPointerElementType(),
+          mem_accumulating);
       ArgsV.push_back(finalResult);
       Builder->CreateCall(debugInt, ArgsV);
 #endif
@@ -759,7 +783,9 @@ void Nest::generateMax(expression_t outputExpr, Context *const context,
       BasicBlock *ifGtMaxBlock;
       context->CreateIfBlock(context->getGlobalFunction(), "nestMaxCond",
                              &ifGtMaxBlock, endBlock);
-      Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
+      Value *val_accumulating = Builder->CreateLoad(
+          mem_accumulating->getType()->getPointerElementType(),
+          mem_accumulating);
       Value *maxCondition =
           Builder->CreateFCmpOGT(val_output.value, val_accumulating);
       Builder->CreateCondBr(maxCondition, ifGtMaxBlock, endBlock);
@@ -773,7 +799,9 @@ void Nest::generateMax(expression_t outputExpr, Context *const context,
 #ifdef DEBUGNEST
       vector<Value *> ArgsV;
       Function *debugFloat = context->getFunction("printFloat");
-      Value *finalResult = Builder->CreateLoad(mem_accumulating);
+      Value *finalResult = Builder->CreateLoad(
+          mem_accumulating->getType()->getPointerElementType(),
+          mem_accumulating);
       ArgsV.push_back(finalResult);
       Builder->CreateCall(debugFloat, ArgsV);
 #endif
@@ -826,11 +854,14 @@ void Nest::generateOr(expression_t outputExpr, Context *const context,
 
   Builder->SetInsertPoint(ifBlock);
   val_output = outputExpr.accept(outputExprGenerator);
-  Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
+  Value *val_accumulating = Builder->CreateLoad(
+      mem_accumulating->getType()->getPointerElementType(), mem_accumulating);
 
   switch (outputExpr.getExpressionType()->getTypeID()) {
     case BOOL: {
-      Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
+      Value *val_accumulating = Builder->CreateLoad(
+          mem_accumulating->getType()->getPointerElementType(),
+          mem_accumulating);
 
       ProteusValue val_output = outputExpr.accept(outputExprGenerator);
       Value *val_new = Builder->CreateOr(val_accumulating, val_output.value);
@@ -843,7 +874,9 @@ void Nest::generateOr(expression_t outputExpr, Context *const context,
 #ifdef DEBUGREDUCE
       std::vector<Value *> ArgsV;
       Function *debugBoolean = context->getFunction("printBoolean");
-      Value *finalResult = Builder->CreateLoad(mem_accumulating);
+      Value *finalResult = Builder->CreateLoad(
+          mem_accumulating->getType()->getPointerElementType(),
+          mem_accumulating);
       ArgsV.push_back(finalResult);
       Builder->CreateCall(debugBoolean, ArgsV);
 #endif
@@ -895,11 +928,14 @@ void Nest::generateAnd(expression_t outputExpr, Context *const context,
 
   Builder->SetInsertPoint(ifBlock);
   val_output = outputExpr.accept(outputExprGenerator);
-  Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
+  Value *val_accumulating = Builder->CreateLoad(
+      mem_accumulating->getType()->getPointerElementType(), mem_accumulating);
 
   switch (outputExpr.getExpressionType()->getTypeID()) {
     case BOOL: {
-      Value *val_accumulating = Builder->CreateLoad(mem_accumulating);
+      Value *val_accumulating = Builder->CreateLoad(
+          mem_accumulating->getType()->getPointerElementType(),
+          mem_accumulating);
 
       ProteusValue val_output = outputExpr.accept(outputExprGenerator);
       Value *val_new = Builder->CreateAnd(val_accumulating, val_output.value);
@@ -912,7 +948,9 @@ void Nest::generateAnd(expression_t outputExpr, Context *const context,
 #ifdef DEBUGREDUCE
       std::vector<Value *> ArgsV;
       Function *debugBoolean = context->getFunction("printBoolean");
-      Value *finalResult = Builder->CreateLoad(mem_accumulating);
+      Value *finalResult = Builder->CreateLoad(
+          mem_accumulating->getType()->getPointerElementType(),
+          mem_accumulating);
       ArgsV.push_back(finalResult);
       Builder->CreateCall(debugBoolean, ArgsV);
 #endif

@@ -190,12 +190,15 @@ void ExprMaterializer::freeArenas() const {
   /* Actual Work */
   Function *freeLLVM = context->getFunction("releaseMemoryChunk");
 
-  Value *val_arena = Builder->CreateLoad(opBuffer.mem_buffer);
+  Value *val_arena = Builder->CreateLoad(
+      opBuffer.mem_buffer->getType()->getPointerElementType(),
+      opBuffer.mem_buffer);
   vector<Value *> ArgsFree;
   AllocaInst *mem_arena_void =
       Builder->CreateAlloca(void_ptr_type, nullptr, "voidArenaPtr");
   Builder->CreateStore(val_arena, mem_arena_void);
-  Value *val_arena_void = Builder->CreateLoad(mem_arena_void);
+  Value *val_arena_void = Builder->CreateLoad(
+      mem_arena_void->getType()->getPointerElementType(), mem_arena_void);
   ArgsFree.push_back(val_arena_void);
   Builder->CreateCall(freeLLVM, ArgsFree);
 }
@@ -216,7 +219,9 @@ void ExprMaterializer::updateRelationPointers() const {
 
   Value *val_ptrRawBuffer =
       context->CastPtrToLlvmPtr(char_ptr_ptr_type, ptr_rawBuffer);
-  Value *val_rawBuffer = Builder->CreateLoad(this->opBuffer.mem_buffer);
+  Value *val_rawBuffer = Builder->CreateLoad(
+      this->opBuffer.mem_buffer->getType()->getPointerElementType(),
+      this->opBuffer.mem_buffer);
   Builder->CreateStore(val_rawBuffer, val_ptrRawBuffer);
 }
 
@@ -262,11 +267,18 @@ void ExprMaterializer::consume(Context *const context,
   }
 #endif
 
-  Value *val_arena = Builder->CreateLoad(opBuffer.mem_buffer);
-  Value *offsetInArena = Builder->CreateLoad(opBuffer.mem_offset);
+  Value *val_arena = Builder->CreateLoad(
+      opBuffer.mem_buffer->getType()->getPointerElementType(),
+      opBuffer.mem_buffer);
+  Value *offsetInArena = Builder->CreateLoad(
+      opBuffer.mem_offset->getType()->getPointerElementType(),
+      opBuffer.mem_offset);
   Value *offsetPlusPayload = Builder->CreateAdd(offsetInArena, val_exprSize);
-  Value *arenaSize = Builder->CreateLoad(opBuffer.mem_size);
-  Value *val_tuplesNo = Builder->CreateLoad(opBuffer.mem_tuplesNo);
+  Value *arenaSize = Builder->CreateLoad(
+      opBuffer.mem_size->getType()->getPointerElementType(), opBuffer.mem_size);
+  Value *val_tuplesNo = Builder->CreateLoad(
+      opBuffer.mem_tuplesNo->getType()->getPointerElementType(),
+      opBuffer.mem_tuplesNo);
 
   /* if(offsetInArena + payloadSize >= arenaSize) */
   BasicBlock *entryBlock = Builder->GetInsertBlock();
@@ -286,13 +298,15 @@ void ExprMaterializer::consume(Context *const context,
   AllocaInst *mem_arena_void =
       Builder->CreateAlloca(void_ptr_type, nullptr, "voidArenaPtr");
   Builder->CreateStore(val_arena, mem_arena_void);
-  Value *val_arena_void = Builder->CreateLoad(mem_arena_void);
+  Value *val_arena_void = Builder->CreateLoad(
+      mem_arena_void->getType()->getPointerElementType(), mem_arena_void);
   ArgsRealloc.push_back(val_arena_void);
   ArgsRealloc.push_back(arenaSize);
   Value *val_newArenaVoidPtr = Builder->CreateCall(reallocLLVM, ArgsRealloc);
 
   Builder->CreateStore(val_newArenaVoidPtr, opBuffer.mem_buffer);
-  Value *val_size = Builder->CreateLoad(opBuffer.mem_size);
+  Value *val_size = Builder->CreateLoad(
+      opBuffer.mem_size->getType()->getPointerElementType(), opBuffer.mem_size);
   val_size = Builder->CreateMul(val_size, context->createInt64(2));
   Builder->CreateStore(val_size, opBuffer.mem_size);
   Builder->CreateBr(endBlockArenaFull);
@@ -301,13 +315,17 @@ void ExprMaterializer::consume(Context *const context,
   Builder->SetInsertPoint(endBlockArenaFull);
 
   /* Repeat load - realloc() might have occurred */
-  val_arena = Builder->CreateLoad(opBuffer.mem_buffer);
-  val_size = Builder->CreateLoad(opBuffer.mem_size);
+  val_arena = Builder->CreateLoad(
+      opBuffer.mem_buffer->getType()->getPointerElementType(),
+      opBuffer.mem_buffer);
+  val_size = Builder->CreateLoad(
+      opBuffer.mem_size->getType()->getPointerElementType(), opBuffer.mem_size);
 
   /* XXX STORING PAYLOAD */
   /* 1. arena += (offset) */
-  Value *ptr_arenaShifted =
-      Builder->CreateInBoundsGEP(val_arena, offsetInArena);
+  Value *ptr_arenaShifted = Builder->CreateInBoundsGEP(
+      val_arena->getType()->getNonOpaquePointerElementType(), val_arena,
+      offsetInArena);
 
   /* 2. Casting */
   PointerType *ptr_payloadType = PointerType::get(toMatType, 0);

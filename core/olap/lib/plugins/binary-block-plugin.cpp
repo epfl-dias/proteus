@@ -121,8 +121,10 @@ ProteusValueMemory BinaryBlockPlugin::readProteusValue(
                 ->getPointerElementType()
                 ->getTypeID() ==
             type->getLLVMType(context->getLLVMContext())->getTypeID()) {
-      auto v = context->getBuilder()->CreateLoad(val.mem);
-      auto ld = context->getBuilder()->CreateLoad(v);
+      auto v = context->getBuilder()->CreateLoad(
+          val.mem->getType()->getPointerElementType(), val.mem);
+      auto ld = context->getBuilder()->CreateLoad(
+          v->getType()->getPointerElementType(), v);
 
       {
         llvm::Metadata *Args2[] = {nullptr};
@@ -132,7 +134,10 @@ ProteusValueMemory BinaryBlockPlugin::readProteusValue(
         llvm::Metadata *Args[] = {nullptr, n2};
         MDNode *n = MDNode::get(context->getLLVMContext(), Args);
         n->replaceOperandWith(0, n);
-        ld->setMetadata(LLVMContext::MD_alias_scope, n);
+
+        llvm::Metadata *Args3[] = {n};
+        MDNode *n3 = MDNode::get(context->getLLVMContext(), Args3);
+        ld->setMetadata(LLVMContext::MD_alias_scope, n3);
       }
 
       {  // Loaded value will be the same in all the places it will be loaded
@@ -191,7 +196,9 @@ ProteusValue BinaryBlockPlugin::readCachedValue(CacheInfo info,
   RecordAttribute tupleIdentifier{fnamePrefix, activeLoop, getOIDType()};
   ProteusValueMemory mem_oidWrapper = currState[tupleIdentifier];
   /* OID is a plain integer - starts from 1!!! */
-  Value *val_oid = Builder->CreateLoad(mem_oidWrapper.mem);
+  Value *val_oid = Builder->CreateLoad(
+      mem_oidWrapper.mem->getType()->getPointerElementType(),
+      mem_oidWrapper.mem);
   val_oid = Builder->CreateSub(val_oid, context->createInt64(1));
 
   /* Need to find appropriate position in cache now -- should be OK(?) */
@@ -223,7 +230,8 @@ ProteusValue BinaryBlockPlugin::readCachedValue(CacheInfo info,
   Builder->CreateStore(val_cachedField, mem_cachedField);
 
   ProteusValue valWrapper;
-  valWrapper.value = Builder->CreateLoad(mem_cachedField);
+  valWrapper.value = Builder->CreateLoad(
+      mem_cachedField->getType()->getPointerElementType(), mem_cachedField);
   valWrapper.isNull = context->createFalse();
 #ifdef DEBUG
   {
@@ -244,7 +252,9 @@ ProteusValue BinaryBlockPlugin::hashValue(ProteusValueMemory mem_value,
   assert(dynamic_cast<ParallelContext *>(context));
   auto mem = readProteusValue(mem_value, type,
                               dynamic_cast<ParallelContext *>(context));
-  ProteusValue v{Builder->CreateLoad(mem.mem), mem.isNull};
+  ProteusValue v{
+      Builder->CreateLoad(mem.mem->getType()->getPointerElementType(), mem.mem),
+      mem.isNull};
   return hashPrimitive(v, type->getTypeID(), context);
 }
 
@@ -321,7 +331,8 @@ void BinaryBlockPlugin::skipLLVM(ParallelContext *context,
   auto mem_pos = NamedValuesBinaryCol.at(currPosVar);
 
   // Increment and store back
-  Value *val_curr_pos = Builder->CreateLoad(mem_pos);
+  Value *val_curr_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
   Value *val_new_pos = Builder->CreateAdd(val_curr_pos, offset);
   Builder->CreateStore(val_new_pos, mem_pos);
 }
@@ -347,7 +358,8 @@ void BinaryBlockPlugin::nextEntry(ParallelContext *context,
   BasicBlock *stepBB = BasicBlock::Create(llvmContext, "incStep", F);
   BasicBlock *afterBB = BasicBlock::Create(llvmContext, "incAfter", F);
 
-  Value *part_i = Builder->CreateLoad(part_i_ptr, "part_i");
+  Value *part_i = Builder->CreateLoad(
+      part_i_ptr->getType()->getPointerElementType(), part_i_ptr, "part_i");
 
   auto *size_type = (IntegerType *)part_i->getType();
 
@@ -366,7 +378,8 @@ void BinaryBlockPlugin::nextEntry(ParallelContext *context,
 
   Builder->CreateStore(ConstantInt::get(size_type, 0), part_i_ptr);
 
-  Value *block_i = Builder->CreateLoad(block_i_ptr, "block_i");
+  Value *block_i = Builder->CreateLoad(
+      block_i_ptr->getType()->getPointerElementType(), block_i_ptr, "block_i");
   Builder->CreateStore(Builder->CreateAdd(block_i, blockSize), block_i_ptr);
 
   Builder->CreateBr(afterBB);
@@ -375,9 +388,14 @@ void BinaryBlockPlugin::nextEntry(ParallelContext *context,
 
   // itemCtr = block_i_ptr * Nparts + part_i_ptr * blockSize
   Value *itemCtr = Builder->CreateAdd(
-      Builder->CreateMul(Builder->CreateLoad(block_i_ptr),
-                         ConstantInt::get(size_type, Nparts)),
-      Builder->CreateMul(Builder->CreateLoad(part_i_ptr), blockSize));
+      Builder->CreateMul(
+          Builder->CreateLoad(block_i_ptr->getType()->getPointerElementType(),
+                              block_i_ptr),
+          ConstantInt::get(size_type, Nparts)),
+      Builder->CreateMul(
+          Builder->CreateLoad(part_i_ptr->getType()->getPointerElementType(),
+                              part_i_ptr),
+          blockSize));
 
   Builder->CreateStore(itemCtr, mem_itemCtr);
 }
@@ -404,12 +422,16 @@ void BinaryBlockPlugin::readAsLLVM(
 
   // Fetch values from symbol table
   auto mem_pos = NamedValuesBinaryCol.at(currPosVar);
-  Value *val_pos = Builder->CreateLoad(mem_pos);
+  Value *val_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
 
   auto buf = NamedValuesBinaryCol.at(currBufVar);
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
-  Value *parsedInt = Builder->CreateLoad(bufShiftedPtr);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, val_pos);
+  Value *parsedInt = Builder->CreateLoad(
+      bufShiftedPtr->getType()->getPointerElementType(), bufShiftedPtr);
 
   AllocaInst *mem_currResult = context->CreateEntryBlockAlloca(
       TheFunction, "currResult", parsedInt->getType());
@@ -603,8 +625,10 @@ std::pair<llvm::Value *, llvm::Value *> BinaryBlockPlugin::getPartitionSizes(
 
   Value *max_pack_size = ConstantInt::get(sizeType, 0);
   for (size_t i = 0; i < Nparts; ++i) {
-    auto v = Builder->CreateLoad(Builder->CreateInBoundsGEP(
-        N_parts_ptr, {context->createSizeT(0), context->createSizeT(i)}));
+    auto sv = Builder->CreateInBoundsGEP(
+        N_parts_ptr->getType()->getNonOpaquePointerElementType(), N_parts_ptr,
+        {context->createSizeT(0), context->createSizeT(i)});
+    auto v = Builder->CreateLoad(sv->getType()->getPointerElementType(), sv);
     auto cond = Builder->CreateICmpUGT(max_pack_size, v);
     max_pack_size = Builder->CreateSelect(cond, max_pack_size, v);
   }
@@ -706,7 +730,8 @@ void BinaryBlockPlugin::scan(const ::Operator &producer,
   //  * while(block_i < max(partsize))
   //  */
 
-  Value *block_i = Builder->CreateLoad(block_i_ptr, "block_i");
+  Value *block_i = Builder->CreateLoad(
+      block_i_ptr->getType()->getPointerElementType(), block_i_ptr, "block_i");
 
   Value *cond = Builder->CreateICmpULT(block_i, maxPackCnt);
 
@@ -716,11 +741,16 @@ void BinaryBlockPlugin::scan(const ::Operator &producer,
   // Start insertion in LoopBB.
   Builder->SetInsertPoint(LoopBB);
 
-  Value *part_i_loc = Builder->CreateLoad(part_i_ptr, "part_i");
-  Value *block_i_loc = Builder->CreateLoad(block_i_ptr, "block_i");
+  Value *part_i_loc = Builder->CreateLoad(
+      part_i_ptr->getType()->getPointerElementType(), part_i_ptr, "part_i");
+  Value *block_i_loc = Builder->CreateLoad(
+      block_i_ptr->getType()->getPointerElementType(), block_i_ptr, "block_i");
 
-  Value *tupleCnt = Builder->CreateLoad(Builder->CreateInBoundsGEP(
-      N_parts_ptr, std::vector<Value *>{context->createInt64(0), part_i_loc}));
+  auto tupleCntPtr = Builder->CreateInBoundsGEP(
+      N_parts_ptr->getType()->getNonOpaquePointerElementType(), N_parts_ptr,
+      std::vector<Value *>{context->createInt64(0), part_i_loc});
+  Value *tupleCnt = Builder->CreateLoad(
+      tupleCntPtr->getType()->getPointerElementType(), tupleCntPtr);
 
   Value *part_unfinished = Builder->CreateICmpULT(block_i_loc, tupleCnt);
 
@@ -748,10 +778,13 @@ void BinaryBlockPlugin::scan(const ::Operator &producer,
         PointerType::get(attr.getLLVMType(context->getLLVMContext()), 0);
 
     Value *base_ptr = Builder->CreateInBoundsGEP(
+        parts_ptrs[i]->getType()->getNonOpaquePointerElementType(),
         parts_ptrs[i],
         std::vector<Value *>{context->createInt64(0), part_i_loc});
-    Value *val_bufPtr =
-        Builder->CreateInBoundsGEP(Builder->CreateLoad(base_ptr), block_i_loc);
+    auto ld = Builder->CreateLoad(base_ptr->getType()->getPointerElementType(),
+                                  base_ptr);
+    Value *val_bufPtr = Builder->CreateInBoundsGEP(
+        ld->getType()->getNonOpaquePointerElementType(), ld, block_i_loc);
     val_bufPtr->setName(attr.getAttrName() + "_ptr");
 
     string bufVarStr = string(bufVar);
@@ -854,7 +887,8 @@ void BinaryBlockPlugin::flushValueInternal(Context *context,
                                            const ExpressionType *type,
                                            std::string fileName) {
   IRBuilder<> *Builder = context->getBuilder();
-  Value *val_attr = Builder->CreateLoad(mem_value.mem);
+  Value *val_attr = Builder->CreateLoad(
+      mem_value.mem->getType()->getPointerElementType(), mem_value.mem);
   switch (type->getTypeID()) {
     case RECORD: {
       auto attrs = ((const RecordType *)type)->getArgs();
@@ -965,7 +999,9 @@ void BinaryBlockPlugin::forEachInCollection(
    */
   context->gen_while([&]() {
     // Check whether we reached the end
-    lhs = Builder->CreateLoad(mem_itemCtr, "i");
+    lhs = Builder->CreateLoad(
+        mem_itemCtr->getType()->getNonOpaquePointerElementType(), mem_itemCtr,
+        "i");
 
     return ProteusValue{Builder->CreateICmpSLT(lhs, cnt),
                         context->createFalse()};
@@ -998,7 +1034,9 @@ void BinaryBlockPlugin::forEachInCollection(
     f(ProteusValueMemory{mem_itemCtr, context->createFalse()}, LoopID);
 
     // Forward inside the collection
-    Value *val_curr_itemCtr = Builder->CreateLoad(mem_itemCtr);
+    assert(mem_itemCtr->getType()->getNonOpaquePointerElementType());
+    Value *val_curr_itemCtr = Builder->CreateLoad(
+        mem_itemCtr->getType()->getNonOpaquePointerElementType(), mem_itemCtr);
     Value *val_new_itemCtr = Builder->CreateAdd(val_curr_itemCtr, step.value);
     Builder->CreateStore(val_new_itemCtr, mem_itemCtr);
   });

@@ -177,7 +177,9 @@ ProteusValue JSONPlugin::collectionHasNext(
   Builder->CreateStore(parentToken, mem_tokens_shifted);
   Value *parent_token_end = context->getStructElem(mem_tokens_shifted, 2);
 
-  Value *val_currentTokenNo = Builder->CreateLoad(mem_currentTokenNo.mem);
+  Value *val_currentTokenNo = Builder->CreateLoad(
+      mem_currentTokenNo.mem->getType()->getPointerElementType(),
+      mem_currentTokenNo.mem);
   Value *currentToken = context->getArrayElem(mem_tokens, val_currentTokenNo);
   Builder->CreateStore(currentToken, mem_tokens_shifted);
   Value *current_token_end = context->getStructElem(mem_tokens_shifted, 2);
@@ -212,7 +214,9 @@ ProteusValueMemory JSONPlugin::collectionGetNext(
   Function *debugInt = context->getFunction("printi");
   Function *debugInt64 = context->getFunction("printi64");
 
-  Value *currentTokenNo = Builder->CreateLoad(mem_currentToken.mem);
+  Value *currentTokenNo = Builder->CreateLoad(
+      mem_currentToken.mem->getType()->getPointerElementType(),
+      mem_currentToken.mem);
   /**
    * Reason for this:
    * Need to return 'i', but also need to increment it before returning
@@ -261,7 +265,8 @@ ProteusValueMemory JSONPlugin::collectionGetNext(
   Builder->SetInsertPoint(skipContentsCond);
   // Prepare tokens[i_contents].start
   Value *val_0 = Builder->getInt32(0);
-  val_i_contents = Builder->CreateLoad(mem_i_contents);
+  val_i_contents = Builder->CreateLoad(
+      mem_i_contents->getType()->getPointerElementType(), mem_i_contents);
   AllocaInst *mem_tokens = NamedValuesJSON[var_tokenPtr];
   AllocaInst *mem_tokens_i_contents_shifted = context->CreateEntryBlockAlloca(
       F, std::string(var_tokenPtr), context->CreateJSMNStruct());
@@ -291,7 +296,8 @@ ProteusValueMemory JSONPlugin::collectionGetNext(
   Builder->SetInsertPoint(skipContentsBody);
   Value *val_i_contents_1 = Builder->CreateAdd(val_i_contents, val_1);
   Builder->CreateStore(val_i_contents_1, mem_i_contents);
-  val_i_contents = Builder->CreateLoad(mem_i_contents);
+  val_i_contents = Builder->CreateLoad(
+      mem_i_contents->getType()->getPointerElementType(), mem_i_contents);
   Builder->CreateBr(skipContentsInc);
 
   /**
@@ -306,7 +312,8 @@ ProteusValueMemory JSONPlugin::collectionGetNext(
    * i = i_contents;
    */
   Builder->SetInsertPoint(skipContentsEnd);
-  val_i_contents = Builder->CreateLoad(mem_i_contents);
+  val_i_contents = Builder->CreateLoad(
+      mem_i_contents->getType()->getPointerElementType(), mem_i_contents);
   Builder->CreateStore(val_i_contents, mem_currentToken.mem);
 
   ProteusValueMemory mem_wrapperVal;
@@ -365,7 +372,8 @@ void JSONPlugin::scanObjects(const ::Operator &producer, Function *debug) {
   // Prepare left-hand side
   AllocaInst *mem_tokens = NamedValuesJSON[var_tokenPtr];
   AllocaInst *mem_tokenOffset = NamedValuesJSON[var_tokenOffset];
-  Value *val_offset = Builder->CreateLoad(mem_tokenOffset);
+  Value *val_offset = Builder->CreateLoad(
+      mem_tokenOffset->getType()->getPointerElementType(), mem_tokenOffset);
 
   PointerType *ptr_jsmnStructType = context->CreateJSMNStructPtr();
   AllocaInst *mem_tokens_shifted = context->CreateEntryBlockAlloca(
@@ -458,9 +466,11 @@ void JSONPlugin::skipToEnd() {
 
   AllocaInst *mem_tokens = NamedValuesJSON[var_tokenPtr];
   AllocaInst *mem_tokenOffset = NamedValuesJSON[var_tokenOffset];
-  Value *val_offset = Builder->CreateLoad(mem_tokenOffset);
+  Value *val_offset = Builder->CreateLoad(
+      mem_tokenOffset->getType()->getPointerElementType(), mem_tokenOffset);
 
-  Value *val_curr = Builder->CreateLoad(mem_tokenOffset);
+  Value *val_curr = Builder->CreateLoad(
+      mem_tokenOffset->getType()->getPointerElementType(), mem_tokenOffset);
   AllocaInst *mem_tokens_curr_shifted = context->CreateEntryBlockAlloca(
       F, std::string(var_tokenPtr), context->CreateJSMNStruct());
   Value *token_curr = context->getArrayElem(mem_tokens, val_curr);
@@ -484,7 +494,8 @@ void JSONPlugin::skipToEnd() {
    * Condition: tokens[i].start < tokens[curr].end && tokens[i].start != 0
    */
   Builder->SetInsertPoint(tokenSkipCond);
-  val_offset = Builder->CreateLoad(mem_tokenOffset);
+  val_offset = Builder->CreateLoad(
+      mem_tokenOffset->getType()->getPointerElementType(), mem_tokenOffset);
   AllocaInst *mem_tokens_i_shifted = context->CreateEntryBlockAlloca(
       F, std::string(var_tokenPtr), context->CreateJSMNStruct());
   Value *token_i = context->getArrayElem(mem_tokens, val_offset);
@@ -509,7 +520,8 @@ void JSONPlugin::skipToEnd() {
    */
   Builder->SetInsertPoint(tokenSkipBody);
 
-  val_offset = Builder->CreateLoad(mem_tokenOffset);
+  val_offset = Builder->CreateLoad(
+      mem_tokenOffset->getType()->getPointerElementType(), mem_tokenOffset);
   Value *val_step = Builder->getInt64(1);
   // CastInst* token_i_start64 = new SExtInst(token_i_start, int64Type, "i_64",
   // tokenSkipBody); cout<<int64_conv->getType()->getTypeID()<< " vs " <<
@@ -572,8 +584,9 @@ ProteusValueMemory JSONPlugin::readPath(string activeRelation,
   ExpressionType *oidType = new IntType();
   RecordAttribute tupleIdentifier(activeRelation, activeLoop, oidType);
   ProteusValueMemory mem_parentTokenNo = state[tupleIdentifier];
-  Value *parentTokenNo =
-      Builder->CreateLoad(mem_parentTokenNo.mem, "parentTokenNo");
+  Value *parentTokenNo = Builder->CreateLoad(
+      mem_parentTokenNo.mem->getType()->getPointerElementType(),
+      mem_parentTokenNo.mem, "parentTokenNo");
 
   // Preparing default return value (i.e., path not found)
   AllocaInst *mem_return =
@@ -614,7 +627,7 @@ ProteusValueMemory JSONPlugin::readPath(string activeRelation,
    */
 
   Builder->SetInsertPoint(tokenSkipCond);
-  val_i = Builder->CreateLoad(mem_i);
+  val_i = Builder->CreateLoad(mem_i->getType()->getPointerElementType(), mem_i);
   AllocaInst *mem_tokens_i_shifted = context->CreateEntryBlockAlloca(
       F, std::string(var_tokenPtr), context->CreateJSMNStruct());
   Value *token_i = context->getArrayElem(mem_tokens, val_i);
@@ -649,7 +662,9 @@ ProteusValueMemory JSONPlugin::readPath(string activeRelation,
   strcpy(pathCopy, path);
   pathCopy[len - 1] = '\0';
   Value *globalStr = context->CreateGlobalString(pathCopy);
-  Value *buf = Builder->CreateLoad(NamedValuesJSON[var_buf]);
+  Value *buf = Builder->CreateLoad(
+      NamedValuesJSON[var_buf]->getType()->getPointerElementType(),
+      NamedValuesJSON[var_buf]);
   // Preparing custom 'strcmp'
   //    vector<Value*> argsV;
   argsV.push_back(buf);
@@ -704,7 +719,7 @@ ProteusValueMemory JSONPlugin::readPath(string activeRelation,
    * i += 2
    */
   Builder->SetInsertPoint(tokenSkipInc);
-  val_i = Builder->CreateLoad(mem_i);
+  val_i = Builder->CreateLoad(mem_i->getType()->getPointerElementType(), mem_i);
   Value *val_2 = Builder->getInt64(2);
   Value *val_i_2 = Builder->CreateAdd(val_i, val_2);
   Builder->CreateStore(val_i_2, mem_i);
@@ -743,7 +758,9 @@ ProteusValueMemory JSONPlugin::readPathInternal(
   Function *debugInt = context->getFunction("printi64");
   Function *debugInt32 = context->getFunction("printi");
 
-  Value *parentTokenNo = Builder->CreateLoad(mem_parentTokenNo.mem);
+  Value *parentTokenNo = Builder->CreateLoad(
+      mem_parentTokenNo.mem->getType()->getPointerElementType(),
+      mem_parentTokenNo.mem);
 
   // Preparing default return value (i.e., path not found)
   AllocaInst *mem_return =
@@ -784,7 +801,7 @@ ProteusValueMemory JSONPlugin::readPathInternal(
    */
 
   Builder->SetInsertPoint(tokenSkipCond);
-  val_i = Builder->CreateLoad(mem_i);
+  val_i = Builder->CreateLoad(mem_i->getType()->getPointerElementType(), mem_i);
   AllocaInst *mem_tokens_i_shifted = context->CreateEntryBlockAlloca(
       F, std::string(var_tokenPtr), context->CreateJSMNStruct());
   Value *token_i = context->getArrayElem(mem_tokens, val_i);
@@ -835,7 +852,9 @@ ProteusValueMemory JSONPlugin::readPathInternal(
   strcpy(pathCopy, path);
   pathCopy[len] = '\0';
   Value *globalStr = context->CreateGlobalString(pathCopy);
-  Value *buf = Builder->CreateLoad(NamedValuesJSON[var_buf]);
+  Value *buf = Builder->CreateLoad(
+      NamedValuesJSON[var_buf]->getType()->getPointerElementType(),
+      NamedValuesJSON[var_buf]);
   // Preparing custom 'strcmp'
   argsV.push_back(buf);
   argsV.push_back(token_i_start);
@@ -877,7 +896,7 @@ ProteusValueMemory JSONPlugin::readPathInternal(
    * i += 2
    */
   Builder->SetInsertPoint(tokenSkipInc);
-  val_i = Builder->CreateLoad(mem_i);
+  val_i = Builder->CreateLoad(mem_i->getType()->getPointerElementType(), mem_i);
   Value *val_2 = Builder->getInt64(2);
   Value *val_i_2 = Builder->CreateAdd(val_i, val_2);
   Builder->CreateStore(val_i_2, mem_i);
@@ -914,7 +933,8 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
   PointerType *ptr_jsmnStructType = context->CreateJSMNStructPtr();
 
   vector<Value *> ArgsV;
-  Value *tokenNo = Builder->CreateLoad(mem_value.mem);
+  Value *tokenNo = Builder->CreateLoad(
+      mem_value.mem->getType()->getPointerElementType(), mem_value.mem);
 
   AllocaInst *mem_tokens = NamedValuesJSON[var_tokenPtr];
   AllocaInst *mem_tokens_shifted = context->CreateEntryBlockAlloca(
@@ -924,8 +944,11 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
   Value *token_start = context->getStructElem(mem_tokens_shifted, 1);
   Value *token_end = context->getStructElem(mem_tokens_shifted, 2);
 
-  Value *bufPtr = Builder->CreateLoad(NamedValuesJSON[var_buf]);
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, token_start);
+  Value *bufPtr = Builder->CreateLoad(
+      NamedValuesJSON[var_buf]->getType()->getPointerElementType(),
+      NamedValuesJSON[var_buf]);
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, token_start);
 
   Function *conversionFunc = nullptr;
 
@@ -1121,7 +1144,9 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
 
   ProteusValueMemory mem_valWrapper;
   mem_valWrapper.mem = mem_convertedValue;
-  mem_valWrapper.isNull = Builder->CreateLoad(mem_convertedValue_isNull);
+  mem_valWrapper.isNull = Builder->CreateLoad(
+      mem_convertedValue_isNull->getType()->getPointerElementType(),
+      mem_convertedValue_isNull);
 #ifdef DEBUG  // Invalid / nullptr!
 //    ArgsV.clear();
 //    Function* debugBoolean = context->getFunction("printBoolean");
@@ -1148,7 +1173,8 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
   Function *debugInt64 = context->getFunction("printi64");
   Function *debugInt = context->getFunction("printi");
   vector<Value *> ArgsV;
-  Value *tokenNo = Builder->CreateLoad(mem_value.mem);
+  Value *tokenNo = Builder->CreateLoad(
+      mem_value.mem->getType()->getPointerElementType(), mem_value.mem);
 
   AllocaInst *mem_tokens = NamedValuesJSON[var_tokenPtr];
   AllocaInst *mem_tokens_shifted = context->CreateEntryBlockAlloca(
@@ -1158,8 +1184,11 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
   Value *token_start = context->getStructElem(mem_tokens_shifted, 1);
   Value *token_end = context->getStructElem(mem_tokens_shifted, 2);
 
-  Value *bufPtr = Builder->CreateLoad(NamedValuesJSON[var_buf]);
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, token_start);
+  Value *bufPtr = Builder->CreateLoad(
+      NamedValuesJSON[var_buf]->getType()->getPointerElementType(),
+      NamedValuesJSON[var_buf]);
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, token_start);
 
   Function *conversionFunc = nullptr;
   Function *hashFunc = nullptr;
@@ -1251,14 +1280,18 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
         NamedValuesJSON[var_tokenOffsetHash] = mem_path.mem;
 
         // CAREFUL: It's generated code that has to be stitched
-        hashedValue = Builder->CreateLoad(mem_hashedValue);
+        hashedValue = Builder->CreateLoad(
+            mem_hashedValue->getType()->getPointerElementType(),
+            mem_hashedValue);
         ProteusValue partialHash =
             hashValue(mem_path, attr->getOriginalType(), context);
         ArgsV.clear();
         ArgsV.push_back(hashedValue);
         ArgsV.push_back(partialHash.value);
         // XXX Why loading now?
-        // hashedValue = Builder->CreateLoad(mem_hashedValue);
+        // hashedValue =
+        // Builder->CreateLoad(mem_hashedValue->getType()->getPointerElementType(),
+        // mem_hashedValue);
         hashedValue =
             Builder->CreateCall(hashCombine, ArgsV, "combineHashesResJSON");
         Builder->CreateStore(hashedValue, mem_hashedValue);
@@ -1295,7 +1328,8 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
       Builder->SetInsertPoint(unrollCond);
       AllocaInst *mem_tokens_i_shifted = context->CreateEntryBlockAlloca(
           F, string(var_tokenPtr), context->CreateJSMNStruct());
-      val_tokenCnt = Builder->CreateLoad(mem_tokenCnt);
+      val_tokenCnt = Builder->CreateLoad(
+          mem_tokenCnt->getType()->getPointerElementType(), mem_tokenCnt);
       Value *token_i = context->getArrayElem(mem_tokens, val_tokenCnt);
       Builder->CreateStore(token_i, mem_tokens_i_shifted);
 
@@ -1329,14 +1363,18 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
       ArgsV.clear();
       ArgsV.push_back(hashedValue);
       ArgsV.push_back(partialHash.value);
-      hashedValue = Builder->CreateLoad(mem_hashedValue);
+      hashedValue = Builder->CreateLoad(
+          mem_hashedValue->getType()->getPointerElementType(), mem_hashedValue);
       hashedValue =
           Builder->CreateCall(hashCombine, ArgsV, "combineHashesResJSON");
       Builder->CreateStore(hashedValue, mem_hashedValue);
 
       // new offset due to recursive application of hashedValue
       Value *newTokenOffset =
-          Builder->CreateLoad(NamedValuesJSON[var_tokenOffsetHash]);
+          Builder->CreateLoad(NamedValuesJSON[var_tokenOffsetHash]
+                                  ->getType()
+                                  ->getPointerElementType(),
+                              NamedValuesJSON[var_tokenOffsetHash]);
       Builder->CreateStore(newTokenOffset, mem_tokenCnt);
 
       // Performing just a +1 addition would cause a lot of extra work
@@ -1457,8 +1495,11 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
   Builder->SetInsertPoint(endBlock);
 
   ProteusValue valWrapper;
-  valWrapper.value = Builder->CreateLoad(mem_hashedValue);
-  valWrapper.isNull = Builder->CreateLoad(mem_hashedValue_isNull);
+  valWrapper.value = Builder->CreateLoad(
+      mem_hashedValue->getType()->getPointerElementType(), mem_hashedValue);
+  valWrapper.isNull = Builder->CreateLoad(
+      mem_hashedValue_isNull->getType()->getPointerElementType(),
+      mem_hashedValue_isNull);
   return valWrapper;
 }
 
@@ -1484,7 +1525,9 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
 //    Function* debugInt64 = context->getFunction("printi64");
 //    Function* debugInt = context->getFunction("printi");
 //    vector<Value*> ArgsV;
-//    Value* tokenNo = Builder->CreateLoad(mem_value.mem);
+//    Value* tokenNo =
+//    Builder->CreateLoad(mem_value.mem->getType()->getPointerElementType(),
+//    mem_value.mem);
 //
 //    AllocaInst* mem_tokens = NamedValuesJSON[var_tokenPtr];
 //    AllocaInst* mem_tokenOffset = NamedValuesJSON[var_tokenOffset];
@@ -1496,8 +1539,10 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
 //    Value* token_start = context->getStructElem(mem_tokens_shifted,1);
 //    Value* token_end = context->getStructElem(mem_tokens_shifted,2);
 //
-//    Value* bufPtr = Builder->CreateLoad(NamedValuesJSON[var_buf]);
-//    Value* bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, token_start);
+//    Value* bufPtr =
+//    Builder->CreateLoad(NamedValuesJSON[var_buf]->getType()->getPointerElementType(),
+//    NamedValuesJSON[var_buf]); Value* bufShiftedPtr =
+//    Builder->CreateInBoundsGEP(bufPtr, token_start);
 //
 //    Function* conversionFunc = nullptr;
 //    Function* hashFunc = nullptr;
@@ -1577,9 +1622,11 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
 //    Builder->SetInsertPoint(endBlock);
 //
 //    ProteusValue valWrapper;
-//    valWrapper.value = Builder->CreateLoad(mem_hashedValue);
-//    valWrapper.isNull = Builder->CreateLoad(mem_hashedValue_isNull);
-//    return valWrapper;
+//    valWrapper.value =
+//    Builder->CreateLoad(mem_hashedValue->getType()->getPointerElementType(),
+//    mem_hashedValue); valWrapper.isNull =
+//    Builder->CreateLoad(mem_hashedValue_isNull->getType()->getPointerElementType(),
+//    mem_hashedValue_isNull); return valWrapper;
 //}
 void JSONPlugin::flushChunk(ProteusValueMemory mem_value, Value *fileName) {
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -1596,9 +1643,12 @@ void JSONPlugin::flushChunk(ProteusValueMemory mem_value, Value *fileName) {
   // Preparing arguments
   std::vector<Value *> ArgsV;
   // buffer
-  Value *bufPtr = Builder->CreateLoad(NamedValuesJSON[var_buf]);
+  Value *bufPtr = Builder->CreateLoad(
+      NamedValuesJSON[var_buf]->getType()->getPointerElementType(),
+      NamedValuesJSON[var_buf]);
   // start + end
-  Value *tokenNo = Builder->CreateLoad(mem_value.mem);
+  Value *tokenNo = Builder->CreateLoad(
+      mem_value.mem->getType()->getPointerElementType(), mem_value.mem);
 
 #ifdef DEBUG
 //    Function* debugInt = context->getFunction("printi64");
@@ -1673,7 +1723,8 @@ llvm::Value *JSONPlugin::getValueSize(ProteusValueMemory mem_value,
       /* Must return tokens[tokenNo].end - tokens[tokenNo].start */
 
       AllocaInst *mem_tokens = NamedValuesJSON[var_tokenPtr];
-      Value *val_offset = Builder->CreateLoad(mem_value.mem);
+      Value *val_offset = Builder->CreateLoad(
+          mem_value.mem->getType()->getPointerElementType(), mem_value.mem);
 
       PointerType *ptr_jsmnStructType = context->CreateJSMNStructPtr();
       AllocaInst *mem_tokens_shifted = context->CreateEntryBlockAlloca(

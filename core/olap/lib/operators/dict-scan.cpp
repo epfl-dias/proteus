@@ -191,7 +191,8 @@ void DictScan::produce_(ParallelContext *context) {
   }
 
   Builder->CreateCall(fnextDictScan, curr);
-  auto old_oid = Builder->CreateLoad(oid);
+  auto old_oid =
+      Builder->CreateLoad(oid->getType()->getPointerElementType(), oid);
   auto new_oid = Builder->CreateAdd(old_oid, ConstantInt::get(oid_type, 1));
   Builder->CreateStore(new_oid, oid);
 

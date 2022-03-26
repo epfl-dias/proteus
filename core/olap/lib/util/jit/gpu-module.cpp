@@ -51,12 +51,12 @@
 #include <llvm/IR/PassManager.h>
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Linker/Linker.h>
+#include <llvm/MC/TargetRegistry.h>
 #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/Host.h>
 #include <llvm/Support/SmallVectorMemoryBuffer.h>
 #include <llvm/Support/SourceMgr.h>
-#include <llvm/Support/TargetRegistry.h>
 #include <llvm/Transforms/IPO/GlobalDCE.h>
 #include <llvm/Transforms/IPO/Internalize.h>
 #include <llvm/Transforms/Utils/Cloning.h>

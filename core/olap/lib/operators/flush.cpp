@@ -74,8 +74,10 @@ void Flush::produce_(ParallelContext *context) {
               llvm::ConstantInt::get(
                   oidtype->getLLVMType(context->getLLVMContext()), 0),
               context->createFalse());
-          variableBindings[rowcount] = context->toMem(
-              context->getBuilder()->CreateLoad(s), context->createFalse());
+          variableBindings[rowcount] =
+              context->toMem(context->getBuilder()->CreateLoad(
+                                 s->getType()->getPointerElementType(), s),
+                             context->createFalse());
           getParent()->consume(context, {*this, variableBindings});
         }
         context->deallocateStateVar(s);
@@ -92,7 +94,8 @@ void Flush::consume(ParallelContext *context, const OperatorState &childState) {
 
   // results so far
   Value *mem_resultCtr = context->getStateVar(result_cnt_id);
-  Value *resultCtr = Builder->CreateLoad(mem_resultCtr);
+  Value *resultCtr = Builder->CreateLoad(
+      mem_resultCtr->getType()->getPointerElementType(), mem_resultCtr);
 
   // flushing out delimiter (IF NEEDED)
   flusher.flushDelim(resultCtr);

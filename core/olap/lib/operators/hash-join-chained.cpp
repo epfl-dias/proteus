@@ -272,7 +272,11 @@ void HashJoinChained::generate_build(ParallelContext *context,
 
   // old_head = head[index]
   Value *old_head =
-      replaceHead(context, Builder->CreateInBoundsGEP(head_ptr, hash), old_cnt);
+      replaceHead(context,
+                  Builder->CreateInBoundsGEP(
+                      head_ptr->getType()->getNonOpaquePointerElementType(),
+                      head_ptr, hash),
+                  old_cnt);
 
   std::vector<Value *> out_ptrs;
   std::vector<Value *> out_vals;
@@ -289,7 +293,9 @@ void HashJoinChained::generate_build(ParallelContext *context,
     // out_ptr->addAttr(Attribute::getWithAlignment(llvmContext,
     // context->getSizeOf(out_ptr)));
 
-    out_ptrs.push_back(Builder->CreateInBoundsGEP(out_ptr, old_cnt));
+    out_ptrs.push_back(Builder->CreateInBoundsGEP(
+        out_ptr->getType()->getNonOpaquePointerElementType(), out_ptr,
+        old_cnt));
     out_vals.push_back(
         UndefValue::get(out_ptr->getType()->getPointerElementType()));
   }
@@ -336,8 +342,10 @@ void HashJoinChained::generate_probe(ParallelContext *context,
   // context->getSizeOf(head_ptr->getType()->getPointerElementType()); Value *
   // current = Builder->CreateAlignedLoad(Builder->CreateInBoundsGEP(head_ptr,
   // hash), s & -s);
-  Value *current =
-      Builder->CreateLoad(Builder->CreateInBoundsGEP(head_ptr, hash));
+  auto currentPtr = Builder->CreateInBoundsGEP(
+      head_ptr->getType()->getNonOpaquePointerElementType(), head_ptr, hash);
+  Value *current = Builder->CreateLoad(
+      currentPtr->getType()->getPointerElementType(), currentPtr);
   current->setName("current");
 
   AllocaInst *mem_current = context->CreateEntryBlockAlloca(
@@ -359,9 +367,10 @@ void HashJoinChained::generate_probe(ParallelContext *context,
 
   // check end of chain
 
-  Value *condition =
-      Builder->CreateICmpNE(Builder->CreateLoad(mem_current),
-                            ConstantInt::get(current->getType(), ~((size_t)0)));
+  Value *condition = Builder->CreateICmpNE(
+      Builder->CreateLoad(mem_current->getType()->getPointerElementType(),
+                          mem_current),
+      ConstantInt::get(current->getType(), ~((size_t)0)));
 
   Builder->CreateCondBr(condition, ThenBB, MergeBB);
   Builder->SetInsertPoint(ThenBB);
@@ -379,12 +388,15 @@ void HashJoinChained::generate_probe(ParallelContext *context,
     }
     // in_ptrs.push_back(in_ptr);
 
-    in_ptrs.push_back(
-        Builder->CreateInBoundsGEP(in_ptr, Builder->CreateLoad(mem_current)));
+    in_ptrs.push_back(Builder->CreateInBoundsGEP(
+        in_ptr->getType()->getNonOpaquePointerElementType(), in_ptr,
+        Builder->CreateLoad(mem_current->getType()->getPointerElementType(),
+                            mem_current)));
     size_t s =
         context->getSizeOf(in_ptrs.back()->getType()->getPointerElementType());
     //    in_vals.push_back(Builder->CreateAlignedLoad(in_ptrs.back(), s & -s));
-    in_vals.push_back(Builder->CreateLoad(in_ptrs.back()));
+    in_vals.push_back(Builder->CreateLoad(
+        in_ptrs.back()->getType()->getPointerElementType(), in_ptrs.back()));
   }
 
   Value *next = Builder->CreateExtractValue(in_vals[0], 0);

@@ -78,8 +78,8 @@ class AdaptiveRadixTreeIndex : public Index<K, V> {
                       std::shared_ptr<ARTNode<K, V>> old_node,
                       std::shared_ptr<ARTNode<K, V>> new_node);
 
-  friend std::ostream &operator<<<>(std::ostream &out,
-                                    const AdaptiveRadixTreeIndex<K, V> &r);
+  friend std::ostream &operator<< <>(std::ostream &out,
+                                     const AdaptiveRadixTreeIndex<K, V> &r);
 };
 
 // template <class K = uint64_t, class V = void *>

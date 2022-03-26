@@ -101,11 +101,17 @@ void ZipInitiate::consume(Context *const context,
   Value *mem_cnt = context->getStateVar(partition_cnt_cache);
   Value *mem_alloc = context->getStateVar(partition_alloc_cache);
 
-  Value *offset = Builder->CreateLoad(mem_cnt);
+  Value *offset =
+      Builder->CreateLoad(mem_cnt->getType()->getPointerElementType(), mem_cnt);
   ProteusValueMemory mem_valWrapper = (bindings.find(*targetAttr))->second;
-  Value *target = Builder->CreateLoad(mem_valWrapper.mem);
+  Value *target = Builder->CreateLoad(
+      mem_valWrapper.mem->getType()->getPointerElementType(),
+      mem_valWrapper.mem);
 
-  Builder->CreateStore(target, Builder->CreateInBoundsGEP(mem_alloc, offset));
+  Builder->CreateStore(
+      target, Builder->CreateInBoundsGEP(
+                  mem_alloc->getType()->getNonOpaquePointerElementType(),
+                  mem_alloc, offset));
   Builder->CreateStore(Builder->CreateAdd(offset, context->createInt32(1)),
                        mem_cnt);
 }
@@ -134,7 +140,8 @@ void ZipInitiate::generate_send() {
   Value *mem_target =
       ((const ParallelContext *)context)->getStateVar(partition_fwd);
 
-  Value *target = Builder->CreateLoad(mem_target);
+  Value *target = Builder->CreateLoad(
+      mem_target->getType()->getPointerElementType(), mem_target);
   Value *mem_current =
       context->CreateEntryBlockAlloca(TheFunction, "mem_current", int32_type);
   Builder->CreateStore(context->createInt32(0), mem_current);
@@ -143,7 +150,8 @@ void ZipInitiate::generate_send() {
   Builder->SetInsertPoint(SendCondBB);
   context->setEndingBlock(SendMergeBB);
 
-  Value *current = Builder->CreateLoad(mem_current);
+  Value *current = Builder->CreateLoad(
+      mem_current->getType()->getPointerElementType(), mem_current);
   Value *send_cond = Builder->CreateICmpSLT(current, context->createInt32(1));
   Builder->CreateCondBr(send_cond, SendBodyBB, SendMergeBB);
 
@@ -156,7 +164,10 @@ void ZipInitiate::generate_send() {
 
   Value *ptr = Builder->CreateSelect(
       Builder->CreateICmpNE(current, context->createInt32(0)),
-      Builder->CreateLoad(mem_blocks2), Builder->CreateLoad(mem_blocks1));
+      Builder->CreateLoad(mem_blocks2->getType()->getPointerElementType(),
+                          mem_blocks2),
+      Builder->CreateLoad(mem_blocks1->getType()->getPointerElementType(),
+                          mem_blocks1));
   ptr = Builder->CreatePointerCast(
       ptr, Type::getInt32PtrTy(context->getLLVMContext()));
 
@@ -459,7 +470,8 @@ void ZipCollect::generate_cache_left(Context *const context,
   Builder->SetInsertPoint(ins);
 
   Value *step = context->createInt32(wantedFieldsLeft.size());
-  Value *offset = Builder->CreateLoad(mem_offset);
+  Value *offset = Builder->CreateLoad(
+      mem_offset->getType()->getPointerElementType(), mem_offset);
   Value *offset_blk = Builder->CreateMul(offset, step);
 
   Plugin *pg = Catalog::getInstance().getPlugin(inputLeft->getRelationName());
@@ -469,16 +481,26 @@ void ZipCollect::generate_cache_left(Context *const context,
   auto it = old_bindings.find(tupleCnt);
 
   ProteusValueMemory mem_cntWrapper = it->second;
-  Value *N = Builder->CreateLoad(mem_cntWrapper.mem);
-  Builder->CreateStore(N, Builder->CreateInBoundsGEP(mem_sizes, offset));
+  Value *N = Builder->CreateLoad(
+      mem_cntWrapper.mem->getType()->getPointerElementType(),
+      mem_cntWrapper.mem);
+  Builder->CreateStore(
+      N, Builder->CreateInBoundsGEP(
+             mem_sizes->getType()->getNonOpaquePointerElementType(), mem_sizes,
+             offset));
 
   RecordAttribute tupleIdentifier = RecordAttribute(
       inputLeft->getRelationName(), activeLoop, pg->getOIDType());
   it = old_bindings.find(tupleIdentifier);
 
   ProteusValueMemory mem_oidWrapper = it->second;
-  Value *oid = Builder->CreateLoad(mem_oidWrapper.mem);
-  Builder->CreateStore(oid, Builder->CreateInBoundsGEP(mem_oids, offset));
+  Value *oid = Builder->CreateLoad(
+      mem_oidWrapper.mem->getType()->getPointerElementType(),
+      mem_oidWrapper.mem);
+  Builder->CreateStore(
+      oid, Builder->CreateInBoundsGEP(
+               mem_oids->getType()->getNonOpaquePointerElementType(), mem_oids,
+               offset));
 
   for (int i = 0; i < wantedFieldsLeft.size(); i++) {
     ExpressionGeneratorVisitor exprGen{context, childState};
@@ -500,7 +522,9 @@ void ZipCollect::generate_cache_left(Context *const context,
     // charPtrType); Builder->CreateStore(blk_ptr,
     // Builder->CreateInBoundsGEP(mem_blocks, offset_blk));
     Value *blk_ptr = Builder->CreatePointerCast(
-        Builder->CreateInBoundsGEP(mem_blocks, offset_blk),
+        Builder->CreateInBoundsGEP(
+            mem_blocks->getType()->getNonOpaquePointerElementType(), mem_blocks,
+            offset_blk),
         PointerType::get(
             wantedFieldsLeft[i].getExpressionType()->getLLVMType(llvmContext),
             0));
@@ -513,13 +537,30 @@ void ZipCollect::generate_cache_left(Context *const context,
   std::cout << "bindings" << old_bindings.size() << std::endl;
 
   Value *target =
-      Builder->CreateLoad((old_bindings.find(*hash_key_left)->second).mem);
+      Builder->CreateLoad((old_bindings.find(*hash_key_left)->second)
+                              .mem->getType()
+                              ->getPointerElementType(),
+                          (old_bindings.find(*hash_key_left)->second).mem);
   target = Builder->CreateURem(target, context->createInt32(numOfBuckets));
 
-  Value *prev =
-      Builder->CreateLoad(Builder->CreateInBoundsGEP(mem_heads, target));
-  Builder->CreateStore(prev, Builder->CreateInBoundsGEP(mem_chains, offset));
-  Builder->CreateStore(offset, Builder->CreateInBoundsGEP(mem_heads, target));
+  Value *prev = Builder->CreateLoad(
+      Builder
+          ->CreateInBoundsGEP(
+              mem_heads->getType()->getNonOpaquePointerElementType(), mem_heads,
+              target)
+          ->getType()
+          ->getPointerElementType(),
+      Builder->CreateInBoundsGEP(
+          mem_heads->getType()->getNonOpaquePointerElementType(), mem_heads,
+          target));
+  Builder->CreateStore(
+      prev, Builder->CreateInBoundsGEP(
+                mem_chains->getType()->getNonOpaquePointerElementType(),
+                mem_chains, offset));
+  Builder->CreateStore(
+      offset, Builder->CreateInBoundsGEP(
+                  mem_heads->getType()->getNonOpaquePointerElementType(),
+                  mem_heads, target));
 
   Value *next_offset = Builder->CreateAdd(offset, context->createInt32(1));
   Builder->CreateStore(next_offset, mem_offset);
@@ -568,7 +609,8 @@ void ZipCollect::generate_cache_right(Context *const context,
   Builder->SetInsertPoint(ins);
 
   Value *step = context->createInt32(wantedFieldsRight.size());
-  Value *offset = Builder->CreateLoad(mem_offset);
+  Value *offset = Builder->CreateLoad(
+      mem_offset->getType()->getPointerElementType(), mem_offset);
   Value *offset_blk = Builder->CreateMul(offset, step);
 
   Plugin *pg = Catalog::getInstance().getPlugin(inputRight->getRelationName());
@@ -578,16 +620,26 @@ void ZipCollect::generate_cache_right(Context *const context,
   auto it = old_bindings.find(tupleCnt);
 
   ProteusValueMemory mem_cntWrapper = it->second;
-  Value *N = Builder->CreateLoad(mem_cntWrapper.mem);
-  Builder->CreateStore(N, Builder->CreateInBoundsGEP(mem_sizes, offset));
+  Value *N = Builder->CreateLoad(
+      mem_cntWrapper.mem->getType()->getPointerElementType(),
+      mem_cntWrapper.mem);
+  Builder->CreateStore(
+      N, Builder->CreateInBoundsGEP(
+             mem_sizes->getType()->getNonOpaquePointerElementType(), mem_sizes,
+             offset));
 
   RecordAttribute tupleIdentifier = RecordAttribute(
       inputRight->getRelationName(), activeLoop, pg->getOIDType());
   it = old_bindings.find(tupleIdentifier);
 
   ProteusValueMemory mem_oidWrapper = it->second;
-  Value *oid = Builder->CreateLoad(mem_oidWrapper.mem);
-  Builder->CreateStore(oid, Builder->CreateInBoundsGEP(mem_oids, offset));
+  Value *oid = Builder->CreateLoad(
+      mem_oidWrapper.mem->getType()->getPointerElementType(),
+      mem_oidWrapper.mem);
+  Builder->CreateStore(
+      oid, Builder->CreateInBoundsGEP(
+               mem_oids->getType()->getNonOpaquePointerElementType(), mem_oids,
+               offset));
 
   for (int i = 0; i < wantedFieldsRight.size(); i++) {
     ExpressionGeneratorVisitor exprGen{context, childState};
@@ -601,7 +653,9 @@ void ZipCollect::generate_cache_right(Context *const context,
     // charPtrType); Builder->CreateStore(blk_ptr,
     // Builder->CreateInBoundsGEP(mem_blocks, offset_blk));
     Value *blk_ptr = Builder->CreatePointerCast(
-        Builder->CreateInBoundsGEP(mem_blocks, offset_blk),
+        Builder->CreateInBoundsGEP(
+            mem_blocks->getType()->getNonOpaquePointerElementType(), mem_blocks,
+            offset_blk),
         PointerType::get(
             wantedFieldsRight[i].getExpressionType()->getLLVMType(llvmContext),
             0));
@@ -613,13 +667,30 @@ void ZipCollect::generate_cache_right(Context *const context,
   }
 
   Value *target =
-      Builder->CreateLoad((old_bindings.find(*hash_key_right)->second).mem);
+      Builder->CreateLoad((old_bindings.find(*hash_key_right)->second)
+                              .mem->getType()
+                              ->getPointerElementType(),
+                          (old_bindings.find(*hash_key_right)->second).mem);
   target = Builder->CreateURem(target, context->createInt32(numOfBuckets));
 
-  Value *prev =
-      Builder->CreateLoad(Builder->CreateInBoundsGEP(mem_heads, target));
-  Builder->CreateStore(prev, Builder->CreateInBoundsGEP(mem_chains, offset));
-  Builder->CreateStore(offset, Builder->CreateInBoundsGEP(mem_heads, target));
+  Value *prev = Builder->CreateLoad(
+      Builder
+          ->CreateInBoundsGEP(
+              mem_heads->getType()->getNonOpaquePointerElementType(), mem_heads,
+              target)
+          ->getType()
+          ->getPointerElementType(),
+      Builder->CreateInBoundsGEP(
+          mem_heads->getType()->getNonOpaquePointerElementType(), mem_heads,
+          target));
+  Builder->CreateStore(
+      prev, Builder->CreateInBoundsGEP(
+                mem_chains->getType()->getNonOpaquePointerElementType(),
+                mem_chains, offset));
+  Builder->CreateStore(
+      offset, Builder->CreateInBoundsGEP(
+                  mem_heads->getType()->getNonOpaquePointerElementType(),
+                  mem_heads, target));
 
   Value *next_offset = Builder->CreateAdd(offset, context->createInt32(1));
   Builder->CreateStore(next_offset, mem_offset);
@@ -652,7 +723,8 @@ void ZipCollect::generate_send() {
   Builder->SetInsertPoint(SendCondBB);
   context->setEndingBlock(SendMergeBB);
 
-  Value *current = Builder->CreateLoad(mem_current);
+  Value *current = Builder->CreateLoad(
+      mem_current->getType()->getPointerElementType(), mem_current);
   Value *send_cond =
       Builder->CreateICmpSLT(current, context->createInt32(numOfBuckets));
   Builder->CreateCondBr(send_cond, SendBodyBB, SendMergeBB);
@@ -669,7 +741,8 @@ void ZipCollect::generate_send() {
 
   Plugin *pg = Catalog::getInstance().getPlugin(targetAttr->getRelationName());
 
-  Value *ptr = Builder->CreateLoad(mem_blocks2);
+  Value *ptr = Builder->CreateLoad(
+      mem_blocks2->getType()->getPointerElementType(), mem_blocks2);
   ptr = Builder->CreatePointerCast(
       ptr, Type::getInt32PtrTy(context->getLLVMContext()));
 
@@ -953,18 +1026,28 @@ void ZipForward::consume(Context *const context,
   /*RecordAttribute splitter_attr = *splitter;
   Value* mem_hash = ((child_bindings.find(splitter_attr))->second).mem;;*/
 
-  Value *target = Builder->CreateLoad(mem_partition);
+  Value *target = Builder->CreateLoad(
+      mem_partition->getType()->getPointerElementType(), mem_partition);
 
   Value *step = context->createInt32(wantedFields.size());
   Value *mem_current =
       context->CreateEntryBlockAlloca(TheFunction, "mem_current", int32_type);
-  Value *start =
-      Builder->CreateLoad(Builder->CreateInBoundsGEP(mem_heads, target));
+  Value *start = Builder->CreateLoad(
+      Builder
+          ->CreateInBoundsGEP(
+              mem_heads->getType()->getNonOpaquePointerElementType(), mem_heads,
+              target)
+          ->getType()
+          ->getPointerElementType(),
+      Builder->CreateInBoundsGEP(
+          mem_heads->getType()->getNonOpaquePointerElementType(), mem_heads,
+          target));
   Builder->CreateStore(start, mem_current);
   Builder->CreateBr(SendCondBB);
 
   Builder->SetInsertPoint(SendCondBB);
-  Value *current = Builder->CreateLoad(mem_current);
+  Value *current = Builder->CreateLoad(
+      mem_current->getType()->getPointerElementType(), mem_current);
   Value *cond = Builder->CreateICmpNE(current, context->createInt32(-1));
   Builder->CreateCondBr(cond, SendBodyBB, SendMergeBB);
 
@@ -973,8 +1056,11 @@ void ZipForward::consume(Context *const context,
   map<RecordAttribute, ProteusValueMemory> *bindings =
       new map<RecordAttribute, ProteusValueMemory>();
 
+  auto Nptr = Builder->CreateInBoundsGEP(
+      mem_sizes->getType()->getNonOpaquePointerElementType(), mem_sizes,
+      current);
   Value *N =
-      Builder->CreateLoad(Builder->CreateInBoundsGEP(mem_sizes, current));
+      Builder->CreateLoad(Nptr->getType()->getPointerElementType(), Nptr);
   Plugin *pg =
       Catalog::getInstance().getPlugin(wantedFields[0].getRegisteredRelName());
   RecordAttribute tupleCnt = RecordAttribute(
@@ -998,8 +1084,10 @@ void ZipForward::consume(Context *const context,
   Function* debugInt2 = context->getFunction("printi");
   Builder->CreateCall(debugInt2, ArgsV2);*/
 
+  auto oidPtr = Builder->CreateInBoundsGEP(
+      mem_oids->getType()->getNonOpaquePointerElementType(), mem_oids, current);
   Value *oid =
-      Builder->CreateLoad(Builder->CreateInBoundsGEP(mem_oids, current));
+      Builder->CreateLoad(oidPtr->getType()->getPointerElementType(), oidPtr);
   RecordAttribute tupleIdentifier = RecordAttribute(
       wantedFields[0].getRegisteredRelName(), activeLoop, pg->getOIDType());
   AllocaInst *mem_arg_oid = context->CreateEntryBlockAlloca(
@@ -1017,7 +1105,16 @@ void ZipForward::consume(Context *const context,
     RecordAttribute block_attr((wantedFields[i].getRegisteredAs()), true);
     std::cout << wantedFields[i].getExpressionType()->getType() << std::endl;
     Value *blk_ptr = Builder->CreatePointerCast(
-        Builder->CreateLoad(Builder->CreateInBoundsGEP(mem_blocks, offset_blk)),
+        Builder->CreateLoad(
+            Builder
+                ->CreateInBoundsGEP(
+                    mem_blocks->getType()->getNonOpaquePointerElementType(),
+                    mem_blocks, offset_blk)
+                ->getType()
+                ->getPointerElementType(),
+            Builder->CreateInBoundsGEP(
+                mem_blocks->getType()->getNonOpaquePointerElementType(),
+                mem_blocks, offset_blk)),
         PointerType::get(
             wantedFields[i].getExpressionType()->getLLVMType(llvmContext), 0));
     AllocaInst *mem_arg = context->CreateEntryBlockAlloca(
@@ -1036,8 +1133,16 @@ void ZipForward::consume(Context *const context,
   OperatorState *newState = new OperatorState(*this, *bindings);
   getParent()->consume(context, *newState);
 
-  Value *next =
-      Builder->CreateLoad(Builder->CreateInBoundsGEP(mem_chains, current));
+  Value *next = Builder->CreateLoad(
+      Builder
+          ->CreateInBoundsGEP(
+              mem_chains->getType()->getNonOpaquePointerElementType(),
+              mem_chains, current)
+          ->getType()
+          ->getPointerElementType(),
+      Builder->CreateInBoundsGEP(
+          mem_chains->getType()->getNonOpaquePointerElementType(), mem_chains,
+          current));
   Builder->CreateStore(next, mem_current);
   Builder->CreateBr(SendCondBB);
 

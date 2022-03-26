@@ -228,20 +228,28 @@ Value *Context::CastPtrToLlvmPtr(PointerType *type, const void *ptr) {
 }
 
 Value *Context::getArrayElem(AllocaInst *mem_ptr, Value *offset) {
-  Value *val_ptr = getBuilder()->CreateLoad(mem_ptr, "mem_ptr");
-  Value *shiftedPtr = getBuilder()->CreateInBoundsGEP(val_ptr, offset);
-  Value *val_shifted = getBuilder()->CreateLoad(shiftedPtr, "val_shifted");
+  Value *val_ptr = getBuilder()->CreateLoad(
+      mem_ptr->getType()->getPointerElementType(), mem_ptr, "mem_ptr");
+  Value *shiftedPtr = getBuilder()->CreateInBoundsGEP(
+      val_ptr->getType()->getNonOpaquePointerElementType(), val_ptr, offset);
+  Value *val_shifted =
+      getBuilder()->CreateLoad(shiftedPtr->getType()->getPointerElementType(),
+                               shiftedPtr, "val_shifted");
   return val_shifted;
 }
 
 Value *Context::getArrayElem(Value *val_ptr, Value *offset) {
-  Value *shiftedPtr = getBuilder()->CreateInBoundsGEP(val_ptr, offset);
-  Value *val_shifted = getBuilder()->CreateLoad(shiftedPtr, "val_shifted");
+  Value *shiftedPtr = getBuilder()->CreateInBoundsGEP(
+      val_ptr->getType()->getNonOpaquePointerElementType(), val_ptr, offset);
+  Value *val_shifted =
+      getBuilder()->CreateLoad(shiftedPtr->getType()->getPointerElementType(),
+                               shiftedPtr, "val_shifted");
   return val_shifted;
 }
 
 Value *Context::getArrayElemMem(Value *val_ptr, Value *offset) {
-  Value *shiftedPtr = getBuilder()->CreateInBoundsGEP(val_ptr, offset);
+  Value *shiftedPtr = getBuilder()->CreateInBoundsGEP(
+      val_ptr->getType()->getNonOpaquePointerElementType(), val_ptr, offset);
   return shiftedPtr;
 }
 
@@ -250,8 +258,12 @@ Value *Context::getStructElem(Value *mem_struct, int elemNo) {
   idxList.push_back(createInt32(0));
   idxList.push_back(createInt32(elemNo));
   // Shift in struct ptr
-  Value *mem_struct_shifted = getBuilder()->CreateGEP(mem_struct, idxList);
-  Value *val_struct_shifted = getBuilder()->CreateLoad(mem_struct_shifted);
+  Value *mem_struct_shifted = getBuilder()->CreateGEP(
+      mem_struct->getType()->getNonOpaquePointerElementType(), mem_struct,
+      idxList);
+  Value *val_struct_shifted = getBuilder()->CreateLoad(
+      mem_struct_shifted->getType()->getPointerElementType(),
+      mem_struct_shifted);
   return val_struct_shifted;
 }
 
@@ -260,7 +272,9 @@ Value *Context::getStructElemMem(Value *mem_struct, int elemNo) {
   idxList.push_back(createInt32(0));
   idxList.push_back(createInt32(elemNo));
   // Shift in struct ptr
-  Value *mem_struct_shifted = getBuilder()->CreateGEP(mem_struct, idxList);
+  Value *mem_struct_shifted = getBuilder()->CreateGEP(
+      mem_struct->getType()->getNonOpaquePointerElementType(), mem_struct,
+      idxList);
   return mem_struct_shifted;
 }
 
@@ -269,8 +283,12 @@ Value *Context::getStructElem(AllocaInst *mem_struct, int elemNo) {
   idxList.push_back(createInt32(0));
   idxList.push_back(createInt32(elemNo));
   // Shift in struct ptr
-  Value *mem_struct_shifted = getBuilder()->CreateGEP(mem_struct, idxList);
-  Value *val_struct_shifted = getBuilder()->CreateLoad(mem_struct_shifted);
+  Value *mem_struct_shifted = getBuilder()->CreateGEP(
+      mem_struct->getType()->getNonOpaquePointerElementType(), mem_struct,
+      idxList);
+  Value *val_struct_shifted = getBuilder()->CreateLoad(
+      mem_struct_shifted->getType()->getPointerElementType(),
+      mem_struct_shifted);
   return val_struct_shifted;
 }
 
@@ -279,7 +297,9 @@ void Context::updateStructElem(Value *toStore, Value *mem_struct, int elemNo) {
   idxList.push_back(createInt32(0));
   idxList.push_back(createInt32(elemNo));
   // Shift in struct ptr
-  Value *structPtr = getBuilder()->CreateGEP(mem_struct, idxList);
+  Value *structPtr = getBuilder()->CreateGEP(
+      mem_struct->getType()->getNonOpaquePointerElementType(), mem_struct,
+      idxList);
   getBuilder()->CreateStore(toStore, structPtr);
 }
 
@@ -361,7 +381,8 @@ Value *Context::CreateGlobalString(char *str) {
   gvar_array__str->setInitializer(tmpHTname);
 
   getBuilder()->CreateStore(shifted, AllocaName);
-  Value *globalStr = getBuilder()->CreateLoad(AllocaName);
+  Value *globalStr = getBuilder()->CreateLoad(
+      AllocaName->getType()->getPointerElementType(), AllocaName);
   return globalStr;
 }
 
@@ -392,7 +413,8 @@ Value *Context::CreateGlobalString(const char *str) {
   gvar_array__str->setInitializer(tmpHTname);
 
   getBuilder()->CreateStore(shifted, AllocaName);
-  Value *globalStr = getBuilder()->CreateLoad(AllocaName);
+  Value *globalStr = getBuilder()->CreateLoad(
+      AllocaName->getType()->getPointerElementType(), AllocaName);
   return globalStr;
 }
 

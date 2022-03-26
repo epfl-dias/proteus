@@ -141,8 +141,9 @@ void Sort::produce_(ParallelContext *context) {
 
         Type *substate_t = f_t->getParamType(f_t->getNumParams() - 1);
 
-        vector<Value *> args{context->getStateVar(memVar_id),
-                             Builder->CreateLoad(s)};
+        vector<Value *> args{
+            context->getStateVar(memVar_id),
+            Builder->CreateLoad(s->getType()->getPointerElementType(), s)};
 
         this->call_sort(args[0], args[1]);
 
@@ -183,18 +184,26 @@ void Sort::consume(ParallelContext *const context,
 
   Builder->SetInsertPoint(context->getCurrentEntryBlock());
   Value *s_cnt_mem = context->getStateVar(cntVar_id);
-  Builder->CreateStore(Builder->CreateLoad(s_cnt_mem), ready_cnt_mem);
+  Builder->CreateStore(
+      Builder->CreateLoad(s_cnt_mem->getType()->getPointerElementType(),
+                          s_cnt_mem),
+      ready_cnt_mem);
   Value *mem_ptr = context->getStateVar(memVar_id);
 
   Builder->SetInsertPoint(context->getEndingBlock());
-  Builder->CreateStore(Builder->CreateLoad(ready_cnt_mem), s_cnt_mem);
+  Builder->CreateStore(
+      Builder->CreateLoad(ready_cnt_mem->getType()->getPointerElementType(),
+                          ready_cnt_mem),
+      s_cnt_mem);
 
   Builder->SetInsertPoint(insBB);
 
-  Value *indx = Builder->CreateLoad(ready_cnt_mem);
+  Value *indx = Builder->CreateLoad(
+      ready_cnt_mem->getType()->getPointerElementType(), ready_cnt_mem);
 
   Value *el_ptr = Builder->CreateInBoundsGEP(
-      mem_ptr, std::vector<Value *>{context->createInt64(0), indx});
+      mem_ptr->getType()->getNonOpaquePointerElementType(), mem_ptr,
+      std::vector<Value *>{context->createInt64(0), indx});
 
   ExpressionGeneratorVisitor exprGenerator(context, childState);
   ProteusValue valWrapper = outputExpr.accept(exprGenerator);
@@ -236,7 +245,9 @@ void Sort::flush_sorted() {
   BasicBlock *LoopBB = BasicBlock::Create(llvmContext, "flushBody", F);
 
   Builder->SetInsertPoint(context->getCurrentEntryBlock());
-  // Value * cnt         = Builder->CreateLoad(context->getStateVar(cntVar_id));
+  // Value * cnt         =
+  // Builder->CreateLoad(context->getStateVar(cntVar_id->getType()->getPointerElementType(),
+  // context->getStateVar(cntVar_id));
   Value *mem_ptr = context->getArgument(params[0]);
   Value *cnt = context->getArgument(params[1]);
 
@@ -350,9 +361,11 @@ void Sort::call_sort(Value *mem, Value *N) {
     auto args = cmp->args().begin();
 
     map<RecordAttribute, ProteusValueMemory> bindings[2];
+    auto rec0 = Builder->CreateBitCast(args++, entry_pointer);
+    auto rec1 = Builder->CreateBitCast(args++, entry_pointer);
     Value *recs[2]{
-        Builder->CreateLoad(Builder->CreateBitCast(args++, entry_pointer)),
-        Builder->CreateLoad(Builder->CreateBitCast(args++, entry_pointer))};
+        Builder->CreateLoad(rec0->getType()->getPointerElementType(), rec0),
+        Builder->CreateLoad(rec1->getType()->getPointerElementType(), rec1)};
 
     for (size_t i = 0; i < 2; ++i) {
       RecordType *t = (RecordType *)outputExpr.getExpressionType();
@@ -391,8 +404,12 @@ void Sort::call_sort(Value *mem, Value *N) {
       RecordAttribute attr = e.getRegisteredAs();
 
       // FIXME: replace with expressions
-      Value *arg0 = Builder->CreateLoad(bindings[0][attr].mem);
-      Value *arg1 = Builder->CreateLoad(bindings[1][attr].mem);
+      Value *arg0 = Builder->CreateLoad(
+          bindings[0][attr].mem->getType()->getPointerElementType(),
+          bindings[0][attr].mem);
+      Value *arg1 = Builder->CreateLoad(
+          bindings[1][attr].mem->getType()->getPointerElementType(),
+          bindings[1][attr].mem);
 
       if (d == direction::DESC) std::swap(arg0, arg1);
 

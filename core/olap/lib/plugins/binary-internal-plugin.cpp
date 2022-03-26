@@ -124,7 +124,8 @@ void BinaryInternalPlugin::scanStruct(const ::Operator &producer) {
   /**
    * while(currItemNo < itemsNo)
    */
-  Value *lhs = Builder->CreateLoad(mem_cnt);
+  Value *lhs =
+      Builder->CreateLoad(mem_cnt->getType()->getPointerElementType(), mem_cnt);
   Value *rhs = val_entriesNo;
   Value *cond = Builder->CreateICmpSLT(lhs, rhs);
 
@@ -211,7 +212,8 @@ void BinaryInternalPlugin::scanStruct(const ::Operator &producer) {
   Builder->CreateBr(IncBB);
   // Start insertion in IncBB.
   Builder->SetInsertPoint(IncBB);
-  Value *val_cnt = Builder->CreateLoad(mem_cnt);
+  Value *val_cnt =
+      Builder->CreateLoad(mem_cnt->getType()->getPointerElementType(), mem_cnt);
   Value *val_1 = Builder->getInt64(1);
   val_cnt = Builder->CreateAdd(val_cnt, val_1);
   Builder->CreateStore(val_cnt, mem_cnt);
@@ -254,7 +256,8 @@ void BinaryInternalPlugin::scan(const ::Operator &producer) {
    * Equivalent:
    * while(pos < fsize)
    */
-  Value *lhs = Builder->CreateLoad(mem_cnt);
+  Value *lhs =
+      Builder->CreateLoad(mem_cnt->getType()->getPointerElementType(), mem_cnt);
   Value *rhs = val_entriesNo;
   Value *cond = Builder->CreateICmpSLT(lhs, rhs);
 
@@ -275,7 +278,8 @@ void BinaryInternalPlugin::scan(const ::Operator &producer) {
   {
     Function *debugInt = context->getFunction("printi64");
     vector<Value *> ArgsV;
-    Value *val_pos = Builder->CreateLoad(mem_pos);
+    Value *val_pos = Builder->CreateLoad(
+        mem_pos->getType()->getPointerElementType(), mem_pos);
     ArgsV.push_back(val_pos);
     Builder->CreateCall(debugInt, ArgsV);
     ArgsV.clear();
@@ -407,7 +411,8 @@ void BinaryInternalPlugin::scan(const ::Operator &producer) {
   Builder->CreateBr(IncBB);
   // Start insertion in IncBB.
   Builder->SetInsertPoint(IncBB);
-  Value *val_cnt = Builder->CreateLoad(mem_cnt);
+  Value *val_cnt =
+      Builder->CreateLoad(mem_cnt->getType()->getPointerElementType(), mem_cnt);
   Value *val_1 = Builder->getInt64(1);
   val_cnt = Builder->CreateAdd(val_cnt, val_1);
   Builder->CreateStore(val_cnt, mem_cnt);
@@ -464,7 +469,8 @@ ProteusValue BinaryInternalPlugin::hashValue(ProteusValueMemory mem_value,
     case BOOL: {
       Function *hashBoolean = context->getFunction("hashBoolean");
       vector<Value *> ArgsV;
-      ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
+      ArgsV.push_back(Builder->CreateLoad(
+          mem_value.mem->getType()->getPointerElementType(), mem_value.mem));
       Value *hashResult =
           context->getBuilder()->CreateCall(hashBoolean, ArgsV, "hashBoolean");
 
@@ -482,7 +488,8 @@ ProteusValue BinaryInternalPlugin::hashValue(ProteusValueMemory mem_value,
     case FLOAT: {
       Function *hashDouble = context->getFunction("hashDouble");
       vector<Value *> ArgsV;
-      ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
+      ArgsV.push_back(Builder->CreateLoad(
+          mem_value.mem->getType()->getPointerElementType(), mem_value.mem));
       Value *hashResult =
           context->getBuilder()->CreateCall(hashDouble, ArgsV, "hashDouble");
 
@@ -494,7 +501,8 @@ ProteusValue BinaryInternalPlugin::hashValue(ProteusValueMemory mem_value,
     case INT: {
       Function *hashInt = context->getFunction("hashInt");
       vector<Value *> ArgsV;
-      ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
+      ArgsV.push_back(Builder->CreateLoad(
+          mem_value.mem->getType()->getPointerElementType(), mem_value.mem));
       Value *hashResult =
           context->getBuilder()->CreateCall(hashInt, ArgsV, "hashInt");
 
@@ -543,7 +551,8 @@ void BinaryInternalPlugin::flushValue(ProteusValueMemory mem_value,
                                       Value *fileName) {
   IRBuilder<> *Builder = context->getBuilder();
   Function *flushFunc;
-  Value *val_attr = Builder->CreateLoad(mem_value.mem);
+  Value *val_attr = Builder->CreateLoad(
+      mem_value.mem->getType()->getPointerElementType(), mem_value.mem);
   switch (type->getTypeID()) {
     case BOOL: {
       flushFunc = context->getFunction("flushBoolean");
@@ -658,7 +667,8 @@ void BinaryInternalPlugin::skipLLVM(Value *offset) {
   IRBuilder<> *Builder = context->getBuilder();
 
   // Increment and store back
-  Value *val_curr_pos = Builder->CreateLoad(mem_pos);
+  Value *val_curr_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
   Value *val_new_pos = Builder->CreateAdd(val_curr_pos, offset);
   Builder->CreateStore(val_new_pos, mem_pos);
 }
@@ -674,11 +684,15 @@ void BinaryInternalPlugin::readAsIntLLVM(
   IRBuilder<> *Builder = context->getBuilder();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-  Value *val_pos = Builder->CreateLoad(mem_pos);
-  Value *bufPtr = Builder->CreateLoad(mem_buffer, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
+  Value *val_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
+  Value *bufPtr = Builder->CreateLoad(
+      mem_buffer->getType()->getPointerElementType(), mem_buffer, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, val_pos);
   Value *mem_result = Builder->CreateBitCast(bufShiftedPtr, ptrType_int32);
-  Value *parsedInt = Builder->CreateLoad(mem_result);
+  Value *parsedInt = Builder->CreateLoad(
+      mem_result->getType()->getPointerElementType(), mem_result);
 
   AllocaInst *mem_currResult =
       context->CreateEntryBlockAlloca(TheFunction, "currResult", int32Type);
@@ -710,11 +724,15 @@ void BinaryInternalPlugin::readAsInt64LLVM(
   IRBuilder<> *Builder = context->getBuilder();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-  Value *val_pos = Builder->CreateLoad(mem_pos);
-  Value *bufPtr = Builder->CreateLoad(mem_buffer, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
+  Value *val_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
+  Value *bufPtr = Builder->CreateLoad(
+      mem_buffer->getType()->getPointerElementType(), mem_buffer, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, val_pos);
   Value *mem_result = Builder->CreateBitCast(bufShiftedPtr, ptrType_int64);
-  Value *parsedInt = Builder->CreateLoad(mem_result);
+  Value *parsedInt = Builder->CreateLoad(
+      mem_result->getType()->getPointerElementType(), mem_result);
 #ifdef DEBUGBINCACHE
   {
     Function *debugInt = context->getFunction("printi64");
@@ -744,9 +762,12 @@ void BinaryInternalPlugin::readAsStringLLVM(
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = Builder->GetInsertBlock()->getParent();
 
-  Value *val_pos = Builder->CreateLoad(mem_pos);
-  Value *bufPtr = Builder->CreateLoad(mem_buffer, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
+  Value *val_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
+  Value *bufPtr = Builder->CreateLoad(
+      mem_buffer->getType()->getPointerElementType(), mem_buffer, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, val_pos);
 
   StructType *strObjType = context->CreateStringStruct();
   AllocaInst *mem_strObj =
@@ -759,13 +780,17 @@ void BinaryInternalPlugin::readAsStringLLVM(
   vector<Value *> idxList = vector<Value *>();
   idxList.push_back(val_0);
   idxList.push_back(val_0);
-  Value *structPtr = Builder->CreateGEP(mem_strObj, idxList);
+  Value *structPtr = Builder->CreateGEP(
+      mem_strObj->getType()->getNonOpaquePointerElementType(), mem_strObj,
+      idxList);
   Builder->CreateStore(bufShiftedPtr, structPtr);
 
   idxList.clear();
   idxList.push_back(val_0);
   idxList.push_back(val_1);
-  structPtr = Builder->CreateGEP(mem_strObj, idxList);
+  structPtr = Builder->CreateGEP(
+      mem_strObj->getType()->getNonOpaquePointerElementType(), mem_strObj,
+      idxList);
   Builder->CreateStore(context->createInt32(5), structPtr);
 
   LOG(INFO) << "[BINARYCACHE - READ STRING: ] Read Successful";
@@ -787,11 +812,15 @@ void BinaryInternalPlugin::readAsBooleanLLVM(
   IRBuilder<> *Builder = context->getBuilder();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-  Value *val_pos = Builder->CreateLoad(mem_pos);
-  Value *bufPtr = Builder->CreateLoad(mem_buffer, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
+  Value *val_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
+  Value *bufPtr = Builder->CreateLoad(
+      mem_buffer->getType()->getPointerElementType(), mem_buffer, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, val_pos);
   Value *mem_result = Builder->CreateBitCast(bufShiftedPtr, ptrType_bool);
-  Value *parsedInt = Builder->CreateLoad(mem_result);
+  Value *parsedInt = Builder->CreateLoad(
+      mem_result->getType()->getPointerElementType(), mem_result);
 
   AllocaInst *currResult =
       context->CreateEntryBlockAlloca(TheFunction, "currResult", int1Type);
@@ -815,11 +844,15 @@ void BinaryInternalPlugin::readAsFloatLLVM(
   IRBuilder<> *Builder = context->getBuilder();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-  Value *val_pos = Builder->CreateLoad(mem_pos);
-  Value *bufPtr = Builder->CreateLoad(mem_buffer, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, val_pos);
+  Value *val_pos =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
+  Value *bufPtr = Builder->CreateLoad(
+      mem_buffer->getType()->getPointerElementType(), mem_buffer, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, val_pos);
   Value *mem_result = Builder->CreateBitCast(bufShiftedPtr, ptrType_double);
-  Value *parsedInt = Builder->CreateLoad(mem_result);
+  Value *parsedInt = Builder->CreateLoad(
+      mem_result->getType()->getPointerElementType(), mem_result);
 
   AllocaInst *currResult =
       context->CreateEntryBlockAlloca(TheFunction, "currResult", doubleType);

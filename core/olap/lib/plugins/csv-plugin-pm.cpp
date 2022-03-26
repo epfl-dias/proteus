@@ -390,7 +390,9 @@ ProteusValue CSVPlugin::readCachedValue(
   }
   ProteusValueMemory mem_oidWrapper = it->second;
   /* OID is a plain integer - starts from 0!!*/
-  Value *val_oid = Builder->CreateLoad(mem_oidWrapper.mem);
+  Value *val_oid = Builder->CreateLoad(
+      mem_oidWrapper.mem->getType()->getPointerElementType(),
+      mem_oidWrapper.mem);
 
   StructType *cacheType = context->ReproduceCustomStruct(info.objectTypes);
   // Value *typeSize = ConstantExpr::getSizeOf(cacheType);
@@ -412,7 +414,8 @@ ProteusValue CSVPlugin::readCachedValue(
   Builder->CreateStore(val_cachedField, mem_cachedField);
 
   ProteusValue valWrapper;
-  valWrapper.value = Builder->CreateLoad(mem_cachedField);
+  valWrapper.value = Builder->CreateLoad(
+      mem_cachedField->getType()->getPointerElementType(), mem_cachedField);
   valWrapper.isNull = context->createFalse();
 #ifdef DEBUG
   {
@@ -431,7 +434,10 @@ ProteusValue CSVPlugin::hashValue(ProteusValueMemory mem_value,
                                   const ExpressionType *type,
                                   Context *context) {
   IRBuilder<> *Builder = context->getBuilder();
-  ProteusValue v{Builder->CreateLoad(mem_value.mem), mem_value.isNull};
+  ProteusValue v{
+      Builder->CreateLoad(mem_value.mem->getType()->getPointerElementType(),
+                          mem_value.mem),
+      mem_value.isNull};
   return hashPrimitive(v, type->getTypeID(), context);
 }
 
@@ -452,7 +458,8 @@ void CSVPlugin::flushValue(ProteusValueMemory mem_value,
                            const ExpressionType *type, Value *fileName) {
   IRBuilder<> *Builder = context->getBuilder();
   Function *flushFunc;
-  Value *val_attr = Builder->CreateLoad(mem_value.mem);
+  Value *val_attr = Builder->CreateLoad(
+      mem_value.mem->getType()->getPointerElementType(), mem_value.mem);
   switch (type->getTypeID()) {
     case BOOL: {
       flushFunc = context->getFunction("flushBoolean");
@@ -639,7 +646,10 @@ void CSVPlugin::skipDelimLLVM(Value *delim) {
   AllocaInst *Alloca =
       context->CreateEntryBlockAlloca(TheFunction, "cur_pos", int64Type);
   // Store the value into the alloca.
-  Builder->CreateStore(Builder->CreateLoad(pos, "start_pos"), Alloca);
+  Builder->CreateStore(
+      Builder->CreateLoad(pos->getType()->getPointerElementType(), pos,
+                          "start_pos"),
+      Alloca);
 
   // Make the new basic block for the loop header, inserting after current
   // block.
@@ -659,16 +669,22 @@ void CSVPlugin::skipDelimLLVM(Value *delim) {
 
   // Compute the end condition.
   // Involves pointer arithmetics
-  Value *index = Builder->CreateLoad(Alloca);
-  Value *lhsPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *lhsShiftedPtr = Builder->CreateInBoundsGEP(lhsPtr, index);
-  Value *lhs = Builder->CreateLoad(lhsShiftedPtr, "bufVal");
+  Value *index =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
+  Value *lhsPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *lhsShiftedPtr = Builder->CreateInBoundsGEP(
+      lhsPtr->getType()->getNonOpaquePointerElementType(), lhsPtr, index);
+  Value *lhs =
+      Builder->CreateLoad(lhsShiftedPtr->getType()->getPointerElementType(),
+                          lhsShiftedPtr, "bufVal");
   Value *rhs = delim;
   Value *EndCond = Builder->CreateICmpNE(lhs, rhs);
 
   // Reload, increment, and restore the alloca.
   // This handles the case where the body of the loop mutates the variable.
-  Value *CurVar = Builder->CreateLoad(Alloca);
+  Value *CurVar =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
   Value *NextVar = Builder->CreateAdd(CurVar, StepVal, "new_pos");
   Builder->CreateStore(NextVar, Alloca);
 
@@ -683,7 +699,8 @@ void CSVPlugin::skipDelimLLVM(Value *delim) {
   Builder->SetInsertPoint(AfterBB);
 
   //'return' pos value
-  Value *finalVar = Builder->CreateLoad(Alloca);
+  Value *finalVar =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
   Builder->CreateStore(finalVar, NamedValuesCSV[posVar]);
 }
 
@@ -720,7 +737,8 @@ void CSVPlugin::skipDelimBackwardsLLVM(Value *delim) {
       context->CreateEntryBlockAlloca(F, "cur_pos", int64Type);
 
   // Goto ending position of previous field
-  Value *start_pos = Builder->CreateLoad(pos, "start_pos");
+  Value *start_pos = Builder->CreateLoad(
+      pos->getType()->getPointerElementType(), pos, "start_pos");
 #ifdef DEBUGPM
   {
     vector<Value *> ArgsV;
@@ -742,10 +760,15 @@ void CSVPlugin::skipDelimBackwardsLLVM(Value *delim) {
   Builder->CreateBr(skipCond);
   Builder->SetInsertPoint(skipCond);
 
-  Value *val_index = Builder->CreateLoad(mem_cur_pos);
-  Value *lhsPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *lhsShiftedPtr = Builder->CreateInBoundsGEP(lhsPtr, val_index);
-  Value *lhs = Builder->CreateLoad(lhsShiftedPtr, "bufVal");
+  Value *val_index = Builder->CreateLoad(
+      mem_cur_pos->getType()->getPointerElementType(), mem_cur_pos);
+  Value *lhsPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *lhsShiftedPtr = Builder->CreateInBoundsGEP(
+      lhsPtr->getType()->getNonOpaquePointerElementType(), lhsPtr, val_index);
+  Value *lhs =
+      Builder->CreateLoad(lhsShiftedPtr->getType()->getPointerElementType(),
+                          lhsShiftedPtr, "bufVal");
   Value *rhs = delim;
   Value *val_cond = Builder->CreateICmpNE(lhs, rhs);
 
@@ -761,7 +784,8 @@ void CSVPlugin::skipDelimBackwardsLLVM(Value *delim) {
 
   /* End */
   Builder->SetInsertPoint(skipEnd);
-  Value *val_finalPos = Builder->CreateLoad(mem_cur_pos);
+  Value *val_finalPos = Builder->CreateLoad(
+      mem_cur_pos->getType()->getPointerElementType(), mem_cur_pos);
   val_finalPos = Builder->CreateAdd(val_finalPos, val_step);
   Builder->CreateStore(val_finalPos, NamedValuesCSV[posVar]);
 #ifdef DEBUGPM
@@ -818,10 +842,12 @@ void CSVPlugin::skipLLVM() {
   // Create an alloca for the variable in the entry block.
   AllocaInst *Alloca =
       context->CreateEntryBlockAlloca(TheFunction, "cur_pos", int64Type);
-  Value *fsizeVal = Builder->CreateLoad(fsizePtr, "file_size");
+  Value *fsizeVal = Builder->CreateLoad(
+      fsizePtr->getType()->getPointerElementType(), fsizePtr, "file_size");
   // Store the current pos value into the alloca, so that loop starts from
   // appropriate point. Redundant store / loads will be simplified by opt.pass
-  Value *toInit = Builder->CreateLoad(pos, "start_pos");
+  Value *toInit = Builder->CreateLoad(pos->getType()->getPointerElementType(),
+                                      pos, "start_pos");
   Builder->CreateStore(toInit, Alloca);
 
   // Make the new basic block for the loop header, inserting after current
@@ -841,24 +867,31 @@ void CSVPlugin::skipLLVM() {
   Value *StepVal = Builder->getInt64(1);
 
   // Compute the end condition. More complex in this scenario (3 ands)
-  Value *index = Builder->CreateLoad(Alloca);
-  Value *lhsPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *lhsShiftedPtr = Builder->CreateInBoundsGEP(lhsPtr, index);
+  Value *index =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
+  Value *lhsPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *lhsShiftedPtr = Builder->CreateInBoundsGEP(
+      lhsPtr->getType()->getNonOpaquePointerElementType(), lhsPtr, index);
   // equivalent to buf[pos]
-  Value *lhs_ = Builder->CreateLoad(lhsShiftedPtr, "bufVal");
+  Value *lhs_ =
+      Builder->CreateLoad(lhsShiftedPtr->getType()->getPointerElementType(),
+                          lhsShiftedPtr, "bufVal");
   // Only difference between skip() and skipDelim()!!!
   Value *rhs1 = delimInner;
   Value *rhs2 = delimEnd;
   Value *EndCond1 = Builder->CreateICmpNE(lhs_, rhs1);
   Value *EndCond2 = Builder->CreateICmpNE(lhs_, rhs2);
-  Value *EndCond3 =
-      Builder->CreateICmpSLT(Builder->CreateLoad(Alloca), fsizeVal);
+  Value *EndCond3 = Builder->CreateICmpSLT(
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca),
+      fsizeVal);
   Value *EndCond_ = Builder->CreateAnd(EndCond1, EndCond2);
   Value *EndCond = Builder->CreateAnd(EndCond_, EndCond3);
 
   // Reload, increment, and restore the alloca.  This handles the case where
   // the body of the loop mutates the variable.
-  Value *CurVar = Builder->CreateLoad(Alloca);
+  Value *CurVar =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
   Value *NextVar = Builder->CreateAdd(CurVar, StepVal, "new_pos");
   Builder->CreateStore(NextVar, Alloca);
 
@@ -873,7 +906,8 @@ void CSVPlugin::skipLLVM() {
   Builder->SetInsertPoint(AfterBB);
 
   //'return' pos value
-  Value *finalVar = Builder->CreateLoad(Alloca);
+  Value *finalVar =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
   Builder->CreateStore(finalVar, NamedValuesCSV[posVar]);
 }
 
@@ -921,10 +955,12 @@ void CSVPlugin::getFieldEndLLVM() {
   // Create an alloca for the variable in the entry block.
   AllocaInst *Alloca =
       context->CreateEntryBlockAlloca(TheFunction, "cur_pos", int64Type);
-  Value *fsizeVal = Builder->CreateLoad(fsizePtr, "file_size");
+  Value *fsizeVal = Builder->CreateLoad(
+      fsizePtr->getType()->getPointerElementType(), fsizePtr, "file_size");
   // Store the current pos value into the alloca, so that loop starts from
   // appropriate point. Redundant store / loads will be simplified by opt.pass
-  Value *toInit = Builder->CreateLoad(pos, "start_pos");
+  Value *toInit = Builder->CreateLoad(pos->getType()->getPointerElementType(),
+                                      pos, "start_pos");
   Builder->CreateStore(toInit, Alloca);
 
   BasicBlock *fieldCond, *fieldBody, *fieldInc, *fieldEnd;
@@ -935,18 +971,24 @@ void CSVPlugin::getFieldEndLLVM() {
   Builder->SetInsertPoint(fieldCond);
   Value *StepVal = Builder->getInt64(1);
   // Compute the end condition. More complex in this scenario (3 ands)
-  Value *index = Builder->CreateLoad(Alloca);
-  Value *lhsPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *lhsShiftedPtr = Builder->CreateInBoundsGEP(lhsPtr, index);
+  Value *index =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
+  Value *lhsPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *lhsShiftedPtr = Builder->CreateInBoundsGEP(
+      lhsPtr->getType()->getNonOpaquePointerElementType(), lhsPtr, index);
   // equivalent to buf[pos]
-  Value *lhs_ = Builder->CreateLoad(lhsShiftedPtr, "bufVal");
+  Value *lhs_ =
+      Builder->CreateLoad(lhsShiftedPtr->getType()->getPointerElementType(),
+                          lhsShiftedPtr, "bufVal");
   // Only difference between skip() and skipDelim()!!!
   Value *rhs1 = delimInner;
   Value *rhs2 = delimEnd;
   Value *EndCond1 = Builder->CreateICmpNE(lhs_, rhs1);
   Value *EndCond2 = Builder->CreateICmpNE(lhs_, rhs2);
-  Value *EndCond3 =
-      Builder->CreateICmpSLT(Builder->CreateLoad(Alloca), fsizeVal);
+  Value *EndCond3 = Builder->CreateICmpSLT(
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca),
+      fsizeVal);
   Value *EndCond_ = Builder->CreateAnd(EndCond1, EndCond2);
   Value *EndCond = Builder->CreateAnd(EndCond_, EndCond3);
   Builder->CreateCondBr(EndCond, fieldBody, fieldEnd);
@@ -954,7 +996,8 @@ void CSVPlugin::getFieldEndLLVM() {
   Builder->SetInsertPoint(fieldBody);
   // Reload, increment, and restore the alloca.  This handles the case where
   // the body of the loop mutates the variable.
-  Value *CurVar = Builder->CreateLoad(Alloca);
+  Value *CurVar =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
   Value *NextVar = Builder->CreateAdd(CurVar, StepVal, "new_pos");
   Builder->CreateStore(NextVar, Alloca);
   Builder->CreateBr(fieldInc);
@@ -964,7 +1007,8 @@ void CSVPlugin::getFieldEndLLVM() {
 
   Builder->SetInsertPoint(fieldEnd);
   //'return' pos value
-  Value *finalVar = Builder->CreateLoad(Alloca);
+  Value *finalVar =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
   Builder->CreateStore(finalVar, NamedValuesCSV[posVar]);
 }
 
@@ -1045,17 +1089,21 @@ void CSVPlugin::readAsIntLLVM(
     buf = it->second;
   }
 
-  Value *start = Builder->CreateLoad(pos, "start_pos_atoi");
+  Value *start = Builder->CreateLoad(pos->getType()->getPointerElementType(),
+                                     pos, "start_pos_atoi");
   getFieldEndLLVM();
   // index must be different than start!
-  Value *index = Builder->CreateLoad(pos, "end_pos_atoi");
+  Value *index = Builder->CreateLoad(pos->getType()->getPointerElementType(),
+                                     pos, "end_pos_atoi");
   // Must increase offset by 1 now
   //(uniform behavior with other skip methods)
   Value *val_1 = Builder->getInt64(1);
   Value *pos_inc = Builder->CreateAdd(index, val_1);
   Builder->CreateStore(pos_inc, pos);
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, start);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, start);
   Value *len = Builder->CreateSub(index, start);
   Value *len_32 = Builder->CreateTrunc(len, int32Type);
 
@@ -1107,17 +1155,21 @@ void CSVPlugin::readAsIntLLVM(
     buf = it->second;
   }
 
-  Value *start = Builder->CreateLoad(mem_pos, "start_pos_atoi");
+  Value *start = Builder->CreateLoad(
+      mem_pos->getType()->getPointerElementType(), mem_pos, "start_pos_atoi");
   getFieldEndLLVM();
   // index must be different than start!
-  Value *index = Builder->CreateLoad(mem_pos, "end_pos_atoi");
+  Value *index = Builder->CreateLoad(
+      mem_pos->getType()->getPointerElementType(), mem_pos, "end_pos_atoi");
   // Must increase offset by 1 now
   //(uniform behavior with other skip methods)
   Value *val_1 = Builder->getInt64(1);
   Value *pos_inc = Builder->CreateAdd(index, val_1);
   Builder->CreateStore(pos_inc, mem_pos);
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, start);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, start);
   Value *len = Builder->CreateSub(index, start);
   Value *len_32 = Builder->CreateTrunc(len, int32Type);
 
@@ -1134,7 +1186,8 @@ void CSVPlugin::readAsIntLLVM(
     Function *debugInt = context->getFunction("printi");
     vector<Value *> ArgsV;
 
-    ArgsV.push_back(Builder->CreateLoad(mem_result));
+    ArgsV.push_back(Builder->CreateLoad(
+        mem_result->getType()->getPointerElementType(), mem_result));
     Builder->CreateCall(debugInt, ArgsV, "printi");
     ArgsV.clear();
     ArgsV.push_back(context->createInt32(1001));
@@ -1176,7 +1229,8 @@ void CSVPlugin::readAsStringLLVM(
     buf = it->second;
   }
 
-  Value *start = Builder->CreateLoad(mem_pos, "start_pos_str");
+  Value *start = Builder->CreateLoad(
+      mem_pos->getType()->getPointerElementType(), mem_pos, "start_pos_str");
   Value *val_1 = Builder->getInt64(1);
   // Also skipping opening bracket!!
   if (stringBrackets) {
@@ -1184,14 +1238,17 @@ void CSVPlugin::readAsStringLLVM(
   }
   getFieldEndLLVM();
   // index must be different than start!
-  Value *index = Builder->CreateLoad(mem_pos, "end_pos_str");
+  Value *index = Builder->CreateLoad(
+      mem_pos->getType()->getPointerElementType(), mem_pos, "end_pos_str");
   // Must increase offset by 1 now
   //(uniform behavior with other skip methods)
 
   Value *pos_inc = Builder->CreateAdd(index, val_1);
   Builder->CreateStore(pos_inc, mem_pos);
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, start);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, start);
   Value *len = Builder->CreateSub(index, start);
   // Also removing (size of) ending bracket!!
   if (stringBrackets) {
@@ -1261,18 +1318,22 @@ void CSVPlugin::readAsDateLLVM(
     buf = it->second;
   }
 
-  Value *start = Builder->CreateLoad(mem_pos, "start_pos_str");
+  Value *start = Builder->CreateLoad(
+      mem_pos->getType()->getPointerElementType(), mem_pos, "start_pos_str");
   Value *val_1 = Builder->getInt64(1);
   getFieldEndLLVM();
   // index must be different than start!
-  Value *index = Builder->CreateLoad(mem_pos, "end_pos_str");
+  Value *index = Builder->CreateLoad(
+      mem_pos->getType()->getPointerElementType(), mem_pos, "end_pos_str");
   // Must increase offset by 1 now
   //(uniform behavior with other skip methods)
 
   Value *pos_inc = Builder->CreateAdd(index, val_1);
   Builder->CreateStore(pos_inc, mem_pos);
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, start);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, start);
   Value *len = Builder->CreateSub(index, start);
   // Also removing (size of) ending bracket!!
   Value *len_32 = Builder->CreateTrunc(len, int32Type);
@@ -1295,11 +1356,14 @@ void CSVPlugin::readAsBooleanLLVM(
   // Fetch values from symbol table
   auto pos = NamedValuesCSV.at(posVar);
   auto buf = NamedValuesCSV.at(bufVar);
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *start = Builder->CreateLoad(pos, "start_pos_atob");
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *start = Builder->CreateLoad(pos->getType()->getPointerElementType(),
+                                     pos, "start_pos_atob");
   getFieldEndLLVM();
   // index must be different than start!
-  Value *index = Builder->CreateLoad(pos, "end_pos_atob");
+  Value *index = Builder->CreateLoad(pos->getType()->getPointerElementType(),
+                                     pos, "end_pos_atob");
   // Must increase offset by 1 now
   //(uniform behavior with other skip methods)
   Value *val_1 = Builder->getInt64(1);
@@ -1338,12 +1402,16 @@ void CSVPlugin::readAsFloatLLVM(
   AllocaInst *pos = NamedValuesCSV.at(posVar);
   AllocaInst *buf = NamedValuesCSV.at(bufVar);
 
-  Value *start = Builder->CreateLoad(pos, "start_pos_atoi");
+  Value *start = Builder->CreateLoad(pos->getType()->getPointerElementType(),
+                                     pos, "start_pos_atoi");
   skipLLVM();
   // index must be different than start!
-  Value *index = Builder->CreateLoad(pos, "end_pos_atoi");
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, start);
+  Value *index = Builder->CreateLoad(pos->getType()->getPointerElementType(),
+                                     pos, "end_pos_atoi");
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, start);
   vector<Value *> ArgsV;
   ArgsV.clear();
   ArgsV.push_back(bufShiftedPtr);
@@ -1398,7 +1466,8 @@ void CSVPlugin::readAsFloatLLVM(
     buf = it->second;
   }
 
-  Value *start = Builder->CreateLoad(mem_pos, "start_pos_atof");
+  Value *start = Builder->CreateLoad(
+      mem_pos->getType()->getPointerElementType(), mem_pos, "start_pos_atof");
 #ifdef DEBUGPM
   {
     vector<Value *> ArgsV;
@@ -1411,9 +1480,12 @@ void CSVPlugin::readAsFloatLLVM(
 #endif
   skipLLVM();
   // index must be different than start!
-  Value *index = Builder->CreateLoad(mem_pos, "end_pos_atof");
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, start);
+  Value *index = Builder->CreateLoad(
+      mem_pos->getType()->getPointerElementType(), mem_pos, "end_pos_atof");
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, start);
   vector<Value *> ArgsV;
   ArgsV.clear();
   ArgsV.push_back(bufShiftedPtr);
@@ -1476,8 +1548,10 @@ void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
   Builder->SetInsertPoint(CondBB);
 
   Value *cond = [&]() {
-    Value *lhs = Builder->CreateLoad(pos);
-    Value *rhs = Builder->CreateLoad(fsizePtr);
+    Value *lhs =
+        Builder->CreateLoad(pos->getType()->getPointerElementType(), pos);
+    Value *rhs = Builder->CreateLoad(
+        fsizePtr->getType()->getPointerElementType(), fsizePtr);
     return Builder->CreateICmpSLT(lhs, rhs);
   }();
 
@@ -1499,10 +1573,17 @@ void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
   Builder->SetInsertPoint(EnterLoopBB);
 
   {  // Skip empty lines
-    auto index = Builder->CreateLoad(NamedValuesCSV[posVar]);
-    auto lhsPtr = Builder->CreateLoad(NamedValuesCSV[bufVar], "bufPtr");
-    auto lhsShiftedPtr = Builder->CreateInBoundsGEP(lhsPtr, index);
-    auto lhs = Builder->CreateLoad(lhsShiftedPtr, "bufVal");
+    auto index = Builder->CreateLoad(
+        NamedValuesCSV[posVar]->getType()->getPointerElementType(),
+        NamedValuesCSV[posVar]);
+    auto lhsPtr = Builder->CreateLoad(
+        NamedValuesCSV[bufVar]->getType()->getPointerElementType(),
+        NamedValuesCSV[bufVar], "bufPtr");
+    auto lhsShiftedPtr = Builder->CreateInBoundsGEP(
+        lhsPtr->getType()->getNonOpaquePointerElementType(), lhsPtr, index);
+    auto lhs =
+        Builder->CreateLoad(lhsShiftedPtr->getType()->getPointerElementType(),
+                            lhsShiftedPtr, "bufVal");
     auto nlLine = Builder->CreateICmpEQ(lhs, delimEnd);
     // Handle CR cases as well...
     auto crLine = Builder->CreateICmpEQ(lhs, context->createInt8('\r'));
@@ -1546,11 +1627,15 @@ void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
 
   /* Store (current) newline position */
   auto mem_pos = NamedValuesCSV.at(posVar);
-  Value *val_posNewline = Builder->CreateLoad(mem_pos);
-  Value *val_newlines = Builder->CreateLoad(mem_newlines);
-  Value *val_lineCtr = Builder->CreateLoad(mem_lineCtr);
-  Value *newlinesShifted =
-      Builder->CreateInBoundsGEP(val_newlines, val_lineCtr);
+  Value *val_posNewline =
+      Builder->CreateLoad(mem_pos->getType()->getPointerElementType(), mem_pos);
+  Value *val_newlines = Builder->CreateLoad(
+      mem_newlines->getType()->getPointerElementType(), mem_newlines);
+  Value *val_lineCtr = Builder->CreateLoad(
+      mem_lineCtr->getType()->getPointerElementType(), mem_lineCtr);
+  Value *newlinesShifted = Builder->CreateInBoundsGEP(
+      val_newlines->getType()->getNonOpaquePointerElementType(), val_newlines,
+      val_lineCtr);
   Builder->CreateStore(val_posNewline, newlinesShifted);
 
   /* Loop through fields and gather info (values needed and PM offsets) */
@@ -1582,15 +1667,22 @@ void CSVPlugin::scanAndPopulatePM(const ::Operator &producer) {
       /* What to store: offset */
       auto mem_pos = NamedValuesCSV.at(posVar);
 
-      Value *val_pos = Builder->CreateLoad(mem_pos);
+      Value *val_pos = Builder->CreateLoad(
+          mem_pos->getType()->getPointerElementType(), mem_pos);
       Value *val_offset = Builder->CreateSub(val_pos, val_posNewline);
       Value *val_offset16 = Builder->CreateTrunc(val_offset, int16Type);
 
-      Value *val_pm = Builder->CreateLoad(mem_pm);
-      Value *mem_pmRow = Builder->CreateInBoundsGEP(val_pm, val_lineCtr);
-      Value *val_pmRow = Builder->CreateLoad(mem_pmRow);
+      Value *val_pm = Builder->CreateLoad(
+          mem_pm->getType()->getPointerElementType(), mem_pm);
+      Value *mem_pmRow = Builder->CreateInBoundsGEP(
+          val_pm->getType()->getNonOpaquePointerElementType(), val_pm,
+          val_lineCtr);
+      Value *val_pmRow = Builder->CreateLoad(
+          mem_pmRow->getType()->getPointerElementType(), mem_pmRow);
       Value *val_pmColIdx = context->createInt32(pmCtr);
-      Value *val_pmCol = Builder->CreateInBoundsGEP(val_pmRow, val_pmColIdx);
+      Value *val_pmCol = Builder->CreateInBoundsGEP(
+          val_pmRow->getType()->getNonOpaquePointerElementType(), val_pmRow,
+          val_pmColIdx);
       Builder->CreateStore(val_offset16, val_pmCol);
 
 #ifdef DEBUGPM
@@ -1722,17 +1814,22 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
 
   /* Condition: currLine != lines */
   Builder->SetInsertPoint(pmScanCond);
-  Value *val_lineCtr = Builder->CreateLoad(mem_lineCtr);
+  Value *val_lineCtr = Builder->CreateLoad(
+      mem_lineCtr->getType()->getPointerElementType(), mem_lineCtr);
   Value *val_cond = Builder->CreateICmpSLT(val_lineCtr, val_lines);
   Builder->CreateCondBr(val_cond, pmScanBody, pmScanEnd);
 
   /* Body */
   Builder->SetInsertPoint(pmScanBody);
 
-  Value *val_newlines = Builder->CreateLoad(mem_newlines);
+  Value *val_newlines = Builder->CreateLoad(
+      mem_newlines->getType()->getPointerElementType(), mem_newlines);
   /* Get curr. line start */
-  Value *mem_newline = Builder->CreateGEP(val_newlines, val_lineCtr);
-  Value *val_newline = Builder->CreateLoad(mem_newline);
+  Value *mem_newline = Builder->CreateGEP(
+      val_newlines->getType()->getNonOpaquePointerElementType(), val_newlines,
+      val_lineCtr);
+  Value *val_newline = Builder->CreateLoad(
+      mem_newline->getType()->getPointerElementType(), mem_newline);
   Builder->CreateStore(val_newline, mem_pos);
   int currAttr = 0;
 
@@ -1786,7 +1883,8 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
                 context->ReproduceCustomStruct(info.objectTypes);
             // Value *typeSize = ConstantExpr::getSizeOf(cacheType);
             char *rawPtr = *(info.payloadPtr);
-            Value *val_cacheIdx = Builder->CreateLoad(mem_lineCtr);
+            Value *val_cacheIdx = Builder->CreateLoad(
+                mem_lineCtr->getType()->getPointerElementType(), mem_lineCtr);
 #ifdef DEBUG
             {
               vector<Value *> ArgsV;
@@ -1866,12 +1964,19 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
         //            cout << "Array Field In PM: " << nearbyPM - 1 << endl;
 
         /* Get offset from PM */
-        Value *val_pm = Builder->CreateLoad(mem_pm);
-        Value *mem_pmRow = Builder->CreateInBoundsGEP(val_pm, val_lineCtr);
-        Value *val_pmRow = Builder->CreateLoad(mem_pmRow);
+        Value *val_pm = Builder->CreateLoad(
+            mem_pm->getType()->getPointerElementType(), mem_pm);
+        Value *mem_pmRow = Builder->CreateInBoundsGEP(
+            val_pm->getType()->getNonOpaquePointerElementType(), val_pm,
+            val_lineCtr);
+        Value *val_pmRow = Builder->CreateLoad(
+            mem_pmRow->getType()->getPointerElementType(), mem_pmRow);
         Value *val_pmColIdx = context->createInt32(nearbyPM - 1);
-        Value *val_pmCol = Builder->CreateInBoundsGEP(val_pmRow, val_pmColIdx);
-        Value *val_pmOffset16 = Builder->CreateLoad(val_pmCol);
+        Value *val_pmCol = Builder->CreateInBoundsGEP(
+            val_pmRow->getType()->getNonOpaquePointerElementType(), val_pmRow,
+            val_pmColIdx);
+        Value *val_pmOffset16 = Builder->CreateLoad(
+            val_pmCol->getType()->getPointerElementType(), val_pmCol);
 
         Value *val_pmOffset64 = Builder->CreateSExt(val_pmOffset16, int64Type);
         Value *val_offset = Builder->CreateAdd(val_newline, val_pmOffset64);
@@ -1909,12 +2014,19 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
         // cout << "Array Field in PM: " << nearbyPM - 1 << endl;
 
         /* Get offset from PM */
-        Value *val_pm = Builder->CreateLoad(mem_pm);
-        Value *mem_pmRow = Builder->CreateInBoundsGEP(val_pm, val_lineCtr);
-        Value *val_pmRow = Builder->CreateLoad(mem_pmRow);
+        Value *val_pm = Builder->CreateLoad(
+            mem_pm->getType()->getPointerElementType(), mem_pm);
+        Value *mem_pmRow = Builder->CreateInBoundsGEP(
+            val_pm->getType()->getNonOpaquePointerElementType(), val_pm,
+            val_lineCtr);
+        Value *val_pmRow = Builder->CreateLoad(
+            mem_pmRow->getType()->getPointerElementType(), mem_pmRow);
         Value *val_pmColIdx = context->createInt32(nearbyPM - 1);
-        Value *val_pmCol = Builder->CreateInBoundsGEP(val_pmRow, val_pmColIdx);
-        Value *val_pmOffset16 = Builder->CreateLoad(val_pmCol);
+        Value *val_pmCol = Builder->CreateInBoundsGEP(
+            val_pmRow->getType()->getNonOpaquePointerElementType(), val_pmRow,
+            val_pmColIdx);
+        Value *val_pmOffset16 = Builder->CreateLoad(
+            val_pmCol->getType()->getPointerElementType(), val_pmCol);
 
         Value *val_pmOffset64 = Builder->CreateSExt(val_pmOffset16, int64Type);
         Value *val_offset = Builder->CreateAdd(val_newline, val_pmOffset64);
@@ -1938,7 +2050,9 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
         for (int i = 0; i < pmDistanceAfter; i++) {
           skipDelimBackwardsLLVM(delimInner);
           //                if(i == pmDistanceAfter - 2)    {
-          //                    end_pos = Builder->CreateLoad(mem_pos);
+          //                    end_pos =
+          //                    Builder->CreateLoad(mem_pos->getType()->getPointerElementType(),
+          //                    mem_pos);
           //                }
         }
         /* Codegen: Convert Field */
@@ -1962,7 +2076,8 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
   ::Operator *const opParent = producer.getParent();
   opParent->consume(context, state);
   Value *val_1 = context->createInt32(1);
-  val_lineCtr = Builder->CreateLoad(mem_lineCtr);
+  val_lineCtr = Builder->CreateLoad(
+      mem_lineCtr->getType()->getPointerElementType(), mem_lineCtr);
   val_lineCtr = Builder->CreateAdd(val_lineCtr, val_1);
   Builder->CreateStore(val_lineCtr, mem_lineCtr);
   // #ifdef DEBUG

@@ -84,14 +84,18 @@ void Join::consume(Context *const context, const OperatorState &childState) {
         RecordAttribute currAttr = memSearch->first;
         if (currAttr.getAttrName() == activeLoop) {
           mem_activeTuple = memSearch->second;
-          Value *val_activeTuple = Builder->CreateLoad(mem_activeTuple.mem);
+          Value *val_activeTuple = Builder->CreateLoad(
+              mem_activeTuple.mem->getType()->getPointerElementType(),
+              mem_activeTuple.mem);
           // OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR
           // EXTRA OFFSET
           vector<Value *> idxList = vector<Value *>();
           idxList.push_back(context->createInt32(0));
           idxList.push_back(context->createInt32(offsetInStruct++));
           // Shift in struct ptr
-          Value *structPtr = Builder->CreateGEP(Alloca, idxList);
+          Value *structPtr = Builder->CreateGEP(
+              Alloca->getType()->getNonOpaquePointerElementType(), Alloca,
+              idxList);
           Builder->CreateStore(val_activeTuple, structPtr);
         }
       }
@@ -105,14 +109,16 @@ void Join::consume(Context *const context, const OperatorState &childState) {
           bindings.find(*(*it));
       ProteusValueMemory currValMem = memSearch->second;
       // FIXME FIX THE NECESSARY CONVERSIONS HERE
-      Value *currVal = Builder->CreateLoad(currValMem.mem);
+      Value *currVal = Builder->CreateLoad(
+          currValMem.mem->getType()->getPointerElementType(), currValMem.mem);
       Value *valToMaterialize = pg->convert(
           currVal->getType(), materializedTypes->at(offsetInWanted), currVal);
       vector<Value *> idxList = vector<Value *>();
       idxList.push_back(context->createInt32(0));
       idxList.push_back(context->createInt32(offsetInStruct));
       // Shift in struct ptr
-      Value *structPtr = Builder->CreateGEP(Alloca, idxList);
+      Value *structPtr = Builder->CreateGEP(
+          Alloca->getType()->getNonOpaquePointerElementType(), Alloca, idxList);
       Builder->CreateStore(valToMaterialize, structPtr);
       offsetInStruct++;
       offsetInWanted++;
@@ -218,7 +224,8 @@ void Join::consume(Context *const context, const OperatorState &childState) {
     Builder->CreateBr(loopCond);
 
     // CONDITION OF RESULT LOOP
-    LoadInst *load_cnt = Builder->CreateLoad(ptr_i);
+    LoadInst *load_cnt =
+        Builder->CreateLoad(ptr_i->getType()->getPointerElementType(), ptr_i);
     load_cnt->setAlignment(llvm::Align(4));
     loopCond->getInstList().push_back(load_cnt);
     CastInst *int64_idxprom =
@@ -230,7 +237,8 @@ void Join::consume(Context *const context, const OperatorState &childState) {
         voidJoinBindings->getType()->getPointerElementType(), voidJoinBindings,
         int64_idxprom, "arrayidx");
     loopCond->getInstList().push_back(ptr_arrayidx);
-    LoadInst *arrayShifted = Builder->CreateLoad(ptr_arrayidx);
+    LoadInst *arrayShifted = Builder->CreateLoad(
+        ptr_arrayidx->getType()->getPointerElementType(), ptr_arrayidx);
     arrayShifted->setAlignment(llvm::Align(8));
     loopCond->getInstList().push_back(arrayShifted);
     // Ending condition: current position in result array is nullptr
@@ -240,7 +248,8 @@ void Join::consume(Context *const context, const OperatorState &childState) {
 
     // BODY OF RESULT LOOP
     Builder->SetInsertPoint(loopBody);
-    LoadInst *load_cnt_body = Builder->CreateLoad(ptr_i);
+    LoadInst *load_cnt_body =
+        Builder->CreateLoad(ptr_i->getType()->getPointerElementType(), ptr_i);
     load_cnt_body->setAlignment(llvm::Align(4));
     CastInst *int64_idxprom_body = new SExtInst(
         load_cnt_body, IntegerType::get(context->getLLVMContext(), 64),
@@ -248,7 +257,9 @@ void Join::consume(Context *const context, const OperatorState &childState) {
     GetElementPtrInst *ptr_arrayidx_body = GetElementPtrInst::Create(
         IntegerType::get(llvmContext, 64), voidJoinBindings, int64_idxprom_body,
         "arrayidx2", loopBody);
-    LoadInst *arrayShiftedBody = Builder->CreateLoad(ptr_arrayidx_body);
+    LoadInst *arrayShiftedBody = Builder->CreateLoad(
+        ptr_arrayidx_body->getType()->getPointerElementType(),
+        ptr_arrayidx_body);
     arrayShiftedBody->setAlignment(llvm::Align(8));
 
     // Result (payload) type and appropriate casts
@@ -292,7 +303,8 @@ void Join::consume(Context *const context, const OperatorState &childState) {
       ss << activeLoop;
       ss << i;
       Builder->SetInsertPoint(loopBody);
-      LoadInst *field = Builder->CreateLoad(elem_ptr, ss.str());
+      LoadInst *field = Builder->CreateLoad(
+          elem_ptr->getType()->getPointerElementType(), elem_ptr, ss.str());
       new StoreInst(field, mem_activeTuple, false, loopBody);
 
       ProteusValueMemory mem_valWrapper;
@@ -315,7 +327,8 @@ void Join::consume(Context *const context, const OperatorState &childState) {
           GetElementPtrInst::Create(str->getElementType(i), result_cast,
                                     idxList, currField + "ptr", loopBody);
       Builder->SetInsertPoint(loopBody);
-      LoadInst *field = Builder->CreateLoad(elem_ptr, currField);
+      LoadInst *field = Builder->CreateLoad(
+          elem_ptr->getType()->getPointerElementType(), elem_ptr, currField);
       new StoreInst(field, memForField, false, loopBody);
       i++;
 
@@ -354,7 +367,8 @@ void Join::consume(Context *const context, const OperatorState &childState) {
 
     // Block for.inc (label_for_inc)
     Builder->SetInsertPoint(loopInc);
-    LoadInst *cnt_curr = Builder->CreateLoad(ptr_i);
+    LoadInst *cnt_curr =
+        Builder->CreateLoad(ptr_i->getType()->getPointerElementType(), ptr_i);
     cnt_curr->setAlignment(llvm::Align(4));
     auto cnt_inc1 = llvm::BinaryOperator::Create(
         Instruction::Add, cnt_curr, context->createInt32(1), "i_inc", loopInc);

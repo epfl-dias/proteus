@@ -257,7 +257,8 @@ ProteusValue ExpressionHasherVisitor::visit(
   }
 
   ProteusValue hashValWrapper;
-  hashValWrapper.value = TheBuilder->CreateLoad(mem_hashedValue);
+  hashValWrapper.value = TheBuilder->CreateLoad(
+      mem_hashedValue->getType()->getPointerElementType(), mem_hashedValue);
   hashValWrapper.isNull = context->createFalse();
   return hashValWrapper;
 }
@@ -439,7 +440,8 @@ ProteusValue ExpressionHasherVisitor::visit(const expressions::IfThenElse *e) {
   // cont.
   TheBuilder->SetInsertPoint(MergeBB);
   ProteusValue valWrapper;
-  valWrapper.value = TheBuilder->CreateLoad(mem_hashResult);
+  valWrapper.value = TheBuilder->CreateLoad(
+      mem_hashResult->getType()->getPointerElementType(), mem_hashResult);
   valWrapper.isNull = context->createFalse();
 
   return valWrapper;

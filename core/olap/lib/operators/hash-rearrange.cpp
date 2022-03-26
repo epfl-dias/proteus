@@ -67,7 +67,10 @@ llvm::Value *HashRearrange::getIndexPtr(ParallelContext *context,
                                         llvm::Value *target) const {
   //  if (numOfBuckets > 1) {
   IRBuilder<> *Builder = context->getBuilder();
-  return Builder->CreateInBoundsGEP(context->getStateVar(cntVar_id),
+  return Builder->CreateInBoundsGEP(context->getStateVar(cntVar_id)
+                                        ->getType()
+                                        ->getNonOpaquePointerElementType(),
+                                    context->getStateVar(cntVar_id),
                                     {context->createInt32(0), target});
   //  } else {
   //    return context->getStateVar(cntVar_id);
@@ -77,7 +80,8 @@ llvm::Value *HashRearrange::getIndexPtr(ParallelContext *context,
 llvm::Value *HashRearrange::getIndex(ParallelContext *context,
                                      llvm::Value *target) const {
   IRBuilder<> *Builder = context->getBuilder();
-  return Builder->CreateLoad(getIndexPtr(context, target));
+  auto ptr = getIndexPtr(context, target);
+  return Builder->CreateLoad(ptr->getType()->getPointerElementType(), ptr);
 }
 
 llvm::StoreInst *HashRearrange::setIndex(ParallelContext *context,
@@ -190,11 +194,17 @@ void HashRearrange::consume(ParallelContext *context,
   Value *sPtr;
   insertAtEntryBlock(context, [&] {
     sPtr = context->getBuilder()->CreateInBoundsGEP(
+        (*context)
+            ->getStateVarPtr()
+            ->getType()
+            ->getNonOpaquePointerElementType(),
         (*context)->getStateVarPtr(),
         {context->createInt64(0),
          context->createInt32(blkVar_id.index_in_pip)});
-    blocks2 = context->getBuilder()->CreateLoad(sPtr);
-    auto b = Builder->CreateLoad(blocks2);
+    blocks2 = context->getBuilder()->CreateLoad(
+        sPtr->getType()->getPointerElementType(), sPtr);
+    auto b = Builder->CreateLoad(blocks2->getType()->getPointerElementType(),
+                                 blocks2);
 
     //    llvm::Metadata *Args[] = {
     //        llvm::ValueAsMetadata::get(context->createInt64(10000))};
@@ -207,31 +217,45 @@ void HashRearrange::consume(ParallelContext *context,
 
     // Instead of doing the load of all cntVar_id every time, save them in local
     // storage (hint to the compiler)
-    auto init_index = Builder->CreateLoad(context->getStateVar(cntVar_id));
+    auto init_index = Builder->CreateLoad(
+        context->getStateVar(cntVar_id)->getType()->getPointerElementType(),
+        context->getStateVar(cntVar_id));
     alloc_index =
         context->CreateEntryBlockAlloca("cntVar_id", init_index->getType());
     Builder->CreateStore(init_index, alloc_index);
 
     // Same for oidVar_id (store to local storage)
-    auto init_oid = Builder->CreateLoad(context->getStateVar(oidVar_id), "oid");
+    auto init_oid = Builder->CreateLoad(
+        context->getStateVar(oidVar_id)->getType()->getPointerElementType(),
+        context->getStateVar(oidVar_id), "oid");
     alloc_oid =
         context->CreateEntryBlockAlloca("oidVar_id", init_oid->getType());
     Builder->CreateStore(init_oid, alloc_oid);
   });
 
   insertAtEndingBlock(context, [&] {
-    Builder->CreateStore(Builder->CreateLoad(alloc_index),
-                         context->getStateVar(cntVar_id));
-    Builder->CreateStore(Builder->CreateLoad(blocks), blocks2);
-    Builder->CreateStore(Builder->CreateLoad(alloc_oid),
-                         context->getStateVar(oidVar_id));
+    Builder->CreateStore(
+        Builder->CreateLoad(alloc_index->getType()->getPointerElementType(),
+                            alloc_index),
+        context->getStateVar(cntVar_id));
+    Builder->CreateStore(
+        Builder->CreateLoad(blocks->getType()->getPointerElementType(), blocks),
+        blocks2);
+    Builder->CreateStore(
+        Builder->CreateLoad(alloc_oid->getType()->getPointerElementType(),
+                            alloc_oid),
+        context->getStateVar(oidVar_id));
   });
 
-  auto indx = Builder->CreateLoad(Builder->CreateInBoundsGEP(
-      alloc_index, {context->createInt32(0), target}));
+  auto indxPtr = Builder->CreateInBoundsGEP(
+      alloc_index->getType()->getNonOpaquePointerElementType(), alloc_index,
+      {context->createInt32(0), target});
+  auto indx =
+      Builder->CreateLoad(indxPtr->getType()->getPointerElementType(), indxPtr);
 
-  Value *curblk =
-      Builder->CreateInBoundsGEP(blocks, {context->createInt32(0), target});
+  Value *curblk = Builder->CreateInBoundsGEP(
+      blocks->getType()->getNonOpaquePointerElementType(), blocks,
+      {context->createInt32(0), target});
 
   llvm::Metadata *Args2[] = {nullptr};
   MDNode *n2 = MDNode::get(llvmContext, Args2);
@@ -252,12 +276,16 @@ void HashRearrange::consume(ParallelContext *context,
 
   std::vector<Value *> els;
   for (size_t i = 0; i < wantedFields.size(); ++i) {
-    auto block = Builder->CreateLoad(Builder->CreateInBoundsGEP(
-        curblk, {context->createInt32(0), context->createInt32(i)}));
+    auto blockPtr = Builder->CreateInBoundsGEP(
+        curblk->getType()->getNonOpaquePointerElementType(), curblk,
+        {context->createInt32(0), context->createInt32(i)});
+    auto block = Builder->CreateLoad(
+        blockPtr->getType()->getPointerElementType(), blockPtr);
 
     block->setMetadata(LLVMContext::MD_alias_scope, n);
 
-    Value *el_ptr = Builder->CreateInBoundsGEP(block, indx);
+    Value *el_ptr = Builder->CreateInBoundsGEP(
+        block->getType()->getNonOpaquePointerElementType(), block, indx);
 
     Value *el = vals[i].value;
     auto ld = dyn_cast<llvm::LoadInst>(el);
@@ -293,7 +321,8 @@ void HashRearrange::consume(ParallelContext *context,
 
   context
       ->gen_if({cond, context->createFalse()})([&]() {  // FullBB
-        Value *new_oid = Builder->CreateLoad(alloc_oid, "oid");
+        Value *new_oid = Builder->CreateLoad(
+            alloc_oid->getType()->getPointerElementType(), alloc_oid, "oid");
         Builder->CreateStore(Builder->CreateAdd(new_oid, capacity), alloc_oid);
 
         RecordAttribute tupleIdentifier{wantedFields[0].getRegisteredRelName(),
@@ -329,13 +358,15 @@ void HashRearrange::consume(ParallelContext *context,
           Builder->CreateStore(
               new_buff2,
               Builder->CreateInBoundsGEP(
-                  curblk, {context->createInt32(0), context->createInt32(i)}));
+                  curblk->getType()->getNonOpaquePointerElementType(), curblk,
+                  {context->createInt32(0), context->createInt32(i)}));
         }
 
         Builder->CreateStore(
             ConstantInt::get(oid_type, 0),
-            Builder->CreateInBoundsGEP(alloc_index,
-                                       {context->createInt32(0), target}));
+            Builder->CreateInBoundsGEP(
+                alloc_index->getType()->getNonOpaquePointerElementType(),
+                alloc_index, {context->createInt32(0), target}));
         //        auto s = setIndex(context, ConstantInt::get(oid_type, 0),
         //        target); s->setMetadata("noalias", n);
       })
@@ -348,9 +379,11 @@ void HashRearrange::consume(ParallelContext *context,
           //              curblk, {context->createInt32(0),
           //                       context->createInt32(i)}),
           //                       Type::getInt64Ty(llvmContext)));
-          Builder->CreateStore(els[i], Builder->CreateInBoundsGEP(
-                                           curblk, {context->createInt32(0),
-                                                    context->createInt32(i)}));
+          Builder->CreateStore(
+              els[i],
+              Builder->CreateInBoundsGEP(
+                  curblk->getType()->getNonOpaquePointerElementType(), curblk,
+                  {context->createInt32(0), context->createInt32(i)}));
         }
 
         //        auto s = setIndex(
@@ -360,8 +393,9 @@ void HashRearrange::consume(ParallelContext *context,
 
         Builder->CreateStore(
             Builder->CreateAdd(indx, ConstantInt::get(oid_type, 1)),
-            Builder->CreateInBoundsGEP(alloc_index,
-                                       {context->createInt32(0), target}));
+            Builder->CreateInBoundsGEP(
+                alloc_index->getType()->getNonOpaquePointerElementType(),
+                alloc_index, {context->createInt32(0), target}));
       });
   // flush remaining elements
   consume_flush(context);
@@ -444,7 +478,8 @@ void HashRearrange::consume_flush(ParallelContext *context) {
   Value *numOfBuckets = ConstantInt::get(target_type, this->numOfBuckets);
   numOfBuckets->setName("numOfBuckets");
 
-  Value *target = Builder->CreateLoad(mem_bucket, "target");
+  Value *target = Builder->CreateLoad(
+      mem_bucket->getType()->getPointerElementType(), mem_bucket, "target");
 
   Value *cond = Builder->CreateICmpSLT(target, numOfBuckets);
   // Insert the conditional branch into the end of CondBB.
@@ -474,13 +509,16 @@ void HashRearrange::consume_flush(ParallelContext *context) {
 
   Value *blocks = ((ParallelContext *)context)->getStateVar(blkVar_id);
   Value *curblk = Builder->CreateInBoundsGEP(
-      blocks, std::vector<Value *>{context->createInt32(0), target});
+      blocks->getType()->getNonOpaquePointerElementType(), blocks,
+      std::vector<Value *>{context->createInt32(0), target});
 
   std::vector<Value *> block_ptr_addrs;
   for (size_t i = 0; i < wantedFields.size(); ++i) {
-    Value *block = Builder->CreateLoad(Builder->CreateInBoundsGEP(
-        curblk, std::vector<Value *>{context->createInt32(0),
-                                     context->createInt32(i)}));
+    auto blockPtr = Builder->CreateInBoundsGEP(
+        curblk->getType()->getNonOpaquePointerElementType(), curblk,
+        std::vector<Value *>{context->createInt32(0), context->createInt32(i)});
+    Value *block = Builder->CreateLoad(
+        blockPtr->getType()->getPointerElementType(), blockPtr);
     block_ptr_addrs.push_back(block);
   }
 
@@ -492,7 +530,9 @@ void HashRearrange::consume_flush(ParallelContext *context) {
   mem_cntWrapper.isNull = context->createFalse();
   variableBindings[tupCnt] = mem_cntWrapper;
 
-  Value *new_oid = Builder->CreateLoad(context->getStateVar(oidVar_id), "oid");
+  Value *new_oid = Builder->CreateLoad(
+      context->getStateVar(oidVar_id)->getType()->getPointerElementType(),
+      context->getStateVar(oidVar_id), "oid");
   Builder->CreateStore(Builder->CreateAdd(new_oid, indx),
                        context->getStateVar(oidVar_id));
 

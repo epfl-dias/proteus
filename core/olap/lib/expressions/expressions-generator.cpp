@@ -109,17 +109,22 @@ ProteusValue ExpressionGeneratorVisitor::visit(
   vector<Value *> idxList = vector<Value *>();
   idxList.push_back(val_0);
   idxList.push_back(val_0);
-  Value *structPtr = TheBuilder->CreateGEP(mem_strObj, idxList);
+  Value *structPtr = TheBuilder->CreateGEP(
+      mem_strObj->getType()->getNonOpaquePointerElementType(), mem_strObj,
+      idxList);
   TheBuilder->CreateStore(globalStr, structPtr);
 
   idxList.clear();
   idxList.push_back(val_0);
   idxList.push_back(val_1);
-  structPtr = TheBuilder->CreateGEP(mem_strObj, idxList);
+  structPtr = TheBuilder->CreateGEP(
+      mem_strObj->getType()->getNonOpaquePointerElementType(), mem_strObj,
+      idxList);
   TheBuilder->CreateStore(context->createInt32(e->getVal().length()),
                           structPtr);
 
-  Value *val_strObj = TheBuilder->CreateLoad(mem_strObj);
+  Value *val_strObj = TheBuilder->CreateLoad(
+      mem_strObj->getType()->getPointerElementType(), mem_strObj);
   ProteusValue valWrapper;
   valWrapper.value = val_strObj;
   valWrapper.isNull = context->createFalse();
@@ -226,7 +231,8 @@ ProteusValue ExpressionGeneratorVisitor::visit(
   ProteusValue valWrapper;
   /* XXX Should this load be removed?? Will an optimization pass realize it is
    * not needed? */
-  valWrapper.value = Builder->CreateLoad(argMem);
+  valWrapper.value =
+      Builder->CreateLoad(argMem->getType()->getPointerElementType(), argMem);
   valWrapper.isNull = isNull;  // context->createFalse();
 
   return valWrapper;
@@ -327,7 +333,8 @@ ProteusValue ExpressionGeneratorVisitor::visit(
     assert(dynamic_cast<ParallelContext *>(context));
     mem_val = plugin->readValue(mem_path, e->getExpressionType(),
                                 dynamic_cast<ParallelContext *>(context));
-    Value *val = Builder->CreateLoad(mem_val.mem);
+    Value *val = Builder->CreateLoad(
+        mem_val.mem->getType()->getPointerElementType(), mem_val.mem);
     ProteusValue valWrapper;
     valWrapper.value = val;
     valWrapper.isNull = mem_val.isNull;
@@ -427,7 +434,9 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 //            mem_path = it->second;
 //        }
 //        mem_val = plugin->readValue(mem_path, e->getExpressionType());
-//        Value *val = Builder->CreateLoad(mem_val.mem);
+//        Value *val =
+//        Builder->CreateLoad(mem_val.mem->getType()->getPointerElementType(),
+//        mem_val.mem);
 //#ifdef DEBUG
 //        {
 //            /* Printing the pos. to be marked */
@@ -515,8 +524,10 @@ ProteusValue ExpressionGeneratorVisitor::visit(
   // cont.
   TheBuilder->SetInsertPoint(MergeBB);
   ProteusValue valWrapper;
-  valWrapper.value = TheBuilder->CreateLoad(mem_result);
-  valWrapper.isNull = TheBuilder->CreateLoad(mem_result_isNull);
+  valWrapper.value = TheBuilder->CreateLoad(
+      mem_result->getType()->getPointerElementType(), mem_result);
+  valWrapper.isNull = TheBuilder->CreateLoad(
+      mem_result_isNull->getType()->getPointerElementType(), mem_result_isNull);
 
   return valWrapper;
 }
@@ -967,11 +978,12 @@ ProteusValue ExpressionGeneratorVisitor::visit(
   auto session = ctx->getSessionParametersPtr();
   auto Builder = context->getBuilder();
   auto pan = Builder->CreateInBoundsGEP(
-      session, context->createSizeT(e->getPlaceholderIndex()));
+      session->getType()->getNonOpaquePointerElementType(), session,
+      context->createSizeT(e->getPlaceholderIndex()));
   auto par = Builder->CreatePointerCast(
       pan, llvm::PointerType::getUnqual(
                e->getExpressionType()->getLLVMType(context->getLLVMContext())));
-  auto *val = Builder->CreateLoad(par);
+  auto *val = Builder->CreateLoad(par->getType()->getPointerElementType(), par);
 
   {
     llvm::Metadata *Args2[] = {nullptr};
@@ -1020,7 +1032,7 @@ ProteusValue ExpressionGeneratorVisitor::visit(
       return valWrapper;
     case INDEXEDSEQ:
       valWrapper.value = TheBuilder->CreateGEP(
-          left.value, {context->createInt64(0), right.value});
+          nullptr, left.value, {context->createInt64(0), right.value});
       return valWrapper;
     case STRING:
       LOG(ERROR) << "[ExpressionGeneratorVisitor]: string operations not "
@@ -1695,7 +1707,9 @@ ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::RefExpression *e) {
   auto ptr = e->getExpr().accept(*this);
 
-  return {context->getBuilder()->CreateLoad(ptr.value), ptr.isNull};
+  return {context->getBuilder()->CreateLoad(
+              ptr.value->getType()->getPointerElementType(), ptr.value),
+          ptr.isNull};
 }
 ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::AssignExpression *e) {

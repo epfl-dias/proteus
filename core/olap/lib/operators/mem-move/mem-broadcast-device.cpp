@@ -157,7 +157,9 @@ void MemBroadcastDevice::produce_(ParallelContext *context) {
 
   Builder->SetInsertPoint(entryBB);
 
-  auto params = Builder->CreateLoad(context->getArgument(p));
+  auto params = Builder->CreateLoad(
+      context->getArgument(p)->getType()->getPointerElementType(),
+      context->getArgument(p));
 
   map<RecordAttribute, ProteusValueMemory> variableBindings;
 
@@ -251,13 +253,17 @@ void MemBroadcastDevice::consume(ParallelContext *context,
   // context)->getStateVar(cu_stream_var);
 
   Builder->SetInsertPoint(insBB);
-  auto N = Builder->CreateLoad(mem_cntWrapper.mem);
+  auto N = Builder->CreateLoad(
+      mem_cntWrapper.mem->getType()->getPointerElementType(),
+      mem_cntWrapper.mem);
 
   RecordAttribute tupleIdentifier{wantedFields[0]->getRelationName(),
                                   activeLoop, pg->getOIDType()};
 
   ProteusValueMemory mem_oidWrapper = childState[tupleIdentifier];
-  auto oid = Builder->CreateLoad(mem_oidWrapper.mem);
+  auto oid = Builder->CreateLoad(
+      mem_oidWrapper.mem->getType()->getPointerElementType(),
+      mem_oidWrapper.mem);
 
   auto memmv = context->getStateVar(memmvconf_var);
 
@@ -270,7 +276,9 @@ void MemBroadcastDevice::consume(ParallelContext *context,
 
     ProteusValueMemory mem_valWrapper = childState[block_attr];
 
-    auto block = Builder->CreateLoad(mem_valWrapper.mem);
+    auto block = Builder->CreateLoad(
+        mem_valWrapper.mem->getType()->getPointerElementType(),
+        mem_valWrapper.mem);
     auto mv = Builder->CreateBitCast(block, charPtrType);
 
     auto block_type = mem_valWrapper.mem->getType()->getPointerElementType();
@@ -328,7 +336,8 @@ void MemBroadcastDevice::consume(ParallelContext *context,
     auto workunit_ptr = Builder->CreateBitCast(
         workunit_ptr8, PointerType::getUnqual(workunit_type));
 
-    auto workunit_dat = Builder->CreateLoad(workunit_ptr);
+    auto workunit_dat = Builder->CreateLoad(
+        workunit_ptr->getType()->getPointerElementType(), workunit_ptr);
     auto d_ptr = Builder->CreateExtractValue(workunit_dat, 0);
     d_ptr = Builder->CreateBitCast(d_ptr, PointerType::getUnqual(data_type));
     Builder->CreateStore(d, d_ptr);

@@ -44,9 +44,9 @@
 #include <llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h>
 #include <llvm/ExecutionEngine/SectionMemoryManager.h>
 #include <llvm/IR/PassManager.h>
+#include <llvm/MC/TargetRegistry.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/Host.h>
-#include <llvm/Support/TargetRegistry.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #pragma pop_macro("NDEBUG")
 

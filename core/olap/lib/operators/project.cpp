@@ -65,7 +65,8 @@ void Project::generate(Context *const context,
   Builder->SetInsertPoint(context->getCurrentEntryBlock());
 
   auto state_mem_oid = context->getStateVar(oid_id);
-  auto local_oid = Builder->CreateLoad(state_mem_oid);
+  auto local_oid = Builder->CreateLoad(
+      state_mem_oid->getType()->getPointerElementType(), state_mem_oid);
   auto local_mem_oid =
       context->CreateEntryBlockAlloca("oid", local_oid->getType());
   auto local_mem_cnt =
@@ -75,7 +76,10 @@ void Project::generate(Context *const context,
                        local_mem_cnt);
 
   Builder->SetInsertPoint(context->getEndingBlock());
-  Builder->CreateStore(Builder->CreateLoad(local_mem_oid), state_mem_oid);
+  Builder->CreateStore(
+      Builder->CreateLoad(local_mem_oid->getType()->getPointerElementType(),
+                          local_mem_oid),
+      state_mem_oid);
 
   Builder->SetInsertPoint(cBB);
 
@@ -86,9 +90,10 @@ void Project::generate(Context *const context,
   oid_value.isNull = context->createFalse();
 
   // store new_val to accumulator
-  llvm::Value *next_oid =
-      Builder->CreateAdd(Builder->CreateLoad(local_mem_oid),
-                         llvm::ConstantInt::get(local_oid->getType(), 0));
+  llvm::Value *next_oid = Builder->CreateAdd(
+      Builder->CreateLoad(local_mem_oid->getType()->getPointerElementType(),
+                          local_mem_oid),
+      llvm::ConstantInt::get(local_oid->getType(), 0));
   Builder->CreateStore(next_oid, local_mem_oid);
   auto oidType = Catalog::getInstance().getPlugin(relName)->getOIDType();
   bindings[{relName, activeLoop, oidType}] = oid_value;

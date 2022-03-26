@@ -168,7 +168,8 @@ void GpuSort::produce_(ParallelContext *context) {
         auto size_mem =
             context->CreateEntryBlockAlloca(F, "size_mem", size_type);
         context->CodegenMemcpy(size_mem, s, context->getSizeOf(size_type));
-        auto size = Builder->CreateLoad(size_mem);
+        auto size = Builder->CreateLoad(
+            size_mem->getType()->getPointerElementType(), size_mem);
         vector<llvm::Value *> args{context->getStateVar(memVar_id), size};
 
         this->call_sort(args[0], args[1]);
@@ -253,7 +254,8 @@ void GpuSort::consume(ParallelContext *const context,
   // Value * indx = Builder->CreateLoad(ready_cnt_mem);
 
   Value *el_ptr = Builder->CreateInBoundsGEP(
-      mem_ptr, std::vector<Value *>{context->createInt64(0), indx});
+      mem_ptr->getType()->getNonOpaquePointerElementType(), mem_ptr,
+      std::vector<Value *>{context->createInt64(0), indx});
 
   ExpressionGeneratorVisitor exprGenerator(context, childState);
   ProteusValue valWrapper = outputExpr.accept(exprGenerator);

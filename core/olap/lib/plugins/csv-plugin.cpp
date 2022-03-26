@@ -125,7 +125,8 @@ ProteusValue CSVPlugin::hashValue(ProteusValueMemory mem_value,
     case BOOL: {
       Function *hashBoolean = context->getFunction("hashBoolean");
       vector<Value *> ArgsV;
-      ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
+      ArgsV.push_back(Builder->CreateLoad(
+          mem_value.mem->getType()->getPointerElementType(), mem_value.mem));
       Value *hashResult =
           context->getBuilder()->CreateCall(hashBoolean, ArgsV, "hashBoolean");
 
@@ -142,7 +143,8 @@ ProteusValue CSVPlugin::hashValue(ProteusValueMemory mem_value,
     case FLOAT: {
       Function *hashDouble = context->getFunction("hashDouble");
       vector<Value *> ArgsV;
-      ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
+      ArgsV.push_back(Builder->CreateLoad(
+          mem_value.mem->getType()->getPointerElementType(), mem_value.mem));
       Value *hashResult =
           context->getBuilder()->CreateCall(hashDouble, ArgsV, "hashDouble");
 
@@ -154,7 +156,8 @@ ProteusValue CSVPlugin::hashValue(ProteusValueMemory mem_value,
     case INT: {
       Function *hashInt = context->getFunction("hashInt");
       vector<Value *> ArgsV;
-      ArgsV.push_back(Builder->CreateLoad(mem_value.mem));
+      ArgsV.push_back(Builder->CreateLoad(
+          mem_value.mem->getType()->getPointerElementType(), mem_value.mem));
       Value *hashResult =
           context->getBuilder()->CreateCall(hashInt, ArgsV, "hashInt");
 
@@ -197,7 +200,8 @@ void CSVPlugin::flushValue(ProteusValueMemory mem_value,
                            const ExpressionType *type, Value *fileName) {
   IRBuilder<> *Builder = context->getBuilder();
   Function *flushFunc;
-  Value *val_attr = Builder->CreateLoad(mem_value.mem);
+  Value *val_attr = Builder->CreateLoad(
+      mem_value.mem->getType()->getPointerElementType(), mem_value.mem);
   switch (type->getTypeID()) {
     case BOOL: {
       flushFunc = context->getFunction("flushBoolean");
@@ -379,7 +383,10 @@ void CSVPlugin::skipDelimLLVM(Value *delim, Function *debugChar,
   AllocaInst *Alloca =
       context->CreateEntryBlockAlloca(TheFunction, "cur_pos", int64Type);
   // Store the value into the alloca.
-  Builder->CreateStore(Builder->CreateLoad(pos, "start_pos"), Alloca);
+  Builder->CreateStore(
+      Builder->CreateLoad(pos->getType()->getPointerElementType(), pos,
+                          "start_pos"),
+      Alloca);
 
   // Make the new basic block for the loop header, inserting after current
   // block.
@@ -399,16 +406,22 @@ void CSVPlugin::skipDelimLLVM(Value *delim, Function *debugChar,
 
   // Compute the end condition.
   // Involves pointer arithmetics
-  Value *index = Builder->CreateLoad(Alloca);
-  Value *lhsPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *lhsShiftedPtr = Builder->CreateInBoundsGEP(lhsPtr, index);
-  Value *lhs = Builder->CreateLoad(lhsShiftedPtr, "bufVal");
+  Value *index =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
+  Value *lhsPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *lhsShiftedPtr = Builder->CreateInBoundsGEP(
+      lhsPtr->getType()->getNonOpaquePointerElementType(), lhsPtr, index);
+  Value *lhs =
+      Builder->CreateLoad(lhsShiftedPtr->getType()->getPointerElementType(),
+                          lhsShiftedPtr, "bufVal");
   Value *rhs = delim;
   Value *EndCond = Builder->CreateICmpNE(lhs, rhs);
 
   // Reload, increment, and restore the alloca.
   // This handles the case where the body of the loop mutates the variable.
-  Value *CurVar = Builder->CreateLoad(Alloca);
+  Value *CurVar =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
   Value *NextVar = Builder->CreateAdd(CurVar, StepVal, "new_pos");
   Builder->CreateStore(NextVar, Alloca);
 
@@ -424,7 +437,8 @@ void CSVPlugin::skipDelimLLVM(Value *delim, Function *debugChar,
   ////////////////////////////////
 
   //'return' pos value
-  Value *finalVar = Builder->CreateLoad(Alloca);
+  Value *finalVar =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
   Builder->CreateStore(finalVar, NamedValuesCSV[posVar]);
 }
 
@@ -471,10 +485,12 @@ void CSVPlugin::skipLLVM() {
   // Create an alloca for the variable in the entry block.
   AllocaInst *Alloca =
       context->CreateEntryBlockAlloca(TheFunction, "cur_pos", int64Type);
-  Value *fsizeVal = Builder->CreateLoad(fsizePtr, "file_size");
+  Value *fsizeVal = Builder->CreateLoad(
+      fsizePtr->getType()->getPointerElementType(), fsizePtr, "file_size");
   // Store the current pos value into the alloca, so that loop starts from
   // appropriate point. Redundant store / loads will be simplified by opt.pass
-  Value *toInit = Builder->CreateLoad(pos, "start_pos");
+  Value *toInit = Builder->CreateLoad(pos->getType()->getPointerElementType(),
+                                      pos, "start_pos");
   Builder->CreateStore(toInit, Alloca);
 
   // Make the new basic block for the loop header, inserting after current
@@ -494,24 +510,31 @@ void CSVPlugin::skipLLVM() {
   Value *StepVal = Builder->getInt64(1);
 
   // Compute the end condition. More complex in this scenario (3 ands)
-  Value *index = Builder->CreateLoad(Alloca);
-  Value *lhsPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *lhsShiftedPtr = Builder->CreateInBoundsGEP(lhsPtr, index);
+  Value *index =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
+  Value *lhsPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *lhsShiftedPtr = Builder->CreateInBoundsGEP(
+      lhsPtr->getType()->getNonOpaquePointerElementType(), lhsPtr, index);
   // equivalent to buf[pos]
-  Value *lhs_ = Builder->CreateLoad(lhsShiftedPtr, "bufVal");
+  Value *lhs_ =
+      Builder->CreateLoad(lhsShiftedPtr->getType()->getPointerElementType(),
+                          lhsShiftedPtr, "bufVal");
   // Only difference between skip() and skipDelim()!!!
   Value *rhs1 = delimInner;
   Value *rhs2 = delimEnd;
   Value *EndCond1 = Builder->CreateICmpNE(lhs_, rhs1);
   Value *EndCond2 = Builder->CreateICmpNE(lhs_, rhs2);
-  Value *EndCond3 =
-      Builder->CreateICmpSLT(Builder->CreateLoad(Alloca), fsizeVal);
+  Value *EndCond3 = Builder->CreateICmpSLT(
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca),
+      fsizeVal);
   Value *EndCond_ = Builder->CreateAnd(EndCond1, EndCond2);
   Value *EndCond = Builder->CreateAnd(EndCond_, EndCond3);
 
   // Reload, increment, and restore the alloca.  This handles the case where
   // the body of the loop mutates the variable.
-  Value *CurVar = Builder->CreateLoad(Alloca);
+  Value *CurVar =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
   Value *NextVar = Builder->CreateAdd(CurVar, StepVal, "new_pos");
   Builder->CreateStore(NextVar, Alloca);
 
@@ -526,7 +549,8 @@ void CSVPlugin::skipLLVM() {
   Builder->SetInsertPoint(AfterBB);
 
   //'return' pos value
-  Value *finalVar = Builder->CreateLoad(Alloca);
+  Value *finalVar =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
   Builder->CreateStore(finalVar, NamedValuesCSV[posVar]);
 }
 
@@ -573,10 +597,12 @@ void CSVPlugin::getFieldEndLLVM() {
   // Create an alloca for the variable in the entry block.
   AllocaInst *Alloca =
       context->CreateEntryBlockAlloca(TheFunction, "cur_pos", int64Type);
-  Value *fsizeVal = Builder->CreateLoad(fsizePtr, "file_size");
+  Value *fsizeVal = Builder->CreateLoad(
+      fsizePtr->getType()->getPointerElementType(), fsizePtr, "file_size");
   // Store the current pos value into the alloca, so that loop starts from
   // appropriate point. Redundant store / loads will be simplified by opt.pass
-  Value *toInit = Builder->CreateLoad(pos, "start_pos");
+  Value *toInit = Builder->CreateLoad(pos->getType()->getPointerElementType(),
+                                      pos, "start_pos");
   Builder->CreateStore(toInit, Alloca);
 
   BasicBlock *fieldCond, *fieldBody, *fieldInc, *fieldEnd;
@@ -587,18 +613,24 @@ void CSVPlugin::getFieldEndLLVM() {
   Builder->SetInsertPoint(fieldCond);
   Value *StepVal = Builder->getInt64(1);
   // Compute the end condition. More complex in this scenario (3 ands)
-  Value *index = Builder->CreateLoad(Alloca);
-  Value *lhsPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *lhsShiftedPtr = Builder->CreateInBoundsGEP(lhsPtr, index);
+  Value *index =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
+  Value *lhsPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *lhsShiftedPtr = Builder->CreateInBoundsGEP(
+      lhsPtr->getType()->getNonOpaquePointerElementType(), lhsPtr, index);
   // equivalent to buf[pos]
-  Value *lhs_ = Builder->CreateLoad(lhsShiftedPtr, "bufVal");
+  Value *lhs_ =
+      Builder->CreateLoad(lhsShiftedPtr->getType()->getPointerElementType(),
+                          lhsShiftedPtr, "bufVal");
   // Only difference between skip() and skipDelim()!!!
   Value *rhs1 = delimInner;
   Value *rhs2 = delimEnd;
   Value *EndCond1 = Builder->CreateICmpNE(lhs_, rhs1);
   Value *EndCond2 = Builder->CreateICmpNE(lhs_, rhs2);
-  Value *EndCond3 =
-      Builder->CreateICmpSLT(Builder->CreateLoad(Alloca), fsizeVal);
+  Value *EndCond3 = Builder->CreateICmpSLT(
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca),
+      fsizeVal);
   Value *EndCond_ = Builder->CreateAnd(EndCond1, EndCond2);
   Value *EndCond = Builder->CreateAnd(EndCond_, EndCond3);
   Builder->CreateCondBr(EndCond, fieldBody, fieldEnd);
@@ -606,7 +638,8 @@ void CSVPlugin::getFieldEndLLVM() {
   Builder->SetInsertPoint(fieldBody);
   // Reload, increment, and restore the alloca.  This handles the case where
   // the body of the loop mutates the variable.
-  Value *CurVar = Builder->CreateLoad(Alloca);
+  Value *CurVar =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
   Value *NextVar = Builder->CreateAdd(CurVar, StepVal, "new_pos");
   Builder->CreateStore(NextVar, Alloca);
   Builder->CreateBr(fieldInc);
@@ -616,7 +649,8 @@ void CSVPlugin::getFieldEndLLVM() {
 
   Builder->SetInsertPoint(fieldEnd);
   //'return' pos value
-  Value *finalVar = Builder->CreateLoad(Alloca);
+  Value *finalVar =
+      Builder->CreateLoad(Alloca->getType()->getPointerElementType(), Alloca);
   Builder->CreateStore(finalVar, NamedValuesCSV[posVar]);
 }
 
@@ -650,17 +684,21 @@ void CSVPlugin::readAsIntLLVM(
     buf = it->second;
   }
 
-  Value *start = Builder->CreateLoad(pos, "start_pos_atoi");
+  Value *start = Builder->CreateLoad(pos->getType()->getPointerElementType(),
+                                     pos, "start_pos_atoi");
   getFieldEndLLVM();
   // index must be different than start!
-  Value *index = Builder->CreateLoad(pos, "end_pos_atoi");
+  Value *index = Builder->CreateLoad(pos->getType()->getPointerElementType(),
+                                     pos, "end_pos_atoi");
   // Must increase offset by 1 now
   //(uniform behavior with other skip methods)
   Value *val_1 = Builder->getInt64(1);
   Value *pos_inc = Builder->CreateAdd(index, val_1);
   Builder->CreateStore(pos_inc, pos);
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, start);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, start);
   Value *len = Builder->CreateSub(index, start);
   Value *len_32 = Builder->CreateTrunc(len, int32Type);
 
@@ -714,17 +752,21 @@ void CSVPlugin::readAsIntLLVM(
     buf = it->second;
   }
 
-  Value *start = Builder->CreateLoad(pos, "start_pos_atoi");
+  Value *start = Builder->CreateLoad(pos->getType()->getPointerElementType(),
+                                     pos, "start_pos_atoi");
   getFieldEndLLVM();
   // index must be different than start!
-  Value *index = Builder->CreateLoad(pos, "end_pos_atoi");
+  Value *index = Builder->CreateLoad(pos->getType()->getPointerElementType(),
+                                     pos, "end_pos_atoi");
   // Must increase offset by 1 now
   //(uniform behavior with other skip methods)
   Value *val_1 = Builder->getInt64(1);
   Value *pos_inc = Builder->CreateAdd(index, val_1);
   Builder->CreateStore(pos_inc, pos);
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, start);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getPointerElementType(), bufPtr, start);
   Value *len = Builder->CreateSub(index, start);
   Value *len_32 = Builder->CreateTrunc(len, int32Type);
 
@@ -775,11 +817,14 @@ void CSVPlugin::readAsBooleanLLVM(
     }
     buf = it->second;
   }
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *start = Builder->CreateLoad(pos, "start_pos_atob");
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *start = Builder->CreateLoad(pos->getType()->getPointerElementType(),
+                                     pos, "start_pos_atob");
   getFieldEndLLVM();
   // index must be different than start!
-  Value *index = Builder->CreateLoad(pos, "end_pos_atob");
+  Value *index = Builder->CreateLoad(pos->getType()->getPointerElementType(),
+                                     pos, "end_pos_atob");
   // Must increase offset by 1 now
   //(uniform behavior with other skip methods)
   Value *val_1 = Builder->getInt64(1);
@@ -834,11 +879,14 @@ void CSVPlugin::readAsFloatLLVM(
     buf = it->second;
   }
 
-  Value *start = Builder->CreateLoad(pos, "start_pos_atoi");
+  Value *start = Builder->CreateLoad(pos->getType()->getPointerElementType(),
+                                     pos, "start_pos_atoi");
   skipLLVM();
   // index must be different than start!
-  Value *bufPtr = Builder->CreateLoad(buf, "bufPtr");
-  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(bufPtr, start);
+  Value *bufPtr = Builder->CreateLoad(buf->getType()->getPointerElementType(),
+                                      buf, "bufPtr");
+  Value *bufShiftedPtr = Builder->CreateInBoundsGEP(
+      bufPtr->getType()->getNonOpaquePointerElementType(), bufPtr, start);
   vector<Value *> ArgsV;
   ArgsV.clear();
   ArgsV.push_back(bufShiftedPtr);
@@ -900,8 +948,10 @@ void CSVPlugin::scanCSV(const ::Operator &producer, Function *debug) {
   //      %cmp = icmp slt i32 %0, %1
   //      br i1 %cmp, label %for.body, label %for.end
 
-  Value *lhs = Builder->CreateLoad(pos);
-  Value *rhs = Builder->CreateLoad(fsizePtr);
+  Value *lhs =
+      Builder->CreateLoad(pos->getType()->getPointerElementType(), pos);
+  Value *rhs = Builder->CreateLoad(fsizePtr->getType()->getPointerElementType(),
+                                   fsizePtr);
   Value *cond = Builder->CreateICmpSLT(lhs, rhs);
 
   // Make the new basic block for the loop header (BODY), inserting after

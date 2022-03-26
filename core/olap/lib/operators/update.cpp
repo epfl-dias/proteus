@@ -76,8 +76,10 @@ void Update::produce_(ParallelContext *context) {
               llvm::ConstantInt::get(
                   oidtype->getLLVMType(context->getLLVMContext()), 0),
               context->createFalse());
-          variableBindings[rowcount] = context->toMem(
-              context->getBuilder()->CreateLoad(s), context->createFalse());
+          variableBindings[rowcount] =
+              context->toMem(context->getBuilder()->CreateLoad(
+                                 s->getType()->getPointerElementType(), s),
+                             context->createFalse());
           getParent()->consume(context, {*this, variableBindings});
         }
         context->deallocateStateVar(s);
@@ -91,16 +93,20 @@ void Update::consume(ParallelContext *context,
   IRBuilder<> *Builder = context->getBuilder();
 
   Value *mem_resultCtr = context->getStateVar(result_cnt_id);
-  Value *resultCtr = Builder->CreateLoad(mem_resultCtr);
+  Value *resultCtr = Builder->CreateLoad(
+      mem_resultCtr->getType()->getPointerElementType(), mem_resultCtr);
 
   auto pg = Catalog::getInstance().getPlugin(relName);
 
   auto rid = childState[{relName, activeLoop, pg->getOIDType()}];
 
   ExpressionGeneratorVisitor gen{context, childState};
-  pg->updateValueEager(context, {Builder->CreateLoad(rid.mem), rid.isNull},
-                       outputExpr.accept(gen), outputExpr.getExpressionType(),
-                       relName);
+  pg->updateValueEager(
+      context,
+      {Builder->CreateLoad(rid.mem->getType()->getPointerElementType(),
+                           rid.mem),
+       rid.isNull},
+      outputExpr.accept(gen), outputExpr.getExpressionType(), relName);
 
   // increase result ctr
   Value *resultCtrInc = Builder->CreateAdd(resultCtr, context->createInt64(1));

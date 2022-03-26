@@ -122,21 +122,28 @@ void Reduce::consume(ParallelContext *context,
         Builder->SetInsertPoint(context->getCurrentEntryBlock());
 
         mem_accumulating = context->getStateVar(*itMem);
-        Value *acc_init = Builder->CreateLoad(mem_accumulating);
+        Value *acc_init = Builder->CreateLoad(
+            mem_accumulating->getType()->getPointerElementType(),
+            mem_accumulating);
         Value *acc_mem =
             context->CreateEntryBlockAlloca("acc", acc_init->getType());
         Builder->CreateStore(acc_init, acc_mem);
 
         Builder->SetInsertPoint(context->getEndingBlock());
-        Builder->CreateStore(Builder->CreateLoad(acc_mem), mem_accumulating);
+        Builder->CreateStore(
+            Builder->CreateLoad(acc_mem->getType()->getPointerElementType(),
+                                acc_mem),
+            mem_accumulating);
 
         Builder->SetInsertPoint(cBB);
 
         ExpressionGeneratorVisitor outputExprGenerator{context, childState};
 
         // Load accumulator -> acc_value
-        ProteusValue acc_value{Builder->CreateLoad(acc_mem),
-                               context->createFalse()};
+        ProteusValue acc_value{
+            Builder->CreateLoad(acc_mem->getType()->getPointerElementType(),
+                                acc_mem),
+            context->createFalse()};
 
         // new_value = acc_value op outputExpr
         expressions::ProteusValueExpression val{agg.getExpressionType(),
@@ -199,7 +206,8 @@ void Reduce::generateBagUnion(const expression_t &outputExpr,
   Builder->SetInsertPoint(currBlock);
 
   // results so far
-  Value *resultCtr = Builder->CreateLoad(cnt_mem);
+  Value *resultCtr =
+      Builder->CreateLoad(cnt_mem->getType()->getPointerElementType(), cnt_mem);
 
   // flushing out delimiter (IF NEEDED)
   flusher.flushDelim(resultCtr);
@@ -336,7 +344,8 @@ void Reduce::generate_flush(ParallelContext *context) {
 
     Value *val_mem = context->getArgument(*itMem);
     val_mem->setName(outputExpr.getRegisteredAttrName() + "_ptr");
-    Value *val_acc = Builder->CreateLoad(val_mem);
+    Value *val_acc = Builder->CreateLoad(
+        val_mem->getType()->getPointerElementType(), val_mem);
     AllocaInst *acc_alloca = context->CreateEntryBlockAlloca(
         outputExpr.getRegisteredAttrName(), val_acc->getType());
 

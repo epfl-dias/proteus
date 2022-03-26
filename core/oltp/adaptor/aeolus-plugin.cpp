@@ -265,8 +265,10 @@ std::pair<llvm::Value *, llvm::Value *> AeolusPlugin::getPartitionSizes(
 
   Value *max_pack_size = ConstantInt::get(sizeType, 0);
   for (size_t i = 0; i < Nparts; ++i) {
-    auto v = Builder->CreateLoad(Builder->CreateInBoundsGEP(
-        N_parts_ptr, {context->createSizeT(0), context->createSizeT(i)}));
+    auto sv = Builder->CreateInBoundsGEP(
+        N_parts_ptr->getType()->getNonOpaquePointerElementType(), N_parts_ptr,
+        {context->createSizeT(0), context->createSizeT(i)});
+    auto v = Builder->CreateLoad(sv->getType()->getPointerElementType(), sv);
     auto cond = Builder->CreateICmpUGT(max_pack_size, v);
     max_pack_size = Builder->CreateSelect(cond, max_pack_size, v);
   }

@@ -113,7 +113,9 @@ void Router::generate_catch(ParallelContext *context) {
 
   Builder->SetInsertPoint(entryBB);
 
-  Value *params = Builder->CreateLoad(context->getArgument(p));
+  Value *params = Builder->CreateLoad(
+      context->getArgument(p)->getType()->getPointerElementType(),
+      context->getArgument(p));
 
   map<RecordAttribute, ProteusValueMemory> variableBindings;
 
@@ -358,7 +360,8 @@ void Router::consume(ParallelContext *const context,
          v->getType()->getPointerElementType()->getArrayElementType() ==
              params_type->getStructElementType(i)->getPointerElementType())
             ? Builder->CreateInBoundsGEP(
-                  v, {context->createInt32(0), context->createInt32(0)})
+                  v->getType()->getNonOpaquePointerElementType(), v,
+                  {context->createInt32(0), context->createInt32(0)})
             : v;  // Is this still relevant?
 
     params = Builder->CreateInsertValue(params, vi, i);
@@ -369,11 +372,19 @@ void Router::consume(ParallelContext *const context,
 
   ProteusValueMemory mem_oidWrapper = childState[tupleIdentifier];
   params = Builder->CreateInsertValue(
-      params, Builder->CreateLoad(mem_oidWrapper.mem), wantedFields.size());
+      params,
+      Builder->CreateLoad(
+          mem_oidWrapper.mem->getType()->getPointerElementType(),
+          mem_oidWrapper.mem),
+      wantedFields.size());
 
   auto srcServer = [&]() -> llvm::Value * {
     try {
       return Builder->CreateLoad(childState[{wantedFields[0]->getRelationName(),
+                                             "srcServer", new Int64Type()}]
+                                     .mem->getType()
+                                     ->getPointerElementType(),
+                                 childState[{wantedFields[0]->getRelationName(),
                                              "srcServer", new Int64Type()}]
                                      .mem);
     } catch (const std::out_of_range &) {
@@ -389,9 +400,12 @@ void Router::consume(ParallelContext *const context,
                              pg->getOIDType());  // FIXME: OID type for blocks ?
 
     ProteusValueMemory mem_cntWrapper = childState[tupleCnt];
-    params = Builder->CreateInsertValue(params,
-                                        Builder->CreateLoad(mem_cntWrapper.mem),
-                                        wantedFields.size() + 2);
+    params = Builder->CreateInsertValue(
+        params,
+        Builder->CreateLoad(
+            mem_cntWrapper.mem->getType()->getPointerElementType(),
+            mem_cntWrapper.mem),
+        wantedFields.size() + 2);
   }
 
   Value *exchangePtr =
@@ -416,8 +430,11 @@ void Router::consume(ParallelContext *const context,
             {target, exchange});
 
         Builder->CreateStore(
-            Builder->CreateAdd(Builder->CreateLoad(retry_cnt.mem),
-                               context->createInt32(1)),
+            Builder->CreateAdd(
+                Builder->CreateLoad(
+                    retry_cnt.mem->getType()->getPointerElementType(),
+                    retry_cnt.mem),
+                context->createInt32(1)),
             retry_cnt.mem);
       })
       .gen_while([&]() {

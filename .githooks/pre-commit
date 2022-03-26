@@ -2,7 +2,7 @@
 PROJECT_ROOT="$(git rev-parse --show-toplevel)"
 
 RETVAL=0
-CLANG_FORMAT_VERSION=13
+CLANG_FORMAT_VERSION=14
 
 # When commit is empty, return success, although we do not encourage it...
 if ! [[ $(git diff-index --cached --name-only HEAD) ]]; then
