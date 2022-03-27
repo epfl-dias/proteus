@@ -407,7 +407,7 @@ class InputArgument : public ExpressionCRTP<InputArgument> {
       : ExpressionCRTP(type), argNo(argNo) {}
 
   [[deprecated]] InputArgument(const ExpressionType *type, int argNo,
-                               const list<RecordAttribute> &projections)
+                               const std::list<RecordAttribute> &projections)
       : ExpressionCRTP(type), argNo(argNo) {  //, projections(projections) {
     assert(dynamic_cast<const RecordType *>(type) && "Expected Record Type");
 
@@ -444,7 +444,7 @@ class InputArgument : public ExpressionCRTP<InputArgument> {
 
   [[nodiscard]] int getArgNo() const { return argNo; }
   // list<RecordAttribute> getProjections() const { return projections; }
-  [[nodiscard]] list<RecordAttribute> getProjections() const {
+  [[nodiscard]] std::list<RecordAttribute> getProjections() const {
     auto rec = dynamic_cast<const RecordType *>(getExpressionType());
     std::list<RecordAttribute> largs;
     for (const auto &attr : rec->getArgs()) {
@@ -463,14 +463,14 @@ class InputArgument : public ExpressionCRTP<InputArgument> {
       bool eqExprType = !cmpExprType1 && !cmpExprType2;
       /* Does this make sense? Do I need equality? */
       if (eqExprType) {
-        list<RecordAttribute> lProj = this->getProjections();
-        list<RecordAttribute> rProj = r.getProjections();
+        std::list<RecordAttribute> lProj = this->getProjections();
+        std::list<RecordAttribute> rProj = r.getProjections();
         if (lProj.size() != rProj.size()) {
           return lProj.size() < rProj.size();
         }
 
-        list<RecordAttribute>::iterator itLeftArgs = lProj.begin();
-        list<RecordAttribute>::iterator itRightArgs = rProj.begin();
+        std::list<RecordAttribute>::iterator itLeftArgs = lProj.begin();
+        std::list<RecordAttribute>::iterator itRightArgs = rProj.begin();
 
         while (itLeftArgs != lProj.end()) {
           RecordAttribute attrLeft = (*itLeftArgs);
@@ -730,7 +730,7 @@ inline std::list<AttributeConstruction> toAttrConstr(
  */
 class RecordConstruction : public ExpressionCRTP<RecordConstruction> {
  public:
-  RecordConstruction(const list<AttributeConstruction> &atts)
+  RecordConstruction(const std::list<AttributeConstruction> &atts)
       : ExpressionCRTP(constructRecordType(atts)), atts(atts) {}
 
   RecordConstruction(const std::initializer_list<expression_t> &atts)
@@ -742,7 +742,7 @@ class RecordConstruction : public ExpressionCRTP<RecordConstruction> {
   [[nodiscard]] ExpressionId getTypeID() const override {
     return RECORD_CONSTRUCTION;
   }
-  [[nodiscard]] const list<AttributeConstruction> &getAtts() const {
+  [[nodiscard]] const std::list<AttributeConstruction> &getAtts() const {
     return atts;
   }
   inline bool operator<(const RecordConstruction &r) const override {
@@ -769,7 +769,7 @@ class RecordConstruction : public ExpressionCRTP<RecordConstruction> {
   }
 
   static RecordType *constructRecordType(
-      const list<AttributeConstruction> &attrs) {
+      const std::list<AttributeConstruction> &attrs) {
     vector<RecordAttribute *> recs;
     for (const auto &a : attrs) {
       auto *type = a.getExpression().getExpressionType();
@@ -780,7 +780,7 @@ class RecordConstruction : public ExpressionCRTP<RecordConstruction> {
   }
 
  private:
-  const list<AttributeConstruction> atts;
+  const std::list<AttributeConstruction> atts;
 };
 
 class IfThenElse : public ExpressionCRTP<IfThenElse> {

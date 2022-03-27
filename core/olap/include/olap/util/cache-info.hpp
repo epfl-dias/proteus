@@ -34,7 +34,7 @@ struct CacheInfo {
    * An option is that everything considered
    * a custom / structType will be stored in CATALOG too */
   // StructType *objectType;
-  list<typeID> objectTypes;
+  std::list<typeID> objectTypes;
   /* Convention:
    * Count begins from 1.
    * Zero implies we're dealing with the whole obj. (activeLoop)

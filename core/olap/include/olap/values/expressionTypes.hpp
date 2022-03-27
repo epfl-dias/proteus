@@ -354,7 +354,8 @@ std::ostream &operator<<(std::ostream &o, const ExpressionType &rec);
 class RecordType : public ExpressionTypeVisitable<RecordType, ExpressionType> {
  public:
   RecordType() = default;
-  explicit RecordType(list<RecordAttribute *> args) : args(std::move(args)) {
+  explicit RecordType(std::list<RecordAttribute *> args)
+      : args(std::move(args)) {
     for (const auto &arg : this->args) {
       argsMap[arg->getAttrName()] = arg;
     }
@@ -387,7 +388,9 @@ class RecordType : public ExpressionTypeVisitable<RecordType, ExpressionType> {
   llvm::Type *getLLVMType(llvm::LLVMContext &ctx) const override;
 
   [[nodiscard]] typeID getTypeID() const override { return RECORD; }
-  [[nodiscard]] const list<RecordAttribute *> &getArgs() const { return args; }
+  [[nodiscard]] const std::list<RecordAttribute *> &getArgs() const {
+    return args;
+  }
   map<string, RecordAttribute *> &getArgsMap() { return argsMap; }
   [[nodiscard]] int getArgsNo() const { return args.size(); }
   [[nodiscard]] bool isPrimitive() const override { return false; }
@@ -414,8 +417,8 @@ class RecordType : public ExpressionTypeVisitable<RecordType, ExpressionType> {
   int getIndex(RecordAttribute *x) const;
 
  private:
-  list<RecordAttribute *> args;
-  map<string, RecordAttribute *> argsMap;
+  std::list<RecordAttribute *> args;
+  std::map<string, RecordAttribute *> argsMap;
 };
 
 namespace type {

@@ -190,7 +190,7 @@ class Context {
   static llvm::StructType *CreateCustomStruct(llvm::LLVMContext &,
                                               vector<llvm::Type *> innerTypes);
   llvm::StructType *CreateCustomStruct(vector<llvm::Type *> innerTypes);
-  llvm::StructType *ReproduceCustomStruct(list<typeID> innerTypes);
+  llvm::StructType *ReproduceCustomStruct(std::list<typeID> innerTypes);
 
   template <typename InputIt>
   llvm::Value *constructStruct(InputIt begin, InputIt end) {
