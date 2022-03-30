@@ -993,7 +993,10 @@ ProteusValue ExpressionGeneratorVisitor::visit(
     llvm::Metadata *Args[] = {nullptr, n2};
     MDNode *n = MDNode::get(context->getLLVMContext(), Args);
     n->replaceOperandWith(0, n);
-    val->setMetadata(LLVMContext::MD_alias_scope, n);
+
+    llvm::Metadata *Args3[] = {n};
+    MDNode *n3 = MDNode::get(context->getLLVMContext(), Args3);
+    val->setMetadata(LLVMContext::MD_alias_scope, n3);
   }
 
   {  // Loaded value will be the same in all the places it will be loaded

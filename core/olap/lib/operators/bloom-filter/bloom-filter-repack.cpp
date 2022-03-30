@@ -194,9 +194,12 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
   llvm::MDNode *n2 = llvm::MDNode::get(context->getLLVMContext(), Args2);
   n2->replaceOperandWith(0, n2);
 
-  llvm::Metadata *Args[] = {nullptr, n2};
+  llvm::Metadata *Args3[] = {nullptr, n2};
+  llvm::MDNode *n3 = llvm::MDNode::get(context->getLLVMContext(), Args3);
+  n3->replaceOperandWith(0, n3);
+
+  llvm::Metadata *Args[] = {n3};
   llvm::MDNode *n = llvm::MDNode::get(context->getLLVMContext(), Args);
-  n->replaceOperandWith(0, n);
 
   llvm::Value *hits2 = llvm::UndefValue::get(
       llvm::VectorType::get(llvm::Type::getInt32Ty(context->getLLVMContext()),

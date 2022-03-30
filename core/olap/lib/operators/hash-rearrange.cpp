@@ -261,9 +261,12 @@ void HashRearrange::consume(ParallelContext *context,
   MDNode *n2 = MDNode::get(llvmContext, Args2);
   n2->replaceOperandWith(0, n2);
 
-  llvm::Metadata *Args[] = {nullptr, n2};
+  llvm::Metadata *Args3[] = {nullptr, n2};
+  MDNode *n3 = MDNode::get(llvmContext, Args3);
+  n3->replaceOperandWith(0, n3);
+
+  llvm::Metadata *Args[] = {n3};
   MDNode *n = MDNode::get(llvmContext, Args);
-  n->replaceOperandWith(0, n);
 
   //  MDNode *ntemp = MDNode::get(llvmContext,
   //  {llvm::ValueAsMetadata::get(context->createInt32(1))}); //awful
