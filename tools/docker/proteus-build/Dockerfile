@@ -1,4 +1,5 @@
 FROM nvidia/cuda:11.3.0-devel-ubuntu18.04
+ARG CMAKE_VERSION
 ARG LLVM_VERSION
 
 COPY requirements.txt /tmp/requirements.txt
@@ -47,10 +48,10 @@ COPY LLVM-${LLVM_VERSION}-Linux.deb /tmp/LLVM-${LLVM_VERSION}-Linux.deb
 RUN dpkg -i /tmp/LLVM-${LLVM_VERSION}-Linux.deb && \
     rm /tmp/LLVM-${LLVM_VERSION}-Linux.deb
 
-COPY cmake-3.20.2-Linux-x86_64.deb /tmp/cmake-3.20.2-Linux-x86_64.deb
+COPY cmake-${CMAKE_VERSION}-Linux-x86_64.deb /tmp/cmake-${CMAKE_VERSION}-Linux-x86_64.deb
 
-RUN dpkg -i /tmp/cmake-3.20.2-Linux-x86_64.deb && \
-    rm /tmp/cmake-3.20.2-Linux-x86_64.deb
+RUN dpkg -i /tmp/cmake-${CMAKE_VERSION}-Linux-x86_64.deb && \
+    rm /tmp/cmake-${CMAKE_VERSION}-Linux-x86_64.deb
 
 RUN apt update  -y && \
     # apt upgrade -y && \
