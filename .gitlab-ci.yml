@@ -118,11 +118,7 @@ codestyle:
  script:
   # clang-format comes from the llvm repo: https://apt.llvm.org/
   # remember to update it every time we pop the LLVM version!
-  # if grep returns an error, it didn't find a match, which is OK for us
-  - find . \( -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' -o -name '*.cuh' -o -name '*.td' \) | xargs -n1 clang-format -output-replacements-xml --style=file | grep "replacement " || exit 0
-  # otherwise, print message and exist with error code
-  - echo "Non conforming format"
-  - exit 1
+  - find . \( -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' -o -name '*.cuh' -o -name '*.td' \) | xargs -n1 clang-format --dry-run --Werror
  <<: *cache
  <<: *restrict_precommit
 
