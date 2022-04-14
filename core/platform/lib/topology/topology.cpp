@@ -24,6 +24,7 @@
 #include <numa.h>
 #include <numaif.h>
 
+#include <array>
 #include <cmath>
 #include <iomanip>
 #include <map>
@@ -31,6 +32,7 @@
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
 #include <platform/util/topology_parser.hpp>
+#include <regex>
 #include <stdexcept>
 #include <vector>
 
@@ -48,6 +50,107 @@ const topology::cpunumanode *topology::getCpuNumaNodeAddressed(
   if (x) return nullptr;
   assert(numa_id >= 0);
   return (cpu_info.data() + cpunuma_index[numa_id]);
+}
+
+uint32_t topology::pcieAddressToNumaNodeId(std::string address) {
+  std::string filename = "/sys/bus/pci/devices/" + address + "/numa_node";
+  std::fstream s(filename, s.binary | s.in);
+  if (!s.is_open()) {
+    throw std::runtime_error("Failed to open: " + filename +
+                             ". Is this a valid pcie address?");
+  }
+  std::string numa_node;
+  s >> numa_node;
+  return std::stoul(numa_node);
+}
+
+uint32_t nvmeDevPathToNumaNodeId(std::string devPath) {
+  // drop /dev/ from front of string
+  // and assuming that the devPath is to a nvme namespace, so the last part is
+  // the namespace
+  // TODO use a regex, if we have more than 9 namespaces on a device this breaks
+  // badly
+  std::string deviceNamespace = devPath.substr(5);
+  std::string device = deviceNamespace.substr(0, deviceNamespace.length() - 2);
+
+  std::string filename = "/sys/block/" + deviceNamespace + "/device/" + device +
+                         "/device/numa_node";
+  std::fstream s(filename, s.binary | s.in);
+  if (!s.is_open()) {
+    LOG(FATAL) << "Failed to open: "
+               << filename + ". Is this a valid NVMe device?";
+  }
+  std::string numa_node;
+  s >> numa_node;
+  return std::stoul(numa_node);
+}
+
+std::string nvmeDevPathToModelName(std::string devPath) {
+  // drop /dev/ from front of string
+  // and assuming that the devPath is to a nvme namespace, so thr last part is
+  // the namespace
+  // TODO use a regex, if we have more than 9 namespaces on a device this breaks
+  // badly
+  std::string deviceNamespace = devPath.substr(5);
+  std::string filename =
+      "/sys/block/" + deviceNamespace + "/device/" + "/model";
+  std::ifstream s(filename, s.binary | s.in);
+  if (!s.is_open()) {
+    LOG(FATAL) << "Failed to open: "
+               << filename + ". Is this a valid NVMe device?";
+  }
+  std::string model_name((std::istreambuf_iterator<char>(s)),
+                         (std::istreambuf_iterator<char>()));
+  // don't want a tailing new line here
+  model_name.erase(std::remove(model_name.begin(), model_name.end(), '\n'),
+                   model_name.end());
+  // trim leading and trailing whitespace
+  return std::regex_replace(model_name, std::regex("^ +| +$|( ) +"), "$1");
+}
+
+uint32_t nvmeDevPathToLinkWidth(std::string devPath) {
+  // drop /dev/ from front of string
+  // and assuming that the devPath is to a nvme namespace, so thr last part is
+  // the namespace
+  // TODO use a regex, if we have more than 9 namespaces on a device this breaks
+  // badly
+  std::string deviceNamespace = devPath.substr(5);
+  std::string device = deviceNamespace.substr(0, deviceNamespace.length() - 2);
+
+  std::string filename = "/sys/block/" + deviceNamespace + "/device/" + device +
+                         "/device/current_link_width";
+  std::fstream s(filename, s.binary | s.in);
+  if (!s.is_open()) {
+    LOG(FATAL) << "Failed to open: "
+               << filename + ". Is this a valid NVMe device?";
+  }
+  std::string link_width;
+  s >> link_width;
+  return std::stoul(link_width);
+}
+
+std::string nvmeDevPathToLinkSpeed(std::string devPath) {
+  // drop /dev/ from front of string
+  // and assuming that the devPath is to a nvme namespace, so thr last part is
+  // the namespace
+  // TODO use a regex, if we have more than 9 namespaces on a device this breaks
+  // badly
+  std::string deviceNamespace = devPath.substr(5);
+  std::string device = deviceNamespace.substr(0, deviceNamespace.length() - 2);
+
+  std::string filename = "/sys/block/" + deviceNamespace + "/device/" + device +
+                         "/device/current_link_speed";
+  std::ifstream s(filename, s.binary | s.in);
+  if (!s.is_open()) {
+    LOG(FATAL) << "Failed to open: "
+               << filename + ". Is this a valid NVMe device?";
+  }
+  std::string link_speed((std::istreambuf_iterator<char>(s)),
+                         (std::istreambuf_iterator<char>()));
+  // don't want a tailing new line here
+  link_speed.erase(std::remove(link_speed.begin(), link_speed.end(), '\n'),
+                   link_speed.end());
+  return link_speed;
 }
 
 #pragma clang diagnostic push
@@ -205,7 +308,7 @@ void topology::init_() {
     cpu_info[ind].local_gpus.push_back(i);
   }
 
-  // warp-up GPUs
+  // warm-up GPUs
   for (const auto &gpu : gpu_info) {
     gpu_run(cudaSetDevice(gpu.id));
     gpu_run(cudaFree(nullptr));
@@ -234,7 +337,50 @@ void topology::init_() {
     }
   }
 
+  // collect infiniband info
   ib_info = ib::discover();
+
+  // collect NVMe info
+  init_nvmeStorage();
+}
+
+/**
+ *
+ * @return an array of strings corresponding to all nvme namespace device paths
+ * on this machine e.g ["/dev/nvme0n1"]
+ *
+ * see https://unix.stackexchange.com/a/452135 for nvme device naming
+ * conventions
+ */
+std::vector<std::string> discoverNvmeDevicePaths() {
+  // Using 'sudo nvme list -o json' would be nice, except that it 1. require
+  // sudo, and 2. is very dependent on ubuntu version for the info returned.
+  // older versions of ubuntu the only useful info we get is the device name
+  // Using libnvme would also be nice, but is also not as portable for the same
+  // reasons
+  std::vector<std::string> devicePaths{};
+  for (const auto &device : std::filesystem::directory_iterator("/dev/")) {
+    const auto devString = device.path().string();
+    std::smatch nvme_device_match;
+    if (std::regex_search(devString, nvme_device_match,
+                          std::regex("\\/dev\\/nvme[0-9]+n[0-9]+$"))) {
+      devicePaths.push_back(device.path().string());
+    }
+  }
+
+  return devicePaths;
+}
+
+/**
+ * Find NVMe drives on this machine by parsing /dev/nvme*
+ * and then additional information on the drives by parsing sysfs
+ * Populates nvmeStorage_info
+ */
+void topology::init_nvmeStorage() {
+  auto nvmeDevPaths = discoverNvmeDevicePaths();
+  for (size_t i = 0; i < nvmeDevPaths.size(); i++) {
+    nvmeStorage_info.emplace_back(nvmeDevPaths.at(i), i);
+  }
 }
 
 topology::topology() {}
@@ -259,6 +405,7 @@ std::ostream &operator<<(std::ostream &out, const topology &topo) {
   out << "core count: " << topo.getCoreCount() << "\n";
   out << "gpu  count: " << topo.getGpuCount() << "\n";
   out << "IB   count: " << topo.getIBCount() << "\n";
+  out << "NVMe count: " << topo.getNvmeCount() << "\n";
 
   out << '\n';
 
@@ -373,6 +520,33 @@ std::ostream &operator<<(std::ostream &out, const topology &topo) {
     for (auto d : gpu.connectivity) out << std::setw(4) << d;
     out << '\n';
   }
+
+  for (const auto &nvme : topo.getNvmes()) {
+    out << "nvme: " << nvme.index_in_topo << " | ";
+    out << "node: " << nvme.local_cpu_id << " | ";
+
+    const auto &numanode = nvme.getLocalCPUNumaNode();
+    out << "cores: ";
+
+    // clear mask
+    for (uint32_t i = 0; i < topo.core_cnt; ++i) core_mask[i] = ' ';
+    // set mask
+    for (auto cpu_id : numanode.local_cores) {
+      core_mask[cpu_id] = 'x';
+    }
+    out << core_mask;
+
+    out << " |  " << nvme;
+    out << "\n";
+  }
+  return out;
+}
+
+std::ostream &operator<<(std::ostream &out, const topology::nvmeStorage &nvme) {
+  out << "model name: " << nvme.model_name
+      << ", link_speed: " << nvme.link_speed
+      << ", PCIe lanes: " << nvme.link_width
+      << ", device path: " << nvme.devPath;
   return out;
 }
 
@@ -439,6 +613,18 @@ topology::cpunumanode::cpunumanode(uint32_t id,
   CPU_ZERO(&local_cpu_set);
   for (const auto &c : local_cores) CPU_SET(c, &local_cpu_set);
 }
+
+topology::nvmeStorage::nvmeStorage(const std::string &devPath,
+                                   uint32_t index_in_topo,
+                                   // do not remove argument!!!
+                                   topologyonly_construction)
+    : devPath(devPath),
+      id(index_in_topo),
+      index_in_topo(index_in_topo),
+      local_cpu_id(nvmeDevPathToNumaNodeId(devPath)),
+      link_speed(nvmeDevPathToLinkSpeed(devPath)),
+      link_width(nvmeDevPathToLinkWidth(devPath)),
+      model_name(nvmeDevPathToModelName(devPath)){};
 
 nvmlDevice_t topology::gpunode::getGPUHandle(unsigned int id) {
   cudaDeviceProp prop;
@@ -519,6 +705,11 @@ const topology::cpunumanode &topology::gpunode::getLocalCPUNumaNode() const {
   return topology::getInstance().getCpuNumaNodeById(local_cpu_id);
 }
 
+const topology::cpunumanode &topology::nvmeStorage::getLocalCPUNumaNode()
+    const {
+  return topology::getInstance().getCpuNumaNodeById(local_cpu_id);
+}
+
 const topology::cpunumanode &topology::core::getLocalCPUNumaNode() const {
   return topology::getInstance().getCpuNumaNodeById(local_cpu_id);
 }
@@ -532,5 +723,9 @@ set_exec_location_on_scope topology::core::set_on_scope() const {
 }
 
 set_exec_location_on_scope topology::gpunode::set_on_scope() const {
+  return {*this};
+}
+
+set_exec_location_on_scope topology::nvmeStorage::set_on_scope() const {
   return {*this};
 }

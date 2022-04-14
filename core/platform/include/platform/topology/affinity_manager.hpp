@@ -173,6 +173,12 @@ class [[nodiscard]] set_exec_location_on_scope {
     exec_location{gpu}.activate();
   }
 
+  [[noreturn]] inline set_exec_location_on_scope(
+      const topology::nvmeStorage &nvme) {
+    // this probably shouldn't happen, implanting this so things compile for now
+    LOG(FATAL) << "Cannot execute on nvmeStorage";
+  }
+
   inline ~set_exec_location_on_scope() { old.activate(); }
 };
 

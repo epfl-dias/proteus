@@ -84,6 +84,61 @@ class topology {
     }
   };
 
+  class cpunumanode;
+
+  class nvmeStorage : public numanode {
+   public:
+    const uint32_t id;          /// 32 bit identifier unique across nvme devices
+    const std::string devPath;  /// linux device path, including nvme namespace
+                                /// e.g /dev/nvme0n1
+    const uint32_t
+        index_in_topo;  /// index of nvme storage device in this topology
+    const uint32_t
+        local_cpu_id;  /// id of cpunumanode which this nvme is attached to
+    const std::string model_name;  /// model name, human readable string
+    const std::string link_speed;  /// link speed, string e.g 8 GT/s
+    const uint32_t link_width;     /// link width, in number of PCIe lanes
+
+   public:
+    /**
+     *
+     * @param devPath path in /dev/{device name}, uniquely identifies a device,
+     * but as a string is an inconvenient identifier. For nvme drives this is a
+     * path to a namespace, e.g /dev/nvme0n1
+     * @param index_in_topo index in topology vector, useful for identifying
+     * within proteus quickly, but not stable across proteus instances
+     */
+    nvmeStorage(const std::string &devPath, uint32_t index_in_topo,
+                // do not remove argument!!!
+                topologyonly_construction = {});
+
+    //     Do not allow copies
+    nvmeStorage(const nvmeStorage &) = delete;
+    nvmeStorage &operator=(const nvmeStorage &) = delete;
+
+    // Allow construction through moving, but do not allow moving to overwrite
+    nvmeStorage(nvmeStorage &&) = default;
+    nvmeStorage &operator=(nvmeStorage &&) = delete;
+
+    /**
+     *
+     * @return The cpunumanode to which this nvmeStorage belongs
+     */
+    const cpunumanode &getLocalCPUNumaNode() const;
+
+    /**
+     * Calling this function is undefined. See
+     * https://gitlab.epfl.ch/DIAS/PROJECTS/caldera/proteus/-/issues/79 Calling
+     * this function will likely (certainly) lead to a crash. It currently
+     * exists because it is necessary to compile.
+     * @return noreturn
+     */
+    [[nodiscard]] set_exec_location_on_scope set_on_scope()
+        const override final;
+
+    friend std::ostream &operator<<(std::ostream &out, const nvmeStorage &nvme);
+  };
+
   class core;
 
   class cpunumanode : public numanode {
@@ -120,6 +175,11 @@ class topology {
       return topology::getInstance().getCoreById(local_cores[i]);
     }
 
+    /**
+     * Moves execution of this scope to this cpunumanode
+     * @return a set_exec_location_on_scope, code within the containing scope
+     * will execute on this cpunumanode
+     */
     [[nodiscard]] set_exec_location_on_scope set_on_scope()
         const override final;
   };
@@ -146,6 +206,11 @@ class topology {
     // const cpunumanode &getNumaNode() const;
     const cpunumanode &getLocalCPUNumaNode() const;
 
+    /**
+     * Moves execution of this scope to this cpu core
+     * @return a set_exec_location_on_scope, code within the containing scope
+     * will execute on this cpu core
+     */
     [[nodiscard]] set_exec_location_on_scope set_on_scope()
         const override final;
 
@@ -183,9 +248,23 @@ class topology {
             const std::vector<topology::core> &all_cores,
             // do not remove argument!!!
             topologyonly_construction = {});
+    /**
+     *
+     * @return Total gloabl memory available on the device in bytes
+     */
     size_t getMemorySize() const;
+
+    /**
+     *
+     * @return the cpunumanode which is local to this gpunode
+     */
     const cpunumanode &getLocalCPUNumaNode() const;
 
+    /**
+     * Moves execution of this scope to this gpunode
+     * @return a set_exec_location_on_scope, code within the containing scope
+     * will execute on this gpunode
+     */
     [[nodiscard]] set_exec_location_on_scope set_on_scope()
         const override final;
   };
@@ -194,9 +273,11 @@ class topology {
   std::vector<cpunumanode> cpu_info;
   std::vector<gpunode> gpu_info;
   std::vector<ib> ib_info;
+  std::vector<nvmeStorage> nvmeStorage_info;
 
   std::vector<core> core_info;
 
+  // mapping from numanode id to numanode index in topo
   std::vector<uint32_t> cpunuma_index;
   std::vector<uint32_t> cpucore_index;
 
@@ -210,6 +291,20 @@ class topology {
   topology &operator=(const topology &) = delete;
   topology();
   void init_();
+
+  /**
+   * initialize nvme storage info, assumes that cpu topology info has been
+   * initialized before calling
+   */
+  void init_nvmeStorage();
+
+  /**
+   * Maps a pcie address to a cpunumanode id
+   * @param address string in the form '0000:04:00.0' as you may get from a cli
+   * utility
+   * @return a uint32_t corresponding to a cpunumanode id
+   */
+  uint32_t pcieAddressToNumaNodeId(std::string address);
 
   static topology instance;
 
@@ -231,6 +326,14 @@ class topology {
 
   [[nodiscard]] inline size_t getIBCount() const { return ib_info.size(); }
 
+  [[nodiscard]] inline size_t getNvmeCount() const {
+    return nvmeStorage_info.size();
+  }
+
+  [[nodiscard]] inline const std::vector<nvmeStorage> &getNvmes() const {
+    return nvmeStorage_info;
+  }
+
   [[nodiscard]] inline const std::vector<gpunode> &getGpus() const {
     return gpu_info;
   }
@@ -251,8 +354,20 @@ class topology {
     return gpu_info[device];
   }
 
+  /**
+   *
+   * @param m pointer to CPU memory
+   * @return nullptr on failure, else pointer to the cpunumanode which contains
+   * the memory this pointer points at
+   */
   const cpunumanode *getCpuNumaNodeAddressed(const void *m) const;
 
+  /**
+   *
+   * @param p pointer to GPU memory
+   * @return nullptr on failure, else pointer to the gpunode which contains
+   * the memory this pointer points at
+   */
   template <typename T>
   const gpunode *getGpuAddressed(const T *p) const {
 #ifndef NCUDA
@@ -274,8 +389,19 @@ class topology {
     return *getCpuNumaNodeAddressed(ptr);
   }
 
+  /**
+   *
+   * @return the cpunumanode which is local to this ib
+   */
   [[nodiscard]] const topology::cpunumanode &findLocalCPUNumaNode(
       const ib &ib) const;
+
+  /**
+   *
+   * @return the cpunumanode which is local to this nvmeStorage
+   */
+  [[nodiscard]] const topology::cpunumanode &findLocalCPUNumaNode(
+      const nvmeStorage &nvme) const;
 
   inline const core &getCoreById(uint32_t id) const {
     return core_info[cpucore_index[id]];
@@ -310,5 +436,5 @@ class topology {
 };
 
 std::ostream &operator<<(std::ostream &stream, const topology &topo);
-
+std::ostream &operator<<(std::ostream &out, const topology::nvmeStorage &nvme);
 #endif /* TOPOLOGY_HPP_ */
