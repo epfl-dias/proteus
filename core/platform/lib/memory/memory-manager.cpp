@@ -221,6 +221,9 @@ void *NUMAPinnedMemAllocator::reg(void *ptr, size_t bytes) {
   // Do not remove below line, it forces allocation of first 4bytes (and its
   // page)
   //  std::cout << "Registering: " << ptr << " " << ((char *)ptr)[0] << '\n';
+  //  If you hit an "invalid argument" error here, check the number of
+  //  configured huge pages. You may have run out of memory, the error can be
+  //  misleading
   gpu_run(cudaHostRegister(ptr, bytes, 0));
   return ptr;
 }
