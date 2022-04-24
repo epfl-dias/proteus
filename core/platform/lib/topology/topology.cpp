@@ -52,6 +52,74 @@ const topology::cpunumanode *topology::getCpuNumaNodeAddressed(
   return (cpu_info.data() + cpunuma_index[numa_id]);
 }
 
+// the @ in the link really messes with clang documentation parsing
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wno-documentation-unknown-command"
+/**
+ * There are two thing that /sys/block/nvme2n1 may link to.
+ * Either a virtual NVMe device, or a physical NVMe Device. Virtual devices
+ * cover NVMe over fabric, which we do not yet support. We just want the
+ * physical device. The core issue is that the pci devices and
+ * the virtual devices have different folder structures with the same
+ * information.
+ * @see
+ * https://lore.kernel.org/all/3c725e5deaabaaf145f48f2f6fcfdae9f6d41e2e.camel@suse.de/t/#r543f7392cfa1ba8adfe5447735b8da6170022295
+ * @param nvmeBlockDevice e.g /sys/block/nvme2n1
+ * @return a path which refers to the physical pci device directory of the nvme
+ * drive, e.g a path which symlinks to:
+ * /sys/devices/pci0000:17/0000:17:00.0/0000:18:00.0/nvme/nvme2/device
+ */
+#pragma clang diagnostic pop
+std::filesystem::path nvmeNameSpaceToSysfsPciSysfsPath(
+    const std::string &nvmeBlockDevice) {
+  std::regex thisDeviceRegex{"(nvme[0-9]+).*"};
+  std::smatch extract_device_regex;
+  assert(std::regex_search(nvmeBlockDevice, extract_device_regex,
+                           thisDeviceRegex));
+  // should get us just nvme1
+  auto thisDeviceOnly = extract_device_regex[1].str();
+
+  std::vector<std::filesystem::path> possibleVirtualDevicePaths{};
+  std::vector<std::filesystem::path> possiblePhysicalDevicePaths{};
+  // If we only have nvme block devices in the form `nvme1n1` then those are
+  // physical devices e.g they symlink to
+  // `../devices/pci0000:80/0000:80:03.2/0000:84:00.0/nvme/nvme1/nvme1n1` if we
+  // have both `nvme1n1` and `nvme1c1n1` then nvme1c1n1 is the symlink to the
+  // pcie device
+
+  std::regex possibleVirtualNvmeRegex{"\\/sys\\/block\\/nvme[0-9]+n[0-9]+$"};
+  std::regex possiblePhysicalNvmeRegex{
+      "\\/sys\\/block\\/nvme[0-9]+c[0-9]+n[0-9]+$"};
+  for (const auto &blockDevice :
+       std::filesystem::directory_iterator("/sys/block")) {
+    const auto devString = blockDevice.path().string();
+    std::smatch nvme_maybe_virtual_match;
+    std::smatch nvme_maybe_physical_match;
+    std::smatch this_device_match;
+
+    std::regex_search(devString, this_device_match, thisDeviceRegex);
+    if (this_device_match[1].str() == thisDeviceOnly) {
+      if (std::regex_search(devString, nvme_maybe_virtual_match,
+                            possibleVirtualNvmeRegex)) {
+        possibleVirtualDevicePaths.push_back(blockDevice.path().string());
+      }
+
+      if (std::regex_search(devString, nvme_maybe_physical_match,
+                            possiblePhysicalNvmeRegex)) {
+        possiblePhysicalDevicePaths.push_back(blockDevice.path().string());
+      }
+    }
+  }
+
+  if (possibleVirtualDevicePaths.size() == 0) {
+    assert(possiblePhysicalDevicePaths.size() == 1);
+    return possiblePhysicalDevicePaths.at(0) / "device";
+  } else {
+    assert(possibleVirtualDevicePaths.size() == 1);
+    return possibleVirtualDevicePaths.at(0) / "device";
+  }
+}
+
 uint32_t topology::pcieAddressToNumaNodeId(std::string address) {
   std::string filename = "/sys/bus/pci/devices/" + address + "/numa_node";
   std::fstream s(filename, s.binary | s.in);
@@ -65,20 +133,13 @@ uint32_t topology::pcieAddressToNumaNodeId(std::string address) {
 }
 
 uint32_t nvmeDevPathToNumaNodeId(std::string devPath) {
-  // drop /dev/ from front of string
-  // and assuming that the devPath is to a nvme namespace, so the last part is
-  // the namespace
-  // TODO use a regex, if we have more than 9 namespaces on a device this breaks
-  // badly
-  std::string deviceNamespace = devPath.substr(5);
-  std::string device = deviceNamespace.substr(0, deviceNamespace.length() - 2);
+  std::filesystem::path filename =
+      nvmeNameSpaceToSysfsPciSysfsPath(devPath) / "device" / "numa_node";
 
-  std::string filename = "/sys/block/" + deviceNamespace + "/device/" + device +
-                         "/device/numa_node";
   std::fstream s(filename, s.binary | s.in);
   if (!s.is_open()) {
     LOG(FATAL) << "Failed to open: "
-               << filename + ". Is this a valid NVMe device?";
+               << filename.string() + ". Is this a valid NVMe device?";
   }
   std::string numa_node;
   s >> numa_node;
@@ -86,18 +147,12 @@ uint32_t nvmeDevPathToNumaNodeId(std::string devPath) {
 }
 
 std::string nvmeDevPathToModelName(std::string devPath) {
-  // drop /dev/ from front of string
-  // and assuming that the devPath is to a nvme namespace, so thr last part is
-  // the namespace
-  // TODO use a regex, if we have more than 9 namespaces on a device this breaks
-  // badly
-  std::string deviceNamespace = devPath.substr(5);
-  std::string filename =
-      "/sys/block/" + deviceNamespace + "/device/" + "/model";
+  std::filesystem::path filename =
+      nvmeNameSpaceToSysfsPciSysfsPath(devPath) / "model";
   std::ifstream s(filename, s.binary | s.in);
   if (!s.is_open()) {
     LOG(FATAL) << "Failed to open: "
-               << filename + ". Is this a valid NVMe device?";
+               << filename.string() + ". Is this a valid NVMe device?";
   }
   std::string model_name((std::istreambuf_iterator<char>(s)),
                          (std::istreambuf_iterator<char>()));
@@ -109,20 +164,12 @@ std::string nvmeDevPathToModelName(std::string devPath) {
 }
 
 uint32_t nvmeDevPathToLinkWidth(std::string devPath) {
-  // drop /dev/ from front of string
-  // and assuming that the devPath is to a nvme namespace, so thr last part is
-  // the namespace
-  // TODO use a regex, if we have more than 9 namespaces on a device this breaks
-  // badly
-  std::string deviceNamespace = devPath.substr(5);
-  std::string device = deviceNamespace.substr(0, deviceNamespace.length() - 2);
-
-  std::string filename = "/sys/block/" + deviceNamespace + "/device/" + device +
-                         "/device/current_link_width";
+  std::filesystem::path filename = nvmeNameSpaceToSysfsPciSysfsPath(devPath) /
+                                   "device" / "current_link_width";
   std::fstream s(filename, s.binary | s.in);
   if (!s.is_open()) {
     LOG(FATAL) << "Failed to open: "
-               << filename + ". Is this a valid NVMe device?";
+               << filename.string() + ". Is this a valid NVMe device?";
   }
   std::string link_width;
   s >> link_width;
@@ -130,20 +177,12 @@ uint32_t nvmeDevPathToLinkWidth(std::string devPath) {
 }
 
 std::string nvmeDevPathToLinkSpeed(std::string devPath) {
-  // drop /dev/ from front of string
-  // and assuming that the devPath is to a nvme namespace, so thr last part is
-  // the namespace
-  // TODO use a regex, if we have more than 9 namespaces on a device this breaks
-  // badly
-  std::string deviceNamespace = devPath.substr(5);
-  std::string device = deviceNamespace.substr(0, deviceNamespace.length() - 2);
-
-  std::string filename = "/sys/block/" + deviceNamespace + "/device/" + device +
-                         "/device/current_link_speed";
+  std::filesystem::path filename = nvmeNameSpaceToSysfsPciSysfsPath(devPath) /
+                                   "device" / "current_link_speed";
   std::ifstream s(filename, s.binary | s.in);
   if (!s.is_open()) {
     LOG(FATAL) << "Failed to open: "
-               << filename + ". Is this a valid NVMe device?";
+               << filename.string() + ". Is this a valid NVMe device?";
   }
   std::string link_speed((std::istreambuf_iterator<char>(s)),
                          (std::istreambuf_iterator<char>()));
