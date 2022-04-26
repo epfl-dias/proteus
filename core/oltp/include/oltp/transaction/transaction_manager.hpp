@@ -163,12 +163,17 @@ class TransactionManager {
     }
     return min;
   }
-  std::vector<xid_t> get_all_CurrentActiveTxn() {
+
+  inline std::vector<xid_t> get_all_CurrentActiveTxn(xid_t& min) {
     std::vector<xid_t> activeTxns;
-    // activeTxns.reserve(48);
+    min = UINT64_MAX;
+    activeTxns.reserve(registry.size());
     for (const auto& t : registry) {
       auto x = t->get_min_active_tx();
       activeTxns.push_back(x);
+      if (x < min) {
+        min = x;
+      }
     }
     return activeTxns;
   }

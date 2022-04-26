@@ -95,7 +95,7 @@ void ThreadLocal_TransactionTable::steamGC(txn::TxnTs global_min) {
 const Txn &ThreadLocal_TransactionTable::endTxn(Txn &txn) {
   assert(thread_id == std::this_thread::get_id());
 
-  // this->min_active = UINT64_MAX;
+  this->min_active = UINT64_MAX;
   if (max_last_alive < txn.txnTs.txn_start_time) {
     max_last_alive = txn.txnTs.txn_start_time;
   }

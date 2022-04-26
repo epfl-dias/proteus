@@ -58,8 +58,8 @@ Txn::Txn(worker_id_t workerId, partition_id_t partitionId, bool read_only)
 Txn Txn::getTxn(worker_id_t workerId, partition_id_t partitionId,
                 bool readOnly) {
   static thread_local auto &txnManager = TransactionManager::getInstance();
-  return Txn(txnManager.get_txnID_startTime_Pair(), workerId, partitionId,
-             txnManager.get_current_master_version(), readOnly);
+  return {txnManager.get_txnID_startTime_Pair(), workerId, partitionId,
+          txnManager.get_current_master_version(), readOnly};
 }
 
 std::unique_ptr<Txn> Txn::make_unique(worker_id_t workerId,
