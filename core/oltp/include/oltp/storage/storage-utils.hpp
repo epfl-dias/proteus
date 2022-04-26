@@ -103,6 +103,10 @@ class StorageUtils {
   static inline rowid_t get_rowId_from_rowUuid(row_uuid_t row_uuid) {
     return (row_uuid & 0x0000FFFFFFFFFFFFu);
   }
+
+  static inline partition_id_t get_pid_from_rowUuid(row_uuid_t row_uuid) {
+    return get_pid(get_rowId_from_rowUuid(row_uuid));
+  }
 };
 
 }  // namespace storage
