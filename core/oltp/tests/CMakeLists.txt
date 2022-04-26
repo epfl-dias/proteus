@@ -3,7 +3,7 @@ add_definitions(-DTEST_INPUTS="inputs")
 add_definitions(-DTEST_OUTPUTS="outputs")
 
 if (FALSE)
-    set(TS_NAME unit-tests-oltp-engine)
+  set(TS_NAME unit-tests-oltp-engine)
 
     add_executable(${TS_NAME}
       #tests-snapshotting.cpp
@@ -11,10 +11,10 @@ if (FALSE)
       test-utils.cpp
       )
 
-    target_link_libraries(${TS_NAME}
-      proteus::olap
-      oltp::engine
-      )
+  target_link_libraries(${TS_NAME}
+    proteus::olap
+    oltp::engine
+    )
 
 else ()
 
@@ -24,14 +24,14 @@ else ()
     tests-atomic-bit-set
     )
 
-    set(TS_COMMON_SRCS
-      test-utils.cpp
-      )
+  set(TS_COMMON_SRCS
+    test-utils.cpp
+    )
 
-    set(TS_COMMON_LIBS
-      proteus::olap
-      oltp::engine
-      )
+  set(TS_COMMON_LIBS
+    proteus::olap
+    oltp::engine
+    )
 endif ()
 
 include(proteus-test)
