@@ -63,8 +63,6 @@ class BucketMemoryPool_threadLocal {
   inline void* allocate() {
     std::unique_lock<std::mutex> lk(_lock);
     assert(!destructed);
-    // LOG(INFO) << "POOL SIZE( " <<std::this_thread::get_id() <<" ): " <<
-    // _pool.size();
     if (!(_pool.empty())) {
       return this->get();
     } else {
@@ -78,31 +76,13 @@ class BucketMemoryPool_threadLocal {
     std::unique_lock<std::mutex> lk(_lock);
     assert(!destructed);
     _pool.push(pt);
-    // LOG(INFO) << "POOL SIZE( " <<std::this_thread::get_id() <<" ): " <<
-    // _pool.size();
   }
 
   void init() {
-    auto x = MemoryManager::mallocPinned(pool_size);
-    assert(x);
-    basePtr.emplace_back(x);
-
-    size_t totalChunks = pool_size / N;
-    char* ptr = reinterpret_cast<char*>(x);
-    char* baseRef = ptr + pool_size;
-
-    for (size_t i = 0; i < totalChunks; i++) {
-      assert(ptr <= baseRef);
-      *(reinterpret_cast<size_t*>(ptr)) = 0;
-      _pool.push(reinterpret_cast<void*>(ptr));
-      ptr += N;
-    }
+    expand();  // allocate some chunks.
     LOG_FIRST_N(INFO, 1) << "POOL SIZE( " << std::this_thread::get_id()
                          << " ): " << _pool.size() << " (" << pool_size_mb
                          << " MB)";
-    realSize = _pool.size();
-    // LOG(INFO) << std::this_thread::get_id() <<" - POOL SIZE: " <<
-    // _pool.size();
     assert(!_pool.empty());
     BucketMemoryPool<N>::getInstance().registerThreadLocalPool(this);
   }
@@ -120,21 +100,18 @@ class BucketMemoryPool_threadLocal {
   }
 
   inline void expand() {
-    LOG(FATAL) << std::this_thread::get_id() << " - PoolSize: " << _pool.size()
-               << " | RealSize: " << realSize;
-    assert(false);
     auto x = MemoryManager::mallocPinned(pool_size);
     assert(x);
     basePtr.emplace_back(x);
 
     size_t totalChunks = pool_size / N;
     char* ptr = reinterpret_cast<char*>(x);
-    char* baseRef = ptr;
+    char* baseRef = ptr + pool_size;
 
     for (size_t i = 0; i < totalChunks; i++) {
       assert(ptr <= baseRef);
       *(reinterpret_cast<size_t*>(ptr)) = 0;
-      _pool.push(ptr);
+      _pool.push(reinterpret_cast<void*>(ptr));
       ptr += N;
     }
   }
@@ -142,8 +119,8 @@ class BucketMemoryPool_threadLocal {
   void destruct() {
     std::unique_lock<std::mutex> lk(_lock);
     destructed = true;
-    LOG(INFO) << "POOL_DESTRUCT: " << std::this_thread::get_id()
-              << " |PoolSize: " << _pool.size();
+    LOG(INFO) << "POOL_DESTRUCT[ thread_id: " << std::this_thread::get_id()
+              << " ]PoolSize: " << _pool.size();
 
     for (auto& x : basePtr) {
       MemoryManager::freePinned(x);
@@ -157,7 +134,6 @@ class BucketMemoryPool_threadLocal {
   std::mutex _lock{};
   std::vector<void*> basePtr{};
   std::atomic<bool> destructed;
-  size_t realSize;
 
   template <size_t>
   friend class BucketMemoryPool;
