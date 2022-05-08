@@ -1,14 +1,22 @@
 {
   "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 23,
+    "patch": 0
+  },
   "configurePresets": [
     {
-      "name": "default-llvm-14",
-      "displayName": "Default Config using Pelago LLVM-14",
-      "description": "Default build using LLVM-14 built with pelago",
-      "installDir": "opt/",
+      "name": "Proteus",
+      "displayName": "Default Config using Pelago",
+      "description": "Default build using LLVM built with pelago",
       "environment": {
-        "LD_LIBRARY_PATH": "../lib:/scratch/pelago/llvm-14/opt/lib"
+        "PROTEUS_LLVM_VERSION": "14",
+        "PATH": "/scratch/pelago/llvm-$env{PROTEUS_LLVM_VERSION}/opt/bin:~/sbt/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin",
+        "LD_LIBRARY_PATH": "../lib:/scratch/pelago/llvm-$env{PROTEUS_LLVM_VERSION}/opt/lib"
       },
+      "cmakeExecutable": "/scratch/pelago/llvm-$env{PROTEUS_LLVM_VERSION}/opt/bin/cmake",
+      "binaryDir": "${sourceDir}/cmake-build-debug/",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_INSTALL_PREFIX": "opt/"
@@ -17,12 +25,9 @@
   ],
   "buildPresets": [
     {
-      "name": "default llvm-14",
-      "configurePreset": "default-llvm-14",
-      "jobs": 24,
-      "environment": {
-        "LD_LIBRARY_PATH": "../lib:/scratch/pelago/llvm-14/opt/lib"
-      }
+      "name": "Proteus Build",
+      "configurePreset": "Proteus",
+      "jobs": 128
     }
   ]
 }
