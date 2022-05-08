@@ -132,7 +132,7 @@ licenses:
 configure:
  stage: Configure
  script:
-  - cd ${build_path} && cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=opt -G "CodeBlocks - Unix Makefiles" $CWD
+  - cd ${build_path} && cmake --preset "Proteus" -S $CWD -B ${build_path}
   - echo "Configure... done"
  <<: *cache
  <<: *restrict_precommit
