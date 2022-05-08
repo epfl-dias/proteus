@@ -1,14 +1,20 @@
 <component name="ProjectCodeStyleConfiguration">
   <code_scheme name="Project" version="173">
-    <Objective-C-extensions>
+    <option name="OTHER_INDENT_OPTIONS">
+      <value>
+        <option name="INDENT_SIZE" value="2" />
+        <option name="TAB_SIZE" value="2" />
+      </value>
+    </option>
+    <clangFormatSettings>
+      <option name="ENABLED" value="true" />
+    </clangFormatSettings>
+    <files>
       <extensions>
         <pair source="cpp" header="hpp" fileNamingConvention="LISP_CASE" />
         <pair source="c" header="h" fileNamingConvention="LISP_CASE" />
       </extensions>
-    </Objective-C-extensions>
-    <clangFormatSettings>
-      <option name="ENABLED" value="true" />
-    </clangFormatSettings>
+    </files>
     <codeStyleSettings language="CMake">
       <indentOptions>
         <option name="INDENT_SIZE" value="2" />
