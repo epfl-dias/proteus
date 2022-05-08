@@ -38,3 +38,16 @@ endif ()
 
 include(proteus-lib)
 add_library(proteus::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+
+#-----------------------------------------------------------------------------
+# Unit tests
+
+add_proteus_unit_test(unit-tests-storage proteus::storage
+  test/storage-test-main.cpp
+  test/test-mmap-file.cpp
+  )
+
+target_link_libraries(unit-tests-storage
+  PUBLIC
+  proteus::storage
+  )

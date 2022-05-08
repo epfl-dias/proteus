@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2021
+                            Copyright (c) 2022
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -21,34 +21,21 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <glog/logging.h>
+#ifndef PROTEUS_STORAGE_TEST_HPP
+#define PROTEUS_STORAGE_TEST_HPP
 
-#include <olap/test/environment.hpp>
-#include <platform/memory/memory-manager.hpp>
-#include <storage/storage-manager.hpp>
+#include <gtest/gtest.h>
 
-void OLAPTestEnvironment::SetUp() {
-  assert(!has_already_been_setup);
+#include "platform/common/common.hpp"
 
-  setbuf(stdout, nullptr);
+class StorageTestEnvironment : public ::testing::Environment {
+  static bool has_already_been_setup;
+  std::unique_ptr<proteus::platform> platform;
 
-  google::InstallFailureSignalHandler();
+ public:
+  void SetUp() override;
+  void TearDown() override;
+};
 
-  // FIXME: reenable tracing as soon as we find the issue with libunwind
-  set_trace_allocations(false, true);
-
-  olap = std::make_unique<proteus::olap>();
-
-  has_already_been_setup = true;
-}
-
-void OLAPTestEnvironment::TearDown() {
-  if (!is_noop) {
-    auto& sm = StorageManager::getInstance();
-    sm.unloadAll();
-    olap.reset();
-    has_already_been_setup = false;
-  }
-}
-
-bool OLAPTestEnvironment::has_already_been_setup = false;
+void validateInputFile(const std::filesystem::path& input_file);
+#endif  // PROTEUS_STORAGE_TEST_HPP

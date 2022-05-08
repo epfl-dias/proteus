@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 
 #include <cassert>
+#include <mmap-file.hpp>
 #include <platform/common/error-handling.hpp>
 #include <platform/common/gpu/gpu-common.hpp>
 #include <platform/memory/memory-manager.hpp>
@@ -56,8 +57,8 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
     : loc(loc) {
   size_t filesize = bytes;
 
-  time_block t("Topen (" + name + ", " + std::to_string(offset) + ":" +
-               std::to_string(offset + filesize) + "): ");
+  //  time_block t("Topen (" + name + ", " + std::to_string(offset) + ":" +
+  //               std::to_string(offset + filesize) + "): ");
   readonly = false;
 
   size_t real_filesize = ::getFileSize(name.c_str());
@@ -66,24 +67,38 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
   fd = -1;
   if (allow_readwrite) fd = open(name.c_str(), O_RDWR, 0);
 
-  if (fd == -1) {
+  if ((fd == -1) && (loc != VIRTUAL)) {
     fd = open(name.c_str(), O_RDONLY, 0);
     readonly = true;
     if (fd != -1) LOG(INFO) << "Opening file " << name << " as read-only";
   }
 
-  if (fd == -1) {
+  if ((fd == -1) && (loc != VIRTUAL)) {
     std::string msg("[Storage: ] Failed to open input file " + name);
     LOG(ERROR) << msg;
     throw std::runtime_error(msg);
   }
 
   // Execute mmap
-  {
+  /**
+   * When we load virtual, we don't actually load any data now. We reserve
+   * memory in the virtual address space but don't have any memory backing it
+   * yet. If anyone accesses it they will segfault.
+   */
+  if (loc == VIRTUAL) {
+    assert(fd == -1);
+    //      LOG(INFO)<< "offset is: " << offset;
+    data = mmap(nullptr, filesize, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, fd,
+                offset);
+  } else {
     data =
         mmap(nullptr, filesize, PROT_READ | (readonly ? 0 : PROT_WRITE),
              (readonly ? MAP_PRIVATE : MAP_SHARED) | MAP_POPULATE, fd, offset);
-    assert(data != MAP_FAILED);
+  }
+
+  if (data == MAP_FAILED) {
+    LOG(FATAL) << "mmap failed. errno:  " << errno
+               << " Message:  " << strerror(errno);
   }
 
   void *gpu_data2;
