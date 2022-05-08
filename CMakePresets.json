@@ -1,0 +1,28 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "default-llvm-14",
+      "displayName": "Default Config using Pelago LLVM-14",
+      "description": "Default build using LLVM-14 built with pelago",
+      "installDir": "opt/",
+      "environment": {
+        "LD_LIBRARY_PATH": "../lib:/scratch/pelago/llvm-14/opt/lib"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "opt/"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default llvm-14",
+      "configurePreset": "default-llvm-14",
+      "jobs": 24,
+      "environment": {
+        "LD_LIBRARY_PATH": "../lib:/scratch/pelago/llvm-14/opt/lib"
+      }
+    }
+  ]
+}
