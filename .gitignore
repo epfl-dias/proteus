@@ -112,3 +112,4 @@ ccache*
 
 /apps/standalones/.gitignore
 /frontends/ScalaSlick/.bsp/sbt.json
+/CMakeUserPresets.json
