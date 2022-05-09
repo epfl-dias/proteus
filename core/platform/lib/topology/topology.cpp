@@ -112,11 +112,11 @@ std::filesystem::path nvmeNameSpaceToSysfsPciSysfsPath(
     }
   }
 
-  if (possibleVirtualDevicePaths.size() == 0) {
-    assert(possiblePhysicalDevicePaths.size() == 1);
+  if (possiblePhysicalDevicePaths.size() == 1) {
     return possiblePhysicalDevicePaths.at(0) / "device";
   } else {
-    assert(possibleVirtualDevicePaths.size() == 1);
+    assert(possibleVirtualDevicePaths.size() == 1 &&
+           possiblePhysicalDevicePaths.empty());
     return possibleVirtualDevicePaths.at(0) / "device";
   }
 }

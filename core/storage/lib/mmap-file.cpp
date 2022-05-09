@@ -26,7 +26,6 @@
 #include <sys/stat.h>
 
 #include <cassert>
-#include <mmap-file.hpp>
 #include <platform/common/error-handling.hpp>
 #include <platform/common/gpu/gpu-common.hpp>
 #include <platform/memory/memory-manager.hpp>
