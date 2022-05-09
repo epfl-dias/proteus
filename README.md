@@ -12,6 +12,11 @@ git config core.hooksPath .githooks
 ```
 This enables a variety of automatic notifications and configurations at commit-time, including formatting your committed code, checking conformance with licenses, worktree skip-lists, etc.
 
+Furthermore, it's highly recommended to run the following to use our predefined git config:
+```sh
+git config --local include.path .config/diascld/.gitconfig
+```
+
 Allocate HugePages
 ========
 ```
