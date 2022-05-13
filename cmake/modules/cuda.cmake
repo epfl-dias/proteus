@@ -1,4 +1,5 @@
 find_package(CUDA)
+
 if(CUDA_FOUND)
 	# TODO: the CUDA package has been deprecated and replaced by native support for the language.
 	# 		We should consider replacing it with the correct usage of enable_language(CUDA),
@@ -8,7 +9,7 @@ if(CUDA_FOUND)
 
 		CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_CU_ARCHS ${_NVCC_ARCHS})
 	else(DEFINED _NVCC_ARCHS)
-		CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_CU_ARCHS Pascal Volta)
+		CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_CU_ARCHS Pascal Volta Ampere 8.6)
 	endif(DEFINED _NVCC_ARCHS)
 
 	# Create arguments for nvcc and clang
