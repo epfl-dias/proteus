@@ -161,6 +161,21 @@ build:
  <<: *cache
  <<: *restrict_precommit
 
+build panorama:
+ stage: Build
+ script:
+  - cd tools/panorama
+  - rm -rf node_modules
+  - npm install yarn
+  - export PATH=node_modules/.bin/:$PATH
+  - yarn global add node
+  - export PATH=node_modules/.bin/:$(yarn global dir)/node_modules/node/bin:$PATH
+  - yarn install
+  - export NODE_OPTIONS=--openssl-legacy-provider
+  - ng build --prod
+ <<: *cache
+ <<: *restrict_precommit
+
 install:
  stage: Install
  script:
