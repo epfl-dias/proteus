@@ -88,9 +88,9 @@ std::filesystem::path nvmeNameSpaceToSysfsPciSysfsPath(
   // have both `nvme1n1` and `nvme1c1n1` then nvme1c1n1 is the symlink to the
   // pcie device
 
-  std::regex possibleVirtualNvmeRegex{"\\/sys\\/block\\/nvme[0-9]+n[0-9]+$"};
+  std::regex possibleVirtualNvmeRegex{R"(\/sys\/block\/nvme[0-9]+n[0-9]+$)"};
   std::regex possiblePhysicalNvmeRegex{
-      "\\/sys\\/block\\/nvme[0-9]+c[0-9]+n[0-9]+$"};
+      R"(\/sys\/block\/nvme[0-9]+c[0-9]+n[0-9]+$)"};
   for (const auto &blockDevice :
        std::filesystem::directory_iterator("/sys/block")) {
     const auto devString = blockDevice.path().string();
@@ -102,12 +102,12 @@ std::filesystem::path nvmeNameSpaceToSysfsPciSysfsPath(
     if (this_device_match[1].str() == thisDeviceOnly) {
       if (std::regex_search(devString, nvme_maybe_virtual_match,
                             possibleVirtualNvmeRegex)) {
-        possibleVirtualDevicePaths.push_back(blockDevice.path().string());
+        possibleVirtualDevicePaths.emplace_back(blockDevice.path().string());
       }
 
       if (std::regex_search(devString, nvme_maybe_physical_match,
                             possiblePhysicalNvmeRegex)) {
-        possiblePhysicalDevicePaths.push_back(blockDevice.path().string());
+        possiblePhysicalDevicePaths.emplace_back(blockDevice.path().string());
       }
     }
   }
@@ -121,9 +121,14 @@ std::filesystem::path nvmeNameSpaceToSysfsPciSysfsPath(
   }
 }
 
-uint32_t topology::pcieAddressToNumaNodeId(std::string address) {
+class nvme_info_discovery_error : public std::runtime_error {
+ public:
+  using std::runtime_error::runtime_error;
+};
+
+uint32_t topology::pcieAddressToNumaNodeId(const std::string &address) {
   std::string filename = "/sys/bus/pci/devices/" + address + "/numa_node";
-  std::fstream s(filename, s.binary | s.in);
+  std::ifstream s(filename);
   if (!s.is_open()) {
     throw std::runtime_error("Failed to open: " + filename +
                              ". Is this a valid pcie address?");
@@ -133,27 +138,25 @@ uint32_t topology::pcieAddressToNumaNodeId(std::string address) {
   return std::stoul(numa_node);
 }
 
-uint32_t nvmeDevPathToNumaNodeId(std::string devPath) {
+uint32_t nvmeDevPathToNumaNodeId(const std::string &devPath) {
   std::filesystem::path filename =
       nvmeNameSpaceToSysfsPciSysfsPath(devPath) / "device" / "numa_node";
 
-  std::fstream s(filename, s.binary | s.in);
+  std::ifstream s(filename);
   if (!s.is_open()) {
-    LOG(FATAL) << "Failed to open: "
-               << filename.string() + ". Is this a valid NVMe device?";
+    throw nvme_info_discovery_error{"Failed to open: " + filename.string()};
   }
-  std::string numa_node;
+  uint32_t numa_node;
   s >> numa_node;
-  return std::stoul(numa_node);
+  return numa_node;
 }
 
-std::string nvmeDevPathToModelName(std::string devPath) {
+std::string nvmeDevPathToModelName(const std::string &devPath) {
   std::filesystem::path filename =
       nvmeNameSpaceToSysfsPciSysfsPath(devPath) / "model";
-  std::ifstream s(filename, s.binary | s.in);
+  std::ifstream s(filename);
   if (!s.is_open()) {
-    LOG(FATAL) << "Failed to open: "
-               << filename.string() + ". Is this a valid NVMe device?";
+    throw nvme_info_discovery_error{"Failed to open: " + filename.string()};
   }
   std::string model_name((std::istreambuf_iterator<char>(s)),
                          (std::istreambuf_iterator<char>()));
@@ -164,26 +167,24 @@ std::string nvmeDevPathToModelName(std::string devPath) {
   return std::regex_replace(model_name, std::regex("^ +| +$|( ) +"), "$1");
 }
 
-uint32_t nvmeDevPathToLinkWidth(std::string devPath) {
+uint32_t nvmeDevPathToLinkWidth(const std::string &devPath) {
   std::filesystem::path filename = nvmeNameSpaceToSysfsPciSysfsPath(devPath) /
                                    "device" / "current_link_width";
-  std::fstream s(filename, s.binary | s.in);
+  std::ifstream s(filename);
   if (!s.is_open()) {
-    LOG(FATAL) << "Failed to open: "
-               << filename.string() + ". Is this a valid NVMe device?";
+    throw nvme_info_discovery_error{"Failed to open: " + filename.string()};
   }
-  std::string link_width;
+  uint32_t link_width;
   s >> link_width;
-  return std::stoul(link_width);
+  return link_width;
 }
 
-std::string nvmeDevPathToLinkSpeed(std::string devPath) {
+std::string nvmeDevPathToLinkSpeed(const std::string &devPath) {
   std::filesystem::path filename = nvmeNameSpaceToSysfsPciSysfsPath(devPath) /
                                    "device" / "current_link_speed";
-  std::ifstream s(filename, s.binary | s.in);
+  std::ifstream s(filename);
   if (!s.is_open()) {
-    LOG(FATAL) << "Failed to open: "
-               << filename.string() + ". Is this a valid NVMe device?";
+    throw nvme_info_discovery_error{"Failed to open: " + filename.string()};
   }
   std::string link_speed((std::istreambuf_iterator<char>(s)),
                          (std::istreambuf_iterator<char>()));
@@ -511,15 +512,15 @@ void topology::init_() {
   // Check if topology is already initialized and if yes, return early
   // This should only happen when a unit-test is reinitializing proteus but it
   // should not happen in normal execution, except if we "restart" proteus
-  if (core_info.size() > 0) {
+  if (!core_info.empty()) {
 #ifndef NDEBUG
     auto core_cnt = sysconf(_SC_NPROCESSORS_ONLN);
     assert(core_info.size() == core_cnt);
 #endif
     return;
   }
-  assert(cpu_info.size() == 0 && "Is topology already initialized?");
-  assert(core_info.size() == 0 && "Is topology already initialized?");
+  assert(cpu_info.empty() && "Is topology already initialized?");
+  assert(core_info.empty() && "Is topology already initialized?");
   unsigned int gpus = 0;
   auto nvml_res = nvmlInit();
   if (nvml_res == NVML_SUCCESS) {
@@ -679,7 +680,12 @@ std::vector<std::string> discoverNvmeDevicePaths() {
 void topology::init_nvmeStorage() {
   auto nvmeDevPaths = discoverNvmeDevicePaths();
   for (size_t i = 0; i < nvmeDevPaths.size(); i++) {
-    nvmeStorage_info.emplace_back(nvmeDevPaths.at(i), i);
+    try {
+      nvmeStorage_info.emplace_back(nvmeDevPaths.at(i), i);
+    } catch (nvme_info_discovery_error &e) {
+      LOG(WARNING) << "Ignoring nvme device: " << e.what()
+                   << ". Is this a valid nvme device?";
+    }
   }
 }
 

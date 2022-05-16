@@ -304,7 +304,7 @@ class topology {
    * utility
    * @return a uint32_t corresponding to a cpunumanode id
    */
-  uint32_t pcieAddressToNumaNodeId(std::string address);
+  uint32_t pcieAddressToNumaNodeId(const std::string &address);
 
   static topology instance;
 
