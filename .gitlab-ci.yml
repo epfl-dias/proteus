@@ -74,23 +74,23 @@ before_script:
 #----------------------------------------------------------------------------
 # Execution restrictions templates
 .restrict_precommit: &restrict_precommit
- except:
-  - tags
+ rules: # On anything without a tag
+  # See https://gitlab.com/gitlab-org/gitlab-foss/-/issues/67456
+  # for the condition is not checking against a simple empty ("") string
+  - if: '$CI_COMMIT_TAG =~ "/^$/"'
 
 .restrict_postcommit: &restrict_postcommit
- only:
-  - master
-  - tags
+ rules: # On the default branch, or tags
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  - if: $CI_COMMIT_TAG
 
 .restrict_latest: &restrict_latest
- except:
-  - tags
- only:
-  - master
+ rules: # Only on the non-tagged commits, in the default branch
+  - if: '$CI_COMMIT_TAG =~ "/^$/" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
 .restrict_release: &restrict_release
- only:
-  - tags
+ rules: # Only on tags
+  - if: $CI_COMMIT_TAG
 
 #----------------------------------------------------------------------------
 # Job templates
