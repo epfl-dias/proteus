@@ -14,7 +14,7 @@ yarn install
 ## Moving your last timeline files into panorama
 ```sh
 cd ${PROTEUS_INSTALL_ROOT}/opt/pelago
-mv time* ${PANORAMA_ROOT}/src/assets/
+mv cupti* time* ${PANORAMA_ROOT}/src/assets/
 ```
 
 ## Development server
