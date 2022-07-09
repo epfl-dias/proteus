@@ -40,6 +40,7 @@
 #include <lib/operators/mem-move/mem-move-device.hpp>
 #include <lib/operators/mem-move/mem-move-local-to.hpp>
 #include <olap/routing/affinitization-factory.hpp>
+#include <storage/imemfile.hpp>
 
 #include "lib/operators/block-to-tuples.hpp"
 #include "lib/operators/dict-scan.hpp"
@@ -1910,35 +1911,17 @@ void CatalogParser::parseCatalogFile(const std::filesystem::path &file) {
   const char *keyInputPath = "path";
   const char *keyExprType = "type";
 
-  auto fsize = std::filesystem::file_size(file);
-
-  auto f = std::filesystem::absolute(file).string();
-  int fd = open(f.c_str(), O_RDONLY);
-  if (fd < 0) {
-    const auto err = "failed to open file: " + f;
-    LOG(ERROR) << err;
-    throw runtime_error(err);
-  }
-  auto bufJSON =
-      (const char *)mmap(nullptr, fsize, PROT_READ, MAP_PRIVATE, fd, 0);
-  if (bufJSON == MAP_FAILED) {
-    const auto err = "failed to mmap file: " + f;
-    LOG(ERROR) << err;
-    throw runtime_error(err);
-  }
+  proteus::imemfile<char> bufJSON{std::filesystem::absolute(file)};
 
   rapidjson::Document document;  // Default template parameter uses UTF8 and
                                  // MemoryPoolAllocator.
-  auto &parsed = document.Parse(bufJSON);
+  auto &parsed = document.Parse(bufJSON.data());
   if (parsed.HasParseError()) {
-    auto ok = (rapidjson::ParseResult)parsed;
-    fprintf(stderr, "[CatalogParser: ] Error parsing physical plan: %s (%lu)",
-            RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()), ok.Offset());
-    const char *err = "[CatalogParser: ] Error parsing physical plan";
-    LOG(ERROR) << err << ": "
-               << RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()) << "("
-               << ok.Offset() << ")";
-    throw runtime_error(err);
+    auto ok = static_cast<rapidjson::ParseResult>(parsed);
+    throw proteus::runtime_error()
+        << "[CatalogParser: ] Error parsing physical plan: "
+        << RAPIDJSON_NAMESPACE::GetParseError_En(ok.Code()) << "("
+        << ok.Offset() << ")";
   }
 
   // Start plan traversal.
