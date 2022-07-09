@@ -168,10 +168,10 @@ build panorama:
   - rm -rf node_modules
   - npm install yarn
   - export PATH=node_modules/.bin/:$PATH
-  - yarn global add node
+  - yarn global add node@lts
   - export PATH=node_modules/.bin/:$(yarn global dir)/node_modules/node/bin:$PATH
   - yarn install
-  - export NODE_OPTIONS=--openssl-legacy-provider
+  # - export NODE_OPTIONS=--openssl-legacy-provider
   - ng build --prod
  <<: *cache
  <<: *restrict_precommit
