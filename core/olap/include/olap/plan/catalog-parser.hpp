@@ -47,10 +47,12 @@ typedef struct InputInfo {
 } InputInfo;
 
 class CatalogParser {
+  std::filesystem::path catalogPath;
   ParallelContext *context;
 
  public:
-  CatalogParser(const char *catalogPath, ParallelContext *context = nullptr);
+  CatalogParser(std::filesystem::path catalogPath,
+                ParallelContext *context = nullptr);
 
   static CatalogParser &getInstance();
 

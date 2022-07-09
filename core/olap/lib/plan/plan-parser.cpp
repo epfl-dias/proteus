@@ -1976,7 +1976,7 @@ void CatalogParser::clear() {
       ++it;
     }
   }
-  parseDir("inputs");
+  parseDir(catalogPath);
 }
 
 bool CatalogParser::parseDir(const std::filesystem::path &dir) {
@@ -2001,9 +2001,10 @@ bool CatalogParser::parseDir(const std::filesystem::path &dir) {
 /**
  * {"datasetname": {"path": "foo", "type": { ... } }
  */
-CatalogParser::CatalogParser(const char *catalogPath, ParallelContext *context)
-    : context(context) {
-  parseDir(catalogPath);
+CatalogParser::CatalogParser(std::filesystem::path catalogPath,
+                             ParallelContext *context)
+    : catalogPath(std::move(catalogPath)), context(context) {
+  parseDir(this->catalogPath);
 }
 
 CatalogParser &CatalogParser::getInstance() {
