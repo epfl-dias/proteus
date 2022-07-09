@@ -50,8 +50,9 @@ class FileRecord {
  public:
   std::vector<std::unique_ptr<mmap_file>> data;
 
- private:
   explicit FileRecord(std::vector<std::unique_ptr<mmap_file>> data);
+
+ public:
   explicit FileRecord(std::initializer_list<std::unique_ptr<mmap_file>> data);
 
  public:
