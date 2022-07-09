@@ -25,6 +25,7 @@
 #define PROTEUS_UNSUPPORTED_OPERATION_HPP
 
 #include <exception>
+#include <sstream>
 #include <string>
 
 namespace proteus {
@@ -44,6 +45,22 @@ class unsupported_operation : public std::exception {
 class abort : public std::runtime_error {
  public:
   abort() : runtime_error("tx abort") {}
+};
+
+class runtime_error : public std::runtime_error {
+ protected:
+  explicit runtime_error(std::string msg)
+      : std::runtime_error(std::move(msg)) {}
+
+ public:
+  runtime_error() : runtime_error("") {}
+
+  template <typename T>
+  [[nodiscard]] inline runtime_error operator<<(const T& v) {
+    std::stringstream ss{what()};
+    ss << v;
+    return runtime_error{ss.str()};
+  }
 };
 }  // namespace proteus
 
