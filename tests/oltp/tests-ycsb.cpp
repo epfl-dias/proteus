@@ -21,14 +21,14 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "oltp.hpp"
-#include "test-utils.hpp"
-#include "ycsb.hpp"
+#include <olap/test/environment.hpp>
+#include <oltp.hpp>
+#include <ycsb.hpp>
 
 constexpr size_t runtime_sec = 10;
 
 ::testing::Environment* const pools_env =
-    ::testing::AddGlobalTestEnvironment(new TestEnvironment);
+    ::testing::AddGlobalTestEnvironment(new OLAPTestEnvironment);
 
 TEST(YCSB, ycsb_all_socket_50RW_50Zipf) {
   size_t num_records = 1000000;
