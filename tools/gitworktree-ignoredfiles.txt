@@ -1,2 +1,3 @@
 core/planner/.idea/dataSources.xml
 .idea/runConfigurations/_template__of_Application.xml
+.idea/runConfigurations/_template__of_Google_Test.xml
