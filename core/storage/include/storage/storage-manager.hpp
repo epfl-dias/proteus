@@ -53,9 +53,6 @@ class FileRecord {
   explicit FileRecord(std::vector<std::unique_ptr<mmap_file>> data);
 
  public:
-  explicit FileRecord(std::initializer_list<std::unique_ptr<mmap_file>> data);
-
- public:
   FileRecord(const FileRecord &) = delete;
   FileRecord &operator=(const FileRecord &) = delete;
   FileRecord(FileRecord &&) = default;
