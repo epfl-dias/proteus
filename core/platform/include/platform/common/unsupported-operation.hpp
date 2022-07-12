@@ -57,8 +57,8 @@ class runtime_error : public std::runtime_error {
 
   template <typename T>
   [[nodiscard]] inline runtime_error operator<<(const T& v) {
-    std::stringstream ss{what()};
-    ss << v;
+    std::stringstream ss;
+    ss << what() << v;
     return runtime_error{ss.str()};
   }
 };
