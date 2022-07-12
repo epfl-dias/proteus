@@ -43,6 +43,12 @@ class threadvector {
         getPool().enqueue(std::forward<F>(f), std::forward<Args>(args)...));
   }
 
+  inline ~threadvector() {
+    for (auto &f : threads) {
+      f.wait();
+    }
+  }
+
   [[nodiscard]] auto empty() const { return threads.empty(); }
 
   void clear() { threads.clear(); }
