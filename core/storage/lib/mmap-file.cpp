@@ -148,6 +148,11 @@ mmap_file &mmap_file::operator=(mmap_file &&other) noexcept {
   return *this;
 }
 
+mmap_file::mmap_file(void *ptr, size_t bytes)
+    : loc(MANAGEDMEMORY),
+      data(ptr),
+      gpu_data(std::span<std::byte>((std::byte *)ptr, bytes)) {}
+
 mmap_file::~mmap_file() {
   if (gpu_data.empty() && !data) return;
   if (loc == GPU_RESIDENT) MemoryManager::freeGpu(gpu_data.data());
@@ -167,6 +172,14 @@ mmap_file::~mmap_file() {
   if (loc == PAGEABLE) {
     munmap(data, gpu_data.size());
     close(fd);
+  }
+
+  if (loc == MANAGEDMEMORY) {
+    if (topology::getInstance().getGpuAddressed(data)) {
+      MemoryManager::freeGpu(data);
+    } else {
+      MemoryManager::freePinned(data);
+    }
   }
 }
 

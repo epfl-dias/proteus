@@ -36,7 +36,8 @@ enum data_loc {
   EVERYWHERE,
   DISTRIBUTED,
   FROM_REGISTRY,
-  VIRTUAL
+  VIRTUAL,
+  MANAGEDMEMORY
 };
 
 struct mmap_file {
@@ -54,6 +55,7 @@ struct mmap_file {
  public:
   mmap_file(std::string name, data_loc loc);
   mmap_file(std::string name, data_loc loc, size_t bytes, size_t offset);
+  mmap_file(void *ptr, size_t bytes);
   mmap_file(const mmap_file &) = delete;
   mmap_file &operator=(const mmap_file &) = delete;
   mmap_file(mmap_file &&) noexcept;
