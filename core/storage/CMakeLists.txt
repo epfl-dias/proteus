@@ -51,3 +51,9 @@ target_link_libraries(unit-tests-storage
   PUBLIC
   proteus::storage
   )
+
+# Unit-tests
+if (UNIT_TESTS)
+  add_subdirectory(tests)
+  add_subdirectory(perftests)
+endif ()
