@@ -832,7 +832,11 @@ RelBuilder RelBuilder::scan(const RecordType &rec,
   std::vector<RecordAttribute *> projs;
   projs.reserve(relAttrs.size());
   for (const auto &attr : relAttrs) {
-    projs.emplace_back(new RecordAttribute(*rec.getArg(attr)));
+    auto arg = rec.getArg(attr);
+    if (!arg) {
+      throw proteus::runtime_error() << "Attribute " << attr << " not found";
+    }
+    projs.emplace_back(new RecordAttribute(*arg));
   }
 
   auto pg = createPlugin(rec, projs, pgType);
