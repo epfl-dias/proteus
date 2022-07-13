@@ -60,9 +60,33 @@ QueryResult PreparedStatement::execute(
   return execute(tlog, defaultTimeBlockFactory);
 }
 
+QueryResult PreparedStatement::execute(QueryParameters qs) {
+  auto session =
+      static_cast<QueryParameters *>(MemoryManager::mallocPinned(sizeof(qs)));
+  *session = std::move(qs);
+
+  std::vector<std::chrono::milliseconds> tlog;
+  auto res = execute(tlog, defaultTimeBlockFactory, session);
+
+  session->~QueryParameters();
+  MemoryManager::freePinned(session);
+  return res;
+}
+
 QueryResult PreparedStatement::execute(
     std::vector<std::chrono::milliseconds> &tlog,
     std::function<time_block(const char *)> f) {
+  return execute(tlog, f, nullptr);
+}
+
+QueryResult PreparedStatement::execute(
+    std::vector<std::chrono::milliseconds> &tlog,
+    std::function<time_block(const char *)> f, const void *session) {
+  bool freePtr = false;
+  if (!session) {
+    session = MemoryManager::mallocPinned(sizeof(size_t));
+    freePtr = true;
+  }
   bool deterministic_affinity = true;
   auto &topo = topology::getInstance();
 
@@ -82,10 +106,6 @@ QueryResult PreparedStatement::execute(
       exec_location{topo.getCpuNumaNodes()[0]}.activate();
     }
   }
-
-  static uint32_t year = 1993;
-  void *session = MemoryManager::mallocPinned(sizeof(int64_t));
-  *static_cast<uint32_t *>(session) = ++year;
 
   {
     time_block twsync = f("Texecute w sync: ");
@@ -118,9 +138,9 @@ QueryResult PreparedStatement::execute(
     }
   }
 
-  MemoryManager::freePinned(session);
-
   profiling::pause();
+
+  if (freePtr) MemoryManager::freePinned(const_cast<void *>(session));
 
   return {outputFile};
 }

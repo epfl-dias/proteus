@@ -47,14 +47,25 @@ class PreparedStatement {
   PreparedStatement(std::vector<std::unique_ptr<Pipeline>> pips,
                     std::string outputFile, std::shared_ptr<Operator> planRoot);
 
+  QueryResult execute(std::vector<std::chrono::milliseconds>& tlog,
+                      std::function<time_block(const char*)> f,
+                      const void* parameters);
+
  public:
   static time_block SilentExecution(const char* s);
+
+  class QueryParameters {
+   public:
+    int64_t arg0;
+    int64_t arg1;
+  };
 
   QueryResult execute(std::vector<std::chrono::milliseconds>& tlog,
                       std::function<time_block(const char*)> f);
   QueryResult execute(std::vector<std::chrono::milliseconds>& tlog);
   QueryResult execute(std::function<time_block(const char*)> f);
   QueryResult execute();
+  QueryResult execute(QueryParameters qp);
 
   static PreparedStatement from(const std::string& planPath,
                                 const std::string& label);
