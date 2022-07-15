@@ -1,14 +1,50 @@
-#!/usr/bin/env bash
+#!/usr/bin/python3
 
-# Hook to make sure that no commit message line exceeds 72 characters
+import sys
+import re
 
-while read line; do
-    if [ ${#line} -ge 72 ]; then
-        echo "Commit messages are limited to 72 characters."
-        echo "The following commit message has ${#line} characters."
-        echo "${line}"
-        exit 1
-    fi
-done < "${1}"
 
-exit 0
+
+VALID_TAGS = ['fixup!', '[storage]', '[olap]', '[oltp]', '[platform]', '[cmake]', '[ci]', '[codegen]', '[tooling]', '[panorama]', "#DNM", "#WIP"]
+# Escape for regex
+ESCAPED_VALID_TAGS = [x.replace('[', '\[') for x in VALID_TAGS]
+ESCAPED_VALID_TAGS = [x.replace(']', '\]') for x in ESCAPED_VALID_TAGS]
+REGEX_VALID_TAGS = "|".join(ESCAPED_VALID_TAGS)
+
+# Commit title should start with a tag, or !fixup for commits to be squashed, or #DNM/#WIP for commits that will not merge to main
+REGEX_COMMIT_TITLE = '^({})'.format(REGEX_VALID_TAGS)
+
+
+def isCommitValid(message):
+    isValid = True
+
+    message_lines = message.split("\n")
+    title_line = message_lines[0]
+    if not re.match(REGEX_COMMIT_TITLE, title_line):
+        print(f"\nYour commit title does not contain a tag. Commit titles must start with one of: {VALID_TAGS}")
+        isValid = False
+
+    for line in message_lines:
+        if len(line) > 72:
+            print(f"\nEach line of a commit message must be less than 72 characters. Line:\n{line}\n has length {len(line)}")
+            isValid = False
+
+    return isValid
+
+
+def main():
+    messageFile = sys.argv[1]
+
+    try:
+        file = open(messageFile, 'r')
+        message = file.read()
+    finally:
+        file.close()
+
+    isValid = isCommitValid(message)
+
+    sys.exit(0 if isValid else 1)
+
+
+if __name__ == "__main__":
+    main()
