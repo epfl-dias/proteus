@@ -328,6 +328,11 @@ void CUPTIAPI bufferCompleted(CUcontext ctx, uint32_t streamId, uint8_t *buffer,
           switch (record->kind) {
             case CUPTI_ACTIVITY_KIND_INVALID:
               break;
+// Added in cuda 11.7
+#if (CUDART_VERSION >= 11070)
+            case CUPTI_ACTIVITY_KIND_GRAPH_TRACE:
+              break;
+#endif
             case CUPTI_ACTIVITY_KIND_MEMCPY: {
               CUpti_ActivityMemcpy4 *kernel = (CUpti_ActivityMemcpy4 *)record;
               if (kernel->start == 0 && kernel->end == 0) {
