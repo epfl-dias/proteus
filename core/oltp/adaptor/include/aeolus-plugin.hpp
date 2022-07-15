@@ -24,42 +24,28 @@
 #ifndef AEOLUS_PLUGIN_HPP_
 #define AEOLUS_PLUGIN_HPP_
 
+#include <olap/plugins/binary-block-plugin-runtime-data-handles.hpp>
 #include <utility>
 
-#include "olap/plugins/binary-block-plugin.hpp"
-
-class AeolusPlugin : public BinaryBlockPlugin {
+class AeolusPlugin
+    : public proteus::olap_plugins::BinaryBlockPluginRuntimeDataHandles {
  public:
-  AeolusPlugin(ParallelContext *const context, std::string fnamePrefix,
+  AeolusPlugin(ParallelContext *context, std::string fnamePrefix,
                RecordType rec,
                const std::vector<RecordAttribute *> &whichFields,
                std::string pgType);
 
- protected:
-  llvm::Value *getSession(ParallelContext *context) const override;
-
-  llvm::Value *getDataPointersForFile(ParallelContext *context, size_t i,
-                                      llvm::Value *session_ptr) const override;
-  void freeDataPointersForFile(ParallelContext *context, size_t i,
-                               llvm::Value *v) const override;
-  std::pair<llvm::Value *, llvm::Value *> getPartitionSizes(
-      ParallelContext *context, llvm::Value *session_ptr) const override;
-  void freePartitionSizes(ParallelContext *context,
-                          llvm::Value *v) const override;
-
-  void releaseSession(ParallelContext *context, llvm::Value *) const override;
-
  public:
-  virtual void **getDataPointerForFile_runtime(size_t i, const char *relName,
-                                               const char *attrName,
-                                               void *session);
+  void **getDataPointerForFile_runtime(size_t i, const char *relName,
+                                       const char *attrName,
+                                       void *session) override;
 
-  virtual void freeDataPointerForFile_runtime(void **inn);
+  void freeDataPointerForFile_runtime(void **inn) override;
 
-  virtual int64_t *getNumOfTuplesPerPartition_runtime(const char *relName,
-                                                      void *session);
+  int64_t *getNumOfTuplesPerPartition_runtime(const char *relName,
+                                              void *session) override;
 
-  virtual void freeNumOfTuplesPerPartition_runtime(int64_t *inn);
+  void freeNumOfTuplesPerPartition_runtime(int64_t *inn) override;
 
   void updateValueEager(ParallelContext *context, ProteusValue rid,
                         ProteusValue value, const ExpressionType *type,

@@ -49,28 +49,6 @@ storage::ColumnStore *getRelation(std::string fnamePrefix,
   throw std::runtime_error(msg);
 }
 
-void **getDataPointerForFile_runtime(size_t i, const char *relName,
-                                     const char *attrName, void *session,
-                                     AeolusPlugin *pg) {
-  return pg->getDataPointerForFile_runtime(i, relName, attrName, session);
-}
-
-void freeDataPointerForFile_runtime(void **inn, AeolusPlugin *pg) {
-  pg->freeDataPointerForFile_runtime(inn);
-}
-
-void *getSession() { return nullptr; }
-void releaseSession(void *session) {}
-
-int64_t *getNumOfTuplesPerPartition_runtime(const char *relName, void *session,
-                                            AeolusPlugin *pg) {
-  return pg->getNumOfTuplesPerPartition_runtime(relName, session);
-}
-
-void freeNumOfTuplesPerPartition_runtime(int64_t *inn, AeolusPlugin *pg) {
-  pg->freeNumOfTuplesPerPartition_runtime(inn);
-}
-
 Plugin *createBlockRemotePlugin(
     ParallelContext *context, std::string fnamePrefix, RecordType rec,
     const std::vector<RecordAttribute *> &whichFields) {
@@ -155,7 +133,8 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
                            RecordType rec,
                            const std::vector<RecordAttribute *> &whichFields,
                            string pgType)
-    : BinaryBlockPlugin(context, fnamePrefix, rec, whichFields, false),
+    : proteus::olap_plugins::BinaryBlockPluginRuntimeDataHandles(
+          context, fnamePrefix, rec, whichFields, false),
       pgType(pgType) {
   Nparts = getRelation(fnamePrefix, "<" + pgType + ">")
                ->getColumns()[0]
@@ -188,101 +167,6 @@ AeolusElasticNIPlugin::AeolusElasticNIPlugin(
 
   elastic_scan = true;
   olap_snapshot_only = false;
-}
-
-llvm::Value *createCall(std::string func,
-                        std::initializer_list<llvm::Value *> args,
-                        Context *context, llvm::Type *ret) {
-  return context->gen_call(func, args, ret);
-}
-
-void createCall2(std::string func, std::initializer_list<llvm::Value *> args,
-                 Context *context) {
-  createCall(func, args, context, Type::getVoidTy(context->getLLVMContext()));
-}
-
-llvm::Value *AeolusPlugin::getSession(ParallelContext *context) const {
-  return createCall("getSession", {}, context,
-                    Type::getInt8PtrTy(context->getLLVMContext()));
-}
-
-void AeolusPlugin::releaseSession(ParallelContext *context,
-                                  llvm::Value *session_ptr) const {
-  createCall2("releaseSession", {session_ptr}, context);
-}
-
-llvm::Value *AeolusPlugin::getDataPointersForFile(
-    ParallelContext *context, size_t i, llvm::Value *session_ptr) const {
-  LLVMContext &llvmContext = context->getLLVMContext();
-
-  Type *char8ptr = Type::getInt8PtrTy(llvmContext);
-
-  Value *this_ptr = context->getBuilder()->CreateIntToPtr(
-      context->createInt64((uintptr_t)this), char8ptr);
-
-  Value *N_parts_ptr = createCall(
-      "getDataPointerForFile_runtime",
-      {context->createSizeT(i),
-       context->CreateGlobalString(wantedFields[i]->getRelationName().c_str()),
-       context->CreateGlobalString(wantedFields[i]->getAttrName().c_str()),
-       session_ptr, this_ptr},
-      context, PointerType::getUnqual(char8ptr));
-
-  auto data_type = PointerType::getUnqual(
-      ArrayType::get(RecordAttribute{*(wantedFields[i]), true}.getLLVMType(
-                         context->getLLVMContext()),
-                     Nparts));
-
-  return context->getBuilder()->CreatePointerCast(N_parts_ptr, data_type);
-  // return BinaryBlockPlugin::getDataPointersForFile(i);
-}
-
-void AeolusPlugin::freeDataPointersForFile(ParallelContext *context, size_t i,
-                                           Value *v) const {
-  LLVMContext &llvmContext = context->getLLVMContext();
-  auto data_type = PointerType::getUnqual(Type::getInt8PtrTy(llvmContext));
-  auto casted = context->getBuilder()->CreatePointerCast(v, data_type);
-  Value *this_ptr = context->getBuilder()->CreateIntToPtr(
-      context->createInt64((uintptr_t)this), Type::getInt8PtrTy(llvmContext));
-  createCall2("freeDataPointerForFile_runtime", {casted, this_ptr}, context);
-}
-
-std::pair<llvm::Value *, llvm::Value *> AeolusPlugin::getPartitionSizes(
-    ParallelContext *context, llvm::Value *session_ptr) const {
-  IRBuilder<> *Builder = context->getBuilder();
-
-  IntegerType *sizeType = context->createSizeType();
-
-  Value *this_ptr = context->getBuilder()->CreateIntToPtr(
-      context->createInt64((uintptr_t)this),
-      Type::getInt8PtrTy(context->getLLVMContext()));
-
-  Value *N_parts_ptr = Builder->CreatePointerCast(
-      context->gen_call(::getNumOfTuplesPerPartition_runtime,
-                        {context->CreateGlobalString(fnamePrefix.c_str()),
-                         session_ptr, this_ptr}),
-      PointerType::getUnqual(ArrayType::get(sizeType, Nparts)));
-
-  Value *max_pack_size = ConstantInt::get(sizeType, 0);
-  for (size_t i = 0; i < Nparts; ++i) {
-    auto sv = Builder->CreateInBoundsGEP(
-        N_parts_ptr->getType()->getNonOpaquePointerElementType(), N_parts_ptr,
-        {context->createSizeT(0), context->createSizeT(i)});
-    auto v = Builder->CreateLoad(sv->getType()->getPointerElementType(), sv);
-    auto cond = Builder->CreateICmpUGT(max_pack_size, v);
-    max_pack_size = Builder->CreateSelect(cond, max_pack_size, v);
-  }
-
-  return {N_parts_ptr, max_pack_size};
-  // return BinaryBlockPlugin::getPartitionSizes();
-}
-
-void AeolusPlugin::freePartitionSizes(ParallelContext *context,
-                                      Value *v) const {
-  Value *this_ptr = context->getBuilder()->CreateIntToPtr(
-      context->createInt64((uintptr_t)this),
-      Type::getInt8PtrTy(context->getLLVMContext()));
-  context->gen_call(::freeNumOfTuplesPerPartition_runtime, {v, this_ptr});
 }
 
 struct session {

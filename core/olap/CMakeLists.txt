@@ -71,6 +71,7 @@ set(olap_cxx
   lib/plan/query-result.cpp
   lib/plugins/vector/vector-plugin.cpp
   lib/plugins/binary-block-plugin.cpp
+  lib/plugins/binary-block-plugin-runtime-data-handles.cpp
   lib/plugins/binary-col-plugin.cpp
   lib/plugins/binary-internal-plugin.cpp
   lib/plugins/binary-row-plugin.cpp
