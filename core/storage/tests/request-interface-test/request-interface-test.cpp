@@ -25,7 +25,10 @@
 
 #include <storage/storage-manager.hpp>
 
-class RequestInterfaceTest : public ::testing::Test {};
+class RequestInterfaceTest : public ::testing::Test {
+ public:
+  void TearDown() override { StorageManager::getInstance().unloadAll(); }
+};
 
 using namespace std::chrono_literals;
 

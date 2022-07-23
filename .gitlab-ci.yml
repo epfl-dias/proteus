@@ -313,6 +313,23 @@ Test 12 - OLTP TPCC:
   reports:
    junit: report-tpcc.xml
 
+Test 13 - Platform - Memory Allocator:
+ <<: *test
+ script:
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
+  - cd ${build_path}/opt/pelago && ./unit-memallocator-test --gtest_output="xml:$CWD/report-memallocator-test.xml"
+ artifacts:
+  reports:
+   junit: report-memallocator-test.xml
+
+Test 14 - Storage - File Request Interface:
+ <<: *test
+ script:
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
+  - cd ${build_path}/opt/pelago && ./unit-request-interface-test --gtest_output="xml:$CWD/report-request-interface-test.xml"
+ artifacts:
+  reports:
+   junit: report-request-interface-test.xml
 
 #----------------------------------------------------------------------------
 # Performance Tests
