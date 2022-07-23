@@ -40,39 +40,55 @@ class PinnedMemoryAllocator {
   PinnedMemoryAllocator() = default;
   template <class U>
   constexpr explicit PinnedMemoryAllocator(
-      const PinnedMemoryAllocator<U> &o) noexcept
-      : _allocMap(o._allocMap), _allocMapMutex(o._allocMapMutex) {}
+      const PinnedMemoryAllocator<U> &o) noexcept {}
 
+ private:
+  using metadata_t = T *;
+  static constexpr size_t requiredAlignment =
+      std::max(alignof(T), alignof(metadata_t));
+
+  template <typename K>
+  bool aligned_as(const void *mem) {
+    return reinterpret_cast<uintptr_t>(mem) % alignof(K) == 0;
+  }
+
+ public:
   [[nodiscard]] T *allocate(size_t n) {
-    if (n > std::numeric_limits<size_t>::max() / sizeof(T))
+    if (n >
+        (std::numeric_limits<size_t>::max() - sizeof(metadata_t) - sizeof(T)) /
+            sizeof(T)) {
       throw std::bad_alloc();
-
-    size_t sz = alignof(T) + (n * sizeof(T));
-    auto x = MemoryManager::mallocPinned(sz);
-    auto xCpy = x;
-    auto aligned_ptr = std::align(alignof(T), n * sizeof(T), x, sz);
-    assert(aligned_ptr != nullptr);
-    {
-      std::lock_guard<std::mutex> lk(*_allocMapMutex);
-      _allocMap->operator[](aligned_ptr) = xCpy;
     }
+    auto sz = (requiredAlignment - 1) + (n * sizeof(T)) + sizeof(metadata_t);
+    auto allocBase = MemoryManager::mallocPinned(sz);
+    auto spaceBase = static_cast<void *>(
+        /* Note that doing a reinterpret to metadata_t * and +1 wouldn't
+         * work here, as allocBase may have any alignment making the cast
+         * invalid
+         */
+        reinterpret_cast<char *>(allocBase) + sizeof(metadata_t));
+    auto spaceSize = sz - sizeof(metadata_t);
+    auto aligned_ptr =
+        std::align(requiredAlignment, n * sizeof(T), spaceBase, spaceSize);
+    assert(aligned_ptr && "Insufficient space calculation");
+    assert(aligned_as<T>(aligned_ptr));
+    assert(aligned_as<metadata_t>(aligned_ptr));
+
+    *(static_cast<metadata_t *>(aligned_ptr) - 1) =
+        static_cast<metadata_t>(allocBase);
+
     return static_cast<T *>(aligned_ptr);
   }
 
   void deallocate(T *mem, size_t) noexcept {
-    std::lock_guard<std::mutex> lk(*_allocMapMutex);
-    if (_allocMap->contains(mem)) {
-      MemoryManager::freePinned(_allocMap->operator[](mem));
-      _allocMap->erase(mem);
-    } else {
-      std::terminate();
-    }
+    assert(reinterpret_cast<uintptr_t>(mem) % requiredAlignment == 0);
+    auto allocBase = *(reinterpret_cast<metadata_t *>(mem) - 1);
+    assert(allocBase < mem);  // not equal, as we have the metadata
+    assert(reinterpret_cast<const char *>(mem) -
+               reinterpret_cast<const char *>(allocBase) <
+           sizeof(metadata_t) + requiredAlignment);
+    MemoryManager::freePinned(allocBase);
   }
-
- private:
-  std::shared_ptr<std::map<void *, void *>> _allocMap =
-      std::make_shared<std::map<void *, void *>>();
-  std::shared_ptr<std::mutex> _allocMapMutex = std::make_shared<std::mutex>();
 
   template <typename>
   friend class PinnedMemoryAllocator;
