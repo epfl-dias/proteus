@@ -53,6 +53,8 @@
 #define DEBUGCTX
 //#endif
 
+class Context;
+
 extern bool print_generated_code;
 
 class StateVar {
