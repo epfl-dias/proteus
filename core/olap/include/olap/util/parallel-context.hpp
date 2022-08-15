@@ -21,8 +21,8 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#ifndef PARALLEL_CONTEXT_HPP_
-#define PARALLEL_CONTEXT_HPP_
+#ifndef PROTEUS_PARALLEL_CONTEXT_HPP_
+#define PROTEUS_PARALLEL_CONTEXT_HPP_
 
 #include "context.hpp"
 
@@ -154,4 +154,4 @@ class ParallelContext : public Context {
   std::vector<bool> leafgen;
 };
 
-#endif /* PARALLEL_CONTEXT_HPP_ */
+#endif /* PROTEUS_PARALLEL_CONTEXT_HPP_ */
