@@ -39,7 +39,9 @@ Editing CMake configurations with user-specific settings
 ========
 Sometimes you want to invoke `cmake` with different flags or have multiple profiles.
 CMake allows that through a `CMakeUserPresets.json` file that you can add locally with user-specific settings.
-For example, if you want to produce verbose makefiles, you can add in the project root the following `CMakeUserPresets.json` file:
+
+For example, if you want to produce verbose makefiles or use a pre-configured CLion/Gateway configuration, you can add in the project root the following `CMakeUserPresets.json` file:
+
 ```json
 {
   "version": 3,
@@ -49,6 +51,11 @@ For example, if you want to produce verbose makefiles, you can add in the projec
       "inherits": "Proteus",
       "cacheVariables": {
         "CMAKE_VERBOSE_MAKEFILE": "ON"
+      },
+      "vendor": {
+        "jetbrains.com/clion": {
+          "toolchain": "diascld00"
+        }
       }
     }
   ],
