@@ -121,7 +121,7 @@ class ThreadPool {
       std::tuple<std::decay_t<Args>...> _args;
 
      public:
-      wrapper(F &&f, Args &&...args)
+      explicit wrapper(F &&f, Args &&...args)
           : callable(std::forward<F>(f)),
             _args(std::make_tuple(std::forward<Args>(args)...)) {}
 
