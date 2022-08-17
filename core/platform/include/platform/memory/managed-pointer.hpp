@@ -33,12 +33,23 @@ class internal_error : public std::runtime_error {
  public:
   using runtime_error::runtime_error;
 };
+
+namespace details {
+void doManagedPointerDeleterReleaseOnException(void *);
+}
+
 }  // namespace proteus
 
 template <typename T>
 struct ManagedPointerDeleter {
   void operator()(T *ptr) const {
-    if (!ptr) return;
+    if (!ptr) [[likely]] {
+      return;
+    }
+    if (std::uncaught_exceptions()) [[unlikely]] {
+      proteus::details::doManagedPointerDeleterReleaseOnException(ptr);
+      return;
+    }
     std::stringstream hex_ptr_str;
     hex_ptr_str << "Leaked pointer " << std::hex << (uintptr_t)ptr;
     throw proteus::internal_error{hex_ptr_str.str()};

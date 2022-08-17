@@ -8,6 +8,7 @@ set(platform_cxx
   lib/common/common.cpp
   lib/common/gpu/gpu-common.cpp
   lib/memory/block-manager.cpp
+  lib/memory/managed-pointer.cpp
   lib/memory/memory-allocator.cpp
   lib/memory/memory-manager.cpp
   lib/network/infiniband/devices/ib.cpp
