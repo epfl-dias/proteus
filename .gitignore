@@ -92,6 +92,9 @@ ccache*
 .idea/deployment.xml
 .idea/misc.xml
 
+# Seems to contain the auto-upload host list
+.idea/other.xml
+
 ## Generated files
 .idea/**/contentModel.xml
 
