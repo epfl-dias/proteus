@@ -23,8 +23,9 @@
 
 #include <benchmark/benchmark.h>
 
+#include <olap-perf-util/benchmark-aliases.hpp>
+#include <olap-perf-util/ssb-aliases.hpp>
 #include <olap/util/demangle.hpp>
-#include <platform/util/glog.hpp>
 #include <platform/util/timing.hpp>
 #include <query-shaping/experimental-shapers.hpp>
 #include <ssb/query.hpp>
@@ -46,19 +47,6 @@ void actualRun(PreparedStatement st, benchmark::State &state) {
 
   state.counters["Exec (ms)"] = (exeTime / (its - 1)).count();
 }
-
-#define QALIASSF(name, prepFunction, scale)                       \
-  struct name {                                                   \
-    static constexpr size_t SF = scale;                           \
-    PreparedStatement operator()(proteus::QueryShaper &s) const { \
-      return prepFunction(s);                                     \
-    }                                                             \
-  }
-#define QALIAS(name, prepFunction) QALIASSF(name, prepFunction, 100)
-#define SALIAS(name, shaperType) \
-  struct name {                  \
-    using shaper_t = shaperType; \
-  };
 
 PreparedStatement small_scan(proteus::QueryShaper &morph) {
   morph.setQueryName("small_scan");
@@ -87,23 +75,39 @@ PreparedStatement small_scan(proteus::QueryShaper &morph) {
       .prepare();
 }
 
-namespace SSB {
-QALIAS(Q1_1, ssb::Query::prepare11);
-QALIAS(Q1_2, ssb::Query::prepare12);
-QALIAS(Q1_3, ssb::Query::prepare13);
-QALIAS(Q2_1, ssb::Query::prepare21);
-QALIAS(Q2_2, ssb::Query::prepare22);
-QALIAS(Q2_3, ssb::Query::prepare23);
-QALIAS(Q3_1, ssb::Query::prepare31);
-QALIAS(Q3_2, ssb::Query::prepare32);
-QALIAS(Q3_3, ssb::Query::prepare33);
-QALIAS(Q3_4, ssb::Query::prepare34);
-QALIAS(Q4_1, ssb::Query::prepare41);
-QALIAS(Q4_2, ssb::Query::prepare42);
-QALIAS(Q4_3, ssb::Query::prepare43);
-}  // namespace SSB
+PreparedStatement sumQuery(proteus::QueryShaper &morph) {
+  morph.setQueryName("sum");
+  auto rel =
+      morph.scan("lineorder", {"lo_custkey", "lo_discount", "lo_extendedprice",
+                               "lo_orderdate"
+                               /*, "lo_partkey", "lo_quantity",
+                               "lo_revenue", "lo_suppkey"*/});
 
-QALIAS(Qsum, small_scan);
+  return morph
+      .parallel(rel, {},
+                [](RelBuilder probe, const std::vector<RelBuilder> &build) {
+                  return probe.unpack().reduce(
+                      [&](const auto &arg) -> std::vector<expression_t> {
+                        return {arg["lo_custkey"],       arg["lo_discount"],
+                                arg["lo_extendedprice"], arg["lo_orderdate"],
+                                /*arg["lo_partkey"],       arg["lo_quantity"],
+                                arg["lo_revenue"],       arg["lo_suppkey"]*/};
+                      },
+                      // {SUM, SUM, SUM, SUM, SUM, SUM, SUM, SUM});
+                      {SUM, SUM, SUM, SUM});
+                })
+      .reduce(
+          [&](const auto &arg) -> std::vector<expression_t> {
+            return {arg["lo_custkey"],       arg["lo_discount"],
+                    arg["lo_extendedprice"], arg["lo_orderdate"],
+                    /* arg["lo_partkey"],       arg["lo_quantity"],
+                     arg["lo_revenue"],       arg["lo_suppkey"]*/};
+          },
+          //          {SUM, SUM, SUM, SUM, SUM, SUM, SUM, SUM})
+          {SUM, SUM, SUM, SUM})
+      .print(pg{"pm-csv"})
+      .prepare();
+}
 
 SALIAS(CPUonly, proteus::CPUOnlySingleSever);
 SALIAS(GPUonly, proteus::GPUOnlySingleSever);
@@ -118,39 +122,10 @@ void query_perf(benchmark::State &state) {
   actualRun(Qprep{}(*shaper), state);
 }
 
-#define BENCHMARK_NAMED_MACRO(fun, T1name, T1list, T2name, T2list)           \
-  static void *BENCHMARK_PRIVATE_NAME(regBenchmarks) [[maybe_unused]] = [] { \
-    auto f = [](auto T1, auto T2) {                                          \
-      benchmark::internal::RegisterBenchmarkInternal(                        \
-          new benchmark::internal::FunctionBenchmark(                        \
-              ("perftest-" +                                                 \
-               std::filesystem::path{__FILE__}                               \
-                   .filename()                                               \
-                   .replace_extension("")                                    \
-                   .string() +                                               \
-               "/function:" + #fun +                                         \
-                                                                             \
-               "/" #T1name ":" + demangle(typeid(T1).name()) +               \
-                                                                             \
-               "/" #T2name ":" + demangle(typeid(T2).name()))                \
-                  .c_str(),                                                  \
-              &fun<decltype(T1), decltype(T2)>))                             \
-          ->Unit(benchmark::kMillisecond)                                    \
-          ->Iterations(5 + 1)                                                \
-          ->UseRealTime();                                                   \
-    };                                                                       \
-                                                                             \
-    std::apply(                                                              \
-        [&](auto... y) {                                                     \
-          auto fy = [&](auto y2) {                                           \
-            std::apply([&](auto... x) { (..., f(x, y2)); }, T1list{});       \
-          };                                                                 \
-                                                                             \
-          (..., fy(y));                                                      \
-        },                                                                   \
-        T2list{});                                                           \
-    return nullptr;                                                          \
-  }();
+namespace SSB = SSB100;
+
+QALIASSF(Qsum, small_scan, SSB::SF);
+QALIASSF(QsumRuSH, sumQuery, SSB::SF);
 
 using QuerySet = std::tuple<
     // Group 1

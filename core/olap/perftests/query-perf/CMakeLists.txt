@@ -4,5 +4,6 @@ add_proteus_olap_perftest(perftest-${TS_NAME} proteus::olap query-perf.cpp)
 
 target_link_libraries(perftest-${TS_NAME}
   PUBLIC
+  proteus::olap-perf-util
   queries::ssb
   )
