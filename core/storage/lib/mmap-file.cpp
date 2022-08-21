@@ -97,8 +97,9 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
   }
 
   if (data == MAP_FAILED) {
-    LOG(FATAL) << "mmap failed. errno:  " << errno
-               << " Message:  " << strerror(errno);
+    auto err = errno;
+    LOG(FATAL) << "mmap failed. errno:  " << err
+               << " Message:  " << strerror(err);
   }
 
   void *gpu_data2;
