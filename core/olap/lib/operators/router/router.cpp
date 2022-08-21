@@ -25,6 +25,7 @@
 
 #include <cstring>
 #include <olap/routing/routing-policy.hpp>
+#include <olap/util/demangle.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/network/infiniband/infiniband-manager.hpp>
 #include <platform/util/timing.hpp>
@@ -267,10 +268,28 @@ void Router::fire(int target, PipelineGen *pipGen, const void *session) {
       //         " << r << " " << strerror(-node); std::cout << std::endl;
       //     }
       // }
-      {
+      try {
         //          time_block t{"Tfire_" + std::to_string(pip->getGroup()) +
         //          "_" + std::to_string((uintptr_t) this) + ": "};
         pip->consume(0, (void *)(((uintptr_t)p.get()) & ~uintptr_t(1)));
+      } catch (std::exception &e) {
+        // FIXME: to whom should we throw it?
+        LOG(INFO) << "Got an exception here!" << e.what() << " "
+                  << demangle(typeid(e).name());
+        assert(false);
+        // NOTE: normally, we need to push this exception through the normal
+        //  flow, that is, to the freeBuffer, and then catch it on the producer
+        //  side. Essentially, this enforces a task lifetime "scope".
+        //  But, is that scope correct? It will encapsulate task hand-over
+        //  exception handling, but then it would unwind "slack" tasks late.
+        //  For example, let's say we catch an exception for task `t` here,
+        //  immediately after delegating the task. We push it into freeBuffer.
+        //  Then, the consumer will catch it as soon as it tries to access
+        //  the slot offloaded by freeBuffer, which is offloading task
+        //  `t + slack`. Can it go back and notify for `t`?
+        //  What if here we had an exception for task `t - slack`, how would we
+        //  handle it? Where is the promise that we complete here?
+        throw;
       }
       nvtxRangePop();
 
