@@ -52,6 +52,24 @@ size_t getFileSize(const char *filename) {
 mmap_file::mmap_file(std::string name, data_loc loc)
     : mmap_file(name, loc, ::getFileSize(name.c_str()), 0) {}
 
+class mmap_failed : public proteus::internal_error {
+ public:
+  using proteus::internal_error::internal_error;
+};
+
+static auto mmap_checked(void *addr, size_t len, int prot, int flags, int fd,
+                         size_t offset) {
+  auto ret = mmap(addr, len, prot, flags, fd, offset);
+
+  if (ret == MAP_FAILED) {
+    auto err = errno;
+    throw mmap_failed{"mmap failed. errno: " + std::to_string(err) +
+                      ". Message:  " + strerror(err)};
+  }
+
+  return ret;
+};
+
 mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
                      size_t offset = 0)
     : loc(loc) {
@@ -88,18 +106,14 @@ mmap_file::mmap_file(std::string name, data_loc loc, size_t bytes,
   if (loc == VIRTUAL) {
     assert(fd == -1);
     //      LOG(INFO)<< "offset is: " << offset;
-    data = mmap(nullptr, filesize, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, fd,
-                offset);
+    data = mmap_checked(nullptr, filesize, PROT_NONE,
+                        MAP_ANONYMOUS | MAP_PRIVATE, fd, offset);
   } else if (loc != PINNED || !readonly) {
-    data =
-        mmap(nullptr, filesize, PROT_READ | (readonly ? 0 : PROT_WRITE),
-             (readonly ? MAP_PRIVATE : MAP_SHARED) | MAP_POPULATE, fd, offset);
-  }
-
-  if (data == MAP_FAILED) {
-    auto err = errno;
-    LOG(FATAL) << "mmap failed. errno:  " << err
-               << " Message:  " << strerror(err);
+    data = mmap_checked(
+        nullptr, filesize, PROT_READ | (readonly ? 0 : PROT_WRITE),
+        (readonly ? MAP_PRIVATE : MAP_SHARED) | MAP_POPULATE, fd, offset);
+  } else {
+    data = nullptr;
   }
 
   void *gpu_data2;
