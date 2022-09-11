@@ -46,36 +46,36 @@ class MemMoveDevice : public experimental::UnaryOperator {
     void *data;
     cudaEvent_t event;
     [[maybe_unused]] bool unused;  // FIXME: remove
-    // cudaStream_t strm;
   };
 
+  /**
+   * Between opening and closing of a pipeline MemMoveDevice itself is largely
+   * stateless. All of the state is instead stored in MemMoveConf.
+   */
   class MemMoveConf {
    public:
+    // Idle workunits ready to be aquired
     AsyncQueueSPSC<workunit *>
         idle;  //_lockfree is slower and seems to have a bug
+    /**
+     * tran holds workunits that have been propogated (pushed) while they wait
+     * to be reaped with getPropagated (pulled)
+     */
     AsyncQueueSPSC<workunit *> tran;
-
+    /**
+     * Handle for the thread catching propagated workunits and calling `pull`
+     */
     std::future<void> worker;
-    // std::thread               * worker   ;
     cudaStream_t strm;
-    // cudaStream_t                strm2    ;
-
     cudaEvent_t *lastEvent;
-
+    // The number of workunits in circulation
     size_t slack;
-    // cudaEvent_t               * events   ;
-    // void                     ** old_buffs;
-    size_t next_e;
     size_t cnt = 0;
-
+    // The pinned data backing the workunits
     void *data_buffs;
-    workunit *wus;
 
    public:
     virtual ~MemMoveConf() = default;
-
-    virtual MemMoveDevice::workunit *acquire();
-    virtual void propagate(MemMoveDevice::workunit *buff, bool is_noop);
 
     virtual buff_pair push(proteus::managed_ptr src, size_t bytes,
                            int target_device, uint64_t srcServer);
@@ -87,7 +87,31 @@ class MemMoveDevice : public experimental::UnaryOperator {
       return buff;
     }
 
+    /**
+     * acquire an idle workunit
+     * @return a workunit
+     */
+    virtual MemMoveDevice::workunit *acquire();
+    /**
+     * Propagate a workunit onto the tran queue so that he can be caught with
+     * `getPropagated` The work unit must be previously obtained with `acquire`
+     */
+    virtual void propagate(MemMoveDevice::workunit *buff, bool is_noop);
+
+    /**
+     * This will block until either a workunit has been obtained, or the
+     * operator is terminating.
+     * @param ret pointer to a workunit pointer which will be set to the value
+     * of a propagated workunit.
+     * @return true if a workunit has been obtained, and false if there are no
+     * more workunits to obtain and the operator is terminating.
+     */
     virtual bool getPropagated(MemMoveDevice::workunit **ret);
+
+    /**
+     * Release a workunit into the idle pool
+     * @param buff a workunit
+     */
     virtual void release(MemMoveDevice::workunit *buff);
   };
 

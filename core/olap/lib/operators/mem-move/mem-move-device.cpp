@@ -178,7 +178,6 @@ void MemMoveDevice::produce_(ParallelContext *context) {
   Builder->CreateBr(mainBB);
 
   Builder->SetInsertPoint(context->getEndingBlock());
-  // Builder->CreateRetVoid();
 
   context->popPipeline();
 
@@ -188,7 +187,6 @@ void MemMoveDevice::produce_(ParallelContext *context) {
   context->pushPipeline();
 
   device_id_var = context->appendStateVar(int32_type);
-  // cu_stream_var       = context->appendStateVar(charPtrType);
   memmvconf_var = context->appendStateVar(charPtrType);
 
   context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
@@ -227,8 +225,6 @@ void MemMoveDevice::consume(ParallelContext *context,
   Builder->SetInsertPoint(context->getCurrentEntryBlock());
 
   auto device_id = ((ParallelContext *)context)->getStateVar(device_id_var);
-  // Value * cu_stream       = ((ParallelContext *)
-  // context)->getStateVar(cu_stream_var);
 
   Builder->SetInsertPoint(insBB);
   auto N = Builder->CreateLoad(
@@ -297,6 +293,7 @@ void MemMoveDevice::consume(ParallelContext *context,
     d = Builder->CreateInsertValue(d, pushed[i], i);
   }
 
+  // acquire and set workunit values
   auto workunit_ptr8 = context->gen_call(acquireWorkUnit, {memmv});
   auto workunit_ptr = Builder->CreateBitCast(
       workunit_ptr8, llvm::PointerType::getUnqual(workunit_type));
@@ -308,6 +305,7 @@ void MemMoveDevice::consume(ParallelContext *context,
       Builder->CreateBitCast(d_ptr, llvm::PointerType::getUnqual(data_type));
   Builder->CreateStore(d, d_ptr);
 
+  // finally propagate the workunit
   context->gen_call(propagateWorkUnit, {memmv, workunit_ptr8, is_noop});
 }
 
@@ -327,9 +325,6 @@ void MemMoveDevice::open(Pipeline *pip) {
   // nvtxRangePushA("memmove::open");
   cudaStream_t strm = createNonBlockingStream();
 
-  // cudaStream_t strm2;
-  // gpu_run(cudaStreamCreateWithFlags(&strm2, cudaStreamNonBlocking));
-
   eventlogger.log(this, log_op::MEMMOVE_OPEN_START);
   size_t data_size = (pip->getSizeOf(data_type) + 16 - 1) & ~((size_t)0xF);
 
@@ -337,52 +332,28 @@ void MemMoveDevice::open(Pipeline *pip) {
 
 #ifndef NCUDA
   mmc->strm = strm;
-  // mmc->strm2          = strm2;
 #endif
   mmc->slack = slack;
-  mmc->next_e = 0;
-  // mmc->events         = new cudaEvent_t[slack];
-  // mmc->old_buffs      = new void      *[slack];
   mmc->data_buffs = MemoryManager::mallocPinned(data_size * slack);
   char *data_buff = (char *)mmc->data_buffs;
   for (size_t i = 0; i < slack; ++i) {
     wu[i].data = ((void *)(data_buff + i * data_size));
-    // // gpu_run(cudaEventCreateWithFlags(&(wu[i].event),
-    // cudaEventDisableTiming));//  | cudaEventBlockingSync));
-    //         gpu_run(cudaEventCreate(&(wu[i].event)));
-    //         gpu_run(cudaStreamCreate(&(wu[i].strm)));
-
     mmc->idle.push(wu + i);
-
-    // gpu_run(cudaEventCreateWithFlags(mmc->events + i, cudaEventDisableTiming
-    // | cudaEventBlockingSync)); gpu_run(cudaEventCreate(mmc->events + i));
-    // mmc->old_buffs[i] = nullptr;
   }
   // nvtxRangePushA("memmove::open2");
   for (size_t i = 0; i < slack; ++i) {
     gpu_run(cudaEventCreateWithFlags(
         &(wu[i].event), cudaEventDisableTiming | cudaEventBlockingSync));
-    // // gpu_run(cudaEventCreateWithFlags(&(wu[i].event),
-    // cudaEventDisableTiming));//  | cudaEventBlockingSync));
-    //         gpu_run(cudaEventCreate(&(wu[i].event)));
-    //         gpu_run(cudaStreamCreate(&(wu[i].strm)));
-
-    // gpu_run(cudaEventCreateWithFlags(mmc->events + i, cudaEventDisableTiming
-    // | cudaEventBlockingSync)); gpu_run(cudaEventCreate(mmc->events + i));
-    // mmc->old_buffs[i] = nullptr;
   }
   // nvtxRangePop();
 
   mmc->worker = ThreadPool::getInstance().enqueue(
       &MemMoveDevice::catcher, this, mmc, pip->getGroup(), exec_location{},
       pip->getSession());
-  // mmc->worker = new thread(&MemMoveDevice::catcher, this, mmc,
-  // pip->getGroup(), exec_location{});
   eventlogger.log(this, log_op::MEMMOVE_OPEN_END);
 
   pip->setStateVar<int>(device_id_var, getTargetDevice());
 
-  // pip->setStateVar<cudaStream_t>(cu_stream_var, strm  );
   pip->setStateVar<void *>(memmvconf_var, mmc);
   // nvtxRangePop();
 }
@@ -394,65 +365,36 @@ int MemMoveDevice::getTargetDevice() const {
 
 void MemMoveDevice::close(Pipeline *pip) {
   eventlogger.log(this, log_op::MEMMOVE_CLOSE_START);
-  // int device = get_device();
-  // cudaStream_t strm = pip->getStateVar<cudaStream_t>(cu_stream_var);
   auto *mmc = pip->getStateVar<MemMoveConf *>(memmvconf_var);
 
   mmc->tran.close();
 
   nvtxRangePop();
   mmc->worker.get();
-  // mmc->worker->join();
 
   eventlogger.log(this, log_op::MEMMOVE_CLOSE_END);
 
   eventlogger.log(this, log_op::MEMMOVE_CLOSE_CLEAN_UP_START);
-  // gpu_run(cudaStreamSynchronize(g_strm));
-
-  // int32_t h_s;
-  // gpu_run(cudaMemcpy(&h_s, s, sizeof(int32_t), cudaMemcpyDefault));
-  // std::cout << "rrr" << h_s << std::endl;
-
-  // MemoryManager::freeGpu(s);
   syncAndDestroyStream(mmc->strm);
-  // gpu_run(cudaStreamSynchronize(mmc->strm2));
-  // gpu_run(cudaStreamDestroy    (mmc->strm2));
 
   nvtxRangePushA("MemMoveDev_running2");
   nvtxRangePushA("MemMoveDev_running");
 
   nvtxRangePushA("MemMoveDev_release");
   workunit *start_wu = nullptr;
-  // void     * start_wu_data;
   for (size_t i = 0; i < slack; ++i) {
     workunit *wu = mmc->idle.pop_unsafe();
-
-    // if (mmc->old_buffs[i]) buffer-manager<int32_t>::release_buffer((int32_t
-    // *) mmc->old_buffs[i]);
-
     gpu_run(cudaEventDestroy(wu->event));
-    // gpu_run(cudaEventDestroy(mmc->events[i]));
-    // free(wu->data);
-
     if (i == 0 || wu < start_wu) start_wu = wu;
-    // if (i == 0 || wu->data < start_wu_data) start_wu_data = wu->data;
   }
   nvtxRangePop();
   nvtxRangePop();
 
   MemoryManager::freePinned(mmc->data_buffs);
-  // assert(mmc->tran.empty_unsafe());
-  // assert(mmc->idle.empty_unsafe());
-  // free(start_wu_data);
-  // delete[] start_wu;
   MemoryManager::freePinned(start_wu);
-  // delete[] mmc->events   ;
-  // delete[] mmc->old_buffs;
 
   mmc->idle.close();
 
-  // delete mmc->worker;
-  // delete mmc;
   destroyMoveConf(mmc);
   eventlogger.log(this, log_op::MEMMOVE_CLOSE_CLEAN_UP_END);
 }
