@@ -121,6 +121,8 @@ string(STRIP "${COMPILER_FLAGS} -fvisibility-inlines-hidden" COMPILER_FLAGS)
 # Currently our code fails to link for -O0, -O1
 string(STRIP "${COMPILER_FLAGS} -O3" COMPILER_FLAGS)
 
+string(STRIP "${COMPILER_FLAGS} -gdwarf-4" COMPILER_FLAGS)
+
 #-----------------------------------------------------------------------
 # Add the compiler flags
 string(STRIP "${CMAKE_CXX_FLAGS} ${COMPILER_FLAGS}" CMAKE_CXX_FLAGS)
@@ -162,7 +164,7 @@ if (DOXYGEN_FOUND)
   )
 endif ()
 
-install(DIRECTORY "frontends/R/" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/frontends/R/)	# Creates <..>/pelago/frontends/R
+install(DIRECTORY "frontends/R/" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/frontends/R/) # Creates <..>/pelago/frontends/R
 
 #-----------------------------------------------------------------------
 # Build our libraries
@@ -254,4 +256,3 @@ set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 set(CPACK_DEB_COMPONENT_INSTALL ON)
 #cpack_add_component(${PROTEUS_DEVELOPMENT_COMPONENT})
 #cpack_add_component(${PROTEUS_RUNTIME_COMPONENT})
-
