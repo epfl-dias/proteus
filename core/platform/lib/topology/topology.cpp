@@ -218,7 +218,13 @@ void *topology::cpunumanode::alloc(size_t bytes) const {
   {
     int status;
     // use move_pages as getCpuNumaNodeAddressed checks only the policy
-    assert(move_pages(0, 1, &mem, nullptr, &status, 0) == 0);
+    auto move_pages_result = move_pages(0, 1, &mem, nullptr, &status, 0);
+    if (move_pages_result > 0) {
+      LOG(FATAL) << "Failed to move " << move_pages_result << " pages";
+    }
+    if (move_pages_result < 0) {
+      LOG(FATAL) << "Failed to move_pages: " << strerror(errno);
+    }
     // check that page has not been prefaulted (status should be -ENOENT)!
     // otherwise, setting the numa policy will not be effective
     assert(status == -ENOENT);
