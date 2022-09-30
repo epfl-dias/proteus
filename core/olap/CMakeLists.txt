@@ -140,6 +140,7 @@ target_link_libraries(${PROJECT_NAME}
   proteus::platform
   proteus::storage
   jsmn::jsmn
+  rt # for shared memory
   )
 
 include(proteus-lib)
