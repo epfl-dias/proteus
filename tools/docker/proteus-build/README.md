@@ -1,0 +1,1 @@
+This docker file is used for building the `pelago-build` container, which contains the necessary dependencies to build proteus. 
