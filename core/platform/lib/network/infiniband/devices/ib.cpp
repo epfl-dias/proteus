@@ -58,12 +58,15 @@ std::vector<ib> ib::discover() {
       linux_run(dev_list);
     }
   }
-  ibs.reserve(dev_cnt);
+
   for (size_t ib_indx = 0; ib_indx < dev_cnt; ++ib_indx) {
     ibv_device *ib_dev = dev_list[ib_indx];
     assert(ib_dev && "No IB devices detected");
-
-    ibs.emplace_back(ib_indx, ib_dev, construction_guard{});
+    try {
+      ibs.emplace_back(ib_indx, ib_dev, construction_guard{});
+    } catch (std::runtime_error error) {
+      LOG(WARNING) << "Failed to initiate IB device index: " << ib_indx;
+    }
   }
 
   if (dev_list) ibv_free_device_list(dev_list);
