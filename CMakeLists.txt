@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.17.3)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules")
+# Compilers are found/set here
 include(proteus-prolog)
 
 #-----------------------------------------------------------------------

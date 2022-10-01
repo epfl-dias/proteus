@@ -1,1 +1,3 @@
-This docker file is used for building the `pelago-build` container, which contains the necessary dependencies to build proteus. 
+This docker file is used for building the `pelago-build` image, which contains the necessary dependencies to build proteus.
+
+`seccomp.json` is a slightly modified [seccomp security profile](https://docs.docker.com/engine/security/seccomp/) based on [dockers default](https://github.com/moby/moby/blob/master/profiles/seccomp/default.json). The only change is that we add `move_pages` to the white list of allowed system calls when using the SYS_NICE capability.
