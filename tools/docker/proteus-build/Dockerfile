@@ -23,11 +23,6 @@ RUN apt update  -y && \
     apt autoremove -y && \
     apt autoclean && \
     rm -rf /var/lib/apt/lists/* /var/log/dpkg.log 
-# && \
-#    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-12 100 && \
-#    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-12 100 && \
-#    update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-12 100 && \
-#    update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-12 100
 
 RUN ldconfig /usr/local/cuda/lib64
 

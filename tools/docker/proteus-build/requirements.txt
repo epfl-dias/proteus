@@ -17,14 +17,7 @@ python-setuptools
 ## required by jpype1
 python-dev
 openjdk-11-jre-headless
-# Formatting the code and style checks
-#clang-format-12
-# LLVM to build subprojects as stand-alones
-# clang-12
-# llvm-12-dev
-# libc++abi-12-dev
-# libgoogle-glog-dev
-# rapidjson-dev
+# TODO what depends on libxml2?
 libxml2-dev
 # RDMA
 librdmacm-dev
