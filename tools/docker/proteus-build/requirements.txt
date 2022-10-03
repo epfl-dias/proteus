@@ -10,6 +10,9 @@ autoconf
 automake
 libtool
 sbt
+# Utilities for interactive docker use
+gosu
+vim
 # Coordinator & data preparation
 python
 python-pip

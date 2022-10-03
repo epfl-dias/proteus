@@ -15,10 +15,11 @@ Host system ubuntu 18.04 (we have tested extensively on 18.04, 20.04/22.04 shoul
   - *Note* Like with most docker images, avoid using the `latest` tag, newer versions of the container may have  versions of LLVM and cuda which are incompatible with this commit.
   - *Note* In order to run benchmarks prepared datasets need to also be mounted into the docker container. In the case of SSB100(0) with `--mount type=bind,source=/path/to/ssb100,target=/proteus/tests/inputs/ssb100`
 
-- Temporary workaround for file permissions:
+- Setup docker environment for interactive use
   ```sh
-  root@8eae36dca703:/# apt-get update && apt-get -y install gosu && /proteus/tools/docker/utilities/enter-docker-env.sh
+  root@8eae36dca703:/# /proteus/tools/docker/utilities/enter-docker-env.sh
   ```
+  This script will set the UID/GID inside the docker container to match the UID/GID of the host so that you will have permissions to write to the bind-mounted source directory.
 
 - Configure CMake:
   ```sh

@@ -22,7 +22,7 @@ RUN apt update  -y && \
     apt purge -y cmake && \
     apt autoremove -y && \
     apt autoclean && \
-    rm -rf /var/lib/apt/lists/* /var/log/dpkg.log 
+    rm -rf /var/lib/apt/lists/* /var/log/dpkg.log
 
 RUN ldconfig /usr/local/cuda/lib64
 
