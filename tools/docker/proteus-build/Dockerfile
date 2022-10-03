@@ -16,6 +16,12 @@ RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B
 #RUN echo "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-12 main" >> /etc/apt/sources.list.d/llvm.list
 RUN apt-key adv --fetch-keys https://apt.llvm.org/llvm-snapshot.gpg.key
 
+# nvidia rotated their key, so we need to make sure to delete the old one
+# This can probably be removed with a newer base cuda container
+# https://forums.developer.nvidia.com/t/notice-cuda-linux-repository-key-rotation/212772
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub
+
+
 RUN apt update  -y && \
     apt upgrade -y && \
     apt install -y --no-install-recommends $(sed s/#.*$//g tmp/requirements.txt) && \
