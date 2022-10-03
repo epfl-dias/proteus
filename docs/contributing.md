@@ -16,7 +16,7 @@ echo 76800 | sudo tee /sys/devices/system/node/node{0,1}/hugepages/hugepages-204
 You may need to vary the number of huge pages based on your systems memory. You may also need to change `node{0,1}` based on the number of numa nodes in your system. 
 
 ## Development Environment
-See [building](building.md) on how to build Proteus.
+See [building.md](building.md) on how to build Proteus.
 
 ### Git
 #### Conventions
@@ -38,6 +38,51 @@ Furthermore, it's highly recommended to run the following to use our predefined 
 ```sh
 git config --local include.path .config/diascld/.gitconfig
 ```
+
+### Clion
+While you can of course use any editor to develop proteus, the editor of choice at DIAS is CLion. We commit a basic CLion project configuration in `.idea`.
+
+#### Update include paths in Clion after LLVM update
+Clion lazily updates the include paths during remote deployment, use the resync with remote hosts to force a refresh: https://www.jetbrains.com/help/clion/remote-projects-support.html#resync
+
+### CMake
+Proteus uses CMake for the build system. We try to adhere to modern CMake principles. 
+
+#### Editing CMake configurations with user-specific settings
+Sometimes you want to invoke `cmake` with different flags or have multiple profiles.
+CMake allows that through a `CMakeUserPresets.json` file that you can add locally with user-specific settings.
+
+For example, if you want to produce verbose makefiles or use a pre-configured CLion/Gateway configuration, you can add in the project root the following `CMakeUserPresets.json` file:
+
+```json
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "Proteus - User",
+      "inherits": "Proteus",
+      "cacheVariables": {
+        "CMAKE_VERBOSE_MAKEFILE": "ON"
+      },
+      "vendor": {
+        "jetbrains.com/clion": {
+          "toolchain": "diascld00"
+        }
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "Proteus - User - Build",
+      "inherits": "Proteus Build",
+      "configurePreset": "Proteus - User"
+    }
+  ]
+}
+
+```
+You should *NOT* commit this file, to avoid conflicts with other users (it's already in our gitignore).
+Furthermore, you should not depend on any user-specific settings to run/compile Proteus and any time you think something is broken, you should first verify that any user-specific settings in that file do not cause the issue.
 
 
 ## Testing
