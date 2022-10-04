@@ -1,3 +1,4 @@
 This docker file is used for building the `pelago-build` image, which contains the necessary dependencies to build proteus.
 
-`seccomp.json` is a slightly modified [seccomp security profile](https://docs.docker.com/engine/security/seccomp/) based on [dockers default](https://github.com/moby/moby/blob/master/profiles/seccomp/default.json). The only change is that we add `move_pages` to the white list of allowed system calls when using the SYS_NICE capability.
+`seccomp.json` is a slightly modified [seccomp security profile](https://docs.docker.com/engine/security/seccomp/) based on [dockers default](https://github.com/moby/moby/blob/master/profiles/seccomp/default.json). The only change is that we add `move_pages` to the white list of allowed system calls when using the SYS_NICE capability. This file should work for docker 20.10 and 22.06, but is currently un tested for 22.06.
+`seccomp-19.03.json` is the same thing, but based on the default seccomp policy for docker 19.03. We require different versions, as docker (at least 19.03) will raise an error preventing containers from running if there is a redundant seccomp policy. 

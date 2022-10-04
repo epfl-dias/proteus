@@ -10,11 +10,12 @@ Host system ubuntu 18.04 (we have tested extensively on 18.04, 20.04/22.04 shoul
   ```
 - Start the container and mount the source directory into the container:
   ```sh
-  nicholso@diascld49:~$ docker run -it --gpus all -e LOCAL_UID=$(id -u $USER) -e LOCAL_GID=$(id -g $USER) --mount type=bind,source="$(pwd)"/proteus,target=/proteus --security-opt seccomp="$(pwd)"/proteus/tools/docker/proteus-build/seccomp.json --cap-add=SYS_NICE chapeiro/pelago-build:cuda11.3-llvm14.0.0
+  nicholso@diascld49:~$ docker run -it --gpus all -e LOCAL_UID=$(id -u $USER) -e LOCAL_GID=$(id -g $USER) --mount type=bind,source="$(pwd)"/proteus,target=/proteus --security-opt seccomp="$(pwd)"/proteus/tools/docker/proteus-build/seccomp.json --cap-add=SYS_NICE --cap-add=IPC_LOCK chapeiro/pelago-build:cuda11.3-llvm14.0.0
   ```
   - *Note* Like with most docker images, avoid using the `latest` tag, newer versions of the container may have  versions of LLVM and cuda which are incompatible with this commit.
   - *Note* In order to run benchmarks prepared datasets need to also be mounted into the docker container. In the case of SSB100(0) with `--mount type=bind,source=/path/to/ssb100,target=/proteus/tests/inputs/ssb100`
-
+  - *Note* If you are using docker 19.03, use the alternative seccomp file: `seccomp-19-03.json`
+  
 - Setup docker environment for interactive use
   ```sh
   root@8eae36dca703:/# /proteus/tools/docker/utilities/enter-docker-env.sh
