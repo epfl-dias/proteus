@@ -6,11 +6,11 @@ Host system ubuntu 18.04 (we have tested extensively on 18.04, 20.04/22.04 shoul
 #### Building with the command line in docker
 - clone this repo to a convenient location e.g
   ```sh
-  nicholso@diascld49:~$ git clone git@github.com:epfl-dias/proteus.git
+  usero@server01:~$ git clone git@github.com:epfl-dias/proteus.git
   ```
 - Start the container and mount the source directory into the container:
   ```sh
-  nicholso@diascld49:~$ docker run -it --gpus all -e LOCAL_UID=$(id -u $USER) -e LOCAL_GID=$(id -g $USER) --mount type=bind,source="$(pwd)"/proteus,target=/proteus --security-opt seccomp="$(pwd)"/proteus/tools/docker/proteus-build/seccomp.json --cap-add=SYS_NICE --cap-add=IPC_LOCK chapeiro/pelago-build:cuda11.3-llvm14.0.0
+  user@server01:~$ docker run -it --gpus all -e LOCAL_UID=$(id -u $USER) -e LOCAL_GID=$(id -g $USER) --mount type=bind,source="$(pwd)"/proteus,target=/proteus --security-opt seccomp="$(pwd)"/proteus/tools/docker/proteus-build/seccomp.json --cap-add=SYS_NICE --cap-add=IPC_LOCK chapeiro/pelago-build:cuda11.3-llvm14.0.0
   ```
   - *Note* Like with most docker images, avoid using the `latest` tag, newer versions of the container may have  versions of LLVM and cuda which are incompatible with this commit.
   - *Note* In order to run benchmarks prepared datasets need to also be mounted into the docker container. In the case of SSB100(0) with `--mount type=bind,source=/path/to/ssb100,target=/proteus/tests/inputs/ssb100`
@@ -44,5 +44,5 @@ Binaries can then be run from the install location (`/proteus/opt/pelago`), all 
 ## Without Docker
 #### Requirements:
 - Ubuntu 18.04 (20.04/22.04 *should* work but are not tested in ci).
-- Dependencies: CMake fetches and builds most dependencies, however there are several which must be installed at the system level. 
+- Dependencies: CMake fetches and builds most dependencies, however there are some which must be installed at the system level. 
 See the list in `docker/pelago-build/requirements.txt`, in addition to this list we also require LLVM and CMake. For the current minimum CMake version see the top of the root `CMakeLists.txt`. The current required LLVM version can be found in `cmake/modules/proteus-prolog.cmake`

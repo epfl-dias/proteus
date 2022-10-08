@@ -1,5 +1,5 @@
-### Preparing data for proteus
-
+### Preparing data for Proteus
+While Proteus supports a number of formats, for high performance use cases we have a binary format. 
 In the Proteus' root folder you will find a script to convert pipe-separated files to our binary inputs. The usual process is as follows:
 
 #### Generating the data 

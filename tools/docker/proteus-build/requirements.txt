@@ -20,8 +20,13 @@ python-setuptools
 ## required by jpype1
 python-dev
 openjdk-11-jre-headless
-# TODO what depends on libxml2?
+# for glog
 libxml2-dev
+# LLVM dependencies if not installed via a .deb in the docker file
+#clang-format-14
+# clang-14
+# llvm-14-dev
+# libc++abi-14-dev
 # RDMA
 librdmacm-dev
 # UI

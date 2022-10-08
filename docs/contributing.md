@@ -13,7 +13,9 @@ Proteus requires Linux hugepages. To allocate hugepages:
 ```sh
 echo 76800 | sudo tee /sys/devices/system/node/node{0,1}/hugepages/hugepages-2048kB/nr_hugepages
 ```
-You may need to vary the number of huge pages based on your system's memory. You may also need to change `node{0,1}` based on the number of numa nodes in your system. 
+You may need to vary the number of huge pages based on your system's memory.
+We recommend using 80-90% of system memory if Proteus is the only resource intensive process running on the server (e.g. for benchmarking).
+You may also need to change `node{0,1}` based on the number of numa nodes in your system. 
 
 # Development Environment
 See [building.md](building.md) on how to build Proteus.
