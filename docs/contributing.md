@@ -51,7 +51,7 @@ Clion lazily updates the include paths during remote deployment, use the resync 
 Proteus uses CMake for the build system. We try to adhere to modern CMake principles. 
 
 ### Dependencies
-Dependencies are broadly broken up into 1) system dependencies and 2) dependencies build via CMake.
+Dependencies are broadly broken up into 1) system dependencies and 2) dependencies built via CMake.
 However, there are also some dependencies where it is sometimes preferable to build them ourselves, but outside of CMake.
 In particular, LLVM and CMake, since both are required to build dependencies and Proteus in CMake, and it is necessary to have fine-grained control over the LLVM and CMake versions. i.e distro repos may not always have the appropriate versions available. 
 In general, we try to minimize system dependencies and where possible prefer to build dependencies ourselves in CMake. 
