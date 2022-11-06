@@ -51,9 +51,11 @@ typedef struct Bindings {
 } Bindings;
 
 enum PluginType { PGCSV, PGJSON, PGBINARY };
-/**********************************/
-/*  The abstract part of plug-ins */
-/**********************************/
+/**
+ * @class Plugin abstract base class
+ *
+ * @see Karpathiotakis et al, VLDB2016
+ */
 class Plugin {
  public:
   virtual ~Plugin() { LOG(INFO) << "[PLUGIN: ] Collapsing plug-in"; }

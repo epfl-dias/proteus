@@ -39,6 +39,16 @@ class InputPrefixQueryShaper : public QueryShaperControlMoves {
   virtual double getRowHint(const std::string& relName);
 
  public:
+  /**
+   * @param base_path The base system path to use to locate input data files
+   * @param input_sizes A function which produces a map from relation name to
+   * number of tuples in the relation. The function takes a
+   * InputPrefixQueryShaper argument which can be used for additional context to
+   * calculate the row counts. For example the function may call sf() to learn
+   * the scale factor
+   * @param allowMoves Whether to insert mem-move operators into the plan
+   * @param slack see @see QueryShaper
+   */
   explicit InputPrefixQueryShaper(std::string base_path,
                                   decltype(input_sizes) input_sizes = {},
                                   bool allowMoves = true, size_t slack = 64);

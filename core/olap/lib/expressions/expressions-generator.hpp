@@ -30,10 +30,12 @@
 #include "lib/util/caching.hpp"
 #include "lib/util/catalog.hpp"
 #include "olap/plugins/plugins.hpp"
-//===---------------------------------------------------------------------------===//
-// "Visitor(s)" responsible for generating the appropriate code per Expression
-// 'node'
-//===---------------------------------------------------------------------------===//
+
+/**
+ * "Visitor(s)" responsible for generating the appropriate code per Expression
+ * 'node'
+ * @see Karpathiotakis et al, VLDB2016
+ */
 class ExpressionGeneratorVisitor : public ExprVisitor {
  public:
   ExpressionGeneratorVisitor(Context *const context,

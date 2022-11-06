@@ -191,6 +191,9 @@ class BinaryOperator : public Operator {
   Operator *rightChild;
 };
 
+/**
+ * Parallel operators
+ */
 namespace experimental {
 template <typename T>
 class POperator : public T {

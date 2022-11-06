@@ -30,6 +30,13 @@
 class RelBuilderFactory;
 
 namespace proteus {
+/**
+ * @class QueryShaper
+ * The QueryShaper, and its children classes, are syntactic sugar to make it
+ * easier to construct parallelized plans. It uses the RelBuilder infrastructure
+ * and injects operators to parallelize the plan. There are various children
+ * classes to parallelize plans across CPUs, GPUs and CPUs+GPUs
+ */
 class QueryShaper {
  protected:
   std::unique_ptr<RelBuilderFactory> ctx;
@@ -49,20 +56,33 @@ class QueryShaper {
   [[nodiscard]] virtual bool doMove();
 
  public:
-  static double StorageDOPFactor;
+  [[deprecated]] static double StorageDOPFactor;
   [[nodiscard]] virtual DegreeOfParallelism getDOP();
 
  public:
+  /**
+   * @param slack slack to be used for the router and mem-move operators
+   */
   QueryShaper(size_t slack = 64);
   virtual void setQueryName(std::string name);
   virtual ~QueryShaper();
 
+  /**
+   * @return The scale factor of the dataset the query will run over. This may
+   * be used to size various operator parameters, e.g. hash table size for a
+   * hash join.
+   */
   [[nodiscard]] virtual size_t sf();
 
   [[nodiscard]] virtual RelBuilder parallelize(RelBuilder input) {
     return distribute_probe(input);
   }
 
+  /**
+   * Parallelize a probe and one or more build pipelines.
+   * @param pathBuilder A lambda which uses the RelBuilder interface to consume
+   * the outputs of the distributed probe and builds pipelines.
+   */
   [[nodiscard]] virtual RelBuilder parallel(
       RelBuilder probe, const std::vector<RelBuilder> &builds,
       const std::function<RelBuilder(
@@ -73,7 +93,16 @@ class QueryShaper {
   }
   [[nodiscard]] virtual RelBuilder distribute_probe(RelBuilder input);
   [[nodiscard]] virtual RelBuilder distribute_build(RelBuilder input);
+
+  /**
+   * Collect the outputs of a parallelized pipelines into a serial pipeline
+   * @param input A RelBuilder object
+   */
   [[nodiscard]] virtual RelBuilder collect(RelBuilder input);
+
+  /**
+   * Scan the selected attributes of the given relation
+   */
   [[nodiscard]] virtual RelBuilder scan(
       const std::string &relName, std::initializer_list<std::string> relAttrs);
 

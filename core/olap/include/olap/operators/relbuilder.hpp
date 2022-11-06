@@ -49,6 +49,15 @@ class [[nodiscard]] pg {
   [[nodiscard]] auto getType() const { return pgType; }
 };
 
+/**
+ * @class RelBuilder
+ * The RelBuilder class is used to construct PreparedStatements
+ *
+ * It is used to build a physical query plan of operators. The code for the plan
+ * is then generated and compiled in the prepare method.
+ * It is an abstraction/syntactic sugar for building a query plan in cpp by
+ * hand
+ */
 class RelBuilder {
  private:
   ParallelContext* ctx;
@@ -268,7 +277,10 @@ class RelBuilder {
 
   [[nodiscard]] RelBuilder memmove_scaleout(const MultiAttributeFactory& attr,
                                             size_t slack) const;
-
+  /**
+   * Broadcast to all compute units.
+   * @see Chrysogelos et al, VLDB2019
+   */
   template <typename T>
   RelBuilder membrdcst(T attr, DegreeOfParallelism fanout, bool to_cpu,
                        bool always_share = false) const {
@@ -541,6 +553,10 @@ class RelBuilder {
   Operator* operator->() { return root; }
   Operator* operator->() const { return root; }
 
+  /**
+   * Compile the plan
+   * @return a PreparedStatement which can then be executed
+   */
   PreparedStatement prepare();
 
   [[nodiscard]] bool isPacked() const;
