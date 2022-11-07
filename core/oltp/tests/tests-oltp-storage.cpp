@@ -121,10 +121,10 @@ void validate_record(const std::shared_ptr<storage::Table> &table,
         static_cast<global_conf::IndexVal *>(table->p_index->find(i));
 
     EXPECT_EQ(recordPtr->VID, i);
-    EXPECT_EQ(recordPtr->t_min, expectedTmin);
+    EXPECT_EQ(recordPtr->ts.t_min, expectedTmin);
 
     LOG(INFO) << "\t\tVID: " << recordPtr->VID;
-    LOG(INFO) << "\t\tTmin: " << recordPtr->t_min;
+    LOG(INFO) << "\t\tTmin: " << recordPtr->ts.t_min;
     LOG(INFO) << "\t\tCurrTxn: " << txn.txnTs.txn_start_time;
 
     std::vector<uint64_t> record(n_columns, 0);

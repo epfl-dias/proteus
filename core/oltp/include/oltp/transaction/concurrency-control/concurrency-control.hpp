@@ -24,8 +24,6 @@
 #ifndef CONCURRENCY_CONTROL_HPP_
 #define CONCURRENCY_CONTROL_HPP_
 
-constexpr bool optimistic_read = true;
-
 #include <iostream>
 #include <mutex>
 #include <utility>
@@ -45,7 +43,7 @@ class CC_MV2PL {
  public:
   class PRIMARY_INDEX_VAL {
    public:
-    xid_t t_min;  //  | 1-byte w_id | 6 bytes xid |
+    ts_t ts;
     rowid_t VID;  // internal encoding defined in storage-utils.hpp
     // lock::Spinlock_Weak latch;
     // lock::HybridLatch latch;
@@ -53,7 +51,7 @@ class CC_MV2PL {
     lock::AtomicTryLock write_lck;
 
     storage::DeltaPtr delta_list{0};
-    PRIMARY_INDEX_VAL(xid_t tid, rowid_t vid) : t_min(tid), VID(vid) {}
+    PRIMARY_INDEX_VAL(xid_t tid, rowid_t vid) : ts(tid), VID(vid) {}
 
     PRIMARY_INDEX_VAL(PRIMARY_INDEX_VAL &&) = delete;
     PRIMARY_INDEX_VAL &operator=(PRIMARY_INDEX_VAL &&) = delete;
@@ -82,9 +80,8 @@ class CC_MV2PL {
   };
 
   static inline bool __attribute__((always_inline))
-  is_readable(const PRIMARY_INDEX_VAL &indexVal, const TxnTs &xact) {
-    if (indexVal.t_min <= xact.txn_start_time ||
-        indexVal.t_min == xact.txn_id) {
+  is_readable(const xid_t tmin, const TxnTs &xact) {
+    if (tmin <= xact.txn_start_time || tmin == xact.txn_id) {
       return true;
     } else {
       return false;
@@ -92,12 +89,8 @@ class CC_MV2PL {
   }
 
   static inline bool __attribute__((always_inline))
-  is_readable(const xid_t tmin, const TxnTs &xact) {
-    if (tmin <= xact.txn_start_time || tmin == xact.txn_id) {
-      return true;
-    } else {
-      return false;
-    }
+  is_readable(const PRIMARY_INDEX_VAL &indexVal, const TxnTs &xact) {
+    return is_readable(indexVal.ts.t_min, xact);
   }
 
   static inline void __attribute__((always_inline)) release_locks(

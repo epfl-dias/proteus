@@ -82,10 +82,8 @@ class alignas(BlockManager::block_size) ColumnStore : public Table {
     throw std::runtime_error("Unimplemented");
   }
 
-  void deleteRecord(xid_t transaction_id, global_conf::IndexVal *index_ptr,
-                    master_version_t master_ver = 0) override {
-    throw std::runtime_error("Unimplemented");
-  }
+  void deleteRecord(const txn::Txn &txn,
+                    global_conf::IndexVal *index_ptr) override;
 
   void getIndexedRecord(const txn::TxnTs &txnTs,
                         const global_conf::IndexVal &index_ptr,

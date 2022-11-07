@@ -57,12 +57,18 @@ typedef uint32_t column_uuid_t;
 typedef uint64_t row_uuid_t;  // encapsulates table_id, pid, and offset (vid)
 typedef uint8_t master_version_t;  // Circular-Master
 
-constexpr auto MAX_N_COLUMNS = UINT8_MAX;
+struct ts_t {
+  xid_t deleted : 1;
+  xid_t t_min : 63;
 
-constexpr size_t TXN_ID_BASE = (((size_t)1) << 27);
+  explicit ts_t(xid_t tmin) : t_min(tmin), deleted(0) {}
+};
+
+static_assert(sizeof(ts_t) == sizeof(uint64_t) && "oups");
 
 // TODO: replace column-widths with
 // typedef uint16_t column_width_t;
+// constexpr auto MAX_N_COLUMNS = UINT8_MAX;
 
 // Lazy-Master
 typedef uint8_t snapshot_version_t;

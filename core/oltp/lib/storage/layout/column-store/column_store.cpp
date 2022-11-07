@@ -216,7 +216,8 @@ global_conf::IndexVal* ColumnStore::insertRecordBatch(
     assert(hash_ptr != nullptr);
 
     for (uint i = 0; i < num_records; i++) {
-      hash_ptr[i].t_min = transaction_id;
+      hash_ptr[i].ts.t_min = transaction_id;
+      hash_ptr[i].ts.deleted = 0;
       hash_ptr[i].VID =
           StorageUtils::create_vid(idx_st + i, partition_id, master_ver);
     }
@@ -255,7 +256,8 @@ global_conf::IndexVal* ColumnStore::insertRecord(const void* data,
     hash_ptr =
         (global_conf::IndexVal*)this->metaColumn->getElem(indexed_cc_vid);
     assert(hash_ptr != nullptr);
-    hash_ptr->t_min = transaction_id;
+    hash_ptr->ts.t_min = transaction_id;
+    hash_ptr->ts.deleted = 0;
     hash_ptr->VID = curr_vid;
   }
 
@@ -289,6 +291,11 @@ void ColumnStore::getIndexedRecord(const txn::TxnTs& txnTs,
   char* write_loc = static_cast<char*>(destination);
 
   if (txn::CC_MV2PL::is_readable(index_ptr, txnTs)) {
+    // check for deleted val. -> if deleted -> throwErr
+    if (index_ptr.ts.deleted) {
+      throw std::runtime_error("Record does not exists");
+    }
+
     if (__unlikely(col_idx == nullptr)) {
       for (auto& col : columns) {
         col->getElem(index_ptr.VID, write_loc);
@@ -309,8 +316,6 @@ void ColumnStore::getIndexedRecord(const txn::TxnTs& txnTs,
         index_ptr, txnTs, write_loc, *this, col_idx, num_cols);
 
     if (!done_mask.all()) {
-      // LOG(INFO) << "reading from main";
-
       if constexpr (!storage::mv::mv_type::isPerAttributeMVList &&
                     !storage::mv::mv_type::isAttributeLevelMV) {
         assert(false && "Impossible for full-record versioning!");
@@ -341,6 +346,26 @@ void ColumnStore::getIndexedRecord(const txn::TxnTs& txnTs,
    partition to the worker but local to record-master partition. this create
    version creation over QPI.
 */
+
+void ColumnStore::deleteRecord(const txn::Txn& txn,
+                               global_conf::IndexVal* index_ptr) {
+  // create version
+  auto version_ptr = mv::mv_type::create_versions(
+      txn.txnTs.txn_start_time, index_ptr, *this,
+      *(this->deltaStore[txn.delta_version]), txn.partition_id, nullptr, -1);
+
+  // set deleted to true
+  index_ptr->ts.t_min = txn.txnTs.txn_start_time;
+  index_ptr->ts.deleted = 1;
+
+  // FIXME: Also somewhere store the VID for recycling or that would be the
+  // indexes job?
+  //  the indexGC should account for GC'ing vid (main storage slot) as it points
+  //  here, and needs to be cleared out when index gets cleaned.
+
+  // FIXME: account for the re-insert case somewhere (probably in the insert
+  // logic)
+}
 
 void ColumnStore::updateRecord(const txn::Txn& txn,
                                global_conf::IndexVal* index_ptr, void* data,
@@ -458,7 +483,7 @@ void ColumnStore::updateRecord(const txn::Txn& txn,
   }
 
   // FIXME: this should be the job of txn, not the storage.
-  index_ptr->t_min = txn.txnTs.txn_start_time;
+  index_ptr->ts.t_min = txn.txnTs.txn_start_time;
 }
 
 /*  Snapshotting Functions

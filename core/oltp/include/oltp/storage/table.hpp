@@ -65,9 +65,8 @@ class Table {
                                  const column_id_t *col_idx, short num_columns,
                                  master_version_t master_ver) = 0;
 
-  virtual void deleteRecord(xid_t transaction_id,
-                            global_conf::IndexVal *index_ptr,
-                            master_version_t master_ver) = 0;
+  virtual void deleteRecord(const txn::Txn &txn,
+                            global_conf::IndexVal *index_ptr) = 0;
 
   virtual void getIndexedRecord(const txn::TxnTs &txnTs,
                                 const global_conf::IndexVal &index_ptr,
