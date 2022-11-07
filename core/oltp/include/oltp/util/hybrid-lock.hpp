@@ -59,6 +59,8 @@ class HybridLock {
   HybridLock(const HybridLock &) = delete;
   HybridLock &operator=(const HybridLock &) = delete;
 
+  HybridLock() = default;
+
  private:
   RWLock rwLock;
   std::atomic<uint64_t> version;
