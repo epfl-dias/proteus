@@ -30,6 +30,8 @@
 
 namespace storage {
 
+enum PartitionStrategy { GLOBAL, NUMA_LOCAL, THREAD_LOCAL };
+
 class NUMAPartitionPolicy {
  public:
   // Singleton
