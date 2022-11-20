@@ -11,7 +11,7 @@ Please also follow our git conventions, see the git section below.
 Proteus is a conventional CMake project. For details on required dependencies and building see [building.md](building.md).
 
 # Runtime Environment
-## Hugepages
+## Huge pages
 Proteus requires Linux hugepages. To allocate hugepages:
 ```sh
 echo 76800 | sudo tee /sys/devices/system/node/node{0,1}/hugepages/hugepages-2048kB/nr_hugepages
@@ -19,6 +19,9 @@ echo 76800 | sudo tee /sys/devices/system/node/node{0,1}/hugepages/hugepages-204
 You may need to vary the number of huge pages based on your system's memory.
 We recommend using 80-90% of system memory if Proteus is the only resource intensive process running on the server (e.g. for benchmarking).
 You may also need to change `node{0,1}` based on the number of NUMA nodes in your system. 
+After allocating huge pages, double check that they were in fact allocated (`cat /sys/devices/system/node/node{0,1}/hugepages/hugepages-2048kB/nr_hugepages`).
+If your system has been up for some time, it is possible that your system's memory is too fragmented to allocate huge pages.
+One way to fix this is to reboot your machine and then try allocating the huge pages again
 
 
 ## Git
