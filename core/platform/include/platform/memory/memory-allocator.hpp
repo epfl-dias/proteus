@@ -35,13 +35,25 @@
  * At the moment, memory is allocated at the time of the
  * request.
  */
-void *allocateFromRegion(size_t regionSize);
-void *increaseRegion(void *region, size_t currSize);
-void freeRegion(void *region);
+[[deprecated(
+    "New code should use PinnedMemoryAllocator, which implements the C++ "
+    "standard library allocator API")]] void *
+allocateFromRegion(size_t regionSize);
+[[deprecated(
+    "New code should use PinnedMemoryAllocator, which implements the C++ "
+    "standard library allocator API")]] void *
+increaseRegion(void *region, size_t currSize);
+[[deprecated(
+    "New code should use PinnedMemoryAllocator, which implements the C++ "
+    "standard library allocator API")]] void
+freeRegion(void *region);
 
 class MemoryService {
  public:
-  static MemoryService &getInstance() {
+  [[deprecated(
+      "New code should use PinnedMemoryAllocator, which implements the C++ "
+      "standard library allocator API")]] static MemoryService &
+  getInstance() {
     static MemoryService instance;
     return instance;
   }
