@@ -449,7 +449,7 @@ void MemMoveDevice::close(Pipeline *pip) {
   // delete[] mmc->events   ;
   // delete[] mmc->old_buffs;
 
-  mmc->idle.close();  // false);
+  mmc->idle.close();
 
   // delete mmc->worker;
   // delete mmc;
