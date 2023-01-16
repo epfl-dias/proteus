@@ -166,6 +166,8 @@ class CSVPlugin : public Plugin {
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
+  RecordType getRowType() const override { return wantedFields; }
+
  private:
   std::string fname;
   off_t fsize;

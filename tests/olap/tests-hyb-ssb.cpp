@@ -57,10 +57,9 @@
 // </TechnicalDetails>
 
 #include <olap/test/environment.hpp>
+#include <olap/test/test-utils.hpp>
 #include <platform/topology/topology.hpp>
 #include <storage/storage-manager.hpp>
-
-#include "test-utils.hpp"
 
 using namespace llvm;
 

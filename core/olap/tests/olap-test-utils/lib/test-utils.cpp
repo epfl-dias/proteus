@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "test-utils.hpp"
+#include "olap/test/test-utils.hpp"
 
 #include <platform/memory/memory-manager.hpp>
 #include <storage/storage-manager.hpp>

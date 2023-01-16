@@ -23,8 +23,9 @@
 
 #include <gtest/gtest.h>
 
-#include <lib/util/datastructures/threadsafe-set.hpp>
 #include <olap/test/timeout.hpp>
+
+#include "lib/util/datastructures/threadsafe-set.hpp"
 
 class QueueTest : public ::testing::Test {};
 

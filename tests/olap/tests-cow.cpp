@@ -68,7 +68,7 @@
 #include <thread>
 #include <vector>
 
-#include "test-utils.hpp"
+#include "olap/test/test-utils.hpp"
 
 using namespace llvm;
 

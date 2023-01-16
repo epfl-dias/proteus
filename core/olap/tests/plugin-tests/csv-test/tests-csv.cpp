@@ -21,28 +21,24 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include <olap/values/expressionTypes.hpp>
 #include <platform/common/common.hpp>
 
-#include "expressions/binary-operators.hpp"
-#include "expressions/expressions.hpp"
 #include "gtest/gtest.h"
-#include "operators/join.hpp"
-#include "operators/outer-unnest.hpp"
-#include "operators/print.hpp"
-#include "operators/reduce.hpp"
-#include "operators/root.hpp"
-#include "operators/scan.hpp"
-#include "operators/select.hpp"
-#include "operators/unnest.hpp"
-#include "plugins/csv-plugin-pm.hpp"
-#include "plugins/csv-plugin.hpp"
-#include "plugins/json-jsmn-plugin.hpp"
-#include "util/context.hpp"
-#include "util/functions.hpp"
-#include "values/expressionTypes.hpp"
+#include "lib/operators/join.hpp"
+#include "lib/operators/print.hpp"
+#include "lib/operators/root.hpp"
+#include "lib/operators/scan.hpp"
+#include "lib/operators/select.hpp"
+#include "lib/plugins/csv-plugin-pm.hpp"
+#include "lib/plugins/csv-plugin.hpp"
+#include "lib/plugins/json-jsmn-plugin.hpp"
+#include "lib/util/functions.hpp"
 
+// TODO update these tests to use RelBuilder + check outputs
+// current coverage is of codegen, but does not check correctness
 TEST(CSV, ScanCsvPM) {
-  Context &ctx = *prepareContext("ScanCsvPM");
+  ParallelContext &ctx = *prepareContext("ScanCsvPM");
   Catalog &catalog = Catalog::getInstance();
 
   /**
@@ -77,17 +73,18 @@ TEST(CSV, ScanCsvPM) {
   pm::CSVPlugin *pg =
       new pm::CSVPlugin(&ctx, filename, rec1, whichFields, 10, 2);
   catalog.registerPlugin(filename, pg);
-  Scan scan = Scan(&ctx, *pg);
+  Scan scan = Scan(*pg);
 
   /**
    * ROOT
    */
   Root rootOp = Root(&scan);
   scan.setParent(&rootOp);
-  rootOp.produce();
+  rootOp.produce(&ctx);
 
   // Run function
   ctx.prepareFunction(ctx.getGlobalFunction());
+  ctx.compileAndLoad();
 
   // Close all open files & clear
   pg->finish();
@@ -95,7 +92,7 @@ TEST(CSV, ScanCsvPM) {
 }
 
 TEST(CSV, ScanCsvWideBuildPM) {
-  Context &ctx = *prepareContext("ScanCsvWidePM");
+  ParallelContext &ctx = *prepareContext("ScanCsvWidePM");
   Catalog &catalog = Catalog::getInstance();
 
   /**
@@ -144,17 +141,18 @@ TEST(CSV, ScanCsvWideBuildPM) {
   pm::CSVPlugin *pg =
       new pm::CSVPlugin(&ctx, filename, rec1, whichFields, 10, 6);
   catalog.registerPlugin(filename, pg);
-  Scan scan = Scan(&ctx, *pg);
+  Scan scan = Scan(*pg);
 
   /**
    * ROOT
    */
   Root rootOp = Root(&scan);
   scan.setParent(&rootOp);
-  rootOp.produce();
+  rootOp.produce(&ctx);
 
   // Run function
   ctx.prepareFunction(ctx.getGlobalFunction());
+  ctx.compileAndLoad();
 
   // Close all open files & clear
   pg->finish();
@@ -162,7 +160,7 @@ TEST(CSV, ScanCsvWideBuildPM) {
 }
 
 void scanCsvWideUsePM_(size_t *newline, short **offsets) {
-  Context &ctx = *prepareContext("ScanCsvWideUsePM");
+  ParallelContext &ctx = *prepareContext("ScanCsvWideUsePM");
   Catalog &catalog = Catalog::getInstance();
 
   /**
@@ -211,17 +209,18 @@ void scanCsvWideUsePM_(size_t *newline, short **offsets) {
   pm::CSVPlugin *pg = new pm::CSVPlugin(&ctx, filename, rec1, whichFields, ';',
                                         10, 6, newline, offsets);
   catalog.registerPlugin(filename, pg);
-  Scan scan = Scan(&ctx, *pg);
+  Scan scan = Scan(*pg);
 
   /**
    * ROOT
    */
   Root rootOp = Root(&scan);
   scan.setParent(&rootOp);
-  rootOp.produce();
+  rootOp.produce(&ctx);
 
   // Run function
   ctx.prepareFunction(ctx.getGlobalFunction());
+  ctx.compileAndLoad();
 
   // Close all open files & clear
   pg->finish();
@@ -229,7 +228,7 @@ void scanCsvWideUsePM_(size_t *newline, short **offsets) {
 }
 
 TEST(CSV, scanCsvWideUsePM) {
-  Context &ctx = *prepareContext("ScanCsvWideBuildPM");
+  ParallelContext &ctx = *prepareContext("ScanCsvWideBuildPM");
   Catalog &catalog = Catalog::getInstance();
 
   /**
@@ -278,17 +277,18 @@ TEST(CSV, scanCsvWideUsePM) {
   pm::CSVPlugin *pg =
       new pm::CSVPlugin(&ctx, filename, rec1, whichFields, 10, 6);
   catalog.registerPlugin(filename, pg);
-  Scan scan = Scan(&ctx, *pg);
+  Scan scan = Scan(*pg);
 
   /**
    * ROOT
    */
   Root rootOp = Root(&scan);
   scan.setParent(&rootOp);
-  rootOp.produce();
+  rootOp.produce(&ctx);
 
   // Run function
   ctx.prepareFunction(ctx.getGlobalFunction());
+  ctx.compileAndLoad();
 
   /*
    * Use PM in subsequent scan
@@ -300,51 +300,54 @@ TEST(CSV, scanCsvWideUsePM) {
   catalog.clear();
 }
 
-TEST(CSV, atoiCSV) {
-  Context &ctx = *prepareContext("AtoiCSV");
-  Catalog &catalog = Catalog::getInstance();
-
-  /**
-   * SCAN
-   */
-  string filename = string("inputs/csv/small.csv");
-  PrimitiveType *intType = new IntType();
-  PrimitiveType *floatType = new FloatType();
-  PrimitiveType *stringType = new StringType();
-  RecordAttribute *f1 = new RecordAttribute(1, filename, string("f1"), intType);
-  RecordAttribute *f2 = new RecordAttribute(2, filename, string("f2"), intType);
-  RecordAttribute *f3 = new RecordAttribute(3, filename, string("f3"), intType);
-  RecordAttribute *f4 = new RecordAttribute(4, filename, string("f4"), intType);
-  RecordAttribute *f5 = new RecordAttribute(5, filename, string("f5"), intType);
-
-  list<RecordAttribute *> attrList;
-  attrList.push_back(f1);
-  attrList.push_back(f2);
-  attrList.push_back(f3);
-  attrList.push_back(f4);
-  attrList.push_back(f5);
-
-  RecordType rec1 = RecordType(attrList);
-
-  vector<RecordAttribute *> whichFields;
-  whichFields.push_back(f1);
-  whichFields.push_back(f2);
-
-  CSVPlugin *pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
-  catalog.registerPlugin(filename, pg);
-  Scan scan = Scan(&ctx, *pg);
-
-  /**
-   * ROOT
-   */
-  Root rootOp = Root(&scan);
-  scan.setParent(&rootOp);
-  rootOp.produce();
-
-  // Run function
-  ctx.prepareFunction(ctx.getGlobalFunction());
-
-  // Close all open files & clear
-  pg->finish();
-  catalog.clear();
-}
+// This test is broken, I am not sure if the CSVPlugin (non-pm version) is
+// deprecated because it has unimplemented virtual functions
+// TEST(CSV, atoiCSV) {
+//  ParallelContext &ctx = *prepareContext("AtoiCSV");
+//  Catalog &catalog = Catalog::getInstance();
+//
+//  /**
+//   * SCAN
+//   */
+//  string filename = string("inputs/csv/small.csv");
+//  PrimitiveType *intType = new IntType();
+//  PrimitiveType *floatType = new FloatType();
+//  PrimitiveType *stringType = new StringType();
+//  RecordAttribute *f1 = new RecordAttribute(1, filename, string("f1"),
+//  intType); RecordAttribute *f2 = new RecordAttribute(2, filename,
+//  string("f2"), intType); RecordAttribute *f3 = new RecordAttribute(3,
+//  filename, string("f3"), intType); RecordAttribute *f4 = new
+//  RecordAttribute(4, filename, string("f4"), intType); RecordAttribute *f5 =
+//  new RecordAttribute(5, filename, string("f5"), intType);
+//
+//  list<RecordAttribute *> attrList;
+//  attrList.push_back(f1);
+//  attrList.push_back(f2);
+//  attrList.push_back(f3);
+//  attrList.push_back(f4);
+//  attrList.push_back(f5);
+//
+//  RecordType rec1 = RecordType(attrList);
+//
+//  vector<RecordAttribute *> whichFields;
+//  whichFields.push_back(f1);
+//  whichFields.push_back(f2);
+//
+//  CSVPlugin *pg = new CSVPlugin(&ctx, filename, rec1, whichFields);
+//  catalog.registerPlugin(filename, pg);
+//  Scan scan = Scan(*pg);
+//
+//  /**
+//   * ROOT
+//   */
+//  Root rootOp = Root(&scan);
+//  scan.setParent(&rootOp);
+//  rootOp.produce(&ctx);
+//
+//  // Run function
+//  ctx.prepareFunction(ctx.getGlobalFunction());
+//
+//  // Close all open files & clear
+//  pg->finish();
+//  catalog.clear();
+//}

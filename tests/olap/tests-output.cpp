@@ -27,10 +27,10 @@
 // Don't forget gtest.h, which declares the testing framework.
 #include <olap/operators/relbuilder-factory.hpp>
 #include <olap/test/environment.hpp>
+#include <olap/test/test-utils.hpp>
 #include <storage/storage-manager.hpp>
 
 #include "gtest/gtest.h"
-#include "test-utils.hpp"
 
 // Step 2. Use the TEST macro to define your tests.
 //

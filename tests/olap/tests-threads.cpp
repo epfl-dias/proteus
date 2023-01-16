@@ -56,11 +56,7 @@
 //
 // </TechnicalDetails>
 
-#include <fcntl.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include <olap/test/environment.hpp>
 #include <platform/common/common.hpp>
@@ -72,9 +68,6 @@
 #include <thread>
 #include <vector>
 
-#include "olap/util/parallel-context.hpp"
-#include "test-utils.hpp"
-
 using namespace llvm;
 
 ::testing::Environment *const pools_env =
@@ -84,23 +77,10 @@ class ThreadTest : public ::testing::Test {
  protected:
   void SetUp() override;
 
-  void runAndVerify(const char *testLabel, const char *planPath,
-                    bool unordered = false);
-
-  bool flushResults = true;
-  const char *testPath = TEST_OUTPUTS "/tests-threads/";
-
-  const char *catalogJSON = "inputs";
-
  public:
 };
 
 void ThreadTest::SetUp() { gpu_run(cudaSetDevice(0)); }
-
-void ThreadTest::runAndVerify(const char *testLabel, const char *planPath,
-                              bool unordered) {
-  ::runAndVerify(testLabel, planPath, testPath, catalogJSON, unordered);
-}
 
 TEST_F(ThreadTest, power9_getcpu) {
   const auto &topo = topology::getInstance();

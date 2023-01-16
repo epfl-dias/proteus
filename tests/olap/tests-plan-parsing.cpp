@@ -26,10 +26,9 @@
 //
 // Don't forget gtest.h, which declares the testing framework.
 #include <olap/test/environment.hpp>
-#include <storage/storage-manager.hpp>
+#include <olap/test/test-utils.hpp>
 
 #include "gtest/gtest.h"
-#include "test-utils.hpp"
 
 // Step 2. Use the TEST macro to define your tests.
 //

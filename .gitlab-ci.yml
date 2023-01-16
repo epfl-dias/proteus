@@ -210,19 +210,17 @@ Test 03 - JSON:
  <<: *test
  script:
   - cmake --build ${build_path} --target install -- -j`nproc --all`
-  - cd ${build_path}/opt/pelago && ./unit-tests-json --gtest_output="xml:$CWD/report-json.xml"
-    #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='JSONTest.*' --gtest_output="xml:$CWD/report-json.xml"
+  - cd ${build_path}/opt/pelago && ./unit-json-test --gtest_output="xml:$CWD/report-json.xml"
  allow_failure: true
  artifacts:
   reports:
    junit: report-json.xml
 
-Test 04 - Joins:
+Test 04 - Operators:
  <<: *test
  script:
   - cmake --build ${build_path} --target install -- -j`nproc --all`
-  - cd ${build_path}/opt/pelago && ./unit-tests-joins --gtest_output="xml:$CWD/report-joins.xml"
-    #- cd ${build_path}/opt/pelago && ./unit-tests-olap --gtest_filter='SailorsTest.*' --gtest_output="xml:$CWD/report-joins.xml"
+  - cd ${build_path}/opt/pelago && ./unit-operator-tests --gtest_output="xml:$CWD/report-joins.xml"
  allow_failure: true
  artifacts:
   reports:
@@ -330,6 +328,16 @@ Test 14 - Storage - File Request Interface:
  artifacts:
   reports:
    junit: report-request-interface-test.xml
+
+Test 15 - CSV:
+ <<: *test
+ script:
+  - cmake --build ${build_path} --target install -- -j`nproc --all`
+  - cd ${build_path}/opt/pelago && ./unit-csv-test --gtest_output="xml:$CWD/report-json.xml"
+ allow_failure: true
+ artifacts:
+  reports:
+   junit: report-json.xml
 
 #----------------------------------------------------------------------------
 # Performance Tests

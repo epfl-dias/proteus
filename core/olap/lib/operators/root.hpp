@@ -35,6 +35,9 @@ class Root : public UnaryOperator {
   void consume(Context *const context,
                const OperatorState &childState) override;
   bool isFiltering() const override { return getChild()->isFiltering(); }
+  RecordType getRowType() const override {
+    throw runtime_error("unimplemented");
+  }
 
  private:
 };

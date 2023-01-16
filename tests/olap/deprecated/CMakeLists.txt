@@ -2,7 +2,6 @@ if (FALSE)
   set(TS_NAME unit-tests-olap-deprecated)
 
   add_executable(${TS_NAME}
-    tests-csv.cpp
     tests-hashing.cpp
     tests-json.cpp
     tests-nest.cpp
