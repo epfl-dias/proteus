@@ -1508,10 +1508,12 @@ inline expressions::RecordProjection expression_t::operator[](
     }
   }
   if (proj.getAttrName() == activeLoop) return {*this, proj};
-  LOG(INFO) << proj.getAttrName();
-  LOG(INFO) << proj.getRelationName();
+  LOG(WARNING) << "Invalid record projection";
+  LOG(WARNING) << "projection: " << proj.getRelationName() << "."
+               << proj.getAttrName();
+  LOG(WARNING) << "Expr attributes: ";
   for (const auto &e : rec->getArgs()) {
-    LOG(INFO) << e->getRelationName() << "." << e->getAttrName();
+    LOG(WARNING) << "  " << e->getRelationName() << "." << e->getAttrName();
   }
   throw std::runtime_error("Invalid record projection");
 }
