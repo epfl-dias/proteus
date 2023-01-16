@@ -20,7 +20,7 @@ docker run -d --gpus all --security-opt  seccomp={path_to_repo_root}/tools/docke
 ### Building with the command line in docker
 - clone this repo to a convenient location e.g.
   ```sh
-  usero@server01:~$ git clone git@github.com:epfl-dias/proteus.git
+  user@server01:~$ git clone git@github.com:epfl-dias/proteus.git
   ```
 - Start the container and mount the source directory into the container:
   ```sh
