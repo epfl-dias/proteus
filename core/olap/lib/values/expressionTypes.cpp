@@ -109,3 +109,29 @@ llvm::Type *RecordType::getLLVMType(llvm::LLVMContext &ctx) const {
   for (const auto &attr : args) body.push_back(attr->getLLVMType(ctx));
   return llvm::StructType::get(ctx, body);
 }
+
+namespace dangling_attr {
+DanglingAttr attr(std::string attrName, ExpressionType *type, bool make_block) {
+  return DanglingAttr(std::move(attrName), type, make_block);
+}
+
+DanglingAttr Int(std::string attrName, bool make_block) {
+  return attr(std::move(attrName), new IntType(), make_block);
+}
+
+DanglingAttr Int64(std::string attrName, bool make_block) {
+  return attr(std::move(attrName), new Int64Type(), make_block);
+}
+
+DanglingAttr Float(std::string attrName, bool make_block) {
+  return attr(std::move(attrName), new FloatType(), make_block);
+}
+
+DanglingAttr String(std::string attrName, bool make_block) {
+  return attr(std::move(attrName), new StringType(), make_block);
+}
+}  // namespace dangling_attr
+
+RelWithAttributes rel::operator()(std::initializer_list<DanglingAttr> attrs) {
+  return {*this, attrs};
+}

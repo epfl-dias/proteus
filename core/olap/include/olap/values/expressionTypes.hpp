@@ -487,4 +487,102 @@ bool operator==(const RecordAttribute &l, const RecordAttribute &r);
 //}
 //;
 
+// DanglingAttr / RelWithAttributes are used to work with data without a
+// catalogue.json.
+class DanglingAttr;
+
+class RelWithAttributes;
+
+class rel {
+ private:
+  std::string relName;
+
+ public:
+  explicit rel(std::string relName) : relName(std::move(relName)) {}
+
+  RelWithAttributes operator()(std::initializer_list<DanglingAttr>);
+  template <typename... T>
+  RelWithAttributes operator()(T... x);
+
+  operator std::string() const { return relName; }
+};
+
+class DanglingAttr;
+// use a namespace primarily because these are likely to conflict
+namespace dangling_attr {
+DanglingAttr attr(std::string attrName, ExpressionType *type,
+                  bool makeBlock = false);
+
+DanglingAttr Int(std::string attrName, bool makeBlock = false);
+
+DanglingAttr Int64(std::string attrName, bool make_block = false);
+
+DanglingAttr Float(std::string attrName, bool makeBlock = false);
+
+DanglingAttr String(std::string attrName, bool makeBlock = false);
+}  // namespace dangling_attr
+
+/**
+ * A dangling attribute without a relation
+ */
+class DanglingAttr {
+ private:
+  std::string attrName;
+  ExpressionType *type;
+  bool makeBlock;
+
+ protected:
+  explicit DanglingAttr(std::string attrName, ExpressionType *type,
+                        bool makeBlock = false)
+      : attrName(std::move(attrName)), type(type), makeBlock(makeBlock) {}
+
+  friend DanglingAttr dangling_attr::attr(std::string attrName,
+                                          ExpressionType *type, bool makeBlock);
+
+ public:
+  operator std::string() const { return attrName; }
+
+  auto getName() const { return attrName; }
+  auto getType() const { return type; }
+  auto shouldMakeBlock() const { return makeBlock; }
+};
+
+/**
+ * Construct a Relation from dangling attributes
+ */
+class RelWithAttributes {
+ private:
+  rel r;
+  std::vector<DanglingAttr> attrs;
+
+ private:
+  RelWithAttributes(rel relName, decltype(attrs) attrs)
+      : r(std::move(relName)), attrs(std::move(attrs)) {}
+
+  friend class rel;
+
+ public:
+  /**
+   * Enable implicit conversion to RecordType
+   * @return a new RecordType containing the DanglingAttrs
+   */
+  operator RecordType() const {
+    std::vector<RecordAttribute *> recattrs;
+    recattrs.reserve(attrs.size());
+    for (const auto &x : attrs) {
+      LOG(INFO) << recattrs.size() << " " << ((std::string)r) << "."
+                << x.getName() << *(x.getType());
+      recattrs.emplace_back(new RecordAttribute(recattrs.size() + 1, r,
+                                                x.getName(), x.getType(),
+                                                x.shouldMakeBlock()));
+    }
+    return {recattrs};
+  }
+};
+
+template <typename... T>
+RelWithAttributes rel::operator()(T... x) {
+  return (*this)({x...});
+}
+
 #endif /* EXPRESSIONTYPES_HPP_ */
