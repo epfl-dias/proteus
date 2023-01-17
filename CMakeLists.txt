@@ -14,9 +14,6 @@ include(proteus-prolog)
 set(UNIT_TESTS TRUE)
 set(DUNIT_TESTS FALSE)
 
-# Benchmarks
-set(TPCH FALSE)
-set(REALWORLD_EXPERIMENTS FALSE)
 
 #-----------------------------------------------------------------------
 # Setup environment for the project

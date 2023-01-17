@@ -27,41 +27,32 @@
 #include <olap-perf-util/benchmark-aliases.hpp>
 #include <ssb/query.hpp>
 
+#define FOR_SSB_QUERY(DO)          \
+  DO(Q1_1, ssb::Query::prepare11); \
+  DO(Q1_2, ssb::Query::prepare12); \
+  DO(Q1_3, ssb::Query::prepare13); \
+  DO(Q2_1, ssb::Query::prepare21); \
+  DO(Q2_2, ssb::Query::prepare22); \
+  DO(Q2_3, ssb::Query::prepare23); \
+  DO(Q3_1, ssb::Query::prepare31); \
+  DO(Q3_2, ssb::Query::prepare32); \
+  DO(Q3_3, ssb::Query::prepare33); \
+  DO(Q3_4, ssb::Query::prepare34); \
+  DO(Q4_1, ssb::Query::prepare41); \
+  DO(Q4_2, ssb::Query::prepare42); \
+  DO(Q4_3, ssb::Query::prepare43);
+
 namespace SSB100 {
 constexpr size_t SF{100};
 #define QALIAS(name, prepFunction) QALIASSF(name, prepFunction, SSB100::SF)
-QALIAS(Q1_1, ssb::Query::prepare11);
-QALIAS(Q1_2, ssb::Query::prepare12);
-QALIAS(Q1_3, ssb::Query::prepare13);
-QALIAS(Q2_1, ssb::Query::prepare21);
-QALIAS(Q2_2, ssb::Query::prepare22);
-QALIAS(Q2_3, ssb::Query::prepare23);
-QALIAS(Q3_1, ssb::Query::prepare31);
-QALIAS(Q3_2, ssb::Query::prepare32);
-QALIAS(Q3_3, ssb::Query::prepare33);
-QALIAS(Q3_4, ssb::Query::prepare34);
-QALIAS(Q4_1, ssb::Query::prepare41);
-QALIAS(Q4_2, ssb::Query::prepare42);
-QALIAS(Q4_3, ssb::Query::prepare43);
+FOR_SSB_QUERY(QALIAS)
 #undef QALIAS
 }  // namespace SSB100
 
 namespace SSB1000 {
 constexpr size_t SF = 1000;
 #define QALIAS(name, prepFunction) QALIASSF(name, prepFunction, SSB1000::SF)
-QALIAS(Q1_1, ssb::Query::prepare11);
-QALIAS(Q1_2, ssb::Query::prepare12);
-QALIAS(Q1_3, ssb::Query::prepare13);
-QALIAS(Q2_1, ssb::Query::prepare21);
-QALIAS(Q2_2, ssb::Query::prepare22);
-QALIAS(Q2_3, ssb::Query::prepare23);
-QALIAS(Q3_1, ssb::Query::prepare31);
-QALIAS(Q3_2, ssb::Query::prepare32);
-QALIAS(Q3_3, ssb::Query::prepare33);
-QALIAS(Q3_4, ssb::Query::prepare34);
-QALIAS(Q4_1, ssb::Query::prepare41);
-QALIAS(Q4_2, ssb::Query::prepare42);
-QALIAS(Q4_3, ssb::Query::prepare43);
+FOR_SSB_QUERY(QALIAS)
 #undef QALIAS
 }  // namespace SSB1000
 
