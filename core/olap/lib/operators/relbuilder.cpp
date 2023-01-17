@@ -350,6 +350,11 @@ RelBuilder RelBuilder::groupby(const std::vector<expression_t> &e,
 
 RelBuilder RelBuilder::sort(const vector<expression_t> &orderByFields,
                             const vector<direction> &dirs) const {
+  if (isPacked()) {
+    std::string error = "Cannot sort packed input";
+    LOG(ERROR) << error;
+    throw runtime_error(error);
+  }
   switch (root->getDeviceType()) {
     case DeviceType::GPU: {
       auto op = new GpuSort(root, ctx, orderByFields, dirs);

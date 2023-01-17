@@ -542,6 +542,11 @@ class RelBuilder {
 
   template <typename T>
   RelBuilder sort(T e, const vector<direction>& dirs) const {
+    if (isPacked()) {
+      std::string error = "Cannot sort packed input";
+      LOG(ERROR) << error;
+      throw runtime_error(error);
+    }
     return sort(e(getOutputArg()), dirs);
   }
 
