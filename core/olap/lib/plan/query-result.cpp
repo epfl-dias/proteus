@@ -45,33 +45,51 @@ namespace filesystem = std::experimental::filesystem;
 
 using namespace std::chrono_literals;
 
-QueryResult::QueryResult(const std::string &q) : q(q) {
-  auto p = "/dev/shm" / std::filesystem::path{q};
-  assert(std::filesystem::exists(p));
+QueryResult::QueryResult(const std::string &outputfile)
+    : outputfile(outputfile) {
+  // if the output path is relative we assume it is in shared memory
+  // this is the default case.
+  std::filesystem::path output_path{outputfile};
+  // mmap shared memory
+  if (output_path.is_relative()) {
+    auto p = "/dev/shm" / std::filesystem::path{outputfile};
+    assert(std::filesystem::exists(p));
 
-  int fd = linux_run(shm_open(q.c_str(), O_RDONLY, S_IRWXU));
+    int fd = linux_run(shm_open(outputfile.c_str(), O_RDONLY, S_IRWXU));
 
-  if (std::filesystem::is_directory(p)) {
-    fsize = 0;
+    if (std::filesystem::is_directory(p)) {
+      fsize = 0;
+    } else {
+      fsize = std::filesystem::file_size(p);
+    }
+
+    if (fsize) {
+      resultBuf = (char *)mmap(nullptr, fsize, PROT_READ | PROT_WRITE,
+                               MAP_PRIVATE, fd, 0);
+      if (resultBuf == MAP_FAILED) {
+        auto msg =
+            std::string{"Opening result file failed ("} + strerror(errno) + ")";
+        LOG(ERROR) << msg;
+        throw std::runtime_error{msg};
+      }
+      assert(resultBuf != MAP_FAILED);
+    } else {
+      resultBuf = static_cast<char *>(MAP_FAILED);
+      assert(resultBuf && "Destructor assumes MAP_FAILED != 0");
+    }
+    close(fd);  // close the descriptor produced by the shm_open
   } else {
-    fsize = std::filesystem::file_size(p);
-  }
-
-  if (fsize) {
+    // mmap regular file
+    if (std::filesystem::is_directory(output_path)) {
+      fsize = 0;
+    } else {
+      fsize = std::filesystem::file_size(output_path);
+    }
+    int fd = open(output_path.c_str(), O_RDONLY, 0);
     resultBuf = (char *)mmap(nullptr, fsize, PROT_READ | PROT_WRITE,
                              MAP_PRIVATE, fd, 0);
-    if (resultBuf == MAP_FAILED) {
-      auto msg =
-          std::string{"Opening result file failed ("} + strerror(errno) + ")";
-      LOG(ERROR) << msg;
-      throw std::runtime_error{msg};
-    }
-    assert(resultBuf != MAP_FAILED);
-  } else {
-    resultBuf = static_cast<char *>(MAP_FAILED);
-    assert(resultBuf && "Destructor assumes MAP_FAILED != 0");
+    close(fd);
   }
-  close(fd);  // close the descriptor produced by the shm_open
 }
 
 QueryResult::~QueryResult() {
@@ -79,14 +97,17 @@ QueryResult::~QueryResult() {
 
   if (fsize) munmap(resultBuf, fsize);
 
-  // We can now unlink the file from the filesystem
-  if (std::filesystem::is_directory(q)) {
-    LOG(INFO) << "Not unlinking dir " << q;
+  std::filesystem::path output_path{outputfile};
+
+  // We can now unlink the file from the filesystem if it is in shared memory
+  if (std::filesystem::is_directory(output_path) ||
+      !output_path.is_relative()) {
+    LOG(INFO) << "Not unlinking " << outputfile;
   } else {
-    auto x = shm_unlink(q.c_str());
+    auto x = shm_unlink(outputfile.c_str());
     if (x < 0 &&
         errno == EISDIR) {  // std::filesystem may not know the file type
-      LOG(INFO) << "Not unlinking dir " << q;
+      LOG(INFO) << "Not unlinking dir " << outputfile;
     } else {
       linux_run(x);
     }
@@ -99,6 +120,6 @@ std::ostream &operator<<(std::ostream &out, const QueryResult &qr) {
 }
 
 QueryResult::QueryResult(QueryResult &&o)
-    : fsize(o.fsize), resultBuf(o.resultBuf), q(o.q) {
+    : fsize(o.fsize), resultBuf(o.resultBuf), outputfile(o.outputfile) {
   o.resultBuf = nullptr;
 }

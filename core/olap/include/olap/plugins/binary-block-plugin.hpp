@@ -277,6 +277,20 @@ class BinaryBlockPlugin : public Plugin {
   int64_t *getTuplesPerPartition();
   void freeTuplesPerPartition(int64_t *);
 
+  /**
+   * Handles relative/absolute paths.
+   *
+   * Relative paths are assumed to be in shared memory
+   * Absolute paths are assumed to be regular files.
+   * e.g:
+   * For `relName` return relName/relName so attributes are written to
+   * relName/relName.attrName
+   * For `/my/absolute/path/relName` instead return
+   * /my/absolute/path/relName/relname so attributes are written to
+   * /my/absolute/path/relName/relname.attrName
+   */
+  std::string normalizeOutputPath(std::string);
+
   friend const void **getDataForField(size_t i, BinaryBlockPlugin *pg);
   friend void freeDataForField(size_t i, const void **d, BinaryBlockPlugin *pg);
   friend int64_t *getTuplesPerPartition(BinaryBlockPlugin *pg);

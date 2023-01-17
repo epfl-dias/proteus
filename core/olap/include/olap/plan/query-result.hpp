@@ -32,7 +32,7 @@ class QueryResult {
   size_t fsize;
   char *resultBuf;
 
-  const std::string q;
+  const std::string outputfile;
 
  public:
   QueryResult(const std::string &query_name);

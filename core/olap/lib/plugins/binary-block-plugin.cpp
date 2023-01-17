@@ -875,7 +875,7 @@ void BinaryBlockPlugin::flushValue(Context *context,
                                    const ExpressionType *type,
                                    std::string fileName) {
   return flushValueInternal(context, mem_value, type,
-                            fileName + "/" + fileName);
+                            normalizeOutputPath(fileName));
 }
 
 auto *getSerializer(const char *file) {
@@ -969,7 +969,7 @@ void BinaryBlockPlugin::flushOutputInternal(Context *context,
 
 void BinaryBlockPlugin::flushOutput(Context *context, std::string fileName,
                                     const ExpressionType *type) {
-  flushOutputInternal(context, fileName + "/" + fileName, type);
+  flushOutputInternal(context, normalizeOutputPath(fileName), type);
 }
 
 extern "C" Plugin *createBlockPlugin(
@@ -1040,4 +1040,15 @@ void BinaryBlockPlugin::forEachInCollection(
     Value *val_new_itemCtr = Builder->CreateAdd(val_curr_itemCtr, step.value);
     Builder->CreateStore(val_new_itemCtr, mem_itemCtr);
   });
+}
+
+std::string BinaryBlockPlugin::normalizeOutputPath(std::string fileName) {
+  std::filesystem::path filePath{fileName};
+  std::string flushPath;
+  if (filePath.is_relative()) {
+    flushPath = fileName + "/" + fileName;
+  } else {
+    flushPath = fileName + "/" + filePath.filename().string();
+  }
+  return flushPath;
 }
