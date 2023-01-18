@@ -355,6 +355,14 @@ RelBuilder RelBuilder::sort(const vector<expression_t> &orderByFields,
     LOG(ERROR) << error;
     throw runtime_error(error);
   }
+  if (orderByFields.size() != dirs.size()) {
+    std::string error =
+        "Number of fields must equal number of directions. Num fields: " +
+        std::to_string(orderByFields.size()) +
+        ", num sort directions: " + std::to_string(dirs.size());
+    LOG(ERROR) << error;
+    throw runtime_error(error);
+  }
   switch (root->getDeviceType()) {
     case DeviceType::GPU: {
       auto op = new GpuSort(root, ctx, orderByFields, dirs);

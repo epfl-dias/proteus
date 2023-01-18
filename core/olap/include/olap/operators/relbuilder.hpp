@@ -512,9 +512,9 @@ class RelBuilder {
    *
    * @param     expr    List of expressions to evaluate.
    *
-   * @note  expressions usually perserve types and they look like c++
+   * @note  expressions usually preserve types and they look like c++
    *        default expression in terms of type convergences, without
-   *        c++'s defeult automatic casts.
+   *        c++'s default automatic casts.
    */
   template <typename T>
   RelBuilder project(T expr) const {
@@ -613,6 +613,13 @@ class RelBuilder {
                                    const std::vector<GpuAggrMatExpr>& agg_exprs,
                                    size_t hash_bits, size_t maxInputSize) const;
 
+  /**
+   *
+   * @param orderByFields output fields, note that sort currently implicitly
+   * projects. To preserver a field you need to include it in orderByFields and
+   * use direction::None
+   * @param dirs Sort direction per orderByField
+   */
   [[nodiscard]] RelBuilder sort(const vector<expression_t>& orderByFields,
                                 const vector<direction>& dirs) const;
 
