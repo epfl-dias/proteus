@@ -477,6 +477,8 @@ void flushDouble(double toFlush, char *fileName) { flush(toFlush, fileName); }
 
 void flushBoolean(bool toFlush, char *fileName) { flush(toFlush, fileName); }
 
+void flushPtr(uintptr_t ptr, char *fileName) { flush((void *)ptr, fileName); }
+
 void flushStringC(char *toFlush, size_t start, size_t end, char *fileName) {
   assert(start <= end);
   auto &strBuffer = Catalog::getInstance().getSerializer(fileName);

@@ -142,6 +142,9 @@ extern "C" void flushDouble(double toFlush, char *fileName);
 
 extern "C" void flushBoolean(bool toFlush, char *fileName);
 
+// Used for debugging purposes, ptrs are generally meaningless when flushed
+extern "C" void flushPtr(uintptr_t ptr, char *fileName);
+
 extern "C" void flushStringC(char *toFlush, size_t start, size_t end,
                              char *fileName);
 

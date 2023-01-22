@@ -746,6 +746,8 @@ void PipelineGen::registerFunctions() {
   Type *int16_type = Type::getInt16Ty(ctx);
   Type *int32_type = Type::getInt32Ty(ctx);
   Type *int64_type = Type::getInt64Ty(ctx);
+  // not 100% portable, but we only run on 64bit architectures
+  Type *uintptr_type = Type::getInt64Ty(ctx);
   Type *void_type = Type::getVoidTy(ctx);
   Type *double_type = Type::getDoubleTy(ctx);
   StructType *strObjType = Context::CreateStringStruct(ctx);
@@ -864,6 +866,10 @@ void PipelineGen::registerFunctions() {
   ArgsFlushBoolean.insert(ArgsFlushBoolean.begin(), char_ptr_type);
   ArgsFlushBoolean.insert(ArgsFlushBoolean.begin(), int1_bool_type);
 
+  vector<Type *> ArgsFlushPtr;
+  ArgsFlushPtr.insert(ArgsFlushPtr.begin(), char_ptr_type);
+  ArgsFlushPtr.insert(ArgsFlushPtr.begin(), uintptr_type);
+
   vector<Type *> ArgsFlushStartEnd;
   ArgsFlushStartEnd.insert(ArgsFlushStartEnd.begin(), char_ptr_type);
 
@@ -945,6 +951,7 @@ void PipelineGen::registerFunctions() {
       FunctionType::get(void_type, ArgsFlushStringObj, false);
   FunctionType *FTflushBoolean =
       FunctionType::get(void_type, ArgsFlushBoolean, false);
+  FunctionType *FTflushPtr = FunctionType::get(void_type, ArgsFlushPtr, false);
   FunctionType *FTflushStartEnd =
       FunctionType::get(void_type, ArgsFlushStartEnd, false);
   FunctionType *FTflushChar =
@@ -1062,6 +1069,8 @@ void PipelineGen::registerFunctions() {
                        "flushStringObject", TheModule);
   Function *flushBoolean_ = Function::Create(
       FTflushBoolean, Function::ExternalLinkage, "flushBoolean", TheModule);
+  Function *flushPtr_ = Function::Create(FTflushPtr, Function::ExternalLinkage,
+                                         "flushPtr", TheModule);
   Function *flushObjectStart_ =
       Function::Create(FTflushStartEnd, Function::ExternalLinkage,
                        "flushObjectStart", TheModule);
@@ -1317,6 +1326,7 @@ void PipelineGen::registerFunctions() {
   registerFunction("flushStringCv2", flushStringCv2_);
   registerFunction("flushStringObj", flushStringObj_);
   registerFunction("flushBoolean", flushBoolean_);
+  registerFunction("flushPtr", flushPtr_);
   registerFunction("flushChar", flushChar_);
   registerFunction("flushDelim", flushDelim_);
   registerFunction("flushOutput", flushOutput_);

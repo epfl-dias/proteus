@@ -532,6 +532,17 @@ void CSVPlugin::flushValue(ProteusValueMemory mem_value,
       LOG(ERROR) << "[CSV PLUGIN: ] CSV files do not contain collections";
       throw runtime_error(
           string("[CSV PLUGIN: ] CSV files do not contain collections"));
+    case BLOCK: {
+      LOG(WARNING) << "[CSV PLUGIN: ] flushing Block";
+      vector<Value *> ArgsV;
+      flushFunc = context->getFunction("flushPtr");
+      Value *ptr_as_int64 = context->getBuilder()->CreatePtrToInt(
+          val_attr, llvm::Type::getInt64Ty(context->getLLVMContext()));
+      ArgsV.push_back(ptr_as_int64);
+      ArgsV.push_back(fileName);
+      context->getBuilder()->CreateCall(flushFunc, ArgsV);
+      return;
+    }
     case RECORD: {
       char delim = ',';
 
