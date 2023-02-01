@@ -24,6 +24,8 @@
 #ifndef AFFINITIZERS_HPP_
 #define AFFINITIZERS_HPP_
 
+#include <algorithm>
+#include <numeric>
 #include <platform/topology/device-types.hpp>
 #include <platform/topology/gpu-index.hpp>
 #include <platform/topology/topology.hpp>
@@ -105,7 +107,26 @@ class GPUAffinitizer : public Affinitizer {
     }
     assert(c);
     const auto &gpus = c->local_gpus;
-    return gpus[rand() % gpus.size()];
+    // NUMA nodes can have 0 GPUs, even in a system with GPUS
+    if (!gpus.empty()) {
+      return gpus[rand() % gpus.size()];
+    }
+    // Find the closest CPU numa node with a GPU
+    // initialize original index locations
+    vector<size_t> idx(c->distance.size());
+    std::iota(idx.begin(), idx.end(), 0);
+    stable_sort(idx.begin(), idx.end(),
+                [&v = std::as_const(c->distance)](size_t i1, size_t i2) {
+                  return v[i1] < v[i2];
+                });
+    for (const auto &i : idx) {
+      const auto &cpu_node = topo.getCpuNumaNodes()[i];
+      const auto &local_gpus = cpu_node.local_gpus;
+      if (cpu_node.local_gpus.size() > 0) {
+        return local_gpus[rand() % local_gpus.size()];
+      }
+    }
+    LOG(FATAL) << "GPUAffinitizer found no GPUs";
   }
 };
 
