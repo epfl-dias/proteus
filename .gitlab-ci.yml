@@ -168,7 +168,8 @@ build panorama:
   - rm -rf node_modules
   - npm install yarn
   - export PATH=node_modules/.bin/:$PATH
-  - yarn global add node@lts
+#  latest LTS (18) does not work on ubuntu 18.04 due to a dependency on a newer libc
+  - yarn global add node@16.19.0
   - export PATH=node_modules/.bin/:$(yarn global dir)/node_modules/node/bin:$PATH
   - yarn install
   # - export NODE_OPTIONS=--openssl-legacy-provider
