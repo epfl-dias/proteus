@@ -62,7 +62,8 @@ class SSBBaseFixture : public benchmark::Fixture {
   void warmUp(PreparedStatement& statement) {
     if (warmup) {
       for (size_t i = 0; i < warmup; i++) {
-        LOG(INFO) << "Warmup: " << i;
+        time_block t("Warmup  " + std::to_string(i) + " :");
+        statement.execute();
       }
     }
   }
