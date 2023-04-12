@@ -25,6 +25,7 @@
 #define AFFINITY_MANAGER_HPP_
 
 #include <platform/topology/topology.hpp>
+#include <platform/util/glog.hpp>
 
 template <typename T>
 class buffer_manager;

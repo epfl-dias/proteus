@@ -21,15 +21,16 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 //
-//#include "operators/gpu/gpu-partitioned-hash-join-chained.hpp"
-//#include <platform/memory/memory-manager.hpp>
-//#include "expressions/expressions-generator.hpp"
-//#include "operators/gpu/gmonoids.hpp"
-//#include "util/gpu/gpu-intrinsics.hpp"
+// #include "operators/gpu/gpu-partitioned-hash-join-chained.hpp"
+// #include <platform/memory/memory-manager.hpp>
+// #include "expressions/expressions-generator.hpp"
+// #include "operators/gpu/gmonoids.hpp"
+// #include "util/gpu/gpu-intrinsics.hpp"
 
 #include <cassert>
 #include <platform/common/gpu/gpu-common.hpp>
 
+#ifndef NCUDA
 #include "cuda.h"
 #include "cuda_runtime.h"
 
@@ -496,3 +497,5 @@ void call_build_partitions(size_t grid, size_t block, size_t shmem,
       S, P, bucket_info, buckets_used, heads, chains, out_cnts, output_S,
       output_P, S_log_parts, log_parts, first_bit, bucket_num_ptr);
 }
+
+#endif

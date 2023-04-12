@@ -37,10 +37,11 @@
 #include <stdexcept>
 #include <vector>
 
+#ifndef NCUDA
 #include "cuda_profiler_api.h"
 #include "cuda_runtime_api.h"
 #include "nvToolsExt.h"
-#include "nvml.h"
+#endif
 
 // template<typename T>
 const topology::cpunumanode *topology::getCpuNumaNodeAddressed(
@@ -321,6 +322,7 @@ class Monitor {
   }
 };
 
+#ifndef NCUDA
 static Monitor<CUPTILogger> cuptiLogger;
 
 void CUPTIAPI bufferCompleted(CUcontext ctx, uint32_t streamId, uint8_t *buffer,
@@ -518,6 +520,7 @@ void CUPTIAPI bufferRequested(uint8_t **buffer, size_t *size,
   *buffer = ALIGN_BUFFER(bfr, 8);
   *maxNumRecords = 0;
 }
+#endif
 
 void topology::init_() {
   // Check if topology is already initialized and if yes, return early
@@ -533,6 +536,7 @@ void topology::init_() {
   assert(cpu_info.empty() && "Is topology already initialized?");
   assert(core_info.empty() && "Is topology already initialized?");
   unsigned int gpus = 0;
+#ifndef NCUDA
   auto nvml_res = nvmlInit();
   if (nvml_res == NVML_SUCCESS) {
     // We can not use gpu_run(...) before we set gpu_cnt, call gpuAssert
@@ -545,6 +549,7 @@ void topology::init_() {
       gpuAssert(ret, __FILE__, __LINE__);
     }
   }
+#endif
   gpu_cnt = gpus;
 
   // Creating gpunodes requires that we know the number of cores,
@@ -775,6 +780,7 @@ std::ostream &operator<<(std::ostream &out, const topology &topo) {
 
   out << '\n';
 
+#ifndef NCUDA
   for (const auto &gpu : topo.getGpus()) {
     unsigned int nvml_ind = 0;
     gpu_run(nvmlDeviceGetIndex(gpu.handle, &nvml_ind));
@@ -800,6 +806,7 @@ std::ostream &operator<<(std::ostream &out, const topology &topo) {
   }
 
   out << '\n';
+#endif
 
   for (const auto &ib : topo.getIBs()) {
     out << "ib:   " << std::setw(6) << ib.id << " | ";
@@ -916,7 +923,11 @@ topology::gpunode::gpunode(uint32_t id, uint32_t index_in_topo,
 }
 
 size_t topology::gpunode::getMemorySize() const {
+#ifndef NCUDA
   return properties.totalGlobalMem;
+#else
+  LOG(FATAL) << "NCUDA configured";
+#endif
 }
 
 topology::cpunumanode::cpunumanode(uint32_t id,
@@ -944,6 +955,7 @@ topology::nvmeStorage::nvmeStorage(const std::string &devPath,
       model_name(nvmeDevPathToModelName(devPath)){};
 
 nvmlDevice_t topology::gpunode::getGPUHandle(unsigned int id) {
+#ifndef NCUDA
   cudaDeviceProp prop;
   gpu_run(cudaGetDeviceProperties(&prop, id));
 
@@ -974,6 +986,9 @@ nvmlDevice_t topology::gpunode::getGPUHandle(unsigned int id) {
     }
   }
   throw std::runtime_error("failed to locate device in nvml!");
+#else
+  LOG(FATAL) << "NCUDA configured";
+#endif
 }
 
 topology topology::instance;

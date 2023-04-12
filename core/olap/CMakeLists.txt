@@ -1,5 +1,9 @@
 project(olap VERSION 0.1 LANGUAGES CXX)
 
+if (NOT USE_CUDA)
+  message(FATAL_ERROR "Warning: Building without support for GPUs (nvcc not detected)")
+endif ()
+
 # Pure, regular C++ files
 set(olap_cxx
   lib/common/common.cpp

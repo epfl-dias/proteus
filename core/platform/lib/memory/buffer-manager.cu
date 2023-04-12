@@ -25,8 +25,6 @@
 #include <cstdint>
 #include <cstdio>
 
-// #include <cinttypes>
-
 // __device__ __constant__ threadsafe_device_stack<int32_t *, (int32_t *)
 // nullptr>
 // * pool;
@@ -37,6 +35,7 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated"
 
+#include <platform/common/common.hpp>
 #include <platform/common/gpu/gpu-common.hpp>
 #include <platform/memory/buffer-manager.cuh>
 #include <platform/memory/memory-manager.hpp>
@@ -63,6 +62,8 @@ __device__ __constant__ void *buff_start;
 __device__ __constant__ void *buff_end;
 #else
 constexpr threadsafe_device_stack<int32_t *, (int32_t *)nullptr> *pool =
+    nullptr;
+constexpr threadsafe_device_stack<int32_t *, (int32_t *)nullptr> *npool =
     nullptr;
 constexpr int deviceId = 0;
 constexpr void *buff_start = nullptr;
@@ -477,18 +478,17 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
 
   for (const auto &cpu : topo.getCpuNumaNodes()) {
     buffer_pool_constrs.emplace_back(
-        [&cpu, cpu_mem_pool_percentage, &buff_cache] {
-          size_t h_size =
+        [&cpu, cpu_mem_pool_percentage, &buff_cache, &topo] {
+          size_t cpu_h_size =
               cpu_mem_pool_percentage * (cpu.getMemorySize() / buffer_size);
-          buffer_manager<T>::h_size[cpu.id] = h_size;
+          buffer_manager<T>::h_size[cpu.id] = cpu_h_size;
           LOG(INFO) << "Using " << h_size << " " << bytes{buffer_size}
                     << "-buffers in CPU " << cpu.id
-                    << " (Total: " << bytes{h_size * buffer_size} << "/"
+                    << " (Total: " << bytes{cpu_h_size * buffer_size} << "/"
                     << bytes{cpu.getMemorySize()} << ")";
           set_exec_location_on_scope cu{cpu};
-          const auto &topo = topology::getInstance();
 
-          size_t bytes = h_vector_size * sizeof(T) * h_size;
+          size_t bytes = h_vector_size * sizeof(T) * cpu_h_size;
           T *mem = (T *)MemoryManager::mallocPinned(bytes);
           assert(mem);
 
@@ -503,8 +503,8 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
           h_h_buff_start[cpu.id] = mem;
 
           vector<T *> buffs;
-          buffs.reserve(h_size);
-          for (size_t j = 0; j < h_size; ++j) {
+          buffs.reserve(cpu_h_size);
+          for (size_t j = 0; j < cpu_h_size; ++j) {
             T *m = mem + j * h_vector_size;
             // buffer_t * b = cuda_new<buffer_t>(-1, m, -1);
             buffs.push_back(m);
@@ -521,7 +521,7 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
             for (const auto b : buffs) buffer_cache[b] = 0;
           }
 
-          auto *p = new h_pool_t(h_size, buffs);
+          auto *p = new h_pool_t(cpu_h_size, buffs);
 
           h_pool_numa[cpu.id] = p;
 
@@ -774,6 +774,7 @@ __host__ void buffer_manager<T>::find_released_buffers(size_t freq) {
   while (true) {
     std::this_thread::sleep_for(std::chrono::milliseconds{freq});
 
+#ifndef NCUDA
     for (uint32_t i = 0; i < devices; ++i) {
       set_device_on_scope d(topo.getGpus()[i]);
 
@@ -784,6 +785,7 @@ __host__ void buffer_manager<T>::find_released_buffers(size_t freq) {
       find_released_remote_buffers<<<1, 1, 0, strs[i]>>>((void **)buffs,
                                                          maxFetchedBuffs);
     }
+#endif
 
     bool no_releases = true;
 
@@ -922,6 +924,9 @@ __global__ void GpuHashRearrange_acq_buffs(void **buffs) {
 
 #endif
 
+#ifdef NCUDA
+[[noreturn]]
+#endif
 void call_GpuHashRearrange_acq_buffs(size_t cnt, cudaStream_t strm,
                                      void **buffs) {
 #ifndef NCUDA

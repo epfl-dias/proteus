@@ -1,6 +1,6 @@
 find_package(CUDA)
 
-if(CUDA_FOUND)
+if(CUDA_FOUND AND USE_CUDA)
 	# TODO: the CUDA package has been deprecated and replaced by native support for the language.
 	# 		We should consider replacing it with the correct usage of enable_language(CUDA),
 	# 		CMAKE_CUDA_COMPILER, CMAKE_CUDA_FLAGS etc
@@ -61,10 +61,11 @@ if(CUDA_FOUND)
 
 	set(CUDA "CUDA-FOUND")
 else()
-	message(FATAL_ERROR "Warning: Building without support for GPUs (nvcc not
+	message(WARNING "Warning: Building without support for GPUs (nvcc not
 	detected)")
 
-	set(CUDA_CXXFLAGS -x c++ -DNCUDA)
+	set(CUDA_CXXFLAGS "-x c++")
+	add_compile_definitions(NCUDA)
 	set(CUDA_LIBS "")
 
 	set(CUDA "CUDA-NOTFOUND")

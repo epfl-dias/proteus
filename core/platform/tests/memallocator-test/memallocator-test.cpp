@@ -24,6 +24,7 @@
 #include <gtest/gtest.h>
 
 #include <iostream>
+#include <platform/common/common.hpp>
 #include <platform/memory/allocator.hpp>
 
 class MemAllocatorTest : public ::testing::Test {};

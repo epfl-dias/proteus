@@ -35,7 +35,7 @@
 using namespace llvm;
 
 #define COMPACT_OFFSETS_
-//#define PARTITION_PAYLOAD
+// #define PARTITION_PAYLOAD
 
 #define SHMEM_SIZE 4096
 #define HT_LOGSIZE 10

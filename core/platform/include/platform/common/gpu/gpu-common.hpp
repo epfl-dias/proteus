@@ -66,12 +66,10 @@ inline void nvtxRangePop() {}
 
 #endif
 
-#include <thread>
-
-// #include "multigpu/src/common.cuh"
 #include <cassert>
 #include <cstdint>
 #include <iostream>
+#include <thread>
 
 #ifndef WARPSIZE
 #define WARPSIZE (32)

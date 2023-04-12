@@ -25,6 +25,7 @@
 #define BUFFER_MANAGER_CUH_
 
 #include <atomic>
+#include <deque>
 #include <mutex>
 #include <platform/memory/block-manager-conf.hpp>
 #include <platform/topology/affinity_manager.hpp>

@@ -21,12 +21,14 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include <platform/common/gpu/gpu-common.hpp>
+
 #include "lib/util/sort/gpu/sort-util.hpp"
 
+#ifndef NCUDA
 // NOTE: Clang fails to compile thrust, but that is fine if we call this part
 // only from generated code
 #define _CubLog(format, ...) printf(format, __VA_ARGS__)
-
 namespace std {
 template <class F, class... ArgTypes>
 using result_of = invoke_result<F, ArgTypes...>;
@@ -36,6 +38,7 @@ using result_of = invoke_result<F, ArgTypes...>;
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
 #include <thrust/system/cuda/execution_policy.h>
+#endif
 
 #include <platform/memory/block-manager-conf.hpp>
 #include <platform/util/timing.hpp>
@@ -186,6 +189,7 @@ struct qsort_t {
 
 template <typename... T>
 void gpu_qsort(void *ptr, size_t N) {
+#ifndef NCUDA
   time_block t{"Tsort: "};
   typedef qsort_t<T...> to_sort_t;
   thrust::device_ptr<to_sort_t> mem{(to_sort_t *)ptr};
@@ -195,6 +199,9 @@ void gpu_qsort(void *ptr, size_t N) {
             << " " << N << std::endl;
   thrust::sort(thrust::system::cuda::par, mem, mem + N);
   std::cout << "Sorting finished" << std::endl;
+#else
+  LOG(FATAL) << "NCUDA configured";
+#endif
 }
 
 /**

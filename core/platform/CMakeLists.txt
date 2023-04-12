@@ -57,38 +57,41 @@ endforeach ()
 #-----------------------------------------------------------------------------
 # LSC: Hopefully we will soon be able to remove this section, where we call
 #      straight to NVCC
-set(CUDA_WORKDIR ${CMAKE_CURRENT_BINARY_DIR}/cubin)
-file(MAKE_DIRECTORY ${CUDA_WORKDIR})
 
-if (CUDA_FOUND)
-  set(platform_cu_objs
-    "${CUDA_WORKDIR}/buffer-manager.bc.o"
+if (USE_CUDA)
+  set(CUDA_WORKDIR ${CMAKE_CURRENT_BINARY_DIR}/cubin)
+  file(MAKE_DIRECTORY ${CUDA_WORKDIR})
+
+  if (CUDA_FOUND)
+    set(platform_cu_objs
+      "${CUDA_WORKDIR}/buffer-manager.bc.o"
+      )
+  endif ()
+
+  string(REPLACE " " ";" BMFLAGS ${CUDA_CXXFLAGS})
+
+  # Generate LLVM bitcode file with device code
+  # The generated file is used for link-time optimization with the JITed code
+  # TODO: correctly accept the includes and CXX flags
+  add_custom_command(OUTPUT ${CUDA_WORKDIR}/buffer-manager.bc.o
+    COMMAND ${CMAKE_CXX_COMPILER}
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/memory/buffer-manager.cu
+    --cuda-device-only -c -emit-llvm -O3
+    # TODO: correctly accept the CXX flags
+    ${BMFLAGS}
+    # TODO: correctly accept the includes flags
+    -I${CMAKE_CURRENT_SOURCE_DIR}/include
+    -isystem ${CMAKE_BINARY_DIR}/_deps/glog-download-build
+    -isystem ${CMAKE_BINARY_DIR}/_deps/glog-download-src/src
+    # Embed the generated file into the library
+    COMMAND ld -r -b binary buffer-manager*.bc
+    -o ${CUDA_WORKDIR}/buffer-manager.bc.o
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/lib/memory/buffer-manager.cu
+    IMPLICIT_DEPENDS CXX ${CMAKE_CURRENT_SOURCE_DIR}/lib/memory/buffer-manager.cu
+    WORKING_DIRECTORY ${CUDA_WORKDIR}
+    COMMENT "Building CUDA LLVM bitcode ${CUDA_WORKDIR}/buffer-manager.bc.o"
     )
-endif ()
-
-string(REPLACE " " ";" BMFLAGS ${CUDA_CXXFLAGS})
-
-# Generate LLVM bitcode file with device code
-# The generated file is used for link-time optimization with the JITed code
-# TODO: correctly accept the includes and CXX flags
-add_custom_command(OUTPUT ${CUDA_WORKDIR}/buffer-manager.bc.o
-  COMMAND ${CMAKE_CXX_COMPILER}
-  ${CMAKE_CURRENT_SOURCE_DIR}/lib/memory/buffer-manager.cu
-  --cuda-device-only -c -emit-llvm -O3
-  # TODO: correctly accept the CXX flags
-  ${BMFLAGS}
-  # TODO: correctly accept the includes flags
-  -I${CMAKE_CURRENT_SOURCE_DIR}/include
-  -isystem ${CMAKE_BINARY_DIR}/_deps/glog-download-build
-  -isystem ${CMAKE_BINARY_DIR}/_deps/glog-download-src/src
-  # Embed the generated file into the library
-  COMMAND ld -r -b binary buffer-manager*.bc
-  -o ${CUDA_WORKDIR}/buffer-manager.bc.o
-  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/lib/memory/buffer-manager.cu
-  IMPLICIT_DEPENDS CXX ${CMAKE_CURRENT_SOURCE_DIR}/lib/memory/buffer-manager.cu
-  WORKING_DIRECTORY ${CUDA_WORKDIR}
-  COMMENT "Building CUDA LLVM bitcode ${CUDA_WORKDIR}/buffer-manager.bc.o"
-  )
+endif()
 #-----------------------------------------------------------------------------
 
 install(DIRECTORY DESTINATION ${CMAKE_INSTALL_BINDIR}/generated_code

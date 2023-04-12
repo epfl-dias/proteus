@@ -18,6 +18,15 @@ set(DUNIT_TESTS FALSE)
 #-----------------------------------------------------------------------
 # Setup environment for the project
 #-----------------------------------------------------------------------
+
+# Whether to build with CUDA or not
+# Note that most of Proteus heavily relies on CUDA, and this is primarily used to enable
+# building platform without cuda
+set(USE_CUDA TRUE)
+
+# Only build the platform library
+set(PLATFORM_ONLY FALSE)
+
 # Flag to control whether we should build the dependencies
 option(STANDALONE "If ON, installs required subprojects. Otherwise the parent project should provide them" ON)
 
@@ -161,18 +170,23 @@ add_subdirectory(external/jsmn)
 
 # code generation library
 add_subdirectory(core/platform)
+if (NOT PLATFORM_ONLY)
 add_subdirectory(core/storage)
 add_subdirectory(core/planner)
 add_subdirectory(core/olap)
 add_subdirectory(core/oltp)
 add_subdirectory(core/htap)
 add_subdirectory(runtime)
+endif()
 
 #-----------------------------------------------------------------------
 # Build our executables
 #-----------------------------------------------------------------------
 add_subdirectory(apps)
+if (NOT PLATFORM_ONLY)
+#  tests/ are integration tests, does not contain platform unit tests
 add_subdirectory(tests)
+endif()
 
 #-----------------------------------------------------------------------
 # Package definitions

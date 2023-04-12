@@ -30,7 +30,12 @@
 #include <unordered_map>
 #include <vector>
 
+#ifndef NCUDA
 #include "nvml.h"
+#else
+#define nvmlDevice_t void *
+#define nvmlGpuTopologyLevel_t void *
+#endif
 
 struct ibv_device;
 class set_exec_location_on_scope;
@@ -236,14 +241,17 @@ class topology {
     std::vector<uint32_t> local_cores;
     cpu_set_t local_cpu_set;
     uint32_t local_cpu_id;
-
+#ifndef NCUDA
     // Use only if *absolutely* necessary!
     cudaDeviceProp properties;
-
+#endif
    private:
     static nvmlDevice_t getGPUHandle(unsigned int id);
 
    public:
+#ifdef NCUDA
+    [[noreturn]]
+#endif
     gpunode(uint32_t id, uint32_t index_in_topo,
             const std::vector<topology::core> &all_cores,
             // do not remove argument!!!
