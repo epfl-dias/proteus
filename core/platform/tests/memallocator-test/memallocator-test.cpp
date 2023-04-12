@@ -22,6 +22,7 @@
 */
 
 #include <gtest/gtest.h>
+#include <numaif.h>
 
 #include <iostream>
 #include <platform/common/common.hpp>
@@ -32,7 +33,7 @@ class MemAllocatorTest : public ::testing::Test {};
 using namespace std::chrono_literals;
 
 template <size_t alignment>
-void verifyAlignmnet() {
+void verifyAlignment() {
   struct alignas(alignment) X {};
 
   /*
@@ -48,7 +49,7 @@ void verifyAlignmnet() {
 }
 
 #define ALIGN_TEST(n) \
-  TEST_F(MemAllocatorTest, align_##n) { verifyAlignmnet<n>(); }
+  TEST_F(MemAllocatorTest, align_##n) { verifyAlignment<n>(); }
 
 ALIGN_TEST(1)
 ALIGN_TEST(2)
@@ -84,3 +85,32 @@ ALIGN_TEST(256_M)
 // ALIGN_TEST(1_G)
 // ALIGN_TEST(2_G)
 // ALIGN_TEST(4_G)
+
+void verifyCpuNumaAlloc(int cpuNumaNodeIndex) {
+  auto allocator =
+      ::proteus::memory::ExplicitSocketPinnedMemoryAllocator<int32_t>{
+          cpuNumaNodeIndex};
+  auto alloced = allocator.allocate(3);
+  auto& topo = topology::getInstance();
+  auto cpunode_addressed = topo.getCpuNumaNodeAddressed(alloced);
+  ASSERT_EQ(cpunode_addressed->index_in_topo, cpuNumaNodeIndex)
+      << " Allocated on unexpected node";
+
+  int actual_numa_id = -1;
+  auto x =
+      get_mempolicy(&actual_numa_id, nullptr, 0, static_cast<void*>(alloced),
+                    MPOL_F_NODE | MPOL_F_ADDR);
+  ASSERT_EQ(x, 0) << "Failed to get NUMA policy";
+  ASSERT_EQ(cpunode_addressed->id, actual_numa_id);
+  allocator.deallocate(alloced, 3);
+}
+
+TEST_F(MemAllocatorTest, verifyCpuNumaAlloc) {
+  auto& topo = topology::getInstance();
+  LOG(INFO) << "Found " << topo.getCpuNumaNodeCount() << " cpuNumaNodes";
+
+  for (auto i = 0; i < topo.getCpuNumaNodeCount(); i++) {
+    LOG(INFO) << "Testing for cpuNumaNodes: " << i;
+    verifyCpuNumaAlloc(i);
+  }
+}

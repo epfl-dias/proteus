@@ -53,6 +53,10 @@ class PinnedMemoryAllocator {
   }
 
  public:
+  /**
+   * @param n requested allocation size
+   * @return An aligned pointer to the allocated memory
+   */
   [[nodiscard]] T *allocate(size_t n) {
     if (n >
         (std::numeric_limits<size_t>::max() - sizeof(metadata_t) - sizeof(T)) /
@@ -107,9 +111,17 @@ class ExplicitSocketPinnedMemoryAllocator {
       const ExplicitSocketPinnedMemoryAllocator<U> &o) noexcept
       : numa_memset_id(o.numa_memset_id) {}
 
+  /**
+   *
+   * @param numa index in topology of the cpunumanode to use for this allocator
+   */
   inline explicit ExplicitSocketPinnedMemoryAllocator(int numa)
       : numa_memset_id(numa) {}
 
+  /**
+   * @param n requested allocation size
+   * @return An aligned pointer to the allocated memory
+   */
   [[nodiscard]] T *allocate(size_t n) {
     if (numa_memset_id >= 0) {
       static const auto &nodes = topology::getInstance().getCpuNumaNodes();
