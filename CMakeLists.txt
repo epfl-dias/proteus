@@ -131,19 +131,22 @@ include(warning-flags)
 
 #-----------------------------------------------------------------------
 # Various dependencies
+# Note the USE_CUDA flag is used in our cuda.cmake module
 include(llvm-virtual)
 include(cuda)
-include(rapidjson)
 include(gflags)
 include(glog)
 include(gtest)
-include(grpc)
 include(googlebenchmark)
 include(magic-enum)
-include(cuckoo)
 include(vtune)
 include(tests)
 include(perftests)
+if (NOT PLATFORM_ONLY)
+  include(rapidjson)
+  include(cuckoo)
+  include(grpc)
+endif()
 
 #-----------------------------------------------------------------------
 # Build Documentation
@@ -166,7 +169,9 @@ install(DIRECTORY "frontends/R/" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/fron
 #-----------------------------------------------------------------------
 
 # build libjsmn
+if (NOT PLATFORM_ONLY)
 add_subdirectory(external/jsmn)
+endif()
 
 # code generation library
 add_subdirectory(core/platform)
