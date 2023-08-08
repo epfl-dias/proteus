@@ -20,6 +20,7 @@ set(platform_cxx
   lib/topology/affinity_manager.cpp
   lib/topology/device-manager.cpp
   lib/topology/topology.cpp
+  lib/util/interval-runner.cpp
   lib/util/percentile.cpp
   lib/util/profiling.cpp
   lib/util/stacktrace.cpp

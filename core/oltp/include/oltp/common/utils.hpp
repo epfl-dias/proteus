@@ -42,8 +42,6 @@
 #define FALSE 0
 #define TRUE 1
 
-//#include "transactions/transaction_manager.hpp"
-
 // std::ostream& operator<<(std::ostream& o, const struct txn::TXN& a) {
 //   o << "---TXN---\n";
 //   for (int i = 0; i < a.n_ops; i++) {
@@ -73,71 +71,6 @@
 //   o << "---------\n";
 //   return o;
 // }
-
-/*
-  Calls a function every x(ms) intervals
-
-*/
-
-// template <class Duration>
-// using sys_time = std::chrono::time_point<std::chrono::system_clock,
-// Duration>; using sys_nanoseconds = sys_time<std::chrono::nanoseconds>;
-// sys_nanoseconds now = std::chrono::system_clock::now();
-
-/*
- Class: timed_func
- Example Usage:
-    timed_func::interval_runner(
-      [] { DoSomething(); }, (interval in milliseconds.));
- * */
-class timed_func {
-  static bool terminate;
-  static int num_active_runners;
-
- public:
-  static void init() { terminate = false; }
-  static void terminate_all_timed() { terminate = true; }
-
-  static void interval_runner(std::function<void(void)> func,
-                              unsigned int interval) {
-    std::thread([func, interval]() {
-      while (true) {
-        // std::cout << "HE" << std::endl;
-        if (terminate) break;
-        auto x = std::chrono::steady_clock::now();
-        x += std::chrono::milliseconds(interval);
-
-        func();
-
-        std::this_thread::sleep_until(x);
-      }
-    }).detach();
-    num_active_runners++;
-  }
-
-  /*template <class F, class... Args>
-  static void interval_runner(F&& f, Args&&... args, unsigned int interval) {
-    // using packaged_task_t =
-    //   std::packaged_task<typename std::result_of<F(Args...)>::type()>;
-
-    // packaged_task_t task(new packaged_task_t(
-    //   std::bind(std::forward<F>(f), std::forward<Args>(args)...)));
-
-    // auto res = task.get_future();
-
-    std::thread([f, args, interval]() {
-      while (true) {
-        if (terminate) break;
-        auto x = std::chrono::steady_clock::now() +
-                 std::chrono::milliseconds(interval);
-        // task();
-        f(args);
-        std::this_thread::sleep_until(x);
-      }
-    }).detach();
-    num_active_runners++;
-  }*/
-};
 
 static inline int __attribute__((always_inline))
 RAND(unsigned int *seed, int max) {

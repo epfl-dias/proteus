@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2020
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -21,4 +21,11 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "oltp/common/utils.hpp"
+#include "platform/util/interval-runner.hpp"
+
+namespace proteus::utils {
+
+bool timed_func::terminate_all = false;
+std::vector<timed_func::Runner> timed_func::runners;
+
+}  // namespace proteus::utils

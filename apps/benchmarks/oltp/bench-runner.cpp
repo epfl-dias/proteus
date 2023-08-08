@@ -47,6 +47,7 @@
 #include <platform/common/common.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
+#include <platform/util/interval-runner.hpp>
 #include <platform/util/profiling.hpp>
 
 int main(int argc, char** argv) {
@@ -160,7 +161,7 @@ int main(int argc, char** argv) {
   scheduler::WorkerPool::getInstance().start_workers();
 
   if (FLAGS_migrate_worker > 0) {
-    timed_func::interval_runner(
+    proteus::utils::timed_func::interval_runner(
         [] {
           scheduler::WorkerPool::getInstance().print_worker_stats_diff();
           scheduler::WorkerPool::getInstance().migrate_worker();
@@ -172,7 +173,7 @@ int main(int argc, char** argv) {
     uint curr_active_worker = 1;
     bool removal = false;
     const auto& worker_cores = topo.getCores();
-    timed_func::interval_runner(
+    proteus::utils::timed_func::interval_runner(
         [curr_active_worker, removal, &worker_cores]() mutable {
           if (curr_active_worker < FLAGS_num_workers && !removal) {
             LOG(INFO) << "Adding Worker: " << (curr_active_worker + 1);
@@ -193,13 +194,14 @@ int main(int argc, char** argv) {
 
   /* Report stats every 1 sec */
   if (FLAGS_report_stat_sec > 0) {
-    timed_func::interval_runner(
+    LOG(INFO) << "FLAGS_report_stat_sec: " << FLAGS_report_stat_sec;
+    proteus::utils::timed_func::interval_runner(
         [] { scheduler::WorkerPool::getInstance().print_worker_stats_diff(); },
         (FLAGS_report_stat_sec * 1000));
   }
 
   if (FLAGS_switch_master_sec > 0) {
-    timed_func::interval_runner(
+    proteus::utils::timed_func::interval_runner(
         [] { txn::TransactionManager::getInstance().snapshot(); },
         (FLAGS_switch_master_sec * 1000));
   }
@@ -210,7 +212,7 @@ int main(int argc, char** argv) {
    * executing certain number of txns/iterations. */
   usleep((FLAGS_runtime - 1) * 1000000);
 
-  timed_func::terminate_all_timed();
+  proteus::utils::timed_func::terminate_all_timed();
   usleep(1000000);  // sanity sleep so that async threads can exit gracefully.
 
   profiling::pause();
@@ -226,5 +228,7 @@ int main(int argc, char** argv) {
   LOG(INFO) << "Bench deinit: ";
   bench->deinit();
   delete bench;
+
+  StorageManager::getInstance().unloadAll();
   return 0;
 }
