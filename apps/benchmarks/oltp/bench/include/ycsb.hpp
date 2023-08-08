@@ -50,8 +50,6 @@ namespace bench {
 #define PARTITION_LOCAL true
 #define YCSB_MIXED_OPS 1
 
-static constexpr bool ycsb_micro_scan_worker_zero = false;
-
 /*
 
         Benchmark: Yahoo! Cloud Serving Benchmark
@@ -128,7 +126,6 @@ class YCSB : public Benchmark {
  public:
   void pre_run(worker_id_t wid, xid_t xid, partition_id_t partition_id,
                master_version_t master_ver) {
-    assert(xid < TXN_ID_BASE);
     uint64_t to_ins = num_records / num_max_workers;
     uint64_t start = to_ins * wid;
 
@@ -206,14 +203,14 @@ class YCSB : public Benchmark {
 
 #endif
 
-      //#if THREAD_LOCAL
-      // In a round-robin way, each thread will operate on its own data block,
-      // so there will be no conflicts between two workers.
+      // #if THREAD_LOCAL
+      //  In a round-robin way, each thread will operate on its own data block,
+      //  so there will be no conflicts between two workers.
 
       //      txn->ops[i].key =
       //          (wid * recs_per_thread) + ((rec_key_iter++) %
       //          recs_per_thread);
-      //#else
+      // #else
       do {
         // make op
         txn->ops[i].key = zipf.nextval(partition_id, wid);
@@ -226,11 +223,12 @@ class YCSB : public Benchmark {
           }
         }
       } while (is_duplicate);
-      //#endif
+      // #endif
     }
   }
 
-  bool exec_micro_scan_agg(txn::Txn &txn) {
+  bool exec_micro_scan_agg2(txn::Txn &txn) {
+    LOG(INFO) << "RO-YCSB: " << txn.txnTs.txn_start_time;
     constexpr column_id_t ycsb_col_read[] = {0};
 
     auto *record_ptr = static_cast<global_conf::IndexVal *>(
@@ -239,6 +237,8 @@ class YCSB : public Benchmark {
 
     size_t accumulator = 0;
     for (auto i = 0; i < num_records; i++, record_ptr++) {
+      LOG_EVERY_N(INFO, 1000)
+          << "Got the " << google::COUNTER << "th cookie: " << i;
       uint64_t read_val = 0;
 
       record_ptr->readWithLatch([&](global_conf::IndexVal *idx_ptr) {
@@ -249,7 +249,42 @@ class YCSB : public Benchmark {
       accumulator += read_val;
     }
 
-    return true;
+    LOG(INFO) << "RO-YCSB-FINISHED: " << txn.txnTs.txn_start_time;
+    // return true;
+    return accumulator > 0;
+  }
+
+  bool exec_micro_scan_agg(txn::Txn &txn) {
+    //    time_block t("YCSB_scan: ");
+
+    //    time_block t2([&](const auto &tmil) {
+    //      auto ms = (double)(tmil.count());
+    //      LOG(INFO) << "YCSB_scan: " << ms << "ms"
+    //                << " | throughput (recs/sec): " << (num_records / (ms /
+    //                1000))
+    //                << " | throughput (mb/sec): "
+    //                << ((((double)num_records * 8) / (1024 * 1024)) / (ms /
+    //                1000));
+    //    });
+    constexpr column_id_t ycsb_col_read[] = {0};
+
+    size_t accumulator = 0;
+    size_t valuesScanned = 0;
+    for (auto i = 0; i < num_records; i++) {
+      uint64_t read_val = 0;
+      auto *record_ptr = static_cast<global_conf::IndexVal *>(
+          ycsb_tbl->p_index->find((uint64_t)(i)));
+      assert(record_ptr != nullptr);
+      record_ptr->readWithLatch([&](global_conf::IndexVal *idx_ptr) {
+        ycsb_tbl->getIndexedRecord(txn.txnTs, *idx_ptr, &read_val,
+                                   ycsb_col_read, 1);
+      });
+      accumulator += read_val;
+      valuesScanned++;
+    }
+    //    LOG(INFO) << "YCSB_SCAN_SUM: " << accumulator
+    //              << " | valuesScanned: " << valuesScanned;
+    return accumulator > 0;
   }
 
   bool exec_txn(txn::TransactionExecutor &executor, txn::Txn &txn,
@@ -472,25 +507,24 @@ class YCSB : public Benchmark {
 
     txn::StoredProcedure pop(worker_id_t workerId,
                              partition_id_t partitionId) override {
-      if constexpr (ycsb_micro_scan_worker_zero) {
-        if (workerId == 0) {
-          return txn::StoredProcedure(
-              [&](txn::TransactionExecutor &executor, txn::Txn &txn,
-                  void *params) {
-                return this->ycsbBench.exec_micro_scan_agg(txn);
-              },
-              this->_txn_mem, true);
-        }
+      if (ycsbBench.num_readonly_worker > workerId) {
+        // micro-bench: execute a read-only scan-aggregation
+        return txn::StoredProcedure(
+            [&](txn::TransactionExecutor &executor, txn::Txn &txn,
+                void *params) {
+              return this->ycsbBench.exec_micro_scan_agg(txn);
+            },
+            this->_txn_mem, true);
+      } else {
+        // generate and execute a ycsb-txn
+        ycsbBench.gen_txn(workerId, this->_txn_mem, partitionId);
+        return txn::StoredProcedure(
+            [this](txn::TransactionExecutor &executor, txn::Txn &txn,
+                   void *params) {
+              return this->ycsbBench.exec_txn(executor, txn, params);
+            },
+            this->_txn_mem);
       }
-
-      ycsbBench.gen_txn(workerId, this->_txn_mem, partitionId);
-
-      return txn::StoredProcedure(
-          [this](txn::TransactionExecutor &executor, txn::Txn &txn,
-                 void *params) {
-            return this->ycsbBench.exec_txn(executor, txn, params);
-          },
-          this->_txn_mem);
     }
 
     void pre_run() override { ycsbBench.pre_run(wid, 0, partition_id, 0); }

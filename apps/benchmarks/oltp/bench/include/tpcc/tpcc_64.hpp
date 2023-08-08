@@ -49,8 +49,6 @@ namespace bench {
   Spec: http://www.tpc.org/tpc_documents_current_versions/pdf/tpc-c_v5.11.0.pdf
 */
 
-static constexpr bool tpcc_micro_scan_worker_zero = false;
-
 class TpccTxnGen;
 
 enum TPCC_QUERY_TYPE {
@@ -471,24 +469,22 @@ class TPCC : public Benchmark {
 
     txn::StoredProcedure pop(worker_id_t workerId,
                              partition_id_t partitionId) override {
-      if constexpr (tpcc_micro_scan_worker_zero) {
-        if (workerId == 0) {
-          return txn::StoredProcedure(
-              [&](txn::TransactionExecutor &executor, txn::Txn &txn,
-                  void *params) {
-                return tpccBench.exec_micro_scan_stock(txn);
-              },
-              this->_txn_mem, true);
-        }
+      if (tpccBench.num_readonly_worker > workerId) {
+        // micro-bench: execute a read-only scan-aggregation
+        return txn::StoredProcedure(
+            [&](txn::TransactionExecutor &executor, txn::Txn &txn,
+                void *params) { return tpccBench.exec_micro_scan_stock(txn); },
+            this->_txn_mem, true);
+      } else {
+        // generate and execute a TPCC-txn
+        tpccBench.gen_txn(this->wid, this->_txn_mem, this->partition_id);
+        return txn::StoredProcedure(
+            [&](txn::TransactionExecutor &executor, txn::Txn &txn,
+                void *params) {
+              return tpccBench.exec_txn(executor, txn, params);
+            },
+            this->_txn_mem);
       }
-
-      tpccBench.gen_txn(this->wid, this->_txn_mem, this->partition_id);
-
-      return txn::StoredProcedure(
-          [&](txn::TransactionExecutor &executor, txn::Txn &txn, void *params) {
-            return tpccBench.exec_txn(executor, txn, params);
-          },
-          this->_txn_mem);
     }
 
     void pre_run() override { tpccBench.pre_run(wid, 0, partition_id, 0); }

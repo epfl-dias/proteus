@@ -39,8 +39,15 @@ class BenchQueue : public txn::TxnQueue {
 
   virtual txn::StoredProcedure pop(worker_id_t workerId,
                                    partition_id_t partitionId) override = 0;
+
+  // NOTE: Following will run before/after the workers starts the execution. it
+  // will be synchronized, i.e., worker will not start transaction until all
+  // workers finish the pre-run and a worker will not start post-run unless all
+  // workers are ready to start the post run. Moreover, this will not apply to
+  // the hot-plugged workers.
   virtual void post_run() = 0;
   virtual void pre_run() = 0;
+
   virtual void dump(std::string name) = 0;
 
   void enqueue(txn::StoredProcedure xact) override {
@@ -58,32 +65,33 @@ class Benchmark {
 
   virtual void clearBenchQueue(BenchQueue* pt) { delete pt; }
 
-  // NOTE: Following will run before/after the workers starts the execution. it
-  // will be synchronized, i.e., worker will not start transaction until all
-  // workers finish the pre-run and a worker will not start post-run unless all
-  // workers are ready to start the post run. Moreover, this will not apply to
-  // the hot-plugged workers.
-  //  virtual void post_run(worker_id_t wid, xid_t xid, partition_id_t
-  //  partition_id,
-  //                        master_version_t master_ver) = 0;
-  //  virtual void pre_run(worker_id_t wid, xid_t xid, partition_id_t
-  //  partition_id,
-  //                       master_version_t master_ver) = 0;
-
  protected:
-  Benchmark(std::string name = "BENNCH-DUMMY",
+  Benchmark(std::string name = "BENCH-DUMMY",
             worker_id_t num_active_workers = 1, worker_id_t num_max_workers = 1,
             partition_id_t num_partitions = 1)
       : name(name),
         num_active_workers(num_active_workers),
         num_max_workers(num_max_workers),
-        num_partitions(num_partitions) {}
+        num_partitions(num_partitions),
+        num_readonly_worker(0) {}
+
+ public:
+  void setReadOnlyThreadCount(size_t num_ro_workers) {
+    num_readonly_worker = num_ro_workers;
+  }
+
+  void incrementActiveWorker() { num_active_workers += 1; }
+
+  auto get_n_readonly_workers() { return num_readonly_worker; }
 
  public:
   const std::string name;
-  worker_id_t num_active_workers;
   const worker_id_t num_max_workers;
   const partition_id_t num_partitions;
+
+ protected:
+  size_t num_readonly_worker;
+  worker_id_t num_active_workers;
 
  public:
   virtual ~Benchmark() { LOG(INFO) << "~Benchmark"; }

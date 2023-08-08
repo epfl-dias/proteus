@@ -151,6 +151,11 @@ int main(int argc, char** argv) {
         FLAGS_ycsb_num_col_read, FLAGS_ycsb_num_col_read_offset);
   }
 
+  if (FLAGS_num_readers > 0) {
+    LOG(INFO) << "Number of Read-only workers: " << FLAGS_num_readers;
+    bench->setReadOnlyThreadCount(FLAGS_num_readers);
+  }
+
   scheduler::WorkerPool::getInstance().init(
       bench, (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
       g_num_partitions, FLAGS_worker_sched_mode, FLAGS_num_iter_per_worker,

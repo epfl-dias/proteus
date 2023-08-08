@@ -41,6 +41,8 @@ DEFINE_uint32(tpcc_dist_threshold, 0, "TPC-C - Distributed txn threshold");
 DEFINE_string(tpcc_csv_dir, "/scratch/data/ch100w/raw",
               "CSV Dir for loading tpc-c data (bench-2)");
 
+DEFINE_uint32(num_readers, 0, "# of readonly threads");
+
 DEFINE_uint32(benchmark, 0, "Select benchmark (0=ycsb, 1=tpcc)");
 
 DEFINE_uint64(runtime, 60, "Time to run for (sec)");

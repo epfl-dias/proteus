@@ -335,7 +335,7 @@ void WorkerPool::shutdown(bool print_stats) {
     }
   }
 
-  print_worker_stats(false);
+  print_worker_stats(true);
 
   for (auto& worker : workers) {
     // FIXME: why not using an allocator with the map?
@@ -437,8 +437,11 @@ void WorkerPool::print_worker_stats_diff() {
 }
 
 void WorkerPool::print_worker_stats(bool global_only) {
+  auto n_ro_workers = _txn_bench->get_n_readonly_workers();
   std::cout << "------------ WORKER STATS ------------" << std::endl;
+  std::cout << "----- num_readonly_workers: " << n_ro_workers << std::endl;
   double tps = 0;
+  double qps = 0;
   double num_commits = 0;
   double num_aborts = 0;
   double num_txns = 0;
@@ -459,31 +462,36 @@ void WorkerPool::print_worker_stats(bool global_only) {
                          : std::chrono::system_clock::now()) -
         tmp->txn_start_time;
 
-    if (!global_only && tmp->id == 0) {
+    if (!global_only) {
       std::cout << "Worker-" << (int)(tmp->id)
-                << "(core_id: " << tmp->exec_core->id << ")" << std::endl;
+                << "(core_id: " << tmp->exec_core->id << ")"
+                << (n_ro_workers > tmp->id ? " [READER] " : "") << std::endl;
 
       std::cout << "\tDuration\t" << diff.count() << " sec" << std::endl;
 
-      std::cout << "\t# of txns\t" << (tmp->num_txns / 1000000.0) << " M"
-                << std::endl;
+      std::cout << "\t# of txns\t" << (tmp->num_txns) << std::endl;
       std::cout << "\t# of commits\t" << (tmp->num_commits / 1000000.0) << " M"
                 << std::endl;
       std::cout << "\t# of aborts\t" << (tmp->num_aborts / 1000000.0) << " M"
                 << std::endl;
-      std::cout << "\tTPS\t\t" << (tmp->num_commits / 1000000.0) / diff.count()
-                << " MTPS" << std::endl;
-      continue;
+      std::cout << "\tTPS\t\t" << (tmp->num_commits) / diff.count() << " TPS"
+                << std::endl;
     }
+
     socket_tps[tmp->exec_core->local_cpu_index] +=
         (tmp->num_commits / 1000000.0) / diff.count();
     duration += diff.count();
     duration_ctr += 1;
 
-    tps += (tmp->num_commits / 1000000.0) / diff.count();
-    num_commits += (tmp->num_commits / 1000000.0);
-    num_aborts += (tmp->num_aborts / 1000000.0);
-    num_txns += (tmp->num_txns / 1000000.0);
+    if (n_ro_workers > tmp->id) {
+      qps += ((double)(tmp->num_commits)) /
+             diff.count();  // WHY I HAD A divideBy60 here?
+    } else {
+      tps += (tmp->num_commits / 1000000.0) / diff.count();
+      num_commits += (tmp->num_commits / 1000000.0);
+      num_aborts += (tmp->num_aborts / 1000000.0);
+      num_txns += (tmp->num_txns / 1000000.0);
+    }
   }
 
   std::cout << "---- SOCKET ----" << std::endl;
@@ -501,6 +509,10 @@ void WorkerPool::print_worker_stats(bool global_only) {
   std::cout << "\t# of commits\t" << num_commits << " M" << std::endl;
   std::cout << "\t# of aborts\t" << num_aborts << " M" << std::endl;
   std::cout << "\tTPS\t\t" << tps << " MTPS" << std::endl;
+
+  if (n_ro_workers > 0) {
+    std::cout << "\tQPS\t\t" << qps << " QPS" << std::endl;
+  }
 
   std::cout << "------------ END WORKER STATS ------------" << std::endl;
   // if (this->terminate) proc_completed = true;
@@ -709,7 +721,8 @@ void WorkerPool::add_worker(const topology::core* exec_location,
            : partition_id);
   wrkr->num_iters = this->num_iter_per_worker;
   wrkr->is_hotplugged = true;
-  _txn_bench->num_active_workers++;
+  _txn_bench->incrementActiveWorker();
+  //_txn_bench->num_active_workers++;
 
   auto* thd = new (thd_ptr) std::thread(&Worker::run, wrkr);
 
