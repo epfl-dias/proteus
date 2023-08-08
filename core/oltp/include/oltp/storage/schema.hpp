@@ -163,6 +163,12 @@ class Schema {
     //    this->deltaStore[curr]->increment_reader(epoch, worker_id);
   }
 
+  inline void try_GC_all_partitions() {
+    for (auto &i : this->deltaStore) {
+      i->GC();
+    }
+  }
+
   // twin-column/ HTAP snapshotting
   void twinColumn_snapshot(xid_t epoch,
                            master_version_t snapshot_master_version);

@@ -35,14 +35,8 @@
 namespace storage::mv {
 
 /* Class: MV_RecordList_Full
- * Description:
- *
- * Layout:
- *
- *
- * Traversal Algo:
- *
- *
+ * Description: Each version storage all attributes in a record regardless what
+ * changed.
  * */
 
 class MV_RecordList_Full {
@@ -54,22 +48,20 @@ class MV_RecordList_Full {
   using version_chain_t = size_t;  // VersionChain<MV_RecordList_Full>;
 
   static std::bitset<1> get_readable_version(
-      const DeltaPtr& delta_list, const txn::TxnTs& txTs, char* write_loc,
-      const std::vector<std::pair<uint16_t, uint16_t>>&
-          column_size_offset_pairs,
+      const global_conf::IndexVal& index_ptr, const txn::TxnTs& txTs,
+      char* write_loc, const Table& tableRef,
       const column_id_t* col_idx = nullptr, short num_cols = 0);
 
   static std::vector<MV_RecordList_Full::version_t*> create_versions(
-      xid_t xid, global_conf::IndexVal* idx_ptr,
-      std::vector<uint16_t>& attribute_widths, storage::DeltaStore& deltaStore,
-      partition_id_t partition_id, const column_id_t* col_idx, short num_cols);
+      xid_t xid, global_conf::IndexVal* idx_ptr, const Table& tableRef,
+      storage::DeltaStore& deltaStore, partition_id_t partition_id,
+      const column_id_t* col_idx, short num_cols);
 
-  static void gc(global_conf::IndexVal* idx_ptr, txn::TxnTs minTxnTs);
+  static void gc(global_conf::IndexVal* idx_ptr, txn::TxnTs global_min);
 };
 
 /* Class: MV_RecordList_Partial
- * Description: single: one list per-relation.
- *             However, each version contains updated-attributed only.
+ * Description: each version contains updated-attributed only.
  * */
 
 class MV_RecordList_Partial {
@@ -81,15 +73,14 @@ class MV_RecordList_Partial {
   using version_chain_t = VersionChain<MV_RecordList_Partial>;
 
   static std::bitset<64> get_readable_version(
-      const DeltaPtr& delta_list, const txn::TxnTs& txTs, char* write_loc,
-      const std::vector<std::pair<uint16_t, uint16_t>>&
-          column_size_offset_pairs,
+      const global_conf::IndexVal& index_ptr, const txn::TxnTs& txTs,
+      char* write_loc, const Table& tableRef,
       const column_id_t* col_idx = nullptr, short num_cols = 0);
 
   static std::vector<MV_RecordList_Partial::version_t*> create_versions(
-      xid_t xid, global_conf::IndexVal* idx_ptr,
-      std::vector<uint16_t>& attribute_widths, storage::DeltaStore& deltaStore,
-      partition_id_t partition_id, const column_id_t* col_idx, short num_cols);
+      xid_t xid, global_conf::IndexVal* idx_ptr, const Table& tableRef,
+      storage::DeltaStore& deltaStore, partition_id_t partition_id,
+      const column_id_t* col_idx, short num_cols);
 
   static void gc(global_conf::IndexVal* idx_ptr, txn::TxnTs minTxnTs);
 };

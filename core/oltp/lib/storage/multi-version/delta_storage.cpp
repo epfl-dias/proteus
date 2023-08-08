@@ -27,18 +27,16 @@
 
 #include "oltp/common/numa-partition-policy.hpp"
 #include "oltp/common/utils.hpp"
-#include "oltp/storage/memory-pool.hpp"
 #include "oltp/storage/multi-version/delta-memory-ptr.hpp"
 #include "oltp/storage/multi-version/mv.hpp"
 #include "oltp/transaction/transaction_manager.hpp"
 
 namespace storage {
 
-std::unordered_map<delta_id_t, CircularDeltaStore*>
-    DeltaDataPtr::deltaStore_map;
-std::unordered_map<delta_id_t, uintptr_t> DeltaDataPtr::data_memory_base;
-
-constexpr size_t pool_chunk_sz = 384;  // tpcc
+alignas(64)
+    std::unordered_map<delta_id_t, uintptr_t> DeltaDataPtr::data_memory_base;
+alignas(64) std::unordered_map<
+    delta_id_t, CircularDeltaStore*> DeltaDataPtr::deltaStore_map;
 
 DeltaStoreMalloc* ClassicPtrWrapper::deltaStore = nullptr;
 
@@ -49,40 +47,68 @@ DeltaStoreMalloc::DeltaStoreMalloc(delta_id_t delta_id,
   ClassicPtrWrapper::deltaStore = this;
 }
 
-DeltaStoreMalloc::~DeltaStoreMalloc() {
-  oltp::mv::memorypool::BucketMemoryPool<pool_chunk_sz>::getInstance()
-      .destruct();
-}
+DeltaStoreMalloc::~DeltaStoreMalloc() = default;
 
-inline void* alloc_or_free(bool alloc, void* ptr = nullptr) {
-  static thread_local oltp::mv::memorypool::BucketMemoryPool_threadLocal<
-      pool_chunk_sz>
-      memPool;
-
-  if (alloc) {
-    return memPool.allocate();
+void DeltaStoreMalloc::initThreadLocalPools(partition_id_t partition_id) {
+  static std::mutex initLk;
+  if constexpr (memory_pool_per_part) {
+    std::unique_lock<std::mutex> lk(initLk);
+    if (!_memPoolsPart.contains(partition_id)) {
+      LOG(INFO) << "Init Memory pool for PID: " << (uint)partition_id;
+      auto& pool = _memPoolsPart[partition_id];
+      pool.init();
+      auto* x = pool.allocate();
+      assert(x);
+      pool.free(x);
+    }
   } else {
-    memPool.free(ptr);
-    return nullptr;
+    LOG(INFO) << "Init Memory pool for TID: " << std::this_thread::get_id();
+    {
+      std::unique_lock<std::mutex> lk(initLk);
+      auto& y = _memPools[std::this_thread::get_id()];
+    }
+    auto& pool = _memPools[std::this_thread::get_id()];
+    pool.init();
+    auto* x = pool.allocate();
+    assert(x);
+    pool.free(x);
   }
 }
 
 ClassicPtrWrapper DeltaStoreMalloc::allocate(size_t sz,
                                              partition_id_t partition_id) {
-  LOG_IF(FATAL, sz > pool_chunk_sz) << "ALloc requested: " << sz;
-  auto* cnk = alloc_or_free(true);
+  // FIXME: Memory pool chunks are hardcoded to avoid the overhead of malloc for
+  //  baseline in a paper, and hence, should be tuned or set to a big enough
+  //  number to cater for all version request size for the given workload.
+  LOG_IF(FATAL, sz > pool_chunk_sz) << "Alloc requested: " << sz;
+
+  void* cnk;
+  if constexpr (memory_pool_per_part) {
+    cnk = _memPoolsPart[partition_id].allocate();
+  } else {
+    cnk = _memPools[std::this_thread::get_id()].allocate();
+  }
   assert(cnk);
-  return ClassicPtrWrapper{reinterpret_cast<uintptr_t>(cnk)};
+  return ClassicPtrWrapper{reinterpret_cast<uintptr_t>(cnk), partition_id};
 }
 
+ClassicPtrWrapper DeltaStoreMalloc::allocate(size_t sz,
+                                             partition_id_t partition_id,
+                                             xid_t) {
+  return allocate(sz, partition_id);
+}
 void DeltaStoreMalloc::release(ClassicPtrWrapper& ptr) {
-  alloc_or_free(false, ptr.get_ptr());
+  if constexpr (memory_pool_per_part) {
+    _memPoolsPart[ptr.getPid()].free(ptr.get_ptr());
+  } else {
+    _memPools[std::this_thread::get_id()].free(ptr.get_ptr());
+  }
 }
 
 CircularDeltaStore::CircularDeltaStore(delta_id_t delta_id,
-                                       uint64_t ver_data_capacity,
+                                       double ver_data_capacity,
                                        partition_id_t num_partitions)
-    : touched(false), delta_id(delta_id) {
+    : delta_id(delta_id) {
   ver_data_capacity = ver_data_capacity * (1024 * 1024 * 1024);  // GB
 
   assert(ver_data_capacity < std::pow(2, DeltaDataPtr::offset_bits));
@@ -109,51 +135,24 @@ CircularDeltaStore::CircularDeltaStore(delta_id_t delta_id,
     auto idx = DeltaDataPtr::create_delta_idx_pid_pair(delta_id, i);
     DeltaDataPtr::data_memory_base.emplace(
         idx, reinterpret_cast<uintptr_t>(mem_data));
-
-    //    LOG(INFO) << "[DATA] Delta-id: " << delta_id << ", PID: " << i
-    //              << " | pair: " << idx << " | maxOffset: "
-    //              << reinterpret_cast<uintptr_t>(((char*)mem_data) +
-    //                                             ver_data_capacity)
-    //              << " | Base: " <<
-    //              reinterpret_cast<uintptr_t>(((char*)mem_data));
-
-    // DeltaDataPtr::max_offset = reinterpret_cast<uintptr_t>(((char*)mem_data)
-    // +ver_data_capacity);
-
-    //    auto offset = reinterpret_cast<uintptr_t>(data_ptr -
-    //                                              data_memory_base[create_delta_idx_pid_pair(delta_idx,
-    //                                              pid)]);
   }
 
-  if (DELTA_DEBUG) {
-    LOG(INFO) << "Delta ID: " << (uint)(this->delta_id);
-    LOG(INFO) << "\tDelta size: "
-              << ((double)(ver_data_capacity) / (1024 * 1024 * 1024))
-              << " GB * " << (uint)num_partitions << " Partitions" << std::endl;
-    LOG(INFO) << "\tDelta size: "
-              << ((double)(ver_data_capacity) * (uint)num_partitions /
-                  (1024 * 1024 * 1024))
-              << " GB" << std::endl;
-  }
+  LOG(INFO) << "Delta ID: " << (uint)(this->delta_id);
+  LOG(INFO) << "\tDelta size: "
+            << ((double)(ver_data_capacity) / (1024 * 1024 * 1024)) << " GB * "
+            << (uint)num_partitions << " Partitions" << std::endl;
+  LOG(INFO) << "\tDelta size: "
+            << ((double)(ver_data_capacity) * (uint)num_partitions /
+                (1024 * 1024 * 1024))
+            << " GB" << std::endl;
+
   this->total_mem_reserved = (ver_data_capacity)*num_partitions;
-
-  this->deltaMeta.readers.store(0);
+  this->readers = 0;
   this->gc_reset_success = 0;
   this->gc_requests = 0;
-  // this->gc_lock.store(0);
   this->tag = 1;
-  this->deltaMeta.max_active_epoch = 0;
-  // this->min_active_epoch = std::numeric_limits<uint64_t>::max();
 
-  //  LOG(INFO) << "Sizeof(char*): " << sizeof(char*);
-  //  LOG(INFO) << "Sizeof(uintptr_t): " << sizeof(uintptr_t);
-  //  LOG(INFO) << "sizeof(TaggedDeltaDataPtr<storage::mv::mv_version>): "
-  //            << sizeof(TaggedDeltaDataPtr<storage::mv::mv_version>);
-  //  LOG(INFO) << "sizeof(DeltaList): " << sizeof(DeltaList);
-  //  LOG(INFO) << "sizeof(DeltaDataPtr): " << sizeof(DeltaDataPtr);
-  //  LOG(INFO) << "sizeof(DeltaPartition): " << sizeof(DeltaPartition);
-
-  //   timed_func::interval_runner(
+  //   proteus::utils::timed_func::interval_runner(
   //       [this](){
   //         for (auto &p : partitions) {
   //           if (p->usage() > ((double)GC_CAPACITY_MIN_PERCENT) / 100) {
@@ -166,13 +165,11 @@ CircularDeltaStore::CircularDeltaStore(delta_id_t delta_id,
   //           }
   //         }
   //
-  //      }, (500)); // 500ms
+  //      }, (1000)); // print delta-usage every 1 second
 }
 
 CircularDeltaStore::~CircularDeltaStore() {
-  deltaMeta.readers = 0;
-  deltaMeta.max_active_epoch =
-      std::numeric_limits<decltype(deltaMeta.max_active_epoch)>::max();
+  readers = 0;
   print_info();
   LOG(INFO) << "[" << (int)(this->delta_id)
             << "] Delta Partitions: " << partitions.size();
@@ -186,6 +183,9 @@ CircularDeltaStore::~CircularDeltaStore() {
 void CircularDeltaStore::print_info() {
   LOG(INFO) << "[CircularDeltaStore # " << (int)(this->delta_id)
             << "] Number of Successful GC Resets: " << this->gc_reset_success;
+  LOG(INFO) << "[CircularDeltaStore # " << (int)(this->delta_id)
+            << "] Number of Successful GC Consolidations: "
+            << this->gc_consolidate_success;
 
   if constexpr (DELTA_DEBUG) {
     LOG(INFO) << "[CircularDeltaStore # " << (int)(this->delta_id)
@@ -197,35 +197,151 @@ void CircularDeltaStore::print_info() {
   }
 }
 
+void CircularDeltaStore::initThreadLocalPools(partition_id_t partition_id) {
+  // Assumed to be called for each worker thread initially, thereby,
+  // initializing and registering thread-local pool for that specific worker.
+
+  static std::mutex m;
+  {
+    std::unique_lock<std::mutex> lk;
+    auto* o = new meta2;
+    meta_per_thread.emplace_back(o);
+    this->_threadlocal_meta.emplace(std::this_thread::get_id(), o);
+    //    if constexpr (DELTA_DEBUG) {
+    //      LOG(INFO) << "DeltaId: " << (uint)(this->delta_id)
+    //                << " meta2 thread_size: " << _threadlocal_meta.size() << "
+    //                | "
+    //                << std::this_thread::get_id();
+    //    }
+  }
+  for (auto& p : partitions) {
+    p->initSlackCache();
+  }
+}
+DeltaDataPtr CircularDeltaStore::allocate(size_t sz,
+                                          partition_id_t partition_id,
+                                          xid_t version_ts) {
+  if constexpr (OneShot_CONSOLIDATION) {
+    if (version_ts < getMeta_threadLocal()->min_version_ts) {
+      getMeta_threadLocal()->min_version_ts = version_ts;
+    }
+    //    while (version_ts < deltaMeta.min_version_ts) {
+    //      deltaMeta.min_version_ts = version_ts;
+    //    }
+  }
+  return allocate(sz, partition_id);
+}
+
 DeltaDataPtr CircularDeltaStore::allocate(size_t sz,
                                           partition_id_t partition_id) {
-  char* cnk = (char*)partitions[partition_id]->getVersionDataChunk(sz);
+  char* cnk =
+      (char*)partitions[partition_id]->getVersionDataChunk_ThreadLocal2(sz);
 
-  if (!touched) touched = true;
+  //  if (!touched) touched = true;
   return DeltaDataPtr{cnk, tag.load(), this->delta_id, partition_id};
 }
 
 void CircularDeltaStore::release(DeltaDataPtr& ptr) { ptr._val = 0; }
 
-void CircularDeltaStore::gc() {
+void CircularDeltaStore::saveInstanceCrossingPtr(row_uuid_t row_uuid,
+                                                 DeltaDataPtr ptr) {
+  // FIXME: Temporary fix, bu we need to remove cuckoo from here.
+
+  auto pid = storage::StorageUtils::get_pid_from_rowUuid(row_uuid);
+
+  auto found = this->partitions[pid]->consolidateHT.update_fn(
+      row_uuid, [&](std::vector<DeltaDataPtr>& v) { v.push_back(ptr); });
+
+  if (!found) {
+    this->partitions[pid]->consolidateHT.insert(row_uuid,
+                                                std::vector<DeltaDataPtr>{ptr});
+  }
+}
+
+bool CircularDeltaStore::impl_gc_withConsolidation() {
+  xid_t min = UINT64_MAX;
+  auto activeTxns =
+      txn::TransactionManager::getInstance().get_all_CurrentActiveTxn(min);
+
+  //      auto min =
+  //          std::min_element(activeTxns.begin(),
+  //          activeTxns.end()).operator*();
+
+  //      LOG(INFO) << "REPORT_GC " << (uint)(this->delta_id) << " | min: " <<
+  //      min
+  //                << " && max_active_epoch: " << deltaMeta.max_active_epoch
+  //                << " && min_verTS: " << deltaMeta.min_version_ts;
+
+  auto max_active_epoch = getMaxActiveEpoch();  // deltaMeta.max_active_epoch
+
+  if (min > max_active_epoch) {
+    return true;
+  } else {
+    // TRY TO CONSOLIDATE:
+    // All txn should hold:
+    //  ( txTs > deltaMeta.max_active_epoch ||
+    //            txTs < deltaMeta.min_version_ts)
+
+    bool can_consolidate = true;
+
+    auto min_version_ts = getMinVersionTs();  // deltaMeta.min_version_ts
+    for (auto txTs : activeTxns) {
+      if (txTs <= max_active_epoch && txTs >= min_version_ts) {
+        can_consolidate = false;
+        break;
+      }
+    }
+
+    if constexpr (DELTA_DEBUG) {
+      if (can_consolidate) {
+        gc_consolidate_success++;
+        LOG(INFO) << "Consolidate " << (uint)(this->delta_id)
+                  << " | min: " << min;
+      }
+    }
+    return can_consolidate;
+  }
+}
+
+bool CircularDeltaStore::impl_gc_simple() {
+  if (should_gc()) {
+    auto min = txn::TransactionManager::getInstance().get_min_activeTxn();
+    auto max_active_epoch = getMaxActiveEpoch();  // deltaMeta.max_active_epoch
+    if (min > max_active_epoch) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void CircularDeltaStore::GC() {
   static thread_local auto& txnManager = txn::TransactionManager::getInstance();
   int64_t e = 0;
-  if (deltaMeta.readers.compare_exchange_weak(e, -10000)) {
-#if DELTA_DEBUG
-    gc_requests++;
-    // eventlogger.log(this, OLTP_GC_REQUEST);
-#endif
+  bool gc_allowed = false;
+  if (readers.compare_exchange_weak(e, INT64_MIN)) {
+    // #if DELTA_DEBUG
+    //     gc_requests++;
+    //     // eventlogger.log(this, OLTP_GC_REQUEST);
+    // #endif
 
-    if (txnManager.get_min_activeTxn() > deltaMeta.max_active_epoch) {
+    if constexpr (OneShot_CONSOLIDATION) {
+      gc_allowed = impl_gc_withConsolidation();
+    } else {
+      gc_allowed = impl_gc_simple();
+    }
+
+    if (gc_allowed) {
       tag++;
       for (auto& p : partitions) {
         p->reset();
       }
-      touched = false;
+      // touched = false;
       gc_reset_success++;
-      // eventlogger.log(this, OLTP_GC_SUCCESS);
+
+      resetMinVersionTs();
     }
-    deltaMeta.readers = 0;
+
+    readers = 0;
   }
 }
 
@@ -238,9 +354,12 @@ CircularDeltaStore::DeltaPartition::DeltaPartition(
       touched(false),
       pid(pid),
       delta_id(delta_id),
-      delta_uuid(create_delta_uuid(delta_id, pid)) {
+      delta_uuid(create_delta_uuid(delta_id, pid)),
+      consolidateHT(512) {
   // warm-up mem-list
-  LOG(INFO) << "\t warming up delta storage P" << (uint32_t)pid << std::endl;
+  LOG_IF(INFO, DELTA_DEBUG)
+      << "\t warming up delta storage-" << static_cast<uint>(delta_id) << " P"
+      << (uint32_t)pid << std::endl;
 
   // warm-up mem-data
   auto* pt = (uint64_t*)ver_data_cursor;
@@ -254,88 +373,49 @@ CircularDeltaStore::DeltaPartition::DeltaPartition(
                                  .getPartitionInfo(pid)
                                  .numa_idx]
           .local_cores.size();
-  for (auto i = 0; i < max_workers_in_partition; i++) {
-    reset_listeners.push_back(false);
-  }
 }
 
 void* CircularDeltaStore::DeltaPartition::getVersionDataChunk(size_t rec_size) {
   auto sz = rec_size;
   auto tmp = ver_data_cursor.fetch_add(sz, std::memory_order_relaxed);
 
-  assert(tmp >= reinterpret_cast<uintptr_t>(ver_data_mem.data) &&
-         (tmp + sz) <= data_cursor_max);
+  LOG_IF(FATAL, (tmp + sz) > data_cursor_max)
+      << "DeltaFull: " << (size_t)this->delta_id;
+  assert((tmp + sz) <= data_cursor_max);
   touched = true;
   return reinterpret_cast<void*>(tmp);
 }
 
-void* CircularDeltaStore::DeltaPartition::getVersionDataChunk_ThreadLocal(
+void CircularDeltaStore::DeltaPartition::initSlackCache() {
+  static std::mutex initLk;
+  {
+    std::unique_lock<std::mutex> lk(initLk);
+    auto& x = this->_threadLocal_cache[std::this_thread::get_id()];
+    // NOTE: is the following necessary?
+    this->getVersionDataChunk_ThreadLocal2(8);
+    touched = true;
+  }
+}
+
+void* CircularDeltaStore::DeltaPartition::getVersionDataChunk_ThreadLocal2(
     size_t rec_size) {
-  constexpr uint slack_size = 8192;
+  auto& slack_cache = this->_threadLocal_cache.at(std::this_thread::get_id());
 
-  static int thread_counter = 0;
-  static thread_local uint tid = thread_counter++;
+  if (rec_size > slack_cache.remaining_slack) {
+    slack_cache.ptr = ver_data_cursor.fetch_add(DeltaSlackCache::slack_size);
+    slack_cache.remaining_slack = DeltaSlackCache::slack_size;
 
-  // there can be multiple delta-storages, so this function needs to maintain
-  // slack per delta-storage per thread.
-
-  // n_delta_storage * n_threads
-
-  static thread_local std::map<uint16_t, threadLocalSlack, std::less<>,
-                               proteus::memory::PinnedMemoryAllocator<
-                                   std::pair<const uint16_t, threadLocalSlack>>>
-      local_slack_map{};
-
-  // static thread_local std::map<uint16_t, threadLocalSlack> local_slack_map;
-
-  if (__unlikely(!local_slack_map.contains(this->delta_uuid))) {
-    // local_slack_map.insert(this->delta_id);
-    local_slack_map.insert({this->delta_uuid, threadLocalSlack()});
-    // LOG(INFO) << "TiD: " << tid << " Pushing a newDelta: " <<
-    // (uint)(this->delta_id) << " Pid: " <<(uint)(this->pid);
+    // FIXME: this means delta is out-of-memory. three options to implement:
+    //  1) Either go granular-GC, start from the first object in this delta, and
+    //  move along, 2) horizontal expansion: add a new delta, or 3) vertical
+    //  expansion: increase the size of the delta
+    assert(slack_cache.ptr >= reinterpret_cast<uintptr_t>(ver_data_mem.data) &&
+           slack_cache.ptr < data_cursor_max);
   }
 
-  threadLocalSlack& slackRef = local_slack_map[delta_uuid];
-  size_t request_size = rec_size;
-
-  if (reset_listeners[tid]) {
-    slackRef.remaining_slack = 0;
-    reset_listeners[tid] = false;
-  }
-
-  if (__unlikely(request_size > slackRef.remaining_slack)) {
-    slackRef.ptr = ver_data_cursor.fetch_add(slack_size);
-    slackRef.remaining_slack = slack_size;
-
-    LOG_IF(FATAL,
-           (slackRef.ptr < reinterpret_cast<uintptr_t>(ver_data_mem.data) ||
-            slackRef.ptr >= data_cursor_max))
-        << "Issue: id: " << get_delta_id(this->delta_uuid)
-        << " | pid: " << get_delta_pid(delta_uuid);
-
-    assert(slackRef.ptr >= reinterpret_cast<uintptr_t>(ver_data_mem.data) &&
-           slackRef.ptr < data_cursor_max);
-
-    LOG_IF(FATAL, (slackRef.ptr + slackRef.remaining_slack) > data_cursor_max)
-        << "############## DeltaMemory Full\n"
-        << "DeltaID: " << (uint)delta_id << "\t\tPID: " << (uint)pid
-        << "##############";
-
-    // if(  (slackRef.ptr + slackRef.remaining_slack)  > data_cursor_max ){}
-  }
-
-  assert(request_size <= slackRef.remaining_slack);
-  assert((slackRef.ptr >= reinterpret_cast<uintptr_t>(ver_data_mem.data)));
-  assert((slackRef.ptr < data_cursor_max));
-
-  auto tmp = slackRef.ptr;
-  slackRef.ptr += request_size;
-  slackRef.remaining_slack -= request_size;
-
-  assert(slackRef.ptr >= reinterpret_cast<uintptr_t>(ver_data_mem.data) &&
-         slackRef.ptr < data_cursor_max);
-  assert(tmp >= reinterpret_cast<uintptr_t>(ver_data_mem.data) &&
-         tmp < data_cursor_max);
+  auto tmp = slack_cache.ptr;
+  slack_cache.ptr += rec_size;
+  slack_cache.remaining_slack -= rec_size;
 
   if (!touched) {
     touched = true;

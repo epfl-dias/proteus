@@ -29,12 +29,15 @@
 #include <cstdlib>
 #include <forward_list>
 #include <iostream>
+#include <libcuckoo/cuckoohash_map.hh>
 #include <limits>
 #include <mutex>
 #include <platform/memory/memory-manager.hpp>
+#include <thread>
 
 #include "oltp/common/common.hpp"
 #include "oltp/common/memory-chunk.hpp"
+#include "oltp/storage/memory-pool.hpp"
 
 #define DELTA_DEBUG 1
 #define GC_CAPACITY_MIN_PERCENT 0
@@ -46,10 +49,18 @@ class ClassicPtrWrapper;
 class CircularDeltaStore;
 class DeltaStoreMalloc;
 
-using DeltaStore = std::conditional<GcMechanism == GcTypes::OneShot,
+using DeltaStore = std::conditional<GcMechanism == GcTypes::OneShot ||
+                                        GcMechanism == GcTypes::NoGC,
                                     CircularDeltaStore, DeltaStoreMalloc>::type;
 
 class DeltaStoreMalloc {
+  constexpr static size_t pool_chunk_sz = 832;  // 100;  // tpcc 832
+  constexpr static bool memory_pool_per_part = false;
+
+ public:
+  const size_t total_mem_reserved{};
+  static ClassicPtrWrapper ptrType;
+
  public:
   explicit DeltaStoreMalloc(delta_id_t delta_id, uint64_t ver_data_capacity = 4,
                             partition_id_t num_partitions = 1);
@@ -57,6 +68,9 @@ class DeltaStoreMalloc {
   ~DeltaStoreMalloc();
 
   ClassicPtrWrapper allocate(size_t sz, partition_id_t partition_id);
+  ClassicPtrWrapper allocate(size_t sz, partition_id_t partition_id,
+                             xid_t version_ts);
+
   void release(ClassicPtrWrapper &ptr);
 
   inline void update_active_epoch(xid_t epoch, worker_id_t worker_id) {
@@ -64,74 +78,82 @@ class DeltaStoreMalloc {
   }
 
   inline void increment_reader(xid_t epoch, worker_id_t worker_id) { return; }
-
   inline void decrement_reader(uint64_t epoch, worker_id_t worker_id) {
     return;
   }
 
- public:
-  const uint64_t total_mem_reserved{};
-  std::mutex lk;
+  inline void __attribute__((always_inline)) try_gc(xid_t xid) { return; }
+  void GC() { return; }
 
- public:
-  static ClassicPtrWrapper ptrType;
+  void initThreadLocalPools(partition_id_t partition_id);
+
+ private:
+  std::unordered_map<
+      std::thread::id,
+      oltp::mv::memorypool::BucketMemoryPool_threadLocal<pool_chunk_sz>>
+      _memPools;
+
+  std::unordered_map<
+      partition_id_t,
+      oltp::mv::memorypool::BucketMemoryPool_threadLocal<pool_chunk_sz>>
+      _memPoolsPart;
 };
 
 class alignas(4096) CircularDeltaStore {
  public:
-  explicit CircularDeltaStore(delta_id_t delta_id,
-                              uint64_t ver_data_capacity = 4,
+  explicit CircularDeltaStore(delta_id_t delta_id, double ver_data_capacity = 4,
                               partition_id_t num_partitions = 1);
   ~CircularDeltaStore();
 
   DeltaDataPtr allocate(size_t sz, partition_id_t partition_id);
+  DeltaDataPtr allocate(size_t sz, partition_id_t partition_id,
+                        xid_t version_ts);
+
   void release(DeltaDataPtr &ptr);
 
+  void saveInstanceCrossingPtr(row_uuid_t row_uuid, DeltaDataPtr ptr);
+  void initThreadLocalPools(partition_id_t partition_id);
+
   inline void update_active_epoch(xid_t epoch, worker_id_t worker_id) {
-    //    xid_t e = max_active_epoch;
-    //    while(max_active_epoch < epoch &&
-    //    !(max_active_epoch.compare_exchange_weak(e, epoch,
-    //    std::memory_order_relaxed))){
-    //      e = max_active_epoch;
-    //    }
-    assert(deltaMeta.readers > 0);
-    while (deltaMeta.max_active_epoch < epoch) {
-      deltaMeta.max_active_epoch = epoch;
-    }
+    getMeta_threadLocal()->max_active_epoch = epoch;
   }
 
   inline void __attribute__((always_inline))
   increment_reader(xid_t epoch, worker_id_t worker_id) {
-    while (deltaMeta.readers < 0)
-      ;
-
-    auto x = deltaMeta.readers++;
+    auto x = readers++;
 
     // safety-check
     while (x < 0) {
-      while (deltaMeta.readers < 0)
+      while (readers < 0)
         ;
-      x = deltaMeta.readers++;
+      x = readers++;
     }
 
-    while (deltaMeta.max_active_epoch < epoch) {
-      deltaMeta.max_active_epoch = epoch;
+    while (getMeta_threadLocal()->max_active_epoch < epoch) {
+      getMeta_threadLocal()->max_active_epoch = epoch;
     }
   }
 
   inline void __attribute__((always_inline))
   decrement_reader(uint64_t epoch, worker_id_t worker_id) {
-    if (deltaMeta.readers.fetch_sub(1, std::memory_order_relaxed) == 1 &&
-        touched) {
-      gc();
+    if (readers.fetch_sub(1, std::memory_order_relaxed) == 1) {
+      GC();
     }
+  }
+
+  void GC();
+
+  const auto &getConsolidateHT(partition_id_t pid) {
+    return this->partitions[pid]->consolidateHT;
   }
 
   static DeltaDataPtr ptrType;
 
  private:
   void print_info();
-  void gc();
+
+  inline bool impl_gc_withConsolidation();
+  inline bool impl_gc_simple();
 
   inline bool should_gc() {
 #if (GC_CAPACITY_MIN_PERCENT > 0)
@@ -150,26 +172,46 @@ class alignas(4096) CircularDeltaStore {
 
  private:
   class alignas(hardware_destructive_interference_size) DeltaPartition {
+    static_assert(sizeof(delta_id_t) == 1);
+    static_assert(sizeof(partition_id_t) == 1);
+
+    class alignas(64) DeltaSlackCache {
+     public:
+      static constexpr uint slack_size = 8192;
+      uintptr_t ptr{};
+      int remaining_slack{};
+      DeltaSlackCache()
+          : ptr(reinterpret_cast<uintptr_t>(nullptr)), remaining_slack(0) {}
+
+      DeltaSlackCache(DeltaSlackCache &&) = delete;
+      DeltaSlackCache &operator=(DeltaSlackCache &&) = delete;
+      DeltaSlackCache(const DeltaSlackCache &) = delete;
+      DeltaSlackCache &operator=(const DeltaSlackCache &) = delete;
+    };
+
+    std::unordered_map<std::thread::id, DeltaSlackCache,
+                       std::hash<std::thread::id>, std::equal_to<>,
+                       proteus::memory::PinnedMemoryAllocator<
+                           std::pair<const std::thread::id, DeltaSlackCache>>>
+        _threadLocal_cache;
+
     std::atomic<uintptr_t> ver_data_cursor;
-    const delta_id_t delta_id;
+    [[maybe_unused]] const delta_id_t delta_id;
     const partition_id_t pid;
     const uint16_t delta_uuid;
     const oltp::common::mem_chunk ver_data_mem;
     bool touched;
     const uintptr_t data_cursor_max;
 
-    std::vector<bool> reset_listeners;
+    // FIXME: change it to explicit socket allocator as cuckoo pre-initializes.
+    libcuckoo::cuckoohash_map<row_uuid_t, std::vector<DeltaDataPtr>,
+                              std::hash<row_uuid_t>, std::equal_to<>,
+                              proteus::memory::PinnedMemoryAllocator<std::pair<
+                                  const row_uuid_t, std::vector<DeltaDataPtr>>>,
+                              1>
+        consolidateHT;
 
-    class threadLocalSlack {
-     public:
-      uintptr_t ptr{};
-      int remaining_slack{};
-      threadLocalSlack()
-          : ptr(reinterpret_cast<uintptr_t>(nullptr)), remaining_slack(0) {}
-    };
-
-    static_assert(sizeof(delta_id_t) == 1);
-    static_assert(sizeof(partition_id_t) == 1);
+    void initSlackCache();
 
    public:
     DeltaPartition(uintptr_t ver_data_cursor,
@@ -191,7 +233,7 @@ class alignas(4096) CircularDeltaStore {
     }
 
     ~DeltaPartition() {
-      if (DELTA_DEBUG) {
+      if constexpr (DELTA_DEBUG) {
         LOG(INFO) << "Clearing DeltaPartition-" << (int)pid;
       }
       MemoryManager::freePinned(ver_data_mem.data);
@@ -201,22 +243,31 @@ class alignas(4096) CircularDeltaStore {
       if (__builtin_expect(touched, 1)) {
         ver_data_cursor = reinterpret_cast<uintptr_t>(ver_data_mem.data);
 
-        for (auto &&reset_listener : reset_listeners) {
-          reset_listener = true;
+        for (auto &[thread_id, slack_cache] : _threadLocal_cache) {
+          slack_cache.remaining_slack = 0;
         }
 
-        std::atomic_thread_fence(std::memory_order_seq_cst);
+        // std::atomic_thread_fence(std::memory_order_seq_cst);
+
+        if (!(this->consolidateHT.empty())) {
+          consolidateHT.clear();
+        }
       }
       touched = false;
     }
 
     void *getVersionDataChunk(size_t rec_size);
     void *getVersionDataChunk_ThreadLocal(size_t rec_size);
+    void *getVersionDataChunk_ThreadLocal2(size_t rec_size);
 
     inline double usage() {
-      return ((double)(((char *)ver_data_cursor.load() -
-                        (char *)this->ver_data_mem.data))) /
-             this->ver_data_mem.size;
+      if (touched) {
+        return ((double)(((char *)ver_data_cursor.load() -
+                          (char *)this->ver_data_mem.data))) /
+               this->ver_data_mem.size;
+      } else {
+        return 0;
+      }
     }
 
     void report() {
@@ -240,19 +291,51 @@ class alignas(4096) CircularDeltaStore {
   const delta_id_t delta_id;
 
  private:
-  bool touched;
+  //  bool touched;
   std::atomic<uint32_t> tag{};
   std::vector<DeltaPartition *> partitions{};
 
-  struct meta {
-    volatile xid_t max_active_epoch;
-    std::atomic<int64_t> readers{};
+  class meta2 {
+   public:
+    alignas(hardware_destructive_interference_size) volatile xid_t
+        max_active_epoch = 0;
+    volatile xid_t min_version_ts = UINT64_MAX;
   };
 
-  alignas(hardware_destructive_interference_size) meta deltaMeta;
+  alignas(hardware_destructive_interference_size)
+      std::vector<meta2 *> meta_per_thread{};
 
-  volatile uint gc_reset_success{};
+  std::unordered_map<std::thread::id, meta2 *> _threadlocal_meta{};
+
+  inline meta2 *getMeta_threadLocal() {
+    return this->_threadlocal_meta[std::this_thread::get_id()];
+  }
+
+  inline xid_t getMaxActiveEpoch() {
+    xid_t max = 0;
+    for (const auto &m : meta_per_thread) {
+      if (m && m->max_active_epoch > max) max = m->max_active_epoch;
+    }
+    return max;
+  }
+  inline void resetMinVersionTs() {
+    for (auto &m : meta_per_thread) {
+      if (m) m->min_version_ts = UINT64_MAX;
+    }
+  }
+  inline xid_t getMinVersionTs() {
+    xid_t min = UINT64_MAX;
+    for (const auto &m : meta_per_thread) {
+      if (m && m->min_version_ts < min) min = m->min_version_ts;
+    }
+    return min;
+  }
+
+  std::atomic<int64_t> readers{};
+
   volatile uint gc_requests{};
+  volatile uint gc_reset_success{};
+  volatile uint gc_consolidate_success{};
 
  public:
   uint64_t total_mem_reserved;

@@ -42,8 +42,18 @@ class DeltaMemoryPtr {
   }
   inline void release() { static_cast<T *>(this)->release_impl(); }
 
+  //  [[nodiscard]] constexpr inline uint8_t get_delta_idx() const {
+  //    return static_cast<T *>(this)->get_delta_idx();
+  //  }
+  //  void saveInstanceCrossingPtr(vid_t vid) {
+  //    static_cast<T *>(this)->saveInstanceCrossingPtr(vid);
+  //  }
+
   bool operator==(const DeltaMemoryPtr &other) const {
     return (other._val == this->_val);
+  }
+  bool operator!=(const DeltaMemoryPtr &other) const {
+    return (other._val != this->_val);
   }
 
  protected:
@@ -60,13 +70,26 @@ class DeltaMemoryPtr {
 class ClassicPtrWrapper : public DeltaMemoryPtr<ClassicPtrWrapper> {
  public:
   [[nodiscard]] inline bool isValid() const {
-    return (reinterpret_cast<void *>(_val) != nullptr);
+    return (reinterpret_cast<void *>(get_ptrOffset()) != nullptr);
   }
   ClassicPtrWrapper(const ClassicPtrWrapper &) = delete;
   ClassicPtrWrapper &operator=(const ClassicPtrWrapper &) = delete;
 
+ private:
+  [[nodiscard]] inline uintptr_t get_ptrOffset() const {
+    return ((this->_val) & 0x00FFFFFFFFFFFFFF);
+  }
+
+  inline partition_id_t getPid() { return ((this->_val) >> 60u); }
+
  protected:
   explicit ClassicPtrWrapper(uintptr_t val) : DeltaMemoryPtr(val) {}
+  explicit ClassicPtrWrapper(uintptr_t val, partition_id_t pid)
+      : DeltaMemoryPtr(val) {
+    val = val & 0x00FFFFFFFFFFFFFF;
+    val |= ((size_t)pid) << 60u;
+    this->_val = val;
+  }
 
   ClassicPtrWrapper(ClassicPtrWrapper &&) noexcept = default;
   ClassicPtrWrapper &operator=(ClassicPtrWrapper &&) noexcept = default;
@@ -75,27 +98,19 @@ class ClassicPtrWrapper : public DeltaMemoryPtr<ClassicPtrWrapper> {
     if (_val == 0) {
       return nullptr;
     }
-    return static_cast<char *>(reinterpret_cast<void *>(_val));
+    return static_cast<char *>(reinterpret_cast<void *>(get_ptrOffset()));
   }
-
-  //  inline void update(uintptr_t val) {
-  //    this->_val = val;
-  //  }
-  //
-  //  inline void update(ClassicPtrWrapper &other) {
-  //    //    LOG(INFO) << "HERE UPDATING";
-  //    //    LOG(INFO) << reinterpret_cast<uintptr_t>(this);
-  //    //    LOG(INFO) << this->_val;
-  //    //    LOG(INFO) << other._val;
-  //    assert(other._val != 0);
-  //    this->_val = other._val;
-  //  }
 
   inline void release_impl() {
     assert(this->_val != 0);
     deltaStore->release(*this);
     this->_val = 0;
   }
+
+ public:
+  [[nodiscard]] constexpr inline uint8_t get_delta_idx() const { return 0; }
+
+  [[noreturn]] void saveInstanceCrossingPtr(vid_t vid) { assert(false); }
 
  private:
   static DeltaStoreMalloc *deltaStore;
@@ -120,7 +135,7 @@ class DeltaDataPtr : public DeltaMemoryPtr<DeltaDataPtr> {
  public:
   explicit DeltaDataPtr(uintptr_t val) : DeltaMemoryPtr(val) {}
 
-  DeltaDataPtr(DeltaDataPtr &other) : DeltaDataPtr(other._val) {}
+  // DeltaDataPtr(DeltaDataPtr &other) : DeltaDataPtr(other._val) {}
 
   explicit DeltaDataPtr(const char *data_ptr, uint32_t tag,
                         delta_id_t delta_idx, partition_id_t pid)
@@ -128,8 +143,8 @@ class DeltaDataPtr : public DeltaMemoryPtr<DeltaDataPtr> {
     this->update(data_ptr, tag, delta_idx, pid);
   }
 
-  DeltaDataPtr(const DeltaDataPtr &) = delete;
-  DeltaDataPtr &operator=(const DeltaDataPtr &) = delete;
+  DeltaDataPtr(const DeltaDataPtr &) = default;
+  DeltaDataPtr &operator=(const DeltaDataPtr &) = default;
   DeltaDataPtr(DeltaDataPtr &&) noexcept = default;
   DeltaDataPtr &operator=(DeltaDataPtr &&) noexcept = default;
 
@@ -215,13 +230,26 @@ class DeltaDataPtr : public DeltaMemoryPtr<DeltaDataPtr> {
     }
   }
 
-  inline void release_impl() { return; }
+  inline void release_impl() {}
+
+  void saveInstanceCrossingPtr(vid_t vid) {
+    // TODO CONSOLIDATION:
+    //  this will create a copy.
+    deltaStore_map[this->get_delta_idx()]->saveInstanceCrossingPtr(vid, *this);
+  }
+
+ public:
+  [[nodiscard]] static auto getDeltaByIdx(delta_id_t idx) {
+    // wrap-around?
+    return deltaStore_map[idx];
+  }
 
  protected:
-  static std::unordered_map<delta_id_t, uintptr_t> data_memory_base;
+  alignas(64) static std::unordered_map<delta_id_t, uintptr_t> data_memory_base;
 
   // to verify tag directly with required delta-store.
-  static std::unordered_map<delta_id_t, CircularDeltaStore *> deltaStore_map;
+  alignas(64) static std::unordered_map<delta_id_t,
+                                        CircularDeltaStore *> deltaStore_map;
 
   friend class CircularDeltaStore;
 };
@@ -253,7 +281,6 @@ class TaggedDeltaDataPtr : public DeltaPtr {
   explicit TaggedDeltaDataPtr(uintptr_t val) : DeltaPtr(val) {}
   TaggedDeltaDataPtr(const TaggedDeltaDataPtr &other) = delete;
   TaggedDeltaDataPtr &operator=(const TaggedDeltaDataPtr &) = delete;
-
   TaggedDeltaDataPtr(TaggedDeltaDataPtr &&) noexcept = default;
   TaggedDeltaDataPtr &operator=(TaggedDeltaDataPtr &&) noexcept = default;
 
@@ -263,6 +290,8 @@ class TaggedDeltaDataPtr : public DeltaPtr {
     o._val = 0;
     return *this;
   }
+
+  TaggedDeltaDataPtr copy() { return TaggedDeltaDataPtr(this->_val); }
 
   //  inline void update(TaggedDeltaDataPtr &other) { this->_val = other._val; }
 

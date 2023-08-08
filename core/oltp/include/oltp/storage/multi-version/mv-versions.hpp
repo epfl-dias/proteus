@@ -31,6 +31,7 @@
 #include "oltp/common/constants.hpp"
 #include "oltp/storage/multi-version/delta-memory-ptr.hpp"
 #include "oltp/storage/multi-version/delta_storage.hpp"
+#include "oltp/storage/storage-utils.hpp"
 
 namespace storage::mv {
 
@@ -125,11 +126,10 @@ class VersionMultiAttr : public Version {
     this->attribute_mask = attr_mask;
   }
 
-  static size_t get_partial_mask_size(std::vector<uint16_t> &attribute_widths,
-                                      std::vector<uint16_t> &ver_offsets,
-                                      std::bitset<64> &attr_mask,
-                                      const column_id_t *col_idx,
-                                      short num_cols) {
+  static size_t get_partial_mask_size(
+      const std::vector<uint16_t> &attribute_widths,
+      std::vector<uint16_t> &ver_offsets, std::bitset<64> &attr_mask,
+      const column_id_t *col_idx, short num_cols) {
     size_t ver_rec_size = 0;
 
     assert(attribute_widths.size() <= 64 && "max 64-columns supported");
@@ -171,10 +171,9 @@ class VersionChain {
   }
 
   // static typename T::version_t *get_readable_ver(
-  static const TaggedDeltaDataPtr<typename T::version_t> *get_readable_ver(
-      const txn::TxnTs &txTs,
-      const TaggedDeltaDataPtr<typename T::version_t> &head_ref,
-      bool force = true) {
+  static inline const TaggedDeltaDataPtr<typename T::version_t> *
+  get_readable_ver(const txn::TxnTs &txTs,
+                   const TaggedDeltaDataPtr<typename T::version_t> &head_ref) {
     auto tmp = &head_ref;
     while (tmp->isValid()) {
       auto ptr = tmp->typePtr();
@@ -186,30 +185,100 @@ class VersionChain {
         tmp = &(ptr->next);
       }
     }
-    if (force) {
-      LOG(INFO) << "FAILED_MV:" << std::this_thread::get_id()
-                << " | txn_start_time: " << txTs.txn_start_time;
-      LOG(INFO) << "FAILED_MV:" << std::this_thread::get_id()
-                << " | txn_id: " << txTs.txn_id;
-      LOG(INFO) << "FAILED_MV:" << std::this_thread::get_id()
-                << " | tMin: " << head_ref.typePtr()->t_min;
-      tmp = &head_ref;
-      while (tmp->isValid()) {
-        auto ptr = tmp->typePtr();
-        LOG(INFO) << "FAILED_MV:" << std::this_thread::get_id()
-                  << " | tMin: " << ptr->t_min;
-        if (ptr != nullptr &&
-            global_conf::ConcurrencyControl::is_readable(ptr->t_min, txTs)) {
-          LOG(INFO) << "FAILED_MV:" << std::this_thread::get_id() << "Passed";
-          return tmp;
-        } else {
+    return nullptr;
+  }
+
+  static inline bool search_in_chain(
+      const txn::TxnTs &txTs,
+      const TaggedDeltaDataPtr<typename T::version_t> &begin,
+      TaggedDeltaDataPtr<typename T::version_t> *&result) {
+    auto tmp = &begin;
+
+    // TODO: do not continue search indefinitely,
+    //  we know the list itself is N2O order, so if you encounter older version
+    //  than you?
+
+    while (tmp->isValid()) {
+      auto ptr = tmp->typePtr();
+      if (ptr != nullptr &&
+          global_conf::ConcurrencyControl::is_readable(ptr->t_min, txTs)) {
+        result = const_cast<TaggedDeltaDataPtr<typename T::version_t> *>(tmp);
+        return true;
+      } else {
+        auto nextDeltaIdx = ptr->next.get_delta_idx();
+        if (tmp->get_delta_idx() == nextDeltaIdx) {
           tmp = &(ptr->next);
+        } else {
+          // break and return if the chain crosses the instance.
+          // can try to continue until valid but risky.
+          return false;
         }
       }
-
-      assert(false && "if asked then why there is no version?");
     }
-    return nullptr;
+    return false;
+  }
+
+  static inline TaggedDeltaDataPtr<typename T::version_t>
+  get_version_with_consolidation(
+      const txn::TxnTs &txTs,
+      const TaggedDeltaDataPtr<typename T::version_t> &head,
+      row_uuid_t row_uuid) {
+    TaggedDeltaDataPtr<typename T::version_t> *tmpPtr;
+    TaggedDeltaDataPtr<typename T::version_t> ret;
+
+    bool found = search_in_chain(txTs, head, tmpPtr);
+
+    if (found) {
+      return std::move(
+          const_cast<TaggedDeltaDataPtr<typename T::version_t> *>(tmpPtr)
+              ->copy());
+    }
+
+    // cross-instance-search
+    int delta_idx = head.get_delta_idx();
+    int sanity_ctr = 0;
+    auto pid = storage::StorageUtils::get_pid_from_rowUuid(row_uuid);
+
+    while (!found) {
+      if ((--delta_idx) < 0) {
+        delta_idx = global_conf::num_delta_storages - 1;
+      }
+      sanity_ctr++;
+      // LOG(INFO) << "Looking into: " << delta_idx;
+      LOG_IF(FATAL, sanity_ctr > global_conf::num_delta_storages + 2)
+          << "Infinite loop in search versions: "
+          << storage::StorageUtils::get_offset(
+                 storage::StorageUtils::get_rowId_from_rowUuid(row_uuid))
+          << " | tx: " << txTs.txn_start_time;
+
+      try {
+        auto head_ptr_list =
+            DeltaDataPtr::getDeltaByIdx(delta_idx)->getConsolidateHT(pid).find(
+                row_uuid);
+        // NOTE: head_ptr_list is in O2N order, therefore reverse iterator
+        // Ranges not in clang12
+        //        for(auto it = head_ptr_list.rbegin() ; it !=
+        //        head_ptr_list.rend(); it++){
+        for (auto &p : head_ptr_list) {
+          auto &tmpTaggedPtr =
+              reinterpret_cast<TaggedDeltaDataPtr<typename T::version_t> &>(p);
+          found = search_in_chain(txTs, tmpTaggedPtr, tmpPtr);
+          if (found) {
+            //            LOG(INFO) << "Found in: " << delta_idx << " | " <<
+            //            ret->isValid() << " && " <<
+            //            reinterpret_cast<uintptr_t>(ret->typePtr())
+            //                      << " && " <<
+            //                      reinterpret_cast<uintptr_t>(ret)  ;
+            return std::move(tmpPtr->copy());
+          }
+        }
+
+      } catch (std::out_of_range &) {
+        // if key not found in the cuckooMap
+      }
+    }
+
+    assert(false);
   }
 
   typename T::version_t *get_readable_version(const txn::TxnTs &txTs) {

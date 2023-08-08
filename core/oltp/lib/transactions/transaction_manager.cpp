@@ -73,6 +73,14 @@ bool TransactionManager::executeFullQueue(
     txnTable.steamGC({min << txnPairGen::baseShift, min});
   }
 
+  if constexpr (GcMechanism == GcTypes::OneShot) {
+    // NOTE: RO txn can delay GC of older delta-partitions, therefore, once
+    // done, try GC all delta as it might be holding some off. A
+    if (txn.read_only) {
+      schema.try_GC_all_partitions();
+    }
+  }
+
   return success;
 }
 

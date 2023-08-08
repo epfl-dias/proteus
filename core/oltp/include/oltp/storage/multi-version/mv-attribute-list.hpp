@@ -79,17 +79,17 @@ class MV_attributeList {
   using version_chain_t = VersionChain<MV_attributeList>;
   using attributeVerList_t = MVattributeListCol;
 
+  static std::bitset<64> get_readable_version(
+      const global_conf::IndexVal &index_ptr, const txn::TxnTs &txTs,
+      char *write_loc, const Table &tableRef,
+      const column_id_t *col_idx = nullptr, short num_cols = 0);
+
   static std::vector<MV_attributeList::version_t *> create_versions(
-      xid_t xid, global_conf::IndexVal *idx_ptr,
-      const std::vector<uint16_t> &attribute_widths,
+      xid_t xid, global_conf::IndexVal *idx_ptr, const Table &tableRef,
       storage::DeltaStore &deltaStore, partition_id_t partition_id,
       const column_id_t *col_idx, short num_cols);
 
-  static std::bitset<64> get_readable_version(
-      const DeltaPtr &delta_list, const txn::TxnTs &txTs, char *write_loc,
-      const std::vector<std::pair<uint16_t, uint16_t>>
-          &column_size_offset_pairs,
-      const column_id_t *col_idx = nullptr, short num_cols = 0);
+  static void gc(global_conf::IndexVal *idx_ptr, txn::TxnTs minTxnTs);
 
   // friend class MV_perAttribute<MV_attributeList>;
 };
@@ -115,17 +115,17 @@ class MV_DAG {
   using version_chain_t = VersionChain<MV_DAG>;
   using attributeVerList_t = MVattributeListCol;
 
+  static std::bitset<64> get_readable_version(
+      const global_conf::IndexVal &index_ptr, const txn::TxnTs &txTs,
+      char *write_loc, const Table &tableRef,
+      const column_id_t *col_idx = nullptr, short num_cols = 0);
+
   static std::vector<MV_DAG::version_t *> create_versions(
-      xid_t xid, global_conf::IndexVal *idx_ptr,
-      const std::vector<uint16_t> &attribute_widths,
+      xid_t xid, global_conf::IndexVal *idx_ptr, const Table &tableRef,
       storage::DeltaStore &deltaStore, partition_id_t partition_id,
       const column_id_t *col_idx, short num_cols);
 
-  static std::bitset<64> get_readable_version(
-      const DeltaPtr &delta_list, xid_t xid, char *write_loc,
-      const std::vector<std::pair<uint16_t, uint16_t>>
-          &column_size_offset_pairs,
-      const column_id_t *col_idx = nullptr, short num_cols = 0);
+  static void gc(global_conf::IndexVal *idx_ptr, txn::TxnTs minTxnTs);
 };
 
 }  // namespace storage::mv
