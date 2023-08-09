@@ -31,13 +31,13 @@
 #include <platform/memory/allocator.hpp>
 #include <platform/memory/block-manager.hpp>
 #include <platform/memory/memory-manager.hpp>
+#include <platform/util/atomic_bit_set.hpp>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <tuple>
 #include <vector>
 
-#include "oltp/common/atomic_bit_set.hpp"
 #include "oltp/common/common.hpp"
 #include "oltp/common/constants.hpp"
 #include "oltp/common/memory-chunk.hpp"
@@ -285,7 +285,7 @@ class alignas(BlockManager::block_size) CircularMasterColumn : public Column {
                      [global_conf::MAX_PARTITIONS];
 
   // bit-mask for dirty-records.
-  std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>>
+  std::deque<proteus::utils::AtomicBitSet<BIT_PACK_SIZE>>
       upd_bit_masks[global_conf::num_master_versions]
                    [global_conf::MAX_PARTITIONS];
 
@@ -357,8 +357,8 @@ class alignas(BlockManager::block_size) LazyColumn : public Column {
   }
 
  private:
-  //  typedef std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>,
-  //                     proteus::memory::ExplicitSocketPinnedMemoryAllocator<utils::AtomicBitSet<BIT_PACK_SIZE>>>
+  //  typedef std::deque<proteus::utils::AtomicBitSet<BIT_PACK_SIZE>,
+  //                     proteus::memory::ExplicitSocketPinnedMemoryAllocator<proteus::utils::AtomicBitSet<BIT_PACK_SIZE>>>
   //      bitpack_deque;
 
   volatile bool touched[global_conf::MAX_PARTITIONS]{};
@@ -373,9 +373,9 @@ class alignas(BlockManager::block_size) LazyColumn : public Column {
 
   std::vector<bool> primaryMaskCopy;
 
-  std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>>
+  std::deque<proteus::utils::AtomicBitSet<BIT_PACK_SIZE>>
       dirty_upd_mask[global_conf::MAX_PARTITIONS];
-  std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>>
+  std::deque<proteus::utils::AtomicBitSet<BIT_PACK_SIZE>>
       dirty_delete_mask[global_conf::MAX_PARTITIONS];
 
   class LazySecondary {
@@ -402,8 +402,8 @@ class alignas(BlockManager::block_size) LazyColumn : public Column {
     libcuckoo::cuckoohash_map<vid_t, secondary_vid_t> sec_idx{};
 
     std::deque<oltp::common::mem_chunk> data{};
-    std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>> dirty_upd_mask{};
-    std::deque<utils::AtomicBitSet<BIT_PACK_SIZE>> dirty_delete_mask{};
+    std::deque<proteus::utils::AtomicBitSet<BIT_PACK_SIZE>> dirty_upd_mask{};
+    std::deque<proteus::utils::AtomicBitSet<BIT_PACK_SIZE>> dirty_delete_mask{};
 
     std::mutex capacity_lock;
 

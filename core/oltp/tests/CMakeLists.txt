@@ -21,7 +21,6 @@ else ()
   set(TS_TESTS
     #tests-snapshotting
     tests-oltp-storage
-    tests-atomic-bit-set
     )
 
   set(TS_COMMON_SRCS

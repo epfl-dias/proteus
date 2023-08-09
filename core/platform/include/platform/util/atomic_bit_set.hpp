@@ -34,7 +34,7 @@
 #include <cstddef>
 #include <limits>
 
-namespace utils {
+namespace proteus::utils {
 
 /**
  * An atomic bitset of fixed size (specified at compile time).
@@ -178,8 +178,8 @@ inline bool AtomicBitSet<N>::operator[](size_t idx) const {
 // More functions to match std::bitset interface
 template <size_t N>
 inline bool AtomicBitSet<N>::any(std::memory_order order) const {
-  for (size_t __i = 0; __i < numberOfBlocks; __i++)
-    if (__builtin_popcountl(data_[__i].load(order)) > 0) return true;
+  for (size_t _i = 0; _i < numberOfBlocks; _i++)
+    if (__builtin_popcountl(data_[_i].load(order)) > 0) return true;
   return false;
 }
 
@@ -203,14 +203,14 @@ inline void AtomicBitSet<N>::reset(std::memory_order order) {
 
 template <size_t N>
 inline size_t AtomicBitSet<N>::count(std::memory_order order) const {
-  size_t __result = 0;
+  size_t _result = 0;
 
-  for (size_t __i = 0; __i < numberOfBlocks; __i++)
-    __result += __builtin_popcountl(data_[__i].load(order));
+  for (size_t _i = 0; _i < numberOfBlocks; _i++)
+    _result += __builtin_popcountl(data_[_i].load(order));
 
-  return __result;
+  return _result;
 }
 
-}  // namespace utils
+}  // namespace proteus::utils
 
 #endif /* UTILS_ATOMIC_BIT_SET_HPP_ */

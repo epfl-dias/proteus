@@ -23,18 +23,13 @@
 
 #include <gtest/gtest.h>
 
-#include "oltp/common/atomic_bit_set.hpp"
+#include <platform/util/atomic_bit_set.hpp>
 
-// ::testing::Environment *const pools_env =
-//     ::testing::AddGlobalTestEnvironment(new testing::TestEnvironment);
+class AtomicBitSetTest : public ::testing::Test {};
 
-// class AtomicBitSetTest : public ::testing::Test {
-
-// };
-
-TEST(AtomicBitSet, Simple) {
+TEST(AtomicBitSetTest, Simple) {
   constexpr size_t kSize = 1024;
-  utils::AtomicBitSet<kSize> bs;
+  proteus::utils::AtomicBitSet<kSize> bs;
 
   EXPECT_EQ(kSize, bs.size());
 
@@ -63,9 +58,9 @@ TEST(AtomicBitSet, Simple) {
   }
 }
 
-TEST(AtomicBitSet, Extensions) {
+TEST(AtomicBitSetTest, Extensions) {
   constexpr size_t kSize = 1024;
-  utils::AtomicBitSet<kSize> bs;
+  proteus::utils::AtomicBitSet<kSize> bs;
 
   EXPECT_EQ(bs.count(), 0);
 
