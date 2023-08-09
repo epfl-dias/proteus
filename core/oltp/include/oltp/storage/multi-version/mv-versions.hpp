@@ -26,6 +26,7 @@
 
 #include <bitset>
 #include <iostream>
+#include <platform/util/erase-constructor-idioms.hpp>
 #include <vector>
 
 #include "oltp/common/constants.hpp"
@@ -35,13 +36,7 @@
 
 namespace storage::mv {
 
-class __attribute__((packed)) Version {
- public:
-  Version(Version &&) = delete;
-  Version &operator=(Version &&) = delete;
-  Version(const Version &) = delete;
-  Version &operator=(const Version &) = delete;
-
+class __attribute__((packed)) Version : proteus::utils::remove_copy_move {
  public:
   const xid_t t_min{};
   [[maybe_unused]] const xid_t t_max{};
@@ -63,12 +58,6 @@ class __attribute__((packed)) Version {
 
 class __attribute__((packed)) VersionSingle : public Version {
  public:
-  VersionSingle(VersionSingle &&) = delete;
-  VersionSingle &operator=(VersionSingle &&) = delete;
-  VersionSingle(const VersionSingle &) = delete;
-  VersionSingle &operator=(const VersionSingle &) = delete;
-
- public:
   // VersionSingle *next;
   TaggedDeltaDataPtr<VersionSingle> next{};
 
@@ -86,7 +75,7 @@ class __attribute__((packed)) VersionSingle : public Version {
 class VersionMultiAttr : public Version {
  public:
   std::bitset<64> attribute_mask;
-  uint16_t *attribute_offsets;
+  uint16_t *attribute_offsets{};
   TaggedDeltaDataPtr<VersionMultiAttr> next;
 
   VersionMultiAttr(xid_t t_min, xid_t t_max, void *data, size_t sz)

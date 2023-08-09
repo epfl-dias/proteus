@@ -26,21 +26,20 @@
 
 #include <cassert>
 #include <iostream>
+#include <platform/util/erase-constructor-idioms.hpp>
 #include <vector>
 
 namespace storage {
 
 enum PartitionStrategy { GLOBAL, NUMA_LOCAL, THREAD_LOCAL };
 
-class NUMAPartitionPolicy {
+class NUMAPartitionPolicy : proteus::utils::remove_copy_move {
  public:
   // Singleton
   static inline NUMAPartitionPolicy &getInstance() {
     static NUMAPartitionPolicy instance;
     return instance;
   }
-  NUMAPartitionPolicy(NUMAPartitionPolicy const &) = delete;  // Don't Implement
-  void operator=(NUMAPartitionPolicy const &) = delete;       // Don't implement
 
   class TablePartition {
    public:

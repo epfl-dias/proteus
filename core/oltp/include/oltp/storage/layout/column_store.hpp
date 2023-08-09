@@ -32,6 +32,7 @@
 #include <platform/memory/block-manager.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/util/atomic_bit_set.hpp>
+#include <platform/util/erase-constructor-idioms.hpp>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -138,7 +139,7 @@ class alignas(BlockManager::block_size) ColumnStore : public Table {
 
 using ArenaVector = std::vector<std::unique_ptr<aeolus::snapshot::ArenaV2>>;
 
-class alignas(64) Column {
+class alignas(64) Column : proteus::utils::remove_copy {
  protected:
   Column(SnapshotTypes snapshotType, column_id_t column_id, std::string name,
          data_type type, size_t unit_size, size_t offset_inRecord,
@@ -151,7 +152,6 @@ class alignas(64) Column {
          size_t reserved_capacity = 1000000, int numa_idx = -1,
          SnapshotTypes snapshotType = SnapshotTypes::None);
 
-  Column(const Column &) = delete;
   Column(Column &&) = default;
 
   virtual void *getElem(rowid_t vid);
@@ -239,7 +239,6 @@ class alignas(BlockManager::block_size) CircularMasterColumn : public Column {
                                         size_t reserved_capacity = 1000000,
                                         int numa_idx = -1);
 
-  CircularMasterColumn(const CircularMasterColumn &) = delete;
   CircularMasterColumn(CircularMasterColumn &&) = default;
 
   void getElem(rowid_t vid, void *copy_destination) final;
@@ -313,8 +312,6 @@ class alignas(BlockManager::block_size) LazyColumn : public Column {
              size_t unit_size, size_t offset_inRecord,
              bool numa_partitioned = true, size_t reserved_capacity = 1000000,
              int numa_idx = -1);
-
-  LazyColumn(const LazyColumn &) = delete;
 
   void *getElem(rowid_t vid) final;
   void getElem(rowid_t vid, void *copy_destination) final;

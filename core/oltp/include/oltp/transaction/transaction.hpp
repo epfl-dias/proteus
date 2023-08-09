@@ -27,6 +27,7 @@
 #include <cassert>
 #include <functional>
 #include <memory>
+#include <platform/util/erase-constructor-idioms.hpp>
 #include <vector>
 
 #include "oltp/common/common.hpp"
@@ -55,12 +56,10 @@ class TxnTs {
   friend class Txn;
 };
 
-class Txn {
+class Txn : proteus::utils::remove_copy {
  public:
   Txn(Txn&& other) = default;
   Txn& operator=(Txn&& other) = default;
-  Txn(const Txn& other) = delete;
-  Txn& operator=(const Txn& other) = delete;
 
   Txn(TxnTs txnTs, worker_id_t workerId, partition_id_t partitionId,
       master_version_t master_version, bool read_only = false);

@@ -26,6 +26,7 @@
 
 #include <iostream>
 #include <mutex>
+#include <platform/util/erase-constructor-idioms.hpp>
 #include <utility>
 #include <vector>
 
@@ -41,7 +42,7 @@ namespace txn {
 
 class CC_MV2PL {
  public:
-  class PRIMARY_INDEX_VAL {
+  class PRIMARY_INDEX_VAL : proteus::utils::remove_copy_move {
    public:
     ts_t ts;
     rowid_t VID;  // internal encoding defined in storage-utils.hpp
@@ -52,12 +53,6 @@ class CC_MV2PL {
 
     storage::DeltaPtr delta_list{0};
     PRIMARY_INDEX_VAL(xid_t tid, rowid_t vid) : ts(tid), VID(vid) {}
-
-    PRIMARY_INDEX_VAL(PRIMARY_INDEX_VAL &&) = delete;
-    PRIMARY_INDEX_VAL &operator=(PRIMARY_INDEX_VAL &&) = delete;
-
-    PRIMARY_INDEX_VAL(const PRIMARY_INDEX_VAL &) = delete;
-    PRIMARY_INDEX_VAL &operator=(const PRIMARY_INDEX_VAL &) = delete;
 
     template <class lambda>
     inline void writeWithLatch(lambda &&func, Txn &txn, table_id_t table_id) {

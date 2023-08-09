@@ -31,6 +31,7 @@
 #include <iostream>
 #include <memory>
 #include <platform/topology/topology.hpp>
+#include <platform/util/erase-constructor-idioms.hpp>
 #include <platform/util/percentile.hpp>
 #include <queue>
 #include <thread>
@@ -98,20 +99,13 @@ class Worker {
   friend class WorkerPool;
 };
 
-class WorkerPool {
+class WorkerPool : proteus::utils::remove_copy_move {
  public:
   // Singleton
   static WorkerPool &getInstance() {
     static WorkerPool instance;
     return instance;
   }
-
-  // Prevent copies
-  WorkerPool(const WorkerPool &) = delete;
-  void operator=(const WorkerPool &) = delete;
-
-  WorkerPool(WorkerPool &&) = delete;
-  WorkerPool &operator=(WorkerPool &&) = delete;
 
   void init(bench::Benchmark *txn_bench = nullptr, worker_id_t num_workers = 1,
             partition_id_t num_partitions = 1, uint worker_sched_mode = 0,

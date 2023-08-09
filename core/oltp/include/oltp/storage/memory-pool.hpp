@@ -29,6 +29,7 @@
 #include <platform/common/common.hpp>
 #include <platform/memory/allocator.hpp>
 #include <platform/memory/memory-manager.hpp>
+#include <platform/util/erase-constructor-idioms.hpp>
 #include <stack>
 #include <thread>
 #include <vector>
@@ -44,7 +45,7 @@ template <size_t N>
 class BucketMemoryPool;
 
 template <size_t N>
-class BucketMemoryPool_threadLocal {
+class BucketMemoryPool_threadLocal : proteus::utils::remove_copy_move {
  public:
   BucketMemoryPool_threadLocal() : destructed(false) {}
   ~BucketMemoryPool_threadLocal() {
@@ -53,12 +54,6 @@ class BucketMemoryPool_threadLocal {
       BucketMemoryPool<N>::getInstance().deregisterThreadLocalPool(this);
     }
   }
-
-  BucketMemoryPool_threadLocal(BucketMemoryPool_threadLocal const&) = delete;
-  void operator=(BucketMemoryPool_threadLocal const&) = delete;
-
-  BucketMemoryPool_threadLocal(BucketMemoryPool_threadLocal&&) = delete;
-  void operator=(BucketMemoryPool_threadLocal&&) = delete;
 
   inline void* allocate() {
     std::unique_lock<std::mutex> lk(_lock);
@@ -140,7 +135,7 @@ class BucketMemoryPool_threadLocal {
 };
 
 template <size_t N>
-class BucketMemoryPool {
+class BucketMemoryPool : proteus::utils::remove_copy_move {
  public:
   static inline BucketMemoryPool& getInstance() {
     static BucketMemoryPool instance;
@@ -149,11 +144,6 @@ class BucketMemoryPool {
   ~BucketMemoryPool() {
     LOG(INFO) << "Destructing BucketMemoryPool<" << N << ">";
   }
-  BucketMemoryPool(BucketMemoryPool const&) = delete;
-  void operator=(BucketMemoryPool const&) = delete;
-
-  BucketMemoryPool(BucketMemoryPool&&) = delete;
-  void operator=(BucketMemoryPool&&) = delete;
 
   void destruct() {
     std::unique_lock<std::mutex> lk(registryLock);

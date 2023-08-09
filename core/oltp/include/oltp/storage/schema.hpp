@@ -28,6 +28,7 @@
 #include <future>
 #include <iostream>
 #include <map>
+#include <platform/util/erase-constructor-idioms.hpp>
 #include <platform/util/percentile.hpp>
 #include <shared_mutex>
 #include <stdexcept>
@@ -98,7 +99,7 @@ class TableDef {
   std::vector<ColumnDef> columns{};
 };
 
-class Schema {
+class Schema : proteus::utils::remove_copy_move {
  public:
   // Singleton
   static inline Schema &getInstance() {
@@ -106,8 +107,6 @@ class Schema {
     assert(!instance.cleaned);
     return instance;
   }
-  Schema(Schema const &) = delete;          // Don't Implement
-  void operator=(Schema const &) = delete;  // Don't implement
 
   /* returns pointer to the table */
   std::shared_ptr<Table> create_table(

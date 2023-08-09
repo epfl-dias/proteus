@@ -32,6 +32,7 @@
 #include <platform/memory/block-manager.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/topology/topology.hpp>
+#include <platform/util/erase-constructor-idioms.hpp>
 #include <shared_mutex>
 #include <type_traits>
 
@@ -40,17 +41,10 @@
 
 namespace txn {
 
-class ThreadLocal_TransactionTable {
+class ThreadLocal_TransactionTable : proteus::utils::remove_copy_move {
  public:
   explicit ThreadLocal_TransactionTable(worker_id_t workerId);
   ~ThreadLocal_TransactionTable();
-
-  ThreadLocal_TransactionTable(ThreadLocal_TransactionTable &&) = delete;
-  ThreadLocal_TransactionTable &operator=(ThreadLocal_TransactionTable &&) =
-      delete;
-  ThreadLocal_TransactionTable(const ThreadLocal_TransactionTable &) = delete;
-  ThreadLocal_TransactionTable &operator=(
-      const ThreadLocal_TransactionTable &) = delete;
 
   template <class Allocator = proteus::memory::PinnedMemoryAllocator<
                 ThreadLocal_TransactionTable>>

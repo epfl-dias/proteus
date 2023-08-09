@@ -24,6 +24,7 @@
 #ifndef PROTEUS_HYBRID_LOCK_HPP
 #define PROTEUS_HYBRID_LOCK_HPP
 
+#include <platform/util/erase-constructor-idioms.hpp>
 #include <shared_mutex>
 
 namespace lock {
@@ -52,13 +53,8 @@ class naiveRWLock {
 
 // based on: Scalable and Robust Latches for Database Systems
 template <class RWLock = naiveRWLock>
-class HybridLock {
+class HybridLock : proteus::utils::remove_copy_move {
  public:
-  HybridLock(HybridLock &&) = delete;
-  HybridLock &operator=(HybridLock &&) = delete;
-  HybridLock(const HybridLock &) = delete;
-  HybridLock &operator=(const HybridLock &) = delete;
-
   HybridLock() = default;
 
  private:
@@ -126,13 +122,8 @@ class HybridLock {
 
 using HybridLatch = HybridLock<naiveRWLock>;
 
-class SpinLatch {
+class SpinLatch : proteus::utils::remove_copy_move {
  public:
-  SpinLatch(SpinLatch &&) = delete;
-  SpinLatch &operator=(SpinLatch &&) = delete;
-  SpinLatch(const SpinLatch &) = delete;
-  SpinLatch &operator=(const SpinLatch &) = delete;
-
   SpinLatch() : lk(false) {}
 
  private:

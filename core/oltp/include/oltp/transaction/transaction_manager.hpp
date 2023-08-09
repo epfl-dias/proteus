@@ -32,6 +32,7 @@
 #include <iostream>
 #include <map>
 #include <platform/memory/allocator.hpp>
+#include <platform/util/erase-constructor-idioms.hpp>
 #include <platform/util/timing.hpp>
 
 #include "oltp/common/constants.hpp"
@@ -43,18 +44,13 @@
 
 namespace txn {
 
-class TransactionManager {
+class TransactionManager : proteus::utils::remove_copy_move {
  public:
   static inline TransactionManager& getInstance() {
     static TransactionManager instance;
     return instance;
   }
   ~TransactionManager() { LOG(INFO) << "Destructing TxnManager"; }
-  TransactionManager(TransactionManager const&) = delete;
-  void operator=(TransactionManager const&) = delete;
-
-  TransactionManager(TransactionManager&&) = delete;
-  void operator=(TransactionManager&&) = delete;
 
   //  static constexpr auto extract_epoch(xid_t xid) {
   //    return (xid >> (delta_switch_bit)) << delta_switch_bit;

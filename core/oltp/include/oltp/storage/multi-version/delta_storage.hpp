@@ -33,6 +33,7 @@
 #include <limits>
 #include <mutex>
 #include <platform/memory/memory-manager.hpp>
+#include <platform/util/erase-constructor-idioms.hpp>
 #include <thread>
 
 #include "oltp/common/common.hpp"
@@ -175,18 +176,13 @@ class alignas(4096) CircularDeltaStore {
     static_assert(sizeof(delta_id_t) == 1);
     static_assert(sizeof(partition_id_t) == 1);
 
-    class alignas(64) DeltaSlackCache {
+    class alignas(64) DeltaSlackCache : proteus::utils::remove_copy_move {
      public:
       static constexpr uint slack_size = 8192;
       uintptr_t ptr{};
       int remaining_slack{};
       DeltaSlackCache()
           : ptr(reinterpret_cast<uintptr_t>(nullptr)), remaining_slack(0) {}
-
-      DeltaSlackCache(DeltaSlackCache &&) = delete;
-      DeltaSlackCache &operator=(DeltaSlackCache &&) = delete;
-      DeltaSlackCache(const DeltaSlackCache &) = delete;
-      DeltaSlackCache &operator=(const DeltaSlackCache &) = delete;
     };
 
     std::unordered_map<std::thread::id, DeltaSlackCache,
