@@ -164,6 +164,14 @@ class MemoryManager {
   static void *mallocPinnedOnNode(size_t bytes, uint32_t node);
   static void freePinned(void *ptr);
 
+  static void *mallocPinnedAligned(size_t bytes, size_t align);
+  static void freePinnedAligned(void *ptr);
+
+  template <typename P>
+  static inline bool is_aligned(P *ptr, size_t align) {
+    return (reinterpret_cast<uintptr_t>(ptr) % align == 0);
+  }
+
  private:
 };
 

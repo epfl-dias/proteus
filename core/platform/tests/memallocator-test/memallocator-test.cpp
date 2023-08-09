@@ -43,9 +43,10 @@ void verifyAlignment() {
   static_assert(alignment == alignof(X));
 
   auto allocator = ::proteus::memory::PinnedMemoryAllocator<X>{};
-  auto alloced = allocator.allocate(3);
-  EXPECT_EQ(reinterpret_cast<uintptr_t>(alloced) % alignment, 0);
-  allocator.deallocate(alloced, 3);
+  auto allocated = allocator.allocate(3);
+  EXPECT_EQ(reinterpret_cast<uintptr_t>(allocated) % alignment, 0);
+  EXPECT_TRUE(MemoryManager::is_aligned(allocated, alignment));
+  allocator.deallocate(allocated, 3);
 }
 
 #define ALIGN_TEST(n) \
@@ -90,19 +91,19 @@ void verifyCpuNumaAlloc(int cpuNumaNodeIndex) {
   auto allocator =
       ::proteus::memory::ExplicitSocketPinnedMemoryAllocator<int32_t>{
           cpuNumaNodeIndex};
-  auto alloced = allocator.allocate(3);
+  auto allocated = allocator.allocate(3);
   auto& topo = topology::getInstance();
-  auto cpunode_addressed = topo.getCpuNumaNodeAddressed(alloced);
-  ASSERT_EQ(cpunode_addressed->index_in_topo, cpuNumaNodeIndex)
+  auto cpu_node_addressed = topo.getCpuNumaNodeAddressed(allocated);
+  ASSERT_EQ(cpu_node_addressed->index_in_topo, cpuNumaNodeIndex)
       << " Allocated on unexpected node";
 
   int actual_numa_id = -1;
   auto x =
-      get_mempolicy(&actual_numa_id, nullptr, 0, static_cast<void*>(alloced),
+      get_mempolicy(&actual_numa_id, nullptr, 0, static_cast<void*>(allocated),
                     MPOL_F_NODE | MPOL_F_ADDR);
   ASSERT_EQ(x, 0) << "Failed to get NUMA policy";
-  ASSERT_EQ(cpunode_addressed->id, actual_numa_id);
-  allocator.deallocate(alloced, 3);
+  ASSERT_EQ(cpu_node_addressed->id, actual_numa_id);
+  allocator.deallocate(allocated, 3);
 }
 
 TEST_F(MemAllocatorTest, verifyCpuNumaAlloc) {
@@ -114,3 +115,50 @@ TEST_F(MemAllocatorTest, verifyCpuNumaAlloc) {
     verifyCpuNumaAlloc(i);
   }
 }
+
+template <size_t alignment>
+void verifyMallocPinnedAligned() {
+  auto allocated = MemoryManager::mallocPinnedAligned(1024, alignment);
+  EXPECT_EQ(reinterpret_cast<uintptr_t>(allocated) % alignment, 0);
+  EXPECT_TRUE(MemoryManager::is_aligned(allocated, alignment));
+  MemoryManager::freePinnedAligned(allocated);
+}
+
+#define ALIGNED_ALLOC_TEST(n)                                     \
+  TEST_F(MemAllocatorTest, verifyMallocPinnedAligned_align_##n) { \
+    verifyMallocPinnedAligned<n>();                               \
+  }
+
+ALIGNED_ALLOC_TEST(1)
+ALIGNED_ALLOC_TEST(2)
+ALIGNED_ALLOC_TEST(4)
+ALIGNED_ALLOC_TEST(8)
+ALIGNED_ALLOC_TEST(16)
+ALIGNED_ALLOC_TEST(32)
+ALIGNED_ALLOC_TEST(64)
+ALIGNED_ALLOC_TEST(128)
+ALIGNED_ALLOC_TEST(256)
+ALIGNED_ALLOC_TEST(512)
+ALIGNED_ALLOC_TEST(1_K)
+ALIGNED_ALLOC_TEST(2_K)
+ALIGNED_ALLOC_TEST(4_K)
+ALIGNED_ALLOC_TEST(8_K)
+ALIGNED_ALLOC_TEST(16_K)
+ALIGNED_ALLOC_TEST(32_K)
+ALIGNED_ALLOC_TEST(64_K)
+ALIGNED_ALLOC_TEST(128_K)
+ALIGNED_ALLOC_TEST(256_K)
+ALIGNED_ALLOC_TEST(512_K)
+ALIGNED_ALLOC_TEST(1_M)
+ALIGNED_ALLOC_TEST(2_M)
+ALIGNED_ALLOC_TEST(4_M)
+ALIGNED_ALLOC_TEST(8_M)
+ALIGNED_ALLOC_TEST(16_M)
+ALIGNED_ALLOC_TEST(32_M)
+ALIGNED_ALLOC_TEST(64_M)
+ALIGNED_ALLOC_TEST(128_M)
+ALIGNED_ALLOC_TEST(256_M)
+ALIGNED_ALLOC_TEST(512_M)
+ALIGNED_ALLOC_TEST(1_G)
+ALIGNED_ALLOC_TEST(2_G)
+ALIGNED_ALLOC_TEST(4_G)

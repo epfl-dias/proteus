@@ -173,6 +173,45 @@ void MemoryManager::freePinned(void *ptr) {
   nvtxRangePop();
 }
 
+void *MemoryManager::mallocPinnedAligned(size_t size, size_t align) {
+  void *res = nullptr;
+  void *ptr = mallocPinned(size + align);
+  if (ptr) {
+    res = reinterpret_cast<void *>(
+        (reinterpret_cast<size_t>(ptr) & ~(size_t(align - 1))) + align);
+    *(reinterpret_cast<void **>(res) - 1) = ptr;
+  }
+  return res;
+
+  //  using metadata_t = void *;
+  //  size_t requiredAlignment = std::max(align, alignof(metadata_t));
+  //
+  //  auto sz = (requiredAlignment - 1) + size + sizeof(metadata_t);
+  //  auto allocBase = MemoryManager::mallocPinned(sz);
+  //  auto spaceBase = static_cast<void *>(
+  //      /* Note that doing a reinterpret to metadata_t * and +1 wouldn't
+  //         * work here, as allocBase may have any alignment making the cast
+  //         * invalid
+  //       */
+  //      reinterpret_cast<char *>(allocBase) + sizeof(metadata_t));
+  //  auto spaceSize = sz - sizeof(metadata_t);
+  //  auto aligned_ptr = std::align(requiredAlignment, size, spaceBase,
+  //  spaceSize); assert(aligned_ptr && "Insufficient space calculation");
+  //
+  //  *(static_cast<metadata_t *>(aligned_ptr) - 1) =
+  //      static_cast<metadata_t>(allocBase);
+  //
+  //  return aligned_ptr;
+}
+void MemoryManager::freePinnedAligned(void *ptr) {
+  MemoryManager::freePinned(*(reinterpret_cast<void **>(ptr) - 1));
+
+  //  using metadata_t = void *;
+  //  auto allocBase = *(reinterpret_cast<metadata_t *>(ptr) - 1);
+  //  assert(allocBase < ptr);  // not equal, as we have the metadata
+  //  MemoryManager::freePinned(allocBase);
+}
+
 void *GpuMemAllocator::malloc(size_t bytes) {
 #ifndef NCUDA
   void *ptr = nullptr;
