@@ -25,12 +25,10 @@
 
 #include <cassert>
 #include <cmath>
-#include <cstring>
 #include <iostream>
 #include <olap/values/expressionTypes.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/threadpool/thread.hpp>
-#include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
 #include <platform/util/timing.hpp>
 #include <string>
@@ -38,6 +36,7 @@
 
 #include "oltp/common/constants.hpp"
 #include "oltp/common/numa-partition-policy.hpp"
+#include "oltp/index/index-manager.hpp"
 #include "oltp/storage/multi-version/delta_storage.hpp"
 #include "oltp/storage/multi-version/mv.hpp"
 #include "oltp/storage/storage-utils.hpp"
@@ -63,7 +62,9 @@ ColumnStore::~ColumnStore() {
   }
   columns.clear();
 
-  delete p_index;
+  // also remove it from indexManager
+  p_index.reset();
+  indexes::IndexManager::getInstance().removePrimaryIndex(table_id);
 }
 
 ColumnStore::ColumnStore(table_id_t table_id, std::string name,
@@ -99,15 +100,25 @@ ColumnStore::ColumnStore(table_id_t table_id, std::string name,
 
   // If Indexed, register index.
   if (indexed) {
+    size_t partition_capacity = 0;
     if (max_partition_size > 0) {
-      this->p_index = new global_conf::PrimaryIndex<uint64_t>(
-          name, max_partition_size, reserved_capacity);
+      partition_capacity = max_partition_size;
     } else {
-      this->p_index =
-          new global_conf::PrimaryIndex<uint64_t>(name, reserved_capacity);
+      // NOTE: SIG-23 HOT FIX:
+      partition_capacity = (reserved_capacity / n_partitions) +
+                           (reserved_capacity % n_partitions);
+      //      this->p_index =
+      //          new global_conf::PrimaryIndex<uint64_t>(name,
+      //          reserved_capacity);
     }
 
-    // TODO: register index w/ IndexManager
+    this->p_index = std::allocate_shared<global_conf::PrimaryIndex<rowid_t>>(
+        proteus::memory::PinnedMemoryAllocator<
+            global_conf::PrimaryIndex<rowid_t>>(),
+        name, partition_capacity, reserved_capacity);
+
+    indexes::IndexManager::getInstance().registerPrimaryIndex(table_id,
+                                                              p_index);
   }
 
   // create columns

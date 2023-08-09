@@ -27,8 +27,9 @@
 #define HTAP_ETL false  // for this, double master should be turned on too.
 
 #include "oltp/common/common.hpp"
-#include "oltp/index/hash_array.hpp"
-#include "oltp/index/hash_index.hpp"
+#include "oltp/index/hash-array.hpp"
+#include "oltp/index/hash-cuckoo-partitioned.hpp"
+#include "oltp/index/hash-cuckoo.hpp"
 #include "oltp/snapshot/snapshot_manager.hpp"
 #include "oltp/transaction/concurrency-control/concurrency-control.hpp"
 
@@ -38,10 +39,15 @@ using SnapshotManager = aeolus::snapshot::SnapshotManager;
 using ConcurrencyControl = txn::CC_MV2PL;
 using IndexVal = ConcurrencyControl::PRIMARY_INDEX_VAL;
 
+// Primary Index types:
+// - HashIndex: Hashtable based on CuckooHashing
+// - CuckooPartitioned: NUMA-Partitioned cuckoo hashtable
+// - [Broken/Incomplete]AdaptiveRadixTreeIndex : ART Index
+
 template <typename T_KEY = uint64_t>
-// using PrimaryIndex = indexes::HashArray<T_KEY>;
-using PrimaryIndex = indexes::HashIndex<T_KEY>;
+// using PrimaryIndex = indexes::HashCuckoo<T_KEY>;
 // using PrimaryIndex = indexes::AdaptiveRadixTreeIndex<T_KEY, void*>;
+using PrimaryIndex = indexes::CuckooPartitioned<T_KEY>;
 
 constexpr int MAX_PARTITIONS = 8;
 constexpr master_version_t num_master_versions = 1;

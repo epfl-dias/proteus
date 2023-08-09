@@ -56,6 +56,7 @@ typedef uint8_t partition_id_t;
 typedef uint32_t column_uuid_t;
 typedef uint64_t row_uuid_t;  // encapsulates table_id, pid, and offset (vid)
 typedef uint8_t master_version_t;  // Circular-Master
+typedef uint64_t index_id_t;
 
 struct ts_t {
   xid_t deleted : 1;

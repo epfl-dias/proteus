@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "oltp/index/hash_array.hpp"
+#include "oltp/index/hash-array.hpp"
 
 #include <platform/memory/memory-manager.hpp>
 
@@ -30,19 +30,20 @@
 namespace indexes {
 template <class K, class V>
 HashArray<K, V>::HashArray(std::string name, size_t capacity_per_partition,
-                           rowid_t reserved_capacity)
-    : Index<K, V>(name, reserved_capacity),
+                           uint64_t reserved_capacity)
+    : HashIndex<K, V>(name),
       capacity(reserved_capacity),
       partitions(g_num_partitions) {
   this->capacity_per_partition = capacity_per_partition;
-  this->capacity = capacity_per_partition * capacity_per_partition;
+  this->capacity = capacity_per_partition * g_num_partitions;
 
-  assert(capacity > reserved_capacity);
+  LOG_IF(FATAL, capacity < reserved_capacity)
+      << "Capacity should be greater than or equal to reserved capacity";
 
-  LOG(INFO) << "Creating a hashindex[" << name
+  LOG(INFO) << "Creating a hashIndex[" << name
             << "] of size: " << reserved_capacity
             << " with partitions:" << partitions
-            << " each with atleast: " << capacity_per_partition;
+            << " each with at least: " << capacity_per_partition;
 
   arr = (char ***)malloc(sizeof(char *) * partitions);
 
@@ -66,15 +67,15 @@ HashArray<K, V>::HashArray(std::string name, size_t capacity_per_partition,
 }
 
 template <class K, class V>
-HashArray<K, V>::HashArray(std::string name, rowid_t reserved_capacity)
-    : Index<K, V>(name, reserved_capacity),
+HashArray<K, V>::HashArray(std::string name, uint64_t reserved_capacity)
+    : HashIndex<K, V>(name),
       capacity(reserved_capacity),
       partitions(g_num_partitions) {
   capacity_per_partition =
       (reserved_capacity / partitions) + (reserved_capacity % partitions);
   capacity = capacity_per_partition * partitions;
 
-  LOG(INFO) << "Creating a hashindex[" << name
+  LOG(INFO) << "Creating a hashIndex[" << name
             << "] of size: " << reserved_capacity
             << " with partitions:" << partitions
             << " each with: " << capacity_per_partition;

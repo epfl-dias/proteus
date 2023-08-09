@@ -232,7 +232,7 @@ class YCSB : public Benchmark {
     constexpr column_id_t ycsb_col_read[] = {0};
 
     auto *record_ptr = static_cast<global_conf::IndexVal *>(
-        ycsb_tbl->p_index->find((uint64_t)(0)));
+        ycsb_tbl->getPrimaryIndex()->find((uint64_t)(0)));
     assert(record_ptr != nullptr);
 
     size_t accumulator = 0;
@@ -273,7 +273,7 @@ class YCSB : public Benchmark {
     for (auto i = 0; i < num_records; i++) {
       uint64_t read_val = 0;
       auto *record_ptr = static_cast<global_conf::IndexVal *>(
-          ycsb_tbl->p_index->find((uint64_t)(i)));
+          ycsb_tbl->getPrimaryIndex()->find((uint64_t)(i)));
       assert(record_ptr != nullptr);
       record_ptr->readWithLatch([&](global_conf::IndexVal *idx_ptr) {
         ycsb_tbl->getIndexedRecord(txn.txnTs, *idx_ptr, &read_val,
@@ -313,7 +313,8 @@ class YCSB : public Benchmark {
       switch (op.op_type) {
         case txn::OPTYPE_UPDATE: {
           auto *hash_ptr =
-              (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
+              (global_conf::IndexVal *)ycsb_tbl->getPrimaryIndex()->find(
+                  op.key);
           if (hash_ptr->write_lck.try_lock()) {
             hash_ptrs_lock_acquired[num_locks] = hash_ptr;
             num_locks++;
@@ -338,7 +339,8 @@ class YCSB : public Benchmark {
       switch (op.op_type) {
         case txn::OPTYPE_LOOKUP: {
           auto *recordPtr =
-              (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
+              (global_conf::IndexVal *)ycsb_tbl->getPrimaryIndex()->find(
+                  op.key);
 
           recordPtr->readWithLatch([&](global_conf::IndexVal *idx_ptr) {
             ycsb_tbl->getIndexedRecord(txn.txnTs, *idx_ptr, read_loc.data(),
@@ -349,7 +351,8 @@ class YCSB : public Benchmark {
 
         case txn::OPTYPE_UPDATE: {
           auto *recordPtr =
-              (global_conf::IndexVal *)ycsb_tbl->p_index->find(op.key);
+              (global_conf::IndexVal *)ycsb_tbl->getPrimaryIndex()->find(
+                  op.key);
 
           recordPtr->writeWithLatch(
               [&](global_conf::IndexVal *idx_ptr) {
@@ -365,7 +368,7 @@ class YCSB : public Benchmark {
           void *recordPtr =
               ycsb_tbl->insertRecord(op.rec, txn.txnTs.txn_start_time,
                                      txn.partition_id, txn.master_version);
-          ycsb_tbl->p_index->insert(op.key, recordPtr);
+          ycsb_tbl->getPrimaryIndex()->insert(op.key, recordPtr);
           break;
         }
         default:
@@ -457,7 +460,7 @@ class YCSB : public Benchmark {
     }
 
     //----
-    static auto worker_per_partition =
+    auto worker_per_partition =
         topology::getInstance().getCpuNumaNodes()[0].local_cores.size();
 
     auto num_record_capacity = num_records;
@@ -467,16 +470,22 @@ class YCSB : public Benchmark {
           rec_per_worker * worker_per_partition * num_partitions;
       LOG(WARNING) << "Table capacity coded to fill entire partition even if "
                       "using partial worker in a socket.";
+
+      // NOTE: if only using physical-cores (not HT), then adjust the partition
+      // size accordingly. In the future, develop and link with central
+      // worker-scheduler-policy.
     }
+
+    // For HT, divide by 2 so that not overshooting for all the cores/workers
+    // auto max_partition_size = rec_per_worker * (worker_per_partition / 2);
+    auto max_partition_size = rec_per_worker * (worker_per_partition);
+
     LOG(INFO) << "YCSB: num_record_capacity: " << num_record_capacity;
-    //----
-    // FIXME: HARDCODED, IT SHOULD BE LINKED OT WORKER SCHEDULER.
-    auto partition_size = rec_per_worker * (worker_per_partition / 2);
 
     ycsb_tbl = schema->create_table(
         "ycsb_tbl",
         (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-        columns, num_record_capacity, true, true, -1, partition_size);
+        columns, num_record_capacity, true, true, -1, max_partition_size);
   }
 
  private:

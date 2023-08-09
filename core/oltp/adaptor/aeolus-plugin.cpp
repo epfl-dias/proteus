@@ -189,7 +189,7 @@ void update_query(storage::Table *tbl, int64_t vid, column_id_t col_update_idx,
   LOG(INFO) << col_update_idx;
 
   auto *index_ptr =
-      static_cast<global_conf::IndexVal *>(tbl->p_index->find(vid));
+      static_cast<global_conf::IndexVal *>(tbl->getPrimaryIndex()->find(vid));
   if (!(index_ptr->write_lck.try_lock())) {
     throw proteus::abort();
   }

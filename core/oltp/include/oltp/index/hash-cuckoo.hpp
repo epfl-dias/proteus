@@ -31,19 +31,29 @@
 
 namespace indexes {
 
-template <class K, class V = void*>
-class HashIndex : public libcuckoo::cuckoohash_map<K, V>, public Index<K, V> {
+template <class K, class V = void *>
+class HashCuckoo : public HashIndex<K, V>,
+                   public libcuckoo::cuckoohash_map<K, V> {
  public:
-  // HashIndex(std::string name ): cuckoohash_map<K, V>(), Index<K,V>(name) {}
-
-  HashIndex(std::string name, rowid_t reserved_capacity)
-      : libcuckoo::cuckoohash_map<K, V>(),
-        Index<K, V>(name, reserved_capacity) {
+  HashCuckoo(std::string name, uint64_t reserved_capacity)
+      : libcuckoo::cuckoohash_map<K, V>(), HashIndex<K, V>(name) {
     if (reserved_capacity > 0) this->reserve(reserved_capacity);
   }
-  HashIndex(std::string name, size_t capacity_per_partition,
-            rowid_t reserved_capacity)
-      : HashIndex(name, reserved_capacity) {}
+  HashCuckoo(std::string name, size_t capacity_per_partition,
+             uint64_t reserved_capacity)
+      : HashCuckoo(name, reserved_capacity) {}
+
+  bool update(const K &key, V &value) override {
+    return libcuckoo::cuckoohash_map<K, V>::update(key, value);
+  }
+
+  V find(K key) override { return libcuckoo::cuckoohash_map<K, V>::find(key); }
+  bool find(K key, V &value) override {
+    return libcuckoo::cuckoohash_map<K, V>::find(key, value);
+  }
+  bool insert(K key, V &value) override {
+    return libcuckoo::cuckoohash_map<K, V>::insert(key, value);
+  }
 };
 
 };  // namespace indexes

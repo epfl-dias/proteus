@@ -63,7 +63,7 @@ void updateRecord(const std::shared_ptr<storage::Table> &table, txn::Txn &txn,
     LOG(INFO) << "Updating rec:" << i;
     std::vector<uint64_t> record(n_columns, i + 1);
     auto *recordPtr =
-        static_cast<global_conf::IndexVal *>(table->p_index->find(i));
+        static_cast<global_conf::IndexVal *>(table->getPrimaryIndex()->find(i));
     EXPECT_EQ(recordPtr->VID, i);
     EXPECT_TRUE(recordPtr != nullptr);
     LOG(INFO) << "\t VID: " << recordPtr->VID;
@@ -106,7 +106,7 @@ void insertRecords(const std::shared_ptr<storage::Table> &table, txn::Txn &txn,
         table->insertRecord(record.data(), txn.txnTs.txn_start_time,
                             txn.partition_id, txnMasterVersion);
     assert(recordPtr);
-    table->p_index->insert(i, recordPtr);
+    table->getPrimaryIndex()->insert(i, recordPtr);
   }
 }
 
@@ -118,7 +118,7 @@ void validate_record(const std::shared_ptr<storage::Table> &table,
   for (size_t i = 0; i < nRec; i++) {
     LOG(INFO) << "\tRecord: " << i;
     auto *recordPtr =
-        static_cast<global_conf::IndexVal *>(table->p_index->find(i));
+        static_cast<global_conf::IndexVal *>(table->getPrimaryIndex()->find(i));
 
     EXPECT_EQ(recordPtr->VID, i);
     EXPECT_EQ(recordPtr->ts.t_min, expectedTmin);

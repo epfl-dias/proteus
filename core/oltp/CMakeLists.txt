@@ -20,7 +20,9 @@ set(oltp_cxx
   lib/execution/worker.cpp
 
   #-------- Index
-  lib/index/hash_array.cpp
+  lib/index/index.cpp
+  lib/index/hash-array.cpp
+  lib/index/hash-cuckoo-partitioned.cpp
   # lib/index/ART/adaptive_radix_tree_index.cpp
 
   #-------- Snapshot

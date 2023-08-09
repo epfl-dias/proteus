@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-// THIS IS BROKEN. AS WE DONT KNOW WHICH KEY TO PLACE WHERE.
+// NOTE: THIS IS BROKEN. AS WE DON'T KNOW WHICH KEY TO PLACE WHERE.
 
 #ifndef INDEXES_HASH_ARRAY_HPP_
 #define INDEXES_HASH_ARRAY_HPP_
@@ -39,18 +39,18 @@ namespace indexes {
 #define debug_idx false
 
 template <class K = uint64_t, class V = void *>
-class HashArray : public Index<K, V> {
+class HashArray : public HashIndex<K, V> {
  public:
   char ***arr;
-  rowid_t capacity;
-  rowid_t capacity_per_partition{};
+  uint64_t capacity;
+  uint64_t capacity_per_partition{};
   partition_id_t partitions;
   //  std::atomic<uint64_t> filler[4];
   uint64_t filler[4]{};
 
-  HashArray(std::string name, rowid_t reserved_capacity);
+  HashArray(std::string name, uint64_t reserved_capacity);
   HashArray(std::string name, size_t capacity_per_partition,
-            rowid_t reserved_capacity);
+            uint64_t reserved_capacity);
   ~HashArray() override;
 
   void report() {
@@ -63,7 +63,7 @@ class HashArray : public Index<K, V> {
 #endif
   }
 
-  V find(K key) {
+  V find(K key) override {
 #if PARTITIONED_INDEX
 
     ushort pid = key / capacity_per_partition;
@@ -83,7 +83,7 @@ class HashArray : public Index<K, V> {
     return (void *)arr[0][key];
 #endif
   }
-  inline bool find(K key, V &value) {
+  inline bool find(K key, V &value) override {
 #if PARTITIONED_INDEX
 
     ushort pid = key / capacity_per_partition;
@@ -110,7 +110,7 @@ class HashArray : public Index<K, V> {
 #endif
   }
 
-  inline bool insert(K key, V &value) {
+  inline bool insert(K key, V &value) override {
 #if PARTITIONED_INDEX
 
     ushort pid = key / capacity_per_partition;

@@ -218,7 +218,7 @@ TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
     th.join();
   }
 
-  cust_sec_index = new indexes::HashIndex<uint64_t, struct secondary_record>(
+  cust_sec_index = new indexes::HashCuckoo<uint64_t, struct secondary_record>(
       "tpcc_customer_sec_index", max_customers);
   // cust_sec_index->reserve(max_customers);
 
@@ -631,7 +631,7 @@ void TPCC::load_stock(int w_id, xid_t xid, partition_id_t partition_id,
     // txn_id = 0, master_ver = 0
     void *hash_ptr =
         table_stock->insertRecord(stock_tmp, xid, partition_id, master_ver);
-    this->table_stock->p_index->insert(sid, hash_ptr);
+    this->table_stock->getPrimaryIndex()->insert(sid, hash_ptr);
   }
 
   delete stock_tmp;
@@ -671,7 +671,7 @@ void TPCC::load_item(int w_id, xid_t xid, partition_id_t partition_id,
 
     void *hash_ptr = table_item->insertRecord(
         &item_temp, 0, key / (TPCC_MAX_ITEMS / g_num_partitions), 0);
-    this->table_item->p_index->insert(key, hash_ptr);
+    this->table_item->getPrimaryIndex()->insert(key, hash_ptr);
   }
 }
 
@@ -700,7 +700,7 @@ void TPCC::load_district(int w_id, xid_t xid, partition_id_t partition_id,
 
     void *hash_ptr =
         table_district->insertRecord(r, xid, partition_id, master_ver);
-    this->table_district->p_index->insert((uint64_t)dkey, hash_ptr);
+    this->table_district->getPrimaryIndex()->insert((uint64_t)dkey, hash_ptr);
   }
 
   delete r;
@@ -726,7 +726,7 @@ void TPCC::load_warehouse(int w_id, xid_t xid, partition_id_t partition_id,
   void *hash_ptr =
       table_warehouse->insertRecord(w_temp, xid, partition_id, master_ver);
   assert(hash_ptr != nullptr);
-  this->table_warehouse->p_index->insert(w_id, hash_ptr);
+  this->table_warehouse->getPrimaryIndex()->insert(w_id, hash_ptr);
   delete w_temp;
 }
 
@@ -853,7 +853,7 @@ void TPCC::load_order(int w_id, xid_t xid, partition_id_t partition_id,
           table_order->insertRecord(&r, xid, partition_id, master_ver);
 #if index_on_order_tbl
       assert(hash_ptr_o != nullptr);
-      this->table_order->p_index->insert(ckey, hash_ptr_o);
+      this->table_order->getPrimaryIndex()->insert(ckey, hash_ptr_o);
 #endif
 
       for (int ol = 0; ol < o_ol_cnt; ol++) {
@@ -886,7 +886,7 @@ void TPCC::load_order(int w_id, xid_t xid, partition_id_t partition_id,
         //          LOG(INFO) << "X: " << ol_pkey << " | w_id: " << (uint)w_id
         //          <<" |d: " << (uint)d << " | o: " << (uint)o << " |ol: " <<
         //          (uint)ol;
-        this->table_order_line->p_index->insert(ol_pkey, hash_ptr_ol);
+        this->table_order_line->getPrimaryIndex()->insert(ol_pkey, hash_ptr_ol);
 #endif
       }
 
@@ -903,7 +903,7 @@ void TPCC::load_order(int w_id, xid_t xid, partition_id_t partition_id,
             table_new_order->insertRecord(&r_no, xid, partition_id, master_ver);
 #if index_on_order_tbl
         assert(hash_ptr_no != nullptr || hash_ptr_no != NULL);
-        this->table_new_order->p_index->insert(ckey, hash_ptr_no);
+        this->table_new_order->getPrimaryIndex()->insert(ckey, hash_ptr_no);
 #endif
       }
     }
@@ -945,7 +945,7 @@ void TPCC::load_customer(int w_id, xid_t xid, partition_id_t partition_id,
   // (C_W_ID, C_D_ID) Foreign Key, references (D_W_ID, D_ID)
 
   // void *hash_ptr = table_customer->insertRecord(r, 0, 0);
-  // this->table_customer->p_index->insert(key, hash_ptr);
+  // this->table_customer->getPrimaryIndex()->insert(key, hash_ptr);
 
   auto *r = new tpcc_customer;
   for (uint64_t d = 0; d < TPCC_NDIST_PER_WH; d++) {
@@ -991,7 +991,7 @@ void TPCC::load_customer(int w_id, xid_t xid, partition_id_t partition_id,
 
       void *hash_ptr =
           table_customer->insertRecord(r, xid, partition_id, master_ver);
-      this->table_customer->p_index->insert(ckey, hash_ptr);
+      this->table_customer->getPrimaryIndex()->insert(ckey, hash_ptr);
 
       /* create secondary index using the main hash table itself.
        * we can do this by deriving a key from the last name,dist,wh id
@@ -1004,7 +1004,7 @@ void TPCC::load_customer(int w_id, xid_t xid, partition_id_t partition_id,
       uint64_t sr_dkey = cust_derive_key(r->c_last, d, w_id);
 
       // pull up the record if its already there
-      struct secondary_record sr {};
+      secondary_record sr{};
       int sr_idx, sr_nids;
 
       if (cust_sec_index->find(sr_dkey, sr)) {
@@ -1100,7 +1100,7 @@ void TPCC::load_nation(int w_id, xid_t xid, partition_id_t partition_id,
 
     void *hash_ptr =
         table_nation->insertRecord(&ins, xid, partition_id, master_ver);
-    this->table_nation->p_index->insert(ins.n_nationkey, hash_ptr);
+    this->table_nation->getPrimaryIndex()->insert(ins.n_nationkey, hash_ptr);
   }
 }
 
@@ -1120,7 +1120,7 @@ void TPCC::load_region(int w_id, xid_t xid, partition_id_t partition_id,
 
     void *hash_ptr =
         table_region->insertRecord(&ins, xid, partition_id, master_ver);
-    this->table_region->p_index->insert(rId, hash_ptr);
+    this->table_region->getPrimaryIndex()->insert(rId, hash_ptr);
   }
 }
 
@@ -1164,7 +1164,7 @@ void TPCC::load_supplier(int w_id, xid_t xid, partition_id_t partition_id,
 
     void *hash_ptr =
         table_supplier->insertRecord(&supp_ins, xid, partition_id, master_ver);
-    this->table_supplier->p_index->insert(suId, hash_ptr);
+    this->table_supplier->getPrimaryIndex()->insert(suId, hash_ptr);
   }
 }
 

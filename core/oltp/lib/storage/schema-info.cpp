@@ -63,7 +63,7 @@ void Schema::insertInfoSchema(table_id_t table_id) {
       [&](txn::TransactionExecutor& executor, txn::Txn& txn, void* params) {
         void* recordPtr =
             infoSchema->insertRecord(&record, txn.txnTs.txn_start_time, 0, 0);
-        infoSchema->p_index->insert(table_id, recordPtr);
+        infoSchema->getPrimaryIndex()->insert(table_id, recordPtr);
         return true;
       });
 

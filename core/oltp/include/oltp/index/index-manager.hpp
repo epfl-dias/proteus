@@ -25,77 +25,60 @@
 #define PROTEUS_INDEX_MANAGER_HPP
 
 #include <iostream>
+#include <libcuckoo/cuckoohash_map.hh>
+#include <platform/util/erase-constructor-idioms.hpp>
 #include <vector>
 
-//#include "../indexes/index.hpp"
+#include "oltp/common/common.hpp"
+#include "oltp/index/index.hpp"
 
 namespace indexes {
 
-class IndexAny { /* [...] */
-};
-
-template <typename K = uint64_t, class V = void *>
-class Index : public IndexAny {
-  Index() = default;
-  Index(std::string name) : name(std::move(name)) {}
-  Index(std::string name, uint64_t initial_capacity) : name(std::move(name)) {}
-  virtual V find(K key) = 0;
-  virtual bool insert(K key, V &value) = 0;
-  virtual ~Index() {}
-
-  // some other any. proteus index any.
-  proteus_any findAny(K key) { return find(key); }
-
-  const std::string name;
-  const size_t index_id;
-};
-
-class index_t {
- private:
-  std::shared_ptr<IndexAny> index;
-
- public:
-  template <typename K, typename V>
-  V probe(const K &key) const {  // or even better, proteus_any instead of T
-
-    const auto &in = reinterpret_cast<const Index<K, V> &>(*(index.get()));
-    return in.find(key);
-  }
-
-  proteus_any probe(proteus_any key) {}
-
-  VID probe(proteus_any key) {}
-};
-
-class IndexManager {
+class IndexManager : proteus::utils::remove_copy_move {
  public:
   // Singleton
   static inline IndexManager &getInstance() {
     static IndexManager instance;
     return instance;
   }
-  IndexManager(IndexManager const &) = delete;             // Don't Implement
-  IndexManager(IndexManager &&) = delete;                  // Don't Implement
-  IndexManager &operator=(IndexManager const &) = delete;  // Don't implement
-  IndexManager &operator=(IndexManager &&) = delete;       // Don't implement
 
-  index_t getIndex(size_t table_id,
-                   const std::vector<size_t> &column_ids) const;
-  index_t getPrimaryIndex(size_t table_id) const;
+  std::shared_ptr<IndexAny> getPrimaryIndex(table_id_t table_id) const {
+    if (primary_index_map.contains(table_id)) {
+      return primary_index_map.find(table_id);
+    } else {
+      return nullptr;
+    }
+  }
 
-  index_t getIndexByID(size_t index_id) const;
-  size_t getIndexID(size_t table_id, const std::vector<size_t> &column_ids);
+  void registerPrimaryIndex(table_id_t table_id,
+                            std::shared_ptr<IndexAny> index) {
+    primary_index_map.insert_or_assign(table_id, index);
+  }
+
+  void removePrimaryIndex(table_id_t table_id) {
+    primary_index_map.erase(table_id);
+  }
+
+  auto hasPrimaryIndex(table_id_t table_id) {
+    return primary_index_map.contains(table_id);
+  }
+
+  //  index_t getIndex(size_t table_id,
+  //                   const std::vector<size_t> &column_ids) const;
+  //  index_t getIndexByID(size_t index_id) const;
+  //  size_t getIndexID(size_t table_id, const std::vector<size_t> &column_ids);
 
   // create(..)..
 
  private:
-  //  map <index_id, index_t>
-  //
-  //  map..table_id , index_id
-  //
-  //  map.. (size_t table_id, std::vector<size_t> column_ids), index_id
+  //  map < index_id, index_t>
+  //  map < table_id , index_id>
+  //  map <(size_t table_id, std::vector<size_t> column_ids), index_id>
 
-  IndexManager() {}
+  libcuckoo::cuckoohash_map<table_id_t, std::shared_ptr<IndexAny>>
+      primary_index_map;
+
+  IndexManager() = default;
 };
 
 }  // namespace indexes

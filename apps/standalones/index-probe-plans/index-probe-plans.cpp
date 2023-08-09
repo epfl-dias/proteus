@@ -42,7 +42,7 @@ bool insert_query(uint64_t xid, ushort master_ver, ushort delta_ver,
     record[0] = i + 2;
     record[1] = i + 1175;
     void *hash_idx = tbl->insertRecord(record, xid, partition_id, master_ver);
-    tbl->p_index->insert(i, hash_idx);
+    tbl->getPrimaryIndex()->insert(i, hash_idx);
 
     LOG(INFO) << "INSERTED: " << i;
   }
@@ -55,7 +55,8 @@ bool update_query(txn::Txn &txn) {
             << txn.delta_version << " " << txn.partition_id;
   // UPDATE T SET b = 15 WHERE a=5;
 
-  auto *hash_ptr = static_cast<global_conf::IndexVal *>(tbl->p_index->find(5));
+  auto *hash_ptr =
+      static_cast<global_conf::IndexVal *>(tbl->getPrimaryIndex()->find(5));
   if (hash_ptr->write_lck.try_lock()) {
     column_id_t col_update_idx = 1;
     record[col_update_idx] = 15;
@@ -79,7 +80,8 @@ bool update_query(txn::Txn &txn) {
 bool select_query(const txn::Txn &txn) {
   // SELECT * FROM T WHERE a=5;
 
-  auto *hash_ptr = static_cast<global_conf::IndexVal *>(tbl->p_index->find(5));
+  auto *hash_ptr =
+      static_cast<global_conf::IndexVal *>(tbl->getPrimaryIndex()->find(5));
 
   if (hash_ptr != nullptr) {
     hash_ptr->readWithLatch([&](global_conf::IndexVal *idx_ptr) {

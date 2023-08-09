@@ -92,6 +92,8 @@ class Table {
   virtual void snapshot(xid_t epoch, column_id_t columnId) = 0;
   virtual void snapshot(xid_t epoch) = 0;
 
+  inline auto getPrimaryIndex() { return p_index; }
+
  protected:
   Table(table_id_t table_id, std::string &name, layout_type storage_layout,
         TableDef &columns);
@@ -102,9 +104,8 @@ class Table {
   const table_id_t table_id;
   const layout_type storage_layout;
 
-  global_conf::PrimaryIndex<uint64_t> *p_index{};
-
-  // global_conf::PrimaryIndex<uint64_t> **s_index;
+ protected:
+  std::shared_ptr<global_conf::PrimaryIndex<rowid_t>> p_index;
 
  protected:
   struct {
