@@ -1,26 +1,25 @@
 /*
-Proteus -- High-performance query processing on heterogeneous hardware.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
-Copyright (c) 2022
-Data Intensive Applications and Systems Laboratory (DIAS)
-École Polytechnique Fédérale de Lausanne
+                            Copyright (c) 2022
+        Data Intensive Applications and Systems Laboratory (DIAS)
+                École Polytechnique Fédérale de Lausanne
 
-All Rights Reserved.
+                            All Rights Reserved.
 
-Permission to use, copy, modify and distribute this software and
-          its documentation is hereby granted, provided that both the
+    Permission to use, copy, modify and distribute this software and
+    its documentation is hereby granted, provided that both the
     copyright notice and this permission notice appear in all copies of
-        the software, derivative works or modified versions, and any
-                                           portions thereof, and that both
-notices appear in supporting documentation.
+    the software, derivative works or modified versions, and any
+    portions thereof, and that both notices appear in supporting
+    documentation.
 
     This code is distributed in the hope that it will be useful, but
     WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
-        DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
-            RESULTING FROM THE USE OF THIS SOFTWARE.
-                */
-#pragma once
+    DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
+    RESULTING FROM THE USE OF THIS SOFTWARE.
+*/
 
 #ifndef PROTEUS_ART_KEY_HPP
 #define PROTEUS_ART_KEY_HPP
@@ -38,7 +37,7 @@ notices appear in supporting documentation.
 
 #include "platform/memory/memory-manager.hpp"
 
-namespace art_index {
+namespace indexes::art {
 
 typedef uint8_t key_unit_t;
 typedef size_t len_t;
@@ -92,7 +91,7 @@ class ARTKey {
 
   ARTKey(ARTKey const &artKey)
       : _key_len(artKey._key_len), _key_holder(artKey._key_holder) {}
-  ARTKey(ARTKey const &&artKey)
+  ARTKey(ARTKey const &&artKey) noexcept
       : _key_len(std::move(artKey._key_len)),
         _key_holder(std::move(artKey._key_holder)) {}
 
@@ -102,7 +101,7 @@ class ARTKey {
     return *this;
   }
 
-  ARTKey &operator=(ARTKey const &&artKey) {
+  ARTKey &operator=(ARTKey &&artKey) noexcept {
     _key_len = std::move(artKey._key_len);
     _key_holder = std::move(artKey._key_holder);
     return *this;
@@ -113,6 +112,6 @@ class ARTKey {
   static void destroy(ARTKey *k) {}
 };
 
-}  // namespace art_index
+}  // namespace indexes::art
 
 #endif  // PROTEUS_ART_KEY_HPP

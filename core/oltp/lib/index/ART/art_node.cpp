@@ -1,5 +1,5 @@
 /*
-     Proteus -- High-performance query processing on heterogeneous hardware.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
                             Copyright (c) 2022
         Data Intensive Applications and Systems Laboratory (DIAS)
@@ -24,32 +24,20 @@
 #include "oltp/index/ART/art_node.hpp"
 
 #include <atomic>
-#include <chrono>
-#include <condition_variable>
-#include <future>
 #include <iostream>
 #include <memory>
-#include <platform/topology/topology.hpp>
 #include <platform/util/percentile.hpp>
 #include <queue>
-#include <thread>
-#include <unordered_map>
 
 #include "oltp/common/common.hpp"
-#include "oltp/common/constants.hpp"
 #include "oltp/interface/bench.hpp"
 
-namespace art_index {
+namespace indexes::art {
 
 template class ARTKeyFixedWidth<8>;
 template class ARTKeyFixedWidth<16>;
 template class ARTKeyFixedWidth<32>;
 template class ARTKeyFixedWidth<64>;
-
-template class ARTAllocator<4>;
-template class ARTAllocator<16>;
-template class ARTAllocator<48>;
-template class ARTAllocator<256>;
 
 size_t ARTNode::prefix_match(const uint8_t *key, size_t depth) const {
   size_t len;
@@ -60,8 +48,6 @@ size_t ARTNode::prefix_match(const uint8_t *key, size_t depth) const {
   }
   return len;
 }
-
-ARTNode::~ARTNode() {}
 
 ARTNode *ARTNode_4::getChild(key_unit_t &partial_key) {
   for (uint8_t i = 0; i < 4; i++) {
@@ -221,4 +207,4 @@ ARTNode *ARTNode_256::shrink() { return nullptr; }
 
 bool ARTNode_256::isFull() const { return false; }
 
-}  // namespace art_index
+}  // namespace indexes::art

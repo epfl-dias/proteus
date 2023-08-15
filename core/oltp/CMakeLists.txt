@@ -24,8 +24,7 @@ set(oltp_cxx
   lib/index/hash-array.cpp
   lib/index/hash-cuckoo-partitioned.cpp
   lib/index/ART/art_node.cpp
-  lib/index/ART/OptimisticLockCoupling/art_node.cpp
-  # lib/index/ART/adaptive_radix_tree_index.cpp
+  lib/index/ART/art-allocator.cpp
 
   #-------- Snapshot
   lib/snapshot/snapshot-manager.cpp

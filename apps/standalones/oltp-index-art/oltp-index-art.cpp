@@ -33,7 +33,6 @@
 #include <tuple>
 
 // ART Library
-#include "oltp/index/ART/OptimisticLockCoupling/art.hpp"
 #include "oltp/index/ART/art.hpp"
 
 // OLTP Engine
@@ -178,12 +177,12 @@ int main(int argc, char** argv) {
   }
 
   string insertName = "Insert " + std::to_string(n) + " Uint64 in ART: ";
-  art_olc::ART<uint64_t, uint64_t> art(false);
+  indexes::ART<uint64_t, uint64_t> art;
   MemoryManager::freePinned(x);
 
   LOG(INFO) << "----- MULTI_THREAD TEST ------";
   profiling::resume();
-  int thread_size = 1;
+  int thread_size = 8;
   n = n - n % thread_size;
   uint64_t task_size = n / thread_size;
 

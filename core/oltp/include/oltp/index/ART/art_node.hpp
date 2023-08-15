@@ -1,25 +1,25 @@
 /*
-Proteus -- High-performance query processing on heterogeneous hardware.
+    Proteus -- High-performance query processing on heterogeneous hardware.
 
-Copyright (c) 2022
-Data Intensive Applications and Systems Laboratory (DIAS)
-École Polytechnique Fédérale de Lausanne
+                            Copyright (c) 2022
+        Data Intensive Applications and Systems Laboratory (DIAS)
+                École Polytechnique Fédérale de Lausanne
 
-All Rights Reserved.
+                            All Rights Reserved.
 
-Permission to use, copy, modify and distribute this software and
-          its documentation is hereby granted, provided that both the
+    Permission to use, copy, modify and distribute this software and
+    its documentation is hereby granted, provided that both the
     copyright notice and this permission notice appear in all copies of
-        the software, derivative works or modified versions, and any
-                                           portions thereof, and that both
-notices appear in supporting documentation.
+    the software, derivative works or modified versions, and any
+    portions thereof, and that both notices appear in supporting
+    documentation.
 
     This code is distributed in the hope that it will be useful, but
     WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS
-        DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
-            RESULTING FROM THE USE OF THIS SOFTWARE.
-                */
+    DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
+    RESULTING FROM THE USE OF THIS SOFTWARE.
+*/
 #ifndef PROTEUS_ART_NODE_HPP
 #define PROTEUS_ART_NODE_HPP
 
@@ -31,76 +31,22 @@ notices appear in supporting documentation.
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <platform/topology/affinity_manager.hpp>
+#include <platform/topology/topology.hpp>
 #include <utility>
 #include <vector>
 
-#include "art_key.hpp"
-#include "platform/topology/affinity_manager.hpp"
-#include "platform/topology/topology.hpp"
-namespace art_index {
+#include "oltp/index/ART/art-allocator.hpp"
+#include "oltp/index/ART/art_key.hpp"
+
+namespace indexes::art {
+
 static const uint8_t EMPTY = 0;
 
 typedef uint8_t key_unit_t;
 typedef size_t len_t;
 
 const std::string tree_print_specifier = "\t";
-
-template <size_t N>
-class ARTAllocator {
- public:
-  static inline ARTAllocator<N> &getInstance() {
-    static ARTAllocator<N> instance;
-    return instance;
-  }
-
-  inline void *allocate() {
-    std::unique_lock<std::mutex> lk(_lock);
-    if (unlikely(_pool.empty())) {
-      expand();
-    }
-    auto *ret = _pool.top();
-    _pool.pop();
-    return ret;
-  }
-
-  inline void free(void *ptr) {
-    std::unique_lock<std::mutex> lk(_lock);
-    _pool.push(ptr);
-  }
-
- private:
-  std::stack<void *, std::vector<void *>> _pool{};
-  std::mutex _lock{};
-  std::vector<void *> basePtr{};
-
-  static constexpr auto INITIAL_QTY = 32_K;
-
-  inline void expand() {
-    auto *mem =
-        static_cast<uint8_t *>(MemoryManager::mallocPinned(N * INITIAL_QTY));
-    basePtr.emplace_back((void *)mem);
-
-    for (auto i = 0; i < INITIAL_QTY; i++) {
-      _pool.push((void *)(mem + (i * N)));
-    }
-  }
-
-  ARTAllocator() {
-    std::unique_lock<std::mutex> lk(_lock);
-    expand();
-  }
-
-  ~ARTAllocator() {
-    std::unique_lock<std::mutex> lk(_lock);
-    auto pool_sz = _pool.size();
-    while (!(_pool.empty())) {
-      _pool.pop();
-    }
-    for (auto &x : basePtr) {
-      MemoryManager::freePinned(x);
-    }
-  }
-};
 
 class ARTNode {
  public:
@@ -115,21 +61,63 @@ class ARTNode {
   uint8_t n_children;
   //  change deque to vector
   std::vector<uint8_t> prefix;
+  // lock for synchronization
+  std::atomic<uint64_t> typeVersionLockObsolete{0b100};
 
   explicit ARTNode(size_t prefix_len) : prefix_len(prefix_len), n_children(0) {}
-  virtual ~ARTNode();
+  virtual ~ARTNode() = default;
 
   [[nodiscard]] virtual bool isLeaf() const = 0;
   [[nodiscard]] virtual bool isFull() const = 0;
   size_t prefix_match(const uint8_t *key, size_t depth) const;
-  static void destroy(ARTNode *node) {}
+
+  static void destroy(ARTNode *node) {
+    // TODO
+  }
+
+  static bool isLocked(uint64_t version) { return ((version & 0b10) == 0b10); }
+
+  void writeLockOrRestart(bool &needRestart) {
+    uint64_t version;
+    version = readLockOrRestart(needRestart);
+    if (needRestart) {
+      return;
+    }
+    upgradeToWriteLockOrRestart(version, needRestart);
+    if (needRestart) return;
+  }
+  void upgradeToWriteLockOrRestart(uint64_t &version, bool &needRestart) {
+    if (typeVersionLockObsolete.compare_exchange_strong(version,
+                                                        version + 0b10)) {
+      version = version + 0b10;
+    } else {
+      needRestart = true;
+    }
+  }
+  void writeUnlock() { typeVersionLockObsolete.fetch_add(0b10); }
+  uint64_t readLockOrRestart(bool &needRestart) const {
+    uint64_t version;
+    version = typeVersionLockObsolete.load();
+    if (isLocked(version) || isObsolete(version)) {
+      needRestart = true;
+    }
+    return version;
+  }
+  void checkOrRestart(uint64_t startRead, bool &needRestart) const {
+    readUnlockOrRestart(startRead, needRestart);
+  }
+  void readUnlockOrRestart(uint64_t startRead, bool &needRestart) const {
+    needRestart = (startRead != typeVersionLockObsolete.load());
+  }
+  static bool isObsolete(uint64_t version) { return (version & 1) == 1; }
+  void writeUnlockObsolete() { typeVersionLockObsolete.fetch_add(0b11); }
 };
 
 class ARTInnerNode : public ARTNode {
  public:
   explicit ARTInnerNode(size_t prefix_len) : ARTNode(prefix_len) {}
 
-  [[nodiscard]] virtual inline bool isLeaf() const override { return false; }
+  [[nodiscard]] inline bool isLeaf() const override { return false; }
 
   virtual ARTNode *getChild(key_unit_t &partial_key) = 0;
   virtual void insertChild(key_unit_t &partial_key, ARTNode *child) = 0;
@@ -144,7 +132,7 @@ template <class K, class V>
 class ARTLeaf : public ARTNode {
  public:
   ARTKey<K> _key;
-  ~ARTLeaf() override {}
+  ~ARTLeaf() override = default;
 
   [[nodiscard]] inline bool isLeaf() const override { return true; }
   [[nodiscard]] inline bool isFull() const override { return true; }
@@ -205,7 +193,7 @@ class ARTLeaf : public ARTNode {
 template <class K, class V>
 class ARTLeafSingleValue : public ARTLeaf<K, V> {
  public:
-  ~ARTLeafSingleValue() override {}
+  ~ARTLeafSingleValue() override = default;
 
   [[nodiscard]] inline bool isLeaf() const override { return true; }
   [[nodiscard]] inline bool isFull() const override { return true; }
@@ -233,7 +221,7 @@ class ARTLeafSingleValue : public ARTLeaf<K, V> {
 template <class K, class V>
 class ARTLeafMultiValue : public ARTLeaf<K, V> {
  public:
-  ~ARTLeafMultiValue() override {}
+  ~ARTLeafMultiValue() override = default;
 
   [[nodiscard]] bool isLeaf() const override { return true; }
   [[nodiscard]] bool isFull() const override { return true; }
@@ -276,7 +264,7 @@ class ARTNode_4 : public ARTInnerNode {
     _children.fill(nullptr);
     _partial_keys.fill(EMPTY);
   }
-  ~ARTNode_4() override {}
+  ~ARTNode_4() override = default;
 
   ARTNode *getChild(key_unit_t &partial_key) override;
   void insertChild(key_unit_t &partial_key, ARTNode *child) override;
@@ -415,5 +403,5 @@ class ARTNode_256 : public ARTInnerNode {
   friend class ARTNode_48;
 };
 
-}  // namespace art_index
+}  // namespace indexes::art
 #endif  // PROTEUS_ART_NODE_HPP
