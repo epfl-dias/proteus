@@ -25,6 +25,7 @@
 #define OLTP_HPP_
 
 #include <cassert>
+#include <platform/util/timing.hpp>
 #include <utility>
 
 #include "oltp/common/constants.hpp"
@@ -34,19 +35,15 @@
 #include "oltp/storage/table.hpp"
 #include "oltp/transaction/transaction_manager.hpp"
 
-//
-#include <platform/util/timing.hpp>
-
 // TODO: Currently this is made for HTAP. make this standard entry point for
-// OLTP, so that even OLTP specific benchmarks can use this file.
-// __attribute__((always_inline))
+//  OLTP, so that even OLTP specific benchmarks can use this file.
 
 class OLTP {
  public:
   // Core
   inline void init(bench::Benchmark *bench = nullptr, uint num_txn_workers = 1,
                    uint num_data_partitions = 1, uint ch_scale_factor = 0,
-                   bool colocated_schedule = false) {
+                   bool collocated_schedule = false) {
     time_block t("G_OLTP_INIT ");
 
     g_num_partitions = num_data_partitions;
@@ -54,7 +51,7 @@ class OLTP {
     uint worker_sched_mode =
         global_conf::reverse_partition_numa_mapping ? 3 : 0;
 
-    if (colocated_schedule) {
+    if (collocated_schedule) {
       worker_sched_mode = 5;
     }
 

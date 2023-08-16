@@ -453,13 +453,6 @@ CircularMasterColumn::elastic_partition(uint pid,
       ret.emplace_back(std::make_pair(
           oltp::common::mem_chunk(oltp_mem, diff * this->unit_size, -1), diff));
 
-      // if (this->name.compare("ol_number") == 0) {
-      //    uint32_t* ls = (uint32_t*)data;
-      //    for (uint i = 0; i < num_elem; i++) {
-      //      assert(ls[i] < 15 && "FUCK ME");
-      //    }
-      //  }
-
     } else {
       assert(false && "Delete now supported, how it can be here??");
     }
