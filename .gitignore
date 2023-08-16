@@ -116,3 +116,7 @@ ccache*
 /frontends/ScalaSlick/.bsp/sbt.json
 /CMakeUserPresets.json
 .run
+
+## Ignore test/eval scripts
+/apps/benchmarks/htap/scripts/*
+/apps/benchmarks/oltp/scripts/*

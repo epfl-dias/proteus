@@ -1,4 +1,0 @@
-[submodule "multigpu"]
-	path = multigpu
-	url = git@bitbucket.org:Chapeiro/multigpu.git
-	branch = warpbased
