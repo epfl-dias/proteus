@@ -26,6 +26,6 @@ PreparedStatement Q_2_cpar(DegreeOfParallelism dop, const aff_t &aff_parallel,
                            const aff_t &aff_reduce, DeviceType dev,
                            const scan_t &scan) {
   return PreparedStatement::from(
-      "benchmarks/htap/queries/clotho/cpu/Q19_simplified.sql.json",
+      "benchmarks/htap/queries/json-query-plans/cpu/Q19_simplified.sql.json",
       "Q2_simplified");
 }

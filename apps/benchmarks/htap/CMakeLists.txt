@@ -27,7 +27,7 @@ foreach (target
     #queries::ch100w
     )
 
-  install(DIRECTORY "queries/clotho"
+  install(DIRECTORY "queries/json-query-plans"
     DESTINATION ${CMAKE_INSTALL_BINDIR}/benchmarks/htap/queries
     #COMPONENT htap-${target}_${PROTEUS_CPACK_COMP_SUFFIX_BENCHMARKS}
     COMPONENT ${PROTEUS_CPACK_COMP_BENCHMARKS}

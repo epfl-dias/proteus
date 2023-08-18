@@ -30,9 +30,6 @@ set(oltp_cxx
 
   #-------- Snapshot
   lib/snapshot/snapshot-manager.cpp
-  lib/snapshot/cor_arena.cpp
-  lib/snapshot/cow_arena.cpp
-  lib/snapshot/cor_const_arena.cpp
 
   #-------- Storage
   lib/storage/schema.cpp

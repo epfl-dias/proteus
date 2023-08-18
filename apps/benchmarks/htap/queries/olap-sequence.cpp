@@ -121,7 +121,8 @@ prep_wrapper_t qs(const std::string &plan) {
   return [plan](pg type) {
     return [plan, type](DegreeOfParallelism dop, aff_t aff_parallel,
                         red_t aff_reduce, DeviceType dev = DeviceType::CPU) {
-      const std::string planDir = "benchmarks/htap/queries/clotho/cpu/";
+      const std::string planDir =
+          "benchmarks/htap/queries/json-query-plans/cpu/";
       return PreparedStatement::from(
           planDir + plan, plan,
           std::make_unique<RDEPolicyFactory>(
