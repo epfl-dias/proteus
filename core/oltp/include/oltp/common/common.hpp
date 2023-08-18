@@ -62,10 +62,10 @@ struct ts_t {
   xid_t deleted : 1;
   xid_t t_min : 63;
 
-  explicit ts_t(xid_t tmin) : t_min(tmin), deleted(0) {}
+  explicit ts_t(xid_t _t_min) : t_min(_t_min), deleted(0) {}
 };
 
-static_assert(sizeof(ts_t) == sizeof(uint64_t) && "oups");
+static_assert(sizeof(ts_t) == sizeof(uint64_t) && "oops");
 
 // TODO: replace column-widths with
 // typedef uint16_t column_width_t;

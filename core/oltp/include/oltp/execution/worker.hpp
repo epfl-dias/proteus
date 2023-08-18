@@ -43,7 +43,7 @@
 
 namespace scheduler {
 
-enum WORKER_STATE { READY, RUNNING, PAUSED, TERMINATED, PRERUN, POSTRUN };
+enum WORKER_STATE { READY, RUNNING, PAUSED, TERMINATED, PRE_RUN, POST_RUN };
 
 class Worker {
   worker_id_t id;
@@ -58,7 +58,7 @@ class Worker {
   const topology::core *exec_core;
   topology::core *affinity_core{};
 
-  bool is_hotplugged;
+  bool is_hot_plugged;
   volatile int64_t num_iters;
 
   txn::TxnQueue *txnQueue{};
@@ -87,7 +87,7 @@ class Worker {
         revert_affinity(false),
         state(READY),
         partition_id(partition_id),
-        is_hotplugged(false),
+        is_hot_plugged(false),
         num_txns(0),
         num_commits(0),
         num_aborts(0) {
@@ -97,74 +97,6 @@ class Worker {
  private:
   void run();
   friend class WorkerPool;
-};
-
-class WorkerPool : proteus::utils::remove_copy_move {
- public:
-  // Singleton
-  static WorkerPool &getInstance() {
-    static WorkerPool instance;
-    return instance;
-  }
-
-  void init(bench::Benchmark *txn_bench = nullptr, worker_id_t num_workers = 1,
-            partition_id_t num_partitions = 1, uint worker_sched_mode = 0,
-            int num_iter_per_worker = -1, bool is_elastic_workload = false);
-  void shutdown(bool print_stats = false);
-
-  void start_workers();
-  void add_worker(const topology::core *exec_location, int partition_id = -1);
-  void remove_worker(const topology::core *exec_location);
-  void migrate_worker(bool return_back = false);
-
-  const std::vector<worker_id_t> &scale_down(uint num_cores = 1);
-  void scale_back();
-
-  void print_worker_stats(bool global_only = true);
-  void print_worker_stats_diff();
-  std::pair<double, double> get_worker_stats_diff(bool print = false);
-
-  inline worker_id_t size() const { return workers.size(); }
-  void pause();
-  void resume();
-
- private:
-  void create_worker(const topology::core &exec_core,
-                     bool physical_thread = true);
-
- private:
-  WorkerPool() = default;
-  ~WorkerPool() = default;
-
-  txn::TxnQueue *txnQueue{};
-  bench::Benchmark *_txn_bench{};
-
-  worker_id_t worker_counter{};
-  std::atomic<bool> terminate{};
-  std::mutex worker_pool_lk;
-
-  std::atomic<size_t> post_barrier{};
-  std::atomic<size_t> pre_barrier{};
-  std::condition_variable pre_cv;
-  std::mutex pre_m;
-
-  std::unordered_map<uint, std::pair<std::thread *, Worker *>> workers;
-  std::vector<worker_id_t> elastic_set;
-
-  uint num_iter_per_worker{};
-  uint worker_sched_mode{};
-  partition_id_t num_partitions{};
-  bool elastic_workload{};
-
-  // Stats
-
-  std::vector<std::chrono::time_point<std::chrono::system_clock,
-                                      std::chrono::nanoseconds>>
-      prev_time_tps;
-
-  std::vector<double> prev_sum_tps;
-
-  friend class Worker;
 };
 
 }  // namespace scheduler

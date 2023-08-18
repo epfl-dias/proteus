@@ -38,9 +38,7 @@
 // OLTP Engine
 #include "oltp/common/oltp-cli-flags.hpp"
 #include "oltp/common/utils.hpp"
-#include "oltp/execution/worker.hpp"
 #include "oltp/interface/bench.hpp"
-#include "oltp/storage/table.hpp"
 #include "oltp/transaction/transaction_manager.hpp"
 
 // Platform Includes

@@ -29,7 +29,8 @@
 #include <utility>
 
 #include "oltp/common/constants.hpp"
-#include "oltp/execution/worker.hpp"
+#include "oltp/execution/worker-pool.hpp"
+#include "oltp/execution/worker-schedule-policy.hpp"
 #include "oltp/interface/bench.hpp"
 #include "oltp/storage/layout/column_store.hpp"
 #include "oltp/storage/table.hpp"
@@ -48,15 +49,13 @@ class OLTP {
 
     g_num_partitions = num_data_partitions;
 
-    uint worker_sched_mode =
-        global_conf::reverse_partition_numa_mapping ? 3 : 0;
-
+    auto workerPolicy = scheduler::PHYSICAL_FIRST;
     if (collocated_schedule) {
-      worker_sched_mode = 5;
+      workerPolicy = scheduler::INTERLEAVE_ODD;
     }
 
     scheduler::WorkerPool::getInstance().init(
-        bench, num_txn_workers, num_data_partitions, worker_sched_mode);
+        bench, num_txn_workers, num_data_partitions, workerPolicy);
 
     // save references
     this->worker_pool = &scheduler::WorkerPool::getInstance();

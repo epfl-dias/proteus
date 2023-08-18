@@ -36,7 +36,7 @@
 #include <platform/util/timing.hpp>
 
 #include "oltp/common/constants.hpp"
-#include "oltp/execution/worker.hpp"
+#include "oltp/execution/worker-pool.hpp"
 #include "oltp/storage/table.hpp"
 #include "oltp/transaction/transaction.hpp"
 #include "oltp/transaction/txn-table.hpp"

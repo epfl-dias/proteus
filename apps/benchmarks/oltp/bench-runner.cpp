@@ -21,7 +21,6 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <gflags/gflags.h>
 #include <unistd.h>
 
 #include <bitset>
@@ -33,7 +32,7 @@
 #include "oltp/common/constants.hpp"
 #include "oltp/common/oltp-cli-flags.hpp"
 #include "oltp/common/utils.hpp"
-#include "oltp/execution/worker.hpp"
+#include "oltp/execution/worker-pool.hpp"
 #include "oltp/interface/bench.hpp"
 #include "oltp/storage/table.hpp"
 #include "oltp/transaction/transaction_manager.hpp"
@@ -158,7 +157,7 @@ int main(int argc, char** argv) {
 
   scheduler::WorkerPool::getInstance().init(
       bench, (FLAGS_elastic_workload > 0 ? 1 : FLAGS_num_workers),
-      g_num_partitions, FLAGS_worker_sched_mode, FLAGS_num_iter_per_worker,
+      g_num_partitions, scheduler::PHYSICAL_FIRST, FLAGS_num_iter_per_worker,
       (FLAGS_elastic_workload > 0 ? true : false));
 
   schema->report();

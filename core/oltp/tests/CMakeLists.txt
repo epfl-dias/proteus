@@ -9,6 +9,7 @@ if (FALSE)
     #tests-snapshotting.cpp
     tests-oltp-storage
     tests-index-art
+    tests-worker-policy
     test-utils.cpp
     )
 
@@ -23,6 +24,7 @@ else ()
     #tests-snapshotting
     tests-oltp-storage
     tests-index-art
+    tests-worker-policy
     )
 
   set(TS_COMMON_SRCS

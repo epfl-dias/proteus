@@ -28,17 +28,17 @@
 DEFINE_uint32(num_workers, 0, "Number of txn-workers");
 DEFINE_int32(num_iter_per_worker, -1, "Iterations per worker");
 DEFINE_uint32(num_partitions, 0,
-              "Number of storage partitions ( round robin NUMA nodes)");
+              "Number of storage partitions (round robin NUMA nodes)");
 DEFINE_uint32(delta_size, 2, "Size of delta storage in GBs.");
 DEFINE_bool(layout_column_store, true, "True: ColumnStore / False: RowStore");
-DEFINE_uint32(worker_sched_mode, 0,
-              "Scheduling of worker: 0-default, 1-interleaved-even, "
-              "2-interleaved-odd, 3-reversed.");
 DEFINE_uint32(report_stat_sec, 0, "Report stats every x secs");
 DEFINE_uint32(elastic_workload, 0, "if > 0, add a worker every x seconds");
 DEFINE_uint32(migrate_worker, 0, "if > 0, migrate worker to other side");
 DEFINE_uint32(switch_master_sec, 0, "if > 0, add a worker every x seconds");
-DEFINE_bool(use_hyperthreads, false, "OLTP workers to use hyperthreads.");
+
+// Instead of the following, take schedulingPolicy as input, which will dictate
+// the use of hyper-threads implicitly
+DEFINE_bool(use_hyperthreads, false, "OLTP workers to use hyper threads.");
 
 // DEFINE_bool(reverse_partition_numa_mapping, true,
-//             "True: lowest PID mapped to highest NUMA ID");
+//             "True: lowest PID mapped to the highest NUMA ID");

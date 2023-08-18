@@ -18,6 +18,8 @@ set(oltp_cxx
 
   #-------- Execution
   lib/execution/worker.cpp
+  lib/execution/worker-pool.cpp
+  lib/execution/worker-schedule-policy.cpp
 
   #-------- Index
   lib/index/index.cpp
