@@ -36,6 +36,7 @@
 #include <oltp/storage/table.hpp>
 #include <oltp/transaction/transaction_manager.hpp>
 #include <platform/memory/memory-manager.hpp>
+#include <platform/util/erase-constructor-idioms.hpp>
 #include <random>
 #include <string>
 #include <thread>
@@ -59,7 +60,7 @@ enum TPCC_QUERY_TYPE {
   STOCK_LEVEL
 };
 
-class TPCC : public Benchmark {
+class TPCC : public Benchmark, proteus::utils::remove_copy_move {
  private:
   const uint tpch_scale_factor;
 
@@ -85,7 +86,6 @@ class TPCC : public Benchmark {
   std::vector<TPCC_QUERY_TYPE> query_sequence;
   std::string csv_path;
   const bool is_ch_benchmark;
-  const bool layout_column_store;
 
  public:
   struct __attribute__((packed)) ch_nation {
@@ -406,7 +406,7 @@ class TPCC : public Benchmark {
 
   ~TPCC() override;
   explicit TPCC(std::string name = "TPCC", int num_warehouses = 1,
-                int active_warehouse = 1, bool layout_column_store = true,
+                int active_warehouse = 1,
                 const std::vector<TPCC_QUERY_TYPE> &query_seq = {},
                 uint tpch_scale_factor = 0, int g_dist_threshold = 0,
                 std::string csv_path = "", bool is_ch_benchmark = false);

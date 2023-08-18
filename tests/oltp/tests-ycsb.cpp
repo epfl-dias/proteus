@@ -49,7 +49,7 @@ TEST(YCSB, ycsb_all_socket_50RW_50Zipf) {
     bench::Benchmark* bench =
         new bench::YCSB("YCSB", num_cols, num_records, theta, 0, ops_per_txn,
                         rw_ratio, oltp_num_workers, oltp_num_workers,
-                        n_partitions, true, num_cols, num_cols, 0);
+                        n_partitions, num_cols, num_cols, 0);
 
     oltp_engine.init(bench, oltp_num_workers, n_partitions);
     LOG(INFO) << "[OLTP] Initialization completed.";

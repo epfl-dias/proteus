@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
   }
 
   bench::Benchmark *bench =
-      new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers, true, {},
+      new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers, {},
                       FLAGS_ch_scale_factor, 0, "", true);
   // if (FLAGS_htap_mode.compare("COLOC") == 0) {
   //   g_num_partitions = 2;

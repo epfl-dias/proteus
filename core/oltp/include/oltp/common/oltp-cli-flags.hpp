@@ -26,7 +26,6 @@ DECLARE_uint32(num_workers);
 DECLARE_uint32(num_partitions);
 DECLARE_int32(num_iter_per_worker);
 DECLARE_uint32(delta_size);
-DECLARE_bool(layout_column_store);
 DECLARE_uint32(report_stat_sec);
 DECLARE_uint32(elastic_workload);
 DECLARE_uint32(migrate_worker);

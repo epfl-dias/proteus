@@ -30,7 +30,6 @@ DEFINE_int32(num_iter_per_worker, -1, "Iterations per worker");
 DEFINE_uint32(num_partitions, 0,
               "Number of storage partitions (round robin NUMA nodes)");
 DEFINE_uint32(delta_size, 2, "Size of delta storage in GBs.");
-DEFINE_bool(layout_column_store, true, "True: ColumnStore / False: RowStore");
 DEFINE_uint32(report_stat_sec, 0, "Report stats every x secs");
 DEFINE_uint32(elastic_workload, 0, "if > 0, add a worker every x seconds");
 DEFINE_uint32(migrate_worker, 0, "if > 0, migrate worker to other side");

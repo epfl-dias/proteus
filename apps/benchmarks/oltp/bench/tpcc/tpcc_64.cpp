@@ -149,7 +149,6 @@ void TPCC::print_tpcc_query(void *arg) {
 }
 
 TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
-           bool layout_column_store,
            const std::vector<TPCC_QUERY_TYPE> &query_seq,
            uint tpch_scale_factor, int g_dist_threshold, std::string csv_path,
            bool is_ch_benchmark)
@@ -159,7 +158,6 @@ TPCC::TPCC(std::string name, int num_warehouses, int active_warehouse,
       g_dist_threshold(g_dist_threshold),
       csv_path(std::move(csv_path)),
       is_ch_benchmark(is_ch_benchmark),
-      layout_column_store(layout_column_store),
       tpch_scale_factor(tpch_scale_factor) {
   this->schema = &storage::Schema::getInstance();
   this->seed = rand();
@@ -268,12 +266,10 @@ void TPCC::create_tbl_warehouse(uint64_t num_warehouses) {
 
   LOG(INFO) << "Number of warehouses: " << num_warehouses;
 
-  table_warehouse = schema->create_table(
-      "tpcc_warehouse",
-      (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns,
-      get_capacity(num_warehouses, this->num_max_workers,
-                   this->num_partitions));
+  table_warehouse =
+      schema->create_table("tpcc_warehouse", storage::COLUMN_STORE, columns,
+                           get_capacity(num_warehouses, this->num_max_workers,
+                                        this->num_partitions));
 }
 
 void TPCC::create_tbl_district(uint64_t num_districts) {
@@ -297,9 +293,7 @@ void TPCC::create_tbl_district(uint64_t num_districts) {
                        sizeof(tmp.d_next_o_id));
 
   table_district = schema->create_table(
-      "tpcc_district",
-      (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns,
+      "tpcc_district", storage::COLUMN_STORE, columns,
       get_capacity(num_districts, this->num_max_workers, this->num_partitions));
 }
 
@@ -315,9 +309,7 @@ void TPCC::create_tbl_item(uint64_t num_item) {
   columns.emplace_back("i_data", storage::VARCHAR, sizeof(tmp.i_data));
 
   table_item = schema->create_table(
-      "tpcc_item",
-      (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns,
+      "tpcc_item", storage::COLUMN_STORE, columns,
       get_capacity(num_item, this->num_max_workers, this->num_partitions));
 }
 
@@ -352,9 +344,7 @@ void TPCC::create_tbl_stock(uint64_t num_stock) {
                        sizeof(tmp.s_su_suppkey));
 
   table_stock = schema->create_table(
-      "tpcc_stock",
-      (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns,
+      "tpcc_stock", storage::COLUMN_STORE, columns,
       get_capacity(num_stock, this->num_max_workers, this->num_partitions));
 }  // namespace bench
 
@@ -377,9 +367,7 @@ void TPCC::create_tbl_history(uint64_t num_history) {
   columns.emplace_back("h_data", storage::VARCHAR, sizeof(tmp.h_data));
 
   table_history = schema->create_table(
-      "tpcc_history",
-      (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns,
+      "tpcc_history", storage::COLUMN_STORE, columns,
       get_capacity(num_history, this->num_max_workers, this->num_partitions),
       false);
 }
@@ -427,9 +415,7 @@ void TPCC::create_tbl_customer(uint64_t num_cust) {
   columns.emplace_back("c_n_nationkey", storage::INTEGER,
                        sizeof(tmp.c_n_nationkey));
   table_customer = schema->create_table(
-      "tpcc_customer",
-      (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns,
+      "tpcc_customer", storage::COLUMN_STORE, columns,
       get_capacity(num_cust, this->num_max_workers, this->num_partitions));
 }
 
@@ -447,9 +433,7 @@ void TPCC::create_tbl_new_order(uint64_t num_new_order) {
   columns.emplace_back("no_w_id", storage::INTEGER, sizeof(tmp.no_w_id));
 
   table_new_order = schema->create_table(
-      "tpcc_neworder",
-      (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns,
+      "tpcc_neworder", storage::COLUMN_STORE, columns,
       get_capacity(num_new_order, this->num_max_workers, this->num_partitions),
       index_on_order_tbl);
 }
@@ -474,9 +458,7 @@ void TPCC::create_tbl_order(uint64_t num_order) {
                        sizeof(tmp.o_all_local));
 
   table_order = schema->create_table(
-      "tpcc_order",
-      (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns,
+      "tpcc_order", storage::COLUMN_STORE, columns,
       get_capacity(num_order, this->num_max_workers, this->num_partitions),
       index_on_order_tbl);
 }
@@ -507,9 +489,7 @@ void TPCC::create_tbl_order_line(uint64_t num_order_line) {
   //     "ol_dist_info", storage::STRING, sizeof(tmp.ol_dist_info));
 
   table_order_line = schema->create_table(
-      "tpcc_orderline",
-      (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns,
+      "tpcc_orderline", storage::COLUMN_STORE, columns,
       get_capacity(num_order_line, this->num_max_workers, this->num_partitions),
       index_on_order_tbl);
 }
@@ -539,10 +519,8 @@ void TPCC::create_tbl_supplier(uint64_t num_supp) {
   columns.emplace_back("su_acctbal", storage::FLOAT, sizeof(tmp.s_acctbal));
   columns.emplace_back("su_comment", storage::VARCHAR, sizeof(tmp.s_comment));
 
-  table_supplier = schema->create_table(
-      "tpcc_supplier",
-      (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_supp, true, false);
+  table_supplier = schema->create_table("tpcc_supplier", storage::COLUMN_STORE,
+                                        columns, num_supp, true, false);
 }
 void TPCC::create_tbl_region(uint64_t num_region) {
   // Primary Key: r_regionkey
@@ -560,10 +538,8 @@ void TPCC::create_tbl_region(uint64_t num_region) {
   columns.emplace_back("r_name", storage::VARCHAR, sizeof(tmp.r_name));
   columns.emplace_back("r_comment", storage::VARCHAR, sizeof(tmp.r_comment));
 
-  table_region = schema->create_table(
-      "tpcc_region",
-      (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_region, true, false);
+  table_region = schema->create_table("tpcc_region", storage::COLUMN_STORE,
+                                      columns, num_region, true, false);
 }
 void TPCC::create_tbl_nation(uint64_t num_nation) {
   // Primary Key: n_nationkey
@@ -583,10 +559,8 @@ void TPCC::create_tbl_nation(uint64_t num_nation) {
                        sizeof(tmp.n_regionkey));
   columns.emplace_back("n_comment", storage::VARCHAR, sizeof(tmp.n_comment));
 
-  table_nation = schema->create_table(
-      "tpcc_nation",
-      (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-      columns, num_nation, true, false);
+  table_nation = schema->create_table("tpcc_nation", storage::COLUMN_STORE,
+                                      columns, num_nation, true, false);
 }
 
 /* A/C TPCC Specs*/

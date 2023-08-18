@@ -404,44 +404,22 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, txn::Txn &txn) {
      * :ol_quantity, :ol_amount, :ol_dist_info);
      */
 #if batch_insert_no_ol
-    // ol_ins.ol_dist_info[24];  //
-    if (layout_column_store) {
-      ol_ins_batch_col.ol_o_id[ol_number] = dist_no_read.d_next_o_id;
+    // ol_ins.ol_dist_info[24];
 
-      ol_ins_batch_col.ol_quantity[ol_number] = q->item[ol_number].ol_quantity;
-      ol_ins_batch_col.ol_amount[ol_number] =
-          q->item[ol_number].ol_quantity * i_price *
-          (1 + w_tax + dist_no_read.d_tax) * (1 - cust_no_read.c_discount);
-      ol_ins_batch_col.ol_d_id[ol_number] = q->d_id;
-      ol_ins_batch_col.ol_w_id[ol_number] = q->w_id;
-      ol_ins_batch_col.ol_number[ol_number] = ol_number;
-      ol_ins_batch_col.ol_i_id[ol_number] = q->item[ol_number].ol_i_id;
-      ol_ins_batch_col.ol_supply_w_id[ol_number] =
-          q->item[ol_number].ol_supply_w_id;
-      ol_ins_batch_col.ol_delivery_d[ol_number] = 0;  // get_timestamp();
+    // column-store specific batch
+    ol_ins_batch_col.ol_o_id[ol_number] = dist_no_read.d_next_o_id;
 
-    } else {
-      ol_ins_batch_row[ol_number].ol_o_id = dist_no_read.d_next_o_id;
-
-      ol_ins_batch_row[ol_number].ol_quantity = q->item[ol_number].ol_quantity;
-      ol_ins_batch_row[ol_number].ol_amount =
-          q->item[ol_number].ol_quantity * i_price *
-          (1 + w_tax + dist_no_read.d_tax) * (1 - cust_no_read.c_discount);
-      ol_ins_batch_row[ol_number].ol_d_id = q->d_id;
-      ol_ins_batch_row[ol_number].ol_w_id = q->w_id;
-      ol_ins_batch_row[ol_number].ol_number = ol_number;
-      ol_ins_batch_row[ol_number].ol_i_id = q->item[ol_number].ol_i_id;
-      ol_ins_batch_row[ol_number].ol_supply_w_id =
-          q->item[ol_number].ol_supply_w_id;
-      ol_ins_batch_row[ol_number].ol_delivery_d = 0;  // get_timestamp();
-
-      // uint64_t ol_key =
-      //     MAKE_OL_KEY(q->w_id, q->d_id, dist_no_read.d_next_o_id,
-      //     ol_number);
-      // void *ol_idx_ptr = table_order_line->insertRecord(
-      //     &ol_ins, xid, partition_id, master_ver);
-      // table_order_line->getPrimaryIndex()->insert(ol_key, ol_idx_ptr);
-    }
+    ol_ins_batch_col.ol_quantity[ol_number] = q->item[ol_number].ol_quantity;
+    ol_ins_batch_col.ol_amount[ol_number] =
+        q->item[ol_number].ol_quantity * i_price *
+        (1 + w_tax + dist_no_read.d_tax) * (1 - cust_no_read.c_discount);
+    ol_ins_batch_col.ol_d_id[ol_number] = q->d_id;
+    ol_ins_batch_col.ol_w_id[ol_number] = q->w_id;
+    ol_ins_batch_col.ol_number[ol_number] = ol_number;
+    ol_ins_batch_col.ol_i_id[ol_number] = q->item[ol_number].ol_i_id;
+    ol_ins_batch_col.ol_supply_w_id[ol_number] =
+        q->item[ol_number].ol_supply_w_id;
+    ol_ins_batch_col.ol_delivery_d[ol_number] = 0;  // get_timestamp();
 
     ol_key_batch[ol_number] =
         MAKE_OL_KEY(q->w_id, q->d_id, dist_no_read.d_next_o_id, ol_number);
@@ -483,10 +461,6 @@ bool TPCC::exec_neworder_txn(const struct tpcc_query *q, txn::Txn &txn) {
 
 #if batch_insert_no_ol
   void *ol_ptr = &ol_ins_batch_col;
-  if (!layout_column_store) {
-    ol_ptr = ol_ins_batch_row;
-  }
-
   auto *ol_idx_ptr_batch =
       static_cast<global_conf::IndexVal *>(table_order_line->insertRecordBatch(
           ol_ptr, q->ol_cnt, TPCC_MAX_OL_PER_ORDER, txn.txnTs.txn_start_time,
@@ -1124,10 +1098,10 @@ bool TPCC::exec_delivery_txn(const struct tpcc_query *q, txn::Txn &txn) {
   //      assert(idx_w_locks[num_locks] != NULL ||
   //             idx_w_locks[num_locks] != nullptr);
   //      if (idx_w_locks[num_locks]->write_lck.try_lock()) {
-  //#if !tpcc_dist_txns
+  // #if !tpcc_dist_txns
   //        assert(storage::StorageUtils::get_pid(idx_w_locks[num_locks]->VID)
   //        == partition_id);
-  //#endif
+  // #endif
   //        num_locks++;
   //      } else {
   //        assert(false && "Not possible");
@@ -1143,10 +1117,10 @@ bool TPCC::exec_delivery_txn(const struct tpcc_query *q, txn::Txn &txn) {
   //      assert(idx_w_locks[num_locks] != NULL ||
   //             idx_w_locks[num_locks] != nullptr);
   //      if (idx_w_locks[num_locks]->write_lck.try_lock()) {
-  //#if !tpcc_dist_txns
+  // #if !tpcc_dist_txns
   //        assert(storage::StorageUtils::get_pid(idx_w_locks[num_locks]->VID)
   //        == partition_id);
-  //#endif
+  // #endif
   //        num_locks++;
   //      } else {
   //        assert(false && "Not possible");
@@ -1165,10 +1139,10 @@ bool TPCC::exec_delivery_txn(const struct tpcc_query *q, txn::Txn &txn) {
   //               idx_w_locks[num_locks] != nullptr);
   //        bool e_false_s = false;
   //        if (idx_w_locks[num_locks]->write_lck.try_lock()) {
-  //#if !tpcc_dist_txns
+  // #if !tpcc_dist_txns
   //          assert(storage::StorageUtils::get_pid(idx_w_locks[num_locks]->VID)
   //          == partition_id);
-  //#endif
+  // #endif
   //          num_locks++;
   //        } else {
   //          txn::CC_MV2PL::release_locks(idx_w_locks, num_locks);

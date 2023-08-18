@@ -61,15 +61,15 @@ constexpr size_t runtime_sec = 10;
 TEST(TPCC, tpcc_vanilla_all_partition) {
   EXPECT_NO_THROW({
     auto oltp_num_workers = topology::getInstance().getCoreCount();
-    auto npartitions = topology::getInstance().getCpuNumaNodes().size();
-    LOG(INFO) << "N_Partitions: " << npartitions;
+    auto n_partitions = topology::getInstance().getCpuNumaNodes().size();
+    LOG(INFO) << "N_Partitions: " << n_partitions;
 
-    g_num_partitions = npartitions;
+    g_num_partitions = n_partitions;
     OLTP oltp_engine{};
     bench::Benchmark* bench =
-        new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers, true);
+        new bench::TPCC("TPCC", oltp_num_workers, oltp_num_workers);
 
-    oltp_engine.init(bench, oltp_num_workers, npartitions);
+    oltp_engine.init(bench, oltp_num_workers, n_partitions);
     LOG(INFO) << "[OLTP] Initialization completed.";
 
     oltp_engine.print_storage_stats();

@@ -36,6 +36,7 @@
 #include <platform/common/common.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/topology/topology.hpp>
+#include <platform/util/erase-constructor-idioms.hpp>
 #include <thread>
 #include <utility>
 
@@ -67,7 +68,7 @@ namespace bench {
 
 */
 
-class YCSB : public Benchmark {
+class YCSB : public Benchmark, proteus::utils::remove_copy_move {
  public:
   YCSB(YCSB &&) = delete;
   YCSB &operator=(YCSB &&) = delete;
@@ -412,9 +413,8 @@ class YCSB : public Benchmark {
        double theta = 0.5, int num_iterations_per_worker = 1000000,
        int num_ops_per_txn = 2, double write_threshold = 0.5,
        int num_active_workers = -1, int num_max_workers = -1,
-       ushort num_partitions = 1, bool layout_column_store = true,
-       uint num_of_col_upd = 1, uint num_of_col_read = 1,
-       uint num_col_read_offset = 0)
+       ushort num_partitions = 1, uint num_of_col_upd = 1,
+       uint num_of_col_read = 1, uint num_col_read_offset = 0)
       : Benchmark(std::move(name), num_active_workers, num_max_workers,
                   num_partitions),
         num_fields(num_fields),
@@ -482,10 +482,9 @@ class YCSB : public Benchmark {
 
     LOG(INFO) << "YCSB: num_record_capacity: " << num_record_capacity;
 
-    ycsb_tbl = schema->create_table(
-        "ycsb_tbl",
-        (layout_column_store ? storage::COLUMN_STORE : storage::ROW_STORE),
-        columns, num_record_capacity, true, true, -1, max_partition_size);
+    ycsb_tbl = schema->create_table("ycsb_tbl", storage::COLUMN_STORE, columns,
+                                    num_record_capacity, true, true, -1,
+                                    max_partition_size);
   }
 
  private:
