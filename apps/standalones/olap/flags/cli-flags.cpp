@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,9 +23,9 @@
 #include <gflags/gflags.h>
 
 #include <cli-flags.hpp>
+#include <codegen/jit/jit-module.hpp>
 #include <iostream>
 #include <olap/common/olap-common.hpp>
-#include <olap/util/context.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/topology/topology.hpp>
 #include <platform/util/glog.hpp>
@@ -44,7 +44,7 @@ DEFINE_double(gpu_buffers, 0.2,
               "Percentage (0.0-1.0) of GPU memory to dedicate for buffer "
               "management (per GPU)");
 DEFINE_validator(gpu_buffers, &validatePercentage);
-DEFINE_double(cpu_buffers, 0.1,
+DEFINE_double(cpu_buffers, 0.2,
               "Percentage (0.0-1.0) of CPU memory to dedicate for buffer "
               "management (per CPU)");
 DEFINE_validator(cpu_buffers, &validatePercentage);
@@ -62,9 +62,25 @@ DEFINE_string(url, "localhost",
               "Used in conjuction with --secondary to specify the address of "
               "the primary");
 DEFINE_int32(repeat, 1, "# repetitions of default query");
-DEFINE_bool(print_generated_code, false,
+DEFINE_bool(print_generated_code, true,
             "Print generated code into files (use only for debugging as it "
             "will slow down excecution significnatly)");
+DEFINE_bool(insert_preopt_debug_info, true,
+            "Insert LLVM-IR debug info into the generated code based on the "
+            "unoptimized generated LLVM-IR. Only applicable if "
+            "print_generated_code is true. If insert_postopt_debug_info is "
+            "also set, it will override this option.");
+DEFINE_bool(
+    insert_postopt_debug_info, false,
+    "Insert LLVM-IR debug info into the generated code based on the optimized "
+    "generated LLVM-IR. Only applicable if print_generated_code is true. "
+    "Overrides insert_postopt_debug_info.");
+DEFINE_bool(dump_compiled_object_files, false,
+            "Dump compiled object files to disk. These can be inspected with "
+            "objdump. Example: `objdump -I ./generated_code/ --source "
+            "./generated_code/{filename}` where if you have debug info and "
+            "print_generated_code on, -I is the path to the directory with the "
+            "LLVM-IR so objdump can show assembly and source.");
 
 static bool validatePort(const char *flag, int32_t value) {
   if (value > 0 && value < 0x8000) return true;  // max port value: 32768
@@ -88,6 +104,9 @@ proteus::olap olap() {
 
   set_trace_allocations(FLAGS_trace_allocations);
   print_generated_code = FLAGS_print_generated_code;
+  insert_preopt_debug_info = FLAGS_insert_preopt_debug_info;
+  insert_postopt_debug_info = FLAGS_insert_postopt_debug_info;
+  dump_compiled_object_files = FLAGS_dump_compiled_object_files;
 
   return proteus::olap{static_cast<float>(FLAGS_gpu_buffers),
                        static_cast<float>(FLAGS_cpu_buffers),

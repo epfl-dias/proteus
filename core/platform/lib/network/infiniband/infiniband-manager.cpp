@@ -23,7 +23,6 @@
 
 #include <arpa/inet.h>
 #include <err.h>
-#include <glog/logging.h>
 #include <malloc.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -42,6 +41,7 @@
 #include <platform/network/infiniband/devices/ib.hpp>
 #include <platform/network/infiniband/infiniband-handler.hpp>
 #include <platform/network/infiniband/infiniband-manager.hpp>
+#include <platform/util/glog.hpp>
 #include <thread>
 
 subscription::value_type subscription::wait() {

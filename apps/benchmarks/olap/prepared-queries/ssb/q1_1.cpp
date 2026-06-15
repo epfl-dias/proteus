@@ -25,6 +25,9 @@
 
 constexpr auto query = "ssb100_Q1_1";
 
+//PreparedStatement ssb::Query::prepare11(proteus::QueryShaper &morph, std::string scale_factor = "100") {
+//  //morph.setQueryName(query);
+//  morph.setQueryName(query_sf + scale_factor);
 PreparedStatement ssb::Query::prepare11(proteus::QueryShaper &morph) {
   morph.setQueryName(query);
 

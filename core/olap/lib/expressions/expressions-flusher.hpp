@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,6 +24,7 @@
 #ifndef EXPRESSIONS_FLUSHER_VISITOR_HPP_
 #define EXPRESSIONS_FLUSHER_VISITOR_HPP_
 
+#include <codegen/expressions/expressions.hpp>
 #include <platform/common/common.hpp>
 
 #include "expressions-generator.hpp"
@@ -99,6 +100,7 @@ class ExpressionFlusherVisitor : public ExprVisitor {
   ProteusValue visit(const expressions::MinExpression *e) override;
   ProteusValue visit(const expressions::MaxExpression *e) override;
   ProteusValue visit(const expressions::RandExpression *e) override;
+  ProteusValue visit(const expressions::ExternExpression *e) override;
   ProteusValue visit(const expressions::HintExpression *e) override;
   ProteusValue visit(const expressions::HashExpression *e) override;
   ProteusValue visit(const expressions::RefExpression *e) override;
@@ -137,7 +139,7 @@ class ExpressionFlusherVisitor : public ExprVisitor {
       // TODO: remove. deprecated exectuion path
       outputFileLLVM = context->CreateGlobalString(this->outputFile);
       llvm::Function *flushFunc = context->getFunction("flushChar");
-      vector<llvm::Value *> ArgsV;
+      std::vector<llvm::Value *> ArgsV;
       // Start 'array'
       ArgsV.push_back(context->createInt8('['));
       ArgsV.push_back(outputFileLLVM);
@@ -153,7 +155,7 @@ class ExpressionFlusherVisitor : public ExprVisitor {
       // TODO: remove. deprecated exectuion path
       outputFileLLVM = context->CreateGlobalString(this->outputFile);
       llvm::Function *flushFunc = context->getFunction("flushChar");
-      vector<llvm::Value *> ArgsV;
+      std::vector<llvm::Value *> ArgsV;
       // Start 'array'
       ArgsV.push_back(context->createInt8(']'));
       ArgsV.push_back(outputFileLLVM);
@@ -172,7 +174,7 @@ class ExpressionFlusherVisitor : public ExprVisitor {
       // TODO: remove. deprecated exectuion path
       outputFileLLVM = context->CreateGlobalString(this->outputFile);
       llvm::Function *flushFunc = context->getFunction("flushDelim");
-      vector<llvm::Value *> ArgsV;
+      std::vector<llvm::Value *> ArgsV;
       ArgsV.push_back(resultCtr);
       // XXX JSON-specific -> Serializer business to differentiate
       ArgsV.push_back(context->createInt8(','));
@@ -187,7 +189,7 @@ class ExpressionFlusherVisitor : public ExprVisitor {
     if (!pg) {
       // TODO: remove. deprecated exectuion path
       llvm::Function *flushFunc = context->getFunction("flushChar");
-      vector<llvm::Value *> ArgsV;
+      std::vector<llvm::Value *> ArgsV;
       // XXX JSON-specific -> Serializer business to differentiate
       ArgsV.push_back(context->createInt8(','));
       ArgsV.push_back(outputFileLLVM);

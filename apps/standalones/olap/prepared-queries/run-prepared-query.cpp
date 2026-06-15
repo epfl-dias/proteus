@@ -20,9 +20,8 @@
     DISCLAIM ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
-#include <glog/logging.h>
-
 #include <cli-flags.hpp>
+#include <platform/util/glog.hpp>
 #include <platform/util/timing.hpp>
 #include <ssb/query.hpp>
 #include <ssb100_bloom/query.hpp>

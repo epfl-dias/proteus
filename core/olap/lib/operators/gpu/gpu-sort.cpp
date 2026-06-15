@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,17 +23,18 @@
 
 #include "gpu-sort.hpp"
 
+#include <codegen/util/gpu/gpu-intrinsics.hpp>
 #include <platform/memory/block-manager.hpp>
 
 #include "lib/expressions/expressions-flusher.hpp"
 #include "lib/expressions/expressions-generator.hpp"
-#include "lib/util/gpu/gpu-intrinsics.hpp"
 
 using namespace llvm;
 
 expressions::RecordConstruction buildSortOutputExpression(
-    ParallelContext *const context, const vector<expression_t> &orderByFields,
-    const vector<direction> &dirs) {
+    OlapParallelContext *const context,
+    const std::vector<expression_t> &orderByFields,
+    const std::vector<direction> &dirs) {
   size_t i = 0;
 
   list<expressions::AttributeConstruction> attrs;
@@ -50,8 +51,8 @@ expressions::RecordConstruction buildSortOutputExpression(
   return {attrs};
 }
 
-std::string computeSuffix(ParallelContext *const context,
-                          const vector<expression_t> &orderByFields) {
+std::string computeSuffix(OlapParallelContext *const context,
+                          const std::vector<expression_t> &orderByFields) {
   std::string suffix = "";
   for (auto expr : orderByFields) {
     size_t size = context->getSizeOf(
@@ -70,9 +71,9 @@ std::string computeSuffix(ParallelContext *const context,
   return suffix;
 }
 
-GpuSort::GpuSort(Operator *const child, ParallelContext *const context,
-                 const vector<expression_t> &orderByFields,
-                 const vector<direction> &dirs, gran_t granularity)
+GpuSort::GpuSort(Operator *const child, OlapParallelContext *const context,
+                 const std::vector<expression_t> &orderByFields,
+                 const std::vector<direction> &dirs, gran_t granularity)
     : UnaryOperator(child),
       context(context),
       orderByFields(orderByFields),
@@ -84,7 +85,7 @@ GpuSort::GpuSort(Operator *const child, ParallelContext *const context,
   assert(granularity == gran_t::GRID || granularity == gran_t::THREAD);
 }
 
-void GpuSort::produce_(ParallelContext *context) {
+void GpuSort::produce_(OlapParallelContext *context) {
   auto &llvmContext = context->getLLVMContext();
 
   auto pg = Catalog::getInstance().getPlugin(relName);
@@ -170,7 +171,7 @@ void GpuSort::produce_(ParallelContext *context) {
         context->CodegenMemcpy(size_mem, s, context->getSizeOf(size_type));
         auto size = Builder->CreateLoad(
             size_mem->getType()->getPointerElementType(), size_mem);
-        vector<llvm::Value *> args{context->getStateVar(memVar_id), size};
+        std::vector<llvm::Value *> args{context->getStateVar(memVar_id), size};
 
         this->call_sort(args[0], args[1]);
 
@@ -191,12 +192,13 @@ void GpuSort::produce_(ParallelContext *context) {
 }
 
 void GpuSort::consume(Context *const context, const OperatorState &childState) {
-  ParallelContext *const ctx = dynamic_cast<ParallelContext *const>(context);
+  OlapParallelContext *const ctx =
+      dynamic_cast<OlapParallelContext *const>(context);
   assert(ctx);
   consume(ctx, childState);
 }
 
-void GpuSort::consume(ParallelContext *const context,
+void GpuSort::consume(OlapParallelContext *const context,
                       const OperatorState &childState) {
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
@@ -236,7 +238,7 @@ void GpuSort::consume(ParallelContext *const context,
 
   map<RecordAttribute, ProteusValueMemory> variableBindings;
 
-  // vector<Type *> members;
+  // std::vector<Type *> members;
   // for (size_t i = 0 ; i < orderByFields.size() ; ++i){
   //     RecordAttribute tblock{orderByFields[i]->getRegisteredAs(), true};
   //     members.push_back(tblock.getLLVMType(llvmContext));
@@ -274,9 +276,9 @@ void GpuSort::consume(ParallelContext *const context,
   // mem_cntWrapper.isNull   = context->createFalse();
   // variableBindings[tupCnt] = mem_cntWrapper;
 
-  // ((ParallelContext *) context)->registerOpen (this, [this](Pipeline *
+  // ((OlapParallelContext *) context)->registerOpen (this, [this](Pipeline *
   // pip){this->open (pip);});
-  // ((ParallelContext *) context)->registerClose(this, [this](Pipeline *
+  // ((OlapParallelContext *) context)->registerClose(this, [this](Pipeline *
   // pip){this->close(pip);});
 }
 
@@ -296,7 +298,7 @@ void GpuSort::flush_sorted() {
   // //Get the ENTRY BLOCK
   // context->setCurrentEntryBlock(Builder->GetInsertBlock());
 
-  vector<size_t> params;
+  std::vector<size_t> params;
   params.emplace_back(
       context->appendParameter(PointerType::getUnqual(mem_type), true, true));
   params.emplace_back(context->appendParameter(oid_type, false, false));

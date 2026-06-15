@@ -40,7 +40,10 @@ StorageManager &StorageManager::getInstance() {
   return sm;
 }
 
-StorageManager::~StorageManager() { assert(files.empty()); }
+StorageManager::~StorageManager() {
+  CHECK(files.empty())
+      << "Storage Manager destructing, but not all files have been unloaded";
+}
 
 FileRecord::FileRecord(std::vector<std::unique_ptr<mmap_file>> data)
     : data(std::move(data)) {
@@ -276,10 +279,7 @@ void StorageManager::unloadFile(std::string name) {
 }
 
 std::future<std::vector<mem_file>> StorageManager::getFile(std::string name) {
-  if (files.count(name) == 0) {
-    LOG(ERROR) << "File " << name << " not loaded";
-  }
-  assert(files.count(name) > 0 && "File not loaded!");
+  CHECK_GE(files.count(name), 0) << "File not previously loaded: " << name;
   return ThreadPool::getInstance().enqueue(
       [](auto ffut) {
         const auto &f = ffut.get().data;
@@ -320,7 +320,7 @@ void *StorageManager::getDictionaryOf(std::string name) {
     std::string line;
     while (std::getline(dictfile, line)) {
       size_t index = line.find_last_of(':');
-      assert(index != std::string::npos && "Invalid file");
+      CHECK_NE(index, std::string::npos) << "Invalid dictionary file";
 
       int encoding = std::stoi(line.substr(index + 1, line.size() - 1));
       d->emplace(encoding, line.substr(0, index));
@@ -336,7 +336,8 @@ StorageManager::StorageManager()
     : loadRegistry(std::make_unique<proteus::StorageLoadPolicyRegistry>(
           [](StorageManager &stManager, const std::string &fileName,
              size_t typeSize) {
-            return FileRecord::load(fileName, typeSize, ALLSOCKETS);
+            return FileRecord::load(fileName, typeSize, ALLGPUS);
+            //Should be --> ALLGPUS
           })) {}
 
 void StorageManager::setDefaultLoader(Loader ld, bool force) {

@@ -31,6 +31,7 @@ class DegreeOfParallelism {
   size_t dop;
 
   friend class Router;
+  friend class UnionAll;
 
  public:
   explicit DegreeOfParallelism(size_t dop) : dop(dop) {}

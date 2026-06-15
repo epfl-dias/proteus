@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2020
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -30,9 +30,9 @@ class BloomFilterProbe : public BloomFilter {
  public:
   using BloomFilter::BloomFilter;
 
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
 
-  void consume(ParallelContext *context,
+  void consume(OlapParallelContext *context,
                const OperatorState &childState) override;
 
   [[nodiscard]] bool isFiltering() const override { return true; }

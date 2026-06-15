@@ -214,7 +214,7 @@ TEST(CSV, String) {
 
   RecordType rec = RecordType(atts);
   ListType documentType = ListType(rec);
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(&field1);
   whichFields.push_back(&field2);
 

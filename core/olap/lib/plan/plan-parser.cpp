@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -60,6 +60,8 @@
 #include "rapidjson/error/en.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
+
+using std::vector;
 
 std::string hyphenatedPluginToCamel(const std::string &line) {
   size_t len = line.size();
@@ -138,13 +140,13 @@ RelBuilder PlanExecutor::parsePlan(const rapidjson::Document &doc) {
 
 void PlanExecutor::cleanUp() {
   Catalog &catalog = Catalog::getInstance();
-  /* XXX Remove when testing caches (?) */
-  catalog.clear();
-
   /* Cleanup */
   for (const auto &currPg : activePlugins) {
     currPg->finish();
   }
+
+  /* XXX Remove when testing caches (?) */
+  catalog.clear();
 }
 
 class ParserAdapterAffinitizationFactory : public ParserAffinitizationFactory {
@@ -787,7 +789,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
         new ZipCollect(attr_ptr, attr_splitter, attr_target,
                        new RecordAttribute(*build_attr[0], true),
                        new RecordAttribute(*probe_attr[0], true), xch_build2,
-                       xch_probe2, (ParallelContext *)ctx, numOfBuckets,
+                       xch_probe2, (OlapParallelContext *)ctx, numOfBuckets,
                        build_hash_attr, build_hashed_expr_block,
                        probe_hash_attr, probe_hashed_expr_block, "coordinator");
     xch_build2->setParent(coord);
@@ -798,14 +800,14 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
                                 RoutingPolicy::HASH_BASED, DeviceType::GPU);
     coord->setParent(xch_proc);
     auto *initiator = new ZipInitiate(attr_ptr, attr_splitter, attr_target,
-                                      xch_proc, (ParallelContext *)ctx,
+                                      xch_proc, (OlapParallelContext *)ctx,
                                       numOfBuckets, coord->getStateLeft(),
                                       coord->getStateRight(), "launcher");
     xch_proc->setParent(initiator);
     PipelineGen **pip_rcv = initiator->pipeSocket();
 
     auto *fwd_build =
-        new ZipForward(attr_target, initiator, (ParallelContext *)ctx,
+        new ZipForward(attr_target, initiator, (OlapParallelContext *)ctx,
                        build_hashed_expr, "forwarder", coord->getStateLeft());
 
     Operator *mmd_build =
@@ -818,11 +820,11 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     ctg_build->setParent(btt_build2);
     auto *hpart1 = new HashPartitioner(
         build_join_expr, build_widths, build_prejoin_expr[0], btt_build2,
-        (ParallelContext *)ctx, maxBuildInputSize, 13, "partition_hash_1");
+        (OlapParallelContext *)ctx, maxBuildInputSize, 13, "partition_hash_1");
     btt_build2->setParent(hpart1);
 
     auto *fwd_probe =
-        new ZipForward(attr_target, initiator, (ParallelContext *)ctx,
+        new ZipForward(attr_target, initiator, (OlapParallelContext *)ctx,
                        probe_hashed_expr, "forwarder", coord->getStateRight());
 
     Operator *mmd_probe =
@@ -835,14 +837,14 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
     ctg_probe->setParent(btt_probe2);
     auto *hpart2 = new HashPartitioner(
         probe_join_expr, probe_widths, probe_prejoin_expr[0], btt_probe2,
-        (ParallelContext *)ctx, maxProbeInputSize, 13, "partition_hash_2");
+        (OlapParallelContext *)ctx, maxProbeInputSize, 13, "partition_hash_2");
     btt_probe2->setParent(hpart2);
 
     newOp = new GpuPartitionedHashJoinChained(
         build_join_expr, build_widths, build_join_expr[0].expr, std::nullopt,
         hpart1, probe_join_expr, probe_widths, probe_join_expr[0].expr,
         std::nullopt, hpart2, hpart1->getState(), hpart2->getState(),
-        maxBuildInputSize, maxProbeInputSize, 13, (ParallelContext *)ctx,
+        maxBuildInputSize, maxProbeInputSize, 13, (OlapParallelContext *)ctx,
         "hj_part", pip_rcv, nullptr);
     hpart1->setParent(newOp);
     hpart2->setParent(newOp);
@@ -943,18 +945,18 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
 
     size_t maxProbeInputSize = val["maxProbeInputSize"].GetUint64();
 
-    assert(dynamic_cast<ParallelContext *>(this->ctx));
+    assert(dynamic_cast<OlapParallelContext *>(this->ctx));
 
     int log_parts = 13;
 
     auto *part_left =
         new HashPartitioner(build_e, build_widths, build_key_expr, build_op,
-                            dynamic_cast<ParallelContext *>(this->ctx),
+                            dynamic_cast<OlapParallelContext *>(this->ctx),
                             maxBuildInputSize, log_parts, "part1");
 
     auto *part_right =
         new HashPartitioner(probe_e, probe_widths, probe_key_expr, probe_op,
-                            dynamic_cast<ParallelContext *>(this->ctx),
+                            dynamic_cast<OlapParallelContext *>(this->ctx),
                             maxProbeInputSize, log_parts, "part1");
 
     newOp = new GpuPartitionedHashJoinChained(
@@ -962,7 +964,8 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
         probe_e, probe_widths, probe_key_expr, probe_minorkey_expr, part_right,
         part_left->getState(), part_right->getState(), maxBuildInputSize,
         maxProbeInputSize, log_parts,
-        dynamic_cast<ParallelContext *>(this->ctx), "phjc", nullptr, nullptr);
+        dynamic_cast<OlapParallelContext *>(this->ctx), "phjc", nullptr,
+        nullptr);
 
     build_op->setParent(part_left);
     probe_op->setParent(part_right);
@@ -1074,7 +1077,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
         mapOidsLeft[relName] = oid;
         auto oidL = projL->getExpr()[*oid];
         // Added in 'wanted expressions'
-        cout << "Injecting left OID for " << relName << endl;
+        cout << "Injecting left OID for " << relName << std::endl;
         exprsLeft.insert(exprsLeft.begin(), oidL);
         outputModesLeft.insert(outputModesLeft.begin(), EAGER);
       }
@@ -1122,7 +1125,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
         expressions::RecordProjection oidR = projR->getExpr()[*oid];
         // Added in 'wanted expressions'
         exprsRight.insert(exprsRight.begin(), oidR);
-        cout << "Injecting right OID for " << relName << endl;
+        cout << "Injecting right OID for " << relName << std::endl;
         outputModesRight.insert(outputModesRight.begin(), EAGER);
       }
     }
@@ -1539,7 +1542,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
       slack = val["slack"].GetInt();
     }
 
-    assert(dynamic_cast<ParallelContext *>(this->ctx));
+    assert(dynamic_cast<OlapParallelContext *>(this->ctx));
     newOp = new MemMoveLocalTo(childOp, projections, slack);
     childOp->setParent(newOp);
 
@@ -1656,7 +1659,7 @@ RelBuilder PlanExecutor::parseOperator(const rapidjson::Value &val) {
               : ((hash.has_value()) ? RoutingPolicy::HASH_BASED
                                     : RoutingPolicy::RANDOM);
 
-      assert(dynamic_cast<ParallelContext *>(this->ctx));
+      assert(dynamic_cast<OlapParallelContext *>(this->ctx));
       newOp = new Split(childOp, numOfParents, projections, slack, hash,
                         policy_type);
       splitOps[split_id] = newOp;
@@ -1792,7 +1795,7 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
       string err =
           string("WARNING - NO DELIMITER SPECIFIED. FALLING BACK TO DEFAULT");
       LOG(WARNING) << err;
-      cout << err << endl;
+      cout << err << std::endl;
     }
 
     bool stringBrackets = true;
@@ -1853,14 +1856,15 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
       projections.push_back(parseRecordAttr(attr, {recType}));
     }
 
-    assert(dynamic_cast<ParallelContext *>(this->ctx));
+    assert(dynamic_cast<OlapParallelContext *>(this->ctx));
 
-    newPg = new BinaryBlockPlugin(dynamic_cast<ParallelContext *>(this->ctx),
-                                  *pathDynamicCopy, *recType, projections);
+    newPg =
+        new BinaryBlockPlugin(dynamic_cast<OlapParallelContext *>(this->ctx),
+                              *pathDynamicCopy, *recType, projections);
   } else {
-    assert(dynamic_cast<ParallelContext *>(this->ctx));
+    assert(dynamic_cast<OlapParallelContext *>(this->ctx));
 
-    typedef Plugin *(*plugin_creator_t)(ParallelContext *, std::string,
+    typedef Plugin *(*plugin_creator_t)(OlapParallelContext *, std::string,
                                         RecordType,
                                         std::vector<RecordAttribute *> &);
 
@@ -1890,9 +1894,9 @@ Plugin *PlanExecutor::parsePlugin(const rapidjson::Value &val) {
         projections.push_back(parseRecordAttr(attr, {recType}));
       }
 
-      newPg =
-          create(dynamic_cast<ParallelContext *>(this->ctx), *pathDynamicCopy,
-                 *recType, projections /*, const rapidjson::Value &val */);
+      newPg = create(dynamic_cast<OlapParallelContext *>(this->ctx),
+                     *pathDynamicCopy, *recType,
+                     projections /*, const rapidjson::Value &val */);
       // FIXME: a better interface would be to also pass the current json value,
       //  so that plugins can read their own attributes.
     }
@@ -1952,14 +1956,44 @@ void CatalogParser::clear() {
   auto it = inputs.begin();
   while (it != inputs.end()) {
     if (it->first.substr(0, 5) != "tpcc_") {
-      LOG(WARNING) << "FIXME: CLEANING TABLE " << it->first;
-      inputs.erase(it++);
+      VLOG(1) << "Cleaning catalog entry " << it->first;
+      auto *info = it->second;
+      it = inputs.erase(it);
+      delete info;
     } else {
-      LOG(WARNING) << "FIXME: KEEPING TABLE " << it->first;
+      VLOG(1) << "Keeping catalog entry " << it->first;
       ++it;
     }
   }
   parseDir(catalogPath);
+}
+
+void CatalogParser::clearAndParse(
+    const std::vector<std::filesystem::path> &catalog_dirs) {
+  auto it = inputs.begin();
+  while (it != inputs.end()) {
+    if (it->first.substr(0, 5) != "tpcc_") {
+      VLOG(1) << "Cleaning catalog entry " << it->first;
+      auto *info = it->second;
+      it = inputs.erase(it);
+      delete info;
+    } else {
+      VLOG(1) << "Keeping catalog entry " << it->first;
+      ++it;
+    }
+  }
+
+  for (const auto &dir : catalog_dirs) {
+    if (!std::filesystem::exists(dir)) {
+      VLOG(1) << "Skipping missing catalog dir: " << dir;
+      continue;
+    }
+    if (!std::filesystem::is_directory(dir)) {
+      VLOG(1) << "Skipping non-directory catalog path: " << dir;
+      continue;
+    }
+    parseDir(dir);
+  }
 }
 
 bool CatalogParser::parseDir(const std::filesystem::path &dir) {
@@ -1985,7 +2019,7 @@ bool CatalogParser::parseDir(const std::filesystem::path &dir) {
  * {"datasetname": {"path": "foo", "type": { ... } }
  */
 CatalogParser::CatalogParser(std::filesystem::path catalogPath,
-                             ParallelContext *context)
+                             OlapParallelContext *context)
     : catalogPath(std::move(catalogPath)), context(context) {
   parseDir(this->catalogPath);
 }
@@ -2000,7 +2034,7 @@ InputInfo *CatalogParser::getOrCreateInputInfo(string inputName) {
 }
 
 InputInfo *CatalogParser::getOrCreateInputInfo(string inputName,
-                                               ParallelContext *context) {
+                                               OlapParallelContext *context) {
   InputInfo *ret = getInputInfoIfKnown(inputName);
 
   if (!ret) {

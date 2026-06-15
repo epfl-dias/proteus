@@ -34,16 +34,14 @@ class thread {
   std::thread t;
 
  public:
-  thread(exec_location e = {}) noexcept;
-
-  thread(thread&& other) : t(std::move(other.t)) {}
+  thread(thread&& other) noexcept : t(std::move(other.t)) {}
 
   template <class Function, class... Args>
   explicit thread(Function&& f, Args&&... args)
       : t(
-            [](exec_location e, Function&& f, Args&&... args) {
+            [](exec_location e, Function&& f_, Args&&... args_) {
               set_exec_location_on_scope aff{e};
-              f(args...);
+              f_(args_...);
             },
             exec_location{}, f, args...) {}
 
@@ -57,8 +55,8 @@ class thread {
     return std::thread::hardware_concurrency();
   }
   auto native_handle() { return t.native_handle(); }
-  auto joinable() const noexcept { return t.joinable(); }
-  auto get_id() const noexcept { return t.get_id(); }
+  [[nodiscard]] auto joinable() const noexcept { return t.joinable(); }
+  [[nodiscard]] auto get_id() const noexcept { return t.get_id(); }
 };
 
 }  // namespace proteus

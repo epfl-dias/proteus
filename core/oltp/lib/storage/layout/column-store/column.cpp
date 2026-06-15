@@ -180,11 +180,10 @@ void* Column::getElem(rowid_t vid) {
     }
 
     data_idx -= chunk.size;
-    assert(false && "currently unexpandable");
+    LOG(FATAL) << "currently unexpandable";
   }
 
-  assert(false && "Out-of-Bound-Access");
-  return nullptr;
+  LOG(FATAL) << "Out-of-Bound-Access";
 }
 
 void Column::getElem(rowid_t vid, void* copy_location) {
@@ -199,7 +198,7 @@ void Column::getElem(rowid_t vid, void* copy_location) {
     }
     data_idx -= chunk.size;
   }
-  assert(false && "Out-of-Bound-Access");
+  LOG(FATAL) << "Out-of-Bound-Access";
 }
 
 void Column::updateElem(rowid_t vid, void* elem) {

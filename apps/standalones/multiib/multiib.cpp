@@ -23,6 +23,7 @@
 
 #include <chrono>
 #include <cli-flags.hpp>
+#include <fstream>
 #include <olap/operators/relbuilder-factory.hpp>
 #include <olap/operators/relbuilder.hpp>
 #include <olap/plan/catalog-parser.hpp>

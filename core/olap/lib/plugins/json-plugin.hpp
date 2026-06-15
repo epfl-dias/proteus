@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -28,15 +28,19 @@
 #include "lib/util/caching.hpp"
 #include "lib/util/catalog.hpp"
 #include "olap/plugins/plugins.hpp"
+#include "olap/util/parallel-context.hpp"
 
-//#define DEBUGJSON
+// #define DEBUGJSON
 
-//#JSON
+// #JSON
 #define JSMN_STRICT
 //
-//#define JSON_TIGHT
+// #define JSON_TIGHT
 #include "jsmn.h"
-//#define DEBUGJSMN
+// #define DEBUGJSMN
+
+// forward declaration
+struct stat;
 
 namespace jsonPipelined {
 
@@ -99,22 +103,23 @@ class JSONPlugin : public Plugin {
              size_t linehint, jsmntok_t **tokens);
   ~JSONPlugin() override;
   void init() override;
-  void generate(const Operator &producer, ParallelContext *context) override;
+  void generate(const Operator &producer,
+                OlapParallelContext *context) override;
   void finish() override;
   string &getName() override { return fname; }
 
   // 1-1 correspondence with 'RecordProjection' expression
   ProteusValueMemory readPath(string activeRelation, Bindings wrappedBindings,
                               const char *pathVar, RecordAttribute attr,
-                              ParallelContext *context) override;
+                              OlapParallelContext *context) override;
   virtual ProteusValueMemory readPredefinedPath(string activeRelation,
                                                 Bindings wrappedBindings,
                                                 RecordAttribute attr);
   ProteusValueMemory readValue(ProteusValueMemory mem_value,
                                const ExpressionType *type,
-                               ParallelContext *context) override;
+                               OlapParallelContext *context) override;
   ProteusValue readCachedValue(CacheInfo info, const OperatorState &currState,
-                               ParallelContext *context) override;
+                               OlapParallelContext *context) override;
   virtual ProteusValue readCachedValue(
       CacheInfo info, const map<RecordAttribute, ProteusValueMemory> &bindings);
 
@@ -147,7 +152,7 @@ class JSONPlugin : public Plugin {
 
   llvm::Value *getValueSize(ProteusValueMemory mem_value,
                             const ExpressionType *type,
-                            ParallelContext *context) override;
+                            OlapParallelContext *context) override;
 
   // Used by unnest
   ProteusValueMemory initCollectionUnnest(
@@ -192,7 +197,7 @@ class JSONPlugin : public Plugin {
 
   void flushBeginList(llvm::Value *fileName) override {
     auto flushFunc = context->getFunction("flushChar");
-    vector<llvm::Value *> ArgsV{context->createInt8('['), fileName};
+    std::vector<llvm::Value *> ArgsV{context->createInt8('['), fileName};
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
@@ -210,7 +215,7 @@ class JSONPlugin : public Plugin {
 
   void flushEndList(llvm::Value *fileName) override {
     auto flushFunc = context->getFunction("flushChar");
-    vector<llvm::Value *> ArgsV{context->createInt8(']'), fileName};
+    std::vector<llvm::Value *> ArgsV{context->createInt8(']'), fileName};
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
@@ -228,7 +233,7 @@ class JSONPlugin : public Plugin {
 
   void flushDelim(llvm::Value *fileName, int depth) override {
     auto flushFunc = context->getFunction("flushChar");
-    vector<llvm::Value *> ArgsV{context->createInt8(','), fileName};
+    std::vector<llvm::Value *> ArgsV{context->createInt8(','), fileName};
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
@@ -236,7 +241,8 @@ class JSONPlugin : public Plugin {
                   int depth) override {
     auto flushFunc = context->getFunction("flushDelim");
     // XXX JSON-specific -> Serializer business to differentiate
-    vector<llvm::Value *> ArgsV{resultCtr, context->createInt8(','), fileName};
+    std::vector<llvm::Value *> ArgsV{resultCtr, context->createInt8(','),
+                                     fileName};
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
   }
 
@@ -247,7 +253,7 @@ class JSONPlugin : public Plugin {
 
   void flushOutput(llvm::Value *fileName) override {
     llvm::Function *flushFunc = context->getFunction("flushOutput");
-    vector<llvm::Value *> ArgsV;
+    std::vector<llvm::Value *> ArgsV;
     // Start 'array'
     ArgsV.push_back(fileName);
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
@@ -280,7 +286,7 @@ class JSONPlugin : public Plugin {
   // Code-generation-related
   // Used to store memory positions of offset, buf and filesize in the generated
   // code
-  map<string, llvm::AllocaInst *> NamedValuesJSON;
+  map<string, llvm::Value *> NamedValuesJSON;
   Context *const context;
 
   // Assumption (1) applies here
@@ -290,7 +296,7 @@ class JSONPlugin : public Plugin {
   llvm::StructType *getOIDLLVMType() {
     llvm::LLVMContext &llvmContext = context->getLLVMContext();
     llvm::Type *int64Type = llvm::Type::getInt64Ty(llvmContext);
-    vector<llvm::Type *> tokenIdMembers;
+    std::vector<llvm::Type *> tokenIdMembers;
     tokenIdMembers.push_back(int64Type);
     tokenIdMembers.push_back(int64Type);
     tokenIdMembers.push_back(int64Type);

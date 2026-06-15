@@ -172,10 +172,10 @@ TEST(JSON, Nest) {
   // What to materialize (payload)
   // just currently active tuple ids should be enough
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   // Not added explicitly, bc noone materialized it before
   // whichFields.push_back(&emp2);
-  vector<materialization_mode> outputModes;
+  std::vector<materialization_mode> outputModes;
   // outputModes.push_back(EAGER);
 
   Materializer *mat = new Materializer(whichFields, outputModes);
@@ -185,9 +185,9 @@ TEST(JSON, Nest) {
   string aggrField1 = string("_aggrMax");
   string aggrField2 = string("_aggrSum");
 
-  vector<Monoid> accs;
-  vector<expression_t> outputExprs;
-  vector<string> aggrLabels;
+  std::vector<Monoid> accs;
+  std::vector<expression_t> outputExprs;
+  std::vector<string> aggrLabels;
   /* Aggregate 1 */
   accs.push_back(MAX);
   outputExprs.push_back(nestToAggr);
@@ -363,10 +363,10 @@ TEST(JSON, NestTwoKeys) {
   // What to materialize (payload)
   // just currently active tuple ids should be enough
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   // Not added explicitly, bc noone materialized it before
   // whichFields.push_back(&empAge);
-  vector<materialization_mode> outputModes;
+  std::vector<materialization_mode> outputModes;
   // outputModes.push_back(EAGER);
 
   Materializer *mat = new Materializer(whichFields, outputModes);
@@ -376,9 +376,9 @@ TEST(JSON, NestTwoKeys) {
   string aggrField1 = string("_aggrMax");
   string aggrField2 = string("_aggrSum");
 
-  vector<Monoid> accs;
-  vector<expression_t> outputExprs;
-  vector<string> aggrLabels;
+  std::vector<Monoid> accs;
+  std::vector<expression_t> outputExprs;
+  std::vector<string> aggrLabels;
   /* Aggregate 1 */
   accs.push_back(MAX);
   outputExprs.push_back(nestToAggr);

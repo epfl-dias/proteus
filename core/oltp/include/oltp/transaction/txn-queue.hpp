@@ -44,12 +44,10 @@ class TxnQueue {
 
   virtual StoredProcedure pop(worker_id_t workerId,
                               partition_id_t partitionId) {
-    assert(false && "unimplemented");
+    LOG(FATAL) << "unimplemented";
   }
 
-  virtual void enqueue(StoredProcedure xact) {
-    assert(false && "unimplemented");
-  }
+  virtual void enqueue(StoredProcedure xact) { LOG(FATAL) << "unimplemented"; }
 
   virtual StoredProcedure popEmpty(worker_id_t workerId,
                                    partition_id_t partitionId) {

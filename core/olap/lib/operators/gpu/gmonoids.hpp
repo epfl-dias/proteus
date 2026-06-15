@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,10 +24,9 @@
 #ifndef GMONOIDS_HPP_
 #define GMONOIDS_HPP_
 
+#include <codegen/context/context.hpp>
+#include <olap/operators/monoids.hpp>
 #include <platform/common/unsupported-operation.hpp>
-
-#include "olap/operators/monoids.hpp"
-#include "olap/util/context.hpp"
 
 namespace gpu {
 class Monoid {

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,12 +23,13 @@
 
 #include "scan.hpp"
 
-void Scan::produce_(ParallelContext *context) {
+void Scan::produce_(OlapParallelContext *context) {
   pg.init();
   pg.generate(*this, context);
 }
 
-void Scan::consume(ParallelContext *context, const OperatorState &childState) {
+void Scan::consume(OlapParallelContext *context,
+                   const OperatorState &childState) {
   // throw runtime_error(string("Scan operator cannot consume"));     //FIXME:
   // this should in general be true, but not for the block2tuple scan
 }

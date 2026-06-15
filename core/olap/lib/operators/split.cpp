@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -27,7 +27,7 @@
 
 #include "lib/expressions/expressions-generator.hpp"
 
-void Split::produce_(ParallelContext *context) {
+void Split::produce_(OlapParallelContext *context) {
   UnaryOperator::setParent(parent[produce_calls]);
   generate_catch(context);
 

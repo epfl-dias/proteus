@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2019
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,6 +23,11 @@
 
 #include "expression-parser.hpp"
 
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+
+#include <fstream>
 #include <olap/util/parallel-context.hpp>
 
 inline bool ends_with(std::string const &value, std::string const &ending) {
@@ -38,7 +43,7 @@ int lookupInDictionary(string s, const rapidjson::Value &val) {
   // Input Path
   const char *nameJSON = val["path"].GetString();
   if (ends_with(nameJSON, ".dict")) {
-    ifstream is(nameJSON);
+    std::ifstream is(nameJSON);
     string str;
     string prefix = s + ":";
     while (getline(is, str)) {
@@ -104,7 +109,7 @@ int lookupInDictionary(string s, const rapidjson::Value &val) {
 }
 
 expressions::extract_unit ExpressionParser::parseUnitRange(
-    std::string range, ParallelContext *ctx) {
+    std::string range, OlapParallelContext *ctx) {
   if (range == "YEAR") return expressions::extract_unit::YEAR;
   if (range == "MONTH") return expressions::extract_unit::MONTH;
   if (range == "DAY") return expressions::extract_unit::DAYOFMONTH;
@@ -135,7 +140,7 @@ expressions::extract_unit ExpressionParser::parseUnitRange(
 }
 
 expression_t ExpressionParser::parseExpression(const rapidjson::Value &val,
-                                               ParallelContext *ctx) {
+                                               OlapParallelContext *ctx) {
   assert(val.IsObject());
   expression_t ret = parseExpressionWithoutRegistering(val, ctx);
   if (val.HasMember("register_as")) {
@@ -168,7 +173,7 @@ expression_t ExpressionParser::parseExpression(const rapidjson::Value &val,
  */
 
 expression_t ExpressionParser::parseExpressionWithoutRegistering(
-    const rapidjson::Value &val, ParallelContext *ctx) {
+    const rapidjson::Value &val, OlapParallelContext *ctx) {
   assert(val.IsObject());
 
   const char *keyExpression = "expression";

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,13 +23,15 @@
 
 #include "select.hpp"
 
-void Select::produce_(ParallelContext *context) {
+#include <olap/util/jit/control-flow/if-statement.hpp>
+
+void Select::produce_(OlapParallelContext *context) {
   getChild()->produce(context);
 }
 
-void Select::consume(ParallelContext *context,
+void Select::consume(OlapParallelContext *context,
                      const OperatorState &childState) {
-  context->gen_if(expr, childState)([&] {
+  gen_if(expr, childState, context)([&] {
     // Triggering parent
     OperatorState newState{*this, childState};
     getParent()->consume(context, newState);

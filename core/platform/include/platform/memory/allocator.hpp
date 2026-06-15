@@ -77,6 +77,7 @@ class PinnedMemoryAllocator {
     }
     auto sz = (requiredAlignment - 1) + (n * sizeof(T)) + sizeof(metadata_t);
     auto allocBase = MemoryManager::mallocPinned(sz);
+    DCHECK_NE(allocBase, nullptr) << "Allocation failed";
     auto spaceBase = static_cast<void *>(
         /* Note that doing a reinterpret to metadata_t * and +1 wouldn't
          * work here, as allocBase may have any alignment making the cast
@@ -86,9 +87,10 @@ class PinnedMemoryAllocator {
     auto spaceSize = sz - sizeof(metadata_t);
     auto aligned_ptr =
         std::align(requiredAlignment, n * sizeof(T), spaceBase, spaceSize);
-    assert(aligned_ptr && "Insufficient space calculation");
-    assert(aligned_as<T>(aligned_ptr));
-    assert(aligned_as<metadata_t>(aligned_ptr));
+    DCHECK_NE(aligned_ptr, nullptr)
+        << "Insufficient space to align within allocation.";
+    DCHECK(aligned_as<T>(aligned_ptr));
+    DCHECK(aligned_as<metadata_t>(aligned_ptr));
 
     *(static_cast<metadata_t *>(aligned_ptr) - 1) =
         static_cast<metadata_t>(allocBase);
@@ -97,12 +99,14 @@ class PinnedMemoryAllocator {
   }
 
   void deallocate(T *mem, size_t) noexcept {
-    assert(reinterpret_cast<uintptr_t>(mem) % requiredAlignment == 0);
+    DCHECK_NE(mem, nullptr) << "Deallocating a nullptr!";
+    DCHECK_EQ(reinterpret_cast<uintptr_t>(mem) % requiredAlignment, 0)
+        << "Deallocating a pointer of different alignment;";
     auto allocBase = *(reinterpret_cast<metadata_t *>(mem) - 1);
-    assert(allocBase < mem);  // not equal, as we have the metadata
-    assert(reinterpret_cast<const char *>(mem) -
-               reinterpret_cast<const char *>(allocBase) <
-           sizeof(metadata_t) + requiredAlignment);
+    DCHECK_LT(allocBase, mem);  // not equal, as we have the metadata
+    DCHECK_LT(reinterpret_cast<const char *>(mem) -
+                  reinterpret_cast<const char *>(allocBase),
+              sizeof(metadata_t) + requiredAlignment);
     MemoryManager::freePinned(allocBase);
   }
 

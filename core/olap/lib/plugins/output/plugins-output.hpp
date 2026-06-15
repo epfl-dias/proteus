@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -26,9 +26,10 @@
 
 #include <llvm/IR/DerivedTypes.h>
 
-#include "olap/expressions/expressions.hpp"
+#include <codegen/expressions/expressions.hpp>
+
 #include "olap/plugins/plugins.hpp"
-//#include "util/raw-catalog.hpp"
+// #include "util/raw-catalog.hpp"
 
 class Context;
 // TODO Refactor into multiple materializers
@@ -85,7 +86,7 @@ class Materializer {
        * For example, it still breaks 3way joins */
       std::vector<RecordAttribute *> *newOIDs =
           new std::vector<RecordAttribute *>();
-      set<RecordAttribute>::iterator it = tupleIdentifiers.begin();
+      std::set<RecordAttribute>::iterator it = tupleIdentifiers.begin();
       for (; it != tupleIdentifiers.end(); it++) {
         RecordAttribute *attr = new RecordAttribute(
             it->getRelationName(), it->getAttrName(), it->getOriginalType());

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,13 +23,15 @@
 
 #include "gpu-hash-group-by-chained.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <codegen/util/gpu/gpu-intrinsics.hpp>
+#include <olap/util/jit/control-flow/if-statement.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/topology/topology.hpp>
 
 #include "gmonoids.hpp"
 #include "lib/expressions/expressions-generator.hpp"
-#include "lib/util/gpu/gpu-intrinsics.hpp"
 
 using namespace llvm;
 
@@ -43,7 +45,7 @@ GpuHashGroupByChained::GpuHashGroupByChained(
       << "GroupBy's hashtable too small for GPU algo, auto-resizing";
 }
 
-void GpuHashGroupByChained::produce_(ParallelContext *context) {
+void GpuHashGroupByChained::produce_(OlapParallelContext *context) {
   context->pushPipeline();
 
   buildHashTableFormat(context);
@@ -59,7 +61,7 @@ void GpuHashGroupByChained::produce_(ParallelContext *context) {
   generate_scan(context);
 }
 
-void GpuHashGroupByChained::buildHashTableFormat(ParallelContext *context) {
+void GpuHashGroupByChained::buildHashTableFormat(OlapParallelContext *context) {
   prepareDescription(context);
   for (const auto &t : ptr_types) {
     out_param_ids.push_back(context->appendStateVar(t));  //, true, false));
@@ -74,14 +76,11 @@ void GpuHashGroupByChained::buildHashTableFormat(ParallelContext *context) {
   head_param_id = context->appendStateVar(t_head_ptr);
 }
 
-void GpuHashGroupByChained::generate_build(ParallelContext *context,
+void GpuHashGroupByChained::generate_build(OlapParallelContext *context,
                                            const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
-
-  auto activemask_all = gpu_intrinsic::activemask(context);
-
   Value *v_true = ConstantInt::getTrue(llvmContext);
   Value *v_false = ConstantInt::getFalse(llvmContext);
 
@@ -164,7 +163,7 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
       new BoolType(), ProteusValue{init_cond, context->createFalse()}};
 
   auto activemask = gpu_intrinsic::activemask(context);
-  context->gen_if(initCondExpr, childState)([&]() {
+  gen_if(initCondExpr, childState, context)([&]() {
     // index
     Value *old_cnt = context->workerScopedAtomicAdd(
         out_cnt,
@@ -214,8 +213,6 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
   auto warpsync = context->getFunction("llvm.nvvm.bar.warp.sync");
   Builder->CreateCall(warpsync, {activemask});
 
-  Value *gactivemask = activemask;
-
   // if (current != ((uint32_t) -1)){
   //     while (true) {
 
@@ -227,7 +224,10 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
   Builder->CreateCondBr(chain_cond, ThenBB, MergeBB);
 
   Builder->SetInsertPoint(MergeBB);
-  Builder->CreateCall(warpsync, {gactivemask});
+  // Do not reuse a pre-loop warp mask here. Chain-follow loops are
+  // data-dependent; using a stale mask can deadlock when lanes reconverge with
+  // a different active set.
+  Builder->CreateCall(warpsync, {gpu_intrinsic::activemask(context)});
 
   Builder->SetInsertPoint(ThenBB);
   current = Builder->CreateLoad(mem_current->getType()->getPointerElementType(),
@@ -315,14 +315,17 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
   }
 
   activemask = gpu_intrinsic::activemask(context);
-  // if (written) next[idx].next = idx;
+  // If this thread inserted a provisional entry but later matched an existing
+  // bucket, mark the provisional entry as invalid using self-index.
+  // Scan path relies on this sentinel (`next[idx] == idx`) to skip invalid
+  // rows.
   expressions::ProteusValueExpression writtenExpr{
       new BoolType(),
       ProteusValue{
           Builder->CreateLoad(mem_written->getType()->getPointerElementType(),
                               mem_written),
           context->createFalse()}};
-  context->gen_if(writtenExpr, childState)([&] {
+  gen_if(writtenExpr, childState, context)([&] {
     Value *inv_ptr = Builder->CreateInBoundsGEP(
         context->getStateVar(out_param_ids[0])
             ->getType()
@@ -369,7 +372,7 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
 
   activemask = gpu_intrinsic::activemask(context);
   // if (!written){
-  context->gen_if(condExpr, childState)([&]() {
+  gen_if(condExpr, childState, context)([&]() {
     // index
     Value *old_cnt = context->workerScopedAtomicAdd(
         out_cnt,
@@ -432,7 +435,8 @@ void GpuHashGroupByChained::generate_build(ParallelContext *context,
                         ThenBB);
 
   Builder->SetInsertPoint(MergeBB);
-  Builder->CreateCall(warpsync, {activemask_all});
+  // Same rationale as above: use the current active mask at the merge point.
+  Builder->CreateCall(warpsync, {gpu_intrinsic::activemask(context)});
 }
 
 void GpuHashGroupByChained::open(Pipeline *pip) {

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -26,15 +26,15 @@
 #include <utility>
 
 extern "C" Plugin *createDistributedBlockPlugin(
-    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    OlapParallelContext *context, std::string fnamePrefix, RecordType rec,
     std::vector<RecordAttribute *> &whichFields) {
   return new DistributedBinaryBlockPlugin(context, fnamePrefix, std::move(rec),
                                           whichFields);
 }
 
 DistributedBinaryBlockPlugin::DistributedBinaryBlockPlugin(
-    ParallelContext *const context, const std::string &fnamePrefix,
-    RecordType rec, vector<RecordAttribute *> &whichFields)
+    OlapParallelContext *const context, const std::string &fnamePrefix,
+    RecordType rec, std::vector<RecordAttribute *> &whichFields)
     : BinaryBlockPlugin(context, fnamePrefix, std::move(rec), whichFields,
                         false) {
   loadData(context, DISTRIBUTED);

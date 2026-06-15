@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -45,8 +45,9 @@ class MemBroadcastScaleOut : public MemBroadcastDevice {
     bool getPropagated(MemMoveDevice::workunit **ret) override;
   };
 
-  MemBroadcastScaleOut(Operator *const child, ParallelContext *const context,
-                       const vector<RecordAttribute *> &wantedFields,
+  MemBroadcastScaleOut(Operator *const child,
+                       OlapParallelContext *const context,
+                       const std::vector<RecordAttribute *> &wantedFields,
                        int num_of_targets, bool to_cpu,
                        bool always_share = false)
       : MemBroadcastDevice(child, wantedFields, num_of_targets, to_cpu,

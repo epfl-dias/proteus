@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2019
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,8 +24,11 @@
 #ifndef PROTEUS_EXPRESSION_PARSER_HPP
 #define PROTEUS_EXPRESSION_PARSER_HPP
 
-#include "olap/expressions/expressions.hpp"
+#include <codegen/expressions/expressions.hpp>
+
+#include "olap/operators/monoids.hpp"
 #include "olap/plan/catalog-parser.hpp"
+#include "olap/util/parallel-context.hpp"
 #include "rapidjson/document.h"
 
 class ExpressionParser {
@@ -37,7 +40,7 @@ class ExpressionParser {
                    const expressions::InputArgument &arg)
       : catalogParser(catalogParser), arg(arg) {}
   expression_t parseExpression(const rapidjson::Value &val,
-                               ParallelContext *ctx);
+                               OlapParallelContext *ctx);
   ExpressionType *parseExpressionType(const rapidjson::Value &val);
   RecordAttribute *parseRecordAttr(const rapidjson::Value &val,
                                    std::string relName,
@@ -50,9 +53,9 @@ class ExpressionParser {
 
  private:
   expression_t parseExpressionWithoutRegistering(const rapidjson::Value &val,
-                                                 ParallelContext *ctx);
+                                                 OlapParallelContext *ctx);
   expressions::extract_unit parseUnitRange(std::string range,
-                                           ParallelContext *ctx);
+                                           OlapParallelContext *ctx);
   RecordType *getRecordType(std::string relName, bool createIfNeeded = true);
   const RecordAttribute *getAttribute(std::string relName, std::string attrName,
                                       bool createIfNeeded = true);

@@ -21,9 +21,8 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <glog/logging.h>
-
 #include <filesystem>
+#include <platform/util/glog.hpp>
 
 #include "gtest/gtest.h"
 #include "platform/common/common.hpp"
@@ -68,7 +67,7 @@ int main(int argc, char** argv) {
   srand(time(nullptr));
   google::InstallFailureSignalHandler();
   // for debugging:
-  set_trace_allocations(true);
+  set_trace_allocations(false);
 
   ::testing::AddGlobalTestEnvironment(new StorageTestEnvironment);
 

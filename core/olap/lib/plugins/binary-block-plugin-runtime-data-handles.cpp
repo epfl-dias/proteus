@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2022
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -54,20 +54,20 @@ void freeNumOfTuplesPerPartition_runtime(
 }  // namespace detail
 
 llvm::Value *BinaryBlockPluginRuntimeDataHandles::getSession(
-    ParallelContext *context) const {
+    OlapParallelContext *context) const {
   return context->gen_call(
       ::proteus::olap_plugins::detail::getSession, {},
       ::llvm::Type::getInt8PtrTy(context->getLLVMContext()));
 }
 
 void BinaryBlockPluginRuntimeDataHandles::releaseSession(
-    ParallelContext *context, llvm::Value *session_ptr) const {
+    OlapParallelContext *context, llvm::Value *session_ptr) const {
   context->gen_call(::proteus::olap_plugins::detail::releaseSession,
                     {session_ptr});
 }
 
 llvm::Value *BinaryBlockPluginRuntimeDataHandles::getDataPointersForFile(
-    ParallelContext *context, size_t i, llvm::Value *session_ptr) const {
+    OlapParallelContext *context, size_t i, llvm::Value *session_ptr) const {
   ::llvm::LLVMContext &llvmContext = context->getLLVMContext();
 
   ::llvm::Type *char8ptr = ::llvm::Type::getInt8PtrTy(llvmContext);
@@ -93,7 +93,7 @@ llvm::Value *BinaryBlockPluginRuntimeDataHandles::getDataPointersForFile(
 }
 
 void BinaryBlockPluginRuntimeDataHandles::freeDataPointersForFile(
-    ParallelContext *context, size_t i, ::llvm::Value *v) const {
+    OlapParallelContext *context, size_t i, ::llvm::Value *v) const {
   ::llvm::LLVMContext &llvmContext = context->getLLVMContext();
   auto data_type =
       ::llvm::PointerType::getUnqual(::llvm::Type::getInt8PtrTy(llvmContext));
@@ -108,7 +108,7 @@ void BinaryBlockPluginRuntimeDataHandles::freeDataPointersForFile(
 
 std::pair<llvm::Value *, llvm::Value *>
 BinaryBlockPluginRuntimeDataHandles::getPartitionSizes(
-    ParallelContext *context, llvm::Value *session_ptr) const {
+    OlapParallelContext *context, llvm::Value *session_ptr) const {
   ::llvm::IRBuilder<> *Builder = context->getBuilder();
 
   ::llvm::IntegerType *sizeType = context->createSizeType();
@@ -139,7 +139,7 @@ BinaryBlockPluginRuntimeDataHandles::getPartitionSizes(
 }
 
 void BinaryBlockPluginRuntimeDataHandles::freePartitionSizes(
-    ParallelContext *context, ::llvm::Value *v) const {
+    OlapParallelContext *context, ::llvm::Value *v) const {
   ::llvm::Value *this_ptr = context->getBuilder()->CreateIntToPtr(
       context->createInt64((uintptr_t)this),
       ::llvm::Type::getInt8PtrTy(context->getLLVMContext()));

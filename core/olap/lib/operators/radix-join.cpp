@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,18 +23,21 @@
 
 #include "radix-join.hpp"
 
-#include "lib/util/jit/pipeline.hpp"
+#include <codegen/jit/pipeline.hpp>
+
+#include "lib/util/radix/joins/radix-join.hpp"
 
 using namespace llvm;
+using std::vector;
 
 RadixJoin::RadixJoin(const expressions::BinaryExpression &predicate,
                      Operator *leftChild, Operator *rightChild,
                      Context *const context, const char *opLabel,
                      Materializer &matLeft, Materializer &matRight)
     : BinaryOperator(leftChild, rightChild),
-      context((ParallelContext *const)context),
+      context((OlapParallelContext *const)context),
       htLabel(opLabel) {
-  assert(dynamic_cast<ParallelContext *const>(context) &&
+  assert(dynamic_cast<OlapParallelContext *const>(context) &&
          "Should update caller to use the new context!");
 
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -170,7 +173,7 @@ void registerRelationMem(Pipeline *pip, void *rel_mem, RadixJoinBuild *b) {
 }
 }
 
-void RadixJoin::produce_(ParallelContext *context) {
+void RadixJoin::produce_(OlapParallelContext *context) {
   runRadix();
 
   context->popPipeline();
@@ -812,11 +815,11 @@ void RadixJoin::runRadix() const {
   val_clusterCount = Builder->CreateLoad(
       mem_clusterCount->getType()->getPointerElementType(), mem_clusterCount);
   val_clusterCount = Builder->CreateAdd(val_clusterCount, val_one);
-  //#ifdef DEBUG
-  //      vector<Value*> ArgsV0;
-  //      ArgsV0.push_back(val_clusterCount);
-  //      Builder->CreateCall(debugInt,ArgsV0);
-  //#endif
+  // #ifdef DEBUG
+  //       vector<Value*> ArgsV0;
+  //       ArgsV0.push_back(val_clusterCount);
+  //       Builder->CreateCall(debugInt,ArgsV0);
+  // #endif
   Builder->CreateStore(val_clusterCount, mem_clusterCount);
 
   Builder->CreateBr(loopCond);

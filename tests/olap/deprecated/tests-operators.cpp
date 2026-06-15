@@ -87,7 +87,7 @@ TEST(Relational, Scan) {
   attrList.push_back(attr2);
   attrList.push_back(attr3);
   RecordType rec1 = RecordType(attrList);
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(attr1);
   whichFields.push_back(attr2);
 
@@ -129,7 +129,7 @@ TEST(Relational, SPJ) {
   attrList.push_back(attr3);
 
   RecordType rec1 = RecordType(attrList);
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(attr1);
   whichFields.push_back(attr2);
 
@@ -174,7 +174,7 @@ TEST(Relational, SPJ) {
   attrList2.push_back(attr1_f2);
   RecordType rec2 = RecordType(attrList2);
 
-  vector<RecordAttribute *> whichFields2;
+  std::vector<RecordAttribute *> whichFields2;
   whichFields2.push_back(attr1_f2);
   whichFields2.push_back(attr2_f2);
 
@@ -203,7 +203,7 @@ TEST(Relational, SPJ) {
       new expressions::RecordProjection(intType, rightArg, *attr2_f2);
   expressions::BinaryExpression *joinPred =
       new expressions::EqExpression(left, right);
-  vector<materialization_mode> outputModes;
+  std::vector<materialization_mode> outputModes;
   // Active Loop Too
   outputModes.insert(outputModes.begin(), EAGER);
   outputModes.insert(outputModes.begin(), EAGER);
@@ -657,7 +657,7 @@ TEST(Generic, ReduceNumeric) {
 
   RecordType rec1 = RecordType(attrList);
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(sid);
   whichFields.push_back(age);
 
@@ -724,7 +724,7 @@ TEST(Generic, ReduceBoolean) {
 
   RecordType rec1 = RecordType(attrList);
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(amount);
   whichFields.push_back(isPaid);
 
@@ -785,7 +785,7 @@ TEST(Generic, IfThenElse) {
 
   RecordType rec1 = RecordType(attrList);
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(amount);
 
   CSVPlugin *pg = new CSVPlugin(&ctx, filename, rec1, whichFields);

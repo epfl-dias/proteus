@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,23 +23,28 @@
 
 #include "csv-plugin-pm.hpp"
 
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+
 #include <iomanip>
 
 #include "lib/expressions/expressions-hasher.hpp"
 #include "lib/operators/operators.hpp"
 
 using namespace llvm;
+using std::vector;
 
 namespace pm {
 
 extern "C" pm::CSVPlugin *createPmCsvPlugin(
-    ParallelContext *context, std::string fname, RecordType rec,
+    OlapParallelContext *context, std::string fname, RecordType rec,
     const std::vector<RecordAttribute *> &projs) {
   return new CSVPlugin(context, fname, rec, projs, ';', 10, 2, false);
 }
 
 extern "C" pm::CSVPlugin *createPmTsvPlugin(
-    ParallelContext *context, std::string fname, RecordType rec,
+    OlapParallelContext *context, std::string fname, RecordType rec,
     const std::vector<RecordAttribute *> &projs) {
   return new CSVPlugin(context, fname, rec, projs, '|', 10, 2, false);
 }
@@ -317,7 +322,8 @@ void CSVPlugin::init() {
   }
 };
 
-void CSVPlugin::generate(const ::Operator &producer, ParallelContext *context) {
+void CSVPlugin::generate(const ::Operator &producer,
+                         OlapParallelContext *context) {
   if (!hasPM) {
     return scanAndPopulatePM(producer);
   } else {
@@ -331,7 +337,7 @@ void CSVPlugin::generate(const ::Operator &producer, ParallelContext *context) {
 ProteusValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings,
                                        const char *pathVar,
                                        RecordAttribute attr,
-                                       ParallelContext *context) {
+                                       OlapParallelContext *context) {
   ProteusValueMemory mem_valWrapper;
   {
     const OperatorState *state = bindings.state;
@@ -345,11 +351,11 @@ ProteusValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings,
       string error_msg =
           string("[CSV plugin - readPath ]: Unknown variable name ") + pathVar;
       LOG(INFO) << "Nothing found for " << fname << "_" << pathVar << " in "
-                << csvProjections.size() << " bindings" << endl;
+                << csvProjections.size() << " bindings" << std::endl;
       for (it = csvProjections.begin(); it != csvProjections.end(); it++) {
         RecordAttribute attr = it->first;
         LOG(INFO) << attr.getRelationName() << "_" << attr.getAttrName()
-                  << endl;
+                  << std::endl;
       }
       LOG(ERROR) << error_msg;
       throw runtime_error(error_msg);
@@ -362,13 +368,13 @@ ProteusValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings,
 
 ProteusValueMemory CSVPlugin::readValue(ProteusValueMemory mem_value,
                                         const ExpressionType *type,
-                                        ParallelContext *context) {
+                                        OlapParallelContext *context) {
   return mem_value;
 }
 
 ProteusValue CSVPlugin::readCachedValue(CacheInfo info,
                                         const OperatorState &currState,
-                                        ParallelContext *context) {
+                                        OlapParallelContext *context) {
   return readCachedValue(info, currState.getBindings());
 }
 
@@ -596,13 +602,14 @@ void CSVPlugin::finish() {
 
 llvm::Value *CSVPlugin::getValueSize(ProteusValueMemory mem_value,
                                      const ExpressionType *type,
-                                     ParallelContext *context) {
+                                     OlapParallelContext *context) {
   switch (type->getTypeID()) {
     case BOOL:
     case INT:
     case FLOAT:
     case STRING: {
-      Type *explicitType = (mem_value.mem)->getAllocatedType();
+      Type *explicitType =
+          mem_value.mem->getType()->getPointerElementType();
       return context->createInt64(context->getSizeOf(explicitType));
     }
     case BAG:
@@ -1859,7 +1866,7 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
   for (const auto &wantedField : wantedFields) {
 #ifdef DEBUGPM
     cout << "[CSV_PM: ] Need Field " << (*it)->getOriginalRelationName() << "."
-         << (*it)->getAttrName() << endl;
+         << (*it)->getAttrName() << std::endl;
 #endif
     /* Create search key for caches  */
     bool found = false;
@@ -1872,11 +1879,11 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
       if (info.structFieldNo != -1) {
 #ifdef DEBUGCACHING
         cout << "[CSV_PM: ] Field " << (*it)->getOriginalRelationName() << "."
-             << (*it)->getAttrName() << " found!" << endl;
+             << (*it)->getAttrName() << " found!" << std::endl;
 #endif
         if (!cache.getCacheIsFull(&thisField)) {
 #ifdef DEBUGCACHING
-          cout << "...but is not useable " << endl;
+          cout << "...but is not useable " << std::endl;
 #endif
         } else {
           int posInStruct = info.structFieldNo;
@@ -1953,7 +1960,7 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
 #ifdef DEBUGPM
         cout << "To get field " << (*it)->getAttrNo()
              << ", scan from current pos " << distanceFromCurr << " fields"
-             << endl;
+             << std::endl;
 #endif
         /* How many fields to skip */
         for (int i = 0; i < distanceFromCurr; i++) {
@@ -1969,7 +1976,7 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
       else if (pmDistanceBefore <= pmDistanceAfter) {
 #ifdef DEBUGPM
         cout << "To get field " << (*it)->getAttrNo() << ", scan forward "
-             << pmDistanceBefore << " fields" << endl;
+             << pmDistanceBefore << " fields" << std::endl;
 #endif
         int nearbyPM = neededAttr / policy;
         //            cout << "Array Field In PM: " << nearbyPM - 1 << endl;
@@ -1994,16 +2001,16 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
 
         /* Set position to curr_new_line + pm_offset */
         Builder->CreateStore(val_offset, mem_pos);
-        //#ifdef DEBUGPM
-        //                {
-        //                    vector<Value*> ArgsV;
-        //                    ArgsV.clear();
-        //                    ArgsV.push_back(val_pmOffset16);
-        //                    Function* debugInt =
-        //                    context->getFunction("printShort");
-        //                    Builder->CreateCall(debugInt, ArgsV, "printf");
-        //                }
-        //#endif
+        // #ifdef DEBUGPM
+        //                 {
+        //                     vector<Value*> ArgsV;
+        //                     ArgsV.clear();
+        //                     ArgsV.push_back(val_pmOffset16);
+        //                     Function* debugInt =
+        //                     context->getFunction("printShort");
+        //                     Builder->CreateCall(debugInt, ArgsV, "printf");
+        //                 }
+        // #endif
         /* How many fields to skip */
         for (int i = 0; i < pmDistanceBefore; i++) {
           skipDelimLLVM(delimInner);
@@ -2019,7 +2026,7 @@ void CSVPlugin::scanPM(const ::Operator &producer) {
       else {
 #ifdef DEBUGPM
         cout << "To get field " << (*it)->getAttrNo() << ", scan backward "
-             << pmDistanceAfter << " fields" << endl;
+             << pmDistanceAfter << " fields" << std::endl;
 #endif
         int nearbyPM = (neededAttr / policy) + 1;
         // cout << "Array Field in PM: " << nearbyPM - 1 << endl;

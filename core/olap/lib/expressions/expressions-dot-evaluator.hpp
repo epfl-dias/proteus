@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,17 +24,17 @@
 #ifndef EXPRESSIONS_DOT_VISITOR_HPP_
 #define EXPRESSIONS_DOT_VISITOR_HPP_
 
+#include <codegen/expressions/expressions.hpp>
 #include <platform/common/common.hpp>
 
 #include "expressions-generator.hpp"
 #include "expressions-hasher.hpp"
 #include "lib/util/functions.hpp"
 #include "olap/plugins/plugins.hpp"
-//#include "values/expressionTypes.hpp"
 
-//#ifdef DEBUG
+// #ifdef DEBUG
 #define DEBUG_DOT
-//#endif
+// #endif
 
 //===---------------------------------------------------------------------------===//
 // "Visitor(s)" responsible for evaluating dot equality
@@ -105,6 +105,8 @@ class ExpressionDotVisitor : public ExprTandemVisitor {
                      const expressions::MinExpression *e2) override;
   ProteusValue visit(const expressions::RandExpression *e1,
                      const expressions::RandExpression *e2) override;
+  ProteusValue visit(const expressions::ExternExpression *e1,
+                     const expressions::ExternExpression *e2) override;
   ProteusValue visit(const expressions::HintExpression *e1,
                      const expressions::HintExpression *e2) override;
   ProteusValue visit(const expressions::HashExpression *e1,

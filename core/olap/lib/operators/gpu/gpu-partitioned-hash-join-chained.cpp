@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,6 +23,7 @@
 
 #include "gpu-partitioned-hash-join-chained.hpp"
 
+#include <codegen/util/gpu/gpu-intrinsics.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/topology/topology.hpp>
 
@@ -30,7 +31,6 @@
 #include "cuda_runtime.h"
 #include "gmonoids.hpp"
 #include "lib/expressions/expressions-generator.hpp"
-#include "lib/util/gpu/gpu-intrinsics.hpp"
 
 using namespace llvm;
 
@@ -48,8 +48,9 @@ HashPartitioner::HashPartitioner(const std::vector<GpuMatExpr> &parts_mat_exprs,
                                  const std::vector<size_t> &parts_packet_widths,
                                  expression_t parts_keyexpr,
                                  Operator *const parts_child,
-                                 ParallelContext *context, size_t maxInputSize,
-                                 int log_parts, string opLabel)
+                                 OlapParallelContext *context,
+                                 size_t maxInputSize, int log_parts,
+                                 string opLabel)
     : parts_mat_exprs(parts_mat_exprs),
       parts_packet_widths(parts_packet_widths),
       parts_keyexpr(parts_keyexpr),
@@ -57,7 +58,7 @@ HashPartitioner::HashPartitioner(const std::vector<GpuMatExpr> &parts_mat_exprs,
       context(context),
       maxInputSize(maxInputSize),
       opLabel(opLabel) {
-  // vector<expressions::Expression*> expr;
+  // std::vector<expressions::Expression*> expr;
   // for (size_t i = 0; i < parts_mat_exprs.size(); i++)
   //     expr.push_back(parts_mat_exprs[i].expr);
   // mat = new Materializer(expr);
@@ -71,7 +72,7 @@ HashPartitioner::HashPartitioner(const std::vector<GpuMatExpr> &parts_mat_exprs,
   log_parts1 = log_parts - log_parts2;
 }
 
-void HashPartitioner::produce_(ParallelContext *context) {
+void HashPartitioner::produce_(OlapParallelContext *context) {
   parts_mat_exprs.emplace_back(parts_keyexpr, 0, 32);
 
   std::sort(parts_mat_exprs.begin(), parts_mat_exprs.end(),
@@ -81,10 +82,10 @@ void HashPartitioner::produce_(ParallelContext *context) {
             });
 
   matFormat();
-  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
+  ((OlapParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
     this->open(pip);
   });
-  ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
+  ((OlapParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
     this->close(pip);
   });
   getChild()->produce(context);
@@ -122,7 +123,8 @@ void HashPartitioner::consume(Context *const context,
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
 
-  Value *out_cnt = ((const ParallelContext *)context)->getStateVar(cnt_pipe);
+  Value *out_cnt =
+      ((const OlapParallelContext *)context)->getStateVar(cnt_pipe);
 
   Value *old_cnt = Builder->CreateAtomicRMW(
       llvm::AtomicRMWInst::BinOp::Add, out_cnt,
@@ -138,14 +140,14 @@ void HashPartitioner::consume(Context *const context,
       childState.getBindings();
   // pg_out->setBindings(&childState.getBindings());
   // Value *val_payloadSize  = ConstantInt::get((IntegerType *) int64_type,
-  // context->getSizeOf(payloadType)); vector<Type*> *materializedTypes =
+  // context->getSizeOf(payloadType)); std::vector<Type*> *materializedTypes =
   // pg_out->getMaterializedTypes(); PointerType *ptr_payloadType =
   // PointerType::get(payloadType, 1);
 
   ExpressionGeneratorVisitor exprGenerator(context, childState);
   ProteusValue valWrapper = parts_keyexpr.accept(exprGenerator);
   Value *key_ptr =
-      ((const ParallelContext *)context)->getStateVar(param_pipe_ids[0]);
+      ((const OlapParallelContext *)context)->getStateVar(param_pipe_ids[0]);
   key_ptr->setName(opLabel + "_key");
   Value *key_ptr_offset = Builder->CreateInBoundsGEP(
       key_ptr->getType()->getNonOpaquePointerElementType(), key_ptr, old_cnt);
@@ -159,7 +161,7 @@ void HashPartitioner::consume(Context *const context,
 
     ProteusValue valWrapper = w.expr.accept(exprGenerator);
     Value *col_ptr =
-        ((const ParallelContext *)context)->getStateVar(param_pipe_ids[i]);
+        ((const OlapParallelContext *)context)->getStateVar(param_pipe_ids[i]);
     col_ptr->setName(opLabel + "_col");
     Value *col_ptr_offset = Builder->CreateInBoundsGEP(
         col_ptr->getType()->getNonOpaquePointerElementType(), col_ptr, old_cnt);
@@ -178,12 +180,12 @@ void HashPartitioner::consume(Context *const context,
           valToMaterialize = currVal.value;
       //}
 
-      vector<Value*> idxList = vector<Value*>();
+      std::vector<Value*> idxList = std::vector<Value*>();
       idxList.push_back(context->createInt32(0));
       idxList.push_back(context->createInt32(offsetInStruct));
 
       //Shift in struct ptr
-      Value* arena =  ((const ParallelContext *)
+      Value* arena =  ((const OlapParallelContext *)
   context)->getStateVar(param_pipe_ids[1]); arena->setName(opLabel +
   "_payload"); Value* arenaShifted = Builder->CreateInBoundsGEP(arena, old_cnt);
       Value* structPtr = Builder->CreateGEP(arenaShifted, idxList);
@@ -195,7 +197,7 @@ void HashPartitioner::consume(Context *const context,
 }
 
 void HashPartitioner::open(Pipeline *pip) {
-  vector<void *> param_ptr = state.cols[pip->getGroup()];
+  std::vector<void *> param_ptr = state.cols[pip->getGroup()];
 
   int device;
   cudaGetDevice(&device);
@@ -418,7 +420,7 @@ GpuPartitionedHashJoinChained::GpuPartitionedHashJoinChained(
 
     size_t maxBuildInputSize, size_t maxProbeInputSize,
 
-    int log_parts, ParallelContext *context, string opLabel,
+    int log_parts, OlapParallelContext *context, string opLabel,
     PipelineGen **caller, Operator *const unionop)
     : build_mat_exprs(build_mat_exprs),
       probe_mat_exprs(probe_mat_exprs),
@@ -451,7 +453,7 @@ GpuPartitionedHashJoinChained::GpuPartitionedHashJoinChained(
 
 __global__ void print_gpu() { printf("Hello world\n"); }
 
-void GpuPartitionedHashJoinChained::produce_(ParallelContext *context) {
+void GpuPartitionedHashJoinChained::produce_(OlapParallelContext *context) {
   probe_mat_exprs.emplace_back(probe_keyexpr, 0, 32);
 
   std::sort(probe_mat_exprs.begin(), probe_mat_exprs.end(),
@@ -474,27 +476,27 @@ void GpuPartitionedHashJoinChained::produce_(ParallelContext *context) {
   probeHashTableFormat();
 
   if (caller != nullptr) {
-    ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
+    ((OlapParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
       this->allocate(pip);
     });
   }
 
-  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
+  ((OlapParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
     this->open(pip);
   });
-  ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
+  ((OlapParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
     this->close(pip);
   });
   generate_joinloop(context);
 
-  ((ParallelContext *)context)->popPipeline();
+  ((OlapParallelContext *)context)->popPipeline();
 
-  auto flush_pip = ((ParallelContext *)context)->removeLatestPipeline();
+  auto flush_pip = ((OlapParallelContext *)context)->removeLatestPipeline();
 
   context->pushPipeline();
 
   if (caller == nullptr) {
-    ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
+    ((OlapParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
       this->allocate(pip);
     });
 
@@ -617,7 +619,7 @@ void GpuPartitionedHashJoinChained::generate_joinloop(Context *const context) {
 
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-  ParallelContext *const gpu_context = (ParallelContext *const)context;
+  OlapParallelContext *const gpu_context = (OlapParallelContext *const)context;
 
   map<string, Value *> kernelBindings;
 
@@ -631,7 +633,7 @@ void GpuPartitionedHashJoinChained::generate_joinloop(Context *const context) {
   Builder->SetInsertPoint(MainBB);
   context->setEndingBlock(AfterBB);
 
-  Value *mem_buffer = ((ParallelContext *)context)->getStateVar(buffer_id);
+  Value *mem_buffer = ((OlapParallelContext *)context)->getStateVar(buffer_id);
   Value *buffer_offset = Builder->CreateMul(
       Builder->CreateTrunc(gpu_context->blockId(), int32_type),
       ConstantInt::get(Type::getInt32Ty(context->getLLVMContext()),
@@ -697,9 +699,9 @@ void GpuPartitionedHashJoinChained::generate_joinloop(Context *const context) {
   kernelBindings["head_shared"] = shared_head;
 
   Value *mem_buckets_used =
-      ((ParallelContext *)context)->getStateVar(buckets_used_id);
+      ((OlapParallelContext *)context)->getStateVar(buckets_used_id);
   Value *mem_bucket_info =
-      ((ParallelContext *)context)->getStateVar(bucket_info_id);
+      ((OlapParallelContext *)context)->getStateVar(bucket_info_id);
 
   Value *buckets_used_val = Builder->CreateLoad(
       mem_buckets_used->getType()->getPointerElementType(), mem_buckets_used);
@@ -836,7 +838,7 @@ void GpuPartitionedHashJoinChained::generate_build(
 
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
-  ParallelContext *const gpu_context = (ParallelContext *const)context;
+  OlapParallelContext *const gpu_context = (OlapParallelContext *const)context;
 
   Type *int16_type = Type::getInt16Ty(context->getLLVMContext());
 
@@ -1041,7 +1043,7 @@ void GpuPartitionedHashJoinChained::generate_probe(
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
-  ParallelContext *const gpu_context = (ParallelContext *const)context;
+  OlapParallelContext *const gpu_context = (OlapParallelContext *const)context;
 
   Type *int16_type = Type::getInt16Ty(context->getLLVMContext());
 
@@ -1131,7 +1133,7 @@ void GpuPartitionedHashJoinChained::generate_probe(
 
   Builder->SetInsertPoint(BlockSingleBB);
 
-  vector<Value*> ArgsV;
+  std::vector<Value*> ArgsV;
   Value* value = next_bucket;
   ArgsV.push_back(value);
   Function* debugInt = context->getFunction("printi");
@@ -1588,8 +1590,8 @@ void GpuPartitionedHashJoinChained::generate_probe(
 void GpuPartitionedHashJoinChained::allocate(Pipeline *pip) {
   std::cout << "GpuOptJoin::open " << pip->getGroup() << std::endl;
 
-  vector<void *> probe_param_ptr;
-  vector<void *> build_param_ptr;
+  std::vector<void *> probe_param_ptr;
+  std::vector<void *> build_param_ptr;
 
   uint32_t parts2 = 1 << (log_parts1 + log_parts2);
 
@@ -1733,8 +1735,8 @@ void GpuPartitionedHashJoinChained::open(Pipeline *pip) {
   PartitionMetadata pdata_probe = state_right.meta[pip->getGroup()];
   PartitionMetadata pdata_build = state_left.meta[pip->getGroup()];
 
-  vector<void *> build_param_ptr = state_left.cols[pip->getGroup()];
-  vector<void *> probe_param_ptr = state_right.cols[pip->getGroup()];
+  std::vector<void *> build_param_ptr = state_left.cols[pip->getGroup()];
+  std::vector<void *> probe_param_ptr = state_right.cols[pip->getGroup()];
 
   buffer[pip->getGroup()] = (int32_t *)MemoryManager::mallocGpu(
       8 * SHMEM_SIZE * 64 * sizeof(int32_t));
@@ -1782,8 +1784,8 @@ void GpuPartitionedHashJoinChained::open(Pipeline *pip) {
 void GpuPartitionedHashJoinChained::close(Pipeline *pip) {
   // std::cout << "GpuOptJoin::close" <<  std::endl;
 
-  vector<void *> build_param_ptr = state_left.cols[pip->getGroup()];
-  vector<void *> probe_param_ptr = state_right.cols[pip->getGroup()];
+  std::vector<void *> build_param_ptr = state_left.cols[pip->getGroup()];
+  std::vector<void *> probe_param_ptr = state_right.cols[pip->getGroup()];
 
   MemoryManager::freeGpu(buffer[pip->getGroup()]);
 

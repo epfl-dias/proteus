@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2018
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -34,8 +34,8 @@ class Update : public experimental::UnaryOperator {
  public:
   Update(Operator *child, expression_t outputExprs);
 
-  void produce_(ParallelContext *context) override;
-  void consume(ParallelContext *context,
+  void produce_(OlapParallelContext *context) override;
+  void consume(OlapParallelContext *context,
                const OperatorState &childState) override;
   [[nodiscard]] bool isFiltering() const override {
     return getChild()->isFiltering();

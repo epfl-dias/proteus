@@ -104,10 +104,8 @@ PreparedStatement ssb::Query::prepare22(proteus::QueryShaper &morph) {
                               .as("PelagoAggregate#11428", "EXPR$0"),
                           1, 0, SUM}};
                     },
-                    10, 128 * 1024)
-                .pack();
+                    10, 64);
           })
-      .unpack()
       .groupby(
           [&](const auto &arg) -> std::vector<expression_t> {
             return {arg["d_year"], arg["p_brand1"]};
@@ -115,7 +113,7 @@ PreparedStatement ssb::Query::prepare22(proteus::QueryShaper &morph) {
           [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
             return {GpuAggrMatExpr{arg["EXPR$0"], 1, 0, SUM}};
           },
-          10, 128 * 1024)
+          10, 64)
       .sort(
           [&](const auto &arg) -> std::vector<expression_t> {
             return {arg["EXPR$0"], arg["d_year"], arg["p_brand1"]};

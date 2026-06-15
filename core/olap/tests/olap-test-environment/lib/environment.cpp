@@ -21,10 +21,9 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <glog/logging.h>
-
 #include <olap/test/environment.hpp>
 #include <platform/memory/memory-manager.hpp>
+#include <platform/util/glog.hpp>
 #include <storage/storage-manager.hpp>
 
 void OLAPTestEnvironment::SetUp() {

@@ -90,7 +90,7 @@ TEST(Sailors, Scan) {
   attrList.push_back(age);
   RecordType rec1 = RecordType(attrList);
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(sid);
   whichFields.push_back(age);
 
@@ -136,7 +136,7 @@ TEST(Sailors, Select) {
   attrList.push_back(age);
   RecordType rec1 = RecordType(attrList);
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(sid);
   whichFields.push_back(age);
 
@@ -206,7 +206,7 @@ TEST(Sailors, ScanBoats) {
   attrListBoats.push_back(colorBoats);
   RecordType recBoats = RecordType(attrListBoats);
 
-  vector<RecordAttribute *> whichFieldsBoats;
+  std::vector<RecordAttribute *> whichFieldsBoats;
   whichFieldsBoats.push_back(bidBoats);
 
   CSVPlugin *pgBoats =
@@ -254,7 +254,7 @@ TEST(Sailors, JoinLeft3) {
   attrList.push_back(age);
   RecordType rec1 = RecordType(attrList);
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(sid);
   // whichFields.push_back(rating); //Int
   whichFields.push_back(age);  // Float
@@ -280,7 +280,7 @@ TEST(Sailors, JoinLeft3) {
   attrList2.push_back(bidReserves);
   attrList2.push_back(day);
   RecordType rec2 = RecordType(attrList2);
-  vector<RecordAttribute *> whichFields2;
+  std::vector<RecordAttribute *> whichFields2;
   whichFields2.push_back(sidReserves);
   whichFields2.push_back(bidReserves);
 
@@ -316,7 +316,7 @@ TEST(Sailors, JoinLeft3) {
   expressions::BinaryExpression *joinPred =
       new expressions::EqExpression(left, right);
 
-  vector<materialization_mode> outputModes;
+  std::vector<materialization_mode> outputModes;
   // Active Loop Too
   outputModes.insert(outputModes.begin(), EAGER);
   outputModes.insert(outputModes.begin(), EAGER);
@@ -343,7 +343,7 @@ TEST(Sailors, JoinLeft3) {
   attrListBoats.push_back(colorBoats);
   RecordType recBoats = RecordType(attrListBoats);
 
-  vector<RecordAttribute *> whichFieldsBoats;
+  std::vector<RecordAttribute *> whichFieldsBoats;
   whichFieldsBoats.push_back(bidBoats);
 
   CSVPlugin *pgBoats =
@@ -371,7 +371,7 @@ TEST(Sailors, JoinLeft3) {
 
   expressions::BinaryExpression *joinPred2 =
       new expressions::EqExpression(left2, right2);
-  vector<materialization_mode> outputModes2;
+  std::vector<materialization_mode> outputModes2;
   // 1 + activeLoop
   outputModes2.insert(outputModes2.begin(), EAGER);
   outputModes2.insert(outputModes2.begin(), EAGER);
@@ -429,7 +429,7 @@ TEST(Sailors, JoinRight3) {
   attrList2.push_back(day);
   RecordType rec2 = RecordType(attrList2);
 
-  vector<RecordAttribute *> whichFields2;
+  std::vector<RecordAttribute *> whichFields2;
   whichFields2.push_back(sidReserves);
   whichFields2.push_back(bidReserves);
 
@@ -452,7 +452,7 @@ TEST(Sailors, JoinRight3) {
   attrListBoats.push_back(colorBoats);
   RecordType recBoats = RecordType(attrListBoats);
 
-  vector<RecordAttribute *> whichFieldsBoats;
+  std::vector<RecordAttribute *> whichFieldsBoats;
   whichFieldsBoats.push_back(bidBoats);
   CSVPlugin *pgBoats =
       new CSVPlugin(&ctx, filenameBoats, recBoats, whichFieldsBoats);
@@ -484,7 +484,7 @@ TEST(Sailors, JoinRight3) {
 
   expressions::BinaryExpression *joinPred2 =
       new expressions::EqExpression(left2, right2);
-  vector<materialization_mode> outputModes2;
+  std::vector<materialization_mode> outputModes2;
   outputModes2.insert(outputModes2.begin(), EAGER);
   outputModes2.insert(outputModes2.begin(), EAGER);
   Materializer *mat2 = new Materializer(whichFields2, outputModes2);
@@ -511,7 +511,7 @@ TEST(Sailors, JoinRight3) {
   attrList.push_back(age);
   RecordType rec1 = RecordType(attrList);
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(sid);
   // whichFields.push_back(rating); //Int
   whichFields.push_back(age);  // Float
@@ -541,7 +541,7 @@ TEST(Sailors, JoinRight3) {
       new expressions::RecordProjection(intType, rightArg, *sidReserves);
   expressions::BinaryExpression *joinPred =
       new expressions::EqExpression(left, right);
-  vector<materialization_mode> outputModes;
+  std::vector<materialization_mode> outputModes;
   outputModes.insert(outputModes.begin(), EAGER);
   outputModes.insert(outputModes.begin(), EAGER);
   outputModes.insert(outputModes.begin(), EAGER);
@@ -601,7 +601,7 @@ TEST(Sailors, Join) {
 
   RecordType rec1 = RecordType(attrList);
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(sid);
   // whichFields.push_back(rating); //Int
   whichFields.push_back(age);  // Float
@@ -624,7 +624,7 @@ TEST(Sailors, Join) {
   attrList2.push_back(day);
   RecordType rec2 = RecordType(attrList2);
 
-  vector<RecordAttribute *> whichFields2;
+  std::vector<RecordAttribute *> whichFields2;
   whichFields2.push_back(sidReserves);
   whichFields2.push_back(bidReserves);
 
@@ -659,7 +659,7 @@ TEST(Sailors, Join) {
       new expressions::RecordProjection(intType, rightArg, *sidReserves);
   expressions::BinaryExpression *joinPred =
       new expressions::EqExpression(left, right);
-  vector<materialization_mode> outputModes;
+  std::vector<materialization_mode> outputModes;
   outputModes.insert(outputModes.begin(), EAGER);
   outputModes.insert(outputModes.begin(), EAGER);
   outputModes.insert(outputModes.begin(), EAGER);

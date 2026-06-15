@@ -25,7 +25,7 @@
 
 #include <olap-perf-util/benchmark-aliases.hpp>
 #include <olap-perf-util/ssb-aliases.hpp>
-#include <olap/util/demangle.hpp>
+#include <platform/util/demangle.hpp>
 #include <platform/util/timing.hpp>
 #include <query-shaping/experimental-shapers.hpp>
 #include <ssb/query.hpp>

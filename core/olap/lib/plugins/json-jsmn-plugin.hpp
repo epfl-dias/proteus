@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,16 +24,17 @@
 #ifndef JSON_JSMN_PLUGIN_HPP_
 #define JSON_JSMN_PLUGIN_HPP_
 
+#include <codegen/context/context.hpp>
+
 #include "lib/util/catalog.hpp"
 #include "olap/plugins/plugins.hpp"
-#include "olap/util/context.hpp"
 
-//#JSON
+// #JSON
 #define JSMN_STRICT
 //
-//#define JSON_TIGHT
+// #define JSON_TIGHT
 #include "jsmn.h"
-//#define DEBUGJSMN
+// #define DEBUGJSMN
 
 namespace jsmn {
 
@@ -71,19 +72,20 @@ class JSONPlugin : public Plugin {
   JSONPlugin(Context *const context, string &fname, ExpressionType *schema);
   ~JSONPlugin() override;
   void init() override {}
-  void generate(const Operator &producer, ParallelContext *context) override;
+  void generate(const Operator &producer,
+                OlapParallelContext *context) override;
   void finish() override;
   string &getName() override { return fname; }
 
   // 1-1 correspondence with 'RecordProjection' expression
   ProteusValueMemory readPath(string activeRelation, Bindings wrappedBindings,
                               const char *pathVar, RecordAttribute attr,
-                              ParallelContext *context) override;
+                              OlapParallelContext *context) override;
   ProteusValueMemory readValue(ProteusValueMemory mem_value,
                                const ExpressionType *type,
-                               ParallelContext *context) override;
+                               OlapParallelContext *context) override;
   ProteusValue readCachedValue(CacheInfo info, const OperatorState &currState,
-                               ParallelContext *context) override {
+                               OlapParallelContext *context) override {
     string error_msg = "[JSMNPlugin: ] No caching support yet";
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
@@ -128,7 +130,7 @@ class JSONPlugin : public Plugin {
 
   llvm::Value *getValueSize(ProteusValueMemory mem_value,
                             const ExpressionType *type,
-                            ParallelContext *context) override;
+                            OlapParallelContext *context) override;
 
   // Used by unnest
   ProteusValueMemory initCollectionUnnest(
@@ -217,7 +219,7 @@ class JSONPlugin : public Plugin {
 
   void flushOutput(llvm::Value *fileName) override {
     llvm::Function *flushFunc = context->getFunction("flushOutput");
-    vector<llvm::Value *> ArgsV;
+    std::vector<llvm::Value *> ArgsV;
     // Start 'array'
     ArgsV.push_back(fileName);
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
@@ -232,7 +234,7 @@ class JSONPlugin : public Plugin {
   // Code-generation-related
   // Used to store memory positions of offset, buf and filesize in the generated
   // code
-  map<string, llvm::AllocaInst *> NamedValuesJSON;
+  map<string, llvm::Value *> NamedValuesJSON;
   Context *const context;
 
   // Assumption (1) applies here

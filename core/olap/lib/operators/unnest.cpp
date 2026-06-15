@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,7 +23,9 @@
 
 #include "unnest.hpp"
 
-void Unnest::produce_(ParallelContext *context) {
+#include <olap/util/jit/control-flow/if-statement.hpp>
+
+void Unnest::produce_(OlapParallelContext *context) {
   getChild()->produce(context);
 }
 
@@ -104,7 +106,7 @@ void Unnest::generate(Context *const context,
   /**
    * Predicate Evaluation:
    */
-  context->gen_if(pred, newState)([&]() {
+  gen_if(pred, newState, context)([&]() {
     // Triggering parent
     getParent()->consume(context, newState);
   });

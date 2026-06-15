@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,24 +23,24 @@
 
 #include "gpu-to-cpu.hpp"
 
+#include <codegen/util/gpu/gpu-intrinsics.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
 
 #include "lib/util/catalog.hpp"
-#include "lib/util/gpu/gpu-intrinsics.hpp"
-#include "lib/util/jit/gpu-pipeline.hpp"
+#include "lib/util/jit/olap-pipeline.hpp"
 
 using namespace llvm;
 
-void GpuToCpu::produce_(ParallelContext *context) {
+void GpuToCpu::produce_(OlapParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int32_type = Type::getInt32Ty(llvmContext);
   Type *charPtrType = Type::getInt8PtrTy(llvmContext);
 
   Plugin *pg =
       Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
-  vector<Type *> child_params;
+  std::vector<Type *> child_params;
   for (const auto t : wantedFields) {
     child_params.emplace_back(t->getOriginalType()->getLLVMType(llvmContext));
   }
@@ -59,7 +59,7 @@ void GpuToCpu::produce_(ParallelContext *context) {
 
   cpu_pip = context->removeLatestPipeline();
 
-  context->pushDeviceProvider<GpuPipelineGenFactory>();
+  context->pushDeviceProvider<OlapGpuPipelineGenFactory>();
   context->pushPipeline();
 
   lockVar_id = context->appendStateVar(PointerType::get(int32_type, 0));
@@ -76,7 +76,7 @@ void GpuToCpu::produce_(ParallelContext *context) {
   context->popDeviceProvider();
 }
 
-void GpuToCpu::consume(ParallelContext *const context,
+void GpuToCpu::consume(OlapParallelContext *const context,
                        const OperatorState &childState) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -130,7 +130,7 @@ void GpuToCpu::consume(ParallelContext *const context,
           mem_oidWrapper.mem),
       wantedFields.size());
 
-  // Value * subState   = ((ParallelContext *) context)->getSubStateVar();
+  // Value * subState   = ((OlapParallelContext *) context)->getSubStateVar();
 
   // kernel_params = Builder->CreateInsertValue(kernel_params, subState,
   // wantedFields.size() + 1);
@@ -402,7 +402,7 @@ void GpuToCpu::consume(ParallelContext *const context,
   Builder->CreateCall(warpsync, {activemask});
 }
 
-void GpuToCpu::generate_catch(ParallelContext *context) {
+void GpuToCpu::generate_catch(OlapParallelContext *context) {
   context->setGlobalFunction();
 
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -574,7 +574,7 @@ void kick_start(std::unique_ptr<Pipeline> cpip, int device,
   cpip->open(session);
   nvtxRangePop();
   nvtxRangePushA("gpu2cpu_cons");
-  cpip->consume(0);
+  cpip->consume();
   nvtxRangePop();
   nvtxRangePushA("gpu2cpu_close");
   cpip->close();

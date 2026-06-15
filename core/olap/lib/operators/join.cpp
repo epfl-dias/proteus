@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -27,7 +27,7 @@
 
 using namespace llvm;
 
-void Join::produce_(ParallelContext *context) {
+void Join::produce_(OlapParallelContext *context) {
   getLeftChild()->produce(context);
   getRightChild()->produce(context);
 }
@@ -89,7 +89,7 @@ void Join::consume(Context *const context, const OperatorState &childState) {
               mem_activeTuple.mem);
           // OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR
           // EXTRA OFFSET
-          vector<Value *> idxList = vector<Value *>();
+          std::vector<Value *> idxList = std::vector<Value *>();
           idxList.push_back(context->createInt32(0));
           idxList.push_back(context->createInt32(offsetInStruct++));
           // Shift in struct ptr
@@ -102,8 +102,9 @@ void Join::consume(Context *const context, const OperatorState &childState) {
     }
 
     int offsetInWanted = 0;
-    const vector<RecordAttribute *> &wantedFields = mat.getWantedFields();
-    for (vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
+    const std::vector<RecordAttribute *> &wantedFields = mat.getWantedFields();
+    for (std::vector<RecordAttribute *>::const_iterator it =
+             wantedFields.begin();
          it != wantedFields.end(); ++it) {
       map<RecordAttribute, ProteusValueMemory>::const_iterator memSearch =
           bindings.find(*(*it));
@@ -113,7 +114,7 @@ void Join::consume(Context *const context, const OperatorState &childState) {
           currValMem.mem->getType()->getPointerElementType(), currValMem.mem);
       Value *valToMaterialize = pg->convert(
           currVal->getType(), materializedTypes->at(offsetInWanted), currVal);
-      vector<Value *> idxList = vector<Value *>();
+      std::vector<Value *> idxList = std::vector<Value *>();
       idxList.push_back(context->createInt32(0));
       idxList.push_back(context->createInt32(offsetInStruct));
       // Shift in struct ptr
@@ -286,20 +287,21 @@ void Join::consume(Context *const context, const OperatorState &childState) {
     int i = 0;
     // Retrieving activeTuple(s) from HT
     AllocaInst *mem_activeTuple = nullptr;
-    const vector<RecordAttribute *> &tuplesIdentifiers = mat.getWantedOIDs();
-    for (vector<RecordAttribute *>::const_iterator it =
+    const std::vector<RecordAttribute *> &tuplesIdentifiers =
+        mat.getWantedOIDs();
+    for (std::vector<RecordAttribute *>::const_iterator it =
              tuplesIdentifiers.begin();
          it != tuplesIdentifiers.end(); it++) {
       RecordAttribute *attr = *it;
       mem_activeTuple = context->CreateEntryBlockAlloca(
           TheFunction, "mem_activeTuple", str->getElementType(i));
-      vector<Value *> idxList = vector<Value *>();
+      std::vector<Value *> idxList = std::vector<Value *>();
       idxList.push_back(context->createInt32(0));
       idxList.push_back(context->createInt32(i));
       GetElementPtrInst *elem_ptr =
           GetElementPtrInst::Create(str->getElementType(i), result_cast,
                                     idxList, "ptr_activeTuple", loopBody);
-      stringstream ss;
+      std::stringstream ss;
       ss << activeLoop;
       ss << i;
       Builder->SetInsertPoint(loopBody);
@@ -314,13 +316,14 @@ void Join::consume(Context *const context, const OperatorState &childState) {
       i++;
     }
 
-    const vector<RecordAttribute *> &wantedFields = mat.getWantedFields();
-    for (vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
+    const std::vector<RecordAttribute *> &wantedFields = mat.getWantedFields();
+    for (std::vector<RecordAttribute *>::const_iterator it =
+             wantedFields.begin();
          it != wantedFields.end(); ++it) {
       string currField = (*it)->getName();
       AllocaInst *memForField = context->CreateEntryBlockAlloca(
           TheFunction, currField + "mem", str->getElementType(i));
-      vector<Value *> idxList = vector<Value *>();
+      std::vector<Value *> idxList = std::vector<Value *>();
       idxList.push_back(context->createInt32(0));
       idxList.push_back(context->createInt32(i));
       GetElementPtrInst *elem_ptr =

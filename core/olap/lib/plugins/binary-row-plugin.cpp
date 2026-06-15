@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,13 +23,17 @@
 
 #include "binary-row-plugin.hpp"
 
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+
 #include "lib/operators/operators.hpp"
 
 using namespace llvm;
 
 BinaryRowPlugin::BinaryRowPlugin(Context *const context, string &fname,
                                  RecordType &rec,
-                                 vector<RecordAttribute *> &whichFields)
+                                 std::vector<RecordAttribute *> &whichFields)
     : fname(fname),
       rec(rec),
       wantedFields(whichFields),
@@ -101,7 +105,7 @@ ProteusValueMemory BinaryRowPlugin::readPath(string activeRelation,
                                              Bindings bindings,
                                              const char *pathVar,
                                              RecordAttribute attr,
-                                             ParallelContext *context) {
+                                             OlapParallelContext *context) {
   ProteusValueMemory mem_projection;
   {
     const OperatorState *state = bindings.state;
@@ -125,7 +129,7 @@ ProteusValueMemory BinaryRowPlugin::readPath(string activeRelation,
 
 ProteusValueMemory BinaryRowPlugin::readValue(ProteusValueMemory mem_value,
                                               const ExpressionType *type,
-                                              ParallelContext *context) {
+                                              OlapParallelContext *context) {
   return mem_value;
 }
 
@@ -160,7 +164,7 @@ void BinaryRowPlugin::finish() {
 
 llvm::Value *BinaryRowPlugin::getValueSize(ProteusValueMemory mem_value,
                                            const ExpressionType *type,
-                                           ParallelContext *context) {
+                                           OlapParallelContext *context) {
   switch (type->getTypeID()) {
     case BOOL:
     case INT:
@@ -330,7 +334,7 @@ void BinaryRowPlugin::readAsStringLLVM(
   Value *val_0 = context->createInt32(0);
   Value *val_1 = context->createInt32(1);
 
-  vector<Value *> idxList = vector<Value *>();
+  std::vector<Value *> idxList = std::vector<Value *>();
   idxList.push_back(val_0);
   idxList.push_back(val_0);
   Value *structPtr = Builder->CreateGEP(
@@ -459,7 +463,7 @@ void BinaryRowPlugin::readAsFloatLLVM(
 }
 
 void BinaryRowPlugin::generate(const ::Operator &producer,
-                               ParallelContext *context) {
+                               OlapParallelContext *context) {
   auto f = context->getGlobalFunction();
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -554,7 +558,7 @@ void BinaryRowPlugin::generate(const ::Operator &producer,
   size_t offset = 0;
   list<RecordAttribute *> args = rec.getArgs();
   list<RecordAttribute *>::iterator iterSchema = args.begin();
-  for (vector<RecordAttribute *>::iterator it = wantedFields.begin();
+  for (std::vector<RecordAttribute *>::iterator it = wantedFields.begin();
        it != wantedFields.end(); it++) {
     RecordAttribute attr = *(*it);
 

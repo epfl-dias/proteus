@@ -42,7 +42,7 @@ void MemMoveLocalTo::MemMoveConf::propagate(MemMoveDevice::workunit *buff,
 
 buff_pair MemMoveLocalTo::MemMoveConf::push(proteus::managed_ptr src,
                                             size_t bytes, int target_device,
-                                            uint64_t) {
+                                            uint64_t, workunit *wu) {
   const auto *d2 = topology::getInstance().getGpuAddressed(src.get());
   int dev = d2 ? d2->id : -1;
 

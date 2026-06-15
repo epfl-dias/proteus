@@ -23,6 +23,7 @@
 
 #include "catalog.hpp"
 
+
 Catalog &Catalog::getInstance() {
   static Catalog instance;
   return instance;

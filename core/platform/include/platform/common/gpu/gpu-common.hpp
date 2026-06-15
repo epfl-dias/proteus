@@ -29,8 +29,8 @@
 #include <cuda_profiler_api.h>
 #include <cuda_runtime_api.h>
 #include <cupti.h>
-#include <nvToolsExt.h>
 #include <nvml.h>
+#include <nvtx3/nvToolsExt.h>
 
 #include <platform/common/common.hpp>
 #else
@@ -74,11 +74,6 @@ inline void nvtxRangePop() {}
 #ifndef WARPSIZE
 #define WARPSIZE (32)
 #endif
-
-// extern int                                                 cpu_cnt;
-// extern cpu_set_t                                          *gpu_affinity;
-// extern cpu_set_t                                          *cpu_numa_affinity;
-// extern int                                                *gpu_numa_node;
 
 typedef size_t vid_t;
 typedef uint32_t cid_t;
@@ -183,21 +178,6 @@ extern "C" void memcpy_gpu(void *dst, const void *src, size_t size,
 #define gpu_run(ans)
 // inline constexpr int get_num_of_gpus() {return 0;}
 #endif
-
-// int get_device(const void *p);
-// inline int get_device(){
-// #ifndef NCUDA
-//     int device;
-//     gpu_run(cudaGetDevice(&device));
-//     return device;
-// #else
-//     return 0;
-// #endif
-// }
-
-// inline int get_current_gpu(){
-//     return get_device();
-// }
 
 std::ostream &operator<<(std::ostream &out, const cpu_set_t &cpus);
 
@@ -357,9 +337,8 @@ __device__ __forceinline__ T atomicAdd_block(T *address, T val) {
 }
 #endif
 
-dim3 findDefaultGridDim();
-
 const dim3 defaultBlockDim(1024, 1, 1);
+/// Updated by topology on initialization
 extern dim3 defaultGridDim;
 
 struct execution_conf {
@@ -380,22 +359,51 @@ struct execution_conf {
   size_t threadNum() const { return blockSize() * gridSize(); }
 };
 
+/**
+ * Launches a kernel on the [optionally] specified stream without blocking on
+ * its completion.
+ * @param args kernelParams. Array of points to kernel parameters
+ * @param strm if no stream is specified, the default NULL stream is used
+ * @param gridDim CUDA grid dimensions used for the kernel launch
+ * @param blockDim CUDA block dimensions used for the kernel launch
+ */
 void launch_kernel(CUfunction function, void **args, dim3 gridDim,
                    dim3 blockDim, cudaStream_t strm = nullptr);
+
+/**
+ * Launches a kernel on the [optionally] specified stream without blocking on
+ * its completion.
+ * @param args kernelParams. Array of points to kernel parameters
+ * @param strm if no stream is specified, the default NULL stream is used
+ * @param gridDim CUDA grid dimensions used for the kernel launch
+ * @note Uses the default block dimensions
+ */
 void launch_kernel(CUfunction function, void **args, dim3 gridDim,
                    cudaStream_t strm = nullptr);
+
+/**
+ * Launches a kernel on the [optionally] specified stream without blocking on
+ * its completion.
+ * @param args kernelParams. Array of points to kernel parameters
+ * @param strm if no stream is specified, the default NULL stream is used
+ * @note Uses the default grid and block dimensions
+ */
 void launch_kernel(CUfunction function, void **args,
                    cudaStream_t strm = nullptr);
+/**
+ * Launches a kernel on the specified stream and blocks on kernel completion
+ * @param args kernelParams. Array of points to kernel parameters
+ */
 extern "C" void launch_kernel_strm(CUfunction function, void **args,
                                    cudaStream_t strm);
 
-extern "C" {
-int get_ptr_device(const void *p);
-int get_ptr_device_or_rand_for_host(const void *p);
-int get_rand_core_local_to_ptr(const void *p);
-}
+/**
+ * Registers a human-readable kernel symbol for debug launch tracing.
+ */
+extern "C" void register_gpu_kernel_symbol(CUfunction function,
+                                           const char *name);
 
-cudaStream_t createNonBlockingStream();
+[[nodiscard]] cudaStream_t createNonBlockingStream();
 void syncAndDestroyStream(cudaStream_t strm);
 
 #endif /* GPU_COMMON_HPP_ */

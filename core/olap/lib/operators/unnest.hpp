@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -29,7 +29,7 @@
 #include "lib/util/catalog.hpp"
 #include "operators.hpp"
 
-//#define DEBUGUNNEST
+// #define DEBUGUNNEST
 /**
  * XXX Paper comment: 'Very few ways of evaluating unnest operator -> lamdaDB
  * only provides a nested-loop variation'
@@ -48,7 +48,7 @@ class Unnest : public UnaryOperator {
                         path.getUnderlyingExpression())),
                child) {}
   ~Unnest() override { LOG(INFO) << "Collapsing Unnest operator"; }
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
   void consume(Context *const context,
                const OperatorState &childState) override;
   bool isFiltering() const override { return true; }

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -31,23 +31,22 @@
 #ifndef ATOIS_HPP_
 #define ATOIS_HPP_
 
+#include <codegen/context/context.hpp>
 #include <platform/common/common.hpp>
 
-#include "olap/util/context.hpp"
+// #define DEBUGATOIS
 
-//#define DEBUGATOIS
-
-void atois(llvm::Value *buf, llvm::Value *len, llvm::AllocaInst *mem_result,
+void atois(llvm::Value *buf, llvm::Value *len, llvm::Value *mem_result,
            Context *context);
-void atoi1(llvm::Value *buf, llvm::AllocaInst *mem_result, Context *context);
-void atoi2(llvm::Value *buf, llvm::AllocaInst *mem_result, Context *context);
-void atoi3(llvm::Value *buf, llvm::AllocaInst *mem_result, Context *context);
-void atoi4(llvm::Value *buf, llvm::AllocaInst *mem_result, Context *context);
-void atoi5(llvm::Value *buf, llvm::AllocaInst *mem_result, Context *context);
-void atoi6(llvm::Value *buf, llvm::AllocaInst *mem_result, Context *context);
-void atoi7(llvm::Value *buf, llvm::AllocaInst *mem_result, Context *context);
-void atoi8(llvm::Value *buf, llvm::AllocaInst *mem_result, Context *context);
-void atoi9(llvm::Value *buf, llvm::AllocaInst *mem_result, Context *context);
-void atoi10(llvm::Value *buf, llvm::AllocaInst *mem_result, Context *context);
+void atoi1(llvm::Value *buf, llvm::Value *mem_result, Context *context);
+void atoi2(llvm::Value *buf, llvm::Value *mem_result, Context *context);
+void atoi3(llvm::Value *buf, llvm::Value *mem_result, Context *context);
+void atoi4(llvm::Value *buf, llvm::Value *mem_result, Context *context);
+void atoi5(llvm::Value *buf, llvm::Value *mem_result, Context *context);
+void atoi6(llvm::Value *buf, llvm::Value *mem_result, Context *context);
+void atoi7(llvm::Value *buf, llvm::Value *mem_result, Context *context);
+void atoi8(llvm::Value *buf, llvm::Value *mem_result, Context *context);
+void atoi9(llvm::Value *buf, llvm::Value *mem_result, Context *context);
+void atoi10(llvm::Value *buf, llvm::Value *mem_result, Context *context);
 
 #endif /* ATOIS_HPP_ */

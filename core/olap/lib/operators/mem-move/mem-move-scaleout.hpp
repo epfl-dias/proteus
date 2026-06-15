@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -39,22 +39,24 @@ class MemMoveScaleOut : public MemMoveDevice {
     void propagate(MemMoveDevice::workunit *buff, bool is_noop) override;
 
     buff_pair push(proteus::managed_ptr src, size_t bytes, int target_device,
-                   uint64_t srcServer) override;
+                   uint64_t srcServer, workunit *wu) override;
     proteus::managed_ptr pull(proteus::managed_ptr buff) override;
 
     bool getPropagated(MemMoveDevice::workunit **ret) override;
   };
 
   MemMoveScaleOut(Operator *const child,
-                  const vector<RecordAttribute *> &wantedFields, size_t slack);
+                  const std::vector<RecordAttribute *> &wantedFields,
+                  size_t slack);
 
  protected:
   [[nodiscard]] MemMoveScaleOut::MemMoveConf *createMoveConf() const override;
 
   [[nodiscard]] ProteusValueMemory getServerId(
-      ParallelContext *context, const OperatorState &childState) const override;
+      OlapParallelContext *context,
+      const OperatorState &childState) const override;
 
-  void genReleaseOldBuffer(ParallelContext *context,
+  void genReleaseOldBuffer(OlapParallelContext *context,
                            llvm::Value *src) const override;
 
   // virtual void open(Pipeline *pip);

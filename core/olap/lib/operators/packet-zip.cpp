@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,8 +23,9 @@
 
 #include "packet-zip.hpp"
 
+#include <codegen/jit/pipeline.hpp>
+
 #include "lib/expressions/expressions-generator.hpp"
-#include "lib/util/jit/pipeline.hpp"
 
 using namespace llvm;
 
@@ -32,7 +33,7 @@ using namespace llvm;
 
 ZipInitiate::ZipInitiate(RecordAttribute *ptrAttr, RecordAttribute *splitter,
                          RecordAttribute *targetAttr, Operator *const child,
-                         ParallelContext *const context, int numOfBuckets,
+                         OlapParallelContext *const context, int numOfBuckets,
                          ZipState &state1, ZipState &state2, string opLabel)
     : ptrAttr(ptrAttr),
       targetAttr(targetAttr),
@@ -44,7 +45,7 @@ ZipInitiate::ZipInitiate(RecordAttribute *ptrAttr, RecordAttribute *splitter,
       state2(state2),
       calls(0) {}
 
-void ZipInitiate::produce_(ParallelContext *context) {
+void ZipInitiate::produce_(OlapParallelContext *context) {
   Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
   Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
 
@@ -52,13 +53,13 @@ void ZipInitiate::produce_(ParallelContext *context) {
   left_blocks_id = context->appendStateVar(PointerType::get(charPtrType, 0));
   right_blocks_id = context->appendStateVar(PointerType::get(charPtrType, 0));
 
-  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
+  ((OlapParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
     this->open_fwd(pip);
   });
   generate_send();
   context->popPipeline();
 
-  launch.push_back(((ParallelContext *)context)->removeLatestPipeline());
+  launch.push_back(((OlapParallelContext *)context)->removeLatestPipeline());
 
   context->pushPipeline();
 
@@ -67,13 +68,13 @@ void ZipInitiate::produce_(ParallelContext *context) {
     return;
   }
 
-  ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
+  ((OlapParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
     this->ctrl(pip);
   });
   context->setGlobalFunction();
   context->popPipeline();
 
-  auto next_pip = ((ParallelContext *)context)->removeLatestPipeline();
+  auto next_pip = ((OlapParallelContext *)context)->removeLatestPipeline();
 
   context->pushPipeline();
   context->setChainedPipeline(next_pip);
@@ -82,7 +83,7 @@ void ZipInitiate::produce_(ParallelContext *context) {
       context->appendStateVar(PointerType::get(int32_type, 0));
   partition_cnt_cache =
       context->appendStateVar(PointerType::get(int32_type, 0));
-  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
+  ((OlapParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
     this->open_cache(pip);
   });
   getChild()->produce(context);
@@ -93,7 +94,7 @@ void ZipInitiate::consume(Context *const context,
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
-  ParallelContext *const gpu_context = (ParallelContext *const)context;
+  OlapParallelContext *const gpu_context = (OlapParallelContext *const)context;
 
   const map<RecordAttribute, ProteusValueMemory> &bindings =
       childState.getBindings();
@@ -122,7 +123,7 @@ void ZipInitiate::generate_send() {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
-  ParallelContext *const gpu_context = (ParallelContext *const)context;
+  OlapParallelContext *const gpu_context = (OlapParallelContext *const)context;
 
   Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
 
@@ -134,11 +135,11 @@ void ZipInitiate::generate_send() {
       BasicBlock::Create(llvmContext, "SendMerge", TheFunction);
 
   Value *mem_blocks1 =
-      ((const ParallelContext *)context)->getStateVar(left_blocks_id);
+      ((const OlapParallelContext *)context)->getStateVar(left_blocks_id);
   Value *mem_blocks2 =
-      ((const ParallelContext *)context)->getStateVar(right_blocks_id);
+      ((const OlapParallelContext *)context)->getStateVar(right_blocks_id);
   Value *mem_target =
-      ((const ParallelContext *)context)->getStateVar(partition_fwd);
+      ((const OlapParallelContext *)context)->getStateVar(partition_fwd);
 
   Value *target = Builder->CreateLoad(
       mem_target->getType()->getPointerElementType(), mem_target);
@@ -247,14 +248,14 @@ void ZipInitiate::ctrl(Pipeline *pip) {
     *(partition_ptr[pip->getGroup()]) = partitions[pip->getGroup()][i];
 
     lpip->open(pip->getSession());
-    lpip->consume(0);
+    lpip->consume();
     lpip->close();
 
     rpip->open(pip->getSession());
-    rpip->consume(0);
+    rpip->consume();
     rpip->close();
 
-    jpip->consume(0);
+    jpip->consume();
   }
 
   jpip->close();
@@ -280,11 +281,11 @@ ZipCollect::ZipCollect(RecordAttribute *ptrAttr, RecordAttribute *splitter,
                        RecordAttribute *targetAttr, RecordAttribute *inputLeft,
                        RecordAttribute *inputRight, Operator *const leftChild,
                        Operator *const rightChild,
-                       ParallelContext *const context, int numOfBuckets,
+                       OlapParallelContext *const context, int numOfBuckets,
                        RecordAttribute *hash_key_left,
-                       const vector<expression_t> &wantedFieldsLeft,
+                       const std::vector<expression_t> &wantedFieldsLeft,
                        RecordAttribute *hash_key_right,
-                       const vector<expression_t> &wantedFieldsRight,
+                       const std::vector<expression_t> &wantedFieldsRight,
                        string opLabel)
     : ptrAttr(ptrAttr),
       splitter(splitter),
@@ -302,26 +303,26 @@ ZipCollect::ZipCollect(RecordAttribute *ptrAttr, RecordAttribute *splitter,
 
 {}
 
-void ZipCollect::produce_(ParallelContext *context) {
+void ZipCollect::produce_(OlapParallelContext *context) {
   Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
 
   pipeFormat();
-  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
+  ((OlapParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
     this->open_pipe(pip);
   });
-  ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
+  ((OlapParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
     this->close_pipe(pip);
   });
   generate_send();
   context->popPipeline();
 
-  auto next_pip = ((ParallelContext *)context)->removeLatestPipeline();
+  auto next_pip = ((OlapParallelContext *)context)->removeLatestPipeline();
 
   context->pushPipeline();
-  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
+  ((OlapParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
     this->open_cache_left(pip);
   });
-  ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
+  ((OlapParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
     this->close_cache_left(pip);
   });
   cacheFormatLeft();
@@ -331,10 +332,10 @@ void ZipCollect::produce_(ParallelContext *context) {
 
   context->pushPipeline();
   context->setChainedPipeline(next_pip);
-  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
+  ((OlapParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
     this->open_cache_right(pip);
   });
-  ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
+  ((OlapParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
     this->close_cache_right(pip);
   });
   cacheFormatRight();
@@ -449,18 +450,18 @@ void ZipCollect::generate_cache_left(Context *const context,
   Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
   Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
 
-  Value *mem_heads =
-      ((const ParallelContext *)context)->getStateVar(cache_left_p.heads_id);
-  Value *mem_sizes =
-      ((const ParallelContext *)context)->getStateVar(cache_left_p.sizes_id);
+  Value *mem_heads = ((const OlapParallelContext *)context)
+                         ->getStateVar(cache_left_p.heads_id);
+  Value *mem_sizes = ((const OlapParallelContext *)context)
+                         ->getStateVar(cache_left_p.sizes_id);
   Value *mem_oids =
-      ((const ParallelContext *)context)->getStateVar(cache_left_p.oids_id);
-  Value *mem_blocks =
-      ((const ParallelContext *)context)->getStateVar(cache_left_p.blocks_id);
-  Value *mem_chains =
-      ((const ParallelContext *)context)->getStateVar(cache_left_p.chains_id);
-  Value *mem_offset =
-      ((const ParallelContext *)context)->getStateVar(cache_left_p.offset_id);
+      ((const OlapParallelContext *)context)->getStateVar(cache_left_p.oids_id);
+  Value *mem_blocks = ((const OlapParallelContext *)context)
+                          ->getStateVar(cache_left_p.blocks_id);
+  Value *mem_chains = ((const OlapParallelContext *)context)
+                          ->getStateVar(cache_left_p.chains_id);
+  Value *mem_offset = ((const OlapParallelContext *)context)
+                          ->getStateVar(cache_left_p.offset_id);
 
   // AllocaInst * mem_offset = context->CreateEntryBlockAlloca(TheFunction,
   // "mem_offset", int32_type);
@@ -570,7 +571,7 @@ void ZipCollect::generate_cache_left(Context *const context,
   Function* debugInt = context->getFunction("printi");
   Builder->CreateCall(debugInt, ArgsV1);
 
-  vector<Value*> ArgsV2;
+  std::vector<Value*> ArgsV2;
   ArgsV2.push_back(offset);
   debugInt = context->getFunction("printi");
   Builder->CreateCall(debugInt, ArgsV2);*/
@@ -588,18 +589,18 @@ void ZipCollect::generate_cache_right(Context *const context,
   Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
   Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
 
-  Value *mem_heads =
-      ((const ParallelContext *)context)->getStateVar(cache_right_p.heads_id);
-  Value *mem_sizes =
-      ((const ParallelContext *)context)->getStateVar(cache_right_p.sizes_id);
-  Value *mem_oids =
-      ((const ParallelContext *)context)->getStateVar(cache_right_p.oids_id);
-  Value *mem_blocks =
-      ((const ParallelContext *)context)->getStateVar(cache_right_p.blocks_id);
-  Value *mem_chains =
-      ((const ParallelContext *)context)->getStateVar(cache_right_p.chains_id);
-  Value *mem_offset =
-      ((const ParallelContext *)context)->getStateVar(cache_right_p.offset_id);
+  Value *mem_heads = ((const OlapParallelContext *)context)
+                         ->getStateVar(cache_right_p.heads_id);
+  Value *mem_sizes = ((const OlapParallelContext *)context)
+                         ->getStateVar(cache_right_p.sizes_id);
+  Value *mem_oids = ((const OlapParallelContext *)context)
+                        ->getStateVar(cache_right_p.oids_id);
+  Value *mem_blocks = ((const OlapParallelContext *)context)
+                          ->getStateVar(cache_right_p.blocks_id);
+  Value *mem_chains = ((const OlapParallelContext *)context)
+                          ->getStateVar(cache_right_p.chains_id);
+  Value *mem_offset = ((const OlapParallelContext *)context)
+                          ->getStateVar(cache_right_p.offset_id);
 
   // AllocaInst * mem_offset = context->CreateEntryBlockAlloca(TheFunction,
   // "mem_offset", int32_type);
@@ -702,7 +703,7 @@ void ZipCollect::generate_send() {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
-  ParallelContext *const gpu_context = (ParallelContext *const)context;
+  OlapParallelContext *const gpu_context = (OlapParallelContext *const)context;
 
   Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
 
@@ -952,9 +953,9 @@ void ZipCollect::close_pipe(Pipeline *pip) {
 }
 
 ZipForward::ZipForward(RecordAttribute *targetAttr, Operator *const child,
-                       ParallelContext *const context,
-                       const vector<expression_t> &wantedFields, string opLabel,
-                       ZipState &state)
+                       OlapParallelContext *const context,
+                       const std::vector<expression_t> &wantedFields,
+                       string opLabel, ZipState &state)
     : UnaryOperator(child),
       context(context),
       opLabel(opLabel),
@@ -962,12 +963,12 @@ ZipForward::ZipForward(RecordAttribute *targetAttr, Operator *const child,
       targetAttr(targetAttr),
       state(state) {}
 
-void ZipForward::produce_(ParallelContext *context) {
+void ZipForward::produce_(OlapParallelContext *context) {
   cacheFormat();
-  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
+  ((OlapParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
     this->open(pip);
   });
-  ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
+  ((OlapParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
     this->close(pip);
   });
 
@@ -1012,14 +1013,15 @@ void ZipForward::consume(Context *const context,
       BasicBlock::Create(llvmContext, "SendMerge", TheFunction);
 
   Value *mem_heads =
-      ((const ParallelContext *)context)->getStateVar(p.heads_id);
+      ((const OlapParallelContext *)context)->getStateVar(p.heads_id);
   Value *mem_sizes =
-      ((const ParallelContext *)context)->getStateVar(p.sizes_id);
-  Value *mem_oids = ((const ParallelContext *)context)->getStateVar(p.oids_id);
+      ((const OlapParallelContext *)context)->getStateVar(p.sizes_id);
+  Value *mem_oids =
+      ((const OlapParallelContext *)context)->getStateVar(p.oids_id);
   Value *mem_blocks =
-      ((const ParallelContext *)context)->getStateVar(p.blocks_id);
+      ((const OlapParallelContext *)context)->getStateVar(p.blocks_id);
   Value *mem_chains =
-      ((const ParallelContext *)context)->getStateVar(p.chains_id);
+      ((const OlapParallelContext *)context)->getStateVar(p.chains_id);
 
   Value *mem_partition = childState[*targetAttr].mem;
 

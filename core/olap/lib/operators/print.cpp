@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,7 +23,9 @@
 
 #include "print.hpp"
 
-void Print::produce_(ParallelContext *context) { getChild()->produce(context); }
+void Print::produce_(OlapParallelContext *context) {
+  getChild()->produce(context);
+}
 
 void Print::consume(Context *const context, const OperatorState &childState) {
   // Generate condition

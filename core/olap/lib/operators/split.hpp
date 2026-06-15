@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -28,7 +28,7 @@
 class Split : public Router {
  public:
   Split(Operator *const child, size_t numOfParents,
-        const vector<RecordAttribute *> &wantedFields, size_t slack,
+        const std::vector<RecordAttribute *> &wantedFields, size_t slack,
         std::optional<expression_t> hash = std::nullopt,
         RoutingPolicy policy_type = RoutingPolicy::LOCAL)
       : Router(child, DegreeOfParallelism{numOfParents}, wantedFields, slack,
@@ -40,7 +40,7 @@ class Split : public Router {
 
   ~Split() override { LOG(INFO) << "Collapsing Split operator"; }
 
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
 
   void setParent(Operator *parent) override {
     UnaryOperator::setParent(parent);

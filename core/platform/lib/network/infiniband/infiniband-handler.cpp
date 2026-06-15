@@ -35,7 +35,7 @@
 #include <platform/memory/memory-manager.hpp>
 #include <platform/network/infiniband/infiniband-handler.hpp>
 #include <platform/threadpool/threadpool.hpp>
-#include <platform/util/logging.hpp>
+#include <platform/util/tracing.hpp>
 #include <thread>
 
 #include "private/ib_impl.hpp"

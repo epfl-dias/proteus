@@ -68,7 +68,7 @@ class MemoryService {
     std::lock_guard<std::mutex> lock(m);
     //        cout << "Removing " << mem_chunk << endl;
 
-    vector<void *>::iterator it = memoryChunks.begin();
+    std::vector<void *>::iterator it = memoryChunks.begin();
     for (; it != memoryChunks.end(); it++) {
       void *currChunk = (*it);
       if (currChunk == mem_chunk) {
@@ -85,7 +85,7 @@ class MemoryService {
   void updateChunk(void *mem_before, void *mem_after) {
     removeChunk(mem_before);
     registerChunk(mem_after);
-    // vector<void*>::iterator it = memoryChunks.begin();
+    // std::vector<void*>::iterator it = memoryChunks.begin();
     // for (; it != memoryChunks.end(); it++) {
     //     void* currChunk = (*it);
     //     if (currChunk == mem_before)
@@ -97,7 +97,7 @@ class MemoryService {
 
   void clear() {
     std::lock_guard<std::mutex> lock(m);
-    vector<void *>::iterator it = memoryChunks.begin();
+    std::vector<void *>::iterator it = memoryChunks.begin();
     for (; it != memoryChunks.end(); it++) {
       void *currChunk = (*it);
       //            cout << "Freeing " << currChunk << endl;
@@ -107,7 +107,7 @@ class MemoryService {
   }
 
  private:
-  vector<void *> memoryChunks;
+  std::vector<void *> memoryChunks;
   std::mutex m;
 
   MemoryService() {}

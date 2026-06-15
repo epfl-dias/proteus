@@ -83,6 +83,34 @@ FOR_SSB_QUERY(SSB_BENCH_REGISTER_CPU)
 FOR_SSB_QUERY(SSB_BENCH_DEFINE_GPU)
 FOR_SSB_QUERY(SSB_BENCH_REGISTER_GPU)
 
+// GPU only lazy
+#define SSB_BENCH_DEFINE_GPU_LAZY(name, prepFunction)      \
+  BENCHMARK_DEFINE_F(SSBGPUOnlyLazy, GPULazy_##name)       \
+  (benchmark::State & st) {                                \
+    auto num_gpus = topology::getInstance().getGpuCount(); \
+    if (num_gpus == 0) {                                   \
+      st.SkipWithError("System has no GPUs");              \
+    }                                                      \
+    auto statement = prepFunction(*shaper.get());          \
+    warmUp(statement);                                     \
+    runBenchmark(statement, st);                           \
+  }
+
+#define SSB_BENCH_REGISTER_GPU_LAZY(name, prepFunction) \
+  BENCHMARK_REGISTER_F(SSBGPUOnlyLazy, GPULazy_##name)  \
+      ->Args({100, 1})                                  \
+      ->UseRealTime()                                   \
+      ->Unit(benchmark::kMillisecond)                   \
+      ->Iterations(5);                                  \
+  BENCHMARK_REGISTER_F(SSBGPUOnlyLazy, GPULazy_##name)  \
+      ->Args({1000, 1})                                 \
+      ->UseRealTime()                                   \
+      ->Unit(benchmark::kMillisecond)                   \
+      ->Iterations(3);
+
+FOR_SSB_QUERY(SSB_BENCH_DEFINE_GPU_LAZY)
+FOR_SSB_QUERY(SSB_BENCH_REGISTER_GPU_LAZY)
+
 // Hybrid CPU-GPU
 #define SSB_BENCH_DEFINE_HYBRID(name, prepFunction)        \
   BENCHMARK_DEFINE_F(SSBHybrid, HYBRID_##name)             \

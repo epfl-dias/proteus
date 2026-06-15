@@ -31,6 +31,7 @@
 #include <storage/storage-manager.hpp>
 
 extern bool print_generated_code;
+extern bool insert_preopt_debug_info;
 
 // https://stackoverflow.com/a/25829178/1237824
 std::string trim(const std::string &str) {

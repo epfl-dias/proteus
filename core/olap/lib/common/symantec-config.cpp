@@ -386,7 +386,7 @@ void symantecCoreIDDatesSchema(map<string, dataset> &datasetCatalog) {
   symantec.linehint = 100;
 #endif
 #ifdef SYMANTEC_SERVER
-  cout << "[SYMANTEC: ] SERVER MODE ON!" << endl;
+  cout << "[SYMANTEC: ] SERVER MODE ON!" << std::endl;
   //    string path =
   //    string("/cloud_store/manosk/data/vida-engine/symantec/spamsCoreIDDates100.json");
   //    symantec.linehint = 100;

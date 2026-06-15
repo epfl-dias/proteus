@@ -51,44 +51,109 @@ using percentile_point = percentile_point_rdtsc;
 
 class [[nodiscard]] Percentile {
  public:
-  explicit Percentile() = default;
-  explicit Percentile(std::string key);
+  /**
+   * Construct a non-global Percentile and optional @param thread_safe
+   * Percentile
+   */
+  explicit Percentile(bool thread_safe = false);
+  /**
+   * Construct a global Percentile that is accessible through @see
+   * PercentileRegistry using
+   * @param key
+   * PercentileRegistry only holds a raw pointer to the newly constructed
+   * Percentile. Constructs a threadsafe Percentile
+   */
+  explicit Percentile(const std::string& key);
 
   ~Percentile() = default;
 
-  inline void add(size_t value) { this->points.push_back(value); }
+  inline void add(size_t value) {
+    if (m_threadsafe) {
+      std::unique_lock<std::mutex> lock(m_points_mutex);
+      m_points.push_back(value);
+    } else {
+      m_points.push_back(value);
+    }
+  }
 
   inline void add(const Percentile& p) {
-    std::copy(p.points.begin(), p.points.end(), std::back_inserter(points));
+    if (m_threadsafe) {
+      std::unique_lock<std::mutex> lock(m_points_mutex);
+      std::copy(p.m_points.begin(), p.m_points.end(),
+                std::back_inserter(m_points));
+    } else {
+      std::copy(p.m_points.begin(), p.m_points.end(),
+                std::back_inserter(m_points));
+    }
   }
 
   inline void add(const std::vector<size_t>& v) {
-    std::copy(v.begin(), v.end(), std::back_inserter(points));
+    if (m_threadsafe) {
+      std::unique_lock<std::mutex> lock(m_points_mutex);
+      std::copy(v.begin(), v.end(), std::back_inserter(m_points));
+    } else {
+      std::copy(v.begin(), v.end(), std::back_inserter(m_points));
+    }
   }
 
-  size_t size() { return points.size(); }
+  size_t size() {
+    if (m_threadsafe) {
+      std::unique_lock<std::mutex> lock(m_points_mutex);
+      return m_points.size();
+    } else {
+      return m_points.size();
+    }
+  }
 
-  // Following shouldn't be on critical path.
+  /**
+   * Should not be on the critical path
+   * @return return the @param n th percentile. Returns 0 if there are no points
+   * recorded
+   * @note not thread safe
+   */
   size_t nth(double n);
+
+  /**
+   * Should not be on the critical path
+   * @return the mean of the recorded points. Returns -1 if there are no points
+   * recorded
+   * @note not thread safe
+   */
+  double mean() const;
 
   void save_cdf(const std::string& out_path, size_t step = 1000);
 
+  /**
+   * @return return the nth percentile
+   * @note not thread safe
+   */
   size_t operator[](double n) {
     assert(n > 0 && n <= 100);
     return nth(n);
   }
 
  private:
-  std::deque<size_t> points;
+  std::deque<size_t> m_points;
+  std::mutex m_points_mutex;
+  const bool m_threadsafe;
 };
 
+/**
+ * Global singleton class that holds non-owning pointers to instances of @see
+ * Percentile
+ */
 class [[nodiscard]] PercentileRegistry {
  public:
+  /**
+   * @param key key to register Percentile with
+   * @param global_cdf Pointer to a Percentile to register
+   * @return True if the Percentile was inserted, false if it replaced an
+   * existing Percentile
+   */
   static inline bool register_global(const std::string& key,
                                      Percentile* global_cdf) {
-    // The bool component is true if the insertion took place
-    // and false if the assignment took place.
     LOG(INFO) << "registering global: " << key;
+    std::unique_lock<std::mutex> lock(g_lock);
     return PercentileRegistry::global_registry.insert_or_assign(key, global_cdf)
         .second;
   }
@@ -98,6 +163,10 @@ class [[nodiscard]] PercentileRegistry {
     return PercentileRegistry::global_registry[key];
   }
 
+  /**
+   * not thread safe
+   * @param f lambda to apply to each key-Percentile pair
+   */
   [[maybe_unused]] static inline void for_each(void (*f)(std::string key,
                                                          Percentile* p)) {
     for (const auto& [k, val] : global_registry) {
@@ -126,6 +195,13 @@ class [[nodiscard]] PercentileRegistry {
 
 class [[nodiscard]] threadLocal_percentile {
  public:
+  /**
+   * A thread-local percentile that will add to the global percentile with
+   * matching @param key on destruction.
+   * The threadsafety assumes that no new keys will be inserted into the
+   * PercentileRegistry when either the constructor or destructor if
+   * threadLocal_percentile execute
+   */
   explicit threadLocal_percentile(const std::string& key) : key(key) {
     LOG(INFO) << "threadLocal_percentile registered: " << key;
     if (PercentileRegistry::global_registry.find(key) ==
@@ -135,7 +211,8 @@ class [[nodiscard]] threadLocal_percentile {
   }
 
   ~threadLocal_percentile() {
-    std::unique_lock<std::mutex> lk(PercentileRegistry::g_lock);
+    // this is threadsafe if the Percentile in the registry is threadsafe
+    // as we only read the global map
     PercentileRegistry::global_registry[this->key]->add(this->p);
   }
 

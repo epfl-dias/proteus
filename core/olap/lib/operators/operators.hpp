@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,13 +24,14 @@
 #ifndef OPERATORS_HPP_
 #define OPERATORS_HPP_
 
+#include <codegen/expressions/expressions.hpp>
 #include <olap/util/parallel-context.hpp>
 #include <platform/common/common.hpp>
 #include <platform/topology/device-types.hpp>
+#include <stduuid/uuid.hpp>
 
 #include "lib/plugins/output/plugins-output.hpp"
 #include "llvm/IR/IRBuilder.h"
-#include "olap/expressions/expressions.hpp"
 #include "olap/plugins/plugins.hpp"
 #include "olap/routing/degree-of-parallelism.hpp"
 
@@ -59,7 +60,7 @@ enum class HomParallelization {
 
 class Operator {
  public:
-  Operator() : parent(nullptr) {}
+  Operator() : parent(nullptr), id(uuids::uuid_system_generator{}()) {}
   virtual ~Operator() { LOG(INFO) << "Collapsing operator"; }
   virtual void setParent(Operator *parent) { this->parent = parent; }
   Operator *const getParent() const { return parent; }
@@ -72,13 +73,14 @@ class Operator {
   }
 
  protected:
-  virtual void produce_(ParallelContext *context) = 0;
+  virtual void produce_(OlapParallelContext *context) = 0;
+  const uuids::uuid id;
 
  public:
-  virtual void produce(ParallelContext *context) final {
-    //#ifndef NDEBUG
-    //    auto * pip = context->getCurrentPipeline();
-    //#endif
+  virtual void produce(OlapParallelContext *context) final {
+    // #ifndef NDEBUG
+    //     auto * pip = context->getCurrentPipeline();
+    // #endif
     produce_(context);
     //    assert(pip == context->getCurrentPipeline());
   }
@@ -90,6 +92,8 @@ class Operator {
    */
   virtual void consume(Context *const context,
                        const OperatorState &childState) = 0;
+
+  [[nodiscard]] uuids::uuid getUUID() const { return id; }
 
   virtual RecordType getRowType() const = 0;
   //  {
@@ -164,25 +168,25 @@ class BinaryOperator : public Operator {
 
   [[nodiscard]] DeviceType getDeviceType() const override {
     auto dev = getLeftChild()->getDeviceType();
-    assert(dev == getRightChild()->getDeviceType());
+    CHECK(dev == getRightChild()->getDeviceType());
     return dev;
   }
 
   [[nodiscard]] DegreeOfParallelism getDOP() const override {
     auto dop = getLeftChild()->getDOP();
-    assert(dop == getRightChild()->getDOP());
-    return dop;
+    CHECK_EQ(dop, getRightChild()->getDOP());
+    return getRightChild()->getDOP();
   }
 
   [[nodiscard]] DegreeOfParallelism getDOPServers() const override {
     auto dop = getLeftChild()->getDOPServers();
-    assert(dop == getRightChild()->getDOPServers());
+    CHECK_EQ(dop, getRightChild()->getDOPServers());
     return dop;
   }
 
   [[nodiscard]] bool isPacked() const override {
     auto pckd = getLeftChild()->isPacked();
-    assert(pckd == getRightChild()->isPacked());
+    CHECK_EQ(pckd, getRightChild()->isPacked());
     return pckd;
   }
 
@@ -201,13 +205,13 @@ class POperator : public T {
   using T::T;
 
   void consume(Context *const context, const OperatorState &childState) final {
-    auto ctx = dynamic_cast<ParallelContext *>(context);
-    assert(ctx);
+    auto ctx = dynamic_cast<OlapParallelContext *>(context);
+    CHECK(ctx) << " context must be a OlapParallelContext for POperator";
 
     consume(ctx, childState);
   }
 
-  virtual void consume(ParallelContext *context,
+  virtual void consume(OlapParallelContext *context,
                        const OperatorState &childState) = 0;
 };
 

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -33,17 +33,17 @@
 
 class GpuSort : public UnaryOperator {
  public:
-  GpuSort(Operator *const child, ParallelContext *const context,
+  GpuSort(Operator *const child, OlapParallelContext *const context,
           const std::vector<expression_t> &orderByFields,
           const std::vector<direction> &dirs,
           gran_t granularity = gran_t::GRID);
 
   ~GpuSort() override { LOG(INFO) << "Collapsing GpuSort operator"; }
 
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
   void consume(Context *const context,
                const OperatorState &childState) override;
-  virtual void consume(ParallelContext *const context,
+  virtual void consume(OlapParallelContext *const context,
                        const OperatorState &childState);
   bool isFiltering() const override { return false; }
 
@@ -73,7 +73,7 @@ class GpuSort : public UnaryOperator {
 
   llvm::Type *mem_type;
 
-  ParallelContext *const context;
+  OlapParallelContext *const context;
 
   std::string suffix;
 };

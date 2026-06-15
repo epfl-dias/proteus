@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -32,16 +32,16 @@ class DeviceCross : public UnaryOperator {
   DeviceCross(Operator *const child) : UnaryOperator(child) {}
 
  public:
-  virtual void consume(ParallelContext *const context,
+  virtual void consume(OlapParallelContext *const context,
                        const OperatorState &childState) = 0;
 
   void consume(Context *const context,
                const OperatorState &childState) override {
-    ParallelContext *ctx = dynamic_cast<ParallelContext *>(context);
+    OlapParallelContext *ctx = dynamic_cast<OlapParallelContext *>(context);
     if (!ctx) {
       string error_msg =
           "[DeviceCross: ] Operator only supports code "
-          "generation using the ParallelContext";
+          "generation using the OlapParallelContext";
       LOG(ERROR) << error_msg;
       throw runtime_error(error_msg);
     }

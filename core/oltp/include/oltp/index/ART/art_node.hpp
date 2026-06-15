@@ -170,16 +170,16 @@ class ARTLeaf : public ARTNode {
     }
   }
 
-  virtual V getValByIdx(size_t idx);
+  virtual V getValByIdx(size_t idx) { CHECK(false) << "Not implemented"; }
 
-  virtual uint count();
-  virtual bool empty();
+  virtual uint count() { CHECK(false) << "Not implemented"; }
+  virtual bool empty() { CHECK(false) << "Not implemented"; }
   auto getKey() { return _key; }
 
-  virtual void insert(V const &val);
-  virtual void remove(V &val);
+  virtual void insert(V const &val) { CHECK(false) << "Not implemented"; }
+  virtual void remove(V &val) { CHECK(false) << "Not implemented"; }
 
-  virtual V getOneValue();
+  virtual V getOneValue() { CHECK(false) << "Not implemented"; }
 
  protected:
   explicit ARTLeaf(const key_unit_t *key, V value, size_t const key_len) {

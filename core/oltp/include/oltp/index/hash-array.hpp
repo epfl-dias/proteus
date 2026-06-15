@@ -73,9 +73,8 @@ class HashArray : public HashIndex<K, V> {
                          1)) {
       return (void *)arr[pid][idx];
     } else {
-      LOG(INFO) << "Faulty key: " << key << " | pid: " << pid
-                << " | idx: " << idx;
-      assert(false);
+      LOG(FATAL) << "Faulty key: " << key << " | pid: " << pid
+                 << " | idx: " << idx;
     }
 
 #else

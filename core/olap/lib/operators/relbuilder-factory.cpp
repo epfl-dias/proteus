@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2019
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,14 +23,15 @@
 
 #include "olap/operators/relbuilder-factory.hpp"
 
+#include "lib/util/functions.hpp"
 #include "olap/util/parallel-context.hpp"
 
 class RelBuilderFactory::impl {
  public:
-  ParallelContext *ctx;
+  OlapParallelContext *ctx;
 
   explicit impl(std::string name)
-      : ctx(new ParallelContext(std::move(name), false)) {}
+      : ctx(prepareOlapContext(std::move(name), false)) {}
 };
 
 RelBuilderFactory::RelBuilderFactory(std::string name)

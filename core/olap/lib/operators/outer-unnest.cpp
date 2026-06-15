@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -25,7 +25,7 @@
 
 using namespace llvm;
 
-void OuterUnnest::produce_(ParallelContext *context) {
+void OuterUnnest::produce_(OlapParallelContext *context) {
   getChild()->produce(context);
 }
 
@@ -47,7 +47,7 @@ void OuterUnnest::generate(Context *const context,
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
   Type *boolType = Type::getInt1Ty(llvmContext);
   Type *type_w = nullptr;
-  vector<Value *> ArgsV;
+  std::vector<Value *> ArgsV;
 
   /**
    *  Preparing if(v != NULL) condition
@@ -93,7 +93,7 @@ void OuterUnnest::generate(Context *const context,
 
     ProteusValue nestedValueAll = pathProj->accept(pathExprGenerator);
 #ifdef DEBUG  // pred condition printout
-//    vector<Value*> ArgsV;
+//    std::vector<Value*> ArgsV;
 //    Function* debugBoolean = context->getFunction("printBoolean");
 //    ArgsV.push_back(nestedValueAll.isNull);
 //    Builder->CreateCall(debugBoolean, ArgsV);
@@ -133,7 +133,7 @@ void OuterUnnest::generate(Context *const context,
     Builder->SetInsertPoint(loopBody);
 
     nestedValueItem = pg->collectionGetNext(mem_currentObjId);
-    type_w = (nestedValueItem.mem)->getAllocatedType();
+    type_w = nestedValueItem.mem->getType()->getPointerElementType();
 
     map<RecordAttribute, ProteusValueMemory> *unnestBindings =
         new map<RecordAttribute, ProteusValueMemory>(childState.getBindings());

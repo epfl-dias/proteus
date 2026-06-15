@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2020
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -28,7 +28,7 @@
 using namespace llvm;
 
 RadixJoinBuild::RadixJoinBuild(expression_t keyExpr, Operator *child,
-                               ParallelContext *context, string opLabel,
+                               OlapParallelContext *context, string opLabel,
                                Materializer &mat, StructType *htEntryType,
                                size_t /* bytes */ size,
                                size_t /* bytes */ kvSize, bool is_agg)
@@ -55,7 +55,7 @@ RadixJoinBuild::~RadixJoinBuild() {
   //  Can't do garbage collection here, need to do it from codegen
 }
 
-void RadixJoinBuild::produce_(ParallelContext *context) {
+void RadixJoinBuild::produce_(OlapParallelContext *context) {
   initializeState(context);
 
   Operator *newChild = nullptr;
@@ -68,7 +68,7 @@ void RadixJoinBuild::produce_(ParallelContext *context) {
 
   if (newChild) {
 #ifdef DEBUGCACHING
-    cout << "NEW SCAN POSSIBLE!!" << endl;
+    cout << "NEW SCAN POSSIBLE!!" << std::endl;
 #endif
     cached = true;
     this->setChild(newChild);
@@ -78,7 +78,7 @@ void RadixJoinBuild::produce_(ParallelContext *context) {
   getChild()->produce(context);
 }
 
-void RadixJoinBuild::initializeState(ParallelContext *context) {
+void RadixJoinBuild::initializeState(OlapParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Type *int64_type = Type::getInt64Ty(llvmContext);
@@ -107,7 +107,7 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
             Builder->CreateLoad(s->getType()->getPointerElementType(), s);
         Value *this_ptr = context->CastPtrToLlvmPtr(char_ptr_type, this);
         Function *reg = context->getFunction("registerRelationMem");
-        Builder->CreateCall(reg, vector<Value *>{pip, mem_rel, this_ptr});
+        Builder->CreateCall(reg, std::vector<Value *>{pip, mem_rel, this_ptr});
         context->deallocateStateVar(s);
       },
       "relation");
@@ -126,7 +126,8 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
         Function *reg = context->getFunction("registerClusterCounts");
         Value *this_ptr = context->CastPtrToLlvmPtr(char_ptr_type, this);
         IRBuilder<> *Builder = context->getBuilder();
-        Builder->CreateCall(reg, vector<Value *>{pip, clusterCount, this_ptr});
+        Builder->CreateCall(reg,
+                            std::vector<Value *>{pip, clusterCount, this_ptr});
         context->deallocateStateVar(s);
       },
       "tuples");
@@ -186,7 +187,7 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
         mem_kv = Builder->CreateBitCast(mem_kv, char_ptr_type);
         Value *this_ptr = context->CastPtrToLlvmPtr(char_ptr_type, this);
         Function *reg = context->getFunction("registerHTMemKV");
-        Builder->CreateCall(reg, vector<Value *>{pip, mem_kv, this_ptr});
+        Builder->CreateCall(reg, std::vector<Value *>{pip, mem_kv, this_ptr});
         context->deallocateStateVar(s);
       },
       "ht");
@@ -226,12 +227,12 @@ void RadixJoinBuild::initializeState(ParallelContext *context) {
 
 void RadixJoinBuild::consume(Context *const context,
                              const OperatorState &childState) {
-  auto *ctx = dynamic_cast<ParallelContext *>(context);
+  auto *ctx = dynamic_cast<OlapParallelContext *>(context);
   assert(ctx && "Update caller to new API");
   consume(ctx, childState);
 }
 
-void RadixJoinBuild::consume(ParallelContext *const context,
+void RadixJoinBuild::consume(OlapParallelContext *const context,
                              const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -306,7 +307,7 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     /* true => realloc() */
     Builder->SetInsertPoint(ifArenaFull);
 
-    vector<Value *> ArgsRealloc;
+    std::vector<Value *> ArgsRealloc;
     Function *reallocLLVM = context->getFunction("increaseMemoryChunk");
     AllocaInst *mem_arena_void =
         Builder->CreateAlloca(void_ptr_type, nullptr, "voidArenaPtr");
@@ -353,7 +354,7 @@ void RadixJoinBuild::consume(ParallelContext *const context,
         Builder->CreateBitCast(ptr_arenaShifted, ptr_payloadType);
 
     /* 3. Storing payload, one field at a time */
-    vector<Type *> *materializedTypes = pg->getMaterializedTypes();
+    std::vector<Type *> *materializedTypes = pg->getMaterializedTypes();
     // Storing all activeTuples met so far
     int offsetInStruct =
         0;  // offset inside the struct (+current field manipulated)
@@ -371,7 +372,8 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     //                 mem_activeTuple.mem->getType()->getPointerElementType(),
     //                 mem_activeTuple.mem);
     //         //OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON
-    //         FOR EXTRA OFFSET vector<Value*> idxList = vector<Value*>();
+    //         FOR EXTRA OFFSET std::vector<Value*> idxList =
+    //         std::vector<Value*>();
     //         idxList.push_back(context->createInt32(0));
     //         idxList.push_back(context->createInt32(offsetInStruct));
     //         //Shift in struct ptr
@@ -409,7 +411,7 @@ void RadixJoinBuild::consume(ParallelContext *const context,
           isCached = true;
           cout << "[OUTPUT PG: ] *Cached* Expression found for "
                << e.getOriginalRelationName() << "."
-               << e.getAttribute().getAttrName() << "!" << endl;
+               << e.getAttribute().getAttrName() << "!" << std::endl;
         }
       }
 
@@ -438,7 +440,7 @@ void RadixJoinBuild::consume(ParallelContext *const context,
           valToMaterialize = currVal.value;
         }
       }
-      vector<Value *> idxList = vector<Value *>();
+      std::vector<Value *> idxList = std::vector<Value *>();
       idxList.push_back(context->createInt32(0));
       idxList.push_back(context->createInt32(offsetInStruct));
 
@@ -453,9 +455,9 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     }
     /* Backing up to incorporate caching-aware code */
     //          int offsetInWanted = 0;
-    //          const vector<RecordAttribute*>& wantedFields =
+    //          const std::vector<RecordAttribute*>& wantedFields =
     //                  matLeft.getWantedFields();
-    //          for (vector<RecordAttribute*>::const_iterator it =
+    //          for (std::vector<RecordAttribute*>::const_iterator it =
     //                  wantedFields.begin(); it != wantedFields.end(); ++it) {
     //              //cout << (*it)->getRelationName() << "_" <<
     //              (*it)->getAttrName() << endl; map<RecordAttribute,
@@ -469,7 +471,7 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     //              pg->convert(currVal->getType(),
     //                      materializedTypes->at(offsetInWanted), currVal);
     //
-    //              vector<Value*> idxList = vector<Value*>();
+    //              std::vector<Value*> idxList = std::vector<Value*>();
     //              idxList.push_back(context->createInt32(0));
     //              idxList.push_back(context->createInt32(offsetInStruct));
     //
@@ -566,7 +568,7 @@ void RadixJoinBuild::consume(ParallelContext *const context,
     /* 2a. kv_cast->keyPtr = &key */
     offsetInStruct = 0;
     // Shift in htEntry (struct) ptr
-    vector<Value *> idxList = vector<Value *>();
+    std::vector<Value *> idxList = std::vector<Value *>();
     idxList.push_back(context->createInt32(0));
     idxList.push_back(context->createInt32(offsetInStruct));
 
@@ -610,14 +612,14 @@ void RadixJoinBuild::consume(ParallelContext *const context,
  *
  * @return item count per resulting cluster
  */
-Value *RadixJoinBuild::radix_cluster_nopadding(ParallelContext *context,
+Value *RadixJoinBuild::radix_cluster_nopadding(OlapParallelContext *context,
                                                Value *mem_tuplesNo,
                                                Value *mem_kv_id) const {
   IRBuilder<> *Builder = context->getBuilder();
 
   Function *partitionHT =
       context->getFunction(is_agg ? "partitionAggHT" : "partitionHT");
-  vector<Value *> ArgsPartition;
+  std::vector<Value *> ArgsPartition;
   Value *val_tuplesNo = Builder->CreateLoad(
       mem_tuplesNo->getType()->getPointerElementType(), mem_tuplesNo);
   Value *val_ht = Builder->CreateLoad(

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -38,8 +38,8 @@ class HashJoinChainedMorsel : public HashJoinChained {
   void close_build(Pipeline *pip) override;
 
  protected:
-  llvm::Value *nextIndex(ParallelContext *context) override;
-  llvm::Value *replaceHead(ParallelContext *context, llvm::Value *h_ptr,
+  llvm::Value *nextIndex(OlapParallelContext *context) override;
+  llvm::Value *replaceHead(OlapParallelContext *context, llvm::Value *h_ptr,
                            llvm::Value *index) override;
 
   std::mutex init_lock;

@@ -1,7 +1,7 @@
 /*
      Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2019
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -54,25 +54,25 @@ storage::ColumnStore *getRelation(std::string fnamePrefix,
 }
 
 Plugin *createBlockRemotePlugin(
-    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    OlapParallelContext *context, std::string fnamePrefix, RecordType rec,
     const std::vector<RecordAttribute *> &whichFields) {
   return new AeolusRemotePlugin(context, fnamePrefix, rec, whichFields);
 }
 
 Plugin *createBlockLocalPlugin(
-    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    OlapParallelContext *context, std::string fnamePrefix, RecordType rec,
     const std::vector<RecordAttribute *> &whichFields) {
   return new AeolusLocalPlugin(context, fnamePrefix, rec, whichFields);
 }
 
 Plugin *createBlockElasticPlugin(
-    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    OlapParallelContext *context, std::string fnamePrefix, RecordType rec,
     const std::vector<RecordAttribute *> &whichFields) {
   return new AeolusElasticPlugin(context, fnamePrefix, rec, whichFields);
 }
 
 Plugin *createBlockElasticNiPlugin(
-    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    OlapParallelContext *context, std::string fnamePrefix, RecordType rec,
     const std::vector<RecordAttribute *> &whichFields) {
   return new AeolusElasticNIPlugin(context, fnamePrefix, rec, whichFields);
 }
@@ -133,8 +133,8 @@ void AeolusPlugin::freeNumOfTuplesPerPartition_runtime(int64_t *inn) {
   // TODO: bit-mast reset logic.
 }
 
-AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
-                           RecordType rec,
+AeolusPlugin::AeolusPlugin(OlapParallelContext *const context,
+                           string fnamePrefix, RecordType rec,
                            const std::vector<RecordAttribute *> &whichFields,
                            string pgType)
     : proteus::olap_plugins::BinaryBlockPluginRuntimeDataHandles(
@@ -150,7 +150,7 @@ AeolusPlugin::AeolusPlugin(ParallelContext *const context, string fnamePrefix,
 }
 
 AeolusElasticPlugin::AeolusElasticPlugin(
-    ParallelContext *const context, std::string fnamePrefix, RecordType rec,
+    OlapParallelContext *const context, std::string fnamePrefix, RecordType rec,
     const std::vector<RecordAttribute *> &whichFields)
     : AeolusPlugin(context, fnamePrefix, rec, whichFields, type) {
   // 2  means that a partition can be split in max 2 more.
@@ -162,7 +162,7 @@ AeolusElasticPlugin::AeolusElasticPlugin(
 }
 
 AeolusElasticNIPlugin::AeolusElasticNIPlugin(
-    ParallelContext *const context, std::string fnamePrefix, RecordType rec,
+    OlapParallelContext *const context, std::string fnamePrefix, RecordType rec,
     const std::vector<RecordAttribute *> &whichFields)
     : AeolusPlugin(context, fnamePrefix, rec, whichFields, type) {
   // 2  means that a partition can be split in max 2 more.
@@ -205,7 +205,7 @@ void update_query(storage::Table *tbl, int64_t vid, column_id_t col_update_idx,
 }
 
 void AeolusPlugin::updateValueEagerInternal(
-    ParallelContext *context, ProteusValue rid, ProteusValue value,
+    OlapParallelContext *context, ProteusValue rid, ProteusValue value,
     const ExpressionType *type, const std::string &relName, uint8_t index) {
   switch (type->getTypeID()) {
     case RECORD: {
@@ -255,8 +255,8 @@ void AeolusPlugin::updateValueEagerInternal(
   }
 }
 
-void AeolusPlugin::updateValueEager(ParallelContext *context, ProteusValue rid,
-                                    ProteusValue value,
+void AeolusPlugin::updateValueEager(OlapParallelContext *context,
+                                    ProteusValue rid, ProteusValue value,
                                     const ExpressionType *type,
                                     const std::string &relName) {
   assert(type->getTypeID() == RECORD);

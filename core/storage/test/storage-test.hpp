@@ -26,6 +26,8 @@
 
 #include <gtest/gtest.h>
 
+#include <filesystem>
+
 #include "platform/common/common.hpp"
 
 class StorageTestEnvironment : public ::testing::Environment {

@@ -105,11 +105,12 @@ QueryResult::~QueryResult() {
     LOG(INFO) << "Not unlinking " << outputfile;
   } else {
     auto x = shm_unlink(outputfile.c_str());
+    std::filesystem::path absolutePath = std::filesystem::absolute(outputfile.c_str());
     if (x < 0 &&
         errno == EISDIR) {  // std::filesystem may not know the file type
       LOG(INFO) << "Not unlinking dir " << outputfile;
     } else {
-      linux_run(x);
+//      linux_run(x);
     }
   }
 }
@@ -119,7 +120,7 @@ std::ostream &operator<<(std::ostream &out, const QueryResult &qr) {
   return out;
 }
 
-QueryResult::QueryResult(QueryResult &&o)
+QueryResult::QueryResult(QueryResult &&o) noexcept
     : fsize(o.fsize), resultBuf(o.resultBuf), outputfile(o.outputfile) {
   o.resultBuf = nullptr;
 }

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -43,8 +43,8 @@ class BlockToTuples : public experimental::UnaryOperator {
                                                        // granularity
   }
 
-  void produce_(ParallelContext *context) override;
-  void consume(ParallelContext *context,
+  void produce_(OlapParallelContext *context) override;
+  void consume(OlapParallelContext *context,
                const OperatorState &childState) override;
   [[nodiscard]] bool isFiltering() const override { return false; }
 
@@ -69,13 +69,14 @@ class BlockToTuples : public experimental::UnaryOperator {
   }
 
  private:
-  ProteusBareValue step(ParallelContext *context, llvm::IntegerType *type);
-  void nextEntry(llvm::Value *mem_itemCtr, ParallelContext *context);
+  ProteusBareValue step(OlapParallelContext *context, llvm::IntegerType *type);
+  void nextEntry(llvm::Value *mem_itemCtr, OlapParallelContext *context);
   virtual void open(Pipeline *pip);
   virtual void close(Pipeline *pip);
 
   const std::vector<expression_t> wantedFields;
   std::vector<StateVar> old_buffs;
+  bool release_input_buffers_{true};
   gran_t granularity;
 
   bool gpu;

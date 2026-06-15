@@ -123,6 +123,17 @@ class SSBGPUOnly : public SSBBaseFixture {
   }
 };
 
+class SSBGPUOnlyLazy : public SSBBaseFixture {
+ public:
+  //  default loader is to CPUs, so all data will start memory resident
+  void setLoaders(benchmark::State& state) override {}
+  void setQueryShaper(benchmark::State& state) override {
+    auto* shaperPtr = new proteus::LazyGPUOnlySingleServer{
+        "inputs/ssbm" + std::to_string(SF) + "/", stats, true};
+    shaper.reset(shaperPtr);
+  }
+};
+
 class SSBHybrid : public SSBBaseFixture {
  public:
   //  default loader is to CPUs, so all data will start memory resident

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -27,12 +27,12 @@
 #include <platform/memory/memory-manager.hpp>
 #include <platform/network/infiniband/infiniband-manager.hpp>
 #include <platform/threadpool/threadpool.hpp>
-#include <platform/util/logging.hpp>
 #include <platform/util/timing.hpp>
+#include <platform/util/tracing.hpp>
 
-MemMoveScaleOut::MemMoveScaleOut(Operator *const child,
-                                 const vector<RecordAttribute *> &wantedFields,
-                                 size_t slack)
+MemMoveScaleOut::MemMoveScaleOut(
+    Operator *const child, const std::vector<RecordAttribute *> &wantedFields,
+    size_t slack)
     : MemMoveDevice(child, wantedFields, slack, true) {}
 
 MemMoveScaleOut::MemMoveConf *MemMoveScaleOut::createMoveConf() const {
@@ -40,7 +40,7 @@ MemMoveScaleOut::MemMoveConf *MemMoveScaleOut::createMoveConf() const {
   return new (pmmc) MemMoveScaleOut::MemMoveConf;
 }
 
-void MemMoveScaleOut::genReleaseOldBuffer(ParallelContext *context,
+void MemMoveScaleOut::genReleaseOldBuffer(OlapParallelContext *context,
                                           llvm::Value *src) const {
   auto charPtrType = llvm::Type::getInt8PtrTy(context->getLLVMContext());
   //  src->getType()->dump();
@@ -64,7 +64,7 @@ void MemMoveScaleOut::MemMoveConf::propagate(MemMoveDevice::workunit *buff,
 
 buff_pair MemMoveScaleOut::MemMoveConf::push(proteus::managed_ptr src,
                                              size_t bytes, int target_device,
-                                             uint64_t srcServer) {
+                                             uint64_t srcServer, workunit *wu) {
   if (srcServer == InfiniBandManager::server_id()) {
     //    BlockManager::share_host_buffer((int32_t *)src);
     //    BlockManager::share_host_buffer((int32_t *)src);
@@ -113,7 +113,7 @@ void MemMoveScaleOut::close(Pipeline *pip) {
 }
 
 ProteusValueMemory MemMoveScaleOut::getServerId(
-    ParallelContext *, const OperatorState &childState) const {
+    OlapParallelContext *, const OperatorState &childState) const {
   RecordAttribute srcServer{wantedFields[0]->getRelationName(), "srcServer",
                             new Int64Type()};  // FIXME: OID type for blocks ?
   return childState[srcServer];

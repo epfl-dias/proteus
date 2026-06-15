@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -109,7 +109,7 @@ extern "C" int32_t getDictScan(DictMatchIter *begin) { return **begin; }
 
 extern "C" void nextDictScan(DictMatchIter *begin) { ++(*begin); }
 
-void DictScan::produce_(ParallelContext *context) {
+void DictScan::produce_(OlapParallelContext *context) {
   context->setGlobalFunction(true);
 
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -207,7 +207,7 @@ void DictScan::produce_(ParallelContext *context) {
   Builder->SetInsertPoint(context->getEndingBlock());
 }
 
-void DictScan::consume(ParallelContext *const context,
+void DictScan::consume(OlapParallelContext *const context,
                        const OperatorState &childState) {
   throw runtime_error(
       string("unexpected call to DistScan::consume (DictScan "

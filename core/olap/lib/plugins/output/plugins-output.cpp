@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,8 +23,9 @@
 
 #include "plugins-output.hpp"
 
+#include <codegen/context/context.hpp>
+
 #include "lib/expressions/expressions-generator.hpp"
-#include "olap/util/context.hpp"
 
 Materializer::Materializer(
     std::vector<RecordAttribute *> wantedFields,
@@ -90,7 +91,7 @@ OutputPlugin::OutputPlugin(
       //                    << endl;
       // if (currAttr.getAttrName() == activeLoop) {
       cout << "HINT - OID MAT'D: " << oid->getOriginalRelationName() << " -- "
-           << oid->getRelationName() << "_" << oid->getName() << endl;
+           << oid->getRelationName() << "_" << oid->getName() << std::endl;
       llvm::Type *currType = oid->getOriginalType()->getLLVMType(
           context
               ->getLLVMContext());  // currentBindings.find(*oid)->second.mem->getAllocatedType();
@@ -133,7 +134,7 @@ OutputPlugin::OutputPlugin(
         isCached = true;
         cout << "[OUTPUT PG: ] *Cached* Expression found for "
              << e.getOriginalRelationName() << "."
-             << e.getAttribute().getAttrName() << "!" << endl;
+             << e.getAttribute().getAttrName() << "!" << std::endl;
       }
     }
 
@@ -154,7 +155,7 @@ OutputPlugin::OutputPlugin(
       LOG(INFO) << "[MATERIALIZER: ] PART OF PAYLOAD: "
                 << wantedField->getAttrName();
       cout << "[MATERIALIZER: ] PART OF PAYLOAD: " << wantedField->getAttrName()
-           << endl;
+           << std::endl;
 
       materialization_mode mode = (materializer.getOutputMode()).at(attrNo++);
       // gather datatypes
@@ -243,10 +244,10 @@ llvm::Value *OutputPlugin::getRuntimePayloadTypeSize() {
       if (mode == EAGER) {
         RecordAttribute currAttr = itSearch->first;
         Plugin *inputPg = catalog.getPlugin(currAttr.getOriginalRelationName());
-        assert(dynamic_cast<ParallelContext *>(context));
+        assert(dynamic_cast<OlapParallelContext *>(context));
         val_attr_size =
             inputPg->getValueSize(itSearch->second, currAttr.getOriginalType(),
-                                  dynamic_cast<ParallelContext *>(context));
+                                  dynamic_cast<OlapParallelContext *>(context));
         val_size = Builder->CreateAdd(val_size, val_attr_size);
       } else {
         // Pre-computed

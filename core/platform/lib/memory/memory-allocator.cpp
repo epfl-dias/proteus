@@ -30,7 +30,7 @@ void *allocateFromRegion(size_t regionSize) {
     LOG(ERROR) << error_msg;
     throw runtime_error(error_msg);
   }
-  LOG(INFO) << "Region Allocated" << endl;
+  LOG(INFO) << "Region Allocated" << std::endl;
   // cout << "Allocating " << (void*) arenaChunk << " - size: " << regionSize <<
   // endl;
   MemoryService &mem = MemoryService::getInstance();
@@ -39,7 +39,7 @@ void *allocateFromRegion(size_t regionSize) {
 }
 
 void *increaseRegion(void *region, size_t currSize) {
-  cout << "Realloc()" << endl;
+  cout << "Realloc()" << std::endl;
   LOG(INFO) << "Realloc()";
   currSize <<= 1;
   void *newRegion = realloc(region, currSize);

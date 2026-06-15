@@ -87,7 +87,7 @@ class ART : public RangeIndex<K, V> {
   // bool remove(K key) { return false; }
   // bool remove(K key, V value) { return false; }
   bool update(const K &key, V &value) override {
-    assert(false && "Unimplemented/TODO");
+    LOG(FATAL) << "Unimplemented/TODO";
   }
 
  private:

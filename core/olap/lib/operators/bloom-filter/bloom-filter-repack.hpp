@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2020
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -36,8 +36,8 @@ class BloomFilterRepack : public BloomFilter {
       : BloomFilter(child, std::move(probe), filterSize, bloomId),
         wantedFields(std::move(wantedFields)) {}
 
-  void produce_(ParallelContext *context) override;
-  void consume(ParallelContext *context,
+  void produce_(OlapParallelContext *context) override;
+  void consume(OlapParallelContext *context,
                const OperatorState &childState) override;
 
   [[nodiscard]] bool isFiltering() const override { return true; }
@@ -54,12 +54,12 @@ class BloomFilterRepack : public BloomFilter {
     return attrs;
   }
 
-  void consumeVector(ParallelContext *context, const OperatorState &childState,
-                     llvm::Value *filter, size_t vsize, llvm::Value *offset,
-                     llvm::Value *cnt);
+  void consumeVector(OlapParallelContext *context,
+                     const OperatorState &childState, llvm::Value *filter,
+                     size_t vsize, llvm::Value *offset, llvm::Value *cnt);
 
  protected:
-  virtual void consume_flush(ParallelContext *context);
+  virtual void consume_flush(OlapParallelContext *context);
   virtual void open(Pipeline *pip);
   virtual void close(Pipeline *pip);
 

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,22 +23,27 @@
 #ifndef CPU_TO_GPU_HPP_
 #define CPU_TO_GPU_HPP_
 
+#include <cstddef>
+#include <mutex>
+#include <unordered_map>
+
 #include "device-cross.hpp"
 #include "olap/util/parallel-context.hpp"
 #include "operators.hpp"
 
 class CpuToGpu : public DeviceCross {
  public:
-  CpuToGpu(Operator *const child, const vector<RecordAttribute *> &wantedFields)
+  CpuToGpu(Operator *const child,
+           const std::vector<RecordAttribute *> &wantedFields)
       : DeviceCross(child), wantedFields(wantedFields) {}
 
-  ~CpuToGpu() override { LOG(INFO) << "Collapsing CpuToGpu operator"; }
+  ~CpuToGpu() override;
 
-  void produce_(ParallelContext *context) override;
-  void consume(ParallelContext *const context,
+  void produce_(OlapParallelContext *context) override;
+  void consume(OlapParallelContext *const context,
                const OperatorState &childState) override;
 
-  virtual void generateGpuSide(ParallelContext *context);
+  virtual void generateGpuSide(OlapParallelContext *context);
 
   RecordType getRowType() const override { return wantedFields; }
 
@@ -48,11 +53,31 @@ class CpuToGpu : public DeviceCross {
   }
 
  private:
-  const vector<RecordAttribute *> wantedFields;
+  struct BatchDeviceBufferCacheEntry {
+    void **batch_descs_gpu{nullptr};
+    size_t capacity_blocks{0};
+    int device_id{-1};
+  };
+
+  const std::vector<RecordAttribute *> wantedFields;
 
   PipelineGen *gpu_pip;
   StateVar childVar_id;
   StateVar strmVar_id;
+
+  // Batch launch state (used when FLAGS_in_gpu && FLAGS_one_kernel)
+  StateVar batchBufVar_id;       // i8*  : base of CPU descriptor buffer
+  StateVar batchCountVar_id;     // i64* : pointer to accumulated block count
+  StateVar subStateCacheVar_id;  // i8** : pointer to cached sub_state pointer
+
+  mutable std::mutex batchDeviceBuffersMutex_;
+  std::unordered_map<const void *, BatchDeviceBufferCacheEntry>
+      batchDeviceBuffers_;
+
+  [[nodiscard]] size_t batchDescriptorStride() const;
+  void ensureBatchDeviceBuffer(const void *pipeline_key, size_t needed_blocks);
+  [[nodiscard]] BatchDeviceBufferCacheEntry getBatchDeviceBuffer(
+      const void *pipeline_key) const;
 };
 
 #endif /* CPU_TO_GPU_HPP_ */

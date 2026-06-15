@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -31,7 +31,7 @@ class Root : public UnaryOperator {
  public:
   Root(Operator *const child) : UnaryOperator(child) {}
   ~Root() override { LOG(INFO) << "Collapsing root operator"; }
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
   void consume(Context *const context,
                const OperatorState &childState) override;
   bool isFiltering() const override { return getChild()->isFiltering(); }

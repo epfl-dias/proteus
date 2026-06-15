@@ -31,8 +31,8 @@
  * as well as INFO log statements. Setting it to two removes WARNING log
  * statements too. */
 #ifdef NDEBUG
-#define GOOGLE_STRIP_LOG 2
-#define STRIP_LOG 2
+#define GOOGLE_STRIP_LOG 0
+#define STRIP_LOG 0
 #endif
 
 #include <glog/logging.h>

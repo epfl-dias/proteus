@@ -21,10 +21,9 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <glog/logging.h>
-
 #include <platform/memory/block-manager.hpp>
 #include <platform/memory/managed-pointer.hpp>
+#include <platform/util/glog.hpp>
 
 namespace proteus {
 namespace details {

@@ -21,7 +21,6 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 #include <fcntl.h>
-#include <glog/logging.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 
@@ -31,6 +30,7 @@
 #include <platform/memory/memory-manager.hpp>
 #include <platform/network/infiniband/infiniband-manager.hpp>
 #include <platform/topology/topology.hpp>
+#include <platform/util/glog.hpp>
 #include <platform/util/timing.hpp>
 #include <storage/mmap-file.hpp>
 

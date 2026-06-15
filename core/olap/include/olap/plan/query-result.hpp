@@ -25,6 +25,7 @@
 #define QUERY_RESULT_HPP_
 
 #include <iostream>
+#include <span>
 #include <string>
 
 class QueryResult {
@@ -32,12 +33,18 @@ class QueryResult {
   size_t fsize;
   char *resultBuf;
 
-  const std::string outputfile;
-
  public:
-  QueryResult(const std::string &query_name);
+  const std::string outputfile;
+  /**
+   * @return a span of bytes representing the result. The span is valid until
+   the QueryResult is destroyed.
+   */
+  std::span<const char> asSpan() const {
+    return std::span<const char>(resultBuf, fsize);
+  }
+  explicit QueryResult(const std::string &query_name);
   QueryResult(const QueryResult &) = delete;
-  QueryResult(QueryResult &&);
+  QueryResult(QueryResult &&) noexcept;
   QueryResult &operator=(const QueryResult &) = delete;
   QueryResult &operator=(QueryResult &&) = delete;
   ~QueryResult();

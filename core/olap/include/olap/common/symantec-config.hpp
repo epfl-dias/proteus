@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,7 +24,7 @@
 #ifndef SYMANTEC_CONFIG_HPP_
 #define SYMANTEC_CONFIG_HPP_
 
-#include "olap/values/expressionTypes.hpp"
+#include <codegen/expressions/expressionTypes.hpp>
 /* Constants and macros to be used by queries targeting dataset of spam emails
  */
 

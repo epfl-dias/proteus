@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -21,15 +21,17 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <olap/expressions/binary-operators.hpp>
-#include <olap/expressions/expressions.hpp>
+#include <sys/mman.h>
+
+#include <codegen/context/context.hpp>
+#include <codegen/expressions/binary-operators.hpp>
+#include <codegen/expressions/expressionTypes.hpp>
+#include <codegen/expressions/expressions.hpp>
 #include <olap/operators/relbuilder-factory.hpp>
 #include <olap/operators/relbuilder.hpp>
 #include <olap/test/environment.hpp>
 #include <olap/test/test-utils.hpp>
-#include <olap/util/context.hpp>
 #include <olap/util/parallel-context.hpp>
-#include <olap/values/expressionTypes.hpp>
 #include <platform/common/common.hpp>
 
 #include "gtest/gtest.h"
@@ -48,7 +50,8 @@
 #include "lib/util/functions.hpp"
 // TODO: chore refactor all tests to use the PreparedStatement variant of
 // executePlan
-#include "lib/util/jit/pipeline.hpp"
+#include <codegen/jit/pipeline.hpp>
+
 #include "platform/memory/memory-manager.hpp"
 
 class JSONTest : public ::testing::Test {
@@ -87,7 +90,7 @@ class JSONTest : public ::testing::Test {
   bool flushResults = true;
   const char *testPath = TEST_OUTPUTS "/tests-json/";
 
-  bool executePlan(ParallelContext &ctx, const char *testLabel,
+  bool executePlan(OlapParallelContext &ctx, const char *testLabel,
                    std::vector<Plugin *> pgs) {
     ctx.compileAndLoad();
     auto pipelines = ctx.getPipelines();
@@ -102,7 +105,7 @@ class JSONTest : public ::testing::Test {
           time_block t("T: ");
 
           p->open((void *)&session);
-          p->consume(0);
+          p->consume();
           p->close();
         }
       }
@@ -133,7 +136,7 @@ class JSONTest : public ::testing::Test {
 
 TEST_F(JSONTest, String) {
   const char *testLabel = "String";
-  auto &ctx = *prepareContext(testLabel);
+  auto &ctx = *prepareOlapContext(testLabel);
 
   string fname = string("inputs/json/json-string.json");
 
@@ -184,7 +187,7 @@ TEST_F(JSONTest, String) {
 
 TEST_F(JSONTest, ScanJSON) {
   const char *testLabel = "scanJSON.json";
-  auto &ctx = *prepareContext(testLabel);
+  auto &ctx = *prepareOlapContext(testLabel);
 
   string fname("inputs/json/jsmn-flat.json");
 
@@ -212,7 +215,7 @@ TEST_F(JSONTest, ScanJSON) {
 
 TEST_F(JSONTest, SelectJSON) {
   const char *testLabel = "selectJSON.json";
-  auto &ctx = *prepareContext(testLabel);
+  auto &ctx = *prepareOlapContext(testLabel);
 
   string fname = string("inputs/json/jsmn-flat.json");
 
@@ -251,7 +254,7 @@ TEST_F(JSONTest, unnestJSON) {
   //  if you are fixing this test, don't forget to remove the pragma
 
   const char *testLabel = "unnestJSONEmployees.json";
-  auto &ctx = *prepareContext(testLabel);
+  auto &ctx = *prepareOlapContext(testLabel);
 
   string fname("inputs/json/employees-flat.json");
 
@@ -312,7 +315,7 @@ TEST_F(JSONTest, unnestJSON) {
 /* json plugin seems broken if linehint not provided */
 TEST_F(JSONTest, reduceListObjectFlat) {
   const char *testLabel = "jsonFlushList.json";
-  auto &ctx = *prepareContext(testLabel);
+  auto &ctx = *prepareOlapContext(testLabel);
 
   string fname("inputs/json/jsmnDeeper-flat.json");
 
@@ -366,7 +369,7 @@ TEST_F(JSONTest, reduceMax) {
   //  if you are fixing this test, don't forget to remove the pragma
   const char *testLabel = "reduceJSONMax.json";
   bool longRun = false;
-  auto &ctx = *prepareContext(testLabel);
+  auto &ctx = *prepareOlapContext(testLabel);
 
   string fname;
   size_t lineHint;
@@ -448,7 +451,7 @@ TEST_F(JSONTest, reduceMax) {
   {
     LOG(INFO) << "starting second query (should use cache)";
     const char *testLabel = "reduceJSONCached.json";
-    auto &ctx = *prepareContext(testLabel);
+    auto &ctx = *prepareOlapContext(testLabel);
     std::string outRel{"output2"};
     {
       RecordType r{};
@@ -494,7 +497,7 @@ TEST_F(JSONTest, reduceDeeperMax) {
                   "which is not true for the JSON plugin. ";
   bool longRun = false;
   const char *testLabel = "reduceDeeperMax.json";
-  auto &ctx = *prepareContext(testLabel);
+  auto &ctx = *prepareOlapContext(testLabel);
 
   string fname;
   size_t lineHint;
@@ -582,7 +585,7 @@ TEST_F(JSONTest, jsonRelBuilder) {
          "const std::string &pgType) method of relbuilder by adding a "
          "catalogue.json for the test data";
   const char *testLabel = "jsonRelBuilder.json";
-  auto &ctx = *prepareContext(testLabel);
+  auto &ctx = *prepareOlapContext(testLabel);
 
   string fname{"inputs/json/employees-numeric-only.json"};
   size_t lineHint = 3;

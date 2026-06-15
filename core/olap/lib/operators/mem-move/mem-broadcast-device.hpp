@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -60,7 +60,7 @@ class MemBroadcastDevice : public MemMoveDevice {
   };
 
   MemBroadcastDevice(Operator *const child,
-                     const vector<RecordAttribute *> &wantedFields,
+                     const std::vector<RecordAttribute *> &wantedFields,
                      int num_of_targets, bool to_cpu, bool always_share = false)
       : MemMoveDevice(child, wantedFields, 8 * num_of_targets, to_cpu),
         always_share(always_share) {
@@ -71,8 +71,8 @@ class MemBroadcastDevice : public MemMoveDevice {
     }
   }
 
-  void produce_(ParallelContext *context) override;
-  void consume(ParallelContext *context,
+  void produce_(OlapParallelContext *context) override;
+  void consume(OlapParallelContext *context,
                const OperatorState &childState) override;
 
   [[nodiscard]] RecordType getRowType() const override {

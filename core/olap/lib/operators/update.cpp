@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2018
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -34,7 +34,7 @@ Update::Update(Operator *child, expression_t outputExpr)
       relName(outputExpr.getRegisteredRelName()),
       outputExpr(std::move(outputExpr)) {}
 
-void Update::produce_(ParallelContext *context) {
+void Update::produce_(OlapParallelContext *context) {
   IntegerType *t = Type::getInt64Ty(context->getLLVMContext());
   result_cnt_id = context->appendStateVar(
       PointerType::getUnqual(t),
@@ -88,7 +88,7 @@ void Update::produce_(ParallelContext *context) {
   getChild()->produce(context);
 }
 
-void Update::consume(ParallelContext *context,
+void Update::consume(OlapParallelContext *context,
                      const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
 

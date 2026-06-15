@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2018
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -29,14 +29,14 @@
 
 using namespace llvm;
 
-Flush::Flush(vector<expression_t> outputExprs_v, Operator *const child,
+Flush::Flush(std::vector<expression_t> outputExprs_v, Operator *const child,
              std::string outPath)
     : UnaryOperator(child),
       outPath(std::move(outPath)),
       outputExpr(outputExprs_v),
       relName(outputExprs_v[0].getRegisteredRelName()) {}
 
-void Flush::produce_(ParallelContext *context) {
+void Flush::produce_(OlapParallelContext *context) {
   IntegerType *t = Type::getInt64Ty(context->getLLVMContext());
   result_cnt_id = context->appendStateVar(
       PointerType::getUnqual(t),
@@ -86,7 +86,8 @@ void Flush::produce_(ParallelContext *context) {
   getChild()->produce(context);
 }
 
-void Flush::consume(ParallelContext *context, const OperatorState &childState) {
+void Flush::consume(OlapParallelContext *context,
+                    const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
 
   ExpressionFlusherVisitor flusher{context, childState, outPath.c_str(),

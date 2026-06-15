@@ -30,6 +30,7 @@
 #include <map>
 #include <platform/util/erase-constructor-idioms.hpp>
 #include <platform/util/percentile.hpp>
+#include <set>
 #include <shared_mutex>
 #include <stdexcept>
 #include <string>

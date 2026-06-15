@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -46,8 +46,8 @@ expression_t buildRecord(const list<expressions::InputArgument> &f_grouping) {
 /**
  * Identical constructor logic with the one of Reduce
  */
-Nest::Nest(vector<Monoid> accs, vector<expression_t> outputExprs,
-           vector<string> aggrLabels, expression_t pred,
+Nest::Nest(std::vector<Monoid> accs, std::vector<expression_t> outputExprs,
+           std::vector<string> aggrLabels, expression_t pred,
            const list<expressions::InputArgument> &f_grouping,
            const list<expressions::InputArgument> &g_nullToZero,
            Operator *const child, char *opLabel, Materializer &mat)
@@ -68,7 +68,7 @@ Nest::Nest(vector<Monoid> accs, vector<expression_t> outputExprs,
   }
 }
 
-void Nest::produce_(ParallelContext *context) {
+void Nest::produce_(OlapParallelContext *context) {
   getChild()->produce(context);
 
   generateProbe(this->context);
@@ -89,7 +89,7 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
   Catalog &catalog = Catalog::getInstance();
-  vector<Value *> ArgsV;
+  std::vector<Value *> ArgsV;
   Function *debugInt = context->getFunction("printi");
 
 #ifdef DEBUG
@@ -136,7 +136,7 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
   // Creating and Populating Payload Struct
   int offsetInStruct =
       0;  // offset inside the struct (+current field manipulated)
-  vector<Type *> *materializedTypes = pg->getMaterializedTypes();
+  std::vector<Type *> *materializedTypes = pg->getMaterializedTypes();
 
   // Storing values in struct to be materialized in HT. Two steps
   // 2a. Materializing all 'activeTuples' (i.e. positional indices) met so far
@@ -153,7 +153,7 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
             mem_activeTuple.mem);
         // OFFSET OF 1 MOVES TO THE NEXT MEMBER OF THE STRUCT - NO REASON FOR
         // EXTRA OFFSET
-        vector<Value *> idxList = vector<Value *>();
+        std::vector<Value *> idxList = std::vector<Value *>();
         idxList.push_back(context->createInt32(0));
         idxList.push_back(context->createInt32(offsetInStruct++));
         // Shift in struct ptr
@@ -167,8 +167,8 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
 
   // 2b. Materializing all explicitly requested fields
   int offsetInWanted = 0;
-  const vector<RecordAttribute *> &wantedFields = mat.getWantedFields();
-  for (vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
+  const std::vector<RecordAttribute *> &wantedFields = mat.getWantedFields();
+  for (std::vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
        it != wantedFields.end(); ++it) {
     map<RecordAttribute, ProteusValueMemory>::const_iterator memSearch =
         bindings.find(*(*it));
@@ -183,7 +183,7 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
       //               This code would be relevant if materializer also
       //               supported 'expressions to be materialized     */
       //            cout << "Must actively materialize field now" << endl;
-      //            const vector<expression_t>& wantedExpressions =
+      //            const std::vector<expression_t>& wantedExpressions =
       //                    mat.getWantedExpressions();
       //            expression_t currExpr =
       //            wantedExpressions.at(offsetInWanted);
@@ -202,7 +202,7 @@ void Nest::generateInsert(Context *context, const OperatorState &childState) {
     Value *valToMaterialize =
         pg->convert(llvmCurrVal->getType(),
                     materializedTypes->at(offsetInWanted), llvmCurrVal);
-    vector<Value *> idxList = vector<Value *>();
+    std::vector<Value *> idxList = std::vector<Value *>();
     idxList.push_back(context->createInt32(0));
     idxList.push_back(context->createInt32(offsetInStruct));
     // Shift in struct ptr
@@ -241,7 +241,7 @@ void Nest::generateProbe(Context *const context) const {
   LLVMContext &llvmContext = context->getLLVMContext();
   Function *TheFunction = Builder->GetInsertBlock()->getParent();
   Catalog &catalog = Catalog::getInstance();
-  vector<Value *> ArgsV;
+  std::vector<Value *> ArgsV;
   Value *globalStr = context->CreateGlobalString(htName);
   Type *int64_type = IntegerType::get(llvmContext, 64);
 
@@ -338,9 +338,9 @@ void Nest::generateProbe(Context *const context) const {
       TheFunction, "ht_val_counter", int64_type);
   Builder->CreateStore(context->createInt64(0), mem_valuesCounter);
 
-  vector<Monoid>::const_iterator itAcc = accs.begin();
-  vector<expression_t>::const_iterator itExpr = outputExprs.begin();
-  vector<AllocaInst *> mem_accumulators;
+  std::vector<Monoid>::const_iterator itAcc = accs.begin();
+  std::vector<expression_t>::const_iterator itExpr = outputExprs.begin();
+  std::vector<AllocaInst *> mem_accumulators;
   /* Prepare accumulator FOREACH outputExpr */
   for (; itAcc != accs.end(); itAcc++, itExpr++) {
     Monoid acc = *itAcc;
@@ -392,8 +392,9 @@ void Nest::generateProbe(Context *const context) const {
   Value *activeTuple = nullptr;
   //    const set<RecordAttribute>& tuplesIdentifiers =
   //    mat.getTupleIdentifiers();
-  const vector<RecordAttribute *> &tuplesIdentifiers = mat.getWantedOIDs();
-  for (vector<RecordAttribute *>::const_iterator it = tuplesIdentifiers.begin();
+  const std::vector<RecordAttribute *> &tuplesIdentifiers = mat.getWantedOIDs();
+  for (std::vector<RecordAttribute *>::const_iterator it =
+           tuplesIdentifiers.begin();
        it != tuplesIdentifiers.end(); it++) {
     RecordAttribute *attr = *it;
     mem_activeTuple = context->CreateEntryBlockAlloca(
@@ -411,9 +412,9 @@ void Nest::generateProbe(Context *const context) const {
     i++;
   }
 
-  const vector<RecordAttribute *> &wantedFields = mat.getWantedFields();
+  const std::vector<RecordAttribute *> &wantedFields = mat.getWantedFields();
   Value *field = nullptr;
-  for (vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
+  for (std::vector<RecordAttribute *>::const_iterator it = wantedFields.begin();
        it != wantedFields.end(); ++it) {
     string currField = (*it)->getName();
     AllocaInst *mem_field = context->CreateEntryBlockAlloca(
@@ -433,8 +434,8 @@ void Nest::generateProbe(Context *const context) const {
 
   itAcc = accs.begin();
   itExpr = outputExprs.begin();
-  vector<AllocaInst *>::const_iterator itMem = mem_accumulators.begin();
-  vector<string>::const_iterator itLabels = aggregateLabels.begin();
+  std::vector<AllocaInst *>::const_iterator itMem = mem_accumulators.begin();
+  std::vector<string>::const_iterator itLabels = aggregateLabels.begin();
   /* Accumulate FOREACH outputExpr */
   for (; itAcc != accs.end(); itAcc++, itExpr++, itMem++, itLabels++) {
     Monoid acc = *itAcc;
@@ -513,18 +514,18 @@ void Nest::generateProbe(Context *const context) const {
   ExpressionType *oidType = new IntType();
   RecordAttribute attr_oid = RecordAttribute(htName, activeLoop, oidType);
   (*allBucketBindings)[attr_oid] = mem_oidWrapper;
-  //#ifdef DEBUG
-  //        ArgsV.clear();
-  //        Function* debugInt64 = context->getFunction("printi");
-  //        Value* finalResult =
-  //        Builder->CreateLoad(mem_accumulating->getType()->getPointerElementType(),
-  //        mem_accumulating); ArgsV.push_back(finalResult);
-  //        Builder->CreateCall(debugInt64, ArgsV);
-  //        ArgsV.clear();
-  //        ArgsV.push_back(context->createInt32(-7));
-  //        Builder->CreateCall(debugInt64, ArgsV);
-  //        ArgsV.clear();
-  //#endif
+  // #ifdef DEBUG
+  //         ArgsV.clear();
+  //         Function* debugInt64 = context->getFunction("printi");
+  //         Value* finalResult =
+  //         Builder->CreateLoad(mem_accumulating->getType()->getPointerElementType(),
+  //         mem_accumulating); ArgsV.push_back(finalResult);
+  //         Builder->CreateCall(debugInt64, ArgsV);
+  //         ArgsV.clear();
+  //         ArgsV.push_back(context->createInt32(-7));
+  //         Builder->CreateCall(debugInt64, ArgsV);
+  //         ArgsV.clear();
+  // #endif
 
   OperatorState *groupState = new OperatorState(*this, *allBucketBindings);
   getParent()->consume(context, *groupState);
@@ -584,7 +585,7 @@ void Nest::generateSum(expression_t outputExpr, Context *const context,
   switch (outputExpr.getExpressionType()->getTypeID()) {
     case INT: {
 #ifdef DEBUGNEST
-//        vector<Value*> ArgsV;
+//        std::vector<Value*> ArgsV;
 //        Function* debugInt = context->getFunction("printi");
 //        ArgsV.push_back(val_accumulating);
 //        Builder->CreateCall(debugInt, ArgsV);
@@ -594,7 +595,7 @@ void Nest::generateSum(expression_t outputExpr, Context *const context,
       Builder->CreateBr(endBlock);
 #ifdef DEBUGNEST
 //        Builder->SetInsertPoint(endBlock);
-//        vector<Value*> ArgsV;
+//        std::vector<Value*> ArgsV;
 //        Function* debugInt = context->getFunction("printi");
 //        Value* finalResult =
 //        Builder->CreateLoad(mem_accumulating->getType()->getPointerElementType(),
@@ -663,7 +664,7 @@ void Nest::generateMul(expression_t outputExpr, Context *const context,
   switch (outputExpr.getExpressionType()->getTypeID()) {
     case INT: {
 #ifdef DEBUGNEST
-//        vector<Value*> ArgsV;
+//        std::vector<Value*> ArgsV;
 //        Function* debugInt = context->getFunction("printi");
 //        ArgsV.push_back(val_accumulating);
 //        Builder->CreateCall(debugInt, ArgsV);
@@ -673,7 +674,7 @@ void Nest::generateMul(expression_t outputExpr, Context *const context,
       Builder->CreateBr(endBlock);
 #ifdef DEBUGNEST
 //        Builder->SetInsertPoint(endBlock);
-//        vector<Value*> ArgsV;
+//        std::vector<Value*> ArgsV;
 //        Function* debugInt = context->getFunction("printi");
 //        Value* finalResult =
 //        Builder->CreateLoad(mem_accumulating->getType()->getPointerElementType(),
@@ -761,7 +762,7 @@ void Nest::generateMax(expression_t outputExpr, Context *const context,
       // Prepare final result output
       Builder->SetInsertPoint(context->getEndingBlock());
 #ifdef DEBUGNEST
-      vector<Value *> ArgsV;
+      std::vector<Value *> ArgsV;
       Function *debugInt = context->getFunction("printi");
       Value *finalResult = Builder->CreateLoad(
           mem_accumulating->getType()->getPointerElementType(),
@@ -797,7 +798,7 @@ void Nest::generateMax(expression_t outputExpr, Context *const context,
       // Prepare final result output
       Builder->SetInsertPoint(context->getEndingBlock());
 #ifdef DEBUGNEST
-      vector<Value *> ArgsV;
+      std::vector<Value *> ArgsV;
       Function *debugFloat = context->getFunction("printFloat");
       Value *finalResult = Builder->CreateLoad(
           mem_accumulating->getType()->getPointerElementType(),

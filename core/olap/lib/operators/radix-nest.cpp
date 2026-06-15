@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -27,6 +27,7 @@
 #include "lib/plugins/csv-plugin-pm.hpp"
 
 using namespace llvm;
+using std::vector;
 
 namespace radix {
 
@@ -78,7 +79,7 @@ Nest::Nest(Context *const context, vector<Monoid> accs,
       g_nullToZero(g_nullToZero),
       mat(mat),
       htName(opLabel),
-      context((ParallelContext *const)context),
+      context((OlapParallelContext *const)context),
       f_grouping(getGrouping(f_grouping_v)) {
   if (accs.size() != outputExprs.size() || accs.size() != aggrLabels.size()) {
     string error_msg = string("[NEST: ] Erroneous constructor args");
@@ -102,7 +103,7 @@ Nest::Nest(Context *const context, vector<Monoid> accs,
   // Plugin *htPlugin = new BinaryInternalPlugin(context, htName);
   // catalog.registerPlugin(htName, htPlugin);
 
-  assert(dynamic_cast<ParallelContext *const>(context) &&
+  assert(dynamic_cast<OlapParallelContext *const>(context) &&
          "Should update caller to use the new context!");
   LLVMContext &llvmContext = context->getLLVMContext();
 
@@ -164,7 +165,7 @@ Nest::Nest(Context *const context, vector<Monoid> accs,
   payloadType = build->getPayloadType();
 }
 
-void Nest::produce_(ParallelContext *context) {
+void Nest::produce_(OlapParallelContext *context) {
   probeHT();
 
   context->popPipeline();

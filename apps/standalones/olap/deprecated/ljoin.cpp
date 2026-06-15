@@ -342,7 +342,7 @@ void Query() {
       time_block t("T: ");
 
       p->open();
-      p->consume(0);
+      p->consume();
       p->close();
     }
   }
@@ -1185,7 +1185,7 @@ void Query2() {
       time_block t("T: ");
       // std::cout << p->getName() << std::endl;
       p->open();
-      p->consume(0);
+      p->consume();
       p->close();
     }
   }
@@ -1605,7 +1605,7 @@ expressions::RecordProjection(e6, *aggr);
                     time_block t("T: ");
                     //std::cout << p->getName() << std::endl;
                     p->open();
-                    p->consume(0);
+                    p->consume();
                     p->close();
                 }
 

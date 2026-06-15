@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,8 +23,9 @@
 
 #include "expressions-hasher.hpp"
 
+#include <codegen/expressions/ref-expression.hpp>
+#include <codegen/util/functions.hpp>
 #include <lib/util/project-record.hpp>
-#include <olap/expressions/expressions/ref-expression.hpp>
 
 #include "lib/operators/operators.hpp"
 
@@ -182,7 +183,7 @@ ProteusValue ExpressionHasherVisitor::visit(
   valWrapper.value = hashResult;
   valWrapper.isNull = context->createFalse();
 #ifdef DEBUG_HASH
-  vector<Value *> argsV;
+  std::vector<Value *> argsV;
   argsV.clear();
   argsV.push_back(hashResult);
   Function *debugInt64 = context->getFunction("printi64");
@@ -200,7 +201,7 @@ ProteusValue ExpressionHasherVisitor::visit(
 
   Function *hashCombine = context->getFunction("combineHashes");
   Value *hashedValue = context->createInt64(0);
-  vector<Value *> ArgsV;
+  std::vector<Value *> ArgsV;
 
   const map<RecordAttribute, ProteusValueMemory> &activeVars =
       currState.getBindings();
@@ -315,16 +316,16 @@ ProteusValue ExpressionHasherVisitor::visit(
     if (info.structFieldNo != -1 && it == currState.getBindings().end()) {
 #ifdef DEBUGCACHING
       cout << "[Hasher: ] Expression found for " << e->getOriginalRelationName()
-           << "." << e->getAttribute().getAttrName() << "!" << endl;
+           << "." << e->getAttribute().getAttrName() << "!" << std::endl;
 #endif
       if (!cache.getCacheIsFull(e)) {
 #ifdef DEBUGCACHING
-        cout << "...but is not useable " << endl;
+        cout << "...but is not useable " << std::endl;
 #endif
       } else {
-        assert(dynamic_cast<ParallelContext *>(context));
+        assert(dynamic_cast<OlapParallelContext *>(context));
         ProteusValue tmpWrapper = plugin->readCachedValue(
-            info, currState, dynamic_cast<ParallelContext *>(context));
+            info, currState, dynamic_cast<OlapParallelContext *>(context));
         //                Value *tmp = tmpWrapper.value;
         //                AllocaInst *mem_tmp =
         //                context->CreateEntryBlockAlloca(F, "mem_cachedToHash",
@@ -340,7 +341,7 @@ ProteusValue ExpressionHasherVisitor::visit(
     } else {
 #ifdef DEBUGCACHING
       cout << "[Hasher: ] No cache found for " << e->getOriginalRelationName()
-           << "." << e->getAttribute().getAttrName() << "!" << endl;
+           << "." << e->getAttribute().getAttrName() << "!" << std::endl;
 #endif
     }
     //}
@@ -375,10 +376,10 @@ ProteusValue ExpressionHasherVisitor::visit(
       }
 
       // Path involves a projection / an object
-      assert(dynamic_cast<ParallelContext *>(context));
+      assert(dynamic_cast<OlapParallelContext *>(context));
       mem_path = plugin->readPath(
           activeRelation, bindings, e->getProjectionName().c_str(),
-          e->getAttribute(), dynamic_cast<ParallelContext *>(context));
+          e->getAttribute(), dynamic_cast<OlapParallelContext *>(context));
     } else {
       // Path involves a primitive datatype
       //(e.g., the result of unnesting a list of primitives)
@@ -594,6 +595,11 @@ ProteusValue ExpressionHasherVisitor::visit(
 
 ProteusValue ExpressionHasherVisitor::visit(
     const expressions::RandExpression *e) {
+  return hashPrimitive(e);
+}
+
+ProteusValue ExpressionHasherVisitor::visit(
+    const expressions::ExternExpression *e) {
   return hashPrimitive(e);
 }
 

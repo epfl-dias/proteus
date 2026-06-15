@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,11 +23,10 @@
 
 #include "router-scaleout.hpp"
 
+#include <codegen/jit/pipeline.hpp>
 #include <platform/memory/block-manager.hpp>
 #include <platform/network/infiniband/infiniband-manager.hpp>
 #include <platform/util/timing.hpp>
-
-#include "lib/util/jit/pipeline.hpp"
 
 using namespace llvm;
 
@@ -132,13 +131,11 @@ void RouterScaleOut::open(Pipeline *pip) {
     sub = &InfiniBandManager::create_subscription();
     strmclosed = false;
 
-    eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_START);
     remaining_producers = 1;
     for (int i = 0; i < 2; ++i) {
       firers.emplace_back(&RouterScaleOut::fire, this, i, catch_pip,
                           pip->getSession());
     }
-    eventlogger.log(this, log_op::EXCHANGE_INIT_CONS_END);
   }
 }
 
