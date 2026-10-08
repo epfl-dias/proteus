@@ -98,7 +98,7 @@ if [ "$WORKLOAD" = all ] || [ "$WORKLOAD" = tpch ]; then
     "$BUILD/apps/benchmarks/olap/benchmark-tpch/proteus-benchmark-tpch" \
     "$TPCH_NONE_DS" \
     "$TPCH_RFOR512_DS" \
-    "Q1 Q3 Q5 Q6 Q12 Q14 Q19" ""
+    "Q5 Q12" ""
 fi
 
 if [ "$WORKLOAD" = all ] || [ "$WORKLOAD" = stack ]; then
@@ -106,7 +106,7 @@ if [ "$WORKLOAD" = all ] || [ "$WORKLOAD" = stack ]; then
     "$BUILD/apps/benchmarks/olap/benchmark-stack/proteus-benchmark-stack" \
     "$STACK_NONE_DS" \
     "$STACK_RFOR512_DS" \
-    "Q1 Q4 Q6 Q11 Q12 Q14" "--stack_dataset_path"
+    "Q11 Q14" "--stack_dataset_path"
 fi
 
 if [ "$failures" -ne 0 ]; then

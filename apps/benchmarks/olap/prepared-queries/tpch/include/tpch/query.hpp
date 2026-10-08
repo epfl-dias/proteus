@@ -28,11 +28,8 @@
 #include <query-shaping/input-prefix-query-shaper.hpp>
 #include <query-shaping/query-shaper.hpp>
 
-// TPC-H prepared statements, built with the same RelBuilder/QueryShaper
-// infrastructure as the SSB benchmark (see ../ssb). We deliberately implement
-// the subset {Q1, Q3, Q5, Q6} which exercises the three operator bottlenecks
-// identified for TPC-H on GPUs (group-by, join, filter) while scanning the
-// large fact tables (lineitem, orders) with RFOR-compressible integer columns.
+// TPC-H prepared statements used by the CB2T evaluation, built with the same
+// RelBuilder/QueryShaper infrastructure as the SSB benchmark (see ../ssb).
 //
 // DATA-MODEL ASSUMPTION (matches the SSB ssbm100 catalog convention):
 //   * dates  are stored as int in YYYYMMDD form (e.g. 1998-09-02 -> 19980902)
@@ -50,18 +47,12 @@
 namespace tpch {
 class Query {
  public:
-  static PreparedStatement prepare01(proteus::QueryShaper &morph);  // Q1
-  static PreparedStatement prepare03(proteus::QueryShaper &morph);  // Q3
   static PreparedStatement prepare05(proteus::QueryShaper &morph);  // Q5
-  static PreparedStatement prepare06(proteus::QueryShaper &morph);  // Q6
   static PreparedStatement prepare12(proteus::QueryShaper &morph);  // Q12
-  static PreparedStatement prepare14(proteus::QueryShaper &morph);  // Q14
-  static PreparedStatement prepare19(proteus::QueryShaper &morph);  // Q19
 
   static std::vector<PreparedStatement> prepareAll(
       proteus::QueryShaper &shaper) {
-    return {prepare01(shaper), prepare03(shaper), prepare05(shaper),
-            prepare06(shaper)};
+    return {prepare05(shaper), prepare12(shaper)};
   }
 
   static std::map<std::string,

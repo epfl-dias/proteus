@@ -69,13 +69,9 @@ void pointStackInputAtSelectedDataset() {
 }
 }  // namespace
 
-// The six SO query instances (see prepared-queries/stack).
+// Stack queries reported in the paper (see prepared-queries/stack).
 #define FOR_STACK_QUERY(DO)              \
-  DO(Q1, stack::Query::prepareQ1)        \
-  DO(Q4, stack::Query::prepareQ4)        \
-  DO(Q6, stack::Query::prepareQ6)        \
   DO(Q11, stack::Query::prepareQ11)      \
-  DO(Q12, stack::Query::prepareQ12)      \
   DO(Q14, stack::Query::prepareQ14)
 
 #define STACK_BENCH_DEFINE_GPU(name, prepFunction)         \

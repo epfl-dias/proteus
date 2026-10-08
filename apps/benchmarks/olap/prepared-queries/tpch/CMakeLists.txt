@@ -2,13 +2,8 @@ project(tpch VERSION 0.1 LANGUAGES CXX)
 
 # Pure, regular C++ files
 add_library(${PROJECT_NAME} SHARED
-  q01.cpp
-  q03.cpp
   q05.cpp
-  q06.cpp
   q12.cpp
-  q14.cpp
-  q19.cpp
   stats.cpp
   )
 

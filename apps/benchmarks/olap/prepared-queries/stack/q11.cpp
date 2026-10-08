@@ -23,7 +23,7 @@
 
 #include <stack/query.hpp>
 
-// Stack SO-Q11 (Bao template q11) -- Q1's star + IN lists + int range.
+// Stack SO-Q11 (Bao template q11) -- star join + IN lists + int range.
 //   SELECT COUNT(*) FROM tag t, site s, question q, tag_question tq
 //   WHERE t.site_id = s.site_id AND q.site_id = s.site_id
 //     AND tq.site_id = s.site_id
@@ -34,10 +34,9 @@
 //                    'sqlite','ubuntu','unicode')
 //     AND q.favorite_count >= 5 AND q.favorite_count <= 5000
 //
-// Same shape as SO-Q1 (see q01.cpp): probe = tag_question; site join first,
-// then tag (IN = OR of dict equalities, as TPC-H Q19), then question (now
-// filtered by the favorite_count range; exported NULLs are -1 and fail the
-// >= 5 bound, matching SQL NULL semantics). 'stackoverflow' is by far the
+// Probe tag_question; join site first, then tag, then question filtered by the
+// favorite_count range. Exported NULLs are -1 and fail the
+// >= 5 bound, matching SQL NULL semantics. 'stackoverflow' is by far the
 // largest site, so the probe side stays big after the site join.
 
 constexpr auto query = "stack_Q11";

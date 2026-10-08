@@ -10,3 +10,6 @@ Proteus is actively developed by members of EPFL's [DIAS Lab](https://www.epfl.c
 
 The code and bare-metal A100 workflow for the CB2T experiments are documented
 in [`tools/workloads/README.md`](tools/workloads/README.md).
+
+The HeavyDB and Sirius comparison workflows are documented in
+[`tools/competitors/README.md`](tools/competitors/README.md).

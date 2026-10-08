@@ -4,13 +4,14 @@ This directory contains the Proteus-only workflow used to generate the input
 datasets and reproduce the query measurements from the CB2T paper. The reported
 experiments were built and run directly on a bare-metal NVIDIA A100 host.
 
-The artifact includes no measured results, plots, private experiment notes, or
-competitor-system scripts.
+The artifact includes no measured results, plots, or private experiment notes.
+HeavyDB and Sirius use the separate
+[`tools/competitors`](../competitors/README.md) workflow.
 
 ## Bare-metal requirements
 
-- A Linux host with an NVIDIA A100; the artifact was validated on CUDA 11.7.
-- LLVM 14 built with libc++ and its CMake package files.
+- A Linux host with an NVIDIA A100 and CUDA 11.3.
+- LLVM/Clang 14.0 built with libc++ and its CMake package files.
 - CMake 3.23 or newer and the standard Proteus system dependencies.
 - nvCOMP 4.2 for CUDA 11, including its CMake package files.
 - NVIDIA GPUDirect Storage (`cufile.h` and `libcufile`), normally supplied by
@@ -24,7 +25,7 @@ optimized compiler flags in this configuration.
 
 ```bash
 export LLVM_ROOT=/opt/llvm-14
-export CUDA_ROOT=/usr/local/cuda-11.7
+export CUDA_ROOT=/usr/local/cuda-11.3
 export NVCOMP_ROOT=/opt/nvcomp/nvcomp-linux-x86_64-4.2.0.11_cuda11-archive
 bash tools/workloads/build_bare_metal.sh
 ```
@@ -54,8 +55,8 @@ $PROTEUS_DATA_ROOT/
 The evaluated queries are:
 
 - SSB: Q1.1, Q2.1, Q3.1, Q4.1
-- TPC-H: Q1, Q3, Q5, Q6, Q12, Q14, Q19
-- Stack: Q1, Q4, Q6, Q11, Q12, Q14
+- TPC-H: Q5, Q12
+- Stack: Q11, Q14
 
 Generate the RFOR tile-1024/tile-512 and FLBP tile-1024 variants:
 

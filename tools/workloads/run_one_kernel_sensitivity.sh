@@ -16,21 +16,21 @@ case "$WORKLOAD" in
     INPUT_NAME=ssbm100
     DEFAULT_BIN="$PELAGO/proteus-benchmark-ssb"
     DEFAULT_DATASET="$SSB_NONE_DS"
-    DEFAULT_QUERIES="Q1_1 Q1_2 Q1_3 Q2_1 Q2_2 Q2_3 Q3_1 Q3_2 Q3_3 Q3_4 Q4_1 Q4_2 Q4_3"
+    DEFAULT_QUERIES="Q1_1 Q2_1 Q3_1 Q4_1"
     ;;
   tpch)
     FIXTURE=TPCHInGPU
     INPUT_NAME=tpch100
     DEFAULT_BIN="$PELAGO/proteus-benchmark-tpch"
     DEFAULT_DATASET="$TPCH_NONE_DS"
-    DEFAULT_QUERIES="Q1 Q3 Q5 Q6 Q12 Q14 Q19"
+    DEFAULT_QUERIES="Q5 Q12"
     ;;
   stack)
     FIXTURE=StackInGPU
     INPUT_NAME=stack
     DEFAULT_BIN="$PELAGO/proteus-benchmark-stack"
     DEFAULT_DATASET="$STACK_NONE_DS"
-    DEFAULT_QUERIES="Q1 Q4 Q6 Q11 Q12 Q14"
+    DEFAULT_QUERIES="Q11 Q14"
     ;;
   *)
     echo "WORKLOAD must be ssb|tpch|stack" >&2
@@ -41,6 +41,12 @@ BIN="${BIN:-$DEFAULT_BIN}"
 DATASET="${DATASET:-$DEFAULT_DATASET}"
 OUT="${OUT:-$WORKLOAD_OUTPUT_ROOT/one_kernel_sensitivity_a100_${WORKLOAD}_$(date +%Y%m%d_%H%M%S)}"
 QUERIES="${QUERIES:-$DEFAULT_QUERIES}"
+for query in $QUERIES; do
+  case "$WORKLOAD:$query" in
+    ssb:Q1_1|ssb:Q2_1|ssb:Q3_1|ssb:Q4_1|tpch:Q5|tpch:Q12|stack:Q11|stack:Q14) ;;
+    *) echo "Query $query is outside the published $WORKLOAD workload." >&2; exit 2 ;;
+  esac
+done
 CPU_BUFFERS="${CPU_BUFFERS:-0.01}"
 GPU_BUFFERS="${GPU_BUFFERS:-0.2}"
 MODE_ORDER="${MODE_ORDER:-false true}"

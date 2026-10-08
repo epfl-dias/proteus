@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Full Proteus benchmark matrix: every SSB / TPC-H / Stack query x codec x decode geometry,
+# Full Proteus paper matrix: each published query x codec x decode geometry,
 # via run_modes.sh. Two tile passes:
 #   - tile 1024: NONE + RFOR + FLBP, geometries {256x4, 128x8}
 #   - tile  512: RFOR only (FLBP vector is fixed 1024), geometries {128x4, 256x2}

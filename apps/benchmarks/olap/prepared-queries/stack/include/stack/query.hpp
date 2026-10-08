@@ -30,9 +30,8 @@
 
 // Stack (StackOverflow, Bao SIGMOD'21) prepared statements, built with the
 // same RelBuilder/QueryShaper infrastructure as the TPC-H/SSB benchmarks
-// (see ../tpch). Six fixed query instances (SO-Q1/Q4/Q6/Q11/Q12/Q14) chosen
-// for the VLDB'27 revision -- rationale, rewrites and verification are in
-// Query set used by the CB2T evaluation.
+// (see ../tpch). This artifact exposes the Q11 and Q14 instances reported in
+// the CB2T evaluation.
 //
 // DATA-MODEL ASSUMPTION (export conventions, matching the SSB/TPC-H catalog):
 //   * timestamps are int YYYYMMDD (creation_date); "+ 1 year" is + 10000.
@@ -46,11 +45,7 @@
 namespace stack {
 class Query {
  public:
-  static PreparedStatement prepareQ1(proteus::QueryShaper &morph);
-  static PreparedStatement prepareQ4(proteus::QueryShaper &morph);
-  static PreparedStatement prepareQ6(proteus::QueryShaper &morph);
   static PreparedStatement prepareQ11(proteus::QueryShaper &morph);
-  static PreparedStatement prepareQ12(proteus::QueryShaper &morph);
   static PreparedStatement prepareQ14(proteus::QueryShaper &morph);
 
   static std::map<std::string,

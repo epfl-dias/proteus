@@ -28,13 +28,8 @@
 #include <tpch/query.hpp>
 
 #define FOR_TPCH_QUERY(DO)        \
-  DO(Q1, tpch::Query::prepare01); \
-  DO(Q3, tpch::Query::prepare03); \
   DO(Q5, tpch::Query::prepare05); \
-  DO(Q6, tpch::Query::prepare06); \
-  DO(Q12, tpch::Query::prepare12); \
-  DO(Q14, tpch::Query::prepare14); \
-  DO(Q19, tpch::Query::prepare19);
+  DO(Q12, tpch::Query::prepare12);
 
 namespace TPCH100 {
 constexpr size_t SF{100};

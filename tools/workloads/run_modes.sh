@@ -39,17 +39,23 @@ case "$WORKLOAD" in
     RFOR512_DS="$SSB_RFOR512_DS"; FLBP_DS="$SSB_FLBP_DS" ;;
   tpch)
     FIX=TPCHInGPU; LN=tpch100; BIN="$BUILD/apps/benchmarks/olap/benchmark-tpch/proteus-benchmark-tpch"
-    DEF_Q="Q1 Q3 Q5 Q6 Q12 Q14 Q19"
+    DEF_Q="Q5 Q12"
     NONE_DS="$TPCH_NONE_DS"; RFOR_DS="$TPCH_RFOR_DS"
     RFOR512_DS="$TPCH_RFOR512_DS"; FLBP_DS="$TPCH_FLBP_DS" ;;
   stack)
     FIX=StackInGPU; LN=stack; BIN="$BUILD/apps/benchmarks/olap/benchmark-stack/proteus-benchmark-stack"
-    DEF_Q="Q1 Q4 Q6 Q11 Q12 Q14"
+    DEF_Q="Q11 Q14"
     NONE_DS="$STACK_NONE_DS"; RFOR_DS="$STACK_RFOR_DS"
     RFOR512_DS="$STACK_RFOR512_DS"; FLBP_DS="$STACK_FLBP_DS" ;;
   *) echo "WORKLOAD must be ssb|tpch|stack" >&2; exit 2 ;;
 esac
 MODE="${MODE:-op}"; CODECS="${CODECS:-RFOR FLBP}"; QUERIES="${QUERIES:-$DEF_Q}"
+for query in $QUERIES; do
+  case "$WORKLOAD:$query" in
+    ssb:Q1_1|ssb:Q2_1|ssb:Q3_1|ssb:Q4_1|tpch:Q5|tpch:Q12|stack:Q11|stack:Q14) ;;
+    *) echo "Query $query is outside the published $WORKLOAD workload." >&2; exit 2 ;;
+  esac
+done
 TPB="${TPB:-256}"; IPT="${IPT:-4}"; TILE="${TILE:-1024}"
 MAX_GRID_BLOCKS="${MAX_GRID_BLOCKS:-0}"
 CPU_BUFFERS="${CPU_BUFFERS:-0.01}"

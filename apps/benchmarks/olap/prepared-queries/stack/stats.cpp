@@ -26,8 +26,8 @@
 // Per-relation row-count hints, used by the QueryShaper to size operators.
 // The Stack dataset has a single fixed scale (July 2008 - September 2019 dump
 // of 170 StackExchange sites); SF is accepted for interface compatibility but
-// ignored. Counts are the exact row counts of the so_pg13 export (see
-// Statistics for the Stack dataset used by the evaluation.
+// ignored. These are the row counts for the Stack dataset used by the
+// evaluation.
 std::map<std::string, std::function<double(proteus::InputPrefixQueryShaper&)>>
 stack::Query::getStats(size_t SF) {
   return {{"sf", [SF](auto&) { return SF; }},
@@ -37,6 +37,5 @@ stack::Query::getStats(size_t SF) {
           {"answer", [](auto&) { return 6'347'553; }},
           {"tag_question", [](auto&) { return 36'883'819; }},
           {"so_user", [](auto&) { return 21'097'302; }},
-          {"comment", [](auto&) { return 103'459'958; }},
           {"badge", [](auto&) { return 51'236'903; }}};
 }
