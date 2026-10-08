@@ -126,7 +126,7 @@ class TPCHGPUOnly : public TPCHBaseFixture {
       shaper = std::make_shared<proteus::GPUOnlySingleServerCompressed>(
           tpchInputDirs(SF), tpchCatalogPath(SF), std::move(stats),
           /*allowMoves=*/false, /*scan_memmove_slack=*/4,
-          /*scan_router_slack=*/2, /*slack=*/16,
+          /*scan_router_slack=*/4, /*slack=*/16,
           /*emit_compressed_blocks=*/true);
       return;
     }
@@ -143,12 +143,32 @@ class TPCHGPUOnlyLazy : public TPCHBaseFixture {
       shaper = std::make_shared<proteus::GPUOnlySingleServerCompressed>(
           tpchInputDirs(SF), tpchCatalogPath(SF), std::move(stats),
           /*allowMoves=*/false, /*scan_memmove_slack=*/4,
-          /*scan_router_slack=*/2, /*slack=*/16,
+          /*scan_router_slack=*/4, /*slack=*/16,
           /*emit_compressed_blocks=*/true);
       return;
     }
     shaper =
         make_shaper<proteus::LazyGPUOnlySingleServer>(SF, std::move(stats));
+  }
+};
+
+// IN-GPU RESIDENT (--in_gpu=true semantics): the scan preloads all blocks into
+// GPU memory at plugin construction and emits GPU-resident pointers, so
+// executions pay no NVMe->GPU streaming. Uses the preloading shaper
+// unconditionally (NONE: uncompressed blocks resident; RFOR/FLBP: compressed
+// blocks resident). Run one query per process (--benchmark_filter='INGPU_Qxx/')
+// -- each benchmark preloads its own plugins and buffers are freed only at
+// process exit, so chaining many INGPU benchmarks accumulates GPU memory.
+class TPCHInGPU : public TPCHBaseFixture {
+ public:
+  void setLoaders(benchmark::State& state) override {}
+
+  void setQueryShaper(benchmark::State& state) override {
+    shaper = std::make_shared<proteus::GPUOnlySingleServerCompressed>(
+        tpchInputDirs(SF), tpchCatalogPath(SF), std::move(stats),
+        /*allowMoves=*/false, /*scan_memmove_slack=*/4,
+        /*scan_router_slack=*/4, /*slack=*/16,
+        /*emit_compressed_blocks=*/tpchUseCompressedShaper());
   }
 };
 

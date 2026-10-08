@@ -24,7 +24,7 @@
 #ifndef PROTEUS_BLOCK_NVME_PLUGIN_HPP
 #define PROTEUS_BLOCK_NVME_PLUGIN_HPP
 
-#include <cufile_181/cufile.h>
+#include <cufile.h>
 #include <rapidjson/document.h>
 
 #include <atomic>
@@ -380,7 +380,11 @@ class NvmePlugin : public BinaryBlockPlugin {
       CHECK_EQ(device_path.size(), 1) << "Device regex seriously broken";
       dev_path_str = device_path[0];
     } else {
-      LOG(FATAL) << "Failed to match device path in df output: " << partition;
+      LOG(WARNING) << "Failed to match a block-device path in df output ("
+                   << partition
+                   << "), assuming non-NVMe storage and NUMA 0 affinity: "
+                   << path;
+      dev_path_str = partition;
     }
     return dev_path_str;
   }

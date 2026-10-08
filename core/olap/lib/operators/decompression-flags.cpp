@@ -17,8 +17,16 @@ DEFINE_bool(decom_op, false,
             "compressed blocks; otherwise keep MemMove-side decompression");
 
 DEFINE_bool(decom_reg, false,
-            "If true, use CompressedBlockToTuplesReg (register-first RFOR "
-            "decode path) instead of CompressedBlockToTuples deferred decode");
+            "If true, use CompressedBlockToTuplesRegisters instead of "
+            "CompressedBlockToTuplesShared");
+
+DEFINE_bool(decom_global_stage, false,
+            "If true, decode tiles on demand into a bounded, recycled GPU "
+            "global-memory staging pool and consume them from that pool");
+
+DEFINE_uint32(streaming_grid_rows, 16,
+              "Number of blockIdx.y row-group workers in the one-kernel "
+              "streaming-decompression window");
 
 DEFINE_bool(precompute_rl, false,
             "If true, use RFOR datasets where RL streams are already cumulative "
@@ -41,8 +49,9 @@ DEFINE_bool(progress_trace, false,
             "If true, CompressedBlockToTuples emits sampled GPU tile progress "
             "markers via printi64");
 
-DEFINE_uint32(max_grid_blocks, 168,
-              "Maximum CUDA gridX used by CompressedBlockToTuples kernels");
+DEFINE_uint32(max_grid_blocks, 0,
+              "Maximum CUDA gridX used by CompressedBlockToTuples kernels; "
+              "0 selects twice the active GPU's SM count");
 
 DEFINE_int32(
     threads_per_block, 0,

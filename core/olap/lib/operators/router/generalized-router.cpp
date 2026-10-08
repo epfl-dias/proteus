@@ -207,9 +207,11 @@ std::unique_ptr<routing::RoutingPolicy> GeneralizedRouter::getPolicy(
           _wantedFields, affs, device_types);
     }
     default: {
-      assert(false && "Unimplemented");  // FIXME: rest of the policies
+      LOG(FATAL) << "Unimplemented generalized routing policy: "
+                 << static_cast<int>(p);  // FIXME: rest of the policies
     }
   }
+  __builtin_unreachable();
 }
 
 void GeneralizedRouter::produceForConsumer(

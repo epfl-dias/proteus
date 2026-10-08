@@ -54,6 +54,9 @@ class Query {
   static PreparedStatement prepare03(proteus::QueryShaper &morph);  // Q3
   static PreparedStatement prepare05(proteus::QueryShaper &morph);  // Q5
   static PreparedStatement prepare06(proteus::QueryShaper &morph);  // Q6
+  static PreparedStatement prepare12(proteus::QueryShaper &morph);  // Q12
+  static PreparedStatement prepare14(proteus::QueryShaper &morph);  // Q14
+  static PreparedStatement prepare19(proteus::QueryShaper &morph);  // Q19
 
   static std::vector<PreparedStatement> prepareAll(
       proteus::QueryShaper &shaper) {

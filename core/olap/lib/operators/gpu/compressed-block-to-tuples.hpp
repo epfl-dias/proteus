@@ -10,7 +10,8 @@
 
 #include "lib/operators/operators.hpp"
 
-template <bool INGPU_MATERIALIZE, bool RFOR_PREDECODE_REGISTERS = false>
+template <bool LEGACY_GLOBAL_TILE_WINDOW, bool REGISTER_FUSED = false,
+          bool GLOBAL_STAGE = false>
 class CompressedBlockToTuples : public experimental::UnaryOperator {
  public:
   CompressedBlockToTuples(Operator *const child, std::vector<expression_t> wantedFields,
@@ -67,12 +68,16 @@ class CompressedBlockToTuples : public experimental::UnaryOperator {
   bool gpu;
 };
 
-using CompressedBlockToTuplesDeferred = CompressedBlockToTuples<false, false>;
-using CompressedBlockToTuplesMaterialize = CompressedBlockToTuples<true, false>;
-using CompressedBlockToTuplesReg = CompressedBlockToTuples<false, true>;
+using CompressedBlockToTuplesShared = CompressedBlockToTuples<false, false>;
+using CompressedBlockToTuplesLegacyGlobalTileWindow =
+    CompressedBlockToTuples<true, false>;
+using CompressedBlockToTuplesRegisters = CompressedBlockToTuples<false, true>;
+using CompressedBlockToTuplesGlobalStage =
+    CompressedBlockToTuples<false, false, true>;
 
 extern template class CompressedBlockToTuples<false, false>;
 extern template class CompressedBlockToTuples<true, false>;
 extern template class CompressedBlockToTuples<false, true>;
+extern template class CompressedBlockToTuples<false, false, true>;
 
 #endif //COMPRESSED_BLOCK_TO_TUPLES_HPP

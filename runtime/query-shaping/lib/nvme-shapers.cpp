@@ -77,15 +77,22 @@ std::vector<DanglingAttr> CPUOnlyNVMeMorsel::constructDanglingAttrs(
 }
 
 std::vector<std::filesystem::path> CPUOnlyNVMeMorsel::getMdForAttribute(
-    const std::string &attr) const {
+    const std::string &relName, const std::string &attr) const {
   std::vector<std::filesystem::path> md_paths;
   //     for each input dir, find all associated metadata files for this
-  //     attribute
+  //     attribute of this relation.
+  // Anchor the match to "<relName>.csv.<attr>_" at the START of the file
+  // basename. Plain substring matching over-matches when an attribute name is
+  // shared across relations (Stack's bare FK columns, e.g. site_id appears in
+  // many tables), when one attribute name contains another (id vs site_id), or
+  // when one relation name is a suffix of another (question vs tag_question).
+  const std::string prefix = relName + ".csv." + attr + "_";
   for (const auto &dir : input_dirs) {
     auto dir_files = getSortedDirectoryFiles(dir);
     for (const auto &entry : dir_files) {
-      if (entry.string().find(attr + "_") != std::string::npos &&
-          entry.string().find("metadata.json") != std::string::npos) {
+      const std::string name = entry.filename().string();
+      if (name.rfind(prefix, 0) == 0 &&
+          name.find("metadata.json") != std::string::npos) {
         md_paths.push_back(entry);
       }
     }
@@ -104,7 +111,7 @@ RelBuilder CPUOnlyNVMeMorsel::scan(
       relation_md;
 
   for (const auto &attr : relAttrs) {
-    auto md_paths = getMdForAttribute(attr);
+    auto md_paths = getMdForAttribute(relName, attr);
     relation_md.emplace_back(meta_data_records_map[attr], md_paths);
   }
   auto builder = getBuilder();

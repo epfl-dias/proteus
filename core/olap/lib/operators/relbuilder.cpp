@@ -72,6 +72,7 @@
 
 DECLARE_bool(decom_op);
 DECLARE_bool(decom_reg);
+DECLARE_bool(decom_global_stage);
 DECLARE_bool(precompute_rl);
 DECLARE_bool(pre_decom);
 DECLARE_bool(use_metadata_in_block);
@@ -355,6 +356,10 @@ RelBuilder RelBuilder::unpack(const std::vector<expression_t> &projections,
                               gran_t granularity) const {
   CHECK(!(FLAGS_decom_op && FLAGS_decom_reg))
       << "--decom_op and --decom_reg are mutually exclusive";
+  CHECK(!(FLAGS_decom_global_stage &&
+          (FLAGS_decom_op || FLAGS_decom_reg || FLAGS_pre_decom)))
+      << "--decom_global_stage is mutually exclusive with --decom_op, --decom_reg, "
+         "and --pre_decom";
   CHECK(!(FLAGS_precompute_rl && !FLAGS_decom_reg))
       << "--precompute_rl requires --decom_reg";
   CHECK(!(FLAGS_precompute_rl && FLAGS_compression_type != "RFOR"))
@@ -371,6 +376,10 @@ RelBuilder RelBuilder::unpack(const std::vector<expression_t> &projections,
   CHECK(!(FLAGS_decom_reg && FLAGS_compression_type != "RFOR" &&
           FLAGS_compression_type != "FLBP"))
       << "--decom_reg currently supports only --compression_type=RFOR/FLBP";
+  CHECK(!(FLAGS_decom_global_stage && FLAGS_compression_type != "RFOR" &&
+          FLAGS_compression_type != "FLBP"))
+      << "--decom_global_stage currently supports only "
+         "--compression_type=RFOR/FLBP";
 
   const bool gpu_unpack = (root->getDeviceType() == DeviceType::GPU);
   const bool use_decom_reg_for_this_unpack = FLAGS_decom_reg && gpu_unpack;
@@ -413,27 +422,35 @@ RelBuilder RelBuilder::unpack(const std::vector<expression_t> &projections,
 
   if (gpu_unpack && scan_emits_compressed_blocks &&
       supports_gpu_compressed_unpack) {
+    if (FLAGS_decom_global_stage) {
+      auto *cpu_to_gpu = dynamic_cast<CpuToGpu *>(root);
+      CHECK(cpu_to_gpu != nullptr)
+          << "Global-Stage CB2T requires a direct CpuToGpu child";
+      cpu_to_gpu->enableStreamingGridWindow();
+      return apply(new CompressedBlockToTuplesGlobalStage(
+          root, projections, true, granularity));
+    }
     if (use_decom_reg_for_this_unpack) {
-      return apply(new CompressedBlockToTuplesReg(
+      return apply(new CompressedBlockToTuplesRegisters(
           root, projections, true, granularity));
     }
     // Canonical semantics:
-    // - --decom_op=false: materialize decoded tiles to GPU global memory.
-    // - --decom_op=true : keep deferred decode path when supported.
+    // - --decom_op=false: use the legacy global tile window.
+    // - --decom_op=true : fuse decode through shared memory when supported.
     if (!FLAGS_decom_op) {
-      return apply(new CompressedBlockToTuplesMaterialize(
+      return apply(new CompressedBlockToTuplesLegacyGlobalTileWindow(
           root, projections, true, granularity));
     }
 
-    // Deferred mode requires codec metadata path support.
+    // Shared mode requires codec metadata path support.
     if (can_defer_codec_decode) {
-      return apply(new CompressedBlockToTuplesDeferred(
+      return apply(new CompressedBlockToTuplesShared(
           root, projections, true, granularity));
     }
 
-    // If deferred decode is not available, fall back to materialize so plan
-    // remains executable.
-    return apply(new CompressedBlockToTuplesMaterialize(
+    // If fused shared decode is unavailable, fall back to the legacy global
+    // tile window so the plan remains executable.
+    return apply(new CompressedBlockToTuplesLegacyGlobalTileWindow(
         root, projections, true, granularity));
   }
 
@@ -442,11 +459,11 @@ RelBuilder RelBuilder::unpack(const std::vector<expression_t> &projections,
   // preloaded compressed pointers.
   if (gpu_unpack && supports_gpu_compressed_unpack && can_defer_codec_decode) {
     if (use_decom_reg_for_this_unpack) {
-      return apply(new CompressedBlockToTuplesReg(
+      return apply(new CompressedBlockToTuplesRegisters(
           root, projections, true, granularity));
     }
     if (FLAGS_decom_op) {
-      return apply(new CompressedBlockToTuplesDeferred(
+      return apply(new CompressedBlockToTuplesShared(
           root, projections, true, granularity));
     }
   }
@@ -752,9 +769,10 @@ using v_t =
                  MemBroadcastScaleOut *, MemBroadcastDevice *, MemMoveDevice *,
                  HashRearrange *, BloomFilterBuild *, PreDecompress *,
                  BlockToTuples *,
-                 CompressedBlockToTuplesDeferred *,
-                 CompressedBlockToTuplesMaterialize *,
-                 CompressedBlockToTuplesReg *, HintRowCount *, Select *,
+                 CompressedBlockToTuplesShared *,
+                 CompressedBlockToTuplesLegacyGlobalTileWindow *,
+                 CompressedBlockToTuplesRegisters *,
+                 CompressedBlockToTuplesGlobalStage *, HintRowCount *, Select *,
                  Project *, BloomFilterRepack *>;
 double expected(Operator *op);
 double expectedNoSelectivity(Operator *op);
@@ -833,13 +851,16 @@ class ExpectedTuplesOutputSize {
   double operator()(BlockToTuples *op) const {
     return expected(op->getChild());
   }
-  double operator()(CompressedBlockToTuplesDeferred *op) const {
+  double operator()(CompressedBlockToTuplesShared *op) const {
     return expected(op->getChild());
   }
-  double operator()(CompressedBlockToTuplesMaterialize *op) const {
+  double operator()(CompressedBlockToTuplesLegacyGlobalTileWindow *op) const {
     return expected(op->getChild());
   }
-  double operator()(CompressedBlockToTuplesReg *op) const {
+  double operator()(CompressedBlockToTuplesRegisters *op) const {
+    return expected(op->getChild());
+  }
+  double operator()(CompressedBlockToTuplesGlobalStage *op) const {
     return expected(op->getChild());
   }
   double operator()(HintRowCount *op) const { return op->expected; }
@@ -892,13 +913,16 @@ class ExpectedTuplesOutputSizeNoSelectivity {
   double operator()(BlockToTuples *op) const {
     return expectedNoSelectivity(op->getChild());
   }
-  double operator()(CompressedBlockToTuplesDeferred *op) const {
+  double operator()(CompressedBlockToTuplesShared *op) const {
     return expectedNoSelectivity(op->getChild());
   }
-  double operator()(CompressedBlockToTuplesMaterialize *op) const {
+  double operator()(CompressedBlockToTuplesLegacyGlobalTileWindow *op) const {
     return expectedNoSelectivity(op->getChild());
   }
-  double operator()(CompressedBlockToTuplesReg *op) const {
+  double operator()(CompressedBlockToTuplesRegisters *op) const {
+    return expectedNoSelectivity(op->getChild());
+  }
+  double operator()(CompressedBlockToTuplesGlobalStage *op) const {
     return expectedNoSelectivity(op->getChild());
   }
   double operator()(HintRowCount *op) const { return op->expected; }

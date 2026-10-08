@@ -354,6 +354,24 @@ void flushBinaryOutput(char *fileName, std::ostream *strBuffer) {
 
     std::ofstream{p, std::ios::app} << strBuffer->rdbuf();
 
+    // Opt-in result capture: query outputs normally live in /dev/shm and are
+    // unlinked as soon as the (discarded) QueryResult destructs, so benchmark
+    // runs can only report timings. When PROTEUS_RESULT_DUMP_DIR is set, keep a
+    // durable copy there (named after the output relation) so answers can be
+    // diffed across runs/codecs. No effect when the env var is unset.
+    if (const char *dump_dir = std::getenv("PROTEUS_RESULT_DUMP_DIR")) {
+      std::error_code dump_ec;
+      std::filesystem::path dst{dump_dir};
+      std::filesystem::create_directories(dst, dump_ec);
+      dst /= p.filename();
+      std::filesystem::copy_file(
+          p, dst, std::filesystem::copy_options::overwrite_existing, dump_ec);
+      if (dump_ec) {
+        LOG(WARNING) << "PROTEUS_RESULT_DUMP_DIR copy failed for " << p << " -> "
+                     << dst << ": " << dump_ec.message();
+      }
+    }
+
     flushDictIfExists(strBuffer, fileName);
     // const string &tmp_str = strBuffer->str();     //more portable but it
     // creates a copy, which will be problematic for big output files...

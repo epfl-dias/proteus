@@ -139,6 +139,30 @@ FOR_SSB_QUERY(SSB_BENCH_REGISTER_GPU_LAZY)
 FOR_SSB_QUERY(SSB_BENCH_DEFINE_HYBRID)
 FOR_SSB_QUERY(SSB_BENCH_REGISTER_HYBRID)
 
+// IN-GPU RESIDENT (--in_gpu=true semantics): data preloaded GPU-resident by the
+// scan; run one query per process (see SSBInGPU note in ssb-fixture.hpp).
+#define SSB_BENCH_DEFINE_INGPU(name, prepFunction)         \
+  BENCHMARK_DEFINE_F(SSBInGPU, INGPU_##name)               \
+  (benchmark::State & st) {                                \
+    auto num_gpus = topology::getInstance().getGpuCount(); \
+    if (num_gpus == 0) {                                   \
+      st.SkipWithError("System has no GPUs");              \
+    }                                                      \
+    auto statement = prepFunction(*shaper.get());          \
+    warmUp(statement);                                     \
+    runBenchmark(statement, st);                           \
+  }
+
+#define SSB_BENCH_REGISTER_INGPU(name, prepFunction) \
+  BENCHMARK_REGISTER_F(SSBInGPU, INGPU_##name)       \
+      ->Args({100, 1})                               \
+      ->UseRealTime()                                \
+      ->Unit(benchmark::kMillisecond)                \
+      ->Iterations(5);
+
+FOR_SSB_QUERY(SSB_BENCH_DEFINE_INGPU)
+FOR_SSB_QUERY(SSB_BENCH_REGISTER_INGPU)
+
 int main(int argc, char** argv) {
   ::benchmark::Initialize(&argc, argv);
   auto olap = proteus::from_cli::olap("Benchmark SSB", &argc, &argv);

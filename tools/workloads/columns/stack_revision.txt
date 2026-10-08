@@ -1,0 +1,17 @@
+# Columns used by Stack Q1, Q4, Q6, Q11, Q12, and Q14.
+account_id
+creation_date
+downvotes
+favorite_count
+id
+name
+owner_user_id
+post_id
+question_id
+reputation
+score
+site_id
+site_name
+tag_id
+user_id
+view_count

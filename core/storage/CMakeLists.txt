@@ -6,6 +6,7 @@ set(storage_cxx
   lib/mmap-file.cpp
   lib/storage-load-policy-registry.cpp
   lib/storage-manager.cpp
+  lib/io_uring.cpp
   )
 
 
@@ -28,6 +29,7 @@ target_compile_features(storage PUBLIC cxx_std_20)
 target_link_libraries(storage
   PUBLIC
   proteus::platform
+  liburing
   PRIVATE
   magic_enum::magic_enum
   )

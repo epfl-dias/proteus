@@ -103,14 +103,17 @@ void GpuHashGroupByChained::generate_build(OlapParallelContext *context,
   // context->getSizeOf(head_ptr->getType()->getPointerElementType()));
   Value *head_w_hash_ptr = Builder->CreateInBoundsGEP(
       head_ptr->getType()->getNonOpaquePointerElementType(), head_ptr, hash);
-  Value *current = Builder->CreateExtractValue(
-      Builder->CreateAtomicCmpXchg(head_w_hash_ptr, eochain, eochain,
-#if LLVM_VERSION_MAJOR >= 13
-                                   llvm::Align(context->getSizeOf(eochain)),
-#endif
-                                   llvm::AtomicOrdering::Monotonic,
-                                   llvm::AtomicOrdering::Monotonic),
-      0);
+  // Atomic READ of the chain head. This was a CAS(head, eochain, eochain)
+  // used as an atomic load; the CAS is a read-modify-write that serializes
+  // in L2 against every other head access on the same (hot) line -- for
+  // low-cardinality group-bys this is one same-line RMW per row. A relaxed
+  // atomic load has identical semantics for a pure read and none of the
+  // serialization.
+  llvm::LoadInst *head_ld = Builder->CreateAlignedLoad(
+      eochain->getType(), head_w_hash_ptr,
+      llvm::Align(context->getSizeOf(eochain)), "gb_head_read");
+  head_ld->setAtomic(llvm::AtomicOrdering::Monotonic);
+  Value *current = head_ld;
 
   current->setName("current");
 
@@ -247,20 +250,18 @@ void GpuHashGroupByChained::generate_build(OlapParallelContext *context,
 
   context->workerScopedMembar();
 
-  Value *next = Builder->CreateExtractValue(
-      Builder->CreateAtomicCmpXchg(
-          Builder->CreateInBoundsGEP(
-              context->getStateVar(out_param_ids[0])
-                  ->getType()
-                  ->getNonOpaquePointerElementType(),
-              context->getStateVar(out_param_ids[0]),
-              std::vector<Value *>{current, context->createInt32(0)}),
-          eochain, eochain,
-#if LLVM_VERSION_MAJOR >= 13
-          llvm::Align(context->getSizeOf(eochain)),
-#endif
-          llvm::AtomicOrdering::Monotonic, llvm::AtomicOrdering::Monotonic),
-      0);
+  // Atomic READ of next[current].next (was CAS-as-load; see head read above).
+  llvm::LoadInst *next_ld = Builder->CreateAlignedLoad(
+      eochain->getType(),
+      Builder->CreateInBoundsGEP(
+          context->getStateVar(out_param_ids[0])
+              ->getType()
+              ->getNonOpaquePointerElementType(),
+          context->getStateVar(out_param_ids[0]),
+          std::vector<Value *>{current, context->createInt32(0)}),
+      llvm::Align(context->getSizeOf(eochain)), "gb_next_read");
+  next_ld->setAtomic(llvm::AtomicOrdering::Monotonic);
+  Value *next = next_ld;
 
   // next_bucket_next->setName("next_bucket_next");
   //             // int32_t   next_bucket = next[current].next;
@@ -294,24 +295,190 @@ void GpuHashGroupByChained::generate_build(OlapParallelContext *context,
   Builder->SetInsertPoint(BucketFoundBB);
 
   // atomicAdd(&(next[current].sum), val);
+  //
+  // Low-cardinality group-bys (e.g. TPC-H Q1: ~6 groups over 591M rows) make
+  // every lane hammer the same few payload cache lines with global atomics,
+  // which serialize in L2 and dominate the pipeline (same pathology as the
+  // GpuReduce per-lane epilogue, doc 17). Fast path: when the warp is fully
+  // converged AND every lane matched the SAME bucket (`current` is
+  // warp-uniform -- the common case for skewed/clustered keys), shfl-reduce
+  // each aggregate across the warp and let lane 0 issue ONE atomic per
+  // aggregate. Any divergence or mixed-bucket warp falls back to the original
+  // per-lane atomics, which stay correct for every monoid.
+  std::vector<gpu::Monoid *> agg_gms;
+  std::vector<Value *> agg_vals;
+  std::vector<Value *> agg_ptrs;
   for (size_t i = 0; i < agg_exprs.size(); ++i) {
     if (agg_exprs[i].is_aggregation()) {
-      gpu::Monoid *gm = gpu::Monoid::get(agg_exprs[i].m);
+      agg_gms.push_back(gpu::Monoid::get(agg_exprs[i].m));
       std::vector<Value *> tmp{current,
                                context->createInt32(agg_exprs[i].packind)};
 
-      Value *aggr = Builder->CreateExtractValue(out_vals[agg_exprs[i].packet],
-                                                agg_exprs[i].packind);
+      agg_vals.push_back(Builder->CreateExtractValue(
+          out_vals[agg_exprs[i].packet], agg_exprs[i].packind));
 
-      Value *gl_accum = Builder->CreateInBoundsGEP(
+      agg_ptrs.push_back(Builder->CreateInBoundsGEP(
           context->getStateVar(out_param_ids[agg_exprs[i].packet])
               ->getType()
               ->getNonOpaquePointerElementType(),
-          context->getStateVar(out_param_ids[agg_exprs[i].packet]), tmp);
-
-      gm->createAtomicUpdate(context, gl_accum, aggr,
-                             llvm::AtomicOrdering::Monotonic);
+          context->getStateVar(out_param_ids[agg_exprs[i].packet]), tmp));
     }
+  }
+
+  {
+    auto *int32_type = Type::getInt32Ty(llvmContext);
+    Value *upd_mask = gpu_intrinsic::activemask(context);
+    Value *full_warp = Builder->CreateICmpEQ(
+        upd_mask, ConstantInt::get(int32_type, ~0u), "gb_full_warp");
+
+    BasicBlock *checkUniBB =
+        BasicBlock::Create(llvmContext, "gbCheckUniform", TheFunction);
+    BasicBlock *warpAggBB =
+        BasicBlock::Create(llvmContext, "gbWarpAgg", TheFunction);
+    BasicBlock *leaderBB =
+        BasicBlock::Create(llvmContext, "gbWarpLeader", TheFunction);
+    BasicBlock *laneBB =
+        BasicBlock::Create(llvmContext, "gbLaneAtomics", TheFunction);
+    BasicBlock *updDoneBB =
+        BasicBlock::Create(llvmContext, "gbUpdateDone", TheFunction);
+
+    Builder->CreateCondBr(full_warp, checkUniBB, laneBB);
+
+    // Full warp: is `current` (the matched bucket) identical on all lanes?
+    // Butterfly equality over all 5 strides covers every edge of the 5-cube,
+    // which is connected, so vote.all(eq) <=> all 32 lanes equal.
+    Builder->SetInsertPoint(checkUniBB);
+    Value *eq_all = ConstantInt::getTrue(llvmContext);
+    for (int stride = 16; stride > 0; stride >>= 1) {
+      Value *peer_cur = gpu_intrinsic::shfl_bfly(
+          context, current, ConstantInt::get(int32_type, stride),
+          ConstantInt::get(int32_type, 31));
+      eq_all = Builder->CreateAnd(eq_all,
+                                  Builder->CreateICmpEQ(current, peer_cur));
+    }
+    Value *uniform = gpu_intrinsic::all(context, eq_all);
+
+    // Mixed-bucket full warp: when every aggregate is an integer SUM (the
+    // common analytic case), loop over the distinct buckets present in the
+    // warp (find the min remaining bucket via a butterfly-min, identity-pad
+    // non-members, butterfly-sum, one atomic per bucket per aggregate from
+    // the member leader). k distinct buckets cost ~k*(6+#aggs*5) shuffles and
+    // #aggs*k atomics instead of #aggs*32 atomics -- for low-cardinality
+    // group-bys this removes the L2 same-line atomic serialization that
+    // otherwise dominates (TPC-H Q1: 3.4M atomic requests per launch, 38%
+    // long-scoreboard stalls). Non-SUM or non-integer aggregates keep the
+    // per-lane path.
+    bool all_int_sum = true;
+    for (const auto &ae : agg_exprs) {
+      if (!ae.is_aggregation()) continue;
+      if (ae.m != SUM) all_int_sum = false;
+    }
+    for (auto *v : agg_vals) {
+      if (!v->getType()->isIntegerTy()) all_int_sum = false;
+    }
+
+    if (!all_int_sum) {
+      Builder->CreateCondBr(uniform, warpAggBB, laneBB);
+    } else {
+      BasicBlock *mbEntryBB =
+          BasicBlock::Create(llvmContext, "gbMultiBucketEntry", TheFunction);
+      BasicBlock *mbLoopBB =
+          BasicBlock::Create(llvmContext, "gbMultiBucketLoop", TheFunction);
+      BasicBlock *mbLeaderBB =
+          BasicBlock::Create(llvmContext, "gbMultiBucketLeader", TheFunction);
+      BasicBlock *mbLatchBB =
+          BasicBlock::Create(llvmContext, "gbMultiBucketLatch", TheFunction);
+
+      Builder->CreateCondBr(uniform, warpAggBB, mbEntryBB);
+
+      Builder->SetInsertPoint(mbEntryBB);
+      Value *mb_laneid = Builder->CreateTrunc(context->laneId(), int32_type);
+      Value *lane_bit = Builder->CreateShl(
+          ConstantInt::get(int32_type, 1), mb_laneid, "gb_lane_bit");
+      Builder->CreateBr(mbLoopBB);
+
+      Builder->SetInsertPoint(mbLoopBB);
+      llvm::PHINode *remaining =
+          Builder->CreatePHI(int32_type, 2, "gb_remaining");
+      remaining->addIncoming(ConstantInt::get(int32_type, ~0u), mbEntryBB);
+
+      Value *in_rem = Builder->CreateICmpNE(
+          Builder->CreateAnd(remaining, lane_bit),
+          ConstantInt::get(int32_type, 0), "gb_in_remaining");
+      // min bucket among the remaining lanes (INT_MAX-padded butterfly-min);
+      // full-warp shfl.sync keeps the warp converged across iterations
+      gpu::MinMonoid min_m;
+      Value *cur_or_max = Builder->CreateSelect(
+          in_rem, current, ConstantInt::get(int32_type, 0x7fffffff));
+      Value *lead_bucket =
+          min_m.createWarpAggregateToAll(context, cur_or_max);
+      Value *member = Builder->CreateAnd(
+          in_rem, Builder->CreateICmpEQ(current, lead_bucket), "gb_member");
+      Value *member_ballot = gpu_intrinsic::ballot(context, member);
+
+      std::vector<Value *> mb_sums;
+      mb_sums.reserve(agg_vals.size());
+      for (size_t i = 0; i < agg_vals.size(); ++i) {
+        Value *contrib = Builder->CreateSelect(
+            member, agg_vals[i],
+            llvm::Constant::getNullValue(agg_vals[i]->getType()));
+        mb_sums.push_back(
+            agg_gms[i]->createWarpAggregateToAll(context, contrib));
+      }
+
+      Value *leader_lane = Builder->CreateIntrinsic(
+          llvm::Intrinsic::cttz, {int32_type},
+          {member_ballot, ConstantInt::getTrue(llvmContext)});
+      Value *mb_is_leader = Builder->CreateICmpEQ(mb_laneid, leader_lane,
+                                                  "gb_mb_leader");
+      Builder->CreateCondBr(mb_is_leader, mbLeaderBB, mbLatchBB);
+
+      Builder->SetInsertPoint(mbLeaderBB);
+      for (size_t i = 0; i < agg_vals.size(); ++i) {
+        agg_gms[i]->createAtomicUpdate(context, agg_ptrs[i], mb_sums[i],
+                                       llvm::AtomicOrdering::Monotonic);
+      }
+      Builder->CreateBr(mbLatchBB);
+
+      Builder->SetInsertPoint(mbLatchBB);
+      Value *new_remaining = Builder->CreateAnd(
+          remaining, Builder->CreateNot(member_ballot), "gb_new_remaining");
+      remaining->addIncoming(new_remaining, mbLatchBB);
+      Builder->CreateCondBr(
+          Builder->CreateICmpEQ(new_remaining,
+                                ConstantInt::get(int32_type, 0)),
+          updDoneBB, mbLoopBB);
+    }
+
+    // Uniform full warp: one shfl-reduction + one atomic per aggregate.
+    Builder->SetInsertPoint(warpAggBB);
+    std::vector<Value *> warp_aggs;
+    warp_aggs.reserve(agg_vals.size());
+    for (size_t i = 0; i < agg_vals.size(); ++i) {
+      warp_aggs.push_back(
+          agg_gms[i]->createWarpAggregateToAll(context, agg_vals[i]));
+    }
+    Value *laneid = Builder->CreateTrunc(context->laneId(), int32_type);
+    Value *is_leader = Builder->CreateICmpEQ(
+        laneid, ConstantInt::get(int32_type, 0), "gb_warp_leader");
+    Builder->CreateCondBr(is_leader, leaderBB, updDoneBB);
+
+    Builder->SetInsertPoint(leaderBB);
+    for (size_t i = 0; i < agg_vals.size(); ++i) {
+      agg_gms[i]->createAtomicUpdate(context, agg_ptrs[i], warp_aggs[i],
+                                     llvm::AtomicOrdering::Monotonic);
+    }
+    Builder->CreateBr(updDoneBB);
+
+    // Divergent warp or mixed buckets: original per-lane atomics.
+    Builder->SetInsertPoint(laneBB);
+    for (size_t i = 0; i < agg_vals.size(); ++i) {
+      agg_gms[i]->createAtomicUpdate(context, agg_ptrs[i], agg_vals[i],
+                                     llvm::AtomicOrdering::Monotonic);
+    }
+    Builder->CreateBr(updDoneBB);
+
+    Builder->SetInsertPoint(updDoneBB);
   }
 
   activemask = gpu_intrinsic::activemask(context);

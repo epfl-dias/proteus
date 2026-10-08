@@ -6,4 +6,7 @@ Proteus is a database engine designed for today's heterogeneous environments. Pr
 
 For more information on the project checkout the website [proteusdb.com/](https://proteusdb.com/). Further documentation on building, running and contributing can be found in the [docs folder](docs/README.md).
 
-Proteus is actively developed by members of EPFL's [DIAS Lab](https://www.epfl.ch/labs/dias/). 
+Proteus is actively developed by members of EPFL's [DIAS Lab](https://www.epfl.ch/labs/dias/).
+
+The code and bare-metal A100 workflow for the CB2T experiments are documented
+in [`tools/workloads/README.md`](tools/workloads/README.md).

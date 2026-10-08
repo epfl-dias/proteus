@@ -45,6 +45,8 @@ class CpuToGpu : public DeviceCross {
 
   virtual void generateGpuSide(OlapParallelContext *context);
 
+  void enableStreamingGridWindow() { streamingGridWindow = true; }
+
   RecordType getRowType() const override { return wantedFields; }
 
   DeviceType getDeviceType() const override {
@@ -60,6 +62,7 @@ class CpuToGpu : public DeviceCross {
   };
 
   const std::vector<RecordAttribute *> wantedFields;
+  bool streamingGridWindow{false};
 
   PipelineGen *gpu_pip;
   StateVar childVar_id;

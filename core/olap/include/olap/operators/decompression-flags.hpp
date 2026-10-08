@@ -15,6 +15,8 @@
 
 DECLARE_bool(decom_op);
 DECLARE_bool(decom_reg);
+DECLARE_bool(decom_global_stage);
+DECLARE_uint32(streaming_grid_rows);
 DECLARE_bool(precompute_rl);
 DECLARE_bool(pre_decom);
 DECLARE_bool(use_metadata_in_block);

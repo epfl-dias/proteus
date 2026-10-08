@@ -33,6 +33,20 @@
 #include <query-shaping/query-shaper.hpp>
 #include <storage/storage-manager.hpp>
 
+DECLARE_string(compression_type);
+
+inline bool ssbUseCompressedShaper() {
+  return FLAGS_compression_type != "NONE";
+}
+
+inline std::vector<std::string> ssbInputDirs(size_t SF) {
+  return {"inputs/ssbm" + std::to_string(SF)};
+}
+
+inline std::string ssbCatalogPath(size_t SF) {
+  return "inputs/ssbm" + std::to_string(SF);
+}
+
 class SSBBaseFixture : public benchmark::Fixture {
  public:
   size_t SF;
@@ -142,6 +156,25 @@ class SSBHybrid : public SSBBaseFixture {
     auto* shaperPtr = new proteus::HybridSingleServer{
         "inputs/ssbm" + std::to_string(SF) + "/", stats, true};
     shaper.reset(shaperPtr);
+  }
+};
+
+// IN-GPU RESIDENT (--in_gpu=true semantics): the scan preloads all blocks into
+// GPU memory at plugin construction and emits GPU-resident pointers, so
+// executions pay no NVMe->GPU streaming. NONE: uncompressed blocks resident;
+// RFOR/FLBP: compressed blocks resident. Run one query per process
+// (--benchmark_filter='SSBInGPU/INGPU_Qxx/') -- preloaded buffers are freed only
+// at process exit. Mirrors TPCHInGPU.
+class SSBInGPU : public SSBBaseFixture {
+ public:
+  void setLoaders(benchmark::State& state) override {}
+
+  void setQueryShaper(benchmark::State& state) override {
+    shaper = std::make_shared<proteus::GPUOnlySingleServerCompressed>(
+        ssbInputDirs(SF), ssbCatalogPath(SF), std::move(stats),
+        /*allowMoves=*/false, /*scan_memmove_slack=*/4,
+        /*scan_router_slack=*/4, /*slack=*/16,
+        /*emit_compressed_blocks=*/ssbUseCompressedShaper());
   }
 };
 

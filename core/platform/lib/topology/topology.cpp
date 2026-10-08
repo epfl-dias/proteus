@@ -44,8 +44,7 @@
 #ifndef NCUDA
 #include <cuda_profiler_api.h>
 #include <cuda_runtime_api.h>
-// FIXME cufile hack using cufile from cuda 12.2
-#include <cufile_181/cufile.h>
+#include <cufile.h>
 #include <nvtx3/nvToolsExt.h>
 #endif
 

@@ -34,6 +34,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <limits>
 #include <olap/operators/decompression-config.hpp>
 #include <platform/threadpool/threadpool.hpp>
@@ -80,6 +81,11 @@ namespace fs = std::filesystem;
 DEFINE_string(input_file, "", "Path to the input file");
 
 DEFINE_string(input_directory, "", "Path to the input dataset");
+DEFINE_string(columns_file, "",
+              "Optional path to a file with one column name per line. If empty "
+              "(default), the column set is read from <input_directory>/"
+              "catalog.json -- the partitioner carries no dataset-specific "
+              "hardcoded column list.");
 DECLARE_int32(
     num_files);  // shouldn't really need this, but it silences a warning
 DEFINE_int32(num_files, 2, "Number of files to split the dataset into");
@@ -1041,6 +1047,56 @@ std::vector<fs::path> splitOutputDirectories(const std::string& str) {
   return result;
 }
 
+// Column set is dataset-driven, not hardcoded: read every relation's columns
+// from the dataset's catalog.json (each top-level member is a relation whose
+// type.inner.attributes[] carry the column names as `attrName`).
+std::unordered_set<std::string> columnNamesFromCatalog(
+    const fs::path& catalog_path) {
+  std::unordered_set<std::string> names;
+  std::ifstream in(catalog_path);
+  CHECK(in.good()) << "Cannot open catalog.json for the column set: "
+                   << catalog_path
+                   << " (pass --columns_file to supply columns explicitly)";
+  std::string text((std::istreambuf_iterator<char>(in)),
+                   std::istreambuf_iterator<char>());
+  rapidjson::Document doc;
+  doc.Parse(text.c_str());
+  CHECK(!doc.HasParseError() && doc.IsObject())
+      << "Malformed catalog.json: " << catalog_path;
+  for (auto rel = doc.MemberBegin(); rel != doc.MemberEnd(); ++rel) {
+    if (!rel->value.IsObject() || !rel->value.HasMember("type")) continue;
+    const auto& type = rel->value["type"];
+    if (!type.IsObject() || !type.HasMember("inner")) continue;
+    const auto& inner = type["inner"];
+    if (!inner.IsObject() || !inner.HasMember("attributes")) continue;
+    const auto& attrs = inner["attributes"];
+    if (!attrs.IsArray()) continue;
+    for (const auto& a : attrs.GetArray()) {
+      if (a.IsObject() && a.HasMember("attrName") && a["attrName"].IsString()) {
+        names.insert(a["attrName"].GetString());
+      }
+    }
+  }
+  CHECK(!names.empty()) << "No columns found in catalog.json: " << catalog_path;
+  return names;
+}
+
+// One column name per line; '#' comments and blank lines skipped.
+std::unordered_set<std::string> columnNamesFromFile(const fs::path& path) {
+  std::unordered_set<std::string> names;
+  std::ifstream in(path);
+  CHECK(in.good()) << "Cannot open --columns_file: " << path;
+  std::string line;
+  while (std::getline(in, line)) {
+    while (!line.empty() && (line.back() == '\r' || line.back() == ' ' ||
+                             line.back() == '\t'))
+      line.pop_back();
+    if (!line.empty() && line[0] != '#') names.insert(line);
+  }
+  CHECK(!names.empty()) << "--columns_file has no column names: " << path;
+  return names;
+}
+
 int main(int argc, char* argv[]) {
   // Parse the command line arguments
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -1101,27 +1157,19 @@ int main(int argc, char* argv[]) {
   // types), matching the SSB-style integer encoding produced by
   // prepare_data.py --ddl tpch_c. Files are matched by the suffix after the last
   // '.', e.g. "lineitem.csv.l_shipdate" -> "l_shipdate".
-  std::unordered_set<std::string> column_names = {
-      // lineitem (fact table)
-      "l_orderkey", "l_shipdate", "l_returnflag", "l_linestatus",
-      "l_quantity", "l_extendedprice", "l_discount", "l_tax", "l_suppkey",
-
-      // orders
-      "o_orderkey", "o_custkey", "o_orderdate", "o_shippriority",
-
-      // customer
-      "c_custkey", "c_mktsegment", "c_nationkey",
-
-      // supplier
-      "s_suppkey", "s_nationkey",
-
-      // nation
-      "n_nationkey", "n_name", "n_regionkey",
-
-      // region
-      "r_regionkey", "r_name"};
-//  std::unordered_set<std::string> column_names = {
-//       "l_shipdate"};
+  // Dataset-driven column set: --columns_file overrides, else read every
+  // relation's columns from <input_directory>/catalog.json. The partitioner
+  // carries no dataset-specific hardcoded list, so it works for any workload
+  // (TPC-H / SSB / Stack) without edits.
+  std::unordered_set<std::string> column_names =
+      FLAGS_columns_file.empty()
+          ? columnNamesFromCatalog(input_dir_path / "catalog.json")
+          : columnNamesFromFile(fs::path(FLAGS_columns_file));
+  LOG(INFO) << "Partitioning " << column_names.size() << " columns ("
+            << (FLAGS_columns_file.empty()
+                    ? "from catalog.json"
+                    : "from --columns_file " + FLAGS_columns_file)
+            << ")";
 
   for (const auto& entry : fs::directory_iterator(input_dir_path)) {
     if (entry.is_regular_file() &&

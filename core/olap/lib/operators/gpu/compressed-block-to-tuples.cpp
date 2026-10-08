@@ -36,24 +36,26 @@
 #include <olap/util/jit/control-flow/if-statement.hpp>
 #include <platform/memory/block-manager.hpp>
 #include <platform/memory/memory-manager.hpp>
+#include <platform/topology/topology.hpp>
 #include <platform/util/tracing.hpp>
 
 #include "lib/util/catalog.hpp"
 
 #include "llvm/IR/IntrinsicsNVPTX.h"
+#include "llvm/IR/InlineAsm.h"
 
 DECLARE_bool(one_kernel);
-DECLARE_bool(ctt_count_tuples);
-DEFINE_bool(ctt_count_tuples, false,
-            "Count tuples emitted by CompressedBlockToTuples per input block "
-            "(debug correctness gate: device-side counters plus a host-side "
-            "[CTT_TUPLES] report in close())");
+DECLARE_uint32(streaming_grid_rows);
 
 namespace
 {
     // Fixed materialize window size now that ctt_materialize_tile_slots flag
     // is removed.
     static constexpr uint32_t kMaterializeTileSlotsDefault = 512u;
+    // Hard cap for the bounded streaming placement. The actual allocation is
+    // grid_x * --streaming_grid_rows slots and is normally much smaller.
+    static constexpr uint32_t kMaxStreamingTileSlots = 4096u;
+    static constexpr uint32_t kCb2tGridBlocksPerSm = 2u;
 
     static constexpr bool RFOR_COOPERATIVE_DECODE_SUPPORTED = true;
     static constexpr bool FLBP_COOPERATIVE_DECODE_SUPPORTED = true;
@@ -120,35 +122,45 @@ namespace
 
     enum class Cb2tExecutionMode
     {
-        kDeferredShared,
-        kMaterializeGlobal,
-        kRegisterFused
+        kShared,
+        kLegacyGlobalTileWindow,
+        kRegisters,
+        kGlobalStage
     };
 
-    template <bool INGPU_MATERIALIZE, bool RFOR_PREDECODE_REGISTERS>
+    template <bool LEGACY_GLOBAL_TILE_WINDOW, bool REGISTER_FUSED,
+              bool GLOBAL_STAGE>
     constexpr Cb2tExecutionMode selectExecutionMode()
     {
-        if constexpr (INGPU_MATERIALIZE)
+        static_assert(!(GLOBAL_STAGE && LEGACY_GLOBAL_TILE_WINDOW));
+        static_assert(!(GLOBAL_STAGE && REGISTER_FUSED));
+        if constexpr (GLOBAL_STAGE)
         {
-            return Cb2tExecutionMode::kMaterializeGlobal;
+            return Cb2tExecutionMode::kGlobalStage;
         }
-        if constexpr (RFOR_PREDECODE_REGISTERS)
+        if constexpr (LEGACY_GLOBAL_TILE_WINDOW)
         {
-            return Cb2tExecutionMode::kRegisterFused;
+            return Cb2tExecutionMode::kLegacyGlobalTileWindow;
         }
-        return Cb2tExecutionMode::kDeferredShared;
+        if constexpr (REGISTER_FUSED)
+        {
+            return Cb2tExecutionMode::kRegisters;
+        }
+        return Cb2tExecutionMode::kShared;
     }
 
     const char* cb2tExecutionModeName(const Cb2tExecutionMode mode)
     {
         switch (mode)
         {
-        case Cb2tExecutionMode::kDeferredShared:
-            return "deferred";
-        case Cb2tExecutionMode::kMaterializeGlobal:
-            return "materialize";
-        case Cb2tExecutionMode::kRegisterFused:
-            return "register_fused";
+        case Cb2tExecutionMode::kShared:
+            return "shared";
+        case Cb2tExecutionMode::kLegacyGlobalTileWindow:
+            return "legacy_global_tile_window";
+        case Cb2tExecutionMode::kRegisters:
+            return "registers";
+        case Cb2tExecutionMode::kGlobalStage:
+            return "global_stage";
         }
         LOG(FATAL) << "[CB2T] unknown execution mode";
         __builtin_unreachable();
@@ -449,6 +461,7 @@ namespace
     Cb2tSharedLayout buildCb2tSharedLayout(const size_t block_field_count,
                                            const size_t tile_elems,
                                            const bool use_predecode_registers,
+                                           const bool use_streaming_global,
                                            const bool predecode_uses_run_scratch,
                                            const bool compact_precomputed_fastpath,
                                            const uint32_t decode_scratch_elems)
@@ -456,8 +469,11 @@ namespace
         const bool fused_predecode_tuple_execution = use_predecode_registers;
         Cb2tSharedLayout layout{};
         layout.decode_scratch_elems = use_predecode_registers ? 0u : decode_scratch_elems;
-        layout.column_tile_elems =
-            fused_predecode_tuple_execution ? 0u : (block_field_count * tile_elems);
+        layout.column_tile_elems = fused_predecode_tuple_execution
+                                       ? 0u
+                                       : (use_streaming_global
+                                              ? tile_elems
+                                              : block_field_count * tile_elems);
         layout.out_base_elems = layout.decode_scratch_elems;
         layout.run_values_base_elems = layout.out_base_elems + layout.column_tile_elems;
         layout.run_ends_base_elems = layout.run_values_base_elems +
@@ -1283,7 +1299,16 @@ namespace
 
     unsigned int ctt_grid_cap()
     {
-        return FLAGS_max_grid_blocks == 0u ? 1u : FLAGS_max_grid_blocks;
+        if (FLAGS_max_grid_blocks != 0u)
+        {
+            return FLAGS_max_grid_blocks;
+        }
+        const int sm_count =
+            topology::getInstance().getActiveGpu().properties.multiProcessorCount;
+        CHECK_GT(sm_count, 0) << "active GPU reports no SMs";
+        CHECK_LE(static_cast<uint64_t>(sm_count) * kCb2tGridBlocksPerSm,
+                 std::numeric_limits<unsigned int>::max());
+        return static_cast<unsigned int>(sm_count) * kCb2tGridBlocksPerSm;
     }
 } // namespace
 
@@ -1302,14 +1327,16 @@ using namespace llvm;
 //   more logical CB2T tiles depending on runtime tile size.
 // - Decompressed tiles live in shared memory and are read immediately by the
 //   following operators, or optionally materialized to global memory in the
-//   INGPU_MATERIALIZE specialization.
+//   LEGACY_GLOBAL_TILE_WINDOW specialization.
 //
 // NOTE: We build the shared memory buffer as a static addrspace(3) global and
 // cast it to a generic pointer only at call boundaries, which mirrors NVVM
 // semantics and keeps the IR easier to reason about.
 
-template <bool INGPU_MATERIALIZE, bool RFOR_PREDECODE_REGISTERS>
-void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::produce_(
+template <bool LEGACY_GLOBAL_TILE_WINDOW, bool REGISTER_FUSED,
+          bool GLOBAL_STAGE>
+void CompressedBlockToTuples<LEGACY_GLOBAL_TILE_WINDOW, REGISTER_FUSED,
+                             GLOBAL_STAGE>::produce_(
     OlapParallelContext* context)
 {
     if (gpu)
@@ -1336,13 +1363,6 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::produ
     CHECK(!old_buffs.empty())
       << "There should be at least one BlockType'd argument in wantedFields";
 
-    if (FLAGS_ctt_count_tuples)
-    {
-        debug_tuple_count_var_ = context->appendStateVar(
-            llvm::PointerType::getUnqual(
-                llvm::Type::getInt64Ty(context->getLLVMContext())));
-    }
-
     release_input_buffers_ = true;
     for (const auto& wantedField : wantedFields)
     {
@@ -1362,8 +1382,11 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::produ
     getChild()->produce(context);
 }
 
-template <bool INGPU_MATERIALIZE, bool RFOR_PREDECODE_REGISTERS>
-ProteusBareValue CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::step(
+template <bool LEGACY_GLOBAL_TILE_WINDOW, bool REGISTER_FUSED,
+          bool GLOBAL_STAGE>
+ProteusBareValue
+CompressedBlockToTuples<LEGACY_GLOBAL_TILE_WINDOW, REGISTER_FUSED,
+                        GLOBAL_STAGE>::step(
     OlapParallelContext* context, llvm::IntegerType* type)
 {
     auto Builder = context->getBuilder();
@@ -1379,8 +1402,10 @@ ProteusBareValue CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGIS
     return {inc};
 }
 
-template <bool INGPU_MATERIALIZE, bool RFOR_PREDECODE_REGISTERS>
-void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::nextEntry(
+template <bool LEGACY_GLOBAL_TILE_WINDOW, bool REGISTER_FUSED,
+          bool GLOBAL_STAGE>
+void CompressedBlockToTuples<LEGACY_GLOBAL_TILE_WINDOW, REGISTER_FUSED,
+                             GLOBAL_STAGE>::nextEntry(
     llvm::Value* mem_itemCtr, OlapParallelContext* context)
 {
     // Prepare
@@ -1397,7 +1422,8 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::nextE
     Builder->CreateStore(val_new_itemCtr, mem_itemCtr);
 }
 
-template <bool INGPU_MATERIALIZE, bool RFOR_PREDECODE_REGISTERS>
+template <bool LEGACY_GLOBAL_TILE_WINDOW, bool REGISTER_FUSED,
+          bool GLOBAL_STAGE>
 // consume() emits the fused decompression+execution kernel body. All
 // codec-specific logic lives behind the two backend hooks (emit_resolve_metadata,
 // emit_decompress_tile on ICb2tCodecResolver); what remains here is
@@ -1406,9 +1432,9 @@ template <bool INGPU_MATERIALIZE, bool RFOR_PREDECODE_REGISTERS>
 //   2. per-column static state hoisted out of the tile loop;
 //   3. emit + decode contexts and the codec backend / tile locator selection;
 //   4. the fused two-level loop (resolve_metadata -> decompress_tile -> barrier
-//      -> inner tuple loop -> barrier) -- the paper's operator realization;
-//   5. optional --ctt_count_tuples debug histogram flush.
-void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consume(
+//      -> inner tuple loop -> barrier) -- the paper's operator realization.
+void CompressedBlockToTuples<LEGACY_GLOBAL_TILE_WINDOW, REGISTER_FUSED,
+                             GLOBAL_STAGE>::consume(
     OlapParallelContext* context, const OperatorState& childState)
 {
     const auto& decode_backend = getCb2tDecodeBackend();
@@ -1532,6 +1558,25 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
         }
     }
     unsigned int ctt_grid_blocks = ctt_grid_cap();
+    constexpr auto execution_mode =
+        selectExecutionMode<LEGACY_GLOBAL_TILE_WINDOW, REGISTER_FUSED,
+                            GLOBAL_STAGE>();
+    constexpr bool materialize_tiles_to_global =
+        execution_mode == Cb2tExecutionMode::kLegacyGlobalTileWindow;
+    constexpr bool use_predecode_registers =
+        execution_mode == Cb2tExecutionMode::kRegisters;
+    constexpr bool use_streaming_global =
+        execution_mode == Cb2tExecutionMode::kGlobalStage;
+    const uint32_t streaming_grid_rows =
+        use_streaming_global ? std::max(1u, FLAGS_streaming_grid_rows) : 0u;
+    const uint64_t streaming_tile_slots_u64 =
+        static_cast<uint64_t>(ctt_grid_blocks) * streaming_grid_rows;
+    CHECK_LE(streaming_tile_slots_u64,
+             static_cast<uint64_t>(kMaxStreamingTileSlots))
+        << "--streaming_grid_rows * CB2T grid_x exceeds the bounded staging "
+           "slot limit";
+    const uint32_t streaming_tile_slots =
+        static_cast<uint32_t>(streaming_tile_slots_u64);
     const uint32_t materialize_tile_slots_requested = kMaterializeTileSlotsDefault;
     // Use a slot count that is at least grid size and a multiple of grid size.
     // This keeps materialize slots block-disjoint under grid-stride tile_id.
@@ -1549,12 +1594,6 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
     CHECK_EQ(
         runtime_config.tile_size,
         runtime_config.block_threads * runtime_config.items_per_thread);
-    constexpr auto execution_mode =
-        selectExecutionMode<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>();
-    constexpr bool materialize_tiles_to_global =
-        execution_mode == Cb2tExecutionMode::kMaterializeGlobal;
-    constexpr bool use_predecode_registers =
-        execution_mode == Cb2tExecutionMode::kRegisterFused;
     // Decom_reg fused mode:
     // decode runs into reusable shared scratch and keep decoded tuple values in
     // per-thread slots consumed immediately by parent operators.
@@ -1602,6 +1641,7 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
             block_field_count,
             tile_elems,
             use_predecode_registers,
+            use_streaming_global,
             predecode_uses_run_scratch,
             compact_precomputed_fastpath,
             decode_kernel_spec.scratch_elems),
@@ -1622,6 +1662,9 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
     // Shared memory layout:
     // Default:
     // [decoder scratch | col0 tile | col1 tile | ... | broadcast metadata]
+    //
+    // Streaming-global mode:
+    // [decoder scratch | one reusable decoded tile | broadcast metadata]
     //
     // Predecode-registers mode:
     // [col0 decoded tile | ... | colN decoded tile
@@ -1662,6 +1705,7 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
     auto i32_ty = Type::getInt32Ty(llvmContext);
     auto i8_ty = Type::getInt8Ty(llvmContext);
     auto i32_ptr_ty = PointerType::get(i32_ty, 0);
+    auto i32_global_ptr_ty = PointerType::get(i32_ty, 1);
     auto i32_shared_ptr_ty = PointerType::get(i32_ty, 3);
     auto i32_ptr_ptr_ty = PointerType::get(i32_ptr_ty, 0);
     auto i32_scratch_array_ty = ArrayType::get(i32_ty, shared_total_elems);
@@ -1680,6 +1724,12 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
         {i32_ty, i8_ty, i32_ty}
     );
     auto FLBPVectorMetadata_ptr_ty = PointerType::get(FLBPVectorMetadata_ty, 0);
+    auto streaming_load_cg = InlineAsm::get(
+        FunctionType::get(i32_ty, {i32_global_ptr_ty}, false),
+        "ld.global.cg.u32 $0, [$1];", "=r,l", true);
+    auto streaming_store_cg = InlineAsm::get(
+        FunctionType::get(void_ty, {i32_global_ptr_ty, i32_ty}, false),
+        "st.global.cg.u32 [$0], $1;", "l,r", true);
     const bool use_rfor_decode_abi =
         decode_kernel_spec.abi_kind == Cb2tDecodeAbiKind::kRforTileMetadata;
     llvm::StructType* active_tile_metadata_ty =
@@ -1772,11 +1822,20 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
               << " cb2t_block_threads=" << cb2t_plan.runtime_config.block_threads
               << " cb2t_items_per_thread=" << cb2t_plan.runtime_config.items_per_thread
               << " cb2t_tile_size=" << cb2t_plan.runtime_config.tile_size
+              << " cb2t_grid_cap=" << ctt_grid_blocks
               << " cb2t_cooperative_decode="
               << (decode_backend.supportsCooperativeDecode() ? "true" : "false")
               << " materialize_tile_slots_requested="
               << materialize_tile_slots_requested
               << " materialize_tile_slots=" << materialize_tile_slots
+              << " streaming_tile_slots="
+              << streaming_tile_slots
+              << " streaming_grid_rows=" << streaming_grid_rows
+              << " streaming_staging_bytes="
+              << (use_streaming_global
+                      ? static_cast<size_t>(streaming_tile_slots) *
+                            block_field_count * tile_elems * sizeof(uint32_t)
+                      : 0u)
               << " cb2t_predecode_registers="
               << (use_predecode_registers ? "true" : "false")
               << " cb2t_register_decode_mode="
@@ -1850,7 +1909,7 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
             "shared_predecode_run_ends");
     }
     // Optional per-CTA global output tiles (addrspace(1)) used by the
-    // INGPU_MATERIALIZE specialization.
+    // LEGACY_GLOBAL_TILE_WINDOW specialization.
     Value* global_buffer_generic_ptr = nullptr;
     if (materialize_tiles_to_global)
     {
@@ -1868,6 +1927,23 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
         global_buffer_generic_ptr = Builder->CreateInBoundsGEP(
             global_buffer_GV->getValueType(), global_buffer_generic_arr,
             {llvm0, llvm0}, "ctt_global_buffer");
+    }
+
+    Value* streaming_buffer_global_ptr = nullptr;
+    if (use_streaming_global)
+    {
+        const size_t streaming_tile_elems =
+            static_cast<size_t>(streaming_tile_slots) * block_field_count * tile_elems;
+        auto streaming_array_ty = ArrayType::get(i32_ty, streaming_tile_elems);
+        auto streaming_buffer_GV = new GlobalVariable(
+            *module, streaming_array_ty, false, GlobalValue::InternalLinkage,
+            UndefValue::get(streaming_array_ty), "ctt_streaming_buffer_GV", nullptr,
+            GlobalValue::NotThreadLocal,
+            1 /* addrspace(1): global memory */);
+        streaming_buffer_global_ptr = Builder->CreateInBoundsGEP(
+            streaming_buffer_GV->getValueType(), streaming_buffer_GV,
+            {llvm0, llvm0}, "ctt_streaming_buffer");
+
     }
 
     // Populate shared_buffer
@@ -2128,7 +2204,10 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
         if (!fused_predecode_tuple_execution)
         {
             auto out_offset = ConstantInt::get(
-                i64_ty, static_cast<uint64_t>(static_block_idx * tile_elems));
+                i64_ty,
+                use_streaming_global
+                    ? 0u
+                    : static_cast<uint64_t>(static_block_idx * tile_elems));
             Value* out_ptr_i32 =
                 Builder->CreateInBoundsGEP(i32_ty, out_base_ptr, out_offset);
             Value* out_ptr_i8_shared =
@@ -2344,25 +2423,38 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
         });
     };
 
-    // Debug correctness gate (--ctt_count_tuples): per-thread emitted-tuple
-    // and lane-iteration counters, flushed to a per-blockIdx.y histogram at
-    // pipeline end. Generates no device code when the flag is off.
-    Value* debug_tuple_count_local = nullptr;
-    Value* debug_iter_count_local = nullptr;
-    if (FLAGS_ctt_count_tuples)
+    std::vector<Value*> streaming_global_out_ptr_i32s;
+    if (use_streaming_global)
     {
-        debug_tuple_count_local =
-            context->CreateEntryBlockAlloca("ctt_dbg_tuple_cnt", i64_ty);
-        Builder->CreateStore(ConstantInt::get(i64_ty, 0),
-                             debug_tuple_count_local);
-        debug_iter_count_local =
-            context->CreateEntryBlockAlloca("ctt_dbg_iter_cnt", i64_ty);
-        Builder->CreateStore(ConstantInt::get(i64_ty, 0),
-                             debug_iter_count_local);
+        CHECK(streaming_buffer_global_ptr != nullptr);
+        Function* ctaid_y_fn =
+            context->getFunction("llvm.nvvm.read.ptx.sreg.ctaid.y");
+        Value* ctaid_y = Builder->CreateZExt(
+            Builder->CreateCall(ctaid_y_fn, {}, "ctt_streaming_ctaid_y"),
+            i64_ty);
+        Value* streaming_slot_i64 = Builder->CreateAdd(
+            Builder->CreateMul(ctaid_y, grid_dim_i64), context->blockId(),
+            "ctt_streaming_slot");
+        Value* slot_stride_elems = ConstantInt::get(
+            i64_ty, static_cast<uint64_t>(block_field_count * tile_elems));
+        Value* slot_base_elems =
+            Builder->CreateMul(streaming_slot_i64, slot_stride_elems);
+
+        streaming_global_out_ptr_i32s.reserve(block_field_count);
+        for (size_t block_idx = 0; block_idx < block_field_count; ++block_idx)
+        {
+            Value* column_offset = ConstantInt::get(
+                i64_ty, static_cast<uint64_t>(block_idx * tile_elems));
+            Value* out_ptr_i32 = Builder->CreateInBoundsGEP(
+                i32_ty, streaming_buffer_global_ptr,
+                Builder->CreateAdd(slot_base_elems, column_offset));
+            streaming_global_out_ptr_i32s.push_back(out_ptr_i32);
+        }
     }
 
     // =====================================================================
-    // Fused two-level loop (paper Sec. "Shared-memory as the bridge").
+    // Two-level decode/consume loop. Fused modes bridge through shared memory
+    // or registers; streaming mode bridges through a bounded global slot.
     // Outer loop: grid-stride over compressed tiles. For each column it calls
     // the two codec backend hooks -- resolve_metadata() then decompress_tile()
     // -- writing one decoded tile per column into the shared scratchpad, then a
@@ -2417,8 +2509,8 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
         }
 
         // Per-column pointers used by the tuple loop.
-        // - Deferred mode  (INGPU_MATERIALIZE=false): consume from shared tiles.
-        // - Materialize mode (INGPU_MATERIALIZE=true): consume from a
+        // - Shared mode: consume from shared tiles.
+        // - Legacy global-tile-window mode: consume from a
         //   global-memory tile window indexed by tile_id, so the working set can
         //   exceed L2 and show explicit GMEM roundtrip traffic in NCU.
         std::vector<Value*> tile_global_out_ptr_i32s;
@@ -2503,7 +2595,34 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
                 block_idx, static_state, tile_resolve_ctx);
             decompress_tile(block_idx, static_state, tile_resolution,
                             Cb2tDecodeTarget{out_ptr_i32}, tile_resolve_ctx);
-            if (predecode_uses_run_scratch)
+            if (use_streaming_global)
+            {
+                // Complete this column's cooperative decode, publish it to the
+                // CTA-owned global slot, then reuse the single shared output
+                // tile for the next projected column.
+                Builder->CreateCall(barrier);
+                Value* global_out_ptr_i32 =
+                    streaming_global_out_ptr_i32s[block_idx];
+                for (uint32_t item = 0; item < runtime_items_per_thread; ++item)
+                {
+                    Value* elem_idx = Builder->CreateAdd(
+                        tid_in_block,
+                        ConstantInt::get(
+                            i64_ty, static_cast<uint64_t>(item) *
+                                        runtime_block_threads));
+                    Value* shared_elem_ptr = Builder->CreateInBoundsGEP(
+                        i32_ty, out_ptr_i32, elem_idx);
+                    Value* global_elem_ptr = Builder->CreateInBoundsGEP(
+                        i32_ty, global_out_ptr_i32, elem_idx);
+                    Value* elem_val =
+                        Builder->CreateLoad(i32_ty, shared_elem_ptr);
+                    Builder->CreateCall(
+                        streaming_store_cg, {global_elem_ptr, elem_val});
+                }
+                Builder->CreateCall(membar_cta);
+                Builder->CreateCall(barrier);
+            }
+            else if (predecode_uses_run_scratch)
             {
                 // Reuse a single predecode scratch pair across columns.
                 Builder->CreateCall(barrier);
@@ -2512,7 +2631,7 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
 
         // In non-fused paths we need all column tiles materialized before tuple
         // consumption starts.
-        if (!fused_predecode_tuple_execution)
+        if (!fused_predecode_tuple_execution && !use_streaming_global)
         {
             Builder->CreateCall(barrier);
         }
@@ -2578,9 +2697,9 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
                 }
 
                 // Actual Work (Loop through attributes etc.)
-                // Source pointer per block-field is selected at runtime:
-                // - shared tile buffer (always safe),
-                // - or materialized global tile buffer when readback is safe.
+                // Source pointer per block-field follows the selected placement:
+                // shared/register fused, historical materialize, or the
+                // collision-free bounded global streaming pool.
                 size_t decomp_idx = 0;
                 for (const auto& field : wantedFields)
                 {
@@ -2612,6 +2731,26 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
                         continue;
                     }
                     Value* local_idx = Builder->CreateSub(lhs, tile_base);
+                    if constexpr (GLOBAL_STAGE)
+                    {
+                        Value* global_elem_ptr = Builder->CreateInBoundsGEP(
+                            i32_ty,
+                            streaming_global_out_ptr_i32s[decomp_idx],
+                            local_idx);
+                        ++decomp_idx;
+                        Value* parsed = Builder->CreateCall(
+                            streaming_load_cg, {global_elem_ptr},
+                            "ctt_streaming_load");
+                        if (auto* instruction = dyn_cast<Instruction>(parsed))
+                        {
+                            instruction->setMetadata(
+                                LLVMContext::MD_mem_parallel_loop_access,
+                                LoopID);
+                        }
+                        variableBindings[field.getRegisteredAs()] =
+                            context->toMem(parsed, context->createFalse());
+                        continue;
+                    }
                     Value* decomp_src_ptr = static_out_ptr_i8s[decomp_idx];
                     if (materialize_tiles_to_global)
                     {
@@ -2627,7 +2766,7 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
                     Value* ptr = Builder->CreateGEP(
                         arg->getType()->getNonOpaquePointerElementType(), arg, local_idx);
 
-                    if constexpr (!INGPU_MATERIALIZE)
+                    if constexpr (!LEGACY_GLOBAL_TILE_WINDOW && !GLOBAL_STAGE)
                     {
                         // Deferred path: bind the decoded value location directly.
                         variableBindings[field.getRegisteredAs()] =
@@ -2635,16 +2774,17 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
                     }
                     else
                     {
-                        // Materialize path: force an explicit global-memory
-                        // roundtrip (store above + volatile load here).
-                        auto* parsed = Builder->CreateLoad(
+                        // Global placement paths force an explicit load from
+                        // the staged tile before invoking downstream operators.
+                        Value* parsed = nullptr;
+                        auto* materialized_load = Builder->CreateLoad(
                             ptr->getType()->getNonOpaquePointerElementType(),
                             ptr);
-                        parsed->setVolatile(true);
-                        {
-                            parsed->setMetadata(
-                                LLVMContext::MD_mem_parallel_loop_access, LoopID);
-                        }
+                        materialized_load->setVolatile(true);
+                        materialized_load->setMetadata(
+                            LLVMContext::MD_mem_parallel_loop_access,
+                            LoopID);
+                        parsed = materialized_load;
                         ptr = parsed;
                         variableBindings[field.getRegisteredAs()] =
                             context->toMem(ptr, context->createFalse());
@@ -2687,28 +2827,9 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
                     cnt_type, static_cast<uint64_t>(item) * runtime_block_threads));
             Value* lhs = Builder->CreateAdd(tile_base, lane_idx);
             Value* in_range = Builder->CreateICmpSLT(lhs, tile_end);
-            if (FLAGS_ctt_count_tuples)
-            {
-                // Unconditional per-lane-item iteration counter: splits
-                // "warps skip iterations" from "in_range collapses".
-                Value* dbg_iter = Builder->CreateLoad(
-                    i64_ty, debug_iter_count_local);
-                Builder->CreateStore(
-                    Builder->CreateAdd(dbg_iter, ConstantInt::get(i64_ty, 1)),
-                    debug_iter_count_local);
-            }
             context->gen_if({ProteusValue{in_range, context->createFalse()}})(
                 [&]()
                 {
-                    if (FLAGS_ctt_count_tuples)
-                    {
-                        Value* dbg_cnt = Builder->CreateLoad(
-                            i64_ty, debug_tuple_count_local);
-                        Builder->CreateStore(
-                            Builder->CreateAdd(dbg_cnt,
-                                               ConstantInt::get(i64_ty, 1)),
-                            debug_tuple_count_local);
-                    }
                     emitDecodedTuples(lhs, ConstantInt::get(i32_ty, item), LoopID);
                 });
         }
@@ -2737,37 +2858,12 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::consu
         Value* next_tile_id = Builder->CreateAdd(tile_id, grid_dim_i64);
         tile_id_phi->addIncoming(next_tile_id, Builder->GetInsertBlock());
     });
-
-    if (FLAGS_ctt_count_tuples)
-    {
-        Value* dbg_cnt =
-            Builder->CreateLoad(i64_ty, debug_tuple_count_local);
-        Value* dbg_cnt_base = context->getStateVar(debug_tuple_count_var_);
-        // Histogram by input-block row (ctaid.y in one-kernel mode) so the
-        // host can localize which storage blocks lost tuples.
-        Function* ctaid_y_fn =
-            context->getFunction("llvm.nvvm.read.ptx.sreg.ctaid.y");
-        Value* dbg_row = Builder->CreateZExt(
-            Builder->CreateCall(ctaid_y_fn, {}), i64_ty);
-        Value* dbg_slot =
-            Builder->CreateInBoundsGEP(i64_ty, dbg_cnt_base, dbg_row);
-        Builder->CreateAtomicRMW(
-            llvm::AtomicRMWInst::BinOp::Add, dbg_slot, dbg_cnt,
-            llvm::Align(8), llvm::AtomicOrdering::Monotonic);
-        // Iteration counter goes to the upper half of the histogram.
-        Value* dbg_iter =
-            Builder->CreateLoad(i64_ty, debug_iter_count_local);
-        Value* dbg_iter_slot = Builder->CreateInBoundsGEP(
-            i64_ty, dbg_cnt_base,
-            Builder->CreateAdd(dbg_row, ConstantInt::get(i64_ty, 2048)));
-        Builder->CreateAtomicRMW(
-            llvm::AtomicRMWInst::BinOp::Add, dbg_iter_slot, dbg_iter,
-            llvm::Align(8), llvm::AtomicOrdering::Monotonic);
-    }
 }
 
-template <bool INGPU_MATERIALIZE, bool RFOR_PREDECODE_REGISTERS>
-void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::open(Pipeline* pip)
+template <bool LEGACY_GLOBAL_TILE_WINDOW, bool REGISTER_FUSED,
+          bool GLOBAL_STAGE>
+void CompressedBlockToTuples<LEGACY_GLOBAL_TILE_WINDOW, REGISTER_FUSED,
+                             GLOBAL_STAGE>::open(Pipeline* pip)
 {
     event_range<range_log_op::UNPACK_OPEN> er{
         id, pip->getGeneratorUUID(),
@@ -2800,21 +2896,12 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::open(
     {
         pip->setStateVar<void*>(old_buffs[i], buffs + i);
     }
-
-    if (FLAGS_ctt_count_tuples)
-    {
-        constexpr size_t kDbgRows = 4096;
-        auto* dbg_cnt =
-            (int64_t*)MemoryManager::mallocGpu(kDbgRows * sizeof(int64_t));
-        cudaStream_t strm = createNonBlockingStream();
-        gpu_run(cudaMemsetAsync(dbg_cnt, 0, kDbgRows * sizeof(int64_t), strm));
-        syncAndDestroyStream(strm);
-        pip->setStateVar<int64_t*>(debug_tuple_count_var_, dbg_cnt);
-    }
 }
 
-template <bool INGPU_MATERIALIZE, bool RFOR_PREDECODE_REGISTERS>
-void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::close(Pipeline* pip)
+template <bool LEGACY_GLOBAL_TILE_WINDOW, bool REGISTER_FUSED,
+          bool GLOBAL_STAGE>
+void CompressedBlockToTuples<LEGACY_GLOBAL_TILE_WINDOW, REGISTER_FUSED,
+                             GLOBAL_STAGE>::close(Pipeline* pip)
 {
     event_range<range_log_op::UNPACK_CLOSE> er{
         id, pip->getGeneratorUUID(),
@@ -2854,43 +2941,9 @@ void CompressedBlockToTuples<INGPU_MATERIALIZE, RFOR_PREDECODE_REGISTERS>::close
         MemoryManager::freePinned(buffs);
 
     if (gpu && h_buffs) free(h_buffs);
-
-    if (FLAGS_ctt_count_tuples)
-    {
-        constexpr size_t kDbgRows = 4096;
-        auto* dbg_cnt = pip->getStateVar<int64_t*>(debug_tuple_count_var_);
-        std::vector<int64_t> rows(kDbgRows, 0);
-        gpu_run(cudaMemcpy(rows.data(), dbg_cnt, kDbgRows * sizeof(int64_t),
-                           cudaMemcpyDefault));
-        int64_t emitted = 0;
-        int64_t iterations = 0;
-        size_t nonzero_rows = 0;
-        for (size_t r = 0; r < 2040; ++r)
-        {
-            emitted += rows[r];
-            iterations += rows[r + 2048];
-            nonzero_rows += (rows[r] != 0);
-        }
-        LOG(INFO) << "[CTT_TUPLES] group=" << pip->getGroup()
-                  << " emitted=" << emitted << " iterations=" << iterations
-                  << " nonzero_rows=" << nonzero_rows;
-        // Full storage blocks should emit exactly their row count and execute
-        // exactly num_tiles*tile_size lane items; log the first deviants.
-        size_t logged = 0;
-        for (size_t r = 0; r + 1 < 2048 && logged < 16; ++r)
-        {
-            if (rows[r] != 0 && rows[r] != 524288 && rows[r + 1] != 0)
-            {
-                LOG(INFO) << "[CTT_TUPLES] row=" << r
-                          << " emitted=" << rows[r]
-                          << " iterations=" << rows[r + 2048];
-                ++logged;
-            }
-        }
-        MemoryManager::freeGpu(dbg_cnt);
-    }
 }
 
 template class CompressedBlockToTuples<false, false>;
 template class CompressedBlockToTuples<true, false>;
 template class CompressedBlockToTuples<false, true>;
+template class CompressedBlockToTuples<false, false, true>;

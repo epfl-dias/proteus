@@ -1,4 +1,7 @@
 set(TS_TESTS
+  tests-tpch-benchmark-cli-none
+  tests-tpch-benchmark-cli-rfor
+  tests-tpch-benchmark-cli-flbp
   tests-cow
   tests-cpu-ssb
   tests-gpu-ssb

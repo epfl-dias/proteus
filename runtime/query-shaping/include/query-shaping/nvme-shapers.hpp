@@ -72,7 +72,7 @@ class CPUOnlyNVMeMorsel : public proteus::InputPrefixQueryShaper {
 
  protected:
   std::vector<std::filesystem::path> getMdForAttribute(
-      const std::string &attr) const;
+      const std::string &relName, const std::string &attr) const;
 
   /**
    * gross and hacky helper to construct dangling attributes for a relation and

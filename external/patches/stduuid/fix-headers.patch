@@ -1,0 +1,37 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 73b5658..69c005f 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -52,7 +52,7 @@ endif ()
+
+ if(UUID_ENABLE_INSTALL)
+     # Install step and imported target
+-    install(FILES include/uuid.h DESTINATION include)
++    install(FILES include/stduuid/uuid.hpp DESTINATION include/stduuid)
+     install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}-targets)
+     install(EXPORT ${PROJECT_NAME}-targets
+             DESTINATION lib/cmake/${PROJECT_NAME})
+diff --git a/include/uuid.h b/include/stduuid/uuid.hpp
+similarity index 100%
+rename from include/uuid.h
+rename to include/stduuid/uuid.hpp
+diff --git a/test/test_generators.cpp b/test/test_generators.cpp
+index 9c796cc..8242e6b 100644
+--- a/test/test_generators.cpp
++++ b/test/test_generators.cpp
+@@ -1,4 +1,4 @@
+-#include "uuid.h"
++#include "stduuid/uuid.hpp"
+ #include "catch.hpp"
+
+ #include <set>
+diff --git a/test/test_uuid.cpp b/test/test_uuid.cpp
+index ea98eb1..84abcfa 100644
+--- a/test/test_uuid.cpp
++++ b/test/test_uuid.cpp
+@@ -1,4 +1,4 @@
+-#include "uuid.h"
++#include "stduuid/uuid.hpp"
+ #include "catch.hpp"
+
+ #include <cstring>

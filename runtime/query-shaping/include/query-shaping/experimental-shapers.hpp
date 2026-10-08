@@ -156,7 +156,7 @@ class GPUOnlySingleServerCompressed : public proteus::CPUOnlyNVMeMorsel {
         relation_md;
     relation_md.reserve(attrs_vec.size());
     for (const auto &attr : attrs_vec) {
-      auto md_paths = getMdForAttribute(attr);
+      auto md_paths = getMdForAttribute(relName, attr);
       relation_md.emplace_back(meta_data_records_map[attr], md_paths);
     }
 

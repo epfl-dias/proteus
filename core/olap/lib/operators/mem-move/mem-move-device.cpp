@@ -36,8 +36,7 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdocumentation"
-// #include <cufile.h>
-#include <cufile_181/cufile.h>
+#include <cufile.h>
 #pragma clang diagnostic pop
 
 #include "compression.hpp"

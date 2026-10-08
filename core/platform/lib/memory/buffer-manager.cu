@@ -38,11 +38,14 @@
 #include <platform/common/common.hpp>
 #include <platform/common/gpu/gpu-common.hpp>
 #include <platform/memory/buffer-manager.cuh>
+#include <platform/memory/decompression-config.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/util/string-object.hpp>
 #include <platform/util/threadsafe_device_stack.cuh>
 #include <thread>
+
+#include <cub/cub.cuh>
 
 #ifndef NCUDA
 extern __device__ __constant__
@@ -242,8 +245,829 @@ __device__ void release_buffers(int32_t *buff) {
 __device__ void dprinti(int32_t x) { printf("%d\n", x); }
 
 __device__ void dprintptr(void *x) { printf("%p\n", x); }
+
+__device__ void dprintstr(const char *x) { printf("%s\n", x); }
+
+static constexpr int BLOCK_THREADS = proteus::rfor::cb2t::kBlockThreads;
+static constexpr int ITEMS_PER_THREAD = proteus::rfor::cb2t::kItemsPerThread;
+static constexpr int ITEMS_PER_GROUP = BLOCK_THREADS * ITEMS_PER_THREAD;
+static constexpr int FLBP_VECTOR_SIZE = proteus::flbp::cb2t::kVectorSize;
+static constexpr int FLBP_WARP_THREADS = 32;
+// Scratch layout for LoadRBinPack_notemplate:
+// [working area (ITEMS_PER_GROUP u32) | staged packed stream
+//  (ITEMS_PER_GROUP u32)].
+// One RFOR tile per CTA.
+
+struct RLETileMetadata {
+  uint32_t val_reference;
+  uint32_t val_bitwidth;
+  uint32_t val_count;
+  uint32_t rl_reference;
+  uint32_t rl_bitwidth;
+  uint32_t rl_count;
+};
+
+#if defined(__clang__)
+using shared_u32_ptr = uint __attribute__((address_space(3))) *;
+using shared_i32_ptr = int __attribute__((address_space(3))) *;
+#else
+using shared_u32_ptr = uint *;
+using shared_i32_ptr = int *;
 #endif
+
+__forceinline__ __device__ int decodeElementRBin(int i, const uint* data_block,
+                                                  uint packed_words,
+                                                  uint reference,
+                                                  uint bitwidth) {
+  if (bitwidth == 0) return reference;
+
+  uint start_bitindex = (bitwidth * i);
+  uint start_intindex = (start_bitindex >> 5);
+  start_bitindex = start_bitindex & (32 - 1);
+
+  if (start_intindex >= packed_words) return reference;
+
+  const uint low_word = data_block[start_intindex];
+  unsigned long long element_block = low_word;
+  if (start_bitindex + bitwidth > 32 && (start_intindex + 1) < packed_words) {
+    element_block |=
+        (static_cast<unsigned long long>(data_block[start_intindex + 1]) << 32);
+  }
+
+  const unsigned long long mask =
+      (bitwidth >= 32) ? 0xFFFFFFFFULL : ((1ULL << bitwidth) - 1ULL);
+  const uint element = (element_block >> start_bitindex) & mask;
+  return reference + element;
 }
+
+__forceinline__ __device__ int decodeElementRBinFastShared(int i,
+                                                            shared_u32_ptr data_block,
+                                                            uint packed_words,
+                                                            uint reference,
+                                                            uint bitwidth) {
+  if (bitwidth == 0) return reference;
+
+  uint start_bitindex = (bitwidth * i);
+  uint start_intindex = (start_bitindex >> 5);
+  start_bitindex = start_bitindex & (32 - 1);
+  if (start_intindex >= packed_words) return reference;
+
+  uint element = 0;
+  const unsigned long long mask =
+      (bitwidth == 32) ? 0xffffffffULL : ((1ULL << bitwidth) - 1ULL);
+
+  if (start_bitindex + bitwidth <= 32) {
+    element = static_cast<uint>(
+        (static_cast<unsigned long long>(data_block[start_intindex]) >>
+         start_bitindex) &
+        mask);
+  } else {
+    const unsigned long long element_block =
+        ((start_intindex + 1) < packed_words
+             ? (static_cast<unsigned long long>(data_block[start_intindex + 1]) << 32)
+             : 0ULL) |
+        data_block[start_intindex];
+    element = static_cast<uint>((element_block >> start_bitindex) & mask);
+  }
+
+  return reference + element;
+}
+
+__device__ __forceinline__ void group_striped_to_blocked(
+    shared_u32_ptr scratch, int lane, int (&items)[ITEMS_PER_THREAD]) {
+  // Convert striped layout -> blocked layout for a group.
+  // Striped: item i is stored at scratch[i * BLOCK_THREADS + lane].
+  // Blocked: items for a lane are contiguous (lane * ITEMS_PER_THREAD + i).
+  // NOTE: scratch is a group-local slice; __syncthreads is block-wide.
+  int base = lane * ITEMS_PER_THREAD;
+#pragma unroll
+  for (int i = 0; i < ITEMS_PER_THREAD; ++i) {
+    scratch[i * BLOCK_THREADS + lane] = static_cast<uint32_t>(items[i]);
+  }
+  __syncthreads();
+#pragma unroll
+  for (int i = 0; i < ITEMS_PER_THREAD; ++i) {
+    items[i] = static_cast<int>(scratch[base + i]);
+  }
+  __syncthreads();
+}
+
+__device__ __forceinline__ void group_blocked_to_striped(
+    shared_u32_ptr scratch, int lane, int (&items)[ITEMS_PER_THREAD]) {
+  // Convert blocked layout -> striped layout for a group.
+  // This is the inverse of group_striped_to_blocked.
+  int base = lane * ITEMS_PER_THREAD;
+#pragma unroll
+  for (int i = 0; i < ITEMS_PER_THREAD; ++i) {
+    scratch[base + i] = static_cast<uint32_t>(items[i]);
+  }
+  __syncthreads();
+#pragma unroll
+  for (int i = 0; i < ITEMS_PER_THREAD; ++i) {
+    items[i] = static_cast<int>(scratch[i * BLOCK_THREADS + lane]);
+  }
+  __syncthreads();
+}
+
+__device__ __forceinline__ void group_inclusive_scan(
+    shared_u32_ptr scratch, int lane, int (&items)[ITEMS_PER_THREAD]) {
+  // Group-wide inclusive scan over ITEMS_PER_GROUP values using shared scratch.
+  // Each lane contributes ITEMS_PER_THREAD values in blocked layout.
+  // We use a simple O(log N) Hillis-Steele style scan with __syncthreads().
+  // Caller must provide a group-local scratch slice to avoid cross-group races.
+  int base = lane * ITEMS_PER_THREAD;
+#pragma unroll
+  for (int i = 0; i < ITEMS_PER_THREAD; ++i) {
+    scratch[base + i] = static_cast<uint32_t>(items[i]);
+  }
+  __syncthreads();
+  for (int offset = 1; offset < ITEMS_PER_GROUP; offset <<= 1) {
+    uint32_t tmp[ITEMS_PER_THREAD];
+#pragma unroll
+    for (int i = 0; i < ITEMS_PER_THREAD; ++i) {
+      int idx = base + i;
+      tmp[i] = (idx >= offset) ? scratch[idx - offset] : 0;
+    }
+    __syncthreads();
+#pragma unroll
+    for (int i = 0; i < ITEMS_PER_THREAD; ++i) {
+      scratch[base + i] += tmp[i];
+    }
+    __syncthreads();
+  }
+#pragma unroll
+  for (int i = 0; i < ITEMS_PER_THREAD; ++i) {
+    items[i] = static_cast<int>(scratch[base + i]);
+  }
+  __syncthreads();
+}
+
+__device__ void LoadRBinPack_predecode_impl_runtime(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_i32_ptr __restrict__ run_values_out,
+    shared_i32_ptr __restrict__ run_ends_out,
+    const uint block_threads_t,
+    const uint items_per_thread_t,
+    bool run_ends_are_cumulative) {
+  const uint items_per_group_t = block_threads_t * items_per_thread_t;
+  uint value_count = metadata->val_count;
+  if (value_count > items_per_group_t) value_count = items_per_group_t;
+  uint rl_count = metadata->rl_count;
+  if (rl_count > items_per_group_t) rl_count = items_per_group_t;
+  const uint run_count = value_count < rl_count ? value_count : rl_count;
+
+  const uint64_t val_words_u64 =
+      ((static_cast<uint64_t>(value_count) * metadata->val_bitwidth) + 31ull) >>
+      5ull;
+  const uint64_t rl_words_u64 =
+      ((static_cast<uint64_t>(rl_count) * metadata->rl_bitwidth) + 31ull) >>
+      5ull;
+  const uint val_words = static_cast<uint>(
+      val_words_u64 > items_per_group_t ? items_per_group_t : val_words_u64);
+  const uint rl_words = static_cast<uint>(
+      rl_words_u64 > items_per_group_t ? items_per_group_t : rl_words_u64);
+
+  for (uint idx = threadIdx.x; idx < run_count; idx += block_threads_t) {
+    run_values_out[idx] = decodeElementRBin(idx, val_data, val_words,
+                                            metadata->val_reference,
+                                            metadata->val_bitwidth);
+    run_ends_out[idx] = decodeElementRBin(idx, rl_data, rl_words,
+                                          metadata->rl_reference,
+                                          metadata->rl_bitwidth);
+  }
+  __syncthreads();
+
+  if (!run_ends_are_cumulative) {
+    // Legacy RFOR datasets store individual run lengths. Convert once to
+    // cumulative run ends so tuple decode can use RFOR_PREDECODE-style
+    // binary search.
+    if (threadIdx.x == 0) {
+      int cumulative = 0;
+      for (uint idx = 0; idx < run_count; ++idx) {
+        cumulative += run_ends_out[idx];
+        run_ends_out[idx] = cumulative;
+      }
+    }
+    __syncthreads();
+  }
+}
+
+__device__ void LoadRBinPack_predecode_notemplate(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_i32_ptr __restrict__ run_values_out,
+    shared_i32_ptr __restrict__ run_ends_out) {
+  LoadRBinPack_predecode_impl_runtime(
+      metadata, val_data, rl_data, run_values_out, run_ends_out,
+      BLOCK_THREADS, ITEMS_PER_THREAD,
+      /*run_ends_are_cumulative=*/false);
+}
+
+__device__ void LoadRBinPack_predecode_notemplate_64x8(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_i32_ptr __restrict__ run_values_out,
+    shared_i32_ptr __restrict__ run_ends_out) {
+  LoadRBinPack_predecode_impl_runtime(
+      metadata, val_data, rl_data, run_values_out, run_ends_out,
+      64, 8,
+      /*run_ends_are_cumulative=*/false);
+}
+
+__device__ void LoadRBinPack_predecode_notemplate_512x2(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_i32_ptr __restrict__ run_values_out,
+    shared_i32_ptr __restrict__ run_ends_out) {
+  LoadRBinPack_predecode_impl_runtime(
+      metadata, val_data, rl_data, run_values_out, run_ends_out,
+      512, 2,
+      /*run_ends_are_cumulative=*/false);
+}
+
+__device__ void LoadRBinPack_predecode_notemplate_256x4(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_i32_ptr __restrict__ run_values_out,
+    shared_i32_ptr __restrict__ run_ends_out) {
+  LoadRBinPack_predecode_impl_runtime(
+      metadata, val_data, rl_data, run_values_out, run_ends_out,
+      256, 4,
+      /*run_ends_are_cumulative=*/false);
+}
+
+__device__ void LoadRBinPack_predecode_notemplate_256x2(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_i32_ptr __restrict__ run_values_out,
+    shared_i32_ptr __restrict__ run_ends_out) {
+  LoadRBinPack_predecode_impl_runtime(
+      metadata, val_data, rl_data, run_values_out, run_ends_out,
+      256, 2,
+      /*run_ends_are_cumulative=*/false);
+}
+
+__device__ void LoadRBinPack_predecode_notemplate_128x8(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_i32_ptr __restrict__ run_values_out,
+    shared_i32_ptr __restrict__ run_ends_out) {
+  LoadRBinPack_predecode_impl_runtime(
+      metadata, val_data, rl_data, run_values_out, run_ends_out,
+      128, 8,
+      /*run_ends_are_cumulative=*/false);
+}
+
+__device__ void LoadRBinPack_predecode_cumulative_notemplate(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_i32_ptr __restrict__ run_values_out,
+    shared_i32_ptr __restrict__ run_ends_out) {
+  LoadRBinPack_predecode_impl_runtime(
+      metadata, val_data, rl_data, run_values_out, run_ends_out,
+      BLOCK_THREADS, ITEMS_PER_THREAD,
+      /*run_ends_are_cumulative=*/true);
+}
+
+__device__ void LoadRBinPack_predecode_cumulative_notemplate_64x8(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_i32_ptr __restrict__ run_values_out,
+    shared_i32_ptr __restrict__ run_ends_out) {
+  LoadRBinPack_predecode_impl_runtime(
+      metadata, val_data, rl_data, run_values_out, run_ends_out,
+      64, 8,
+      /*run_ends_are_cumulative=*/true);
+}
+
+__device__ void LoadRBinPack_predecode_cumulative_notemplate_512x2(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_i32_ptr __restrict__ run_values_out,
+    shared_i32_ptr __restrict__ run_ends_out) {
+  LoadRBinPack_predecode_impl_runtime(
+      metadata, val_data, rl_data, run_values_out, run_ends_out,
+      512, 2,
+      /*run_ends_are_cumulative=*/true);
+}
+
+__device__ void LoadRBinPack_predecode_cumulative_notemplate_256x4(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_i32_ptr __restrict__ run_values_out,
+    shared_i32_ptr __restrict__ run_ends_out) {
+  LoadRBinPack_predecode_impl_runtime(
+      metadata, val_data, rl_data, run_values_out, run_ends_out,
+      256, 4,
+      /*run_ends_are_cumulative=*/true);
+}
+
+__device__ void LoadRBinPack_predecode_cumulative_notemplate_256x2(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_i32_ptr __restrict__ run_values_out,
+    shared_i32_ptr __restrict__ run_ends_out) {
+  LoadRBinPack_predecode_impl_runtime(
+      metadata, val_data, rl_data, run_values_out, run_ends_out,
+      256, 2,
+      /*run_ends_are_cumulative=*/true);
+}
+
+__device__ void LoadRBinPack_predecode_cumulative_notemplate_128x8(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_i32_ptr __restrict__ run_values_out,
+    shared_i32_ptr __restrict__ run_ends_out) {
+  LoadRBinPack_predecode_impl_runtime(
+      metadata, val_data, rl_data, run_values_out, run_ends_out,
+      128, 8,
+      /*run_ends_are_cumulative=*/true);
+}
+
+__device__ void LoadRBinPack_notemplate(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_u32_ptr __restrict__ shared_buffer,
+    shared_i32_ptr __restrict__ out_values)
+{
+  typedef cub::BlockExchange<int, BLOCK_THREADS, ITEMS_PER_THREAD> BlockExchange;
+  typedef cub::BlockScan<int, BLOCK_THREADS> BlockScan;
+  // Keep decode/working + packed-stream staging in caller-provided shared
+  // scratch.
+  constexpr uint decode_words = ITEMS_PER_GROUP;
+  constexpr uint working_offset_words = 0;
+  constexpr uint stage_offset_words = working_offset_words + decode_words;
+  constexpr uint stage_words = decode_words;
+  constexpr uint required_scratch_words = stage_offset_words + stage_words;
+  // Defensive cap to catch unexpected scratch growth at compile time.
+  static_assert(required_scratch_words <= (2 * ITEMS_PER_GROUP),
+                "LoadRBinPack_notemplate scratch exceeds reserved capacity");
+
+  uint count = metadata->val_count;
+  if (count > ITEMS_PER_GROUP) count = ITEMS_PER_GROUP;
+  uint rl_count = metadata->rl_count;
+  if (rl_count > ITEMS_PER_GROUP) rl_count = ITEMS_PER_GROUP;
+  uint num_decode_val = ((count + ITEMS_PER_THREAD - 1) / ITEMS_PER_THREAD);
+  uint num_decode_rl = ((rl_count + ITEMS_PER_THREAD - 1) / ITEMS_PER_THREAD);
+  const uint64_t val_words_u64 =
+      ((static_cast<uint64_t>(count) * metadata->val_bitwidth) + 31ull) >> 5ull;
+  const uint64_t rl_words_u64 =
+      ((static_cast<uint64_t>(rl_count) * metadata->rl_bitwidth) + 31ull) >> 5ull;
+  const uint val_words =
+      static_cast<uint>(val_words_u64 > decode_words ? decode_words : val_words_u64);
+  const uint rl_words =
+      static_cast<uint>(rl_words_u64 > decode_words ? decode_words : rl_words_u64);
+
+  int items_value[ITEMS_PER_THREAD];
+  int items_run_length[ITEMS_PER_THREAD];
+  shared_u32_ptr working_area = shared_buffer + working_offset_words;
+  shared_u32_ptr staged_area = shared_buffer + stage_offset_words;
+
+  // Stage values once from global memory and decode from shared.
+  for (uint idx = threadIdx.x; idx < val_words; idx += BLOCK_THREADS) {
+    staged_area[idx] = val_data[idx];
+  }
+  __syncthreads();
+
+  uint decode_idx = threadIdx.x;
+#pragma unroll
+  for (int i = 0; i < ITEMS_PER_THREAD; i++) {
+    if (threadIdx.x < num_decode_val && decode_idx < count) {
+      items_value[i] =
+          decodeElementRBinFastShared(decode_idx, staged_area, val_words,
+                                      metadata->val_reference,
+                                      metadata->val_bitwidth);
+    } else {
+      items_value[i] = 0;
+    }
+    decode_idx += num_decode_val;
+  }
+  __syncthreads();
+
+  // Reuse staged buffer for run-length stream.
+  for (uint idx = threadIdx.x; idx < rl_words; idx += BLOCK_THREADS) {
+    staged_area[idx] = rl_data[idx];
+  }
+  __syncthreads();
+
+  decode_idx = threadIdx.x;
+#pragma unroll
+  for (int i = 0; i < ITEMS_PER_THREAD; i++) {
+    if (threadIdx.x < num_decode_rl && decode_idx < rl_count) {
+      items_run_length[i] =
+          decodeElementRBinFastShared(decode_idx, staged_area, rl_words,
+                                      metadata->rl_reference,
+                                      metadata->rl_bitwidth);
+    } else {
+      items_run_length[i] = 0;
+    }
+    decode_idx += num_decode_rl;
+  }
+
+  __syncthreads();
+
+  __shared__ typename BlockScan::TempStorage temp_storage_scan;
+  __shared__ typename BlockExchange::TempStorage temp_storage_exchange;
+
+  BlockExchange(temp_storage_exchange).StripedToBlocked(items_run_length);
+  __syncthreads();
+
+  BlockScan(temp_storage_scan).InclusiveSum(items_run_length, items_run_length);
+  __syncthreads();
+
+  const uint lane_base = threadIdx.x * ITEMS_PER_THREAD;
+
+#pragma unroll
+  for (int i = 0; i < ITEMS_PER_THREAD; i++) {
+    working_area[lane_base + i] = 0;
+  }
+  __syncthreads();
+
+#pragma unroll
+  for (int i = 0; i < ITEMS_PER_THREAD; i++) {
+    if (items_run_length[i] < ITEMS_PER_GROUP) {
+      working_area[items_run_length[i]] = 1;
+    }
+  }
+  __syncthreads();
+
+#pragma unroll
+  for (int i = 0; i < ITEMS_PER_THREAD; i++) {
+    items_run_length[i] = working_area[lane_base + i];
+  }
+  __syncthreads();
+
+  BlockScan(temp_storage_scan).InclusiveSum(items_run_length, items_run_length);
+  __syncthreads();
+
+  BlockExchange(temp_storage_exchange).BlockedToStriped(items_run_length);
+  __syncthreads();
+
+  uint rle_offset = 0;
+#pragma unroll
+  for (int i = 0; i < ITEMS_PER_THREAD; i++) {
+    if (threadIdx.x < num_decode_val &&
+        threadIdx.x + rle_offset < ITEMS_PER_GROUP) {
+      working_area[threadIdx.x + rle_offset] = items_value[i];
+    }
+    rle_offset += num_decode_val;
+  }
+  __syncthreads();
+
+#pragma unroll
+  for (int i = 0; i < ITEMS_PER_THREAD; i++) {
+    if (items_run_length[i] < ITEMS_PER_GROUP) {
+      items_value[i] = working_area[items_run_length[i]];
+    } else {
+      items_value[i] = 0;
+    }
+  }
+  __syncthreads();
+
+  // Write the fully expanded values directly into the caller-provided output
+  // tile in striped layout: lane + i*BLOCK_THREADS.
+  #pragma unroll
+  for (int i = 0; i < ITEMS_PER_THREAD; ++i) {
+    out_values[threadIdx.x + i * BLOCK_THREADS] = items_value[i];
+  }
+}
+
+// Shape-specialized cooperative RFOR decode. Keep packed-stream staging and
+// RLE working scratch in separate shared regions: the helper is called once per
+// column from generated CB2T code, and CUB/shared scratch reuse is sensitive to
+// warp progress at high-occupancy shapes such as 256x4.
+#define RFOR_LOAD_RBINPACK_NOTEMPLATE_OVERLAP_BODY(BLOCK_THREADS_T, ITEMS_PER_THREAD_T) \
+  typedef cub::BlockExchange<int, BLOCK_THREADS_T, ITEMS_PER_THREAD_T> BlockExchange; \
+  typedef cub::BlockScan<int, BLOCK_THREADS_T> BlockScan; \
+  constexpr uint ITEMS_PER_GROUP_T = BLOCK_THREADS_T * ITEMS_PER_THREAD_T; \
+  constexpr uint decode_words = ITEMS_PER_GROUP_T; \
+  constexpr uint working_offset_words = 0; \
+  constexpr uint stage_offset_words = working_offset_words + decode_words; \
+  constexpr uint stage_words = decode_words; \
+  constexpr uint required_scratch_words = stage_offset_words + stage_words; \
+  static_assert(required_scratch_words <= (2 * ITEMS_PER_GROUP_T), \
+                "LoadRBinPack_notemplate_overlap scratch exceeds reserved capacity"); \
+  uint count = metadata->val_count; \
+  if (count > ITEMS_PER_GROUP_T) count = ITEMS_PER_GROUP_T; \
+  uint rl_count = metadata->rl_count; \
+  if (rl_count > ITEMS_PER_GROUP_T) rl_count = ITEMS_PER_GROUP_T; \
+  uint num_decode_val = ((count + ITEMS_PER_THREAD_T - 1) / ITEMS_PER_THREAD_T); \
+  uint num_decode_rl = ((rl_count + ITEMS_PER_THREAD_T - 1) / ITEMS_PER_THREAD_T); \
+  const uint64_t val_words_u64 = \
+      ((static_cast<uint64_t>(count) * metadata->val_bitwidth) + 31ull) >> 5ull; \
+  const uint64_t rl_words_u64 = \
+      ((static_cast<uint64_t>(rl_count) * metadata->rl_bitwidth) + 31ull) >> 5ull; \
+  const uint val_words = static_cast<uint>( \
+      val_words_u64 > decode_words ? decode_words : val_words_u64); \
+  const uint rl_words = static_cast<uint>( \
+      rl_words_u64 > decode_words ? decode_words : rl_words_u64); \
+  int items_value[ITEMS_PER_THREAD_T]; \
+  int items_run_length[ITEMS_PER_THREAD_T]; \
+  shared_u32_ptr working_area = shared_buffer + working_offset_words; \
+  shared_u32_ptr staged_area = shared_buffer + stage_offset_words; \
+  for (uint idx = threadIdx.x; idx < val_words; idx += BLOCK_THREADS_T) { \
+    staged_area[idx] = val_data[idx]; \
+  } \
+  __syncthreads(); \
+  uint decode_idx = threadIdx.x; \
+  _Pragma("unroll") \
+  for (int i = 0; i < ITEMS_PER_THREAD_T; i++) { \
+    if (threadIdx.x < num_decode_val && decode_idx < count) { \
+      items_value[i] = decodeElementRBinFastShared( \
+          decode_idx, staged_area, val_words, metadata->val_reference, \
+          metadata->val_bitwidth); \
+    } else { \
+      items_value[i] = 0; \
+    } \
+    decode_idx += num_decode_val; \
+  } \
+  __syncthreads(); \
+  for (uint idx = threadIdx.x; idx < rl_words; idx += BLOCK_THREADS_T) { \
+    staged_area[idx] = rl_data[idx]; \
+  } \
+  __syncthreads(); \
+  decode_idx = threadIdx.x; \
+  _Pragma("unroll") \
+  for (int i = 0; i < ITEMS_PER_THREAD_T; i++) { \
+    if (threadIdx.x < num_decode_rl && decode_idx < rl_count) { \
+      items_run_length[i] = decodeElementRBinFastShared( \
+          decode_idx, staged_area, rl_words, metadata->rl_reference, \
+          metadata->rl_bitwidth); \
+    } else { \
+      items_run_length[i] = 0; \
+    } \
+    decode_idx += num_decode_rl; \
+  } \
+  __syncthreads(); \
+  __shared__ typename BlockScan::TempStorage temp_storage_scan; \
+  __shared__ typename BlockExchange::TempStorage temp_storage_exchange; \
+  BlockExchange(temp_storage_exchange).StripedToBlocked(items_run_length); \
+  __syncthreads(); \
+  BlockScan(temp_storage_scan).InclusiveSum(items_run_length, items_run_length); \
+  __syncthreads(); \
+  const uint lane_base = threadIdx.x * ITEMS_PER_THREAD_T; \
+  _Pragma("unroll") \
+  for (int i = 0; i < ITEMS_PER_THREAD_T; i++) { \
+    working_area[lane_base + i] = 0; \
+  } \
+  __syncthreads(); \
+  _Pragma("unroll") \
+  for (int i = 0; i < ITEMS_PER_THREAD_T; i++) { \
+    if (items_run_length[i] < ITEMS_PER_GROUP_T) { \
+      working_area[items_run_length[i]] = 1; \
+    } \
+  } \
+  __syncthreads(); \
+  _Pragma("unroll") \
+  for (int i = 0; i < ITEMS_PER_THREAD_T; i++) { \
+    items_run_length[i] = working_area[lane_base + i]; \
+  } \
+  __syncthreads(); \
+  BlockScan(temp_storage_scan).InclusiveSum(items_run_length, items_run_length); \
+  __syncthreads(); \
+  BlockExchange(temp_storage_exchange).BlockedToStriped(items_run_length); \
+  __syncthreads(); \
+  uint rle_offset = 0; \
+  _Pragma("unroll") \
+  for (int i = 0; i < ITEMS_PER_THREAD_T; i++) { \
+    if (threadIdx.x < num_decode_val && \
+        threadIdx.x + rle_offset < ITEMS_PER_GROUP_T) { \
+      working_area[threadIdx.x + rle_offset] = items_value[i]; \
+    } \
+    rle_offset += num_decode_val; \
+  } \
+  __syncthreads(); \
+  _Pragma("unroll") \
+  for (int i = 0; i < ITEMS_PER_THREAD_T; i++) { \
+    if (items_run_length[i] < ITEMS_PER_GROUP_T) { \
+      items_value[i] = working_area[items_run_length[i]]; \
+    } else { \
+      items_value[i] = 0; \
+    } \
+  } \
+  __syncthreads(); \
+  _Pragma("unroll") \
+  for (int i = 0; i < ITEMS_PER_THREAD_T; ++i) { \
+    out_values[threadIdx.x + i * BLOCK_THREADS_T] = items_value[i]; \
+  }
+
+__device__ void LoadRBinPack_notemplate_overlap(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_u32_ptr __restrict__ shared_buffer,
+    shared_i32_ptr __restrict__ out_values) {
+  RFOR_LOAD_RBINPACK_NOTEMPLATE_OVERLAP_BODY(BLOCK_THREADS, ITEMS_PER_THREAD)
+}
+
+__device__ void LoadRBinPack_notemplate_overlap_64x8(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_u32_ptr __restrict__ shared_buffer,
+    shared_i32_ptr __restrict__ out_values) {
+  RFOR_LOAD_RBINPACK_NOTEMPLATE_OVERLAP_BODY(64, 8)
+}
+
+__device__ void LoadRBinPack_notemplate_overlap_512x2(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_u32_ptr __restrict__ shared_buffer,
+    shared_i32_ptr __restrict__ out_values) {
+  RFOR_LOAD_RBINPACK_NOTEMPLATE_OVERLAP_BODY(512, 2)
+}
+
+__device__ void LoadRBinPack_notemplate_overlap_256x4(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_u32_ptr __restrict__ shared_buffer,
+    shared_i32_ptr __restrict__ out_values) {
+  RFOR_LOAD_RBINPACK_NOTEMPLATE_OVERLAP_BODY(256, 4)
+}
+
+__device__ void LoadRBinPack_notemplate_overlap_256x2(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_u32_ptr __restrict__ shared_buffer,
+    shared_i32_ptr __restrict__ out_values) {
+  RFOR_LOAD_RBINPACK_NOTEMPLATE_OVERLAP_BODY(256, 2)
+}
+
+__device__ void LoadRBinPack_notemplate_overlap_128x8(
+    RLETileMetadata* __restrict__ metadata,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_u32_ptr __restrict__ shared_buffer,
+    shared_i32_ptr __restrict__ out_values) {
+  RFOR_LOAD_RBINPACK_NOTEMPLATE_OVERLAP_BODY(128, 8)
+}
+
+#undef RFOR_LOAD_RBINPACK_NOTEMPLATE_OVERLAP_BODY
+
+__forceinline__ __device__ uint32_t decodeElementFLBPLaneStream(
+    uint32_t vector_idx, const uint32_t* __restrict__ packed_data,
+    uint8_t bitwidth) {
+  if (bitwidth == 0) return 0u;
+
+  const uint32_t lane = vector_idx & 31u;     // vector_idx % 32
+  const uint32_t pos = vector_idx >> 5u;      // vector_idx / 32, in [0,31]
+  const uint32_t bit_pos = pos * static_cast<uint32_t>(bitwidth);
+  const uint32_t word_idx = bit_pos >> 5u;    // / 32
+  const uint32_t bit_off = bit_pos & 31u;     // % 32
+
+  const uint64_t lo =
+      static_cast<uint64_t>(packed_data[word_idx * FLBP_WARP_THREADS + lane]);
+  uint64_t packed = lo;
+  if (bit_off + bitwidth > 32u && (word_idx + 1u) < bitwidth) {
+    const uint64_t hi = static_cast<uint64_t>(
+        packed_data[(word_idx + 1u) * FLBP_WARP_THREADS + lane]);
+    packed |= (hi << 32u);
+  }
+
+  const uint64_t mask =
+      (bitwidth >= 32u) ? 0xFFFFFFFFull : ((1ull << bitwidth) - 1ull);
+  return static_cast<uint32_t>((packed >> bit_off) & mask);
+}
+
+__device__ int DecodeFLBPElement_notemplate(
+    uint32_t* __restrict__ metadata_words,
+    uint32_t* __restrict__ val_data,
+    uint32_t local_idx) {
+  const volatile uint32_t* metadata =
+      reinterpret_cast<const volatile uint32_t*>(metadata_words);
+  const uint32_t base_value = metadata[0];
+  const uint8_t bitwidth = static_cast<uint8_t>(metadata[1] & 0xffu);
+  const uint32_t element_count = metadata[2];
+  const uint32_t subtile_offset = metadata[3];
+  const uint32_t vector_idx = subtile_offset + local_idx;
+
+  uint32_t decoded = base_value;
+  if (vector_idx < static_cast<uint32_t>(FLBP_VECTOR_SIZE) &&
+      vector_idx < element_count) {
+    decoded += decodeElementFLBPLaneStream(vector_idx, val_data, bitwidth);
+  }
+  return static_cast<int>(decoded);
+}
+
+// FLBP register-decode fast path for full-vector CB2T tiles.
+//
+// Safe when:
+// - tile_size == FLBP_VECTOR_SIZE, so local_idx already addresses the full
+//   logical vector and subtile_offset is provably 0
+// - the writer pads the tail vector payload to the full vector width, so the
+//   final partial vector still has decodable packed words for all 1024 lanes
+//
+// In that configuration tuple-loop bounds enforce semantic end-of-relation,
+// so per-element element_count/subtile_offset checks are redundant.
+__device__ int DecodeFLBPElement_fullvector_notemplate(
+    uint32_t* __restrict__ metadata_words,
+    uint32_t* __restrict__ val_data,
+    uint32_t local_idx) {
+  const uint32_t base_value = metadata_words[0];
+  const uint8_t bitwidth = static_cast<uint8_t>(metadata_words[1] & 0xffu);
+  const uint32_t decoded =
+      base_value + decodeElementFLBPLaneStream(local_idx, val_data, bitwidth);
+  return static_cast<int>(decoded);
+}
+
+// FLBP cooperative decode for CB2T.
+// The metadata argument is a CB2T-staged pseudo-struct with layout:
+// [base_value, bitwidth, element_count, subtile_offset, subtile_size, reserved].
+// Decode reads FLBP packed lane-stream words directly and emits only the
+// logical CB2T subtile needed by this CTA/tile_id.
+__device__ void LoadFLBP_notemplate_overlap(
+    uint32_t* __restrict__ metadata_words,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_u32_ptr __restrict__ shared_buffer,
+    shared_i32_ptr __restrict__ out_values) {
+  (void)rl_data;
+  (void)shared_buffer;
+
+  // Snapshot the entire staged metadata block into thread-local registers
+  // BEFORE the worker loop. The leader CTA thread staged these words with
+  // volatile shared stores and a CTA barrier, but `metadata_words` is a
+  // generic-addrspace pointer here, so the device compiler is free to reload
+  // it across function-call boundaries inside the loop. A reload of [0..3]
+  // per iteration is the suspected source of intermittent FLBP --decom_op
+  // decode corruption on Q3.1/Q4.1 at 256x4. Pin each word once.
+  const volatile uint32_t* metadata =
+      reinterpret_cast<const volatile uint32_t*>(metadata_words);
+  const uint32_t base_value = metadata[0];
+  const uint8_t bitwidth = static_cast<uint8_t>(metadata[1] & 0xffu);
+  const uint32_t element_count = metadata[2];
+  const uint32_t subtile_offset = metadata[3];
+  uint32_t subtile_size = metadata[4];
+  if (subtile_size == 0u || subtile_size > static_cast<uint32_t>(FLBP_VECTOR_SIZE)) {
+    subtile_size = static_cast<uint32_t>(FLBP_VECTOR_SIZE);
+  }
+  if (subtile_offset >= static_cast<uint32_t>(FLBP_VECTOR_SIZE)) {
+    return;
+  }
+  if (subtile_offset + subtile_size > static_cast<uint32_t>(FLBP_VECTOR_SIZE)) {
+    subtile_size = static_cast<uint32_t>(FLBP_VECTOR_SIZE) - subtile_offset;
+  }
+
+  const uint32_t worker_threads =
+      blockDim.x == 0 ? 1u : static_cast<uint32_t>(blockDim.x);
+  for (uint32_t local_idx = static_cast<uint32_t>(threadIdx.x);
+       local_idx < subtile_size; local_idx += worker_threads) {
+    const uint32_t vector_idx = subtile_offset + local_idx;
+    uint32_t decoded = base_value;
+    if (vector_idx < static_cast<uint32_t>(FLBP_VECTOR_SIZE) &&
+        vector_idx < element_count) {
+      decoded += decodeElementFLBPLaneStream(vector_idx, val_data, bitwidth);
+    }
+    out_values[local_idx] = static_cast<int>(decoded);
+  }
+}
+
+// FLBP cooperative-decode fast path for full-vector CB2T tiles.
+//
+// Safe under the same conditions as DecodeFLBPElement_fullvector_notemplate:
+// tile_size == FLBP_VECTOR_SIZE and padded full-vector payloads.
+__device__ void LoadFLBPFullVector_notemplate_overlap(
+    uint32_t* __restrict__ metadata_words,
+    uint32_t* __restrict__ val_data,
+    uint32_t* __restrict__ rl_data,
+    shared_u32_ptr __restrict__ shared_buffer,
+    shared_i32_ptr __restrict__ out_values) {
+  (void)rl_data;
+  (void)shared_buffer;
+
+  const uint32_t base_value = metadata_words[0];
+  const uint8_t bitwidth = static_cast<uint8_t>(metadata_words[1] & 0xffu);
+  const uint32_t worker_threads =
+      blockDim.x == 0 ? 1u : static_cast<uint32_t>(blockDim.x);
+  for (uint32_t local_idx = static_cast<uint32_t>(threadIdx.x);
+       local_idx < static_cast<uint32_t>(FLBP_VECTOR_SIZE);
+       local_idx += worker_threads) {
+    const uint32_t decoded =
+        base_value + decodeElementFLBPLaneStream(local_idx, val_data, bitwidth);
+    out_values[local_idx] = static_cast<int>(decoded);
+  }
+}
+
+#endif  // NCUDA
+}  // extern "C"
 
 void initializeModule(CUmodule &cudaModule) {
 #ifndef NCUDA
@@ -315,18 +1139,6 @@ __global__ void get_buffer_host(void **buff, int buffs) {
     buff[i] = buffer_manager<int32_t>::try_get_buffer();
 }
 #endif
-
-static int num_of_gpus;
-static int num_of_cpus;
-
-inline int get_gpu_count() { return num_of_gpus; }
-
-inline int get_cpu_numa_node_count() { return num_of_cpus; }
-
-static int cpu_cnt;
-// cpu_set_t                                          *gpu_affinity;
-static cpu_set_t *cpu_numa_affinity;
-static int *gpu_numa_node;
 
 #if defined(__clang__) && defined(__CUDA__)
 template <typename T>
@@ -423,7 +1235,7 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
                 << "-buffers in GPU " << gpu.id
                 << " (Total: " << bytes{size * buffer_size} << "/"
                 << bytes{gpu.getMemorySize()} << ")";
-      assert(buff_buffer_size < size);
+      CHECK_LT(buff_buffer_size, size);
       uint32_t j = gpu.id;
 
       set_exec_location_on_scope d(gpu);
@@ -432,7 +1244,7 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
       size_t pitch = 0;
       gpu_run(cudaMallocPitch(&mem, &pitch, h_vector_size * sizeof(T), size));
 
-      vector<T *> buffs;
+      std::vector<T *> buffs;
 
       buffs.reserve(size);
       for (size_t i = 0; i < size; ++i) {
@@ -441,7 +1253,7 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
         buffs.push_back(m);
 
         // cout << "Device " << j << " : data = " << m << endl;
-        assert(topology::getInstance().getGpuAddressed(m)->id == j);
+        CHECK_EQ(topology::getInstance().getGpuAddressed(m)->id, j);
       }
 
       pool_t *tmp = cuda_new<pool_t>(gpu, size, buffs, gpu);
@@ -490,7 +1302,7 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
 
           size_t bytes = h_vector_size * sizeof(T) * cpu_h_size;
           T *mem = (T *)MemoryManager::mallocPinned(bytes);
-          assert(mem);
+          CHECK(mem);
 
           // T * mem;
           // gpu_run(cudaMallocHost(&mem, h_vector_size*sizeof(T)*h_size));
@@ -502,7 +1314,7 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
 
           h_h_buff_start[cpu.id] = mem;
 
-          vector<T *> buffs;
+          std::vector<T *> buffs;
           buffs.reserve(cpu_h_size);
           for (size_t j = 0; j < cpu_h_size; ++j) {
             T *m = mem + j * h_vector_size;
@@ -544,7 +1356,7 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
   //         T      *mem;
   //         gpu_run(cudaMallocHost(&mem, buffer_t::capacity()*sizeof(T)*size));
 
-  //         vector<buffer_t *> buffs;
+  //         std::vector<buffer_t *> buffs;
   //         for (size_t i = 0 ; i < size ; ++i)
   //         buffs.push_back(cuda_new<buffer_t>(-1, mem + i *
   //         buffer_t::capacity(), -1)); numa_node_inited[numa_node] = new
@@ -556,7 +1368,7 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
   // T      *mem;
   // gpu_run(cudaMallocHost(&mem, buffer_t::capacity()*sizeof(T)*size));
 
-  // vector<buffer_t *> buffs;
+  // std::vector<buffer_t *> buffs;
   // for (size_t i = 0 ; i < size ; ++i) buffs.push_back(cuda_new<buffer_t>(-1,
   // mem + i * buffer_t::capacity(), -1)); h_pool = new h_pool_t(size, buffs);
 
@@ -570,8 +1382,15 @@ __host__ void buffer_manager<T>::init(float gpu_mem_pool_percentage,
     buffer_logger = nullptr;
   }
 
-  buffer_gc = new std::thread(buffer_manager<T>::find_released_buffers, 50);
-  pthread_setname_np(buffer_gc->native_handle(), "block gc");
+  // Remote-release GC is only needed when more than one GPU participates.
+  // In single-GPU runs, keeping this polling thread active can surface
+  // spurious async failures in the remote npool path with no functional gain.
+  if (devices > 1) {
+    buffer_gc = new std::thread(buffer_manager<T>::find_released_buffers, 50);
+    pthread_setname_np(buffer_gc->native_handle(), "block gc");
+  } else {
+    buffer_gc = nullptr;
+  }
 }
 
 template <typename T>
@@ -583,14 +1402,22 @@ __host__ void buffer_manager<T>::destroy() {
   // assert(cores > 0);
 
   // int cpu_numa_nodes = numa_num_task_nodes();
-  assert(!terminating && "Already terminated");
+  CHECK(!terminating) << "Already terminated";
   terminating = true;
 
-  if (buffer_logger) buffer_logger->join();
+  if (buffer_logger) {
+    buffer_logger->join();
+    delete buffer_logger;
+    buffer_logger = nullptr;
+  }
 
-  buffer_gc->join();
+  if (buffer_gc) {
+    buffer_gc->join();
+    delete buffer_gc;
+    buffer_gc = nullptr;
+  }
   // device_buffs_mutex = new mutex              [devices];
-  // device_buffs_pool  = new vector<buffer_t *> [devices];
+  // device_buffs_pool  = new std::vector<buffer_t *> [devices];
   // release_streams    = new cudaStream_t       [devices];
 
   // h_pool             = new h_pool_t *         [cores  ];
@@ -693,6 +1520,10 @@ void *get_buffer(size_t bytes) {
 void release_buffer(void *buff) {
   buffer_manager<int32_t>::release_buffer((int32_t *)buff);
 }
+
+void *get_pinned_buffer(size_t bytes) { return MemoryManager::mallocPinned(bytes); }
+
+void release_pinned_buffer(void *buff) { MemoryManager::freePinned(buff); }
 }
 
 template <typename T>
@@ -922,6 +1753,10 @@ __global__ void GpuHashRearrange_acq_buffs(void **buffs) {
   buffs[blockIdx.x] = proteus::get_buffers();
 }
 
+__global__ void GpuHashRearrange_try_acq_buffs(void **buffs) {
+  buffs[blockIdx.x] = buffer_manager<int32_t>::try_get_buffer();
+}
+
 #endif
 
 #ifdef NCUDA
@@ -932,6 +1767,20 @@ void call_GpuHashRearrange_acq_buffs(size_t cnt, cudaStream_t strm,
 #ifndef NCUDA
   GpuHashRearrange_acq_buffs<<<cnt, 1, 0, strm>>>(
       buffs);  // TODO: wrap it in a nicer way, using the code-gen context
+#else
+  assert(false);
+#endif
+}
+
+#ifdef NCUDA
+[[noreturn]]
+#endif
+void call_GpuHashRearrange_try_acq_buffs(size_t cnt, cudaStream_t strm,
+                                         void **buffs) {
+#ifndef NCUDA
+  // Acquire in a single thread to avoid high-contention lock spinning when
+  // cnt is large (e.g. thousands of buffers for GpuHashRearrange).
+  get_buffer_host<<<1, 1, 0, strm>>>(buffs, static_cast<int>(cnt));
 #else
   assert(false);
 #endif

@@ -1,0 +1,7 @@
+include(FetchContent)
+FetchContent_Declare(
+  jemalloc
+  GIT_REPOSITORY https://github.com/jemalloc/jemalloc.git
+  GIT_TAG e4817c8d89a2a413e835c4adeab5c5c4412f9235
+)
+# commit selected from list of somewhat production tested commits https://github.com/jemalloc/jemalloc/issues/2060

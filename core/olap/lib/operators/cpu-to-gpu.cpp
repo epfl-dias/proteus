@@ -42,6 +42,7 @@ DECLARE_bool(pre_decom);
 DECLARE_int32(num_threads);
 DECLARE_int32(threads_per_block);
 DECLARE_int32(items_per_thread);
+DECLARE_uint32(streaming_grid_rows);
 DECLARE_string(compression_type);
 
 using namespace llvm;
@@ -244,7 +245,7 @@ void CpuToGpu::produce_(OlapParallelContext *context) {
         gpu_run(cudaMemcpyAsync(batch_descs_gpu, batch_descs_cpu, buf_bytes,
                                 cudaMemcpyHostToDevice, strm));
 
-        void *kernel_args[2] = {&batch_descs_gpu, sub_state};
+        void *kernel_args[3] = {&batch_descs_gpu, &num_blocks, sub_state};
 
         const unsigned int pip_block_x = gpu_pip->getMaxBlockSize();
 
@@ -297,8 +298,13 @@ void CpuToGpu::produce_(OlapParallelContext *context) {
           grid_x = 1u;
         }
 
+        const unsigned int grid_y =
+            streamingGridWindow
+                ? std::min(static_cast<unsigned int>(num_blocks),
+                           std::max(1u, FLAGS_streaming_grid_rows))
+                : static_cast<unsigned int>(num_blocks);
         const dim3 blockDim(block_x, 1, 1);
-        const dim3 gridDim2D(grid_x, static_cast<unsigned>(num_blocks), 1);
+        const dim3 gridDim2D(grid_x, grid_y, 1);
         if (print_execution_configuration) {
           // Query ptxas/JIT-resolved kernel resources only when explicitly
           // printing the launch configuration to avoid adding hot-path cost.
@@ -345,7 +351,10 @@ void CpuToGpu::produce_(OlapParallelContext *context) {
                                                     : "compressed")
                     << " block_x=" << block_x
                     << " grid_x=" << gridDim2D.x
-                    << " grid_y(num_blocks)=" << gridDim2D.y
+                    << " grid_y=" << gridDim2D.y
+                    << " num_blocks=" << num_blocks
+                    << " streaming_grid_rows="
+                    << (streamingGridWindow ? FLAGS_streaming_grid_rows : 0u)
                     << " jit_compiled_kernel_regs=" << kernel_num_regs
                     << " kernel_static_smem_bytes="
                     << kernel_static_smem_bytes
@@ -404,6 +413,8 @@ void CpuToGpu::generateGpuSide(OlapParallelContext *context) {
 
     size_t batchDescsArgId =
         context->appendParameter(i8pp_ty, /*noalias=*/false, /*readonly=*/false);
+    size_t numBlocksArgId =
+        context->appendParameter(i64_ty, /*noalias=*/false, /*readonly=*/true);
 
     context->setGlobalFunction();
 
@@ -428,77 +439,105 @@ void CpuToGpu::generateGpuSide(OlapParallelContext *context) {
 
     Value *batch_descs = context->getArgument(batchDescsArgId);
     batch_descs->setName("batch_descs");
+    Value *num_blocks = context->getArgument(numBlocksArgId);
+    num_blocks->setName("num_blocks");
+
+    auto emitBlock = [&](Value *block_id) {
+      Value *base_off =
+          Builder->CreateMul(block_id, ConstantInt::get(i64_ty, stride));
+
+      map<RecordAttribute, ProteusValueMemory> variableBindings;
+
+      for (size_t i = 0; i < wantedFields.size(); ++i) {
+        Value *off = Builder->CreateAdd(
+            base_off, ConstantInt::get(i64_ty, static_cast<int64_t>(i)));
+        Value *slot_ptr = Builder->CreateGEP(charPtrType, batch_descs, off);
+        Value *col_raw = Builder->CreateLoad(charPtrType, slot_ptr);
+
+        Type *field_type =
+            wantedFields[i]->getOriginalType()->getLLVMType(llvmContext);
+        Value *col_ptr = Builder->CreateBitCast(col_raw, field_type);
+
+        AllocaInst *mem = context->CreateEntryBlockAlloca(
+            wantedFields[i]->getAttrName() + "_ptr", col_ptr->getType());
+        Builder->CreateStore(col_ptr, mem);
+
+        ProteusValueMemory tmp;
+        tmp.mem = mem;
+        tmp.isNull = context->createFalse();
+        variableBindings[*(wantedFields[i])] = tmp;
+      }
+
+      {
+        Value *off = Builder->CreateAdd(
+            base_off,
+            ConstantInt::get(i64_ty, static_cast<int64_t>(wantedFields.size())));
+        Value *slot_ptr = Builder->CreateGEP(charPtrType, batch_descs, off);
+        Value *oid_raw = Builder->CreateLoad(charPtrType, slot_ptr);
+        Value *oid = Builder->CreatePtrToInt(oid_raw, oid_type);
+
+        AllocaInst *oid_mem =
+            context->CreateEntryBlockAlloca("batch_oid_ptr", oid_type);
+        Builder->CreateStore(oid, oid_mem);
+
+        RecordAttribute tupleOID(relName, activeLoop, pg->getOIDType());
+        ProteusValueMemory tmp;
+        tmp.mem = oid_mem;
+        tmp.isNull = context->createFalse();
+        variableBindings[tupleOID] = tmp;
+      }
+
+      {
+        Value *off = Builder->CreateAdd(
+            base_off,
+            ConstantInt::get(
+                i64_ty, static_cast<int64_t>(wantedFields.size() + 1)));
+        Value *slot_ptr = Builder->CreateGEP(charPtrType, batch_descs, off);
+        Value *cnt_raw = Builder->CreateLoad(charPtrType, slot_ptr);
+        Value *cnt = Builder->CreatePtrToInt(cnt_raw, oid_type);
+
+        AllocaInst *cnt_mem =
+            context->CreateEntryBlockAlloca("batch_cnt_ptr", oid_type);
+        Builder->CreateStore(cnt, cnt_mem);
+
+        RecordAttribute tupleCnt(relName, "activeCnt", pg->getOIDType());
+        ProteusValueMemory tmp;
+        tmp.mem = cnt_mem;
+        tmp.isNull = context->createFalse();
+        variableBindings[tupleCnt] = tmp;
+      }
+
+      OperatorState state{*this, variableBindings};
+      getParent()->consume(context, state);
+    };
 
     Builder->SetInsertPoint(MainBB);
 
     Function *ctaid_y_fn =
         context->getFunction("llvm.nvvm.read.ptx.sreg.ctaid.y");
-    Value *block_id = Builder->CreateZExt(
-        Builder->CreateCall(ctaid_y_fn, {}, "ctaid_y"), i64_ty, "block_id");
-    Value *base_off =
-        Builder->CreateMul(block_id, ConstantInt::get(i64_ty, stride));
+    Value *ctaid_y = Builder->CreateZExt(
+        Builder->CreateCall(ctaid_y_fn, {}, "ctaid_y"), i64_ty, "ctaid_y_i64");
 
-    map<RecordAttribute, ProteusValueMemory> variableBindings;
+    if (streamingGridWindow) {
+      AllocaInst *block_id_mem =
+          context->CreateEntryBlockAlloca("stream_block_id", i64_ty);
+      Builder->CreateStore(ctaid_y, block_id_mem);
 
-    for (size_t i = 0; i < wantedFields.size(); ++i) {
-      Value *off =
-          Builder->CreateAdd(base_off, ConstantInt::get(i64_ty, (int64_t)i));
-      Value *slot_ptr = Builder->CreateGEP(charPtrType, batch_descs, off);
-      Value *col_raw = Builder->CreateLoad(charPtrType, slot_ptr);
+      Value *grid_y = ConstantInt::get(
+          i64_ty, static_cast<uint64_t>(std::max(1u, FLAGS_streaming_grid_rows)));
 
-      Type *field_type =
-          wantedFields[i]->getOriginalType()->getLLVMType(llvmContext);
-      Value *col_ptr = Builder->CreateBitCast(col_raw, field_type);
-
-      AllocaInst *mem = context->CreateEntryBlockAlloca(
-          wantedFields[i]->getAttrName() + "_ptr", col_ptr->getType());
-      Builder->CreateStore(col_ptr, mem);
-
-      ProteusValueMemory tmp;
-      tmp.mem = mem;
-      tmp.isNull = context->createFalse();
-      variableBindings[*(wantedFields[i])] = tmp;
+      context->gen_while([&]() {
+        Value *block_id = Builder->CreateLoad(i64_ty, block_id_mem);
+        return ProteusValue{Builder->CreateICmpULT(block_id, num_blocks),
+                            context->createFalse()};
+      })([&](BranchInst * /*loop_cond*/) {
+        Value *block_id = Builder->CreateLoad(i64_ty, block_id_mem);
+        emitBlock(block_id);
+        Builder->CreateStore(Builder->CreateAdd(block_id, grid_y), block_id_mem);
+      });
+    } else {
+      emitBlock(ctaid_y);
     }
-
-    {
-      Value *off = Builder->CreateAdd(
-          base_off, ConstantInt::get(i64_ty, (int64_t)wantedFields.size()));
-      Value *slot_ptr = Builder->CreateGEP(charPtrType, batch_descs, off);
-      Value *oid_raw = Builder->CreateLoad(charPtrType, slot_ptr);
-      Value *oid = Builder->CreatePtrToInt(oid_raw, oid_type);
-
-      AllocaInst *oid_mem =
-          context->CreateEntryBlockAlloca("batch_oid_ptr", oid_type);
-      Builder->CreateStore(oid, oid_mem);
-
-      RecordAttribute tupleOID(relName, activeLoop, pg->getOIDType());
-      ProteusValueMemory tmp;
-      tmp.mem = oid_mem;
-      tmp.isNull = context->createFalse();
-      variableBindings[tupleOID] = tmp;
-    }
-
-    {
-      Value *off = Builder->CreateAdd(
-          base_off,
-          ConstantInt::get(i64_ty, (int64_t)(wantedFields.size() + 1)));
-      Value *slot_ptr = Builder->CreateGEP(charPtrType, batch_descs, off);
-      Value *cnt_raw = Builder->CreateLoad(charPtrType, slot_ptr);
-      Value *cnt = Builder->CreatePtrToInt(cnt_raw, oid_type);
-
-      AllocaInst *cnt_mem =
-          context->CreateEntryBlockAlloca("batch_cnt_ptr", oid_type);
-      Builder->CreateStore(cnt, cnt_mem);
-
-      RecordAttribute tupleCnt(relName, "activeCnt", pg->getOIDType());
-      ProteusValueMemory tmp;
-      tmp.mem = cnt_mem;
-      tmp.isNull = context->createFalse();
-      variableBindings[tupleCnt] = tmp;
-    }
-
-    OperatorState state{*this, variableBindings};
-    getParent()->consume(context, state);
 
     Builder->CreateBr(AfterBB);
 
