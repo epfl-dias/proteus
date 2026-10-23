@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2021
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -31,9 +31,9 @@ namespace proteus {
 class RegistryBasedBinaryBlockPlugin : public ::BinaryBlockPlugin {
  public:
   static constexpr auto type = "registry-based-block";
-  RegistryBasedBinaryBlockPlugin(ParallelContext *context,
+  RegistryBasedBinaryBlockPlugin(OlapParallelContext *context,
                                  const std::string &fnamePrefix, RecordType rec,
-                                 vector<RecordAttribute *> &whichFields);
+                                 std::vector<RecordAttribute *> &whichFields);
 };
 
 }  // namespace proteus

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -48,29 +48,30 @@ class CSVPlugin : public Plugin {
    * XXX IMPORTANT: FIELDS MUST BE IN ORDER!!!
    */
   CSVPlugin(Context *const context, string &fname, RecordType &rec,
-            const vector<RecordAttribute *> &whichFields, int lineHint,
+            const std::vector<RecordAttribute *> &whichFields, int lineHint,
             int policy, bool stringBrackets = true);
   CSVPlugin(Context *const context, string &fname, RecordType &rec,
-            vector<RecordAttribute *> whichFields, char delimInner,
+            std::vector<RecordAttribute *> whichFields, char delimInner,
             int lineHint, int policy, bool stringBrackets = true,
             bool hasHeader = false);
   /* PM Ready */
   CSVPlugin(Context *const context, string &fname, RecordType &rec,
-            vector<RecordAttribute *> whichFields, char delimInner,
+            std::vector<RecordAttribute *> whichFields, char delimInner,
             int lineHint, int policy, size_t *newlines, short **offsets,
             bool stringBrackets = true, bool hasHeader = false);
   string &getName() override { return fname; }
   void init() override;
-  void generate(const ::Operator &producer, ParallelContext *context) override;
+  void generate(const ::Operator &producer,
+                OlapParallelContext *context) override;
   void finish() override;
   ProteusValueMemory readPath(string activeRelation, Bindings bindings,
                               const char *pathVar, RecordAttribute attr,
-                              ParallelContext *context) override;
+                              OlapParallelContext *context) override;
   ProteusValueMemory readValue(ProteusValueMemory mem_value,
                                const ExpressionType *type,
-                               ParallelContext *context) override;
+                               OlapParallelContext *context) override;
   ProteusValue readCachedValue(CacheInfo info, const OperatorState &currState,
-                               ParallelContext *context) override;
+                               OlapParallelContext *context) override;
   virtual ProteusValue readCachedValue(
       CacheInfo info, const map<RecordAttribute, ProteusValueMemory> &bindings);
 
@@ -112,7 +113,7 @@ class CSVPlugin : public Plugin {
 
   llvm::Value *getValueSize(ProteusValueMemory mem_value,
                             const ExpressionType *type,
-                            ParallelContext *context) override;
+                            OlapParallelContext *context) override;
 
   /* Export PM */
   /* XXX I think it's the 'Caching Service' that should
@@ -156,7 +157,7 @@ class CSVPlugin : public Plugin {
 
   void flushDelim(llvm::Value *fileName, int depth) override {
     llvm::Function *flushFunc = context->getFunction("flushChar");
-    vector<llvm::Value *> ArgsV;
+    std::vector<llvm::Value *> ArgsV;
     // XXX JSON-specific -> Serializer business to differentiate
     ArgsV.push_back(context->createInt8((depth == 0) ? '\n' : ','));
     ArgsV.push_back(fileName);
@@ -166,7 +167,7 @@ class CSVPlugin : public Plugin {
   void flushDelim(llvm::Value *resultCtr, llvm::Value *fileName,
                   int depth) override {
     llvm::Function *flushFunc = context->getFunction("flushDelim");
-    vector<llvm::Value *> ArgsV;
+    std::vector<llvm::Value *> ArgsV;
     ArgsV.push_back(resultCtr);
     // XXX JSON-specific -> Serializer business to differentiate
     ArgsV.push_back(context->createInt8((depth == 0) ? '\n' : ','));
@@ -176,7 +177,7 @@ class CSVPlugin : public Plugin {
 
   void flushOutput(llvm::Value *fileName) override {
     llvm::Function *flushFunc = context->getFunction("flushOutput");
-    vector<llvm::Value *> ArgsV;
+    std::vector<llvm::Value *> ArgsV;
     // Start 'array'
     ArgsV.push_back(fileName);
     context->getBuilder()->CreateCall(flushFunc, ArgsV);
@@ -191,7 +192,7 @@ class CSVPlugin : public Plugin {
   char *buf;
   // Schema info provided
   RecordType rec;
-  vector<RecordAttribute *> wantedFields;
+  std::vector<RecordAttribute *> wantedFields;
   bool stringBrackets;  // Are string literals wrapped in ""?
 
   /**

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -26,20 +26,20 @@
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
-#include <olap/routing/routing-policy.hpp>
 #include <olap/util/parallel-context.hpp>
 #include <platform/memory/block-manager.hpp>
 #include <platform/threadpool/threadvector.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/device-manager.hpp>
 #include <platform/util/async_containers.hpp>
-#include <platform/util/logging.hpp>
+#include <platform/util/datastructures/threadsafe-set.hpp>
+#include <platform/util/tracing.hpp>
 #include <queue>
 #include <stack>
 #include <utility>
 
 #include "lib/operators/operators.hpp"
-#include "lib/util/datastructures/threadsafe-set.hpp"
+#include "lib/operators/router/routing-policy.hpp"
 
 class Router;
 
@@ -50,14 +50,14 @@ void freeBuffer(int target, Router *xch, void *buff);
 
 class Router : public experimental::UnaryOperator {
  public:
-  Router(Operator *const child, DegreeOfParallelism numOfParents,
+  Router(Operator *const child, DegreeOfParallelism fanout,
          std::vector<RecordAttribute *> wantedFields, size_t slack,
          std::optional<expression_t> hash, RoutingPolicy policy_type,
          std::unique_ptr<Affinitizer> aff)
       : UnaryOperator(child),
         wantedFields(std::move(wantedFields)),
         slack(slack),
-        fanout(numOfParents.dop),
+        fanout(fanout.dop),
         producers(child->getDOP().dop),
         remaining_producers(producers),
         hashExpr(std::move(hash)),
@@ -77,8 +77,8 @@ class Router : public experimental::UnaryOperator {
       : Router(child, numOfParents, std::move(wantedFields), slack,
                std::move(hash), policy_type, getDefaultAffinitizer(targets)) {}
 
-  void produce_(ParallelContext *context) override;
-  void consume(ParallelContext *context,
+  void produce_(OlapParallelContext *context) override;
+  void consume(OlapParallelContext *context,
                const OperatorState &childState) override;
   [[nodiscard]] bool isFiltering() const override { return false; }
 
@@ -88,7 +88,7 @@ class Router : public experimental::UnaryOperator {
   }
 
  protected:
-  virtual void generate_catch(ParallelContext *context);
+  virtual void generate_catch(OlapParallelContext *context);
 
   virtual void fire(int target, PipelineGen *pipGen, const void *session);
 
@@ -132,7 +132,7 @@ class Router : public experimental::UnaryOperator {
   std::mutex init_mutex;
 
  private:
-  const vector<RecordAttribute *> wantedFields;
+  const std::vector<RecordAttribute *> wantedFields;
 
   llvm::Type *params_type;
 

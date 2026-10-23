@@ -1,0 +1,797 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 23d2d2b1de..85e9285306 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,6 +1,6 @@
+ cmake_minimum_required(VERSION 3.25)
+ 
+-set(CMAKE_CXX_STANDARD 17)
++set(CMAKE_CXX_STANDARD 20)
+ set(CMAKE_CXX_STANDARD_REQUIRED ON)
+ set(CMAKE_CXX_EXTENSIONS OFF)
+ 
+@@ -257,7 +257,8 @@ if(ENABLE_CUDA)
+   include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+   include_directories(ThirdParty/warpcore/include)
+   list(APPEND CUDA_LIBRARIES cuda)
+-  list(APPEND CMAKE_CUDA_FLAGS --extended-lambda)  # required by warpcore
++  string(APPEND CMAKE_CUDA_FLAGS " --extended-lambda")  # required by warpcore
++  separate_arguments(MAPD_CUDA_FLAGS_FOR_CUSTOM_COMMANDS UNIX_COMMAND "${CMAKE_CUDA_FLAGS}")
+   add_definitions("-DHAVE_CUDA")
+ else()
+   set(CUDA_LIBRARIES "")
+@@ -1413,22 +1414,26 @@ endif()
+ 
+ set (JDBC_JAR "heavyai-jdbc-${OMNISCI_JAR_RELEASE_VERSION}.jar")
+ set (UTILITY_JAR "heavyai-utility-${OMNISCI_JAR_RELEASE_VERSION}.jar")
++set(HEAVYDB_MAVEN_TARGET_ROOT "${CMAKE_BINARY_DIR}/maven-targets" CACHE PATH "Maven target root for HeavyDB Java modules")
++set(HEAVYDB_MAVEN_REPO_LOCAL "${CMAKE_BINARY_DIR}/maven-repository" CACHE PATH "Maven local repository for HeavyDB Java modules")
++set(HEAVYDB_MAVEN_TMP "${CMAKE_BINARY_DIR}/maven-tmp" CACHE PATH "Maven temporary directory for HeavyDB Java modules")
+ 
+-set(MVN_PATH_COMMAND "")
++set(MVN_ENV_COMMAND ${CMAKE_COMMAND} -E env
++    "MAVEN_OPTS=-Djava.io.tmpdir=${HEAVYDB_MAVEN_TMP}")
+ if(NOT MSVC)
+-    set(MVN_PATH_COMMAND "MVNPATH=${CMAKE_SOURCE_DIR}/java")
++    list(APPEND MVN_ENV_COMMAND "MVNPATH=${CMAKE_SOURCE_DIR}/java")
+ endif()
+ 
+-set(THRIFT_MVN_VERSION "0.17.0") # independent of Thrift C++ version
++set(THRIFT_MVN_VERSION "0.22.0") # match the thrift compiler used to generate Java sources
+ add_custom_command(
+   OUTPUT
+     ${CMAKE_BINARY_DIR}/bin/${UTILITY_JAR}
+     ${CMAKE_BINARY_DIR}/bin/${JDBC_JAR}
+     ${CMAKE_BINARY_DIR}/bin/calcite-1.0-SNAPSHOT-jar-with-dependencies.jar
+-    COMMAND ${MVN_PATH_COMMAND} ${MVN_EXECUTABLE} -T 4 -l ${CMAKE_BINARY_DIR}/mvn_build.log -e clean install -Dthrift.version="${THRIFT_MVN_VERSION}" -Dmaven.compiler.showDeprecation=true -Dmaven.compiler.showWarnings=true -Domnisci.release.version="${OMNISCI_JAR_RELEASE_VERSION}" -Djava.net.preferIPv4Stack=true -Dmaven.wagon.http.retryHandler.count=3 -DLOG_DIR="${CMAKE_BINARY_DIR}"
+-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/java/heavydb/target/${UTILITY_JAR} ${CMAKE_BINARY_DIR}/bin
+-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/java/heavyaijdbc/target/${JDBC_JAR} ${CMAKE_BINARY_DIR}/bin
+-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/java/calcite/target/calcite-1.0-SNAPSHOT-jar-with-dependencies.jar ${CMAKE_BINARY_DIR}/bin
++    COMMAND ${MVN_ENV_COMMAND} ${MVN_EXECUTABLE} -T 4 -l ${CMAKE_BINARY_DIR}/mvn_build.log -e clean install -Dthrift.version="${THRIFT_MVN_VERSION}" -Dmaven.compiler.showDeprecation=true -Dmaven.compiler.showWarnings=true -Domnisci.release.version="${OMNISCI_JAR_RELEASE_VERSION}" -Djava.net.preferIPv4Stack=true -Dmaven.wagon.http.retryHandler.count=3 -DLOG_DIR="${CMAKE_BINARY_DIR}" -Djava.io.tmpdir="${HEAVYDB_MAVEN_TMP}" -Dmaven.repo.local="${HEAVYDB_MAVEN_REPO_LOCAL}" -Dheavydb.maven.target.root="${HEAVYDB_MAVEN_TARGET_ROOT}"
++    COMMAND ${CMAKE_COMMAND} -E copy ${HEAVYDB_MAVEN_TARGET_ROOT}/heavyai-utility/${UTILITY_JAR} ${CMAKE_BINARY_DIR}/bin
++    COMMAND ${CMAKE_COMMAND} -E copy ${HEAVYDB_MAVEN_TARGET_ROOT}/heavyai-jdbc/${JDBC_JAR} ${CMAKE_BINARY_DIR}/bin
++    COMMAND ${CMAKE_COMMAND} -E copy ${HEAVYDB_MAVEN_TARGET_ROOT}/calcite/calcite-1.0-SNAPSHOT-jar-with-dependencies.jar ${CMAKE_BINARY_DIR}/bin
+     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/java
+   DEPENDS
+     ${CMAKE_SOURCE_DIR}/java/thrift/src/gen/ai/heavy/thrift/server/Heavy.java
+@@ -1445,16 +1450,16 @@ add_custom_target(mapd_java_components ALL DEPENDS
+   ${CMAKE_BINARY_DIR}/bin/${JDBC_JAR}
+   ${CMAKE_BINARY_DIR}/bin/calcite-1.0-SNAPSHOT-jar-with-dependencies.jar)
+ add_custom_target(mapd_java_clean
+-  COMMAND ${MVN_PATH_COMMAND} ${MVN_EXECUTABLE} -q clean -Domnisci.release.version="${OMNISCI_JAR_RELEASE_VERSION}"
++  COMMAND ${MVN_ENV_COMMAND} ${MVN_EXECUTABLE} -q clean -Domnisci.release.version="${OMNISCI_JAR_RELEASE_VERSION}"
+   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/java
+   )
+ add_dependencies(clean-all mapd_java_clean)
+-install(FILES ${CMAKE_SOURCE_DIR}/java/heavydb/target/${UTILITY_JAR} DESTINATION bin COMPONENT "jar")
+-install(FILES ${CMAKE_SOURCE_DIR}/java/heavyaijdbc/target/${JDBC_JAR} DESTINATION bin COMPONENT "jar")
+-install(FILES ${CMAKE_SOURCE_DIR}/java/calcite/target/calcite-1.0-SNAPSHOT-jar-with-dependencies.jar DESTINATION bin COMPONENT "jar")
++install(FILES ${HEAVYDB_MAVEN_TARGET_ROOT}/heavyai-utility/${UTILITY_JAR} DESTINATION bin COMPONENT "jar")
++install(FILES ${HEAVYDB_MAVEN_TARGET_ROOT}/heavyai-jdbc/${JDBC_JAR} DESTINATION bin COMPONENT "jar")
++install(FILES ${HEAVYDB_MAVEN_TARGET_ROOT}/calcite/calcite-1.0-SNAPSHOT-jar-with-dependencies.jar DESTINATION bin COMPONENT "jar")
+ 
+ add_custom_target(maven_populate_cache
+-  COMMAND ${MVN_PATH_COMMAND} ${MVN_EXECUTABLE} -q verify -Domnisci.release.version="${OMNISCI_JAR_RELEASE_VERSION}"
++  COMMAND ${MVN_ENV_COMMAND} ${MVN_EXECUTABLE} -q verify -Domnisci.release.version="${OMNISCI_JAR_RELEASE_VERSION}"
+   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/java
+   )
+ 
+diff --git a/ImportExport/CMakeLists.txt b/ImportExport/CMakeLists.txt
+index aecf87017b..5307fea385 100644
+--- a/ImportExport/CMakeLists.txt
++++ b/ImportExport/CMakeLists.txt
+@@ -12,12 +12,15 @@ list(APPEND IMPORT_EXPORT_LIBRARIES muparserx)
+ 
+ set(IMPORT_SOURCES
+   Importer.cpp
+-  ForeignDataImporter.cpp
+   DelimitedParserUtils.cpp
+   RasterImporter.cpp
+   MetadataColumn.cpp
+   ExpressionParser.cpp)
+ 
++if(ENABLE_IMPORT_PARQUET)
++  list(APPEND IMPORT_SOURCES ForeignDataImporter.cpp)
++endif()
++
+ set(EXPORT_SOURCES
+   QueryExporter.cpp
+   QueryExporterCSV.cpp
+diff --git a/ImportExport/Importer.cpp b/ImportExport/Importer.cpp
+index daaf552e91..3f5ebda09a 100644
+--- a/ImportExport/Importer.cpp
++++ b/ImportExport/Importer.cpp
+@@ -80,6 +80,17 @@
+ #include "QueryEngine/TypePunning.h"
+ #include "Shared/DateTimeParser.h"
+ #include "Shared/SqlTypesLayout.h"
++
++#ifndef ENABLE_IMPORT_PARQUET
++size_t g_max_import_fragment_byte_size = 200 * 1024UL * 1024UL;
++size_t g_max_import_num_fragment_buffered = 2;
++size_t g_import_heuristic_varlen_column_byte_size = 256;
++
++namespace import_export {
++int32_t ForeignDataImporter::proxy_foreign_table_fragment_size_ = 0;
++void ForeignDataImporter::setDefaultImportPath(const std::string&) {}
++}  // namespace import_export
++#endif
+ #include "Shared/SysDefinitions.h"
+ #include "Shared/file_path_util.h"
+ #include "Shared/import_helpers.h"
+@@ -6413,14 +6424,22 @@ std::unique_ptr<AbstractImporter> create_importer(
+ 
+   if (copy_params.source_type == import_export::SourceType::kDelimitedFile &&
+       !g_enable_legacy_delimited_import) {
++#ifdef ENABLE_IMPORT_PARQUET
+     return std::make_unique<import_export::ForeignDataImporter>(
+         copy_from_source, copy_params, td);
++#else
++    throw std::runtime_error("FSI delimited import not supported in this build.");
++#endif
+   }
+ 
+   if (copy_params.source_type == import_export::SourceType::kRegexParsedFile) {
+     if (g_enable_fsi_regex_import) {
++#ifdef ENABLE_IMPORT_PARQUET
+       return std::make_unique<import_export::ForeignDataImporter>(
+           copy_from_source, copy_params, td);
++#else
++      throw std::runtime_error("FSI regex import not supported in this build.");
++#endif
+     } else {
+       throw std::runtime_error(
+           "Regex parsed import only supported using 'fsi-regex-import' flag");
+diff --git a/ImportExport/QueryExporterCSV.cpp b/ImportExport/QueryExporterCSV.cpp
+index 5f5c7a3c23..334b47e816 100644
+--- a/ImportExport/QueryExporterCSV.cpp
++++ b/ImportExport/QueryExporterCSV.cpp
+@@ -16,7 +16,7 @@
+ 
+ #include "ImportExport/QueryExporterCSV.h"
+ 
+-#include <boost/process.hpp>
++#include <boost/process/v1.hpp>
+ #include <boost/variant/get.hpp>
+ 
+ #include "QueryEngine/ResultSet.h"
+@@ -42,7 +42,7 @@ void QueryExporterCSV::beginExport(const std::string& file_path,
+       "", "gzip", "zip"};
+   auto const compression_tool{compression_tools[static_cast<int>(file_compression)]};
+   if (file_compression != FileCompression::kNone &&
+-      boost::process::search_path(compression_tool).string().empty()) {
++      boost::process::v1::search_path(compression_tool).string().empty()) {
+     throw std::runtime_error("QueryExporterCSV: " + std::string(compression_tool) +
+                              " executable not found, cannot export compressed file");
+   }
+@@ -304,10 +304,10 @@ void QueryExporterCSV::endExport() {
+         boost::filesystem::path(file_path_).parent_path().string());
+     auto const local_csv_file_name =
+         boost::filesystem::path(file_path_).filename().string();
+-    boost::process::system("zip " + local_zip_file_path + " " + local_csv_file_name,
+-                           boost::process::start_dir(start_dir),
+-                           boost::process::std_out > boost::process::null,
+-                           boost::process::std_err > boost::process::null);
++    boost::process::v1::system("zip " + local_zip_file_path + " " + local_csv_file_name,
++                               boost::process::v1::start_dir(start_dir),
++                               boost::process::v1::std_out > boost::process::v1::null,
++                               boost::process::v1::std_err > boost::process::v1::null);
+     // check compressed file exists and is non-zero length
+     if (!file_is_good(zip_file_path, true)) {
+       throw std::runtime_error(
+@@ -319,9 +319,9 @@ void QueryExporterCSV::endExport() {
+   } else if (file_compression_ == FileCompression::kGZip) {
+     // compress with gzip, removes original file
+     auto const gzip_file_path = file_path_ + ".gz";
+-    boost::process::system("gzip " + file_path_,
+-                           boost::process::std_out > boost::process::null,
+-                           boost::process::std_err > boost::process::null);
++    boost::process::v1::system("gzip " + file_path_,
++                               boost::process::v1::std_out > boost::process::v1::null,
++                               boost::process::v1::std_err > boost::process::v1::null);
+     // check compressed file exists and is non-zero length
+     if (!file_is_good(gzip_file_path, true)) {
+       throw std::runtime_error(
+diff --git a/ImportExport/RasterImporter.cpp b/ImportExport/RasterImporter.cpp
+index 8cd94be89c..a0c72053e4 100644
+--- a/ImportExport/RasterImporter.cpp
++++ b/ImportExport/RasterImporter.cpp
+@@ -164,12 +164,12 @@ std::vector<std::string> get_ome_tiff_band_names(
+   // </Image>
+   // ...
+ 
+-  using Document = xercesc_3_2::DOMDocument;
+-  using Element = xercesc_3_2::DOMElement;
+-  using String = xercesc_3_2::XMLString;
+-  using Utils = xercesc_3_2::XMLPlatformUtils;
+-  using Parser = xercesc_3_2::XercesDOMParser;
+-  using Source = xercesc_3_2::MemBufInputSource;
++  using Document = xercesc::DOMDocument;
++  using Element = xercesc::DOMElement;
++  using String = xercesc::XMLString;
++  using Utils = xercesc::XMLPlatformUtils;
++  using Parser = xercesc::XercesDOMParser;
++  using Source = xercesc::MemBufInputSource;
+ 
+   Utils::Initialize();
+ 
+diff --git a/Parser/ParserNode.cpp b/Parser/ParserNode.cpp
+index 8390be3872..1e0abd35e2 100644
+--- a/Parser/ParserNode.cpp
++++ b/Parser/ParserNode.cpp
+@@ -7300,7 +7300,7 @@ DumpRestoreTableStmtBase::DumpRestoreTableStmtBase(const rapidjson::Value& paylo
+   }
+ 
+   for (const auto& program : {"tar", "rm", "mkdir", "mv", "cat"}) {
+-    if (boost::process::search_path(program).empty()) {
++    if (boost::process::v1::search_path(program).empty()) {
+       throw std::runtime_error{"Required program \"" + std::string{program} +
+                                "\" was not found."};
+     }
+@@ -7310,11 +7310,11 @@ DumpRestoreTableStmtBase::DumpRestoreTableStmtBase(const rapidjson::Value& paylo
+ // select default compression type based upon available executables
+ DumpRestoreTableStmtBase::CompressionType DumpRestoreTableStmtBase::defaultCompression(
+     const bool is_restore) {
+-  if (boost::process::search_path(is_restore ? Compress::sUNGZIP : Compress::sGZIP)
++  if (boost::process::v1::search_path(is_restore ? Compress::sUNGZIP : Compress::sGZIP)
+           .string()
+           .size()) {
+     return CompressionType::kGZIP;
+-  } else if (boost::process::search_path(is_restore ? Compress::sUNLZ4 : Compress::sLZ4)
++  } else if (boost::process::v1::search_path(is_restore ? Compress::sUNLZ4 : Compress::sLZ4)
+                  .string()
+                  .size()) {
+     return CompressionType::kLZ4;
+@@ -7331,7 +7331,7 @@ DumpRestoreTableStmtBase::CompressionType DumpRestoreTableStmtBase::validateComp
+   // verify correct compression executable is available
+   if (boost::iequals(compression, Compress::sGZIP)) {
+     const auto prog_name = is_restore ? Compress::sUNGZIP : Compress::sGZIP;
+-    const auto prog_path = boost::process::search_path(prog_name);
++    const auto prog_path = boost::process::v1::search_path(prog_name);
+     if (prog_path.string().empty()) {
+       throw std::runtime_error("Compression program " + prog_name + " is not found.");
+     }
+@@ -7339,7 +7339,7 @@ DumpRestoreTableStmtBase::CompressionType DumpRestoreTableStmtBase::validateComp
+ 
+   } else if (boost::iequals(compression, Compress::sLZ4)) {
+     const auto prog_name = is_restore ? Compress::sUNLZ4 : Compress::sLZ4;
+-    const auto prog_path = boost::process::search_path(prog_name);
++    const auto prog_path = boost::process::v1::search_path(prog_name);
+     if (prog_path.string().empty()) {
+       throw std::runtime_error("Compression program " + prog_name + " is not found.");
+     }
+diff --git a/QueryEngine/ArrowResultSet.h b/QueryEngine/ArrowResultSet.h
+index f6c1dc4451..79988367e4 100644
+--- a/QueryEngine/ArrowResultSet.h
++++ b/QueryEngine/ArrowResultSet.h
+@@ -27,9 +27,9 @@
+ 
+ #include "arrow/api.h"
+ #include "arrow/ipc/api.h"
+-#ifdef HAVE_CUDA
++#ifdef HAVE_ARROW_CUDA
+ #include <arrow/gpu/cuda_api.h>
+-#endif  // HAVE_CUDA
++#endif  // HAVE_ARROW_CUDA
+ 
+ static_assert(ARROW_VERSION >= 16000, "Apache Arrow v0.16.0 or above is required.");
+ 
+diff --git a/QueryEngine/ArrowResultSetConverter.cpp b/QueryEngine/ArrowResultSetConverter.cpp
+index 817df1c043..800e30c12d 100644
+--- a/QueryEngine/ArrowResultSetConverter.cpp
++++ b/QueryEngine/ArrowResultSetConverter.cpp
+@@ -43,10 +43,10 @@ using key_t = size_t;
+ 
+ #include "Shared/ArrowUtil.h"
+ 
+-#ifdef HAVE_CUDA
++#ifdef HAVE_ARROW_CUDA
+ #include <arrow/gpu/cuda_api.h>
+ #include <cuda.h>
+-#endif  // HAVE_CUDA
++#endif  // HAVE_ARROW_CUDA
+ 
+ #define ARROW_RECORDBATCH_MAKE arrow::RecordBatch::Make
+ 
+@@ -591,7 +591,7 @@ ArrowResult ArrowResultSetConverter::getArrowResult() const {
+         UNREACHABLE();
+     }
+   }
+-#ifdef HAVE_CUDA
++#ifdef HAVE_ARROW_CUDA
+   CHECK(device_type_ == ExecutorDeviceType::GPU);
+ 
+   // Copy the schema to the schema handle
+diff --git a/QueryEngine/CMakeLists.txt b/QueryEngine/CMakeLists.txt
+index 024fbee40f..d18d0a7fee 100644
+--- a/QueryEngine/CMakeLists.txt
++++ b/QueryEngine/CMakeLists.txt
+@@ -484,7 +484,7 @@ add_custom_command(
+   -D__STDC_CONSTANT_MACROS
+   -D_FORCE_INLINES
+   -DHAVE_CUDA
+-  ${CMAKE_CUDA_FLAGS}
++  ${MAPD_CUDA_FLAGS_FOR_CUSTOM_COMMANDS}
+   -Xcompiler -Wno-return-type-c-linkage --expt-relaxed-constexpr
+   ${MAPD_DEFINITIONS}
+   -fatbin
+diff --git a/QueryEngine/Execute.cpp b/QueryEngine/Execute.cpp
+index 78591e7da2..a05bc1e966 100644
+--- a/QueryEngine/Execute.cpp
++++ b/QueryEngine/Execute.cpp
+@@ -25,6 +25,7 @@
+ #endif  // HAVE_CUDA
+ #include <RexVisitor.h>
+ #include <chrono>
++#include <cstdlib>
+ #include <ctime>
+ #include <future>
+ #include <memory>
+@@ -230,6 +231,16 @@ bool is_empty_table(Fragmenter_Namespace::AbstractFragmenter* fragmenter) {
+   return (fragments.size() == 1 && fragments[0].getChunkMetadataMap().empty());
+ }
+ 
++bool bench_profile_query_enabled() {
++  const auto value = std::getenv("HEAVYDB_BENCH_PROFILE_QUERY");
++  if (!value || !*value) {
++    return false;
++  }
++  const std::string flag{value};
++  return flag != "0" && flag != "false" && flag != "FALSE" && flag != "off" &&
++         flag != "OFF";
++}
++
+ size_t determineMaxCpuSlabSize(DataMgr* data_mgr, size_t default_max_cpu_slab_size) {
+   if (data_mgr) {
+     return data_mgr->getCpuBufferMgr()->getMaxSlabSize();
+@@ -3980,6 +3991,8 @@ int32_t Executor::executePlanWithoutGroupBy(
+   if (col_buffers.empty()) {
+     return 0;
+   }
++  const auto bench_profile_enabled = bench_profile_query_enabled();
++  const auto execute_plan_envelope_start = std::chrono::steady_clock::now();
+ 
+   RenderAllocatorMap* render_allocator_map_ptr = nullptr;
+   if (render_info) {
+@@ -4164,6 +4177,21 @@ int32_t Executor::executePlanWithoutGroupBy(
+       query_exe_context->query_buffers_->result_sets_[0].release());
+   rows_ptr->fillOneEntry(reduced_outs);
+   *results = std::move(rows_ptr);
++  if (bench_profile_enabled) {
++    const auto execute_plan_envelope_end = std::chrono::steady_clock::now();
++    const auto execute_plan_envelope_us =
++        std::chrono::duration_cast<std::chrono::microseconds>(
++            execute_plan_envelope_end - execute_plan_envelope_start)
++            .count();
++    LOG(INFO) << "HEAVYDB_BENCH_EXECUTE_PLAN_ENVELOPE_MS"
++              << " device_type="
++              << (device_type == ExecutorDeviceType::GPU ? "GPU" : "CPU")
++              << " device_id=" << device_id << " num_fragments=" << num_frags
++              << " entry_count=" << entry_count
++              << " elapsed_us=" << execute_plan_envelope_us
++              << " elapsed_ms="
++              << static_cast<double>(execute_plan_envelope_us) / 1000.0;
++  }
+   return error_code;
+ }
+ 
+@@ -4203,6 +4231,8 @@ int32_t Executor::executePlanWithGroupBy(
+   if (col_buffers.empty()) {
+     return 0;
+   }
++  const auto bench_profile_enabled = bench_profile_query_enabled();
++  const auto execute_plan_envelope_start = std::chrono::steady_clock::now();
+   CHECK_NE(ra_exe_unit.groupby_exprs.size(), size_t(0));
+   // TODO(alex):
+   // 1. Optimize size (make keys more compact).
+@@ -4361,6 +4391,24 @@ int32_t Executor::executePlanWithGroupBy(
+     return error_code;  // unlucky, not enough results and we ran out of slots
+   }
+ 
++  if (bench_profile_enabled) {
++    const auto execute_plan_envelope_end = std::chrono::steady_clock::now();
++    const auto execute_plan_envelope_us =
++        std::chrono::duration_cast<std::chrono::microseconds>(
++            execute_plan_envelope_end - execute_plan_envelope_start)
++            .count();
++    const auto result_rows = (results && *results) ? (*results)->rowCount() : size_t(0);
++    LOG(INFO) << "HEAVYDB_BENCH_EXECUTE_PLAN_ENVELOPE_MS"
++              << " path=group_by"
++              << " device_type="
++              << (device_type == ExecutorDeviceType::GPU ? "GPU" : "CPU")
++              << " device_id=" << device_id << " num_fragments=" << col_buffers.size()
++              << " entry_count=" << query_exe_context->query_mem_desc_.getEntryCount()
++              << " result_rows=" << result_rows
++              << " elapsed_us=" << execute_plan_envelope_us
++              << " elapsed_ms="
++              << static_cast<double>(execute_plan_envelope_us) / 1000.0;
++  }
+   return 0;
+ }
+ 
+diff --git a/QueryEngine/QueryExecutionContext.cpp b/QueryEngine/QueryExecutionContext.cpp
+index 85e6ab478d..f689f21000 100644
+--- a/QueryEngine/QueryExecutionContext.cpp
++++ b/QueryEngine/QueryExecutionContext.cpp
+@@ -30,8 +30,12 @@
+ #include "SpeculativeTopN.h"
+ #include "StreamingTopN.h"
+ 
++#include <chrono>
++#include <cstdlib>
++
+ #ifdef HAVE_CUDA
+ #include <cuda.h>
++#include <cudaProfiler.h>
+ #else
+ #include <Shared/nocuda.h>
+ #endif
+@@ -206,6 +210,41 @@ int32_t aggregate_error_codes(const std::vector<int32_t>& error_codes) {
+   return 0;
+ }
+ 
++bool bench_profile_query_enabled() {
++  const auto value = std::getenv("HEAVYDB_BENCH_PROFILE_QUERY");
++  if (!value || !*value) {
++    return false;
++  }
++  const std::string flag{value};
++  return flag != "0" && flag != "false" && flag != "FALSE" && flag != "off" &&
++         flag != "OFF";
++}
++
++#ifdef HAVE_CUDA
++void profiler_start_if_enabled(const bool enabled) {
++  if (!enabled) {
++    return;
++  }
++  const auto status = cuProfilerStart();
++  LOG_IF(WARNING, status != CUDA_SUCCESS)
++      << "HEAVYDB_BENCH_CUDA_PROFILER_START_FAILED status="
++      << static_cast<int>(status);
++}
++
++void profiler_stop_if_enabled(const bool enabled) {
++  if (!enabled) {
++    return;
++  }
++  const auto status = cuProfilerStop();
++  LOG_IF(WARNING, status != CUDA_SUCCESS)
++      << "HEAVYDB_BENCH_CUDA_PROFILER_STOP_FAILED status="
++      << static_cast<int>(status);
++}
++#else
++void profiler_start_if_enabled(const bool) {}
++void profiler_stop_if_enabled(const bool) {}
++#endif
++
+ }  // namespace
+ 
+ std::vector<int64_t*> QueryExecutionContext::launchGpuCode(
+@@ -300,6 +339,37 @@ std::vector<int64_t*> QueryExecutionContext::launchGpuCode(
+   const unsigned grid_size_z = 1;
+   const auto total_thread_count = block_size_x * grid_size_x;
+   const auto err_desc = kernel_params[int(KP::ERROR_CODE)];
++  const auto bench_profile_enabled = bench_profile_query_enabled();
++  const auto gpu_envelope_start = std::chrono::steady_clock::now();
++  auto launch_query_kernel = [&](std::vector<void*>& param_ptrs) {
++    VLOG(1) << "Launching(" << kernel->name() << ") on device_id(" << device_id << ')';
++    profiler_start_if_enabled(bench_profile_enabled);
++    const auto kernel_start = std::chrono::steady_clock::now();
++    kernel->launch(grid_size_x,
++                   grid_size_y,
++                   grid_size_z,
++                   block_size_x,
++                   block_size_y,
++                   block_size_z,
++                   compilation_result,
++                   &param_ptrs[0],
++                   kernel_params_log,
++                   optimize_cuda_block_and_grid_sizes);
++    const auto kernel_end = std::chrono::steady_clock::now();
++    const auto kernel_us =
++        std::chrono::duration_cast<std::chrono::microseconds>(kernel_end - kernel_start)
++            .count();
++    const auto kernel_ms = static_cast<double>(kernel_us) / 1000.0;
++    profiler_stop_if_enabled(bench_profile_enabled);
++    if (bench_profile_enabled) {
++      LOG(INFO) << "HEAVYDB_BENCH_QUERY_KERNEL_MS"
++                << " device_id=" << device_id << " kernel=" << kernel->name()
++                << " grid_x=" << grid_size_x << " block_x=" << block_size_x
++                << " num_fragments=" << num_fragments << " elapsed_us=" << kernel_us
++                << " elapsed_ms=" << kernel_ms;
++    }
++    return kernel_ms;
++  };
+   if (is_group_by) {
+     CHECK(!(query_buffers_->getGroupByBuffersSize() == 0) || render_allocator);
+     bool can_sort_on_gpu = query_mem_desc_.sortOnGpu();
+@@ -333,35 +403,15 @@ std::vector<int64_t*> QueryExecutionContext::launchGpuCode(
+     VLOG(1) << "Device " << device_id
+             << ": launchGpuCode: prepare query execution: " << timer_stop(prepare_start)
+             << " ms";
+-    auto kernel_start = timer_start();
++    double kernel_ms{0.0};
+     if (hoist_literals) {
+-      VLOG(1) << "Launching(" << kernel->name() << ") on device_id(" << device_id << ')';
+-      kernel->launch(grid_size_x,
+-                     grid_size_y,
+-                     grid_size_z,
+-                     block_size_x,
+-                     block_size_y,
+-                     block_size_z,
+-                     compilation_result,
+-                     &param_ptrs[0],
+-                     kernel_params_log,
+-                     optimize_cuda_block_and_grid_sizes);
++      kernel_ms = launch_query_kernel(param_ptrs);
+     } else {
+       param_ptrs.erase(param_ptrs.begin() + int(KP::LITERALS));  // TODO(alex): remove
+-      VLOG(1) << "Launching(" << kernel->name() << ") on device_id(" << device_id << ')';
+-      kernel->launch(grid_size_x,
+-                     grid_size_y,
+-                     grid_size_z,
+-                     block_size_x,
+-                     block_size_y,
+-                     block_size_z,
+-                     compilation_result,
+-                     &param_ptrs[0],
+-                     kernel_params_log,
+-                     optimize_cuda_block_and_grid_sizes);
++      kernel_ms = launch_query_kernel(param_ptrs);
+     }
+     VLOG(1) << "Device " << device_id
+-            << ": launchGpuCode: query execution: " << timer_stop(kernel_start) << " ms";
++            << ": launchGpuCode: query execution: " << kernel_ms << " ms";
+     query_resultset_copy_start = timer_start();
+     device_allocator_->copyFromDevice(reinterpret_cast<int8_t*>(error_codes.data()),
+                                       reinterpret_cast<int8_t*>(err_desc),
+@@ -500,36 +550,16 @@ std::vector<int64_t*> QueryExecutionContext::launchGpuCode(
+     VLOG(1) << "Device " << device_id
+             << ": launchGpuCode: prepare query execution: " << timer_stop(prepare_start)
+             << " ms";
+-    auto kernel_start = timer_start();
++    double kernel_ms{0.0};
+     if (hoist_literals) {
+-      VLOG(1) << "Launching(" << kernel->name() << ") on device_id(" << device_id << ')';
+-      kernel->launch(grid_size_x,
+-                     grid_size_y,
+-                     grid_size_z,
+-                     block_size_x,
+-                     block_size_y,
+-                     block_size_z,
+-                     compilation_result,
+-                     &param_ptrs[0],
+-                     kernel_params_log,
+-                     optimize_cuda_block_and_grid_sizes);
++      kernel_ms = launch_query_kernel(param_ptrs);
+     } else {
+       param_ptrs.erase(param_ptrs.begin() + int(KP::LITERALS));  // TODO(alex): remove
+-      VLOG(1) << "Launching(" << kernel->name() << ") on device_id(" << device_id << ')';
+-      kernel->launch(grid_size_x,
+-                     grid_size_y,
+-                     grid_size_z,
+-                     block_size_x,
+-                     block_size_y,
+-                     block_size_z,
+-                     compilation_result,
+-                     &param_ptrs[0],
+-                     kernel_params_log,
+-                     optimize_cuda_block_and_grid_sizes);
++      kernel_ms = launch_query_kernel(param_ptrs);
+     }
+ 
+     VLOG(1) << "Device " << device_id
+-            << ": launchGpuCode: query execution: " << timer_stop(kernel_start) << " ms";
++            << ": launchGpuCode: query execution: " << kernel_ms << " ms";
+     query_resultset_copy_start = timer_start();
+     device_allocator_->copyFromDevice(&error_codes[0],
+                                       err_desc,
+@@ -578,6 +608,18 @@ std::vector<int64_t*> QueryExecutionContext::launchGpuCode(
+   }
+   VLOG(1) << "Device " << device_id << ": launchGpuCode: copy query resultset: "
+           << timer_stop(query_resultset_copy_start) << " ms";
++  if (bench_profile_enabled) {
++    const auto gpu_envelope_end = std::chrono::steady_clock::now();
++    const auto gpu_envelope_us =
++        std::chrono::duration_cast<std::chrono::microseconds>(gpu_envelope_end -
++                                                              gpu_envelope_start)
++            .count();
++    LOG(INFO) << "HEAVYDB_BENCH_GPU_EXEC_ENVELOPE_MS"
++              << " device_id=" << device_id << " kernel=" << kernel->name()
++              << " num_fragments=" << num_fragments
++              << " elapsed_us=" << gpu_envelope_us
++              << " elapsed_ms=" << static_cast<double>(gpu_envelope_us) / 1000.0;
++  }
+   return out_vec;
+ }
+ 
+diff --git a/TableArchiver/TableArchiver.cpp b/TableArchiver/TableArchiver.cpp
+index ffe26ff2c4..37eb63263b 100644
+--- a/TableArchiver/TableArchiver.cpp
++++ b/TableArchiver/TableArchiver.cpp
+@@ -18,7 +18,7 @@
+ 
+ #include <algorithm>
+ #include <boost/filesystem.hpp>
+-#include <boost/process.hpp>
++#include <boost/process/v1.hpp>
+ #include <boost/range/combine.hpp>
+ #include <boost/uuid/uuid_generators.hpp>
+ #include <boost/uuid/uuid_io.hpp>
+@@ -95,7 +95,7 @@ inline std::string run(const std::string& cmd,
+   std::error_code ec;
+   std::string output, errors;
+   const auto time_ms = measure<>::execution([&]() {
+-    using namespace boost::process;
++    using namespace boost::process::v1;
+     ipstream stdout, stderr;
+     if (!chdir.empty()) {
+       rcode = system(cmd, std_out > stdout, std_err > stderr, ec, start_dir = chdir);
+diff --git a/ThriftHandler/DBHandler.cpp b/ThriftHandler/DBHandler.cpp
+index 6123b2304a..c873fa74ce 100644
+--- a/ThriftHandler/DBHandler.cpp
++++ b/ThriftHandler/DBHandler.cpp
+@@ -104,6 +104,7 @@
+ #include <chrono>
+ #include <cmath>
+ #include <csignal>
++#include <cstdlib>
+ #include <fstream>
+ #include <future>
+ #include <map>
+@@ -164,6 +165,16 @@ bool dashboard_exists(const Catalog_Namespace::Catalog& cat,
+   return (cat.getMetadataForDashboard(std::to_string(user_id), dashboard_name));
+ }
+ 
++bool bench_profile_query_enabled() {
++  const auto value = std::getenv("HEAVYDB_BENCH_PROFILE_QUERY");
++  if (!value || !*value) {
++    return false;
++  }
++  const std::string flag{value};
++  return flag != "0" && flag != "false" && flag != "FALSE" && flag != "off" &&
++         flag != "OFF";
++}
++
+ struct ForceDisconnect : public std::runtime_error {
+   ForceDisconnect(const std::string& cause) : std::runtime_error(cause) {}
+ };
+@@ -1254,6 +1265,8 @@ void DBHandler::convertData(TQueryResult& _return,
+     return;
+   }
+ 
++  const auto bench_profile_enabled = bench_profile_query_enabled();
++  const auto convert_start = std::chrono::steady_clock::now();
+   switch (result.getResultType()) {
+     case ExecutionResult::QueryResult:
+       convertRows(_return,
+@@ -1280,6 +1293,17 @@ void DBHandler::convertData(TQueryResult& _return,
+                   -1);
+       break;
+   }
++  if (bench_profile_enabled) {
++    const auto convert_end = std::chrono::steady_clock::now();
++    const auto convert_us =
++        std::chrono::duration_cast<std::chrono::microseconds>(convert_end -
++                                                              convert_start)
++            .count();
++    LOG(INFO) << "HEAVYDB_BENCH_THRIFT_RESULT_CONVERT_MS"
++              << " result_type=" << static_cast<int>(result.getResultType())
++              << " elapsed_us=" << convert_us
++              << " elapsed_ms=" << static_cast<double>(convert_us) / 1000.0;
++  }
+ }
+ 
+ void DBHandler::sql_execute(TQueryResult& _return,
+diff --git a/java/calcite/pom.xml b/java/calcite/pom.xml
+index 1056e4f591..8472feae38 100644
+--- a/java/calcite/pom.xml
++++ b/java/calcite/pom.xml
+@@ -102,6 +102,7 @@
+     <!-- End of transitive dependencies updates -->
+   </dependencies>
+   <build>
++    <directory>${heavydb.maven.target.root}/${project.artifactId}</directory>
+     <plugins>
+       <plugin>
+         <groupId>org.codehaus.mojo</groupId>
+diff --git a/java/heavyaijdbc/pom.xml b/java/heavyaijdbc/pom.xml
+index 303f9c1757..142d6237cb 100644
+--- a/java/heavyaijdbc/pom.xml
++++ b/java/heavyaijdbc/pom.xml
+@@ -62,6 +62,7 @@
+     </dependency>
+   </dependencies>
+   <build>
++    <directory>${heavydb.maven.target.root}/${project.artifactId}</directory>
+     <plugins>
+       <plugin>
+         <groupId>org.apache.maven.plugins</groupId>
+diff --git a/java/heavydb/pom.xml b/java/heavydb/pom.xml
+index 621935903d..8cc84cf77a 100644
+--- a/java/heavydb/pom.xml
++++ b/java/heavydb/pom.xml
+@@ -39,6 +39,7 @@
+     </dependency>
+   </dependencies>
+   <build>
++    <directory>${heavydb.maven.target.root}/${project.artifactId}</directory>
+     <plugins>
+       <plugin>
+         <artifactId>maven-assembly-plugin</artifactId>
+diff --git a/java/heavydbcommon/pom.xml b/java/heavydbcommon/pom.xml
+index b3db84d915..9a883199a1 100644
+--- a/java/heavydbcommon/pom.xml
++++ b/java/heavydbcommon/pom.xml
+@@ -71,6 +71,7 @@
+     <!-- End of transitive dependencies updates -->
+   </dependencies>
+   <build>
++    <directory>${heavydb.maven.target.root}/${project.artifactId}</directory>
+     <plugins>
+       <plugin>
+         <artifactId>maven-assembly-plugin</artifactId>
+diff --git a/java/heavydbcommon/src/main/java/com/mapd/common/SockTransportProperties.java b/java/heavydbcommon/src/main/java/com/mapd/common/SockTransportProperties.java
+index 63bf2658c3..56d6c4e4cc 100644
+--- a/java/heavydbcommon/src/main/java/com/mapd/common/SockTransportProperties.java
++++ b/java/heavydbcommon/src/main/java/com/mapd/common/SockTransportProperties.java
+@@ -263,16 +263,7 @@ public class SockTransportProperties {
+     try {
+       SSLContext sc = SSLContext.getInstance("TLS");
+       sc.init(null, trustManagers, new java.security.SecureRandom());
+-      SSLConnectionSocketFactory sslConnectionSocketFactory = null;
+-      sslConnectionSocketFactory =
+-              new SSLConnectionSocketFactory(sc, x509HostnameVerifier_);
+-
+-      CloseableHttpClient closeableHttpClient =
+-              HttpClients.custom()
+-                      .setSSLSocketFactory(sslConnectionSocketFactory)
+-                      .build();
+-      transport =
+-              new THttpClient("https://" + server_host + ":" + port, closeableHttpClient);
++      transport = new THttpClient("https://" + server_host + ":" + port);
+ 
+     } catch (Exception ex) {
+       String err_str = new String("Exception:" + ex.getClass().getCanonicalName()
+diff --git a/java/pom.xml b/java/pom.xml
+index 53cfad5cc9..a9a40df587 100644
+--- a/java/pom.xml
++++ b/java/pom.xml
+@@ -5,6 +5,12 @@
+   <artifactId>parent</artifactId>
+   <packaging>pom</packaging>
+   <version>1.0-SNAPSHOT</version>
++  <properties>
++    <heavydb.maven.target.root>${project.basedir}/target</heavydb.maven.target.root>
++  </properties>
++  <build>
++    <directory>${heavydb.maven.target.root}/${project.artifactId}</directory>
++  </build>
+   <repositories>
+     <repository>
+       <id>MapD Dependencies</id>
+diff --git a/java/thrift/pom.xml b/java/thrift/pom.xml
+index ac0ded5d56..709859d055 100644
+--- a/java/thrift/pom.xml
++++ b/java/thrift/pom.xml
+@@ -44,6 +44,7 @@
+     </dependency>
+   </dependencies>
+   <build>
++    <directory>${heavydb.maven.target.root}/${project.artifactId}</directory>
+     <plugins>
+       <plugin>
+         <groupId>org.codehaus.mojo</groupId>
+diff --git a/java/utility/pom.xml b/java/utility/pom.xml
+index bc37fb8118..40fb8f24c5 100644
+--- a/java/utility/pom.xml
++++ b/java/utility/pom.xml
+@@ -99,6 +99,7 @@
+     </dependency>
+   </dependencies>
+   <build>
++    <directory>${heavydb.maven.target.root}/${project.artifactId}</directory>
+     <plugins>
+       <plugin>
+         <groupId>org.codehaus.mojo</groupId>

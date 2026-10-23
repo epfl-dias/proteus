@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -40,8 +40,8 @@ class Reduce : public experimental::UnaryOperator {
   Reduce(std::vector<agg_t> aggs, expression_t pred, Operator *const child)
       : UnaryOperator(child), aggs(std::move(aggs)), pred(std::move(pred)) {}
 
-  void produce_(ParallelContext *context) override;
-  void consume(ParallelContext *context,
+  void produce_(OlapParallelContext *context) override;
+  void consume(OlapParallelContext *context,
                const OperatorState &childState) override;
   [[nodiscard]] bool isFiltering() const override { return true; }
 
@@ -59,15 +59,15 @@ class Reduce : public experimental::UnaryOperator {
   std::vector<StateVar> mem_accumulators;
 
  protected:
-  virtual void generate_flush(ParallelContext *context);
+  virtual void generate_flush(OlapParallelContext *context);
 
   virtual StateVar resetAccumulator(const agg_t &agg, bool is_first,
                                     bool is_last,
-                                    ParallelContext *context) const;
+                                    OlapParallelContext *context) const;
 
   // Used to enable chaining with subsequent operators
   virtual void generateBagUnion(const expression_t &outputExpr,
-                                ParallelContext *context,
+                                OlapParallelContext *context,
                                 const OperatorState &state,
                                 llvm::Value *cnt_mem) const;
 };

@@ -24,9 +24,8 @@
 #ifndef ERROR_HANDLING_HPP_
 #define ERROR_HANDLING_HPP_
 
-#include <glog/logging.h>
-
 #include <platform/common/common.hpp>
+#include <platform/util/glog.hpp>
 
 namespace errorhanding {
 [[noreturn]] inline void failedLinuxRun(const char *str, const char *file,

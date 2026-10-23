@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2019
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -21,6 +21,8 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include <codegen/jit/pipeline.hpp>
+#include <gflags/gflags.h>
 #include <olap/plan/prepared-statement.hpp>
 #include <olap/util/parallel-context.hpp>
 #include <platform/memory/memory-manager.hpp>
@@ -28,15 +30,28 @@
 #include <platform/topology/topology.hpp>
 #include <platform/util/profiling.hpp>
 #include <platform/util/timing.hpp>
+#include <platform/util/tracing.hpp>
 #include <utility>
 
 #include "lib/util/caching.hpp"
 #include "lib/util/catalog.hpp"
 #include "lib/util/flush-operator-tree.hpp"
-#include "lib/util/jit/pipeline.hpp"
+#include "olap/plugins/binary-block-nvme-plugin.hpp"
 #include "plan-parser.hpp"
 
 static constexpr auto defaultCatalogJSON = "inputs";
+DECLARE_bool(pre_decom);
+
+namespace {
+inline void schedulePreDecompressForThisExecuteIfNeeded() {
+  if (!FLAGS_pre_decom) return;
+  Catalog::getInstance().forEachPlugin([](Plugin *pg) {
+    if (auto *nvme_pg = dynamic_cast<NvmePlugin *>(pg)) {
+      nvme_pg->schedulePreDecompressOnNextScan();
+    }
+  });
+}
+}  // namespace
 
 QueryResult PreparedStatement::execute() {
   std::vector<std::chrono::milliseconds> tlog;
@@ -82,6 +97,8 @@ QueryResult PreparedStatement::execute(
 QueryResult PreparedStatement::execute(
     std::vector<std::chrono::milliseconds> &tlog,
     std::function<time_block(const char *)> f, const void *session) {
+  schedulePreDecompressForThisExecuteIfNeeded();
+
   bool freePtr = false;
   if (!session) {
     session = MemoryManager::mallocPinned(sizeof(size_t));
@@ -112,15 +129,18 @@ QueryResult PreparedStatement::execute(
 
     {
       time_block texecute = f("Texecute       : ");
+      event_range<range_log_op::QUERY_EXECUTE> er{{}};
 
       for (auto &p : pipelines) {
         nvtxRangePushA("pip");
+        event_range<range_log_op::OPERATOR_PIPELINE_EXECUTE> er_pip{
+            planRoot->getUUID()};
         {
           time_block t2([&](const auto &tmil) { tlog.emplace_back(tmil); });
           time_block t = f("T: ");
 
           p->open(session);
-          p->consume(0);
+          p->consume();
           p->close();
 
           std::cout << std::dec;
@@ -142,7 +162,7 @@ QueryResult PreparedStatement::execute(
 
   if (freePtr) MemoryManager::freePinned(const_cast<void *>(session));
 
-  return {outputFile};
+  return QueryResult{outputFile};
 }
 
 PreparedStatement PreparedStatement::from(const std::string &planPath,
@@ -168,13 +188,12 @@ PreparedStatement PreparedStatement::from(
   {
     time_block t("Tcodegen: ");
 
-    auto ctx = new ParallelContext(label, false);
-    CatalogParser catalog{defaultCatalogJSON, ctx};
-    auto label_ptr = new std::string{label};
+    auto ctx = std::make_shared<OlapParallelContext>(label, false);
+    CatalogParser catalog{defaultCatalogJSON, ctx.get()};
     PlanExecutor exec{planPath.c_str(), catalog, std::move(affFactory),
-                      label_ptr->c_str()};
+                      label.c_str()};
 
-    return exec.builtPlan.prepare();
+    return exec.builtPlan.prepare(ctx);
   }
 }
 
@@ -197,12 +216,11 @@ PreparedStatement PreparedStatement::from(
   {
     time_block t("Tcodegen: ");
 
-    auto ctx = new ParallelContext(label, false);
-    CatalogParser catalog{catalogJSON.c_str(), ctx};
-    auto label_ptr = new std::string{label};
-    PlanExecutor exec{planPath, catalog, label_ptr->c_str()};
+    auto ctx = std::make_shared<OlapParallelContext>(label, false);
+    CatalogParser catalog{catalogJSON.c_str(), ctx.get()};
+    PlanExecutor exec{planPath, catalog, label.c_str()};
 
-    return exec.builtPlan.prepare();
+    return exec.builtPlan.prepare(ctx);
   }
 }
 
@@ -216,8 +234,10 @@ std::vector<std::shared_ptr<Pipeline>> uniqueToShared(
 
 PreparedStatement::PreparedStatement(
     std::vector<std::unique_ptr<Pipeline>> pips, std::string outputFile,
-    std::shared_ptr<Operator> planRoot)
-    : pipelines(uniqueToShared(std::move(pips))),
+    std::shared_ptr<Operator> planRoot,
+    std::shared_ptr<ParallelContext> compiled_context)
+    : compiled_context(std::move(compiled_context)),
+      pipelines(uniqueToShared(std::move(pips))),
       outputFile(std::move(outputFile)),
       planRoot(std::move(planRoot)) {}
 

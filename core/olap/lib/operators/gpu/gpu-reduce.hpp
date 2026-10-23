@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -35,16 +35,17 @@ namespace opt {
 class GpuReduce : public Reduce {
  public:
   GpuReduce(std::vector<agg_t> accs, expression_t pred, Operator *child);
-  void consume(ParallelContext *context,
+  void consume(OlapParallelContext *context,
                const OperatorState &childState) override;
 
  protected:
   void generateBagUnion(const expression_t &outputExpr,
-                        ParallelContext *context, const OperatorState &state,
+                        OlapParallelContext *context,
+                        const OperatorState &state,
                         llvm::Value *cnt_mem) const override;
 
  private:
-  void generate(const agg_t &agg, ParallelContext *context,
+  void generate(const agg_t &agg, OlapParallelContext *context,
                 const OperatorState &childState, llvm::Value *mem_accumulating,
                 llvm::Value *global_accumulator_ptr) const;
 };

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,12 +23,13 @@
 
 #include "hash-join-chained.hpp"
 
+#include <codegen/jit/pipeline.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <utility>
 
 #include "lib/expressions/expressions-hasher.hpp"
 #include "lib/operators/gpu/gmonoids.hpp"
-#include "lib/util/jit/pipeline.hpp"
+#include "olap/util/parallel-context.hpp"
 
 using namespace llvm;
 
@@ -55,7 +56,7 @@ HashJoinChained::HashJoinChained(std::vector<GpuMatExpr> build_mat_exprs,
       maxBuildInputSize(maxBuildInputSize),
       opLabel(std::move(opLabel)) {}
 
-void HashJoinChained::produce_(ParallelContext *context) {
+void HashJoinChained::produce_(OlapParallelContext *context) {
   context->pushPipeline();  // FIXME: find a better way to do this
   buildHashTableFormat(context);
 
@@ -79,12 +80,12 @@ void HashJoinChained::produce_(ParallelContext *context) {
 
 void HashJoinChained::consume(Context *const context,
                               const OperatorState &childState) {
-  auto *ctx = dynamic_cast<ParallelContext *>(context);
+  auto *ctx = dynamic_cast<OlapParallelContext *>(context);
   assert(ctx);
   consume(ctx, childState);
 }
 
-void HashJoinChained::consume(ParallelContext *const context,
+void HashJoinChained::consume(OlapParallelContext *const context,
                               const OperatorState &childState) {
   const Operator &caller = childState.getProducer();
 
@@ -95,7 +96,7 @@ void HashJoinChained::consume(ParallelContext *const context,
   }
 }
 
-void HashJoinChained::probeHashTableFormat(ParallelContext *context) {
+void HashJoinChained::probeHashTableFormat(OlapParallelContext *context) {
   // assumes than build has already run
 
   Type *int32_type = Type::getInt32Ty(context->getLLVMContext());
@@ -159,7 +160,7 @@ void HashJoinChained::probeHashTableFormat(ParallelContext *context) {
   // cnt_param_id = context->appendParameter(t_cnt, true, false);
 }
 
-void HashJoinChained::buildHashTableFormat(ParallelContext *context) {
+void HashJoinChained::buildHashTableFormat(OlapParallelContext *context) {
   build_mat_exprs.emplace_back(new expressions::IntConstant(0), 0, 0);
   build_mat_exprs.emplace_back(build_keyexpr, 0, 32);
 
@@ -238,7 +239,7 @@ Value *HashJoinChained::hash(const expression_t &exprs, Context *const context,
   return context->getBuilder()->CreateURem(hash, size);
 }
 
-llvm::Value *HashJoinChained::nextIndex(ParallelContext *context) {
+llvm::Value *HashJoinChained::nextIndex(OlapParallelContext *context) {
   // TODO: consider using just the object id as the index, instead of the atomic
   //  index
   Value *out_cnt = context->getStateVar(cnt_param_id);
@@ -251,7 +252,7 @@ llvm::Value *HashJoinChained::nextIndex(ParallelContext *context) {
   return v;
 }
 
-llvm::Value *HashJoinChained::replaceHead(ParallelContext *context,
+llvm::Value *HashJoinChained::replaceHead(OlapParallelContext *context,
                                           llvm::Value *h_ptr,
                                           llvm::Value *index) {
   Value *old_head = context->workerScopedAtomicXchg(h_ptr, index);
@@ -259,7 +260,7 @@ llvm::Value *HashJoinChained::replaceHead(ParallelContext *context,
   return old_head;
 }
 
-void HashJoinChained::generate_build(ParallelContext *context,
+void HashJoinChained::generate_build(OlapParallelContext *context,
                                      const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
 
@@ -318,7 +319,7 @@ void HashJoinChained::generate_build(ParallelContext *context,
   }
 }
 
-void HashJoinChained::generate_probe(ParallelContext *context,
+void HashJoinChained::generate_probe(OlapParallelContext *context,
                                      const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();

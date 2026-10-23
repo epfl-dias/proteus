@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -44,8 +44,8 @@ class HashJoinChained : public BinaryOperator {
     LOG(INFO) << "Collapsing HashJoinChained operator";
   }
 
-  void produce_(ParallelContext *context) override;
-  virtual void consume(ParallelContext *const context,
+  void produce_(OlapParallelContext *context) override;
+  virtual void consume(OlapParallelContext *const context,
                        const OperatorState &childState);
   void consume(Context *const context,
                const OperatorState &childState) override;
@@ -111,16 +111,16 @@ class HashJoinChained : public BinaryOperator {
   }
 
  protected:
-  void generate_build(ParallelContext *context,
+  void generate_build(OlapParallelContext *context,
                       const OperatorState &childState);
-  void generate_probe(ParallelContext *context,
+  void generate_probe(OlapParallelContext *context,
                       const OperatorState &childState);
-  void buildHashTableFormat(ParallelContext *context);
-  void probeHashTableFormat(ParallelContext *context);
+  void buildHashTableFormat(OlapParallelContext *context);
+  void probeHashTableFormat(OlapParallelContext *context);
 
-  virtual llvm::Value *nextIndex(ParallelContext *context);
-  virtual llvm::Value *replaceHead(ParallelContext *context, llvm::Value *h_ptr,
-                                   llvm::Value *index);
+  virtual llvm::Value *nextIndex(OlapParallelContext *context);
+  virtual llvm::Value *replaceHead(OlapParallelContext *context,
+                                   llvm::Value *h_ptr, llvm::Value *index);
 
   llvm::Value *hash(const expression_t &exprs, Context *const context,
                     const OperatorState &childState) const;

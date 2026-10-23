@@ -163,7 +163,7 @@ int main(int argc, char** argv) {
     x = dist(gen);
   }
 
-  vector<uint64_t> cases(n);
+  std::vector<uint64_t> cases(n);
   iota(cases.begin(), cases.end(), 0);
   unsigned seed = 0;
   std::shuffle(cases.begin(), cases.end(), std::default_random_engine(seed));

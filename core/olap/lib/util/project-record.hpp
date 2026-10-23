@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2019
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -26,7 +26,7 @@
 
 #include <llvm/IR/IRBuilder.h>
 
-#include <olap/values/expressionTypes.hpp>
+#include <codegen/expressions/expressionTypes.hpp>
 
 llvm::Value *projectArg(const RecordType *type, llvm::Value *record,
                         RecordAttribute *attr,

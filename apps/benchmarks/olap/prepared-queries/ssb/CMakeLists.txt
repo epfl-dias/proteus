@@ -2,7 +2,7 @@ project(ssb VERSION 0.1 LANGUAGES CXX)
 
 # Pure, regular C++ files
 add_library(${PROJECT_NAME} SHARED
-  q1_1.cpp
+  q1_1_nojoin.cpp
   q1_2.cpp
   q1_3.cpp
   q2_1.cpp

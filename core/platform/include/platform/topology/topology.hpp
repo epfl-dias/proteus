@@ -24,6 +24,7 @@
 #ifndef TOPOLOGY_HPP_
 #define TOPOLOGY_HPP_
 
+#include <filesystem>
 #include <iostream>
 #include <platform/common/gpu/gpu-common.hpp>
 #include <platform/network/infiniband/devices/ib.hpp>
@@ -31,7 +32,7 @@
 #include <vector>
 
 #ifndef NCUDA
-#include "nvml.h"
+#include <nvml.h>
 #else
 #define nvmlDevice_t void *
 #define nvmlGpuTopologyLevel_t void *
@@ -75,6 +76,14 @@ class topology {
     inline explicit numanode(
         // do not remove argument!!!
         topologyonly_construction = {}) {}
+
+    /**
+     *
+     * @return The id of the cpuNumaNode to which this numanode is associated
+     * with. For example, the cpuNumaNode a GPU or NVMe is physically attached
+     * to.
+     */
+    virtual uint32_t getLocalCpuId() const = 0;
 
     // Do not allow copies
     numanode(const numanode &) = delete;
@@ -126,10 +135,17 @@ class topology {
     nvmeStorage &operator=(nvmeStorage &&) = delete;
 
     /**
+     * @return the mount path of this nvmeStorage device, if it is mounted
+     */
+    std::optional<std::filesystem::path> getMountPath() const;
+
+    /**
      *
      * @return The cpunumanode to which this nvmeStorage belongs
      */
     const cpunumanode &getLocalCPUNumaNode() const;
+
+    uint32_t getLocalCpuId() const override { return local_cpu_id; }
 
     /**
      * Calling this function is undefined. See
@@ -150,6 +166,7 @@ class topology {
    public:
     const uint32_t id;
     const uint32_t index_in_topo;
+    const uint32_t package_id;
 
     std::vector<uint32_t> distance;
 
@@ -174,6 +191,8 @@ class topology {
     void *alloc(size_t bytes) const;
     static void free(void *mem, size_t bytes);
     size_t getMemorySize() const;
+
+    uint32_t getLocalCpuId() const override { return id; }
 
     const core &getCore(size_t i) const {
       assert(i < local_cores.size());
@@ -268,6 +287,8 @@ class topology {
      */
     const cpunumanode &getLocalCPUNumaNode() const;
 
+    uint32_t getLocalCpuId() const override { return local_cpu_id; }
+
     /**
      * Moves execution of this scope to this gpunode
      * @return a set_exec_location_on_scope, code within the containing scope
@@ -307,6 +328,12 @@ class topology {
   void init_nvmeStorage();
 
   /**
+   * initialize the cufile driver
+   * @return false if cufile is not available or incorrectly configured
+   */
+  bool init_cufile();
+
+  /**
    * Maps a pcie address to a cpunumanode id
    * @param address string in the form '0000:04:00.0' as you may get from a cli
    * utility
@@ -320,17 +347,27 @@ class topology {
   static void init();
 
   static inline const topology &getInstance() {
-    assert(instance.getCoreCount() > 0 && "Is topology initialized?");
+    CHECK_GT(instance.getCoreCount(), 0) << "Is topology initialized?";
     return instance;
   }
 
   [[nodiscard]] inline uint32_t getGpuCount() const { return gpu_cnt; }
 
+  /**
+   * @return The number of logical CPU cores in the system (i.e including HTs)
+   */
   [[nodiscard]] inline uint32_t getCoreCount() const { return core_cnt; }
 
   [[nodiscard]] inline uint32_t getCpuNumaNodeCount() const {
     return cpu_info.size();
   }
+
+  /**
+   * @param devPath e.g /dev/nvme0n1. For NVMe this should include the
+   * namespace, but not the partition.
+   * @return nvmeStorage device that this file is physical located on
+   */
+  [[nodiscard]] const nvmeStorage &devPathToNvme(std::string devPath) const;
 
   [[nodiscard]] inline size_t getIBCount() const { return ib_info.size(); }
 
@@ -433,12 +470,21 @@ class topology {
     return cpu_info[cpunuma_index[id]];
   }
 
+  inline const std::vector<std::reference_wrapper<const cpunumanode>>
+  getCpuNumaNodesByPackageId(uint32_t package_id) const {
+    std::vector<std::reference_wrapper<const cpunumanode>> ret;
+    for (const auto &node : cpu_info) {
+      if (node.package_id == package_id) {
+        ret.emplace_back(node);
+      }
+    }
+    return ret;
+  }
+
   friend class exec_location;
   friend class affinity;
   friend class InfiniBandManager;
   friend int numa_node_of_gpu(int device);
-  friend int node_of_gpu(int device);
-  friend int get_rand_core_local_to_ptr(const void *p);
   friend std::ostream &operator<<(std::ostream &stream, const topology &topo);
   size_t getIBCount();
 };

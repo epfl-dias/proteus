@@ -1,0 +1,767 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c114781f..70b0085c 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -27,6 +27,8 @@ endif()
+ # Optional features
+ option(ENABLE_STREAM_CHECK
+        "Enable stream check library for debugging default stream usage" OFF)
++option(SIRIUS_LEGACY_ONLY
++       "Build only the legacy gpu_processing code path and exclude gpu_execution" OFF)
+ 
+ # In the vcpkg build, vcpkg headers must take priority over: 1) conda's CCCL
+ # 3.1.4 (injected via CXXFLAGS as -I.../include/cccl) 2) DuckDB's bundled fmt
+@@ -68,7 +70,6 @@ find_package(spdlog REQUIRED CONFIG)
+ find_package(yaml-cpp REQUIRED CONFIG)
+ find_package(absl REQUIRED CONFIG)
+ find_package(PkgConfig REQUIRED)
+-find_package(OpenSSL REQUIRED)
+ pkg_check_modules(NUMA REQUIRED IMPORTED_TARGET numa)
+ pkg_check_modules(LIBURING REQUIRED IMPORTED_TARGET liburing)
+ 
+@@ -135,146 +136,147 @@ if(VCPKG_BUILD AND TARGET CUDA::cudart_static)
+   endforeach()
+ endif()
+ 
+-# Rust telemetry instrumentation (C++ FFI via Corrosion)
+-add_subdirectory(rust/crates/telemetry/bridge)
+-
+ # cmake-format: off
+-set(EXTENSION_SOURCES
+-    src/config.cpp
+-    src/helper/type_conversions.cpp
+-    src/debug_utils.cpp
+-    src/creator/task_creator.cpp
+-    src/data/host_parquet_representation.cpp
+-    src/data/host_parquet_representation_converters.cpp
+-    src/downgrade/downgrade_executor.cpp
+-    src/expression/expression.cpp
+-    src/expression/join_condition.cpp
+-    src/expression/value.cpp
+-    src/expression_executor/expression_executor_strategy.cpp
+-    src/expression_executor/gpu_expression_executor.cpp
+-    src/expression_executor/gpu_expression_translator.cpp
+-    src/expression_executor/regex/regex_playground.cpp
+-    src/expression_executor/specializations/gpu_execute_between.cpp
+-    src/expression_executor/specializations/gpu_execute_case.cpp
+-    src/expression_executor/specializations/gpu_execute_cast.cpp
+-    src/expression_executor/specializations/gpu_execute_comparison.cpp
+-    src/expression_executor/specializations/gpu_execute_conjunction.cpp
+-    src/expression_executor/specializations/gpu_execute_constant.cpp
+-    src/expression_executor/specializations/gpu_execute_function.cpp
+-    src/expression_executor/specializations/gpu_execute_operator.cpp
+-    src/expression_executor/specializations/gpu_execute_reference.cpp
+-    src/io/admission_control.cpp
+-    src/io/datasource_factory.cpp
+-    src/io/prefetching_cache.cpp
+-    src/io/s3/sigv4.cpp
+-    src/io/s3/sirius_sigv4_credential_provider.cpp
+-    src/io/sirius_datasource.cpp
+-    src/io/uri_parser.cpp
+-    src/io/uring/uring_ioctx.cpp
+-    src/io/uring/uring_reactor.cpp
+-    src/memory/defragmenter_oom_policy.cpp
+-    src/memory/sirius_memory_reservation_manager.cpp
+-    src/op/aggregate/aggregate_op_util.cpp
+-    src/op/aggregate/gpu_aggregate_impl.cpp
+-    src/op/merge/gpu_merge_impl.cpp
+-    src/op/order/gpu_order_impl.cpp
+-    src/op/partition/gpu_partition_impl.cpp
+-    src/op/result/host_table_chunk_reader.cpp
+-    src/op/scan/cached_ranges.cpp
+-    src/op/scan/duckdb_scan_executor.cpp
+-    src/op/scan/cpu_source_task.cpp
+-    src/op/scan/duckdb_scan_task.cpp
+-    src/op/scan/equality_delete_filter.cpp
+-    src/op/scan/hive_partition.cpp
+-    src/op/scan/iceberg_avro_reader.cpp
+-    src/op/scan/iceberg_delete_pipeline.cpp
+-    src/op/scan/iceberg_metadata_reader.cpp
+-    src/op/scan/iceberg_scan_task.cpp
+-    src/op/scan/positional_delete_filter.cpp
+-    src/op/scan/puffin_reader.cpp
+-    src/op/scan/parquet_scan_task.cpp
+-    src/op/scan/parquet_schema_mapping.cpp
+-    src/op/scan/prefetched_data_source.cpp
+-    src/op/scan/scan_plan.cpp
+-    src/op/scan/scan_utils.cpp
+-    src/op/scan/sirius_gpu_parquet_scan_operator.cpp
+-    src/op/sirius_physical_column_data_scan.cpp
+-    src/op/sirius_physical_cpu_source.cpp
+-    src/op/sirius_physical_concat.cpp
+-    src/op/sirius_physical_cte.cpp
+-    src/op/sirius_physical_delim_join.cpp
+-    src/op/sirius_physical_duckdb_scan.cpp
+-    src/op/sirius_physical_dummy_scan.cpp
+-    src/op/sirius_physical_empty_result.cpp
+-    src/op/sirius_physical_filter.cpp
+-    src/op/sirius_physical_grouped_aggregate.cpp
+-    src/op/sirius_physical_grouped_aggregate_merge.cpp
+-    src/op/sirius_physical_hash_join.cpp
+-    src/op/sirius_physical_limit.cpp
+-    src/op/sirius_physical_merge_sort.cpp
+-    src/op/sirius_physical_nested_loop_join.cpp
+-    src/op/sirius_physical_operator.cpp
+-    src/op/sirius_physical_operator_type.cpp
+-    src/op/sirius_physical_order.cpp
+-    src/op/sirius_physical_iceberg_scan.cpp
+-    src/op/sirius_physical_parquet_scan.cpp
+-    src/op/sirius_physical_partition.cpp
+-    src/op/sirius_physical_partition_consumer_operator.cpp
+-    src/op/sirius_physical_projection.cpp
+-    src/op/sirius_physical_result_collector.cpp
+-    src/op/sirius_physical_sort_partition.cpp
+-    src/op/sirius_physical_sort_sample.cpp
+-    src/op/sirius_physical_table_scan.cpp
+-    src/op/sirius_physical_top_n.cpp
+-    src/op/sirius_physical_ungrouped_aggregate.cpp
+-    src/parallel/task_executor.cpp
+-    src/pipeline/gpu_pipeline_executor.cpp
+-    src/pipeline/gpu_pipeline_task.cpp
+-    src/pipeline/task_scheduler.cpp
+-    src/pipeline/sirius_meta_pipeline.cpp
+-    src/pipeline/sirius_pipeline.cpp
+-    src/pipeline/sirius_pipeline_converter.cpp
+-    src/pipeline/sirius_plan_printer.cpp
+-    src/pipeline/task_request.cpp
+-    src/planner/query.cpp
+-    src/planner/sirius_physical_plan_generator.cpp
+-    src/planner/sirius_plan_aggregate.cpp
+-    src/planner/sirius_plan_column_data_get.cpp
+-    src/planner/sirius_plan_comparison_join.cpp
+-    src/planner/sirius_plan_cte.cpp
+-    src/planner/sirius_plan_delim_get.cpp
+-    src/planner/sirius_plan_delim_join.cpp
+-    src/planner/sirius_plan_dummy_scan.cpp
+-    src/planner/sirius_plan_empty_result.cpp
+-    src/planner/sirius_plan_expression_get.cpp
+-    src/planner/sirius_plan_filter.cpp
+-    src/planner/sirius_plan_get.cpp
+-    src/planner/sirius_plan_limit.cpp
+-    src/planner/sirius_plan_order.cpp
+-    src/planner/sirius_plan_projection.cpp
+-    src/planner/sirius_plan_recursive_cte.cpp
+-    src/planner/sirius_plan_top_n.cpp
+-    src/scan_manager/cached_split_provider.cpp
+-    src/pin_table.cpp
+-    src/scan_manager/parquet_split_provider.cpp
+-    src/scan_manager/sirius_scan_manager.cpp
+-    src/scan_manager/split_connector.cpp
+-    src/sirius_config.cpp
+-    src/sirius_context.cpp
+-    src/sirius_engine.cpp
+-    src/sirius_extension.cpp
+-    src/sirius_interface.cpp
+-    src/telemetry/telemetry_context.cpp
+-    src/transparent/physical_sirius_execution.cpp
+-    src/transparent/sirius_optimizer_extension.cpp
+-    src/util/stream_check_wrapper.cpp
+-    src/util/segfault_backtrace_handler.cpp)
++if(SIRIUS_LEGACY_ONLY)
++  set(EXTENSION_SOURCES
++      src/config.cpp
++      src/expression_executor/expression_executor_strategy.cpp
++      src/expression_executor/regex/regex_playground.cpp
++      src/helper/type_conversions.cpp
++      src/sirius_extension.cpp
++      src/util/segfault_backtrace_handler.cpp)
++  set(CUDA_SOURCES)
++else()
++  set(EXTENSION_SOURCES
++      src/config.cpp
++      src/helper/type_conversions.cpp
++      src/debug_utils.cpp
++      src/creator/task_creator.cpp
++      src/data/host_parquet_representation.cpp
++      src/data/host_parquet_representation_converters.cpp
++      src/downgrade/downgrade_executor.cpp
++      src/expression/expression.cpp
++      src/expression/join_condition.cpp
++      src/expression_executor/expression_executor_strategy.cpp
++      src/expression_executor/gpu_expression_executor.cpp
++      src/expression_executor/gpu_expression_translator.cpp
++      src/expression_executor/regex/regex_playground.cpp
++      src/expression_executor/specializations/gpu_execute_between.cpp
++      src/expression_executor/specializations/gpu_execute_case.cpp
++      src/expression_executor/specializations/gpu_execute_cast.cpp
++      src/expression_executor/specializations/gpu_execute_comparison.cpp
++      src/expression_executor/specializations/gpu_execute_conjunction.cpp
++      src/expression_executor/specializations/gpu_execute_constant.cpp
++      src/expression_executor/specializations/gpu_execute_function.cpp
++      src/expression_executor/specializations/gpu_execute_operator.cpp
++      src/expression_executor/specializations/gpu_execute_reference.cpp
++      src/io/admission_control.cpp
++      src/io/prefetching_cache.cpp
++      src/io/sirius_datasource.cpp
++      src/io/uring/uring_ioctx.cpp
++      src/io/uring/uring_reactor.cpp
++      src/memory/defragmenter_oom_policy.cpp
++      src/memory/sirius_memory_reservation_manager.cpp
++      src/op/aggregate/aggregate_op_util.cpp
++      src/op/aggregate/gpu_aggregate_impl.cpp
++      src/op/merge/gpu_merge_impl.cpp
++      src/op/order/gpu_order_impl.cpp
++      src/op/partition/gpu_partition_impl.cpp
++      src/op/result/host_table_chunk_reader.cpp
++      src/op/scan/cached_ranges.cpp
++      src/op/scan/duckdb_scan_executor.cpp
++      src/op/scan/cpu_source_task.cpp
++      src/op/scan/duckdb_scan_task.cpp
++      src/op/scan/equality_delete_filter.cpp
++      src/op/scan/hive_partition.cpp
++      src/op/scan/iceberg_avro_reader.cpp
++      src/op/scan/iceberg_delete_pipeline.cpp
++      src/op/scan/iceberg_metadata_reader.cpp
++      src/op/scan/iceberg_scan_task.cpp
++      src/op/scan/positional_delete_filter.cpp
++      src/op/scan/puffin_reader.cpp
++      src/op/scan/parquet_scan_task.cpp
++      src/op/scan/parquet_schema_mapping.cpp
++      src/op/scan/prefetched_data_source.cpp
++      src/op/scan/scan_plan.cpp
++      src/op/scan/scan_utils.cpp
++      src/op/scan/sirius_gpu_parquet_scan_operator.cpp
++      src/op/sirius_physical_column_data_scan.cpp
++      src/op/sirius_physical_cpu_source.cpp
++      src/op/sirius_physical_concat.cpp
++      src/op/sirius_physical_cte.cpp
++      src/op/sirius_physical_delim_join.cpp
++      src/op/sirius_physical_duckdb_scan.cpp
++      src/op/sirius_physical_dummy_scan.cpp
++      src/op/sirius_physical_empty_result.cpp
++      src/op/sirius_physical_filter.cpp
++      src/op/sirius_physical_grouped_aggregate.cpp
++      src/op/sirius_physical_grouped_aggregate_merge.cpp
++      src/op/sirius_physical_hash_join.cpp
++      src/op/sirius_physical_limit.cpp
++      src/op/sirius_physical_merge_sort.cpp
++      src/op/sirius_physical_nested_loop_join.cpp
++      src/op/sirius_physical_operator.cpp
++      src/op/sirius_physical_operator_type.cpp
++      src/op/sirius_physical_order.cpp
++      src/op/sirius_physical_iceberg_scan.cpp
++      src/op/sirius_physical_parquet_scan.cpp
++      src/op/sirius_physical_partition.cpp
++      src/op/sirius_physical_partition_consumer_operator.cpp
++      src/op/sirius_physical_projection.cpp
++      src/op/sirius_physical_result_collector.cpp
++      src/op/sirius_physical_sort_partition.cpp
++      src/op/sirius_physical_sort_sample.cpp
++      src/op/sirius_physical_table_scan.cpp
++      src/op/sirius_physical_top_n.cpp
++      src/op/sirius_physical_ungrouped_aggregate.cpp
++      src/parallel/task_executor.cpp
++      src/pipeline/gpu_pipeline_executor.cpp
++      src/pipeline/gpu_pipeline_task.cpp
++      src/pipeline/task_scheduler.cpp
++      src/pipeline/sirius_meta_pipeline.cpp
++      src/pipeline/sirius_pipeline.cpp
++      src/pipeline/sirius_pipeline_converter.cpp
++      src/pipeline/sirius_plan_printer.cpp
++      src/pipeline/task_request.cpp
++      src/planner/query.cpp
++      src/planner/sirius_physical_plan_generator.cpp
++      src/planner/sirius_plan_aggregate.cpp
++      src/planner/sirius_plan_column_data_get.cpp
++      src/planner/sirius_plan_comparison_join.cpp
++      src/planner/sirius_plan_cte.cpp
++      src/planner/sirius_plan_delim_get.cpp
++      src/planner/sirius_plan_delim_join.cpp
++      src/planner/sirius_plan_dummy_scan.cpp
++      src/planner/sirius_plan_empty_result.cpp
++      src/planner/sirius_plan_expression_get.cpp
++      src/planner/sirius_plan_filter.cpp
++      src/planner/sirius_plan_get.cpp
++      src/planner/sirius_plan_limit.cpp
++      src/planner/sirius_plan_order.cpp
++      src/planner/sirius_plan_projection.cpp
++      src/planner/sirius_plan_recursive_cte.cpp
++      src/planner/sirius_plan_top_n.cpp
++      src/scan_manager/cached_split_provider.cpp
++      src/pin_table.cpp
++      src/scan_manager/parquet_split_provider.cpp
++      src/scan_manager/sirius_scan_manager.cpp
++      src/scan_manager/split_connector.cpp
++      src/sirius_config.cpp
++      src/sirius_context.cpp
++      src/sirius_engine.cpp
++      src/sirius_extension.cpp
++      src/sirius_interface.cpp
++      src/transparent/physical_sirius_execution.cpp
++      src/transparent/sirius_optimizer_extension.cpp
++      src/util/stream_check_wrapper.cpp
++      src/util/segfault_backtrace_handler.cpp)
++  set(CUDA_SOURCES src/op/scan/equality_delete_mask.cu)
++endif()
+ # cmake-format: on
+ 
+ # Legacy Sirius — all legacy-specific config lives in src/legacy/CMakeLists.txt.
+ # Deleting src/legacy/ cleanly removes legacy build support.
+-set(CUDA_SOURCES src/op/scan/equality_delete_mask.cu
+-                 src/cuda/scan/gpu_native_decode.cu)
+ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/legacy/CMakeLists.txt")
+   add_subdirectory(src/legacy)
+   list(APPEND EXTENSION_SOURCES ${SIRIUS_LEGACY_SOURCES}
+@@ -320,30 +322,26 @@ foreach(_target sirius_extension sirius_loadable_extension)
+     target_compile_definitions(${_target}
+                                PRIVATE ${SIRIUS_LEGACY_COMPILE_DEFINITIONS})
+   endif()
++  if(SIRIUS_LEGACY_ONLY)
++    target_compile_definitions(${_target} PRIVATE SIRIUS_LEGACY_ONLY)
++  endif()
+ 
+-  target_link_libraries(
+-    ${_target}
+-    cudf::cudf
+-    rmm::rmm
+-    spdlog::spdlog
+-    cuCascade::cucascade
+-    yaml-cpp::yaml-cpp
+-    telemetry_bridge)
++  target_link_libraries(${_target} cudf::cudf rmm::rmm spdlog::spdlog
++                        cuCascade::cucascade yaml-cpp::yaml-cpp)
+ 
+   add_dependencies(${_target} duckdb_static)
+ endforeach()
+ 
+ # Additional libraries only needed by the static extension
+ target_link_libraries(sirius_extension PkgConfig::NUMA PkgConfig::LIBURING
+-                      OpenSSL::Crypto yaml-cpp::yaml-cpp absl::any_invocable)
++                      yaml-cpp::yaml-cpp absl::any_invocable)
+ 
+-target_link_libraries(sirius_loadable_extension PkgConfig::LIBURING
+-                      OpenSSL::Crypto)
++target_link_libraries(sirius_loadable_extension PkgConfig::LIBURING)
+ 
+ # Required by DuckDB's export set (duckdb_static -> sirius_extension ->
+-# cucascade_static / telemetry_bridge)
++# cucascade_static)
+ install(
+-  TARGETS sirius_extension cucascade_static telemetry_bridge
++  TARGETS sirius_extension cucascade_static
+   EXPORT "${DUCKDB_EXPORT_SET}"
+   LIBRARY DESTINATION "${INSTALL_LIB_DIR}"
+   ARCHIVE DESTINATION "${INSTALL_LIB_DIR}")
+@@ -363,7 +361,6 @@ endif()
+ set(TEST_SOURCES
+     test/cpp/config/test_config.cpp
+     test/cpp/config/test_context.cpp
+-    test/cpp/config/test_object_store_config.cpp
+     test/cpp/data/test_convertible_data_batch.cpp
+     test/cpp/data/test_convertible_gpu_pipeline_task.cpp
+     test/cpp/data/test_host_parquet_representation.cpp
+@@ -373,18 +370,11 @@ set(TEST_SOURCES
+     test/cpp/exec/test_bounded_thread_pool.cpp
+     test/cpp/exec/test_inspectable_mpsc.cpp
+     test/cpp/exec/test_interruptible_mpmc.cpp
+-    test/cpp/expression/test_ast_scaffold.cpp
+     test/cpp/expression/test_expression.cpp
+     test/cpp/expression/test_join_condition.cpp
+-    test/cpp/expression/test_value.cpp
+     test/cpp/expression_executor/test_gpu_expression_executor.cpp
+     test/cpp/expression_executor/test_gpu_expression_translator.cpp
+     test/cpp/helper/test_logical_type.cpp
+-    test/cpp/io/s3/test_sigv4.cpp
+-    test/cpp/io/s3/test_sirius_sigv4_credential_provider.cpp
+-    test/cpp/io/s3/test_static_credentials.cpp
+-    test/cpp/io/test_datasource_factory.cpp
+-    test/cpp/io/test_uri_parser.cpp
+     test/cpp/integration/test_gpu_execution_multi_format.cpp
+     test/cpp/integration/test_gpu_execution_tpch.cpp
+     test/cpp/integration/test_transparent_execution.cpp
+@@ -418,13 +408,9 @@ set(TEST_SOURCES
+     test/cpp/pipeline/test_get_next_ports_after_sink.cpp
+     test/cpp/pipeline/test_plan_printer.cpp
+     test/cpp/pipeline/test_task_scheduler.cpp
+-    test/cpp/scan/bench_decode_codecs.cpp
+     test/cpp/scan/test_column_builder.cpp
+-    test/cpp/scan/test_gpu_native_decode.cpp
+     test/cpp/scan/test_parquet_schema_mapping.cpp
+     test/cpp/scan/test_parquet_scan_task.cpp
+-    test/cpp/scan/test_parquet_split_provider.cpp
+-    test/cpp/scan/test_partition_inject.cpp
+     test/cpp/scan/test_scan_executor.cpp
+     test/cpp/scan/test_split_connector.cpp
+     test/cpp/unittest.cpp
+@@ -476,3 +462,6 @@ if(SIRIUS_LEGACY_COMPILE_DEFINITIONS)
+   target_compile_definitions(sirius_unittest
+                              PRIVATE ${SIRIUS_LEGACY_COMPILE_DEFINITIONS})
+ endif()
++if(SIRIUS_LEGACY_ONLY)
++  target_compile_definitions(sirius_unittest PRIVATE SIRIUS_LEGACY_ONLY)
++endif()
+diff --git a/src/sirius_extension.cpp b/src/sirius_extension.cpp
+index 92a3a52a..2d23a87b 100644
+--- a/src/sirius_extension.cpp
++++ b/src/sirius_extension.cpp
+@@ -18,22 +18,13 @@
+ #define DUCKDB_EXTENSION_MAIN
+ 
+ #include "config.hpp"
+-#include "data/data_batch_utils.hpp"
+ #include "duckdb/common/file_system.hpp"
+ #include "duckdb/common/open_file_info.hpp"
+ #include "expression_executor/expression_executor_strategy.hpp"
+ 
+-#include <cudf/io/parquet.hpp>
+-#include <cudf/io/types.hpp>
+-
+-#include <cucascade/data/data_batch.hpp>
+-#include <cucascade/memory/common.hpp>
+-#include <cucascade/memory/memory_space.hpp>
+-
+ // Forward-declare CUDA profiler API functions (linked via libcudart).
+ extern "C" int cudaProfilerStart();
+ extern "C" int cudaProfilerStop();
+-#include "data/sirius_converter_registry.hpp"
+ #include "duckdb/catalog/catalog_entry/table_catalog_entry.hpp"
+ #include "duckdb/common/assert.hpp"
+ #include "duckdb/execution/column_binding_resolver.hpp"
+@@ -49,21 +40,34 @@ extern "C" int cudaProfilerStop();
+ #include "duckdb/parser/parsed_data/create_table_function_info.hpp"
+ #include "duckdb/parser/parser.hpp"
+ #include "duckdb/planner/planner.hpp"
+-#include "planner/sirius_physical_plan_generator.hpp"
+-#include "transparent/sirius_optimizer_extension.hpp"
+ // #include "from_substrait.hpp"
+ #ifdef SIRIUS_ENABLE_LEGACY
+ #include "gpu_buffer_manager.hpp"
+ #include "gpu_context.hpp"
+ #include "gpu_physical_plan_generator.hpp"
+ #endif
+-#include "duckdb/main/connection_manager.hpp"
+ #include "log/logging.hpp"
++#include "sirius_extension.hpp"
++#include "util/segfault_backtrace.hpp"
++
++#ifndef SIRIUS_LEGACY_ONLY
++#include "data/data_batch_utils.hpp"
++#include "data/sirius_converter_registry.hpp"
++#include "duckdb/main/connection_manager.hpp"
++#include "duckdb/optimizer/optimizer.hpp"
+ #include "pin_table.hpp"
++#include "planner/sirius_physical_plan_generator.hpp"
+ #include "sirius_context.hpp"
+-#include "sirius_extension.hpp"
+ #include "sirius_interface.hpp"
+-#include "util/segfault_backtrace.hpp"
++#include "transparent/sirius_optimizer_extension.hpp"
++
++#include <cudf/io/parquet.hpp>
++#include <cudf/io/types.hpp>
++
++#include <cucascade/data/data_batch.hpp>
++#include <cucascade/memory/common.hpp>
++#include <cucascade/memory/memory_space.hpp>
++#endif
+ 
+ #include <cstdlib>
+ 
+@@ -74,22 +78,26 @@ const std::string PINNED_MEMORY_PARAM_KEY = "pinned_memory_size";
+ bool SiriusExtension::buffer_is_initialized = false;
+ #endif
+ 
+-constexpr std::string QUERY_LABEL_PARAM_KEY = "query_label";
+-
+ namespace {
++
+ unique_ptr<QueryResult> run_internal_cpu_fallback_query(ClientContext& context,
+                                                         Connection& connection,
+                                                         const string& query)
+ {
++#ifdef SIRIUS_LEGACY_ONLY
++  return connection.Query(query);
++#else
+   auto sirius_ctx = context.registered_state->Get<duckdb::SiriusContext>("sirius_state");
+   if (!sirius_ctx) { return connection.Query(query); }
+ 
+   duckdb::SiriusContext::InternalQueryGuard guard(*sirius_ctx);
+   return connection.Query(query);
++#endif
+ }
+ 
+ }  // namespace
+ 
++#ifndef SIRIUS_LEGACY_ONLY
+ struct SiriusTableFunctionData : public TableFunctionData {
+   SiriusTableFunctionData() = default;
+   shared_ptr<::sirius::sirius_prepared_statement_data> gpu_prepared;
+@@ -177,6 +185,7 @@ struct SiriusTableFunctionData : public TableFunctionData {
+     return plan;
+   }
+ };
++#endif
+ 
+ #ifdef SIRIUS_ENABLE_LEGACY
+ struct GPUTableFunctionData : public TableFunctionData {
+@@ -399,6 +408,7 @@ static void RegisterLegacyGPUFunctions(CatalogTransaction& transaction, Catalog&
+ }
+ #endif  // SIRIUS_ENABLE_LEGACY
+ 
++#ifndef SIRIUS_LEGACY_ONLY
+ static unique_ptr<sirius::op::sirius_physical_operator> SiriusGeneratePhysicalPlan(
+   ClientContext& context, unique_ptr<LogicalOperator>& logical_plan)
+ {
+@@ -420,27 +430,12 @@ unique_ptr<FunctionData> SiriusExtension::GPUExecutionBind(ClientContext& contex
+   result->conn             = make_uniq<Connection>(*context.db);
+   result->query            = input.inputs[0].ToString();
+   result->enable_optimizer = true;
+-
+-  std::optional<std::string> query_label = std::nullopt;
+-  // take any query_label that was set using sirius_set_query_label SQL call.
+-  if (auto sirius_ctx = context.registered_state->Get<duckdb::SiriusContext>("sirius_state");
+-      sirius_ctx) {
+-    query_label = sirius_ctx->take_pending_query_label();
+-  }
+-  // however, give precedence to a query_label that was set inline in with
+-  // gpu_execution SQL call.
+-  if (auto it = input.named_parameters.find(QUERY_LABEL_PARAM_KEY);
+-      it != input.named_parameters.end() && not it->second.IsNull()) {
+-    query_label = it->second.ToString();
+-  }
+-
+-  result->sirius_iface = make_uniq<::sirius::sirius_interface>(context, std::move(query_label));
+-
++  result->sirius_iface     = make_uniq<::sirius::sirius_interface>(context);
+   if (input.inputs[0].IsNull()) {
+     throw BinderException("gpu_execution cannot be called with a NULL parameter");
+   }
+ 
+-  // Parse the query just to get the result type information and to create PreparedStatementData
++  // Parse the query just to get the result type information and to create preparedstatmement data
+   Parser parser(context.GetParserOptions());
+   parser.ParseQuery(result->query);
+   Planner planner(context);
+@@ -547,6 +542,7 @@ static unique_ptr<LogicalOperator> OptimizePlan(ClientContext& context,
+ 
+   return plan;
+ }
++#endif
+ 
+ #ifdef SIRIUS_ENABLE_LEGACY
+ struct GPUBufferInitFunctionData : public TableFunctionData {
+@@ -672,6 +668,7 @@ static unique_ptr<FunctionData> ProfilerBind(ClientContext& context,
+   return nullptr;
+ }
+ 
++#ifndef SIRIUS_LEGACY_ONLY
+ struct PinTableFunctionData : public TableFunctionData {
+   PinTableArgs args;
+   bool finished = false;
+@@ -823,7 +820,9 @@ void SiriusExtension::PinTableFunction(ClientContext& context,
+   output.SetValue(0, 0, Value::BOOLEAN(true));
+   data.finished = true;
+ }
++#endif
+ 
++#ifndef SIRIUS_LEGACY_ONLY
+ struct UnpinTableFunctionData : public TableFunctionData {
+   std::string name;
+   bool finished = false;
+@@ -863,6 +862,7 @@ void SiriusExtension::UnpinTableFunction(ClientContext& context,
+   output.SetValue(0, 0, Value::BOOLEAN(true));
+   data.finished = true;
+ }
++#endif
+ 
+ struct ProfilerFunctionData : public GlobalTableFunctionState {
+   bool finished = false;
+@@ -898,43 +898,6 @@ static void ProfilerStopFunction(ClientContext& context,
+   data.finished = true;
+ }
+ 
+-struct SiriusSetQueryLabelData : public TableFunctionData {
+-  std::string label;
+-  bool finished = false;
+-};
+-
+-static unique_ptr<FunctionData> SiriusSetQueryLabelBind(ClientContext& context,
+-                                                        TableFunctionBindInput& input,
+-                                                        vector<LogicalType>& return_types,
+-                                                        vector<string>& names)
+-{
+-  if (input.inputs.empty() || input.inputs[0].IsNull()) {
+-    throw BinderException("sirius_set_query_label requires a non-NULL VARCHAR argument");
+-  }
+-  auto result   = make_uniq<SiriusSetQueryLabelData>();
+-  result->label = input.inputs[0].ToString();
+-  return_types.push_back(LogicalType::BOOLEAN);
+-  names.push_back("ok");
+-  return std::move(result);
+-}
+-
+-static void SiriusSetQueryLabelFunction(ClientContext& context,
+-                                        TableFunctionInput& data_p,
+-                                        DataChunk& output)
+-{
+-  auto& data = data_p.bind_data->CastNoConst<SiriusSetQueryLabelData>();
+-  if (data.finished) { return; }
+-
+-  if (auto sirius_ctx = context.registered_state->Get<duckdb::SiriusContext>("sirius_state");
+-      sirius_ctx) {
+-    sirius_ctx->set_pending_query_label(data.label);
+-  }
+-
+-  output.SetCardinality(1);
+-  output.SetValue(0, 0, Value::BOOLEAN(true));
+-  data.finished = true;
+-}
+-
+ void SiriusExtension::RegisterGPUFunctions(DatabaseInstance& instance)
+ {
+   auto transaction = CatalogTransaction::GetSystemTransaction(instance);
+@@ -951,23 +914,6 @@ void SiriusExtension::RegisterGPUFunctions(DatabaseInstance& instance)
+ 
+   RegisterLegacyGPUFunctions(transaction, catalog);
+ #endif
+-
+-  TableFunction gpu_execution("gpu_execution",
+-                              {LogicalType::VARCHAR},
+-                              GPUExecutionFunction,
+-                              SiriusExtension::GPUExecutionBind);
+-  gpu_execution.named_parameters["enable_optimizer"]    = LogicalType::BOOLEAN;
+-  gpu_execution.named_parameters[QUERY_LABEL_PARAM_KEY] = LogicalType::VARCHAR;
+-  CreateTableFunctionInfo gpu_execution_info(gpu_execution);
+-  catalog.CreateTableFunction(transaction, gpu_execution_info);
+-
+-  TableFunction set_query_label("sirius_set_query_label",
+-                                {LogicalType::VARCHAR},
+-                                SiriusSetQueryLabelFunction,
+-                                SiriusSetQueryLabelBind);
+-  CreateTableFunctionInfo set_query_label_info(set_query_label);
+-  catalog.CreateTableFunction(transaction, set_query_label_info);
+-
+   // Profiler control functions for nsys --capture-range=cudaProfilerApi
+   TableFunction profiler_start(
+     "profiler_start", {}, ProfilerStartFunction, ProfilerBind, ProfilerInit);
+@@ -979,6 +925,15 @@ void SiriusExtension::RegisterGPUFunctions(DatabaseInstance& instance)
+   CreateTableFunctionInfo profiler_stop_info(profiler_stop);
+   catalog.CreateTableFunction(transaction, profiler_stop_info);
+ 
++#ifndef SIRIUS_LEGACY_ONLY
++  TableFunction gpu_execution("gpu_execution",
++                              {LogicalType::VARCHAR},
++                              GPUExecutionFunction,
++                              SiriusExtension::GPUExecutionBind);
++  gpu_execution.named_parameters["enable_optimizer"] = LogicalType::BOOLEAN;
++  CreateTableFunctionInfo gpu_execution_info(gpu_execution);
++  catalog.CreateTableFunction(transaction, gpu_execution_info);
++
+   TableFunction pin_table("pin_table", {LogicalType::VARCHAR}, PinTableFunction, PinTableBind);
+   pin_table.named_parameters["tier"]   = LogicalType::VARCHAR;
+   pin_table.named_parameters["name"]   = LogicalType::VARCHAR;
+@@ -991,6 +946,7 @@ void SiriusExtension::RegisterGPUFunctions(DatabaseInstance& instance)
+     "unpin_table", {LogicalType::VARCHAR}, UnpinTableFunction, UnpinTableBind);
+   CreateTableFunctionInfo unpin_table_info(unpin_table);
+   catalog.CreateTableFunction(transaction, unpin_table_info);
++#endif
+ }
+ 
+ static void SetUsePinMemory(ClientContext& context, SetScope scope, Value& parameter)
+@@ -1084,6 +1040,7 @@ static void SetModifiedPipeline(ClientContext& context, SetScope scope, Value& p
+   SIRIUS_LOG_DEBUG("Updated config MODIFIED_PIPELINE to {}", Config::MODIFIED_PIPELINE);
+ }
+ 
++#ifndef SIRIUS_LEGACY_ONLY
+ static void SetCacheScanLevel(ClientContext& context, SetScope scope, Value& parameter)
+ {
+   auto sirius_ctx = context.registered_state->Get<duckdb::SiriusContext>("sirius_state");
+@@ -1176,24 +1133,6 @@ static void SetLogFlushSeconds(ClientContext& context, SetScope scope, Value& pa
+   SIRIUS_LOG_DEBUG("Updated config LOG_FLUSH_SECONDS to {}", Config::LOG_FLUSH_SECONDS);
+ }
+ 
+-static void SetEnableQuent(ClientContext& context, SetScope scope, Value& parameter)
+-{
+-  Config::ENABLE_QUENT = BooleanValue::Get(parameter);
+-  SIRIUS_LOG_DEBUG("Updated config ENABLE_QUENT to {}", Config::ENABLE_QUENT);
+-}
+-
+-static void SetQuentOutputDirectory(ClientContext& context, SetScope scope, Value& parameter)
+-{
+-  Config::QUENT_OUTPUT_DIRECTORY = StringValue::Get(parameter);
+-  SIRIUS_LOG_DEBUG("Updated config QUENT_OUTPUT_DIRECTORY to {}", Config::QUENT_OUTPUT_DIRECTORY);
+-}
+-
+-static void SetQuentEngineName(ClientContext& context, SetScope scope, Value& parameter)
+-{
+-  Config::QUENT_ENGINE_NAME = StringValue::Get(parameter);
+-  SIRIUS_LOG_DEBUG("Updated config QUENT_ENGINE_NAME to {}", Config::QUENT_ENGINE_NAME);
+-}
+-
+ static void SetMaxBuildHashTableBytes(ClientContext& context, SetScope scope, Value& parameter)
+ {
+   auto* params = get_operator_params(context);
+@@ -1202,6 +1141,7 @@ static void SetMaxBuildHashTableBytes(ClientContext& context, SetScope scope, Va
+   SIRIUS_LOG_DEBUG("Updated config MAX_BUILD_HASH_TABLE_BYTES to {}",
+                    params->max_build_hash_table_bytes);
+ }
++#endif
+ 
+ static void SetEnableGpuExecution(ClientContext& context, SetScope scope, Value& parameter)
+ {
+@@ -1299,6 +1239,7 @@ void SiriusExtension::InitialGPUConfigs(DBConfig& config)
+                             Value::BOOLEAN(Config::MODIFIED_PIPELINE),
+                             SetModifiedPipeline);
+ 
++#ifndef SIRIUS_LEGACY_ONLY
+   // Add in config options for duckdb scan task
+   // Default batch size
+   config.AddExtensionOption("scan_task_batch_size",
+@@ -1338,24 +1279,6 @@ void SiriusExtension::InitialGPUConfigs(DBConfig& config)
+                             Value::INTEGER(Config::LOG_FLUSH_SECONDS),
+                             SetLogFlushSeconds);
+ 
+-  // Quent telemetry configuration
+-  config.AddExtensionOption(
+-    "enable_quent",
+-    "Whether to emit quent telemetry (false uses the noop exporter; true uses ndjson)",
+-    LogicalType::BOOLEAN,
+-    Value::BOOLEAN(Config::ENABLE_QUENT),
+-    SetEnableQuent);
+-  config.AddExtensionOption("quent_output_directory",
+-                            "Output directory for quent telemetry exports",
+-                            LogicalType::VARCHAR,
+-                            Value(Config::QUENT_OUTPUT_DIRECTORY),
+-                            SetQuentOutputDirectory);
+-  config.AddExtensionOption("quent_engine_name",
+-                            "Engine name reported via quent telemetry",
+-                            LogicalType::VARCHAR,
+-                            Value(Config::QUENT_ENGINE_NAME),
+-                            SetQuentEngineName);
+-
+   config.AddExtensionOption("hash_partition_bytes",
+                             "Target size in bytes per hash partition",
+                             LogicalType::UBIGINT,
+@@ -1387,6 +1310,7 @@ void SiriusExtension::InitialGPUConfigs(DBConfig& config)
+     LogicalType::BOOLEAN,
+     Value::BOOLEAN(true),
+     SetEnableGpuExecution);
++#endif
+ }
+ 
+ static void LoadInternal(ExtensionLoader& loader)
+@@ -1395,13 +1319,16 @@ static void LoadInternal(ExtensionLoader& loader)
+ 
+   auto& db           = loader.GetDatabaseInstance();
+   auto& config       = DBConfig::GetConfig(db);
++#ifndef SIRIUS_LEGACY_ONLY
+   auto callback      = make_shared_ptr<duckdb::SiriusContextExtensionCallback>();
+   auto* callback_ptr = callback.get();
+   config.GetCallbackManager().Register(std::move(callback));
+   sirius::converter_registry::initialize();
++#endif
+   SiriusExtension::InitialGPUConfigs(config);
+   SiriusExtension::RegisterGPUFunctions(db);
+ 
++#ifndef SIRIUS_LEGACY_ONLY
+   // Register optimizer extension for transparent GPU execution.
+   // Pre-hook disables incompatible optimizers; post-hook captures the plan.
+   OptimizerExtension opt_ext;
+@@ -1414,6 +1341,7 @@ static void LoadInternal(ExtensionLoader& loader)
+   for (auto& ctx : ConnectionManager::Get(db).GetConnectionList()) {
+     callback_ptr->OnConnectionOpened(*ctx);
+   }
++#endif
+ }
+ 
+ void SiriusExtension::Load(ExtensionLoader& loader) { LoadInternal(loader); }

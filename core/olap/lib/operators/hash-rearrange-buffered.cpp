@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,10 +23,10 @@
 
 #include "hash-rearrange-buffered.hpp"
 
+#include <codegen/jit/pipeline.hpp>
 #include <cstdlib>
 
 #include "lib/expressions/expressions-generator.hpp"
-#include "lib/util/jit/pipeline.hpp"
 
 #define CACHE_CAP 1024
 
@@ -40,7 +40,7 @@ void non_temporal_copy(char *out, char *in);
 
 using namespace llvm;
 
-void HashRearrangeBuffered::produce_(ParallelContext *context) {
+void HashRearrangeBuffered::produce_(OlapParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Plugin *pg =
@@ -75,10 +75,10 @@ void HashRearrangeBuffered::produce_(ParallelContext *context) {
 
   cache_Var_id = context->appendStateVar(cptr_type);
 
-  ((ParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
+  ((OlapParallelContext *)context)->registerOpen(this, [this](Pipeline *pip) {
     this->open(pip);
   });
-  ((ParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
+  ((OlapParallelContext *)context)->registerClose(this, [this](Pipeline *pip) {
     this->close(pip);
   });
 
@@ -180,9 +180,10 @@ void HashRearrangeBuffered::consume(Context *const context,
       context->CreateEntryBlockAlloca(F, "readyN", int32_type);
   Builder->CreateStore(ConstantInt::get(int32_type, 0), ready_cnt);
 
-  Value *mem_cache = ((ParallelContext *)context)->getStateVar(cache_Var_id);
+  Value *mem_cache =
+      ((OlapParallelContext *)context)->getStateVar(cache_Var_id);
   Value *mem_cache_cnt =
-      ((ParallelContext *)context)->getStateVar(cache_cnt_Var_id);
+      ((OlapParallelContext *)context)->getStateVar(cache_cnt_Var_id);
 
   Builder->SetInsertPoint(insBB);
 
@@ -216,7 +217,7 @@ void HashRearrangeBuffered::consume(Context *const context,
   target = Builder->CreateURem(target, numOfBucketsV);
   target->setName("target");
 
-  vector<Type *> members;
+  std::vector<Type *> members;
   for (size_t i = 0; i < wantedFields.size(); ++i) {
     RecordAttribute tblock{wantedFields[i]->getRegisteredAs(), true};
     members.push_back(tblock.getLLVMType(llvmContext));
@@ -294,24 +295,25 @@ void HashRearrangeBuffered::consume(Context *const context,
   Value *ready = context->CreateEntryBlockAlloca(
       F, "complete_partitions", ArrayType::get(partition, 1024));
 
-  // Value * indexes = Builder->CreateLoad(((ParallelContext *)
+  // Value * indexes = Builder->CreateLoad(((OlapParallelContext *)
   // context)->getStateVar(cntVar_id), "indexes");
 
   // indexes->dump();
   // indexes->getType()->dump();
-  // ((ParallelContext *) context)->getStateVar(cntVar_id)->getType()->dump();
+  // ((OlapParallelContext *)
+  // context)->getStateVar(cntVar_id)->getType()->dump();
   Value *indx_addr = Builder->CreateInBoundsGEP(
-      ((ParallelContext *)context)
+      ((OlapParallelContext *)context)
           ->getStateVar(cntVar_id)
           ->getType()
           ->getNonOpaquePointerElementType(),
-      ((ParallelContext *)context)->getStateVar(cntVar_id),
+      ((OlapParallelContext *)context)->getStateVar(cntVar_id),
       std::vector<Value *>{context->createInt32(0), target});
   Value *indx = Builder->CreateLoad(
       indx_addr->getType()->getPointerElementType(), indx_addr);
   // Value * indx      = Builder->Load(indx_addr);
 
-  Value *blocks = ((ParallelContext *)context)->getStateVar(blkVar_id);
+  Value *blocks = ((OlapParallelContext *)context)->getStateVar(blkVar_id);
   Value *curblk = Builder->CreateInBoundsGEP(
       blocks->getType()->getNonOpaquePointerElementType(), blocks,
       std::vector<Value *>{context->createInt32(0), target});
@@ -347,7 +349,7 @@ void HashRearrangeBuffered::consume(Context *const context,
     Type *charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
 
     Function *copy_nt = context->getFunction("nonTemporalCopy");
-    vector<Value *> argsV;
+    std::vector<Value *> argsV;
     argsV.push_back(Builder->CreatePointerCast(in_block_ptr, charPtrType));
     argsV.push_back(Builder->CreatePointerCast(in_cache_ptr, charPtrType));
     argsV.push_back(context->createInt32(wantedFields[i]
@@ -410,13 +412,14 @@ void HashRearrangeBuffered::consume(Context *const context,
   (*variableBindings)[tupCnt] = mem_cntWrapper;
 
   Value *new_oid = Builder->CreateLoad(
-      ((ParallelContext *)context)
+      ((OlapParallelContext *)context)
           ->getStateVar(oidVar_id)
           ->getType()
           ->getPointerElementType(),
-      ((ParallelContext *)context)->getStateVar(oidVar_id), "oid");
-  Builder->CreateStore(Builder->CreateAdd(new_oid, capacity),
-                       ((ParallelContext *)context)->getStateVar(oidVar_id));
+      ((OlapParallelContext *)context)->getStateVar(oidVar_id), "oid");
+  Builder->CreateStore(
+      Builder->CreateAdd(new_oid, capacity),
+      ((OlapParallelContext *)context)->getStateVar(oidVar_id));
 
   AllocaInst *new_oid_ptr =
       context->CreateEntryBlockAlloca(F, "new_oid_ptr", oid_type);
@@ -548,9 +551,10 @@ void HashRearrangeBuffered::consume_flush1() {
       context->CreateEntryBlockAlloca(F, "readyN", int32_type);
   Builder->CreateStore(ConstantInt::get(int32_type, 0), ready_cnt);
 
-  Value *mem_cache = ((ParallelContext *)context)->getStateVar(cache_Var_id);
+  Value *mem_cache =
+      ((OlapParallelContext *)context)->getStateVar(cache_Var_id);
   Value *mem_cache_cnt =
-      ((ParallelContext *)context)->getStateVar(cache_cnt_Var_id);
+      ((OlapParallelContext *)context)->getStateVar(cache_cnt_Var_id);
 
   // Builder->SetInsertPoint(insBB);
 
@@ -591,7 +595,7 @@ void HashRearrangeBuffered::consume_flush1() {
     (*variableBindings)[*hashProject] = mem_hashWrapper;
   }
 
-  vector<Type *> members;
+  std::vector<Type *> members;
   members.push_back(target->getType());
 
   for (size_t i = 0; i < wantedFields.size(); ++i) {
@@ -605,16 +609,16 @@ void HashRearrangeBuffered::consume_flush1() {
       F, "complete_partitions", ArrayType::get(partition, 1024));
 
   Value *indx_addr = Builder->CreateInBoundsGEP(
-      ((ParallelContext *)context)
+      ((OlapParallelContext *)context)
           ->getStateVar(cntVar_id)
           ->getType()
           ->getNonOpaquePointerElementType(),
-      ((ParallelContext *)context)->getStateVar(cntVar_id),
+      ((OlapParallelContext *)context)->getStateVar(cntVar_id),
       std::vector<Value *>{context->createInt32(0), target});
 
   // Value * indx      = Builder->Load(indx_addr);
 
-  Value *blocks = ((ParallelContext *)context)->getStateVar(blkVar_id);
+  Value *blocks = ((OlapParallelContext *)context)->getStateVar(blkVar_id);
   Value *curblk = Builder->CreateInBoundsGEP(
       blocks->getType()->getNonOpaquePointerElementType(), blocks,
       std::vector<Value *>{context->createInt32(0), target});
@@ -706,13 +710,14 @@ void HashRearrangeBuffered::consume_flush1() {
   (*variableBindings)[tupCnt] = mem_cntWrapper;
 
   Value *new_oid = Builder->CreateLoad(
-      ((ParallelContext *)context)
+      ((OlapParallelContext *)context)
           ->getStateVar(oidVar_id)
           ->getType()
           ->getPointerElementType(),
-      ((ParallelContext *)context)->getStateVar(oidVar_id), "oid");
-  Builder->CreateStore(Builder->CreateAdd(new_oid, capacity),
-                       ((ParallelContext *)context)->getStateVar(oidVar_id));
+      ((OlapParallelContext *)context)->getStateVar(oidVar_id), "oid");
+  Builder->CreateStore(
+      Builder->CreateAdd(new_oid, capacity),
+      ((OlapParallelContext *)context)->getStateVar(oidVar_id));
 
   AllocaInst *new_oid_ptr =
       context->CreateEntryBlockAlloca(F, "new_oid_ptr", oid_type);
@@ -906,18 +911,18 @@ void HashRearrangeBuffered::consume_flush() {
   }
 
   Value *indx_addr = Builder->CreateInBoundsGEP(
-      ((ParallelContext *)context)
+      ((OlapParallelContext *)context)
           ->getStateVar(cntVar_id)
           ->getType()
           ->getNonOpaquePointerElementType(),
-      ((ParallelContext *)context)->getStateVar(cntVar_id),
+      ((OlapParallelContext *)context)->getStateVar(cntVar_id),
       std::vector<Value *>{context->createInt32(0), target});
   Value *indx = Builder->CreateLoad(
       indx_addr->getType()->getPointerElementType(), indx_addr);
 
   Builder->CreateStore(indx, blockN_ptr);
 
-  Value *blocks = ((ParallelContext *)context)->getStateVar(blkVar_id);
+  Value *blocks = ((OlapParallelContext *)context)->getStateVar(blkVar_id);
   Value *curblk = Builder->CreateInBoundsGEP(
       blocks->getType()->getNonOpaquePointerElementType(), blocks,
       std::vector<Value *>{context->createInt32(0), target});

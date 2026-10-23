@@ -136,7 +136,7 @@ TEST(Output, ReduceNumeric) {
 
   RecordType rec1 = RecordType(attrList);
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(sid);
   whichFields.push_back(age);
 
@@ -157,8 +157,8 @@ TEST(Output, ReduceNumeric) {
 
   auto predicate = gt(arg[*age], 40.0);
 
-  vector<Monoid> accs;
-  vector<expression_t> exprs;
+  std::vector<Monoid> accs;
+  std::vector<expression_t> exprs;
   accs.push_back(MAX);
   exprs.push_back(outputExpr);
   opt::Reduce reduce{accs, exprs,        predicate, &scan,
@@ -204,7 +204,7 @@ TEST(Output, MultiReduceNumeric) {
 
   RecordType rec1 = RecordType(attrList);
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(sid);
   whichFields.push_back(age);
 
@@ -224,8 +224,8 @@ TEST(Output, MultiReduceNumeric) {
   auto outputExpr = arg[*sid];
   auto predicate = gt(arg[*age], 40.0);
 
-  vector<Monoid> accs;
-  vector<expression_t> exprs;
+  std::vector<Monoid> accs;
+  std::vector<expression_t> exprs;
   accs.push_back(SUM);
   accs.push_back(MAX);
   exprs.push_back(outputExpr);
@@ -273,7 +273,7 @@ TEST(Output, ReduceBag) {
 
   RecordType rec1 = RecordType(attrList);
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(sid);
   whichFields.push_back(age);
 
@@ -304,8 +304,8 @@ TEST(Output, ReduceBag) {
   expressions::Expression *rhs = new expressions::FloatConstant(40.0);
   expressions::Expression *predicate = new expressions::GtExpression(lhs, rhs);
 
-  vector<Monoid> accs;
-  vector<expression_t> exprs;
+  std::vector<Monoid> accs;
+  std::vector<expression_t> exprs;
   accs.push_back(BAGUNION);
   exprs.push_back(outputExpr);
   //    Reduce reduce = Reduce(SUM, outputExpr, predicate, &scan, &ctx);
@@ -353,7 +353,7 @@ TEST(Output, ReduceBagRecord) {
 
   RecordType rec1 = RecordType(attrList);
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(sid);
   whichFields.push_back(age);
 
@@ -404,8 +404,8 @@ TEST(Output, ReduceBagRecord) {
   expressions::Expression *rhs = new expressions::FloatConstant(40.0);
   expressions::Expression *predicate = new expressions::GtExpression(lhs, rhs);
 
-  vector<Monoid> accs;
-  vector<expression_t> exprs;
+  std::vector<Monoid> accs;
+  std::vector<expression_t> exprs;
   accs.push_back(BAGUNION);
   exprs.push_back(outputExpr);
   opt::Reduce reduce =
@@ -445,7 +445,7 @@ TEST(Output, NestBagTPCH) {
   RecordType rec = lineitem.recType;
 
   /* Projections */
-  vector<RecordAttribute *> projections;
+  std::vector<RecordAttribute *> projections;
   RecordAttribute *l_orderkey = argsLineitem["l_orderkey"];
   RecordAttribute *l_linenumber = argsLineitem["l_linenumber"];
   RecordAttribute *l_quantity = argsLineitem["l_quantity"];
@@ -500,8 +500,8 @@ TEST(Output, NestBagTPCH) {
       new expressions::EqExpression(lhsNest, rhsNest);
 
   // mat.
-  //    vector<RecordAttribute*> fields;
-  //    vector<materialization_mode> outputModes;
+  //    std::vector<RecordAttribute*> fields;
+  //    std::vector<materialization_mode> outputModes;
   //    fields.push_back(l_linenumber);
   //    outputModes.insert(outputModes.begin(), EAGER);
   //    fields.push_back(l_quantity);
@@ -517,7 +517,7 @@ TEST(Output, NestBagTPCH) {
       l_linenumber->getOriginalType(), nestArg, *l_linenumber);
   expressions::Expression *toMat2 = new expressions::RecordProjection(
       l_quantity->getOriginalType(), nestArg, *l_quantity);
-  vector<expression_t> exprsToMat;
+  std::vector<expression_t> exprsToMat;
   exprsToMat.push_back(oidToMat);
   exprsToMat.push_back(toMat1);
   exprsToMat.push_back(toMat2);
@@ -526,9 +526,9 @@ TEST(Output, NestBagTPCH) {
   char nestLabel[] = "nest_lineitem";
   string aggrLabel = string(nestLabel);
 
-  vector<Monoid> accs;
-  vector<expression_t> outputExprs;
-  vector<string> aggrLabels;
+  std::vector<Monoid> accs;
+  std::vector<expression_t> outputExprs;
+  std::vector<string> aggrLabels;
   string aggrField1;
   string aggrField2;
 
@@ -589,8 +589,8 @@ TEST(Output, NestBagTPCH) {
 
   expressions::Expression *predicate = new expressions::BoolConstant(true);
 
-  vector<Monoid> reduceAccs;
-  vector<expression_t> exprs;
+  std::vector<Monoid> reduceAccs;
+  std::vector<expression_t> exprs;
   reduceAccs.push_back(BAGUNION);
   exprs.push_back(outputExpr);
   opt::Reduce *reduceOp = new opt::Reduce(reduceAccs, exprs, predicate, nestOp,
@@ -640,7 +640,7 @@ TEST(Output, JoinLeft3) {
   attrList.push_back(age);
   RecordType rec1 = RecordType(attrList);
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(sid);
   whichFields.push_back(age);  // Float
 
@@ -668,7 +668,7 @@ TEST(Output, JoinLeft3) {
   attrList2.push_back(bidReserves);
   attrList2.push_back(day);
   RecordType rec2 = RecordType(attrList2);
-  vector<RecordAttribute *> whichFields2;
+  std::vector<RecordAttribute *> whichFields2;
   whichFields2.push_back(sidReserves);
   whichFields2.push_back(bidReserves);
 
@@ -698,7 +698,7 @@ TEST(Output, JoinLeft3) {
       new expressions::RecordProjection(intType, leftArg, *sid);
   expressions::Expression *ageProj =
       new expressions::RecordProjection(floatType, leftArg, *age);
-  vector<expression_t> exprsToMatLeft;
+  std::vector<expression_t> exprsToMatLeft;
   exprsToMatLeft.push_back(leftOidProj);
   exprsToMatLeft.push_back(leftSidProj);
   exprsToMatLeft.push_back(ageProj);
@@ -719,7 +719,7 @@ TEST(Output, JoinLeft3) {
       new expressions::RecordProjection(intType, rightArg, *sidReserves);
   expressions::Expression *rightBidProj =
       new expressions::RecordProjection(intType, rightArg, *bidReserves);
-  vector<expression_t> exprsToMatRight;
+  std::vector<expression_t> exprsToMatRight;
   exprsToMatRight.push_back(rightOidProj);
   // exprsToMatRight.push_back(rightSidProj);
   exprsToMatRight.push_back(rightBidProj);
@@ -750,7 +750,7 @@ TEST(Output, JoinLeft3) {
   attrListBoats.push_back(colorBoats);
   RecordType recBoats = RecordType(attrListBoats);
 
-  vector<RecordAttribute *> whichFieldsBoats;
+  std::vector<RecordAttribute *> whichFieldsBoats;
   whichFieldsBoats.push_back(bidBoats);
 
   linehint = 4;
@@ -768,7 +768,7 @@ TEST(Output, JoinLeft3) {
       new expressions::InputArgument(intType, 0, projectionsR);
   expressions::Expression *left2 =
       new expressions::RecordProjection(intType, leftArg2, *bidReserves);
-  vector<expression_t> exprsToMatPreviousJoin;
+  std::vector<expression_t> exprsToMatPreviousJoin;
   exprsToMatPreviousJoin.push_back(leftOidProj);
   exprsToMatPreviousJoin.push_back(rightOidProj);
   exprsToMatPreviousJoin.push_back(leftSidProj);
@@ -786,7 +786,7 @@ TEST(Output, JoinLeft3) {
   expressions::Expression *bidBoatsProj =
       new expressions::RecordProjection(intType, rightArg2, *bidBoats);
 
-  vector<expression_t> exprsToMatBoats;
+  std::vector<expression_t> exprsToMatBoats;
   exprsToMatBoats.push_back(oidBoatsProj);
   exprsToMatBoats.push_back(bidBoatsProj);
   Materializer *matBoats = new Materializer(exprsToMatBoats);
@@ -817,8 +817,8 @@ TEST(Output, JoinLeft3) {
       new expressions::RecordProjection(floatType, arg, *age);
   expressions::Expression *predicate = new expressions::BoolConstant(true);
 
-  vector<Monoid> accs;
-  vector<expression_t> exprs;
+  std::vector<Monoid> accs;
+  std::vector<expression_t> exprs;
   accs.push_back(MAX);
   exprs.push_back(outputExpr);
   /* Sanity checks*/

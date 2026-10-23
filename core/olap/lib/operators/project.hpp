@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2018
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -32,10 +32,10 @@
 
 class Project : public UnaryOperator {
  public:
-  Project(vector<expression_t> outputExprs, string relName,
+  Project(std::vector<expression_t> outputExprs, string relName,
           Operator *const child, Context *context);
   ~Project() override { LOG(INFO) << "Collapsing Project operator"; }
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
   void consume(Context *const context,
                const OperatorState &childState) override;
   bool isFiltering() const override { return getChild()->isFiltering(); }
@@ -53,7 +53,7 @@ class Project : public UnaryOperator {
   StateVar oid_id;
   string relName;
 
-  vector<expression_t> outputExprs;
+  std::vector<expression_t> outputExprs;
 
   const char *outPath;
 

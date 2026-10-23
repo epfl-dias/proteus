@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2020
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -25,49 +25,67 @@
 
 #include <llvm/IR/Intrinsics.h>
 
-#include <olap/values/indexed-seq.hpp>
+#include <codegen/expressions/indexed-seq.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
-
+static std::mutex bloom_filter_registry_lock;
 static std::map<std::pair<uint64_t, decltype(topology::cpunumanode::id)>,
                 void *>
-    registry;
+    bloom_filter_registry;
 
 extern "C" void setBloomFilter(Pipeline *pip, void *s, uint64_t bloomId) {
   const auto &cpu = affinity::get();
   auto k = std::make_pair(bloomId, cpu.id);
-  if (registry.count(k)) MemoryManager::freePinned(registry[k]);
-  registry[k] = s;
+  std::lock_guard<std::mutex> lock(bloom_filter_registry_lock);
+  if (bloom_filter_registry.count(k)) {
+    MemoryManager::freePinned(bloom_filter_registry[k]);
+    //    LOG(INFO) << "setBloomFilter Freeing bloom filter with id: " <<
+    //    bloomId
+    //              << " on node: " << cpu.id;
+  }
+  //  LOG(INFO) << " setBloomFilter on node: " << cpu.id;
+  bloom_filter_registry[k] = s;
 }
 
 extern "C" void *getBloomFilter(Pipeline *pip, uint64_t bloomId) {
   const auto &cpu = affinity::get();
   auto k = std::make_pair(bloomId, cpu.id);
   // FIXME: how often is this called?
-  assert(registry.count(k) > 0);
-  assert(registry[k]);
-  return registry[k];
+  DCHECK_GE(bloom_filter_registry.count(k), 0)
+      << "no bloom filter with id: " << bloomId << " on node: " << cpu.id;
+  assert(bloom_filter_registry[k]);
+  return bloom_filter_registry[k];
 }
 
 void cleanBloomFilterRegistry() {
-  for (const auto &r : registry) MemoryManager::freePinned(r.second);
+  std::lock_guard<std::mutex> lock(bloom_filter_registry_lock);
+  for (const auto &r : bloom_filter_registry) {
+    LOG(INFO) << "Freeing bloom filter with id: " << r.first.first
+              << " on node: " << r.first.second;
+    MemoryManager::freePinned(r.second);
+  }
+  bloom_filter_registry.clear();
 }
 
 BloomFilter::BloomFilter(Operator *child, expression_t e, size_t filterSize,
                          uint64_t bloomId)
     : experimental::UnaryOperator(child),
-      e(std::move(e)),
+      bf_expr(std::move(e)),
       filterSize(filterSize),
-      bloomId(bloomId) {}
+      bloomId(bloomId) {
+  CHECK_NE(filterSize, 0) << "cannot have a filter of size 0";
+  CHECK_EQ(filterSize & (filterSize - 1), 0)
+      << "Filter size is expected to be a power of 2";
+}
 
-llvm::Type *BloomFilter::getFilterType(ParallelContext *context) const {
+llvm::Type *BloomFilter::getFilterType(OlapParallelContext *context) const {
   return llvm::PointerType::getUnqual(llvm::ArrayType::get(
       llvm::Type::getInt1Ty(context->getLLVMContext()), filterSize));
 }
 
 expressions::RefExpression BloomFilter::findInFilter(
-    ParallelContext *context, const OperatorState &childState) const {
+    OlapParallelContext *context, const OperatorState &childState) const {
   auto fptr_v = context->getStateVar(filter_ptr);
 
   auto btype = new BoolType();
@@ -76,8 +94,8 @@ expressions::RefExpression BloomFilter::findInFilter(
 
   // If probe
   //  auto ref = fptr[expressions::HashExpression{e}]
-  assert(!(filterSize & (filterSize - 1)) &&
-         "Filter size is expectd to be a power of 2");
+  CHECK(!(filterSize & (filterSize - 1)))
+      << "Filter size is expectd to be a power of 2";
   //  auto f = llvm::Intrinsic::getDeclaration(context->getModule(),
   //  llvm::Intrinsic::x86_pclmulqdq); assert(f); ExpressionGeneratorVisitor
   //  vis{context, childState}; f->dump(); auto hvpv = e.accept(vis); auto hv =
@@ -89,7 +107,7 @@ expressions::RefExpression BloomFilter::findInFilter(
   //  for (uint32_t i = 0 ; i < sizeof(uint32_t) * 8 ; ++i){
   //    if ((mul >> i) & 1u) h = h ^ (e << ((int32_t) (i)));
   //  }
-  auto h = e;
+  auto h = bf_expr;
 
   auto hash = (filterSize & (filterSize - 1))
                   ? expression_t{h % ((int32_t)filterSize)}

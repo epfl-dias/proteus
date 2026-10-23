@@ -21,8 +21,10 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include <fcntl.h>
 #include <numa.h>
 #include <numaif.h>
+#include <sys/mman.h>
 
 #include <array>
 #include <cmath>
@@ -31,16 +33,19 @@
 #include <platform/common/error-handling.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
-#include <platform/util/logging.hpp>
+#include <platform/util/linux-exec.hpp>
+#include <platform/util/profiling.hpp>
 #include <platform/util/topology_parser.hpp>
+#include <platform/util/tracing.hpp>
 #include <regex>
 #include <stdexcept>
 #include <vector>
 
 #ifndef NCUDA
-#include "cuda_profiler_api.h"
-#include "cuda_runtime_api.h"
-#include "nvToolsExt.h"
+#include <cuda_profiler_api.h>
+#include <cuda_runtime_api.h>
+#include <cufile.h>
+#include <nvtx3/nvToolsExt.h>
 #endif
 
 // template<typename T>
@@ -50,7 +55,7 @@ const topology::cpunumanode *topology::getCpuNumaNodeAddressed(
   auto x = get_mempolicy(&numa_id, nullptr, 0, const_cast<void *>(m),
                          MPOL_F_NODE | MPOL_F_ADDR);
   if (x) return nullptr;
-  assert(numa_id >= 0);
+  DCHECK_GE(numa_id, 0);
   return (cpu_info.data() + cpunuma_index[numa_id]);
 }
 
@@ -76,8 +81,8 @@ std::filesystem::path nvmeNameSpaceToSysfsPciSysfsPath(
     const std::string &nvmeBlockDevice) {
   std::regex thisDeviceRegex{"(nvme[0-9]+).*"};
   std::smatch extract_device_regex;
-  assert(std::regex_search(nvmeBlockDevice, extract_device_regex,
-                           thisDeviceRegex));
+  CHECK(std::regex_search(nvmeBlockDevice, extract_device_regex,
+                          thisDeviceRegex));
   // should get us just nvme1
   auto thisDeviceOnly = extract_device_regex[1].str();
 
@@ -116,8 +121,8 @@ std::filesystem::path nvmeNameSpaceToSysfsPciSysfsPath(
   if (possiblePhysicalDevicePaths.size() == 1) {
     return possiblePhysicalDevicePaths.at(0) / "device";
   } else {
-    assert(possibleVirtualDevicePaths.size() == 1 &&
-           possiblePhysicalDevicePaths.empty());
+    CHECK(possiblePhysicalDevicePaths.empty());
+    CHECK_EQ(possibleVirtualDevicePaths.size(), 1);
     return possibleVirtualDevicePaths.at(0) / "device";
   }
 }
@@ -201,19 +206,34 @@ extern "C" void numa_error(char *where) { LOG(FATAL) << where; }
 extern "C" void numa_warn(int num, char *fmt, ...) { LOG(WARNING) << fmt; }
 #pragma clang diagnostic pop
 
-constexpr size_t hugepage = 2 * 1024 * 1024;
+constexpr size_t kHugePageSize = 2 * 1024 * 1024;
 
 static size_t fixSize(size_t bytes) {
-  return ((bytes + hugepage - 1) / hugepage) * hugepage;
+  return ((bytes + kHugePageSize - 1) / kHugePageSize) * kHugePageSize;
 }
 
 void *topology::cpunumanode::alloc(size_t bytes) const {
+  static profiling::ProfileRegionType pr_type =
+      profiling::ProfileRegionType("topology::cpunumanode::alloc");
+  event_range<range_log_op::TOPO_CPU_ALLOC> r({}, std::nullopt, id);
+  profiling::ProfileRegion pr(pr_type);
   bytes = fixSize(bytes);
+  bool used_huge_pages = true;
   void *mem = mmap(nullptr, bytes, PROT_READ | PROT_WRITE,
                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
-  LOG_IF(FATAL, mem == MAP_FAILED) << "mmap failed (" << strerror(errno) << ")";
-  assert(mem != MAP_FAILED);
-  assert((((uintptr_t)mem) % hugepage) == 0);
+  if (mem == MAP_FAILED) {
+    const auto mmap_errno = errno;
+    used_huge_pages = false;
+    LOG(WARNING) << "Hugepage mmap failed, falling back to regular mmap: "
+                 << strerror(mmap_errno) << " [" << mmap_errno << "]";
+    mem = mmap(nullptr, bytes, PROT_READ | PROT_WRITE,
+               MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  }
+  PCHECK(mem != MAP_FAILED) << "mmap failed";
+  if (used_huge_pages) {
+    DCHECK_EQ((((uintptr_t)mem) % kHugePageSize), 0)
+        << "allocated memory is aligned to huge page size!";
+  }
   linux_run(madvise(mem, bytes, MADV_DONTFORK));
 #ifndef NDEBUG
   {
@@ -246,8 +266,8 @@ void *topology::cpunumanode::alloc(size_t bytes) const {
 
   if (bytes >= sizeof(int)) {
     // fault first page to check it's allocated on the correct node
-    ((int *)mem)[0] = 0;  // SIGBUS on this line means we run out of huge pafes
-                          // in that CPU numa node
+    ((int *)mem)[0] = 0;  // With huge pages this may SIGBUS when the node runs
+                          // out of hugetlb pages.
     // check using the policy
     assert(topology::getInstance().getCpuNumaNodeAddressed(mem) == this);
 
@@ -262,11 +282,9 @@ void *topology::cpunumanode::alloc(size_t bytes) const {
 #endif
 
   return mem;
-  //  return numa_alloc_onnode(bytes, id);
 }
 
 void topology::cpunumanode::free(void *mem, size_t bytes) {
-  // numa_free(mem, bytes);
   bytes = fixSize(bytes);
   linux_run(munmap(mem, bytes));
 }
@@ -277,7 +295,7 @@ size_t topology::cpunumanode::getMemorySize() const {
 
 void topology::init() {
   instance.init_();
-  std::cout << topology::getInstance() << std::endl;
+  //std::cout << topology::getInstance() << std::endl;
 }
 
 static uint64_t profilingStartTimestamp = 0;
@@ -527,14 +545,12 @@ void topology::init_() {
   // This should only happen when a unit-test is reinitializing proteus but it
   // should not happen in normal execution, except if we "restart" proteus
   if (!core_info.empty()) {
-#ifndef NDEBUG
-    auto core_cnt = sysconf(_SC_NPROCESSORS_ONLN);
-    assert(core_info.size() == core_cnt);
-#endif
+    auto dbg_core_count = sysconf(_SC_NPROCESSORS_ONLN);
+    CHECK_EQ(core_info.size(), dbg_core_count);
     return;
   }
-  assert(cpu_info.empty() && "Is topology already initialized?");
-  assert(core_info.empty() && "Is topology already initialized?");
+  CHECK(cpu_info.empty()) << "Is topology already initialized?";
+  CHECK(core_info.empty()) << "Is topology already initialized?";
   unsigned int gpus = 0;
 #ifndef NCUDA
   auto nvml_res = nvmlInit();
@@ -555,7 +571,7 @@ void topology::init_() {
   // Creating gpunodes requires that we know the number of cores,
   // so start by reading the CPU configuration
   core_cnt = sysconf(_SC_NPROCESSORS_ONLN);
-  assert(core_cnt > 0);
+  CHECK_GT(core_cnt, 0);
 
   std::map<uint32_t, std::vector<uint32_t>> numa_to_cores_mapping;
 
@@ -591,7 +607,7 @@ void topology::init_() {
     }
   }
 
-  assert(core_info.size() == core_cnt);
+  CHECK_EQ(core_info.size(), core_cnt);
 
   // Now create the GPU nodes
   for (uint32_t i = 0; i < gpu_cnt; ++i) {
@@ -616,7 +632,7 @@ void topology::init_() {
                                   &attrValueSize, &poolLimit));
 
     {
-      event_range<range_log_op::CUPTI_GET_START_TIMESTAMP> ev{this};
+      event_range<range_log_op::CUPTI_GET_START_TIMESTAMP> ev{{}};
       gpu_run(cuptiGetTimestamp(&profilingStartTimestamp));
     }
 
@@ -659,6 +675,65 @@ void topology::init_() {
 
   // collect NVMe info
   init_nvmeStorage();
+
+  if (getGpuCount() > 0) {
+    auto res = init_cufile();
+    if (!res) {
+      LOG(WARNING) << "cufile initialization failed. Successive calls to "
+                      "cufile io APIs will likely fail.";
+    } else {
+      LOG(INFO) << "cufile driver initialized";
+    }
+  }
+}
+
+bool topology::init_cufile() {
+#ifndef NCUDA
+
+  // TODO think about where this should actually go, topology?
+  LOG(INFO) << "opening cufile driver...";
+  CUfileError_t status = cuFileDriverOpen();
+  if (status.err != CU_FILE_SUCCESS) {
+    LOG(WARNING) << " cuFile driver failed to open: " << status.err << ", "
+                 << cufileop_status_error(status.err);
+    return false;
+  }
+
+  {
+    CUfileDrvProps_t props{};
+    status = cuFileDriverGetProperties(&props);
+    CHECK_EQ(status.err, CU_FILE_SUCCESS)
+        << " cuFile driver failed to get properties: " << status.err << ", "
+        << cufileop_status_error(status.err);
+    LOG(INFO) << "NVFS version: " << props.nvfs.major_version << "."
+              << props.nvfs.minor_version;
+
+    LOG(INFO) << "NVFS supports NVMe: "
+              << (props.nvfs.dstatusflags & (1 << CU_FILE_NVME_SUPPORTED)
+                      ? "yes"
+                      : "no");
+    LOG(INFO) << "NVFS supports NVMEoF: "
+              << (props.nvfs.dstatusflags & (1 << CU_FILE_NVMEOF_SUPPORTED)
+                      ? "yes"
+                      : "no");
+    // nvidia docs unclear exactly in the relation between the flag fields and
+    // their enums. It is semi implied that the enum value is the bit number
+    LOG(INFO) << "CU_FILE_ALLOW_COMPAT_MODE: "
+              << (props.nvfs.dcontrolflags & (1 << CU_FILE_ALLOW_COMPAT_MODE)
+                      ? "yes"
+                      : "no");
+    LOG(INFO) << "CU_FILE_STREAMS_SUPPORTED: "
+              << (props.fflags & (1 << CU_FILE_STREAMS_SUPPORTED) ? "yes"
+                                                                  : "no");
+    LOG(INFO) << "cufile max_device_pinned_mem_size: "
+              << props.max_device_pinned_mem_size;
+    LOG(INFO) << "cufile per_buffer_cache_size: "
+              << props.per_buffer_cache_size;
+    LOG(INFO) << "cufile max_device_cache_size: "
+              << props.max_device_cache_size;
+  }
+#endif
+  return true;
 }
 
 /**
@@ -761,9 +836,9 @@ std::ostream &operator<<(std::ostream &out, const topology &topo) {
   }
 
   for (const auto &node : topo.getCpuNumaNodes()) {
-    out << "node: " << std::setw(6) << node.id << " | ";
+    out << "node: " << std::setw(5) << node.id << " | ";
 
-    out << std::setw(4 + 4 + 3) << ' ' << " | ";
+    out << std::setw(4 + 4 + 3) << "package: " << node.package_id << " | ";
 
     out << "cores: ";
 
@@ -784,9 +859,9 @@ std::ostream &operator<<(std::ostream &out, const topology &topo) {
   for (const auto &gpu : topo.getGpus()) {
     unsigned int nvml_ind = 0;
     gpu_run(nvmlDeviceGetIndex(gpu.handle, &nvml_ind));
-    out << "gpu : " << std::setw(2) << gpu.id;
+    out << "gpu: " << std::setw(2) << gpu.id;
     out << std::setw(4) << ("(" + std::to_string(nvml_ind) + ")") << " | ";
-    out << "node : " << std::setw(4) << gpu.local_cpu_id << " | ";
+    out << "node: " << std::setw(6) << gpu.local_cpu_id << " | ";
     out << "cores: ";
 
     for (uint32_t i = 0; i < topo.core_cnt; ++i) core_mask[i] = ' ';
@@ -863,6 +938,22 @@ std::ostream &operator<<(std::ostream &out, const topology &topo) {
     out << " |  " << nvme;
     out << "\n";
   }
+
+  for (const auto &node : topo.getCpuNumaNodes()) {
+    out << "node: ";
+    out << node.id << " | ";
+    for (auto d : node.distance) out << std::setw(4) << d;
+    out << '\n';
+  }
+
+  out << '\n';
+
+  for (const auto &gpu : topo.getGpus()) {
+    out << "gpu : " << gpu.id << " | ";
+    for (auto d : gpu.connectivity) out << std::setw(4) << d;
+    out << '\n';
+  }
+
   return out;
 }
 
@@ -870,7 +961,8 @@ std::ostream &operator<<(std::ostream &out, const topology::nvmeStorage &nvme) {
   out << "model name: " << nvme.model_name
       << ", link_speed: " << nvme.link_speed
       << ", PCIe lanes: " << nvme.link_width
-      << ", device path: " << nvme.devPath;
+      << ", device path: " << nvme.devPath << ", mount path: "
+      << nvme.getMountPath().value_or("not mounted").string();
   return out;
 }
 
@@ -881,6 +973,9 @@ topology::gpunode::gpunode(uint32_t id, uint32_t index_in_topo,
 #ifndef NCUDA
   gpu_run(cudaGetDeviceProperties(&properties, id));
 
+  // Note, there is an assumption that all GPUs in the system are the same type
+  // since we override defaultGridDim in each gpunode constructor and
+  // defaultGridDim is global.
   defaultGridDim =
       dim3(std::max((decltype(dim3::x))properties.multiProcessorCount *
                         ((properties.maxThreadsPerMultiProcessor +
@@ -888,6 +983,9 @@ topology::gpunode::gpunode(uint32_t id, uint32_t index_in_topo,
                          defaultBlockDim.x),
                     defaultGridDim.x),
            1, 1);
+
+  LOG(INFO) << "Default CUDA gridDim is: <" << defaultGridDim.x << ", "
+            << defaultGridDim.y << ", " << defaultGridDim.z << ">";
 
   uint32_t sets = ((all_cores.size() + 63) / 64);
   uint64_t cpuSet[sets];
@@ -910,12 +1008,12 @@ topology::gpunode::gpunode(uint32_t id, uint32_t index_in_topo,
       local_cores.push_back(c.id);
 
       uint32_t cpu = c.local_cpu_id;
-      assert(tmp_cpu == invalid || tmp_cpu == cpu);
+      CHECK(tmp_cpu == invalid || tmp_cpu == cpu);
       tmp_cpu = cpu;
     }
   }
 
-  assert(tmp_cpu != invalid);
+  CHECK(tmp_cpu != invalid);
   local_cpu_id = tmp_cpu;
 #else
   assert(false);
@@ -937,6 +1035,7 @@ topology::cpunumanode::cpunumanode(uint32_t id,
     : id(id),
       // distance(b.distance),
       index_in_topo(index_in_topo),
+      package_id(CorePackageParser::getCorePackageId(local_cores[0])),
       local_cores(local_cores) {
   CPU_ZERO(&local_cpu_set);
   for (const auto &c : local_cores) CPU_SET(c, &local_cpu_set);
@@ -953,6 +1052,51 @@ topology::nvmeStorage::nvmeStorage(const std::string &devPath,
       link_speed(nvmeDevPathToLinkSpeed(devPath)),
       link_width(nvmeDevPathToLinkWidth(devPath)),
       model_name(nvmeDevPathToModelName(devPath)){};
+
+const topology::nvmeStorage &topology::devPathToNvme(
+    std::string devPath) const {
+  auto maybeFound =
+      std::find_if(nvmeStorage_info.begin(), nvmeStorage_info.end(),
+                   [devPath](const topology::nvmeStorage &x) {
+                     return (x.devPath == devPath);
+                   });
+  if (maybeFound != nvmeStorage_info.end()) {
+    return *maybeFound;
+  } else {
+    LOG(FATAL) << "Tried to find nvme device with bad dev path: " << devPath;
+  }
+}
+
+std::optional<std::filesystem::path> topology::nvmeStorage::getMountPath()
+    const {
+  // won't work for multiple partitions on the same drive
+  const std::string command = "df --output=source,target | grep " + devPath;
+  auto [dfOutput, returnCode] = execCommand(command);
+  if (returnCode != 0) {
+    LOG(WARNING) << "`" << command << "`"
+                 << "failed with error code: " << returnCode
+                 << " and output: " << dfOutput;
+    return std::nullopt;
+  }
+  if (dfOutput.find(devPath) != std::string::npos) {
+    // dfOutput.size() - 1 is to strip a trailing
+    std::string mount_point =
+        dfOutput.substr(dfOutput.find_last_of(' ') + 1, dfOutput.size());
+    mount_point.erase(std::remove(mount_point.begin(), mount_point.end(), '\n'),
+                      mount_point.end());
+    CHECK(std::filesystem::exists(mount_point))
+        << "mount_point does not exist: " << mount_point;
+    return mount_point;
+  } else {
+    // drive not mounted
+    return std::nullopt;
+  }
+}
+
+const topology::cpunumanode &topology::findLocalCPUNumaNode(
+    const nvmeStorage &nvme) const {
+  return getCpuNumaNodeById(nvme.local_cpu_id);
+}
 
 nvmlDevice_t topology::gpunode::getGPUHandle(unsigned int id) {
 #ifndef NCUDA
@@ -992,46 +1136,6 @@ nvmlDevice_t topology::gpunode::getGPUHandle(unsigned int id) {
 }
 
 topology topology::instance;
-
-extern "C" int get_rand_core_local_to_ptr(const void *p) {
-  // const auto *dev = topology::getInstance().getGpuAddressed(p);
-  // if (dev) return dev->local_cores[rand() % dev->local_cores.size()];
-  // const auto *cpu = topology::getInstance().getCpuNumaNodeAddressed(p);
-  // return cpu->local_cores[rand() % cpu->local_cores.size()];
-
-  // actually, for the current exchange implementation we should return
-  // the integer i such that (i % #gpus) is a _gpu_ local to the current
-  // numa node addressed. (and yes, this will cause problems on machines
-  // without GPUs, but such machines need issue #16 to be resolved)
-  // FIXME: related to issue #16 and the above comment
-  // FIXME: *up*
-
-  const auto &topo = topology::getInstance();
-  const auto gpu_count = topo.getGpuCount();
-  const auto *dev = topology::getInstance().getGpuAddressed(p);
-  if (dev) return dev->id + ((rand() / gpu_count) * gpu_count);
-
-  const auto *cpu = topology::getInstance().getCpuNumaNodeAddressed(p);
-
-  const auto &local_gpus = cpu->local_gpus;
-  size_t local_gpu_count = local_gpus.size();
-  if (local_gpu_count == 0) return rand();
-
-  const auto &sdev = local_gpus[rand() % local_gpu_count];
-  return sdev + ((rand() / gpu_count) * gpu_count);
-}
-
-extern "C" int rand_local_cpu(const void *p, uint64_t fanout) {
-  const auto *g = topology::getInstance().getGpuAddressed(p);
-  if (g) assert(false && "TODO");
-  const auto *c = topology::getInstance().getCpuNumaNodeAddressed(p);
-  assert(c);
-  size_t socket = c->index_in_topo;
-  size_t nsockets = topology::getInstance().getCpuNumaNodeCount();
-  size_t ulimit = (fanout - 1 - socket) / nsockets;
-  size_t r = rand() % ulimit;
-  return socket + r * nsockets;
-}
 
 const topology::cpunumanode &topology::gpunode::getLocalCPUNumaNode() const {
   return topology::getInstance().getCpuNumaNodeById(local_cpu_id);

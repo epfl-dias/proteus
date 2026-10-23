@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,6 +24,7 @@
 #ifndef PLAN_PARSER_HPP_
 #define PLAN_PARSER_HPP_
 
+#include <codegen/expressions/expressions.hpp>
 #include <olap/operators/relbuilder-factory.hpp>
 #include <olap/operators/relbuilder.hpp>
 #include <olap/routing/affinitization-factory.hpp>
@@ -31,7 +32,6 @@
 #include <utility>
 
 #include "expression-parser.hpp"
-#include "olap/expressions/expressions.hpp"
 #include "olap/plan/catalog-parser.hpp"
 #include "rapidjson/document.h"
 
@@ -75,13 +75,13 @@ class PlanExecutor {
  private:
   const char *moduleName;
   CatalogParser &catalogParser;
-  vector<Plugin *> activePlugins;
+  std::vector<Plugin *> activePlugins;
   std::map<size_t, Operator *> splitOps;
   RelBuilderFactory factory;
   std::unique_ptr<ParserAffinitizationFactory> parFactory;
   //    std::unique_ptr<ParserAffinitizationFactory> parFactory;
 
-  [[deprecated]] ParallelContext *ctx;
+  [[deprecated]] OlapParallelContext *ctx;
   RelBuilder builtPlan;
 
   RelBuilder parsePlan(const rapidjson::Document &doc);

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,10 +23,9 @@
 
 #include "reduce-opt.hpp"
 
+#include <codegen/context/parallel-context.hpp>
+#include <codegen/jit/pipeline.hpp>
 #include <platform/memory/memory-manager.hpp>
-
-#include "lib/util/jit/pipeline.hpp"
-#include "olap/util/parallel-context.hpp"
 
 using namespace llvm;
 
@@ -49,7 +48,7 @@ namespace opt {
 //  }
 //}
 
-void Reduce::produce_(ParallelContext *context) {
+void Reduce::produce_(OlapParallelContext *context) {
   generate_flush(context);
 
   context->popPipeline();
@@ -75,7 +74,7 @@ void Reduce::produce_(ParallelContext *context) {
   getChild()->produce(context);
 }
 
-void Reduce::consume(ParallelContext *context,
+void Reduce::consume(OlapParallelContext *context,
                      const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -183,7 +182,7 @@ void Reduce::consume(ParallelContext *context,
 // Flush out whatever you received
 // FIXME Need 'output plugin' / 'serializer'
 void Reduce::generateBagUnion(const expression_t &outputExpr,
-                              ParallelContext *context,
+                              OlapParallelContext *context,
                               const OperatorState &state,
                               Value *cnt_mem) const {
   IRBuilder<> *Builder = context->getBuilder();
@@ -232,12 +231,12 @@ void Reduce::generateBagUnion(const expression_t &outputExpr,
   Builder->SetInsertPoint(currBlock);
 }
 
-void Reduce::generate_flush(ParallelContext *context) {
+void Reduce::generate_flush(OlapParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   (*context)->setMaxWorkerSize(1, 1);
 
-  vector<size_t> params;
+  std::vector<size_t> params;
 
   for (const auto &agg : aggs) {
     switch (agg.getMonoid()) {
@@ -372,7 +371,7 @@ void Reduce::generate_flush(ParallelContext *context) {
 }
 
 StateVar Reduce::resetAccumulator(const agg_t &agg, bool is_first, bool is_last,
-                                  ParallelContext *context) const {
+                                  OlapParallelContext *context) const {
   // Deal with 'memory allocations' as per monoid type requested
   switch (agg.getMonoid()) {
     case SUM:
@@ -414,7 +413,7 @@ StateVar Reduce::resetAccumulator(const agg_t &agg, bool is_first, bool is_last,
               auto itAcc = aggs.begin();
               auto itMem = mem_accumulators.begin();
 
-              vector<Value *> args;
+              std::vector<Value *> args;
               for (; itAcc != aggs.end(); itAcc++, itMem++) {
                 auto acc = *itAcc;
 

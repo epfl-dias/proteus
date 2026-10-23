@@ -29,7 +29,7 @@
 // #include "cuda.h"
 // #include "cuda_runtime_api.h"
 
-// #include "nvToolsExt.h"
+// #include "nvtx3/nvToolsExt.h"
 
 // #include "llvm/DerivedTypes.h"
 // Step 2. Use the TEST macro to define your tests.
@@ -69,8 +69,6 @@
 #include <vector>
 
 #include "olap/test/test-utils.hpp"
-
-using namespace llvm;
 
 // ::testing::Environment *const pools_env =
 //     ::testing::AddGlobalTestEnvironment(new OLAPTestEnvironment);

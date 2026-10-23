@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,6 +24,7 @@
 #ifndef EXPRESSIONS_HASHER_VISITOR_HPP_
 #define EXPRESSIONS_HASHER_VISITOR_HPP_
 
+#include <codegen/expressions/expressions.hpp>
 #include <platform/common/common.hpp>
 
 #include "expressions-generator.hpp"
@@ -79,6 +80,7 @@ class ExpressionHasherVisitor : public ExprVisitor {
   ProteusValue visit(const expressions::MinExpression *e) override;
   ProteusValue visit(const expressions::MaxExpression *e) override;
   ProteusValue visit(const expressions::RandExpression *e) override;
+  ProteusValue visit(const expressions::ExternExpression *e) override;
   ProteusValue visit(const expressions::HintExpression *e) override;
   ProteusValue visit(const expressions::HashExpression *e) override;
   ProteusValue visit(const expressions::RefExpression *e) override;

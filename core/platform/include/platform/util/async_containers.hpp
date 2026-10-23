@@ -126,6 +126,11 @@ class AsyncQueueSPSC {
     cache_size = 0;
   }
 
+  bool empty() {
+    std::unique_lock<std::mutex> lock(m);
+    return cache_size == 0 && data.empty() && terminating;
+  }
+
   void close() {
     // push(nullptr);
     nvtxRangePushA("AsyncQueue_o");
@@ -194,7 +199,6 @@ class AsyncQueueSPSC {
     }
 
     // assert(x != nullptr || data.empty());
-
     lock.unlock();
     // nvtxRangePop();
     // nvtxRangePop();

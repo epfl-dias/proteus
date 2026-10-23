@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,9 +23,14 @@
 
 #include "csv-plugin.hpp"
 
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+
 #include "lib/operators/operators.hpp"
 
 using namespace llvm;
+using std::vector;
 
 CSVPlugin::CSVPlugin(Context *const context, string &fname, RecordType &rec,
                      vector<RecordAttribute *> &whichFields)
@@ -95,7 +100,8 @@ void CSVPlugin::init() {
   NamedValuesCSV[bufVar] = bufMem;
 };
 
-void CSVPlugin::generate(const ::Operator &producer, ParallelContext *context) {
+void CSVPlugin::generate(const ::Operator &producer,
+                         OlapParallelContext *context) {
   return scanCSV(producer, context->getGlobalFunction());
 }
 
@@ -105,7 +111,7 @@ void CSVPlugin::generate(const ::Operator &producer, ParallelContext *context) {
 ProteusValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings,
                                        const char *pathVar,
                                        RecordAttribute attr,
-                                       ParallelContext *context) {
+                                       OlapParallelContext *context) {
   const OperatorState &state = *(bindings.state);
   RecordAttribute tmpKey(fname, pathVar, this->getOIDType());
   return state[tmpKey];
@@ -113,7 +119,7 @@ ProteusValueMemory CSVPlugin::readPath(string activeRelation, Bindings bindings,
 
 ProteusValueMemory CSVPlugin::readValue(ProteusValueMemory mem_value,
                                         const ExpressionType *type,
-                                        ParallelContext *context) {
+                                        OlapParallelContext *context) {
   return mem_value;
 }
 
@@ -281,12 +287,13 @@ void CSVPlugin::finish() {
 
 llvm::Value *CSVPlugin::getValueSize(ProteusValueMemory mem_value,
                                      const ExpressionType *type,
-                                     ParallelContext *context) {
+                                     OlapParallelContext *context) {
   switch (type->getTypeID()) {
     case BOOL:
     case INT:
     case FLOAT: {
-      Type *explicitType = (mem_value.mem)->getAllocatedType();
+      Type *explicitType =
+          mem_value.mem->getType()->getPointerElementType();
       return context->createInt32(explicitType->getPrimitiveSizeInBits() / 8);
     }
     case STRING: {
@@ -1002,7 +1009,7 @@ void CSVPlugin::scanCSV(const ::Operator &producer, Function *debug) {
     throw runtime_error(string("One of the functions needed not found!"));
   }
 
-  for (vector<RecordAttribute *>::iterator it = wantedFields.begin();
+  for (std::vector<RecordAttribute *>::iterator it = wantedFields.begin();
        it != wantedFields.end(); it++) {
     int neededAttr = (*it)->getAttrNo() - 1;
     for (; cur_col < neededAttr; cur_col++) {

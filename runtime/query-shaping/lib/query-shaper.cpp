@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2020
+                            Copyright (c) 2024
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -112,7 +112,11 @@ RelBuilder QueryShaper::collect_unpacked(RelBuilder input) {
 }
 
 RelBuilder QueryShaper::collect_packed(RelBuilder input) {
-  return collect_unpacked(input).memmove(getSlackReduce(), DeviceType::CPU);
+  auto rel = collect_unpacked(input);
+  if (DeviceType::GPU == getDevice() || doMove()) {
+    rel = rel.memmove(getSlackReduce(), DeviceType::CPU);
+  }
+  return rel;
 }
 
 RelBuilder QueryShaper::collect(RelBuilder input) {

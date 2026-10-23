@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -31,7 +31,7 @@
 #include "lib/util/caching.hpp"
 #include "lib/util/functions.hpp"
 #include "olap/util/parallel-context.hpp"
-//#define DEBUGRADIX
+// #define DEBUGRADIX
 
 /* valuePtr is relative to the payloadBuffer! */
 typedef struct htEntry {
@@ -87,8 +87,8 @@ struct kvBuf {
 class RadixJoinBuild : public UnaryOperator {
  public:
   RadixJoinBuild(expression_t keyExpr, Operator *child,
-                 ParallelContext *context, string opLabel, Materializer &mat,
-                 llvm::StructType *htEntryType,
+                 OlapParallelContext *context, string opLabel,
+                 Materializer &mat, llvm::StructType *htEntryType,
                  size_t size
 #ifdef LOCAL_EXEC
                  = 15000,
@@ -103,10 +103,10 @@ class RadixJoinBuild : public UnaryOperator {
 #endif
                  bool is_agg = false);
   ~RadixJoinBuild() override;
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
   //  void produceNoCache() ;
   void consume(Context *context, const OperatorState &childState) override;
-  void consume(ParallelContext *context, const OperatorState &childState);
+  void consume(OlapParallelContext *context, const OperatorState &childState);
   Materializer &getMaterializer() { return mat; }
   [[nodiscard]] bool isFiltering() const override { return true; }
   [[nodiscard]] RecordType getRowType() const override {
@@ -129,10 +129,10 @@ class RadixJoinBuild : public UnaryOperator {
   //     void runRadix() const;
   //     Value *radix_cluster_nopadding(struct relationBuf rel, struct kvBuf ht)
   //     const;
-  llvm::Value *radix_cluster_nopadding(ParallelContext *context,
+  llvm::Value *radix_cluster_nopadding(OlapParallelContext *context,
                                        llvm::Value *mem_tuplesNo,
                                        llvm::Value *mem_kv_id) const;
-  void initializeState(ParallelContext *context);
+  void initializeState(OlapParallelContext *context);
 
   // //  char** findSideInCache(Materializer &mat) const;
   //     Scan* findSideInCache(Materializer &mat, bool isLeft) const;

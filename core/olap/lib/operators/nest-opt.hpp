@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,11 +24,12 @@
 #ifndef _NEST_OPT_HPP_
 #define _NEST_OPT_HPP_
 
+#include <codegen/expressions/expressions.hpp>
+
 #include "lib/expressions/expressions-generator.hpp"
 #include "lib/expressions/expressions-hasher.hpp"
 #include "lib/expressions/path.hpp"
 #include "lib/plugins/binary-internal-plugin.hpp"
-#include "olap/expressions/expressions.hpp"
 #include "olap/operators/monoids.hpp"
 #include "operators.hpp"
 
@@ -46,13 +47,13 @@ namespace opt {
 
 class Nest : public UnaryOperator {
  public:
-  Nest(vector<Monoid> accs, vector<expression_t> outputExprs,
-       vector<string> aggrLabels, expression_t pred,
+  Nest(std::vector<Monoid> accs, std::vector<expression_t> outputExprs,
+       std::vector<string> aggrLabels, expression_t pred,
        const list<expressions::InputArgument> &f_grouping,
        const list<expressions::InputArgument> &g_nullToZero,
        Operator *const child, char *opLabel, Materializer &mat);
   ~Nest() override { LOG(INFO) << "Collapsing Nest operator"; }
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
   void consume(Context *const context,
                const OperatorState &childState) override;
   Materializer &getMaterializer() { return mat; }
@@ -87,13 +88,13 @@ class Nest : public UnaryOperator {
    */
   llvm::AllocaInst *resetAccumulator(expression_t outputExpr, Monoid acc) const;
 
-  vector<Monoid> accs;
-  vector<expression_t> outputExprs;
+  std::vector<Monoid> accs;
+  std::vector<expression_t> outputExprs;
   expression_t pred;
   expression_t f_grouping;
   const list<expressions::InputArgument> &__attribute__((unused)) g_nullToZero;
 
-  vector<string> aggregateLabels;
+  std::vector<string> aggregateLabels;
 
   char *htName;
   Materializer &mat;

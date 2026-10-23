@@ -24,7 +24,7 @@
 #include "path.hpp"
 
 string Path::toString() const {
-  stringstream ss;
+  std::stringstream ss;
   ss << desugarizedPath->getRelationName();
   expression_t currExpr = desugarizedPath;
   list<string> projNames = list<string>();

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,7 +23,9 @@
 
 #include "unionall.hpp"
 
-void UnionAll::produce_(ParallelContext *context) {
+#include <codegen/jit/pipeline.hpp>
+
+void UnionAll::produce_(OlapParallelContext *context) {
   generate_catch(context);
 
   catch_pip = context->operator->();
@@ -33,8 +35,16 @@ void UnionAll::produce_(ParallelContext *context) {
     context->popPipeline();
     context->pushPipeline();
 
-    context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
-    context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
+    context->registerOpen(this, [this](Pipeline *pip) {
+      event_range<range_log_op::UNION_ALL_OPEN> er(
+          this->getUUID(), pip->getGeneratorUUID(), pip->getGroup());
+      this->open(pip);
+    });
+    context->registerClose(this, [this](Pipeline *pip) {
+      event_range<range_log_op::UNION_ALL_CLOSE> er(
+          this->getUUID(), pip->getGeneratorUUID(), pip->getGroup());
+      this->close(pip);
+    });
 
     child->produce(context);
   }

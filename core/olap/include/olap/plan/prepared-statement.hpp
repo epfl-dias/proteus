@@ -33,11 +33,13 @@
 #include "query-result.hpp"
 
 class Pipeline;
+class ParallelContext;
 class AffinitizationFactory;
 class Operator;
 
 class PreparedStatement {
  private:
+  std::shared_ptr<ParallelContext> compiled_context;
   // Both fields are non-const to allow moving PreparedStatements
   std::vector<std::shared_ptr<Pipeline>> pipelines;
   std::string outputFile;
@@ -45,7 +47,8 @@ class PreparedStatement {
 
  protected:
   PreparedStatement(std::vector<std::unique_ptr<Pipeline>> pips,
-                    std::string outputFile, std::shared_ptr<Operator> planRoot);
+                    std::string outputFile, std::shared_ptr<Operator> planRoot,
+                    std::shared_ptr<ParallelContext> compiled_context = {});
 
   QueryResult execute(std::vector<std::chrono::milliseconds>& tlog,
                       std::function<time_block(const char*)> f,

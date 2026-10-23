@@ -23,7 +23,7 @@
 
 #include <platform/topology/topology.hpp>
 
-#include "olap/routing/routing-policy.hpp"
+#include "lib/operators/router/routing-policy.hpp"
 
 AffinityPolicy::AffinityPolicy(size_t fanout, const Affinitizer *aff)
     : aff(aff) {

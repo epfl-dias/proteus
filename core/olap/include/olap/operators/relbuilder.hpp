@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2018
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -33,10 +33,12 @@
 #include <olap/routing/routing-policy-types.hpp>
 #include <olap/values/types.hpp>
 #include <platform/util/sort/sort-direction.hpp>
+#include <memory>
 #include <utility>
 
 class PreparedStatement;
 class CatalogParser;
+class OlapParallelContext;
 class ParallelContext;
 
 class [[nodiscard]] pg {
@@ -49,6 +51,8 @@ class [[nodiscard]] pg {
   [[nodiscard]] auto getType() const { return pgType; }
 };
 
+class SplitRelBuilder;
+
 /**
  * @class RelBuilder
  * The RelBuilder class is used to construct PreparedStatements
@@ -59,13 +63,14 @@ class [[nodiscard]] pg {
  * hand
  */
 class RelBuilder {
- private:
-  ParallelContext* ctx;
+ protected:
+  OlapParallelContext* ctx;
   Operator* root;
 
-  RelBuilder(ParallelContext* ctx, Operator* root);
+  RelBuilder(OlapParallelContext* ctx, Operator* root);
   RelBuilder(const RelBuilder& builder, Operator* root);
 
+  Operator* registerOutput(Operator* op) const;
   RelBuilder apply(Operator* op) const;
 
   [[nodiscard]] expressions::InputArgument getOutputArg() const;
@@ -85,9 +90,10 @@ class RelBuilder {
 
  private:
   RelBuilder();
-  explicit RelBuilder(ParallelContext* ctx);
+  explicit RelBuilder(OlapParallelContext* ctx);
 
   friend class RelBuilderFactory;
+  friend class SplitRelBuilder;
 
   static void registerPlugin(const std::string& relName, Plugin* pg);
 
@@ -171,6 +177,16 @@ class RelBuilder {
       const std::vector<
           std::pair<RecordAttribute*, std::shared_ptr<proteus_any_vector>>>&
           data) const;
+
+  [[nodiscard]] RelBuilder scan(
+      const std::vector<
+          std::pair<RecordAttribute*, std::vector<std::filesystem::path>>>&
+          fields) const;
+  [[nodiscard]] RelBuilder scan(
+      const std::vector<
+          std::pair<RecordAttribute*, std::vector<std::filesystem::path>>>&
+          fields,
+      bool preload_to_gpu, bool emit_compressed_blocks) const;
 
   template <typename Tplugin>
   [[deprecated]] RelBuilder scan(std::string relName,
@@ -268,10 +284,14 @@ class RelBuilder {
    *                    used for load balancing
    *                    (limits the on-the-fly transfers)
    * @param     to      the type of the current NUMA node
-   *
+   * @param     do_transfer  a vector of booleans, one per attribute. If to is a
+   * GPU, then true will transfer to the GPU, false will transfer from NVMe to
+   * CPU or if the data is CPU resident, it will remain there.
    * @see Chrysogelos et al, VLDB2019
    */
-  [[nodiscard]] RelBuilder memmove(size_t slack, DeviceType to) const;
+  [[nodiscard]] RelBuilder memmove(
+      size_t slack, DeviceType to,
+      std::optional<std::vector<bool>> do_transfer = std::nullopt) const;
 
   [[nodiscard]] RelBuilder memmove_scaleout(size_t slack) const;
 
@@ -288,6 +308,10 @@ class RelBuilder {
   }
 
   [[nodiscard]] RelBuilder membrdcst(DegreeOfParallelism fanout, bool to_cpu,
+                                     bool always_share = false) const;
+
+  [[nodiscard]] RelBuilder membrdcst(DegreeOfParallelism fanout,
+                                     DeviceType target,
                                      bool always_share = false) const;
 
   [[nodiscard]] RelBuilder membrdcst(DeviceType target,
@@ -409,13 +433,18 @@ class RelBuilder {
       size_t alternatives, size_t slack, RoutingPolicy p,
       std::unique_ptr<Affinitizer> aff = nullptr) const;
 
+  [[nodiscard]] SplitRelBuilder gsplit(size_t slack,
+                                       GeneralizedRoutingPolicy p) const;
+
   /**
    * Union the items from the current flow and the others
    *
    * @param     others  flows to unify with current one
+   * @param     fanout  degree of parallelism for the pipeline after the union
    */
   [[nodiscard]] RelBuilder unionAll(
-      const std::vector<RelBuilder>& others) const;
+      const std::vector<RelBuilder>& others,
+      DegreeOfParallelism fanout = DegreeOfParallelism{1}) const;
 
   [[nodiscard]] RelBuilder to_gpu() const;
 
@@ -424,16 +453,20 @@ class RelBuilder {
 
   [[nodiscard]] RelBuilder unpack() const;
 
+  /**
+   * Apply a bloom filter probe to tuples block wise. Consumes and emits blocks
+   * @param pred expression to use to probe the bloom filter. Would usually be
+   * the same as the one used to build the bloom filter
+   * @param filterSize size of the bloom filter created with bloomfilter_build
+   * @param bloomId ID of the bloom filer created with bloomfilter_build
+   * @note there is currently a bug where bloom_filer_repack()->unpack() will
+   * not work due to the llvm types emitted by bloomfilter_repack.
+   * bloomfilter_repack emits ptrs to arrays while unpack expects regular ptrs
+   * e.g. [524288 x i32]* vs i32*
+   */
   [[nodiscard]] RelBuilder bloomfilter_repack(
       std::function<expression_t(expressions::InputArgument)> pred,
-      size_t filterSize, uint64_t bloomId) {
-    auto arg = getOutputArg();
-    std::vector<expression_t> attrs;
-    for (const auto& attr : arg.getProjections()) {
-      attrs.emplace_back(arg[attr]);
-    }
-    return bloomfilter_repack(pred(arg), attrs, filterSize, bloomId);
-  }
+      size_t filterSize, uint64_t bloomId) const;
 
   /**
    * Filters tuples using a predicate.
@@ -530,7 +563,7 @@ class RelBuilder {
    *                    the input name.
    */
   [[nodiscard]] RelBuilder reduce(const MultiExpressionFactory& expr,
-                                  const vector<Monoid>& accs) const {
+                                  const std::vector<Monoid>& accs) const {
     return reduce(expr(getOutputArg()), accs);
   }
 
@@ -541,7 +574,7 @@ class RelBuilder {
   }
 
   template <typename T>
-  RelBuilder sort(T e, const vector<direction>& dirs) const {
+  RelBuilder sort(T e, const std::vector<direction>& dirs) const {
     if (isPacked()) {
       std::string error = "Cannot sort packed input";
       LOG(ERROR) << error;
@@ -562,31 +595,36 @@ class RelBuilder {
    * Compile the plan
    * @return a PreparedStatement which can then be executed
    */
-  PreparedStatement prepare();
+  PreparedStatement prepare(
+      std::shared_ptr<ParallelContext> compiled_context = {});
 
   [[nodiscard]] bool isPacked() const;
 
  private:
-  [[nodiscard]] RelBuilder memmove(const vector<RecordAttribute*>& wantedFields,
-                                   size_t slack, DeviceType to) const;
+  [[nodiscard]] RelBuilder memmove(
+      const std::vector<RecordAttribute*>& wantedFields, size_t slack,
+      DeviceType to) const;
+  [[nodiscard]] RelBuilder memmove(const std::vector<RecordAttribute*>& wantedFields,
+                                   size_t slack, DeviceType to,
+                                   const std::vector<bool>& do_transfer) const;
 
   [[nodiscard]] RelBuilder memmove_scaleout(
-      const vector<RecordAttribute*>& wantedFields, size_t slack) const;
+      const std::vector<RecordAttribute*>& wantedFields, size_t slack) const;
 
   [[nodiscard]] RelBuilder to_gpu(
-      const vector<RecordAttribute*>& wantedFields) const;
+      const std::vector<RecordAttribute*>& wantedFields) const;
 
-  [[nodiscard]] RelBuilder to_cpu(const vector<RecordAttribute*>& wantedFields,
-                                  gran_t granularity = gran_t::THREAD,
-                                  size_t size = 1024 * 1024 / 4) const;
+  [[nodiscard]] RelBuilder to_cpu(
+      const std::vector<RecordAttribute*>& wantedFields,
+      gran_t granularity = gran_t::THREAD, size_t size = 1024 * 1024 / 4) const;
 
   [[nodiscard]] RelBuilder unpack(
-      const vector<expression_t>& projections) const;
+      const std::vector<expression_t>& projections) const;
 
-  [[nodiscard]] RelBuilder unpack(const vector<expression_t>& projections,
+  [[nodiscard]] RelBuilder unpack(const std::vector<expression_t>& projections,
                                   gran_t granularity) const;
 
-  [[nodiscard]] RelBuilder pack(const vector<expression_t>& projections,
+  [[nodiscard]] RelBuilder pack(const std::vector<expression_t>& projections,
                                 expression_t hashExpr,
                                 size_t numOfBuckets) const;
 
@@ -604,10 +642,10 @@ class RelBuilder {
                                               size_t filterSize,
                                               uint64_t bloomId) const;
 
-  [[nodiscard]] RelBuilder project(const vector<expression_t>& e) const;
+  [[nodiscard]] RelBuilder project(const std::vector<expression_t>& e) const;
 
-  [[nodiscard]] RelBuilder reduce(const vector<expression_t>& e,
-                                  const vector<Monoid>& accs) const;
+  [[nodiscard]] RelBuilder reduce(const std::vector<expression_t>& e,
+                                  const std::vector<Monoid>& accs) const;
 
   [[nodiscard]] RelBuilder groupby(const std::vector<expression_t>& e,
                                    const std::vector<GpuAggrMatExpr>& agg_exprs,
@@ -620,10 +658,10 @@ class RelBuilder {
    * use direction::None
    * @param dirs Sort direction per orderByField
    */
-  [[nodiscard]] RelBuilder sort(const vector<expression_t>& orderByFields,
-                                const vector<direction>& dirs) const;
+  [[nodiscard]] RelBuilder sort(const std::vector<expression_t>& orderByFields,
+                                const std::vector<direction>& dirs) const;
 
-  RelBuilder print(const vector<expression_t>& e, Plugin* pg,
+  RelBuilder print(const std::vector<expression_t>& e, Plugin* pg,
                    bool may_overwrite = false) const;
 
   RelBuilder print(std::function<std::vector<expression_t>(
@@ -633,24 +671,25 @@ class RelBuilder {
 
   [[nodiscard]] RelBuilder unnest(expression_t e) const;
 
-  [[nodiscard]] RelBuilder router(const vector<RecordAttribute*>& wantedFields,
-                                  std::optional<expression_t> hash,
-                                  DegreeOfParallelism fanout, size_t slack,
-                                  RoutingPolicy p, DeviceType target,
-                                  std::unique_ptr<Affinitizer> aff) const;
+  [[nodiscard]] RelBuilder router(
+      const std::vector<RecordAttribute*>& wantedFields,
+      std::optional<expression_t> hash, DegreeOfParallelism fanout,
+      size_t slack, RoutingPolicy p, DeviceType target,
+      std::unique_ptr<Affinitizer> aff) const;
 
   [[nodiscard]] RelBuilder router_scaleout(
-      const vector<RecordAttribute*>& wantedFields,
+      const std::vector<RecordAttribute*>& wantedFields,
       std::optional<expression_t> hash, DegreeOfParallelism fanout,
       size_t slack, RoutingPolicy p, DeviceType cpu_targets) const;
 
   [[nodiscard]] RelBuilder unionAll(
       const std::vector<RelBuilder>& children,
-      const vector<RecordAttribute*>& wantedFields) const;
+      const std::vector<RecordAttribute*>& wantedFields,
+      DegreeOfParallelism fanout) const;
 
   [[nodiscard]] RelBuilder membrdcst(
-      const vector<RecordAttribute*>& wantedFields, DegreeOfParallelism fanout,
-      bool to_cpu, bool always_share = false) const;
+      const std::vector<RecordAttribute*>& wantedFields,
+      DegreeOfParallelism fanout, bool to_cpu, bool always_share = false) const;
 
   [[nodiscard]] RelBuilder join(RelBuilder build, expression_t build_k,
                                 const std::vector<GpuMatExpr>& build_e,
@@ -661,8 +700,8 @@ class RelBuilder {
                                 int hash_bits, size_t maxBuildInputSize) const;
 
   [[nodiscard]] RelBuilder membrdcst_scaleout(
-      const vector<RecordAttribute*>& wantedFields, size_t fanout, bool to_cpu,
-      bool always_share = false) const;
+      const std::vector<RecordAttribute*>& wantedFields, size_t fanout,
+      bool to_cpu, bool always_share = false) const;
 
   [[nodiscard]] RelBuilder join(RelBuilder build, expression_t build_k,
                                 expression_t probe_k, int hash_bits,
@@ -679,6 +718,40 @@ class RelBuilder {
   }
 
   friend class PlanExecutor;
+};
+
+class SplitRelBuilder {
+ protected:
+  RelBuilder src;
+  explicit SplitRelBuilder(RelBuilder builder);
+
+  friend class RelBuilder;
+
+ public:
+  /**
+   * Add a path after a gsplit. An arbitrary number of paths can be added.
+   * @param target target device for the path
+   * @param dop degree of parallelism for the path. i.e how many instances of
+   * the pipeline will be launched for this path
+   * @param aff affinitizer that will be used for the pipeline instances in the
+   * path
+   * @see RelBuilder::UnionAll
+   * @see RelBuilder::gsplit
+   */
+  [[nodiscard]] RelBuilder path(DeviceType target, DegreeOfParallelism dop,
+                                std::unique_ptr<Affinitizer> aff) const;
+  /**
+   * Add a path after a gsplit. An arbitrary number of paths can be added.
+   * This version of path will use the default degree of parallelism for the
+   * target DeviceType
+   * @param target target device for the path (Not currently used)
+   * @param aff affinitizer that will be used for the pipeline instances in the
+   * path
+   * @see RelBuilder::UnionAll
+   * @see RelBuilder::gsplit
+   */
+  [[nodiscard]] RelBuilder path(DeviceType target,
+                                std::unique_ptr<Affinitizer> aff) const;
 };
 
 std::ostream& operator<<(std::ostream& out, const RelBuilder& builder);

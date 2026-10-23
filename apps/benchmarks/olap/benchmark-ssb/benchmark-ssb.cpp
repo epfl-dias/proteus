@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2023
+                            Copyright (c) 2026
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -42,12 +42,12 @@
       ->Args({100, 1})                             \
       ->UseRealTime()                              \
       ->Unit(benchmark::kMillisecond)              \
-      ->Iterations(5);                             \
+      ->Iterations(10);                            \
   BENCHMARK_REGISTER_F(SSBCPUOnly, CPU_##name)     \
       ->Args({1000, 1})                            \
       ->UseRealTime()                              \
       ->Unit(benchmark::kMillisecond)              \
-      ->Iterations(5);
+      ->Iterations(10);
 
 // We separate define and register, so we can apply arguments
 // (X Macro pattern because, to my knowledge, the RegisterBenchmark function
@@ -73,15 +73,43 @@ FOR_SSB_QUERY(SSB_BENCH_REGISTER_CPU)
       ->Args({100, 1})                             \
       ->UseRealTime()                              \
       ->Unit(benchmark::kMillisecond)              \
-      ->Iterations(5);                             \
+      ->Iterations(10);                            \
   BENCHMARK_REGISTER_F(SSBGPUOnly, GPU_##name)     \
       ->Args({1000, 1})                            \
       ->UseRealTime()                              \
       ->Unit(benchmark::kMillisecond)              \
-      ->Iterations(5);
+      ->Iterations(10);
 
 FOR_SSB_QUERY(SSB_BENCH_DEFINE_GPU)
 FOR_SSB_QUERY(SSB_BENCH_REGISTER_GPU)
+
+// GPU only lazy
+#define SSB_BENCH_DEFINE_GPU_LAZY(name, prepFunction)      \
+  BENCHMARK_DEFINE_F(SSBGPUOnlyLazy, GPULazy_##name)       \
+  (benchmark::State & st) {                                \
+    auto num_gpus = topology::getInstance().getGpuCount(); \
+    if (num_gpus == 0) {                                   \
+      st.SkipWithError("System has no GPUs");              \
+    }                                                      \
+    auto statement = prepFunction(*shaper.get());          \
+    warmUp(statement);                                     \
+    runBenchmark(statement, st);                           \
+  }
+
+#define SSB_BENCH_REGISTER_GPU_LAZY(name, prepFunction) \
+  BENCHMARK_REGISTER_F(SSBGPUOnlyLazy, GPULazy_##name)  \
+      ->Args({100, 1})                                  \
+      ->UseRealTime()                                   \
+      ->Unit(benchmark::kMillisecond)                   \
+      ->Iterations(10);                                 \
+  BENCHMARK_REGISTER_F(SSBGPUOnlyLazy, GPULazy_##name)  \
+      ->Args({1000, 1})                                 \
+      ->UseRealTime()                                   \
+      ->Unit(benchmark::kMillisecond)                   \
+      ->Iterations(10);
+
+FOR_SSB_QUERY(SSB_BENCH_DEFINE_GPU_LAZY)
+FOR_SSB_QUERY(SSB_BENCH_REGISTER_GPU_LAZY)
 
 // Hybrid CPU-GPU
 #define SSB_BENCH_DEFINE_HYBRID(name, prepFunction)        \
@@ -101,15 +129,39 @@ FOR_SSB_QUERY(SSB_BENCH_REGISTER_GPU)
       ->Args({100, 1})                                \
       ->UseRealTime()                                 \
       ->Unit(benchmark::kMillisecond)                 \
-      ->Iterations(5);                                \
+      ->Iterations(10);                               \
   BENCHMARK_REGISTER_F(SSBHybrid, HYBRID_##name)      \
       ->Args({1000, 1})                               \
       ->UseRealTime()                                 \
       ->Unit(benchmark::kMillisecond)                 \
-      ->Iterations(5);
+      ->Iterations(10);
 
 FOR_SSB_QUERY(SSB_BENCH_DEFINE_HYBRID)
 FOR_SSB_QUERY(SSB_BENCH_REGISTER_HYBRID)
+
+// IN-GPU RESIDENT (--in_gpu=true semantics): data preloaded GPU-resident by the
+// scan; run one query per process (see SSBInGPU note in ssb-fixture.hpp).
+#define SSB_BENCH_DEFINE_INGPU(name, prepFunction)         \
+  BENCHMARK_DEFINE_F(SSBInGPU, INGPU_##name)               \
+  (benchmark::State & st) {                                \
+    auto num_gpus = topology::getInstance().getGpuCount(); \
+    if (num_gpus == 0) {                                   \
+      st.SkipWithError("System has no GPUs");              \
+    }                                                      \
+    auto statement = prepFunction(*shaper.get());          \
+    warmUp(statement);                                     \
+    runBenchmark(statement, st);                           \
+  }
+
+#define SSB_BENCH_REGISTER_INGPU(name, prepFunction) \
+  BENCHMARK_REGISTER_F(SSBInGPU, INGPU_##name)       \
+      ->Args({100, 1})                               \
+      ->UseRealTime()                                \
+      ->Unit(benchmark::kMillisecond)                \
+      ->Iterations(10);
+
+FOR_SSB_QUERY(SSB_BENCH_DEFINE_INGPU)
+FOR_SSB_QUERY(SSB_BENCH_REGISTER_INGPU)
 
 int main(int argc, char** argv) {
   ::benchmark::Initialize(&argc, argv);

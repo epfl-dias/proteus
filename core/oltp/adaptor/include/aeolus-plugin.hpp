@@ -1,7 +1,7 @@
 /*
      Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2019
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -30,7 +30,7 @@
 class AeolusPlugin
     : public proteus::olap_plugins::BinaryBlockPluginRuntimeDataHandles {
  public:
-  AeolusPlugin(ParallelContext *context, std::string fnamePrefix,
+  AeolusPlugin(OlapParallelContext *context, std::string fnamePrefix,
                RecordType rec,
                const std::vector<RecordAttribute *> &whichFields,
                std::string pgType);
@@ -47,7 +47,7 @@ class AeolusPlugin
 
   void freeNumOfTuplesPerPartition_runtime(int64_t *inn) override;
 
-  void updateValueEager(ParallelContext *context, ProteusValue rid,
+  void updateValueEager(OlapParallelContext *context, ProteusValue rid,
                         ProteusValue value, const ExpressionType *type,
                         const std::string &fileName) override;
 
@@ -55,7 +55,7 @@ class AeolusPlugin
   bool elastic_scan;
 
  private:
-  void updateValueEagerInternal(ParallelContext *context, ProteusValue rid,
+  void updateValueEagerInternal(OlapParallelContext *context, ProteusValue rid,
                                 ProteusValue value, const ExpressionType *type,
                                 const std::string &relName, uint8_t index);
 
@@ -65,7 +65,7 @@ class AeolusPlugin
 class AeolusLocalPlugin : public AeolusPlugin {
  public:
   static constexpr auto type = "block-local";
-  AeolusLocalPlugin(ParallelContext *context, std::string fnamePrefix,
+  AeolusLocalPlugin(OlapParallelContext *context, std::string fnamePrefix,
                     RecordType rec,
                     const std::vector<RecordAttribute *> &whichFields)
       : AeolusPlugin(context, std::move(fnamePrefix), rec, whichFields, type) {
@@ -77,7 +77,7 @@ class AeolusLocalPlugin : public AeolusPlugin {
 class AeolusRemotePlugin : public AeolusPlugin {
  public:
   static constexpr auto type = "block-remote";
-  AeolusRemotePlugin(ParallelContext *context, std::string fnamePrefix,
+  AeolusRemotePlugin(OlapParallelContext *context, std::string fnamePrefix,
                      RecordType rec,
                      const std::vector<RecordAttribute *> &whichFields)
       : AeolusPlugin(context, std::move(fnamePrefix), rec, whichFields, type) {}
@@ -86,7 +86,7 @@ class AeolusRemotePlugin : public AeolusPlugin {
 class AeolusElasticPlugin : public AeolusPlugin {
  public:
   static constexpr auto type = "block-elastic";
-  AeolusElasticPlugin(ParallelContext *context, std::string fnamePrefix,
+  AeolusElasticPlugin(OlapParallelContext *context, std::string fnamePrefix,
                       RecordType rec,
                       const std::vector<RecordAttribute *> &whichFields);
 };
@@ -94,7 +94,7 @@ class AeolusElasticPlugin : public AeolusPlugin {
 class AeolusElasticNIPlugin : public AeolusPlugin {
  public:
   static constexpr auto type = "block-elastic-ni";
-  AeolusElasticNIPlugin(ParallelContext *context, std::string fnamePrefix,
+  AeolusElasticNIPlugin(OlapParallelContext *context, std::string fnamePrefix,
                         RecordType rec,
                         const std::vector<RecordAttribute *> &whichFields);
 };
@@ -102,16 +102,16 @@ class AeolusElasticNIPlugin : public AeolusPlugin {
 extern "C" {
 
 Plugin *createBlockRemotePlugin(
-    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    OlapParallelContext *context, std::string fnamePrefix, RecordType rec,
     const std::vector<RecordAttribute *> &whichFields);
 Plugin *createBlockLocalPlugin(
-    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    OlapParallelContext *context, std::string fnamePrefix, RecordType rec,
     const std::vector<RecordAttribute *> &whichFields);
 Plugin *createBlockElasticPlugin(
-    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    OlapParallelContext *context, std::string fnamePrefix, RecordType rec,
     const std::vector<RecordAttribute *> &whichFields);
 Plugin *createBlockElasticNiPlugin(
-    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    OlapParallelContext *context, std::string fnamePrefix, RecordType rec,
     const std::vector<RecordAttribute *> &whichFields);
 }
 

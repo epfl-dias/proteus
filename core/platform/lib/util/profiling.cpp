@@ -21,6 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include <cstdlib>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
 #include <platform/util/profiling.hpp>
@@ -34,18 +35,95 @@
 
 namespace profiling {
 void resume() {
-  for (const auto &gpu : topology::getInstance().getGpus()) {
+  for (const auto& gpu : topology::getInstance().getGpus()) {
     set_exec_location_on_scope d{gpu};
+    // Defined by gpu-common.hpp if NCUDA is defined
     gpu_run(cudaProfilerStart());
   }
   __itt_resume();
+
+  /**
+   * see man perf record and the --control= option
+   * We could be more efficient by saving the file descriptors in a global or
+   * making this a class/singleton, but this is a simple way to do it and its
+   * not generally performance critical
+   */
+  int perf_ctl_fd = -1;
+  int perf_ctl_ack_fd = -1;
+  char* PERF_CTL_FD = getenv("PERF_CTL_FD");
+  char* PERF_CTL_ACK_FD = getenv("PERF_CTL_ACK_FD");
+
+  if (PERF_CTL_FD != nullptr) {
+    perf_ctl_fd = atoi(PERF_CTL_FD);
+  } else {
+    LOG_FIRST_N(WARNING, 1)
+        << "PERF_CTL_FD envvar not set. Cannot programmatically "
+           "control perf collection";
+    return;
+  }
+
+  if (PERF_CTL_ACK_FD != nullptr) {
+    perf_ctl_ack_fd = atoi(PERF_CTL_ACK_FD);
+  } else {
+    LOG_FIRST_N(WARNING, 1)
+        << "PERF_CTL_FD set but PERF_CTL_ACK_FD envvar is not set. Cannot "
+           "confirm that perf collection control commands are received";
+  }
+
+  // Start the performance counter
+  PCHECK(write(perf_ctl_fd, "enable\n", 8) == 8)
+      << "failed to write to perf control fd";
+
+  if (perf_ctl_ack_fd != -1) {
+    // Wait for the ack from the perf control process
+    char ack[5];
+    PCHECK(read(perf_ctl_ack_fd, ack, 5) == 5)
+        << "failed to read from perf control ack fd";
+    CHECK_EQ(strcmp(ack, "ack\n"), 0);
+  }
 }
 
 void pause() {
-  __itt_pause();
-  for (const auto &gpu : topology::getInstance().getGpus()) {
+  for (const auto& gpu : topology::getInstance().getGpus()) {
     set_device_on_scope d{gpu};
+    // Defined by gpu-common.hpp if NCUDA is defined
     gpu_run(cudaProfilerStop());
   }
+  __itt_pause();
+
+  int perf_ctl_fd = -1;
+  int perf_ctl_ack_fd = -1;
+  char* PERF_CTL_FD = getenv("PERF_CTL_FD");
+  char* PERF_CTL_ACK_FD = getenv("PERF_CTL_ACK_FD");
+
+  if (PERF_CTL_FD != nullptr) {
+    perf_ctl_fd = std::stoi(PERF_CTL_FD);
+  } else {
+    LOG_FIRST_N(WARNING, 1)
+        << "PERF_CTL_FD envvar not set. Cannot programmatically "
+           "control perf collection";
+    return;
+  }
+
+  if (PERF_CTL_ACK_FD != nullptr) {
+    perf_ctl_ack_fd = std::stoi(PERF_CTL_ACK_FD);
+  } else {
+    LOG_FIRST_N(WARNING, 1)
+        << "PERF_CTL_FD set but PERF_CTL_ACK_FD envvar is not set. Cannot "
+           "confirm that perf collection control commands are received";
+  }
+
+  // Start the performance counter
+  PCHECK(write(perf_ctl_fd, "disable\n", 9) == 9)
+      << "failed to write to perf control fd";
+
+  if (perf_ctl_ack_fd != -1) {
+    // Wait for the ack from the perf control process
+    char ack[5];
+    PCHECK(read(perf_ctl_ack_fd, ack, 5) == 5)
+        << "failed to read from perf control ack fd";
+    CHECK_EQ(strcmp(ack, "ack\n"), 0);
+  }
 }
+
 }  // namespace profiling

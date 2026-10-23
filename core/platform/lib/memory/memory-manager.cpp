@@ -21,16 +21,18 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
+#include <execinfo.h>
+
 #include <platform/memory/memory-manager.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/topology/topology.hpp>
-#include <platform/util/logging.hpp>
+#include <platform/util/tracing.hpp>
 
-#ifndef NDEBUG
+//#ifndef NDEBUG
 #include <execinfo.h>
 
 #include <platform/util/timing.hpp>
-#endif
+//#endif
 
 #ifndef NDEBUG
 static bool trace_allocations;
@@ -45,7 +47,7 @@ void set_trace_allocations(bool val, bool silent_set_fail) {
   if ((!silent_set_fail) && val) {
     auto msg = "Can not enable memory & leak tracing in a NDEBUG build";
     LOG(FATAL) << msg;
-    throw runtime_error(msg);
+    //throw runtime_error(msg);
   }
 #endif
 }
@@ -55,6 +57,8 @@ constexpr size_t freed_cache_cap = 16;
 void buffer_manager_init(float gpu_mem_pool_percentage,
                          float cpu_mem_pool_percentage, size_t log_buffers);
 void buffer_manager_destroy();
+
+const uuids::uuid MemoryManager::id = uuids::uuid_system_generator{}();
 
 void MemoryManager::init(float gpu_mem_pool_percentage,
                          float cpu_mem_pool_percentage, size_t log_buffers) {
@@ -106,12 +110,14 @@ void MemoryManager::destroy() {
   }
   GpuMemAllocator::freed();
   delete[] gpu_managers;
+  gpu_managers = nullptr;
   for (const auto &cpu : topo.getCpuNumaNodes()) {
     set_exec_location_on_scope d(cpu);
     delete cpu_managers[cpu.index_in_topo];
   }
   NUMAPinnedMemAllocator::freed();
   delete[] cpu_managers;
+  cpu_managers = nullptr;
 }
 
 constexpr inline size_t fixSize(size_t bytes) {
@@ -119,14 +125,13 @@ constexpr inline size_t fixSize(size_t bytes) {
 }
 
 void *MemoryManager::mallocGpu(size_t bytes) {
-  eventlogger.log(nullptr, log_op::MEMORY_MANAGER_ALLOC_GPU_START);
+  event_range<range_log_op::MEMORY_MANAGER_MALLOC_GPU> er{id};
   nvtxRangePushA("mallocGpu");
   bytes = fixSize(bytes);
   const auto &dev = topology::getInstance().getActiveGpu();
   void *ptr = gpu_managers[dev.id]->malloc(bytes);
   assert(ptr);
   nvtxRangePop();
-  eventlogger.log(nullptr, log_op::MEMORY_MANAGER_ALLOC_GPU_END);
   return ptr;
 }
 
@@ -137,6 +142,10 @@ void MemoryManager::freeGpu(void *ptr) {
   set_device_on_scope d(*dev);
   gpu_managers[dev->id]->free(ptr);
   nvtxRangePop();
+}
+
+bool MemoryManager::isInitialized() {
+  return gpu_managers != nullptr && cpu_managers != nullptr;
 }
 
 void *MemoryManager::mallocPinnedOnNode(size_t bytes, uint32_t node) {
@@ -321,9 +330,9 @@ SingleDeviceMemoryManager<allocator, unit_cap>::~SingleDeviceMemoryManager() {
 #endif
 
   assert(allocations.empty());
-  //#ifndef NDEBUG
-  //  assert(mappings.empty());
-  //#endif
+  // #ifndef NDEBUG
+  //   assert(mappings.empty());
+  // #endif
   assert(units.empty());
   assert(big_units.empty());
   assert(free_cache.empty());
@@ -344,13 +353,13 @@ SingleDeviceMemoryManager<allocator, unit_cap>::create_allocation() {
   }
 
   {
-    time_block t([](auto ms) {
+    time_block t1([](auto ms) {
       LOG_IF(INFO, ms.count() > 0) << "Tlong_emplace: " << ms.count();
     });
     auto &al = allocations.emplace(ptr);
 
     if (trace_allocations) {
-      time_block t("trace_allocations: ");
+      time_block t2("trace_allocations: ");
       al.backtrace_size =
           backtrace(al.backtrace, allocation_t::backtrace_limit);
     }
@@ -414,9 +423,9 @@ void *SingleDeviceMemoryManager<allocator, unit_cap>::malloc(size_t bytes) {
     info->fill += bytes;
     info->sub_units += 1;
 
-    //#ifndef NDEBUG
-    //    mappings.emplace(ptr, info->base);
-    //#endif
+    // #ifndef NDEBUG
+    //     mappings.emplace(ptr, info->base);
+    // #endif
 
     //    {
     //      void ** bt = new void*[32];
@@ -453,20 +462,20 @@ void SingleDeviceMemoryManager<allocator, unit_cap>::free(void *ptr) {
     alloc_unit_info &info = fu->second;
     auto base = info.base;
 
-    //#ifndef NDEBUG
-    //    {
-    //      auto f = mappings.find(ptr);
-    //      if (f == mappings.end()) {
-    //        for (auto &t : mappings) {
-    //          std::cout << t.first << " " << t.second << std::endl;
-    //        }
-    //      }
-    //      assert(f != mappings.end() && "Mapping does not exist!");
+    // #ifndef NDEBUG
+    //     {
+    //       auto f = mappings.find(ptr);
+    //       if (f == mappings.end()) {
+    //         for (auto &t : mappings) {
+    //           std::cout << t.first << " " << t.second << std::endl;
+    //         }
+    //       }
+    //       assert(f != mappings.end() && "Mapping does not exist!");
     //
-    //      assert(base == f->second);
-    //      mappings.erase(f);
-    //    }
-    //#endif
+    //       assert(base == f->second);
+    //       mappings.erase(f);
+    //     }
+    // #endif
 
     //    dmappings.erase(dmappings.find(ptr));
 

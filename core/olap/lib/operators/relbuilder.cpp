@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2019
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,17 +23,24 @@
 
 #include "olap/operators/relbuilder.hpp"
 
+#include <gflags/gflags.h>
+
 #include <dlfcn.h>
 
 #include <iomanip>
+#include <optional>
 #include <lib/operators/bloom-filter/bloom-filter-build.hpp>
 #include <lib/operators/bloom-filter/bloom-filter-probe.hpp>
 #include <lib/operators/bloom-filter/bloom-filter-repack.hpp>
+#include <lib/operators/router/generalized-router.hpp>
 #include <lib/plugins/vector/vector-plugin.hpp>
 #include <lib/util/flush-operator-tree.hpp>
+#include <olap/plugins/binary-block-nvme-plugin.hpp>
 #include <utility>
 
 #include "block-to-tuples.hpp"
+#include "lib/operators/gpu/compressed-block-to-tuples.hpp"
+#include "pre-decompress.hpp"
 #include "cpu-to-gpu.hpp"
 #include "flush.hpp"
 #include "hash-join-chained-morsel.hpp"
@@ -63,7 +70,15 @@
 #include "unnest.hpp"
 #include "update.hpp"
 
-RelBuilder::RelBuilder(ParallelContext *ctx, Operator *root)
+DECLARE_bool(decom_shared);
+DECLARE_bool(decom_register);
+DECLARE_bool(decom_global_stage);
+DECLARE_bool(precompute_rl);
+DECLARE_bool(pre_decom);
+DECLARE_bool(use_metadata_in_block);
+DECLARE_string(compression_type);
+
+RelBuilder::RelBuilder(OlapParallelContext *ctx, Operator *root)
     : ctx(ctx), root(root) {}
 
 RelBuilder::RelBuilder(const RelBuilder &builder, Operator *root)
@@ -94,8 +109,8 @@ expressions::InputArgument RelBuilder::getOutputArgUnnested() const {
   return new RecordType(attrs);
 }
 
-RelBuilder::RelBuilder() : RelBuilder(new ParallelContext("main", false)) {}
-RelBuilder::RelBuilder(ParallelContext *ctx) : RelBuilder(ctx, nullptr) {}
+RelBuilder::RelBuilder() : RelBuilder(new OlapParallelContext("main", false)) {}
+RelBuilder::RelBuilder(OlapParallelContext *ctx) : RelBuilder(ctx, nullptr) {}
 
 const RecordType &RelBuilder::getRecordType(CatalogParser &catalog,
                                             std::string relName) {
@@ -112,7 +127,7 @@ void RelBuilder::setOIDType(CatalogParser &catalog, std::string relName,
   catalog.getInputInfo(std::move(relName))->oidType = type;
 }
 
-RelBuilder RelBuilder::apply(Operator *op) const {
+Operator *RelBuilder::registerOutput(Operator *op) const {
   // Registered op's output relation, if it's not already registered
   auto args = op->getRowType().getArgs();
   if (!args.empty()) {
@@ -121,15 +136,20 @@ RelBuilder RelBuilder::apply(Operator *op) const {
       catalog.getOrCreateInputInfo(a->getRelationName(), ctx);
     }
   }
-  return {*this, op};
+  return op;
+}
+
+RelBuilder RelBuilder::apply(Operator *op) const {
+  return {*this, registerOutput(op)};
 }
 
 RelBuilder RelBuilder::scan(Plugin &pg) const {
   return RelBuilder{ctx, new Scan(pg)};
 }
 
-RelBuilder RelBuilder::memmove(const vector<RecordAttribute *> &wantedFields,
-                               size_t slack, DeviceType to) const {
+RelBuilder RelBuilder::memmove(
+    const std::vector<RecordAttribute *> &wantedFields, size_t slack,
+    DeviceType to) const {
   for (const auto &attr : wantedFields) {
     assert(dynamic_cast<const BlockType *>(attr->getOriginalType()));
   }
@@ -138,7 +158,7 @@ RelBuilder RelBuilder::memmove(const vector<RecordAttribute *> &wantedFields,
 }
 
 RelBuilder RelBuilder::memmove_scaleout(
-    const vector<RecordAttribute *> &wantedFields, size_t slack) const {
+    const std::vector<RecordAttribute *> &wantedFields, size_t slack) const {
   for (const auto &attr : wantedFields) {
     assert(dynamic_cast<const BlockType *>(attr->getOriginalType()));
   }
@@ -146,15 +166,20 @@ RelBuilder RelBuilder::memmove_scaleout(
   return apply(op);
 }
 
-RelBuilder RelBuilder::membrdcst(const vector<RecordAttribute *> &wantedFields,
-                                 DegreeOfParallelism fanout, bool to_cpu,
-                                 bool always_share) const {
+RelBuilder RelBuilder::membrdcst(
+    const std::vector<RecordAttribute *> &wantedFields,
+    DegreeOfParallelism fanout, bool to_cpu, bool always_share) const {
   for (const auto &attr : wantedFields) {
     assert(dynamic_cast<const BlockType *>(attr->getOriginalType()));
   }
   auto op =
       new MemBroadcastDevice(root, wantedFields, fanout, to_cpu, always_share);
   return apply(op);
+}
+
+RelBuilder RelBuilder::membrdcst(DegreeOfParallelism fanout, DeviceType target,
+                                 bool always_share) const {
+  return membrdcst(fanout, target == DeviceType::CPU, always_share);
 }
 
 RelBuilder RelBuilder::membrdcst(DegreeOfParallelism fanout, bool to_cpu,
@@ -179,8 +204,8 @@ RelBuilder RelBuilder::membrdcst(DeviceType target, bool always_share) const {
 }
 
 RelBuilder RelBuilder::membrdcst_scaleout(
-    const vector<RecordAttribute *> &wantedFields, size_t fanout, bool to_cpu,
-    bool always_share) const {
+    const std::vector<RecordAttribute *> &wantedFields, size_t fanout,
+    bool to_cpu, bool always_share) const {
   for (const auto &attr : wantedFields) {
     assert(dynamic_cast<const BlockType *>(attr->getOriginalType()));
   }
@@ -205,7 +230,20 @@ RelBuilder RelBuilder::membrdcst_scaleout(size_t fanout, bool to_cpu,
       fanout, to_cpu, always_share);
 }
 
-RelBuilder RelBuilder::memmove(size_t slack, DeviceType to) const {
+RelBuilder RelBuilder::memmove(const std::vector<RecordAttribute *> &wantedFields,
+                               size_t slack, DeviceType to,
+                               const std::vector<bool> &do_transfer) const {
+  for (const auto &attr : wantedFields) {
+    assert(dynamic_cast<const BlockType *>(attr->getOriginalType()));
+  }
+  auto op = new MemMoveDevice(root, wantedFields, slack, to == DeviceType::CPU,
+                              do_transfer);
+  return apply(op);
+}
+
+RelBuilder RelBuilder::memmove(
+    size_t slack, DeviceType to,
+    std::optional<std::vector<bool>> do_transfer) const {
   assert(root->isPacked() && "MemMove is not applicable to unpacked inputs");
   std::vector<RecordAttribute *> ret;
   for (const auto &attr : getOutputArg().getProjections()) {
@@ -213,8 +251,20 @@ RelBuilder RelBuilder::memmove(size_t slack, DeviceType to) const {
       ret.emplace_back(new RecordAttribute{attr});
     }
   }
-  assert(!ret.empty());
-  return memmove(ret, slack, to);
+  DCHECK(!ret.empty()) << "No attributes to move!";
+  std::vector<bool> do_transfer_vec;
+  if (do_transfer.has_value()) {
+    do_transfer_vec = do_transfer.value();
+    DCHECK_EQ(do_transfer->size(), ret.size())
+        << "Invalid do_transfer vector! do_transfer.size() must be equal to "
+           "the number of attributes to transfer!";
+    if (to == DeviceType::CPU) {
+      LOG(WARNING) << "do_transfer provided for CPU target. Ignoring it!";
+    }
+  } else {
+    do_transfer_vec = std::vector<bool>(ret.size(), true);
+  }
+  return memmove(ret, slack, to, do_transfer_vec);
 }
 
 RelBuilder RelBuilder::memmove_scaleout(const MultiAttributeFactory &attr,
@@ -266,13 +316,20 @@ RelBuilder RelBuilder::to_cpu(gran_t granularity, size_t size) const {
 }
 
 RelBuilder RelBuilder::to_gpu(
-    const vector<RecordAttribute *> &wantedFields) const {
+    const std::vector<RecordAttribute *> &wantedFields) const {
+  if (root->getDeviceType() == DeviceType::GPU) {
+    return *this;
+  }
   auto op = new CpuToGpu(root, wantedFields);
   return apply(op);
 }
 
-RelBuilder RelBuilder::to_cpu(const vector<RecordAttribute *> &wantedFields,
-                              gran_t granularity, size_t size) const {
+RelBuilder RelBuilder::to_cpu(
+    const std::vector<RecordAttribute *> &wantedFields, gran_t granularity,
+    size_t size) const {
+  if (root->getDeviceType() == DeviceType::CPU) {
+    return *this;
+  }
   auto op = new GpuToCpu(root, wantedFields, size, granularity);
   return apply(op);
 }
@@ -288,20 +345,133 @@ RelBuilder RelBuilder::project(const std::vector<expression_t> &proj) const {
   return apply(op);
 }
 
-RelBuilder RelBuilder::unpack(const vector<expression_t> &projections) const {
+RelBuilder RelBuilder::unpack(
+    const std::vector<expression_t> &projections) const {
   return unpack(projections, (root->getDeviceType() == DeviceType::GPU)
                                  ? gran_t::GRID
                                  : gran_t::THREAD);
 }
 
-RelBuilder RelBuilder::unpack(const vector<expression_t> &projections,
+RelBuilder RelBuilder::unpack(const std::vector<expression_t> &projections,
                               gran_t granularity) const {
-  auto op = new BlockToTuples(
-      root, projections, root->getDeviceType() == DeviceType::GPU, granularity);
-  return apply(op);
+  CHECK(!(FLAGS_decom_shared && FLAGS_decom_register))
+      << "--decom_shared and --decom_register are mutually exclusive";
+  CHECK(!(FLAGS_decom_global_stage &&
+          (FLAGS_decom_shared || FLAGS_decom_register || FLAGS_pre_decom)))
+      << "--decom_global_stage is mutually exclusive with --decom_shared, --decom_register, "
+         "and --pre_decom";
+  CHECK(!(FLAGS_precompute_rl && !FLAGS_decom_register))
+      << "--precompute_rl requires --decom_register";
+  CHECK(!(FLAGS_precompute_rl && FLAGS_compression_type != "RFOR"))
+      << "--precompute_rl currently supports only --compression_type=RFOR";
+  CHECK(!(FLAGS_decom_shared && FLAGS_pre_decom))
+      << "--decom_shared and --pre_decom are mutually exclusive";
+  CHECK(!(FLAGS_decom_register && FLAGS_pre_decom))
+      << "--decom_register and --pre_decom are mutually exclusive";
+  CHECK(!(FLAGS_pre_decom && FLAGS_compression_type == "NONE"))
+      << "--pre_decom is incompatible with --compression_type=NONE";
+  CHECK(!(FLAGS_pre_decom && FLAGS_compression_type != "RFOR" &&
+          FLAGS_compression_type != "FLBP"))
+      << "--pre_decom currently supports only --compression_type=RFOR/FLBP";
+  CHECK(!(FLAGS_decom_register && FLAGS_compression_type != "RFOR" &&
+          FLAGS_compression_type != "FLBP"))
+      << "--decom_register currently supports only --compression_type=RFOR/FLBP";
+  CHECK(!(FLAGS_decom_global_stage && FLAGS_compression_type != "RFOR" &&
+          FLAGS_compression_type != "FLBP"))
+      << "--decom_global_stage currently supports only "
+         "--compression_type=RFOR/FLBP";
+
+  const bool gpu_unpack = (root->getDeviceType() == DeviceType::GPU);
+  const bool use_decom_register_for_this_unpack = FLAGS_decom_register && gpu_unpack;
+
+  bool scan_emits_compressed_blocks = false;
+  if (gpu_unpack) {
+    for (const auto &proj : projections) {
+      const auto *block_type =
+          dynamic_cast<const BlockType *>(proj.getExpressionType());
+      if (!block_type) continue;
+      auto *pg = Catalog::getInstance().getPlugin(proj.getRegisteredRelName());
+      if (auto *nvme_pg = dynamic_cast<NvmePlugin *>(pg)) {
+        scan_emits_compressed_blocks =
+            scan_emits_compressed_blocks ||
+            nvme_pg->scanEmitsCompressedBlocks();
+      }
+    }
+  }
+
+  const bool supports_gpu_compressed_unpack = FLAGS_compression_type != "NONE";
+  const bool can_defer_rfor_decode =
+      FLAGS_compression_type == "RFOR" &&
+      (scan_emits_compressed_blocks || FLAGS_use_metadata_in_block);
+  const bool can_defer_flbp_decode =
+      FLAGS_compression_type == "FLBP" &&
+      (scan_emits_compressed_blocks || FLAGS_use_metadata_in_block);
+  const bool can_defer_codec_decode =
+      can_defer_rfor_decode || can_defer_flbp_decode;
+  CHECK(!(use_decom_register_for_this_unpack && !can_defer_codec_decode))
+      << "--decom_register requires the deferred decode "
+         "path (compressed scan blocks or --use_metadata_in_block=true)";
+
+  if (gpu_unpack && scan_emits_compressed_blocks &&
+      supports_gpu_compressed_unpack && FLAGS_pre_decom) {
+    auto predecompressed =
+        apply(new PreDecompress(root, projections, true, granularity));
+    return predecompressed.apply(
+        new BlockToTuples(predecompressed.root, projections, true, granularity));
+  }
+
+  if (gpu_unpack && scan_emits_compressed_blocks &&
+      supports_gpu_compressed_unpack) {
+    if (FLAGS_decom_global_stage) {
+      auto *cpu_to_gpu = dynamic_cast<CpuToGpu *>(root);
+      CHECK(cpu_to_gpu != nullptr)
+          << "Global-Stage CB2T requires a direct CpuToGpu child";
+      cpu_to_gpu->enableGlobalStageGridWindow();
+      return apply(new CompressedBlockToTuplesGlobalStage(
+          root, projections, true, granularity));
+    }
+    if (use_decom_register_for_this_unpack) {
+      return apply(new CompressedBlockToTuplesRegisters(
+          root, projections, true, granularity));
+    }
+    // Canonical semantics:
+    // - --decom_shared=false: use the legacy global tile window.
+    // - --decom_shared=true : fuse decode through shared memory when supported.
+    if (!FLAGS_decom_shared) {
+      return apply(new CompressedBlockToTuplesLegacyGlobalTileWindow(
+          root, projections, true, granularity));
+    }
+
+    // Shared mode requires codec metadata path support.
+    if (can_defer_codec_decode) {
+      return apply(new CompressedBlockToTuplesShared(
+          root, projections, true, granularity));
+    }
+
+    // If fused shared decode is unavailable, fall back to the legacy global
+    // tile window so the plan remains executable.
+    return apply(new CompressedBlockToTuplesLegacyGlobalTileWindow(
+        root, projections, true, granularity));
+  }
+
+  // Out-of-GPU deferred path: MemMove can stage compressed blocks and
+  // CompressedBlockToTuples decodes them on GPU even when scan does not emit
+  // preloaded compressed pointers.
+  if (gpu_unpack && supports_gpu_compressed_unpack && can_defer_codec_decode) {
+    if (use_decom_register_for_this_unpack) {
+      return apply(new CompressedBlockToTuplesRegisters(
+          root, projections, true, granularity));
+    }
+    if (FLAGS_decom_shared) {
+      return apply(new CompressedBlockToTuplesShared(
+          root, projections, true, granularity));
+    }
+  }
+
+  return apply(new BlockToTuples(root, projections, gpu_unpack, granularity));
 }
 
-RelBuilder RelBuilder::pack(const vector<expression_t> &projections,
+RelBuilder RelBuilder::pack(const std::vector<expression_t> &projections,
                             expression_t hashExpr, size_t numOfBuckets) const {
   if (root->getDeviceType() == DeviceType::GPU) {
     auto op = new GpuHashRearrange(root, ctx, numOfBuckets, projections,
@@ -314,9 +484,9 @@ RelBuilder RelBuilder::pack(const vector<expression_t> &projections,
   }
 }
 
-RelBuilder RelBuilder::reduce(const vector<expression_t> &e,
-                              const vector<Monoid> &accs) const {
-  assert(e.size() == accs.size());
+RelBuilder RelBuilder::reduce(const std::vector<expression_t> &e,
+                              const std::vector<Monoid> &accs) const {
+  CHECK_EQ(e.size(), accs.size());
   std::vector<agg_t> aggs;
   aggs.reserve(e.size());
   for (size_t i = 0; i < e.size(); ++i) {
@@ -348,8 +518,8 @@ RelBuilder RelBuilder::groupby(const std::vector<expression_t> &e,
   }
 }
 
-RelBuilder RelBuilder::sort(const vector<expression_t> &orderByFields,
-                            const vector<direction> &dirs) const {
+RelBuilder RelBuilder::sort(const std::vector<expression_t> &orderByFields,
+                            const std::vector<direction> &dirs) const {
   if (isPacked()) {
     std::string error = "Cannot sort packed input";
     LOG(ERROR) << error;
@@ -387,7 +557,7 @@ RelBuilder RelBuilder::sort(const vector<expression_t> &orderByFields,
   }
 }
 
-RelBuilder RelBuilder::print(const vector<expression_t> &e, Plugin *pg,
+RelBuilder RelBuilder::print(const std::vector<expression_t> &e, Plugin *pg,
                              bool may_overwrite) const {
   assert(!e.empty() && "Empty print");
   assert(e[0].isRegistered());
@@ -409,9 +579,9 @@ RelBuilder RelBuilder::print(const vector<expression_t> &e, Plugin *pg,
   } else {
     datasetInfo = new InputInfo();
     datasetInfo->path = outrel;
-    assert(
-        ctx &&
-        "A ParallelContext is required to register relationships on the fly");
+    assert(ctx &&
+           "A OlapParallelContext is required to register relationships on the "
+           "fly");
 
     catalog.setInputInfo(outrel, datasetInfo);
     setOIDType(catalog, outrel, pg->getOIDType());
@@ -429,24 +599,29 @@ RelBuilder RelBuilder::unnest(expression_t e) const {
   return apply(op);
 }
 
-PreparedStatement RelBuilder::prepare() {
+PreparedStatement RelBuilder::prepare(
+    std::shared_ptr<ParallelContext> compiled_context) {
+  event_range<range_log_op::BUILDER_PREPARE> er{root->getUUID()};
   LOG(INFO) << '\n' << *this;
   root->produce(ctx);
   ctx->prepareFunction(ctx->getGlobalFunction());
   ctx->compileAndLoad();
   auto p = dynamic_cast<Flush *>(root);
   std::string outputFile = (p) ? p->getOutputPath() : ctx->getModuleName();
-  return {ctx->getPipelines(), outputFile,
+  auto pipelines = compiled_context ? ctx->getPipelinesRetained()
+                                    : ctx->getPipelines();
+  return {std::move(pipelines), outputFile,
           // FIXME: we have no lifetime specs for ops, so here we leak
           //  root on purpose. We should fix the issue on its root.
-          std::shared_ptr<Operator>(std::shared_ptr<Operator>{}, root)};
+          std::shared_ptr<Operator>(std::shared_ptr<Operator>{}, root),
+          std::move(compiled_context)};
 }
 
-RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
-                              std::optional<expression_t> hash,
-                              DegreeOfParallelism fanout, size_t slack,
-                              RoutingPolicy p, DeviceType target,
-                              std::unique_ptr<Affinitizer> aff) const {
+RelBuilder RelBuilder::router(
+    const std::vector<RecordAttribute *> &wantedFields,
+    std::optional<expression_t> hash, DegreeOfParallelism fanout, size_t slack,
+    RoutingPolicy p, DeviceType target,
+    std::unique_ptr<Affinitizer> aff) const {
   if (aff) {
     auto op = new Router(root, fanout, wantedFields, slack, std::move(hash), p,
                          std::move(aff));
@@ -459,7 +634,7 @@ RelBuilder RelBuilder::router(const vector<RecordAttribute *> &wantedFields,
 }
 
 RelBuilder RelBuilder::router_scaleout(
-    const vector<RecordAttribute *> &wantedFields,
+    const std::vector<RecordAttribute *> &wantedFields,
     std::optional<expression_t> hash, DegreeOfParallelism fanout, size_t slack,
     RoutingPolicy p, DeviceType targets) const {
   assert((p == RoutingPolicy::HASH_BASED) == (hash.has_value()));
@@ -573,10 +748,10 @@ class HintRowCount : public experimental::UnaryOperator {
   [[nodiscard]] DegreeOfParallelism getDOP() const override {
     return getChild()->getDOP();
   }
-  void produce_(ParallelContext *context) override {
+  void produce_(OlapParallelContext *context) override {
     return getChild()->produce(context);
   }
-  void consume(ParallelContext *context,
+  void consume(OlapParallelContext *context,
                const OperatorState &binding) override {
     getParent()->consume(context, binding);
   }
@@ -592,8 +767,55 @@ class HintRowCount : public experimental::UnaryOperator {
 using v_t =
     std::variant<RouterScaleOut *, Router *, DeviceCross *,
                  MemBroadcastScaleOut *, MemBroadcastDevice *, MemMoveDevice *,
-                 BlockToTuples *, HintRowCount *, Select *, Project *>;
+                 HashRearrange *, BloomFilterBuild *, PreDecompress *,
+                 BlockToTuples *,
+                 CompressedBlockToTuplesShared *,
+                 CompressedBlockToTuplesLegacyGlobalTileWindow *,
+                 CompressedBlockToTuplesRegisters *,
+                 CompressedBlockToTuplesGlobalStage *, HintRowCount *, Select *,
+                 Project *, BloomFilterRepack *>;
 double expected(Operator *op);
+double expectedNoSelectivity(Operator *op);
+
+static bool hasDStringField(const RecordType &rt) {
+  for (const auto *attr : rt.getArgs()) {
+    const auto *type = attr->getOriginalType();
+    if (type->getTypeID() == DSTRING) return true;
+    if (type->getTypeID() == BLOCK) {
+      auto *bt = dynamic_cast<const BlockType *>(type);
+      if (bt && bt->getNestedType().getTypeID() == DSTRING) return true;
+    }
+  }
+  return false;
+}
+
+static bool containsDStringInSubtree(const Operator *op) {
+  if (!op) return false;
+
+  if (hasDStringField(op->getRowType())) return true;
+
+  if (auto *uall = dynamic_cast<const UnionAll *>(op)) {
+    for (const auto *child : uall->getChildren()) {
+      if (containsDStringInSubtree(child)) return true;
+    }
+    return false;
+  }
+
+  if (auto *b = dynamic_cast<const BinaryOperator *>(op)) {
+    return containsDStringInSubtree(b->getLeftChild()) ||
+           containsDStringInSubtree(b->getRightChild());
+  }
+
+  if (auto *u = dynamic_cast<const UnaryOperator *>(op)) {
+    try {
+      return containsDStringInSubtree(u->getChild());
+    } catch (...) {
+      return false;
+    }
+  }
+
+  return false;
+}
 
 class ExpectedTuplesOutputSize {
  public:
@@ -613,8 +835,32 @@ class ExpectedTuplesOutputSize {
   double operator()(MemMoveDevice *op) const {
     return expected(op->getChild());
   }
+  double operator()(HashRearrange *op) const {
+    return expected(op->getChild());
+  }
+  double operator()(BloomFilterBuild *op) const {
+    return expected(op->getChild());
+  }
+  double operator()(PreDecompress *op) const {
+    return expected(op->getChild());
+  }
+  double operator()(BloomFilterRepack *op) const {
+    return expected(op->getChild());
+  }
   double operator()(DeviceCross *op) const { return expected(op->getChild()); }
   double operator()(BlockToTuples *op) const {
+    return expected(op->getChild());
+  }
+  double operator()(CompressedBlockToTuplesShared *op) const {
+    return expected(op->getChild());
+  }
+  double operator()(CompressedBlockToTuplesLegacyGlobalTileWindow *op) const {
+    return expected(op->getChild());
+  }
+  double operator()(CompressedBlockToTuplesRegisters *op) const {
+    return expected(op->getChild());
+  }
+  double operator()(CompressedBlockToTuplesGlobalStage *op) const {
     return expected(op->getChild());
   }
   double operator()(HintRowCount *op) const { return op->expected; }
@@ -628,6 +874,62 @@ class ExpectedTuplesOutputSize {
     return expected(op->getChild()) * sel;
   }
   double operator()(Project *op) const { return expected(op->getChild()); }
+};
+
+class ExpectedTuplesOutputSizeNoSelectivity {
+ public:
+  double operator()(Router *op) const {
+    return expectedNoSelectivity(op->getChild()) * op->getChild()->getDOP() /
+           op->getDOP();
+  }
+  double operator()(RouterScaleOut *op) const {
+    return expectedNoSelectivity(op->getChild()) * op->getChild()->getDOPServers() /
+           op->getDOPServers();
+  }
+  double operator()(MemBroadcastDevice *op) const {
+    return expectedNoSelectivity(op->getChild()) * op->getNumberOfTargets();
+  }
+  double operator()(MemBroadcastScaleOut *op) const {
+    return expectedNoSelectivity(op->getChild()) * op->getDOPServers();
+  }
+  double operator()(MemMoveDevice *op) const {
+    return expectedNoSelectivity(op->getChild());
+  }
+  double operator()(HashRearrange *op) const {
+    return expectedNoSelectivity(op->getChild());
+  }
+  double operator()(BloomFilterBuild *op) const {
+    return expectedNoSelectivity(op->getChild());
+  }
+  double operator()(PreDecompress *op) const {
+    return expectedNoSelectivity(op->getChild());
+  }
+  double operator()(BloomFilterRepack *op) const {
+    return expectedNoSelectivity(op->getChild());
+  }
+  double operator()(DeviceCross *op) const {
+    return expectedNoSelectivity(op->getChild());
+  }
+  double operator()(BlockToTuples *op) const {
+    return expectedNoSelectivity(op->getChild());
+  }
+  double operator()(CompressedBlockToTuplesShared *op) const {
+    return expectedNoSelectivity(op->getChild());
+  }
+  double operator()(CompressedBlockToTuplesLegacyGlobalTileWindow *op) const {
+    return expectedNoSelectivity(op->getChild());
+  }
+  double operator()(CompressedBlockToTuplesRegisters *op) const {
+    return expectedNoSelectivity(op->getChild());
+  }
+  double operator()(CompressedBlockToTuplesGlobalStage *op) const {
+    return expectedNoSelectivity(op->getChild());
+  }
+  double operator()(HintRowCount *op) const { return op->expected; }
+  double operator()(Select *op) const {
+    return expectedNoSelectivity(op->getChild());
+  }
+  double operator()(Project *op) const { return expectedNoSelectivity(op->getChild()); }
 };
 
 template <typename VT, size_t index = 0>
@@ -650,18 +952,46 @@ double expected(Operator *op) {
   return std::visit(ExpectedTuplesOutputSize{}, obj);
 }
 
+double expectedNoSelectivity(Operator *op) {
+  auto obj = vinit<v_t>{}.get(op);
+  return std::visit(ExpectedTuplesOutputSizeNoSelectivity{}, obj);
+}
+
 RelBuilder RelBuilder::join(RelBuilder build, expression_t build_k,
                             expression_t probe_k) const {
   double expct = expected(build.root);
 
-  if (!(build.root->getHomReplication() ==
+  const bool needsDopScaling =
+      !(build.root->getHomReplication() ==
             proteus::traits::HomReplication::BRDCST ||
         root->getHomParallelization() ==
-            proteus::traits::HomParallelization::SINGLE)) {
+            proteus::traits::HomParallelization::SINGLE);
+  if (needsDopScaling) {
     expct = expct * build.root->getDOP();
   }
 
-  size_t bsize = expct * 1.1;  // 10% overestimate for safety
+  // String dictionaries may be cached/rotated across query batches and can
+  // cause hinted selectivities to under-estimate build sizes. For DString
+  // build sides, allocate against a conservative no-selectivity estimate.
+  if (root->getDeviceType() == DeviceType::GPU &&
+      containsDStringInSubtree(build.root)) {
+    double conservative = expectedNoSelectivity(build.root);
+    if (needsDopScaling) conservative = conservative * build.root->getDOP();
+    expct = std::max(expct, conservative);
+  }
+
+  expct = std::max(1.0, expct);
+  double buildCapacity = expct * 1.1;  // 10% overestimate for safety
+  if (root->getDeviceType() == DeviceType::GPU) {
+    // GPU joins allocate fixed build buffers up front. Hinted selectivities are
+    // often coarse on small dimension-table builds, so leave more headroom to
+    // avoid aborting valid executions on minor under-estimates.
+    buildCapacity = std::max(buildCapacity, expct * 1.25);
+    if (expct < 4096.0) {
+      buildCapacity = std::max(buildCapacity, expct + 128.0);
+    }
+  }
+  size_t bsize = static_cast<size_t>(std::ceil(buildCapacity));
 
   return join(build, std::move(build_k), std::move(probe_k),
               static_cast<int>(std::ceil(std::log2(expct))) + 1, bsize);
@@ -758,7 +1088,8 @@ void RelBuilder::registerPlugin(const std::string &relName, Plugin *pg) {
   Catalog::getInstance().registerPlugin(relName, pg);
 }
 
-typedef Plugin *(*plugin_creator_t)(ParallelContext *, std::string, RecordType,
+typedef Plugin *(*plugin_creator_t)(OlapParallelContext *, std::string,
+                                    RecordType,
                                     const std::vector<RecordAttribute *> &);
 
 std::string hyphenatedPluginToCamel(const std::string &line);
@@ -816,6 +1147,53 @@ RelBuilder RelBuilder::scan(
   auto pg = new VectorPlugin(ctx, data);
 
   auto fileName = data[0].first->getRelationName();
+  auto &catalog = CatalogParser::getInstance();
+  auto ii = catalog.getInputInfoIfKnown(fileName);
+  if (!ii) {
+    ii = new InputInfo;
+    ii->exprType = new BagType(pg->getRowType());
+    ii->path = fileName;
+
+    catalog.setInputInfo(fileName, ii);
+  }
+
+  ii->oidType = new RecordType(pg->getRowType());
+
+  Catalog::getInstance().registerPlugin(fileName, pg);
+  return scan(*pg);
+}
+
+RelBuilder RelBuilder::scan(
+    const std::vector<
+        std::pair<RecordAttribute *, std::vector<std::filesystem::path>>>
+        &fields) const {
+  auto pg = new NvmePlugin(ctx, fields);
+
+  auto fileName = fields[0].first->getRelationName();
+  auto &catalog = CatalogParser::getInstance();
+  auto ii = catalog.getInputInfoIfKnown(fileName);
+  if (!ii) {
+    ii = new InputInfo;
+    ii->exprType = new BagType(pg->getRowType());
+    ii->path = fileName;
+
+    catalog.setInputInfo(fileName, ii);
+  }
+
+  ii->oidType = new RecordType(pg->getRowType());
+
+  Catalog::getInstance().registerPlugin(fileName, pg);
+  return scan(*pg);
+}
+
+RelBuilder RelBuilder::scan(
+    const std::vector<
+        std::pair<RecordAttribute *, std::vector<std::filesystem::path>>>
+        &fields,
+    bool preload_to_gpu, bool emit_compressed_blocks) const {
+  auto pg = new NvmePlugin(ctx, fields, preload_to_gpu, emit_compressed_blocks);
+
+  auto fileName = fields[0].first->getRelationName();
   auto &catalog = CatalogParser::getInstance();
   auto ii = catalog.getInputInfoIfKnown(fileName);
   if (!ii) {
@@ -934,22 +1312,42 @@ RelBuilder RelBuilder::split(size_t alternatives, size_t slack, RoutingPolicy p,
       p));
 }
 
-RelBuilder RelBuilder::unionAll(const std::vector<RelBuilder> &children) const {
+SplitRelBuilder RelBuilder::gsplit(size_t slack,
+                                   GeneralizedRoutingPolicy p) const {
+  return SplitRelBuilder{apply(new proteus::GeneralizedRouter(
+      root, slack,
+      [&] {
+        std::vector<RecordAttribute *> attrs;
+        for (const auto &attr : getOutputArg().getProjections()) {
+          if (p == GeneralizedRoutingPolicy::SHARED_HASH_BASED &&
+              attr.getAttrName() == "__broadcastTarget") {
+            continue;
+          }
+          attrs.emplace_back(new RecordAttribute{attr});
+        }
+        return attrs;
+      }(),
+      p))};
+}
+
+RelBuilder RelBuilder::unionAll(const std::vector<RelBuilder> &children,
+                                DegreeOfParallelism fanout) const {
   std::vector<RecordAttribute *> projections;
   for (const auto &attr : getOutputArg().getProjections()) {
     projections.emplace_back(new RecordAttribute{attr});
   }
 
-  return unionAll(children, projections);
+  return unionAll(children, projections, fanout);
 }
 
 RelBuilder RelBuilder::unionAll(
     const std::vector<RelBuilder> &children,
-    const vector<RecordAttribute *> &wantedFields) const {
+    const std::vector<RecordAttribute *> &wantedFields,
+    DegreeOfParallelism fanout) const {
   std::vector<Operator *> c2{root};
   c2.reserve(children.size() + 1);
   for (const auto &c : children) c2.emplace_back(c.root);
-  auto op = new UnionAll(c2, wantedFields);
+  auto op = new UnionAll(c2, wantedFields, fanout);
   for (const auto &c : children) c.apply(op);
   return apply(op);
 }
@@ -987,6 +1385,7 @@ RelBuilder RelBuilder::update(expression_t e) const {
 }
 
 RelBuilder RelBuilder::unpack() const {
+  CHECK(root->isPacked()) << "unpack is not applicable to unpacked inputs";
   return unpack(
       [&](const expressions::InputArgument &arg) -> std::vector<expression_t> {
         std::vector<expression_t> attrs;
@@ -995,6 +1394,18 @@ RelBuilder RelBuilder::unpack() const {
         }
         return attrs;
       });
+}
+
+RelBuilder RelBuilder::bloomfilter_repack(
+    std::function<expression_t(expressions::InputArgument)> pred,
+    size_t filterSize, uint64_t bloomId) const {
+  CHECK(root->isPacked()) << "unpack is not applicable to unpacked inputs";
+  auto arg = getOutputArg();
+  std::vector<expression_t> attrs;
+  for (const auto &attr : arg.getProjections()) {
+    attrs.emplace_back(arg[attr]);
+  }
+  return bloomfilter_repack(pred(arg), attrs, filterSize, bloomId);
 }
 
 RelBuilder RelBuilder::pack() const {
@@ -1028,4 +1439,22 @@ RelBuilder RelBuilder::pack() const {
 
 std::ostream &operator<<(std::ostream &out, const RelBuilder &builder) {
   return out << *(builder.operator->());
+}
+
+SplitRelBuilder::SplitRelBuilder(RelBuilder builder) : src(std::move(builder)) {
+  CHECK_NE(dynamic_cast<proteus::GeneralizedRouter *>(src.root), nullptr)
+      << "SplitRelBuilder can only be constructed if the root operator of the "
+         "provided RelBuilder is a GeneralizedRouter";
+}
+
+RelBuilder SplitRelBuilder::path(DeviceType target,
+                                 std::unique_ptr<Affinitizer> aff) const {
+  return path(target, RelBuilder::getDefaultDOP(target), std::move(aff));
+}
+
+RelBuilder SplitRelBuilder::path(DeviceType target, DegreeOfParallelism dop,
+                                 std::unique_ptr<Affinitizer> aff) const {
+  return {src.ctx,
+          dynamic_cast<proteus::GeneralizedRouter *>(src.root)->appendConsumer(
+              target, dop, std::move(aff))};
 }

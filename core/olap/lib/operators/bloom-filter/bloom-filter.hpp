@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2020
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -36,11 +36,11 @@ class BloomFilter : public experimental::UnaryOperator {
   }
 
  protected:
-  llvm::Type *getFilterType(ParallelContext *context) const;
+  llvm::Type *getFilterType(OlapParallelContext *context) const;
   expressions::RefExpression findInFilter(
-      ParallelContext *context, const OperatorState &childState) const;
+      OlapParallelContext *context, const OperatorState &childState) const;
 
-  const expression_t e;
+  const expression_t bf_expr;
 
   StateVar filter_ptr;
 

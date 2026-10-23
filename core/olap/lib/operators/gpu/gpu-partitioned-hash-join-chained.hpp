@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,12 +24,12 @@
 #ifndef GPU_PHASH_JOIN_CHAINED_HPP_
 #define GPU_PHASH_JOIN_CHAINED_HPP_
 
+#include <codegen/jit/pipeline.hpp>
 #include <optional>
 #include <platform/common/gpu/gpu-common.hpp>
 #include <unordered_map>
 
 #include "lib/operators/operators.hpp"
-#include "lib/util/jit/pipeline.hpp"
 #include "olap/operators/gpu/gpu-materializer-expr.hpp"
 #include "olap/util/parallel-context.hpp"
 
@@ -55,12 +55,12 @@ class HashPartitioner : public UnaryOperator {
   HashPartitioner(const std::vector<GpuMatExpr> &parts_mat_exprs,
                   const std::vector<size_t> &parts_packet_widths,
                   expression_t parts_keyexpr, Operator *const parts_child,
-                  ParallelContext *context, size_t maxInputSize, int log_parts,
-                  std::string opLabel);
+                  OlapParallelContext *context, size_t maxInputSize,
+                  int log_parts, std::string opLabel);
 
   ~HashPartitioner() override {}
 
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
   void consume(Context *const context,
                const OperatorState &childState) override;
 
@@ -100,7 +100,7 @@ class HashPartitioner : public UnaryOperator {
 
   StateVar cnt_pipe;
 
-  ParallelContext *context;
+  OlapParallelContext *context;
 
   std::string opLabel;
 };
@@ -124,14 +124,14 @@ class GpuPartitionedHashJoinChained : public BinaryOperator {
 
       size_t maxBuildInputSize, size_t maxProbeInputSize,
 
-      int log_parts, ParallelContext *context,
+      int log_parts, OlapParallelContext *context,
       std::string opLabel = "hj_chained", PipelineGen **caller = nullptr,
       Operator *const unionop = nullptr);
   ~GpuPartitionedHashJoinChained() override {
     LOG(INFO) << "Collapsing GpuOptJoin operator";
   }
 
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
   void consume(Context *const context,
                const OperatorState &childState) override;
 
@@ -248,7 +248,7 @@ class GpuPartitionedHashJoinChained : public BinaryOperator {
 
   // GpuExprMaterializer *   build_mat  ;
   // GpuExprMaterializer *   probe_mat  ;
-  ParallelContext *context;
+  OlapParallelContext *context;
 };
 
 #endif /* GPU_HASH_JOIN_CHAINED_HPP_ */

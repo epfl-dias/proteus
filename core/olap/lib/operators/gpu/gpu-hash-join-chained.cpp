@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,10 +23,9 @@
 
 #include "gpu-hash-join-chained.hpp"
 
+#include <codegen/jit/pipeline.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/topology/topology.hpp>
-
-#include "lib/util/jit/pipeline.hpp"
 
 void GpuHashJoinChained::open_build(Pipeline *pip) {
   std::vector<void *> next_w_values;

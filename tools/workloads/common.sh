@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+
+WORKLOAD_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+REPO_ROOT=${REPO_ROOT:-$(cd "$WORKLOAD_DIR/../.." && pwd)}
+BUILD=${BUILD:-$REPO_ROOT/cmake-build-release}
+PELAGO=${PELAGO:-$BUILD/opt/pelago}
+PROTEUS_DATA_ROOT=${PROTEUS_DATA_ROOT:-$REPO_ROOT/data}
+WORKLOAD_OUTPUT_ROOT=${WORKLOAD_OUTPUT_ROOT:-${TMPDIR:-/tmp}/proteus-cb2t}
+QDIR=${QDIR:-$REPO_ROOT/apps/benchmarks/olap/prepared-queries}
+LLVM_LIB=${LLVM_LIB:-}
+LLVM_ROOT=${LLVM_ROOT:-}
+if [[ -z "$LLVM_LIB" && -n "$LLVM_ROOT" ]]; then
+  LLVM_LIB=$LLVM_ROOT/lib
+fi
+
+SSB_NONE_DS=${SSB_NONE_DS:-$PROTEUS_DATA_ROOT/ssb/uncompressed}
+SSB_RFOR_DS=${SSB_RFOR_DS:-$PROTEUS_DATA_ROOT/ssb/rfor-t1024}
+SSB_RFOR512_DS=${SSB_RFOR512_DS:-$PROTEUS_DATA_ROOT/ssb/rfor-t512}
+SSB_FLBP_DS=${SSB_FLBP_DS:-$PROTEUS_DATA_ROOT/ssb/flbp-t1024}
+
+TPCH_NONE_DS=${TPCH_NONE_DS:-$PROTEUS_DATA_ROOT/tpch/uncompressed}
+TPCH_RFOR_DS=${TPCH_RFOR_DS:-$PROTEUS_DATA_ROOT/tpch/rfor-t1024}
+TPCH_RFOR512_DS=${TPCH_RFOR512_DS:-$PROTEUS_DATA_ROOT/tpch/rfor-t512}
+TPCH_FLBP_DS=${TPCH_FLBP_DS:-$PROTEUS_DATA_ROOT/tpch/flbp-t1024}
+
+STACK_NONE_DS=${STACK_NONE_DS:-$PROTEUS_DATA_ROOT/stack/uncompressed}
+STACK_RFOR_DS=${STACK_RFOR_DS:-$PROTEUS_DATA_ROOT/stack/rfor-t1024}
+STACK_RFOR512_DS=${STACK_RFOR512_DS:-$PROTEUS_DATA_ROOT/stack/rfor-t512}
+STACK_FLBP_DS=${STACK_FLBP_DS:-$PROTEUS_DATA_ROOT/stack/flbp-t1024}
+
+export REPO_ROOT BUILD PELAGO PROTEUS_DATA_ROOT WORKLOAD_OUTPUT_ROOT QDIR LLVM_ROOT LLVM_LIB
+export SSB_NONE_DS SSB_RFOR_DS SSB_RFOR512_DS SSB_FLBP_DS
+export TPCH_NONE_DS TPCH_RFOR_DS TPCH_RFOR512_DS TPCH_FLBP_DS
+export STACK_NONE_DS STACK_RFOR_DS STACK_RFOR512_DS STACK_FLBP_DS
+
+proteus_library_path() {
+  local path="$BUILD/opt/lib"
+  [[ -n "$LLVM_LIB" ]] && path="$path:$LLVM_LIB"
+  [[ -n "${LD_LIBRARY_PATH:-}" ]] && path="$path:$LD_LIBRARY_PATH"
+  printf '%s\n' "$path"
+}
+
+acquire_workload_fixture_lock() {
+  WORKLOAD_FIXTURE_LOCK=${WORKLOAD_FIXTURE_LOCK:-/tmp/proteus_cb2t_fixture.lock}
+  export WORKLOAD_FIXTURE_LOCK
+  if [[ ${PROTEUS_WORKLOAD_FIXTURE_LOCK_HELD:-} == "$WORKLOAD_FIXTURE_LOCK" ]]; then
+    return 0
+  fi
+
+  exec 9>"$WORKLOAD_FIXTURE_LOCK"
+  if ! flock -n 9; then
+    echo "another workload runner holds $WORKLOAD_FIXTURE_LOCK" >&2
+    return 3
+  fi
+  PROTEUS_WORKLOAD_FIXTURE_LOCK_HELD=$WORKLOAD_FIXTURE_LOCK
+  export PROTEUS_WORKLOAD_FIXTURE_LOCK_HELD
+}

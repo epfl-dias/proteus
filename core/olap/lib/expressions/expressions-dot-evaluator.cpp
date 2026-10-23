@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,10 +23,10 @@
 
 #include "expressions-dot-evaluator.hpp"
 
-#include <olap/expressions/expressions/ref-expression.hpp>
+#include <codegen/context/context.hpp>
+#include <codegen/expressions/ref-expression.hpp>
 
 #include "expressions-generator.hpp"
-#include "olap/util/context.hpp"
 
 using namespace llvm;
 
@@ -136,7 +136,7 @@ ProteusValue ExpressionDotVisitor::visit(
   ProteusValue right = e2->accept(exprGenerator2);
 
   ProteusValue valWrapper;
-  vector<Value *> ArgsV;
+  std::vector<Value *> ArgsV;
   ArgsV.push_back(left.value);
   ArgsV.push_back(right.value);
   Function *stringEquality = context->getFunction("equalStringObjs");
@@ -549,6 +549,13 @@ ProteusValue ExpressionDotVisitor::visit(
 }
 
 ProteusValue ExpressionDotVisitor::visit(
+    const expressions::ExternExpression *e1,
+    const expressions::ExternExpression *e2) {
+  ExpressionGeneratorVisitor visitor{context, currStateLeft};
+  return eq(*e1, *e2).accept(visitor);
+}
+
+ProteusValue ExpressionDotVisitor::visit(
     const expressions::HintExpression *e1,
     const expressions::HintExpression *e2) {
   return e1->getExpr().acceptTandem(*this, e2->getExpr());
@@ -613,25 +620,25 @@ ProteusValue ExpressionDotVisitor::visit(
     valWrapper.isNull = context->createFalse();
     switch (id) {
       case INT:
-        //#ifdef DEBUG
-        //        {
-        //            /* Printing the pos. to be marked */
-        //            if(e1->getProjectionName() == "age") {
-        //                cout << "AGE! " << endl;
-        //                Function* debugInt = context->getFunction("printi");
-        //                vector<Value*> ArgsV;
-        //                ArgsV.clear();
-        //                ArgsV.push_back(left.value);
-        //                Builder->CreateCall(debugInt, ArgsV);
-        //            }
-        //            else
-        //            {
-        //                cout << "Other projection - " <<
-        //                e1->getProjectionName()
-        //                << endl;
-        //            }
-        //        }
-        //#endif
+        // #ifdef DEBUG
+        //         {
+        //             /* Printing the pos. to be marked */
+        //             if(e1->getProjectionName() == "age") {
+        //                 cout << "AGE! " << endl;
+        //                 Function* debugInt = context->getFunction("printi");
+        //                 std::vector<Value*> ArgsV;
+        //                 ArgsV.clear();
+        //                 ArgsV.push_back(left.value);
+        //                 Builder->CreateCall(debugInt, ArgsV);
+        //             }
+        //             else
+        //             {
+        //                 cout << "Other projection - " <<
+        //                 e1->getProjectionName()
+        //                 << endl;
+        //             }
+        //         }
+        // #endif
         valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
         return valWrapper;
       case FLOAT:
@@ -641,7 +648,7 @@ ProteusValue ExpressionDotVisitor::visit(
         valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
         return valWrapper;
       case STRING: {
-        vector<Value *> ArgsV;
+        std::vector<Value *> ArgsV;
         ArgsV.push_back(left.value);
         ArgsV.push_back(right.value);
         Function *stringEquality = context->getFunction("equalStringObjs");
@@ -704,7 +711,7 @@ ProteusValue ExpressionDotVisitor::visit(const expressions::IfThenElse *e1,
       valWrapper.value = Builder->CreateICmpEQ(left.value, right.value);
       return valWrapper;
     case STRING: {
-      vector<Value *> ArgsV;
+      std::vector<Value *> ArgsV;
       ArgsV.push_back(left.value);
       ArgsV.push_back(right.value);
       Function *stringEquality = context->getFunction("equalStringObjs");

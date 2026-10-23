@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -25,7 +25,6 @@
 #define _RADIX_JOIN_HPP_
 
 #include <olap/util/parallel-context.hpp>
-#include <platform/util/radix/joins/radix-join.hpp>
 
 #include "lib/expressions/expressions-generator.hpp"
 #include "lib/operators/join/radix/radix-join-build.hpp"
@@ -41,7 +40,7 @@ class RadixJoin : public BinaryOperator {
             Operator *rightChild, Context *const context, const char *opLabel,
             Materializer &matLeft, Materializer &matRight);
   ~RadixJoin() override;
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
   //    void produceNoCache() ;
   void consume(Context *const context,
                const OperatorState &childState) override;
@@ -119,7 +118,7 @@ class RadixJoin : public BinaryOperator {
   // char *kvS;
 
   string htLabel;
-  ParallelContext *const context;
+  OlapParallelContext *const context;
   void *flush_fun;
 
   // /* Cache- related */

@@ -1,0 +1,13 @@
+# Columns used by Stack Q11 and Q14.
+account_id
+downvotes
+favorite_count
+id
+name
+owner_user_id
+question_id
+site_id
+site_name
+tag_id
+user_id
+view_count

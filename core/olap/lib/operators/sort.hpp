@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -31,16 +31,16 @@
 
 class Sort : public UnaryOperator {
  public:
-  Sort(Operator *const child, ParallelContext *const context,
-       const vector<expression_t> &orderByFields,
-       const vector<direction> &dirs);
+  Sort(Operator *const child, OlapParallelContext *const context,
+       const std::vector<expression_t> &orderByFields,
+       const std::vector<direction> &dirs);
 
   ~Sort() override { LOG(INFO) << "Collapsing Sort operator"; }
 
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
   void consume(Context *const context,
                const OperatorState &childState) override;
-  virtual void consume(ParallelContext *const context,
+  virtual void consume(OlapParallelContext *const context,
                        const OperatorState &childState);
   bool isFiltering() const override { return false; }
 
@@ -63,7 +63,7 @@ class Sort : public UnaryOperator {
   virtual void call_sort(llvm::Value *mem, llvm::Value *N);
 
   std::vector<expression_t> orderByFields;
-  const vector<direction> dirs;
+  const std::vector<direction> dirs;
 
   expressions::RecordConstruction outputExpr;
   std::string relName;
@@ -75,7 +75,7 @@ class Sort : public UnaryOperator {
 
   llvm::Type *mem_type;
 
-  ParallelContext *const context;
+  OlapParallelContext *const context;
 };
 
 #endif /* SORT_HPP_ */

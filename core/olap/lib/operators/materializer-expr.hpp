@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -53,7 +53,7 @@ class ExprMaterializer : public UnaryOperator {
                    Operator *const child, Context *const context,
                    char *opLabel);
   ~ExprMaterializer() override;
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
   void consume(Context *const context,
                const OperatorState &childState) override;
   bool isFiltering() const override { return false; }

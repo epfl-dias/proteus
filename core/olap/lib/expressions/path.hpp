@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,10 +24,10 @@
 #ifndef PATH_HPP_
 #define PATH_HPP_
 
+#include <codegen/expressions/expressions.hpp>
 #include <platform/common/common.hpp>
 
 #include "lib/util/catalog.hpp"
-#include "olap/expressions/expressions.hpp"
 #include "olap/plugins/plugins.hpp"
 
 class Path {

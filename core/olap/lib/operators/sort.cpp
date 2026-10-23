@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -31,8 +31,13 @@
 
 using namespace llvm;
 
+namespace {
+constexpr size_t kSortRowCapacity = 4 * 1024 * 1024;
+}
+
 expressions::RecordConstruction buildSortOutputExpression(
-    ParallelContext *const context, const vector<expression_t> &orderByFields) {
+    OlapParallelContext *const context,
+    const std::vector<expression_t> &orderByFields) {
   size_t i = 0;
 
   list<expressions::AttributeConstruction> attrs;
@@ -46,9 +51,9 @@ expressions::RecordConstruction buildSortOutputExpression(
   return {attrs};
 }
 
-Sort::Sort(Operator *const child, ParallelContext *const context,
-           const vector<expression_t> &orderByFields,
-           const vector<direction> &dirs)
+Sort::Sort(Operator *const child, OlapParallelContext *const context,
+           const std::vector<expression_t> &orderByFields,
+           const std::vector<direction> &dirs)
     : UnaryOperator(child),
       context(context),
       orderByFields(orderByFields),
@@ -56,7 +61,7 @@ Sort::Sort(Operator *const child, ParallelContext *const context,
       outputExpr(buildSortOutputExpression(context, orderByFields)),
       relName(orderByFields[0].getRegisteredRelName()) {}
 
-void Sort::produce_(ParallelContext *context) {
+void Sort::produce_(OlapParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Plugin *pg = Catalog::getInstance().getPlugin(relName);
@@ -82,7 +87,7 @@ void Sort::produce_(ParallelContext *context) {
   // numOfBuckets)));
 
   Type *elemPointer = outputExpr.getExpressionType()->getLLVMType(llvmContext);
-  mem_type = ArrayType::get(elemPointer, 1024 * 1024);
+  mem_type = ArrayType::get(elemPointer, kSortRowCapacity);
 
   flush_sorted();
 
@@ -103,16 +108,21 @@ void Sort::produce_(ParallelContext *context) {
       //     context->deallocateStateVar(s);
       // }
       [=](llvm::Value *) {
-        Function *gb = context->getFunction("get_buffer");
+        Function *gb = context->getFunction("get_pinned_buffer");
         IRBuilder<> *Builder = context->getBuilder();
         Value *mem = Builder->CreateCall(
-            gb, context->createSizeT(BlockManager::block_size));
+            gb, context->createSizeT(kSortRowCapacity *
+                                     context->getSizeOf(elemPointer)));
         mem = Builder->CreateBitCast(mem, PointerType::getUnqual(mem_type));
         return mem;  // context->allocateStateVar(mem_type);
       },
 
       [=](llvm::Value *, llvm::Value *s) {
-        // context->deallocateStateVar(s);
+        Function *rb = context->getFunction("release_pinned_buffer");
+        IRBuilder<> *Builder = context->getBuilder();
+        Builder->CreateCall(rb, Builder->CreateBitCast(
+                                    s, Type::getInt8PtrTy(
+                                           context->getLLVMContext())));
       });
 
   cntVar_id = context->appendStateVar(
@@ -141,7 +151,7 @@ void Sort::produce_(ParallelContext *context) {
 
         Type *substate_t = f_t->getParamType(f_t->getNumParams() - 1);
 
-        vector<Value *> args{
+        std::vector<Value *> args{
             context->getStateVar(memVar_id),
             Builder->CreateLoad(s->getType()->getPointerElementType(), s)};
 
@@ -164,12 +174,13 @@ void Sort::produce_(ParallelContext *context) {
 }
 
 void Sort::consume(Context *const context, const OperatorState &childState) {
-  ParallelContext *const ctx = dynamic_cast<ParallelContext *const>(context);
+  OlapParallelContext *const ctx =
+      dynamic_cast<OlapParallelContext *const>(context);
   assert(ctx);
   consume(ctx, childState);
 }
 
-void Sort::consume(ParallelContext *const context,
+void Sort::consume(OlapParallelContext *const context,
                    const OperatorState &childState) {
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
@@ -222,7 +233,7 @@ void Sort::flush_sorted() {
   Plugin *pg = Catalog::getInstance().getPlugin(relName);
   auto *oid_type = (IntegerType *)pg->getOIDType()->getLLVMType(llvmContext);
 
-  vector<size_t> params;
+  std::vector<size_t> params;
   params.emplace_back(
       context->appendParameter(PointerType::getUnqual(mem_type), true, true));
   params.emplace_back(context->appendParameter(oid_type, false, false));

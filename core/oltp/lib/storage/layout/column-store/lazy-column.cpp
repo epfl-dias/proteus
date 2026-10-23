@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2020
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,12 +24,12 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <codegen/expressions/expressionTypes.hpp>
 #include <cstring>
 #include <functional>
 #include <iostream>
 #include <iterator>
 #include <numeric>
-#include <olap/values/expressionTypes.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/threadpool/thread.hpp>
 #include <platform/topology/affinity_manager.hpp>
@@ -126,7 +126,7 @@ static inline void* getElemByOffset(std::deque<oltp::common::mem_chunk>& data,
     }
     data_idx -= chunk.size;
   }
-  assert(false && "Out-of-Bound-Access");
+  LOG(FATAL) << "Out-of-Bound-Access";
 }
 
 void* LazyColumn::getElem(rowid_t vid) {

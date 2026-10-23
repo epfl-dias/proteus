@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,8 +23,9 @@
 
 #include "expressions-generator.hpp"
 
+#include <codegen/expressions/indexed-seq.hpp>
+#include <codegen/expressions/ref-expression.hpp>
 #include <lib/util/project-record.hpp>
-#include <olap/expressions/expressions/ref-expression.hpp>
 
 #include "expressions-hasher.hpp"
 #include "lib/operators/operators.hpp"
@@ -106,7 +107,7 @@ ProteusValue ExpressionGeneratorVisitor::visit(
   Value *val_0 = context->createInt32(0);
   Value *val_1 = context->createInt32(1);
 
-  vector<Value *> idxList = vector<Value *>();
+  std::vector<Value *> idxList = std::vector<Value *>();
   idxList.push_back(val_0);
   idxList.push_back(val_0);
   Value *structPtr = TheBuilder->CreateGEP(
@@ -135,7 +136,7 @@ ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::InputArgument *e) {
   IRBuilder<> *const Builder = context->getBuilder();
   Catalog &catalog = Catalog::getInstance();
-  AllocaInst *argMem = nullptr;
+  Value *argMem = nullptr;
   Value *isNull;
 
   /* No caching logic here, because InputArgument generally
@@ -157,12 +158,12 @@ ProteusValue ExpressionGeneratorVisitor::visit(
                                "tuple information for ") +
                            activeRelation + "." +
                            e->getProjections().front().getName();
-        cout << activeVars.size() << endl;
+        cout << activeVars.size() << std::endl;
         map<RecordAttribute, ProteusValueMemory>::const_iterator it =
             activeVars.begin();
         for (; it != activeVars.end(); it++) {
           cout << it->first.getRelationName() << "-" << it->first.getAttrName()
-               << "-" << it->first.getOriginalRelationName() << endl;
+               << "-" << it->first.getOriginalRelationName() << std::endl;
         }
         // cout << endl;
         // cout << activeRelation << endl;
@@ -245,6 +246,28 @@ ProteusValue ExpressionGeneratorVisitor::visit(
   activeRelation = e->getOriginalRelationName();
   string projName = e->getProjectionName();
 
+  // Prefer explicit tuple bindings when available. This is the path used by
+  // BlockToTuples. Handle both eager (value) and lazy (pointer-to-value)
+  // bindings, otherwise fall back to plugin path logic.
+  try {
+    const auto &bound = currState[e->getAttribute()];
+    Value *bound_val = Builder->CreateLoad(
+        bound.mem->getType()->getPointerElementType(), bound.mem);
+    Type *expected_ty = e->getExpressionType()->getLLVMType(
+        context->getLLVMContext());
+
+    if (bound_val->getType() == expected_ty) {
+      return {bound_val, bound.isNull};
+    }
+
+    if (bound_val->getType()->isPointerTy() &&
+        bound_val->getType()->getPointerElementType() == expected_ty) {
+      Value *materialized = Builder->CreateLoad(expected_ty, bound_val);
+      return {materialized, bound.isNull};
+    }
+  } catch (const std::out_of_range &) {
+  }
+
   Plugin *plugin = catalog.getPlugin(activeRelation);
 
   if (plugin != nullptr) {
@@ -259,29 +282,29 @@ ProteusValue ExpressionGeneratorVisitor::visit(
         currState.getBindings().find(e->getAttribute());
 #ifdef DEBUGCACHING
     if (it != currState.getBindings().end()) {
-      cout << "Even if cached, binding's already there!" << endl;
+      cout << "Even if cached, binding's already there!" << std::endl;
     }
 #endif
     if (info.structFieldNo != -1 && it == currState.getBindings().end()) {
 #ifdef DEBUGCACHING
       cout << "[Generator: ] Expression found for "
            << e->getOriginalRelationName() << "."
-           << e->getAttribute().getAttrName() << "!" << endl;
+           << e->getAttribute().getAttrName() << "!" << std::endl;
 #endif
       if (!cache.getCacheIsFull(e)) {
 #ifdef DEBUGCACHING
-        cout << "...but is not useable " << endl;
+        cout << "...but is not useable " << std::endl;
 #endif
       } else {
-        assert(dynamic_cast<ParallelContext *>(context));
+        assert(dynamic_cast<OlapParallelContext *>(context));
         return plugin->readCachedValue(
-            info, currState, dynamic_cast<ParallelContext *>(context));
+            info, currState, dynamic_cast<OlapParallelContext *>(context));
       }
     } else {
 #ifdef DEBUGCACHING
       cout << "[Generator: ] No cache found for "
            << e->getOriginalRelationName() << "."
-           << e->getAttribute().getAttrName() << "!" << endl;
+           << e->getAttribute().getAttrName() << "!" << std::endl;
 #endif
     }
     //}
@@ -316,10 +339,10 @@ ProteusValue ExpressionGeneratorVisitor::visit(
       }
 
       // Path involves a projection / an object
-      assert(dynamic_cast<ParallelContext *>(context));
+      assert(dynamic_cast<OlapParallelContext *>(context));
       mem_path = plugin->readPath(
           activeRelation, bindings, e->getProjectionName().c_str(),
-          e->getAttribute(), dynamic_cast<ParallelContext *>(context));
+          e->getAttribute(), dynamic_cast<OlapParallelContext *>(context));
     } else {
       // Path involves a primitive datatype
       //(e.g., the result of unnesting a list of primitives)
@@ -330,9 +353,9 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 
       mem_path = currState[tupleIdentifier];
     }
-    assert(dynamic_cast<ParallelContext *>(context));
+    assert(dynamic_cast<OlapParallelContext *>(context));
     mem_val = plugin->readValue(mem_path, e->getExpressionType(),
-                                dynamic_cast<ParallelContext *>(context));
+                                dynamic_cast<OlapParallelContext *>(context));
     Value *val = Builder->CreateLoad(
         mem_val.mem->getType()->getPointerElementType(), mem_val.mem);
     ProteusValue valWrapper;
@@ -377,24 +400,24 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 //        //<< e->getAttribute().getAttrName()<< endl;
 //        CacheInfo info = cache.getCache(e);
 //        if (info.structFieldNo != -1) {
-//#ifdef DEBUGCACHING
+// #ifdef DEBUGCACHING
 //            cout << "[Generator: ] Expression found for "
 //                    << e->getOriginalRelationName() << "."
 //                    << e->getAttribute().getAttrName() << "!" << endl;
-//#endif
+// #endif
 //            if (!cache.getCacheIsFull(e)) {
-//#ifdef DEBUGCACHING
+// #ifdef DEBUGCACHING
 //                cout << "...but is not useable " << endl;
-//#endif
+// #endif
 //            } else {
 //                return plugin->readCachedValue(info, currState);
 //            }
 //        } else {
-//#ifdef DEBUGCACHING
+// #ifdef DEBUGCACHING
 //            cout << "[Generator: ] No cache found for "
 //                    << e->getOriginalRelationName() << "."
 //                    << e->getAttribute().getAttrName() << "!" << endl;
-//#endif
+// #endif
 //        }
 //        //}
 //    }
@@ -437,7 +460,7 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 //        Value *val =
 //        Builder->CreateLoad(mem_val.mem->getType()->getPointerElementType(),
 //        mem_val.mem);
-//#ifdef DEBUG
+// #ifdef DEBUG
 //        {
 //            /* Printing the pos. to be marked */
 ////            if(e->getProjectionName() == "age") {
@@ -459,7 +482,7 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 ////                val->getType()->dump();
 //                Function* debugInt = context->getFunction("printi");
 //                Function* debugInt64 = context->getFunction("printi64");
-//                vector<Value*> ArgsV;
+//                std::vector<Value*> ArgsV;
 //                ArgsV.clear();
 //                ArgsV.push_back(val);
 //                Builder->CreateCall(debugInt, ArgsV);
@@ -468,7 +491,7 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 //                endl;
 //            }
 //        }
-//#endif
+// #endif
 //        ProteusValue valWrapper;
 //        valWrapper.value = val;
 //        valWrapper.isNull = mem_val.isNull;
@@ -810,7 +833,7 @@ ProteusValue ExpressionGeneratorVisitor::visit(
       case FLOAT:
 #ifdef DEBUG
       {
-        vector<Value *> ArgsV;
+        std::vector<Value *> ArgsV;
         ArgsV.clear();
         ArgsV.push_back(left.value);
         Function *debugF = context->getFunction("printFloat");
@@ -920,7 +943,7 @@ ProteusValue ExpressionGeneratorVisitor::visit(
       case INT:
 #ifdef DEBUG
       {
-        vector<Value *> ArgsV;
+        std::vector<Value *> ArgsV;
         ArgsV.clear();
         ArgsV.push_back(left.value);
         Function *debugInt = context->getFunction("printi");
@@ -932,7 +955,7 @@ ProteusValue ExpressionGeneratorVisitor::visit(
       case FLOAT:
 #ifdef DEBUG
       {
-        vector<Value *> ArgsV;
+        std::vector<Value *> ArgsV;
         ArgsV.clear();
         ArgsV.push_back(left.value);
         Function *debugF = context->getFunction("printFloat");
@@ -973,7 +996,7 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 
 ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::PlaceholderExpression *e) {
-  auto ctx = dynamic_cast<const ParallelContext *>(context);
+  auto ctx = dynamic_cast<const OlapParallelContext *>(context);
   assert(ctx);
   auto session = ctx->getSessionParametersPtr();
   auto Builder = context->getBuilder();
@@ -1033,10 +1056,23 @@ ProteusValue ExpressionGeneratorVisitor::visit(
     case BOOL:
       valWrapper.value = TheBuilder->CreateAdd(left.value, right.value);
       return valWrapper;
-    case INDEXEDSEQ:
-      valWrapper.value = TheBuilder->CreateGEP(
-          nullptr, left.value, {context->createInt64(0), right.value});
+    case INDEXEDSEQ: {
+      auto *t_element = dynamic_cast<const type::IndexedSeq &>(*childType)
+                            .getNestedType()
+                            .getLLVMType(context->getLLVMContext());
+      auto *t_ptr = dynamic_cast<const type::IndexedSeq &>(*childType)
+                        .getLLVMType(context->getLLVMContext());
+      // For IndexedSeq we assume a llvm type of t_element*. e.g. for an
+      // IndexedSeq containing i32, the IndexedSeq type is i32* In some code
+      // (bloomfilter) we create array types instead, e.g. [4096, i32]* Here we
+      // are casting from a ptr to an arry to a ptr to the first element of an
+      // array, essentially casting away the array size
+      llvm::Value *castedPtr =
+          context->getBuilder()->CreateBitCast(left.value, t_ptr);
+      valWrapper.value =
+          TheBuilder->CreateGEP(t_element, castedPtr, right.value);
       return valWrapper;
+    }
     case STRING:
       LOG(ERROR) << "[ExpressionGeneratorVisitor]: string operations not "
                     "supported yet";
@@ -1349,6 +1385,79 @@ ProteusValue ExpressionGeneratorVisitor::visit(
 ProteusValue ExpressionGeneratorVisitor::visit(
     const expressions::RandExpression *e) {
   return {context->gen_call(rand, {}), context->createFalse()};
+}
+
+ProteusValue ExpressionGeneratorVisitor::visit(
+    const expressions::ExternExpression *e) {
+  ProteusValue valWrapper;
+
+  // Check if the function was properly linked
+  auto fun = context->getModule()->getFunction(e->getName());
+  if (!fun) {
+    LOG(ERROR) << "[ExpressionGeneratorVisitor]: extern function "
+               << e->getName() << " not found! Did you link the module?";
+    throw runtime_error(
+        std::string("[ExpressionGeneratorVisitor]: extern function " +
+                    e->getName() + " not found! Did you link the module?"));
+  }
+
+  context->registerFunction(e->getName(), fun);
+  auto funType = fun->getFunctionType();
+
+  // check if number of arguments matches
+  if (funType->getNumParams() != e->getArgs().size()) {
+    //  && "Mismatch in argument count for extern function"
+    LOG(ERROR) << "[ExpressionGeneratorVisitor]: number of arguments for "
+                  "extern function "
+               << e->getName()
+               << " doesn't match! Expected: " << funType->getNumParams()
+               << " Have: " << e->getArgs().size();
+    throw runtime_error(std::string(
+        "[ExpressionGeneratorVisitor]: number of arguments for "
+        "extern function " +
+        e->getName() +
+        " doesn't match! Expected: " + std::to_string(funType->getNumParams()) +
+        " Have: " + std::to_string(e->getArgs().size())));
+  }
+
+  if (funType->getReturnType() !=
+      e->getExpressionType()->getLLVMType(context->getLLVMContext())) {
+    LOG(ERROR)
+        << "[ExpressionGeneratorVisitor]: return type for extern function "
+        << e->getName() << " doesn't match!";
+    throw runtime_error(std::string(
+        "[ExpressionGeneratorVisitor]: return type for extern function " +
+        e->getName() + " doesn't match!"));
+  }
+
+  // Compute and convert arguments
+  std::vector<llvm::Value *> convertedArgs;
+  convertedArgs.reserve(e->getArgs().size());
+
+  for (size_t idx = 0; const auto &arg_expr : e->getArgs()) {
+    auto computed_value = arg_expr.accept(*this);
+
+    const auto computedType = computed_value.value->getType();
+    const auto expectedType = funType->getParamType(idx);
+    if (computedType != expectedType) {
+      LOG(ERROR)
+          << "[ExpressionGeneratorVisitor]: argument type for extern function "
+          << e->getName() << " with id " << std::to_string(idx)
+          << " doesn't match!";
+      throw runtime_error(std::string(
+          "[ExpressionGeneratorVisitor]: argument type for extern function " +
+          e->getName() + " with id " + std::to_string(idx) +
+          " doesn't match!"));
+    }
+
+    convertedArgs.push_back(computed_value.value);
+    idx++;
+  }
+
+  valWrapper.value = context->gen_call(fun, convertedArgs);
+  valWrapper.isNull = fun->getReturnType()->isVoidTy() ? context->createTrue()
+                                                       : context->createFalse();
+  return valWrapper;
 }
 
 ProteusValue ExpressionGeneratorVisitor::visit(

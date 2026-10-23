@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -34,7 +34,7 @@ class NullFilter : public UnaryOperator {
       : UnaryOperator(child), expr(expr) {}
   ~NullFilter() override { LOG(INFO) << "Collapsing null_filter operator"; }
 
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
   void consume(Context *const context,
                const OperatorState &childState) override;
   bool isFiltering() const override { return true; }

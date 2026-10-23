@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,18 +24,14 @@
 #ifndef PLUGINS_LLVM_HPP_
 #define PLUGINS_LLVM_HPP_
 
+#include <codegen/context/context.hpp>
+#include <codegen/expressions/expressionTypes.hpp>
+#include <olap/operators/operator-state.hpp>
 #include <olap/util/cache-info.hpp>
-#include <olap/util/context.hpp>
 #include <olap/util/parallel-context.hpp>
-#include <olap/values/expressionTypes.hpp>
 #include <platform/common/common.hpp>
 #include <platform/common/unsupported-operation.hpp>
-
-/* Leads to incomplete type */
-class OperatorState;
-class Operator;
-// class ProteusValueMemory;
-// class ProteusValue;
+#include <stduuid/uuid.hpp>
 
 // Used by all plugins
 static const string activeLoop = "activeTuple";
@@ -58,11 +54,19 @@ enum PluginType { PGCSV, PGJSON, PGBINARY };
  */
 class Plugin {
  public:
-  virtual ~Plugin() { LOG(INFO) << "[PLUGIN: ] Collapsing plug-in"; }
+  virtual ~Plugin()
+  {
+    //LOG(INFO) << "[PLUGIN: ] Collapsing plug-in";
+  }
+  Plugin() : id(uuids::uuid_system_generator{}()) {}
+  uuids::uuid getUUID() { return id; }
+
+  [[nodiscard]] const uuids::uuid &getUUID() const { return id; }
   virtual string &getName() = 0;
   virtual void init() = 0;
   virtual void finish() = 0;
-  virtual void generate(const Operator &producer, ParallelContext *context) = 0;
+  virtual void generate(const Operator &producer,
+                        OlapParallelContext *context) = 0;
   /**
    * @param activeRelation Which relation's activeTuple is to be processed.
    *                          Does not have to be a native one
@@ -74,13 +78,13 @@ class Plugin {
   virtual ProteusValueMemory readPath(string activeRelation,
                                       Bindings wrappedBindings,
                                       const char *pathVar, RecordAttribute attr,
-                                      ParallelContext *context) = 0;
+                                      OlapParallelContext *context) = 0;
   virtual ProteusValueMemory readValue(ProteusValueMemory mem_value,
                                        const ExpressionType *type,
-                                       ParallelContext *context) = 0;
+                                       OlapParallelContext *context) = 0;
   virtual ProteusValue readCachedValue(CacheInfo info,
                                        const OperatorState &currState,
-                                       ParallelContext *context) = 0;
+                                       OlapParallelContext *context) = 0;
 
   // Relevant for hashing visitors
   virtual ProteusValue hashValue(ProteusValueMemory mem_value,
@@ -132,14 +136,15 @@ class Plugin {
     flushValueEager(value, type, context->CreateGlobalString(fileName.c_str()));
   }
 
-  virtual void updateValue(ParallelContext *context, ProteusValueMemory mem_rid,
+  virtual void updateValue(OlapParallelContext *context,
+                           ProteusValueMemory mem_rid,
                            ProteusValueMemory mem_value,
                            const ExpressionType *type,
                            const std::string &fileName) {
     throw proteus::unsupported_operation("update");
   }
 
-  virtual void updateValueEager(ParallelContext *context, ProteusValue rid,
+  virtual void updateValueEager(OlapParallelContext *context, ProteusValue rid,
                                 ProteusValue value, const ExpressionType *type,
                                 const std::string &fileName) {
     throw proteus::unsupported_operation("update eager");
@@ -156,7 +161,7 @@ class Plugin {
       ProteusValueMemory mem_currentChild) = 0;
 
   virtual void forEachInCollection(
-      ParallelContext *context, ProteusValue val_parentObject,
+      OlapParallelContext *context, ProteusValue val_parentObject,
       ProteusBareValue offset, ProteusBareValue step,
       ProteusBareValue val_parentObjectSize /* soon to be removed, the plugin
                                            should know the collection size */
@@ -174,7 +179,7 @@ class Plugin {
    */
   virtual llvm::Value *getValueSize(ProteusValueMemory mem_value,
                                     const ExpressionType *type,
-                                    ParallelContext *context) = 0;
+                                    OlapParallelContext *context) = 0;
 
   //    virtual typeID getOIDSize() = 0;
   virtual ExpressionType *getOIDType() = 0;
@@ -238,5 +243,8 @@ class Plugin {
   }
 
   virtual bool isLazy() { return false; }
+
+ private:
+  uuids::uuid id;
 };
 #endif /* PLUGINS_LLVM_HPP_ */

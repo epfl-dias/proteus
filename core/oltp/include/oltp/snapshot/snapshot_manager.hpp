@@ -25,6 +25,7 @@
 #define AEOLUS_SNAPSHOT_SNAPSHOT_MANAGER_HPP_
 
 #include <cstdlib>
+#include <deque>
 
 #include "oltp/common/common.hpp"
 #include "oltp/snapshot/arena.hpp"

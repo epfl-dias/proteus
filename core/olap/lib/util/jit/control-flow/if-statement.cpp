@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2018
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -21,56 +21,17 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "olap/util/jit/control-flow/if-statement.hpp"
-
-#include <llvm/IR/IRBuilder.h>
+#include <olap/util/jit/control-flow/if-statement.hpp>
 
 #include "lib/expressions/expressions-generator.hpp"
-#include "olap/util/context.hpp"
 
-static ProteusValue gen(const expression_t &expr, const OperatorState &state,
-                        Context *context) {
+static ProteusValue genExpr(const expression_t &expr,
+                            const OperatorState &state, Context *context) {
   ExpressionGeneratorVisitor egv{context, state};
   return expr.accept(egv);
 }
 
-if_branch::if_branch(const expression_t &expr, const OperatorState &state,
-                     Context *context, llvm::BasicBlock *afterBB)
-    : if_branch(gen(expr, state, context), context, afterBB) {}
-
-if_branch::if_branch(const expression_t &expr, const OperatorState &state,
-                     Context *context)
-    : if_branch(expr, state, context, nullptr) {}
-
-void if_then::openCase(const ProteusBareValue &cond) {
-  auto Builder = context->getBuilder();
-  llvm::LLVMContext &llvmContext = context->getLLVMContext();
-  llvm::Function *F = Builder->GetInsertBlock()->getParent();
-
-  auto ThenBB = llvm::BasicBlock::Create(llvmContext, "IfThen", F);
-  ElseBB = llvm::BasicBlock::Create(llvmContext, "IfElse", F);
-  if (!AfterBB) {
-    AfterBB = llvm::BasicBlock::Create(llvmContext, "IfAfter", F);
-  }
-
-  Builder->CreateCondBr(cond.value, ThenBB, ElseBB);
-
-  Builder->SetInsertPoint(ThenBB);
-}
-
-void if_then::jumpToEnd() { context->getBuilder()->SetInsertPoint(AfterBB); }
-
-void if_then::closeCase() {
-  context->getBuilder()->CreateBr(AfterBB);
-
-  jumpToEnd();
-}
-
-void if_then::openElseCase() { context->getBuilder()->SetInsertPoint(ElseBB); }
-
-void if_then::closeElseCase() {
-  auto Builder = context->getBuilder();
-  Builder->CreateBr(AfterBB);
-  Builder->SetInsertPoint(AfterBB);
-  ElseBB = nullptr;
+if_branch gen_if(const expression_t &expr, const OperatorState &state,
+                 Context *context) {
+  return {genExpr(expr, state, context), context, nullptr};
 }

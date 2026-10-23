@@ -24,6 +24,7 @@
 #ifndef PROTEUS_EXPERIMENTAL_SHAPERS_HPP
 #define PROTEUS_EXPERIMENTAL_SHAPERS_HPP
 
+#include <query-shaping/nvme-shapers.hpp>
 #include <query-shaping/scale-out-query-shaper.hpp>
 
 namespace proteus {
@@ -119,6 +120,83 @@ class LazyGPUOnlyLocalAllCorrectPlan : public GPUOnlyLocalAllCorrectPlan {
 
 class GPUOnlySingleServer : public proteus::InputPrefixQueryShaper {
   using proteus::InputPrefixQueryShaper::InputPrefixQueryShaper;
+};
+
+/**
+ * Single-server GPU shaper for metadata-driven (md_dirs) scans.
+ *
+ * This keeps the "single-server" query-shaping behavior while using the
+ * NVMe metadata scan path (relation_md -> NvmePlugin) so compressed datasets
+ * are actually read from the configured md directories.
+ */
+class GPUOnlySingleServerCompressed : public proteus::CPUOnlyNVMeMorsel {
+ public:
+  GPUOnlySingleServerCompressed(
+      std::vector<std::string> input_dirs, const std::string &catalog_path,
+      decltype(input_sizes) input_sizes, bool allowMoves,
+      size_t scan_memmove_slack, size_t scan_router_slack, size_t slack,
+      bool emit_compressed_blocks)
+      : CPUOnlyNVMeMorsel(std::move(input_dirs), catalog_path,
+                          std::move(input_sizes), allowMoves,
+                          scan_memmove_slack, scan_router_slack, slack),
+        emit_compressed_blocks_(emit_compressed_blocks) {}
+
+ protected:
+  [[nodiscard]] DeviceType getDevice() override { return DeviceType::GPU; }
+
+  [[nodiscard]] RelBuilder scan(
+      const std::string &relName,
+      std::initializer_list<std::string> relAttrs) override {
+    std::vector<std::string> attrs_vec{relAttrs.begin(), relAttrs.end()};
+    std::vector<DanglingAttr> attrs = constructDanglingAttrs(relName, attrs_vec);
+    RecordType scan_record_type = rel(relName)(attrs);
+
+    auto meta_data_records_map = scan_record_type.getArgsMap();
+    std::vector<std::pair<RecordAttribute *, std::vector<std::filesystem::path>>>
+        relation_md;
+    relation_md.reserve(attrs_vec.size());
+    for (const auto &attr : attrs_vec) {
+      auto md_paths = getMdForAttribute(relName, attr);
+      relation_md.emplace_back(meta_data_records_map[attr], md_paths);
+    }
+
+    auto builder = getBuilder();
+    auto rel = builder.scan(
+        relation_md,
+        /*preload_to_gpu=*/true,
+        /*emit_compressed_blocks=*/emit_compressed_blocks_);
+    rel = rel.hintRowCount(getRowHint(relName));
+    return rel;
+  }
+
+  [[nodiscard]] RelBuilder distribute_probe(RelBuilder input) override {
+    auto rel = input.router(getDOP(), getSlack(), RoutingPolicy::LOCAL,
+                            getDevice(), getAffinitizer());
+
+    if (doMove()) rel = rel.memmove(getSlack(), getDevice());
+    if (getDevice() == DeviceType::GPU) rel = rel.to_gpu();
+
+    return rel;
+  }
+
+  [[nodiscard]] RelBuilder distribute_build(RelBuilder input) override {
+    // Match GPUOnlySingleServer build semantics: broadcast build-side blocks
+    // before routing by broadcast target. In this shaper we preload concrete
+    // GPU pointers, so MemBroadcastDevice is valid.
+    auto rel = input
+                   .membrdcst(getDOP(), getDevice() == DeviceType::CPU, false)
+                   .router(
+                       [&](const auto &arg) -> expression_t {
+                         return arg["__broadcastTarget"];
+                       },
+                       getDOP(), getSlack(), getDevice(), getAffinitizer());
+
+    if (getDevice() == DeviceType::GPU) rel = rel.to_gpu();
+    return rel;
+  }
+
+ private:
+  bool emit_compressed_blocks_;
 };
 
 class LazyGPUOnlySingleServer : public GPUOnlySingleServer {

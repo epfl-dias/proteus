@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -26,6 +26,7 @@
 #include <lib/expressions/expressions-flusher.hpp>
 #include <platform/memory/block-manager.hpp>
 #include <platform/memory/memory-manager.hpp>
+#include <platform/util/tracing.hpp>
 #include <utility>
 
 #include "lib/expressions/expressions-hasher.hpp"
@@ -35,7 +36,7 @@
 using namespace llvm;
 
 BinaryBlockPlugin::BinaryBlockPlugin(
-    ParallelContext *context, const string &fnamePrefix, RecordType rec,
+    OlapParallelContext *context, const string &fnamePrefix, RecordType rec,
     const std::vector<RecordAttribute *> &whichFields)
     : BinaryBlockPlugin(context, fnamePrefix, std::move(rec), whichFields,
                         !whichFields.empty()) {}
@@ -49,7 +50,7 @@ std::vector<RecordAttribute *> ensureRelName(
 }
 
 BinaryBlockPlugin::BinaryBlockPlugin(
-    ParallelContext *context, const string &fnamePrefix, RecordType rec,
+    OlapParallelContext *context, const string &fnamePrefix, RecordType rec,
     const std::vector<RecordAttribute *> &whichFields, bool load)
     : fnamePrefix(fnamePrefix),
       rec(std::move(rec)),
@@ -61,7 +62,8 @@ BinaryBlockPlugin::BinaryBlockPlugin(
   }
 }
 
-void BinaryBlockPlugin::loadData(ParallelContext *context, data_loc loc) {
+void BinaryBlockPlugin::loadData(OlapParallelContext *context, data_loc loc) {
+  event_range<range_log_op::BINARY_BLOCK_LOAD_DATA> er{getUUID()};
   LLVMContext &llvmContext = context->getLLVMContext();
   if (wantedFields.empty()) {
     string error_msg{"[BinaryBlockPlugin: ] Invalid number of fields"};
@@ -100,20 +102,20 @@ void BinaryBlockPlugin::loadData(ParallelContext *context, data_loc loc) {
   finalize_data(context);
 }
 
-void BinaryBlockPlugin::finalize_data(ParallelContext *context) {
+void BinaryBlockPlugin::finalize_data(OlapParallelContext *context) {
   Nparts = wantedFieldsFiles[0].getSegmentCount();
 }
 
 void BinaryBlockPlugin::init() {}
 
 void BinaryBlockPlugin::generate(const ::Operator &producer,
-                                 ParallelContext *context) {
+                                 OlapParallelContext *context) {
   return scan(producer, context);
 }
 
 ProteusValueMemory BinaryBlockPlugin::readProteusValue(
     ProteusValueMemory val, const ExpressionType *type,
-    ParallelContext *context) {
+    OlapParallelContext *context) {
   try {
     if (val.mem->getType()->getPointerElementType()->isPointerTy() &&
         val.mem->getType()
@@ -171,7 +173,7 @@ ProteusValueMemory BinaryBlockPlugin::readPath(string activeRelation,
                                                Bindings bindings,
                                                const char *pathVar,
                                                RecordAttribute attr,
-                                               ParallelContext *context) {
+                                               OlapParallelContext *context) {
   // XXX Make sure that using fnamePrefix in this search does not cause issues
   RecordAttribute tmpKey{fnamePrefix, pathVar, this->getOIDType()};
   return readProteusValue((*(bindings.state))[tmpKey], attr.getOriginalType(),
@@ -182,13 +184,13 @@ ProteusValueMemory BinaryBlockPlugin::readPath(string activeRelation,
  * needing the materialized string */
 ProteusValueMemory BinaryBlockPlugin::readValue(ProteusValueMemory mem_value,
                                                 const ExpressionType *type,
-                                                ParallelContext *context) {
+                                                OlapParallelContext *context) {
   return mem_value;
 }
 
 ProteusValue BinaryBlockPlugin::readCachedValue(CacheInfo info,
                                                 const OperatorState &currState,
-                                                ParallelContext *context) {
+                                                OlapParallelContext *context) {
   IRBuilder<> *const Builder = context->getBuilder();
   Function *F = context->getGlobalFunction();
 
@@ -249,9 +251,9 @@ ProteusValue BinaryBlockPlugin::hashValue(ProteusValueMemory mem_value,
                                           const ExpressionType *type,
                                           Context *context) {
   IRBuilder<> *Builder = context->getBuilder();
-  assert(dynamic_cast<ParallelContext *>(context));
+  assert(dynamic_cast<OlapParallelContext *>(context));
   auto mem = readProteusValue(mem_value, type,
-                              dynamic_cast<ParallelContext *>(context));
+                              dynamic_cast<OlapParallelContext *>(context));
   ProteusValue v{
       Builder->CreateLoad(mem.mem->getType()->getPointerElementType(), mem.mem),
       mem.isNull};
@@ -271,27 +273,17 @@ ProteusValue BinaryBlockPlugin::hashValueEager(ProteusValue valWrapper,
   return hashValue(mem_tmpWrapper, type, context);
 }
 
-void BinaryBlockPlugin::finish() {
-  LOG(INFO) << "[BinaryBlockPlugin] Finish";
-  int cnt = 0;
-  for (const auto &attr : wantedFields) {
-    if (attr->getOriginalType()->getTypeID() == STRING) {
-      int dictionaryFd = dictionaries[cnt];
-      close(dictionaryFd);
-      munmap(dictionariesBuf[cnt], dictionaryFilesizes[cnt]);
-    }
-    cnt++;
-  }
-}
+void BinaryBlockPlugin::finish() { LOG(INFO) << "[BinaryBlockPlugin] Finish"; }
 
 llvm::Value *BinaryBlockPlugin::getValueSize(ProteusValueMemory mem_value,
                                              const ExpressionType *type,
-                                             ParallelContext *context) {
+                                             OlapParallelContext *context) {
   switch (type->getTypeID()) {
     case BOOL:
     case INT:
     case FLOAT: {
-      Type *explicitType = (mem_value.mem)->getAllocatedType();
+      Type *explicitType =
+          mem_value.mem->getType()->getPointerElementType();
       return context->createInt32(explicitType->getPrimitiveSizeInBits() / 8);
     }
     case STRING: {
@@ -321,7 +313,7 @@ llvm::Value *BinaryBlockPlugin::getValueSize(ProteusValueMemory mem_value,
   }
 }
 
-void BinaryBlockPlugin::skipLLVM(ParallelContext *context,
+void BinaryBlockPlugin::skipLLVM(OlapParallelContext *context,
                                  RecordAttribute attName, Value *offset) {
   // Prepare
   IRBuilder<> *Builder = context->getBuilder();
@@ -337,7 +329,16 @@ void BinaryBlockPlugin::skipLLVM(ParallelContext *context,
   Builder->CreateStore(val_new_pos, mem_pos);
 }
 
-void BinaryBlockPlugin::nextEntry(ParallelContext *context,
+/**
+ * Updates the loop control variables to point to the next data entry.
+ * This method inserts code into the increment block (IncBB) during the scan
+ * process. It handles incrementing the partition index or resetting it and
+ * advancing block_i if necessary,
+ *
+ * @param blockSize The size of the data block, used to increment the block
+ * index.
+ */
+void BinaryBlockPlugin::nextEntry(OlapParallelContext *context,
                                   llvm::Value *blockSize) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -368,48 +369,63 @@ void BinaryBlockPlugin::nextEntry(ParallelContext *context,
   Value *cond = Builder->CreateICmpULT(part_i, part_N);
   Builder->CreateCondBr(cond, stepBB, wrapBB);
 
-  Builder->SetInsertPoint(stepBB);
-  Builder->CreateStore(
-      Builder->CreateAdd(part_i, ConstantInt::get(size_type, 1)), part_i_ptr);
+  {
+    // IfThen
+    // increment part_i (which partition we are accessing)
+    Builder->SetInsertPoint(stepBB);
 
-  Builder->CreateBr(afterBB);
+    Builder->CreateStore(
+        Builder->CreateAdd(part_i, ConstantInt::get(size_type, 1)), part_i_ptr);
 
-  Builder->SetInsertPoint(wrapBB);
+    Builder->CreateBr(afterBB);
+  }
 
-  Builder->CreateStore(ConstantInt::get(size_type, 0), part_i_ptr);
+  {
+    // IfElse
+    // wrap around back to partition 0 and advance block_i by the blocksize
+    Builder->SetInsertPoint(wrapBB);
 
-  Value *block_i = Builder->CreateLoad(
-      block_i_ptr->getType()->getPointerElementType(), block_i_ptr, "block_i");
-  Builder->CreateStore(Builder->CreateAdd(block_i, blockSize), block_i_ptr);
+    Builder->CreateStore(ConstantInt::get(size_type, 0), part_i_ptr);
 
-  Builder->CreateBr(afterBB);
+    Value *block_i =
+        Builder->CreateLoad(block_i_ptr->getType()->getPointerElementType(),
+                            block_i_ptr, "block_i");
+    Builder->CreateStore(Builder->CreateAdd(block_i, blockSize), block_i_ptr);
 
-  Builder->SetInsertPoint(afterBB);
+    Builder->CreateBr(afterBB);
+  }
 
-  // itemCtr = block_i_ptr * Nparts + part_i_ptr * blockSize
-  Value *itemCtr = Builder->CreateAdd(
-      Builder->CreateMul(
-          Builder->CreateLoad(block_i_ptr->getType()->getPointerElementType(),
-                              block_i_ptr),
-          ConstantInt::get(size_type, Nparts)),
-      Builder->CreateMul(
-          Builder->CreateLoad(part_i_ptr->getType()->getPointerElementType(),
-                              part_i_ptr),
-          blockSize));
+  {
+    // IfAfter
+    // In both cases update itemCtr which is used for the tuple ID
+    Builder->SetInsertPoint(afterBB);
 
-  Builder->CreateStore(itemCtr, mem_itemCtr);
+    // itemCtr = block_i_ptr * Nparts + part_i_ptr * blockSize
+    Value *itemCtr = Builder->CreateAdd(
+        Builder->CreateMul(
+            Builder->CreateLoad(block_i_ptr->getType()->getPointerElementType(),
+                                block_i_ptr),
+            ConstantInt::get(size_type, Nparts)),
+        Builder->CreateMul(
+            Builder->CreateLoad(part_i_ptr->getType()->getPointerElementType(),
+                                part_i_ptr),
+            blockSize));
+    itemCtr->setName("itemCtr");
+
+    Builder->CreateStore(itemCtr, mem_itemCtr);
+  }
 }
 
 /* Operates over int*! */
 void BinaryBlockPlugin::readAsIntLLVM(
-    ParallelContext *context, RecordAttribute attName,
+    OlapParallelContext *context, RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
   readAsLLVM(context, std::move(attName), variables);
 }
 
 /* Operates over char*! */
 void BinaryBlockPlugin::readAsLLVM(
-    ParallelContext *context, RecordAttribute attName,
+    OlapParallelContext *context, RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
   // Prepare
   IRBuilder<> *Builder = context->getBuilder();
@@ -442,13 +458,13 @@ void BinaryBlockPlugin::readAsLLVM(
 }
 
 void BinaryBlockPlugin::readAsBooleanLLVM(
-    ParallelContext *context, RecordAttribute attName,
+    OlapParallelContext *context, RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
   readAsLLVM(context, std::move(attName), variables);
 }
 
 void BinaryBlockPlugin::readAsFloatLLVM(
-    ParallelContext *context, RecordAttribute attName,
+    OlapParallelContext *context, RecordAttribute attName,
     map<RecordAttribute, ProteusValueMemory> &variables) {
   readAsLLVM(context, std::move(attName), variables);
 }
@@ -458,6 +474,7 @@ const void **getDataForField(size_t i, BinaryBlockPlugin *pg) {
 }
 
 const void **BinaryBlockPlugin::getDataForField(size_t i) {
+  event_range<range_log_op::BINARY_BLOCK_GET_FIELD_DATA> er{getUUID()};
   auto fieldPtr =
       (const void **)MemoryManager::mallocPinned(Nparts * sizeof(void *));
 
@@ -540,9 +557,8 @@ void BinaryBlockPlugin::freeTuplesPerPartition(int64_t *p) {
   MemoryManager::freePinned(p);
 }
 
-llvm::Value *BinaryBlockPlugin::getDataPointersForFile(ParallelContext *context,
-                                                       size_t i,
-                                                       llvm::Value *) const {
+llvm::Value *BinaryBlockPlugin::getDataPointersForFile(
+    OlapParallelContext *context, size_t i, llvm::Value *) const {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Function *F = context->getGlobalFunction();
@@ -598,7 +614,7 @@ llvm::Value *BinaryBlockPlugin::getDataPointersForFile(ParallelContext *context,
   return ptr;
 }
 
-void BinaryBlockPlugin::freeDataPointersForFile(ParallelContext *context,
+void BinaryBlockPlugin::freeDataPointersForFile(OlapParallelContext *context,
                                                 size_t i, Value *v) const {
   LLVMContext &llvmContext = context->getLLVMContext();
   auto data_type = PointerType::getUnqual(Type::getInt8PtrTy(llvmContext));
@@ -609,8 +625,12 @@ void BinaryBlockPlugin::freeDataPointersForFile(ParallelContext *context,
                     {context->createSizeT(i), casted, this_ptr});
 }
 
+/**
+ * @return a ptr to an array of length Nparts storing the number of tuples in
+ * each partition, and the size in tuples of the largest partition
+ */
 std::pair<llvm::Value *, llvm::Value *> BinaryBlockPlugin::getPartitionSizes(
-    ParallelContext *context, llvm::Value *) const {
+    OlapParallelContext *context, llvm::Value *) const {
   IRBuilder<> *Builder = context->getBuilder();
 
   IntegerType *sizeType = context->createSizeType();
@@ -636,7 +656,7 @@ std::pair<llvm::Value *, llvm::Value *> BinaryBlockPlugin::getPartitionSizes(
   return {N_parts_ptr, max_pack_size};
 }
 
-void BinaryBlockPlugin::freePartitionSizes(ParallelContext *context,
+void BinaryBlockPlugin::freePartitionSizes(OlapParallelContext *context,
                                            Value *v) const {
   Value *this_ptr = context->getBuilder()->CreateIntToPtr(
       context->createInt64((uintptr_t)this),
@@ -644,8 +664,13 @@ void BinaryBlockPlugin::freePartitionSizes(ParallelContext *context,
   context->gen_call(&::freeTuplesPerPartition, {v, this_ptr});
 }
 
+/**
+ * Iterates over all partitions of the binary input a round-robin manner.
+ * Each iteration sets the OperatorState that will be used by producer
+ * @param producer The operator that is producing tuples. (scan.hpp)
+ */
 void BinaryBlockPlugin::scan(const ::Operator &producer,
-                             ParallelContext *context) {
+                             OlapParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   context->setGlobalFunction(true);
@@ -676,7 +701,8 @@ void BinaryBlockPlugin::scan(const ::Operator &producer,
 
   auto partsizes = getPartitionSizes(context, session);
   Value *N_parts_ptr = partsizes.first;
-  Value *maxPackCnt = partsizes.second;
+  N_parts_ptr->setName("N_parts_ptr");
+  Value *maxPackCnt = partsizes.second;  /// size of largest partition in tuples
   maxPackCnt->setName("maxPackCnt");
 
   size_t max_field_size = 0;
@@ -746,14 +772,16 @@ void BinaryBlockPlugin::scan(const ::Operator &producer,
   Value *block_i_loc = Builder->CreateLoad(
       block_i_ptr->getType()->getPointerElementType(), block_i_ptr, "block_i");
 
-  auto tupleCntPtr = Builder->CreateInBoundsGEP(
+  auto partTupleCntPtr = Builder->CreateInBoundsGEP(
       N_parts_ptr->getType()->getNonOpaquePointerElementType(), N_parts_ptr,
       std::vector<Value *>{context->createInt64(0), part_i_loc});
-  Value *tupleCnt = Builder->CreateLoad(
-      tupleCntPtr->getType()->getPointerElementType(), tupleCntPtr);
+  Value *partTupleCnt = Builder->CreateLoad(
+      partTupleCntPtr->getType()->getPointerElementType(), partTupleCntPtr);
+  partTupleCnt->setName("partTupleCnt");
 
-  Value *part_unfinished = Builder->CreateICmpULT(block_i_loc, tupleCnt);
+  Value *part_unfinished = Builder->CreateICmpULT(block_i_loc, partTupleCnt);
 
+  // If we are already at the end of this block jump to IncBB
   Builder->CreateCondBr(part_unfinished, MainBB, IncBB);
 
   Builder->SetInsertPoint(MainBB);
@@ -799,9 +827,9 @@ void BinaryBlockPlugin::scan(const ::Operator &producer,
   }
 
   AllocaInst *blockN_ptr =
-      context->CreateEntryBlockAlloca(F, "blockN", tupleCnt->getType());
+      context->CreateEntryBlockAlloca(F, "blockN", partTupleCnt->getType());
 
-  Value *remaining = Builder->CreateSub(tupleCnt, block_i_loc);
+  Value *remaining = Builder->CreateSub(partTupleCnt, block_i_loc);
   Value *blockN = Builder->CreateSelect(
       Builder->CreateICmpULT(blockSize, remaining), blockSize, remaining);
   Builder->CreateStore(blockN, blockN_ptr);
@@ -838,6 +866,7 @@ void BinaryBlockPlugin::scan(const ::Operator &producer,
   //  Finish up with end (the AfterLoop)
   //  Any new code will be inserted in AfterBB.
   Builder->SetInsertPoint(context->getEndingBlock());
+  // Builder->SetInsertPoint(AfterBB);
 
   freePartitionSizes(context, N_parts_ptr);
   for (size_t i = 0; i < wantedFields.size(); ++i) {
@@ -845,7 +874,6 @@ void BinaryBlockPlugin::scan(const ::Operator &producer,
   }
 
   releaseSession(context, session);
-  // Builder->SetInsertPoint(AfterBB);
 }
 
 RecordType BinaryBlockPlugin::getRowType() const {
@@ -932,7 +960,7 @@ void BinaryBlockPlugin::flushValueInternal(Context *context,
 
       // Back to normal flow, find cached serializer value
       auto flushFunc =
-          dynamic_cast<ParallelContext *>(context)->getFunctionNameOverload(
+          dynamic_cast<OlapParallelContext *>(context)->getFunctionNameOverload(
               "flushBinary", val_attr->getType());
 
       context->gen_call(flushFunc, {val_attr, ser},
@@ -973,13 +1001,13 @@ void BinaryBlockPlugin::flushOutput(Context *context, std::string fileName,
 }
 
 extern "C" Plugin *createBlockPlugin(
-    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    OlapParallelContext *context, std::string fnamePrefix, RecordType rec,
     const std::vector<RecordAttribute *> &whichFields) {
   return new BinaryBlockPlugin(context, fnamePrefix, rec, whichFields);
 }
 
 void BinaryBlockPlugin::forEachInCollection(
-    ParallelContext *context, ProteusValue val_parentObject,
+    OlapParallelContext *context, ProteusValue val_parentObject,
     ProteusBareValue offset, ProteusBareValue step,
     ProteusBareValue val_parentObjectSize,
     const std::function<void(ProteusValueMemory mem_currentChild,
@@ -1001,7 +1029,7 @@ void BinaryBlockPlugin::forEachInCollection(
     // Check whether we reached the end
     lhs = Builder->CreateLoad(
         mem_itemCtr->getType()->getNonOpaquePointerElementType(), mem_itemCtr,
-        "i");
+        "forEachInCollection_i");
 
     return ProteusValue{Builder->CreateICmpSLT(lhs, cnt),
                         context->createFalse()};

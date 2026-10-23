@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -22,17 +22,19 @@
 */
 #include "block-to-tuples.hpp"
 
+#include <codegen/jit/pipeline.hpp>
+#include <olap/plugins/binary-block-nvme-plugin.hpp>
 #include <olap/plugins/plugins.hpp>
+#include <olap/util/jit/control-flow/if-statement.hpp>
 #include <platform/memory/block-manager.hpp>
 #include <platform/memory/memory-manager.hpp>
-#include <platform/util/logging.hpp>
+#include <platform/util/tracing.hpp>
 
 #include "lib/util/catalog.hpp"
-#include "lib/util/jit/pipeline.hpp"
 
 using namespace llvm;
 
-void BlockToTuples::produce_(ParallelContext *context) {
+void BlockToTuples::produce_(OlapParallelContext *context) {
   context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
   context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
@@ -44,12 +46,30 @@ void BlockToTuples::produce_(ParallelContext *context) {
     }
   }
 
-  assert(!old_buffs.empty() &&
-         "There should be at least one BlockType'd argument");
+  CHECK(!old_buffs.empty())
+      << "There should be at least one BlockType'd argument in wantedFields";
+
+  // Default path: unpack releases incoming block buffers once consumed.
+  // For in-GPU RFOR preload (without --decom_shared), scan emits plugin-owned GPU
+  // pointers that are not BlockManager buffers, so release_buffers() must be
+  // skipped to avoid polluting the device free-list.
+  release_input_buffers_ = true;
+  for (const auto &wantedField : wantedFields) {
+    if (!dynamic_cast<const BlockType *>(wantedField.getExpressionType())) {
+      continue;
+    }
+    auto *pg = Catalog::getInstance().getPlugin(
+        wantedField.getRegisteredRelName());
+    if (auto *nvme_pg = dynamic_cast<NvmePlugin *>(pg)) {
+      release_input_buffers_ = nvme_pg->unpackShouldReleaseInputBuffers();
+    }
+    break;
+  }
+
   getChild()->produce(context);
 }
 
-ProteusBareValue BlockToTuples::step(ParallelContext *context,
+ProteusBareValue BlockToTuples::step(OlapParallelContext *context,
                                      llvm::IntegerType *type) {
   auto Builder = context->getBuilder();
   Value *inc;
@@ -62,7 +82,7 @@ ProteusBareValue BlockToTuples::step(ParallelContext *context,
 }
 
 void BlockToTuples::nextEntry(llvm::Value *mem_itemCtr,
-                              ParallelContext *context) {
+                              OlapParallelContext *context) {
   // Prepare
   auto Builder = context->getBuilder();
 
@@ -77,7 +97,7 @@ void BlockToTuples::nextEntry(llvm::Value *mem_itemCtr,
   Builder->CreateStore(val_new_itemCtr, mem_itemCtr);
 }
 
-void BlockToTuples::consume(ParallelContext *context,
+void BlockToTuples::consume(OlapParallelContext *context,
                             const OperatorState &childState) {
   // Prepare
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -96,7 +116,7 @@ void BlockToTuples::consume(ParallelContext *context,
   // }
 
   // FIXME: assumes thread 0 gets to execute block2tuples
-  context->gen_if(is_leader, childState)([&]() {
+  gen_if(is_leader, childState, context)([&]() {
     Type *charPtrType = Type::getInt8PtrTy(llvmContext);
     size_t j = 0;
     for (const auto &wantedField : wantedFields) {
@@ -111,12 +131,14 @@ void BlockToTuples::consume(ParallelContext *context,
                                            ->getType()
                                            ->getNonOpaquePointerElementType(),
                                        context->getStateVar(old_buffs[j]));
-      old = Builder->CreateBitCast(old, charPtrType);
+      if (release_input_buffers_) {
+        old = Builder->CreateBitCast(old, charPtrType);
 
-      Function *f = context->getFunction(
-          "release_buffers");  // FIXME: Assumes grid launch +
-                               // Assumes 1 block per kernel!
-      Builder->CreateCall(f, {old});
+        Function *f = context->getFunction(
+            "release_buffers");  // FIXME: Assumes grid launch +
+                                 // Assumes 1 block per kernel!
+        Builder->CreateCall(f, {old});
+      }
 
       Builder->CreateStore(arg, context->getStateVar(old_buffs[j]));
 
@@ -138,7 +160,7 @@ void BlockToTuples::consume(ParallelContext *context,
           return t.first.getRelationName();
         }
       }
-      assert(false);
+      LOG(FATAL) << "cannot determine relation name";
     } else {
       return wantedFields[0].getRegisteredRelName();
     }
@@ -231,7 +253,7 @@ void BlockToTuples::consume(ParallelContext *context,
           // }
 
           if (!pg->isLazy()) {
-            // If not lazy, load the data now
+            // If not lazy, load the data now.
             Instruction *parsed = Builder->CreateLoad(
                 ptr->getType()->getNonOpaquePointerElementType(),
                 ptr);  // TODO : use CreateAlignedLoad
@@ -253,16 +275,21 @@ void BlockToTuples::consume(ParallelContext *context,
 }
 
 void BlockToTuples::open(Pipeline *pip) {
-  //  eventlogger.log(this, log_op::BLOCK2TUPLES_OPEN_START);
-
+  event_range<range_log_op::UNPACK_OPEN> er{id, pip->getGeneratorUUID(),
+                                            pip->getGroup()};
   void **buffs;
 
   if (gpu) {
     buffs =
         (void **)MemoryManager::mallocGpu(sizeof(void *) * old_buffs.size());
-    cudaStream_t strm = createNonBlockingStream();
-    gpu_run(cudaMemsetAsync(buffs, 0, sizeof(void *) * old_buffs.size(), strm));
-    syncAndDestroyStream(strm);
+    // Only zero-init when we may release previous buffers. In the common
+    // release_input_buffers_=false path this avoids an unnecessary GPU sync.
+    if (release_input_buffers_) {
+      cudaStream_t strm = createNonBlockingStream();
+      gpu_run(
+          cudaMemsetAsync(buffs, 0, sizeof(void *) * old_buffs.size(), strm));
+      syncAndDestroyStream(strm);
+    }
   } else {
     buffs =
         (void **)MemoryManager::mallocPinned(sizeof(void *) * old_buffs.size());
@@ -272,26 +299,32 @@ void BlockToTuples::open(Pipeline *pip) {
   for (size_t i = 0; i < old_buffs.size(); ++i) {
     pip->setStateVar<void *>(old_buffs[i], buffs + i);
   }
-  //  eventlogger.log(this, log_op::BLOCK2TUPLES_OPEN_END);
+
 }
 
 void BlockToTuples::close(Pipeline *pip) {
-  void **h_buffs;
+  event_range<range_log_op::UNPACK_CLOSE> er{id, pip->getGeneratorUUID(),
+                                             pip->getGroup()};
+  void **h_buffs = nullptr;
   void **buffs = pip->getStateVar<void **>(old_buffs.at(0));
 
   if (gpu) {
-    h_buffs = (void **)malloc(sizeof(void *) * old_buffs.size());
-    assert(h_buffs);
-    cudaStream_t strm = createNonBlockingStream();
-    gpu_run(cudaMemcpyAsync(h_buffs, buffs, sizeof(void *) * old_buffs.size(),
-                            cudaMemcpyDefault, strm));
-    syncAndDestroyStream(strm);
+    if (release_input_buffers_) {
+      h_buffs = (void **)malloc(sizeof(void *) * old_buffs.size());
+      assert(h_buffs);
+      cudaStream_t strm = createNonBlockingStream();
+      gpu_run(cudaMemcpyAsync(h_buffs, buffs, sizeof(void *) * old_buffs.size(),
+                              cudaMemcpyDefault, strm));
+      syncAndDestroyStream(strm);
+    }
   } else {
     h_buffs = buffs;
   }
 
   for (size_t i = 0; i < old_buffs.size(); ++i) {
-    BlockManager::release_buffer((int32_t *)h_buffs[i]);
+    if (release_input_buffers_) {
+      BlockManager::release_buffer((int32_t *)h_buffs[i]);
+    }
   }
 
   if (gpu)
@@ -299,5 +332,5 @@ void BlockToTuples::close(Pipeline *pip) {
   else
     MemoryManager::freePinned(buffs);
 
-  if (gpu) free(h_buffs);
+  if (gpu && h_buffs) free(h_buffs);
 }

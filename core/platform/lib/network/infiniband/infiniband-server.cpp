@@ -21,13 +21,13 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <glog/logging.h>
 #include <sys/socket.h>
 
 #include <iostream>
 #include <platform/common/error-handling.hpp>
 #include <platform/network/infiniband/infiniband-handler.hpp>
 #include <platform/network/infiniband/infiniband-manager.hpp>
+#include <platform/util/glog.hpp>
 
 int startpingpong(bool isserver);
 

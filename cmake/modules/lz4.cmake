@@ -1,0 +1,1 @@
+include(external/CMakeLists.txt.lz4.in)

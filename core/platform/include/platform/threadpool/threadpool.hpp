@@ -32,11 +32,11 @@
 #include <mutex>
 #include <platform/common/common.hpp>
 #include <platform/topology/affinity_manager.hpp>
+#include <platform/util/profiling.hpp>
 #include <queue>
 #include <thread>
 
-namespace details {
-namespace ThreadPool {
+namespace details::ThreadPool {
 template <class F, class C, class... Args>
 auto call(F &&f, C &&c, Args &&...args) -> decltype((
     std::forward<C>(c)->*std::forward<F>(f))(std::forward<Args>(args)...)) {
@@ -49,8 +49,7 @@ auto call(F &&f, Args &&...args)
     -> decltype(std::forward<F>(f)(std::forward<Args>(args)...)) {
   return (std::forward<F>(f))(std::forward<Args>(args)...);
 }
-};  // namespace ThreadPool
-};  // namespace details
+}  // namespace details::ThreadPool
 
 /*
  * Based on: https://github.com/progschj/ThreadPool
@@ -59,8 +58,8 @@ class ThreadPool {
  private:
   std::atomic<bool> terminate;
 
-  std::mutex m;
-  std::condition_variable cv;
+  std::mutex queue_mutex;
+  std::condition_variable is_terminated_or_not_empty;
 
   // Use deque that guarantees that objects are not copied/moved
   std::deque<std::thread> workers;
@@ -68,11 +67,11 @@ class ThreadPool {
   std::queue<std::function<void()>> tasks;
 
   const bool elastic;
-  std::atomic<int> idleWorkers;
+  size_t idle_workers;
 
  public:
   static ThreadPool &getInstance() {
-    // Guaranteed-by-the-standard threadsafe initialization (and destruction)
+    // Guaranteed-by-the-standard thread safe initialization (and destruction)
     static ThreadPool instance{true};
     return instance;
   }
@@ -83,17 +82,17 @@ class ThreadPool {
           set_exec_location_on_scope aff{
               topology::getInstance().getCpuNumaNodes()
                   [i % topology::getInstance().getCpuNumaNodeCount()]};
-          // eventlogger.log(this, log_op::THREADPOOL_THREAD_START);
           while (true) {
             pthread_setname_np(pthread_self(), "idle (pool)");
 
             decltype(tasks)::value_type task;
 
             {
-              std::unique_lock<std::mutex> lock(m);
-              ++idleWorkers;
-              cv.wait(lock, [this] { return terminate || !tasks.empty(); });
-              --idleWorkers;
+              std::unique_lock<std::mutex> lock(queue_mutex);
+              ++idle_workers;
+              is_terminated_or_not_empty.wait(
+                  lock, [this] { return terminate || !tasks.empty(); });
+              --idle_workers;
 
               if (terminate && tasks.empty()) break;
 
@@ -102,10 +101,8 @@ class ThreadPool {
             }
 
             pthread_setname_np(pthread_self(), "working");
-
-            task();
+            { task(); }
           }
-          // eventlogger.log(this, log_op::THREADPOOL_THREAD_END);
         },
         workers.size());
   }
@@ -142,25 +139,25 @@ class ThreadPool {
 
     auto res = task->get_future();
     {
-      std::unique_lock<std::mutex> lock(m);
+      std::unique_lock<std::mutex> lock(queue_mutex);
       tasks.emplace([task]() { (*task)(); });
-      if (elastic && idleWorkers < tasks.size()) addThread();
+      if (elastic && idle_workers < tasks.size()) addThread();
     }
 
-    cv.notify_all();
+    is_terminated_or_not_empty.notify_all();
     return res;
   }
 
   explicit ThreadPool(
       bool elastic = false,
       size_t initialNumberOfThreads = 4 * std::thread::hardware_concurrency())
-      : terminate(false), elastic(elastic), idleWorkers(0) {
+      : terminate(false), elastic(elastic), idle_workers(0) {
     for (size_t i = 0; i < initialNumberOfThreads; ++i) addThread();
   }
 
   ~ThreadPool() {
     terminate = true;
-    cv.notify_all();
+    is_terminated_or_not_empty.notify_all();
     for (auto &worker : workers) worker.join();
   }
 

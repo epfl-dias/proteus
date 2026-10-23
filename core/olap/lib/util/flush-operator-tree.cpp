@@ -24,18 +24,18 @@
 #include <lib/operators/scan.hpp>
 #include <lib/operators/unionall.hpp>
 #include <lib/util/flush-operator-tree.hpp>
-#include <olap/util/demangle.hpp>
+#include <platform/util/demangle.hpp>
 
 class [[nodiscard]] spacer {
  public:
-  const Operator &v;
+  const Operator &op;
   size_t space;
 
  private:
-  spacer(const Operator &v, size_t space) : v(v), space(space) {}
+  spacer(const Operator &op, size_t space) : op(op), space(space) {}
 
  public:
-  explicit spacer(const Operator &v) : spacer(v, 0) {}
+  explicit spacer(const Operator &op) : spacer(op, 0) {}
 
   [[nodiscard]] spacer step(const Operator &child, size_t indent = 2) const {
     return {child, space + indent};
@@ -44,14 +44,14 @@ class [[nodiscard]] spacer {
 
 std::ostream &operator<<(std::ostream &out, const spacer &s) {
   for (size_t i = 0; i < s.space; ++i) out << ' ';
-  out << demangle(typeid(s.v).name());
-  out << '(' << s.v.getRowType() << ")\n";
-  if (auto u = dynamic_cast<const UnionAll *>(&s.v)) {
+  out << demangle(typeid(s.op).name());
+  out << '(' << s.op.getRowType() << ") [" << s.op.getUUID() << "]\n";
+  if (auto u = dynamic_cast<const UnionAll *>(&s.op)) {
     for (const auto c : u->getChildren()) out << s.step(*c);
-  } else if (dynamic_cast<const Scan *>(&s.v)) {
-  } else if (auto c = dynamic_cast<const UnaryOperator *>(&s.v)) {
+  } else if (dynamic_cast<const Scan *>(&s.op)) {
+  } else if (auto c = dynamic_cast<const UnaryOperator *>(&s.op)) {
     out << s.step(*(c->getChild()));
-  } else if (auto b = dynamic_cast<const BinaryOperator *>(&s.v)) {
+  } else if (auto b = dynamic_cast<const BinaryOperator *>(&s.op)) {
     out << s.step(*(b->getLeftChild()));
     out << s.step(*(b->getRightChild()));
   }

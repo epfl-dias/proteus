@@ -37,6 +37,9 @@ DECLARE_int32(port);
 DECLARE_string(url);
 DECLARE_int32(repeat);
 DECLARE_bool(print_generated_code);
+DECLARE_bool(insert_preopt_debug_info);
+DECLARE_bool(insert_postopt_debug_info);
+DECLARE_bool(dump_compiled_object_files);
 
 namespace proteus::from_cli {
 proteus::olap olap(const std::string &usage, int *argc, char ***argv);

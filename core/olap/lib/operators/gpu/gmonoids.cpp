@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,7 +23,10 @@
 
 #include "gmonoids.hpp"
 
-#include "lib/util/gpu/gpu-intrinsics.hpp"
+#include <codegen/util/gpu/gpu-intrinsics.hpp>
+#include <deque>
+#include <olap/plugins/plugins.hpp>
+
 #include "llvm/IR/InlineAsm.h"
 #include "olap/util/jit/control-flow/if-statement.hpp"
 
@@ -386,8 +389,8 @@ llvm::Value *Monoid::createWarpAggregateToAll(Context *const context,
                                               llvm::Value *val_in) {
   for (int i = 16; i > 0; i >>= 1) {
     // NOTE: only whole (32 threads) warps are supported!
-    llvm::Value *shfl_res =
-        gpu_intrinsic::shfl_bfly((ParallelContext *const)context, val_in, i);
+    llvm::Value *shfl_res = gpu_intrinsic::shfl_bfly(
+        (OlapParallelContext *const)context, val_in, i);
     shfl_res->setName("shfl_res_" + std::to_string(i));
 
     val_in = create(context, val_in, shfl_res);
@@ -398,12 +401,12 @@ llvm::Value *Monoid::createWarpAggregateToAll(Context *const context,
 
 llvm::Value *LogOrMonoid::createWarpAggregateToAll(Context *const context,
                                                    llvm::Value *val_in) {
-  return gpu_intrinsic::any((ParallelContext *const)context, val_in);
+  return gpu_intrinsic::any((OlapParallelContext *const)context, val_in);
 }
 
 llvm::Value *LogAndMonoid::createWarpAggregateToAll(Context *const context,
                                                     llvm::Value *val_in) {
-  return gpu_intrinsic::all((ParallelContext *const)context, val_in);
+  return gpu_intrinsic::all((OlapParallelContext *const)context, val_in);
 }
 
 llvm::Value *CollectMonoid::create(Context *const context,

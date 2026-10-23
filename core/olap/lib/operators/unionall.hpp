@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -28,19 +28,22 @@
 
 class UnionAll : public Router {
  public:
-  UnionAll(vector<Operator *> &children,
-           const vector<RecordAttribute *> &wantedFields)
-      : Router(children[0], DegreeOfParallelism{1}, wantedFields, 8,
-               std::nullopt, RoutingPolicy::RANDOM,
-               getDefaultAffinitizer(DeviceType::CPU)),
+  UnionAll(std::vector<Operator *> &children,
+           const std::vector<RecordAttribute *> &wantedFields,
+           DegreeOfParallelism fanout = DegreeOfParallelism{1})
+      : Router(children[0], fanout, wantedFields, 8, std::nullopt,
+               RoutingPolicy::RANDOM, getDefaultAffinitizer(DeviceType::CPU)),
         children(children) {
+    CHECK_GT(children.size(), 0)
+        << "UnionAll operator must have at least one child";
     setChild(nullptr);
-    producers = children.size();
+    producers = children.size() * children[0]->getDOP().dop;
+    remaining_producers = producers;
   }
 
   ~UnionAll() override { LOG(INFO) << "Collapsing UnionAll operator"; }
 
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
 
   DegreeOfParallelism getDOPServers() const override {
     auto dop = children[0]->getDOPServers();
@@ -52,27 +55,16 @@ class UnionAll : public Router {
     return dop;
   }
 
-  DegreeOfParallelism getDOP() const override {
-    auto dop = children[0]->getDOP();
-#ifdef NDEBUG
-    for (const auto &op : children) {
-      assert(dop == op->getDOP());
-    }
-#endif
-    return dop;
-  }
-
   DeviceType getDeviceType() const override {
-    assert(children.size() > 0);
     return children[0]->getDeviceType();
   }
 
   [[nodiscard]] bool isPacked() const override {
-    assert(children.size() > 0);
     auto x = children[0]->isPacked();
 #ifndef NDEBUG
     for (const auto &c : children) {
-      assert(x == c->isPacked());
+      CHECK_EQ(x, c->isPacked())
+          << "UnionAll operator children must have the same packing";
     }
 #endif
     return x;
@@ -81,7 +73,7 @@ class UnionAll : public Router {
   std::vector<Operator *> getChildren() const { return children; }
 
  private:
-  vector<Operator *> children;
+  std::vector<Operator *> children;
 };
 
 #endif /* UNIONALL_HPP_ */

@@ -1,4 +1,6 @@
 add_subdirectory(command-provider)
-add_subdirectory(distributed-runtime)
+if (NOT PROTEUS_CB2T_ARTIFACT)
+  add_subdirectory(distributed-runtime)
+endif()
 add_subdirectory(plan-parser)
 add_subdirectory(query-shaping)

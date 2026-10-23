@@ -25,7 +25,7 @@
 #define PROTEUS_BENCHMARK_ALIASES_HPP
 
 #include <filesystem>
-#include <olap/util/demangle.hpp>
+#include <platform/util/demangle.hpp>
 
 #define QALIASSF(name, prepFunction, scale)                       \
   struct name {                                                   \

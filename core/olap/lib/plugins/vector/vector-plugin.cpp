@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2020
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -53,7 +53,7 @@ auto getVectorData(const proteus_any_vector &v) {
 }
 
 VectorPlugin::VectorPlugin(
-    ParallelContext *context,
+    OlapParallelContext *context,
     const std::vector<
         std::pair<RecordAttribute *, std::shared_ptr<proteus_any_vector>>>
         &whichFields)
@@ -81,7 +81,7 @@ VectorPlugin::~VectorPlugin() {
 }
 
 llvm::Value *VectorPlugin::getDataPointersForFile(
-    ParallelContext *context, size_t i, llvm::Value *session_ptr) const {
+    OlapParallelContext *context, size_t i, llvm::Value *session_ptr) const {
   return context->CastPtrToLlvmPtr(
       llvm::PointerType::getUnqual(llvm::ArrayType::get(
           llvm::PointerType::getUnqual(
@@ -90,13 +90,13 @@ llvm::Value *VectorPlugin::getDataPointersForFile(
       data_ptrs_ptr[i]);
 }
 
-void VectorPlugin::freeDataPointersForFile(ParallelContext *context, size_t i,
-                                           llvm::Value *v) const {
+void VectorPlugin::freeDataPointersForFile(OlapParallelContext *context,
+                                           size_t i, llvm::Value *v) const {
   // vectors have the lifetime of the plugin, no freeing needed
 }
 
 std::pair<llvm::Value *, llvm::Value *> VectorPlugin::getPartitionSizes(
-    ParallelContext *context, llvm::Value *session_ptr) const {
+    OlapParallelContext *context, llvm::Value *session_ptr) const {
   return {context->CastPtrToLlvmPtr(
               llvm::PointerType::getUnqual(
                   llvm::ArrayType::get(context->createSizeType(), Nparts)),
@@ -104,5 +104,5 @@ std::pair<llvm::Value *, llvm::Value *> VectorPlugin::getPartitionSizes(
           context->createSizeT(*data_size_ptr)};
 }
 
-void VectorPlugin::freePartitionSizes(ParallelContext *context,
+void VectorPlugin::freePartitionSizes(OlapParallelContext *context,
                                       llvm::Value *v) const {}

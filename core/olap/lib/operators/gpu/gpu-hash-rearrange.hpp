@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,6 +23,10 @@
 #ifndef GPU_HASH_REARRANGE_HPP_
 #define GPU_HASH_REARRANGE_HPP_
 
+#include <mutex>
+#include <unordered_map>
+#include <unordered_set>
+
 #include <platform/memory/block-manager.hpp>
 
 #include "lib/operators/operators.hpp"
@@ -30,7 +34,7 @@
 
 class GpuHashRearrange : public experimental::UnaryOperator {
  public:
-  GpuHashRearrange(Operator *const child, ParallelContext *const context,
+  GpuHashRearrange(Operator *const child, OlapParallelContext *const context,
                    int numOfBuckets, const std::vector<expression_t> &matExpr,
                    expression_t hashExpr,
                    RecordAttribute *hashProject = nullptr)
@@ -46,11 +50,10 @@ class GpuHashRearrange : public experimental::UnaryOperator {
           context->getSizeOf(matExpr[attr_i].getExpressionType()->getLLVMType(
               context->getLLVMContext()));
     }
-    if (this->hashProject == nullptr && hashExpr.isRegistered()) {
-      this->hashProject = new RecordAttribute(
-          this->matExpr.size(), this->hashExpr.getRegisteredRelName(),
-          this->hashExpr.getRegisteredAttrName(), new Int64Type());
-    }
+    // GPU hash-rearrange produces packed block attributes. Appending an
+    // auto-generated scalar hash attribute here would make downstream
+    // MemMoveDevice treat a scalar like a block pointer and crash.
+    // Keep hashProject only when explicitly provided by the caller.
     // packet_widths(packet_widths){
   }  // FIMXE: default blocksize...
 
@@ -58,8 +61,8 @@ class GpuHashRearrange : public experimental::UnaryOperator {
     LOG(INFO) << "Collapsing GpuHashRearrange operator";
   }
 
-  void produce_(ParallelContext *context) override;
-  void consume(ParallelContext *context,
+  void produce_(OlapParallelContext *context) override;
+  void consume(OlapParallelContext *context,
                const OperatorState &childState) override;
   [[nodiscard]] bool isFiltering() const override { return false; }
 
@@ -78,14 +81,14 @@ class GpuHashRearrange : public experimental::UnaryOperator {
   }
 
  protected:
-  virtual void consume_flush(ParallelContext *context,
+  virtual void consume_flush(OlapParallelContext *context,
                              llvm::IntegerType *target_type);
 
   virtual void open(Pipeline *pip);
   virtual void close(Pipeline *pip);
 
   static llvm::Value *hash(const std::vector<expression_t> &exprs,
-                           ParallelContext *context,
+                           OlapParallelContext *context,
                            const OperatorState &childState);
 
   std::vector<expression_t> matExpr;
@@ -107,6 +110,12 @@ class GpuHashRearrange : public experimental::UnaryOperator {
 
   int64_t cap;
   size_t *attr_size;
+
+  // Overflow buffers allocated in open() are tracked per pipeline and freed in
+  // close(). This avoids relying on buffer-manager internals from this TU.
+  std::unordered_map<const Pipeline *, std::unordered_set<void *>>
+      overflow_buffers_by_pipeline;
+  std::mutex overflow_buffers_mu;
 
   // std::vector<size_t>                     packet_widths   ;
 };

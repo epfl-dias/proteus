@@ -21,17 +21,20 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <glog/logging.h>
 #include <gtest/gtest.h>
 
 #include <cli-flags.hpp>
+#include <platform/util/glog.hpp>
+#include <storage/storage-manager.hpp>
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
 
   FLAGS_colorlogtostderr = true;
 
   auto ctx = proteus::from_cli::olap("Some proteus tests", &argc, &argv);
+  auto& sm = StorageManager::getInstance();
+  sm.unloadAll();
 
   return RUN_ALL_TESTS();
 }

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,13 +23,13 @@
 
 #include "hash-rearrange.hpp"
 
+#include <codegen/jit/pipeline.hpp>
 #include <lib/expressions/expressions-generator.hpp>
-#include <lib/util/jit/pipeline.hpp>
 #include <platform/memory/memory-manager.hpp>
 
 using namespace llvm;
 
-void HashRearrange::produce_(ParallelContext *context) {
+void HashRearrange::produce_(OlapParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
 
   Plugin *pg =
@@ -63,7 +63,7 @@ void HashRearrange::produce_(ParallelContext *context) {
   getChild()->produce(context);
 }
 
-llvm::Value *HashRearrange::getIndexPtr(ParallelContext *context,
+llvm::Value *HashRearrange::getIndexPtr(OlapParallelContext *context,
                                         llvm::Value *target) const {
   //  if (numOfBuckets > 1) {
   IRBuilder<> *Builder = context->getBuilder();
@@ -77,21 +77,21 @@ llvm::Value *HashRearrange::getIndexPtr(ParallelContext *context,
   //  }
 }
 
-llvm::Value *HashRearrange::getIndex(ParallelContext *context,
+llvm::Value *HashRearrange::getIndex(OlapParallelContext *context,
                                      llvm::Value *target) const {
   IRBuilder<> *Builder = context->getBuilder();
   auto ptr = getIndexPtr(context, target);
   return Builder->CreateLoad(ptr->getType()->getPointerElementType(), ptr);
 }
 
-llvm::StoreInst *HashRearrange::setIndex(ParallelContext *context,
+llvm::StoreInst *HashRearrange::setIndex(OlapParallelContext *context,
                                          llvm::Value *newIndex,
                                          llvm::Value *target) const {
   IRBuilder<> *Builder = context->getBuilder();
   return Builder->CreateStore(newIndex, getIndexPtr(context, target));
 }
 
-void insertAtEntryBlock(ParallelContext *context,
+void insertAtEntryBlock(OlapParallelContext *context,
                         const std::function<void()> &gen) {
   IRBuilder<> *Builder = context->getBuilder();
   BasicBlock *insBB = Builder->GetInsertBlock();
@@ -100,7 +100,7 @@ void insertAtEntryBlock(ParallelContext *context,
   Builder->SetInsertPoint(insBB);
 }
 
-void insertAtEndingBlock(ParallelContext *context,
+void insertAtEndingBlock(OlapParallelContext *context,
                          const std::function<void()> &gen) {
   IRBuilder<> *Builder = context->getBuilder();
   BasicBlock *insBB = Builder->GetInsertBlock();
@@ -109,7 +109,7 @@ void insertAtEndingBlock(ParallelContext *context,
   Builder->SetInsertPoint(insBB);
 }
 
-void yield(::Operator *op, ParallelContext *context,
+void yield(::Operator *op, OlapParallelContext *context,
            const std::map<RecordAttribute, ProteusValueMemory> &bindings) {
 #ifndef NDEBUG
   auto rowType = op->getRowType();
@@ -128,7 +128,7 @@ void yield(::Operator *op, ParallelContext *context,
   op->getParent()->consume(context, {*op, bindings});
 }
 
-void HashRearrange::consume(ParallelContext *context,
+void HashRearrange::consume(OlapParallelContext *context,
                             const OperatorState &childState) {
   LLVMContext &llvmContext = context->getLLVMContext();
   IRBuilder<> *Builder = context->getBuilder();
@@ -175,7 +175,7 @@ void HashRearrange::consume(ParallelContext *context,
     variableBindings[*hashProject] = context->toMem(h);
   }
 
-  vector<Type *> members;
+  std::vector<Type *> members;
   for (const auto &wantedField : wantedFields) {
     RecordAttribute tblock{wantedField.getRegisteredAs(), true};
     members.push_back(tblock.getLLVMType(llvmContext));
@@ -404,7 +404,7 @@ void HashRearrange::consume(ParallelContext *context,
   consume_flush(context);
 }
 
-void HashRearrange::consume_flush(ParallelContext *context) {
+void HashRearrange::consume_flush(OlapParallelContext *context) {
   save_current_blocks_and_restore_at_exit_scope blks{context};
   LLVMContext &llvmContext = context->getLLVMContext();
 
@@ -510,7 +510,7 @@ void HashRearrange::consume_flush(ParallelContext *context) {
 
   Builder->CreateStore(indx, blockN_ptr);
 
-  Value *blocks = ((ParallelContext *)context)->getStateVar(blkVar_id);
+  Value *blocks = ((OlapParallelContext *)context)->getStateVar(blkVar_id);
   Value *curblk = Builder->CreateInBoundsGEP(
       blocks->getType()->getNonOpaquePointerElementType(), blocks,
       std::vector<Value *>{context->createInt32(0), target});

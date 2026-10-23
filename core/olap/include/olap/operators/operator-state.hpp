@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2019
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,7 +24,7 @@
 #ifndef PROTEUS_OPERATOR_STATE_HPP
 #define PROTEUS_OPERATOR_STATE_HPP
 
-#include <olap/values/expressionTypes.hpp>
+#include <codegen/expressions/expressionTypes.hpp>
 
 class Operator;
 

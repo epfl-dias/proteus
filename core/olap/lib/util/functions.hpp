@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,33 +24,22 @@
 #ifndef FUNCTIONS_HPP_
 #define FUNCTIONS_HPP_
 
-#include <platform/util/radix/aggregations/radix-aggr.hpp>
-#include <platform/util/radix/joins/radix-join.hpp>
+#include <deque>
 #include <platform/util/string-object.hpp>
 #include <platform/util/timing.hpp>
 #include <string>
 
-class ParallelContext;
+#include "lib/util/radix/aggregations/radix-aggr.hpp"
+#include "lib/util/radix/joins/radix-join.hpp"
+
+class OlapParallelContext;
 struct HashtableBucketMetadata;
 
-ParallelContext *prepareContext(string moduleName);
+OlapParallelContext *prepareOlapContext(string moduleName,
+                                        bool gpuRoot = false);
 //===----------------------------------------------------------------------===//
 // "Library" functions that can be "extern'd" from user code.
 //===----------------------------------------------------------------------===//
-
-extern "C" void nonTemporalCopy(char *out, char *in, int n);
-
-extern "C" int printi(int X);
-
-extern "C" int printShort(short X);
-
-extern "C" int printi64(size_t X);
-
-extern "C" int printFloat(double X);
-
-extern "C" int printc(char *X);
-
-extern "C" void printBoolean(bool X);
 
 extern "C" int atoi_llvm(const char *X);
 
@@ -65,45 +54,6 @@ extern "C" void insertToHT(char *HTname, size_t key, void *value,
 extern "C" void **probeHT(char *HTname, size_t key);
 
 extern "C" HashtableBucketMetadata *getMetadataHT(char *HTname);
-
-extern "C" int compareTokenString(const char *buf, size_t start, size_t end,
-                                  const char *candidate);
-
-extern "C" int compareTokenString64(const char *buf, size_t start, size_t end,
-                                    const char *candidate);
-
-extern "C" bool equalStringObjs(StringObject obj1, StringObject obj2);
-
-extern "C" bool equalStrings(char *str1, char *str2);
-
-extern "C" bool convertBoolean(const char *buf, int start, int end);
-
-extern "C" bool convertBoolean64(const char *buf, size_t start, size_t end);
-
-extern "C" int atois(const char *buf, int len);
-
-/**
- * Hashing
- */
-
-extern "C" size_t hashInt(int toHash);
-
-extern "C" size_t hashInt64(int64_t toHash);
-
-extern "C" size_t hashDouble(double toHash);
-
-extern "C" size_t hashStringC(char *toHash, size_t start, size_t end);
-
-// extern "C" size_t hashString(string toHash);
-size_t hashString(string toHash);
-
-extern "C" size_t hashStringObject(StringObject obj);
-
-extern "C" size_t hashBoolean(bool toHash);
-
-extern "C" size_t combineHashes(size_t hash1, size_t hash2);
-
-extern "C" size_t combineHashesNoOrder(size_t hash1, size_t hash2);
 
 /**
  * Radix hashing
@@ -159,17 +109,5 @@ extern "C" void flushOutput(char *fileName);
 extern "C" void flushBinaryOutput(char *fileName, std::ostream *strBuffer);
 
 extern "C" void flushDelim(size_t resultCtr, char whichDelim, char *fileName);
-
-/**
- * Memory mgmt
- */
-extern "C" void *getMemoryChunk(size_t chunkSize);
-extern "C" void *increaseMemoryChunk(void *chunk, size_t chunkSize);
-extern "C" void releaseMemoryChunk(void *chunk);
-
-/**
- * Parsing
- */
-extern "C" size_t newlineAVX(const char *const target, size_t targetLength);
 
 #endif /* FUNCTIONS_HPP_ */

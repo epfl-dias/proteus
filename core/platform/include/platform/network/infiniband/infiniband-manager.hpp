@@ -26,7 +26,6 @@
 
 #include <arpa/inet.h>
 #include <err.h>
-#include <glog/logging.h>
 #include <netdb.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -38,6 +37,7 @@
 #include <platform/common/common.hpp>
 #include <platform/memory/block-manager.hpp>
 #include <platform/network/infiniband/remote-managed-pointer.hpp>
+#include <platform/util/glog.hpp>
 #include <queue>
 #include <thread>
 
@@ -78,14 +78,15 @@ class subscription {
     decltype(__builtin_LINE()) line;
 #endif
 
-    value_type(proteus::managed_ptr data, size_t size
 #ifndef NDEBUG
-               ,
-               decltype(__builtin_FILE()) file, decltype(__builtin_LINE()) line
+    value_type(proteus::managed_ptr data, size_t size,
+               decltype(__builtin_FILE()) file, decltype(__builtin_LINE()) line)
+        : data(std::move(data)), size(size), file(file), line(line) {}
+#else
+    value_type(proteus::managed_ptr data, size_t size)
+        : data(std::move(data)), size(size) {}
 #endif
-               )
-        : data(std::move(data)), size(size), file(file), line(line) {
-    }
+
     value_type(const value_type &) = delete;
     value_type &operator=(const value_type &) = delete;
     value_type &operator=(value_type &&) = delete;

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2021
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,7 +24,7 @@
 #include "registry-based-binary-block-plugin.hpp"
 
 extern "C" Plugin *createRegistryBasedBlockPlugin(
-    ParallelContext *context, std::string fnamePrefix, RecordType rec,
+    OlapParallelContext *context, std::string fnamePrefix, RecordType rec,
     std::vector<RecordAttribute *> &whichFields) {
   return new proteus::RegistryBasedBinaryBlockPlugin(
       context, fnamePrefix, std::move(rec), whichFields);
@@ -33,8 +33,8 @@ extern "C" Plugin *createRegistryBasedBlockPlugin(
 namespace proteus {
 
 RegistryBasedBinaryBlockPlugin::RegistryBasedBinaryBlockPlugin(
-    ParallelContext *const context, const std::string &fnamePrefix,
-    RecordType rec, vector<RecordAttribute *> &whichFields)
+    OlapParallelContext *const context, const std::string &fnamePrefix,
+    RecordType rec, std::vector<RecordAttribute *> &whichFields)
     : BinaryBlockPlugin(context, fnamePrefix, std::move(rec), whichFields,
                         false) {
   loadData(context, FROM_REGISTRY);

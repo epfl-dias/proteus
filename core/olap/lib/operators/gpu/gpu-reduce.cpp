@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,9 +23,9 @@
 
 #include "gpu-reduce.hpp"
 
-#include "gmonoids.hpp"
-#include "lib/util/jit/pipeline.hpp"
+#include <codegen/jit/pipeline.hpp>
 
+#include "gmonoids.hpp"
 using namespace llvm;
 
 namespace opt {
@@ -42,7 +42,7 @@ GpuReduce::GpuReduce(std::vector<agg_t> accs, expression_t pred,
   }
 }
 
-void GpuReduce::consume(ParallelContext *context,
+void GpuReduce::consume(OlapParallelContext *context,
                         const OperatorState &childState) {
   IRBuilder<> *Builder = context->getBuilder();
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -79,6 +79,7 @@ void GpuReduce::consume(ParallelContext *context,
     Value *mem_accumulating = nullptr;
 
     switch (agg.getMonoid()) {
+      case MIN:
       case SUM:
       case MULTIPLY:
       case MAX:
@@ -144,7 +145,7 @@ void GpuReduce::consume(ParallelContext *context,
 }
 
 void GpuReduce::generateBagUnion(const expression_t &outputExpr,
-                                 ParallelContext *context,
+                                 OlapParallelContext *context,
                                  const OperatorState &state,
                                  Value *cnt_mem) const {
   auto error_msg = "[Reduce: ] Unknown / Still Unsupported accumulator";
@@ -152,7 +153,7 @@ void GpuReduce::generateBagUnion(const expression_t &outputExpr,
   throw runtime_error(error_msg);
 }
 
-void GpuReduce::generate(const agg_t &agg, ParallelContext *context,
+void GpuReduce::generate(const agg_t &agg, OlapParallelContext *context,
                          const OperatorState &state, Value *mem_accumulating,
                          Value *global_accumulator_ptr) const {
   IRBuilder<> *Builder = context->getBuilder();

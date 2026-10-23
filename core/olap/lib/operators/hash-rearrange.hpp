@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -47,8 +47,8 @@ class HashRearrange : public experimental::UnaryOperator {
     }
   }  // FIMXE: default blocksize...
 
-  void produce_(ParallelContext *context) override;
-  void consume(ParallelContext *context,
+  void produce_(OlapParallelContext *context) override;
+  void consume(OlapParallelContext *context,
                const OperatorState &childState) override;
   [[nodiscard]] bool isFiltering() const override { return false; }
 
@@ -67,13 +67,15 @@ class HashRearrange : public experimental::UnaryOperator {
   }
 
  protected:
-  virtual void consume_flush(ParallelContext *context);
+  virtual void consume_flush(OlapParallelContext *context);
 
-  llvm::Value *getIndexPtr(ParallelContext *context, llvm::Value *target) const;
+  llvm::Value *getIndexPtr(OlapParallelContext *context,
+                           llvm::Value *target) const;
 
-  llvm::Value *getIndex(ParallelContext *context, llvm::Value *target) const;
+  llvm::Value *getIndex(OlapParallelContext *context,
+                        llvm::Value *target) const;
 
-  llvm::StoreInst *setIndex(ParallelContext *context, llvm::Value *newIndex,
+  llvm::StoreInst *setIndex(OlapParallelContext *context, llvm::Value *newIndex,
                             llvm::Value *target) const;
 
   virtual void open(Pipeline *pip);

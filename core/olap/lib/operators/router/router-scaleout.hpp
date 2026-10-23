@@ -29,7 +29,7 @@
 #include <platform/network/infiniband/infiniband-manager.hpp>
 #include <platform/topology/affinity_manager.hpp>
 #include <platform/util/async_containers.hpp>
-#include <platform/util/logging.hpp>
+#include <platform/util/tracing.hpp>
 #include <queue>
 #include <stack>
 #include <thread>

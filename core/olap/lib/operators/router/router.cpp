@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,19 +23,20 @@
 
 #include "router.hpp"
 
+#include <codegen/jit/pipeline.hpp>
 #include <cstring>
-#include <olap/routing/routing-policy.hpp>
-#include <olap/util/demangle.hpp>
+#include <olap/plugins/binary-block-nvme-plugin.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/network/infiniband/infiniband-manager.hpp>
+#include <platform/util/demangle.hpp>
 #include <platform/util/timing.hpp>
 
 #include "lib/expressions/expressions-generator.hpp"
-#include "lib/util/jit/pipeline.hpp"
+#include "lib/operators/router/routing-policy.hpp"
 
 using namespace llvm;
 
-void Router::produce_(ParallelContext *context) {
+void Router::produce_(OlapParallelContext *context) {
   generate_catch(context);
 
   context->popPipeline();
@@ -51,7 +52,7 @@ void Router::produce_(ParallelContext *context) {
   getChild()->produce(context);
 }
 
-void Router::generate_catch(ParallelContext *context) {
+void Router::generate_catch(OlapParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   // IRBuilder<> * Builder       = context->getBuilder    ();
   // BasicBlock  * insBB         = Builder->GetInsertBlock();
@@ -61,11 +62,16 @@ void Router::generate_catch(ParallelContext *context) {
   Plugin *pg =
       Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
 
+  auto nvme_plugin = dynamic_cast<NvmePlugin *>(pg);
+  const bool is_nvme_plugin = nvme_plugin != nullptr;
+  const bool non_scan_move =
+      wantedFields[0]->getRelationName().find("tmp") != std::string::npos;
+
   const ExpressionType *ptoid = pg->getOIDType();
 
   Type *oidType = ptoid->getLLVMType(llvmContext);
 
-  // Value * subState   = ((ParallelContext *) context)->getSubStateVar();
+  // Value * subState   = ((OlapParallelContext *) context)->getSubStateVar();
   // Value * subStatePtr = context->CreateEntryBlockAlloca(F, "subStatePtr",
   // subState->getType());
 
@@ -82,6 +88,13 @@ void Router::generate_catch(ParallelContext *context) {
   param_typelist.push_back(oidType);                        // oid
   param_typelist.push_back(Type::getInt64Ty(llvmContext));  // srcServer
   if (need_cnt) param_typelist.push_back(oidType);          // cnt
+  // This currently assumes that if we are routing blocks (need_cnt) and using
+  // the nvme plugin, then we need to add tupleCnt as a param. This may not
+  // always be true, e.g. pack intermediate results on GPU and route the blocks
+  // to the CPU. TBD if this breaks things
+  if (is_nvme_plugin)
+    param_typelist.push_back(oidType);  // the real tupleCnt. For NvmePlugin cnt
+                                        // is the number of blocks
 
   // param_typelist.push_back(subStatePtr->getType());
 
@@ -89,8 +102,11 @@ void Router::generate_catch(ParallelContext *context) {
   buf_size = context->getSizeOf(params_type);
   // context->SetInsertPoint(insBB);
 
+  // blockCnt for NvmePlugin
   RecordAttribute tupleCnt(wantedFields[0]->getRelationName(), "activeCnt",
                            pg->getOIDType());  // FIXME: OID type for blocks ?
+  RecordAttribute realTupleCnt(wantedFields[0]->getRelationName(), "tupleCnt",
+                               pg->getOIDType());
   RecordAttribute tupleIdentifier(wantedFields[0]->getRelationName(),
                                   activeLoop, pg->getOIDType());
   RecordAttribute srcServer{wantedFields[0]->getRelationName(), "srcServer",
@@ -139,6 +155,13 @@ void Router::generate_catch(ParallelContext *context) {
     Value *cnt = Builder->CreateExtractValue(params, wantedFields.size() + 2);
 
     variableBindings[tupleCnt] = context->toMem(cnt, context->createFalse());
+
+    if (is_nvme_plugin && !non_scan_move) {
+      Value *tuple_cnt =
+          Builder->CreateExtractValue(params, wantedFields.size() + 3);
+      variableBindings[realTupleCnt] =
+          context->toMem(tuple_cnt, context->createFalse());
+    }
   }
 
   Builder->SetInsertPoint(mainBB);
@@ -158,7 +181,7 @@ void Router::generate_catch(ParallelContext *context) {
 }
 
 proteus::managed_ptr Router::acquireBuffer(int target, bool polling) {
-  nvtxRangePushA("acq_buff");
+  nvtxRangePushA("rtr::acq_buff");
 
   if (free_pool[target].empty_unsafe() && polling) {
     nvtxRangePop();
@@ -255,7 +278,11 @@ void Router::fire(int target, PipelineGen *pipGen, const void *session) {
     // ");
     do {
       proteus::managed_ptr p = nullptr;
-      if (!get_ready(target, p)) break;
+      {
+        event_range<range_log_op::ROUTER_WAITING_FOR_TASK> er2{
+            id, pipGen->getUUID(), pip->getGroup()};
+        if (!get_ready(target, p)) break;
+      }
       // ++packets;
       nvtxRangePushA((pipGen->getName() + ":cons").c_str());
 
@@ -271,7 +298,9 @@ void Router::fire(int target, PipelineGen *pipGen, const void *session) {
       try {
         //          time_block t{"Tfire_" + std::to_string(pip->getGroup()) +
         //          "_" + std::to_string((uintptr_t) this) + ": "};
-        pip->consume(0, (void *)(((uintptr_t)p.get()) & ~uintptr_t(1)));
+        event_range<range_log_op::ROUTER_CONSUME> er{id, pip->getUUID(),
+                                                     pip->getGroup()};
+        pip->consume((void *)(((uintptr_t)p.get()) & ~uintptr_t(1)));
       } catch (std::exception &e) {
         // FIXME: to whom should we throw it?
         LOG(INFO) << "Got an exception here!" << e.what() << " "
@@ -354,7 +383,7 @@ std::unique_ptr<routing::RoutingPolicy> Router::getPolicy() const {
   assert(false);
 }
 
-void Router::consume(ParallelContext *const context,
+void Router::consume(OlapParallelContext *const context,
                      const OperatorState &childState) {
   // Generate throw code
   LLVMContext &llvmContext = context->getLLVMContext();
@@ -366,6 +395,9 @@ void Router::consume(ParallelContext *const context,
 
   Plugin *pg =
       Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+
+  auto nvme_plugin = dynamic_cast<NvmePlugin *>(pg);
+  const bool is_nvme_plugin = nvme_plugin != nullptr;
 
   auto rec = childState.getProducer().getRowType();
   ExpressionGeneratorVisitor vis{context, childState};
@@ -425,6 +457,27 @@ void Router::consume(ParallelContext *const context,
             mem_cntWrapper.mem->getType()->getPointerElementType(),
             mem_cntWrapper.mem),
         wantedFields.size() + 2);
+    if (is_nvme_plugin) {
+      RecordAttribute realTupleCnt(wantedFields[0]->getRelationName(),
+                                   "tupleCnt", pg->getOIDType());
+      bool have_tuple_count = true;
+      try {
+        childState[{realTupleCnt}];
+      } catch (const std::out_of_range &) {
+        have_tuple_count = false;
+      }
+      if (have_tuple_count) {
+        ProteusValueMemory mem_realTupleCntWrapper = childState[realTupleCnt];
+        params = Builder->CreateInsertValue(
+            params,
+            Builder->CreateLoad(
+                mem_realTupleCntWrapper.mem->getType()->getPointerElementType(),
+                mem_realTupleCntWrapper.mem),
+            wantedFields.size() + 3);
+      }
+      // TODO if we have issues with routing blocks that are not page IDS
+      // we may need to insert a dummy tupleCnt here.
+    }
   }
 
   Value *exchangePtr =
@@ -480,7 +533,8 @@ void Router::spawnWorker(size_t i, const void *session) {
 
 void Router::open(Pipeline *pip) {
   std::lock_guard<std::mutex> guard(init_mutex);
-
+  event_range<range_log_op::ROUTER_OPEN> er{id, pip->getGeneratorUUID(),
+                                            pip->getGroup()};
   if (firers.empty()) {
     free_pool = new threadsafe_set<void *>[fanout];
     ready_fifo = new AsyncQueueMPSC<void *>[fanout];
@@ -499,20 +553,21 @@ void Router::open(Pipeline *pip) {
 
 void Router::close(Pipeline *pip) {
   // time_block t("Tterm_exchange: ");
+  event_range<range_log_op::ROUTER_CLOSE> er{id, pip->getGeneratorUUID(),
+                                             pip->getGroup()};
 
   int rem = --remaining_producers;
-  assert(rem >= 0);
-
-  // for (int i = 0 ; i < fanout ; ++i) ready_pool_cv[i].notify_all();
-
+  CHECK_GE(rem, 0);
   if (rem == 0) {
     for (int i = 0; i < fanout; ++i) ready_fifo[i].close();
 
-    //    eventlogger.log(this, log_op::EXCHANGE_JOIN_START);
-    nvtxRangePushA("Exchange_waiting_to_close");
-    for (auto &t : firers) t.get();
-    nvtxRangePop();
-    //    eventlogger.log(this, log_op::EXCHANGE_JOIN_END);
+    {
+      nvtxRangePushA("Exchange_waiting_to_close");
+      event_range<range_log_op::ROUTER_CLOSE_JOIN_CONS> er2{
+          id, pip->getGeneratorUUID(), pip->getGroup()};
+      for (auto &t : firers) t.get();
+      nvtxRangePop();
+    }
     firers.clear();
 
     delete[] free_pool;

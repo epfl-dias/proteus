@@ -30,6 +30,9 @@
 #include <stack>
 #include <unordered_map>
 #include <unordered_set>
+#ifndef __CUDA_ARCH__
+#include <stduuid/uuid.hpp>
+#endif
 
 void set_trace_allocations(bool val = true, bool silent_set_fail = false);
 
@@ -154,11 +157,16 @@ class MemoryManager {
                    size_t log_buffers = 250);
   static void destroy();
 
+#ifndef __CUDA_ARCH__
+  const static uuids::uuid id;
+#endif
+
   friend class proteus::platform;
 
  public:
   static void *mallocGpu(size_t bytes);
   static void freeGpu(void *ptr);
+  static bool isInitialized();
 
   static void *mallocPinned(size_t bytes);
   static void *mallocPinnedOnNode(size_t bytes, uint32_t node);

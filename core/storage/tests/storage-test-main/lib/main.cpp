@@ -21,17 +21,31 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <glog/logging.h>
 #include <gtest/gtest.h>
 
 #include <platform/common/common.hpp>
+#include <platform/memory/memory-manager.hpp>
+#include <platform/util/glog.hpp>
+#include <storage/test/test-utils.hpp>
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
+  google::InitGoogleLogging((argv)[0]);
+  FLAGS_logtostderr = true;
+  LOG(INFO) << "Running in: " << std::filesystem::current_path() << " \n";
 
-  FLAGS_colorlogtostderr = true;
+  setbuf(stdout, nullptr);
 
-  proteus::platform ctx{};
+  // for reproducibility
+  srand(time(nullptr));
+  google::InstallFailureSignalHandler();
+  // for debugging:
+  set_trace_allocations(false);
 
-  return RUN_ALL_TESTS();
+  ::testing::AddGlobalTestEnvironment(new StorageTestEnvironment);
+
+  auto return_code = RUN_ALL_TESTS();
+  google::ShutdownGoogleLogging();
+
+  return return_code;
 }

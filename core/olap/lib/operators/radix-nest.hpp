@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,15 +24,16 @@
 #ifndef _NEST_RADIX_HPP_
 #define _NEST_RADIX_HPP_
 
+#include <codegen/expressions/expressions.hpp>
 #include <olap/expressions/expressions.hpp>
 #include <olap/operators/monoids.hpp>
 #include <olap/util/parallel-context.hpp>
-#include <platform/util/radix/aggregations/radix-aggr.hpp>
 
 #include "lib/expressions/expressions-dot-evaluator.hpp"
 #include "lib/expressions/expressions-generator.hpp"
 #include "lib/expressions/expressions-hasher.hpp"
 #include "lib/expressions/path.hpp"
+#include "lib/util/radix/aggregations/radix-aggr.hpp"
 #include "operators.hpp"
 #include "radix-join.hpp"
 
@@ -97,7 +98,7 @@ class Nest : public UnaryOperator {
        expression_t pred, expression_t f_grouping, expression_t g_nullToZero,
        Operator *const child, const std::string &opLabel, Materializer &mat);
   ~Nest() override { LOG(INFO) << "Collapsing Nest operator"; }
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
   void consume(Context *const context,
                const OperatorState &childState) override;
   Materializer &getMaterializer() { return mat; }
@@ -151,7 +152,7 @@ class Nest : public UnaryOperator {
 
   std::string htName;
   Materializer mat;
-  ParallelContext *context;
+  OlapParallelContext *context;
   RadixJoinBuild *build;
 
   /**

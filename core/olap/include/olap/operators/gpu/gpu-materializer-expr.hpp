@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,7 +24,7 @@
 #ifndef GPU_MATERIALIZER_EXPR_HPP_
 #define GPU_MATERIALIZER_EXPR_HPP_
 
-#include "olap/expressions/expressions.hpp"
+#include <codegen/expressions/expressions.hpp>
 
 struct GpuMatExpr {
  public:

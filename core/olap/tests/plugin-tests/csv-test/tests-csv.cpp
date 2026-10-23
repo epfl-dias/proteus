@@ -1,7 +1,7 @@
 /*
     RAW -- High-performance querying over raw, never-seen-before data.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -21,7 +21,7 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <olap/values/expressionTypes.hpp>
+#include <codegen/expressions/expressionTypes.hpp>
 #include <platform/common/common.hpp>
 
 #include "gtest/gtest.h"
@@ -38,7 +38,7 @@
 // TODO update these tests to use RelBuilder + check outputs
 // current coverage is of codegen, but does not check correctness
 TEST(CSV, ScanCsvPM) {
-  ParallelContext &ctx = *prepareContext("ScanCsvPM");
+  OlapParallelContext &ctx = *prepareOlapContext("ScanCsvPM");
   Catalog &catalog = Catalog::getInstance();
 
   /**
@@ -65,7 +65,7 @@ TEST(CSV, ScanCsvPM) {
 
   RecordType rec1 = RecordType(attrList);
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(sid);
   whichFields.push_back(age);
 
@@ -92,7 +92,7 @@ TEST(CSV, ScanCsvPM) {
 }
 
 TEST(CSV, ScanCsvWideBuildPM) {
-  ParallelContext &ctx = *prepareContext("ScanCsvWidePM");
+  OlapParallelContext &ctx = *prepareOlapContext("ScanCsvWidePM");
   Catalog &catalog = Catalog::getInstance();
 
   /**
@@ -130,7 +130,7 @@ TEST(CSV, ScanCsvWideBuildPM) {
 
   RecordType rec1 = RecordType(attrList);
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(attr6);
   whichFields.push_back(attr10);
   whichFields.push_back(attr19);
@@ -160,7 +160,7 @@ TEST(CSV, ScanCsvWideBuildPM) {
 }
 
 void scanCsvWideUsePM_(size_t *newline, short **offsets) {
-  ParallelContext &ctx = *prepareContext("ScanCsvWideUsePM");
+  OlapParallelContext &ctx = *prepareOlapContext("ScanCsvWideUsePM");
   Catalog &catalog = Catalog::getInstance();
 
   /**
@@ -198,7 +198,7 @@ void scanCsvWideUsePM_(size_t *newline, short **offsets) {
 
   RecordType rec1 = RecordType(attrList);
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(attr6);
   whichFields.push_back(attr10);
   whichFields.push_back(attr19);
@@ -228,7 +228,7 @@ void scanCsvWideUsePM_(size_t *newline, short **offsets) {
 }
 
 TEST(CSV, scanCsvWideUsePM) {
-  ParallelContext &ctx = *prepareContext("ScanCsvWideBuildPM");
+  OlapParallelContext &ctx = *prepareOlapContext("ScanCsvWideBuildPM");
   Catalog &catalog = Catalog::getInstance();
 
   /**
@@ -266,7 +266,7 @@ TEST(CSV, scanCsvWideUsePM) {
 
   RecordType rec1 = RecordType(attrList);
 
-  vector<RecordAttribute *> whichFields;
+  std::vector<RecordAttribute *> whichFields;
   whichFields.push_back(attr6);
   whichFields.push_back(attr10);
   whichFields.push_back(attr19);
@@ -329,7 +329,7 @@ TEST(CSV, scanCsvWideUsePM) {
 //
 //  RecordType rec1 = RecordType(attrList);
 //
-//  vector<RecordAttribute *> whichFields;
+//  std::vector<RecordAttribute *> whichFields;
 //  whichFields.push_back(f1);
 //  whichFields.push_back(f2);
 //

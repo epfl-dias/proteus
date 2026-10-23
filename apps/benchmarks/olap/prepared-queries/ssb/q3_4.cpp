@@ -100,7 +100,7 @@ PreparedStatement ssb::Query::prepare34(proteus::QueryShaper &morph) {
                           arg["lo_revenue"].as("tmp", "lo_revenue"), 1, 0,
                           SUM}};
                     },
-                    10, 131072)
+                    10, 16)
                 .pack();
           })
       .unpack()

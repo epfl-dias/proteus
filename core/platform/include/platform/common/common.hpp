@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2024
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,105 +24,37 @@
 #ifndef COMMON_HPP_
 #define COMMON_HPP_
 
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <time.h>
 #include <unistd.h>
 
 #include <cfloat>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
-#include <fstream>
+#include <ctime>
 #include <iostream>
 #include <list>
 #include <map>
 #include <memory>
 #include <platform/util/glog.hpp>
-#include <queue>
-#include <set>
-#include <sstream>
 #include <stdexcept>
 
-//#define DEBUG
+// #define DEBUG
 // #define LOCAL_EXEC
-//#undef DEBUG
+// #undef DEBUG
 #undef LOCAL_EXEC
 
 #define likely(x) __builtin_expect((x), 1)
 #define unlikely(x) __builtin_expect((x), 0)
 
 using std::cout;
-using std::endl;
-using std::fstream;
-using std::ifstream;
 using std::list;
 using std::map;
-using std::multimap;
-using std::ofstream;
-using std::ostringstream;
-using std::pair;
 using std::runtime_error;
-using std::set;
 using std::string;
-using std::stringstream;
-using std::vector;
 
 double diff(struct timespec st, struct timespec end);
-
-[[noreturn, deprecated]] void fatal(const char *err);
-
-[[noreturn, deprecated]] void exception(const char *err);
-
-namespace llvm {
-// forward declaration to avoid including the whole header
-class AllocaInst;
-class Value;
-}  // namespace llvm
-
-class ProteusBareValue {
- protected:
-  using value_t = llvm::Value *;
-
- public:
-  value_t value;
-
-  [[deprecated]] ProteusBareValue() = default;
-  constexpr ProteusBareValue(value_t value) : value(value) {}
-};
-
-class ProteusBareValueMemory {
- protected:
-  using value_t = llvm::AllocaInst *;
-
- public:
-  value_t mem;
-
-  [[deprecated]] ProteusBareValueMemory() = default;
-  constexpr ProteusBareValueMemory(value_t mem) : mem(mem) {}
-};
-
-template <typename T>
-class Nullable : public T {
- public:
-  llvm::Value *isNull;
-
-  [[deprecated]] Nullable() = default;
-  constexpr Nullable(typename T::value_t v, llvm::Value *isNull)
-      : T(std::move(v)), isNull(isNull) {}
-};
-
-/**
- * Wrappers for LLVM Value and Alloca.
- * Maintain information such as whether the corresponding value is 'NULL'
- * LLVM's interpretation of 'NULL' for primitive types is not sufficient
- * (e.g., lvvm_null(int) = 0
- */
-using ProteusValueMemory = Nullable<ProteusBareValueMemory>;
-using ProteusValue = Nullable<ProteusBareValue>;
 
 /*
  * Util Methods

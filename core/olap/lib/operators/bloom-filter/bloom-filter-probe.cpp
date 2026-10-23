@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2020
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,10 +23,10 @@
 
 #include "bloom-filter-probe.hpp"
 
-#include <olap/expressions/expressions/ref-expression.hpp>
-#include <olap/values/indexed-seq.hpp>
+#include <codegen/expressions/ref-expression.hpp>
+#include <olap/util/jit/control-flow/if-statement.hpp>
 
-void BloomFilterProbe::produce_(ParallelContext *context) {
+void BloomFilterProbe::produce_(OlapParallelContext *context) {
   auto t = getFilterType(context);
 
   filter_ptr = context->appendStateVar(
@@ -42,11 +42,11 @@ void BloomFilterProbe::produce_(ParallelContext *context) {
   getChild()->produce(context);
 }
 
-void BloomFilterProbe::consume(ParallelContext *context,
+void BloomFilterProbe::consume(OlapParallelContext *context,
                                const OperatorState &childState) {
   auto ref = findInFilter(context, childState);
 
-  context->gen_if(ref, childState)([&]() {
+  gen_if(ref, childState, context)([&]() {
     // yield to parent
     getParent()->consume(context, childState);
   });

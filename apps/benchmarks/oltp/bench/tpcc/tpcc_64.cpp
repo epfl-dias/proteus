@@ -1106,7 +1106,7 @@ void TPCC::load_supplier(int w_id, xid_t xid, partition_id_t partition_id,
 
     supp_ins.suppkey = suId;
 
-    stringstream ss;
+    std::stringstream ss;
     ss << "Supplier#" << std::setw(9) << std::setfill('0') << suId;
 
     strcpy(supp_ins.s_name, ss.str().c_str());
@@ -1119,7 +1119,7 @@ void TPCC::load_supplier(int w_id, xid_t xid, partition_id_t partition_id,
     }
     supp_ins.s_nationkey = rand;
 
-    stringstream suPhn;
+    std::stringstream suPhn;
 
     int country_code = (suId % 90) + 10;  // ensure length 2
     suPhn << country_code << "-";

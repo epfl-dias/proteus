@@ -23,7 +23,6 @@
 
 #include <arpa/inet.h>
 #include <err.h>
-#include <glog/logging.h>
 #include <malloc.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -39,6 +38,7 @@
 #include <platform/memory/block-manager.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/network/infiniband/infiniband-handler.hpp>
+#include <platform/util/glog.hpp>
 #include <thread>
 
 void wire_gid_to_gid(const char *wgid, union ibv_gid *gid);

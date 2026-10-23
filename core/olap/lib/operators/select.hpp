@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -21,7 +21,8 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include "olap/expressions/expressions.hpp"
+#include <codegen/expressions/expressions.hpp>
+
 #include "operators.hpp"
 
 class Select : public experimental::UnaryOperator {
@@ -29,8 +30,8 @@ class Select : public experimental::UnaryOperator {
   Select(expression_t expr, Operator *child)
       : UnaryOperator(child), expr(std::move(expr)) {}
 
-  void produce_(ParallelContext *context) override;
-  void consume(ParallelContext *context,
+  void produce_(OlapParallelContext *context) override;
+  void consume(OlapParallelContext *context,
                const OperatorState &childState) override;
   [[nodiscard]] bool isFiltering() const override { return true; }
 

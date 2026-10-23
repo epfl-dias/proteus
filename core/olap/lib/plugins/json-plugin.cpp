@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,11 +23,15 @@
 
 #include "json-plugin.hpp"
 
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+
 #include "lib/expressions/expressions-flusher.hpp"
 #include "lib/operators/operators.hpp"
 
 //"Should" be enough on a per-row basis
-//#define MAXTOKENS 1000
+// #define MAXTOKENS 1000
 
 using namespace llvm;
 
@@ -152,7 +156,7 @@ struct pmJSON {
 //
 //}
 
-extern "C" JSONPlugin *createJsonPlugin(ParallelContext *context,
+extern "C" JSONPlugin *createJsonPlugin(OlapParallelContext *context,
                                         std::string fname, RecordType rec,
                                         std::vector<RecordAttribute *> &) {
   return new JSONPlugin(context, fname, new RecordType(rec), /* FIXME */ 10,
@@ -190,7 +194,7 @@ JSONPlugin::JSONPlugin(Context *const context, string fname,
       cache(true),
       tokens(tokens),
       lines(linehint) {
-  cout << "JSON CONSTRUCTOR - EXISTING TOKENS" << endl;
+  cout << "JSON CONSTRUCTOR - EXISTING TOKENS" << std::endl;
 
   tokenType = context->CreateJSMNStruct();
 
@@ -219,7 +223,7 @@ void JSONPlugin::initPM() {
     /* PM */
     CachingService &cache = CachingService::getInstance();
     /* Might be already flushed */
-    ostringstream sstream;
+    std::ostringstream sstream;
     sstream << fname << ".pm";
     string pmPathStr = sstream.str();
     const char *pmPath = pmPathStr.c_str();
@@ -258,7 +262,7 @@ void JSONPlugin::initPM() {
 }
 
 void JSONPlugin::reusePM(pmJSON *pm) {
-  cout << "(JSON) PM IN-MEM REUSE" << endl;
+  cout << "(JSON) PM IN-MEM REUSE" << std::endl;
   jsmntok_t **tokens = pm->tokens;
   size_t *newlines = pm->newlines;
   this->tokens = tokens;
@@ -273,16 +277,12 @@ void JSONPlugin::reusePM(pmJSON *pm) {
   if (pmStored != 0) {
     FILE *f;
     f = fopen(pmPath, "wb");
-    if (f == nullptr) {
-      fatal("fopen");
-    }
+    PCHECK(f);
     // cout << "Peek before writing: " << tokens[0][0].start << " to " <<
     // tokens[0][0].end << endl;
     tokenBuf = (char *)tokens;
     for (int i = 0; i < lines; i++) {
-      if (fwrite(tokens[i], sizeof(jsmntok_t), MAXTOKENS, f) != MAXTOKENS) {
-        fatal("fwrite");
-      }
+      PCHECK(fwrite(tokens[i], sizeof(jsmntok_t), MAXTOKENS, f) == MAXTOKENS);
     }
     //            if (fwrite(tokenBuf, sizeof(jsmntok_t), linehint * MAXTOKENS,
     //                    f) != linehint * MAXTOKENS) {
@@ -295,7 +295,7 @@ void JSONPlugin::reusePM(pmJSON *pm) {
 }
 
 void JSONPlugin::createPM() {
-  cout << "NEW (JSON) PM" << endl;
+  cout << "NEW (JSON) PM" << std::endl;
   //            tokenBuf = (char*) malloc(lines * sizeof(jsmntok_t*));
   //            if (tokenBuf == nullptr) {
   //                string msg = string(
@@ -343,13 +343,12 @@ void JSONPlugin::createPM() {
 
 void JSONPlugin::loadPMfromDisk(const char *pmPath, struct stat &pmStatBuffer) {
   /* Load from file */
-  cout << "READING PM FROM DISK: " << pmPath << endl;
+  cout << "READING PM FROM DISK: " << pmPath << std::endl;
   size_t pmsize = pmStatBuffer.st_size;
   // cout << pmsize << " vs " << lines * MAXTOKENS * sizeof(jsmntok_t) << endl;
   int fdPM = open(pmPath, O_RDONLY);
   if (fdPM == -1) {
-    LOG(ERROR) << "Could not open " << pmPath;
-    fatal("jsonpm.open");
+    LOG(FATAL) << "Could not open " << pmPath;
   }
   tokenBuf = (char *)malloc(lines * sizeof(jsmntok_t *));
   this->tokens = (jsmntok_t **)tokenBuf;
@@ -513,7 +512,7 @@ ProteusValue JSONPlugin::collectionHasNext(
 
 #ifdef DEBUGJSON
 //    {
-//    vector<Value*> ArgsV;
+//    std::vector<Value*> ArgsV;
 //    ArgsV.clear();
 //    Value *test = Builder->CreateNot(endCond);
 //    ArgsV.push_back(endCond);
@@ -535,7 +534,7 @@ ProteusValue JSONPlugin::collectionHasNext(
 //    Type* int64Type = Type::getInt64Ty(llvmContext);
 //    PointerType* ptr_jsmnStructType = context->CreateJSMNStructPtr();
 //    Function* F = context->getGlobalFunction();
-//    vector<Value*> ArgsV;
+//    std::vector<Value*> ArgsV;
 //    Function* debugInt = context->getFunction("printi");
 //    Function* debugInt64 = context->getFunction("printi64");
 //
@@ -545,16 +544,16 @@ ProteusValue JSONPlugin::collectionHasNext(
 //    context->getStructElem(mem_currentTokenId.mem, 0); Value *val_rowId =
 //    context->getStructElem(mem_currentTokenId.mem, 1); Value
 //    *val_currentTokenNo = context->getStructElem(mem_currentTokenId.mem, 2);
-//#ifdef DEBUGJSON
+// #ifdef DEBUGJSON
 //    {
 //        //Printing the active token that will be forwarded
-//        vector<Value*> ArgsV;
+//        std::vector<Value*> ArgsV;
 //        ArgsV.clear();
 //        ArgsV.push_back(val_currentTokenNo);
 //        Function* debugInt = context->getFunction("printi64");
 //        Builder->CreateCall(debugInt, ArgsV);
 //    }
-//#endif
+// #endif
 //    Type *idType = (mem_currentTokenId.mem)->getAllocatedType();
 //    AllocaInst *mem_tokenToReturnId =
 //                context->CreateEntryBlockAlloca(F,"mem_NestedToken",idType);
@@ -672,7 +671,7 @@ ProteusValue JSONPlugin::collectionHasNext(
 //    /* rowId and offset still the same */
 ////    AllocaInst *mem_tmp =
 /// context->CreateEntryBlockAlloca(F,"mem_unnest_inc",idType);
-//    vector<Value*> idxList = vector<Value*>();
+//    std::vector<Value*> idxList = std::vector<Value*>();
 ////    idxList.push_back(context->createInt32(0));
 ////    idxList.push_back(context->createInt32(0));
 ////    //Shift in struct ptr
@@ -697,10 +696,10 @@ ProteusValue JSONPlugin::collectionHasNext(
 /// Builder->CreateLoad(mem_tmp->getType()->getPointerElementType(), mem_tmp); /
 /// Builder->CreateStore(val_tmp, mem_tokenToReturnId);
 //
-//#ifdef DEBUGJSON
+// #ifdef DEBUGJSON
 //    {
 //        //Printing the active token that will be forwarded
-//        vector<Value*> ArgsV;
+//        std::vector<Value*> ArgsV;
 //        ArgsV.clear();
 //        ArgsV.push_back(val_i_contents);
 //        Value *val_currentTokenNo =
@@ -708,7 +707,7 @@ ProteusValue JSONPlugin::collectionHasNext(
 //        = context->getFunction("printi64"); Builder->CreateCall(debugInt,
 //        ArgsV);
 //    }
-//#endif
+// #endif
 //    ProteusValueMemory mem_newTokenIdWrap;
 //    mem_newTokenIdWrap.mem = mem_tokenToReturnId;
 //    mem_newTokenIdWrap.isNull = context->createFalse();
@@ -721,7 +720,7 @@ ProteusValueMemory JSONPlugin::collectionGetNext(
   IRBuilder<> *Builder = context->getBuilder();
   Type *int64Type = Type::getInt64Ty(llvmContext);
   Function *F = context->getGlobalFunction();
-  vector<Value *> ArgsV;
+  std::vector<Value *> ArgsV;
 
 #ifndef JSON_TIGHT
   Value *val_0 = Builder->getInt32(0);
@@ -736,7 +735,7 @@ ProteusValueMemory JSONPlugin::collectionGetNext(
   Value *val_rowId = context->getStructElem(mem_currentTokenId.mem, 1);
   Value *val_currentTokenNo = context->getStructElem(mem_currentTokenId.mem, 2);
 
-  Type *idType = (mem_currentTokenId.mem)->getAllocatedType();
+  Type *idType = mem_currentTokenId.mem->getType()->getPointerElementType();
   AllocaInst *mem_tokenToReturn =
       context->CreateEntryBlockAlloca(F, string("tokenToUnnest"), idType);
   Value *tokenToReturn_isNull = context->createFalse();
@@ -835,7 +834,7 @@ ProteusValueMemory JSONPlugin::collectionGetNext(
       mem_i_contents->getType()->getPointerElementType(), mem_i_contents);
 
   /* rowId and offset still the same */
-  vector<Value *> idxList = vector<Value *>();
+  std::vector<Value *> idxList = std::vector<Value *>();
   idxList.push_back(context->createInt32(0));
   idxList.push_back(context->createInt32(2));
   // Shift in struct ptr
@@ -863,7 +862,7 @@ void JSONPlugin::scanObjects(const ::Operator &producer, Function *debug) {
   Value *val_zero = context->createInt64(0);
   Value *val_one = context->createInt64(1);
 
-  AllocaInst *mem_buf = NamedValuesJSON[var_buf];
+  Value *mem_buf = NamedValuesJSON[var_buf];
   Value *val_buf =
       Builder->CreateLoad(mem_buf->getType()->getPointerElementType(), mem_buf);
   Value *val_fsize = context->createInt64(fsize);
@@ -887,7 +886,7 @@ void JSONPlugin::scanObjects(const ::Operator &producer, Function *debug) {
                          &jsonScanInc, &jsonScanEnd);
   context->setCurrentEntryBlock(Builder->GetInsertBlock());
   context->setEndingBlock(jsonScanEnd);
-  vector<Value *> ArgsV;
+  std::vector<Value *> ArgsV;
 
   /* while( offset != length ) */
   // Builder->CreateBr(jsonScanCond);
@@ -975,7 +974,7 @@ void JSONPlugin::scanObjects(const ::Operator &producer, Function *debug) {
   /* Triggering Parent */
 
   /* Struct forwarded: (offsetInFile, rowId, tokenNo)*/
-  //    vector<Type*> tokenIdMembers;
+  //    std::vector<Type*> tokenIdMembers;
   //    tokenIdMembers.push_back(int64Type);
   //    tokenIdMembers.push_back(int64Type);
   //    tokenIdMembers.push_back(int64Type);
@@ -1039,8 +1038,8 @@ void JSONPlugin::skipToEnd() {
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = context->getGlobalFunction();
 
-  AllocaInst *mem_tokens = NamedValuesJSON[var_tokenPtr];
-  AllocaInst *mem_tokenOffset = NamedValuesJSON[var_tokenOffset];
+  Value *mem_tokens = NamedValuesJSON[var_tokenPtr];
+  Value *mem_tokenOffset = NamedValuesJSON[var_tokenOffset];
   Value *val_offset = Builder->CreateLoad(
       mem_tokenOffset->getType()->getPointerElementType(), mem_tokenOffset);
 
@@ -1107,7 +1106,7 @@ void JSONPlugin::skipToEnd() {
   Builder->CreateStore(token_i_inc, mem_tokenOffset);
 
 #ifdef DEBUG
-  // vector<Value*> ArgsV;
+  // std::vector<Value*> ArgsV;
   // ArgsV.clear();
   // ArgsV.push_back(token_i_start);
   // Function* debugInt = context->getFunction("printi");
@@ -1142,7 +1141,7 @@ llvm::Value *JSONPlugin::getEnd(llvm::Value *jsmnToken) {
 ProteusValueMemory JSONPlugin::readPath(string activeRelation,
                                         Bindings wrappedBindings,
                                         const char *path, RecordAttribute attr,
-                                        ParallelContext *context) {
+                                        OlapParallelContext *context) {
   if (staticSchema)
     return readPredefinedPath(activeRelation, wrappedBindings, attr);
   /**
@@ -1162,7 +1161,7 @@ ProteusValueMemory JSONPlugin::readPath(string activeRelation,
   Type *int64Type = Type::getInt64Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = context->getGlobalFunction();
-  vector<Value *> argsV;
+  std::vector<Value *> argsV;
 
   // Get relevant ROW number
   RecordAttribute rowIdentifier =
@@ -1392,7 +1391,7 @@ ProteusValueMemory JSONPlugin::readPath(string activeRelation,
   LOG(INFO) << "[Scan - JSON: ] End of readPath()";
 
   /* Struct returned: (offsetInFile, rowId, tokenId)*/
-  //    vector<Type*> tokenIdMembers;
+  //    std::vector<Type*> tokenIdMembers;
   //    tokenIdMembers.push_back(int64Type);
   //    tokenIdMembers.push_back(int64Type);
   //    tokenIdMembers.push_back(int64Type);
@@ -1416,7 +1415,7 @@ ProteusValueMemory JSONPlugin::readPredefinedPath(string activeRelation,
   Type *int64Type = Type::getInt64Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = context->getGlobalFunction();
-  vector<Value *> argsV;
+  std::vector<Value *> argsV;
 
   // Get relevant ROW number
   RecordAttribute rowIdentifier =
@@ -1490,7 +1489,7 @@ ProteusValueMemory JSONPlugin::readPredefinedPath(string activeRelation,
 
 #ifdef DEBUGJSON
   {
-    cout << attr.getAttrNo() << ". " << attr.getAttrName() << endl;
+    cout << attr.getAttrNo() << ". " << attr.getAttrName() << std::endl;
     if (attr.getAttrNo() == 1) {
       context->log(context->createInt64(10006));
     } else {
@@ -1563,7 +1562,7 @@ ProteusValueMemory JSONPlugin::readPredefinedPath(string activeRelation,
 #ifdef DEBUGJSON
   {
     /* Get token no - dbg. */
-    vector<Value *> ArgsV;
+    std::vector<Value *> ArgsV;
     Function *debugInt = context->getFunction("printi64");
     ArgsV.push_back(val_i_1);
     Builder->CreateCall(debugInt, ArgsV);
@@ -1580,7 +1579,7 @@ ProteusValueMemory JSONPlugin::readPredefinedPath(string activeRelation,
   AllocaInst *mem_tokenId =
       context->CreateEntryBlockAlloca(F, "tokenId", tokenIdType);
 
-  vector<Value *> idxList = vector<Value *>();
+  std::vector<Value *> idxList = std::vector<Value *>();
   idxList.push_back(context->createInt32(0));
   idxList.push_back(context->createInt32(0));
   // Shift in struct ptr
@@ -1618,7 +1617,7 @@ ProteusValueMemory JSONPlugin::readPathInternal(
   Type *int64Type = Type::getInt64Ty(llvmContext);
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = context->getGlobalFunction();
-  vector<Value *> argsV;
+  std::vector<Value *> argsV;
 
   Value *val_offset = context->getStructElem(mem_parentTokenId.mem, 0);
   Value *val_rowId = context->getStructElem(mem_parentTokenId.mem, 1);
@@ -1800,7 +1799,7 @@ ProteusValueMemory JSONPlugin::readPathInternal(
 
 ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
                                          const ExpressionType *type,
-                                         ParallelContext *context) {
+                                         OlapParallelContext *context) {
   LLVMContext &llvmContext = context->getLLVMContext();
   Type *int64Type = Type::getInt64Ty(llvmContext);
   Type *int32Type = Type::getInt32Ty(llvmContext);
@@ -1810,7 +1809,7 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = context->getGlobalFunction();
 
-  vector<Value *> ArgsV;
+  std::vector<Value *> ArgsV;
   Value *val_offset = context->getStructElem(mem_value.mem, 0);
   Value *val_rowId = context->getStructElem(mem_value.mem, 1);
   Value *tokenNo = context->getStructElem(mem_value.mem, 2);
@@ -1847,7 +1846,7 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
 
   Function *conversionFunc = nullptr;
 
-  AllocaInst *mem_convertedValue = nullptr;
+  Value *mem_convertedValue = nullptr;
   AllocaInst *mem_convertedValue_isNull = nullptr;
   Value *convertedValue = nullptr;
 
@@ -1859,7 +1858,8 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
     case RECORD:
     case LIST: {
       mem_convertedValue = context->CreateEntryBlockAlloca(
-          F, string("existingObject"), (mem_value.mem)->getAllocatedType());
+          F, string("existingObject"),
+          mem_value.mem->getType()->getPointerElementType());
       break;
     }
     case SET: {
@@ -1921,7 +1921,7 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
       // Object
     case LIST: {
       /* rowId and offset still the same */
-      vector<Value *> idxList = vector<Value *>();
+      std::vector<Value *> idxList = std::vector<Value *>();
       idxList.push_back(context->createInt32(0));
       idxList.push_back(context->createInt32(2));
       // Shift in struct ptr
@@ -1957,7 +1957,7 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
       Value *val_len32 = Builder->CreateTrunc(val_len, int32Type);
 #ifdef DEBUGJSON
       {
-        vector<Value *> ArgsV;
+        std::vector<Value *> ArgsV;
         Function *debugInt = context->getFunction("printi64");
         ArgsV.push_back(token_start);
         Builder->CreateCall(debugInt, ArgsV);
@@ -1969,7 +1969,7 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
       atois(bufShiftedPtr, val_len32, mem_convertedValue, context);
       Builder->CreateStore(context->createFalse(), mem_convertedValue_isNull);
 #ifdef DEBUGJSON
-      vector<Value *> ArgsV;
+      std::vector<Value *> ArgsV;
       Function *debugInt = context->getFunction("printi");
       convertedValue = Builder->CreateLoad(
           mem_convertedValue->getType()->getPointerElementType(),
@@ -1997,10 +1997,9 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
 
       /* Allocate Memory */
       //        Function *func_getMemory =
-      //        context->getFunction("getMemoryChunk"); vector<Value*> ArgsV;
-      //        ArgsV.push_back(val_length64);
-      //        Value *convertedValue =
-      //        Builder->CreateCall(func_getMemory,ArgsV);
+      //        context->getFunction("getMemoryChunk"); std::vector<Value*>
+      //        ArgsV; ArgsV.push_back(val_length64);//        Value
+      //        *convertedValue = Builder->CreateCall(func_getMemory,ArgsV);
       //        context->CodegenMemcpy(convertedValue,bufShiftedPtr,val_length);
       //        Builder->CreateStore(convertedValue, mem_convertedValue);
       Value *mem_str = context->getStructElemMem(mem_convertedValue, 0);
@@ -2042,8 +2041,8 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
 //    ArgsV.push_back(tmp);
 //    Builder->CreateCall(debugInt, ArgsV);
 #endif
-  Value *undefValue =
-      Constant::getNullValue(mem_convertedValue->getAllocatedType());
+  Value *undefValue = Constant::getNullValue(
+      mem_convertedValue->getType()->getPointerElementType());
   Builder->CreateStore(undefValue, mem_convertedValue);
   Builder->CreateStore(context->createTrue(), mem_convertedValue_isNull);
   Builder->CreateBr(endBlock);
@@ -2066,7 +2065,7 @@ ProteusValueMemory JSONPlugin::readValue(ProteusValueMemory mem_value,
 
 ProteusValue JSONPlugin::readCachedValue(CacheInfo info,
                                          const OperatorState &currState,
-                                         ParallelContext *context) {
+                                         OlapParallelContext *context) {
   return readCachedValue(info, currState.getBindings());
 }
 
@@ -2118,7 +2117,7 @@ ProteusValue JSONPlugin::readCachedValue(
 #ifdef DEBUGJSON
   {
     //        /* Obviously only works to peek integer fields */
-    //        vector<Value*> ArgsV;
+    //        std::vector<Value*> ArgsV;
     //
     //        Function* debugSth = context->getFunction("printi");
     //        ArgsV.push_back(val_cachedField);
@@ -2137,7 +2136,7 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
   IRBuilder<> *Builder = context->getBuilder();
   Function *F = context->getGlobalFunction();
 
-  vector<Value *> ArgsV;
+  std::vector<Value *> ArgsV;
   Value *val_offset = context->getStructElem(mem_value.mem, 0);
   Value *val_rowId = context->getStructElem(mem_value.mem, 1);
   Value *tokenNo = context->getStructElem(mem_value.mem, 2);
@@ -2223,7 +2222,7 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
       Value *plus_1 = context->createInt64(1);
       Value *tokenNo_inc = Builder->CreateAdd(tokenNo, plus_1);
       // Updating 3rd field of (offset,row,tokenNo) struct
-      AllocaInst *mem_struct = NamedValuesJSON[var_tokenOffsetHash];
+      Value *mem_struct = NamedValuesJSON[var_tokenOffsetHash];
       context->updateStructElem(tokenNo_inc, mem_struct, 2);
       break;
     }
@@ -2356,7 +2355,7 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
                               NamedValuesJSON[var_tokenOffsetHash]);
       //        Builder->CreateStore(newTokenOffset, mem_tokenCnt);
       // Updating 3rd field of (offset,row,tokenNo) struct
-      AllocaInst *mem_struct = NamedValuesJSON[var_tokenOffsetHash];
+      Value *mem_struct = NamedValuesJSON[var_tokenOffsetHash];
       context->updateStructElem(newTokenOffset, mem_struct, 2);
 
       // Performing just a +1 addition would cause a lot of extra work
@@ -2405,7 +2404,7 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
       Value *plus_1 = context->createInt64(1);
       Value *tokenNo_inc = Builder->CreateAdd(tokenNo, plus_1);
       // Updating 3rd field of (offset,row,tokenNo) struct
-      AllocaInst *mem_struct = NamedValuesJSON[var_tokenOffsetHash];
+      Value *mem_struct = NamedValuesJSON[var_tokenOffsetHash];
       context->updateStructElem(tokenNo_inc, mem_struct, 2);
       break;
     }
@@ -2424,7 +2423,7 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
       Value *plus_1 = context->createInt64(1);
       Value *tokenNo_inc = Builder->CreateAdd(tokenNo, plus_1);
       // Updating 3rd field of (offset,row,tokenNo) struct
-      AllocaInst *mem_struct = NamedValuesJSON[var_tokenOffsetHash];
+      Value *mem_struct = NamedValuesJSON[var_tokenOffsetHash];
       context->updateStructElem(tokenNo_inc, mem_struct, 2);
       break;
     }
@@ -2451,7 +2450,7 @@ ProteusValue JSONPlugin::hashValue(ProteusValueMemory mem_value,
       Value *plus_1 = context->createInt64(1);
       Value *tokenNo_inc = Builder->CreateAdd(tokenNo, plus_1);
       // Updating 3rd field of (offset,row,tokenNo) struct
-      AllocaInst *mem_struct = NamedValuesJSON[var_tokenOffsetHash];
+      Value *mem_struct = NamedValuesJSON[var_tokenOffsetHash];
       context->updateStructElem(tokenNo_inc, mem_struct, 2);
       break;
     }
@@ -2498,7 +2497,7 @@ ProteusValue JSONPlugin::hashValueEager(ProteusValue valWrapper,
   switch (type->getTypeID()) {
     case BOOL: {
       Function *hashBoolean = context->getFunction("hashBoolean");
-      vector<Value *> ArgsV;
+      std::vector<Value *> ArgsV;
       ArgsV.push_back(valWrapper.value);
       Value *hashResult =
           context->getBuilder()->CreateCall(hashBoolean, ArgsV, "hashBoolean");
@@ -2515,7 +2514,7 @@ ProteusValue JSONPlugin::hashValueEager(ProteusValue valWrapper,
     }
     case FLOAT: {
       Function *hashDouble = context->getFunction("hashDouble");
-      vector<Value *> ArgsV;
+      std::vector<Value *> ArgsV;
       ArgsV.push_back(valWrapper.value);
       Value *hashResult =
           context->getBuilder()->CreateCall(hashDouble, ArgsV, "hashDouble");
@@ -2527,7 +2526,7 @@ ProteusValue JSONPlugin::hashValueEager(ProteusValue valWrapper,
     }
     case INT: {
       Function *hashInt = context->getFunction("hashInt");
-      vector<Value *> ArgsV;
+      std::vector<Value *> ArgsV;
       ArgsV.push_back(valWrapper.value);
       Value *hashResult =
           context->getBuilder()->CreateCall(hashInt, ArgsV, "hashInt");
@@ -2559,7 +2558,7 @@ void JSONPlugin::flushChunk(ProteusValueMemory mem_value, Value *fileName) {
   Function *F = context->getGlobalFunction();
 
   // Preparing arguments
-  vector<Value *> ArgsV;
+  std::vector<Value *> ArgsV;
   // buffer
   Value *bufPtr = Builder->CreateLoad(
       NamedValuesJSON[var_buf]->getType()->getPointerElementType(),
@@ -2620,7 +2619,7 @@ void JSONPlugin::flushValueEager(ProteusValue valWrapper,
   switch (type->getTypeID()) {
     case BOOL: {
       flushFunc = context->getFunction("flushBoolean");
-      vector<Value *> ArgsV;
+      std::vector<Value *> ArgsV;
       ArgsV.push_back(val_attr);
       ArgsV.push_back(fileName);
       context->getBuilder()->CreateCall(flushFunc, ArgsV);
@@ -2633,14 +2632,14 @@ void JSONPlugin::flushValueEager(ProteusValue valWrapper,
     }
     case FLOAT: {
       flushFunc = context->getFunction("flushDouble");
-      vector<Value *> ArgsV;
+      std::vector<Value *> ArgsV;
       ArgsV.push_back(val_attr);
       ArgsV.push_back(fileName);
       context->getBuilder()->CreateCall(flushFunc, ArgsV);
       return;
     }
     case INT: {
-      vector<Value *> ArgsV;
+      std::vector<Value *> ArgsV;
       flushFunc = context->getFunction("flushInt");
       ArgsV.push_back(val_attr);
       ArgsV.push_back(fileName);
@@ -2648,7 +2647,7 @@ void JSONPlugin::flushValueEager(ProteusValue valWrapper,
       return;
     }
     case INT64: {
-      vector<Value *> ArgsV;
+      std::vector<Value *> ArgsV;
       flushFunc = context->getFunction("flushInt64");
       ArgsV.push_back(val_attr);
       ArgsV.push_back(fileName);
@@ -2656,7 +2655,7 @@ void JSONPlugin::flushValueEager(ProteusValue valWrapper,
       return;
     }
     case DSTRING: {
-      vector<Value *> ArgsV;
+      std::vector<Value *> ArgsV;
       flushFunc = context->getFunction("flushDString");
       void *dict = ((DStringType *)type)->getDictionary();
       LLVMContext &llvmContext = context->getLLVMContext();
@@ -2680,7 +2679,7 @@ void JSONPlugin::flushValueEager(ProteusValue valWrapper,
 
       Function *flushStr = context->getFunction("flushStringCv2");
       Function *flushFunc = context->getFunction("flushChar");
-      vector<Value *> ArgsV;
+      std::vector<Value *> ArgsV;
 
       const list<RecordAttribute *> &attrs = ((RecordType *)type)->getArgs();
       list<expressions::AttributeConstruction>::const_iterator it;
@@ -2751,7 +2750,7 @@ void JSONPlugin::flushValueEager(ProteusValue valWrapper,
 }
 
 void JSONPlugin::generate(const ::Operator &producer,
-                          ParallelContext *context) {
+                          OlapParallelContext *context) {
   return scanObjects(producer, context->getGlobalFunction());
 }
 
@@ -2762,12 +2761,13 @@ void JSONPlugin::finish() {
 
 llvm::Value *JSONPlugin::getValueSize(ProteusValueMemory mem_value,
                                       const ExpressionType *type,
-                                      ParallelContext *context) {
+                                      OlapParallelContext *context) {
   switch (type->getTypeID()) {
     case BOOL:
     case INT:
     case FLOAT: {
-      Type *explicitType = (mem_value.mem)->getAllocatedType();
+      Type *explicitType =
+          mem_value.mem->getType()->getPointerElementType();
       return context->createInt32(explicitType->getPrimitiveSizeInBits() / 8);
     }
     case STRING:
@@ -2780,7 +2780,7 @@ llvm::Value *JSONPlugin::getValueSize(ProteusValueMemory mem_value,
       /* mem_value contains the address of a tokenNo */
       /* Must return tokens[tokenNo].end - tokens[tokenNo].start */
 
-      AllocaInst *mem_tokens = NamedValuesJSON[var_tokenPtr];
+      Value *mem_tokens = NamedValuesJSON[var_tokenPtr];
       Value *val_offset = Builder->CreateLoad(
           mem_value.mem->getType()->getPointerElementType(), mem_value.mem);
 

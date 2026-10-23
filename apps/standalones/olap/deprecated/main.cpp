@@ -3846,7 +3846,7 @@ void cidrBin() {
   while (fieldCount <= 5) {
     RecordAttribute *attr = nullptr;
 
-    stringstream ss;
+    std::stringstream ss;
     ss << fieldCount;
     string attrname = ss.str();
 
@@ -3911,7 +3911,7 @@ void cidrBinStrConstant() {
   while (fieldCount <= 5) {
     RecordAttribute *attr = nullptr;
 
-    stringstream ss;
+    std::stringstream ss;
     ss << fieldCount;
     string attrname = ss.str();
 
@@ -3992,7 +3992,7 @@ void cidrBinStr() {
   while (fieldCount <= 5) {
     RecordAttribute *attr = nullptr;
 
-    stringstream ss;
+    std::stringstream ss;
     ss << fieldCount;
     string attrname = ss.str();
     if (fieldCount != 3) {

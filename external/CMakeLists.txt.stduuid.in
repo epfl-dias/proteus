@@ -1,0 +1,29 @@
+cmake_minimum_required(VERSION 3.11.4)
+
+include(FetchContent)
+
+FetchContent_Declare(
+  stduuid-download
+  GIT_REPOSITORY https://github.com/mariusbancila/stduuid.git
+  GIT_TAG v1.2.3
+  PATCH_COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/external/patches/stduuid/fix-headers.patch
+  UPDATE_DISCONNECTED 1
+)
+
+FetchContent_GetProperties(stduuid-download)
+if(NOT stduuid-download_POPULATED)
+  FetchContent_Populate(stduuid-download)
+  if(NOT stduuid-download_POPULATED)
+    message(FATAL_ERROR "Failed to populate stduuid-download")
+  endif ()
+
+  # stduuid depends on libuuid system headers, e.g. installed by uuid-dev
+  # stduuid has its own cmake module to find libuuid, but it uses CMAKE_SOURCE_DIR instead of CMAKE_CURRENT_SOURCE_DIR
+  # so we need to populate first to get the source_dir to fix the cmake_module path, then include the subdirectory
+  list(APPEND CMAKE_MODULE_PATH "${stduuid-download_SOURCE_DIR}/cmake")
+
+  set(UUID_USING_CXX20_SPAN ON CACHE BOOL "" FORCE)
+  set(UUID_SYSTEM_GENERATOR ON CACHE BOOL "" FORCE)
+  set(UUID_ENABLE_INSTALL ON CACHE BOOL "" FORCE)
+  add_subdirectory(${stduuid-download_SOURCE_DIR} ${stduuid-download_BINARY_DIR})
+endif()

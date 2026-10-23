@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,10 +24,10 @@
 #ifndef HASH_GROUP_BY_CHAINED_HPP_
 #define HASH_GROUP_BY_CHAINED_HPP_
 
+#include <codegen/expressions/expressions.hpp>
+#include <codegen/jit/pipeline.hpp>
 #include <lib/operators/gpu/gmonoids.hpp>
 
-#include "lib/util/jit/pipeline.hpp"
-#include "olap/expressions/expressions.hpp"
 #include "olap/operators/gpu-aggr-mat-expr.hpp"
 #include "olap/operators/monoids.hpp"
 #include "olap/util/parallel-context.hpp"
@@ -42,8 +42,8 @@ class HashGroupByChained : public experimental::UnaryOperator {
 
                      size_t maxInputSize, std::string opLabel = "gb_chained");
 
-  void produce_(ParallelContext *context) override;
-  void consume(ParallelContext *context,
+  void produce_(OlapParallelContext *context) override;
+  void consume(OlapParallelContext *context,
                const OperatorState &childState) override;
 
   [[nodiscard]] bool isFiltering() const override { return true; }
@@ -67,18 +67,18 @@ class HashGroupByChained : public experimental::UnaryOperator {
   }
 
  protected:
-  virtual void prepareDescription(ParallelContext *context);
-  virtual void generate_build(ParallelContext *context,
+  virtual void prepareDescription(OlapParallelContext *context);
+  virtual void generate_build(OlapParallelContext *context,
                               const OperatorState &childState);
-  virtual void generate_scan(ParallelContext *context);
-  virtual void buildHashTableFormat(ParallelContext *context);
+  virtual void generate_scan(OlapParallelContext *context);
+  virtual void buildHashTableFormat(OlapParallelContext *context);
   virtual llvm::Value *hash(const std::vector<expression_t> &exprs,
-                            ParallelContext *context,
+                            OlapParallelContext *context,
                             const OperatorState &childState);
 
   virtual std::vector<llvm::Value *> prepareHashTableEntry(
-      ParallelContext *context, const OperatorState &childState) const;
-  void destroyHashTableEntry(ParallelContext *context,
+      OlapParallelContext *context, const OperatorState &childState) const;
+  void destroyHashTableEntry(OlapParallelContext *context,
                              const OperatorState &childState,
                              std::vector<llvm::Value *> packedMonoids) const;
 

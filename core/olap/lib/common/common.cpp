@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -21,7 +21,8 @@
     RESULTING FROM THE USE OF THIS SOFTWARE.
 */
 
-#include <lib/util/jit/pipeline.hpp>
+#include <codegen/jit/pipeline.hpp>
+#include <lib/util/catalog.hpp>
 #include <olap/common/olap-common.hpp>
 #include <platform/common/common.hpp>
 
@@ -39,7 +40,11 @@ class olap::impl {
     PipelineGen::init();
   }
 
-  ~impl() = default;
+  ~impl() {
+    // Plugins can own memory-manager allocations (notably preloaded NVMe GPU
+    // buffers), so release them before the embedded platform is destroyed.
+    Catalog::getInstance().clear();
+  }
 };
 
 olap::olap(float gpu_mem_pool_percentage, float cpu_mem_pool_percentage,

@@ -30,30 +30,45 @@ namespace proteus::utils {
 std::map<std::string, Percentile*> PercentileRegistry::global_registry;
 std::mutex PercentileRegistry::g_lock;
 
-Percentile::Percentile(std::string key) : Percentile() {
+Percentile::Percentile(bool thread_safe) : m_threadsafe(thread_safe) {}
+
+Percentile::Percentile(const std::string& key)
+    : m_points{}, m_threadsafe(true) {
   PercentileRegistry::register_global(key, this);
 }
 
 size_t Percentile::nth(double n) {
   assert(n > 0 && n <= 100);
 
-  if (points.empty()) {
+  if (m_points.empty()) {
     return 0;
   }
 
-  // Sort the data points
-  std::sort(points.begin(), points.end());
+  // Sort the data m_points
+  std::sort(m_points.begin(), m_points.end());
 
-  auto sz = points.size();
+  auto sz = m_points.size();
   auto i = static_cast<decltype(sz)>(std::ceil(n / 100 * sz)) - 1;
 
-  assert(i >= 0 && i < points.size());
+  assert(i >= 0 && i < m_points.size());
 
-  return points[i];
+  return m_points[i];
+}
+
+double Percentile::mean() const {
+  if (m_points.size() == 0) {
+    return -1;
+  }
+  double sum = 0;
+  for (const auto& point : m_points) {
+    sum += point;
+  }
+
+  return sum / static_cast<double>(m_points.size());
 }
 
 void Percentile::save_cdf(const std::string& out_path, size_t step) {
-  if (points.empty()) {
+  if (m_points.empty()) {
     return;
   }
 
@@ -61,19 +76,19 @@ void Percentile::save_cdf(const std::string& out_path, size_t step) {
     assert(false && "empty save path");
   }
 
-  // Sort the data points
-  std::sort(points.begin(), points.end());
+  // Sort the data m_points
+  std::sort(m_points.begin(), m_points.end());
 
   std::ofstream cdf;
   cdf.open(out_path);
 
   cdf << "value\tcdf" << std::endl;
-  auto step_size = std::max(1, int(points.size() * 0.99 / step));
+  auto step_size = std::max(1, int(m_points.size() * 0.99 / step));
 
   std::deque<size_t> cdf_result;
 
-  for (auto i = 0u; i < 0.99 * points.size(); i += step_size) {
-    cdf_result.push_back(points[i]);
+  for (auto i = 0u; i < 0.99 * m_points.size(); i += step_size) {
+    cdf_result.push_back(m_points[i]);
   }
 
   for (auto i = 0u; i < cdf_result.size(); i++) {

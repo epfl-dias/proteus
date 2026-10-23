@@ -11,7 +11,15 @@ include(proteus-prolog)
 # Tests
 # not too sure if we should build "main", it looks like it has the same
 # test cases as the gtests
-set(UNIT_TESTS TRUE)
+option(PROTEUS_CB2T_ARTIFACT
+  "Build the complete CB2T reproduction surface without unrelated applications"
+  OFF)
+
+if (PROTEUS_CB2T_ARTIFACT)
+  set(UNIT_TESTS FALSE)
+else()
+  set(UNIT_TESTS TRUE)
+endif()
 set(DUNIT_TESTS FALSE)
 
 
@@ -135,11 +143,15 @@ include(warning-flags)
 # Various dependencies
 # Note the USE_CUDA flag is used in our cuda.cmake module
 include(llvm-virtual)
+include(jemalloc)
+include(lz4)
 include(cuda)
 include(gflags)
 include(glog)
 include(gtest)
+include(stduuid)
 include(googlebenchmark)
+include(liburing)
 include(magic-enum)
 include(vtune)
 include(tests)
@@ -147,12 +159,18 @@ include(perftests)
 if (NOT PLATFORM_ONLY)
   include(rapidjson)
   include(cuckoo)
-  include(grpc)
+  if (NOT PROTEUS_CB2T_ARTIFACT)
+    include(grpc)
+  endif()
 endif()
 
 #-----------------------------------------------------------------------
 # Build Documentation
 #-----------------------------------------------------------------------
+# System Doxygen may link against a different LLVM build than Proteus. Keep
+# the Proteus runtime library path from affecting Doxygen during discovery.
+set(PROTEUS_LD_LIBRARY_PATH "$ENV{LD_LIBRARY_PATH}")
+unset(ENV{LD_LIBRARY_PATH})
 find_package(Doxygen)
 if (DOXYGEN_FOUND)
   doxygen_add_docs(
@@ -163,6 +181,7 @@ if (DOXYGEN_FOUND)
     COMMENT "Generate doxygen pages"
   )
 endif ()
+set(ENV{LD_LIBRARY_PATH} "${PROTEUS_LD_LIBRARY_PATH}")
 
 install(DIRECTORY "frontends/R/" DESTINATION ${CMAKE_INSTALL_PREFIX}/pelago/frontends/R/) # Creates <..>/pelago/frontends/R
 
@@ -179,10 +198,15 @@ endif()
 add_subdirectory(core/platform)
 if (NOT PLATFORM_ONLY)
 add_subdirectory(core/storage)
-add_subdirectory(core/planner)
+if (NOT PROTEUS_CB2T_ARTIFACT)
+  add_subdirectory(core/planner)
+endif()
+add_subdirectory(core/codegen)
 add_subdirectory(core/olap)
-add_subdirectory(core/oltp)
-add_subdirectory(core/htap)
+if (NOT PROTEUS_CB2T_ARTIFACT)
+  add_subdirectory(core/oltp)
+  add_subdirectory(core/htap)
+endif()
 add_subdirectory(runtime)
 endif()
 
@@ -191,6 +215,14 @@ endif()
 #-----------------------------------------------------------------------
 add_subdirectory(apps)
 if (NOT PLATFORM_ONLY)
+  find_package(nvcomp QUIET)
+  if (nvcomp_FOUND)
+    add_subdirectory(tools/dataset-generation)
+  else()
+    message(WARNING "nvCOMP not found: CB2T dataset generation is disabled")
+  endif()
+endif()
+if (NOT PLATFORM_ONLY AND NOT PROTEUS_CB2T_ARTIFACT)
 #  tests/ are integration tests, does not contain platform unit tests
 add_subdirectory(tests)
 endif()

@@ -7,6 +7,7 @@ add_library(${PROJECT_NAME} SHARED
     lib/input-prefix-query-shaper.cpp
     lib/query-shaper.cpp
     lib/scale-out-query-shaper.cpp
+    lib/nvme-shapers.cpp
     )
 
 target_link_libraries(${PROJECT_NAME}

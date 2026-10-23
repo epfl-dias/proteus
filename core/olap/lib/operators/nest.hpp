@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,11 +24,12 @@
 #ifndef _NEST_HPP_
 #define _NEST_HPP_
 
+#include <codegen/expressions/expressions.hpp>
+
 #include "lib/expressions/expressions-generator.hpp"
 #include "lib/expressions/expressions-hasher.hpp"
 #include "lib/expressions/path.hpp"
 #include "lib/plugins/binary-internal-plugin.hpp"
-#include "olap/expressions/expressions.hpp"
 #include "olap/operators/monoids.hpp"
 #include "operators.hpp"
 
@@ -52,8 +53,8 @@ class Nest : public experimental::UnaryOperator {
        const list<expressions::InputArgument> &g_nullToZero, Operator *child,
        char *opLabel, Materializer &mat);
   ~Nest() override { LOG(INFO) << "Collapsing Nest operator"; }
-  void produce_(ParallelContext *context) override;
-  void consume(ParallelContext *context,
+  void produce_(OlapParallelContext *context) override;
+  void consume(OlapParallelContext *context,
                const OperatorState &childState) override;
   Materializer &getMaterializer() { return mat; }
   [[nodiscard]] bool isFiltering() const override { return true; }
@@ -66,13 +67,13 @@ class Nest : public experimental::UnaryOperator {
    * was called. Any info needed is (should be) in the HT that will now be
    * probed.
    */
-  void generateProbe(ParallelContext *context) const;
-  void generateSum(ParallelContext *context, const OperatorState &state,
+  void generateProbe(OlapParallelContext *context) const;
+  void generateSum(OlapParallelContext *context, const OperatorState &state,
                    llvm::AllocaInst *mem_accumulating) const;
   /**
    * We need a new accumulator for every resulting bucket of the HT
    */
-  llvm::AllocaInst *resetAccumulator(ParallelContext *context) const;
+  llvm::AllocaInst *resetAccumulator(OlapParallelContext *context) const;
 
   Monoid acc;
   expressions::Expression *outputExpr;

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2020
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -30,7 +30,7 @@
 
 class VectorPlugin : public BinaryBlockPlugin {
  public:
-  VectorPlugin(ParallelContext *context,
+  VectorPlugin(OlapParallelContext *context,
                const std::vector<std::pair<RecordAttribute *,
                                            std::shared_ptr<proteus_any_vector>>>
                    &fields);
@@ -38,16 +38,16 @@ class VectorPlugin : public BinaryBlockPlugin {
   ~VectorPlugin() override;
 
  protected:
-  llvm::Value *getDataPointersForFile(ParallelContext *context, size_t i,
+  llvm::Value *getDataPointersForFile(OlapParallelContext *context, size_t i,
                                       llvm::Value *session_ptr) const override;
 
-  void freeDataPointersForFile(ParallelContext *context, size_t i,
+  void freeDataPointersForFile(OlapParallelContext *context, size_t i,
                                llvm::Value *v) const override;
 
   std::pair<llvm::Value *, llvm::Value *> getPartitionSizes(
-      ParallelContext *context, llvm::Value *session_ptr) const override;
+      OlapParallelContext *context, llvm::Value *session_ptr) const override;
 
-  void freePartitionSizes(ParallelContext *context,
+  void freePartitionSizes(OlapParallelContext *context,
                           llvm::Value *v) const override;
 
  private:

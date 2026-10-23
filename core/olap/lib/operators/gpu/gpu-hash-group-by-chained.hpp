@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,10 +24,11 @@
 #ifndef GPU_HASH_GROUP_BY_CHAINED_HPP_
 #define GPU_HASH_GROUP_BY_CHAINED_HPP_
 
+#include <codegen/expressions/expressions.hpp>
+#include <codegen/jit/pipeline.hpp>
+
 #include "lib/operators/hash-group-by-chained.hpp"
 #include "lib/operators/operators.hpp"
-#include "lib/util/jit/pipeline.hpp"
-#include "olap/expressions/expressions.hpp"
 #include "olap/operators/monoids.hpp"
 #include "olap/util/parallel-context.hpp"
 
@@ -37,15 +38,15 @@ class GpuHashGroupByChained : public HashGroupByChained {
                         std::vector<expression_t> key_expr, Operator *child,
                         int hash_bits, size_t maxInputSize);
 
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
 
   void open(Pipeline *pip) override;
   void close(Pipeline *pip) override;
 
  private:
-  void generate_build(ParallelContext *context,
+  void generate_build(OlapParallelContext *context,
                       const OperatorState &childState) override;
-  void buildHashTableFormat(ParallelContext *context) override;
+  void buildHashTableFormat(OlapParallelContext *context) override;
   // llvm::Value *hash(llvm::Value *key);
   // llvm::Value *hash(llvm::Value *old_seed, llvm::Value *key);
   PipelineGen *probe_gen;

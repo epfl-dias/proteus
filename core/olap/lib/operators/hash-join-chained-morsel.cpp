@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2020
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,12 +23,11 @@
 
 #include "hash-join-chained-morsel.hpp"
 
+#include <codegen/jit/pipeline.hpp>
 #include <platform/memory/memory-manager.hpp>
 #include <platform/util/timing.hpp>
 
-#include "lib/util/jit/pipeline.hpp"
-
-llvm::Value *HashJoinChainedMorsel::nextIndex(ParallelContext *context) {
+llvm::Value *HashJoinChainedMorsel::nextIndex(OlapParallelContext *context) {
   // TODO: consider using just the object id as the index, instead of the atomic
   //  index
   auto *out_cnt = context->getStateVar(cnt_param_id);
@@ -47,7 +46,7 @@ llvm::Value *HashJoinChainedMorsel::nextIndex(ParallelContext *context) {
   return v;
 }
 
-llvm::Value *HashJoinChainedMorsel::replaceHead(ParallelContext *context,
+llvm::Value *HashJoinChainedMorsel::replaceHead(OlapParallelContext *context,
                                                 llvm::Value *h_ptr,
                                                 llvm::Value *index) {
   auto *old_head = context->getBuilder()->CreateAtomicRMW(

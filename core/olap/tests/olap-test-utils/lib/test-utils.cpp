@@ -23,6 +23,10 @@
 
 #include "olap/test/test-utils.hpp"
 
+#include <sys/fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+
 #include <platform/memory/memory-manager.hpp>
 #include <storage/storage-manager.hpp>
 

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2014
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -24,7 +24,7 @@
 #ifndef CATALOG_PARSER_HPP_
 #define CATALOG_PARSER_HPP_
 
-#include "olap/values/expressionTypes.hpp"
+#include <codegen/expressions/expressionTypes.hpp>
 
 #if __has_include(<filesystem>)
 #include <filesystem>
@@ -36,8 +36,9 @@ namespace std {
 namespace filesystem = std::experimental::filesystem;
 }
 #endif
+#include <vector>
 
-class ParallelContext;
+class OlapParallelContext;
 
 typedef struct InputInfo {
   std::string path;
@@ -48,11 +49,11 @@ typedef struct InputInfo {
 
 class CatalogParser {
   std::filesystem::path catalogPath;
-  ParallelContext *context;
+  OlapParallelContext *context;
 
  public:
   CatalogParser(std::filesystem::path catalogPath,
-                ParallelContext *context = nullptr);
+                OlapParallelContext *context = nullptr);
 
   static CatalogParser &getInstance();
 
@@ -74,7 +75,7 @@ class CatalogParser {
 
   InputInfo *getOrCreateInputInfo(std::string inputName);
   InputInfo *getOrCreateInputInfo(std::string inputName,
-                                  ParallelContext *context);
+                                  OlapParallelContext *context);
 
   void setInputInfo(std::string inputName, InputInfo *info) {
     inputs[inputName] = info;
@@ -89,6 +90,7 @@ class CatalogParser {
   }
 
   void clear();
+  void clearAndParse(const std::vector<std::filesystem::path>& catalog_dirs);
 
  private:
   void parseCatalogFile(const std::filesystem::path &dir);

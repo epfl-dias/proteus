@@ -110,7 +110,7 @@ class ClassicPtrWrapper : public DeltaMemoryPtr<ClassicPtrWrapper> {
  public:
   [[nodiscard]] constexpr inline uint8_t get_delta_idx() const { return 0; }
 
-  [[noreturn]] void saveInstanceCrossingPtr(vid_t vid) { assert(false); }
+  [[noreturn]] void saveInstanceCrossingPtr(vid_t vid) { CHECK(false); }
 
  private:
   static DeltaStoreMalloc *deltaStore;

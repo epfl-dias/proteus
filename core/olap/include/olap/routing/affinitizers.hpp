@@ -26,6 +26,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include <olap/plugins/binary-block-nvme-plugin.hpp>
 #include <platform/topology/device-types.hpp>
 #include <platform/topology/gpu-index.hpp>
 #include <platform/topology/topology.hpp>
@@ -34,23 +35,64 @@ class Affinitizer {
  public:
   virtual ~Affinitizer() = default;
   virtual size_t getAvailableCUIndex(size_t i) const = 0;
-  virtual const topology::cu &getAvailableCU(size_t i) const = 0;
+
   /**
-   * Number of locality (NUMA) regions
+   * This is in essence provides a mapping from i to a compute unit (CU).
+   * @param i Values of [0, size()) will return distinct CUs. Values
+   * equal to or greater than size() will wrap around.
+   * @return a reference to a topology::cu for input i
+   */
+  virtual const topology::cu &getAvailableCU(size_t i) const = 0;
+
+  /**
+   * Number of locality (NUMA) nodes
    */
   virtual size_t size() const = 0;
-  virtual size_t getLocalCUIndex(void *) const = 0;
+
+  /**
+   * @param ptr a pointer to memory
+   * @return the index_in_topo of the NUMA node containing the data that ptr
+   * points to
+   */
+  virtual size_t getLocalCUIndex(void *ptr) const = 0;
 };
 
 std::unique_ptr<Affinitizer> getDefaultAffinitizer(DeviceType);
 
+/**
+ * An affinity policy provides a mapping from data/memory location (void*) to
+ * an index in [0, fanout).
+ *
+ * For example, if we have a thread pool we can use an AffinityPolicy to
+ * allocate tasks to threads based on the locality of the data they will be
+ * working on. Each thread would initially need to set its affinity to
+ * aff.getAvailableCU(threads_index). They to allocate work to threads we would
+ * use AffinityPolicy.getIndexOfRandLocalCU(void* inputs) to determine the index
+ * of which thread to assign the work to. AffinityPolicy just provides a mapping
+ * between data/memory location and a local compute unit. It does not set the
+ * affinity of any threads or allocate any work itself.
+ *
+ */
 class AffinityPolicy {
  protected:
+  /// indexes contain the values [0, fanout)
+  /// indexes[i] contains the values for which aff->getAvailableCUIndex(i)
+  /// returns i.
   std::vector<std::vector<size_t>> indexes;
   const Affinitizer *aff;
 
  public:
+  /**
+   * @param fanout The number of indexes to we wish to assign ptrs to.
+   * @param aff The underlying Affinitizer that determines a NUMA node affinity
+   * given a pointer.
+   */
   AffinityPolicy(size_t fanout, const Affinitizer *aff);
+
+  /**
+   * @return a value `X` in [0, fanout) such that that aff.getLocalCUIndex(ptr)
+   * == aff.getAvailableCUIndex(X)
+   */
   size_t getIndexOfRandLocalCU(void *ptr) const;
 };
 
@@ -77,8 +119,10 @@ class CpuNumaNodeAffinitizer : public Affinitizer {
     const auto *g = topo.getGpuAddressed(p);
     if (g) return g->getLocalCPUNumaNode().index_in_topo;
     auto *c = topo.getCpuNumaNodeAddressed(p);
-    assert(c);
-    return c->index_in_topo;
+    if (c) return c->index_in_topo;
+    DCHECK(NvmePlugin::PageId_t::isPageIdPtr(p));
+    auto page_id = NvmePlugin::PageId_t::from_ptr(p);
+    return page_id.getCpuNumaAffinity();
   }
 };
 
@@ -113,7 +157,7 @@ class GPUAffinitizer : public Affinitizer {
     }
     // Find the closest CPU numa node with a GPU
     // initialize original index locations
-    vector<size_t> idx(c->distance.size());
+    std::vector<size_t> idx(c->distance.size());
     std::iota(idx.begin(), idx.end(), 0);
     stable_sort(idx.begin(), idx.end(),
                 [&v = std::as_const(c->distance)](size_t i1, size_t i2) {

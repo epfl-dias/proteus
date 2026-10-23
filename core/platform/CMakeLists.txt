@@ -20,11 +20,14 @@ set(platform_cxx
   lib/topology/affinity_manager.cpp
   lib/topology/device-manager.cpp
   lib/topology/topology.cpp
+  lib/util/demangle.cpp
   lib/util/interval-runner.cpp
   lib/util/percentile.cpp
   lib/util/profiling.cpp
+  lib/util/tracing.cpp
   lib/util/stacktrace.cpp
   lib/util/time-registry.cpp
+  lib/util/linux-exec.cpp
   lib/util/radix/aggregations/radix-aggr.cpp
   lib/util/radix/joins/radix-join.cpp
   )
@@ -82,6 +85,8 @@ if (USE_CUDA)
     ${BMFLAGS}
     # TODO: correctly accept the includes flags
     -I${CMAKE_CURRENT_SOURCE_DIR}/include
+    -I${stduuid-download_SOURCE_DIR}/include
+    -I${stduuid-download_SOURCE_DIR}
     -isystem ${CMAKE_BINARY_DIR}/_deps/glog-download-build
     -isystem ${CMAKE_BINARY_DIR}/_deps/glog-download-src/src
     # Embed the generated file into the library
@@ -107,18 +112,26 @@ add_library(platform SHARED
   ${platform_cxx}
   )
 
+target_include_directories(platform
+  PRIVATE
+    ${stduuid-download_SOURCE_DIR}
+)
+
 # If we have compiler requirements for this library, list them
 # here
 target_compile_features(platform PUBLIC cxx_std_20)
 
 # Depend on a library that we defined in the top-level file
+find_package(GDS REQUIRED)
 target_link_libraries(platform
   PUBLIC
+  NVIDIA::GDS
   glog::glog
   NUMA::NUMA
   RDMA::RDMA
   ${CUDA_LIBS}
   cli-flags::cli-flags
+  stduuid::stduuid
   PRIVATE
   magic_enum::magic_enum
   )

@@ -26,6 +26,7 @@
 
 #include <platform/topology/topology.hpp>
 #include <platform/util/erase-constructor-idioms.hpp>
+#include <set>
 
 #include "oltp/common/common.hpp"
 

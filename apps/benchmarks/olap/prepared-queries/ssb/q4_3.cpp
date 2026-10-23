@@ -128,7 +128,7 @@ PreparedStatement ssb::Query::prepare43(proteus::QueryShaper &morph) {
                               .as("tmp", "profit"),
                           1, 0, SUM}};
                     },
-                    10, 128 * 1024)
+                    10, 1024)
                 .pack();
           })
       .unpack()
@@ -139,7 +139,7 @@ PreparedStatement ssb::Query::prepare43(proteus::QueryShaper &morph) {
           [&](const auto &arg) -> std::vector<GpuAggrMatExpr> {
             return {GpuAggrMatExpr{arg["profit"], 1, 0, SUM}};
           },
-          10, 16 * 1024)
+          10, 1024)
       .sort(
           [&](const auto &arg) -> std::vector<expression_t> {
             return {arg["d_year"], arg["s_city"], arg["p_brand1"],

@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -23,13 +23,15 @@
 
 #include "mem-broadcast-device.hpp"
 
+#include <codegen/jit/pipeline.hpp>
+#include <gflags/gflags.h>
 #include <lib/util/catalog.hpp>
+#include <olap/plugins/binary-block-nvme-plugin.hpp>
 #include <platform/memory/block-manager.hpp>
 #include <platform/threadpool/threadpool.hpp>
 
-#include "lib/util/jit/pipeline.hpp"
-
 using namespace llvm;
+DECLARE_bool(pre_decom);
 
 void MemBroadcastDevice::MemBroadcastConf::prepareNextBatch() {
   //  if (!to_cpu) return;
@@ -51,11 +53,13 @@ buff_pair MemBroadcastDevice::MemBroadcastConf::pushBroadcast(
           ? target_device % (int)topology::getInstance().getCpuNumaNodeCount()
           : target_device;
 
-  // FIXME: That's a hack until we share GPU buffers correctly
-  auto force_share =
+  // `disable_noop` is used as an execution hint from consume():
+  // true  -> source pointers are plugin-owned preloaded GPU buffers, safe to share.
+  // false -> keep legacy behavior and force-copy generic GPU sources.
+  const bool src_on_gpu =
       dynamic_cast<const topology::gpunode *>(
-          &topology::getInstance().getNumaAddressed(src.get())) !=
-      nullptr;  // overwrites always_share!
+          &topology::getInstance().getNumaAddressed(src.get())) != nullptr;
+  const bool force_copy_gpu_src = src_on_gpu && !disable_noop;
 
   auto on_target_numa = [&]() {
     auto &src_numa = topology::getInstance().getNumaAddressed(src.get());
@@ -70,11 +74,11 @@ buff_pair MemBroadcastDevice::MemBroadcastConf::pushBroadcast(
     return src_numa == tgt_numa;
   };
 
-  if (!force_share && (always_share || on_target_numa())) {
+  if (!force_copy_gpu_src && (always_share || on_target_numa())) {
     // just share buffer, no movement
     targetbuffer[target_device_offset] = src.get();
   } else {
-    if (!targetbuffer[target_device_offset] || force_share) {
+    if (!targetbuffer[target_device_offset] || force_copy_gpu_src) {
       auto buff = force_push(src, bytes, (to_cpu) ? -1 : target_device_offset,
                              0, strm.at(target_device_offset));
       targetbuffer[target_device_offset] = buff.get();
@@ -114,7 +118,7 @@ void propagateWorkUnitBroadcast(MemBroadcastDevice::MemBroadcastConf *mmc,
 }
 }
 
-void MemBroadcastDevice::produce_(ParallelContext *context) {
+void MemBroadcastDevice::produce_(OlapParallelContext *context) {
   auto &llvmContext = context->getLLVMContext();
   auto int32_type = Type::getInt32Ty(context->getLLVMContext());
   auto charPtrType = Type::getInt8PtrTy(context->getLLVMContext());
@@ -124,7 +128,8 @@ void MemBroadcastDevice::produce_(ParallelContext *context) {
   auto oidType = pg->getOIDType()->getLLVMType(llvmContext);
 
   std::vector<llvm::Type *> tr_types;
-  for (auto wantedField : wantedFields) {
+  for (size_t i = 0; i < wantedFields.size(); ++i) {
+    auto *wantedField = wantedFields[i];
     tr_types.push_back(wantedField->getLLVMType(llvmContext));
     tr_types.push_back(
         wantedField->getLLVMType(llvmContext));  // old buffer, to be released
@@ -221,7 +226,7 @@ void MemBroadcastDevice::produce_(ParallelContext *context) {
   getChild()->produce(context);
 }
 
-void MemBroadcastDevice::consume(ParallelContext *context,
+void MemBroadcastDevice::consume(OlapParallelContext *context,
                                  const OperatorState &childState) {
   // Prepare
   auto &llvmContext = context->getLLVMContext();
@@ -239,6 +244,14 @@ void MemBroadcastDevice::consume(ParallelContext *context,
   // Find block size
   Plugin *pg =
       Catalog::getInstance().getPlugin(wantedFields[0]->getRelationName());
+  auto *nvme_pg = dynamic_cast<NvmePlugin *>(pg);
+  const bool scan_emits_compressed_blocks =
+      (nvme_pg != nullptr && nvme_pg->scanEmitsCompressedBlocks() &&
+       !FLAGS_pre_decom);
+  const bool plugin_owned_preloaded_gpu_buffers =
+      (nvme_pg != nullptr && !nvme_pg->unpackShouldReleaseInputBuffers());
+  const bool release_source_after_broadcast =
+      !(scan_emits_compressed_blocks || plugin_owned_preloaded_gpu_buffers);
   RecordAttribute tupleCnt{wantedFields[0]->getRelationName(), "activeCnt",
                            pg->getOIDType()};  // FIXME: OID type for blocks ?
 
@@ -258,14 +271,16 @@ void MemBroadcastDevice::consume(ParallelContext *context,
   auto oid = Builder->CreateLoad(
       mem_oidWrapper.mem->getType()->getPointerElementType(),
       mem_oidWrapper.mem);
+  auto *nvme_pg_ptr = Builder->CreateIntToPtr(
+      context->createInt64(reinterpret_cast<uintptr_t>(nvme_pg)),
+      Type::getInt8PtrTy(llvmContext));
 
   auto memmv = context->getStateVar(memmvconf_var);
 
   std::vector<std::vector<Value *>> pushed{targets.size()};
 
-  auto null_ptr =
-      llvm::ConstantPointerNull::get((llvm::PointerType *)charPtrType);
-  for (auto wantedField : wantedFields) {
+  for (size_t i = 0; i < wantedFields.size(); ++i) {
+    auto *wantedField = wantedFields[i];
     RecordAttribute block_attr(*wantedField, true);
 
     ProteusValueMemory mem_valWrapper = childState[block_attr];
@@ -279,14 +294,28 @@ void MemBroadcastDevice::consume(ParallelContext *context,
     auto block_type = mem_valWrapper.mem->getType()->getPointerElementType();
     auto mv_block_type = block_type->getPointerElementType();
 
-    llvm::Value *size = llvm::ConstantInt::get(
-        llvmContext, APInt(64, context->getSizeOf(mv_block_type)));
-    auto Nloc = Builder->CreateZExtOrBitCast(N, size->getType());
-    size = Builder->CreateMul(size, Nloc);
+    llvm::Value *size = nullptr;
+    if (scan_emits_compressed_blocks) {
+      auto *oid64 = Builder->CreateZExtOrBitCast(oid, Builder->getInt64Ty());
+      size = context->gen_call(
+          getNvmePreloadedCompressedBlockSizeByOid,
+          {nvme_pg_ptr, context->createInt8(static_cast<uint8_t>(i)), oid64});
+      size = Builder->CreateZExtOrBitCast(size, Builder->getInt64Ty());
+    } else {
+      size = llvm::ConstantInt::get(
+          llvmContext, APInt(64, context->getSizeOf(mv_block_type)));
+      auto Nloc = Builder->CreateZExtOrBitCast(N, size->getType());
+      size = Builder->CreateMul(size, Nloc);
+    }
 
     context->gen_call(step_mmc_mem_move_broadcast_device, {memmv});
 
-    llvm::Value *any_noop = context->createFalse();
+    // For preloaded NvmePlugin GPU pointers we should forward/share in-place.
+    // For generic GPU sources keep the legacy force-copy path.
+    llvm::Value *allow_gpu_source_share =
+        (scan_emits_compressed_blocks || plugin_owned_preloaded_gpu_buffers)
+            ? context->createTrue()
+            : context->createFalse();
     // move block to each target
     for (size_t t_i = 0; t_i < targets.size(); ++t_i) {
       auto target_id = context->createInt32(targets[t_i]);
@@ -294,19 +323,15 @@ void MemBroadcastDevice::consume(ParallelContext *context,
       // Do actual mem move
       auto moved_buffpair =
           context->gen_call(make_mem_move_broadcast_device,
-                            {mv, size, target_id, memmv, any_noop});
+                            {mv, size, target_id, memmv, allow_gpu_source_share});
       auto moved = Builder->CreateExtractValue(moved_buffpair, 0);
-      auto to_release = Builder->CreateExtractValue(moved_buffpair, 1);
 
       pushed[t_i].push_back(Builder->CreateBitCast(moved, block_type));
-
-      any_noop = Builder->CreateOr(any_noop,
-                                   Builder->CreateICmpEQ(to_release, null_ptr));
 
       auto null_block =
           ConstantPointerNull::get((llvm::PointerType *)block_type);
 
-      if (t_i == targets.size() - 1) {
+      if (release_source_after_broadcast && t_i == targets.size() - 1) {
         pushed[t_i].push_back(block);
       } else {
         pushed[t_i].push_back(null_block);

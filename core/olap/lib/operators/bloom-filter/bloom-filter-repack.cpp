@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2020
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -25,14 +25,14 @@
 
 #include <llvm/IR/IntrinsicsX86.h>
 
+#include <codegen/jit/pipeline.hpp>
 #include <platform/memory/block-manager.hpp>
 #include <platform/memory/memory-manager.hpp>
-#include <platform/util/logging.hpp>
+#include <platform/util/tracing.hpp>
 
 #include "lib/expressions/expressions-generator.hpp"
-#include "lib/util/jit/pipeline.hpp"
 
-void BloomFilterRepack::produce_(ParallelContext *context) {
+void BloomFilterRepack::produce_(OlapParallelContext *context) {
   context->registerOpen(this, [this](Pipeline *pip) { this->open(pip); });
   context->registerClose(this, [this](Pipeline *pip) { this->close(pip); });
 
@@ -45,18 +45,18 @@ void BloomFilterRepack::produce_(ParallelContext *context) {
                                          .getLLVMType(context->getLLVMContext())
                                          ->getPointerElementType(),
                                      BlockManager::block_size / 4);
-    type->dump();
+    //    type->dump();
     out_buffs.push_back(context->appendStateVar(
         llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(type)),
         [=](llvm::Value *pip) {
           auto tmp = context->gen_call(
               &get_buffer, {context->createSizeT(BlockManager::block_size)});
-          tmp->dump();
+          //          tmp->dump();
           auto v2 = context->getBuilder()->CreateBitCast(
               tmp, llvm::PointerType::getUnqual(type));
-          v2->dump();
+          //          v2->dump();
           auto v = context->allocateStateVar(v2->getType());
-          v->dump();
+          //          v->dump();
           context->getBuilder()->CreateStore(v2, v);
           return v;
         },
@@ -107,10 +107,13 @@ void BloomFilterRepack::produce_(ParallelContext *context) {
   getChild()->produce(context);
 }
 
-void BloomFilterRepack::consumeVector(ParallelContext *context,
+void BloomFilterRepack::consumeVector(OlapParallelContext *context,
                                       const OperatorState &childState,
                                       llvm::Value *filter, size_t vsize,
                                       llvm::Value *offset, llvm::Value *N) {
+  // vectorized bloom filter probe
+  // consumes tuples, filters them and then repacks them into a new buffer
+  // emitting the buffer to the parent operator when full
   auto Builder = context->getBuilder();
 
   std::map<RecordAttribute, ProteusValueMemory> variableBindings;
@@ -118,16 +121,16 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
   auto BB = Builder->GetInsertBlock();
   Builder->SetInsertPoint(context->getCurrentEntryBlock());
   std::vector<ProteusValueMemory> outputBuffs;
-  {
-    size_t i = 0;
-    for (const auto &attr : wantedFields) {
-      auto sv = context->getStateVar(out_buffs[i++]);
-      outputBuffs.emplace_back(context->toMem(
-          Builder->CreateLoad(sv->getType()->getPointerElementType(), sv),
-          context->createFalse()));
-      variableBindings[attr.getRegisteredAs()] = outputBuffs.back();
-    }
+
+  for (size_t i = 0; i < wantedFields.size(); i++) {
+    const auto &attr = wantedFields[i];
+    auto sv = context->getStateVar(out_buffs[i++]);
+    outputBuffs.emplace_back(context->toMem(
+        Builder->CreateLoad(sv->getType()->getPointerElementType(), sv),
+        context->createFalse()));
+    variableBindings[attr.getRegisteredAs()] = outputBuffs.back();
   }
+
   auto outCnt = context->toMem(
       Builder->CreateLoad(
           context->getStateVar(cntVar_id)->getType()->getPointerElementType(),
@@ -142,41 +145,30 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
 
   Builder->SetInsertPoint(BB);
 
-  // Read a vector of hashed predicates
-  auto ld = Builder->CreateLoad(childState[e.getRegisteredAs()]
-                                    .mem->getType()
-                                    ->getNonOpaquePointerElementType(),
-                                childState[e.getRegisteredAs()].mem);
-  llvm::Value *vse2 = Builder->CreateInBoundsGEP(
-      ld->getType()->getNonOpaquePointerElementType(), ld, offset);
-  auto te = llvm::PointerType::getUnqual(
-      llvm::VectorType::get(vse2->getType()->getPointerElementType(),
+  // Read a vector of hashed predicates into vse
+  auto input_block_base_ptr =
+      Builder->CreateLoad(childState[bf_expr.getRegisteredAs()]
+                              .mem->getType()
+                              ->getNonOpaquePointerElementType(),
+                          childState[bf_expr.getRegisteredAs()].mem);
+  llvm::Value *vse_ptr = Builder->CreateInBoundsGEP(
+      input_block_base_ptr->getType()->getNonOpaquePointerElementType(),
+      input_block_base_ptr, offset);
+  auto t_vse_ptr = llvm::PointerType::getUnqual(
+      llvm::VectorType::get(vse_ptr->getType()->getPointerElementType(),
                             llvm::ElementCount::getFixed(vsize)));
   auto vse = Builder->CreateAlignedLoad(
-      Builder->CreateBitCast(vse2, te)->getType()->getPointerElementType(),
-      Builder->CreateBitCast(vse2, te), llvm::MaybeAlign{512});
+      Builder->CreateBitCast(vse_ptr, t_vse_ptr)
+          ->getType()
+          ->getPointerElementType(),
+      Builder->CreateBitCast(vse_ptr, t_vse_ptr), llvm::MaybeAlign{512});
 
-  assert(!(filterSize & (filterSize - 1)));
-  // byte offset
+  CHECK_EQ(filterSize & (filterSize - 1), 0)
+      << "Filter size is expected to be a power of 2";
+  // byte offset. Equiv: vse % filterSize
   auto vec = Builder->CreateAnd(
       vse,
       Builder->CreateVectorSplat(vsize, context->createInt32(filterSize - 1)));
-  auto woffset = Builder->CreateUDiv(
-      vec,
-      Builder->CreateVectorSplat(
-          vsize,
-          context->createInt32(
-              sizeof(int32_t) /
-              context->getSizeOf(filter->getType()->getPointerElementType()))));
-  auto filter_orig = filter;
-  filter = Builder->CreateBitCast(
-      filter, llvm::PointerType::getInt32PtrTy(context->getLLVMContext()));
-
-  // Probe using the vector
-  //  auto hits2 = Builder->CreateMaskedGather(
-  //      Builder->CreateInBoundsGEP(Builder->CreateVectorSplat(vsize, filter),
-  //                                 woffset),
-  //      1);
   auto mod = Builder->CreateMul(
       Builder->CreateURem(
           vec, Builder->CreateVectorSplat(vsize, context->createInt32(4))),
@@ -184,11 +176,11 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
   auto div = Builder->CreateUDiv(
       vec, Builder->CreateVectorSplat(vsize, context->createInt32(4)));
 
-  auto f = Builder->CreateBitCast(
-      filter_orig, llvm::Type::getIntNPtrTy(context->getLLVMContext(), 32));
+  auto filter_i32ptr = Builder->CreateBitCast(
+      filter, llvm::Type::getIntNPtrTy(context->getLLVMContext(), 32));
 
-  auto gather = llvm::Intrinsic::getDeclaration(
-      context->getModule(), llvm::Intrinsic::x86_avx512_mask_gather_dpi_512);
+  //  auto gather = llvm::Intrinsic::getDeclaration(
+  //      context->getModule(), llvm::Intrinsic::x86_avx2_gather_d_d_256);
 
   llvm::Metadata *Args2[] = {nullptr};
   llvm::MDNode *n2 = llvm::MDNode::get(context->getLLVMContext(), Args2);
@@ -204,63 +196,68 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
   llvm::Value *hits2 = llvm::UndefValue::get(
       llvm::VectorType::get(llvm::Type::getInt32Ty(context->getLLVMContext()),
                             llvm::ElementCount::getFixed(vsize)));
-  std::vector<uint32_t> mask;
   for (size_t s = 0; s < vsize; s += 16) {
     std::vector<uint32_t> mind;
     for (size_t j = 0; j < 16; ++j) {
       mind.emplace_back(s + j);
     }
-    LOG(INFO) << 1;
     auto ind = Builder->CreateShuffleVector(
         div, llvm::UndefValue::get(div->getType()), mind);
 
-    ind->dump();
+    //    ind->dump();
 
-    auto tmp = Builder->CreateCall(
-        gather, {llvm::UndefValue::get(llvm::VectorType::get(
-                     llvm::Type::getInt32Ty(context->getLLVMContext()),
-                     llvm::ElementCount::getFixed(16))),
-                 Builder->CreateBitCast(
-                     f, llvm::Type::getInt8PtrTy(context->getLLVMContext())),
-                 ind,
-                 llvm::ConstantVector::getSplat(
-                     llvm::ElementCount::getFixed(16), context->createTrue()),
-                 context->createInt32(4)});
+    // using the avx512 gather intrinsic. Less portable
+    //    auto gatheredIndices = Builder->CreateCall(
+    //        gather, {llvm::UndefValue::get(llvm::VectorType::get(
+    //                     llvm::Type::getInt32Ty(context->getLLVMContext()),
+    //                     llvm::ElementCount::getFixed(8))),
+    //                 Builder->CreateBitCast(
+    //                     f,
+    //                     llvm::Type::getInt8PtrTy(context->getLLVMContext())),
+    //                 ind,
+    //                 llvm::ConstantVector::getSplat(
+    //                     llvm::ElementCount::getFixed(8),
+    //                     context->createTrue()),
+    //                 context->createInt32(4)});
 
-    for (size_t j = 0; j < 16; ++j) {
-      hits2 = Builder->CreateInsertElement(
-          hits2, Builder->CreateExtractElement(tmp, j), s + j);
+    auto t_int32_16vec =
+        llvm::VectorType::get(llvm::Type::getInt32Ty(context->getLLVMContext()),
+                              llvm::ElementCount::getFixed(16));
+
+    llvm::Value *indices_ptrs = llvm::UndefValue::get(llvm::VectorType::get(
+        llvm::Type::getInt32PtrTy(context->getLLVMContext()),
+        llvm::ElementCount::getFixed(16)));
+
+    for (unsigned i = 0; i < 16; ++i) {
+      llvm::Value *index = Builder->CreateExtractElement(ind, i);
+      llvm::Value *ptr =
+          Builder->CreateGEP(llvm::Type::getInt32Ty(context->getLLVMContext()),
+                             filter_i32ptr, index);
+      indices_ptrs = Builder->CreateInsertElement(indices_ptrs, ptr, i);
     }
+
+    auto gatheredIndices = Builder->CreateMaskedGather(
+        t_int32_16vec, indices_ptrs, llvm::Align(4));
 
     {
-      tmp->setMetadata(llvm::LLVMContext::MD_alias_scope, n);
-      tmp->setMetadata(llvm::LLVMContext::MD_noalias, n);
+      gatheredIndices->setMetadata(llvm::LLVMContext::MD_alias_scope, n);
+      gatheredIndices->setMetadata(llvm::LLVMContext::MD_noalias, n);
     }
-
-    {  // Loaded value will be the same in all the places it will be loaded
+    {  // Loaded value will be the same in all the places it will be
+       //          loaded
       //! invariant.load !{i32 1}
       llvm::Metadata *Args[] = {
           llvm::ValueAsMetadata::get(context->createInt32(1))};
       llvm::MDNode *n = llvm::MDNode::get(context->getLLVMContext(), Args);
-      tmp->setMetadata(llvm::LLVMContext::MD_invariant_load, n);
+      gatheredIndices->setMetadata(llvm::LLVMContext::MD_invariant_load, n);
+    }
+
+    for (size_t j = 0; j < 16; ++j) {
+      hits2 = Builder->CreateInsertElement(
+          hits2, Builder->CreateExtractElement(gatheredIndices, j), s + j);
     }
   }
-  //
-  //  hits2 = Builder->CreateMaskedGather(
-  //      Builder->CreateInBoundsGEP(Builder->CreateVectorSplat(vsize, f),
-  //                                 div),
-  //      1);
 
-  //  auto indMask = [&] {
-  //    std::vector<llvm::Constant *> vs;
-  //    for (size_t i = 0; i < vsize; ++i) {
-  //      vs.emplace_back(llvm::ConstantInt::get(offset->getType(), i));
-  //    }
-  //    auto inds = llvm::ConstantVector::get(vs);
-  //    return Builder->CreateICmpUGT(
-  //        Builder->CreateVectorSplat(vsize, Builder->CreateSub(N, offset)),
-  //        inds);
-  //  }();
   auto indMask = llvm::ConstantVector::getSplat(
       llvm::ElementCount::getFixed(vsize), context->createTrue());
 
@@ -286,30 +283,6 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
     llvm::MDNode *n2 = llvm::MDNode::get(context->getLLVMContext(), Args2);
     vse->setMetadata(llvm::LLVMContext::MD_nontemporal, n2);
   }
-  //
-  //  auto hits3 = Builder->CreateLShr(
-  //      hits2,
-  //      Builder->CreateMul(
-  //          Builder->CreateURem(
-  //              vec,
-  //              Builder->CreateVectorSplat(
-  //                  vsize, context->createInt32(
-  //                             sizeof(int32_t) /
-  //                             context->getSizeOf(
-  //                                 vec->getType()->getVectorElementType())))),
-  //          Builder->CreateVectorSplat(vsize, context->createInt32(8))));
-
-  //  auto hits = Builder->CreateICmpNE(
-  //      //            hits3,
-  //      Builder->CreateAnd(hits3,
-  //                         Builder->CreateVectorSplat(
-  //                             vsize, context->createInt32(255 + (255u <<
-  //                             24)))),
-  //      Builder->CreateVectorSplat(vsize, context->createInt32(0)));
-
-  //  hits = Builder->CreateAnd(hits, indMask);
-
-  //  std::map<RecordAttribute, expressions::RefExpression> buffs;
 
   auto intvec = llvm::Type::getIntNTy(context->getLLVMContext(), vsize);
 
@@ -328,9 +301,9 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
 
     std::vector<std::pair<llvm::Instruction *, llvm::Value *>> loads;
 
-    size_t i = 0;
-    for (const auto &attr : wantedFields) {
-      auto tmpPtr = outputBuffs[i++].mem;
+    for (size_t attr_idx = 0; attr_idx < wantedFields.size(); attr_idx++) {
+      const auto &attr = wantedFields[attr_idx];
+      auto tmpPtr = outputBuffs[attr_idx].mem;
       auto tmp = Builder->CreateLoad(tmpPtr->getType()->getPointerElementType(),
                                      tmpPtr);
       auto b_ptr = Builder->CreateInBoundsGEP(
@@ -349,15 +322,11 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
           Builder->CreateBitCast(vs_tmp, t)->getType()->getPointerElementType(),
           Builder->CreateBitCast(vs_tmp, t), llvm::MaybeAlign{512 / 8});
       loads.emplace_back(std::make_pair(ld, b_ptr));
-
-      //    buffs[attr].assign(buffs[attr] +
-      //    expressions::ProteusValueExpression{})
     }
 
-    i = 0;
-    for (const auto &attr : wantedFields) {
-      auto ld = loads[i].first;
-      auto b_ptr = loads[i].second;
+    for (size_t attr_idx = 0; attr_idx < wantedFields.size(); attr_idx++) {
+      auto ld = loads[attr_idx].first;
+      auto b_ptr = loads[attr_idx].second;
       auto F = llvm::Intrinsic::getDeclaration(
           context->getModule(), llvm::Intrinsic::masked_compressstore,
           {ld->getType()});
@@ -382,10 +351,6 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
         ld->setMetadata(llvm::LLVMContext::MD_nontemporal, n2);
         s->setMetadata(llvm::LLVMContext::MD_nontemporal, n2);
       }
-      i++;
-
-      //    buffs[attr].assign(buffs[attr] +
-      //    expressions::ProteusValueExpression{})
     }
     auto nextCnt = Builder->CreateAdd(
         cnt, Builder->CreateZExtOrTrunc(popCnt, cnt->getType()));
@@ -433,8 +398,8 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
         auto b = context->gen_call(
             &get_buffer,
             {context->createSizeT(BlockManager::block_size) /* FIXME */});
-        b->getType()->dump();
-        context->getStateVar(out_buffs[i])->getType()->dump();
+        //        b->getType()->dump();
+        //        context->getStateVar(out_buffs[i])->getType()->dump();
         b = Builder->CreateBitCast(
             b, outputBuffs[i].mem->getType()->getPointerElementType());
         Builder->CreateStore(b, context->getStateVar(out_buffs[i]));
@@ -444,11 +409,11 @@ void BloomFilterRepack::consumeVector(ParallelContext *context,
   });
 }
 
-void BloomFilterRepack::consume(ParallelContext *context,
+void BloomFilterRepack::consume(OlapParallelContext *context,
                                 const OperatorState &childState) {
   std::vector<RecordAttribute> attributes;
 
-  size_t vsize = 16;  // FIXME: how to tune?
+  const size_t vsize = 16;  // FIXME: how to tune?
   auto Builder = context->getBuilder();
   auto filter = context->getStateVar(filter_ptr);
   filter = Builder->CreateInBoundsGEP(
@@ -527,7 +492,7 @@ void BloomFilterRepack::consume(ParallelContext *context,
   consume_flush(context);
 }
 
-void BloomFilterRepack::consume_flush(ParallelContext *context) {
+void BloomFilterRepack::consume_flush(OlapParallelContext *context) {
   save_current_blocks_and_restore_at_exit_scope blks{context};
   llvm::LLVMContext &llvmContext = context->getLLVMContext();
 

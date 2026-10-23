@@ -1,7 +1,7 @@
 /*
     Proteus -- High-performance query processing on heterogeneous hardware.
 
-                            Copyright (c) 2017
+                            Copyright (c) 2023
         Data Intensive Applications and Systems Laboratory (DIAS)
                 École Polytechnique Fédérale de Lausanne
 
@@ -32,35 +32,36 @@ class DictMatchIter;
 
 class DictScan : public UnaryOperator {
  public:
+  // unclear why this constructor takes a context given produce_ takes one
   DictScan(Context *const context, RecordAttribute attr, std::string rex,
            RecordAttribute regAs)
       : UnaryOperator(nullptr),
-        context(dynamic_cast<ParallelContext *const>(context)),
+        _context(dynamic_cast<OlapParallelContext *const>(context)),
         attr(attr),
         regex(rex),
         regAs(regAs) {
-    assert(this->context && "Only ParallelContext supported");
+    CHECK(this->_context) << "Only OlapParallelContext supported";
   }
   ~DictScan() override { LOG(INFO) << "Collapsing dictscan operator"; }
   [[nodiscard]] Operator *getChild() const final {
     throw runtime_error(string("Dictscan operator has no children"));
   }
 
-  void produce_(ParallelContext *context) override;
+  void produce_(OlapParallelContext *context) override;
   void consume(Context *const context,
                const OperatorState &childState) override {
-    ParallelContext *ctx = dynamic_cast<ParallelContext *>(context);
+    OlapParallelContext *ctx = dynamic_cast<OlapParallelContext *>(context);
     if (!ctx) {
       string error_msg =
           "[DictScan: ] Operator only supports code generation "
-          "using the ParallelContext";
+          "using the OlapParallelContext";
       LOG(ERROR) << error_msg;
       throw runtime_error(error_msg);
     }
     consume(ctx, childState);
   }
 
-  virtual void consume(ParallelContext *const context,
+  virtual void consume(OlapParallelContext *const context,
                        const OperatorState &childState);
   bool isFiltering() const override { return true; }
 
@@ -92,7 +93,7 @@ class DictScan : public UnaryOperator {
 
   friend class DictMatchIter;
 
-  ParallelContext *const context;
+  OlapParallelContext *const _context;
   const RecordAttribute attr;
   const RecordAttribute regAs;
   const std::string regex;
